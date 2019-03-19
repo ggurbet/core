@@ -60,7 +60,7 @@ void WinSalTimer::ImplStop()
     InvalidateEvent();
 }
 
-void WinSalTimer::ImplStart( sal_uLong nMS )
+void WinSalTimer::ImplStart( sal_uInt64 nMS )
 {
     SalData* pSalData = GetSalData();
     assert( !pSalData->mpInstance || pSalData->mnAppThreadId == GetCurrentThreadId() );
@@ -105,7 +105,7 @@ WinSalTimer::~WinSalTimer()
     Stop();
 }
 
-void WinSalTimer::Start( sal_uLong nMS )
+void WinSalTimer::Start( sal_uInt64 nMS )
 {
     WinSalInstance *pInst = GetSalData()->mpInstance;
     if ( pInst && !pInst->IsMainThread() )

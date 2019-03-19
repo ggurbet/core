@@ -248,9 +248,9 @@ DECLARE_OOXMLEXPORT_TEST(testShapeInFloattable, "shape-in-floattable.docx")
     {
         // No nested drawingML w:txbxContent.
         assertXPath(pXmlDoc, "//mc:Choice//w:txbxContent//w:txbxContent", 0);
-        // Instead, make sure we have a separate shape and group shape:
-        assertXPath(pXmlDoc, "//mc:AlternateContent//mc:Choice[@Requires='wps']", 1);
+        // Instead, make sure we have a separate shape and a table
         assertXPath(pXmlDoc, "//mc:AlternateContent//mc:Choice[@Requires='wpg']", 1);
+        assertXPath(pXmlDoc, "/w:document/w:body/w:tbl", 1);
     }
 }
 
@@ -774,7 +774,7 @@ DECLARE_OOXMLEXPORT_TEST(testNumOverrideLvltext, "num-override-lvltext.docx")
     CPPUNIT_ASSERT_EQUAL(sal_Int16(2), comphelper::SequenceAsHashMap(xRules->getByIndex(1))["ParentNumbering"].get<sal_Int16>());
 
     // The paragraph marker's red font color was inherited by the number portion, this was ff0000.
-    CPPUNIT_ASSERT_EQUAL(OUString("ffffffff"), parseDump("//Special[@nType='POR_NUMBER']/SwFont", "color"));
+    CPPUNIT_ASSERT_EQUAL(OUString("ffffffff"), parseDump("//Special[@nType='PortionType::Number']/SwFont", "color"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testNumOverrideStart, "num-override-start.docx")
@@ -934,6 +934,17 @@ DECLARE_OOXMLEXPORT_TEST(testTdf106953, "tdf106953.docx")
     uno::Reference<container::XIndexAccess> xRules = getProperty< uno::Reference<container::XIndexAccess> >(getStyles("NumberingStyles")->getByName("WWNum1"), "NumberingRules");
     // This was -635, so the tab of the numbering expanded to a small value instead of matching Word's larger value.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), comphelper::SequenceAsHashMap(xRules->getByIndex(0))["FirstLineIndent"].get<sal_Int32>());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf115094v3, "tdf115094v3.docx")
+{
+    // floating table is now exported directly without surrounding frame
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    assertXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tblPr/w:tblpPr", "tblpX", "1996");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tblPr/w:tblpPr", "tblpY", "1064");
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

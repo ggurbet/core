@@ -87,7 +87,6 @@
 #include <officecfg/Office/Common.hxx>
 
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
 #include <rtl/math.hxx>
@@ -111,6 +110,8 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmluconv.hxx>
+#include <xmloff/table/XMLTableExport.hxx>
+#include <xmloff/ProgressBarHelper.hxx>
 
 #include <anim.hxx>
 #include <EnhancedCustomShapeToken.hxx>
@@ -182,8 +183,6 @@ XMLShapeExport::XMLShapeExport(SvXMLExport& rExp,
     // #88546# init to sal_False
     mbHandleProgressBar( false )
 {
-    // construct PropertyHandlerFactory
-    mxSdPropHdlFactory = new XMLSdPropHdlFactory( mrExport.GetModel(), rExp );
     // construct PropertySetMapper
     mxPropertySetMapper = CreateShapePropMapper( mrExport );
     if( pExtMapper )
@@ -207,8 +206,6 @@ XMLShapeExport::XMLShapeExport(SvXMLExport& rExp,
         XML_STYLE_FAMILY_SD_PRESENTATION_NAME,
         GetPropertySetMapper(),
         XML_STYLE_FAMILY_SD_PRESENTATION_PREFIX);
-
-    maCurrentInfo = maShapeInfos.end();
 
     // create table export helper and let him add his families in time
     GetShapeTableExport();
@@ -551,7 +548,6 @@ void XMLShapeExport::collectShapeAutoStyles(const uno::Reference< drawing::XShap
     }
 
     maShapeInfos.push_back( aShapeInfo );
-    maCurrentInfo = maShapeInfos.begin();
 
     // check for shape collections (group shape or 3d scene)
     // and collect contained shapes style infos
@@ -627,7 +623,8 @@ void XMLShapeExport::exportShape(const uno::Reference< drawing::XShape >& xShape
     }
     catch(const uno::Exception&)
     {
-        SAL_WARN("xmloff", "XMLShapeExport::exportShape(): exception during hyperlink export");
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("xmloff", "XMLShapeExport::exportShape(): exception during hyperlink export " << exceptionToString(ex));
     }
 
     if( xSet.is() )
@@ -3287,7 +3284,7 @@ void XMLShapeExport::ImpExportMediaShape(
     mrExport.AddAttribute( XML_NAMESPACE_DRAW, XML_MIME_TYPE, sMimeType );
 
     // write plugin
-    auto pPluginOBJ = o3tl::make_unique<SvXMLElementExport>(mrExport, XML_NAMESPACE_DRAW, XML_PLUGIN, !( nFeatures & XMLShapeExportFlags::NO_WS ), true);
+    auto pPluginOBJ = std::make_unique<SvXMLElementExport>(mrExport, XML_NAMESPACE_DRAW, XML_PLUGIN, !( nFeatures & XMLShapeExportFlags::NO_WS ), true);
 
     // export parameters
     const OUString aFalseStr(  "false"  ), aTrueStr(  "true"  );

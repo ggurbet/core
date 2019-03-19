@@ -450,7 +450,6 @@ class UCBStorage_Impl : public SvRefBase
 public:
     UCBStorage*                 m_pAntiImpl;    // only valid if external references exists
 
-    OUString                    m_aOriginalName;// the original name before accessing the storage
     OUString                    m_aName;        // the actual name ( changed with a Rename command at the parent )
     OUString                    m_aURL;         // the full path name to create the content
     OUString                    m_aContentType;
@@ -1315,22 +1314,22 @@ void UCBStorageStream::CopyTo( BaseStorageStream* pDestStm )
     if( n < 0 )
         return;
 
-    if( pDestStm->SetSize( n ) && n )
+    if( !pDestStm->SetSize( n ) || !n )
+        return;
+
+    std::unique_ptr<sal_uInt8[]> p(new sal_uInt8[ 4096 ]);
+    Seek( 0 );
+    pDestStm->Seek( 0 );
+    while( n )
     {
-        std::unique_ptr<sal_uInt8[]> p(new sal_uInt8[ 4096 ]);
-        Seek( 0 );
-        pDestStm->Seek( 0 );
-        while( n )
-        {
-            sal_uInt32 nn = n;
-            if( nn > 4096 )
-                nn = 4096;
-            if( Read( p.get(), nn ) != nn )
-                break;
-            if( pDestStm->Write( p.get(), nn ) != nn )
-                break;
-            n -= nn;
-        }
+        sal_uInt32 nn = n;
+        if( nn > 4096 )
+            nn = 4096;
+        if( Read( p.get(), nn ) != nn )
+            break;
+        if( pDestStm->Write( p.get(), nn ) != nn )
+            break;
+        n -= nn;
     }
 }
 
@@ -1463,7 +1462,7 @@ UCBStorage_Impl::UCBStorage_Impl( const ::ucbhelper::Content& rContent, const OU
         DBG_ASSERT( m_bIsRoot, "SubStorage must have a name!" );
         m_pTempFile.reset(new ::utl::TempFile);
         m_pTempFile->EnableKillingFile();
-        m_aName = m_aOriginalName = aName = m_pTempFile->GetURL();
+        m_aName = aName = m_pTempFile->GetURL();
     }
 
     m_aURL = rName;
@@ -1492,7 +1491,7 @@ UCBStorage_Impl::UCBStorage_Impl( const OUString& rName, StreamMode nMode, UCBSt
         DBG_ASSERT( m_bIsRoot, "SubStorage must have a name!" );
         m_pTempFile.reset(new ::utl::TempFile);
         m_pTempFile->EnableKillingFile();
-        m_aName = m_aOriginalName = aName = m_pTempFile->GetURL();
+        m_aName = aName = m_pTempFile->GetURL();
     }
 
     if ( m_bIsRoot )
@@ -1568,7 +1567,7 @@ void UCBStorage_Impl::Init()
     INetURLObject aObj( m_aURL );
     if ( m_aName.isEmpty() )
         // if the name was not already set to a temp name
-        m_aName = m_aOriginalName = aObj.GetLastName();
+        m_aName = aObj.GetLastName();
 
     if ( !m_pContent )
         CreateContent();
@@ -1630,23 +1629,23 @@ void UCBStorage_Impl::Init()
         }
     }
 
-    if ( !m_aContentType.isEmpty() )
-    {
-        // get the clipboard format using the content type
-        css::datatransfer::DataFlavor aDataFlavor;
-        aDataFlavor.MimeType = m_aContentType;
-        m_nFormat = SotExchange::GetFormat( aDataFlavor );
+    if ( m_aContentType.isEmpty() )
+        return;
 
-        // get the ClassId using the clipboard format ( internal table )
-        m_aClassId = GetClassId_Impl( m_nFormat );
+    // get the clipboard format using the content type
+    css::datatransfer::DataFlavor aDataFlavor;
+    aDataFlavor.MimeType = m_aContentType;
+    m_nFormat = SotExchange::GetFormat( aDataFlavor );
 
-        // get human presentable name using the clipboard format
-        SotExchange::GetFormatDataFlavor( m_nFormat, aDataFlavor );
-        m_aUserTypeName = aDataFlavor.HumanPresentableName;
+    // get the ClassId using the clipboard format ( internal table )
+    m_aClassId = GetClassId_Impl( m_nFormat );
 
-        if( m_pContent && !m_bIsLinked && m_aClassId != SvGlobalName() )
-            ReadContent();
-    }
+    // get human presentable name using the clipboard format
+    SotExchange::GetFormatDataFlavor( m_nFormat, aDataFlavor );
+    m_aUserTypeName = aDataFlavor.HumanPresentableName;
+
+    if( m_pContent && !m_bIsLinked && m_aClassId != SvGlobalName() )
+        ReadContent();
 }
 
 void UCBStorage_Impl::CreateContent()
@@ -1681,7 +1680,7 @@ void UCBStorage_Impl::CreateContent()
 
 void UCBStorage_Impl::ReadContent()
 {
-   if ( m_bListCreated )
+    if ( m_bListCreated )
         return;
 
     m_bListCreated = true;
@@ -1874,20 +1873,20 @@ void UCBStorage_Impl::SetProps( const Sequence < Sequence < PropertyValue > >& r
         }
     }
 
-    if ( !m_aContentType.isEmpty() )
-    {
-        // get the clipboard format using the content type
-        css::datatransfer::DataFlavor aDataFlavor;
-        aDataFlavor.MimeType = m_aContentType;
-        m_nFormat = SotExchange::GetFormat( aDataFlavor );
+    if ( m_aContentType.isEmpty() )
+        return;
 
-        // get the ClassId using the clipboard format ( internal table )
-        m_aClassId = GetClassId_Impl( m_nFormat );
+    // get the clipboard format using the content type
+    css::datatransfer::DataFlavor aDataFlavor;
+    aDataFlavor.MimeType = m_aContentType;
+    m_nFormat = SotExchange::GetFormat( aDataFlavor );
 
-        // get human presentable name using the clipboard format
-        SotExchange::GetFormatDataFlavor( m_nFormat, aDataFlavor );
-        m_aUserTypeName = aDataFlavor.HumanPresentableName;
-    }
+    // get the ClassId using the clipboard format ( internal table )
+    m_aClassId = GetClassId_Impl( m_nFormat );
+
+    // get human presentable name using the clipboard format
+    SotExchange::GetFormatDataFlavor( m_nFormat, aDataFlavor );
+    m_aUserTypeName = aDataFlavor.HumanPresentableName;
 }
 
 void UCBStorage_Impl::GetProps( sal_Int32& nProps, Sequence < Sequence < PropertyValue > >& rSequence, const OUString& rPath )
@@ -2506,7 +2505,7 @@ bool UCBStorage::CopyTo( const OUString& rElemName, BaseStorage* pDest, const OU
     else
     {
         // for copying no optimization is useful, because in every case the stream data must be copied
-            UCBStorageElement_Impl* pElement = FindElement_Impl( rElemName );
+        UCBStorageElement_Impl* pElement = FindElement_Impl( rElemName );
         if ( pElement )
             return CopyStorageElement_Impl( *pElement, pDest, rNew );
         else

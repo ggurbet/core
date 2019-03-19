@@ -50,6 +50,7 @@
 #include <dcontact.hxx>
 #include <dflyobj.hxx>
 #include <dview.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <hints.hxx>
 #include <tabfrm.hxx>
@@ -59,6 +60,7 @@
 #include <sectfrm.hxx>
 #include <vcl/svapp.hxx>
 #include <calbck.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <IDocumentLayoutAccess.hxx>
 #include <textboxhelper.hxx>
@@ -1868,7 +1870,7 @@ void SwFlyFrame::UpdateUnfloatButton(SwWrtShell* pWrtSh, bool bShow) const
     SwEditWin& rEditWin = pWrtSh->GetView().GetEditWin();
     SwFrameControlsManager& rMngr = rEditWin.GetFrameControlsManager();
     Point aBottomRightPixel = rEditWin.LogicToPixel( getFrameArea().BottomRight() );
-    rMngr.SetFloatingTableButton(this, bShow,  aBottomRightPixel);
+    rMngr.SetUnfloatTableButton(this, bShow,  aBottomRightPixel);
 }
 
 SwTwips SwFlyFrame::Grow_( SwTwips nDist, bool bTst )

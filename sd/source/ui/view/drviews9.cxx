@@ -46,6 +46,7 @@
 #include <sot/storage.hxx>
 #include <svl/whiter.hxx>
 #include <basic/sbstar.hxx>
+#include <basic/sberrors.hxx>
 
 #include <sfx2/viewfrm.hxx>
 
@@ -62,7 +63,6 @@
 #include <com/sun/star/gallery/GalleryItemType.hpp>
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <memory>
-#include <o3tl/make_unique.hxx>
 
 using namespace com::sun::star;
 
@@ -375,7 +375,7 @@ void DrawViewShell::AttrExec (SfxRequest &rReq)
                                              ? aColor
                                              : aBlack);
 
-                    GetDoc()->GetGradientList()->Insert(o3tl::make_unique<XGradientEntry>(aGradient, pName->GetValue()));
+                    GetDoc()->GetGradientList()->Insert(std::make_unique<XGradientEntry>(aGradient, pName->GetValue()));
 
                     XFillStyleItem aStyleItem(drawing::FillStyle_GRADIENT);
                     aStyleItem.SetWhich(XATTR_FILLSTYLE);
@@ -438,7 +438,7 @@ void DrawViewShell::AttrExec (SfxRequest &rReq)
                 {
                     XHatch aHatch (aColor);
 
-                    GetDoc()->GetHatchList()->Insert(o3tl::make_unique<XHatchEntry>(aHatch, pName->GetValue()));
+                    GetDoc()->GetHatchList()->Insert(std::make_unique<XHatchEntry>(aHatch, pName->GetValue()));
 
                     XFillStyleItem aStyleItem(drawing::FillStyle_HATCH);
                     aStyleItem.SetWhich(XATTR_FILLSTYLE);
@@ -481,7 +481,7 @@ void DrawViewShell::AttrExec (SfxRequest &rReq)
 
                     XDashListRef pDashList = GetDoc()->GetDashList();
                     long       nCounts    = pDashList->Count ();
-                    std::unique_ptr<XDashEntry> pEntry = o3tl::make_unique<XDashEntry>(aNewDash, pName->GetValue());
+                    std::unique_ptr<XDashEntry> pEntry = std::make_unique<XDashEntry>(aNewDash, pName->GetValue());
                     long i;
 
                     for ( i = 0; i < nCounts; i++ )
@@ -574,7 +574,7 @@ void DrawViewShell::AttrExec (SfxRequest &rReq)
                                              static_cast<short>(pCenterY->GetValue ()), static_cast<short>(pBorder->GetValue ()),
                                              static_cast<short>(pStart->GetValue ()), static_cast<short>(pEnd->GetValue ()));
 
-                        pGradientList->Insert(o3tl::make_unique<XGradientEntry>(aGradient, pName->GetValue()));
+                        pGradientList->Insert(std::make_unique<XGradientEntry>(aGradient, pName->GetValue()));
                         XFillStyleItem aStyleItem(drawing::FillStyle_GRADIENT);
                         aStyleItem.SetWhich(XATTR_FILLSTYLE);
                         pAttr->Put(aStyleItem);
@@ -644,7 +644,7 @@ void DrawViewShell::AttrExec (SfxRequest &rReq)
                         XHatch aHatch (Color(0), static_cast<css::drawing::HatchStyle>(pStyle->GetValue ()), pDistance->GetValue (),
                                        pAngle->GetValue () * 10);
 
-                        pHatchList->Insert(o3tl::make_unique<XHatchEntry>(aHatch, pName->GetValue()));
+                        pHatchList->Insert(std::make_unique<XHatchEntry>(aHatch, pName->GetValue()));
                         XFillStyleItem aStyleItem(drawing::FillStyle_HATCH);
                         aStyleItem.SetWhich(XATTR_FILLSTYLE);
                         pAttr->Put(aStyleItem);

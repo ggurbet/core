@@ -51,9 +51,13 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/container/xnamecontainer \
 	test/source/container/xnamed \
 	test/source/container/xnamereplace \
-	test/source/drawing/captionshape \
+	test/source/document/xactionlockable \
+	test/source/document/xembeddedobjectsupplier \
 	test/source/document/xlinktargetsupplier \
+	test/source/drawing/captionshape \
+	test/source/drawing/xdrawpages \
 	test/source/lang/xserviceinfo \
+	test/source/lang/xcomponent \
 	test/source/sheet/cellarealink \
 	test/source/sheet/cellproperties \
 	test/source/sheet/databaseimportdescriptor \
@@ -103,6 +107,7 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xdatapilottables \
 	test/source/sheet/xdatapilottablessupplier \
 	test/source/sheet/xddelink \
+	test/source/sheet/xddelinks \
 	test/source/sheet/xdocumentauditing \
 	test/source/sheet/xformulaquery \
 	test/source/sheet/xfunctiondescriptions \
@@ -110,6 +115,7 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xheaderfootercontent \
 	test/source/sheet/xlabelrange \
 	test/source/sheet/xlabelranges \
+	test/source/sheet/xmultiformulatokens \
 	test/source/sheet/xmultipleoperation \
 	test/source/sheet/xnamedrange \
 	test/source/sheet/xnamedranges \
@@ -135,6 +141,8 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xsheetfilterable \
 	test/source/sheet/xsheetfilterableex \
 	test/source/sheet/xsheetfilterdescriptor \
+	test/source/sheet/xsheetfilterdescriptor2 \
+	test/source/sheet/xsheetfilterdescriptor3 \
 	test/source/sheet/xsheetlinkable \
 	test/source/sheet/xsheetoperation \
 	test/source/sheet/xsheetoutline \
@@ -144,7 +152,6 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xspreadsheets \
 	test/source/sheet/xspreadsheets2 \
 	test/source/sheet/xspreadsheetview \
-	test/source/sheet/xstyleloader \
 	test/source/sheet/xsubtotalcalculatable \
 	test/source/sheet/xsubtotaldescriptor \
 	test/source/sheet/xsubtotalfield \
@@ -153,14 +160,26 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xviewfreezable \
 	test/source/sheet/xviewpane \
 	test/source/sheet/xviewsplitable \
+	test/source/style/xstyleloader \
 	test/source/table/xcell \
 	test/source/table/xcellcursor \
 	test/source/table/xcolumnrowrange \
+	test/source/table/xtablechart \
+	test/source/table/xtablecharts \
 	test/source/table/xtablechartssupplier \
+	test/source/table/xtablecolumns \
 	test/source/table/xtablerows \
+	test/source/text/baseindex \
+	test/source/text/xsimpletext \
 	test/source/text/xtext \
 	test/source/text/xtextcontent \
 	test/source/text/xtextfield \
+	test/source/text/xtextrange \
+    test/source/text/xdocumentindex \
+    test/source/text/textdocumentsettings \
+    test/source/text/textprintersettings \
+    test/source/text/textsettings \
+    test/source/text/textdocumentindex \
 	test/source/util/xindent \
 	test/source/util/xmergeable \
 	test/source/util/xrefreshable \

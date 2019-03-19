@@ -105,20 +105,20 @@ void StgIo::SetupStreams()
 
     m_pFAT = new StgFATStrm(*this, nFatStrmSize);
     m_pTOC = new StgDirStrm(*this);
-    if( !GetError() )
+    if( GetError() )
+        return;
+
+    StgDirEntry* pRoot = m_pTOC->GetRoot();
+    if( pRoot )
     {
-        StgDirEntry* pRoot = m_pTOC->GetRoot();
-        if( pRoot )
-        {
-            m_pDataFAT = new StgDataStrm( *this, m_aHdr.GetDataFATStart(), -1 );
-            m_pDataStrm = new StgDataStrm( *this, *pRoot );
-            m_pDataFAT->SetIncrement( 1 << m_aHdr.GetPageSize() );
-            m_pDataStrm->SetIncrement( GetDataPageSize() );
-            m_pDataStrm->SetEntry( *pRoot );
-        }
-        else
-            SetError( SVSTREAM_FILEFORMAT_ERROR );
+        m_pDataFAT = new StgDataStrm( *this, m_aHdr.GetDataFATStart(), -1 );
+        m_pDataStrm = new StgDataStrm( *this, *pRoot );
+        m_pDataFAT->SetIncrement( 1 << m_aHdr.GetPageSize() );
+        m_pDataStrm->SetIncrement( GetDataPageSize() );
+        m_pDataStrm->SetEntry( *pRoot );
     }
+    else
+        SetError( SVSTREAM_FILEFORMAT_ERROR );
 }
 
 // get the logical data page size
@@ -355,18 +355,6 @@ FatError Validator::FindUnrefedChains() const
         return FatError::Ok;
 }
 
-namespace { struct ErrorLink : public rtl::Static<Link<StgLinkArg&,void>, ErrorLink > {}; }
-
-void StgIo::SetErrorLink( const Link<StgLinkArg&,void>& rLink )
-{
-    ErrorLink::get() = rLink;
-}
-
-const Link<StgLinkArg&,void>& StgIo::GetErrorLink()
-{
-    return ErrorLink::get();
-}
-
 FatError StgIo::ValidateFATs()
 {
     if( m_bFile )
@@ -395,9 +383,6 @@ FatError StgIo::ValidateFATs()
         else nErr = bRet1 ? FatError::Ok : FatError::BothError;
         if( nErr != FatError::Ok && !m_bCopied )
         {
-            StgLinkArg aArg;
-            aArg.aFile = pFileStrm->GetFileName();
-            ErrorLink::get().Call( aArg );
             m_bCopied = true;
         }
 //      DBG_ASSERT( nErr == FatError::Ok ,"Storage broken");

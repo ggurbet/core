@@ -128,10 +128,13 @@ void SwView::ExecLingu(SfxRequest &rReq)
                     Reference< lang::XInitialization > xInit( xDialog, UNO_QUERY );
                     if( xInit.is() )
                     {
+                        Reference<awt::XWindow> xParentWindow;
+                        if (weld::Window* pParentWindow = rReq.GetFrameWeld())
+                            xParentWindow = pParentWindow->GetXWindow();
                         //  initialize dialog
                         uno::Sequence<uno::Any> aSeq(comphelper::InitAnyPropertySequence(
                         {
-                            {"ParentWindow", uno::Any(Reference< awt::XWindow >())}
+                            {"ParentWindow", uno::Any(xParentWindow)}
                         }));
                         xInit->initialize( aSeq );
 
@@ -820,105 +823,6 @@ void SwView::ExecSmartTagPopup( const Point& rPt )
 
     m_pWrtShell->Pop(SwCursorShell::PopMode::DeleteCurrent);
     m_pWrtShell->LockView( bOldViewLock );
-}
-
-class SwFieldDialog : public FloatingWindow
-{
-private:
-    VclPtr<ListBox> aListBox;
-    IFieldmark *pFieldmark;
-
-    DECL_LINK( MyListBoxHandler, ListBox&, void );
-
-public:
-    SwFieldDialog( SwEditWin* parent, IFieldmark *fieldBM );
-    virtual ~SwFieldDialog() override;
-    virtual void dispose() override;
-};
-
-SwFieldDialog::SwFieldDialog( SwEditWin* parent, IFieldmark *fieldBM ) :
-    FloatingWindow( parent, WB_BORDER | WB_SYSTEMWINDOW ),
-    aListBox(VclPtr<ListBox>::Create(this)),
-    pFieldmark( fieldBM )
-{
-    if ( fieldBM != nullptr )
-    {
-        const IFieldmark::parameter_map_t* const pParameters = fieldBM->GetParameters();
-
-        OUString sListKey = ODF_FORMDROPDOWN_LISTENTRY;
-        IFieldmark::parameter_map_t::const_iterator pListEntries = pParameters->find( sListKey );
-        if(pListEntries != pParameters->end())
-        {
-            Sequence< OUString > vListEntries;
-            pListEntries->second >>= vListEntries;
-            for( OUString const & i : vListEntries)
-                aListBox->InsertEntry(i);
-        }
-
-        // Select the current one
-        OUString sResultKey = ODF_FORMDROPDOWN_RESULT;
-        IFieldmark::parameter_map_t::const_iterator pResult = pParameters->find( sResultKey );
-        if ( pResult != pParameters->end() )
-        {
-            sal_Int32 nSelection = -1;
-            pResult->second >>= nSelection;
-            aListBox->SelectEntryPos( nSelection );
-        }
-    }
-
-    Size lbSize(aListBox->GetOptimalSize());
-    lbSize.AdjustWidth(50 );
-    lbSize.AdjustHeight(20 );
-    aListBox->SetSizePixel(lbSize);
-    aListBox->SetSelectHdl( LINK( this, SwFieldDialog, MyListBoxHandler ) );
-    aListBox->Show();
-
-    SetSizePixel( lbSize );
-}
-
-SwFieldDialog::~SwFieldDialog()
-{
-    disposeOnce();
-}
-
-void SwFieldDialog::dispose()
-{
-    aListBox.disposeAndClear();
-    FloatingWindow::dispose();
-}
-
-IMPL_LINK( SwFieldDialog, MyListBoxHandler, ListBox&, rBox, void )
-{
-    if ( !rBox.IsTravelSelect() )
-    {
-        sal_Int32 selection = rBox.GetSelectedEntryPos();
-        if ( selection >= 0 )
-        {
-            OUString sKey = ODF_FORMDROPDOWN_RESULT;
-            (*pFieldmark->GetParameters())[ sKey ] <<= selection;
-            pFieldmark->Invalidate();
-            SwView& rView = static_cast<SwEditWin*>( GetParent() )->GetView();
-            rView.GetDocShell()->SetModified();
-        }
-
-        EndPopupMode();
-    }
-}
-
-IMPL_LINK_NOARG(SwView, FieldPopupModeEndHdl, FloatingWindow*, void)
-{
-    m_pFieldPopup.disposeAndClear();
-}
-
-void SwView::ExecFieldPopup( const Point& rPt, IFieldmark *fieldBM )
-{
-    const Point aPixPos = GetEditWin().LogicToPixel( rPt );
-
-    m_pFieldPopup = VclPtr<SwFieldDialog>::Create( m_pEditWin, fieldBM );
-    m_pFieldPopup->SetPopupModeEndHdl( LINK( this, SwView, FieldPopupModeEndHdl ) );
-
-    tools::Rectangle aRect( m_pEditWin->OutputToScreenPixel( aPixPos ), Size( 0, 0 ) );
-    m_pFieldPopup->StartPopupMode( aRect, FloatWinPopupFlags::Down|FloatWinPopupFlags::GrabFocus );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

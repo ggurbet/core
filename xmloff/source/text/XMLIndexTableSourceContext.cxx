@@ -36,6 +36,7 @@
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmluconv.hxx>
+#include <xmloff/xmlement.hxx>
 #include <rtl/ustring.hxx>
 
 
@@ -102,11 +103,11 @@ void XMLIndexTableSourceContext::ProcessAttribute(
              sal_uInt16 nTmp;
              if (SvXMLUnitConverter::convertEnum(nTmp, rValue,
                                                  lcl_aReferenceTypeTokenMap))
-            {
+             {
                  nDisplayFormat = nTmp;
                  bDisplayFormatOK = true;
              }
-            break;
+             break;
         }
 
         default:

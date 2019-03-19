@@ -15,6 +15,7 @@
 #include <vcl/dialog.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/listctrl.hxx>
+#include <vcl/menu.hxx>
 
 #include "datatableview.hxx"
 
@@ -45,7 +46,7 @@ private:
 
 public:
 
-    ScDataProviderDlg(vcl::Window* pWindow, std::shared_ptr<ScDocument> pDoc, ScDocument* pDocument);
+    ScDataProviderDlg(vcl::Window* pWindow, std::shared_ptr<ScDocument> pDoc, const ScDocument* pDocument);
 
     virtual ~ScDataProviderDlg() override;
     virtual void dispose() override;

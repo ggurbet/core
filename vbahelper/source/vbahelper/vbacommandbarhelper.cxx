@@ -28,11 +28,13 @@
 #include <com/sun/star/ui/UIElementType.hpp>
 #include <com/sun/star/ui/theWindowStateConfiguration.hpp>
 #include <comphelper/random.hxx>
+#include <comphelper/processfactory.hxx>
 #include <vbahelper/vbahelper.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <time.h>
 #include <map>
+#include <string_view>
 
 using namespace com::sun::star;
 using namespace ooo::vba;
@@ -223,10 +225,10 @@ sal_Int32 VbaCommandBarHelper::findControlByName( const css::uno::Reference< css
         }
         else
         {
-            aBuffer.appendCopy( sLabel, 0, index );
+            aBuffer.append( std::u16string_view(sLabel).substr(0, index) );
             if( bMenu )
                 aBuffer.append( '&' );
-            aBuffer.appendCopy( sLabel, index + 1 );
+            aBuffer.append( std::u16string_view(sLabel).substr(index + 1) );
         }
         OUString sNewLabel = aBuffer.makeStringAndClear();
         SAL_INFO("vbahelper", "VbaCommandBarHelper::findControlByName, control name: " << sNewLabel);

@@ -922,8 +922,8 @@ bool GenericSalLayout::GetNextGlyph(const GlyphItem** pGlyph,
     // calculate absolute position in pixel units
     Point aRelativePos = pGlyphIter->m_aLinearPos;
 
-    aRelativePos.setX( aRelativePos.X() / ( mnUnitsPerPixel) );
-    aRelativePos.setY( aRelativePos.Y() / ( mnUnitsPerPixel) );
+    aRelativePos.setX( aRelativePos.X() / mnUnitsPerPixel );
+    aRelativePos.setY( aRelativePos.Y() / mnUnitsPerPixel );
     rPos = GetDrawPosition( aRelativePos );
 
     return true;
@@ -1572,12 +1572,6 @@ bool MultiSalLayout::IsKashidaPosValid(int nCharPos) const
     }
 
     return bValid;
-}
-
-std::shared_ptr<vcl::TextLayoutCache> SalLayout::CreateTextLayoutCache(
-        OUString const&) const
-{
-    return nullptr; // by default, nothing to cache
 }
 
 const SalLayoutGlyphs* SalLayout::GetGlyphs() const

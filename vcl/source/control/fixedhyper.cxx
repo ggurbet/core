@@ -17,9 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <vcl/event.hxx>
 #include <vcl/fixedhyper.hxx>
+#include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <comphelper/anytostring.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -33,6 +36,7 @@ using namespace css;
 FixedHyperlink::FixedHyperlink(vcl::Window* pParent, WinBits nWinStyle)
     : FixedText(pParent, nWinStyle)
     , m_nTextLen(0)
+    , m_aOldPointer(PointerStyle::Arrow)
 {
     Initialize();
 }

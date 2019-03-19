@@ -25,12 +25,6 @@
 #include <editeng/justifyitem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/sharedstringpool.hxx>
-#include <svx/dialmgr.hxx>
-#include <svx/e3dsceneupdater.hxx>
-#include <svx/svdocapt.hxx>
-#include <svx/svdogrp.hxx>
-#include <svx/svdviter.hxx>
-#include <svx/strings.hrc>
 #include <sfx2/app.hxx>
 
 #include <attrib.hxx>
@@ -722,182 +716,22 @@ bool ScUndoThesaurus::CanRepeat(SfxRepeatTarget& rTarget) const
 }
 
 
-ScUndoSdrCaptionObj::ScUndoSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj)
-    : SdrUndoAction(pCaptionObj->getSdrModelFromSdrObject())
-    , m_pObjList(pCaptionObj->getParentSdrObjListFromSdrObject())
-    , m_nOrdNum(pCaptionObj->GetOrdNum())
-    , m_pCaptionObj(pCaptionObj)
-{
-}
-
-ScUndoSdrCaptionObj::~ScUndoSdrCaptionObj()
-{
-}
-
-void ScUndoSdrCaptionObj::BroadcastSwitchToPage()
-{
-    if (m_pCaptionObj && m_pCaptionObj->IsInserted() && m_pCaptionObj->getSdrPageFromSdrObject())
-    {
-        SdrHint aHint(SdrHintKind::SwitchToPage, *m_pCaptionObj, m_pCaptionObj->getSdrPageFromSdrObject());
-        rMod.Broadcast(aHint);
-    }
-}
-
-void ScUndoSdrCaptionObj::UnmarkObject()
-{
-    SdrViewIter aIter( m_pCaptionObj.get() );
-    for ( SdrView* pView = aIter.FirstView(); pView; pView = aIter.NextView() )
-    {
-        pView->MarkObj( m_pCaptionObj.get(), pView->GetSdrPageView(), true );
-    }
-}
-
-OUString ScUndoSdrCaptionObj::GetDescriptionString(const char* pStrCacheID, bool bRepeat ) const
-{
-    const OUString rStr {SvxResId(pStrCacheID)};
-
-    const sal_Int32 nPos = rStr.indexOf("%1");
-    if (nPos < 0)
-        return rStr;
-
-    if (bRepeat)
-        return rStr.replaceAt(nPos, 2, SvxResId(STR_ObjNameSingulPlural));
-
-    return rStr.replaceAt(nPos, 2, m_pCaptionObj->TakeObjNameSingul());
-}
-
-ScUndoDelSdrCaptionObj::ScUndoDelSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj)
-    : ScUndoSdrCaptionObj(pCaptionObj)
-{
-}
-
-ScUndoDelSdrCaptionObj::~ScUndoDelSdrCaptionObj()
-{
-
-}
-
-void ScUndoDelSdrCaptionObj::Undo()
-{
-    // Trigger PageChangeCall
-    BroadcastSwitchToPage();
-
-    if (!m_pCaptionObj->IsInserted())
-    {
-        Point aOwnerAnchorPos(0, 0);
-
-        if (dynamic_cast< const SdrObjGroup* >(m_pObjList->getSdrObjectFromSdrObjList()) != nullptr)
-        {
-            aOwnerAnchorPos = m_pObjList->getSdrObjectFromSdrObjList()->GetAnchorPos();
-        }
-
-        E3DModifySceneSnapRectUpdater aUpdater(m_pObjList->getSdrObjectFromSdrObjList());
-        m_pObjList->InsertObject(m_pCaptionObj.get(), m_nOrdNum);
-
-        if(aOwnerAnchorPos.X() || aOwnerAnchorPos.Y())
-        {
-            m_pCaptionObj->NbcSetAnchorPos(aOwnerAnchorPos);
-        }
-    }
-
-}
-
-void ScUndoDelSdrCaptionObj::Redo()
-{
-    if (m_pCaptionObj->IsInserted())
-    {
-        UnmarkObject();
-        E3DModifySceneSnapRectUpdater aUpdater(m_pCaptionObj.get());
-        m_pObjList->RemoveObject(m_nOrdNum);
-    }
-
-    // Trigger PageChangeCall
-    BroadcastSwitchToPage();
-}
-
-OUString ScUndoDelSdrCaptionObj::GetComment() const
-{
-    return GetDescriptionString(STR_EditDelete);
-}
-
-void ScUndoDelSdrCaptionObj::SdrRepeat(SdrView& rView)
-{
-    rView.DeleteMarked();
-}
-
-bool ScUndoDelSdrCaptionObj::CanSdrRepeat(SdrView& rView) const
-{
-    return rView.AreObjectsMarked();
-}
-
-OUString ScUndoDelSdrCaptionObj::GetSdrRepeatComment(SdrView& /*rView*/) const
-{
-    return GetDescriptionString(STR_EditDelete, true);
-}
-
-ScUndoNewSdrCaptionObj::ScUndoNewSdrCaptionObj(const std::shared_ptr< SdrCaptionObj >& pCaptionObj)
-    : ScUndoSdrCaptionObj(pCaptionObj)
-{
-}
-
-ScUndoNewSdrCaptionObj::~ScUndoNewSdrCaptionObj()
-{
-}
-
-void ScUndoNewSdrCaptionObj::Undo()
-{
-    // Trigger PageChangeCall
-    BroadcastSwitchToPage();
-
-    if (m_pCaptionObj->IsInserted())
-    {
-        UnmarkObject();
-        m_pObjList->RemoveObject(m_nOrdNum);
-    }
-}
-
-void ScUndoNewSdrCaptionObj::Redo()
-{
-    if (!m_pCaptionObj->IsInserted())
-    {
-        Point aAnchorPos( 0, 0 );
-
-        if (dynamic_cast<const SdrObjGroup*>(m_pObjList->getSdrObjectFromSdrObjList()) != nullptr)
-        {
-            aAnchorPos = m_pCaptionObj->GetAnchorPos();
-        }
-
-        m_pObjList->InsertObject(m_pCaptionObj.get(), m_nOrdNum);
-
-        // Arcs lose position when grouped (#i45952#)
-        if ( aAnchorPos.X() || aAnchorPos.Y() )
-        {
-            m_pCaptionObj->NbcSetAnchorPos( aAnchorPos );
-        }
-    }
-
-    // Trigger PageChangeCall
-    BroadcastSwitchToPage();
-}
-
-OUString ScUndoNewSdrCaptionObj::GetComment() const
-{
-    return GetDescriptionString(STR_UndoInsertObj);
-}
-
 ScUndoReplaceNote::ScUndoReplaceNote( ScDocShell& rDocShell, const ScAddress& rPos,
         const ScNoteData& rNoteData, bool bInsert, std::unique_ptr<SdrUndoAction> pDrawUndo ) :
     ScSimpleUndo( &rDocShell ),
     maPos( rPos ),
     mpDrawUndo( std::move(pDrawUndo) )
 {
-    OSL_ENSURE( rNoteData.m_pCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note caption" );
+    OSL_ENSURE( rNoteData.mxCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note caption" );
     if (bInsert)
     {
         maNewData = rNoteData;
+        maNewData.mxCaption.setNotOwner();
     }
     else
     {
         maOldData = rNoteData;
+        maOldData.mxCaption.setNotOwner();
     }
 }
 
@@ -909,8 +743,10 @@ ScUndoReplaceNote::ScUndoReplaceNote( ScDocShell& rDocShell, const ScAddress& rP
     maNewData( rNewData ),
     mpDrawUndo( std::move(pDrawUndo) )
 {
-    OSL_ENSURE( maOldData.m_pCaption || maNewData.m_pCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note captions" );
+    OSL_ENSURE( maOldData.mxCaption || maNewData.mxCaption, "ScUndoReplaceNote::ScUndoReplaceNote - missing note captions" );
     OSL_ENSURE( !maOldData.mxInitData.get() && !maNewData.mxInitData.get(), "ScUndoReplaceNote::ScUndoReplaceNote - unexpected uninitialized note" );
+    maOldData.mxCaption.setNotOwner();
+    maNewData.mxCaption.setNotOwner();
 }
 
 ScUndoReplaceNote::~ScUndoReplaceNote()
@@ -955,36 +791,35 @@ bool ScUndoReplaceNote::CanRepeat( SfxRepeatTarget& /*rTarget*/ ) const
 
 OUString ScUndoReplaceNote::GetComment() const
 {
-    return ScResId( maNewData.m_pCaption ?
-        (maOldData.m_pCaption ? STR_UNDO_EDITNOTE : STR_UNDO_INSERTNOTE) : STR_UNDO_DELETENOTE );
+    return ScResId( maNewData.mxCaption ?
+        (maOldData.mxCaption ? STR_UNDO_EDITNOTE : STR_UNDO_INSERTNOTE) : STR_UNDO_DELETENOTE );
 }
 
 void ScUndoReplaceNote::DoInsertNote( const ScNoteData& rNoteData )
 {
-    if( rNoteData.m_pCaption )
+    if( rNoteData.mxCaption )
     {
         ScDocument& rDoc = pDocShell->GetDocument();
         OSL_ENSURE( !rDoc.GetNote(maPos), "ScUndoReplaceNote::DoInsertNote - unexpected cell note" );
         ScPostIt* pNote = new ScPostIt( rDoc, maPos, rNoteData, false );
-        rDoc.SetNote( maPos, pNote );
+        rDoc.SetNote( maPos, std::unique_ptr<ScPostIt>(pNote) );
         ScDocShell::LOKCommentNotify(LOKCommentNotificationType::Add, &rDoc, maPos, pNote);
     }
 }
 
 void ScUndoReplaceNote::DoRemoveNote( const ScNoteData& rNoteData )
 {
-    if( rNoteData.m_pCaption )
+    if( rNoteData.mxCaption )
     {
         ScDocument& rDoc = pDocShell->GetDocument();
         OSL_ENSURE( rDoc.GetNote(maPos), "ScUndoReplaceNote::DoRemoveNote - missing cell note" );
-        if( ScPostIt* pNote = rDoc.ReleaseNote( maPos ) )
+        if( std::unique_ptr<ScPostIt> pNote = rDoc.ReleaseNote( maPos ) )
         {
             /*  Forget pointer to caption object to suppress removing the
                 caption object from the drawing layer while deleting pNote
                 (removing the caption is done by a drawing undo action). */
             pNote->ForgetCaption();
-            ScDocShell::LOKCommentNotify(LOKCommentNotificationType::Remove, &rDoc, maPos, pNote);
-            delete pNote;
+            ScDocShell::LOKCommentNotify(LOKCommentNotificationType::Remove, &rDoc, maPos, pNote.get());
         }
     }
 }

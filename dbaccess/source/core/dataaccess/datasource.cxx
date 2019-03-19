@@ -272,11 +272,11 @@ class OSharedConnectionManager : public ::cppu::WeakImplHelper< XEventListener >
 {
 
      // contains the currently used master connections
-    typedef struct
+    struct TConnectionHolder
     {
         Reference< XConnection >    xMasterConnection;
         oslInterlockedCount         nALiveCount;
-    } TConnectionHolder;
+    };
 
     // the less-compare functor, used for the stl::map
     struct TDigestLess
@@ -439,7 +439,7 @@ namespace
                 }
             }
             if ( !aRet.empty() )
-                return Sequence< PropertyValue >(&(*aRet.begin()),aRet.size());
+                return comphelper::containerToSequence(aRet);
         }
         return Sequence< PropertyValue >();
     }
@@ -605,6 +605,7 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
     bool bNeedMigration = false;
     if(m_pImpl->m_sConnectURL == "sdbc:embedded:hsqldb")
     {
+        Reference<XStorage> const xRootStorage = m_pImpl->getOrCreateRootStorage();
         OUString sMigrEnvVal;
         osl_getEnvironment(OUString("DBACCESS_HSQL_MIGRATION").pData,
             &sMigrEnvVal.pData);
@@ -612,14 +613,18 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
             bNeedMigration = true;
         else
         {
-            MigrationWarnDialog aWarnDlg(GetFrameWeld(m_pImpl->getModel_noCreate()));
-            bNeedMigration = aWarnDlg.run() == RET_OK;
+            Reference<XPropertySet> const xPropSet(xRootStorage, UNO_QUERY_THROW);
+            sal_Int32 nOpenMode(0);
+            if ((xPropSet->getPropertyValue("OpenMode") >>= nOpenMode)
+                && (nOpenMode & css::embed::ElementModes::WRITE))
+            {
+                MigrationWarnDialog aWarnDlg(GetFrameWeld(m_pImpl->getModel_noCreate()));
+                bNeedMigration = aWarnDlg.run() == RET_OK;
+            }
         }
         if (bNeedMigration)
         {
             // back up content xml file if migration was successful
-            Reference<XStorage> xRootStorage = m_pImpl->getOrCreateRootStorage();
-
             constexpr char BACKUP_XML_NAME[] = "content_before_migration.xml";
             try
             {
@@ -686,7 +691,8 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
         }
         catch( const Exception& )
         {
-            SAL_WARN("dbaccess",  "ODatabaseSource::buildLowLevelConnection: got a strange exception while analyzing the error!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN("dbaccess",  "ODatabaseSource::buildLowLevelConnection: got a strange exception while analyzing the error! " << exceptionToString(ex) );
         }
         if ( !xDriver.is() || !xDriver->acceptsURL( m_pImpl->m_sConnectURL ) )
         {

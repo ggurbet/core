@@ -22,6 +22,7 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <map>
 
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/form/XForm.hpp>
@@ -398,6 +399,9 @@ public:
     bool m_bParaDotLeaders : 1;       // for TOC dot leaders
     // 25
 
+    /// Tracks which text portion attributes are currently open: a which id -> open count map.
+    std::map<sal_uInt16, int> maStartedAttributes;
+
     explicit SwHTMLWriter( const OUString& rBaseURL );
     virtual ~SwHTMLWriter() override;
 
@@ -682,6 +686,8 @@ Writer& OutHTML_NumBulListEnd( SwHTMLWriter& rWrt,
                                const SwHTMLNumRuleInfo& rNextInfo );
 
 Writer& OutCSS1_SvxBox( Writer& rWrt, const SfxPoolItem& rHt );
+
+OString GetCSS1_Color(const Color& rColor);
 
 #endif // INCLUDED_SW_SOURCE_FILTER_HTML_WRTHTML_HXX
 

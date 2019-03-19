@@ -23,6 +23,7 @@
 #include <sfx2/docfilt.hxx>
 #include <sfx2/objsh.hxx>
 #include <svx/xoutbmp.hxx>
+#include <tools/date.hxx>
 #include <tools/stream.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/streamwrap.hxx>
@@ -174,6 +175,7 @@ IMPL_LINK_NOARG(SignSignatureLineDialog, chooseCertificate, weld::Button&, void)
 
     Reference<XDocumentDigitalSignatures> xSigner(DocumentDigitalSignatures::createWithVersion(
         comphelper::getProcessComponentContext(), "1.2"));
+    xSigner->setParentWindow(m_xDialog->GetXWindow());
     OUString aDescription;
     CertificateKind certificateKind = CertificateKind_NONE;
     // When signing ooxml, we only want X.509 certificates

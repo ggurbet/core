@@ -93,6 +93,7 @@
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 #include <comphelper/sequence.hxx>
+#include <tools/diagnose_ex.h>
 
 #ifdef UNX
 #include <errno.h>
@@ -398,18 +399,19 @@ bool FileDialogHelper_Impl::CheckFilterOptionsCapability( const std::shared_ptr<
 
     if( mxFilterCFG.is() && _pFilter )
     {
-        try {
-               Sequence < PropertyValue > aProps;
-               Any aAny = mxFilterCFG->getByName( _pFilter->GetName() );
-               if ( aAny >>= aProps )
-               {
-                   OUString aServiceName;
-                   sal_Int32 nPropertyCount = aProps.getLength();
-                   for( sal_Int32 nProperty=0; nProperty < nPropertyCount; ++nProperty )
+        try
+        {
+            Sequence < PropertyValue > aProps;
+            Any aAny = mxFilterCFG->getByName( _pFilter->GetName() );
+            if ( aAny >>= aProps )
+            {
+                OUString aServiceName;
+                sal_Int32 nPropertyCount = aProps.getLength();
+                for( sal_Int32 nProperty=0; nProperty < nPropertyCount; ++nProperty )
                 {
-                       if( aProps[nProperty].Name == "UIComponent" )
-                       {
-                           aProps[nProperty].Value >>= aServiceName;
+                    if( aProps[nProperty].Name == "UIComponent" )
+                    {
+                        aProps[nProperty].Value >>= aServiceName;
                         if( !aServiceName.isEmpty() )
                             bResult = true;
                     }
@@ -457,35 +459,36 @@ void FileDialogHelper_Impl::updateFilterOptionsBox()
 void FileDialogHelper_Impl::updateExportButton()
 {
     uno::Reference < XFilePickerControlAccess > xCtrlAccess( mxFileDlg, UNO_QUERY );
-    if ( xCtrlAccess.is() )
+    if ( !xCtrlAccess.is() )
+        return;
+
+    OUString sOldLabel( xCtrlAccess->getLabel( CommonFilePickerElementIds::PUSHBUTTON_OK ) );
+
+    // initialize button label; we need the label with the mnemonic char
+    if ( maButtonLabel.isEmpty() || maButtonLabel.indexOf( MNEMONIC_CHAR ) == -1 )
     {
-        OUString sOldLabel( xCtrlAccess->getLabel( CommonFilePickerElementIds::PUSHBUTTON_OK ) );
+        // cut the ellipses, if necessary
+        sal_Int32 nIndex = sOldLabel.indexOf( "..." );
+        if ( -1 == nIndex )
+            nIndex = sOldLabel.getLength();
+        maButtonLabel = sOldLabel.copy( 0, nIndex );
+    }
 
-        // initialize button label; we need the label with the mnemonic char
-        if ( maButtonLabel.isEmpty() || maButtonLabel.indexOf( MNEMONIC_CHAR ) == -1 )
+    OUString sLabel = maButtonLabel;
+    // filter with options -> append ellipses on export button label
+    if ( CheckFilterOptionsCapability( getCurentSfxFilter() ) )
+        sLabel += "...";
+
+    if ( sOldLabel != sLabel )
+    {
+        try
         {
-            // cut the ellipses, if necessary
-            sal_Int32 nIndex = sOldLabel.indexOf( "..." );
-            if ( -1 == nIndex )
-                nIndex = sOldLabel.getLength();
-            maButtonLabel = sOldLabel.copy( 0, nIndex );
+            xCtrlAccess->setLabel( CommonFilePickerElementIds::PUSHBUTTON_OK, sLabel );
         }
-
-        OUString sLabel = maButtonLabel;
-        // filter with options -> append ellipses on export button label
-        if ( CheckFilterOptionsCapability( getCurentSfxFilter() ) )
-            sLabel += "...";
-
-        if ( sOldLabel != sLabel )
+        catch( const IllegalArgumentException& )
         {
-            try
-            {
-                xCtrlAccess->setLabel( CommonFilePickerElementIds::PUSHBUTTON_OK, sLabel );
-            }
-            catch( const IllegalArgumentException& )
-            {
-                SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::updateExportButton: caught an exception!" );
-            }
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::updateExportButton: caught an exception " << exceptionToString(ex) );
         }
     }
 }
@@ -563,37 +566,38 @@ void FileDialogHelper_Impl::enablePasswordBox( bool bInit )
 
 void FileDialogHelper_Impl::updatePreviewState( bool _bUpdatePreviewWindow )
 {
-    if ( mbHasPreview )
+    if ( !mbHasPreview )
+        return;
+
+    uno::Reference< XFilePickerControlAccess > xCtrlAccess( mxFileDlg, UNO_QUERY );
+
+    // check, whether or not we have to display a preview
+    if ( !xCtrlAccess.is() )
+        return;
+
+    try
     {
-        uno::Reference< XFilePickerControlAccess > xCtrlAccess( mxFileDlg, UNO_QUERY );
+        Any aValue = xCtrlAccess->getValue( ExtendedFilePickerElementIds::CHECKBOX_PREVIEW, 0 );
+        bool bShowPreview = false;
 
-        // check, whether or not we have to display a preview
-        if ( xCtrlAccess.is() )
+        if ( aValue >>= bShowPreview )
         {
-            try
-            {
-                Any aValue = xCtrlAccess->getValue( ExtendedFilePickerElementIds::CHECKBOX_PREVIEW, 0 );
-                bool bShowPreview = false;
+            mbShowPreview = bShowPreview;
 
-                if ( aValue >>= bShowPreview )
-                {
-                    mbShowPreview = bShowPreview;
+            // setShowState has currently no effect for the
+            // OpenOffice FilePicker (see svtools/source/filepicker/iodlg.cxx)
+            uno::Reference< XFilePreview > xFilePreview( mxFileDlg, UNO_QUERY );
+            if ( xFilePreview.is() )
+                xFilePreview->setShowState( mbShowPreview );
 
-                    // setShowState has currently no effect for the
-                    // OpenOffice FilePicker (see svtools/source/filepicker/iodlg.cxx)
-                    uno::Reference< XFilePreview > xFilePreview( mxFileDlg, UNO_QUERY );
-                    if ( xFilePreview.is() )
-                        xFilePreview->setShowState( mbShowPreview );
-
-                    if ( _bUpdatePreviewWindow )
-                        TimeOutHdl_Impl( nullptr );
-                }
-            }
-            catch( const Exception& )
-            {
-                SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::updatePreviewState: caught an exception!" );
-            }
+            if ( _bUpdatePreviewWindow )
+                TimeOutHdl_Impl( nullptr );
         }
+    }
+    catch( const Exception& )
+    {
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::updatePreviewState: caught an exception " << exceptionToString(ex) );
     }
 }
 
@@ -645,21 +649,21 @@ void FileDialogHelper_Impl::updateVersions()
 
     sal_Int32 nCount = aEntries.getLength();
 
-    if ( nCount )
-    {
-        try
-        {
-            aValue <<= aEntries;
-            xDlg->setValue( ExtendedFilePickerElementIds::LISTBOX_VERSION,
-                            ControlActions::ADD_ITEMS, aValue );
+    if ( !nCount )
+        return;
 
-            Any aPos;
-            aPos <<= sal_Int32(0);
-            xDlg->setValue( ExtendedFilePickerElementIds::LISTBOX_VERSION,
-                            ControlActions::SET_SELECT_ITEM, aPos );
-        }
-        catch( const IllegalArgumentException& ){}
+    try
+    {
+        aValue <<= aEntries;
+        xDlg->setValue( ExtendedFilePickerElementIds::LISTBOX_VERSION,
+                        ControlActions::ADD_ITEMS, aValue );
+
+        Any aPos;
+        aPos <<= sal_Int32(0);
+        xDlg->setValue( ExtendedFilePickerElementIds::LISTBOX_VERSION,
+                        ControlActions::SET_SELECT_ITEM, aPos );
     }
+    catch( const IllegalArgumentException& ){}
 }
 
 IMPL_LINK_NOARG(FileDialogHelper_Impl, TimeOutHdl_Impl, Timer *, void)
@@ -1234,38 +1238,38 @@ void FileDialogHelper_Impl::postExecute( sal_Int16 _nResult )
 
 void FileDialogHelper_Impl::implInitializeFileName( )
 {
-    if ( !maFileName.isEmpty() )
+    if ( maFileName.isEmpty() )
+        return;
+
+    INetURLObject aObj( maPath );
+    aObj.Append( maFileName );
+
+    // in case we're operating as save dialog, and "auto extension" is checked,
+    // cut the extension from the name
+    if ( !(mbIsSaveDlg && mbHasAutoExt) )
+        return;
+
+    try
     {
-        INetURLObject aObj( maPath );
-        aObj.Append( maFileName );
+        bool bAutoExtChecked = false;
 
-        // in case we're operating as save dialog, and "auto extension" is checked,
-        // cut the extension from the name
-        if ( mbIsSaveDlg && mbHasAutoExt )
+        uno::Reference < XFilePickerControlAccess > xControlAccess( mxFileDlg, UNO_QUERY );
+        if  (   xControlAccess.is()
+            &&  (   xControlAccess->getValue( ExtendedFilePickerElementIds::CHECKBOX_AUTOEXTENSION, 0 )
+                >>= bAutoExtChecked
+                )
+            )
         {
-            try
-            {
-                bool bAutoExtChecked = false;
-
-                uno::Reference < XFilePickerControlAccess > xControlAccess( mxFileDlg, UNO_QUERY );
-                if  (   xControlAccess.is()
-                    &&  (   xControlAccess->getValue( ExtendedFilePickerElementIds::CHECKBOX_AUTOEXTENSION, 0 )
-                        >>= bAutoExtChecked
-                        )
-                    )
-                {
-                    if ( bAutoExtChecked )
-                    {   // cut the extension
-                        aObj.removeExtension( );
-                        mxFileDlg->setDefaultName( aObj.GetName( INetURLObject::DecodeMechanism::WithCharset ) );
-                    }
-                }
-            }
-            catch( const Exception& )
-            {
-                OSL_FAIL( "FileDialogHelper_Impl::implInitializeFileName: could not ask for the auto-extension current-value!" );
+            if ( bAutoExtChecked )
+            {   // cut the extension
+                aObj.removeExtension( );
+                mxFileDlg->setDefaultName( aObj.GetName( INetURLObject::DecodeMechanism::WithCharset ) );
             }
         }
+    }
+    catch( const Exception& )
+    {
+        OSL_FAIL( "FileDialogHelper_Impl::implInitializeFileName: could not ask for the auto-extension current-value!" );
     }
 }
 
@@ -1294,7 +1298,8 @@ sal_Int16 FileDialogHelper_Impl::implDoExecute()
         }
         catch( const Exception& )
         {
-            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute: caught an exception!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute: caught an exception " << exceptionToString(ex) );
         }
     }
 
@@ -1322,7 +1327,8 @@ void FileDialogHelper_Impl::implStartExecute()
         }
         catch( const Exception& )
         {
-            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute: caught an exception!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "sfx.dialog", "FileDialogHelper_Impl::implDoExecute: caught an exception " << exceptionToString(ex) );
         }
     }
 }
@@ -2400,7 +2406,7 @@ void FileDialogHelper::StartExecuteModal( const Link<FileDialogHelper*,void>& rE
         mpImpl->implStartExecute();
 }
 
-short FileDialogHelper::GetDialogType() const { return mpImpl ? mpImpl->m_nDialogType : 0; }
+sal_Int16 FileDialogHelper::GetDialogType() const { return mpImpl ? mpImpl->m_nDialogType : 0; }
 
 bool FileDialogHelper::IsPasswordEnabled() const
 {

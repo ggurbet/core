@@ -26,6 +26,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <basic/sbstar.hxx>
+#include <basic/sberrors.hxx>
 #include <svl/languageoptions.hxx>
 #include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
@@ -834,7 +835,7 @@ void ScTabViewShell::ExecuteTable( SfxRequest& rReq )
                     uno::Reference<frame::XFrame> xFrame = GetViewFrame()->GetFrame().GetFrameInterface();
                     SvxAbstractDialogFactory* pDlgFactory = SvxAbstractDialogFactory::Create();
                     ScopedVclPtr<VclAbstractDialog> pDialog( pDlgFactory->CreateSvxMacroAssignDlg(
-                        GetDialogParent(), xFrame, false, xEvents, 0 ) );
+                        GetFrameWeld(), xFrame, false, xEvents, 0 ) );
                     if ( pDialog->Execute() == RET_OK )
                     {
                             // the dialog modifies the settings directly

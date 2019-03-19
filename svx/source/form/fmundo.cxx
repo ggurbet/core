@@ -42,6 +42,7 @@
 #include <com/sun/star/form/binding/XListEntrySink.hpp>
 #include <com/sun/star/reflection/XInterfaceMethodTypeDescription.hpp>
 #include <com/sun/star/sdbc/XConnection.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <svx/fmtools.hxx>
 #include <svl/macitem.hxx>
@@ -54,7 +55,6 @@
 #include <comphelper/property.hxx>
 #include <comphelper/types.hxx>
 #include <connectivity/dbtools.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::awt;
@@ -703,7 +703,7 @@ void SAL_CALL FmXUndoEnvironment::propertyChange(const PropertyChangeEvent& evt)
             // add their undo actions out-of-order
 
             SolarMutexGuard aSolarGuard;
-            rModel.AddUndo(o3tl::make_unique<FmUndoPropertyAction>(rModel, evt));
+            rModel.AddUndo(std::make_unique<FmUndoPropertyAction>(rModel, evt));
         }
     }
     else

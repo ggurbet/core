@@ -2780,6 +2780,8 @@ endef
 
 endif # ENABLE_VALGRIND
 
+ifeq ($(ENABLE_POPPLER),TRUE)
+
 ifneq ($(SYSTEM_POPPLER),)
 
 define gb_LinkTarget__use_poppler
@@ -2828,6 +2830,8 @@ endif
 endef
 
 endif # SYSTEM_POPPLER
+
+endif # ENABLE_POPPLER
 
 
 ifneq ($(SYSTEM_CLUCENE),)
@@ -2900,7 +2904,7 @@ endef
 
 endif # SYSTEM_HSQLDB
 
-
+ifeq ($(ENABLE_LDAP),TRUE)
 ifneq ($(SYSTEM_OPENLDAP),)
 
 define gb_LinkTarget__use_openldap
@@ -2929,6 +2933,7 @@ $(call gb_LinkTarget_add_libs,$(1), \
 )
 
 endef
+endif
 
 define gb_ExternalProject__use_openldap
 $(call gb_ExternalProject_use_external_project,$(1),openldap)

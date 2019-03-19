@@ -280,7 +280,7 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
         long nObjectRotation(rSdrObjCustomShape.GetRotateAngle());
         if ( nObjectRotation )
         {
-            double a = ( 36000 - nObjectRotation ) * nPi180;
+            double a = (36000 - nObjectRotation) * F_PI18000;
             long dx = aSnapRect.Right() - aSnapRect.Left();
             long dy = aSnapRect.Bottom()- aSnapRect.Top();
             Point aP( aSnapRect.TopLeft() );
@@ -595,7 +595,6 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
             rCamera.SetViewWindow( -fW / 2, - fH / 2, fW, fH);
             basegfx::B3DPoint aLookAt( 0.0, 0.0, 0.0 );
             basegfx::B3DPoint aCamPos( 0.0, 0.0, 100.0 );
-            rCamera.SetDefaults( basegfx::B3DPoint( 0.0, 0.0, 100.0 ), aLookAt );
             rCamera.SetPosAndLookAt( aCamPos, aLookAt );
             rCamera.SetFocalLength( 1.0 );
             rCamera.SetProjection( eProjectionType );
@@ -705,12 +704,12 @@ SdrObject* EnhancedCustomShape3d::Create3DObject(
             pScene->GetProperties().SetObjectItem( makeSvx3DLightcolor2Item( aAmbientSpot2Color ) );
             pScene->GetProperties().SetObjectItem( makeSvx3DLightDirection2Item( aSpotLight2 ) );
 
-                sal_uInt8 nSpotLight3 = 70;
-                basegfx::B3DVector aSpotLight3( 0.0, 0.0, 1.0 );
-                pScene->GetProperties().SetObjectItem( makeSvx3DLightOnOff3Item( true ) );
-                Color aAmbientSpot3Color( nSpotLight3, nSpotLight3, nSpotLight3 );
-                pScene->GetProperties().SetObjectItem( makeSvx3DLightcolor3Item( aAmbientSpot3Color ) );
-                pScene->GetProperties().SetObjectItem( makeSvx3DLightDirection3Item( aSpotLight3 ) );
+            sal_uInt8 nSpotLight3 = 70;
+            basegfx::B3DVector aSpotLight3( 0.0, 0.0, 1.0 );
+            pScene->GetProperties().SetObjectItem( makeSvx3DLightOnOff3Item( true ) );
+            Color aAmbientSpot3Color( nSpotLight3, nSpotLight3, nSpotLight3 );
+            pScene->GetProperties().SetObjectItem( makeSvx3DLightcolor3Item( aAmbientSpot3Color ) );
+            pScene->GetProperties().SetObjectItem( makeSvx3DLightDirection3Item( aSpotLight3 ) );
 
             double fSpecular = GetDouble( rGeometryItem, "Specularity", 0 ) / 100;
             bool bMetal = GetBool( rGeometryItem, "Metal", false );

@@ -18,13 +18,15 @@
  */
 
 #include <memory>
-#include <o3tl/make_unique.hxx>
 #include <tools/debug.hxx>
 #include <tools/stream.hxx>
 #include <vcl/svapp.hxx>
 
 #include <basic/sbx.hxx>
 #include <basic/sbxfac.hxx>
+#include <basic/sbxform.hxx>
+#include <basic/sbxmeth.hxx>
+#include <basic/sbxprop.hxx>
 #include <sbxbase.hxx>
 
 #include <rtl/instance.hxx>
@@ -121,15 +123,13 @@ void SbxBase::AddFactory( SbxFactory* pFac )
 void SbxBase::RemoveFactory( SbxFactory const * pFac )
 {
     SbxAppData& r = GetSbxData_Impl();
-    for (auto it = r.m_Factories.begin(); it != r.m_Factories.end(); ++it)
+    auto it = std::find_if(r.m_Factories.begin(), r.m_Factories.end(),
+        [&pFac](const std::unique_ptr<SbxFactory>& rxFactory) { return rxFactory.get() == pFac; });
+    if (it != r.m_Factories.end())
     {
-        if ((*it).get() == pFac)
-        {
-            std::unique_ptr<SbxFactory> tmp(std::move(*it));
-            r.m_Factories.erase( it );
-            (void)tmp.release();
-            break;
-        }
+        std::unique_ptr<SbxFactory> tmp(std::move(*it));
+        r.m_Factories.erase( it );
+        (void)tmp.release();
     }
 }
 
@@ -280,7 +280,7 @@ SbxInfo::~SbxInfo()
 
 void SbxInfo::AddParam(const OUString& rName, SbxDataType eType, SbxFlagBits nFlags)
 {
-    m_Params.push_back(o3tl::make_unique<SbxParamInfo>(rName, eType, nFlags));
+    m_Params.push_back(std::make_unique<SbxParamInfo>(rName, eType, nFlags));
 }
 
 const SbxParamInfo* SbxInfo::GetParam( sal_uInt16 n ) const

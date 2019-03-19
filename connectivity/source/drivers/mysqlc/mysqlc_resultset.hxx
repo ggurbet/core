@@ -75,7 +75,7 @@ class OResultSet final : public OBase_Mutex,
 
     sal_Int32 getDataLength(sal_Int32 column)
     {
-        return m_aRows[m_nRowCount][column - 1].getLength();
+        return m_aRows[m_nRowPosition][column - 1].getLength();
     }
     bool checkNull(sal_Int32 column);
 
@@ -99,8 +99,30 @@ class OResultSet final : public OBase_Mutex,
 
     virtual ~OResultSet() override = default;
 
+    /**
+     * Ensures that the results of the query has already been fetched.
+     */
     void ensureResultFetched();
+
+    /**
+     * Ensures that meta data of the corresponding result set has been already
+     * queried. It should be called before freeing the result set, unless the
+     * information is lost.
+     */
     void ensureFieldInfoFetched();
+
+    /**
+     * Check the following things:
+     * - cursor is out of range. Throws exception if true.
+     * - column index is out of range. Throws exception if true.
+     * - result set is fetched. If no, then it fetches the result.
+     */
+    void checkBordersAndEnsureFetched(sal_Int32 index);
+
+    /**
+     * Fetches all the data from the MYSQL_RES object related to the class. It
+     * frees the MYSQL_RES object afterwards, so it cannot be used anymore.
+     */
     void fetchResult();
 
 public:
@@ -177,7 +199,8 @@ public:
     css::uno::Reference<css::io::XInputStream>
         SAL_CALL getCharacterStream(sal_Int32 column) override;
 
-    Any SAL_CALL getObject(sal_Int32 column, const my_XNameAccessRef& typeMap) override;
+    Any SAL_CALL getObject(
+        sal_Int32 column, const css::uno::Reference<css::container::XNameAccess>& typeMap) override;
 
     css::uno::Reference<css::sdbc::XRef> SAL_CALL getRef(sal_Int32 column) override;
     css::uno::Reference<css::sdbc::XBlob> SAL_CALL getBlob(sal_Int32 column) override;

@@ -457,7 +457,7 @@ void ODatabaseDocument::impl_import_nolck_throw( const Reference< XComponentCont
     Reference< XStatusIndicator > xStatusIndicator;
     lcl_extractAndStartStatusIndicator( _rResource, xStatusIndicator, aFilterCreationArgs );
 
-     uno::Reference< beans::XPropertySet > xInfoSet( comphelper::GenericPropertySet_CreateInstance( new comphelper::PropertySetInfo( aExportInfoMap ) ) );
+    uno::Reference< beans::XPropertySet > xInfoSet( comphelper::GenericPropertySet_CreateInstance( new comphelper::PropertySetInfo( aExportInfoMap ) ) );
     OUString sBaseURI = _rResource.getOrDefault("BaseURI", OUString());
     if (sBaseURI.isEmpty())
         sBaseURI = _rResource.getOrDefault("URL",OUString());
@@ -1671,9 +1671,10 @@ void ODatabaseDocument::impl_writeStorage_throw( const Reference< XStorage >& _r
         {
             xProp->setPropertyValue("Version" , uno::makeAny(aVersion));
         }
-        catch (const uno::Exception& e)
+        catch (const uno::Exception&)
         {
-            SAL_WARN("dbaccess", "exception setting Version: " << e);
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN("dbaccess", "exception setting Version: " << exceptionToString(ex));
         }
     }
 
@@ -2198,7 +2199,7 @@ com_sun_star_comp_dba_ODatabaseDocument(css::uno::XComponentContext* context,
         xDBContextTunnel->getSomething(
             dbaccess::ODatabaseContext::getUnoTunnelImplementationId()));
 
-    rtl::Reference<dbaccess::ODatabaseModelImpl> pImpl(
+    rtl::Reference pImpl(
             new dbaccess::ODatabaseModelImpl(context, *pContext));
     css::uno::Reference<XInterface> inst(pImpl->createNewModel_deliverOwnership());
     inst->acquire();

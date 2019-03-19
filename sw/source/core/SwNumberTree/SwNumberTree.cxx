@@ -133,7 +133,7 @@ void SwNumberTreeNode::ValidateHierarchical(const SwNumberTreeNode * pNode) cons
 
     if (aValidateIt != mChildren.end())
     {
-       OSL_ENSURE((*aValidateIt)->mpParent == this, "wrong parent");
+        OSL_ENSURE((*aValidateIt)->mpParent == this, "wrong parent");
 
         tSwNumberTreeChildren::const_iterator aIt = mItLastValid;
 
@@ -297,7 +297,7 @@ void SwNumberTreeNode::Validate(const SwNumberTreeNode * pNode) const
     }
 }
 
-void SwNumberTreeNode::GetNumberVector_(vector<SwNumberTree::tSwNumTreeNumber> & rVector,
+void SwNumberTreeNode::GetNumberVector_(SwNumberTree::tNumberVector & rVector,
                                         bool bValidate) const
 {
     if (mpParent)
@@ -406,7 +406,7 @@ void SwNumberTreeNode::MoveChildren(SwNumberTreeNode * pDest)
         mItLastValid = mChildren.end();
     }
 
-   OSL_ENSURE(mChildren.empty(), "MoveChildren failed!");
+    OSL_ENSURE(mChildren.empty(), "MoveChildren failed!");
 
 #ifdef DBG_UTIL
     IsSane(false);
@@ -675,7 +675,7 @@ SwNumberTree::tSwNumTreeNumber SwNumberTreeNode::GetNumber(bool bValidate)
 }
 
 
-vector<SwNumberTree::tSwNumTreeNumber> SwNumberTreeNode::GetNumberVector() const
+SwNumberTree::tNumberVector SwNumberTreeNode::GetNumberVector() const
 {
     vector<SwNumberTree::tSwNumTreeNumber> aResult;
 

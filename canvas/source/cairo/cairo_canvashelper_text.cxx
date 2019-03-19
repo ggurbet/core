@@ -19,6 +19,7 @@
 
 #include <sal/config.h>
 
+#include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/utils/canvastools.hxx>
 #include <tools/diagnose_ex.h>
@@ -240,7 +241,7 @@ namespace cairocanvas
             cairo_fill(mpCairo.get());
 #endif
             ::Point aOutpos;
-            if( !setupTextOutput( *mpVirtualDevice.get(), pOwner, aOutpos, viewState, renderState, xFont ) )
+            if( !setupTextOutput( *mpVirtualDevice, pOwner, aOutpos, viewState, renderState, xFont ) )
                 return uno::Reference< rendering::XCachedPrimitive >(nullptr); // no output necessary
 
                 // change text direction and layout mode
@@ -267,7 +268,7 @@ namespace cairocanvas
 
             clip_cairo_from_dev(*mpVirtualDevice);
 
-            rtl::Reference< TextLayout > pTextLayout( new TextLayout(text, textDirection, 0, CanvasFont::Reference(dynamic_cast< CanvasFont* >( xFont.get() )), mpSurfaceProvider) );
+            rtl::Reference pTextLayout( new TextLayout(text, textDirection, 0, CanvasFont::Reference(dynamic_cast< CanvasFont* >( xFont.get() )), mpSurfaceProvider) );
             pTextLayout->draw(mpCairo, *mpVirtualDevice, aOutpos, viewState, renderState);
         }
 

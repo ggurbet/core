@@ -24,6 +24,7 @@
 #include <sfx2/strings.hrc>
 
 #include <vcl/image.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #ifdef DEBUG
 #include <sfx2/sidebar/Tools.hxx>
@@ -56,20 +57,20 @@ DeckTitleBar::DeckTitleBar (const OUString& rsTitle,
 
 void DeckTitleBar::SetCloserVisible (const bool bIsCloserVisible)
 {
-    if (mbIsCloserVisible != bIsCloserVisible)
-    {
-        mbIsCloserVisible = bIsCloserVisible;
+    if (mbIsCloserVisible == bIsCloserVisible)
+        return;
 
-        if (mbIsCloserVisible)
-        {
-            maToolBox->InsertItem(mnCloserItemIndex,
-                                  Theme::GetImage(Theme::Image_Closer));
-            maToolBox->SetQuickHelpText(mnCloserItemIndex,
-                                        SfxResId(SFX_STR_SIDEBAR_CLOSE_DECK));
-        }
-        else
-            maToolBox->RemoveItem(maToolBox->GetItemPos(mnCloserItemIndex));
+    mbIsCloserVisible = bIsCloserVisible;
+
+    if (mbIsCloserVisible)
+    {
+        maToolBox->InsertItem(mnCloserItemIndex,
+                              Theme::GetImage(Theme::Image_Closer));
+        maToolBox->SetQuickHelpText(mnCloserItemIndex,
+                                    SfxResId(SFX_STR_SIDEBAR_CLOSE_DECK));
     }
+    else
+        maToolBox->RemoveItem(maToolBox->GetItemPos(mnCloserItemIndex));
 }
 
 tools::Rectangle DeckTitleBar::GetTitleArea (const tools::Rectangle& rTitleBarBox)
@@ -134,8 +135,7 @@ void DeckTitleBar::MouseMove (const MouseEvent& rMouseEvent)
     if ( aGrip.IsInside( rMouseEvent.GetPosPixel() ) )
         eStyle = PointerStyle::Move;
 
-    Pointer aPtr( eStyle );
-    SetPointer( aPtr );
+    SetPointer( eStyle );
 
     Window::MouseMove( rMouseEvent );
 }

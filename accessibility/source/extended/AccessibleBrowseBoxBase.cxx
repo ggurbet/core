@@ -25,6 +25,7 @@
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/IllegalAccessibleComponentStateException.hpp>
 #include <unotools/accessiblerelationsethelper.hxx>
+#include <vcl/window.hxx>
 #include <vcl/svapp.hxx>
 #include <sal/log.hxx>
 
@@ -36,7 +37,6 @@ using ::com::sun::star::uno::Any;
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
 using namespace ::comphelper;
-using namespace ::svt;
 
 
 namespace accessibility {
@@ -154,8 +154,8 @@ sal_Int32 SAL_CALL AccessibleBrowseBoxBase::getAccessibleIndexInParent()
                 }
             }
         }
-   }
-   return nRet;
+    }
+    return nRet;
 }
 
 OUString SAL_CALL AccessibleBrowseBoxBase::getAccessibleDescription()
@@ -178,7 +178,7 @@ AccessibleBrowseBoxBase::getAccessibleRelationSet()
     ::osl::MutexGuard aGuard( getMutex() );
     ensureIsAlive();
     // BrowseBox does not have relations.
-       return new utl::AccessibleRelationSetHelper;
+    return new utl::AccessibleRelationSetHelper;
 }
 
 Reference< css::accessibility::XAccessibleStateSet > SAL_CALL

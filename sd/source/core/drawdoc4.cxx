@@ -23,7 +23,6 @@
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <i18nlangtag/languagetag.hxx>
 #include <i18nlangtag/mslangid.hxx>
-#include <sfx2/docfile.hxx>
 #include <sfx2/dispatch.hxx>
 #include <Outliner.hxx>
 #include <editeng/outliner.hxx>
@@ -46,10 +45,8 @@
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 #include <editeng/bulletitem.hxx>
-#include <svx/xtable.hxx>
 #include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
-#include <svx/xit.hxx>
 #include <svx/xlineit0.hxx>
 #include <svx/sdshitm.hxx>
 #include <svx/svdotext.hxx>
@@ -67,7 +64,6 @@
 #include <editeng/fontitem.hxx>
 #include <editeng/shdditem.hxx>
 #include <editeng/cmapitem.hxx>
-#include <editeng/memberids.h>
 #include <svx/xbtmpit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xflgrit.hxx>
@@ -84,15 +80,11 @@
 #include <svx/xlnclit.hxx>
 #include <svx/svditer.hxx>
 #include <svx/svdogrp.hxx>
-#include <svx/svdlayer.hxx>
 #include <editeng/numitem.hxx>
-#include <editeng/editeng.hxx>
 #include <editeng/unolingu.hxx>
-#include <com/sun/star/linguistic2/XHyphenator.hpp>
 #include <svl/itempool.hxx>
 #include <editeng/outlobj.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <editeng/langitem.hxx>
 #include <editeng/frmdiritem.hxx>
 
 #include <sdresid.hxx>
@@ -101,14 +93,14 @@
 #include <strings.hrc>
 #include <glob.hxx>
 #include <stlpool.hxx>
-#include <helpids.h>
-#include <sdiocmpt.hxx>
 #include <shapelist.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <svl/itemset.hxx>
 #include <app.hrc>
 #include <strings.hxx>
+
+namespace com { namespace sun { namespace star { namespace linguistic2 { class XHyphenator; } } } }
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -144,8 +136,8 @@ void SdDrawDocument::CreateLayoutTemplates()
 
     XDash     aNullDash;
     XGradient aNullGrad(aNullCol,COL_WHITE);
-              aNullGrad.SetStartIntens( 100 );
-              aNullGrad.SetEndIntens( 100 );
+    aNullGrad.SetStartIntens( 100 );
+    aNullGrad.SetEndIntens( 100 );
     XHatch    aNullHatch(aNullCol);
 
                     // Line attributes (Extended OutputDevice)
@@ -253,333 +245,333 @@ void SdDrawDocument::CreateLayoutTemplates()
     SfxItemSet* pISet = nullptr;
 
     // Default > Object without filling
-{
-    aName = SdResId(STR_POOLSHEET_OBJWITHOUTFILL);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aStdName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OBJWITHOUTFILL );
-}
+    {
+        aName = SdResId(STR_POOLSHEET_OBJWITHOUTFILL);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aStdName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OBJWITHOUTFILL );
+    }
     // Default > Object no fill no line
-{
-    aName = SdResId(STR_POOLSHEET_OBJNOLINENOFILL);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aStdName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OBJNOLINENOFILL );
-    pISet = &pSheet->GetItemSet();
+    {
+        aName = SdResId(STR_POOLSHEET_OBJNOLINENOFILL);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aStdName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OBJNOLINENOFILL );
+        pISet = &pSheet->GetItemSet();
 
-    pISet->Put(XFillStyleItem(drawing::FillStyle_NONE));
-    pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));
-}
+        pISet->Put(XFillStyleItem(drawing::FillStyle_NONE));
+        pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));
+    }
 
     // tdf#94369
 
     // Text
     OUString aTextName;
-{
-    aTextName = SdResId(STR_POOLSHEET_TEXT);
-    pSheet = &(pSSPool->Make(aTextName, SfxStyleFamily::Para, nMask));
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_TEXT );
-    pISet = &pSheet->GetItemSet();
-    aSvxFontItem.SetFamilyName("Noto Sans");
-    pISet->Put( aSvxFontItem );                                        // Noto Sans
-    pISet->Put(XFillStyleItem(drawing::FillStyle_SOLID));              // solid fill
-    pISet->Put(XFillColorItem(OUString(), Color(0xeeeeee)));           // light gray 5
-    pISet->Put(XLineStyleItem(drawing::LineStyle_SOLID));              // solid fill
-    pISet->Put(XLineColorItem(OUString(), Color(0xcccccc)));           // light gray 3
-}
+    {
+        aTextName = SdResId(STR_POOLSHEET_TEXT);
+        pSheet = &(pSSPool->Make(aTextName, SfxStyleFamily::Para, nMask));
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_TEXT );
+        pISet = &pSheet->GetItemSet();
+        aSvxFontItem.SetFamilyName("Noto Sans");
+        pISet->Put( aSvxFontItem );                                        // Noto Sans
+        pISet->Put(XFillStyleItem(drawing::FillStyle_SOLID));              // solid fill
+        pISet->Put(XFillColorItem(OUString(), Color(0xeeeeee)));           // light gray 5
+        pISet->Put(XLineStyleItem(drawing::LineStyle_SOLID));              // solid fill
+        pISet->Put(XLineColorItem(OUString(), Color(0xcccccc)));           // light gray 3
+    }
     // Text > A4
     OUString aA4Name;
-{
-    aA4Name = SdResId(STR_POOLSHEET_A4);
-    pSheet = &(pSSPool->Make(aA4Name, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent( aTextName );
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4 );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(SvxFontHeightItem(635, 100, EE_CHAR_FONTHEIGHT ));      // 18 pt
-    pISet->Put(XFillStyleItem(drawing::FillStyle_NONE));               // no filling
-}
+    {
+        aA4Name = SdResId(STR_POOLSHEET_A4);
+        pSheet = &(pSSPool->Make(aA4Name, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent( aTextName );
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4 );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(SvxFontHeightItem(635, 100, EE_CHAR_FONTHEIGHT ));      // 18 pt
+        pISet->Put(XFillStyleItem(drawing::FillStyle_NONE));               // no filling
+    }
     // Text > A4 > Title
-{
+    {
 
-    aName = SdResId(STR_POOLSHEET_A4_TITLE);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent( aA4Name );
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4_TITLE );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(SvxFontHeightItem(1551, 100, EE_CHAR_FONTHEIGHT ));     // 44 pt
-    pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
-}
+        aName = SdResId(STR_POOLSHEET_A4_TITLE);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent( aA4Name );
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4_TITLE );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(SvxFontHeightItem(1551, 100, EE_CHAR_FONTHEIGHT ));     // 44 pt
+        pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
+    }
     // Text > A4 > Headline
-{
-    aName = SdResId(STR_POOLSHEET_A4_HEADLINE);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent( aA4Name );
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4_HEADLINE );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(SvxFontHeightItem(847, 100, EE_CHAR_FONTHEIGHT ));      // 24 pt
-    pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
-}
+    {
+        aName = SdResId(STR_POOLSHEET_A4_HEADLINE);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent( aA4Name );
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4_HEADLINE );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(SvxFontHeightItem(847, 100, EE_CHAR_FONTHEIGHT ));      // 24 pt
+        pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
+    }
     // Text > A4 > Text
-{
-    aName = SdResId(STR_POOLSHEET_A4_TEXT);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aA4Name);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4_TEXT );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
-}
+    {
+        aName = SdResId(STR_POOLSHEET_A4_TEXT);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aA4Name);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A4_TEXT );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
+    }
     // Text > A0
     OUString aA0Name;
-{
-    aA0Name = SdResId(STR_POOLSHEET_A0);
-    pSheet = &(pSSPool->Make(aA0Name, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aTextName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0 );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(SvxFontHeightItem(1692, 100, EE_CHAR_FONTHEIGHT ));     // 48 pt
-    pISet->Put(XFillStyleItem(drawing::FillStyle_NONE));               // no filling
-}
+    {
+        aA0Name = SdResId(STR_POOLSHEET_A0);
+        pSheet = &(pSSPool->Make(aA0Name, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aTextName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0 );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(SvxFontHeightItem(1692, 100, EE_CHAR_FONTHEIGHT ));     // 48 pt
+        pISet->Put(XFillStyleItem(drawing::FillStyle_NONE));               // no filling
+    }
     // Text > A0 > Title
-{
-    aName = SdResId(STR_POOLSHEET_A0_TITLE);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aA0Name);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0_TITLE );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(SvxFontHeightItem(3385, 100, EE_CHAR_FONTHEIGHT ));      // 96 pt
-    pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
-}
+    {
+        aName = SdResId(STR_POOLSHEET_A0_TITLE);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aA0Name);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0_TITLE );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(SvxFontHeightItem(3385, 100, EE_CHAR_FONTHEIGHT ));      // 96 pt
+        pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
+    }
     // Text > A0 > Headline
-{
-    aName = SdResId(STR_POOLSHEET_A0_HEADLINE);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aA0Name);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0_HEADLINE );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(SvxFontHeightItem(2538, 100, EE_CHAR_FONTHEIGHT ));       // 72 pt
-    pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
-}
+    {
+        aName = SdResId(STR_POOLSHEET_A0_HEADLINE);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aA0Name);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0_HEADLINE );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(SvxFontHeightItem(2538, 100, EE_CHAR_FONTHEIGHT ));       // 72 pt
+        pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
+    }
     // Text > A0 > Text
-{
-    aName = SdResId(STR_POOLSHEET_A0_TEXT);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aA0Name);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0_TEXT );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
-}
+    {
+        aName = SdResId(STR_POOLSHEET_A0_TEXT);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aA0Name);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_A0_TEXT );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(XLineStyleItem(drawing::LineStyle_NONE));               // no border
+    }
 
     // Graphic
     OUString aGraphicName;
     XFillGradientItem aFillGradient;
     XGradient aGradient;
 
-{
-    aGraphicName = SdResId(STR_POOLSHEET_GRAPHIC);
-    pSheet = &(pSSPool->Make(aGraphicName, SfxStyleFamily::Para, nMask));
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_GRAPHIC );
-    pISet = &pSheet->GetItemSet();
-    aSvxFontItem.SetFamilyName("Liberation Sans");                     // Liberation Sans
-    pISet->Put( aSvxFontItem );
-    pISet->Put( SvxFontHeightItem(635, 100, EE_CHAR_FONTHEIGHT) );     // 18 pt
-    pISet->Put( XFillStyleItem(drawing::FillStyle_SOLID) );            // solid fill
-    pISet->Put( XFillColorItem(OUString(), COL_WHITE) );               // filled white
+    {
+        aGraphicName = SdResId(STR_POOLSHEET_GRAPHIC);
+        pSheet = &(pSSPool->Make(aGraphicName, SfxStyleFamily::Para, nMask));
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_GRAPHIC );
+        pISet = &pSheet->GetItemSet();
+        aSvxFontItem.SetFamilyName("Liberation Sans");                     // Liberation Sans
+        pISet->Put( aSvxFontItem );
+        pISet->Put( SvxFontHeightItem(635, 100, EE_CHAR_FONTHEIGHT) );     // 18 pt
+        pISet->Put( XFillStyleItem(drawing::FillStyle_SOLID) );            // solid fill
+        pISet->Put( XFillColorItem(OUString(), COL_WHITE) );               // filled white
 
-}
+    }
     // Graphic > Shapes
     OUString aShapesName;
-{
-    aShapesName = SdResId(STR_POOLSHEET_SHAPES);
-    pSheet = &(pSSPool->Make(aShapesName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent( aGraphicName );
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_SHAPES);
-    pISet = &pSheet->GetItemSet();
-    pISet->Put(XFillStyleItem(drawing::FillStyle_GRADIENT));           // fill with gradient
-    aGradient.SetGradientStyle( ::awt::GradientStyle_RECT);            // square type
-    aGradient.SetAngle( 0 );                                           // 0° angle
-    aGradient.SetStartColor( Color(0xcccccc) );                        // white
-    aGradient.SetEndColor( COL_WHITE );                                // light gray 3
-    aFillGradient.SetName( aShapesName );
-    aFillGradient.SetGradientValue(aGradient);
-    pISet->Put( aFillGradient );
-    pISet->Put( XLineStyleItem(drawing::LineStyle_NONE) );             // no border
-    pISet->Put( SvxFontHeightItem(494, 100, EE_CHAR_FONTHEIGHT) );     // 14 pt
-    pISet->Put( SvxWeightItem(WEIGHT_BOLD, EE_CHAR_WEIGHT) );          // bold
-   }
+    {
+        aShapesName = SdResId(STR_POOLSHEET_SHAPES);
+        pSheet = &(pSSPool->Make(aShapesName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent( aGraphicName );
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_SHAPES);
+        pISet = &pSheet->GetItemSet();
+        pISet->Put(XFillStyleItem(drawing::FillStyle_GRADIENT));           // fill with gradient
+        aGradient.SetGradientStyle( ::awt::GradientStyle_RECT);            // square type
+        aGradient.SetAngle( 0 );                                           // 0° angle
+        aGradient.SetStartColor( Color(0xcccccc) );                        // white
+        aGradient.SetEndColor( COL_WHITE );                                // light gray 3
+        aFillGradient.SetName( aShapesName );
+        aFillGradient.SetGradientValue(aGradient);
+        pISet->Put( aFillGradient );
+        pISet->Put( XLineStyleItem(drawing::LineStyle_NONE) );             // no border
+        pISet->Put( SvxFontHeightItem(494, 100, EE_CHAR_FONTHEIGHT) );     // 14 pt
+        pISet->Put( SvxWeightItem(WEIGHT_BOLD, EE_CHAR_WEIGHT) );          // bold
+    }
     // Graphic > Shapes > Filled
     OUString  aFilledName(SdResId(STR_POOLSHEET_FILLED));
-{
-    aName = aFilledName;
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED );
-    pSheet->SetParent( aShapesName );
-    pISet = &pSheet->GetItemSet();
+    {
+        aName = aFilledName;
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED );
+        pSheet->SetParent( aShapesName );
+        pISet = &pSheet->GetItemSet();
 
-    aGradient.SetGradientStyle( ::awt::GradientStyle_LINEAR );
-    aGradient.SetAngle( 300 );
-    aGradient.SetStartColor( COL_WHITE );                              // white
-    aGradient.SetEndColor( Color(0xcccccc) );                          // light gray 3
-    aFillGradient.SetName( aName );
-    aFillGradient.SetGradientValue(aGradient);
-    pISet->Put( XFillStyleItem(drawing::FillStyle_GRADIENT) );
-    pISet->Put( aFillGradient );
-}
+        aGradient.SetGradientStyle( ::awt::GradientStyle_LINEAR );
+        aGradient.SetAngle( 300 );
+        aGradient.SetStartColor( COL_WHITE );                              // white
+        aGradient.SetEndColor( Color(0xcccccc) );                          // light gray 3
+        aFillGradient.SetName( aName );
+        aFillGradient.SetGradientValue(aGradient);
+        pISet->Put( XFillStyleItem(drawing::FillStyle_GRADIENT) );
+        pISet->Put( aFillGradient );
+    }
     // Graphic > Shapes > Filled > Blue
-{
-    aName =SdResId(STR_POOLSHEET_FILLED_BLUE);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aFilledName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_BLUE );
-    pISet = &pSheet->GetItemSet();
+    {
+        aName =SdResId(STR_POOLSHEET_FILLED_BLUE);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aFilledName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_BLUE );
+        pISet = &pSheet->GetItemSet();
 
-    aGradient.SetStartColor( Color(0x00729fcf) );                   // light blue 2
-    aGradient.SetEndColor( Color(0x00355269) );                     // dark blue 2
-    aFillGradient.SetName( aName );
-    aFillGradient.SetGradientValue(aGradient);
-    pISet->Put( aFillGradient );
-    pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
-}
+        aGradient.SetStartColor( Color(0x00729fcf) );                   // light blue 2
+        aGradient.SetEndColor( Color(0x00355269) );                     // dark blue 2
+        aFillGradient.SetName( aName );
+        aFillGradient.SetGradientValue(aGradient);
+        pISet->Put( aFillGradient );
+        pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
+    }
     // Graphic > Shapes > Filled > Green
-{
-    aName =SdResId(STR_POOLSHEET_FILLED_GREEN);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aFilledName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_GREEN );
-    pISet = &pSheet->GetItemSet();
+    {
+        aName =SdResId(STR_POOLSHEET_FILLED_GREEN);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aFilledName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_GREEN );
+        pISet = &pSheet->GetItemSet();
 
-    aGradient.SetStartColor( Color(0x0077bc65) );                   // light green 2
-    aGradient.SetEndColor( Color(0x00127622) );                     // dark green 2
-    aFillGradient.SetName( aName );
-    aFillGradient.SetGradientValue(aGradient);
-    pISet->Put( aFillGradient );
-    pISet->Put( aSvxFontItem );                                     // font name
-    pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
-}
+        aGradient.SetStartColor( Color(0x0077bc65) );                   // light green 2
+        aGradient.SetEndColor( Color(0x00127622) );                     // dark green 2
+        aFillGradient.SetName( aName );
+        aFillGradient.SetGradientValue(aGradient);
+        pISet->Put( aFillGradient );
+        pISet->Put( aSvxFontItem );                                     // font name
+        pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
+    }
     // Graphic > Shapes > Filled > Red
-{
-    aName =SdResId(STR_POOLSHEET_FILLED_RED);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aFilledName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_RED );
-    pISet = &pSheet->GetItemSet();
+    {
+        aName =SdResId(STR_POOLSHEET_FILLED_RED);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aFilledName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_RED );
+        pISet = &pSheet->GetItemSet();
 
-    aGradient.SetStartColor( Color(0x00ff6d6d) );                   // light red 2
-    aGradient.SetEndColor( Color(0x00c9211e) );                     // dark red 2
-    aFillGradient.SetName( aName );
-    aFillGradient.SetGradientValue(aGradient);
-    pISet->Put( aFillGradient );
-    pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
-}
+        aGradient.SetStartColor( Color(0x00ff6d6d) );                   // light red 2
+        aGradient.SetEndColor( Color(0x00c9211e) );                     // dark red 2
+        aFillGradient.SetName( aName );
+        aFillGradient.SetGradientValue(aGradient);
+        pISet->Put( aFillGradient );
+        pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
+    }
     // Graphic > Shapes > Filled > Yellow
-{
-    aName =SdResId(STR_POOLSHEET_FILLED_YELLOW);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aFilledName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_YELLOW );
-    pISet = &pSheet->GetItemSet();
+    {
+        aName =SdResId(STR_POOLSHEET_FILLED_YELLOW);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aFilledName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_FILLED_YELLOW );
+        pISet = &pSheet->GetItemSet();
 
-    aGradient.SetStartColor( Color(0x00ffde59) );                   // light gold 2
-    aGradient.SetEndColor( Color(0x00b47804) );                     // dark gold 2
-    aFillGradient.SetName( aName );
-    aFillGradient.SetGradientValue(aGradient);
-    pISet->Put( aFillGradient );
-    pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
-}
+        aGradient.SetStartColor( Color(0x00ffde59) );                   // light gold 2
+        aGradient.SetEndColor( Color(0x00b47804) );                     // dark gold 2
+        aFillGradient.SetName( aName );
+        aFillGradient.SetGradientValue(aGradient);
+        pISet->Put( aFillGradient );
+        pISet->Put( SvxColorItem(COL_WHITE, EE_CHAR_COLOR ));           // font white
+    }
     // Graphic > Shapes > Outlines
     OUString aOutlineName(SdResId(STR_POOLSHEET_OUTLINE));
-{
-    aName = aOutlineName;
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE );
-    pSheet->SetParent( aShapesName );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put( XFillStyleItem(drawing::FillStyle_NONE) );             // clear
-    pISet->Put( XLineStyleItem(drawing::LineStyle_SOLID) );            // solide line
-    pISet->Put( XLineWidthItem(81) );                                  // 2.3 pt
-    pISet->Put( XLineColorItem(OUString(), COL_BLACK) );               // b/w
-}
+    {
+        aName = aOutlineName;
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE );
+        pSheet->SetParent( aShapesName );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put( XFillStyleItem(drawing::FillStyle_NONE) );             // clear
+        pISet->Put( XLineStyleItem(drawing::LineStyle_SOLID) );            // solide line
+        pISet->Put( XLineWidthItem(81) );                                  // 2.3 pt
+        pISet->Put( XLineColorItem(OUString(), COL_BLACK) );               // b/w
+    }
     // Graphic > Shapes > Outlines > Blue
-{
-    aName =SdResId(STR_POOLSHEET_OUTLINE_BLUE);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aOutlineName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_BLUE );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put( XLineColorItem(OUString(), Color(0x00355269)) );       // dark blue 2
-    pISet->Put( SvxColorItem(Color(0x00355269), EE_CHAR_COLOR ));      // font color
-}
+    {
+        aName =SdResId(STR_POOLSHEET_OUTLINE_BLUE);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aOutlineName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_BLUE );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put( XLineColorItem(OUString(), Color(0x00355269)) );       // dark blue 2
+        pISet->Put( SvxColorItem(Color(0x00355269), EE_CHAR_COLOR ));      // font color
+    }
     // Graphic > Shapes > Outlines > Green
-{
-    aName =SdResId(STR_POOLSHEET_OUTLINE_GREEN);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aOutlineName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_GREEN );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put( XLineColorItem(OUString(), Color(0x00127622)) );       // dark green 2
-    pISet->Put( SvxColorItem(Color(0x00127622), EE_CHAR_COLOR ));      // font color
-}
+    {
+        aName =SdResId(STR_POOLSHEET_OUTLINE_GREEN);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aOutlineName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_GREEN );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put( XLineColorItem(OUString(), Color(0x00127622)) );       // dark green 2
+        pISet->Put( SvxColorItem(Color(0x00127622), EE_CHAR_COLOR ));      // font color
+    }
     // Graphic > Shapes > Outlines > Red
-{
-    aName =SdResId(STR_POOLSHEET_OUTLINE_RED);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aOutlineName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_RED );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put( XLineColorItem(OUString(), Color(0x00c9211e)) );       // dark red 2
-    pISet->Put( SvxColorItem(Color(0x00c9211e), EE_CHAR_COLOR ));      // font color
-}
+    {
+        aName =SdResId(STR_POOLSHEET_OUTLINE_RED);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aOutlineName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_RED );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put( XLineColorItem(OUString(), Color(0x00c9211e)) );       // dark red 2
+        pISet->Put( SvxColorItem(Color(0x00c9211e), EE_CHAR_COLOR ));      // font color
+    }
     // Graphic > Shapes > Outlines > Yellow
-{
-    aName =SdResId(STR_POOLSHEET_OUTLINE_YELLOW);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aOutlineName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_YELLOW );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put( XLineStyleItem(drawing::LineStyle_SOLID));
-    pISet->Put( XLineColorItem(OUString(), Color(0x00b47804)) );       // dark gold 2
-    pISet->Put( SvxColorItem(Color(0x00b47804), EE_CHAR_COLOR ));      // font color
-}
+    {
+        aName =SdResId(STR_POOLSHEET_OUTLINE_YELLOW);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aOutlineName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_OUTLINE_YELLOW );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put( XLineStyleItem(drawing::LineStyle_SOLID));
+        pISet->Put( XLineColorItem(OUString(), Color(0x00b47804)) );       // dark gold 2
+        pISet->Put( SvxColorItem(Color(0x00b47804), EE_CHAR_COLOR ));      // font color
+    }
     // Graphic > Lines
     OUString aLinesName;
-{
-    aLinesName = SdResId(STR_POOLSHEET_LINES);
-    pSheet = &(pSSPool->Make(aLinesName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent( aGraphicName );
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_LINES);
-    pISet = &pSheet->GetItemSet();
-    pISet->Put( XFillStyleItem(drawing::FillStyle_NONE) );             // clear
-    pISet->Put( XLineStyleItem(drawing::LineStyle_SOLID) );            // solide line
-    pISet->Put( XLineColorItem(OUString(), COL_BLACK) );               // b/w
-}
+    {
+        aLinesName = SdResId(STR_POOLSHEET_LINES);
+        pSheet = &(pSSPool->Make(aLinesName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent( aGraphicName );
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_LINES);
+        pISet = &pSheet->GetItemSet();
+        pISet->Put( XFillStyleItem(drawing::FillStyle_NONE) );             // clear
+        pISet->Put( XLineStyleItem(drawing::LineStyle_SOLID) );            // solide line
+        pISet->Put( XLineColorItem(OUString(), COL_BLACK) );               // b/w
+    }
     // Graphic > Lines > Measurements
-{
-    aName = SdResId(STR_POOLSHEET_MEASURE);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aLinesName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_MEASURE );
-    pISet = &pSheet->GetItemSet();
+    {
+        aName = SdResId(STR_POOLSHEET_MEASURE);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aLinesName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_MEASURE );
+        pISet = &pSheet->GetItemSet();
 
-    ::basegfx::B2DPolygon aArrow;                                      // arrows
-    aArrow.append(::basegfx::B2DPoint(10.0, 0.0));
-    aArrow.append(::basegfx::B2DPoint(0.0, 30.0));
-    aArrow.append(::basegfx::B2DPoint(20.0, 30.0));
-    aArrow.setClosed(true);
+        ::basegfx::B2DPolygon aArrow;                                      // arrows
+        aArrow.append(::basegfx::B2DPoint(10.0, 0.0));
+        aArrow.append(::basegfx::B2DPoint(0.0, 30.0));
+        aArrow.append(::basegfx::B2DPoint(20.0, 30.0));
+        aArrow.setClosed(true);
 
-    pISet->Put(XLineStartItem(SvxResId(RID_SVXSTR_ARROW),::basegfx::B2DPolyPolygon(aArrow)));
-    pISet->Put(XLineStartWidthItem(200));
-    pISet->Put(XLineEndItem(SvxResId(RID_SVXSTR_ARROW),::basegfx::B2DPolyPolygon(aArrow)));
-    pISet->Put(XLineEndWidthItem(200));
-    pISet->Put(SdrYesNoItem(SDRATTR_MEASURESHOWUNIT, true));
-}
+        pISet->Put(XLineStartItem(SvxResId(RID_SVXSTR_ARROW),::basegfx::B2DPolyPolygon(aArrow)));
+        pISet->Put(XLineStartWidthItem(200));
+        pISet->Put(XLineEndItem(SvxResId(RID_SVXSTR_ARROW),::basegfx::B2DPolyPolygon(aArrow)));
+        pISet->Put(XLineEndWidthItem(200));
+        pISet->Put(SdrYesNoItem(SDRATTR_MEASURESHOWUNIT, true));
+    }
     // Graphic > Lines > Dashed
-{
-    aName = SdResId(STR_POOLSHEET_LINES_DASHED);
-    pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
-    pSheet->SetParent(aLinesName);
-    pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_LINES_DASHED );
-    pISet = &pSheet->GetItemSet();
-    pISet->Put( XLineStyleItem(drawing::LineStyle_DASH) );            // dashed line
-}
+    {
+        aName = SdResId(STR_POOLSHEET_LINES_DASHED);
+        pSheet = &(pSSPool->Make(aName, SfxStyleFamily::Para, nMask));
+        pSheet->SetParent(aLinesName);
+        pSheet->SetHelpId( aHelpFile, HID_POOLSHEET_LINES_DASHED );
+        pISet = &pSheet->GetItemSet();
+        pISet->Put( XLineStyleItem(drawing::LineStyle_DASH) );            // dashed line
+    }
 
     // Generate presentation templates for default layout.
     OUString aPrefix = SdResId(STR_LAYOUT_DEFAULT_NAME);
@@ -599,7 +591,10 @@ static Any implMakeSolidCellStyle( SdStyleSheetPool* pSSPool, const OUString& rN
 
 static void implCreateTableTemplate( const Reference< XNameContainer >& xTableFamily, const OUString& rName, const Any& rBody, const Any& rHeading, const Any& rBanding )
 {
-    if( xTableFamily.is() ) try
+    if( !xTableFamily.is() )
+        return;
+
+    try
     {
         if( !xTableFamily->hasByName( rName ) )
         {
@@ -818,44 +813,44 @@ void SdDrawDocument::StopOnlineSpelling()
 // Start OnlineSpelling in the background
 void SdDrawDocument::StartOnlineSpelling(bool bForceSpelling)
 {
-    if (mbOnlineSpell && (bForceSpelling || mbInitialOnlineSpellingEnabled) &&
-        mpDocSh && !mpDocSh->IsReadOnly() )
+    if (!(mbOnlineSpell && (bForceSpelling || mbInitialOnlineSpellingEnabled) &&
+        mpDocSh && !mpDocSh->IsReadOnly()) )
+        return;
+
+    StopOnlineSpelling();
+
+    SdOutliner* pOutl = GetInternalOutliner();
+
+    Reference< XSpellChecker1 > xSpellChecker( LinguMgr::GetSpellChecker() );
+    if ( xSpellChecker.is() )
+        pOutl->SetSpeller( xSpellChecker );
+
+    Reference< XHyphenator > xHyphenator( LinguMgr::GetHyphenator() );
+    if( xHyphenator.is() )
+        pOutl->SetHyphenator( xHyphenator );
+
+    pOutl->SetDefaultLanguage( meLanguage );
+
+    mpOnlineSpellingList.reset(new ShapeList);
+    sal_uInt16 nPage;
+
+    for ( nPage = 0; nPage < GetPageCount(); nPage++ )
     {
-        StopOnlineSpelling();
-
-        SdOutliner* pOutl = GetInternalOutliner();
-
-        Reference< XSpellChecker1 > xSpellChecker( LinguMgr::GetSpellChecker() );
-        if ( xSpellChecker.is() )
-            pOutl->SetSpeller( xSpellChecker );
-
-        Reference< XHyphenator > xHyphenator( LinguMgr::GetHyphenator() );
-        if( xHyphenator.is() )
-            pOutl->SetHyphenator( xHyphenator );
-
-        pOutl->SetDefaultLanguage( meLanguage );
-
-        mpOnlineSpellingList.reset(new ShapeList);
-        sal_uInt16 nPage;
-
-        for ( nPage = 0; nPage < GetPageCount(); nPage++ )
-        {
-            // Search in all pages
-            FillOnlineSpellingList(static_cast<SdPage*>(GetPage(nPage)));
-        }
-
-        for (nPage = 0; nPage < GetMasterPageCount(); nPage++)
-        {
-            // Search all master pages
-            FillOnlineSpellingList(static_cast<SdPage*>( GetMasterPage(nPage) ));
-        }
-
-        mpOnlineSpellingList->seekShape(0);
-        mpOnlineSpellingIdle.reset(new Idle("OnlineSpelling"));
-        mpOnlineSpellingIdle->SetInvokeHandler( LINK(this, SdDrawDocument, OnlineSpellingHdl) );
-        mpOnlineSpellingIdle->SetPriority(TaskPriority::LOWEST);
-        mpOnlineSpellingIdle->Start();
+        // Search in all pages
+        FillOnlineSpellingList(static_cast<SdPage*>(GetPage(nPage)));
     }
+
+    for (nPage = 0; nPage < GetMasterPageCount(); nPage++)
+    {
+        // Search all master pages
+        FillOnlineSpellingList(static_cast<SdPage*>( GetMasterPage(nPage) ));
+    }
+
+    mpOnlineSpellingList->seekShape(0);
+    mpOnlineSpellingIdle.reset(new Idle("OnlineSpelling"));
+    mpOnlineSpellingIdle->SetInvokeHandler( LINK(this, SdDrawDocument, OnlineSpellingHdl) );
+    mpOnlineSpellingIdle->SetPriority(TaskPriority::LOWEST);
+    mpOnlineSpellingIdle->Start();
 }
 
 // Fill OnlineSpelling list
@@ -952,54 +947,54 @@ IMPL_LINK_NOARG(SdDrawDocument, OnlineSpellingHdl, Timer *, void)
 // Spell object (for OnlineSpelling)
 void SdDrawDocument::SpellObject(SdrTextObj* pObj)
 {
-    if (pObj && pObj->GetOutlinerParaObject() /* && pObj != pView->GetTextEditObject() */)
+    if (!(pObj && pObj->GetOutlinerParaObject()) /* && pObj != pView->GetTextEditObject() */)
+        return;
+
+    mbHasOnlineSpellErrors = false;
+    SdOutliner* pOutl = GetInternalOutliner();
+    pOutl->SetUpdateMode(true);
+    Link<EditStatus&,void> aEvtHdl = pOutl->GetStatusEventHdl();
+    pOutl->SetStatusEventHdl(LINK(this, SdDrawDocument, OnlineSpellEventHdl));
+
+    OutlinerMode nOldOutlMode = pOutl->GetMode();
+    OutlinerMode nOutlMode = OutlinerMode::TextObject;
+    if (pObj->GetObjInventor() == SdrInventor::Default &&
+        pObj->GetObjIdentifier() == OBJ_OUTLINETEXT)
     {
-        mbHasOnlineSpellErrors = false;
-        SdOutliner* pOutl = GetInternalOutliner();
-        pOutl->SetUpdateMode(true);
-        Link<EditStatus&,void> aEvtHdl = pOutl->GetStatusEventHdl();
-        pOutl->SetStatusEventHdl(LINK(this, SdDrawDocument, OnlineSpellEventHdl));
+        nOutlMode = OutlinerMode::OutlineObject;
+    }
+    pOutl->Init( nOutlMode );
 
-        OutlinerMode nOldOutlMode = pOutl->GetMode();
-        OutlinerMode nOutlMode = OutlinerMode::TextObject;
-        if (pObj->GetObjInventor() == SdrInventor::Default &&
-            pObj->GetObjIdentifier() == OBJ_OUTLINETEXT)
+    // Put text into the outliner
+    pOutl->SetText(*pObj->GetOutlinerParaObject());
+
+    if (!mpOnlineSearchItem || pOutl->HasText(*mpOnlineSearchItem))
+    {
+        // Spelling
+        pOutl->CompleteOnlineSpelling();
+
+        if (mbHasOnlineSpellErrors)
         {
-            nOutlMode = OutlinerMode::OutlineObject;
-        }
-        pOutl->Init( nOutlMode );
-
-        // Put text into the outliner
-        pOutl->SetText(*pObj->GetOutlinerParaObject());
-
-        if (!mpOnlineSearchItem || pOutl->HasText(*mpOnlineSearchItem))
-        {
-            // Spelling
-            pOutl->CompleteOnlineSpelling();
-
-            if (mbHasOnlineSpellErrors)
+            std::unique_ptr<OutlinerParaObject> pOPO = pOutl->CreateParaObject();
+            if (pOPO)
             {
-                std::unique_ptr<OutlinerParaObject> pOPO = pOutl->CreateParaObject();
-                if (pOPO)
+                if (!( *pOPO == *pObj->GetOutlinerParaObject() ) ||
+                     !pObj->GetOutlinerParaObject()->isWrongListEqual( *pOPO ))
                 {
-                    if (!( *pOPO == *pObj->GetOutlinerParaObject() ) ||
-                         !pObj->GetOutlinerParaObject()->isWrongListEqual( *pOPO ))
-                    {
-                        sd::ModifyGuard aGuard( this );
+                    sd::ModifyGuard aGuard( this );
 
-                        // taking text from the outliner
-                        // use non-broadcasting version to avoid O(n^2)
-                        pObj->NbcSetOutlinerParaObject( std::move(pOPO) );
-                    }
+                    // taking text from the outliner
+                    // use non-broadcasting version to avoid O(n^2)
+                    pObj->NbcSetOutlinerParaObject( std::move(pOPO) );
                 }
             }
         }
-
-        pOutl->SetStatusEventHdl(aEvtHdl);
-        pOutl->SetUpdateMode(false);
-        pOutl->Init( nOldOutlMode );
-        mbHasOnlineSpellErrors = false;
     }
+
+    pOutl->SetStatusEventHdl(aEvtHdl);
+    pOutl->SetUpdateMode(false);
+    pOutl->Init( nOldOutlMode );
+    mbHasOnlineSpellErrors = false;
 }
 
 // Object was inserted into model
@@ -1290,30 +1285,29 @@ css::text::WritingMode SdDrawDocument::GetDefaultWritingMode() const
 
 void SdDrawDocument::SetDefaultWritingMode(css::text::WritingMode eMode )
 {
-    if( pItemPool )
+    if( !pItemPool )
+        return;
+
+    SvxFrameDirection nVal;
+    switch( eMode )
     {
-        SvxFrameDirection nVal;
-        switch( eMode )
-        {
-        case css::text::WritingMode_LR_TB: nVal = SvxFrameDirection::Horizontal_LR_TB; break;
-        case css::text::WritingMode_RL_TB: nVal = SvxFrameDirection::Horizontal_RL_TB; break;
-        case css::text::WritingMode_TB_RL: nVal = SvxFrameDirection::Vertical_RL_TB; break;
-        default:
-            OSL_FAIL( "Frame direction not supported yet" );
-            return;
-        }
-
-        SvxFrameDirectionItem aModeItem( nVal, EE_PARA_WRITINGDIR );
-        pItemPool->SetPoolDefaultItem( aModeItem );
-
-        SvxAdjustItem aAdjust( SvxAdjust::Left, EE_PARA_JUST );
-
-        if( eMode == css::text::WritingMode_RL_TB )
-            aAdjust.SetAdjust( SvxAdjust::Right );
-
-        pItemPool->SetPoolDefaultItem( aAdjust );
-
+    case css::text::WritingMode_LR_TB: nVal = SvxFrameDirection::Horizontal_LR_TB; break;
+    case css::text::WritingMode_RL_TB: nVal = SvxFrameDirection::Horizontal_RL_TB; break;
+    case css::text::WritingMode_TB_RL: nVal = SvxFrameDirection::Vertical_RL_TB; break;
+    default:
+        OSL_FAIL( "Frame direction not supported yet" );
+        return;
     }
+
+    SvxFrameDirectionItem aModeItem( nVal, EE_PARA_WRITINGDIR );
+    pItemPool->SetPoolDefaultItem( aModeItem );
+
+    SvxAdjustItem aAdjust( SvxAdjust::Left, EE_PARA_JUST );
+
+    if( eMode == css::text::WritingMode_RL_TB )
+        aAdjust.SetAdjust( SvxAdjust::Right );
+
+    pItemPool->SetPoolDefaultItem( aAdjust );
 }
 
 void SdDrawDocument::getDefaultFonts( vcl::Font& rLatinFont, vcl::Font& rCJKFont, vcl::Font& rCTLFont )

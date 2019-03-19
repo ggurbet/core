@@ -22,6 +22,7 @@
 #include <svtools/svtresid.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/print.hxx>
+#include <vcl/event.hxx>
 #include <sal/log.hxx>
 
 void ImplFillPrnDlgListBox( const Printer* pPrinter,
@@ -39,7 +40,7 @@ void ImplFillPrnDlgListBox( const Printer* pPrinter,
     }
 
     pBox->set_sensitive(nCount != 0);
-    pPropBtn->show( pPrinter->HasSupport( PrinterSupport::SetupDialog ) );
+    pPropBtn->set_visible( pPrinter->HasSupport( PrinterSupport::SetupDialog ) );
 }
 
 
@@ -197,7 +198,7 @@ OUString ImplPrnDlgGetStatusText( const QueueInfo& rInfo )
         aStr = ImplPrnDlgAddResString( aStr, STR_SVT_PRNDLG_POWER_SAVE );
 
     // Number of jobs
-    sal_uLong nJobs = rInfo.GetJobs();
+    sal_uInt32 nJobs = rInfo.GetJobs();
     if ( nJobs && (nJobs != QUEUE_JOBS_DONTKNOW) )
     {
         OUString aJobStr( SvtResId( STR_SVT_PRNDLG_JOBCOUNT ) );
@@ -243,7 +244,7 @@ PrinterSetupDialog::~PrinterSetupDialog()
 void PrinterSetupDialog::SetOptionsHdl(const Link<weld::Button&, void>& rLink)
 {
     m_xBtnOptions->connect_clicked(rLink);
-    m_xBtnOptions->show(rLink.IsSet());
+    m_xBtnOptions->set_visible(rLink.IsSet());
 }
 
 void PrinterSetupDialog::ImplSetInfo()

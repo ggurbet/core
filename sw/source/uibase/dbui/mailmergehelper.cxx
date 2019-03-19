@@ -34,6 +34,7 @@
 #include <com/sun/star/mail/MailServiceProvider.hpp>
 #include <com/sun/star/mail/XSmtpService.hpp>
 #include <comphelper/processfactory.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
 
@@ -659,7 +660,7 @@ void AddressPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rect
     rRenderContext.SetClipRegion();
 }
 
-void AddressPreview::MouseButtonDown( const MouseEvent& rMEvt )
+bool AddressPreview::MouseButtonDown( const MouseEvent& rMEvt )
 {
     if (rMEvt.IsLeft() && pImpl->nRows && pImpl->nColumns)
     {
@@ -682,6 +683,7 @@ void AddressPreview::MouseButtonDown( const MouseEvent& rMEvt )
         }
         Invalidate();
     }
+    return true;
 }
 
 bool AddressPreview::KeyInput( const KeyEvent& rKEvt )

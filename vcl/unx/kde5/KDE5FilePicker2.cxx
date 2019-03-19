@@ -19,7 +19,6 @@
 
 #include "KDE5FilePicker.hxx"
 
-#include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <cppuhelper/interfacecontainer.h>
@@ -37,6 +36,7 @@
 
 #include <unx/geninst.h>
 #include <qt5/Qt5Tools.hxx>
+#include <qt5/Qt5Instance.hxx>
 
 #include <QtCore/QDebug>
 #include <QtCore/QThread>
@@ -44,8 +44,10 @@
 #include <QtGui/QClipboard>
 #include <QtGui/QWindow>
 #include <QtWidgets/QCheckBox>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QGridLayout>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QWidget>
 #include <QtWidgets/QApplication>
 #include <KFileWidget>
@@ -80,14 +82,23 @@ uno::Sequence<OUString> FilePicker_getSupportedServiceNames()
 // KDE5FilePicker
 
 KDE5FilePicker::KDE5FilePicker(QFileDialog::FileMode eMode)
-    : KDE5FilePicker_Base(_helperMutex)
-    , _dialog(new QFileDialog(nullptr, {}, QDir::homePath()))
-    , _extraControls(new QWidget)
-    , _layout(new QGridLayout(_extraControls))
+    // Native kde5 filepicker does not add file extension automatically
+    : Qt5FilePicker(eMode, true, true)
+    , _layout(new QGridLayout(m_pExtraControls))
     , allowRemoteUrls(false)
-    , mbIsFolderPicker(eMode == QFileDialog::Directory)
 {
-    _dialog->setSupportedSchemes({
+    // use native dialog
+    m_pFileDialog->setOption(QFileDialog::DontUseNativeDialog, false);
+
+    // only columns 0 and 1 are used by controls (s. Qt5FilePicker::addCustomControl);
+    // set stretch for (unused) column 2 in order for the controls to only take the space
+    // they actually need and avoid empty space in between
+    _layout->setColumnStretch(2, 1);
+
+    // set layout so custom widgets show up in our native file dialog
+    setCustomControlWidgetLayout(_layout);
+
+    m_pFileDialog->setSupportedSchemes({
         QStringLiteral("file"),
         QStringLiteral("ftp"),
         QStringLiteral("http"),
@@ -97,297 +108,55 @@ KDE5FilePicker::KDE5FilePicker(QFileDialog::FileMode eMode)
         QStringLiteral("smb"),
     });
 
-    _dialog->setFileMode(eMode);
-
-    if (mbIsFolderPicker)
-    {
-        _dialog->setOption(QFileDialog::ShowDirsOnly, true);
-        _dialog->setWindowTitle(toQString(VclResId(STR_FPICKER_FOLDER_DEFAULT_TITLE)));
-    }
-
-    connect(_dialog, &QFileDialog::filterSelected, this, &KDE5FilePicker::filterChanged);
-    connect(_dialog, &QFileDialog::fileSelected, this, &KDE5FilePicker::selectionChanged);
-    connect(this, &KDE5FilePicker::executeSignal, this, &KDE5FilePicker::execute,
-            Qt::BlockingQueuedConnection);
-
-    // XExecutableDialog
-    connect(this, &KDE5FilePicker::setTitleSignal, this, &KDE5FilePicker::setTitleSlot,
-            Qt::BlockingQueuedConnection);
-    // XFilePicker
-    connect(this, &KDE5FilePicker::setMultiSelectionSignal, this,
-            &KDE5FilePicker::setMultiSelectionSlot, Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::setDefaultNameSignal, this, &KDE5FilePicker::setDefaultNameSlot,
-            Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::setDisplayDirectorySignal, this,
-            &KDE5FilePicker::setDisplayDirectorySlot, Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::getDisplayDirectorySignal, this,
-            &KDE5FilePicker::getDisplayDirectorySlot, Qt::BlockingQueuedConnection);
-    // XFolderPicker
-    connect(this, &KDE5FilePicker::getDirectorySignal, this, &KDE5FilePicker::getDirectorySlot,
-            Qt::BlockingQueuedConnection);
-    // XFilterManager
-    connect(this, &KDE5FilePicker::appendFilterSignal, this, &KDE5FilePicker::appendFilterSlot,
-            Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::setCurrentFilterSignal, this,
-            &KDE5FilePicker::setCurrentFilterSlot, Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::getCurrentFilterSignal, this,
-            &KDE5FilePicker::getCurrentFilterSlot, Qt::BlockingQueuedConnection);
-    // XFilterGroupManager
-    connect(this, &KDE5FilePicker::appendFilterGroupSignal, this,
-            &KDE5FilePicker::appendFilterGroupSlot, Qt::BlockingQueuedConnection);
-    // XFilePickerControlAccess
-    connect(this, &KDE5FilePicker::setValueSignal, this, &KDE5FilePicker::setValueSlot,
-            Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::getValueSignal, this, &KDE5FilePicker::getValueSlot,
-            Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::setLabelSignal, this, &KDE5FilePicker::setLabelSlot,
-            Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::getLabelSignal, this, &KDE5FilePicker::getLabelSlot,
-            Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::enableControlSignal, this, &KDE5FilePicker::enableControlSlot,
-            Qt::BlockingQueuedConnection);
-    // XFilePicker2
-    connect(this, &KDE5FilePicker::getSelectedFilesSignal, this,
-            &KDE5FilePicker::getSelectedFilesSlot, Qt::BlockingQueuedConnection);
-    connect(this, &KDE5FilePicker::getFilesSignal, this, &KDE5FilePicker::getFiles,
-            Qt::BlockingQueuedConnection);
-
+    // used to set the custom controls
     qApp->installEventFilter(this);
-}
-
-KDE5FilePicker::~KDE5FilePicker()
-{
-    delete _extraControls;
-    delete _dialog;
-}
-
-void SAL_CALL
-KDE5FilePicker::addFilePickerListener(const uno::Reference<XFilePickerListener>& xListener)
-{
-    SolarMutexGuard aGuard;
-    m_xListener = xListener;
-}
-
-void SAL_CALL KDE5FilePicker::removeFilePickerListener(const uno::Reference<XFilePickerListener>&)
-{
-    SolarMutexGuard aGuard;
-    m_xListener.clear();
-}
-
-// XExecutableDialog
-void SAL_CALL KDE5FilePicker::setTitle(const OUString& title)
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT setTitleSignal(title);
-    }
-
-    _dialog->setWindowTitle(toQString(title));
 }
 
 sal_Int16 SAL_CALL KDE5FilePicker::execute()
 {
-    if (qApp->thread() != QThread::currentThread())
+    SolarMutexGuard g;
+    auto* pSalInst(static_cast<Qt5Instance*>(GetSalData()->m_pInstance));
+    assert(pSalInst);
+    if (!pSalInst->IsMainThread())
     {
-        //SolarMutexReleaser aReleaser;
-        return Q_EMIT executeSignal();
+        sal_Int16 ret;
+        pSalInst->RunInMainThread([&ret, this] { ret = execute(); });
+        return ret;
     }
 
-    if (!_filters.isEmpty())
-        _dialog->setNameFilters(_filters);
-    if (!_currentFilter.isEmpty())
-        _dialog->selectNameFilter(_currentFilter);
+    if (!m_aNamedFilterList.isEmpty())
+        m_pFileDialog->setNameFilters(m_aNamedFilterList);
+    if (!m_aCurrentFilter.isEmpty())
+        m_pFileDialog->selectNameFilter(m_aCurrentFilter);
 
-    _dialog->show();
+    m_pFileDialog->show();
     //block and wait for user input
-    return _dialog->exec() == QFileDialog::Accepted ? 1 : 0;
-}
-
-// XFilePicker
-void SAL_CALL KDE5FilePicker::setMultiSelectionMode(sal_Bool multiSelect)
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT setMultiSelectionSignal(multiSelect);
-    }
-
-    if (mbIsFolderPicker || _dialog->acceptMode() == QFileDialog::AcceptSave)
-        return;
-
-    _dialog->setFileMode(multiSelect ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
-}
-
-void SAL_CALL KDE5FilePicker::setDefaultName(const OUString& name)
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT setDefaultNameSignal(name);
-    }
-
-    _dialog->selectFile(toQString(name));
-}
-
-void SAL_CALL KDE5FilePicker::setDisplayDirectory(const OUString& dir)
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT setDisplayDirectorySignal(dir);
-    }
-
-    QString qDir(toQString(dir));
-    _dialog->setDirectoryUrl(QUrl(qDir));
-}
-
-OUString SAL_CALL KDE5FilePicker::getDisplayDirectory()
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT getDisplayDirectorySignal();
-    }
-
-    return implGetDirectory();
-}
-
-uno::Sequence<OUString> SAL_CALL KDE5FilePicker::getFiles()
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        //SolarMutexReleaser aReleaser;
-        return Q_EMIT getFilesSignal();
-    }
-
-    uno::Sequence<OUString> seq = getSelectedFiles();
-    if (seq.getLength() > 1)
-        seq.realloc(1);
-    return seq;
-}
-
-// XFilePicker2
-uno::Sequence<OUString> SAL_CALL KDE5FilePicker::getSelectedFiles()
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT getSelectedFilesSignal();
-    }
-
-    QList<QUrl> aURLs = _dialog->selectedUrls();
-    uno::Sequence<OUString> seq(aURLs.size());
-
-    size_t i = 0;
-    for (auto& aURL : aURLs)
-    {
-        seq[i++] = toOUString(aURL.toString());
-    }
-
-    return seq;
-}
-
-// XFilterManager
-void SAL_CALL KDE5FilePicker::appendFilter(const OUString& title, const OUString& filter)
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT appendFilterSignal(title, filter);
-    }
-
-    QString t(toQString(title));
-    QString f(toQString(filter));
-    // '/' need to be escaped else they are assumed to be mime types by kfiledialog
-    //see the docs
-    t.replace("/", "\\/");
-
-    // libreoffice separates by filters by ';' qt dialogs by space
-    f.replace(";", " ");
-
-    // make sure "*.*" is not used as "all files"
-    f.replace("*.*", "*");
-
-    _filters << QStringLiteral("%1 (%2)").arg(t, f);
-    _titleToFilters[t] = _filters.constLast();
-}
-
-void SAL_CALL KDE5FilePicker::setCurrentFilter(const OUString& title)
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT setCurrentFilterSignal(title);
-    }
-
-    _currentFilter = _titleToFilters.value(toQString(title));
-}
-
-OUString SAL_CALL KDE5FilePicker::getCurrentFilter()
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT getCurrentFilterSignal();
-    }
-
-    OUString filter = toOUString(_titleToFilters.key(_dialog->selectedNameFilter()));
-
-    //default if not found
-    if (filter.isEmpty())
-        filter = "ODF Text Document (.odt)";
-
-    return filter;
-}
-
-// XFilterGroupManager
-void SAL_CALL KDE5FilePicker::appendFilterGroup(const OUString& rGroupTitle,
-                                                const uno::Sequence<beans::StringPair>& filters)
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT appendFilterGroupSignal(rGroupTitle, filters);
-    }
-
-    const sal_uInt16 length = filters.getLength();
-    for (sal_uInt16 i = 0; i < length; ++i)
-    {
-        beans::StringPair aPair = filters[i];
-        appendFilter(aPair.First, aPair.Second);
-    }
+    return m_pFileDialog->exec() == QFileDialog::Accepted ? 1 : 0;
 }
 
 // XFilePickerControlAccess
 void SAL_CALL KDE5FilePicker::setValue(sal_Int16 controlId, sal_Int16 nControlAction,
                                        const uno::Any& value)
 {
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT setValueSignal(controlId, nControlAction, value);
-    }
+    if (CHECKBOX_AUTOEXTENSION == controlId)
+        // We ignore this one and rely on QFileDialog to provide the functionality
+        return;
 
-    if (_customWidgets.contains(controlId))
-    {
-        bool bChecked = false;
-        value >>= bChecked;
-
-        QCheckBox* cb = dynamic_cast<QCheckBox*>(_customWidgets.value(controlId));
-        if (cb)
-            cb->setChecked(bChecked);
-    }
-    else
-        SAL_WARN("vcl.kde5", "set value on unknown control " << controlId);
+    Qt5FilePicker::setValue(controlId, nControlAction, value);
 }
 
 uno::Any SAL_CALL KDE5FilePicker::getValue(sal_Int16 controlId, sal_Int16 nControlAction)
 {
-    if (qApp->thread() != QThread::currentThread())
+    SolarMutexGuard g;
+    auto* pSalInst(static_cast<Qt5Instance*>(GetSalData()->m_pInstance));
+    assert(pSalInst);
+    if (!pSalInst->IsMainThread())
     {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT getValueSignal(controlId, nControlAction);
+        uno::Any ret;
+        pSalInst->RunInMainThread([&ret, this, controlId, nControlAction]() {
+            ret = getValue(controlId, nControlAction);
+        });
+        return ret;
     }
 
     if (CHECKBOX_AUTOEXTENSION == controlId)
@@ -398,321 +167,44 @@ uno::Any SAL_CALL KDE5FilePicker::getValue(sal_Int16 controlId, sal_Int16 nContr
         // saves the value of the setting, so LO core is not needed for that either.
         return uno::Any(false);
 
-    bool value = false;
-    if (_customWidgets.contains(controlId))
-    {
-        QCheckBox* cb = dynamic_cast<QCheckBox*>(_customWidgets.value(controlId));
-        if (cb)
-            value = cb->isChecked();
-    }
-    else
-        SAL_WARN("vcl.kde5", "get value on unknown control" << controlId);
-
-    return uno::Any(value);
+    return Qt5FilePicker::getValue(controlId, nControlAction);
 }
 
 void SAL_CALL KDE5FilePicker::enableControl(sal_Int16 controlId, sal_Bool enable)
 {
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT enableControlSignal(controlId, enable);
-    }
+    if (CHECKBOX_AUTOEXTENSION == controlId)
+        // We ignore this one and rely on QFileDialog to provide the functionality
+        return;
 
-    if (_customWidgets.contains(controlId))
-        _customWidgets.value(controlId)->setEnabled(enable);
-    else
-        SAL_WARN("vcl.kde5", "enable on unknown control" << controlId);
+    Qt5FilePicker::enableControl(controlId, enable);
 }
 
 void SAL_CALL KDE5FilePicker::setLabel(sal_Int16 controlId, const OUString& label)
 {
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT setLabelSignal(controlId, label);
-    }
+    if (CHECKBOX_AUTOEXTENSION == controlId)
+        // We ignore this one and rely on QFileDialog to provide the functionality
+        return;
 
-    if (_customWidgets.contains(controlId))
-    {
-        QCheckBox* cb = dynamic_cast<QCheckBox*>(_customWidgets.value(controlId));
-        if (cb)
-            cb->setText(toQString(label));
-    }
-    else
-        SAL_WARN("vcl.kde5", "set label on unknown control" << controlId);
+    Qt5FilePicker::setLabel(controlId, label);
 }
 
 OUString SAL_CALL KDE5FilePicker::getLabel(sal_Int16 controlId)
 {
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT getLabelSignal(controlId);
-    }
+    // We ignore this one and rely on QFileDialog to provide the functionality
+    if (CHECKBOX_AUTOEXTENSION == controlId)
+        return "";
 
-    OUString label;
-    if (_customWidgets.contains(controlId))
-    {
-        QCheckBox* cb = dynamic_cast<QCheckBox*>(_customWidgets.value(controlId));
-        if (cb)
-            label = toOUString(cb->text());
-    }
-    else
-        SAL_WARN("vcl.kde5", "get label on unknown control" << controlId);
-
-    return label;
+    return Qt5FilePicker::getLabel(controlId);
 }
-
-// XFolderPicker
-OUString SAL_CALL KDE5FilePicker::getDirectory()
-{
-    if (qApp->thread() != QThread::currentThread())
-    {
-        SolarMutexReleaser aReleaser;
-        return Q_EMIT getDirectorySignal();
-    }
-
-    return implGetDirectory();
-}
-
-void SAL_CALL KDE5FilePicker::setDescription(const OUString&) {}
 
 void KDE5FilePicker::addCustomControl(sal_Int16 controlId)
 {
-    const char* resId = nullptr;
+    // native kde5 filepicker has its own autoextension checkbox,
+    // therefore avoid adding yet another one
+    if (controlId == CHECKBOX_AUTOEXTENSION)
+        return;
 
-    switch (controlId)
-    {
-        case CHECKBOX_AUTOEXTENSION:
-            resId = STR_FPICKER_AUTO_EXTENSION;
-            break;
-        case CHECKBOX_PASSWORD:
-            resId = STR_FPICKER_PASSWORD;
-            break;
-        case CHECKBOX_FILTEROPTIONS:
-            resId = STR_FPICKER_FILTER_OPTIONS;
-            break;
-        case CHECKBOX_READONLY:
-            resId = STR_FPICKER_READONLY;
-            break;
-        case CHECKBOX_LINK:
-            resId = STR_FPICKER_INSERT_AS_LINK;
-            break;
-        case CHECKBOX_PREVIEW:
-            resId = STR_FPICKER_SHOW_PREVIEW;
-            break;
-        case CHECKBOX_SELECTION:
-            resId = STR_FPICKER_SELECTION;
-            break;
-        case CHECKBOX_GPGENCRYPTION:
-            resId = STR_FPICKER_GPGENCRYPT;
-            break;
-        case PUSHBUTTON_PLAY:
-            resId = STR_FPICKER_PLAY;
-            break;
-        case LISTBOX_VERSION:
-            resId = STR_FPICKER_VERSION;
-            break;
-        case LISTBOX_TEMPLATE:
-            resId = STR_FPICKER_TEMPLATES;
-            break;
-        case LISTBOX_IMAGE_TEMPLATE:
-            resId = STR_FPICKER_IMAGE_TEMPLATE;
-            break;
-        case LISTBOX_IMAGE_ANCHOR:
-            resId = STR_FPICKER_IMAGE_ANCHOR;
-            break;
-        case LISTBOX_VERSION_LABEL:
-        case LISTBOX_TEMPLATE_LABEL:
-        case LISTBOX_IMAGE_TEMPLATE_LABEL:
-        case LISTBOX_IMAGE_ANCHOR_LABEL:
-        case LISTBOX_FILTER_SELECTOR:
-            break;
-    }
-
-    switch (controlId)
-    {
-        case CHECKBOX_AUTOEXTENSION:
-        case CHECKBOX_PASSWORD:
-        case CHECKBOX_FILTEROPTIONS:
-        case CHECKBOX_READONLY:
-        case CHECKBOX_LINK:
-        case CHECKBOX_PREVIEW:
-        case CHECKBOX_SELECTION:
-        case CHECKBOX_GPGENCRYPTION:
-        {
-            // the checkbox is created even for CHECKBOX_AUTOEXTENSION to simplify
-            // code, but the checkbox is hidden and ignored
-            bool hidden = controlId == CHECKBOX_AUTOEXTENSION;
-            auto resString = toQString(VclResId(resId));
-            resString.replace('~', '&');
-
-            auto widget = new QCheckBox(resString, _extraControls);
-            widget->setHidden(hidden);
-            if (!hidden)
-            {
-                _layout->addWidget(widget);
-            }
-            _customWidgets.insert(controlId, widget);
-
-            break;
-        }
-        case PUSHBUTTON_PLAY:
-        case LISTBOX_VERSION:
-        case LISTBOX_TEMPLATE:
-        case LISTBOX_IMAGE_TEMPLATE:
-        case LISTBOX_IMAGE_ANCHOR:
-        case LISTBOX_VERSION_LABEL:
-        case LISTBOX_TEMPLATE_LABEL:
-        case LISTBOX_IMAGE_TEMPLATE_LABEL:
-        case LISTBOX_IMAGE_ANCHOR_LABEL:
-        case LISTBOX_FILTER_SELECTOR:
-            break;
-    }
-}
-
-OUString KDE5FilePicker::implGetDirectory()
-{
-    OUString dir = toOUString(_dialog->directoryUrl().url());
-    return dir;
-}
-
-// XInitialization
-void SAL_CALL KDE5FilePicker::initialize(const uno::Sequence<uno::Any>& args)
-{
-    // parameter checking
-    uno::Any arg;
-    if (args.getLength() == 0)
-    {
-        throw lang::IllegalArgumentException("no arguments", static_cast<XFilePicker2*>(this), 1);
-    }
-
-    arg = args[0];
-
-    if ((arg.getValueType() != cppu::UnoType<sal_Int16>::get())
-        && (arg.getValueType() != cppu::UnoType<sal_Int8>::get()))
-    {
-        throw lang::IllegalArgumentException("invalid argument type",
-                                             static_cast<XFilePicker2*>(this), 1);
-    }
-
-    sal_Int16 templateId = -1;
-    arg >>= templateId;
-
-    bool saveDialog = false;
-    switch (templateId)
-    {
-        case FILEOPEN_SIMPLE:
-            break;
-
-        case FILESAVE_SIMPLE:
-            saveDialog = true;
-            break;
-
-        case FILESAVE_AUTOEXTENSION:
-            saveDialog = true;
-            addCustomControl(CHECKBOX_AUTOEXTENSION);
-            break;
-
-        case FILESAVE_AUTOEXTENSION_PASSWORD:
-        {
-            saveDialog = true;
-            addCustomControl(CHECKBOX_PASSWORD);
-            addCustomControl(CHECKBOX_GPGENCRYPTION);
-            break;
-        }
-        case FILESAVE_AUTOEXTENSION_PASSWORD_FILTEROPTIONS:
-        {
-            saveDialog = true;
-            addCustomControl(CHECKBOX_AUTOEXTENSION);
-            addCustomControl(CHECKBOX_PASSWORD);
-            addCustomControl(CHECKBOX_GPGENCRYPTION);
-            addCustomControl(CHECKBOX_FILTEROPTIONS);
-            break;
-        }
-        case FILESAVE_AUTOEXTENSION_SELECTION:
-            saveDialog = true;
-            addCustomControl(CHECKBOX_AUTOEXTENSION);
-            addCustomControl(CHECKBOX_SELECTION);
-            break;
-
-        case FILESAVE_AUTOEXTENSION_TEMPLATE:
-            saveDialog = true;
-            addCustomControl(CHECKBOX_AUTOEXTENSION);
-            addCustomControl(LISTBOX_TEMPLATE);
-            break;
-
-        case FILEOPEN_LINK_PREVIEW_IMAGE_TEMPLATE:
-            addCustomControl(CHECKBOX_LINK);
-            addCustomControl(CHECKBOX_PREVIEW);
-            addCustomControl(LISTBOX_IMAGE_TEMPLATE);
-            break;
-
-        case FILEOPEN_LINK_PREVIEW_IMAGE_ANCHOR:
-            addCustomControl(CHECKBOX_LINK);
-            addCustomControl(CHECKBOX_PREVIEW);
-            addCustomControl(LISTBOX_IMAGE_ANCHOR);
-            break;
-
-        case FILEOPEN_PLAY:
-            addCustomControl(PUSHBUTTON_PLAY);
-            break;
-
-        case FILEOPEN_LINK_PLAY:
-            addCustomControl(CHECKBOX_LINK);
-            addCustomControl(PUSHBUTTON_PLAY);
-            break;
-
-        case FILEOPEN_READONLY_VERSION:
-            addCustomControl(CHECKBOX_READONLY);
-            addCustomControl(LISTBOX_VERSION);
-            break;
-
-        case FILEOPEN_LINK_PREVIEW:
-            addCustomControl(CHECKBOX_LINK);
-            addCustomControl(CHECKBOX_PREVIEW);
-            break;
-
-        case FILEOPEN_PREVIEW:
-            addCustomControl(CHECKBOX_PREVIEW);
-            break;
-
-        default:
-            OSL_TRACE("Unknown templates %d", templateId);
-            return;
-    }
-
-    //default is opening
-    QFileDialog::AcceptMode operationMode
-        = saveDialog ? QFileDialog::AcceptSave : QFileDialog::AcceptOpen;
-
-    _dialog->setAcceptMode(operationMode);
-
-    if (saveDialog)
-    {
-        _dialog->setConfirmOverwrite(true);
-        _dialog->setFileMode(QFileDialog::AnyFile);
-    }
-
-    setTitle(VclResId(saveDialog ? STR_FPICKER_SAVE : STR_FPICKER_OPEN));
-}
-
-// XCancellable
-void SAL_CALL KDE5FilePicker::cancel()
-{
-    // TODO
-}
-
-// XEventListener
-void KDE5FilePicker::disposing(const lang::EventObject& rEvent)
-{
-    uno::Reference<XFilePickerListener> xFilePickerListener(rEvent.Source, uno::UNO_QUERY);
-
-    if (xFilePickerListener.is())
-    {
-        removeFilePickerListener(xFilePickerListener);
-    }
+    Qt5FilePicker::addCustomControl(controlId);
 }
 
 // XServiceInfo
@@ -731,23 +223,6 @@ uno::Sequence<OUString> SAL_CALL KDE5FilePicker::getSupportedServiceNames()
     return FilePicker_getSupportedServiceNames();
 }
 
-void KDE5FilePicker::filterChanged()
-{
-    FilePickerEvent aEvent;
-    aEvent.ElementId = LISTBOX_FILTER;
-    OSL_TRACE("filter changed");
-    if (m_xListener.is())
-        m_xListener->controlStateChanged(aEvent);
-}
-
-void KDE5FilePicker::selectionChanged()
-{
-    FilePickerEvent aEvent;
-    OSL_TRACE("file selection changed");
-    if (m_xListener.is())
-        m_xListener->fileSelectionChanged(aEvent);
-}
-
 bool KDE5FilePicker::eventFilter(QObject* o, QEvent* e)
 {
     if (e->type() == QEvent::Show && o->isWidgetType())
@@ -756,7 +231,11 @@ bool KDE5FilePicker::eventFilter(QObject* o, QEvent* e)
         if (!w->parentWidget() && w->isModal())
         {
             if (auto* fileWidget = w->findChild<KFileWidget*>({}, Qt::FindDirectChildrenOnly))
-                fileWidget->setCustomWidget(_extraControls);
+            {
+                fileWidget->setCustomWidget(m_pExtraControls);
+                // remove event filter again; the only purpose was to set the custom widget here
+                qApp->removeEventFilter(this);
+            }
         }
     }
     return QObject::eventFilter(o, e);

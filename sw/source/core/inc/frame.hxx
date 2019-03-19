@@ -21,19 +21,19 @@
 #define INCLUDED_SW_SOURCE_CORE_INC_FRAME_HXX
 
 #include <drawinglayer/primitive2d/baseprimitive2d.hxx>
-#include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <editeng/borderline.hxx>
 #include <swtypes.hxx>
 #include <swrect.hxx>
 #include <calbck.hxx>
 #include <svl/SfxBroadcaster.hxx>
 #include <o3tl/typed_flags_set.hxx>
-#include <IDocumentDrawModelAccess.hxx>
 #include <com/sun/star/style/TabStop.hpp>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <vcl/outdev.hxx>
 
 #include <memory>
+
+namespace drawinglayer::processor2d { class BaseProcessor2D; }
 
 class SwLayoutFrame;
 class SwRootFrame;
@@ -45,9 +45,7 @@ class SwFootnoteFrame;
 class SwFootnoteBossFrame;
 class SwTabFrame;
 class SwRowFrame;
-class SwFlowFrame;
 class SwContentFrame;
-class SfxPoolItem;
 class SwAttrSet;
 class Color;
 class SwBorderAttrs;
@@ -62,8 +60,8 @@ class SwFormat;
 class SwPrintData;
 class SwSortedObjs;
 class SwAnchoredObject;
-typedef struct _xmlTextWriter *xmlTextWriterPtr;
 enum class SvxFrameDirection;
+class IDocumentDrawModelAccess;
 
 // Each FrameType is represented here as a bit.
 // The bits must be set in a way that it can be determined with masking of
@@ -404,6 +402,7 @@ protected:
     bool mbVertical    : 1;
 
     bool mbVertLR      : 1;
+    bool mbVertLRBT    : 1;
 
     bool mbValidLineNum  : 1;
     bool mbFixSize       : 1;
@@ -602,6 +601,7 @@ public:
 
     inline bool IsVertical() const;
     inline bool IsVertLR() const;
+    inline bool IsVertLRBT() const;
 
     void SetDerivedVert( bool bNew ){ mbDerivedVert = bNew; }
     void SetInvalidVert( bool bNew) { mbInvalidVert = bNew; }
@@ -954,6 +954,10 @@ bool SwFrame::IsVertical() const
 inline bool SwFrame::IsVertLR() const
 {
     return mbVertLR;
+}
+inline bool SwFrame::IsVertLRBT() const
+{
+    return mbVertLRBT;
 }
 inline bool SwFrame::IsRightToLeft() const
 {
@@ -1312,21 +1316,23 @@ struct SwRectFnCollection
 typedef SwRectFnCollection* SwRectFn;
 
 // This class allows to use proper methods regardless of orientation (LTR/RTL, horizontal or vertical)
-extern SwRectFn fnRectHori, fnRectVert, fnRectVertL2R;
+extern SwRectFn fnRectHori, fnRectVert, fnRectVertL2R, fnRectVertL2RB2T;
 class SwRectFnSet {
 public:
     explicit SwRectFnSet(const SwFrame *pFrame)
         : m_bVert(pFrame->IsVertical())
         , m_bVertL2R(pFrame->IsVertLR())
+        , m_bVertL2RB2T(pFrame->IsVertLRBT())
     {
-        m_fnRect = m_bVert ? (m_bVertL2R ? fnRectVertL2R : fnRectVert) : fnRectHori;
+        m_fnRect = m_bVert ? (m_bVertL2R ? (m_bVertL2RB2T ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert) : fnRectHori;
     }
 
     void Refresh(const SwFrame *pFrame)
     {
         m_bVert = pFrame->IsVertical();
         m_bVertL2R = pFrame->IsVertLR();
-        m_fnRect = m_bVert ? (m_bVertL2R ? fnRectVertL2R : fnRectVert) : fnRectHori;
+        m_bVertL2RB2T = pFrame->IsVertLRBT();
+        m_fnRect = m_bVert ? (m_bVertL2R ? (m_bVertL2RB2T ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert) : fnRectHori;
     }
 
     bool IsVert() const    { return m_bVert; }
@@ -1395,6 +1401,7 @@ public:
 private:
     bool m_bVert;
     bool m_bVertL2R;
+    bool m_bVertL2RB2T;
     SwRectFn m_fnRect;
 };
 

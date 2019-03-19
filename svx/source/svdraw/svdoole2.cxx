@@ -54,6 +54,7 @@
 #include <comphelper/anytostring.hxx>
 #include <svx/svdpagv.hxx>
 #include <tools/globname.hxx>
+#include <tools/diagnose_ex.h>
 #include <vcl/jobset.hxx>
 #include <comphelper/classids.hxx>
 
@@ -85,7 +86,6 @@
 #include <svx/svdpage.hxx>
 #include <rtl/ref.hxx>
 #include <bitmaps.hlst>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 using namespace ::com::sun::star;
@@ -671,14 +671,14 @@ static bool ImplIsMathObj( const uno::Reference < embed::XEmbeddedObject >& rObj
 
 std::unique_ptr<sdr::properties::BaseProperties> SdrOle2Obj::CreateObjectSpecificProperties()
 {
-    return o3tl::make_unique<sdr::properties::OleProperties>(*this);
+    return std::make_unique<sdr::properties::OleProperties>(*this);
 }
 
 // DrawContact section
 
 std::unique_ptr<sdr::contact::ViewContact> SdrOle2Obj::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfSdrOle2Obj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrOle2Obj>(*this);
 }
 
 void SdrOle2Obj::Init()
@@ -867,8 +867,8 @@ bool SdrOle2Obj::UpdateLinkURL_Impl()
                     }
                     catch( css::uno::Exception const & )
                     {
-                        SAL_WARN( "svx", "SdrOle2Obj::UpdateLinkURL_Impl(), exception caught: "
-                                << comphelper::anyToString( cppu::getCaughtException() ) );
+                        SAL_WARN( "svx", "SdrOle2Obj::UpdateLinkURL_Impl(), exception: "
+                                << exceptionToString( cppu::getCaughtException() ) );
                     }
                 }
 
@@ -901,8 +901,8 @@ void SdrOle2Obj::BreakFileLink_Impl()
             }
             catch( css::uno::Exception& )
             {
-                SAL_WARN( "svx", "SdrOle2Obj::BreakFileLink_Impl(), exception caught: "
-                        << comphelper::anyToString( cppu::getCaughtException() ) );
+                SAL_WARN( "svx", "SdrOle2Obj::BreakFileLink_Impl(), exception: "
+                        << exceptionToString( cppu::getCaughtException() ) );
             }
         }
     }
@@ -1018,8 +1018,8 @@ void SdrOle2Obj::Connect_Impl()
         }
         catch( css::uno::Exception& )
         {
-            SAL_WARN( "svx", "SdrOle2Obj::Connect_Impl(), exception caught: "
-                    << comphelper::anyToString( cppu::getCaughtException() ) );
+            SAL_WARN( "svx", "SdrOle2Obj::Connect_Impl(), exception: "
+                    << exceptionToString( cppu::getCaughtException() ) );
         }
     }
 }
@@ -1082,8 +1082,8 @@ void SdrOle2Obj::RemoveListeners_Impl()
         }
         catch( css::uno::Exception& )
         {
-            SAL_WARN( "svx",  "SdrOle2Obj::RemoveListeners_Impl(), exception caught: "
-                    << comphelper::anyToString( cppu::getCaughtException() ) );
+            SAL_WARN( "svx",  "SdrOle2Obj::RemoveListeners_Impl(), exception: "
+                    << exceptionToString( cppu::getCaughtException() ) );
         }
     }
 }
@@ -1160,8 +1160,8 @@ void SdrOle2Obj::Disconnect_Impl()
     }
     catch( css::uno::Exception& )
     {
-        SAL_WARN( "svx", "SdrOle2Obj::Disconnect_Impl(), exception caught: "
-                    << comphelper::anyToString( cppu::getCaughtException() ) );
+        SAL_WARN( "svx", "SdrOle2Obj::Disconnect_Impl(), exception: "
+                    << exceptionToString( cppu::getCaughtException() ) );
     }
 
     mpImpl->mbConnected = false;
@@ -1196,7 +1196,7 @@ SdrObject* SdrOle2Obj::createSdrGrafObjReplacement(bool bAddText) const
 
             if(pOPO)
             {
-                pClone->NbcSetOutlinerParaObject(o3tl::make_unique<OutlinerParaObject>(*pOPO));
+                pClone->NbcSetOutlinerParaObject(std::make_unique<OutlinerParaObject>(*pOPO));
             }
         }
 
@@ -1741,8 +1741,8 @@ bool SdrOle2Obj::Unload( const uno::Reference< embed::XEmbeddedObject >& xObj, s
         }
         catch( css::uno::Exception& )
         {
-            SAL_WARN( "svx", "SdrOle2Obj::Unload=(), exception caught: "
-                    << comphelper::anyToString( cppu::getCaughtException() ) );
+            SAL_WARN( "svx", "SdrOle2Obj::Unload=(), exception: "
+                    << exceptionToString( cppu::getCaughtException() ) );
         }
     }
 

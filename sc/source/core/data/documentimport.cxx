@@ -26,7 +26,6 @@
 
 #include <svl/sharedstringpool.hxx>
 #include <svl/languageoptions.hxx>
-#include <o3tl/make_unique.hxx>
 #include <unotools/configmgr.hxx>
 
 namespace {
@@ -290,7 +289,7 @@ void ScDocumentImport::setFormulaCell(
         return;
 
     std::unique_ptr<ScFormulaCell> pFC =
-        o3tl::make_unique<ScFormulaCell>(&mpImpl->mrDoc, rPos, rFormula, eGrammar);
+        std::make_unique<ScFormulaCell>(&mpImpl->mrDoc, rPos, rFormula, eGrammar);
 
     mpImpl->mrDoc.CheckLinkFormulaNeedingCheck( *pFC->GetCode());
 
@@ -319,7 +318,7 @@ void ScDocumentImport::setFormulaCell(
         return;
 
     std::unique_ptr<ScFormulaCell> pFC =
-        o3tl::make_unique<ScFormulaCell>(&mpImpl->mrDoc, rPos, rFormula, eGrammar);
+        std::make_unique<ScFormulaCell>(&mpImpl->mrDoc, rPos, rFormula, eGrammar);
 
     mpImpl->mrDoc.CheckLinkFormulaNeedingCheck( *pFC->GetCode());
 
@@ -331,7 +330,7 @@ void ScDocumentImport::setFormulaCell(
         rCells.set(pBlockPos->miCellPos, rPos.Row(), pFC.release());
 }
 
-void ScDocumentImport::setFormulaCell(const ScAddress& rPos, ScTokenArray* pArray)
+void ScDocumentImport::setFormulaCell(const ScAddress& rPos, std::unique_ptr<ScTokenArray> pArray)
 {
     ScTable* pTab = mpImpl->mrDoc.FetchTable(rPos.Tab());
     if (!pTab)
@@ -343,7 +342,7 @@ void ScDocumentImport::setFormulaCell(const ScAddress& rPos, ScTokenArray* pArra
         return;
 
     std::unique_ptr<ScFormulaCell> pFC =
-        o3tl::make_unique<ScFormulaCell>(&mpImpl->mrDoc, rPos, pArray);
+        std::make_unique<ScFormulaCell>(&mpImpl->mrDoc, rPos, std::move(pArray));
 
     mpImpl->mrDoc.CheckLinkFormulaNeedingCheck( *pFC->GetCode());
 
@@ -699,13 +698,12 @@ void ScDocumentImport::finalize()
 {
     // Populate the text width and script type arrays in all columns. Also
     // activate all formula cells.
-    ScDocument::TableContainer::iterator itTab = mpImpl->mrDoc.maTabs.begin(), itTabEnd = mpImpl->mrDoc.maTabs.end();
-    for (; itTab != itTabEnd; ++itTab)
+    for (auto& rxTab : mpImpl->mrDoc.maTabs)
     {
-        if (!*itTab)
+        if (!rxTab)
             continue;
 
-        ScTable& rTab = **itTab;
+        ScTable& rTab = *rxTab;
         SCCOL nNumCols = rTab.aCol.size();
         for (SCCOL nColIdx = 0; nColIdx < nNumCols; ++nColIdx)
             initColumn(rTab.aCol[nColIdx]);
@@ -756,13 +754,12 @@ void ScDocumentImport::broadcastRecalcAfterImport()
     sc::AutoCalcSwitch aACSwitch( mpImpl->mrDoc, false);
     ScBulkBroadcast aBulkBroadcast( mpImpl->mrDoc.GetBASM(), SfxHintId::ScDataChanged);
 
-    ScDocument::TableContainer::iterator itTab = mpImpl->mrDoc.maTabs.begin(), itTabEnd = mpImpl->mrDoc.maTabs.end();
-    for (; itTab != itTabEnd; ++itTab)
+    for (auto& rxTab : mpImpl->mrDoc.maTabs)
     {
-        if (!*itTab)
+        if (!rxTab)
             continue;
 
-        ScTable& rTab = **itTab;
+        ScTable& rTab = *rxTab;
         SCCOL nNumCols = rTab.aCol.size();
         for (SCCOL nColIdx = 0; nColIdx < nNumCols; ++nColIdx)
             broadcastRecalcAfterImportColumn(rTab.aCol[nColIdx]);

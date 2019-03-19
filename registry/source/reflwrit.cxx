@@ -22,13 +22,12 @@
 #include <memory>
 #include <algorithm>
 #include <sal/types.h>
-#include <sal/macros.h>
 #include <osl/endian.h>
-#include <rtl/alloc.h>
 #include <rtl/string.hxx>
 #include <rtl/ustring.hxx>
 
 #include "reflwrit.hxx"
+#include <registry/refltype.hxx>
 #include <registry/version.h>
 #include <registry/writer.h>
 
@@ -45,7 +44,7 @@ OString toByteString(rtl_uString const * str) {
 
 }
 
-static sal_Unicode NULL_WSTRING[1] = { 0 };
+static const sal_Unicode NULL_WSTRING[1] = { 0 };
 
 #define BLOP_OFFSET_MAGIC       0
 #define BLOP_OFFSET_SIZE        (BLOP_OFFSET_MAGIC + sizeof(sal_uInt32))

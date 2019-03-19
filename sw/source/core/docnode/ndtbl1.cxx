@@ -51,7 +51,6 @@
 #include <calbck.hxx>
 #include <UndoTable.hxx>
 #include <o3tl/enumrange.hxx>
-#include <o3tl/make_unique.hxx>
 
 using ::editeng::SvxBorderLine;
 using namespace ::com::sun::star;
@@ -281,7 +280,7 @@ static void lcl_ProcessRowAttr(std::vector<std::unique_ptr<SwTableFormatCmp>>& r
         SwFrameFormat *pOld = pLine->GetFrameFormat();
         SwFrameFormat *pNew = pLine->ClaimFrameFormat();
         pNew->SetFormatAttr( rNew );
-        rFormatCmp.push_back(o3tl::make_unique<SwTableFormatCmp>(pOld, pNew, 0));
+        rFormatCmp.push_back(std::make_unique<SwTableFormatCmp>(pOld, pNew, 0));
     }
 }
 
@@ -322,7 +321,7 @@ void SwDoc::SetRowSplit( const SwCursor& rCursor, const SwFormatRowSplit &rNew )
         {
             if (GetIDocumentUndoRedo().DoesUndo())
             {
-                GetIDocumentUndoRedo().AppendUndo(o3tl::make_unique<SwUndoAttrTable>(*pTableNd));
+                GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoAttrTable>(*pTableNd));
             }
 
             std::vector<std::unique_ptr<SwTableFormatCmp>> aFormatCmp;
@@ -357,7 +356,7 @@ std::unique_ptr<SwFormatRowSplit> SwDoc::GetRowSplit( const SwCursor& rCursor )
             return nullptr;
         }
     }
-    return o3tl::make_unique<SwFormatRowSplit>( *pSz );
+    return std::make_unique<SwFormatRowSplit>( *pSz );
 }
 
 /* Class:  SwDoc
@@ -387,7 +386,7 @@ void SwDoc::SetRowHeight( const SwCursor& rCursor, const SwFormatFrameSize &rNew
         {
             if (GetIDocumentUndoRedo().DoesUndo())
             {
-                GetIDocumentUndoRedo().AppendUndo(o3tl::make_unique<SwUndoAttrTable>(*pTableNd));
+                GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoAttrTable>(*pTableNd));
             }
 
             std::vector<std::unique_ptr<SwTableFormatCmp>> aFormatCmp;
@@ -419,7 +418,7 @@ std::unique_ptr<SwFormatFrameSize> SwDoc::GetRowHeight( const SwCursor& rCursor 
         if ( *pSz != pLn->GetFrameFormat()->GetFrameSize() )
             return nullptr;
     }
-    return o3tl::make_unique<SwFormatFrameSize>( *pSz );
+    return std::make_unique<SwFormatFrameSize>( *pSz );
 }
 
 bool SwDoc::BalanceRowHeight( const SwCursor& rCursor, bool bTstOnly, const bool bOptimize )
@@ -457,7 +456,7 @@ bool SwDoc::BalanceRowHeight( const SwCursor& rCursor, bool bTstOnly, const bool
                 if (GetIDocumentUndoRedo().DoesUndo())
                 {
                     GetIDocumentUndoRedo().AppendUndo(
-                            o3tl::make_unique<SwUndoAttrTable>(*pTableNd));
+                            std::make_unique<SwUndoAttrTable>(*pTableNd));
                 }
 
                 std::vector<std::unique_ptr<SwTableFormatCmp>> aFormatCmp;
@@ -485,7 +484,7 @@ void SwDoc::SetRowBackground( const SwCursor& rCursor, const SvxBrushItem &rNew 
         {
             if (GetIDocumentUndoRedo().DoesUndo())
             {
-                GetIDocumentUndoRedo().AppendUndo(o3tl::make_unique<SwUndoAttrTable>(*pTableNd));
+                GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoAttrTable>(*pTableNd));
             }
 
             std::vector<std::unique_ptr<SwTableFormatCmp>> aFormatCmp;
@@ -572,7 +571,7 @@ void SwDoc::SetTabBorders( const SwCursor& rCursor, const SfxItemSet& rSet )
     SwTable& rTable = pTableNd->GetTable();
     if (GetIDocumentUndoRedo().DoesUndo())
     {
-        GetIDocumentUndoRedo().AppendUndo( o3tl::make_unique<SwUndoAttrTable>(*pTableNd) );
+        GetIDocumentUndoRedo().AppendUndo( std::make_unique<SwUndoAttrTable>(*pTableNd) );
     }
 
     std::vector<std::unique_ptr<SwTableFormatCmp>> aFormatCmp;
@@ -799,7 +798,7 @@ void SwDoc::SetTabBorders( const SwCursor& rCursor, const SfxItemSet& rSet )
                 SwFrameFormat *pOld = pBox->GetFrameFormat();
                 SwFrameFormat *pNew = pBox->ClaimFrameFormat();
                 pNew->SetFormatAttr( aBox );
-                aFormatCmp.push_back(o3tl::make_unique<SwTableFormatCmp>(pOld, pNew, nType));
+                aFormatCmp.push_back(std::make_unique<SwTableFormatCmp>(pOld, pNew, nType));
             }
         }
 
@@ -857,7 +856,7 @@ void SwDoc::SetTabLineStyle( const SwCursor& rCursor,
         SwTable& rTable = pTableNd->GetTable();
         if (GetIDocumentUndoRedo().DoesUndo())
         {
-            GetIDocumentUndoRedo().AppendUndo(o3tl::make_unique<SwUndoAttrTable>(*pTableNd));
+            GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoAttrTable>(*pTableNd));
         }
 
         for( auto &rU : aUnions )
@@ -994,7 +993,7 @@ void SwDoc::GetTabBorders( const SwCursor& rCursor, SfxItemSet& rSet )
                             aSetBox.SetLine( rBox.GetTop(), SvxBoxItemLine::TOP );
                         }
                         else if ((aSetBox.GetTop() && rBox.GetTop() &&
-                                 !(*aSetBox.GetTop() == *rBox.GetTop())) ||
+                                 (*aSetBox.GetTop() != *rBox.GetTop())) ||
                                  ((!aSetBox.GetTop()) != (!rBox.GetTop()))) // != expression is true, if one and only one of the two pointers is !0
                         {
                             aSetBoxInfo.SetValid(SvxBoxInfoItemValidFlags::TOP, false );
@@ -1013,7 +1012,7 @@ void SwDoc::GetTabBorders( const SwCursor& rCursor, SfxItemSet& rSet )
                             aSetBox.SetLine( rBox.GetLeft(), SvxBoxItemLine::LEFT );
                         }
                         else if ((aSetBox.GetLeft() && rBox.GetLeft() &&
-                                 !(*aSetBox.GetLeft() == *rBox.GetLeft())) ||
+                                 (*aSetBox.GetLeft() != *rBox.GetLeft())) ||
                                  ((!aSetBox.GetLeft()) != (!rBox.GetLeft())))
                         {
                             aSetBoxInfo.SetValid(SvxBoxInfoItemValidFlags::LEFT, false );
@@ -1030,7 +1029,7 @@ void SwDoc::GetTabBorders( const SwCursor& rCursor, SfxItemSet& rSet )
                             aSetBoxInfo.SetLine( rBox.GetLeft(), SvxBoxInfoItemLine::VERT );
                         }
                         else if ((aSetBoxInfo.GetVert() && rBox.GetLeft() &&
-                                 !(*aSetBoxInfo.GetVert() == *rBox.GetLeft())) ||
+                                 (*aSetBoxInfo.GetVert() != *rBox.GetLeft())) ||
                                  ((!aSetBoxInfo.GetVert()) != (!rBox.GetLeft())))
                         {   aSetBoxInfo.SetValid( SvxBoxInfoItemValidFlags::VERT, false );
                             aSetBoxInfo.SetLine( nullptr, SvxBoxInfoItemLine::VERT );
@@ -1046,7 +1045,7 @@ void SwDoc::GetTabBorders( const SwCursor& rCursor, SfxItemSet& rSet )
                         aSetBox.SetLine( rBox.GetRight(), SvxBoxItemLine::RIGHT );
                     }
                     else if ((aSetBox.GetRight() && rBox.GetRight() &&
-                             !(*aSetBox.GetRight() == *rBox.GetRight())) ||
+                             (*aSetBox.GetRight() != *rBox.GetRight())) ||
                              (!aSetBox.GetRight() != !rBox.GetRight()))
                     {   aSetBoxInfo.SetValid( SvxBoxInfoItemValidFlags::RIGHT, false );
                         aSetBox.SetLine( nullptr, SvxBoxItemLine::RIGHT );
@@ -1063,7 +1062,7 @@ void SwDoc::GetTabBorders( const SwCursor& rCursor, SfxItemSet& rSet )
                             aSetBox.SetLine( rBox.GetBottom(), SvxBoxItemLine::BOTTOM );
                         }
                         else if ((aSetBox.GetBottom() && rBox.GetBottom() &&
-                                 !(*aSetBox.GetBottom() == *rBox.GetBottom())) ||
+                                 (*aSetBox.GetBottom() != *rBox.GetBottom())) ||
                                  (!aSetBox.GetBottom() != !rBox.GetBottom()))
                         {   aSetBoxInfo.SetValid( SvxBoxInfoItemValidFlags::BOTTOM, false );
                             aSetBox.SetLine( nullptr, SvxBoxItemLine::BOTTOM );
@@ -1081,7 +1080,7 @@ void SwDoc::GetTabBorders( const SwCursor& rCursor, SfxItemSet& rSet )
                             aSetBoxInfo.SetLine( rBox.GetBottom(), SvxBoxInfoItemLine::HORI );
                         }
                         else if ((aSetBoxInfo.GetHori() && rBox.GetBottom() &&
-                                 !(*aSetBoxInfo.GetHori() == *rBox.GetBottom())) ||
+                                 (*aSetBoxInfo.GetHori() != *rBox.GetBottom())) ||
                                  ((!aSetBoxInfo.GetHori()) != (!rBox.GetBottom())))
                         {
                             aSetBoxInfo.SetValid( SvxBoxInfoItemValidFlags::HORI, false );
@@ -1143,7 +1142,7 @@ void SwDoc::SetBoxAttr( const SwCursor& rCursor, const SfxPoolItem &rNew )
         SwTable& rTable = pTableNd->GetTable();
         if (GetIDocumentUndoRedo().DoesUndo())
         {
-            GetIDocumentUndoRedo().AppendUndo( o3tl::make_unique<SwUndoAttrTable>(*pTableNd) );
+            GetIDocumentUndoRedo().AppendUndo( std::make_unique<SwUndoAttrTable>(*pTableNd) );
         }
 
         std::vector<std::unique_ptr<SwTableFormatCmp>> aFormatCmp;
@@ -1160,7 +1159,7 @@ void SwDoc::SetBoxAttr( const SwCursor& rCursor, const SfxPoolItem &rNew )
                 SwFrameFormat *pOld = pBox->GetFrameFormat();
                 SwFrameFormat *pNew = pBox->ClaimFrameFormat();
                 pNew->SetFormatAttr( rNew );
-                aFormatCmp.push_back(o3tl::make_unique<SwTableFormatCmp>(pOld, pNew, 0));
+                aFormatCmp.push_back(std::make_unique<SwTableFormatCmp>(pOld, pNew, 0));
             }
 
             pBox->SetDirectFormatting(true);

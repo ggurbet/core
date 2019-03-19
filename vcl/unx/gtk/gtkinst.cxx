@@ -86,7 +86,7 @@ extern "C"
         // for gtk3 it is normally built with X and Wayland support, if
         // X is supported GDK_WINDOWING_X11 is defined and this is always
         // called, regardless of if we're running under X or Wayland.
-        // We can't use (GDK_IS_X11_DISPLAY(pDisplay)) to only do it under
+        // We can't use (DLSYM_GDK_IS_X11_DISPLAY(pDisplay)) to only do it under
         // X, because we need to do it earlier than we have a display
 #if !GTK_CHECK_VERSION(3,0,0) || defined(GDK_WINDOWING_X11)
         /* #i92121# workaround deadlocks in the X11 implementation
@@ -109,7 +109,7 @@ extern "C"
         gdk_threads_set_lock_functions (GdkThreadsEnter, GdkThreadsLeave);
         SAL_INFO("vcl.gtk", "Hooked gdk threads locks");
 
-        auto pYieldMutex = o3tl::make_unique<GtkYieldMutex>();
+        auto pYieldMutex = std::make_unique<GtkYieldMutex>();
 
         gdk_threads_init();
 
@@ -346,7 +346,7 @@ std::unique_ptr<SalVirtualDevice> GtkInstance::CreateVirtualDevice( SalGraphics 
     GtkSalGraphics *pGtkSalGraphics = dynamic_cast<GtkSalGraphics*>(pG);
     assert(pGtkSalGraphics);
     return CreateX11VirtualDevice(pG, nDX, nDY, eFormat, pGd,
-            o3tl::make_unique<GtkSalGraphics>(pGtkSalGraphics->GetGtkFrame(),
+            std::make_unique<GtkSalGraphics>(pGtkSalGraphics->GetGtkFrame(),
                                pGtkSalGraphics->GetGtkWidget(),
                                pGtkSalGraphics->GetScreenNumber()));
 #endif

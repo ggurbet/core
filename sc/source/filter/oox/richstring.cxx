@@ -385,9 +385,9 @@ void RichString::convert( const Reference< XText >& rxText ) const
     }
 
     bool bReplaceOld = true;
-    for( PortionVector::const_iterator aIt = maTextPortions.begin(), aEnd = maTextPortions.end(); aIt != aEnd; ++aIt )
+    for( const auto& rxTextPortion : maTextPortions )
     {
-        (*aIt)->convert( rxText, bReplaceOld );
+        rxTextPortion->convert( rxText, bReplaceOld );
         bReplaceOld = false;    // do not replace first portion text with following portions
     }
 }
@@ -397,17 +397,17 @@ std::unique_ptr<EditTextObject> RichString::convert( ScEditEngineDefaulter& rEE,
     ESelection aSelection;
 
     OUStringBuffer sString;
-    for( PortionVector::const_iterator aIt = maTextPortions.begin(), aEnd = maTextPortions.end(); aIt != aEnd; ++aIt )
-        sString.append((*aIt)->getText());
+    for( const auto& rxTextPortion : maTextPortions )
+        sString.append(rxTextPortion->getText());
 
     // fdo#84370 - diving into editeng is not thread safe.
     SolarMutexGuard aGuard;
 
     rEE.SetText( sString.makeStringAndClear() );
 
-    for( PortionVector::const_iterator aIt = maTextPortions.begin(), aEnd = maTextPortions.end(); aIt != aEnd; ++aIt )
+    for( const auto& rxTextPortion : maTextPortions )
     {
-        (*aIt)->convert( rEE, aSelection, pFirstPortionFont );
+        rxTextPortion->convert( rEE, aSelection, pFirstPortionFont );
         pFirstPortionFont = nullptr;
     }
 
@@ -435,7 +435,7 @@ void RichString::createTextPortions( const OUString& rText, FontPortionModelList
     maTextPortions.clear();
     if( !rText.isEmpty() )
     {
-         sal_Int32 nStrLen = rText.getLength();
+        sal_Int32 nStrLen = rText.getLength();
         // add leading and trailing string position to ease the following loop
         if( rPortions.empty() || (rPortions.front().mnPos > 0) )
             rPortions.insert( rPortions.begin(), FontPortionModel( 0 ) );

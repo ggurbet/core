@@ -26,8 +26,6 @@
 #include <com/sun/star/sheet/DataPilotFieldLayoutMode.hpp>
 #include <com/sun/star/sheet/DataPilotOutputRangeType.hpp>
 
-#include <o3tl/make_unique.hxx>
-
 #include <vector>
 
 using namespace oox;
@@ -256,19 +254,20 @@ void XclExpXmlPivotCaches::SavePivotCacheXml( XclExpXmlStream& rStrm, const Entr
 
         const ScDPCache::ScDPItemDataVec& rFieldItems = rCache.GetDimMemberValues(i);
 
-        ScDPCache::ScDPItemDataVec::const_iterator it = rFieldItems.begin(), itEnd = rFieldItems.end();
-
         std::set<ScDPItemData::Type> aDPTypes;
         double fMin = std::numeric_limits<double>::infinity(), fMax = -std::numeric_limits<double>::infinity();
         bool isValueInteger = true;
         bool isContainsDate = rCache.IsDateDimension(i);
-        for (; it != itEnd; ++it)
+        for (const auto& rFieldItem : rFieldItems)
         {
-            ScDPItemData::Type eType = it->GetType();
+            ScDPItemData::Type eType = rFieldItem.GetType();
+            // tdf#123939 : error and string are same for cache; if both are present, keep only one
+            if (eType == ScDPItemData::Error)
+                eType = ScDPItemData::String;
             aDPTypes.insert(eType);
             if (eType == ScDPItemData::Value)
             {
-                double fVal = it->GetValue();
+                double fVal = rFieldItem.GetValue();
                 fMin = std::min(fMin, fVal);
                 fMax = std::max(fMax, fVal);
 
@@ -280,8 +279,6 @@ void XclExpXmlPivotCaches::SavePivotCacheXml( XclExpXmlStream& rStrm, const Entr
             }
         }
 
-        auto aDPTypeEnd = aDPTypes.cend();
-
         auto pAttList = sax_fastparser::FastSerializerHelper::createAttrList();
         // TODO In same cases, disable listing of items, as it is done in MS Excel.
         // Exporting savePivotCacheRecordsXml method needs to be updated accordingly
@@ -290,10 +287,10 @@ void XclExpXmlPivotCaches::SavePivotCacheXml( XclExpXmlStream& rStrm, const Entr
         std::set<ScDPItemData::Type> aDPTypesWithoutBlank = aDPTypes;
         aDPTypesWithoutBlank.erase(ScDPItemData::Empty);
 
-        bool isContainsString = aDPTypesWithoutBlank.find(ScDPItemData::String) != aDPTypesWithoutBlank.end() ||
-                                aDPTypesWithoutBlank.find(ScDPItemData::Error) != aDPTypesWithoutBlank.end();
-        bool isContainsBlank = aDPTypes.find(ScDPItemData::Empty) != aDPTypeEnd;
-        bool isContainsNumber = !isContainsDate && aDPTypesWithoutBlank.find(ScDPItemData::Value) != aDPTypesWithoutBlank.end();
+        const bool isContainsString = aDPTypesWithoutBlank.count(ScDPItemData::String) > 0;
+        const bool isContainsBlank = aDPTypes.count(ScDPItemData::Empty) > 0;
+        const bool isContainsNumber
+            = !isContainsDate && aDPTypesWithoutBlank.count(ScDPItemData::Value) > 0;
         bool isContainsNonDate = !(isContainsDate && aDPTypesWithoutBlank.size() <= 1);
 
         // XML_containsSemiMixedTypes possible values:
@@ -361,10 +358,8 @@ void XclExpXmlPivotCaches::SavePivotCacheXml( XclExpXmlStream& rStrm, const Entr
 
         //if (bListItems) // see TODO above
         {
-            it = rFieldItems.begin();
-            for (; it != itEnd; ++it)
+            for (const ScDPItemData& rItem : rFieldItems)
             {
-                const ScDPItemData& rItem = *it;
                 switch (rItem.GetType())
                 {
                     case ScDPItemData::String:
@@ -447,9 +442,8 @@ void XclExpXmlPivotTableManager::Initialize()
         // Get all pivot objects that reference this cache, and set up an
         // object to cache ID mapping.
         const ScDPCache::ScDPObjectSet& rRefs = pCache->GetAllReferences();
-        ScDPCache::ScDPObjectSet::const_iterator it = rRefs.begin(), itEnd = rRefs.end();
-        for (; it != itEnd; ++it)
-            maCacheIdMap.emplace(*it, aCaches.size()+1);
+        for (const auto& rRef : rRefs)
+            maCacheIdMap.emplace(rRef, aCaches.size()+1);
 
         XclExpXmlPivotCaches::Entry aEntry;
         aEntry.mpCache = pCache;
@@ -477,7 +471,7 @@ void XclExpXmlPivotTableManager::Initialize()
         {
             // Insert a new instance for this sheet index.
             std::pair<TablesType::iterator, bool> r =
-                m_Tables.insert(std::make_pair(nTab, o3tl::make_unique<XclExpXmlPivotTables>(GetRoot(), maCaches)));
+                m_Tables.insert(std::make_pair(nTab, std::make_unique<XclExpXmlPivotTables>(GetRoot(), maCaches)));
             it = r.first;
         }
 
@@ -509,13 +503,11 @@ void XclExpXmlPivotTables::SaveXml( XclExpXmlStream& rStrm )
 {
     sax_fastparser::FSHelperPtr& pWSStrm = rStrm.GetCurrentStream(); // worksheet stream
 
-    sal_Int32 nCounter = 1; // 1-based
-    TablesType::iterator it = maTables.begin(), itEnd = maTables.end();
-    for (; it != itEnd; ++it, ++nCounter)
+    for (const auto& rTable : maTables)
     {
-        const ScDPObject& rObj = *it->mpTable;
-        sal_Int32 nCacheId = it->mnCacheId;
-        sal_Int32 nPivotId = it->mnPivotId;
+        const ScDPObject& rObj = *rTable.mpTable;
+        sal_Int32 nCacheId = rTable.mnCacheId;
+        sal_Int32 nPivotId = rTable.mnPivotId;
 
         sax_fastparser::FSHelperPtr pPivotStrm = rStrm.CreateOutputStream(
             XclXmlUtils::GetStreamName("xl/pivotTables/", "pivotTable", nPivotId),
@@ -794,31 +786,26 @@ void XclExpXmlPivotTables::SavePivotTableXml( XclExpXmlStream& rStrm, const ScDP
         }
 
         const ScDPCache::ScDPItemDataVec& rCacheFieldItems = rCache.GetDimMemberValues(i);
-        const auto iCacheFieldItems_begin = rCacheFieldItems.begin(), iCacheFieldItems_end = rCacheFieldItems.end();
         // The pair contains the member index in cache and if it is hidden
         std::vector< std::pair<size_t, bool> > aMemberSequence;
         std::set<size_t> aUsedCachePositions;
         for (const auto & rMember : aMembers)
         {
-            for (auto it = iCacheFieldItems_begin; it != iCacheFieldItems_end; ++it)
+            auto it = std::find_if(rCacheFieldItems.begin(), rCacheFieldItems.end(),
+                [&rDPObj, &pDim, &rMember](const ScDPItemData& rItem) {
+                    OUString sFormattedName;
+                    if (rItem.HasStringData() || rItem.IsEmpty())
+                        sFormattedName = rItem.GetString();
+                    else
+                        sFormattedName = const_cast<ScDPObject&>(rDPObj).GetFormattedString(pDim->GetName(), rItem.GetValue());
+                    return sFormattedName == rMember.maName;
+                });
+            if (it != rCacheFieldItems.end())
             {
-                OUString sFormattedName;
-                if (it->HasStringData() || it->IsEmpty())
-                {
-                    sFormattedName = it->GetString();
-                }
-                else
-                {
-                    sFormattedName = const_cast<ScDPObject&>(rDPObj).GetFormattedString(pDim->GetName(), it->GetValue());
-                }
-                if (sFormattedName == rMember.maName)
-                {
-                    size_t nCachePos = it - iCacheFieldItems_begin;
-                    auto aInserted = aUsedCachePositions.insert(nCachePos);
-                    if (aInserted.second)
-                        aMemberSequence.emplace_back(std::make_pair(nCachePos, !rMember.mbVisible));
-                    break;
-                }
+                size_t nCachePos = static_cast<size_t>(std::distance(rCacheFieldItems.begin(), it));
+                auto aInserted = aUsedCachePositions.insert(nCachePos);
+                if (aInserted.second)
+                    aMemberSequence.emplace_back(std::make_pair(nCachePos, !rMember.mbVisible));
             }
         }
         // Now add all remaining cache items as hidden
@@ -890,11 +877,10 @@ void XclExpXmlPivotTables::SavePivotTableXml( XclExpXmlStream& rStrm, const ScDP
             XML_count, OString::number(static_cast<long>(aRowFields.size())),
             FSEND);
 
-        std::vector<long>::iterator it = aRowFields.begin(), itEnd = aRowFields.end();
-        for (; it != itEnd; ++it)
+        for (const auto& rRowField : aRowFields)
         {
             pPivotStrm->singleElement(XML_field,
-                XML_x, OString::number(*it),
+                XML_x, OString::number(rRowField),
                 FSEND);
         }
 
@@ -911,11 +897,10 @@ void XclExpXmlPivotTables::SavePivotTableXml( XclExpXmlStream& rStrm, const ScDP
             XML_count, OString::number(static_cast<long>(aColFields.size())),
             FSEND);
 
-        std::vector<long>::iterator it = aColFields.begin(), itEnd = aColFields.end();
-        for (; it != itEnd; ++it)
+        for (const auto& rColField : aColFields)
         {
             pPivotStrm->singleElement(XML_field,
-                XML_x, OString::number(*it),
+                XML_x, OString::number(rColField),
                 FSEND);
         }
 
@@ -932,11 +917,10 @@ void XclExpXmlPivotTables::SavePivotTableXml( XclExpXmlStream& rStrm, const ScDP
             XML_count, OString::number(static_cast<long>(aPageFields.size())),
             FSEND);
 
-        std::vector<long>::iterator it = aPageFields.begin(), itEnd = aPageFields.end();
-        for (; it != itEnd; ++it)
+        for (const auto& rPageField : aPageFields)
         {
             pPivotStrm->singleElement(XML_pageField,
-                XML_fld, OString::number(*it),
+                XML_fld, OString::number(rPageField),
                 XML_hier, OString::number(-1), // TODO : handle this correctly.
                 FSEND);
         }
@@ -952,12 +936,11 @@ void XclExpXmlPivotTables::SavePivotTableXml( XclExpXmlStream& rStrm, const ScDP
             XML_count, OString::number(static_cast<long>(aDataFields.size())),
             FSEND);
 
-        std::vector<DataField>::iterator it = aDataFields.begin(), itEnd = aDataFields.end();
-        for (; it != itEnd; ++it)
+        for (const auto& rDataField : aDataFields)
         {
-            long nDimIdx = it->mnPos;
+            long nDimIdx = rDataField.mnPos;
             assert(aCachedDims[nDimIdx]); // the loop above should have screened for NULL's.
-            const ScDPSaveDimension& rDim = *it->mpDim;
+            const ScDPSaveDimension& rDim = *rDataField.mpDim;
             const boost::optional<OUString> & pName = rDim.GetLayoutName();
             pPivotStrm->write("<")->writeId(XML_dataField);
             if (pName)

@@ -85,6 +85,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <rtl/bootstrap.hxx>
 #include <sal/log.hxx>
+#include <vcl/errcode.hxx>
 #include <vcl/svapp.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/profilezone.hxx>
@@ -815,7 +816,7 @@ void LoadEnv::impl_detectTypeAndFilter()
         {
             ::comphelper::SequenceAsHashMap lFilterProps(xFilterCont->getByName(sFilter));
             sal_Int32 nFlags         = lFilterProps.getUnpackedValueOrDefault("Flags", sal_Int32(0));
-                      bIsOwnTemplate = ((nFlags & FILTERFLAG_TEMPLATEPATH) == FILTERFLAG_TEMPLATEPATH);
+            bIsOwnTemplate = ((nFlags & FILTERFLAG_TEMPLATEPATH) == FILTERFLAG_TEMPLATEPATH);
         }
         catch(const css::container::NoSuchElementException&)
             {}
@@ -932,7 +933,7 @@ bool LoadEnv::impl_furtherDocsAllowed()
                                         FrameAnalyzerFlags::Hidden);
 
             sal_Int32 nOpenDocuments = aAnalyzer.m_lOtherVisibleFrames.size();
-                      bAllowed       = (nOpenDocuments < nMaxOpenDocuments);
+            bAllowed       = (nOpenDocuments < nMaxOpenDocuments);
         }
     }
     catch(const css::uno::Exception&)

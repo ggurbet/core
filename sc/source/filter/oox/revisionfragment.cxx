@@ -29,6 +29,7 @@
 #include <formulacell.hxx>
 #include <chgviset.hxx>
 #include <richstringcontext.hxx>
+#include <tokenarray.hxx>
 
 #include <com/sun/star/util/DateTime.hpp>
 
@@ -118,11 +119,11 @@ protected:
                 // formula string
                 ScDocument& rDoc = getScDocument();
                 ScCompiler aComp(&rDoc, mrPos, formula::FormulaGrammar::GRAM_OOXML);
-                ScTokenArray* pArray = aComp.CompileString(rChars);
+                std::unique_ptr<ScTokenArray> pArray = aComp.CompileString(rChars);
                 if (!pArray)
                     break;
 
-                mrCellValue.set(new ScFormulaCell(&rDoc, mrPos, pArray));
+                mrCellValue.set(new ScFormulaCell(&rDoc, mrPos, std::move(pArray)));
             }
             break;
             default:
@@ -251,15 +252,13 @@ void RevisionHeadersFragment::finalizeImport()
     pCT->SetUseFixDateTime(true);
 
     const oox::core::Relations& rRels = getRelations();
-    RevDataType::const_iterator it = mpImpl->maRevData.begin(), itEnd = mpImpl->maRevData.end();
-    for (; it != itEnd; ++it)
+    for (const auto& [rRelId, rData] : mpImpl->maRevData)
     {
-        OUString aPath = rRels.getFragmentPathFromRelId(it->first);
+        OUString aPath = rRels.getFragmentPathFromRelId(rRelId);
         if (aPath.isEmpty())
             continue;
 
         // Parse each revision log fragment.
-        const RevisionMetadata& rData = it->second;
         pCT->SetUser(rData.maUserName);
         pCT->SetFixDateTimeLocal(rData.maDateTime);
         std::unique_ptr<oox::core::FastParser> xParser(oox::core::XmlFilterBase::createParser());

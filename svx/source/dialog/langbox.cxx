@@ -216,12 +216,12 @@ void SvxLanguageBoxBase::AddLanguages( const std::vector< LanguageType >& rLangu
 }
 
 void SvxLanguageBoxBase::SetLanguageList( SvxLanguageListFlags nLangList,
-        bool bHasLangNone, bool bLangNoneIsLangAll, bool bCheckSpellAvail )
+        bool bHasLangNone, bool bCheckSpellAvail )
 {
     ImplClear();
 
     m_bHasLangNone          = bHasLangNone;
-    m_bLangNoneIsLangAll    = bLangNoneIsLangAll;
+    m_bLangNoneIsLangAll    = false;
     m_bWithCheckmark        = bCheckSpellAvail;
 
     if ( SvxLanguageListFlags::EMPTY == nLangList )
@@ -402,15 +402,6 @@ void SvxLanguageBoxBase::InsertLanguage( const LanguageType nLangType,
 }
 
 
-void SvxLanguageBoxBase::RemoveLanguage( const LanguageType eLangType )
-{
-    sal_Int32 nAt = ImplTypeToPos( eLangType );
-
-    if ( nAt != LISTBOX_ENTRY_NOTFOUND )
-        ImplRemoveEntryAt( nAt );
-}
-
-
 LanguageType SvxLanguageBoxBase::GetSelectedLanguage() const
 {
     sal_Int32     nPos   = ImplGetSelectedEntryPos();
@@ -475,6 +466,11 @@ int LanguageBox::find_id(const LanguageType eLangType) const
 void LanguageBox::set_id(int pos, const LanguageType eLangType)
 {
     m_xControl->set_id(pos, OUString::number(static_cast<sal_uInt16>(eLangType)));
+}
+
+LanguageType LanguageBox::get_id(int pos) const
+{
+    return LanguageType(m_xControl->get_id(pos).toInt32());
 }
 
 void LanguageBox::remove_id(const LanguageType eLangType)
@@ -817,17 +813,6 @@ sal_Int32 SvxLanguageBox::ImplInsertImgEntry( const OUString& rEntry, sal_Int32 
 sal_Int32 SvxLanguageComboBox::ImplInsertImgEntry( const OUString& rEntry, sal_Int32 nPos, bool bChecked )
 {
     return InsertEntryWithImage( rEntry, (bChecked ? m_aCheckedImage : m_aNotCheckedImage), nPos );
-}
-
-
-void SvxLanguageBox::ImplRemoveEntryAt( sal_Int32 nPos )
-{
-    RemoveEntry( nPos);
-}
-
-void SvxLanguageComboBox::ImplRemoveEntryAt( sal_Int32 nPos )
-{
-    RemoveEntryAt( nPos);
 }
 
 

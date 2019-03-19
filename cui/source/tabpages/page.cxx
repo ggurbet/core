@@ -308,7 +308,7 @@ void SvxPageDescPage::Init_Impl()
     // adjust the handler
     m_xLayoutBox->connect_changed(LINK(this, SvxPageDescPage, LayoutHdl_Impl));
 
-    m_xPaperTrayBox->connect_changed(LINK(this, SvxPageDescPage, PaperBinHdl_Impl));
+    m_xPaperTrayBox->connect_focus_in(LINK(this, SvxPageDescPage, PaperBinHdl_Impl));
     m_xPaperSizeBox->connect_changed(LINK(this, SvxPageDescPage, PaperSizeSelect_Impl));
     m_xPaperWidthEdit->connect_value_changed( LINK(this, SvxPageDescPage, PaperSizeModify_Impl));
     m_xPaperHeightEdit->connect_value_changed(LINK(this, SvxPageDescPage, PaperSizeModify_Impl));
@@ -595,7 +595,7 @@ bool SvxPageDescPage::FillItemSet( SfxItemSet* rSet )
     {
         pOld = GetOldItem( *rSet, SID_ATTR_LRSPACE );
 
-        if ( !pOld || !( *static_cast<const SvxLRSpaceItem*>(pOld) == aMargin ) )
+        if ( !pOld || *static_cast<const SvxLRSpaceItem*>(pOld) != aMargin )
             rSet->Put( aMargin );
         else
             bModified = false;
@@ -621,7 +621,7 @@ bool SvxPageDescPage::FillItemSet( SfxItemSet* rSet )
     {
         pOld = GetOldItem( *rSet, SID_ATTR_ULSPACE );
 
-        if ( !pOld || !( *static_cast<const SvxULSpaceItem*>(pOld) == aTopMargin ) )
+        if ( !pOld || *static_cast<const SvxULSpaceItem*>(pOld) != aTopMargin )
         {
             bModified = true;
             rSet->Put( aTopMargin );
@@ -706,7 +706,7 @@ bool SvxPageDescPage::FillItemSet( SfxItemSet* rSet )
     {
         pOld = GetOldItem( *rSet, SID_ATTR_PAGE );
 
-        if ( !pOld || !( *static_cast<const SvxPageItem*>(pOld) == aPage ) )
+        if ( !pOld || *static_cast<const SvxPageItem*>(pOld) != aPage )
         {
             rSet->Put( aPage );
             bModified = true;
@@ -802,7 +802,7 @@ IMPL_LINK_NOARG(SvxPageDescPage, LayoutHdl_Impl, weld::ComboBox&, void)
     UpdateExample_Impl( true );
 }
 
-IMPL_LINK_NOARG(SvxPageDescPage, PaperBinHdl_Impl, weld::ComboBox&, void)
+IMPL_LINK_NOARG(SvxPageDescPage, PaperBinHdl_Impl, weld::Widget&, void)
 {
     if (m_xPaperTrayBox->get_count() > 1)
         // already filled
@@ -826,6 +826,9 @@ IMPL_LINK_NOARG(SvxPageDescPage, PaperBinHdl_Impl, weld::ComboBox&, void)
     }
     m_xPaperTrayBox->set_active_text(aOldName);
     m_xPaperTrayBox->thaw();
+    // tdf#123650 explicitly grab-focus after the modification otherwise gtk loses track
+    // of there the focus should be
+    m_xPaperTrayBox->grab_focus();
 }
 
 IMPL_LINK_NOARG(SvxPageDescPage, PaperSizeSelect_Impl, weld::ComboBox&, void)

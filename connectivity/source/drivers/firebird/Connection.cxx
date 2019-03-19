@@ -87,7 +87,7 @@ Connection::Connection()
     , m_sFirebirdURL()
     , m_bIsEmbedded(false)
     , m_bIsFile(false)
-    , m_bIsAutoCommit(false)
+    , m_bIsAutoCommit(true)
     , m_bIsReadOnly(false)
     , m_aTransactionIsolation(TransactionIsolation::REPEATABLE_READ)
 #if SAL_TYPES_SIZEOFPOINTER == 8
@@ -135,7 +135,6 @@ void Connection::construct(const OUString& url, const Sequence< PropertyValue >&
         // the database may be stored as an
         // fdb file in older versions
         bool bIsFdbStored = false;
-        OUString aStorageURL;
         if (url == "sdbc:embedded:firebird")
         {
             m_bIsEmbedded = true;
@@ -148,10 +147,6 @@ void Connection::construct(const OUString& url, const Sequence< PropertyValue >&
                 if ( pIter->Name == "Storage" )
                 {
                     m_xEmbeddedStorage.set(pIter->Value,UNO_QUERY);
-                }
-                else if ( pIter->Name == "URL" )
-                {
-                    pIter->Value >>= aStorageURL;
                 }
                 else if ( pIter->Name == "Document" )
                 {
@@ -636,9 +631,9 @@ void Connection::runBackupService(const short nAction)
     }
 
     isc_svc_handle aServiceHandle;
-        aServiceHandle = attachServiceManager();
+    aServiceHandle = attachServiceManager();
 
-        if (isc_service_start(aStatusVector,
+    if (isc_service_start(aStatusVector,
                             &aServiceHandle,
                             nullptr,
                             aRequest.getLength(),
@@ -924,7 +919,7 @@ void Connection::disposing()
 
     if (m_pDatabaseFileDir)
     {
-        ::utl::removeTree((m_pDatabaseFileDir)->GetURL());
+        ::utl::removeTree(m_pDatabaseFileDir->GetURL());
         m_pDatabaseFileDir.reset();
     }
 }

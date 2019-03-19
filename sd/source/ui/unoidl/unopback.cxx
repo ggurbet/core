@@ -18,7 +18,6 @@
  */
 
 #include <com/sun/star/drawing/BitmapMode.hpp>
-#include <o3tl/make_unique.hxx>
 #include <vcl/svapp.hxx>
 #include <svl/itemset.hxx>
 #include <svx/svdpool.hxx>
@@ -28,6 +27,7 @@
 #include <svx/svdobj.hxx>
 #include <svx/unoprov.hxx>
 #include <svx/unoshape.hxx>
+#include <svx/unoshprp.hxx>
 
 #include "unopback.hxx"
 #include <drawdoc.hxx>
@@ -58,7 +58,7 @@ SdUnoPageBackground::SdUnoPageBackground(
     if( pDoc )
     {
         StartListening( *pDoc );
-        mpSet = o3tl::make_unique<SfxItemSet>( pDoc->GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{} );
+        mpSet = std::make_unique<SfxItemSet>( pDoc->GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{} );
 
         if( pSet )
             mpSet->Put(*pSet);
@@ -99,7 +99,7 @@ void SdUnoPageBackground::fillItemSet( SdDrawDocument* pDoc, SfxItemSet& rSet ) 
         StartListening( *pDoc );
         mpDoc = pDoc;
 
-        mpSet = o3tl::make_unique<SfxItemSet>( *rSet.GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{} );
+        mpSet = std::make_unique<SfxItemSet>( *rSet.GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{} );
 
         if( mpPropSet->AreThereOwnUsrAnys() )
         {
@@ -245,7 +245,7 @@ void SAL_CALL SdUnoPageBackground::setPropertyValue( const OUString& aPropertyNa
     }
     else
     {
-        if(pEntry && pEntry->nWID)
+        if(pEntry->nWID)
             mpPropSet->setPropertyValue( pEntry, aValue );
     }
 }
@@ -294,7 +294,7 @@ uno::Any SAL_CALL SdUnoPageBackground::getPropertyValue( const OUString& Propert
     }
     else
     {
-        if(pEntry && pEntry->nWID)
+        if(pEntry->nWID)
             aAny = mpPropSet->getPropertyValue( pEntry );
     }
     return aAny;

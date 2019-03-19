@@ -48,6 +48,7 @@
 
 #include <opengl/zone.hxx>
 
+#include <tools/debug.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
@@ -157,11 +158,11 @@ static bool sal_GetVisualInfo( Display *pDisplay, XID nVID, XVisualInfo &rVI )
 extern "C" srv_vendor_t
 sal_GetServerVendor( Display *p_display )
 {
-    typedef struct {
+    struct vendor_t {
         srv_vendor_t  e_vendor; // vendor as enum
         const char*   p_name;   // vendor name as returned by VendorString()
         unsigned int  n_len;    // number of chars to compare
-    } vendor_t;
+    };
 
     static const vendor_t vendorlist[] = {
         { vendor_sun,         "Sun Microsystems, Inc.",          10 },
@@ -1438,7 +1439,7 @@ KeySym SalDisplay::GetKeySym( XKeyEvent        *pEvent,
     *pStatusReturn = 0;
 
     SalI18N_InputMethod* const pInputMethod =
-        ( pXLib_ ) ? pXLib_->GetInputMethod() : nullptr;
+        pXLib_ ? pXLib_->GetInputMethod() : nullptr;
 
     // first get the printable of the possibly modified KeySym
     if (   (aInputContext == nullptr)
@@ -1945,7 +1946,7 @@ void SalX11Display::Yield()
 bool SalX11Display::Dispatch( XEvent *pEvent )
 {
     SalI18N_InputMethod* const pInputMethod =
-        ( pXLib_ ) ? pXLib_->GetInputMethod() : nullptr;
+        pXLib_ ? pXLib_->GetInputMethod() : nullptr;
 
     if( pInputMethod )
     {

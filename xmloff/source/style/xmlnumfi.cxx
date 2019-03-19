@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <o3tl/make_unique.hxx>
-
 #include <unotools/syslocale.hxx>
 
 #include <svl/zforlist.hxx>
@@ -34,6 +32,7 @@
 
 #include <sax/tools/converter.hxx>
 
+#include <xmloff/xmlement.hxx>
 #include <xmloff/xmlnumfi.hxx>
 #include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
@@ -441,7 +440,7 @@ const SvXMLTokenMap& SvXMLNumImpData::GetStylesElemTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        pStylesElemTokenMap = o3tl::make_unique<SvXMLTokenMap>( aStylesElemMap );
+        pStylesElemTokenMap = std::make_unique<SvXMLTokenMap>( aStylesElemMap );
     }
     return *pStylesElemTokenMap;
 }
@@ -479,7 +478,7 @@ const SvXMLTokenMap& SvXMLNumImpData::GetStyleElemTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        pStyleElemTokenMap = o3tl::make_unique<SvXMLTokenMap>( aStyleElemMap );
+        pStyleElemTokenMap = std::make_unique<SvXMLTokenMap>( aStyleElemMap );
     }
     return *pStyleElemTokenMap;
 }
@@ -512,7 +511,7 @@ const SvXMLTokenMap& SvXMLNumImpData::GetStyleAttrTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        pStyleAttrTokenMap = o3tl::make_unique<SvXMLTokenMap>( aStyleAttrMap );
+        pStyleAttrTokenMap = std::make_unique<SvXMLTokenMap>( aStyleAttrMap );
     }
     return *pStyleAttrTokenMap;
 }
@@ -558,7 +557,7 @@ const SvXMLTokenMap& SvXMLNumImpData::GetStyleElemAttrTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        pStyleElemAttrTokenMap = o3tl::make_unique<SvXMLTokenMap>( aStyleElemAttrMap );
+        pStyleElemAttrTokenMap = std::make_unique<SvXMLTokenMap>( aStyleElemAttrMap );
     }
     return *pStyleElemAttrTokenMap;
 }
@@ -566,7 +565,7 @@ const SvXMLTokenMap& SvXMLNumImpData::GetStyleElemAttrTokenMap()
 const LocaleDataWrapper& SvXMLNumImpData::GetLocaleData( LanguageType nLang )
 {
     if ( !pLocaleData )
-        pLocaleData = o3tl::make_unique<LocaleDataWrapper>(
+        pLocaleData = std::make_unique<LocaleDataWrapper>(
                pFormatter ? pFormatter->GetComponentContext() : m_xContext,
             LanguageTag( nLang ) );
     else
@@ -2268,7 +2267,7 @@ SvXMLNumFmtHelper::SvXMLNumFmtHelper(
     if (pObj)
         pFormatter = pObj->GetNumberFormatter();
 
-    pData = o3tl::make_unique<SvXMLNumImpData>( pFormatter, rxContext );
+    pData = std::make_unique<SvXMLNumImpData>( pFormatter, rxContext );
 }
 
 SvXMLNumFmtHelper::SvXMLNumFmtHelper(
@@ -2277,7 +2276,7 @@ SvXMLNumFmtHelper::SvXMLNumFmtHelper(
 {
     SAL_WARN_IF( !rxContext.is(), "xmloff", "got no service manager" );
 
-    pData = o3tl::make_unique<SvXMLNumImpData>( pNumberFormatter, rxContext );
+    pData = std::make_unique<SvXMLNumImpData>( pNumberFormatter, rxContext );
 }
 
 SvXMLNumFmtHelper::~SvXMLNumFmtHelper()

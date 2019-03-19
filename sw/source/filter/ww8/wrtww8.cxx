@@ -30,7 +30,6 @@
 #include <string.h>
 #include <osl/endian.h>
 #include <sal/log.hxx>
-#include <o3tl/make_unique.hxx>
 #include <docsh.hxx>
 #include <drawdoc.hxx>
 
@@ -58,6 +57,7 @@
 #include <fmtpdsc.hxx>
 #include <fmtrowsplt.hxx>
 #include <frmatr.hxx>
+#include <../../core/inc/rootfrm.hxx>
 #include <doc.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <IDocumentDrawModelAccess.hxx>
@@ -986,7 +986,7 @@ WW8_WrPlcPn::WW8_WrPlcPn(WW8Export& rWr, ePLCFT ePl, WW8_FC nStartFc)
     , nFkpStartPage(0)
     , ePlc(ePl)
 {
-    m_Fkps.push_back(o3tl::make_unique<WW8_WrFkp>(ePlc, nStartFc));
+    m_Fkps.push_back(std::make_unique<WW8_WrFkp>(ePlc, nStartFc));
 }
 
 WW8_WrPlcPn::~WW8_WrPlcPn()
@@ -1378,7 +1378,7 @@ void WW8_WrPct::AppendPc(WW8_FC nStartFc)
         nStartCp += m_Pcts.back()->GetStartCp();
     }
 
-    m_Pcts.push_back(o3tl::make_unique<WW8_WrPc>(nStartFc, nStartCp));
+    m_Pcts.push_back(std::make_unique<WW8_WrPc>(nStartFc, nStartCp));
 }
 
 void WW8_WrPct::WritePc( WW8Export& rWrt )
@@ -1945,7 +1945,7 @@ void MSWordExportBase::SaveData( sal_uLong nStt, sal_uLong nEnd )
     m_bStartTOX = false;
     m_bInWriteTOX = false;
 
-    m_aSaveData.push( aData );
+    m_aSaveData.push( std::move(aData) );
 }
 
 void MSWordExportBase::RestoreData()
@@ -1980,8 +1980,8 @@ void WW8Export::SaveData( sal_uLong nStt, sal_uLong nEnd )
 
     if ( !pO->empty() )
     {
-        rData.pOOld = pO;
-        pO = new ww::bytes;
+        rData.pOOld = std::move(pO);
+        pO.reset(new ww::bytes);
     }
     else
         rData.pOOld = nullptr; // reuse pO
@@ -1999,8 +1999,7 @@ void WW8Export::RestoreData()
     OSL_ENSURE( pO->empty(), "pO is not empty in WW8Export::RestoreData()" );
     if ( rData.pOOld )
     {
-        delete pO;
-        pO = rData.pOOld;
+        pO = std::move(rData.pOOld);
     }
 
     MSWordExportBase::RestoreData();
@@ -2385,7 +2384,7 @@ void WW8AttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t 
         }
     }
 
-     m_rWW8Export.InsInt16( nTableOffset );
+    m_rWW8Export.InsInt16( nTableOffset );
 
     ww8::GridColsPtr pGridCols = GetGridCols( pTableTextNodeInfoInner );
     for ( const auto nCol : *pGridCols )
@@ -2777,6 +2776,10 @@ void MSWordExportBase::WriteText()
                     {
                         bNeedExportBreakHere = false;
                     }
+                    // No need to create a "fake" section if this is the end of the document,
+                    // except to emulate balanced columns.
+                    else if ( nColumnCount < 2 && aIdx == m_pDoc->GetNodes().GetEndOfContent() )
+                        bNeedExportBreakHere = false;
                 }
 
                 if (bNeedExportBreakHere)  //#120140# End of check
@@ -3335,7 +3338,7 @@ ErrCode WW8Export::ExportDocument_Impl()
 
     m_pPapPlc.reset(new WW8_WrPlcPn( *this, PAP, pFib->m_fcMin ));
     m_pChpPlc.reset(new WW8_WrPlcPn( *this, CHP, pFib->m_fcMin ));
-    pO = new ww::bytes;
+    pO.reset(new ww::bytes);
     m_pStyles.reset(new MSWordStyles( *this ));
     m_pFieldMain.reset(new WW8_WrPlcField( 2, TXT_MAINTEXT ));
     m_pFieldHdFt.reset(new WW8_WrPlcField( 2, TXT_HDFT ));
@@ -3352,7 +3355,8 @@ ErrCode WW8Export::ExportDocument_Impl()
     pDop.reset(new WW8Dop);
 
     pDop->fRevMarking = bool( RedlineFlags::On & m_nOrigRedlineFlags );
-    pDop->fRMView = bool( RedlineFlags::ShowDelete & m_nOrigRedlineFlags );
+    SwRootFrame const*const pLayout(m_pDoc->getIDocumentLayoutAccess().GetCurrentLayout());
+    pDop->fRMView = pLayout == nullptr || !pLayout->IsHideRedlines();
     pDop->fRMPrint = pDop->fRMView;
 
     // set AutoHyphenation flag if found in default para style
@@ -3429,7 +3433,7 @@ ErrCode WW8Export::ExportDocument_Impl()
     m_pFieldHdFt.reset();;
     m_pFieldMain.reset();;
     m_pStyles.reset();;
-    DELETEZ( pO );
+    pO.reset();
     m_pChpPlc.reset();;
     m_pPapPlc.reset();;
     pSepx.reset();
@@ -3644,7 +3648,6 @@ WW8Export::WW8Export( SwWW8Writer *pWriter,
         SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM *pOriginalPam,
         bool bDot )
     : MSWordExportBase( pDocument, pCurrentPam, pOriginalPam )
-    , pO(nullptr)
     , pTableStrm(nullptr)
     , pDataStrm(nullptr)
     , m_bDot(bDot)
@@ -3998,7 +4001,7 @@ void WW8Export::WriteFormData( const ::sw::mark::IFieldmark& rFieldmark )
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,    //  |              /16
         0,0,0,0,                            // /               /4
     };
-   sal_uInt32 slen = sizeof(sal_uInt32)
+    sal_uInt32 slen = sizeof(sal_uInt32)
         + sizeof(aFieldData)
         + sizeof( aFieldHeader.version ) + sizeof( aFieldHeader.bits ) + sizeof( aFieldHeader.cch ) + sizeof( aFieldHeader.hps )
         + 2*ffname.getLength() + 4

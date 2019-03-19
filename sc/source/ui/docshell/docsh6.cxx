@@ -19,13 +19,11 @@
 
 #include <scitems.hxx>
 
-#include <o3tl/make_unique.hxx>
 #include <svx/pageitem.hxx>
 #include <sfx2/linkmgr.hxx>
 
 #include <docsh.hxx>
 
-#include <stlsheet.hxx>
 #include <stlpool.hxx>
 #include <global.hxx>
 #include <viewdata.hxx>
@@ -36,7 +34,6 @@
 #include <scmod.hxx>
 #include <compiler.hxx>
 #include <interpre.hxx>
-#include <calcconfig.hxx>
 #include <formulaopt.hxx>
 
 #include <vcl/svapp.hxx>
@@ -176,7 +173,11 @@ void ScDocShell::UpdateOle( const ScViewData* pViewData, bool bSnapSize )
 
         bool bNegativePage = m_aDocument.IsNegativePage( nTab );
         SCCOL nX = pViewData->GetPosX(SC_SPLIT_LEFT);
+        if ( nX != m_aDocument.GetPosLeft() )
+            m_aDocument.SetPosLeft( nX );
         SCROW nY = pViewData->GetPosY(SC_SPLIT_BOTTOM);
+        if ( nY != m_aDocument.GetPosTop() )
+            m_aDocument.SetPosTop( nY );
         tools::Rectangle aMMRect = m_aDocument.GetMMRect( nX,nY, nX,nY, nTab );
         if (bNegativePage)
             lcl_SetTopRight( aNewArea, aMMRect.TopRight() );
@@ -213,14 +214,14 @@ static void lcl_AdjustPool( SfxStyleSheetBasePool* pStylePool )
         if (rStyleSet.GetItemState(ATTR_PAGE_HEADERSET,false,&pItem) == SfxItemState::SET)
         {
             const SfxItemSet& rSrcSet = static_cast<const SvxSetItem*>(pItem)->GetItemSet();
-            auto pDestSet = o3tl::make_unique<SfxItemSet>(*rStyleSet.GetPool(),rSrcSet.GetRanges());
+            auto pDestSet = std::make_unique<SfxItemSet>(*rStyleSet.GetPool(),rSrcSet.GetRanges());
             pDestSet->Put(rSrcSet);
             rStyleSet.Put(SvxSetItem(ATTR_PAGE_HEADERSET,std::move(pDestSet)));
         }
         if (rStyleSet.GetItemState(ATTR_PAGE_FOOTERSET,false,&pItem) == SfxItemState::SET)
         {
             const SfxItemSet& rSrcSet = static_cast<const SvxSetItem*>(pItem)->GetItemSet();
-            auto pDestSet = o3tl::make_unique<SfxItemSet>(*rStyleSet.GetPool(),rSrcSet.GetRanges());
+            auto pDestSet = std::make_unique<SfxItemSet>(*rStyleSet.GetPool(),rSrcSet.GetRanges());
             pDestSet->Put(rSrcSet);
             rStyleSet.Put(SvxSetItem(ATTR_PAGE_FOOTERSET,std::move(pDestSet)));
         }

@@ -119,9 +119,9 @@ Any SAL_CALL OPreparedStatement::queryInterface( const Type & rType )
 
 css::uno::Sequence< css::uno::Type > SAL_CALL OPreparedStatement::getTypes(  )
 {
-        ::cppu::OTypeCollection aTypes( cppu::UnoType<XPreparedStatement>::get(),
-                                        cppu::UnoType<XParameters>::get(),
-                                        cppu::UnoType<XResultSetMetaDataSupplier>::get());
+    ::cppu::OTypeCollection aTypes( cppu::UnoType<XPreparedStatement>::get(),
+                                    cppu::UnoType<XParameters>::get(),
+                                    cppu::UnoType<XResultSetMetaDataSupplier>::get());
 
     return ::comphelper::concatSequences(aTypes.getTypes(),OStatement_BASE2::getTypes());
 }
@@ -501,9 +501,6 @@ void OPreparedStatement::describeParameter()
 void OPreparedStatement::initializeResultSet(OResultSet* pRS)
 {
     OStatement_Base::initializeResultSet(pRS);
-
-    pRS->setParameterColumns(m_xParamColumns);
-    pRS->setParameterRow(m_aParameterRow);
 
     // Substitute parameter (AssignValues and criteria):
     if (!m_xParamColumns->get().empty())

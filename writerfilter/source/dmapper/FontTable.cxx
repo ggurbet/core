@@ -93,13 +93,7 @@ void FontTable::lcl_attribute(Id Name, Value & val)
                 m_pImpl->pCurrentEntry->nTextEncoding = RTL_TEXTENCODING_SYMBOL;
             break;
         }
-        default:
-        {
-            //----> debug
-            int nVal = val.getInt();
-            ++nVal;
-            //<---- debug
-        }
+        default: ;
     }
 }
 
@@ -278,7 +272,6 @@ void EmbeddedFontHandler::lcl_attribute( Id name, Value& val )
             fontKey = sValue;
             break;
         case NS_ooxml::LN_CT_Rel_id:
-            id = sValue;
             break;
         case NS_ooxml::LN_CT_FontRel_subsetted:
             break; // TODO? Let's just ignore this for now and hope

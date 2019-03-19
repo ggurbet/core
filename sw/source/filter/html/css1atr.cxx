@@ -184,11 +184,6 @@ OString lclConvToHex(sal_uInt16 nHex)
     return OString(aNToABuf, 2);
 }
 
-OString lclGetCSS1Color(const Color& rColor)
-{
-    return "#" + lclConvToHex(rColor.GetRed()) + lclConvToHex(rColor.GetGreen()) + lclConvToHex(rColor.GetBlue());
-}
-
 /// Determines if rProperty has to be suppressed due to ReqIF mode.
 bool IgnorePropertyForReqIF(bool bReqIF, const OString& rProperty)
 {
@@ -204,6 +199,11 @@ bool IgnorePropertyForReqIF(bool bReqIF, const OString& rProperty)
 
     return true;
 }
+}
+
+OString GetCSS1_Color(const Color& rColor)
+{
+    return "#" + lclConvToHex(rColor.GetRed()) + lclConvToHex(rColor.GetGreen()) + lclConvToHex(rColor.GetBlue());
 }
 
 class SwCSS1OutMode
@@ -280,9 +280,9 @@ void SwHTMLWriter::OutCSS1_Property( const sal_Char *pProp,
                 "p." sCSS2_P_CLASS_leaders "{max-width:" + OString::number(DOT_LEADERS_MAX_WIDTH) +
                     "cm;padding:0;overflow-x:hidden;line-height:120%}"
                 "p." sCSS2_P_CLASS_leaders ":after{float:left;width:0;white-space:nowrap;content:\"");
-                for (int i = 0; i < 100; i++ )
-                    sOut.append(". ");
-                sOut.append(
+            for (int i = 0; i < 100; i++ )
+                sOut.append(". ");
+            sOut.append(
                     "\"}p." sCSS2_P_CLASS_leaders " span:first-child{padding-right:0.33em;background:white}"
                     "p." sCSS2_P_CLASS_leaders " span+span{float:right;padding-left:0.33em;"
                     "background:white;position:relative;z-index:1}");
@@ -529,7 +529,7 @@ void SwHTMLWriter::OutStyleSheet( const SwPageDesc& rPageDesc )
         {
             // The document is one-sided; no matter what page, we do not create a 2-sided doc.
             // The attribute is exported relative to the HTML page template.
-          OutCSS1_SwPageDesc( *this, *pPageDesc, pStylePoolAccess, m_xTemplate.get(),
+            OutCSS1_SwPageDesc( *this, *pPageDesc, pStylePoolAccess, m_xTemplate.get(),
                                 RES_POOLPAGE_HTML, true, false );
             nFirstRefPoolId = pFollow->GetPoolFormatId();
         }
@@ -539,9 +539,9 @@ void SwHTMLWriter::OutStyleSheet( const SwPageDesc& rPageDesc )
                   RES_POOLPAGE_LEFT == pFollow->GetPoolFormatId()) )
         {
             // the document is double-sided
-          OutCSS1_SwPageDesc( *this, *pPageDesc, pStylePoolAccess, m_xTemplate.get(),
+            OutCSS1_SwPageDesc( *this, *pPageDesc, pStylePoolAccess, m_xTemplate.get(),
                                 RES_POOLPAGE_HTML, true );
-          OutCSS1_SwPageDesc( *this, *pFollow, pStylePoolAccess, m_xTemplate.get(),
+            OutCSS1_SwPageDesc( *this, *pFollow, pStylePoolAccess, m_xTemplate.get(),
                                 RES_POOLPAGE_HTML, true );
             nFirstRefPoolId = RES_POOLPAGE_RIGHT;
             m_bCSS1IgnoreFirstPageDesc = false;
@@ -1220,9 +1220,9 @@ bool SwHTMLWriter::HasScriptDependentItems( const SfxItemSet& rItemSet,
             }
             else
             {
-                if( !( *pItem == *pItemCJK ) ||
-                    !( *pItem == *pItemCTL ) ||
-                    !( *pItemCJK == *pItemCTL ) )
+                if( *pItem != *pItemCJK ||
+                    *pItem != *pItemCTL ||
+                    *pItemCJK != *pItemCTL )
                     return true;
             }
         }
@@ -1459,7 +1459,7 @@ static void OutCSS1DropCapRule(
         SwCSS1OutMode aMode( rHTMLWrt,
                 rHTMLWrt.m_nCSS1Script|CSS1_OUTMODE_RULE|CSS1_OUTMODE_DROPCAP,
                              &rSelector );
-                OutCSS1_SwFormatDropAttrs( rHTMLWrt, rDrop );
+        OutCSS1_SwFormatDropAttrs( rHTMLWrt, rDrop );
     }
 }
 
@@ -2232,7 +2232,7 @@ void SwHTMLWriter::OutCSS1_FrameFormatBackground( const SwFrameFormat& rFrameFor
                 aColor = pVSh->GetViewOptions()->GetRetoucheColor();
         }
 
-        OutCSS1_PropertyAscii(sCSS1_P_background, lclGetCSS1Color(aColor));
+        OutCSS1_PropertyAscii(sCSS1_P_background, GetCSS1_Color(aColor));
     }
 }
 
@@ -2407,7 +2407,7 @@ static Writer& OutCSS1_SvxColor( Writer& rWrt, const SfxPoolItem& rHt )
     if( COL_AUTO == aColor )
         aColor = COL_BLACK;
 
-    rHTMLWrt.OutCSS1_PropertyAscii(sCSS1_P_color, lclGetCSS1Color(aColor));
+    rHTMLWrt.OutCSS1_PropertyAscii(sCSS1_P_color, GetCSS1_Color(aColor));
 
     return rWrt;
 }
@@ -3264,7 +3264,7 @@ static Writer& OutCSS1_SvxBrush( Writer& rWrt, const SfxPoolItem& rHt,
     {
         if( bColor )
         {
-            OString sTmp(lclGetCSS1Color(aColor));
+            OString sTmp(GetCSS1_Color(aColor));
             sOut += OStringToOUString(sTmp, RTL_TEXTENCODING_ASCII_US);
         }
 
@@ -3379,7 +3379,7 @@ static void OutCSS1_SvxBorderLine( SwHTMLWriter& rHTMLWrt,
     sOut.append(' ');
 
     // and also the color
-    sOut.append(lclGetCSS1Color(pLine->GetColor()));
+    sOut.append(GetCSS1_Color(pLine->GetColor()));
 
     rHTMLWrt.OutCSS1_PropertyAscii(pProperty, sOut.makeStringAndClear());
 }

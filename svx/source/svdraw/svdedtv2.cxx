@@ -41,7 +41,6 @@
 #include <svx/strings.hrc>
 #include <svx/svdoashp.hxx>
 #include <basegfx/polygon/b2dpolypolygoncutter.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 #include <memory>
 #include <vector>
@@ -1090,15 +1089,7 @@ void SdrEditView::MergeMarkedObjects(SdrMergeMode eMode)
         case SdrMergeMode::Merge:
         {
             // merge all contained parts (OR)
-            static bool bTestXOR(false);
-            if(bTestXOR)
-            {
-                aMergePolyPolygonA = basegfx::utils::solvePolygonOperationXor(aMergePolyPolygonA, aMergePolyPolygonB);
-            }
-            else
-            {
-                aMergePolyPolygonA = basegfx::utils::solvePolygonOperationOr(aMergePolyPolygonA, aMergePolyPolygonB);
-            }
+            aMergePolyPolygonA = basegfx::utils::solvePolygonOperationOr(aMergePolyPolygonA, aMergePolyPolygonB);
             break;
         }
         case SdrMergeMode::Subtract:
@@ -1257,7 +1248,7 @@ void SdrEditView::CombineMarkedObjects(bool bNoPolyPoly)
     // continue as before
     basegfx::B2DPolyPolygon aPolyPolygon;
     SdrObjList* pCurrentOL = nullptr;
-    SdrMarkList aRemoveMerker;
+    SdrMarkList aRemoveBuffer;
 
     SortMarkedObjects();
     size_t nInsPos = SAL_MAX_SIZE;
@@ -1295,7 +1286,7 @@ void SdrEditView::CombineMarkedObjects(bool bNoPolyPoly)
                 pInsOL = pObj->getParentSdrObjListFromSdrObject();
             }
 
-            aRemoveMerker.InsertEntry(SdrMark(pObj, pM->GetPageView()));
+            aRemoveBuffer.InsertEntry(SdrMark(pObj, pM->GetPageView()));
         }
     }
 
@@ -1377,12 +1368,12 @@ void SdrEditView::CombineMarkedObjects(bool bNoPolyPoly)
     }
 
     // build an UndoComment from the objects actually used
-    aRemoveMerker.ForceSort(); // important for remove (see below)
+    aRemoveBuffer.ForceSort(); // important for remove (see below)
     if( bUndo )
-        SetUndoComment(SvxResId(bNoPolyPoly?STR_EditCombine_OnePoly:STR_EditCombine_PolyPoly),aRemoveMerker.GetMarkDescription());
+        SetUndoComment(SvxResId(bNoPolyPoly?STR_EditCombine_OnePoly:STR_EditCombine_PolyPoly),aRemoveBuffer.GetMarkDescription());
 
     // remove objects actually used from the list
-    DeleteMarkedList(aRemoveMerker);
+    DeleteMarkedList(aRemoveBuffer);
     if( bUndo )
         EndUndo();
 }
@@ -1568,7 +1559,7 @@ void SdrEditView::ImpDismantleOneObject(const SdrObject* pObj, SdrObjList& rOL, 
 
         if(pLast && pSrcPath->GetOutlinerParaObject())
         {
-            pLast->SetOutlinerParaObject(o3tl::make_unique<OutlinerParaObject>(*pSrcPath->GetOutlinerParaObject()));
+            pLast->SetOutlinerParaObject(std::make_unique<OutlinerParaObject>(*pSrcPath->GetOutlinerParaObject()));
         }
     }
     else if(pCustomShape)
@@ -1608,7 +1599,7 @@ void SdrEditView::ImpDismantleOneObject(const SdrObject* pObj, SdrObjList& rOL, 
                     OutlinerParaObject* pParaObj = pCustomShape->GetOutlinerParaObject();
                     if(pParaObj)
                     {
-                        pTextObj->NbcSetOutlinerParaObject(o3tl::make_unique<OutlinerParaObject>(*pParaObj));
+                        pTextObj->NbcSetOutlinerParaObject(std::make_unique<OutlinerParaObject>(*pParaObj));
                     }
 
                     // copy all attributes
@@ -1651,7 +1642,7 @@ void SdrEditView::ImpDismantleOneObject(const SdrObject* pObj, SdrObjList& rOL, 
 void SdrEditView::DismantleMarkedObjects(bool bMakeLines)
 {
     // temporary MarkList
-    SdrMarkList aRemoveMerker;
+    SdrMarkList aRemoveBuffer;
 
     SortMarkedObjects();
 
@@ -1672,7 +1663,7 @@ void SdrEditView::DismantleMarkedObjects(bool bMakeLines)
         SdrObjList* pOL=pObj->getParentSdrObjListFromSdrObject();
         if (pOL!=pOL0) { pOL0=pOL; pObj->GetOrdNum(); } // make sure OrdNums are correct!
         if (ImpCanDismantle(pObj,bMakeLines)) {
-            aRemoveMerker.InsertEntry(SdrMark(pObj,pM->GetPageView()));
+            aRemoveBuffer.InsertEntry(SdrMark(pObj,pM->GetPageView()));
             const size_t nPos0=pObj->GetOrdNumDirect();
             size_t nPos=nPos0+1;
             SdrObjList* pSubList=pObj->GetSubList();
@@ -1697,7 +1688,7 @@ void SdrEditView::DismantleMarkedObjects(bool bMakeLines)
     if( bUndo )
     {
         // construct UndoComment from objects actually used
-        SetUndoComment(SvxResId(bMakeLines?STR_EditDismantle_Lines:STR_EditDismantle_Polys),aRemoveMerker.GetMarkDescription());
+        SetUndoComment(SvxResId(bMakeLines?STR_EditDismantle_Lines:STR_EditDismantle_Polys),aRemoveBuffer.GetMarkDescription());
         // remove objects actually used from the list
         EndUndo();
     }
@@ -1724,8 +1715,8 @@ void SdrEditView::GroupMarked()
                 --nm;
                 SdrMark* pM=GetSdrMarkByIndex(nm);
                 SdrObject* pObj = pM->GetMarkedSdrObj();
-                    AddUndoActions( CreateConnectorUndo( *pObj ) );
-                    AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoRemoveObject( *pObj ));
+                AddUndoActions( CreateConnectorUndo( *pObj ) );
+                AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoRemoveObject( *pObj ));
             }
         }
 
@@ -2029,7 +2020,7 @@ void SdrEditView::DoImportMarkedMtf(SvdProgressInfo *pProgrInfo)
         SdrPageView* pPV=pM->GetPageView();
         SdrObjList*  pOL=pObj->getParentSdrObjListFromSdrObject();
         const size_t nInsPos=pObj->GetOrdNum()+1;
-        sal_uIntPtr        nInsAnz=0;
+        sal_uIntPtr      nInsCnt=0;
         tools::Rectangle aLogicRect;
 
         SdrGrafObj*  pGraf = dynamic_cast<SdrGrafObj*>( pObj );
@@ -2042,7 +2033,7 @@ void SdrEditView::DoImportMarkedMtf(SvdProgressInfo *pProgrInfo)
                 {
                     aLogicRect = pGraf->GetLogicRect();
                     ImpSdrGDIMetaFileImport aFilter(*mpModel, pObj->GetLayer(), aLogicRect);
-                    nInsAnz = aFilter.DoImport(aMetaFile, *pOL, nInsPos, pProgrInfo);
+                    nInsCnt = aFilter.DoImport(aMetaFile, *pOL, nInsPos, pProgrInfo);
                 }
             }
             else if (pGraf->isEmbeddedPdfData())
@@ -2052,7 +2043,7 @@ void SdrEditView::DoImportMarkedMtf(SvdProgressInfo *pProgrInfo)
                 ImpSdrPdfImport aFilter(*mpModel, pObj->GetLayer(), aLogicRect, pGraf->getEmbeddedPdfData());
                 if (pGraf->getEmbeddedPageNumber() < aFilter.GetPageCount())
                 {
-                    nInsAnz = aFilter.DoImport(*pOL, nInsPos, pGraf->getEmbeddedPageNumber(), pProgrInfo);
+                    nInsCnt = aFilter.DoImport(*pOL, nInsPos, pGraf->getEmbeddedPageNumber(), pProgrInfo);
                 }
 #endif // HAVE_FEATURE_PDFIUM
             }
@@ -2063,10 +2054,10 @@ void SdrEditView::DoImportMarkedMtf(SvdProgressInfo *pProgrInfo)
         {
             aLogicRect = pOle2->GetLogicRect();
             ImpSdrGDIMetaFileImport aFilter(*mpModel, pObj->GetLayer(), aLogicRect);
-            nInsAnz = aFilter.DoImport(pOle2->GetGraphic()->GetGDIMetaFile(), *pOL, nInsPos, pProgrInfo);
+            nInsCnt = aFilter.DoImport(pOle2->GetGraphic()->GetGDIMetaFile(), *pOL, nInsPos, pProgrInfo);
         }
 
-        if (nInsAnz != 0)
+        if (nInsCnt != 0)
         {
             // transformation
             GeoStat aGeoStat(pGraf ? pGraf->GetGeoStat() : pOle2->GetGeoStat());
@@ -2078,7 +2069,7 @@ void SdrEditView::DoImportMarkedMtf(SvdProgressInfo *pProgrInfo)
             if (aGeoStat.nRotationAngle)
                 aGeoStat.RecalcSinCos();
 
-            for (sal_uIntPtr i = 0; i < nInsAnz; i++)
+            for (sal_uIntPtr i = 0; i < nInsCnt; i++)
             {
                 if (bUndo)
                     AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoNewObject(*pOL->GetObj(nObj)));

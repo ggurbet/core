@@ -22,6 +22,7 @@
 #include <vector>
 #include <algorithm>
 #include <vcl/bitmap.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <tools/color.hxx>
 #include <rtl/ustring.hxx>
@@ -778,7 +779,7 @@ void RoadmapItem::ImplUpdatePosSize()
 
     // position and size both controls
     Size aIDSize( nIDWidth, aDescriptionSize.Height() );
-     mpID->SetSizePixel( aIDSize );
+    mpID->SetSizePixel( aIDSize );
 
     Point aIDPos = mpID->GetPosPixel();
     mpDescription->SetPosPixel( Point( aIDPos.X() + nIDWidth, aIDPos.Y() ) );

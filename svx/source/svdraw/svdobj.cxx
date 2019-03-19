@@ -53,6 +53,7 @@
 #include <vcl/graphictools.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/virdev.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <vector>
 
 #include <svx/shapepropertynotifier.hxx>
@@ -131,7 +132,6 @@
 #include <rtl/strbuf.hxx>
 #include <svdobjplusdata.hxx>
 #include <svdobjuserdatalist.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <boost/optional.hpp>
 #include <libxml/xmlwriter.h>
@@ -149,7 +149,6 @@ void SdrObjUserCall::Changed(const SdrObject& /*rObj*/, SdrUserCallType /*eType*
 }
 
 SdrObjMacroHitRec::SdrObjMacroHitRec() :
-    pOut(nullptr),
     pVisiLayer(nullptr),
     pPageView(nullptr),
     nTol(0) {}
@@ -218,7 +217,7 @@ struct SdrObject::Impl
 
 std::unique_ptr<sdr::properties::BaseProperties> SdrObject::CreateObjectSpecificProperties()
 {
-    return o3tl::make_unique<sdr::properties::EmptyProperties>(*this);
+    return std::make_unique<sdr::properties::EmptyProperties>(*this);
 }
 
 sdr::properties::BaseProperties& SdrObject::GetProperties() const
@@ -259,7 +258,7 @@ void SdrObject::RemoveObjectUser(sdr::ObjectUser& rOldUser)
 
 std::unique_ptr<sdr::contact::ViewContact> SdrObject::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfSdrObj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrObj>(*this);
 }
 
 sdr::contact::ViewContact& SdrObject::GetViewContact() const
@@ -1377,9 +1376,9 @@ basegfx::B2DPolyPolygon SdrObject::TakeCreatePoly(const SdrDragStat& rDrag) cons
     return aRetval;
 }
 
-Pointer SdrObject::GetCreatePointer() const
+PointerStyle SdrObject::GetCreatePointer() const
 {
-    return Pointer(PointerStyle::Cross);
+    return PointerStyle::Cross;
 }
 
 // transformations
@@ -1776,9 +1775,9 @@ SdrObject* SdrObject::CheckMacroHit(const SdrObjMacroHitRec& rRec) const
     return nullptr;
 }
 
-Pointer SdrObject::GetMacroPointer(const SdrObjMacroHitRec&) const
+PointerStyle SdrObject::GetMacroPointer(const SdrObjMacroHitRec&) const
 {
-    return Pointer(PointerStyle::RefHand);
+    return PointerStyle::RefHand;
 }
 
 void SdrObject::PaintMacro(OutputDevice& rOut, const tools::Rectangle& , const SdrObjMacroHitRec& ) const
@@ -1992,7 +1991,7 @@ void SdrObject::NbcApplyNotPersistAttr(const SfxItemSet& rAttr)
         long n=static_cast<const SdrShearAngleItem*>(pPoolItem)->GetValue();
         n-=GetShearAngle();
         if (n!=0) {
-            double nTan=tan(n*nPi180);
+            double nTan = tan(n * F_PI18000);
             NbcShear(aRef1,n,nTan,false);
         }
     }
@@ -2000,25 +1999,25 @@ void SdrObject::NbcApplyNotPersistAttr(const SfxItemSet& rAttr)
         long n=static_cast<const SdrAngleItem*>(pPoolItem)->GetValue();
         n-=GetRotateAngle();
         if (n!=0) {
-            double nSin=sin(n*nPi180);
-            double nCos=cos(n*nPi180);
+            double nSin = sin(n * F_PI18000);
+            double nCos = cos(n * F_PI18000);
             NbcRotate(aRef1,n,nSin,nCos);
         }
     }
     if (rAttr.GetItemState(SDRATTR_ROTATEONE,true,&pPoolItem)==SfxItemState::SET) {
         long n=static_cast<const SdrRotateOneItem*>(pPoolItem)->GetValue();
-        double nSin=sin(n*nPi180);
-        double nCos=cos(n*nPi180);
+        double nSin = sin(n * F_PI18000);
+        double nCos = cos(n * F_PI18000);
         NbcRotate(aRef1,n,nSin,nCos);
     }
     if (rAttr.GetItemState(SDRATTR_HORZSHEARONE,true,&pPoolItem)==SfxItemState::SET) {
         long n=static_cast<const SdrHorzShearOneItem*>(pPoolItem)->GetValue();
-        double nTan=tan(n*nPi180);
+        double nTan = tan(n * F_PI18000);
         NbcShear(aRef1,n,nTan,false);
     }
     if (rAttr.GetItemState(SDRATTR_VERTSHEARONE,true,&pPoolItem)==SfxItemState::SET) {
         long n=static_cast<const SdrVertShearOneItem*>(pPoolItem)->GetValue();
-        double nTan=tan(n*nPi180);
+        double nTan = tan(n * F_PI18000);
         NbcShear(aRef1,n,nTan,true);
     }
 

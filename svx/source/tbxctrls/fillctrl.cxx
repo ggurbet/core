@@ -37,7 +37,6 @@
 #include <svx/fillctrl.hxx>
 #include <svx/itemwin.hxx>
 #include <memory>
-#include <o3tl/make_unique.hxx>
 
 
 using namespace ::com::sun::star;
@@ -372,7 +371,7 @@ void SvxFillToolBoxControl::Update()
                             aTmpStr = TMP_STR_BEGIN + aString + TMP_STR_END;
 
                             XGradientList aGradientList( "", ""/*TODO?*/ );
-                            aGradientList.Insert(o3tl::make_unique<XGradientEntry>(mpFillGradientItem->GetGradientValue(), aTmpStr));
+                            aGradientList.Insert(std::make_unique<XGradientEntry>(mpFillGradientItem->GetGradientValue(), aTmpStr));
                             aGradientList.SetDirty( false );
                             const BitmapEx aBmp = aGradientList.GetUiBitmap( 0 );
 
@@ -430,7 +429,7 @@ void SvxFillToolBoxControl::Update()
                             aTmpStr = TMP_STR_BEGIN + aString + TMP_STR_END;
 
                             XHatchList aHatchList( "", ""/*TODO?*/ );
-                            aHatchList.Insert(o3tl::make_unique<XHatchEntry>(mpHatchItem->GetHatchValue(), aTmpStr));
+                            aHatchList.Insert(std::make_unique<XHatchEntry>(mpHatchItem->GetHatchValue(), aTmpStr));
                             aHatchList.SetDirty( false );
                             const BitmapEx & aBmp = aHatchList.GetUiBitmap( 0 );
 
@@ -491,7 +490,7 @@ void SvxFillToolBoxControl::Update()
                                 XPropertyList::AsBitmapList(
                                     XPropertyList::CreatePropertyList(
                                         XPropertyListType::Bitmap, "TmpList", ""/*TODO?*/));
-                            xBitmapList->Insert(o3tl::make_unique<XBitmapEntry>(mpBitmapItem->GetGraphicObject(), aTmpStr));
+                            xBitmapList->Insert(std::make_unique<XBitmapEntry>(mpBitmapItem->GetGraphicObject(), aTmpStr));
                             xBitmapList->SetDirty( false );
                             mpLbFillAttr->Fill( xBitmapList );
                             mpLbFillAttr->SelectEntryPos(mpLbFillAttr->GetEntryCount() - 1);
@@ -861,35 +860,28 @@ IMPL_LINK_NOARG(SvxFillToolBoxControl, SelectFillAttrHdl, ListBox&, void)
 
 void FillControl::Resize()
 {
-    // Relative width of the two list boxes is 2/5 : 3/5
     Size aSize(GetOutputSizePixel());
-    long nW = aSize.Width() / 5;
     long nH = aSize.Height();
 
-    long nPrefHeight = mpLbFillType->get_preferred_size().Height();
+    Size aTypeSize(mpLbFillType->get_preferred_size());
+    long nPrefHeight = aTypeSize.Height();
     long nOffset = (nH - nPrefHeight)/2;
-    mpLbFillType->SetPosSizePixel(Point(0, nOffset), Size(nW * 2, nPrefHeight));
+    mpLbFillType->SetPosSizePixel(Point(0, nOffset), Size(aTypeSize.Width(), nPrefHeight));
     nPrefHeight = mpToolBoxColor->get_preferred_size().Height();
     nOffset = (nH - nPrefHeight)/2;
-    mpToolBoxColor->SetPosSizePixel(Point(nW * 2, nOffset),Size(nW * 3, nPrefHeight));
+    mpToolBoxColor->SetPosSizePixel(Point(aTypeSize.Width(), nOffset),Size(aSize.Width() - aTypeSize.Width(), nPrefHeight));
     nPrefHeight = mpLbFillType->get_preferred_size().Height();
     nOffset = (nH - nPrefHeight)/2;
-    mpLbFillAttr->SetPosSizePixel(Point(nW * 2, nOffset),Size(nW * 3, nPrefHeight));
+    mpLbFillAttr->SetPosSizePixel(Point(aTypeSize.Width(), nOffset),Size(aSize.Width() - aTypeSize.Width(), nPrefHeight));
 }
 
 void FillControl::SetOptimalSize()
 {
-    const Size aLogicalAttrSize(50,0);
-    Size aSize(LogicToPixel(aLogicalAttrSize, MapMode(MapUnit::MapAppFont)));
-
-    Point aAttrPnt = mpLbFillAttr->GetPosPixel();
-
-    aSize.setHeight( std::max(aSize.Height(), mpLbFillType->get_preferred_size().Height()) );
-    aSize.setHeight( std::max(aSize.Height(), mpToolBoxColor->get_preferred_size().Height()) );
-    aSize.setHeight( std::max(aSize.Height(), mpLbFillAttr->get_preferred_size().Height()) );
-
-    aSize.setWidth( aAttrPnt.X() + aSize.Width() );
-
+    Size aSize(mpLbFillType->get_preferred_size());
+    Size aFirstSize(mpToolBoxColor->get_preferred_size());
+    Size aSecondSize(mpLbFillAttr->get_preferred_size());
+    aSize.setHeight(std::max({aSize.Height(), aFirstSize.Height(), aSecondSize.Height()}));
+    aSize.setWidth(aSize.Width() + LogicToPixel(Size(55, 0), MapMode(MapUnit::MapAppFont)).Width());
     SetSizePixel(aSize);
 }
 

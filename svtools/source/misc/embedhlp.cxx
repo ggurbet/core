@@ -21,6 +21,7 @@
 #include <svtools/embedhlp.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/gdimtf.hxx>
+#include <vcl/outdev.hxx>
 #include <bitmaps.hlst>
 
 #include <sal/log.hxx>
@@ -52,6 +53,7 @@
 #include <cppuhelper/implbase.hxx>
 #include <vcl/svapp.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 #include <memory>
 
 using namespace com::sun::star;
@@ -432,12 +434,14 @@ void EmbeddedObjectRef::GetReplacement( bool bUpdate )
         mpImpl->mnGraphicVersion++;
     }
 
-    if (bUpdate && !*mpImpl->pGraphic && aOldGraphic)
+    // note that UpdateReplacementOnDemand which resets mpImpl->pGraphic to null may have been called
+    // e.g. when exporting ooo58458-1.odt to doc
+    if (bUpdate && (!mpImpl->pGraphic || !*mpImpl->pGraphic) && aOldGraphic)
     {
         // We used to have an old graphic, tried to update and the update
         // failed. Go back to the old graphic instead of having no graphic at
         // all.
-        (*mpImpl->pGraphic) = aOldGraphic;
+        mpImpl->pGraphic.reset(new Graphic(aOldGraphic));
         SAL_WARN("svtools.misc", "EmbeddedObjectRef::GetReplacement: update failed");
     }
 }
@@ -776,8 +780,8 @@ void EmbeddedObjectRef::SetGraphicToContainer( const Graphic& rGraphic,
     {
         aStream.Seek( 0 );
 
-           uno::Reference < io::XInputStream > xStream = new ::utl::OSeekableInputStreamWrapper( aStream );
-           aContainer.InsertGraphicStream( xStream, aName, aMediaType );
+        uno::Reference < io::XInputStream > xStream = new ::utl::OSeekableInputStreamWrapper( aStream );
+        aContainer.InsertGraphicStream( xStream, aName, aMediaType );
     }
     else
         OSL_FAIL( "Export of graphic is failed!" );

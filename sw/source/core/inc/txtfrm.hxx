@@ -122,7 +122,7 @@ TextFrameIndex UpdateMergedParaForDelete(MergedPara & rMerged,
 void MoveMergedFlysAndFootnotes(std::vector<SwTextFrame*> const& rFrames,
         SwTextNode const& rFirstNode, SwTextNode & rSecondNode, bool);
 
-void MoveDeletedPrevFrames(SwTextNode & rDeletedPrev, SwTextNode & rNode);
+void MoveDeletedPrevFrames(const SwTextNode & rDeletedPrev, SwTextNode & rNode);
 enum class Recreate { No, ThisNode, Predecessor };
 void CheckResetRedlineMergeFlag(SwTextNode & rNode, Recreate eRecreateMerged);
 
@@ -211,8 +211,8 @@ class SW_DLLPUBLIC SwTextFrame: public SwContentFrame
     void ChangeOffset( SwTextFrame* pFrame, TextFrameIndex nNew );
 
     bool mbLocked        : 1;        // In the Format?
-    bool mbWidow         : 1;        // Are we a Widow?
-    bool mbJustWidow     : 1;        // Did we just request to be a Widow?
+    bool mbWidow         : 1;        // Is our follow a Widow?
+    bool mbJustWidow     : 1;        // Did we just request Widow flag on master?
     bool mbEmpty         : 1;        // Are we an empty paragraph?
     bool mbInFootnoteConnect  : 1;        // Is in Connect at the moment
     bool mbFootnote           : 1;        // Has at least one footnote

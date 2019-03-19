@@ -32,7 +32,6 @@
 #include <tools/diagnose_ex.h>
 #include <basic/sbmod.hxx>
 #include <unotools/intlwrapper.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 #include <basic/sbuno.hxx>
@@ -40,6 +39,8 @@
 #include <global.hxx>
 #include <sbunoobj.hxx>
 #include <sbintern.hxx>
+#include <com/sun/star/script/XLibraryContainer.hpp>
+#include <com/sun/star/script/XPersistentLibraryContainer.hpp>
 
 #include <memory>
 #include <vector>
@@ -1444,7 +1445,7 @@ bool BasicManager::LegacyPsswdBinaryLimitExceeded( std::vector< OUString >& _out
 
             if ( nBigModules )
             {
-                 _out_rModuleNames.swap(aBigModules);
+                _out_rModuleNames.swap(aBigModules);
                 return true;
             }
         }

@@ -115,6 +115,8 @@ public:
 
     inline ContextCheck Struct(llvm::StringRef id) const;
 
+    explicit ContextCheck(const clang::NamespaceDecl * decl ) : context_( decl ) {}
+
 private:
     friend DeclCheck;
     friend TypeCheck;
@@ -139,6 +141,12 @@ private:
 
     bool const satisfied_;
 };
+
+
+typedef std::function<bool(clang::Decl const *)> DeclChecker;
+// Returns true if the class has a base matching the checker, or if the class itself matches.
+bool isDerivedFrom(const clang::CXXRecordDecl *decl, DeclChecker base);
+
 
 namespace detail {
 

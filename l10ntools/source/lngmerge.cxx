@@ -30,8 +30,14 @@
 
 namespace {
 
-OString getBracketedContent(const OString& text) {
-    return text.getToken(1, '[').getToken(0, ']');
+bool lcl_isNextGroup(OString &sGroup_out, const OString &sLineTrim)
+{
+    if (sLineTrim.startsWith("[") && sLineTrim.endsWith("]"))
+    {
+        sGroup_out = sLineTrim.getToken(1, '[').getToken(0, ']').trim();
+        return true;
+    }
+    return false;
 }
 
 void lcl_RemoveUTF8ByteOrderMarker( OString &rString )
@@ -122,13 +128,7 @@ void LngParser::WritePO(PoOfstream &aPOStream,
 
 bool LngParser::isNextGroup(OString &sGroup_out, const OString &sLine_in)
 {
-    const OString sLineTrim = sLine_in.trim();
-    if (sLineTrim.startsWith("[") && sLineTrim.endsWith("]"))
-    {
-        sGroup_out = getBracketedContent(sLineTrim).trim();
-        return true;
-    }
-    return false;
+    return lcl_isNextGroup(sGroup_out, sLine_in.trim());
 }
 
 void LngParser::ReadLine(const OString &rLine_in,
@@ -162,16 +162,7 @@ void LngParser::Merge(
 
     // seek to next group
     while ( nPos < mvLines.size() && !bGroup )
-    {
-        OString sLine( mvLines[ nPos ] );
-        sLine = sLine.trim();
-        if ( sLine.startsWith("[") && sLine.endsWith("]") )
-        {
-            sGroup = getBracketedContent(sLine).trim();
-            bGroup = true;
-        }
-        nPos ++;
-    }
+        bGroup = lcl_isNextGroup(sGroup, mvLines[nPos++].trim());
 
     while ( nPos < mvLines.size()) {
         OStringHashMap Text;
@@ -188,11 +179,9 @@ void LngParser::Merge(
 
         while ( nPos < mvLines.size() && !bGroup )
         {
-            OString sLine( mvLines[ nPos ] );
-            sLine = sLine.trim();
-            if ( sLine.startsWith("[") && sLine.endsWith("]") )
+            const OString sLine{ mvLines[nPos].trim() };
+            if ( lcl_isNextGroup(sGroup, sLine) )
             {
-                sGroup = getBracketedContent(sLine).trim();
                 bGroup = true;
                 nPos ++;
                 sLanguagesDone = "";
@@ -209,9 +198,7 @@ void LngParser::Merge(
                 {
                     sLang = sLang.trim();
 
-                    OString sSearch( ";" );
-                    sSearch += sLang;
-                    sSearch += ";";
+                    OString sSearch{ ";" + sLang + ";" };
 
                     if ( sLanguagesDone.indexOf( sSearch ) != -1 ) {
                         mvLines.erase( mvLines.begin() + nPos );
@@ -226,14 +213,11 @@ void LngParser::Merge(
                                 continue;
 
                             if ( !sNewText.isEmpty()) {
-                                OString & rLine = mvLines[ nPos ];
-
-                                OString sText1( sLang );
-                                sText1 += " = \"";
-                                // escape quotes, unescape double escaped quotes fdo#56648
-                                sText1 += sNewText.replaceAll("\"","\\\"").replaceAll("\\\\\"","\\\"");
-                                sText1 += "\"";
-                                rLine = sText1;
+                                mvLines[ nPos ] = sLang
+                                    + " = \""
+                                    // escape quotes, unescape double escaped quotes fdo#56648
+                                    + sNewText.replaceAll("\"","\\\"").replaceAll("\\\\\"","\\\"")
+                                    + "\"";
                                 Text[ sLang ] = sNewText;
                             }
                         }
@@ -264,12 +248,11 @@ void LngParser::Merge(
                         continue;
                     if ( !sNewText.isEmpty() && sCur != "x-comment")
                     {
-                        OString sLine;
-                        sLine += sCur;
-                        sLine += " = \"";
-                        // escape quotes, unescape double escaped quotes fdo#56648
-                        sLine += sNewText.replaceAll("\"","\\\"").replaceAll("\\\\\"","\\\"");
-                        sLine += "\"";
+                        const OString sLine { sCur
+                            + " = \""
+                            // escape quotes, unescape double escaped quotes fdo#56648
+                            + sNewText.replaceAll("\"","\\\"").replaceAll("\\\\\"","\\\"")
+                            + "\"" };
 
                         nLastLangPos++;
                         nPos++;

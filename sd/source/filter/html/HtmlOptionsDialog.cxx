@@ -17,11 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <osl/file.hxx>
-#include <osl/module.hxx>
-#include <com/sun/star/document/XViewDataSupplier.hpp>
-#include <com/sun/star/container/XIndexAccess.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/uno/Sequence.h>
 #include <com/sun/star/uno/Any.h>
@@ -34,18 +29,14 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <vcl/svapp.hxx>
 
-#include <facreg.hxx>
-
 using namespace com::sun::star::uno;
 using namespace com::sun::star::lang;
 using namespace com::sun::star::document;
 using namespace com::sun::star::beans;
-using namespace com::sun::star::container;
 using namespace com::sun::star::ui::dialogs;
 
 #include <pres.hxx>
 #include <sdabstdlg.hxx>
-#include <memory>
 
 class SdHtmlOptionsDialog : public cppu::WeakImplHelper
 <
@@ -58,7 +49,6 @@ class SdHtmlOptionsDialog : public cppu::WeakImplHelper
 {
     Sequence< PropertyValue > maMediaDescriptor;
     Sequence< PropertyValue > maFilterDataSequence;
-    OUString aDialogTitle;
     DocumentType meDocType;
 
 public:
@@ -161,9 +151,8 @@ void SdHtmlOptionsDialog::setPropertyValues( const Sequence< PropertyValue > & a
 }
 
 // XExecutableDialog
-void SdHtmlOptionsDialog::setTitle( const OUString& aTitle )
+void SdHtmlOptionsDialog::setTitle( const OUString& )
 {
-    aDialogTitle = aTitle;
 }
 
 sal_Int16 SdHtmlOptionsDialog::execute()

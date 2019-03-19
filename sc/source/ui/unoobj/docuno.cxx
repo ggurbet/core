@@ -25,7 +25,6 @@
 #include <editeng/editview.hxx>
 #include <editeng/outliner.hxx>
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <svx/fmdpage.hxx>
 #include <svx/fmview.hxx>
 #include <svx/svditer.hxx>
@@ -289,7 +288,7 @@ ScPrintUIOptions::ScPrintUIOptions()
         ScResId( SCSTR_PRINTOPT_SELECTEDCELLS )};
     uno::Sequence< OUString > aHelpIds{
         ".HelpID:vcl:PrintDialog:PrintContent:ListBox"};
-    m_aUIProperties[nIdx++].Value = setChoiceListControlOpt( "printpagesbox", OUString(),
+    m_aUIProperties[nIdx++].Value = setChoiceListControlOpt( "printextrabox", OUString(),
                                                     aHelpIds, "PrintContent",
                                                     aChoices, nContent );
 
@@ -302,13 +301,21 @@ ScPrintUIOptions::ScPrintUIOptions()
     // create a choice for the range to print
     OUString aPrintRangeName( "PrintRange" );
     aChoices.realloc( 4 );
-    aHelpIds.realloc( 1 );
+    aHelpIds.realloc( 4 );
+    uno::Sequence< OUString > aWidgetIds( 4 );
     aChoices[0] = ScResId( SCSTR_PRINTOPT_PRINTALLPAGES );
+    aHelpIds[0] = ".HelpID:vcl:PrintDialog:PrintRange:RadioButton:0";
+    aWidgetIds[0] = "rbAllPages";
     aChoices[1] = ScResId( SCSTR_PRINTOPT_PRINTPAGES );
+    aHelpIds[1] = ".HelpID:vcl:PrintDialog:PrintRange:RadioButton:1";
+    aWidgetIds[1] = "rbRangePages";
     aChoices[2] = ScResId( SCSTR_PRINTOPT_PRINTEVENPAGES );
+    aHelpIds[2] = ".HelpID:vcl:PrintDialog:PrintRange:RadioButton:2";
+    aWidgetIds[2] = "rbEvenPages";
     aChoices[3] = ScResId( SCSTR_PRINTOPT_PRINTODDPAGES );
-    aHelpIds[0] = ".HelpID:vcl:PrintDialog:PrintRange:ListBox";
-    m_aUIProperties[nIdx++].Value = setChoiceListControlOpt( "printextrabox", OUString(),
+    aHelpIds[3] = ".HelpID:vcl:PrintDialog:PrintRange:RadioButton:3";
+    aWidgetIds[3] = "rbOddPages";
+    m_aUIProperties[nIdx++].Value = setChoiceRadiosControlOpt(aWidgetIds, OUString(),
                                                     aHelpIds,
                                                     aPrintRangeName,
                                                     aChoices,
@@ -640,27 +647,7 @@ Size ScModelObj::getDocumentSize()
 void ScModelObj::postKeyEvent(int nType, int nCharCode, int nKeyCode)
 {
     SolarMutexGuard aGuard;
-
-    VclPtr<vcl::Window> pWindow = getDocWindow();
-    if (!pWindow)
-        return;
-
-    LOKAsyncEventData* pLOKEv = new LOKAsyncEventData;
-    pLOKEv->mpWindow = pWindow;
-    switch (nType)
-    {
-    case LOK_KEYEVENT_KEYINPUT:
-        pLOKEv->mnEvent = VclEventId::WindowKeyInput;
-        break;
-    case LOK_KEYEVENT_KEYUP:
-        pLOKEv->mnEvent = VclEventId::WindowKeyUp;
-        break;
-    default:
-        assert(false);
-    }
-
-    pLOKEv->maKeyEvent = KeyEvent(nCharCode, nKeyCode, 0);
-    Application::PostUserEvent(Link<void*, void>(pLOKEv, ITiledRenderable::LOKPostAsyncEvent));
+    SfxLokHelper::postKeyEventAsync(getDocWindow(), nType, nCharCode, nKeyCode);
 }
 
 void ScModelObj::postMouseEvent(int nType, int nX, int nY, int nCount, int nButtons, int nModifier)
@@ -695,29 +682,11 @@ void ScModelObj::postMouseEvent(int nType, int nX, int nY, int nCount, int nButt
             return;
     }
 
-    LOKAsyncEventData* pLOKEv = new LOKAsyncEventData;
-    pLOKEv->mpWindow = pGridWindow;
-    switch (nType)
-    {
-    case LOK_MOUSEEVENT_MOUSEBUTTONDOWN:
-        pLOKEv->mnEvent = VclEventId::WindowMouseButtonDown;
-        break;
-    case LOK_MOUSEEVENT_MOUSEBUTTONUP:
-        pLOKEv->mnEvent = VclEventId::WindowMouseButtonUp;
-        break;
-    case LOK_MOUSEEVENT_MOUSEMOVE:
-        pLOKEv->mnEvent = VclEventId::WindowMouseMove;
-        break;
-    default:
-        assert(false);
-    }
-
     // Calc operates in pixels...
     const Point aPos(nX * pViewData->GetPPTX(), nY * pViewData->GetPPTY());
-    pLOKEv->maMouseEvent = MouseEvent(aPos, nCount,
+    SfxLokHelper::postMouseEventAsync(pGridWindow, nType, aPos, nCount,
                                       MouseEventModifiers::SIMPLECLICK,
                                       nButtons, nModifier);
-    Application::PostUserEvent(Link<void*, void>(pLOKEv, ITiledRenderable::LOKPostAsyncEvent));
 }
 
 void ScModelObj::setTextSelection(int nType, int nX, int nY)
@@ -1028,17 +997,17 @@ OString ScModelObj::getCellCursor( int nOutputWidth, int nOutputHeight,
     return "{ \"commandName\": \".uno:CellCursor\", \"commandValues\": \"" + pGridWindow->getCellCursor( nOutputWidth, nOutputHeight, nTileWidth, nTileHeight ) + "\" }";
 }
 
-Pointer ScModelObj::getPointer()
+PointerStyle ScModelObj::getPointer()
 {
     SolarMutexGuard aGuard;
 
     ScViewData* pViewData = ScDocShell::GetViewData();
     if (!pViewData)
-        return Pointer();
+        return PointerStyle::Arrow;
 
     ScGridWindow* pGridWindow = pViewData->GetActiveWin();
     if (!pGridWindow)
-        return Pointer();
+        return PointerStyle::Arrow;
 
     return pGridWindow->GetPointer();
 }
@@ -1894,7 +1863,7 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
         aPageSize.Height = TwipsToHMM( aTwips.Height());
     }
 
-    long nPropCount = bWasCellRange ? 3 : 2;
+    long nPropCount = bWasCellRange ? 5 : 4;
     uno::Sequence<beans::PropertyValue> aSequence(nPropCount);
     beans::PropertyValue* pArray = aSequence.getArray();
     pArray[0].Name = SC_UNONAME_PAGESIZE;
@@ -1907,8 +1876,19 @@ uno::Sequence<beans::PropertyValue> SAL_CALL ScModelObj::getRenderer( sal_Int32 
         table::CellRangeAddress aRangeAddress( nTab,
                         aCellRange.aStart.Col(), aCellRange.aStart.Row(),
                         aCellRange.aEnd.Col(), aCellRange.aEnd.Row() );
+        tools::Rectangle aMMRect( pDocShell->GetDocument().GetMMRect(
+                    aCellRange.aStart.Col(), aCellRange.aStart.Row(),
+                    aCellRange.aEnd.Col(), aCellRange.aEnd.Row(), aCellRange.aStart.Tab()));
+
+        awt::Size aCalcPageSize ( aMMRect.GetSize().Width(),  aMMRect.GetSize().Height() );
+        awt::Point aCalcPagePos( aMMRect.getX(), aMMRect.getY() );
+
         pArray[2].Name = SC_UNONAME_SOURCERANGE;
         pArray[2].Value <<= aRangeAddress;
+        pArray[3].Name = SC_UNONAME_CALCPAGESIZE;
+        pArray[3].Value <<= aCalcPageSize;
+        pArray[4].Name = SC_UNONAME_CALCPAGEPOS;
+        pArray[4].Value <<= aCalcPagePos;
     }
 
     if( ! pPrinterOptions )
@@ -2016,7 +1996,8 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
 
 
     std::unique_ptr<ScPrintFunc, o3tl::default_delete<ScPrintFunc>> pPrintFunc;
-    if (m_pPrintState && m_pPrintState->nPrintTab == nTab)
+    if (m_pPrintState && m_pPrintState->nPrintTab == nTab
+        && ! pSelRange) // tdf#120161 use selection to set required printed area
         pPrintFunc.reset(new ScPrintFunc(pDev, pDocShell, *m_pPrintState, &aStatus.GetOptions()));
     else
         pPrintFunc.reset(new ScPrintFunc(pDev, pDocShell, nTab, pPrintFuncCache->GetFirstAttr(nTab), nTotalPages, pSelRange, &aStatus.GetOptions()));
@@ -2092,11 +2073,9 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
         //  iterate over the hyperlinks that were output for this page
 
         std::vector< vcl::PDFExtOutDevBookmarkEntry >& rBookmarks = pPDFData->GetBookmarks();
-        std::vector< vcl::PDFExtOutDevBookmarkEntry >::iterator aIter = rBookmarks.begin();
-        std::vector< vcl::PDFExtOutDevBookmarkEntry >::iterator aIEnd = rBookmarks.end();
-        while ( aIter != aIEnd )
+        for ( const auto& rBookmark : rBookmarks )
         {
-            OUString aBookmark = aIter->aBookmark;
+            OUString aBookmark = rBookmark.aBookmark;
             if ( aBookmark.toChar() == '#' )
             {
                 //  try to resolve internal link
@@ -2161,15 +2140,14 @@ void SAL_CALL ScModelObj::render( sal_Int32 nSelRenderer, const uno::Any& aSelec
                     }
 
                     if ( nPage >= 0 )
-                        pPDFData->SetLinkDest( aIter->nLinkId, pPDFData->CreateDest( aArea, nPage ) );
+                        pPDFData->SetLinkDest( rBookmark.nLinkId, pPDFData->CreateDest( aArea, nPage ) );
                 }
             }
             else
             {
                 //  external link, use as-is
-                pPDFData->SetLinkURL( aIter->nLinkId, aBookmark );
+                pPDFData->SetLinkURL( rBookmark.nLinkId, aBookmark );
             }
-            ++aIter;
         }
         rBookmarks.clear();
     }
@@ -2443,12 +2421,18 @@ uno::Reference< container::XIndexAccess > SAL_CALL ScModelObj::getViewData(  )
             xRet.set( xCont, uno::UNO_QUERY_THROW );
 
             uno::Sequence< beans::PropertyValue > aSeq;
-            aSeq.realloc(1);
+            aSeq.realloc(3);
             OUString sName;
             pDocShell->GetDocument().GetName( pDocShell->GetDocument().GetVisibleTab(), sName );
             OUString sOUName(sName);
             aSeq[0].Name = SC_ACTIVETABLE;
             aSeq[0].Value <<= sOUName;
+            SCCOL nPosLeft = pDocShell->GetDocument().GetPosLeft();
+            aSeq[1].Name = SC_POSITIONLEFT;
+            aSeq[1].Value <<= nPosLeft;
+            SCROW nPosTop = pDocShell->GetDocument().GetPosTop();
+            aSeq[2].Name = SC_POSITIONTOP;
+            aSeq[2].Value <<= nPosTop;
             xCont->insertByIndex( 0, uno::makeAny( aSeq ) );
         }
     }
@@ -3078,10 +3062,10 @@ void ScModelObj::NotifyChanges( const OUString& rOperation, const ScRangeList& r
         aMarkData.MarkFromRangeList( rRanges, false );
         ScDocument& rDoc = pDocShell->GetDocument();
         SCTAB nTabCount = rDoc.GetTableCount();
-        ScMarkData::iterator itr = aMarkData.begin(), itrEnd = aMarkData.end();
-        for (; itr != itrEnd && *itr < nTabCount; ++itr)
+        for (const SCTAB& nTab : aMarkData)
         {
-            SCTAB nTab = *itr;
+            if (nTab >= nTabCount)
+                break;
             const ScSheetEvents* pEvents = rDoc.GetSheetEvents(nTab);
             if (pEvents)
             {

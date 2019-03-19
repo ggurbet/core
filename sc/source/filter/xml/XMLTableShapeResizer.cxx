@@ -18,11 +18,9 @@
  */
 
 #include "XMLTableShapeResizer.hxx"
-#include <unonames.hxx>
 #include <document.hxx>
 #include "xmlimprt.hxx"
 #include <chartlis.hxx>
-#include "XMLConverter.hxx"
 #include <rangeutl.hxx>
 #include <compiler.hxx>
 #include <reftokenhelper.hxx>
@@ -30,6 +28,7 @@
 #include <osl/diagnose.h>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/drawing/XShape.hpp>
 
 #include <memory>
 #include <vector>
@@ -83,7 +82,7 @@ void ScMyOLEFixer::CreateChartListener(ScDocument* pDoc,
         return;
 
     unique_ptr< vector<ScTokenRef> > pRefTokens(new vector<ScTokenRef>);
-        const sal_Unicode cSep = ScCompiler::GetNativeSymbolChar(ocSep);
+    const sal_Unicode cSep = ScCompiler::GetNativeSymbolChar(ocSep);
     ScRefTokenHelper::compileRangeRepresentation(
         *pRefTokens, aRangeStr, pDoc, cSep, pDoc->GetGrammar());
     if (!pRefTokens->empty())

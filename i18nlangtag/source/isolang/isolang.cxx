@@ -779,7 +779,7 @@ static Bcp47CountryEntry const aImplBcp47CountryEntries[] =
     { LANGUAGE_DONTKNOW,                    "", "", "", k0 }    // marks end of table
 };
 
-static IsoLanguageCountryEntry aLastResortFallbackEntry =
+static const IsoLanguageCountryEntry aLastResortFallbackEntry =
 { LANGUAGE_ENGLISH_US, "en", "US", k0 };
 
 OUString IsoLanguageCountryEntry::getTagString() const
@@ -1129,8 +1129,7 @@ css::lang::Locale MsLangId::Conversion::lookupFallbackLocale(
         // Locale because in the tables that follow we have only ISO 3166
         // countries and if that is in the tag string we also have it in the
         // Locale.
-        sal_Int32 nIndex = 0;
-        aLowerLang = rLocale.Variant.getToken( 0, '-', nIndex).toAsciiLowerCase();
+        aLowerLang = rLocale.Variant.getToken(0, '-').toAsciiLowerCase();
         // Nothing with "x-..." or "i-..." or any 1 letter in lll-CC table that
         // follows.
         if (aLowerLang.getLength() == 1)

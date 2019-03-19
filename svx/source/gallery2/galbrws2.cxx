@@ -219,9 +219,9 @@ void GalleryThemePopup::Execute(
         pInfo->Arguments = rArguments;
         pInfo->Dispatch = rCmdInfo.Dispatch;
 
-        if ( !Application::PostUserEvent(
+        if ( Application::PostUserEvent(
                 LINK( nullptr, GalleryBrowser2, AsyncDispatch_Impl), pInfo.get() ) )
-            pInfo.reset();
+            pInfo.release();
     }
 }
 
@@ -794,7 +794,7 @@ void GalleryBrowser2::SetMode( GalleryBrowserMode eMode )
                         mpCurTheme->GetGraphic( nPos, aGraphic );
 
                     mpPreview->SetGraphic( aGraphic );
-                     mpPreview->Show();
+                    mpPreview->Show();
 
                     if( mpCurTheme && mpCurTheme->GetObjectKind( nPos ) == SgaObjKind::Sound )
                         GalleryPreview::PreviewMedia( mpCurTheme->GetObjectURL( nPos ) );
@@ -1081,9 +1081,9 @@ void GalleryBrowser2::DispatchAdd(
     pInfo->Arguments = aArgs;
     pInfo->Dispatch = xDispatch;
 
-    if ( !Application::PostUserEvent(
+    if ( Application::PostUserEvent(
             LINK( nullptr, GalleryBrowser2, AsyncDispatch_Impl), pInfo.get() ) )
-        pInfo.reset();
+        pInfo.release();
 }
 
 void GalleryBrowser2::Execute(const OString &rIdent)

@@ -34,6 +34,9 @@ CGMElements::~CGMElements()
 
 CGMElements& CGMElements::operator=( const CGMElements& rSource )
 {
+    if (this == &rSource)
+        return *this;
+
     sal_uInt32 nIndex;
 
     nVDCIntegerPrecision = rSource.nVDCIntegerPrecision;
@@ -125,7 +128,7 @@ CGMElements& CGMElements::operator=( const CGMElements& rSource )
 
     maHatchMap = rSource.maHatchMap;
     bSegmentCount = rSource.bSegmentCount;
-    return (*this);
+    return *this;
 }
 
 
@@ -320,12 +323,10 @@ Bundle* CGMElements::InsertBundle( BundleList& rList, Bundle& rBundle )
     Bundle* pBundle = GetBundle( rList, rBundle.GetIndex() );
     if ( pBundle )
     {
-        for ( BundleList::iterator it = rList.begin(); it != rList.end(); ++it ) {
-            if ( it->get() == pBundle ) {
-                rList.erase( it );
-                break;
-            }
-        }
+        auto it = std::find_if(rList.begin(), rList.end(),
+            [&pBundle](const std::unique_ptr<Bundle>& rxBundle) { return rxBundle.get() == pBundle; });
+        if (it != rList.end())
+            rList.erase( it );
     }
     rList.push_back( rBundle.Clone() );
     return rList.back().get();

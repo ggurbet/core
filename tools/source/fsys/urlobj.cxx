@@ -1444,17 +1444,6 @@ bool INetURLObject::setAbsURIRef(OUString const & rTheAbsURIRef,
 
     m_aAbsURIRef = aSynAbsURIRef;
 
-    // At this point references of type "\\server\paths" have
-    // been converted to file:://server/path".
-#ifdef LINUX
-    if (m_eScheme==INetProtocol::File && !m_aHost.isEmpty()) {
-        // Change "file:://server/path" URIs to "smb:://server/path" on
-        // Linux
-        // Leave "file::path" URIs unchanged.
-        changeScheme(INetProtocol::Smb);
-    }
-#endif
-
     return true;
 }
 
@@ -3257,7 +3246,7 @@ bool INetURLObject::insertName(OUString const & rTheName,
         bool bSkip = pPrefixEnd < pEnd && *pPrefixEnd == '/';
         bInsertSlash = false;
         pSuffixBegin = pPathEnd;
-         while (nIndex-- > 0)
+        while (nIndex-- > 0)
             for (;;)
             {
                 if (bSkip)
@@ -3862,7 +3851,7 @@ OUString INetURLObject::getExternalURL() const
     return aTheExtURIRef;
 }
 
-bool INetURLObject::isSchemeEqualTo(o3tl::u16string_view scheme) const {
+bool INetURLObject::isSchemeEqualTo(std::u16string_view scheme) const {
     return m_aScheme.isPresent()
         && (rtl_ustr_compareIgnoreAsciiCase_WithLength(
                 scheme.data(), scheme.size(),

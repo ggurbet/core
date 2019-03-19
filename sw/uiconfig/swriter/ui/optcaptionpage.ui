@@ -10,6 +10,8 @@
       <column type="gchararray"/>
       <!-- column-name id -->
       <column type="gchararray"/>
+      <!-- column-name checkvis1 -->
+      <column type="gboolean"/>
     </columns>
   </object>
   <object class="GtkBox" id="OptCaptionPage">
@@ -423,6 +425,8 @@
                         <property name="can_focus">True</property>
                         <property name="hexpand">True</property>
                         <property name="vexpand">True</property>
+                        <property name="hscrollbar_policy">never</property>
+                        <property name="vscrollbar_policy">never</property>
                         <property name="shadow_type">in</property>
                         <child>
                           <object class="GtkTreeView" id="objects">

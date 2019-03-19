@@ -21,6 +21,7 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdview.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/virdev.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/outliner.hxx>
 #include <svl/srchitem.hxx>
@@ -37,6 +38,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/lokhelper.hxx>
 #include <redline.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentRedlineAccess.hxx>
 #include <vcl/scheduler.hxx>
 #include <vcl/vclevent.hxx>
@@ -62,6 +64,7 @@ public:
     void testGetTextSelection();
     void testSetGraphicSelection();
     void testResetSelection();
+    void testInsertShape();
     void testSearch();
     void testSearchViewArea();
     void testSearchTextFrame();
@@ -117,6 +120,7 @@ public:
     CPPUNIT_TEST(testGetTextSelection);
     CPPUNIT_TEST(testSetGraphicSelection);
     CPPUNIT_TEST(testResetSelection);
+    CPPUNIT_TEST(testInsertShape);
     CPPUNIT_TEST(testSearch);
     CPPUNIT_TEST(testSearchViewArea);
     CPPUNIT_TEST(testSearchTextFrame);
@@ -455,6 +459,28 @@ void SwTiledRenderingTest::testResetSelection()
     pXTextDocument->resetSelection();
     // We no longer have a graphic selection.
     CPPUNIT_ASSERT(!pWrtShell->IsSelFrameMode());
+}
+
+void SwTiledRenderingTest::testInsertShape()
+{
+    comphelper::LibreOfficeKit::setActive();
+
+    SwXTextDocument* pXTextDocument = createDoc("2-pages.odt");
+    SwWrtShell* pWrtShell = pXTextDocument->GetDocShell()->GetWrtShell();
+
+    pXTextDocument->setClientVisibleArea(tools::Rectangle(0, 0, 10000, 4000));
+    comphelper::dispatchCommand(".uno:BasicShapes.circle", uno::Sequence<beans::PropertyValue>());
+
+    // check that the shape was inserted in the visible area, not outside
+    IDocumentDrawModelAccess &rDrawModelAccess = pWrtShell->GetDoc()->getIDocumentDrawModelAccess();
+    SdrPage* pPage = rDrawModelAccess.GetDrawModel()->GetPage(0);
+    SdrObject* pObject = pPage->GetObj(0);
+    CPPUNIT_ASSERT_EQUAL(tools::Rectangle(2736, 868, 7264, 3132), pObject->GetSnapRect());
+
+    // check that it is in the foreground layer
+    CPPUNIT_ASSERT_EQUAL(rDrawModelAccess.GetHeavenId().get(), pObject->GetLayer().get());
+
+    comphelper::LibreOfficeKit::setActive(false);
 }
 
 static void lcl_search(bool bBackward)
@@ -1712,7 +1738,7 @@ void SwTiledRenderingTest::testPaintCallbacks()
     // Make sure that painting a tile in the second view doesn't invoke
     // callbacks on the first view.
     aView1.m_bCalled = false;
-    pXTextDocument->paintTile(*pDevice.get(), nCanvasWidth, nCanvasHeight, /*nTilePosX=*/0, /*nTilePosY=*/0, /*nTileWidth=*/3840, /*nTileHeight=*/3840);
+    pXTextDocument->paintTile(*pDevice, nCanvasWidth, nCanvasHeight, /*nTilePosX=*/0, /*nTilePosY=*/0, /*nTileWidth=*/3840, /*nTileHeight=*/3840);
     CPPUNIT_ASSERT(!aView1.m_bCalled);
 
     mxComponent->dispose();

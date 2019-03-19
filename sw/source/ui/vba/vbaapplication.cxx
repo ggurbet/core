@@ -76,6 +76,29 @@ public:
     virtual void SAL_CALL setMailMergeMainDocumentType( sal_Int32 _mailmergemaindocumenttype ) override;
 
     virtual void SAL_CALL FileOpen( const OUString& Name, const uno::Any& ConfirmConversions, const uno::Any& ReadOnly, const uno::Any& AddToMru, const uno::Any& PasswordDoc, const uno::Any& PasswordDot, const uno::Any& Revert, const uno::Any& WritePasswordDoc, const uno::Any& WritePasswordDot ) override;
+    virtual void SAL_CALL FileSave() override;
+    virtual void SAL_CALL FileClose( const css::uno::Any& Save ) override;
+    virtual void SAL_CALL ToolsOptionsView( const css::uno::Any& DraftFont,
+                                            const css::uno::Any& WrapToWindow,
+                                            const css::uno::Any& PicturePlaceHolders,
+                                            const css::uno::Any& FieldCodes,
+                                            const css::uno::Any& BookMarks,
+                                            const css::uno::Any& FieldShading,
+                                            const css::uno::Any& StatusBar,
+                                            const css::uno::Any& HScroll,
+                                            const css::uno::Any& VScroll,
+                                            const css::uno::Any& StyleAreaWidth,
+                                            const css::uno::Any& Tabs,
+                                            const css::uno::Any& Spaces,
+                                            const css::uno::Any& Paras,
+                                            const css::uno::Any& Hyphens,
+                                            const css::uno::Any& Hidden,
+                                            const css::uno::Any& ShowAll,
+                                            const css::uno::Any& Drawings,
+                                            const css::uno::Any& Anchors,
+                                            const css::uno::Any& TextBoundaries,
+                                            const css::uno::Any& VRuler,
+                                            const css::uno::Any& Highlight ) override;
     virtual OUString SAL_CALL WindowName() override;
     virtual sal_Bool SAL_CALL ExistingBookmark( const OUString& Name ) override;
     virtual void SAL_CALL MailMergeOpenDataSource(const OUString& Name, const css::uno::Any& Format,
@@ -86,6 +109,10 @@ public:
                                                   const css::uno::Any& WritePasswordTemplate, const css::uno::Any& Connection,
                                                   const css::uno::Any& SQLStatement, const css::uno::Any& SQLStatement1,
                                                   const css::uno::Any& OpenExclusive, const css::uno::Any& SubType) override;
+    virtual sal_Int32 SAL_CALL AppMaximize( const css::uno::Any& WindowName, const css::uno::Any& State ) override;
+    virtual sal_Int32 SAL_CALL DocMaximize( const css::uno::Any& State ) override;
+    virtual void SAL_CALL AppShow(  const css::uno::Any& WindowName ) override;
+    virtual sal_Int32 SAL_CALL AppCount() override;
 };
 
 SwVbaApplication::SwVbaApplication( uno::Reference<uno::XComponentContext >& xContext ):
@@ -167,7 +194,14 @@ SwVbaApplication::getOptions()
 uno::Any SAL_CALL
 SwVbaApplication::CommandBars( const uno::Any& aIndex )
 {
-    return VbaApplicationBase::CommandBars( aIndex );
+    try
+    {
+        return VbaApplicationBase::CommandBars( aIndex );
+    }
+    catch (const uno::RuntimeException&)
+    {
+        return uno::Any();
+    }
 }
 
 uno::Reference< word::XSelection > SAL_CALL
@@ -257,12 +291,18 @@ sal_Int32 SAL_CALL SwVbaApplication::getWindowState()
 
 void SAL_CALL SwVbaApplication::setWindowState( sal_Int32 _windowstate )
 {
-    auto xWindow = getActiveWindow();
-    if (xWindow.is())
+    try
     {
-        uno::Any aState;
-        aState <<= _windowstate;
-        xWindow->setWindowState( aState );
+        auto xWindow = getActiveWindow();
+        if (xWindow.is())
+        {
+            uno::Any aState;
+            aState <<= _windowstate;
+            xWindow->setWindowState( aState );
+        }
+    }
+    catch (const uno::RuntimeException&)
+    {
     }
 }
 
@@ -317,6 +357,16 @@ void SAL_CALL SwVbaApplication::setTop( sal_Int32 _top )
 OUString SAL_CALL SwVbaApplication::getStatusBar()
 {
     return OUString("");
+}
+
+uno::Any SAL_CALL SwVbaApplication::getCustomizationContext()
+{
+    return uno::Any(); // ???
+}
+
+void SAL_CALL SwVbaApplication::setCustomizationContext(const uno::Any& /*_customizationcontext*/)
+{
+    // ???
 }
 
 void SAL_CALL SwVbaApplication::setStatusBar( const OUString& _statusbar )
@@ -492,6 +542,80 @@ SwWordBasic::FileOpen( const OUString& Name, const uno::Any& ConfirmConversions,
         rDocuments->Open( Name, ConfirmConversions, ReadOnly, AddToMru, PasswordDoc, PasswordDot, Revert, WritePasswordDoc, WritePasswordDot, uno::Any(), uno::Any(), uno::Any(), uno::Any(), uno::Any(), uno::Any(), uno::Any() );
 }
 
+void SAL_CALL
+SwWordBasic::FileSave()
+{
+    uno::Reference< frame::XModel > xModel( mpApp->getCurrentDocument(), uno::UNO_SET_THROW );
+    dispatchRequests(xModel,".uno:Save");
+}
+
+void SAL_CALL
+SwWordBasic::FileClose( const css::uno::Any& Save )
+{
+    uno::Reference< frame::XModel > xModel( mpApp->getCurrentDocument(), uno::UNO_SET_THROW );
+
+    sal_Int16 nSave = 0;
+    if (Save.hasValue() && (Save >>= nSave) && (nSave == 0 || nSave == 1))
+        FileSave();
+
+    // FIXME: Here I would much prefer to call VbaDocumentBase::Close() but not sure how to get at
+    // the VbaDocumentBase of the current document. (Probably it is easy and I haven't looked hard
+    // enough.)
+    //
+    // FIXME: Error handling. If there is no current document, return some kind of error? But for
+    // now, just ignore errors. This code is written to work for a very specific customer use case
+    // ayway, not for an arbitrary sequence of COM calls to the "VBA" API.
+    dispatchRequests(xModel,".uno:CloseDoc");
+}
+
+void SAL_CALL
+SwWordBasic::ToolsOptionsView( const css::uno::Any& DraftFont,
+                               const css::uno::Any& WrapToWindow,
+                               const css::uno::Any& PicturePlaceHolders,
+                               const css::uno::Any& FieldCodes,
+                               const css::uno::Any& BookMarks,
+                               const css::uno::Any& FieldShading,
+                               const css::uno::Any& StatusBar,
+                               const css::uno::Any& HScroll,
+                               const css::uno::Any& VScroll,
+                               const css::uno::Any& StyleAreaWidth,
+                               const css::uno::Any& Tabs,
+                               const css::uno::Any& Spaces,
+                               const css::uno::Any& Paras,
+                               const css::uno::Any& Hyphens,
+                               const css::uno::Any& Hidden,
+                               const css::uno::Any& ShowAll,
+                               const css::uno::Any& Drawings,
+                               const css::uno::Any& Anchors,
+                               const css::uno::Any& TextBoundaries,
+                               const css::uno::Any& VRuler,
+                               const css::uno::Any& Highlight )
+{
+    SAL_INFO("sw.vba", "WordBasic.ToolsOptionsView("
+                "DraftFont:=" << DraftFont
+             << ", WrapToWindow:=" << WrapToWindow
+             << ", PicturePlaceHolders:=" << PicturePlaceHolders
+             << ", FieldCodes:=" << FieldCodes
+             << ", BookMarks:=" << BookMarks
+             << ", FieldShading:=" << FieldShading
+             << ", StatusBar:=" << StatusBar
+             << ", HScroll:=" << HScroll
+             << ", VScroll:=" << VScroll
+             << ", StyleAreaWidth:=" << StyleAreaWidth
+             << ", Tabs:=" << Tabs
+             << ", Spaces:=" << Spaces
+             << ", Paras:=" << Paras
+             << ", Hyphens:=" << Hyphens
+             << ", Hidden:=" << Hidden
+             << ", ShowAll:=" << ShowAll
+             << ", Drawings:=" << Drawings
+             << ", Anchors:=" << Anchors
+             << ", TextBoundaries:=" << TextBoundaries
+             << ", VRuler:=" << VRuler
+              << ", Highlight:=" << Highlight
+             << ")");
+}
+
 OUString SAL_CALL
 SwWordBasic::WindowName()
 {
@@ -522,6 +646,41 @@ SwWordBasic::MailMergeOpenDataSource( const OUString& Name, const css::uno::Any&
                                                                 WritePasswordTemplate, Connection,
                                                                 SQLStatement, SQLStatement1,
                                                                 OpenExclusive, SubType );
+}
+
+sal_Int32 SAL_CALL
+SwWordBasic::AppMaximize( const css::uno::Any& WindowName, const css::uno::Any& State )
+{
+    SAL_INFO("sw.vba", "WordBasic.AppMaximize( WindowName:=" << WindowName << ", State:=" << State);
+
+    // FIXME: Implement if necessary
+    return 0;
+}
+
+sal_Int32 SAL_CALL
+SwWordBasic::DocMaximize( const css::uno::Any& State )
+{
+    SAL_INFO("sw.vba", "WordBasic.DocMaximize(State:=" << State << ")");
+
+    // FIXME: Implement if necessary
+    return 0;
+}
+
+void SAL_CALL
+SwWordBasic::AppShow( const css::uno::Any& WindowName )
+{
+    SAL_INFO("sw.vba", "WordBasic.AppShow(WindowName:=" << WindowName << ")");
+
+    // FIXME: Implement if necessary
+}
+
+sal_Int32 SAL_CALL
+SwWordBasic::AppCount()
+{
+    SAL_INFO("sw.vba", "WordBasic.AppCount()");
+
+    // FIXME: Implement if necessary. Return a random number for now.
+    return 2;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

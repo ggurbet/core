@@ -453,7 +453,6 @@ public:
     {
         sal_uInt16 nId;    // Id of the button
         bool bHighlight;   // highlight on/off
-        VclPtr<MenuBar> pMenuBar; // menubar the button belongs to
     };
     // add an arbitrary button to the menubar (will appear next to closer)
     // passed link will be call with a MenuBarButtonCallbackArg on press
@@ -469,6 +468,9 @@ public:
     tools::Rectangle GetMenuBarButtonRectPixel( sal_uInt16 nId );
     void RemoveMenuBarButton( sal_uInt16 nId );
     void LayoutChanged();
+    // get the height of the menubar, return the native menubar height if that is active or the vcl
+    // one if not
+    int GetMenuBarHeight() const;
 };
 
 inline MenuBar& MenuBar::operator=( const MenuBar& rMenu )

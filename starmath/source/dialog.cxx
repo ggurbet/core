@@ -26,6 +26,8 @@
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
+#include <vcl/combobox.hxx>
+#include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/ctrltool.hxx>
 #include <vcl/settings.hxx>
@@ -329,7 +331,7 @@ SmFontDialog::SmFontDialog(weld::Window * pParent, OutputDevice *pFntListDevice,
         m_xBoldCheckBox->set_sensitive(false);
         m_xItalicCheckBox->set_active(false);
         m_xItalicCheckBox->set_sensitive(false);
-        m_xAttrFrame->show(false);
+        m_xAttrFrame->hide();
     }
 }
 
@@ -595,25 +597,25 @@ SmCategoryDesc::~SmCategoryDesc()
 
 IMPL_LINK( SmDistanceDialog, GetFocusHdl, weld::Widget&, rControl, void )
 {
-    if (m_xCategories[nActiveCategory])
-    {
-        sal_uInt16  i;
+    if (!m_xCategories[nActiveCategory])
+        return;
 
-        if (&rControl == &m_xMetricField1->get_widget())
-            i = 0;
-        else if (&rControl == &m_xMetricField2->get_widget())
-            i = 1;
-        else if (&rControl == &m_xMetricField3->get_widget())
-            i = 2;
-        else if (&rControl == &m_xMetricField4->get_widget())
-            i = 3;
-        else
-            return;
-        if (m_pCurrentImage)
-            m_pCurrentImage->hide();
-        m_pCurrentImage = m_xCategories[nActiveCategory]->GetGraphic(i);
-        m_pCurrentImage->show();
-    }
+    sal_uInt16  i;
+
+    if (&rControl == &m_xMetricField1->get_widget())
+        i = 0;
+    else if (&rControl == &m_xMetricField2->get_widget())
+        i = 1;
+    else if (&rControl == &m_xMetricField3->get_widget())
+        i = 2;
+    else if (&rControl == &m_xMetricField4->get_widget())
+        i = 3;
+    else
+        return;
+    if (m_pCurrentImage)
+        m_pCurrentImage->hide();
+    m_pCurrentImage = m_xCategories[nActiveCategory]->GetGraphic(i);
+    m_pCurrentImage->show();
 }
 
 IMPL_LINK(SmDistanceDialog, MenuSelectHdl, const OString&, rId, void)
@@ -703,9 +705,9 @@ void SmDistanceDialog::SetCategory(sal_uInt16 nCategory)
         // of an associated HelpID is checked
         bActive = aCatMf2Hid[nCategory][i] != nullptr;
 
-        pFT->show(bActive);
+        pFT->set_visible(bActive);
         pFT->set_sensitive(bActive);
-        pMF->show(bActive);
+        pMF->set_visible(bActive);
         pMF->set_sensitive(bActive);
 
         // set measurement unit and number of decimal places
@@ -999,7 +1001,7 @@ void SmShowSymbolSet::Paint(vcl::RenderContext& rRenderContext, const tools::Rec
     rRenderContext.Pop();
 }
 
-void SmShowSymbolSet::MouseButtonDown(const MouseEvent& rMEvt)
+bool SmShowSymbolSet::MouseButtonDown(const MouseEvent& rMEvt)
 {
     GrabFocus();
 
@@ -1007,8 +1009,8 @@ void SmShowSymbolSet::MouseButtonDown(const MouseEvent& rMEvt)
     aOutputSize.AdjustWidth(nXOffset );
     aOutputSize.AdjustHeight(nYOffset );
     Point aPoint(rMEvt.GetPosPixel());
-    aPoint.AdjustX( -(nXOffset) );
-    aPoint.AdjustY( -(nYOffset) );
+    aPoint.AdjustX( -nXOffset );
+    aPoint.AdjustY( -nYOffset );
 
     if (rMEvt.IsLeft() && tools::Rectangle(Point(0, 0), aOutputSize).IsInside(rMEvt.GetPosPixel()))
     {
@@ -1021,6 +1023,8 @@ void SmShowSymbolSet::MouseButtonDown(const MouseEvent& rMEvt)
         if (rMEvt.GetClicks() > 1)
             aDblClickHdlLink.Call(*this);
     }
+
+    return true;
 }
 
 bool SmShowSymbolSet::KeyInput(const KeyEvent& rKEvt)
@@ -1063,7 +1067,7 @@ bool SmShowSymbolSet::KeyInput(const KeyEvent& rKEvt)
     return true;
 }
 
-void SmShowSymbolSet::calccols(vcl::RenderContext& rRenderContext)
+void SmShowSymbolSet::calccols(const vcl::RenderContext& rRenderContext)
 {
     // Height of 16pt in pixels (matching 'aOutputSize')
     nLen = rRenderContext.LogicToPixel(Size(0, 16), MapMode(MapUnit::MapPoint)).Height();
@@ -1157,10 +1161,11 @@ void SmShowSymbol::Paint(vcl::RenderContext& rRenderContext, const tools::Rectan
                                   (rRenderContext.GetOutputSize().Height() * 7 / 10)), rText);
 }
 
-void SmShowSymbol::MouseButtonDown(const MouseEvent& rMEvt)
+bool SmShowSymbol::MouseButtonDown(const MouseEvent& rMEvt)
 {
     if (rMEvt.GetClicks() > 1)
         aDblClickHdlLink.Call(*this);
+    return true;
 }
 
 void SmShowSymbol::SetSymbol(const SmSym *pSymbol)

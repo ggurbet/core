@@ -18,22 +18,17 @@
  */
 
 #include <scitems.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <svl/zforlist.hxx>
 #include <sal/log.hxx>
 
 #include <attrib.hxx>
-#include <rangenam.hxx>
-#include <compiler.hxx>
 #include <document.hxx>
 
 #include <tool.h>
-#include <decl.h>
 #include <root.hxx>
 #include <lotrange.hxx>
 #include <namebuff.hxx>
-#include <ftools.hxx>
 #include <stringutil.hxx>
 #include <tokenarray.hxx>
 #include "lotfilter.hxx"
@@ -391,46 +386,42 @@ LotusRangeList::LotusRangeList()
 
 LotusRangeList::~LotusRangeList ()
 {
-    std::vector<LotusRange*>::iterator pIter;
-    for (pIter = maRanges.begin(); pIter != maRanges.end(); ++pIter)
-        delete *pIter;
 }
 
 LR_ID LotusRangeList::GetIndex( const LotusRange &rRef )
 {
-    std::vector<LotusRange*>::iterator pIter;
-    for (pIter = maRanges.begin(); pIter != maRanges.end(); ++pIter)
-    {
-        if (rRef == *(*pIter))
-            return (*pIter)->nId;
-    }
+    auto pIter = std::find_if(maRanges.begin(), maRanges.end(),
+        [&rRef](const std::unique_ptr<LotusRange>& pRange) { return rRef == *pRange; });
+    if (pIter != maRanges.end())
+        return (*pIter)->nId;
 
     return ID_FAIL;
 }
 
-void LotusRangeList::Append( LotusRange* pLR )
+void LotusRangeList::Append( std::unique_ptr<LotusRange> pLR )
 {
-    SAL_WARN_IF( !pLR, "sc.filter", "*LotusRangeList::Append(): no pointer!" );
-    maRanges.push_back(pLR);
+    assert( pLR );
+    auto pLRTmp = pLR.get();
+    maRanges.push_back(std::move(pLR));
 
     ScTokenArray    aTokArray;
 
     ScSingleRefData*    pSingRef = &aComplRef.Ref1;
 
-    pSingRef->SetAbsCol(pLR->nColStart);
-    pSingRef->SetAbsRow(pLR->nRowStart);
+    pSingRef->SetAbsCol(pLRTmp->nColStart);
+    pSingRef->SetAbsRow(pLRTmp->nRowStart);
 
-    if( pLR->IsSingle() )
+    if( pLRTmp->IsSingle() )
         aTokArray.AddSingleReference( *pSingRef );
     else
     {
         pSingRef = &aComplRef.Ref2;
-        pSingRef->SetAbsCol(pLR->nColEnd);
-        pSingRef->SetAbsRow(pLR->nRowEnd);
+        pSingRef->SetAbsCol(pLRTmp->nColEnd);
+        pSingRef->SetAbsRow(pLRTmp->nRowEnd);
         aTokArray.AddDoubleReference( aComplRef );
     }
 
-    pLR->SetId( nIdCnt );
+    pLRTmp->SetId( nIdCnt );
 
     nIdCnt++;
 }
@@ -476,14 +467,12 @@ bool RangeNameBufferWK3::FindRel( const OUString& rRef, sal_uInt16& rIndex )
 {
     StringHashEntry     aRef( rRef );
 
-    std::vector<Entry>::const_iterator itr;
-    for ( itr = maEntries.begin(); itr != maEntries.end(); ++itr )
+    std::vector<Entry>::const_iterator itr = std::find_if(maEntries.begin(), maEntries.end(),
+        [&aRef](const Entry& rEntry) { return aRef == rEntry.aStrHashEntry; });
+    if (itr != maEntries.end())
     {
-        if ( aRef == itr->aStrHashEntry )
-        {
-            rIndex = itr->nRelInd;
-            return true;
-        }
+        rIndex = itr->nRelInd;
+        return true;
     }
 
     return false;
@@ -495,40 +484,38 @@ bool RangeNameBufferWK3::FindAbs( const OUString& rRef, sal_uInt16& rIndex )
     aTmp = aTmp.copy(1);
     StringHashEntry     aRef( aTmp ); // search w/o '$'!
 
-    std::vector<Entry>::iterator itr;
-    for ( itr = maEntries.begin(); itr != maEntries.end(); ++itr )
+    std::vector<Entry>::iterator itr = std::find_if(maEntries.begin(), maEntries.end(),
+        [&aRef](const Entry& rEntry) { return aRef == rEntry.aStrHashEntry; });
+    if (itr != maEntries.end())
     {
-        if ( aRef == itr->aStrHashEntry )
+        // setup new range if needed
+        if( itr->nAbsInd )
+            rIndex = itr->nAbsInd;
+        else
         {
-            // setup new range if needed
-            if( itr->nAbsInd )
-                rIndex = itr->nAbsInd;
+            ScSingleRefData*        pRef = &itr->aScComplexRefDataRel.Ref1;
+            pScTokenArray->Clear();
+
+            pRef->SetColRel( false );
+            pRef->SetRowRel( false );
+            pRef->SetTabRel( true );
+
+            if( itr->bSingleRef )
+                pScTokenArray->AddSingleReference( *pRef );
             else
             {
-                ScSingleRefData*        pRef = &itr->aScComplexRefDataRel.Ref1;
-                pScTokenArray->Clear();
-
+                pRef = &itr->aScComplexRefDataRel.Ref2;
                 pRef->SetColRel( false );
                 pRef->SetRowRel( false );
                 pRef->SetTabRel( true );
-
-                if( itr->bSingleRef )
-                    pScTokenArray->AddSingleReference( *pRef );
-                else
-                {
-                    pRef = &itr->aScComplexRefDataRel.Ref2;
-                    pRef->SetColRel( false );
-                    pRef->SetRowRel( false );
-                    pRef->SetTabRel( true );
-                    pScTokenArray->AddDoubleReference( itr->aScComplexRefDataRel );
-                }
-
-                rIndex = itr->nAbsInd = nIntCount;
-                nIntCount++;
+                pScTokenArray->AddDoubleReference( itr->aScComplexRefDataRel );
             }
 
-            return true;
+            rIndex = itr->nAbsInd = nIntCount;
+            nIntCount++;
         }
+
+        return true;
     }
 
     return false;

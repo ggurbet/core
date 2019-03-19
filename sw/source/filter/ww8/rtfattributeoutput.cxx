@@ -86,7 +86,6 @@
 #include <vcl/cvtgrf.hxx>
 #include <oox/mathml/export.hxx>
 #include <com/sun/star/i18n/ScriptType.hpp>
-#include <o3tl/make_unique.hxx>
 #include <svl/grabbagitem.hxx>
 #include <frmatr.hxx>
 #include <swtable.hxx>
@@ -243,6 +242,9 @@ void RtfAttributeOutput::RTLAndCJKState(bool bIsRTL, sal_uInt16 nScript)
 
 void RtfAttributeOutput::StartParagraph(ww8::WW8TableNodeInfo::Pointer_t pTextNodeInfo)
 {
+    if (m_bIsBeforeFirstParagraph && m_rExport.m_nTextTyp != TXT_HDFT)
+        m_bIsBeforeFirstParagraph = false;
+
     // Output table/table row/table cell starts if needed
     if (pTextNodeInfo)
     {
@@ -871,7 +873,7 @@ void RtfAttributeOutput::TableVerticalCell(
 void RtfAttributeOutput::TableNodeInfoInner(ww8::WW8TableNodeInfoInner::Pointer_t pNodeInfoInner)
 {
     // This is called when the nested table ends in a cell, and there's no
-    // paragraph benhind that; so we must check for the ends of cell, rows,
+    // paragraph behind that; so we must check for the ends of cell, rows,
     // and tables
     FinishTableRowCell(pNodeInfoInner);
 }
@@ -935,10 +937,10 @@ void RtfAttributeOutput::InitTableHelper(
 
     const SwHTMLTableLayout* pLayout = pTable->GetHTMLTableLayout();
     if (pLayout && pLayout->IsExportable())
-        m_pTableWrt = o3tl::make_unique<SwWriteTable>(pTable, pLayout);
+        m_pTableWrt = std::make_unique<SwWriteTable>(pTable, pLayout);
     else
-        m_pTableWrt = o3tl::make_unique<SwWriteTable>(pTable, pTable->GetTabLines(), nPageSize,
-                                                      nTableSz, false);
+        m_pTableWrt = std::make_unique<SwWriteTable>(pTable, pTable->GetTabLines(), nPageSize,
+                                                     nTableSz, false);
 }
 
 void RtfAttributeOutput::StartTable()
@@ -1181,6 +1183,9 @@ void RtfAttributeOutput::SectionBreak(sal_uInt8 nC, const WW8_SepInfo* pSectionI
 
 void RtfAttributeOutput::StartSection()
 {
+    if (m_bIsBeforeFirstParagraph)
+        return;
+
     m_aSectionBreaks.append(OOO_STRING_SVTOOLS_RTF_SECT OOO_STRING_SVTOOLS_RTF_SECTD);
     if (!m_bBufferSectionBreaks)
         m_rExport.Strm().WriteCharPtr(m_aSectionBreaks.makeStringAndClear().getStr());
@@ -1526,6 +1531,7 @@ void RtfAttributeOutput::NumberingLevel(sal_uInt8 nLevel, sal_uInt16 nStart,
         }
         m_rExport.OutputItemSet(*pOutSet, false, true, i18n::ScriptType::LATIN,
                                 m_rExport.m_bExportModeRTF);
+        m_aStyles.append(m_aStylesEnd.makeStringAndClear());
         m_rExport.Strm().WriteCharPtr(m_aStyles.makeStringAndClear().getStr());
     }
 
@@ -2748,7 +2754,10 @@ void RtfAttributeOutput::ParaAdjust(const SvxAdjustItem& rAdjust)
             break;
         case SvxAdjust::BlockLine:
         case SvxAdjust::Block:
-            m_aStyles.append(OOO_STRING_SVTOOLS_RTF_QJ);
+            if (rAdjust.GetLastBlock() == SvxAdjust::Block)
+                m_aStyles.append(OOO_STRING_SVTOOLS_RTF_QD);
+            else
+                m_aStyles.append(OOO_STRING_SVTOOLS_RTF_QJ);
             break;
         case SvxAdjust::Center:
             m_aStyles.append(OOO_STRING_SVTOOLS_RTF_QC);
@@ -3481,7 +3490,11 @@ void RtfAttributeOutput::FormatFrameDirection(const SvxFrameDirectionItem& rDire
 {
     if (!m_rExport.m_bOutPageDescs)
     {
-        if (rDirection.GetValue() == SvxFrameDirection::Horizontal_RL_TB)
+        SvxFrameDirection nDir = rDirection.GetValue();
+        if (nDir == SvxFrameDirection::Environment)
+            nDir = GetExport().GetDefaultFrameDirection();
+
+        if (nDir == SvxFrameDirection::Horizontal_RL_TB)
             m_aStyles.append(OOO_STRING_SVTOOLS_RTF_RTLPAR);
         else
             m_aStyles.append(OOO_STRING_SVTOOLS_RTF_LTRPAR);
@@ -3614,6 +3627,7 @@ RtfAttributeOutput::RtfAttributeOutput(RtfExport& rExport)
     , m_bLastTable(true)
     , m_bWroteCellInfo(false)
     , m_bTableRowEnded(false)
+    , m_bIsBeforeFirstParagraph(true)
     , m_bSingleEmptyRun(false)
     , m_bInRun(false)
     , m_pFlyFrameSize(nullptr)
@@ -4002,6 +4016,7 @@ void RtfAttributeOutput::FlyFrameGraphic(const SwFlyFrameFormat* pFlyFrameFormat
        a wmf already then we don't need any such wrapping
        */
     bool bIsWMF = pBLIPType && std::strcmp(pBLIPType, OOO_STRING_SVTOOLS_RTF_WMETAFILE) == 0;
+    const SwAttrSet* pAttrSet = pGrfNode->GetpSwAttrSet();
     if (!pFrame || pFrame->IsInline())
     {
         if (!bIsWMF)
@@ -4062,6 +4077,19 @@ void RtfAttributeOutput::FlyFrameGraphic(const SwFlyFrameFormat* pFlyFrameFormat
         if (!pFlyFrameFormat->GetOpaque().GetValue())
             aFlyProperties.push_back(std::make_pair<OString, OString>("fBehindDocument", "1"));
 
+        if (pAttrSet)
+        {
+            if (sal_Int32 nRot = pAttrSet->Get(RES_GRFATR_ROTATION).GetValue())
+            {
+                // See writerfilter::rtftok::RTFSdrImport::applyProperty(),
+                // positive rotation angles are clockwise in RTF, we have them
+                // as counter-clockwise.
+                // Additionally, RTF type is 0..360*2^16, our is 0..360*10.
+                nRot = nRot * -1 * RTF_MULTIPLIER / 10;
+                aFlyProperties.emplace_back("rotation", OString::number(nRot));
+            }
+        }
+
         for (std::pair<OString, OString>& rPair : aFlyProperties)
         {
             m_rExport.Strm().WriteCharPtr("{" OOO_STRING_SVTOOLS_RTF_SP "{");
@@ -4077,7 +4105,6 @@ void RtfAttributeOutput::FlyFrameGraphic(const SwFlyFrameFormat* pFlyFrameFormat
     }
 
     bool bWritePicProp = !pFrame || pFrame->IsInline();
-    const SwAttrSet* pAttrSet = pGrfNode->GetpSwAttrSet();
     if (pBLIPType)
         ExportPICT(pFlyFrameFormat, aSize, aRendered, aMapped, rCr, pBLIPType, pGraphicAry, nSize,
                    m_rExport, &m_rExport.Strm(), bWritePicProp, pAttrSet);

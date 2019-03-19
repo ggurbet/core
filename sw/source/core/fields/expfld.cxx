@@ -331,6 +331,7 @@ std::unique_ptr<SwField> SwGetExpField::Copy() const
     pTmp->m_fValueRLHidden = m_fValueRLHidden;
     pTmp->SwValueField::SetValue(GetValue());
     pTmp->m_sExpand       = m_sExpand;
+    pTmp->m_sExpandRLHidden = m_sExpandRLHidden;
     pTmp->m_bIsInBodyText  = m_bIsInBodyText;
     pTmp->SetAutomaticLanguage(IsAutomaticLanguage());
     if( m_bLateInitialization )
@@ -855,7 +856,7 @@ OUString SwSetExpField::GetFieldName() const
 {
     SwFieldTypesEnum const nStrType( (IsSequenceField())
                             ? TYP_SEQFLD
-                            : (mbInput)
+                            : mbInput
                                 ? TYP_SETINPFLD
                                 : TYP_SETFLD   );
 
@@ -1176,7 +1177,7 @@ bool SwSetExpField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
     case FIELD_PROP_SUBTYPE:
         {
             sal_Int16 nRet = 0;
-                nRet = lcl_SubTypeToAPI(GetSubType() & 0xff);
+            nRet = lcl_SubTypeToAPI(GetSubType() & 0xff);
             rAny <<= nRet;
         }
         break;

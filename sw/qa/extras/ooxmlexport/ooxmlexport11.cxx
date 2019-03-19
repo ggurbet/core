@@ -11,8 +11,10 @@
 
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/style/BreakType.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/table/BorderLine.hpp>
+#include <com/sun/star/text/WritingMode2.hpp>
 #include <com/sun/star/text/XDependentTextField.hpp>
 #include <com/sun/star/text/XFootnote.hpp>
 #include <com/sun/star/text/XPageCursor.hpp>
@@ -24,6 +26,7 @@
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/text/RubyAdjust.hpp>
 #include <com/sun/star/text/RubyPosition.hpp>
+#include <com/sun/star/text/XDocumentIndex.hpp>
 
 
 #include <sfx2/docfile.hxx>
@@ -100,6 +103,12 @@ DECLARE_OOXMLEXPORT_TEST(testTdf116436_rowFill, "tdf116436_rowFill.odt")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(0xF8DF7C), getProperty<sal_Int32>(xCell, "BackColor"));
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf121665_back2backColumnBreaks, "tdf121665_back2backColumnBreaks.docx")
+{
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Column break type",
+        style::BreakType_COLUMN_BEFORE, getProperty<style::BreakType>(getParagraph(2), "BreakType"));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf46938_clearTabStop, "tdf46938_clearTabStop.docx")
 {
     // Number of tabstops should be zero, overriding the one in the style
@@ -142,6 +151,24 @@ DECLARE_OOXMLEXPORT_TEST(testTdf121561_tocTitle, "tdf121456_tabsOffset.odt")
     assertXPathContent(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtContent/w:p/w:r/w:instrText", " TOC \\f \\o \"1-9\" \\h");
     assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtPr/w:docPartObj/w:docPartGallery", "val", "Table of Contents");
     assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtPr/w:docPartObj/w:docPartUnique", 1);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf121561_tocTitleDocx, "tdf121456_tabsOffset.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport();
+    if (!pXmlDoc)
+        return;
+
+    // get TOC node
+    uno::Reference<text::XDocumentIndexesSupplier> xIndexSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xIndexes(xIndexSupplier->getDocumentIndexes( ), uno::UNO_QUERY);
+    uno::Reference<text::XDocumentIndex> xTOCIndex(xIndexes->getByIndex(0), uno::UNO_QUERY);
+
+    // ensure TOC title was set in TOC properties
+    CPPUNIT_ASSERT_EQUAL(OUString("Inhaltsverzeichnis"), getProperty<OUString>(xTOCIndex, "Title"));
+
+    // ensure TOC end-field mark is placed inside TOC section
+    assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtContent/w:p[16]/w:r/w:fldChar", "fldCharType", "end");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf106174_rtlParaAlign, "tdf106174_rtlParaAlign.docx")
@@ -264,6 +291,13 @@ DECLARE_OOXMLEXPORT_TEST(testTdf115719, "tdf115719.docx")
     // This was a single page, instead of pushing the textboxes to the second
     // page.
     CPPUNIT_ASSERT_EQUAL(2, getPages());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf123243, "tdf123243.docx")
+{
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 1; Actual:
+    // 2'; i.e. unexpected paragraph margin created 2 pages.
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf116410, "tdf116410.docx")
@@ -620,6 +654,15 @@ DECLARE_OOXMLEXPORT_TEST(testTdf119760_positionCellBorder, "tdf119760_positionCe
     CPPUNIT_ASSERT( nRowLeft < nTextLeft );
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf98620_environmentBiDi, "tdf98620_environmentBiDi.odt")
+{
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::RL_TB, getProperty<sal_Int16>( getParagraph(1), "WritingMode" ));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(style::ParagraphAdjust_RIGHT), getProperty<sal_Int32>( getParagraph(1), "ParaAdjust" ));
+
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::LR_TB, getProperty<sal_Int16>( getParagraph(2), "WritingMode" ));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(style::ParagraphAdjust_RIGHT), getProperty<sal_Int32>( getParagraph(2), "ParaAdjust" ));
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf116976, "tdf116976.docx")
 {
     // This was 0, relative size of shape after bitmap was ignored.
@@ -903,6 +946,41 @@ DECLARE_OOXMLEXPORT_TEST(testTdf121597TrackedDeletionOfMultipleParagraphs, "tdf1
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[5]/w:pPr/w:rPr/w:del");
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[7]/w:pPr/w:rPr/w:del");
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[10]/w:pPr/w:rPr/w:del");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf123189_tableBackground, "table-black_fill.docx")
+{
+    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(), uno::UNO_QUERY);
+    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
+
+    uno::Reference<table::XCell> xCell = xTable->getCellByName("A1");
+    CPPUNIT_ASSERT_EQUAL(COL_TRANSPARENT, Color(getProperty<sal_uInt32>(xCell, "BackColor")));
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf116084, "tdf116084.docx")
+{
+    // tracked line is not a single text portion: w:del is recognized within w:ins
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 1 ), 1 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(1), 1), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "There " ), getRun( getParagraph( 1 ), 2 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 1 ), 4 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(1), 4), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "must" ), getRun( getParagraph( 1 ), 5 )->getString());
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf121176, "tdf121176.docx")
+{
+    // w:del is imported correctly when it is in a same size w:ins
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 1 ), 1 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(1), 1), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "must" ), getRun( getParagraph( 1 ), 2 )->getString());
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf123054, "tdf123054.docx")
+{
+    CPPUNIT_ASSERT_EQUAL(OUString("No Spacing"),
+                         getProperty<OUString>(getParagraph(20), "ParaStyleName"));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

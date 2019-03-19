@@ -81,6 +81,8 @@ public:
     void testPivotTableDuplicatedMemberFilterXLSX();
     void testPivotTableTabularModeXLSX();
     void testTdf112106();
+    void testTdf123923();
+    void testTdf123939();
 
     CPPUNIT_TEST_SUITE(ScPivotTableFiltersTest);
 
@@ -119,6 +121,8 @@ public:
     CPPUNIT_TEST(testPivotTableDuplicatedMemberFilterXLSX);
     CPPUNIT_TEST(testPivotTableTabularModeXLSX);
     CPPUNIT_TEST(testTdf112106);
+    CPPUNIT_TEST(testTdf123923);
+    CPPUNIT_TEST(testTdf123939);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -296,11 +300,9 @@ namespace
 bool checkVisiblePageFieldMember(const ScDPSaveDimension::MemberList& rMembers,
                                  const OUString& rVisibleMember)
 {
-    ScDPSaveDimension::MemberList::const_iterator it = rMembers.begin(), itEnd = rMembers.end();
     bool bFound = false;
-    for (; it != itEnd; ++it)
+    for (const ScDPSaveMember* pMem : rMembers)
     {
-        const ScDPSaveMember* pMem = *it;
         if (pMem->GetName() == rVisibleMember)
         {
             bFound = true;
@@ -662,6 +664,8 @@ void ScPivotTableFiltersTest::testPivotTableNoColumnsLayout()
         const ScMergeFlagAttr& rMergeFlag = static_cast<const ScMergeFlagAttr&>(rPoolItem);
         CPPUNIT_ASSERT(rMergeFlag.GetValue() & ScMF::ButtonPopup);
     }
+
+    xDocSh->DoClose();
 }
 
 void ScPivotTableFiltersTest::testTdf112501()
@@ -728,6 +732,8 @@ void ScPivotTableFiltersTest::testTdf112501()
             CPPUNIT_ASSERT(rMergeFlag.GetValue() & ScMF::ButtonPopup);
         }
     }
+
+    xDocSh->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotTableExportXLSX()
@@ -748,6 +754,8 @@ void ScPivotTableFiltersTest::testPivotTableExportXLSX()
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[3]/x:items/x:item", 4);
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[3]/x:items/x:item[3]",
                 "h", "1");
+
+    xShell->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotCacheExportXLSX()
@@ -998,6 +1006,8 @@ void ScPivotTableFiltersTest::testPivotCacheExportXLSX()
                            "maxValue");
     assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[6]/x:sharedItems",
                 "count", "1");
+
+    xShell->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotTableXLSX()
@@ -1864,6 +1874,8 @@ void ScPivotTableFiltersTest::testPivotTableFirstHeaderRowXLSX()
     pTable = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/pivotTables/pivotTable3.xml");
     CPPUNIT_ASSERT(pTable);
     assertXPath(pTable, "/x:pivotTableDefinition/x:location", "firstHeaderRow", "1");
+
+    xShell->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotTableDoubleFieldFilterXLSX()
@@ -2243,6 +2255,8 @@ void ScPivotTableFiltersTest::testPivotTableOutlineModeXLSX()
     assertXPath(pTable, "/x:pivotTableDefinition", "compact", "0");
     assertXPath(pTable, "/x:pivotTableDefinition", "compactData", "0");
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[1]", "compact", "0");
+
+    xShell->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotTableDuplicatedMemberFilterXLSX()
@@ -2261,6 +2275,8 @@ void ScPivotTableFiltersTest::testPivotTableDuplicatedMemberFilterXLSX()
                 "axisPage");
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[5]/x:items", "count",
                 "21");
+
+    xShell->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotTableTabularModeXLSX()
@@ -2281,6 +2297,8 @@ void ScPivotTableFiltersTest::testPivotTableTabularModeXLSX()
     assertXPath(pTable, "/x:pivotTableDefinition", "compactData", "0");
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[1]", "compact", "0");
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[1]", "outline", "0");
+
+    xShell->DoClose();
 }
 
 void ScPivotTableFiltersTest::testTdf112106()
@@ -2310,6 +2328,50 @@ void ScPivotTableFiltersTest::testTdf112106()
     CPPUNIT_ASSERT_EQUAL(ScResId(STR_PIVOT_DATA), (*pLayoutName));
 
     xDocSh->DoClose();
+}
+
+void ScPivotTableFiltersTest::testTdf123923()
+{
+    // tdf#123923: Excel fails when it finds "Err:504" instead of "#REF!" in pivot table cache
+
+    ScDocShellRef xShell = loadDoc("pivot-table-err-in-cache.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+    xmlDocPtr pTable = XPathHelper::parseExport(pXPathFile, m_xSFactory,
+                                                "xl/pivotCache/pivotCacheDefinition1.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    assertXPath(pTable, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:sharedItems/x:e",
+                "v", "#REF!");
+}
+
+void ScPivotTableFiltersTest::testTdf123939()
+{
+    // tdf#123939: Excel warns on containsMixedTypes="1" if sharedItems has only strings and errors
+
+    ScDocShellRef xShell = loadDoc("pivot-table-str-and-err-in-data.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+    xmlDocPtr pTable = XPathHelper::parseExport(pXPathFile, m_xSFactory,
+                                                "xl/pivotCache/pivotCacheDefinition1.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    assertXPathNoAttribute(pTable,
+                           "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:sharedItems",
+                           "containsMixedTypes");
+
+    // But we must emit containsMixedTypes="1" for a mix of errors and non-string types!
+
+    pTable = XPathHelper::parseExport(pXPathFile, m_xSFactory,
+                                      "xl/pivotCache/pivotCacheDefinition2.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    assertXPath(pTable, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:sharedItems",
+                "containsMixedTypes", "1");
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScPivotTableFiltersTest);

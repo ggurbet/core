@@ -24,6 +24,7 @@
 #include <com/sun/star/embed/XEmbedObjectClipboardCreator.hpp>
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/embed/MSOLEObjectSystemCreator.hpp>
+#include <com/sun/star/text/XPasteListener.hpp>
 
 #include <svtools/embedtransfer.hxx>
 #include <svtools/insdlg.hxx>
@@ -124,6 +125,8 @@
 #include <fmtmeta.hxx>
 #include <itabenum.hxx>
 #include <iodetect.hxx>
+#include <unotextrange.hxx>
+#include <unoframe.hxx>
 
 #include <vcl/GraphicNativeTransform.hxx>
 #include <vcl/GraphicNativeMetadata.hxx>
@@ -178,17 +181,39 @@ public:
     void Disconnect( bool bRemoveDataAdvise );
 };
 
+/// Tracks the boundaries of pasted content and notifies listeners.
+class SwPasteContext
+{
+public:
+    SwPasteContext(SwWrtShell& rWrtShell);
+    ~SwPasteContext();
+
+    void remember();
+    void forget();
+
+private:
+    SwWrtShell& m_rWrtShell;
+    std::unique_ptr<SwPaM> m_pPaM;
+    sal_Int32 m_nStartContent = 0;
+};
+
 // helper class for Action and Undo enclosing
 class SwTrnsfrActionAndUndo
 {
     SwWrtShell *pSh;
 public:
-    SwTrnsfrActionAndUndo( SwWrtShell *pS, bool bDelSel = false)
+    SwTrnsfrActionAndUndo( SwWrtShell *pS, bool bDelSel = false, SwPasteContext* pContext = nullptr)
         : pSh( pS )
     {
         pSh->StartUndo( SwUndoId::PASTE_CLIPBOARD );
         if( bDelSel )
+        {
+            if (pContext)
+                pContext->forget();
             pSh->DelRight();
+            if (pContext)
+                pContext->remember();
+        }
         pSh->StartAllAction();
     }
     ~SwTrnsfrActionAndUndo() COVERITY_NOEXCEPT_FALSE
@@ -455,7 +480,7 @@ bool SwTransferable::GetData( const DataFlavor& rFlavor, const OUString& rDestDo
         }
         if( m_pWrtShell->IsFrameSelected() )
         {
-             SfxItemSet aSet( m_pWrtShell->GetAttrPool(), svl::Items<RES_URL, RES_URL>{} );
+            SfxItemSet aSet( m_pWrtShell->GetAttrPool(), svl::Items<RES_URL, RES_URL>{} );
             m_pWrtShell->GetFlyFrameAttr( aSet );
             const SwFormatURL& rURL = aSet.Get( RES_URL );
             if( rURL.GetMap() )
@@ -589,7 +614,7 @@ bool SwTransferable::GetData( const DataFlavor& rFlavor, const OUString& rDestDo
             bOK = SetObject( &m_aDocShellRef, SWTRANSFER_OBJECTTYPE_SWOLE,
                             rFlavor );
             break;
-         default: break;
+        default: break;
         }
     }
     return bOK;
@@ -1071,6 +1096,107 @@ static uno::Reference < XTransferable > * lcl_getTransferPointer ( uno::Referenc
     return &xRef;
 }
 
+SwPasteContext::SwPasteContext(SwWrtShell& rWrtShell)
+    : m_rWrtShell(rWrtShell)
+{
+    remember();
+}
+
+void SwPasteContext::remember()
+{
+    if (m_rWrtShell.GetPasteListeners().getLength() == 0)
+        return;
+
+    SwPaM* pCursor = m_rWrtShell.GetCursor();
+    if (!pCursor)
+        return;
+
+    // Set point to the previous node, so it is not moved.
+    const SwNodeIndex& rNodeIndex = pCursor->GetPoint()->nNode;
+    m_pPaM.reset(new SwPaM(rNodeIndex, rNodeIndex, 0, -1));
+    m_nStartContent = pCursor->GetPoint()->nContent.GetIndex();
+}
+
+void SwPasteContext::forget() { m_pPaM.reset(nullptr); }
+
+SwPasteContext::~SwPasteContext()
+{
+    try
+    {
+        if (m_rWrtShell.GetPasteListeners().getLength() == 0)
+            return;
+
+        beans::PropertyValue aPropertyValue;
+
+        switch (m_rWrtShell.GetView().GetShellMode())
+        {
+            case ShellMode::Graphic:
+            {
+                SwFrameFormat* pFormat = m_rWrtShell.GetFlyFrameFormat();
+                if (!pFormat)
+                    return;
+
+                aPropertyValue.Name = "TextGraphicObject";
+                aPropertyValue.Value
+                    <<= SwXTextGraphicObject::CreateXTextGraphicObject(*pFormat->GetDoc(), pFormat);
+                break;
+            }
+
+            default:
+            {
+                if (!m_pPaM)
+                    return;
+
+                SwPaM* pCursor = m_rWrtShell.GetCursor();
+                if (!pCursor)
+                    return;
+
+                if (!pCursor->GetPoint()->nNode.GetNode().IsTextNode())
+                    // Non-text was pasted.
+                    return;
+
+                // Update mark after paste.
+                *m_pPaM->GetMark() = *pCursor->GetPoint();
+
+                // Restore point.
+                ++m_pPaM->GetPoint()->nNode;
+                SwNode& rNode = m_pPaM->GetNode();
+                if (!rNode.IsTextNode())
+                    // Starting point is no longer text.
+                    return;
+
+                m_pPaM->GetPoint()->nContent.Assign(static_cast<SwContentNode*>(&rNode),
+                                                    m_nStartContent);
+
+                aPropertyValue.Name = "TextRange";
+                const uno::Reference<text::XTextRange> xTextRange = SwXTextRange::CreateXTextRange(
+                    *m_pPaM->GetDoc(), *m_pPaM->GetPoint(), m_pPaM->GetMark());
+                aPropertyValue.Value <<= xTextRange;
+                break;
+            }
+        }
+
+        if (aPropertyValue.Name.isEmpty())
+            return;
+
+        // Invoke the listeners.
+        uno::Sequence<beans::PropertyValue> aEvent{ aPropertyValue };
+
+        comphelper::OInterfaceIteratorHelper2 it(m_rWrtShell.GetPasteListeners());
+        while (it.hasMoreElements())
+        {
+            uno::Reference<text::XPasteListener> xListener(it.next(), UNO_QUERY);
+            if (xListener.is())
+                xListener->notifyPasteEvent(aEvent);
+        }
+    }
+    catch (const uno::Exception& rException)
+    {
+        SAL_WARN("sw",
+                 "SwPasteContext::~SwPasteContext: uncaught exception: " << rException.Message);
+    }
+}
+
 bool SwTransferable::IsPaste( const SwWrtShell& rSh,
                               const TransferableDataHelper& rData )
 {
@@ -1114,6 +1240,8 @@ bool SwTransferable::IsPaste( const SwWrtShell& rSh,
 
 bool SwTransferable::Paste(SwWrtShell& rSh, TransferableDataHelper& rData, RndStdIds nAnchorType)
 {
+    SwPasteContext aPasteContext(rSh);
+
     sal_uInt8 nEventAction, nAction=0;
     SotExchangeDest nDestination = SwTransferable::GetSotDestination( rSh );
     SotClipboardFormatId nFormat = SotClipboardFormatId::NONE;
@@ -1189,7 +1317,7 @@ bool SwTransferable::Paste(SwWrtShell& rSh, TransferableDataHelper& rData, RndSt
     if (bInsertOleTableInTable && EXCHG_OUT_ACTION_INSERT_STRING == nAction)
     {
         bool bPasted = SwTransferable::PasteData( rData, rSh, nAction, nActionFlags, nFormat,
-                                        nDestination, false, false, nullptr, 0, false, nAnchorType );
+                                        nDestination, false, false, nullptr, 0, false, nAnchorType, &aPasteContext );
         if (bPasted && rSh.DoesUndo())
         {
             SfxDispatcher* pDispatch = rSh.GetView().GetViewFrame()->GetDispatcher();
@@ -1204,7 +1332,7 @@ bool SwTransferable::Paste(SwWrtShell& rSh, TransferableDataHelper& rData, RndSt
 
     return EXCHG_INOUT_ACTION_NONE != nAction &&
             SwTransferable::PasteData( rData, rSh, nAction, nActionFlags, nFormat,
-                                        nDestination, false, false, nullptr, 0, false, nAnchorType );
+                                        nDestination, false, false, nullptr, 0, false, nAnchorType, &aPasteContext );
 }
 
 bool SwTransferable::PasteData( TransferableDataHelper& rData,
@@ -1213,7 +1341,8 @@ bool SwTransferable::PasteData( TransferableDataHelper& rData,
                             SotExchangeDest nDestination, bool bIsPasteFormat,
                             bool bIsDefault,
                             const Point* pPt, sal_Int8 nDropAction,
-                            bool bPasteSelection, RndStdIds nAnchorType )
+                            bool bPasteSelection, RndStdIds nAnchorType,
+                            SwPasteContext* pContext )
 {
     SwWait aWait( *rSh.GetView().GetDocShell(), false );
     std::unique_ptr<SwTrnsfrActionAndUndo, o3tl::default_delete<SwTrnsfrActionAndUndo>> pAction;
@@ -1272,7 +1401,7 @@ bool SwTransferable::PasteData( TransferableDataHelper& rData,
 
         if( bDelSel )
             // #i34830#
-            pAction.reset(new SwTrnsfrActionAndUndo( &rSh, true ));
+            pAction.reset(new SwTrnsfrActionAndUndo(&rSh, true, pContext));
     }
 
     SwTransferable *pTrans=nullptr, *pTunneledTrans=GetSwTransferable( rData );
@@ -1319,7 +1448,7 @@ bool SwTransferable::PasteData( TransferableDataHelper& rData,
             EXCHG_OUT_ACTION_INSERT_PRIVATE == nAction )
     {
         // then internal paste
-        bRet = pTunneledTrans->PrivatePaste( rSh );
+        bRet = pTunneledTrans->PrivatePaste(rSh, pContext);
     }
     else if( EXCHG_INOUT_ACTION_NONE != nAction )
     {
@@ -1656,7 +1785,7 @@ bool SwTransferable::PasteFileContent( TransferableDataHelper& rData,
 
     tools::SvRef<SotStorageStream> xStrm;
     SvStream* pStream = nullptr;
-    SwRead pRead = nullptr;
+    Reader* pRead = nullptr;
     OUString sData;
     switch( nFormat )
     {
@@ -1830,7 +1959,7 @@ bool SwTransferable::PasteOLE( TransferableDataHelper& rData, SwWrtShell& rSh,
         uno::Reference< embed::XStorage > xTmpStor;
         uno::Reference < embed::XEmbeddedObject > xObj;
         OUString aName;
-           comphelper::EmbeddedObjectContainer aCnt;
+        comphelper::EmbeddedObjectContainer aCnt;
 
         if ( xStrm.is() )
         {
@@ -2613,17 +2742,16 @@ bool SwTransferable::PasteFileName( TransferableDataHelper& rData,
                         ? nullptr : SwIoSystem::GetFileFilter(sFileURL);
                 if( pFlt && dynamic_cast< const SwWebDocShell *>( rSh.GetView().GetDocShell() ) == nullptr )
                 {
-                // and then pull up the insert-region-dialog by PostUser event
-                    SwSectionData * pSect = new SwSectionData(
+                    // and then pull up the insert-region-dialog
+                    SwSectionData aSect(
                                     FILE_LINK_SECTION,
                                     rSh.GetDoc()->GetUniqueSectionName() );
-                    pSect->SetLinkFileName( sFileURL );
-                    pSect->SetProtectFlag( true );
+                    aSect.SetLinkFileName( sFileURL );
+                    aSect.SetProtectFlag( true );
 
-                    Application::PostUserEvent( LINK( &rSh, SwWrtShell,
-                                                      InsertRegionDialog ), pSect );
+                    rSh.StartInsertRegionDialog( aSect ); // starts dialog asynchronously
                     bRet = true;
-                    }
+                }
                 else if( SwPasteSdr::SetAttr == nAction ||
                         ( bIsURLFile && SwPasteSdr::Insert == nAction ))
                 {
@@ -3277,7 +3405,7 @@ bool lcl_checkClassification(SwDoc* pSourceDoc, SwDoc* pDestinationDoc)
 
 }
 
-bool SwTransferable::PrivatePaste( SwWrtShell& rShell )
+bool SwTransferable::PrivatePaste(SwWrtShell& rShell, SwPasteContext* pContext)
 {
     // first, ask for the SelectionType, then action-bracketing !!!!
     // (otherwise it's not pasted into a TableSelection!!!)
@@ -3296,7 +3424,11 @@ bool SwTransferable::PrivatePaste( SwWrtShell& rShell )
     {
         bKillPaMs = true;
         rShell.SetRetainSelection( true );
+        if (pContext)
+            pContext->forget();
         rShell.DelRight();
+        if (pContext)
+            pContext->remember();
         // when a Fly was selected, a valid cursor position has to be found now
         // (parked Cursor!)
         if( ( SelectionType::Frame | SelectionType::Graphic |

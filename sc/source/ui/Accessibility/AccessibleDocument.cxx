@@ -23,7 +23,6 @@
 #include <AccessibilityHints.hxx>
 #include <document.hxx>
 #include <drwlayer.hxx>
-#include <shapeuno.hxx>
 #include <DrawModelBroadcaster.hxx>
 #include <drawview.hxx>
 #include <gridwin.hxx>
@@ -32,7 +31,6 @@
 #include <scresid.hxx>
 #include <strings.hrc>
 #include <strings.hxx>
-#include <table.hxx>
 #include <markdata.hxx>
 
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
@@ -68,10 +66,7 @@
 #include <editeng/editeng.hxx>
 #include <comphelper/processfactory.hxx>
 
-#include <list>
 #include <algorithm>
-
-#include <AccessibleCell.hxx>
 
 #include <svx/unoapi.hxx>
 #include <scmod.hxx>
@@ -495,16 +490,16 @@ bool ScChildrenShapes::ReplaceChild (::accessibility::AccessibleShape* pCurrentC
     for (sal_Int32 index=0;index<count;index++)
     {
         ScAccessibleShapeData* pShape = maZOrderedShapes[index];
-                if (pShape)
+        if (pShape)
+        {
+            rtl::Reference< ::accessibility::AccessibleShape > pAccShape(pShape->pAccShape);
+            if (pAccShape.is() && ::accessibility::ShapeTypeHandler::Instance().GetTypeId (pAccShape->GetXShape()) == ::accessibility::DRAWING_CONTROL)
             {
-                rtl::Reference< ::accessibility::AccessibleShape > pAccShape(pShape->pAccShape);
-                if (pAccShape.is() && ::accessibility::ShapeTypeHandler::Instance().GetTypeId (pAccShape->GetXShape()) == ::accessibility::DRAWING_CONTROL)
-                {
                 ::accessibility::AccessibleControlShape *pCtlAccShape = static_cast < ::accessibility::AccessibleControlShape* >(pAccShape.get());
                 if (pCtlAccShape && pCtlAccShape->GetControlModel() == pSet)
                     return pCtlAccShape;
-              }
-                }
+            }
+        }
     }
     return nullptr;
 }
@@ -516,12 +511,12 @@ ScChildrenShapes::GetAccessibleCaption (const css::uno::Reference < css::drawing
     for (sal_Int32 index=0;index<count;index++)
     {
         ScAccessibleShapeData* pShape = maZOrderedShapes[index];
-            if (pShape && pShape->xShape == xShape )
-            {
-                css::uno::Reference< css::accessibility::XAccessible > xNewChild(  pShape->pAccShape.get() );
-                if(xNewChild.get())
+        if (pShape && pShape->xShape == xShape )
+        {
+            css::uno::Reference< css::accessibility::XAccessible > xNewChild(  pShape->pAccShape.get() );
+            if(xNewChild.get())
                 return xNewChild;
-            }
+        }
     }
     return nullptr;
 }
@@ -811,33 +806,20 @@ uno::Reference< XAccessible > ScChildrenShapes::GetSelected(sal_Int32 nSelectedC
     }
     else
     {
-        SortedShapes::iterator aItr = maZOrderedShapes.begin();
-        SortedShapes::iterator aEndItr = maZOrderedShapes.end();
-        bool bFound(false);
-        while(!bFound && aItr != aEndItr)
+        for(const auto& rpShape : maZOrderedShapes)
         {
-            if (*aItr)
-            {
-                if ((*aItr)->bSelected)
-                {
-                    if (nSelectedChildIndex == 0)
-                        bFound = true;
-                    else
-                        --nSelectedChildIndex;
-                }
-            }
-            else
+            if (!rpShape || rpShape->bSelected)
             {
                 if (nSelectedChildIndex == 0)
-                    bFound = true;
+                {
+                    if (rpShape)
+                        xAccessible = rpShape->pAccShape.get();
+                    break;
+                }
                 else
                     --nSelectedChildIndex;
             }
-            if (!bFound)
-                ++aItr;
         }
-        if (bFound && *aItr)
-            xAccessible = (*aItr)->pAccShape.get();
     }
 
     return xAccessible;
@@ -1103,8 +1085,7 @@ bool ScChildrenShapes::FindSelectedShapesChanges(const uno::Reference<drawing::X
     }
     else
     {
-        SortedShapes::iterator vi = vecSelectedShapeAdd.begin();
-        for (; vi != vecSelectedShapeAdd.end() ; ++vi )
+        for (const auto& rpShape : vecSelectedShapeAdd)
         {
             AccessibleEventObject aEvent;
             if (bHasSelect)
@@ -1116,18 +1097,17 @@ bool ScChildrenShapes::FindSelectedShapesChanges(const uno::Reference<drawing::X
                 aEvent.EventId = AccessibleEventId::SELECTION_CHANGED;
             }
             aEvent.Source = uno::Reference< XAccessible >(mpAccessibleDocument);
-            uno::Reference< XAccessible > xChild( (*vi)->pAccShape.get());
+            uno::Reference< XAccessible > xChild( rpShape->pAccShape.get());
             aEvent.NewValue <<= xChild;
             mpAccessibleDocument->CommitChange(aEvent);
         }
     }
-    SortedShapes::iterator vi = vecSelectedShapeRemove.begin();
-    for (; vi != vecSelectedShapeRemove.end() ; ++vi )
+    for (const auto& rpShape : vecSelectedShapeRemove)
     {
         AccessibleEventObject aEvent;
         aEvent.EventId =  AccessibleEventId::SELECTION_CHANGED_REMOVE;
         aEvent.Source = uno::Reference< XAccessible >(mpAccessibleDocument);
-        uno::Reference< XAccessible > xChild( (*vi)->pAccShape.get());
+        uno::Reference< XAccessible > xChild( rpShape->pAccShape.get());
         aEvent.NewValue <<= xChild;
         mpAccessibleDocument->CommitChange(aEvent);
     }
@@ -1304,16 +1284,8 @@ bool ScChildrenShapes::FindShape(const uno::Reference<drawing::XShape>& xShape, 
         bResult = true; // if the shape is found
 
 #if OSL_DEBUG_LEVEL > 0 // test whether it finds truly the correct shape (perhaps it is not really sorted)
-    SortedShapes::iterator aDebugItr = maZOrderedShapes.begin();
-    SortedShapes::iterator aEndItr = maZOrderedShapes.end();
-    bool bFound(false);
-    while (!bFound && aDebugItr != aEndItr)
-    {
-        if (*aDebugItr && ((*aDebugItr)->xShape.get() == xShape.get()))
-            bFound = true;
-        else
-            ++aDebugItr;
-    }
+    SortedShapes::iterator aDebugItr = std::find_if(maZOrderedShapes.begin(), maZOrderedShapes.end(),
+        [&xShape](const ScAccessibleShapeData* pShape) { return pShape && (pShape->xShape.get() == xShape.get()); });
     bool bResult2 = (aDebugItr != maZOrderedShapes.end());
     OSL_ENSURE((bResult == bResult2) && ((bResult && (rItr == aDebugItr)) || !bResult), "wrong Shape found");
 #endif
@@ -2187,7 +2159,7 @@ void ScAccessibleDocument::AddChild(const uno::Reference<XAccessible>& xAcc, boo
         if( bFireEvent )
         {
             AccessibleEventObject aEvent;
-                        aEvent.Source = uno::Reference<XAccessibleContext>(this);
+            aEvent.Source = uno::Reference<XAccessibleContext>(this);
             aEvent.EventId = AccessibleEventId::CHILD;
             aEvent.NewValue <<= mxTempAcc;
             CommitChange( aEvent );
@@ -2204,7 +2176,7 @@ void ScAccessibleDocument::RemoveChild(const uno::Reference<XAccessible>& xAcc, 
         if( bFireEvent )
         {
             AccessibleEventObject aEvent;
-                        aEvent.Source = uno::Reference<XAccessibleContext>(this);
+            aEvent.Source = uno::Reference<XAccessibleContext>(this);
             aEvent.EventId = AccessibleEventId::CHILD;
             aEvent.OldValue <<= mxTempAcc;
             CommitChange( aEvent );

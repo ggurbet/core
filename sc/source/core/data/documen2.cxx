@@ -114,6 +114,8 @@ ScDocument::ScDocument( ScDocumentMode eMode, SfxObjectShell* pDocShell ) :
         nFormulaTrackCount(0),
         eHardRecalcState(HardRecalcState::OFF),
         nVisibleTab( 0 ),
+        nPosLeft( 0 ),
+        nPosTop( 0 ),
         eLinkMode(LM_UNKNOWN),
         bAutoCalc( eMode == SCDOCMODE_DOCUMENT || eMode == SCDOCMODE_FUNCTIONACCESS ),
         bAutoCalcShellDisabled( false ),
@@ -159,6 +161,7 @@ ScDocument::ScDocument( ScDocumentMode eMode, SfxObjectShell* pDocShell ) :
         mbEmbedFontScriptComplex(true),
         mbTrackFormulasPending(false),
         mbFinalTrackFormulas(false),
+        mbDocShellRecalc(false),
         mnMutationGuardFlags(0)
 {
     SetStorageGrammar( formula::FormulaGrammar::GRAM_STORAGE_DEFAULT);
@@ -703,14 +706,12 @@ bool ScDocument::MoveTab( SCTAB nOldPos, SCTAB nNewPos, ScProgress* pProgress )
             ScTableUniquePtr pSaveTab = std::move(maTabs[nOldPos]);
             maTabs.erase(maTabs.begin()+nOldPos);
             maTabs.insert(maTabs.begin()+nNewPos, std::move(pSaveTab));
-            TableContainer::iterator it = maTabs.begin();
             for (SCTAB i = 0; i < nTabCount; i++)
                 if (maTabs[i])
                     maTabs[i]->UpdateMoveTab(aCxt, i, pProgress);
-            it = maTabs.begin();
-            for (; it != maTabs.end(); ++it)
-                if (*it)
-                    (*it)->UpdateCompile();
+            for (auto& rxTab : maTabs)
+                if (rxTab)
+                    rxTab->UpdateCompile();
             SetNoListening( false );
             StartAllListeners();
 
@@ -1127,7 +1128,7 @@ ScLookupCache & ScDocument::GetLookupCache( const ScRange & rRange, ScInterprete
     if (findIt == rpCacheMap->aCacheMap.end())
     {
         auto insertIt = rpCacheMap->aCacheMap.emplace_hint(findIt,
-                    rRange, o3tl::make_unique<ScLookupCache>(this, rRange, *rpCacheMap) );
+                    rRange, std::make_unique<ScLookupCache>(this, rRange, *rpCacheMap) );
         pCache = insertIt->second.get();
         // The StartListeningArea() call is not thread-safe, as all threads
         // would access the same SvtBroadcaster.
@@ -1242,7 +1243,6 @@ void ScDocument::GetCellChangeTrackNote( const ScAddress &aCellPos, OUString &aT
         const ScChangeAction* pFound = nullptr;
         const ScChangeAction* pFoundContent = nullptr;
         const ScChangeAction* pFoundMove = nullptr;
-        long nModified = 0;
         const ScChangeAction* pAction = pTrack->GetFirst();
         while (pAction)
         {
@@ -1272,7 +1272,6 @@ void ScDocument::GetCellChangeTrackNote( const ScAddress &aCellPos, OUString &aT
                             default:
                                 break;
                         }
-                        ++nModified;
                     }
                 }
                 if ( eType == SC_CAT_MOVE )
@@ -1283,7 +1282,6 @@ void ScDocument::GetCellChangeTrackNote( const ScAddress &aCellPos, OUString &aT
                     if ( aRange.In( aCellPos ) )
                     {
                         pFound = pAction;
-                        ++nModified;
                     }
                 }
             }

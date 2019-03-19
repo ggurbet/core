@@ -36,6 +36,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <i18nlangtag/languagetag.hxx>
+#include <tools/debug.hxx>
 
 #include <vcl/treelistentry.hxx>
 #include <vcl/viewdataentry.hxx>
@@ -1018,8 +1019,8 @@ void SvImpLBox::DrawNet(vcl::RenderContext& rRenderContext)
 
     // for platforms that don't have nets, DrawNativeControl does nothing and returns true
     // so that SvImpLBox::DrawNet() doesn't draw anything either
-     if (rRenderContext.IsNativeControlSupported(ControlType::ListNet, ControlPart::Entire))
-     {
+    if (rRenderContext.IsNativeControlSupported(ControlType::ListNet, ControlPart::Entire))
+    {
         ImplControlValue aControlValue;
         if (rRenderContext.DrawNativeControl(ControlType::ListNet, ControlPart::Entire,
                                              tools::Rectangle(), ControlState::ENABLED, aControlValue, OUString()))
@@ -1133,9 +1134,9 @@ void SvImpLBox::PositionScrollBars( Size& rSize, sal_uInt16 nMask )
     Size aHorSize( rSize.Width(), nHorSBarHeight );
 
     if( nMask & 0x0001 )
-        aHorSize.AdjustWidth( -(nVerSBarWidth) );
+        aHorSize.AdjustWidth( -nVerSBarWidth );
     if( nMask & 0x0002 )
-        aVerSize.AdjustHeight( -(nHorSBarHeight) );
+        aVerSize.AdjustHeight( -nHorSBarHeight );
 
     aVerSize.AdjustHeight(2 * nOverlap );
     Point aVerPos( rSize.Width() - aVerSize.Width() + nOverlap, -nOverlap );

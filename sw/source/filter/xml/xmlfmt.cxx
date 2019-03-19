@@ -17,11 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <o3tl/make_unique.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-
+#include <tools/diagnose_ex.h>
 #include <xmloff/nmspmap.hxx>
 #include <format.hxx>
 #include <fmtcol.hxx>
@@ -47,6 +46,7 @@
 #include <xmloff/XMLTextMasterStylesContext.hxx>
 #include <xmloff/XMLTextShapeStyleContext.hxx>
 #include <xmloff/XMLGraphicsDefaultStyle.hxx>
+#include <xmloff/table/XMLTableImport.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include "xmlimp.hxx"
 #include "xmltbli.hxx"
@@ -343,9 +343,10 @@ SwXMLTextStyleContext_Impl::Finish( bool bOverwrite )
         {
             xPropSet->setPropertyValue(UNO_NAME_PARA_STYLE_CONDITIONS, uno::makeAny(aSeq));
         }
-        catch (uno::Exception const& e)
+        catch (uno::Exception const&)
         {
-            SAL_WARN("sw.xml", "exception when setting ParaStyleConditions: " << e);
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN("sw.xml", "exception when setting ParaStyleConditions: " << exceptionToString(ex));
         }
     }
     XMLTextStyleContext::Finish( bOverwrite );
@@ -375,7 +376,7 @@ SvXMLImportContextRef SwXMLTextStyleContext_Impl::CreateChildContext(
         if( xCond->IsValid() )
         {
             if( !pConditions )
-               pConditions = o3tl::make_unique<SwXMLConditions_Impl>();
+               pConditions = std::make_unique<SwXMLConditions_Impl>();
             pConditions->push_back( xCond );
         }
         xContext = xCond.get();
@@ -614,21 +615,20 @@ void SwXMLItemSetStyleContext_Impl::ConnectPageDesc()
     }
 
     const SfxPoolItem *pItem;
-    SwFormatPageDesc *pFormatPageDesc = nullptr;
+    std::unique_ptr<SwFormatPageDesc> pFormatPageDesc;
     if( SfxItemState::SET == pItemSet->GetItemState( RES_PAGEDESC, false,
                                                 &pItem ) )
     {
          if( static_cast<const SwFormatPageDesc *>(pItem)->GetPageDesc() != pPageDesc )
-            pFormatPageDesc = new SwFormatPageDesc( *static_cast<const SwFormatPageDesc *>(pItem) );
+            pFormatPageDesc.reset(new SwFormatPageDesc( *static_cast<const SwFormatPageDesc *>(pItem) ));
     }
     else
-        pFormatPageDesc = new SwFormatPageDesc();
+        pFormatPageDesc.reset(new SwFormatPageDesc());
 
     if( pFormatPageDesc )
     {
         pFormatPageDesc->RegisterToPageDesc( *pPageDesc );
         pItemSet->Put( *pFormatPageDesc );
-        delete pFormatPageDesc;
     }
 }
 

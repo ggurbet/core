@@ -892,7 +892,7 @@ HRESULT STDMETHODCALLTYPE CXTypeInfo::GetDocumentation(MEMBERID memid,
         }
         else
         {
-            *pBstrName = SysAllocString(L"Unknown");
+            *pBstrName = SysAllocString(o3tl::toW(OUString(OUString("UnknownNameOfMember#") + OUString::number(memid)).getStr()));
         }
     }
     if (pBstrDocString)
@@ -1191,15 +1191,19 @@ STDMETHODIMP InterfaceOleWrapper::GetIDsOfNames(REFIID /*riid*/,
                         auto aParamInfos = xIdlMethod->getParameterInfos();
                         for (unsigned int i = 1; i < cNames; ++i)
                         {
+                            bool bFound = false;
                             for (int j = 0; j < aParamInfos.getLength(); ++j)
                             {
                                 if (aParamInfos[j].aName.equalsIgnoreAsciiCase(OUString(o3tl::toU(rgszNames[i]))))
                                 {
                                     rgdispid[i] = j;
+                                    bFound = true;
                                     SAL_INFO("extensions.olebridge", "  " << OUString(o3tl::toU(rgszNames[i])) << ": " << rgdispid[i]);
                                     break;
                                 }
                             }
+                            if (!bFound)
+                                SAL_INFO("extensions.olebridge", "  " << OUString(o3tl::toU(rgszNames[i])) << ": NOT FOUND");
                         }
                     }
                 }
@@ -1965,7 +1969,7 @@ STDMETHODIMP InterfaceOleWrapper::Invoke(DISPID dispidMember,
         OUString message= "InterfaceOleWrapper::Invoke : \n"
                           "Unexpected exception";
         writeExcepinfo(pexcepinfo, message);
-         ret = DISP_E_EXCEPTION;
+        ret = DISP_E_EXCEPTION;
     }
 
     return ret;
@@ -2058,7 +2062,7 @@ HRESULT InterfaceOleWrapper::doInvoke( DISPPARAMS * pdispparams, VARIANT * pvarR
         OUString message= "InterfaceOleWrapper::doInvoke : \n"
                           "Unexpected exception";
         writeExcepinfo(pexcepinfo, message);
-         ret = DISP_E_EXCEPTION;
+        ret = DISP_E_EXCEPTION;
      }
     return ret;
 }
@@ -2096,7 +2100,7 @@ HRESULT InterfaceOleWrapper::doGetProperty( DISPPARAMS * /*pdispparams*/, VARIAN
         OUString message= "InterfaceOleWrapper::doInvoke : \n"
                           "Unexpected exception";
         writeExcepinfo(pexcepinfo, message);
-         ret = DISP_E_EXCEPTION;
+        ret = DISP_E_EXCEPTION;
     }
     return  ret;
 }
@@ -2882,7 +2886,7 @@ HRESULT InterfaceOleWrapper::InvokeGeneral( DISPID dispidMember, unsigned short 
         OUString message= "InterfaceOleWrapper::InvokeGeneral : \n"
                           "Unexpected exception";
         writeExcepinfo(pexcepinfo, message);
-         ret = DISP_E_EXCEPTION;
+        ret = DISP_E_EXCEPTION;
      }
     return ret;
 }
@@ -3343,8 +3347,8 @@ STDMETHODIMP  UnoObjectWrapperRemoteOpt::Invoke ( DISPID dispidMember, REFIID /*
     {
         OUString message= "UnoObjectWrapperRemoteOpt::Invoke : \n" +
             e.Message;
-            writeExcepinfo(pexcepinfo, message);
-            ret = DISP_E_EXCEPTION;
+        writeExcepinfo(pexcepinfo, message);
+        ret = DISP_E_EXCEPTION;
     }
     catch(...)
     {

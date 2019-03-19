@@ -51,30 +51,22 @@ HelpInterceptor_Impl::~HelpInterceptor_Impl()
 
 void HelpInterceptor_Impl::addURL( const OUString& rURL )
 {
-  if ( !m_pHistory )
-        m_pHistory.reset( new std::vector<std::unique_ptr<HelpHistoryEntry_Impl>> );
-
-    size_t nCount = m_pHistory->size();
+    size_t nCount = m_vHistoryUrls.size();
     if ( nCount && m_nCurPos < ( nCount - 1 ) )
     {
         for ( size_t i = nCount - 1; i > m_nCurPos; i-- )
         {
-            m_pHistory->erase( m_pHistory->begin() + i );
+            m_vHistoryUrls.erase( m_vHistoryUrls.begin() + i );
         }
     }
     Reference<XFrame> xFrame(m_xIntercepted, UNO_QUERY);
     Reference<XController> xController;
     if(xFrame.is())
         xController = xFrame->getController();
-    if(xController.is() && !m_pHistory->empty())
-    {
-        m_pHistory->at( m_nCurPos )->aViewData = xController->getViewData();
-    }
 
     m_aCurrentURL = rURL;
-    Any aEmptyViewData;
-    m_pHistory->emplace_back( new HelpHistoryEntry_Impl( rURL, aEmptyViewData ) );
-    m_nCurPos = m_pHistory->size() - 1;
+    m_vHistoryUrls.emplace_back( rURL );
+    m_nCurPos = m_vHistoryUrls.size() - 1;
 // TODO ?
     if ( m_xListener.is() )
     {
@@ -101,12 +93,12 @@ void HelpInterceptor_Impl::setInterception( const Reference< XFrame >& xFrame )
 
 bool HelpInterceptor_Impl::HasHistoryPred() const
 {
-    return m_pHistory && ( m_nCurPos > 0 );
+    return m_nCurPos > 0;
 }
 
 bool HelpInterceptor_Impl::HasHistorySucc() const
 {
-    return m_pHistory && ( m_nCurPos < ( m_pHistory->size() - 1 ) );
+    return m_nCurPos < ( m_vHistoryUrls.size() - 1 );
 }
 
 
@@ -196,36 +188,23 @@ void SAL_CALL HelpInterceptor_Impl::dispatch(
     const URL& aURL, const Sequence< css::beans::PropertyValue >& )
 {
     bool bBack = aURL.Complete == ".uno:Backward";
-    if ( bBack || aURL.Complete == ".uno:Forward" )
+    if ( !bBack && aURL.Complete != ".uno:Forward" )
+        return;
+
+    if ( m_vHistoryUrls.empty() )
+        return;
+
+    sal_uIntPtr nPos = ( bBack && m_nCurPos > 0 ) ? --m_nCurPos
+                                            : ( !bBack && m_nCurPos < m_vHistoryUrls.size() - 1 )
+                                            ? ++m_nCurPos
+                                            : ULONG_MAX;
+
+    if ( nPos < ULONG_MAX )
     {
-        if ( m_pHistory )
-        {
-            if(m_pHistory->size() > m_nCurPos)
-            {
-                Reference<XFrame> xFrame(m_xIntercepted, UNO_QUERY);
-                Reference<XController> xController;
-                if(xFrame.is())
-                    xController = xFrame->getController();
-                if(xController.is())
-                {
-                    m_pHistory->at( m_nCurPos )->aViewData = xController->getViewData();
-                }
-            }
-
-            sal_uIntPtr nPos = ( bBack && m_nCurPos > 0 ) ? --m_nCurPos
-                                                    : ( !bBack && m_nCurPos < m_pHistory->size() - 1 )
-                                                    ? ++m_nCurPos
-                                                    : ULONG_MAX;
-
-            if ( nPos < ULONG_MAX )
-            {
-                HelpHistoryEntry_Impl* pEntry = m_pHistory->at( nPos ).get();
-                m_pWindow->loadHelpContent(pEntry->aURL, false); // false => don't add item to history again!
-            }
-
-            m_pWindow->UpdateToolbox();
-        }
+        m_pWindow->loadHelpContent(m_vHistoryUrls[nPos], false); // false => don't add item to history again!
     }
+
+    m_pWindow->UpdateToolbox();
 }
 
 

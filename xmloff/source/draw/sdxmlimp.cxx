@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <o3tl/make_unique.hxx>
 #include <osl/thread.h>
 #include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
@@ -43,6 +42,7 @@
 #include <xmloff/xmlexppr.hxx>
 #include <xmloff/xmlerror.hxx>
 #include <xmloff/settingsstore.hxx>
+#include <xmloff/ProgressBarHelper.hxx>
 #include <com/sun/star/style/XStyle.hpp>
 
 #include <xmloff/XMLFontStylesContext.hxx>
@@ -273,7 +273,14 @@ uno::Reference< uno::XInterface > classname##_createInstance(const uno::Referenc
     return static_cast<cppu::OWeakObject*>(new SdXMLImport( comphelper::getComponentContext(rSMgr), implementationname, draw, flags )); \
 }
 
-SERVICE( XMLImpressImportOasis, "com.sun.star.comp.Impress.XMLOasisImporter", "XMLImpressImportOasis", false, SvXMLImportFlags::ALL )
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisImporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(
+        new SdXMLImport(pCtx, "XMLImpressImportOasis", false, SvXMLImportFlags::ALL));
+}
+
 SERVICE( XMLDrawImportOasis, "com.sun.star.comp.Draw.XMLOasisImporter", "XMLDrawImportOasis", true, SvXMLImportFlags::ALL )
 
 SERVICE( XMLImpressStylesImportOasis, "com.sun.star.comp.Impress.XMLOasisStylesImporter", "XMLImpressStylesImportOasis", false, SvXMLImportFlags::STYLES|SvXMLImportFlags::AUTOSTYLES|SvXMLImportFlags::MASTERSTYLES )
@@ -420,7 +427,7 @@ const SvXMLTokenMap& SdXMLImport::GetDocElemTokenMap()
     XML_TOKEN_MAP_END
 };
 
-        mpDocElemTokenMap = o3tl::make_unique<SvXMLTokenMap>(aDocElemTokenMap);
+        mpDocElemTokenMap = std::make_unique<SvXMLTokenMap>(aDocElemTokenMap);
     }
 
     return *mpDocElemTokenMap;
@@ -441,7 +448,7 @@ const SvXMLTokenMap& SdXMLImport::GetBodyElemTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpBodyElemTokenMap = o3tl::make_unique<SvXMLTokenMap>(aBodyElemTokenMap);
+        mpBodyElemTokenMap = std::make_unique<SvXMLTokenMap>(aBodyElemTokenMap);
     }
 
     return *mpBodyElemTokenMap;
@@ -459,7 +466,7 @@ const SvXMLTokenMap& SdXMLImport::GetStylesElemTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpStylesElemTokenMap = o3tl::make_unique<SvXMLTokenMap>(aStylesElemTokenMap);
+        mpStylesElemTokenMap = std::make_unique<SvXMLTokenMap>(aStylesElemTokenMap);
     }
 
     return *mpStylesElemTokenMap;
@@ -476,7 +483,7 @@ const SvXMLTokenMap& SdXMLImport::GetMasterPageElemTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpMasterPageElemTokenMap = o3tl::make_unique<SvXMLTokenMap>(aMasterPageElemTokenMap);
+        mpMasterPageElemTokenMap = std::make_unique<SvXMLTokenMap>(aMasterPageElemTokenMap);
     }
 
     return *mpMasterPageElemTokenMap;
@@ -499,7 +506,7 @@ const SvXMLTokenMap& SdXMLImport::GetMasterPageAttrTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpMasterPageAttrTokenMap = o3tl::make_unique<SvXMLTokenMap>(aMasterPageAttrTokenMap);
+        mpMasterPageAttrTokenMap = std::make_unique<SvXMLTokenMap>(aMasterPageAttrTokenMap);
     }
 
     return *mpMasterPageAttrTokenMap;
@@ -515,7 +522,7 @@ const SvXMLTokenMap& SdXMLImport::GetPageMasterAttrTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpPageMasterAttrTokenMap = o3tl::make_unique<SvXMLTokenMap>(aPageMasterAttrTokenMap);
+        mpPageMasterAttrTokenMap = std::make_unique<SvXMLTokenMap>(aPageMasterAttrTokenMap);
     }
 
     return *mpPageMasterAttrTokenMap;
@@ -537,7 +544,7 @@ const SvXMLTokenMap& SdXMLImport::GetPageMasterStyleAttrTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpPageMasterStyleAttrTokenMap = o3tl::make_unique<SvXMLTokenMap>(aPageMasterStyleAttrTokenMap);
+        mpPageMasterStyleAttrTokenMap = std::make_unique<SvXMLTokenMap>(aPageMasterStyleAttrTokenMap);
     }
 
     return *mpPageMasterStyleAttrTokenMap;
@@ -563,7 +570,7 @@ const SvXMLTokenMap& SdXMLImport::GetDrawPageAttrTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpDrawPageAttrTokenMap = o3tl::make_unique<SvXMLTokenMap>(aDrawPageAttrTokenMap);
+        mpDrawPageAttrTokenMap = std::make_unique<SvXMLTokenMap>(aDrawPageAttrTokenMap);
     }
 
     return *mpDrawPageAttrTokenMap;
@@ -578,10 +585,11 @@ const SvXMLTokenMap& SdXMLImport::GetDrawPageElemTokenMap()
             { XML_NAMESPACE_PRESENTATION,   XML_NOTES,              XML_TOK_DRAWPAGE_NOTES      },
             { XML_NAMESPACE_ANIMATION,      XML_PAR,                XML_TOK_DRAWPAGE_PAR        },
             { XML_NAMESPACE_ANIMATION,      XML_SEQ,                XML_TOK_DRAWPAGE_SEQ        },
+            { XML_NAMESPACE_DRAW,           XML_LAYER_SET,          XML_TOK_DRAWPAGE_LAYER_SET  },
             XML_TOKEN_MAP_END
         };
 
-        mpDrawPageElemTokenMap = o3tl::make_unique<SvXMLTokenMap>(aDrawPageElemTokenMap);
+        mpDrawPageElemTokenMap = std::make_unique<SvXMLTokenMap>(aDrawPageElemTokenMap);
     }
 
     return *mpDrawPageElemTokenMap;
@@ -601,7 +609,7 @@ const SvXMLTokenMap& SdXMLImport::GetPresentationPlaceholderAttrTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpPresentationPlaceholderAttrTokenMap = o3tl::make_unique<SvXMLTokenMap>(aPresentationPlaceholderAttrTokenMap);
+        mpPresentationPlaceholderAttrTokenMap = std::make_unique<SvXMLTokenMap>(aPresentationPlaceholderAttrTokenMap);
     }
 
     return *mpPresentationPlaceholderAttrTokenMap;

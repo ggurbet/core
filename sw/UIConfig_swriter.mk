@@ -11,6 +11,7 @@ $(eval $(call gb_UIConfig_UIConfig,modules/swriter))
 
 $(eval $(call gb_UIConfig_add_menubarfiles,modules/swriter,\
 	sw/uiconfig/swriter/menubar/menubar \
+	sw/uiconfig/swriter/menubar/mscompatibleformsmenu \
 ))
 
 $(eval $(call gb_UIConfig_add_popupmenufiles,modules/swriter,\
@@ -66,7 +67,6 @@ $(eval $(call gb_UIConfig_add_toolbarfiles,modules/swriter,\
 	sw/uiconfig/swriter/toolbar/linesbar \
 	sw/uiconfig/swriter/toolbar/mailmerge \
 	sw/uiconfig/swriter/toolbar/mediaobjectbar \
-	sw/uiconfig/swriter/toolbar/moreformcontrols \
 	sw/uiconfig/swriter/toolbar/navigationobjectbar \
 	sw/uiconfig/swriter/toolbar/notebookbarshortcuts \
 	sw/uiconfig/swriter/toolbar/numobjectbar \
@@ -89,6 +89,7 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/swriter,\
 	sw/uiconfig/swriter/ui/addentrydialog \
 	sw/uiconfig/swriter/ui/addressblockdialog \
 	sw/uiconfig/swriter/ui/alreadyexistsdialog \
+	sw/uiconfig/swriter/ui/addressfragment \
 	sw/uiconfig/swriter/ui/annotationmenu \
 	sw/uiconfig/swriter/ui/asciifilterdialog \
 	sw/uiconfig/swriter/ui/asksearchdialog \
@@ -122,6 +123,7 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/swriter,\
 	sw/uiconfig/swriter/ui/datasourcesunavailabledialog \
 	sw/uiconfig/swriter/ui/dropcapspage \
 	sw/uiconfig/swriter/ui/dropdownfielddialog \
+	sw/uiconfig/swriter/ui/dropdownformfielddialog \
 	sw/uiconfig/swriter/ui/editcategories \
 	sw/uiconfig/swriter/ui/editfielddialog \
 	sw/uiconfig/swriter/ui/editsectiondialog \

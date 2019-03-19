@@ -136,7 +136,7 @@ bool SchAxisLabelTabPage::FillItemSet( SfxItemSet* rOutAttrs )
 
 void SchAxisLabelTabPage::Reset( const SfxItemSet* rInAttrs )
 {
-   const SfxPoolItem* pPoolItem = nullptr;
+    const SfxPoolItem* pPoolItem = nullptr;
 
     // show description
     SfxItemState aState = rInAttrs->GetItemState( SCHATTR_AXIS_SHOWDESCR, false, &pPoolItem );
@@ -276,10 +276,10 @@ void SchAxisLabelTabPage::SetComplexCategories( bool bComplexCategories )
 IMPL_LINK_NOARG(SchAxisLabelTabPage, StackedToggleHdl, weld::ToggleButton&, void)
 {
     bool bActive = m_xCbStacked->get_active() && m_xCbStacked->get_sensitive();
-    m_xNfRotate->set_sensitive(bActive);
-    m_xCtrlDial->set_sensitive(bActive);
+    m_xNfRotate->set_sensitive(!bActive);
+    m_xCtrlDial->set_sensitive(!bActive);
     m_aCtrlDial.StyleUpdated();
-    m_xFtRotate->set_sensitive(bActive);
+    m_xFtRotate->set_sensitive(!bActive);
 }
 
 IMPL_LINK_NOARG(SchAxisLabelTabPage, ToggleShowLabel, weld::ToggleButton&, void)

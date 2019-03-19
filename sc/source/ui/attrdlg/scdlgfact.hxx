@@ -22,40 +22,36 @@
 #include <scabstdlg.hxx>
 #include <sfx2/sfxdlg.hxx>
 
-class ScImportAsciiDlg;
-class ScAutoFormatDlg;
-class ScColRowLabelDlg;
-class ScDataPilotDatabaseDlg;
-class ScDataPilotSourceTypeDlg;
-class ScDataPilotServiceDlg;
-class ScDeleteCellDlg;
-class ScDataFormDlg;
-class ScDeleteContentsDlg;
-class ScFillSeriesDlg;
-class ScGroupDlg;
-class ScInsertCellDlg;
-class ScInsertContentsDlg;
-class ScInsertTableDlg;
-class ScSelEntryDlg;
-class ScLinkedAreaDlg;
-class ScMetricInputDlg;
-class ScMoveTableDlg;
-class ScNameCreateDlg;
-class ScNamePasteDlg;
-class ScPivotFilterDlg;
-class ScDPFunctionDlg;
-class ScDPSubtotalDlg;
-class ScDPNumGroupDlg;
-class ScDPDateGroupDlg;
-class ScDPShowDetailDlg;
-class ScSortWarningDlg;
-class ScNewScenarioDlg;
-class ScShowTabDlg;
-class ScStringInputDlg;
-class ScTabBgColorDlg;
-class ScImportOptionsDlg;
-class ScTextImportOptionsDlg;
-class ScCondFormatManagerDlg;
+#include <corodlg.hxx>
+#include <condformatmgr.hxx>
+#include <dapitype.hxx>
+#include <dapidata.hxx>
+#include <datafdlg.hxx>
+#include <delcodlg.hxx>
+#include <delcldlg.hxx>
+#include <dpgroupdlg.hxx>
+#include <filldlg.hxx>
+#include <groupdlg.hxx>
+#include <linkarea.hxx>
+#include <lbseldlg.hxx>
+#include <inscldlg.hxx>
+#include <instbdlg.hxx>
+#include <inscodlg.hxx>
+#include <mtrindlg.hxx>
+#include <mvtabdlg.hxx>
+#include <namecrea.hxx>
+#include <namepast.hxx>
+#include <pfiltdlg.hxx>
+#include <pvfundlg.hxx>
+#include <shtabdlg.hxx>
+#include <scendlg.hxx>
+#include <scuiasciiopt.hxx>
+#include <scuiautofmt.hxx>
+#include <scuiimoptdlg.hxx>
+#include <sortdlg.hxx>
+#include <strindlg.hxx>
+#include <tabbgcolordlg.hxx>
+#include <textimportoptions.hxx>
 
 #define DECL_ABSTDLG_BASE(Class,DialogClass)        \
     ScopedVclPtr<DialogClass> pDlg;                 \
@@ -109,7 +105,13 @@ class AbstractScImportAsciiDlg_Impl : public AbstractScImportAsciiDlg
 
 class AbstractScAutoFormatDlg_Impl : public AbstractScAutoFormatDlg
 {
-    DECL_ABSTDLG_BASE(AbstractScAutoFormatDlg_Impl, ScAutoFormatDlg)
+    std::unique_ptr<ScAutoFormatDlg> m_xDlg;
+public:
+    explicit AbstractScAutoFormatDlg_Impl(std::unique_ptr<ScAutoFormatDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
     virtual sal_uInt16 GetIndex() const override;
     virtual OUString GetCurrFormatName() override;
 };
@@ -374,7 +376,13 @@ public:
 
 class AbstractScNamePasteDlg_Impl : public AbstractScNamePasteDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScNamePasteDlg_Impl, ScNamePasteDlg )
+    std::unique_ptr<ScNamePasteDlg> m_xDlg;
+public:
+    explicit AbstractScNamePasteDlg_Impl(std::unique_ptr<ScNamePasteDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short           Execute() override;
     virtual std::vector<OUString>          GetSelectedNames() const override;
 };
 
@@ -386,34 +394,57 @@ class AbstractScPivotFilterDlg_Impl : public AbstractScPivotFilterDlg
 
 class AbstractScDPFunctionDlg_Impl : public AbstractScDPFunctionDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScDPFunctionDlg_Impl, ScDPFunctionDlg)
+    std::unique_ptr<ScDPFunctionDlg> m_xDlg;
+public:
+    explicit AbstractScDPFunctionDlg_Impl(std::unique_ptr<ScDPFunctionDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short           Execute() override;
     virtual PivotFunc GetFuncMask() const override;
     virtual css::sheet::DataPilotFieldReference GetFieldRef() const override;
 };
 
 class AbstractScDPSubtotalDlg_Impl : public AbstractScDPSubtotalDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScDPSubtotalDlg_Impl, ScDPSubtotalDlg)
+    std::unique_ptr<ScDPSubtotalDlg> m_xDlg;
+public:
+    explicit AbstractScDPSubtotalDlg_Impl(std::unique_ptr<ScDPSubtotalDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short           Execute() override;
     virtual PivotFunc GetFuncMask() const override;
     virtual void FillLabelData( ScDPLabelData& rLabelData ) const override;
 };
 
 class AbstractScDPNumGroupDlg_Impl : public AbstractScDPNumGroupDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScDPNumGroupDlg_Impl, ScDPNumGroupDlg )
+    std::unique_ptr<ScDPNumGroupDlg> m_xDlg;
+public:
+    explicit AbstractScDPNumGroupDlg_Impl(ScDPNumGroupDlg* p)
+        : m_xDlg(p)
+    {
+    }
+    virtual short Execute() override;
     virtual ScDPNumGroupInfo GetGroupInfo() const override;
 };
 
 class AbstractScDPDateGroupDlg_Impl : public AbstractScDPDateGroupDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScDPDateGroupDlg_Impl, ScDPDateGroupDlg )
+    std::unique_ptr<ScDPDateGroupDlg> m_xDlg;
+public:
+    explicit AbstractScDPDateGroupDlg_Impl(ScDPDateGroupDlg* p)
+        : m_xDlg(p)
+    {
+    }
+    virtual short Execute() override;
     virtual ScDPNumGroupInfo GetGroupInfo() const override;
     virtual sal_Int32 GetDatePart() const override;
 };
 
 class AbstractScDPShowDetailDlg_Impl : public AbstractScDPShowDetailDlg
 {
-protected:
     std::shared_ptr<ScDPShowDetailDlg> m_xDlg;
 public:
     explicit AbstractScDPShowDetailDlg_Impl(ScDPShowDetailDlg* p)
@@ -426,7 +457,14 @@ public:
 
 class AbstractScNewScenarioDlg_Impl : public AbstractScNewScenarioDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScNewScenarioDlg_Impl, ScNewScenarioDlg )
+    std::unique_ptr<ScNewScenarioDlg> m_xDlg;
+public:
+    explicit AbstractScNewScenarioDlg_Impl(ScNewScenarioDlg* p)
+        : m_xDlg(p)
+    {
+    }
+    virtual short           Execute() override;
+
     virtual void SetScenarioData( const OUString& rName, const OUString& rComment,
                             const Color& rColor, ScScenarioFlags nFlags ) override;
 
@@ -436,7 +474,6 @@ class AbstractScNewScenarioDlg_Impl : public AbstractScNewScenarioDlg
 
 class AbstractScShowTabDlg_Impl : public AbstractScShowTabDlg
 {
-protected:
     std::shared_ptr<ScShowTabDlg> m_xDlg;
 public:
     explicit AbstractScShowTabDlg_Impl(ScShowTabDlg* p)
@@ -453,7 +490,6 @@ public:
 
 class AbstractScSortWarningDlg_Impl : public AbstractScSortWarningDlg
 {
-protected:
     std::unique_ptr<ScSortWarningDlg> m_xDlg;
 public:
     explicit AbstractScSortWarningDlg_Impl(std::unique_ptr<ScSortWarningDlg> p)
@@ -465,7 +501,6 @@ public:
 
 class AbstractScStringInputDlg_Impl :  public AbstractScStringInputDlg
 {
-protected:
     std::unique_ptr<ScStringInputDlg> m_xDlg;
 public:
     explicit AbstractScStringInputDlg_Impl(std::unique_ptr<ScStringInputDlg> p)
@@ -478,7 +513,6 @@ public:
 
 class AbstractScTabBgColorDlg_Impl :  public AbstractScTabBgColorDlg
 {
-protected:
     std::unique_ptr<ScTabBgColorDlg> m_xDlg;
 public:
     explicit AbstractScTabBgColorDlg_Impl(std::unique_ptr<ScTabBgColorDlg> p)
@@ -491,14 +525,26 @@ public:
 
 class AbstractScImportOptionsDlg_Impl : public AbstractScImportOptionsDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScImportOptionsDlg_Impl, ScImportOptionsDlg)
+    std::unique_ptr<ScImportOptionsDlg> m_xDlg;
+public:
+    explicit AbstractScImportOptionsDlg_Impl(std::unique_ptr<ScImportOptionsDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
     virtual void GetImportOptions( ScImportOptions& rOptions ) const override;
     virtual void SaveImportOptions() const override;
 };
 
 class AbstractScTextImportOptionsDlg_Impl : public AbstractScTextImportOptionsDlg
 {
-    DECL_ABSTDLG_BASE( AbstractScTextImportOptionsDlg_Impl, ScTextImportOptionsDlg)
+    std::unique_ptr<ScTextImportOptionsDlg> m_xDlg;
+public:
+    explicit AbstractScTextImportOptionsDlg_Impl(std::unique_ptr<ScTextImportOptionsDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
     virtual LanguageType GetLanguageType() const override;
     virtual bool IsDateConversionSet() const override;
 };
@@ -516,7 +562,6 @@ class ScAbstractTabDialog_Impl : public SfxAbstractTabDialog
 
 class ScAbstractTabController_Impl : public SfxAbstractTabDialog
 {
-protected:
     std::shared_ptr<SfxTabDialogController> m_xDlg;
 public:
     explicit ScAbstractTabController_Impl(std::unique_ptr<SfxTabDialogController> p)
@@ -545,9 +590,9 @@ public:
                                                                     SvStream* pInStream,
                                                                     ScImportAsciiCall eCall) override;
 
-    virtual VclPtr<AbstractScTextImportOptionsDlg> CreateScTextImportOptionsDlg() override;
+    virtual VclPtr<AbstractScTextImportOptionsDlg> CreateScTextImportOptionsDlg(weld::Window* pParent) override;
 
-    virtual VclPtr<AbstractScAutoFormatDlg> CreateScAutoFormatDlg(vcl::Window* pParent,
+    virtual VclPtr<AbstractScAutoFormatDlg> CreateScAutoFormatDlg(weld::Window* pParent,
                                                                 ScAutoFormat* pAutoFormat,
                                                                 const ScAutoFormatData* pSelFormatData,
                                                                 ScViewData *pViewData) override;
@@ -613,36 +658,36 @@ public:
     virtual VclPtr<AbstractScNameCreateDlg> CreateScNameCreateDlg(weld::Window * pParent,
         CreateNameFlags nFlags) override;
 
-    virtual VclPtr<AbstractScNamePasteDlg> CreateScNamePasteDlg ( vcl::Window * pParent, ScDocShell* pShell ) override;
+    virtual VclPtr<AbstractScNamePasteDlg> CreateScNamePasteDlg(weld::Window * pParent, ScDocShell* pShell) override;
 
     virtual VclPtr<AbstractScPivotFilterDlg> CreateScPivotFilterDlg(vcl::Window* pParent,
         const SfxItemSet& rArgSet, sal_uInt16 nSourceTab) override;
 
-    virtual VclPtr<AbstractScDPFunctionDlg> CreateScDPFunctionDlg( vcl::Window* pParent,
-                                                                const ScDPLabelDataVector& rLabelVec,
-                                                                const ScDPLabelData& rLabelData,
-                                                                const ScPivotFuncData& rFuncData ) override;
+    virtual VclPtr<AbstractScDPFunctionDlg> CreateScDPFunctionDlg(weld::Window* pParent,
+                                                                  const ScDPLabelDataVector& rLabelVec,
+                                                                  const ScDPLabelData& rLabelData,
+                                                                  const ScPivotFuncData& rFuncData ) override;
 
-    virtual VclPtr<AbstractScDPSubtotalDlg> CreateScDPSubtotalDlg( vcl::Window* pParent,
-                                                                ScDPObject& rDPObj,
-                                                                const ScDPLabelData& rLabelData,
-                                                                const ScPivotFuncData& rFuncData,
-                                                                const ScDPNameVec& rDataFields ) override;
+    virtual VclPtr<AbstractScDPSubtotalDlg> CreateScDPSubtotalDlg(weld::Window* pParent,
+                                                                  ScDPObject& rDPObj,
+                                                                  const ScDPLabelData& rLabelData,
+                                                                  const ScPivotFuncData& rFuncData,
+                                                                  const ScDPNameVec& rDataFields ) override;
 
-    virtual VclPtr<AbstractScDPNumGroupDlg> CreateScDPNumGroupDlg( vcl::Window* pParent,
-                                                                const ScDPNumGroupInfo& rInfo ) override;
+    virtual VclPtr<AbstractScDPNumGroupDlg> CreateScDPNumGroupDlg(weld::Window* pParent,
+                                                                  const ScDPNumGroupInfo& rInfo) override;
 
-    virtual VclPtr<AbstractScDPDateGroupDlg> CreateScDPDateGroupDlg( vcl::Window* pParent,
-                                                                const ScDPNumGroupInfo& rInfo,
-                                                                sal_Int32 nDatePart,
-                                                                const Date& rNullDate ) override;
+    virtual VclPtr<AbstractScDPDateGroupDlg> CreateScDPDateGroupDlg(weld::Window* pParent,
+                                                                    const ScDPNumGroupInfo& rInfo,
+                                                                    sal_Int32 nDatePart,
+                                                                    const Date& rNullDate) override;
 
     virtual VclPtr<AbstractScDPShowDetailDlg> CreateScDPShowDetailDlg(weld::Window* pParent,
                                                                 ScDPObject& rDPObj,
                                                                 css::sheet::DataPilotFieldOrientation nOrient) override;
 
-    virtual VclPtr<AbstractScNewScenarioDlg> CreateScNewScenarioDlg ( vcl::Window* pParent, const OUString& rName,
-                                                                bool bEdit, bool bSheetProtected ) override;
+    virtual VclPtr<AbstractScNewScenarioDlg> CreateScNewScenarioDlg(weld::Window* pParent, const OUString& rName,
+                                                                    bool bEdit, bool bSheetProtected) override;
     virtual VclPtr<AbstractScShowTabDlg> CreateScShowTabDlg(weld::Window* pParent) override;
 
     virtual VclPtr<AbstractScStringInputDlg> CreateScStringInputDlg(weld::Window* pParent,
@@ -657,11 +702,12 @@ public:
                                                                   const OUString& rTabBgColorNoColorText, //Label for no tab color
                                                                   const Color& rDefaultColor) override; //Currently selected Color
 
-    virtual VclPtr<AbstractScImportOptionsDlg> CreateScImportOptionsDlg ( bool                    bAscii,
-                                                                    const ScImportOptions*  pOptions,
-                                                                    const OUString*         pStrTitle,
-                                                                    bool                    bOnlyDbtoolsEncodings,
-                                                                    bool                    bImport = true ) override;
+    virtual VclPtr<AbstractScImportOptionsDlg> CreateScImportOptionsDlg(weld::Window* pParent, bool bAscii,
+                                                                        const ScImportOptions* pOptions,
+                                                                        const OUString* pStrTitle,
+                                                                        bool bOnlyDbtoolsEncodings,
+                                                                        bool bImport = true) override;
+
     virtual VclPtr<SfxAbstractTabDialog> CreateScAttrDlg(weld::Window* pParent,
                                                          const SfxItemSet* pCellAttrs) override;
 
@@ -674,8 +720,8 @@ public:
                                                           SfxStyleSheetBase& rStyleBase,
                                                           bool bPage) override;
 
-    virtual VclPtr<SfxAbstractTabDialog> CreateScSubTotalDlg( vcl::Window*             pParent,
-                                                        const SfxItemSet*   pArgSet ) override;
+    virtual VclPtr<SfxAbstractTabDialog> CreateScSubTotalDlg(weld::Window* pParent,
+                                                             const SfxItemSet* pArgSet) override;
     virtual VclPtr<SfxAbstractTabDialog> CreateScCharDlg(weld::Window* pParent,
         const SfxItemSet* pAttr, const SfxObjectShell* pDocShell) override;
 

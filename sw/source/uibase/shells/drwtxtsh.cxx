@@ -363,6 +363,7 @@ void SwDrawTextShell::ExecDraw(SfxRequest &rReq)
         case FN_INSERT_SOFT_HYPHEN:
         case FN_INSERT_HARDHYPHEN:
         case FN_INSERT_HARD_SPACE:
+        case FN_INSERT_NNBSP:
         case SID_INSERT_RLM :
         case SID_INSERT_LRM :
         case SID_INSERT_ZWNBSP :
@@ -374,6 +375,7 @@ void SwDrawTextShell::ExecDraw(SfxRequest &rReq)
                 case FN_INSERT_SOFT_HYPHEN: cIns = CHAR_SOFTHYPHEN; break;
                 case FN_INSERT_HARDHYPHEN: cIns = CHAR_HARDHYPHEN; break;
                 case FN_INSERT_HARD_SPACE: cIns = CHAR_HARDBLANK; break;
+                case FN_INSERT_NNBSP: cIns = CHAR_NNBSP; break;
                 case SID_INSERT_RLM : cIns = CHAR_RLM ; break;
                 case SID_INSERT_LRM : cIns = CHAR_LRM ; break;
                 case SID_INSERT_ZWSP : cIns = CHAR_ZWSP ; break;
@@ -384,22 +386,22 @@ void SwDrawTextShell::ExecDraw(SfxRequest &rReq)
         }
         break;
         case SID_CHARMAP:
-    {  // Insert special character
-            InsertSymbol(rReq);
-            break;
-    }
-          case FN_INSERT_STRING:
-                {
+        {  // Insert special character
+                InsertSymbol(rReq);
+                break;
+        }
+        case FN_INSERT_STRING:
+        {
             const SfxItemSet *pNewAttrs = rReq.GetArgs();
-                        sal_uInt16 nSlot = rReq.GetSlot();
+            sal_uInt16 nSlot = rReq.GetSlot();
             const SfxPoolItem* pItem = nullptr;
-                        if(pNewAttrs)
+            if(pNewAttrs)
             {
-                                pNewAttrs->GetItemState(nSlot, false, &pItem );
-                             pOLV->InsertText(static_cast<const SfxStringItem *>(pItem)->GetValue());
+                pNewAttrs->GetItemState(nSlot, false, &pItem );
+                pOLV->InsertText(static_cast<const SfxStringItem *>(pItem)->GetValue());
             }
-                        break;
-                }
+            break;
+        }
 
         case SID_SELECTALL:
         {
@@ -631,7 +633,7 @@ void SwDrawTextShell::ExecTransliteration( SfxRequest const & rReq )
     case SID_TRANSLITERATE_HIRAGANA:
         nMode = TransliterationFlags::KATAKANA_HIRAGANA;
         break;
-    case SID_TRANSLITERATE_KATAGANA:
+    case SID_TRANSLITERATE_KATAKANA:
         nMode = TransliterationFlags::HIRAGANA_KATAKANA;
         break;
 

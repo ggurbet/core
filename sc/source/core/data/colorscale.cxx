@@ -18,7 +18,6 @@
 #include <refdata.hxx>
 
 #include <formula/token.hxx>
-#include <o3tl/make_unique.hxx>
 #include <vcl/bitmapex.hxx>
 
 #include <algorithm>
@@ -375,9 +374,9 @@ ScColorScaleFormat::ScColorScaleFormat(ScDocument* pDoc):
 ScColorScaleFormat::ScColorScaleFormat(ScDocument* pDoc, const ScColorScaleFormat& rFormat):
     ScColorFormat(pDoc)
 {
-    for(ScColorScaleEntries::const_iterator itr = rFormat.begin(); itr != rFormat.end(); ++itr)
+    for(const auto& rxEntry : rFormat)
     {
-        maColorScales.push_back(o3tl::make_unique<ScColorScaleEntry>(pDoc, **itr));
+        maColorScales.push_back(std::make_unique<ScColorScaleEntry>(pDoc, *rxEntry));
     }
 }
 
@@ -978,7 +977,7 @@ ScIconSetFormatData::ScIconSetFormatData(ScIconSetFormatData const& rOther)
     m_Entries.reserve(rOther.m_Entries.size());
     for (auto const& it : rOther.m_Entries)
     {
-        m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(*it));
+        m_Entries.push_back(std::make_unique<ScColorScaleEntry>(*it));
     }
 }
 

@@ -90,12 +90,6 @@ AreaChart::~AreaChart()
 {
 }
 
-double AreaChart::getMaximumX()
-{
-    double fMax = VSeriesPlotter::getMaximumX();
-    return fMax;
-}
-
 bool AreaChart::isSeparateStackingForDifferentSigns( sal_Int32 /*nDimensionIndex*/ )
 {
     // no separate stacking in all types of line/area charts
@@ -105,8 +99,8 @@ bool AreaChart::isSeparateStackingForDifferentSigns( sal_Int32 /*nDimensionIndex
 LegendSymbolStyle AreaChart::getLegendSymbolStyle()
 {
     if( m_bArea || m_nDimension == 3 )
-        return LegendSymbolStyle_BOX;
-    return LegendSymbolStyle_LINE;
+        return LegendSymbolStyle::Box;
+    return LegendSymbolStyle::Line;
 }
 
 uno::Any AreaChart::getExplicitSymbol( const VDataSeries& rSeries, sal_Int32 nPointIndex )

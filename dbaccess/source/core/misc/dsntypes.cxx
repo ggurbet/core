@@ -25,7 +25,6 @@
 #include <stringconstants.hxx>
 #include <comphelper/documentconstants.hxx>
 #include <comphelper/string.hxx>
-#include <svtools/miscopt.hxx>
 
 namespace dbaccess
 {
@@ -50,7 +49,6 @@ namespace dbaccess
 // ODsnTypeCollection
 ODsnTypeCollection::ODsnTypeCollection(const css::uno::Reference< css::uno::XComponentContext >& _xContext)
 :m_aDriverConfig(_xContext)
-,m_xContext(_xContext)
 #if OSL_DEBUG_LEVEL > 0
 ,m_nLivingIterators(0)
 #endif
@@ -283,32 +281,9 @@ bool ODsnTypeCollection::isEmbeddedDatabase( const OUString& _sURL )
     return _sURL.startsWith( "sdbc:embedded:" );
 }
 
-OUString ODsnTypeCollection::getEmbeddedDatabase() const
+OUString ODsnTypeCollection::getEmbeddedDatabase()
 {
-    OUString sEmbeddedDatabaseURL;
-    const ::utl::OConfigurationTreeRoot aInstalled = ::utl::OConfigurationTreeRoot::createWithComponentContext(m_xContext, "org.openoffice.Office.DataAccess", -1, ::utl::OConfigurationTreeRoot::CM_READONLY);
-    if ( aInstalled.isValid() )
-    {
-        if ( aInstalled.hasByName("EmbeddedDatabases/DefaultEmbeddedDatabase/Value") )
-        {
-            static const OUStringLiteral s_sValue = "EmbeddedDatabases/DefaultEmbeddedDatabase/Value";
-
-            aInstalled.getNodeValue(s_sValue) >>= sEmbeddedDatabaseURL;
-            if ( !sEmbeddedDatabaseURL.isEmpty() )
-                aInstalled.getNodeValue(s_sValue + "/" + sEmbeddedDatabaseURL + "/URL") >>= sEmbeddedDatabaseURL;
-        }
-    }
-    if ( sEmbeddedDatabaseURL.isEmpty() )
-    {
-        SvtMiscOptions aMiscOptions;
-        if( aMiscOptions.IsExperimentalMode() )
-            sEmbeddedDatabaseURL = "sdbc:embedded:firebird";
-        else
-            sEmbeddedDatabaseURL = "sdbc:embedded:hsqldb";
-
-    }
-
-    return sEmbeddedDatabaseURL;
+    return "sdbc:embedded:firebird";
 }
 
 

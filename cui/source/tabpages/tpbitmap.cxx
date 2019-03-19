@@ -42,7 +42,6 @@
 #include <svx/svxdlg.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/dialoghelper.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 using namespace com::sun::star;
@@ -157,9 +156,9 @@ void SvxBitmapTabPage::ActivatePage( const SfxItemSet& rSet )
     sal_Int32 nPos( 0 );
     if ( !aItem.isPattern() )
     {
-        nPos = SearchBitmapList( aItem.GetName() );
+        nPos = SearchBitmapList( aItem.GetGraphicObject() );
         if ( nPos == LISTBOX_ENTRY_NOTFOUND )
-            nPos = 0;
+            return;
     }
     else
     {
@@ -762,7 +761,7 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ClickImportHdl, weld::Button&, void)
 
             if( !nError )
             {
-                m_pBitmapList->Insert(o3tl::make_unique<XBitmapEntry>(aGraphic, aName), nCount);
+                m_pBitmapList->Insert(std::make_unique<XBitmapEntry>(aGraphic, aName), nCount);
 
                 sal_Int32 nId = m_xBitmapLB->GetItemId( nCount - 1 );
                 BitmapEx aBitmap = m_pBitmapList->GetBitmapForPreview( nCount, m_xBitmapLB->GetIconSize() );
@@ -782,6 +781,22 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ClickImportHdl, weld::Button&, void)
             xBox->run();
         }
     }
+}
+
+sal_Int32 SvxBitmapTabPage::SearchBitmapList(const GraphicObject& rGraphicObject)
+{
+    long nCount = m_pBitmapList->Count();
+    sal_Int32 nPos = LISTBOX_ENTRY_NOTFOUND;
+
+    for(long i = 0;i < nCount;i++)
+    {
+        if(rGraphicObject.GetUniqueID() == m_pBitmapList->GetBitmap( i )->GetGraphicObject().GetUniqueID())
+        {
+            nPos = i;
+            break;
+        }
+    }
+    return nPos;
 }
 
 sal_Int32 SvxBitmapTabPage::SearchBitmapList(const OUString& rBitmapName)

@@ -19,6 +19,7 @@
 
 #include <tools/debug.hxx>
 #include <com/sun/star/document/XEventsSupplier.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmltoken.hxx>
 #include "XMLTextPropertySetContext.hxx"
@@ -30,6 +31,7 @@
 #include <xmloff/txtprmap.hxx>
 #include <xmloff/xmltypes.hxx>
 #include <xmloff/maptype.hxx>
+#include <xmloff/xmlimppr.hxx>
 
 #include <xmloff/XMLTextShapeStyleContext.hxx>
 
@@ -214,7 +216,7 @@ void XMLTextShapeStyleContext::CreateAndInsert( bool bOverwrite )
     // tell the style about it's events (if applicable)
     if( xEventContext.is() )
     {
-        // set event suppplier and release reference to context
+        // set event supplier and release reference to context
         Reference<XEventsSupplier> xEventsSupplier(xStyle, UNO_QUERY);
         static_cast<XMLEventsImportContext *>(xEventContext.get())->SetEvents(xEventsSupplier);
         xEventContext = nullptr;

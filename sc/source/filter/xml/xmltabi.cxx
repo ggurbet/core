@@ -27,7 +27,6 @@
 #include <document.hxx>
 #include <docuno.hxx>
 #include <olinetab.hxx>
-#include "XMLConverter.hxx"
 #include "XMLTableShapesContext.hxx"
 #include "XMLTableSourceContext.hxx"
 #include "XMLStylesImportHelper.hxx"
@@ -37,7 +36,6 @@
 #include "xmlcondformat.hxx"
 
 #include <xmloff/xmltkmap.hxx>
-#include <xmloff/nmspmap.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/XMLEventsImportContext.hxx>
@@ -189,7 +187,6 @@ ScXMLTableContext::ScXMLTableContext( ScXMLImport& rImport,
     {
         // This is an external ref cache table.
         pExternalRefInfo.reset(new ScXMLExternalTabData);
-        pExternalRefInfo->maFileUrl = aExtUrl;
         ScDocument* pDoc = GetScImport().GetDocument();
         if (pDoc)
         {
@@ -363,7 +360,7 @@ void SAL_CALL ScXMLTableContext::endFastElement(sal_Int32 /*nElement*/)
     SCTAB nCurTab = rTables.GetCurrentSheet();
     if (!sPrintRanges.isEmpty())
     {
-         ScRangeList aRangeList;
+        ScRangeList aRangeList;
         ScRangeStringConverter::GetRangeListFromString( aRangeList, sPrintRanges, pDoc, ::formula::FormulaGrammar::CONV_OOO );
         size_t nCount = aRangeList.size();
         for (size_t i=0; i< nCount; i++ )

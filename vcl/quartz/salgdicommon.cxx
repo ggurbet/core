@@ -737,7 +737,7 @@ void AquaSalGraphics::drawBitmap( const SalTwoRect& rPosAry, const SalBitmap& rS
 #ifndef IOS
 
 bool AquaSalGraphics::drawEPS( long nX, long nY, long nWidth, long nHeight,
-                                   void* pEpsData, sal_uLong nByteCount )
+                                   void* pEpsData, sal_uInt32 nByteCount )
 {
     // convert the raw data to an NSImageRef
     NSData* xNSData = [NSData dataWithBytes:pEpsData length:static_cast<int>(nByteCount)];
@@ -966,6 +966,11 @@ bool AquaSalGraphics::drawPolyPolygon(
     const basegfx::B2DPolyPolygon& rPolyPolygon,
     double fTransparency)
 {
+#ifdef IOS
+    if (!mrContext)
+        return true;
+#endif
+
     // short circuit if there is nothing to do
     if( rPolyPolygon.count() == 0 )
         return true;

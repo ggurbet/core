@@ -20,6 +20,7 @@
 #include <com/sun/star/awt/DeviceCapability.hpp>
 
 #include <com/sun/star/util/MeasureUnit.hpp>
+#include <com/sun/star/lang/IllegalArgumentException.hpp>
 
 #include <toolkit/awt/vclxdevice.hxx>
 #include <toolkit/awt/vclxfont.hxx>
@@ -38,7 +39,7 @@
 #include <vcl/virdev.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/font.hxx>
-
+#include <vcl/metric.hxx>
 
 //  class VCLXDevice
 
@@ -67,11 +68,18 @@ css::uno::Any VCLXDevice::queryInterface( const css::uno::Type & rType )
 // css::lang::XUnoTunnel
 IMPL_XUNOTUNNEL( VCLXDevice )
 
+IMPL_IMPLEMENTATION_ID( VCLXDevice )
+
 // css::lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( VCLXDevice )
-    cppu::UnoType<css::awt::XDevice>::get(),
-    cppu::UnoType<css::awt::XUnitConversion>::get()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > VCLXDevice::getTypes()
+{
+    static const css::uno::Sequence< css::uno::Type > aTypeList {
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<css::awt::XDevice>::get(),
+        cppu::UnoType<css::awt::XUnitConversion>::get()
+    };
+    return aTypeList;
+}
 
 
 // css::awt::XDevice,

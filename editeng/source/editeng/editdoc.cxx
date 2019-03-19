@@ -65,6 +65,7 @@
 #include <limits>
 #include <memory>
 #include <set>
+#include <string_view>
 
 using namespace ::com::sun::star;
 
@@ -1642,7 +1643,7 @@ OUString ContentNode::GetExpandedText(sal_Int32 nStartPos, sal_Int32 nEndPos) co
         DBG_ASSERT( nEnd >= nIndex, "End in front of the index?" );
         //!! beware of sub string length  of -1
         if (nEnd > nIndex)
-            aStr.appendCopy( GetString(), nIndex, nEnd - nIndex );
+            aStr.append( std::u16string_view(GetString()).substr(nIndex, nEnd - nIndex) );
 
         if ( pNextFeature )
         {
@@ -1787,7 +1788,7 @@ void ContentNode::DestroyWrongList()
     mpWrongList.reset();
 }
 
-void ContentNode::dumpAsXml(struct _xmlTextWriter* pWriter) const
+void ContentNode::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("ContentNode"));
     xmlTextWriterWriteAttribute(pWriter, BAD_CAST("maString"), BAD_CAST(maString.toUtf8().getStr()));
@@ -1862,7 +1863,7 @@ bool ContentAttribs::HasItem( sal_uInt16 nWhich ) const
     return bHasItem;
 }
 
-void ContentAttribs::dumpAsXml(struct _xmlTextWriter* pWriter) const
+void ContentAttribs::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("ContentAttribs"));
     xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("style"), "%s", pStyle->GetName().toUtf8().getStr());
@@ -2658,7 +2659,7 @@ void EditDoc::FindAttribs( ContentNode* pNode, sal_Int32 nStartPos, sal_Int32 nE
     }
 }
 
-void EditDoc::dumpAsXml(struct _xmlTextWriter* pWriter) const
+void EditDoc::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     bool bOwns = false;
     if (!pWriter)
@@ -2797,12 +2798,13 @@ const EditCharAttrib* CharAttribList::FindAttrib( sal_uInt16 nWhich, sal_Int32 n
 {
     // Backwards, if one ends where the next starts.
     // => The starting one is the valid one ...
-    AttribsType::const_reverse_iterator it = aAttribs.rbegin(), itEnd = aAttribs.rend();
-    for (; it != itEnd; ++it)
+    AttribsType::const_reverse_iterator it = std::find_if(aAttribs.rbegin(), aAttribs.rend(),
+        [&nWhich, &nPos](const AttribsType::value_type& rxAttr) {
+            return rxAttr->Which() == nWhich && rxAttr->IsIn(nPos); });
+    if (it != aAttribs.rend())
     {
         const EditCharAttrib& rAttr = **it;
-        if (rAttr.Which() == nWhich && rAttr.IsIn(nPos))
-            return &rAttr;
+        return &rAttr;
     }
     return nullptr;
 }
@@ -2811,12 +2813,13 @@ EditCharAttrib* CharAttribList::FindAttrib( sal_uInt16 nWhich, sal_Int32 nPos )
 {
     // Backwards, if one ends where the next starts.
     // => The starting one is the valid one ...
-    AttribsType::reverse_iterator it = aAttribs.rbegin(), itEnd = aAttribs.rend();
-    for (; it != itEnd; ++it)
+    AttribsType::reverse_iterator it = std::find_if(aAttribs.rbegin(), aAttribs.rend(),
+        [&nWhich, &nPos](AttribsType::value_type& rxAttr) {
+            return rxAttr->Which() == nWhich && rxAttr->IsIn(nPos); });
+    if (it != aAttribs.rend())
     {
         EditCharAttrib& rAttr = **it;
-        if (rAttr.Which() == nWhich && rAttr.IsIn(nPos))
-            return &rAttr;
+        return &rAttr;
     }
     return nullptr;
 }
@@ -2835,14 +2838,9 @@ const EditCharAttrib* CharAttribList::FindNextAttrib( sal_uInt16 nWhich, sal_Int
 
 bool CharAttribList::HasAttrib( sal_Int32 nStartPos, sal_Int32 nEndPos ) const
 {
-    AttribsType::const_reverse_iterator it = aAttribs.rbegin(), itEnd = aAttribs.rend();
-    for (; it != itEnd; ++it)
-    {
-        const EditCharAttrib& rAttr = **it;
-        if (rAttr.GetStart() < nEndPos && rAttr.GetEnd() > nStartPos)
-            return true;
-    }
-    return false;
+    return std::any_of(aAttribs.rbegin(), aAttribs.rend(),
+        [&nStartPos, &nEndPos](const AttribsType::value_type& rxAttr) {
+            return rxAttr->GetStart() < nEndPos && rxAttr->GetEnd() > nStartPos; });
 }
 
 
@@ -2982,7 +2980,7 @@ void CharAttribList::DbgCheckAttribs(CharAttribList const& rAttribs)
 }
 #endif
 
-void CharAttribList::dumpAsXml(struct _xmlTextWriter* pWriter) const
+void CharAttribList::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("CharAttribList"));
     for (auto const & i : aAttribs) {

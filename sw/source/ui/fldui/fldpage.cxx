@@ -57,6 +57,21 @@ SwFieldPage::SwFieldPage(vcl::Window *pParent, const OString& rID,
 {
 }
 
+SwFieldPage::SwFieldPage(TabPageParent pParent, const OUString& rUIXMLDescription,
+        const OString& rID, const SfxItemSet *pAttrSet)
+    : SfxTabPage(pParent, rUIXMLDescription, rID, pAttrSet)
+    , m_pCurField(nullptr)
+    , m_pWrtShell(nullptr)
+    , m_nTypeSel(LISTBOX_ENTRY_NOTFOUND)
+    , m_nSelectionSel(LISTBOX_ENTRY_NOTFOUND)
+    , m_bFieldEdit(false)
+    , m_bInsert(true)
+    , m_bFieldDlgHtmlMode(false)
+    , m_bRefresh(false)
+    , m_bFirstHTMLInit(true)
+{
+}
+
 SwFieldPage::~SwFieldPage()
 {
 }
@@ -144,14 +159,15 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
                     bRecordDB ?  FN_INSERT_DBFIELD : FN_INSERT_FIELD );
             if(bRecordDB)
             {
+                sal_Int32 nIdx{ 0 };
                 aReq.AppendItem(SfxStringItem
-                        (FN_INSERT_DBFIELD,rPar1.getToken(0, DB_DELIM)));
+                        (FN_INSERT_DBFIELD,rPar1.getToken(0, DB_DELIM, nIdx)));
                 aReq.AppendItem(SfxStringItem
-                        (FN_PARAM_1,rPar1.getToken(1, DB_DELIM)));
+                        (FN_PARAM_1,rPar1.getToken(0, DB_DELIM, nIdx)));
                 aReq.AppendItem(SfxInt32Item
-                        (FN_PARAM_3,rPar1.getToken(1, DB_DELIM).toInt32()));
+                        (FN_PARAM_3,rPar1.getToken(0, DB_DELIM, nIdx).toInt32()));
                 aReq.AppendItem(SfxStringItem
-                        (FN_PARAM_2,rPar1.getToken(3, DB_DELIM)));
+                        (FN_PARAM_2,rPar1.getToken(0, DB_DELIM, nIdx)));
             }
             else
             {
@@ -201,10 +217,11 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
         case TYP_DBFLD:
             {
                 SwDBData aData;
-                aData.sDataSource = rPar1.getToken(0, DB_DELIM);
-                aData.sCommand = rPar1.getToken(1, DB_DELIM);
-                aData.nCommandType = rPar1.getToken(2, DB_DELIM).toInt32();
-                OUString sColumn = rPar1.getToken(3, DB_DELIM);
+                sal_Int32 nIdx{ 0 };
+                aData.sDataSource = rPar1.getToken(0, DB_DELIM, nIdx);
+                aData.sCommand = rPar1.getToken(0, DB_DELIM, nIdx);
+                aData.nCommandType = rPar1.getToken(0, DB_DELIM, nIdx).toInt32();
+                OUString sColumn = rPar1.getToken(0, DB_DELIM, nIdx);
 
                 SwDBFieldType* pOldTyp = static_cast<SwDBFieldType*>(pTmpField->GetTyp());
                 SwDBFieldType* pTyp = static_cast<SwDBFieldType*>(pSh->InsertFieldType(
@@ -289,6 +306,16 @@ void SwFieldPage::SavePos( const ListBox* pLst1 )
     m_aLstStrArr[ 2 ].clear();
 }
 
+void SwFieldPage::SavePos( const weld::TreeView& rLst1 )
+{
+    if (rLst1.n_children())
+        m_aLstStrArr[ 0 ] = rLst1.get_selected_text();
+    else
+        m_aLstStrArr[ 0 ].clear();
+    m_aLstStrArr[ 1 ].clear();
+    m_aLstStrArr[ 2 ].clear();
+}
+
 void SwFieldPage::RestorePos(ListBox* pLst1)
 {
     sal_Int32 nPos = 0;
@@ -296,6 +323,14 @@ void SwFieldPage::RestorePos(ListBox* pLst1)
          LISTBOX_ENTRY_NOTFOUND !=
                     ( nPos = pLst1->GetEntryPos(m_aLstStrArr[ 0 ] ) ) )
         pLst1->SelectEntryPos( nPos );
+}
+
+void SwFieldPage::RestorePos(weld::TreeView& rLst1)
+{
+    sal_Int32 nPos = 0;
+    if (rLst1.n_children() && !m_aLstStrArr[ 0 ].isEmpty() &&
+         -1 != ( nPos = rLst1.find_text(m_aLstStrArr[ 0 ] ) ) )
+        rLst1.select( nPos );
 }
 
 // Insert new fields
@@ -306,6 +341,11 @@ IMPL_LINK( SwFieldPage, TreeListBoxInsertHdl, SvTreeListBox*, pBtn, bool )
 }
 
 IMPL_LINK( SwFieldPage, ListBoxInsertHdl, ListBox&, rBox, void )
+{
+    InsertHdl(&rBox);
+}
+
+IMPL_LINK( SwFieldPage, TreeViewInsertHdl, weld::TreeView&, rBox, void )
 {
     InsertHdl(&rBox);
 }

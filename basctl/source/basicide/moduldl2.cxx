@@ -24,7 +24,6 @@
 #include <bitmaps.hlst>
 #include <iderdll.hxx>
 #include "iderdll2.hxx"
-#include <o3tl/make_unique.hxx>
 #include <svx/passwd.hxx>
 #include <ucbhelper/content.hxx>
 #include <rtl/uri.hxx>
@@ -220,24 +219,6 @@ SvTreeListEntry* CheckBox::FindEntry( const OUString& rName )
     return nullptr;
 }
 
-void CheckBox::CheckEntryPos( sal_uLong nPos )
-{
-    if ( nPos < GetEntryCount() )
-    {
-        SvTreeListEntry* pEntry = GetEntry( nPos );
-
-        if ( GetCheckButtonState( pEntry ) != SvButtonState::Checked )
-            SetCheckButtonState( pEntry, SvButtonState::Checked );
-    }
-}
-
-bool CheckBox::IsChecked( sal_uLong nPos ) const
-{
-    if ( nPos < GetEntryCount() )
-        return GetCheckButtonState(GetEntry(nPos)) == SvButtonState::Checked;
-    return false;
-}
-
 void CheckBox::InitEntry(SvTreeListEntry* pEntry, const OUString& rTxt,
     const Image& rImg1, const Image& rImg2, SvLBoxButtonKind eButtonKind )
 {
@@ -250,7 +231,7 @@ void CheckBox::InitEntry(SvTreeListEntry* pEntry, const OUString& rTxt,
         for ( sal_uInt16 nCol = 1; nCol < nCount; ++nCol )
         {
             SvLBoxString& rCol = static_cast<SvLBoxString&>(pEntry->GetItem( nCol ));
-            pEntry->ReplaceItem(o3tl::make_unique<LibLBoxString>( rCol.GetText() ), nCol);
+            pEntry->ReplaceItem(std::make_unique<LibLBoxString>( rCol.GetText() ), nCol);
         }
     }
 }
@@ -787,7 +768,7 @@ void LibPage::InsertLib()
     if ( !xModLibContImport.is() && !xDlgLibContImport.is() )
         return;
 
-    VclPtr<LibDialog> pLibDlg;
+    std::shared_ptr<LibDialog> xLibDlg;
 
     Reference< script::XLibraryContainer > xModLibContImp( xModLibContImport, UNO_QUERY );
     Reference< script::XLibraryContainer > xDlgLibContImp( xDlgLibContImport, UNO_QUERY );
@@ -797,11 +778,10 @@ void LibPage::InsertLib()
     for ( sal_Int32 i = 0 ; i < nLibCount ; i++ )
     {
         // library import dialog
-        if ( !pLibDlg )
+        if (!xLibDlg)
         {
-            pLibDlg.reset(VclPtr<LibDialog>::Create( this ));
-            pLibDlg->SetStorageName( aURLObj.getName() );
-            pLibDlg->GetLibBox().SetMode(ObjectMode::Library);
+            xLibDlg.reset(new LibDialog(GetFrameWeld()));
+            xLibDlg->SetStorageName( aURLObj.getName() );
         }
 
         // libbox entries
@@ -809,13 +789,15 @@ void LibPage::InsertLib()
         if ( !( ( xModLibContImport.is() && xModLibContImport->hasByName( aLibName ) && xModLibContImport->isLibraryLink( aLibName ) ) ||
                 ( xDlgLibContImport.is() && xDlgLibContImport->hasByName( aLibName ) && xDlgLibContImport->isLibraryLink( aLibName ) ) ) )
         {
-            SvTreeListEntry* pEntry = pLibDlg->GetLibBox().DoInsertEntry( aLibName );
-            sal_uInt16 nPos = static_cast<sal_uInt16>(pLibDlg->GetLibBox().GetModel()->GetAbsPos( pEntry ));
-            pLibDlg->GetLibBox().CheckEntryPos(nPos);
+            weld::TreeView& rView = xLibDlg->GetLibBox();
+            rView.append();
+            const int nRow = rView.n_children() - 1;
+            rView.set_toggle(nRow, true, 0);
+            rView.set_text(nRow, aLibName, 1);
         }
     }
 
-    if ( !pLibDlg )
+    if (!xLibDlg)
     {
         std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                        VclMessageType::Warning, VclButtonsType::Ok, IDEResId(RID_STR_NOLIBINSTORAGE)));
@@ -829,9 +811,9 @@ void LibPage::InsertLib()
 
     // disable reference checkbox for documents and sbls
     if ( aExtension != aLibExtension && aExtension != aContExtension )
-        pLibDlg->EnableReference(false);
+        xLibDlg->EnableReference(false);
 
-    pLibDlg->StartExecuteAsync([aContExtension, aDlgURLObj, aExtension, aLibExtension, aModURLObj, pLibDlg, xDlgLibContImport, xModLibContImp, xModLibContImport, this](sal_Int32 nResult)
+    weld::DialogController::runAsync(xLibDlg, [aContExtension, aDlgURLObj, aExtension, aLibExtension, aModURLObj, xLibDlg, xDlgLibContImport, xModLibContImp, xModLibContImport, this](sal_Int32 nResult)
         {
             if (!nResult )
                 return;
@@ -839,15 +821,14 @@ void LibPage::InsertLib()
             bool bChanges = false;
             sal_uLong nNewPos = m_pLibBox->GetEntryCount();
             bool bRemove = false;
-            bool bReplace = pLibDlg->IsReplace();
-            bool bReference = pLibDlg->IsReference();
-            for ( sal_uLong nLib = 0; nLib < pLibDlg->GetLibBox().GetEntryCount(); nLib++ )
+            bool bReplace = xLibDlg->IsReplace();
+            bool bReference = xLibDlg->IsReference();
+            weld::TreeView& rView = xLibDlg->GetLibBox();
+            for (int nLib = 0, nChildren = rView.n_children(); nLib < nChildren; ++nLib)
             {
-                if ( pLibDlg->GetLibBox().IsChecked( nLib ) )
+                if (rView.get_toggle(nLib, 0))
                 {
-                    SvTreeListEntry* pEntry = pLibDlg->GetLibBox().GetEntry( nLib );
-                    DBG_ASSERT( pEntry, "Entry?!" );
-                    OUString aLibName( SvTabListBox::GetEntryText( pEntry, 0 ) );
+                    OUString aLibName(rView.get_text(nLib, 1));
                     Reference< script::XLibraryContainer2 > xModLibContainer( m_aCurDocument.getLibraryContainer( E_SCRIPTS ), UNO_QUERY );
                     Reference< script::XLibraryContainer2 > xDlgLibContainer( m_aCurDocument.getLibraryContainer( E_DIALOGS ), UNO_QUERY );
 
@@ -1213,10 +1194,9 @@ void LibPage::ExportAsPackage( const OUString& aLibName )
         implExportLib( aLibName, aTmpPath, xDummyHandler );
 
         Reference< XCommandEnvironment > xCmdEnv =
-            static_cast<XCommandEnvironment*>(
                 new OLibCommandEnvironment(
                     Reference< task::XInteractionHandler >(
-                        xHandler, UNO_QUERY ) ) );
+                        xHandler, UNO_QUERY));
 
         ::ucbhelper::Content sourceContent( aSourcePath, xCmdEnv, comphelper::getProcessComponentContext() );
 
@@ -1531,7 +1511,7 @@ void createLibImpl(weld::Window* pWin, const ScriptDocument& rDocument,
                         aLibName,
                         Image(StockImage::Yes, sId),
                         pRootEntry, false,
-                        o3tl::make_unique<Entry>(OBJ_TYPE_LIBRARY));
+                        std::make_unique<Entry>(OBJ_TYPE_LIBRARY));
                     DBG_ASSERT( pNewLibEntry, "Insert entry failed!" );
 
                     if( pNewLibEntry )
@@ -1540,7 +1520,7 @@ void createLibImpl(weld::Window* pWin, const ScriptDocument& rDocument,
                             aModName,
                             Image(StockImage::Yes, RID_BMP_MODULE),
                             pNewLibEntry, false,
-                            o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
+                            std::make_unique<Entry>(OBJ_TYPE_MODULE));
                         DBG_ASSERT( pEntry_, "Insert entry failed!" );
                         pBasicBox->SetCurEntry( pEntry_ );
                         pBasicBox->Select( pBasicBox->GetCurEntry() );      // OV-Bug?!
@@ -1640,8 +1620,8 @@ void createLibImpl(weld::Window* pWin, const ScriptDocument& rDocument,
                     BrowseMode nMode = pBasicBox->GetMode();
                     bool bDlgMode = ( nMode & BrowseMode::Dialogs ) && !( nMode & BrowseMode::Modules );
                     const OUString sId = bDlgMode ? OUStringLiteral(RID_BMP_DLGLIB) : OUStringLiteral(RID_BMP_MODLIB);
-                    pBasicBox->AddEntry(aLibName, sId, xRootEntry.get(), false, o3tl::make_unique<Entry>(OBJ_TYPE_LIBRARY));
-                    pBasicBox->AddEntry(aModName, RID_BMP_MODULE, xRootEntry.get(), false, o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
+                    pBasicBox->AddEntry(aLibName, sId, xRootEntry.get(), false, std::make_unique<Entry>(OBJ_TYPE_LIBRARY));
+                    pBasicBox->AddEntry(aModName, RID_BMP_MODULE, xRootEntry.get(), false, std::make_unique<Entry>(OBJ_TYPE_MODULE));
                     pBasicBox->set_cursor(*xRootEntry);
                     pBasicBox->select(*xRootEntry);
                 }

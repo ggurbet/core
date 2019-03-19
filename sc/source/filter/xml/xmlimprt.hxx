@@ -21,8 +21,8 @@
 #define INCLUDED_SC_SOURCE_FILTER_XML_XMLIMPRT_HXX
 
 #include <xmloff/xmlimp.hxx>
+#include <xmloff/xmlprmap.hxx>
 #include "xmlsubti.hxx"
-#include <global.hxx>
 #include <formula/grammar.hxx>
 #include <dociter.hxx>
 

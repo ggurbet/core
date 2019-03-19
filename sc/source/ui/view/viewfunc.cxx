@@ -38,7 +38,6 @@
 #include <vcl/virdev.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/wrkwin.hxx>
-#include <o3tl/make_unique.hxx>
 #include <stdlib.h>
 #include <unotools/charclass.hxx>
 
@@ -410,16 +409,18 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
             aComp.SetExtendedErrorDetection( ScCompiler::EXTENDED_ERROR_DETECTION_NAME_BREAK );
         }
         OUString aFormula( rString );
-        ScTokenArray* pArr;
+        std::unique_ptr< ScTokenArray > pArr;
         bool bAgain;
         do
         {
             bAgain = false;
             bool bAddEqual = false;
-            ScTokenArray* pArrFirst = pArr = aComp.CompileString( aFormula );
+            pArr = aComp.CompileString( aFormula );
             bool bCorrected = aComp.IsCorrected();
+            std::unique_ptr< ScTokenArray > pArrFirst;
             if ( bCorrected )
             {   // try to parse with first parser-correction
+                pArrFirst = std::move( pArr );
                 pArr = aComp.CompileString( aComp.GetCorrectedFormula() );
             }
             if ( pArr->GetCodeError() == FormulaError::NONE )
@@ -455,17 +456,12 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
                 if ( nResult == RET_YES )
                 {
                     aFormula = aCorrectedFormula;
-                    if ( pArr != pArrFirst )
-                        delete pArrFirst;
                     bAgain = true;
                 }
                 else
                 {
-                    if ( pArr != pArrFirst )
-                    {
-                        delete pArr;
-                        pArr = pArrFirst;
-                    }
+                    if ( pArrFirst )
+                        pArr = std::move( pArrFirst );
                 }
             }
         } while ( bAgain );
@@ -508,8 +504,7 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
             }
         }
 
-        ScFormulaCell aCell(pDoc, aPos, *pArr, formula::FormulaGrammar::GRAM_DEFAULT, ScMatrixMode::NONE);
-        delete pArr;
+        ScFormulaCell aCell(pDoc, aPos, std::move( pArr ), formula::FormulaGrammar::GRAM_DEFAULT, ScMatrixMode::NONE);
 
         SvNumberFormatter* pFormatter = pDoc->GetFormatTable();
         for (const auto& rTab : rMark)
@@ -618,7 +613,7 @@ void ScViewFunc::EnterValue( SCCOL nCol, SCROW nRow, SCTAB nTab, const double& r
             if (bUndo)
             {
                 pDocSh->GetUndoManager()->AddUndoAction(
-                    o3tl::make_unique<ScUndoEnterValue>(pDocSh, aPos, aUndoCell, rValue));
+                    std::make_unique<ScUndoEnterValue>(pDocSh, aPos, aUndoCell, rValue));
             }
 
             pDocSh->PostPaintCell( aPos );
@@ -723,7 +718,7 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
             if ( bRecord )
             {   //  because of ChangeTrack current first
                 pDocSh->GetUndoManager()->AddUndoAction(
-                    o3tl::make_unique<ScUndoEnterData>(pDocSh, ScAddress(nCol,nRow,nTab), aOldValues, aString, std::move(pUndoData)));
+                    std::make_unique<ScUndoEnterData>(pDocSh, ScAddress(nCol,nRow,nTab), aOldValues, aString, std::move(pUndoData)));
             }
 
             HideAllCursors();
@@ -894,8 +889,8 @@ void ScViewFunc::ApplyAttributes( const SfxItemSet* pDialogSet,
         return;
     }
 
-    ScPatternAttr aOldAttrs( o3tl::make_unique<SfxItemSet>(*pOldSet) );
-    ScPatternAttr aNewAttrs( o3tl::make_unique<SfxItemSet>(*pDialogSet) );
+    ScPatternAttr aOldAttrs( std::make_unique<SfxItemSet>(*pOldSet) );
+    ScPatternAttr aNewAttrs( std::make_unique<SfxItemSet>(*pDialogSet) );
     aNewAttrs.DeleteUnchanged( &aOldAttrs );
 
     if ( pDialogSet->GetItemState( ATTR_VALUE_FORMAT ) == SfxItemState::SET )
@@ -1004,7 +999,7 @@ void ScViewFunc::ApplyAttr( const SfxPoolItem& rAttrItem, bool bAdjustBlockHeigh
         return;
     }
 
-    ScPatternAttr aNewAttrs( o3tl::make_unique<SfxItemSet>( *GetViewData().GetDocument()->GetPool(),
+    ScPatternAttr aNewAttrs( std::make_unique<SfxItemSet>( *GetViewData().GetDocument()->GetPool(),
                                             svl::Items<ATTR_PATTERN_START, ATTR_PATTERN_END>{} ) );
 
     aNewAttrs.GetItemSet().Put( rAttrItem );
@@ -1077,7 +1072,7 @@ void ScViewFunc::ApplyPatternLines( const ScPatternAttr& rAttr, const SvxBoxItem
         pDoc->CopyToDocument( aCopyRange, InsertDeleteFlags::ATTRIB, bCopyOnlyMarked, *pUndoDoc, &aFuncMark );
 
         pDocSh->GetUndoManager()->AddUndoAction(
-            o3tl::make_unique<ScUndoSelectionAttr>(
+            std::make_unique<ScUndoSelectionAttr>(
                 pDocSh, aFuncMark,
                 aMarkRange.aStart.Col(), aMarkRange.aStart.Row(), aMarkRange.aStart.Tab(),
                 aMarkRange.aEnd.Col(), aMarkRange.aEnd.Row(), aMarkRange.aEnd.Tab(),
@@ -1359,7 +1354,7 @@ void ScViewFunc::SetStyleSheetToMarked( const SfxStyleSheet* pStyleSheet )
 
             OUString aName = pStyleSheet->GetName();
             pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoSelectionStyle>( pDocSh, aFuncMark, aMarkRange, aName, std::move(pUndoDoc) ) );
+                std::make_unique<ScUndoSelectionStyle>( pDocSh, aFuncMark, aMarkRange, aName, std::move(pUndoDoc) ) );
         }
 
         rDoc.ApplySelectionStyle( static_cast<const ScStyleSheet&>(*pStyleSheet), aFuncMark );
@@ -1392,7 +1387,7 @@ void ScViewFunc::SetStyleSheetToMarked( const SfxStyleSheet* pStyleSheet )
 
             OUString aName = pStyleSheet->GetName();
             pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoSelectionStyle>( pDocSh, aUndoMark, aMarkRange, aName, std::move(pUndoDoc) ) );
+                std::make_unique<ScUndoSelectionStyle>( pDocSh, aUndoMark, aMarkRange, aName, std::move(pUndoDoc) ) );
         }
 
         for (const auto& rTab : aFuncMark)
@@ -1560,7 +1555,7 @@ void ScViewFunc::OnLOKInsertDeleteRow(SCROW nStartRow, long nOffset)
                 else
                 {
                     SCROW nY = pTabViewShell->GetViewData().GetCurYForTab(nCurrentTabIndex);
-                    if (nY >= nStartRow || (nY == nStartRow && nOffset > 0))
+                    if (nY > nStartRow || (nY == nStartRow && nOffset > 0))
                     {
                         pTabViewShell->GetViewData().SetCurYForTab(nY + nOffset, nCurrentTabIndex);
                     }
@@ -1865,7 +1860,7 @@ void ScViewFunc::DeleteMulti( bool bRows )
     if (bRecord)
     {
         pDocSh->GetUndoManager()->AddUndoAction(
-            o3tl::make_unique<ScUndoDeleteMulti>(
+            std::make_unique<ScUndoDeleteMulti>(
                 pDocSh, bRows, bNeedRefresh, nTab, aSpans, std::move(pUndoDoc), std::move(pUndoData)));
     }
 
@@ -2210,7 +2205,7 @@ void ScViewFunc::SetWidthOrHeight(
     if (bRecord)
     {
         pDocSh->GetUndoManager()->AddUndoAction(
-            o3tl::make_unique<ScUndoWidthOrHeight>(
+            std::make_unique<ScUndoWidthOrHeight>(
                 pDocSh, aMarkData, nStart, nCurTab, nEnd, nCurTab,
                 std::move(pUndoDoc), aUndoRanges, std::move(pUndoTab), eMode, nSizeTwips, bWidth));
     }
@@ -2825,7 +2820,7 @@ bool ScViewFunc::InsertName( const OUString& rName, const OUString& rSymbol,
     ScRangeName* pList = rDoc.GetRangeName();
 
     ScRangeData::Type nType = ScRangeData::Type::Name;
-    auto pNewEntry = o3tl::make_unique<ScRangeData>(
+    auto pNewEntry = std::make_unique<ScRangeData>(
         &rDoc, rName, rSymbol, ScAddress( GetViewData().GetCurX(),
         GetViewData().GetCurY(), nTab), nType );
     OUString aUpType = rType.toAsciiUpperCase();

@@ -27,11 +27,13 @@
 #include <vcl/decoview.hxx>
 #include <vcl/button.hxx>
 #include <vcl/edit.hxx>
+#include <vcl/event.hxx>
 #include <vcl/image.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/svtaccessiblefactory.hxx>
 #include <vcl/accessiblefactory.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <svtools/svtresid.hxx>
 #include <svtools/strings.hrc>
 #include <limits>
@@ -334,7 +336,7 @@ ImplTabSizer::ImplTabSizer( TabBar* pParent, WinBits nWinStyle )
     : Window( pParent, nWinStyle & WB_3DLOOK )
     , mnStartWidth(0)
 {
-    SetPointer(Pointer(PointerStyle::HSizeBar));
+    SetPointer(PointerStyle::HSizeBar);
     SetSizePixel(Size(7 * GetDPIScaleFactor(), 0));
 }
 

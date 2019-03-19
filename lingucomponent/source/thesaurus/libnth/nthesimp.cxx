@@ -24,12 +24,14 @@
 #include <com/sun/star/registry/XRegistryKey.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/linguistic2/LinguServiceManager.hpp>
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <com/sun/star/linguistic2/XSpellChecker1.hpp>
 #include <i18nlangtag/languagetag.hxx>
 #include <tools/debug.hxx>
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <osl/mutex.hxx>
+#include <osl/thread.h>
 #include <unotools/pathoptions.hxx>
 #include <unotools/lingucfg.hxx>
 #include <unotools/resmgr.hxx>
@@ -235,7 +237,7 @@ sal_Bool SAL_CALL Thesaurus::hasLocale(const Locale& rLocale)
 
 Sequence < Reference < css::linguistic2::XMeaning > > SAL_CALL Thesaurus::queryMeanings(
     const OUString& qTerm, const Locale& rLocale,
-    const PropertyValues& rProperties)
+    const css::uno::Sequence< css::beans::PropertyValue >& rProperties)
 {
     MutexGuard      aGuard( GetLinguMutex() );
 

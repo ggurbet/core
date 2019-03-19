@@ -20,14 +20,12 @@
 #include <memory>
 #include <algorithm>
 
-#include <scitems.hxx>
 #include <editeng/eeitem.hxx>
 
 #include <sfx2/app.hxx>
 #include <editeng/adjustitem.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/editstat.hxx>
-#include <editeng/frmdiritem.hxx>
 #include <editeng/lspcitem.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/wghtitem.hxx>
@@ -37,19 +35,15 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/event.hxx>
-#include <stdlib.h>
 #include <editeng/scriptspaceitem.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <vcl/cursor.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
 #include <svl/stritem.hxx>
-#include <o3tl/make_unique.hxx>
 #include <unotools/charclass.hxx>
 
 #include <inputwin.hxx>
 #include <scmod.hxx>
-#include <uiitems.hxx>
 #include <global.hxx>
 #include <scresid.hxx>
 #include <strings.hrc>
@@ -63,20 +57,17 @@
 #include <docsh.hxx>
 #include <appoptio.hxx>
 #include <rangenam.hxx>
-#include <formula/compiler.hxx>
-#include <dbdata.hxx>
 #include <rangeutl.hxx>
 #include <docfunc.hxx>
 #include <funcdesc.hxx>
-#include <markdata.hxx>
 #include <editeng/fontitem.hxx>
-#include <com/sun/star/accessibility/XAccessible.hpp>
 #include <AccessibleEditObject.hxx>
 #include <AccessibleText.hxx>
-#include <svtools/miscopt.hxx>
 #include <comphelper/string.hxx>
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <helpids.h>
+
+namespace com::sun::star::accessibility { class XAccessible; }
 
 #define THESIZE             1000000 // Should be more than enough!
 #define TBX_WINDOW_HEIGHT   22 // in pixel - TODO: The same on all systems?
@@ -670,9 +661,9 @@ void ScInputWindow::MouseMove( const MouseEvent& rMEvt )
     ScInputBarGroup* pGroupBar = dynamic_cast<ScInputBarGroup*>(pRuntimeWindow.get());
 
     if (bInResize || IsPointerAtResizePos())
-        SetPointer(Pointer(PointerStyle::WindowSSize));
+        SetPointer(PointerStyle::WindowSSize);
     else
-        SetPointer(Pointer(PointerStyle::Arrow));
+        SetPointer(PointerStyle::Arrow);
 
     if (bInResize)
     {
@@ -1181,10 +1172,10 @@ void ScTextWnd::InitEditEngine()
     {
         pDocSh = mpViewShell->GetViewData().GetDocShell();
         ScDocument* pDoc = mpViewShell->GetViewData().GetDocument();
-        pNew = o3tl::make_unique<ScFieldEditEngine>(pDoc, pDoc->GetEnginePool(), pDoc->GetEditPool());
+        pNew = std::make_unique<ScFieldEditEngine>(pDoc, pDoc->GetEnginePool(), pDoc->GetEditPool());
     }
     else
-        pNew = o3tl::make_unique<ScFieldEditEngine>(nullptr, EditEngine::CreatePool(), nullptr, true);
+        pNew = std::make_unique<ScFieldEditEngine>(nullptr, EditEngine::CreatePool(), nullptr, true);
     pNew->SetExecuteURL( false );
     mpEditEngine = std::move(pNew);
 
@@ -1223,7 +1214,7 @@ void ScTextWnd::InitEditEngine()
     else
         mpEditEngine->SetText(aString); // At least the right text then
 
-    mpEditView = o3tl::make_unique<EditView>(mpEditEngine.get(), this);
+    mpEditView = std::make_unique<EditView>(mpEditEngine.get(), this);
     mpEditView->SetInsertMode(bIsInsertMode);
 
     // Text from Clipboard is taken over as ASCII in a single row
@@ -1711,10 +1702,10 @@ void ScTextWnd::MakeDialogEditView()
     if ( pViewSh )
     {
         ScDocument* pDoc = pViewSh->GetViewData().GetDocument();
-        pNew = o3tl::make_unique<ScFieldEditEngine>(pDoc, pDoc->GetEnginePool(), pDoc->GetEditPool());
+        pNew = std::make_unique<ScFieldEditEngine>(pDoc, pDoc->GetEnginePool(), pDoc->GetEditPool());
     }
     else
-        pNew = o3tl::make_unique<ScFieldEditEngine>(nullptr, EditEngine::CreatePool(), nullptr, true);
+        pNew = std::make_unique<ScFieldEditEngine>(nullptr, EditEngine::CreatePool(), nullptr, true);
     pNew->SetExecuteURL( false );
     mpEditEngine = std::move(pNew);
 
@@ -1730,7 +1721,7 @@ void ScTextWnd::MakeDialogEditView()
     mpEditEngine->SetDefaults( pSet );
     mpEditEngine->SetUpdateMode( true );
 
-    mpEditView = o3tl::make_unique<EditView>(mpEditEngine.get(), this);
+    mpEditView = std::make_unique<EditView>(mpEditEngine.get(), this);
     mpEditEngine->InsertView( mpEditView.get(), EE_APPEND );
 
     Resize();
@@ -1882,11 +1873,10 @@ void ScPosWnd::FillRangeNames()
         ScRange aDummy;
         std::set<OUString> aSet;
         ScRangeName* pRangeNames = rDoc.GetRangeName();
-        ScRangeName::const_iterator itrBeg = pRangeNames->begin(), itrEnd = pRangeNames->end();
-        for (ScRangeName::const_iterator itr = itrBeg; itr != itrEnd; ++itr)
+        for (const auto& rEntry : *pRangeNames)
         {
-            if (itr->second->IsValidReference(aDummy))
-                aSet.insert(itr->second->GetName());
+            if (rEntry.second->IsValidReference(aDummy))
+                aSet.insert(rEntry.second->GetName());
         }
         for (SCTAB i = 0; i < rDoc.GetTableCount(); ++i)
         {
@@ -1895,18 +1885,17 @@ void ScPosWnd::FillRangeNames()
             {
                 OUString aTableName;
                 rDoc.GetName(i, aTableName);
-                for (ScRangeName::const_iterator itr = pLocalRangeName->begin(); itr != pLocalRangeName->end(); ++itr)
+                for (const auto& rEntry : *pLocalRangeName)
                 {
-                    if (itr->second->IsValidReference(aDummy))
-                        aSet.insert(createLocalRangeName(itr->second->GetName(), aTableName));
+                    if (rEntry.second->IsValidReference(aDummy))
+                        aSet.insert(createLocalRangeName(rEntry.second->GetName(), aTableName));
                 }
             }
         }
 
-        for (std::set<OUString>::iterator itr = aSet.begin();
-                itr != aSet.end(); ++itr)
+        for (const auto& rItem : aSet)
         {
-            InsertEntry(*itr);
+            InsertEntry(rItem);
         }
     }
     SetText(aPosStr);

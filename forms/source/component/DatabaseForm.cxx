@@ -134,9 +134,6 @@ class OFormSubmitResetThread: public OComponentEventThread
 {
 protected:
 
-    // duplicate an event with respect to its type
-    virtual EventObject *cloneEvent( const EventObject *pEvt ) const override;
-
     // process an event. while processing the mutex isn't locked, and pCompImpl
     // is made sure to remain valid
     virtual void processEvent( ::cppu::OComponentHelper* _pCompImpl,
@@ -148,13 +145,6 @@ public:
 
     explicit OFormSubmitResetThread(ODatabaseForm* pControl) : OComponentEventThread(pControl) { }
 };
-
-
-EventObject* OFormSubmitResetThread::cloneEvent(
-        const EventObject *pEvt ) const
-{
-    return new css::awt::MouseEvent( *static_cast<const css::awt::MouseEvent *>(pEvt) );
-}
 
 
 void OFormSubmitResetThread::processEvent(
@@ -1908,8 +1898,7 @@ void SAL_CALL ODatabaseForm::reset()
             m_pThread = new OFormSubmitResetThread(this);
             m_pThread->create();
         }
-        EventObject aEvt;
-        m_pThread->addEvent(&aEvt);
+        m_pThread->addEvent(std::make_unique<EventObject>());
     }
     else
     {
@@ -2078,7 +2067,7 @@ void SAL_CALL ODatabaseForm::submit( const Reference<XControl>& Control,
             m_pThread = new OFormSubmitResetThread(this);
             m_pThread->create();
         }
-        m_pThread->addEvent(&MouseEvt, Control, true);
+        m_pThread->addEvent(std::make_unique<css::awt::MouseEvent>(MouseEvt), Control, true);
     }
     else
     {
@@ -3752,7 +3741,7 @@ void SAL_CALL ODatabaseForm::write(const Reference<XObjectOutputStream>& _rxOutS
     OFormComponents::write(_rxOutStream);
 
     // version
-    _rxOutStream->writeShort(0x0004);
+    _rxOutStream->writeShort(0x0005);
 
     // Name
     _rxOutStream << m_sName;
@@ -3830,18 +3819,15 @@ void SAL_CALL ODatabaseForm::write(const Reference<XObjectOutputStream>& _rxOutS
     _rxOutStream->writeShort(static_cast<sal_Int16>(m_eNavigation));
 
     OUString sFilter;
-    OUString sHaving;
-    OUString sOrder;
+    OUString sSort;
     if (m_xAggregateSet.is())
     {
         m_xAggregateSet->getPropertyValue(PROPERTY_FILTER) >>= sFilter;
         // version 4
-        m_xAggregateSet->getPropertyValue(PROPERTY_HAVINGCLAUSE) >>= sHaving;
-        m_xAggregateSet->getPropertyValue(PROPERTY_SORT) >>= sOrder;
+        m_xAggregateSet->getPropertyValue(PROPERTY_SORT) >>= sSort;
     }
     _rxOutStream << sFilter;
-    _rxOutStream << sOrder;
-
+    _rxOutStream << sSort;
 
     // version 3
     sal_uInt16 nAnyMask = 0;
@@ -3859,6 +3845,12 @@ void SAL_CALL ODatabaseForm::write(const Reference<XObjectOutputStream>& _rxOutS
         ::cppu::enum2int(nRealCycle, m_aCycle);
         _rxOutStream->writeShort(static_cast<sal_Int16>(nRealCycle));
     }
+
+    // version 5
+    OUString sHaving;
+    if (m_xAggregateSet.is())
+        m_xAggregateSet->getPropertyValue(PROPERTY_HAVINGCLAUSE) >>= sHaving;
+    _rxOutStream << sHaving;
 }
 
 
@@ -3935,16 +3927,14 @@ void SAL_CALL ODatabaseForm::read(const Reference<XObjectInputStream>& _rxInStre
         m_eNavigation = static_cast<NavigationBarMode>(_rxInStream->readShort());
 
         _rxInStream >> sAggregateProp;
-        setPropertyValue(PROPERTY_FILTER, makeAny(sAggregateProp));
+        if (m_xAggregateSet.is())
+            m_xAggregateSet->setPropertyValue(PROPERTY_FILTER, makeAny(sAggregateProp));
         if(nVersion > 3)
         {
             _rxInStream >> sAggregateProp;
-            setPropertyValue(PROPERTY_HAVINGCLAUSE, makeAny(sAggregateProp));
+            if (m_xAggregateSet.is())
+                m_xAggregateSet->setPropertyValue(PROPERTY_SORT, makeAny(sAggregateProp));
         }
-
-        _rxInStream >> sAggregateProp;
-        if (m_xAggregateSet.is())
-            m_xAggregateSet->setPropertyValue(PROPERTY_SORT, makeAny(sAggregateProp));
     }
 
     sal_uInt16 nAnyMask = 0;
@@ -3961,6 +3951,13 @@ void SAL_CALL ODatabaseForm::read(const Reference<XObjectInputStream>& _rxInStre
     }
     if (m_xAggregateSet.is())
         m_xAggregateSet->setPropertyValue(PROPERTY_APPLYFILTER, makeAny((nAnyMask & DONTAPPLYFILTER) == 0));
+
+    if(nVersion > 4)
+    {
+        _rxInStream >> sAggregateProp;
+        if (m_xAggregateSet.is())
+            m_xAggregateSet->setPropertyValue(PROPERTY_HAVINGCLAUSE, makeAny(sAggregateProp));
+    }
 }
 
 

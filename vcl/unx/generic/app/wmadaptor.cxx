@@ -821,8 +821,9 @@ bool WMAdaptor::getNetWmName()
                                         )
                                     {
                                         OUString aMetaVersion( reinterpret_cast<char*>(pProperty), nItems, RTL_TEXTENCODING_UTF8 );
-                                        nVersionMajor = aMetaVersion.getToken(0, '.').toInt32();
-                                        nVersionMinor = aMetaVersion.getToken(1, '.').toInt32();
+                                        sal_Int32 nIdx {0};
+                                        nVersionMajor = aMetaVersion.getToken(0, '.', nIdx).toInt32();
+                                        nVersionMinor = aMetaVersion.getToken(0, '.', nIdx).toInt32();
                                     }
                                     if( pProperty )
                                     {
@@ -975,18 +976,13 @@ void WMAdaptor::setWMName( X11SalFrame* pFrame, const OUString& rWMName ) const
         aWMLocale = pLang ? pLang : "C";
     }
 
-    static bool bTrustXmb = true;
-
     char* pT = const_cast<char*>(aTitle.getStr());
     XTextProperty aProp = { nullptr, None, 0, 0 };
-    if( bTrustXmb )
-    {
-        XmbTextListToTextProperty( m_pDisplay,
-                                   &pT,
-                                   1,
-                                   XStdICCTextStyle,
-                                   &aProp );
-    }
+    XmbTextListToTextProperty( m_pDisplay,
+                               &pT,
+                               1,
+                               XStdICCTextStyle,
+                               &aProp );
 
     unsigned char const * pData = aProp.nitems ? aProp.value : reinterpret_cast<unsigned char const *>(aTitle.getStr());
     Atom nType = aProp.nitems ? aProp.encoding : XA_STRING;

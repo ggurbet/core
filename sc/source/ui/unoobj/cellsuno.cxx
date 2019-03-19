@@ -1087,7 +1087,7 @@ void ScHelperFunctions::ApplyBorder( ScDocShell* pDocShell, const ScRangeList& r
     if (bUndo)
     {
         pDocShell->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoBorder>( pDocShell, rRanges, std::move(pUndoDoc), rOuter, rInner ) );
+                std::make_unique<ScUndoBorder>( pDocShell, rRanges, std::move(pUndoDoc), rOuter, rInner ) );
     }
 
     for (size_t i = 0; i < nCount; ++i )
@@ -1224,7 +1224,7 @@ static bool lcl_PutDataArray( ScDocShell& rDocShell, const ScRange& rRange,
         ScMarkData aDestMark;
         aDestMark.SelectOneTable( nTab );
         rDocShell.GetUndoManager()->AddUndoAction(
-            o3tl::make_unique<ScUndoPaste>(
+            std::make_unique<ScUndoPaste>(
                 &rDocShell, ScRange(nStartCol, nStartRow, nTab, nEndCol, nEndRow, nTab),
                 aDestMark, std::move(pUndoDoc), nullptr, InsertDeleteFlags::CONTENTS, nullptr, false));
     }
@@ -1325,7 +1325,7 @@ static bool lcl_PutFormulaArray( ScDocShell& rDocShell, const ScRange& rRange,
         ScMarkData aDestMark;
         aDestMark.SelectOneTable( nTab );
         rDocShell.GetUndoManager()->AddUndoAction(
-            o3tl::make_unique<ScUndoPaste>( &rDocShell,
+            std::make_unique<ScUndoPaste>( &rDocShell,
                 ScRange(nStartCol, nStartRow, nTab, nEndCol, nEndRow, nTab), aDestMark,
                 std::move(pUndoDoc), nullptr, InsertDeleteFlags::CONTENTS, nullptr, false));
     }
@@ -2388,10 +2388,10 @@ void ScCellRangesBase::SetOnePropertyValue( const SfxItemPropertySimpleEntry* pE
                                 // Then we can apply new conditional format if there is one
                                 if (pFormat->getCount())
                                 {
-                                    ScConditionalFormat* pNew = new ScConditionalFormat( 0, &rDoc );    // Index will be set on inserting
+                                    auto pNew = std::make_unique<ScConditionalFormat>( 0, &rDoc );    // Index will be set on inserting
                                     pFormat->FillFormat( *pNew, &rDoc, eGrammar );
                                     pNew->SetRange( aRanges );
-                                    pDocShell->GetDocFunc().ReplaceConditionalFormat( 0, pNew, nTab, aRanges );
+                                    pDocShell->GetDocFunc().ReplaceConditionalFormat( 0, std::move(pNew), nTab, aRanges );
                                 }
 
                                 // and repaint
@@ -4004,10 +4004,13 @@ sal_Int32 SAL_CALL ScCellRangesBase::replaceAll( const uno::Reference<util::XSea
 
                 SCTAB nTabCount = rDoc.GetTableCount();
                 bool bProtected = !pDocShell->IsEditable();
-                ScMarkData::iterator itr = aMark.begin(), itrEnd = aMark.end();
-                for (; itr != itrEnd && *itr < nTabCount; ++itr)
-                    if ( rDoc.IsTabProtected(*itr) )
+                for (const auto& rTab : aMark)
+                {
+                    if (rTab >= nTabCount)
+                        break;
+                    if ( rDoc.IsTabProtected(rTab) )
                         bProtected = true;
+                }
                 if (bProtected)
                 {
                     //! Exception, or what?
@@ -4025,10 +4028,13 @@ sal_Int32 SAL_CALL ScCellRangesBase::replaceAll( const uno::Reference<util::XSea
                         pUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
                         pUndoDoc->InitUndo( &rDoc, nTab, nTab );
                     }
-                    itr = aMark.begin();
-                    for (; itr != itrEnd && *itr < nTabCount; ++itr)
-                        if ( *itr != nTab && bUndo)
-                            pUndoDoc->AddUndoTab( *itr, *itr );
+                    for (const auto& rTab : aMark)
+                    {
+                        if (rTab >= nTabCount)
+                            break;
+                        if (rTab != nTab && bUndo)
+                            pUndoDoc->AddUndoTab( rTab, rTab );
+                    }
                     std::unique_ptr<ScMarkData> pUndoMark;
                     if (bUndo)
                         pUndoMark.reset(new ScMarkData(aMark));
@@ -4045,7 +4051,7 @@ sal_Int32 SAL_CALL ScCellRangesBase::replaceAll( const uno::Reference<util::XSea
                         nReplaced = pUndoDoc->GetCellCount();
 
                         pDocShell->GetUndoManager()->AddUndoAction(
-                            o3tl::make_unique<ScUndoReplace>( pDocShell, *pUndoMark, nCol, nRow, nTab,
+                            std::make_unique<ScUndoReplace>( pDocShell, *pUndoMark, nCol, nRow, nTab,
                                                         aUndoStr, std::move(pUndoDoc), pSearchItem ) );
 
                         pDocShell->PostPaintGridAll();
@@ -5531,7 +5537,7 @@ void SAL_CALL ScCellRangeObj::filter( const uno::Reference<sheet::XSheetFilterDe
 
     uno::Reference<beans::XPropertySet> xPropSet( xDescriptor, uno::UNO_QUERY );
     if (xPropSet.is())
-        lcl_CopyProperties(*xImpl, *xPropSet.get());
+        lcl_CopyProperties(*xImpl, *xPropSet);
 
     if (pDocSh)
     {
@@ -5592,49 +5598,44 @@ uno::Reference<sheet::XSheetFilterDescriptor> SAL_CALL ScCellRangeObj::createFil
     uno::Reference<sheet::XCellRangeAddressable> xAddr( xObject, uno::UNO_QUERY );
 
     ScDocShell* pDocSh = GetDocShell();
-    if ( pDocSh && xAddr.is() )
+    if ( !pDocSh || !xAddr.is() )
     {
-        //! check if xObject is in the same document
-
-        ScFilterDescriptor* pNew = new ScFilterDescriptor(pDocSh);  //! instead from object?
-
-        ScQueryParam aParam = pNew->GetParam();
-        aParam.bHasHeader = true;
-
-        table::CellRangeAddress aDataAddress(xAddr->getRangeAddress());
-        aParam.nCol1 = static_cast<SCCOL>(aDataAddress.StartColumn);
-        aParam.nRow1 = static_cast<SCROW>(aDataAddress.StartRow);
-        aParam.nCol2 = static_cast<SCCOL>(aDataAddress.EndColumn);
-        aParam.nRow2 = static_cast<SCROW>(aDataAddress.EndRow);
-        aParam.nTab  = aDataAddress.Sheet;
-
-        ScDocument& rDoc = pDocSh->GetDocument();
-        if (rDoc.CreateQueryParam(aRange, aParam))
-        {
-            //  FilterDescriptor contains the counted fields inside the area
-            SCCOLROW nFieldStart = aParam.bByRow ?
-                static_cast<SCCOLROW>(aDataAddress.StartColumn) :
-                static_cast<SCCOLROW>(aDataAddress.StartRow);
-            SCSIZE nCount = aParam.GetEntryCount();
-            for (SCSIZE i=0; i<nCount; i++)
-            {
-                ScQueryEntry& rEntry = aParam.GetEntry(i);
-                if (rEntry.bDoQuery && rEntry.nField >= nFieldStart)
-                    rEntry.nField -= nFieldStart;
-            }
-
-            pNew->SetParam( aParam );
-            return pNew;
-        }
-        else
-        {
-            delete pNew;
-            return nullptr;
-        }
+        OSL_FAIL("no document or no area");
+        return nullptr;
     }
 
-    OSL_FAIL("no document or no area");
-    return nullptr;
+    //! check if xObject is in the same document
+
+    std::unique_ptr<ScFilterDescriptor> pNew(new ScFilterDescriptor(pDocSh));  //! instead from object?
+
+    ScQueryParam aParam = pNew->GetParam();
+    aParam.bHasHeader = true;
+
+    table::CellRangeAddress aDataAddress(xAddr->getRangeAddress());
+    aParam.nCol1 = static_cast<SCCOL>(aDataAddress.StartColumn);
+    aParam.nRow1 = static_cast<SCROW>(aDataAddress.StartRow);
+    aParam.nCol2 = static_cast<SCCOL>(aDataAddress.EndColumn);
+    aParam.nRow2 = static_cast<SCROW>(aDataAddress.EndRow);
+    aParam.nTab  = aDataAddress.Sheet;
+
+    ScDocument& rDoc = pDocSh->GetDocument();
+    if (!rDoc.CreateQueryParam(aRange, aParam))
+        return nullptr;
+
+    //  FilterDescriptor contains the counted fields inside the area
+    SCCOLROW nFieldStart = aParam.bByRow ?
+        static_cast<SCCOLROW>(aDataAddress.StartColumn) :
+        static_cast<SCCOLROW>(aDataAddress.StartRow);
+    SCSIZE nCount = aParam.GetEntryCount();
+    for (SCSIZE i=0; i<nCount; i++)
+    {
+        ScQueryEntry& rEntry = aParam.GetEntry(i);
+        if (rEntry.bDoQuery && rEntry.nField >= nFieldStart)
+            rEntry.nField -= nFieldStart;
+    }
+
+    pNew->SetParam( aParam );
+    return pNew.release();
 }
 
 // XSubTotalSource
@@ -6205,7 +6206,7 @@ void SAL_CALL ScCellObj::insertTextContent( const uno::Reference<text::XTextRang
             aSelection.nEndPos = aSelection.nStartPos + 1;
             uno::Reference<text::XTextRange> xParent(this);
             pCellField->InitDoc(
-                xParent, o3tl::make_unique<ScCellEditSource>(pDocSh, aCellPos), aSelection);
+                xParent, std::make_unique<ScCellEditSource>(pDocSh, aCellPos), aSelection);
 
             //  for bAbsorb=FALSE, the new selection must be behind the inserted content
             //  (the xml filter relies on this)
@@ -6976,7 +6977,7 @@ void SAL_CALL ScTableSheetObj::removeAllManualPageBreaks()
             pUndoDoc->InitUndo( &rDoc, nTab, nTab, true, true );
             rDoc.CopyToDocument(0,0,nTab, MAXCOL,MAXROW,nTab, InsertDeleteFlags::NONE, false, *pUndoDoc);
             pDocSh->GetUndoManager()->AddUndoAction(
-                                    o3tl::make_unique<ScUndoRemoveBreaks>( pDocSh, nTab, std::move(pUndoDoc) ) );
+                                    std::make_unique<ScUndoRemoveBreaks>( pDocSh, nTab, std::move(pUndoDoc) ) );
         }
 
         rDoc.RemoveManualBreaks(nTab);
@@ -7143,7 +7144,7 @@ void ScTableSheetObj::PrintAreaUndo_Impl( std::unique_ptr<ScPrintRangeSaver> pOl
         if(bUndo)
         {
             pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoPrintRange>(
+                std::make_unique<ScUndoPrintRange>(
                     pDocSh,
                     nTab,
                     std::move(pOldRanges),
@@ -8482,10 +8483,9 @@ void SAL_CALL ScTableColumnObj::release() throw()
 
 uno::Sequence<uno::Type> SAL_CALL ScTableColumnObj::getTypes()
 {
-    static const uno::Sequence<uno::Type> aTypes = comphelper::concatSequences(
+    return comphelper::concatSequences(
         ScCellRangeObj::getTypes(),
         uno::Sequence<uno::Type> { cppu::UnoType<container::XNamed>::get() } );
-    return aTypes;
 }
 
 uno::Sequence<sal_Int8> SAL_CALL ScTableColumnObj::getImplementationId()
@@ -9317,9 +9317,8 @@ const ScRangeList& ScUniqueFormatsEntry::GetRanges()
 
     // move remaining entries from aJoinedRanges to aCompletedRanges
 
-    ScRowRangeHashMap::const_iterator aJoinedEnd = aJoinedRanges.end();
-    for ( ScRowRangeHashMap::const_iterator aJoinedIter = aJoinedRanges.begin(); aJoinedIter != aJoinedEnd; ++aJoinedIter )
-        aCompletedRanges.push_back( aJoinedIter->second );
+    for ( const auto& rEntry : aJoinedRanges )
+        aCompletedRanges.push_back( rEntry.second );
     aJoinedRanges.clear();
 
     // sort all ranges for a predictable API result
@@ -9329,9 +9328,8 @@ const ScRangeList& ScUniqueFormatsEntry::GetRanges()
     // fill and return ScRangeList
 
     aReturnRanges = new ScRangeList;
-    ScRangeVector::const_iterator aCompEnd( aCompletedRanges.end() );
-    for ( ScRangeVector::const_iterator aCompIter( aCompletedRanges.begin() ); aCompIter != aCompEnd; ++aCompIter )
-        aReturnRanges->push_back( *aCompIter );
+    for ( const auto& rCompletedRange : aCompletedRanges )
+        aReturnRanges->push_back( rCompletedRange );
     aCompletedRanges.clear();
 
     return *aReturnRanges;
@@ -9382,15 +9380,12 @@ ScUniqueCellFormatsObj::ScUniqueCellFormatsObj(ScDocShell* pDocSh, const ScRange
     // Fill the vector aRangeLists with the range lists from the hash map
 
     aRangeLists.reserve( aHashMap.size() );
-    ScUniqueFormatsHashMap::iterator aMapIter( aHashMap.begin() );
-    ScUniqueFormatsHashMap::iterator aMapEnd( aHashMap.end() );
-    while ( aMapIter != aMapEnd )
+    for ( auto& rMapEntry : aHashMap )
     {
-        ScUniqueFormatsEntry& rEntry = aMapIter->second;
+        ScUniqueFormatsEntry& rEntry = rMapEntry.second;
         const ScRangeList& rRanges = rEntry.GetRanges();
         aRangeLists.push_back( rRanges );       // copy ScRangeList
         rEntry.Clear();                         // free memory, don't hold both copies of all ranges
-        ++aMapIter;
     }
 
     // Sort the vector by first range's start position, to avoid random shuffling

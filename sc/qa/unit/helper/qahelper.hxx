@@ -134,7 +134,7 @@ SCQAHELPER_DLLPUBLIC bool checkFormulaPosition(ScDocument& rDoc, const ScAddress
 SCQAHELPER_DLLPUBLIC bool checkFormulaPositions(
     ScDocument& rDoc, SCTAB nTab, SCCOL nCol, const SCROW* pRows, size_t nRowCount);
 
-SCQAHELPER_DLLPUBLIC ScTokenArray* compileFormula(
+SCQAHELPER_DLLPUBLIC std::unique_ptr<ScTokenArray> compileFormula(
     ScDocument* pDoc, const OUString& rFormula,
     formula::FormulaGrammar::Grammar eGram = formula::FormulaGrammar::GRAM_NATIVE );
 
@@ -199,6 +199,7 @@ public:
 
     ScDocShellRef saveAndReload( ScDocShell* pShell, sal_Int32 nFormat );
 
+    std::shared_ptr<utl::TempFile> saveAs(ScDocShell* pShell, sal_Int32 nFormat);
     std::shared_ptr<utl::TempFile> exportTo(ScDocShell* pShell, sal_Int32 nFormat);
 
     void miscRowHeightsTest( TestParam const * aTestValues, unsigned int numElems );

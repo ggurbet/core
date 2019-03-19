@@ -1362,11 +1362,11 @@ void X11SalGraphicsImpl::drawPolyPolygon( sal_uInt32 nPoly,
                             pGC,
                             aXRect.x, aXRect.y, aXRect.width, aXRect.height );
         }
-   }
+    }
 
-   if( mnPenColor != SALCOLOR_NONE )
-       for( sal_uInt32 i = 0; i < nPoly; i++ )
-           drawPolyLine( pPoints[i], pPtAry[i], true );
+    if( mnPenColor != SALCOLOR_NONE )
+        for( sal_uInt32 i = 0; i < nPoly; i++ )
+            drawPolyLine( pPoints[i], pPtAry[i], true );
 }
 
 bool X11SalGraphicsImpl::drawPolyLineBezier( sal_uInt32, const SalPoint*, const PolyFlags* )
@@ -1437,7 +1437,7 @@ void X11SalGraphicsImpl::invert( sal_uInt32 nPoints,
                       Complex, CoordModeOrigin );
 }
 
-bool X11SalGraphicsImpl::drawEPS( long,long,long,long,void*,sal_uLong )
+bool X11SalGraphicsImpl::drawEPS( long,long,long,long,void*,sal_uInt32 )
 {
     return false;
 }

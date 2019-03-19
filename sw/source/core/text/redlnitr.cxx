@@ -17,8 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include <hintids.hxx>
-#include <o3tl/make_unique.hxx>
 #include <svl/whiter.hxx>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <swmodule.hxx>
@@ -92,7 +95,7 @@ CheckParaRedlineMerge(SwTextFrame & rFrame, SwTextNode & rTextNode,
         if (pStart->nContent != nLastEnd) // not 0 so we eliminate adjacent deletes
         {
             extents.emplace_back(pNode, nLastEnd, pStart->nContent.GetIndex());
-            mergedText.appendCopy(pNode->GetText(), nLastEnd, pStart->nContent.GetIndex() - nLastEnd);
+            mergedText.append(std::u16string_view(pNode->GetText()).substr(nLastEnd, pStart->nContent.GetIndex() - nLastEnd));
         }
         if (&pEnd->nNode.GetNode() != pNode)
         {
@@ -213,7 +216,7 @@ CheckParaRedlineMerge(SwTextFrame & rFrame, SwTextNode & rTextNode,
     if (nLastEnd != pNode->Len())
     {
         extents.emplace_back(pNode, nLastEnd, pNode->Len());
-        mergedText.appendCopy(pNode->GetText(), nLastEnd, pNode->Len() - nLastEnd);
+        mergedText.append(std::u16string_view(pNode->GetText()).substr(nLastEnd, pNode->Len() - nLastEnd));
     }
     if (extents.empty()) // there was no text anywhere
     {
@@ -287,7 +290,7 @@ CheckParaRedlineMerge(SwTextFrame & rFrame, SwTextNode & rTextNode,
             pSectionNode->DelFrames(rFrame.getRootFrame());
         }
     }
-    auto pRet(o3tl::make_unique<sw::MergedPara>(rFrame, std::move(extents),
+    auto pRet(std::make_unique<sw::MergedPara>(rFrame, std::move(extents),
                 mergedText.makeStringAndClear(), pParaPropsNode, &rTextNode,
                 nodes.back()));
     for (SwTextNode * pTmp : nodes)
@@ -304,7 +307,8 @@ void SwAttrIter::InitFontAndAttrHandler(
         SwTextNode const& rPropsNode,
         SwTextNode const& rTextNode,
         OUString const& rText,
-        bool const*const pbVertLayout)
+        bool const*const pbVertLayout,
+        bool const*const pbVertLayoutLRBT)
 {
     // Build a font matching the default paragraph style:
     SwFontAccess aFontAccess( &rPropsNode.GetAnyFormatColl(), m_pViewShell );
@@ -325,7 +329,10 @@ void SwAttrIter::InitFontAndAttrHandler(
     // if it's a re-init, the vert flag never changes
     if (pbVertLayout ? *pbVertLayout : m_aAttrHandler.IsVertLayout())
     {
-        m_pFont->SetVertical( m_pFont->GetOrientation(), true );
+        bool bVertLayoutLRBT = false;
+        if (pbVertLayoutLRBT)
+            bVertLayoutLRBT = *pbVertLayoutLRBT;
+        m_pFont->SetVertical(m_pFont->GetOrientation(), true, bVertLayoutLRBT);
     }
 
     // Initialize the default attribute of the attribute handler
@@ -382,12 +389,17 @@ void SwAttrIter::CtorInitAttrIter(SwTextNode & rTextNode,
 
     // set font to vertical if frame layout is vertical
     bool bVertLayout = false;
+    bool bVertLayoutLRBT = false;
     bool bRTL = false;
     if ( pFrame )
     {
         if ( pFrame->IsVertical() )
         {
             bVertLayout = true;
+        }
+        if (pFrame->IsVertLRBT())
+        {
+            bVertLayoutLRBT = true;
         }
         bRTL = pFrame->IsRightToLeft();
         m_pMergedPara = pFrame->GetMergedPara();
@@ -402,7 +414,8 @@ void SwAttrIter::CtorInitAttrIter(SwTextNode & rTextNode,
             m_pMergedPara ? *m_pMergedPara->pParaPropsNode : rTextNode,
             rTextNode,
             m_pMergedPara ? m_pMergedPara->mergedText : rTextNode.GetText(),
-            & bVertLayout);
+            & bVertLayout,
+            & bVertLayoutLRBT);
 
     m_nStartIndex = m_nEndIndex = m_nPosition = m_nChgCnt = 0;
     m_nPropFont = 0;
@@ -570,7 +583,7 @@ short SwRedlineItr::Seek(SwFont& rFnt,
                     {
                         SwAttrPool& rPool =
                             const_cast<SwDoc&>(m_rDoc).GetAttrPool();
-                        m_pSet = o3tl::make_unique<SfxItemSet>(rPool, svl::Items<RES_CHRATR_BEGIN, RES_CHRATR_END-1>{});
+                        m_pSet = std::make_unique<SfxItemSet>(rPool, svl::Items<RES_CHRATR_BEGIN, RES_CHRATR_END-1>{});
                     }
 
                     if( 1 < pRed->GetStackCount() )

@@ -46,6 +46,7 @@
 #include <editeng/formatbreakitem.hxx>
 #include <editeng/keepitem.hxx>
 #include <editeng/brushitem.hxx>
+#include <editeng/frmdiritem.hxx>
 #include <fmtpdsc.hxx>
 #include <fmtornt.hxx>
 #include <fmtfsize.hxx>
@@ -147,7 +148,7 @@ void SvXMLExportItemMapper::exportXML( const SvXMLExport& rExport,
         }
         if( dynamic_cast<const SvXMLAttrContainerItem*>( &rItem) !=  nullptr )
         {
-            SvXMLNamespaceMap *pNewNamespaceMap = nullptr;
+            std::unique_ptr<SvXMLNamespaceMap> pNewNamespaceMap;
             const SvXMLNamespaceMap *pNamespaceMap = &rNamespaceMap;
 
             const SvXMLAttrContainerItem *pUnknown =
@@ -169,9 +170,9 @@ void SvXMLExportItemMapper::exportXML( const SvXMLExport& rExport,
                     {
                         if( !pNewNamespaceMap )
                         {
-                            pNewNamespaceMap =
-                                        new SvXMLNamespaceMap( rNamespaceMap );
-                            pNamespaceMap = pNewNamespaceMap;
+                            pNewNamespaceMap.reset(
+                                        new SvXMLNamespaceMap( rNamespaceMap ));
+                            pNamespaceMap = pNewNamespaceMap.get();
                         }
                         pNewNamespaceMap->Add( sPrefix, sNamespace );
 
@@ -188,8 +189,6 @@ void SvXMLExportItemMapper::exportXML( const SvXMLExport& rExport,
                                             pUnknown->GetAttrValue(i) );
                 }
             }
-
-            delete pNewNamespaceMap;
         }
         else
         {
@@ -199,16 +198,41 @@ void SvXMLExportItemMapper::exportXML( const SvXMLExport& rExport,
     }
     else if( 0 == (rEntry.nMemberId & MID_SW_FLAG_ELEMENT_ITEM_EXPORT) )
     {
-        OUString aValue;
-        if( QueryXMLValue(rItem, aValue,
-                          static_cast< sal_uInt16 >(
-                                          rEntry.nMemberId & MID_SW_FLAG_MASK ),
-                             rUnitConverter ) )
+        bool bDone = false;
+        switch (rItem.Which())
         {
-            const OUString sName(
-                rNamespaceMap.GetQNameByKey( rEntry.nNameSpace,
-                                             GetXMLToken(rEntry.eLocalName)));
-            rAttrList.AddAttribute( sName, aValue );
+            case RES_FRAMEDIR:
+            {
+                // Write bt-lr to the extension namespace, handle other values
+                // below.
+                auto pDirection = static_cast<const SvxFrameDirectionItem*>(&rItem);
+                if (rEntry.nNameSpace == XML_NAMESPACE_LO_EXT
+                    && pDirection->GetValue() == SvxFrameDirection::Vertical_LR_BT)
+                {
+                    const OUString sName(rNamespaceMap.GetQNameByKey(
+                        XML_NAMESPACE_LO_EXT, GetXMLToken(XML_WRITING_MODE)));
+                    rAttrList.AddAttribute(sName, GetXMLToken(XML_BT_LR));
+                }
+                if (rEntry.nNameSpace == XML_NAMESPACE_LO_EXT
+                    || pDirection->GetValue() == SvxFrameDirection::Vertical_LR_BT)
+                    bDone = true;
+                break;
+            }
+        }
+
+        if (!bDone)
+        {
+            OUString aValue;
+            if( QueryXMLValue(rItem, aValue,
+                              static_cast< sal_uInt16 >(
+                                              rEntry.nMemberId & MID_SW_FLAG_MASK ),
+                                 rUnitConverter ) )
+            {
+                const OUString sName(
+                    rNamespaceMap.GetQNameByKey( rEntry.nNameSpace,
+                                                 GetXMLToken(rEntry.eLocalName)));
+                rAttrList.AddAttribute( sName, aValue );
+            }
         }
     }
 }
@@ -1064,7 +1088,7 @@ bool SvXMLExportItemMapper::QueryXMLValue(
             bOk = rItem.QueryValue( aAny );
             if( bOk )
             {
-                const XMLPropertyHandler* pWritingModeHandler =
+                std::unique_ptr<XMLPropertyHandler> pWritingModeHandler =
                     XMLPropertyHandlerFactory::CreatePropertyHandler(
                         XML_TYPE_TEXT_WRITING_MODE_WITH_DEFAULT );
                 OUString sValue;
@@ -1072,8 +1096,6 @@ bool SvXMLExportItemMapper::QueryXMLValue(
                                                       rUnitConverter );
                 if( bOk )
                     aOut.append( sValue );
-
-                delete pWritingModeHandler;
             }
         }
         break;

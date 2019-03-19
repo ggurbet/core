@@ -19,17 +19,12 @@
 
 #include <sal/config.h>
 #include <sal/log.hxx>
-#include <sfx2/docfile.hxx>
 
 #include <qproform.hxx>
 #include <qpro.hxx>
 #include <qprostyle.hxx>
 
-#include <global.hxx>
 #include <scerrors.hxx>
-#include <docpool.hxx>
-#include <patattr.hxx>
-#include <filter.hxx>
 #include <ftools.hxx>
 #include <document.hxx>
 #include <formulacell.hxx>
@@ -118,7 +113,7 @@ ErrCode ScQProReader::readSheet( SCTAB nTab, ScDocument* pDoc, ScQProStyle *pSty
                     eRet = SCERR_IMPORT_FORMAT;
                 else
                 {
-                    ScFormulaCell* pFormula = new ScFormulaCell(pDoc, aAddr, pArray.release());
+                    ScFormulaCell* pFormula = new ScFormulaCell(pDoc, aAddr, std::move(pArray));
                     nStyle = nStyle >> 3;
                     pFormula->AddRecalcMode( ScRecalcMode::ONLOAD_ONCE );
                     pStyle->SetFormat( pDoc, nCol, nRow, nTab, nStyle );

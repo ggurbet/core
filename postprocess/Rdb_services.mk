@@ -154,13 +154,11 @@ $(eval $(call gb_Rdb_add_components,services,\
 	$(if $(filter-out WNT,$(OS)), \
 		embeddedobj/source/msole/emboleobj \
 	) \
-	$(if $(DISABLE_ATL),, \
-		$(if $(filter WNT,$(OS)), \
-			embeddedobj/source/msole/emboleobj.windows \
-			embedserv/util/emser \
-			extensions/source/ole/oleautobridge \
-			winaccessibility/source/service/winaccessibility \
-		) \
+	$(if $(filter WNT,$(OS)), \
+		embeddedobj/source/msole/emboleobj.windows \
+		embedserv/util/emser \
+		extensions/source/ole/oleautobridge \
+		winaccessibility/source/service/winaccessibility \
 	) \
 	$(if $(WITH_WEBDAV), \
 		ucb/source/ucp/webdav-neon/ucpdav1 \
@@ -295,7 +293,7 @@ $(eval $(call gb_Rdb_add_components,services,\
 	desktop/source/offacc/offacc \
 	$(if $(DISABLE_GUI),,desktop/source/splash/spl) \
 	extensions/source/abpilot/abp \
-	extensions/source/config/ldap/ldapbe2 \
+	$(if $(ENABLE_LDAP),extensions/source/config/ldap/ldapbe2) \
 	$(if $(filter WNT,$(OS)),\
 		extensions/source/config/WinUserInfo/WinUserInfoBe \
 	) \

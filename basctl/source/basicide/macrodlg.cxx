@@ -29,6 +29,7 @@
 #include <basic/basmgr.hxx>
 #include <basic/sbmeth.hxx>
 #include <basic/sbmod.hxx>
+#include <com/sun/star/script/XLibraryContainer2.hpp>
 
 #include <sfx2/dispatch.hxx>
 #include <sfx2/minfitem.hxx>
@@ -225,20 +226,16 @@ void MacroChooser::EnableButton(weld::Button& rButton, bool bEnable)
 
 SbMethod* MacroChooser::GetMacro()
 {
-    SbMethod* pMethod = nullptr;
-    m_xBasicBox->get_cursor(m_xBasicBoxIter.get());
+    if (!m_xBasicBox->get_cursor(m_xBasicBoxIter.get()))
+        return nullptr;
     SbModule* pModule = m_xBasicBox->FindModule(m_xBasicBoxIter.get());
-    if (pModule)
-    {
-        if (m_xMacroBox->get_selected(m_xMacroBoxIter.get()))
-        {
-            OUString aMacroName(m_xMacroBox->get_text(*m_xMacroBoxIter));
-            pMethod = pModule->FindMethod(aMacroName, SbxClassType::Method);
-        }
-    }
-    return pMethod;
+    if (!pModule)
+        return nullptr;
+    if (!m_xMacroBox->get_selected(m_xMacroBoxIter.get()))
+        return nullptr;
+    OUString aMacroName(m_xMacroBox->get_text(*m_xMacroBoxIter));
+    return pModule->FindMethod(aMacroName, SbxClassType::Method);
 }
-
 
 void MacroChooser::DeleteMacro()
 {
@@ -342,7 +339,7 @@ SbMethod* MacroChooser::CreateMacro()
     return pMethod;
 }
 
-void MacroChooser::SaveSetCurEntry(weld::TreeView& rBox, weld::TreeIter& rEntry)
+void MacroChooser::SaveSetCurEntry(weld::TreeView& rBox, const weld::TreeIter& rEntry)
 {
     // the edit would be killed by the highlight otherwise:
 

@@ -22,7 +22,6 @@
 
 #include <cassert>
 
-#include <scitems.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
 #include <sfx2/app.hxx>
@@ -56,7 +55,6 @@
 #include <clipparam.hxx>
 #include <rowheightcontext.hxx>
 #include <refupdatecontext.hxx>
-#include <o3tl/make_unique.hxx>
 
 using com::sun::star::script::XLibraryContainer;
 using com::sun::star::script::vba::XVBACompatibility;
@@ -325,9 +323,9 @@ ScDBData* ScDocShell::GetDBData( const ScRange& rMarked, ScGetDBMode eMode, ScGe
             {
                 m_aDocument.CompileHybridFormula();
 
-                GetUndoManager()->AddUndoAction( o3tl::make_unique<ScUndoDBData>( this,
+                GetUndoManager()->AddUndoAction( std::make_unique<ScUndoDBData>( this,
                         std::move(pUndoColl),
-                        o3tl::make_unique<ScDBCollection>( *pColl ) ) );
+                        std::make_unique<ScDBCollection>( *pColl ) ) );
             }
 
             //  no longer needed to register new range at the Sba
@@ -599,7 +597,7 @@ void ScDocShell::DoConsolidate( const ScConsolidateParam& rParam, bool bRecord )
                 m_aDocument.CopyToDocument(aOldDest, InsertDeleteFlags::ALL, false, *pUndoDoc);
 
             GetUndoManager()->AddUndoAction(
-                    o3tl::make_unique<ScUndoConsolidate>( this, aDestArea, rParam, std::move(pUndoDoc),
+                    std::make_unique<ScUndoConsolidate>( this, aDestArea, rParam, std::move(pUndoDoc),
                                             true, nInsertCount, std::move(pUndoTab), std::move(pUndoData) ) );
         }
         else
@@ -616,7 +614,7 @@ void ScDocShell::DoConsolidate( const ScConsolidateParam& rParam, bool bRecord )
                 m_aDocument.CopyToDocument(aOldDest, InsertDeleteFlags::ALL, false, *pUndoDoc);
 
             GetUndoManager()->AddUndoAction(
-                    o3tl::make_unique<ScUndoConsolidate>( this, aDestArea, rParam, std::move(pUndoDoc),
+                    std::make_unique<ScUndoConsolidate>( this, aDestArea, rParam, std::move(pUndoDoc),
                                             false, 0, nullptr, std::move(pUndoData) ) );
         }
     }
@@ -717,7 +715,7 @@ void ScDocShell::UseScenario( SCTAB nTab, const OUString& rName, bool bRecord )
                     }
 
                     GetUndoManager()->AddUndoAction(
-                        o3tl::make_unique<ScUndoUseScenario>( this, aScenMark,
+                        std::make_unique<ScUndoUseScenario>( this, aScenMark,
                                         ScArea( nTab,nStartCol,nStartRow,nEndCol,nEndRow ),
                                         std::move(pUndoDoc), rName ) );
                 }
@@ -767,7 +765,7 @@ void ScDocShell::ModifyScenario( SCTAB nTab, const OUString& rName, const OUStri
     ScScenarioFlags nOldFlags;
     m_aDocument.GetScenarioData( nTab, aOldComment, aOldColor, nOldFlags );
     GetUndoManager()->AddUndoAction(
-        o3tl::make_unique<ScUndoScenarioFlags>(this, nTab,
+        std::make_unique<ScUndoScenarioFlags>(this, nTab,
                 aOldName, rName, aOldComment, rComment,
                 aOldColor, rColor, nOldFlags, nFlags) );
 
@@ -812,7 +810,7 @@ SCTAB ScDocShell::MakeScenario( SCTAB nTab, const OUString& rName, const OUStrin
             if (bRecord)
             {
                 GetUndoManager()->AddUndoAction(
-                        o3tl::make_unique<ScUndoMakeScenario>( this, nTab, nNewTab,
+                        std::make_unique<ScUndoMakeScenario>( this, nTab, nNewTab,
                                                 rName, rComment, rColor, nFlags, rMark ));
             }
 
@@ -938,7 +936,7 @@ bool ScDocShell::MoveTable( SCTAB nSrcTab, SCTAB nDestTab, bool bCopy, bool bRec
                 unique_ptr< vector<SCTAB> > pSrcList(new vector<SCTAB>(1, nSrcTab));
                 unique_ptr< vector<SCTAB> > pDestList(new vector<SCTAB>(1, nDestTab));
                 GetUndoManager()->AddUndoAction(
-                        o3tl::make_unique<ScUndoCopyTab>(this, std::move(pSrcList), std::move(pDestList)));
+                        std::make_unique<ScUndoCopyTab>(this, std::move(pSrcList), std::move(pDestList)));
             }
 
             bool bVbaEnabled = m_aDocument.IsInVBAMode();
@@ -992,10 +990,10 @@ bool ScDocShell::MoveTable( SCTAB nSrcTab, SCTAB nDestTab, bool bCopy, bool bRec
             return true;    // nothing to do, but valid
         }
 
-        ScProgress* pProgress = new ScProgress(this, ScResId(STR_UNDO_MOVE_TAB),
-                                                m_aDocument.GetCodeCount(), true);
-        bool bDone = m_aDocument.MoveTab( nSrcTab, nDestTab, pProgress );
-        delete pProgress;
+        std::unique_ptr<ScProgress> pProgress(new ScProgress(this, ScResId(STR_UNDO_MOVE_TAB),
+                                                m_aDocument.GetCodeCount(), true));
+        bool bDone = m_aDocument.MoveTab( nSrcTab, nDestTab, pProgress.get() );
+        pProgress.reset();
         if (!bDone)
         {
             return false;
@@ -1005,7 +1003,7 @@ bool ScDocShell::MoveTable( SCTAB nSrcTab, SCTAB nDestTab, bool bCopy, bool bRec
             unique_ptr< vector<SCTAB> > pSrcList(new vector<SCTAB>(1, nSrcTab));
             unique_ptr< vector<SCTAB> > pDestList(new vector<SCTAB>(1, nDestTab));
             GetUndoManager()->AddUndoAction(
-                    o3tl::make_unique<ScUndoMoveTab>(this, std::move(pSrcList), std::move(pDestList)));
+                    std::make_unique<ScUndoMoveTab>(this, std::move(pSrcList), std::move(pDestList)));
         }
 
         Broadcast( ScTablesHint( SC_TAB_MOVED, nSrcTab, nDestTab ) );

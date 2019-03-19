@@ -25,6 +25,7 @@
 #include <basic/basrdll.hxx>
 #include <basic/sbmeth.hxx>
 #include <basic/sbmod.hxx>
+#include <basic/sberrors.hxx>
 #include <tools/svlibrary.h>
 #include <svtools/asynclink.hxx>
 #include <svl/stritem.hxx>
@@ -490,7 +491,7 @@ bool SfxApplication::IsXScriptURL( const OUString& rScriptURL )
 }
 
 OUString
-SfxApplication::ChooseScript()
+SfxApplication::ChooseScript(weld::Window *pParent)
 {
     OUString aScriptURL;
 
@@ -502,12 +503,11 @@ SfxApplication::ChooseScript()
     const SfxFrame* pFrame = pViewFrame ? &pViewFrame->GetFrame() : nullptr;
     uno::Reference< frame::XFrame > xFrame( pFrame ? pFrame->GetFrameInterface() : uno::Reference< frame::XFrame >() );
 
-    ScopedVclPtr<AbstractScriptSelectorDialog> pDlg(
-        pFact->CreateScriptSelectorDialog( nullptr, xFrame ));
+    ScopedVclPtr<AbstractScriptSelectorDialog> pDlg(pFact->CreateScriptSelectorDialog(pParent, xFrame));
 
     SAL_INFO( "sfx.appl", "done, now exec it");
 
-      sal_uInt16 nRet = pDlg->Execute();
+    sal_uInt16 nRet = pDlg->Execute();
 
     SAL_INFO( "sfx.appl", "has returned");
 
@@ -515,6 +515,8 @@ SfxApplication::ChooseScript()
     {
         aScriptURL = pDlg->GetScriptURL();
     }
+#else
+    (void) pParent;
 #endif
     return aScriptURL;
 }

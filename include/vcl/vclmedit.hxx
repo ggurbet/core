@@ -28,7 +28,6 @@
 #include <memory>
 
 class ImpVclMEdit;
-class Timer;
 class ExtTextEngine;
 class TextView;
 
@@ -80,7 +79,6 @@ class VCL_DLLPUBLIC VclMultiLineEdit : public Edit
 private:
     std::unique_ptr<ImpVclMEdit> pImpVclMEdit;
 
-    OUString          aSaveValue;
     Link<Edit&,void>  aModifyHdlLink;
 
     std::unique_ptr<Timer> pUpdateDataTimer;
@@ -99,7 +97,6 @@ protected:
 
     TextView*       GetTextView() const;
     ExtTextEngine*  GetTextEngine() const;
-    ScrollBar*      GetVScrollBar() const;
 
     virtual void ApplySettings(vcl::RenderContext& rRenderContext) override;
 public:
@@ -151,8 +148,6 @@ public:
 
     void            SetRightToLeft( bool bRightToLeft );
 
-    void            SaveValue()                         { aSaveValue = GetText(); }
-
     void            SetModifyHdl( const Link<Edit&,void>& rLink ) override { aModifyHdlLink = rLink; }
     const Link<Edit&,void>&   GetModifyHdl() const override                { return aModifyHdlLink; }
 
@@ -168,13 +163,14 @@ public:
 
     void            Draw( OutputDevice* pDev, const Point& rPos, const Size& rSize, DrawFlags nFlags ) override;
 
-    void            SetLeftMargin( sal_uInt16 n );
-
     void            DisableSelectionOnFocus();
 
     void            EnableCursor( bool bEnable );
 
+    ScrollBar&      GetVScrollBar() const;
+
     TextWindow*     GetTextWindow();
+
     virtual FactoryFunction GetUITestFactory() const override;
 
     virtual bool set_property(const OString &rKey, const OUString &rValue) override;

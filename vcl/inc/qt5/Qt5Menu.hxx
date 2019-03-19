@@ -34,16 +34,18 @@ private:
     bool mbMenuBar;
     QMenuBar* mpQMenuBar;
     QMenu* mpQMenu;
-    QActionGroup* mpQActionGroup;
 
-    void DoFullMenuUpdate(Menu* pMenuBar, QMenu* pParentMenu = nullptr);
+    void DoFullMenuUpdate(Menu* pMenuBar);
     static void NativeItemText(OUString& rItemText);
 
-    QMenu* InsertMenuItem(Qt5MenuItem* pSalMenuItem, unsigned nPos);
+    void InsertMenuItem(Qt5MenuItem* pSalMenuItem, unsigned nPos);
+
+    void ReinitializeActionGroup(unsigned nPos);
+    void ResetAllActionGroups();
+    void UpdateActionGroupItem(Qt5MenuItem* pSalMenuItem);
 
 public:
     Qt5Menu(bool bMenuBar);
-    virtual ~Qt5Menu() override;
 
     virtual bool VisibleMenuBar() override; // must return TRUE to actually DISPLAY native menu bars
 
@@ -53,6 +55,7 @@ public:
     virtual void SetFrame(const SalFrame* pFrame) override;
     const Qt5Frame* GetFrame() const;
     Qt5Menu* GetTopLevel();
+    virtual void SetItemBits(unsigned nPos, MenuItemBits nBits) override;
     virtual void CheckItem(unsigned nPos, bool bCheck) override;
     virtual void EnableItem(unsigned nPos, bool bEnable) override;
     virtual void ShowItem(unsigned nPos, bool bShow) override;
@@ -89,6 +92,7 @@ public:
     Qt5Menu* mpSubMenu; // Submenu of this item (if defined)
     std::unique_ptr<QAction> mpAction; // action corresponding to this item
     std::unique_ptr<QMenu> mpMenu; // menu corresponding to this item
+    std::shared_ptr<QActionGroup> mpActionGroup; // empty if it's a separator element
     sal_uInt16 mnId; // Item ID
     MenuItemType mnType; // Item type
     bool mbVisible; // Item visibility.

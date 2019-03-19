@@ -64,6 +64,7 @@
 #include <com/sun/star/beans/XMultiPropertySet.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/xml/AttributeData.hpp>
+#include <com/sun/star/xml/dom/XDocument.hpp>
 #include <com/sun/star/xml/sax/XFastSAXSerializable.hpp>
 #include <com/sun/star/drawing/HomogenMatrix3.hpp>
 #include <com/sun/star/drawing/TextVerticalAdjust.hpp>
@@ -91,6 +92,7 @@
 #include <vcl/graph.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/wmfexternal.hxx>
 #include <sal/log.hxx>
 #include <svx/unoshape.hxx>
 
@@ -177,6 +179,8 @@ Shape::Shape( const ShapePtr& pSourceShape )
 , maDiagramDoms( pSourceShape->maDiagramDoms )
 , mnZOrder(pSourceShape->mnZOrder)
 , mnZOrderOff(pSourceShape->mnZOrderOff)
+, mnDataNodeType(pSourceShape->mnDataNodeType)
+, mfAspectRatio(pSourceShape->mfAspectRatio)
 {}
 
 Shape::~Shape()
@@ -255,7 +259,8 @@ void Shape::addShape(
         const Reference< XShapes >& rxShapes,
         const basegfx::B2DHomMatrix& aTransformation,
         FillProperties& rShapeOrParentShapeFillProps,
-        ShapeIdMap* pShapeMap )
+        ShapeIdMap* pShapeMap,
+        bool bInGroup )
 {
     SAL_INFO("oox.drawingml", "Shape::addShape: id='" << msId << "'");
 
@@ -265,7 +270,7 @@ void Shape::addShape(
         if( !sServiceName.isEmpty() )
         {
             basegfx::B2DHomMatrix aMatrix( aTransformation );
-            Reference< XShape > xShape( createAndInsert( rFilterBase, sServiceName, pTheme, rxShapes, false, false, aMatrix, rShapeOrParentShapeFillProps ) );
+            Reference< XShape > xShape( createAndInsert( rFilterBase, sServiceName, pTheme, rxShapes, false, false, aMatrix, rShapeOrParentShapeFillProps, bInGroup ) );
 
             if( pShapeMap && !msId.isEmpty() )
             {
@@ -279,8 +284,9 @@ void Shape::addShape(
 
             if( meFrameType == FRAMETYPE_DIAGRAM )
             {
+                keepDiagramCompatibilityInfo();
                 if( !SvtFilterOptions::Get().IsSmartArt2Shape() )
-                    keepDiagramCompatibilityInfo( rFilterBase );
+                    convertSmartArtToMetafile( rFilterBase );
             }
         }
     }
@@ -390,7 +396,7 @@ void Shape::addChildren(
     for (auto const& child : rMaster.maChildren)
     {
         child->setMasterTextListStyle( mpMasterTextListStyle );
-        child->addShape( rFilterBase, pTheme, rxShapes, aChildTransformation, getFillProperties(), pShapeMap );
+        child->addShape( rFilterBase, pTheme, rxShapes, aChildTransformation, getFillProperties(), pShapeMap, true );
     }
 }
 
@@ -423,7 +429,7 @@ static SdrTextHorzAdjust lcl_convertAdjust( ParagraphAdjust eAdjust )
     return SDRTEXTHORZADJUST_LEFT;
 }
 
-static void lcl_createPresetShape(uno::Reference<drawing::XShape>& xShape,
+static void lcl_createPresetShape(const uno::Reference<drawing::XShape>& xShape,
                                          const OUString& rClass, const OUString& rPresetType,
                                          const CustomShapePropertiesPtr& pCustomShapePropertiesPtr,
                                          const TextBodyPtr& pTextBody,
@@ -585,7 +591,8 @@ Reference< XShape > const & Shape::createAndInsert(
         bool bClearText,
         bool bDoNotInsertEmptyTextBody,
         basegfx::B2DHomMatrix& aParentTransformation,
-        FillProperties& rShapeOrParentShapeFillProps )
+        FillProperties& rShapeOrParentShapeFillProps,
+        bool bInGroup )
 {
     bool bIsEmbMedia = false;
     SAL_INFO("oox.drawingml", "Shape::createAndInsert: id='" << msId << "' service='" << rServiceName << "'");
@@ -671,8 +678,8 @@ Reference< XShape > const & Shape::createAndInsert(
             maSize.Height ? maSize.Height : 1.0 );
     }
 
-    bool bInGroup = !aParentTransformation.isIdentity();
-    if( mbFlipH || mbFlipV || mnRotation != 0 || bInGroup )
+    bool bNoTranslation = !aParentTransformation.isIdentity();
+    if( mbFlipH || mbFlipV || mnRotation != 0 || bNoTranslation )
     {
         // calculate object's center
         basegfx::B2DPoint aCenter(0.5, 0.5);
@@ -767,7 +774,7 @@ Reference< XShape > const & Shape::createAndInsert(
             // tdf#106792 Not needed anymore due to the change in SdrPathObj::NbcResize:
             // tdf#96674: Guard against zero width or height.
 
-            if (bIsWriter && bInGroup)
+            if (bIsWriter && bNoTranslation)
                 // Writer's draw page is in twips, and these points get passed
                 // to core without any unit conversion when Writer
                 // postprocesses only the group shape itself.
@@ -827,6 +834,11 @@ Reference< XShape > const & Shape::createAndInsert(
             Reference< container::XNamed > xNamed( mxShape, UNO_QUERY );
             if( xNamed.is() )
                 xNamed->setName( msName );
+        }
+        if( !msDescription.isEmpty() )
+        {
+            const OUString sDescription( "Description" );
+            xSet->setPropertyValue( sDescription, Any( msDescription ) );
         }
         if (aServiceName != "com.sun.star.text.TextFrame")
             rxShapes->add( mxShape );
@@ -1181,35 +1193,35 @@ Reference< XShape > const & Shape::createAndInsert(
             if( aShapeProps.hasProperty( PROP_FillGradient ) )
             {
                 std::vector<beans::PropertyValue> aGradientStops;
-                auto aIt = aFillProperties.maGradientProps.maGradientStops.begin();
-                for( size_t i = 0; i < aFillProperties.maGradientProps.maGradientStops.size(); ++i )
+                size_t i = 0;
+                for( const auto& [rPos, rColor] : aFillProperties.maGradientProps.maGradientStops )
                 { // for each stop in the gradient definition:
 
                     // save position
                     std::vector<beans::PropertyValue> aGradientStop;
-                    aGradientStop.push_back(comphelper::makePropertyValue("Pos", aIt->first));
+                    aGradientStop.push_back(comphelper::makePropertyValue("Pos", rPos));
 
-                    OUString sStopColorScheme = aIt->second.getSchemeName();
+                    OUString sStopColorScheme = rColor.getSchemeName();
                     if( sStopColorScheme.isEmpty() )
                     {
                         // save RGB color
-                        aGradientStop.push_back(comphelper::makePropertyValue("RgbClr", aIt->second.getColor(rGraphicHelper, nFillPhClr)));
+                        aGradientStop.push_back(comphelper::makePropertyValue("RgbClr", rColor.getColor(rGraphicHelper, nFillPhClr)));
                         // in the case of a RGB color, transformations are already applied to
                         // the color with the exception of alpha transformations. We only need
                         // to keep the transparency value to calculate the alpha value later.
-                        if( aIt->second.hasTransparency() )
-                            aGradientStop.push_back(comphelper::makePropertyValue("Transparency", aIt->second.getTransparency()));
+                        if( rColor.hasTransparency() )
+                            aGradientStop.push_back(comphelper::makePropertyValue("Transparency", rColor.getTransparency()));
                     }
                     else
                     {
                         // save color with scheme name
                         aGradientStop.push_back(comphelper::makePropertyValue("SchemeClr", sStopColorScheme));
                         // save all color transformations
-                        aGradientStop.push_back(comphelper::makePropertyValue("Transformations", aIt->second.getTransformations()));
+                        aGradientStop.push_back(comphelper::makePropertyValue("Transformations", rColor.getTransformations()));
                     }
 
                     aGradientStops.push_back(comphelper::makePropertyValue(OUString::number(i), comphelper::containerToSequence(aGradientStop)));
-                    ++aIt;
+                    ++i;
                 }
                 // If getFillProperties.moFillType is unused that means gradient is defined by a theme
                 // which is already saved into StyleFillRef property, so no need to save the explicit values too
@@ -1377,7 +1389,23 @@ Reference< XShape > const & Shape::createAndInsert(
     return mxShape;
 }
 
-void Shape::keepDiagramCompatibilityInfo( XmlFilterBase const & rFilterBase )
+void Shape::keepDiagramDrawing(XmlFilterBase& rFilterBase, const OUString& rFragmentPath)
+{
+    uno::Sequence<uno::Any> diagramDrawing(2);
+    // drawingValue[0] => dom, drawingValue[1] => Sequence of associated relationships
+
+    sal_Int32 length = maDiagramDoms.getLength();
+    maDiagramDoms.realloc(length + 1);
+
+    diagramDrawing[0] <<= rFilterBase.importFragment(rFragmentPath);
+    diagramDrawing[1] <<= resolveRelationshipsOfTypeFromOfficeDoc(rFilterBase, rFragmentPath, "image");
+
+    beans::PropertyValue* pValue = maDiagramDoms.getArray();
+    pValue[length].Name = "OOXDrawing";
+    pValue[length].Value <<= diagramDrawing;
+}
+
+void Shape::keepDiagramCompatibilityInfo()
 {
     try
     {
@@ -1408,21 +1436,33 @@ void Shape::keepDiagramCompatibilityInfo( XmlFilterBase const & rFilterBase )
             xSet->setPropertyValue( aGrabBagPropName, Any( aGrabBag ) );
         } else
             xSet->setPropertyValue( aGrabBagPropName, Any( maDiagramDoms ) );
-
-        xSet->setPropertyValue( "MoveProtect", Any( true ) );
-        xSet->setPropertyValue( "SizeProtect", Any( true ) );
-
-        // Replace existing shapes with a new Graphic Object rendered
-        // from them
-        Reference < XShape > xShape( renderDiagramToGraphic( rFilterBase ) );
-        Reference < XShapes > xShapes( mxShape, UNO_QUERY_THROW );
-        while( xShapes->hasElements() )
-            xShapes->remove( Reference < XShape > ( xShapes->getByIndex( 0 ),  UNO_QUERY_THROW ) );
-        xShapes->add( xShape );
     }
     catch( const Exception& e )
     {
         SAL_WARN( "oox.drawingml", "Shape::keepDiagramCompatibilityInfo: " << e );
+    }
+}
+
+void Shape::convertSmartArtToMetafile(XmlFilterBase const & rFilterBase)
+{
+    try
+    {
+        Reference<XPropertySet> xSet(mxShape, UNO_QUERY_THROW);
+
+        xSet->setPropertyValue("MoveProtect", Any(true));
+        xSet->setPropertyValue("SizeProtect", Any(true));
+
+        // Replace existing shapes with a new Graphic Object rendered
+        // from them
+        Reference<XShape> xShape(renderDiagramToGraphic(rFilterBase));
+        Reference<XShapes> xShapes(mxShape, UNO_QUERY_THROW);
+        while (xShapes->hasElements())
+            xShapes->remove(Reference<XShape>(xShapes->getByIndex(0), UNO_QUERY_THROW));
+        xShapes->add(xShape);
+    }
+    catch (const Exception& e)
+    {
+        SAL_WARN("oox.drawingml", "Shape::convertSmartArtToMetafile: " << e);
     }
 }
 
@@ -1787,6 +1827,12 @@ uno::Sequence< uno::Sequence< uno::Any > >  Shape::resolveRelationshipsOfTypeFro
     return xRelListTemp;
 }
 
+void Shape::cloneFillProperties()
+{
+    auto pFillProperties = std::make_shared<FillProperties>();
+    pFillProperties->assignUsed(*mpFillPropertiesPtr);
+    mpFillPropertiesPtr = pFillProperties;
+}
 } }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

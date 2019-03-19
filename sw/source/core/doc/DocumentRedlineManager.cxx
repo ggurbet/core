@@ -23,6 +23,7 @@
 #include <doc.hxx>
 #include <docsh.hxx>
 #include <fmtfld.hxx>
+#include <frmtool.hxx>
 #include <IDocumentUndoRedo.hxx>
 #include <IDocumentFieldsAccess.hxx>
 #include <IDocumentLayoutAccess.hxx>
@@ -653,7 +654,19 @@ namespace
             {
                 if( pRedl->GetExtraData() )
                     pRedl->GetExtraData()->Reject( *pRedl );
-                rArr.DeleteAndDestroy( rPos-- );
+
+                // tdf#52391 instead of hidden acception at the requested
+                // rejection, remove direct text formatting to get the potential
+                // original state of the text (FIXME if the original text
+                // has already contained direct text formatting: unfortunately
+                // ODF 1.2 doesn't support rejection of format-only changes)
+                if ( pRedl->GetType() == nsRedlineType_t::REDLINE_FORMAT )
+                {
+                    SwPaM aPam( *(pRedl->Start()), *(pRedl->End()) );
+                    rArr.DeleteAndDestroy( rPos-- );
+                    rDoc.ResetAttrs(aPam);
+                } else
+                    rArr.DeleteAndDestroy( rPos-- );
             }
             break;
 
@@ -838,6 +851,25 @@ void DocumentRedlineManager::SetRedlineFlags( RedlineFlags eMode )
             CheckAnchoredFlyConsistency(m_rDoc);
             CHECK_REDLINE( *this )
 
+            std::set<SwRootFrame *> hiddenLayouts;
+            if (eShowMode == (RedlineFlags::ShowInsert | RedlineFlags::ShowDelete))
+            {
+                // sw_redlinehide: the problem here is that MoveFromSection
+                // creates the frames wrongly (non-merged), because its own
+                // SwRangeRedline has wrong positions until after the nodes
+                // are all moved, so fix things up by force by re-creating
+                // all merged frames from scratch.
+                std::set<SwRootFrame *> const layouts(m_rDoc.GetAllLayouts());
+                for (SwRootFrame *const pLayout : layouts)
+                {
+                    if (pLayout->IsHideRedlines())
+                    {
+                        pLayout->SetHideRedlines(false);
+                        hiddenLayouts.insert(pLayout);
+                    }
+                }
+            }
+
             for (sal_uInt16 nLoop = 1; nLoop <= 2; ++nLoop)
                 for (size_t i = 0; i < mpRedlineTable->size(); ++i)
                 {
@@ -856,24 +888,13 @@ void DocumentRedlineManager::SetRedlineFlags( RedlineFlags eMode )
 
             CheckAnchoredFlyConsistency(m_rDoc);
             CHECK_REDLINE( *this )
-            m_rDoc.SetInXMLImport( bSaveInXMLImportFlag );
-            if (eShowMode == (RedlineFlags::ShowInsert | RedlineFlags::ShowDelete))
+
+            for (SwRootFrame *const pLayout : hiddenLayouts)
             {
-                // sw_redlinehide: the problem here is that MoveFromSection
-                // creates the frames wrongly (non-merged), because its own
-                // SwRangeRedline has wrong positions until after the nodes
-                // are all moved, so fix things up by force by re-creating
-                // all merged frames from scratch.
-                std::set<SwRootFrame *> const layouts(m_rDoc.GetAllLayouts());
-                for (SwRootFrame *const pLayout : layouts)
-                {
-                    if (pLayout->IsHideRedlines())
-                    {
-                        pLayout->SetHideRedlines(false);
-                        pLayout->SetHideRedlines(true);
-                    }
-                }
+                pLayout->SetHideRedlines(true);
             }
+
+            m_rDoc.SetInXMLImport( bSaveInXMLImportFlag );
         }
         meRedlineFlags = eMode;
         m_rDoc.getIDocumentState().SetModified();
@@ -1453,8 +1474,15 @@ DocumentRedlineManager::AppendRedline(SwRangeRedline* pNewRedl, bool const bCall
 
                                 bCompress = true;
                             }
-                            delete pNewRedl;
-                            pNewRedl = nullptr;
+                            if( !bCallDelete && !bDec && *pEnd == *pREnd )
+                                pRedl->SetEnd( *pStt, pREnd );
+                            else if ( bCallDelete || !bDec )
+                            {
+                                // delete new redline, except in some cases of fallthrough from previous
+                                // case ::Equal (eg. same portion w:del in w:ins in OOXML import)
+                                delete pNewRedl;
+                                pNewRedl = nullptr;
+                            }
                             break;
 
                         case SwComparePosition::Outside:
@@ -1889,37 +1917,40 @@ DocumentRedlineManager::AppendRedline(SwRangeRedline* pNewRedl, bool const bCall
             }
             else
             {
-                if (pStt->nContent == 0)
+                if ( bCallDelete && nsRedlineType_t::REDLINE_DELETE == pNewRedl->GetType() )
                 {
-                    // tdf#54819 to keep the style of the paragraph
-                    // after the fully deleted paragraphs (normal behaviour
-                    // of editing without change tracking), we copy its style
-                    // to the first removed paragraph.
-                    SwTextNode* pDelNode = pStt->nNode.GetNode().GetTextNode();
-                    SwTextNode* pTextNode = pEnd->nNode.GetNode().GetTextNode();
-                    if (pDelNode != nullptr && pTextNode != nullptr && pDelNode != pTextNode)
-                        pTextNode->CopyCollFormat( *pDelNode );
-                }
-                else if ( bCallDelete && nsRedlineType_t::REDLINE_DELETE == pNewRedl->GetType() )
-                {
-                    // tdf#119571 update the style of the joined paragraph
-                    // after a partially deleted paragraph to show its correct style
-                    // in "Show changes" mode, too. All removed paragraphs
-                    // get the style of the first (partially deleted) paragraph
-                    // to avoid text insertion with bad style in the deleted
-                    // area later.
-                    SwContentNode* pDelNd = pStt->nNode.GetNode().GetContentNode();
-                    SwContentNode* pTextNd = pEnd->nNode.GetNode().GetContentNode();
-                    SwTextNode* pDelNode = pStt->nNode.GetNode().GetTextNode();
-                    SwTextNode* pTextNode;
-                    SwNodeIndex aIdx( pEnd->nNode.GetNode() );
-
-                    while (pDelNode != nullptr && pTextNd != nullptr && pDelNd->GetIndex() < pTextNd->GetIndex())
+                    if ( pStt->nContent == 0 )
                     {
-                        pTextNode = pTextNd->GetTextNode();
-                        if (pTextNode && pDelNode != pTextNode )
-                            pDelNode->CopyCollFormat( *pTextNode );
-                        pTextNd = SwNodes::GoPrevious( &aIdx );
+                        // tdf#54819 to keep the style of the paragraph
+                        // after the fully deleted paragraphs (normal behaviour
+                        // of editing without change tracking), we copy its style
+                        // to the first removed paragraph.
+                        SwTextNode* pDelNode = pStt->nNode.GetNode().GetTextNode();
+                        SwTextNode* pTextNode = pEnd->nNode.GetNode().GetTextNode();
+                        if (pDelNode != nullptr && pTextNode != nullptr && pDelNode != pTextNode)
+                            pTextNode->CopyCollFormat( *pDelNode );
+                    }
+                    else
+                    {
+                        // tdf#119571 update the style of the joined paragraph
+                        // after a partially deleted paragraph to show its correct style
+                        // in "Show changes" mode, too. All removed paragraphs
+                        // get the style of the first (partially deleted) paragraph
+                        // to avoid text insertion with bad style in the deleted
+                        // area later.
+                        SwContentNode* pDelNd = pStt->nNode.GetNode().GetContentNode();
+                        SwContentNode* pTextNd = pEnd->nNode.GetNode().GetContentNode();
+                        SwTextNode* pDelNode = pStt->nNode.GetNode().GetTextNode();
+                        SwTextNode* pTextNode;
+                        SwNodeIndex aIdx( pEnd->nNode.GetNode() );
+
+                        while (pDelNode != nullptr && pTextNd != nullptr && pDelNd->GetIndex() < pTextNd->GetIndex())
+                        {
+                            pTextNode = pTextNd->GetTextNode();
+                            if (pTextNode && pDelNode != pTextNode )
+                                pDelNode->CopyCollFormat( *pTextNode );
+                            pTextNd = SwNodes::GoPrevious( &aIdx );
+                        }
                     }
                 }
                 bool const ret = mpRedlineTable->Insert( pNewRedl );
@@ -2391,7 +2422,7 @@ bool DocumentRedlineManager::AcceptRedline( SwRedlineTable::size_type nPos, bool
             if (m_rDoc.GetIDocumentUndoRedo().DoesUndo())
             {
                 m_rDoc.GetIDocumentUndoRedo().AppendUndo(
-                    o3tl::make_unique<SwUndoAcceptRedline>(*pTmp) );
+                    std::make_unique<SwUndoAcceptRedline>(*pTmp) );
             }
 
             bRet |= lcl_AcceptRedline( *mpRedlineTable, nPos, bCallDelete );
@@ -2450,7 +2481,7 @@ bool DocumentRedlineManager::AcceptRedline( const SwPaM& rPam, bool bCallDelete 
     if (m_rDoc.GetIDocumentUndoRedo().DoesUndo())
     {
         m_rDoc.GetIDocumentUndoRedo().StartUndo( SwUndoId::ACCEPT_REDLINE, nullptr );
-        m_rDoc.GetIDocumentUndoRedo().AppendUndo( o3tl::make_unique<SwUndoAcceptRedline>( aPam ));
+        m_rDoc.GetIDocumentUndoRedo().AppendUndo( std::make_unique<SwUndoAcceptRedline>( aPam ));
     }
 
     int nRet = lcl_AcceptRejectRedl( lcl_AcceptRedline, *mpRedlineTable,
@@ -2533,7 +2564,7 @@ bool DocumentRedlineManager::RejectRedline( SwRedlineTable::size_type nPos, bool
             if (m_rDoc.GetIDocumentUndoRedo().DoesUndo())
             {
                 m_rDoc.GetIDocumentUndoRedo().AppendUndo(
-                    o3tl::make_unique<SwUndoRejectRedline>( *pTmp ) );
+                    std::make_unique<SwUndoRejectRedline>( *pTmp ) );
             }
 
             bRet |= lcl_RejectRedline( *mpRedlineTable, nPos, bCallDelete );
@@ -2592,7 +2623,7 @@ bool DocumentRedlineManager::RejectRedline( const SwPaM& rPam, bool bCallDelete 
     if (m_rDoc.GetIDocumentUndoRedo().DoesUndo())
     {
         m_rDoc.GetIDocumentUndoRedo().StartUndo( SwUndoId::REJECT_REDLINE, nullptr );
-        m_rDoc.GetIDocumentUndoRedo().AppendUndo( o3tl::make_unique<SwUndoRejectRedline>(aPam) );
+        m_rDoc.GetIDocumentUndoRedo().AppendUndo( std::make_unique<SwUndoRejectRedline>(aPam) );
     }
 
     int nRet = lcl_AcceptRejectRedl( lcl_RejectRedline, *mpRedlineTable,

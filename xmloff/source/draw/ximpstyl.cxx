@@ -24,10 +24,10 @@
 #include <xmloff/xmluconv.hxx>
 #include "ximpnote.hxx"
 #include <tools/debug.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
 
+#include <com/sun/star/style/XStyle.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/presentation/XPresentationPage.hpp>
@@ -48,6 +48,7 @@
 #include <xmloff/XMLGraphicsDefaultStyle.hxx>
 #include <XMLNumberStylesImport.hxx>
 #include <xmloff/xmlerror.hxx>
+#include <xmloff/table/XMLTableImport.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -636,7 +637,7 @@ void SdXMLPresentationPageLayoutContext::EndElement()
                     {
                         mnTypeId = AUTOLAYOUT_4CLIPART;
                     }
-                     break;
+                    break;
 
                 }
                 case 7:
@@ -885,8 +886,8 @@ SdXMLStylesContext::SdXMLStylesContext(
     mbIsAutoStyle(bIsAutoStyle)
 {
     Reference< uno::XComponentContext > xContext = rImport.GetComponentContext();
-    mpNumFormatter = o3tl::make_unique<SvNumberFormatter>( xContext, LANGUAGE_SYSTEM );
-    mpNumFmtHelper = o3tl::make_unique<SvXMLNumFmtHelper>( mpNumFormatter.get(), xContext );
+    mpNumFormatter = std::make_unique<SvNumberFormatter>( xContext, LANGUAGE_SYSTEM );
+    mpNumFmtHelper = std::make_unique<SvXMLNumFmtHelper>( mpNumFormatter.get(), xContext );
 }
 
 SvXMLStyleContext* SdXMLStylesContext::CreateStyleChildContext(

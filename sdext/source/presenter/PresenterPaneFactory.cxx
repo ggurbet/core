@@ -186,24 +186,24 @@ void SAL_CALL PresenterPaneFactory::releaseResource (const Reference<XResource>&
     const OUString sPaneURL (rxResource->getResourceId()->getResourceURL());
     PresenterPaneContainer::SharedPaneDescriptor pDescriptor (
         pPaneContainer->FindPaneURL(sPaneURL));
-    if (pDescriptor.get() != nullptr)
-    {
-        pDescriptor->SetActivationState(false);
-        if (pDescriptor->mxBorderWindow.is())
-            pDescriptor->mxBorderWindow->setVisible(false);
+    if (pDescriptor.get() == nullptr)
+        return;
 
-        if (mpResourceCache != nullptr)
-        {
-            // Store the pane in the cache.
-            (*mpResourceCache)[sPaneURL] = rxResource;
-        }
-        else
-        {
-            // Dispose the pane.
-            Reference<lang::XComponent> xPaneComponent (rxResource, UNO_QUERY);
-            if (xPaneComponent.is())
-                xPaneComponent->dispose();
-        }
+    pDescriptor->SetActivationState(false);
+    if (pDescriptor->mxBorderWindow.is())
+        pDescriptor->mxBorderWindow->setVisible(false);
+
+    if (mpResourceCache != nullptr)
+    {
+        // Store the pane in the cache.
+        (*mpResourceCache)[sPaneURL] = rxResource;
+    }
+    else
+    {
+        // Dispose the pane.
+        Reference<lang::XComponent> xPaneComponent (rxResource, UNO_QUERY);
+        if (xPaneComponent.is())
+            xPaneComponent->dispose();
     }
 }
 
@@ -284,16 +284,7 @@ Reference<XResource> PresenterPaneFactory::CreatePane (
     pContainer->StorePane(xPane);
     if (pDescriptor.get() != nullptr)
     {
-        if (bIsSpritePane)
-        {
-            auto const pPane(dynamic_cast<PresenterSpritePane*>(xPane.get()));
-            pDescriptor->maSpriteProvider = [pPane](){ return pPane->GetSprite(); };
-            pDescriptor->mbIsSprite = true;
-        }
-        else
-        {
-            pDescriptor->mbIsSprite = false;
-        }
+        pDescriptor->mbIsSprite = bIsSpritePane;
 
         // Get the window of the frame and make that visible.
         Reference<awt::XWindow> xWindow (pDescriptor->mxBorderWindow, UNO_QUERY_THROW);

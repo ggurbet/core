@@ -19,7 +19,8 @@
 
 #include <sal/config.h>
 
-#include <o3tl/clamp.hxx>
+#include <algorithm>
+
 #include <sfx2/app.hxx>
 #include <svx/EnhancedCustomShape2d.hxx>
 #include <svx/svdundo.hxx>
@@ -103,7 +104,7 @@ bool lcl_twipsNeeded(const SdrView* pView)
     return false;
 }
 
-} // anonymouus ns
+} // anonymous ns
 
 
 /*************************************************************************
@@ -476,7 +477,6 @@ void SvxSlantTabPage::Construct()
     { // #i75273#
         ::tools::Rectangle aTempRect(pView->GetAllMarkedRect());
         pView->GetSdrPageView()->LogicToPagePos(aTempRect);
-        maRange = basegfx::B2DRange(aTempRect.Left(), aTempRect.Top(), aTempRect.Right(), aTempRect.Bottom());
     }
 }
 
@@ -742,14 +742,6 @@ VclPtr<SfxTabPage> SvxSlantTabPage::Create(TabPageParent pParent, const SfxItemS
 
 void SvxSlantTabPage::ActivatePage( const SfxItemSet& rSet )
 {
-    SfxRectangleItem const * pRectItem = nullptr;
-
-    if( SfxItemState::SET == rSet.GetItemState( GetWhich( SID_ATTR_TRANSFORM_INTERN ) , false, reinterpret_cast<SfxPoolItem const **>(&pRectItem) ) )
-    {
-        const ::tools::Rectangle aTempRect(pRectItem->GetValue());
-        maRange = basegfx::B2DRange(aTempRect.Left(), aTempRect.Top(), aTempRect.Right(), aTempRect.Bottom());
-    }
-
     SfxBoolItem const * bPosProtect = nullptr;
     if(SfxItemState::SET == rSet.GetItemState( GetWhich(SID_ATTR_TRANSFORM_PROTECT_POS  ) , false, reinterpret_cast<SfxPoolItem const **>(&bPosProtect) ))
     {
@@ -1347,10 +1339,10 @@ void SvxPositionSizeTabPage::SetMinMaxPosition()
     }
 
     const double fMaxLong(static_cast<double>(MetricField::ConvertValue( LONG_MAX, 0, MapUnit::Map100thMM, meDlgUnit ) - 1));
-    fLeft = o3tl::clamp(fLeft, -fMaxLong, fMaxLong);
-    fRight = o3tl::clamp(fRight, -fMaxLong, fMaxLong);
-    fTop = o3tl::clamp(fTop, - fMaxLong, fMaxLong);
-    fBottom = o3tl::clamp(fBottom, -fMaxLong, fMaxLong);
+    fLeft = std::clamp(fLeft, -fMaxLong, fMaxLong);
+    fRight = std::clamp(fRight, -fMaxLong, fMaxLong);
+    fTop = std::clamp(fTop, - fMaxLong, fMaxLong);
+    fBottom = std::clamp(fBottom, -fMaxLong, fMaxLong);
 
     // #i75273# normalizing when setting the min/max values was wrong, removed
     m_xMtrPosX->set_range(basegfx::fround64(fLeft), basegfx::fround64(fRight), FieldUnit::NONE);

@@ -54,6 +54,7 @@
 #include <charfmt.hxx>
 #include <strings.hrc>
 #include <bookmrk.hxx>
+#include <crossrefbookmark.hxx>
 #include <memory>
 
 OUString SwHistoryHint::GetDescription() const
@@ -669,11 +670,103 @@ void SwHistoryBookmark::SetInDoc( SwDoc* pDoc, bool )
 
 bool SwHistoryBookmark::IsEqualBookmark(const ::sw::mark::IMark& rBkmk)
 {
-    return m_nNode == rBkmk.GetMarkPos().nNode.GetIndex()
-        && m_nContent == rBkmk.GetMarkPos().nContent.GetIndex()
-        && m_aName == rBkmk.GetName();
+    return m_aName == rBkmk.GetName()
+        && (   (   m_nNode == rBkmk.GetMarkPos().nNode.GetIndex()
+                && m_nContent == rBkmk.GetMarkPos().nContent.GetIndex())
+            // tdf#123313 these are created in middle of ToX update
+            || dynamic_cast<sw::mark::CrossRefHeadingBookmark const*>(&rBkmk));
 }
 
+SwHistoryNoTextFieldmark::SwHistoryNoTextFieldmark(const ::sw::mark::IFieldmark& rFieldMark)
+    : SwHistoryHint(HSTRY_NOTEXTFIELDMARK)
+    , m_sType(rFieldMark.GetFieldname())
+    , m_nNode(rFieldMark.GetMarkPos().nNode.GetIndex())
+    , m_nContent(rFieldMark.GetMarkPos().nContent.GetIndex())
+{
+}
+
+void SwHistoryNoTextFieldmark::SetInDoc(SwDoc* pDoc, bool)
+{
+    ::sw::UndoGuard const undoGuard(pDoc->GetIDocumentUndoRedo());
+
+    SwNodes& rNds = pDoc->GetNodes();
+    std::unique_ptr<SwPaM> pPam;
+
+    const SwContentNode* pContentNd = rNds[m_nNode]->GetContentNode();
+    if(pContentNd)
+        pPam.reset(new SwPaM(*pContentNd, m_nContent));
+
+    if (pPam)
+    {
+        IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+        pMarkAccess->makeNoTextFieldBookmark(*pPam, OUString(), m_sType);
+    }
+}
+
+void SwHistoryNoTextFieldmark::ResetInDoc(SwDoc* pDoc)
+{
+    ::sw::UndoGuard const undoGuard(pDoc->GetIDocumentUndoRedo());
+
+    SwNodes& rNds = pDoc->GetNodes();
+    std::unique_ptr<SwPaM> pPam;
+
+    const SwContentNode* pContentNd = rNds[m_nNode]->GetContentNode();
+    if(pContentNd)
+        pPam.reset(new SwPaM(*pContentNd, m_nContent-1));
+
+    if (pPam)
+    {
+        IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+        pMarkAccess->deleteFieldmarkAt(*pPam->GetPoint());
+    }
+}
+
+SwHistoryTextFieldmark::SwHistoryTextFieldmark(const ::sw::mark::IFieldmark& rFieldMark)
+    : SwHistoryHint(HSTRY_TEXTFIELDMARK)
+    , m_sName(rFieldMark.GetName())
+    , m_sType(rFieldMark.GetFieldname())
+    , m_nNode(rFieldMark.GetMarkPos().nNode.GetIndex())
+    , m_nContent(rFieldMark.GetMarkPos().nContent.GetIndex())
+{
+}
+
+void SwHistoryTextFieldmark::SetInDoc(SwDoc* pDoc, bool)
+{
+    ::sw::UndoGuard const undoGuard(pDoc->GetIDocumentUndoRedo());
+
+    SwNodes& rNds = pDoc->GetNodes();
+    std::unique_ptr<SwPaM> pPam;
+
+    const SwContentNode* pContentNd = rNds[m_nNode]->GetContentNode();
+    if(pContentNd)
+        pPam.reset(new SwPaM(*pContentNd, m_nContent));
+
+    if (pPam)
+    {
+        IDocumentMarkAccess* pMarksAccess = pDoc->getIDocumentMarkAccess();
+        SwPaM aFieldPam(pPam->GetPoint()->nNode, pPam->GetPoint()->nContent.GetIndex(),
+                        pPam->GetPoint()->nNode, pPam->GetPoint()->nContent.GetIndex() + 5);
+        pMarksAccess->makeFieldBookmark(aFieldPam, m_sName, m_sType);
+    }
+}
+
+void SwHistoryTextFieldmark::ResetInDoc(SwDoc* pDoc)
+{
+    ::sw::UndoGuard const undoGuard(pDoc->GetIDocumentUndoRedo());
+
+    SwNodes& rNds = pDoc->GetNodes();
+    std::unique_ptr<SwPaM> pPam;
+
+    const SwContentNode* pContentNd = rNds[m_nNode]->GetContentNode();
+    if(pContentNd)
+        pPam.reset(new SwPaM(*pContentNd, m_nContent));
+
+    if (pPam)
+    {
+        IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+        pMarkAccess->deleteFieldmarkAt(*pPam->GetPoint());
+    }
+}
 
 SwHistorySetAttrSet::SwHistorySetAttrSet( const SfxItemSet& rSet,
                         sal_uLong nNodePos, const std::set<sal_uInt16> &rSetArr )

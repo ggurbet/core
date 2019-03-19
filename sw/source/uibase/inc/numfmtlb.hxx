@@ -39,7 +39,6 @@ class SW_DLLPUBLIC NumFormatListBox : public ListBox
 
     DECL_DLLPRIVATE_LINK( SelectHdl, ListBox&, void );
 
-    SAL_DLLPRIVATE static double   GetDefValue(const SvNumFormatType nFormatType);
     SAL_DLLPRIVATE void            Init();
 
 public:
@@ -64,6 +63,42 @@ public:
 
     void            SetShowLanguageControl(bool bSet){bShowLanguageControl = bSet;}
 
+    SAL_DLLPRIVATE static double   GetDefValue(const SvNumFormatType nFormatType);
+};
+
+class SW_DLLPUBLIC SwNumFormatListBox
+{
+    SvNumFormatType     nCurrFormatType;
+    bool                mbCurrFormatTypeNeedsInit;
+    sal_Int32           nStdEntry;
+    sal_uInt32          nDefFormat;
+    LanguageType        eCurLanguage;
+    bool                bUseAutomaticLanguage;//determine whether language is automatically assigned
+
+    std::unique_ptr<weld::ComboBox> mxControl;
+
+    DECL_DLLPRIVATE_LINK( SelectHdl, weld::ComboBox&, void );
+
+    SAL_DLLPRIVATE void            Init();
+
+public:
+    SwNumFormatListBox(std::unique_ptr<weld::ComboBox> xControl);
+
+    ~SwNumFormatListBox();
+
+    void            clear();
+    void            show() { mxControl->show(); }
+    void            hide() { mxControl->hide(); }
+
+    void            SetFormatType(const SvNumFormatType nFormatType);
+    void            SetDefFormat(const sal_uInt32 nDefFormat);
+    sal_uInt32      GetFormat() const;
+
+    void            CallSelectHdl();
+
+    void            set_sensitive(bool bSensitive) { mxControl->set_sensitive(bSensitive); }
+    void            connect_changed(const Link<weld::ComboBox&, void>& rLink) { mxControl->connect_changed(rLink); }
+    weld::ComboBox& get_widget() const { return *mxControl; }
 };
 
 #endif

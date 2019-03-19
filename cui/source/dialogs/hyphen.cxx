@@ -27,6 +27,7 @@
 #include <vcl/builderfactory.hxx>
 #include <sal/log.hxx>
 #include <i18nlangtag/languagetag.hxx>
+#include <tools/debug.hxx>
 
 #define HYPH_POS_CHAR       '='
 
@@ -84,7 +85,7 @@ OUString SvxHyphenWordDialog::EraseUnusableHyphens_Impl()
     // 1) we will need to discard all hyphenation positions at the end that
     // will not result in a line break where the text to the left still fits
     // on the line.
-    // 2) since as from OOo 3.2 '-' are part of a word an thus text like
+    // 2) since as from OOo 3.2 '-' are part of a word and thus text like
     // 'multi-line-editor' is regarded as single word we also need to discard those
     // hyphenation positions to the left of the rightmost '-' that is still left of
     // the rightmost valid hyphenation position according to 1)
@@ -98,7 +99,7 @@ OUString SvxHyphenWordDialog::EraseUnusableHyphens_Impl()
     // "line-ed", thus because of 2) we now need to discard all possible hyphenation
     // positions to the left of that as well. Thus in the end leaving us with just
     // 'multi-line-ed=itor' as return value for this function. (Just one valid hyphenation
-    // position for the user too choose from. However ALL the '-' characters in the word
+    // position for the user to choose from. However ALL the '-' characters in the word
     // will ALWAYS be valid implicit hyphenation positions for the core to choose from!
     // And thus even if this word is skipped in the hyphenation dialog it will still be broken
     // right after 'multi-line-' (actually it might already be broken up that way before

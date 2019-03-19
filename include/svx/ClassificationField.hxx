@@ -14,7 +14,6 @@
 #include <sal/config.h>
 #include <svx/svxdllapi.h>
 #include <editeng/flditem.hxx>
-#include <o3tl/make_unique.hxx>
 
 namespace svx {
 
@@ -77,7 +76,7 @@ public:
 
     std::unique_ptr<SvxFieldData> Clone() const override
     {
-        return o3tl::make_unique<ClassificationField>(meType, msDescription, msFullClassName, msIdentifier);
+        return std::make_unique<ClassificationField>(meType, msDescription, msFullClassName, msIdentifier);
     }
 
     bool operator==(const SvxFieldData& rOther) const override

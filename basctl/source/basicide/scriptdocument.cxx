@@ -54,6 +54,7 @@
 #include <unotools/collatorwrapper.hxx>
 
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 
 #include <comphelper/documentinfo.hxx>
 #include <comphelper/processfactory.hxx>
@@ -407,9 +408,10 @@ namespace basctl
 
             return ::basic::BasicManagerRepository::getDocumentBasicManager( m_xDocument );
         }
-        catch (const css::ucb::ContentCreationException& e)
+        catch (const css::ucb::ContentCreationException&)
         {
-            SAL_WARN( "basctl.basicide", "ScriptDocument::getBasicManager: Caught exception: " << e );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "basctl.basicide", "ScriptDocument::getBasicManager: Caught exception: " << exceptionToString(ex) );
         }
         return nullptr;
     }

@@ -27,7 +27,6 @@
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <editeng/forbiddencharacterstable.hxx>
 
-#include <svx/svxids.hrc>
 #include <svl/srchitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/scriptspaceitem.hxx>
@@ -36,71 +35,51 @@
 #include <unotools/useroptions.hxx>
 #include <officecfg/Office/Impress.hxx>
 
-#include <sfx2/printer.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/linkmgr.hxx>
-#include <svx/dialogs.hrc>
 #include <Outliner.hxx>
 #include <sdmod.hxx>
 #include <editeng/editstat.hxx>
-#include <editeng/fontitem.hxx>
-#include <svl/flagitem.hxx>
-#include <svx/svdoattr.hxx>
 #include <svx/svdotext.hxx>
-#include <editeng/bulletitem.hxx>
-#include <editeng/numitem.hxx>
-#include <svx/svditer.hxx>
 #include <editeng/unolingu.hxx>
 #include <svl/itempool.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <svx/xtable.hxx>
-#include <com/sun/star/linguistic2/XHyphenator.hpp>
-#include <com/sun/star/linguistic2/XSpellChecker1.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <editeng/outlobj.hxx>
-#include <unotools/saveopt.hxx>
 #include <comphelper/getexpandeduri.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <unotools/charclass.hxx>
 #include <comphelper/processfactory.hxx>
-#include <unotools/pathoptions.hxx>
 #include <unotools/lingucfg.hxx>
-#include <unotools/linguprops.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/xml/dom/XDocumentBuilder.hpp>
 #include <com/sun/star/xml/dom/XDocument.hpp>
-#include <com/sun/star/xml/dom/XNode.hpp>
 #include <com/sun/star/xml/dom/XNodeList.hpp>
 #include <com/sun/star/xml/dom/DocumentBuilder.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <rtl/ustring.hxx>
-#include <rtl/uri.hxx>
 
 #include <editeng/outliner.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
-#include <pglink.hxx>
-#include <sdattr.hxx>
 #include <strings.hrc>
 #include <glob.hxx>
 #include <stlpool.hxx>
-#include <sdiocmpt.hxx>
 #include <sdresid.hxx>
-#include <cusshow.hxx>
 #include <customshowlist.hxx>
 #include <DrawDocShell.hxx>
 #include <GraphicDocShell.hxx>
 #include <sdxfer.hxx>
-#include <ViewShell.hxx>
 #include <optsitem.hxx>
 #include <FrameView.hxx>
 #include <undo/undomanager.hxx>
 #include <sdundogr.hxx>
 #include <undopage.hxx>
-#include <tools/tenccvt.hxx>
 #include <vcl/settings.hxx>
 #include <unokywds.hxx>
+
+namespace com { namespace sun { namespace star { namespace linguistic2 { class XHyphenator; } } } }
+namespace com { namespace sun { namespace star { namespace linguistic2 { class XSpellChecker1; } } } }
 
 using namespace ::sd;
 using namespace ::com::sun::star;
@@ -126,7 +105,7 @@ PresentationSettings::PresentationSettings()
     mbAlwaysOnTop( false ),
     mbFullScreen( true ),
     mbAnimationAllowed( true ),
-    mnPauseTimeout( 10 ),
+    mnPauseTimeout( 0 ),
     mbShowPauseLogo( false )
 {
 }
@@ -828,21 +807,21 @@ void SdDrawDocument::NewOrLoadCompleted(DocCreationMode eMode)
 /** updates all links, only links in this document should by resolved */
 void SdDrawDocument::UpdateAllLinks()
 {
-    if (!s_pDocLockedInsertingLinks && pLinkManager && !pLinkManager->GetLinks().empty())
+    if (s_pDocLockedInsertingLinks || !pLinkManager || pLinkManager->GetLinks().empty())
+        return;
+
+    s_pDocLockedInsertingLinks = this; // lock inserting links. only links in this document should by resolved
+
+    if (mpDocSh)
     {
-        s_pDocLockedInsertingLinks = this; // lock inserting links. only links in this document should by resolved
-
-        if (mpDocSh)
-        {
-            comphelper::EmbeddedObjectContainer& rEmbeddedObjectContainer = mpDocSh->getEmbeddedObjectContainer();
-            rEmbeddedObjectContainer.setUserAllowsLinkUpdate(true);
-        }
-
-        pLinkManager->UpdateAllLinks(true, false, nullptr);  // query box: update all links?
-
-        if (s_pDocLockedInsertingLinks == this)
-            s_pDocLockedInsertingLinks = nullptr;  // unlock inserting links
+        comphelper::EmbeddedObjectContainer& rEmbeddedObjectContainer = mpDocSh->getEmbeddedObjectContainer();
+        rEmbeddedObjectContainer.setUserAllowsLinkUpdate(true);
     }
+
+    pLinkManager->UpdateAllLinks(true, false, nullptr);  // query box: update all links?
+
+    if (s_pDocLockedInsertingLinks == this)
+        s_pDocLockedInsertingLinks = nullptr;  // unlock inserting links
 }
 
 /** this loops over the presentation objects of a page and repairs some new settings
@@ -851,71 +830,71 @@ void SdDrawDocument::UpdateAllLinks()
 void SdDrawDocument::NewOrLoadCompleted( SdPage* pPage, SdStyleSheetPool* pSPool )
 {
     sd::ShapeList& rPresentationShapes( pPage->GetPresentationShapeList() );
-    if(!rPresentationShapes.isEmpty())
+    if(rPresentationShapes.isEmpty())
+        return;
+
+    // Create lists of title and outline styles
+    OUString aName = pPage->GetLayoutName();
+    aName = aName.copy( 0, aName.indexOf( SD_LT_SEPARATOR ) );
+
+    std::vector<SfxStyleSheetBase*> aOutlineList;
+    pSPool->CreateOutlineSheetList(aName,aOutlineList);
+
+    SfxStyleSheet* pTitleSheet = static_cast<SfxStyleSheet*>(pSPool->GetTitleSheet(aName));
+
+    SdrObject* pObj = nullptr;
+    rPresentationShapes.seekShape(0);
+
+    // Now look for title and outline text objects, then make those objects
+    // listeners.
+    while( (pObj = rPresentationShapes.getNextShape()) )
     {
-        // Create lists of title and outline styles
-        OUString aName = pPage->GetLayoutName();
-        aName = aName.copy( 0, aName.indexOf( SD_LT_SEPARATOR ) );
-
-        std::vector<SfxStyleSheetBase*> aOutlineList;
-        pSPool->CreateOutlineSheetList(aName,aOutlineList);
-
-        SfxStyleSheet* pTitleSheet = static_cast<SfxStyleSheet*>(pSPool->GetTitleSheet(aName));
-
-        SdrObject* pObj = nullptr;
-        rPresentationShapes.seekShape(0);
-
-        // Now look for title and outline text objects, then make those objects
-        // listeners.
-        while( (pObj = rPresentationShapes.getNextShape()) )
+        if (pObj->GetObjInventor() == SdrInventor::Default)
         {
-            if (pObj->GetObjInventor() == SdrInventor::Default)
+            OutlinerParaObject* pOPO = pObj->GetOutlinerParaObject();
+            sal_uInt16 nId = pObj->GetObjIdentifier();
+
+            if (nId == OBJ_TITLETEXT)
             {
-                OutlinerParaObject* pOPO = pObj->GetOutlinerParaObject();
-                sal_uInt16 nId = pObj->GetObjIdentifier();
+                if( pOPO && pOPO->GetOutlinerMode() == OutlinerMode::DontKnow )
+                    pOPO->SetOutlinerMode( OutlinerMode::TitleObject );
 
-                if (nId == OBJ_TITLETEXT)
+                // sal_True: don't delete "hard" attributes when doing this.
+                if (pTitleSheet)
+                    pObj->SetStyleSheet(pTitleSheet, true);
+            }
+            else if (nId == OBJ_OUTLINETEXT)
+            {
+                if( pOPO && pOPO->GetOutlinerMode() == OutlinerMode::DontKnow )
+                    pOPO->SetOutlinerMode( OutlinerMode::OutlineObject );
+
+                std::vector<SfxStyleSheetBase*>::iterator iter;
+                for (iter = aOutlineList.begin(); iter != aOutlineList.end(); ++iter)
                 {
-                    if( pOPO && pOPO->GetOutlinerMode() == OutlinerMode::DontKnow )
-                        pOPO->SetOutlinerMode( OutlinerMode::TitleObject );
+                    SfxStyleSheet* pSheet = static_cast<SfxStyleSheet*>(*iter);
 
-                    // sal_True: don't delete "hard" attributes when doing this.
-                    if (pTitleSheet)
-                        pObj->SetStyleSheet(pTitleSheet, true);
-                }
-                else if (nId == OBJ_OUTLINETEXT)
-                {
-                    if( pOPO && pOPO->GetOutlinerMode() == OutlinerMode::DontKnow )
-                        pOPO->SetOutlinerMode( OutlinerMode::OutlineObject );
-
-                    std::vector<SfxStyleSheetBase*>::iterator iter;
-                    for (iter = aOutlineList.begin(); iter != aOutlineList.end(); ++iter)
+                    if (pSheet)
                     {
-                        SfxStyleSheet* pSheet = static_cast<SfxStyleSheet*>(*iter);
+                        pObj->StartListening(*pSheet);
 
-                        if (pSheet)
-                        {
-                            pObj->StartListening(*pSheet);
-
-                            if( iter == aOutlineList.begin())
-                                // text frame listens to stylesheet of layer 1
-                                pObj->NbcSetStyleSheet(pSheet, true);
-                        }
+                        if( iter == aOutlineList.begin())
+                            // text frame listens to stylesheet of layer 1
+                            pObj->NbcSetStyleSheet(pSheet, true);
                     }
                 }
+            }
 
-                if( dynamic_cast< const SdrTextObj *>( pObj ) !=  nullptr && pObj->IsEmptyPresObj())
+            if( dynamic_cast< const SdrTextObj *>( pObj ) !=  nullptr && pObj->IsEmptyPresObj())
+            {
+                PresObjKind ePresObjKind = pPage->GetPresObjKind(pObj);
+                OUString aString( pPage->GetPresObjText(ePresObjKind) );
+
+                if (!aString.isEmpty())
                 {
-                    PresObjKind ePresObjKind = pPage->GetPresObjKind(pObj);
-                    OUString aString( pPage->GetPresObjText(ePresObjKind) );
-
-                    if (!aString.isEmpty())
-                    {
-                        SdOutliner* pInternalOutl = GetInternalOutliner();
-                        pPage->SetObjText( static_cast<SdrTextObj*>(pObj), pInternalOutl, ePresObjKind, aString );
-                        pObj->NbcSetStyleSheet( pPage->GetStyleSheetForPresObj( ePresObjKind ), true );
-                        pInternalOutl->Clear();
-                    }
+                    SdOutliner* pInternalOutl = GetInternalOutliner();
+                    pPage->SetObjText( static_cast<SdrTextObj*>(pObj), pInternalOutl, ePresObjKind, aString );
+                    pObj->NbcSetStyleSheet( pPage->GetStyleSheetForPresObj( ePresObjKind ), true );
+                    pInternalOutl->Clear();
                 }
             }
         }

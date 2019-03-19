@@ -26,6 +26,7 @@
 #include <vcl/mnemonic.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/vclevent.hxx>
 
 using namespace ::com::sun::star::accessibility;
 
@@ -326,8 +327,7 @@ void SvtIconChoiceCtrl::SetBackground( const Wallpaper& rPaper )
 
     const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
     // if it is the default (empty) wallpaper
-    if( rPaper.GetStyle() == WallpaperStyle::NONE && rPaper.GetColor() == COL_TRANSPARENT &&
-        !rPaper.IsBitmap() && !rPaper.IsGradient() && !rPaper.IsRect())
+    if (rPaper.IsEmpty())
     {
         Control::SetBackground( rStyleSettings.GetFieldColor() );
     }

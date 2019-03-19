@@ -668,20 +668,8 @@ css::uno::Sequence< css::awt::KeyEvent > SAL_CALL XCUBasedAcceleratorConfigurati
 
 static AcceleratorCache::TKeyList::const_iterator lcl_getPreferredKey(const AcceleratorCache::TKeyList& lKeys)
 {
-    AcceleratorCache::TKeyList::const_iterator pIt;
-    for (  pIt  = lKeys.begin ();
-           pIt != lKeys.end   ();
-         ++pIt                  )
-    {
-        const css::awt::KeyEvent& rAWTKey = *pIt;
-        const vcl::KeyCode        aVCLKey = ::svt::AcceleratorExecute::st_AWTKey2VCLKey(rAWTKey);
-        const OUString            sName   = aVCLKey.GetName();
-
-        if (!sName.isEmpty())
-            return pIt;
-    }
-
-    return lKeys.end();
+    return std::find_if(lKeys.begin(), lKeys.end(), [](const css::awt::KeyEvent& rAWTKey) {
+        return !::svt::AcceleratorExecute::st_AWTKey2VCLKey(rAWTKey).GetName().isEmpty(); });
 }
 
 css::uno::Sequence< css::uno::Any > SAL_CALL XCUBasedAcceleratorConfiguration::getPreferredKeyEventsForCommandList(const css::uno::Sequence< OUString >& lCommandList)
@@ -864,7 +852,7 @@ void SAL_CALL XCUBasedAcceleratorConfiguration::setStorage(const css::uno::Refer
 sal_Bool SAL_CALL XCUBasedAcceleratorConfiguration::hasStorage()
 {
     SAL_INFO("fwk.accelerators", "XCUBasedAcceleratorConfiguration::hasStorage(): implement this HACK .-)");
-        return false;
+    return false;
 }
 
 void SAL_CALL XCUBasedAcceleratorConfiguration::addConfigurationListener(const css::uno::Reference< css::ui::XUIConfigurationListener >& /*xListener*/)
@@ -918,8 +906,7 @@ void SAL_CALL XCUBasedAcceleratorConfiguration::changesOccurred(const css::util:
 
     css::util::ChangesEvent aReceivedEvents( aEvent );
     const sal_Int32 c = aReceivedEvents.Changes.getLength();
-          sal_Int32 i = 0;
-    for (i=0; i<c; ++i)
+    for (sal_Int32 i=0; i<c; ++i)
     {
         const css::util::ElementChange& aChange  =   aReceivedEvents.Changes[i];
 

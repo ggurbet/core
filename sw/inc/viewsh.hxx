@@ -72,13 +72,14 @@ namespace vcl
 {
     typedef OutputDevice RenderContext;
 }
-namespace weld { class Dialog; }
 
 // Define for flags needed in ctor or layers below.
 // Currently the Preview flag is needed for DrawPage.
 #define VSHELLFLAG_ISPREVIEW            (long(0x1))
 #define VSHELLFLAG_SHARELAYOUT          (long(0x2))
 typedef std::shared_ptr<SwRootFrame> SwRootFramePtr;
+
+typedef struct _xmlTextWriter* xmlTextWriterPtr;
 
 class SW_DLLPUBLIC SwViewShell : public sw::Ring<SwViewShell>
 {
@@ -149,7 +150,7 @@ class SW_DLLPUBLIC SwViewShell : public sw::Ring<SwViewShell>
 
     inline void ResetInvalidRect();
 
-    SAL_DLLPRIVATE void Reformat();          // Invalidates complete Layout (ApplyViewOption).
+
 
     SAL_DLLPRIVATE void PaintDesktop(vcl::RenderContext& rRenderContext, const SwRect&);  // Collect values for painting of desktop
                                                         // and calling.
@@ -169,6 +170,7 @@ protected:
     static vcl::DeleteOnDeinit< std::shared_ptr<weld::Window> > mpCareDialog;    ///< Avoid this window.
 
     SwRect                  maVisArea;       ///< The modern version of VisArea.
+    tools::Rectangle        maLOKVisibleArea;///< The visible area in the LibreOfficeKit client.
     rtl::Reference<SwDoc>   mxDoc;          ///< The document; never 0.
 
     sal_uInt16 mnStartAction; ///< != 0 if at least one Action is active.
@@ -213,6 +215,9 @@ public:
 
     void InvalidateWindows( const SwRect &rRect );
 
+    /// Invalidates complete Layout (ApplyViewOption).
+    void Reformat();
+
     // #i72754# set of Pre/PostPaints with lock counter and initial target OutDev
 protected:
     std::stack<vcl::Region> mPrePostPaintRegions; // acts also as a lock counter (empty == not locked)
@@ -245,6 +250,10 @@ public:
     void EnableSmooth( bool b ) { mbEnableSmooth = b; }
 
     const SwRect& VisArea() const;
+
+    /// The visible area in the client (set by setClientVisibleArea).
+    const tools::Rectangle getLOKVisibleArea() const { return maLOKVisibleArea; }
+    void setLOKVisibleArea(const tools::Rectangle& rArea) { maLOKVisibleArea = rArea; }
 
     // If necessary scroll until passed Rect is situated in visible sector.
     void MakeVisible( const SwRect & );
@@ -564,7 +573,7 @@ public:
     void setOutputToWindow(bool bOutputToWindow);
     bool isOutputToWindow() const;
 
-    virtual void dumpAsXml(struct _xmlTextWriter* pWriter) const;
+    virtual void dumpAsXml(xmlTextWriterPtr pWriter) const;
 };
 
 // manages global ShellPointer

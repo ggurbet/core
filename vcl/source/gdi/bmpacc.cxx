@@ -28,6 +28,7 @@
 
 #include <string.h>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 
 BitmapInfoAccess::BitmapInfoAccess( Bitmap& rBitmap, BitmapAccessMode nMode ) :
             mpBuffer        ( nullptr ),
@@ -40,11 +41,16 @@ BitmapInfoAccess::BitmapInfoAccess( Bitmap& rBitmap, BitmapAccessMode nMode ) :
     if( !xImpBmp )
         return;
 
-    if( mnAccessMode == BitmapAccessMode::Write && xImpBmp.use_count() > 2 )
+    if (mnAccessMode == BitmapAccessMode::Write)
     {
-        xImpBmp.reset();
-        rBitmap.ImplMakeUnique();
-        xImpBmp = rBitmap.ImplGetSalBitmap();
+        xImpBmp->DropScaledCache();
+
+        if (xImpBmp.use_count() > 2)
+        {
+            xImpBmp.reset();
+            rBitmap.ImplMakeUnique();
+            xImpBmp = rBitmap.ImplGetSalBitmap();
+        }
     }
 
     mpBuffer = xImpBmp->AcquireBuffer( mnAccessMode );
@@ -348,7 +354,7 @@ void BitmapWriteAccess::CopyScanline( long nY, const BitmapReadAccess& rReadAcc 
 }
 
 void BitmapWriteAccess::CopyScanline( long nY, ConstScanline aSrcScanline,
-                                      ScanlineFormat nSrcScanlineFormat, sal_uLong nSrcScanlineSize )
+                                      ScanlineFormat nSrcScanlineFormat, sal_uInt32 nSrcScanlineSize )
 {
     const ScanlineFormat nFormat = RemoveScanline( nSrcScanlineFormat );
 

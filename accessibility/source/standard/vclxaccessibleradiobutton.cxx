@@ -32,6 +32,8 @@
 #include <cppuhelper/typeprovider.hxx>
 #include <vcl/window.hxx>
 #include <vcl/button.hxx>
+#include <vcl/event.hxx>
+#include <vcl/vclevent.hxx>
 #include <strings.hxx>
 
 using namespace ::com::sun::star;
@@ -79,13 +81,9 @@ void VCLXAccessibleRadioButton::FillAccessibleRelationSet( utl::AccessibleRelati
         std::vector< VclPtr<RadioButton> > aGroup(pRadioButton->GetRadioButtonGroup());
         if (!aGroup.empty())
         {
-            sal_Int32 i = 0;
             Sequence< Reference< XInterface > > aSequence( static_cast< sal_Int32 >( aGroup.size() ) );
-            auto aEndItr = aGroup.end();
-            for ( auto aItr = aGroup.begin(); aItr < aEndItr; ++aItr )
-            {
-                aSequence[i++] = (*aItr)->GetAccessible();
-            }
+            std::transform(aGroup.begin(), aGroup.end(), aSequence.getArray(),
+                [](const VclPtr<RadioButton>& rxItem) { return rxItem->GetAccessible(); });
             rRelationSet.AddRelation( AccessibleRelation( AccessibleRelationType::MEMBER_OF, aSequence ) );
         }
     }

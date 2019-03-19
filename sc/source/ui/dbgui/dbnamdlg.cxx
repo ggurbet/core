@@ -344,9 +344,8 @@ void ScDbNameDlg::UpdateNames()
 
     if (!rDBs.empty())
     {
-        DBsType::const_iterator itr = rDBs.begin(), itrEnd = rDBs.end();
-        for (; itr != itrEnd; ++itr)
-            m_pEdName->InsertEntry((*itr)->GetName());
+        for (const auto& rxDB : rDBs)
+            m_pEdName->InsertEntry(rxDB->GetName());
     }
     else
     {
@@ -529,14 +528,10 @@ IMPL_LINK_NOARG(ScDbNameDlg, RemoveBtnHdl, Button*, void)
     if (itr != rDBs.end())
     {
         OUString aStrDelMsg = ScResId( STR_QUERY_DELENTRY );
-
-        OUStringBuffer aBuf;
-        aBuf.append(aStrDelMsg.getToken(0, '#'));
-        aBuf.append(aStrEntry);
-        aBuf.append(aStrDelMsg.getToken(1, '#'));
+        OUString sMsg{ aStrDelMsg.getToken(0, '#') + aStrEntry + aStrDelMsg.getToken(1, '#') };
         std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                        VclMessageType::Question, VclButtonsType::YesNo,
-                                                       aBuf.makeStringAndClear()));
+                                                       sMsg));
         xQueryBox->set_default_response(RET_YES);
         if (RET_YES == xQueryBox->run())
         {

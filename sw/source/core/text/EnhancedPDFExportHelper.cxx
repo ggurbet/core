@@ -19,6 +19,7 @@
 
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
+#include <com/sun/star/drawing/XShape.hpp>
 #include <EnhancedPDFExportHelper.hxx>
 #include <hintids.hxx>
 
@@ -74,6 +75,7 @@
 #include <SwNodeNum.hxx>
 #include <calbck.hxx>
 #include <stack>
+#include <frmtool.hxx>
 
 #include <tools/globname.hxx>
 #include <svx/svdobj.hxx>
@@ -486,7 +488,6 @@ void SwTaggedPDFHelper::SetAttributes( vcl::PDFWriter::StructElement eType )
         bool bEndIndent = false;
         bool bTextIndent = false;
         bool bTextAlign = false;
-        bool bAlternateText = false;
         bool bWidth = false;
         bool bHeight = false;
         bool bBox = false;
@@ -550,7 +551,6 @@ void SwTaggedPDFHelper::SetAttributes( vcl::PDFWriter::StructElement eType )
             case vcl::PDFWriter::Formula :
             case vcl::PDFWriter::Figure :
                 bPlacement =
-                bAlternateText =
                 bWidth =
                 bHeight =
                 bBox = true;
@@ -640,19 +640,9 @@ void SwTaggedPDFHelper::SetAttributes( vcl::PDFWriter::StructElement eType )
             }
         }
 
-        if ( bAlternateText )
-        {
-            OSL_ENSURE( pFrame->IsFlyFrame(), "Frame type <-> tag attribute mismatch" );
-            const SwFlyFrame* pFly = static_cast<const SwFlyFrame*>(pFrame);
-            if ( pFly->Lower() && pFly->Lower()->IsNoTextFrame() )
-            {
-                const SwNoTextFrame* pNoTextFrame   = static_cast<const SwNoTextFrame*>(pFly->Lower());
-                const SwNoTextNode* pNoTextNode = static_cast<const SwNoTextNode*>(pNoTextFrame->GetNode());
-
-                const OUString aAlternateText( pNoTextNode->GetTitle() );
-                mpPDFExtOutDevData->SetAlternateText( aAlternateText );
-            }
-        }
+        // Formally here bAlternateText was triggered for PDF export, but this
+        // was moved for more general use to primitives and usage in
+        // VclMetafileProcessor2D (see processGraphicPrimitive2D).
 
         if ( bWidth )
         {
@@ -732,8 +722,8 @@ void SwTaggedPDFHelper::SetAttributes( vcl::PDFWriter::StructElement eType )
             case vcl::PDFWriter::Span :
             case vcl::PDFWriter::Quote :
             case vcl::PDFWriter::Code :
-                if( POR_HYPHSTR == pPor->GetWhichPor() || POR_SOFTHYPHSTR == pPor->GetWhichPor() ||
-                    POR_HYPH == pPor->GetWhichPor() || POR_SOFTHYPH == pPor->GetWhichPor() )
+                if( PortionType::HyphenStr == pPor->GetWhichPor() || PortionType::SoftHyphenStr == pPor->GetWhichPor() ||
+                    PortionType::Hyphen == pPor->GetWhichPor() || PortionType::SoftHyphen == pPor->GetWhichPor() )
                     bActualText = true;
                 else
                 {
@@ -757,7 +747,7 @@ void SwTaggedPDFHelper::SetAttributes( vcl::PDFWriter::StructElement eType )
         if ( bActualText )
         {
             OUString aActualText;
-            if (pPor->GetWhichPor() == POR_SOFTHYPH || pPor->GetWhichPor() == POR_HYPH)
+            if (pPor->GetWhichPor() == PortionType::SoftHyphen || pPor->GetWhichPor() == PortionType::Hyphen)
                 aActualText = OUString(u'\x00ad'); // soft hyphen
             else
                 aActualText = rInf.GetText().copy(sal_Int32(rInf.GetIdx()), sal_Int32(pPor->GetLen()));
@@ -1319,18 +1309,18 @@ void SwTaggedPDFHelper::BeginInlineStructureElements()
 
     switch ( pPor->GetWhichPor() )
     {
-        case POR_HYPH :
-        case POR_SOFTHYPH :
+        case PortionType::Hyphen :
+        case PortionType::SoftHyphen :
         // Check for alternative spelling:
-        case POR_HYPHSTR :
-        case POR_SOFTHYPHSTR :
+        case PortionType::HyphenStr :
+        case PortionType::SoftHyphenStr :
             nPDFType = vcl::PDFWriter::Span;
             aPDFType = aSpanString;
             break;
 
-        case POR_LAY :
-        case POR_TXT :
-        case POR_PARA :
+        case PortionType::Lay :
+        case PortionType::Text :
+        case PortionType::Para :
             {
                 std::pair<SwTextNode const*, sal_Int32> const pos(
                         pFrame->MapViewToModel(rInf.GetIdx()));
@@ -1391,12 +1381,12 @@ void SwTaggedPDFHelper::BeginInlineStructureElements()
             }
             break;
 
-        case POR_FTN :
+        case PortionType::Footnote :
             nPDFType = vcl::PDFWriter::Link;
             aPDFType = aLinkString;
             break;
 
-        case POR_FLD :
+        case PortionType::Field :
             {
                 // check field type:
                 TextFrameIndex const nIdx = static_cast<const SwFieldPortion*>(pPor)->IsFollow()
@@ -1420,12 +1410,13 @@ void SwTaggedPDFHelper::BeginInlineStructureElements()
             }
             break;
 
-        case POR_TAB :
-        case POR_TABRIGHT :
-        case POR_TABCENTER :
-        case POR_TABDECIMAL :
+        case PortionType::Table :
+        case PortionType::TabRight :
+        case PortionType::TabCenter :
+        case PortionType::TabDecimal :
             nPDFType = vcl::PDFWriter::NonStructElement;
             break;
+        default: break;
     }
 
     if ( USHRT_MAX != nPDFType )
@@ -1859,7 +1850,7 @@ void SwEnhancedPDFExportHelper::EnhancedPDFExport()
             if( pFirst->GetTextField() && pFirst->IsFieldInDoc() )
             {
                 const SwTextNode* pTNd = pFirst->GetTextField()->GetpTextNode();
-               OSL_ENSURE( nullptr != pTNd, "Enhanced pdf export - text node is missing" );
+                OSL_ENSURE( nullptr != pTNd, "Enhanced pdf export - text node is missing" );
 
                 // 1. Check if the whole paragraph is hidden
                 // 2. Move to the field

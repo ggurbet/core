@@ -40,7 +40,6 @@
 #include <strings.hrc>
 #include <docsh.hxx>
 #include <view.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 // This class saves the Pam as integers and can recompose those into a PaM
@@ -641,6 +640,9 @@ OUString GetUndoComment(SwUndoId eId)
             break;
         case SwUndoId::PARA_SIGN_ADD:
             pId = STR_PARAGRAPH_SIGN_UNDO;
+            break;
+        case SwUndoId::INSERT_FORM_FIELD:
+            pId = STR_UNDO_INSERT_FORM_FIELD;
             break;
     };
 

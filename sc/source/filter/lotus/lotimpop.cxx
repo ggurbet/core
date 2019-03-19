@@ -22,13 +22,8 @@
 #include <osl/mutex.hxx>
 #include <sal/log.hxx>
 
-#include <attrib.hxx>
 #include <document.hxx>
-#include <rangenam.hxx>
 #include <formulacell.hxx>
-#include <patattr.hxx>
-#include <docpool.hxx>
-#include <compiler.hxx>
 #include <global.hxx>
 
 #include <root.hxx>
@@ -36,7 +31,6 @@
 #include <lotform.hxx>
 #include <tool.h>
 #include <namebuff.hxx>
-#include <lotrange.hxx>
 #include <lotattr.hxx>
 #include <stringutil.hxx>
 
@@ -278,7 +272,7 @@ void ImportLotus::Formulacell( sal_uInt16 n )
     if (!aConv.good())
         return;
 
-    ScFormulaCell* pCell = pErg ? new ScFormulaCell(pD, aAddr, pErg.release()) : new ScFormulaCell(pD, aAddr);
+    ScFormulaCell* pCell = pErg ? new ScFormulaCell(pD, aAddr, std::move(pErg)) : new ScFormulaCell(pD, aAddr);
     pCell->AddRecalcMode( ScRecalcMode::ONLOAD_ONCE );
     pD->EnsureTable(aAddr.Tab());
     pD->SetFormulaCell(aAddr, pCell);

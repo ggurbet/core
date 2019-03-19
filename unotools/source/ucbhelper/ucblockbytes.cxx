@@ -167,49 +167,9 @@ void SAL_CALL UcbPropertiesChangeListener_Impl::propertiesChange ( const Sequenc
     sal_Int32 i, n = rEvent.getLength();
     for (i = 0; i < n; i++)
     {
-        PropertyChangeEvent evt (rEvent[i]);
-        if (evt.PropertyName == "DocumentHeader")
+        if (rEvent[i].PropertyName == "DocumentHeader")
         {
-            Sequence<DocumentHeaderField> aHead;
-            if (evt.NewValue >>= aHead)
-            {
-                sal_Int32 k, m = aHead.getLength();
-                for (k = 0; k < m; k++)
-                {
-                    OUString aName( aHead[k].Name );
-                    OUString aValue( aHead[k].Value );
-
-                    if (aName.compareToIgnoreAsciiCaseAscii("Expires") == 0)
-                    {
-                        DateTime aExpires( DateTime::EMPTY );
-                        if (INetMIMEMessage::ParseDateField (aValue, aExpires))
-                        {
-                            aExpires.ConvertToLocalTime();
-                            m_xLockBytes->SetExpireDate_Impl( aExpires );
-                        }
-                    }
-                }
-            }
-
             m_xLockBytes->SetStreamValid_Impl();
-        }
-        else if (evt.PropertyName == "PresentationURL")
-        {
-            OUString aUrl;
-            if (evt.NewValue >>= aUrl)
-            {
-                if (!aUrl.startsWith("private:"))
-                {
-                    // URL changed (Redirection).
-                    m_xLockBytes->SetRealURL_Impl( aUrl );
-                }
-            }
-        }
-        else if (evt.PropertyName == "MediaType")
-        {
-            OUString aContentType;
-            if (evt.NewValue >>= aContentType)
-                m_xLockBytes->SetContentType_Impl( aContentType );
         }
     }
 }
@@ -647,7 +607,7 @@ void SAL_CALL Moderator::onTerminated()
     {
         salhelper::ConditionWaiter aWaiter(m_aRep);
     }
-     delete this;
+    delete this;
 }
 
 /**
@@ -967,8 +927,7 @@ static bool UCBOpenContentSync_(
 }
 
 UcbLockBytes::UcbLockBytes()
-    : m_aExpireDate( DateTime::EMPTY )
-    , m_nError( ERRCODE_NONE )
+    : m_nError( ERRCODE_NONE )
     , m_bTerminated  (false)
     , m_bDontClose( false )
     , m_bStreamValid  (false)
@@ -1350,7 +1309,7 @@ UcbLockBytesRef UcbLockBytes::CreateLockBytes( const Reference < XContent >& xCo
     if ( xLockBytes->GetError() == ERRCODE_NONE && ( bError || !xLockBytes->getInputStream().is() ) )
     {
         OSL_FAIL("No InputStream, but no error set!" );
-           xLockBytes->SetError( ERRCODE_IO_GENERAL );
+        xLockBytes->SetError( ERRCODE_IO_GENERAL );
     }
 
     return xLockBytes;

@@ -41,7 +41,7 @@ $(eval $(call gb_CppunitTest_use_libraries,basic_macros, \
 ifeq ($(OS),WNT)
 $(eval $(call gb_CppunitTest_use_system_win32_libs,basic_macros, \
 	oleaut32 \
-	$(if $(filter 140 150,$(VCVER)),legacy_stdio_definitions) \
+	$(if $(filter 150,$(VCVER)),legacy_stdio_definitions) \
 	odbc32 \
 	odbccp32 \
 ))
@@ -61,8 +61,8 @@ $(eval $(call gb_CppunitTest_use_components,basic_macros,\
 	i18npool/util/i18npool \
 	ucb/source/core/ucb1 \
 	ucb/source/ucp/file/ucpfile1 \
-	$(if $(DISABLE_ATL),,$(if $(filter $(OS),WNT), \
-		extensions/source/ole/oleautobridge)) \
+	$(if $(filter $(OS),WNT), \
+		extensions/source/ole/oleautobridge) \
 ))
 $(eval $(call gb_CppunitTest_use_configuration,basic_macros))
 

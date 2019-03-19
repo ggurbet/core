@@ -128,7 +128,9 @@ DomainMapper::DomainMapper( const uno::Reference< uno::XComponentContext >& xCon
         uno::Reference<rdf::XDocumentMetadataAccess> xDocumentMetadataAccess(xModel, uno::UNO_QUERY_THROW);
         uno::Reference<embed::XStorage> xStorage = comphelper::OStorageHelper::GetTemporaryStorage();
         OUString aBaseURL = rMediaDesc.getUnpackedValueOrDefault("URL", OUString());
-        const uno::Reference<rdf::XURI> xBaseURI(sfx2::createBaseURI(xContext, xStorage, aBaseURL, OUString()));
+        const uno::Reference<frame::XModel> xModel_(xModel,
+            uno::UNO_QUERY_THROW);
+        const uno::Reference<rdf::XURI> xBaseURI(sfx2::createBaseURI(xContext, xModel_, aBaseURL, OUString()));
         const uno::Reference<task::XInteractionHandler> xHandler;
         xDocumentMetadataAccess->loadMetadataFromStorage(xStorage, xBaseURI, xHandler);
     }
@@ -234,7 +236,7 @@ DomainMapper::~DomainMapper()
     catch( const uno::Exception& ) {}
 
 #ifdef DEBUG_WRITERFILTER
-        TagLogger::getInstance().endDocument();
+    TagLogger::getInstance().endDocument();
 #endif
 }
 
@@ -248,8 +250,8 @@ void DomainMapper::lcl_attribute(Id nName, Value & val)
     OUString sStringValue = val.getString();
 
     SectionPropertyMap * pSectionContext = m_pImpl->GetSectionContext();
-        switch( nName )
-        {
+    switch( nName )
+    {
         case NS_ooxml::LN_CT_Lvl_start:
             break;
         case NS_ooxml::LN_CT_Lvl_numFmt:
@@ -1160,7 +1162,7 @@ void DomainMapper::lcl_attribute(Id nName, Value & val)
         }
         default:
             SAL_WARN("writerfilter", "DomainMapper::lcl_attribute: unhandled token: " << nName);
-        }
+    }
 }
 
 void DomainMapper::lcl_sprm(Sprm & rSprm)
@@ -2899,7 +2901,7 @@ void DomainMapper::lcl_startParagraphGroup()
     if (!mbIsSplitPara)
         m_pImpl->PushProperties(CONTEXT_PARAGRAPH);
     mbIsSplitPara = false;
-    if (!(m_pImpl->GetTopContextOfType(CONTEXT_PARAGRAPH) == m_pImpl->GetTopContext()))
+    if (m_pImpl->GetTopContextOfType(CONTEXT_PARAGRAPH) != m_pImpl->GetTopContext())
         m_pImpl->PushProperties(CONTEXT_PARAGRAPH);
 
     if (m_pImpl->GetTopContext())
@@ -2946,6 +2948,8 @@ void DomainMapper::markLastSectionGroup( )
 
 void DomainMapper::lcl_startShape(uno::Reference<drawing::XShape> const& xShape)
 {
+    assert(xShape.is());
+
     if (m_pImpl->GetTopContext())
     {
         // If there is a deferred page break, handle it now, so that the
@@ -3539,7 +3543,7 @@ void DomainMapper::handleParaJustification(const sal_Int32 nIntValue, const ::to
         nAdjust = bExchangeLeftRight ? style::ParagraphAdjust_LEFT : style::ParagraphAdjust_RIGHT;
         aStringValue = "right";
         break;
-    case 4:
+    case NS_ooxml::LN_Value_ST_Jc_distribute:
         nLastLineAdjust = style::ParagraphAdjust_BLOCK;
         [[fallthrough]];
     case NS_ooxml::LN_Value_ST_Jc_both:

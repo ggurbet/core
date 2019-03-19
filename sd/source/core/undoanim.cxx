@@ -19,7 +19,6 @@
 
 #include <sal/config.h>
 
-#include <com/sun/star/animations/XAnimationNode.hpp>
 #include <CustomAnimationCloner.hxx>
 
 #include <undoanim.hxx>
@@ -28,6 +27,8 @@
 #include <sdresid.hxx>
 #include <CustomAnimationEffect.hxx>
 #include <drawdoc.hxx>
+
+namespace com { namespace sun { namespace star { namespace animations { class XAnimationNode; } } } }
 
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::uno::Exception;
@@ -119,17 +120,17 @@ struct UndoAnimationPathImpl
         : mpPage( pThePage )
         , mnEffectOffset( -1 )
     {
-        if( mpPage && xNode.is() )
+        if( !(mpPage && xNode.is()) )
+            return;
+
+        std::shared_ptr< sd::MainSequence > pMainSequence( mpPage->getMainSequence() );
+        if( pMainSequence.get() )
         {
-            std::shared_ptr< sd::MainSequence > pMainSequence( mpPage->getMainSequence() );
-            if( pMainSequence.get() )
+            CustomAnimationEffectPtr pEffect( pMainSequence->findEffect( xNode ) );
+            if( pEffect.get() )
             {
-                CustomAnimationEffectPtr pEffect( pMainSequence->findEffect( xNode ) );
-                if( pEffect.get() )
-                {
-                    mnEffectOffset = pMainSequence->getOffsetFromEffect( pEffect );
-                    msUndoPath = pEffect->getPath();
-                }
+                mnEffectOffset = pMainSequence->getOffsetFromEffect( pEffect );
+                msUndoPath = pEffect->getPath();
             }
         }
     }

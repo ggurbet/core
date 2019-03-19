@@ -20,7 +20,6 @@
 #include <config_folders.h>
 
 #include <sal/log.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/mutex.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/threadpool.hxx>
@@ -832,10 +831,10 @@ static Graphic ImpGetScaledGraphic( const Graphic& rGraphic, FilterConfigItem& r
                 aMap.SetScaleY( aFrac );
 
                 Size aOldSize = aBitmap.GetSizePixel();
-               aGraphic = rGraphic;
-               aGraphic.SetPrefMapMode( aMap );
-               aGraphic.SetPrefSize( Size( aOldSize.Width() * 100,
-                                           aOldSize.Height() * 100 ) );
+                aGraphic = rGraphic;
+                aGraphic.SetPrefMapMode( aMap );
+                aGraphic.SetPrefSize( Size( aOldSize.Width() * 100,
+                                            aOldSize.Height() * 100 ) );
             }
             // Size is set
             else if( nMode == 2 )
@@ -1371,10 +1370,10 @@ void GraphicFilter::ImportGraphics(std::vector< std::shared_ptr<Graphic> >& rGra
                     else
                     {
                         Bitmap& rBitmap = const_cast<Bitmap&>(rContext.m_pGraphic->GetBitmapExRef().GetBitmapRef());
-                        rContext.m_pAccess = o3tl::make_unique<BitmapScopedWriteAccess>(rBitmap);
+                        rContext.m_pAccess = std::make_unique<BitmapScopedWriteAccess>(rBitmap);
                         rContext.m_pStream->Seek(rContext.m_nStreamBegin);
                         if (bThreads)
-                            rSharedPool.pushTask(o3tl::make_unique<GraphicImportTask>(pTag, rContext));
+                            rSharedPool.pushTask(std::make_unique<GraphicImportTask>(pTag, rContext));
                         else
                             GraphicImportTask::doImport(rContext);
                     }
@@ -2021,7 +2020,7 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
                     if (aShortName == "PCD")
                     {
                         OUString aFilterConfigPath( "Office.Common/Filter/Graphic/Import/PCD" );
-                        pFilterConfigItem = o3tl::make_unique<FilterConfigItem>( aFilterConfigPath );
+                        pFilterConfigItem = std::make_unique<FilterConfigItem>( aFilterConfigPath );
                     }
                 }
                 if( !(*pFunc)( rIStream, rGraphic, pFilterConfigItem.get() ) )
@@ -2480,6 +2479,7 @@ IMPL_LINK( GraphicFilter, FilterCallback, ConvertData&, rData, bool )
 
     sal_uInt16      nFormat = GRFILTER_FORMAT_DONTKNOW;
     OString aShortName;
+    css::uno::Sequence< css::beans::PropertyValue > aFilterData;
     switch( rData.mnFormat )
     {
         case ConvertDataFormat::BMP: aShortName = BMP_SHORTNAME; break;
@@ -2506,8 +2506,17 @@ IMPL_LINK( GraphicFilter, FilterCallback, ConvertData&, rData, bool )
     else if( !aShortName.isEmpty() )
     {
         // Export
+#ifdef IOS
+        if (aShortName == PNG_SHORTNAME)
+        {
+            aFilterData.realloc(aFilterData.getLength() + 1);
+            aFilterData[aFilterData.getLength() - 1].Name = "Compression";
+            // We "know" that this gets passed to zlib's deflateInit2_(). 1 means best speed.
+            aFilterData[aFilterData.getLength() - 1].Value <<= 1;
+        }
+#endif
         nFormat = GetExportFormatNumberForShortName( OStringToOUString(aShortName, RTL_TEXTENCODING_UTF8) );
-        bRet = ExportGraphic( rData.maGraphic, OUString(), rData.mrStm, nFormat ) == ERRCODE_NONE;
+        bRet = ExportGraphic( rData.maGraphic, OUString(), rData.mrStm, nFormat, &aFilterData ) == ERRCODE_NONE;
     }
 
     return bRet;

@@ -24,7 +24,6 @@
 #include <comphelper/string.hxx>
 #include <AnnotationWin.hxx>
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/mutex.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/image.hxx>
@@ -61,6 +60,7 @@
 #include <unotxdoc.hxx>
 #include <svl/numuno.hxx>
 #include <fldbas.hxx>
+#include <unomap.hxx>
 #include <unotextbodyhf.hxx>
 #include <unotextrange.hxx>
 #include <unotextcursor.hxx>
@@ -242,7 +242,7 @@ static std::unique_ptr<SwPrintUIOptions> lcl_GetPrintUIOptions(
             pPage = static_cast<const SwPageFrame*>(pPage->GetNext());
         }
     }
-    return o3tl::make_unique<SwPrintUIOptions>( nCurrentPage, bWebDoc, bSwSrcView, bHasSelection, bHasPostIts, rPrintData );
+    return std::make_unique<SwPrintUIOptions>( nCurrentPage, bWebDoc, bSwSrcView, bHasSelection, bHasPostIts, rPrintData );
 }
 
 static SwTextFormatColl *lcl_GetParaStyle(const OUString& rCollName, SwDoc* pDoc)
@@ -373,9 +373,6 @@ Reference< XAdapter > SwXTextDocument::queryAdapter(  )
 
 Sequence< uno::Type > SAL_CALL SwXTextDocument::getTypes()
 {
-    Sequence< uno::Type > aBaseTypes = SfxBaseModel::getTypes();
-    Sequence< uno::Type > aTextTypes = SwXTextDocumentBaseClass::getTypes();
-
     Sequence< uno::Type > aNumTypes;
     GetNumberFormatter();
     if(xNumFormatAgg.is())
@@ -388,24 +385,13 @@ Sequence< uno::Type > SAL_CALL SwXTextDocument::getTypes()
             aNumTypes = xNumProv->getTypes();
         }
     }
-    long nIndex = aBaseTypes.getLength();
-    // don't forget the lang::XMultiServiceFactory and the XTiledRenderable
-    aBaseTypes.realloc(aBaseTypes.getLength() + aTextTypes.getLength() + aNumTypes.getLength() + 2);
-    uno::Type* pBaseTypes = aBaseTypes.getArray();
-    const uno::Type* pTextTypes = aTextTypes.getConstArray();
-    long nPos;
-    for(nPos = 0; nPos < aTextTypes.getLength(); nPos++)
-    {
-        pBaseTypes[nIndex++] = pTextTypes[nPos];
-    }
-    const uno::Type* pNumTypes = aNumTypes.getConstArray();
-    for(nPos = 0; nPos < aNumTypes.getLength(); nPos++)
-    {
-        pBaseTypes[nIndex++] = pNumTypes[nPos];
-    }
-    pBaseTypes[nIndex++] = cppu::UnoType<lang::XMultiServiceFactory>::get();
-    pBaseTypes[nIndex++] = cppu::UnoType<tiledrendering::XTiledRenderable>::get();
-    return aBaseTypes;
+    return comphelper::concatSequences(
+            SfxBaseModel::getTypes(),
+            SwXTextDocumentBaseClass::getTypes(),
+            aNumTypes,
+            Sequence {
+                cppu::UnoType<lang::XMultiServiceFactory>::get(),
+                cppu::UnoType<tiledrendering::XTiledRenderable>::get()});
 }
 
 SwXTextDocument::SwXTextDocument(SwDocShell* pShell)
@@ -1167,7 +1153,7 @@ void SwXTextDocument::printPages(const Sequence< beans::PropertyValue >& xOption
     SfxViewFrame* pFrame = SfxViewFrame::LoadHiddenDocument( *pDocShell, SfxInterfaceId(7) );
     SfxRequest aReq(FN_PRINT_PAGEPREVIEW, SfxCallMode::SYNCHRON,
                                 pDocShell->GetDoc()->GetAttrPool());
-        aReq.AppendItem(SfxBoolItem(FN_PRINT_PAGEPREVIEW, true));
+    aReq.AppendItem(SfxBoolItem(FN_PRINT_PAGEPREVIEW, true));
 
     for ( int n = 0; n < xOptions.getLength(); ++n )
     {
@@ -2271,7 +2257,7 @@ void SwXTextDocument::updateLinks(  )
         throw DisposedException("", static_cast< XTextDocument* >(this));
 
     SwDoc* pDoc = pDocShell->GetDoc();
-      sfx2::LinkManager& rLnkMan = pDoc->getIDocumentLinksAdministration().GetLinkManager();
+    sfx2::LinkManager& rLnkMan = pDoc->getIDocumentLinksAdministration().GetLinkManager();
     if( !rLnkMan.GetLinks().empty() )
     {
         UnoActionContext aAction(pDoc);
@@ -2384,25 +2370,6 @@ static bool lcl_GetBoolProperty(
         }
     }
     return bRes;
-}
-
-static sal_Int32 lcl_GetIntProperty(
-    const uno::Sequence< beans::PropertyValue >& rOptions,
-    const sal_Char *pPropName,
-    sal_Int32 nDefault )
-{
-    sal_Int32 nRes = nDefault;
-    const sal_Int32 nLen = rOptions.getLength();
-    const beans::PropertyValue *pProps = rOptions.getConstArray();
-    for ( sal_Int32 i = 0;  i < nLen;  ++i )
-    {
-        if ( pProps[i].Name.equalsAscii( pPropName ) )
-        {
-            pProps[i].Value >>= nRes;
-            break;
-        }
-    }
-    return nRes;
 }
 
 SfxViewShell * SwXTextDocument::GetRenderView(
@@ -2598,13 +2565,6 @@ sal_Int32 SAL_CALL SwXTextDocument::getRendererCount(
         if (!pViewShell || !pViewShell->GetLayout())
             return 0;
 
-        // make sure document orientation matches printer paper orientation
-        sal_Int32 nLandscape = lcl_GetIntProperty( rxOptions, "IsLandscape", -1 );
-        if ( nLandscape == 1 )
-            pViewShell->ChgAllPageOrientation( Orientation::Landscape );
-        else if ( nLandscape == 0 )
-            pViewShell->ChgAllPageOrientation( Orientation::Portrait );
-
         if (bFormat)
         {
             // #i38289
@@ -2666,14 +2626,10 @@ sal_Int32 SAL_CALL SwXTextDocument::getRendererCount(
             if( bStateChanged )
                 pRenderDocShell->EnableSetModified();
 
-            // there is some redundancy between those two function calls, but right now
-            // there is no time to sort this out.
-            //TODO: check what exactly needs to be done and make just one function for that
-            pViewShell->CalcLayout();
+            // tdf#122607 Re-layout the doc. Calling CalcLayout here is not enough, as it depends
+            // on the currently visible area which is 0 when doing headless conversion.
+            pViewShell->Reformat();
             pViewShell->CalcPagesForPrint( pViewShell->GetPageCount() );
-
-            // #122919# Force field update before PDF export, but after layout init (tdf#121962)
-            pViewShell->SwViewShell::UpdateFields(true);
 
             pViewShell->SetPDFExportOption( false );
 
@@ -3182,6 +3138,23 @@ uno::Reference< util::XCloneable > SwXTextDocument::createClone(  )
     return uno::Reference< util::XCloneable >( xNewModel, UNO_QUERY );
 }
 
+void SwXTextDocument::addPasteEventListener(const uno::Reference<text::XPasteListener>& xListener)
+{
+    SolarMutexGuard aGuard;
+
+    if (IsValid() && xListener.is())
+        pDocShell->GetWrtShell()->GetPasteListeners().addInterface(xListener);
+}
+
+void SwXTextDocument::removePasteEventListener(
+    const uno::Reference<text::XPasteListener>& xListener)
+{
+    SolarMutexGuard aGuard;
+
+    if (IsValid() && xListener.is())
+        pDocShell->GetWrtShell()->GetPasteListeners().removeInterface(xListener);
+}
+
 void SwXTextDocument::paintTile( VirtualDevice &rDevice,
                                  int nOutputWidth, int nOutputHeight,
                                  int nTilePosX, int nTilePosY,
@@ -3265,12 +3238,16 @@ bool SwXTextDocument::isMimeTypeSupported()
 
 void SwXTextDocument::setClientVisibleArea(const tools::Rectangle& rRectangle)
 {
-    SwView* pView = pDocShell->GetView();
-    if (!pView)
-        return;
+    if (SwView* pView = pDocShell->GetView())
+    {
+        // set the PgUp/PgDown offset
+        pView->ForcePageUpDownOffset(2 * rRectangle.GetHeight() / 3);
+    }
 
-    // set the PgUp/PgDown offset
-    pView->ForcePageUpDownOffset(2 * rRectangle.GetHeight() / 3);
+    if (SwViewShell* pViewShell = pDocShell->GetWrtShell())
+    {
+        pViewShell->setLOKVisibleArea(rRectangle);
+    }
 }
 
 void SwXTextDocument::setClientZoom(int nTilePixelWidth_, int /*nTilePixelHeight_*/,
@@ -3301,13 +3278,13 @@ void SwXTextDocument::setClientZoom(int nTilePixelWidth_, int /*nTilePixelHeight
     }
 }
 
-Pointer SwXTextDocument::getPointer()
+PointerStyle SwXTextDocument::getPointer()
 {
     SolarMutexGuard aGuard;
 
     SwWrtShell* pWrtShell = pDocShell->GetWrtShell();
     if (!pWrtShell)
-        return Pointer();
+        return PointerStyle::Arrow;
 
     return pWrtShell->GetView().GetEditWin().GetPointer();
 }
@@ -3535,27 +3512,7 @@ void SwXTextDocument::initializeForTiledRendering(const css::uno::Sequence<css::
 void SwXTextDocument::postKeyEvent(int nType, int nCharCode, int nKeyCode)
 {
     SolarMutexGuard aGuard;
-
-    VclPtr<vcl::Window> pWindow = getDocWindow();
-    if (!pWindow || pWindow->IsDisposed())
-        return;
-
-    LOKAsyncEventData* pLOKEv = new LOKAsyncEventData;
-    pLOKEv->mpWindow = pWindow;
-    switch (nType)
-    {
-    case LOK_KEYEVENT_KEYINPUT:
-        pLOKEv->mnEvent = VclEventId::WindowKeyInput;
-        break;
-    case LOK_KEYEVENT_KEYUP:
-        pLOKEv->mnEvent = VclEventId::WindowKeyUp;
-        break;
-    default:
-        assert(false);
-    }
-
-    pLOKEv->maKeyEvent = KeyEvent(nCharCode, nKeyCode, 0);
-    Application::PostUserEvent(Link<void*, void>(pLOKEv, ITiledRenderable::LOKPostAsyncEvent));
+    SfxLokHelper::postKeyEventAsync(getDocWindow(), nType, nCharCode, nKeyCode);
 }
 
 void SwXTextDocument::postMouseEvent(int nType, int nX, int nY, int nCount, int nButtons, int nModifier)
@@ -3583,29 +3540,10 @@ void SwXTextDocument::postMouseEvent(int nType, int nX, int nY, int nCount, int 
     }
 
     SwEditWin& rEditWin = pDocShell->GetView()->GetEditWin();
-
-
-    LOKAsyncEventData* pLOKEv = new LOKAsyncEventData;
-    pLOKEv->mpWindow = &rEditWin;
-    switch (nType)
-    {
-    case LOK_MOUSEEVENT_MOUSEBUTTONDOWN:
-        pLOKEv->mnEvent = VclEventId::WindowMouseButtonDown;
-        break;
-    case LOK_MOUSEEVENT_MOUSEBUTTONUP:
-        pLOKEv->mnEvent = VclEventId::WindowMouseButtonUp;
-        break;
-    case LOK_MOUSEEVENT_MOUSEMOVE:
-        pLOKEv->mnEvent = VclEventId::WindowMouseMove;
-        break;
-    default:
-        assert(false);
-    }
-
-    pLOKEv->maMouseEvent = MouseEvent(Point(nX, nY), nCount,
+    SfxLokHelper::postMouseEventAsync(&rEditWin, nType,
+                                      Point(nX, nY), nCount,
                                       MouseEventModifiers::SIMPLECLICK,
                                       nButtons, nModifier);
-    Application::PostUserEvent(Link<void*, void>(pLOKEv, ITiledRenderable::LOKPostAsyncEvent));
 }
 
 void SwXTextDocument::setTextSelection(int nType, int nX, int nY)

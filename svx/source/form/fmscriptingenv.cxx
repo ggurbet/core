@@ -33,6 +33,7 @@
 #include <com/sun/star/script/XScriptListener.hpp>
 
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/compbase.hxx>
 #include <comphelper/processfactory.hxx>
@@ -58,7 +59,6 @@ namespace svxform
     using ::com::sun::star::script::XScriptListener;
     using ::com::sun::star::script::ScriptEvent;
     using ::com::sun::star::lang::EventObject;
-    using ::com::sun::star::reflection::InvocationTargetException;
     using ::com::sun::star::uno::Any;
     using ::com::sun::star::uno::UNO_QUERY_THROW;
     using ::com::sun::star::lang::DisposedException;
@@ -725,7 +725,7 @@ namespace svxform
 
     void SAL_CALL FormScriptListener::firing( const ScriptEvent& _rEvent )
     {
-       if ( _rEvent.ScriptType == "VBAInterop" )
+        if ( _rEvent.ScriptType == "VBAInterop" )
            return; // not handled here
 
         ::osl::ClearableMutexGuard aGuard( m_aMutex );

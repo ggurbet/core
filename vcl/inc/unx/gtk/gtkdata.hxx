@@ -88,7 +88,7 @@ class GtkSalTimer : public SalTimer
 public:
     GtkSalTimer();
     virtual ~GtkSalTimer() override;
-    virtual void Start( sal_uLong nMS ) override;
+    virtual void Start( sal_uInt64 nMS ) override;
     virtual void Stop() override;
     bool         Expired();
 
@@ -146,6 +146,7 @@ class GtkSalDisplay : public SalDisplay
 
     GdkCursor* getFromXBM( const unsigned char *pBitmap, const unsigned char *pMask,
                            int nWidth, int nHeight, int nXHot, int nYHot );
+    GdkCursor* getFromSvg( OUString const & name, int nXHot, int nYHot );
 
 public:
              GtkSalDisplay( GdkDisplay* pDisplay );

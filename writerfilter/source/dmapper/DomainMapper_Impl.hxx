@@ -542,11 +542,13 @@ private:
     SmartTagHandler m_aSmartTagHandler;
 
     css::uno::Reference<css::text::XTextRange> m_xGlossaryEntryStart;
+    css::uno::Reference<css::text::XTextRange> m_xStdEntryStart;
 
 public:
     css::uno::Reference<css::text::XTextRange> m_xInsertTextRange;
 private:
     bool const m_bIsNewDoc;
+    bool const m_bIsReadGlossaries;
 public:
     DomainMapper_Impl(
             DomainMapper& rDMapper,
@@ -669,7 +671,7 @@ public:
     {
         if(!m_pFontTable)
             m_pFontTable = new FontTable();
-         return m_pFontTable;
+        return m_pFontTable;
     }
     StyleSheetTablePtr const & GetStyleSheetTable()
     {
@@ -795,6 +797,10 @@ public:
     /// The end of field is reached (cFieldEnd appeared) - the command might still be open.
     void PopFieldContext();
 
+    /// Returns title of the TOC placed in paragraph(s) before TOC field inside STD-frame
+    OUString extractTocTitle();
+    css::uno::Reference<css::beans::XPropertySet> createSectionForRange(css::uno::Reference< css::text::XTextRange > xStart, css::uno::Reference< css::text::XTextRange > xEnd, const OUString & sObjectType, bool stepLeft);
+
     void SetBookmarkName( const OUString& rBookmarkName );
     void StartOrEndBookmark( const OUString& rId );
 
@@ -910,6 +916,9 @@ public:
 
     /// If we're importing into a new document, or just pasting to an existing one.
     bool IsNewDoc() { return m_bIsNewDoc;}
+
+    /// If we're importing autotext.
+    bool IsReadGlossaries() { return m_bIsReadGlossaries;}
 
     /// If we're inside <w:rPr>, inside <w:style w:type="table">
     bool m_bInTableStyleRunProps;

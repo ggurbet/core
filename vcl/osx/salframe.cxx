@@ -26,6 +26,8 @@
 
 #include <osl/file.h>
 
+#include <vcl/event.hxx>
+#include <vcl/inputctx.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <vcl/syswin.hxx>
@@ -1420,7 +1422,7 @@ void AquaSalFrame::GetWorkArea( tools::Rectangle& rRect )
     rRect.SetBottom( static_cast<long>(aRect.origin.y + aRect.size.height - 1) );
 }
 
-SalPointerState AquaSalFrame::GetPointerState()
+SalFrame::SalPointerState AquaSalFrame::GetPointerState()
 {
     OSX_SALDATA_RUNINMAIN_UNION( GetPointerState(), state )
 
@@ -1720,7 +1722,7 @@ void AquaSalFrame::ResetClipRegion()
     [mpNSWindow invalidateShadow];
 }
 
-void AquaSalFrame::BeginSetClipRegion( sal_uLong nRects )
+void AquaSalFrame::BeginSetClipRegion( sal_uInt32 nRects )
 {
     if ( !mpNSWindow )
         return;

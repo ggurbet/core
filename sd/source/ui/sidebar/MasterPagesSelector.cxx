@@ -392,7 +392,7 @@ void MasterPagesSelector::AssignMasterPageToSelectedSlides (
 
 void MasterPagesSelector::AssignMasterPageToPageList (
     SdPage* pMasterPage,
-    const ::sd::slidesorter::SharedPageSelection& rPageList)
+    const std::shared_ptr<std::vector<SdPage*>>& rPageList)
 {
     DocumentHelper::AssignMasterPageToPageList(mrDocument, pMasterPage, rPageList);
 }
@@ -466,40 +466,40 @@ void MasterPagesSelector::SetItem (
 
     RemoveTokenToIndexEntry(nIndex,aToken);
 
-    if (nIndex > 0)
+    if (nIndex <= 0)
+        return;
+
+    if (aToken != MasterPageContainer::NIL_TOKEN)
     {
-        if (aToken != MasterPageContainer::NIL_TOKEN)
-        {
-            Image aPreview (mpContainer->GetPreviewForToken(aToken));
-            MasterPageContainer::PreviewState eState (mpContainer->GetPreviewState(aToken));
+        Image aPreview (mpContainer->GetPreviewForToken(aToken));
+        MasterPageContainer::PreviewState eState (mpContainer->GetPreviewState(aToken));
 
-            if (aPreview.GetSizePixel().Width()>0)
+        if (aPreview.GetSizePixel().Width()>0)
+        {
+            if (PreviewValueSet::GetItemPos(nIndex) != VALUESET_ITEM_NOTFOUND)
             {
-                if (PreviewValueSet::GetItemPos(nIndex) != VALUESET_ITEM_NOTFOUND)
-                {
-                    PreviewValueSet::SetItemImage(nIndex,aPreview);
-                    PreviewValueSet::SetItemText(nIndex, mpContainer->GetPageNameForToken(aToken));
-                }
-                else
-                {
-                    PreviewValueSet::InsertItem (
-                        nIndex,
-                        aPreview,
-                        mpContainer->GetPageNameForToken(aToken),
-                        nIndex);
-                }
-                SetUserData(nIndex, o3tl::make_unique<UserData>(nIndex,aToken));
-
-                AddTokenToIndexEntry(nIndex,aToken);
+                PreviewValueSet::SetItemImage(nIndex,aPreview);
+                PreviewValueSet::SetItemText(nIndex, mpContainer->GetPageNameForToken(aToken));
             }
+            else
+            {
+                PreviewValueSet::InsertItem (
+                    nIndex,
+                    aPreview,
+                    mpContainer->GetPageNameForToken(aToken),
+                    nIndex);
+            }
+            SetUserData(nIndex, std::make_unique<UserData>(nIndex,aToken));
 
-            if (eState == MasterPageContainer::PS_CREATABLE)
-                mpContainer->RequestPreview(aToken);
+            AddTokenToIndexEntry(nIndex,aToken);
         }
-        else
-        {
-            PreviewValueSet::RemoveItem(nIndex);
-        }
+
+        if (eState == MasterPageContainer::PS_CREATABLE)
+            mpContainer->RequestPreview(aToken);
+    }
+    else
+    {
+        PreviewValueSet::RemoveItem(nIndex);
     }
 
 }

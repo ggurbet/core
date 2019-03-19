@@ -104,7 +104,6 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <cppuhelper/bootstrap.hxx>
 
-#include <o3tl/make_unique.hxx>
 #include <memory>
 
 using namespace ::com::sun::star;
@@ -1117,7 +1116,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                         ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
                         const Date& rNullDate( GetViewData()->GetDocument()->GetFormatTable()->GetNullDate() );
                         ScopedVclPtr<AbstractScDPDateGroupDlg> pDlg( pFact->CreateScDPDateGroupDlg(
-                            pTabViewShell->GetDialogParent(),
+                            pTabViewShell->GetFrameWeld(),
                             aNumInfo, nParts, rNullDate ) );
                         if( pDlg->Execute() == RET_OK )
                         {
@@ -1129,7 +1128,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                     {
                         ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
                         ScopedVclPtr<AbstractScDPNumGroupDlg> pDlg( pFact->CreateScDPNumGroupDlg(
-                            pTabViewShell->GetDialogParent(), aNumInfo ) );
+                            pTabViewShell->GetFrameWeld(), aNumInfo ) );
                         if( pDlg->Execute() == RET_OK )
                             pTabViewShell->NumGroupDataPilot( pDlg->GetGroupInfo() );
                     }
@@ -1989,7 +1988,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                 const SfxInt16Item* pParam = rReq.GetArg<SfxInt16Item>(FN_PARAM_1);
                 if (pParam && nSlot == SID_OPENDLG_ICONSET)
                 {
-                    ScConditionalFormat* pFormat = new ScConditionalFormat(0, pDoc);
+                    auto pFormat = std::make_unique<ScConditionalFormat>(0, pDoc);
                     pFormat->SetRange(aRangeList);
 
                     ScIconSetType eIconSetType = limit_cast<ScIconSetType>(pParam->GetValue(), IconSet_3Arrows, IconSet_5Boxes);
@@ -1998,19 +1997,19 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                     ScIconSetFormat* pEntry = new ScIconSetFormat(pDoc);
                     ScIconSetFormatData* pIconSetFormatData = new ScIconSetFormatData(eIconSetType);
 
-                    pIconSetFormatData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(0, COL_RED, COLORSCALE_PERCENT));
-                    pIconSetFormatData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(round(100. / nSteps), COL_BROWN, COLORSCALE_PERCENT));
-                    pIconSetFormatData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(round(200. / nSteps), COL_YELLOW, COLORSCALE_PERCENT));
+                    pIconSetFormatData->m_Entries.push_back(std::make_unique<ScColorScaleEntry>(0, COL_RED, COLORSCALE_PERCENT));
+                    pIconSetFormatData->m_Entries.push_back(std::make_unique<ScColorScaleEntry>(round(100. / nSteps), COL_BROWN, COLORSCALE_PERCENT));
+                    pIconSetFormatData->m_Entries.push_back(std::make_unique<ScColorScaleEntry>(round(200. / nSteps), COL_YELLOW, COLORSCALE_PERCENT));
                     if (nSteps > 3)
-                        pIconSetFormatData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(round(300. / nSteps), COL_WHITE, COLORSCALE_PERCENT));
+                        pIconSetFormatData->m_Entries.push_back(std::make_unique<ScColorScaleEntry>(round(300. / nSteps), COL_WHITE, COLORSCALE_PERCENT));
                     if (nSteps > 4)
-                        pIconSetFormatData->m_Entries.push_back(o3tl::make_unique<ScColorScaleEntry>(round(400. / nSteps), COL_GREEN, COLORSCALE_PERCENT));
+                        pIconSetFormatData->m_Entries.push_back(std::make_unique<ScColorScaleEntry>(round(400. / nSteps), COL_GREEN, COLORSCALE_PERCENT));
 
                     pEntry->SetIconSetData(pIconSetFormatData);
                     pFormat->AddEntry(pEntry);
 
                     // use the new conditional formatting
-                    GetViewData()->GetDocShell()->GetDocFunc().ReplaceConditionalFormat(nIndex, pFormat, aPos.Tab(), aRangeList);
+                    GetViewData()->GetDocShell()->GetDocFunc().ReplaceConditionalFormat(nIndex, std::move(pFormat), aPos.Tab(), aRangeList);
 
                     break;
                 }
@@ -2157,7 +2156,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
             {
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
-                ScopedVclPtr<AbstractScNamePasteDlg> pDlg(pFact->CreateScNamePasteDlg( pTabViewShell->GetDialogParent(), GetViewData()->GetDocShell() ));
+                ScopedVclPtr<AbstractScNamePasteDlg> pDlg(pFact->CreateScNamePasteDlg(pTabViewShell->GetFrameWeld(), GetViewData()->GetDocShell()));
                 switch( pDlg->Execute() )
                 {
                     case BTN_PASTE_LIST:
@@ -2543,44 +2542,45 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                 if (!pList)
                     pList = pDoc->GetCondFormList( aPos.Tab() );
 
-                ScopedVclPtr<AbstractScCondFormatManagerDlg> pDlg(pFact->CreateScCondFormatMgrDlg(
+                VclPtr<AbstractScCondFormatManagerDlg> pDlg(pFact->CreateScCondFormatMgrDlg(
                     pTabViewShell->GetDialogParent(), pDoc, pList));
 
                 if (pDlgItem)
                     pDlg->SetModified();
 
-                short nRet = pDlg->Execute();
-                std::unique_ptr<ScConditionalFormatList> pCondFormatList = pDlg->GetConditionalFormatList();
-                if(nRet == RET_OK && pDlg->CondFormatsChanged())
-                {
-                    pData->GetDocShell()->GetDocFunc().SetConditionalFormatList(pCondFormatList.release(), aPos.Tab());
-                }
-                else if(nRet == DLG_RET_ADD)
-                {
-                    // Put the xml string parameter to initialize the
-                    // Conditional Format Dialog. ( add new )
-                    pTabViewShell->GetPool().Put(ScCondFormatDlgItem(
-                                std::shared_ptr<ScConditionalFormatList>(pCondFormatList.release()), -1, true));
-                    // Queue message to open Conditional Format Dialog
-                    GetViewData()->GetDispatcher().Execute( SID_OPENDLG_CONDFRMT, SfxCallMode::ASYNCHRON );
-                }
-                else if (nRet == DLG_RET_EDIT)
-                {
-                    ScConditionalFormat* pFormat = pDlg->GetCondFormatSelected();
-                    sal_Int32 nIndex = pFormat ? pFormat->GetKey() : -1;
-                    // Put the xml string parameter to initialize the
-                    // Conditional Format Dialog. ( edit selected conditional format )
-                    pTabViewShell->GetPool().Put(ScCondFormatDlgItem(
-                                std::shared_ptr<ScConditionalFormatList>(pCondFormatList.release()), nIndex, true));
+                pDlg->StartExecuteAsync([this, pDlg, pData, pTabViewShell, pDlgItem, aPos](sal_Int32 nRet){
+                    std::unique_ptr<ScConditionalFormatList> pCondFormatList = pDlg->GetConditionalFormatList();
+                    if(nRet == RET_OK && pDlg->CondFormatsChanged())
+                    {
+                        pData->GetDocShell()->GetDocFunc().SetConditionalFormatList(pCondFormatList.release(), aPos.Tab());
+                    }
+                    else if(nRet == DLG_RET_ADD)
+                    {
+                        // Put the xml string parameter to initialize the
+                        // Conditional Format Dialog. ( add new )
+                        pTabViewShell->GetPool().Put(ScCondFormatDlgItem(
+                                    std::shared_ptr<ScConditionalFormatList>(pCondFormatList.release()), -1, true));
+                        // Queue message to open Conditional Format Dialog
+                        GetViewData()->GetDispatcher().Execute( SID_OPENDLG_CONDFRMT, SfxCallMode::ASYNCHRON );
+                    }
+                    else if (nRet == DLG_RET_EDIT)
+                    {
+                        ScConditionalFormat* pFormat = pDlg->GetCondFormatSelected();
+                        sal_Int32 nIndex = pFormat ? pFormat->GetKey() : -1;
+                        // Put the xml string parameter to initialize the
+                        // Conditional Format Dialog. ( edit selected conditional format )
+                        pTabViewShell->GetPool().Put(ScCondFormatDlgItem(
+                                    std::shared_ptr<ScConditionalFormatList>(pCondFormatList.release()), nIndex, true));
 
-                    // Queue message to open Conditional Format Dialog
-                    GetViewData()->GetDispatcher().Execute( SID_OPENDLG_CONDFRMT, SfxCallMode::ASYNCHRON );
-                }
-                else
-                    pCondFormatList.reset();
+                        // Queue message to open Conditional Format Dialog
+                        GetViewData()->GetDispatcher().Execute( SID_OPENDLG_CONDFRMT, SfxCallMode::ASYNCHRON );
+                    }
+                    else
+                        pCondFormatList.reset();
 
-                if (pDlgItem)
-                    pTabViewShell->GetPool().Remove(*pDlgItem);
+                    if (pDlgItem)
+                        pTabViewShell->GetPool().Remove(*pDlgItem);
+                });
             }
             break;
 
@@ -3032,7 +3032,7 @@ void ScCellShell::ExecuteSubtotals(SfxRequest& rReq)
 
     aArgSet.Put( ScSubTotalItem( SCITEM_SUBTDATA, GetViewData(), &aSubTotalParam ) );
     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
-    pDlg.disposeAndReset(pFact->CreateScSubTotalDlg(pTabViewShell->GetDialogParent(), &aArgSet));
+    pDlg.disposeAndReset(pFact->CreateScSubTotalDlg(pTabViewShell->GetFrameWeld(), &aArgSet));
     pDlg->SetCurPageId("1stgroup");
 
     short bResult = pDlg->Execute();

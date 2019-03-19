@@ -68,7 +68,7 @@ using namespace com::sun::star;
 
     void sw_DebugRedline( const SwDoc* pDoc )
     {
-        static SwRedlineTable::size_type nWatch = 0;
+        static SwRedlineTable::size_type nWatch = 0; // loplugin:constvars:ignore
         const SwRedlineTable& rTable = pDoc->getIDocumentRedlineAccess().GetRedlineTable();
         for( SwRedlineTable::size_type n = 0; n < rTable.size(); ++n )
         {
@@ -626,7 +626,7 @@ void SwRedlineTable::DeleteAndDestroyAll()
     while (!maVector.empty())
     {
         auto const pRedline = maVector.back();
-        maVector.erase(maVector.back());
+        maVector.erase(maVector.size() - 1);
         LOKRedlineNotification(RedlineNotification::Remove, pRedline);
         delete pRedline;
     }

@@ -54,6 +54,7 @@ UnoControlTabPageModel::UnoControlTabPageModel( Reference< XComponentContext > c
     ImplRegisterProperty( BASEPROPERTY_TITLE );
     ImplRegisterProperty( BASEPROPERTY_HELPTEXT );
     ImplRegisterProperty( BASEPROPERTY_HELPURL );
+    ImplRegisterProperty( BASEPROPERTY_USERFORMCONTAINEES );
 }
 
 OUString SAL_CALL UnoControlTabPageModel::getImplementationName()
@@ -83,6 +84,13 @@ Any UnoControlTabPageModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
         case BASEPROPERTY_DEFAULTCONTROL:
             aAny <<= OUString("com.sun.star.awt.tab.UnoControlTabPage");
             break;
+        case BASEPROPERTY_USERFORMCONTAINEES:
+        {
+            // We do not have here any usercontainers (yet?), but let's return empty container back
+            // so normal properties could be set without triggering UnknownPropertyException
+            aAny <<= uno::Reference< XNameContainer >();
+            break;
+        }
         default:
             aAny = UnoControlModel::ImplGetDefaultValue( nPropId );
     }
@@ -107,7 +115,7 @@ void SAL_CALL UnoControlTabPageModel::initialize (const Sequence<Any>& rArgument
     sal_Int16 nPageId = -1;
     if ( rArguments.getLength() == 1 )
     {
-         if ( !( rArguments[ 0 ] >>= nPageId ))
+        if ( !( rArguments[ 0 ] >>= nPageId ))
              throw lang::IllegalArgumentException();
         m_nTabPageId = nPageId;
     }

@@ -696,7 +696,7 @@ uno::Any SvxShape::GetBitmap( bool bMetaFile /* = false */ ) const
 
         if(nullptr != pSdrGrafObj)
         {
-           const Graphic& rGraphic(pSdrGrafObj->GetGraphic());
+            const Graphic& rGraphic(pSdrGrafObj->GetGraphic());
 
             if(GraphicType::Bitmap == rGraphic.GetType())
             {
@@ -720,7 +720,7 @@ uno::Any SvxShape::GetBitmap( bool bMetaFile /* = false */ ) const
         pVDev->SetMapMode(MapMode(MapUnit::Map100thMM));
         pVDev->EnableOutput(false);
         aMtf.Record(pVDev);
-        GetSdrObject()->SingleObjectPainter(*pVDev.get());
+        GetSdrObject()->SingleObjectPainter(*pVDev);
         aMtf.Stop();
         aMtf.WindStart();
         aMtf.Move(-aBoundRect.Left(), -aBoundRect.Top());
@@ -2347,8 +2347,8 @@ bool SvxShape::setPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
             nAngle -= GetSdrObject()->GetRotateAngle();
             if (nAngle!=0)
             {
-                double nSin=sin(nAngle*nPi180);
-                double nCos=cos(nAngle*nPi180);
+                double nSin = sin(nAngle * F_PI18000);
+                double nCos = cos(nAngle * F_PI18000);
                 GetSdrObject()->Rotate(aRef1,nAngle,nSin,nCos);
             }
             return true;
@@ -2366,7 +2366,7 @@ bool SvxShape::setPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
             if(nShear != 0 )
             {
                 Point aRef1(GetSdrObject()->GetSnapRect().Center());
-                double nTan=tan(nShear*nPi180);
+                double nTan = tan(nShear * F_PI18000);
                 GetSdrObject()->Shear(aRef1,nShear,nTan,false);
                 return true;
             }
@@ -2746,14 +2746,11 @@ bool SvxShape::getPropertyValueImpl( const OUString&, const SfxItemPropertySimpl
     {
         const SfxItemSet& rObjItemSet = GetSdrObject()->GetMergedItemSet();
 
-        const XFillBmpStretchItem* pStretchItem = &rObjItemSet.Get(XATTR_FILLBMP_STRETCH);
-        const XFillBmpTileItem* pTileItem = &rObjItemSet.Get(XATTR_FILLBMP_TILE);
-
-        if( pTileItem && pTileItem->GetValue() )
+        if (rObjItemSet.Get(XATTR_FILLBMP_TILE).GetValue())
         {
             rValue <<= drawing::BitmapMode_REPEAT;
         }
-        else if( pStretchItem && pStretchItem->GetValue() )
+        else if (rObjItemSet.Get(XATTR_FILLBMP_STRETCH).GetValue())
         {
             rValue <<= drawing::BitmapMode_STRETCH;
         }

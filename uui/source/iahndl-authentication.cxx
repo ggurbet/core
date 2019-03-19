@@ -236,7 +236,6 @@ handleAuthenticationRequest_(
     }
 
     LoginErrorInfo aInfo;
-    aInfo.SetTitle(rRequest.ServerName);
     aInfo.SetServer(rRequest.ServerName);
     if (rRequest.HasAccount)
         aInfo.SetAccount(rRequest.Account);
@@ -725,8 +724,8 @@ UUIInteractionHelper::handlePasswordRequest(
 }
 
 void
-UUIInteractionHelper::handleAuthFallbackRequest( OUString & instructions,
-        OUString & url,
+UUIInteractionHelper::handleAuthFallbackRequest( const OUString & instructions,
+        const OUString & url,
         uno::Sequence< uno::Reference< task::XInteractionContinuation > > const & rContinuations )
 {
     uno::Reference<awt::XWindow> xParent = getParentXWindow();

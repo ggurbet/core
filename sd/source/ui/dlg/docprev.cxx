@@ -17,33 +17,15 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/drawing/XDrawPage.hpp>
-#include <com/sun/star/animations/XAnimationNode.hpp>
 #include <slideshow.hxx>
-#include <sfx2/objsh.hxx>
-#include <vcl/gdimtf.hxx>
-#include <vcl/virdev.hxx>
-#include <fadedef.h>
 #include <vcl/ctrl.hxx>
-#include <vcl/builder.hxx>
 #include <vcl/settings.hxx>
-#include <svx/svdoutl.hxx>
-#include <svx/svdpagv.hxx>
-#include <svx/svdorect.hxx>
 
 #include <docprev.hxx>
-#include <drawdoc.hxx>
-#include <DrawDocShell.hxx>
 #include <ViewShell.hxx>
-#include <ViewShellBase.hxx>
-#include <drawview.hxx>
-#include <sdpage.hxx>
-#include <sfx2/viewfrm.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/builderfactory.hxx>
 
-using ::com::sun::star::drawing::XDrawPage;
-using ::com::sun::star::animations::XAnimationNode;
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 
@@ -114,28 +96,11 @@ void SdDocPreviewWin::Paint( vcl::RenderContext& /*rRenderContext*/, const ::too
     }
 }
 
-void SdDocPreviewWin::updateViewSettings()
-{
-    SvtAccessibilityOptions aAccOptions;
-    bool bUseWhiteColor = !aAccOptions.GetIsForPagePreviews() && GetSettings().GetStyleSettings().GetHighContrastMode();
-    if( bUseWhiteColor )
-    {
-        maDocumentColor = COL_WHITE;
-    }
-    else
-    {
-        svtools::ColorConfig aColorConfig;
-        maDocumentColor = aColorConfig.GetColorValue( svtools::DOCCOLOR ).nColor;
-    }
-
-    Invalidate();
-}
-
 void SdDocPreviewWin::Notify(SfxBroadcaster&, const SfxHint& rHint)
 {
     if( rHint.GetId() == SfxHintId::ColorsChanged )
     {
-        updateViewSettings();
+        Invalidate();
     }
 }
 void SdDocPreviewWin::DataChanged( const DataChangedEvent& rDCEvt )
@@ -144,7 +109,7 @@ void SdDocPreviewWin::DataChanged( const DataChangedEvent& rDCEvt )
 
     if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) && (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
     {
-        updateViewSettings();
+        Invalidate();
     }
 }
 

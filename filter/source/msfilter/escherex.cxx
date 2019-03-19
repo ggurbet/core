@@ -19,8 +19,6 @@
 
 #include "eschesdo.hxx"
 #include <o3tl/any.hxx>
-#include <o3tl/clamp.hxx>
-#include <o3tl/make_unique.hxx>
 #include <svx/svdxcgv.hxx>
 #include <svx/svdomedia.hxx>
 #include <svx/xflftrit.hxx>
@@ -98,6 +96,8 @@
 #include <sal/log.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
+
+#include <algorithm>
 #include <memory>
 
 using namespace css;
@@ -932,8 +932,8 @@ bool EscherPropertyContainer::GetLineArrow( const bool bLineStart,
                 }
                 if ( !bIsMapped && comphelper::string::getTokenCount(aArrowStartName, ' ') == 2 )
                 {
-                    bool b = true;
-                    OUString aArrowName( aArrowStartName.getToken( 0, ' ' ) );
+                    sal_Int32 nIdx{ 0 };
+                    OUString aArrowName( aArrowStartName.getToken( 0, ' ', nIdx ) );
                     if (  aArrowName == "msArrowEnd" )
                         reLineEnd = ESCHER_LineArrowEnd;
                     else if (  aArrowName == "msArrowOpenEnd" )
@@ -945,12 +945,12 @@ bool EscherPropertyContainer::GetLineArrow( const bool bLineStart,
                     else if ( aArrowName == "msArrowOvalEnd" )
                         reLineEnd = ESCHER_LineArrowOvalEnd;
                     else
-                        b = false;
+                        nIdx = -1;
 
                     // now we have the arrow, and try to determine the arrow size;
-                    if ( b )
+                    if ( nIdx>0 )
                     {
-                        OUString aArrowSize( aArrowStartName.getToken( 1, ' ' ) );
+                        OUString aArrowSize( aArrowStartName.getToken( 0, ' ', nIdx ) );
                         sal_Int32 nArrowSize = aArrowSize.toInt32();
                         rnArrowWidth = ( nArrowSize - 1 ) / 3;
                         rnArrowLength = nArrowSize - ( rnArrowWidth * 3 ) - 1;
@@ -2929,12 +2929,15 @@ void EscherPropertyContainer::CreateCustomShapeProperties( const MSO_SPT eShapeT
                             {
                                 aMemStrm.WriteUInt16( equation.nOperation )
                                     .WriteInt16(
-                                        o3tl::clamp(
+                                        std::clamp(
                                             equation.nPara[ 0 ], sal_Int32(SAL_MIN_INT16),
                                             sal_Int32(SAL_MAX_INT16)) )
-                                    .WriteInt16( equation.nPara[ 1 ] )
                                     .WriteInt16(
-                                        o3tl::clamp(
+                                        std::clamp(
+                                            equation.nPara[ 1 ], sal_Int32(SAL_MIN_INT16),
+                                            sal_Int32(SAL_MAX_INT16)) )
+                                    .WriteInt16(
+                                        std::clamp(
                                             equation.nPara[ 2 ], sal_Int32(SAL_MIN_INT16),
                                             sal_Int32(SAL_MAX_INT16)) );
                             }
@@ -3789,18 +3792,15 @@ bool EscherPersistTable::PtIsID( sal_uInt32 nID )
 
 void EscherPersistTable::PtInsert( sal_uInt32 nID, sal_uInt32 nOfs )
 {
-    maPersistTable.push_back( o3tl::make_unique<EscherPersistEntry>( nID, nOfs ) );
+    maPersistTable.push_back( std::make_unique<EscherPersistEntry>( nID, nOfs ) );
 }
 
 void EscherPersistTable::PtDelete( sal_uInt32 nID )
 {
-    for(auto it = maPersistTable.begin(); it != maPersistTable.end() ; ++it)
-    {
-        if ( (*it)->mnID == nID ) {
-            maPersistTable.erase( it );
-            break;
-        }
-    }
+    auto it = std::find_if(maPersistTable.begin(), maPersistTable.end(),
+        [&nID](const std::unique_ptr<EscherPersistEntry>& rxEntry) { return rxEntry->mnID == nID; });
+    if (it != maPersistTable.end())
+        maPersistTable.erase( it );
 }
 
 sal_uInt32 EscherPersistTable::PtGetOffsetByID( sal_uInt32 nID )
@@ -4644,7 +4644,7 @@ EscherSolverContainer::~EscherSolverContainer()
 
 void EscherSolverContainer::AddShape( const uno::Reference<drawing::XShape> & rXShape, sal_uInt32 nId )
 {
-    maShapeList.push_back( o3tl::make_unique<EscherShapeListEntry>( rXShape, nId ) );
+    maShapeList.push_back( std::make_unique<EscherShapeListEntry>( rXShape, nId ) );
 }
 
 void EscherSolverContainer::AddConnector(
@@ -4655,7 +4655,7 @@ void EscherSolverContainer::AddConnector(
     uno::Reference<drawing::XShape> const & rConB
 )
 {
-    maConnectorList.push_back( o3tl::make_unique<EscherConnectorListEntry>( rConnector, rPA, rConA, rPB, rConB ) );
+    maConnectorList.push_back( std::make_unique<EscherConnectorListEntry>( rConnector, rPA, rConA, rPB, rConB ) );
 }
 
 sal_uInt32 EscherSolverContainer::GetShapeId( const uno::Reference<drawing::XShape> & rXShape ) const

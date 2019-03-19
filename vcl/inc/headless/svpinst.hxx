@@ -52,7 +52,7 @@ public:
     virtual ~SvpSalTimer() override;
 
     // override all pure virtual methods
-    virtual void Start( sal_uLong nMS ) override;
+    virtual void Start( sal_uInt64 nMS ) override;
     virtual void Stop() override;
 };
 
@@ -120,7 +120,7 @@ public:
     void                    CloseWakeupPipe(bool log);
     void                    CreateWakeupPipe(bool log);
 
-    void                    StartTimer( sal_uLong nMS );
+    void                    StartTimer( sal_uInt64 nMS );
     void                    StopTimer();
 
     inline void             registerFrame( SalFrame* pFrame );
@@ -194,7 +194,7 @@ inline void SvpSalInstance::deregisterFrame( SalFrame* pFrame )
     eraseFrame( pFrame );
 }
 
-VCL_DLLPUBLIC cairo_surface_t* get_underlying_cairo_surface(VirtualDevice& rDevice);
+VCL_DLLPUBLIC cairo_surface_t* get_underlying_cairo_surface(const VirtualDevice& rDevice);
 
 #endif // INCLUDED_VCL_INC_HEADLESS_SVPINST_HXX
 

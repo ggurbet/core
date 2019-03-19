@@ -60,6 +60,7 @@
 #include <basic/sbmod.hxx>
 #include <basic/sbmeth.hxx>
 #include <basic/sbuno.hxx>
+#include <basic/sberrors.hxx>
 #include <rtl/math.hxx>
 #include <sfx2/viewsh.hxx>
 #include <math.h>
@@ -114,7 +115,7 @@ getTypeConverter( const uno::Reference< uno::XComponentContext >& xContext )
 const uno::Any&
 aNULL()
 {
-     static  uno::Any aNULLL = uno::makeAny( uno::Reference< uno::XInterface >() );
+    static  uno::Any aNULLL = uno::makeAny( uno::Reference< uno::XInterface >() );
     return aNULLL;
 }
 
@@ -232,10 +233,10 @@ static uno::Reference< frame::XModel >
 getCurrentDocCtx( const OUString& ctxName, const uno::Reference< uno::XComponentContext >& xContext )
 {
     uno::Reference< frame::XModel > xModel;
-     // try fallback to calling doc
-     css::uno::Reference< css::container::XNameAccess > xNameAccess( xContext, css::uno::UNO_QUERY_THROW );
-     xModel.set( xNameAccess->getByName( ctxName ), uno::UNO_QUERY_THROW );
-     return xModel;
+    // try fallback to calling doc
+    css::uno::Reference< css::container::XNameAccess > xNameAccess( xContext, css::uno::UNO_QUERY_THROW );
+    xModel.set( xNameAccess->getByName( ctxName ), uno::UNO_QUERY_THROW );
+    return xModel;
 }
 
 uno::Reference< frame::XModel >
@@ -295,8 +296,8 @@ getCurrentWordDoc( const uno::Reference< uno::XComponentContext >& xContext )
 sal_Int32
 OORGBToXLRGB( sal_Int32 nCol )
 {
-        sal_Int32 nAutoBits = nCol;
-        nAutoBits &= 0xFF000000;
+    sal_Int32 nAutoBits = nCol;
+    nAutoBits &= 0xFF000000;
     sal_Int32 nRed = nCol;
     nRed &= 0x00FF0000;
     nRed >>= 16;
@@ -312,8 +313,8 @@ OORGBToXLRGB( sal_Int32 nCol )
 sal_Int32
 XLRGBToOORGB( sal_Int32 nCol )
 {
-        sal_Int32 nAutoBits = nCol;
-        nAutoBits &= 0xFF000000;
+    sal_Int32 nAutoBits = nCol;
+    nAutoBits &= 0xFF000000;
 
     sal_Int32 nBlue = nCol;
     nBlue &= 0x00FF0000;
@@ -685,7 +686,7 @@ PointerStyle getPointerStyle( const uno::Reference< frame::XModel >& xModel )
         // why the heck isn't there an XWindowPeer::getPointer, but a setPointer only?
         const vcl::Window* pWindow = VCLUnoHelper::GetWindow( xWindow );
         if ( pWindow )
-            nPointerStyle = pWindow->GetSystemWindow()->GetPointer().GetStyle();
+            nPointerStyle = pWindow->GetSystemWindow()->GetPointer();
     }
     catch (const uno::Exception&)
     {
@@ -697,7 +698,7 @@ PointerStyle getPointerStyle( const uno::Reference< frame::XModel >& xModel )
 // #FIXME this method looks wrong, shouldn't it just affect calc *or* writer
 // document/frame/window(s) but not both ( and depending on what api called
 // this )
-void setCursorHelper( const uno::Reference< frame::XModel >& xModel, const Pointer& rPointer, bool bOverWrite )
+void setCursorHelper( const uno::Reference< frame::XModel >& xModel, PointerStyle nPointer, bool bOverWrite )
 {
     ::std::vector< uno::Reference< frame::XController > > aControllers;
 
@@ -730,7 +731,7 @@ void setCursorHelper( const uno::Reference< frame::XModel >& xModel, const Point
         if ( !pWindow )
             continue;
 
-        pWindow->GetSystemWindow()->SetPointer( rPointer );
+        pWindow->GetSystemWindow()->SetPointer( nPointer );
         pWindow->GetSystemWindow()->EnableChildPointerOverwrite( bOverWrite );
     }
 }
@@ -779,14 +780,14 @@ bool setPropertyValue( uno::Sequence< beans::PropertyValue >& aProp, const OUStr
 
 void setOrAppendPropertyValue( uno::Sequence< beans::PropertyValue >& aProp, const OUString& aName, const uno::Any& aValue )
 {
-   if( setPropertyValue( aProp, aName, aValue ) )
-    return;
+    if( setPropertyValue( aProp, aName, aValue ) )
+        return;
 
-  // append the property
-  sal_Int32 nLength = aProp.getLength();
-  aProp.realloc( nLength + 1 );
-  aProp[ nLength ].Name = aName;
-  aProp[ nLength ].Value = aValue;
+    // append the property
+    sal_Int32 nLength = aProp.getLength();
+    aProp.realloc( nLength + 1 );
+    aProp[ nLength ].Name = aName;
+    aProp[ nLength ].Value = aValue;
 }
 
 // ====UserFormGeomentryHelper====

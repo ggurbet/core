@@ -44,6 +44,7 @@
 #include <comphelper/propertysequence.hxx>
 
 #include <toolkit/awt/vclxmenu.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -130,9 +131,10 @@ BackingWindow::BackingWindow( vcl::Window* i_pParent ) :
     {
         mxContext.set( ::comphelper::getProcessComponentContext(), uno::UNO_SET_THROW );
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "fwk", "BackingWindow - caught an exception! " << e );
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "fwk", "BackingWindow - caught an exception! " << exceptionToString(ex) );
     }
 
     // fdo#34392: we do the layout dynamically, the layout depends on the font,
@@ -205,18 +207,6 @@ void BackingWindow::initControls()
 
     // collect the URLs of the entries in the File/New menu
     SvtModuleOptions    aModuleOptions;
-    std::set< OUString > aFileNewAppsAvailable;
-    SvtDynamicMenuOptions aOpt;
-    Sequence < Sequence < PropertyValue > > aNewMenu = aOpt.GetMenu( EDynamicMenuType::NewMenu );
-    const OUString sURLKey( "URL"  );
-
-    for ( auto const & newMenuProp : aNewMenu )
-    {
-        comphelper::SequenceAsHashMap aEntryItems( newMenuProp );
-        OUString sURL( aEntryItems.getUnpackedValueOrDefault( sURLKey, OUString() ) );
-        if ( !sURL.isEmpty() )
-            aFileNewAppsAvailable.insert( sURL );
-    }
 
     if (aModuleOptions.IsModuleInstalled(SvtModuleOptions::EModule::WRITER))
         mpAllRecentThumbnails->mnFileTypes |= sfx2::ApplicationType::TYPE_WRITER;
@@ -386,7 +376,7 @@ void BackingWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Recta
 
     rRenderContext.DrawOutDev(maStartCentButtons.TopLeft(), maStartCentButtons.GetSize(),
                               Point(0, 0), maStartCentButtons.GetSize(),
-                              *pVDev.get());
+                              *pVDev);
 }
 
 bool BackingWindow::PreNotify(NotifyEvent& rNEvt)
@@ -422,15 +412,18 @@ bool BackingWindow::PreNotify(NotifyEvent& rNEvt)
             }
             else // F6
             {
-                if(mpAllRecentThumbnails->IsVisible())
+                if( mpAllButtonsBox->HasChildPathFocus() )
                 {
-                    mpAllRecentThumbnails->GrabFocus();
-                    return true;
-                }
-                else if(mpLocalView->IsVisible())
-                {
-                    mpLocalView->GrabFocus();
-                    return true;
+                    if(mpAllRecentThumbnails->IsVisible())
+                    {
+                        mpAllRecentThumbnails->GrabFocus();
+                        return true;
+                    }
+                    else if(mpLocalView->IsVisible())
+                    {
+                        mpLocalView->GrabFocus();
+                        return true;
+                    }
                 }
             }
         }
@@ -513,36 +506,36 @@ IMPL_LINK(BackingWindow, ExtLinkClickHdl, Button*, pButton, void)
     if (pButton == mpExtensionsButton)
         aNode = "AddFeatureURL";
 
-    if (!aNode.isEmpty())
+    if (aNode.isEmpty())
+        return;
+
+    try
     {
-        try
+        uno::Sequence<uno::Any> args(comphelper::InitAnyPropertySequence(
         {
-            uno::Sequence<uno::Any> args(comphelper::InitAnyPropertySequence(
-            {
-                {"nodepath", uno::Any(OUString("/org.openoffice.Office.Common/Help/StartCenter"))}
-            }));
+            {"nodepath", uno::Any(OUString("/org.openoffice.Office.Common/Help/StartCenter"))}
+        }));
 
-            Reference<lang::XMultiServiceFactory> xConfig = configuration::theDefaultProvider::get( comphelper::getProcessComponentContext() );
-            Reference<container::XNameAccess> xNameAccess(xConfig->createInstanceWithArguments(SERVICENAME_CFGREADACCESS, args), UNO_QUERY);
-            if (xNameAccess.is())
-            {
-                OUString sURL;
-                Any value(xNameAccess->getByName(aNode));
-
-                sURL = value.get<OUString>();
-                localizeWebserviceURI(sURL);
-
-                Reference<css::system::XSystemShellExecute> const
-                    xSystemShellExecute(
-                        css::system::SystemShellExecute::create(
-                            ::comphelper::getProcessComponentContext()));
-                xSystemShellExecute->execute(sURL, OUString(),
-                    css::system::SystemShellExecuteFlags::URIS_ONLY);
-            }
-        }
-        catch (const Exception&)
+        Reference<lang::XMultiServiceFactory> xConfig = configuration::theDefaultProvider::get( comphelper::getProcessComponentContext() );
+        Reference<container::XNameAccess> xNameAccess(xConfig->createInstanceWithArguments(SERVICENAME_CFGREADACCESS, args), UNO_QUERY);
+        if (xNameAccess.is())
         {
+            OUString sURL;
+            Any value(xNameAccess->getByName(aNode));
+
+            sURL = value.get<OUString>();
+            localizeWebserviceURI(sURL);
+
+            Reference<css::system::XSystemShellExecute> const
+                xSystemShellExecute(
+                    css::system::SystemShellExecute::create(
+                        ::comphelper::getProcessComponentContext()));
+            xSystemShellExecute->execute(sURL, OUString(),
+                css::system::SystemShellExecuteFlags::URIS_ONLY);
         }
+    }
+    catch (const Exception&)
+    {
     }
 }
 

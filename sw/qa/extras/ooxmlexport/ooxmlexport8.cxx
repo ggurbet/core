@@ -775,9 +775,8 @@ DECLARE_OOXMLEXPORT_TEST(testTbLrHeight, "tblr-height.docx")
     uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(), uno::UNO_QUERY);
     uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
-    uno::Reference<table::XTableRows> xTableRows(xTable->getRows(), uno::UNO_QUERY);
-    // btLr text direction was imported as MIN, it should be FIX to avoid incorrectly large height in case of too much content.
-    CPPUNIT_ASSERT_EQUAL(text::SizeType::FIX, getProperty<sal_Int16>(xTableRows->getByIndex(0), "SizeType"));
+    uno::Reference<table::XCell> xCell = xTable->getCellByName("B1");
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::BT_LR, getProperty<sal_Int16>(xCell, "WritingMode"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testBnc865381, "bnc865381.docx")
@@ -785,11 +784,8 @@ DECLARE_OOXMLEXPORT_TEST(testBnc865381, "bnc865381.docx")
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
     uno::Reference<text::XTextTable> xTextTable(xTables->getByIndex(0), uno::UNO_QUERY);
-    uno::Reference<table::XTableRows> xTableRows(xTextTable->getRows(), uno::UNO_QUERY);
-    // Second row has a vertically merged cell, make sure size type is not FIX in that case (otherwise B2 is not readable).
-    CPPUNIT_ASSERT(text::SizeType::FIX != getProperty<sal_Int16>(xTableRows->getByIndex(1), "SizeType"));
-    // Explicit size of 41 mm100 was set, so the vertical text in A2 was not readable.
-    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(xTableRows->getByIndex(1), "Height"));
+    uno::Reference<table::XCell> xCell = xTextTable->getCellByName("A2");
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::BT_LR, getProperty<sal_Int16>(xCell, "WritingMode"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFdo53985, "fdo53985.docx")
@@ -1011,6 +1007,10 @@ DECLARE_OOXMLEXPORT_TEST(testN830205, "n830205.docx")
 {
     // Previously import just crashed (due to infinite recursion).
     getParagraph(1, "XXX");
+}
+
+DECLARE_OOXMLEXPORT_TEST(tdf123705, "tdf123705.docx")
+{
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTableAutoColumnFixedSize, "table-auto-column-fixed-size.docx")

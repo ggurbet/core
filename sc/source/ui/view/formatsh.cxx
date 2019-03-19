@@ -476,13 +476,13 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                 if ( !bWaterCan && pStyleSheet )
                 {
                     pScMod->SetWaterCan( true );
-                    pTabViewShell->SetActivePointer( Pointer(PointerStyle::Fill) );
+                    pTabViewShell->SetActivePointer( PointerStyle::Fill );
                     rReq.Done();
                 }
                 else
                 {
                     pScMod->SetWaterCan( false );
-                    pTabViewShell->SetActivePointer( Pointer(PointerStyle::Arrow) );
+                    pTabViewShell->SetActivePointer( PointerStyle::Arrow );
                     rReq.Done();
                 }
             }
@@ -933,11 +933,11 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
             }
         }
 
-            rReq.SetReturnValue( SfxUInt16Item( nSlotId, nRetMask ) );
+        rReq.SetReturnValue( SfxUInt16Item( nSlotId, nRetMask ) );
 
         if ( bAddUndo && bUndo)
             pDocSh->GetUndoManager()->AddUndoAction(
-                        o3tl::make_unique<ScUndoModifyStyle>( pDocSh, eFamily, aOldData, aNewData ) );
+                        std::make_unique<ScUndoModifyStyle>( pDocSh, eFamily, aOldData, aNewData ) );
 
         if ( bStyleToMarked )
         {
@@ -1400,7 +1400,7 @@ void ScFormatShell::ExecuteTextAttr( SfxRequest& rReq )
     const ScPatternAttr*    pAttrs      = pTabViewShell->GetSelectionPattern();
     const SfxItemSet*       pSet        = rReq.GetArgs();
     sal_uInt16                  nSlot       = rReq.GetSlot();
-    SfxAllItemSet*          pNewSet = nullptr;
+    std::unique_ptr<SfxAllItemSet> pNewSet;
 
     pTabViewShell->HideListBox();                   // Autofilter-DropDown-Listbox
 
@@ -1412,7 +1412,7 @@ void ScFormatShell::ExecuteTextAttr( SfxRequest& rReq )
         ||(nSlot == SID_ULINE_VAL_DOUBLE)
         ||(nSlot == SID_ULINE_VAL_DOTTED) )
     {
-        pNewSet = new SfxAllItemSet( GetPool() );
+        pNewSet.reset(new SfxAllItemSet( GetPool() ));
 
         switch ( nSlot )
         {
@@ -1631,7 +1631,7 @@ void ScFormatShell::ExecuteTextAttr( SfxRequest& rReq )
     if( pNewSet )
     {
         rReq.Done( *pNewSet );
-        delete pNewSet;
+        pNewSet.reset();
     }
     else
     {
@@ -2081,7 +2081,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
                     {
                         if(aCol != aBoxItem.GetBottom()->GetColor() )
                             bColDisable = true;
-                        if(!( aLine == *(aBoxItem.GetBottom())) )
+                        if( aLine != *aBoxItem.GetBottom() )
                             bStyleDisable = true;
                     }
                 }
@@ -2100,7 +2100,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
                     {
                         if(aCol != aBoxItem.GetLeft()->GetColor() )
                             bColDisable = true;
-                        if(!( aLine == *(aBoxItem.GetLeft())) )
+                        if( aLine != *aBoxItem.GetLeft() )
                             bStyleDisable = true;
                     }
                 }
@@ -2119,7 +2119,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
                     {
                         if(aCol != aBoxItem.GetRight()->GetColor() )
                             bColDisable = true;
-                        if(!( aLine == *(aBoxItem.GetRight())) )
+                        if( aLine != *aBoxItem.GetRight() )
                             bStyleDisable = true;
                     }
                 }
@@ -2138,7 +2138,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
                     {
                         if(aCol != aInfoItem.GetVert()->GetColor() )
                             bColDisable = true;
-                        if(!( aLine == *(aInfoItem.GetVert())) )
+                        if( aLine != *aInfoItem.GetVert() )
                             bStyleDisable = true;
                     }
                 }
@@ -2157,7 +2157,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
                     {
                         if(aCol != aInfoItem.GetHori()->GetColor() )
                             bColDisable = true;
-                        if(!( aLine == *(aInfoItem.GetHori())) )
+                        if( aLine != *aInfoItem.GetHori() )
                             bStyleDisable = true;
                     }
                 }

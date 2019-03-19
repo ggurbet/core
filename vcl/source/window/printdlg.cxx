@@ -80,47 +80,35 @@ namespace {
    }
 }
 
-MoreOptionsDialog::MoreOptionsDialog( VclPtr<PrintDialog> i_pParent )
-    : ModalDialog(i_pParent, "MoreOptionsDialog", "vcl/ui/moreoptionsdialog.ui")
+MoreOptionsDialog::MoreOptionsDialog(VclPtr<PrintDialog> i_pParent)
+    : GenericDialogController(i_pParent->GetFrameWeld(), "vcl/ui/moreoptionsdialog.ui", "MoreOptionsDialog")
     , mpParent( i_pParent )
+    , mxOKButton(m_xBuilder->weld_button("ok"))
+    , mxCancelButton(m_xBuilder->weld_button("cancel"))
+    , mxSingleJobsBox(m_xBuilder->weld_check_button("singlejobs"))
 {
-    get(mpOKButton, "ok");
-    get(mpCancelButton, "cancel");
-    get(mpSingleJobsBox, "singlejobs");
+    mxSingleJobsBox->set_active( mpParent->isSingleJobs() );
 
-    mpSingleJobsBox->Check( mpParent->isSingleJobs() );
-
-    mpOKButton->SetClickHdl( LINK( this, MoreOptionsDialog, ClickHdl ) );
-    mpCancelButton->SetClickHdl( LINK( this, MoreOptionsDialog, ClickHdl ) );
+    mxOKButton->connect_clicked( LINK( this, MoreOptionsDialog, ClickHdl ) );
+    mxCancelButton->connect_clicked( LINK( this, MoreOptionsDialog, ClickHdl ) );
 }
 
 MoreOptionsDialog::~MoreOptionsDialog()
 {
-    disposeOnce();
 }
 
-void MoreOptionsDialog::dispose()
+IMPL_LINK (MoreOptionsDialog, ClickHdl, weld::Button&, rButton, void)
 {
-    mpOKButton.clear();
-    mpCancelButton.clear();
-    mpSingleJobsBox.clear();
-    mpParent.clear();
-    ModalDialog::dispose();
-}
-
-IMPL_LINK ( MoreOptionsDialog, ClickHdl, Button*, pButton, void )
-{
-    if ( pButton == mpOKButton )
+    if (&rButton == mxOKButton.get())
     {
-        mpParent->mbSingleJobs = mpSingleJobsBox->IsChecked();
-        EndDialog( RET_OK );
+        mpParent->mbSingleJobs = mxSingleJobsBox->get_active();
+        m_xDialog->response(RET_OK);
     }
-    else if ( pButton == mpCancelButton )
+    else if (&rButton == mxCancelButton.get())
     {
-        EndDialog( RET_CANCEL );
+        m_xDialog->response(RET_CANCEL);
     }
 }
-
 
 PrintDialog::PrintPreviewWindow::PrintPreviewWindow( vcl::Window* i_pParent )
     : Window( i_pParent, 0 )
@@ -754,7 +742,7 @@ void PrintDialog::dispose()
     mpNupOrderWin.clear();
     mpNupOrderTxt.clear();
     mpBorderCB.clear();
-    mpMoreOptionsDlg.disposeAndClear();
+    mxMoreOptionsDlg.reset();
     ModalDialog::dispose();
 }
 
@@ -867,10 +855,10 @@ void PrintDialog::readFromSettings()
     // preview box
     aValue = pItem->getValue( "PrintDialog",
                               "HasPreview" );
-    if ( aValue.equalsIgnoreAsciiCase("true") )
-        mpPreviewBox->Check( true );
-    else
+    if ( aValue.equalsIgnoreAsciiCase("false") )
         mpPreviewBox->Check( false );
+    else
+        mpPreviewBox->Check( true );
 
 }
 
@@ -1006,21 +994,14 @@ void PrintDialog::preparePreview( bool i_bMayUseCache )
 
 void PrintDialog::updateOrientationBox( const bool bAutomatic )
 {
-    Orientation eOrientation = maPController->getPrinter()->GetOrientation();
     if ( !bAutomatic )
     {
+        Orientation eOrientation = maPController->getPrinter()->GetOrientation();
         mpOrientationBox->SelectEntryPos( static_cast<sal_Int32>(eOrientation) + 1 );
-
-        maPController->setValue( "IsLandscape",
-                                 makeAny( static_cast<sal_Int32>(eOrientation) ) );
     }
     else if ( hasOrientationChanged() )
     {
         mpOrientationBox->SelectEntryPos( ORIENTATION_AUTOMATIC );
-
-        // used to make sure document orientation matches printer paper orientation
-        maPController->setValue( "IsLandscape",
-                                 makeAny( static_cast<sal_Int32>(eOrientation) ) );
     }
 }
 
@@ -1061,10 +1042,6 @@ void PrintDialog::setPaperOrientation( Orientation eOrientation )
         Size& aPaperSize = maPController->getPaperSizeSetup();
         checkPaperSize( aPaperSize );
     }
-
-    // used to sync printer paper orientation with document orientation
-    maPController->setValue( "IsLandscape",
-                             makeAny( static_cast<sal_Int32>(eOrientation) ) );
 }
 
 void PrintDialog::checkControlDependencies()
@@ -1384,9 +1361,6 @@ void PrintDialog::setupOptionalUI()
         Sequence< OUString > aHelpIds;
         sal_Int64 nMinValue = 0, nMaxValue = 0;
         OUString aGroupingHint;
-        OUString aDependsOnName;
-        sal_Int32 nDependsOnValue = 0;
-        bool bUseDependencyRow = false;
 
         for( int n = 0; n < aOptProp.getLength(); n++ )
         {
@@ -1420,8 +1394,6 @@ void PrintDialog::setupOptionalUI()
             }
             else if ( rEntry.Name == "Enabled" )
             {
-                bool bValue = true;
-                rEntry.Value >>= bValue;
             }
             else if ( rEntry.Name == "GroupingHint" )
             {
@@ -1429,15 +1401,12 @@ void PrintDialog::setupOptionalUI()
             }
             else if ( rEntry.Name == "DependsOnName" )
             {
-                rEntry.Value >>= aDependsOnName;
             }
             else if ( rEntry.Name == "DependsOnEntry" )
             {
-                rEntry.Value >>= nDependsOnValue;
             }
             else if ( rEntry.Name == "AttachToDependency" )
             {
-                rEntry.Value >>= bUseDependencyRow;
             }
             else if ( rEntry.Name == "MinValue" )
             {
@@ -1909,8 +1878,8 @@ IMPL_LINK ( PrintDialog, ClickHdl, Button*, pButton, void )
     }
     else if ( pButton == mpMoreOptionsBtn )
     {
-        mpMoreOptionsDlg = VclPtr< MoreOptionsDialog >::Create( this );
-        mpMoreOptionsDlg->Execute();
+        mxMoreOptionsDlg.reset(new MoreOptionsDialog(this));
+        mxMoreOptionsDlg->run();
     }
     else
     {

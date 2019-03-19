@@ -21,17 +21,14 @@
 #include <sal/log.hxx>
 
 #include <svl/zforlist.hxx>
-#include <sal/macros.h>
 
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
-#include <xmloff/i18nmap.hxx>
 #include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmlictxt.hxx>
 #include <xmloff/xmlmetai.hxx>
 #include <sfx2/objsh.hxx>
 #include <unotools/streamwrap.hxx>
-#include <xmloff/xmlnumfi.hxx>
 #include <xmloff/xmlscripti.hxx>
 #include <xmloff/XMLFontStylesContext.hxx>
 #include <xmloff/DocumentSettingsContext.hxx>
@@ -39,10 +36,8 @@
 #include <xmloff/numehelp.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlerror.hxx>
+#include <xmloff/ProgressBarHelper.hxx>
 
-#include <sax/tools/converter.hxx>
-
-#include <svl/zformat.hxx>
 #include <svl/languageoptions.hxx>
 #include <editeng/editstat.hxx>
 #include <formula/errorcodes.hxx>
@@ -53,13 +48,11 @@
 #include <document.hxx>
 #include <docsh.hxx>
 #include <docuno.hxx>
-#include <nameuno.hxx>
 #include "xmlbodyi.hxx"
 #include "xmlstyli.hxx"
 #include <ViewSettingsSequenceDefines.hxx>
 
 #include <compiler.hxx>
-#include <patattr.hxx>
 
 #include "XMLConverter.hxx"
 #include "XMLDetectiveContext.hxx"
@@ -69,7 +62,6 @@
 #include "XMLStylesImportHelper.hxx"
 #include <sheetdata.hxx>
 #include <rangeutl.hxx>
-#include <postit.hxx>
 #include <formulaparserpool.hxx>
 #include <externalrefmgr.hxx>
 #include <editutil.hxx>
@@ -91,11 +83,11 @@
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
-#include <com/sun/star/sheet/XSheetCellRange.hpp>
 #include <com/sun/star/document/XActionLockable.hpp>
 #include <com/sun/star/util/MalformedNumberFormatException.hpp>
 #include <com/sun/star/util/NumberFormat.hpp>
 #include <com/sun/star/util/XNumberFormatTypes.hpp>
+#include <com/sun/star/util/XNumberFormatsSupplier.hpp>
 #include <com/sun/star/sheet/NamedRangeFlag.hpp>
 #include <com/sun/star/sheet/XLabelRanges.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
@@ -104,7 +96,7 @@
 
 #include <memory>
 #include <utility>
-#include <o3tl/make_unique.hxx>
+
 #define SC_LOCALE           "Locale"
 #define SC_CURRENCYSYMBOL   "CurrencySymbol"
 #define SC_REPEAT_ROW "repeat-row"
@@ -901,24 +893,15 @@ bool ScXMLImport::GetValidation(const OUString& sName, ScMyImportValidation& aVa
 {
     if (pValidations)
     {
-        bool bFound(false);
-        ScMyImportValidations::iterator aItr(pValidations->begin());
-        ScMyImportValidations::iterator aEndItr(pValidations->end());
-        while(aItr != aEndItr && !bFound)
+        auto aItr = std::find_if(pValidations->begin(), pValidations->end(),
+            [&sName](const ScMyImportValidation& rValidation) { return rValidation.sName == sName; });
+        if (aItr != pValidations->end())
         {
-            if (aItr->sName == sName)
-            {
-                // source position must be set as string,
-                // so sBaseCellAddress no longer has to be converted here
-
-                bFound = true;
-            }
-            else
-                ++aItr;
-        }
-        if (bFound)
+            // source position must be set as string,
+            // so sBaseCellAddress no longer has to be converted here
             aValidation = *aItr;
-        return bFound;
+            return true;
+        }
     }
     return false;
 }
@@ -931,7 +914,7 @@ void ScXMLImport::AddNamedExpression(SCTAB nTab, ScMyNamedExpression* pNamedExp)
     {
         // No chain exists for this sheet.  Create one.
         ::std::pair<SheetNamedExpMap::iterator, bool> r =
-            m_SheetNamedExpressions.insert(std::make_pair(nTab, o3tl::make_unique<ScMyNamedExpressions>()));
+            m_SheetNamedExpressions.insert(std::make_pair(nTab, std::make_unique<ScMyNamedExpressions>()));
         if (!r.second)
             // insertion failed.
             return;
@@ -1289,7 +1272,6 @@ void ScXMLImport::SetType(const uno::Reference <beans::XPropertySet>& rPropertie
         // and description within there and ScXMLImport::SetCurrencySymbol().
         if ((nCellType != nCurrentCellType) &&
                 (nCellType != util::NumberFormat::NUMBER) &&
-                (nCellType != util::NumberFormat::TEXT) &&
                 (bIsStandard || (nCellType == util::NumberFormat::CURRENCY)))
         {
             if (!xNumberFormats.is())
@@ -1603,24 +1585,23 @@ void ScXMLImport::SetLabelRanges()
                 table::CellRangeAddress aLabelRange;
                 table::CellRangeAddress aDataRange;
 
-                ScMyLabelRanges::iterator aItr = pMyLabelRanges->begin();
-                while (aItr != pMyLabelRanges->end())
+                for (const auto& rxLabelRange : *pMyLabelRanges)
                 {
                     sal_Int32 nOffset1(0);
                     sal_Int32 nOffset2(0);
                     FormulaGrammar::AddressConvention eConv = FormulaGrammar::CONV_OOO;
 
-                    if (ScRangeStringConverter::GetRangeFromString( aLabelRange, (*aItr)->sLabelRangeStr, GetDocument(), eConv, nOffset1 ) &&
-                        ScRangeStringConverter::GetRangeFromString( aDataRange, (*aItr)->sDataRangeStr, GetDocument(), eConv, nOffset2 ))
+                    if (ScRangeStringConverter::GetRangeFromString( aLabelRange, rxLabelRange->sLabelRangeStr, GetDocument(), eConv, nOffset1 ) &&
+                        ScRangeStringConverter::GetRangeFromString( aDataRange, rxLabelRange->sDataRangeStr, GetDocument(), eConv, nOffset2 ))
                     {
-                        if ( (*aItr)->bColumnOrientation )
+                        if ( rxLabelRange->bColumnOrientation )
                             xColRanges->addNew( aLabelRange, aDataRange );
                         else
                             xRowRanges->addNew( aLabelRange, aDataRange );
                     }
-
-                    aItr = pMyLabelRanges->erase(aItr);
                 }
+
+                pMyLabelRanges->clear();
             }
         }
     }

@@ -298,7 +298,7 @@ DECLARE_OOXMLEXPORT_TEST(testSegFaultWhileSave, "test_segfault_while_save.docx")
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
     if (!pXmlDoc)
         return;
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(6137), getXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tblGrid/w:gridCol[2]", "w").toInt32());
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(6138), getXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tblGrid/w:gridCol[2]", "w").toInt32());
 
     // tdf#106572 - preventative test matching danger conditions, but imported OK anyway
     CPPUNIT_ASSERT_EQUAL(OUString("First Page"), getProperty<OUString>(getParagraphOrTable(1), "PageDescName"));
@@ -1218,6 +1218,7 @@ DECLARE_OOXMLEXPORT_TEST(testInheritFirstHeader,"inheritFirstHeader.docx")
     CPPUNIT_ASSERT_EQUAL( OUString("Follow Header"), xHeaderText->getString() );
 }
 
+#if HAVE_MORE_FONTS
 DECLARE_OOXMLEXPORT_TEST(testTdf81345_045Original,"tdf81345.docx")
 {
     //Header wasn't replaced  and columns were missing because no new style was created.
@@ -1234,6 +1235,7 @@ DECLARE_OOXMLEXPORT_TEST(testTdf81345_045Original,"tdf81345.docx")
     uno::Reference<beans::XPropertySet> xStyle(xParaStyles->getByName("Pull quote"), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(6736947), getProperty<sal_Int32>(xStyle, "CharColor"));
 }
+#endif
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

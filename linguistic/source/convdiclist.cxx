@@ -45,6 +45,7 @@
 #include <unotools/lingucfg.hxx>
 #include <unotools/pathoptions.hxx>
 #include <unotools/useroptions.hxx>
+#include <tools/diagnose_ex.h>
 
 #include "convdic.hxx"
 #include "convdiclist.hxx"
@@ -271,7 +272,8 @@ void SAL_CALL ConvDicNameContainer::removeByName( const OUString& rName )
         }
         catch( ... )
         {
-            SAL_WARN( "linguistic", "HangulHanjaOptionsDialog::OkHdl(): Any other exception" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "linguistic", "HangulHanjaOptionsDialog::OkHdl(): Any other exception " << exceptionToString(ex) );
         }
     }
 
@@ -393,10 +395,10 @@ ConvDicNameContainer & ConvDicList::GetNameContainer()
                     mxNameContainer->GetByName( "ChineseS2T" ), UNO_QUERY );
         uno::Reference< XConversionDictionary > xT2SDic(
                     mxNameContainer->GetByName( "ChineseT2S" ), UNO_QUERY );
-            if (xS2TDic.is())
-                xS2TDic->setActive( true );
-            if (xT2SDic.is())
-                xT2SDic->setActive( true );
+        if (xS2TDic.is())
+            xS2TDic->setActive( true );
+        if (xT2SDic.is())
+            xT2SDic->setActive( true );
 
     }
     return *mxNameContainer;

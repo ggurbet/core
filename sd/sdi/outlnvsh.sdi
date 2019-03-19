@@ -161,6 +161,11 @@ interface OutlineView
         ExecMethod = FuTemporaryModify ;
         StateMethod = GetMenuState ;
     ]
+    FN_INSERT_NNBSP // status(final|play)
+    [
+        ExecMethod = FuTemporaryModify ;
+        StateMethod = GetMenuState ;
+    ]
     SID_INSERT_RLM
     [
         ExecMethod = FuTemporary ;
@@ -488,7 +493,7 @@ interface OutlineView
         ExecMethod = FuSupport ;
         StateMethod = GetCtrlState ;
     ]
-    SID_TRANSLITERATE_KATAGANA // ole : no, status : ?
+    SID_TRANSLITERATE_KATAKANA // ole : no, status : ?
     [
         ExecMethod = FuSupport ;
         StateMethod = GetCtrlState ;

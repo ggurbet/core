@@ -672,9 +672,9 @@ void SwIndexMarkPane::ModifyHdl(const weld::Widget& rBox)
             m_xLevelNF->set_value(m_xLevelNF->normalize(0));
             bSetKey2 = true;
         }
-        m_xLevelFT->show(bLevelEnable);
-        m_xLevelNF->show(bLevelEnable);
-        m_xMainEntryCB->show(nPos == POS_INDEX);
+        m_xLevelFT->set_visible(bLevelEnable);
+        m_xLevelNF->set_visible(bLevelEnable);
+        m_xMainEntryCB->set_visible(nPos == POS_INDEX);
 
         m_xKey1FT->set_sensitive(bKeyEnable);
         m_xKey1DCB->set_sensitive(bKeyEnable);
@@ -795,9 +795,9 @@ void SwIndexMarkPane::UpdateDialog()
     m_xKey1FT->set_sensitive(bKeyEnable);
     m_xKey1DCB->set_sensitive(bKeyEnable);
     m_xLevelNF->set_max(MAXLEVEL);
-    m_xLevelFT->show(bLevelEnable);
-    m_xLevelNF->show(bLevelEnable);
-    m_xMainEntryCB->show(!bLevelEnable);
+    m_xLevelFT->set_visible(bLevelEnable);
+    m_xLevelNF->set_visible(bLevelEnable);
+    m_xMainEntryCB->set_visible(!bLevelEnable);
     m_xKey2FT->set_sensitive(bKey2Enable);
     m_xKey2DCB->set_sensitive(bKey2Enable);
 
@@ -975,6 +975,11 @@ SwIndexMarkModalDlg::SwIndexMarkModalDlg(weld::Window *pParent, SwWrtShell& rSh,
     m_aContent.ReInitDlg(rSh, pCurTOXMark);
 }
 
+SwIndexMarkModalDlg::~SwIndexMarkModalDlg()
+{
+    SwViewShell::SetCareDialog(nullptr);
+}
+
 short SwIndexMarkModalDlg::run()
 {
     short nRet = SfxDialogController::run();
@@ -1094,9 +1099,9 @@ SwAuthorMarkPane::SwAuthorMarkPane(weld::DialogController &rDialog, weld::Builde
     , m_xCreateEntryPB(rBuilder.weld_button("new"))
     , m_xEditEntryPB(rBuilder.weld_button("edit"))
 {
-    m_xActionBT->show(true);
-    m_xFromComponentRB->show(bNewEntry);
-    m_xFromDocContentRB->show(bNewEntry);
+    m_xActionBT->show();
+    m_xFromComponentRB->set_visible(bNewEntry);
+    m_xFromDocContentRB->set_visible(bNewEntry);
     m_xFromComponentRB->set_active(bIsFromComponent);
     m_xFromDocContentRB->set_active(!bIsFromComponent);
 
@@ -1111,8 +1116,8 @@ SwAuthorMarkPane::SwAuthorMarkPane(weld::DialogController &rDialog, weld::Builde
     m_rDialog.set_title(SwResId(
                     bNewEntry ? STR_AUTHMRK_INSERT : STR_AUTHMRK_EDIT));
 
-    m_xEntryED->show(!bNewEntry);
-    m_xEntryLB->show(bNewEntry);
+    m_xEntryED->set_visible(!bNewEntry);
+    m_xEntryLB->set_visible(bNewEntry);
     if (bNewEntry)
     {
         m_xEntryLB->connect_changed(LINK(this, SwAuthorMarkPane, CompEntryHdl));
@@ -1220,10 +1225,10 @@ IMPL_LINK_NOARG(SwAuthorMarkPane, InsertHdl, weld::Button&, void)
         {
             if(bDifferent)
             {
-                SwAuthEntry aNewData;
+                rtl::Reference<SwAuthEntry> xNewData(new SwAuthEntry);
                 for(int i = 0; i < AUTH_FIELD_END; i++)
-                    aNewData.SetAuthorField(static_cast<ToxAuthorityField>(i), m_sFields[i]);
-                pSh->ChangeAuthorityData(&aNewData);
+                    xNewData->SetAuthorField(static_cast<ToxAuthorityField>(i), m_sFields[i]);
+                pSh->ChangeAuthorityData(xNewData.get());
             }
             SwInsertField_Data aData(TYP_AUTHORITY, 0, sFields.makeStringAndClear(), OUString(), 0 );
             aMgr.InsertField( aData );
@@ -1412,8 +1417,7 @@ void SwAuthorMarkPane::InitControls()
     if(bNewEntry || !pField || pField->GetTyp()->Which() != SwFieldIds::TableOfAuthorities)
         return;
 
-    const SwAuthEntry* pEntry = static_cast<SwAuthorityFieldType*>(pField->GetTyp())->
-            GetEntryByHandle(static_cast<SwAuthorityField*>(pField)->GetHandle());
+    const SwAuthEntry* pEntry = static_cast<SwAuthorityField*>(pField)->GetAuthEntry();
 
     OSL_ENSURE(pEntry, "No authority entry found");
     if(!pEntry)

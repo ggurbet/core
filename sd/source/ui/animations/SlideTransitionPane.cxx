@@ -17,8 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/animations/XAnimationNode.hpp>
-
+#include <com/sun/star/drawing/XDrawView.hpp>
 #include <SlideTransitionPane.hxx>
 #include <createslidetransitionpanel.hxx>
 
@@ -32,24 +31,17 @@
 #include <sdpage.hxx>
 #include <filedlg.hxx>
 #include <strings.hrc>
-#include <DrawController.hxx>
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <EventMultiplexer.hxx>
 
 #include <sal/log.hxx>
-#include <svtools/controldims.hxx>
 #include <svx/gallery.hxx>
-#include <unotools/pathoptions.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <tools/urlobj.hxx>
-#include <DrawViewShell.hxx>
 #include <slideshow.hxx>
-#include <drawview.hxx>
 #include <sdundogr.hxx>
 #include <undoanim.hxx>
 #include <optsitem.hxx>
-#include <sddll.hxx>
 
 #include <sfx2/sidebar/Theme.hxx>
 
@@ -779,19 +771,19 @@ void SlideTransitionPane::openSoundFileDialog()
             mpLB_SOUND->SelectEntryPos( nPos + 3 );
     }
 
-    if( ! bValidSoundFile )
+    if(  bValidSoundFile )
+        return;
+
+    if( !maCurrentSoundFile.isEmpty() )
     {
-        if( !maCurrentSoundFile.isEmpty() )
-        {
-            std::vector<OUString>::size_type nPos = 0;
-            if( lcl_findSoundInList( maSoundList, maCurrentSoundFile, nPos ))
-                mpLB_SOUND->SelectEntryPos( nPos + 3 );
-            else
-                mpLB_SOUND->SelectEntryPos( 0 );  // NONE
-        }
+        std::vector<OUString>::size_type nPos = 0;
+        if( lcl_findSoundInList( maSoundList, maCurrentSoundFile, nPos ))
+            mpLB_SOUND->SelectEntryPos( nPos + 3 );
         else
             mpLB_SOUND->SelectEntryPos( 0 );  // NONE
     }
+    else
+        mpLB_SOUND->SelectEntryPos( 0 );  // NONE
 }
 
 impl::TransitionEffect SlideTransitionPane::getTransitionEffectFromControls() const
@@ -909,30 +901,30 @@ impl::TransitionEffect SlideTransitionPane::getTransitionEffectFromControls() co
 
 void SlideTransitionPane::applyToSelectedPages(bool bPreview = true)
 {
-    if( ! mbUpdatingControls )
+    if(  mbUpdatingControls )
+        return;
+
+    Window *pFocusWindow = Application::GetFocusWindow();
+
+    ::sd::slidesorter::SharedPageSelection pSelectedPages( getSelectedPages());
+    impl::TransitionEffect aEffect = getTransitionEffectFromControls();
+    if( ! pSelectedPages->empty())
     {
-        Window *pFocusWindow = Application::GetFocusWindow();
-
-        ::sd::slidesorter::SharedPageSelection pSelectedPages( getSelectedPages());
-        impl::TransitionEffect aEffect = getTransitionEffectFromControls();
-        if( ! pSelectedPages->empty())
-        {
-            lcl_CreateUndoForPages( pSelectedPages, mrBase );
-            lcl_ApplyToPages( pSelectedPages, aEffect );
-            mrBase.GetDocShell()->SetModified();
-        }
-        if( mpCB_AUTO_PREVIEW->IsEnabled() &&
-            mpCB_AUTO_PREVIEW->IsChecked() && bPreview)
-        {
-            if (aEffect.mnType) // mnType = 0 denotes no transition
-                playCurrentEffect();
-            else if( mxView.is() )
-                SlideShow::Stop( mrBase );
-        }
-
-        if (pFocusWindow)
-            pFocusWindow->GrabFocus();
+        lcl_CreateUndoForPages( pSelectedPages, mrBase );
+        lcl_ApplyToPages( pSelectedPages, aEffect );
+        mrBase.GetDocShell()->SetModified();
     }
+    if( mpCB_AUTO_PREVIEW->IsEnabled() &&
+        mpCB_AUTO_PREVIEW->IsChecked() && bPreview)
+    {
+        if (aEffect.mnType) // mnType = 0 denotes no transition
+            playCurrentEffect();
+        else if( mxView.is() )
+            SlideShow::Stop( mrBase );
+    }
+
+    if (pFocusWindow)
+        pFocusWindow->GrabFocus();
 }
 
 void SlideTransitionPane::playCurrentEffect()
@@ -1159,10 +1151,10 @@ IMPL_LINK_NOARG(SlideTransitionPane, LateInitCallback, Timer *, void)
                 OUString sImageName("sd/cmd/transition-" + pPreset->getSetId() + ".png");
                 BitmapEx aIcon( sImageName );
                 if ( aIcon.IsEmpty() ) // need a fallback
-                    aIcon = BitmapEx( "sd/cmd/transition-none.png" );
+                    sImageName = "sd/cmd/transition-none.png";
 
                 mpVS_TRANSITION_ICONS->InsertItem(
-                    nPresetOffset + 1, Image( aIcon ), sLabel,
+                    nPresetOffset + 1, Image(StockImage::Yes, sImageName), sLabel,
                     VALUESET_APPEND, /* show legend */ true );
 
                 m_aNumVariants[ pPreset->getSetId() ] = 1;

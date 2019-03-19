@@ -22,6 +22,7 @@
 #include <unodraw.hxx>
 #include <unotextrange.hxx>
 #include <cmdid.h>
+#include <unomid.h>
 #include <unoprnms.hxx>
 #include <mvsave.hxx>
 #include <fmtsrnd.hxx>
@@ -258,7 +259,7 @@ SwFrameFormat* SwTextBoxHelper::getOtherTextBoxFormat(uno::Reference<drawing::XS
     return getOtherTextBoxFormat(pFormat, RES_DRAWFRMFMT);
 }
 
-template <typename T> static void lcl_queryInterface(SwFrameFormat* pShape, uno::Any& rAny)
+template <typename T> static void lcl_queryInterface(const SwFrameFormat* pShape, uno::Any& rAny)
 {
     if (SwFrameFormat* pFormat = SwTextBoxHelper::getOtherTextBoxFormat(pShape, RES_DRAWFRMFMT))
     {
@@ -268,7 +269,7 @@ template <typename T> static void lcl_queryInterface(SwFrameFormat* pShape, uno:
     }
 }
 
-uno::Any SwTextBoxHelper::queryInterface(SwFrameFormat* pShape, const uno::Type& rType)
+uno::Any SwTextBoxHelper::queryInterface(const SwFrameFormat* pShape, const uno::Type& rType)
 {
     uno::Any aRet;
 
@@ -292,7 +293,8 @@ tools::Rectangle SwTextBoxHelper::getTextRectangle(SwFrameFormat* pShape, bool b
 {
     tools::Rectangle aRet;
     aRet.SetEmpty();
-    auto pCustomShape = dynamic_cast<SdrObjCustomShape*>(pShape->FindRealSdrObject());
+    auto pSdrShape = pShape->FindRealSdrObject();
+    auto pCustomShape = dynamic_cast<SdrObjCustomShape*>(pSdrShape);
     if (pCustomShape)
     {
         // Need to temporarily release the lock acquired in
@@ -307,12 +309,17 @@ tools::Rectangle SwTextBoxHelper::getTextRectangle(SwFrameFormat* pShape, bool b
         if (nLocks)
             xLockable->setActionLocks(nLocks);
     }
+    else if (pSdrShape)
+    {
+        // fallback - get *any* bound rect we can possibly get hold of
+        aRet = pSdrShape->GetCurrentBoundRect();
+    }
 
-    if (!bAbsolute && pCustomShape)
+    if (!bAbsolute && pSdrShape)
     {
         // Relative, so count the logic (reference) rectangle, see the EnhancedCustomShape2d ctor.
-        Point aPoint(pCustomShape->GetSnapRect().Center());
-        Size aSize(pCustomShape->GetLogicRect().GetSize());
+        Point aPoint(pSdrShape->GetSnapRect().Center());
+        Size aSize(pSdrShape->GetLogicRect().GetSize());
         aPoint.AdjustX(-(aSize.Width() / 2));
         aPoint.AdjustY(-(aSize.Height() / 2));
         tools::Rectangle aLogicRect(aPoint, aSize);

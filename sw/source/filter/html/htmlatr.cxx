@@ -796,7 +796,7 @@ static void OutHTML_SwFormat( Writer& rWrt, const SwFormat& rFormat,
         rInfo.bOutDiv = true;
         rHWrt.IncIndentLevel();
         rHWrt.m_bLFPossible = true;
-            rHWrt.OutNewLine();
+        rHWrt.OutNewLine();
     }
 
     // for BLOCKQUOTE, ADDRESS and DD we output another paragrah token, if
@@ -1669,7 +1669,7 @@ void HTMLEndPosLst::InsertNoScript( const SfxPoolItem& rItem,
                 const SwFormatAutoFormat& rAutoFormat = static_cast<const SwFormatAutoFormat&>(rItem);
                 const std::shared_ptr<SfxItemSet>& pSet = rAutoFormat.GetStyleHandle();
                 if( pSet.get() )
-                    Insert( *pSet.get(), nStart, nEnd, rFormatInfos, true, bParaAttrs );
+                    Insert( *pSet, nStart, nEnd, rFormatInfos, true, bParaAttrs );
             }
             break;
 
@@ -1931,6 +1931,7 @@ void HTMLEndPosLst::OutStartAttrs( SwHTMLWriter& rHWrt, sal_Int32 nPos,
                 pContext = nullptr; // one time only
             }
             Out( aHTMLAttrFnTab, *pPos->GetItem(), rHWrt );
+            rHWrt.maStartedAttributes[pPos->GetItem()->Which()]++;
             rHWrt.m_nCSS1Script = nCSS1Script;
         }
     }
@@ -1981,6 +1982,7 @@ void HTMLEndPosLst::OutEndAttrs( SwHTMLWriter& rHWrt, sal_Int32 nPos,
             if( !bSkipOut )
             {
                 Out( aHTMLAttrFnTab, *pPos->GetItem(), rHWrt );
+                rHWrt.maStartedAttributes[pPos->GetItem()->Which()]--;
             }
             RemoveItem_( i );
         }

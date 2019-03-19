@@ -61,6 +61,7 @@
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/event.hxx>
 #include <toolkit/awt/vclxmenu.hxx>
 #include <tools/stream.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -650,7 +651,7 @@ void OAppDetailPageHelper::setDetailPage(vcl::Window* _pWindow)
     m_aFL->Show();
     {
         bHasFocus = pCurrent != nullptr && pCurrent->HasChildPathFocus();
-    _pWindow->Show();
+        _pWindow->Show();
     }
     m_aTBPreview->Show();
     m_aBorder->Show();
@@ -1152,7 +1153,7 @@ IMPL_LINK_NOARG(OAppDetailPageHelper, OnDropdownClickHdl, ToolBox*, void)
     if (!xPopupController.is())
         return;
 
-    rtl::Reference<VCLXPopupMenu> xPopupMenu(new VCLXPopupMenu);
+    rtl::Reference xPopupMenu(new VCLXPopupMenu);
     xPopupController->setPopupMenu(xPopupMenu.get());
     VclPtr<PopupMenu> aMenu(static_cast<PopupMenu*>(xPopupMenu->GetMenu()));
 

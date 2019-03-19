@@ -910,7 +910,8 @@ static const FunctionData saFuncTableOOoLO[] =
     { "ORG.LIBREOFFICE.FORECAST.ETS.PI.MULT",   "ORG.LIBREOFFICE.FORECAST.ETS.PI.MULT",   NOID,   NOID,   4,  7,  V, { VR, VA, VR }, FuncFlags::MACROCALL_NEW },
     { "ORG.LIBREOFFICE.FORECAST.ETS.STAT.MULT", "ORG.LIBREOFFICE.FORECAST.ETS.STAT.MULT", NOID,   NOID,   3,  6,  V, { VR, VA, VR }, FuncFlags::MACROCALL_NEW },
     { "ORG.LIBREOFFICE.ROUNDSIG",   "ORG.LIBREOFFICE.ROUNDSIG", NOID, NOID,  2,  2,  V, { RX }, FuncFlags::MACROCALL_NEW },
-    { "ORG.LIBREOFFICE.REGEX",      "ORG.LIBREOFFICE.REGEX", NOID, NOID,  2,  4,  V, { RX }, FuncFlags::MACROCALL_NEW }
+    { "ORG.LIBREOFFICE.REGEX",      "ORG.LIBREOFFICE.REGEX", NOID, NOID,  2,  4,  V, { RX }, FuncFlags::MACROCALL_NEW },
+    { "ORG.LIBREOFFICE.FOURIER",    "ORG.LIBREOFFICE.FOURIER", NOID, NOID,  2,  4,  A, { RX }, FuncFlags::MACROCALL_NEW }
 
 };
 
@@ -1371,9 +1372,8 @@ bool OpCodeProviderImpl::initFuncOpCode( FunctionInfo& orFuncInfo, const ApiToke
 bool OpCodeProviderImpl::initFuncOpCodes( const ApiTokenMap& rIntFuncTokenMap, const ApiTokenMap& rExtFuncTokenMap, const FunctionInfoVector& rFuncInfos )
 {
     bool bIsValid = true;
-    for( FunctionInfoVector::const_iterator aIt = rFuncInfos.begin(), aEnd = rFuncInfos.end(); aIt != aEnd; ++aIt )
+    for( const FunctionInfoRef& xFuncInfo : rFuncInfos )
     {
-        FunctionInfoRef xFuncInfo = *aIt;
         // set API opcode from ODF function name
         if (xFuncInfo->mbExternal)
             bIsValid &= initFuncOpCode( *xFuncInfo, rExtFuncTokenMap );
@@ -1685,9 +1685,7 @@ void FormulaProcessorBase::convertStringToStringList(
     if( extractString( aString, orTokens ) && !aString.isEmpty() )
     {
         ::std::vector< ApiToken > aNewTokens;
-        sal_Int32 nPos = 0;
-        sal_Int32 nLen = aString.getLength();
-        while( (0 <= nPos) && (nPos < nLen) )
+        for( sal_Int32 nPos{ 0 }; nPos>=0; )
         {
             OUString aEntry = aString.getToken( 0, cStringSep, nPos );
             if( bTrimLeadingSpaces )

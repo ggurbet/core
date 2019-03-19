@@ -3592,6 +3592,13 @@
         </info>
         <value>Default</value>
       </prop>
+      <prop oor:name="HelpRootURL" oor:type="xs:string" oor:nillable="false">
+        <info>
+          <desc>Specifies the root URL to the Office help pages. Blank disables
+          Help buttons on dialogs in LibreOffice Online.</desc>
+        </info>
+        <value>https://help.libreoffice.org/help.html?</value>
+      </prop>
       <group oor:name="StartCenter">
         <info>
           <desc>Contains settings for the start center.</desc>
@@ -5230,9 +5237,19 @@
                   <desc>PDF 1.5 (default selection).</desc>
                 </info>
               </enumeration>
+              <enumeration oor:value="16">
+                <info>
+                  <desc>PDF 1.6</desc>
+                </info>
+              </enumeration>
               <enumeration oor:value="1">
                 <info>
                   <desc>PDF/A-1 (ISO 19005-1:2005)</desc>
+                </info>
+              </enumeration>
+              <enumeration oor:value="2">
+                <info>
+                  <desc>PDF/A-2 (ISO 19005-2:2011)</desc>
                 </info>
               </enumeration>
             </constraints>
@@ -5402,6 +5419,15 @@
           <desc>Disables the customization of the UI elements.</desc>
         </info>
         <value>false</value>
+      </prop>
+      <prop oor:name="WriteLayerStateAsConfigItem" oor:type="xs:boolean" oor:nillable="false">
+        <info>
+          <desc>If 'true', the config items VisibleLayers, PrintableLayers and
+          LockedLayers are written to 'office:settings' element, otherwise not.
+          Since LO 6.2 the ODF attributes of 'draw:layer' element are used on
+          file open, if these config items do not exist.</desc>
+        </info>
+        <value>true</value>
       </prop>
       <prop oor:name="ExperimentalMode" oor:type="xs:boolean" oor:nillable="false">
         <info>
@@ -5641,6 +5667,11 @@
           <desc>Contains the Personas installed through extensions</desc>
         </info>
       </set>
+      <prop oor:name="FindReplaceRememberedSearches" oor:type="xs:int" oor:nillable="false">
+        <info>
+          <desc>Number of saved searches in the Find and Replace dialog.</desc>
+        </info>
+      </prop>
     </group>
     <group oor:name="Forms">
       <info>
@@ -6302,7 +6333,7 @@
           <!-- UIHints: setup -->
           <info>
             <desc>Specifies whether case mapping to half and full width,
-            hiragana and katagana are available (true) or not (false).</desc>
+            hiragana and katakana are available (true) or not (false).</desc>
           </info>
           <value>false</value>
         </prop>

@@ -7,12 +7,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <config_oauth2.h>
+
 #include "RemoteFilesDialog.hxx"
 #include <fpsofficeResMgr.hxx>
 #include <strings.hrc>
 #include <comphelper/docpasswordrequest.hxx>
 #include <comphelper/stillreadwriteinteraction.hxx>
+#include <com/sun/star/task/InteractionHandler.hpp>
+#include <ucbhelper/commandenvironment.hxx>
+#include <vcl/treelistentry.hxx>
 #include <bitmaps.hlst>
+#include <vcl/ptrstyle.hxx>
 
 class FileViewContainer : public vcl::Window
 {
@@ -456,19 +462,15 @@ void RemoteFilesDialog::InitSize()
         OUString sCfgStr;
         if( aUserData >>= sCfgStr )
         {
-            int nPos = sCfgStr.indexOf( "|" );
-            if( nPos != -1 )
-            {
-                nPos = sCfgStr.indexOf( "|", nPos + 1 );
-                if( nPos != -1 )
-                {
-                    sal_Int32 nIdx = 0;
-                    m_nWidth = sCfgStr.getToken( 0, '|', nIdx ).toInt32();
-                    m_nHeight = sCfgStr.getToken( 0, '|', nIdx ).toInt32();
-
-                    m_pFileView->SetConfigString( sCfgStr.copy( nPos + 1) );
-                }
-            }
+            sal_Int32 nPos1{ sCfgStr.indexOf('|') };
+            if (nPos1<0)
+                return;
+            sal_Int32 nPos2{ sCfgStr.indexOf('|', nPos1+1 ) };
+            if (nPos2<0)
+                return;
+            m_nWidth = sCfgStr.copy(0, nPos1++).toInt32();
+            m_nHeight = sCfgStr.copy(nPos1, nPos2-nPos1).toInt32();
+            m_pFileView->SetConfigString( sCfgStr.copy(nPos2+1) );
         }
     }
     else
@@ -778,7 +780,7 @@ IMPL_LINK_NOARG ( RemoteFilesDialog, AddServiceHdl, Button*, void )
             m_bIsUpdated = true;
 
             EnableControls();
-      break;
+            break;
         }
         case RET_CANCEL :
         default :

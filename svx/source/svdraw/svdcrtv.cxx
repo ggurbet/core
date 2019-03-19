@@ -40,6 +40,7 @@
 #include <svx/sdr/contact/viewcontact.hxx>
 #include <svx/sdr/overlay/overlayprimitive2dsequenceobject.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
+#include <vcl/ptrstyle.hxx>
 
 using namespace com::sun::star;
 
@@ -185,7 +186,7 @@ void SdrCreateView::ImpClearVars()
     pCurrentCreate=nullptr;
     pCreatePV=nullptr;
     b1stPointAsCenter=false;
-    aCurrentCreatePointer=Pointer(PointerStyle::Cross);
+    aCurrentCreatePointer=PointerStyle::Cross;
     bUseIncompatiblePathCreateInterface=false;
     nAutoCloseDistPix=5;
     nFreeHandMinDistPix=10;
@@ -197,7 +198,8 @@ SdrCreateView::SdrCreateView(
     SdrModel& rSdrModel,
     OutputDevice* pOut)
 :   SdrDragView(rSdrModel, pOut),
-    mpCreateViewExtraData(new ImpSdrCreateViewExtraData())
+    mpCreateViewExtraData(new ImpSdrCreateViewExtraData()),
+    aCurrentCreatePointer(PointerStyle::Arrow)
 {
     ImpClearVars();
 }
@@ -367,7 +369,7 @@ void SdrCreateView::SetCurrentObj(sal_uInt16 nIdent, SdrInventor nInvent)
         }
         else
         {
-            aCurrentCreatePointer = Pointer(PointerStyle::Cross);
+            aCurrentCreatePointer = PointerStyle::Cross;
         }
     }
 
@@ -376,7 +378,7 @@ void SdrCreateView::SetCurrentObj(sal_uInt16 nIdent, SdrInventor nInvent)
 }
 
 bool SdrCreateView::ImpBegCreateObj(SdrInventor nInvent, sal_uInt16 nIdent, const Point& rPnt, OutputDevice* pOut,
-    short nMinMov, const tools::Rectangle& rLogRect, SdrObject* pPreparedFactoryObject)
+    sal_Int16 nMinMov, const tools::Rectangle& rLogRect, SdrObject* pPreparedFactoryObject)
 {
     bool bRet=false;
     UnmarkAllObj();
@@ -552,10 +554,10 @@ void SdrCreateView::MovCreateObj(const Point& rPnt)
         }
 
         if (aPnt==maDragStat.GetNow()) return;
-        bool bMerk(maDragStat.IsMinMoved());
+        bool bIsMinMoved(maDragStat.IsMinMoved());
         if (maDragStat.CheckMinMoved(aPnt))
         {
-            if (!bMerk) maDragStat.NextPoint();
+            if (!bIsMinMoved) maDragStat.NextPoint();
             maDragStat.NextMove(aPnt);
             pCurrentCreate->MovCreate(maDragStat);
 
@@ -569,10 +571,34 @@ void SdrCreateView::MovCreateObj(const Point& rPnt)
     }
 }
 
+void SdrCreateView::SetupObjLayer(const SdrPageView* pPageView, const OUString& aActiveLayer, SdrObject* pObj)
+{
+    const SdrLayerAdmin& rAd = pPageView->GetPage()->GetLayerAdmin();
+    SdrLayerID nLayer(0);
+
+    // #i72535#
+    if(dynamic_cast<const FmFormObj*>( pObj) !=  nullptr)
+    {
+        // for FormControls, force to form layer
+        nLayer = rAd.GetLayerID(rAd.GetControlLayerName());
+    }
+    else
+    {
+        nLayer = rAd.GetLayerID(aActiveLayer);
+    }
+
+    if(SDRLAYER_NOTFOUND == nLayer)
+    {
+        nLayer = SdrLayerID(0);
+    }
+
+    pObj->SetLayer(nLayer);
+}
+
 bool SdrCreateView::EndCreateObj(SdrCreateCmd eCmd)
 {
     bool bRet=false;
-    SdrObject* pObjMerk=pCurrentCreate;
+    SdrObject* pObjCreated=pCurrentCreate;
 
     if (pCurrentCreate!=nullptr)
     {
@@ -599,31 +625,12 @@ bool SdrCreateView::EndCreateObj(SdrCreateCmd eCmd)
                 SdrObject* pObj=pCurrentCreate;
                 pCurrentCreate=nullptr;
 
-                const SdrLayerAdmin& rAd = pCreatePV->GetPage()->GetLayerAdmin();
-                SdrLayerID nLayer(0);
-
-                // #i72535#
-                if(dynamic_cast<const FmFormObj*>( pObj) !=  nullptr)
-                {
-                    // for FormControls, force to form layer
-                    nLayer = rAd.GetLayerID(rAd.GetControlLayerName());
-                }
-                else
-                {
-                    nLayer = rAd.GetLayerID(maActualLayer);
-                }
-
-                if(SDRLAYER_NOTFOUND == nLayer)
-                {
-                    nLayer = SdrLayerID(0);
-                }
-
-                pObj->SetLayer(nLayer);
+                SetupObjLayer(pCreatePV, maActualLayer, pObj);
 
                 // recognize creation of a new 3D object inside a 3D scene
                 bool bSceneIntoScene(false);
 
-                E3dScene* pObjScene = dynamic_cast<E3dScene*>(pObjMerk);
+                E3dScene* pObjScene = dynamic_cast<E3dScene*>(pObjCreated);
                 E3dScene* pCurrentScene = pObjScene ? dynamic_cast<E3dScene*>(pCreatePV->GetCurrentGroup()) : nullptr;
                 if (pCurrentScene)
                 {
@@ -633,8 +640,8 @@ bool SdrCreateView::EndCreateObj(SdrCreateCmd eCmd)
                     if(bDidInsert)
                     {
                         // delete object, its content is cloned and inserted
-                        SdrObject::Free( pObjMerk );
-                        pObjMerk = nullptr;
+                        SdrObject::Free( pObjCreated );
+                        pObjCreated = nullptr;
                         bSceneIntoScene = true;
                     }
                 }

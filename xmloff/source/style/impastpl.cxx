@@ -35,7 +35,7 @@
 #include <xmloff/xmltoken.hxx>
 
 #include "impastpl.hxx"
-#include <o3tl/make_unique.hxx>
+
 using namespace ::std;
 
 using namespace ::com::sun::star;
@@ -426,11 +426,11 @@ void SvXMLAutoStylePoolP_Impl::AddFamily(
                      "Adding duplicate family " << rStrName <<
                      " with mismatching mapper ! " <<
                      typeid((*iter)->mxMapper.get()).name() << " " <<
-                     typeid(*rMapper.get()).name() );
+                     typeid(*rMapper).name() );
     }
 #endif
 
-    m_FamilySet.insert(o3tl::make_unique<XMLAutoStyleFamily>(nFamily, rStrName, rMapper, aPrefix, bAsFamily));
+    m_FamilySet.insert(std::make_unique<XMLAutoStyleFamily>(nFamily, rStrName, rMapper, aPrefix, bAsFamily));
 }
 
 void SvXMLAutoStylePoolP_Impl::SetFamilyPropSetMapper(
@@ -515,7 +515,7 @@ bool SvXMLAutoStylePoolP_Impl::Add(
     if (it2 == rFamily.m_ParentSet.end())
     {
         std::pair<XMLAutoStyleFamily::ParentSetType::iterator,bool> r =
-            rFamily.m_ParentSet.insert(o3tl::make_unique<XMLAutoStylePoolParent>(
+            rFamily.m_ParentSet.insert(std::make_unique<XMLAutoStylePoolParent>(
                         rParentName));
         it2 = r.first;
     }
@@ -549,7 +549,7 @@ bool SvXMLAutoStylePoolP_Impl::AddNamed(
     if (it2 == rFamily.m_ParentSet.end())
     {
         std::pair<XMLAutoStyleFamily::ParentSetType::iterator,bool> r =
-            rFamily.m_ParentSet.insert(o3tl::make_unique<XMLAutoStylePoolParent>(
+            rFamily.m_ParentSet.insert(std::make_unique<XMLAutoStylePoolParent>(
                         rParentName));
         it2 = r.first;
     }
@@ -604,8 +604,6 @@ std::vector<xmloff::AutoStyleEntry> SvXMLAutoStylePoolP_Impl::GetAutoStyleEntrie
             {
                 rReturnVector.emplace_back();
                 xmloff::AutoStyleEntry & rEntry = rReturnVector.back();
-                rEntry.m_aParentName = rParent->GetParent();
-                rEntry.m_aName = rProperty->GetName();
                 for (XMLPropertyState const & rPropertyState : rProperty->GetProperties())
                 {
                     if (rPropertyState.mnIndex >= 0)

@@ -8,22 +8,29 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/container/xelementaccess.hxx>
 #include <test/container/xenumerationaccess.hxx>
+#include <test/container/xindexaccess.hxx>
+#include <test/container/xnameaccess.hxx>
+#include <test/lang/xserviceinfo.hxx>
 #include <test/sheet/xdatapilottables.hxx>
 
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/sheet/XDataPilotDescriptor.hpp>
+#include <com/sun/star/sheet/XDataPilotTable2.hpp>
 #include <com/sun/star/sheet/XDataPilotTables.hpp>
 #include <com/sun/star/sheet/XDataPilotTablesSupplier.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
-#include <com/sun/star/sheet/XSpreadsheets.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
+#include <com/sun/star/sheet/XSpreadsheets.hpp>
 #include <com/sun/star/table/CellAddress.hpp>
 #include <com/sun/star/table/CellRangeAddress.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
 
 #include <com/sun/star/uno/Reference.hxx>
+
+#include <cppu/unotype.hxx>
 
 using namespace css;
 using namespace css::uno;
@@ -33,7 +40,11 @@ namespace sc_apitest
 {
 class ScDataPilotTablesObj : public CalcUnoApiTest,
                              public apitest::XDataPilotTables,
-                             public apitest::XEnumerationAccess
+                             public apitest::XElementAccess,
+                             public apitest::XEnumerationAccess,
+                             public apitest::XIndexAccess,
+                             public apitest::XNameAccess,
+                             public apitest::XServiceInfo
 {
 public:
     ScDataPilotTablesObj();
@@ -48,8 +59,26 @@ public:
     // XDataPilotTables
     CPPUNIT_TEST(testXDataPilotTables);
 
+    // XElementAccess
+    CPPUNIT_TEST(testGetElementType);
+    CPPUNIT_TEST(testHasElements);
+
     // XEnumerationAccess
     CPPUNIT_TEST(testCreateEnumeration);
+
+    // XIndexAccess
+    CPPUNIT_TEST(testGetByIndex);
+    CPPUNIT_TEST(testGetCount);
+
+    // XNameAccess
+    CPPUNIT_TEST(testGetByName);
+    CPPUNIT_TEST(testGetElementNames);
+    CPPUNIT_TEST(testHasByName);
+
+    // XServiceInfo
+    CPPUNIT_TEST(testGetImplementationName);
+    CPPUNIT_TEST(testGetSupportedServiceNames);
+    CPPUNIT_TEST(testSupportsService);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -59,6 +88,10 @@ private:
 
 ScDataPilotTablesObj::ScDataPilotTablesObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XElementAccess(cppu::UnoType<sheet::XDataPilotTable2>::get())
+    , XIndexAccess(1)
+    , XNameAccess("DataPilotTable")
+    , XServiceInfo("ScDataPilotTablesObj", "com.sun.star.sheet.DataPilotTables")
 {
 }
 
@@ -81,7 +114,7 @@ uno::Reference<uno::XInterface> ScDataPilotTablesObj::init()
     uno::Reference<sheet::XDataPilotDescriptor> xDPD(xDPT->createDataPilotDescriptor(),
                                                      UNO_QUERY_THROW);
     xDPD->setSourceRange(table::CellRangeAddress(0, 0, 0, 4, 4));
-    //xDPT->insertNewByName("DataPilotTable", table::CellAddress(0, 5, 5), xDPD);
+    xDPT->insertNewByName("DataPilotTable", table::CellAddress(0, 5, 5), xDPD);
 
     return xDPT;
 }
@@ -112,7 +145,7 @@ void ScDataPilotTablesObj::tearDown()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScDataPilotTablesObj);
 
-} // end namespace
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

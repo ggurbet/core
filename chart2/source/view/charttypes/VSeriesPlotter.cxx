@@ -61,7 +61,6 @@
 #include <com/sun/star/chart2/RelativePosition.hpp>
 #include <editeng/unoprnms.hxx>
 #include <tools/color.hxx>
-#include <o3tl/make_unique.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/math.hxx>
 #include <basegfx/vector/b2dvector.hxx>
@@ -1454,10 +1453,8 @@ long VSeriesPlotter::calculateTimeResolutionOnXAxis()
         if( !rDateCategories.empty() )
         {
             std::vector< double >::const_iterator aIt = rDateCategories.begin(), aEnd = rDateCategories.end();
-            while (rtl::math::isNan(*aIt) && aIt != aEnd)
-            {
-                ++aIt;
-            }
+            aIt = std::find_if(aIt, aEnd, [](const double& rDateCategory) { return !rtl::math::isNan(rDateCategory); });
+
             Date aPrevious(aNullDate); aPrevious.AddDays(rtl::math::approxFloor(*aIt));
             ++aIt;
             for(;aIt!=aEnd;++aIt)
@@ -1867,7 +1864,7 @@ private:
         if (it == m_SeriesGroup.end())
         {
             std::pair<GroupMinMaxType::iterator,bool> r =
-                m_SeriesGroup.insert(std::make_pair(fX, o3tl::make_unique<SeriesMinMaxType>()));
+                m_SeriesGroup.insert(std::make_pair(fX, std::make_unique<SeriesMinMaxType>()));
 
             if (!r.second)
                 // insertion failed.
@@ -2324,7 +2321,7 @@ bool lcl_HasRegressionCurves( const VDataSeries& rSeries, bool& rbHasDashedLine 
 }
 LegendSymbolStyle VSeriesPlotter::getLegendSymbolStyle()
 {
-    return LegendSymbolStyle_BOX;
+    return LegendSymbolStyle::Box;
 }
 
 awt::Size VSeriesPlotter::getPreferredLegendKeyAspectRatio()
@@ -2333,7 +2330,7 @@ awt::Size VSeriesPlotter::getPreferredLegendKeyAspectRatio()
     if( m_nDimension==3 )
         return aRet;
 
-    bool bSeriesAllowsLines = (getLegendSymbolStyle() == LegendSymbolStyle_LINE);
+    bool bSeriesAllowsLines = (getLegendSymbolStyle() == LegendSymbolStyle::Line);
     bool bHasLines = false;
     bool bHasDashedLines = false;
     //iterate through all series
@@ -2395,7 +2392,7 @@ Reference< drawing::XShape > VSeriesPlotter::createLegendSymbolForSeries(
     // legend-symbol type
     switch( eLegendSymbolStyle )
     {
-        case LegendSymbolStyle_LINE:
+        case LegendSymbolStyle::Line:
             ePropType = VLegendSymbolFactory::PropertyType::LineSeries;
             break;
         default:
@@ -2426,7 +2423,7 @@ Reference< drawing::XShape > VSeriesPlotter::createLegendSymbolForPoint(
     // legend-symbol type
     switch( eLegendSymbolStyle )
     {
-        case LegendSymbolStyle_LINE:
+        case LegendSymbolStyle::Line:
             ePropType = VLegendSymbolFactory::PropertyType::LineSeries;
             break;
         default:
@@ -2567,7 +2564,7 @@ std::vector< ViewLegendEntry > VSeriesPlotter::createLegendEntriesForSeries(
 
                     // create the symbol
                     Reference< drawing::XShape > xShape( VLegendSymbolFactory::createSymbol( rEntryKeyAspectRatio,
-                        xSymbolGroup, LegendSymbolStyle_LINE, xShapeFactory,
+                        xSymbolGroup, LegendSymbolStyle::Line, xShapeFactory,
                         Reference< beans::XPropertySet >( aCurves[i], uno::UNO_QUERY ),
                         VLegendSymbolFactory::PropertyType::Line, uno::Any() ));
 
@@ -2622,9 +2619,9 @@ VSeriesPlotter* VSeriesPlotter::createSeriesPlotter(
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_PIE) )
         pRet = new PieChart(xChartTypeModel,nDimensionCount, bExcludingPositioning );
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_NET) )
-        pRet = new NetChart(xChartTypeModel,nDimensionCount,true,o3tl::make_unique<PolarPlottingPositionHelper>());
+        pRet = new NetChart(xChartTypeModel,nDimensionCount,true,std::make_unique<PolarPlottingPositionHelper>());
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_FILLED_NET) )
-        pRet = new NetChart(xChartTypeModel,nDimensionCount,false,o3tl::make_unique<PolarPlottingPositionHelper>());
+        pRet = new NetChart(xChartTypeModel,nDimensionCount,false,std::make_unique<PolarPlottingPositionHelper>());
     else if( aChartType.equalsIgnoreAsciiCase(CHART2_SERVICE_NAME_CHARTTYPE_CANDLESTICK) )
         pRet = new CandleStickChart(xChartTypeModel,nDimensionCount);
     else

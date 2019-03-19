@@ -20,6 +20,7 @@
 
 #include "cellvalueconversion.hxx"
 #include <table/gridtablerenderer.hxx>
+#include <svtools/table/tablesort.hxx>
 #include <svtools/colorcfg.hxx>
 
 #include <com/sun/star/graphic/XGraphic.hpp>
@@ -60,7 +61,7 @@ namespace svt { namespace table
         {
         }
 
-        BitmapEx const & getBitmapFor(OutputDevice const & i_device, long const i_headerHeight,
+        BitmapEx const & getBitmapFor(vcl::RenderContext const & i_device, long const i_headerHeight,
                                       StyleSettings const & i_style, bool const i_sortAscending);
 
     private:

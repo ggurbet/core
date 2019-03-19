@@ -157,7 +157,7 @@ uno::Any SAL_CALL ScViewPaneBase::queryInterface( const uno::Type& rType )
 
 uno::Sequence<uno::Type> SAL_CALL ScViewPaneBase::getTypes()
 {
-    static uno::Sequence<uno::Type> aTypes
+    static const uno::Sequence<uno::Type> aTypes
     {
         cppu::UnoType<sheet::XViewPane>::get(),
         cppu::UnoType<sheet::XCellRangeReferrer>::get(),
@@ -576,7 +576,7 @@ void ScTabViewObj::SheetChanged( bool bSameTabButMoved )
 
 uno::Sequence<uno::Type> SAL_CALL ScTabViewObj::getTypes()
 {
-    static const uno::Sequence<uno::Type> aTypes = comphelper::concatSequences(
+    return comphelper::concatSequences(
         ScViewPaneBase::getTypes(),
         SfxBaseController::getTypes(),
         uno::Sequence<uno::Type>
@@ -594,7 +594,6 @@ uno::Sequence<uno::Type> SAL_CALL ScTabViewObj::getTypes()
             cppu::UnoType<sheet::XActivationBroadcaster>::get(),
             cppu::UnoType<datatransfer::XTransferableSupplier>::get()
         } );
-    return aTypes;
 }
 
 uno::Sequence<sal_Int8> SAL_CALL ScTabViewObj::getImplementationId()
@@ -1338,13 +1337,9 @@ void SAL_CALL ScTabViewObj::removeEnhancedMouseClickHandler( const uno::Referenc
 {
     SolarMutexGuard aGuard;
     sal_uInt16 nCount = aMouseClickHandlers.size();
-    for (XMouseClickHandlerVector::iterator it = aMouseClickHandlers.begin(); it != aMouseClickHandlers.end(); )
-    {
-        if ( *it == aListener )
-            it = aMouseClickHandlers.erase(it);
-        else
-            ++it;
-    }
+    aMouseClickHandlers.erase(
+        std::remove(aMouseClickHandlers.begin(), aMouseClickHandlers.end(), aListener),
+        aMouseClickHandlers.end());
     if (aMouseClickHandlers.empty() && (nCount > 0)) // only if last listener removed
         EndMouseListening();
 }
@@ -1365,13 +1360,9 @@ void SAL_CALL ScTabViewObj::removeActivationEventListener( const uno::Reference<
 {
     SolarMutexGuard aGuard;
     sal_uInt16 nCount = aActivationListeners.size();
-    for (XActivationEventListenerVector::iterator it = aActivationListeners.begin(); it != aActivationListeners.end(); )
-    {
-        if ( *it == aListener )
-            it = aActivationListeners.erase(it);
-        else
-            ++it;
-    }
+    aActivationListeners.erase(
+        std::remove(aActivationListeners.begin(), aActivationListeners.end(), aListener),
+        aActivationListeners.end());
     if (aActivationListeners.empty() && (nCount > 0)) // only if last listener removed
         EndActivationListening();
 }
@@ -1649,15 +1640,9 @@ void SAL_CALL ScTabViewObj::removeSelectionChangeListener(
                 const uno::Reference< view::XSelectionChangeListener >& xListener )
 {
     SolarMutexGuard aGuard;
-    for (XSelectionChangeListenerVector::iterator it = aSelectionChgListeners.begin();
-         it != aSelectionChgListeners.end(); ++it )
-    {
-        if ( *it == xListener ) //! why the hassle with queryInterface?
-        {
-            aSelectionChgListeners.erase(it);
-            break;
-        }
-    }
+    auto it = std::find(aSelectionChgListeners.begin(), aSelectionChgListeners.end(), xListener); //! why the hassle with queryInterface?
+    if (it != aSelectionChgListeners.end())
+        aSelectionChgListeners.erase(it);
 }
 
 void ScTabViewObj::SelectionChanged()
@@ -1914,15 +1899,9 @@ void SAL_CALL ScTabViewObj::removePropertyChangeListener( const OUString& /* aPr
                                     const uno::Reference<beans::XPropertyChangeListener >& xListener )
 {
     SolarMutexGuard aGuard;
-    for (XViewPropertyChangeListenerVector::iterator it = aPropertyChgListeners.begin();
-         it != aPropertyChgListeners.end(); ++it )
-    {
-        if ( *it == xListener ) //! Why the nonsense with queryInterface?
-        {
-            aPropertyChgListeners.erase(it);
-            break;
-        }
-    }
+    auto it = std::find(aPropertyChgListeners.begin(), aPropertyChgListeners.end(), xListener); //! Why the nonsense with queryInterface?
+    if (it != aPropertyChgListeners.end())
+        aPropertyChgListeners.erase(it);
 }
 
 void SAL_CALL ScTabViewObj::addVetoableChangeListener( const OUString& /* PropertyName */,
@@ -2006,15 +1985,9 @@ void SAL_CALL ScTabViewObj::removeRangeSelectionListener(
                                 const uno::Reference<sheet::XRangeSelectionListener>& xListener )
 {
     SolarMutexGuard aGuard;
-    for (XRangeSelectionListenerVector::iterator it = aRangeSelListeners.begin();
-         it != aRangeSelListeners.end(); ++it )
-    {
-        if ( *it == xListener )
-        {
-            aRangeSelListeners.erase(it);
-            break;
-        }
-    }
+    auto it = std::find(aRangeSelListeners.begin(), aRangeSelListeners.end(), xListener);
+    if (it != aRangeSelListeners.end())
+        aRangeSelListeners.erase(it);
 }
 
 void SAL_CALL ScTabViewObj::addRangeSelectionChangeListener(
@@ -2028,15 +2001,9 @@ void SAL_CALL ScTabViewObj::removeRangeSelectionChangeListener(
                                 const uno::Reference<sheet::XRangeSelectionChangeListener>& xListener )
 {
     SolarMutexGuard aGuard;
-    for (XRangeSelectionChangeListenerVector::iterator it = aRangeChgListeners.begin();
-         it != aRangeChgListeners.end(); ++it )
-    {
-        if ( *it == xListener )
-        {
-            aRangeChgListeners.erase(it);
-            break;
-        }
-    }
+    auto it = std::find(aRangeChgListeners.begin(), aRangeChgListeners.end(), xListener);
+    if (it != aRangeChgListeners.end())
+        aRangeChgListeners.erase(it);
 }
 
 void ScTabViewObj::RangeSelDone( const OUString& rText )
@@ -2183,9 +2150,12 @@ namespace {
 uno::Sequence<sal_Int32> toSequence(const ScMarkData::MarkedTabsType& rSelected)
 {
     uno::Sequence<sal_Int32> aRet(rSelected.size());
-    ScMarkData::MarkedTabsType::const_iterator itr = rSelected.begin(), itrEnd = rSelected.end();
-    for (size_t i = 0; itr != itrEnd; ++itr, ++i)
-        aRet[i] = static_cast<sal_Int32>(*itr);
+    size_t i = 0;
+    for (const auto& rTab : rSelected)
+    {
+        aRet[i] = static_cast<sal_Int32>(rTab);
+        ++i;
+    }
 
     return aRet;
 }

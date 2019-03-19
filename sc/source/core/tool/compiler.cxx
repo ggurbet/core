@@ -242,9 +242,8 @@ std::vector<OUString> &ScCompiler::GetSetupTabNames() const
     if (pDoc && rTabNames.empty())
     {
         rTabNames = pDoc->GetAllTableNames();
-        std::vector<OUString>::iterator it = rTabNames.begin(), itEnd = rTabNames.end();
-        for (; it != itEnd; ++it)
-            ScCompiler::CheckTabQuotes(*it, formula::FormulaGrammar::extractRefConvention(meGrammar));
+        for (auto& rTabName : rTabNames)
+            ScCompiler::CheckTabQuotes(rTabName, formula::FormulaGrammar::extractRefConvention(meGrammar));
     }
 
     return rTabNames;
@@ -2630,6 +2629,7 @@ Label_MaskStateMachine:
     }
     if ( bi18n )
     {
+        const sal_Int32 nOldSrcPos = nSrcPos;
         nSrcPos = nSrcPos + nSpaces;
         OUStringBuffer aSymbol;
         mnRangeOpPosInSymbol = -1;
@@ -2649,11 +2649,15 @@ Label_MaskStateMachine:
                 SetError( nErr );      // parsed chars as string
             }
             if ( aRes.EndPos <= nSrcPos )
-            {   // ?!?
+            {
+                // Could not parse anything meaningful.
+                assert(!aRes.TokenType);
                 nErr = FormulaError::IllegalChar;
                 SetError( nErr );
-                nSrcPos = aFormula.getLength();
-                aSymbol.truncate();
+                // Caller has to act on an empty symbol for
+                // nSrcPos < aFormula.getLength()
+                nSrcPos = nOldSrcPos;
+                aSymbol.setLength(0);
             }
             else
             {
@@ -3554,11 +3558,8 @@ bool ScCompiler::IsColRowName( const OUString& rName )
             //  Loop through the found positions, similar to the inner part of the loop in the "else" branch.
             //  The order of addresses in the vector is the same as from ScCellIterator.
 
-            ScAutoNameAddresses::const_iterator aEnd(rAddresses.end());
-            for ( ScAutoNameAddresses::const_iterator aAdrIter(rAddresses.begin()); aAdrIter != aEnd; ++aAdrIter )
+            for ( const ScAddress& aAddress : rAddresses )
             {
-                ScAddress aAddress( *aAdrIter );        // cell address with an equal string
-
                 if ( bFound )
                 {   // stop if everything else is further away
                     if ( nMax < static_cast<long>(aAddress.Col()) )
@@ -4043,8 +4044,9 @@ void ScCompiler::AutoCorrectParsedSymbol()
                 const ScAddress::Details aDetails( pConv->meConv, aPos );
                 if ( nRefs == 2 )
                 {
-                    aRef[0] = aSymbol.getToken( 0, ':' );
-                    aRef[1] = aSymbol.getToken( 1, ':' );
+                    sal_Int32 nIdx{ 0 };
+                    aRef[0] = aSymbol.getToken( 0, ':', nIdx );
+                    aRef[1] = aSymbol.getToken( 0, ':', nIdx );
                 }
                 else
                     aRef[0] = aSymbol;
@@ -4117,7 +4119,22 @@ bool ScCompiler::NextNewToken( bool bInArray )
     sal_Int32 nSpaces = NextSymbol(bInArray);
 
     if (!cSymbol[0])
+    {
+        if (nSrcPos < aFormula.getLength())
+        {
+            // Nothing could be parsed, remainder as bad string.
+            // NextSymbol() must had set an error for this.
+            assert( pArr->GetCodeError() != FormulaError::NONE);
+            const OUString aBad( aFormula.copy( nSrcPos));
+            svl::SharedString aSS = pDoc->GetSharedStringPool().intern( aBad);
+            maRawToken.SetString( aSS.getData(), aSS.getDataIgnoreCase());
+            maRawToken.NewOpCode( ocBad);
+            nSrcPos = aFormula.getLength();
+            // Add bad string as last token.
+            return true;
+        }
         return false;
+    }
 
     if( nSpaces )
     {
@@ -4383,7 +4400,7 @@ public:
 
 }
 
-ScTokenArray* ScCompiler::CompileString( const OUString& rFormula )
+std::unique_ptr<ScTokenArray> ScCompiler::CompileString( const OUString& rFormula )
 {
     OSL_ENSURE( meGrammar != FormulaGrammar::GRAM_EXTERNAL, "ScCompiler::CompileString - unexpected grammar GRAM_EXTERNAL" );
     if( meGrammar == FormulaGrammar::GRAM_EXTERNAL )
@@ -4680,9 +4697,9 @@ ScTokenArray* ScCompiler::CompileString( const OUString& rFormula )
         delete [] pFunctionStack;
 
     // remember pArr, in case a subsequent CompileTokenArray() is executed.
-    ScTokenArray* pNew = new ScTokenArray( aArr );
+    std::unique_ptr<ScTokenArray> pNew(new ScTokenArray( aArr ));
     pNew->GenHash();
-    pArr = pNew;
+    pArr = pNew.get();
     maArrIterator = FormulaTokenArrayPlainIterator(*pArr);
 
     if (!maExternalFiles.empty())
@@ -4697,7 +4714,7 @@ ScTokenArray* ScCompiler::CompileString( const OUString& rFormula )
     return pNew;
 }
 
-ScTokenArray* ScCompiler::CompileString( const OUString& rFormula, const OUString& rFormulaNmsp )
+std::unique_ptr<ScTokenArray> ScCompiler::CompileString( const OUString& rFormula, const OUString& rFormulaNmsp )
 {
     OSL_ENSURE( (GetGrammar() == FormulaGrammar::GRAM_EXTERNAL) || rFormulaNmsp.isEmpty(),
         "ScCompiler::CompileString - unexpected formula namespace for internal grammar" );
@@ -4712,8 +4729,8 @@ ScTokenArray* ScCompiler::CompileString( const OUString& rFormula, const OUStrin
         if( ScTokenConversion::ConvertToTokenArray( *pDoc, aTokenArray, aTokenSeq ) )
         {
             // remember pArr, in case a subsequent CompileTokenArray() is executed.
-            ScTokenArray* pNew = new ScTokenArray( aTokenArray );
-            pArr = pNew;
+            std::unique_ptr<ScTokenArray> pNew(new ScTokenArray( aTokenArray ));
+            pArr = pNew.get();
             maArrIterator = FormulaTokenArrayPlainIterator(*pArr);
             return pNew;
         }
@@ -4760,7 +4777,7 @@ bool ScCompiler::HandleRange()
                 pNew->AddOpCode( ocClose );
                 PushTokenArray( pNew, true );
             }
-            pNew = pRangeData->GetCode()->Clone();
+            pNew = pRangeData->GetCode()->Clone().release();
             pNew->SetFromRangeName( true );
             PushTokenArray( pNew, true );
             if( pRangeData->HasReferences() )
@@ -4826,7 +4843,7 @@ bool ScCompiler::HandleExternalReference(const FormulaToken& _aToken)
                 return true;
             }
 
-            ScTokenArray* pNew = xNew->Clone();
+            ScTokenArray* pNew = xNew->Clone().release();
             PushTokenArray( pNew, true);
             if (FormulaTokenArrayPlainIterator(*pNew).GetNextReference() != nullptr)
             {
@@ -5251,7 +5268,7 @@ void ScCompiler::fillAddInToken(::std::vector< css::sheet::FormulaOpCodeMapEntry
 
 bool ScCompiler::HandleColRowName()
 {
-    ScSingleRefData& rRef = *mpToken.get()->GetSingleRef();
+    ScSingleRefData& rRef = *mpToken->GetSingleRef();
     const ScAddress aAbs = rRef.toAbs(aPos);
     if (!ValidAddress(aAbs))
     {

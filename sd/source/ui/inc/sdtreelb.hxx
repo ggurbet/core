@@ -23,6 +23,7 @@
 #include <pres.hxx>
 #include <sddllapi.h>
 #include <vcl/treelistbox.hxx>
+#include <vcl/weld.hxx>
 #include <svl/urlbmk.hxx>
 #include <tools/ref.hxx>
 #include "sdxfer.hxx"
@@ -189,7 +190,7 @@ public:
     virtual void            KeyInput( const KeyEvent& rKEvt ) override;
     void MouseButtonDown(const MouseEvent& rMEvt) override;
 
-    void                    SetViewFrame( SfxViewFrame* pViewFrame );
+    void                    SetViewFrame( const SfxViewFrame* pViewFrame );
 
     void                    Fill( const SdDrawDocument*, bool bAllPages, const OUString& rDocName );
     void                    Fill( const SdDrawDocument*, SfxMedium* pSfxMedium, const OUString& rDocName );
@@ -210,12 +211,6 @@ public:
     void                    Clear();
     void                    SetSaveTreeItemStateFlag(bool bState){mbSaveTreeItemState = bState;}
     void                    SaveExpandedTreeItemState(SvTreeListEntry* pEntry, std::vector<OUString>& vectTreeItem);
-
-    /** return selected entries
-          nDepth == 0 -> pages
-          nDepth == 1 -> objects  */
-
-    std::vector<OUString> GetSelectEntryList (const sal_uInt16 nDepth) const;
 
     SdDrawDocument*         GetBookmarkDoc(SfxMedium* pMedium = nullptr);
 
@@ -294,6 +289,178 @@ private:
     void AddShapeToTransferable (
         SdTransferable& rTransferable,
         SdrObject& rObject) const;
+};
+
+class SD_DLLPUBLIC SdPageObjsTLV
+{
+private:
+    std::unique_ptr<weld::TreeView> m_xTreeView;
+    std::unique_ptr<::svt::AcceleratorExecute> m_xAccel;
+    const SdDrawDocument* m_pDoc;
+    SdDrawDocument* m_pBookmarkDoc;
+    SfxMedium* m_pMedium;
+    SfxMedium* m_pOwnMedium;
+    bool m_bLinkableSelected;
+    /** This flag controls whether to show all pages.
+    */
+    bool m_bShowAllPages;
+    OUString m_aDocName;
+    ::sd::DrawDocShellRef m_xBookmarkDocShRef; ///< for the loading of bookmarks
+    Link<weld::TreeView&, void> m_aChangeHdl;
+
+    /** Return the name of the object.  When the object has no user supplied
+        name and the bCreate flag is <TRUE/> then a name is created
+        automatically.  Additionally the mbShowAllShapes flag is taken into
+        account when there is no user supplied name.  When this flag is
+        <FALSE/> then no name is created.
+        @param pObject
+            When this is NULL then an empty string is returned, regardless
+            of the value of bCreate.
+    */
+    static OUString GetObjectName (const SdrObject* pObject);
+
+    void CloseBookmarkDoc();
+
+    DECL_LINK(RequestingChildrenHdl, const weld::TreeIter&, bool);
+    DECL_LINK(SelectHdl, weld::TreeView&, void);
+
+    /** Determine whether the specified page belongs to the current show
+        which is either the standard show or a custom show.
+        @param pPage
+            Pointer to the page for which to check whether it belongs to the
+            show.
+        @return
+            Returns <FALSE/> if there is no custom show or if the current
+            show does not contain the specified page at least once.
+    */
+    bool PageBelongsToCurrentShow (const SdPage* pPage) const;
+
+public:
+
+    SdPageObjsTLV(std::unique_ptr<weld::TreeView> xTreeview);
+    ~SdPageObjsTLV();
+
+    void hide()
+    {
+        m_xTreeView->hide();
+    }
+
+    void show()
+    {
+        m_xTreeView->show();
+    }
+
+    void set_size_request(int nWidth, int nHeight)
+    {
+        m_xTreeView->set_size_request(nWidth, nHeight);
+    }
+
+    float get_approximate_digit_width() const
+    {
+        return m_xTreeView->get_approximate_digit_width();
+    }
+
+    int get_height_rows(int nRows) const
+    {
+        return m_xTreeView->get_height_rows(nRows);
+    }
+
+    void set_selection_mode(SelectionMode eMode)
+    {
+        m_xTreeView->set_selection_mode(eMode);
+    }
+
+    bool SelectEntry(const OUString& rName);
+
+    OUString get_selected_text() const
+    {
+        return m_xTreeView->get_selected_text();
+    }
+
+    bool get_selected() const
+    {
+        return m_xTreeView->get_selected(nullptr);
+    }
+
+    void connect_changed(const Link<weld::TreeView&, void>& rLink)
+    {
+        m_aChangeHdl = rLink;
+    }
+
+    bool is_selected(const weld::TreeIter& rIter) const
+    {
+        return m_xTreeView->is_selected(rIter);
+    }
+
+    bool get_iter_first(weld::TreeIter& rIter) const
+    {
+        return m_xTreeView->get_iter_first(rIter);
+    }
+
+    std::unique_ptr<weld::TreeIter> make_iterator()
+    {
+        return m_xTreeView->make_iterator();
+    }
+
+    bool get_visible() const
+    {
+        return m_xTreeView->get_visible();
+    }
+
+    void unselect_all()
+    {
+        m_xTreeView->unselect_all();
+    }
+
+    void SetViewFrame(const SfxViewFrame* pViewFrame);
+
+    void Fill(const SdDrawDocument*, bool bAllPages, const OUString& rDocName);
+    void Fill(const SdDrawDocument*, SfxMedium* pSfxMedium, const OUString& rDocName);
+
+    /** Add one list box entry for the parent of the given shapes and one child entry for
+        each of the given shapes.
+        @param rList
+            The container of shapes that are to be inserted.
+        @param pShape
+            The parent shape or NULL when the parent is a page.
+        @param rsName
+            The name to be displayed for the new parent node.
+        @param bIsExcluded
+            Some pages can be excluded (from the show?).
+        @param pParentEntry
+            The parent entry of the new parent entry.
+    */
+    void AddShapeList (
+        const SdrObjList& rList,
+        SdrObject* pShape,
+        const OUString& rsName,
+        const bool bIsExcluded,
+        weld::TreeIter* pParentEntry);
+
+    /** return selected entries
+          nDepth == 0 -> pages
+          nDepth == 1 -> objects  */
+
+    std::vector<OUString> GetSelectEntryList(const int nDepth) const;
+
+    SdDrawDocument* GetBookmarkDoc();
+
+    bool IsLinkableSelected() const { return m_bLinkableSelected; }
+
+    void InsertEntry(const OUString &rName, const OUString &rExpander)
+    {
+        m_xTreeView->insert(nullptr, -1, &rName, nullptr, nullptr, nullptr, &rExpander, false, nullptr);
+    }
+
+    void InsertEntry(weld::TreeIter* pParent, const OUString& rId, const OUString &rName, const OUString &rExpander, weld::TreeIter* pEntry = nullptr)
+    {
+        m_xTreeView->insert(pParent, -1, &rName, &rId, nullptr, nullptr, &rExpander, false, pEntry);
+    }
+
+    void clear()
+    {
+        m_xTreeView->clear();
+    }
 };
 
 #endif // INCLUDED_SD_SOURCE_UI_INC_SDTREELB_HXX

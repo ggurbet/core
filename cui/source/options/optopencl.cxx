@@ -78,7 +78,7 @@ VclPtr<SfxTabPage> SvxOpenCLTabPage::Create( TabPageParent pParent, const SfxIte
 
 bool SvxOpenCLTabPage::FillItemSet( SfxItemSet* )
 {
- bool bModified = false;
+    bool bModified = false;
     std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
 
     if (mpUseOpenCL->IsValueChangedFromSaved())
@@ -94,8 +94,9 @@ bool SvxOpenCLTabPage::FillItemSet( SfxItemSet* )
     {
         batch->commit();
         SolarMutexGuard aGuard;
-        svtools::executeRestartDialog(comphelper::getProcessComponentContext(), nullptr,
-                                      svtools::RESTART_REASON_OPENCL);
+        if (svtools::executeRestartDialog(comphelper::getProcessComponentContext(), nullptr,
+                                      svtools::RESTART_REASON_OPENCL))
+            GetParentDialog()->EndDialog(RET_OK);
     }
 
     return bModified;

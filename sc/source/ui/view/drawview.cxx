@@ -224,7 +224,7 @@ void ScDrawView::SetMarkedToLayer( SdrLayerID nLayerNo )
             SdrObject* pObj = rMark.GetMark(i)->GetMarkedSdrObj();
             if ( dynamic_cast<const SdrUnoObj*>( pObj) ==  nullptr && (pObj->GetLayer() != SC_LAYER_INTERN) )
             {
-                AddUndo( o3tl::make_unique<SdrUndoObjectLayerChange>( *pObj, pObj->GetLayer(), nLayerNo) );
+                AddUndo( std::make_unique<SdrUndoObjectLayerChange>( *pObj, pObj->GetLayer(), nLayerNo) );
                 pObj->SetLayer( nLayerNo );
             }
         }
@@ -865,21 +865,21 @@ void ScDrawView::DeleteMarked()
         bool bUndo = pDrawLayer && pDocShell && pUndoMgr && pDoc->IsUndoEnabled();
 
         // remove the cell note from document, we are its owner now
-        ScPostIt* pNote = pDoc->ReleaseNote( pCaptData->maStart );
+        std::unique_ptr<ScPostIt> pNote = pDoc->ReleaseNote( pCaptData->maStart );
         OSL_ENSURE( pNote, "ScDrawView::DeleteMarked - cell note missing in document" );
         if( pNote )
         {
             // rescue note data for undo (with pointer to caption object)
             ScNoteData aNoteData = pNote->GetNoteData();
-            OSL_ENSURE( aNoteData.m_pCaption.get() == pCaptObj, "ScDrawView::DeleteMarked - caption object does not match" );
+            OSL_ENSURE( aNoteData.mxCaption.get() == pCaptObj, "ScDrawView::DeleteMarked - caption object does not match" );
             // collect the drawing undo action created while deleting the note
             if( bUndo )
                 pDrawLayer->BeginCalcUndo(false);
             // delete the note (already removed from document above)
-            delete pNote;
+            pNote.reset();
             // add the undo action for the note
             if( bUndo )
-                pUndoMgr->AddUndoAction( o3tl::make_unique<ScUndoReplaceNote>( *pDocShell, pCaptData->maStart, aNoteData, false, pDrawLayer->GetCalcUndo() ) );
+                pUndoMgr->AddUndoAction( std::make_unique<ScUndoReplaceNote>( *pDocShell, pCaptData->maStart, aNoteData, false, pDrawLayer->GetCalcUndo() ) );
             // repaint the cell to get rid of the note marker
             if( pDocShell )
                 pDocShell->PostPaintCell( pCaptData->maStart );
@@ -1130,7 +1130,7 @@ SdrObject* ScDrawView::ApplyGraphicToObject(
     }
     else if(rHitObject.IsClosedObj() && !dynamic_cast< SdrOle2Obj* >(&rHitObject))
     {
-        AddUndo(o3tl::make_unique<SdrUndoAttrObj>(rHitObject));
+        AddUndo(std::make_unique<SdrUndoAttrObj>(rHitObject));
 
         SfxItemSet aSet(GetModel()->GetItemPool(), svl::Items<XATTR_FILLSTYLE, XATTR_FILLBITMAP>{});
 

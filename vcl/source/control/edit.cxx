@@ -28,6 +28,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/uitest/uiobject.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <window.h>
 #include <svdata.hxx>
@@ -55,7 +56,6 @@
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
-#include <comphelper/lok.hxx>
 
 #include <sot/exchange.hxx>
 #include <sot/formats.hxx>
@@ -324,7 +324,7 @@ void Edit::ImplInit(vcl::Window* pParent, WinBits nStyle)
 
     SetCursor( new vcl::Cursor );
 
-    SetPointer( Pointer( PointerStyle::Text ) );
+    SetPointer( PointerStyle::Text );
 
     uno::Reference< datatransfer::dnd::XDragGestureListener> xDGL( mxDnDListener, uno::UNO_QUERY );
     uno::Reference< datatransfer::dnd::XDragGestureRecognizer > xDGR = GetDragGestureRecognizer();
@@ -987,7 +987,7 @@ void Edit::ImplClearBackground(vcl::RenderContext& rRenderContext, const tools::
     }
 }
 
-void Edit::ImplPaintBorder(vcl::RenderContext& rRenderContext)
+void Edit::ImplPaintBorder(vcl::RenderContext const & rRenderContext)
 {
     // this is not needed when double-buffering
     if (SupportsDoubleBuffering())
@@ -1044,17 +1044,7 @@ void Edit::ImplPaintBorder(vcl::RenderContext& rRenderContext)
             }
             else
             {
-                // For some mysterious reason, in headless/svp rendering,
-                // pBorder has bad clipping region (shows as 1x1@0,0),
-                // and therefore doesn't render anything at all.
-                // In the case that we know we're in headless/svp, we
-                // render directly on the current context (the edit control).
-                // But if we (the editbox) are part of a more complex control
-                // (e.g. spinbox), we render not (i.e. we let pBorder pretend).
-                if (!mbIsSubEdit && comphelper::LibreOfficeKit::isActive())
-                    pBorder->Paint(rRenderContext, tools::Rectangle());
-                else
-                    pBorder->Paint(*pBorder, tools::Rectangle());
+                pBorder->Paint(*pBorder, tools::Rectangle());
             }
         }
     }
@@ -1142,14 +1132,19 @@ void Edit::ImplShowCursor( bool bOnlyIfVisible )
 
 void Edit::ImplAlign()
 {
+    if (mnAlign == EDIT_ALIGN_LEFT && !mnXOffset)
+    {
+        // short circuit common case and avoid slow GetTextWidth() calc
+        return;
+    }
+
     long nTextWidth = GetTextWidth( ImplGetText() );
     long nOutWidth = GetOutputSizePixel().Width();
 
     if ( mnAlign == EDIT_ALIGN_LEFT )
     {
-        if( mnXOffset && ( nTextWidth < nOutWidth ) )
+        if (nTextWidth < nOutWidth)
             mnXOffset = 0;
-
     }
     else if ( mnAlign == EDIT_ALIGN_RIGHT )
     {
@@ -1172,8 +1167,8 @@ void Edit::ImplAlign()
     }
     else if( mnAlign == EDIT_ALIGN_CENTER )
     {
-            // would be nicer with check while scrolling but then it's not centred in scrolled state
-            mnXOffset = (nOutWidth - nTextWidth) / 2;
+        // would be nicer with check while scrolling but then it's not centred in scrolled state
+        mnXOffset = (nOutWidth - nTextWidth) / 2;
     }
 }
 
@@ -1710,7 +1705,7 @@ void Edit::KeyInput( const KeyEvent& rKEvt )
         mpUpdateDataTimer->Start();//do not update while the user is still travelling in the control
 
     if ( mpSubEdit || !ImplHandleKeyEvent( rKEvt ) )
-        GetParent()->KeyInput( rKEvt );
+        Control::KeyInput( rKEvt );
 }
 
 void Edit::FillLayoutData() const

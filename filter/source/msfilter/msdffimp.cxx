@@ -142,7 +142,6 @@
 #include <rtl/ustring.hxx>
 #include <svtools/embedhlp.hxx>
 #include <memory>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star    ;
 using namespace ::com::sun::star::drawing;
@@ -226,7 +225,7 @@ DffPropertyReader::DffPropertyReader( const SvxMSDffManager& rMan )
 void DffPropertyReader::SetDefaultPropSet( SvStream& rStCtrl, sal_uInt32 nOffsDgg ) const
 {
     const_cast<DffPropertyReader*>(this)->pDefaultPropSet.reset();
-    sal_uInt32 nMerk = rStCtrl.Tell();
+    sal_uInt32 nOldPos = rStCtrl.Tell();
     bool bOk = checkSeek(rStCtrl, nOffsDgg);
     DffRecordHeader aRecHd;
     if (bOk)
@@ -239,7 +238,7 @@ void DffPropertyReader::SetDefaultPropSet( SvStream& rStCtrl, sal_uInt32 nOffsDg
             ReadDffPropSet( rStCtrl, *pDefaultPropSet );
         }
     }
-    rStCtrl.Seek( nMerk );
+    rStCtrl.Seek( nOldPos );
 }
 
 #ifdef DBG_CUSTOMSHAPE
@@ -1177,30 +1176,22 @@ static void ApplyRectangularGradientAsBitmap( const SvxMSDffManager& rManager, S
                 if ( fD != 0.0 )
                     fDist /= fD;
 
-                std::vector< ShadeColor >::const_iterator aIter( rShadeColors.begin() );
                 double fA = 0.0;
-                Color aColorA = aIter->aColor;
+                Color aColorA = rShadeColors.front().aColor;
                 double fB = 1.0;
                 Color aColorB( aColorA );
-                while ( aIter != rShadeColors.end() )
+                for ( const auto& rShadeColor : rShadeColors )
                 {
-                    if ( aIter->fDist <= fDist )
+                    if ( fA <= rShadeColor.fDist && rShadeColor.fDist <= fDist )
                     {
-                        if ( aIter->fDist >= fA )
-                        {
-                            fA = aIter->fDist;
-                            aColorA = aIter->aColor;
-                        }
+                        fA = rShadeColor.fDist;
+                        aColorA = rShadeColor.aColor;
                     }
-                    if ( aIter->fDist > fDist )
+                    if ( fDist < rShadeColor.fDist && rShadeColor.fDist <= fB )
                     {
-                        if ( aIter->fDist <= fB )
-                        {
-                            fB = aIter->fDist;
-                            aColorB = aIter->aColor;
-                        }
+                        fB = rShadeColor.fDist;
+                        aColorB = rShadeColor.aColor;
                     }
-                    ++aIter;
                 }
                 double fRed = aColorA.GetRed(), fGreen = aColorA.GetGreen(), fBlue = aColorA.GetBlue();
                 double fD1 = fB - fA;
@@ -2178,12 +2169,25 @@ void DffPropertyReader::ApplyCustomShapeGeometryAttributes( SvStream& rIn, SfxIt
                     }
                     else
                     {
-                        sal_Int16 nTmpA(0), nTmpB(0);
-                        rIn.ReadInt16( nTmpA )
-                           .ReadInt16( nTmpB );
-
-                        nX = nTmpA;
-                        nY = nTmpB;
+                        // The mso-spt19 (arc) uses this. But it needs unsigned integer. I don't
+                        // know if other shape types also need it. They can be added as necessary.
+                        bool bNeedsUnsigned = rObjData.eShapeType == mso_sptArc;
+                        if (bNeedsUnsigned)
+                        {
+                            sal_uInt16 nTmpA(0), nTmpB(0);
+                            rIn.ReadUInt16(nTmpA)
+                               .ReadUInt16(nTmpB);
+                            nX = nTmpA;
+                            nY = nTmpB;
+                        }
+                        else
+                        {
+                            sal_Int16 nTmpA(0), nTmpB(0);
+                            rIn.ReadInt16( nTmpA )
+                               .ReadInt16( nTmpB );
+                            nX = nTmpA;
+                            nY = nTmpB;
+                        }
                     }
                     EnhancedCustomShape2d::SetEnhancedCustomShapeParameter( aCoordinates[ i ].First, nX );
                     EnhancedCustomShape2d::SetEnhancedCustomShapeParameter( aCoordinates[ i ].Second, nY );
@@ -2628,7 +2632,7 @@ void DffPropertyReader::ApplyAttributes( SvStream& rIn, SfxItemSet& rSet, DffObj
     }
     if ( bHasShadow )
     {
-        static bool bCheckShadow(false);
+        static bool bCheckShadow(false); // loplugin:constvars:ignore
 
         // #i124477# Found no reason not to set shadow, esp. since it is applied to evtl. existing text
         // and will lead to an error if in PPT someone used text and added the object shadow to the
@@ -3187,7 +3191,7 @@ bool SvxMSDffManager::SeekToShape( SvStream& rSt, SvxMSDffClientData* /* pClient
     bool bRet = false;
     if ( !maFidcls.empty() )
     {
-        sal_uInt32 nMerk = rSt.Tell();
+        sal_uInt32 nOldPos = rSt.Tell();
         sal_uInt32 nSec = ( nId >> 10 ) - 1;
         if ( nSec < mnIdClusters )
         {
@@ -3232,7 +3236,7 @@ bool SvxMSDffManager::SeekToShape( SvStream& rSt, SvxMSDffClientData* /* pClient
             }
         }
         if ( !bRet )
-            rSt.Seek( nMerk );
+            rSt.Seek( nOldPos );
     }
     return bRet;
 }
@@ -3240,7 +3244,7 @@ bool SvxMSDffManager::SeekToShape( SvStream& rSt, SvxMSDffClientData* /* pClient
 bool SvxMSDffManager::SeekToRec( SvStream& rSt, sal_uInt16 nRecId, sal_uLong nMaxFilePos, DffRecordHeader* pRecHd, sal_uLong nSkipCount )
 {
     bool bRet = false;
-    sal_uLong nFPosMerk = rSt.Tell(); // store FilePos to restore it later if necessary
+    sal_uLong nOldFPos = rSt.Tell(); // store FilePos to restore it later if necessary
     do
     {
         DffRecordHeader aHd;
@@ -3277,14 +3281,14 @@ bool SvxMSDffManager::SeekToRec( SvStream& rSt, sal_uInt16 nRecId, sal_uLong nMa
     }
     while ( rSt.good() && rSt.Tell() < nMaxFilePos && !bRet );
     if ( !bRet )
-        rSt.Seek( nFPosMerk );  // restore original FilePos
+        rSt.Seek( nOldFPos );  // restore original FilePos
     return bRet;
 }
 
 bool SvxMSDffManager::SeekToRec2( sal_uInt16 nRecId1, sal_uInt16 nRecId2, sal_uLong nMaxFilePos ) const
 {
     bool bRet = false;
-    sal_uLong nFPosMerk = rStCtrl.Tell();   // remember FilePos for conditionally later restoration
+    sal_uLong nOldFPos = rStCtrl.Tell();   // remember FilePos for conditionally later restoration
     do
     {
         DffRecordHeader aHd;
@@ -3309,7 +3313,7 @@ bool SvxMSDffManager::SeekToRec2( sal_uInt16 nRecId1, sal_uInt16 nRecId2, sal_uL
     }
     while ( rStCtrl.good() && rStCtrl.Tell() < nMaxFilePos && !bRet );
     if ( !bRet )
-        rStCtrl.Seek( nFPosMerk ); // restore FilePos
+        rStCtrl.Seek( nOldFPos ); // restore FilePos
     return bRet;
 }
 
@@ -4142,7 +4146,7 @@ SdrObject* SvxMSDffManager::ImportGroup( const DffRecordHeader& rHd, SvStream& r
 
             if ( nGroupRotateAngle )
             {
-                double a = nGroupRotateAngle * nPi180;
+                double a = nGroupRotateAngle * F_PI18000;
                 pRet->NbcRotate( aClientRect.Center(), nGroupRotateAngle, sin( a ), cos( a ) );
             }
             if ( nSpFlags & ShapeFlag::FlipV )
@@ -4537,16 +4541,15 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
                                 sal_Int32 nX = 0, nY = 0;
                                 seqCoordinates[ nPtNum ].First.Value >>= nX;
                                 seqCoordinates[ nPtNum ].Second.Value >>= nY;
-                                aP.setX( nX );
-                                aP.setY( nY );
+                                aP.setX(nX);
+                                aP.setY(nY);
                                 aXP[ static_cast<sal_uInt16>(nPtNum) ] = aP;
                             }
                             aPolyBoundRect = aXP.GetBoundRect();
-                            if ( nNumElemVert >= 3 )
-                            { // arc first command is always wr -- clockwise arc
-                                // the parameters are : (left,top),(right,bottom),start(x,y),end(x,y)
-                                aStartPt = aXP[2];
-                            }
+
+                            // arc first command is always wr -- clockwise arc
+                            // the parameters are : (left,top),(right,bottom),start(x,y),end(x,y)
+                            aStartPt = aXP[2];
                         }
                         else
                             aPolyBoundRect = tools::Rectangle( -21600, 0, 21600, 43200 );  // defaulting
@@ -4720,7 +4723,7 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
                     {
                         if( nObjectRotation )
                         {
-                            double a = nObjectRotation * nPi180;
+                            double a = nObjectRotation * F_PI18000;
                             pRet->NbcRotate( aObjData.aBoundRect.Center(), nObjectRotation, sin( a ), cos( a ) );
                         }
                         // mirrored horizontally?
@@ -4759,7 +4762,7 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
                         // pay attention to the rotations
                         if ( nObjectRotation )
                         {
-                            double a = nObjectRotation * nPi180;
+                            double a = nObjectRotation * F_PI18000;
                             Point aCenter( aObjData.aBoundRect.Center() );
                             double ss = sin(a);
                             double cc = cos(a);
@@ -4831,7 +4834,7 @@ SdrObject* SvxMSDffManager::ImportShape( const DffRecordHeader& rHd, SvStream& r
             {
                 if( nObjectRotation )
                 {
-                    double a = nObjectRotation * nPi180;
+                    double a = nObjectRotation * F_PI18000;
                     pRet->NbcRotate( aObjData.aBoundRect.Center(), nObjectRotation, sin( a ), cos( a ) );
                 }
                 // mirrored horizontally?
@@ -5056,10 +5059,10 @@ SvxMSDffImportRec* SvxMSDffImportData::find(const SdrObject* pObj)
     return nullptr;
 }
 
-void SvxMSDffImportData::insert(SvxMSDffImportRec* pImpRec)
+void SvxMSDffImportData::insert(std::unique_ptr<SvxMSDffImportRec> pImpRec)
 {
-    m_ObjToRecMap[pImpRec->pObj] = pImpRec;
-    m_Records.insert(std::unique_ptr<SvxMSDffImportRec>(pImpRec));
+    m_ObjToRecMap[pImpRec->pObj] = pImpRec.get();
+    m_Records.insert(std::move(pImpRec));
 }
 
 void SvxMSDffImportData::NotifyFreeObj(SdrObject* pObj)
@@ -5433,14 +5436,14 @@ SdrObject* SvxMSDffManager::ProcessObj(SvStream& rSt,
                 Point aPivot(rTextRect.TopLeft());
                 aPivot.AdjustX(nMinWH );
                 aPivot.AdjustY(nMinWH );
-                double a = nTextRotationAngle * nPi180;
+                double a = nTextRotationAngle * F_PI18000;
                 pTextObj->NbcRotate(aPivot, nTextRotationAngle, sin(a), cos(a));
             }
 
             // rotate text with shape?
             if ( mnFix16Angle )
             {
-                double a = mnFix16Angle * nPi180;
+                double a = mnFix16Angle * F_PI18000;
                 pTextObj->NbcRotate( rObjData.aBoundRect.Center(), mnFix16Angle,
                     sin( a ), cos( a ) );
             }
@@ -5576,7 +5579,7 @@ SdrObject* SvxMSDffManager::ProcessObj(SvStream& rSt,
             if( pOrgObj )
             {
                 pImpRec->pObj = pOrgObj;
-                rImportData.insert(pImpRec);
+                rImportData.insert(std::unique_ptr<SvxMSDffImportRec>(pImpRec));
                 bDeleteImpRec = false;
                 if (pImpRec == pTextImpRec)
                     bDeleteTextImpRec = false;
@@ -5587,7 +5590,7 @@ SdrObject* SvxMSDffManager::ProcessObj(SvStream& rSt,
                 // Modify ShapeId (must be unique)
                 pImpRec->nShapeId |= 0x8000000;
                 pTextImpRec->pObj = pTextObj;
-                rImportData.insert(pTextImpRec);
+                rImportData.insert(std::unique_ptr<SvxMSDffImportRec>(pTextImpRec));
                 bDeleteTextImpRec = false;
                 if (pTextImpRec == pImpRec)
                     bDeleteImpRec = false;
@@ -5792,7 +5795,7 @@ void SvxMSDffManager::GetFidclData( sal_uInt32 nOffsDggL )
     if (!nOffsDggL)
         return;
 
-    sal_uInt32 nDummy, nMerk = rStCtrl.Tell();
+    sal_uInt32 nDummy, nOldPos = rStCtrl.Tell();
 
     if (nOffsDggL == rStCtrl.Seek(nOffsDggL))
     {
@@ -5830,7 +5833,7 @@ void SvxMSDffManager::GetFidclData( sal_uInt32 nOffsDggL )
             }
         }
     }
-    rStCtrl.Seek( nMerk );
+    rStCtrl.Seek( nOldPos );
 }
 
 void SvxMSDffManager::CheckTxBxStoryChain()
@@ -6288,7 +6291,7 @@ bool SvxMSDffManager::GetShapeContainerData( SvStream& rSt,
         }
         m_xShapeInfosByTxBxComp->insert(std::make_shared<SvxMSDffShapeInfo>(
                     aInfo));
-        m_aShapeOrders.push_back(o3tl::make_unique<SvxMSDffShapeOrder>(
+        m_aShapeOrders.push_back(std::make_unique<SvxMSDffShapeOrder>(
                     aInfo.nShapeId ));
     }
 
@@ -7503,17 +7506,10 @@ void SvxMSDffManager::insertShapeId( sal_Int32 nShapeId, SdrObject* pShape )
 
 void SvxMSDffManager::removeShapeId( SdrObject const * pShape )
 {
-    SvxMSDffShapeIdContainer::iterator aIter( maShapeIdContainer.begin() );
-    const SvxMSDffShapeIdContainer::iterator aEnd( maShapeIdContainer.end() );
-    while( aIter != aEnd )
-    {
-        if( (*aIter).second == pShape )
-        {
-            maShapeIdContainer.erase( aIter );
-            break;
-        }
-        ++aIter;
-    }
+    SvxMSDffShapeIdContainer::iterator aIter = std::find_if(maShapeIdContainer.begin(), maShapeIdContainer.end(),
+        [&pShape](const SvxMSDffShapeIdContainer::value_type& rEntry) { return rEntry.second == pShape; });
+    if (aIter != maShapeIdContainer.end())
+        maShapeIdContainer.erase( aIter );
 }
 
 SdrObject* SvxMSDffManager::getShapeForId( sal_Int32 nShapeId )

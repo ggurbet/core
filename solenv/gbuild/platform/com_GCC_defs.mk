@@ -79,6 +79,10 @@ gb_CXXFLAGS_COMMON := \
 	-fno-common \
 	-pipe \
 
+ifeq ($(HAVE_BROKEN_GCC_WMAYBE_UNINITIALIZED),TRUE)
+gb_CXXFLAGS_COMMON += -Wno-maybe-uninitialized
+endif
+
 gb_CXXFLAGS_Wundef = -Wno-undef
 
 ifeq ($(ENABLE_GDB_INDEX),TRUE)
@@ -199,22 +203,6 @@ endif
 ifeq ($(HAVE_GCC_SPLIT_DWARF),TRUE)
 gb_DEBUGINFO_FLAGS+=-gsplit-dwarf
 endif
-
-ifeq ($(HAVE_GCC_FINLINE_LIMIT),TRUE)
-FINLINE_LIMIT0=-finline-limit=0
-endif
-
-ifeq ($(HAVE_GCC_FNO_INLINE),TRUE)
-FNO_INLINE=-fno-inline
-endif
-
-ifeq ($(HAVE_GCC_FNO_DEFAULT_INLINE),TRUE)
-FNO_DEFAULT_INLINE=-fno-default-inline
-endif
-
-gb_DEBUG_CFLAGS := $(FINLINE_LIMIT0) $(FNO_INLINE)
-gb_DEBUG_CXXFLAGS := $(FNO_DEFAULT_INLINE)
-
 
 gb_LinkTarget_INCLUDE :=\
     $(SOLARINC) \

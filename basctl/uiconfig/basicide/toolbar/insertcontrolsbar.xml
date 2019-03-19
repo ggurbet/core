@@ -57,5 +57,7 @@
  <toolbar:toolbaritem xlink:href=".uno:InsertFileControl"/>
  <toolbar:toolbaritem xlink:href=".uno:InsertTreeControl"/>
  <toolbar:toolbarbreak/>
+ <toolbar:toolbaritem xlink:href=".uno:InsertGridControl"/>
+ <toolbar:toolbaritem xlink:href=".uno:InsertHyperlinkControl"/>
  <toolbar:toolbaritem xlink:href=".uno:SpinButton"/>
 </toolbar:toolbar>

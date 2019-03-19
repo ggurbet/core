@@ -38,7 +38,6 @@
 #include <brdcst.hxx>
 
 #include <comphelper/stl_types.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <memory>
 #include <utility>
@@ -1283,7 +1282,7 @@ ScDBCollection::AnonDBs::AnonDBs(AnonDBs const& r)
     m_DBs.reserve(r.m_DBs.size());
     for (auto const& it : r.m_DBs)
     {
-        m_DBs.push_back(o3tl::make_unique<ScDBData>(*it));
+        m_DBs.push_back(std::make_unique<ScDBData>(*it));
     }
 }
 
@@ -1428,9 +1427,8 @@ void ScDBCollection::DeleteOnTab( SCTAB nTab )
     }
 
     // Delete them all.
-    ::std::vector<NamedDBs::DBsType::iterator>::iterator itr = v.begin(), itrEnd = v.end();
-    for (; itr != itrEnd; ++itr)
-        maNamedDBs.erase(*itr);
+    for (auto& rIter : v)
+        maNamedDBs.erase(rIter);
 
     maAnonDBs.deleteOnTab(nTab);
 }
@@ -1470,23 +1468,22 @@ void ScDBCollection::UpdateMoveTab( SCTAB nOldPos, SCTAB nNewPos )
 ScDBData* ScDBCollection::GetDBNearCursor(SCCOL nCol, SCROW nRow, SCTAB nTab )
 {
     ScDBData* pNearData = nullptr;
-    NamedDBs::DBsType::iterator itr = maNamedDBs.begin(), itrEnd = maNamedDBs.end();
-    for (; itr != itrEnd; ++itr)
+    for (const auto& rxNamedDB : maNamedDBs)
     {
         SCTAB nAreaTab;
         SCCOL nStartCol, nEndCol;
         SCROW nStartRow, nEndRow;
-        (*itr)->GetArea( nAreaTab, nStartCol, nStartRow, nEndCol, nEndRow );
+        rxNamedDB->GetArea( nAreaTab, nStartCol, nStartRow, nEndCol, nEndRow );
         if ( nTab == nAreaTab && nCol+1 >= nStartCol && nCol <= nEndCol+1 &&
                                  nRow+1 >= nStartRow && nRow <= nEndRow+1 )
         {
             if ( nCol < nStartCol || nCol > nEndCol || nRow < nStartRow || nRow > nEndRow )
             {
                 if (!pNearData)
-                    pNearData = itr->get(); // remember first adjacent area
+                    pNearData = rxNamedDB.get(); // remember first adjacent area
             }
             else
-                return itr->get();          // not "unbenannt"/"unnamed" and cursor within
+                return rxNamedDB.get();          // not "unbenannt"/"unnamed" and cursor within
         }
     }
     if (pNearData)

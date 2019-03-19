@@ -37,7 +37,6 @@
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/collatorwrapper.hxx>
 #include <svl/zforlist.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/diagnose.h>
 
 #if DUMP_PIVOT_TABLE
@@ -550,7 +549,7 @@ void ScDPCache::InitFromDoc(ScDocument* pDoc, const ScRange& rRange)
     std::vector<InitColumnData> aColData(mnColumnCount);
     maFields.reserve(mnColumnCount);
     for (size_t i = 0; i < static_cast<size_t>(mnColumnCount); ++i)
-        maFields.push_back(o3tl::make_unique<Field>());
+        maFields.push_back(std::make_unique<Field>());
 
     maLabelNames.reserve(mnColumnCount+1);
 
@@ -629,7 +628,7 @@ bool ScDPCache::InitFromDataBase(DBConnector& rDB)
         maFields.clear();
         maFields.reserve(mnColumnCount);
         for (size_t i = 0; i < static_cast<size_t>(mnColumnCount); ++i)
-            maFields.push_back(o3tl::make_unique<Field>());
+            maFields.push_back(std::make_unique<Field>());
 
         // Get column titles and types.
         maLabelNames.clear();
@@ -1297,7 +1296,7 @@ SvNumberFormatter* ScDPCache::GetNumberFormatter() const
 
 long ScDPCache::AppendGroupField()
 {
-    maGroupFields.push_back(o3tl::make_unique<GroupItems>());
+    maGroupFields.push_back(std::make_unique<GroupItems>());
     return static_cast<long>(maFields.size() + maGroupFields.size() - 1);
 }
 
@@ -1391,6 +1390,11 @@ struct ClearGroupItems
 void ScDPCache::ClearGroupFields()
 {
     maGroupFields.clear();
+}
+
+void ScDPCache::ClearAllFields()
+{
+    ClearGroupFields();
     std::for_each(maFields.begin(), maFields.end(), ClearGroupItems());
 }
 
@@ -1448,9 +1452,8 @@ void dumpItems(const ScDPCache& rCache, long nDim, const ScDPCache::ScDPItemData
 
 void dumpSourceData(const ScDPCache& rCache, long nDim, const ScDPCache::ScDPItemDataVec& rItems, const ScDPCache::IndexArrayType& rArray)
 {
-    ScDPCache::IndexArrayType::const_iterator it = rArray.begin(), itEnd = rArray.end();
-    for (; it != itEnd; ++it)
-        cout << "      '" << rCache.GetFormattedString(nDim, rItems[*it], false) << "'" << endl;
+    for (const auto& rIndex : rArray)
+        cout << "      '" << rCache.GetFormattedString(nDim, rItems[rIndex], false) << "'" << endl;
 }
 
 const char* getGroupTypeName(sal_Int32 nType)
@@ -1485,10 +1488,10 @@ void ScDPCache::Dump() const
 
     cout << "--- pivot cache dump" << endl;
     {
-        FieldsType::const_iterator it = maFields.begin(), itEnd = maFields.end();
-        for (size_t i = 0; it != itEnd; ++it, ++i)
+        size_t i = 0;
+        for (const auto& rxField : maFields)
         {
-            const Field& fld = *(*it);
+            const Field& fld = *rxField;
             cout << "* source dimension: " << GetDimensionName(i) << " (ID = " << i << ")" << endl;
             cout << "    item count: " << fld.maItems.size() << endl;
             if (bDumpItems)
@@ -1506,19 +1509,22 @@ void ScDPCache::Dump() const
                 cout << "    source data (re-constructed):" << endl;
                 dumpSourceData(*this, i, fld.maItems, fld.maData);
             }
+
+            ++i;
         }
     }
 
     {
-        GroupFieldsType::const_iterator it = maGroupFields.begin(), itEnd = maGroupFields.end();
-        for (size_t i = maFields.size(); it != itEnd; ++it, ++i)
+        size_t i = maFields.size();
+        for (const auto& rxGroupField : maGroupFields)
         {
-            const GroupItems& gi = *(*it);
+            const GroupItems& gi = *rxGroupField;
             cout << "* group dimension: (unnamed) (ID = " << i << ")" << endl;
             cout << "    item count: " << gi.maItems.size() << endl;
             cout << "    group type: " << getGroupTypeName(gi.mnGroupType) << endl;
             if (bDumpItems)
                 dumpItems(*this, i, gi.maItems, 0);
+            ++i;
         }
     }
 

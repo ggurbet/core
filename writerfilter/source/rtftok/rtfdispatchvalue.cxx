@@ -822,23 +822,23 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
             switch (nParam)
             {
                 case 1:
-                    m_aStates.top().aShape.nWrap = text::WrapTextMode_NONE;
+                    m_aStates.top().aShape.setWrap(text::WrapTextMode_NONE);
                     break;
                 case 2:
-                    m_aStates.top().aShape.nWrap = text::WrapTextMode_PARALLEL;
+                    m_aStates.top().aShape.setWrap(text::WrapTextMode_PARALLEL);
                     break;
                 case 3:
-                    m_aStates.top().aShape.nWrap = text::WrapTextMode_THROUGH;
+                    m_aStates.top().aShape.setWrap(text::WrapTextMode_THROUGH);
                     m_aStates.top().aCharacterSprms.set(NS_ooxml::LN_EG_WrapType_wrapNone,
                                                         new RTFValue());
                     break;
                 case 4:
-                    m_aStates.top().aShape.nWrap = text::WrapTextMode_PARALLEL;
+                    m_aStates.top().aShape.setWrap(text::WrapTextMode_PARALLEL);
                     m_aStates.top().aCharacterSprms.set(NS_ooxml::LN_EG_WrapType_wrapTight,
                                                         new RTFValue());
                     break;
                 case 5:
-                    m_aStates.top().aShape.nWrap = text::WrapTextMode_THROUGH;
+                    m_aStates.top().aShape.setWrap(text::WrapTextMode_THROUGH);
                     break;
             }
         }
@@ -1060,19 +1060,19 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         }
         break;
         case RTF_SHPLEFT:
-            m_aStates.top().aShape.nLeft = convertTwipToMm100(nParam);
+            m_aStates.top().aShape.setLeft(convertTwipToMm100(nParam));
             break;
         case RTF_SHPTOP:
-            m_aStates.top().aShape.nTop = convertTwipToMm100(nParam);
+            m_aStates.top().aShape.setTop(convertTwipToMm100(nParam));
             break;
         case RTF_SHPRIGHT:
-            m_aStates.top().aShape.nRight = convertTwipToMm100(nParam);
+            m_aStates.top().aShape.setRight(convertTwipToMm100(nParam));
             break;
         case RTF_SHPBOTTOM:
-            m_aStates.top().aShape.nBottom = convertTwipToMm100(nParam);
+            m_aStates.top().aShape.setBottom(convertTwipToMm100(nParam));
             break;
         case RTF_SHPZ:
-            m_aStates.top().aShape.oZ.reset(nParam);
+            m_aStates.top().aShape.setZ(nParam);
             break;
         case RTF_FFTYPE:
             switch (nParam)
@@ -1106,7 +1106,12 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
             break;
         case RTF_EDMINS:
             if (m_xDocumentProperties.is())
+            {
+                // tdf#116851 some RTF may be malformed
+                if (nParam < 0)
+                    nParam = -nParam;
                 m_xDocumentProperties->setEditingDuration(nParam);
+            }
             break;
         case RTF_NOFPAGES:
         case RTF_NOFWORDS:
@@ -1199,16 +1204,16 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
                                NS_ooxml::LN_CT_Spacing_after, pIntValue);
             break;
         case RTF_DPX:
-            m_aStates.top().aDrawingObject.nLeft = convertTwipToMm100(nParam);
+            m_aStates.top().aDrawingObject.setLeft(convertTwipToMm100(nParam));
             break;
         case RTF_DPY:
-            m_aStates.top().aDrawingObject.nTop = convertTwipToMm100(nParam);
+            m_aStates.top().aDrawingObject.setTop(convertTwipToMm100(nParam));
             break;
         case RTF_DPXSIZE:
-            m_aStates.top().aDrawingObject.nRight = convertTwipToMm100(nParam);
+            m_aStates.top().aDrawingObject.setRight(convertTwipToMm100(nParam));
             break;
         case RTF_DPYSIZE:
-            m_aStates.top().aDrawingObject.nBottom = convertTwipToMm100(nParam);
+            m_aStates.top().aDrawingObject.setBottom(convertTwipToMm100(nParam));
             break;
         case RTF_PNSTART:
             m_aStates.top().aTableSprms.set(NS_ooxml::LN_CT_Lvl_start, pIntValue);
@@ -1232,28 +1237,28 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         }
         break;
         case RTF_DPLINECOR:
-            m_aStates.top().aDrawingObject.nLineColorR = nParam;
-            m_aStates.top().aDrawingObject.bHasLineColor = true;
+            m_aStates.top().aDrawingObject.setLineColorR(nParam);
+            m_aStates.top().aDrawingObject.setHasLineColor(true);
             break;
         case RTF_DPLINECOG:
-            m_aStates.top().aDrawingObject.nLineColorG = nParam;
-            m_aStates.top().aDrawingObject.bHasLineColor = true;
+            m_aStates.top().aDrawingObject.setLineColorG(nParam);
+            m_aStates.top().aDrawingObject.setHasLineColor(true);
             break;
         case RTF_DPLINECOB:
-            m_aStates.top().aDrawingObject.nLineColorB = nParam;
-            m_aStates.top().aDrawingObject.bHasLineColor = true;
+            m_aStates.top().aDrawingObject.setLineColorB(nParam);
+            m_aStates.top().aDrawingObject.setHasLineColor(true);
             break;
         case RTF_DPFILLBGCR:
-            m_aStates.top().aDrawingObject.nFillColorR = nParam;
-            m_aStates.top().aDrawingObject.bHasFillColor = true;
+            m_aStates.top().aDrawingObject.setFillColorR(nParam);
+            m_aStates.top().aDrawingObject.setHasFillColor(true);
             break;
         case RTF_DPFILLBGCG:
-            m_aStates.top().aDrawingObject.nFillColorG = nParam;
-            m_aStates.top().aDrawingObject.bHasFillColor = true;
+            m_aStates.top().aDrawingObject.setFillColorG(nParam);
+            m_aStates.top().aDrawingObject.setHasFillColor(true);
             break;
         case RTF_DPFILLBGCB:
-            m_aStates.top().aDrawingObject.nFillColorB = nParam;
-            m_aStates.top().aDrawingObject.bHasFillColor = true;
+            m_aStates.top().aDrawingObject.setFillColorB(nParam);
+            m_aStates.top().aDrawingObject.setHasFillColor(true);
             break;
         case RTF_CLSHDNG:
         {
@@ -1338,44 +1343,45 @@ RTFError RTFDocumentImpl::dispatchValue(RTFKeyword nKeyword, int nParam)
         }
         break;
         case RTF_DODHGT:
-            m_aStates.top().aDrawingObject.nDhgt = nParam;
+            m_aStates.top().aDrawingObject.setDhgt(nParam);
             break;
         case RTF_DPPOLYCOUNT:
             if (nParam >= 0)
             {
-                m_aStates.top().aDrawingObject.nPolyLineCount = nParam;
+                m_aStates.top().aDrawingObject.setPolyLineCount(nParam);
             }
             break;
         case RTF_DPPTX:
         {
             RTFDrawingObject& rDrawingObject = m_aStates.top().aDrawingObject;
 
-            if (rDrawingObject.aPolyLinePoints.empty())
+            if (rDrawingObject.getPolyLinePoints().empty())
                 dispatchValue(RTF_DPPOLYCOUNT, 2);
 
-            rDrawingObject.aPolyLinePoints.emplace_back(awt::Point(convertTwipToMm100(nParam), 0));
+            rDrawingObject.getPolyLinePoints().emplace_back(
+                awt::Point(convertTwipToMm100(nParam), 0));
         }
         break;
         case RTF_DPPTY:
         {
             RTFDrawingObject& rDrawingObject = m_aStates.top().aDrawingObject;
-            if (!rDrawingObject.aPolyLinePoints.empty())
+            if (!rDrawingObject.getPolyLinePoints().empty())
             {
-                rDrawingObject.aPolyLinePoints.back().Y = convertTwipToMm100(nParam);
-                rDrawingObject.nPolyLineCount--;
-                if (rDrawingObject.nPolyLineCount == 0 && rDrawingObject.xPropertySet.is())
+                rDrawingObject.getPolyLinePoints().back().Y = convertTwipToMm100(nParam);
+                rDrawingObject.setPolyLineCount(rDrawingObject.getPolyLineCount() - 1);
+                if (rDrawingObject.getPolyLineCount() == 0 && rDrawingObject.getPropertySet().is())
                 {
                     uno::Sequence<uno::Sequence<awt::Point>> aPointSequenceSequence
-                        = { comphelper::containerToSequence(rDrawingObject.aPolyLinePoints) };
-                    rDrawingObject.xPropertySet->setPropertyValue("PolyPolygon",
-                                                                  uno::Any(aPointSequenceSequence));
+                        = { comphelper::containerToSequence(rDrawingObject.getPolyLinePoints()) };
+                    rDrawingObject.getPropertySet()->setPropertyValue(
+                        "PolyPolygon", uno::Any(aPointSequenceSequence));
                 }
             }
         }
         break;
         case RTF_SHPFBLWTXT:
             // Shape is below text -> send it to the background.
-            m_aStates.top().aShape.bInBackground = nParam;
+            m_aStates.top().aShape.setInBackground(nParam != 0);
             break;
         case RTF_CLPADB:
         case RTF_CLPADL:

@@ -543,7 +543,7 @@ public:
      const ScConditionalFormat& operator=(const ScConditionalFormat&) = delete;
 
     // true copy of formulas (for Ref-Undo / between documents)
-    ScConditionalFormat* Clone(ScDocument* pNewDoc = nullptr) const;
+    std::unique_ptr<ScConditionalFormat> Clone(ScDocument* pNewDoc = nullptr) const;
 
     void            AddEntry( ScFormatEntry* pNew );
     void RemoveEntry(size_t nIndex);
@@ -595,12 +595,30 @@ public:
     void CalcAll();
 };
 
+struct CompareScConditionalFormat
+{
+    using is_transparent = void;
+    bool operator()(std::unique_ptr<ScConditionalFormat> const& lhs,
+                    std::unique_ptr<ScConditionalFormat> const& rhs) const
+    {
+        return (*lhs) < (*rhs);
+    }
+    bool operator()(sal_uInt32 nKey, std::unique_ptr<ScConditionalFormat> const& rpFormat) const
+    {
+        return nKey < rpFormat->GetKey();
+    }
+    bool operator()(std::unique_ptr<ScConditionalFormat> const& rpFormat, sal_uInt32 nKey) const
+    {
+        return rpFormat->GetKey() < nKey;
+    }
+};
+
 //  List of all conditional formats in a sheet
 class SC_DLLPUBLIC ScConditionalFormatList
 {
 private:
     typedef std::set<std::unique_ptr<ScConditionalFormat>,
-        comphelper::UniquePtrValueLess<ScConditionalFormat>> ConditionalFormatContainer;
+                CompareScConditionalFormat> ConditionalFormatContainer;
     ConditionalFormatContainer m_ConditionalFormats;
 
     void operator =(ScConditionalFormatList const &) = delete;
@@ -610,7 +628,7 @@ public:
     ScConditionalFormatList(const ScConditionalFormatList& rList);
     ScConditionalFormatList(ScDocument* pDoc, const ScConditionalFormatList& rList);
 
-    void    InsertNew( ScConditionalFormat* pNew );
+    void    InsertNew( std::unique_ptr<ScConditionalFormat> pNew );
 
     /**
      * Checks that all cond formats have a non empty range.

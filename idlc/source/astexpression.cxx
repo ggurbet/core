@@ -23,7 +23,6 @@
 #include <astscope.hxx>
 #include <errorhandler.hxx>
 
-#include <o3tl/make_unique.hxx>
 #include <osl/diagnose.h>
 
 #include <limits.h>
@@ -35,15 +34,11 @@ AstExpression::AstExpression(ExprComb c, AstExpression *pExpr1, AstExpression *p
     , m_subExpr1(pExpr1)
     , m_subExpr2(pExpr2)
 {
-    fillDefinitionDetails();
-
 }
 
 AstExpression::AstExpression(sal_Int32 l)
     : m_combOperator(ExprComb::NONE)
 {
-    fillDefinitionDetails();
-
     m_exprValue.reset( new AstExprValue );
     m_exprValue->et = ET_long;
     m_exprValue->u.lval = l;
@@ -52,8 +47,6 @@ AstExpression::AstExpression(sal_Int32 l)
 AstExpression::AstExpression(sal_Int32  l, ExprType et)
     : m_combOperator(ExprComb::NONE)
 {
-    fillDefinitionDetails();
-
     m_exprValue.reset( new AstExprValue );
     m_exprValue->et = et;
     m_exprValue->u.lval = l;
@@ -62,8 +55,6 @@ AstExpression::AstExpression(sal_Int32  l, ExprType et)
 AstExpression::AstExpression(sal_Int64  h)
     : m_combOperator(ExprComb::NONE)
 {
-    fillDefinitionDetails();
-
     m_exprValue.reset( new AstExprValue );
     m_exprValue->et = ET_hyper;
     m_exprValue->u.hval = h;
@@ -72,8 +63,6 @@ AstExpression::AstExpression(sal_Int64  h)
 AstExpression::AstExpression(sal_uInt64 uh)
     : m_combOperator(ExprComb::NONE)
 {
-    fillDefinitionDetails();
-
     m_exprValue.reset( new AstExprValue );
     m_exprValue->et = ET_uhyper;
     m_exprValue->u.uhval = uh;
@@ -82,8 +71,6 @@ AstExpression::AstExpression(sal_uInt64 uh)
 AstExpression::AstExpression(double d)
     : m_combOperator(ExprComb::NONE)
 {
-    fillDefinitionDetails();
-
     m_exprValue.reset( new AstExprValue );
     m_exprValue->et = ET_double;
     m_exprValue->u.dval = d;
@@ -94,7 +81,6 @@ AstExpression::AstExpression(OString* scopedName)
 {
     if (scopedName)
         m_xSymbolicName = *scopedName;
-    fillDefinitionDetails();
 }
 
 AstExpression::~AstExpression()
@@ -705,11 +691,6 @@ bool AstExpression::compareLong(AstExpression *pExpr)
     return bRet;
 }
 
-void AstExpression::fillDefinitionDetails()
-{
-    m_fileName = idlc()->getFileName();
-}
-
 void AstExpression::evaluate()
 {
     /*
@@ -921,7 +902,7 @@ std::unique_ptr<AstExprValue> AstExpression::eval_symbol()
     pConst = static_cast< AstConstant* >(pDecl);
     pConst->getConstValue()->evaluate();
     auto const val = pConst->getConstValue()->getExprValue();
-    return val == nullptr ? nullptr : o3tl::make_unique<AstExprValue>(*val);
+    return val == nullptr ? nullptr : std::make_unique<AstExprValue>(*val);
 }
 
 OString AstExpression::toString()

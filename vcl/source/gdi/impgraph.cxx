@@ -40,9 +40,9 @@
 #include <impgraph.hxx>
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/ucb/ContentCreationException.hpp>
+#include <com/sun/star/graphic/XPrimitive2D.hpp>
 #include <vcl/dibtools.hxx>
 #include <memory>
-#include <o3tl/make_unique.hxx>
 #include <vcl/gdimetafiletools.hxx>
 
 #include <vcl/pdfread.hxx>
@@ -207,7 +207,7 @@ ImpGraphic::ImpGraphic(const ImpGraphic& rImpGraphic)
 {
     if( rImpGraphic.mpAnimation )
     {
-        mpAnimation = o3tl::make_unique<Animation>( *rImpGraphic.mpAnimation );
+        mpAnimation = std::make_unique<Animation>( *rImpGraphic.mpAnimation );
         maEx = mpAnimation->GetBitmapEx();
     }
 }
@@ -285,7 +285,7 @@ ImpGraphic::ImpGraphic(const VectorGraphicDataPtr& rVectorGraphicDataPtr)
 
 ImpGraphic::ImpGraphic( const Animation& rAnimation ) :
         maEx            ( rAnimation.GetBitmapEx() ),
-        mpAnimation     ( o3tl::make_unique<Animation>( rAnimation ) ),
+        mpAnimation     ( std::make_unique<Animation>( rAnimation ) ),
         meType          ( GraphicType::Bitmap ),
         mnSizeBytes     ( 0 ),
         mbSwapOut       ( false ),
@@ -333,7 +333,7 @@ ImpGraphic& ImpGraphic::operator=( const ImpGraphic& rImpGraphic )
 
         if ( rImpGraphic.mpAnimation )
         {
-            mpAnimation = o3tl::make_unique<Animation>( *rImpGraphic.mpAnimation );
+            mpAnimation = std::make_unique<Animation>( *rImpGraphic.mpAnimation );
             maEx = mpAnimation->GetBitmapEx();
         }
         else
@@ -706,7 +706,7 @@ Bitmap ImpGraphic::ImplGetBitmap(const GraphicConversionParameters& rParameters)
             {
                 // get hairline and full bound rect
                 tools::Rectangle aHairlineRect;
-                const tools::Rectangle aRect(maMetaFile.GetBoundRect(*aVDev.get(), &aHairlineRect));
+                const tools::Rectangle aRect(maMetaFile.GetBoundRect(*aVDev, &aHairlineRect));
 
                 if(!aRect.IsEmpty() && !aHairlineRect.IsEmpty())
                 {
@@ -1458,7 +1458,7 @@ bool ImpGraphic::ImplSwapOut()
                 bRet = ImplSwapOut( xOStm.get() );
                 if( bRet )
                 {
-                    mpSwapFile = o3tl::make_unique<ImpSwapFile>();
+                    mpSwapFile = std::make_unique<ImpSwapFile>();
                     mpSwapFile->aSwapURL = aTmpURL;
                     mpSwapFile->maOriginURL = getOriginURL();
                 }
@@ -1812,7 +1812,7 @@ void ReadImpGraphic( SvStream& rIStm, ImpGraphic& rImpGraphic )
 
         if( !rIStm.GetError() && ( 0x5344414e == nMagic1 ) && ( 0x494d4931 == nMagic2 ) )
         {
-            rImpGraphic.mpAnimation = o3tl::make_unique<Animation>();
+            rImpGraphic.mpAnimation = std::make_unique<Animation>();
             ReadAnimation( rIStm, *rImpGraphic.mpAnimation );
 
             // #108077# manually set loaded BmpEx to Animation

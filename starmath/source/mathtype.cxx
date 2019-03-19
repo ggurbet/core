@@ -1744,26 +1744,26 @@ bool MathType::HandleRecords(int nLevel, sal_uInt8 nSelector,
 void MathType::HandleMatrixSeparator(int nMatrixRows,int nMatrixCols,
     int &rCurCol,int &rCurRow)
 {
-    if (nMatrixRows!=0)
+    if (nMatrixRows==0)
+        return;
+
+    if (rCurCol == nMatrixCols-1)
     {
-        if (rCurCol == nMatrixCols-1)
+        if (rCurRow != nMatrixRows-1)
+            rRet.append(" {} ##\n");
+        if (nMatrixRows!=-1)
         {
-            if (rCurRow != nMatrixRows-1)
-                rRet.append(" {} ##\n");
-            if (nMatrixRows!=-1)
-            {
-                rCurCol=0;
-                rCurRow++;
-            }
+            rCurCol=0;
+            rCurRow++;
         }
+    }
+    else
+    {
+        rRet.append(" {} # ");
+        if (nMatrixRows!=-1)
+            rCurCol++;
         else
-        {
-            rRet.append(" {} # ");
-            if (nMatrixRows!=-1)
-                rCurCol++;
-            else
-                rRet.append("\n");
-        }
+            rRet.append("\n");
     }
 }
 
@@ -2287,7 +2287,7 @@ void MathType::HandleSubSupScript(SmNode *pNode,int nLevel)
         }
         else
             pS->WriteUChar( LINE|0x10 );
-    pS->WriteUChar( END ); //line
+        pS->WriteUChar( END ); //line
     }
 
     //After subscript mathtype will keep the size of
@@ -3051,7 +3051,7 @@ void MathType::HandleMath(SmNode *pNode)
         {
             pS->WriteUChar( CHAR|0x20 );
         }
-        else if ((nPendingAttributes) &&
+        else if (nPendingAttributes &&
                 (i == ((pTemp->GetText().getLength()+1)/2)-1))
             {
                 pS->WriteUChar( 0x22 );
@@ -3259,7 +3259,7 @@ void MathType::HandleAttributes(SmNode *pNode,int nLevel)
                 pS->WriteUChar( 2 );
                 break;
             }
-        pS->Seek(nPos);
+            pS->Seek(nPos);
         }
     }
 }
@@ -3269,7 +3269,7 @@ void MathType::HandleText(SmNode *pNode)
     SmTextNode *pTemp = static_cast<SmTextNode *>(pNode);
     for(sal_Int32 i=0;i<pTemp->GetText().getLength();i++)
     {
-        if ((nPendingAttributes) &&
+        if (nPendingAttributes &&
             (i == ((pTemp->GetText().getLength()+1)/2)-1))
         {
             pS->WriteUChar( 0x22 );     //char, with attributes right
@@ -3299,7 +3299,7 @@ void MathType::HandleText(SmNode *pNode)
         //possible for starmath to place character attributes on
         //entities which cannot occur in mathtype e.g. a Summation
         //symbol so these attributes may be lost
-        if ((nPendingAttributes) &&
+        if (nPendingAttributes &&
             (i == ((pTemp->GetText().getLength()+1)/2)-1))
         {
             pS->WriteUChar( EMBEL );

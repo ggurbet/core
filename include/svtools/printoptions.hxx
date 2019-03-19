@@ -22,9 +22,9 @@
 
 #include <svtools/svtdllapi.h>
 #include <sal/types.h>
-#include <osl/mutex.hxx>
-#include <rtl/ustring.hxx>
 #include <unotools/options.hxx>
+
+namespace osl { class Mutex; }
 
 class SvtPrintOptions_Impl;
 class PrinterOptions;
@@ -32,9 +32,10 @@ class PrinterOptions;
 
 class SVT_DLLPUBLIC SvtBasePrintOptions: public utl::detail::Options
 {
-protected:
 
     SvtPrintOptions_Impl* m_pDataContainer;
+
+protected:
 
     void        SetDataContainer( SvtPrintOptions_Impl* pDataContainer ) { m_pDataContainer = pDataContainer; }
 

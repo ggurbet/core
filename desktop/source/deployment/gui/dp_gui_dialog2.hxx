@@ -29,6 +29,7 @@
 #include <vcl/prgsbar.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
+#include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 
 #include <svtools/svmedit.hxx>
@@ -47,6 +48,9 @@
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
 #include <com/sun/star/util/XModifyListener.hpp>
 
+#include <stack>
+#include <vector>
+
 namespace dp_gui {
 
 
@@ -60,7 +64,7 @@ class DialogHelper
     css::uno::Reference< css::uno::XComponentContext > m_xContext;
     VclPtr<Dialog>  m_xVCLWindow;
     ImplSVEvent *   m_nEventID;
-    int             m_nBusy;
+    TopLevelWindowLocker m_aBusy;
 
 public:
                     DialogHelper( const css::uno::Reference< css::uno::XComponentContext > &,
@@ -91,13 +95,12 @@ public:
                                                const char* pResID,
                                                bool &bHadWarning );
 
-    void            incBusy();
-    void            decBusy();
-    bool            isBusy() const { return m_nBusy > 0; }
+    void            incBusy() { m_aBusy.incBusy(m_xVCLWindow); }
+    void            decBusy() { m_aBusy.decBusy(); }
+    bool            isBusy() const { return m_aBusy.isBusy(); }
     bool            installExtensionWarn(const OUString &rExtensionURL);
     bool            installForAllUsers(bool &bInstallForAll);
 };
-
 
 class ExtMgrDialog : public ModelessDialog,
                      public DialogHelper
@@ -249,15 +252,13 @@ public:
 };
 
 
-class ShowLicenseDialog : public ModalDialog
+class ShowLicenseDialog : public weld::GenericDialogController
 {
-    VclPtr<VclMultiLineEdit> m_pLicenseText;
+    std::unique_ptr<weld::TextView> m_xLicenseText;
 public:
-    ShowLicenseDialog(vcl::Window * pParent, const css::uno::Reference< css::deployment::XPackage > &xPackage);
+    ShowLicenseDialog(weld::Window * pParent, const css::uno::Reference< css::deployment::XPackage > &xPackage);
     virtual ~ShowLicenseDialog() override;
-    virtual void dispose() override;
 };
-
 
 class UpdateRequiredDialogService : public ::cppu::WeakImplHelper< css::ui::dialogs::XExecutableDialog >
 {

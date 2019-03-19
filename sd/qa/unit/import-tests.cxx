@@ -25,6 +25,7 @@
 #include <editeng/numitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/postitem.hxx>
+#include <editeng/unoprnms.hxx>
 #include <svl/style.hxx>
 
 #include <sfx2/sfxsids.hrc>
@@ -46,6 +47,7 @@
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/presentation/ClickAction.hpp>
 #include <com/sun/star/presentation/XPresentationPage.hpp>
+#include <com/sun/star/presentation/XPresentationSupplier.hpp>
 #include <com/sun/star/drawing/GraphicExportFilter.hpp>
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
@@ -188,8 +190,13 @@ public:
     void testPatternImport();
     void testPptCrop();
     void testTdf119015();
+    void testTdf123090();
     void testTdf120028();
     void testTdf120028b();
+    void testDescriptionImport();
+    void testTdf83247();
+    void testTdf47365();
+    void testTdf122899();
 
     CPPUNIT_TEST_SUITE(SdImportTest);
 
@@ -271,8 +278,13 @@ public:
     CPPUNIT_TEST(testTdf116266);
     CPPUNIT_TEST(testPptCrop);
     CPPUNIT_TEST(testTdf119015);
+    CPPUNIT_TEST(testTdf123090);
     CPPUNIT_TEST(testTdf120028);
     CPPUNIT_TEST(testTdf120028b);
+    CPPUNIT_TEST(testDescriptionImport);
+    CPPUNIT_TEST(testTdf83247);
+    CPPUNIT_TEST(testTdf47365);
+    CPPUNIT_TEST(testTdf122899);
 
     CPPUNIT_TEST_SUITE_END();
 };
@@ -435,6 +447,7 @@ void SdImportTest::testN862510_2()
 
     const SdrPage *pPage = GetPage( 1, xDocShRef );
     {
+        CPPUNIT_ASSERT_EQUAL(size_t(1), pPage->GetObjCount());
         SdrObjGroup *pGrpObj = dynamic_cast<SdrObjGroup *>( pPage->GetObj( 0 ) );
         CPPUNIT_ASSERT( pGrpObj );
         SdrObjCustomShape *pObj = dynamic_cast<SdrObjCustomShape *>( pGrpObj->GetSubList()->GetObj( 0 ) );
@@ -1725,6 +1738,8 @@ void SdImportTest::testTdf104201()
             pObj->GetMergedItem(XATTR_FILLCOLOR));
         CPPUNIT_ASSERT_EQUAL(sal_uInt32(0x00FF00), sal_uInt32(rColorItem.GetColorValue()));
     }
+
+    xDocShRef->DoClose();
 }
 
 void SdImportTest::testTdf103477()
@@ -1774,7 +1789,7 @@ void SdImportTest::testTdf104445()
     sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf104445.pptx"), PPTX);
 
     // First shape should not have bullet
-   {
+    {
         uno::Reference< beans::XPropertySet > xShape(getShapeFromPage(0, 0, xDocShRef));
         uno::Reference< text::XText > xText = uno::Reference< text::XTextRange>(xShape, uno::UNO_QUERY)->getText();
         CPPUNIT_ASSERT_MESSAGE("Not a text shape", xText.is());
@@ -2297,6 +2312,8 @@ void SdImportTest::testTdf114488()
     Graphic aGraphic(xGraphic);
     OUString sMimeType(comphelper::GraphicMimeTypeHelper::GetMimeTypeForXGraphic(xGraphic));
     CPPUNIT_ASSERT_EQUAL(OUString("image/x-wmf"), sMimeType);
+
+    xDocShRef->DoClose();
 }
 
 void SdImportTest::testTdf114913()
@@ -2471,6 +2488,8 @@ void SdImportTest::testTdf116899()
     CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of key times in the animation node isn't 2.", static_cast<sal_Int32>(2), xNode->getKeyTimes().getLength() );
     CPPUNIT_ASSERT_EQUAL_MESSAGE( "First key time in the animation node isn't 0, key times aren't normalized.", 0., xNode->getKeyTimes()[0] );
     CPPUNIT_ASSERT_EQUAL_MESSAGE( "Second key time in the animation node isn't 1, key times aren't normalized.", 1., xNode->getKeyTimes()[1] );
+
+    xDocShRef->DoClose();
 }
 
 void SdImportTest::testTdf77747()
@@ -2495,6 +2514,8 @@ void SdImportTest::testTdf116266()
     sfx2::LinkManager* rLinkManager = pDoc->GetLinkManager();
     // The document contains one SVG stored as a link.
     CPPUNIT_ASSERT_EQUAL(size_t(1), rLinkManager->GetLinks().size());
+
+    xDocShRef->DoClose();
 }
 
 void SdImportTest::testTdf119015()
@@ -2512,9 +2533,36 @@ void SdImportTest::testTdf119015()
     uno::Reference<table::XTable> xTable(pTableObj->getTable());
 
     // Test that we actually have three cells: this threw css.lang.IndexOutOfBoundsException
-    uno::Reference<text::XTextRange> xTextRange(xTable->getCellByPosition(2, 0),
+    uno::Reference<text::XTextRange> xTextRange(xTable->getCellByPosition(1, 0),
                                                 uno::UNO_QUERY_THROW);
     CPPUNIT_ASSERT_EQUAL(OUString("A3"), xTextRange->getString());
+
+    xDocShRef->DoClose();
+}
+
+void SdImportTest::testTdf123090()
+{
+    ::sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf123090.pptx"), PPTX);
+
+    const SdrPage* pPage = GetPage(1, xDocShRef);
+
+    sdr::table::SdrTableObj* pTableObj = dynamic_cast<sdr::table::SdrTableObj*>(pPage->GetObj(0));
+    CPPUNIT_ASSERT(pTableObj);
+
+    uno::Reference<table::XTable> xTable(pTableObj->getTable());
+
+    // Test that we actually have two cells: this threw css.lang.IndexOutOfBoundsException
+    uno::Reference<text::XTextRange> xTextRange(xTable->getCellByPosition(1, 0),
+                                                uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_EQUAL(OUString("aaa"), xTextRange->getString());
+
+    sal_Int32 nWidth;
+    const OUString sWidth("Width");
+    uno::Reference< css::table::XTableColumns > xColumns( xTable->getColumns(), uno::UNO_QUERY_THROW);
+    uno::Reference< beans::XPropertySet > xRefColumn( xColumns->getByIndex(1), uno::UNO_QUERY_THROW );
+    xRefColumn->getPropertyValue( sWidth ) >>= nWidth;
+    CPPUNIT_ASSERT_EQUAL( sal_Int32(9136), nWidth);
 
     xDocShRef->DoClose();
 }
@@ -2588,6 +2636,92 @@ void SdImportTest::testTdf120028b()
     // This was 0x1f497d, not white: text list style from placeholder shape
     // from slide layout was ignored.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0xffffff), nCharColor);
+
+    xDocShRef->DoClose();
+}
+
+void SdImportTest::testDescriptionImport()
+{
+    sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/altdescription.pptx"), PPTX);
+
+    uno::Reference<beans::XPropertySet> xPropertySet(
+        getShapeFromPage(/*nShape=*/2, /*nPage=*/0, xDocShRef));
+    OUString sDesc;
+
+    xPropertySet->getPropertyValue("Description") >>= sDesc;
+
+    CPPUNIT_ASSERT_EQUAL(OUString("We Can Do It!"), sDesc);
+
+    xDocShRef->DoClose();
+}
+
+void SdImportTest::testTdf83247()
+{
+    auto GetPause = [this](const OUString& sSrc, sal_Int32 nFormat) {
+        sd::DrawDocShellRef xDocShRef
+            = loadURL(m_directories.getURLFromSrc(sSrc), nFormat);
+        uno::Reference<presentation::XPresentationSupplier> xPresentationSupplier(
+            xDocShRef->GetDoc()->getUnoModel(), uno::UNO_QUERY);
+        uno::Reference<beans::XPropertySet> xPresentationProps(
+            xPresentationSupplier->getPresentation(), uno::UNO_QUERY_THROW);
+
+        auto retVal = xPresentationProps->getPropertyValue("Pause");
+        xDocShRef->DoClose();
+        return retVal.get<sal_Int32>();
+    };
+
+    // 1. Check that presentation:pause attribute is imported correctly
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(10), GetPause("/sd/qa/unit/data/odp/loopPause10.odp", ODP));
+
+    // 2. ODF compliance: if presentation:pause attribute is absent, it must be treated as 0
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), GetPause("/sd/qa/unit/data/odp/loopNoPause.odp", ODP));
+
+    // 3. Import PPT: pause should be 0
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), GetPause("/sd/qa/unit/data/ppt/loopNoPause.ppt", PPT));
+}
+
+void SdImportTest::testTdf47365()
+{
+    sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/loopNoPause.pptx"), PPTX);
+    uno::Reference<presentation::XPresentationSupplier> xPresentationSupplier(
+        xDocShRef->GetDoc()->getUnoModel(), uno::UNO_QUERY_THROW);
+    uno::Reference<beans::XPropertySet> xPresentationProps(xPresentationSupplier->getPresentation(),
+                                                           uno::UNO_QUERY_THROW);
+
+    const bool bEndlessVal = xPresentationProps->getPropertyValue("IsEndless").get<bool>();
+    const sal_Int32 nPauseVal = xPresentationProps->getPropertyValue("Pause").get<sal_Int32>();
+
+    // Check that we import "loop" attribute of the presentation, and don't introduce any pauses
+    CPPUNIT_ASSERT(bEndlessVal);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), nPauseVal);
+
+    xDocShRef->DoClose();
+}
+
+void SdImportTest::testTdf122899()
+{
+    // tdf122899 FILEOPEN: ppt: old kind arc from MS Office 97 is broken
+    // Error was, that the path coordinates of a mso_sptArc shape were read as sal_Int16
+    // although they are unsigned 16 bit. This leads to wrong positions of start and end
+    // point and results to a huge shape width in the test document.
+    OUString aSrc="sd/qa/unit/data/ppt/tdf122899_Arc_90_to_91_clockwise.ppt";
+    sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc(aSrc), PPT);
+    uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier(
+        xDocShRef->GetDoc()->getUnoModel(), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("Could not get XDrawPagesSupplier", xDrawPagesSupplier.is());
+    uno::Reference<drawing::XDrawPages> xDrawPages(xDrawPagesSupplier->getDrawPages());
+    uno::Reference<drawing::XDrawPage> xDrawPage(xDrawPages->getByIndex(0), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("Could not get xDrawPage", xDrawPage.is());
+    uno::Reference<drawing::XShape> xShape(xDrawPage->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get xShape", xShape.is());
+    awt::Rectangle aFrameRect;
+    uno::Reference<beans::XPropertySet> xShapeProps(xShape, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get the shape properties", xShapeProps.is());
+    xShapeProps->getPropertyValue(UNO_NAME_MISC_OBJ_FRAMERECT) >>= aFrameRect;
+    // original width is 9cm, add some tolerance
+    CPPUNIT_ASSERT_LESS(static_cast<sal_Int32>(9020), aFrameRect.Width);
 
     xDocShRef->DoClose();
 }

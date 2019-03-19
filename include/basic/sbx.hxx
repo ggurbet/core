@@ -22,27 +22,15 @@
 
 #include <tools/ref.hxx>
 #include <svl/hint.hxx>
-#include <svl/lstner.hxx>
 
 #include <basic/sbxdef.hxx>
-#include <basic/sbxform.hxx>
 #include <basic/sbxobj.hxx>
-#include <basic/sbxprop.hxx>
-#include <basic/sbxmeth.hxx>
 #include <basic/basicdllapi.h>
 
 #include <vector>
 #include <memory>
 
 class SvStream;
-class SbxBase;
-class SbxVariable;
-class SbxProperty;
-class SbxMethod;
-class SbxObject;
-class SbxArray;
-class SbxDimArray;
-class SbxFactory;
 
 class SfxBroadcaster;
 
@@ -112,9 +100,9 @@ class BASIC_DLLPUBLIC SbxArray : public SbxBase
     BASIC_DLLPRIVATE void PutDirect( SbxVariable* pVar, sal_uInt32 nIdx );
 
     std::vector<SbxVarEntry> mVarEntries;          // The variables
+    SbxDataType eType;            // Data type of the array
 
 protected:
-    SbxDataType eType;            // Data type of the array
     virtual ~SbxArray() override;
     virtual bool LoadData( SvStream&, sal_uInt16 ) override;
     virtual bool StoreData( SvStream& ) const override;

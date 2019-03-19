@@ -28,6 +28,7 @@
 #include <com/sun/star/util/URL.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/frame/XController.hpp>
+#include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/processfactory.hxx>
@@ -39,9 +40,10 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/treelistentry.hxx>
+#include <vcl/event.hxx>
 
 #include <memory>
-#include <o3tl/make_unique.hxx>
+
 namespace dbaui
 {
 
@@ -140,7 +142,7 @@ void DBTreeListBox::InitEntry(SvTreeListEntry* _pEntry, const OUString& aStr, co
 {
     SvTreeListBox::InitEntry( _pEntry, aStr, _rCollEntryBmp,_rExpEntryBmp, eButtonKind);
     SvLBoxItem* pTextItem(_pEntry->GetFirstItem(SvLBoxItemType::String));
-    _pEntry->ReplaceItem(o3tl::make_unique<OBoldListboxString>(aStr), _pEntry->GetPos(pTextItem));
+    _pEntry->ReplaceItem(std::make_unique<OBoldListboxString>(aStr), _pEntry->GetPos(pTextItem));
 }
 
 void DBTreeListBox::implStopSelectionTimer()
@@ -483,7 +485,7 @@ VclPtr<PopupMenu> DBTreeListBox::CreateContextMenu()
     if ( !m_xMenuController.is() )
         return nullptr;
 
-    rtl::Reference<VCLXPopupMenu> xPopupMenu( new VCLXPopupMenu );
+    rtl::Reference xPopupMenu( new VCLXPopupMenu );
     m_xMenuController->setPopupMenu( xPopupMenu.get() );
     VclPtr<PopupMenu> pContextMenu( static_cast< PopupMenu* >( xPopupMenu->GetMenu() ) );
     pContextMenu->AddEventListener( LINK( this, DBTreeListBox, MenuEventListener ) );

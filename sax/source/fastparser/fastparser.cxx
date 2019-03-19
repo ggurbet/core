@@ -39,6 +39,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <salhelper/thread.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <queue>
 #include <memory>
@@ -124,9 +125,7 @@ struct ParserData
     css::uno::Reference< css::xml::sax::XFastTokenHandler >    mxTokenHandler;
     FastTokenHandlerBase*                                      mpTokenHandler;
     css::uno::Reference< css::xml::sax::XErrorHandler >        mxErrorHandler;
-    css::uno::Reference< css::xml::sax::XEntityResolver >      mxEntityResolver;
     css::uno::Reference< css::xml::sax::XFastNamespaceHandler >mxNamespaceHandler;
-    css::lang::Locale                                          maLocale;
 
     ParserData();
 };
@@ -228,11 +227,7 @@ public:
     /// @throws css::uno::RuntimeException
     void setErrorHandler( const css::uno::Reference< css::xml::sax::XErrorHandler >& Handler );
     /// @throws css::uno::RuntimeException
-    void setEntityResolver( const css::uno::Reference< css::xml::sax::XEntityResolver >& Resolver );
-    /// @throws css::uno::RuntimeException
     void setNamespaceHandler( const css::uno::Reference< css::xml::sax::XFastNamespaceHandler >& Handler);
-    /// @throws css::uno::RuntimeException
-    void setLocale( const css::lang::Locale& rLocale );
 
     // called by the C callbacks of the expat parser
     void callbackStartElement( const xmlChar *localName , const xmlChar* prefix, const xmlChar* URI,
@@ -616,8 +611,7 @@ void Entity::saveException( const Any & e )
     // fdo#81214 - allow the parser to run on after an exception,
     // unexpectedly some 'startElements' produce an UNO_QUERY_THROW
     // for XComponent; and yet expect to continue parsing.
-    SAL_WARN("sax", "Unexpected exception from XML parser "
-            << e.get<Exception>());
+    SAL_WARN("sax", "Unexpected exception from XML parser " << exceptionToString(e));
     osl::MutexGuard g(maSavedExceptionMutex);
     if (maSavedException.hasValue())
     {
@@ -839,14 +833,13 @@ void FastSaxParserImpl::parseStream(const InputSource& rStructSource)
                 if ( rEntity.maPendingEvents.size() <= Entity::mnEventLowWater )
                 {
                     aGuard.clear();
-                    for (auto aEventIt = xEventList->maEvents.begin();
-                        aEventIt != xEventList->maEvents.end(); ++aEventIt)
+                    for (auto& rEvent : xEventList->maEvents)
                     {
-                        if (aEventIt->mxAttributes.is())
+                        if (rEvent.mxAttributes.is())
                         {
-                            aEventIt->mxAttributes->clear();
+                            rEvent.mxAttributes->clear();
                             if( rEntity.mxNamespaceHandler.is() )
-                                aEventIt->mxDeclAttributes->clear();
+                                rEvent.mxDeclAttributes->clear();
                         }
                         xEventList->mbIsAttributesEmpty = true;
                     }
@@ -918,16 +911,6 @@ void FastSaxParserImpl::setErrorHandler(const Reference< XErrorHandler > & Handl
     maData.mxErrorHandler = Handler;
 }
 
-void FastSaxParserImpl::setEntityResolver(const Reference < XEntityResolver > & Resolver)
-{
-    maData.mxEntityResolver = Resolver;
-}
-
-void FastSaxParserImpl::setLocale( const lang::Locale & Locale )
-{
-    maData.maLocale = Locale;
-}
-
 void FastSaxParserImpl::setNamespaceHandler( const Reference< XFastNamespaceHandler >& Handler )
 {
     maData.mxNamespaceHandler = Handler;
@@ -980,23 +963,22 @@ bool FastSaxParserImpl::consume(EventList& rEventList)
 {
     Entity& rEntity = getEntity();
     rEventList.mbIsAttributesEmpty = false;
-    for (auto aEventIt = rEventList.maEvents.begin();
-         aEventIt != rEventList.maEvents.end(); ++aEventIt)
+    for (auto& rEvent : rEventList.maEvents)
     {
-        switch ((*aEventIt).maType)
+        switch (rEvent.maType)
         {
             case CallbackType::START_ELEMENT:
-                rEntity.startElement( &(*aEventIt) );
+                rEntity.startElement( &rEvent );
                 break;
             case CallbackType::END_ELEMENT:
                 rEntity.endElement();
                 break;
             case CallbackType::CHARACTERS:
-                rEntity.characters( (*aEventIt).msChars );
+                rEntity.characters( rEvent.msChars );
                 break;
             case CallbackType::PROCESSING_INSTRUCTION:
                 rEntity.processingInstruction(
-                    (*aEventIt).msNamespace, (*aEventIt).msElementName ); // ( target, data )
+                    rEvent.msNamespace, rEvent.msElementName ); // ( target, data )
                 break;
             case CallbackType::DONE:
                 return false;
@@ -1402,14 +1384,14 @@ void FastSaxParser::setErrorHandler( const uno::Reference< xml::sax::XErrorHandl
     mpImpl->setErrorHandler(Handler);
 }
 
-void FastSaxParser::setEntityResolver( const uno::Reference< xml::sax::XEntityResolver >& Resolver )
+void FastSaxParser::setEntityResolver( const uno::Reference< xml::sax::XEntityResolver >& )
 {
-    mpImpl->setEntityResolver(Resolver);
+    // not implemented
 }
 
-void FastSaxParser::setLocale( const lang::Locale& rLocale )
+void FastSaxParser::setLocale( const lang::Locale& )
 {
-    mpImpl->setLocale(rLocale);
+    // not implemented
 }
 
 void FastSaxParser::setNamespaceHandler( const uno::Reference< css::xml::sax::XFastNamespaceHandler >& Handler)

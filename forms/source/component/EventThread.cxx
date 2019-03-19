@@ -71,13 +71,9 @@ Any SAL_CALL OComponentEventThread::queryInterface(const Type& _rType)
 
 void OComponentEventThread::impl_clearEventQueue()
 {
-    while ( !m_aEvents.empty() )
-    {
-        delete *m_aEvents.begin();
-        m_aEvents.erase( m_aEvents.begin() );
-    }
-    m_aControls.erase( m_aControls.begin(), m_aControls.end() );
-    m_aFlags.erase( m_aFlags.begin(), m_aFlags.end() );
+    m_aEvents.clear();
+    m_aControls.clear();
+    m_aFlags.clear();
 }
 
 void OComponentEventThread::disposing( const EventObject& evt )
@@ -103,20 +99,20 @@ void OComponentEventThread::disposing( const EventObject& evt )
     }
 }
 
-void OComponentEventThread::addEvent( const EventObject* _pEvt )
+void OComponentEventThread::addEvent( std::unique_ptr<EventObject> _pEvt )
 {
     Reference<XControl>  xTmp;
-    addEvent( _pEvt, xTmp );
+    addEvent( std::move(_pEvt), xTmp );
 }
 
-void OComponentEventThread::addEvent( const EventObject* _pEvt,
+void OComponentEventThread::addEvent( std::unique_ptr<EventObject> _pEvt,
                                    const Reference<XControl>& rControl,
                                    bool bFlag )
 {
     ::osl::MutexGuard aGuard( m_aMutex );
 
     // Put data into the queue
-    m_aEvents.push_back( cloneEvent( _pEvt ) );
+    m_aEvents.push_back( std::move( _pEvt ) );
 
     Reference<XWeak>        xWeakControl(rControl, UNO_QUERY);
     Reference<XAdapter> xControlAdapter = xWeakControl.is() ? xWeakControl->queryAdapter() : Reference<XAdapter>();
@@ -154,7 +150,7 @@ void OComponentEventThread::run()
             rtl::Reference<::cppu::OComponentHelper> xComp = m_xComp;
 
             ThreadEvents::iterator firstEvent( m_aEvents.begin() );
-            std::unique_ptr<EventObject> pEvt(*firstEvent);
+            std::unique_ptr<EventObject> pEvt = std::move(*firstEvent);
             m_aEvents.erase( firstEvent );
 
             ThreadObjects::iterator firstControl( m_aControls.begin() );

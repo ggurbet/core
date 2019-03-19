@@ -16,15 +16,9 @@
 #   the License at http://www.apache.org/licenses/LICENSE-2.0 .
 #
 -o sc.ScDataPilotItemObj
--o sc.ScDataPilotItemsObj
--o sc.ScDataPilotTablesObj
 -o sc.ScDatabaseRangeObj
-# -o sc.ScDatabaseRangesObj
 -o sc.ScDocumentConfiguration
 -o sc.ScDrawPageObj
--o sc.ScDrawPagesObj
--o sc.ScFilterDescriptorBase
--o sc.ScFunctionListObj
 # ported to cppunit -o sc.ScHeaderFieldObj
 -o sc.ScHeaderFieldsObj
 # The two HeaderFooter tests seem to fail randomly

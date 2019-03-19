@@ -23,6 +23,7 @@
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <connectivity/sdbcx/VCollection.hxx>
 #include <connectivity/sdbcx/VDescriptor.hxx>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <connectivity/dbexception.hxx>
 #include <comphelper/enumhelper.hxx>
 #include <comphelper/types.hxx>
@@ -139,9 +140,11 @@ namespace
             Sequence< OUString > aNameList(m_aElements.size());
 
             OUString* pStringArray = aNameList.getArray();
-            typename std::vector< ObjectIter >::const_iterator aEnd = m_aElements.end();
-            for(typename std::vector< ObjectIter >::const_iterator aIter = m_aElements.begin(); aIter != aEnd;++aIter,++pStringArray)
-                *pStringArray = (*aIter)->first;
+            for(const auto& rIter : m_aElements)
+            {
+                *pStringArray = rIter->first;
+                ++pStringArray;
+            }
 
             return aNameList;
         }

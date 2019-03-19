@@ -25,7 +25,6 @@
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/calendarwrapper.hxx>
 #include <unotools/transliterationwrapper.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <algorithm>
 
@@ -237,9 +236,9 @@ ScUserList::ScUserList()
             OUString aDayLong = aDayLongBuf.makeStringAndClear();
 
             if ( !HasEntry( aDayShort ) )
-                maData.push_back( o3tl::make_unique<ScUserListData>( aDayShort ));
+                maData.push_back( std::make_unique<ScUserListData>( aDayShort ));
             if ( !HasEntry( aDayLong ) )
-                maData.push_back( o3tl::make_unique<ScUserListData>( aDayLong ));
+                maData.push_back( std::make_unique<ScUserListData>( aDayLong ));
         }
 
         xCal = xCalendars[j].Months;
@@ -262,9 +261,9 @@ ScUserList::ScUserList()
             OUString aMonthLong = aMonthLongBuf.makeStringAndClear();
 
             if ( !HasEntry( aMonthShort ) )
-                maData.push_back( o3tl::make_unique<ScUserListData>( aMonthShort ));
+                maData.push_back( std::make_unique<ScUserListData>( aMonthShort ));
             if ( !HasEntry( aMonthLong ) )
-                maData.push_back( o3tl::make_unique<ScUserListData>( aMonthLong ));
+                maData.push_back( std::make_unique<ScUserListData>( aMonthLong ));
         }
     }
 }
@@ -272,24 +271,23 @@ ScUserList::ScUserList()
 ScUserList::ScUserList(const ScUserList& rOther)
 {
     for (const std::unique_ptr<ScUserListData>& rData : rOther.maData)
-        maData.push_back(o3tl::make_unique<ScUserListData>(*rData));
+        maData.push_back(std::make_unique<ScUserListData>(*rData));
 }
 
 const ScUserListData* ScUserList::GetData(const OUString& rSubStr) const
 {
     const ScUserListData* pFirstCaseInsensitive = nullptr;
-    DataType::const_iterator itr = maData.begin(), itrEnd = maData.end();
     sal_uInt16 nIndex;
     bool bMatchCase = false;
 
-    for (; itr != itrEnd; ++itr)
+    for (const auto& rxItem : maData)
     {
-        if ((*itr)->GetSubIndex(rSubStr, nIndex, bMatchCase))
+        if (rxItem->GetSubIndex(rSubStr, nIndex, bMatchCase))
         {
             if (bMatchCase)
-                return itr->get();
+                return rxItem.get();
             if (!pFirstCaseInsensitive)
-                pFirstCaseInsensitive = itr->get();
+                pFirstCaseInsensitive = rxItem.get();
         }
     }
 
@@ -310,24 +308,16 @@ ScUserList& ScUserList::operator=( const ScUserList& rOther )
 {
     maData.clear();
     for (const std::unique_ptr<ScUserListData>& rData : rOther.maData)
-        maData.push_back(o3tl::make_unique<ScUserListData>(*rData));
+        maData.push_back(std::make_unique<ScUserListData>(*rData));
     return *this;
 }
 
 bool ScUserList::operator==( const ScUserList& r ) const
 {
-    if (size() != r.size())
-        return false;
-
-    DataType::const_iterator itr1 = maData.begin(), itr2 = r.maData.begin(), itrEnd = maData.end();
-    for (; itr1 != itrEnd; ++itr1, ++itr2)
-    {
-        const ScUserListData& v1 = **itr1;
-        const ScUserListData& v2 = **itr2;
-        if (v1.GetString() != v2.GetString() || v1.GetSubCount() != v2.GetSubCount())
-            return false;
-    }
-    return true;
+    return std::equal(maData.begin(), maData.end(), r.maData.begin(), r.maData.end(),
+        [](const std::unique_ptr<ScUserListData>& lhs, const std::unique_ptr<ScUserListData>& rhs) {
+            return (lhs->GetString() == rhs->GetString()) && (lhs->GetSubCount() == rhs->GetSubCount());
+        });
 }
 
 bool ScUserList::operator!=( const ScUserList& r ) const

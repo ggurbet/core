@@ -32,6 +32,7 @@
 #include <vcl/graph.hxx>
 #include <vcl/help.hxx>
 #include <vcl/commandinfoprovider.hxx>
+#include <vcl/event.hxx>
 #include <unotools/historyoptions.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <tools/urlobj.hxx>
@@ -193,15 +194,6 @@ namespace dbaui
         if ( LISTBOX_ENTRY_NOTFOUND != GetSelectedEntryPos() )
             sURL = impl_getDocumentAtIndex( nSelected ).first;
         return sURL;
-    }
-
-    OUString OpenDocumentListBox::GetSelectedDocumentFilter() const
-    {
-        OUString sFilter;
-        sal_Int32 nSelected = GetSelectedEntryPos();
-        if ( LISTBOX_ENTRY_NOTFOUND != GetSelectedEntryPos() )
-            sFilter = impl_getDocumentAtIndex( nSelected ).second;
-        return sFilter;
     }
 
     OpenDocumentListBox::StringPair OpenDocumentListBox::impl_getDocumentAtIndex( sal_uInt16 _nListIndex, bool _bSystemNotation ) const

@@ -27,6 +27,7 @@
 #include "baside2.hxx"
 #include "basdoc.hxx"
 #include <vcl/xtextedt.hxx>
+#include <vcl/textview.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/signaturestate.hxx>
 #include <com/sun/star/container/XNamed.hpp>
@@ -165,7 +166,7 @@ VclPtr<ModulWindow> Shell::CreateBasWin( const ScriptDocument& rDocument, const 
             {
                 // new module window
                 if (!pModulLayout)
-                    pModulLayout.reset(VclPtr<ModulWindowLayout>::Create(&GetViewFrame()->GetWindow(), *aObjectCatalog.get()));
+                    pModulLayout.reset(VclPtr<ModulWindowLayout>::Create(&GetViewFrame()->GetWindow(), *aObjectCatalog));
                 pWin = VclPtr<ModulWindow>::Create(pModulLayout.get(), rDocument, aLibName, aModName, aModule);
                 nKey = InsertWindowInTable( pWin );
             }

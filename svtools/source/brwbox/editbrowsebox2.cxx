@@ -25,7 +25,9 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/svtaccessiblefactory.hxx>
 #include <vcl/accessiblefactory.hxx>
+#include <vcl/svapp.hxx>
 #include <osl/diagnose.h>
+#include <tools/debug.hxx>
 
 namespace svt
 {
@@ -70,12 +72,12 @@ void EditBrowseBox::implCreateActiveAccessible( )
     if ( !(!m_aImpl->m_xActiveCell.is() && IsEditing()) )
          return;
 
-     Reference< XAccessible > xCont = aController->GetWindow().GetAccessible();
-     Reference< XAccessible > xMy = GetAccessible();
-     if ( !(xMy.is() && xCont.is()) )
+    Reference< XAccessible > xCont = aController->GetWindow().GetAccessible();
+    Reference< XAccessible > xMy = GetAccessible();
+    if ( !(xMy.is() && xCont.is()) )
          return;
 
-     m_aImpl->m_xActiveCell = getAccessibleFactory().createEditBrowseBoxTableCellAccess(
+    m_aImpl->m_xActiveCell = getAccessibleFactory().createEditBrowseBoxTableCellAccess(
          xMy,                                                       // parent accessible
          xCont,                                                     // control accessible
          VCLUnoHelper::GetInterface( &aController->GetWindow() ),   // focus window (for notifications)
@@ -84,7 +86,7 @@ void EditBrowseBox::implCreateActiveAccessible( )
          GetColumnPos( GetCurColumnId() )
      );
 
-     commitBrowseBoxEvent( CHILD, makeAny( m_aImpl->m_xActiveCell ), Any() );
+    commitBrowseBoxEvent( CHILD, makeAny( m_aImpl->m_xActiveCell ), Any() );
 }
 
 

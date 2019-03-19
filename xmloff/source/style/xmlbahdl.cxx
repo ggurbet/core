@@ -26,6 +26,8 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <xmloff/xmltoken.hxx>
 
+#include <limits.h>
+
 using namespace ::com::sun::star::uno;
 using namespace ::xmloff::token;
 
@@ -191,7 +193,7 @@ bool XMLMeasurePropHdl::exportXML( OUString& rStrExpValue, const Any& rValue, co
 {
     bool bRet = false;
     sal_Int32 nValue;
-      OUStringBuffer aOut;
+    OUStringBuffer aOut;
 
     if( lcl_xmloff_getAny( rValue, nValue, nBytes ) )
     {
@@ -307,7 +309,7 @@ bool XMLPercentPropHdl::exportXML( OUString& rStrExpValue, const Any& rValue, co
 {
     bool bRet = false;
     sal_Int32 nValue;
-      OUStringBuffer aOut;
+    OUStringBuffer aOut;
 
     if( lcl_xmloff_getAny( rValue, nValue, nBytes ) )
     {
@@ -385,7 +387,7 @@ bool XMLNegPercentPropHdl::exportXML( OUString& rStrExpValue, const Any& rValue,
 {
     bool bRet = false;
     sal_Int32 nValue;
-      OUStringBuffer aOut;
+    OUStringBuffer aOut;
 
     if( lcl_xmloff_getAny( rValue, nValue, nBytes ) )
     {
@@ -416,7 +418,7 @@ bool XMLMeasurePxPropHdl::exportXML( OUString& rStrExpValue, const Any& rValue, 
 {
     bool bRet = false;
     sal_Int32 nValue;
-      OUStringBuffer aOut;
+    OUStringBuffer aOut;
 
     if( lcl_xmloff_getAny( rValue, nValue, nBytes ) )
     {

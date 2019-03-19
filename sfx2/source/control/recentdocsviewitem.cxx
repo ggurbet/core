@@ -21,6 +21,8 @@
 #include <tools/urlobj.hxx>
 #include <unotools/historyoptions.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/event.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <bitmaps.hlst>
 
@@ -176,7 +178,7 @@ void RecentDocsViewItem::MouseButtonUp(const MouseEvent& rMEvt)
 void RecentDocsViewItem::OpenDocument()
 {
     // show busy mouse pointer
-    mrParent.SetPointer(Pointer(PointerStyle::Wait));
+    mrParent.SetPointer(PointerStyle::Wait);
 
     Reference<frame::XDispatch> xDispatch;
     Reference<frame::XDispatchProvider> xDispatchProvider;
@@ -204,19 +206,19 @@ void RecentDocsViewItem::OpenDocument()
 
     xDispatch = xDispatchProvider->queryDispatch(aTargetURL, "_default", 0);
 
-    if (xDispatch.is())
-    {
-        // Call dispatch asynchronously as we can be destroyed while dispatch is
-        // executed. VCL is not able to survive this as it wants to call listeners
-        // after select!!!
-        sfx2::LoadRecentFile *const pLoadRecentFile = new sfx2::LoadRecentFile;
-        pLoadRecentFile->xDispatch = xDispatch;
-        pLoadRecentFile->aTargetURL = aTargetURL;
-        pLoadRecentFile->aArgSeq = aArgsList;
-        pLoadRecentFile->pView.set(&mrParent);
+    if (!xDispatch.is())
+        return;
 
-        Application::PostUserEvent(LINK(nullptr, sfx2::RecentDocsView, ExecuteHdl_Impl), pLoadRecentFile, true);
-    }
+    // Call dispatch asynchronously as we can be destroyed while dispatch is
+    // executed. VCL is not able to survive this as it wants to call listeners
+    // after select!!!
+    sfx2::LoadRecentFile *const pLoadRecentFile = new sfx2::LoadRecentFile;
+    pLoadRecentFile->xDispatch = xDispatch;
+    pLoadRecentFile->aTargetURL = aTargetURL;
+    pLoadRecentFile->aArgSeq = aArgsList;
+    pLoadRecentFile->pView.set(&mrParent);
+
+    Application::PostUserEvent(LINK(nullptr, sfx2::RecentDocsView, ExecuteHdl_Impl), pLoadRecentFile, true);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

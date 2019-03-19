@@ -37,6 +37,7 @@
 #include "xmlEnums.hxx"
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/util/XNumberFormatsSupplier.hpp>
 #include <com/sun/star/sdb/XFormDocumentsSupplier.hpp>
 #include <com/sun/star/sdb/XOfficeDatabaseDocument.hpp>
 #include <com/sun/star/sdb/XReportDocumentsSupplier.hpp>
@@ -294,6 +295,17 @@ void ODBExport::exportDataSource()
         static OUString s_sFalse(::xmloff::token::GetXMLToken( XML_FALSE ));
         // loop through the properties, and export only those which are not defaulted
         TSettingsMap aSettingsMap;
+        // Don't try to get XPropertySetInfo from xProp, simply wrap the attempt into try block
+        try
+        {
+            const Any aValue = xProp->getPropertyValue(PROPERTY_SUPPRESSVERSIONCL);
+            if (!getBOOL(aValue)) // default in the XML schema is true -> only write false
+                aSettingsMap.emplace(XML_SUPPRESS_VERSION_COLUMNS, s_sFalse);
+        }
+        catch (const UnknownPropertyException&)
+        {
+        }
+
         Sequence< Property > aProperties = xSettingsInfo->getProperties();
         const Property* pProperties = aProperties.getConstArray();
         const Property* pPropertiesEnd = pProperties + aProperties.getLength();
@@ -357,7 +369,6 @@ void ODBExport::exportDataSource()
                 PropertyMap( INFO_PARAMETERNAMESUBST,   XML_PARAMETER_NAME_SUBSTITUTION,    s_sTrue     ),
                 PropertyMap( INFO_IGNOREDRIVER_PRIV,    XML_IGNORE_DRIVER_PRIVILEGES,       s_sTrue     ),
                 PropertyMap( INFO_USECATALOG,           XML_USE_CATALOG,                    s_sFalse    ),
-                PropertyMap( PROPERTY_SUPPRESSVERSIONCL,XML_SUPPRESS_VERSION_COLUMNS,       s_sTrue     ),
                 PropertyMap( INFO_CONN_LDAP_BASEDN,     XML_BASE_DN                                     ),
                 PropertyMap( INFO_CONN_LDAP_ROWCOUNT,   XML_MAX_ROW_COUNT                               )
             };
@@ -397,8 +408,6 @@ void ODBExport::exportDataSource()
                 // special handlings
                 if ( pProperties->Name == PROPERTY_BOOLEANCOMPARISONMODE )
                 {
-                    sal_Int32 nValue = 0;
-                    aValue >>= nValue;
                     if ( sValue == "0" )
                         sValue = "equal-integer";
                     else if ( sValue == "1" )
@@ -645,12 +654,14 @@ void ODBExport::exportConnectionData()
 template< typename T > void ODBExport::exportDataSourceSettingsSequence(
     std::vector< TypedPropertyValue >::iterator const & in)
 {
-    OSequenceIterator< T > i( in->Value );
-    while (i.hasMoreElements())
+    css::uno::Sequence<T> anySeq;
+    bool bSuccess = in->Value >>= anySeq;
+    assert(bSuccess); (void)bSuccess;
+    for (T const & i : anySeq )
     {
         SvXMLElementExport aDataValue(*this,XML_NAMESPACE_DB, XML_DATA_SOURCE_SETTING_VALUE, true, false);
         // (no whitespace inside the tag)
-        Characters(implConvertAny(i.nextElement()));
+        Characters(implConvertAny(css::uno::Any(i)));
     }
 }
 

@@ -26,6 +26,9 @@
 #include <vcl/salnativewidgets.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
+#include <vcl/ptrstyle.hxx>
+
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/XAccessible.hpp>
 
@@ -306,7 +309,7 @@ void HeaderBar::ImplDrawItem(vcl::RenderContext& rRenderContext, sal_uInt16 nPos
     {
         // do not draw border
         aRect.AdjustTop(mnBorderOff1 );
-        aRect.AdjustBottom( -(mnBorderOff2) );
+        aRect.AdjustBottom( -mnBorderOff2 );
 
         // delete background
         if ( !pRect )
@@ -590,7 +593,7 @@ void HeaderBar::ImplUpdate(sal_uInt16 nPos, bool bEnd)
     if (bEnd)
         aRect.SetRight( mnDX - 1 );
     aRect.AdjustTop(mnBorderOff1 );
-    aRect.AdjustBottom( -(mnBorderOff2) );
+    aRect.AdjustBottom( -mnBorderOff2 );
     Invalidate(aRect);
 }
 
@@ -775,8 +778,7 @@ void HeaderBar::ImplEndDrag( bool bCancel )
         {
             if ( mbItemDrag )
             {
-                Pointer aPointer( PointerStyle::Arrow );
-                SetPointer( aPointer );
+                SetPointer( PointerStyle::Arrow );
                 if ( (mnItemDragPos != nPos) &&
                      (mnItemDragPos != HEADERBAR_ITEM_NOTFOUND) )
                 {
@@ -849,8 +851,7 @@ void HeaderBar::MouseMove( const MouseEvent& rMEvt )
 
     if ( nHitTest & HEAD_HITTEST_DIVIDER )
         eStyle = PointerStyle::HSizeBar;
-    Pointer aPtr( eStyle );
-    SetPointer( aPtr );
+    SetPointer( eStyle );
 }
 
 void HeaderBar::Tracking( const TrackingEvent& rTEvt )

@@ -72,7 +72,6 @@ $(eval $(call gb_UIConfig_add_toolbarfiles,modules/scalc,\
 	sc/uiconfig/scalc/toolbar/insertcellsbar \
 	sc/uiconfig/scalc/toolbar/linesbar \
 	sc/uiconfig/scalc/toolbar/mediaobjectbar \
-	sc/uiconfig/scalc/toolbar/moreformcontrols \
 	sc/uiconfig/scalc/toolbar/notebookbarshortcuts \
 	sc/uiconfig/scalc/toolbar/previewbar \
 	sc/uiconfig/scalc/toolbar/singlemode \
@@ -180,6 +179,7 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/scalc,\
 	sc/uiconfig/scalc/ui/pastespecial \
 	sc/uiconfig/scalc/ui/paradialog \
 	sc/uiconfig/scalc/ui/paratemplatedialog \
+	sc/uiconfig/scalc/ui/passfragment \
 	sc/uiconfig/scalc/ui/pivotfielddialog \
 	sc/uiconfig/scalc/ui/pivotfilterdialog \
 	sc/uiconfig/scalc/ui/pivottablelayoutdialog \

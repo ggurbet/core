@@ -20,7 +20,6 @@
 #undef SC_DLLIMPLEMENTATION
 
 #include <dapitype.hxx>
-#include <sc.hrc>
 
 using namespace com::sun::star;
 
@@ -47,7 +46,7 @@ ScDataPilotSourceTypeDlg::ScDataPilotSourceTypeDlg(weld::Window* pParent, bool b
     m_xBtnNamedRange->set_sensitive(false);
 
     // Intentionally hide this button to see if anyone complains.
-    m_xBtnExternal->show(false);
+    m_xBtnExternal->hide();
 }
 
 ScDataPilotSourceTypeDlg::~ScDataPilotSourceTypeDlg()

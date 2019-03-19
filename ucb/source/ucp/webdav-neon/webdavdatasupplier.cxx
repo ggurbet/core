@@ -34,7 +34,6 @@
  *************************************************************************/
 
 #include <sal/log.hxx>
-#include <o3tl/make_unique.hxx>
 #include <com/sun/star/ucb/IllegalIdentifierException.hpp>
 #include <com/sun/star/ucb/OpenMode.hpp>
 #include <com/sun/star/ucb/ResultSetException.hpp>
@@ -467,7 +466,7 @@ bool DataSupplier::getData()
                     }
 
                     m_pImpl->m_Results.push_back(
-                        o3tl::make_unique<ResultListEntry>(pContentProperties));
+                        std::make_unique<ResultListEntry>(pContentProperties));
                 }
             }
             catch ( DAVException const & )
@@ -475,7 +474,7 @@ bool DataSupplier::getData()
             }
         }
 
-          m_pImpl->m_bCountFinal = true;
+        m_pImpl->m_bCountFinal = true;
 
         // Callback possible, because listeners may be informed!
         aGuard.clear();

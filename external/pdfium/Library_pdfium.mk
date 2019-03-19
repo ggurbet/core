@@ -254,8 +254,8 @@ $(eval $(call gb_Library_add_generated_exception_objects,pdfium,\
     UnpackedTarball/pdfium/core/fpdfapi/render/cpdf_type3cache \
     UnpackedTarball/pdfium/core/fpdfapi/render/cpdf_type3glyphs \
     UnpackedTarball/pdfium/core/fpdfapi/edit/cpdf_creator \
-    UnpackedTarball/pdfium/core/fpdfapi/edit/cpdf_encryptor \
-    UnpackedTarball/pdfium/core/fpdfapi/edit/cpdf_flateencoder \
+    UnpackedTarball/pdfium/core/fpdfapi/parser/cpdf_encryptor \
+    UnpackedTarball/pdfium/core/fpdfapi/parser/cpdf_flateencoder \
     UnpackedTarball/pdfium/core/fpdfapi/font/cfx_cttgsubtable \
     UnpackedTarball/pdfium/core/fpdfapi/font/cfx_stockfontarray \
     UnpackedTarball/pdfium/core/fpdfapi/font/cpdf_cid2unicodemap \
@@ -372,7 +372,6 @@ $(eval $(call gb_Library_add_generated_exception_objects,pdfium,\
     UnpackedTarball/pdfium/core/fxcrt/fx_memory \
     UnpackedTarball/pdfium/core/fxcrt/fx_stream \
     UnpackedTarball/pdfium/core/fxcrt/fx_system \
-    UnpackedTarball/pdfium/core/fxcrt/fx_ucddata \
     UnpackedTarball/pdfium/core/fxcrt/fx_unicode \
     UnpackedTarball/pdfium/core/fxcrt/xml/cfx_xmldocument \
     UnpackedTarball/pdfium/core/fxcrt/xml/cfx_xmlelement \
@@ -467,7 +466,9 @@ $(eval $(call gb_Library_add_generated_exception_objects,pdfium,\
     UnpackedTarball/pdfium/core/fxge/cttfontdesc \
     UnpackedTarball/pdfium/core/fxge/fx_ge_fontmap \
     UnpackedTarball/pdfium/core/fxge/fx_ge_linux \
-    UnpackedTarball/pdfium/core/fxge/fx_ge_text \
+    UnpackedTarball/pdfium/core/fxge/cfx_glyphbitmap \
+    UnpackedTarball/pdfium/core/fxge/scoped_font_transform \
+    UnpackedTarball/pdfium/core/fxge/text_glyph_pos \
     UnpackedTarball/pdfium/core/fxge/fx_font \
     UnpackedTarball/pdfium/core/fxge/dib/cfx_dibbase \
 ))
@@ -488,7 +489,6 @@ $(eval $(call gb_Library_add_generated_exception_objects,pdfium,\
     UnpackedTarball/pdfium/fpdfsdk/pwl/cpwl_edit \
     UnpackedTarball/pdfium/fpdfsdk/pwl/cpwl_edit_ctrl \
     UnpackedTarball/pdfium/fpdfsdk/pwl/cpwl_edit_impl \
-    UnpackedTarball/pdfium/fpdfsdk/pwl/cpwl_font_map \
     UnpackedTarball/pdfium/fpdfsdk/pwl/cpwl_icon \
     UnpackedTarball/pdfium/fpdfsdk/pwl/cpwl_list_box \
     UnpackedTarball/pdfium/fpdfsdk/pwl/cpwl_list_impl \

@@ -23,12 +23,7 @@
 #include <config_cairo_canvas.h>
 
 #include <gtk/gtk.h>
-#if defined(GDK_WINDOWING_X11)
-#   include <gdk/gdkx.h>
-#endif
-#if defined(GDK_WINDOWING_WAYLAND)
-#   include <gdk/gdkwayland.h>
-#endif
+#include "gtkbackend.hxx"
 #include <gdk/gdkkeysyms.h>
 
 #include <unx/gtk/gtkframe.hxx>
@@ -213,7 +208,7 @@ private:
 
     static tools::Rectangle NWGetScrollButtonRect( ControlPart nPart, tools::Rectangle aAreaRect );
     static tools::Rectangle NWGetSpinButtonRect( ControlPart nPart, tools::Rectangle aAreaRect);
-    static tools::Rectangle NWGetComboBoxButtonRect( ControlPart nPart, tools::Rectangle aAreaRect );
+    static tools::Rectangle NWGetComboBoxButtonRect(ControlType nType, ControlPart nPart, tools::Rectangle aAreaRect);
 
     static void PaintScrollbar(GtkStyleContext *context,
                         cairo_t *cr,

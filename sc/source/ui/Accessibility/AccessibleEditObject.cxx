@@ -23,8 +23,6 @@
 #include <utility>
 
 #include <AccessibleEditObject.hxx>
-#include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 #include <AccessibleText.hxx>
 #include <editsrc.hxx>
 #include <scmod.hxx>
@@ -49,7 +47,7 @@
 #include <com/sun/star/accessibility/AccessibleRelationType.hpp>
 #include <unotools/accessiblerelationsethelper.hxx>
 #include <com/sun/star/accessibility/XAccessibleText.hpp>
-#include <o3tl/make_unique.hxx>
+
 using ::com::sun::star::lang::IndexOutOfBoundsException;
 using ::com::sun::star::uno::RuntimeException;
 using namespace ::com::sun::star;
@@ -155,7 +153,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessibleEditObject::getAccessibleAtPo
     uno::Reference<XAccessible> xRet;
     if (containsPoint(rPoint))
     {
-         SolarMutexGuard aGuard;
+        SolarMutexGuard aGuard;
         IsObjectValid();
 
         CreateTextHelper();
@@ -349,9 +347,9 @@ void ScAccessibleEditObject::CreateTextHelper()
         }
 
         std::unique_ptr<ScAccessibilityEditSource> pEditSrc =
-            o3tl::make_unique<ScAccessibilityEditSource>(std::move(pAccessibleTextData));
+            std::make_unique<ScAccessibilityEditSource>(std::move(pAccessibleTextData));
 
-        mpTextHelper = o3tl::make_unique<::accessibility::AccessibleTextHelper>(std::move(pEditSrc));
+        mpTextHelper = std::make_unique<::accessibility::AccessibleTextHelper>(std::move(pEditSrc));
         mpTextHelper->SetEventSource(this);
 
         const ScInputHandler* pInputHdl = SC_MOD()->GetInputHdl();

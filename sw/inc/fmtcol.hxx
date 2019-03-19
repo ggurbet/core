@@ -61,11 +61,11 @@ class SW_DLLPUBLIC SwTextFormatColl: public SwFormatColl
 
     bool mbStayAssignedToListLevelOfOutlineStyle;
 
-protected:
-
     bool mbAssignedToOutlineStyle;
 
     SwTextFormatColl *mpNextTextFormatColl;
+
+protected:
 
     SwTextFormatColl( SwAttrPool& rPool, const sal_Char* pFormatCollName,
                     SwTextFormatColl* pDerFrom = nullptr,
@@ -132,7 +132,7 @@ public:
 
     bool AreListLevelIndentsApplicable() const;
 
-    void dumpAsXml(struct _xmlTextWriter* pWriter) const;
+    void dumpAsXml(xmlTextWriterPtr pWriter) const;
 };
 
 class SwGrfFormatColl final : public SwFormatColl

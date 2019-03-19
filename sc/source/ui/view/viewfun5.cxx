@@ -310,8 +310,9 @@ bool ScViewFunc::PasteDataFormat( SotClipboardFormatId nFormatId,
                     // this for html pasting only, but in the future it may
                     // make sense to do it for other data types too.
                     ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
+                    vcl::Window* pParent = GetActiveWin();
                     ScopedVclPtr<AbstractScTextImportOptionsDlg> pDlg(
-                        pFact->CreateScTextImportOptionsDlg());
+                        pFact->CreateScTextImportOptionsDlg(pParent ? pParent->GetFrameWeld() : nullptr));
 
                     if (pDlg->Execute() == RET_OK)
                     {
@@ -555,13 +556,13 @@ bool ScViewFunc::PasteDataFormat( SotClipboardFormatId nFormatId,
         uno::Reference <io::XInputStream> xStm = aDataHelper.GetInputStream(nFormatId, OUString());
         if (xStm.is())
         {
-            ScDocument* pInsDoc = new ScDocument( SCDOCMODE_CLIP );
+            std::unique_ptr<ScDocument> pInsDoc(new ScDocument( SCDOCMODE_CLIP ));
             SCTAB nSrcTab = 0;      // Biff5 in clipboard: always sheet 0
             pInsDoc->ResetClip( pDoc, nSrcTab );
 
             SfxMedium aMed;
             aMed.GetItemSet()->Put( SfxUnoAnyItem( SID_INPUTSTREAM, uno::makeAny( xStm ) ) );
-            ErrCode eErr = ScFormatFilter::Get().ScImportExcel( aMed, pInsDoc, EIF_AUTO );
+            ErrCode eErr = ScFormatFilter::Get().ScImportExcel( aMed, pInsDoc.get(), EIF_AUTO );
             if ( eErr == ERRCODE_NONE )
             {
                 ScRange aSource;
@@ -600,11 +601,9 @@ bool ScViewFunc::PasteDataFormat( SotClipboardFormatId nFormatId,
                 }
 
                 pInsDoc->SetClipArea( aSource );
-                PasteFromClip( InsertDeleteFlags::ALL, pInsDoc,
+                PasteFromClip( InsertDeleteFlags::ALL, pInsDoc.get(),
                                 ScPasteFunc::NONE, false, false, false, INS_NONE, InsertDeleteFlags::NONE,
                                 bAllowDialogs );
-                delete pInsDoc;
-
                 bRet = true;
             }
         }

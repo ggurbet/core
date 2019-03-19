@@ -3270,7 +3270,7 @@ eF_ResT SwWW8ImplReader::Read_F_Tox( WW8FieldDesc* pF, OUString& rStr )
                             // In an ideal world we could handle the tab stop between the number and
                             // the entry correctly, but I currently have no clue how to obtain
                             // the tab stop position. It is _not_ set at the paragraph style.
-                            SwForm* pForm = nullptr;
+                            std::unique_ptr<SwForm> pForm;
                             for (SwWW8StyInf & rSI : m_vColl)
                             {
                                 if (rSI.IsOutlineNumbered())
@@ -3282,7 +3282,7 @@ eF_ResT SwWW8ImplReader::Read_F_Tox( WW8FieldDesc* pF, OUString& rStr )
                                         ++nStyleLevel;
 
                                         if ( !pForm )
-                                            pForm = new SwForm( pBase->GetTOXForm() );
+                                            pForm.reset(new SwForm( pBase->GetTOXForm() ));
 
                                         SwFormTokens aPattern = pForm->GetPattern(nStyleLevel);
                                         SwFormTokens::iterator aIt =
@@ -3302,7 +3302,6 @@ eF_ResT SwWW8ImplReader::Read_F_Tox( WW8FieldDesc* pF, OUString& rStr )
                             if ( pForm )
                             {
                                 pBase->SetTOXForm( *pForm );
-                                delete pForm;
                             }
                         }
 
@@ -3396,7 +3395,7 @@ eF_ResT SwWW8ImplReader::Read_F_Tox( WW8FieldDesc* pF, OUString& rStr )
     // Set start in stack
     m_xReffedStck->NewAttr( *pPos, aFltTOX );
 
-    m_rDoc.InsertTableOf(*m_pPaM->GetPoint(), *aFltTOX.GetBase());
+    m_rDoc.InsertTableOf(*m_pPaM->GetPoint(), aFltTOX.GetBase());
 
     //The TOC field representation contents should be inserted into TOC section, but not after TOC section.
     //So we need update the document position when loading TOC representation and after loading TOC;
@@ -3511,7 +3510,7 @@ eF_ResT SwWW8ImplReader::Read_F_Hyperlink( WW8FieldDesc* /*pF*/, OUString& rStr 
     }
 
     // use the result
-   OSL_ENSURE(!sURL.isEmpty() || !sMark.isEmpty(), "WW8: Empty URL");
+    OSL_ENSURE(!sURL.isEmpty() || !sMark.isEmpty(), "WW8: Empty URL");
 
     if( !sMark.isEmpty() )
         sURL = sURL + "#" + sMark;

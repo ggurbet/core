@@ -21,10 +21,15 @@
 #include <tools/debug.hxx>
 #include <vcl/svapp.hxx>
 #include <tools/poly.hxx>
+#include <vcl/event.hxx>
 #include <vcl/i18nhelp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/vcllayout.hxx>
+#include <vcl/virdev.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <sal/log.hxx>
 
+#include <svtools/accessibleruler.hxx>
 #include <svtools/ruler.hxx>
 #include <svtools/svtresid.hxx>
 #include <svtools/strings.hrc>
@@ -68,7 +73,7 @@ namespace
  * Pre-calculates glyph items for rText on rRenderContext. Subsequent calls
  * avoid the calculation and just return a pointer to rTextGlyphs.
  */
-SalLayoutGlyphs* lcl_GetRulerTextGlyphs(vcl::RenderContext& rRenderContext, const OUString& rText,
+SalLayoutGlyphs* lcl_GetRulerTextGlyphs(const vcl::RenderContext& rRenderContext, const OUString& rText,
                                         SalLayoutGlyphs& rTextGlyphs)
 {
     if (rTextGlyphs.IsValid())
@@ -1177,8 +1182,8 @@ void Ruler::ImplFormat(vcl::RenderContext const & rRenderContext)
 
     // top/bottom border
     maVirDev->SetLineColor(rStyleSettings.GetShadowColor());
-    ImplVDrawLine(*maVirDev.get(), nVirLeft, nVirTop + 1, nM1,     nVirTop + 1); //top left line
-    ImplVDrawLine(*maVirDev.get(), nM2,      nVirTop + 1, nP2 - 1, nVirTop + 1); //top right line
+    ImplVDrawLine(*maVirDev, nVirLeft, nVirTop + 1, nM1,     nVirTop + 1); //top left line
+    ImplVDrawLine(*maVirDev, nM2,      nVirTop + 1, nP2 - 1, nVirTop + 1); //top right line
 
     nVirTop++;
     nVirBottom--;
@@ -1187,31 +1192,31 @@ void Ruler::ImplFormat(vcl::RenderContext const & rRenderContext)
     maVirDev->SetLineColor();
     maVirDev->SetFillColor(rStyleSettings.GetDialogColor());
     if (nM1 > nVirLeft)
-        ImplVDrawRect(*maVirDev.get(), nP1, nVirTop + 1, nM1, nVirBottom); //left gray rectangle
+        ImplVDrawRect(*maVirDev, nP1, nVirTop + 1, nM1, nVirBottom); //left gray rectangle
     if (nM2 < nP2)
-        ImplVDrawRect(*maVirDev.get(), nM2, nVirTop + 1, nP2, nVirBottom); //right gray rectangle
+        ImplVDrawRect(*maVirDev, nM2, nVirTop + 1, nP2, nVirBottom); //right gray rectangle
     if (nM2 - nM1 > 0)
     {
         maVirDev->SetFillColor(rStyleSettings.GetWindowColor());
-        ImplVDrawRect(*maVirDev.get(), nM1 + 1, nVirTop, nM2 - 1, nVirBottom); //center rectangle
+        ImplVDrawRect(*maVirDev, nM1 + 1, nVirTop, nM2 - 1, nVirBottom); //center rectangle
     }
     maVirDev->SetLineColor(rStyleSettings.GetShadowColor());
     if (nM1 > nVirLeft)
     {
-        ImplVDrawLine(*maVirDev.get(), nM1, nVirTop + 1, nM1, nVirBottom); //right line of the left rectangle
-        ImplVDrawLine(*maVirDev.get(), nP1, nVirBottom,  nM1, nVirBottom); //bottom line of the left rectangle
+        ImplVDrawLine(*maVirDev, nM1, nVirTop + 1, nM1, nVirBottom); //right line of the left rectangle
+        ImplVDrawLine(*maVirDev, nP1, nVirBottom,  nM1, nVirBottom); //bottom line of the left rectangle
         if (nP1 >= nVirLeft)
         {
-            ImplVDrawLine(*maVirDev.get(), nP1, nVirTop + 1, nP1,     nVirBottom); //left line of the left rectangle
-            ImplVDrawLine(*maVirDev.get(), nP1, nVirBottom,  nP1 + 1, nVirBottom); //?
+            ImplVDrawLine(*maVirDev, nP1, nVirTop + 1, nP1,     nVirBottom); //left line of the left rectangle
+            ImplVDrawLine(*maVirDev, nP1, nVirBottom,  nP1 + 1, nVirBottom); //?
         }
     }
     if (nM2 < nP2)
     {
-        ImplVDrawLine(*maVirDev.get(), nM2, nVirBottom,  nP2 - 1, nVirBottom); //bottom line of the right rectangle
-        ImplVDrawLine(*maVirDev.get(), nM2, nVirTop + 1, nM2,     nVirBottom); //left line of the right rectangle
+        ImplVDrawLine(*maVirDev, nM2, nVirBottom,  nP2 - 1, nVirBottom); //bottom line of the right rectangle
+        ImplVDrawLine(*maVirDev, nM2, nVirTop + 1, nM2,     nVirBottom); //left line of the right rectangle
         if (nP2 <= nVirRight + 1)
-            ImplVDrawLine(*maVirDev.get(), nP2 - 1, nVirTop + 1, nP2 - 1, nVirBottom); //right line of the right rectangle
+            ImplVDrawLine(*maVirDev, nP2 - 1, nVirTop + 1, nP2 - 1, nVirBottom); //right line of the right rectangle
     }
 
     long nMin = nVirLeft;
@@ -1230,19 +1235,19 @@ void Ruler::ImplFormat(vcl::RenderContext const & rRenderContext)
         nMax--;
 
     // Draw captions
-    ImplDrawTicks(*maVirDev.get(), nMin, nMax, nStart, nVirTop, nVirBottom);
+    ImplDrawTicks(*maVirDev, nMin, nMax, nStart, nVirTop, nVirBottom);
 
     // Draw borders
     if (!mpData->pBorders.empty())
-        ImplDrawBorders(*maVirDev.get(), nVirLeft, nP2, nVirTop, nVirBottom);
+        ImplDrawBorders(*maVirDev, nVirLeft, nP2, nVirTop, nVirBottom);
 
     // Draw indents
     if (!mpData->pIndents.empty())
-        ImplDrawIndents(*maVirDev.get(), nVirLeft, nP2, nVirTop - 1, nVirBottom + 1);
+        ImplDrawIndents(*maVirDev, nVirLeft, nP2, nVirTop - 1, nVirBottom + 1);
 
     // Tabs
     if (!mpData->pTabs.empty())
-        ImplDrawTabs(*maVirDev.get(), nVirLeft, nP2, nVirTop-1, nVirBottom + 1);
+        ImplDrawTabs(*maVirDev, nVirLeft, nP2, nVirTop-1, nVirBottom + 1);
 
     mbFormat = false;
 }
@@ -1324,7 +1329,7 @@ void Ruler::ImplDraw(vcl::RenderContext& rRenderContext)
         aOffPos.setX( RULER_OFF );
         aOffPos.setY( mnVirOff );
     }
-    rRenderContext.DrawOutDev(aOffPos, aVirDevSize, Point(), aVirDevSize, *maVirDev.get());
+    rRenderContext.DrawOutDev(aOffPos, aVirDevSize, Point(), aVirDevSize, *maVirDev);
 
     // redraw positionlines
     ImplInvertLines(rRenderContext);
@@ -2023,7 +2028,7 @@ void Ruler::MouseMove( const MouseEvent& rMEvt )
         mbFormat = true;
     }
 
-    SetPointer( Pointer(ePtrStyle) );
+    SetPointer( ePtrStyle );
 
     if (mbFormat)
     {
@@ -2258,21 +2263,21 @@ bool Ruler::StartDocDrag( const MouseEvent& rMEvt, RulerType eDragType )
         {
             if ( ImplDocHitTest( aMousePos, eDragType, &aHitTest ) )
             {
-                Pointer aPtr;
+                PointerStyle aPtr = PointerStyle::Arrow;
 
                 if ( aHitTest.bSize )
                 {
                     if ( mnWinStyle & WB_HORZ )
-                        aPtr = Pointer( PointerStyle::ESize );
+                        aPtr = PointerStyle::ESize;
                     else
-                        aPtr = Pointer( PointerStyle::SSize );
+                        aPtr = PointerStyle::SSize;
                 }
                 else if ( aHitTest.bSizeBar )
                 {
                     if ( mnWinStyle & WB_HORZ )
-                        aPtr = Pointer( PointerStyle::HSizeBar );
+                        aPtr = PointerStyle::HSizeBar;
                     else
-                        aPtr = Pointer( PointerStyle::VSizeBar );
+                        aPtr = PointerStyle::VSizeBar;
                 }
                 SetPointer( aPtr );
                 return ImplStartDrag( &aHitTest, nMouseModifier );

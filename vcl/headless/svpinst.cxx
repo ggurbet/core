@@ -27,6 +27,7 @@
 #include <sal/types.h>
 #include <sal/log.hxx>
 
+#include <vcl/virdev.hxx>
 #include <vcl/inputtypes.hxx>
 #ifndef LIBO_HEADLESS
 # include <vcl/opengl/OpenGLContext.hxx>
@@ -252,7 +253,7 @@ std::unique_ptr<SalVirtualDevice> SvpSalInstance::CreateVirtualDevice( SalGraphi
     return pNew;
 }
 
-cairo_surface_t* get_underlying_cairo_surface(VirtualDevice& rDevice)
+cairo_surface_t* get_underlying_cairo_surface(const VirtualDevice& rDevice)
 {
     return static_cast<SvpSalVirtualDevice*>(rDevice.mpVirDev.get())->GetSurface();
 }
@@ -517,7 +518,7 @@ void SvpSalInstance::StopTimer()
     m_nTimeoutMS        = 0;
 }
 
-void SvpSalInstance::StartTimer( sal_uLong nMS )
+void SvpSalInstance::StartTimer( sal_uInt64 nMS )
 {
     timeval aPrevTimeout (m_aTimeout);
     gettimeofday (&m_aTimeout, nullptr);
@@ -575,7 +576,7 @@ void SvpSalTimer::Stop()
     m_pInstance->StopTimer();
 }
 
-void SvpSalTimer::Start( sal_uLong nMS )
+void SvpSalTimer::Start( sal_uInt64 nMS )
 {
     m_pInstance->StartTimer( nMS );
 }

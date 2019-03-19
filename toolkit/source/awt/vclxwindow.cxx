@@ -18,6 +18,7 @@
  */
 
 
+#include <stdarg.h>
 #include <memory>
 #include <com/sun/star/awt/WindowEvent.hpp>
 #include <com/sun/star/awt/KeyEvent.hpp>
@@ -50,6 +51,8 @@
 #include <vcl/window.hxx>
 #include <tools/color.hxx>
 #include <tools/fract.hxx>
+#include <tools/debug.hxx>
+#include <vcl/event.hxx>
 #include <vcl/dockwin.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
 #include <vcl/tabpage.hxx>
@@ -58,6 +61,7 @@
 #include <vcl/commandevent.hxx>
 #include <comphelper/asyncnotification.hxx>
 #include <comphelper/flagguard.hxx>
+#include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/profilezone.hxx>
 #include "stylesettings.hxx"
 #include <tools/urlobj.hxx>
@@ -128,8 +132,6 @@ public:
     std::unique_ptr<UnoPropertyArrayHelper>
                                         mpPropHelper;
 
-    css::uno::Reference< css::awt::XPointer >
-                                        mxPointer;
     css::uno::Reference< css::accessibility::XAccessibleContext >
                                         mxAccessibleContext;
     css::uno::Reference< css::awt::XGraphics >
@@ -1143,12 +1145,8 @@ void VCLXWindow::setPointer( const css::uno::Reference< css::awt::XPointer >& rx
     SolarMutexGuard aGuard;
 
     VCLXPointer* pPointer = VCLXPointer::GetImplementation( rxPointer );
-    if ( pPointer )
-    {
-        mpImpl->mxPointer = rxPointer;
-        if ( GetWindow() )
-            GetWindow()->SetPointer( pPointer->GetPointer() );
-    }
+    if ( pPointer && GetWindow() )
+        GetWindow()->SetPointer( pPointer->GetPointer() );
 }
 
 void VCLXWindow::setBackground( sal_Int32 nColor )
@@ -1715,6 +1713,8 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
             WinBits nStyle = pWindow->GetStyle();
             sal_uInt16 nTmp = 0;
             Value >>= nTmp;
+            // clear any dodgy bits passed in, can come from dodgy extensions
+            nTmp &= o3tl::typed_flags<WindowBorderStyle>::mask;
             WindowBorderStyle nBorder = static_cast<WindowBorderStyle>(nTmp);
             if ( !bool(nBorder) )
             {
@@ -1909,12 +1909,6 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
         case BASEPROPERTY_BORDERCOLOR:
             ::toolkit::setColorSettings( pWindow, Value, &StyleSettings::SetMonoColor, &StyleSettings::GetMonoColor);
             break;
-        case BASEPROPERTY_DEFAULTCONTROL:
-        {
-            OUString aName;
-            Value >>= aName;
-            break;
-        }
     }
 }
 

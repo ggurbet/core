@@ -20,6 +20,7 @@
 #include <sal/config.h>
 #include <sal/log.hxx>
 
+#include <tools/debug.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/metaact.hxx>
@@ -659,6 +660,9 @@ bool OutputDevice::HasMirroredGraphics() const
 
 bool OutputDevice::ImplIsRecordLayout() const
 {
+    if (!mpOutDevData)
+        return false;
+
     return mpOutDevData->mpRecordLayout;
 }
 

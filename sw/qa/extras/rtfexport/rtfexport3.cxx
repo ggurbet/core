@@ -11,6 +11,7 @@
 
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/style/PageStyleLayout.hpp>
+#include <com/sun/star/text/WritingMode2.hpp>
 #include <com/sun/star/text/XFootnote.hpp>
 #include <com/sun/star/text/XFootnotesSupplier.hpp>
 #include <com/sun/star/text/XPageCursor.hpp>
@@ -77,6 +78,17 @@ DECLARE_RTFEXPORT_TEST(testTdf116436_tableBackground, "tdf116436_tableBackground
         CPPUNIT_ASSERT_EQUAL(sal_Int32(0xFFFBCC), getProperty<sal_Int32>(xCell, "BackColor"));
 }
 
+DECLARE_RTFEXPORT_TEST(testTdf122589_firstSection, "tdf122589_firstSection.odt")
+{
+    uno::Reference<beans::XPropertySet> xPageStyle(getStyles("PageStyles")->getByName("Standard"),
+                                                   uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xHeaderText
+        = getProperty<uno::Reference<text::XTextRange>>(xPageStyle, "HeaderText");
+    CPPUNIT_ASSERT_EQUAL(OUString("My header"), xHeaderText->getString());
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("# of paragraphs", 2, getParagraphs());
+}
+
 DECLARE_RTFEXPORT_TEST(testTdf104035, "tdf104035.rtf")
 {
     auto aTabStops = getProperty<uno::Sequence<style::TabStop>>(getParagraph(1), "ParaTabStops");
@@ -112,10 +124,10 @@ DECLARE_RTFEXPORT_TEST(testTdf115180, "tdf115180.docx")
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Row width", sal_Int32(9360), rowWidth);
     sal_Int32 cell1Width
         = parseDump("/root/page/body/tab/row/cell[1]/infos/bounds", "width").toInt32();
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("First cell width", sal_Int32(9142), cell1Width);
+    CPPUNIT_ASSERT_MESSAGE("First cell width", cell1Width >= 9140 && cell1Width <= 9142);
     sal_Int32 cell2Width
         = parseDump("/root/page/body/tab/row/cell[2]/infos/bounds", "width").toInt32();
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("First cell width", sal_Int32(218), cell2Width);
+    CPPUNIT_ASSERT_MESSAGE("Second cell width", cell2Width >= 218 && cell2Width <= 220);
 }
 
 DECLARE_RTFEXPORT_TEST(testTdf116841, "tdf116841.rtf")
@@ -208,14 +220,27 @@ DECLARE_RTFEXPORT_TEST(testTdf66543, "tdf66543.rtf")
                          getProperty<sal_Int32>(getParagraph(1), "ParaLineNumberStartValue"));
 }
 
-DECLARE_RTFEXPORT_TEST(testTdf122424_textOutsideCellInATableRow, "tdf122424.rtf")
+DECLARE_RTFEXPORT_TEST(testUlw, "ulw.rtf")
 {
-    uno::Reference<text::XTextTablesSupplier> xTextTablesSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<container::XIndexAccess> xTables(xTextTablesSupplier->getTextTables(),
-                                                    uno::UNO_QUERY);
-    uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
-    uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A2"), uno::UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_EQUAL(OUString("cell3"), xCell->getString());
+    // Test underlying in individual words mode.
+    CPPUNIT_ASSERT(getProperty<bool>(getRun(getParagraph(1), 1), "CharWordMode"));
+}
+
+DECLARE_RTFEXPORT_TEST(testTdf122455, "tdf122455.rtf")
+{
+    // Without the accompanying fix in place, this test would have failed with
+    // 'Expected: 16; Actual  : 32', the font size from a list definition
+    // leaked into the first run's character properties.
+    CPPUNIT_ASSERT_EQUAL(16.0, getProperty<double>(getRun(getParagraph(1), 1), "CharHeight"));
+}
+
+DECLARE_RTFEXPORT_TEST(testTabs, "tabs.rtf")
+{
+    // Test tab alignment in decimal mode.
+    auto aTabStops = getProperty<uno::Sequence<style::TabStop>>(getParagraph(1), "ParaTabStops");
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), aTabStops.getLength());
+    const style::TabStop& rTabStop = aTabStops[0];
+    CPPUNIT_ASSERT_EQUAL(style::TabAlign_DECIMAL, rTabStop.Alignment);
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

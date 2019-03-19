@@ -69,10 +69,32 @@ blacklist:
     sd/source/filter/eppt/eppt.hxx:
     # base class has to be a complete type
     - escherex.hxx
+    sd/source/ui/animations/CustomAnimationPane.hxx:
+    # Needed for typedef
+    - motionpathtag.hxx
+    sd/source/ui/animations/SlideTransitionPane.cxx:
+    # Avoid loplugin:unreffun error
+    - /createslidetransitionpanel.hxx
+    sd/source/ui/animations/CustomAnimationPane.cxx:
+    # Avoid loplugin:unreffun error
+    - createcustomanimationpanel.hxx
     sd/source/ui/annotations/annotationmanagerimpl.hxx:
     # base class has to be a complete type
     - annotationtag.hxx
     - com/sun/star/document/XEventListener.hpp
+    sd/source/ui/annotations/annotationmanager.cxx:
+    # Needed for unique_ptr type
+    - editeng/outlobj.hxx
+    sd/source/ui/app/sdmod.cxx:
+    # Needed to inherit linker visibility from SdResId declaration
+    - sdresid.hxx
+    sd/source/ui/dlg/headerfooterdlg.cxx:
+    # Needed for unique_ptr type
+    - editeng/outlobj.hxx
+    sd/source/ui/dlg/prntopts.cxx:
+    # Needed on MACOSX
+    - svl/intitem.hxx
+    - app.hrc
     sd/source/ui/framework/configuration/ConfigurationTracer.hxx:
     # Needed for css shortcut
     - sal/types.h
@@ -110,8 +132,6 @@ blacklist:
     sd/source/ui/framework/module/ToolBarModule.hxx:
     # base class has to be a complete type
     - com/sun/star/drawing/framework/XConfigurationChangeListener.hpp
-    # Needed for template
-    - o3tl/deleter.hxx
     sd/source/ui/framework/module/SlideSorterModule.hxx:
     # base class has to be a complete type
     - com/sun/star/drawing/framework/XConfigurationChangeListener.hpp
@@ -160,9 +180,6 @@ blacklist:
     sd/source/ui/inc/fupage.hxx:
     # base class has to be a complete type
     - vcl/weld.hxx
-    sd/source/ui/inc/OutlineView.hxx:
-    #std::unique_ptr deleter type has to be complete
-    - o3tl/deleter.hxx
     sd/source/ui/inc/slideshow.hxx:
     # typedef needs a complete type
     - com/sun/star/lang/XServiceInfo.hpp
@@ -174,9 +191,6 @@ blacklist:
     # base class has to be a complete type
     - com/sun/star/lang/XUnoTunnel.hpp
     - com/sun/star/util/XReplaceDescriptor.hpp
-    sd/source/ui/inc/ViewShellManager.hxx:
-    #std::unique_ptr deleter type has to be complete
-    - o3tl/deleter.hxx
     sd/source/ui/inc/ViewTabBar.hxx:
     # base class has to be a complete type
     - com/sun/star/drawing/framework/XConfigurationChangeListener.hpp
@@ -232,9 +246,6 @@ blacklist:
     sd/source/ui/inc/tools/SlotStateListener.hxx:
     # base class has to be a complete type
     - com/sun/star/frame/XStatusListener.hpp
-    sd/source/ui/slidesorter/inc/controller/SlsClipboard.hxx:
-    # Needed for template
-    - o3tl/deleter.hxx
     sd/source/ui/presenter/PresenterHelper.hxx:
     # base class has to be a complete type
     - com/sun/star/drawing/XPresenterHelper.hpp
@@ -260,3 +271,154 @@ blacklist:
     sd/source/ui/remotecontrol/Listener.hxx:
     # base class has to be a complete type
     - com/sun/star/presentation/XSlideShowListener.hpp
+    sd/source/ui/sidebar/PanelFactory.hxx:
+    # base class has to be a complete type
+    - com/sun/star/ui/XUIElementFactory.hpp
+    sd/source/ui/slideshow/slideshowimpl.hxx:
+    # base class has to be a complete type
+    - com/sun/star/presentation/XShapeEventListener.hpp
+    - com/sun/star/presentation/XSlideShowController.hpp
+    - com/sun/star/presentation/XSlideShowListener.hpp
+    sd/source/ui/slideshow/slideshowviewimpl.hxx:
+    # base class has to be a complete type
+    - com/sun/star/awt/XPaintListener.hpp
+    - com/sun/star/awt/XWindowListener.hpp
+    - com/sun/star/presentation/XSlideShowView.hpp
+    - com/sun/star/util/XModifyListener.hpp
+    sd/source/ui/slidesorter/controller/SlsListener.hxx:
+    # base class has to be a complete type
+    - com/sun/star/document/XEventListener.hpp
+    - com/sun/star/beans/XPropertyChangeListener.hpp
+    - com/sun/star/accessibility/XAccessibleEventListener.hpp
+    - com/sun/star/frame/XFrameActionListener.hpp
+    sd/source/ui/slidesorter/shell/SlideSorterService.hxx:
+    # base class has to be a complete type
+    - com/sun/star/awt/XWindowListener.hpp
+    - com/sun/star/drawing/XSlideSorterBase.hpp
+    - com/sun/star/lang/XInitialization.hpp
+    sd/source/ui/unoidl/sddetect.hxx:
+    # base class has to be a complete type
+    - com/sun/star/document/XExtendedFilterDetection.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    sd/source/ui/unoidl/unolayer.hxx:
+    # base class has to be a complete type
+    - com/sun/star/drawing/XLayer.hpp
+    - com/sun/star/drawing/XLayerManager.hpp
+    sd/source/ui/unoidl/unocpres.hxx:
+    # base class has to be a complete type
+    - com/sun/star/container/XIndexContainer.hpp
+    - com/sun/star/container/XNameContainer.hpp
+    - com/sun/star/container/XNamed.hpp
+    - com/sun/star/lang/XComponent.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/lang/XSingleServiceFactory.hpp
+    - com/sun/star/lang/XUnoTunnel.hpp
+    sd/source/ui/unoidl/unopback.hxx:
+    # base class has to be a complete type
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/beans/XPropertyState.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/lang/XUnoTunnel.hpp
+    sd/source/core/annotations/AnnotationEnumeration.cxx:
+    # Avoid loplugin:unreffun error
+    - AnnotationEnumeration.hxx
+    sd/source/core/CustomAnimationCloner.cxx:
+    # Avoid loplugin:unreffun error
+    - CustomAnimationCloner.hxx
+    sd/source/core/EffectMigration.cxx:
+    # Needed for UnoType
+    - com/sun/star/presentation/ParagraphTarget.hpp
+    sd/source/core/stlsheet.cxx:
+    # Needed for UnoType
+    - com/sun/star/table/BorderLine.hpp
+    sd/source/core/typemap.cxx:
+    # Needed by sdslots.hxx to build
+    - config_options.h
+    - editeng/boxitem.hxx
+    - editeng/cmapitem.hxx
+    - editeng/colritem.hxx
+    - editeng/contouritem.hxx
+    - editeng/crossedoutitem.hxx
+    - editeng/fhgtitem.hxx
+    - editeng/fontitem.hxx
+    - editeng/kernitem.hxx
+    - editeng/langitem.hxx
+    - editeng/lineitem.hxx
+    - editeng/lrspitem.hxx
+    - editeng/lspcitem.hxx
+    - editeng/memberids.h
+    - editeng/postitem.hxx
+    - editeng/protitem.hxx
+    - editeng/shdditem.hxx
+    - editeng/sizeitem.hxx
+    - editeng/tstpitem.hxx
+    - editeng/udlnitem.hxx
+    - editeng/ulspitem.hxx
+    - editeng/wghtitem.hxx
+    - sfx2/frame.hxx
+    - sfx2/msg.hxx
+    - sfx2/tplpitem.hxx
+    - sfx2/zoomitem.hxx
+    - svl/globalnameitem.hxx
+    - svl/lckbitem.hxx
+    - svl/ptitem.hxx
+    - svl/rectitem.hxx
+    - svl/slstitm.hxx
+    - svl/srchitem.hxx
+    - svx/chrtitem.hxx
+    - svx/clipfmtitem.hxx
+    - svx/drawitem.hxx
+    - svx/galleryitem.hxx
+    - svx/hlnkitem.hxx
+    - svx/pageitem.hxx
+    - svx/postattr.hxx
+    - svx/rulritem.hxx
+    - svx/sdmetitm.hxx
+    - svx/sdooitm.hxx
+    - svx/sdprcitm.hxx
+    - svx/sdtfsitm.hxx
+    - svx/xbtmpit.hxx
+    - svx/xfillit0.hxx
+    - svx/xflclit.hxx
+    - svx/xflftrit.hxx
+    - svx/xflhtit.hxx
+    - svx/xftadit.hxx
+    - svx/xftdiit.hxx
+    - svx/xftmrit.hxx
+    - svx/xftouit.hxx
+    - svx/xftshcit.hxx
+    - svx/xftshit.hxx
+    - svx/xftshxy.hxx
+    - svx/xftstit.hxx
+    - svx/xlineit0.hxx
+    - svx/xlinjoit.hxx
+    - svx/xlncapit.hxx
+    - svx/xlnclit.hxx
+    - svx/xlndsit.hxx
+    - svx/xlnedit.hxx
+    - svx/xlnstit.hxx
+    - svx/xlnwtit.hxx
+    - svx/xtextit0.hxx
+    - svx/zoomslideritem.hxx
+    sd/source/core/text/textapi.cxx:
+    # Needed for macro defines
+    - editeng/unoprnms.hxx
+    sd/source/filter/eppt/epptso.cxx:
+    # Needed for direct member access
+    - com/sun/star/table/XTable.hpp
+    sd/source/filter/eppt/pptx-epptooxml.cxx:
+    # Needed for direct member access
+    - com/sun/star/task/XStatusIndicator.hpp
+    - com/sun/star/frame/XModel.hpp
+    sd/source/filter/eppt/pptx-text.cxx:
+    # Needed for direct member access
+    - com/sun/star/awt/XBitmap.hpp
+    - com/sun/star/beans/XPropertyState.hpp
+    - com/sun/star/style/TabStop.hpp
+    - com/sun/star/graphic/XGraphic.hpp
+    sd/source/filter/xml/sdxmlwrp.cxx:
+    # Needed for implicit dtor
+    - editeng/outlobj.hxx
+    sd/source/filter/xml/sdtransform.cxx:
+    # Needed for implicit dtor
+    - editeng/outlobj.hxx

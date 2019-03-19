@@ -67,6 +67,7 @@
 #include <basic/sbstar.hxx>
 #include <basic/basmgr.hxx>
 #include <basic/basrdll.hxx>
+#include <basic/sberrors.hxx>
 #include <svtools/sfxecode.hxx>
 #include <svtools/ehdl.hxx>
 #include <vcl/help.hxx>
@@ -458,7 +459,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
             }
 
             Reference <XFrame> xFrame(GetRequestFrame(rReq));
-            ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateCustomizeTabDialog(
+            ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateCustomizeTabDialog(rReq.GetFrameWeld(),
                 &aSet, xFrame ));
 
             const short nRet = pDlg->Execute();
@@ -666,8 +667,8 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
 
         case SID_TEMPLATE_ADDRESSBOKSOURCE:
         {
-            ScopedVclPtrInstance< svt::AddressBookSourceDialog > aDialog(GetTopWindow(), ::comphelper::getProcessComponentContext());
-            aDialog->Execute();
+            svt::AddressBookSourceDialog aDialog(rReq.GetFrameWeld(), ::comphelper::getProcessComponentContext());
+            aDialog.run();
             bDone = true;
             break;
         }
@@ -1273,25 +1274,12 @@ static OUString ChooseMacro(weld::Window* pParent, const Reference<XModel>& rxLi
 namespace
 {
 #if HAVE_FEATURE_SCRIPTING
-    vcl::Window* lcl_getDialogParent( const Reference< XFrame >& _rxFrame, vcl::Window* _pFallback )
+    weld::Window* lcl_getDialogParent(const Reference<XFrame>& rxFrame)
     {
-        if ( !_rxFrame.is() )
-            return _pFallback;
-
-        try
-        {
-            Reference< awt::XWindow > xContainerWindow( _rxFrame->getContainerWindow(), UNO_SET_THROW );
-            VclPtr<vcl::Window> pWindow = VCLUnoHelper::GetWindow( xContainerWindow );
-            OSL_ENSURE( pWindow, "lcl_getDialogParent: cool, somebody implemented a VCL-less toolkit!" );
-
-            if ( pWindow )
-                return pWindow->GetSystemWindow();
-        }
-        catch( const Exception& )
-        {
-            DBG_UNHANDLED_EXCEPTION("sfx.appl");
-        }
-        return _pFallback;
+        Reference<awt::XWindow> xContainerWindow;
+        if (rxFrame.is())
+            xContainerWindow = rxFrame->getContainerWindow();
+        return Application::GetFrameWeld(xContainerWindow);
     }
 
     SfxViewFrame* lcl_getBasicIDEViewFrame( SfxObjectShell const * i_pBasicIDE )
@@ -1406,7 +1394,8 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
             }
             catch( const css::uno::Exception& )
             {
-                SAL_WARN( "sfx.appl", "SfxApplication::OfaExec_Impl(SID_MORE_DICTIONARIES): caught an exception!" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "sfx.appl", "SfxApplication::OfaExec_Impl(SID_MORE_DICTIONARIES): caught an exception " << exceptionToString(ex) );
             }
             break;
         }
@@ -1529,8 +1518,7 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
 
             do  // artificial loop for flow control
             {
-                ScopedVclPtr<AbstractScriptSelectorDialog> pDlg(pFact->CreateScriptSelectorDialog(
-                    lcl_getDialogParent( xFrame, GetTopWindow() ), xFrame ));
+                ScopedVclPtr<AbstractScriptSelectorDialog> pDlg(pFact->CreateScriptSelectorDialog(lcl_getDialogParent(xFrame), xFrame));
                 OSL_ENSURE( pDlg, "SfxApplication::OfaExec_Impl( SID_RUNMACRO ): no dialog!" );
                 if ( !pDlg )
                     break;
@@ -1576,8 +1564,7 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
 
             OUString aLang( aLanguage );
             SAL_INFO("sfx.appl", "SfxApplication::OfaExec_Impl: about to create dialog for: " << aLang);
-            // not sure about the vcl::Window*
-            ScopedVclPtr<VclAbstractDialog> pDlg( pFact->CreateSvxScriptOrgDialog( GetTopWindow(), aLanguage ) );
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSvxScriptOrgDialog(rReq.GetFrameWeld(), aLanguage));
             if( pDlg )
             {
                 pDlg->Execute();

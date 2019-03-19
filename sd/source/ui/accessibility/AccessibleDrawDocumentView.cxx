@@ -19,29 +19,21 @@
 
 #include <AccessibleDrawDocumentView.hxx>
 #include <com/sun/star/drawing/ShapeCollection.hpp>
-#include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XDrawView.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
-#include <com/sun/star/container/XChild.hpp>
-#include <com/sun/star/frame/XController.hpp>
-#include <com/sun/star/document/XEventBroadcaster.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <comphelper/processfactory.hxx>
-#include <rtl/ustring.h>
 #include <sal/log.hxx>
-#include <sfx2/viewfrm.hxx>
 
 #include <svx/AccessibleShape.hxx>
 #include <svx/ChildrenManager.hxx>
 #include <svx/svdobj.hxx>
-#include <svx/svdmodel.hxx>
 #include <svx/unoapi.hxx>
-#include <Window.hxx>
 #include <vcl/svapp.hxx>
 
 #include <ViewShell.hxx>
@@ -49,7 +41,6 @@
 #include <DrawDocShell.hxx>
 #include <drawdoc.hxx>
 #include <algorithm>
-#include <sdpage.hxx>
 #include <slideshow.hxx>
 #include <anminfo.hxx>
 #include <AccessiblePageShape.hxx>
@@ -620,78 +611,78 @@ void
     const SolarMutexGuard aSolarGuard;
     uno::Reference< view::XSelectionSupplier >  xSel( mxController, uno::UNO_QUERY );
 
-    if( xSel.is() )
+    if( !xSel.is() )
+        return;
+
+    uno::Any aAny;
+
+    if( ACCESSIBLE_SELECTION_CHILD_ALL == nAccessibleChildIndex )
     {
-        uno::Any aAny;
+        // Select or deselect all children.
 
-        if( ACCESSIBLE_SELECTION_CHILD_ALL == nAccessibleChildIndex )
+        if( !bSelect )
+            xSel->select( aAny );
+        else
         {
-            // Select or deselect all children.
+            uno::Reference< drawing::XShapes > xShapes = drawing::ShapeCollection::create(
+                    comphelper::getProcessComponentContext());
 
-            if( !bSelect )
-                xSel->select( aAny );
-            else
+            for(sal_Int32 i = 0, nCount = getAccessibleChildCount(); i < nCount; ++i )
             {
-                uno::Reference< drawing::XShapes > xShapes = drawing::ShapeCollection::create(
-                        comphelper::getProcessComponentContext());
+                AccessibleShape* pAcc = AccessibleShape::getImplementation( getAccessibleChild( i ) );
 
-                for(sal_Int32 i = 0, nCount = getAccessibleChildCount(); i < nCount; ++i )
-                {
-                    AccessibleShape* pAcc = AccessibleShape::getImplementation( getAccessibleChild( i ) );
+                if( pAcc && pAcc->GetXShape().is() )
+                    xShapes->add( pAcc->GetXShape() );
+            }
 
-                    if( pAcc && pAcc->GetXShape().is() )
-                        xShapes->add( pAcc->GetXShape() );
-                }
-
-                if( xShapes->getCount() )
-                {
-                    xSel->select( Any(xShapes) );
-                }
+            if( xShapes->getCount() )
+            {
+                xSel->select( Any(xShapes) );
             }
         }
-        else if( nAccessibleChildIndex >= 0 )
+    }
+    else if( nAccessibleChildIndex >= 0 )
+    {
+        // Select or deselect only the child with index
+        // nAccessibleChildIndex.
+
+        AccessibleShape* pAcc = AccessibleShape::getImplementation(
+            getAccessibleChild( nAccessibleChildIndex ));
+
+        // Add or remove the shape that is made accessible from the
+        // selection of the controller.
+        if( pAcc )
         {
-            // Select or deselect only the child with index
-            // nAccessibleChildIndex.
+            uno::Reference< drawing::XShape > xShape( pAcc->GetXShape() );
 
-            AccessibleShape* pAcc = AccessibleShape::getImplementation(
-                getAccessibleChild( nAccessibleChildIndex ));
-
-            // Add or remove the shape that is made accessible from the
-            // selection of the controller.
-            if( pAcc )
+            if( xShape.is() )
             {
-                uno::Reference< drawing::XShape > xShape( pAcc->GetXShape() );
+                uno::Reference< drawing::XShapes >  xShapes;
+                bool                            bFound = false;
 
-                if( xShape.is() )
+                aAny = xSel->getSelection();
+                aAny >>= xShapes;
+
+                // Search shape to be selected in current selection.
+                if (xShapes.is())
                 {
-                    uno::Reference< drawing::XShapes >  xShapes;
-                    bool                            bFound = false;
-
-                    aAny = xSel->getSelection();
-                    aAny >>= xShapes;
-
-                    // Search shape to be selected in current selection.
-                    if (xShapes.is())
-                    {
-                        sal_Int32 nCount = xShapes->getCount();
-                        for (sal_Int32 i=0; ( i < nCount ) && !bFound; ++i )
-                            if( xShapes->getByIndex( i ) == xShape )
-                                bFound = true;
-                    }
-                    else
-                        // Create an empty selection to add the shape to.
-                        xShapes = drawing::ShapeCollection::create(
-                                comphelper::getProcessComponentContext());
-
-                    // Update the selection.
-                    if( !bFound && bSelect )
-                        xShapes->add( xShape );
-                    else if( bFound && !bSelect )
-                        xShapes->remove( xShape );
-
-                    xSel->select( Any(xShapes) );
+                    sal_Int32 nCount = xShapes->getCount();
+                    for (sal_Int32 i=0; ( i < nCount ) && !bFound; ++i )
+                        if( xShapes->getByIndex( i ) == xShape )
+                            bFound = true;
                 }
+                else
+                    // Create an empty selection to add the shape to.
+                    xShapes = drawing::ShapeCollection::create(
+                            comphelper::getProcessComponentContext());
+
+                // Update the selection.
+                if( !bFound && bSelect )
+                    xShapes->add( xShape );
+                else if( bFound && !bSelect )
+                    xShapes->remove( xShape );
+
+                xSel->select( Any(xShapes) );
             }
         }
     }
@@ -699,23 +690,23 @@ void
 
 void AccessibleDrawDocumentView::Activated()
 {
-    if (mpChildrenManager != nullptr)
+    if (mpChildrenManager == nullptr)
+        return;
+
+    bool bChange = false;
+    // When none of the children has the focus then claim it for the
+    // view.
+    if ( ! mpChildrenManager->HasFocus())
     {
-        bool bChange = false;
-        // When none of the children has the focus then claim it for the
-        // view.
-        if ( ! mpChildrenManager->HasFocus())
-        {
-            SetState (AccessibleStateType::FOCUSED);
-            bChange = true;
-        }
-        else
-            ResetState (AccessibleStateType::FOCUSED);
+        SetState (AccessibleStateType::FOCUSED);
+        bChange = true;
+    }
+    else
+        ResetState (AccessibleStateType::FOCUSED);
     mpChildrenManager->UpdateSelection();
     // if the child gets focus in UpdateSelection(), needs to reset the focus on document.
     if (mpChildrenManager->HasFocus() && bChange)
         ResetState (AccessibleStateType::FOCUSED);
-    }
 }
 
 void AccessibleDrawDocumentView::Deactivated()

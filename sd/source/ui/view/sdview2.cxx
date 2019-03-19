@@ -338,33 +338,33 @@ void View::DoPaste (::sd::Window* pWindow)
 
 void View::StartDrag( const Point& rStartPos, vcl::Window* pWindow )
 {
-    if( AreObjectsMarked() && IsAction() && mpViewSh && pWindow && !mpDragSrcMarkList )
+    if( !AreObjectsMarked() || !IsAction() || !mpViewSh || !pWindow || mpDragSrcMarkList )
+        return;
+
+    BrkAction();
+
+    if( IsTextEdit() )
+        SdrEndTextEdit();
+
+    DrawViewShell* pDrawViewShell = dynamic_cast< DrawViewShell* >( mpDocSh ? mpDocSh->GetViewShell() : nullptr );
+
+    if( pDrawViewShell )
     {
-        BrkAction();
+        const rtl::Reference<FuPoor>& xFunction( pDrawViewShell->GetCurrentFunction() );
 
-        if( IsTextEdit() )
-            SdrEndTextEdit();
-
-        DrawViewShell* pDrawViewShell = dynamic_cast< DrawViewShell* >( mpDocSh ? mpDocSh->GetViewShell() : nullptr );
-
-        if( pDrawViewShell )
-        {
-            const rtl::Reference<FuPoor>& xFunction( pDrawViewShell->GetCurrentFunction() );
-
-            if( xFunction.is() && nullptr != dynamic_cast< const FuDraw *>( xFunction.get() ) )
-                static_cast<FuDraw*>(xFunction.get())->ForcePointer();
-        }
-
-        mpDragSrcMarkList.reset( new SdrMarkList(GetMarkedObjectList()) );
-        mnDragSrcPgNum = GetSdrPageView()->GetPage()->GetPageNum();
-
-        if( IsUndoEnabled() )
-        {
-            OUString aStr(SdResId(STR_UNDO_DRAGDROP));
-            BegUndo(aStr + " " + mpDragSrcMarkList->GetMarkDescription());
-        }
-        CreateDragDataObject( this, *pWindow, rStartPos );
+        if( xFunction.is() && nullptr != dynamic_cast< const FuDraw *>( xFunction.get() ) )
+            static_cast<FuDraw*>(xFunction.get())->ForcePointer();
     }
+
+    mpDragSrcMarkList.reset( new SdrMarkList(GetMarkedObjectList()) );
+    mnDragSrcPgNum = GetSdrPageView()->GetPage()->GetPageNum();
+
+    if( IsUndoEnabled() )
+    {
+        OUString aStr(SdResId(STR_UNDO_DRAGDROP));
+        BegUndo(aStr + " " + mpDragSrcMarkList->GetMarkDescription());
+    }
+    CreateDragDataObject( this, *pWindow, rStartPos );
 }
 
 void View::DragFinished( sal_Int8 nDropAction )
@@ -874,7 +874,7 @@ bool View::GetExchangeList (std::vector<OUString> &rExchangeList,
                 OUString aDesc(SdResId(STR_DESC_NAMEGROUP));
 
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact ? pFact->CreateSvxNameDialog(mpViewSh->GetFrameWeld(), aNewName, aDesc) : nullptr);
+                ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(mpViewSh->GetFrameWeld(), aNewName, aDesc));
 
                 pDlg->SetEditHelpId( HID_SD_NAMEDIALOG_OBJECT );
 

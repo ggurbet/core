@@ -20,17 +20,23 @@
 #include "slideshowviewimpl.hxx"
 #include "slideshowimpl.hxx"
 #include <sdpage.hxx>
+
 #include <osl/mutex.hxx>
+#include <vcl/svapp.hxx>
 
 #include <com/sun/star/awt/Pointer.hpp>
+#include <com/sun/star/awt/XWindow.hpp>
+#include <com/sun/star/awt/XWindowPeer.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
+#include <basegfx/matrix/b2dhommatrix.hxx>
 
 #include <cppcanvas/vclfactory.hxx>
 #include <cppcanvas/basegfxfactory.hxx>
+#include <basegfx/utils/canvastools.hxx>
 
 #include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/processfactory.hxx>
@@ -368,9 +374,6 @@ geometry::AffineMatrix2D SAL_CALL SlideShowView::getTransformation(  )
     mTranslationOffset.Height = aOutputOffset.Y();
     mTranslationOffset.Width = aOutputOffset.X();
 
-    maPresentationArea = ::tools::Rectangle( aOutputOffset, aOutputSize );
-    mrOutputWindow.SetPresentationArea( maPresentationArea );
-
     // scale presentation into available window rect (minus 10%); center in the window
     const basegfx::B2DHomMatrix aMatrix(basegfx::utils::createScaleTranslateB2DHomMatrix(
         aOutputSize.Width(), aOutputSize.Height(), aOutputOffset.X(), aOutputOffset.Y()));
@@ -481,22 +484,22 @@ awt::Rectangle SAL_CALL SlideShowView::getCanvasArea(  )
 
 void SlideShowView::updateimpl( ::osl::ClearableMutexGuard& rGuard, SlideshowImpl* pSlideShow )
 {
-    if( pSlideShow )
+    if( !pSlideShow )
+        return;
+
+    ::rtl::Reference< SlideshowImpl > aSLGuard( pSlideShow );
+
+    if( mbFirstPaint )
     {
-        ::rtl::Reference< SlideshowImpl > aSLGuard( pSlideShow );
+        mbFirstPaint = false;
+        SlideshowImpl* pTmpSlideShow = mpSlideShow;
+        rGuard.clear();
+        if( pTmpSlideShow )
+            pTmpSlideShow->onFirstPaint();
+    } else
+        rGuard.clear();
 
-        if( mbFirstPaint )
-        {
-            mbFirstPaint = false;
-            SlideshowImpl* pTmpSlideShow = mpSlideShow;
-            rGuard.clear();
-            if( pTmpSlideShow )
-                pTmpSlideShow->onFirstPaint();
-        } else
-            rGuard.clear();
-
-        pSlideShow->startUpdateTimer();
-    }
+    pSlideShow->startUpdateTimer();
 }
 
 // XWindowListener methods
@@ -656,18 +659,18 @@ void SlideShowView::init()
     // #i48939# only switch on kind of hacky scroll optimization, when
     // running fullscreen. this minimizes the probability that other
     // windows partially cover the show.
-    if( mbFullScreen )
+    if( !mbFullScreen )
+        return;
+
+    try
     {
-        try
-        {
-            Reference< beans::XPropertySet > xCanvasProps( getCanvas(),
-                                                           uno::UNO_QUERY_THROW );
-            xCanvasProps->setPropertyValue("UnsafeScrolling",
-                uno::makeAny( true ) );
-        }
-        catch( uno::Exception& )
-        {
-        }
+        Reference< beans::XPropertySet > xCanvasProps( getCanvas(),
+                                                       uno::UNO_QUERY_THROW );
+        xCanvasProps->setPropertyValue("UnsafeScrolling",
+            uno::makeAny( true ) );
+    }
+    catch( uno::Exception& )
+    {
     }
 }
 

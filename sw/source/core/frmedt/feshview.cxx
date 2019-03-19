@@ -45,6 +45,7 @@
 #include <svx/svdpagv.hxx>
 #include <svx/dialmgr.hxx>
 #include <tools/globname.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <DocumentSettingManager.hxx>
 #include <IDocumentState.hxx>
@@ -54,6 +55,7 @@
 #include <textboxhelper.hxx>
 #include <frmfmt.hxx>
 #include <frmatr.hxx>
+#include <frmtool.hxx>
 #include <fmtfsize.hxx>
 #include <fmtanchr.hxx>
 #include <fmtornt.hxx>
@@ -570,15 +572,14 @@ bool SwFEShell::MoveAnchor( SwMove nDir )
             // re-created. Thus, delete all fly frames except the <this> before the
             // anchor attribute is change and re-create them afterwards.
             {
-                SwHandleAnchorNodeChg* pHandleAnchorNodeChg( nullptr );
+                std::unique_ptr<SwHandleAnchorNodeChg> pHandleAnchorNodeChg;
                 SwFlyFrameFormat* pFlyFrameFormat( dynamic_cast<SwFlyFrameFormat*>(&rFormat) );
                 if ( pFlyFrameFormat )
                 {
-                    pHandleAnchorNodeChg =
-                        new SwHandleAnchorNodeChg( *pFlyFrameFormat, aAnch );
+                    pHandleAnchorNodeChg.reset(
+                        new SwHandleAnchorNodeChg( *pFlyFrameFormat, aAnch ));
                 }
                 rFormat.GetDoc()->SetAttr( aAnch, rFormat );
-                delete pHandleAnchorNodeChg;
             }
             // #i28701# - no call of method
             // <CheckCharRectAndTopOfLine()> for to-character anchored
@@ -1962,17 +1963,22 @@ bool SwFEShell::ImpEndCreate()
             nXOffset = pAnch->getFrameArea().Left()+pAnch->getFrameArea().Width()-rBound.Right();
         else
             nXOffset = rBound.Left() - pAnch->getFrameArea().Left();
-        if( pAnch->IsTextFrame() && static_cast<const SwTextFrame*>(pAnch)->IsFollow() )
+        if (pAnch->IsTextFrame())
         {
             const SwTextFrame* pTmp = static_cast<const SwTextFrame*>(pAnch);
-            do {
-                pTmp = pTmp->FindMaster();
-                OSL_ENSURE( pTmp, "Where's my Master?" );
-                // OD 2004-03-30 #i26791# - correction: add frame area height
-                // of master frames.
-                nYOffset += pTmp->IsVertical() ?
-                            pTmp->getFrameArea().Width() : pTmp->getFrameArea().Height();
-            } while ( pTmp->IsFollow() );
+            if (pTmp->IsFollow())
+            {
+                do {
+                    pTmp = pTmp->FindMaster();
+                    OSL_ENSURE(pTmp, "Where's my Master?");
+                    // OD 2004-03-30 #i26791# - correction: add frame area height
+                    // of master frames.
+                    nYOffset += pTmp->IsVertical() ?
+                                pTmp->getFrameArea().Width() : pTmp->getFrameArea().Height();
+                } while (pTmp->IsFollow());
+            }
+
+            nYOffset -= pTmp->GetBaseVertOffsetForFly(false);
         }
     }
 
@@ -2692,7 +2698,8 @@ void SwFEShell::SetObjAttr( const SfxItemSet& rSet )
     SET_CURR_SHELL( this );
 
     if ( !rSet.Count() )
-    { OSL_ENSURE( false, "SetObjAttr, empty set." );
+    {
+        OSL_ENSURE( false, "SetObjAttr, empty set." );
         return;
     }
 
@@ -3143,6 +3150,7 @@ long SwFEShell::GetSectionWidth( SwFormat const & rFormat ) const
             }
         }
         SdrPageView* pPageView = pDrawView->GetSdrPageView();
+        SdrCreateView::SetupObjLayer(pPageView, pDrawView->GetActiveLayer(), pObj);
         pDrawView->InsertObjectAtView(pObj, *pPageView);
     }
     ImpEndCreate();

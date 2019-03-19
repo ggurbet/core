@@ -48,6 +48,7 @@
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/svapp.hxx>
+#include <vcl/window.hxx>
 #include <unotools/streamhelper.hxx>
 #include <comphelper/guarding.hxx>
 #include <comphelper/property.hxx>
@@ -816,7 +817,7 @@ bool OImageControlControl::implInsertGraphics()
             {
                 Graphic aGraphic;
                 aDialog.GetGraphic( aGraphic );
-                 xSet->setPropertyValue( PROPERTY_GRAPHIC, makeAny( aGraphic.GetXGraphic() ) );
+                xSet->setPropertyValue( PROPERTY_GRAPHIC, makeAny( aGraphic.GetXGraphic() ) );
             }
             else
                 xSet->setPropertyValue( PROPERTY_IMAGE_URL, makeAny( aDialog.GetPath() ) );

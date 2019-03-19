@@ -23,6 +23,7 @@
 #include <sfx2/tbxctrl.hxx>
 #include <sfx2/dllapi.h>
 #include <vcl/customweld.hxx>
+#include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 
 class SFX2_DLLPUBLIC SvxCharView : public weld::CustomWidgetController
@@ -41,7 +42,7 @@ private:
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
     virtual void Resize() override;
-    virtual void MouseButtonDown(const MouseEvent&) override;
+    virtual bool MouseButtonDown(const MouseEvent&) override;
     virtual void GetFocus() override;
     virtual void LoseFocus() override;
     virtual bool KeyInput(const KeyEvent&) override;

@@ -60,7 +60,6 @@
 #include <sortedobjs.hxx>
 #include <flyfrms.hxx>
 #include <UndoManager.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace com::sun::star;
 
@@ -245,7 +244,7 @@ void SwDrawView::AddCustomHdl()
     }
 
     // add anchor handle:
-    maHdlList.AddHdl( o3tl::make_unique<SwSdrHdl>( aPos, ( pAnch->IsVertical() && !pAnch->IsVertLR() ) ||
+    maHdlList.AddHdl( std::make_unique<SwSdrHdl>( aPos, ( pAnch->IsVertical() && !pAnch->IsVertLR() ) ||
                                      pAnch->IsRightToLeft() ) );
 }
 
@@ -964,8 +963,8 @@ void SwDrawView::DeleteMarked()
     for (size_t i = 0; i < rMarkList.GetMarkCount(); ++i)
     {
         SdrObject *pObject = rMarkList.GetMark(i)->GetMarkedSdrObj();
-        SwDrawContact* pDrawContact = static_cast<SwDrawContact*>(GetUserCall(pObject));
-        SwFrameFormat* pFormat = pDrawContact->GetFormat();
+        SwContact* pContact = GetUserCall(pObject);
+        SwFrameFormat* pFormat = pContact->GetFormat();
         if (SwFrameFormat* pTextBox = SwTextBoxHelper::getOtherTextBoxFormat(pFormat, RES_DRAWFRMFMT))
             aTextBoxesToDelete.push_back(pTextBox);
     }

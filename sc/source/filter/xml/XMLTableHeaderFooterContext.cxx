@@ -17,7 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/text/XText.hpp>
+#include <com/sun/star/sheet/XHeaderFooterContent.hpp>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmlimp.hxx>
@@ -26,7 +28,6 @@
 #include <comphelper/extract.hxx>
 
 #include <unonames.hxx>
-#include <textuno.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;

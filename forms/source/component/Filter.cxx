@@ -17,6 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include "Filter.hxx"
 #include <FormComponent.hxx>
 #include <strings.hrc>
@@ -39,6 +43,7 @@
 #include <com/sun/star/sdb/ErrorMessageDialog.hpp>
 #include <com/sun/star/sdb/XColumn.hpp>
 #include <com/sun/star/sdb/XSQLQueryComposerFactory.hpp>
+#include <com/sun/star/sdbc/XConnection.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
 #include <com/sun/star/sdbc/XRowSet.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
@@ -307,7 +312,7 @@ namespace frm
                     // To fix this, we would probably have to revert here to always return "1" or "0" as normalized
                     // filter, and change our client code to properly translate this (which could be some effort).
                     if ( nMarkerPos == 0 )
-                        aText.appendCopy( sText, sExpressionMarker.getLength() );
+                        aText.append( std::u16string_view(sText).substr(sExpressionMarker.getLength()) );
                     else
                     {
                         // fallback

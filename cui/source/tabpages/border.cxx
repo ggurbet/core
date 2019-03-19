@@ -159,6 +159,7 @@ void ShadowControlsWrapper::SetControlValue(const SvxShadowItem& rItem)
     }
     mrMfSize.set_value(mrMfSize.normalize(rItem.GetWidth()), FieldUnit::TWIP);
     mrLbColor.SelectEntry(rItem.GetColor());
+    mrMfSize.save_value();
 }
 
 void ShadowControlsWrapper::SetControlDontKnow()
@@ -294,7 +295,7 @@ SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCor
     };
 
     for (size_t i = 0; i < SAL_N_ELEMENTS(pnBorderImgIds); ++i)
-        m_aBorderImgVec.emplace_back(pnBorderImgIds[i]);
+        m_aBorderImgVec.emplace_back(StockImage::Yes, pnBorderImgIds[i]);
 
     static const OUStringLiteral pnShadowImgIds[SVX_BORDER_SHADOW_COUNT] =
     {
@@ -306,17 +307,8 @@ SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCor
     };
 
     for (size_t i = 0; i < SAL_N_ELEMENTS(pnShadowImgIds); ++i)
-        m_aShadowImgVec.emplace_back(pnShadowImgIds[i]);
+        m_aShadowImgVec.emplace_back(StockImage::Yes, pnShadowImgIds[i]);
     assert(m_aShadowImgVec.size() == SVX_BORDER_SHADOW_COUNT);
-
-    if ( GetDPIScaleFactor() > 1 )
-    {
-        for (size_t i = 0; i < m_aBorderImgVec.size(); ++i)
-            m_aBorderImgVec[i].Scale(GetDPIScaleFactor(), GetDPIScaleFactor(), BmpScaleFlag::Fast);
-
-        for (size_t i = 0; i < m_aShadowImgVec.size(); ++i)
-            m_aShadowImgVec[i].Scale(GetDPIScaleFactor(), GetDPIScaleFactor(), BmpScaleFlag::Fast);
-    }
 
     // this page needs ExchangeSupport
     SetExchangeSupport();
@@ -991,14 +983,14 @@ bool SvxBorderTabPage::FillItemSet( SfxItemSet* rCoreAttrs )
 
     if ( bPut )
     {
-        if ( !pOldBoxItem || !( *pOldBoxItem == aBoxItem ) )
+        if ( !pOldBoxItem || *pOldBoxItem != aBoxItem )
         {
             rCoreAttrs->Put( aBoxItem );
             bAttrsChanged = true;
         }
         const SfxPoolItem* pOld = GetOldItem( *rCoreAttrs, SID_ATTR_BORDER_INNER, false );
 
-        if ( !pOld || !( *static_cast<const SvxBoxInfoItem*>(pOld) == aBoxInfoItem ) )
+        if ( !pOld || *static_cast<const SvxBoxInfoItem*>(pOld) != aBoxInfoItem )
         {
             rCoreAttrs->Put( aBoxInfoItem );
             bAttrsChanged = true;
@@ -1226,7 +1218,7 @@ void SvxBorderTabPage::FillPresetVS()
     for( sal_uInt16 nVSIdx = 1; nVSIdx <= SVX_BORDER_PRESET_COUNT; ++nVSIdx )
     {
         m_xWndPresets->InsertItem( nVSIdx );
-        m_xWndPresets->SetItemImage(nVSIdx, Image(m_aBorderImgVec[GetPresetImageId(nVSIdx) - 1]));
+        m_xWndPresets->SetItemImage(nVSIdx, m_aBorderImgVec[GetPresetImageId(nVSIdx) - 1]);
         m_xWndPresets->SetItemText( nVSIdx, CuiResId( GetPresetStringId( nVSIdx ) ) );
     }
 
@@ -1250,7 +1242,7 @@ void SvxBorderTabPage::FillShadowVS()
     for( sal_uInt16 nVSIdx = 1; nVSIdx <= SVX_BORDER_SHADOW_COUNT; ++nVSIdx )
     {
         m_xWndShadows->InsertItem( nVSIdx );
-        m_xWndShadows->SetItemImage(nVSIdx, Image(m_aShadowImgVec[nVSIdx-1]));
+        m_xWndShadows->SetItemImage(nVSIdx, m_aShadowImgVec[nVSIdx-1]);
         m_xWndShadows->SetItemText( nVSIdx, CuiResId( pnStrIds[ nVSIdx - 1 ] ) );
     }
 

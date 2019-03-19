@@ -48,7 +48,6 @@
 #include <navicont.hxx>
 #include <edtwin.hxx>
 #include <uitool.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <cmdid.h>
 #include <helpids.h>
@@ -938,7 +937,7 @@ void    SwGlobalTree::ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry )
             SfxStringItem aFactory(SID_NEWDOCDIRECT,
                             SwDocShell::Factory().GetFilterContainer()->GetName());
 
-             const SfxFrameItem* pItem = static_cast<const SfxFrameItem*>(
+            const SfxFrameItem* pItem = static_cast<const SfxFrameItem*>(
                             rDispatch.ExecuteList(SID_NEWDOCDIRECT,
                                 SfxCallMode::SYNCHRON, { &aFactory }));
 
@@ -1227,7 +1226,7 @@ void SwGlobalTree::InitEntry(SvTreeListEntry* pEntry,
     const size_t nColToHilite = 1; //0==Bitmap;1=="Column1";2=="Column2"
     SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2, eButtonKind );
     SvLBoxString& rCol = static_cast<SvLBoxString&>(pEntry->GetItem( nColToHilite ));
-    pEntry->ReplaceItem(o3tl::make_unique<SwLBoxString>(rCol.GetText()), nColToHilite);
+    pEntry->ReplaceItem(std::make_unique<SwLBoxString>(rCol.GetText()), nColToHilite);
 }
 
 void SwLBoxString::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::RenderContext& rRenderContext,

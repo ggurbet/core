@@ -24,6 +24,7 @@
 #include <vcl/image.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/virdev.hxx>
 #include <svl/eitem.hxx>
 #include <svl/rectitem.hxx>
 #include <svl/hint.hxx>
@@ -37,6 +38,7 @@
 #include <editeng/tstpitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/protitem.hxx>
+#include <osl/diagnose.h>
 
 #include <svx/svdtrans.hxx>
 
@@ -1343,7 +1345,7 @@ long SvxRuler::GetCorrectedDragPos( bool bLeft, bool bRight )
     const long lNullPix = Ruler::GetNullOffset();
     long lDragPos = GetDragPos() + lNullPix;
 ADD_DEBUG_TEXT("lDragPos: ", OUString::number(lDragPos))
-     bool bHoriRows = bHorz && mxRulerImpl->bIsTableRows;
+    bool bHoriRows = bHorz && mxRulerImpl->bIsTableRows;
     if((bLeft || bHoriRows) && lDragPos < nMaxLeft)
         lDragPos = nMaxLeft;
     else if((bRight||bHoriRows) && lDragPos > nMaxRight)
@@ -2036,7 +2038,7 @@ void SvxRuler::ApplyMargins()
         nId = SID_ATTR_LONG_ULSPACE;
 
 #ifdef DEBUGLIN
-        Debug_Impl(pEditWin,*mxULSpaceItem.get());
+        Debug_Impl(pEditWin,*mxULSpaceItem);
 #endif // DEBUGLIN
 
     }
@@ -2290,7 +2292,7 @@ void SvxRuler::ApplyBorders()
     }
 
 #ifdef DEBUGLIN
-        Debug_Impl(pEditWin,*mxColumnItem.get());
+        Debug_Impl(pEditWin,*mxColumnItem);
 #endif // DEBUGLIN
 
     SfxBoolItem aFlag(SID_RULER_ACT_LINE_ONLY,

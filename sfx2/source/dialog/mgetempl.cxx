@@ -147,7 +147,9 @@ SfxManageStyleSheetPage::SfxManageStyleSheetPage(TabPageParent pParent, const Sf
     }
     else
     {
+        m_xFollowFt->set_sensitive(false);
         m_xFollowFt->hide();
+        m_xFollowLb->set_sensitive(false);
         m_xFollowLb->hide();
         m_xEditStyleBtn->hide();
     }
@@ -327,10 +329,7 @@ IMPL_LINK_NOARG(SfxManageStyleSheetPage, EditStyleSelectHdl_Impl, weld::ComboBox
 {
     OUString aTemplName(m_xFollowLb->get_active_text());
     OUString aEditTemplName(m_xName->get_text());
-    if (!( aTemplName == aEditTemplName))
-        m_xEditStyleBtn->set_sensitive(true);
-    else
-        m_xEditStyleBtn->set_sensitive(false);
+    m_xEditStyleBtn->set_sensitive(aTemplName != aEditTemplName);
 }
 
 IMPL_LINK_NOARG(SfxManageStyleSheetPage, EditStyleHdl_Impl, weld::Button&, void)

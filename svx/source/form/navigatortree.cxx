@@ -594,7 +594,7 @@ namespace svxform
     }
 
 
-    SvTreeListEntry* NavigatorTree::Insert( FmEntryData* pEntryData, sal_uIntPtr nRelPos )
+    SvTreeListEntry* NavigatorTree::Insert( FmEntryData* pEntryData, sal_uLong nRelPos )
     {
 
         // insert current entry
@@ -1054,7 +1054,7 @@ namespace svxform
             // UndoAction for removal
             if ( bUndo && GetNavModel()->m_pPropChangeList->CanUndo())
             {
-                pFormModel->AddUndo(o3tl::make_unique<FmUndoContainerAction>(*pFormModel, FmUndoContainerAction::Removed,
+                pFormModel->AddUndo(std::make_unique<FmUndoContainerAction>(*pFormModel, FmUndoContainerAction::Removed,
                                                             xContainer, xCurrentChild, nIndex));
             }
             else if( !GetNavModel()->m_pPropChangeList->CanUndo() )
@@ -1086,7 +1086,7 @@ namespace svxform
 
             // UndoAction for insertion
             if ( bUndo && GetNavModel()->m_pPropChangeList->CanUndo())
-                pFormModel->AddUndo(o3tl::make_unique<FmUndoContainerAction>(*pFormModel, FmUndoContainerAction::Inserted,
+                pFormModel->AddUndo(std::make_unique<FmUndoContainerAction>(*pFormModel, FmUndoContainerAction::Inserted,
                                                          xContainer, xCurrentChild, nIndex));
 
             // insert in new container
@@ -1581,7 +1581,7 @@ namespace svxform
                 if (m_nFormsSelected > 0)
                 {   // ... only forms
                     // first of all collect PropertySet-Interfaces of the forms
-                   SvLBoxEntrySortedArray::const_iterator it = m_arrCurrentSelection.begin();
+                    SvLBoxEntrySortedArray::const_iterator it = m_arrCurrentSelection.begin();
                     for ( sal_Int32 i = 0; i < m_nFormsSelected; ++i )
                     {
                         FmFormData* pFormData = static_cast<FmFormData*>((*it)->GetUserData());

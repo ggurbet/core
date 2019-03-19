@@ -26,6 +26,7 @@
 #include <vcl/graph.hxx>
 #include <vcl/customweld.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/virdev.hxx>
 #include <svx/xtable.hxx>
 #include <rtl/ref.hxx>
 #include <o3tl/typed_flags_set.hxx>
@@ -112,7 +113,7 @@ public:
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
     virtual void Resize() override;
-    virtual void MouseButtonDown(const MouseEvent&) override;
+    virtual bool MouseButtonDown(const MouseEvent&) override;
     virtual bool KeyInput(const KeyEvent&) override;
     virtual void GetFocus() override;
     virtual void LoseFocus() override;
@@ -177,7 +178,7 @@ public:
 
     virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
     virtual void Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect ) override;
-    virtual void MouseButtonDown( const MouseEvent& rMEvt ) override;
+    virtual bool MouseButtonDown( const MouseEvent& rMEvt ) override;
     virtual void Resize() override;
     virtual tools::Rectangle GetFocusRect() override;
 

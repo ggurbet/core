@@ -200,8 +200,6 @@ SwTextNode *SwNodes::MakeTextNode( const SwNodeIndex & rWhere,
 
 SwTextNode::SwTextNode( const SwNodeIndex &rWhere, SwTextFormatColl *pTextColl, const SfxItemSet* pAutoAttr )
 :   SwContentNode( rWhere, SwNodeType::Text, pTextColl ),
-    mpNodeNum( nullptr ),
-    mpNodeNumRLHidden(nullptr),
     m_Text(),
     m_pParaIdleData_Impl(nullptr),
     m_bContainsHiddenChars(false),
@@ -279,9 +277,6 @@ void SwTextNode::FileLoadedInitHints()
 
 SwContentFrame *SwTextNode::MakeFrame( SwFrame* pSib )
 {
-    // fdo#52028: ODF file import does not result in MergePortions being called
-    // for every attribute, since that would be inefficient.  So call it here.
-    FileLoadedInitHints();
     SwContentFrame *pFrame = new SwTextFrame( this, pSib );
     return pFrame;
 }
@@ -840,7 +835,7 @@ namespace sw {
 /// if first node is deleted & second survives, then the first node's frame
 /// will be deleted too; prevent this by moving the frame to the second node
 /// if necessary.
-void MoveDeletedPrevFrames(SwTextNode & rDeletedPrev, SwTextNode & rNode)
+void MoveDeletedPrevFrames(const SwTextNode & rDeletedPrev, SwTextNode & rNode)
 {
     std::vector<SwTextFrame*> frames;
     SwIterator<SwTextFrame, SwTextNode, sw::IteratorMode::UnwrapMulti> aIter(rDeletedPrev);
@@ -2719,7 +2714,7 @@ void SwTextNode::EraseText(const SwIndex &rIdx, const sal_Int32 nCount,
             continue;
         }
 
-       assert(!( (nHintStart < nEndIdx) && (*pHtEndIdx > nEndIdx)
+        assert(!( (nHintStart < nEndIdx) && (*pHtEndIdx > nEndIdx)
                     && pHt->HasDummyChar() )
                 // next line: deleting exactly dummy char: DeleteAttributes
                 || ((nHintStart == nStartIdx) && (nHintStart + 1 == nEndIdx)));
@@ -3716,7 +3711,7 @@ void SwTextNode::ReplaceText( const SwIndex& rStart, const sal_Int32 nDelLen,
             SwTextAttr *const pHint = GetTextAttrForCharAt( nPos );
             if (pHint)
             {
-               assert(!( pHint->GetEnd() && pHint->HasDummyChar()
+                assert(!( pHint->GetEnd() && pHint->HasDummyChar()
                             && (pHint->GetStart() < nEndPos)
                             && (*pHint->GetEnd()   > nEndPos) ));
                     // "deleting left-overlapped attribute with CH_TXTATR"
@@ -3976,20 +3971,19 @@ const SwNodeNum* SwTextNode::GetNum(SwRootFrame const*const pLayout) const
 {
     // invariant: it's only in list in Hide mode if it's in list in normal mode
     assert(mpNodeNum || !mpNodeNumRLHidden);
-    return pLayout && pLayout->IsHideRedlines() ? mpNodeNumRLHidden : mpNodeNum;
+    return pLayout && pLayout->IsHideRedlines() ? mpNodeNumRLHidden.get() : mpNodeNum.get();
 }
 
 void SwTextNode::DoNum(std::function<void (SwNodeNum &)> const& rFunc)
 {
     // temp. clear because GetActualListLevel() may be called and the assert
     // there triggered during update, which is unhelpful
-    SwNodeNum * pBackup(mpNodeNumRLHidden);
-    mpNodeNumRLHidden = nullptr;
+    std::unique_ptr<SwNodeNum> pBackup = std::move(mpNodeNumRLHidden);
     assert(mpNodeNum);
     rFunc(*mpNodeNum);
     if (pBackup)
     {
-        mpNodeNumRLHidden = pBackup;
+        mpNodeNumRLHidden = std::move(pBackup);
         rFunc(*mpNodeNumRLHidden);
     }
 }
@@ -4289,7 +4283,7 @@ void SwTextNode::AddToList()
     if (pList && GetNodes().IsDocNodes()) // not for undo nodes
     {
         assert(!mpNodeNum);
-        mpNodeNum = new SwNodeNum(this, false);
+        mpNodeNum.reset(new SwNodeNum(this, false));
         pList->InsertListItem(*mpNodeNum, false, GetAttrListLevel());
         // iterate all frames & if there's one with hidden layout...
         SwIterator<SwTextFrame, SwTextNode, sw::IteratorMode::UnwrapMulti> iter(*this);
@@ -4320,7 +4314,7 @@ void SwTextNode::AddToListRLHidden()
     if (pList)
     {
         assert(!mpNodeNumRLHidden);
-        mpNodeNumRLHidden = new SwNodeNum(this, true);
+        mpNodeNumRLHidden.reset(new SwNodeNum(this, true));
         pList->InsertListItem(*mpNodeNumRLHidden, true, GetAttrListLevel());
     }
 }
@@ -4332,8 +4326,7 @@ void SwTextNode::RemoveFromList()
     if ( IsInList() )
     {
         SwList::RemoveListItem( *mpNodeNum );
-        delete mpNodeNum;
-        mpNodeNum = nullptr;
+        mpNodeNum.reset();
 
         SetWordCountDirty( true );
     }
@@ -4345,8 +4338,7 @@ void SwTextNode::RemoveFromListRLHidden()
     {
         assert(mpNodeNumRLHidden->GetParent() || !GetNodes().IsDocNodes());
         SwList::RemoveListItem(*mpNodeNumRLHidden);
-        delete mpNodeNumRLHidden;
-        mpNodeNumRLHidden = nullptr;
+        mpNodeNumRLHidden.reset();
 
         SetWordCountDirty( true );
     }
@@ -5031,6 +5023,8 @@ namespace {
                 }
                 else if ( rWhich == RES_PARATR_OUTLINELEVEL )
                     mrTextNode.ResetEmptyListStyleDueToResetOutlineLevelAttr();
+                else if ( rWhich == RES_BACKGROUND )
+                    mrTextNode.ResetAttr( XATTR_FILL_FIRST, XATTR_FILL_LAST );
 
                 if ( !bRemoveFromList )
                 {

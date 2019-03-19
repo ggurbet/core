@@ -10,17 +10,17 @@
 //ScRangeManagerTable
 #include <memory>
 #include <global.hxx>
-#include <reffact.hxx>
-#include <document.hxx>
-#include <docfunc.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
-#include <namedlg.hxx>
-#include <viewdata.hxx>
 #include <globalnames.hxx>
+#include <namemgrtable.hxx>
+#include <rangenam.hxx>
 
-#include <sfx2/app.hxx>
 #include <unotools/charclass.hxx>
+#include <svtools/simptabl.hxx>
+#include <vcl/weld.hxx>
+#include <vcl/layout.hxx>
+#include <tools/link.hxx>
 
 #define ITEMID_NAME 1
 #define ITEMID_RANGE 2
@@ -153,12 +153,11 @@ void ScRangeManagerTable::Init()
             aLine.aScope = maGlobalString;
         else
             aLine.aScope = itr.first;
-        for (ScRangeName::const_iterator it = pLocalRangeName->begin();
-                it != pLocalRangeName->end(); ++it)
+        for (const auto& rEntry : *pLocalRangeName)
         {
-            if (!it->second->HasType(ScRangeData::Type::Database))
+            if (!rEntry.second->HasType(ScRangeData::Type::Database))
             {
-                aLine.aName = it->second->GetName();
+                aLine.aName = rEntry.second->GetName();
                 addEntry(aLine, false);
             }
         }
@@ -305,6 +304,121 @@ IMPL_LINK_NOARG(ScRangeManagerTable, HeaderEndDragHdl, HeaderBar*, void)
 IMPL_LINK_NOARG(ScRangeManagerTable, ScrollHdl, SvTreeListBox*, void)
 {
     CheckForFormulaString();
+}
+
+RangeManagerTable::RangeManagerTable(std::unique_ptr<weld::TreeView> xTreeView,
+        const std::map<OUString, std::unique_ptr<ScRangeName>>& rRangeMap,
+        const ScAddress& rPos)
+    : m_xTreeView(std::move(xTreeView))
+    , maGlobalString( ScResId(STR_GLOBAL_SCOPE))
+    , m_RangeMap(rRangeMap)
+    , maPos( rPos )
+    , m_nId(0)
+{
+    auto nColWidth = m_xTreeView->get_size_request().Width() / 7;
+    std::vector<int> aWidths;
+    aWidths.push_back(nColWidth * 2);
+    aWidths.push_back(nColWidth * 3);
+    m_xTreeView->set_column_fixed_widths(aWidths);
+
+    Init();
+    m_xTreeView->set_selection_mode(SelectionMode::Multiple);
+    m_xTreeView->connect_size_allocate(LINK(this, RangeManagerTable, SizeAllocHdl));
+    m_xTreeView->connect_visible_range_changed(LINK(this, RangeManagerTable, VisRowsScrolledHdl));
+}
+
+IMPL_LINK_NOARG(RangeManagerTable, VisRowsScrolledHdl, weld::TreeView&, void)
+{
+    CheckForFormulaString();
+}
+
+const ScRangeData* RangeManagerTable::findRangeData(const ScRangeNameLine& rLine)
+{
+    const ScRangeName* pRangeName;
+    if (rLine.aScope == maGlobalString)
+        pRangeName = m_RangeMap.find(OUString(STR_GLOBAL_RANGE_NAME))->second.get();
+    else
+        pRangeName = m_RangeMap.find(rLine.aScope)->second.get();
+
+    return pRangeName->findByUpperName(ScGlobal::pCharClass->uppercase(rLine.aName));
+}
+
+void RangeManagerTable::CheckForFormulaString()
+{
+    m_xTreeView->visible_foreach([this](weld::TreeIter& rEntry){
+        OUString sId(m_xTreeView->get_id(rEntry));
+        std::map<OUString, bool>::const_iterator itr = maCalculatedFormulaEntries.find(sId);
+        if (itr == maCalculatedFormulaEntries.end() || !itr->second)
+        {
+            ScRangeNameLine aLine;
+            GetLine(aLine, rEntry);
+            const ScRangeData* pData = findRangeData( aLine );
+            OUString aFormulaString;
+            pData->GetSymbol(aFormulaString, maPos);
+            m_xTreeView->set_text(rEntry, aFormulaString, 1);
+            maCalculatedFormulaEntries.insert( std::pair<OUString, bool>(sId, true) );
+        }
+        return false;
+    });
+}
+
+IMPL_LINK_NOARG(RangeManagerTable, SizeAllocHdl, const Size&, void)
+{
+    CheckForFormulaString();
+}
+
+void RangeManagerTable::addEntry(const ScRangeNameLine& rLine)
+{
+    int nRow = m_xTreeView->n_children();
+    m_xTreeView->append();
+    m_xTreeView->set_text(nRow, rLine.aName, 0);
+    m_xTreeView->set_text(nRow, rLine.aExpression, 1);
+    m_xTreeView->set_text(nRow, rLine.aScope, 2);
+    // just unique to track which one has been cached by maCalculatedFormulaEntries
+    m_xTreeView->set_id(nRow, OUString::number(m_nId++));
+}
+
+void RangeManagerTable::GetLine(ScRangeNameLine& rLine, weld::TreeIter& rEntry)
+{
+    rLine.aName = m_xTreeView->get_text(rEntry, 0);
+    rLine.aExpression = m_xTreeView->get_text(rEntry, 1);
+    rLine.aScope = m_xTreeView->get_text(rEntry, 2);
+}
+
+void RangeManagerTable::Init()
+{
+    m_xTreeView->freeze();
+    m_xTreeView->clear();
+    for (auto const& itr : m_RangeMap)
+    {
+        const ScRangeName *const pLocalRangeName = itr.second.get();
+        ScRangeNameLine aLine;
+        if (itr.first == STR_GLOBAL_RANGE_NAME)
+            aLine.aScope = maGlobalString;
+        else
+            aLine.aScope = itr.first;
+        for (const auto& rEntry : *pLocalRangeName)
+        {
+            if (!rEntry.second->HasType(ScRangeData::Type::Database))
+            {
+                aLine.aName = rEntry.second->GetName();
+                addEntry(aLine);
+            }
+        }
+    }
+    m_xTreeView->thaw();
+}
+
+std::vector<ScRangeNameLine> RangeManagerTable::GetSelectedEntries()
+{
+    std::vector<ScRangeNameLine> aSelectedEntries;
+    m_xTreeView->selected_foreach([this, &aSelectedEntries](weld::TreeIter& rEntry){
+        ScRangeNameLine aLine;
+        GetLine(aLine, rEntry);
+        aSelectedEntries.push_back(aLine);
+        return false;
+    });
+    return aSelectedEntries;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

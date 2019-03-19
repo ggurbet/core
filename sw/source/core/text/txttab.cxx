@@ -204,10 +204,10 @@ SwTabPortion *SwTextFormatter::NewTabPortion( SwTextFormatInfo &rInf, bool bAuto
                 }
                 if( m_pCurr->HasForcedLeftMargin() )
                 {
-                    SwLinePortion* pPor = m_pCurr->GetPortion();
+                    SwLinePortion* pPor = m_pCurr->GetNextPortion();
                     while( pPor && !pPor->IsFlyPortion() )
                     {
-                        pPor = pPor->GetPortion();
+                        pPor = pPor->GetNextPortion();
                     }
                     if ( pPor )
                     {
@@ -297,7 +297,7 @@ SwTabPortion::SwTabPortion( const sal_uInt16 nTabPosition, const sal_Unicode cFi
 {
     nLineLength = TextFrameIndex(1);
     OSL_ENSURE(!IsFilled() || ' ' != cFill, "SwTabPortion::CTOR: blanks ?!");
-    SetWhichPor( POR_TAB );
+    SetWhichPor( PortionType::Table );
 }
 
 bool SwTabPortion::Format( SwTextFormatInfo &rInf )
@@ -363,20 +363,20 @@ bool SwTabPortion::PreFormat( SwTextFormatInfo &rInf )
 
     if( ! bFull && 0 == nDir )
     {
-        const sal_uInt16 nWhich = GetWhichPor();
+        const PortionType nWhich = GetWhichPor();
         switch( nWhich )
         {
-            case POR_TABRIGHT:
-            case POR_TABDECIMAL:
-            case POR_TABCENTER:
+            case PortionType::TabRight:
+            case PortionType::TabDecimal:
+            case PortionType::TabCenter:
             {
-                if( POR_TABDECIMAL == nWhich )
+                if( PortionType::TabDecimal == nWhich )
                     rInf.SetTabDecimal(
                         static_cast<SwTabDecimalPortion*>(this)->GetTabDecimal());
                 rInf.SetLastTab( this );
                 break;
             }
-            case POR_TABLEFT:
+            case PortionType::TabLeft:
             {
                 // handle this case in PostFormat
                 if( bTabOverMargin && !bAutoTabStop && GetTabPos() > rInf.Width() )
@@ -424,7 +424,7 @@ bool SwTabPortion::PreFormat( SwTextFormatInfo &rInf )
             Width( 0 );
             SetLen( TextFrameIndex(0) );
             SetAscent( 0 );
-            SetPortion( nullptr ); //?????
+            SetNextPortion( nullptr ); //?????
         }
         return true;
     }
@@ -443,25 +443,25 @@ bool SwTabPortion::PostFormat( SwTextFormatInfo &rInf )
     // If the tab position is larger than the right margin, it gets scaled down by default.
     // However, if compat mode enabled, we allow tabs to go over the margin: the rest of the paragraph is not broken into lines.
     const sal_uInt16 nRight = bTabOverMargin ? GetTabPos() : std::min(GetTabPos(), rInf.Width());
-    const SwLinePortion *pPor = GetPortion();
+    const SwLinePortion *pPor = GetNextPortion();
 
     sal_uInt16 nPorWidth = 0;
     while( pPor )
     {
         nPorWidth = nPorWidth + pPor->Width();
-        pPor = pPor->GetPortion();
+        pPor = pPor->GetNextPortion();
     }
 
-    const sal_uInt16 nWhich = GetWhichPor();
+    const PortionType nWhich = GetWhichPor();
     const bool bTabCompat = rInf.GetTextFrame()->GetDoc().getIDocumentSettingAccess().get(DocumentSettingId::TAB_COMPAT);
 
-    if ( bTabOverMargin && POR_TABLEFT == nWhich )
+    if ( bTabOverMargin && PortionType::TabLeft == nWhich )
     {
         nPorWidth = 0;
     }
 
     // #127428# Abandon dec. tab position if line is full
-    if ( bTabCompat && POR_TABDECIMAL == nWhich )
+    if ( bTabCompat && PortionType::TabDecimal == nWhich )
     {
         sal_uInt16 nPrePorWidth = static_cast<const SwTabDecimalPortion*>(this)->GetWidthOfPortionsUpToDecimalPosition();
 
@@ -477,7 +477,7 @@ bool SwTabPortion::PostFormat( SwTextFormatInfo &rInf )
         }
     }
 
-    if( POR_TABCENTER == nWhich )
+    if( PortionType::TabCenter == nWhich )
     {
         // centered tabs are problematic:
         // We have to detect how much fits into the line.
@@ -503,7 +503,7 @@ bool SwTabPortion::PostFormat( SwTextFormatInfo &rInf )
     SetFixWidth( PrtWidth() );
     // reset last values
     rInf.SetLastTab(nullptr);
-    if( POR_TABDECIMAL == nWhich )
+    if( PortionType::TabDecimal == nWhich )
         rInf.SetTabDecimal(0);
 
     return rInf.Width() <= rInf.X();
@@ -538,15 +538,15 @@ void SwTabPortion::Paint( const SwTextPaintInfo &rInf ) const
         rInf.DrawBorder( *this );
 
     // do we have to repaint a post it portion?
-    if( rInf.OnWin() && pPortion && !pPortion->Width() )
-        pPortion->PrePaint( rInf, this );
+    if( rInf.OnWin() && mpNextPortion && !mpNextPortion->Width() )
+        mpNextPortion->PrePaint( rInf, this );
 
     // display special characters
     if( rInf.OnWin() && rInf.GetOpt().IsTab() )
     {
         // filled tabs are shaded in gray
         if( IsFilled() )
-            rInf.DrawViewOpt( *this, POR_TAB );
+            rInf.DrawViewOpt( *this, PortionType::Table );
         else
             rInf.DrawTab( *this );
     }

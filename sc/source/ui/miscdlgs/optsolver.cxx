@@ -18,7 +18,6 @@
  */
 
 #include <rangelst.hxx>
-#include <scitems.hxx>
 #include <sfx2/bindings.hxx>
 #include <svl/zforlist.hxx>
 #include <vcl/builderfactory.hxx>
@@ -26,11 +25,9 @@
 #include <vcl/weld.hxx>
 #include <vcl/svapp.hxx>
 
-#include <uiitems.hxx>
 #include <reffact.hxx>
 #include <docsh.hxx>
 #include <docfunc.hxx>
-#include <formulacell.hxx>
 #include <rangeutl.hxx>
 #include <convuno.hxx>
 #include <unonames.hxx>
@@ -41,8 +38,10 @@
 
 #include <optsolver.hxx>
 
-#include <com/sun/star/sheet/Solver.hpp>
+#include <com/sun/star/sheet/SolverConstraint.hpp>
+#include <com/sun/star/sheet/SolverConstraintOperator.hpp>
 #include <com/sun/star/sheet/XSolverDescription.hpp>
+#include <com/sun/star/sheet/XSolver.hpp>
 
 using namespace com::sun::star;
 
@@ -600,12 +599,11 @@ IMPL_LINK( ScOptSolverDlg, BtnHdl, Button*, pBtn, void )
     else if ( pBtn == m_pBtnOpt )
     {
         //! move options dialog to UI lib?
-        ScopedVclPtr<ScSolverOptionsDialog> pOptDlg(
-            VclPtr<ScSolverOptionsDialog>::Create( this, maImplNames, maDescriptions, maEngine, maProperties ));
-        if ( pOptDlg->Execute() == RET_OK )
+        ScSolverOptionsDialog aOptDlg(GetFrameWeld(), maImplNames, maDescriptions, maEngine, maProperties);
+        if (aOptDlg.run() == RET_OK)
         {
-            maEngine = pOptDlg->GetEngine();
-            maProperties = pOptDlg->GetProperties();
+            maEngine = aOptDlg.GetEngine();
+            maProperties = aOptDlg.GetProperties();
         }
     }
 }
@@ -868,17 +866,16 @@ bool ScOptSolverDlg::CallSolver()       // return true -> close dialog after cal
 
     uno::Sequence<sheet::SolverConstraint> aConstraints;
     sal_Int32 nConstrPos = 0;
-    for ( std::vector<ScOptConditionRow>::const_iterator aConstrIter = maConditions.begin();
-          aConstrIter != maConditions.end(); ++aConstrIter )
+    for ( const auto& rConstr : maConditions )
     {
-        if ( !aConstrIter->aLeftStr.isEmpty() )
+        if ( !rConstr.aLeftStr.isEmpty() )
         {
             sheet::SolverConstraint aConstraint;
             // order of list box entries must match enum values
-            aConstraint.Operator = static_cast<sheet::SolverConstraintOperator>(aConstrIter->nOperator);
+            aConstraint.Operator = static_cast<sheet::SolverConstraintOperator>(rConstr.nOperator);
 
             ScRange aLeftRange;
-            if ( !ParseRef( aLeftRange, aConstrIter->aLeftStr, true ) )
+            if ( !ParseRef( aLeftRange, rConstr.aLeftStr, true ) )
             {
                 ShowError( true, nullptr );
                 return false;
@@ -886,7 +883,7 @@ bool ScOptSolverDlg::CallSolver()       // return true -> close dialog after cal
 
             bool bIsRange = false;
             ScRange aRightRange;
-            if ( ParseRef( aRightRange, aConstrIter->aRightStr, true ) )
+            if ( ParseRef( aRightRange, rConstr.aRightStr, true ) )
             {
                 if ( aRightRange.aStart == aRightRange.aEnd )
                     aConstraint.Right <<= table::CellAddress( aRightRange.aStart.Tab(),
@@ -904,7 +901,7 @@ bool ScOptSolverDlg::CallSolver()       // return true -> close dialog after cal
             {
                 sal_uInt32 nFormat = 0;     //! explicit language?
                 double fValue = 0.0;
-                if ( mrDoc.GetFormatTable()->IsNumberFormat( aConstrIter->aRightStr, nFormat, fValue ) )
+                if ( mrDoc.GetFormatTable()->IsNumberFormat( rConstr.aRightStr, nFormat, fValue ) )
                     aConstraint.Right <<= fValue;
                 else if ( aConstraint.Operator != sheet::SolverConstraintOperator_INTEGER &&
                           aConstraint.Operator != sheet::SolverConstraintOperator_BINARY )

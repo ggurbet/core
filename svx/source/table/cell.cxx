@@ -24,10 +24,10 @@
 #include <com/sun/star/table/TableBorder.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
 
+#include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <svl/style.hxx>
 #include <svl/itemset.hxx>
 
@@ -177,7 +177,7 @@ namespace sdr
         // create a new itemset
         std::unique_ptr<SfxItemSet> CellProperties::CreateObjectSpecificItemSet(SfxItemPool& rPool)
         {
-            return o3tl::make_unique<SfxItemSet>(rPool,
+            return std::make_unique<SfxItemSet>(rPool,
 
                 // range from SdrAttrObj
                 svl::Items<SDRATTR_START, SDRATTR_SHADOW_LAST,
@@ -519,7 +519,7 @@ void Cell::replaceContentAndFormating( const CellRef& xSourceCell )
         // not set (!)
         if(nullptr != xSourceCell->GetOutlinerParaObject())
         {
-            SetOutlinerParaObject( o3tl::make_unique<OutlinerParaObject>(*xSourceCell->GetOutlinerParaObject()) );
+            SetOutlinerParaObject( std::make_unique<OutlinerParaObject>(*xSourceCell->GetOutlinerParaObject()) );
         }
 
         SdrTableObj& rTableObj = dynamic_cast< SdrTableObj& >( GetObject() );
@@ -822,7 +822,7 @@ void Cell::AddUndo()
     if( rObj.IsInserted() && rObj.getSdrModelFromSdrObject().IsUndoEnabled() )
     {
         CellRef xCell( this );
-        rObj.getSdrModelFromSdrObject().AddUndo( o3tl::make_unique<CellUndo>( &rObj, xCell ) );
+        rObj.getSdrModelFromSdrObject().AddUndo( std::make_unique<CellUndo>( &rObj, xCell ) );
 
         // Undo action for the after-text-edit-ended stack.
         SdrTableObj* pTableObj = dynamic_cast<sdr::table::SdrTableObj*>(&rObj);
@@ -889,14 +889,10 @@ void SAL_CALL Cell::release() throw ()
 
 Sequence< Type > SAL_CALL Cell::getTypes(  )
 {
-    Sequence< Type > aTypes( SvxUnoTextBase::getTypes() );
-
-    sal_Int32 nLen = aTypes.getLength();
-    aTypes.realloc(nLen + 2);
-    aTypes[nLen++] = cppu::UnoType<XMergeableCell>::get();
-    aTypes[nLen++] = cppu::UnoType<XLayoutConstrains>::get();
-
-    return aTypes;
+    return comphelper::concatSequences( SvxUnoTextBase::getTypes(),
+        Sequence {
+            cppu::UnoType<XMergeableCell>::get(),
+            cppu::UnoType<XLayoutConstrains>::get() });
 }
 
 
@@ -1693,7 +1689,7 @@ void SAL_CALL Cell::disposing( const EventObject& /*Source*/ )
     dispose();
 }
 
-void Cell::dumpAsXml(struct _xmlTextWriter * pWriter, sal_Int32 nRow, sal_Int32 nCol) const
+void Cell::dumpAsXml(xmlTextWriterPtr pWriter, sal_Int32 nRow, sal_Int32 nCol) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("Cell"));
     xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("row"), "%" SAL_PRIdINT32, nRow);

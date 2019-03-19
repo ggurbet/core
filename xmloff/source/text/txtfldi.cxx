@@ -57,6 +57,7 @@
 #include <com/sun/star/text/BibliographyDataField.hpp>
 #include <com/sun/star/util/XUpdatable.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
+#include <com/sun/star/container/XIndexReplace.hpp>
 
 #include <sax/tools/converter.hxx>
 
@@ -2076,10 +2077,10 @@ void XMLFileNameImportContext::PrepareField(
     Reference<XPropertySetInfo> xPropertySetInfo(
         xPropertySet->getPropertySetInfo());
 
-     if (xPropertySetInfo->hasPropertyByName(sPropertyFixed))
-     {
+    if (xPropertySetInfo->hasPropertyByName(sPropertyFixed))
+    {
          xPropertySet->setPropertyValue(sPropertyFixed, Any(bFixed));
-     }
+    }
 
     if (xPropertySetInfo->hasPropertyByName(sPropertyFileFormat))
     {

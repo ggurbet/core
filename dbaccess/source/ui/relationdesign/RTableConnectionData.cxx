@@ -33,6 +33,7 @@
 #include <core_resource.hxx>
 #include <connectivity/dbexception.hxx>
 #include <connectivity/dbtools.hxx>
+#include <osl/diagnose.h>
 
 using namespace dbaui;
 using namespace ::com::sun::star::sdbc;
@@ -303,7 +304,7 @@ bool ORelationTableConnectionData::Update()
 
     // get the name of foreign key; search for columns
     m_aConnName.clear();
-xKey.clear();
+    xKey.clear();
     bool bDropRelation = false;
     for(sal_Int32 i=0;i<xKeys->getCount();++i)
     {
@@ -311,8 +312,6 @@ xKey.clear();
         OSL_ENSURE(xKey.is(),"Key is not valid!");
         if ( xKey.is() )
         {
-            sal_Int32 nType = 0;
-            xKey->getPropertyValue(PROPERTY_TYPE) >>= nType;
             OUString sReferencedTable;
             xKey->getPropertyValue(PROPERTY_REFERENCEDTABLE) >>= sReferencedTable;
             if ( sReferencedTable == getReferencedTable()->GetTableName() )
@@ -361,7 +360,7 @@ xKey.clear();
                 }
             }
         }
-    xKey.clear();
+        xKey.clear();
     }
     if ( bDropRelation )
     {

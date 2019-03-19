@@ -572,7 +572,7 @@ void DXF2GDIMetaFile::DrawHatchEntity(const DXFHatchEntity & rE, const DXFTransf
         tools::PolyPolygon aPolyPoly;
         for ( j = 0; j < rE.nBoundaryPathCount; j++ )
         {
-            std::deque< Point > aPtAry;
+            std::vector< Point > aPtAry;
             const DXFBoundaryPathData& rPathData = rE.pBoundaryPathData[ j ];
             if ( rPathData.bIsPolyLine )
             {
@@ -585,9 +585,9 @@ void DXF2GDIMetaFile::DrawHatchEntity(const DXFHatchEntity & rE, const DXFTransf
             }
             else
             {
-                for ( std::deque<DXFEdgeType*>::size_type i = 0; i < rPathData.aEdges.size(); i++ )
+                for ( auto& rEdge : rPathData.aEdges )
                 {
-                    const DXFEdgeType* pEdge = rPathData.aEdges[ i ].get();
+                    const DXFEdgeType* pEdge = rEdge.get();
                     switch( pEdge->nEdgeType )
                     {
                         case 1 :
@@ -681,7 +681,6 @@ void DXF2GDIMetaFile::DrawEntities(const DXFEntities & rEntities,
         return;
     rEntities.mbBeingDrawn = true;
 
-    sal_uLong nCount=0;
     DXFTransform aET;
     const DXFTransform * pT;
 
@@ -744,7 +743,6 @@ void DXF2GDIMetaFile::DrawEntities(const DXFEntities & rEntities,
             }
         }
         pE=pE->pSucc;
-        nCount++;
     }
 
     rEntities.mbBeingDrawn = false;

@@ -35,6 +35,8 @@
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <TableWindowData.hxx>
 #include <JAccess.hxx>
 #include <com/sun/star/accessibility/XAccessible.hpp>
@@ -43,7 +45,6 @@
 #include <UITools.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <tools/diagnose_ex.h>
-#include <o3tl/make_unique.hxx>
 #include <algorithm>
 #include <functional>
 
@@ -612,7 +613,7 @@ void OJoinTableView::BeginChildMove( OTableWindow* pTabWin, const Point& rMouseP
         return;
 
     m_pDragWin = pTabWin;
-    SetPointer(Pointer(PointerStyle::Move));
+    SetPointer(PointerStyle::Move);
     Point aMousePos = ScreenToOutputPixel( rMousePos );
     m_aDragOffset = aMousePos - pTabWin->GetPosPixel();
     m_pDragWin->SetZOrder(nullptr, ZOrderFlags::First);
@@ -625,13 +626,13 @@ void OJoinTableView::NotifyTitleClicked( OTableWindow* pTabWin, const Point& rMo
     BeginChildMove(pTabWin, rMousePos);
 }
 
-void OJoinTableView::BeginChildSizing( OTableWindow* pTabWin, const Pointer& rPointer )
+void OJoinTableView::BeginChildSizing( OTableWindow* pTabWin, PointerStyle nPointer )
 {
 
     if (m_pView->getController().isReadOnly())
         return;
 
-    SetPointer( rPointer );
+    SetPointer( nPointer );
     m_pSizingWin = pTabWin;
     StartTracking();
 }
@@ -757,12 +758,12 @@ void OJoinTableView::Tracking( const TrackingEvent& rTEvt )
                 m_pDragWin->GrabFocus();
             }
             m_pDragWin = nullptr;
-            SetPointer(Pointer(PointerStyle::Arrow));
+            SetPointer(PointerStyle::Arrow);
         }
         // else we handle the resizing
         else if( m_pSizingWin )
         {
-            SetPointer( Pointer() );
+            SetPointer( PointerStyle::Arrow );
             EndTracking();
 
             // old physical coordinates
@@ -1076,7 +1077,7 @@ void OJoinTableView::TabWinMoved(OTableWindow* ptWhich, const Point& ptOldPositi
     Point ptThumbPos(GetHScrollBar().GetThumbPos(), GetVScrollBar().GetThumbPos());
     ptWhich->GetData()->SetPosition(ptWhich->GetPosPixel() + ptThumbPos);
 
-    invalidateAndModify(o3tl::make_unique<OJoinMoveTabWinUndoAct>(this, ptOldPosition, ptWhich));
+    invalidateAndModify(std::make_unique<OJoinMoveTabWinUndoAct>(this, ptOldPosition, ptWhich));
 }
 
 void OJoinTableView::TabWinSized(OTableWindow* ptWhich, const Point& ptOldPosition, const Size& szOldSize)
@@ -1084,7 +1085,7 @@ void OJoinTableView::TabWinSized(OTableWindow* ptWhich, const Point& ptOldPositi
     ptWhich->GetData()->SetSize(ptWhich->GetSizePixel());
     ptWhich->GetData()->SetPosition(ptWhich->GetPosPixel());
 
-    invalidateAndModify(o3tl::make_unique<OJoinSizeTabWinUndoAct>(this, ptOldPosition, szOldSize, ptWhich));
+    invalidateAndModify(std::make_unique<OJoinSizeTabWinUndoAct>(this, ptOldPosition, szOldSize, ptWhich));
 }
 
 bool OJoinTableView::IsAddAllowed()
@@ -1250,11 +1251,8 @@ bool OJoinTableView::PreNotify(NotifyEvent& rNEvt)
 
                         bool bForward = !pKeyEvent->GetKeyCode().IsShift();
                         // is there an active tab win ?
-                        OTableWindowMap::const_iterator aIter = m_aTableMap.begin();
-                        OTableWindowMap::const_iterator aEnd = m_aTableMap.end();
-                        for(;aIter != aEnd;++aIter)
-                            if (aIter->second && aIter->second->HasChildPathFocus())
-                                break;
+                        OTableWindowMap::const_iterator aIter = std::find_if(m_aTableMap.begin(), m_aTableMap.end(),
+                            [](const OTableWindowMap::value_type& rEntry) { return rEntry.second && rEntry.second->HasChildPathFocus(); });
 
                         OTableWindow* pNextWin = nullptr;
                         OTableConnection* pNextConn = nullptr;

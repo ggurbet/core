@@ -61,6 +61,7 @@ endif
 $(eval $(call gb_Module_add_slowcheck_targets,sc, \
 	CppunitTest_sc_cond_format_merge \
 	CppunitTest_sc_new_cond_format_api \
+	CppunitTest_sc_pdf_export \
 	CppunitTest_sc_subsequent_filters_test \
 	CppunitTest_sc_subsequent_export_test \
 	CppunitTest_sc_html_export_test \
@@ -107,6 +108,7 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_arealinkobj \
 	CppunitTest_sc_arealinksobj \
 	CppunitTest_sc_autoformatobj \
+	CppunitTest_sc_autoformatsobj \
 	CppunitTest_sc_cellcursorobj \
 	CppunitTest_sc_cellfieldsobj \
 	CppunitTest_sc_cellformatsenumeration \
@@ -117,6 +119,8 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_cellrangesobj \
 	CppunitTest_sc_cellsenumeration \
 	CppunitTest_sc_chart2dataprovider \
+	CppunitTest_sc_chartobj \
+	CppunitTest_sc_chartsobj \
 	CppunitTest_sc_check_data_pilot_field \
 	CppunitTest_sc_check_data_pilot_table \
 	CppunitTest_sc_check_xcell_ranges_query \
@@ -124,15 +128,22 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	$(if $(filter-out $(OS),iOS), \
 		CppunitTest_sc_databaserangeobj) \
 	CppunitTest_sc_databaserangesobj \
+	CppunitTest_sc_datapilotfieldgroupitemobj \
+	CppunitTest_sc_datapilotfieldgroupobj \
+	CppunitTest_sc_datapilotfieldgroupsobj \
 	CppunitTest_sc_datapilotfieldobj \
+	CppunitTest_sc_datapilotfieldsobj \
 	CppunitTest_sc_datapilotitemobj \
+	CppunitTest_sc_datapilotitemsobj \
 	CppunitTest_sc_datapilottableobj \
 	CppunitTest_sc_datapilottablesobj \
 	CppunitTest_sc_ddelinkobj \
+	CppunitTest_sc_ddelinksobj \
 	CppunitTest_sc_documentconfigurationobj \
+	CppunitTest_sc_drawpagesobj \
 	CppunitTest_sc_editfieldobj_cell \
 	CppunitTest_sc_editfieldobj_header \
-	CppunitTest_sc_filterdescriptorbaseobj \
+	CppunitTest_sc_filterdescriptorbase \
 	CppunitTest_sc_functiondescriptionobj \
 	CppunitTest_sc_functionlistobj \
 	CppunitTest_sc_headerfieldsobj \
@@ -174,14 +185,17 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_scenariosobj \
 	CppunitTest_sc_shapeobj \
 	CppunitTest_sc_sheetlinkobj \
+	CppunitTest_sc_sheetlinksobj \
 	CppunitTest_sc_sortdescriptorbaseobj \
 	CppunitTest_sc_spreadsheetsettings \
 	CppunitTest_sc_spreadsheetsettingsobj \
-	CppunitTest_sc_styleloaderobj \
+	CppunitTest_sc_stylefamiliesobj \
+	CppunitTest_sc_stylefamilyobj \
 	CppunitTest_sc_subtotaldescriptorbaseobj \
 	CppunitTest_sc_subtotalfieldobj \
+	CppunitTest_sc_tablecolumnsobj \
 	CppunitTest_sc_tableconditionalentryobj \
-	CppunitTest_sc_tableconditionalformatobj \
+	CppunitTest_sc_tableconditionalformat \
 	CppunitTest_sc_tablerowsobj \
 	CppunitTest_sc_tablesheetobj \
 	CppunitTest_sc_tablesheetsobj \
@@ -233,6 +247,7 @@ $(eval $(call gb_Module_add_uicheck_targets,sc,\
 	UITest_calc_tests7 \
 	UITest_sort \
 	UITest_chart \
+	UITest_pageFormat \
 ))
 endif
 

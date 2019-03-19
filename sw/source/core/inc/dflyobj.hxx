@@ -20,12 +20,13 @@
 #ifndef INCLUDED_SW_SOURCE_CORE_INC_DFLYOBJ_HXX
 #define INCLUDED_SW_SOURCE_CORE_INC_DFLYOBJ_HXX
 
-#include <drawinglayer/geometry/viewinformation2d.hxx>
 #include <svx/svdovirt.hxx>
+#include <svx/svdobj.hxx>
+
+namespace drawinglayer::geometry { class ViewInformation2D; }
 
 class SwFlyFrame;
 class SwFrameFormat;
-class SdrObjMacroHitRec;
 
 const sal_uInt16 SwFlyDrawObjIdentifier = 0x0001;
 
@@ -130,7 +131,7 @@ public:
     // if an URL is attached to a graphic than this is a macro object
     virtual bool       HasMacro() const override;
     virtual SdrObject* CheckMacroHit       (const SdrObjMacroHitRec& rRec) const override;
-    virtual Pointer    GetMacroPointer     (const SdrObjMacroHitRec& rRec) const override;
+    virtual PointerStyle GetMacroPointer     (const SdrObjMacroHitRec& rRec) const override;
 
     // RotGrfFlyFrame: If true, this SdrObject supports only limited rotation.
     virtual bool HasLimitedRotation() const override;

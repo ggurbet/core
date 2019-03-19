@@ -29,6 +29,7 @@
 #include <writer/WConnection.hxx>
 #include <connectivity/sdbcx/VColumn.hxx>
 #include <sal/log.hxx>
+#include <cppuhelper/typeprovider.hxx>
 
 namespace com
 {
@@ -169,7 +170,7 @@ void OWriterTable::fillColumns()
                                        aCase);
         }
 
-        sdbcx::OColumn* pColumn = new sdbcx::OColumn(
+        auto pColumn = new sdbcx::OColumn(
             aAlias, aTypeName, OUString(), OUString(), sdbc::ColumnValue::NULLABLE, nPrecision,
             nDecimals, eType, false, false, bCurrency, bStoresMixedCaseQuotedIdentifiers,
             m_CatalogName, getSchema(), getName());
@@ -205,10 +206,6 @@ void OWriterTable::construct()
                 m_bHasHeaders = true;
             }
         }
-
-        uno::Reference<util::XNumberFormatsSupplier> xSupp(xDoc, uno::UNO_QUERY);
-        if (xSupp.is())
-            m_xFormats = xSupp->getNumberFormats();
     }
 
     fillColumns();
@@ -253,10 +250,9 @@ bool OWriterTable::fetchRow(OValueRefRow& _rRow, const OSQLColumns& _rCols, bool
 
     // fields
 
-    auto aIter = _rCols.get().begin();
-    auto aEnd = _rCols.get().end();
-    const OValueRefVector::Vector::size_type nCount = _rRow->get().size();
-    for (OValueRefVector::Vector::size_type i = 1; aIter != aEnd && i < nCount; ++aIter, i++)
+    const OValueRefVector::Vector::size_type nCount
+        = std::min(_rRow->get().size(), _rCols.get().size() + 1);
+    for (OValueRefVector::Vector::size_type i = 1; i < nCount; i++)
     {
         if ((_rRow->get())[i]->isBound())
         {

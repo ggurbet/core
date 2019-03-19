@@ -21,6 +21,8 @@
 #include <osl/file.hxx>
 #include <osl/socket.h>
 #include <sal/log.hxx>
+#include <tools/urlobj.hxx>
+#include <ucbhelper/content.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
@@ -152,7 +154,7 @@ Reference< XInterface > SAL_CALL
 FileProvider::CreateInstance(
     const Reference< XMultiServiceFactory >& xMultiServiceFactory )
 {
-    XServiceInfo* xP = static_cast<XServiceInfo*>(new FileProvider( comphelper::getComponentContext(xMultiServiceFactory) ));
+    XServiceInfo* xP = new FileProvider(comphelper::getComponentContext(xMultiServiceFactory));
     return Reference< XInterface >::query( xP );
 }
 
@@ -170,7 +172,24 @@ FileProvider::queryContent(
                                               aUnc );
 
     if(  err )
+    {
+        // Hack to retry file://<host>/... URLs as smb URLs:
+        INetURLObject url(xIdentifier->getContentIdentifier());
+        if (url.GetProtocol() == INetProtocol::File
+            && !url.GetHost(INetURLObject::DecodeMechanism::NONE).isEmpty())
+        {
+            url.changeScheme(INetProtocol::Smb);
+            ucbhelper::Content content;
+            if (ucbhelper::Content::create(
+                    url.GetMainURL(INetURLObject::DecodeMechanism::NONE),
+                    css::uno::Reference<css::ucb::XCommandEnvironment>(), m_xContext, content))
+            {
+                return content.get();
+            }
+        }
+
         throw IllegalIdentifierException( THROW_WHERE );
+    }
 
     return Reference< XContent >( new BaseContent( m_pMyShell.get(), xIdentifier, aUnc ) );
 }

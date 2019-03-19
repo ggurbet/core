@@ -149,9 +149,10 @@ Any PresenterConfigurationAccess::GetConfigurationNode (
             return rxNode->getByHierarchicalName(sPathToNode);
         }
     }
-    catch (const Exception& rException)
+    catch (const Exception&)
     {
-        SAL_WARN("sdext.presenter", "caught exception while getting configuration node " << sPathToNode << " : " << rException);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("sdext.presenter", "caught exception while getting configuration node " << sPathToNode << " : " << exceptionToString(ex));
     }
 
     return Any();
@@ -176,34 +177,34 @@ void PresenterConfigurationAccess::ForAll (
     const ::std::vector<OUString>& rArguments,
     const ItemProcessor& rProcessor)
 {
-    if (rxContainer.is())
+    if (!rxContainer.is())
+        return;
+
+    ::std::vector<Any> aValues(rArguments.size());
+    Sequence<OUString> aKeys (rxContainer->getElementNames());
+    for (sal_Int32 nItemIndex=0; nItemIndex<aKeys.getLength(); ++nItemIndex)
     {
-        ::std::vector<Any> aValues(rArguments.size());
-        Sequence<OUString> aKeys (rxContainer->getElementNames());
-        for (sal_Int32 nItemIndex=0; nItemIndex<aKeys.getLength(); ++nItemIndex)
+        bool bHasAllValues (true);
+        const OUString& rsKey (aKeys[nItemIndex]);
+        Reference<container::XNameAccess> xSetItem (rxContainer->getByName(rsKey), UNO_QUERY);
+        Reference<beans::XPropertySet> xSet (xSetItem, UNO_QUERY);
+        OSL_ASSERT(xSet.is());
+        if (xSetItem.is())
         {
-            bool bHasAllValues (true);
-            const OUString& rsKey (aKeys[nItemIndex]);
-            Reference<container::XNameAccess> xSetItem (rxContainer->getByName(rsKey), UNO_QUERY);
-            Reference<beans::XPropertySet> xSet (xSetItem, UNO_QUERY);
-            OSL_ASSERT(xSet.is());
-            if (xSetItem.is())
+            // Get from the current item of the container the children
+            // that match the names in the rArguments list.
+            for (size_t nValueIndex=0; nValueIndex<aValues.size(); ++nValueIndex)
             {
-                // Get from the current item of the container the children
-                // that match the names in the rArguments list.
-                for (size_t nValueIndex=0; nValueIndex<aValues.size(); ++nValueIndex)
-                {
-                    if ( ! xSetItem->hasByName(rArguments[nValueIndex]))
-                        bHasAllValues = false;
-                    else
-                        aValues[nValueIndex] = xSetItem->getByName(rArguments[nValueIndex]);
-                }
+                if ( ! xSetItem->hasByName(rArguments[nValueIndex]))
+                    bHasAllValues = false;
+                else
+                    aValues[nValueIndex] = xSetItem->getByName(rArguments[nValueIndex]);
             }
-            else
-                bHasAllValues = false;
-            if (bHasAllValues)
-                rProcessor(aValues);
         }
+        else
+            bHasAllValues = false;
+        if (bHasAllValues)
+            rProcessor(aValues);
     }
 }
 

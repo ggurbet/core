@@ -20,14 +20,7 @@
 #ifndef INCLUDED_TOOLKIT_AWT_VCLXTABPAGECONTAINER_HXX
 #define INCLUDED_TOOLKIT_AWT_VCLXTABPAGECONTAINER_HXX
 
-#include <toolkit/dllapi.h>
-#include <com/sun/star/beans/PropertyValues.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/beans/PropertyState.hpp>
-#include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <com/sun/star/container/XContainerListener.hpp>
-#include <toolkit/awt/vclxwindow.hxx>
 #include <com/sun/star/awt/tab/XTabPageContainer.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <toolkit/helper/listenermultiplexer.hxx>
@@ -46,9 +39,6 @@ public:
 
     // css::awt::XView
     void SAL_CALL draw( sal_Int32 nX, sal_Int32 nY ) override;
-
-    // css::awt::XDevice,
-    css::awt::DeviceInfo SAL_CALL getInfo() override;
 
     // css::awt::grid::XTabPageContainer
     virtual ::sal_Int16 SAL_CALL getActiveTabPageID() override;

@@ -490,7 +490,7 @@ SwCaptionOptPage::SwCaptionOptPage(TabPageParent pParent, const SfxItemSet& rSet
     m_xCategoryBox->connect_entry_insert_text(LINK(this, SwCaptionOptPage, TextFilterHdl));
 
     std::vector<int> aWidths;
-    aWidths.push_back(m_xCheckLB->get_approximate_digit_width() * 3 + 6);
+    aWidths.push_back(m_xCheckLB->get_checkbox_column_width());
     m_xCheckLB->set_column_fixed_widths(aWidths);
 
     SwStyleNameMapper::FillUIName(RES_POOLCOLL_LABEL_ABB, m_sIllustration);
@@ -616,16 +616,16 @@ void SwCaptionOptPage::Reset( const SfxItemSet* rSet)
     m_xCheckLB->clear();   // remove all entries
 
     // Writer objects
-    sal_uLong nPos = 0;
-    m_xCheckLB->insert(nullptr, -1, nullptr, nullptr, nullptr, nullptr, nullptr, false);
+    int nPos = 0;
+    m_xCheckLB->append();
     m_xCheckLB->set_toggle(nPos, false, 0);
     m_xCheckLB->set_text(nPos, m_sSWTable, 1);
     SetOptions(nPos++, TABLE_CAP);
-    m_xCheckLB->insert(nullptr, -1, nullptr, nullptr, nullptr, nullptr, nullptr, false);
+    m_xCheckLB->append();
     m_xCheckLB->set_toggle(nPos, false, 0);
     m_xCheckLB->set_text(nPos, m_sSWFrame, 1);
     SetOptions(nPos++, FRAME_CAP);
-    m_xCheckLB->insert(nullptr, -1, nullptr, nullptr, nullptr, nullptr, nullptr, false);
+    m_xCheckLB->append();
     m_xCheckLB->set_toggle(nPos, false, 0);
     m_xCheckLB->set_text(nPos, m_sSWGraphic, 1);
     SetOptions(nPos++, GRAPHIC_CAP);
@@ -650,7 +650,7 @@ void SwCaptionOptPage::Reset( const SfxItemSet* rSet)
             sClass = aObjS[i].GetHumanName();
         // don't show product version
         sClass = sClass.replaceFirst( sComplete, sWithoutVersion );
-        m_xCheckLB->insert(nullptr, -1, nullptr, nullptr, nullptr, nullptr, nullptr, false);
+        m_xCheckLB->append();
         m_xCheckLB->set_toggle(nPos, false, 0);
         m_xCheckLB->set_text(nPos, sClass, 1);
         SetOptions( nPos++, OLE_CAP, &rOleId );
@@ -658,7 +658,7 @@ void SwCaptionOptPage::Reset( const SfxItemSet* rSet)
     m_xLbCaptionOrder->set_active(
         SW_MOD()->GetModuleConfig()->IsCaptionOrderNumberingFirst() ? 1 : 0);
     m_xCheckLB->select(0);
-    UpdateEntry(0);
+    ShowEntryHdl(*m_xCheckLB);
 }
 
 void SwCaptionOptPage::SetOptions(const sal_uLong nPos,

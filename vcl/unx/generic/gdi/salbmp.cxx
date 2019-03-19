@@ -32,6 +32,7 @@
 #include <sal/log.hxx>
 
 #include <tools/helpers.hxx>
+#include <tools/debug.hxx>
 #include <vcl/bitmap.hxx>
 #include <vcl/salbtype.hxx>
 #include <com/sun/star/beans/XFastPropertySet.hpp>
@@ -63,7 +64,7 @@ std::shared_ptr<SalBitmap> X11SalInstance::CreateSalBitmap()
 }
 
 ImplSalBitmapCache* X11SalBitmap::mpCache = nullptr;
-sal_uLong           X11SalBitmap::mnCacheInstCount = 0;
+unsigned int        X11SalBitmap::mnCacheInstCount = 0;
 
 X11SalBitmap::X11SalBitmap()
     : mbGrey( false )

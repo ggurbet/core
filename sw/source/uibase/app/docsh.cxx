@@ -131,7 +131,6 @@
 
 #include <sal/log.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
-#include <o3tl/make_unique.hxx>
 #include <comphelper/processfactory.hxx>
 
 using namespace ::com::sun::star;
@@ -188,7 +187,7 @@ Reader* SwDocShell::StartConvertFrom(SfxMedium& rMedium, SwReaderPtr& rpRdr,
         return nullptr;
     }
     OUString aFileName( rMedium.GetName() );
-    SwRead pRead = SwReaderWriter::GetReader( pFlt->GetUserData() );
+    Reader* pRead = SwReaderWriter::GetReader( pFlt->GetUserData() );
     if( !pRead )
         return nullptr;
 
@@ -233,7 +232,7 @@ Reader* SwDocShell::StartConvertFrom(SfxMedium& rMedium, SwReaderPtr& rpRdr,
 bool SwDocShell::ConvertFrom( SfxMedium& rMedium )
 {
     SwReaderPtr pRdr;
-    SwRead pRead = StartConvertFrom(rMedium, pRdr);
+    Reader* pRead = StartConvertFrom(rMedium, pRdr);
     if (!pRead)
       return false; // #129881# return if no reader is found
     tools::SvRef<SotStorage> pStg=pRead->getSotStorageRef(); // #i45333# save sot storage ref in case of recursive calls
@@ -371,7 +370,7 @@ bool SwDocShell::Save()
     SetError(nErr ? nErr : nVBWarning);
 
     SfxViewFrame *const pFrame =
-        (m_pWrtShell) ? m_pWrtShell->GetView().GetViewFrame() : nullptr;
+        m_pWrtShell ? m_pWrtShell->GetView().GetViewFrame() : nullptr;
     if( pFrame )
     {
         pFrame->GetBindings().SetState(SfxBoolItem(SID_DOC_MODIFIED, false));
@@ -401,7 +400,7 @@ SwDocShell::LockAllViewsGuard::~LockAllViewsGuard()
 
 std::unique_ptr<SwDocShell::LockAllViewsGuard> SwDocShell::LockAllViews()
 {
-    return o3tl::make_unique<LockAllViewsGuard>(GetEditShell());
+    return std::make_unique<LockAllViewsGuard>(GetEditShell());
 }
 
 // Save using the Defaultformat
@@ -872,12 +871,12 @@ void SwDocShell::Draw( OutputDevice* pDev, const JobSetup& rSetup,
     // reconnect it after PrtOle2. We don't use an empty JobSetup because
     // that would only lead to questionable results after expensive
     // reformatting (Preview!)
-    JobSetup *pOrig = nullptr;
+    std::unique_ptr<JobSetup> pOrig;
     if ( !rSetup.GetPrinterName().isEmpty() && ASPECT_THUMBNAIL != nAspect )
     {
-        pOrig = const_cast<JobSetup*>(m_xDoc->getIDocumentDeviceAccess().getJobsetup());
-        if( pOrig )         // then we copy that
-            pOrig = new JobSetup( *pOrig );
+        const JobSetup* pCurrentJobSetup = m_xDoc->getIDocumentDeviceAccess().getJobsetup();
+        if( pCurrentJobSetup )         // then we copy that
+            pOrig.reset(new JobSetup( *pCurrentJobSetup ));
         m_xDoc->getIDocumentDeviceAccess().setJobsetup( rSetup );
     }
 
@@ -896,7 +895,6 @@ void SwDocShell::Draw( OutputDevice* pDev, const JobSetup& rSetup,
     if( pOrig )
     {
         m_xDoc->getIDocumentDeviceAccess().setJobsetup( *pOrig );
-        delete pOrig;
     }
     if ( bResetModified )
         EnableSetModified();

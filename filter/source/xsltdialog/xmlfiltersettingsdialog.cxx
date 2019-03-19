@@ -133,32 +133,6 @@ void XMLFilterSettingsDialog::dispose()
     ModelessDialog::dispose();
 }
 
-void XMLFilterSettingsDialog::incBusy()
-{
-    // lock any toplevel windows from being closed until busy is over
-    // ensure any dialogs are reset before entering
-    vcl::Window *xTopWin = Application::GetFirstTopLevelWindow();
-    while (xTopWin)
-    {
-        if (xTopWin != this)
-            xTopWin->IncModalCount();
-        xTopWin = Application::GetNextTopLevelWindow(xTopWin);
-    }
-}
-
-void XMLFilterSettingsDialog::decBusy()
-{
-    // unlock any toplevel windows from being closed until busy is over
-    // ensure any dialogs are reset before entering
-    vcl::Window *xTopWin = Application::GetFirstTopLevelWindow();
-    while (xTopWin)
-    {
-        if (xTopWin != this)
-            xTopWin->DecModalCount();
-        xTopWin = Application::GetNextTopLevelWindow(xTopWin);
-    }
-}
-
 IMPL_LINK(XMLFilterSettingsDialog, ClickHdl_Impl, Button *, pButton, void )
 {
     // tdf#122171 block closing libreoffice until the following dialog is dismissed
@@ -831,7 +805,7 @@ void XMLFilterSettingsDialog::onDelete()
                         PropertyValue* pValues = aValues.getArray();
                         sal_Int32 nValue;
 
-                        for( nValue = 0; (nValue < nValueCount) && !bTypeStillUsed; nValue++, pValues++ )
+                        for (nValue = 0; nValue < nValueCount; nValue++, pValues++)
                         {
                             if ( pValues->Name == "Type" )
                             {
@@ -897,7 +871,7 @@ void XMLFilterSettingsDialog::onSave()
     }
 
     // Open Fileopen-Dialog
-       ::sfx2::FileDialogHelper aDlg(
+    ::sfx2::FileDialogHelper aDlg(
         css::ui::dialogs::TemplateDescription::FILESAVE_AUTOEXTENSION,
         FileDialogFlags::NONE, GetFrameWeld());
 
@@ -942,9 +916,9 @@ void XMLFilterSettingsDialog::onOpen()
     std::vector< std::unique_ptr<filter_info_impl> > aFilters;
 
     // Open Fileopen-Dialog
-       ::sfx2::FileDialogHelper aDlg(
-        css::ui::dialogs::TemplateDescription::FILEOPEN_SIMPLE,
-        FileDialogFlags::NONE, GetFrameWeld());
+    ::sfx2::FileDialogHelper aDlg(
+    css::ui::dialogs::TemplateDescription::FILEOPEN_SIMPLE,
+    FileDialogFlags::NONE, GetFrameWeld());
 
     OUString aExtensions( "*.jar" );
     OUString aFilterName(XsltResId(STR_FILTER_PACKAGE));

@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-
 #include <sal/macros.h>
 #include <vcl/wrkwin.hxx>
 #include <vcl/timer.hxx>
@@ -73,14 +72,14 @@
 #include <cstdlib>
 #include <memory>
 
+#include <svx/xdef.hxx>
+#include <officecfg/Office/Common.hxx>
+
 using namespace com::sun::star::i18n;
 using namespace com::sun::star::uno;
 using namespace com::sun::star::accessibility;
 using namespace com::sun::star;
 using namespace comphelper;
-
-
-#define REMEMBER_SIZE       10
 
 enum class ModifyFlags {
     NONE         = 0x000000,
@@ -333,6 +332,9 @@ SvxSearchDialog::SvxSearchDialog( vcl::Window* pParent, SfxChildWindow* pChildWi
 
     // m_pSimilarityBtn->set_height_request(m_pSimilarityBox->get_preferred_size().Height());
     // m_pJapOptionsBtn->set_height_request(m_pJapOptionsCB->get_preferred_size().Height());
+
+    //tdf#122322
+    nRememberSize = officecfg::Office::Common::Misc::FindReplaceRememberedSearches::get();
 
     long nTermWidth = approximate_char_width() * 32;
     m_pSearchLB->set_width_request(nTermWidth);
@@ -1631,11 +1633,11 @@ void SvxSearchDialog::Remember_Impl( const OUString &rStr, bool _bSearch )
         return;
 
     // delete oldest entry at maximum occupancy (ListBox and Array)
-    if(REMEMBER_SIZE < pArr->size())
+    if(nRememberSize < pArr->size())
     {
-        pListBox->RemoveEntryAt(static_cast<sal_uInt16>(REMEMBER_SIZE - 1));
-        (*pArr)[REMEMBER_SIZE - 1] = rStr;
-        pArr->erase(pArr->begin() + REMEMBER_SIZE - 1);
+        pListBox->RemoveEntryAt(static_cast<sal_uInt16>(nRememberSize - 1));
+        (*pArr)[nRememberSize - 1] = rStr;
+        pArr->erase(pArr->begin() + nRememberSize - 1);
     }
 
     pArr->insert(pArr->begin(), rStr);
@@ -1999,23 +2001,16 @@ IMPL_LINK_NOARG(SvxSearchDialog, FormatHdl_Impl, Button*, void)
     if ( !pSh || !pImpl->pRanges )
         return;
 
-    std::vector<sal_uInt16> aWhRanges;
+    SfxItemPool& rPool = pSh->GetPool();
+    SfxItemSet aSet(rPool, pImpl->pRanges.get());
 
-    const sal_uInt16* pPtr = pImpl->pRanges.get();
-    while (*pPtr)
-    {
-        aWhRanges.push_back(*pPtr++);
-    }
-
-    aWhRanges.push_back(SID_ATTR_PARA_MODEL);
-    aWhRanges.push_back(SID_ATTR_PARA_MODEL);
+    aSet.MergeRange(SID_ATTR_PARA_MODEL, SID_ATTR_PARA_MODEL);
 
     sal_uInt16 nBrushWhich = pSh->GetPool().GetWhich(SID_ATTR_BRUSH);
-    aWhRanges.push_back(nBrushWhich);
-    aWhRanges.push_back(nBrushWhich);
-    aWhRanges.push_back(0);
-    SfxItemPool& rPool = pSh->GetPool();
-    SfxItemSet aSet(rPool, aWhRanges.data());
+    aSet.MergeRange(nBrushWhich, nBrushWhich);
+
+    aSet.MergeRange(XATTR_FILL_FIRST, XATTR_FILL_LAST);
+
     OUString aTxt;
 
     aSet.InvalidateAllItems();
@@ -2130,7 +2125,7 @@ IMPL_LINK_NOARG(SvxSearchDialog, AttributeHdl_Impl, Button*, void)
         return;
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSvxSearchAttributeDialog( this, *pSearchList, pImpl->pRanges.get() ));
+    ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSvxSearchAttributeDialog(GetFrameWeld(), *pSearchList, pImpl->pRanges.get()));
     executeSubDialog(pDlg.get());
     PaintAttrText_Impl();
 }

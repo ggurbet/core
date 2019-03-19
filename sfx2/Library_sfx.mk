@@ -169,7 +169,6 @@ $(eval $(call gb_Library_add_exception_objects,sfx,\
     sfx2/source/dialog/documentfontsdialog \
     sfx2/source/dialog/filedlghelper \
     sfx2/source/dialog/filtergrouping \
-    sfx2/source/dialog/itemconnect \
     sfx2/source/dialog/infobar \
     sfx2/source/dialog/inputdlg \
     sfx2/source/dialog/mailmodel \
@@ -227,6 +226,7 @@ $(eval $(call gb_Library_add_exception_objects,sfx,\
     sfx2/source/doc/docundomanager \
     sfx2/source/doc/sfxbasemodel \
     sfx2/source/doc/sfxmodelfactory \
+    sfx2/source/doc/SfxRedactionHelper \
     sfx2/source/doc/syspath \
     sfx2/source/doc/zoomitem \
     sfx2/source/doc/templatedlg \

@@ -241,10 +241,10 @@ bool ScDPColMembersOrder::operator()( sal_Int32 nIndex1, sal_Int32 nIndex2 ) con
 {
     const ScDPDataMember* pDataMember1 = rDimension.GetMember(nIndex1);
     const ScDPDataMember* pDataMember2 = rDimension.GetMember(nIndex2);
-        bool bHide1 = pDataMember1 && !pDataMember1->IsVisible();
-        bool bHide2 =  pDataMember2 && !pDataMember2->IsVisible();
-        if ( bHide1 || bHide2 )
-            return !bHide1;
+    bool bHide1 = pDataMember1 && !pDataMember1->IsVisible();
+    bool bHide2 =  pDataMember2 && !pDataMember2->IsVisible();
+    if ( bHide1 || bHide2 )
+        return !bHide1;
     return lcl_IsLess( pDataMember1, pDataMember2, nMeasure, bAscending );
 }
 
@@ -975,7 +975,7 @@ ScDPResultMember::~ScDPResultMember()
 
 OUString ScDPResultMember::GetName() const
 {
-  const ScDPMember* pMemberDesc = GetDPMember();
+    const ScDPMember* pMemberDesc = GetDPMember();
     if (pMemberDesc)
         return pMemberDesc->GetNameStr( false );
     else
@@ -1056,10 +1056,10 @@ void ScDPResultMember::InitFrom( const vector<ScDPDimension*>& ppDim, const vect
         {
             if (  ppDim[nPos]->getIsDataLayoutDimension() )
             {
-                 if ( !pChildDimension )
-                        pChildDimension.reset( new ScDPResultDimension( pResultData ) );
-                    pChildDimension->InitFrom( ppDim, ppLev, nPos, rInitState , false );
-                    return;
+                if ( !pChildDimension )
+                    pChildDimension.reset( new ScDPResultDimension( pResultData ) );
+                pChildDimension->InitFrom( ppDim, ppLev, nPos, rInitState , false );
+                return;
             }
             else
             { //find next dim
@@ -1227,7 +1227,7 @@ long ScDPResultMember::GetSubTotalCount( long* pUserSubStart ) const
     if ( pUserSubStart )
         *pUserSubStart = 0;     // default
 
-   const ScDPLevel* pParentLevel = GetParentLevel();
+    const ScDPLevel* pParentLevel = GetParentLevel();
 
     if ( bForceSubTotal )       // set if needed for root members
         return 1;               // grand total is always "automatic"
@@ -2715,15 +2715,11 @@ bool ScDPGroupCompare::TestIncluded( const ScDPMember& rMember )
         ScDPItemData aMemberData(rMember.FillItemData());
 
         const std::vector<ScDPInitState::Member>& rMemStates = rInitState.GetMembers();
-        std::vector<ScDPInitState::Member>::const_iterator it = rMemStates.begin(), itEnd = rMemStates.end();
-        for (; it != itEnd && bInclude; ++it)
-        {
-            if (pResultData->GetGroupBase(it->mnSrcIndex) == nDimSource)
-            {
-                bInclude = pResultData->IsInGroup(
-                    it->mnNameIndex, it->mnSrcIndex, aMemberData, nDimSource);
-            }
-        }
+        bInclude = std::all_of(rMemStates.begin(), rMemStates.end(),
+            [this, &aMemberData](const ScDPInitState::Member& rMem) {
+                return (pResultData->GetGroupBase(rMem.mnSrcIndex) != nDimSource)
+                    || pResultData->IsInGroup(rMem.mnNameIndex, rMem.mnSrcIndex, aMemberData, nDimSource);
+            });
     }
     else if ( nGroupBase >= 0 )
     {
@@ -2733,18 +2729,13 @@ bool ScDPGroupCompare::TestIncluded( const ScDPMember& rMember )
         //TODO: get array of groups (or indexes) before loop?
         ScDPItemData aMemberData(rMember.FillItemData());
         const std::vector<ScDPInitState::Member>& rMemStates = rInitState.GetMembers();
-        std::vector<ScDPInitState::Member>::const_iterator it = rMemStates.begin(), itEnd = rMemStates.end();
-        for (; it != itEnd && bInclude; ++it)
-        {
-            if (pResultData->GetGroupBase(it->mnSrcIndex) == nGroupBase)
-            {
+        bInclude = std::all_of(rMemStates.begin(), rMemStates.end(),
+            [this, &aMemberData](const ScDPInitState::Member& rMem) {
                 // coverity[copy_paste_error : FALSE] - same base (hierarchy between
                 // the two groups is irrelevant)
-                bInclude = pResultData->HasCommonElement(
-                    it->mnNameIndex, it->mnSrcIndex, aMemberData, nDimSource);
-            }
-
-        }
+                return (pResultData->GetGroupBase(rMem.mnSrcIndex) != nGroupBase)
+                    || pResultData->HasCommonElement(rMem.mnNameIndex, rMem.mnSrcIndex, aMemberData, nDimSource);
+            });
     }
 
     return bInclude;
@@ -2775,7 +2766,7 @@ ScDPResultMember *ScDPResultDimension::FindMember(  SCROW  iData ) const
 
     MemberHash::const_iterator aRes = maMemberHash.find( iData );
     if( aRes != maMemberHash.end()) {
-           if ( aRes->second->IsNamedItem( iData ) )
+        if ( aRes->second->IsNamedItem( iData ) )
             return aRes->second;
         OSL_FAIL("problem!  hash result is not the same as IsNamedItem");
     }
@@ -3482,10 +3473,9 @@ void ScDPResultDimension::Dump(int nIndent) const
 {
     std::string aIndent(nIndent*2, ' ');
     std::cout << aIndent << "-- dimension '" << GetName() << "'" << std::endl;
-    MemberArray::const_iterator it = maMemberArray.begin(), itEnd = maMemberArray.end();
-    for (; it != itEnd; ++it)
+    for (const auto& rxMember : maMemberArray)
     {
-        const ScDPResultMember* p = it->get();
+        const ScDPResultMember* p = rxMember.get();
         p->Dump(nIndent+1);
     }
 }
@@ -3518,11 +3508,9 @@ void ScDPResultDimension::FillVisibilityData(ScDPResultVisibilityData& rData) co
     if (IsDataLayout())
         return;
 
-    MemberArray::const_iterator itr = maMemberArray.begin(), itrEnd = maMemberArray.end();
-
-    for (;itr != itrEnd; ++itr)
+    for (const auto& rxMember : maMemberArray)
     {
-        ScDPResultMember* pMember = itr->get();
+        ScDPResultMember* pMember = rxMember.get();
         if (pMember->IsValid())
         {
             ScDPItemData aItem(pMember->FillItemData());
@@ -3863,9 +3851,8 @@ void ScDPDataDimension::Dump(int nIndent) const
     std::string aIndent(nIndent*2, ' ');
     std::cout << aIndent << "-- data dimension '"
         << (pResultDimension ? pResultDimension->GetName() : OUString()) << "'" << std::endl;
-    auto it = maMembers.begin(), itEnd = maMembers.end();
-    for (; it != itEnd; ++it)
-        (*it)->Dump(nIndent+1);
+    for (auto& rxMember : maMembers)
+        rxMember->Dump(nIndent+1);
 }
 #endif
 
@@ -3926,10 +3913,8 @@ void ScDPResultVisibilityData::fillFieldFilters(vector<ScDPFilteredCache::Criter
     }
 
     const ScDPDimensions* pDims = mpSource->GetDimensionsObject();
-    for (DimMemberType::const_iterator itr = maDimensions.begin(), itrEnd = maDimensions.end();
-          itr != itrEnd; ++itr)
+    for (const auto& [rDimName, rMem] : maDimensions)
     {
-        const OUString& rDimName = itr->first;
         ScDPFilteredCache::Criterion aCri;
         FieldNameMapType::const_iterator itrField = aFieldNames.find(rDimName);
         if (itrField == aFieldNames.end())
@@ -3943,11 +3928,8 @@ void ScDPResultVisibilityData::fillFieldFilters(vector<ScDPFilteredCache::Criter
         ScDPFilteredCache::GroupFilter* pGrpFilter =
             static_cast<ScDPFilteredCache::GroupFilter*>(aCri.mpFilter.get());
 
-        const VisibleMemberType& rMem = itr->second;
-        for (VisibleMemberType::const_iterator itrMem = rMem.begin(), itrMemEnd = rMem.end();
-              itrMem != itrMemEnd; ++itrMem)
+        for (const ScDPItemData& rMemItem : rMem)
         {
-            const ScDPItemData& rMemItem = *itrMem;
             pGrpFilter->addMatchItem(rMemItem);
         }
 
@@ -3968,8 +3950,8 @@ size_t ScDPResultVisibilityData::MemberHash::operator() (const ScDPItemData& r) 
 }
 SCROW ScDPResultMember::GetDataId( ) const
 {
- const ScDPMember*   pMemberDesc = GetDPMember();
-  if (pMemberDesc)
+    const ScDPMember*   pMemberDesc = GetDPMember();
+    if (pMemberDesc)
         return  pMemberDesc->GetItemDataId();
     return -1;
 }

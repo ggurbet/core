@@ -108,14 +108,6 @@ ODatabaseImportExport::ODatabaseImportExport( const ::dbtools::SharedConnection&
     ,m_bCheckOnly(false)
 {
     m_eDestEnc = osl_getThreadTextEncoding();
-    try
-    {
-        SvtSysLocale aSysLocale;
-        m_aLocale = aSysLocale.GetLanguageTag().getLocale();
-    }
-    catch(Exception&)
-    {
-    }
 }
 
 ODatabaseImportExport::~ODatabaseImportExport()
@@ -211,15 +203,6 @@ void ODatabaseImportExport::impl_initFromDescriptor( const ODataAccessDescriptor
     }
     else
         initialize();
-
-    try
-    {
-        SvtSysLocale aSysLocale;
-        m_aLocale = aSysLocale.GetLanguageTag().getLocale();
-    }
-    catch(Exception&)
-    {
-    }
 }
 
 void ODatabaseImportExport::initialize()
@@ -815,7 +798,6 @@ void OHTMLImportExport::WriteTables()
 
         // 2. and now the data
         Reference< XRowSet > xRowSet(m_xRow,UNO_QUERY);
-        sal_Int32 j=1;
         sal_Int32 kk=0;
         m_xResultSet->beforeFirst(); // set back before the first row
         while(m_xResultSet->next())
@@ -846,7 +828,6 @@ void OHTMLImportExport::WriteTables()
                 }
                 WriteCell(pFormat[i-1],pColWidth[i-1],nHeight,pHorJustify[i-1],aValue,OOO_STRING_SVTOOLS_HTML_tabledata);
             }
-            ++j;
             TAG_OFF_LF( OOO_STRING_SVTOOLS_HTML_tablerow );
         }
     }
@@ -939,7 +920,7 @@ void OHTMLImportExport::WriteCell( sal_Int32 nFormat, sal_Int32 nWidthPixel, sal
 void OHTMLImportExport::FontOn()
 {
 #if OSL_DEBUG_LEVEL > 0
-        m_bCheckFont = true;
+    m_bCheckFont = true;
 #endif
 
     // <FONT FACE="xxx">

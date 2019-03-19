@@ -60,7 +60,7 @@ public:
 
     mutable size_t mnRefCount;
 
-    ScTokenArray* mpCode;
+    std::unique_ptr<ScTokenArray> mpCode;
     ScFormulaCell *mpTopCell;
     SCROW mnLength; // How many of these do we have ?
     sal_Int32 mnWeight;
@@ -77,7 +77,7 @@ public:
     ~ScFormulaCellGroup();
 
     void setCode( const ScTokenArray& rCode );
-    void setCode( ScTokenArray* pCode );
+    void setCode( std::unique_ptr<ScTokenArray> pCode );
     void compileCode(
         ScDocument& rDoc, const ScAddress& rPos, formula::FormulaGrammar::Grammar eGram );
 
@@ -128,7 +128,9 @@ private:
     SvNumFormatType nFormatType      : 16;
     ScFormulaResult aResult;
     formula::FormulaGrammar::Grammar  eTempGrammar;   // used between string (creation) and (re)compilation
-    ScTokenArray*   pCode;              // The (new) token array
+    // If this cell is in a cell group (mxGroup!=nullptr), then this pCode is a not-owning pointer
+    // to the mxGroup's mpCode, which owns the array. If the cell is not in a group, this is an owning pointer.
+    ScTokenArray*   pCode;              // The token array
     ScDocument*     pDocument;
     ScFormulaCell*  pPrevious;
     ScFormulaCell*  pNext;
@@ -143,10 +145,12 @@ private:
 
     ScFormulaCell( const ScFormulaCell& ) = delete;
 
-    bool CheckComputeDependencies(sc::FormulaLogger::GroupScope& rScope, bool fromFirstRow = false);
+    bool CheckComputeDependencies(sc::FormulaLogger::GroupScope& rScope, bool fromFirstRow,
+                                  SCROW nStartOffset, SCROW nEndOffset);
     bool InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope& aScope,
                                         bool& bDependencyComputed,
-                                        bool& bDependencyCheckFailed);
+                                        bool& bDependencyCheckFailed,
+                                        SCROW nStartOffset, SCROW nEndOffset);
     bool InterpretFormulaGroupOpenCL(sc::FormulaLogger::GroupScope& aScope,
                                      bool& bDependencyComputed,
                                      bool& bDependencyCheckFailed);
@@ -181,7 +185,7 @@ public:
      * formula cell being constructed.  The caller <i>must not</i> pass a NULL
      * token array pointer.
      */
-    ScFormulaCell( ScDocument* pDoc, const ScAddress& rPos, ScTokenArray* pArray,
+    ScFormulaCell( ScDocument* pDoc, const ScAddress& rPos, std::unique_ptr<ScTokenArray> pArray,
                    const formula::FormulaGrammar::Grammar eGrammar = formula::FormulaGrammar::GRAM_DEFAULT,
                    ScMatrixMode cMatInd = ScMatrixMode::NONE );
 
@@ -248,7 +252,7 @@ public:
     void CompileXML( sc::CompileFormulaContext& rCxt, ScProgress& rProgress );        // compile temporary string tokens
     void CalcAfterLoad( sc::CompileFormulaContext& rCxt, bool bStartListening );
     bool            MarkUsedExternalReferences();
-    void            Interpret();
+    bool Interpret(SCROW nStartOffset = -1, SCROW nEndOffset = -1);
     bool IsIterCell() const { return bIsIterCell; }
     sal_uInt16 GetSeenInIteration() const { return nSeenInIteration; }
 
@@ -340,7 +344,7 @@ public:
     ScTokenArray*   GetCode() { return pCode;}
     const ScTokenArray* GetCode() const { return pCode;}
 
-    void SetCode( ScTokenArray* pNew );
+    void SetCode( std::unique_ptr<ScTokenArray> pNew );
 
     bool            IsRunning() const { return bRunning;}
     void            SetRunning( bool bVal );
@@ -433,13 +437,15 @@ public:
         return (pDocument->GetAutoCalc() || (cMatrixFlag != ScMatrixMode::NONE));
     }
 
-    void MaybeInterpret()
+    bool MaybeInterpret()
     {
         if (NeedsInterpret())
         {
             assert(!pDocument->IsThreadedGroupCalcInProgress());
             Interpret();
+            return true;
         }
+        return false;
     }
 
     /**
@@ -451,7 +457,7 @@ public:
 
     CompareState CompareByTokenArray( const ScFormulaCell& rOther ) const;
 
-    bool InterpretFormulaGroup();
+    bool InterpretFormulaGroup(SCROW nStartOffset = -1, SCROW nEndOffset = -1);
 
     // nOnlyNames may be one or more of SC_LISTENING_NAMES_*
     void StartListeningTo( ScDocument* pDoc );

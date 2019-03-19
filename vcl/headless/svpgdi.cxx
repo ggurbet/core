@@ -259,10 +259,6 @@ namespace
 #endif
             {
                 //big stupid copy here
-                static bool bWarnedOnce = false;
-                SAL_WARN_IF(!bWarnedOnce, "vcl.gdi", "non default depth bitmap, slow convert, upscale the input");
-                bWarnedOnce = true;
-
                 const BitmapBuffer* pSrc = rSrcBmp.GetBuffer();
                 const SalTwoRect aTwoRect = { 0, 0, pSrc->mnWidth, pSrc->mnHeight,
                                               0, 0, pSrc->mnWidth, pSrc->mnHeight };
@@ -603,8 +599,11 @@ SvpSalGraphics::SvpSalGraphics()
     , m_ePaintMode(PaintMode::Over)
     , m_aTextRenderImpl(*this)
 {
-    if (comphelper::LibreOfficeKit::isActive())
-        m_pWidgetDraw.reset(new vcl::CustomWidgetDraw(*this));
+    if (!initWidgetDrawBackends())
+    {
+        if (comphelper::LibreOfficeKit::isActive())
+            m_pWidgetDraw.reset(new vcl::CustomWidgetDraw(*this));
+    }
 }
 
 SvpSalGraphics::~SvpSalGraphics()
@@ -1628,10 +1627,11 @@ void SvpSalGraphics::drawBitmap(const SalTwoRect& rTR, const SalBitmap& rSourceB
     copySource(rTR, source);
 }
 
-void SvpSalGraphics::drawBitmap(const SalTwoRect& rTR, BitmapBuffer* pBuffer, cairo_operator_t eOp)
+void SvpSalGraphics::drawBitmap(const SalTwoRect& rTR, const BitmapBuffer* pBuffer, cairo_operator_t eOp)
 {
     cairo_surface_t* source = createCairoSurface( pBuffer );
     copyWithOperator(rTR, source, eOp);
+    cairo_surface_destroy(source);
 }
 
 void SvpSalGraphics::drawBitmap( const SalTwoRect& rTR,
@@ -1888,7 +1888,7 @@ void SvpSalGraphics::invert(sal_uInt32 nPoints, const SalPoint* pPtAry, SalInver
     invert(aPoly, nFlags);
 }
 
-bool SvpSalGraphics::drawEPS( long, long, long, long, void*, sal_uLong )
+bool SvpSalGraphics::drawEPS( long, long, long, long, void*, sal_uInt32 )
 {
     return false;
 }

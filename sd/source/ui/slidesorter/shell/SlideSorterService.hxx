@@ -20,18 +20,14 @@
 #ifndef INCLUDED_SD_SOURCE_UI_SLIDESORTER_SHELL_SLIDESORTERSERVICE_HXX
 #define INCLUDED_SD_SOURCE_UI_SLIDESORTER_SHELL_SLIDESORTERSERVICE_HXX
 
-#include <SlideSorter.hxx>
-
-#include <tools/PropertySet.hxx>
 #include <com/sun/star/awt/XWindowListener.hpp>
-#include <com/sun/star/drawing/SlideSorter.hpp>
-#include <com/sun/star/drawing/XDrawView.hpp>
-#include <com/sun/star/drawing/framework/XView.hpp>
+#include <com/sun/star/drawing/XSlideSorterBase.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <cppuhelper/basemutex.hxx>
 #include <cppuhelper/compbase.hxx>
-#include <cppuhelper/propshlp.hxx>
 #include <memory>
+
+namespace com { namespace sun { namespace star { namespace awt { class XWindow; } } } }
 
 namespace sd { namespace slidesorter {
 
@@ -40,6 +36,8 @@ typedef ::cppu::WeakComponentImplHelper <
     css::lang::XInitialization,
     css::awt::XWindowListener
 > SlideSorterServiceInterfaceBase;
+
+class SlideSorter;
 
 /** Implementation of the com.sun.star.drawing.SlideSorter service.
 */
@@ -116,21 +114,21 @@ public:
 
     virtual void SAL_CALL setIsSmoothScrolling (sal_Bool bIsOrientationVertical) override;
 
-    virtual css::util::Color SAL_CALL getBackgroundColor() override;
+    virtual sal_Int32 SAL_CALL getBackgroundColor() override;
 
-    virtual void SAL_CALL setBackgroundColor (css::util::Color aBackgroundColor) override;
+    virtual void SAL_CALL setBackgroundColor (sal_Int32 aBackgroundColor) override;
 
-    virtual css::util::Color SAL_CALL getTextColor() override;
+    virtual sal_Int32 SAL_CALL getTextColor() override;
 
-    virtual void SAL_CALL setTextColor (css::util::Color aTextColor) override;
+    virtual void SAL_CALL setTextColor (sal_Int32 aTextColor) override;
 
-    virtual css::util::Color SAL_CALL getSelectionColor() override;
+    virtual sal_Int32 SAL_CALL getSelectionColor() override;
 
-    virtual void SAL_CALL setSelectionColor (css::util::Color aSelectionColor) override;
+    virtual void SAL_CALL setSelectionColor (sal_Int32 aSelectionColor) override;
 
-    virtual css::util::Color SAL_CALL getHighlightColor() override;
+    virtual sal_Int32 SAL_CALL getHighlightColor() override;
 
-    virtual void SAL_CALL setHighlightColor (css::util::Color aHighlightColor) override;
+    virtual void SAL_CALL setHighlightColor (sal_Int32 aHighlightColor) override;
 
     virtual sal_Bool SAL_CALL getIsUIReadOnly() override;
 

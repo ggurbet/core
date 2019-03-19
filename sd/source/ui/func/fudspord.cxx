@@ -20,7 +20,7 @@
 #include <fudspord.hxx>
 
 #include <svx/svxids.hrc>
-#include <vcl/pointr.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <app.hrc>
 #include <fupoor.hxx>
@@ -34,6 +34,7 @@ namespace sd {
 
 FuDisplayOrder::FuDisplayOrder( ViewShell* pViewSh, ::sd::Window* pWin, ::sd::View* pView, SdDrawDocument* pDoc, SfxRequest& rReq)
 : FuPoor(pViewSh, pWin, pView, pDoc, rReq)
+, maPtr(PointerStyle::Arrow)
 , mpRefObj(nullptr)
 {
 }
@@ -119,7 +120,7 @@ bool FuDisplayOrder::MouseButtonUp(const MouseEvent& rMEvt)
 void FuDisplayOrder::Activate()
 {
     maPtr = mpWindow->GetPointer();
-    mpWindow->SetPointer( Pointer( PointerStyle::RefHand ) );
+    mpWindow->SetPointer( PointerStyle::RefHand );
 }
 
 void FuDisplayOrder::Deactivate()

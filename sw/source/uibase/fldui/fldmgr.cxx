@@ -470,24 +470,24 @@ SwField* SwFieldMgr::GetCurField()
 // provide group range
 const SwFieldGroupRgn& SwFieldMgr::GetGroupRange(bool bHtmlMode, sal_uInt16 nGrpId)
 {
-static SwFieldGroupRgn const aRanges[] =
-{
-    { /* Document   */  GRP_DOC_BEGIN,  GRP_DOC_END },
-    { /* Functions  */  GRP_FKT_BEGIN,  GRP_FKT_END },
-    { /* Cross-Refs */  GRP_REF_BEGIN,  GRP_REF_END },
-    { /* DocInfos   */  GRP_REG_BEGIN,  GRP_REG_END },
-    { /* Database   */  GRP_DB_BEGIN,   GRP_DB_END  },
-    { /* User       */  GRP_VAR_BEGIN,  GRP_VAR_END }
-};
-static SwFieldGroupRgn const aWebRanges[] =
-{
-    { /* Document    */  GRP_WEB_DOC_BEGIN,  GRP_WEB_DOC_END },
-    { /* Functions   */  GRP_WEB_FKT_BEGIN,  GRP_WEB_FKT_END },
-    { /* Cross-Refs  */  GRP_WEB_REF_BEGIN,  GRP_WEB_REF_END },
-    { /* DocInfos    */  GRP_WEB_REG_BEGIN,  GRP_WEB_REG_END },
-    { /* Database    */  GRP_WEB_DB_BEGIN,   GRP_WEB_DB_END  },
-    { /* User        */  GRP_WEB_VAR_BEGIN,  GRP_WEB_VAR_END }
-};
+    static SwFieldGroupRgn const aRanges[] =
+    {
+        { /* Document   */  GRP_DOC_BEGIN,  GRP_DOC_END },
+        { /* Functions  */  GRP_FKT_BEGIN,  GRP_FKT_END },
+        { /* Cross-Refs */  GRP_REF_BEGIN,  GRP_REF_END },
+        { /* DocInfos   */  GRP_REG_BEGIN,  GRP_REG_END },
+        { /* Database   */  GRP_DB_BEGIN,   GRP_DB_END  },
+        { /* User       */  GRP_VAR_BEGIN,  GRP_VAR_END }
+    };
+    static SwFieldGroupRgn const aWebRanges[] =
+    {
+        { /* Document    */  GRP_WEB_DOC_BEGIN,  GRP_WEB_DOC_END },
+        { /* Functions   */  GRP_WEB_FKT_BEGIN,  GRP_WEB_FKT_END },
+        { /* Cross-Refs  */  GRP_WEB_REF_BEGIN,  GRP_WEB_REF_END },
+        { /* DocInfos    */  GRP_WEB_REG_BEGIN,  GRP_WEB_REG_END },
+        { /* Database    */  GRP_WEB_DB_BEGIN,   GRP_WEB_DB_END  },
+        { /* User        */  GRP_WEB_VAR_BEGIN,  GRP_WEB_VAR_END }
+    };
 
     if (bHtmlMode)
         return aWebRanges[nGrpId];
@@ -1182,10 +1182,11 @@ bool SwFieldMgr::InsertField(
             }
             else
             {
-                aDBData.sDataSource = rData.m_sPar1.getToken(0, DB_DELIM);
-                aDBData.sCommand = rData.m_sPar1.getToken(1, DB_DELIM);
-                aDBData.nCommandType = rData.m_sPar1.getToken(2, DB_DELIM).toInt32();
-                sPar1 = rData.m_sPar1.getToken(3, DB_DELIM);
+                sal_Int32 nIdx{ 0 };
+                aDBData.sDataSource = rData.m_sPar1.getToken(0, DB_DELIM, nIdx);
+                aDBData.sCommand = rData.m_sPar1.getToken(0, DB_DELIM, nIdx);
+                aDBData.nCommandType = rData.m_sPar1.getToken(0, DB_DELIM, nIdx).toInt32();
+                sPar1 = rData.m_sPar1.getToken(0, DB_DELIM, nIdx);
             }
 
             if(!aDBData.sDataSource.isEmpty() && pCurShell->GetDBData() != aDBData)
@@ -1469,8 +1470,8 @@ bool SwFieldMgr::InsertField(
             const sal_Int32 nTokenCount = comphelper::string::getTokenCount(rData.m_sPar2, DB_DELIM);
             Sequence<OUString> aEntries(nTokenCount);
             OUString* pArray = aEntries.getArray();
-            for(sal_Int32 nToken = 0; nToken < nTokenCount; nToken++)
-                pArray[nToken] = rData.m_sPar2.getToken(nToken, DB_DELIM);
+            for(sal_Int32 nToken = 0, nIdx = 0; nToken < nTokenCount; nToken++)
+                pArray[nToken] = rData.m_sPar2.getToken(0, DB_DELIM, nIdx);
             static_cast<SwDropDownField*>(pField.get())->SetItems(aEntries);
             static_cast<SwDropDownField*>(pField.get())->SetName(rData.m_sPar1);
         }
@@ -1641,8 +1642,8 @@ void SwFieldMgr::UpdateCurField(sal_uInt32 nFormat,
             sal_Int32 nTokenCount = comphelper::string::getTokenCount(sPar2, DB_DELIM);
             Sequence<OUString> aEntries(nTokenCount);
             OUString* pArray = aEntries.getArray();
-            for(sal_Int32 nToken = 0; nToken < nTokenCount; nToken++)
-                pArray[nToken] = sPar2.getToken(nToken, DB_DELIM);
+            for(sal_Int32 nToken = 0, nIdx = 0; nToken < nTokenCount; nToken++)
+                pArray[nToken] = sPar2.getToken(0, DB_DELIM, nIdx);
             static_cast<SwDropDownField*>(pTmpField.get())->SetItems(aEntries);
             static_cast<SwDropDownField*>(pTmpField.get())->SetName(rPar1);
             bSetPar1 = bSetPar2 = false;
@@ -1653,17 +1654,17 @@ void SwFieldMgr::UpdateCurField(sal_uInt32 nFormat,
             //#i99069# changes to a bibliography field should change the field type
             SwAuthorityField* pAuthorityField = static_cast<SwAuthorityField*>(pTmpField.get());
             SwAuthorityFieldType* pAuthorityType = static_cast<SwAuthorityFieldType*>(pType);
-            SwAuthEntry aTempEntry;
-            for( sal_uInt16 i = 0; i < AUTH_FIELD_END; ++i )
-                aTempEntry.SetAuthorField( static_cast<ToxAuthorityField>(i),
-                                rPar1.getToken( i, TOX_STYLE_DELIMITER ));
-            if( pAuthorityType->ChangeEntryContent( &aTempEntry ) )
+            rtl::Reference<SwAuthEntry> xTempEntry(new SwAuthEntry);
+            for( sal_Int32 i = 0, nIdx = 0; i < AUTH_FIELD_END; ++i )
+                xTempEntry->SetAuthorField( static_cast<ToxAuthorityField>(i),
+                                rPar1.getToken( 0, TOX_STYLE_DELIMITER, nIdx ));
+            if( pAuthorityType->ChangeEntryContent( xTempEntry.get() ) )
             {
                 pType->UpdateFields();
                 pSh->SetModified();
             }
 
-            if( aTempEntry.GetAuthorField( AUTH_FIELD_IDENTIFIER ) ==
+            if( xTempEntry->GetAuthorField( AUTH_FIELD_IDENTIFIER ) ==
                 pAuthorityField->GetFieldText( AUTH_FIELD_IDENTIFIER ) )
                 bSetPar1 = false; //otherwise it's a new or changed entry, the field needs to be updated
             bSetPar2 = false;
@@ -1781,12 +1782,12 @@ void SwFieldType::GetFieldName_()
     }
 }
 
-bool SwFieldMgr::ChooseMacro()
+bool SwFieldMgr::ChooseMacro(weld::Window* pDialogParent)
 {
     bool bRet = false;
 
     // choose script dialog
-    OUString aScriptURL = SfxApplication::ChooseScript();
+    OUString aScriptURL = SfxApplication::ChooseScript(pDialogParent);
 
     // the script selector dialog returns a valid script URL
     if ( !aScriptURL.isEmpty() )

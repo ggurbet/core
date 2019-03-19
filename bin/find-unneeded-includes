@@ -41,10 +41,12 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
     # Avoid debug STL.
     debugStl = {
         "array": "debug/array",
+        "bitset": "debug/bitset",
         "deque": "debug/deque",
         "list": "debug/list",
         "map": "debug/map.h",
         "set": "debug/set.h",
+        "set": "debug/multiset.h",
         "unordered_map": "debug/unordered_map",
         "unordered_set": "debug/unordered_set",
         "vector": "debug/vector",
@@ -58,6 +60,7 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
         "exception": "bits/exception.h",
         "memory": "bits/shared_ptr.h",
         "functional": "bits/std_function.h",
+        "cmath": "bits/std_abs.h"
     }
     for k, v in bits.items():
         if include == k and v in toAdd:
@@ -66,6 +69,7 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
     # Avoid proposing o3tl fw declaration
     o3tl = {
         "o3tl/typed_flags_set.hxx" : "namespace o3tl { template <typename T> struct typed_flags; }",
+        "o3tl/deleter.hxx" : "namespace o3tl { template <typename T> struct default_delete; }",
     }
     for k, v, in o3tl.items():
         if include == k and v in toAdd:
@@ -110,6 +114,11 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
         return True
 
     fileName = os.path.relpath(absFileName, os.getcwd())
+
+    # Skip headers used only for compile test
+    if fileName == "cppu/qa/cppumaker/test_cppumaker.cxx":
+        if include.endswith(".hpp"):
+            return True
 
     # yaml rules
 

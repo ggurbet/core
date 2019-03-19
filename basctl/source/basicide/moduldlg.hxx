@@ -123,9 +123,6 @@ public:
     SvTreeListEntry*    DoInsertEntry( const OUString& rStr, sal_uLong nPos = LISTBOX_APPEND );
     SvTreeListEntry*    FindEntry( const OUString& rName );
 
-    void            CheckEntryPos( sal_uLong nPos );
-    bool            IsChecked( sal_uLong nPos ) const;
-
     virtual void    InitEntry(SvTreeListEntry*, const OUString&, const Image&, const Image&, SvLBoxButtonKind eButtonKind) override;
     virtual bool    EditingEntry( SvTreeListEntry* pEntry, Selection& rSel ) override;
     virtual bool    EditedEntry( SvTreeListEntry* pEntry, const OUString& rNewText ) override;
@@ -135,26 +132,25 @@ public:
     void            SetMode(ObjectMode);
 };
 
-class LibDialog: public ModalDialog
+class LibDialog : public weld::GenericDialogController
 {
 private:
-    VclPtr<VclFrame>       m_pStorageFrame;
-    VclPtr<CheckBox>       m_pLibBox;
-    VclPtr< ::CheckBox>       m_pReferenceBox;
-    VclPtr< ::CheckBox>       m_pReplaceBox;
+    std::unique_ptr<weld::Frame> m_xStorageFrame;
+    std::unique_ptr<weld::TreeView> m_xLibBox;
+    std::unique_ptr<weld::CheckButton> m_xReferenceBox;
+    std::unique_ptr<weld::CheckButton> m_xReplaceBox;
 
 public:
-    explicit LibDialog(vcl::Window* pParent);
+    explicit LibDialog(weld::Window* pParent);
     virtual ~LibDialog() override;
-    virtual void dispose() override;
 
     void            SetStorageName( const OUString& rName );
 
-    CheckBox&       GetLibBox()                 { return *m_pLibBox; }
-    bool            IsReference() const         { return m_pReferenceBox->IsChecked(); }
-    bool            IsReplace() const           { return m_pReplaceBox->IsChecked(); }
+    weld::TreeView& GetLibBox()                 { return *m_xLibBox; }
+    bool            IsReference() const         { return m_xReferenceBox->get_active(); }
+    bool            IsReplace() const           { return m_xReplaceBox->get_active(); }
 
-    void            EnableReference (bool b)    { m_pReferenceBox->Enable(b); }
+    void            EnableReference (bool b)    { m_xReferenceBox->set_sensitive(b); }
 };
 
 class OrganizeDialog : public TabDialog

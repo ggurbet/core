@@ -8,8 +8,11 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/beans/xpropertyset.hxx>
+#include <test/lang/xserviceinfo.hxx>
 #include <test/sheet/tablevalidation.hxx>
 #include <test/sheet/xsheetcondition.hxx>
+#include <test/sheet/xmultiformulatokens.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
@@ -18,10 +21,10 @@
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/sheet/XSpreadsheets.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
+#include <com/sun/star/uno/XInterface.hpp>
 
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
-#include <com/sun/star/uno/XInterface.hpp>
 
 using namespace css;
 using namespace css::uno;
@@ -31,6 +34,9 @@ namespace sc_apitest
 {
 class ScTableValidationObj : public CalcUnoApiTest,
                              public apitest::TableValidation,
+                             public apitest::XMultiFormulaTokens,
+                             public apitest::XPropertySet,
+                             public apitest::XServiceInfo,
                              public apitest::XSheetCondition
 {
 public:
@@ -44,6 +50,22 @@ public:
 
     // TableValidation
     CPPUNIT_TEST(testTableValidationProperties);
+
+    // XMultiFormulaTokens
+    CPPUNIT_TEST(testGetCount);
+    CPPUNIT_TEST(testGetSetTokens);
+
+    // XPropertySet
+    CPPUNIT_TEST(testGetPropertySetInfo);
+    CPPUNIT_TEST(testSetPropertyValue);
+    CPPUNIT_TEST(testGetPropertyValue);
+    CPPUNIT_TEST(testPropertyChangeListener);
+    CPPUNIT_TEST(testVetoableChangeListener);
+
+    // XServiceInfo
+    CPPUNIT_TEST(testGetImplementationName);
+    CPPUNIT_TEST(testGetSupportedServiceNames);
+    CPPUNIT_TEST(testSupportsService);
 
     // XSheetCondition
     CPPUNIT_TEST(testGetSetFormula1);
@@ -59,6 +81,8 @@ private:
 
 ScTableValidationObj::ScTableValidationObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XPropertySet({ "Type", "ErrorAlertStyle" })
+    , XServiceInfo("ScTableValidationObj", "com.sun.star.sheet.TableValidation")
 {
 }
 
@@ -95,7 +119,7 @@ void ScTableValidationObj::tearDown()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScTableValidationObj);
 
-} // end namespace
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

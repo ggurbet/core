@@ -646,9 +646,9 @@ void SwTextPaintInfo::DrawText_( const OUString &rText, const SwLinePortion &rPo
     aDrawInf.SetSnapToGrid( SnapToGrid() );
     // for underlining we must know when not to add extra space behind
     // a character in justified mode
-    aDrawInf.SetSpaceStop( ! rPor.GetPortion() ||
-                             rPor.GetPortion()->InFixMargGrp() ||
-                             rPor.GetPortion()->IsHolePortion() );
+    aDrawInf.SetSpaceStop( ! rPor.GetNextPortion() ||
+                             rPor.GetNextPortion()->InFixMargGrp() ||
+                             rPor.GetNextPortion()->IsHolePortion() );
 
     // Draw text next to the left border
     Point aFontPos(aPos);
@@ -778,10 +778,19 @@ void SwTextPaintInfo::CalcRect( const SwLinePortion& rPor,
         const bool bJoinWithNext =
             static_cast<const SwTextPortion&>(rPor).GetJoinBorderWithNext();
         const bool bIsVert = GetTextFrame()->IsVertical();
-        aRect.Top(aRect.Top() + GetFont()->CalcShadowSpace(SvxShadowItemSide::TOP, bIsVert, bJoinWithPrev, bJoinWithNext ));
-        aRect.Bottom(aRect.Bottom() - GetFont()->CalcShadowSpace(SvxShadowItemSide::BOTTOM, bIsVert, bJoinWithPrev, bJoinWithNext ));
-        aRect.Left(aRect.Left() + GetFont()->CalcShadowSpace(SvxShadowItemSide::LEFT, bIsVert, bJoinWithPrev, bJoinWithNext ));
-        aRect.Right(aRect.Right() - GetFont()->CalcShadowSpace(SvxShadowItemSide::RIGHT, bIsVert, bJoinWithPrev, bJoinWithNext ));
+        const bool bIsVertLRBT = GetTextFrame()->IsVertLRBT();
+        aRect.Top(aRect.Top()
+                  + GetFont()->CalcShadowSpace(SvxShadowItemSide::TOP, bIsVert, bIsVertLRBT,
+                                               bJoinWithPrev, bJoinWithNext));
+        aRect.Bottom(aRect.Bottom()
+                     - GetFont()->CalcShadowSpace(SvxShadowItemSide::BOTTOM, bIsVert, bIsVertLRBT,
+                                                  bJoinWithPrev, bJoinWithNext));
+        aRect.Left(aRect.Left()
+                   + GetFont()->CalcShadowSpace(SvxShadowItemSide::LEFT, bIsVert, bIsVertLRBT,
+                                                bJoinWithPrev, bJoinWithNext));
+        aRect.Right(aRect.Right()
+                    - GetFont()->CalcShadowSpace(SvxShadowItemSide::RIGHT, bIsVert, bIsVertLRBT,
+                                                 bJoinWithPrev, bJoinWithNext));
     }
 
     if ( pRect )
@@ -1201,7 +1210,7 @@ void SwTextPaintInfo::DrawBackBrush( const SwLinePortion &rPor ) const
                         }
                     }
                     nIdx += nLen;
-                    pPos = pPos->GetPortion();
+                    pPos = pPos->GetNextPortion();
                 } while ( pPos );
 
             drawcontinue:
@@ -1263,40 +1272,39 @@ void SwTextPaintInfo::DrawBorder( const SwLinePortion &rPor ) const
     CalcRect( rPor, &aDrawArea );
     if ( aDrawArea.HasArea() )
     {
-        PaintCharacterBorder(
-            *m_pFnt, aDrawArea, GetTextFrame()->IsVertical(),
-            rPor.GetJoinBorderWithPrev(), rPor.GetJoinBorderWithNext());
+        PaintCharacterBorder(*m_pFnt, aDrawArea, GetTextFrame()->IsVertical(),
+                             GetTextFrame()->IsVertLRBT(), rPor.GetJoinBorderWithPrev(),
+                             rPor.GetJoinBorderWithNext());
     }
 }
 
 void SwTextPaintInfo::DrawViewOpt( const SwLinePortion &rPor,
-                                  const sal_uInt16 nWhich ) const
+                                   PortionType nWhich ) const
 {
     if( OnWin() && !IsMulti() )
     {
         bool bDraw = false;
         switch( nWhich )
         {
-        case POR_FTN:
-        case POR_QUOVADIS:
-        case POR_NUMBER:
-        case POR_FLD:
-        case POR_URL:
-        case POR_HIDDEN:
-        case POR_TOX:
-        case POR_REF:
-        case POR_META:
-        case POR_CONTROLCHAR:
+        case PortionType::Footnote:
+        case PortionType::QuoVadis:
+        case PortionType::Number:
+        case PortionType::Field:
+        case PortionType::Hidden:
+        case PortionType::Tox:
+        case PortionType::Ref:
+        case PortionType::Meta:
+        case PortionType::ControlChar:
             if ( !GetOpt().IsPagePreview()
                  && !GetOpt().IsReadonly()
                  && SwViewOption::IsFieldShadings()
-                 && ( POR_NUMBER != nWhich
+                 && ( PortionType::Number != nWhich
                       || m_pFrame->GetTextNodeForParaProps()->HasMarkedLabel())) // #i27615#
             {
                 bDraw = true;
             }
             break;
-        case POR_INPUTFLD:
+        case PortionType::InputField:
             // input field shading also in read-only mode
             if ( !GetOpt().IsPagePreview()
                  && SwViewOption::IsFieldShadings() )
@@ -1304,13 +1312,13 @@ void SwTextPaintInfo::DrawViewOpt( const SwLinePortion &rPor,
                 bDraw = true;
             }
             break;
-        case POR_TAB:
+        case PortionType::Table:
             if ( GetOpt().IsTab() )     bDraw = true;
             break;
-        case POR_SOFTHYPH:
+        case PortionType::SoftHyphen:
             if ( GetOpt().IsSoftHyph() )bDraw = true;
             break;
-        case POR_BLANK:
+        case PortionType::Blank:
             if ( GetOpt().IsHardBlank())bDraw = true;
             break;
         default:
@@ -1413,7 +1421,7 @@ void SwTextFormatInfo::CtorInitTextFormatInfo( OutputDevice* pRenderContext, SwT
         // set digit mode to what will be used later to get same results
         SwDigitModeModifier const m(*m_pRef, LANGUAGE_NONE /*dummy*/);
         assert(m_pRef->GetDigitLanguage() != LANGUAGE_NONE);
-        SetCachedVclData(m_pRef->CreateTextLayoutCache(*m_pText));
+        SetCachedVclData(OutputDevice::CreateTextLayoutCache(*m_pText));
     }
 
     Init();
@@ -1556,7 +1564,7 @@ SwTextFormatInfo::SwTextFormatInfo( const SwTextFormatInfo& rInf,
 bool SwTextFormatInfo::CheckFootnotePortion_( SwLineLayout const * pCurr )
 {
     const sal_uInt16 nHeight = pCurr->GetRealHeight();
-    for( SwLinePortion *pPor = pCurr->GetPortion(); pPor; pPor = pPor->GetPortion() )
+    for( SwLinePortion *pPor = pCurr->GetNextPortion(); pPor; pPor = pPor->GetNextPortion() )
     {
         if( pPor->IsFootnotePortion() && nHeight > static_cast<SwFootnotePortion*>(pPor)->Orig() )
         {
@@ -1679,7 +1687,7 @@ bool SwTextFormatInfo::LastKernPortion()
             pKern = pPor;
         else if( pPor->Width() || ( pPor->GetLen() && !pPor->IsHolePortion() ) )
             pKern = nullptr;
-        pPor = pPor->GetPortion();
+        pPor = pPor->GetNextPortion();
     }
     if( pKern )
     {

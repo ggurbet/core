@@ -37,6 +37,7 @@ class QWidget;
 class Qt5MainWindow;
 class Qt5DragSource;
 class Qt5DropTarget;
+class QMimeData;
 class QPaintDevice;
 class QScreen;
 class QImage;
@@ -80,6 +81,7 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
     bool m_bDefaultSize;
     bool m_bDefaultPos;
     bool m_bFullScreen;
+    QRect m_aRestoreGeometry;
 
     void Center();
     Size CalcDefaultSize();
@@ -100,15 +102,15 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
     QScreen* screen() const;
     bool isMinimized() const;
     bool isMaximized() const;
+    void SetWindowStateImpl(Qt::WindowStates eState);
 
     void TriggerPaintEvent();
     void TriggerPaintEvent(QRect aRect);
 
-private Q_SLOTS:
+private:
     void setVisible(bool);
 
 Q_SIGNALS:
-    void setVisibleSignal(bool);
     void tooltipRequest(const OUString& rTooltip);
 
 public:
@@ -136,8 +138,9 @@ public:
     virtual void deregisterDragSource(Qt5DragSource const* pDragSource);
     virtual void registerDropTarget(Qt5DropTarget* pDropTarget);
     virtual void deregisterDropTarget(Qt5DropTarget const* pDropTarget);
-    void draggingStarted(const int x, const int y);
-    void dropping(const int x, const int y);
+    void draggingStarted(const int x, const int y, Qt::DropActions eActions,
+                         const QMimeData* pQMimeData);
+    void dropping(const int x, const int y, const QMimeData* pQMimeData);
 
     virtual void SetExtendedFrameStyle(SalExtStyle nExtStyle) override;
     virtual void Show(bool bVisible, bool bNoActivate = false) override;
@@ -177,7 +180,7 @@ public:
     virtual void SetParent(SalFrame* pNewParent) override;
     virtual bool SetPluginParent(SystemParentData* pNewParent) override;
     virtual void ResetClipRegion() override;
-    virtual void BeginSetClipRegion(sal_uLong nRects) override;
+    virtual void BeginSetClipRegion(sal_uInt32 nRects) override;
     virtual void UnionClipRegion(long nX, long nY, long nWidth, long nHeight) override;
     virtual void EndSetClipRegion() override;
 

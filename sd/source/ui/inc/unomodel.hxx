@@ -43,6 +43,7 @@
 
 #include <comphelper/servicehelper.hxx>
 #include <cppuhelper/implbase.hxx>
+#include <cppuhelper/weakref.hxx>
 #include <sddllapi.h>
 
 namespace com { namespace sun { namespace star { namespace container { class XNameContainer; } } } }
@@ -259,7 +260,7 @@ public:
     /// @see vcl::ITiledRenderable::isMimeTypeSupported().
     virtual bool isMimeTypeSupported() override;
     /// @see vcl::ITiledRenderable::getPointer().
-    virtual Pointer getPointer() override;
+    virtual PointerStyle getPointer() override;
     /// @see vcl::ITiledRenderable::getPostIts().
     virtual OUString getPostIts() override;
 

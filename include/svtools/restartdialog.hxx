@@ -12,8 +12,9 @@
 
 #include <sal/config.h>
 
-#include <com/sun/star/uno/Reference.hxx>
 #include <svtools/svtdllapi.h>
+
+namespace com :: sun :: star :: uno { template <typename > class Reference; }
 
 namespace weld { class Window; }
 namespace com { namespace sun { namespace star { namespace uno {
@@ -59,6 +60,9 @@ enum RestartReason {
     // For the OpenCL changes to take effect,
     // %PRODUCTNAME must be restarted:
     RESTART_REASON_OPENCL,
+    // For restructuring the Forms menu,
+    // %PRODUCTNAME must be restarted:
+    RESTART_REASON_MSCOMPATIBLE_FORMS_MENU,
     // No particular reason:
     RESTART_REASON_NONE
 };

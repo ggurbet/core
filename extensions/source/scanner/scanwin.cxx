@@ -231,7 +231,7 @@ void Twain::ShimListenerThread::execute()
 {
     MSG msg;
     // Initialize thread message queue before launching shim process
-    PeekMessageW(&msg, 0, 0, 0, PM_NOREMOVE);
+    PeekMessageW(&msg, nullptr, 0, 0, PM_NOREMOVE);
 
     try
     {
@@ -242,7 +242,7 @@ void Twain::ShimListenerThread::execute()
             rtl::Bootstrap::expandMacros(shimURL);
 
             OUString sCmdLine;
-            if (osl::FileBase::getSystemPathFromFileURL(shimURL, sCmdLine) != osl_File_E_None)
+            if (osl::FileBase::getSystemPathFromFileURL(shimURL, sCmdLine) != osl::FileBase::E_None)
                 throw std::exception("getSystemPathFromFileURL failed!");
 
             HANDLE hDup;
@@ -339,7 +339,7 @@ bool Twain::InitializeNewShim(ScannerManager& rMgr, const VclPtr<vcl::Window>& x
         return false; // Have a shim for another task already!
 
     // hold reference to ScannerManager, to prevent premature death
-    mxMgr.set(static_cast<OWeakObject*>(const_cast<ScannerManager*>(mpCurMgr = &rMgr)),
+    mxMgr.set(static_cast<OWeakObject*>(mpCurMgr = &rMgr),
               css::uno::UNO_QUERY);
 
     mpThread.set(new ShimListenerThread(xTopWindow));

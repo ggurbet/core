@@ -33,6 +33,7 @@
 #include <sal/log.hxx>
 #include <oox/ppt/slidepersist.hxx>
 #include <oox/token/tokens.hxx>
+#include <unotools/fltrcfg.hxx>
 
 using namespace ::oox::core;
 using namespace ::oox::drawingml;
@@ -328,7 +329,7 @@ void PPTShape::addShape(
                 {
                     aMasterTextListStyle = isOther ? rSlidePersist.getMasterPersist()->getOtherTextStyle() : rSlidePersist.getMasterPersist()->getDefaultTextStyle();
                     if (aSlideStyle.get())
-                        aMasterTextListStyle->apply( *aSlideStyle.get() );
+                        aMasterTextListStyle->apply( *aSlideStyle );
                 }
                 else
                 {
@@ -339,7 +340,7 @@ void PPTShape::addShape(
             if( aMasterTextListStyle.get() && getTextBody().get() ) {
                 TextListStylePtr aCombinedTextListStyle (new TextListStyle());
 
-                aCombinedTextListStyle->apply( *aMasterTextListStyle.get() );
+                aCombinedTextListStyle->apply( *aMasterTextListStyle );
 
                 if( mpPlaceholder.get() && mpPlaceholder->getTextBody().get() )
                     aCombinedTextListStyle->apply( mpPlaceholder->getTextBody()->getTextListStyle() );
@@ -397,6 +398,9 @@ void PPTShape::addShape(
             Reference<XShapes> xShapes(xShape, UNO_QUERY);
             if (xShapes.is())
                 addChildren( rFilterBase, *this, pTheme, xShapes, pShapeMap, aTransformation );
+
+            if (meFrameType == FRAMETYPE_DIAGRAM)
+                keepDiagramCompatibilityInfo();
         }
     }
     catch (const Exception&)

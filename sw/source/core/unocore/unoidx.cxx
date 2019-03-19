@@ -337,7 +337,7 @@ public:
         , m_eTOXType(eType)
         , m_bIsDescriptor(nullptr == pBaseSection)
         , m_pDoc(&rDoc)
-        , m_pProps((m_bIsDescriptor)
+        , m_pProps(m_bIsDescriptor
             ? new SwDocIndexDescriptorProperties_Impl(rDoc.GetTOXType(eType, 0))
             : nullptr)
     {
@@ -351,7 +351,7 @@ public:
     SwTOXBase & GetTOXSectionOrThrow() const
     {
         SwSectionFormat *const pSectionFormat(GetSectionFormat());
-        SwTOXBase *const pTOXSection( (m_bIsDescriptor)
+        SwTOXBase *const pTOXSection( m_bIsDescriptor
             ?  &m_pProps->GetTOXBase()
             : (pSectionFormat
                 ? static_cast<SwTOXBaseSection*>(pSectionFormat->GetSection())
@@ -367,7 +367,7 @@ public:
     sal_Int32 GetFormMax() const
     {
         SwTOXBase & rSection( GetTOXSectionOrThrow() );
-        return (m_bIsDescriptor)
+        return m_bIsDescriptor
             ? SwForm::GetFormMaxLevel(m_eTOXType)
             : rSection.GetTOXForm().GetFormMax();
     }
@@ -1340,10 +1340,6 @@ SwXDocumentIndex::attach(const uno::Reference< text::XTextRange > & xTextRange)
     }
 
     UnoActionContext aAction(pDoc);
-    if (aPam.HasMark())
-    {
-        pDoc->getIDocumentContentOperations().DeleteAndJoin(aPam);
-    }
 
     SwTOXBase & rTOXBase = m_pImpl->m_pProps->GetTOXBase();
     SwTOXType const*const pTOXType = rTOXBase.GetTOXType();
@@ -1354,7 +1350,7 @@ SwXDocumentIndex::attach(const uno::Reference< text::XTextRange > & xTextRange)
     }
     //TODO: apply Section attributes (columns and background)
     SwTOXBaseSection *const pTOX =
-        pDoc->InsertTableOf( *aPam.GetPoint(), rTOXBase, nullptr, false,
+        pDoc->InsertTableOf( aPam, rTOXBase, nullptr, false,
                 m_pImpl->m_pDoc->getIDocumentLayoutAccess().GetCurrentLayout());
 
     pDoc->SetTOXBaseName(*pTOX, m_pImpl->m_pProps->GetTOXBase().GetTOXName());
@@ -1537,7 +1533,6 @@ public:
     OUString m_sPrimaryKeyReading;
     OUString m_sSecondaryKeyReading;
     OUString m_sUserIndexName;
-    OUString m_sCitaitonText;
 
     Impl(SwXDocumentIndexMark& rThis,
             SwDoc* const pDoc,
@@ -1881,11 +1876,7 @@ SwXDocumentIndexMark::attach(
             aMark.SetMainEntry(m_pImpl->m_bMainEntry);
         break;
         case TOX_CITATION:
-        if (!m_pImpl->m_sCitaitonText.isEmpty())
-        {
-            aMark.SetCitationKeyReading(m_pImpl->m_sCitaitonText);
-        }
-        aMark.SetMainEntry(m_pImpl->m_bMainEntry);
+            aMark.SetMainEntry(m_pImpl->m_bMainEntry);
         break;
         case TOX_USER:
         case TOX_CONTENT:
@@ -2213,13 +2204,7 @@ SwXDocumentIndexMark::setPropertyValue(
                 m_pImpl->m_bMainEntry = lcl_AnyToBool(rValue);
             break;
             case PROPERTY_MAP_INDEX_OBJECTS:
-            {
-                uno::Sequence<css::beans::PropertyValue> aValues(1);
-                css::beans::PropertyValue propertyVal;
-                rValue >>= aValues;
-                propertyVal = aValues[0];
-                m_pImpl->m_sCitaitonText = lcl_AnyToString(propertyVal.Value);
-            }
+                // unsupported
             break;
         }
     }

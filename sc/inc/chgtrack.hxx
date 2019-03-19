@@ -32,6 +32,7 @@
 #include <tools/link.hxx>
 #include <tools/solar.h>
 #include <unotools/options.hxx>
+#include <boost/optional.hpp>
 #include "global.hxx"
 #include "bigrange.hxx"
 #include "scdllapi.h"
@@ -782,13 +783,13 @@ public:
 };
 
 //  ScChangeTrack
-enum ScChangeTrackMsgType
+enum class ScChangeTrackMsgType
 {
-    SC_CTM_NONE,
-    SC_CTM_APPEND,      // Actions appended
-    SC_CTM_REMOVE,      // Actions removed
-    SC_CTM_CHANGE,      // Actions changed
-    SC_CTM_PARENT       // became a parent (and wasn't before)
+    NONE,
+    Append,      // Actions appended
+    Remove,      // Actions removed
+    Change,      // Actions changed
+    Parent       // became a parent (and wasn't before)
 };
 
 struct ScChangeTrackMsgInfo
@@ -799,8 +800,8 @@ struct ScChangeTrackMsgInfo
 };
 
 // MsgQueue for notification via ModifiedLink
-typedef std::vector<ScChangeTrackMsgInfo*> ScChangeTrackMsgQueue;
-typedef std::vector<ScChangeTrackMsgInfo*> ScChangeTrackMsgStack;
+typedef std::vector<ScChangeTrackMsgInfo> ScChangeTrackMsgQueue;
+typedef std::vector<ScChangeTrackMsgInfo> ScChangeTrackMsgStack;
 typedef std::map<sal_uLong, ScChangeAction*> ScChangeActionMap;
 
 enum ScChangeTrackMergeState
@@ -848,7 +849,7 @@ class ScChangeTrack : public utl::ConfigurationListener
     ScChangeActionLinkEntry*    pLinkInsertRow;
     ScChangeActionLinkEntry*    pLinkInsertTab;
     ScChangeActionLinkEntry*    pLinkMove;
-    ScChangeTrackMsgInfo*   pBlockModifyMsg;
+    boost::optional<ScChangeTrackMsgInfo> xBlockModifyMsg;
     ScDocument*             pDoc;
     sal_uLong               nActionMax;
     sal_uLong               nGeneratedMin;

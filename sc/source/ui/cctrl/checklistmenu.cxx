@@ -24,6 +24,7 @@
 #include <bitmaps.hlst>
 
 #include <vcl/decoview.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <tools/wintypes.hxx>
 #include <unotools/charclass.hxx>
@@ -33,7 +34,6 @@
 
 #include <com/sun/star/accessibility/XAccessible.hpp>
 #include <com/sun/star/accessibility/XAccessibleContext.hpp>
-#include <vcl/fmtfield.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
 #include <document.hxx>
@@ -100,8 +100,8 @@ ScMenuFloatingWindow::~ScMenuFloatingWindow()
 void ScMenuFloatingWindow::dispose()
 {
     EndPopupMode();
-    for (auto i = maMenuItems.begin(); i != maMenuItems.end(); ++i)
-        i->mpSubMenuWin.disposeAndClear();
+    for (auto& rMenuItem : maMenuItems)
+        rMenuItem.mpSubMenuWin.disposeAndClear();
     mpParentMenu.clear();
     PopupMenuFloatingWindow::dispose();
 }
@@ -283,11 +283,11 @@ Reference<XAccessible> ScMenuFloatingWindow::CreateAccessible()
         ScAccessibleFilterMenu* p = static_cast<ScAccessibleFilterMenu*>(
             mxAccessible.get());
 
-        vector<MenuItemData>::const_iterator itr, itrBeg = maMenuItems.begin(), itrEnd = maMenuItems.end();
-        for (itr = itrBeg; itr != itrEnd; ++itr)
+        size_t nPos = 0;
+        for (const auto& rMenuItem : maMenuItems)
         {
-            size_t nPos = ::std::distance(itrBeg, itr);
-            p->appendMenuItem(itr->maText, nPos);
+            p->appendMenuItem(rMenuItem.maText, nPos);
+            ++nPos;
         }
     }
 
@@ -331,15 +331,13 @@ Size ScMenuFloatingWindow::getMenuSize() const
     if (maMenuItems.empty())
         return Size();
 
-    vector<MenuItemData>::const_iterator itr = maMenuItems.begin(), itrEnd = maMenuItems.end();
-    long nTextWidth = 0;
-    for (; itr != itrEnd; ++itr)
-    {
-        if (itr->mbSeparator)
-            continue;
-
-        nTextWidth = ::std::max(GetTextWidth(itr->maText), nTextWidth);
-    }
+    auto itr = std::max_element(maMenuItems.begin(), maMenuItems.end(),
+        [this](const MenuItemData& a, const MenuItemData& b) {
+            long aTextWidth = a.mbSeparator ? 0 : GetTextWidth(a.maText);
+            long bTextWidth = b.mbSeparator ? 0 : GetTextWidth(b.maText);
+            return aTextWidth < bTextWidth;
+        });
+    long nTextWidth = itr->mbSeparator ? 0 : GetTextWidth(itr->maText);
 
     size_t nLastPos = maMenuItems.size()-1;
     Point aPos;
@@ -591,11 +589,11 @@ void ScMenuFloatingWindow::endSubMenu(ScMenuFloatingWindow* pSubMenu)
 
 void ScMenuFloatingWindow::fillMenuItemsToAccessible(ScAccessibleFilterMenu* pAccMenu) const
 {
-    vector<MenuItemData>::const_iterator itr, itrBeg = maMenuItems.begin(), itrEnd = maMenuItems.end();
-    for (itr = itrBeg; itr != itrEnd; ++itr)
+    size_t nPos = 0;
+    for (const auto& rMenuItem : maMenuItems)
     {
-        size_t nPos = ::std::distance(itrBeg, itr);
-        pAccMenu->appendMenuItem(itr->maText, nPos);
+        pAccMenu->appendMenuItem(rMenuItem.maText, nPos);
+        ++nPos;
     }
 }
 
@@ -952,7 +950,7 @@ void ScCheckListMenuWindow::getSectionPosSize(
     const long nListBoxHeight = maWndSize.Height() - nTopMargin - nMenuHeight -
         nMenuListMargin - nSearchBoxHeight - nSearchBoxMargin - nSingleItemBtnAreaHeight - nBottomBtnAreaHeight;
 
-    const long nSingleBtnAreaY = nTopMargin + nMenuHeight + nListBoxHeight + nMenuListMargin + nSearchBoxHeight + nSearchBoxMargin - 1;
+    const long nSingleBtnAreaY = nTopMargin + nMenuHeight + nMenuListMargin + nSearchBoxHeight + nSearchBoxMargin;
 
     switch (eType)
     {
@@ -966,23 +964,6 @@ void ScCheckListMenuWindow::getSectionPosSize(
         {
             rPos = Point(nSearchBoxMargin, nTopMargin + nMenuHeight + nMenuListMargin);
             rSize = Size(maWndSize.Width() - 2*nSearchBoxMargin, nSearchBoxHeight);
-        }
-        break;
-        case LISTBOX_AREA_OUTER:
-        {
-            rPos = Point(nListBoxMargin, nTopMargin + nMenuHeight + nMenuListMargin + nSearchBoxHeight + nSearchBoxMargin);
-            rSize = Size(nListBoxWidth, nListBoxHeight);
-        }
-        break;
-        case LISTBOX_AREA_INNER:
-        {
-            rPos = Point(nListBoxMargin, nTopMargin + nMenuHeight + nMenuListMargin + nSearchBoxHeight + nSearchBoxMargin);
-            rPos.AdjustX(nListBoxInnerPadding );
-            rPos.AdjustY(nListBoxInnerPadding );
-
-            rSize = Size(nListBoxWidth, nListBoxHeight);
-            rSize.AdjustWidth( -(nListBoxInnerPadding*2) );
-            rSize.AdjustHeight( -(nListBoxInnerPadding*2) );
         }
         break;
         case SINGLE_BTN_AREA:
@@ -1016,6 +997,23 @@ void ScCheckListMenuWindow::getSectionPosSize(
             rPos.AdjustX(nListBoxWidth - h - 10 );
             rPos.AdjustY((nSingleItemBtnAreaHeight - h)/2 );
             rSize = Size(h, h);
+        }
+        break;
+        case LISTBOX_AREA_OUTER:
+        {
+            rPos = Point(nListBoxMargin, nSingleBtnAreaY + nSingleItemBtnAreaHeight-1);
+            rSize = Size(nListBoxWidth, nListBoxHeight);
+        }
+        break;
+        case LISTBOX_AREA_INNER:
+        {
+            rPos = Point(nListBoxMargin, nSingleBtnAreaY + nSingleItemBtnAreaHeight-1);
+            rPos.AdjustX(nListBoxInnerPadding );
+            rPos.AdjustY(nListBoxInnerPadding );
+
+            rSize = Size(nListBoxWidth, nListBoxHeight);
+            rSize.AdjustWidth( -(nListBoxInnerPadding*2) );
+            rSize.AdjustHeight( -(nListBoxInnerPadding*2) );
         }
         break;
         case BTN_OK:
@@ -1099,15 +1097,12 @@ void ScCheckListMenuWindow::packWindow()
 
     float fScaleFactor = GetDPIScaleFactor();
 
-    BitmapEx aSingleSelectBmp(RID_BMP_SELECT_CURRENT);
-    if (fScaleFactor > 1)
-        aSingleSelectBmp.Scale(fScaleFactor, fScaleFactor, BmpScaleFlag::Fast);
-    Image aSingleSelect(aSingleSelectBmp);
+    ;
 
     getSectionPosSize(aPos, aSize, BTN_SINGLE_SELECT);
     maBtnSelectSingle->SetPosSizePixel(aPos, aSize);
     maBtnSelectSingle->SetQuickHelpText(ScResId(STR_BTN_SELECT_CURRENT));
-    maBtnSelectSingle->SetModeImage(aSingleSelect);
+    maBtnSelectSingle->SetModeImage(Image(StockImage::Yes, RID_BMP_SELECT_CURRENT));
     maBtnSelectSingle->SetClickHdl( LINK(this, ScCheckListMenuWindow, ButtonHdl) );
     maBtnSelectSingle->Show();
 
@@ -1133,9 +1128,9 @@ void ScCheckListMenuWindow::setAllMemberState(bool bSet)
         aParents.insert(maMembers[i].mpParent);
     }
 
-    for (auto itr = aParents.begin(), itrEnd = aParents.end(); itr != itrEnd; ++itr)
+    for (const auto& pParent : aParents)
     {
-        if (!(*itr))
+        if (!pParent)
         {
             sal_uInt32 nCount = maChecks->GetEntryCount();
             for( sal_uInt32 i = 0; i < nCount; ++i)
@@ -1149,10 +1144,10 @@ void ScCheckListMenuWindow::setAllMemberState(bool bSet)
         }
         else
         {
-            SvTreeListEntries& rEntries = (*itr)->GetChildEntries();
-            for (auto it = rEntries.begin(), itEnd = rEntries.end(); it != itEnd; ++ it)
+            SvTreeListEntries& rEntries = pParent->GetChildEntries();
+            for (const auto& rxEntry : rEntries)
             {
-                maChecks->CheckEntry(*itr, bSet);
+                maChecks->CheckEntry(rxEntry.get(), bSet);
             }
         }
     }

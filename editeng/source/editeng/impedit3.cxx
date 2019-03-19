@@ -68,7 +68,6 @@
 #include <com/sun/star/text/CharacterCompressionType.hpp>
 #include <vcl/pdfextoutdevdata.hxx>
 #include <i18nlangtag/mslangid.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <comphelper/processfactory.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -2352,7 +2351,7 @@ sal_Int32 ImpEditEngine::SplitTextPortion( ParaPortion* pPortion, sal_Int32 nPos
         {
             // We need the original size from the portion
             sal_Int32 nTxtPortionStart = pPortion->GetTextPortions().GetStartPos( nSplitPortion );
-               SvxFont aTmpFont( pPortion->GetNode()->GetCharAttribs().GetDefFont() );
+            SvxFont aTmpFont( pPortion->GetNode()->GetCharAttribs().GetDefFont() );
             SeekCursor( pPortion->GetNode(), nTxtPortionStart+1, aTmpFont );
             aTmpFont.SetPhysFont( GetRefDevice() );
             GetRefDevice()->Push( PushFlags::TEXTLANGUAGE );
@@ -2747,7 +2746,7 @@ void ImpEditEngine::SeekCursor( ContentNode* pNode, sal_Int32 nPos, SvxFont& rFo
         {
             if ( nStretchY != 100 )
             {
-                aRealSz.setHeight( aRealSz.Height() * ( nStretchY) );
+                aRealSz.setHeight( aRealSz.Height() * nStretchY );
                 aRealSz.setHeight( aRealSz.Height() / 100 );
             }
             if ( nStretchX != 100 )
@@ -2759,7 +2758,7 @@ void ImpEditEngine::SeekCursor( ContentNode* pNode, sal_Int32 nPos, SvxFont& rFo
                 }
                 else
                 {
-                    aRealSz.setWidth( aRealSz.Width() * ( nStretchX) );
+                    aRealSz.setWidth( aRealSz.Width() * nStretchX );
                     aRealSz.setWidth( aRealSz.Width() / 100 );
 
                     // Also the Kerning: (long due to handle Interim results)
@@ -3889,7 +3888,7 @@ void ImpEditEngine::InsertContent( ContentNode* pNode, sal_Int32 nPos )
 {
     DBG_ASSERT( pNode, "NULL-Pointer in InsertContent! " );
     DBG_ASSERT( IsInUndo(), "InsertContent only for Undo()!" );
-    GetParaPortions().Insert(nPos, o3tl::make_unique<ParaPortion>( pNode ));
+    GetParaPortions().Insert(nPos, std::make_unique<ParaPortion>( pNode ));
     aEditDoc.Insert(nPos, pNode);
     if ( IsCallParaInsertedOrDeleted() )
         GetEditEnginePtr()->ParagraphInserted( nPos );
@@ -3942,7 +3941,7 @@ void ImpEditEngine::ShowParagraph( sal_Int32 nParagraph, bool bShow )
         {
             // Mark as deleted, so that no selection will end or begin at
             // this paragraph...
-            aDeletedNodes.push_back(o3tl::make_unique<DeletedNodeInfo>( pPPortion->GetNode(), nParagraph ));
+            aDeletedNodes.push_back(std::make_unique<DeletedNodeInfo>( pPPortion->GetNode(), nParagraph ));
             UpdateSelections();
             // The region below will not be invalidated if UpdateMode = sal_False!
             // If anyway, then save as sal_False before SetVisible !

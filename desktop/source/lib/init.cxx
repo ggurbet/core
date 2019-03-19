@@ -24,10 +24,15 @@
 #include <postmac.h>
 #endif
 
+#ifdef ANDROID
+#include <osl/detail/android-bootstrap.h>
+#endif
+
 #include <algorithm>
 #include <memory>
 #include <iostream>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <LibreOfficeKit/LibreOfficeKit.h>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -93,7 +98,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/msgpool.hxx>
 #include <sfx2/dispatch.hxx>
-#include <sfx2/lokhelper.hxx>
+#include <sfx2/lokcharthelper.hxx>
 #include <sfx2/DocumentSigner.hxx>
 #include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
@@ -132,6 +137,7 @@
 #include <i18nlangtag/languagetag.hxx>
 #include <vcl/builder.hxx>
 #include <vcl/abstdlg.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <app.hxx>
 
@@ -153,11 +159,11 @@ static LibLibreOffice_Impl *gImpl = nullptr;
 static std::weak_ptr< LibreOfficeKitClass > gOfficeClass;
 static std::weak_ptr< LibreOfficeKitDocumentClass > gDocumentClass;
 
-typedef struct
+struct ExtensionMap
 {
     const char *extn;
     const char *filterName;
-} ExtensionMap;
+};
 
 static const ExtensionMap aWriterExtensionMap[] =
 {
@@ -400,94 +406,140 @@ static boost::property_tree::ptree unoAnyToPropertyTree(const uno::Any& anyItem)
     return aTree;
 }
 
-namespace {
+namespace desktop {
 
-/// Represents an invalidated rectangle inside a given document part.
-struct RectangleAndPart
+RectangleAndPart RectangleAndPart::Create(const std::string& rPayload)
 {
-    tools::Rectangle m_aRectangle;
-    int m_nPart;
-
-    RectangleAndPart()
-        : m_nPart(INT_MIN)  // -1 is reserved to mean "all parts".
+    RectangleAndPart aRet;
+    if (rPayload.compare(0, 5, "EMPTY") == 0) // payload starts with "EMPTY"
     {
-    }
-
-    OString toString() const
-    {
-        std::stringstream ss;
-        ss << m_aRectangle.toString();
-        if (m_nPart >= -1)
-            ss << ", " << m_nPart;
-        return ss.str().c_str();
-    }
-
-    /// Infinite Rectangle is both sides are
-    /// equal or longer than SfxLokHelper::MaxTwips.
-    bool isInfinite() const
-    {
-        return m_aRectangle.GetWidth() >= SfxLokHelper::MaxTwips &&
-               m_aRectangle.GetHeight() >= SfxLokHelper::MaxTwips;
-    }
-
-    /// Empty Rectangle is when it has zero dimensions.
-    bool isEmpty() const
-    {
-        return m_aRectangle.IsEmpty();
-    }
-
-    static RectangleAndPart Create(const std::string& rPayload)
-    {
-        RectangleAndPart aRet;
-        if (rPayload.compare(0, 5, "EMPTY") == 0) // payload starts with "EMPTY"
-        {
-            aRet.m_aRectangle = tools::Rectangle(0, 0, SfxLokHelper::MaxTwips, SfxLokHelper::MaxTwips);
-            if (comphelper::LibreOfficeKit::isPartInInvalidation())
-                aRet.m_nPart = std::stol(rPayload.substr(6));
-
-            return aRet;
-        }
-
-        std::istringstream aStream(rPayload);
-        long nLeft, nTop, nWidth, nHeight;
-        long nPart = INT_MIN;
-        char nComma;
+        aRet.m_aRectangle = tools::Rectangle(0, 0, SfxLokHelper::MaxTwips, SfxLokHelper::MaxTwips);
         if (comphelper::LibreOfficeKit::isPartInInvalidation())
+            aRet.m_nPart = std::stol(rPayload.substr(6));
+
+        return aRet;
+    }
+
+    std::istringstream aStream(rPayload);
+    long nLeft, nTop, nWidth, nHeight;
+    long nPart = INT_MIN;
+    char nComma;
+    if (comphelper::LibreOfficeKit::isPartInInvalidation())
+    {
+        aStream >> nLeft >> nComma >> nTop >> nComma >> nWidth >> nComma >> nHeight >> nComma >> nPart;
+    }
+    else
+    {
+        aStream >> nLeft >> nComma >> nTop >> nComma >> nWidth >> nComma >> nHeight;
+    }
+
+    if (nWidth > 0 && nHeight > 0)
+    {
+        // The top-left corner starts at (0, 0).
+        // Anything negative is invalid.
+        if (nLeft < 0)
         {
-            aStream >> nLeft >> nComma >> nTop >> nComma >> nWidth >> nComma >> nHeight >> nComma >> nPart;
+            nWidth += nLeft;
+            nLeft = 0;
         }
-        else
+
+        if (nTop < 0)
         {
-            aStream >> nLeft >> nComma >> nTop >> nComma >> nWidth >> nComma >> nHeight;
+            nHeight += nTop;
+            nTop = 0;
         }
 
         if (nWidth > 0 && nHeight > 0)
         {
-            // The top-left corner starts at (0, 0).
-            // Anything negative is invalid.
-            if (nLeft < 0)
-            {
-                nWidth += nLeft;
-                nLeft = 0;
-            }
-
-            if (nTop < 0)
-            {
-                nHeight += nTop;
-                nTop = 0;
-            }
-
-            if (nWidth > 0 && nHeight > 0)
-            {
-                aRet.m_aRectangle = tools::Rectangle(nLeft, nTop, nLeft + nWidth, nTop + nHeight);
-            }
+            aRet.m_aRectangle = tools::Rectangle(nLeft, nTop, nLeft + nWidth, nTop + nHeight);
         }
-        // else leave empty rect.
-
-        aRet.m_nPart = nPart;
-        return aRet;
     }
-};
+    // else leave empty rect.
+
+    aRet.m_nPart = nPart;
+    return aRet;
+}
+
+RectangleAndPart& CallbackFlushHandler::CallbackData::setRectangleAndPart(const std::string& payload)
+{
+    setRectangleAndPart(RectangleAndPart::Create(payload));
+
+    // Return reference to the cached object.
+    return boost::get<RectangleAndPart>(PayloadObject);
+}
+
+void CallbackFlushHandler::CallbackData::setRectangleAndPart(const RectangleAndPart& rRectAndPart)
+{
+    PayloadString = rRectAndPart.toString().getStr();
+    PayloadObject = rRectAndPart;
+}
+
+const RectangleAndPart& CallbackFlushHandler::CallbackData::getRectangleAndPart() const
+{
+    assert(PayloadObject.which() == 1);
+    return boost::get<RectangleAndPart>(PayloadObject);
+}
+
+boost::property_tree::ptree& CallbackFlushHandler::CallbackData::setJson(const std::string& payload)
+{
+    boost::property_tree::ptree aTree;
+    std::stringstream aStream(payload);
+    boost::property_tree::read_json(aStream, aTree);
+
+    // Let boost normalize the payload so it always matches the cache.
+    setJson(aTree);
+
+    // Return reference to the cached object.
+    return boost::get<boost::property_tree::ptree>(PayloadObject);
+}
+
+void CallbackFlushHandler::CallbackData::setJson(const boost::property_tree::ptree& rTree)
+{
+    std::stringstream aJSONStream;
+    constexpr bool bPretty = false; // Don't waste time and bloat logs.
+    boost::property_tree::write_json(aJSONStream, rTree, bPretty);
+    PayloadString = boost::trim_copy(aJSONStream.str());
+
+    PayloadObject = rTree;
+}
+
+const boost::property_tree::ptree& CallbackFlushHandler::CallbackData::getJson() const
+{
+    assert(PayloadObject.which() == 2);
+    return boost::get<boost::property_tree::ptree>(PayloadObject);
+}
+
+bool CallbackFlushHandler::CallbackData::validate() const
+{
+    switch (PayloadObject.which())
+    {
+        // Not cached.
+        case 0:
+            return true;
+
+        // RectangleAndPart.
+        case 1:
+            return getRectangleAndPart().toString().getStr() == PayloadString;
+
+        // Json.
+        case 2:
+        {
+            std::stringstream aJSONStream;
+            boost::property_tree::write_json(aJSONStream, getJson(), false);
+            const std::string aExpected = boost::trim_copy(aJSONStream.str());
+            return aExpected == PayloadString;
+        }
+
+        default:
+            assert(!"Unknown variant type; please add an entry to validate.");
+    }
+
+    return false;
+}
+
+}
+
+namespace {
 
 bool lcl_isViewCallbackType(const int type)
 {
@@ -527,6 +579,13 @@ int lcl_getViewId(const std::string& payload)
         return strtol(payload.substr(numberPos).c_str(), nullptr, 10);
 
     return 0;
+}
+
+int lcl_getViewId(const desktop::CallbackFlushHandler::CallbackData& rCallbackData)
+{
+    if (rCallbackData.isCached())
+        return rCallbackData.getJson().get<int>("viewId");
+    return lcl_getViewId(rCallbackData.PayloadString);
 }
 
 std::string extractCertificate(const std::string & certificate)
@@ -843,8 +902,6 @@ CallbackFlushHandler::CallbackFlushHandler(LibreOfficeKitDocument* pDocument, Li
 
     // Add the states that are safe to skip duplicates on,
     // even when not consequent.
-    m_states.emplace(LOK_CALLBACK_TEXT_SELECTION_START, "NIL");
-    m_states.emplace(LOK_CALLBACK_TEXT_SELECTION_END, "NIL");
     m_states.emplace(LOK_CALLBACK_TEXT_SELECTION, "NIL");
     m_states.emplace(LOK_CALLBACK_GRAPHIC_SELECTION, "NIL");
     m_states.emplace(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR, "NIL");
@@ -875,8 +932,24 @@ void CallbackFlushHandler::callback(const int type, const char* payload, void* d
 
 void CallbackFlushHandler::queue(const int type, const char* data)
 {
-    std::string payload(data ? data : "(nil)");
+    CallbackData aCallbackData(type, (data ? data : "(nil)"));
+    const std::string& payload = aCallbackData.PayloadString;
     SAL_INFO("lok", "Queue: " << type << " : " << payload);
+
+#ifdef DBG_UTIL
+    {
+        // Dump the queue state and validate cached data.
+        int i = 1;
+        std::ostringstream oss;
+        oss << '\n';
+        for (const CallbackData& c : m_queue)
+            oss << i++ << ": [" << c.Type << "] [" << c.PayloadString << "].\n";
+        const std::string aQueued = oss.str();
+        SAL_INFO("lok", "Current Queue: " << (aQueued.empty() ? "Empty" : aQueued));
+        for (const CallbackData& c : m_queue)
+            assert(c.validate());
+    }
+#endif
 
     if (m_bPartTilePainting)
     {
@@ -941,9 +1014,9 @@ void CallbackFlushHandler::queue(const int type, const char* data)
         case LOK_CALLBACK_WINDOW:
         {
             const auto& pos = std::find_if(m_queue.rbegin(), m_queue.rend(),
-                    [type] (const queue_type::value_type& elem) { return (elem.first == type); });
+                    [type] (const queue_type::value_type& elem) { return (elem.Type == type); });
 
-            if (pos != m_queue.rend() && pos->second == payload)
+            if (pos != m_queue.rend() && pos->PayloadString == payload)
             {
                 SAL_INFO("lok", "Skipping queue duplicate [" << type << + "]: [" << payload << "].");
                 return;
@@ -955,14 +1028,14 @@ void CallbackFlushHandler::queue(const int type, const char* data)
     if (type == LOK_CALLBACK_TEXT_SELECTION && payload.empty())
     {
         const auto& posStart = std::find_if(m_queue.rbegin(), m_queue.rend(),
-                [] (const queue_type::value_type& elem) { return (elem.first == LOK_CALLBACK_TEXT_SELECTION_START); });
+                [] (const queue_type::value_type& elem) { return (elem.Type == LOK_CALLBACK_TEXT_SELECTION_START); });
         if (posStart != m_queue.rend())
-            posStart->second = "";
+            posStart->PayloadString.clear();
 
         const auto& posEnd = std::find_if(m_queue.rbegin(), m_queue.rend(),
-                [] (const queue_type::value_type& elem) { return (elem.first == LOK_CALLBACK_TEXT_SELECTION_END); });
+                [] (const queue_type::value_type& elem) { return (elem.Type == LOK_CALLBACK_TEXT_SELECTION_END); });
         if (posEnd != m_queue.rend())
-            posEnd->second = "";
+            posEnd->PayloadString.clear();
     }
 
     // When payload is empty discards any previous state.
@@ -977,7 +1050,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR:
             case LOK_CALLBACK_INVALIDATE_TILES:
                 SAL_INFO("lok", "Removing dups of [" << type << "]: [" << payload << "].");
-                removeAll([type] (const queue_type::value_type& elem) { return (elem.first == type); });
+                removeAll([type] (const queue_type::value_type& elem) { return (elem.Type == type); });
             break;
         }
     }
@@ -1000,7 +1073,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             case LOK_CALLBACK_STATUS_INDICATOR_SET_VALUE:
             case LOK_CALLBACK_RULER_UPDATE:
             {
-                removeAll([type] (const queue_type::value_type& elem) { return (elem.first == type); });
+                removeAll([type] (const queue_type::value_type& elem) { return (elem.Type == type); });
             }
             break;
 
@@ -1016,7 +1089,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                 const int nViewId = lcl_getViewId(payload);
                 removeAll(
                     [type, nViewId] (const queue_type::value_type& elem) {
-                        return (elem.first == type && nViewId == lcl_getViewId(elem.second));
+                        return (elem.Type == type && nViewId == lcl_getViewId(elem));
                     }
                 );
             }
@@ -1026,7 +1099,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             {
                 removeAll(
                     [type, &payload] (const queue_type::value_type& elem) {
-                        return (elem.first == type && elem.second == payload);
+                        return (elem.Type == type && elem.PayloadString == payload);
                     }
                 );
             }
@@ -1034,7 +1107,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
 
             case LOK_CALLBACK_INVALIDATE_TILES:
             {
-                RectangleAndPart rcNew = RectangleAndPart::Create(payload);
+                RectangleAndPart& rcNew = aCallbackData.setRectangleAndPart(payload);
                 if (rcNew.isEmpty())
                 {
                     SAL_INFO("lok", "Skipping invalid event [" << type << "]: [" << payload << "].");
@@ -1044,10 +1117,10 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                 // If we have to invalidate all tiles, we can skip any new tile invalidation.
                 // Find the last INVALIDATE_TILES entry, if any to see if it's invalidate-all.
                 const auto& pos = std::find_if(m_queue.rbegin(), m_queue.rend(),
-                        [] (const queue_type::value_type& elem) { return (elem.first == LOK_CALLBACK_INVALIDATE_TILES); });
+                        [] (const queue_type::value_type& elem) { return (elem.Type == LOK_CALLBACK_INVALIDATE_TILES); });
                 if (pos != m_queue.rend())
                 {
-                    RectangleAndPart rcOld = RectangleAndPart::Create(pos->second);
+                    const RectangleAndPart& rcOld = pos->getRectangleAndPart();
                     if (rcOld.isInfinite() && (rcOld.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart))
                     {
                         SAL_INFO("lok", "Skipping queue [" << type << "]: [" << payload << "] since all tiles need to be invalidated.");
@@ -1070,10 +1143,10 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                     SAL_INFO("lok", "Have Empty [" << type << "]: [" << payload << "] so removing all with part " << rcNew.m_nPart << ".");
                     removeAll(
                         [&rcNew] (const queue_type::value_type& elem) {
-                            if (elem.first == LOK_CALLBACK_INVALIDATE_TILES)
+                            if (elem.Type == LOK_CALLBACK_INVALIDATE_TILES)
                             {
                                 // Remove exiting if new is all-encompassing, or if of the same part.
-                                const RectangleAndPart rcOld = RectangleAndPart::Create(elem.second);
+                                const RectangleAndPart rcOld = RectangleAndPart::Create(elem.PayloadString);
                                 return (rcNew.m_nPart == -1 || rcOld.m_nPart == rcNew.m_nPart);
                             }
 
@@ -1089,9 +1162,9 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                     SAL_INFO("lok", "Have [" << type << "]: [" << payload << "] so merging overlapping.");
                     removeAll(
                         [&rcNew] (const queue_type::value_type& elem) {
-                            if (elem.first == LOK_CALLBACK_INVALIDATE_TILES)
+                            if (elem.Type == LOK_CALLBACK_INVALIDATE_TILES)
                             {
-                                const RectangleAndPart rcOld = RectangleAndPart::Create(elem.second);
+                                const RectangleAndPart& rcOld = elem.getRectangleAndPart();
                                 if (rcNew.m_nPart != -1 && rcOld.m_nPart != -1 && rcOld.m_nPart != rcNew.m_nPart)
                                 {
                                     SAL_INFO("lok", "Nothing to merge between new: " << rcNew.toString() << ", and old: " << rcOld.toString());
@@ -1149,7 +1222,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                     }
                 }
 
-                payload = rcNew.toString().getStr();
+                aCallbackData.setRectangleAndPart(rcNew);
             }
             break;
 
@@ -1164,7 +1237,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                     const std::string name = payload.substr(0, pos + 1);
                     removeAll(
                         [type, &name] (const queue_type::value_type& elem) {
-                            return (elem.first == type) && (elem.second.compare(0, name.size(), name) == 0);
+                            return (elem.Type == type) && (elem.PayloadString.compare(0, name.size(), name) == 0);
                         }
                     );
                 }
@@ -1174,9 +1247,7 @@ void CallbackFlushHandler::queue(const int type, const char* data)
             case LOK_CALLBACK_WINDOW:
             {
                 // reading JSON by boost might be slow?
-                boost::property_tree::ptree aTree;
-                std::stringstream aStream(payload);
-                boost::property_tree::read_json(aStream, aTree);
+                boost::property_tree::ptree& aTree = aCallbackData.setJson(payload);
                 const unsigned nLOKWindowId = aTree.get<unsigned>("id", 0);
                 if (aTree.get<std::string>("action", "") == "invalidate")
                 {
@@ -1186,11 +1257,9 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                     if (aRectStr.empty())
                     {
                         removeAll([&nLOKWindowId] (const queue_type::value_type& elem) {
-                                if (elem.first == LOK_CALLBACK_WINDOW)
+                                if (elem.Type == LOK_CALLBACK_WINDOW)
                                 {
-                                    boost::property_tree::ptree aOldTree;
-                                    std::stringstream aOldStream(elem.second);
-                                    boost::property_tree::read_json(aOldStream, aOldTree);
+                                    const boost::property_tree::ptree& aOldTree = elem.getJson();
                                     const unsigned nOldDialogId = aOldTree.get<unsigned>("id", 0);
                                     if (aOldTree.get<std::string>("action", "") == "invalidate" &&
                                         nLOKWindowId == nOldDialogId)
@@ -1205,15 +1274,13 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                     {
                         // if we have to invalidate all of the window, ignore
                         // any part invalidation message
-                        auto invAllExist = std::any_of(m_queue.rbegin(), m_queue.rend(),
+                        const auto invAllExist = std::any_of(m_queue.rbegin(), m_queue.rend(),
                                                        [&nLOKWindowId] (const queue_type::value_type& elem)
                                                        {
-                                                           if (elem.first != LOK_CALLBACK_WINDOW)
+                                                           if (elem.Type != LOK_CALLBACK_WINDOW)
                                                                return false;
 
-                                                           boost::property_tree::ptree aOldTree;
-                                                           std::stringstream aOldStream(elem.second);
-                                                           boost::property_tree::read_json(aOldStream, aOldTree);
+                                                           const boost::property_tree::ptree& aOldTree = elem.getJson();
                                                            const unsigned nOldDialogId = aOldTree.get<unsigned>("id", 0);
                                                            return aOldTree.get<std::string>("action", "") == "invalidate" &&
                                                                nLOKWindowId == nOldDialogId &&
@@ -1234,12 +1301,10 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                         tools::Rectangle aNewRect = tools::Rectangle(nLeft, nTop, nLeft + nWidth, nTop + nHeight);
                         bool currentIsRedundant = false;
                         removeAll([&aNewRect, &nLOKWindowId, &currentIsRedundant] (const queue_type::value_type& elem) {
-                                if (elem.first != LOK_CALLBACK_WINDOW)
+                                if (elem.Type != LOK_CALLBACK_WINDOW)
                                     return false;
 
-                                boost::property_tree::ptree aOldTree;
-                                std::stringstream aOldStream(elem.second);
-                                boost::property_tree::read_json(aOldStream, aOldTree);
+                                const boost::property_tree::ptree& aOldTree = elem.getJson();
                                 if (aOldTree.get<std::string>("action", "") == "invalidate")
                                 {
                                     const unsigned nOldDialogId = aOldTree.get<unsigned>("id", 0);
@@ -1292,9 +1357,8 @@ void CallbackFlushHandler::queue(const int type, const char* data)
                         }
 
                         aTree.put("rectangle", aNewRect.toString().getStr());
-                        std::stringstream aJSONStream;
-                        boost::property_tree::write_json(aJSONStream, aTree);
-                        payload = aJSONStream.str();
+                        aCallbackData.setJson(aTree);
+                        assert(aCallbackData.validate() && "Validation after setJson failed!");
                     }
                 }
             }
@@ -1302,7 +1366,9 @@ void CallbackFlushHandler::queue(const int type, const char* data)
         }
     }
 
-    m_queue.emplace_back(type, payload);
+    // Validate that the cached data and the payload string are identical.
+    assert(aCallbackData.validate() && "Cached callback payload object and string mismatch!");
+    m_queue.emplace_back(aCallbackData);
     SAL_INFO("lok", "Queued #" << (m_queue.size() - 1) <<
              " [" << type << "]: [" << payload << "] to have " << m_queue.size() << " entries.");
 
@@ -1320,11 +1386,11 @@ void CallbackFlushHandler::Invoke()
         std::unique_lock<std::mutex> lock(m_mutex);
 
         SAL_INFO("lok", "Flushing " << m_queue.size() << " elements.");
-        for (auto& pair : m_queue)
+        for (const auto& rCallbackData : m_queue)
         {
-            const int type = pair.first;
-            const auto& payload = pair.second;
-            const int viewId = lcl_isViewCallbackType(type) ? lcl_getViewId(payload) : -1;
+            const int type = rCallbackData.Type;
+            const auto& payload = rCallbackData.PayloadString;
+            const int viewId = lcl_isViewCallbackType(type) ? lcl_getViewId(rCallbackData) : -1;
 
             if (viewId == -1)
             {
@@ -1579,8 +1645,11 @@ static LibreOfficeKitDocument* lo_documentLoadWithOptions(LibreOfficeKit* pThis,
         }
 
         LibLODocument_Impl* pDocument = new LibLODocument_Impl(xComponent);
-        int nState = doc_getSignatureState(pDocument);
-        pLib->mpCallback(LOK_CALLBACK_SIGNATURE_STATUS, OString::number(nState).getStr(), pLib->mpCallbackData);
+        if (pLib->mpCallback)
+        {
+            int nState = doc_getSignatureState(pDocument);
+            pLib->mpCallback(LOK_CALLBACK_SIGNATURE_STATUS, OString::number(nState).getStr(), pLib->mpCallbackData);
+        }
         return pDocument;
     }
     catch (const uno::Exception& exception)
@@ -1836,6 +1905,25 @@ static int doc_saveAs(LibreOfficeKitDocument* pThis, const char* sUrl, const cha
 
         OUString aFilterOptions = getUString(pFilterOptions);
 
+        // Check if watermark for pdf is passed by filteroptions..
+        // It is not a real filter option so it must be filtered out.
+        OUString watermarkText;
+        int aIndex = -1;
+        if ((aIndex = aFilterOptions.indexOf(",Watermark=")) >= 0)
+        {
+            int bIndex = aFilterOptions.indexOf("WATERMARKEND");
+            watermarkText = aFilterOptions.copy(aIndex+11, bIndex-(aIndex+11));
+            if(aIndex > 0)
+            {
+                OUString temp = aFilterOptions.copy(0, aIndex);
+                aFilterOptions = temp + aFilterOptions.copy(bIndex+12);
+            }
+            else
+            {
+                aFilterOptions.clear();
+            }
+        }
+
         // 'TakeOwnership' == this is a 'real' SaveAs (that is, the document
         // gets a new name).  When this is not provided, the meaning of
         // saveAs() is more like save-a-copy, which allows saving to any
@@ -1861,6 +1949,13 @@ static int doc_saveAs(LibreOfficeKitDocument* pThis, const char* sUrl, const cha
         auto aFilteredOptionSeq = comphelper::containerToSequence<OUString>(aFilteredOptionVec);
         aFilterOptions = comphelper::string::convertCommaSeparated(aFilteredOptionSeq);
         aSaveMediaDescriptor[MediaDescriptor::PROP_FILTEROPTIONS()] <<= aFilterOptions;
+        if(!watermarkText.isEmpty())
+        {
+            uno::Sequence< beans::PropertyValue > aFilterData( 1 );
+            aFilterData[ 0 ].Name = "TiledWatermark";
+            aFilterData[ 0 ].Value <<= watermarkText;
+            aSaveMediaDescriptor["FilterData"] <<= aFilterData;
+        }
 
         // add interaction handler too
         if (gImpl)
@@ -1902,6 +1997,7 @@ static void doc_iniUnoCommands ()
         OUString(".uno:AlignRight"),
         OUString(".uno:BackColor"),
         OUString(".uno:BackgroundColor"),
+        OUString(".uno:TableCellBackgroundColor"),
         OUString(".uno:Bold"),
         OUString(".uno:CenterPara"),
         OUString(".uno:CharBackColor"),
@@ -1990,7 +2086,8 @@ static void doc_iniUnoCommands ()
         OUString(".uno:InsertPageHeader"),
         OUString(".uno:InsertPageFooter"),
         OUString(".uno:OnlineAutoFormat"),
-        OUString(".uno:InsertSymbol")
+        OUString(".uno:InsertSymbol"),
+        OUString(".uno:EditRegion")
     };
 
     util::URL aCommandURL;
@@ -2261,7 +2358,7 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
 
 #if defined(UNX) && !defined(MACOSX) && !defined(ENABLE_HEADLESS)
 
-    // Painting of zoomed or hi-dpi spreadsheets is special, we actually draw everything at 100%,
+    // Painting of zoomed or HiDPI spreadsheets is special, we actually draw everything at 100%,
     // and only set cairo's (or CoreGraphic's, in the iOS case) scale factor accordingly, so that
     // everything is painted bigger or smaller. This is different to what Calc's internal scaling
     // would do - because that one is trying to fit the lines between cells to integer multiples of
@@ -2278,11 +2375,15 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
 #if defined(IOS)
     CGContextRef cgc = CGBitmapContextCreate(pBuffer, nCanvasWidth, nCanvasHeight, 8, nCanvasWidth*4, CGColorSpaceCreateDeviceRGB(), kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little);
 
+    // Use the vcl.cg tag even if this code is not in vcl, to match all other SAL_INFO logging about Core Graphics, in vcl.
+    SAL_INFO( "vcl.cg", "CGBitmapContextCreate(" << nCanvasWidth << "x" << nCanvasHeight << "x32) = " << cgc );
+
     CGContextTranslateCTM(cgc, 0, nCanvasHeight);
     CGContextScaleCTM(cgc, fDPIScaleX, -fDPIScaleX);
 
     doc_paintTileToCGContext(pThis, (void*) cgc, nCanvasWidth, nCanvasHeight, nTilePosX, nTilePosY, nTileWidth, nTileHeight);
 
+    SAL_INFO( "vcl.cg", "CGContextRelease(" << cgc << ")" );
     CGContextRelease(cgc);
 
 #else
@@ -2297,7 +2398,7 @@ static void doc_paintTile(LibreOfficeKitDocument* pThis,
                 Size(nCanvasWidth, nCanvasHeight), Fraction(1.0), Point(),
                 pBuffer);
 
-    pDoc->paintTile(*pDevice.get(), nCanvasWidth, nCanvasHeight,
+    pDoc->paintTile(*pDevice, nCanvasWidth, nCanvasHeight,
                     nTilePosX, nTilePosY, nTileWidth, nTileHeight);
 
     static bool bDebug = getenv("LOK_DEBUG_TILES") != nullptr;
@@ -2354,7 +2455,7 @@ static void doc_paintTileToCGContext(LibreOfficeKitDocument* pThis,
 
     pDevice->SetOutputSizePixel(Size(nCanvasWidth, nCanvasHeight));
 
-    pDoc->paintTile(*pDevice.get(), nCanvasWidth, nCanvasHeight,
+    pDoc->paintTile(*pDevice, nCanvasWidth, nCanvasHeight,
                     nTilePosX, nTilePosY, nTileWidth, nTileHeight);
 
 }
@@ -2687,6 +2788,11 @@ static size_t doc_renderShapeSelection(LibreOfficeKitDocument* pThis, char** pOu
     if (gImpl)
         gImpl->maLastExceptionMsg.clear();
 
+    LokChartHelper aChartHelper(SfxViewShell::Current());
+
+    if (aChartHelper.GetWindow())
+        return 0;
+
     try
     {
         LibLODocument_Impl* pDocument = static_cast<LibLODocument_Impl*>(pThis);
@@ -2729,9 +2835,10 @@ static size_t doc_renderShapeSelection(LibreOfficeKitDocument* pThis, char** pOu
     }
     catch (const uno::Exception& exception)
     {
+        css::uno::Any exAny( cppu::getCaughtException() );
         if (gImpl)
             gImpl->maLastExceptionMsg = exception.Message;
-        SAL_WARN("lok", "Failed to render shape selection: " << exception);
+        SAL_WARN("lok", "Failed to render shape selection: " << exceptionToString(exAny));
     }
 
     return 0;
@@ -3491,6 +3598,9 @@ static char* doc_getCommandValues(LibreOfficeKitDocument* pThis, const char* pCo
         }
 
         OUString aHeaders = pDoc->getRowColumnHeaders(aRectangle);
+        if (aHeaders.isEmpty())
+            return nullptr;
+
         OString aString = OUStringToOString(aHeaders, RTL_TEXTENCODING_UTF8);
 
         char* pMemory = static_cast<char*>(malloc(aString.getLength() + 1));
@@ -3811,6 +3921,8 @@ static void doc_paintWindowDPI(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKW
 
     CGContextRef cgc = CGBitmapContextCreate(pBuffer, nWidth, nHeight, 8, nWidth*4, CGColorSpaceCreateDeviceRGB(), kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little);
 
+    SAL_INFO( "vcl.cg", "CGBitmapContextCreate(" << nWidth << "x" << nHeight << "x32) = " << cgc);
+
     CGContextTranslateCTM(cgc, 0, nHeight);
     CGContextScaleCTM(cgc, fDPIScale, -fDPIScale);
 
@@ -3830,6 +3942,7 @@ static void doc_paintWindowDPI(LibreOfficeKitDocument* /*pThis*/, unsigned nLOKW
     pWindow->PaintToDevice(pDevice.get(), Point(0, 0), Size());
     comphelper::LibreOfficeKit::setDialogPainting(false);
 
+    SAL_INFO( "vcl.cg", "CGContextRelease(" << cgc << ")" );
     CGContextRelease(cgc);
 
 #else
@@ -4384,11 +4497,16 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
     }
     else
     {
+#ifdef ANDROID
+        aAppPath = OUString::fromUtf8(lo_get_app_data_dir()) + "/program";
+#else
         // Fun conversion dance back and forth between URLs and system paths...
         OUString aAppURL;
         ::osl::Module::getUrlFromAddress( reinterpret_cast< oslGenericFunction >(lo_initialize),
                                           aAppURL);
         osl::FileBase::getSystemPathFromFileURL( aAppURL, aAppPath );
+#endif
+
 #ifdef IOS
         // The above gives something like
         // "/private/var/containers/Bundle/Application/953AA851-CC15-4C60-A2CB-C2C6F24E6F71/Foo.app/Foo",
@@ -4556,7 +4674,7 @@ static int lo_initialize(LibreOfficeKit* pThis, const char* pAppPath, const char
     return bInitialized;
 }
 
-SAL_DLLPUBLIC_EXPORT
+SAL_JNI_EXPORT
 LibreOfficeKit *libreofficekit_hook_2(const char* install_path, const char* user_profile_url)
 {
     if (!gImpl)
@@ -4572,7 +4690,7 @@ LibreOfficeKit *libreofficekit_hook_2(const char* install_path, const char* user
     return static_cast<LibreOfficeKit*>(gImpl);
 }
 
-SAL_DLLPUBLIC_EXPORT
+SAL_JNI_EXPORT
 LibreOfficeKit *libreofficekit_hook(const char* install_path)
 {
     return libreofficekit_hook_2(install_path, nullptr);
@@ -4622,6 +4740,9 @@ static void lo_destroy(LibreOfficeKit* pThis)
 }
 
 #ifdef IOS
+
+// Used by the unmaintained LibreOfficeLight app. Once that has been retired, get rid of this, too.
+
 extern "C"
 {
 __attribute__((visibility("default")))

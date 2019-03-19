@@ -89,15 +89,15 @@ class LotusRangeList
 private:
     LR_ID               nIdCnt;
     ScComplexRefData    aComplRef;
-    std::vector<LotusRange*> maRanges;
+    std::vector<std::unique_ptr<LotusRange>> maRanges;
 
 public:
     LotusRangeList();
     ~LotusRangeList();
-    inline sal_uInt16       GetIndex( SCCOL nCol, SCROW nRow );
-    inline sal_uInt16       GetIndex( SCCOL nColS, SCROW nRowS, SCCOL nColE, SCROW nRowE );
-    sal_uInt16              GetIndex( const LotusRange& );
-    void                Append( LotusRange* pLR );
+    inline LR_ID        GetIndex( SCCOL nCol, SCROW nRow );
+    inline LR_ID        GetIndex( SCCOL nColS, SCROW nRowS, SCCOL nColE, SCROW nRowE );
+    LR_ID               GetIndex( const LotusRange& );
+    void                Append( std::unique_ptr<LotusRange> pLR );
 };
 
 inline LR_ID LotusRangeList::GetIndex( SCCOL nCol, SCROW nRow )

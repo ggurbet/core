@@ -53,6 +53,7 @@
 #include <unotools/moduleoptions.hxx>
 #include <com/sun/star/frame/FrameSearchFlag.hpp>
 #include <com/sun/star/frame/status/Visibility.hpp>
+#include <com/sun/star/frame/XUntitledNumbers.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
@@ -426,7 +427,7 @@ void OGenericUnoController::ImplBroadcastFeatureState(const OUString& _rFeature,
 
     // a special listener ?
     if ( xListener.is() )
-        lcl_notifyMultipleStates( *xListener.get(), aEvent, aStates );
+        lcl_notifyMultipleStates( *xListener, aEvent, aStates );
     else
     {   // no -> iterate through all listeners responsible for the URL
         std::set<OUString> aFeatureCommands;
@@ -608,7 +609,7 @@ Sequence< Reference< XDispatch > > OGenericUnoController::queryDispatches(const 
     if ( nLen )
     {
         aReturn.realloc( nLen );
-                Reference< XDispatch >* pReturn     = aReturn.getArray();
+        Reference< XDispatch >* pReturn     = aReturn.getArray();
         const   Reference< XDispatch >* pReturnEnd  = aReturn.getArray() + nLen;
         const   DispatchDescriptor*     pDescripts  = aDescripts.getConstArray();
 
@@ -670,25 +671,20 @@ void OGenericUnoController::addStatusListener(const Reference< XStatusListener >
 
 void OGenericUnoController::removeStatusListener(const Reference< XStatusListener > & aListener, const URL& _rURL)
 {
-    Dispatch::iterator iterSearch = m_arrStatusListener.begin();
-
-    bool bRemoveForAll = _rURL.Complete.isEmpty();
-    while ( iterSearch != m_arrStatusListener.end() )
+    if (_rURL.Complete.isEmpty())
     {
-        DispatchTarget& rCurrent = *iterSearch;
-        if  (   (rCurrent.xListener == aListener)
-            &&  (   bRemoveForAll
-                ||  (rCurrent.aURL.Complete == _rURL.Complete)
-                )
-            )
-        {
-            iterSearch = m_arrStatusListener.erase(iterSearch);
-            if (!bRemoveForAll)
-                // remove the listener only for the given URL, so we can exit the loop after deletion
-                break;
-        }
-        else
-            ++iterSearch;
+        m_arrStatusListener.erase(std::remove_if(m_arrStatusListener.begin(), m_arrStatusListener.end(),
+            [&aListener](const DispatchTarget& rCurrent) { return rCurrent.xListener == aListener; }),
+            m_arrStatusListener.end());
+    }
+    else
+    {
+        // remove the listener only for the given URL
+        Dispatch::iterator iterSearch = std::find_if(m_arrStatusListener.begin(), m_arrStatusListener.end(),
+            [&aListener, &_rURL](const DispatchTarget& rCurrent) {
+                return (rCurrent.xListener == aListener) && (rCurrent.aURL.Complete == _rURL.Complete); });
+        if (iterSearch != m_arrStatusListener.end())
+            m_arrStatusListener.erase(iterSearch);
     }
 
     OSL_PRECOND( !m_aSupportedFeatures.empty(), "OGenericUnoController::removeStatusListener: shouldn't this be filled at construction time?" );
@@ -1204,37 +1200,18 @@ Sequence< ::sal_Int16 > SAL_CALL OGenericUnoController::getSupportedCommandGroup
     return comphelper::mapKeysToSequence( aCmdHashMap );
 }
 
-namespace
-{
-    //Current c++0x draft (apparently) has std::identity, but not operator()
-    template<typename T> struct SGI_identity
-    {
-        T& operator()(T& x) const { return x; }
-        const T& operator()(const T& x) const { return x; }
-    };
-}
-
 Sequence< DispatchInformation > SAL_CALL OGenericUnoController::getConfigurableDispatchInformation( ::sal_Int16 CommandGroup )
 {
     std::vector< DispatchInformation > aInformationVector;
-    DispatchInformation aDispatchInfo;
     for (auto const& supportedFeature : m_aSupportedFeatures)
     {
         if ( sal_Int16( supportedFeature.second.GroupId ) == CommandGroup )
         {
-            aDispatchInfo = supportedFeature.second;
-            aInformationVector.push_back( aDispatchInfo );
+            aInformationVector.push_back( supportedFeature.second );
         }
     }
 
-    Sequence< DispatchInformation > aInformation( aInformationVector.size() );
-    std::transform( aInformationVector.begin(),
-        aInformationVector.end(),
-        aInformation.getArray(),
-        SGI_identity< DispatchInformation >()
-    );
-
-    return aInformation;
+    return comphelper::containerToSequence( aInformationVector );
 }
 
 void OGenericUnoController::fillSupportedFeatures()

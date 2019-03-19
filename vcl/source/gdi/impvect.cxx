@@ -20,7 +20,6 @@
 #include <stdlib.h>
 
 #include <sal/log.hxx>
-#include <o3tl/make_unique.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <tools/poly.hxx>
 #include <tools/helpers.hxx>
@@ -44,7 +43,7 @@
 #define VECT_POLY_OUTLINE_INNER 4UL
 #define VECT_POLY_OUTLINE_OUTER 8UL
 
-static void VECT_MAP( std::unique_ptr<long []> & pMapIn, std::unique_ptr<long []>& pMapOut, long nVal )
+static void VECT_MAP( const std::unique_ptr<long []> & pMapIn, const std::unique_ptr<long []>& pMapOut, long nVal )
 {
     pMapIn[nVal] = (nVal * 4) + 1;
     pMapOut[nVal] = pMapIn[nVal] + 5;
@@ -167,7 +166,7 @@ void ImplPointArray::ImplSetSize( sal_uLong nSize )
     mnSize = nSize;
     mnRealSize = 0;
 
-    mpArray = o3tl::make_unique<Point[]>( nTotal );
+    mpArray = std::make_unique<Point[]>( nTotal );
 }
 
 inline Point& ImplPointArray::operator[]( sal_uLong nPos )

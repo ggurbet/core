@@ -119,6 +119,8 @@
 #include <svx/drawitem.hxx>
 #include <numrule.hxx>
 #include <memory>
+#include <xmloff/odffields.hxx>
+#include <bookmrk.hxx>
 
 using namespace ::com::sun::star;
 using namespace com::sun::star::beans;
@@ -372,7 +374,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
                 if (rWrtSh.HasReadonlySel() && !rWrtSh.CursorInsideInputField())
                 {
                     // Only break if there's something to do; don't nag with the dialog otherwise
-                    auto xInfo(o3tl::make_unique<weld::GenericDialogController>(
+                    auto xInfo(std::make_unique<weld::GenericDialogController>(
                         rWrtSh.GetView().GetFrameWeld(), "modules/swriter/ui/inforeadonlydialog.ui",
                         "InfoReadonlyDialog"));
                     xInfo->run();
@@ -688,7 +690,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
             else
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-                ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSwInsertBookmarkDlg( GetView().GetWindow(), rWrtSh, rReq ));
+                ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateSwInsertBookmarkDlg(GetView().GetFrameWeld(), rWrtSh, rReq));
                 pDlg->Execute();
             }
 
@@ -1367,6 +1369,37 @@ void SwTextShell::Execute(SfxRequest &rReq)
         GetView().UpdateWordCount(this, nSlot);
     }
     break;
+    case SID_FM_CTL_PROPERTIES:
+    {
+        SwPosition aPos(*GetShell().GetCursor()->GetPoint());
+        sw::mark::IFieldmark* pFieldBM = GetShell().getIDocumentMarkAccess()->getFieldmarkFor(aPos);
+        if ( !pFieldBM )
+        {
+            --aPos.nContent;
+            pFieldBM = GetShell().getIDocumentMarkAccess()->getFieldmarkFor(aPos);
+        }
+
+        if ( pFieldBM && pFieldBM->GetFieldname() == ODF_FORMDROPDOWN )
+        {
+            SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateDropDownFormFieldDialog(rWrtSh.GetView().GetFrameWeld(), pFieldBM));
+            if (pDlg->Execute() == RET_OK)
+            {
+                pFieldBM->Invalidate();
+                rWrtSh.InvalidateWindows( rWrtSh.GetView().GetVisArea() );
+                rWrtSh.UpdateCursor(); // cursor position might be invalid
+                // Hide the button here and make it visible later, to make transparent background work with SAL_USE_VCLPLUGIN=gen
+                dynamic_cast<::sw::mark::DropDownFieldmark*>(pFieldBM)->HideButton();
+            }
+        }
+        else
+        {
+            SfxRequest aReq( GetView().GetViewFrame(), SID_FM_CTL_PROPERTIES );
+            aReq.AppendItem( SfxBoolItem( SID_FM_CTL_PROPERTIES, true ) );
+            rWrtSh.GetView().GetFormShell()->Execute( aReq );
+        }
+    }
+    break;
     default:
         OSL_ENSURE(false, "wrong dispatcher");
         return;
@@ -1750,7 +1783,7 @@ void SwTextShell::GetState( SfxItemSet &rSet )
             case SID_TRANSLITERATE_HALFWIDTH:
             case SID_TRANSLITERATE_FULLWIDTH:
             case SID_TRANSLITERATE_HIRAGANA:
-            case SID_TRANSLITERATE_KATAGANA:
+            case SID_TRANSLITERATE_KATAKANA:
             {
                 SvtCJKOptions aCJKOptions;
                 if(!aCJKOptions.IsChangeCaseMapEnabled())
@@ -1903,6 +1936,37 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                 bool bEnabled = aCTLOptions.IsCTLFontEnabled();
                 GetView().GetViewFrame()->GetBindings().SetVisibleState( nWhich, bEnabled );
                 if(!bEnabled)
+                    rSet.DisableItem(nWhich);
+            }
+            break;
+            case SID_FM_CTL_PROPERTIES:
+            {
+                bool bDisable = false;
+
+                // First get the state from the form shell
+                SfxItemSet aSet(GetShell().GetAttrPool(), svl::Items<SID_FM_CTL_PROPERTIES, SID_FM_CTL_PROPERTIES>{});
+                aSet.Put(SfxBoolItem( SID_FM_CTL_PROPERTIES, true ));
+                GetShell().GetView().GetFormShell()->GetState( aSet );
+
+                if(SfxItemState::DISABLED == aSet.GetItemState(SID_FM_CTL_PROPERTIES))
+                {
+                    bDisable = true;
+                }
+
+                // Enable it if we have a valid object other than what form shell knows
+                SwPosition aPos(*GetShell().GetCursor()->GetPoint());
+                sw::mark::IFieldmark* pFieldBM = GetShell().getIDocumentMarkAccess()->getFieldmarkFor(aPos);
+                if ( !pFieldBM && aPos.nContent.GetIndex() > 0)
+                {
+                    --aPos.nContent;
+                    pFieldBM = GetShell().getIDocumentMarkAccess()->getFieldmarkFor(aPos);
+                }
+                if ( pFieldBM && pFieldBM->GetFieldname() == ODF_FORMDROPDOWN )
+                {
+                    bDisable = false;
+                }
+
+                if(bDisable)
                     rSet.DisableItem(nWhich);
             }
             break;

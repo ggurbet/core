@@ -40,10 +40,6 @@
 #define HELPTEXTMARGIN_QUICK    3
 #define HELPTEXTMARGIN_BALLOON  6
 
-#define HELPDELAY_NORMAL        1
-#define HELPDELAY_SHORT         2
-#define HELPDELAY_NONE          3
-
 #define HELPTEXTMAXLEN        150
 
 Help::Help()
@@ -161,7 +157,7 @@ void Help::ShowBalloon( vcl::Window* pParent,
                         const OUString& rHelpText )
 {
     ImplShowHelpWindow( pParent, HELPWINSTYLE_BALLOON, QuickHelpFlags::NONE,
-                        rHelpText, OUString(), rScreenPos, rRect );
+                        rHelpText, rScreenPos, rRect );
 }
 
 void Help::EnableQuickHelp()
@@ -182,12 +178,11 @@ bool Help::IsQuickHelpEnabled()
 void Help::ShowQuickHelp( vcl::Window* pParent,
                           const tools::Rectangle& rScreenRect,
                           const OUString& rHelpText,
-                          const OUString& rLongHelpText,
                           QuickHelpFlags nStyle )
 {
     sal_uInt16 nHelpWinStyle = ( nStyle & QuickHelpFlags::TipStyleBalloon ) ? HELPWINSTYLE_BALLOON : HELPWINSTYLE_QUICK;
     ImplShowHelpWindow( pParent, nHelpWinStyle, nStyle,
-                        rHelpText, rLongHelpText,
+                        rHelpText,
                         pParent->OutputToScreenPixel( pParent->GetPointerPosPixel() ), rScreenRect );
 }
 
@@ -214,7 +209,7 @@ void* Help::ShowPopover(vcl::Window* pParent, const tools::Rectangle& rScreenRec
     nId = pHelpWin.get();
     UpdatePopover(nId, pParent, rScreenRect, rText);
 
-    pHelpWin->ShowHelp( HELPDELAY_NONE );
+    pHelpWin->ShowHelp(true);
     return nId;
 }
 
@@ -422,10 +417,10 @@ void HelpTextWindow::Paint( vcl::RenderContext& rRenderContext, const tools::Rec
     }
 }
 
-void HelpTextWindow::ShowHelp( sal_uInt16 nDelayMode )
+void HelpTextWindow::ShowHelp(bool bNoDelay)
 {
     sal_uLong nTimeout = 0;
-    if ( nDelayMode != HELPDELAY_NONE )
+    if (!bNoDelay)
     {
         // In case of ExtendedHelp display help sooner
         if ( ImplGetSVData()->maHelpData.mbExtHelpMode )
@@ -437,9 +432,6 @@ void HelpTextWindow::ShowHelp( sal_uInt16 nDelayMode )
             else
                 nTimeout = HelpSettings::GetBalloonDelay();
         }
-
-        if ( nDelayMode == HELPDELAY_SHORT )
-            nTimeout /= 3;
     }
 
     maShowTimer.SetTimeout( nTimeout );
@@ -462,7 +454,7 @@ IMPL_LINK( HelpTextWindow, TimerHdl, Timer*, pTimer, void)
     else
     {
         SAL_WARN_IF( pTimer != &maHideTimer, "vcl", "HelpTextWindow::TimerHdl with bad Timer" );
-          ImplDestroyHelpWindow( true );
+        ImplDestroyHelpWindow( true );
     }
 }
 
@@ -486,7 +478,7 @@ OUString HelpTextWindow::GetText() const
 }
 
 void ImplShowHelpWindow( vcl::Window* pParent, sal_uInt16 nHelpWinStyle, QuickHelpFlags nStyle,
-                         const OUString& rHelpText, const OUString& rStatusText,
+                         const OUString& rHelpText,
                          const Point& rScreenPos, const tools::Rectangle& rHelpArea )
 {
     if (pParent->ImplGetFrame()->ShowTooltip(rHelpText, rHelpArea))
@@ -501,7 +493,7 @@ void ImplShowHelpWindow( vcl::Window* pParent, sal_uInt16 nHelpWinStyle, QuickHe
         return;
 
     VclPtr<HelpTextWindow> pHelpWin = pSVData->maHelpData.mpHelpWin;
-    sal_uInt16 nDelayMode = HELPDELAY_NORMAL;
+    bool bNoDelay = false;
     if ( pHelpWin )
     {
         SAL_WARN_IF( pHelpWin == pParent, "vcl", "HelpInHelp ?!" );
@@ -516,7 +508,7 @@ void ImplShowHelpWindow( vcl::Window* pParent, sal_uInt16 nHelpWinStyle, QuickHe
             // other help mode. but keep it if we are scrolling, ie not requesting help
             bool bWasVisible = pHelpWin->IsVisible();
             if ( bWasVisible )
-                nDelayMode = HELPDELAY_NONE; // display it quickly if we were already in quick help mode
+                bNoDelay = true; // display it quickly if we were already in quick help mode
             pHelpWin = nullptr;
             ImplDestroyHelpWindow( bWasVisible );
         }
@@ -545,11 +537,10 @@ void ImplShowHelpWindow( vcl::Window* pParent, sal_uInt16 nHelpWinStyle, QuickHe
 
     sal_uInt64 nCurTime = tools::Time::GetSystemTicks();
     if ( ( nCurTime - pSVData->maHelpData.mnLastHelpHideTime ) < HelpSettings::GetTipDelay() )
-        nDelayMode = HELPDELAY_NONE;
+        bNoDelay = true;
 
     pHelpWin = VclPtr<HelpTextWindow>::Create( pParent, rHelpText, nHelpWinStyle, nStyle );
     pSVData->maHelpData.mpHelpWin = pHelpWin;
-    pHelpWin->SetStatusText( rStatusText );
     pHelpWin->SetHelpArea( rHelpArea );
 
     //  positioning
@@ -558,8 +549,8 @@ void ImplShowHelpWindow( vcl::Window* pParent, sal_uInt16 nHelpWinStyle, QuickHe
     ImplSetHelpWindowPos( pHelpWin, nHelpWinStyle, nStyle, rScreenPos, rHelpArea );
     // if not called from Window::RequestHelp, then without delay...
     if ( !pSVData->maHelpData.mbRequestingHelp )
-        nDelayMode = HELPDELAY_NONE;
-    pHelpWin->ShowHelp( nDelayMode );
+        bNoDelay = true;
+    pHelpWin->ShowHelp(bNoDelay);
 
 }
 

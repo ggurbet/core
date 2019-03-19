@@ -96,7 +96,6 @@
 #include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/settings.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <algorithm>
 #include <functional>
@@ -1266,7 +1265,7 @@ bool FmXFormShell::executeControlConversionSlot_Lock(const Reference<XFormCompon
             DBG_ASSERT(pModel != nullptr, "FmXFormShell::executeControlConversionSlot: my shell has no model !");
             if (pModel && pModel->IsUndoEnabled() )
             {
-                pModel->AddUndo(o3tl::make_unique<FmUndoModelReplaceAction>(*pModel, pFormObject, xOldModel));
+                pModel->AddUndo(std::make_unique<FmUndoModelReplaceAction>(*pModel, pFormObject, xOldModel));
             }
             else
             {
@@ -1569,7 +1568,7 @@ void FmXFormShell::ExecuteSearch_Lock()
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
     ScopedVclPtr<AbstractFmSearchDialog> pDialog(
             pFact->CreateFmSearchDialog(
-                &m_pShell->GetViewShell()->GetViewFrame()->GetWindow(),
+                m_pShell->GetViewShell()->GetViewFrame()->GetWindow().GetFrameWeld(),
                 strInitialText, aContextNames, nInitialContext,
                 LINK(this, FmXFormShell, OnSearchContextRequest_Lock) ));
     pDialog->SetActiveField( strActiveField );
@@ -3243,10 +3242,8 @@ void FmXFormShell::CreateExternalView_Lock()
             Reference< XPropertySet> xCurrentModelSet;
             OUString sColumnType,aGroupName,sControlSource;
             Sequence< Property> aProps;
-            Reference< XPropertySet> xCurrentBoundField;
             while ((xCurrentModelSet = Reference< XPropertySet>(aModelIterator.Next(), UNO_QUERY)).is())
             {
-                xCurrentModelSet->getPropertyValue(FM_PROP_BOUNDFIELD) >>= xCurrentBoundField;
                 OSL_ENSURE(xCurrentModelSet.is(),"xCurrentModelSet is null!");
                 // create a description of the column to be created
                 // first : determine it's type

@@ -1051,6 +1051,7 @@ bool FormulaCompiler::IsMatrixFunction( OpCode eOpCode )
         case ocMatInv :
         case ocMatrixUnit :
         case ocModalValue_Multi :
+        case ocFourier :
             return true;
         default:
         {
@@ -2699,11 +2700,20 @@ void FormulaCompiler::ForceArrayOperator( FormulaTokenRef const & rCurr )
         // CheckSetForceArrayParameter() and later PutCode().
         return;
 
-    if (!pCurrentFactorToken || (pCurrentFactorToken.get() == rCurr.get()))
-        return;
-
     if (!(rCurr->GetOpCode() != ocPush && (rCurr->GetType() == svByte || rCurr->GetType() == svJump)))
         return;
+
+    if (!pCurrentFactorToken || (pCurrentFactorToken.get() == rCurr.get()))
+    {
+        if (!pCurrentFactorToken && mbMatrixFlag)
+        {
+            // An array/matrix formula acts as ForceArray on all top level
+            // operators and function calls, so that can be inherited properly
+            // below.
+            rCurr->SetInForceArray( ParamClass::ForceArray);
+        }
+        return;
+    }
 
     // Inherited parameter class.
     const formula::ParamClass eForceType = pCurrentFactorToken->GetInForceArray();
@@ -2746,6 +2756,13 @@ void FormulaCompiler::ForceArrayOperator( FormulaTokenRef const & rCurr )
             else
                 rCurr->SetInForceArray( formula::ParamClass::SuppressedReferenceOrForceArray);
         }
+
+        // Propagate a ForceArrayReturn to caller if the called function
+        // returns one and the caller so far does not have a stronger array
+        // mode set.
+        if (pCurrentFactorToken->GetInForceArray() == ParamClass::Unknown
+                && GetForceArrayParameter( rCurr.get(), SAL_MAX_UINT16) == ParamClass::ForceArrayReturn)
+            pCurrentFactorToken->SetInForceArray( ParamClass::ForceArrayReturn);
     }
 }
 

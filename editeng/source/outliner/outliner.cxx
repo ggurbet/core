@@ -53,7 +53,6 @@
 #include <libxml/xmlwriter.h>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <o3tl/make_unique.hxx>
 
 // calculate if it's RTL or not
 #include <unicode/ubidi.h>
@@ -163,8 +162,8 @@ void Outliner::ParagraphDeleted( sal_Int32 nPara )
         return;
 
     Paragraph* pPara = pParaList->GetParagraph( nPara );
-        if (!pPara)
-            return;
+    if (!pPara)
+        return;
 
     sal_Int16 nDepth = pPara->GetDepth();
 
@@ -277,7 +276,7 @@ void Outliner::SetNumberingStartValue( sal_Int32 nPara, sal_Int16 nNumberingStar
     if( pPara && pPara->GetNumberingStartValue() != nNumberingStartValue )
     {
         if( IsUndoEnabled() && !IsInUndo() )
-            InsertUndo( o3tl::make_unique<OutlinerUndoChangeParaNumberingRestart>( this, nPara,
+            InsertUndo( std::make_unique<OutlinerUndoChangeParaNumberingRestart>( this, nPara,
                 pPara->GetNumberingStartValue(), nNumberingStartValue,
                 pPara->IsParaIsNumberingRestart(), pPara->IsParaIsNumberingRestart() ) );
 
@@ -301,7 +300,7 @@ void Outliner::SetParaIsNumberingRestart( sal_Int32 nPara, bool bParaIsNumbering
     if( pPara && (pPara->IsParaIsNumberingRestart() != bParaIsNumberingRestart) )
     {
         if( IsUndoEnabled() && !IsInUndo() )
-            InsertUndo( o3tl::make_unique<OutlinerUndoChangeParaNumberingRestart>( this, nPara,
+            InsertUndo( std::make_unique<OutlinerUndoChangeParaNumberingRestart>( this, nPara,
                 pPara->GetNumberingStartValue(), pPara->GetNumberingStartValue(),
                 pPara->IsParaIsNumberingRestart(), bParaIsNumberingRestart ) );
 
@@ -712,8 +711,8 @@ void Outliner::ImplInitDepth( sal_Int32 nPara, sal_Int16 nDepth, bool bCreateUnd
     DBG_ASSERT( ( nDepth >= gnMinDepth ) && ( nDepth <= nMaxDepth ), "ImplInitDepth - Depth is invalid!" );
 
     Paragraph* pPara = pParaList->GetParagraph( nPara );
-        if (!pPara)
-            return;
+    if (!pPara)
+        return;
     sal_Int16 nOldDepth = pPara->GetDepth();
     pPara->SetDepth( nDepth );
 
@@ -734,7 +733,7 @@ void Outliner::ImplInitDepth( sal_Int32 nPara, sal_Int16 nDepth, bool bCreateUnd
 
         if ( bUndo )
         {
-            InsertUndo( o3tl::make_unique<OutlinerUndoChangeDepth>( this, nPara, nOldDepth, nDepth ) );
+            InsertUndo( std::make_unique<OutlinerUndoChangeDepth>( this, nPara, nOldDepth, nDepth ) );
         }
 
         pEditEngine->SetUpdateMode( bUpdate );
@@ -1104,7 +1103,7 @@ ErrCode Outliner::Read( SvStream& rInput, const OUString& rBaseURL, EETextFormat
     bFirstParaIsEmpty = false;
 
     sal_Int32 nParas = pEditEngine->GetParagraphCount();
-     pParaList->Clear();
+    pParaList->Clear();
     for ( sal_Int32 n = 0; n < nParas; n++ )
     {
         std::unique_ptr<Paragraph> pPara(new Paragraph( 0 ));
@@ -1131,8 +1130,8 @@ void Outliner::ImpFilterIndents( sal_Int32 nFirstPara, sal_Int32 nLastPara )
     for( sal_Int32 nPara = nFirstPara; nPara <= nLastPara; nPara++ )
     {
         Paragraph* pPara = pParaList->GetParagraph( nPara );
-                if (pPara)
-                {
+        if (pPara)
+        {
                     if( ImpConvertEdtToOut( nPara ) )
                     {
                             pLastConverted = pPara;
@@ -1293,16 +1292,12 @@ size_t Outliner::InsertView( OutlinerView* pView, size_t nIndex )
 
 void Outliner::RemoveView( OutlinerView const * pView )
 {
-
-    for ( ViewList::iterator it = aViewList.begin(); it != aViewList.end(); ++it )
+    ViewList::iterator it = std::find(aViewList.begin(), aViewList.end(), pView);
+    if (it != aViewList.end())
     {
-        if ( *it == pView )
-        {
-            pView->pEditView->HideCursor(); // HACK
-            pEditEngine->RemoveView(  pView->pEditView.get() );
-            aViewList.erase( it );
-            break;
-        }
+        pView->pEditView->HideCursor(); // HACK
+        pEditEngine->RemoveView(  pView->pEditView.get() );
+        aViewList.erase( it );
     }
 }
 
@@ -1394,8 +1389,8 @@ const SvxNumberFormat* Outliner::GetNumberFormat( sal_Int32 nPara ) const
 Size Outliner::ImplGetBulletSize( sal_Int32 nPara )
 {
     Paragraph* pPara = pParaList->GetParagraph( nPara );
-        if (!pPara)
-            return Size();
+    if (!pPara)
+        return Size();
 
     if( pPara->aBulSize.Width() == -1 )
     {
@@ -1615,10 +1610,6 @@ EBulletInfo Outliner::GetBulletInfo( sal_Int32 nPara )
 
             if( pFmt->GetBulletFont() )
                 aInfo.aFont = *pFmt->GetBulletFont();
-        }
-        else if ( pFmt->GetBrush()->GetGraphicObject() )
-        {
-            aInfo.aGraphic = pFmt->GetBrush()->GetGraphicObject()->GetGraphic();
         }
     }
 
@@ -1987,7 +1978,7 @@ void Outliner::SetParaFlag( Paragraph* pPara,  ParaFlag nFlag )
     if( pPara && !pPara->HasFlag( nFlag ) )
     {
         if( IsUndoEnabled() && !IsInUndo() )
-            InsertUndo( o3tl::make_unique<OutlinerUndoChangeParaFlags>( this, GetAbsPos( pPara ), pPara->nFlags, pPara->nFlags|nFlag ) );
+            InsertUndo( std::make_unique<OutlinerUndoChangeParaFlags>( this, GetAbsPos( pPara ), pPara->nFlags, pPara->nFlags|nFlag ) );
 
         pPara->SetFlag( nFlag );
     }
@@ -2026,12 +2017,12 @@ NonOverflowingText *Outliner::GetNonOverflowingText() const
         return nullptr;
     }
 
-     if (nCount < 0)
-     {
+    if (nCount < 0)
+    {
         SAL_INFO("editeng.chaining",
                  "[Overflowing] No Overflowing text but GetNonOverflowinText called?!");
         return nullptr;
-     }
+    }
 
     // NOTE: We want the selection of the overflowing text from here
     //       At the same time we may want to consider the beginning of such text
@@ -2105,7 +2096,7 @@ NonOverflowingText *Outliner::GetNonOverflowingText() const
         bool bLastParaInterrupted =
             pEditEngine->GetOverflowingLineNum() > 0;
 
-       return new NonOverflowingText(aOverflowingTextSelection, bLastParaInterrupted);
+        return new NonOverflowingText(aOverflowingTextSelection, bLastParaInterrupted);
     }
 }
 
@@ -2157,7 +2148,7 @@ void Outliner::ClearOverflowingParaNum()
     pEditEngine->ClearOverflowingParaNum();
 }
 
-void Outliner::dumpAsXml(struct _xmlTextWriter* pWriter) const
+void Outliner::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     bool bOwns = false;
     if (!pWriter)

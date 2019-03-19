@@ -888,13 +888,11 @@ FeatureState OReportController::GetState(sal_uInt16 _nId) const
             {
                 ::std::vector< uno::Reference< uno::XInterface > > aSelection;
                 getDesignView()->fillControlModelSelection(aSelection);
-                ::std::vector< uno::Reference< uno::XInterface > >::const_iterator aIter = aSelection.begin();
-                for(; aIter != aSelection.end()
-                    && !uno::Reference< report::XFixedLine >(*aIter,uno::UNO_QUERY).is()
-                    && !uno::Reference< report::XImageControl >(*aIter,uno::UNO_QUERY).is()
-                    && uno::Reference< report::XReportControlFormat >(*aIter,uno::UNO_QUERY).is() ;++aIter)
-                    ;
-                aReturn.bEnabled = !aSelection.empty() && aIter == aSelection.end();
+                aReturn.bEnabled = !aSelection.empty()
+                    && std::all_of(aSelection.begin(), aSelection.end(), [](const uno::Reference<uno::XInterface>& rxInterface) {
+                        return !uno::Reference<report::XFixedLine>(rxInterface, uno::UNO_QUERY).is()
+                            && !uno::Reference<report::XImageControl>(rxInterface, uno::UNO_QUERY).is()
+                            && uno::Reference<report::XReportControlFormat>(rxInterface, uno::UNO_QUERY).is(); });
             }
             break;
         case SID_CONDITIONALFORMATTING:
@@ -1437,10 +1435,9 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
                 const OUString sUndoAction(RptResId(RID_STR_UNDO_CHANGEFONT));
                 UndoContext aUndoContext( getUndoManager(), sUndoAction );
 
-                ::std::vector< uno::Reference< uno::XInterface > >::const_iterator aIter = aControlsFormats.begin();
-                for(; aIter != aControlsFormats.end();++aIter)
+                for (const auto& rxControlFormat : aControlsFormats)
                 {
-                    uno::Reference< report::XReportControlFormat> xReportControlFormat(*aIter,uno::UNO_QUERY);
+                    uno::Reference< report::XReportControlFormat> xReportControlFormat(rxControlFormat,uno::UNO_QUERY);
                     lcl_setFontWPU_nothrow(xReportControlFormat,_nId);
                 }
             }
@@ -1514,10 +1511,9 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
                     const OUString sUndoAction( RptResId( RID_STR_UNDO_CHANGEFONT ) );
                     UndoContext aUndoContext( getUndoManager(), sUndoAction );
 
-                    ::std::vector< uno::Reference< uno::XInterface > >::const_iterator aIter = aControlsFormats.begin();
-                    for(; aIter != aControlsFormats.end();++aIter)
+                    for (const auto& rxControlFormat : aControlsFormats)
                     {
-                        uno::Reference< report::XReportControlFormat > xFormat( *aIter, uno::UNO_QUERY );
+                        uno::Reference< report::XReportControlFormat > xFormat( rxControlFormat, uno::UNO_QUERY );
                         if ( !xFormat.is() )
                             continue;
 
@@ -2722,12 +2718,13 @@ uno::Any SAL_CALL OReportController::getViewData()
         {
             uno::Sequence<beans::PropertyValue> aCollapsedSections(aCollapsedPositions.size());
             beans::PropertyValue* pCollapsedIter = aCollapsedSections.getArray();
-            ::std::vector<sal_uInt16>::const_iterator aIter = aCollapsedPositions.begin();
-            ::std::vector<sal_uInt16>::const_iterator aEnd = aCollapsedPositions.end();
-            for (sal_Int32 i = 1; aIter != aEnd ; ++aIter,++pCollapsedIter,++i)
+            sal_Int32 i = 1;
+            for (const auto& rPos : aCollapsedPositions)
             {
                 pCollapsedIter->Name = PROPERTY_SECTION + OUString::number(i);
-                pCollapsedIter->Value <<= static_cast<sal_Int32>(*aIter);
+                pCollapsedIter->Value <<= static_cast<sal_Int32>(rPos);
+                ++pCollapsedIter;
+                ++i;
             }
 
             aViewData.put( "CollapsedSections", aCollapsedSections );
@@ -2763,19 +2760,16 @@ void SAL_CALL OReportController::restoreViewData(const uno::Any& i_data)
         ::comphelper::NamedValueCollection aCommandProperties( aViewData.get( "CommandProperties" ) );
         const ::std::vector< OUString > aCommandNames( aCommandProperties.getNames() );
 
-        for (   ::std::vector< OUString >::const_iterator commandName = aCommandNames.begin();
-                commandName != aCommandNames.end();
-                ++commandName
-            )
+        for ( const auto& rCommandName : aCommandNames )
         {
-            const Any& rCommandValue = aCommandProperties.get( *commandName );
+            const Any& rCommandValue = aCommandProperties.get( rCommandName );
             if ( !rCommandValue.hasValue() )
                 continue;
 
             if ( getView() )
             {
                 util::URL aCommand;
-                aCommand.Complete = ".uno:" + *commandName;
+                aCommand.Complete = ".uno:" + rCommandName;
 
                 Sequence< PropertyValue > aCommandArgs(1);
                 aCommandArgs[0].Name = "Value";
@@ -2785,19 +2779,19 @@ void SAL_CALL OReportController::restoreViewData(const uno::Any& i_data)
             }
             else
             {
-                if ( *commandName == "ShowRuler" )
+                if ( rCommandName == "ShowRuler" )
                     OSL_VERIFY( rCommandValue >>= m_bShowRuler );
-                else if ( *commandName == "HelplinesMove" )
+                else if ( rCommandName == "HelplinesMove" )
                     OSL_VERIFY( rCommandValue >>= m_bHelplinesMove );
-                else if ( *commandName == "GridVisible" )
+                else if ( rCommandName == "GridVisible" )
                     OSL_VERIFY( rCommandValue >>= m_bGridVisible );
-                else if ( *commandName == "GridUse" )
+                else if ( rCommandName == "GridUse" )
                     OSL_VERIFY( rCommandValue >>= m_bGridUse );
-                else if ( *commandName == "ControlProperties" )
+                else if ( rCommandName == "ControlProperties" )
                     OSL_VERIFY( rCommandValue >>= m_bShowProperties );
-                else if ( *commandName == "LastPropertyBrowserPage" )
+                else if ( rCommandName == "LastPropertyBrowserPage" )
                     OSL_VERIFY( rCommandValue >>= m_sLastActivePage );
-                else if ( *commandName == "SplitPosition" )
+                else if ( rCommandName == "SplitPosition" )
                     OSL_VERIFY( rCommandValue >>= m_nSplitPos );
             }
         }
@@ -3768,13 +3762,13 @@ void OReportController::switchReportSection(const sal_Int16 _nId)
             const OUString sUndoAction(RptResId(bSwitchOn ? RID_STR_UNDO_ADD_REPORTHEADERFOOTER : RID_STR_UNDO_REMOVE_REPORTHEADERFOOTER));
             pUndoContext.reset( new UndoContext( getUndoManager(), sUndoAction ) );
 
-            addUndoAction(o3tl::make_unique<OReportSectionUndo>(*(m_aReportModel),SID_REPORTHEADER_WITHOUT_UNDO
+            addUndoAction(std::make_unique<OReportSectionUndo>(*m_aReportModel,SID_REPORTHEADER_WITHOUT_UNDO
                                                             ,::std::mem_fn(&OReportHelper::getReportHeader)
                                                             ,m_xReportDefinition
                                                             ,bSwitchOn ? Inserted : Removed
                                                             ));
 
-            addUndoAction(o3tl::make_unique<OReportSectionUndo>(*(m_aReportModel),SID_REPORTFOOTER_WITHOUT_UNDO
+            addUndoAction(std::make_unique<OReportSectionUndo>(*m_aReportModel,SID_REPORTFOOTER_WITHOUT_UNDO
                                                             ,::std::mem_fn(&OReportHelper::getReportFooter)
                                                             ,m_xReportDefinition
                                                             ,bSwitchOn ? Inserted : Removed
@@ -3815,14 +3809,14 @@ void OReportController::switchPageSection(const sal_Int16 _nId)
             const OUString sUndoAction(RptResId(bSwitchOn ? RID_STR_UNDO_ADD_REPORTHEADERFOOTER : RID_STR_UNDO_REMOVE_REPORTHEADERFOOTER));
             pUndoContext.reset( new UndoContext( getUndoManager(), sUndoAction ) );
 
-            addUndoAction(o3tl::make_unique<OReportSectionUndo>(*m_aReportModel
+            addUndoAction(std::make_unique<OReportSectionUndo>(*m_aReportModel
                                                             ,SID_PAGEHEADER_WITHOUT_UNDO
                                                             ,::std::mem_fn(&OReportHelper::getPageHeader)
                                                             ,m_xReportDefinition
                                                             ,bSwitchOn ? Inserted : Removed
                                                             ));
 
-            addUndoAction(o3tl::make_unique<OReportSectionUndo>(*m_aReportModel
+            addUndoAction(std::make_unique<OReportSectionUndo>(*m_aReportModel
                                                             ,SID_PAGEFOOTER_WITHOUT_UNDO
                                                             ,::std::mem_fn(&OReportHelper::getPageFooter)
                                                             ,m_xReportDefinition
@@ -3869,7 +3863,7 @@ void OReportController::modifyGroup(const bool _bAppend, const Sequence< Propert
             rUndoEnv.AddElement( xGroup->getFunctions() );
         }
 
-        addUndoAction( o3tl::make_unique<OGroupUndo>(
+        addUndoAction( std::make_unique<OGroupUndo>(
             *m_aReportModel,
             _bAppend ? RID_STR_UNDO_APPEND_GROUP : RID_STR_UNDO_REMOVE_GROUP,
             _bAppend ? Inserted : Removed,
@@ -3903,7 +3897,7 @@ void OReportController::createGroupSection(const bool _bUndo,const bool _bHeader
         {
             const OXUndoEnvironment::OUndoEnvLock aLock(m_aReportModel->GetUndoEnv());
             if ( _bUndo )
-                addUndoAction(o3tl::make_unique<OGroupSectionUndo>(*m_aReportModel
+                addUndoAction(std::make_unique<OGroupSectionUndo>(*m_aReportModel
                                                                 ,_bHeader ? SID_GROUPHEADER_WITHOUT_UNDO : SID_GROUPFOOTER_WITHOUT_UNDO
                                                                 ,_bHeader ? ::std::mem_fn(&OGroupHelper::getHeader) : ::std::mem_fn(&OGroupHelper::getFooter)
                                                                 ,xGroup
@@ -4154,14 +4148,13 @@ bool OReportController::impl_setPropertyAtControls_throw(const char* pUndoResId,
     ::std::vector< uno::Reference< uno::XInterface > > aSelection;
     uno::Reference< awt::XWindow> xWindow;
     lcl_getReportControlFormat( _aArgs, getDesignView(), xWindow, aSelection );
-    ::std::vector< uno::Reference< uno::XInterface > >::const_iterator aIter = aSelection.begin();
 
     const OUString sUndoAction = RptResId( pUndoResId );
     UndoContext aUndoContext( getUndoManager(), sUndoAction );
 
-    for(;  aIter != aSelection.end();++aIter)
+    for (const auto& rxInterface : aSelection)
     {
-        const uno::Reference< beans::XPropertySet > xControlModel(*aIter,uno::UNO_QUERY);
+        const uno::Reference< beans::XPropertySet > xControlModel(rxInterface,uno::UNO_QUERY);
         if ( xControlModel.is() )
             // tdf#117795: some elements may have not some property
             // eg class "OFixedLine" doesn't have property "CharFontName"
@@ -4257,11 +4250,11 @@ void OReportController::openZoomDialog()
 void SAL_CALL OReportController::setVisualAreaSize( ::sal_Int64 _nAspect, const awt::Size& _aSize )
 {
     ::osl::MutexGuard aGuard( getMutex() );
-        bool bChanged =
+    bool bChanged =
             (m_aVisualAreaSize.Width != _aSize.Width ||
              m_aVisualAreaSize.Height != _aSize.Height);
-        m_aVisualAreaSize = _aSize;
-        if( bChanged )
+    m_aVisualAreaSize = _aSize;
+    if( bChanged )
             setModified( true );
     m_nAspect = _nAspect;
 }

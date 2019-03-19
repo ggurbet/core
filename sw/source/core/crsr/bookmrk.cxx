@@ -32,12 +32,12 @@
 #include <swtypes.hxx>
 #include <UndoBookmark.hxx>
 #include <unobookmark.hxx>
-#include <o3tl/make_unique.hxx>
 #include <xmloff/odffields.hxx>
 #include <libxml/xmlwriter.h>
 #include <comphelper/random.hxx>
 #include <comphelper/anytostring.hxx>
 #include <sal/log.hxx>
+#include <edtwin.hxx>
 
 using namespace ::sw::mark;
 using namespace ::com::sun::star;
@@ -173,13 +173,13 @@ namespace sw { namespace mark
 
     void MarkBase::SetMarkPos(const SwPosition& rNewPos)
     {
-        o3tl::make_unique<SwPosition>(rNewPos).swap(m_pPos1);
+        std::make_unique<SwPosition>(rNewPos).swap(m_pPos1);
         m_pPos1->nContent.SetMark(this);
     }
 
     void MarkBase::SetOtherMarkPos(const SwPosition& rNewPos)
     {
-        o3tl::make_unique<SwPosition>(rNewPos).swap(m_pPos2);
+        std::make_unique<SwPosition>(rNewPos).swap(m_pPos2);
         m_pPos2->nContent.SetMark(this);
     }
 
@@ -297,7 +297,7 @@ namespace sw { namespace mark
         if (io_pDoc->GetIDocumentUndoRedo().DoesUndo())
         {
             io_pDoc->GetIDocumentUndoRedo().AppendUndo(
-                    o3tl::make_unique<SwUndoInsBookmark>(*this));
+                    std::make_unique<SwUndoInsBookmark>(*this));
         }
         io_pDoc->getIDocumentState().SetModified();
     }
@@ -309,7 +309,7 @@ namespace sw { namespace mark
         if (io_pDoc->GetIDocumentUndoRedo().DoesUndo())
         {
             io_pDoc->GetIDocumentUndoRedo().AppendUndo(
-                    o3tl::make_unique<SwUndoDeleteBookmark>(*this));
+                    std::make_unique<SwUndoDeleteBookmark>(*this));
         }
         io_pDoc->getIDocumentState().SetModified();
     }
@@ -478,6 +478,79 @@ namespace sw { namespace mark
         if(pResult != GetParameters()->end())
             pResult->second >>= bResult;
         return bResult;
+    }
+
+    DropDownFieldmark::DropDownFieldmark(const SwPaM& rPaM)
+        : Fieldmark(rPaM)
+        , m_pButton(nullptr)
+    {
+    }
+
+    DropDownFieldmark::~DropDownFieldmark()
+    {
+        m_pButton.disposeAndClear();
+    }
+
+    void DropDownFieldmark::InitDoc(SwDoc* const io_pDoc, sw::mark::InsertMode const eMode)
+    {
+        if (eMode == sw::mark::InsertMode::New)
+        {
+            lcl_SetFieldMarks(this, io_pDoc, CH_TXT_ATR_FIELDSTART, CH_TXT_ATR_FORMELEMENT);
+
+            // For some reason the end mark is moved from 1 by the Insert:
+            // we don't want this for checkboxes
+            SwPosition aNewEndPos = GetMarkEnd();
+            aNewEndPos.nContent--;
+            SetMarkEndPos( aNewEndPos );
+        }
+        else
+        {
+            lcl_AssertFieldMarksSet(this, CH_TXT_ATR_FIELDSTART, CH_TXT_ATR_FORMELEMENT);
+        }
+    }
+
+    void DropDownFieldmark::ReleaseDoc(SwDoc* const pDoc)
+    {
+        lcl_RemoveFieldMarks(this, pDoc,
+                CH_TXT_ATR_FIELDSTART, CH_TXT_ATR_FORMELEMENT);
+    }
+
+    void DropDownFieldmark::SetPortionPaintArea(const SwRect& rPortionPaintArea)
+    {
+        if(m_aPortionPaintArea == rPortionPaintArea &&
+           m_pButton && m_pButton->IsVisible())
+            return;
+
+        m_aPortionPaintArea = rPortionPaintArea;
+        if(m_pButton)
+        {
+            m_pButton->Show();
+            m_pButton->CalcPosAndSize(m_aPortionPaintArea);
+            m_pButton->Invalidate();
+        }
+    }
+
+    void DropDownFieldmark::ShowButton(SwEditWin* pEditWin)
+    {
+        if(pEditWin)
+        {
+            if(!m_pButton)
+                m_pButton = VclPtr<DropDownFormFieldButton>::Create(pEditWin, *this);
+            m_pButton->CalcPosAndSize(m_aPortionPaintArea);
+            m_pButton->Show();
+        }
+    }
+
+    void DropDownFieldmark::HideButton()
+    {
+        if(m_pButton)
+            m_pButton->Show(false);
+    }
+
+    void DropDownFieldmark::RemoveButton()
+    {
+        if(m_pButton)
+            m_pButton.disposeAndClear();
     }
 }}
 

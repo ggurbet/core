@@ -77,7 +77,7 @@
 #define RID_SVXSTR_HYPERDLG_HLINETTP                NC_("RID_SVXSTR_HYPERDLG_HLINETTP", "Internet")
 #define RID_SVXSTR_HYPERDLG_HLINETTP_HELP           NC_("RID_SVXSTR_HYPERDLG_HLINETTP_HELP", "This is where you create a hyperlink to a Web page or FTP server connection.")
 #define RID_SVXSTR_HYPERDLG_HLMAILTP                NC_("RID_SVXSTR_HYPERDLG_HLMAILTP", "Mail")
-#define RID_SVXSTR_HYPERDLG_HLMAILTP_HELP           NC_("RID_SVXSTR_HYPERDLG_HLMAILTP_HELP", "This is where you create a hyperlink to an e-mail address.")
+#define RID_SVXSTR_HYPERDLG_HLMAILTP_HELP           NC_("RID_SVXSTR_HYPERDLG_HLMAILTP_HELP", "This is where you create a hyperlink to an email address.")
 #define RID_SVXSTR_HYPERDLG_HLDOCTP                 NC_("RID_SVXSTR_HYPERDLG_HLDOCTP", "Document")
 #define RID_SVXSTR_HYPERDLG_HLDOCTP_HELP            NC_("RID_SVXSTR_HYPERDLG_HLDOCTP_HELP", "This is where you create a hyperlink to an existing document or a target within a document.")
 #define RID_SVXSTR_HYPERDLG_HLDOCNTP                NC_("RID_SVXSTR_HYPERDLG_HLDOCNTP", "New Document")
@@ -263,9 +263,6 @@
 #define RID_SVXSTR_ERROR_TYPE_LABEL                 NC_("RID_SVXSTR_ERROR_TYPE_LABEL", "Type:")
 #define RID_SVXSTR_ERROR_MESSAGE_LABEL              NC_("RID_SVXSTR_ERROR_MESSAGE_LABEL", "Message:")
 
-#define RID_SVXSTR_TYPE                             NC_("RID_SVXSTR_TYPE", "Registered name")
-#define RID_SVXSTR_PATH                             NC_("RID_SVXSTR_PATH", "Database file")
-
 //abbreviation for "[Load]"
 #define RID_SVXSTR_HEADER1                          NC_("RID_SVXSTR_HEADER1", "[L]")
 //abbreviation for "[Save]"
@@ -392,6 +389,8 @@
 #define RID_SVXSTR_SIGNATURELINE_SIGNED_BY          NC_("RID_SVXSTR_SIGNATURELINE_SIGNED_BY", "Signed by: %1")
 
 #define RID_SVXSTR_FILTER_ALL                       NC_("RID_SVXSTR_FILTER_ALL", "All files")
+
+#define RID_SVXSTR_REGISTERED_DATABASES             NC_("RID_SVXSTR_REGISTERED_DATABASES", "Registered Databases")
 
 #endif
 

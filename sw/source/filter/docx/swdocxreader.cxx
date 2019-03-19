@@ -137,7 +137,14 @@ bool SwDOCXReader::ReadGlossaries( SwTextBlocks& rBlocks, bool /* bSaveRelFiles 
             }));
 
         if( xFilter->filter( aDescriptor ) )
-            return MakeEntries( static_cast<SwDocShell*>( &xDocSh )->GetDoc(), rBlocks );
+        {
+            if (rBlocks.StartPutMuchBlockEntries())
+            {
+                bool bRet = MakeEntries(static_cast<SwDocShell*>(&xDocSh)->GetDoc(), rBlocks);
+                rBlocks.EndPutMuchBlockEntries();
+                return bRet;
+            }
+        }
     }
 
     return false;
@@ -158,7 +165,6 @@ bool SwDOCXReader::MakeEntries( SwDoc *pD, SwTextBlocks &rBlocks )
     {
         SwTextFormatColl* pColl = pD->getIDocumentStylePoolAccess().GetTextCollFromPool
             (RES_POOLCOLL_STANDARD, false);
-        sal_uInt16 nGlosEntry = 0;
         SwContentNode* pCNd = nullptr;
         bRet = true;
         do {
@@ -242,7 +248,6 @@ bool SwDOCXReader::MakeEntries( SwDoc *pD, SwTextBlocks &rBlocks )
             }
 
             aStart = aStart.GetNode().EndOfSectionIndex() + 1;
-            ++nGlosEntry;
         } while( aStart < aDocEnd && aStart.GetNode().IsStartNode() );
     }
 

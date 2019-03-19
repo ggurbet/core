@@ -157,7 +157,6 @@
 #include <vcl/metric.hxx>
 #include <vcl/notebookbar.hxx>
 #include <vcl/outdev.hxx>
-#include <vcl/pointr.hxx>
 #include <vcl/ptrstyle.hxx>
 #include <vcl/region.hxx>
 #include <vcl/salnativewidgets.hxx>
@@ -421,7 +420,6 @@
 #include <miscuno.hxx>
 #include <o3tl/cow_wrapper.hxx>
 #include <o3tl/enumarray.hxx>
-#include <o3tl/make_unique.hxx>
 #include <o3tl/sorted_vector.hxx>
 #include <o3tl/strong_int.hxx>
 #include <o3tl/typed_flags_set.hxx>

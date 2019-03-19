@@ -38,6 +38,7 @@
 #include <rtl/ref.hxx>
 #include <vcl/image.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 
 #include <cstdlib>
 #include <functional>
@@ -1726,7 +1727,7 @@ namespace svt { namespace table
     }
 
 
-    RowPos TableControl_Impl::getCurrentColumn() const
+    ColPos TableControl_Impl::getCurrentColumn() const
     {
         return m_nCurColumn;
     }
@@ -1744,7 +1745,7 @@ namespace svt { namespace table
     }
 
 
-    void TableControl_Impl::setPointer( Pointer const & i_pointer )
+    void TableControl_Impl::setPointer( PointerStyle i_pointer )
     {
         m_pDataWindow->SetPointer( i_pointer );
     }

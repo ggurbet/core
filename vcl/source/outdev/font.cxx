@@ -25,8 +25,10 @@
 #include <vcl/print.hxx>
 #include <vcl/sysdata.hxx>
 #include <vcl/fontcharmap.hxx>
+#include <vcl/event.hxx>
 #include <font/FeatureCollector.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 
 #include <sallayout.hxx>
 #include <salgdi.hxx>
@@ -60,7 +62,6 @@ FontMetric OutputDevice::GetDevFont( int nDevFontIndex ) const
         aFontMetric.SetAlignment( TextAlign::ALIGN_TOP );
         aFontMetric.SetWidthType( rData.GetWidthType() );
         aFontMetric.SetQuality( rData.GetQuality() );
-        aFontMetric.SetMapNames( rData.GetMapNames() );
     }
 
     return aFontMetric;
@@ -232,7 +233,6 @@ FontMetric OutputDevice::GetFontMetric() const
 
     // get miscellaneous data
     aMetric.SetQuality( xFontMetric->GetQuality() );
-    aMetric.SetMapNames( xFontMetric->GetMapNames() );
 
     SAL_INFO("vcl.gdi.fontmetric", "OutputDevice::GetFontMetric:" << aMetric);
 
@@ -595,7 +595,16 @@ void OutputDevice::ImplClearAllFontData(bool bNewFontLists)
 
 void OutputDevice::ImplRefreshAllFontData(bool bNewFontLists)
 {
-    ImplUpdateFontDataForAllFrames( &OutputDevice::ImplRefreshFontData, bNewFontLists );
+    auto svdata = ImplGetSVData();
+    DBG_TESTSOLARMUTEX();
+    if (!svdata->mnFontUpdatesLockCount)
+        ImplUpdateFontDataForAllFrames(&OutputDevice::ImplRefreshFontData, bNewFontLists);
+    else
+    {
+        svdata->mbFontUpdatesPending = true;
+        if (bNewFontLists)
+            svdata->mbFontUpdatesNewLists = true;
+    }
 }
 
 void OutputDevice::ImplUpdateAllFontData(bool bNewFontLists)
@@ -638,6 +647,27 @@ void OutputDevice::ImplUpdateFontDataForAllFrames( const FontUpdateHandler_t pHd
     {
         ( pPrinter->*pHdl )( bNewFontLists );
         pPrinter = pPrinter->mpNext;
+    }
+}
+
+void OutputDevice::LockFontUpdates(bool bLock)
+{
+    auto svdata = ImplGetSVData();
+    DBG_TESTSOLARMUTEX();
+    if (bLock)
+    {
+        ++svdata->mnFontUpdatesLockCount;
+    }
+    else if (svdata->mnFontUpdatesLockCount > 0)
+    {
+        --svdata->mnFontUpdatesLockCount;
+        if (!svdata->mnFontUpdatesLockCount && svdata->mbFontUpdatesPending)
+        {
+            ImplRefreshAllFontData(svdata->mbFontUpdatesNewLists);
+
+            svdata->mbFontUpdatesPending = false;
+            svdata->mbFontUpdatesNewLists = false;
+        }
     }
 }
 
@@ -846,8 +876,7 @@ vcl::Font OutputDevice::GetDefaultFont( DefaultFontType nType, LanguageType eLan
                 if( !pOutDev )
                 {
                     SAL_WARN_IF(!utl::ConfigManager::IsFuzzing(), "vcl.gdi", "No default window has been set for the application - we really shouldn't be able to get here");
-                    sal_Int32 nIndex = 0;
-                    aFont.SetFamilyName( aSearch.getToken( 0, ';', nIndex ) );
+                    aFont.SetFamilyName( aSearch.getToken( 0, ';' ) );
                 }
                 else
                 {
@@ -1292,7 +1321,7 @@ std::unique_ptr<SalLayout> OutputDevice::getFallbackLayout(
     mpGraphics->SetFont( pLogicalFont, nFallbackLevel );
 
     rLayoutArgs.ResetPos();
-    std::unique_ptr<SalLayout> pFallback = mpGraphics->GetTextLayout( rLayoutArgs, nFallbackLevel );
+    std::unique_ptr<GenericSalLayout> pFallback = mpGraphics->GetTextLayout(nFallbackLevel);
 
     if (!pFallback)
         return nullptr;

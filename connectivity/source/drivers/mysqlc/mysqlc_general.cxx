@@ -210,7 +210,7 @@ sal_Int32 mysqlStrToOOOType(const OUString& sType)
         return css::sdbc::DataType::TIME;
     if (sType.equalsIgnoreAsciiCase("date"))
         return css::sdbc::DataType::DATE;
-    if (sType.equalsIgnoreAsciiCase("datetime"))
+    if (sType.equalsIgnoreAsciiCase("datetime") || sType.equalsIgnoreAsciiCase("timestamp"))
         return css::sdbc::DataType::TIMESTAMP;
     if (sType.equalsIgnoreAsciiCase("decimal"))
         return css::sdbc::DataType::DECIMAL;
@@ -224,8 +224,6 @@ sal_Int32 mysqlStrToOOOType(const OUString& sType)
     OSL_FAIL("Unknown type name from string, failing back to varchar.");
     return css::sdbc::DataType::VARCHAR;
 }
-
-OUString mysqlTypeToStr(MYSQL_FIELD* field) { return mysqlTypeToStr(field->type, field->flags); }
 
 OUString mysqlTypeToStr(unsigned type, unsigned flags)
 {

@@ -34,7 +34,6 @@
 #include <headertablistbox.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
-#include <o3tl/make_unique.hxx>
 
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::frame::XFrame;
@@ -47,7 +46,7 @@ public:
     OUString                               m_aStaticMacroLBLabel;
     std::unique_ptr<weld::Button>          m_xAssignPB;
     std::unique_ptr<weld::Button>          m_xDeletePB;
-    std::unique_ptr<CuiMacroEventListBox>  m_xEventLB;
+    std::unique_ptr<MacroEventListBox>     m_xEventLB;
     std::unique_ptr<weld::Widget>          m_xGroupFrame;
     std::unique_ptr<CuiConfigGroupListBox> m_xGroupLB;
     std::unique_ptr<weld::Frame>           m_xMacroFrame;
@@ -113,7 +112,7 @@ SfxMacroTabPage::SfxMacroTabPage(TabPageParent pParent, const Reference< XFrame 
     mpImpl->m_aFillGroupIdle.SetPriority( TaskPriority::HIGHEST );
     mpImpl->m_aFillGroupIdle.SetDebugName( "SfxMacroTabPage m_aFillGroupIdle" );
 
-    mpImpl->m_xEventLB.reset(new CuiMacroEventListBox(m_xBuilder->weld_tree_view("assignments")));
+    mpImpl->m_xEventLB.reset(new MacroEventListBox(m_xBuilder->weld_tree_view("assignments")));
     mpImpl->m_xAssignPB = m_xBuilder->weld_button("assign");
     mpImpl->m_xDeletePB = m_xBuilder->weld_button("delete");
     mpImpl->m_xGroupFrame = m_xBuilder->weld_widget("groupframe");
@@ -198,8 +197,8 @@ void SfxMacroTabPage::PageCreated(const SfxAllItemSet& aSet)
         const SfxEventNamesList& rList = static_cast<const SfxEventNamesItem*>(pEventsItem)->GetEvents();
         for ( size_t nNo = 0, nCnt = rList.size(); nNo < nCnt; ++nNo )
         {
-            const SfxEventName *pOwn = rList.at(nNo);
-            AddEvent( pOwn->maUIName, pOwn->mnId );
+            const SfxEventName &rOwn = rList.at(nNo);
+            AddEvent( rOwn.maUIName, rOwn.mnId );
         }
     }
 }
@@ -217,8 +216,8 @@ void SfxMacroTabPage::Reset( const SfxItemSet* rSet )
         const SfxEventNamesList& rList = static_cast<const SfxEventNamesItem*>(pEventsItem)->GetEvents();
         for ( size_t nNo = 0, nCnt = rList.size(); nNo < nCnt; ++nNo )
         {
-            const SfxEventName *pOwn = rList.at(nNo);
-            AddEvent( pOwn->maUIName, pOwn->mnId );
+            const SfxEventName &rOwn = rList.at(nNo);
+            AddEvent( rOwn.maUIName, rOwn.mnId );
         }
     }
 

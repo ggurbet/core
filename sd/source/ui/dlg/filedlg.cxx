@@ -17,20 +17,14 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/ui/dialogs/CommonFilePickerElementIds.hpp>
-#include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
-#include <com/sun/star/ui/dialogs/ListboxControlActions.hpp>
 #include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 #include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
-#include <com/sun/star/ui/dialogs/XFilePickerListener.hpp>
-#include <com/sun/star/ui/dialogs/XFilePickerNotifier.hpp>
-#include <com/sun/star/ui/dialogs/XFilePicker3.hpp>
+#include <com/sun/star/ui/dialogs/FilePickerEvent.hpp>
 #include <vcl/idle.hxx>
-#include <sal/types.h>
-#include <osl/thread.hxx>
 #include <osl/diagnose.h>
 #include <vcl/svapp.hxx>
 #include <sfx2/filedlghelper.hxx>
@@ -38,7 +32,6 @@
 #include <filedlg.hxx>
 #include <sdresid.hxx>
 #include <strings.hrc>
-#include <vcl/graphicfilter.hxx>
 #include <officecfg/Office/Impress.hxx>
 
 // -----------      SdFileDialog_Imp        ---------------------------
@@ -116,6 +109,7 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, PlayMusicHdl, void*, void)
         OUString aUrl( GetPath() );
         if ( !aUrl.isEmpty() )
         {
+#if HAVE_FEATURE_AVMEDIA
             try
             {
                 mxPlayer.set( avmedia::MediaWindow::createPlayer( aUrl, "" ), css::uno::UNO_QUERY_THROW );
@@ -126,7 +120,7 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, PlayMusicHdl, void*, void)
             {
                 mxPlayer.clear();
             }
-
+#endif
             if (mxPlayer.is())
             {
                 try
@@ -157,20 +151,20 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, IsMusicStoppedHdl, Timer *, void)
         return;
     }
 
-    if( mxControlAccess.is() )
+    if( !mxControlAccess.is() )
+        return;
+
+    try
     {
-        try
-        {
-            mxControlAccess->setLabel( css::ui::dialogs::ExtendedFilePickerElementIds::PUSHBUTTON_PLAY,
-                                       SdResId( STR_PLAY ) );
-            mbLabelPlaying = false;
-        }
-        catch (const css::lang::IllegalArgumentException&)
-        {
+        mxControlAccess->setLabel( css::ui::dialogs::ExtendedFilePickerElementIds::PUSHBUTTON_PLAY,
+                                   SdResId( STR_PLAY ) );
+        mbLabelPlaying = false;
+    }
+    catch (const css::lang::IllegalArgumentException&)
+    {
 #ifdef DBG_UTIL
-            OSL_FAIL( "Cannot access play button" );
+        OSL_FAIL( "Cannot access play button" );
 #endif
-        }
     }
 }
 
@@ -187,19 +181,19 @@ SdFileDialog_Imp::SdFileDialog_Imp(weld::Window* pParent)
     // get the control access
     mxControlAccess.set( xFileDlg, css::uno::UNO_QUERY );
 
-    if( mxControlAccess.is() )
+    if( !mxControlAccess.is() )
+        return;
+
+    try
     {
-        try
-        {
-            mxControlAccess->setLabel( css::ui::dialogs::ExtendedFilePickerElementIds::PUSHBUTTON_PLAY,
-                                       SdResId( STR_PLAY ) );
-        }
-        catch (const css::lang::IllegalArgumentException&)
-        {
+        mxControlAccess->setLabel( css::ui::dialogs::ExtendedFilePickerElementIds::PUSHBUTTON_PLAY,
+                                   SdResId( STR_PLAY ) );
+    }
+    catch (const css::lang::IllegalArgumentException&)
+    {
 #ifdef DBG_UTIL
-            OSL_FAIL( "Cannot set play button label" );
+        OSL_FAIL( "Cannot set play button label" );
 #endif
-        }
     }
 }
 

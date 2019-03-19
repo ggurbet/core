@@ -262,22 +262,21 @@ SwXText::queryInterface(const uno::Type& rType)
 uno::Sequence< uno::Type > SAL_CALL
 SwXText::getTypes()
 {
-    uno::Sequence< uno::Type > aRet(12);
-    uno::Type* pTypes = aRet.getArray();
-    pTypes[0] = cppu::UnoType<text::XText>::get();
-    pTypes[1] = cppu::UnoType<text::XTextRangeCompare>::get();
-    pTypes[2] = cppu::UnoType<text::XRelativeTextContentInsert>::get();
-    pTypes[3] = cppu::UnoType<text::XRelativeTextContentRemove>::get();
-    pTypes[4] = cppu::UnoType<lang::XUnoTunnel>::get();
-    pTypes[5] = cppu::UnoType<beans::XPropertySet>::get();
-    pTypes[6] = cppu::UnoType<text::XTextPortionAppend>::get();
-    pTypes[7] = cppu::UnoType<text::XParagraphAppend>::get();
-    pTypes[8] = cppu::UnoType<text::XTextContentAppend>::get();
-    pTypes[9] = cppu::UnoType<text::XTextConvert>::get();
-    pTypes[10] = cppu::UnoType<text::XTextAppend>::get();
-    pTypes[11] = cppu::UnoType<text::XTextAppendAndConvert>::get();
-
-    return aRet;
+    static const uno::Sequence< uno::Type > aTypes {
+        cppu::UnoType<text::XText>::get(),
+        cppu::UnoType<text::XTextRangeCompare>::get(),
+        cppu::UnoType<text::XRelativeTextContentInsert>::get(),
+        cppu::UnoType<text::XRelativeTextContentRemove>::get(),
+        cppu::UnoType<lang::XUnoTunnel>::get(),
+        cppu::UnoType<beans::XPropertySet>::get(),
+        cppu::UnoType<text::XTextPortionAppend>::get(),
+        cppu::UnoType<text::XParagraphAppend>::get(),
+        cppu::UnoType<text::XTextContentAppend>::get(),
+        cppu::UnoType<text::XTextConvert>::get(),
+        cppu::UnoType<text::XTextAppend>::get(),
+        cppu::UnoType<text::XTextAppendAndConvert>::get()
+    };
+    return aTypes;
 }
 
 // belongs the range in the text ? insert it then.
@@ -1670,7 +1669,7 @@ SwXText::convertToTextFrame(
 
     const uno::Reference<text::XTextFrame> xNewFrame(
             SwXTextFrame::CreateXTextFrame(*m_pImpl->m_pDoc, nullptr));
-    SwXTextFrame& rNewFrame = dynamic_cast<SwXTextFrame&>(*xNewFrame.get());
+    SwXTextFrame& rNewFrame = dynamic_cast<SwXTextFrame&>(*xNewFrame);
     rNewFrame.SetSelection( aStartPam );
     try
     {
@@ -1835,10 +1834,10 @@ void SwXText::Impl::ConvertCell(
 
     SwNodeRange aTmpRange(aStartCellPam.Start()->nNode,
                           aEndCellPam.End()->nNode);
-    SwNodeRange * pCorrectedRange =
+    std::unique_ptr<SwNodeRange> pCorrectedRange =
         m_pDoc->GetNodes().ExpandRangeForTableBox(aTmpRange);
 
-    if (pCorrectedRange != nullptr)
+    if (pCorrectedRange)
     {
         SwPaM aNewStartPaM(pCorrectedRange->aStart, 0);
         aStartCellPam = aNewStartPaM;
@@ -1851,7 +1850,7 @@ void SwXText::Impl::ConvertCell(
         SwPaM aNewEndPaM(pCorrectedRange->aEnd, nEndLen);
         aEndCellPam = aNewEndPaM;
 
-        delete pCorrectedRange;
+        pCorrectedRange.reset();
     }
 
     /** check the nodes between start and end
@@ -2207,7 +2206,7 @@ SwXText::convertToTable(
 
     assert(SwTable::FindTable(pTable->GetFrameFormat()) == pTable);
     assert(pTable->GetFrameFormat() ==
-            dynamic_cast<SwXTextTable&>(*xRet.get()).GetFrameFormat());
+            dynamic_cast<SwXTextTable&>(*xRet).GetFrameFormat());
     return xRet;
 }
 

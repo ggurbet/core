@@ -10,6 +10,7 @@
 #include <swmodeltestbase.hxx>
 #include <com/sun/star/awt/FontSlant.hpp>
 #include <com/sun/star/frame/DispatchHelper.hpp>
+#include <com/sun/star/style/LineSpacing.hpp>
 #include <comphelper/propertysequence.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <svx/svdpage.hxx>
@@ -28,6 +29,8 @@
 #include <sortedobjs.hxx>
 #include <anchoredobject.hxx>
 #include <swtypes.hxx>
+#include <fmtornt.hxx>
+#include <xmloff/odffields.hxx>
 
 namespace
 {
@@ -54,6 +57,16 @@ public:
     void testUnfloatButton();
     void testUnfloatButtonReadOnlyMode();
     void testUnfloating();
+    void testTdf122893();
+    void testTdf122901();
+    void testTdf122942();
+    void testTdf52391();
+    void testTdf101873();
+    void testTableWidth();
+    void testTextFormFieldInsertion();
+    void testCheckboxFormFieldInsertion();
+    void testDropDownFormFieldInsertion();
+    void testMixedFormFieldInsertion();
 
     CPPUNIT_TEST_SUITE(SwUiWriterTest2);
     CPPUNIT_TEST(testRedlineMoveInsertInDelete);
@@ -71,6 +84,16 @@ public:
     CPPUNIT_TEST(testUnfloatButton);
     CPPUNIT_TEST(testUnfloatButtonReadOnlyMode);
     CPPUNIT_TEST(testUnfloating);
+    CPPUNIT_TEST(testTdf122893);
+    CPPUNIT_TEST(testTdf122901);
+    CPPUNIT_TEST(testTdf122942);
+    CPPUNIT_TEST(testTdf52391);
+    CPPUNIT_TEST(testTdf101873);
+    CPPUNIT_TEST(testTableWidth);
+    CPPUNIT_TEST(testTextFormFieldInsertion);
+    CPPUNIT_TEST(testCheckboxFormFieldInsertion);
+    CPPUNIT_TEST(testDropDownFormFieldInsertion);
+    CPPUNIT_TEST(testMixedFormFieldInsertion);
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -121,7 +144,7 @@ void SwUiWriterTest2::testTdf47471_paraStyleBackground()
     lcl_dispatchCommand(mxComponent, ".uno:ResetAttributes", {});
 
     // the background color should revert to the color for 00Background style
-    //CPPUNIT_ASSERT_EQUAL(sal_Int32(14605542), getProperty<sal_Int32>(getParagraph(2), "FillColor"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(14605542), getProperty<sal_Int32>(getParagraph(2), "FillColor"));
     // the paragraph style should not be reset
     CPPUNIT_ASSERT_EQUAL(OUString("00Background"),
                          getProperty<OUString>(getParagraph(2), "ParaStyleName"));
@@ -131,7 +154,7 @@ void SwUiWriterTest2::testTdf47471_paraStyleBackground()
     // Save it and load it back.
     reload("writer8", "tdf47471_paraStyleBackgroundRT.odt");
 
-    //CPPUNIT_ASSERT_EQUAL(sal_Int32(14605542), getProperty<sal_Int32>(getParagraph(2), "FillColor"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(14605542), getProperty<sal_Int32>(getParagraph(2), "FillColor"));
     // on round-trip, the paragraph style name was lost
     CPPUNIT_ASSERT_EQUAL(OUString("00Background"),
                          getProperty<OUString>(getParagraph(2), "ParaStyleName"));
@@ -638,49 +661,430 @@ void SwUiWriterTest2::testUnfloatButtonReadOnlyMode()
 
 void SwUiWriterTest2::testUnfloating()
 {
-    // Test what happens when pushing the unfloat button
-    load(FLOATING_TABLE_DATA_DIRECTORY, "unfloatable_floating_table.odt");
+    // Test unfloating with tables imported from different file formats
+    const std::vector<OUString> aTestFiles = {
+        "unfloatable_floating_table.odt",
+        "unfloatable_floating_table.docx",
+        "unfloatable_floating_table.doc",
+    };
+
+    for (const OUString& aTestFile : aTestFiles)
+    {
+        OString sTestFileName = OUStringToOString(aTestFile, RTL_TEXTENCODING_UTF8);
+        OString sFailureMessage = OString("Failure in the test file: ") + sTestFileName;
+
+        // Test what happens when pushing the unfloat button
+        load(FLOATING_TABLE_DATA_DIRECTORY, "unfloatable_floating_table.docx");
+        SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+        CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(), pTextDoc);
+        SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+        CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(), pWrtShell);
+
+        SwFlyFrame* pFlyFrame;
+
+        // Before unfloating we have only one page with a fly frame
+        {
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailureMessage.getStr(), SwFrameType::Page,
+                                         pWrtShell->GetLayout()->GetLower()->GetType());
+            CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(),
+                                   !pWrtShell->GetLayout()->GetLower()->GetNext());
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(
+                sFailureMessage.getStr(), SwFrameType::Txt,
+                pWrtShell->GetLayout()->GetLower()->GetLower()->GetLower()->GetType());
+            const SwSortedObjs* pAnchored
+                = pWrtShell->GetLayout()->GetLower()->GetLower()->GetLower()->GetDrawObjs();
+            CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(), pAnchored);
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailureMessage.getStr(), static_cast<size_t>(1),
+                                         pAnchored->size());
+            SwAnchoredObject* pAnchoredObj = (*pAnchored)[0];
+            pFlyFrame = dynamic_cast<SwFlyFrame*>(pAnchoredObj);
+            CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(), pFlyFrame);
+        }
+
+        // Select the floating table
+        SdrObject* pObj = pFlyFrame->GetFormat()->FindRealSdrObject();
+        CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(), pObj);
+        pWrtShell->SelectObj(Point(), 0, pObj);
+        CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(), pFlyFrame->IsShowUnfloatButton(pWrtShell));
+
+        // Push the unfloat button
+        pFlyFrame->ActiveUnfloatButton(pWrtShell);
+        Scheduler::ProcessEventsToIdle();
+
+        // After unfloating we have two pages with one table frame on each page
+        CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(),
+                               pWrtShell->GetLayout()->GetLower()->GetNext());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailureMessage.getStr(), SwFrameType::Page,
+                                     pWrtShell->GetLayout()->GetLower()->GetNext()->GetType());
+        CPPUNIT_ASSERT_MESSAGE(sFailureMessage.getStr(),
+                               !pWrtShell->GetLayout()->GetLower()->GetNext()->GetNext());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(
+            sFailureMessage.getStr(), SwFrameType::Tab,
+            pWrtShell->GetLayout()->GetLower()->GetLower()->GetLower()->GetType());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE(
+            sFailureMessage.getStr(), SwFrameType::Tab,
+            pWrtShell->GetLayout()->GetLower()->GetNext()->GetLower()->GetLower()->GetType());
+    }
+}
+
+void SwUiWriterTest2::testTdf122893()
+{
+    load(DATA_DIRECTORY, "tdf105413.fodt");
+
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
-    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
-    CPPUNIT_ASSERT(pWrtShell);
 
-    SwFlyFrame* pFlyFrame;
-
-    // Before unfloating we have only one page with a fly frame
+    // all paragraphs are left-aligned with preset single line spacing
+    for (int i = 1; i < 4; ++i)
     {
-        CPPUNIT_ASSERT_EQUAL(SwFrameType::Page, pWrtShell->GetLayout()->GetLower()->GetType());
-        CPPUNIT_ASSERT(!pWrtShell->GetLayout()->GetLower()->GetNext());
-        CPPUNIT_ASSERT_EQUAL(SwFrameType::Txt,
-                             pWrtShell->GetLayout()->GetLower()->GetLower()->GetLower()->GetType());
-        const SwSortedObjs* pAnchored
-            = pWrtShell->GetLayout()->GetLower()->GetLower()->GetLower()->GetDrawObjs();
-        CPPUNIT_ASSERT(pAnchored);
-        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), pAnchored->size());
-        SwAnchoredObject* pAnchoredObj = (*pAnchored)[0];
-        pFlyFrame = dynamic_cast<SwFlyFrame*>(pAnchoredObj);
-        CPPUNIT_ASSERT(pFlyFrame);
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(getParagraph(i), "ParaAdjust"));
+        lcl_dispatchCommand(mxComponent, ".uno:SpacePara1", {});
     }
 
-    // Select the floating table
-    SdrObject* pObj = pFlyFrame->GetFormat()->FindRealSdrObject();
-    CPPUNIT_ASSERT(pObj);
-    pWrtShell->SelectObj(Point(), 0, pObj);
-    CPPUNIT_ASSERT(pFlyFrame->IsShowUnfloatButton(pWrtShell));
+    // turn on red-lining and show changes
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On | RedlineFlags::ShowInsert
+                                                      | RedlineFlags::ShowDelete);
+    CPPUNIT_ASSERT_MESSAGE("redlining should be on",
+                           pDoc->getIDocumentRedlineAccess().IsRedlineOn());
+    CPPUNIT_ASSERT_MESSAGE(
+        "redlines should be visible",
+        IDocumentRedlineAccess::IsShowChanges(pDoc->getIDocumentRedlineAccess().GetRedlineFlags()));
 
-    // Push the unfloat button
-    pFlyFrame->ActiveUnfloatButton(pWrtShell);
+    // Set center-aligned paragraph with preset double line spacing in the 3th paragraph.
+    // Because of the tracked deleted region between them,
+    // this sets also the same formatting in the first paragraph automatically
+    // to keep the changed paragraph formatting at hiding tracked changes or saving the document
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->EndPara(/*bSelect=*/false);
 
-    // After unfloating we have two pages with one table frame on each page
-    CPPUNIT_ASSERT(pWrtShell->GetLayout()->GetLower()->GetNext());
-    CPPUNIT_ASSERT_EQUAL(SwFrameType::Page,
-                         pWrtShell->GetLayout()->GetLower()->GetNext()->GetType());
-    CPPUNIT_ASSERT(!pWrtShell->GetLayout()->GetLower()->GetNext()->GetNext());
-    CPPUNIT_ASSERT_EQUAL(SwFrameType::Tab,
-                         pWrtShell->GetLayout()->GetLower()->GetLower()->GetLower()->GetType());
+    lcl_dispatchCommand(mxComponent, ".uno:CenterPara", {});
+    lcl_dispatchCommand(mxComponent, ".uno:SpacePara2", {});
+
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(3),
+                         getProperty<sal_Int32>(getParagraph(3), "ParaAdjust")); // center-aligned
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(200),
+                         getProperty<style::LineSpacing>(getParagraph(3), "ParaLineSpacing")
+                             .Height); // double line spacing
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0),
+                         getProperty<sal_Int32>(getParagraph(2), "ParaAdjust")); // left-aligned
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(100),
+                         getProperty<style::LineSpacing>(getParagraph(2), "ParaLineSpacing")
+                             .Height); // single line spacing
+    // first paragraph is also center-aligned with double line spacing
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(3), getProperty<sal_Int32>(getParagraph(1), "ParaAdjust"));
     CPPUNIT_ASSERT_EQUAL(
-        SwFrameType::Tab,
-        pWrtShell->GetLayout()->GetLower()->GetNext()->GetLower()->GetLower()->GetType());
+        sal_Int16(200), getProperty<style::LineSpacing>(getParagraph(1), "ParaLineSpacing").Height);
+}
+
+void SwUiWriterTest2::testTdf122901()
+{
+    load(DATA_DIRECTORY, "tdf105413.fodt");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    // all paragraphs with zero borders
+    for (int i = 1; i < 4; ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(0),
+                             getProperty<sal_Int32>(getParagraph(i), "ParaTopMargin"));
+        CPPUNIT_ASSERT_EQUAL(sal_Int32(0),
+                             getProperty<sal_Int32>(getParagraph(i), "ParaBottomMargin"));
+    }
+
+    // turn on red-lining and show changes
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On | RedlineFlags::ShowInsert
+                                                      | RedlineFlags::ShowDelete);
+    CPPUNIT_ASSERT_MESSAGE("redlining should be on",
+                           pDoc->getIDocumentRedlineAccess().IsRedlineOn());
+    CPPUNIT_ASSERT_MESSAGE(
+        "redlines should be visible",
+        IDocumentRedlineAccess::IsShowChanges(pDoc->getIDocumentRedlineAccess().GetRedlineFlags()));
+
+    // Increase paragraph borders in the 3th paragraph, similar to the default icon of the UI
+    // "Increase Paragraph Spacing". Because of the tracked deleted region between them,
+    // this sets also the same formatting in the first paragraph automatically
+    // to keep the changed paragraph formatting at hiding tracked changes or saving the document
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->EndPara(/*bSelect=*/false);
+
+    lcl_dispatchCommand(mxComponent, ".uno:ParaspaceIncrease", {});
+
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(101), getProperty<sal_Int32>(getParagraph(3), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(101),
+                         getProperty<sal_Int32>(getParagraph(3), "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(getParagraph(2), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(getParagraph(2), "ParaBottomMargin"));
+
+    // first paragraph is also center-aligned with double line spacing
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(101), getProperty<sal_Int32>(getParagraph(1), "ParaTopMargin"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(101),
+                         getProperty<sal_Int32>(getParagraph(1), "ParaBottomMargin"));
+}
+
+void SwUiWriterTest2::testTdf122942()
+{
+    load(DATA_DIRECTORY, "tdf122942.odt");
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+
+    // Do the moral equivalent of mouse button down, move and up.
+    // Start creating a custom shape that overlaps with the rounded rectangle
+    // already present in the document.
+    Point aStartPos(8000, 3000);
+    pWrtShell->BeginCreate(static_cast<sal_uInt16>(OBJ_CUSTOMSHAPE), aStartPos);
+
+    // Set its size.
+    Point aMovePos(10000, 5000);
+    pWrtShell->MoveCreate(aMovePos);
+
+    // Finish creation.
+    pWrtShell->EndCreate(SdrCreateCmd::ForceEnd);
+
+    // Make sure that the shape is inserted.
+    SwDoc* pDoc = pWrtShell->GetDoc();
+    const SwFrameFormats& rFormats = *pDoc->GetSpzFrameFormats();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), rFormats.size());
+
+    // Without the accompanying fix in place, this test would have failed with
+    // 'Expected less than: 0; Actual: 1030', i.e. the shape was below the
+    // paragraph mark, not above it.
+    const SwFormatVertOrient& rVert = rFormats[1]->GetVertOrient();
+    CPPUNIT_ASSERT_LESS(static_cast<SwTwips>(0), rVert.GetPos());
+
+    reload("writer8", "tdf122942.odt");
+    pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    pDoc = pWrtShell->GetDoc();
+    const SwFrameFormats& rFormats2 = *pDoc->GetSpzFrameFormats();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), rFormats2.size());
+
+    SdrObject* pObject = rFormats2[1]->FindSdrObject();
+    CPPUNIT_ASSERT(pObject);
+
+    const tools::Rectangle& rOutRect = pObject->GetLastBoundRect();
+    // Without the accompanying fix in place, this test would have failed with
+    // 'Expected greater than: 5000; Actual: 2817', i.e. the shape moved up
+    // after a reload(), while it's expected to not change its position (5773).
+    CPPUNIT_ASSERT_GREATER(static_cast<SwTwips>(5000), rOutRect.Top());
+}
+
+void SwUiWriterTest2::testTdf52391()
+{
+    load(DATA_DIRECTORY, "tdf52391.fodt");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    lcl_dispatchCommand(mxComponent, ".uno:RejectAllTrackedChanges", {});
+
+    const uno::Reference<text::XTextRange> xRun = getRun(getParagraph(1), 1);
+    // this was "Portion1", because the tracked background color of Portion1 was
+    // accepted for "Reject All". Now rejection clears formatting of the text
+    // in format-only changes, concatenating the text portions in the first paragraph.
+    CPPUNIT_ASSERT_EQUAL(OUString("Portion1Portion2"), xRun->getString());
+}
+
+void SwUiWriterTest2::testTdf101873()
+{
+    SwDoc* pDoc = createDoc();
+    CPPUNIT_ASSERT(pDoc);
+
+    SwDocShell* pDocShell = pDoc->GetDocShell();
+    CPPUNIT_ASSERT(pDocShell);
+
+    SwWrtShell* pWrtShell = pDocShell->GetWrtShell();
+    CPPUNIT_ASSERT(pWrtShell);
+
+    // Insert some content.
+    pWrtShell->Insert("something");
+
+    // Search for something which does not exist, twice.
+    uno::Sequence<beans::PropertyValue> aFirst(comphelper::InitPropertySequence({
+        { "SearchItem.SearchString", uno::makeAny(OUString("fig")) },
+        { "SearchItem.Backward", uno::makeAny(false) },
+    }));
+    lcl_dispatchCommand(mxComponent, ".uno:ExecuteSearch", aFirst);
+    lcl_dispatchCommand(mxComponent, ".uno:ExecuteSearch", aFirst);
+
+    uno::Sequence<beans::PropertyValue> aSecond(comphelper::InitPropertySequence({
+        { "SearchItem.SearchString", uno::makeAny(OUString("something")) },
+        { "SearchItem.Backward", uno::makeAny(false) },
+    }));
+    lcl_dispatchCommand(mxComponent, ".uno:ExecuteSearch", aSecond);
+
+    // Without the accompanying fix in place, this test would have failed with "Expected: something;
+    // Actual:", i.e. searching for "something" failed, even if it was inserted above.
+    SwShellCursor* pShellCursor = pWrtShell->getShellCursor(false);
+    CPPUNIT_ASSERT_EQUAL(OUString("something"), pShellCursor->GetText());
+}
+
+void SwUiWriterTest2::testTableWidth()
+{
+    load(DATA_DIRECTORY, "frame_size_export.docx");
+
+    uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+    utl::MediaDescriptor aMediaDescriptor;
+    aMediaDescriptor["FilterName"] <<= OUString("Office Open XML Text");
+    xStorable->storeToURL(maTempFile.GetURL(), aMediaDescriptor.getAsConstPropertyValueList());
+
+    // after exporting: table width was overwritten in the doc model
+    uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(),
+                                                    uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(100),
+                         getProperty<sal_Int16>(xTables->getByIndex(0), "RelativeWidth"));
+}
+
+void SwUiWriterTest2::testTextFormFieldInsertion()
+{
+    load(DATA_DIRECTORY, "frame_size_export.docx");
+    SwDoc* pDoc = createDoc();
+    CPPUNIT_ASSERT(pDoc);
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+    CPPUNIT_ASSERT(pMarkAccess);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+
+    // Insert a text form field
+    lcl_dispatchCommand(mxComponent, ".uno:TextFormField", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+
+    // Check whether the fieldmark is created
+    auto aIter = pMarkAccess->getAllMarksBegin();
+    CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMTEXT), pFieldmark->GetFieldname());
+
+    // The text form field has the placeholder text in it
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    sal_Unicode vEnSpaces[5] = { 8194, 8194, 8194, 8194, 8194 };
+    CPPUNIT_ASSERT_EQUAL(OUString(vEnSpaces, 5), xPara->getString());
+
+    // Undo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Undo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+    xPara.set(getParagraph(1));
+    CPPUNIT_ASSERT(xPara->getString().isEmpty());
+
+    // Redo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Redo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+    xPara.set(getParagraph(1));
+    CPPUNIT_ASSERT_EQUAL(OUString(vEnSpaces, 5), xPara->getString());
+}
+
+void SwUiWriterTest2::testCheckboxFormFieldInsertion()
+{
+    SwDoc* pDoc = createDoc();
+    CPPUNIT_ASSERT(pDoc);
+
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+    CPPUNIT_ASSERT(pMarkAccess);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+
+    // Insert a checkbox form field
+    lcl_dispatchCommand(mxComponent, ".uno:CheckBoxFormField", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+
+    // Check whether the fieldmark is created
+    auto aIter = pMarkAccess->getAllMarksBegin();
+    CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMCHECKBOX), pFieldmark->GetFieldname());
+    // The checkbox is not checked by default
+    ::sw::mark::ICheckboxFieldmark* pCheckBox
+        = dynamic_cast<::sw::mark::ICheckboxFieldmark*>(pFieldmark);
+    CPPUNIT_ASSERT(pCheckBox);
+    CPPUNIT_ASSERT(!pCheckBox->IsChecked());
+
+    // Undo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Undo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+
+    // Redo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Redo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+    aIter = pMarkAccess->getAllMarksBegin();
+    CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
+    pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMCHECKBOX), pFieldmark->GetFieldname());
+}
+
+void SwUiWriterTest2::testDropDownFormFieldInsertion()
+{
+    SwDoc* pDoc = createDoc();
+    CPPUNIT_ASSERT(pDoc);
+
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+    CPPUNIT_ASSERT(pMarkAccess);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+
+    // Insert a drop-down form field
+    lcl_dispatchCommand(mxComponent, ".uno:DropDownFormField", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+
+    // Check whether the fieldmark is created
+    auto aIter = pMarkAccess->getAllMarksBegin();
+    CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDROPDOWN), pFieldmark->GetFieldname());
+    // Check drop down field's parameters. By default these params are not set
+    const sw::mark::IFieldmark::parameter_map_t* const pParameters = pFieldmark->GetParameters();
+    auto pListEntries = pParameters->find(ODF_FORMDROPDOWN_LISTENTRY);
+    CPPUNIT_ASSERT(bool(pListEntries == pParameters->end()));
+    auto pResult = pParameters->find(ODF_FORMDROPDOWN_RESULT);
+    CPPUNIT_ASSERT(bool(pResult == pParameters->end()));
+
+    // Undo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Undo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+
+    // Redo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Redo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
+    aIter = pMarkAccess->getAllMarksBegin();
+    CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
+    pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    CPPUNIT_ASSERT(pFieldmark);
+    CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDROPDOWN), pFieldmark->GetFieldname());
+}
+
+void SwUiWriterTest2::testMixedFormFieldInsertion()
+{
+    SwDoc* pDoc = createDoc();
+    CPPUNIT_ASSERT(pDoc);
+
+    IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
+    CPPUNIT_ASSERT(pMarkAccess);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+
+    // Insert fields
+    lcl_dispatchCommand(mxComponent, ".uno:TextFormField", {});
+    lcl_dispatchCommand(mxComponent, ".uno:CheckBoxFormField", {});
+    lcl_dispatchCommand(mxComponent, ".uno:DropDownFormField", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(3), pMarkAccess->getAllMarksCount());
+
+    // Undo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Undo", {});
+    lcl_dispatchCommand(mxComponent, ".uno:Undo", {});
+    lcl_dispatchCommand(mxComponent, ".uno:Undo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), pMarkAccess->getAllMarksCount());
+
+    // Redo insertion
+    lcl_dispatchCommand(mxComponent, ".uno:Redo", {});
+    lcl_dispatchCommand(mxComponent, ".uno:Redo", {});
+    lcl_dispatchCommand(mxComponent, ".uno:Redo", {});
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(3), pMarkAccess->getAllMarksCount());
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SwUiWriterTest2);

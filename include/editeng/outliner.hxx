@@ -49,6 +49,7 @@
 #include <editeng/paragraphdata.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
+#include <boost/optional.hpp>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -67,7 +68,6 @@ class SvxFieldItem;
 namespace vcl { class Window; }
 class KeyEvent;
 class MouseEvent;
-class Pointer;
 class CommandEvent;
 class MapMode;
 class OutputDevice;
@@ -89,6 +89,7 @@ enum class CharCompressType;
 enum class TransliterationFlags;
 class SvxFieldData;
 class SfxUndoManager;
+enum class PointerStyle;
 
 namespace com { namespace sun { namespace star { namespace linguistic2 {
     class XSpellChecker1;
@@ -166,7 +167,7 @@ private:
     bool                HasFlag( ParaFlag nFlag ) const { return bool(nFlags & nFlag); }
 public:
                         ~Paragraph();
-    void                dumpAsXml(struct _xmlTextWriter* pWriter) const;
+    void                dumpAsXml(xmlTextWriterPtr pWriter) const;
 };
 
 struct ParaRange
@@ -287,7 +288,7 @@ public:
     void            SetAnchorMode( EEAnchorMode eMode );
     EEAnchorMode    GetAnchorMode() const;
 
-    Pointer     GetPointer( const Point& rPosPixel );
+    PointerStyle    GetPointer( const Point& rPosPixel );
     void        Command( const CommandEvent& rCEvt );
 
     void            StartSpeller();
@@ -497,8 +498,8 @@ private:
     Outliner*           pOutliner;
     const SvxFieldItem& rFldItem;
 
-    std::unique_ptr<Color> pTxtColor;
-    std::unique_ptr<Color> pFldColor;
+    boost::optional<Color> mxTxtColor;
+    boost::optional<Color> mxFldColor;
 
     OUString            aRepresentation;
 
@@ -522,15 +523,11 @@ public:
 
     const SvxFieldItem& GetField() const { return rFldItem; }
 
-    Color*          GetTextColor() const { return pTxtColor.get(); }
-    void            SetTextColor( const Color& rColor )
-                        { pTxtColor.reset( new Color( rColor ) ); }
+    boost::optional<Color> const & GetTextColor() const { return mxTxtColor; }
+    void            SetTextColor( boost::optional<Color> xCol ) { mxTxtColor = xCol; }
 
-    Color*          GetFieldColor() const { return pFldColor.get(); }
-    void            SetFieldColor( const Color& rColor )
-                        { pFldColor.reset( new Color( rColor ) ); }
-    void            ClearFieldColor()
-                        { pFldColor.reset(); }
+    boost::optional<Color> const & GetFieldColor() const { return mxFldColor; }
+    void            SetFieldColor( boost::optional<Color> xCol ) { mxFldColor = xCol; }
 
     sal_Int32       GetPara() const { return nPara; }
     sal_Int32       GetPos() const { return nPos; }
@@ -549,7 +546,6 @@ struct EBulletInfo
     sal_uInt16  nType;          // see SvxNumberType
     OUString    aText;
     SvxFont     aFont;
-    Graphic     aGraphic;
     sal_Int32   nParagraph;
     tools::Rectangle   aBounds;
 
@@ -667,7 +663,7 @@ public:
                     Outliner( SfxItemPool* pPool, OutlinerMode nOutlinerMode );
     virtual         ~Outliner() override;
 
-    void            dumpAsXml(struct _xmlTextWriter* pWriter) const;
+    void            dumpAsXml(xmlTextWriterPtr pWriter) const;
 
     void            Init( OutlinerMode nOutlinerMode );
     OutlinerMode    GetMode() const { return nOutlinerMode; }

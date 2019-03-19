@@ -97,7 +97,7 @@ namespace slideshow
 
                 This value is retrieved from the XDrawPage properties.
              */
-            virtual basegfx::B2IVector getSlideSize() const = 0;
+            virtual basegfx::B2ISize getSlideSize() const = 0;
 
             /// Gets the underlying API page
             virtual css::uno::Reference< css::drawing::XDrawPage > getXDrawPage() const = 0;
@@ -153,6 +153,7 @@ namespace slideshow
 
         class EventQueue;
         class CursorManager;
+        class MediaFileManager;
         class EventMultiplexer;
         class ActivitiesQueue;
         class UserEventQueue;
@@ -195,6 +196,7 @@ namespace slideshow
                                     ActivitiesQueue&                                    rActivitiesQueue,
                                     UserEventQueue&                                     rUserEventQueue,
                                     CursorManager&                                      rCursorManager,
+                                    MediaFileManager&                                      rMediaFileManager,
                                     const UnoViewContainer&                             rViewContainer,
                                     const css::uno::Reference< css::uno::XComponentContext >&      xContext,
                                     const ShapeEventListenerMap&                        rShapeListenerMap,

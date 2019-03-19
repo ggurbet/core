@@ -46,6 +46,7 @@
 #include <com/sun/star/form/XSubmitListener.hpp>
 #include <com/sun/star/form/runtime/XFormController.hpp>
 #include <com/sun/star/form/runtime/FormOperations.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/NoSupportException.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
 #include <com/sun/star/sdb/ErrorCondition.hpp>
@@ -1832,7 +1833,7 @@ void SbaXDataBrowserController::ExecuteSearch()
     VclPtr<AbstractFmSearchDialog> pDialog;
     std::vector< OUString > aContextNames;
     aContextNames.emplace_back("Standard" );
-    pDialog = pFact->CreateFmSearchDialog(getBrowserView(), sInitialText, aContextNames, 0, LINK(this, SbaXDataBrowserController, OnSearchContextRequest));
+    pDialog = pFact->CreateFmSearchDialog(getFrameWeld(), sInitialText, aContextNames, 0, LINK(this, SbaXDataBrowserController, OnSearchContextRequest));
     pDialog->SetActiveField( sActiveField );
     pDialog->SetFoundHandler( LINK( this, SbaXDataBrowserController, OnFoundData ) );
     pDialog->SetCanceledNotFoundHdl( LINK( this, SbaXDataBrowserController, OnCanceledNotFound ) );

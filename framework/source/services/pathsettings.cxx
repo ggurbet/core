@@ -999,8 +999,6 @@ std::vector<OUString> PathSettings::impl_convertOldStyle2Path(const OUString& sO
 void PathSettings::impl_purgeKnownPaths(PathSettings::PathInfo& rPath,
                                         std::vector<OUString>& lList)
 {
-    std::vector<OUString>::iterator pIt;
-
     // Erase items in the internal path list from lList.
     // Also erase items in the internal path list from the user path list.
     for (auto const& internalPath : rPath.lInternalPaths)
@@ -1014,20 +1012,11 @@ void PathSettings::impl_purgeKnownPaths(PathSettings::PathInfo& rPath,
     }
 
     // Erase items not in lList from the user path list.
-    pIt = rPath.lUserPaths.begin();
-    while ( pIt != rPath.lUserPaths.end() )
-    {
-        const OUString& rItem = *pIt;
-        std::vector<OUString>::iterator pItem = std::find(lList.begin(), lList.end(), rItem);
-        if ( pItem == lList.end() )
-        {
-            pIt = rPath.lUserPaths.erase(pIt);
-        }
-        else
-        {
-            ++pIt;
-        }
-    }
+    rPath.lUserPaths.erase(std::remove_if(rPath.lUserPaths.begin(), rPath.lUserPaths.end(),
+        [&lList](const OUString& rItem) {
+            return std::find(lList.begin(), lList.end(), rItem) == lList.end();
+        }),
+        rPath.lUserPaths.end());
 
     // Erase items in the user path list from lList.
     for (auto const& userPath : rPath.lUserPaths)
@@ -1055,7 +1044,7 @@ void PathSettings::impl_rebuildPropertyDescriptor()
     for (auto const& path : m_lPaths)
     {
         const PathSettings::PathInfo& rPath = path.second;
-              css::beans::Property*   pProp = nullptr;
+        css::beans::Property*   pProp = nullptr;
 
         pProp             = &(m_lPropDesc[i]);
         pProp->Name       = rPath.sPathName;
@@ -1284,8 +1273,8 @@ PathSettings::PathInfo* PathSettings::impl_getPathAccess(sal_Int32 nHandle)
         return nullptr;
 
     const css::beans::Property&            rProp = m_lPropDesc[nHandle];
-          OUString                  sProp = impl_extractBaseFromPropName(rProp.Name);
-          PathSettings::PathHash::iterator rPath = m_lPaths.find(sProp);
+    OUString                  sProp = impl_extractBaseFromPropName(rProp.Name);
+    PathSettings::PathHash::iterator rPath = m_lPaths.find(sProp);
 
     if (rPath != m_lPaths.end())
        return &(rPath->second);
@@ -1302,9 +1291,9 @@ const PathSettings::PathInfo* PathSettings::impl_getPathAccessConst(sal_Int32 nH
     if (nHandle > (m_lPropDesc.getLength()-1))
         return nullptr;
 
-    const css::beans::Property&                  rProp = m_lPropDesc[nHandle];
-          OUString                        sProp = impl_extractBaseFromPropName(rProp.Name);
-          PathSettings::PathHash::const_iterator rPath = m_lPaths.find(sProp);
+    const css::beans::Property&     rProp = m_lPropDesc[nHandle];
+    OUString                        sProp = impl_extractBaseFromPropName(rProp.Name);
+    PathSettings::PathHash::const_iterator rPath = m_lPaths.find(sProp);
 
     if (rPath != m_lPaths.end())
        return &(rPath->second);

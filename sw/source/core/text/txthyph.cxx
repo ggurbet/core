@@ -90,10 +90,10 @@ bool SwTextFrame::Hyphenate(SwInterHyphInfoTextFrame & rHyphInf)
         if( aLine.Prev() )
         {
             SwLinePortion *pPor = aLine.GetCurr()->GetFirstPortion();
-            while( pPor->GetPortion() )
-                pPor = pPor->GetPortion();
-            if( pPor->GetWhichPor() == POR_SOFTHYPH ||
-                pPor->GetWhichPor() == POR_SOFTHYPHSTR )
+            while( pPor->GetNextPortion() )
+                pPor = pPor->GetNextPortion();
+            if( pPor->GetWhichPor() == PortionType::SoftHyphen ||
+                pPor->GetWhichPor() == PortionType::SoftHyphenStr )
                 aLine.Next();
         }
 
@@ -167,7 +167,7 @@ bool SwTextFormatter::Hyphenate(SwInterHyphInfoTextFrame & rHyphInf)
         // at which line breaking is possible. So we search for the first
         // HyphPortion in the specified range.
 
-        SwLinePortion *pPos = m_pCurr->GetPortion();
+        SwLinePortion *pPos = m_pCurr->GetNextPortion();
         const TextFrameIndex nPamStart = rHyphInf.m_nStart;
         nWrdStart = m_nStart;
         const TextFrameIndex nEnd = rHyphInf.m_nEnd;
@@ -190,7 +190,7 @@ bool SwTextFormatter::Hyphenate(SwInterHyphInfoTextFrame & rHyphInf)
             }
 
             nWrdStart = nWrdStart + pPos->GetLen();
-            pPos = pPos->GetPortion();
+            pPos = pPos->GetNextPortion();
         }
         // When pPos is null, no hyphen position was found.
         if( !pPos )
@@ -254,11 +254,11 @@ bool SwTextPortion::CreateHyphen( SwTextFormatInfo &rInf, SwTextGuess const &rGu
 {
     const Reference< XHyphenatedWord >&  xHyphWord = rGuess.HyphWord();
 
-    OSL_ENSURE( !pPortion, "SwTextPortion::CreateHyphen(): another portion, another planet..." );
+    OSL_ENSURE( !mpNextPortion, "SwTextPortion::CreateHyphen(): another portion, another planet..." );
     OSL_ENSURE( xHyphWord.is(), "SwTextPortion::CreateHyphen(): You are lucky! The code is robust here." );
 
     if( rInf.IsHyphForbud() ||
-        pPortion || // robust
+        mpNextPortion || // robust
         !xHyphWord.is() || // more robust
         // multi-line fields can't be hyphenated interactively
         ( rInf.IsInterHyph() && InFieldGrp() ) )
@@ -394,7 +394,7 @@ SwSoftHyphPortion::SwSoftHyphPortion() :
     bExpand(false), nViewWidth(0)
 {
     SetLen(TextFrameIndex(1));
-    SetWhichPor( POR_SOFTHYPH );
+    SetWhichPor( PortionType::SoftHyphen );
 }
 
 sal_uInt16 SwSoftHyphPortion::GetViewWidth( const SwTextSizeInfo &rInf ) const
@@ -426,7 +426,7 @@ void SwSoftHyphPortion::Paint( const SwTextPaintInfo &rInf ) const
 {
     if( Width() )
     {
-        rInf.DrawViewOpt( *this, POR_SOFTHYPH );
+        rInf.DrawViewOpt( *this, PortionType::SoftHyphen );
         SwExpandPortion::Paint( rInf );
     }
 }
@@ -539,9 +539,9 @@ void SwSoftHyphPortion::FormatEOL( SwTextFormatInfo &rInf )
 bool SwSoftHyphPortion::GetExpText( const SwTextSizeInfo &rInf, OUString &rText ) const
 {
     if( IsExpand() || ( rInf.OnWin() && rInf.GetOpt().IsSoftHyph() ) ||
-        ( GetPortion() && ( GetPortion()->InFixGrp() ||
-          GetPortion()->IsDropPortion() || GetPortion()->IsLayPortion() ||
-          GetPortion()->IsParaPortion() || GetPortion()->IsBreakPortion() ) ) )
+        ( GetNextPortion() && ( GetNextPortion()->InFixGrp() ||
+          GetNextPortion()->IsDropPortion() || GetNextPortion()->IsLayPortion() ||
+          GetNextPortion()->IsParaPortion() || GetNextPortion()->IsBreakPortion() ) ) )
     {
         return SwHyphPortion::GetExpText( rInf, rText );
     }
@@ -550,8 +550,8 @@ bool SwSoftHyphPortion::GetExpText( const SwTextSizeInfo &rInf, OUString &rText 
 
 void SwSoftHyphPortion::HandlePortion( SwPortionHandler& rPH ) const
 {
-    const sal_uInt16 nWhich = ! Width() ?
-                          POR_SOFTHYPH_COMP :
+    const PortionType nWhich = ! Width() ?
+                          PortionType::SoftHyphenComp :
                           GetWhichPor();
     rPH.Special( GetLen(), OUString('-'), nWhich );
 }
@@ -560,7 +560,7 @@ void SwSoftHyphStrPortion::Paint( const SwTextPaintInfo &rInf ) const
 {
     // Bug or feature?:
     // {Zu}{k-}{ker}, {k-} will be gray instead of {-}
-    rInf.DrawViewOpt( *this, POR_SOFTHYPH );
+    rInf.DrawViewOpt( *this, PortionType::SoftHyphen );
     SwHyphStrPortion::Paint( rInf );
 }
 
@@ -568,7 +568,7 @@ SwSoftHyphStrPortion::SwSoftHyphStrPortion( const OUString &rStr )
     : SwHyphStrPortion( rStr )
 {
     SetLen(TextFrameIndex(1));
-    SetWhichPor( POR_SOFTHYPHSTR );
+    SetWhichPor( PortionType::SoftHyphenStr );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

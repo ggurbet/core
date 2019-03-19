@@ -17,28 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/drawing/XDrawPage.hpp>
-#include <com/sun/star/drawing/XDrawView.hpp>
-#include <com/sun/star/drawing/XShapes.hpp>
-#include <com/sun/star/container/XChild.hpp>
-#include <com/sun/star/frame/XController.hpp>
-#include <com/sun/star/document/XEventBroadcaster.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
-#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <rtl/ustring.h>
+
 #include <sal/log.hxx>
-#include <sfx2/viewfrm.hxx>
-
-#include <svx/AccessibleShape.hxx>
-
-#include <svx/svdobj.hxx>
-#include <svx/svdmodel.hxx>
-#include <svx/unoapi.hxx>
 #include <vcl/svapp.hxx>
 #include <Window.hxx>
-#include <ViewShell.hxx>
 #include <OutlineViewShell.hxx>
 #include <DrawDocShell.hxx>
 #include <OutlineView.hxx>
@@ -70,23 +53,23 @@ AccessibleOutlineView::AccessibleOutlineView (
 
     // Beware! Here we leave the paths of the UNO API and descend into the
     // depths of the core.  Necessary for making the edit engine accessible.
-    if (pSdWindow)
+    if (!pSdWindow)
+        return;
+
+    ::sd::View* pView = pViewShell->GetView();
+
+    if (dynamic_cast<const ::sd::OutlineView* >( pView ) ==  nullptr)
+        return;
+
+    OutlinerView* pOutlineView = static_cast< ::sd::OutlineView*>(
+        pView)->GetViewByWindow( pSdWindow );
+    SdrOutliner& rOutliner =
+        static_cast< ::sd::OutlineView*>(pView)->GetOutliner();
+
+    if( pOutlineView )
     {
-        ::sd::View* pView = pViewShell->GetView();
-
-        if (dynamic_cast<const ::sd::OutlineView* >( pView ) !=  nullptr)
-        {
-            OutlinerView* pOutlineView = static_cast< ::sd::OutlineView*>(
-                pView)->GetViewByWindow( pSdWindow );
-            SdrOutliner& rOutliner =
-                static_cast< ::sd::OutlineView*>(pView)->GetOutliner();
-
-            if( pOutlineView )
-            {
-                maTextHelper.SetEditSource( ::std::unique_ptr< SvxEditSource >( new AccessibleOutlineEditSource(
-                                                                                  rOutliner, *pView, *pOutlineView, *pSdWindow ) ) );
-            }
-        }
+        maTextHelper.SetEditSource( ::std::unique_ptr< SvxEditSource >( new AccessibleOutlineEditSource(
+                                                                          rOutliner, *pView, *pOutlineView, *pSdWindow ) ) );
     }
 }
 

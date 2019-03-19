@@ -344,15 +344,10 @@ void SAL_CALL DocumentStorageAccess::disposing( const css::lang::EventObject& So
     if ( m_bDisposingSubStorages )
         return;
 
-    for (   NamedStorages::const_iterator find = m_aExposedStorages.begin();
-            find != m_aExposedStorages.end();
-            ++find
-        )
-        if ( find->second == Source.Source )
-        {
-            m_aExposedStorages.erase( find );
-            break;
-        }
+    auto find = std::find_if(m_aExposedStorages.begin(), m_aExposedStorages.end(),
+        [&Source](const NamedStorages::value_type& rEntry) { return rEntry.second == Source.Source; });
+    if (find != m_aExposedStorages.end())
+        m_aExposedStorages.erase( find );
 }
 
 // ODatabaseModelImpl
@@ -496,7 +491,7 @@ namespace
 
             if ( rPersistentName.isEmpty() )
             {   // it's a logical sub folder used to organize the real objects
-                const ODefinitionContainer_Impl& rSubFoldersObjectDefinitions( dynamic_cast< const ODefinitionContainer_Impl& >( *rDefinition.get() ) );
+                const ODefinitionContainer_Impl& rSubFoldersObjectDefinitions( dynamic_cast< const ODefinitionContainer_Impl& >( *rDefinition ) );
                 bSomeDocHasMacros = lcl_hasObjectWithMacros_throw( rSubFoldersObjectDefinitions, _rxContainerStorage );
                 if (bSomeDocHasMacros)
                     break;

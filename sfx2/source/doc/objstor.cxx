@@ -306,78 +306,77 @@ void SfxObjectShell::SetupStorage( const uno::Reference< embed::XStorage >& xSto
 {
     uno::Reference< beans::XPropertySet > xProps( xStorage, uno::UNO_QUERY );
 
-    if ( xProps.is() )
+    if ( !xProps.is() )
+        return;
+
+    SotClipboardFormatId nClipFormat = SotClipboardFormatId::NONE;
+
+    SvGlobalName aName;
+    OUString aFullTypeName, aShortTypeName, aAppName;
+    FillClass( &aName, &nClipFormat, &aAppName, &aFullTypeName, &aShortTypeName, nVersion, bTemplate );
+
+    if ( nClipFormat == SotClipboardFormatId::NONE )
+        return;
+
+    // basic doesn't have a ClipFormat
+    // without MediaType the storage is not really usable, but currently the BasicIDE still
+    // is an SfxObjectShell and so we can't take this as an error
+    datatransfer::DataFlavor aDataFlavor;
+    SotExchange::GetFormatDataFlavor( nClipFormat, aDataFlavor );
+    if ( aDataFlavor.MimeType.isEmpty() )
+        return;
+
+    try
     {
-        SotClipboardFormatId nClipFormat = SotClipboardFormatId::NONE;
+        xProps->setPropertyValue("MediaType", uno::makeAny( aDataFlavor.MimeType ) );
+    }
+    catch( uno::Exception& )
+    {
+        const_cast<SfxObjectShell*>( this )->SetError(ERRCODE_IO_GENERAL);
+    }
 
-        SvGlobalName aName;
-        OUString aFullTypeName, aShortTypeName, aAppName;
-        FillClass( &aName, &nClipFormat, &aAppName, &aFullTypeName, &aShortTypeName, nVersion, bTemplate );
+    SvtSaveOptions::ODFDefaultVersion nDefVersion = SvtSaveOptions::ODFVER_012;
+    if (!utl::ConfigManager::IsFuzzing())
+    {
+        SvtSaveOptions aSaveOpt;
+        nDefVersion = aSaveOpt.GetODFDefaultVersion();
+    }
 
-        if ( nClipFormat != SotClipboardFormatId::NONE )
+    // the default values, that should be used for ODF1.1 and older formats
+    uno::Sequence< beans::NamedValue > aEncryptionAlgs
+    {
+        { "StartKeyGenerationAlgorithm", css::uno::makeAny(xml::crypto::DigestID::SHA1) },
+        { "EncryptionAlgorithm", css::uno::makeAny(xml::crypto::CipherID::BLOWFISH_CFB_8) },
+        { "ChecksumAlgorithm", css::uno::makeAny(xml::crypto::DigestID::SHA1_1K) }
+    };
+
+    if ( nDefVersion >= SvtSaveOptions::ODFVER_012 )
+    {
+        try
         {
-            // basic doesn't have a ClipFormat
-            // without MediaType the storage is not really usable, but currently the BasicIDE still
-            // is an SfxObjectShell and so we can't take this as an error
-            datatransfer::DataFlavor aDataFlavor;
-            SotExchange::GetFormatDataFlavor( nClipFormat, aDataFlavor );
-            if ( !aDataFlavor.MimeType.isEmpty() )
-            {
-                try
-                {
-                    xProps->setPropertyValue("MediaType", uno::makeAny( aDataFlavor.MimeType ) );
-                }
-                catch( uno::Exception& )
-                {
-                    const_cast<SfxObjectShell*>( this )->SetError(ERRCODE_IO_GENERAL);
-                }
-
-                SvtSaveOptions::ODFDefaultVersion nDefVersion = SvtSaveOptions::ODFVER_012;
-                if (!utl::ConfigManager::IsFuzzing())
-                {
-                    SvtSaveOptions aSaveOpt;
-                    nDefVersion = aSaveOpt.GetODFDefaultVersion();
-                }
-
-                // the default values, that should be used for ODF1.1 and older formats
-                uno::Sequence< beans::NamedValue > aEncryptionAlgs
-                {
-                    { "StartKeyGenerationAlgorithm", css::uno::makeAny(xml::crypto::DigestID::SHA1) },
-                    { "EncryptionAlgorithm", css::uno::makeAny(xml::crypto::CipherID::BLOWFISH_CFB_8) },
-                    { "ChecksumAlgorithm", css::uno::makeAny(xml::crypto::DigestID::SHA1_1K) }
-                };
-
-                if ( nDefVersion >= SvtSaveOptions::ODFVER_012 )
-                {
-                    try
-                    {
-                        // older versions can not have this property set, it exists only starting from ODF1.2
-                        xProps->setPropertyValue("Version", uno::makeAny<OUString>( ODFVER_012_TEXT ) );
-                    }
-                    catch( uno::Exception& )
-                    {
-                    }
-
-                    aEncryptionAlgs[0].Value <<= xml::crypto::DigestID::SHA256;
-                    aEncryptionAlgs[2].Value <<= xml::crypto::DigestID::SHA256_1K;
-                    aEncryptionAlgs[1].Value <<= xml::crypto::CipherID::AES_CBC_W3C_PADDING;
-                }
-
-                try
-                {
-                    // set the encryption algorithms accordingly;
-                    // the setting does not trigger encryption,
-                    // it just provides the format for the case that contents should be encrypted
-                    uno::Reference< embed::XEncryptionProtectedStorage > xEncr( xStorage, uno::UNO_QUERY_THROW );
-                    xEncr->setEncryptionAlgorithms( aEncryptionAlgs );
-                }
-                catch( uno::Exception& )
-                {
-                    const_cast<SfxObjectShell*>( this )->SetError(ERRCODE_IO_GENERAL);
-                }
-
-            }
+            // older versions can not have this property set, it exists only starting from ODF1.2
+            xProps->setPropertyValue("Version", uno::makeAny<OUString>( ODFVER_012_TEXT ) );
         }
+        catch( uno::Exception& )
+        {
+        }
+
+        aEncryptionAlgs[0].Value <<= xml::crypto::DigestID::SHA256;
+        aEncryptionAlgs[2].Value <<= xml::crypto::DigestID::SHA256_1K;
+        aEncryptionAlgs[1].Value <<= xml::crypto::CipherID::AES_CBC_W3C_PADDING;
+    }
+
+    try
+    {
+        // set the encryption algorithms accordingly;
+        // the setting does not trigger encryption,
+        // it just provides the format for the case that contents should be encrypted
+        uno::Reference< embed::XEncryptionProtectedStorage > xEncr( xStorage, uno::UNO_QUERY_THROW );
+        xEncr->setEncryptionAlgorithms( aEncryptionAlgs );
+    }
+    catch( uno::Exception& )
+    {
+        const_cast<SfxObjectShell*>( this )->SetError(ERRCODE_IO_GENERAL);
     }
 }
 
@@ -581,6 +580,10 @@ bool SfxObjectShell::ImportFromGeneratedStream_Impl(
 bool SfxObjectShell::DoLoad( SfxMedium *pMed )
 {
     ModifyBlocker_Impl aBlock( this );
+    struct FontLockGuard {
+        FontLockGuard() { Application::LockFontUpdates(true); }
+        ~FontLockGuard() { Application::LockFontUpdates(false); }
+    } aFontLockGuard;
 
     pMedium = pMed;
     pMedium->CanDisposeStorage_Impl( true );
@@ -718,11 +721,21 @@ bool SfxObjectShell::DoLoad( SfxMedium *pMed )
         {
             // Experimental PDF importing using PDFium. This is currently enabled for LOK only and
             // we handle it not via XmlFilterAdaptor but a new SdPdfFiler.
-            const bool bPdfiumImport = (comphelper::LibreOfficeKit::isActive() || getenv("LO_IMPORT_USE_PDFIUM")) && pMedium->GetFilter() &&
-                                       (pMedium->GetFilter()->GetFilterName() == "draw_pdf_import");
+#if !HAVE_FEATURE_POPPLER
+            constexpr bool bUsePdfium = true;
+#else
+            const bool bUsePdfium
+                = comphelper::LibreOfficeKit::isActive() || getenv("LO_IMPORT_USE_PDFIUM");
+#endif
+            const bool bPdfiumImport
+                = bUsePdfium && pMedium->GetFilter()
+                  && (pMedium->GetFilter()->GetFilterName() == "draw_pdf_import");
+
             pImpl->nLoadedFlags = SfxLoadedFlags::NONE;
             pImpl->bModelInitialized = false;
-            if ( pMedium->GetFilter() && ( pMedium->GetFilter()->GetFilterFlags() & SfxFilterFlags::STARONEFILTER ) && !bPdfiumImport )
+            if (pMedium->GetFilter()
+                && (pMedium->GetFilter()->GetFilterFlags() & SfxFilterFlags::STARONEFILTER)
+                && !bPdfiumImport)
             {
                 uno::Reference < beans::XPropertySet > xSet( GetModel(), uno::UNO_QUERY );
                 const OUString sLockUpdates("LockUpdates");
@@ -1163,15 +1176,6 @@ bool SfxObjectShell::SaveTo_Impl
         }
     }
 
-    bool bCopyTo = false;
-    SfxItemSet *pMedSet = rMedium.GetItemSet();
-    if( pMedSet )
-    {
-        const SfxBoolItem* pSaveToItem = SfxItemSet::GetItem<SfxBoolItem>(pMedSet, SID_SAVETO, false);
-        bCopyTo =   GetCreateMode() == SfxObjectCreateMode::EMBEDDED ||
-                    (pSaveToItem && pSaveToItem->GetValue());
-    }
-
     // use UCB for case sensitive/insensitive file name comparison
     if ( !pMedium->GetName().equalsIgnoreAsciiCase("private:stream")
       && !rMedium.GetName().equalsIgnoreAsciiCase("private:stream")
@@ -1182,99 +1186,91 @@ bool SfxObjectShell::SaveTo_Impl
         if ( pMedium->DocNeedsFileDateCheck() )
             rMedium.CheckFileDate( pMedium->GetInitFileDate( false ) );
 
-        if ( bCopyTo && GetCreateMode() != SfxObjectCreateMode::EMBEDDED )
+        // before we overwrite the original file, we will make a backup if there is a demand for that
+        // if the backup is not created here it will be created internally and will be removed in case of successful saving
+        const bool bDoBackup = SvtSaveOptions().IsBackup();
+        if ( bDoBackup )
         {
-            // export to the same location is forbidden
-            SetError(ERRCODE_IO_CANTWRITE);
+            rMedium.DoBackup_Impl();
+            if ( rMedium.GetError() )
+            {
+                SetError(rMedium.GetErrorCode());
+                rMedium.ResetError();
+            }
         }
-        else
+
+        if ( bStorageBasedSource && bStorageBasedTarget )
         {
-            // before we overwrite the original file, we will make a backup if there is a demand for that
-            // if the backup is not created here it will be created internally and will be removed in case of successful saving
-            const bool bDoBackup = SvtSaveOptions().IsBackup();
-            if ( bDoBackup )
+            // The active storage must be switched. The simple saving is not enough.
+            // The problem is that the target medium contains target MediaDescriptor.
+
+                // In future the switch of the persistence could be done on stream level:
+                // a new wrapper service will be implemented that allows to exchange
+                // persistence on the fly. So the real persistence will be set
+                // to that stream only after successful commit of the storage.
+                // TODO/LATER:
+                // create wrapper stream based on the URL
+                // create a new storage based on this stream
+                // store to this new storage
+                // commit the new storage
+                // call saveCompleted based with this new storage ( get rid of old storage and "frees" URL )
+                // commit the wrapper stream ( the stream will connect the URL only on commit, after that it will hold it )
+                // if the last step is failed the stream should stay to be transacted and should be committed on any flush
+                // so we can forget the stream in any way and the next storage commit will flush it
+
+            bNeedsDisconnectionOnFail = DisconnectStorage_Impl(
+                *pMedium, rMedium );
+            if ( bNeedsDisconnectionOnFail
+              || ConnectTmpStorage_Impl( pMedium->GetStorage(), pMedium ) )
             {
-                rMedium.DoBackup_Impl();
-                if ( rMedium.GetError() )
-                {
-                    SetError(rMedium.GetErrorCode());
-                    rMedium.ResetError();
-                }
+                pMedium->CloseAndRelease();
+
+                // TODO/LATER: for now the medium must be closed since it can already contain streams from old medium
+                //             in future those streams should not be copied in case a valid target url is provided,
+                //             if the url is not provided ( means the document is based on a stream ) this code is not
+                //             reachable.
+                rMedium.CloseAndRelease();
+                rMedium.SetHasEmbeddedObjects(GetEmbeddedObjectContainer().HasEmbeddedObjects());
+                rMedium.GetOutputStorage();
+                rMedium.SetHasEmbeddedObjects(false);
             }
+        }
+        else if ( !bStorageBasedSource && !bStorageBasedTarget )
+        {
+            // the source and the target formats are alien
+            // just disconnect the stream from the source format
+            // so that the target medium can use it
 
-            if ( bStorageBasedSource && bStorageBasedTarget )
+            pMedium->CloseAndRelease();
+            rMedium.CloseAndRelease();
+            rMedium.CreateTempFileNoCopy();
+            rMedium.GetOutStream();
+        }
+        else if ( !bStorageBasedSource && bStorageBasedTarget )
+        {
+            // the source format is an alien one but the target
+            // format is an own one so just disconnect the source
+            // medium
+
+            pMedium->CloseAndRelease();
+            rMedium.CloseAndRelease();
+            rMedium.GetOutputStorage();
+        }
+        else // means if ( bStorageBasedSource && !bStorageBasedTarget )
+        {
+            // the source format is an own one but the target is
+            // an alien format, just connect the source to temporary
+            // storage
+
+            bNeedsDisconnectionOnFail = DisconnectStorage_Impl(
+                *pMedium, rMedium );
+            if ( bNeedsDisconnectionOnFail
+              || ConnectTmpStorage_Impl( pMedium->GetStorage(), pMedium ) )
             {
-                // The active storage must be switched. The simple saving is not enough.
-                // The problem is that the target medium contains target MediaDescriptor.
-
-                    // In future the switch of the persistence could be done on stream level:
-                    // a new wrapper service will be implemented that allows to exchange
-                    // persistence on the fly. So the real persistence will be set
-                    // to that stream only after successful commit of the storage.
-                    // TODO/LATER:
-                    // create wrapper stream based on the URL
-                    // create a new storage based on this stream
-                    // store to this new storage
-                    // commit the new storage
-                    // call saveCompleted based with this new storage ( get rid of old storage and "frees" URL )
-                    // commit the wrapper stream ( the stream will connect the URL only on commit, after that it will hold it )
-                    // if the last step is failed the stream should stay to be transacted and should be committed on any flush
-                    // so we can forget the stream in any way and the next storage commit will flush it
-
-                bNeedsDisconnectionOnFail = DisconnectStorage_Impl(
-                    *pMedium, rMedium );
-                if ( bNeedsDisconnectionOnFail
-                  || ConnectTmpStorage_Impl( pMedium->GetStorage(), pMedium ) )
-                {
-                    pMedium->CloseAndRelease();
-
-                    // TODO/LATER: for now the medium must be closed since it can already contain streams from old medium
-                    //             in future those streams should not be copied in case a valid target url is provided,
-                    //             if the url is not provided ( means the document is based on a stream ) this code is not
-                    //             reachable.
-                    rMedium.CloseAndRelease();
-                    rMedium.SetHasEmbeddedObjects(GetEmbeddedObjectContainer().HasEmbeddedObjects());
-                    rMedium.GetOutputStorage();
-                    rMedium.SetHasEmbeddedObjects(false);
-                }
-            }
-            else if ( !bStorageBasedSource && !bStorageBasedTarget )
-            {
-                // the source and the target formats are alien
-                // just disconnect the stream from the source format
-                // so that the target medium can use it
-
                 pMedium->CloseAndRelease();
                 rMedium.CloseAndRelease();
                 rMedium.CreateTempFileNoCopy();
                 rMedium.GetOutStream();
-            }
-            else if ( !bStorageBasedSource && bStorageBasedTarget )
-            {
-                // the source format is an alien one but the target
-                // format is an own one so just disconnect the source
-                // medium
-
-                pMedium->CloseAndRelease();
-                rMedium.CloseAndRelease();
-                rMedium.GetOutputStorage();
-            }
-            else // means if ( bStorageBasedSource && !bStorageBasedTarget )
-            {
-                // the source format is an own one but the target is
-                // an alien format, just connect the source to temporary
-                // storage
-
-                bNeedsDisconnectionOnFail = DisconnectStorage_Impl(
-                    *pMedium, rMedium );
-                if ( bNeedsDisconnectionOnFail
-                  || ConnectTmpStorage_Impl( pMedium->GetStorage(), pMedium ) )
-                {
-                    pMedium->CloseAndRelease();
-                    rMedium.CloseAndRelease();
-                    rMedium.CreateTempFileNoCopy();
-                    rMedium.GetOutStream();
-                }
             }
         }
     }
@@ -1343,6 +1339,15 @@ bool SfxObjectShell::SaveTo_Impl
 
     // lock user interface while saving the document
     LockUIGuard aLockUIGuard(this);
+
+    bool bCopyTo = false;
+    SfxItemSet *pMedSet = rMedium.GetItemSet();
+    if( pMedSet )
+    {
+        const SfxBoolItem* pSaveToItem = SfxItemSet::GetItem<SfxBoolItem>(pMedSet, SID_SAVETO, false);
+        bCopyTo =   GetCreateMode() == SfxObjectCreateMode::EMBEDDED ||
+                    (pSaveToItem && pSaveToItem->GetValue());
+    }
 
     bool bOk = false;
     // TODO/LATER: get rid of bOk
@@ -2357,6 +2362,7 @@ bool SfxObjectShell::ExportTo( SfxMedium& rMedium )
         bool bHasStream = false;
         bool bHasBaseURL = false;
         bool bHasFilterName = false;
+        bool bIsRedactMode = false;
         sal_Int32 i;
         sal_Int32 nEnd = aOldArgs.getLength();
 
@@ -2374,6 +2380,10 @@ bool SfxObjectShell::ExportTo( SfxMedium& rMedium )
             else if( pOldValue[i].Name == "FilterName" )
                 bHasFilterName = true;
         }
+
+        // FIXME: Handle this inside TransformItems()
+        if (pItems->GetItemState(SID_IS_REDACT_MODE) == SfxItemState::SET)
+            bIsRedactMode = true;
 
         if ( !bHasOutputStream )
         {
@@ -2402,6 +2412,13 @@ bool SfxObjectShell::ExportTo( SfxMedium& rMedium )
             aArgs.realloc( ++nEnd );
             aArgs[nEnd-1].Name = "FilterName";
             aArgs[nEnd-1].Value <<= aFilterName;
+        }
+
+        if (bIsRedactMode)
+        {
+            aArgs.realloc( ++nEnd );
+            aArgs[nEnd-1].Name = "IsRedactMode";
+            aArgs[nEnd-1].Value <<= bIsRedactMode;
         }
 
         return xFilter->filter( aArgs );

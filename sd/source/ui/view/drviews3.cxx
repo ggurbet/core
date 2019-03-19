@@ -295,16 +295,16 @@ void  DrawViewShell::ExecCtrl(SfxRequest& rReq)
         case SID_INSERT_DATE_TIME:
         {
             SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-            ScopedVclPtr<AbstractHeaderFooterDialog> pDlg(pFact ? pFact->CreateHeaderFooterDialog( this, GetActiveWindow(), GetDoc(), mpActualPage ) : nullptr);
-            pDlg->Execute();
-            pDlg.disposeAndClear();
+            VclPtr<AbstractHeaderFooterDialog> pDlg(pFact->CreateHeaderFooterDialog( this, GetActiveWindow(), GetDoc(), mpActualPage ));
+            std::shared_ptr<SfxRequest> xRequest(new SfxRequest(rReq));
+            rReq.Ignore(); // the 'old' request is not relevant any more
+            pDlg->StartExecuteAsync([this, xRequest](sal_Int32 /*nResult*/){
+                GetActiveWindow()->Invalidate();
+                UpdatePreview( mpActualPage );
 
-            GetActiveWindow()->Invalidate();
-            UpdatePreview( mpActualPage );
-
-            Invalidate();
-            rReq.Done ();
-
+                Invalidate();
+                xRequest->Done();
+            });
             break;
         }
 
@@ -1046,24 +1046,24 @@ void  DrawViewShell::GetSnapItemState( SfxItemSet &rSet )
         Size(FuPoor::HITPIX,0)).Width());
     sal_uInt16  nHelpLine;
 
-    if ( mpDrawView->PickHelpLine(aMPos, nHitLog, *GetActiveWindow(), nHelpLine, pPV) )
-    {
-        const SdrHelpLine& rHelpLine = (pPV->GetHelpLines())[nHelpLine];
+    if ( !mpDrawView->PickHelpLine(aMPos, nHitLog, *GetActiveWindow(), nHelpLine, pPV) )
+        return;
 
-        if ( rHelpLine.GetKind() == SdrHelpLineKind::Point )
-        {
-            rSet.Put( SfxStringItem( SID_SET_SNAPITEM,
-                                SdResId( STR_POPUP_EDIT_SNAPPOINT)) );
-            rSet.Put( SfxStringItem( SID_DELETE_SNAPITEM,
-                                SdResId( STR_POPUP_DELETE_SNAPPOINT)) );
-        }
-        else
-        {
-            rSet.Put( SfxStringItem( SID_SET_SNAPITEM,
-                                SdResId( STR_POPUP_EDIT_SNAPLINE)) );
-            rSet.Put( SfxStringItem( SID_DELETE_SNAPITEM,
-                                SdResId( STR_POPUP_DELETE_SNAPLINE)) );
-        }
+    const SdrHelpLine& rHelpLine = (pPV->GetHelpLines())[nHelpLine];
+
+    if ( rHelpLine.GetKind() == SdrHelpLineKind::Point )
+    {
+        rSet.Put( SfxStringItem( SID_SET_SNAPITEM,
+                            SdResId( STR_POPUP_EDIT_SNAPPOINT)) );
+        rSet.Put( SfxStringItem( SID_DELETE_SNAPITEM,
+                            SdResId( STR_POPUP_DELETE_SNAPPOINT)) );
+    }
+    else
+    {
+        rSet.Put( SfxStringItem( SID_SET_SNAPITEM,
+                            SdResId( STR_POPUP_EDIT_SNAPLINE)) );
+        rSet.Put( SfxStringItem( SID_DELETE_SNAPITEM,
+                            SdResId( STR_POPUP_DELETE_SNAPLINE)) );
     }
 }
 

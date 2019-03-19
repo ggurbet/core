@@ -823,12 +823,12 @@ void E3dView::ImpCreate3DObject(E3dScene* pScene, SdrObject* pObj, bool bExtrude
                     ImpCreateSingle3DObjectFlat(pScene, pNewObj2, bExtrude, fDepth, rLatheMat);
 
                 // delete object in between
-                if(pNewObj2 != pObj && pNewObj2 != pNewObj1 && pNewObj2)
+                if (pNewObj2 != pObj && pNewObj2 != pNewObj1)
                     SdrObject::Free( pNewObj2 );
             }
 
             // delete object in between
-            if(pNewObj1 != pObj && pNewObj1)
+            if (pNewObj1 != pObj)
                 SdrObject::Free( pNewObj1 );
         }
     }
@@ -1308,7 +1308,6 @@ void E3dView::InitScene(E3dScene* pScene, double fW, double fH, double fCamZ)
 
     aCam.SetPosAndLookAt(aCamPos, aLookAt);
     aCam.SetFocalLength(GetDefaultCamFocal());
-    aCam.SetDefaults(basegfx::B3DPoint(0.0, 0.0, fDefaultCamPosZ), aLookAt);
     pScene->SetCamera(aCam);
 }
 
@@ -1493,8 +1492,6 @@ void E3dView::ResetCreationActive ()
 
 void E3dView::InitView ()
 {
-    aDefaultLightColor       = COL_WHITE;
-    aDefaultAmbientColor     = COL_BLACK;
     mpMirrorOverlay          = nullptr;
 }
 

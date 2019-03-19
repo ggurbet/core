@@ -19,7 +19,6 @@
 
 #include <fuconuno.hxx>
 #include <tabvwsh.hxx>
-#include <sc.hrc>
 #include <drawview.hxx>
 
 FuConstUnoControl::FuConstUnoControl(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawView* pViewP,
@@ -76,7 +75,7 @@ void FuConstUnoControl::Activate()
 {
     pView->SetCurrentObj( nIdentifier, nInventor );
 
-    aNewPointer = Pointer( PointerStyle::DrawRect );
+    aNewPointer = PointerStyle::DrawRect;
     aOldPointer = pWindow->GetPointer();
     rViewShell.SetActivePointer( aNewPointer );
 

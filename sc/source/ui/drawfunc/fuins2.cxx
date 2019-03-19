@@ -25,15 +25,10 @@
 #include <sot/exchange.hxx>
 #include <svl/globalnameitem.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <sfx2/docfile.hxx>
 #include <svl/stritem.hxx>
 #include <svx/svdoole2.hxx>
-#include <tools/urlobj.hxx>
-#include <vcl/syschild.hxx>
-#include <svl/urihelper.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <svtools/insdlg.hxx>
-#include <svtools/soerr.hxx>
 #include <svtools/embedhlp.hxx>
 #include <svx/svxdlg.hxx>
 #include <comphelper/classids.hxx>
@@ -41,17 +36,13 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdundo.hxx>
 #include <sfx2/msgpool.hxx>
-#include <svx/charthelper.hxx>
 #include <scmod.hxx>
 #include <sal/log.hxx>
 
-#include <cppuhelper/component_context.hxx>
-#include <comphelper/processfactory.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <com/sun/star/embed/EmbedVerbs.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/chart2/data/XDataProvider.hpp>
 #include <com/sun/star/chart2/data/XDataReceiver.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
@@ -66,15 +57,13 @@
 #include <fuinsert.hxx>
 #include <tabvwsh.hxx>
 #include <sc.hrc>
-#include <chartarr.hxx>
+#include <chartpos.hxx>
 #include <docsh.hxx>
 #include <document.hxx>
 #include <undotab.hxx>
-#include <chartlis.hxx>
 #include <uiitems.hxx>
 #include <drawview.hxx>
 #include <markdata.hxx>
-#include <gridwin.hxx>
 #include <dpobject.hxx>
 #include <memory>
 
@@ -564,7 +553,7 @@ FuInsertChart::FuInsertChart(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawV
                 if (bUndo)
                 {
                     pScDocSh->GetUndoManager()->AddUndoAction(
-                        o3tl::make_unique<ScUndoInsertTab>( pScDocSh, nNewTab,
+                        std::make_unique<ScUndoInsertTab>( pScDocSh, nNewTab,
                                              true/*bAppend*/, aTabName ) );
                 }
 
@@ -727,7 +716,7 @@ FuInsertChart::FuInsertChart(ScTabViewShell& rViewSh, vcl::Window* pWin, ScDrawV
     {
         // add undo action the same way as in SdrEditView::InsertObjectAtView
         // (using UndoActionHdl etc.)
-        pView->AddUndo(o3tl::make_unique<SdrUndoNewObj>(*pObj));
+        pView->AddUndo(std::make_unique<SdrUndoNewObj>(*pObj));
     }
 
     // BM/IHA --

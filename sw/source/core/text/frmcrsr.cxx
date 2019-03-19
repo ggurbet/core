@@ -19,6 +19,7 @@
 
 #include <ndtxt.hxx>
 #include <pam.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <viewopt.hxx>
 #include <paratr.hxx>
@@ -901,7 +902,7 @@ static void lcl_VisualMoveRecursion(const SwLineLayout& rCurrLine, TextFrameInde
     {
         nIdx = nIdx + pPor->GetLen();
         pLast = pPor;
-        pPor = pPor->GetPortion();
+        pPor = pPor->GetNextPortion();
     }
 
     if ( bRight )

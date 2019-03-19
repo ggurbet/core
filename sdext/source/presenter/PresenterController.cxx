@@ -17,6 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include "PresenterController.hxx"
 
 #include "PresenterAccessibility.hxx"
@@ -381,13 +385,13 @@ void PresenterController::UpdatePaneTitles()
             if (nStartIndex < 0)
             {
                 // Add the remaining part of the string.
-                sResult.appendCopy(sTemplate, nIndex);
+                sResult.append(std::u16string_view(sTemplate).substr(nIndex));
                 break;
             }
             else
             {
                 // Add the part preceding the next %.
-                sResult.appendCopy(sTemplate, nIndex, nStartIndex-nIndex);
+                sResult.append(std::u16string_view(sTemplate).substr(nIndex, nStartIndex-nIndex));
 
                 // Get the placeholder
                 ++nStartIndex;
@@ -489,19 +493,19 @@ void PresenterController::ShowView (const OUString& rsViewURL)
 {
     PresenterPaneContainer::SharedPaneDescriptor pDescriptor (
         mpPaneContainer->FindViewURL(rsViewURL));
-    if (pDescriptor.get() != nullptr)
-    {
-        pDescriptor->mbIsActive = true;
-        mxConfigurationController->requestResourceActivation(
-            pDescriptor->mxPaneId,
-            ResourceActivationMode_ADD);
-        mxConfigurationController->requestResourceActivation(
-            ResourceId::createWithAnchor(
-                mxComponentContext,
-                rsViewURL,
-                pDescriptor->mxPaneId),
-            ResourceActivationMode_REPLACE);
-    }
+    if (pDescriptor.get() == nullptr)
+        return;
+
+    pDescriptor->mbIsActive = true;
+    mxConfigurationController->requestResourceActivation(
+        pDescriptor->mxPaneId,
+        ResourceActivationMode_ADD);
+    mxConfigurationController->requestResourceActivation(
+        ResourceId::createWithAnchor(
+            mxComponentContext,
+            rsViewURL,
+            pDescriptor->mxPaneId),
+        ResourceActivationMode_REPLACE);
 }
 
 void PresenterController::HideView (const OUString& rsViewURL)
@@ -638,25 +642,25 @@ void PresenterController::SetAccessibilityActiveState (const bool bIsActive)
 
 void PresenterController::HandleMouseClick (const awt::MouseEvent& rEvent)
 {
-    if (mxSlideShowController.is())
+    if (!mxSlideShowController.is())
+        return;
+
+    switch (rEvent.Buttons)
     {
-        switch (rEvent.Buttons)
-        {
-            case awt::MouseButton::LEFT:
-                if (rEvent.Modifiers == awt::KeyModifier::MOD2)
-                    mxSlideShowController->gotoNextSlide();
-                else
-                    mxSlideShowController->gotoNextEffect();
-                break;
+        case awt::MouseButton::LEFT:
+            if (rEvent.Modifiers == awt::KeyModifier::MOD2)
+                mxSlideShowController->gotoNextSlide();
+            else
+                mxSlideShowController->gotoNextEffect();
+            break;
 
-            case awt::MouseButton::RIGHT:
-                mxSlideShowController->gotoPreviousSlide();
-                break;
+        case awt::MouseButton::RIGHT:
+            mxSlideShowController->gotoPreviousSlide();
+            break;
 
-            default:
-                // Other or multiple buttons.
-                break;
-        }
+        default:
+            // Other or multiple buttons.
+            break;
     }
 }
 
@@ -749,9 +753,7 @@ void SAL_CALL PresenterController::notifyConfigurationChange (
                 Reference<XView> xView (rEvent.ResourceObject,UNO_QUERY);
                 if (xView.is())
                 {
-                    SharedBitmapDescriptor pViewBackground(
-                        GetViewBackground(xView->getResourceId()->getResourceURL()));
-                    mpPaneContainer->StoreView(xView, pViewBackground);
+                    mpPaneContainer->StoreView(xView);
                     UpdateViews();
                     mpWindowManager->NotifyViewCreation(xView);
                 }

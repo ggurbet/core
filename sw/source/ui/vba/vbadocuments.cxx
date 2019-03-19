@@ -106,6 +106,7 @@ SwVbaDocuments::Add( const uno::Any& Template, const uno::Any& /*NewTemplate*/, 
 }
 
 // #TODO# #FIXME# can any of the unused params below be used?
+// #TODO# #FIXME# surely we should actually close the document here
 void SAL_CALL
 SwVbaDocuments::Close( const uno::Any& /*SaveChanges*/, const uno::Any& /*OriginalFormat*/, const uno::Any& /*RouteDocument*/ )
 {
@@ -139,6 +140,12 @@ uno::Any SAL_CALL
 SwVbaDocuments::OpenNoRepairDialog( const OUString& Filename, const uno::Any& ConfirmConversions, const uno::Any& ReadOnly, const uno::Any& AddToRecentFiles, const uno::Any& PasswordDocument, const uno::Any& PasswordTemplate, const uno::Any& Revert, const uno::Any& WritePasswordDocument, const uno::Any& WritePasswordTemplate, const uno::Any& Format, const uno::Any& Encoding, const uno::Any& Visible, const uno::Any& OpenAndRepair, const uno::Any& DocumentDirection, const uno::Any& NoEncodingDialog, const uno::Any& XMLTransform )
 {
     return Open( Filename, ConfirmConversions, ReadOnly, AddToRecentFiles, PasswordDocument, PasswordTemplate, Revert, WritePasswordDocument, WritePasswordTemplate, Format, Encoding, Visible, OpenAndRepair, DocumentDirection, NoEncodingDialog, XMLTransform );
+}
+
+uno::Any SAL_CALL
+SwVbaDocuments::OpenOld( const OUString& FileName, const uno::Any& ConfirmConversions, const uno::Any& ReadOnly, const uno::Any& AddToRecentFiles, const uno::Any& PasswordDocument, const uno::Any& PasswordTemplate, const uno::Any& Revert, const uno::Any& WritePasswordDocument, const uno::Any& WritePasswordTemplate, const uno::Any& Format )
+{
+    return Open( FileName, ConfirmConversions, ReadOnly, AddToRecentFiles, PasswordDocument, PasswordTemplate, Revert, WritePasswordDocument, WritePasswordTemplate, Format, uno::Any(), uno::Any(), uno::Any(), uno::Any(), uno::Any(), uno::Any() );
 }
 
 OUString

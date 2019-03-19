@@ -33,7 +33,6 @@
 #include <svx/xtable.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/printer.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <document.hxx>
 #include <docoptio.hxx>
@@ -62,7 +61,7 @@ void ScDocument::BeginDrawUndo()
         mpDrawLayer->BeginCalcUndo(false);
 }
 
-void ScDocument::TransferDrawPage(ScDocument* pSrcDoc, SCTAB nSrcPos, SCTAB nDestPos)
+void ScDocument::TransferDrawPage(const ScDocument* pSrcDoc, SCTAB nSrcPos, SCTAB nDestPos)
 {
     if (mpDrawLayer && pSrcDoc->mpDrawLayer)
     {
@@ -81,7 +80,7 @@ void ScDocument::TransferDrawPage(ScDocument* pSrcDoc, SCTAB nSrcPos, SCTAB nDes
                 pNewPage->InsertObject( pNewObject );
 
                 if (mpDrawLayer->IsRecording())
-                    mpDrawLayer->AddCalcUndo( o3tl::make_unique<SdrUndoInsertObj>( *pNewObject ) );
+                    mpDrawLayer->AddCalcUndo( std::make_unique<SdrUndoInsertObj>( *pNewObject ) );
 
                 pOldObject = aIter.Next();
             }
@@ -255,10 +254,13 @@ void ScDocument::DeleteObjectsInArea( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCR
         return;
 
     SCTAB nTabCount = GetTableCount();
-    ScMarkData::const_iterator itr = rMark.begin(), itrEnd = rMark.end();
-    for (; itr != itrEnd && *itr < nTabCount; ++itr)
-        if (maTabs[*itr])
-            mpDrawLayer->DeleteObjectsInArea( *itr, nCol1, nRow1, nCol2, nRow2 );
+    for (const auto& rTab : rMark)
+    {
+        if (rTab >= nTabCount)
+            break;
+        if (maTabs[rTab])
+            mpDrawLayer->DeleteObjectsInArea( rTab, nCol1, nRow1, nCol2, nRow2 );
+    }
 }
 
 void ScDocument::DeleteObjectsInSelection( const ScMarkData& rMark )
@@ -495,10 +497,9 @@ bool ScDocument::IsPrintEmpty( SCTAB nTab, SCCOL nStartCol, SCROW nStartRow,
 
 void ScDocument::Clear( bool bFromDestructor )
 {
-    TableContainer::iterator it = maTabs.begin();
-    for (;it != maTabs.end(); ++it)
-        if (*it)
-            (*it)->GetCondFormList()->clear();
+    for (auto& rxTab : maTabs)
+        if (rxTab)
+            rxTab->GetCondFormList()->clear();
 
     maTabs.clear();
     pSelectionAttr.reset();
@@ -579,13 +580,12 @@ void ScDocument::UpdateFontCharSet()
 void ScDocument::SetLoadingMedium( bool bVal )
 {
     bLoadingMedium = bVal;
-    TableContainer::iterator it = maTabs.begin();
-    for (; it != maTabs.end(); ++it)
+    for (auto& rxTab : maTabs)
     {
-        if (!*it)
+        if (!rxTab)
             return;
 
-        (*it)->SetLoadingMedium(bVal);
+        rxTab->SetLoadingMedium(bVal);
     }
 }
 

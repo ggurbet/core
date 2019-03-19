@@ -45,6 +45,8 @@
 #include <txatbase.hxx>
 #include <fmtfld.hxx>
 #include <fldbas.hxx>
+#include <frmatr.hxx>
+#include <frmtool.hxx>
 
 #include <cfloat>
 #include <swselectionlist.hxx>
@@ -757,8 +759,8 @@ static bool lcl_UpDown( SwPaM *pPam, const SwContentFrame *pStart,
             while ( pCell && !pCell->IsCellFrame() )
                 pCell = pCell->GetUpper();
             OSL_ENSURE( pCell, "could not find the cell" );
-            nX =  aRectFnSet.GetLeft(pCell->getFrameArea()) +
-                  aRectFnSet.GetWidth(pCell->getFrameArea()) / 2;
+            nX = aRectFnSet.XInc(aRectFnSet.GetLeft(pCell->getFrameArea()),
+                                 aRectFnSet.GetWidth(pCell->getFrameArea()) / 2);
 
             //The flow leads from one table to the next. The X-value needs to be
             //corrected based on the middle of the starting cell by the amount
@@ -778,14 +780,14 @@ static bool lcl_UpDown( SwPaM *pPam, const SwContentFrame *pStart,
             const long nPrtLeft = bRTL ?
                                 aRectFnSet.GetPrtRight(*pTable) :
                                 aRectFnSet.GetPrtLeft(*pTable);
-            if ( bRTL != (nX < nPrtLeft) )
+            if (bRTL != (aRectFnSet.XDiff(nPrtLeft, nX) > 0))
                 nX = nPrtLeft;
             else
             {
-                   const long nPrtRight = bRTL ?
+                const long nPrtRight = bRTL ?
                                     aRectFnSet.GetPrtLeft(*pTable) :
                                     aRectFnSet.GetPrtRight(*pTable);
-                if ( bRTL != (nX > nPrtRight) )
+                if (bRTL != (aRectFnSet.XDiff(nX, nPrtRight) > 0))
                     nX = nPrtRight;
             }
         }
@@ -843,7 +845,7 @@ static bool lcl_UpDown( SwPaM *pPam, const SwContentFrame *pStart,
             }
             if ( !bSame )
                 pCnt = nullptr;
-            else if ( pCnt && pCnt->IsTextFrame() && static_cast<const SwTextFrame*>(pCnt)->IsHiddenNow() ) // i73332
+            else if (pCnt->IsTextFrame() && static_cast<const SwTextFrame*>(pCnt)->IsHiddenNow()) // i73332
             {
                 pCnt = (*fnNxtPrv)( pCnt );
                 pCnt = ::lcl_MissProtectedFrames( pCnt, fnNxtPrv, true, bInReadOnly, bTableSel );
@@ -866,7 +868,7 @@ static bool lcl_UpDown( SwPaM *pPam, const SwContentFrame *pStart,
                         //The flow leads from one table to the next. The X-value
                         //needs to be corrected by the amount of the offset of
                         //the tables
-                         if ( pTable &&
+                        if ( pTable &&
                               !pTab->GetUpper()->IsInTab() &&
                             !pTable->GetUpper()->IsInTab() )
                             nX += pTab->getFrameArea().Left() - pTable->getFrameArea().Left();
@@ -884,7 +886,7 @@ static bool lcl_UpDown( SwPaM *pPam, const SwContentFrame *pStart,
                         if ( aRectFnSet.IsVert() )
                         {
                             if ( nTmpTop )
-                                --nTmpTop;
+                                nTmpTop = aRectFnSet.XInc(nTmpTop, -1);
 
                             aInsideCell = Point( nTmpTop, nX );
                         }
@@ -896,7 +898,7 @@ static bool lcl_UpDown( SwPaM *pPam, const SwContentFrame *pStart,
                     if ( aRectFnSet.IsVert() )
                     {
                         if ( nTmpTop )
-                            --nTmpTop;
+                            nTmpTop = aRectFnSet.XInc(nTmpTop, -1);
 
                         aInsideCnt = Point( nTmpTop, nX );
                     }
@@ -2122,12 +2124,11 @@ void SwRootFrame::CalcFrameRects(SwShellCursor &rCursor)
     //ContentRects to Start- and EndFrames.
     SwRect aStRect, aEndRect;
     pStartFrame->GetCharRect( aStRect, *pStartPos, &aTmpState );
-    Sw2LinesPos *pSt2Pos = aTmpState.m_p2Lines;
-    aTmpState.m_p2Lines = nullptr;
+    std::unique_ptr<Sw2LinesPos> pSt2Pos = std::move(aTmpState.m_p2Lines);
     aTmpState.m_nCursorBidiLevel = pEndFrame->IsRightToLeft() ? 1 : 0;
 
     pEndFrame->GetCharRect( aEndRect, *pEndPos, &aTmpState );
-    Sw2LinesPos *pEnd2Pos = aTmpState.m_p2Lines;
+    std::unique_ptr<Sw2LinesPos> pEnd2Pos = std::move(aTmpState.m_p2Lines);
 
     SwRect aStFrame ( pStartFrame->UnionFrame( true ) );
     aStFrame.Intersection( pStartFrame->GetPaintArea() );
@@ -2139,6 +2140,7 @@ void SwRootFrame::CalcFrameRects(SwShellCursor &rCursor)
     SwRectFnSet aRectFnSet(pStartFrame);
     const bool bR2L = pStartFrame->IsRightToLeft();
     const bool bEndR2L = pEndFrame->IsRightToLeft();
+    const bool bB2T = pStartFrame->IsVertLRBT();
 
     // If there's no doubleline portion involved or start and end are both
     // in the same doubleline portion, all works fine, but otherwise
@@ -2371,7 +2373,7 @@ void SwRootFrame::CalcFrameRects(SwShellCursor &rCursor)
         {
             Point aTmpSt( aStRect.Pos() );
             Point aTmpEnd( aEndRect.Right(), aEndRect.Bottom() );
-            if( bSameRotatedOrBidi || bR2L )
+            if (bSameRotatedOrBidi || bR2L || bB2T)
             {
                 if( aTmpSt.Y() > aTmpEnd.Y() )
                 {
@@ -2548,8 +2550,8 @@ void SwRootFrame::CalcFrameRects(SwShellCursor &rCursor)
     }
 
     aRegion.Invert();
-    delete pSt2Pos;
-    delete pEnd2Pos;
+    pSt2Pos.reset();
+    pEnd2Pos.reset();
 
     // Cut out Flys during loop. We don't cut out Flys when:
     // - the Lower is StartFrame/EndFrame (FlyInCnt and all other Flys which again
@@ -2582,8 +2584,8 @@ void SwRootFrame::CalcFrameRects(SwShellCursor &rCursor)
                     else
                     {
                         SwNodeIndex idx( nodes.GetEndOfContent());
-                     if( SwContentNode* last = SwNodes::GoPrevious( &idx ))
-                        inSelection = *pEndPos == SwPosition( *last, last->Len());
+                        if( SwContentNode* last = SwNodes::GoPrevious( &idx ))
+                            inSelection = *pEndPos == SwPosition( *last, last->Len());
                     }
                 }
                 if( inSelection )

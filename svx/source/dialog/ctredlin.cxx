@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <o3tl/make_unique.hxx>
 #include <vcl/field.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/layout.hxx>
@@ -32,6 +31,8 @@
 
 #include <editeng/unolingu.hxx>
 #include <svx/ctredlin.hxx>
+#include <svx/dialmgr.hxx>
+#include <svx/strings.hrc>
 
 #define WRITER_DATE     2
 #define CALC_DATE       3
@@ -289,15 +290,15 @@ bool SvxRedlinTable::IsValidComment(const OUString &rCommentStr)
 }
 
 SvTreeListEntry* SvxRedlinTable::InsertEntry(const OUString& rStr,
-        RedlinData *pUserData, SvTreeListEntry* pParent, sal_uLong nPos)
+        std::unique_ptr<RedlinData> pUserData, SvTreeListEntry* pParent, sal_uLong nPos)
 {
     const Color aColor = (pUserData && pUserData->bDisabled) ? COL_GRAY : GetTextColor();
 
-    return InsertEntry(rStr, pUserData, aColor, pParent, nPos);
+    return InsertEntry(rStr, std::move(pUserData), aColor, pParent, nPos);
 }
 
 SvTreeListEntry* SvxRedlinTable::InsertEntry(const OUString& rStr,
-        RedlinData *pUserData, const Color& rColor, SvTreeListEntry* pParent, sal_uLong nPos)
+        std::unique_ptr<RedlinData> pUserData, const Color& rColor, SvTreeListEntry* pParent, sal_uLong nPos)
 {
     maEntryColor = rColor;
     maEntryImage = Image();
@@ -306,17 +307,17 @@ SvTreeListEntry* SvxRedlinTable::InsertEntry(const OUString& rStr,
     const OUString aFirstStr(rStr.getToken(0, '\t', nIndex));
     maEntryString = nIndex > 0 ? rStr.copy(nIndex) : OUString();
 
-    return SvSimpleTable::InsertEntry(aFirstStr, pParent, false, nPos, pUserData);
+    return SvSimpleTable::InsertEntry(aFirstStr, pParent, false, nPos, pUserData.release());
 }
 
 SvTreeListEntry* SvxRedlinTable::InsertEntry(const Image &rRedlineType, const OUString& rStr,
-        RedlinData *pUserData, SvTreeListEntry* pParent, sal_uLong nPos)
+        std::unique_ptr<RedlinData> pUserData, SvTreeListEntry* pParent, sal_uLong nPos)
 {
     maEntryColor = (pUserData && pUserData->bDisabled) ? COL_GRAY : GetTextColor();
     maEntryImage = rRedlineType;
     maEntryString = rStr;
 
-    return SvSimpleTable::InsertEntry(OUString(), pParent, false, nPos, pUserData);
+    return SvSimpleTable::InsertEntry(OUString(), pParent, false, nPos, pUserData.release());
 }
 
 SvTreeListEntry* SvxRedlinTable::CreateEntry() const
@@ -329,21 +330,21 @@ void SvxRedlinTable::InitEntry(SvTreeListEntry* pEntry, const OUString& rStr,
 {
     if (nTreeFlags & SvTreeFlags::CHKBTN)
     {
-        pEntry->AddItem(o3tl::make_unique<SvLBoxButton>(
+        pEntry->AddItem(std::make_unique<SvLBoxButton>(
                 eButtonKind, pCheckButtonData));
     }
 
-    pEntry->AddItem(o3tl::make_unique<SvLBoxContextBmp>(
+    pEntry->AddItem(std::make_unique<SvLBoxContextBmp>(
                 rColl, rExp, true));
 
     // the type of the change
     assert((rStr.isEmpty() && !!maEntryImage) || (!rStr.isEmpty() && !maEntryImage));
 
     if (rStr.isEmpty())
-        pEntry->AddItem(o3tl::make_unique<SvLBoxContextBmp>(
+        pEntry->AddItem(std::make_unique<SvLBoxContextBmp>(
                         maEntryImage, maEntryImage, true));
     else
-        pEntry->AddItem(o3tl::make_unique<SvLBoxColorString>(
+        pEntry->AddItem(std::make_unique<SvLBoxColorString>(
                     rStr, maEntryColor));
 
     // the change tracking entries
@@ -352,7 +353,7 @@ void SvxRedlinTable::InitEntry(SvTreeListEntry* pEntry, const OUString& rStr,
     for (sal_uInt16 nToken = 0; nToken < nCount; nToken++)
     {
         const OUString aToken = GetToken(maEntryString, nIndex);
-        pEntry->AddItem(o3tl::make_unique<SvLBoxColorString>(
+        pEntry->AddItem(std::make_unique<SvLBoxColorString>(
                     aToken, maEntryColor));
     }
 }
@@ -370,6 +371,11 @@ SvxTPView::SvxTPView(vcl::Window *pParent, VclBuilderContainer *pTopLevel)
     pTopLevel->get(m_pAcceptAll, "acceptall");
     pTopLevel->get(m_pRejectAll, "rejectall");
     pTopLevel->get(m_pUndo, "undo");
+
+    // set wider window for the optional extending button labels
+    // eg. "Reject/Clear formatting" instead of "Reject"
+    EnableClearFormat(true);
+    EnableClearFormatAll(true);
 
     SvSimpleTableContainer* pTable = get<SvSimpleTableContainer>("changes");
     Size aControlSize(80, 65);
@@ -481,6 +487,39 @@ void SvxTPView::EnableRejectAll(bool bFlag)
 {
     bEnableRejectAll = bFlag;
     m_pRejectAll->Enable(bFlag);
+}
+
+void SvxTPView::EnableClearFormatButton(VclPtr<PushButton> pButton, bool bFlag)
+{
+    OUString sText = pButton->GetText();
+    OUString sClearFormat = SvxResId(RID_SVXSTR_CLEARFORM);
+    sal_Int32 nPos = sText.indexOf(sClearFormat);
+
+    // add or remove "Clear formatting" to get "Reject" or "Reject/Clear formatting"
+    if (bFlag)
+    {
+        if (nPos == -1)
+        {
+            pButton->SetText(sText + "/" + sClearFormat);
+        }
+    }
+    else
+    {
+        if (nPos > 0)
+        {
+            pButton->SetText(sText.copy(0, nPos - 1));
+        }
+    }
+}
+
+void SvxTPView::EnableClearFormat(bool bFlag)
+{
+    EnableClearFormatButton( m_pReject, bFlag );
+}
+
+void SvxTPView::EnableClearFormatAll(bool bFlag)
+{
+    EnableClearFormatButton( m_pRejectAll, bFlag );
 }
 
 void SvxTPView::ShowUndo()

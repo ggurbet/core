@@ -387,7 +387,7 @@ bool ScDrawLayer::ScAddPage( SCTAB nTab )
     ScDrawPage* pPage = static_cast<ScDrawPage*>(AllocPage( false ));
     InsertPage(pPage, static_cast<sal_uInt16>(nTab));
     if (bRecording)
-        AddCalcUndo(o3tl::make_unique<SdrUndoNewPage>(*pPage));
+        AddCalcUndo(std::make_unique<SdrUndoNewPage>(*pPage));
 
     ResetTab(nTab, pDoc->GetTableCount()-1);
     return true;        // inserted
@@ -402,7 +402,7 @@ void ScDrawLayer::ScRemovePage( SCTAB nTab )
     if (bRecording)
     {
         SdrPage* pPage = GetPage(static_cast<sal_uInt16>(nTab));
-        AddCalcUndo(o3tl::make_unique<SdrUndoDelPage>(*pPage));        // Undo-Action becomes the page owner
+        AddCalcUndo(std::make_unique<SdrUndoDelPage>(*pPage));        // Undo-Action becomes the page owner
         RemovePage( static_cast<sal_uInt16>(nTab) );    // just deliver, not deleting
     }
     else
@@ -463,7 +463,7 @@ void ScDrawLayer::ScCopyPage( sal_uInt16 nOldPos, sal_uInt16 nNewPos )
             }
 
             if (bRecording)
-                AddCalcUndo( o3tl::make_unique<SdrUndoInsertObj>( *pNewObject ) );
+                AddCalcUndo( std::make_unique<SdrUndoInsertObj>( *pNewObject ) );
 
             pOldObject = aIter.Next();
         }
@@ -553,7 +553,7 @@ void ScDrawLayer::MoveCells( SCTAB nTab, SCCOL nCol1,SCROW nRow1, SCCOL nCol2,SC
                     pNoRotatedAnchor->maEnd = pData->maEnd;
                 }
 
-                AddCalcUndo( o3tl::make_unique<ScUndoObjData>( pObj, aOldStt, aOldEnd, pData->maStart, pData->maEnd ) );
+                AddCalcUndo( std::make_unique<ScUndoObjData>( pObj, aOldStt, aOldEnd, pData->maStart, pData->maEnd ) );
                 RecalcPos( pObj, *pData, bNegativePage, bUpdateNoteCaptionPos );
             }
         }
@@ -836,7 +836,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
         if ( pObj->GetLogicRect() != aRect )
         {
             if (bRecording)
-                AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+                AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
             rData.setShapeRect(GetDocument(), lcl_makeSafeRectangle(aRect));
             pObj->SetLogicRect(rData.getShapeRect());
         }
@@ -868,7 +868,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
             if ( pObj->GetPoint( 0 ) != aStartPos )
             {
                 if (bRecording)
-                    AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+                    AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
 
                 rData.setShapeRect(GetDocument(), lcl_UpdateCalcPoly(aCalcPoly, 0, aStartPos));
                 pObj->SetPoint( aStartPos, 0 );
@@ -884,7 +884,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
                 if ( pObj->GetPoint( 1 ) != aEndPos )
                 {
                     if (bRecording)
-                        AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+                        AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
 
                     rData.setShapeRect(GetDocument(), lcl_UpdateCalcPoly(aCalcPoly, 1, aEndPos));
                     pObj->SetPoint( aEndPos, 1 );
@@ -906,7 +906,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
             if ( pObj->GetPoint( 1 ) != aEndPos )
             {
                 if (bRecording)
-                    AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+                    AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
 
                 rData.setShapeRect(GetDocument(), lcl_UpdateCalcPoly(aCalcPoly, 1, aEndPos));
                 pObj->SetPoint( aEndPos, 1 );
@@ -924,7 +924,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
                 if ( pObj->GetPoint( 0 ) != aStartPos )
                 {
                     if (bRecording)
-                        AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+                        AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
 
                     rData.setShapeRect(GetDocument(), lcl_UpdateCalcPoly(aCalcPoly, 0, aStartPos));
                     pObj->SetPoint( aStartPos, 0 );
@@ -1019,7 +1019,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
                 tools::Rectangle aOld(pObj->GetSnapRect());
 
                 if (bRecording)
-                    AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+                    AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
                 long nOldWidth = aOld.GetWidth();
                 long nOldHeight = aOld.GetHeight();
                 if (pObj->IsPolyObj() && nOldWidth && nOldHeight)
@@ -1047,7 +1047,7 @@ void ScDrawLayer::RecalcPos( SdrObject* pObj, ScDrawObjData& rData, bool bNegati
             if ( pObj->GetRelativePos() != aPos )
             {
                 if (bRecording)
-                    AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+                    AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
                 pObj->SetRelativePos( aPos );
             }
         }
@@ -1094,7 +1094,7 @@ bool ScDrawLayer::GetPrintArea( ScRange& rRange, bool bSetHor, bool bSetVer ) co
     {
         nStartX = 0;
         SCCOL nStartCol = rRange.aStart.Col();
-            SCCOL i;
+        SCCOL i;
         for (i=0; i<nStartCol; i++)
             nStartX +=pDoc->GetColWidth(i,nTab);
         nEndX = nStartX;
@@ -1397,7 +1397,7 @@ void ScDrawLayer::DeleteObjectsInArea( SCTAB nTab, SCCOL nCol1,SCROW nRow1,
 
         if (bRecording)
             for (size_t i=1; i<=nDelCount; ++i)
-                AddCalcUndo( o3tl::make_unique<SdrUndoRemoveObj>( *ppObj[nDelCount-i] ) );
+                AddCalcUndo( std::make_unique<SdrUndoRemoveObj>( *ppObj[nDelCount-i] ) );
 
         for (size_t i=1; i<=nDelCount; ++i)
             pPage->RemoveObject( ppObj[nDelCount-i]->GetOrdNum() );
@@ -1417,10 +1417,11 @@ void ScDrawLayer::DeleteObjectsInSelection( const ScMarkData& rMark )
     rMark.GetMultiMarkArea( aMarkRange );
 
     SCTAB nTabCount = pDoc->GetTableCount();
-    ScMarkData::const_iterator itr = rMark.begin(), itrEnd = rMark.end();
-    for (; itr != itrEnd && *itr < nTabCount; ++itr)
+    for (const SCTAB nTab : rMark)
     {
-        SCTAB nTab = *itr;
+        if (nTab >= nTabCount)
+            break;
+
         SdrPage* pPage = GetPage(static_cast<sal_uInt16>(nTab));
         if (pPage)
         {
@@ -1445,11 +1446,18 @@ void ScDrawLayer::DeleteObjectsInSelection( const ScMarkData& rMark )
                     if (!IsNoteCaption( pObject ))
                     {
                         tools::Rectangle aObjRect = pObject->GetCurrentBoundRect();
-                        if ( aMarkBound.IsInside( aObjRect ) )
+                        ScRange aRange = pDoc->GetRange(nTab, aObjRect);
+                        bool bObjectInMarkArea
+                            = aMarkBound.IsInside(aObjRect) && rMark.IsAllMarked(aRange);
+                        const ScDrawObjData* pObjData = ScDrawLayer::GetObjData(pObject);
+                        ScAnchorType aAnchorType = ScDrawLayer::GetAnchorType(*pObject);
+                        bool bObjectAnchoredToMarkedCell
+                            = ((aAnchorType == SCA_CELL || aAnchorType == SCA_CELL_RESIZE)
+                               && rMark.IsCellMarked(pObjData->maStart.Col(),
+                                                     pObjData->maStart.Row()));
+                        if (bObjectInMarkArea || bObjectAnchoredToMarkedCell)
                         {
-                            ScRange aRange = pDoc->GetRange( nTab, aObjRect );
-                            if (rMark.IsAllMarked(aRange))
-                                ppObj[nDelCount++] = pObject;
+                            ppObj[nDelCount++] = pObject;
                         }
                     }
 
@@ -1460,7 +1468,7 @@ void ScDrawLayer::DeleteObjectsInSelection( const ScMarkData& rMark )
 
                 if (bRecording)
                     for (size_t i=1; i<=nDelCount; ++i)
-                        AddCalcUndo( o3tl::make_unique<SdrUndoRemoveObj>( *ppObj[nDelCount-i] ) );
+                        AddCalcUndo( std::make_unique<SdrUndoRemoveObj>( *ppObj[nDelCount-i] ) );
 
                 for (size_t i=1; i<=nDelCount; ++i)
                     pPage->RemoveObject( ppObj[nDelCount-i]->GetOrdNum() );
@@ -1540,10 +1548,8 @@ static bool lcl_IsAllInRange( const ::std::vector< ScRangeList >& rRangesVector,
 {
     //  check if every range of rRangesVector is completely in rClipRange
 
-    ::std::vector< ScRangeList >::const_iterator aIt = rRangesVector.begin();
-    for( ;aIt!=rRangesVector.end(); ++aIt )
+    for( const ScRangeList& rRanges : rRangesVector )
     {
-        const ScRangeList& rRanges = *aIt;
         for ( size_t i = 0, nCount = rRanges.size(); i < nCount; i++ )
         {
             const ScRange & rRange = rRanges[ i ];
@@ -1562,10 +1568,8 @@ static bool lcl_MoveRanges( ::std::vector< ScRangeList >& rRangesVector, const S
     bool bChanged = false;
 
     ScRange aErrorRange( ScAddress::UNINITIALIZED );
-    ::std::vector< ScRangeList >::iterator aIt = rRangesVector.begin();
-    for( ;aIt!=rRangesVector.end(); ++aIt )
+    for( ScRangeList& rRanges : rRangesVector )
     {
-        ScRangeList& rRanges = *aIt;
         for ( size_t i = 0, nCount = rRanges.size(); i < nCount; i++ )
         {
             ScRange & rRange = rRanges[ i ];
@@ -1704,7 +1708,7 @@ void ScDrawLayer::CopyFromClip( ScDrawLayer* pClipModel, SCTAB nSourceTab, const
 
             pDestPage->InsertObject( pNewObject );
             if (bRecording)
-                AddCalcUndo( o3tl::make_unique<SdrUndoInsertObj>( *pNewObject ) );
+                AddCalcUndo( std::make_unique<SdrUndoInsertObj>( *pNewObject ) );
 
             //#i110034# handle chart data references (after InsertObject)
 
@@ -1800,7 +1804,7 @@ void ScDrawLayer::MirrorRTL( SdrObject* pObj )
         Point aRef1( 0, 0 );
         Point aRef2( 0, 1 );
         if (bRecording)
-            AddCalcUndo( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+            AddCalcUndo( std::make_unique<SdrUndoGeoObj>( *pObj ) );
         pObj->Mirror( aRef1, aRef2 );
     }
     else
@@ -1811,7 +1815,7 @@ void ScDrawLayer::MirrorRTL( SdrObject* pObj )
         tools::Rectangle aObjRect = pObj->GetLogicRect();
         Size aMoveSize( -(aObjRect.Left() + aObjRect.Right()), 0 );
         if (bRecording)
-            AddCalcUndo( o3tl::make_unique<SdrUndoMoveObj>( *pObj, aMoveSize ) );
+            AddCalcUndo( std::make_unique<SdrUndoMoveObj>( *pObj, aMoveSize ) );
         pObj->Move( aMoveSize );
     }
 }

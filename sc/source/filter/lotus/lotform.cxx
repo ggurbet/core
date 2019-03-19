@@ -19,7 +19,6 @@
 
 #include <decl.h>
 #include <lotform.hxx>
-#include <compiler.hxx>
 #include "lotfilter.hxx"
 #include <lotrange.hxx>
 #include <namebuff.hxx>
@@ -27,7 +26,6 @@
 #include <ftools.hxx>
 #include <tool.h>
 
-#include <math.h>
 #include <comphelper/string.hxx>
 #include <sal/log.hxx>
 #include <memory>
@@ -640,9 +638,9 @@ void LotusToSc::Convert( std::unique_ptr<ScTokenArray>& rpErg, sal_Int32& rRest 
             case FT_Snum:
                 if ( bWK123 )
                 {
-                         sal_uInt32   nValue;
+                     sal_uInt32   nValue;
 
-                         Read( nValue );
+                     Read( nValue );
                      double  fValue = Snum32ToDouble( nValue );
                      aStack << aPool.Store( fValue );
                 }

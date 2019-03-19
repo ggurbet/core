@@ -20,8 +20,10 @@
 #include <svtools/hyperlabel.hxx>
 #include <tools/color.hxx>
 #include <vcl/bitmap.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/tabpage.hxx>
+#include <vcl/ptrstyle.hxx>
 
 
 namespace svt

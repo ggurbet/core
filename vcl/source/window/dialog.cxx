@@ -19,6 +19,12 @@
 
 #include <config_features.h>
 
+#ifdef IOS
+#include <premac.h>
+#include <UIKit/UIKit.h>
+#include <postmac.h>
+#endif
+
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/util/thePathSettings.hpp>
 #include <com/sun/star/frame/theGlobalEventBroadcaster.hpp>
@@ -43,6 +49,7 @@
 #include <vcl/layout.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/event.hxx>
+#include <vcl/waitobj.hxx>
 #include <vcl/wrkwin.hxx>
 #include <vcl/button.hxx>
 #include <vcl/mnemonic.hxx>
@@ -198,7 +205,7 @@ vcl::Window * lastLogicalChildOfParent(const vcl::Window *pTopLevel)
     return const_cast<vcl::Window *>(pChild);
 }
 
-void Accelerator::GenerateAutoMnemonicsOnHierarchy(vcl::Window* pWindow)
+void Accelerator::GenerateAutoMnemonicsOnHierarchy(const vcl::Window* pWindow)
 {
     MnemonicGenerator   aMnemonicGenerator;
     vcl::Window*                 pGetChild;
@@ -704,6 +711,7 @@ bool Dialog::EventNotify( NotifyEvent& rNEvt )
 //taskbar, menus, etc.
 Size bestmaxFrameSizeForScreenSize(const Size &rScreenSize)
 {
+#ifndef IOS
     long w = rScreenSize.Width();
     if (w <= 800)
         w -= 15;
@@ -720,6 +728,19 @@ Size bestmaxFrameSizeForScreenSize(const Size &rScreenSize)
 
     return Size(std::max<long>(w, 640 - 15),
                 std::max<long>(h, 480 - 50));
+#else
+    // Don't bother with ancient magic numbers of unclear relevance on non-desktop apps anyway. It
+    // seems that at least currently in the iOS app, this function is called just once per dialog,
+    // with a rScreenSize parameter of 1x1 (!). This would lead to always returning 625x430 which is
+    // a bit random and needlessly small on an iPad at least. We want something that closely will
+    // just fit on the display in either orientation.
+
+    // We ignore the rScreenSize as it will be the dummy 1x1 from iosinst.cxx (see "Totally wrong of course").
+    (void) rScreenSize;
+
+    const int n = std::min<CGFloat>([[UIScreen mainScreen] bounds].size.width, [[UIScreen mainScreen] bounds].size.height);
+    return Size(n-10, n-10);
+#endif
 }
 
 void Dialog::SetInstallLOKNotifierHdl(const Link<void*, vcl::ILibreOfficeKitNotifier*>& rLink)
@@ -891,6 +912,19 @@ bool Dialog::ImplStartExecute()
             std::abort();
         }
 
+        if (bKitActive)
+        {
+            if(const vcl::ILibreOfficeKitNotifier* pNotifier = GetLOKNotifier())
+            {
+                std::vector<vcl::LOKPayloadItem> aItems;
+                aItems.emplace_back("type", "dialog");
+                aItems.emplace_back("size", GetSizePixel().toString());
+                if (!GetText().isEmpty())
+                    aItems.emplace_back("title", GetText().toUtf8());
+                pNotifier->notifyWindow(GetLOKWindowId(), "created", aItems);
+            }
+        }
+
 #ifdef DBG_UTIL
         vcl::Window* pParent = GetParent();
         if ( pParent )
@@ -948,19 +982,6 @@ bool Dialog::ImplStartExecute()
         UITestLogger::getInstance().log("ModalDialogExecuted Id:" + get_id());
     else
         UITestLogger::getInstance().log("ModelessDialogExecuted Id:" + get_id());
-
-    if (bKitActive)
-    {
-        if(const vcl::ILibreOfficeKitNotifier* pNotifier = GetLOKNotifier())
-        {
-            std::vector<vcl::LOKPayloadItem> aItems;
-            aItems.emplace_back("type", "dialog");
-            aItems.emplace_back("size", GetSizePixel().toString());
-            if (!GetText().isEmpty())
-                aItems.emplace_back("title", GetText().toUtf8());
-            pNotifier->notifyWindow(GetLOKWindowId(), "created", aItems);
-        }
-    }
 
     return true;
 }
@@ -1070,7 +1091,8 @@ bool Dialog::StartExecuteAsync( VclAbstractDialog::AsyncContext &rCtx )
     if (!ImplStartExecute())
     {
         rCtx.mxOwner.disposeAndClear();
-        rCtx.mxOwnerDialog.reset();
+        rCtx.mxOwnerDialogController.reset();
+        rCtx.mxOwnerSelf.reset();
         return false;
     }
 
@@ -1096,6 +1118,8 @@ void Dialog::EndDialog( long nResult )
 
     const bool bModal = GetType() != WindowType::MODELESSDIALOG;
 
+    Hide();
+
     if (bModal)
     {
         SetModalInputMode(false);
@@ -1119,8 +1143,6 @@ void Dialog::EndDialog( long nResult )
             }
         }
     }
-
-    Hide();
 
     if (bModal && GetParent())
     {
@@ -1148,9 +1170,11 @@ void Dialog::EndDialog( long nResult )
     mbInExecute = false;
 
     // Destroy ourselves (if we have a context with VclPtr owner)
-    std::shared_ptr<weld::DialogController> xOwnerDialog = std::move(mpDialogImpl->maEndCtx.mxOwnerDialog);
+    std::shared_ptr<weld::DialogController> xOwnerDialogController = std::move(mpDialogImpl->maEndCtx.mxOwnerDialogController);
+    std::shared_ptr<weld::Dialog> xOwnerSelf = std::move(mpDialogImpl->maEndCtx.mxOwnerSelf);
     mpDialogImpl->maEndCtx.mxOwner.disposeAndClear();
-    xOwnerDialog.reset();
+    xOwnerDialogController.reset();
+    xOwnerSelf.reset();
 }
 
 void Dialog::EndAllDialogs( vcl::Window const * pParent )
@@ -1546,6 +1570,34 @@ void Dialog::Activate()
         xEventBroadcaster->documentEventOccured(aObject);
     }
     SystemWindow::Activate();
+}
+
+void TopLevelWindowLocker::incBusy(const vcl::Window* pIgnore)
+{
+    // lock any toplevel windows from being closed until busy is over
+    std::vector<VclPtr<vcl::Window>> aTopLevels;
+    vcl::Window *pTopWin = Application::GetFirstTopLevelWindow();
+    while (pTopWin)
+    {
+        if (pTopWin != pIgnore)
+            aTopLevels.push_back(pTopWin);
+        pTopWin = Application::GetNextTopLevelWindow(pTopWin);
+    }
+    for (auto& a : aTopLevels)
+        a->IncModalCount();
+    m_aBusyStack.push(aTopLevels);
+}
+
+void TopLevelWindowLocker::decBusy()
+{
+    // unlock locked toplevel windows from being closed now busy is over
+    for (auto& a : m_aBusyStack.top())
+    {
+        if (a->IsDisposed())
+            continue;
+        a->DecModalCount();
+    }
+    m_aBusyStack.pop();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

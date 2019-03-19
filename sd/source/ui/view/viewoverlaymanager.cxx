@@ -19,7 +19,6 @@
 
 #include <sddll.hxx>
 
-#include <o3tl/make_unique.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/app.hxx>
@@ -28,6 +27,7 @@
 
 #include <vcl/help.hxx>
 #include <vcl/lazydelete.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <svx/sdrpagewindow.hxx>
 #include <svx/sdrpaintwindow.hxx>
@@ -97,8 +97,8 @@ static BitmapEx* getButtonImage( int index, bool large )
     {
         for (size_t i = 0; i < SAL_N_ELEMENTS(aSmallPlaceHolders); i++ )
         {
-            gSmallButtonImages[i].set(o3tl::make_unique<BitmapEx>(aSmallPlaceHolders[i]));
-            gLargeButtonImages[i].set(o3tl::make_unique<BitmapEx>(aBigPlaceHolders[i]));
+            gSmallButtonImages[i].set(std::make_unique<BitmapEx>(aSmallPlaceHolders[i]));
+            gLargeButtonImages[i].set(std::make_unique<BitmapEx>(aBigPlaceHolders[i]));
         }
     }
 
@@ -142,14 +142,16 @@ public:
     virtual ~ImageButtonHdl() override;
     virtual void CreateB2dIAObject() override;
     virtual bool IsFocusHdl() const override;
-    virtual Pointer GetPointer() const override;
+    virtual PointerStyle GetPointer() const override;
     virtual bool isMarkable() const override;
 
     virtual void onMouseEnter(const MouseEvent& rMEvt) override;
+    virtual void onHelpRequest(const HelpEvent& rHEvt) override;
     virtual void onMouseLeave() override;
 
     int getHighlightId() const { return mnHighlightId; }
 
+    void ShowTip();
     static void HideTip();
 
 private:
@@ -177,35 +179,60 @@ void ImageButtonHdl::HideTip()
     Help::HideBalloonAndQuickHelp();
 }
 
+void ImageButtonHdl::ShowTip()
+{
+    if (!pHdlList || !pHdlList->GetView() || mnHighlightId == -1)
+        return;
+
+    OutputDevice* pDev = pHdlList->GetView()->GetFirstOutputDevice();
+    if( pDev == nullptr )
+        pDev = Application::GetDefaultDevice();
+
+    OUString aHelpText(SdResId(gButtonToolTips[mnHighlightId]));
+    Point aHelpPos(pDev->LogicToPixel(GetPos()));
+    if (mnHighlightId == 1)
+        aHelpPos.Move(maImageSize.Width(), 0);
+    else if (mnHighlightId == 2)
+        aHelpPos.Move(0, maImageSize.Height());
+    else if (mnHighlightId == 3)
+        aHelpPos.Move(maImageSize.Width(), maImageSize.Height());
+    ::tools::Rectangle aLogicPix(aHelpPos, maImageSize);
+    vcl::Window* pWindow = static_cast<vcl::Window*>(pHdlList->GetView()->GetFirstOutputDevice());
+    ::tools::Rectangle aScreenRect(pWindow->OutputToScreenPixel(aLogicPix.TopLeft()),
+                                   pWindow->OutputToScreenPixel(aLogicPix.BottomRight()));
+    Help::ShowQuickHelp(pWindow, aScreenRect, aHelpText);
+}
+
+void ImageButtonHdl::onHelpRequest(const HelpEvent& /*rHEvt*/)
+{
+    ShowTip();
+}
+
 void ImageButtonHdl::onMouseEnter(const MouseEvent& rMEvt)
 {
-    if( pHdlList && pHdlList->GetView())
+    if( !(pHdlList && pHdlList->GetView()))
+        return;
+
+    int nHighlightId = 0;
+    OutputDevice* pDev = pHdlList->GetView()->GetFirstOutputDevice();
+    if( pDev == nullptr )
+        pDev = Application::GetDefaultDevice();
+
+    Point aMDPos( rMEvt.GetPosPixel() );
+    aMDPos -= pDev->LogicToPixel( GetPos() );
+
+    nHighlightId += aMDPos.X() > maImageSize.Width() ? 1 : 0;
+    nHighlightId += aMDPos.Y() > maImageSize.Height() ? 2 : 0;
+
+    if( mnHighlightId != nHighlightId )
     {
-        int nHighlightId = 0;
-        OutputDevice* pDev = pHdlList->GetView()->GetFirstOutputDevice();
-        if( pDev == nullptr )
-            pDev = Application::GetDefaultDevice();
+        HideTip();
 
-        Point aMDPos( rMEvt.GetPosPixel() );
-        aMDPos -= pDev->LogicToPixel( GetPos() );
+        mnHighlightId = nHighlightId;
 
-        nHighlightId += aMDPos.X() > maImageSize.Width() ? 1 : 0;
-        nHighlightId += aMDPos.Y() > maImageSize.Height() ? 2 : 0;
+        ShowTip();
 
-        if( mnHighlightId != nHighlightId )
-        {
-            HideTip();
-
-            mnHighlightId = nHighlightId;
-
-            if( pHdlList )
-            {
-                OUString aHelpText(SdResId(gButtonToolTips[mnHighlightId]));
-                ::tools::Rectangle aScreenRect( pDev->LogicToPixel( GetPos() ), maImageSize );
-                Help::ShowQuickHelp(static_cast< vcl::Window* >( pHdlList->GetView()->GetFirstOutputDevice() ), aScreenRect, aHelpText);
-            }
-            Touch();
-        }
+        Touch();
     }
 }
 
@@ -229,35 +256,35 @@ void ImageButtonHdl::CreateB2dIAObject()
     maImageSize.setWidth( maImageSize.Width() >> 1 );
     maImageSize.setHeight( maImageSize.Height() >> 1 );
 
-    if(pHdlList)
+    if(!pHdlList)
+        return;
+
+    SdrMarkView* pView = pHdlList->GetView();
+
+    if(!(pView && !pView->areMarkHandlesHidden()))
+        return;
+
+    SdrPageView* pPageView = pView->GetSdrPageView();
+
+    if(!pPageView)
+        return;
+
+    for(sal_uInt32 b = 0; b < pPageView->PageWindowCount(); b++)
     {
-        SdrMarkView* pView = pHdlList->GetView();
+        const SdrPageWindow& rPageWindow = *pPageView->GetPageWindow(b);
 
-        if(pView && !pView->areMarkHandlesHidden())
+        SdrPaintWindow& rPaintWindow = rPageWindow.GetPaintWindow();
+        const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
+        if(rPaintWindow.OutputToWindow() && xManager.is() )
         {
-            SdrPageView* pPageView = pView->GetSdrPageView();
+            std::unique_ptr<sdr::overlay::OverlayObject> pOverlayObject(
+                new sdr::overlay::OverlayBitmapEx( aPosition, aBitmapEx, 0, 0 ));
 
-            if(pPageView)
-            {
-                for(sal_uInt32 b = 0; b < pPageView->PageWindowCount(); b++)
-                {
-                    const SdrPageWindow& rPageWindow = *pPageView->GetPageWindow(b);
-
-                    SdrPaintWindow& rPaintWindow = rPageWindow.GetPaintWindow();
-                    const rtl::Reference< sdr::overlay::OverlayManager >& xManager = rPageWindow.GetOverlayManager();
-                    if(rPaintWindow.OutputToWindow() && xManager.is() )
-                    {
-                        std::unique_ptr<sdr::overlay::OverlayObject> pOverlayObject(
-                            new sdr::overlay::OverlayBitmapEx( aPosition, aBitmapEx, 0, 0 ));
-
-                        // OVERLAYMANAGER
-                        insertNewlyCreatedOverlayObjectForSdrHdl(
-                            std::move(pOverlayObject),
-                            rPageWindow.GetObjectContact(),
-                            *xManager.get());
-                    }
-                }
-            }
+            // OVERLAYMANAGER
+            insertNewlyCreatedOverlayObjectForSdrHdl(
+                std::move(pOverlayObject),
+                rPageWindow.GetObjectContact(),
+                *xManager);
         }
     }
 }
@@ -272,9 +299,9 @@ bool ImageButtonHdl::isMarkable() const
     return false;
 }
 
-Pointer ImageButtonHdl::GetPointer() const
+PointerStyle ImageButtonHdl::GetPointer() const
 {
-    return Pointer( PointerStyle::Arrow );
+    return PointerStyle::Arrow;
 }
 
 ChangePlaceholderTag::ChangePlaceholderTag( ::sd::View& rView, SdrObject& rPlaceholderObj )
@@ -363,44 +390,44 @@ BitmapEx ChangePlaceholderTag::createOverlayImage( int nHighlight )
 
 void ChangePlaceholderTag::addCustomHandles( SdrHdlList& rHandlerList )
 {
-    if( mxPlaceholderObj.is() )
-    {
-        SdrObject* pPlaceholder = mxPlaceholderObj.get();
-        SmartTagReference xThis( this );
-        const ::tools::Rectangle& rSnapRect = pPlaceholder->GetSnapRect();
-        const Point aPoint;
+    if( !mxPlaceholderObj.is() )
+        return;
 
-        OutputDevice* pDev = mrView.GetFirstOutputDevice();
-        if( pDev == nullptr )
-            pDev = Application::GetDefaultDevice();
+    SdrObject* pPlaceholder = mxPlaceholderObj.get();
+    SmartTagReference xThis( this );
+    const ::tools::Rectangle& rSnapRect = pPlaceholder->GetSnapRect();
+    const Point aPoint;
 
-        Size aShapeSizePix = pDev->LogicToPixel(rSnapRect.GetSize());
-        long nShapeSizePix = std::min(aShapeSizePix.Width(),aShapeSizePix.Height());
-        if( 50 > nShapeSizePix )
-            return;
+    OutputDevice* pDev = mrView.GetFirstOutputDevice();
+    if( pDev == nullptr )
+        pDev = Application::GetDefaultDevice();
 
-        bool bLarge = nShapeSizePix > 250;
+    Size aShapeSizePix = pDev->LogicToPixel(rSnapRect.GetSize());
+    long nShapeSizePix = std::min(aShapeSizePix.Width(),aShapeSizePix.Height());
+    if( 50 > nShapeSizePix )
+        return;
 
-        Size aButtonSize( pDev->PixelToLogic( getButtonImage(0, bLarge )->GetSizePixel()) );
+    bool bLarge = nShapeSizePix > 250;
 
-        const int nColumns = 2;
-        const int nRows = 2;
+    Size aButtonSize( pDev->PixelToLogic( getButtonImage(0, bLarge )->GetSizePixel()) );
 
-        long all_width = nColumns * aButtonSize.Width();
-        long all_height = nRows * aButtonSize.Height();
+    const int nColumns = 2;
+    const int nRows = 2;
 
-        Point aPos( rSnapRect.Center() );
-        aPos.AdjustX( -(all_width >> 1) );
-        aPos.AdjustY( -(all_height >> 1) );
+    long all_width = nColumns * aButtonSize.Width();
+    long all_height = nRows * aButtonSize.Height();
 
-        std::unique_ptr<ImageButtonHdl> pHdl(new ImageButtonHdl( xThis, aPoint ));
-        pHdl->SetObjHdlNum( SMART_TAG_HDL_NUM );
-        pHdl->SetPageView( mrView.GetSdrPageView() );
+    Point aPos( rSnapRect.Center() );
+    aPos.AdjustX( -(all_width >> 1) );
+    aPos.AdjustY( -(all_height >> 1) );
 
-        pHdl->SetPos( aPos );
+    std::unique_ptr<ImageButtonHdl> pHdl(new ImageButtonHdl( xThis, aPoint ));
+    pHdl->SetObjHdlNum( SMART_TAG_HDL_NUM );
+    pHdl->SetPageView( mrView.GetSdrPageView() );
 
-        rHandlerList.AddHdl( std::move(pHdl) );
-    }
+    pHdl->SetPos( aPos );
+
+    rHandlerList.AddHdl( std::move(pHdl) );
 }
 
 ViewOverlayManager::ViewOverlayManager( ViewShellBase& rViewShellBase )

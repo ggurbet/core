@@ -47,7 +47,6 @@ ScVbaFormatCondition::ScVbaFormatCondition( const uno::Reference< XHelperInterfa
 {
         mxSheetConditionalEntries = lcl_getScVbaFormatConditionsPtr( moFormatConditions )->getSheetConditionalEntries();
 
-        mxSheetConditionalEntry = _xSheetConditionalEntry;
         msStyleName = mxStyle->getName();
 }
 
@@ -56,7 +55,7 @@ ScVbaFormatCondition::Delete(  )
 {
     ScVbaFormatConditions* pFormatConditions = lcl_getScVbaFormatConditionsPtr( moFormatConditions );
     pFormatConditions->removeFormatCondition(msStyleName, true);
-        notifyRange();
+    notifyRange();
 }
 
 void SAL_CALL

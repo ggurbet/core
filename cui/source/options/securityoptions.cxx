@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <tools/debug.hxx>
 #include <unotools/securityoptions.hxx>
 #include <vcl/svapp.hxx>
 #include "securityoptions.hxx"
@@ -29,7 +30,7 @@ namespace
     {
         bool bEnable = rOptions.IsOptionEnabled(eOption);
         rCheckBox.set_sensitive(bEnable);
-        rFixedImage.show(!bEnable);
+        rFixedImage.set_visible(!bEnable);
         rCheckBox.set_active(rOptions.IsOptionSet(eOption));
         return bEnable;
     }

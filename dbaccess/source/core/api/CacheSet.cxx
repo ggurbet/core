@@ -40,6 +40,7 @@
 #include <comphelper/types.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 using namespace comphelper;
 
@@ -310,7 +311,7 @@ void OCacheSet::updateRow(const ORowSetRow& _rInsertRow ,const ORowSetRow& _rOri
         ++i;
     }
 
-     m_bUpdated = xPrep->executeUpdate() > 0;
+    m_bUpdated = xPrep->executeUpdate() > 0;
 }
 
 void OCacheSet::deleteRow(const ORowSetRow& _rDeleteRow ,const connectivity::OSQLTable& _xTable  )

@@ -18,33 +18,23 @@
  */
 
 #include <stdio.h>
-#include <o3tl/any.hxx>
-#include <oox/drawingml/chart/chartconverter.hxx>
 #include <oox/drawingml/clrscheme.hxx>
 #include <oox/token/namespaces.hxx>
 #include <oox/token/tokens.hxx>
 #include <oox/token/relationship.hxx>
 #include <oox/ole/vbaproject.hxx>
 #include "epptooxml.hxx"
-#include "epptdef.hxx"
 #include <oox/export/shapes.hxx>
 
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/storagehelper.hxx>
-#include <cppuhelper/implementationentry.hxx>
-#include <cppuhelper/factory.hxx>
 #include <sax/fshelper.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
-#include <filter/msfilter/escherex.hxx>
-#include <tools/poly.hxx>
 #include <com/sun/star/animations/TransitionType.hpp>
 #include <com/sun/star/animations/TransitionSubType.hpp>
-#include <com/sun/star/beans/Property.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
-#include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/drawing/RectanglePoint.hpp>
 #include <com/sun/star/drawing/XDrawPages.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -58,17 +48,16 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <oox/export/utils.hxx>
-#include <oox/ppt/pptfilterhelpers.hxx>
-#include <basegfx/polygon/b2dpolypolygontools.hxx>
 
-#include "pptexanimations.hxx"
 #include "pptx-animations.hxx"
 #include "../ppt/pptanimations.hxx"
 
-#include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
 #include <utility>
+#if OSL_DEBUG_LEVEL > 1
+#include <com/sun/star/drawing/RectanglePoint.hpp>
+#endif
 
 // presentation namespaces
 #define PNMSS         FSNS(XML_xmlns, XML_a),   OUStringToOString(this->getNamespaceURL(OOX_NS(dml)), RTL_TEXTENCODING_UTF8).getStr(), \
@@ -125,6 +114,21 @@ public:
     // helper parts
     bool WritePlaceholder(const Reference< XShape >& xShape, PlaceholderType ePlaceholder, bool bMaster);
 };
+
+
+namespace
+{
+void WriteSndAc(const FSHelperPtr& pFS, const OUString& sSoundRelId, const OUString& sSoundName)
+{
+        pFS->startElementNS(XML_p, XML_sndAc, FSEND);
+        pFS->startElementNS(XML_p, XML_stSnd, FSEND);
+        pFS->singleElementNS(XML_p, XML_snd,
+                FSNS(XML_r, XML_embed), sSoundRelId.isEmpty() ? nullptr : USS(sSoundRelId),
+                XML_name, sSoundName.isEmpty() ? nullptr : USS(sSoundName), FSEND);
+        pFS->endElement(FSNS(XML_p, XML_stSnd));
+        pFS->endElement(FSNS(XML_p, XML_sndAc));
+}
+}
 
 }
 }
@@ -557,12 +561,19 @@ void PowerPointExport::WriteTransition(const FSHelperPtr& pFS)
     sal_Int8 nPPTTransitionType = 0;
     sal_uInt8 nDirection = 0;
 
+    OUString sSoundUrl;
+    OUString sSoundRelId;
+    OUString sSoundName;
+
     if (ImplGetPropertyValue(mXPagePropSet, "TransitionType") && (mAny >>= nTransitionType) &&
             ImplGetPropertyValue(mXPagePropSet, "TransitionSubtype") && (mAny >>= nTransitionSubtype))
         nPPTTransitionType = GetTransition(nTransitionType, nTransitionSubtype, eFadeEffect, nDirection);
 
     if (!nPPTTransitionType && eFadeEffect != FadeEffect_NONE)
         nPPTTransitionType = GetTransition(eFadeEffect, nDirection);
+
+    if (ImplGetPropertyValue(mXPagePropSet, "Sound") && (mAny >>= sSoundUrl))
+        embedEffectAudio(pFS, sSoundUrl, sSoundRelId, sSoundName);
 
     bool bOOXmlSpecificTransition = false;
 
@@ -877,6 +888,9 @@ void PowerPointExport::WriteTransition(const FSHelperPtr& pFS)
                 FSEND);
         }
 
+        if (!sSoundRelId.isEmpty())
+            WriteSndAc(pFS, sSoundRelId, sSoundName);
+
         pFS->endElement(FSNS(XML_p, XML_transition));
 
         pFS->endElement(FSNS(XML_mc, XML_Choice));
@@ -897,6 +911,9 @@ void PowerPointExport::WriteTransition(const FSHelperPtr& pFS)
                              XML_thruBlk, pThruBlk,
                              FSEND);
     }
+
+    if (!sSoundRelId.isEmpty())
+        WriteSndAc(pFS, sSoundRelId, sSoundName);
 
     pFS->endElementNS(XML_p, XML_transition);
 
@@ -1001,9 +1018,10 @@ bool PowerPointExport::WriteComments(sal_uInt32 nPageNum)
                 Reference< XText > xText(xAnnotation->getTextRange());
                 sal_Int32 nLastIndex;
                 sal_Int32 nId = GetAuthorIdAndLastIndex(xAnnotation->getAuthor(), nLastIndex);
-                char cDateTime[32];
+                char cDateTime[sizeof("-32768-65535-65535T65535:65535:65535.4294967295")];
+                    // reserve enough space for hypothetical max length
 
-                snprintf(cDateTime, 31, "%02d-%02d-%02dT%02d:%02d:%02d.%09" SAL_PRIuUINT32, aDateTime.Year, aDateTime.Month, aDateTime.Day, aDateTime.Hours, aDateTime.Minutes, aDateTime.Seconds, aDateTime.NanoSeconds);
+                snprintf(cDateTime, sizeof cDateTime, "%02" SAL_PRIdINT32 "-%02" SAL_PRIuUINT32 "-%02" SAL_PRIuUINT32 "T%02" SAL_PRIuUINT32 ":%02" SAL_PRIuUINT32 ":%02" SAL_PRIuUINT32 ".%09" SAL_PRIuUINT32, sal_Int32(aDateTime.Year), sal_uInt32(aDateTime.Month), sal_uInt32(aDateTime.Day), sal_uInt32(aDateTime.Hours), sal_uInt32(aDateTime.Minutes), sal_uInt32(aDateTime.Seconds), aDateTime.NanoSeconds);
 
                 pFS->startElementNS(XML_p, XML_cm,
                                     XML_authorId, I32S(nId),
@@ -1943,6 +1961,51 @@ void PowerPointExport::WriteNotesMaster()
     pFS->endElementNS(XML_p, XML_notesMaster);
 
     SAL_INFO("sd.eppt", "----------------");
+}
+
+void PowerPointExport::embedEffectAudio(const FSHelperPtr& pFS, const OUString& sUrl, OUString& sRelId, OUString& sName)
+{
+    comphelper::LifecycleProxy aProxy;
+
+    if (!sUrl.endsWithIgnoreAsciiCase(".wav"))
+        return;
+
+    uno::Reference<io::XInputStream> xAudioStream;
+    if (sUrl.startsWith("vnd.sun.star.Package:"))
+    {
+        uno::Reference<document::XStorageBasedDocument> xStorageBasedDocument(getModel(), uno::UNO_QUERY);
+        if (!xStorageBasedDocument.is())
+            return;
+
+        uno::Reference<embed::XStorage> xDocumentStorage(xStorageBasedDocument->getDocumentStorage(), uno::UNO_QUERY);
+        if (!xDocumentStorage.is())
+            return;
+
+        uno::Reference<io::XStream> xStream = comphelper::OStorageHelper::GetStreamAtPackageURL(xDocumentStorage, sUrl,
+                                                    css::embed::ElementModes::READ, aProxy);
+
+        if (xStream.is())
+            xAudioStream = xStream->getInputStream();
+    }
+    else
+        xAudioStream = comphelper::OStorageHelper::GetInputStreamFromURL(sUrl, getComponentContext());
+
+    if (!xAudioStream.is())
+        return;
+
+    int nLastSlash = sUrl.lastIndexOf('/');
+    sName = sUrl.copy(nLastSlash >= 0 ? nLastSlash + 1 : 0);
+
+    OUString sPath = OUStringBuffer().append("/media/")
+                                     .append(sName)
+                                     .makeStringAndClear();
+
+    sRelId = addRelation(pFS->getOutputStream(),
+                        oox::getRelationship(Relationship::AUDIO), sPath);
+
+    uno::Reference<io::XOutputStream> xOutputStream = openFragmentStream(sPath, "audio/x-wav");
+
+    comphelper::OStorageHelper::CopyInputToOutput(xAudioStream, xOutputStream);
 }
 
 sal_Int32 PowerPointExport::GetShapeID(const Reference<XShape>& rXShape)

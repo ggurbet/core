@@ -21,6 +21,7 @@
 #include <svl/lngmisc.hxx>
 #include <svtools/popupmenucontrollerbase.hxx>
 #include <unotools/lingucfg.hxx>
+#include <toolkit/awt/vclxmenu.hxx>
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/image.hxx>
 #include <vcl/menu.hxx>
@@ -66,8 +67,9 @@ void ThesaurusMenuController::statusChanged( const css::frame::FeatureStateEvent
 
 void ThesaurusMenuController::fillPopupMenu()
 {
-    OUString aText = m_aLastWord.getToken(0, '#');
-    OUString aIsoLang = m_aLastWord.getToken(1, '#');
+    sal_Int32 nIdx{ 0 };
+    OUString aText = m_aLastWord.getToken(0, '#', nIdx);
+    OUString aIsoLang = m_aLastWord.getToken(0, '#', nIdx);
     if ( aText.isEmpty() || aIsoLang.isEmpty() )
         return;
 

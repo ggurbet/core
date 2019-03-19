@@ -426,11 +426,11 @@ Time tools::Time::GetUTCOffset()
         // Linux mktime() seems not to handle tm_isdst correctly
         nUTC = nLocalTime - aTM.tm_gmtoff;
 #else
-         gmtime_r( &nTime, &aTM );
-         nUTC = mktime( &aTM );
+        gmtime_r( &nTime, &aTM );
+        nUTC = mktime( &aTM );
 #endif
-         nCacheTicks = nTicks;
-         nCacheSecOffset = (nLocalTime-nUTC) / 60;
+        nCacheTicks = nTicks;
+        nCacheSecOffset = (nLocalTime-nUTC) / 60;
     }
 
     nTempTime = abs( nCacheSecOffset );

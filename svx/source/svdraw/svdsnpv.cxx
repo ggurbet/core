@@ -32,6 +32,8 @@
 #include <svx/sdr/overlay/overlaymanager.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <svx/sdrpaintwindow.hxx>
+#include <tools/debug.hxx>
+#include <vcl/ptrstyle.hxx>
 
 
 class ImplPageOriginOverlay
@@ -545,19 +547,19 @@ void SdrSnapView::BegDragHelpLine(const Point& rPnt, SdrHelpLineKind eNewKind)
     }
 }
 
-Pointer SdrSnapView::GetDraggedHelpLinePointer() const
+PointerStyle SdrSnapView::GetDraggedHelpLinePointer() const
 {
     if(IsDragHelpLine())
     {
         switch(mpHelpLineOverlay->GetHelpLineKind())
         {
-            case SdrHelpLineKind::Vertical  : return Pointer(PointerStyle::ESize);
-            case SdrHelpLineKind::Horizontal: return Pointer(PointerStyle::SSize);
-            default                    : return Pointer(PointerStyle::Move);
+            case SdrHelpLineKind::Vertical  : return PointerStyle::ESize;
+            case SdrHelpLineKind::Horizontal: return PointerStyle::SSize;
+            default                    : return PointerStyle::Move;
         }
     }
 
-    return Pointer(PointerStyle::Move);
+    return PointerStyle::Move;
 }
 
 void SdrSnapView::MovDragHelpLine(const Point& rPnt)

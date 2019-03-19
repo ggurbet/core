@@ -23,6 +23,7 @@
 
 #include <toolkit/controls/stdtabcontroller.hxx>
 #include <toolkit/controls/stdtabcontrollermodel.hxx>
+#include <toolkit/helper/servicenames.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/macros.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -171,11 +172,18 @@ Any StdTabController::queryAggregation( const Type & rType )
     return (aRet.hasValue() ? aRet : OWeakAggObject::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( StdTabController )
+
 // XTypeProvider
-IMPL_XTYPEPROVIDER_START( StdTabController )
-    cppu::UnoType<XTabController>::get(),
-    cppu::UnoType<XServiceInfo>::get()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > StdTabController::getTypes()
+{
+    static const css::uno::Sequence< css::uno::Type > aTypeList {
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<XTabController>::get(),
+        cppu::UnoType<XServiceInfo>::get()
+    };
+    return aTypeList;
+}
 
 void StdTabController::setModel( const Reference< XTabControllerModel >& Model )
 {
@@ -308,7 +316,7 @@ void StdTabController::activateTabOrder(  )
     Reference< XVclContainerPeer >  xVclContainerPeer;
     if ( xC.is() )
         xVclContainerPeer.set(xC->getPeer(), css::uno::UNO_QUERY);
-     if ( !xC.is() || !xVclContainerPeer.is() )
+    if ( !xC.is() || !xVclContainerPeer.is() )
         return;
 
     // This may return a TabController, which returns desired list of controls faster

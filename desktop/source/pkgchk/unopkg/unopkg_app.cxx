@@ -393,7 +393,7 @@ extern "C" int unopkg_main()
         //Do not synchronize when command is "reinstall". This could add types and services to UNO and
         //prevent the deletion of the registry data folder
         //syncing is done in XExtensionManager.reinstall
-        if (!subcmd_gui && ! (subCommand == "reinstall")
+        if (!subcmd_gui && subCommand != "reinstall"
             && ! dp_misc::office_is_running())
             dp_misc::syncRepositories(false, xCmdEnv);
 
@@ -406,7 +406,7 @@ extern "C" int unopkg_main()
                     beans::NamedValue nvSuppress(
                         "SUPPRESS_LICENSE", option_suppressLicense ?
                         makeAny(OUString("1")):makeAny(OUString("0")));
-                        xExtensionManager->addExtension(
+                    xExtensionManager->addExtension(
                             cmdPackage, Sequence<beans::NamedValue>(&nvSuppress, 1),
                             repository, Reference<task::XAbortChannel>(), xCmdEnv);
                 }

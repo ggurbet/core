@@ -35,8 +35,6 @@
 #include <grouparealistener.hxx>
 #endif
 
-#include <o3tl/make_unique.hxx>
-
 // Number of slots per dimension
 // must be integer divisors of MAXCOLCOUNT respectively MAXROWCOUNT
 #define BCA_SLOTS_COL ((MAXCOLCOUNT_DEFINE) / 16)
@@ -473,10 +471,9 @@ void ScBroadcastAreaSlot::UpdateInsert( ScBroadcastArea* pArea )
         {
             SvtBroadcaster& rTarget = pTarget->GetBroadcaster();
             SvtBroadcaster::ListenersType& rListeners = pArea->GetBroadcaster().GetAllListeners();
-            SvtBroadcaster::ListenersType::iterator it = rListeners.begin(), itEnd = rListeners.end();
-            for (; it != itEnd; ++it)
+            for (auto& pListener : rListeners)
             {
-                SvtListener& rListener = **it;
+                SvtListener& rListener = *pListener;
                 rListener.StartListening(rTarget);
             }
         }
@@ -559,13 +556,12 @@ void ScBroadcastAreaSlot::GetAllListeners(
         }
 
         SvtBroadcaster::ListenersType& rLst = pArea->GetBroadcaster().GetAllListeners();
-        SvtBroadcaster::ListenersType::iterator itLst = rLst.begin(), itLstEnd = rLst.end();
-        for (; itLst != itLstEnd; ++itLst)
+        for (const auto& pListener : rLst)
         {
             sc::AreaListener aEntry;
             aEntry.maArea = rAreaRange;
             aEntry.mbGroupListening = pArea->IsGroupListening();
-            aEntry.mpListener = *itLst;
+            aEntry.mpListener = pListener;
             rListeners.push_back(aEntry);
         }
     }
@@ -574,10 +570,8 @@ void ScBroadcastAreaSlot::GetAllListeners(
 #if DEBUG_AREA_BROADCASTER
 void ScBroadcastAreaSlot::Dump() const
 {
-    ScBroadcastAreas::const_iterator it = aBroadcastAreaTbl.begin(), itEnd = aBroadcastAreaTbl.end();
-    for (; it != itEnd; ++it)
+    for (const ScBroadcastAreaEntry& rEntry : aBroadcastAreaTbl)
     {
-        const ScBroadcastAreaEntry& rEntry = *it;
         const ScBroadcastArea* pArea = rEntry.mpArea;
         const SvtBroadcaster& rBC = pArea->GetBroadcaster();
         const SvtBroadcaster::ListenersType& rListeners = rBC.GetAllListeners();
@@ -1096,7 +1090,7 @@ void ScBroadcastAreaSlotMachine::InsertBulkGroupArea( ScBroadcastArea* pArea, co
     if (it == m_BulkGroupAreas.end() || m_BulkGroupAreas.key_comp()(pArea, it->first))
     {
         // Insert a new one.
-        it = m_BulkGroupAreas.insert(it, std::make_pair(pArea, o3tl::make_unique<sc::ColumnSpanSet>(false)));
+        it = m_BulkGroupAreas.insert(it, std::make_pair(pArea, std::make_unique<sc::ColumnSpanSet>(false)));
     }
 
     sc::ColumnSpanSet *const pSet = it->second.get();
@@ -1112,10 +1106,8 @@ bool ScBroadcastAreaSlotMachine::BulkBroadcastGroupAreas( SfxHintId nHintId )
     sc::BulkDataHint aHint( *pDoc, nHintId);
 
     bool bBroadcasted = false;
-    BulkGroupAreasType::iterator it = m_BulkGroupAreas.begin(), itEnd = m_BulkGroupAreas.end();
-    for (; it != itEnd; ++it)
+    for (const auto& [pArea, rxSpans] : m_BulkGroupAreas)
     {
-        ScBroadcastArea* pArea = it->first;
         assert(pArea);
         SvtBroadcaster& rBC = pArea->GetBroadcaster();
         if (!rBC.HasListeners())
@@ -1126,7 +1118,7 @@ bool ScBroadcastAreaSlotMachine::BulkBroadcastGroupAreas( SfxHintId nHintId )
         }
         else
         {
-            const sc::ColumnSpanSet *const pSpans = it->second.get();
+            const sc::ColumnSpanSet *const pSpans = rxSpans.get();
             assert(pSpans);
             aHint.setSpans(pSpans);
             rBC.Broadcast(aHint);
@@ -1166,13 +1158,12 @@ void ScBroadcastAreaSlotMachine::FinallyEraseAreas( ScBroadcastAreaSlot* pSlot )
     // invalidate iterators and would be inefficient anyway. Instead, copy
     // elements to be preserved (usually none!) to temporary vector and swap.
     AreasToBeErased aCopy;
-    for (AreasToBeErased::iterator aIt( maAreasToBeErased.begin());
-            aIt != maAreasToBeErased.end(); ++aIt)
+    for (auto& rArea : maAreasToBeErased)
     {
-        if ((*aIt).first == pSlot)
-            pSlot->EraseArea( (*aIt).second);
+        if (rArea.first == pSlot)
+            pSlot->EraseArea( rArea.second);
         else
-            aCopy.push_back( *aIt);
+            aCopy.push_back( rArea);
     }
     maAreasToBeErased.swap( aCopy);
 }
@@ -1208,12 +1199,10 @@ std::vector<sc::AreaListener> ScBroadcastAreaSlotMachine::GetAllListeners(
 void ScBroadcastAreaSlotMachine::Dump() const
 {
     cout << "slot distribution count: " << nBcaSlots << endl;
-    TableSlotsMap::const_iterator it = aTableSlotsMap.begin(), itEnd = aTableSlotsMap.end();
-    for (; it != itEnd; ++it)
+    for (const auto& [rIndex, pTabSlots] : aTableSlotsMap)
     {
-        cout << "-- sheet (index: " << it->first << ")" << endl;
+        cout << "-- sheet (index: " << rIndex << ")" << endl;
 
-        TableSlots* pTabSlots = it->second;
         assert(pTabSlots);
         ScBroadcastAreaSlot** ppSlots = pTabSlots->getSlots();
         for (SCSIZE i = 0; i < nBcaSlots; ++i)

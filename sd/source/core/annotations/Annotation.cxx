@@ -21,7 +21,6 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/office/XAnnotation.hpp>
 #include <com/sun/star/drawing/XDrawPage.hpp>
 
@@ -32,7 +31,6 @@
 #include <cppuhelper/basemutex.hxx>
 
 #include <unotools/datetime.hxx>
-#include <tools/datetime.hxx>
 
 #include <sfx2/viewsh.hxx>
 #include <svx/svdundo.hxx>
@@ -44,6 +42,8 @@
 #include <notifydocumentevent.hxx>
 #include <sdpage.hxx>
 #include <textapi.hxx>
+
+namespace com { namespace sun { namespace star { namespace uno { class XComponentContext; } } } }
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::lang;
@@ -351,7 +351,7 @@ void Annotation::createChangeUndo()
 {
     SdrModel* pModel = GetModel(); // TTTT should use reference
     if( pModel && pModel->IsUndoEnabled() )
-        pModel->AddUndo( o3tl::make_unique<UndoAnnotation>( *this ) );
+        pModel->AddUndo( std::make_unique<UndoAnnotation>( *this ) );
 
     if( pModel )
     {
@@ -379,7 +379,7 @@ std::unique_ptr<SdrUndoAction> CreateUndoInsertOrRemoveAnnotation( const Referen
     Annotation* pAnnotation = dynamic_cast< Annotation* >( xAnnotation.get() );
     if( pAnnotation )
     {
-        return o3tl::make_unique< UndoInsertOrRemoveAnnotation >( *pAnnotation, bInsert );
+        return std::make_unique< UndoInsertOrRemoveAnnotation >( *pAnnotation, bInsert );
     }
     else
     {
@@ -487,18 +487,18 @@ void UndoInsertOrRemoveAnnotation::Undo()
 {
     SdPage* pPage = mxAnnotation->GetPage();
     SdrModel* pModel = mxAnnotation->GetModel();
-    if( pPage && pModel )
+    if( !(pPage && pModel) )
+        return;
+
+    Reference< XAnnotation > xAnnotation( mxAnnotation.get() );
+    if( mbInsert )
     {
-        Reference< XAnnotation > xAnnotation( mxAnnotation.get() );
-        if( mbInsert )
-        {
-            pPage->removeAnnotation( xAnnotation );
-        }
-        else
-        {
-            pPage->addAnnotation( xAnnotation, mnIndex );
-            LOKCommentNotifyAll( CommentNotificationType::Add, xAnnotation );
-        }
+        pPage->removeAnnotation( xAnnotation );
+    }
+    else
+    {
+        pPage->addAnnotation( xAnnotation, mnIndex );
+        LOKCommentNotifyAll( CommentNotificationType::Add, xAnnotation );
     }
 }
 
@@ -506,19 +506,19 @@ void UndoInsertOrRemoveAnnotation::Redo()
 {
     SdPage* pPage = mxAnnotation->GetPage();
     SdrModel* pModel = mxAnnotation->GetModel();
-    if( pPage && pModel )
-    {
-        Reference< XAnnotation > xAnnotation( mxAnnotation.get() );
+    if( !(pPage && pModel) )
+        return;
 
-        if( mbInsert )
-        {
-            pPage->addAnnotation( xAnnotation, mnIndex );
-            LOKCommentNotifyAll( CommentNotificationType::Add, xAnnotation );
-        }
-        else
-        {
-            pPage->removeAnnotation( xAnnotation );
-        }
+    Reference< XAnnotation > xAnnotation( mxAnnotation.get() );
+
+    if( mbInsert )
+    {
+        pPage->addAnnotation( xAnnotation, mnIndex );
+        LOKCommentNotifyAll( CommentNotificationType::Add, xAnnotation );
+    }
+    else
+    {
+        pPage->removeAnnotation( xAnnotation );
     }
 }
 

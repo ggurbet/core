@@ -190,8 +190,8 @@ public:
                                             bool bVertical,
                                             std::vector< sal_Int32 >& rWidths,
                                             Ucs2UIntMap& rUnicodeEnc ) override;
-    virtual std::unique_ptr<SalLayout>
-                            GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) override;
+    virtual std::unique_ptr<GenericSalLayout>
+                            GetTextLayout(int nFallbackLevel) override;
     virtual void            DrawTextLayout( const GenericSalLayout& ) override;
     virtual bool            supportsOperation( OutDevSupportType ) const override;
     virtual void            drawPixel( long nX, long nY ) override;
@@ -242,7 +242,7 @@ public:
     virtual void            drawBitmap( const SalTwoRect& rPosAry,
                                         const SalBitmap& rSalBitmap ) override;
     void                    drawBitmap( const SalTwoRect& rPosAry,
-                                        BitmapBuffer* pBuffer,
+                                        const BitmapBuffer* pBuffer,
                                         cairo_operator_t eOp );
     virtual void            drawBitmap( const SalTwoRect& rPosAry,
                                         const SalBitmap& rSalBitmap,
@@ -255,7 +255,7 @@ public:
     virtual void            invert( long nX, long nY, long nWidth, long nHeight, SalInvert nFlags ) override;
     virtual void            invert( sal_uInt32 nPoints, const SalPoint* pPtAry, SalInvert nFlags ) override;
 
-    virtual bool        drawEPS( long nX, long nY, long nWidth, long nHeight, void* pPtr, sal_uLong nSize ) override;
+    virtual bool        drawEPS( long nX, long nY, long nWidth, long nHeight, void* pPtr, sal_uInt32 nSize ) override;
 
     virtual SystemGraphicsData GetGraphicsData() const override;
 

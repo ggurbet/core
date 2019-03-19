@@ -14,6 +14,7 @@
 #include <vcl/fontcharmap.hxx>
 #include <i18nutil/unicode.hxx>
 #include <sal/log.hxx>
+#include <com/sun/star/i18n/ScriptType.hpp>
 
 // This should only be used when a commonly used font incorrectly declares its
 // coverage. If you add a font here, please leave a note explaining the issue
@@ -1650,7 +1651,7 @@ OUString makeRepresentativeTextForFont(sal_Int16 nScriptType, const vcl::Font &r
             UScriptCode eScript = getScript(aFontCapabilities);
 
             if (nScriptType == css::i18n::ScriptType::ASIAN)
-                eScript = attemptToDisambiguateHan(eScript, *aDevice.get());
+                eScript = attemptToDisambiguateHan(eScript, *aDevice);
 
             sRet = makeRepresentativeTextForScript(eScript);
         }

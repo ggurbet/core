@@ -32,6 +32,7 @@
 #include "property_description.hxx"
 #include "property_meta_data.hxx"
 
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/text/XText.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
 #include <com/sun/star/util/Duration.hpp>
@@ -362,7 +363,7 @@ namespace xmloff
                     Sequence< sal_Int16 > aPropertyValueList( aXMLValueList.getLength() );
 
                     const Any*       pXMLValue = aXMLValueList.getConstArray();
-                          sal_Int16* pPropValue = aPropertyValueList.getArray();
+                    sal_Int16* pPropValue = aPropertyValueList.getArray();
 
                     for ( sal_Int32 i=0; i<aXMLValueList.getLength(); ++i, ++pXMLValue, ++pPropValue )
                     {
@@ -885,10 +886,10 @@ namespace xmloff
         if (TypeClass_ANY == aProp.Type.getTypeClass())
         {
             // we have exactly 2 properties where this type class is allowed:
-            OSL_ENSURE(
-                    _rPropValue.Name != PROPERTY_EFFECTIVE_VALUE
-                &&  _rPropValue.Name != PROPERTY_EFFECTIVE_DEFAULT,
-                "OControlImport::implTranslateValueProperty: invalid property type/name combination!");
+            SAL_WARN_IF(
+                    _rPropValue.Name == PROPERTY_EFFECTIVE_VALUE
+                ||  _rPropValue.Name == PROPERTY_EFFECTIVE_DEFAULT, "xmloff",
+                "OControlImport::implTranslateValueProperty: invalid property type/name combination, Any and " << _rPropValue.Name);
 
             // Both properties are allowed to have a double or a string value,
             // so first try to convert the string into a number

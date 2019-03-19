@@ -53,7 +53,6 @@
 #include <vcl/outdev.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
 #include <vcl/settings.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 #include <unotools/charclass.hxx>
 
@@ -1635,7 +1634,7 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                     }
                     if ( mpDoc->GetPreviewFont() || mpDoc->GetPreviewCellStyle() )
                     {
-                        aAltPatterns.push_back(o3tl::make_unique<ScPatternAttr>(*pPattern));
+                        aAltPatterns.push_back(std::make_unique<ScPatternAttr>(*pPattern));
                         ScPatternAttr* pAltPattern = aAltPatterns.back().get();
                         if (  ScStyleSheet* pPreviewStyle = mpDoc->GetPreviewCellStyle( nCellX, nCellY, nTab ) )
                         {
@@ -1658,7 +1657,7 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                             pPattern->GetItem(ATTR_LINEBREAK, pCondSet).GetValue())
                     {
                         // Disable line break when the cell content is numeric.
-                        aAltPatterns.push_back(o3tl::make_unique<ScPatternAttr>(*pPattern));
+                        aAltPatterns.push_back(std::make_unique<ScPatternAttr>(*pPattern));
                         ScPatternAttr* pAltPattern = aAltPatterns.back().get();
                         SfxBoolItem aLineBreak(ATTR_LINEBREAK, false);
                         pAltPattern->GetItemSet().Put(aLineBreak);
@@ -1718,8 +1717,10 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                             *pPattern, pCondSet, mpDoc, nTab, bNumberFormatIsText );
 
                     bool bBreak = ( aVars.GetLineBreak() || aVars.GetHorJust() == SvxCellHorJustify::Block );
-                    // #i111387# #o11817313# disable automatic line breaks only for "General" number format
-                    if (bBreak && bCellIsValue && (aVars.GetResultValueFormat() % SV_COUNTRY_LANGUAGE_OFFSET) == 0)
+                    // #i111387# #o11817313# tdf#121040 disable automatic line breaks for all number formats
+                    // Must be synchronized with ScColumn::GetNeededSize()
+                    SvNumberFormatter* pFormatter = mpDoc->GetFormatTable();
+                    if (bBreak && bCellIsValue && (pFormatter->GetType(aVars.GetResultValueFormat()) == SvNumFormatType::NUMBER))
                         bBreak = false;
 
                     bool bRepeat = aVars.IsRepeat() && !bBreak;
@@ -2070,7 +2071,7 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                                 if (aDX.size() < nLen)
                                     aDX.resize(nLen, 0);
 
-                                pFmtDevice->GetTextArray(aShort, &aDX[0]);
+                                pFmtDevice->GetTextArray(aShort, aDX.data());
 
                                 if ( !mpRefDevice->GetConnectMetaFile() ||
                                         mpRefDevice->GetOutDevType() == OUTDEV_PRINTER )
@@ -2081,7 +2082,7 @@ tools::Rectangle ScOutputData::LayoutStrings(bool bPixelToLogic, bool bPaint, co
                                 }
 
                                 if (bPaint)
-                                    mpDev->DrawTextArray(aDrawTextPos, aShort, &aDX[0]);
+                                    mpDev->DrawTextArray(aDrawTextPos, aShort, aDX.data());
                             }
                             else
                             {
@@ -3572,8 +3573,8 @@ void ScOutputData::DrawEditTopBottom(DrawEditParam& rParam)
                 // "repeat" is handled with unformatted text (for performance reasons)
                 OUString aCellStr = rParam.mpEngine->GetText();
 
-               long nRepeatSize = 0;
-               SetEngineTextAndGetWidth( rParam, aCellStr, nRepeatSize, 0 );
+                long nRepeatSize = 0;
+                SetEngineTextAndGetWidth( rParam, aCellStr, nRepeatSize, 0 );
 
                 if ( pFmtDevice != mpRefDevice )
                     ++nRepeatSize;

@@ -8,24 +8,24 @@
  */
 
 #include "charttest.hxx"
-#include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/chart2/CurveStyle.hpp>
 #include <com/sun/star/chart2/DataPointLabel.hpp>
-#include <com/sun/star/chart2/DataPointCustomLabelField.hpp>
+#include <com/sun/star/chart2/XDataPointCustomLabelField.hpp>
 #include <com/sun/star/chart2/DataPointCustomLabelFieldType.hpp>
 #include <com/sun/star/chart/ErrorBarStyle.hpp>
 #include <com/sun/star/chart2/XRegressionCurveContainer.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/chart/XChartDocument.hpp>
-#include <com/sun/star/chart/XChartData.hpp>
 #include <com/sun/star/chart2/XInternalDataProvider.hpp>
 #include <com/sun/star/chart/XChartDataArray.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/chart/XTwoAxisXSupplier.hpp>
+#include <com/sun/star/drawing/LineStyle.hpp>
+#include <com/sun/star/chart/XAxisXSupplier.hpp>
 #include <com/sun/star/chart/MissingValueTreatment.hpp>
 #include <com/sun/star/chart2/TickmarkStyle.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/chart2/data/XTextualDataSequence.hpp>
+#include <com/sun/star/chart/DataLabelPlacement.hpp>
 #include <com/sun/star/text/XTextRange.hpp>
 #include <iterator>
 
@@ -71,10 +71,12 @@ public:
     void testTdf106217();
     void testTdf108021();
     void testAutoBackgroundXLSX();
+    void testAutoChartAreaBorderPropXLSX();
     void testChartAreaStyleBackgroundXLSX();
     void testChartHatchFillXLSX();
     void testAxisTextRotationXLSX();
     // void testTextCanOverlapXLSX(); // TODO : temporarily disabled.
+    void testTextBreakXLSX();
     void testNumberFormatsXLSX();
 
     void testTransparentBackground(OUString const & filename);
@@ -105,6 +107,7 @@ public:
     void testTdf109858(); // Pie chart label placement settings(XLSX)
 
     void testTdf111173();
+    void testTdf122226();
 
     void testInternalDataProvider();
 
@@ -154,10 +157,12 @@ public:
     CPPUNIT_TEST(testTdf106217);
     CPPUNIT_TEST(testTdf108021);
     CPPUNIT_TEST(testAutoBackgroundXLSX);
+    CPPUNIT_TEST(testAutoChartAreaBorderPropXLSX);
     CPPUNIT_TEST(testChartAreaStyleBackgroundXLSX);
     CPPUNIT_TEST(testChartHatchFillXLSX);
     CPPUNIT_TEST(testAxisTextRotationXLSX);
     // CPPUNIT_TEST(testTextCanOverlapXLSX); // TODO : temporarily disabled.
+    CPPUNIT_TEST(testTextBreakXLSX);
     CPPUNIT_TEST(testNumberFormatsXLSX);
     CPPUNIT_TEST(testAutoTitleDelDefaultValue2007XLSX);
     CPPUNIT_TEST(testAutoTitleDelDefaultValue2013XLSX);
@@ -179,6 +184,7 @@ public:
     CPPUNIT_TEST(testTdf90510);
     CPPUNIT_TEST(testTdf109858);
     CPPUNIT_TEST(testTdf111173);
+    CPPUNIT_TEST(testTdf122226);
 
     CPPUNIT_TEST(testInternalDataProvider);
 
@@ -917,6 +923,26 @@ void Chart2ImportTest::testAutoBackgroundXLSX()
         sal_Int32(0x00FFFFFF), sal_Int32(nColor & 0x00FFFFFF)); // highest 2 bytes are transparency which we ignore here.
 }
 
+void Chart2ImportTest::testAutoChartAreaBorderPropXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "chart-area-style-border.xlsx");
+    uno::Reference<chart2::XChartDocument> xChartDoc = getChartDocFromSheet(0, mxComponent);
+    CPPUNIT_ASSERT_MESSAGE("failed to load chart", xChartDoc.is());
+
+    // Test "Automatic" chartarea border style/color/width.
+    Reference<beans::XPropertySet> xPropSet = xChartDoc->getPageBackground();
+    CPPUNIT_ASSERT(xPropSet.is());
+    drawing::LineStyle eStyle = xPropSet->getPropertyValue("LineStyle").get<drawing::LineStyle>();
+    sal_Int32 nColor = xPropSet->getPropertyValue("LineColor").get<sal_Int32>();
+    sal_Int32 nWidth = xPropSet->getPropertyValue("LineWidth").get<sal_Int32>();
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("'Automatic' chartarea border should be loaded as solid style.",
+        drawing::LineStyle_SOLID, eStyle);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("'Automatic' chartarea border color should be loaded as light gray.",
+        sal_Int32(0xD9D9D9), nColor);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("'Automatic' chartarea border width should be loaded as 0.75 pt (~0.026 cm)",
+        sal_Int32(26), nWidth);
+}
+
 void Chart2ImportTest::testChartAreaStyleBackgroundXLSX()
 {
     load("/chart2/qa/extras/data/xlsx/", "chart-area-style-background.xlsx");
@@ -1012,6 +1038,25 @@ void Chart2ImportTest::testTextCanOverlapXLSX()
     CPPUNIT_ASSERT(bTextCanOverlap);
 }
 */
+
+void Chart2ImportTest::testTextBreakXLSX()
+{
+    // tdf#122091: To check textbreak value is true in case of 0° degree of Axis label rotation.
+    load("/chart2/qa/extras/data/xlsx/", "chart_label_text_break.xlsx");
+    uno::Reference< chart::XDiagram > mxDiagram;
+    uno::Reference< beans::XPropertySet > xAxisProp;
+    bool textBreak = false;
+    uno::Reference< chart::XChartDocument > xChartDoc ( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW);
+    CPPUNIT_ASSERT(xChartDoc.is());
+    mxDiagram.set(xChartDoc->getDiagram());
+    CPPUNIT_ASSERT(mxDiagram.is());
+    uno::Reference< chart::XAxisXSupplier > xAxisXSupp( mxDiagram, uno::UNO_QUERY );
+    CPPUNIT_ASSERT(xAxisXSupp.is());
+    xAxisProp = xAxisXSupp->getXAxis();
+    xAxisProp->getPropertyValue("TextBreak") >>= textBreak;
+    // Expected value of 'TextBreak' is true
+    CPPUNIT_ASSERT(textBreak);
+}
 
 void Chart2ImportTest::testNumberFormatsXLSX()
 {
@@ -1425,6 +1470,24 @@ void Chart2ImportTest::testTdf111173()
 {
     load("/chart2/qa/extras/data/xlsx/", "tdf111173.xlsx");
     uno::Reference< chart::XChartDocument > xChart1Doc( getChartCompFromSheet( 0, mxComponent ), UNO_QUERY_THROW );
+}
+
+void Chart2ImportTest::testTdf122226()
+{
+    load( "/chart2/qa/extras/data/docx/", "testTdf122226.docx" );
+    uno::Reference< chart2::XChartDocument > xChartDoc ( getChartDocFromWriter(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT( xChartDoc.is() );
+
+    css::uno::Reference<chart2::XDiagram> xDiagram(xChartDoc->getFirstDiagram(), UNO_QUERY_THROW);
+    Reference<chart2::XDataSeries> xDataSeries = getDataSeriesFromDoc(xChartDoc, 0);
+    uno::Reference<beans::XPropertySet> xPropertySet(xDataSeries->getDataPointByIndex(0), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT(xPropertySet.is());
+
+    uno::Any aAny = xPropertySet->getPropertyValue( "LabelSeparator" );
+    CPPUNIT_ASSERT( aAny.hasValue() );
+    OUString nLabelSeparator;
+    CPPUNIT_ASSERT( aAny >>= nLabelSeparator );
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Data labels should be separated into new lines", OUString("\n"), nLabelSeparator );
 }
 
 void Chart2ImportTest::testTdf115107()

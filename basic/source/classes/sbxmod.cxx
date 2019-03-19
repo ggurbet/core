@@ -20,6 +20,7 @@
 
 #include <vcl/svapp.hxx>
 #include <tools/stream.hxx>
+#include <tools/diagnose_ex.h>
 #include <svl/SfxBroadcaster.hxx>
 #include <basic/sbx.hxx>
 #include <basic/sbuno.hxx>
@@ -38,6 +39,7 @@
 #include <basic/basrdll.hxx>
 #include <sbobjmod.hxx>
 #include <basic/vbahelper.hxx>
+#include <comphelper/sequence.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <unotools/eventcfg.hxx>
 #include <com/sun/star/frame/Desktop.hpp>
@@ -144,7 +146,8 @@ DocObjectWrapper::DocObjectWrapper( SbModule* pVar ) : m_pMod( pVar )
                 }
                 catch(const Exception& )
                 {
-                    SAL_WARN( "basic", "DocObjectWrapper::DocObjectWrapper: Caught exception!" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "basic", "DocObjectWrapper::DocObjectWrapper: Caught exception! " << exceptionToString(ex) );
                 }
             }
 
@@ -160,7 +163,7 @@ DocObjectWrapper::DocObjectWrapper( SbModule* pVar ) : m_pMod( pVar )
                     m_xAggProxy->setDelegator( static_cast< cppu::OWeakObject * >( this ) );
                 }
 
-                 osl_atomic_decrement( &m_refCount );
+                osl_atomic_decrement( &m_refCount );
             }
         }
     }
@@ -175,19 +178,8 @@ Sequence< Type > SAL_CALL DocObjectWrapper::getTypes()
         {
             sTypes = m_xAggregateTypeProv->getTypes();
         }
-        m_Types.realloc( sTypes.getLength() + 1 );
-        Type* pPtr = m_Types.getArray();
-        for ( int i=0; i<m_Types.getLength(); ++i, ++pPtr )
-        {
-            if ( i == 0 )
-            {
-                *pPtr = cppu::UnoType<XInvocation>::get();
-            }
-            else
-            {
-                *pPtr = sTypes[ i - 1 ];
-            }
-        }
+        m_Types = comphelper::concatSequences(sTypes,
+            Sequence { cppu::UnoType<XInvocation>::get() });
     }
     return m_Types;
 }
@@ -1076,7 +1068,7 @@ void SbModule::Run( SbMethod* pMeth )
           // Empiric value, 1650 = needed bytes/Basic call level
           // for Solaris including 10% safety margin
           nMaxCallLevel = rl.rlim_cur / 1650;
-#elif defined WIN32
+#elif defined _WIN32
           nMaxCallLevel = 5800;
 #else
           nMaxCallLevel = MAXRECURSION;
@@ -1202,7 +1194,7 @@ void SbModule::Run( SbMethod* pMeth )
     }
     if ( pBasic && pBasic->IsDocBasic() && pBasic->IsQuitApplication() && !GetSbData()->pInst )
             bQuit = true;
-        if ( bQuit )
+    if ( bQuit )
     {
         Application::PostUserEvent( LINK( &AsyncQuitHandler::instance(), AsyncQuitHandler, OnAsyncQuit ) );
     }
@@ -1503,16 +1495,11 @@ bool SbModule::SetBP( sal_uInt16 nLine )
         return false;
     if( !pBreaks )
         pBreaks.reset( new SbiBreakpoints );
-    size_t i;
-    for( i = 0; i < pBreaks->size(); i++ )
-    {
-        sal_uInt16 b = pBreaks->operator[]( i );
-        if( b == nLine )
-            return true;
-        if( b < nLine )
-            break;
-    }
-    pBreaks->insert( pBreaks->begin() + i, nLine );
+    auto it = std::find_if(pBreaks->begin(), pBreaks->end(),
+        [&nLine](const sal_uInt16 b) { return b <= nLine; });
+    if (it != pBreaks->end() && *it == nLine)
+        return true;
+    pBreaks->insert( it, nLine );
 
     // #38568: Set during runtime as well here BasicDebugFlags::Break
     if( GetSbData()->pInst && GetSbData()->pInst->pRun )
@@ -1526,17 +1513,12 @@ bool SbModule::ClearBP( sal_uInt16 nLine )
     bool bRes = false;
     if( pBreaks )
     {
-        for( size_t i = 0; i < pBreaks->size(); i++ )
+        auto it = std::find_if(pBreaks->begin(), pBreaks->end(),
+            [&nLine](const sal_uInt16 b) { return b <= nLine; });
+        bRes = (it != pBreaks->end()) && (*it == nLine);
+        if (bRes)
         {
-            sal_uInt16 b = pBreaks->operator[]( i );
-            if( b == nLine )
-            {
-                pBreaks->erase( pBreaks->begin() + i );
-                bRes = true;
-                break;
-            }
-            if( b < nLine )
-                break;
+            pBreaks->erase(it);
         }
         if( pBreaks->empty() )
         {
@@ -1932,7 +1914,7 @@ SbMethod::SbMethod( const SbMethod& r )
     nDebugFlags  = r.nDebugFlags;
     nLine1       = r.nLine1;
     nLine2       = r.nLine2;
-        refStatics = r.refStatics;
+    refStatics = r.refStatics;
     mCaller          = r.mCaller;
     SetFlag( SbxFlagBits::NoModify );
 }
@@ -2541,7 +2523,7 @@ void SbUserFormModule::Unload()
     SbxVariable* pMeth = SbObjModule::Find( "UnloadObject", SbxClassType::Method );
     if( pMeth )
     {
-        SAL_INFO("basic", "Attempting too run the UnloadObjectMethod");
+        SAL_INFO("basic", "Attempting to run the UnloadObjectMethod");
         m_xDialog.clear(); //release ref to the uno object
         SbxValues aVals;
         bool bWaitForDispose = true; // assume dialog is showing
@@ -2556,7 +2538,7 @@ void SbUserFormModule::Unload()
             // we've either already got a dispose or we are never going to get one
             ResetApiObj();
         } // else wait for dispose
-        SAL_INFO("basic", "UnloadObject completed ( we hope )");
+        SAL_INFO("basic", "UnloadObject completed (we hope)");
     }
 }
 

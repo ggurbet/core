@@ -30,7 +30,6 @@
 #include "pordrop.hxx"
 #include "pormulti.hxx"
 #include "portab.hxx"
-#include <o3tl/make_unique.hxx>
 #include <memory>
 
 #define MIN_TAB_WIDTH 60
@@ -60,7 +59,7 @@ void SwTextAdjuster::FormatBlock( )
             {
                 if( pPor->InTextGrp() )
                     bSkip = false;
-                pPor = pPor->GetPortion();
+                pPor = pPor->GetNextPortion();
             }
             pLay = bSkip ? pLay->GetNext() : nullptr;
         }
@@ -91,7 +90,7 @@ void SwTextAdjuster::FormatBlock( )
                     pFly = pTmpFly; // A Fly with follow-up text!
                     pTmpFly = nullptr;
                 }
-                pPos = pPos->GetPortion();
+                pPos = pPos->GetNextPortion();
             }
             // End if we didn't find one
             if( !pFly )
@@ -228,8 +227,8 @@ static bool lcl_CheckKashidaWidth ( SwScriptInfo& rSI, SwTextSizeInfo& rInf, SwT
 
                     nSpaceAdd = nGluePortionWidth / sal_Int32(nGluePortion);
                     bAddSpaceChanged = true;
-               }
-               if( nKashidasDropped )
+                }
+                if( nKashidasDropped )
                    rSI.MarkKashidasInvalid( nKashidasDropped, nIdx, nNext - nIdx );
             }
             if ( bAddSpaceChanged )
@@ -286,7 +285,7 @@ void SwTextAdjuster::CalcNewBlock( SwLineLayout *pCurrent,
     const bool bDoNotJustifyLinesWithManualBreak =
         GetTextFrame()->GetDoc().getIDocumentSettingAccess().get(DocumentSettingId::DO_NOT_JUSTIFY_LINES_WITH_MANUAL_BREAK);
 
-    SwLinePortion *pPos = pCurrent->GetPortion();
+    SwLinePortion *pPos = pCurrent->GetNextPortion();
 
     while( pPos )
     {
@@ -388,7 +387,7 @@ void SwTextAdjuster::CalcNewBlock( SwLineLayout *pCurrent,
             pCurrent->SetLLSpaceAdd( 0, nSpaceIdx );
             break;
         }
-        pPos = pPos->GetPortion();
+        pPos = pPos->GetNextPortion();
     }
 }
 
@@ -397,7 +396,7 @@ SwTwips SwTextAdjuster::CalcKanaAdj( SwLineLayout* pCurrent )
     OSL_ENSURE( pCurrent->Height(), "SwTextAdjuster::CalcBlockAdjust: missing CalcLine()" );
     OSL_ENSURE( !pCurrent->GetpKanaComp(), "pKanaComp already exists!!" );
 
-    pCurrent->SetKanaComp( o3tl::make_unique<std::deque<sal_uInt16>>() );
+    pCurrent->SetKanaComp( std::make_unique<std::deque<sal_uInt16>>() );
 
     const sal_uInt16 nNull = 0;
     size_t nKanaIdx = 0;
@@ -409,7 +408,7 @@ SwTwips SwTextAdjuster::CalcKanaAdj( SwLineLayout* pCurrent )
     // Do not forget: CalcRightMargin() sets pCurrent->Width() to the line width!
     CalcRightMargin( pCurrent );
 
-    SwLinePortion* pPos = pCurrent->GetPortion();
+    SwLinePortion* pPos = pCurrent->GetNextPortion();
 
     while( pPos )
     {
@@ -436,7 +435,7 @@ SwTwips SwTextAdjuster::CalcKanaAdj( SwLineLayout* pCurrent )
             if ( nKanaIdx == pCurrent->GetKanaComp().size() )
                 pCurrent->GetKanaComp().push_back( nNull );
 
-            sal_uInt16 nRest;
+            long nRest;
 
             if ( pPos->InTabGrp() )
             {
@@ -479,13 +478,13 @@ SwTwips SwTextAdjuster::CalcKanaAdj( SwLineLayout* pCurrent )
         }
 
         nX += pPos->Width();
-        pPos = pPos->GetPortion();
+        pPos = pPos->GetNextPortion();
     }
 
     // set portion width
     nKanaIdx = 0;
     sal_uInt16 nCompress = ( pCurrent->GetKanaComp() )[ nKanaIdx ];
-    pPos = pCurrent->GetPortion();
+    pPos = pCurrent->GetNextPortion();
     long nDecompress = 0;
 
     while( pPos )
@@ -518,7 +517,7 @@ SwTwips SwTextAdjuster::CalcKanaAdj( SwLineLayout* pCurrent )
 
             nDecompress = 0;
         }
-        pPos = pPos->GetPortion();
+        pPos = pPos->GetNextPortion();
     }
 
     return nRepaintOfst;
@@ -585,7 +584,7 @@ void SwTextAdjuster::CalcFlyAdjust( SwLineLayout *pCurrent )
     // CalcRightMargin also calculates a possible overlap with FlyFrames.
     CalcRightMargin( pCurrent );
 
-    SwLinePortion *pPos = pLeft->GetPortion();
+    SwLinePortion *pPos = pLeft->GetNextPortion();
     TextFrameIndex nLen(0);
 
     // If we only have one line, the text portion is consecutive and we center, then ...
@@ -642,10 +641,10 @@ void SwTextAdjuster::CalcFlyAdjust( SwLineLayout *pCurrent )
             bComplete = false;
         }
         nLen = nLen + pPos->GetLen();
-        pPos = pPos->GetPortion();
-     }
+        pPos = pPos->GetNextPortion();
+    }
 
-     if( ! bTabCompat && ! bMultiTab && SvxAdjust::Right == GetAdjust() )
+    if( ! bTabCompat && ! bMultiTab && SvxAdjust::Right == GetAdjust() )
         // portions are moved to the right if possible
         pLeft->AdjustRight( pCurrent );
 }
@@ -744,25 +743,25 @@ void SwTextAdjuster::CalcDropAdjust()
 
         // 2) Make sure we include the ropPortion
         // 3) pLeft is the GluePor preceding the DropPor
-        if( pPor->InGlueGrp() && pPor->GetPortion()
-              && pPor->GetPortion()->IsDropPortion() )
+        if( pPor->InGlueGrp() && pPor->GetNextPortion()
+              && pPor->GetNextPortion()->IsDropPortion() )
         {
-            const SwLinePortion *pDropPor = static_cast<SwDropPortion*>( pPor->GetPortion() );
+            const SwLinePortion *pDropPor = static_cast<SwDropPortion*>( pPor->GetNextPortion() );
             SwGluePortion *pLeft = static_cast<SwGluePortion*>( pPor );
 
             // 4) pRight: Find the GluePor coming after the DropPor
-            pPor = pPor->GetPortion();
+            pPor = pPor->GetNextPortion();
             while( pPor && !pPor->InFixMargGrp() )
-                pPor = pPor->GetPortion();
+                pPor = pPor->GetNextPortion();
 
             SwGluePortion *pRight = ( pPor && pPor->InGlueGrp() ) ?
                                     static_cast<SwGluePortion*>(pPor) : nullptr;
             if( pRight && pRight != pLeft )
             {
                 // 5) Calculate nMinLeft. Who is the most to left?
-                const sal_uInt16 nDropLineStart =
-                    sal_uInt16(GetLineStart()) + pLeft->Width() + pDropPor->Width();
-                sal_uInt16 nMinLeft = nDropLineStart;
+                const auto nDropLineStart =
+                    GetLineStart() + pLeft->Width() + pDropPor->Width();
+                auto nMinLeft = nDropLineStart;
                 for( sal_uInt16 i = 1; i < GetDropLines(); ++i )
                 {
                     if( NextLine() )
@@ -777,8 +776,8 @@ void SwTextAdjuster::CalcDropAdjust()
                             nMinLeft = 0;
                         else
                         {
-                            const sal_uInt16 nLineStart =
-                                sal_uInt16(GetLineStart()) + pMar->Width();
+                            const auto nLineStart =
+                                GetLineStart() + pMar->Width();
                             if( nMinLeft > nLineStart )
                                 nMinLeft = nLineStart;
                         }
@@ -790,7 +789,7 @@ void SwTextAdjuster::CalcDropAdjust()
                 {
                     // The Glue is always passed from pLeft to pRight, so that
                     // the text moves to the left.
-                    const short nGlue = nDropLineStart - nMinLeft;
+                    const auto nGlue = nDropLineStart - nMinLeft;
                     if( !nMinLeft )
                         pLeft->MoveAllGlue( pRight );
                     else

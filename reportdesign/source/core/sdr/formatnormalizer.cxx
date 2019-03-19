@@ -21,6 +21,7 @@
 #include <RptModel.hxx>
 
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdb/XParametersSupplier.hpp>
 #include <com/sun/star/util/XNumberFormatTypes.hpp>
 
@@ -231,12 +232,8 @@ namespace rptui
             }
             sDataField = sDataField.copy( sFieldPrefix.getLength(), sDataField.getLength() - sFieldPrefix.getLength() - 1 );
 
-            FieldList::const_iterator field = m_aFields.begin();
-            for ( ; field != m_aFields.end(); ++field )
-            {
-                if ( field->sName == sDataField )
-                    break;
-            }
+            FieldList::const_iterator field = std::find_if(m_aFields.begin(), m_aFields.end(),
+                [&sDataField](const Field& rField) { return rField.sName == sDataField; });
             if ( field == m_aFields.end() )
                 // unknown field
                 return;

@@ -30,6 +30,7 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include "bibconfig.hxx"
 #include <cppuhelper/implbase.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/form/XConfirmDeleteListener.hpp>
@@ -49,7 +50,6 @@
 #include <sot/formats.hxx>
 #include <vcl/edit.hxx>
 #include <osl/mutex.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <unordered_map>
 
@@ -385,7 +385,7 @@ void BibFrameController_Impl::dispatch(const util::URL& _rURL, const uno::Sequen
         }
         else if(aCommand == "Bib/sdbsource")
         {
-            OUString aURL = m_xDatMan->CreateDBChangeDialog(pParent);
+            OUString aURL = m_xDatMan->CreateDBChangeDialog(pParent ? pParent->GetFrameWeld() : nullptr);
             if(!aURL.isEmpty())
             {
                 try
@@ -601,7 +601,7 @@ void BibFrameController_Impl::addStatusListener(
 {
     BibConfig* pConfig = BibModul::GetConfig();
     // create a new Reference and insert into listener array
-    aStatusListeners.push_back( o3tl::make_unique<BibStatusDispatch>( aURL, aListener ) );
+    aStatusListeners.push_back( std::make_unique<BibStatusDispatch>( aURL, aListener ) );
 
     // send first status synchronously
     FeatureStateEvent aEvent;

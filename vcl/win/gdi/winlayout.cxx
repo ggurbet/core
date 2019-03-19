@@ -24,7 +24,6 @@
 
 #include <comphelper/windowserrorstring.hxx>
 #include <comphelper/scopeguard.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <opengl/texture.hxx>
 #include <opengl/win/gdiimpl.hxx>
@@ -35,10 +34,10 @@
 #include <outdev.h>
 
 #include <win/DWriteTextRenderer.hxx>
+#include <win/scoped_gdi.hxx>
 
 #include <sft.hxx>
 #include <sallayout.hxx>
-#include <win/ScopedHDC.hxx>
 
 #include <cstdio>
 #include <cstdlib>
@@ -115,7 +114,7 @@ bool WinFontInstance::CacheGlyphToAtlas(HDC hDC, HFONT hFont, int nGlyphIndex, S
     // take anti-aliasing into consideration. Let's hope that leaving
     // "extra" space between glyphs will help.
     std::vector<float> aGlyphAdv(1);   // offsets between glyphs
-    std::vector<DWRITE_GLYPH_OFFSET> aGlyphOffset(1, DWRITE_GLYPH_OFFSET{0.0f, 0.0f});
+    std::vector<DWRITE_GLYPH_OFFSET> aGlyphOffset(1, {0.0f, 0.0f});
     std::vector<int> aEnds(1); // end of each glyph box
     float totWidth = 0;
     {
@@ -235,7 +234,7 @@ bool ExTextOutRenderer::operator ()(GenericSalLayout const &rLayout,
     HDC hDC)
 {
     HFONT hFont = static_cast<HFONT>(GetCurrentObject( hDC, OBJ_FONT ));
-    HFONT hAltFont = nullptr;
+    ScopedHFONT hAltFont;
     bool bUseAltFont = false;
     bool bShift = false;
     if (rLayout.GetFont().GetFontSelectPattern().mbVertical)
@@ -246,14 +245,14 @@ bool ExTextOutRenderer::operator ()(GenericSalLayout const &rLayout,
         {
             memmove(&aLogFont.lfFaceName[0], &aLogFont.lfFaceName[1],
                 sizeof(aLogFont.lfFaceName)-sizeof(aLogFont.lfFaceName[0]));
-            hAltFont = CreateFontIndirectW(&aLogFont);
+            hAltFont.reset(CreateFontIndirectW(&aLogFont));
         }
         else
         {
             bShift = true;
             aLogFont.lfEscapement += 2700;
             aLogFont.lfOrientation = aLogFont.lfEscapement;
-            hAltFont = CreateFontIndirectW(&aLogFont);
+            hAltFont.reset(CreateFontIndirectW(&aLogFont));
         }
     }
 
@@ -267,7 +266,7 @@ bool ExTextOutRenderer::operator ()(GenericSalLayout const &rLayout,
         if (hAltFont && pGlyph->IsVertical() == bUseAltFont)
         {
             bUseAltFont = !bUseAltFont;
-            SelectFont(hDC, bUseAltFont ? hAltFont : hFont);
+            SelectFont(hDC, bUseAltFont ? hAltFont.get() : hFont);
         }
         if (bShift && pGlyph->IsVertical())
             SetTextAlign(hDC, TA_TOP|TA_LEFT);
@@ -281,21 +280,21 @@ bool ExTextOutRenderer::operator ()(GenericSalLayout const &rLayout,
     {
         if (bUseAltFont)
             SelectFont(hDC, hFont);
-        DeleteObject(hAltFont);
     }
 
     return true;
 }
 
-std::unique_ptr<SalLayout> WinSalGraphics::GetTextLayout(ImplLayoutArgs& /*rArgs*/, int nFallbackLevel)
+std::unique_ptr<GenericSalLayout> WinSalGraphics::GetTextLayout(int nFallbackLevel)
 {
+    assert(mpWinFontEntry[nFallbackLevel]);
     if (!mpWinFontEntry[nFallbackLevel])
         return nullptr;
 
     assert(mpWinFontEntry[nFallbackLevel]->GetFontFace());
 
     mpWinFontEntry[nFallbackLevel]->SetGraphics(this);
-    return o3tl::make_unique<GenericSalLayout>(*mpWinFontEntry[nFallbackLevel]);
+    return std::make_unique<GenericSalLayout>(*mpWinFontEntry[nFallbackLevel]);
 }
 
 WinFontInstance::WinFontInstance(const WinFontFace& rPFF, const FontSelectPattern& rFSP)
@@ -364,14 +363,13 @@ hb_font_t* WinFontInstance::ImplInitHbFont()
         // Set width to the default to get the original value in the metrics.
         aLogFont.lfWidth = 0;
 
-        // Get the font metrics.
-        HDC hDC = m_pGraphics->getHDC();
-        HFONT hNewFont = CreateFontIndirectW(&aLogFont);
-        HGDIOBJ hOrigFont = SelectObject(hDC, hNewFont);
         TEXTMETRICW aFontMetric;
-        GetTextMetricsW(hDC, &aFontMetric);
-        SelectObject(hDC, hOrigFont);
-        DeleteObject(hNewFont);
+        {
+            // Get the font metrics.
+            HDC hDC = m_pGraphics->getHDC();
+            ScopedSelectedHFONT hFont(hDC, CreateFontIndirectW(&aLogFont));
+            GetTextMetricsW(hDC, &aFontMetric);
+        }
 
         SetAverageWidthFactor(nUPEM / aFontMetric.tmAveCharWidth);
     }

@@ -18,7 +18,7 @@
 
 #include <memory>
 #include <utility>
-#include <o3tl/make_unique.hxx>
+
 using ::std::unique_ptr;
 
 ScUndoAllRangeNames::ScUndoAllRangeNames(
@@ -27,15 +27,14 @@ ScUndoAllRangeNames::ScUndoAllRangeNames(
     const std::map<OUString, std::unique_ptr<ScRangeName>>& rNewNames)
         : ScSimpleUndo(pDocSh)
 {
-    std::map<OUString, ScRangeName*>::const_iterator itr, itrEnd;
-    for (itr = rOldNames.begin(), itrEnd = rOldNames.end(); itr != itrEnd; ++itr)
+    for (const auto& [rName, pRangeName] : rOldNames)
     {
-        m_OldNames.insert(std::make_pair(itr->first,o3tl::make_unique<ScRangeName>(*itr->second)));
+        m_OldNames.insert(std::make_pair(rName, std::make_unique<ScRangeName>(*pRangeName)));
     }
 
     for (auto const& it : rNewNames)
     {
-        m_NewNames.insert(std::make_pair(it.first, o3tl::make_unique<ScRangeName>(*it.second)));
+        m_NewNames.insert(std::make_pair(it.first, std::make_unique<ScRangeName>(*it.second)));
     }
 }
 

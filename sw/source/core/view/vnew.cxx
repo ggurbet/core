@@ -20,6 +20,7 @@
 #include <sfx2/printer.hxx>
 #include <sal/log.hxx>
 #include <doc.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentUndoRedo.hxx>
 #include <DocumentSettingManager.hxx>
 #include <IDocumentDeviceAccess.hxx>
@@ -49,7 +50,7 @@ void SwViewShell::Init( const SwViewOption *pNewOpt )
     // We play it safe: Remove old font information whenever the printer
     // resolution or the zoom factor changes. For that, Init() and Reformat()
     // are the most secure places.
-     pFntCache->Flush( );
+    pFntCache->Flush( );
 
     // ViewOptions are created dynamically
 

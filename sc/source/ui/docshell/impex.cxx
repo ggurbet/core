@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sc.hrc>
-
 #include <comphelper/processfactory.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <sot/formats.hxx>
@@ -28,17 +26,14 @@
 #include <unotools/charclass.hxx>
 
 #include <global.hxx>
-#include <scerrors.hxx>
 #include <docsh.hxx>
 #include <undoblk.hxx>
 #include <rangenam.hxx>
-#include <viewdata.hxx>
 #include <tabvwsh.hxx>
 #include <filter.hxx>
 #include <asciiopt.hxx>
 #include <formulacell.hxx>
 #include <cellform.hxx>
-#include <docoptio.hxx>
 #include <progress.hxx>
 #include <scitems.hxx>
 #include <editable.hxx>
@@ -264,7 +259,7 @@ void ScImportExport::EndPaste(bool bAutoRowHeight)
         ScMarkData aDestMark;
         aDestMark.SetMarkArea(aRange);
         pDocSh->GetUndoManager()->AddUndoAction(
-            o3tl::make_unique<ScUndoPaste>(pDocSh, aRange, aDestMark, std::move(pUndoDoc), std::move(pRedoDoc), InsertDeleteFlags::ALL, nullptr));
+            std::make_unique<ScUndoPaste>(pDocSh, aRange, aDestMark, std::move(pUndoDoc), std::move(pRedoDoc), InsertDeleteFlags::ALL, nullptr));
     }
     pUndoDoc.reset();
     if( pDocSh )

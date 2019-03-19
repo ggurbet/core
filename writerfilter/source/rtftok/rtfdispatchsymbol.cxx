@@ -176,16 +176,7 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
         case RTF_NESTCELL:
         {
             if (nKeyword == RTF_CELL)
-            {
                 m_bAfterCellBeforeRow = true;
-                if (m_nCellsInRow != -1)
-                    m_nCellsInRow++;
-            }
-            else
-            {
-                // in the case of nested tables, disable ignoring row text outside of cell content
-                m_nCellsInRow = -1;
-            }
 
             checkFirstRun();
             if (m_bNeedPap)
@@ -193,10 +184,10 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
                 // There were no runs in the cell, so we need to send paragraph and character properties here.
                 auto pPValue = new RTFValue(m_aStates.top().aParagraphAttributes,
                                             m_aStates.top().aParagraphSprms);
-                m_aTableBufferStack.back().emplace_back(Buf_t(BUFFER_PROPS, pPValue, nullptr));
+                bufferProperties(m_aTableBufferStack.back(), pPValue, nullptr);
                 auto pCValue = new RTFValue(m_aStates.top().aCharacterAttributes,
                                             m_aStates.top().aCharacterSprms);
-                m_aTableBufferStack.back().emplace_back(Buf_t(BUFFER_PROPS, pCValue, nullptr));
+                bufferProperties(m_aTableBufferStack.back(), pCValue, nullptr);
             }
 
             RTFValue::Pointer_t pValue;
@@ -209,9 +200,9 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
             tools::SvRef<TableRowBuffer> const pBuffer(
                 new TableRowBuffer(m_aTableBufferStack.back(), m_aNestedTableCellsSprms,
                                    m_aNestedTableCellsAttributes, m_nNestedCells));
-            prepareProperties(m_aStates.top(), pBuffer->pParaProperties, pBuffer->pFrameProperties,
-                              pBuffer->pRowProperties, m_nNestedCells,
-                              m_nNestedCurrentCellX - m_nNestedTRLeft);
+            prepareProperties(m_aStates.top(), pBuffer->GetParaProperties(),
+                              pBuffer->GetFrameProperties(), pBuffer->GetRowProperties(),
+                              m_nNestedCells, m_nNestedCurrentCellX - m_nNestedTRLeft);
 
             if (m_aTableBufferStack.size() == 1 || !m_aStates.top().pCurrentBuffer)
             {
@@ -241,7 +232,6 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
         case RTF_ROW:
         {
             m_bAfterCellBeforeRow = false;
-            m_nActualCellInRow = 0;
             if (m_aStates.top().nTableRowWidthAfter > 0)
             {
                 // Add fake cellx / cell, RTF equivalent of

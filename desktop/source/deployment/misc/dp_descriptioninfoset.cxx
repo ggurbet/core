@@ -171,9 +171,7 @@ ExtensionDescription::ExtensionDescription(
         //brings up a dialog.We want to prevent this. Therefore we wrap the xCmdEnv
         //and filter the respective exception out.
         OUString sDescriptionUri(installDir + "/description.xml");
-        Reference<css::ucb::XCommandEnvironment> xFilter =
-            static_cast<css::ucb::XCommandEnvironment*>(
-                new FileDoesNotExistFilter(xCmdEnv));
+        Reference<css::ucb::XCommandEnvironment> xFilter = new FileDoesNotExistFilter(xCmdEnv);
         ::ucbhelper::Content descContent(sDescriptionUri, xFilter, xContext);
 
         //throws an css::uno::Exception if the file is not available
@@ -219,7 +217,7 @@ ExtensionDescription::ExtensionDescription(
                 sDescriptionUri + " contains no root element.", nullptr);
         }
 
-        if ( ! (xRoot->getTagName() == "description"))
+        if ( xRoot->getTagName() != "description")
         {
             throw css::uno::Exception(
                 sDescriptionUri + " does not contain the root element <description>.", nullptr);
@@ -229,7 +227,7 @@ ExtensionDescription::ExtensionDescription(
         OUString nsDescription = xRoot->getNamespaceURI();
 
         //check if this namespace is supported
-        if ( ! (nsDescription == "http://openoffice.org/extensions/description/2006"))
+        if ( nsDescription != "http://openoffice.org/extensions/description/2006")
         {
             throw css::uno::Exception(sDescriptionUri + " contains a root element with an unsupported namespace. ", nullptr);
         }
@@ -473,8 +471,7 @@ css::uno::Sequence< OUString > DescriptionInfoset::getSupportedPlatforms() const
     sal_Int32 nIndex = 0;
     do
     {
-        OUString aToken = value.getToken( 0, ',', nIndex );
-        aToken = aToken.trim();
+        const OUString aToken = value.getToken( 0, ',', nIndex ).trim();
         if (!aToken.isEmpty())
             vec.push_back(aToken);
 

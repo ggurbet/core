@@ -24,6 +24,7 @@
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
 #include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/text/XText.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <comphelper/processfactory.hxx>
 #include <unotools/streamwrap.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -152,7 +153,7 @@ EditPaM SvxReadXML( EditEngine& rEditEngine, SvStream& rStream, const ESelection
     };
     static SvxItemPropertySet aSvxXMLTextImportComponentPropertySet( SvxXMLTextImportComponentPropertyMap, EditEngine::GetGlobalItemPool() );
 
-     assert(!rSel.HasRange());
+    assert(!rSel.HasRange());
     //get the initial para count before paste
     sal_uInt32 initialParaCount = rEditEngine.GetEditDoc().Count();
     //insert para breaks before inserting the copied text

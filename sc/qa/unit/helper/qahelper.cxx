@@ -30,6 +30,7 @@
 #include <sfx2/docfile.hxx>
 #include <unotools/tempfile.hxx>
 #include <scitems.hxx>
+#include <tokenarray.hxx>
 
 #include <orcus/csv_parser.hpp>
 
@@ -477,7 +478,7 @@ bool checkFormulaPositions(
     return true;
 }
 
-ScTokenArray* compileFormula(
+std::unique_ptr<ScTokenArray> compileFormula(
     ScDocument* pDoc, const OUString& rFormula,
     formula::FormulaGrammar::Grammar eGram )
 {
@@ -695,7 +696,7 @@ ScDocShellRef ScBootstrapFixture::saveAndReload( ScDocShell* pShell, sal_Int32 n
     return xDocSh;
 }
 
-std::shared_ptr<utl::TempFile> ScBootstrapFixture::exportTo( ScDocShell* pShell, sal_Int32 nFormat )
+std::shared_ptr<utl::TempFile> ScBootstrapFixture::saveAs( ScDocShell* pShell, sal_Int32 nFormat )
 {
     OUString aFilterName(aFileFormats[nFormat].pFilterName, strlen(aFileFormats[nFormat].pFilterName), RTL_TEXTENCODING_UTF8) ;
     OUString aFilterType(aFileFormats[nFormat].pTypeName, strlen(aFileFormats[nFormat].pTypeName), RTL_TEXTENCODING_UTF8);
@@ -714,8 +715,16 @@ std::shared_ptr<utl::TempFile> ScBootstrapFixture::exportTo( ScDocShell* pShell,
     pExportFilter.get()->SetVersion(SOFFICE_FILEFORMAT_CURRENT);
     aStoreMedium.SetFilter(pExportFilter);
     pShell->DoSaveAs( aStoreMedium );
+
+    return pTempFile;
+}
+
+std::shared_ptr<utl::TempFile> ScBootstrapFixture::exportTo( ScDocShell* pShell, sal_Int32 nFormat )
+{
+    std::shared_ptr<utl::TempFile> pTempFile = saveAs(pShell, nFormat);
     pShell->DoClose();
 
+    SfxFilterFlags nFormatType = aFileFormats[nFormat].nFormatType;
     if(nFormatType == XLSX_FORMAT_TYPE)
         validate(pTempFile->GetFileName(), test::OOXML);
     else if (nFormatType == ODS_FORMAT_TYPE)

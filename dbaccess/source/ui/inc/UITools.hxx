@@ -70,6 +70,7 @@ namespace svt
 }
 
 namespace vcl { class Window; }
+namespace weld {class Window; }
 class ToolBox;
 namespace vcl { class Font; }
 class SvNumberFormatter;
@@ -182,11 +183,11 @@ namespace dbaui
     void callColumnFormatDialog(const css::uno::Reference< css::beans::XPropertySet>& _xAffectedCol,
                                 const css::uno::Reference< css::beans::XPropertySet>& _xField,
                                 SvNumberFormatter* _pFormatter,
-                                vcl::Window* _pParent);
+                                const vcl::Window* _pParent);
 
     /** second variant of the function before
     */
-    bool callColumnFormatDialog(vcl::Window* _pParent,
+    bool callColumnFormatDialog(const vcl::Window* _pParent,
                                     SvNumberFormatter* _pFormatter,
                                     sal_Int32 _nDataType,
                                     sal_Int32& _nFormatKey,
@@ -376,7 +377,7 @@ namespace dbaui
             <TRUE/> if the insert opertions was successful, otherwise <FALSE/>.
     */
     bool insertHierachyElement(
-                vcl::Window* _pParent,
+                weld::Window* pParent,
                 const css::uno::Reference< css::uno::XComponentContext >& _rxContext,
                 const css::uno::Reference< css::container::XHierarchicalNameContainer>& _xNames,
                 const OUString& _sParentFolder,

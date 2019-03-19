@@ -23,6 +23,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
+#include <vcl/event.hxx>
 #include <vcl/field.hxx>
 #include <vcl/settings.hxx>
 #include <svtools/colorcfg.hxx>
@@ -530,7 +531,7 @@ void SvxDialControl::StyleUpdated()
     InvalidateControl();
 }
 
-void SvxDialControl::MouseButtonDown(const MouseEvent& rMEvt)
+bool SvxDialControl::MouseButtonDown(const MouseEvent& rMEvt)
 {
     if( rMEvt.IsLeft() )
     {
@@ -539,15 +540,17 @@ void SvxDialControl::MouseButtonDown(const MouseEvent& rMEvt)
         mpImpl->mnOldAngle = mpImpl->mnAngle;
         HandleMouseEvent( rMEvt.GetPosPixel(), true );
     }
+    return true;
 }
 
-void SvxDialControl::MouseMove( const MouseEvent& rMEvt )
+bool SvxDialControl::MouseMove( const MouseEvent& rMEvt )
 {
     if( IsMouseCaptured() && rMEvt.IsLeft() )
         HandleMouseEvent( rMEvt.GetPosPixel(), false );
+    return true;
 }
 
-void SvxDialControl::MouseButtonUp(const MouseEvent&)
+bool SvxDialControl::MouseButtonUp(const MouseEvent&)
 {
     if( IsMouseCaptured() )
     {
@@ -555,6 +558,7 @@ void SvxDialControl::MouseButtonUp(const MouseEvent&)
         if( mpImpl->mpLinkField )
             mpImpl->mpLinkField->grab_focus();
     }
+    return true;
 }
 
 bool SvxDialControl::KeyInput( const KeyEvent& rKEvt )

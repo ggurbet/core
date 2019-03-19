@@ -395,18 +395,18 @@ void SwLabPage::DisplayFormat()
 {
     ScopedVclPtrInstance< MetricField > aField(this, WinBits(0));
     FieldUnit aMetric = ::GetDfltMetric(false);
-    SetMetric(*aField.get(), aMetric);
+    SetMetric(*aField, aMetric);
     aField->SetDecimalDigits(2);
     aField->SetMin         (0);
     aField->SetMax         (LONG_MAX);
 
     SwLabRec* pRec = GetSelectedEntryPos();
     aItem.m_aLstType = pRec->m_aType;
-    SETFLDVAL(*aField.get(), pRec->m_nWidth);
+    SETFLDVAL(*aField, pRec->m_nWidth);
     aField->Reformat();
     const OUString aWString = aField->GetText();
 
-    SETFLDVAL(*aField.get(), pRec->m_nHeight);
+    SETFLDVAL(*aField, pRec->m_nHeight);
     aField->Reformat();
 
     OUString aText = pRec->m_aType + ": " + aWString +
@@ -432,8 +432,9 @@ void SwLabPage::InitDatabaseBox()
         const OUString* pDataNames = aDataNames.getConstArray();
         for (long i = 0; i < aDataNames.getLength(); i++)
             m_xDatabaseLB->append_text(pDataNames[i]);
-        OUString sDBName = sActDBName.getToken( 0, DB_DELIM );
-        OUString sTableName = sActDBName.getToken( 1, DB_DELIM );
+        sal_Int32 nIdx{ 0 };
+        OUString sDBName = sActDBName.getToken( 0, DB_DELIM, nIdx );
+        OUString sTableName = sActDBName.getToken( 0, DB_DELIM, nIdx );
         m_xDatabaseLB->set_active_text(sDBName);
         if( !sDBName.isEmpty() && GetDBManager()->GetTableNames(*m_xTableLB, sDBName))
         {

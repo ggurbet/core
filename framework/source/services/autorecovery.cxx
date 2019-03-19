@@ -1801,8 +1801,8 @@ void AutoRecovery::implts_readConfig()
     const OUString sRECOVERY_ITEM_BASE_IDENTIFIER(RECOVERY_ITEM_BASE_IDENTIFIER);
     const css::uno::Sequence< OUString > lItems = xRecoveryList->getElementNames();
     const OUString*                      pItems = lItems.getConstArray();
-          sal_Int32                             c      = lItems.getLength();
-          sal_Int32                             i      = 0;
+    sal_Int32                            c      = lItems.getLength();
+    sal_Int32                            i      = 0;
 
     // REENTRANT -> --------------------------
     aCacheLock.lock(LOCK_FOR_CACHE_ADD_REMOVE);
@@ -2158,19 +2158,13 @@ void AutoRecovery::implts_stopListening()
     xGlobalEventBroadcaster.set(m_xNewDocBroadcaster, css::uno::UNO_QUERY);
     } /* SAFE */
 
-    if (
-        (xGlobalEventBroadcaster.is()) &&
-        (m_bListenForDocEvents       )
-       )
+    if (xGlobalEventBroadcaster.is() && m_bListenForDocEvents)
     {
         xGlobalEventBroadcaster->removeDocumentEventListener(m_xNewDocBroadcasterListener);
         m_bListenForDocEvents = false;
     }
 
-    if (
-        (xCFG.is()                ) &&
-        (m_bListenForConfigChanges)
-       )
+    if (xCFG.is() && m_bListenForConfigChanges)
     {
         xCFG->removeChangesListener(m_xRecoveryCFGListener);
         m_bListenForConfigChanges = false;
@@ -2667,16 +2661,8 @@ void AutoRecovery::implts_markDocumentAsSaved(const css::uno::Reference< css::fr
 AutoRecovery::TDocumentList::iterator AutoRecovery::impl_searchDocument(      AutoRecovery::TDocumentList&               rList    ,
                                                                         const css::uno::Reference< css::frame::XModel >& xDocument)
 {
-    AutoRecovery::TDocumentList::iterator pIt;
-    for (  pIt  = rList.begin();
-           pIt != rList.end();
-         ++pIt                 )
-    {
-        const AutoRecovery::TDocumentInfo& rInfo = *pIt;
-        if (rInfo.Document == xDocument)
-            break;
-    }
-    return pIt;
+    return std::find_if(rList.begin(), rList.end(),
+        [&xDocument](const AutoRecovery::TDocumentInfo& rInfo) { return rInfo.Document == xDocument; });
 }
 
 void lcl_changeVisibility( const css::uno::Reference< css::frame::XFramesSupplier >& i_rFrames, bool i_bVisible )
@@ -3816,21 +3802,16 @@ void AutoRecovery::implts_cleanUpWorkingEntry(const DispatchParams& aParams)
 {
     CacheLockGuard aCacheLock(this, cppu::WeakComponentImplHelperBase::rBHelper.rMutex, m_nDocCacheLock, LOCK_FOR_CACHE_ADD_REMOVE);
 
-    AutoRecovery::TDocumentList::iterator pIt;
-    for (  pIt  = m_lDocCache.begin();
-           pIt != m_lDocCache.end();
-         ++pIt                       )
+    AutoRecovery::TDocumentList::iterator pIt = std::find_if(m_lDocCache.begin(), m_lDocCache.end(),
+        [&aParams](const AutoRecovery::TDocumentInfo& rInfo) { return rInfo.ID == aParams.m_nWorkingEntryID; });
+    if (pIt != m_lDocCache.end())
     {
         AutoRecovery::TDocumentInfo& rInfo = *pIt;
-        if (rInfo.ID != aParams.m_nWorkingEntryID)
-            continue;
-
         AutoRecovery::st_impl_removeFile(rInfo.OldTempURL);
         AutoRecovery::st_impl_removeFile(rInfo.NewTempURL);
         implts_flushConfigItem(rInfo, true); // sal_True => remove it from xml config!
 
         m_lDocCache.erase(pIt);
-        break; /// !!! pIt is not defined any longer ... further this function has finished it's work
     }
 }
 

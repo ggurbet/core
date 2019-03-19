@@ -30,6 +30,8 @@
 #include "op_spreadsheet.hxx"
 #include "op_addin.hxx"
 
+#include <com/sun/star/sheet/FormulaLanguage.hpp>
+
 // FIXME: The idea that somebody would bother to (now and then? once a year? once a month?) manually
 // edit a source file and change the value of some #defined constant and run some ill-defined
 // "correctness test" is of course ludicrous. Either things are checked in normal unit tests, in
@@ -1035,7 +1037,7 @@ class DynamicKernelSlidingArgument : public Base
 public:
     DynamicKernelSlidingArgument(const ScCalcConfig& config, const std::string& s,
                                  const FormulaTreeNodeRef& ft,
-                                 std::shared_ptr<SlidingFunctionBase>& CodeGen, int index)
+                                 const std::shared_ptr<SlidingFunctionBase>& CodeGen, int index)
         : Base(config, s, ft, index)
         , mpCodeGen(CodeGen)
     {
@@ -1217,7 +1219,7 @@ class DynamicKernelMixedSlidingArgument : public VectorRef
 {
 public:
     DynamicKernelMixedSlidingArgument( const ScCalcConfig& config, const std::string& s,
-        const FormulaTreeNodeRef& ft, std::shared_ptr<SlidingFunctionBase>& CodeGen,
+        const FormulaTreeNodeRef& ft, const std::shared_ptr<SlidingFunctionBase>& CodeGen,
         int index ) :
         VectorRef(config, s, ft),
         mDoubleArgument(mCalcConfig, s, ft, CodeGen, index),
@@ -1321,7 +1323,7 @@ class ParallelReductionVectorRef : public Base
 public:
     ParallelReductionVectorRef(const ScCalcConfig& config, const std::string& s,
                                const FormulaTreeNodeRef& ft,
-                               std::shared_ptr<SlidingFunctionBase>& CodeGen, int index)
+                               const std::shared_ptr<SlidingFunctionBase>& CodeGen, int index)
         : Base(config, s, ft, index)
         , mpCodeGen(CodeGen)
         , mpClmem2(nullptr)
@@ -1710,7 +1712,7 @@ public:
         }
         // set kernel arg
         SAL_INFO("sc.opencl", "Kernel " << k << " arg " << argno << ": cl_mem: " << mpClmem2);
-        err = clSetKernelArg(k, argno, sizeof(cl_mem), &(mpClmem2));
+        err = clSetKernelArg(k, argno, sizeof(cl_mem), &mpClmem2);
         if (CL_SUCCESS != err)
             throw OpenCLError("clSetKernelArg", err, __FILE__, __LINE__);
         return 1;
@@ -2338,10 +2340,9 @@ public:
     virtual size_t Marshal( cl_kernel k, int argno, int nVectorWidth, cl_program pProgram ) override
     {
         unsigned i = 0;
-        for (SubArgumentsType::iterator it = mvSubArguments.begin(), e = mvSubArguments.end(); it != e;
-            ++it)
+        for (const auto& rxSubArgument : mvSubArguments)
         {
-            i += (*it)->Marshal(k, argno + i, nVectorWidth, pProgram);
+            i += rxSubArgument->Marshal(k, argno + i, nVectorWidth, pProgram);
         }
         if (dynamic_cast<OpGeoMean*>(mpCodeGen.get()))
         {
@@ -2351,10 +2352,9 @@ public:
             cl_mem pClmem2;
 
             std::vector<cl_mem> vclmem;
-            for (SubArgumentsType::iterator it = mvSubArguments.begin(),
-                e = mvSubArguments.end(); it != e; ++it)
+            for (const auto& rxSubArgument : mvSubArguments)
             {
-                if (VectorRef* VR = dynamic_cast<VectorRef*>(it->get()))
+                if (VectorRef* VR = dynamic_cast<VectorRef*>(rxSubArgument.get()))
                     vclmem.push_back(VR->GetCLBuffer());
                 else
                     vclmem.push_back(nullptr);
@@ -2420,12 +2420,11 @@ public:
                 size_t nCurWindowSize = slidingArgPtr->GetWindowSize();
                 std::vector<SumIfsArgs> vclmem;
 
-                for (SubArgumentsType::iterator it = mvSubArguments.begin(),
-                    e = mvSubArguments.end(); it != e; ++it)
+                for (const auto& rxSubArgument : mvSubArguments)
                 {
-                    if (VectorRef* VR = dynamic_cast<VectorRef*>(it->get()))
+                    if (VectorRef* VR = dynamic_cast<VectorRef*>(rxSubArgument.get()))
                         vclmem.emplace_back(VR->GetCLBuffer());
-                    else if (DynamicKernelConstantArgument* CA = dynamic_cast<DynamicKernelConstantArgument*>(it->get()))
+                    else if (DynamicKernelConstantArgument* CA = dynamic_cast<DynamicKernelConstantArgument*>(rxSubArgument.get()))
                         vclmem.emplace_back(CA->GetDouble());
                     else
                         vclmem.emplace_back(nullptr);
@@ -2596,6 +2595,13 @@ public:
         for (const auto & rSubArgument : mvSubArguments)
             rSubArgument->DumpInlineFun(decls, funs);
     }
+    virtual bool IsEmpty() const override
+    {
+        for (const auto & rSubArgument : mvSubArguments)
+            if( !rSubArgument->IsEmpty())
+                return false;
+        return true;
+    }
     virtual ~DynamicKernelSoPArguments() override
     {
         if (mpClmem2)
@@ -2733,46 +2739,67 @@ DynamicKernelSoPArguments::DynamicKernelSoPArguments(const ScCalcConfig& config,
                                  " takeNumeric=" << (pCodeGen->takeNumeric()?"YES":"NO") <<
                                  " takeString=" << (pCodeGen->takeString()?"YES":"NO"));
 
-                        if (pDVR->GetArrays()[j].mpNumericArray ||
-                            (pDVR->GetArrays()[j].mpNumericArray == nullptr &&
-                                pDVR->GetArrays()[j].mpStringArray == nullptr))
+                        if (pDVR->GetArrays()[j].mpNumericArray &&
+                            pCodeGen->takeNumeric() &&
+                            pDVR->GetArrays()[j].mpStringArray &&
+                            pCodeGen->takeString())
                         {
-                            if (pDVR->GetArrays()[j].mpNumericArray &&
-                                pCodeGen->takeNumeric() &&
-                                pDVR->GetArrays()[j].mpStringArray &&
-                                pCodeGen->takeString())
-                            {
-                                // Function takes numbers or strings, there are both
-                                SAL_INFO("sc.opencl", "Numbers and strings and that is OK");
-                                mvSubArguments.push_back(
-                                    DynamicKernelArgumentRef(
-                                        new DynamicKernelMixedSlidingArgument(mCalcConfig,
-                                            ts, ft->Children[i], mpCodeGen, j)));
-                            }
-                            else if (!AllStringsAreNull(pDVR->GetArrays()[j].mpStringArray, pDVR->GetArrayLength()) &&
-                                     !pCodeGen->takeString())
-                            {
-                                // Can't handle
-                                SAL_INFO("sc.opencl", "Strings but can't do that.");
-                                throw UnhandledToken(("unhandled operand " + StackVarEnumToString(pChild->GetType()) + " for ocPush").c_str(), __FILE__, __LINE__);
-                            }
-                            else
-                            {
-                                // Not sure I can figure out what case this exactly is;)
-                                SAL_INFO("sc.opencl", "The other case");
-                                mvSubArguments.push_back(
-                                    DynamicKernelArgumentRef(VectorRefFactory<VectorRef>(mCalcConfig,
-                                            ts, ft->Children[i], mpCodeGen, j)));
-                            }
+                            // Function takes numbers or strings, there are both
+                            SAL_INFO("sc.opencl", "Numbers and strings");
+                            mvSubArguments.push_back(
+                                DynamicKernelArgumentRef(
+                                    new DynamicKernelMixedSlidingArgument(mCalcConfig,
+                                        ts, ft->Children[i], mpCodeGen, j)));
                         }
-                        else
+                        else if (pDVR->GetArrays()[j].mpNumericArray &&
+                            pCodeGen->takeNumeric() &&
+                                 (AllStringsAreNull(pDVR->GetArrays()[j].mpStringArray, pDVR->GetArrayLength()) || mCalcConfig.meStringConversion == ScCalcConfig::StringConversion::ZERO))
                         {
-                            // Ditto here. This is such crack.
-                            SAL_INFO("sc.opencl", "The outer other case (can't figure out what it exactly means)");
+                            // Function takes numbers, and either there
+                            // are no strings, or there are strings but
+                            // they are to be treated as zero
+                            SAL_INFO("sc.opencl", "Numbers (no strings or strings treated as zero)");
+                            mvSubArguments.push_back(
+                                DynamicKernelArgumentRef(VectorRefFactory<VectorRef>(mCalcConfig,
+                                        ts, ft->Children[i], mpCodeGen, j)));
+                        }
+                        else if (pDVR->GetArrays()[j].mpNumericArray == nullptr &&
+                            pCodeGen->takeNumeric() &&
+                            pDVR->GetArrays()[j].mpStringArray &&
+                            mCalcConfig.meStringConversion == ScCalcConfig::StringConversion::ZERO)
+                        {
+                            // Function takes numbers, and there are only
+                            // strings, but they are to be treated as zero
+                            SAL_INFO("sc.opencl", "Only strings even if want numbers but should be treated as zero");
+                            mvSubArguments.push_back(
+                                DynamicKernelArgumentRef(VectorRefFactory<VectorRef>(mCalcConfig,
+                                        ts, ft->Children[i], mpCodeGen, j)));
+                        }
+                        else if (pDVR->GetArrays()[j].mpStringArray &&
+                            pCodeGen->takeString())
+                        {
+                            // There are strings, and the function takes strings.
+                            SAL_INFO("sc.opencl", "Strings only");
                             mvSubArguments.push_back(
                                 DynamicKernelArgumentRef(VectorRefFactory
                                     <DynamicKernelStringArgument>(mCalcConfig,
                                         ts, ft->Children[i], mpCodeGen, j)));
+                        }
+                        else if (AllStringsAreNull(pDVR->GetArrays()[j].mpStringArray, pDVR->GetArrayLength()) &&
+                            pDVR->GetArrays()[j].mpNumericArray == nullptr)
+                        {
+                            // There are only empty cells. Push as an
+                            // array of NANs
+                            SAL_INFO("sc.opencl", "Only empty cells");
+                            mvSubArguments.push_back(
+                                DynamicKernelArgumentRef(VectorRefFactory<VectorRef>(mCalcConfig,
+                                        ts, ft->Children[i], mpCodeGen, j)));
+                        }
+                        else
+                        {
+                            SAL_INFO("sc.opencl", "Unhandled case, rejecting for OpenCL");
+                            throw UnhandledToken(("Unhandled numbers/strings combination for '"
+                                + pCodeGen->BinFuncName() + "'").c_str(), __FILE__, __LINE__);
                         }
                     }
                 }
@@ -2794,7 +2821,7 @@ DynamicKernelSoPArguments::DynamicKernelSoPArguments(const ScCalcConfig& config,
                         pCodeGen->takeString())
                     {
                         // Function takes numbers or strings, there are both
-                        SAL_INFO("sc.opencl", "Numbers and strings and that is OK");
+                        SAL_INFO("sc.opencl", "Numbers and strings");
                         mvSubArguments.push_back(
                             DynamicKernelArgumentRef(new DynamicKernelMixedArgument(mCalcConfig,
                                     ts, ft->Children[i])));
@@ -2806,7 +2833,7 @@ DynamicKernelSoPArguments::DynamicKernelSoPArguments(const ScCalcConfig& config,
                         // Function takes numbers, and either there
                         // are no strings, or there are strings but
                         // they are to be treated as zero
-                        SAL_INFO("sc.opencl", "Maybe strings even if want numbers but should be treated as zero");
+                        SAL_INFO("sc.opencl", "Numbers (no strings or strings treated as zero)");
                         mvSubArguments.push_back(
                             DynamicKernelArgumentRef(new VectorRef(mCalcConfig, ts,
                                     ft->Children[i])));
@@ -2844,13 +2871,14 @@ DynamicKernelSoPArguments::DynamicKernelSoPArguments(const ScCalcConfig& config,
                     }
                     else
                     {
-                        SAL_INFO("sc.opencl", "Fallback case, rejecting for OpenCL");
-                        throw UnhandledToken("Got unhandled case here", __FILE__, __LINE__);
+                        SAL_INFO("sc.opencl", "Unhandled case, rejecting for OpenCL");
+                        throw UnhandledToken(("Unhandled numbers/strings combination for '"
+                            + pCodeGen->BinFuncName() + "'").c_str(), __FILE__, __LINE__);
                     }
                 }
                 else if (pChild->GetType() == formula::svDouble)
                 {
-                    SAL_INFO("sc.opencl", "Constant number (?) case");
+                    SAL_INFO("sc.opencl", "Constant number case");
                     mvSubArguments.push_back(
                         DynamicKernelArgumentRef(new DynamicKernelConstantArgument(mCalcConfig, ts,
                                 ft->Children[i])));
@@ -2858,14 +2886,14 @@ DynamicKernelSoPArguments::DynamicKernelSoPArguments(const ScCalcConfig& config,
                 else if (pChild->GetType() == formula::svString
                     && pCodeGen->takeString())
                 {
-                    SAL_INFO("sc.opencl", "Constant string (?) case");
+                    SAL_INFO("sc.opencl", "Constant string case");
                     mvSubArguments.push_back(
                         DynamicKernelArgumentRef(new ConstStringArgument(mCalcConfig, ts,
                                 ft->Children[i])));
                 }
                 else
                 {
-                    SAL_INFO("sc.opencl", "Fallback case, rejecting for OpenCL");
+                    SAL_INFO("sc.opencl", "Unhandled operand, rejecting for OpenCL");
                     throw UnhandledToken(("unhandled operand " + StackVarEnumToString(pChild->GetType()) + " for ocPush").c_str(), __FILE__, __LINE__);
                 }
                 break;
@@ -3758,7 +3786,9 @@ DynamicKernelSoPArguments::DynamicKernelSoPArguments(const ScCalcConfig& config,
                 break;
 
             default:
-                throw UnhandledToken("unhandled opcode", __FILE__, __LINE__);
+                throw UnhandledToken(OUString("unhandled opcode "
+                    + formula::FormulaCompiler().GetOpCodeMap(com::sun::star::sheet::FormulaLanguage::ENGLISH)->getSymbol(opc)
+                    + "(" + OUString::number(opc) + ")").toUtf8().getStr(), __FILE__, __LINE__);
         }
     }
 }
@@ -3769,7 +3799,7 @@ public:
     DynamicKernel( const ScCalcConfig& config, const FormulaTreeNodeRef& r, int nResultSize );
     virtual ~DynamicKernel() override;
 
-    static DynamicKernel* create( const ScCalcConfig& config, const ScTokenArray& rCode, int nResultSize );
+    static std::unique_ptr<DynamicKernel> create( const ScCalcConfig& config, const ScTokenArray& rCode, int nResultSize );
 
     /// OpenCL code generation
     void CodeGen();
@@ -3847,22 +3877,24 @@ void DynamicKernel::CodeGen()
     // preambles
     decl << publicFunc;
     DK->DumpInlineFun(inlineDecl, inlineFun);
-    for (std::set<std::string>::iterator set_iter = inlineDecl.begin();
-        set_iter != inlineDecl.end(); ++set_iter)
+    for (const auto& rItem : inlineDecl)
     {
-        decl << *set_iter;
+        decl << rItem;
     }
 
-    for (std::set<std::string>::iterator set_iter = inlineFun.begin();
-        set_iter != inlineFun.end(); ++set_iter)
+    for (const auto& rItem : inlineFun)
     {
-        decl << *set_iter;
+        decl << rItem;
     }
     mSyms.DumpSlidingWindowFunctions(decl);
     mKernelSignature = DK->DumpOpName();
     decl << "__kernel void DynamicKernel" << mKernelSignature;
-    decl << "(__global double *result, ";
-    DK->GenSlidingWindowDecl(decl);
+    decl << "(__global double *result";
+    if( !DK->IsEmpty())
+    {
+        decl << ", ";
+        DK->GenSlidingWindowDecl(decl);
+    }
     decl << ") {\n\tint gid0 = get_global_id(0);\n\tresult[gid0] = " <<
         DK->GenSlidingWindowDeclRef() << ";\n}\n";
     mFullProgramSrc = decl.str();
@@ -3992,7 +4024,12 @@ void DynamicKernel::CreateKernel()
                     }
                 }
 #endif
+#ifdef DBG_UTIL
+                SAL_WARN("sc.opencl", "Program failed to build, aborting.");
+                abort(); // make sure errors such as typos don't accidentally go unnoticed
+#else
                 throw OpenCLError("clBuildProgram", err, __FILE__, __LINE__);
+#endif
             }
             SAL_INFO("sc.opencl", "Built program " << mpProgram);
 
@@ -4077,7 +4114,7 @@ ScMatrixRef FormulaGroupInterpreterOpenCL::inverseMatrix( const ScMatrix& )
     return nullptr;
 }
 
-DynamicKernel* DynamicKernel::create( const ScCalcConfig& rConfig, const ScTokenArray& rCode, int nResultSize )
+std::unique_ptr<DynamicKernel> DynamicKernel::create( const ScCalcConfig& rConfig, const ScTokenArray& rCode, int nResultSize )
 {
     // Constructing "AST"
     FormulaTokenIterator aCode(rCode);
@@ -4119,7 +4156,7 @@ DynamicKernel* DynamicKernel::create( const ScCalcConfig& rConfig, const ScToken
     FormulaTreeNodeRef Root = std::make_shared<FormulaTreeNode>(nullptr);
     Root->Children.push_back(aHashMap[aTokenVector.back()]);
 
-    DynamicKernel* pDynamicKernel = new DynamicKernel(rConfig, Root, nResultSize);
+    std::unique_ptr<DynamicKernel> pDynamicKernel(new DynamicKernel(rConfig, Root, nResultSize));
 
     // OpenCL source code generation and kernel compilation
     try
@@ -4130,14 +4167,12 @@ DynamicKernel* DynamicKernel::create( const ScCalcConfig& rConfig, const ScToken
     catch (const UnhandledToken& ut)
     {
         SAL_INFO("sc.opencl", "Dynamic formula compiler: UnhandledToken: " << ut.mMessage << " at " << ut.mFile << ":" << ut.mLineNumber);
-        delete pDynamicKernel;
         return nullptr;
     }
     catch (const InvalidParameterCount& ipc)
     {
         SAL_INFO("sc.opencl", "Dynamic formula compiler: InvalidParameterCount " << ipc.mParameterCount
             << " at " << ipc.mFile << ":" << ipc.mLineNumber);
-        delete pDynamicKernel;
         return nullptr;
     }
     catch (const OpenCLError& oce)
@@ -4148,7 +4183,6 @@ DynamicKernel* DynamicKernel::create( const ScCalcConfig& rConfig, const ScToken
 
         // OpenCLError used to go to the catch-all below, and not delete pDynamicKernel. Was that
         // intentional, should we not do it here then either?
-        delete pDynamicKernel;
         openclwrapper::kernelFailures++;
         return nullptr;
     }
@@ -4158,7 +4192,6 @@ DynamicKernel* DynamicKernel::create( const ScCalcConfig& rConfig, const ScToken
 
         // Unhandled used to go to the catch-all below, and not delete pDynamicKernel. Was that
         // intentional, should we not do it here then either?
-        delete pDynamicKernel;
         openclwrapper::kernelFailures++;
         return nullptr;
     }
@@ -4166,7 +4199,6 @@ DynamicKernel* DynamicKernel::create( const ScCalcConfig& rConfig, const ScToken
     {
         // FIXME: Do we really want to catch random exceptions here?
         SAL_WARN("sc.opencl", "Dynamic formula compiler: unexpected exception");
-        // FIXME: Not deleting pDynamicKernel here!?, is that intentional?
         openclwrapper::kernelFailures++;
         return nullptr;
     }
@@ -4258,10 +4290,10 @@ public:
         return mpKernel != nullptr;
     }
 
-    void setManagedKernel( DynamicKernel* pKernel )
+    void setManagedKernel( std::unique_ptr<DynamicKernel> pKernel )
     {
-        mpKernelStore.reset(pKernel);
-        mpKernel = pKernel;
+        mpKernelStore = std::move(pKernel);
+        mpKernel = mpKernelStore.get();
     }
 
     CLInterpreterResult launchKernel()

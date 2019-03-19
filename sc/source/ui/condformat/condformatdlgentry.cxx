@@ -17,21 +17,17 @@
 
 #include <document.hxx>
 
-#include <vcl/vclevent.hxx>
 #include <svl/style.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svl/stritem.hxx>
 #include <svl/intitem.hxx>
 #include <svx/colorbox.hxx>
-#include <svx/xtable.hxx>
-#include <svx/drawitem.hxx>
 #include <vcl/settings.hxx>
 #include <formula/token.hxx>
 #include <formula/errorcodes.hxx>
 #include <tokenarray.hxx>
 #include <stlpool.hxx>
 #include <tabvwsh.hxx>
-#include <simpleformulacalc.hxx>
 #include <unotools/charclass.hxx>
 
 #include <colorformat.hxx>
@@ -155,10 +151,9 @@ void FillStyleListBox( const ScDocument* pDoc, ListBox& rLbStyle )
     {
         aStyleNames.insert(pStyle->GetName());
     }
-    for(std::set<OUString>::const_iterator itr = aStyleNames.begin(), itrEnd = aStyleNames.end();
-                        itr != itrEnd; ++itr)
+    for(const auto& rStyleName : aStyleNames)
     {
-        rLbStyle.InsertEntry( *itr );
+        rLbStyle.InsertEntry( rStyleName );
     }
 }
 
@@ -214,7 +209,7 @@ ScConditionFrmtEntry::ScConditionFrmtEntry(vcl::Window* pParent, ScDocument* pDo
     if(pFormatEntry)
     {
         maLbStyle->SelectEntry(pFormatEntry->GetStyle());
-        StyleSelectHdl(*maLbStyle.get());
+        StyleSelectHdl(*maLbStyle);
         ScConditionMode eMode = pFormatEntry->GetOperation();
 
         maLbCondType->SelectEntryPos(ConditionModeToEntryPos(eMode));
@@ -277,7 +272,7 @@ void ScConditionFrmtEntry::Init(ScCondFormatDlg* pDialogParent)
     maEdVal1->SetModifyHdl( LINK( this, ScConditionFrmtEntry, OnEdChanged ) );
     maEdVal2->SetModifyHdl( LINK( this, ScConditionFrmtEntry, OnEdChanged ) );
 
-    FillStyleListBox( mpDoc, *maLbStyle.get() );
+    FillStyleListBox( mpDoc, *maLbStyle );
     maLbStyle->SetSelectHdl( LINK( this, ScConditionFrmtEntry, StyleSelectHdl ) );
 
     maLbCondType->SetSelectHdl( LINK( this, ScConditionFrmtEntry, ConditionTypeSelectHdl ) );
@@ -470,7 +465,7 @@ void ScConditionFrmtEntry::Notify(SfxBroadcaster&, const SfxHint& rHint)
     if(rHint.GetId() == SfxHintId::StyleSheetModified)
     {
         if(!mbIsInStyleCreate)
-            UpdateStyleList(*maLbStyle.get(), mpDoc);
+            UpdateStyleList(*maLbStyle, mpDoc);
     }
 }
 
@@ -543,7 +538,7 @@ void StyleSelect( ListBox& rLbStyle, const ScDocument* pDoc, SvxFontPrevWindow& 
 IMPL_LINK_NOARG(ScConditionFrmtEntry, StyleSelectHdl, ListBox&, void)
 {
     mbIsInStyleCreate = true;
-    StyleSelect( *maLbStyle.get(), mpDoc, *maWdPreview.get() );
+    StyleSelect( *maLbStyle, mpDoc, *maWdPreview );
     mbIsInStyleCreate = false;
 }
 
@@ -572,7 +567,7 @@ ScFormulaFrmtEntry::ScFormulaFrmtEntry( vcl::Window* pParent, ScDocument* pDoc, 
         maLbStyle->SelectEntryPos(1);
     }
 
-    StyleSelectHdl(*maLbStyle.get());
+    StyleSelectHdl(*maLbStyle);
 }
 
 ScFormulaFrmtEntry::~ScFormulaFrmtEntry()
@@ -593,13 +588,13 @@ void ScFormulaFrmtEntry::Init(ScCondFormatDlg* pDialogParent)
 {
     maEdFormula->SetGetFocusHdl( LINK( pDialogParent, ScCondFormatDlg, RangeGetFocusHdl ) );
 
-    FillStyleListBox( mpDoc, *maLbStyle.get() );
+    FillStyleListBox( mpDoc, *maLbStyle );
     maLbStyle->SetSelectHdl( LINK( this, ScFormulaFrmtEntry, StyleSelectHdl ) );
 }
 
 IMPL_LINK_NOARG(ScFormulaFrmtEntry, StyleSelectHdl, ListBox&, void)
 {
-    StyleSelect( *maLbStyle.get(), mpDoc, *maWdPreview.get() );
+    StyleSelect( *maLbStyle, mpDoc, *maWdPreview );
 }
 
 ScFormatEntry* ScFormulaFrmtEntry::createFormulaEntry() const
@@ -820,9 +815,9 @@ ScColorScale2FrmtEntry::ScColorScale2FrmtEntry( vcl::Window* pParent, ScDocument
     if(pFormat)
     {
         ScColorScaleEntries::const_iterator itr = pFormat->begin();
-        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMin.get(), *maEdMin.get(), *maLbColMin.get(), pDoc);
+        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMin, *maEdMin, *maLbColMin, pDoc);
         ++itr;
-        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMax.get(), *maEdMax.get(), *maLbColMax.get(), pDoc);
+        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMax, *maEdMax, *maLbColMax, pDoc);
     }
     else
     {
@@ -832,8 +827,8 @@ ScColorScale2FrmtEntry::ScColorScale2FrmtEntry( vcl::Window* pParent, ScDocument
 
     maLbColorFormat->SetSelectHdl( LINK( pParent, ScCondFormatList, ColFormatTypeHdl ) );
 
-    EntryTypeHdl(*maLbEntryTypeMin.get());
-    EntryTypeHdl(*maLbEntryTypeMax.get());
+    EntryTypeHdl(*maLbEntryTypeMin);
+    EntryTypeHdl(*maLbEntryTypeMax);
 }
 
 ScColorScale2FrmtEntry::~ScColorScale2FrmtEntry()
@@ -866,8 +861,8 @@ void ScColorScale2FrmtEntry::Init()
 ScFormatEntry* ScColorScale2FrmtEntry::createColorscaleEntry() const
 {
     ScColorScaleFormat* pColorScale = new ScColorScaleFormat(mpDoc);
-    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMin.get(), *maLbColMin.get(), *maEdMin.get(), mpDoc, maPos));
-    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMax.get(), *maLbColMax.get(), *maEdMax.get(), mpDoc, maPos));
+    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMin, *maLbColMin, *maEdMin, mpDoc, maPos));
+    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMax, *maLbColMax, *maEdMax, mpDoc, maPos));
     return pColorScale;
 }
 
@@ -969,12 +964,12 @@ ScColorScale3FrmtEntry::ScColorScale3FrmtEntry( vcl::Window* pParent, ScDocument
     if(pFormat)
     {
         ScColorScaleEntries::const_iterator itr = pFormat->begin();
-        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMin.get(), *maEdMin.get(), *maLbColMin.get(), pDoc);
+        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMin, *maEdMin, *maLbColMin, pDoc);
         assert(pFormat->size() == 3);
         ++itr;
-        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMiddle.get(), *maEdMiddle.get(), *maLbColMiddle.get(), pDoc);
+        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMiddle, *maEdMiddle, *maLbColMiddle, pDoc);
         ++itr;
-        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMax.get(), *maEdMax.get(), *maLbColMax.get(), pDoc);
+        SetColorScaleEntryTypes(*itr[0], *maLbEntryTypeMax, *maEdMax, *maLbColMax, pDoc);
     }
     else
     {
@@ -986,9 +981,9 @@ ScColorScale3FrmtEntry::ScColorScale3FrmtEntry( vcl::Window* pParent, ScDocument
     }
 
     maLbColorFormat->SetSelectHdl( LINK( pParent, ScCondFormatList, ColFormatTypeHdl ) );
-    EntryTypeHdl(*maLbEntryTypeMin.get());
-    EntryTypeHdl(*maLbEntryTypeMiddle.get());
-    EntryTypeHdl(*maLbEntryTypeMax.get());
+    EntryTypeHdl(*maLbEntryTypeMin);
+    EntryTypeHdl(*maLbEntryTypeMiddle);
+    EntryTypeHdl(*maLbEntryTypeMax);
 }
 
 ScColorScale3FrmtEntry::~ScColorScale3FrmtEntry()
@@ -1026,10 +1021,10 @@ void ScColorScale3FrmtEntry::Init()
 ScFormatEntry* ScColorScale3FrmtEntry::createColorscaleEntry() const
 {
     ScColorScaleFormat* pColorScale = new ScColorScaleFormat(mpDoc);
-    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMin.get(), *maLbColMin.get(), *maEdMin.get(), mpDoc, maPos));
+    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMin, *maLbColMin, *maEdMin, mpDoc, maPos));
     if(maLbColorFormat->GetSelectedEntryPos() == 1)
-        pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMiddle.get(), *maLbColMiddle.get(), *maEdMiddle.get(), mpDoc, maPos));
-    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMax.get(), *maLbColMax.get(), *maEdMax.get(), mpDoc, maPos));
+        pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMiddle, *maLbColMiddle, *maEdMiddle, mpDoc, maPos));
+    pColorScale->AddEntry(createColorScaleEntry(*maLbEntryTypeMax, *maLbColMax, *maEdMax, mpDoc, maPos));
     return pColorScale;
 }
 
@@ -1185,15 +1180,15 @@ ScDataBarFrmtEntry::ScDataBarFrmtEntry( vcl::Window* pParent, ScDocument* pDoc, 
     if(pFormat)
     {
         mpDataBarData.reset(new ScDataBarFormatData(*pFormat->GetDataBarData()));
-        SetDataBarEntryTypes(*mpDataBarData->mpLowerLimit, *maLbDataBarMinType.get(), *maEdDataBarMin.get(), pDoc);
-        SetDataBarEntryTypes(*mpDataBarData->mpUpperLimit, *maLbDataBarMaxType.get(), *maEdDataBarMax.get(), pDoc);
-        DataBarTypeSelectHdl(*maLbDataBarMinType.get());
+        SetDataBarEntryTypes(*mpDataBarData->mpLowerLimit, *maLbDataBarMinType, *maEdDataBarMin, pDoc);
+        SetDataBarEntryTypes(*mpDataBarData->mpUpperLimit, *maLbDataBarMaxType, *maEdDataBarMax, pDoc);
+        DataBarTypeSelectHdl(*maLbDataBarMinType);
     }
     else
     {
         selectType(*maLbDataBarMinType, COLORSCALE_AUTO);
         selectType(*maLbDataBarMaxType, COLORSCALE_AUTO);
-        DataBarTypeSelectHdl(*maLbDataBarMinType.get());
+        DataBarTypeSelectHdl(*maLbDataBarMinType);
     }
     Init();
 
@@ -1243,10 +1238,10 @@ void ScDataBarFrmtEntry::Init()
 
 ScFormatEntry* ScDataBarFrmtEntry::createDatabarEntry() const
 {
-    SetColorScaleEntry(mpDataBarData->mpLowerLimit.get(), *maLbDataBarMinType.get(),
-                       *maEdDataBarMin.get(), mpDoc, maPos);
-    SetColorScaleEntry(mpDataBarData->mpUpperLimit.get(), *maLbDataBarMaxType.get(),
-                       *maEdDataBarMax.get(), mpDoc, maPos);
+    SetColorScaleEntry(mpDataBarData->mpLowerLimit.get(), *maLbDataBarMinType,
+                       *maEdDataBarMin, mpDoc, maPos);
+    SetColorScaleEntry(mpDataBarData->mpUpperLimit.get(), *maLbDataBarMaxType,
+                       *maEdDataBarMax, mpDoc, maPos);
     ScDataBarFormat* pDataBar = new ScDataBarFormat(mpDoc);
     pDataBar->SetDataBarData(new ScDataBarFormatData(*mpDataBarData));
     return pDataBar;
@@ -1298,17 +1293,17 @@ IMPL_LINK_NOARG( ScDataBarFrmtEntry, DataBarTypeSelectHdl, ListBox&, void )
 
 IMPL_LINK_NOARG( ScDataBarFrmtEntry, OptionBtnHdl, Button*, void )
 {
-    SetColorScaleEntry(mpDataBarData->mpLowerLimit.get(), *maLbDataBarMinType.get(),
-                       *maEdDataBarMin.get(), mpDoc, maPos);
-    SetColorScaleEntry(mpDataBarData->mpUpperLimit.get(), *maLbDataBarMaxType.get(),
-                       *maEdDataBarMax.get(), mpDoc, maPos);
-    ScopedVclPtrInstance<ScDataBarSettingsDlg> pDlg(this, *mpDataBarData, mpDoc, maPos);
-    if( pDlg->Execute() == RET_OK)
+    SetColorScaleEntry(mpDataBarData->mpLowerLimit.get(), *maLbDataBarMinType,
+                       *maEdDataBarMin, mpDoc, maPos);
+    SetColorScaleEntry(mpDataBarData->mpUpperLimit.get(), *maLbDataBarMaxType,
+                       *maEdDataBarMax, mpDoc, maPos);
+    ScDataBarSettingsDlg aDlg(GetFrameWeld(), *mpDataBarData, mpDoc, maPos);
+    if (aDlg.run() == RET_OK)
     {
-        mpDataBarData.reset(pDlg->GetData());
-        SetDataBarEntryTypes(*mpDataBarData->mpLowerLimit, *maLbDataBarMinType, *maEdDataBarMin.get(), mpDoc);
-        SetDataBarEntryTypes(*mpDataBarData->mpUpperLimit, *maLbDataBarMaxType.get(), *maEdDataBarMax.get(), mpDoc);
-        DataBarTypeSelectHdl(*maLbDataBarMinType.get());
+        mpDataBarData.reset(aDlg.GetData());
+        SetDataBarEntryTypes(*mpDataBarData->mpLowerLimit, *maLbDataBarMinType, *maEdDataBarMin, mpDoc);
+        SetDataBarEntryTypes(*mpDataBarData->mpUpperLimit, *maLbDataBarMaxType, *maEdDataBarMax, mpDoc);
+        DataBarTypeSelectHdl(*maLbDataBarMinType);
     }
 }
 
@@ -1334,7 +1329,7 @@ ScDateFrmtEntry::ScDateFrmtEntry(vcl::Window* pParent, ScDocument* pDoc, const S
         maLbStyle->SelectEntry(pFormat->GetStyleName());
     }
 
-    StyleSelectHdl(*maLbStyle.get());
+    StyleSelectHdl(*maLbStyle);
 }
 
 ScDateFrmtEntry::~ScDateFrmtEntry()
@@ -1356,7 +1351,7 @@ void ScDateFrmtEntry::Init()
     maLbDateEntry->SelectEntryPos(0);
     maLbType->SelectEntryPos(3);
 
-    FillStyleListBox( mpDoc, *maLbStyle.get() );
+    FillStyleListBox( mpDoc, *maLbStyle );
     maLbStyle->SetSelectHdl( LINK( this, ScDateFrmtEntry, StyleSelectHdl ) );
     maLbStyle->SelectEntryPos(1);
 }
@@ -1386,7 +1381,7 @@ void ScDateFrmtEntry::Notify( SfxBroadcaster&, const SfxHint& rHint )
     if(rHint.GetId() == SfxHintId::StyleSheetModified)
     {
         if(!mbIsInStyleCreate)
-            UpdateStyleList(*maLbStyle.get(), mpDoc);
+            UpdateStyleList(*maLbStyle, mpDoc);
     }
 }
 
@@ -1407,7 +1402,7 @@ OUString ScDateFrmtEntry::GetExpressionString()
 IMPL_LINK_NOARG( ScDateFrmtEntry, StyleSelectHdl, ListBox&, void )
 {
     mbIsInStyleCreate = true;
-    StyleSelect( *maLbStyle.get(), mpDoc, *maWdPreview.get() );
+    StyleSelect( *maLbStyle, mpDoc, *maWdPreview );
     mbIsInStyleCreate = false;
 }
 
@@ -1574,7 +1569,7 @@ ScIconSetFrmtEntry::ScIconSetFrmtEntry(vcl::Window* pParent, ScDocument* pDoc, c
         maEntries[0]->SetFirstEntry();
     }
     else
-        IconSetTypeHdl(*maLbIconSetType.get());
+        IconSetTypeHdl(*maLbIconSetType);
 }
 
 ScIconSetFrmtEntry::~ScIconSetFrmtEntry()
@@ -1584,8 +1579,8 @@ ScIconSetFrmtEntry::~ScIconSetFrmtEntry()
 
 void ScIconSetFrmtEntry::dispose()
 {
-    for (auto it = maEntries.begin(); it != maEntries.end(); ++it)
-        it->disposeAndClear();
+    for (auto& rxEntry : maEntries)
+        rxEntry.disposeAndClear();
     maEntries.clear();
     maIconParent.clear();
     maLbColorFormat.clear();
@@ -1609,8 +1604,8 @@ IMPL_LINK_NOARG( ScIconSetFrmtEntry, IconSetTypeHdl, ListBox&, void )
     sal_Int32 nPos = maLbIconSetType->GetSelectedEntryPos();
     sal_uInt32 nElements = pMap[nPos].nElements;
 
-    for (auto it = maEntries.begin(); it != maEntries.end(); ++it)
-        it->disposeAndClear();
+    for (auto& rxEntry : maEntries)
+        rxEntry.disposeAndClear();
     maEntries.clear();
 
     for(size_t i = 0; i < nElements; ++i)
@@ -1633,10 +1628,9 @@ void ScIconSetFrmtEntry::SetActive()
 {
     maLbColorFormat->Show();
     maLbIconSetType->Show();
-    for(ScIconSetFrmtDataEntriesType::iterator itr = maEntries.begin(),
-            itrEnd = maEntries.end(); itr != itrEnd; ++itr)
+    for(auto& rxEntry : maEntries)
     {
-        (*itr)->Show();
+        rxEntry->Show();
     }
 
     Select();
@@ -1646,10 +1640,9 @@ void ScIconSetFrmtEntry::SetInactive()
 {
     maLbColorFormat->Hide();
     maLbIconSetType->Hide();
-    for(ScIconSetFrmtDataEntriesType::iterator itr = maEntries.begin(),
-            itrEnd = maEntries.end(); itr != itrEnd; ++itr)
+    for(auto& rxEntry : maEntries)
     {
-        (*itr)->Hide();
+        rxEntry->Hide();
     }
 
     Deselect();
@@ -1661,10 +1654,9 @@ ScFormatEntry* ScIconSetFrmtEntry::GetEntry() const
 
     ScIconSetFormatData* pData = new ScIconSetFormatData;
     pData->eIconSetType = static_cast<ScIconSetType>(maLbIconSetType->GetSelectedEntryPos());
-    for(ScIconSetFrmtDataEntriesType::const_iterator itr = maEntries.begin(),
-            itrEnd = maEntries.end(); itr != itrEnd; ++itr)
+    for(const auto& rxEntry : maEntries)
     {
-        pData->m_Entries.push_back(std::unique_ptr<ScColorScaleEntry>((*itr)->CreateEntry(mpDoc, maPos)));
+        pData->m_Entries.push_back(std::unique_ptr<ScColorScaleEntry>(rxEntry->CreateEntry(mpDoc, maPos)));
     }
     pFormat->SetIconSetData(pData);
 

@@ -41,7 +41,6 @@
 #include <comphelper/processfactory.hxx>
 #include <unotools/confignode.hxx>
 #include <osl/diagnose.h>
-#include <svtools/miscopt.hxx>
 #include <sal/log.hxx>
 
 namespace dbaui
@@ -139,12 +138,8 @@ namespace dbaui
                     }
                 }
                 std::sort( aDisplayedTypes.begin(), aDisplayedTypes.end(), DisplayedTypeLess() );
-                DisplayedTypes::const_iterator aDisplayEnd = aDisplayedTypes.end();
-                for (   DisplayedTypes::const_iterator loop = aDisplayedTypes.begin();
-                        loop != aDisplayEnd;
-                        ++loop
-                    )
-                    insertDatasourceTypeEntryData( loop->eType, loop->sDisplayName );
+                for ( const auto& rDisplayedType : aDisplayedTypes )
+                    insertDatasourceTypeEntryData( rDisplayedType.eType, rDisplayedType.sDisplayName );
             }
         }
     }
@@ -252,7 +247,7 @@ namespace dbaui
 
         if (m_pCollection && bValid)
         {
-            implSetCurrentType( m_pCollection->getEmbeddedDatabase() );
+            implSetCurrentType( dbaccess::ODsnTypeCollection::getEmbeddedDatabase() );
             sDisplayName = m_pCollection->getTypeDisplayName( m_eCurrentSelection );
         }
 
@@ -487,7 +482,7 @@ namespace dbaui
         get( m_pPB_OpenDatabase, "openDatabase" );
 
         // If no driver for embedded DBs is installed, and no dBase driver, then hide the "Create new database" option
-        sal_Int32 nCreateNewDBIndex = m_pCollection->getIndexOf( m_pCollection->getEmbeddedDatabase() );
+        sal_Int32 nCreateNewDBIndex = m_pCollection->getIndexOf( dbaccess::ODsnTypeCollection::getEmbeddedDatabase() );
         if ( nCreateNewDBIndex == -1 )
             nCreateNewDBIndex = m_pCollection->getIndexOf( "sdbc:dbase:" );
         bool bHideCreateNew = ( nCreateNewDBIndex == -1 );
@@ -578,12 +573,6 @@ namespace dbaui
             m_pFT_DocListLabel->Enable( false );
             m_pLB_DocumentList->Enable( false );
         }
-        else
-        {
-            m_aControlDependencies.enableOnRadioCheck( *m_pRB_CreateDatabase, *m_pEmbeddedDBType, *m_pFT_EmbeddedDBLabel );
-            m_aControlDependencies.enableOnRadioCheck( *m_pRB_ConnectDatabase, *m_pDatasourceType );
-            m_aControlDependencies.enableOnRadioCheck( *m_pRB_OpenExistingDatabase, *m_pPB_OpenDatabase, *m_pFT_DocListLabel, *m_pLB_DocumentList );
-        }
 
         m_pLB_DocumentList->SetDropDownLineCount( 20 );
         if ( m_pLB_DocumentList->GetEntryCount() )
@@ -597,11 +586,7 @@ namespace dbaui
         // Sets the default selected database on startup.
         if (m_pRB_CreateDatabase->IsChecked() )
         {
-            SvtMiscOptions aMiscOptions;
-            if( aMiscOptions.IsExperimentalMode() )
-                return m_pCollection->getTypeDisplayName( "sdbc:embedded:firebird" );
-            else
-                return m_pCollection->getTypeDisplayName( "jdbc:" );
+            return m_pCollection->getTypeDisplayName( "sdbc:firebird:" );
         }
 
         return OGeneralPage::getDatasourceName( _rSet );
@@ -662,17 +647,12 @@ namespace dbaui
         return bChangedSomething;
     }
 
-    OGeneralPageWizard::DocumentDescriptor OGeneralPageWizard::GetSelectedDocument() const
+    OUString OGeneralPageWizard::GetSelectedDocumentURL() const
     {
-        DocumentDescriptor aDocument;
-        if ( !m_aBrowsedDocument.sURL.isEmpty() )
-            aDocument = m_aBrowsedDocument;
+        if ( !m_aBrowsedDocumentURL.isEmpty() )
+            return m_aBrowsedDocumentURL;
         else
-        {
-            aDocument.sURL = m_pLB_DocumentList->GetSelectedDocumentURL();
-            aDocument.sFilter = m_pLB_DocumentList->GetSelectedDocumentFilter();
-        }
-        return aDocument;
+            return m_pLB_DocumentList->GetSelectedDocumentURL();
     }
 
     IMPL_LINK_NOARG( OGeneralPageWizard, OnCreateDatabaseModeSelected, Button*, void )
@@ -680,12 +660,34 @@ namespace dbaui
         m_aCreationModeHandler.Call( *this );
 
         OnEmbeddedDBTypeSelected( *m_pEmbeddedDBType );
+
+        bool bValid, bReadonly;
+        getFlags( GetItemSet(), bValid, bReadonly );
+        if ( bValid && !bReadonly )
+        {
+            m_pEmbeddedDBType->Enable(m_pRB_CreateDatabase->IsChecked());
+            m_pFT_EmbeddedDBLabel->Enable(m_pRB_CreateDatabase->IsChecked());
+        }
     }
 
-    IMPL_LINK_NOARG( OGeneralPageWizard, OnSetupModeSelected, Button*, void )
+    IMPL_LINK( OGeneralPageWizard, OnSetupModeSelected, Button*, pButton, void )
     {
         m_aCreationModeHandler.Call( *this );
         OnDatasourceTypeSelected(*m_pDatasourceType);
+
+        bool bValid, bReadonly;
+        getFlags( GetItemSet(), bValid, bReadonly );
+        if ( bValid && !bReadonly )
+        {
+            if (pButton == m_pRB_ConnectDatabase.get())
+                m_pDatasourceType->Enable(m_pRB_ConnectDatabase->IsChecked());
+            else if (pButton == m_pRB_OpenExistingDatabase.get())
+            {
+                m_pPB_OpenDatabase->Enable(m_pRB_OpenExistingDatabase->IsChecked());
+                m_pFT_DocListLabel->Enable(m_pRB_OpenExistingDatabase->IsChecked());
+                m_pLB_DocumentList->Enable(m_pRB_OpenExistingDatabase->IsChecked());
+            }
+        }
     }
 
     IMPL_LINK_NOARG( OGeneralPageWizard, OnDocumentSelected, ListBox&, void )
@@ -717,8 +719,7 @@ namespace dbaui
                 OnSetupModeSelected( m_pRB_ConnectDatabase );
                 return;
             }
-            m_aBrowsedDocument.sURL = sPath;
-            m_aBrowsedDocument.sFilter.clear();
+            m_aBrowsedDocumentURL = sPath;
             m_aChooseDocumentHandler.Call( *this );
         }
     }

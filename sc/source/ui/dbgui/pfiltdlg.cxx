@@ -35,7 +35,6 @@
 #include <strings.hrc>
 
 #include <pfiltdlg.hxx>
-#include <svl/zforlist.hxx>
 #include <svl/sharedstringpool.hxx>
 
 ScPivotFilterDlg::ScPivotFilterDlg(vcl::Window* pParent, const SfxItemSet& rArgSet,
@@ -209,12 +208,12 @@ void ScPivotFilterDlg::Init( const SfxItemSet& rArgSet )
 
     // disable/enable logic:
 
-       (m_pLbField1->GetSelectedEntryPos() != 0)
+    (m_pLbField1->GetSelectedEntryPos() != 0)
     && (m_pLbField2->GetSelectedEntryPos() != 0)
         ? m_pLbConnect1->SelectEntryPos( static_cast<sal_uInt16>(theQueryData.GetEntry(1).eConnect) )
         : m_pLbConnect1->SetNoSelection();
 
-       (m_pLbField2->GetSelectedEntryPos() != 0)
+    (m_pLbField2->GetSelectedEntryPos() != 0)
     && (m_pLbField3->GetSelectedEntryPos() != 0)
         ? m_pLbConnect2->SelectEntryPos( static_cast<sal_uInt16>(theQueryData.GetEntry(2).eConnect) )
         : m_pLbConnect2->SetNoSelection();
@@ -314,10 +313,9 @@ void ScPivotFilterDlg::UpdateValueList( sal_uInt16 nList )
             }
 
             const ScFilterEntries* pColl = m_pEntryLists[nColumn].get();
-            std::vector<ScTypedStrData>::const_iterator it = pColl->begin(), itEnd = pColl->end();
-            for (; it != itEnd; ++it)
+            for (const auto& rEntry : *pColl)
             {
-                pValList->InsertEntry(it->GetString(), nListPos);
+                pValList->InsertEntry(rEntry.GetString(), nListPos);
                 nListPos++;
             }
         }

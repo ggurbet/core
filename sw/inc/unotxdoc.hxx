@@ -55,7 +55,6 @@
 #include <com/sun/star/text/XFlatParagraphIteratorProvider.hpp>
 #include <com/sun/star/document/XDocumentLanguages.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
-#include <com/sun/star/uno/XAggregation.hpp>
 #include <o3tl/deleter.hxx>
 #include <rtl/ref.hxx>
 #include <svx/fmdmod.hxx>
@@ -63,6 +62,7 @@
 #include <cppuhelper/implbase.hxx>
 #include <vcl/ITiledRenderable.hxx>
 #include <com/sun/star/tiledrendering/XTiledRenderable.hpp>
+#include <com/sun/star/text/XPasteBroadcaster.hpp>
 
 #include "unobaseclass.hxx"
 #include "viewopt.hxx"
@@ -85,6 +85,8 @@ class SfxItemPropertySet;
 namespace com { namespace sun { namespace star { namespace container { class XNameContainer; } } } }
 namespace com { namespace sun { namespace star { namespace frame { class XController; } } } }
 namespace com { namespace sun { namespace star { namespace lang { struct Locale; } } } }
+namespace com { namespace sun { namespace star { namespace uno { class XAggregation; } } } }
+
 namespace com { namespace sun { namespace star { namespace util { class XReplaceDescriptor; } } } }
 
 typedef cppu::WeakImplHelper
@@ -121,7 +123,8 @@ typedef cppu::WeakImplHelper
     css::xforms::XFormsSupplier,
     css::text::XFlatParagraphIteratorProvider,
     css::document::XDocumentLanguages,
-    css::util::XCloneable
+    css::util::XCloneable,
+    css::text::XPasteBroadcaster
 >
 SwXTextDocumentBaseClass;
 
@@ -378,6 +381,12 @@ public:
     // css::util::XCloneable
     virtual css::uno::Reference< css::util::XCloneable > SAL_CALL createClone(  ) override;
 
+    // css::text::XPasteBroadcaster
+    void SAL_CALL addPasteEventListener(
+        const ::css::uno::Reference<::css::text::XPasteListener>& xListener) override;
+    void SAL_CALL removePasteEventListener(
+        const ::css::uno::Reference<::css::text::XPasteListener>& xListener) override;
+
     /// @see vcl::ITiledRenderable::paintTile().
     virtual void paintTile( VirtualDevice &rDevice,
                             int nOutputWidth,
@@ -425,7 +434,7 @@ public:
     /// @see vcl::ITiledRenderable::setClientZoom.
     virtual void setClientZoom(int nTilePixelWidth_, int nTilePixelHeight_, int nTileTwipWidth_, int nTileTwipHeight_) override;
     /// @see vcl::ITiledRenderable::getPointer().
-    virtual Pointer getPointer() override;
+    virtual PointerStyle getPointer() override;
     /// @see vcl::ITiledRenderable::getTrackedChanges().
     OUString getTrackedChanges() override;
     /// @see vcl::ITiledRenderable::getTrackedChangeAuthors().

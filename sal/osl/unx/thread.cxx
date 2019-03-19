@@ -563,7 +563,7 @@ struct HashEntry
 };
 
 static HashEntry* HashTable[31];
-static int HashSize = SAL_N_ELEMENTS(HashTable);
+static const int HashSize = SAL_N_ELEMENTS(HashTable);
 
 static pthread_mutex_t HashLock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -584,16 +584,16 @@ static oslThreadIdentifier lookupThreadId (pthread_t hThread)
 
     pthread_mutex_lock(&HashLock);
 
-        pEntry = HashTable[HASHID(hThread)];
-        while (pEntry != nullptr)
+    pEntry = HashTable[HASHID(hThread)];
+    while (pEntry != nullptr)
+    {
+        if (pthread_equal(pEntry->Handle, hThread))
         {
-            if (pthread_equal(pEntry->Handle, hThread))
-            {
-                pthread_mutex_unlock(&HashLock);
-                return pEntry->Ident;
-            }
-            pEntry = pEntry->Next;
+            pthread_mutex_unlock(&HashLock);
+            return pEntry->Ident;
         }
+        pEntry = pEntry->Next;
+    }
 
     pthread_mutex_unlock(&HashLock);
 

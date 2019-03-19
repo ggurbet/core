@@ -23,7 +23,6 @@
 #include "dxfgrprd.hxx"
 #include "dxfvec.hxx"
 
-#include <deque>
 #include <memory>
 #include <vector>
 
@@ -207,14 +206,14 @@ protected:
 
 class DXFShapeEntity : public DXFBasicEntity {
 
-public:
-
     DXFVector aP0;                    // 10,20,30
     double fSize;                     // 40
     OString m_sName;                  //  2
     double fRotAngle;                 // 50
     double fXScale;                   // 41
     double fOblAngle;                 // 51
+
+public:
 
     DXFShapeEntity();
 
@@ -248,8 +247,6 @@ protected:
 
 class DXFAttDefEntity : public DXFBasicEntity {
 
-public:
-
     DXFVector aP0;                      // 10,20,30
     double fHeight;                     // 40
     OString m_sDefVal;                  //  1
@@ -265,6 +262,8 @@ public:
     long nHorzJust;                     // 72
     long nVertJust;                     // 74
     DXFVector aAlign;                   // 11,21,31
+
+public:
 
     DXFAttDefEntity();
 
@@ -413,7 +412,7 @@ public:
     sal_Int32           nPointIndex;
 
     std::vector<DXFVector> aP;
-    std::deque<std::unique_ptr<DXFEdgeType>> aEdges;
+    std::vector<std::unique_ptr<DXFEdgeType>> aEdges;
 
     DXFBoundaryPathData();
     ~DXFBoundaryPathData();

@@ -281,11 +281,11 @@ void WW8AttributeOutput::NumberingLevel( sal_uInt8 /*nLevel*/,
     SwWW8Writer::WriteLong( *m_rWW8Export.pTableStrm, 0 );
 
     // cbGrpprlChpx
-    ww::bytes aCharAtrs;
+    std::unique_ptr<ww::bytes> pCharAtrs;
     if ( pOutSet )
     {
-        ww::bytes* pOldpO = m_rWW8Export.pO;
-        m_rWW8Export.pO = &aCharAtrs;
+        std::unique_ptr<ww::bytes> pOldpO = std::move(m_rWW8Export.pO);
+        m_rWW8Export.pO.reset(new ww::bytes);
         if ( pFont )
         {
             sal_uInt16 nFontID = m_rWW8Export.m_aFontHelper.GetId( *pFont );
@@ -310,9 +310,10 @@ void WW8AttributeOutput::NumberingLevel( sal_uInt8 /*nLevel*/,
             }
         }
 
-        m_rWW8Export.pO = pOldpO;
+        pCharAtrs = std::move(m_rWW8Export.pO);
+        m_rWW8Export.pO = std::move(pOldpO);
     }
-    m_rWW8Export.pTableStrm->WriteUChar( sal_uInt8( aCharAtrs.size() ) );
+    m_rWW8Export.pTableStrm->WriteUChar(sal_uInt8(pCharAtrs ? pCharAtrs->size() : 0));
 
     // cbGrpprlPapx
     sal_uInt8 aPapSprms [] = {
@@ -336,8 +337,8 @@ void WW8AttributeOutput::NumberingLevel( sal_uInt8 /*nLevel*/,
     m_rWW8Export.pTableStrm->WriteBytes(aPapSprms, sizeof(aPapSprms));
 
     // write Chpx
-    if( !aCharAtrs.empty() )
-        m_rWW8Export.pTableStrm->WriteBytes(aCharAtrs.data(), aCharAtrs.size());
+    if (pCharAtrs && !pCharAtrs->empty())
+        m_rWW8Export.pTableStrm->WriteBytes(pCharAtrs->data(), pCharAtrs->size());
 
     // write the num string
     SwWW8Writer::WriteShort( *m_rWW8Export.pTableStrm, rNumberingString.getLength() );
@@ -480,7 +481,7 @@ void MSWordExportBase::AbstractNumberingDefinitions()
             }
 
             // Attributes of the numbering
-            wwFont *pPseudoFont = nullptr;
+            std::unique_ptr<wwFont> pPseudoFont;
             const SfxItemSet* pOutSet = nullptr;
 
             // cbGrpprlChpx
@@ -500,8 +501,8 @@ void MSWordExportBase::AbstractNumberingDefinitions()
                     if ( sFontName.isEmpty() )
                         sFontName = pBulletFont->GetFamilyName();
 
-                    pPseudoFont = new wwFont( sFontName, pBulletFont->GetPitch(),
-                        eFamily, eChrSet);
+                    pPseudoFont.reset(new wwFont( sFontName, pBulletFont->GetPitch(),
+                        eFamily, eChrSet));
                 }
                 else
                     pOutSet = &rFormat.GetCharFormat()->GetAttrSet();
@@ -531,12 +532,10 @@ void MSWordExportBase::AbstractNumberingDefinitions()
                     rFormat.GetNumAdjust(),
                     aNumLvlPos,
                     nFollow,
-                    pPseudoFont, pOutSet,
+                    pPseudoFont.get(), pOutSet,
                     nIndentAt, nFirstLineIndex, nListTabPos,
                     sNumStr,
                     rFormat.GetNumberingType()==SVX_NUM_BITMAP ? rFormat.GetBrush():nullptr);
-
-            delete pPseudoFont;
         }
         AttrOutput().EndAbstractNumbering();
     }

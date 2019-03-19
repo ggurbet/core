@@ -148,6 +148,7 @@ public:
     const OUString&                 getInternalName() const { return msInternalName; }
     void                            setId( const OUString& rId ) { msId = rId; }
     const OUString&                 getId() { return msId; }
+    void                            setDescription( const OUString& rDescr ) { msDescription = rDescr; }
     void                            setHidden( bool bHidden ) { mbHidden = bHidden; }
     void                            setHiddenMasterShape( bool bHiddenMasterShape ) { mbHiddenMasterShape = bHiddenMasterShape; }
     void                            setSubType( sal_Int32 nSubType ) { mnSubType = nSubType; }
@@ -179,7 +180,8 @@ public:
                             const css::uno::Reference< css::drawing::XShapes >& rxShapes,
                             const basegfx::B2DHomMatrix& aTransformation,
                             FillProperties& rShapeOrParentShapeFillProps,
-                            ShapeIdMap* pShapeMap = nullptr );
+                            ShapeIdMap* pShapeMap = nullptr,
+                            bool bInGroup = false);
 
     const css::uno::Reference< css::drawing::XShape > &
                         getXShape() const { return mxShape; }
@@ -214,7 +216,29 @@ public:
 
     sal_Int32 getZOrderOff() const { return mnZOrderOff; }
 
+    void setDataNodeType(sal_Int32 nDataNodeType) { mnDataNodeType = nDataNodeType; }
+
+    sal_Int32 getDataNodeType() const { return mnDataNodeType; }
+
+    void setAspectRatio(double fAspectRatio) { mfAspectRatio = fAspectRatio; }
+
+    double getAspectRatio() const { return mfAspectRatio; }
+
+    /// Changes reference semantics to value semantics for fill properties.
+    void cloneFillProperties();
+
+    void keepDiagramDrawing(::oox::core::XmlFilterBase& rFilterBase, const OUString& rFragmentPath);
+
 protected:
+
+    enum FrameType
+    {
+        FRAMETYPE_GENERIC, ///< Generic shape, no special type.
+        FRAMETYPE_OLEOBJECT, ///< OLE object embedded in a shape.
+        FRAMETYPE_CHART, ///< Chart embedded in a shape.
+        FRAMETYPE_DIAGRAM, ///< Complex diagram drawing shape.
+        FRAMETYPE_TABLE ///< A table embedded in a shape.
+    };
 
     css::uno::Reference< css::drawing::XShape > const &
                         createAndInsert(
@@ -225,7 +249,8 @@ protected:
                             bool bClearText,
                             bool bDoNotInsertEmptyTextBody,
                             basegfx::B2DHomMatrix& aTransformation,
-                            FillProperties& rShapeOrParentShapeFillProps
+                            FillProperties& rShapeOrParentShapeFillProps,
+                            bool bInGroup = false
                              );
 
     void                addChildren(
@@ -236,7 +261,8 @@ protected:
                             ShapeIdMap* pShapeMap,
                             const basegfx::B2DHomMatrix& aTransformation );
 
-    void                keepDiagramCompatibilityInfo( ::oox::core::XmlFilterBase const & rFilterBase );
+    void                keepDiagramCompatibilityInfo();
+    void                convertSmartArtToMetafile( ::oox::core::XmlFilterBase const& rFilterBase );
 
     css::uno::Reference< css::drawing::XShape >
                         renderDiagramToGraphic( ::oox::core::XmlFilterBase const & rFilterBase );
@@ -285,6 +311,7 @@ protected:
     OUString                    msName;
     OUString                    msInternalName; // used by diagram; not displayed in UI
     OUString                    msId;
+    OUString                    msDescription;
     sal_Int32                   mnSubType;      // if this type is not zero, then the shape is a placeholder
     OptValue< sal_Int32 >       moSubTypeIndex;
 
@@ -295,20 +322,13 @@ protected:
     ::std::vector<OUString>     maExtDrawings;
     Color                       maFontRefColorForNodes;
 
+    FrameType                   meFrameType; ///< Type for graphic frame shapes.
+
 private:
-    enum FrameType
-    {
-        FRAMETYPE_GENERIC,          ///< Generic shape, no special type.
-        FRAMETYPE_OLEOBJECT,        ///< OLE object embedded in a shape.
-        FRAMETYPE_CHART,            ///< Chart embedded in a shape.
-        FRAMETYPE_DIAGRAM,          ///< Complex diagram drawing shape.
-        FRAMETYPE_TABLE             ///< A table embedded in a shape.
-    };
 
     typedef std::shared_ptr< ::oox::vml::OleObjectInfo >    OleObjectInfoRef;
     typedef std::shared_ptr< ChartShapeInfo >               ChartShapeInfoRef;
 
-    FrameType           meFrameType;        ///< Type for graphic frame shapes.
     OleObjectInfoRef    mxOleObjectInfo;    ///< Additional data for OLE objects.
     ChartShapeInfoRef   mxChartShapeInfo;   ///< Additional data for chart shapes.
 
@@ -333,6 +353,12 @@ private:
 
     /// Z-Order offset.
     sal_Int32 mnZOrderOff = 0;
+
+    /// Type of data node for an in-diagram shape.
+    sal_Int32 mnDataNodeType = 0;
+
+    /// Aspect ratio for an in-diagram shape.
+    double mfAspectRatio = 0;
 };
 
 } }

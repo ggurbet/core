@@ -586,15 +586,14 @@ void ScTable::CopyConditionalFormat( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCRO
     ScRange aNewRange( nCol1, nRow1, nTab, nCol2, nRow2, nTab );
     bool bSameDoc = pDocument->GetStyleSheetPool() == pTable->pDocument->GetStyleSheetPool();
 
-    for(ScConditionalFormatList::const_iterator itr = pTable->mpCondFormatList->begin(),
-            itrEnd = pTable->mpCondFormatList->end(); itr != itrEnd; ++itr)
+    for(const auto& rxCondFormat : *pTable->mpCondFormatList)
     {
-        const ScRangeList& rCondFormatRange = (*itr)->GetRange();
+        const ScRangeList& rCondFormatRange = rxCondFormat->GetRange();
         if(!rCondFormatRange.Intersects( aOldRange ))
             continue;
 
         ScRangeList aIntersectedRange = rCondFormatRange.GetIntersectedRange(aOldRange);
-        ScConditionalFormat* pNewFormat = (*itr)->Clone(pDocument);
+        std::unique_ptr<ScConditionalFormat> pNewFormat = rxCondFormat->Clone(pDocument);
 
         pNewFormat->SetRange(aIntersectedRange);
         sc::RefUpdateContext aRefCxt(*pDocument);
@@ -605,44 +604,42 @@ void ScTable::CopyConditionalFormat( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCRO
         aRefCxt.mnTabDelta = nTab - pTable->nTab;
         pNewFormat->UpdateReference(aRefCxt, true);
 
-        if (bSameDoc && pTable->nTab == nTab && CheckAndDeduplicateCondFormat(pDocument, mpCondFormatList->GetFormat((*itr)->GetKey()), pNewFormat, nTab))
+        if (bSameDoc && pTable->nTab == nTab && CheckAndDeduplicateCondFormat(pDocument, mpCondFormatList->GetFormat(rxCondFormat->GetKey()), pNewFormat.get(), nTab))
         {
-            delete pNewFormat;
             continue;
         }
         sal_uLong nMax = 0;
         bool bDuplicate = false;
-        for(ScConditionalFormatList::const_iterator itrCond = mpCondFormatList->begin();
-                itrCond != mpCondFormatList->end(); ++itrCond)
+        for(const auto& rxCond : *mpCondFormatList)
         {
             // Check if there is the same format in the destination
             // If there is, then simply expand its range
-            if (CheckAndDeduplicateCondFormat(pDocument, (*itrCond).get(), pNewFormat, nTab))
+            if (CheckAndDeduplicateCondFormat(pDocument, rxCond.get(), pNewFormat.get(), nTab))
             {
                 bDuplicate = true;
                 break;
             }
 
-            if ((*itrCond)->GetKey() > nMax)
-                nMax = (*itrCond)->GetKey();
+            if (rxCond->GetKey() > nMax)
+                nMax = rxCond->GetKey();
         }
         // Do not add duplicate entries
         if (bDuplicate)
         {
-            delete pNewFormat;
             continue;
         }
 
         pNewFormat->SetKey(nMax + 1);
-        mpCondFormatList->InsertNew(pNewFormat);
+        auto pNewFormatTmp = pNewFormat.get();
+        mpCondFormatList->InsertNew(std::move(pNewFormat));
 
         if(!bSameDoc)
         {
-            for(size_t i = 0, n = pNewFormat->size();
+            for(size_t i = 0, n = pNewFormatTmp->size();
                     i < n; ++i)
             {
                 OUString aStyleName;
-                const ScFormatEntry* pEntry = pNewFormat->GetEntry(i);
+                const ScFormatEntry* pEntry = pNewFormatTmp->GetEntry(i);
                 if(pEntry->GetType() == ScFormatEntry::Type::Condition)
                     aStyleName = static_cast<const ScCondFormatEntry*>(pEntry)->GetStyle();
                 else if(pEntry->GetType() == ScFormatEntry::Type::Date)
@@ -659,7 +656,7 @@ void ScTable::CopyConditionalFormat( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCRO
             }
         }
 
-        pDocument->AddCondFormatData( pNewFormat->GetRange(), nTab, pNewFormat->GetKey() );
+        pDocument->AddCondFormatData( pNewFormatTmp->GetRange(), nTab, pNewFormatTmp->GetKey() );
     }
 }
 
@@ -1003,8 +1000,8 @@ void ScTable::TransposeColNotes(ScTable* pTransClip, SCCOL nCol1, SCCOL nCol, SC
                         ScPostIt* pNote = *itData;
                         if (pNote)
                         {
-                            ScPostIt* pClonedNote = pNote->Clone( ScAddress(nCol, curRow, nTab), *pTransClip->pDocument, aDestPos, true );
-                            pTransClip->pDocument->SetNote(aDestPos, pClonedNote);
+                            std::unique_ptr<ScPostIt> pClonedNote = pNote->Clone( ScAddress(nCol, curRow, nTab), *pTransClip->pDocument, aDestPos, true );
+                            pTransClip->pDocument->SetNote(aDestPos, std::move(pClonedNote));
                         }
                     }
                     break; // we reached the last valid block
@@ -1020,8 +1017,8 @@ void ScTable::TransposeColNotes(ScTable* pTransClip, SCCOL nCol1, SCCOL nCol, SC
                         ScPostIt* pNote = *itData;
                         if (pNote)
                         {
-                            ScPostIt* pClonedNote = pNote->Clone( ScAddress(nCol, curRow, nTab), *pTransClip->pDocument, aDestPos, true );
-                            pTransClip->pDocument->SetNote(aDestPos, pClonedNote);
+                            std::unique_ptr<ScPostIt> pClonedNote = pNote->Clone( ScAddress(nCol, curRow, nTab), *pTransClip->pDocument, aDestPos, true );
+                            pTransClip->pDocument->SetNote(aDestPos, std::move(pClonedNote));
                         }
                     }
                 }
@@ -1088,7 +1085,7 @@ void ScTable::DetachFormulaCells(
     sc::EndListeningContext& rCxt, SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2 )
 {
     for (SCCOL nCol = nCol1; nCol <= nCol2; ++nCol)
-        aCol[nCol].DetachFormulaCells(rCxt, nRow1, nRow2);
+        aCol[nCol].DetachFormulaCells(rCxt, nRow1, nRow2, nullptr);
 }
 
 void ScTable::SetDirtyFromClip(
@@ -1588,7 +1585,7 @@ ScFormulaCell* ScTable::GetFormulaCell( SCCOL nCol, SCROW nRow )
     return aCol[nCol].GetFormulaCell(nRow);
 }
 
-ScPostIt* ScTable::ReleaseNote( SCCOL nCol, SCROW nRow )
+std::unique_ptr<ScPostIt> ScTable::ReleaseNote( SCCOL nCol, SCROW nRow )
 {
     if (!ValidCol(nCol))
         return nullptr;
@@ -1663,14 +1660,11 @@ CommentCaptionState ScTable::GetAllNoteCaptionsState(const ScRange& rRange, std:
         {
             aCol[nCol].GetNotesInRange(nStartRow, nEndRow, rNotes);
 
-            for(std::vector<sc::NoteEntry>::const_iterator itr = rNotes.begin(),
-                         itrEnd = rNotes.end(); itr != itrEnd; ++itr)
-            {
-                if ( bIsFirstNoteShownState != itr->mpNote->IsCaptionShown())  // compare the first note caption with others
-                {
-                    return CommentCaptionState::MIXED;
-                }
-            }
+            bool bIsMixedState = std::any_of(rNotes.begin(), rNotes.end(), [bIsFirstNoteShownState](const sc::NoteEntry& rNote) {
+                // compare the first note caption with others
+                return bIsFirstNoteShownState != rNote.mpNote->IsCaptionShown(); });
+            if (bIsMixedState)
+                return CommentCaptionState::MIXED;
         }
     }
     return bIsFirstNoteShownState ? CommentCaptionState::ALLSHOWN : CommentCaptionState::ALLHIDDEN;
@@ -2174,10 +2168,9 @@ void ScTable::FindMaxRotCol( RowInfo* pRowInfo, SCSIZE nArrCount, SCCOL nX1, SCC
                     ScStyleSheetPool* pStylePool = pDocument->GetStyleSheetPool();
                     if (mpCondFormatList && pStylePool && !rCondFormatData.empty())
                     {
-                        for(std::vector<sal_uInt32>::const_iterator itr = rCondFormatData.begin(), itrEnd = rCondFormatData.end();
-                                itr != itrEnd; ++itr)
+                        for(const auto& rItem : rCondFormatData)
                         {
-                            const ScConditionalFormat* pFormat = mpCondFormatList->GetFormat(*itr);
+                            const ScConditionalFormat* pFormat = mpCondFormatList->GetFormat(rItem);
                             if ( pFormat )
                             {
                                 size_t nEntryCount = pFormat->size();

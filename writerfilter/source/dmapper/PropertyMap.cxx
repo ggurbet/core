@@ -682,6 +682,38 @@ void SectionPropertyMap::DontBalanceTextColumns()
     }
 }
 
+void SectionPropertyMap::ApplySectionProperties( const uno::Reference< beans::XPropertySet >& xSection, DomainMapper_Impl& rDM_Impl )
+{
+    try
+    {
+        if ( xSection.is() )
+        {
+            // Margins only valid if page style is already determined.
+            // Take some care not to create an automatic page style (with GetPageStyle) if it isn't already created.
+            if ( !m_aFollowPageStyle.is() && !m_sFollowPageStyleName.isEmpty() )
+                GetPageStyle( rDM_Impl.GetPageStyles(), rDM_Impl.GetTextFactory(), false );
+            if ( m_aFollowPageStyle.is()  )
+            {
+                sal_Int32 nPageMargin = 0;
+                m_aFollowPageStyle->getPropertyValue( getPropertyName( PROP_LEFT_MARGIN ) ) >>= nPageMargin;
+                xSection->setPropertyValue( "SectionLeftMargin",  uno::makeAny(m_nLeftMargin - nPageMargin) );
+
+                nPageMargin = 0;
+                m_aFollowPageStyle->getPropertyValue( getPropertyName( PROP_RIGHT_MARGIN ) ) >>= nPageMargin;
+                xSection->setPropertyValue( "SectionRightMargin", uno::makeAny(m_nRightMargin - nPageMargin) );
+            }
+
+            boost::optional< PropertyMap::Property > pProp = getProperty( PROP_WRITING_MODE );
+            if ( pProp )
+                xSection->setPropertyValue( "WritingMode", pProp->second );
+        }
+    }
+    catch ( uno::Exception& )
+    {
+        DBG_UNHANDLED_EXCEPTION("writerfilter", "Exception in SectionPropertyMap::ApplySectionProperties");
+    }
+}
+
 void SectionPropertyMap::ApplyProtectionProperties( uno::Reference< beans::XPropertySet >& xSection, DomainMapper_Impl& rDM_Impl )
 {
     try
@@ -1241,8 +1273,9 @@ void SectionPropertyMap::HandleIncreasedAnchoredObjectSpacing(DomainMapper_Impl&
     std::vector<AnchoredObjectInfo>& rAnchoredObjectAnchors = rDM_Impl.m_aAnchoredObjectAnchors;
     for (auto& rAnchor : rAnchoredObjectAnchors)
     {
-        // Ignore this paragraph when there is a single shape only.
-        if (rAnchor.m_aAnchoredObjects.size() < 2)
+        // Ignore this paragraph when there are not enough shapes to trigger the Word bug we
+        // emulate.
+        if (rAnchor.m_aAnchoredObjects.size() < 4)
             continue;
 
         // Analyze the anchored objects of this paragraph, now that we know the
@@ -1376,13 +1409,7 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
         }
     }
 
-    // depending on the break type no page styles should be created
-    // Continuous sections usually create only a section, and not a new page style
-    const bool bTreatAsContinuous = m_nBreakType == NS_ooxml::LN_Value_ST_SectionMark_nextPage
-        && m_nColumnCount > 0
-        && (m_bIsFirstSection || (!HasHeader( m_bTitlePage ) && !HasFooter( m_bTitlePage )) )
-        && (m_bIsFirstSection || m_sFollowPageStyleName.isEmpty() || (m_sFirstPageStyleName.isEmpty() && m_bTitlePage));
-    if ( m_nBreakType == static_cast<sal_Int32>(NS_ooxml::LN_Value_ST_SectionMark_continuous) || bTreatAsContinuous )
+    if ( m_nBreakType == static_cast<sal_Int32>(NS_ooxml::LN_Value_ST_SectionMark_continuous) )
     {
         //todo: insert a section or access the already inserted section
         uno::Reference< beans::XPropertySet > xSection =
@@ -1398,6 +1425,7 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
         try
         {
             InheritOrFinalizePageStyles( rDM_Impl );
+            ApplySectionProperties( xSection, rDM_Impl );  //depends on InheritOrFinalizePageStyles
             OUString aName = m_bTitlePage ? m_sFirstPageStyleName : m_sFollowPageStyleName;
             uno::Reference< beans::XPropertySet > xRangeProperties( lcl_GetRangeProperties( m_bIsFirstSection, rDM_Impl, m_xStartingRange ) );
             if ( m_bIsFirstSection && !aName.isEmpty() && xRangeProperties.is() )
@@ -1446,7 +1474,15 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
         }
         uno::Reference< text::XTextColumns > xColumns;
         if ( m_nColumnCount > 0 )
-            xColumns = ApplyColumnProperties( xFollowPageStyle, rDM_Impl );
+        {
+            // prefer setting column properties into a section, not a page style if at all possible.
+            if ( !xSection.is() )
+                xSection = rDM_Impl.appendTextSectionAfter( m_xStartingRange );
+            if ( xSection.is() )
+                ApplyColumnProperties( xSection, rDM_Impl );
+            else
+                xColumns = ApplyColumnProperties( xFollowPageStyle, rDM_Impl );
+        }
 
         // these BreakTypes are effectively page-breaks: don't evenly distribute text in columns before a page break;
         SectionPropertyMap* pLastContext = rDM_Impl.GetLastSectionContext();
@@ -1481,9 +1517,9 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
             nGridLinePitch = 1;
         }
 
-        const sal_Int16 nGridLines = nTextAreaHeight / nGridLinePitch;
-        if ( nGridLines >= 0 )
-            Insert( PROP_GRID_LINES, uno::makeAny( nGridLines ) );
+        const sal_Int32 nGridLines = nTextAreaHeight / nGridLinePitch;
+        if ( nGridLines >= 0 && nGridLines <= SAL_MAX_INT16 )
+            Insert( PROP_GRID_LINES, uno::makeAny( sal_Int16(nGridLines) ) );
 
         // PROP_GRID_MODE
         Insert( PROP_GRID_MODE, uno::makeAny( static_cast<sal_Int16> (m_nGridType) ) );
@@ -1606,10 +1642,13 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
 
             if ( xRangeProperties.is() && rDM_Impl.IsNewDoc() )
             {
-                xRangeProperties->setPropertyValue(
-                    getPropertyName( PROP_PAGE_DESC_NAME ),
-                    uno::makeAny( m_bTitlePage ? m_sFirstPageStyleName
-                        : m_sFollowPageStyleName ) );
+                // Avoid setting page style in case of autotext: so inserting the autotext at the
+                // end of the document does not introduce an unwanted page break.
+                if (!rDM_Impl.IsReadGlossaries())
+                    xRangeProperties->setPropertyValue(
+                        getPropertyName( PROP_PAGE_DESC_NAME ),
+                        uno::makeAny( m_bTitlePage ? m_sFirstPageStyleName
+                            : m_sFollowPageStyleName ) );
 
                 if (0 <= m_nPageNumber)
                 {
@@ -1730,7 +1769,9 @@ void SectionPropertyMap::ApplyProperties_( const uno::Reference< beans::XPropert
 
         for ( beans::PropertyValue* pIter = vPropVals.begin(); pIter != vPropVals.end(); ++pIter )
         {
-            if ( pIter != pCharGrabBag && pIter != pParaGrabBag )
+            if ( pIter != pCharGrabBag && pIter != pParaGrabBag
+                 && pIter->Name != "IsProtected" //section-only property
+               )
             {
                 vNames.push_back( pIter->Name );
                 vValues.push_back( pIter->Value );

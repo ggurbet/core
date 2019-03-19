@@ -31,9 +31,11 @@
 #include <com/sun/star/i18n/UnicodeScript.hpp>
 #include <com/sun/star/i18n/CalendarFieldIndex.hpp>
 
+#include <vcl/inputctx.hxx>
 #include <vcl/help.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <sot/storage.hxx>
 #include <svl/macitem.hxx>
 #include <unotools/securityoptions.hxx>
@@ -157,7 +159,6 @@
 #include <i18nlangtag/mslangid.hxx>
 #include <salhelper/singletonref.hxx>
 #include <sfx2/event.hxx>
-#include <o3tl/make_unique.hxx>
 #include <memory>
 
 using namespace sw::mark;
@@ -710,9 +711,9 @@ void SwEditWin::StdDrawMode( SdrObjKind eSdrObjectKind, bool bObjSelect )
     SetSdrDrawMode( eSdrObjectKind );
 
     if (bObjSelect)
-        m_rView.SetDrawFuncPtr(o3tl::make_unique<DrawSelection>( &m_rView.GetWrtShell(), this, &m_rView ));
+        m_rView.SetDrawFuncPtr(std::make_unique<DrawSelection>( &m_rView.GetWrtShell(), this, &m_rView ));
     else
-        m_rView.SetDrawFuncPtr(o3tl::make_unique<SwDrawBase>( &m_rView.GetWrtShell(), this, &m_rView ));
+        m_rView.SetDrawFuncPtr(std::make_unique<SwDrawBase>( &m_rView.GetWrtShell(), this, &m_rView ));
 
     m_rView.SetSelDrawSlot();
     SetSdrDrawMode( eSdrObjectKind );
@@ -1453,12 +1454,28 @@ void SwEditWin::KeyInput(const KeyEvent &rKEvt)
             if( ( bVertText && ( !bTableCursor || bVertTable ) ) ||
                 ( bTableCursor && bVertTable ) )
             {
-                // Attempt to integrate cursor travelling for mongolian layout does not work.
-                // Thus, back to previous mapping of cursor keys to direction keys.
-                if( KEY_UP == nKey ) nKey = KEY_LEFT;
-                else if( KEY_DOWN == nKey ) nKey = KEY_RIGHT;
-                else if( KEY_LEFT == nKey ) nKey = KEY_DOWN;
-                else /* KEY_RIGHT == nKey */ nKey = KEY_UP;
+                SvxFrameDirection eDirection = rSh.GetTextDirection();
+                if (eDirection == SvxFrameDirection::Vertical_LR_BT)
+                {
+                    // Map from physical to logical, so rotate clockwise.
+                    if (KEY_UP == nKey)
+                        nKey = KEY_RIGHT;
+                    else if (KEY_DOWN == nKey)
+                        nKey = KEY_LEFT;
+                    else if (KEY_LEFT == nKey)
+                        nKey = KEY_UP;
+                    else /* KEY_RIGHT == nKey */
+                        nKey = KEY_DOWN;
+                }
+                else
+                {
+                    // Attempt to integrate cursor travelling for mongolian layout does not work.
+                    // Thus, back to previous mapping of cursor keys to direction keys.
+                    if( KEY_UP == nKey ) nKey = KEY_LEFT;
+                    else if( KEY_DOWN == nKey ) nKey = KEY_RIGHT;
+                    else if( KEY_LEFT == nKey ) nKey = KEY_DOWN;
+                    else /* KEY_RIGHT == nKey */ nKey = KEY_UP;
+                }
             }
 
             if ( rSh.IsInRightToLeftText() )
@@ -3347,6 +3364,21 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                 // table.
                                 rSh.SelTableBox();
                         }
+
+                        SwContentAtPos aContentAtPos(IsAttrAtPos::FormControl);
+                        if( rSh.GetContentAtPos( aDocPos, aContentAtPos ) &&
+                                aContentAtPos.aFnd.pFieldmark != nullptr)
+                        {
+                            IFieldmark *pFieldBM = const_cast< IFieldmark* > ( aContentAtPos.aFnd.pFieldmark );
+                            if ( pFieldBM->GetFieldname( ) == ODF_FORMDROPDOWN )
+                            {
+                                RstMBDownFlags();
+                                rSh.getIDocumentMarkAccess()->ClearFieldActivation();
+                                GetView().GetViewFrame()->GetBindings().Execute(SID_FM_CTL_PROPERTIES);
+                                return;
+                            }
+                        }
+
                         g_bHoldSelection = true;
                         return;
                     }
@@ -3536,7 +3568,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                 // don't start a selection when an
                                 // URL field or a graphic is clicked
                                 bool bSttSelect = rSh.HasSelection() ||
-                                                Pointer(PointerStyle::RefHand) != GetPointer();
+                                                PointerStyle::RefHand != GetPointer();
 
                                 if( !bSttSelect )
                                 {
@@ -4612,12 +4644,6 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
                                         rCheckboxFm.SetChecked(!rCheckboxFm.IsChecked());
                                         rCheckboxFm.Invalidate();
                                         rSh.InvalidateWindows( m_rView.GetVisArea() );
-                                    } else if ( fieldBM->GetFieldname() == ODF_FORMDROPDOWN ) {
-                                        m_rView.ExecFieldPopup( aDocPt, fieldBM );
-                                        fieldBM->Invalidate();
-                                        rSh.InvalidateWindows( m_rView.GetVisArea() );
-                                    } else {
-                                        // unknown type..
                                     }
                                 }
                             }
@@ -4729,6 +4755,9 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
             //if the clipboard is empty after paste remove the ApplyTemplate
             if(!pFormatClipboard->HasContent())
                 SetApplyTemplate(SwApplyTemplate());
+
+            //tdf#38101 remove temporary highlighting
+            m_pUserMarker.reset();
         }
         else if( m_pApplyTempl->nColor )
         {
@@ -5342,10 +5371,10 @@ void SwEditWin::Command( const CommandEvent& rCEvt )
                     rSh.SetExtTextInputData( *pData );
                 }
             }
-                uno::Reference< frame::XDispatchRecorder > xRecorder =
+            uno::Reference< frame::XDispatchRecorder > xRecorder =
                         m_rView.GetViewFrame()->GetBindings().GetRecorder();
-                if(!xRecorder.is())
-                {
+            if(!xRecorder.is())
+            {
                     SvxAutoCorrCfg& rACfg = SvxAutoCorrCfg::Get();
                     SvxAutoCorrect* pACorr = rACfg.GetAutoCorrect();
                     if( pACorr &&
@@ -5358,7 +5387,7 @@ void SwEditWin::Command( const CommandEvent& rCEvt )
                         // ... request for auto completion help to be shown.
                         ShowAutoTextCorrectQuickHelp(sWord, &rACfg, pACorr, true);
                     }
-                }
+            }
         }
     }
     break;

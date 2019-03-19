@@ -36,12 +36,12 @@
 #include <drawinglayer/primitive2d/metafileprimitive2d.hxx>
 #include <drawinglayer/primitive2d/transformprimitive2d.hxx>
 #include <drawinglayer/attribute/fontattribute.hxx>
+#include <basegfx/color/bcolor.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/polygon/b2dpolygonclipper.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/polygon/b2dpolypolygoncutter.hxx>
 #include <sal/log.hxx>
-#include <o3tl/make_unique.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <i18nlangtag/languagetag.hxx>
@@ -336,12 +336,6 @@ namespace emfplushelper
         return maMapTransform * ::basegfx::B2DPoint(ix, iy);
     }
 
-    ::basegfx::B2DSize EmfPlusHelperData::MapSize(double iwidth, double iheight) const
-    {
-        // map in one step using complete MapTransform (see mappingChanged)
-        return maMapTransform * ::basegfx::B2DSize(iwidth, iheight);
-    }
-
     Color EmfPlusHelperData::EMFPGetBrushColorOrARGBColor(const sal_uInt16 flags, const sal_uInt32 brushIndexOrColor) const {
         Color color;
         if (flags & 0x8000) // we use a color
@@ -412,32 +406,23 @@ namespace emfplushelper
                 lineCap = static_cast<css::drawing::LineCap>(EMFPPen::lcl_convertStrokeCap(pen->startCap));
                 SAL_WARN_IF(pen->startCap != pen->endCap, "drawinglayer", "emf+ pen uses different start and end cap");
             }
-            // transform the pen width
-            double adjustedPenWidth = pen->penWidth;
-            if (!pen->penWidth) // no width specified, then use default value
-            {
-                adjustedPenWidth = pen->penUnit == 0 ? 0.18f   // 0.18f is determined by comparison with MSO  (case of Unit == World)
-                    : 0.05f;  // 0.05f is taken from old EMF+ implementation (case of Unit == Pixel etc.)
-            }
 
-            // transform and compare to 5 (the value 5 is determined by comparison to MSO)
-            const double transformedPenWidth = std::max( MapSize(adjustedPenWidth, 0).getX(), 5.);
+            const double transformedPenWidth = maMapTransform.get(0, 0) * pen->penWidth;
             drawinglayer::attribute::LineAttribute lineAttribute(pen->GetColor().getBColor(),
-                                                                transformedPenWidth,
-                                                                lineJoin,
-                                                                lineCap);
+                                                                 transformedPenWidth,
+                                                                 lineJoin,
+                                                                 lineCap);
 
+            drawinglayer::attribute::StrokeAttribute aStrokeAttribute;
             if (pen->penDataFlags & 0x00000020 && pen->dashStyle != EmfPlusLineStyleCustom) // pen has a predefined line style
             {
                 // short writing
-                const double pw = transformedPenWidth;
+                const double pw = maMapTransform.get(1, 1) * pen->penWidth;
                 // taken from the old cppcanvas implementation and multiplied with pen width
                 const std::vector<double> dash = { 3*pw, 3*pw };
                 const std::vector<double> dot = { pw, 3*pw };
                 const std::vector<double> dashdot = { 3*pw, 3*pw, pw, 3*pw };
                 const std::vector<double> dashdotdot = { 3*pw, 3*pw, pw, 3*pw, pw, 3*pw };
-
-                drawinglayer::attribute::StrokeAttribute aStrokeAttribute;
 
                 switch (pen->dashStyle)
                 {
@@ -455,13 +440,7 @@ namespace emfplushelper
                     case EmfPlusLineStyleDashDotDot:
                         aStrokeAttribute = drawinglayer::attribute::StrokeAttribute(dashdotdot);
                         break;
-
                 }
-                mrTargetHolders.Current().append(
-                    o3tl::make_unique<drawinglayer::primitive2d::PolyPolygonStrokePrimitive2D>(
-                        polygon,
-                        lineAttribute,
-                        aStrokeAttribute));
             }
             else if (pen->penDataFlags & 0x00000100) // pen has a custom dash line
             {
@@ -470,22 +449,31 @@ namespace emfplushelper
                 for (size_t i=0; i<aPattern.size(); i++)
                 {
                     // convert from float to double and multiply with the adjusted pen width
-                    aPattern[i] = transformedPenWidth * pen->dashPattern[i];
+                    aPattern[i] = maMapTransform.get(1, 1) * pen->penWidth * pen->dashPattern[i];
                 }
-                drawinglayer::attribute::StrokeAttribute strokeAttribute(aPattern);
-                mrTargetHolders.Current().append(
-                    o3tl::make_unique<drawinglayer::primitive2d::PolyPolygonStrokePrimitive2D>(
-                        polygon,
-                        lineAttribute,
-                        strokeAttribute));
-
+                aStrokeAttribute = drawinglayer::attribute::StrokeAttribute(aPattern);
             }
-            else // no further line decoration, so use simple primitive
+
+            if (pen->GetColor().GetTransparency() == 0)
             {
                 mrTargetHolders.Current().append(
-                    o3tl::make_unique<drawinglayer::primitive2d::PolyPolygonStrokePrimitive2D>(
+                    std::make_unique<drawinglayer::primitive2d::PolyPolygonStrokePrimitive2D>(
                         polygon,
-                        lineAttribute));
+                        lineAttribute,
+                        aStrokeAttribute));
+            }
+            else
+            {
+                const drawinglayer::primitive2d::Primitive2DReference aPrimitive(
+                            new drawinglayer::primitive2d::PolyPolygonStrokePrimitive2D(
+                                polygon,
+                                lineAttribute,
+                                aStrokeAttribute));
+
+                mrTargetHolders.Current().append(
+                            std::make_unique<drawinglayer::primitive2d::UnifiedTransparencePrimitive2D>(
+                                drawinglayer::primitive2d::Primitive2DContainer { aPrimitive },
+                                pen->GetColor().GetTransparency() / 255.0));
             }
 
             mrPropertyHolders.Current().setLineColor(pen->GetColor().getBColor());
@@ -512,7 +500,7 @@ namespace emfplushelper
                 {
                     // not transparent
                     mrTargetHolders.Current().append(
-                                o3tl::make_unique<drawinglayer::primitive2d::PolyPolygonColorPrimitive2D>(
+                                std::make_unique<drawinglayer::primitive2d::PolyPolygonColorPrimitive2D>(
                                     polygon,
                                     color.getBColor()));
                 }
@@ -524,7 +512,7 @@ namespace emfplushelper
                                     color.getBColor()));
 
                     mrTargetHolders.Current().append(
-                                o3tl::make_unique<drawinglayer::primitive2d::UnifiedTransparencePrimitive2D>(
+                                std::make_unique<drawinglayer::primitive2d::UnifiedTransparencePrimitive2D>(
                                     drawinglayer::primitive2d::Primitive2DContainer { aPrimitive },
                                     color.GetTransparency() / 255.0));
                 }
@@ -585,7 +573,7 @@ namespace emfplushelper
                 // temporal solution: create a solid colored polygon
                 // TODO create a 'real' hatching primitive
                 mrTargetHolders.Current().append(
-                    o3tl::make_unique<drawinglayer::primitive2d::PolyPolygonColorPrimitive2D>(
+                    std::make_unique<drawinglayer::primitive2d::PolyPolygonColorPrimitive2D>(
                         polygon,
                         fillColor.getBColor()));
             }
@@ -694,7 +682,7 @@ namespace emfplushelper
 
                     // create the same one used for SVG
                     mrTargetHolders.Current().append(
-                        o3tl::make_unique<drawinglayer::primitive2d::SvgLinearGradientPrimitive2D>(
+                        std::make_unique<drawinglayer::primitive2d::SvgLinearGradientPrimitive2D>(
                             aTextureTransformation,
                             polygon,
                             aVector,
@@ -710,7 +698,7 @@ namespace emfplushelper
 
                     // create the same one used for SVG
                     mrTargetHolders.Current().append(
-                        o3tl::make_unique<drawinglayer::primitive2d::SvgRadialGradientPrimitive2D>(
+                        std::make_unique<drawinglayer::primitive2d::SvgRadialGradientPrimitive2D>(
                             aTextureTransformation,
                             polygon,
                             aVector,
@@ -971,8 +959,6 @@ namespace emfplushelper
                         SAL_INFO("drawinglayer", "EMF+\t RectData: " << dx << "," << dy << " " << dw << "x" << dh);
                         startAngle = basegfx::deg2rad(startAngle);
                         sweepAngle = basegfx::deg2rad(sweepAngle);
-                        ::basegfx::B2DPoint mappedCenter(Map(dx + dw / 2, dy + dh / 2));
-                        ::basegfx::B2DSize mappedSize(MapSize(dw / 2, dh / 2));
                         float endAngle = startAngle + sweepAngle;
                         startAngle = fmodf(startAngle, static_cast<float>(M_PI * 2));
 
@@ -980,14 +966,12 @@ namespace emfplushelper
                         {
                             startAngle += static_cast<float>(M_PI * 2.0);
                         }
-
                         endAngle = fmodf(endAngle, static_cast<float>(M_PI * 2.0));
 
                         if (endAngle < 0.0)
                         {
                             endAngle += static_cast<float>(M_PI * 2.0);
                         }
-
                         if (sweepAngle < 0)
                         {
                             std::swap(endAngle, startAngle);
@@ -996,17 +980,18 @@ namespace emfplushelper
                         SAL_INFO("drawinglayer", "EMF+\t adjusted angles: start " <<
                             basegfx::rad2deg(startAngle) << ", end: " << basegfx::rad2deg(endAngle) <<
                             " startAngle: " << startAngle << " sweepAngle: " << sweepAngle);
-
-                        ::basegfx::B2DPolygon polygon = basegfx::utils::createPolygonFromEllipseSegment(
-                            mappedCenter, mappedSize.getX(), mappedSize.getY(), startAngle, endAngle);
-
+                        const ::basegfx::B2DPoint centerPoint(dx + 0.5 * dw, dy + 0.5 * dh);
+                        ::basegfx::B2DPolygon polygon(
+                            ::basegfx::utils::createPolygonFromEllipseSegment(centerPoint,
+                                                                              0.5 * dw, 0.5 * dh,
+                                                                              startAngle, endAngle));
                         if (type != EmfPlusRecordTypeDrawArc)
                         {
-                            polygon.append(mappedCenter);
+                            polygon.append(centerPoint);
                             polygon.setClosed(true);
                         }
-
                         ::basegfx::B2DPolyPolygon polyPolygon(polygon);
+                        polyPolygon.transform(maMapTransform);
                         if (type == EmfPlusRecordTypeFillPie)
                             EMFPPlusFillPolygon(polyPolygon, flags & 0x8000, brushIndexOrColor);
                         else
@@ -1054,11 +1039,10 @@ namespace emfplushelper
                         float dx, dy, dw, dh;
                         ReadRectangle(rMS, dx, dy, dw, dh, bool(flags & 0x4000));
                         SAL_INFO("drawinglayer", "EMF+ RectData: " << dx << "," << dy << " " << dw << "x" << dh);
-                        ::basegfx::B2DPoint mappedCenter(Map(dx + dw / 2, dy + dh / 2));
-                        ::basegfx::B2DSize mappedSize(MapSize(dw / 2, dh / 2));
                         ::basegfx::B2DPolyPolygon polyPolygon(
-                                ::basegfx::utils::createPolygonFromEllipse(mappedCenter, mappedSize.getX(), mappedSize.getY()));
-
+                            ::basegfx::utils::createPolygonFromEllipse(::basegfx::B2DPoint(dx + 0.5 * dw, dy + 0.5 * dh),
+                                                                       0.5 * dw, 0.5 * dh));
+                        polyPolygon.transform(maMapTransform);
                         if (type == EmfPlusRecordTypeFillEllipse)
                             EMFPPlusFillPolygon(polyPolygon, flags & 0x8000, brushIndexOrColor);
                         else
@@ -1220,6 +1204,8 @@ namespace emfplushelper
                             ::basegfx::B2DPoint aDstPoint;
                             ::basegfx::B2DSize aDstSize;
 
+                            double fShearX = 0.0;
+                            double fShearY = 0.0;
                             if (type == EmfPlusRecordTypeDrawImagePoints)
                             {
                                 sal_uInt32 aCount;
@@ -1230,15 +1216,16 @@ namespace emfplushelper
                                 {
                                     float x1, y1, x2, y2, x3, y3;
 
-                                    ReadPoint(rMS, x1, y1, flags);
-                                    ReadPoint(rMS, x2, y2, flags);
-                                    ReadPoint(rMS, x3, y3, flags);
+                                    ReadPoint(rMS, x1, y1, flags); // upper-left point
+                                    ReadPoint(rMS, x2, y2, flags); // upper-right
+                                    ReadPoint(rMS, x3, y3, flags); // lower-left
 
-                                    SAL_INFO("drawinglayer", "EMF+\t destination points: " << x1 << "," << y1 << " " << x2 << "," << y2 << " " << x3 << "," << y3);
-                                    SAL_INFO("drawinglayer", "EMF+\t destination rectangle: " << x1 << "," << y1 << " " << x2 - x1 << "x" << y3 - y1);
+                                    SAL_INFO("drawinglayer", "EMF+\t destination points: P1:" << x1 << "," << y1 << " P2:" << x2 << "," << y2 << " P3:" << x3 << "," << y3);
 
-                                    aDstPoint = Map(x1, y1);
-                                    aDstSize = MapSize(x2 - x1, y3 - y1);
+                                    aDstPoint = ::basegfx::B2DPoint(x1, y1);
+                                    aDstSize = ::basegfx::B2DSize(x2 - x1, y3 - y1);
+                                    fShearX = x3 - x1;
+                                    fShearY = y2 - y1;
                                 }
                                 else
                                 {
@@ -1251,16 +1238,18 @@ namespace emfplushelper
                                 float dx, dy, dw, dh;
                                 ReadRectangle(rMS, dx, dy, dw, dh, bool(flags & 0x4000));
                                 SAL_INFO("drawinglayer", "EMF+\t destination rectangle: " << dx << "," << dy << " " << dw << "x" << dh);
-                                aDstPoint = Map(dx, dy);
-                                aDstSize = MapSize(dw, dh);
+                                aDstPoint = ::basegfx::B2DPoint(dx, dy);
+                                aDstSize = ::basegfx::B2DSize(dw, dh);
                             }
 
-                            // create correct transform matrix
-                            basegfx::B2DHomMatrix aTransformMatrix = basegfx::utils::createScaleTranslateB2DHomMatrix(
-                                aDstSize.getX(),
-                                aDstSize.getY(),
-                                aDstPoint.getX(),
-                                aDstPoint.getY());
+                            const basegfx::B2DHomMatrix aTransformMatrix = maMapTransform *
+                                    basegfx::B2DHomMatrix(
+                                        /* Row 0, Column 0 */ aDstSize.getX(),
+                                        /* Row 0, Column 1 */ fShearX,
+                                        /* Row 0, Column 2 */ aDstPoint.getX(),
+                                        /* Row 1, Column 0 */ fShearY,
+                                        /* Row 1, Column 1 */ aDstSize.getY(),
+                                        /* Row 1, Column 2 */ aDstPoint.getY());
 
                             if (image.type == ImageDataTypeBitmap)
                             {
@@ -1271,11 +1260,12 @@ namespace emfplushelper
                                 if (aSize.Width() > 0 && aSize.Height() > 0)
                                 {
                                     mrTargetHolders.Current().append(
-                                        o3tl::make_unique<drawinglayer::primitive2d::BitmapPrimitive2D>(aBmp, aTransformMatrix));
+                                        std::make_unique<drawinglayer::primitive2d::BitmapPrimitive2D>(aBmp, aTransformMatrix));
                                 }
                                 else
                                 {
-                                    SAL_INFO("drawinglayer", "EMF+\t warning: empty bitmap");
+                                    SAL_WARN("drawinglayer", "EMF+\t warning: empty bitmap");
+                                    break;
                                 }
                             }
                             else if (image.type == ImageDataTypeMetafile)
@@ -1283,7 +1273,7 @@ namespace emfplushelper
                                 GDIMetaFile aGDI(image.graphic.GetGDIMetaFile());
                                 aGDI.Clip(aSource);
                                 mrTargetHolders.Current().append(
-                                        o3tl::make_unique<drawinglayer::primitive2d::MetafilePrimitive2D>(aTransformMatrix, aGDI));
+                                        std::make_unique<drawinglayer::primitive2d::MetafilePrimitive2D>(aTransformMatrix, aGDI));
                             }
                         }
                         else
@@ -1418,7 +1408,7 @@ namespace emfplushelper
                                 }
 
                                 mrTargetHolders.Current().append(
-                                            o3tl::make_unique<drawinglayer::primitive2d::TransformPrimitive2D>(
+                                            std::make_unique<drawinglayer::primitive2d::TransformPrimitive2D>(
                                                 maMapTransform,
                                                 drawinglayer::primitive2d::Primitive2DContainer { aPrimitiveText } ));
                             }
@@ -1518,7 +1508,7 @@ namespace emfplushelper
                     }
                     case EmfPlusRecordTypeSetWorldTransform:
                     {
-                        SAL_INFO("drawinglayer", "EMF+ SetWorldTransform, Post multiply: " << (flags & 0x2000));
+                        SAL_INFO("drawinglayer", "EMF+ SetWorldTransform, Post multiply: " << bool(flags & 0x2000));
                         readXForm(rMS, maWorldTransform);
                         mappingChanged();
                         SAL_INFO("drawinglayer", "EMF+\t: " << maWorldTransform);
@@ -1536,7 +1526,7 @@ namespace emfplushelper
                     }
                     case EmfPlusRecordTypeMultiplyWorldTransform:
                     {
-                        SAL_INFO("drawinglayer", "EMF+ MultiplyWorldTransform, post multiply: " << (flags & 0x2000));
+                        SAL_INFO("drawinglayer", "EMF+ MultiplyWorldTransform, post multiply: " << bool(flags & 0x2000));
                         basegfx::B2DHomMatrix transform;
                         readXForm(rMS, transform);
 
@@ -1563,7 +1553,7 @@ namespace emfplushelper
                     }
                     case EmfPlusRecordTypeTranslateWorldTransform:
                     {
-                        SAL_INFO("drawinglayer", "EMF+ TranslateWorldTransform, Post multiply: " << (flags & 0x2000));
+                        SAL_INFO("drawinglayer", "EMF+ TranslateWorldTransform, Post multiply: " << bool(flags & 0x2000));
 
                         basegfx::B2DHomMatrix transform;
                         float eDx, eDy;
@@ -1601,7 +1591,7 @@ namespace emfplushelper
                         transform.set(1, 1, eSy);
 
                         SAL_INFO("drawinglayer", "EMF+ ScaleWorldTransform Sx: " << eSx <<
-                                 " Sy: " << eSy << ", Post multiply:" << (flags & 0x2000));
+                                 " Sy: " << eSy << ", Post multiply:" << bool(flags & 0x2000));
                         SAL_INFO("drawinglayer",
                                  "EMF+\t World transform matrix: " << maWorldTransform);
 
@@ -1630,7 +1620,7 @@ namespace emfplushelper
                         rMS.ReadFloat(eAngle);
 
                         SAL_INFO("drawinglayer", "EMF+ RotateWorldTransform Angle: " << eAngle <<
-                                 ", post multiply: " << (flags & 0x2000));
+                                 ", post multiply: " << bool(flags & 0x2000));
                         // Skipping flags & 0x2000
                         // For rotation transformation there is no difference between post and pre multiply
                         maWorldTransform.rotate(basegfx::deg2rad(eAngle));
@@ -1659,16 +1649,16 @@ namespace emfplushelper
                         float dx, dy, dw, dh;
                         ReadRectangle(rMS, dx, dy, dw, dh);
                         SAL_INFO("drawinglayer", "EMF+ RectData: " << dx << "," << dy << " " << dw << "x" << dh);
-                        ::basegfx::B2DPoint mappedPoint(Map(dx, dy));
-                        ::basegfx::B2DSize mappedSize(MapSize(dw, dh));
+                        ::basegfx::B2DPoint mappedPoint1(Map(dx, dy));
+                        ::basegfx::B2DPoint mappedPoint2(Map(dx + dw, dy + dh));
 
                         ::basegfx::B2DPolyPolygon polyPolygon(
                                 ::basegfx::utils::createPolygonFromRect(
                                     ::basegfx::B2DRectangle(
-                                        mappedPoint.getX(),
-                                        mappedPoint.getY(),
-                                        mappedPoint.getX() + mappedSize.getX(),
-                                        mappedPoint.getY() + mappedSize.getY())));
+                                        mappedPoint1.getX(),
+                                        mappedPoint1.getY(),
+                                        mappedPoint2.getX(),
+                                        mappedPoint2.getY())));
 
                         HandleNewClipRegion(combineClip(mrPropertyHolders.Current().getClipPolyPolygon(), combineMode, polyPolygon), mrTargetHolders, mrPropertyHolders);
                         break;
@@ -1682,11 +1672,11 @@ namespace emfplushelper
                         EMFPPath *path = static_cast<EMFPPath*>(maEMFPObjects[flags & 0xff].get());
                         if (!path)
                         {
+                            SAL_WARN("drawinglayer", "EMF+\t TODO Unable to find path in slot: " << (flags & 0xff));
                             break;
                         }
 
                         ::basegfx::B2DPolyPolygon& clipPoly(path->GetPolygon(*this));
-                        // clipPoly.transform(rState.mapModeTransform);
 
                         HandleNewClipRegion( combineClip(mrPropertyHolders.Current().getClipPolyPolygon(), combineMode, clipPoly), mrTargetHolders, mrPropertyHolders);
                         break;
@@ -1699,6 +1689,7 @@ namespace emfplushelper
                         EMFPRegion *region = static_cast<EMFPRegion*>(maEMFPObjects[flags & 0xff].get());
                         if (!region)
                         {
+                            SAL_WARN("drawinglayer", "EMF+\t TODO Unable to find region in slot: " << (flags & 0xff));
                             break;
                         }
 
@@ -1853,7 +1844,7 @@ namespace emfplushelper
                                                     color.GetTransparency() / 255.0);
                                     }
                                     mrTargetHolders.Current().append(
-                                                o3tl::make_unique<drawinglayer::primitive2d::TransformPrimitive2D>(
+                                                std::make_unique<drawinglayer::primitive2d::TransformPrimitive2D>(
                                                     maMapTransform,
                                                     drawinglayer::primitive2d::Primitive2DContainer { aPrimitiveText } ));
                                 }

@@ -174,8 +174,8 @@ DECLARE_OOXMLEXPORT_TEST(testTdf79272_strictDxa, "tdf79272_strictDxa.docx")
     uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(sal_Int32(4318), getProperty<sal_Int32>(xTables->getByIndex(0), "Width"));
 
-     xmlDocPtr pXmlDoc = parseExport("word/styles.xml");
-     if (!pXmlDoc)
+    xmlDocPtr pXmlDoc = parseExport("word/styles.xml");
+    if (!pXmlDoc)
          return;
     // Validation test: order of elements was wrong. Order was: insideH, end, insideV.
     int nEnd = getXPathPosition(pXmlDoc, "/w:styles/w:style[@w:styleId='TableGrid']/w:tblPr/w:tblBorders", "end");
@@ -853,6 +853,23 @@ DECLARE_OOXMLEXPORT_TEST(testUnbalancedColumns, "unbalanced-columns.docx")
     uno::Reference<container::XIndexAccess> xTextSections(xTextSectionsSupplier->getTextSections(), uno::UNO_QUERY);
     // This was false, last section was balanced, but it's unbalanced in Word.
     CPPUNIT_ASSERT_EQUAL(true, getProperty<bool>(xTextSections->getByIndex(2), "DontBalanceTextColumns"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf121670_columnsInSectionsOnly, "tdf121670_columnsInSectionsOnly.docx")
+{
+    uno::Reference<text::XTextSectionsSupplier> xTextSectionsSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xTextSections(xTextSectionsSupplier->getTextSections(), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("DontBalanceTextColumns?", true, getProperty<bool>(xTextSections->getByIndex(0), "DontBalanceTextColumns"));
+
+    uno::Reference<beans::XPropertySet> xTextSection = getProperty< uno::Reference<beans::XPropertySet> >(getParagraph(2), "TextSection");
+    CPPUNIT_ASSERT(xTextSection.is());
+    uno::Reference<text::XTextColumns> xTextColumns = getProperty< uno::Reference<text::XTextColumns> >(xTextSection, "TextColumns");
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("# of columns", sal_Int16(3), xTextColumns->getColumnCount());
+
+    xTextSection.set( getProperty< uno::Reference<beans::XPropertySet> >(getParagraph(3), "TextSection") );
+    CPPUNIT_ASSERT(xTextSection.is());
+    xTextColumns.set( getProperty< uno::Reference<text::XTextColumns> >(xTextSection, "TextColumns") );
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("# of columns", sal_Int16(0), xTextColumns->getColumnCount());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf106492, "tdf106492.docx")

@@ -19,11 +19,14 @@
 
 #include "MasterPageContainer.hxx"
 
+#include "MasterPageContainerProviders.hxx"
 #include "MasterPageDescriptor.hxx"
 #include "MasterPageContainerFiller.hxx"
 #include "MasterPageContainerQueue.hxx"
 #include <TemplateScanner.hxx>
+#include <PreviewRenderer.hxx>
 #include <tools/AsynchronousTask.hxx>
+#include <tools/SdGlobalResourceContainer.hxx>
 #include <strings.hrc>
 #include <algorithm>
 #include <list>
@@ -53,6 +56,7 @@
 #include <osl/mutex.hxx>
 #include <osl/getglobalmutex.hxx>
 #include <xmloff/autolayout.hxx>
+#include <tools/debug.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -243,7 +247,7 @@ Size const & MasterPageContainer::GetPreviewSizePixel() const
 }
 
 MasterPageContainer::Token MasterPageContainer::PutMasterPage (
-    const SharedMasterPageDescriptor& rDescriptor)
+    const std::shared_ptr<MasterPageDescriptor>& rDescriptor)
 {
     return mpImpl->PutMasterPage(rDescriptor);
 }
@@ -260,24 +264,24 @@ void MasterPageContainer::AcquireToken (Token aToken)
 void MasterPageContainer::ReleaseToken (Token aToken)
 {
     SharedMasterPageDescriptor pDescriptor = mpImpl->GetDescriptor(aToken);
-    if (pDescriptor.get() != nullptr)
-    {
-        OSL_ASSERT(pDescriptor->mnUseCount>0);
-        --pDescriptor->mnUseCount;
-        if (pDescriptor->mnUseCount <= 0)
-        {
-            switch (pDescriptor->meOrigin)
-            {
-                case DEFAULT:
-                case TEMPLATE:
-                default:
-                    break;
+    if (pDescriptor.get() == nullptr)
+        return;
 
-                case MASTERPAGE:
-                    mpImpl->ReleaseDescriptor(aToken);
-                    break;
-            }
-        }
+    OSL_ASSERT(pDescriptor->mnUseCount>0);
+    --pDescriptor->mnUseCount;
+    if (pDescriptor->mnUseCount > 0)
+        return;
+
+    switch (pDescriptor->meOrigin)
+    {
+        case DEFAULT:
+        case TEMPLATE:
+        default:
+            break;
+
+        case MASTERPAGE:
+            mpImpl->ReleaseDescriptor(aToken);
+            break;
     }
 }
 
@@ -444,7 +448,7 @@ sal_Int32 MasterPageContainer::GetTemplateIndexForToken (Token aToken)
         return -1;
 }
 
-SharedMasterPageDescriptor MasterPageContainer::GetDescriptorForToken (
+std::shared_ptr<MasterPageDescriptor> MasterPageContainer::GetDescriptorForToken (
     MasterPageContainer::Token aToken)
 {
     const ::osl::MutexGuard aGuard (mpImpl->maMutex);
@@ -518,21 +522,21 @@ void MasterPageContainer::Implementation::LateInit()
 {
     const ::osl::MutexGuard aGuard (maMutex);
 
-    if (meInitializationState == NOT_INITIALIZED)
-    {
-        meInitializationState = INITIALIZING;
+    if (meInitializationState != NOT_INITIALIZED)
+        return;
 
-        OSL_ASSERT(Instance().get()==this);
-        mpRequestQueue.reset(MasterPageContainerQueue::Create(
-            std::shared_ptr<MasterPageContainerQueue::ContainerAdapter>(Instance())));
+    meInitializationState = INITIALIZING;
 
-        mpFillerTask = ::sd::tools::TimerBasedTaskExecution::Create(
-            std::shared_ptr<tools::AsynchronousTask>(new MasterPageContainerFiller(*this)),
-            5,
-            50);
+    OSL_ASSERT(Instance().get()==this);
+    mpRequestQueue.reset(MasterPageContainerQueue::Create(
+        std::shared_ptr<MasterPageContainerQueue::ContainerAdapter>(Instance())));
 
-        meInitializationState = INITIALIZED;
-    }
+    mpFillerTask = ::sd::tools::TimerBasedTaskExecution::Create(
+        std::shared_ptr<tools::AsynchronousTask>(new MasterPageContainerFiller(*this)),
+        5,
+        50);
+
+    meInitializationState = INITIALIZED;
 }
 
 void MasterPageContainer::Implementation::AddChangeListener (const Link<MasterPageContainerChangeEvent&,void>& rLink)

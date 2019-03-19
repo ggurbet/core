@@ -11,6 +11,7 @@
 #include <test/bootstrapfixture.hxx>
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/propertysetinfo.hxx>
@@ -210,7 +211,7 @@ void Test::testMetaGenerator()
 
         SvXMLMetaDocumentContext::setBuildId(
                 OUString::createFromAscii(tests[i].generator), xInfoSet);
-        if (std::strlen(tests[i].buildId) != 0)
+        if (tests[i].buildId[0] != '\0')
         {
             CPPUNIT_ASSERT_EQUAL(OUString::createFromAscii(tests[i].buildId),
                     xInfoSet->getPropertyValue("BuildId").get<OUString>());

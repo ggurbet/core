@@ -29,12 +29,14 @@
 #include <cppuhelper/typeprovider.hxx>
 #include <rtl/uuid.h>
 #include <osl/mutex.hxx>
+#include <tools/debug.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/keycod.hxx>
 #include <vcl/image.hxx>
 #include <vcl/mnemonic.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/window.hxx>
 
 #include <com/sun/star/awt/KeyModifier.hpp>
 
@@ -58,7 +60,7 @@ VCLXMenu::~VCLXMenu()
     if ( mpMenu )
     {
         mpMenu->RemoveEventListener( LINK( this, VCLXMenu, MenuEventListener ) );
-         mpMenu.disposeAndClear();
+        mpMenu.disposeAndClear();
     }
 }
 
@@ -301,7 +303,7 @@ void VCLXMenu::removeItem(
         return;
 
     sal_Int32 nItemCount = static_cast<sal_Int32>(mpMenu->GetItemCount());
-    if ( ( nCount > 0 ) && ( nPos >= 0 ) && ( nPos < nItemCount ) && ( nItemCount > 0 ))
+    if ((nCount > 0) && (nPos >= 0) && (nPos < nItemCount))
     {
         sal_Int16 nP = sal::static_int_cast< sal_Int16 >(
             std::min( static_cast<int>(nPos+nCount), static_cast<int>(nItemCount) ));

@@ -80,7 +80,7 @@ PageSizeControl::PageSizeControl( sal_uInt16 nId, vcl::Window* pParent )
     maWidthHeightField->SetDecimalDigits(2);
     maWidthHeightField->SetSpinSize(10);
     maWidthHeightField->SetLast(9999);
-    SetFieldUnit( *maWidthHeightField.get(), lcl_GetFieldUnit() );
+    SetFieldUnit( *maWidthHeightField, lcl_GetFieldUnit() );
 
     maPaperList.push_back( PAPER_A3 );
     maPaperList.push_back( PAPER_A4 );
@@ -141,7 +141,7 @@ PageSizeControl::PageSizeControl( sal_uInt16 nId, vcl::Window* pParent )
                 Swap( aPaperSize );
             }
 
-                maWidthHeightField->SetValue( maWidthHeightField->Normalize( aPaperSize.Width() ), FieldUnit::TWIP );
+            maWidthHeightField->SetValue( maWidthHeightField->Normalize( aPaperSize.Width() ), FieldUnit::TWIP );
             aWidthStr = localeDataWrapper.getNum(
                 maWidthHeightField->GetValue(),
                 maWidthHeightField->GetDecimalDigits(),

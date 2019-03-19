@@ -17,11 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/app.hxx>
-#include <sfx2/docfile.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/linkmgr.hxx>
-#include <svl/stritem.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/charclass.hxx>
 
@@ -43,7 +40,6 @@
 #include <patattr.hxx>
 #include <docpool.hxx>
 
-#include <sc.hrc>
 #include <scabstdlg.hxx>
 #include <clipparam.hxx>
 
@@ -141,7 +137,7 @@ void ScAreaLink::Closed()
     bool bUndo (rDoc.IsUndoEnabled());
     if (bAddUndo && bUndo)
     {
-        m_pDocSh->GetUndoManager()->AddUndoAction( o3tl::make_unique<ScUndoRemoveAreaLink>( m_pDocSh,
+        m_pDocSh->GetUndoManager()->AddUndoAction( std::make_unique<ScUndoRemoveAreaLink>( m_pDocSh,
                                                         aFileName, aFilterName, aOptions,
                                                         aSourceArea, aDestArea, GetRefreshDelay() ) );
 
@@ -418,7 +414,7 @@ bool ScAreaLink::Refresh( const OUString& rNewFile, const OUString& rNewFilter,
             rDoc.CopyToDocument(aNewRange, InsertDeleteFlags::ALL & ~InsertDeleteFlags::NOTE, false, *pRedoDoc);
 
             m_pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoUpdateAreaLink>( m_pDocSh,
+                std::make_unique<ScUndoUpdateAreaLink>( m_pDocSh,
                                             aFileName, aFilterName, aOptions,
                                             aSourceArea, aOldRange, GetRefreshDelay(),
                                             aNewUrl, rNewFilter, aNewOpt,

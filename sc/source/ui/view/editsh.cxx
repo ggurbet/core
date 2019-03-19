@@ -462,7 +462,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
             {
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
-                ScopedVclPtr<AbstractScNamePasteDlg> pDlg(pFact->CreateScNamePasteDlg( pViewData->GetDialogParent(), pViewData->GetDocShell() ));
+                ScopedVclPtr<AbstractScNamePasteDlg> pDlg(pFact->CreateScNamePasteDlg(pViewData->GetFrameWeld(), pViewData->GetDocShell()));
                 short nRet = pDlg->Execute();
                 // pDlg is needed below
 
@@ -631,6 +631,9 @@ void ScEditShell::Execute( SfxRequest& rReq )
         case FN_INSERT_HARD_SPACE:
             lclInsertCharacter( pTableView, pTopView, CHAR_NBSP );
         break;
+        case FN_INSERT_NNBSP:
+            lclInsertCharacter( pTableView, pTopView, CHAR_NNBSP );
+        break;
         case SID_INSERT_RLM:
             lclInsertCharacter( pTableView, pTopView, CHAR_RLM );
         break;
@@ -752,7 +755,7 @@ void ScEditShell::GetState( SfxItemSet& rSet )
             case SID_TRANSLITERATE_HALFWIDTH:
             case SID_TRANSLITERATE_FULLWIDTH:
             case SID_TRANSLITERATE_HIRAGANA:
-            case SID_TRANSLITERATE_KATAGANA:
+            case SID_TRANSLITERATE_KATAKANA:
             case SID_INSERT_RLM:
             case SID_INSERT_LRM:
                 ScViewUtil::HideDisabledSlot( rSet, pViewData->GetBindings(), nWhich );

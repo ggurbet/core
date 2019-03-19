@@ -34,6 +34,7 @@
 #include <filter/msfilter/msfilterdllapi.h>
 #include <filter/msfilter/msocximex.hxx>
 #include <o3tl/enumarray.hxx>
+#include <rtl/ref.hxx>
 #include <rtl/textenc.h>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
@@ -1084,7 +1085,7 @@ struct PPTStyleTextPropReader
                 PPTCharPropSet& aCharPropSet,
                 const OUString& aString,
                 sal_uInt32& nCharCount,
-                sal_uInt32 nCharAnzRead,
+                sal_uInt32 nCharReadCnt,
                 bool& bTextPropAtom,
                 sal_uInt32 nExtParaPos,
                 const std::vector< StyleTextProp9 >& aStyleTextProp9,

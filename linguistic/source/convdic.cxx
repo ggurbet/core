@@ -20,6 +20,7 @@
 
 #include <cppuhelper/factory.hxx>
 #include <i18nlangtag/lang.h>
+#include <i18nlangtag/languagetag.hxx>
 #include <osl/mutex.hxx>
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
@@ -48,6 +49,9 @@
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/xml/sax/InputSource.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
+#include <com/sun/star/xml/sax/SAXParseException.hpp>
+#include <com/sun/star/container/NoSuchElementException.hpp>
+#include <com/sun/star/container/ElementExistException.hpp>
 
 
 #include "convdic.hxx"

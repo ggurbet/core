@@ -28,6 +28,67 @@
 
 using namespace dbahsql;
 
+namespace
+{
+int getHexValue(sal_Unicode c)
+{
+    if (c >= '0' && c <= '9')
+    {
+        return c - '0';
+    }
+    else if (c >= 'A' && c <= 'F')
+    {
+        return c - 'A' + 10;
+    }
+    else if (c >= 'a' && c <= 'f')
+    {
+        return c - 'a' + 10;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+} // unnamed namespace
+
+//Convert ascii escaped unicode to utf-8
+OUString utils::convertToUTF8(const OString& original)
+{
+    OUString res = OStringToOUString(original, RTL_TEXTENCODING_UTF8);
+    for (sal_Int32 i = 0;;)
+    {
+        i = res.indexOf("\\u", i);
+        if (i == -1)
+        {
+            break;
+        }
+        i += 2;
+        if (res.getLength() - i >= 4)
+        {
+            bool escape = true;
+            sal_Unicode c = 0;
+            for (sal_Int32 j = 0; j != 4; ++j)
+            {
+                auto const n = getHexValue(res[i + j]);
+                if (n == -1)
+                {
+                    escape = false;
+                    break;
+                }
+                c = (c << 4) | n;
+            }
+            if (escape)
+            {
+                i -= 2;
+                res = res.replaceAt(i, 6, OUString(c));
+                ++i;
+            }
+        }
+    }
+    return res;
+}
+
 OUString utils::getTableNameFromStmt(const OUString& sSql)
 {
     auto stmtComponents = comphelper::string::split(sSql, sal_Unicode(u' '));

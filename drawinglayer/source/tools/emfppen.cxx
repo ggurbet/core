@@ -19,23 +19,7 @@
 
 #include <com/sun/star/rendering/PathCapType.hpp>
 #include <com/sun/star/rendering/PathJoinType.hpp>
-#include <com/sun/star/rendering/TexturingMode.hpp>
-#include <com/sun/star/rendering/XCanvas.hpp>
-#include <basegfx/utils/canvastools.hxx>
-#include <basegfx/utils/gradienttools.hxx>
-#include <basegfx/utils/tools.hxx>
-#include <basegfx/numeric/ftools.hxx>
-#include <basegfx/point/b2dpoint.hxx>
-#include <basegfx/vector/b2dsize.hxx>
-#include <basegfx/range/b2drange.hxx>
-#include <basegfx/range/b2drectangle.hxx>
-#include <basegfx/polygon/b2dlinegeometry.hxx>
-#include <basegfx/polygon/b2dpolygon.hxx>
-#include <basegfx/polygon/b2dpolygontools.hxx>
-#include <basegfx/polygon/b2dpolypolygon.hxx>
-#include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <sal/log.hxx>
-#include <vcl/canvastools.hxx>
 #include "emfppen.hxx"
 #include "emfpcustomlinecap.hxx"
 
@@ -83,20 +67,6 @@ namespace emfplushelper
     {
     }
 
-    void EMFPPen::SetStrokeWidth(rendering::StrokeAttributes& rStrokeAttributes, EmfPlusHelperData const & rR, const ::basegfx::B2DHomMatrix& mapModeTransform)
-    {
-        // If a zero width is specified, a minimum value is used, which is determined by the units.
-        //TODO Add support for other units than Pixel
-        rStrokeAttributes.StrokeWidth = fabs((mapModeTransform * rR.MapSize(penWidth == 0.0 ? 0.05 : penWidth, 0)).getLength());
-
-        // tdf#31814 Based on observation of different EMF+ files (eg. exported by ChemDraw),
-        // there is minimal value of line width
-        if (rStrokeAttributes.StrokeWidth < 1.0)
-        {
-            rStrokeAttributes.StrokeWidth = 1.0;
-        }
-    }
-
     /// Convert stroke caps between EMF+ and rendering API
     sal_Int8 EMFPPen::lcl_convertStrokeCap(sal_uInt32 nEmfStroke)
     {
@@ -125,40 +95,6 @@ namespace emfplushelper
         return 0;
     }
 
-
-    void EMFPPen::SetStrokeAttributes(rendering::StrokeAttributes& rStrokeAttributes)
-    {
-        rStrokeAttributes.JoinType = lcl_convertLineJoinType(lineJoin);
-
-        if (dashStyle != EmfPlusLineStyleSolid)
-        {
-            const float dash[] = { 3, 3 };
-            const float dot[] = { 1, 3 };
-            const float dashdot[] = { 3, 3, 1, 3 };
-            const float dashdotdot[] = { 3, 3, 1, 3, 1, 3 };
-
-            sal_Int32 nLen = 0;
-            const float *pPattern = nullptr;
-            switch (dashStyle)
-            {
-                case EmfPlusLineStyleDash:       nLen = SAL_N_ELEMENTS(dash); pPattern = dash; break;
-                case EmfPlusLineStyleDot:        nLen = SAL_N_ELEMENTS(dot); pPattern = dot; break;
-                case EmfPlusLineStyleDashDot:    nLen = SAL_N_ELEMENTS(dashdot); pPattern = dashdot; break;
-                case EmfPlusLineStyleDashDotDot: nLen = SAL_N_ELEMENTS(dashdotdot); pPattern = dashdotdot; break;
-                case EmfPlusLineStyleCustom:     nLen = dashPattern.size(); pPattern = dashPattern.data(); break;
-            }
-
-            if (nLen > 0)
-            {
-                uno::Sequence<double> aDashArray(nLen);
-                for (int i = 0; i < nLen; ++i)
-                    aDashArray[i] = pPattern[i];
-
-                rStrokeAttributes.DashArray = aDashArray;
-            }
-        }
-    }
-
     void EMFPPen::Read(SvStream& s, EmfPlusHelperData const & rR)
     {
         sal_uInt32 graphicsVersion, penType;
@@ -170,9 +106,17 @@ namespace emfplushelper
 
         penWidth = penWidth * EmfPlusHelperData::getUnitToPixelMultiplier(static_cast<UnitType>(penUnit));
 
+        // If a zero width is specified, a minimum value must be used, which is determined by the units
+        if (penWidth == 0.0)
+        { //TODO Check if these values is correct
+            penWidth = penUnit == 0 ? 0.18f
+                : 0.05f;  // 0.05f is taken from old EMF+ implementation (case of Unit == Pixel etc.)
+        }
+
         if (penDataFlags & PenDataTransform)
         {
             EmfPlusHelperData::readXForm(s, pen_transformation);
+            SAL_WARN("drawinglayer", "EMF+\t\t TODO PenDataTransform: " << pen_transformation);
         }
 
         if (penDataFlags & PenDataStartCap)
@@ -198,6 +142,7 @@ namespace emfplushelper
         if (penDataFlags & PenDataJoin)
         {
             s.ReadInt32(lineJoin);
+            SAL_WARN("drawinglayer", "EMF+\t\t TODO PenDataJoin: 0x" << std::hex << lineJoin);
         }
         else
         {
@@ -207,6 +152,7 @@ namespace emfplushelper
         if (penDataFlags & PenDataMiterLimit)
         {
             s.ReadFloat(mitterLimit);
+            SAL_WARN("drawinglayer", "EMF+\t\t TODO PenDataMiterLimit: 0x" << std::hex << mitterLimit);
         }
         else
         {
@@ -226,6 +172,7 @@ namespace emfplushelper
         if (penDataFlags & PenDataDashedLineCap)
         {
             s.ReadInt32(dashCap);
+            SAL_WARN("drawinglayer", "EMF+\t\t TODO PenDataDashedLineCap: 0x" << std::hex << dashCap);
         }
         else
         {
@@ -235,6 +182,7 @@ namespace emfplushelper
         if (penDataFlags & PenDataDashedLineOffset)
         {
             s.ReadFloat(dashOffset);
+            SAL_WARN("drawinglayer", "EMF+\t\t TODO PenDataDashedLineOffset: 0x" << std::hex << dashOffset);
         }
         else
         {
@@ -266,6 +214,7 @@ namespace emfplushelper
         if (penDataFlags & PenDataNonCenter)
         {
             s.ReadInt32(alignment);
+            SAL_WARN("drawinglayer", "EMF+\t\t TODO PenDataNonCenter: 0x" << std::hex << alignment);
         }
         else
         {
@@ -288,6 +237,7 @@ namespace emfplushelper
             {
                 s.ReadFloat(compoundArray[i]);
             }
+            SAL_WARN("drawinglayer", "EMF+\t\t TODO PenDataCompoundLine: 0x");
         }
 
         if (penDataFlags & PenDataCustomStartCap)

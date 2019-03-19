@@ -32,6 +32,7 @@
 #include <viewimp.hxx>
 #include <sortedobjs.hxx>
 #include <hints.hxx>
+#include <frmtool.hxx>
 
     // No inline cause we need the function pointers
 long SwFrame::GetTopMargin() const
@@ -584,7 +585,7 @@ const SwRect SwFrame::GetPaintArea() const
     // Cell frames may not leave their upper:
     SwRect aRect = IsRowFrame() ? GetUpper()->getFrameArea() : getFrameArea();
     const bool bVert = IsVertical();
-    SwRectFn fnRect = bVert ? ( IsVertLR() ? fnRectVertL2R : fnRectVert ) : fnRectHori;
+    SwRectFn fnRect = bVert ? ( IsVertLR() ? (IsVertLRBT() ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert ) : fnRectHori;
     long nRight = (aRect.*fnRect->fnGetRight)();
     long nLeft  = (aRect.*fnRect->fnGetLeft)();
     const SwFrame* pTmp = this;
@@ -675,19 +676,20 @@ const SwRect SwFrame::GetPaintArea() const
 const SwRect SwFrame::UnionFrame( bool bBorder ) const
 {
     bool bVert = IsVertical();
-    SwRectFn fnRect = bVert ? ( IsVertLR() ? fnRectVertL2R : fnRectVert ) : fnRectHori;
+    SwRectFn fnRect = bVert ? ( IsVertLR() ? (IsVertLRBT() ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert ) : fnRectHori;
     long nLeft = (getFrameArea().*fnRect->fnGetLeft)();
     long nWidth = (getFrameArea().*fnRect->fnGetWidth)();
     long nPrtLeft = (getFramePrintArea().*fnRect->fnGetLeft)();
     long nPrtWidth = (getFramePrintArea().*fnRect->fnGetWidth)();
-    if( nPrtLeft + nPrtWidth > nWidth )
+    SwRectFnSet aRectFnSet(this);
+    if (aRectFnSet.XInc(nPrtLeft, nPrtWidth) > nWidth)
         nWidth = nPrtLeft + nPrtWidth;
     if( nPrtLeft < 0 )
     {
         nLeft += nPrtLeft;
         nWidth -= nPrtLeft;
     }
-    SwTwips nRight = nLeft + nWidth;
+    SwTwips nRight = aRectFnSet.XInc(nLeft, nWidth);
     long nAdd = 0;
     if( bBorder )
     {
@@ -715,9 +717,9 @@ const SwRect SwFrame::UnionFrame( bool bBorder ) const
         if( nTmp > nAdd )
             nAdd = nTmp;
     }
-    nWidth = nRight + nAdd - nLeft;
+    nWidth = aRectFnSet.XDiff(aRectFnSet.XInc(nRight, nAdd), nLeft);
     SwRect aRet( getFrameArea() );
-    (aRet.*fnRect->fnSetPosX)( nLeft );
+    (aRet.*fnRect->fnSetLeft)(nLeft);
     (aRet.*fnRect->fnSetWidth)( nWidth );
     return aRet;
 }

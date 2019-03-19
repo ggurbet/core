@@ -11,7 +11,6 @@
 
 #include <sfx2/filedlghelper.hxx>
 #include <svtools/inettbc.hxx>
-#include <vcl/layout.hxx>
 #include <address.hxx>
 #include <docsh.hxx>
 #include <datastream.hxx>
@@ -57,7 +56,7 @@ IMPL_LINK_NOARG(DataStreamDlg, BrowseHdl, weld::Button&, void)
     if ( aFileDialog.Execute() != ERRCODE_NONE )
         return;
 
-    m_xCbUrl->SetText( aFileDialog.GetPath() );
+    m_xCbUrl->set_entry_text(aFileDialog.GetPath());
     UpdateEnable();
 }
 
@@ -124,7 +123,7 @@ ScRange DataStreamDlg::GetStartRange()
 
 void DataStreamDlg::Init( const DataStream& rStrm )
 {
-    m_xCbUrl->SetText(rStrm.GetURL());
+    m_xCbUrl->set_entry_text(rStrm.GetURL());
     ScDocument& rDoc = m_pDocShell->GetDocument();
 
     ScRange aRange = rStrm.GetRange();

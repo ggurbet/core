@@ -19,7 +19,6 @@
 
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
-#include <com/sun/star/accessibility/XAccessible.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/XFramesSupplier.hpp>
 #include <com/sun/star/container/XChild.hpp>
@@ -54,6 +53,7 @@
 #include <vcl/decoview.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/virdev.hxx>
 #include <sal/log.hxx>
 
 #include <unotools/streamwrap.hxx>
@@ -150,45 +150,46 @@ void SmGraphicWindow::MouseButtonDown(const MouseEvent& rMEvt)
     // position clicked at
 
     SAL_WARN_IF( rMEvt.GetClicks() == 0, "starmath", "0 clicks" );
-    if ( rMEvt.IsLeft() )
-    {
-        // get click position relative to formula
-        Point  aPos (PixelToLogic(rMEvt.GetPosPixel())
-                     - GetFormulaDrawPos());
+    if ( !rMEvt.IsLeft() )
+        return;
 
-        const SmNode *pTree = pViewShell->GetDoc()->GetFormulaTree();
-        if (!pTree)
-            return;
+    // get click position relative to formula
+    Point  aPos (PixelToLogic(rMEvt.GetPosPixel())
+                 - GetFormulaDrawPos());
 
-        if (IsInlineEditEnabled()) {
-            pViewShell->GetDoc()->GetCursor().MoveTo(this, aPos, !rMEvt.IsShift());
-            return;
-        }
-        const SmNode *pNode = nullptr;
-        // if it was clicked inside the formula then get the appropriate node
-        if (pTree->OrientedDist(aPos) <= 0)
-            pNode = pTree->FindRectClosestTo(aPos);
+    const SmNode *pTree = pViewShell->GetDoc()->GetFormulaTree();
+    if (!pTree)
+        return;
 
-        if (pNode)
-        {   SmEditWindow  *pEdit = pViewShell->GetEditWindow();
-            if (!pEdit)
-                return;
-            const SmToken  aToken (pNode->GetToken());
-
-            // set selection to the beginning of the token
-            ESelection  aSel (aToken.nRow - 1, aToken.nCol - 1);
-
-            if (rMEvt.GetClicks() != 1 || aToken.eType == TPLACE)
-                aSel.nEndPos = aSel.nEndPos + sal::static_int_cast< sal_uInt16 >(aToken.aText.getLength());
-
-            pEdit->SetSelection(aSel);
-            SetCursor(pNode);
-
-            // allow for immediate editing and
-            //! implicitly synchronize the cursor position mark in this window
-            pEdit->GrabFocus();
-        }
+    if (IsInlineEditEnabled()) {
+        pViewShell->GetDoc()->GetCursor().MoveTo(this, aPos, !rMEvt.IsShift());
+        return;
     }
+    const SmNode *pNode = nullptr;
+    // if it was clicked inside the formula then get the appropriate node
+    if (pTree->OrientedDist(aPos) <= 0)
+        pNode = pTree->FindRectClosestTo(aPos);
+
+    if (!pNode)
+        return;
+
+    SmEditWindow  *pEdit = pViewShell->GetEditWindow();
+    if (!pEdit)
+        return;
+    const SmToken  aToken (pNode->GetToken());
+
+    // set selection to the beginning of the token
+    ESelection  aSel (aToken.nRow - 1, aToken.nCol - 1);
+
+    if (rMEvt.GetClicks() != 1 || aToken.eType == TPLACE)
+        aSel.nEndPos = aSel.nEndPos + sal::static_int_cast< sal_uInt16 >(aToken.aText.getLength());
+
+    pEdit->SetSelection(aSel);
+    SetCursor(pNode);
+
+    // allow for immediate editing and
+    //! implicitly synchronize the cursor position mark in this window
+    pEdit->GrabFocus();
 }
 
 void SmGraphicWindow::MouseMove(const MouseEvent &rMEvt)
@@ -662,7 +663,7 @@ SmCmdBoxWindow::SmCmdBoxWindow(SfxBindings *pBindings_, SfxChildWindow *pChildWi
                                vcl::Window *pParent) :
     SfxDockingWindow(pBindings_, pChildWindow, pParent, WB_MOVEABLE|WB_CLOSEABLE|WB_SIZEABLE|WB_DOCKABLE),
     aEdit       (VclPtr<SmEditWindow>::Create(*this)),
-    aController (*(aEdit.get()), SID_TEXT, *pBindings_),
+    aController (*aEdit, SID_TEXT, *pBindings_),
     bExiting    (false)
 {
     SetHelpId( HID_SMA_COMMAND_WIN );
@@ -698,11 +699,11 @@ SmViewShell * SmCmdBoxWindow::GetView()
 
 void SmCmdBoxWindow::Resize()
 {
-     tools::Rectangle aRect(Point(0, 0), GetOutputSizePixel());
-     aRect.AdjustLeft(CMD_BOX_PADDING );
-     aRect.AdjustTop(CMD_BOX_PADDING_TOP );
-     aRect.AdjustRight( -(CMD_BOX_PADDING) );
-     aRect.AdjustBottom( -(CMD_BOX_PADDING) );
+    tools::Rectangle aRect(Point(0, 0), GetOutputSizePixel());
+    aRect.AdjustLeft(CMD_BOX_PADDING );
+    aRect.AdjustTop(CMD_BOX_PADDING_TOP );
+    aRect.AdjustRight( -(CMD_BOX_PADDING) );
+    aRect.AdjustBottom( -(CMD_BOX_PADDING) );
 
     DecorationView aView(this);
     aRect = aView.DrawFrame(aRect, DrawFrameStyle::In, DrawFrameFlags::NoDraw);
@@ -1340,24 +1341,24 @@ void SmViewShell::Insert( SfxMedium& rMedium )
         }
     }
 
-    if (bRet)
+    if (!bRet)
+        return;
+
+    OUString aText = pDoc->GetText();
+    SmEditWindow *pEditWin = GetEditWindow();
+    if (pEditWin)
+        pEditWin->InsertText( aText );
+    else
     {
-        OUString aText = pDoc->GetText();
-        SmEditWindow *pEditWin = GetEditWindow();
-        if (pEditWin)
-            pEditWin->InsertText( aText );
-        else
-        {
-            SAL_WARN( "starmath", "EditWindow missing" );
-        }
-
-        pDoc->Parse();
-        pDoc->SetModified();
-
-        SfxBindings &rBnd = GetViewFrame()->GetBindings();
-        rBnd.Invalidate(SID_GAPHIC_SM);
-        rBnd.Invalidate(SID_TEXT);
+        SAL_WARN( "starmath", "EditWindow missing" );
     }
+
+    pDoc->Parse();
+    pDoc->SetModified();
+
+    SfxBindings &rBnd = GetViewFrame()->GetBindings();
+    rBnd.Invalidate(SID_GAPHIC_SM);
+    rBnd.Invalidate(SID_TEXT);
 }
 
 void SmViewShell::InsertFrom(SfxMedium &rMedium)
@@ -1377,22 +1378,22 @@ void SmViewShell::InsertFrom(SfxMedium &rMedium)
         }
     }
 
-    if (bSuccess)
-    {
-        OUString aText = pDoc->GetText();
-        SmEditWindow *pEditWin = GetEditWindow();
-        if (pEditWin)
-            pEditWin->InsertText(aText);
-        else
-            SAL_WARN( "starmath", "EditWindow missing" );
+    if (!bSuccess)
+        return;
 
-        pDoc->Parse();
-        pDoc->SetModified();
+    OUString aText = pDoc->GetText();
+    SmEditWindow *pEditWin = GetEditWindow();
+    if (pEditWin)
+        pEditWin->InsertText(aText);
+    else
+        SAL_WARN( "starmath", "EditWindow missing" );
 
-        SfxBindings& rBnd = GetViewFrame()->GetBindings();
-        rBnd.Invalidate(SID_GAPHIC_SM);
-        rBnd.Invalidate(SID_TEXT);
-    }
+    pDoc->Parse();
+    pDoc->SetModified();
+
+    SfxBindings& rBnd = GetViewFrame()->GetBindings();
+    rBnd.Invalidate(SID_GAPHIC_SM);
+    rBnd.Invalidate(SID_TEXT);
 }
 
 void SmViewShell::Execute(SfxRequest& rReq)
@@ -1906,7 +1907,7 @@ SmViewShell::SmViewShell(SfxViewFrame *pFrame_, SfxViewShell *)
     : SfxViewShell(pFrame_, SfxViewShellFlags::HAS_PRINTOPTIONS)
     , mpImpl(new SmViewShell_Impl)
     , mpGraphic(VclPtr<SmGraphicWindow>::Create(this))
-    , maGraphicController(*mpGraphic.get(), SID_GAPHIC_SM, pFrame_->GetBindings())
+    , maGraphicController(*mpGraphic, SID_GAPHIC_SM, pFrame_->GetBindings())
     , mbPasteState(false)
     , mbInsertIntoEditWindow(false)
 {

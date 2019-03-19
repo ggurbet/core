@@ -29,7 +29,6 @@
 
 #include <svtools/valueset.hxx>
 
-#include <o3tl/make_unique.hxx>
 #include <vcl/weld.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
@@ -74,8 +73,8 @@ Dim3DLookResourceGroup::Dim3DLookResourceGroup(weld::Builder* pBuilder)
 
 void Dim3DLookResourceGroup::showControls( bool bShow )
 {
-    m_xCB_3DLook->show(bShow);
-    m_xLB_Scheme->show(bShow);
+    m_xCB_3DLook->set_visible(bShow);
+    m_xLB_Scheme->set_visible(bShow);
 }
 
 void Dim3DLookResourceGroup::fillControls( const ChartTypeParameter& rParameter )
@@ -141,7 +140,7 @@ SortByXValuesResourceGroup::SortByXValuesResourceGroup(weld::Builder* pBuilder)
 
 void SortByXValuesResourceGroup::showControls( bool bShow )
 {
-    m_xCB_XValueSorting->show(bShow);
+    m_xCB_XValueSorting->set_visible(bShow);
 }
 
 void SortByXValuesResourceGroup::fillControls( const ChartTypeParameter& rParameter )
@@ -196,10 +195,10 @@ StackingResourceGroup::StackingResourceGroup(weld::Builder* pBuilder)
 
 void StackingResourceGroup::showControls( bool bShow, bool bShowDeepStacking )
 {
-    m_xCB_Stacked->show(bShow);
-    m_xRB_Stack_Y->show(bShow);
-    m_xRB_Stack_Y_Percent->show(bShow);
-    m_xRB_Stack_Z->show(bShow&&bShowDeepStacking);
+    m_xCB_Stacked->set_visible(bShow);
+    m_xRB_Stack_Y->set_visible(bShow);
+    m_xRB_Stack_Y_Percent->set_visible(bShow);
+    m_xRB_Stack_Z->set_visible(bShow&&bShowDeepStacking);
 }
 
 void StackingResourceGroup::fillControls( const ChartTypeParameter& rParameter )
@@ -452,9 +451,9 @@ SteppedPropertiesDialog& SplineResourceGroup::getSteppedPropertiesDialog()
 
 void SplineResourceGroup::showControls( bool bShow )
 {
-    m_xFT_LineType->show(bShow);
-    m_xLB_LineType->show(bShow);
-    m_xPB_DetailsDialog->show(bShow);
+    m_xFT_LineType->set_visible(bShow);
+    m_xLB_LineType->set_visible(bShow);
+    m_xPB_DetailsDialog->set_visible(bShow);
 }
 
 void SplineResourceGroup::fillControls( const ChartTypeParameter& rParameter )
@@ -578,7 +577,7 @@ GeometryResourceGroup::GeometryResourceGroup(weld::Builder* pBuilder)
 
 void GeometryResourceGroup::showControls(bool bShow)
 {
-    m_aGeometryResources.show(bShow);
+    m_aGeometryResources.set_visible(bShow);
 }
 
 void GeometryResourceGroup::fillControls(const ChartTypeParameter& rParameter)
@@ -656,24 +655,24 @@ ChartTypeTabPage::ChartTypeTabPage(TabPageParent pParent , const uno::Reference<
         }
     }
 
-    m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<ColumnChartDialogController>());
-    m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<BarChartDialogController>());
-    m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<PieChartDialogController>());
-    m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<AreaChartDialogController>());
-    m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<LineChartDialogController>());
+    m_aChartTypeDialogControllerList.push_back(std::make_unique<ColumnChartDialogController>());
+    m_aChartTypeDialogControllerList.push_back(std::make_unique<BarChartDialogController>());
+    m_aChartTypeDialogControllerList.push_back(std::make_unique<PieChartDialogController>());
+    m_aChartTypeDialogControllerList.push_back(std::make_unique<AreaChartDialogController>());
+    m_aChartTypeDialogControllerList.push_back(std::make_unique<LineChartDialogController>());
     if (bEnableComplexChartTypes)
     {
-        m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<XYChartDialogController>());
+        m_aChartTypeDialogControllerList.push_back(std::make_unique<XYChartDialogController>());
         m_aChartTypeDialogControllerList.push_back(
-            o3tl::make_unique<BubbleChartDialogController>());
+            std::make_unique<BubbleChartDialogController>());
     }
-    m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<NetChartDialogController>());
+    m_aChartTypeDialogControllerList.push_back(std::make_unique<NetChartDialogController>());
     if (bEnableComplexChartTypes)
     {
-        m_aChartTypeDialogControllerList.push_back(o3tl::make_unique<StockChartDialogController>());
+        m_aChartTypeDialogControllerList.push_back(std::make_unique<StockChartDialogController>());
     }
     m_aChartTypeDialogControllerList.push_back(
-        o3tl::make_unique<CombiColumnLineChartDialogController>());
+        std::make_unique<CombiColumnLineChartDialogController>());
 
     for (auto const& elem : m_aChartTypeDialogControllerList)
     {

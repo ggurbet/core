@@ -580,13 +580,10 @@ OUString ObjectIdentifier::createParticleForGrid(
             sal_Int32 nDimensionIndex
           , sal_Int32 nAxisIndex )
 {
-    OUStringBuffer aRet("Axis=");
-    aRet.append( OUString::number( nDimensionIndex ) );
-    aRet.append(",");
-    aRet.append( OUString::number( nAxisIndex ) );
-    aRet.append( ":Grid=0" );
+    OUString aRet = "Axis=" + OUString::number( nDimensionIndex )
+                  + "," + OUString::number( nAxisIndex ) + ":Grid=0";
 
-    return aRet.makeStringAndClear();
+    return aRet;
 }
 
 OUString ObjectIdentifier::createClassifiedIdentifierForGrid(
@@ -702,16 +699,12 @@ OUString ObjectIdentifier::createPieSegmentDragParameterString(
         , const awt::Point& rMinimumPosition
         , const awt::Point& rMaximumPosition )
 {
-    OUStringBuffer aRet( OUString::number( nOffsetPercent ) );
-    aRet.append( ',');
-    aRet.append( OUString::number( rMinimumPosition.X ) );
-    aRet.append( ',');
-    aRet.append( OUString::number( rMinimumPosition.Y ) );
-    aRet.append( ',');
-    aRet.append( OUString::number( rMaximumPosition.X ) );
-    aRet.append( ',');
-    aRet.append( OUString::number( rMaximumPosition.Y ) );
-    return aRet.makeStringAndClear();
+    OUString aRet = OUString::number( nOffsetPercent )
+                  + "," + OUString::number( rMinimumPosition.X )
+                  + "," + OUString::number( rMinimumPosition.Y )
+                  + "," + OUString::number( rMaximumPosition.X )
+                  + "," + OUString::number( rMaximumPosition.Y );
+    return aRet;
 }
 
 bool ObjectIdentifier::parsePieSegmentDragParameterString(
@@ -1443,15 +1436,10 @@ TitleHelper::eTitleType ObjectIdentifier::getTitleTypeForCID( const OUString& rC
 
     OUString aParentParticle = ObjectIdentifier::getFullParentParticle( rCID );
     const tTitleMap& rMap = lcl_getTitleMap();
-    tTitleMap::const_iterator aIt( rMap.begin() );
-    for( ;aIt != rMap.end(); ++aIt )
-    {
-        if( aParentParticle == (*aIt).second )
-        {
-            eRet = (*aIt).first;
-            break;
-        }
-    }
+    tTitleMap::const_iterator aIt = std::find_if(rMap.begin(), rMap.end(),
+        [&aParentParticle](tTitleMap::const_reference rEntry) { return aParentParticle == rEntry.second; });
+    if (aIt != rMap.end())
+        eRet = (*aIt).first;
 
     return eRet;
 }

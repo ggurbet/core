@@ -936,6 +936,75 @@ DECLARE_OOXMLEXPORT_TEST(testTdf99631, "tdf99631.docx")
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:r[2]/w:object[1]", "dyaOrig", "768");
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf122563, "tdf122563.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:r/w:object", 1);
+    // Size of the embedded OLE spreadsheet was the bad "width:28.35pt;height:28.35pt"
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:r[1]/w:object/v:shape", "style",
+                "width:255.75pt;height:63.75pt");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf122594, "tdf122594.docx")
+{
+    // test import/export of ActiveTable (visible sheet) of embedded XLSX OLE objects
+    uno::Reference<text::XTextEmbeddedObjectsSupplier> xEmbeddedObjectsSupplier(mxComponent,
+                                                                                uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xObjects(xEmbeddedObjectsSupplier->getEmbeddedObjects(),
+                                                     uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), xObjects->getCount());
+
+    uno::Reference<beans::XPropertySet> xSheets;
+    xObjects->getByIndex(0) >>= xSheets;
+
+    uno::Reference<frame::XModel> xModel;
+    xSheets->getPropertyValue("Model") >>= xModel;
+    uno::Reference<document::XViewDataSupplier> xViewDataSupplier(xModel, uno::UNO_QUERY);
+
+    uno::Reference<container::XIndexAccess> xIndexAccess(xViewDataSupplier->getViewData());
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), xIndexAccess->getCount());
+
+    uno::Sequence<beans::PropertyValue> aSeq;
+    sal_Int32 nCheck = 0;
+    if (xIndexAccess->getByIndex(0) >>= aSeq)
+    {
+        sal_Int32 nCount(aSeq.getLength());
+        for (sal_Int32 i = 0; i < nCount; ++i)
+        {
+            OUString sName(aSeq[i].Name);
+            if (sName == "ActiveTable")
+            {
+                OUString sTabName;
+                if (aSeq[i].Value >>= sTabName)
+                {
+                    // Sheet2, not Sheet1
+                    CPPUNIT_ASSERT_EQUAL(OUString("Munka2"), sTabName);
+                    nCheck++;
+                }
+            }
+            // tdf#122624 column and row viewarea positions
+            else if (sName == "PositionLeft")
+            {
+                sal_Int32 nPosLeft;
+                aSeq[i].Value >>= nPosLeft;
+                CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), nPosLeft);
+                nCheck++;
+            }
+            else if (sName == "PositionTop")
+            {
+                sal_Int32 nPosTop;
+                aSeq[i].Value >>= nPosTop;
+                CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), nPosTop);
+                nCheck++;
+            }
+        }
+    }
+
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(3), nCheck);
+}
+
 CPPUNIT_PLUGIN_IMPLEMENT();
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

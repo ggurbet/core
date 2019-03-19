@@ -144,8 +144,6 @@ public:
     mutable uno::Sequence< sheet::FormulaToken >            m_aSeparatorsOpCodes;
     mutable uno::Sequence< sheet::FormulaOpCodeMapEntry >   m_aFunctionOpCodes;
     mutable const sheet::FormulaOpCodeMapEntry*             m_pFunctionOpCodesEnd;
-    mutable uno::Sequence< sheet::FormulaOpCodeMapEntry >   m_aUnaryOpCodes;
-    mutable uno::Sequence< sheet::FormulaOpCodeMapEntry >   m_aBinaryOpCodes;
     ::std::map<const FormulaToken*, sheet::FormulaToken>    m_aTokenMap;
     IFormulaEditorHelper*                                   m_pHelper;
     VclPtr<Dialog>          m_pParent;
@@ -403,10 +401,6 @@ void FormulaDlg_Impl::InitFormulaOpCodeMapper()
     m_aFunctionOpCodes = m_xOpCodeMapper->getAvailableMappings( sheet::FormulaLanguage::ODFF, sheet::FormulaMapGroup::FUNCTIONS);
     m_pFunctionOpCodesEnd = m_aFunctionOpCodes.getConstArray() + m_aFunctionOpCodes.getLength();
 
-    m_aUnaryOpCodes = m_xOpCodeMapper->getAvailableMappings( sheet::FormulaLanguage::ODFF, sheet::FormulaMapGroup::UNARY_OPERATORS);
-
-    m_aBinaryOpCodes = m_xOpCodeMapper->getAvailableMappings( sheet::FormulaLanguage::ODFF, sheet::FormulaMapGroup::BINARY_OPERATORS);
-
     uno::Sequence< OUString > aArgs(3);
     aArgs[TOKEN_OPEN]   = "(";
     aArgs[TOKEN_CLOSE]  = ")";
@@ -526,9 +520,10 @@ sal_Int32 FormulaDlg_Impl::GetFunctionPos(sal_Int32 nPos)
             nOldTokPos = nTokPos;
         } // while ( pIter != pEnd )
     }
-    catch ( const uno::Exception& e )
+    catch ( const uno::Exception& )
     {
-        SAL_WARN("formula.ui", "FormulaDlg_Impl::GetFunctionPos exception! " << e.Message);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("formula.ui", "FormulaDlg_Impl::GetFunctionPos exception! " << exceptionToString(ex));
     }
 
     return nFuncPos;
@@ -757,6 +752,7 @@ void FormulaDlg_Impl::MakeTree( StructPage* _pTree, SvTreeListEntry* pParent, co
                             case ParamClass::ForceArray:
                             case ParamClass::ReferenceOrForceArray:
                             case ParamClass::SuppressedReferenceOrForceArray:
+                            case ParamClass::ForceArrayReturn:
                                 ;   // nothing, only as array/matrix
                             // no default to get compiler warning
                         }
@@ -1023,9 +1019,10 @@ OUString FormulaDlg_Impl::RepairFormula(const OUString& aFormula)
 
         }
     }
-    catch ( const uno::Exception& e )
+    catch ( const uno::Exception& )
     {
-        SAL_WARN("formula.ui", "FormulaDlg_Impl::RepairFormula exception! " << e.Message);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("formula.ui", "FormulaDlg_Impl::RepairFormula exception! " << exceptionToString(ex));
     }
     return aResult;
 }

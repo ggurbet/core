@@ -30,6 +30,7 @@
 #include <editeng/outliner.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/editeng.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <sdmod.hxx>
 
@@ -152,7 +153,7 @@ bool FuFormatPaintBrush::MouseMove(const MouseEvent& rMEvt)
         if ( mpView->IsTextEdit() )
         {
             bReturn = FuText::MouseMove( rMEvt );
-            mpWindow->SetPointer(Pointer(PointerStyle::Fill));
+            mpWindow->SetPointer(PointerStyle::Fill);
         }
         else
         {
@@ -160,9 +161,9 @@ bool FuFormatPaintBrush::MouseMove(const MouseEvent& rMEvt)
             SdrPageView* pPV=nullptr;
             SdrObject* pObj = mpView->PickObj(mpWindow->PixelToLogic( rMEvt.GetPosPixel() ),nHitLog, pPV, SdrSearchOptions::PICKMARKABLE);
             if (pObj && HasContentForThisType(pObj->GetObjInventor(),pObj->GetObjIdentifier()) )
-                mpWindow->SetPointer(Pointer(PointerStyle::Fill));
+                mpWindow->SetPointer(PointerStyle::Fill);
             else
-                mpWindow->SetPointer(Pointer(PointerStyle::Arrow));
+                mpWindow->SetPointer(PointerStyle::Arrow);
         }
     }
     return bReturn;
@@ -238,30 +239,30 @@ bool FuFormatPaintBrush::HasContentForThisType( SdrInventor nObjectInventor, sal
 void FuFormatPaintBrush::Paste( bool bNoCharacterFormats, bool bNoParagraphFormats )
 {
     const SdrMarkList& rMarkList = mpView->GetMarkedObjectList();
-    if( mxItemSet.get() && ( rMarkList.GetMarkCount() == 1 ) )
+    if( !(mxItemSet.get() && ( rMarkList.GetMarkCount() == 1 )) )
+        return;
+
+    SdrObject* pObj( nullptr );
+    bool bUndo = mpDoc->IsUndoEnabled();
+
+    if( bUndo && !mpView->GetTextEditOutlinerView() )
+        pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
+
+    // n685123: ApplyFormatPaintBrush itself would store undo information
+    // except in a few cases (?)
+    if( pObj )
     {
-        SdrObject* pObj( nullptr );
-        bool bUndo = mpDoc->IsUndoEnabled();
+        OUString sLabel( mpViewShell->GetViewShellBase().RetrieveLabelFromCommand(".uno:FormatPaintbrush" ) );
+        mpDoc->BegUndo( sLabel );
+        if (dynamic_cast< sdr::table::SdrTableObj* >( pObj ) == nullptr)
+            mpDoc->AddUndo( mpDoc->GetSdrUndoFactory().CreateUndoAttrObject( *pObj, false, true ) );
+    }
 
-        if( bUndo && !mpView->GetTextEditOutlinerView() )
-            pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
+    mpView->ApplyFormatPaintBrush( *mxItemSet, bNoCharacterFormats, bNoParagraphFormats );
 
-        // n685123: ApplyFormatPaintBrush itself would store undo information
-        // except in a few cases (?)
-        if( pObj )
-        {
-            OUString sLabel( mpViewShell->GetViewShellBase().RetrieveLabelFromCommand(".uno:FormatPaintbrush" ) );
-            mpDoc->BegUndo( sLabel );
-            if (dynamic_cast< sdr::table::SdrTableObj* >( pObj ) == nullptr)
-                mpDoc->AddUndo( mpDoc->GetSdrUndoFactory().CreateUndoAttrObject( *pObj, false, true ) );
-        }
-
-        mpView->ApplyFormatPaintBrush( *mxItemSet.get(), bNoCharacterFormats, bNoParagraphFormats );
-
-        if( pObj )
-        {
-            mpDoc->EndUndo();
-        }
+    if( pObj )
+    {
+        mpDoc->EndUndo();
     }
 }
 

@@ -410,7 +410,7 @@ void PPDParser::scanPPDDir( const OUString& rDir )
                             {
                                 if( aFileName.endsWithIgnoreAsciiCaseAsciiL( rSuffix.pSuffix, rSuffix.nSuffixLen ) )
                                 {
-                                (*rPPDCache.pAllPPDFiles)[ aFileName.copy( 0, aFileName.getLength() - rSuffix.nSuffixLen ) ] = aPPDFile.PathToFileName();
+                                    (*rPPDCache.pAllPPDFiles)[ aFileName.copy( 0, aFileName.getLength() - rSuffix.nSuffixLen ) ] = aPPDFile.PathToFileName();
                                     break;
                                 }
                             }
@@ -1218,7 +1218,6 @@ void PPDParser::parse( ::std::vector< OString >& rLines )
         // eventually update query and remove from option list
         if( bQuery && !pKey->m_bQueryValue )
         {
-            pKey->m_aQueryValue = *pValue;
             pKey->m_bQueryValue = true;
             pKey->eraseValue( pValue->m_aOption );
         }
@@ -1512,18 +1511,16 @@ void PPDParser::getResolutionFromString(
                                         const OUString& rString,
                                         int& rXRes, int& rYRes )
 {
-    sal_Int32 nDPIPos;
-
     rXRes = rYRes = 300;
 
-    nDPIPos = rString.indexOf( "dpi" );
+    const sal_Int32 nDPIPos {rString.indexOf( "dpi" )};
     if( nDPIPos != -1 )
     {
-        sal_Int32 nPos = 0;
-        if( ( nPos = rString.indexOf( 'x' ) ) != -1 )
+        const sal_Int32 nPos {rString.indexOf( 'x' )};
+        if( nPos >=0 )
         {
             rXRes = rString.copy( 0, nPos ).toInt32();
-            rYRes = rString.getToken( 1, 'x' ).copy(0, nDPIPos - nPos - 1).toInt32();
+            rYRes = rString.copy(nPos+1, nDPIPos - nPos - 1).toInt32();
         }
         else
             rXRes = rYRes = rString.copy( 0, nDPIPos ).toInt32();

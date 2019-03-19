@@ -28,7 +28,6 @@
 #include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentState.hxx>
 #include <IDocumentLayoutAccess.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sfx2/printer.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/outdev.hxx>
@@ -73,7 +72,7 @@ void DocumentDeviceManager::setPrinter(/*[in]*/ SfxPrinter *pP,/*[in]*/ bool bDe
     {
         if ( bDeleteOld )
             mpPrt.disposeAndClear();
-         mpPrt = pP;
+        mpPrt = pP;
 
         // our printer should always use TWIP. Don't rely on this being set in SwViewShell::InitPrt, there
         // are situations where this isn't called. #i108712#
@@ -207,7 +206,7 @@ void DocumentDeviceManager::setJobsetup(/*[in]*/ const JobSetup &rJobSetup )
     if( !mpPrt )
     {
         //The ItemSet is deleted by Sfx!
-        auto pSet = o3tl::make_unique<SfxItemSet>(
+        auto pSet = std::make_unique<SfxItemSet>(
             m_rDoc.GetAttrPool(),
             svl::Items<
                 SID_PRINTER_NOTFOUND_WARN, SID_PRINTER_NOTFOUND_WARN,
@@ -292,7 +291,7 @@ SfxPrinter& DocumentDeviceManager::CreatePrinter_() const
 
     // We create a default SfxPrinter.
     // The ItemSet is deleted by Sfx!
-    auto pSet = o3tl::make_unique<SfxItemSet>(
+    auto pSet = std::make_unique<SfxItemSet>(
         m_rDoc.GetAttrPool(),
         svl::Items<
             SID_PRINTER_NOTFOUND_WARN, SID_PRINTER_NOTFOUND_WARN,
@@ -302,7 +301,7 @@ SfxPrinter& DocumentDeviceManager::CreatePrinter_() const
 
     VclPtr<SfxPrinter> pNewPrt = VclPtr<SfxPrinter>::Create( std::move(pSet) );
     const_cast<DocumentDeviceManager*>(this)->setPrinter( pNewPrt, true, true );
-    return *mpPrt.get();
+    return *mpPrt;
 }
 
 void DocumentDeviceManager::PrtDataChanged()

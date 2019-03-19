@@ -25,7 +25,6 @@
 #include <vcl/fixed.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/edit.hxx>
-#include <svtools/dialogcontrolling.hxx>
 
 namespace dbaui
 {
@@ -130,12 +129,6 @@ namespace dbaui
             eOpenExisting
         };
 
-        struct DocumentDescriptor
-        {
-            OUString  sURL;
-            OUString  sFilter;
-        };
-
     private:
         // dialog controls
         VclPtr<RadioButton>            m_pRB_CreateDatabase;
@@ -150,15 +143,12 @@ namespace dbaui
         VclPtr<OpenDocumentButton>     m_pPB_OpenDatabase;
 
         // state
-        DocumentDescriptor             m_aBrowsedDocument;
+        OUString                       m_aBrowsedDocumentURL;
         CreationMode                   m_eOriginalCreationMode;
 
         Link<OGeneralPageWizard&,void> m_aCreationModeHandler; /// to be called if a new type is selected
         Link<OGeneralPageWizard&,void> m_aDocumentSelectionHandler;    /// to be called when a document in the RecentDoc list is selected
         Link<OGeneralPageWizard&,void> m_aChooseDocumentHandler;       /// to be called when a recent document has been definitely chosen
-
-        ::svt::ControlDependencyManager
-                                m_aControlDependencies;
 
         bool                    m_bInitEmbeddedDBList : 1;
         void                    insertEmbeddedDBTypeEntryData( const OUString& _sType, const OUString& sDisplayName );
@@ -169,7 +159,7 @@ namespace dbaui
 
         void                    SetDocumentSelectionHandler( const Link<OGeneralPageWizard&,void>& _rHandler) { m_aDocumentSelectionHandler = _rHandler; }
         void                    SetChooseDocumentHandler( const Link<OGeneralPageWizard&,void>& _rHandler) { m_aChooseDocumentHandler = _rHandler; }
-        DocumentDescriptor      GetSelectedDocument() const;
+        OUString                GetSelectedDocumentURL() const;
 
     private:
         virtual bool FillItemSet( SfxItemSet* _rCoreAttrs ) override;

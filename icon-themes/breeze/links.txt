@@ -417,8 +417,6 @@ cmd/sc_removefilter.png cmd/sc_removefiltersort.png
 # Bullets
 cmd/lc_bulletliststyle.png cmd/lc_defaultbullet.png
 cmd/sc_bulletliststyle.png cmd/sc_defaultbullet.png
-cmd/lc_romanliststyle.png cmd/lc_defaultnumbering.png
-cmd/sc_romanliststyle.png cmd/sc_defaultnumbering.png
 cmd/lc_defaultparastyle.png cmd/lc_controlcodes.png
 cmd/sc_defaultparastyle.png cmd/sc_controlcodes.png
 
@@ -579,6 +577,8 @@ cmd/sc_fontcolor.png cmd/sc_color.png
 cmd/sc_characterbackgroundpattern.png cmd/sc_backcolor.png
 cmd/lc_characterbackgroundpattern.png cmd/lc_backcolor.png
 cmd/lc_backgroundpatterncontroller.png cmd/lc_backgroundcolor.png
+cmd/sc_tablecellbackgroundcolor.png cmd/sc_backgroundcolor.png
+cmd/lc_tablecellbackgroundcolor.png cmd/lc_backgroundcolor.png
 
 # Paragraph Alignment
 cmd/lc_leftpara.png cmd/lc_alignleft.png
@@ -770,6 +770,8 @@ cmd/sc_toggleaxisdescr.png cmd/sc_helplinesvisible.png
 cmd/lc_gridvisible.png cmd/lc_grid.png
 cmd/sc_gridvisible.png cmd/sc_grid.png
 cmd/sc_gridmenu.png cmd/sc_grid.png
+cmd/sc_insertgridcontrol.png cmd/sc_grid.png
+cmd/lc_insertgridcontrol.png cmd/lc_grid.png
 
 # Crop
 cmd/lc_grafattrcrop.png cmd/lc_crop.png
@@ -1137,8 +1139,8 @@ desktop/res/lock_16.png cmd/sc_protect.png
 # extensions
 # ==============================================
 extensions/res/arrow.png cmd/sc_nextrecord.png
-extensions/res/buttonminus.png extensions/source/scanner/minus.png
-extensions/res/buttonplus.png extensions/source/scanner/plus.png
+extensions/res/buttonminus.png extensions/res/scanner/minus.png
+extensions/res/buttonplus.png extensions/res/scanner/plus.png
 
 # formula
 # ==============================================
@@ -1801,3 +1803,6 @@ cmd/sc_basicideappear.png cmd/sc_toolsmacroedit.png
 cmd/sc_macrosmenu.png res/im30821.png
 cmd/sc_macrodialog.png cmd/sc_scriptorganizer.png
 cmd/lc_macrodialog.png cmd/lc_scriptorganizer.png
+
+cmd/lc_donation.png cmd/lc_currencyfield.png
+cmd/sc_donation.png cmd/sc_currencyfield.png

@@ -34,7 +34,6 @@
 
 #include <ucbhelper/content.hxx>
 #include <rtl/ref.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 
@@ -242,7 +241,7 @@ void SAL_CALL OZipFileAccess::initialize( const uno::Sequence< uno::Any >& aArgu
     }
 
     // TODO: in case xSeekable is implemented on separated XStream implementation a wrapper is required
-    m_pZipFile = o3tl::make_unique<ZipFile>(
+    m_pZipFile = std::make_unique<ZipFile>(
                 m_aMutexHolder,
                 m_xContentStream,
                 m_xContext,
@@ -310,7 +309,7 @@ uno::Sequence< OUString > SAL_CALL OZipFileAccess::getElementNames()
     uno::Sequence< OUString > aNames( m_pZipFile->GetEntryHash().size() );
     sal_Int32 nLen = 0;
 
-    for ( EntryHash::iterator aIter = m_pZipFile->GetEntryHash().begin(); aIter != m_pZipFile->GetEntryHash().end(); ++aIter )
+    for ( const auto& rEntry : m_pZipFile->GetEntryHash() )
     {
         if ( aNames.getLength() < ++nLen )
         {
@@ -318,7 +317,7 @@ uno::Sequence< OUString > SAL_CALL OZipFileAccess::getElementNames()
             aNames.realloc( nLen );
         }
 
-        aNames[nLen-1] = (*aIter).second.sPath;
+        aNames[nLen-1] = rEntry.second.sPath;
     }
 
     if ( aNames.getLength() != nLen )
@@ -385,19 +384,18 @@ uno::Reference< io::XInputStream > SAL_CALL OZipFileAccess::getStreamByPattern( 
     // Code to compare strings by patterns
     uno::Sequence< OUString > aPattern = GetPatternsFromString_Impl( aPatternString );
 
-    for ( EntryHash::iterator aIter = m_pZipFile->GetEntryHash().begin(); aIter != m_pZipFile->GetEntryHash().end(); ++aIter )
+    auto aIter = std::find_if(m_pZipFile->GetEntryHash().begin(), m_pZipFile->GetEntryHash().end(),
+        [&aPattern](const EntryHash::value_type& rEntry) { return StringGoodForPattern_Impl(rEntry.second.sPath, aPattern); });
+    if (aIter != m_pZipFile->GetEntryHash().end())
     {
-        if ( StringGoodForPattern_Impl( (*aIter).second.sPath, aPattern ) )
-        {
-            uno::Reference< io::XInputStream > xEntryStream( m_pZipFile->getDataStream( (*aIter).second,
-                                                                                        ::rtl::Reference< EncryptionData >(),
-                                                                                        false,
-                                                                                        m_aMutexHolder ) );
+        uno::Reference< io::XInputStream > xEntryStream( m_pZipFile->getDataStream( (*aIter).second,
+                                                                                    ::rtl::Reference< EncryptionData >(),
+                                                                                    false,
+                                                                                    m_aMutexHolder ) );
 
-            if ( !xEntryStream.is() )
-                throw uno::RuntimeException(THROW_WHERE );
-            return xEntryStream;
-        }
+        if ( !xEntryStream.is() )
+            throw uno::RuntimeException(THROW_WHERE );
+        return xEntryStream;
     }
 
     throw container::NoSuchElementException(THROW_WHERE );
@@ -413,7 +411,7 @@ void SAL_CALL OZipFileAccess::dispose()
 
     if ( m_pListenersContainer )
     {
-           lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
+        lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
         m_pListenersContainer->disposeAndClear( aSource );
         m_pListenersContainer.reset();
     }

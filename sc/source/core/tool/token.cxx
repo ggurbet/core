@@ -596,11 +596,9 @@ FormulaTokenRef extendRangeReference( FormulaToken & rTok1, FormulaToken & rTok2
                         const ScRefList* p = pt[i]->GetRefList();
                         if (p->empty())
                             return nullptr;
-                        ScRefList::const_iterator it( p->begin());
-                        ScRefList::const_iterator end( p->end());
-                        for ( ; it != end; ++it)
+                        for (const auto& rRefData : *p)
                         {
-                            rRef.Extend( *it, rPos);
+                            rRef.Extend( rRefData, rPos);
                         }
                     }
                     break;
@@ -1723,7 +1721,7 @@ size_t HashSingleRef( const ScSingleRefData& rRef )
 
 void ScTokenArray::GenHash()
 {
-    static OUStringHash aHasher;
+    static const OUStringHash aHasher;
 
     size_t nHash = 1;
     OpCode eOp;
@@ -1904,9 +1902,9 @@ void ScTokenArray::Clear()
     FormulaTokenArray::Clear();
 }
 
-ScTokenArray* ScTokenArray::Clone() const
+std::unique_ptr<ScTokenArray> ScTokenArray::Clone() const
 {
-    ScTokenArray* p = new ScTokenArray();
+    std::unique_ptr<ScTokenArray> p(new ScTokenArray());
     p->nLen = nLen;
     p->nRPN = nRPN;
     p->nMode = nMode;

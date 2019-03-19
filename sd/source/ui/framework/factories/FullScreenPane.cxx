@@ -151,21 +151,21 @@ void SAL_CALL FullScreenPane::setAccessible (
 {
     ThrowIfDisposed();
 
-    if (mpWindow != nullptr)
+    if (mpWindow == nullptr)
+        return;
+
+    Reference<lang::XInitialization> xInitializable (rxAccessible, UNO_QUERY);
+    if (xInitializable.is())
     {
-        Reference<lang::XInitialization> xInitializable (rxAccessible, UNO_QUERY);
-        if (xInitializable.is())
-        {
-            vcl::Window* pParentWindow = mpWindow->GetParent();
-            Reference<css::accessibility::XAccessible> xAccessibleParent;
-            if (pParentWindow != nullptr)
-                xAccessibleParent = pParentWindow->GetAccessible();
-            Sequence<Any> aArguments (1);
-            aArguments[0] <<= xAccessibleParent;
-            xInitializable->initialize(aArguments);
-        }
-        GetWindow()->SetAccessible(rxAccessible);
+        vcl::Window* pParentWindow = mpWindow->GetParent();
+        Reference<css::accessibility::XAccessible> xAccessibleParent;
+        if (pParentWindow != nullptr)
+            xAccessibleParent = pParentWindow->GetAccessible();
+        Sequence<Any> aArguments (1);
+        aArguments[0] <<= xAccessibleParent;
+        xInitializable->initialize(aArguments);
     }
+    GetWindow()->SetAccessible(rxAccessible);
 }
 
 IMPL_LINK(FullScreenPane, WindowEventHandler, VclWindowEvent&, rEvent, void)
@@ -216,21 +216,13 @@ void FullScreenPane::ExtractArguments (
 {
     // Extract arguments from the resource URL.
     const util::URL aURL = rxPaneId->getFullResourceURL();
-    sal_Int32 nIndex = 0;
-    while (nIndex >= 0)
+    for (sal_Int32 nIndex{ 0 }; nIndex >= 0; )
     {
         const OUString aToken = aURL.Arguments.getToken(0, '&', nIndex);
-        if (!aToken.isEmpty())
+        OUString sValue;
+        if (aToken.startsWith("ScreenNumber=", &sValue))
         {
-            // Split at the first '='.
-            const sal_Int32 nAssign = aToken.indexOf('=');
-            const OUString sKey = aToken.copy(0, nAssign);
-            const OUString sValue = aToken.copy(nAssign+1);
-
-            if (sKey == "ScreenNumber")
-            {
-                rnScreenNumberReturnValue = sValue.toInt32();
-            }
+            rnScreenNumberReturnValue = sValue.toInt32();
         }
     }
 }

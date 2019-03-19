@@ -8,17 +8,24 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/container/xelementaccess.hxx>
 #include <test/container/xenumerationaccess.hxx>
+#include <test/container/xindexaccess.hxx>
+#include <test/container/xnameaccess.hxx>
+#include <test/lang/xserviceinfo.hxx>
 #include <test/sheet/xdatabaseranges.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
+#include <com/sun/star/sheet/XDatabaseRange.hpp>
 #include <com/sun/star/sheet/XDatabaseRanges.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/table/CellRangeAddress.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
 
 #include <com/sun/star/uno/Reference.hxx>
+
+#include <cppu/unotype.hxx>
 
 using namespace css;
 using namespace css::uno;
@@ -28,7 +35,11 @@ namespace sc_apitest
 {
 class ScDatabaseRangesObj : public CalcUnoApiTest,
                             public apitest::XDatabaseRanges,
-                            public apitest::XEnumerationAccess
+                            public apitest::XElementAccess,
+                            public apitest::XEnumerationAccess,
+                            public apitest::XIndexAccess,
+                            public apitest::XNameAccess,
+                            public apitest::XServiceInfo
 {
 public:
     ScDatabaseRangesObj();
@@ -42,8 +53,26 @@ public:
     // XDatabaseRanges
     CPPUNIT_TEST(testAddRemoveDbRanges);
 
+    // XElementAccess
+    CPPUNIT_TEST(testGetElementType);
+    CPPUNIT_TEST(testHasElements);
+
     // XEnumerationAccess
     CPPUNIT_TEST(testCreateEnumeration);
+
+    // XIndexAccess
+    CPPUNIT_TEST(testGetByIndex);
+    CPPUNIT_TEST(testGetCount);
+
+    // XNameAccess
+    CPPUNIT_TEST(testGetByName);
+    CPPUNIT_TEST(testGetElementNames);
+    CPPUNIT_TEST(testHasByName);
+
+    // XServiceInfo
+    CPPUNIT_TEST(testGetImplementationName);
+    CPPUNIT_TEST(testGetSupportedServiceNames);
+    CPPUNIT_TEST(testSupportsService);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -53,6 +82,10 @@ private:
 
 ScDatabaseRangesObj::ScDatabaseRangesObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XElementAccess(cppu::UnoType<sheet::XDatabaseRange>::get())
+    , XIndexAccess(1)
+    , XNameAccess("DbRange")
+    , XServiceInfo("ScDatabaseRangesObj", "com.sun.star.sheet.DatabaseRanges")
 {
 }
 
@@ -85,7 +118,7 @@ void ScDatabaseRangesObj::tearDown()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScDatabaseRangesObj);
 
-} // end namespace
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

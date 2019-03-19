@@ -34,6 +34,7 @@
 #include <svx/dialogs.hrc>
 #include <strings.hrc>
 #include <vcl/builderfactory.hxx>
+#include <vcl/field.hxx>
 #include <vcl/settings.hxx>
 
 #define CM_1_TO_TWIP        567
@@ -630,7 +631,7 @@ void SvxGrfCropPage::GraphicHasChanged( bool bFound )
         const FieldUnit eMetric = GetModuleFieldUnit( GetItemSet() );
 
         ScopedVclPtrInstance< MetricField > aFld(this, WB_HIDE);
-        SetFieldUnit( *aFld.get(), eMetric );
+        SetFieldUnit( *aFld, eMetric );
         aFld->SetDecimalDigits(m_xWidthMF->get_digits());
         aFld->SetMax( LONG_MAX - 1 );
 

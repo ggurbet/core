@@ -31,7 +31,7 @@ SwGluePortion::SwGluePortion( const sal_uInt16 nInitFixWidth )
     : nFixWidth( nInitFixWidth )
 {
     PrtWidth( nFixWidth );
-    SetWhichPor( POR_GLUE );
+    SetWhichPor( PortionType::Glue );
 }
 
 TextFrameIndex SwGluePortion::GetCursorOfst(const sal_uInt16 nOfst) const
@@ -107,13 +107,13 @@ void SwGluePortion::Paint( const SwTextPaintInfo &rInf ) const
     }
 }
 
-void SwGluePortion::MoveGlue( SwGluePortion *pTarget, const short nPrtGlue )
+void SwGluePortion::MoveGlue( SwGluePortion *pTarget, const long nPrtGlue )
 {
-    short nPrt = std::min( nPrtGlue, GetPrtGlue() );
+    auto nPrt = std::min( nPrtGlue, GetPrtGlue() );
     if( 0 < nPrt )
     {
-        pTarget->AddPrtWidth( nPrt );
-        SubPrtWidth( nPrt );
+        pTarget->AddPrtWidth( nPrt ); //TODO: overflow
+        SubPrtWidth( nPrt ); //TODO: overflow
     }
 }
 
@@ -137,19 +137,19 @@ SwFixPortion::SwFixPortion( const SwRect &rRect )
        :SwGluePortion( sal_uInt16(rRect.Width()) ), nFix( sal_uInt16(rRect.Left()) )
 {
     Height( sal_uInt16(rRect.Height()) );
-    SetWhichPor( POR_FIX );
+    SetWhichPor( PortionType::Fix );
 }
 
 SwFixPortion::SwFixPortion()
        : SwGluePortion(0), nFix(0)
 {
-    SetWhichPor( POR_FIX );
+    SetWhichPor( PortionType::Fix );
 }
 
 SwMarginPortion::SwMarginPortion()
     :SwGluePortion( 0 )
 {
-    SetWhichPor( POR_MARGIN );
+    SetWhichPor( PortionType::Margin );
 }
 
 /**
@@ -176,19 +176,19 @@ void SwMarginPortion::AdjustRight( const SwLineLayout *pCurr )
         {
             if( pPos->InFixMargGrp() )
                 pLeft = static_cast<SwGluePortion*>(pPos);
-            pPos = pPos->GetPortion();
+            pPos = pPos->GetNextPortion();
             if( pPos == pRight)
                 pPos = nullptr;
         }
 
         // Two adjoining FlyPortions are merged
-        if( pRight && pLeft && pLeft->GetPortion() == pRight )
+        if( pRight && pLeft && pLeft->GetNextPortion() == pRight )
         {
             pRight->MoveAllGlue( pLeft );
             pRight = nullptr;
         }
-        sal_uInt16 nRightGlue = pRight && 0 < pRight->GetPrtGlue()
-                          ? sal_uInt16(pRight->GetPrtGlue()) : 0;
+        auto nRightGlue = pRight && 0 < pRight->GetPrtGlue()
+                          ? pRight->GetPrtGlue() : 0;
         // 2) balance left and right Glue
         //    But not for tabs ...
         if( pLeft && nRightGlue && !pRight->InTabGrp() )
@@ -230,23 +230,23 @@ void SwMarginPortion::AdjustRight( const SwLineLayout *pCurr )
                     nRightGlue = nRightGlue - pPrev->PrtWidth();
                     // pPrev is moved behind pRight. For this the
                     // Glue value between pRight and pLeft gets balanced.
-                    pRight->MoveGlue( pLeft, short( pPrev->PrtWidth() ) );
+                    pRight->MoveGlue( pLeft, pPrev->PrtWidth() );
                     // Now fix the linking of our portions.
                     SwLinePortion *pPrevPrev = pPrev->FindPrevPortion( pLeft );
-                    pPrevPrev->SetPortion( pRight );
-                    pPrev->SetPortion( pRight->GetPortion() );
-                    pRight->SetPortion( pPrev );
-                    if ( pPrev->GetPortion() && pPrev->InTextGrp()
-                         && pPrev->GetPortion()->IsHolePortion() )
+                    pPrevPrev->SetNextPortion( pRight );
+                    pPrev->SetNextPortion( pRight->GetNextPortion() );
+                    pRight->SetNextPortion( pPrev );
+                    if ( pPrev->GetNextPortion() && pPrev->InTextGrp()
+                         && pPrev->GetNextPortion()->IsHolePortion() )
                     {
                         SwHolePortion *pHolePor =
-                            static_cast<SwHolePortion*>(pPrev->GetPortion());
-                        if ( !pHolePor->GetPortion() ||
-                             !pHolePor->GetPortion()->InFixMargGrp() )
+                            static_cast<SwHolePortion*>(pPrev->GetNextPortion());
+                        if ( !pHolePor->GetNextPortion() ||
+                             !pHolePor->GetNextPortion()->InFixMargGrp() )
                         {
                             pPrev->AddPrtWidth( pHolePor->GetBlankWidth() );
                             pPrev->SetLen(pPrev->GetLen() + TextFrameIndex(1));
-                            pPrev->SetPortion( pHolePor->GetPortion() );
+                            pPrev->SetNextPortion( pHolePor->GetNextPortion() );
                             delete pHolePor;
                         }
                     }

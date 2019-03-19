@@ -30,6 +30,7 @@
 #include <comphelper/anytostring.hxx>
 #include <comphelper/scopeguard.hxx>
 #include <comphelper/servicedecl.hxx>
+#include <comphelper/storagehelper.hxx>
 
 #include <cppcanvas/spritecanvas.hxx>
 #include <cppcanvas/vclfactory.hxx>
@@ -68,6 +69,7 @@
 #include <com/sun/star/drawing/XLayerSupplier.hpp>
 #include <com/sun/star/drawing/XLayerManager.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
+#include <com/sun/star/document/XStorageBasedDocument.hpp>
 
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/loader/CannotActivateFactoryException.hpp>
@@ -78,6 +80,7 @@
 #include <usereventqueue.hxx>
 #include <eventqueue.hxx>
 #include <cursormanager.hxx>
+#include <mediafilemanager.hxx>
 #include <slideshowcontext.hxx>
 #include <activitiesqueue.hxx>
 #include <activitiesfactory.hxx>
@@ -209,6 +212,7 @@ typedef ::std::map< css::uno::Reference<
 
 class SlideShowImpl : private cppu::BaseMutex,
                       public CursorManager,
+                      public MediaFileManager,
                       public SlideShowImplBase
 {
 public:
@@ -270,6 +274,9 @@ public:
         This will be forwarded to all registered XSlideShowListener
      */
     bool handleAnimationEvent( const AnimationNodeSharedPtr& rNode );
+
+    /** Obtain a MediaTempFile for the specified url. */
+    virtual std::shared_ptr<avmedia::MediaTempFile> getMediaTempFile(const OUString& aUrl) override;
 
 private:
     // XSlideShow:
@@ -423,8 +430,6 @@ private:
 
     //changed for the eraser project
     boost::optional<bool>           maEraseAllInk;
-    boost::optional<bool>           maSwitchPenMode;
-    boost::optional<bool>           maSwitchEraserMode;
     boost::optional<sal_Int32>          maEraseInk;
     //end changed
 
@@ -460,6 +465,8 @@ private:
     uno::Reference<drawing::XDrawPage>      mxPrefetchSlide;
     ///  save the XDrawPagesSupplier to retrieve polygons
     uno::Reference<drawing::XDrawPagesSupplier>  mxDrawPagesSupplier;
+    ///  Used by MediaFileManager, for media files with package url.
+    uno::Reference<document::XStorageBasedDocument> mxSBD;
     /// slide animation to be prefetched:
     uno::Reference<animations::XAnimationNode> mxPrefetchAnimationNode;
 
@@ -572,6 +579,7 @@ SlideShowImpl::SlideShowImpl(
       mpPrefetchSlide(),
       mxPrefetchSlide(),
       mxDrawPagesSupplier(),
+      mxSBD(),
       mxPrefetchAnimationNode(),
       mnCurrentCursor(awt::SystemPointer::ARROW),
       mnWaitSymbolRequestCount(0),
@@ -710,7 +718,7 @@ SoundPlayerSharedPtr SlideShowImpl::resetSlideTransitionSound( const uno::Any& r
         try
         {
             mpCurrentSlideTransitionSound = SoundPlayer::create(
-                maEventMultiplexer, url, mxComponentContext );
+                maEventMultiplexer, url, mxComponentContext, *this);
             mpCurrentSlideTransitionSound->setPlaybackLoop( bLoopSound );
         }
         catch (lang::NoSupportException const&)
@@ -894,6 +902,7 @@ SlideSharedPtr SlideShowImpl::makeSlide(
                                              maActivitiesQueue,
                                              maUserEventQueue,
                                              *this,
+                                             *this,
                                              maViewContainer,
                                              mxComponentContext,
                                              maShapeEventListeners,
@@ -1055,6 +1064,7 @@ void SlideShowImpl::displaySlide(
     DBG_TESTSOLARMUTEX();
 
     mxDrawPagesSupplier = xDrawPages;
+    mxSBD = uno::Reference<document::XStorageBasedDocument>(mxDrawPagesSupplier, uno::UNO_QUERY);
 
     stopShow();  // MUST call that: results in
     // maUserEventQueue.clear(). What's more,
@@ -1570,9 +1580,8 @@ sal_Bool SlideShowImpl::setProperty( beans::PropertyValue const& rProperty )
                         "setProperty(): User paint overrides invisible mouse" );
 
             if(bSwitchPenMode){
-            // Switch to Pen Mode
-            maSwitchPenMode = bSwitchPenMode;
-            maEventMultiplexer.notifySwitchPenMode();
+                // Switch to Pen Mode
+                maEventMultiplexer.notifySwitchPenMode();
             }
         }
         return true;
@@ -1586,9 +1595,8 @@ sal_Bool SlideShowImpl::setProperty( beans::PropertyValue const& rProperty )
             OSL_ENSURE( mbMouseVisible,
                         "setProperty(): User paint overrides invisible mouse" );
             if(bSwitchEraserMode){
-            // switch to Eraser mode
-            maSwitchEraserMode = bSwitchEraserMode;
-            maEventMultiplexer.notifySwitchEraserMode();
+                // switch to Eraser mode
+                maEventMultiplexer.notifySwitchEraserMode();
             }
         }
 
@@ -1685,6 +1693,7 @@ sal_Bool SlideShowImpl::setProperty( beans::PropertyValue const& rProperty )
                     maScreenUpdater,
                     maActivitiesQueue,
                     maUserEventQueue,
+                    *this,
                     *this,
                     maViewContainer,
                     mxComponentContext) );
@@ -2071,7 +2080,7 @@ sal_Bool SlideShowImpl::update( double & nNextTimeout )
                 }
                 catch( uno::Exception& )
                 {
-                    SAL_WARN( "slideshow", comphelper::anyToString( cppu::getCaughtException() ) );
+                    SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
                 }
             }
 
@@ -2330,6 +2339,37 @@ bool SlideShowImpl::handleAnimationEvent( const AnimationNodeSharedPtr& rNode )
     }
 
     return true;
+}
+
+std::shared_ptr<avmedia::MediaTempFile> SlideShowImpl::getMediaTempFile(const OUString& aUrl)
+{
+    std::shared_ptr<avmedia::MediaTempFile> aRet;
+
+    if (!mxSBD.is())
+        return aRet;
+
+    comphelper::LifecycleProxy aProxy;
+    uno::Reference<io::XStream> xStream =
+        comphelper::OStorageHelper::GetStreamAtPackageURL(mxSBD->getDocumentStorage(), aUrl,
+                css::embed::ElementModes::READ, aProxy);
+
+    uno::Reference<io::XInputStream> xInStream = xStream->getInputStream();
+    if (xInStream.is())
+    {
+        sal_Int32 nLastDot = aUrl.lastIndexOf('.');
+        sal_Int32 nLastSlash = aUrl.lastIndexOf('/');
+        OUString sDesiredExtension;
+        if (nLastDot > nLastSlash && nLastDot+1 < aUrl.getLength())
+            sDesiredExtension = aUrl.copy(nLastDot);
+
+        OUString sTempUrl;
+        if (::avmedia::CreateMediaTempFile(xInStream, sTempUrl, sDesiredExtension))
+            aRet.reset(new avmedia::MediaTempFile(sTempUrl));
+
+        xInStream->closeInput();
+    }
+
+    return aRet;
 }
 
 //===== FrameSynchronization ==================================================

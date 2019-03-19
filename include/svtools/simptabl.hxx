@@ -23,7 +23,6 @@
 #include <svtools/svtdllapi.h>
 #include <vcl/headbar.hxx>
 #include <vcl/svtabbx.hxx>
-#include <unotools/intlwrapper.hxx>
 #include <unotools/collatorwrapper.hxx>
 #include <vcl/commandevent.hxx>
 
@@ -56,7 +55,6 @@ class SVT_DLLPUBLIC SvSimpleTable : public SvHeaderTabListBox
 private:
     SvSimpleTableContainer& m_rParentTableContainer;
 
-    Link<SvSimpleTable*, void> aHeaderBarClickLink;
     Link<SvSimpleTable*, void> aCommandLink;
     CommandEvent        aCEvt;
     VclPtr<HeaderBar>   aHeaderBar;
@@ -110,7 +108,6 @@ public:
     void            DisableTable();
     bool            IsEnabled() const;
 
-    sal_uInt16      GetSelectedCol();
     void            SortByCol(sal_uInt16, bool bDir=true);
     bool            GetSortDirection(){ return bSortDirection;}
     sal_uInt16      GetSortedCol(){ return nSortCol;}
@@ -120,8 +117,7 @@ public:
     bool     IsFocusOnCellEnabled() const { return IsCellFocusEnabled(); }
     void            SetCommandHdl( const Link<SvSimpleTable*,void>& rLink ) { aCommandLink = rLink; }
 
-    void            SetHeaderBarClickHdl( const Link<SvSimpleTable*,void>& rLink ) { aHeaderBarClickLink = rLink; }
-    HeaderBar&      GetTheHeaderBar() { return *aHeaderBar.get(); }
+    HeaderBar&      GetTheHeaderBar() { return *aHeaderBar; }
 };
 
 

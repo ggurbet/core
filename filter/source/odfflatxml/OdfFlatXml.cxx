@@ -37,6 +37,7 @@
 #include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/io/XActiveDataSource.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
+#include <tools/diagnose_ex.h>
 
 using namespace ::cppu;
 using namespace ::osl;
@@ -152,9 +153,10 @@ OdfFlatXml::importer(
         else
             saxParser->parseStream(inputSource);
     }
-    catch (const Exception &exc)
+    catch (const Exception &)
     {
-        SAL_WARN("filter.odfflatxml", exc);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("filter.odfflatxml", exceptionToString(ex));
         return false;
     }
     catch (const std::exception &exc)
@@ -170,7 +172,6 @@ OdfFlatXml::exporter(const Sequence< PropertyValue >& sourceData,
                      const Sequence< OUString >& /*msUserData*/)
 {
     OUString paramName;
-    OUString targetURL;
     Reference<XOutputStream> outputStream;
 
     // Read output stream and target URL from the parameters given in sourceData.
@@ -180,8 +181,6 @@ OdfFlatXml::exporter(const Sequence< PropertyValue >& sourceData,
             paramName = sourceData[paramIdx].Name;
             if ( paramName == "OutputStream" )
                 sourceData[paramIdx].Value >>= outputStream;
-            else if ( paramName == "URL" )
-                sourceData[paramIdx].Value >>= targetURL;
         }
 
     if (!getDelegate().is())

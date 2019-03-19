@@ -93,7 +93,6 @@
 #include <fldupde.hxx>
 #include <calbck.hxx>
 #include <fntcache.hxx>
-#include <o3tl/make_unique.hxx>
 #include <o3tl/numeric.hxx>
 #include <tools/datetimeutils.hxx>
 #include <sal/log.hxx>
@@ -359,7 +358,7 @@ const SwTable* SwDoc::InsertTable( const SwInsertTableOptions& rInsTableOpts,
     if( GetIDocumentUndoRedo().DoesUndo() )
     {
         GetIDocumentUndoRedo().AppendUndo(
-            o3tl::make_unique<SwUndoInsTable>( rPos, nCols, nRows, static_cast<sal_uInt16>(eAdjust),
+            std::make_unique<SwUndoInsTable>( rPos, nCols, nRows, static_cast<sal_uInt16>(eAdjust),
                                       rInsTableOpts, pTAFormat, pColArr,
                                       aTableName));
     }
@@ -1279,9 +1278,8 @@ const SwTable* SwDoc::TextToTable( const std::vector< std::vector<SwNodeRange> >
     return &rNdTable;
 }
 
-SwNodeRange * SwNodes::ExpandRangeForTableBox(const SwNodeRange & rRange)
+std::unique_ptr<SwNodeRange> SwNodes::ExpandRangeForTableBox(const SwNodeRange & rRange)
 {
-    SwNodeRange * pResult = nullptr;
     bool bChanged = false;
 
     SwNodeIndex aNewStart = rRange.aStart;
@@ -1335,9 +1333,9 @@ SwNodeRange * SwNodes::ExpandRangeForTableBox(const SwNodeRange & rRange)
         pNode = &aIndex.GetNode();
     }
 
+    std::unique_ptr<SwNodeRange> pResult;
     if (bChanged)
-        pResult = new SwNodeRange(aNewStart, aNewEnd);
-
+        pResult.reset(new SwNodeRange(aNewStart, aNewEnd));
     return pResult;
 }
 
@@ -2325,10 +2323,7 @@ SwTableNode::SwTableNode( const SwNodeIndex& rIdx )
 SwTableNode::~SwTableNode()
 {
     // Notify UNO wrappers
-    SwFrameFormat* pTableFormat = GetTable().GetFrameFormat();
-    SwPtrMsgPoolItem aMsgHint( RES_REMOVE_UNO_OBJECT,
-                                pTableFormat );
-    pTableFormat->ModifyNotification( &aMsgHint, &aMsgHint );
+    GetTable().GetFrameFormat()->GetNotifier().Broadcast(SfxHint(SfxHintId::Dying));
     DelFrames();
     m_pTable->SetTableNode(this); // set this so that ~SwDDETable can read it!
     m_pTable.reset();
@@ -2861,10 +2856,10 @@ void SwDoc::SetTabCols(SwTable& rTab, const SwTabCols &rNew, const SwTabCols &rO
     if (GetIDocumentUndoRedo().DoesUndo())
     {
         GetIDocumentUndoRedo().AppendUndo(
-            o3tl::make_unique<SwUndoAttrTable>( *rTab.GetTableNode(), true ));
+            std::make_unique<SwUndoAttrTable>( *rTab.GetTableNode(), true ));
     }
     rTab.SetTabCols( rNew, rOld, pStart, bCurRowOnly );
-      ::ClearFEShellTabCols(*this, nullptr);
+    ::ClearFEShellTabCols(*this, nullptr);
     SwClearFntCacheTextGlyphs();
     getIDocumentState().SetModified();
 }
@@ -2877,7 +2872,7 @@ void SwDoc::SetRowsToRepeat( SwTable &rTable, sal_uInt16 nSet )
     if (GetIDocumentUndoRedo().DoesUndo())
     {
         GetIDocumentUndoRedo().AppendUndo(
-            o3tl::make_unique<SwUndoTableHeadline>(rTable, rTable.GetRowsToRepeat(), nSet) );
+            std::make_unique<SwUndoTableHeadline>(rTable, rTable.GetRowsToRepeat(), nSet) );
     }
 
     SwMsgPoolItem aChg( RES_TBLHEADLINECHG );
@@ -3454,19 +3449,19 @@ bool SwDoc::MergeTable( const SwPosition& rPos, bool bWithPrev, sal_uInt16 nMode
 
     // Both Tables are present; we can start
     SwUndoMergeTable* pUndo = nullptr;
-    SwHistory* pHistory = nullptr;
+    std::unique_ptr<SwHistory> pHistory;
     if (GetIDocumentUndoRedo().DoesUndo())
     {
         pUndo = new SwUndoMergeTable( *pTableNd, *pDelTableNd, bWithPrev, nMode );
         GetIDocumentUndoRedo().AppendUndo(std::unique_ptr<SwUndo>(pUndo));
-        pHistory = new SwHistory;
+        pHistory.reset(new SwHistory);
     }
 
     // Adapt all "TableFormulas"
     SwTableFormulaUpdate aMsgHint( &pTableNd->GetTable() );
     aMsgHint.m_aData.pDelTable = &pDelTableNd->GetTable();
     aMsgHint.m_eFlags = TBL_MERGETBL;
-    aMsgHint.m_pHistory = pHistory;
+    aMsgHint.m_pHistory = pHistory.get();
     getIDocumentFieldsAccess().UpdateTableFields( &aMsgHint );
 
     // The actual merge
@@ -3477,7 +3472,7 @@ bool SwDoc::MergeTable( const SwPosition& rPos, bool bWithPrev, sal_uInt16 nMode
     {
         if( pHistory->Count() )
             pUndo->SaveFormula( *pHistory );
-        delete pHistory;
+        pHistory.reset();
     }
     if( bRet )
     {
@@ -4138,7 +4133,7 @@ void SwDoc::SetTableBoxFormulaAttrs( SwTableBox& rBox, const SfxItemSet& rSet )
 {
     if (GetIDocumentUndoRedo().DoesUndo())
     {
-        GetIDocumentUndoRedo().AppendUndo( o3tl::make_unique<SwUndoTableNumFormat>(rBox, &rSet) );
+        GetIDocumentUndoRedo().AppendUndo( std::make_unique<SwUndoTableNumFormat>(rBox, &rSet) );
     }
 
     SwFrameFormat* pBoxFormat = rBox.ClaimFrameFormat();
@@ -4217,7 +4212,7 @@ void SwDoc::ClearBoxNumAttrs( const SwNodeIndex& rNode )
         {
             if (GetIDocumentUndoRedo().DoesUndo())
             {
-                GetIDocumentUndoRedo().AppendUndo(o3tl::make_unique<SwUndoTableNumFormat>(*pBox));
+                GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoTableNumFormat>(*pBox));
             }
 
             SwFrameFormat* pBoxFormat = pBox->ClaimFrameFormat();
@@ -4546,7 +4541,7 @@ SwTableAutoFormat* SwDoc::MakeTableStyle(const OUString& rName, bool bBroadcast)
     if (GetIDocumentUndoRedo().DoesUndo())
     {
         GetIDocumentUndoRedo().AppendUndo(
-            o3tl::make_unique<SwUndoTableStyleMake>(rName, this));
+            std::make_unique<SwUndoTableStyleMake>(rName, this));
     }
 
     if (bBroadcast)
@@ -4582,7 +4577,7 @@ std::unique_ptr<SwTableAutoFormat> SwDoc::DelTableStyle(const OUString& rName, b
         if (GetIDocumentUndoRedo().DoesUndo())
         {
             GetIDocumentUndoRedo().AppendUndo(
-                o3tl::make_unique<SwUndoTableStyleDelete>(std::move(pReleasedFormat), vAffectedTables, this));
+                std::make_unique<SwUndoTableStyleDelete>(std::move(pReleasedFormat), vAffectedTables, this));
         }
     }
 
@@ -4612,7 +4607,7 @@ void SwDoc::ChgTableStyle(const OUString& rName, const SwTableAutoFormat& rNewFo
         if (GetIDocumentUndoRedo().DoesUndo())
         {
             GetIDocumentUndoRedo().AppendUndo(
-                o3tl::make_unique<SwUndoTableStyleUpdate>(*pFormat, aOldFormat, this));
+                std::make_unique<SwUndoTableStyleUpdate>(*pFormat, aOldFormat, this));
         }
     }
 }

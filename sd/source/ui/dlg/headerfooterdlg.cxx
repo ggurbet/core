@@ -17,14 +17,13 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <svx/dialogs.hrc>
 #include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
 #include <editeng/langitem.hxx>
-#include <editeng/outlobj.hxx>
 #include <svx/langbox.hxx>
 #include <svx/svdotext.hxx>
 #include <editeng/editeng.hxx>
+#include <editeng/outlobj.hxx>
 #include <sfx2/viewfrm.hxx>
 
 #include <vcl/button.hxx>
@@ -44,9 +43,6 @@
 #include <tools/color.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <svtools/colorcfg.hxx>
-#include <svx/xlndsit.hxx>
-#include <svx/xlineit0.hxx>
-#include <svx/xlnclit.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/builderfactory.hxx>
 
@@ -455,7 +451,7 @@ HeaderFooterTabPage::HeaderFooterTabPage( vcl::Window* pWindow, SdDrawDocument* 
     mpCBHeader->SetClickHdl( LINK( this, HeaderFooterTabPage, UpdateOnClickHdl ) );
     mpCBSlideNumber->SetClickHdl( LINK( this, HeaderFooterTabPage, UpdateOnClickHdl ) );
 
-    mpCBDateTimeLanguage->SetLanguageList( SvxLanguageListFlags::ALL|SvxLanguageListFlags::ONLY_KNOWN, false );
+    mpCBDateTimeLanguage->SetLanguageList( SvxLanguageListFlags::ALL|SvxLanguageListFlags::ONLY_KNOWN, false, false );
     mpCBDateTimeLanguage->SetSelectHdl( LINK( this, HeaderFooterTabPage, LanguageChangeHdl ) );
 
     GetOrSetDateTimeLanguage( meOldLanguage, false );
@@ -639,81 +635,81 @@ void HeaderFooterTabPage::GetOrSetDateTimeLanguage( LanguageType &rLanguage, boo
 
 void HeaderFooterTabPage::GetOrSetDateTimeLanguage( LanguageType &rLanguage, bool bSet, SdPage* pPage )
 {
-    if( pPage )
+    if( !pPage )
+        return;
+
+    SdrTextObj* pObj = static_cast<SdrTextObj*>(pPage->GetPresObj( PRESOBJ_DATETIME ));
+    if( !pObj )
+        return;
+
+    Outliner* pOutl = mpDoc->GetInternalOutliner();
+    pOutl->Init( OutlinerMode::TextObject );
+    OutlinerMode nOutlMode = pOutl->GetMode();
+
+    EditEngine* pEdit = const_cast< EditEngine* >(&pOutl->GetEditEngine());
+
+    OutlinerParaObject* pOPO = pObj->GetOutlinerParaObject();
+    if( pOPO )
+        pOutl->SetText( *pOPO );
+
+    EPosition aDateFieldPosition;
+    bool bHasDateFieldItem = false;
+
+    sal_Int32 nParaCount = pEdit->GetParagraphCount();
+    for (sal_Int32 nPara = 0; (nPara < nParaCount) && !bHasDateFieldItem; ++nPara)
     {
-        SdrTextObj* pObj = static_cast<SdrTextObj*>(pPage->GetPresObj( PRESOBJ_DATETIME ));
-        if( pObj )
+        sal_uInt16 nFieldCount = pEdit->GetFieldCount(nPara);
+        for (sal_uInt16 nField = 0; (nField < nFieldCount); ++nField)
         {
-            Outliner* pOutl = mpDoc->GetInternalOutliner();
-            pOutl->Init( OutlinerMode::TextObject );
-            OutlinerMode nOutlMode = pOutl->GetMode();
-
-            EditEngine* pEdit = const_cast< EditEngine* >(&pOutl->GetEditEngine());
-
-            OutlinerParaObject* pOPO = pObj->GetOutlinerParaObject();
-            if( pOPO )
-                pOutl->SetText( *pOPO );
-
-            EPosition aDateFieldPosition;
-            bool bHasDateFieldItem = false;
-
-            sal_Int32 nParaCount = pEdit->GetParagraphCount();
-            for (sal_Int32 nPara = 0; (nPara < nParaCount) && !bHasDateFieldItem; ++nPara)
+            EFieldInfo aFieldInfo = pEdit->GetFieldInfo(nPara, nField);
+            if (aFieldInfo.pFieldItem)
             {
-                sal_uInt16 nFieldCount = pEdit->GetFieldCount(nPara);
-                for (sal_uInt16 nField = 0; (nField < nFieldCount); ++nField)
+                const SvxFieldData* pFieldData = aFieldInfo.pFieldItem->GetField();
+                if (dynamic_cast<const SvxDateTimeField*>(pFieldData) != nullptr ||
+                    dynamic_cast<const SvxDateField*>(pFieldData) != nullptr)
                 {
-                    EFieldInfo aFieldInfo = pEdit->GetFieldInfo(nPara, nField);
-                    if (aFieldInfo.pFieldItem)
-                    {
-                        const SvxFieldData* pFieldData = aFieldInfo.pFieldItem->GetField();
-                        if (dynamic_cast<const SvxDateTimeField*>(pFieldData) != nullptr ||
-                            dynamic_cast<const SvxDateField*>(pFieldData) != nullptr)
-                        {
-                            bHasDateFieldItem = true;
-                            aDateFieldPosition = aFieldInfo.aPosition;
-                            break;
-                        }
-                    }
+                    bHasDateFieldItem = true;
+                    aDateFieldPosition = aFieldInfo.aPosition;
+                    break;
                 }
             }
-
-            if (bHasDateFieldItem)
-            {
-                if( bSet )
-                {
-                    SfxItemSet aSet(pEdit->GetAttribs(aDateFieldPosition.nPara,
-                                                      aDateFieldPosition.nIndex,
-                                                      aDateFieldPosition.nIndex+1,
-                                                      GetAttribsFlags::CHARATTRIBS));
-
-                    SvxLanguageItem aItem( rLanguage, EE_CHAR_LANGUAGE );
-                    aSet.Put( aItem );
-
-                    SvxLanguageItem aItemCJK( rLanguage, EE_CHAR_LANGUAGE_CJK );
-                    aSet.Put( aItemCJK );
-
-                    SvxLanguageItem aItemCTL( rLanguage, EE_CHAR_LANGUAGE_CTL );
-                    aSet.Put( aItemCTL );
-
-                    ESelection aSel(aDateFieldPosition.nPara, aDateFieldPosition.nIndex,
-                                    aDateFieldPosition.nPara, aDateFieldPosition.nIndex+1 );
-                    pEdit->QuickSetAttribs( aSet, aSel );
-
-                    pObj->SetOutlinerParaObject( pOutl->CreateParaObject() );
-                    pOutl->UpdateFields();
-                }
-                else
-                {
-                    rLanguage =  pOutl->GetLanguage(aDateFieldPosition.nPara,
-                                                    aDateFieldPosition.nIndex );
-                }
-            }
-
-            pOutl->Clear();
-            pOutl->Init( nOutlMode );
         }
     }
+
+    if (bHasDateFieldItem)
+    {
+        if( bSet )
+        {
+            SfxItemSet aSet(pEdit->GetAttribs(aDateFieldPosition.nPara,
+                                              aDateFieldPosition.nIndex,
+                                              aDateFieldPosition.nIndex+1,
+                                              GetAttribsFlags::CHARATTRIBS));
+
+            SvxLanguageItem aItem( rLanguage, EE_CHAR_LANGUAGE );
+            aSet.Put( aItem );
+
+            SvxLanguageItem aItemCJK( rLanguage, EE_CHAR_LANGUAGE_CJK );
+            aSet.Put( aItemCJK );
+
+            SvxLanguageItem aItemCTL( rLanguage, EE_CHAR_LANGUAGE_CTL );
+            aSet.Put( aItemCTL );
+
+            ESelection aSel(aDateFieldPosition.nPara, aDateFieldPosition.nIndex,
+                            aDateFieldPosition.nPara, aDateFieldPosition.nIndex+1 );
+            pEdit->QuickSetAttribs( aSet, aSel );
+
+            pObj->SetOutlinerParaObject( pOutl->CreateParaObject() );
+            pOutl->UpdateFields();
+        }
+        else
+        {
+            rLanguage =  pOutl->GetLanguage(aDateFieldPosition.nPara,
+                                            aDateFieldPosition.nIndex );
+        }
+    }
+
+    pOutl->Clear();
+    pOutl->Init( nOutlMode );
 }
 
 PresLayoutPreview::PresLayoutPreview( vcl::Window* pParent )

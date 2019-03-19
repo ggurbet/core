@@ -20,6 +20,7 @@
 
 #include <xfm_addcondition.hxx>
 
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -143,14 +144,14 @@ namespace svxform
         if ( !m_xBinding.is() || m_sFacetName.isEmpty() )
             throw RuntimeException( OUString(), *this );
 
-        return svt::OGenericUnoDialog::Dialog(VclPtr<AddConditionDialog>::Create(VCLUnoHelper::GetWindow(rParent), m_sFacetName, m_xBinding));
+        return svt::OGenericUnoDialog::Dialog(std::make_unique<AddConditionDialog>(Application::GetFrameWeld(rParent), m_sFacetName, m_xBinding));
     }
 
     void OAddConditionDialog::executedDialog( sal_Int16 _nExecutionResult )
     {
         OAddConditionDialogBase::executedDialog( _nExecutionResult );
         if ( _nExecutionResult == RET_OK )
-            m_sConditionValue = static_cast< AddConditionDialog* >( m_aDialog.m_xVclDialog.get() )->GetCondition();
+            m_sConditionValue = static_cast< AddConditionDialog* >( m_aDialog.m_xWeldDialog.get() )->GetCondition();
     }
 }
 

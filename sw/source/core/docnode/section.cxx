@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <libxml/xmlstring.h>
+#include <libxml/xmlwriter.h>
 #include <stdlib.h>
 #include <hintids.hxx>
 #include <svl/intitem.hxx>
@@ -42,6 +44,7 @@
 #include <IDocumentLayoutAccess.hxx>
 #include <node.hxx>
 #include <pam.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <editsh.hxx>
 #include <hints.hxx>
@@ -1274,7 +1277,7 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
                 rSection.SetConnectFlag();
 
                 SwNodeIndex aSave( pPam->GetPoint()->nNode, -1 );
-                SwNodeRange* pCpyRg = nullptr;
+                std::unique_ptr<SwNodeRange> pCpyRg;
 
                 if( xDocSh->GetMedium() &&
                     rSection.GetLinkFilePassword().isEmpty() )
@@ -1321,13 +1324,12 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
                     if( pCpyRg && pSrcDoc == pDoc &&
                         pCpyRg->aStart < rInsPos && rInsPos < pCpyRg->aEnd )
                     {
-                        delete pCpyRg;
-                        pCpyRg = nullptr;
+                        pCpyRg.reset();
                     }
                 }
                 else if( pSrcDoc != pDoc )
-                    pCpyRg = new SwNodeRange( pSrcDoc->GetNodes().GetEndOfExtras(), 2,
-                                          pSrcDoc->GetNodes().GetEndOfContent() );
+                    pCpyRg.reset(new SwNodeRange( pSrcDoc->GetNodes().GetEndOfExtras(), 2,
+                                          pSrcDoc->GetNodes().GetEndOfContent() ));
 
                 // #i81653#
                 // Update links of extern linked document or extern linked
@@ -1364,7 +1366,7 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
                         pDoc->CorrAbs( aSave, *pPam->GetPoint(), 0, true );
                         pDoc->GetNodes().Delete( aSave );
                     }
-                    delete pCpyRg;
+                    pCpyRg.reset();
                 }
 
                 lcl_BreakSectionLinksInSect( *pSectNd );

@@ -25,7 +25,6 @@
 #include <excimp8.hxx>
 #include <scextopt.hxx>
 #include <document.hxx>
-#include <o3tl/make_unique.hxx>
 
 // *** Implementation ***
 
@@ -176,7 +175,7 @@ XclImpName::XclImpName( XclImpStream& rStrm, sal_uInt16 nXclNameIdx ) :
         rFmlaConv.Convert( pTokArr, rStrm, nFmlaSize, false, FT_RangeName );
 
         // --- auto or advanced filter ---
-        if( (GetBiff() == EXC_BIFF8) && pTokArr && bBuiltIn )
+        if ((GetBiff() == EXC_BIFF8) && pTokArr)
         {
             ScRange aRange;
             if (pTokArr->IsReference(aRange, ScAddress()))
@@ -285,22 +284,25 @@ void XclImpNameManager::ReadName( XclImpStream& rStrm )
 {
     sal_uLong nCount = maNameList.size();
     if( nCount < 0xFFFF )
-        maNameList.push_back( o3tl::make_unique<XclImpName>( rStrm, static_cast< sal_uInt16 >( nCount + 1 ) ) );
+        maNameList.push_back( std::make_unique<XclImpName>( rStrm, static_cast< sal_uInt16 >( nCount + 1 ) ) );
 }
 
 const XclImpName* XclImpNameManager::FindName( const OUString& rXclName, SCTAB nScTab ) const
 {
     const XclImpName* pGlobalName = nullptr;   // a found global name
     const XclImpName* pLocalName = nullptr;    // a found local name
-    for( XclImpNameList::const_iterator itName = maNameList.begin(); itName != maNameList.end() && !pLocalName; ++itName )
+    for( const auto& rxName : maNameList )
     {
-        if( (*itName)->GetXclName() == rXclName )
+        if( rxName->GetXclName() == rXclName )
         {
-            if( (*itName)->GetScTab() == nScTab )
-                pLocalName = itName->get();
-            else if( (*itName)->IsGlobal() )
-                pGlobalName = itName->get();
+            if( rxName->GetScTab() == nScTab )
+                pLocalName = rxName.get();
+            else if( rxName->IsGlobal() )
+                pGlobalName = rxName.get();
         }
+
+        if (pLocalName)
+            break;
     }
     return pLocalName ? pLocalName : pGlobalName;
 }
@@ -313,9 +315,8 @@ const XclImpName* XclImpNameManager::GetName( sal_uInt16 nXclNameIdx ) const
 
 void XclImpNameManager::ConvertAllTokens()
 {
-    XclImpNameList::iterator it = maNameList.begin(), itEnd = maNameList.end();
-    for (; it != itEnd; ++it)
-        (*it)->ConvertTokens();
+    for (auto& rxName : maNameList)
+        rxName->ConvertTokens();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

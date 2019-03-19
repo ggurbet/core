@@ -13,7 +13,6 @@
 #include <unotools/charclass.hxx>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <com/sun/star/sheet/DataPilotFieldFilter.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
@@ -67,15 +66,13 @@ ScDPResultTree::MemberNode::~MemberNode() {}
 void ScDPResultTree::MemberNode::dump(int nLevel) const
 {
     string aIndent(nLevel*2, ' ');
-    ValuesType::const_iterator itVal = maValues.begin(), itValEnd = maValues.end();
-    for (; itVal != itValEnd; ++itVal)
-        cout << aIndent << "value: " << *itVal << endl;
+    for (const auto& rValue : maValues)
+        cout << aIndent << "value: " << rValue << endl;
 
-    DimensionsType::const_iterator it = maChildDimensions.begin(), itEnd = maChildDimensions.end();
-    for (; it != itEnd; ++it)
+    for (const auto& [rName, rxDim] : maChildDimensions)
     {
-        cout << aIndent << "dimension: " << it->first << endl;
-        it->second->dump(nLevel+1);
+        cout << aIndent << "dimension: " << rName << endl;
+        rxDim->dump(nLevel+1);
     }
 }
 #endif
@@ -94,10 +91,8 @@ void ScDPResultTree::add(
     const OUString* pMemName = nullptr;
     MemberNode* pMemNode = mpRoot.get();
 
-    std::vector<ScDPResultFilter>::const_iterator itFilter = rFilters.begin(), itFilterEnd = rFilters.end();
-    for (; itFilter != itFilterEnd; ++itFilter)
+    for (const ScDPResultFilter& filter : rFilters)
     {
-        const ScDPResultFilter& filter = *itFilter;
         if (filter.mbDataLayout)
             continue;
 
@@ -111,7 +106,7 @@ void ScDPResultTree::add(
         if (itDim == rDims.end())
         {
             // New dimension.  Insert it.
-            auto r = rDims.emplace(aUpperName, o3tl::make_unique<DimensionNode>());
+            auto r = rDims.emplace(aUpperName, std::make_unique<DimensionNode>());
             assert(r.second);
             itDim = r.first;
         }

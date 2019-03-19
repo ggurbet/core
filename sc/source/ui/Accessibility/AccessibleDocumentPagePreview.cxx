@@ -30,18 +30,15 @@
 #include <scresid.hxx>
 #include <strings.hrc>
 #include <strings.hxx>
-#include <DrawModelBroadcaster.hxx>
-#include <docsh.hxx>
-#include <drawview.hxx>
 #include <preview.hxx>
 #include <postit.hxx>
 
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
-#include <com/sun/star/accessibility/AccessibleRelationType.hpp>
 
 #include <unotools/accessiblestatesethelper.hxx>
 #include <tools/gen.hxx>
+#include <svx/fmview.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/AccessibleTextHelper.hxx>
@@ -50,16 +47,13 @@
 #include <svx/IAccessibleViewForwarder.hxx>
 #include <svx/ShapeTypeHandler.hxx>
 #include <toolkit/helper/convert.hxx>
-#include <svx/unoshape.hxx>
-#include <unotools/accessiblerelationsethelper.hxx>
 #include <vcl/svapp.hxx>
 #include <sfx2/docfile.hxx>
 
-#include <utility>
 #include <vector>
 #include <algorithm>
 #include <memory>
-#include <o3tl/make_unique.hxx>
+
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
 
@@ -141,7 +135,7 @@ ScNotesChildren::~ScNotesChildren()
 
 ::accessibility::AccessibleTextHelper* ScNotesChildren::CreateTextHelper(const OUString& rString, const tools::Rectangle& rVisRect, const ScAddress& aCellPos, bool bMarkNote, sal_Int32 nChildOffset) const
 {
-    ::accessibility::AccessibleTextHelper* pTextHelper = new ::accessibility::AccessibleTextHelper(o3tl::make_unique<ScAccessibilityEditSource>(o3tl::make_unique<ScAccessibleNoteTextData>(mpViewShell, rString, aCellPos, bMarkNote)));
+    ::accessibility::AccessibleTextHelper* pTextHelper = new ::accessibility::AccessibleTextHelper(std::make_unique<ScAccessibilityEditSource>(std::make_unique<ScAccessibleNoteTextData>(mpViewShell, rString, aCellPos, bMarkNote)));
     pTextHelper->SetEventSource(mpAccDoc);
     pTextHelper->SetStartIndex(nChildOffset);
     pTextHelper->SetOffset(rVisRect.TopLeft());
@@ -590,8 +584,6 @@ struct ScShapeRange
     ScShapeChildVec maBackShapes;
     ScShapeChildVec maForeShapes; // inclusive internal shapes
     ScShapeChildVec maControls;
-    tools::Rectangle       maPixelRect;
-    MapMode         maMapMode;
     ScIAccessibleViewForwarder maViewForwarder;
 };
 
@@ -713,7 +705,7 @@ void ScShapeChildren::FindChanged(ScShapeChildVec& rOld, ScShapeChildVec& rNew) 
     ScShapeChildVec::iterator aOldItr = rOld.begin();
     ScShapeChildVec::iterator aOldEnd = rOld.end();
     ScShapeChildVec::const_iterator aNewItr = rNew.begin();
-    ScShapeChildVec::const_iterator aNewEnd = rNew.begin();
+    ScShapeChildVec::const_iterator aNewEnd = rNew.end();
     uno::Reference<XAccessible> xAcc;
     while ((aNewItr != aNewEnd) && (aOldItr != aOldEnd))
     {
@@ -849,22 +841,20 @@ sal_Int32 ScShapeChildren::GetBackShapeCount() const
 uno::Reference<XAccessible> ScShapeChildren::GetBackShape(sal_Int32 nIndex) const
 {
     uno::Reference<XAccessible> xAccessible;
-    ScShapeRangeVec::const_iterator aEndItr = maShapeRanges.end();
-    ScShapeRangeVec::const_iterator aItr = maShapeRanges.begin();
-    while ((aItr != aEndItr) && !xAccessible.is())
+    for (const auto& rShapeRange : maShapeRanges)
     {
-        sal_Int32 nCount(aItr->maBackShapes.size());
+        sal_Int32 nCount(rShapeRange.maBackShapes.size());
         if(nIndex < nCount)
-            xAccessible = GetAccShape(aItr->maBackShapes, nIndex);
-        else
-            ++aItr;
+            xAccessible = GetAccShape(rShapeRange.maBackShapes, nIndex);
         nIndex -= nCount;
+        if (xAccessible.is())
+            break;
     }
 
     if (nIndex >= 0)
         throw lang::IndexOutOfBoundsException();
 
-   return xAccessible;
+    return xAccessible;
 }
 
 sal_Int32 ScShapeChildren::GetForeShapeCount() const
@@ -878,22 +868,20 @@ sal_Int32 ScShapeChildren::GetForeShapeCount() const
 uno::Reference<XAccessible> ScShapeChildren::GetForeShape(sal_Int32 nIndex) const
 {
     uno::Reference<XAccessible> xAccessible;
-    ScShapeRangeVec::const_iterator aEndItr = maShapeRanges.end();
-    ScShapeRangeVec::const_iterator aItr = maShapeRanges.begin();
-    while ((aItr != aEndItr) && !xAccessible.is())
+    for (const auto& rShapeRange : maShapeRanges)
     {
-        sal_Int32 nCount(aItr->maForeShapes.size());
+        sal_Int32 nCount(rShapeRange.maForeShapes.size());
         if(nIndex < nCount)
-            xAccessible = GetAccShape(aItr->maForeShapes, nIndex);
-        else
-            ++aItr;
+            xAccessible = GetAccShape(rShapeRange.maForeShapes, nIndex);
         nIndex -= nCount;
+        if (xAccessible.is())
+            break;
     }
 
     if (nIndex >= 0)
         throw lang::IndexOutOfBoundsException();
 
-   return xAccessible;
+    return xAccessible;
 }
 
 sal_Int32 ScShapeChildren::GetControlCount() const
@@ -907,22 +895,20 @@ sal_Int32 ScShapeChildren::GetControlCount() const
 uno::Reference<XAccessible> ScShapeChildren::GetControl(sal_Int32 nIndex) const
 {
     uno::Reference<XAccessible> xAccessible;
-    ScShapeRangeVec::const_iterator aEndItr = maShapeRanges.end();
-    ScShapeRangeVec::const_iterator aItr = maShapeRanges.begin();
-    while ((aItr != aEndItr) && !xAccessible.is())
+    for (const auto& rShapeRange : maShapeRanges)
     {
-        sal_Int32 nCount(aItr->maControls.size());
+        sal_Int32 nCount(rShapeRange.maControls.size());
         if(nIndex < nCount)
-            xAccessible = GetAccShape(aItr->maControls, nIndex);
-        else
-            ++aItr;
+            xAccessible = GetAccShape(rShapeRange.maControls, nIndex);
         nIndex -= nCount;
+        if (xAccessible.is())
+            break;
     }
 
     if (nIndex >= 0)
         throw lang::IndexOutOfBoundsException();
 
-   return xAccessible;
+    return xAccessible;
 }
 
 struct ScShapePointFound
@@ -942,21 +928,20 @@ uno::Reference<XAccessible> ScShapeChildren::GetForegroundShapeAt(const awt::Poi
 {
     uno::Reference<XAccessible> xAcc;
 
-    ScShapeRangeVec::const_iterator aItr = maShapeRanges.begin();
-    ScShapeRangeVec::const_iterator aEndItr = maShapeRanges.end();
-    while((aItr != aEndItr) && !xAcc.is())
+    for(const auto& rShapeRange : maShapeRanges)
     {
-        ScShapeChildVec::const_iterator aFindItr = std::find_if(aItr->maForeShapes.begin(), aItr->maForeShapes.end(), ScShapePointFound(rPoint));
-        if (aFindItr != aItr->maForeShapes.end())
+        ScShapeChildVec::const_iterator aFindItr = std::find_if(rShapeRange.maForeShapes.begin(), rShapeRange.maForeShapes.end(), ScShapePointFound(rPoint));
+        if (aFindItr != rShapeRange.maForeShapes.end())
             xAcc = GetAccShape(*aFindItr);
         else
         {
-            ScShapeChildVec::const_iterator aCtrlItr = std::find_if(aItr->maControls.begin(), aItr->maControls.end(), ScShapePointFound(rPoint));
-            if (aCtrlItr != aItr->maControls.end())
+            ScShapeChildVec::const_iterator aCtrlItr = std::find_if(rShapeRange.maControls.begin(), rShapeRange.maControls.end(), ScShapePointFound(rPoint));
+            if (aCtrlItr != rShapeRange.maControls.end())
                 xAcc = GetAccShape(*aCtrlItr);
-            else
-                ++aItr;
         }
+
+        if (xAcc.is())
+            break;
     }
 
     return xAcc;
@@ -966,15 +951,13 @@ uno::Reference<XAccessible> ScShapeChildren::GetBackgroundShapeAt(const awt::Poi
 {
     uno::Reference<XAccessible> xAcc;
 
-    ScShapeRangeVec::const_iterator aItr = maShapeRanges.begin();
-    ScShapeRangeVec::const_iterator aEndItr = maShapeRanges.end();
-    while((aItr != aEndItr) && !xAcc.is())
+    for(const auto& rShapeRange : maShapeRanges)
     {
-        ScShapeChildVec::const_iterator aFindItr = std::find_if(aItr->maBackShapes.begin(), aItr->maBackShapes.end(), ScShapePointFound(rPoint));
-        if (aFindItr != aItr->maBackShapes.end())
+        ScShapeChildVec::const_iterator aFindItr = std::find_if(rShapeRange.maBackShapes.begin(), rShapeRange.maBackShapes.end(), ScShapePointFound(rPoint));
+        if (aFindItr != rShapeRange.maBackShapes.end())
             xAcc = GetAccShape(*aFindItr);
-        else
-            ++aItr;
+        if (xAcc.is())
+            break;
     }
 
     return xAcc;
@@ -1025,8 +1008,6 @@ void ScShapeChildren::FillShapes(const tools::Rectangle& aPixelPaintRect, const 
             tools::Rectangle aRect2(Point(0,0), mpAccDoc->GetBoundingBoxOnScreen().GetSize());
             aClippedPixelPaintRect = aPixelPaintRect.GetIntersection(aRect2);
         }
-        maShapeRanges[nRangeId].maPixelRect = aClippedPixelPaintRect;
-        maShapeRanges[nRangeId].maMapMode = aMapMode;
         ScIAccessibleViewForwarder aViewForwarder(mpViewShell, mpAccDoc, aMapMode);
         maShapeRanges[nRangeId].maViewForwarder = aViewForwarder;
         const size_t nCount(pPage->GetObjCount());

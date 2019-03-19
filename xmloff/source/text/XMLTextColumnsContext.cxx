@@ -22,7 +22,6 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/style/VerticalAlignment.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <o3tl/make_unique.hxx>
 #include <sax/tools/converter.hxx>
 #include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmluconv.hxx>
@@ -30,6 +29,7 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmlimp.hxx>
 #include <xmloff/xmltoken.hxx>
+#include <xmloff/xmlement.hxx>
 #include <XMLTextColumnsContext.hxx>
 
 using namespace ::com::sun::star;
@@ -300,7 +300,7 @@ SvXMLImportContextRef XMLTextColumnsContext::CreateChildContext(
 
         // add new tabstop to array of tabstops
         if( !pColumns )
-            pColumns = o3tl::make_unique<XMLTextColumnsArray_Impl>();
+            pColumns = std::make_unique<XMLTextColumnsArray_Impl>();
 
         pColumns->push_back( xColumn );
 

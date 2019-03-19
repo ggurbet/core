@@ -997,7 +997,7 @@ bool ModelData_Impl::OutputFileDialog( sal_Int16 nStoreMode,
     INetURLObject aURL( pFileDlg->GetPath() );
     // the path should be provided outside since it might be used for further calls to the dialog
     aSuggestedName = aURL.GetName( INetURLObject::DecodeMechanism::WithCharset );
-       aSuggestedDir = pFileDlg->GetDisplayDirectory();
+    aSuggestedDir = pFileDlg->GetDisplayDirectory();
 
     // old filter options should be cleared in case different filter is used
 
@@ -1125,14 +1125,14 @@ bool ModelData_Impl::ShowDocumentInfoDialog(const std::function< void () >& aFun
 
 OUString ModelData_Impl::GetRecommendedExtension( const OUString& aTypeName )
 {
-   if ( aTypeName.isEmpty() )
+    if ( aTypeName.isEmpty() )
        return OUString();
 
-   uno::Reference< container::XNameAccess > xTypeDetection(
+    uno::Reference< container::XNameAccess > xTypeDetection(
        comphelper::getProcessServiceFactory()->createInstance("com.sun.star.document.TypeDetection"),
        uno::UNO_QUERY );
-   if ( xTypeDetection.is() )
-   {
+    if ( xTypeDetection.is() )
+    {
        uno::Sequence< beans::PropertyValue > aTypeNameProps;
        if ( ( xTypeDetection->getByName( aTypeName ) >>= aTypeNameProps ) && aTypeNameProps.getLength() )
        {
@@ -1377,7 +1377,8 @@ bool SfxStoringHelper::GUIStoreModel( const uno::Reference< frame::XModel >& xMo
            || SignatureState::NOTVALIDATED == nDocumentSignatureState
            || SignatureState::PARTIAL_OK == nDocumentSignatureState)
         {
-            std::unique_ptr<weld::MessageDialog> xMessageBox(Application::CreateMessageDialog(nullptr,
+            vcl::Window* pWin = SfxStoringHelper::GetModelWindow( xModel );
+            std::unique_ptr<weld::MessageDialog> xMessageBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
                                                              VclMessageType::Question, VclButtonsType::YesNo, SfxResId(RID_SVXSTR_XMLSEC_QUERY_LOSINGSIGNATURE)));
             if (xMessageBox->run() != RET_YES)
             {

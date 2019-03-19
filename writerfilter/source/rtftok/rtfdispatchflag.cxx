@@ -73,7 +73,7 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
             nParam = NS_ooxml::LN_Value_ST_Jc_right;
             break;
         case RTF_QD:
-            nParam = NS_ooxml::LN_Value_ST_Jc_both;
+            nParam = NS_ooxml::LN_Value_ST_Jc_distribute;
             break;
         default:
             break;
@@ -773,6 +773,14 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
         break;
         case RTF_SUPER:
         {
+            // Make sure character properties are not lost if the document
+            // starts with a footnote.
+            if (!isStyleSheetImport())
+            {
+                checkFirstRun();
+                checkNeedPap();
+            }
+
             if (!m_aStates.top().pCurrentBuffer)
                 m_aStates.top().pCurrentBuffer = &m_aSuperBuffer;
 
@@ -926,57 +934,75 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
             switch (nKeyword)
             {
                 case RTF_DPLINE:
-                    m_aStates.top().aDrawingObject.xShape.set(
+                {
+                    uno::Reference<drawing::XShape> xShape(
                         getModelFactory()->createInstance("com.sun.star.drawing.LineShape"),
                         uno::UNO_QUERY);
+                    m_aStates.top().aDrawingObject.setShape(xShape);
                     break;
+                }
                 case RTF_DPPOLYLINE:
+                {
                     // The reason this is not a simple CustomShape is that in the old syntax we have no ViewBox info.
-                    m_aStates.top().aDrawingObject.xShape.set(
+                    uno::Reference<drawing::XShape> xShape(
                         getModelFactory()->createInstance("com.sun.star.drawing.PolyLineShape"),
                         uno::UNO_QUERY);
+                    m_aStates.top().aDrawingObject.setShape(xShape);
                     break;
+                }
                 case RTF_DPPOLYGON:
-                    m_aStates.top().aDrawingObject.xShape.set(
+                {
+                    uno::Reference<drawing::XShape> xShape(
                         getModelFactory()->createInstance("com.sun.star.drawing.PolyPolygonShape"),
                         uno::UNO_QUERY);
+                    m_aStates.top().aDrawingObject.setShape(xShape);
                     break;
+                }
                 case RTF_DPRECT:
-                    m_aStates.top().aDrawingObject.xShape.set(
+                {
+                    uno::Reference<drawing::XShape> xShape(
                         getModelFactory()->createInstance("com.sun.star.drawing.RectangleShape"),
                         uno::UNO_QUERY);
+                    m_aStates.top().aDrawingObject.setShape(xShape);
                     break;
+                }
                 case RTF_DPELLIPSE:
                     nType = ESCHER_ShpInst_Ellipse;
                     break;
                 case RTF_DPTXBX:
                 {
-                    m_aStates.top().aDrawingObject.xShape.set(
+                    uno::Reference<drawing::XShape> xShape(
                         getModelFactory()->createInstance("com.sun.star.text.TextFrame"),
                         uno::UNO_QUERY);
+                    m_aStates.top().aDrawingObject.setShape(xShape);
                     std::vector<beans::PropertyValue> aDefaults
                         = RTFSdrImport::getTextFrameDefaults(false);
                     for (const auto& rDefault : aDefaults)
                     {
-                        if (!findPropertyName(m_aStates.top().aDrawingObject.aPendingProperties,
+                        if (!findPropertyName(m_aStates.top().aDrawingObject.getPendingProperties(),
                                               rDefault.Name))
-                            m_aStates.top().aDrawingObject.aPendingProperties.push_back(rDefault);
+                            m_aStates.top().aDrawingObject.getPendingProperties().push_back(
+                                rDefault);
                     }
                     checkFirstRun();
-                    Mapper().startShape(m_aStates.top().aDrawingObject.xShape);
-                    m_aStates.top().aDrawingObject.bHadShapeText = true;
+                    Mapper().startShape(m_aStates.top().aDrawingObject.getShape());
+                    m_aStates.top().aDrawingObject.setHadShapeText(true);
                 }
                 break;
                 default:
                     break;
             }
             if (nType)
-                m_aStates.top().aDrawingObject.xShape.set(
+            {
+                uno::Reference<drawing::XShape> xShape(
                     getModelFactory()->createInstance("com.sun.star.drawing.CustomShape"),
                     uno::UNO_QUERY);
+                m_aStates.top().aDrawingObject.setShape(xShape);
+            }
             uno::Reference<drawing::XDrawPageSupplier> xDrawSupplier(m_xDstDoc, uno::UNO_QUERY);
-            m_aStates.top().aDrawingObject.xPropertySet.set(m_aStates.top().aDrawingObject.xShape,
-                                                            uno::UNO_QUERY);
+            uno::Reference<beans::XPropertySet> xPropertySet(
+                m_aStates.top().aDrawingObject.getShape(), uno::UNO_QUERY);
+            m_aStates.top().aDrawingObject.setPropertySet(xPropertySet);
             if (xDrawSupplier.is())
             {
                 uno::Reference<drawing::XShapes> xShapes(xDrawSupplier->getDrawPage(),
@@ -984,24 +1010,24 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
                 if (xShapes.is() && nKeyword != RTF_DPTXBX)
                 {
                     // set default VertOrient before inserting
-                    m_aStates.top().aDrawingObject.xPropertySet->setPropertyValue(
+                    m_aStates.top().aDrawingObject.getPropertySet()->setPropertyValue(
                         "VertOrient", uno::makeAny(text::VertOrientation::NONE));
-                    xShapes->add(m_aStates.top().aDrawingObject.xShape);
+                    xShapes->add(m_aStates.top().aDrawingObject.getShape());
                 }
             }
             if (nType)
             {
                 uno::Reference<drawing::XEnhancedCustomShapeDefaulter> xDefaulter(
-                    m_aStates.top().aDrawingObject.xShape, uno::UNO_QUERY);
+                    m_aStates.top().aDrawingObject.getShape(), uno::UNO_QUERY);
                 xDefaulter->createCustomShapeDefaults(OUString::number(nType));
             }
             std::vector<beans::PropertyValue>& rPendingProperties
-                = m_aStates.top().aDrawingObject.aPendingProperties;
+                = m_aStates.top().aDrawingObject.getPendingProperties();
             for (auto& rPendingProperty : rPendingProperties)
-                m_aStates.top().aDrawingObject.xPropertySet->setPropertyValue(
+                m_aStates.top().aDrawingObject.getPropertySet()->setPropertyValue(
                     rPendingProperty.Name, rPendingProperty.Value);
-            m_pSdrImport->resolveDhgt(m_aStates.top().aDrawingObject.xPropertySet,
-                                      m_aStates.top().aDrawingObject.nDhgt, /*bOldStyle=*/true);
+            m_pSdrImport->resolveDhgt(m_aStates.top().aDrawingObject.getPropertySet(),
+                                      m_aStates.top().aDrawingObject.getDhgt(), /*bOldStyle=*/true);
         }
         break;
         case RTF_DOBXMARGIN:
@@ -1011,7 +1037,7 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
             aPropertyValue.Name = (nKeyword == RTF_DOBXMARGIN ? OUString("HoriOrientRelation")
                                                               : OUString("VertOrientRelation"));
             aPropertyValue.Value <<= text::RelOrientation::PAGE_PRINT_AREA;
-            m_aStates.top().aDrawingObject.aPendingProperties.push_back(aPropertyValue);
+            m_aStates.top().aDrawingObject.getPendingProperties().push_back(aPropertyValue);
         }
         break;
         case RTF_DOBXPAGE:
@@ -1021,7 +1047,7 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
             aPropertyValue.Name = (nKeyword == RTF_DOBXPAGE ? OUString("HoriOrientRelation")
                                                             : OUString("VertOrientRelation"));
             aPropertyValue.Value <<= text::RelOrientation::PAGE_FRAME;
-            m_aStates.top().aDrawingObject.aPendingProperties.push_back(aPropertyValue);
+            m_aStates.top().aDrawingObject.getPendingProperties().push_back(aPropertyValue);
         }
         break;
         case RTF_DOBYPARA:
@@ -1029,7 +1055,7 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
             beans::PropertyValue aPropertyValue;
             aPropertyValue.Name = "VertOrientRelation";
             aPropertyValue.Value <<= text::RelOrientation::FRAME;
-            m_aStates.top().aDrawingObject.aPendingProperties.push_back(aPropertyValue);
+            m_aStates.top().aDrawingObject.getPendingProperties().push_back(aPropertyValue);
         }
         break;
         case RTF_CONTEXTUALSPACE:
@@ -1079,22 +1105,22 @@ RTFError RTFDocumentImpl::dispatchFlag(RTFKeyword nKeyword)
         }
         break;
         case RTF_SHPBXPAGE:
-            m_aStates.top().aShape.nHoriOrientRelation = text::RelOrientation::PAGE_FRAME;
-            m_aStates.top().aShape.nHoriOrientRelationToken
-                = NS_ooxml::LN_Value_wordprocessingDrawing_ST_RelFromH_page;
+            m_aStates.top().aShape.setHoriOrientRelation(text::RelOrientation::PAGE_FRAME);
+            m_aStates.top().aShape.setHoriOrientRelationToken(
+                NS_ooxml::LN_Value_wordprocessingDrawing_ST_RelFromH_page);
             break;
         case RTF_SHPBYPAGE:
-            m_aStates.top().aShape.nVertOrientRelation = text::RelOrientation::PAGE_FRAME;
-            m_aStates.top().aShape.nVertOrientRelationToken
-                = NS_ooxml::LN_Value_wordprocessingDrawing_ST_RelFromV_page;
+            m_aStates.top().aShape.setVertOrientRelation(text::RelOrientation::PAGE_FRAME);
+            m_aStates.top().aShape.setVertOrientRelationToken(
+                NS_ooxml::LN_Value_wordprocessingDrawing_ST_RelFromV_page);
             break;
         case RTF_DPLINEHOLLOW:
-            m_aStates.top().aDrawingObject.nFLine = 0;
+            m_aStates.top().aDrawingObject.setFLine(0);
             break;
         case RTF_DPROUNDR:
-            if (m_aStates.top().aDrawingObject.xPropertySet.is())
+            if (m_aStates.top().aDrawingObject.getPropertySet().is())
                 // Seems this old syntax has no way to specify a custom radius, and this is the default
-                m_aStates.top().aDrawingObject.xPropertySet->setPropertyValue(
+                m_aStates.top().aDrawingObject.getPropertySet()->setPropertyValue(
                     "CornerRadius", uno::makeAny(sal_Int32(83)));
             break;
         case RTF_NOWRAP:

@@ -573,17 +573,7 @@ Sequence< OUString > SAL_CALL SvtFilePicker::getSelectedFiles()
         return aEmpty;
     }
 
-    std::vector<OUString> aPathList(getDialog()->GetPathList());
-    size_t nCount = aPathList.size();
-
-    Sequence< OUString > aFiles(nCount);
-
-    for(size_t i = 0; i < aPathList.size(); ++i)
-    {
-        aFiles[i] = aPathList[i];
-    }
-
-    return aFiles;
+    return comphelper::containerToSequence(getDialog()->GetPathList());
 }
 
 Sequence< OUString > SAL_CALL SvtFilePicker::getFiles()
@@ -1016,7 +1006,7 @@ void SAL_CALL SvtFilePicker::initialize( const Sequence< Any >& _rArguments )
                     namedValue.Value >>= sStandardDir;
 
                     // Set the directory for the "back to the default dir" button
-                        if ( !sStandardDir.isEmpty() )
+                    if ( !sStandardDir.isEmpty() )
                     {
                         m_aStandardDir = sStandardDir;
                     }

@@ -27,10 +27,6 @@
 namespace
 {
 
-static bool startswith(const std::string& rStr, const char* pSubStr) {
-    return rStr.compare(0, strlen(pSubStr), pSubStr) == 0;
-}
-
 class ConstParams:
     public loplugin::FunctionAddress<ConstParams>
 {
@@ -40,29 +36,29 @@ public:
     virtual void run() override {
         std::string fn(handler.getMainFileName());
         loplugin::normalizeDotDotInFilePath(fn);
-        if (startswith(fn, SRCDIR "/sal/")
+        if (loplugin::hasPathnamePrefix(fn, SRCDIR "/sal/")
             || fn == SRCDIR "/jurt/source/pipe/staticsalhack.cxx"
-            || startswith(fn, SRCDIR "/bridges/")
-            || startswith(fn, SRCDIR "/binaryurp/")
-            || startswith(fn, SRCDIR "/stoc/")
-            || startswith(fn, WORKDIR "/YaccTarget/unoidl/source/sourceprovider-parser.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/bridges/")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/binaryurp/")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/stoc/")
+            || loplugin::hasPathnamePrefix(fn, WORKDIR "/YaccTarget/unoidl/source/sourceprovider-parser.cxx")
             // some weird calling through a function pointer
-            || startswith(fn, SRCDIR "/svtools/source/table/defaultinputhandler.cxx")
-            || startswith(fn, SRCDIR "/sdext/source/pdfimport/test/pdfunzip.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/svtools/source/table/defaultinputhandler.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/sdext/source/pdfimport/test/pdfunzip.cxx")
             // windows only
-            || startswith(fn, SRCDIR "/basic/source/sbx/sbxdec.cxx")
-            || startswith(fn, SRCDIR "/sfx2/source/doc/syspath.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/basic/source/sbx/sbxdec.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/sfx2/source/doc/syspath.cxx")
             // ignore this for now
-            || startswith(fn, SRCDIR "/libreofficekit")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/libreofficekit")
             // I end up with a
             //    CXXMemberCallExpr
             // to a
             //    BuiltinType '<bound member function type>'
             // and the AST gives me no further useful information.
-            || startswith(fn, SRCDIR "/sw/source/core/doc/docfly.cxx")
-            || startswith(fn, SRCDIR "/sw/source/core/doc/DocumentContentOperationsManager.cxx")
-            || startswith(fn, SRCDIR "/sw/source/core/fields/cellfml.cxx")
-            || startswith(fn, SRCDIR "/sw/source/filter/ww8/ww8par6.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/sw/source/core/doc/docfly.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/sw/source/core/doc/DocumentContentOperationsManager.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/sw/source/core/fields/cellfml.cxx")
+            || loplugin::hasPathnamePrefix(fn, SRCDIR "/sw/source/filter/ww8/ww8par6.cxx")
             )
             return;
 
@@ -76,11 +72,12 @@ public:
             {
                 continue;
             }
+            std::string fname = functionDecl->getQualifiedNameAsString();
             report(
                 DiagnosticsEngine::Warning,
-                "this parameter can be const",
+                "this parameter can be const %0",
                 compat::getBeginLoc(pParmVarDecl))
-                << pParmVarDecl->getSourceRange();
+                << fname << pParmVarDecl->getSourceRange();
             if (canonicalDecl->getLocation() != functionDecl->getLocation()) {
                 unsigned idx = pParmVarDecl->getFunctionScopeIndex();
                 const ParmVarDecl* pOther = canonicalDecl->getParamDecl(idx);
@@ -150,16 +147,8 @@ bool ConstParams::CheckTraverseFunctionDecl(FunctionDecl * functionDecl)
     if (isInUnoIncludeFile(functionDecl)) {
         return false;
     }
-    // TODO ignore template stuff for now
-    if (functionDecl->getTemplatedKind() != FunctionDecl::TK_NonTemplate) {
-        return false;
-    }
     if (functionDecl->isDeleted())
         return false;
-    if (isa<CXXMethodDecl>(functionDecl)
-        && dyn_cast<CXXMethodDecl>(functionDecl)->getParent()->getDescribedClassTemplate() != nullptr ) {
-        return false;
-    }
     // ignore virtual methods
     if (isa<CXXMethodDecl>(functionDecl)
         && dyn_cast<CXXMethodDecl>(functionDecl)->isVirtual() ) {
@@ -210,9 +199,18 @@ bool ConstParams::CheckTraverseFunctionDecl(FunctionDecl * functionDecl)
             || name == "Read_And"
             // passed as a LINK<> to another method
             || name == "GlobalBasicErrorHdl_Impl"
+            // template
+            || name == "extract_throw" || name == "readProp"
             )
             return false;
+
     }
+
+    std::string fqn = functionDecl->getQualifiedNameAsString();
+    if ( fqn == "connectivity::jdbc::GlobalRef::set"
+      || fqn == "(anonymous namespace)::ReorderNotifier::operator()"
+      || fqn == "static_txtattr_cast")
+        return false;
 
     // calculate the ones we want to check
     bool foundInterestingParam = false;
@@ -222,11 +220,8 @@ bool ConstParams::CheckTraverseFunctionDecl(FunctionDecl * functionDecl)
             || pParmVarDecl->hasAttr<UnusedAttr>())
             continue;
         auto const type = loplugin::TypeCheck(pParmVarDecl->getType());
-        if (!type.Pointer() && !type.LvalueReference())
-            continue;
-        if (type.Pointer().Const())
-            continue;
-        if (type.LvalueReference().Const())
+        if (!( type.Pointer().NonConst()
+             || type.LvalueReference().NonConst()))
             continue;
         // since we normally can't change typedefs, just ignore them
         if (isa<TypedefType>(pParmVarDecl->getType()))
@@ -240,11 +235,6 @@ bool ConstParams::CheckTraverseFunctionDecl(FunctionDecl * functionDecl)
         // const is meaningless when applied to function pointer types
         if (pParmVarDecl->getType()->isFunctionPointerType())
             continue;
-        // ignore things with template params
-        if (pParmVarDecl->getType()->isInstantiationDependentType())
-            continue;
-        if (functionDecl->getIdentifier() && functionDecl->getName() == "WW8TransCol")
-            pParmVarDecl->getType()->dump();
         interestingParamSet.insert(pParmVarDecl);
         parmToFunction[pParmVarDecl] = functionDecl;
         foundInterestingParam = true;
@@ -281,12 +271,23 @@ bool ConstParams::checkIfCanBeConst(const Stmt* stmt, const ParmVarDecl* parmVar
             {
                 for ( auto cxxCtorInitializer : cxxConstructorDecl->inits())
                 {
-                    if (cxxCtorInitializer->isAnyMemberInitializer() && cxxCtorInitializer->getInit() == stmt)
+                    if ( cxxCtorInitializer->getInit() == stmt)
                     {
-                        // if the member is not pointer or ref to-const, we cannot make the param const
-                        auto fieldDecl = cxxCtorInitializer->getAnyMember();
-                        auto tc = loplugin::TypeCheck(fieldDecl->getType());
-                        return tc.Pointer().Const() || tc.LvalueReference().Const();
+                        if (cxxCtorInitializer->isAnyMemberInitializer())
+                        {
+                            // if the member is not pointer-to-const or ref-to-const or value, we cannot make the param const
+                            auto fieldDecl = cxxCtorInitializer->getAnyMember();
+                            auto tc = loplugin::TypeCheck(fieldDecl->getType());
+                            if (tc.Pointer() || tc.LvalueReference())
+                                return tc.Pointer().Const() || tc.LvalueReference().Const();
+                            else
+                                return true;
+                        }
+                        else
+                        {
+                            // probably base initialiser, but no simple way to look up the relevant constructor decl
+                            return false;
+                        }
                     }
                 }
             }
@@ -392,6 +393,7 @@ bool ConstParams::checkIfCanBeConst(const Stmt* stmt, const ParmVarDecl* parmVar
                 }
             }
         }
+        return false;
     } else if (auto callExpr = dyn_cast<CallExpr>(parent)) {
         QualType functionType = callExpr->getCallee()->getType();
         if (functionType->isFunctionPointerType()) {
@@ -437,6 +439,7 @@ bool ConstParams::checkIfCanBeConst(const Stmt* stmt, const ParmVarDecl* parmVar
                 }
             }
         }
+        return false;
     } else if (auto callExpr = dyn_cast<ObjCMessageExpr>(parent)) {
         if (callExpr->getInstanceReceiver() == stmt) {
             return true;
@@ -526,7 +529,7 @@ bool ConstParams::checkIfCanBeConst(const Stmt* stmt, const ParmVarDecl* parmVar
     } else if (isa<CXXTypeidExpr>(parent)) {
         return true;
     } else if (isa<ParenListExpr>(parent)) {
-        return true;
+        return false; // could be improved, seen in constructors when calling base class constructor
     } else if (isa<CXXUnresolvedConstructExpr>(parent)) {
         return false;
     } else if (isa<UnresolvedMemberExpr>(parent)) {

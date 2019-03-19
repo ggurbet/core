@@ -1330,7 +1330,7 @@ SotClipboardFormatId TransferableDataHelper::GetFormat( sal_uInt32 nFormat ) con
 {
     ::osl::MutexGuard aGuard(mxImpl->maMutex);
     DBG_ASSERT(nFormat < maFormats.size(), "TransferableDataHelper::GetFormat: invalid format index");
-    return( ( nFormat < maFormats.size() ) ? (maFormats)[ nFormat ].mnSotId : SotClipboardFormatId::NONE );
+    return( ( nFormat < maFormats.size() ) ? maFormats[ nFormat ].mnSotId : SotClipboardFormatId::NONE );
 }
 
 DataFlavor TransferableDataHelper::GetFormatDataFlavor( sal_uInt32 nFormat ) const
@@ -2093,7 +2093,7 @@ TransferableDataHelper TransferableDataHelper::CreateFromSelection( vcl::Window*
     DBG_ASSERT( pWindow, "Window pointer is NULL" );
 
     Reference< XClipboard > xSelection;
-       TransferableDataHelper   aRet;
+    TransferableDataHelper   aRet;
 
     if( pWindow )
         xSelection = pWindow->GetPrimarySelection();

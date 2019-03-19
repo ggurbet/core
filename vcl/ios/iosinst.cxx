@@ -25,11 +25,10 @@
 #include "headless/svpdummies.hxx"
 #include "unx/gendata.hxx"
 #include "quartz/utils.h"
-#include <o3tl/make_unique.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/settings.hxx>
 
-// Horrible hack
+// Totally wrong of course but doesn't seem to harm much in the iOS app.
 static int viewWidth = 1, viewHeight = 1;
 
 class IosSalData : public GenericUnixSalData
@@ -108,7 +107,7 @@ public:
     virtual void UpdateSettings( AllSettings &rSettings ) override
     {
         // Clobber the UI fonts
-        vcl::Font aFont( OUString( "Helvetica" ), Size( 0, 14 ) );
+        vcl::Font aFont( OUString::fromUtf8( [[[UIFont systemFontOfSize:10] familyName] UTF8String] ), Size( 0, 10 ) );
 
         StyleSettings aStyleSet = rSettings.GetStyleSettings();
         aStyleSet.SetAppFont( aFont );
@@ -166,7 +165,7 @@ SalData::~SalData()
 // This is our main entry point:
 SalInstance *CreateSalInstance()
 {
-    IosSalInstance* pInstance = new IosSalInstance( o3tl::make_unique<SvpSalYieldMutex>() );
+    IosSalInstance* pInstance = new IosSalInstance( std::make_unique<SvpSalYieldMutex>() );
     new IosSalData( pInstance );
     pInstance->AcquireYieldMutex();
     return pInstance;

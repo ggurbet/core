@@ -212,7 +212,7 @@ sal_Bool SAL_CALL SpellCheckerDispatcher::hasLocale( const Locale& rLocale )
 
 sal_Bool SAL_CALL
     SpellCheckerDispatcher::isValid( const OUString& rWord, const Locale& rLocale,
-            const PropertyValues& rProperties )
+            const css::uno::Sequence< ::css::beans::PropertyValue >& rProperties )
 {
     MutexGuard  aGuard( GetLinguMutex() );
     return isValid_Impl( rWord, LinguLocaleToLanguage( rLocale ), rProperties );
@@ -221,7 +221,7 @@ sal_Bool SAL_CALL
 
 Reference< XSpellAlternatives > SAL_CALL
     SpellCheckerDispatcher::spell( const OUString& rWord, const Locale& rLocale,
-            const PropertyValues& rProperties )
+            const css::uno::Sequence< ::css::beans::PropertyValue >& rProperties )
 {
     MutexGuard  aGuard( GetLinguMutex() );
     return spell_Impl( rWord, LinguLocaleToLanguage( rLocale ), rProperties );
@@ -285,7 +285,7 @@ bool SpellCheckerDispatcher::isValid_Impl(
 
         // replace typographical apostroph by ascii apostroph
         OUString aSingleQuote( GetLocaleDataWrapper( nLanguage ).getQuotationMarkEnd() );
-        DBG_ASSERT( 1 == aSingleQuote.getLength(), "unexpectend length of quotation mark" );
+        DBG_ASSERT( 1 == aSingleQuote.getLength(), "unexpected length of quotation mark" );
         if (!aSingleQuote.isEmpty())
             aChkWord = aChkWord.replace( aSingleQuote[0], '\'' );
 
@@ -448,7 +448,7 @@ Reference< XSpellAlternatives > SpellCheckerDispatcher::spell_Impl(
 
         // replace typographical apostroph by ascii apostroph
         OUString aSingleQuote( GetLocaleDataWrapper( nLanguage ).getQuotationMarkEnd() );
-        DBG_ASSERT( 1 == aSingleQuote.getLength(), "unexpectend length of quotation mark" );
+        DBG_ASSERT( 1 == aSingleQuote.getLength(), "unexpected length of quotation mark" );
         if (!aSingleQuote.isEmpty())
             aChkWord = aChkWord.replace( aSingleQuote[0], '\'' );
 

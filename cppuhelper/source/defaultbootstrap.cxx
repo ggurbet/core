@@ -15,10 +15,10 @@
 #include <com/sun/star/uno/DeploymentException.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
 #include <cppuhelper/bootstrap.hxx>
 #include <cppuhelper/component_context.hxx>
+#include <cppuhelper/weak.hxx>
 #include <rtl/bootstrap.hxx>
 #include <rtl/ref.hxx>
 #include <rtl/ustring.hxx>
@@ -27,6 +27,8 @@
 #include "paths.hxx"
 #include "servicemanager.hxx"
 #include "typemanager.hxx"
+
+namespace com :: sun :: star :: uno { class XComponentContext; }
 
 namespace {
 
@@ -51,10 +53,10 @@ cppu::defaultBootstrap_InitialComponentContext(OUString const & iniUri)
         throw css::uno::DeploymentException(
             "Cannot open uno ini " + iniUri);
     }
-    rtl::Reference< cppuhelper::ServiceManager > smgr(
+    rtl::Reference smgr(
         new cppuhelper::ServiceManager);
     smgr->init(getBootstrapVariable(bs, "UNO_SERVICES"));
-    rtl::Reference< cppuhelper::TypeManager > tmgr(new cppuhelper::TypeManager);
+    rtl::Reference tmgr(new cppuhelper::TypeManager);
     tmgr->init(getBootstrapVariable(bs, "UNO_TYPES"));
     std::vector< cppu::ContextEntry_Init > context_values;
     context_values.push_back(

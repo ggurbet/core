@@ -24,8 +24,14 @@
 
 #include <cassert>
 #include <cstddef>
+#include <limits>
 #include <new>
 #include <ostream>
+#include <utility>
+
+#if defined LIBO_INTERNAL_ONLY
+#include <string_view>
+#endif
 
 #include "rtl/ustring.h"
 #include "rtl/string.hxx"
@@ -402,6 +408,16 @@ public:
             *end = '\0';
             // TODO realloc in case pData->length is noticeably smaller than l?
         }
+    }
+#endif
+
+#if defined LIBO_INTERNAL_ONLY
+    OUString(std::u16string_view sv) {
+        if (sv.size() > sal_uInt32(std::numeric_limits<sal_Int32>::max())) {
+            throw std::bad_alloc();
+        }
+        pData = nullptr;
+        rtl_uString_newFromStr_WithLength(&pData, sv.data(), sv.size());
     }
 #endif
 
@@ -3543,6 +3559,10 @@ public:
         rtl_uString_newFromAscii( &pNew, value );
         return OUString( pNew, SAL_NO_ACQUIRE );
     }
+
+#if defined LIBO_INTERNAL_ONLY
+    operator std::u16string_view() const { return {getStr(), sal_uInt32(getLength())}; }
+#endif
 
 private:
     OUString & internalAppend( rtl_uString* pOtherData )

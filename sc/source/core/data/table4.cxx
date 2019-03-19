@@ -367,6 +367,10 @@ void ScTable::FillAnalyse( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                 if (bVal)
                     rCmd = FILL_LINEAR;
             }
+            else if(nFormatType == SvNumFormatType::PERCENT)
+            {
+                rInc = 0.01; // tdf#89998 increment by 1% at a time
+            }
         }
     }
     else if (eCellType == CELLTYPE_STRING || eCellType == CELLTYPE_EDIT)
@@ -644,10 +648,9 @@ void ScTable::FillAuto( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                         else
                             aCol[nCol].ApplyPatternArea( nY1, nY2, *pSrcPattern );
 
-                        for(std::vector<sal_uInt32>::const_iterator itr = rCondFormatIndex.begin(), itrEnd = rCondFormatIndex.end();
-                                                        itr != itrEnd; ++itr)
+                        for(const auto& rIndex : rCondFormatIndex)
                         {
-                            ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(*itr);
+                            ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(rIndex);
                             if (pCondFormat)
                             {
                                 ScRangeList aRange = pCondFormat->GetRange();
@@ -677,10 +680,9 @@ void ScTable::FillAuto( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                     else
                         aCol[nCol].ApplyPattern( static_cast<SCROW>(nRow), *pSrcPattern );
 
-                    for(std::vector<sal_uInt32>::const_iterator itr = rCondFormatIndex.begin(), itrEnd = rCondFormatIndex.end();
-                            itr != itrEnd; ++itr)
+                    for(const auto& rIndex : rCondFormatIndex)
                     {
-                        ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(*itr);
+                        ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(rIndex);
                         if (pCondFormat)
                         {
                             ScRangeList aRange = pCondFormat->GetRange();
@@ -948,10 +950,16 @@ OUString ScTable::GetAutoFillPreview( const ScRange& rSource, SCCOL nEndX, SCROW
                         double nVal = aCell.mfValue;
                         if ( !(nScFillModeMouseModifier & KEY_MOD1) )
                         {
-                            if (nVal == 0.0 || nVal == 1.0)
+                            const SvNumFormatType nFormatType = pDocument->GetFormatTable()->GetType(nNumFmt);
+                            bool bPercentCell = (nFormatType == SvNumFormatType::PERCENT);
+                            if (bPercentCell)
                             {
-                                bool bBooleanCell = (pDocument->GetFormatTable()->GetType( nNumFmt) ==
-                                        SvNumFormatType::LOGICAL);
+                                // tdf#89998 increment by 1% at a time
+                                nVal += static_cast<double>(nDelta) * 0.01;
+                            }
+                            else if (nVal == 0.0 || nVal == 1.0)
+                            {
+                                bool bBooleanCell = (nFormatType == SvNumFormatType::LOGICAL);
                                 if (!bBooleanCell)
                                     nVal += static_cast<double>(nDelta);
                             }
@@ -1241,9 +1249,8 @@ void ScTable::FillFormulaVertical(
     aCol[nCol].EndListeningFormulaCells(aEndCxt, nStartRow, nEndRow, &nStartRow, &nEndRow);
     aCol[nCol].StartListeningFormulaCells(aStartCxt, aEndCxt, nStartRow, nEndRow);
 
-    std::vector<sc::RowSpan>::const_iterator it = aSpans.begin(), itEnd = aSpans.end();
-    for (; it != itEnd; ++it)
-        aCol[nCol].SetDirty(it->mnRow1, it->mnRow2, ScColumn::BROADCAST_NONE);
+    for (const auto& rSpan : aSpans)
+        aCol[nCol].SetDirty(rSpan.mnRow1, rSpan.mnRow2, ScColumn::BROADCAST_NONE);
 
     rProgress += nRow2 - nRow1 + 1;
     if (pProgress)
@@ -1347,6 +1354,7 @@ void ScTable::FillAutoSimple(
     sal_uLong nFormulaCounter = nActFormCnt;
     bool bGetCell = true;
     bool bBooleanCell = false;
+    bool bPercentCell = false;
     sal_uInt16 nCellDigits = 0;
     short nHeadNoneTail = 0;
     sal_Int32 nStringValue = 0;
@@ -1378,15 +1386,19 @@ void ScTable::FillAutoSimple(
                         FillFormulaVertical(*aSrcCell.mpFormula, rInner, rCol, nIStart, nIEnd, pProgress, rProgress);
                         return;
                     }
-                    bBooleanCell = (pDocument->GetFormatTable()->GetType(
-                                aCol[rCol].GetNumberFormat( pDocument->GetNonThreadedContext(), nSource)) == SvNumFormatType::LOGICAL);
+                    const SvNumFormatType nFormatType = pDocument->GetFormatTable()->GetType(
+                                aCol[rCol].GetNumberFormat( pDocument->GetNonThreadedContext(), nSource));
+                    bBooleanCell = (nFormatType == SvNumFormatType::LOGICAL);
+                    bPercentCell = (nFormatType == SvNumFormatType::PERCENT);
 
                 }
                 else                // rInner&:=nCol, rOuter&:=nRow
                 {
                     aSrcCell = aCol[nSource].GetCellValue(rRow);
-                    bBooleanCell = (pDocument->GetFormatTable()->GetType(
-                                aCol[nSource].GetNumberFormat( pDocument->GetNonThreadedContext(), rRow)) == SvNumFormatType::LOGICAL);
+                    const SvNumFormatType nFormatType = pDocument->GetFormatTable()->GetType(
+                                aCol[nSource].GetNumberFormat( pDocument->GetNonThreadedContext(), rRow));
+                    bBooleanCell = (nFormatType == SvNumFormatType::LOGICAL);
+                    bPercentCell = (nFormatType == SvNumFormatType::PERCENT);
                 }
 
                 bGetCell = false;
@@ -1425,6 +1437,8 @@ void ScTable::FillAutoSimple(
                         double fVal;
                         if (bBooleanCell && ((fVal = aSrcCell.mfValue) == 0.0 || fVal == 1.0))
                             aCol[rCol].SetValue(rRow, aSrcCell.mfValue);
+                        else if(bPercentCell)
+                            aCol[rCol].SetValue(rRow, aSrcCell.mfValue + nDelta * 0.01); // tdf#89998 increment by 1% at a time
                         else
                             aCol[rCol].SetValue(rRow, aSrcCell.mfValue + nDelta);
                     }
@@ -1643,10 +1657,9 @@ void ScTable::FillSeries( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                     aCol[nCol].SetPatternArea( static_cast<SCROW>(nIMin),
                             static_cast<SCROW>(nIMax), *pSrcPattern );
 
-                    for(std::vector<sal_uInt32>::const_iterator itr = rCondFormatIndex.begin(), itrEnd = rCondFormatIndex.end();
-                            itr != itrEnd; ++itr)
+                    for(const auto& rIndex : rCondFormatIndex)
                     {
-                        ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(*itr);
+                        ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(rIndex);
                         if (pCondFormat)
                         {
                             ScRangeList aRange = pCondFormat->GetRange();
@@ -1663,10 +1676,9 @@ void ScTable::FillSeries( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                         {
                             aCol[nCol].SetPatternArea( nAtRow,
                                     nAtRow, *pSrcPattern);
-                            for(std::vector<sal_uInt32>::const_iterator itr = rCondFormatIndex.begin(), itrEnd = rCondFormatIndex.end();
-                                    itr != itrEnd; ++itr)
+                            for(const auto& rIndex : rCondFormatIndex)
                             {
-                                ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(*itr);
+                                ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(rIndex);
                                 if (pCondFormat)
                                 {
                                     ScRangeList aRange = pCondFormat->GetRange();
@@ -1684,10 +1696,9 @@ void ScTable::FillSeries( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                     if(!ColHidden(nAtCol))
                     {
                         aCol[nAtCol].SetPattern(static_cast<SCROW>(nRow), *pSrcPattern);
-                        for(std::vector<sal_uInt32>::const_iterator itr = rCondFormatIndex.begin(), itrEnd = rCondFormatIndex.end();
-                                itr != itrEnd; ++itr)
+                        for(const auto& rIndex : rCondFormatIndex)
                         {
-                            ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(*itr);
+                            ScConditionalFormat* pCondFormat = mpCondFormatList->GetFormat(rIndex);
                             if (pCondFormat)
                             {
                                 ScRangeList aRange = pCondFormat->GetRange();
@@ -1954,10 +1965,10 @@ void ScTable::AutoFormat( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW
         ScAutoFormatData* pData = rFormat.findByIndex(nFormatNo);
         if (pData)
         {
-            ScPatternAttr* pPatternAttrs[16];
+            std::unique_ptr<ScPatternAttr> pPatternAttrs[16];
             for (sal_uInt8 i = 0; i < 16; ++i)
             {
-                pPatternAttrs[i] = new ScPatternAttr(pDocument->GetPool());
+                pPatternAttrs[i].reset(new ScPatternAttr(pDocument->GetPool()));
                 pData->FillToItemSet(i, pPatternAttrs[i]->GetItemSet(), *pDocument);
             }
 
@@ -2077,9 +2088,6 @@ void ScTable::AutoFormat( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW
                     } // for nCol
                 } // if not equal Column
             } // if not all equal
-
-            for (ScPatternAttr* pPatternAttr : pPatternAttrs)
-                delete pPatternAttr;
         } // if AutoFormatData != NULL
     } // if ValidColRow
 }

@@ -17,9 +17,14 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <utility>
+
 #include "system.h"
 
 #include <osl/socket.h>
+#include <osl/thread.h>
 #include <osl/diagnose.h>
 #include <rtl/alloc.h>
 #include <rtl/byteseq.h>
@@ -595,45 +600,59 @@ void SAL_CALL osl_destroyHostAddr(oslHostAddr pAddr)
 
 oslSocketResult SAL_CALL osl_getLocalHostname (rtl_uString **strLocalHostname)
 {
-    static sal_Unicode LocalHostname[256] = {0};
+    static auto const init = []() -> std::pair<oslSocketResult, OUString> {
+            sal_Unicode LocalHostname[256] = {0};
 
-    if (rtl_ustr_getLength(LocalHostname) == 0)
-    {
-        sal_Char Host[256]= "";
-        if (gethostname(Host, sizeof(Host)) == 0)
-        {
-            /* check if we have an FQDN */
-            if (strchr(Host, '.') == nullptr)
+            sal_Char Host[256]= "";
+            if (gethostname(Host, sizeof(Host)) == 0)
             {
-                oslHostAddr pAddr;
-                rtl_uString     *hostName= nullptr;
+                /* check if we have an FQDN; if not, try to determine it via dns first: */
+                if (strchr(Host, '.') == nullptr)
+                {
+                    oslHostAddr pAddr;
+                    rtl_uString     *hostName= nullptr;
 
-                rtl_string2UString(
-                    &hostName, Host, strlen(Host),
-                    RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
-                OSL_ASSERT(hostName != nullptr);
+                    rtl_string2UString(
+                        &hostName, Host, strlen(Host),
+                        RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS);
+                    OSL_ASSERT(hostName != nullptr);
 
-                /* no, determine it via dns */
-                pAddr = osl_createHostAddrByName(hostName);
-                rtl_uString_release (hostName);
+                    pAddr = osl_createHostAddrByName(hostName);
+                    rtl_uString_release (hostName);
 
-                if (pAddr && pAddr->pHostName)
-                    memcpy(LocalHostname, pAddr->pHostName->buffer, sizeof(sal_Unicode)*(rtl_ustr_getLength(pAddr->pHostName->buffer)+1));
-                else
-                    memset(LocalHostname, 0, sizeof(LocalHostname));
+                    if (pAddr && pAddr->pHostName)
+                        memcpy(LocalHostname, pAddr->pHostName->buffer, sizeof(sal_Unicode)*(rtl_ustr_getLength(pAddr->pHostName->buffer)+1));
+                    else
+                        memset(LocalHostname, 0, sizeof(LocalHostname));
 
-                osl_destroyHostAddr (pAddr);
+                    osl_destroyHostAddr (pAddr);
+                }
+                if (LocalHostname[0] == u'\0')
+                {
+                    OUString u;
+                    if (rtl_convertStringToUString(
+                            &u.pData, Host, strlen(Host), osl_getThreadTextEncoding(),
+                            (RTL_TEXTTOUNICODE_FLAGS_UNDEFINED_ERROR
+                             | RTL_TEXTTOUNICODE_FLAGS_MBUNDEFINED_ERROR
+                             | RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR))
+                        && sal_uInt32(u.getLength()) < SAL_N_ELEMENTS(LocalHostname))
+                    {
+                        memcpy(LocalHostname, u.getStr(), (u.getLength() + 1) * sizeof (sal_Unicode));
+                    }
+                }
             }
-        }
-    }
 
-    if (rtl_ustr_getLength(LocalHostname) > 0)
-    {
-        rtl_uString_newFromStr (strLocalHostname, LocalHostname);
-        return osl_Socket_Ok;
-    }
+            if (rtl_ustr_getLength(LocalHostname) > 0)
+            {
+                return {osl_Socket_Ok, LocalHostname};
+            }
 
-    return osl_Socket_Error;
+            return {osl_Socket_Error, OUString()};
+        }();
+
+    rtl_uString_assign (strLocalHostname, init.second.pData);
+
+    return init.first;
 }
 
 oslSocketAddr SAL_CALL osl_resolveHostname(rtl_uString* strHostname)

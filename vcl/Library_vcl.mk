@@ -66,6 +66,7 @@ $(eval $(call gb_Library_use_custom_headers,vcl,\
 $(eval $(call gb_Library_use_externals,vcl,\
     libjpeg \
     libeot \
+    libpng \
     $(if $(filter PDFIUM,$(BUILD_TYPE)),pdfium) \
 ))
 
@@ -175,6 +176,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/window/wrkwin \
     vcl/source/window/EnumContext \
     vcl/source/control/button \
+    vcl/source/control/calendar \
     vcl/source/control/combobox \
     vcl/source/control/ctrl \
     vcl/source/control/edit \
@@ -258,6 +260,9 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/svmconverter \
     vcl/source/gdi/dibtools \
     vcl/source/gdi/embeddedfontshelper \
+    vcl/source/gdi/FileDefinitionWidgetDraw \
+    vcl/source/gdi/WidgetDefinitionReader \
+    vcl/source/gdi/WidgetDefinition \
     vcl/source/gdi/extoutdevdata \
     vcl/source/gdi/gdimtf \
     vcl/source/gdi/mtfxmldump \
@@ -283,8 +288,6 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/pdfwriter \
     vcl/source/gdi/pdfwriter_impl2 \
     vcl/source/gdi/pdfwriter_impl \
-    vcl/source/gdi/pngread \
-    vcl/source/gdi/pngwrite \
     vcl/source/gdi/print2 \
     vcl/source/gdi/print3 \
     vcl/source/gdi/print \
@@ -407,6 +410,9 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/filter/wmf/wmf \
     vcl/source/filter/wmf/wmfexternal \
     vcl/source/filter/wmf/wmfwr \
+    vcl/source/filter/png/PngImageReader \
+    vcl/source/filter/png/pngread \
+    vcl/source/filter/png/pngwrite \
     vcl/source/font/Feature \
     vcl/source/font/FeatureCollector \
     vcl/source/font/FeatureParser \

@@ -126,7 +126,7 @@ void lcl_enableRangeChoosing(bool bEnable, weld::DialogController* pDialog)
         return;
     weld::Dialog* pDlg = pDialog->getDialog();
     pDlg->set_modal(!bEnable);
-    pDlg->show(!bEnable);
+    pDlg->set_visible(!bEnable);
 }
 
 void lcl_addLSequenceToDataSource(
@@ -202,7 +202,7 @@ DataSourceTabPage::DataSourceTabPage(TabPageParent pParent, DialogModel & rDialo
                                    m_xLB_SERIES->get_height_rows(10));
     m_xLB_ROLE->set_size_request(m_xLB_ROLE->get_approximate_digit_width() * 60,
                                  m_xLB_ROLE->get_height_rows(5));
-    m_xFT_CAPTION->show(!bHideDescription);
+    m_xFT_CAPTION->set_visible(!bHideDescription);
 
     m_aFixedTextRange = m_xFT_RANGE->get_label();
     SetText( SchResId( STR_OBJECT_DATASERIES_PLURAL ) );
@@ -460,11 +460,11 @@ void DataSourceTabPage::updateControlState()
 
     bool bHasCategories = m_rDialogModel.isCategoryDiagram();
 
-    m_xFT_DATALABELS->show(!bHasCategories);
-    m_xFT_CATEGORIES->show( bHasCategories);
+    m_xFT_DATALABELS->set_visible(!bHasCategories);
+    m_xFT_CATEGORIES->set_visible( bHasCategories);
     bool bShowIB = bHasRangeChooser;
 
-    m_xIMB_RANGE_CAT->show(bShowIB);
+    m_xIMB_RANGE_CAT->set_visible(bShowIB);
 
     m_xFT_ROLE->set_sensitive(bHasSelectedSeries);
     m_xLB_ROLE->set_sensitive(bHasSelectedSeries);
@@ -475,7 +475,7 @@ void DataSourceTabPage::updateControlState()
     m_xFT_SERIES->set_sensitive(true);
     m_xLB_SERIES->set_sensitive(true);
 
-    m_xIMB_RANGE_MAIN->show(bShowIB);
+    m_xIMB_RANGE_MAIN->set_visible(bShowIB);
 
     isValid();
 }
@@ -664,7 +664,7 @@ IMPL_LINK_NOARG(DataSourceTabPage, UpButtonClickedHdl, weld::Button&, void)
 
     if (bHasSelectedEntry)
     {
-        m_rDialogModel.moveSeries( pEntry->m_xDataSeries, DialogModel::MOVE_UP );
+        m_rDialogModel.moveSeries( pEntry->m_xDataSeries, DialogModel::MoveDirection::Up );
         setDirty();
         fillSeriesListBox();
         SeriesSelectionChangedHdl(*m_xLB_SERIES);
@@ -684,7 +684,7 @@ IMPL_LINK_NOARG(DataSourceTabPage, DownButtonClickedHdl, weld::Button&, void)
 
     if (bHasSelectedEntry)
     {
-        m_rDialogModel.moveSeries( pEntry->m_xDataSeries, DialogModel::MOVE_DOWN );
+        m_rDialogModel.moveSeries( pEntry->m_xDataSeries, DialogModel::MoveDirection::Down );
         setDirty();
         fillSeriesListBox();
         SeriesSelectionChangedHdl(*m_xLB_SERIES);
@@ -756,7 +756,7 @@ void DataSourceTabPage::disposingRangeSelection()
     m_rDialogModel.getRangeSelectionHelper()->stopRangeListening( false );
 }
 
-bool DataSourceTabPage::updateModelFromControl(weld::Entry* pField)
+bool DataSourceTabPage::updateModelFromControl(const weld::Entry* pField)
 {
     if (!m_bIsDirty)
         return true;

@@ -54,7 +54,6 @@
 #include <unoidx.hxx>
 #include <unocoll.hxx>
 #include <redline.hxx>
-#include <calbck.hxx>
 #include <docufld.hxx>
 #include <txtfld.hxx>
 #include <txtannotationfld.hxx>
@@ -62,7 +61,6 @@
 #include <comphelper/string.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
-#include <o3tl/make_unique.hxx>
 #include <algorithm>
 #include <memory>
 #include <set>
@@ -161,7 +159,7 @@ namespace
             else if (pCrossRefMark)
             {
                 // Crossrefbookmarks only remember the start position but have to span the whole paragraph
-                pCrossRefEndPos = o3tl::make_unique<SwPosition>(rEndPos);
+                pCrossRefEndPos = std::make_unique<SwPosition>(rEndPos);
                 pCrossRefEndPos->nContent = pCrossRefEndPos->nNode.GetNode().GetTextNode()->Len();
                 pEndPos = pCrossRefEndPos.get();
             }
@@ -1192,7 +1190,7 @@ static void lcl_ExportAnnotationStarts(
 
         SwXTextPortion* pPortion =
             new SwXTextPortion( pUnoCursor, xParent, PORTION_ANNOTATION );
-         pPortion->SetTextField( pPtr->mxAnnotationField );
+        pPortion->SetTextField( pPtr->mxAnnotationField );
         rPortions.emplace_back(pPortion);
 
         aIter = rAnnotationStartArr.erase(aIter);

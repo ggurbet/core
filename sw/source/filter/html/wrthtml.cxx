@@ -227,8 +227,7 @@ ErrCode SwHTMLWriter::WriteStream()
     if (pPasteEnv)
     {
         OUString aPasteStr;
-        if (pPasteEnv
-            && osl::FileBase::getFileURLFromSystemPath(OUString::fromUtf8(pPasteEnv), aPasteStr)
+        if (osl::FileBase::getFileURLFromSystemPath(OUString::fromUtf8(pPasteEnv), aPasteStr)
                    == osl::FileBase::E_None)
         {
             pPasteStream.reset(new SvFileStream(aPasteStr, StreamMode::WRITE));
@@ -616,9 +615,10 @@ static void lcl_html_OutSectionStartTag( SwHTMLWriter& rHTMLWrt,
         rHTMLWrt.Strm().WriteCharPtr( sOut.makeStringAndClear().getStr() );
 
         const OUString& aFName = rSection.GetLinkFileName();
-        OUString aURL( aFName.getToken(0,sfx2::cTokenSeparator) );
-        OUString aFilter( aFName.getToken(1,sfx2::cTokenSeparator) );
-        OUString aSection( aFName.getToken(2,sfx2::cTokenSeparator) );
+        sal_Int32 nIdx{ 0 };
+        OUString aURL( aFName.getToken(0, sfx2::cTokenSeparator, nIdx) );
+        OUString aFilter( aFName.getToken(0, sfx2::cTokenSeparator, nIdx) );
+        OUString aSection( aFName.getToken(0, sfx2::cTokenSeparator, nIdx) );
 
         OUString aEncURL( URIHelper::simpleNormalizedMakeRelative(rHTMLWrt.GetBaseURL(), aURL ) );
         sal_Unicode cDelim = 255U;

@@ -21,7 +21,6 @@
 
 #include <com/sun/star/task/InteractionHandler.hpp>
 
-#include <o3tl/make_unique.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/app.hxx>
 #include <svl/itemset.hxx>
@@ -40,7 +39,6 @@
 #include <tablink.hxx>
 
 #include <scextopt.hxx>
-#include <table.hxx>
 #include <document.hxx>
 #include <docsh.hxx>
 #include <globstr.hrc>
@@ -51,7 +49,6 @@
 #include <hints.hxx>
 #include <dociter.hxx>
 #include <formula/opcode.hxx>
-#include <formulacell.hxx>
 #include <formulaiter.hxx>
 #include <tokenarray.hxx>
 
@@ -146,7 +143,7 @@ void ScTableLink::Closed()
     if (bAddUndo && bUndo)
     {
         pImpl->m_pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoRemoveLink>( pImpl->m_pDocSh, aFileName ) );
+                std::make_unique<ScUndoRemoveLink>( pImpl->m_pDocSh, aFileName ) );
 
         bAddUndo = false;   // only once
     }
@@ -385,7 +382,7 @@ bool ScTableLink::Refresh(const OUString& rNewFile, const OUString& rNewFilter,
 
     if (bAddUndo && bUndo)
         pImpl->m_pDocSh->GetUndoManager()->AddUndoAction(
-                    o3tl::make_unique<ScUndoRefreshLink>( pImpl->m_pDocSh, std::move(pUndoDoc) ) );
+                    std::make_unique<ScUndoRefreshLink>( pImpl->m_pDocSh, std::move(pUndoDoc) ) );
 
     //  Paint (may be several tables)
 
@@ -460,7 +457,7 @@ bool ScDocumentLoader::GetFilterName( const OUString& rFileName,
     //  Filter detection
 
     std::shared_ptr<const SfxFilter> pSfxFilter;
-    auto pMedium = o3tl::make_unique<SfxMedium>( rFileName, StreamMode::STD_READ );
+    auto pMedium = std::make_unique<SfxMedium>( rFileName, StreamMode::STD_READ );
     if (pMedium->GetError() == ERRCODE_NONE && !utl::ConfigManager::IsFuzzing())
     {
         if ( bWithInteraction )
@@ -537,7 +534,7 @@ ScDocumentLoader::ScDocumentLoader(const OUString& rFileName,
     ScExtDocOptions*    pExtDocOpt = rDoc.GetExtDocOptions();
     if( !pExtDocOpt )
     {
-        rDoc.SetExtDocOptions( o3tl::make_unique<ScExtDocOptions>() );
+        rDoc.SetExtDocOptions( std::make_unique<ScExtDocOptions>() );
         pExtDocOpt = rDoc.GetExtDocOptions();
     }
     pExtDocOpt->GetDocSettings().mnLinkCnt = nRekCnt;

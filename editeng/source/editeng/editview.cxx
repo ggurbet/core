@@ -106,7 +106,7 @@ LanguageType EditView::CheckLanguage(
     }
     else    // check single word
     {
-            if (!xSpell.is())
+        if (!xSpell.is())
             return nLang;
 
 
@@ -399,7 +399,7 @@ const tools::Rectangle& EditView::GetOutputArea() const
     return pImpEditView->GetOutputArea();
 }
 
-const Pointer& EditView::GetPointer() const
+PointerStyle EditView::GetPointer() const
 {
     return pImpEditView->GetPointer();
 }

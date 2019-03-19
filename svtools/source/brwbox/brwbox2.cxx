@@ -26,6 +26,7 @@
 #include <vcl/salgtype.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <tools/multisel.hxx>
 #include <tools/fract.hxx>
@@ -475,9 +476,7 @@ void BrowseBox::Resize()
     pDataWin->bResizeOnPaint = false;
 
     // calc the size of the scrollbars
-    // (we can't ask the scrollbars for their widths cause if we're zoomed they still have to be
-    // resized - which is done in UpdateScrollbars)
-    sal_uLong nSBSize = GetSettings().GetStyleSettings().GetScrollBarSize();
+    sal_uLong nSBSize = GetBarHeight();
     if (IsZoom())
         nSBSize = static_cast<sal_uLong>(nSBSize * static_cast<double>(GetZoom()));
 
@@ -1028,6 +1027,17 @@ void BrowseBox::PaintData( vcl::Window const & rWin, vcl::RenderContext& rRender
     ImplPaintData(rRenderContext, rRect, false);
 }
 
+long BrowseBox::GetBarHeight() const
+{
+    // tdf#115941 because some platforms have things like overlay scrollbars, take a max
+    // of a statusbar height and a scrollbar height as the control area height
+
+    // (we can't ask the scrollbars for their size cause if we're zoomed they still have to be
+    // resized - which is done in UpdateScrollbars)
+
+    return std::max(aStatusBar->GetSizePixel().Height(), GetSettings().GetStyleSettings().GetScrollBarSize());
+}
+
 void BrowseBox::UpdateScrollbars()
 {
 
@@ -1043,7 +1053,7 @@ void BrowseBox::UpdateScrollbars()
     pDataWin->bInUpdateScrollbars = true;
 
     // the size of the corner window (and the width of the VSB/height of the HSB)
-    sal_uLong nCornerSize = GetSettings().GetStyleSettings().GetScrollBarSize();
+    sal_uLong nCornerSize = GetBarHeight();
     if (IsZoom())
         nCornerSize = static_cast<sal_uLong>(nCornerSize * static_cast<double>(GetZoom()));
 
@@ -1315,7 +1325,7 @@ void BrowseBox::MouseButtonDown( const MouseEvent& rEvt )
                 bResizing = true;
                 nResizeCol = nCol;
                 nDragX = nResizeX = rEvtPos.X();
-                SetPointer( Pointer( PointerStyle::HSplit ) );
+                SetPointer( PointerStyle::HSplit );
                 CaptureMouse();
                 pDataWin->DrawLine( Point( nDragX, 0 ),
                     Point( nDragX, pDataWin->GetSizePixel().Height() ) );
@@ -1345,7 +1355,7 @@ void BrowseBox::MouseMove( const MouseEvent& rEvt )
 {
     SAL_INFO("svtools", "BrowseBox::MouseMove( MouseEvent )" );
 
-    Pointer aNewPointer;
+    PointerStyle aNewPointer = PointerStyle::Arrow;
 
     sal_uInt16 nX = 0;
     for ( size_t nCol = 0;
@@ -1363,7 +1373,7 @@ void BrowseBox::MouseMove( const MouseEvent& rEvt )
             if ( bResizing || ( pCol->GetId() &&
                  std::abs( static_cast<long>(nR) - rEvt.GetPosPixel().X() ) < MIN_COLUMNWIDTH ) )
             {
-                aNewPointer = Pointer( PointerStyle::HSplit );
+                aNewPointer = PointerStyle::HSplit;
                 if ( bResizing )
                 {
                     // delete old auxiliary line
@@ -1413,7 +1423,7 @@ void BrowseBox::MouseButtonUp( const MouseEvent & rEvt )
         }
 
         // end action
-        SetPointer( Pointer() );
+        SetPointer( PointerStyle::Arrow );
         ReleaseMouse();
         bResizing = false;
     }
@@ -1461,8 +1471,6 @@ void BrowseBox::MouseButtonDown( const BrowserMouseEvent& rEvt )
         {
             // initialise flags
             bHit            = false;
-            a1stPoint       =
-            a2ndPoint       = PixelToLogic( rEvt.GetPosPixel() );
 
             // selection out of range?
             if ( rEvt.GetRow() >= nRowCount ||
@@ -1940,7 +1948,7 @@ tools::Rectangle BrowseBox::calcTableRect(bool _bOnScreen)
     long nY = aRowBar.Top() - aRect.Top();
     Size aSize(aRect.GetSize());
 
-    return tools::Rectangle(aRowBar.TopRight(), Size(aSize.Width() - nX, aSize.Height() - nY - aHScroll->GetSizePixel().Height()) );
+    return tools::Rectangle(aRowBar.TopRight(), Size(aSize.Width() - nX, aSize.Height() - nY - GetBarHeight()) );
 }
 
 tools::Rectangle BrowseBox::GetFieldRectPixelAbs( sal_Int32 _nRowId, sal_uInt16 _nColId, bool /*_bIsHeader*/, bool _bOnScreen )

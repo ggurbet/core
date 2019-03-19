@@ -797,8 +797,8 @@ void Font::finalizeImport()
                     xFont->hasGlyphs( OUString( u'\x3131' ) ) ||    // 3130-318F: Hangul Compatibility Jamo
                     xFont->hasGlyphs( OUString( u'\x3301' ) ) ||    // 3300-33FF: CJK Compatibility
                     xFont->hasGlyphs( OUString( u'\x3401' ) ) ||    // 3400-4DBF: CJK Unified Ideographs Extension A
-                    xFont->hasGlyphs( OUString( u'\x4E01' ) ) ||    // 4E00-9FAF: CJK Unified Ideographs
-                    xFont->hasGlyphs( OUString( u'\x7E01' ) ) ||    // 4E00-9FAF: CJK unified ideographs
+                    xFont->hasGlyphs( OUString( u'\x4E01' ) ) ||    // 4E00-9FFF: CJK Unified Ideographs
+                    xFont->hasGlyphs( OUString( u'\x7E01' ) ) ||    // 4E00-9FFF: CJK Unified Ideographs
                     xFont->hasGlyphs( OUString( u'\xA001' ) ) ||    // A001-A48F: Yi Syllables
                     xFont->hasGlyphs( OUString( u'\xAC01' ) ) ||    // AC00-D7AF: Hangul Syllables
                     xFont->hasGlyphs( OUString( u'\xCC01' ) ) ||    // AC00-D7AF: Hangul Syllables
@@ -2571,9 +2571,9 @@ void CellStyleBuffer::finalizeImport()
 
     /*  Calculate names of built-in styles. Store styles with reserved names
         in the aConflictNameStyles list. */
-    for( CellStyleVector::iterator aIt = maBuiltinStyles.begin(), aEnd = maBuiltinStyles.end(); aIt != aEnd; ++aIt )
+    for( const auto& rxStyle : maBuiltinStyles )
     {
-        const CellStyleModel& rModel = (*aIt)->getModel();
+        const CellStyleModel& rModel = rxStyle->getModel();
         if (rModel.isDefaultStyle())
             continue;
 
@@ -2581,31 +2581,31 @@ void CellStyleBuffer::finalizeImport()
         /*  If a builtin style entry already exists,
             we just stick with the last definition and ignore
             the preceding ones. */
-        aCellStyles[ aStyleName ] = *aIt;
+        aCellStyles[ aStyleName ] = rxStyle;
     }
 
     /*  Calculate names of user defined styles. Store styles with reserved
         names in the aConflictNameStyles list. */
-    for( CellStyleVector::iterator aIt = maUserStyles.begin(), aEnd = maUserStyles.end(); aIt != aEnd; ++aIt )
+    for( const auto& rxStyle : maUserStyles )
     {
-        const CellStyleModel& rModel = (*aIt)->getModel();
+        const CellStyleModel& rModel = rxStyle->getModel();
         OUString aStyleName = lclCreateStyleName( rModel );
         // #i1624# #i1768# ignore unnamed user styles
         if( aStyleName.getLength() > 0 )
         {
             if( aCellStyles.find( aStyleName ) != aCellStyles.end() )
-                aConflictNameStyles.push_back( *aIt );
+                aConflictNameStyles.push_back( rxStyle );
             else
-                aCellStyles[ aStyleName ] = *aIt;
+                aCellStyles[ aStyleName ] = rxStyle;
         }
     }
 
     // find unused names for all styles with conflicting names
     // having the index counter outside the loop prevents performance problems with opening some pathological documents (tdf#62095)
     sal_Int32 nIndex = 0;
-    for( CellStyleVector::iterator aIt = aConflictNameStyles.begin(), aEnd = aConflictNameStyles.end(); aIt != aEnd; ++aIt )
+    for( const auto& rxStyle : aConflictNameStyles )
     {
-        const CellStyleModel& rModel = (*aIt)->getModel();
+        const CellStyleModel& rModel = rxStyle->getModel();
         OUString aStyleName = lclCreateStyleName( rModel );
         OUString aUnusedName;
         do
@@ -2613,7 +2613,7 @@ void CellStyleBuffer::finalizeImport()
             aUnusedName = aStyleName + OUStringLiteral1(' ') + OUString::number( ++nIndex );
         }
         while( aCellStyles.find( aUnusedName ) != aCellStyles.end() );
-        aCellStyles[ aUnusedName ] = *aIt;
+        aCellStyles[ aUnusedName ] = rxStyle;
     }
 
     // set final names and create user-defined and modified built-in cell styles

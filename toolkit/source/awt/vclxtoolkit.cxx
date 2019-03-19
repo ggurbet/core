@@ -91,6 +91,7 @@
 #include <vcl/dockingarea.hxx>
 #include <vcl/dockwin.hxx>
 #include <vcl/edit.hxx>
+#include <vcl/event.hxx>
 #include <vcl/field.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/floatwin.hxx>
@@ -790,7 +791,8 @@ WindowType ImplGetComponentType( const OUString& rServiceName )
 
     auto it = std::lower_bound( std::begin(aComponentInfos), std::end(aComponentInfos), sSearch,
                                 ComponentInfoFindCompare );
-    if (it != std::end(aComponentInfos)  && !ComponentInfoFindCompare(*it, sSearch) )
+    if (it != std::end(aComponentInfos) &&
+        rtl_ustr_ascii_compareIgnoreAsciiCase_WithLengths(sSearch.pData->buffer, sSearch.pData->length, it->sName.data, it->sName.size) == 0)
         return it->nWinType;
     return WindowType::NONE;
 }
@@ -1193,7 +1195,7 @@ vcl::Window* VCLXToolkit::ImplCreateWindow( VCLXWindow** ppNewComp,
                     *ppNewComp = new VCLXFrame;
                     // Frame control needs to receive
                     // Mouse events
-                pGroupBox->SetMouseTransparent( false );
+                    pGroupBox->SetMouseTransparent( false );
                 }
             break;
             case WindowType::HELPBUTTON:
@@ -1467,7 +1469,10 @@ vcl::Window* VCLXToolkit::ImplCreateWindow( VCLXWindow** ppNewComp,
                 if ( rDescriptor.WindowServiceName.equalsIgnoreAsciiCase(
                         "tabpagecontainer" ) )
                 {
-                    pNewWindow = VclPtr<TabControl>::Create( pParent, nWinBits );
+                    // TabControl has a special case for tabs without border: they are displayed
+                    // in a different way, so we need to ensure that this style is not set, so
+                    // we can guarantee normal tab behavior
+                    pNewWindow = VclPtr<TabControl>::Create( pParent, nWinBits & (~WB_NOBORDER));
                     *ppNewComp = new VCLXTabPageContainer;
                 }
                 else if ( aServiceName == "animatedimages" )

@@ -614,6 +614,20 @@
           <value>ellipsesbar;.uno:Ellipse</value>
         </prop>
       </node>
+      <node oor:name="RedactedExportToolbox" oor:op="replace">
+        <prop oor:name="Command">
+          <value>.uno:RedactedExportToolbox</value>
+        </prop>
+        <prop oor:name="Module">
+          <value/>
+        </prop>
+        <prop oor:name="Controller">
+          <value>com.sun.star.comp.framework.SubToolBarController</value>
+        </prop>
+        <prop oor:name="Value">
+          <value>redactedexportbar;.uno:RedactedExportBlack</value>
+        </prop>
+      </node>
       <node oor:name="LineToolBox" oor:op="replace">
         <prop oor:name="Command">
           <value>.uno:LineToolbox</value>
@@ -1291,6 +1305,17 @@
       <node oor:name="BackgroundColorToolBox" oor:op="replace">
         <prop oor:name="Command">
           <value>.uno:BackgroundColor</value>
+        </prop>
+        <prop oor:name="Module">
+          <value/>
+        </prop>
+        <prop oor:name="Controller">
+          <value>com.sun.star.comp.svx.ColorToolBoxControl</value>
+        </prop>
+      </node>
+      <node oor:name="TableCellBackgroundColorToolBox" oor:op="replace">
+        <prop oor:name="Command">
+          <value>.uno:TableCellBackgroundColor</value>
         </prop>
         <prop oor:name="Module">
           <value/>

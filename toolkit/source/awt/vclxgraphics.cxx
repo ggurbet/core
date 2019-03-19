@@ -32,6 +32,7 @@
 #include <vcl/outdev.hxx>
 #include <vcl/image.hxx>
 #include <vcl/gradient.hxx>
+#include <vcl/metric.hxx>
 #include <tools/debug.hxx>
 
 using namespace com::sun::star;
@@ -53,10 +54,17 @@ uno::Any VCLXGraphics::queryInterface( const uno::Type & rType )
 // lang::XUnoTunnel
 IMPL_XUNOTUNNEL( VCLXGraphics )
 
+IMPL_IMPLEMENTATION_ID( VCLXGraphics )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( VCLXGraphics )
-    cppu::UnoType<awt::XGraphics>::get()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > VCLXGraphics::getTypes()
+{
+    static const css::uno::Sequence< css::uno::Type > aTypeList {
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XGraphics>::get()
+    };
+    return aTypeList;
+}
 
 VCLXGraphics::VCLXGraphics()
     : mpOutputDevice(nullptr)
@@ -300,7 +308,7 @@ void VCLXGraphics::draw( const uno::Reference< awt::XDisplayBitmap >& rxBitmapHa
         BitmapEx aBmpEx = VCLUnoHelper::GetBitmap( xBitmap );
 
         Point aPos(nDestX - nSourceX, nDestY - nSourceY);
-          Size aSz = aBmpEx.GetSizePixel();
+        Size aSz = aBmpEx.GetSizePixel();
 
         if(nDestWidth != nSourceWidth)
         {

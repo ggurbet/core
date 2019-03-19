@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <o3tl/make_unique.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/virdev.hxx>
 
@@ -28,6 +27,7 @@
 #include <swregion.hxx>
 #include <dflyobj.hxx>
 #include <flyfrm.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include "porfly.hxx"
 #include "porfld.hxx"
@@ -221,7 +221,7 @@ const SwRect SwContourCache::ContourRect( const SwFormat* pFormat,
             mvItems.pop_back();
         }
         ::basegfx::B2DPolyPolygon aPolyPolygon;
-        ::basegfx::B2DPolyPolygon* pPolyPolygon = nullptr;
+        std::unique_ptr<::basegfx::B2DPolyPolygon> pPolyPolygon;
 
         if ( auto pVirtFlyDrawObj = dynamic_cast< const SwVirtFlyDrawObj *>( pObj ) )
         {
@@ -242,13 +242,13 @@ const SwRect SwContourCache::ContourRect( const SwFormat* pFormat,
             }
 
             ::basegfx::B2DPolyPolygon aContourPoly(pObj->TakeContour());
-            pPolyPolygon = new ::basegfx::B2DPolyPolygon(aContourPoly);
+            pPolyPolygon.reset(new ::basegfx::B2DPolyPolygon(aContourPoly));
         }
         const SvxLRSpaceItem &rLRSpace = pFormat->GetLRSpace();
         const SvxULSpaceItem &rULSpace = pFormat->GetULSpace();
         CacheItem item {
             pObj, // due to #37347 the Object must be entered only after GetContour()
-            o3tl::make_unique<TextRanger>( aPolyPolygon, pPolyPolygon, 20,
+            std::make_unique<TextRanger>( aPolyPolygon, pPolyPolygon.get(), 20,
                 static_cast<sal_uInt16>(rLRSpace.GetLeft()), static_cast<sal_uInt16>(rLRSpace.GetRight()),
                 pFormat->GetSurround().IsOutside(), false, pFrame->IsVertical() )
         };
@@ -256,7 +256,7 @@ const SwRect SwContourCache::ContourRect( const SwFormat* pFormat,
         mvItems[0].mxTextRanger->SetUpper( rULSpace.GetUpper() );
         mvItems[0].mxTextRanger->SetLower( rULSpace.GetLower() );
 
-        delete pPolyPolygon;
+        pPolyPolygon.reset();
 
         nPntCnt += mvItems[0].mxTextRanger->GetPointCount();
         while( nPntCnt > POLY_MAX && mvItems.size() > POLY_MIN )
@@ -410,7 +410,7 @@ bool SwTextFly::IsAnyFrame() const
 
 bool SwTextFly::IsAnyObj( const SwRect &rRect ) const
 {
-   OSL_ENSURE( bOn, "SwTextFly::IsAnyObj: Who's knocking?" );
+    OSL_ENSURE( bOn, "SwTextFly::IsAnyObj: Who's knocking?" );
 
     SwRect aRect( rRect );
     if ( aRect.IsEmpty() )
@@ -803,7 +803,6 @@ bool SwTextFly::GetTop( const SwAnchoredObject* _pAnchoredObj,
                    // #i13832#, #i24135# wrap around objects in page header
                    ( !pIDSA->get(DocumentSettingId::USE_FORMER_TEXT_WRAPPING) &&
                      nullptr != ( pHeader = pTmp->FindFooterOrHeader() ) &&
-                     !pHeader->IsFooterFrame() &&
                      m_pCurrFrame->IsInDocBody())))
             {
                 if( pHeader || RndStdIds::FLY_AT_FLY == rNewA.GetAnchorId() )

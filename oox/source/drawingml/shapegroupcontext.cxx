@@ -47,16 +47,15 @@ namespace oox { namespace drawingml {
 ShapeGroupContext::ShapeGroupContext( ContextHandler2Helper const & rParent, ShapePtr const & pMasterShapePtr, ShapePtr const & pGroupShapePtr )
 : ContextHandler2( rParent )
 , mpGroupShapePtr( pGroupShapePtr )
-, mpMasterShapePtr( pMasterShapePtr )
 {
     if( pMasterShapePtr )
         mpGroupShapePtr->setWps(pMasterShapePtr->getWps());
+    if( pMasterShapePtr.get() && mpGroupShapePtr.get() )
+        pMasterShapePtr->addChild( mpGroupShapePtr );
 }
 
 ShapeGroupContext::~ShapeGroupContext()
 {
-    if ( mpMasterShapePtr.get() && mpGroupShapePtr.get() )
-        mpMasterShapePtr->addChild( mpGroupShapePtr );
 }
 
 ContextHandlerRef ShapeGroupContext::onCreateContext( sal_Int32 aElementToken, const AttributeList& rAttribs )

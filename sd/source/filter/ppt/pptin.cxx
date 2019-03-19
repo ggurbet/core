@@ -17,42 +17,27 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <editeng/numitem.hxx>
 #include <osl/file.hxx>
 #include <sal/log.hxx>
 #include <unotools/configmgr.hxx>
 #include <unotools/ucbstreamhelper.hxx>
-#include <vcl/wrkwin.hxx>
 #include <svl/urihelper.hxx>
 #include <svx/svxids.hrc>
 #include <filter/msfilter/svdfppt.hxx>
 #include <svx/svditer.hxx>
 #include <sfx2/docfile.hxx>
-#include <sfx2/app.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdlayer.hxx>
 #include <svl/style.hxx>
-#include <svx/xflclit.hxx>
 #include <editeng/eeitem.hxx>
-#include <editeng/colritem.hxx>
-#include <svl/whiter.hxx>
-#include <svx/xgrad.hxx>
-#include <svx/xflgrit.hxx>
-#include <svx/xbtmpit.hxx>
-#include <svx/xlnclit.hxx>
-#include <editeng/adjustitem.hxx>
 #include <editeng/editeng.hxx>
-#include <editeng/bulletitem.hxx>
-#include <editeng/lrspitem.hxx>
-#include <editeng/lspcitem.hxx>
-#include <editeng/tstpitem.hxx>
+#include <svx/svdoutl.hxx>
 
 #include <sfx2/docinf.hxx>
 
 #include <strings.hrc>
 #include <strings.hxx>
 #include "pptin.hxx"
-#include <Outliner.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
 #include <sdresid.hxx>
@@ -61,8 +46,6 @@
 #include <anminfo.hxx>
 #include <svx/gallery.hxx>
 #include <tools/urlobj.hxx>
-#include <svl/itempool.hxx>
-#include <editeng/fhgtitem.hxx>
 #include <svx/svdopage.hxx>
 #include <svx/svdomedia.hxx>
 #include <svx/svdogrp.hxx>
@@ -75,17 +58,15 @@
 
 #include <DrawDocShell.hxx>
 #include <FrameView.hxx>
-#include <optsitem.hxx>
 #include <unokywds.hxx>
 
 #include <unotools/fltrcfg.hxx>
 #include <sfx2/progress.hxx>
 #include <editeng/editstat.hxx>
 #include <unotools/pathoptions.hxx>
-#include <sfx2/docfac.hxx>
+
 #define MAX_USER_MOVE       2
 
-#include <animations.hxx>
 #include "pptanimations.hxx"
 #include "pptinanimations.hxx"
 #include "ppt97animations.hxx"
@@ -98,7 +79,6 @@
 
 #include <comphelper/string.hxx>
 #include <oox/ole/olehelper.hxx>
-#include <oox/ppt/pptfilterhelpers.hxx>
 
 #include <boost/optional.hpp>
 
@@ -179,53 +159,52 @@ ImplSdPPTImport::ImplSdPPTImport( SdDrawDocument* pDocument, SotStorage& rStorag
     , mnFilterOptions(0)
     , mpDoc(pDocument)
     , mePresChange(PRESCHANGE_MANUAL)
-    , mnBackgroundLayerID(0)
     , mnBackgroundObjectsLayerID(0)
 {
-    if ( bOk )
+    if ( !bOk )
+        return;
+
+    mbDocumentFound = SeekToDocument( &maDocHd );                           // maDocHd = the latest DocumentHeader
+    while ( SeekToRec( rStCtrl, PPT_PST_Document, nStreamLen, &maDocHd ) )
+        mbDocumentFound = true;
+
+    sal_uInt32 nDggContainerOfs = 0;
+
+    if ( mbDocumentFound )
     {
-        mbDocumentFound = SeekToDocument( &maDocHd );                           // maDocHd = the latest DocumentHeader
-        while ( SeekToRec( rStCtrl, PPT_PST_Document, nStreamLen, &maDocHd ) )
-            mbDocumentFound = true;
+        sal_uLong nOldPos = rStCtrl.Tell();
 
-        sal_uInt32 nDggContainerOfs = 0;
+        pStData = rStorage_.OpenSotStream( "Pictures", StreamMode::STD_READ );
 
-        if ( mbDocumentFound )
+        rStCtrl.Seek( maDocHd.GetRecBegFilePos() + 8 );
+        sal_uLong nDocLen = maDocHd.GetRecEndFilePos();
+        DffRecordHeader aPPDGHd;
+        if ( SeekToRec( rStCtrl, PPT_PST_PPDrawingGroup, nDocLen, &aPPDGHd ) )
         {
-            sal_uLong nPosMerk = rStCtrl.Tell();
-
-            pStData = rStorage_.OpenSotStream( "Pictures", StreamMode::STD_READ );
-
-            rStCtrl.Seek( maDocHd.GetRecBegFilePos() + 8 );
-            sal_uLong nDocLen = maDocHd.GetRecEndFilePos();
-            DffRecordHeader aPPDGHd;
-            if ( SeekToRec( rStCtrl, PPT_PST_PPDrawingGroup, nDocLen, &aPPDGHd ) )
-            {
-                sal_uLong nPPDGLen = aPPDGHd.GetRecEndFilePos();
-                if ( SeekToRec( rStCtrl, DFF_msofbtDggContainer, nPPDGLen ) )
-                    nDggContainerOfs = rStCtrl.Tell();
-            }
-            rStCtrl.Seek( nPosMerk );
+            sal_uLong nPPDGLen = aPPDGHd.GetRecEndFilePos();
+            if ( SeekToRec( rStCtrl, DFF_msofbtDggContainer, nPPDGLen ) )
+                nDggContainerOfs = rStCtrl.Tell();
         }
-        sal_uInt32 nSvxMSDffOLEConvFlags2 = 0;
-
-        const SvtFilterOptions& rBasOpt = SvtFilterOptions::Get();
-        if ( rBasOpt.IsLoadPPointBasicCode() )
-            mnFilterOptions |= 1;
-        if ( rBasOpt.IsMathType2Math() )
-            nSvxMSDffOLEConvFlags2 |= OLE_MATHTYPE_2_STARMATH;
-        if ( rBasOpt.IsWinWord2Writer() )
-            nSvxMSDffOLEConvFlags2 |= OLE_WINWORD_2_STARWRITER;
-        if ( rBasOpt.IsExcel2Calc() )
-            nSvxMSDffOLEConvFlags2 |= OLE_EXCEL_2_STARCALC;
-        if ( rBasOpt.IsPowerPoint2Impress() )
-            nSvxMSDffOLEConvFlags2 |= OLE_POWERPOINT_2_STARIMPRESS;
-
-        InitSvxMSDffManager( nDggContainerOfs, pStData, nSvxMSDffOLEConvFlags2 );
-        SetSvxMSDffSettings( SVXMSDFF_SETTINGS_CROP_BITMAPS
-            | SVXMSDFF_SETTINGS_IMPORT_PPT );
-        SetModel( mpDoc, 576 );
+        rStCtrl.Seek( nOldPos );
     }
+    sal_uInt32 nSvxMSDffOLEConvFlags2 = 0;
+
+    const SvtFilterOptions& rBasOpt = SvtFilterOptions::Get();
+    if ( rBasOpt.IsLoadPPointBasicCode() )
+        mnFilterOptions |= 1;
+    if ( rBasOpt.IsMathType2Math() )
+        nSvxMSDffOLEConvFlags2 |= OLE_MATHTYPE_2_STARMATH;
+    if ( rBasOpt.IsWinWord2Writer() )
+        nSvxMSDffOLEConvFlags2 |= OLE_WINWORD_2_STARWRITER;
+    if ( rBasOpt.IsExcel2Calc() )
+        nSvxMSDffOLEConvFlags2 |= OLE_EXCEL_2_STARCALC;
+    if ( rBasOpt.IsPowerPoint2Impress() )
+        nSvxMSDffOLEConvFlags2 |= OLE_POWERPOINT_2_STARIMPRESS;
+
+    InitSvxMSDffManager( nDggContainerOfs, pStData, nSvxMSDffOLEConvFlags2 );
+    SetSvxMSDffSettings( SVXMSDFF_SETTINGS_CROP_BITMAPS
+        | SVXMSDFF_SETTINGS_IMPORT_PPT );
+    SetModel( mpDoc, 576 );
 }
 
 // Dtor
@@ -250,7 +229,6 @@ bool ImplSdPPTImport::Import()
     const_cast<EditEngine&>(rOutl.GetEditEngine()).SetControlWord( nControlWord );
 
     SdrLayerAdmin& rAdmin = mpDoc->GetLayerAdmin();
-    mnBackgroundLayerID = rAdmin.GetLayerID( sUNO_LayerName_background );
     mnBackgroundObjectsLayerID = rAdmin.GetLayerID( sUNO_LayerName_background_objects );
 
     ::sd::DrawDocShell* pDocShell = mpDoc->GetDocSh();
@@ -773,7 +751,7 @@ bool ImplSdPPTImport::Import()
 
                 bool bNewAnimationsUsed = false;
                 ProcessData aProcessData( (*pList)[ nCurrentPageNum ], SdPageCapsule(pMPage) );
-                sal_uInt32 nFPosMerk = rStCtrl.Tell();
+                sal_uInt32 nOldFPos = rStCtrl.Tell();
                 DffRecordHeader aPageHd;
                 if ( SeekToCurrentPage( &aPageHd ) )
                 {
@@ -863,7 +841,7 @@ bool ImplSdPPTImport::Import()
                         }
                     }
                 }
-                rStCtrl.Seek( nFPosMerk );
+                rStCtrl.Seek( nOldFPos );
                 ImportPageEffect( pMPage, bNewAnimationsUsed );
 
                 // background object
@@ -905,7 +883,7 @@ bool ImplSdPPTImport::Import()
 
     // importing slide pages
     {
-        sal_uInt32          nFPosMerk = rStCtrl.Tell();
+        sal_uInt32          nOldFPos = rStCtrl.Tell();
         PptPageKind     ePageKind = eCurrentPageKind;
         sal_uInt16          nPageNum = nCurrentPageNum;
 
@@ -1074,7 +1052,7 @@ bool ImplSdPPTImport::Import()
             pSdrModel->InsertPage( pNPage );
         }
         SetPageNum( nPageNum, ePageKind );
-        rStCtrl.Seek( nFPosMerk );
+        rStCtrl.Seek( nOldFPos );
     }
 
     // create handout and note pages
@@ -1297,7 +1275,15 @@ bool ImplSdPPTImport::Import()
                         if ( SeekToRec( rStCtrl, PPT_PST_NamedShowSlides, aCuHeader.GetRecEndFilePos(), &aContent ) )
                         {
                             PptSlidePersistList* pPageList = GetPageList( PPT_SLIDEPAGE );
-                            sal_uInt32 nSCount = aContent.nRecLen >> 2;
+                            const auto nRemainingSize = rStCtrl.remainingSize();
+                            sal_uInt32 nBCount = aContent.nRecLen;
+                            if (nBCount > nRemainingSize)
+                            {
+                                SAL_WARN("filter.ms", "page number data len longer than remaining stream size");
+                                nBCount = nRemainingSize;
+                            }
+                            sal_uInt32 nSCount = nBCount >> 2;
+
                             if ( pPageList && nSCount )
                             {
                                 SdCustomShowList* pList = mpDoc->GetCustomShowList( true );
@@ -1418,68 +1404,68 @@ void ImplSdPPTImport::SetHeaderFooterPageSettings( SdPage* pPage, const PptSlide
         return;
     PptSlidePersistEntry& rSlidePersist = (*pList)[ nCurrentPageNum ];
     HeaderFooterEntry* pHFE = rSlidePersist.xHeaderFooterEntry.get();
-    if (pHFE)
-    {
-        for ( i = 0; i < 4; i++ )
-        {
-            bool bVisible = pHFE->IsToDisplay( i );
-            if ( ( eCurrentPageKind == PPT_SLIDEPAGE )
-                && ( rSlidePersist.aSlideAtom.aLayout.eLayout == PptSlideLayout::TITLESLIDE )
-                    && ( aDocAtom.bTitlePlaceholdersOmitted  ) )
-            {
-                bVisible = false;
-            }
-            if ( bVisible && pMasterPersist )
-            {
-                sal_uInt32 nPosition = pHFE->NeedToImportInstance( i, rSlidePersist );
-                if ( nPosition )
-                {
-                    ::tools::Rectangle aEmpty;
-                    bVisible = false;
-                    rStCtrl.Seek( nPosition );
-                    ProcessData aProcessData( rSlidePersist, SdPageCapsule(pPage) );
-                    SdrObject* pObj = ImportObj( rStCtrl, aProcessData, aEmpty, aEmpty, /*nCalledByGroup*/0, /*pShapeId*/nullptr );
-                    if ( pObj )
-                        pPage->NbcInsertObject( pObj, 0 );
-                }
-            }
-            OUString aPlaceHolderString = pHFE->pPlaceholder[ i ];
+    if (!pHFE)
+        return;
 
-            sd::HeaderFooterSettings rHeaderFooterSettings( pPage->getHeaderFooterSettings() );
-            switch( i )
-            {
-                case 0 :
-                {
-                    rHeaderFooterSettings.mbDateTimeVisible = bVisible;
-                    rHeaderFooterSettings.mbDateTimeIsFixed = ( pHFE->nAtom & 0x20000 ) == 0;
-                    rHeaderFooterSettings.maDateTimeText = aPlaceHolderString;
-                    SvxDateFormat eDateFormat;
-                    SvxTimeFormat eTimeFormat;
-                    PPTFieldEntry::GetDateTime( pHFE->nAtom & 0xff, eDateFormat, eTimeFormat );
-                    rHeaderFooterSettings.meDateFormat = eDateFormat;
-                    rHeaderFooterSettings.meTimeFormat = eTimeFormat;
-                }
-                break;
-                case 1 :
-                {
-                    rHeaderFooterSettings.mbHeaderVisible = bVisible;
-                    rHeaderFooterSettings.maHeaderText = aPlaceHolderString;
-                }
-                break;
-                case 2 :
-                {
-                    rHeaderFooterSettings.mbFooterVisible = bVisible;
-                    rHeaderFooterSettings.maFooterText = aPlaceHolderString;
-                }
-                break;
-                case 3 :
-                {
-                    rHeaderFooterSettings.mbSlideNumberVisible = bVisible;
-                }
-                break;
-            }
-            pPage->setHeaderFooterSettings( rHeaderFooterSettings );
+    for ( i = 0; i < 4; i++ )
+    {
+        bool bVisible = pHFE->IsToDisplay( i );
+        if ( ( eCurrentPageKind == PPT_SLIDEPAGE )
+            && ( rSlidePersist.aSlideAtom.aLayout.eLayout == PptSlideLayout::TITLESLIDE )
+                && ( aDocAtom.bTitlePlaceholdersOmitted  ) )
+        {
+            bVisible = false;
         }
+        if ( bVisible && pMasterPersist )
+        {
+            sal_uInt32 nPosition = pHFE->NeedToImportInstance( i, rSlidePersist );
+            if ( nPosition )
+            {
+                ::tools::Rectangle aEmpty;
+                bVisible = false;
+                rStCtrl.Seek( nPosition );
+                ProcessData aProcessData( rSlidePersist, SdPageCapsule(pPage) );
+                SdrObject* pObj = ImportObj( rStCtrl, aProcessData, aEmpty, aEmpty, /*nCalledByGroup*/0, /*pShapeId*/nullptr );
+                if ( pObj )
+                    pPage->NbcInsertObject( pObj, 0 );
+            }
+        }
+        OUString aPlaceHolderString = pHFE->pPlaceholder[ i ];
+
+        sd::HeaderFooterSettings rHeaderFooterSettings( pPage->getHeaderFooterSettings() );
+        switch( i )
+        {
+            case 0 :
+            {
+                rHeaderFooterSettings.mbDateTimeVisible = bVisible;
+                rHeaderFooterSettings.mbDateTimeIsFixed = ( pHFE->nAtom & 0x20000 ) == 0;
+                rHeaderFooterSettings.maDateTimeText = aPlaceHolderString;
+                SvxDateFormat eDateFormat;
+                SvxTimeFormat eTimeFormat;
+                PPTFieldEntry::GetDateTime( pHFE->nAtom & 0xff, eDateFormat, eTimeFormat );
+                rHeaderFooterSettings.meDateFormat = eDateFormat;
+                rHeaderFooterSettings.meTimeFormat = eTimeFormat;
+            }
+            break;
+            case 1 :
+            {
+                rHeaderFooterSettings.mbHeaderVisible = bVisible;
+                rHeaderFooterSettings.maHeaderText = aPlaceHolderString;
+            }
+            break;
+            case 2 :
+            {
+                rHeaderFooterSettings.mbFooterVisible = bVisible;
+                rHeaderFooterSettings.maFooterText = aPlaceHolderString;
+            }
+            break;
+            case 3 :
+            {
+                rHeaderFooterSettings.mbSlideNumberVisible = bVisible;
+            }
+            break;
+        }
+        pPage->setHeaderFooterSettings( rHeaderFooterSettings );
     }
 }
 
@@ -1502,7 +1488,7 @@ bool Ppt97AnimationStlSortHelper::operator()( const std::pair< SdrObject*, Ppt97
 
 void ImplSdPPTImport::ImportPageEffect( SdPage* pPage, const bool bNewAnimationsUsed )
 {
-    sal_uLong nFilePosMerk = rStCtrl.Tell();
+    sal_uLong nOldFilePos = rStCtrl.Tell();
 
     // set PageKind at page (up to now only PageKind::Standard or PageKind::Notes)
     if ( pPage->GetPageKind() == PageKind::Standard )
@@ -1861,7 +1847,7 @@ void ImplSdPPTImport::ImportPageEffect( SdPage* pPage, const bool bNewAnimations
                 pPpt97Animation->createAndSetCustomAnimationEffect( rEntry.first );
         }
     }
-    rStCtrl.Seek( nFilePosMerk );
+    rStCtrl.Seek( nOldFilePos );
 }
 
 // import of sounds
@@ -1871,7 +1857,7 @@ void ImplSdPPTImport::ImportPageEffect( SdPage* pPage, const bool bNewAnimations
 OUString ImplSdPPTImport::ReadSound(sal_uInt32 nSoundRef) const
 {
     OUString aRetval;
-    sal_uInt32 nPosMerk = rStCtrl.Tell();
+    sal_uInt32 nOldPos = rStCtrl.Tell();
     DffRecordHeader aDocHd;
     if ( SeekToDocument( &aDocHd ) )
     {
@@ -1888,7 +1874,7 @@ OUString ImplSdPPTImport::ReadSound(sal_uInt32 nSoundRef) const
             {
                 sal_uInt32 nStrLen = aSoundRecHd.GetRecEndFilePos();
                 OUString aRefStr;
-                sal_uInt32 nPosMerk2 = rStCtrl.Tell();
+                sal_uInt32 nOldPos2 = rStCtrl.Tell();
                 if ( SeekToRec( rStCtrl, PPT_PST_CString, nStrLen, nullptr, 2 ) )
                 {
                     if ( ReadString( aRefStr ) )
@@ -1898,7 +1884,7 @@ OUString ImplSdPPTImport::ReadSound(sal_uInt32 nSoundRef) const
                 {
                     if ( OUString::number(nSoundRef) == aRefStr )
                     {
-                        rStCtrl.Seek( nPosMerk2 );
+                        rStCtrl.Seek( nOldPos2 );
                         if ( SeekToRec( rStCtrl, PPT_PST_CString, nStrLen ) )
                         {
                             ReadString( aRetval );
@@ -1931,7 +1917,7 @@ OUString ImplSdPPTImport::ReadSound(sal_uInt32 nSoundRef) const
 
                     if ( !bSoundExists )
                     {
-                        rStCtrl.Seek( nPosMerk2 );
+                        rStCtrl.Seek( nOldPos2 );
                         DffRecordHeader aSoundDataRecHd;
                         if ( SeekToRec( rStCtrl, PPT_PST_SoundData, nStrLen, &aSoundDataRecHd ) )
                         {
@@ -1978,7 +1964,7 @@ OUString ImplSdPPTImport::ReadSound(sal_uInt32 nSoundRef) const
             }
         }
     }
-    rStCtrl.Seek( nPosMerk );
+    rStCtrl.Seek( nOldPos );
     return aRetval;
 }
 
@@ -2654,13 +2640,13 @@ SdrObject* ImplSdPPTImport::ProcessObj( SvStream& rSt, DffObjData& rObjData, Svx
                         break;
                         case PPT_PST_InteractiveInfo:
                         {
-                            sal_uInt32 nFilePosMerk2 = rSt.Tell();
+                            sal_uInt32 nOldFilePos2 = rSt.Tell();
                             OUString aMacroName;
 
                             if(SeekToRec( rSt, PPT_PST_CString, nHdRecEnd ) )
                                 ReadString(aMacroName);
 
-                            rSt.Seek( nFilePosMerk2 );
+                            rSt.Seek( nOldFilePos2 );
                             DffRecordHeader aHdInteractiveInfoAtom;
                             if ( SeekToRec( rSt, PPT_PST_InteractiveInfoAtom, nHdRecEnd, &aHdInteractiveInfoAtom ) )
                             {

@@ -12,6 +12,7 @@
 #include <sfx2/templateviewitem.hxx>
 #include <sfx2/sfxresid.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/event.hxx>
 #include <sfx2/app.hxx>
 
 #include <sfx2/strings.hrc>
@@ -52,7 +53,6 @@ void TemplateDefaultView::reload()
 void TemplateDefaultView::showAllTemplates()
 {
     mnCurRegionId = 0;
-    maCurRegionName.clear();
 
     insertItems(maAllTemplates, false);
     maOpenRegionHdl.Call(nullptr);

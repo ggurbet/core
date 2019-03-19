@@ -23,11 +23,8 @@
 #include <comphelper/processfactory.hxx>
 #include <editeng/outliner.hxx>
 #include <CustomAnimationCloner.hxx>
-#include <drawdoc.hxx>
+#include <CustomAnimationEffect.hxx>
 #include <sdpage.hxx>
-#include <CustomAnimationPreset.hxx>
-#include <TransitionPreset.hxx>
-#include <undoanim.hxx>
 #include <EffectMigration.hxx>
 
 using namespace ::sd;
@@ -38,7 +35,7 @@ using namespace ::com::sun::star::presentation;
 using ::com::sun::star::drawing::XShape;
 
 /** returns a helper class to manipulate effects inside the main sequence */
-sd::MainSequencePtr const & SdPage::getMainSequence()
+std::shared_ptr< sd::MainSequence >  const & SdPage::getMainSequence()
 {
     if (nullptr == mpMainSequence)
         mpMainSequence.reset( new sd::MainSequence( getAnimationNode() ) );

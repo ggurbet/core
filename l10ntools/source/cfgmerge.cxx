@@ -34,8 +34,6 @@
 #include <cfgmerge.hxx>
 #include <tokens.h>
 
-void yyerror(char const *);
-
 namespace {
 
 namespace global {
@@ -236,8 +234,8 @@ void CfgParser::ExecuteAnalyzedToken( int nToken, char *pToken )
 
                 if ( sSearch == "cfg:name=" ) {
                     OString sTemp( sToken.toAsciiUpperCase() );
-                    bLocalize = (( sTemp.indexOf( "CFG:TYPE=\"STRING\"" ) != -1 ) &&
-                        ( sTemp.indexOf( "CFG:LOCALIZED=\"sal_True\"" ) != -1 ));
+                    bLocalize = sTemp.indexOf("CFG:TYPE=\"STRING\"")>=0
+                        && sTemp.indexOf( "CFG:LOCALIZED=\"TRUE\"" )>=0;
                 }
             }
             else if ( sTokenName == "label" ) {

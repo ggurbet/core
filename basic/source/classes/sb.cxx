@@ -19,6 +19,7 @@
 
 #include <sb.hxx>
 #include <tools/stream.hxx>
+#include <tools/debug.hxx>
 #include <vcl/errinf.hxx>
 #include <comphelper/solarmutex.hxx>
 #include <basic/sbx.hxx>
@@ -199,10 +200,9 @@ void lclRemoveDocBasicItem( StarBASIC& rDocBasic )
         it->second->stopListening();
         GaDocBasicItems::get().erase( it );
     }
-    auto it_end = GaDocBasicItems::get().end();
-    for( it = GaDocBasicItems::get().begin(); it != it_end; ++it )
+    for( auto& rEntry : GaDocBasicItems::get() )
     {
-        it->second->clearDependingVarsOnDelete( rDocBasic );
+        rEntry.second->clearDependingVarsOnDelete( rDocBasic );
     }
 }
 
@@ -1450,8 +1450,8 @@ const OUString& StarBASIC::GetErrorText() { return GetSbData()->aErrMsg; }
 // From 1996-03-29:
 // The mapping between the old and the new error codes take place by searching
 // through the table SFX_VB_ErrorTab[]. This is indeed not with good performance,
-// but it consumes much less memory than corresponding switch blocs.
-// Because the conversion of error codes has not to be fast. there is no
+// but it consumes much less memory than corresponding switch blocks.
+// Because the conversion of error codes has not to be fast. There is no
 // binary search by VB Error -> Error SFX.
 
 // Map back new error codes to old, Sbx-compatible

@@ -21,6 +21,8 @@
 #include <uiservices.hxx>
 
 #include <dbu_reghelper.hxx>
+#include <com/sun/star/awt/XWindow.hpp>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
 #include <stringconstants.hxx>
 #include <queryfilter.hxx>
@@ -145,7 +147,7 @@ namespace dbaui
 
     std::unique_ptr<weld::GenericDialogController> RowsetFilterDialog::createComposerDialog(weld::Window* _pParent, const Reference< XConnection >& _rxConnection, const Reference< XNameAccess >& _rxColumns )
     {
-        return o3tl::make_unique<DlgFilterCrit>(_pParent, m_aContext, _rxConnection, m_xComposer, _rxColumns);
+        return std::make_unique<DlgFilterCrit>(_pParent, m_aContext, _rxConnection, m_xComposer, _rxColumns);
     }
 
     void SAL_CALL RowsetFilterDialog::initialize( const Sequence< Any >& aArguments )
@@ -193,7 +195,7 @@ namespace dbaui
 
     std::unique_ptr<weld::GenericDialogController> RowsetOrderDialog::createComposerDialog(weld::Window* pParent, const Reference< XConnection >& rxConnection, const Reference< XNameAccess >& rxColumns)
     {
-        return o3tl::make_unique<DlgOrderCrit>(pParent, rxConnection, m_xComposer, rxColumns);
+        return std::make_unique<DlgOrderCrit>(pParent, rxConnection, m_xComposer, rxColumns);
     }
 
     void SAL_CALL RowsetOrderDialog::initialize( const Sequence< Any >& aArguments )

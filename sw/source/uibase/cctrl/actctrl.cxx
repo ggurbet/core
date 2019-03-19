@@ -19,6 +19,7 @@
 
 #include <vcl/builderfactory.hxx>
 #include <actctrl.hxx>
+#include <vcl/event.hxx>
 #include <vcl/toolbox.hxx>
 
 bool NumEditAction::EventNotify( NotifyEvent& rNEvt )
@@ -51,25 +52,6 @@ bool NumEditAction::EventNotify( NotifyEvent& rNEvt )
     if(!bHandled)
         bHandled = NumericField::EventNotify(rNEvt);
     return bHandled;
-}
-
-void ReturnActionEdit::KeyInput( const KeyEvent& rEvt)
-{
-    const vcl::KeyCode aKeyCode = rEvt.GetKeyCode();
-    const sal_uInt16 nModifier = aKeyCode.GetModifier();
-    if( aKeyCode.GetCode() == KEY_RETURN &&
-            !nModifier)
-    {
-        aReturnActionLink.Call(*this);
-    }
-    else
-        Edit::KeyInput(rEvt);
-}
-
-extern "C" SAL_DLLPUBLIC_EXPORT void makeReturnActionEdit(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
-{
-    BuilderUtils::ensureDefaultWidthChars(rMap);
-    rRet = VclPtr<ReturnActionEdit>::Create(pParent, WB_LEFT|WB_VCENTER|WB_BORDER|WB_3DLOOK);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

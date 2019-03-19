@@ -24,6 +24,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <app.hrc>
 #include <svx/svdpagv.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <FrameView.hxx>
 #include <ViewShell.hxx>
@@ -49,7 +50,8 @@ FuZoom::FuZoom(
     SfxRequest& rReq)
     : FuPoor(pViewSh, pWin, pView, pDoc, rReq),
       bVisible(false),
-      bStartDrag(false)
+      bStartDrag(false),
+      aPtr(PointerStyle::Arrow)
 {
 }
 
@@ -90,9 +92,9 @@ bool FuZoom::MouseButtonDown(const MouseEvent& rMEvt)
 bool FuZoom::MouseMove(const MouseEvent& rMEvt)
 {
     if (rMEvt.IsShift())
-        mpWindow->SetPointer(Pointer(PointerStyle::Hand));
+        mpWindow->SetPointer(PointerStyle::Hand);
     else if (nSlotId != SID_ZOOM_PANNING)
-        mpWindow->SetPointer(Pointer(PointerStyle::Magnify));
+        mpWindow->SetPointer(PointerStyle::Magnify);
 
     if (bStartDrag)
     {
@@ -197,11 +199,11 @@ void FuZoom::Activate()
 
     if (nSlotId == SID_ZOOM_PANNING)
     {
-        mpWindow->SetPointer(Pointer(PointerStyle::Hand));
+        mpWindow->SetPointer(PointerStyle::Hand);
     }
     else
     {
-        mpWindow->SetPointer(Pointer(PointerStyle::Magnify));
+        mpWindow->SetPointer(PointerStyle::Magnify);
     }
 }
 

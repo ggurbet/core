@@ -569,12 +569,10 @@ void SwGrfNode::InsertLink( const OUString& rGrfName, const OUString& rFltName )
         if( rFltName == "DDE" )
         {
             sal_Int32 nTmp = 0;
-            OUString sApp, sTopic, sItem;
-            sApp = rGrfName.getToken( 0, sfx2::cTokenSeparator, nTmp );
-            sTopic = rGrfName.getToken( 0, sfx2::cTokenSeparator, nTmp );
-            sItem = rGrfName.copy( nTmp );
-            rIDLA.GetLinkManager().InsertDDELink( refLink.get(),
-                                            sApp, sTopic, sItem );
+            const OUString sApp{ rGrfName.getToken( 0, sfx2::cTokenSeparator, nTmp ) };
+            const OUString sTopic{ rGrfName.getToken( 0, sfx2::cTokenSeparator, nTmp ) };
+            const OUString sItem{ rGrfName.copy( nTmp ) };
+            rIDLA.GetLinkManager().InsertDDELink( refLink.get(), sApp, sTopic, sItem );
         }
         else
         {
@@ -593,7 +591,7 @@ void SwGrfNode::ReleaseLink()
 {
     if( refLink.is() )
     {
-        const Graphic aLocalGraphic(maGrfObj.GetGraphic());
+        Graphic aLocalGraphic(maGrfObj.GetGraphic());
         const bool bHasOriginalData(aLocalGraphic.IsGfxLink());
 
         {
@@ -605,6 +603,7 @@ void SwGrfNode::ReleaseLink()
 
         getIDocumentLinksAdministration().GetLinkManager().Remove( refLink.get() );
         refLink.clear();
+        aLocalGraphic.setOriginURL("");
 
         // #i15508# added extra processing after getting rid of the link. Use whatever is
         // known from the formerly linked graphic to get to a state as close to a directly

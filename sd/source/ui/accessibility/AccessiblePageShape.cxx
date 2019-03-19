@@ -20,15 +20,11 @@
 #include <AccessiblePageShape.hxx>
 #include <svx/AccessibleShapeInfo.hxx>
 #include <svx/IAccessibleViewForwarder.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/gen.hxx>
 #include <sal/log.hxx>
 
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
-#include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/container/XChild.hpp>
-#include <com/sun/star/drawing/XShapes.hpp>
-#include <com/sun/star/drawing/XShapeDescriptor.hpp>
 #include <com/sun/star/drawing/XMasterPageTarget.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 
@@ -201,7 +197,8 @@ sal_Int32 SAL_CALL AccessiblePageShape::getBackground()
     }
     catch (const css::beans::UnknownPropertyException&)
     {
-        SAL_WARN("sd", "caught exception due to unknown property");
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("sd", "caught exception due to unknown property " << exceptionToString(ex));
         // Ignore exception and return default color.
     }
     return nColor;

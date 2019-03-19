@@ -20,6 +20,7 @@
 #include <toolkit/controls/geometrycontrolmodel.hxx>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/resource/XStringResourceResolver.hpp>
 #include <osl/diagnose.h>
 #include <rtl/instance.hxx>
 #include <comphelper/sequence.hxx>
@@ -419,7 +420,7 @@
     Reference< XNameContainer > SAL_CALL OGeometryControlModel_Base::getEvents()
     {
         if( !mxEventContainer.is() )
-            mxEventContainer = static_cast<XNameContainer*>(new toolkit::ScriptEventContainer());
+            mxEventContainer = new toolkit::ScriptEventContainer();
         return mxEventContainer;
     }
 
@@ -475,7 +476,7 @@
             throw IllegalArgumentException();
         }
 
-            HashMapString2Int &rMap = ServiceSpecifierMap::get();
+        HashMapString2Int &rMap = ServiceSpecifierMap::get();
         HashMapString2Int::iterator aPropMapIdPos = rMap.find( m_sServiceSpecifier );
         if ( rMap.end() == aPropMapIdPos )
         {

@@ -33,6 +33,7 @@
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/sdb/XSQLQueryComposerFactory.hpp>
 #include <com/sun/star/sdb/XQueriesSupplier.hpp>
+#include <com/sun/star/sdbc/XRow.hpp>
 #include <com/sun/star/util/NumberFormat.hpp>
 #include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/sdbc/XConnection.hpp>
@@ -604,7 +605,8 @@ namespace frm
         }
         catch( const Exception& )
         {
-            SAL_WARN( "forms.component", "OComboBoxModel::read: caught an exception while examining the aggregate's string item list!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "forms.component", "OComboBoxModel::read: caught an exception while examining the aggregate's string item list! " << exceptionToString(ex) );
         }
 
         // Version

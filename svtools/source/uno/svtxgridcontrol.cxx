@@ -35,6 +35,7 @@
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/util/Color.hpp>
 #include <com/sun/star/awt/FontDescriptor.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 
 #include <vcl/svapp.hxx>
 
@@ -64,7 +65,6 @@ using css::awt::grid::XGridColumn;
 using css::container::ContainerEvent;
 using css::awt::grid::GridDataEvent;
 using css::awt::grid::GridInvalidModelException;
-using css::util::VetoException;
 
 namespace AccessibleEventId = css::accessibility::AccessibleEventId;
 namespace AccessibleStateType = css::accessibility::AccessibleStateType;

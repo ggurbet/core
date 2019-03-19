@@ -55,8 +55,6 @@ DomainMapperTableManager::DomainMapperTableManager() :
     m_aTmpPosition(),
     m_aTmpTableProperties(),
     m_bPushCurrentWidth(false),
-    m_bRowSizeTypeInserted(false),
-    m_bHasBtlrCell(false),
     m_bTableSizeTypeInserted(false),
     m_nLayoutType(0),
     m_pTablePropsHandler(new TablePropertiesHandler())
@@ -298,20 +296,7 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
                         SAL_INFO( "writerfilter", "Have inserted textDirection " << nIntValue );
                         break;
                     case NS_ooxml::LN_Value_ST_TextDirection_btLr:
-                        {
-                        // We have to fake this text direction
-                         pPropMap->Insert( PROP_FRM_DIRECTION, uno::makeAny( text::WritingMode2::LR_TB ));
-                         pPropMap->Insert( PROP_CHAR_ROTATION, uno::makeAny( sal_Int16( 900 ) ));
-                        SAL_INFO( "writerfilter", "Have inserted textDirection " << nIntValue );
-
-                        // We're faking a text direction, so don't allow multiple lines.
-                        if (!getCellProps() || !getCellProps()->isSet(PROP_VERTICAL_MERGE))
-                        {
-                            // Though in case there will be a vertical merge, don't do this, it hides text that is supposed to be visible.
-                            m_bRowSizeTypeInserted = true;
-                        }
-                        m_bHasBtlrCell = true;
-                        }
+                        pPropMap->Insert( PROP_FRM_DIRECTION, uno::makeAny( text::WritingMode2::BT_LR ));
                         break;
                     case NS_ooxml::LN_Value_ST_TextDirection_lrTbV:
                         pPropMap->Insert( PROP_FRM_DIRECTION, uno::makeAny( text::WritingMode2::LR_TB ));
@@ -402,7 +387,7 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
     return bRet;
 }
 
-std::shared_ptr< vector<sal_Int32> > const & DomainMapperTableManager::getCurrentGrid( )
+DomainMapperTableManager::IntVectorPtr const & DomainMapperTableManager::getCurrentGrid( )
 {
     return m_aTableGrid.back( );
 }
@@ -412,12 +397,12 @@ bool DomainMapperTableManager::hasCurrentSpans() const
     return !m_aGridSpans.empty();
 }
 
-std::shared_ptr< vector< sal_Int32 > > const & DomainMapperTableManager::getCurrentSpans( )
+DomainMapperTableManager::IntVectorPtr const & DomainMapperTableManager::getCurrentSpans( )
 {
     return m_aGridSpans.back( );
 }
 
-std::shared_ptr< vector< sal_Int32 > > const & DomainMapperTableManager::getCurrentCellWidths( )
+DomainMapperTableManager::IntVectorPtr const & DomainMapperTableManager::getCurrentCellWidths( )
 {
     return m_aCellWidths.back( );
 }
@@ -636,7 +621,7 @@ void DomainMapperTableManager::endOfRowAction()
     // a grid of "20:40:20" and it doesn't have to do something with the tableWidth
     // -> so we have get the sum of each grid entry for the fullWidthRelative:
     int nFullWidthRelative = 0;
-    for (int i : (*pTableGrid.get()))
+    for (int i : (*pTableGrid))
         nFullWidthRelative = o3tl::saturating_add(nFullWidthRelative, i);
 
     if( pTableGrid->size() == ( m_nGridBefore + nGrids + m_nGridAfter ) && m_nCell.back( ) > 0 )
@@ -677,9 +662,10 @@ void DomainMapperTableManager::endOfRowAction()
             {
                 double fGridWidth = 0.;
                 for ( sal_Int32 nGridCount = *aSpansIter; nGridCount > 0; --nGridCount )
-                    fGridWidth += (*pTableGrid.get())[nBorderGridIndex++];
+                    fGridWidth += (*pTableGrid)[nBorderGridIndex++];
 
-                sal_Int16 nRelPos = rtl::math::round((fGridWidth * 10000) / nFullWidthRelative);
+                sal_Int16 nRelPos =
+                    sal::static_int_cast< sal_Int16 >((fGridWidth * 10000) / nFullWidthRelative);
 
                 pSeparators[nBorder].Position =  nRelPos + nLastRelPos;
                 pSeparators[nBorder].IsVisible = true;
@@ -717,7 +703,7 @@ void DomainMapperTableManager::endOfRowAction()
         // Avoid divide by zero (if there's no grid, position using cell widths).
         if( nFullWidthRelative == 0 )
             for (size_t i = 0; i < pCellWidths->size(); ++i)
-                nFullWidthRelative += (*pCellWidths.get())[i];
+                nFullWidthRelative += (*pCellWidths)[i];
 
         size_t nWidthsBound = pCellWidths->size() - 1;
         if (nWidthsBound)
@@ -727,7 +713,7 @@ void DomainMapperTableManager::endOfRowAction()
 
             for (size_t i = 0; i < nWidthsBound; ++i)
             {
-                nSum += (*pCellWidths.get())[i];
+                nSum += (*pCellWidths)[i];
                 pSeparators[nPos].Position = (nSum * 10000) / nFullWidthRelative; // Relative position
                 pSeparators[nPos].IsVisible = true;
                 nPos++;
@@ -758,8 +744,6 @@ void DomainMapperTableManager::endOfRowAction()
     pCellWidths->clear();
 
     m_nGridBefore = m_nGridAfter = 0;
-    m_bRowSizeTypeInserted = false;
-    m_bHasBtlrCell = false;
     m_bTableSizeTypeInserted = false;
 
 #ifdef DEBUG_WRITERFILTER

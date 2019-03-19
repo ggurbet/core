@@ -19,16 +19,12 @@
 
 #include <sal/config.h>
 
-#include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 #include <tools/gen.hxx>
 #include <AccessibleText.hxx>
 #include <editsrc.hxx>
 #include <svx/AccessibleTextHelper.hxx>
 #include <AccessiblePreviewHeaderCell.hxx>
-#include <AccessibilityHints.hxx>
 #include <prevwsh.hxx>
-#include <miscuno.hxx>
 #include <prevloc.hxx>
 #include <strings.hxx>
 
@@ -41,7 +37,7 @@
 #include <unotools/accessiblestatesethelper.hxx>
 #include <comphelper/sequence.hxx>
 #include <toolkit/helper/convert.hxx>
-#include <o3tl/make_unique.hxx>
+
 #ifdef indices
 #undef indices
 #endif
@@ -135,7 +131,7 @@ void SAL_CALL ScAccessiblePreviewHeaderCell::release()
 
 uno::Any SAL_CALL ScAccessiblePreviewHeaderCell::getCurrentValue()
 {
-     SolarMutexGuard aGuard;
+    SolarMutexGuard aGuard;
     IsObjectValid();
 
     double fValue(0.0);
@@ -155,7 +151,7 @@ sal_Bool SAL_CALL ScAccessiblePreviewHeaderCell::setCurrentValue( const uno::Any
 
 uno::Any SAL_CALL ScAccessiblePreviewHeaderCell::getMaximumValue()
 {
-     SolarMutexGuard aGuard;
+    SolarMutexGuard aGuard;
     IsObjectValid();
 
     double fValue(0.0);
@@ -178,7 +174,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePreviewHeaderCell::getAccessi
     uno::Reference<XAccessible> xRet;
     if (containsPoint(rPoint))
     {
-         SolarMutexGuard aGuard;
+        SolarMutexGuard aGuard;
         IsObjectValid();
 
         if(!mpTextHelper)
@@ -192,7 +188,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePreviewHeaderCell::getAccessi
 
 void SAL_CALL ScAccessiblePreviewHeaderCell::grabFocus()
 {
-     SolarMutexGuard aGuard;
+    SolarMutexGuard aGuard;
     IsObjectValid();
     if (getAccessibleParent().is())
     {
@@ -384,8 +380,8 @@ void ScAccessiblePreviewHeaderCell::CreateTextHelper()
     if (!mpTextHelper)
     {
         mpTextHelper = new ::accessibility::AccessibleTextHelper(
-            o3tl::make_unique<ScAccessibilityEditSource>(
-                o3tl::make_unique<ScAccessiblePreviewHeaderCellTextData>(
+            std::make_unique<ScAccessibilityEditSource>(
+                std::make_unique<ScAccessiblePreviewHeaderCellTextData>(
                     mpViewShell, getAccessibleName(), maCellPos,
                     mbColumnHeader, mbRowHeader)));
         mpTextHelper->SetEventSource(this);

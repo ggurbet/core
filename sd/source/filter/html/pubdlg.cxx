@@ -24,28 +24,20 @@
 #include <vcl/FilterConfigItem.hxx>
 #include <vcl/button.hxx>
 #include <vcl/fixed.hxx>
-#include <svtools/svmedit.hxx>
-#include <svl/intitem.hxx>
-#include <svl/aeitem.hxx>
-#include <svl/itemset.hxx>
-#include <svl/stritem.hxx>
+#include <vcl/vclmedit.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/valueset.hxx>
-#include <vcl/graph.hxx>
-#include <svl/eitem.hxx>
 #include <svtools/colrdlg.hxx>
-#include <editeng/colritem.hxx>
+#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <sdiocmpt.hxx>
 #include <sfx2/docfile.hxx>
-#include <sfx2/app.hxx>
 #include <pres.hxx>
 #include <unotools/useroptions.hxx>
 #include <unotools/pathoptions.hxx>
 
 #include <sdresid.hxx>
 #include <strings.hrc>
-#include <sdattr.hxx>
 #include <pubdlg.hxx>
 #include "htmlattr.hxx"
 #include "htmlex.hxx"
@@ -1307,42 +1299,42 @@ void SdPublishingDlg::UpdatePage()
  */
 void SdPublishingDlg::LoadPreviewButtons()
 {
-    if (mpButtonSet)
+    if (!mpButtonSet)
+        return;
+
+    const int nButtonCount = 8;
+    static const char *pButtonNames[nButtonCount] =
     {
-        const int nButtonCount = 8;
-        static const char *pButtonNames[nButtonCount] =
+        "first.png",
+        "left.png",
+        "right.png",
+        "last.png",
+        "home.png",
+        "text.png",
+        "expand.png",
+        "collapse.png",
+    };
+
+    std::vector< OUString > aButtonNames;
+    for(const char * p : pButtonNames)
+        aButtonNames.push_back( OUString::createFromAscii( p ) );
+
+    int nSetCount = mpButtonSet->getCount();
+
+    int nHeight = 32;
+    Image aImage;
+    for( int nSet = 0; nSet < nSetCount; ++nSet )
+    {
+        if( mpButtonSet->getPreview( nSet, aButtonNames, aImage ) )
         {
-            "first.png",
-            "left.png",
-            "right.png",
-            "last.png",
-            "home.png",
-            "text.png",
-            "expand.png",
-            "collapse.png",
-        };
-
-        std::vector< OUString > aButtonNames;
-        for(const char * p : pButtonNames)
-            aButtonNames.push_back( OUString::createFromAscii( p ) );
-
-        int nSetCount = mpButtonSet->getCount();
-
-        int nHeight = 32;
-        Image aImage;
-        for( int nSet = 0; nSet < nSetCount; ++nSet )
-        {
-            if( mpButtonSet->getPreview( nSet, aButtonNames, aImage ) )
-            {
-                pPage5_Buttons->InsertItem( static_cast<sal_uInt16>(nSet)+1, aImage );
-                if( nHeight < aImage.GetSizePixel().Height() )
-                    nHeight = aImage.GetSizePixel().Height();
-            }
+            pPage5_Buttons->InsertItem( static_cast<sal_uInt16>(nSet)+1, aImage );
+            if( nHeight < aImage.GetSizePixel().Height() )
+                nHeight = aImage.GetSizePixel().Height();
         }
-
-        pPage5_Buttons->SetItemHeight( nHeight );
-        m_bButtonsDirty = false;
     }
+
+    pPage5_Buttons->SetItemHeight( nHeight );
+    m_bButtonsDirty = false;
 }
 
 // Clickhandler for the Forward Button

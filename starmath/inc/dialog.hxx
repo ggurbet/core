@@ -257,7 +257,7 @@ class SmShowSymbolSet : public weld::CustomWidgetController
     Point OffsetPoint(const Point &rPoint) const;
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
-    virtual void MouseButtonDown(const MouseEvent& rMEvt) override;
+    virtual bool MouseButtonDown(const MouseEvent& rMEvt) override;
     virtual bool KeyInput(const KeyEvent& rKEvt) override;
 
     DECL_LINK(ScrollHdl, weld::ScrolledWindow&, void);
@@ -272,7 +272,7 @@ public:
                                        pDrawingArea->get_text_height() * 9);
     }
 
-    void calccols(vcl::RenderContext& rRenderContext);
+    void calccols(const vcl::RenderContext& rRenderContext);
     void    SelectSymbol(sal_uInt16 nSymbol);
     sal_uInt16  GetSelectSymbol() const { return nSelectSymbol; }
     void SetSymbolSet(const SymbolPtrVec_t& rSymbolSet);
@@ -289,7 +289,7 @@ private:
     Link<SmShowSymbol&,void> aDblClickHdlLink;
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
-    virtual void MouseButtonDown(const MouseEvent& rMEvt) override;
+    virtual bool MouseButtonDown(const MouseEvent& rMEvt) override;
 
     void setFontSize(vcl::Font &rFont) const;
 

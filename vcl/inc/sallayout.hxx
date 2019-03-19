@@ -169,7 +169,7 @@ public:
     void            AdjustLayout(ImplLayoutArgs&) final override;
     bool            LayoutText(ImplLayoutArgs&, const SalLayoutGlyphs*) final override;
     void            DrawText(SalGraphics&) const final override;
-    std::shared_ptr<vcl::TextLayoutCache> CreateTextLayoutCache(OUString const&) const final override;
+    static std::shared_ptr<vcl::TextLayoutCache> CreateTextLayoutCache(OUString const&);
     const SalLayoutGlyphs* GetGlyphs() const final override;
 
     bool            IsKashidaPosValid(int nCharPos) const final override;
@@ -182,7 +182,7 @@ public:
 
     // used by display layers
     LogicalFontInstance& GetFont() const
-        { return static_cast<SalGenericLayoutGlyphsImpl*>(m_GlyphItems.Impl())->GetFont(); }
+        { return m_GlyphItems.Impl()->GetFont(); }
 
     bool            GetNextGlyph(const GlyphItem** pGlyph, Point& rPos, int& nStart,
                                  const PhysicalFontFace** pFallbackFont = nullptr,
@@ -197,7 +197,7 @@ private:
                     GenericSalLayout( const GenericSalLayout& ) = delete;
                     GenericSalLayout& operator=( const GenericSalLayout& ) = delete;
 
-    void            ApplyDXArray(ImplLayoutArgs&);
+    void            ApplyDXArray(const ImplLayoutArgs&);
     void            Justify(DeviceCoordinate nNewWidth);
     void            ApplyAsianKerning(const OUString& rStr);
 

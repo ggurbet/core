@@ -19,8 +19,6 @@
 
 #undef SC_DLLIMPLEMENTATION
 
-#include <global.hxx>
-#include <document.hxx>
 #include <attrib.hxx>
 #include <sc.hrc>
 
@@ -129,7 +127,7 @@ bool ScTabPageProtection::FillItemSet( SfxItemSet* rCoreAttrs )
         if ( bTriEnabled )
             bAttrsChanged = true;                   // DontCare -> properly value
         else
-            bAttrsChanged = !pOldItem || !( aProtAttr == *static_cast<const ScProtectionAttr*>(pOldItem) );
+            bAttrsChanged = !pOldItem || aProtAttr != *static_cast<const ScProtectionAttr*>(pOldItem);
     }
 
     if ( bAttrsChanged )

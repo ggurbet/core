@@ -20,14 +20,16 @@
 #include <sal/config.h>
 #include <sal/log.hxx>
 
+#include <osl/diagnose.h>
 #include <osl/mutex.hxx>
 #include <cppuhelper/weakagg.hxx>
-#include <cppuhelper/interfacecontainer.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/queryinterface.hxx>
 
+#include <com/sun/star/lang/DisposedException.hpp>
+
 #include <algorithm>
-#include <utility>
+#include <vector>
 
 using namespace osl;
 using namespace com::sun::star::uno;
@@ -181,14 +183,14 @@ void SAL_CALL OWeakConnectionPoint::removeReference(const Reference< XReference 
     // Search from end because the thing that last added a ref is most likely to be the
     // first to remove a ref.
     // It's not really valid to compare the pointer directly, but it's faster.
-    for (auto it = m_aReferences.rbegin(); it != m_aReferences.rend(); ++it) {
-        if (it->get() == rRef.get()) {
-            m_aReferences.erase( it.base()-1 );
-            return;
-        }
+    auto it = std::find_if(m_aReferences.rbegin(), m_aReferences.rend(),
+        [&rRef](const Reference<XReference>& rxRef) { return rxRef.get() == rRef.get(); });
+    if (it != m_aReferences.rend()) {
+        m_aReferences.erase( it.base()-1 );
+        return;
     }
     // interface not found, use the correct compare method
-    auto it = std::find(m_aReferences.rbegin(), m_aReferences.rend(), rRef);
+    it = std::find(m_aReferences.rbegin(), m_aReferences.rend(), rRef);
     if ( it != m_aReferences.rend() )
         m_aReferences.erase( it.base()-1 );
 }

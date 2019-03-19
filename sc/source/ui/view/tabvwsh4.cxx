@@ -39,7 +39,6 @@
 #include <unotools/moduleoptions.hxx>
 #include <tools/urlobj.hxx>
 #include <sfx2/docfile.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <tabvwsh.hxx>
 #include <sc.hrc>
@@ -335,12 +334,12 @@ void ScTabViewShell::InnerResizePixel( const Point &rOfs, const Size &rSize, boo
     if ( GetViewFrame()->GetFrame().IsInPlace() )
     {
         SvBorder aBorder;
-           GetBorderSize( aBorder, rSize );
+        GetBorderSize( aBorder, rSize );
         SetBorderPixel( aBorder );
 
         Size aObjSize = GetObjectShell()->GetVisArea().GetSize();
 
-          Size aSize( rSize );
+        Size aSize( rSize );
         aSize.AdjustWidth( -(aBorder.Left() + aBorder.Right()) );
         aSize.AdjustHeight( -(aBorder.Top() + aBorder.Bottom()) );
 

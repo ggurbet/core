@@ -23,11 +23,13 @@
 #include <vcl/image.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/event.hxx>
 #include <svx/zoomslideritem.hxx>
 #include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <basegfx/utils/zoomtools.hxx>
 #include <bitmaps.hlst>
+#include <com/sun/star/beans/PropertyValue.hpp>
 
 #include <set>
 
@@ -200,7 +202,7 @@ void SvxZoomSliderControl::StateChanged( sal_uInt16 /*nSID*/, SfxItemState eStat
             aTmpSnappingPoints.insert( static_cast<sal_uInt16>(nSnappingPoint) );
         }
 
-        // remove snapping points that are to close to each other:
+        // remove snapping points that are too close to each other:
         long nLastOffset = 0;
 
         for ( const sal_uInt16 nCurrent : aTmpSnappingPoints )

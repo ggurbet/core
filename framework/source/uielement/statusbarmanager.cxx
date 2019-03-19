@@ -30,6 +30,7 @@
 #include <properties.h>
 #include <helper/mischelper.hxx>
 #include <com/sun/star/frame/XFrame.hpp>
+#include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/frame/theStatusbarControllerFactory.hpp>
 #include <com/sun/star/ui/ItemStyle.hpp>
 #include <com/sun/star/ui/ItemType.hpp>
@@ -42,8 +43,11 @@
 #include <comphelper/processfactory.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <svtools/statusbarcontroller.hxx>
+#include <svtools/toolboxcontroller.hxx>
+#include <tools/debug.hxx>
 
 #include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <vcl/status.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -410,7 +414,6 @@ void StatusBarManager::FillStatusBar( const uno::Reference< container::XIndexAcc
     {
         uno::Sequence< beans::PropertyValue >   aProp;
         OUString                                aCommandURL;
-        OUString                                aHelpURL;
         sal_Int16                               nOffset( 0 );
         sal_Int16                               nStyle( 0 );
         sal_Int16                               nWidth( 0 );
@@ -425,10 +428,6 @@ void StatusBarManager::FillStatusBar( const uno::Reference< container::XIndexAcc
                     if ( aProp[i].Name == "CommandURL" )
                     {
                         aProp[i].Value >>= aCommandURL;
-                    }
-                    else if ( aProp[i].Name == "HelpURL" )
-                    {
-                        aProp[i].Value >>= aHelpURL;
                     }
                     else if ( aProp[i].Name == "Style" )
                     {

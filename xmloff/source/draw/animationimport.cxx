@@ -48,12 +48,11 @@
 #include <com/sun/star/presentation/EffectCommands.hpp>
 #include <com/sun/star/util/Duration.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/string.hxx>
 
 #include <sax/tools/converter.hxx>
 
 #include <vector>
-
-#include <o3tl/make_unique.hxx>
 
 #include <xmloff/xmltypes.hxx>
 #include "sdpropls.hxx"
@@ -160,7 +159,7 @@ const SvXMLTokenMap& AnimationsImportHelperImpl::getAnimationNodeTokenMap()
             XML_TOKEN_MAP_END
         };
 
-        mpAnimationNodeTokenMap = o3tl::make_unique<SvXMLTokenMap>( aAnimationNodeTokenMap );
+        mpAnimationNodeTokenMap = std::make_unique<SvXMLTokenMap>( aAnimationNodeTokenMap );
     }
 
     return *mpAnimationNodeTokenMap;
@@ -279,7 +278,7 @@ const SvXMLTokenMap& AnimationsImportHelperImpl::getAnimationNodeAttributeTokenM
             XML_TOKEN_MAP_END
         };
 
-        mpAnimationNodeAttributeTokenMap = o3tl::make_unique<SvXMLTokenMap>( aAnimationNodeAttributeTokenMap );
+        mpAnimationNodeAttributeTokenMap = std::make_unique<SvXMLTokenMap>( aAnimationNodeAttributeTokenMap );
     }
 
     return *mpAnimationNodeAttributeTokenMap;
@@ -318,24 +317,6 @@ static bool isTime( const OUString& rValue )
     // return true if this is a double (if someone forgot the 's' we silently ignore it)
     // or if it's a double that ends with a 's' or 'S'
     return (nLength == 0) || ((*pStr == 's' || *pStr == 'S') && (nLength == 1));
-}
-
-static sal_Int32 count_codes( const OUString& rString, sal_Unicode nCode )
-{
-    sal_Int32 nCount = 0;
-    sal_Int32 fromIndex = 0;
-
-    while(true)
-    {
-        fromIndex = rString.indexOf( nCode, fromIndex );
-        if( fromIndex == -1 )
-            break;
-
-        fromIndex++;
-        nCount++;
-    }
-
-    return nCount;
 }
 
 Any AnimationsImportHelperImpl::convertTarget( const OUString& rValue )
@@ -466,21 +447,16 @@ Sequence< Any > AnimationsImportHelperImpl::convertValueSequence( XMLTokenEnum e
 {
     Sequence< Any > aValues;
 
-    // do we have any value at all?
-    if( !rValue.isEmpty() )
+    const sal_Int32 nElements { comphelper::string::getTokenCount(rValue, ';') };
+    if ( nElements>0 )
     {
-        sal_Int32 nElements = count_codes( rValue, ';') + 1; // a non empty string has at least one value
-
         // prepare the sequence
         aValues.realloc( nElements );
 
         // fill the sequence
         Any* pValues = aValues.getArray();
-        sal_Int32 nIndex;
-        for( nIndex = 0; nElements && (nIndex >= 0); nElements-- )
-        {
+        for (sal_Int32 nIndex = 0; nIndex >= 0; )
             *pValues++ = convertValue( eAttributeName, rValue.getToken( 0, ';', nIndex ) );
-        }
     }
 
     return aValues;
@@ -490,12 +466,9 @@ Any AnimationsImportHelperImpl::convertTiming( const OUString& rValue )
 {
     Any aAny;
 
-    // do we have any value at all?
-    if( !rValue.isEmpty() )
+    const sal_Int32 nElements { comphelper::string::getTokenCount(rValue, ';') };
+    if ( nElements>0 )
     {
-        // count the values
-        sal_Int32 nElements = count_codes( rValue, ';' ) + 1; // a non empty string has at least one value
-
         if( nElements == 1 )
         {
             if( IsXMLToken( rValue, XML_MEDIA ) )
@@ -556,8 +529,7 @@ Any AnimationsImportHelperImpl::convertTiming( const OUString& rValue )
             // fill the sequence
             Sequence< Any > aValues( nElements );
             Any* pValues = aValues.getArray();
-            sal_Int32 nIndex = 0;
-            while( (nElements--) && (nIndex >= 0) )
+            for (sal_Int32 nIndex = 0; nIndex >= 0; )
                 *pValues++ = convertTiming( rValue.getToken( 0, ';', nIndex ) );
 
             aAny <<= aValues;
@@ -568,18 +540,14 @@ Any AnimationsImportHelperImpl::convertTiming( const OUString& rValue )
 
 Sequence< double > AnimationsImportHelperImpl::convertKeyTimes( const OUString& rValue )
 {
-    sal_Int32 nElements = 0;
-
-    if( !rValue.isEmpty() )
-        nElements = count_codes( rValue, ';' ) + 1; // a non empty string has at least one value
+    const sal_Int32 nElements { comphelper::string::getTokenCount(rValue, ';') };
 
     Sequence< double > aKeyTimes( nElements );
 
     if( nElements )
     {
         double* pValues = aKeyTimes.getArray();
-        sal_Int32 nIndex = 0;
-        while( (nElements--) && (nIndex >= 0) )
+        for (sal_Int32 nIndex = 0; nIndex >= 0; )
             *pValues++ = rValue.getToken( 0, ';', nIndex ).toDouble();
     }
 
@@ -588,18 +556,14 @@ Sequence< double > AnimationsImportHelperImpl::convertKeyTimes( const OUString& 
 
 Sequence< TimeFilterPair > AnimationsImportHelperImpl::convertTimeFilter( const OUString& rValue )
 {
-    sal_Int32 nElements = 0;
-
-    if( !rValue.isEmpty() )
-        nElements = count_codes( rValue, ';' ) + 1; // a non empty string has at least one value
+    const sal_Int32 nElements { comphelper::string::getTokenCount(rValue, ';') };
 
     Sequence< TimeFilterPair > aTimeFilter( nElements );
 
     if( nElements )
     {
         TimeFilterPair* pValues = aTimeFilter.getArray();
-        sal_Int32 nIndex = 0;
-        while( (nElements--) && (nIndex >= 0) )
+        for (sal_Int32 nIndex = 0; nIndex >= 0; )
         {
             const OUString aToken( rValue.getToken( 0, ';', nIndex ) );
 

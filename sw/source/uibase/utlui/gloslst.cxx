@@ -270,14 +270,14 @@ void SwGlossaryList::Update()
         {
             std::vector<OUString> aFoundGroupNames;
             std::vector<OUString> aFiles;
-            std::vector<DateTime*> aDateTimeArr;
+            std::vector<DateTime> aDateTimeArr;
 
             SWUnoHelper::UCB_GetFileListOfFolder( rPathArr[nPath], aFiles,
                                                     &sExt, &aDateTimeArr );
             for( size_t nFiles = 0; nFiles < aFiles.size(); ++nFiles )
             {
                 const OUString aTitle = aFiles[ nFiles ];
-                ::DateTime* pDT = aDateTimeArr[ nFiles ];
+                ::DateTime& rDT = aDateTimeArr[ nFiles ];
 
                 OUString sName( aTitle.copy( 0, aTitle.getLength() - sExt.getLength() ));
 
@@ -289,18 +289,15 @@ void SwGlossaryList::Update()
                     pFound = new AutoTextGroup;
                     pFound->sName = sName;
                     FillGroup( pFound, pGlossaries );
-                    pFound->aDateModified = *pDT;
+                    pFound->aDateModified = rDT;
 
                     aGroupArr.push_back(std::unique_ptr<AutoTextGroup>(pFound));
                 }
-                else if( pFound->aDateModified < *pDT )
+                else if( pFound->aDateModified < rDT )
                 {
                     FillGroup(pFound, pGlossaries);
-                    pFound->aDateModified = *pDT;
+                    pFound->aDateModified = rDT;
                 }
-
-                // don't need any more these pointers
-                delete pDT;
             }
 
             for( size_t i = aGroupArr.size(); i>0; )
@@ -321,7 +318,6 @@ void SwGlossaryList::Update()
                     if(!bFound)
                     {
                         aGroupArr.erase(aGroupArr.begin() + i);
-                        delete pGroup;
                     }
                 }
             }
@@ -379,9 +375,10 @@ void SwGlossaryList::HasLongName(const OUString& rBegin, std::vector<OUString> *
     for(size_t i = 0; i < nCount; ++i)
     {
         AutoTextGroup* pGroup = aGroupArr[i].get();
+        sal_Int32 nIdx{ 0 };
         for(sal_uInt16 j = 0; j < pGroup->nCount; j++)
         {
-            OUString sBlock = pGroup->sLongNames.getToken(j, STRING_DELIM);
+            OUString sBlock = pGroup->sLongNames.getToken(0, STRING_DELIM, nIdx);
             if( nBeginLen + 1 < sBlock.getLength() &&
                 rSCmp.isEqual( sBlock.copy(0, nBeginLen), rBegin ))
             {

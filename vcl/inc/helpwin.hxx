@@ -33,7 +33,6 @@ private:
     tools::Rectangle           maTextRect; // For wrapped text in QuickHelp
 
     OUString            maHelpText;
-    OUString            maStatusText;
 
     Timer               maShowTimer;
     Timer               maHideTimer;
@@ -62,17 +61,16 @@ public:
     QuickHelpFlags      GetStyle() const { return mnStyle; }
 
     // only remember:
-    void                SetStatusText( const OUString& rStatusText ) { maStatusText = rStatusText; }
     void                SetHelpArea( const tools::Rectangle& rRect ) { maHelpArea = rRect; }
 
-    void                ShowHelp( sal_uInt16 nDelayMode );
+    void                ShowHelp(bool bNoDelay);
 
     Size                CalcOutSize() const;
     const tools::Rectangle&    GetHelpArea() const { return maHelpArea; }
 };
 
 void ImplShowHelpWindow( vcl::Window* pParent, sal_uInt16 nHelpWinStyle, QuickHelpFlags nStyle,
-        const OUString& rHelpText, const OUString& rStatusText,
+        const OUString& rHelpText,
         const Point& rScreenPos, const tools::Rectangle& rHelpArea );
 VCL_DLLPUBLIC void ImplDestroyHelpWindow( bool bUpdateHideTime );
 void ImplSetHelpWindowPos( vcl::Window* pHelpWindow, sal_uInt16 nHelpWinStyle, QuickHelpFlags nStyle,

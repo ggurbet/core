@@ -33,6 +33,7 @@
 #include <managelang.hxx>
 
 #include <basic/basmgr.hxx>
+#include <com/sun/star/script/XLibraryContainer2.hpp>
 #include <com/sun/star/resource/StringResourceWithLocation.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 #include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
@@ -355,6 +356,8 @@ void DialogWindow::GetState( SfxItemSet& rSet )
             case SID_INSERT_PATTERNFIELD:
             case SID_INSERT_FILECONTROL:
             case SID_INSERT_SPINBUTTON:
+            case SID_INSERT_GRIDCONTROL:
+            case SID_INSERT_HYPERLINKCONTROL:
             case SID_INSERT_TREECONTROL:
             {
                 if ( IsReadOnly() )
@@ -502,6 +505,12 @@ void DialogWindow::ExecuteCommand( SfxRequest& rReq )
             break;
         case SID_INSERT_SPINBUTTON:
             nInsertObj = OBJ_DLG_SPINBUTTON;
+            break;
+        case SID_INSERT_GRIDCONTROL:
+            nInsertObj = OBJ_DLG_GRIDCONTROL;
+            break;
+        case SID_INSERT_HYPERLINKCONTROL:
+            nInsertObj = OBJ_DLG_HYPERLINKCONTROL;
             break;
         case SID_INSERT_TREECONTROL:
             nInsertObj = OBJ_DLG_TREECONTROL;
@@ -1243,7 +1252,7 @@ void DialogWindow::InitSettings()
 
 css::uno::Reference< css::accessibility::XAccessible > DialogWindow::CreateAccessible()
 {
-    return static_cast<css::accessibility::XAccessible*>(new AccessibleDialogWindow( this ));
+    return new AccessibleDialogWindow(this);
 }
 
 char const* DialogWindow::GetHid () const
@@ -1261,7 +1270,6 @@ ItemType DialogWindow::GetType () const
 
 DialogWindowLayout::DialogWindowLayout (vcl::Window* pParent, ObjectCatalog& rObjectCatalog_) :
     Layout(pParent),
-    pChild(nullptr),
     rObjectCatalog(rObjectCatalog_),
     pPropertyBrowser(nullptr)
 {
@@ -1278,7 +1286,6 @@ void DialogWindowLayout::dispose()
     if (pPropertyBrowser)
         Remove(pPropertyBrowser);
     pPropertyBrowser.disposeAndClear();
-    pChild.clear();
     Layout::dispose();
 }
 
@@ -1321,7 +1328,6 @@ void DialogWindowLayout::UpdatePropertyBrowser ()
 void DialogWindowLayout::Activating (BaseWindow& rChild)
 {
     assert(dynamic_cast<DialogWindow*>(&rChild));
-    pChild = &static_cast<DialogWindow&>(rChild);
     rObjectCatalog.SetLayoutWindow(this);
     rObjectCatalog.UpdateEntries();
     rObjectCatalog.Show();
@@ -1336,7 +1342,6 @@ void DialogWindowLayout::Deactivating ()
     rObjectCatalog.Hide();
     if (pPropertyBrowser)
         pPropertyBrowser->Hide();
-    pChild = nullptr;
 }
 
 void DialogWindowLayout::ExecuteGlobal (SfxRequest& rReq)

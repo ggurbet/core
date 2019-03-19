@@ -383,7 +383,7 @@ VclPtr<VclAbstractDialog> SdDialogsTest::createDialogByID(sal_uInt32 nID)
             CPPUNIT_ASSERT(pDrawDoc);
             const OUString aFileName("foo");
             pRetval = getSdAbstractDialogFactory()->CreateSdInsertPagesObjsDlg(
-                getViewShell()->GetActiveWindow(),
+                getViewShell()->GetFrameWeld(),
                 pDrawDoc,
                 nullptr,
                 aFileName);
@@ -532,7 +532,7 @@ VclPtr<VclAbstractDialog> SdDialogsTest::createDialogByID(sal_uInt32 nID)
             aSet.Put(SfxBoolItem(ATTR_ACTION_SOUNDON, false));
             aSet.Put(SfxBoolItem(ATTR_ACTION_PLAYFULL, false));
             pRetval = getSdAbstractDialogFactory()->CreatSdActionDialog(
-                getViewShell()->GetActiveWindow(),
+                getViewShell()->GetFrameWeld(),
                 &aSet,
                 getDrawView());
             break;

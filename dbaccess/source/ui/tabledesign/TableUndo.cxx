@@ -162,8 +162,8 @@ OTableEditorDelUndoAct::OTableEditorDelUndoAct( OTableEditorCtrl* pOwner) :
     // fill DeletedRowList
     std::vector< std::shared_ptr<OTableRow> >* pOriginalRows = pOwner->GetRowList();
     sal_Int32 nIndex = pOwner->FirstSelectedRow();
-     std::shared_ptr<OTableRow>  pOriginalRow;
-     std::shared_ptr<OTableRow>  pNewRow;
+    std::shared_ptr<OTableRow>  pOriginalRow;
+    std::shared_ptr<OTableRow>  pNewRow;
 
     while( nIndex != SFX_ENDOFSELECTION )
     {
@@ -235,10 +235,7 @@ void OTableEditorInsUndoAct::Undo()
 {
     // delete lines again
     std::vector< std::shared_ptr<OTableRow> >* pOriginalRows = pTabEdCtrl->GetRowList();
-    for( long i=m_nInsPos+m_vInsertedRows.size()-1; i>(m_nInsPos-1); i-- )
-    {
-        pOriginalRows->erase(pOriginalRows->begin()+i);
-    }
+    pOriginalRows->erase(pOriginalRows->begin() + m_nInsPos, pOriginalRows->begin() + m_nInsPos + m_vInsertedRows.size());
 
     pTabEdCtrl->RowRemoved( m_nInsPos, m_vInsertedRows.size() );
     pTabEdCtrl->InvalidateHandleColumn();
@@ -282,10 +279,7 @@ void OTableEditorInsNewUndoAct::Undo()
     // delete inserted lines
     std::vector< std::shared_ptr<OTableRow> >* pOriginalRows = pTabEdCtrl->GetRowList();
 
-    for( long i=m_nInsPos+m_nInsRows-1; i>(m_nInsPos-1); i-- )
-    {
-        pOriginalRows->erase(pOriginalRows->begin()+i);
-    }
+    pOriginalRows->erase(pOriginalRows->begin() + m_nInsPos, pOriginalRows->begin() + m_nInsPos + m_nInsRows);
 
     pTabEdCtrl->RowRemoved( m_nInsPos, m_nInsRows );
     pTabEdCtrl->InvalidateHandleColumn();

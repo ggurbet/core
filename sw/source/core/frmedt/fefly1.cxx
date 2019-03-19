@@ -48,6 +48,7 @@
 #include <viewimp.hxx>
 #include <viscrs.hxx>
 #include <doc.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentUndoRedo.hxx>
 #include <IDocumentState.hxx>
 #include <IDocumentLayoutAccess.hxx>
@@ -406,8 +407,8 @@ void SwFEShell::SetFlyPos( const Point& rAbsPos )
     }
     else
     {
-            const SwFrame *pAnch = pFly->GetAnchorFrame();
-            Point aOrient( pAnch->getFrameArea().Pos() );
+        const SwFrame *pAnch = pFly->GetAnchorFrame();
+        Point aOrient( pAnch->getFrameArea().Pos() );
 
         if ( pFly->IsFlyInContentFrame() )
             aOrient.setX(rAbsPos.getX());
@@ -590,15 +591,14 @@ Point SwFEShell::FindAnchorPos( const Point& rAbsPos, bool bMoveIt )
                     // re-created. Thus, delete all fly frames except the <this> before the
                     // anchor attribute is change and re-create them afterwards.
                     {
-                        SwHandleAnchorNodeChg* pHandleAnchorNodeChg( nullptr );
+                        std::unique_ptr<SwHandleAnchorNodeChg> pHandleAnchorNodeChg;
                         SwFlyFrameFormat* pFlyFrameFormat( dynamic_cast<SwFlyFrameFormat*>(&rFormat) );
                         if ( pFlyFrameFormat )
                         {
-                            pHandleAnchorNodeChg =
-                                new SwHandleAnchorNodeChg( *pFlyFrameFormat, aAnch );
+                            pHandleAnchorNodeChg.reset(
+                                new SwHandleAnchorNodeChg( *pFlyFrameFormat, aAnch ));
                         }
                         rFormat.GetDoc()->SetAttr( aAnch, rFormat );
-                        delete pHandleAnchorNodeChg;
                     }
                     // #i28701# - no call of method
                     // <CheckCharRectAndTopOfLine()> for to-character anchored
@@ -698,7 +698,7 @@ const SwFrameFormat *SwFEShell::NewFlyFrame( const SfxItemSet& rSet, bool bAnchV
     if( bMoveContent )
     {
         GetDoc()->GetIDocumentUndoRedo().StartUndo( SwUndoId::INSLAYFMT, nullptr );
-        SwFormatAnchor* pOldAnchor = nullptr;
+        std::unique_ptr<SwFormatAnchor> pOldAnchor;
         bool bHOriChgd = false, bVOriChgd = false;
         SwFormatVertOrient aOldV;
         SwFormatHoriOrient aOldH;
@@ -709,7 +709,7 @@ const SwFrameFormat *SwFEShell::NewFlyFrame( const SfxItemSet& rSet, bool bAnchV
             // everything was shifted. Then the position is valid!
             // JP 13.05.98: if necessary also convert the horizontal/vertical
             //              orientation, to prevent correction during re-anchoring
-            pOldAnchor = new SwFormatAnchor( rAnch );
+            pOldAnchor.reset(new SwFormatAnchor( rAnch ));
             const_cast<SfxItemSet&>(rSet).Put( SwFormatAnchor( RndStdIds::FLY_AT_PAGE, 1 ) );
 
             const SfxPoolItem* pItem;
@@ -779,7 +779,6 @@ const SwFrameFormat *SwFEShell::NewFlyFrame( const SfxItemSet& rSet, bool bAnchV
                 GetDoc()->SetFlyFrameAttr( *pRet, const_cast<SfxItemSet&>(rSet) );
                 GetDoc()->GetIDocumentUndoRedo().DoUndo(bDoesUndo);
             }
-            delete pOldAnchor;
         }
         GetDoc()->GetIDocumentUndoRedo().EndUndo( SwUndoId::INSLAYFMT, nullptr );
     }
@@ -894,12 +893,14 @@ SwFlyFrameFormat* SwFEShell::InsertObject( const svt::EmbeddedObjectRef&  xObj,
     SwFlyFrameFormat* pFormat = nullptr;
     SET_CURR_SHELL( this );
     StartAllAction();
+    {
         for(SwPaM& rPaM : GetCursor()->GetRingContainer())
         {
             pFormat = GetDoc()->getIDocumentContentOperations().InsertEmbObject(
                             rPaM, xObj, pFlyAttrSet );
             OSL_ENSURE(pFormat, "IDocumentContentOperations::InsertEmbObject failed.");
         }
+    }
     EndAllAction();
 
     if( pFormat )
@@ -1204,20 +1205,19 @@ void SwFEShell::SetFrameFormat( SwFrameFormat *pNewFormat, bool bKeepOrient, Poi
         SwFlyFrameFormat* pFlyFormat = pFly->GetFormat();
         const Point aPt( pFly->getFrameArea().Pos() );
 
-        SfxItemSet* pSet = nullptr;
+        std::unique_ptr<SfxItemSet> pSet;
         const SfxPoolItem* pItem;
         if( SfxItemState::SET == pNewFormat->GetItemState( RES_ANCHOR, false, &pItem ))
         {
-            pSet = new SfxItemSet( GetDoc()->GetAttrPool(), aFrameFormatSetRange );
+            pSet.reset(new SfxItemSet( GetDoc()->GetAttrPool(), aFrameFormatSetRange ));
             pSet->Put( *pItem );
             if( !sw_ChkAndSetNewAnchor( *pFly, *pSet ))
             {
-                delete pSet;
-                pSet = nullptr;
+                pSet.reset();
             }
         }
 
-        if( GetDoc()->SetFrameFormatToFly( *pFlyFormat, *pNewFormat, pSet, bKeepOrient ))
+        if( GetDoc()->SetFrameFormatToFly( *pFlyFormat, *pNewFormat, pSet.get(), bKeepOrient ))
         {
             SwFlyFrame* pFrame = pFlyFormat->GetFrame( &aPt );
             if( pFrame )
@@ -1225,7 +1225,7 @@ void SwFEShell::SetFrameFormat( SwFrameFormat *pNewFormat, bool bKeepOrient, Poi
             else
                 GetLayout()->SetAssertFlyPages();
         }
-        delete pSet;
+        pSet.reset();
 
         EndAllActionAndCall();
     }
@@ -1304,7 +1304,7 @@ Size SwFEShell::RequestObjectResize( const SwRect &rRect, const uno::Reference <
     // SwWrtShell::CalcAndSetScale()
     if ( rRect.SSize() != pFly->getFramePrintArea().SSize() && !bSizeProt )
     {
-         Size aSz( rRect.SSize() );
+        Size aSz( rRect.SSize() );
 
         //JP 28.02.2001: Task 74707 - ask for fly in fly with automatic size
 

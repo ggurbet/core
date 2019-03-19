@@ -349,10 +349,8 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/ifc/drawing/_XConnectorShape \
     qadevOOo/tests/java/ifc/drawing/_XControlShape \
     qadevOOo/tests/java/ifc/drawing/_XDrawPageDuplicator \
-    qadevOOo/tests/java/ifc/drawing/_XDrawPageExpander \
     qadevOOo/tests/java/ifc/drawing/_XDrawPages \
     qadevOOo/tests/java/ifc/drawing/_XDrawPagesSupplier \
-    qadevOOo/tests/java/ifc/drawing/_XDrawPageSummarizer \
     qadevOOo/tests/java/ifc/drawing/_XDrawPageSupplier \
     qadevOOo/tests/java/ifc/drawing/_XDrawView \
     qadevOOo/tests/java/ifc/drawing/_XGluePointsSupplier \
@@ -589,7 +587,6 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/ifc/table/_XAutoFormattable \
     qadevOOo/tests/java/ifc/table/_XCellRange \
     qadevOOo/tests/java/ifc/table/_XTableChart \
-    qadevOOo/tests/java/ifc/table/_XTableCharts \
     qadevOOo/tests/java/ifc/table/_XTableColumns \
     qadevOOo/tests/java/ifc/table/_XTableRows \
     qadevOOo/tests/java/ifc/task/_XInteractionHandler \
@@ -950,13 +947,10 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScAccessiblePreviewHeaderCell \
     qadevOOo/tests/java/mod/_sc/ScAccessiblePreviewTable \
     qadevOOo/tests/java/mod/_sc/ScAccessibleSpreadsheet \
-    qadevOOo/tests/java/mod/_sc/ScAnnotationObj \
     qadevOOo/tests/java/mod/_sc/ScAnnotationShapeObj \
     qadevOOo/tests/java/mod/_sc/ScAnnotationTextCursor \
-    qadevOOo/tests/java/mod/_sc/ScAreaLinkObj \
     qadevOOo/tests/java/mod/_sc/ScAutoFormatFieldObj \
     qadevOOo/tests/java/mod/_sc/ScAutoFormatObj \
-    qadevOOo/tests/java/mod/_sc/ScAutoFormatsObj \
     qadevOOo/tests/java/mod/_sc/ScCellCursorObj \
     qadevOOo/tests/java/mod/_sc/ScCellFieldObj \
     qadevOOo/tests/java/mod/_sc/ScCellObj \
@@ -964,46 +958,23 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScCellRangesObj \
     qadevOOo/tests/java/mod/_sc/ScCellSearchObj \
     qadevOOo/tests/java/mod/_sc/ScCellTextCursor \
-    qadevOOo/tests/java/mod/_sc/ScChartObj \
-    qadevOOo/tests/java/mod/_sc/ScChartsObj \
     qadevOOo/tests/java/mod/_sc/ScDatabaseRangeObj \
-    qadevOOo/tests/java/mod/_sc/ScDatabaseRangesObj \
-    qadevOOo/tests/java/mod/_sc/ScDataPilotFieldGroupItemObj \
-    qadevOOo/tests/java/mod/_sc/ScDataPilotFieldGroupObj \
-    qadevOOo/tests/java/mod/_sc/ScDataPilotFieldGroupsObj \
-    qadevOOo/tests/java/mod/_sc/ScDataPilotFieldObj \
-    qadevOOo/tests/java/mod/_sc/ScDataPilotFieldsObj \
     qadevOOo/tests/java/mod/_sc/ScDataPilotItemObj \
-    qadevOOo/tests/java/mod/_sc/ScDataPilotItemsObj \
-    qadevOOo/tests/java/mod/_sc/ScDataPilotTablesObj \
-    qadevOOo/tests/java/mod/_sc/ScDDELinksObj \
     qadevOOo/tests/java/mod/_sc/ScDocumentConfiguration \
     qadevOOo/tests/java/mod/_sc/ScDrawPageObj \
-    qadevOOo/tests/java/mod/_sc/ScDrawPagesObj \
-    qadevOOo/tests/java/mod/_sc/ScFilterDescriptorBase \
-    qadevOOo/tests/java/mod/_sc/ScFunctionListObj \
     qadevOOo/tests/java/mod/_sc/ScHeaderFieldObj \
     qadevOOo/tests/java/mod/_sc/ScHeaderFieldsObj \
     qadevOOo/tests/java/mod/_sc/ScHeaderFooterTextCursor \
     qadevOOo/tests/java/mod/_sc/ScHeaderFooterTextObj \
     qadevOOo/tests/java/mod/_sc/ScModelObj \
-    qadevOOo/tests/java/mod/_sc/ScNamedRangesObj \
     qadevOOo/tests/java/mod/_sc/ScShapeObj \
     qadevOOo/tests/java/mod/_sc/ScSheetLinkObj \
-    qadevOOo/tests/java/mod/_sc/ScSheetLinksObj \
-    qadevOOo/tests/java/mod/_sc/ScSpreadsheetSettings \
-    qadevOOo/tests/java/mod/_sc/ScSpreadsheetSettingsObj \
-    qadevOOo/tests/java/mod/_sc/ScStyleFamiliesObj \
-    qadevOOo/tests/java/mod/_sc/ScStyleFamilyObj \
     qadevOOo/tests/java/mod/_sc/ScStyleObj \
     qadevOOo/tests/java/mod/_sc/ScSubTotalDescriptorBase \
     qadevOOo/tests/java/mod/_sc/ScTableColumnObj \
-    qadevOOo/tests/java/mod/_sc/ScTableColumnsObj \
-    qadevOOo/tests/java/mod/_sc/ScTableConditionalFormat \
     qadevOOo/tests/java/mod/_sc/ScTableRowObj \
     qadevOOo/tests/java/mod/_sc/ScTableSheetObj \
     qadevOOo/tests/java/mod/_sc/ScTableSheetsObj \
-    qadevOOo/tests/java/mod/_sc/ScTableValidationObj \
     qadevOOo/tests/java/mod/_sc/ScTabViewObj \
     qadevOOo/tests/java/mod/_sc/ScViewPaneObj \
     qadevOOo/tests/java/mod/_sc/XMLContentExporter \

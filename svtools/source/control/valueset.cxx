@@ -20,11 +20,13 @@
 #include <tools/debug.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/decoview.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/virdev.hxx>
 
 #include <com/sun/star/accessibility/AccessibleEventObject.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
@@ -2545,7 +2547,7 @@ bool SvtValueSet::KeyInput( const KeyEvent& rKeyEvent )
     }
 
     if ( nItemPos == VALUESET_ITEM_NOTFOUND )
-        return false;
+        return true;
 
     if ( nItemPos!=VALUESET_ITEM_NONEITEM && nItemPos<nLastItem )
     {
@@ -2586,7 +2588,7 @@ void SvtValueSet::ImplTracking(const Point& rPos)
     }
 }
 
-void SvtValueSet::MouseButtonDown( const MouseEvent& rMouseEvent )
+bool SvtValueSet::MouseButtonDown( const MouseEvent& rMouseEvent )
 {
     if ( rMouseEvent.IsLeft() )
     {
@@ -2603,19 +2605,19 @@ void SvtValueSet::MouseButtonDown( const MouseEvent& rMouseEvent )
             else if ( rMouseEvent.GetClicks() == 2 )
                 maDoubleClickHdl.Call( this );
 
-            return;
+            return true;
         }
     }
 
-    CustomWidgetController::MouseButtonDown( rMouseEvent );
+    return CustomWidgetController::MouseButtonDown( rMouseEvent );
 }
 
-void SvtValueSet::MouseMove(const MouseEvent& rMouseEvent)
+bool SvtValueSet::MouseMove(const MouseEvent& rMouseEvent)
 {
     // because of SelectionMode
     if ((GetStyle() & WB_MENUSTYLEVALUESET) || (GetStyle() & WB_FLATVALUESET))
         ImplTracking(rMouseEvent.GetPosPixel());
-    CustomWidgetController::MouseMove(rMouseEvent);
+    return CustomWidgetController::MouseMove(rMouseEvent);
 }
 
 void SvtValueSet::RemoveItem( sal_uInt16 nItemId )
@@ -2745,7 +2747,7 @@ void SvtValueSet::ImplDraw(vcl::RenderContext& rRenderContext)
     Point aDefPos;
     Size aSize = maVirDev->GetOutputSizePixel();
 
-    rRenderContext.DrawOutDev(aDefPos, aSize, aDefPos, aSize, *maVirDev.get());
+    rRenderContext.DrawOutDev(aDefPos, aSize, aDefPos, aSize, *maVirDev);
 
     // draw parting line to the Namefield
     if (GetStyle() & WB_NAMEFIELD)
@@ -3803,6 +3805,38 @@ void SvtValueSet::SetExtraSpacing( sal_uInt16 nNewSpacing )
 void SvtValueSet::SetFormat()
 {
     mbFormat = true;
+}
+
+void SvtValueSet::SetItemData( sal_uInt16 nItemId, void* pData )
+{
+    size_t nPos = GetItemPos( nItemId );
+
+    if ( nPos == VALUESET_ITEM_NOTFOUND )
+        return;
+
+    SvtValueSetItem* pItem = mItemList[nPos].get();
+    pItem->mpData = pData;
+
+    if ( pItem->meType == VALUESETITEM_USERDRAW )
+    {
+        if ( !mbFormat && IsReallyVisible() && IsUpdateMode() )
+        {
+            const tools::Rectangle aRect = ImplGetItemRect(nPos);
+            Invalidate(aRect);
+        }
+        else
+            mbFormat = true;
+    }
+}
+
+void* SvtValueSet::GetItemData( sal_uInt16 nItemId ) const
+{
+    size_t nPos = GetItemPos( nItemId );
+
+    if ( nPos != VALUESET_ITEM_NOTFOUND )
+        return mItemList[nPos]->mpData;
+    else
+        return nullptr;
 }
 
 void SvtValueSet::SetItemText(sal_uInt16 nItemId, const OUString& rText)

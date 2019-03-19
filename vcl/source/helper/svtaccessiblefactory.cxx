@@ -23,9 +23,11 @@
 #include <vcl/accessiblefactory.hxx>
 
 #include <tools/svlibrary.h>
+#include <tools/debug.hxx>
 
 #include <osl/module.h>
 #include <osl/diagnose.h>
+#include <rtl/ref.hxx>
 
 namespace vcl
 {

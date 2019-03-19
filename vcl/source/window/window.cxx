@@ -44,6 +44,7 @@
 #include <vcl/virdev.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/sysdata.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <vcl/IDialogRenderable.hxx>
 
 #include <vcl/uitest/uiobject.hxx>
@@ -69,6 +70,7 @@
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <unotools/configmgr.hxx>
+#include <tools/debug.hxx>
 
 #include <cassert>
 #include <set>
@@ -611,6 +613,7 @@ WindowImpl::WindowImpl( WindowType nType )
     mnEventListenersIteratingCount = 0;
     mnChildEventListenersIteratingCount = 0;
     mpCursor                            = nullptr;                      // cursor
+    maPointer                           = PointerStyle::Arrow;
     mpVCLXWindow                        = nullptr;
     mpAccessibleInfos                   = nullptr;
     maControlForeground                 = COL_TRANSPARENT;  // no foreground set
@@ -914,7 +917,7 @@ static sal_Int32 CountDPIScaleFactor(sal_Int32 nDPI)
     // insult to an injury, the system is constantly lying to us about
     // the DPI and whatnot
     // eg. fdo#77059 - set the value from which we do consider the
-    // screen hi-dpi to greater than 168
+    // screen HiDPI to greater than 168
     if (nDPI > 216)      // 96 * 2   + 96 / 4
         return 250;
     else if (nDPI > 168) // 96 * 2   - 96 / 4
@@ -1126,7 +1129,7 @@ void Window::ImplInit( vcl::Window* pParent, WinBits nStyle, SystemParentData* p
 
     }
 
-    // setup the scale factor for Hi-DPI displays
+    // setup the scale factor for HiDPI displays
     mnDPIScalePercentage = CountDPIScaleFactor(mpWindowImpl->mpFrameData->mnDPIY);
     mnDPIX = mpWindowImpl->mpFrameData->mnDPIX;
     mnDPIY = mpWindowImpl->mpFrameData->mnDPIY;
@@ -1309,7 +1312,7 @@ void Window::ImplInitResolutionSettings()
         mnDPIX = mpWindowImpl->mpFrameData->mnDPIX;
         mnDPIY = mpWindowImpl->mpFrameData->mnDPIY;
 
-        // setup the scale factor for Hi-DPI displays
+        // setup the scale factor for HiDPI displays
         mnDPIScalePercentage = CountDPIScaleFactor(mpWindowImpl->mpFrameData->mnDPIY);
         const StyleSettings& rStyleSettings = mxSettings->GetStyleSettings();
         SetPointFont(*this, rStyleSettings.GetAppFont());
@@ -1740,7 +1743,6 @@ void Window::ImplNewInputContext()
         if ( pFontInstance )
             aNewContext.mpFont = pFontInstance;
     }
-    aNewContext.meLanguage  = rFont.GetLanguage();
     aNewContext.mnOptions   = rInputContext.GetOptions();
     pFocusWin->ImplGetFrame()->SetInputContext( &aNewContext );
 }
@@ -1820,7 +1822,10 @@ void Window::LoseFocus()
 
 void Window::SetHelpHdl(const Link<vcl::Window&, bool>& rLink)
 {
-    mpWindowImpl->maHelpRequestHdl = rLink;
+    if (mpWindowImpl) // may be called after dispose
+    {
+        mpWindowImpl->maHelpRequestHdl = rLink;
+    }
 }
 
 void Window::RequestHelp( const HelpEvent& rHEvt )
@@ -1855,10 +1860,7 @@ void Window::RequestHelp( const HelpEvent& rHEvt )
             if ( ImplGetParent() && !ImplIsOverlapWindow() )
                 aPos = OutputToScreenPixel(Point(0, 0));
             tools::Rectangle   aRect( aPos, GetSizePixel() );
-            OUString      aHelpText;
-            if ( !rStr.isEmpty() )
-                aHelpText = GetHelpText();
-            Help::ShowQuickHelp( this, aRect, rStr, aHelpText, QuickHelpFlags::CtrlText );
+            Help::ShowQuickHelp( this, aRect, rStr, QuickHelpFlags::CtrlText );
         }
     }
     else if (!mpWindowImpl->maHelpRequestHdl.IsSet() || mpWindowImpl->maHelpRequestHdl.Call(*this))
@@ -3645,8 +3647,8 @@ Reference< css::rendering::XCanvas > Window::ImplGetCanvas( bool bSpriteCanvas )
 
         }
         else
-        {
 #endif
+        {
             xCanvas.set( xCanvasFactory->createInstanceWithArgumentsAndContext(
                              bSpriteCanvas ?
                              OUString( "com.sun.star.rendering.SpriteCanvas" ) :
@@ -3655,9 +3657,7 @@ Reference< css::rendering::XCanvas > Window::ImplGetCanvas( bool bSpriteCanvas )
                              xContext ),
                          UNO_QUERY );
 
-#ifdef _WIN32
         }
-#endif
         mpWindowImpl->mxCanvas = xCanvas;
     }
 

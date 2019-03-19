@@ -82,6 +82,7 @@
 #include <basic/sbstar.hxx>
 #include <basic/sbuno.hxx>
 #include <basic/sbmeth.hxx>
+#include <basic/sberrors.hxx>
 
 #include <convuno.hxx>
 #include <cellsuno.hxx>
@@ -298,28 +299,28 @@ ScVbaApplication::getSelection()
     // if ScVbaShape::getType( xShape ) == office::MsoShapeType::msoAutoShape
     // and the uno object implements the com.sun.star.drawing.Text service
     // return a textboxshape object
-    sal_Int32 nType = ScVbaShape::getType( xShape );
-    if ( nType == office::MsoShapeType::msoAutoShape )
-    {
-        // TODO Oval with text box
-        if( ScVbaShape::getAutoShapeType( xShape ) == office::MsoAutoShapeType::msoShapeOval )
+        sal_Int32 nType = ScVbaShape::getType( xShape );
+        if ( nType == office::MsoShapeType::msoAutoShape )
         {
-            return uno::makeAny( uno::Reference< msforms::XOval >(new ScVbaOvalShape( mxContext, xShape, xShapes, xModel ) ) );
-        }
+            // TODO Oval with text box
+            if( ScVbaShape::getAutoShapeType( xShape ) == office::MsoAutoShapeType::msoShapeOval )
+            {
+                return uno::makeAny( uno::Reference< msforms::XOval >(new ScVbaOvalShape( mxContext, xShape, xShapes, xModel ) ) );
+            }
 
 
-        uno::Reference< lang::XServiceInfo > xShapeServiceInfo( xShape, uno::UNO_QUERY_THROW );
-        if ( xShapeServiceInfo->supportsService("com.sun.star.drawing.Text")  )
-        {
-                return uno::makeAny( uno::Reference< msforms::XTextBoxShape >(
-                            new ScVbaTextBoxShape( mxContext, xShape, xShapes, xModel ) ) );
+            uno::Reference< lang::XServiceInfo > xShapeServiceInfo( xShape, uno::UNO_QUERY_THROW );
+            if ( xShapeServiceInfo->supportsService("com.sun.star.drawing.Text")  )
+            {
+                    return uno::makeAny( uno::Reference< msforms::XTextBoxShape >(
+                                new ScVbaTextBoxShape( mxContext, xShape, xShapes, xModel ) ) );
+            }
         }
-    }
-    else if ( nType == office::MsoShapeType::msoLine )
-    {
-        return uno::makeAny( uno::Reference< msforms::XLine >( new ScVbaLineShape(
-                        mxContext, xShape, xShapes, xModel ) ) );
-    }
+        else if ( nType == office::MsoShapeType::msoLine )
+        {
+            return uno::makeAny( uno::Reference< msforms::XLine >( new ScVbaLineShape(
+                            mxContext, xShape, xShapes, xModel ) ) );
+        }
         return uno::makeAny( uno::Reference< msforms::XShape >(new ScVbaShape( this, mxContext, xShape, xShapes, xModel, ScVbaShape::getType( xShape ) ) ) );
     }
     else if( xServiceInfo->supportsService("com.sun.star.sheet.SheetCellRange") ||
@@ -373,9 +374,11 @@ ScVbaApplication::FileDialog( const uno::Any& DialogType )
     sal_Int32 nType = 0;
     DialogType >>= nType;
 
-    m_nDialogType = nType;
     if( !m_xFileDialog || nType != m_nDialogType )
+    {
+        m_nDialogType = nType;
         m_xFileDialog = uno::Reference<excel::XFileDialog> ( new ScVbaFileDialog( this, mxContext, nType ));
+    }
     return uno::Any( m_xFileDialog );
 }
 
@@ -715,27 +718,26 @@ ScVbaApplication::setCursor( sal_Int32 _cursor )
 {
     try
     {
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
+        uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
         switch( _cursor )
         {
             case excel::XlMousePointer::xlNorthwestArrow:
             {
-                const Pointer& rPointer( PointerStyle::Arrow );
-                setCursorHelper( xModel, rPointer, false );
+                PointerStyle nPointer( PointerStyle::Arrow );
+                setCursorHelper( xModel, nPointer, false );
                 break;
             }
             case excel::XlMousePointer::xlWait:
             case excel::XlMousePointer::xlIBeam:
             {
-                const Pointer& rPointer( static_cast< PointerStyle >( _cursor ) );
+                PointerStyle nPointer( static_cast< PointerStyle >( _cursor ) );
                 //It will set the edit window, toobar and statusbar's mouse pointer.
-                setCursorHelper( xModel, rPointer, true );
+                setCursorHelper( xModel, nPointer, true );
                 break;
             }
             case excel::XlMousePointer::xlDefault:
             {
-                const Pointer& rPointer( PointerStyle::Null );
-                setCursorHelper( xModel, rPointer, false );
+                setCursorHelper( xModel, PointerStyle::Null, false );
                 break;
             }
             default:
@@ -928,7 +930,7 @@ OUString ScVbaApplication::getOfficePath( const OUString& _sPathType )
     try
     {
         OUString sUrl;
-         xProps->getPropertyValue( _sPathType ) >>= sUrl;
+        xProps->getPropertyValue( _sPathType ) >>= sUrl;
 
         // if it's a list of paths then use the last one
         sal_Int32 nIndex =  sUrl.lastIndexOf( ';' ) ;
@@ -1124,19 +1126,19 @@ void lclIntersectRanges( ListOfScRange& rList, const uno::Any& rArg )
         // join ranges from passed argument
         lclJoinRanges( aList2 );
         // calculate intersection of the ranges in both lists
-        for( ListOfScRange::const_iterator aOuterIt = aList1.begin(), aOuterEnd = aList1.end(); aOuterIt != aOuterEnd; ++aOuterIt )
+        for( const auto& rOuterItem : aList1 )
         {
-            for( ListOfScRange::const_iterator aInnerIt = aList2.begin(), aInnerEnd = aList2.end(); aInnerIt != aInnerEnd; ++aInnerIt )
+            for( const auto& rInnerItem : aList2 )
             {
-                if( aOuterIt->Intersects( *aInnerIt ) )
+                if( rOuterItem.Intersects( rInnerItem ) )
                 {
                     ScRange aIsectRange(
-                        std::max( aOuterIt->aStart.Col(), aInnerIt->aStart.Col() ),
-                        std::max( aOuterIt->aStart.Row(), aInnerIt->aStart.Row() ),
-                        std::max( aOuterIt->aStart.Tab(), aInnerIt->aStart.Tab() ),
-                        std::min( aOuterIt->aEnd.Col(),   aInnerIt->aEnd.Col() ),
-                        std::min( aOuterIt->aEnd.Row(),   aInnerIt->aEnd.Row() ),
-                        std::min( aOuterIt->aEnd.Tab(),   aInnerIt->aEnd.Tab() ) );
+                        std::max( rOuterItem.aStart.Col(), rInnerItem.aStart.Col() ),
+                        std::max( rOuterItem.aStart.Row(), rInnerItem.aStart.Row() ),
+                        std::max( rOuterItem.aStart.Tab(), rInnerItem.aStart.Tab() ),
+                        std::min( rOuterItem.aEnd.Col(),   rInnerItem.aEnd.Col() ),
+                        std::min( rOuterItem.aEnd.Row(),   rInnerItem.aEnd.Row() ),
+                        std::min( rOuterItem.aEnd.Tab(),   rInnerItem.aEnd.Tab() ) );
                     rList.push_back( aIsectRange );
                 }
             }
@@ -1159,8 +1161,8 @@ uno::Reference< excel::XRange > lclCreateVbaRange(
     if( !pDocShell ) throw uno::RuntimeException();
 
     ScRangeList aCellRanges;
-    for( ListOfScRange::const_iterator aIt = rList.begin(), aEnd = rList.end(); aIt != aEnd; ++aIt )
-        aCellRanges.push_back( *aIt );
+    for( const auto& rItem : rList )
+        aCellRanges.push_back( rItem );
 
     if( aCellRanges.size() == 1 )
     {

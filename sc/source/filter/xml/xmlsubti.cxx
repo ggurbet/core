@@ -18,29 +18,22 @@
  */
 
 #include "xmlsubti.hxx"
-#include <global.hxx>
 #include "xmlstyli.hxx"
 #include "xmlimprt.hxx"
 #include <document.hxx>
-#include <markdata.hxx>
 #include "XMLConverter.hxx"
 #include <docuno.hxx>
-#include <cellsuno.hxx>
 #include "XMLStylesImportHelper.hxx"
 #include <sheetdata.hxx>
 #include <tabprotection.hxx>
 #include <tokenarray.hxx>
-#include <convuno.hxx>
 #include <documentimport.hxx>
 
-#include <svx/svdpage.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
-#include <sax/tools/converter.hxx>
-#include <xmloff/xmltkmap.hxx>
-#include <xmloff/nmspmap.hxx>
-#include <xmloff/xmlerror.hxx>
 #include <comphelper/base64.hxx>
+#include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 
@@ -250,12 +243,12 @@ uno::Reference< drawing::XShapes > const & ScMyTables::GetCurrentXShapes()
 
 bool ScMyTables::HasDrawPage()
 {
-    return !((maCurrentCellPos.Tab() != nCurrentDrawPage) || !xDrawPage.is());
+    return (maCurrentCellPos.Tab() == nCurrentDrawPage) && xDrawPage.is();
 }
 
 bool ScMyTables::HasXShapes()
 {
-    return !((maCurrentCellPos.Tab() != nCurrentXShapes) || !xShapes.is());
+    return (maCurrentCellPos.Tab() == nCurrentXShapes) && xShapes.is();
 }
 
 void ScMyTables::AddOLE(const uno::Reference <drawing::XShape>& rShape,

@@ -91,11 +91,7 @@ protected:
         OUString         m_aFile;
         // details other config files that have this printer
         // in case of removal all have to be removed
-        std::unordered_set< OUString, OUStringHash > m_aAlternateFiles;
-        // group in m_aFile containing the printer
-        // this must be unique over all configuration files
-        // it usually should be the printer name
-        OString          m_aGroup;
+        std::unordered_set< OUString > m_aAlternateFiles;
         // the corresponding info and job data
         PrinterInfo             m_aInfo;
     };

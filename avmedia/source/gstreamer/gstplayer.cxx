@@ -227,10 +227,10 @@ void MissingPluginInstaller::detach(Player const * source) {
 void MissingPluginInstaller::processQueue() {
     assert(!queued_.empty());
     assert(currentDetails_.empty());
-    for (auto i = queued_.begin(); i != queued_.end(); ++i) {
-        reported_.insert(i->first);
-        currentDetails_.push_back(i->first);
-        currentSources_.insert(i->second.begin(), i->second.end());
+    for (const auto& rEntry : queued_) {
+        reported_.insert(rEntry.first);
+        currentDetails_.push_back(rEntry.first);
+        currentSources_.insert(rEntry.second.begin(), rEntry.second.end());
     }
     queued_.clear();
 }
@@ -487,7 +487,15 @@ GstBusSyncReply Player::processSyncMessage( GstMessage *message )
             mpXOverlay = GST_VIDEO_OVERLAY( GST_MESSAGE_SRC( message ) );
             g_object_ref( G_OBJECT ( mpXOverlay ) );
             if ( mnWindowID != 0 )
+            {
                 gst_video_overlay_set_window_handle( mpXOverlay, mnWindowID );
+#ifndef AVMEDIA_GST_0_10
+                gst_video_overlay_handle_events(mpXOverlay, 0); // Let the parent window handle events.
+                if (maArea.Width > 0 && maArea.Height > 0)
+                    gst_video_overlay_set_render_rectangle(mpXOverlay, maArea.X, maArea.Y, maArea.Width, maArea.Height);
+#endif
+            }
+
             return GST_BUS_DROP;
         }
     }
@@ -735,7 +743,7 @@ double SAL_CALL Player::getDuration()
     ::osl::MutexGuard aGuard(m_aMutex);
 
     // slideshow checks for non-zero duration, so cheat here
-    double duration = 0.01;
+    double duration = 0.3;
 
     if( mpPlaybin && mnDuration > 0 ) {
         duration = mnDuration / GST_SECOND;
@@ -894,7 +902,12 @@ uno::Reference< ::media::XPlayerWindow > SAL_CALL Player::createPlayerWindow( co
     ::osl::MutexGuard aGuard(m_aMutex);
 
     uno::Reference< ::media::XPlayerWindow >    xRet;
-    awt::Size                                   aSize( getPreferredPlayerWindowSize() );
+    awt::Size                                   aSize;
+
+    if (rArguments.getLength() > 1 && (rArguments[1] >>= maArea))
+        aSize = awt::Size(maArea.Width, maArea.Height);
+    else
+        aSize = getPreferredPlayerWindowSize();
 
     if( mbFakeVideo )
         preparePlaybin( maURL, nullptr );
@@ -912,6 +925,14 @@ uno::Reference< ::media::XPlayerWindow > SAL_CALL Player::createPlayerWindow( co
             sal_IntPtr pIntPtr = 0;
             rArguments[ 2 ] >>= pIntPtr;
             SystemChildWindow *pParentWindow = reinterpret_cast< SystemChildWindow* >( pIntPtr );
+
+            if (pParentWindow)
+            {
+                Point aPoint = pParentWindow->GetPosPixel();
+                maArea.X = aPoint.getX();
+                maArea.Y = aPoint.getY();
+            }
+
             const SystemEnvData* pEnvData = pParentWindow ? pParentWindow->GetSystemData() : nullptr;
             OSL_ASSERT(pEnvData);
             if (pEnvData)

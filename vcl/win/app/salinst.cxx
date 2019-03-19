@@ -24,6 +24,7 @@
 #include <osl/conditn.hxx>
 #include <osl/file.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 #include <tools/time.hxx>
 #include <comphelper/solarmutex.hxx>
 #include <o3tl/char16_t2wchar_t.hxx>
@@ -387,7 +388,7 @@ VCLPLUG_WIN_PUBLIC SalInstance* create_SalInstance()
 }
 
 WinSalInstance::WinSalInstance()
-    : SalInstance(o3tl::make_unique<SalYieldMutex>())
+    : SalInstance(std::make_unique<SalYieldMutex>())
     , mhInst( nullptr )
     , mhComWnd( nullptr )
     , m_nNoYieldLock( 0 )

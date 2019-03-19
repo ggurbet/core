@@ -96,11 +96,11 @@ static TextFrameIndex lcl_AddSpace(const SwTextSizeInfo &rInf,
 
         if (!MsLangId::isKorean(aLang))
         {
-            const SwLinePortion* pPor = rPor.GetPortion();
+            const SwLinePortion* pPor = rPor.GetNextPortion();
             if ( pPor && ( pPor->IsKernPortion() ||
                            pPor->IsControlCharPortion() ||
                            pPor->IsPostItsPortion() ) )
-                pPor = pPor->GetPortion();
+                pPor = pPor->GetNextPortion();
 
             nCnt += SwScriptInfo::CountCJKCharacters( *pStr, nPos, nEnd, aLang );
 
@@ -136,11 +136,11 @@ static TextFrameIndex lcl_AddSpace(const SwTextSizeInfo &rInf,
         {
             nCnt = SwScriptInfo::ThaiJustify( *pStr, nullptr, nullptr, nPos, nEnd - nPos );
 
-            const SwLinePortion* pPor = rPor.GetPortion();
+            const SwLinePortion* pPor = rPor.GetNextPortion();
             if ( pPor && ( pPor->IsKernPortion() ||
                            pPor->IsControlCharPortion() ||
                            pPor->IsPostItsPortion() ) )
-                pPor = pPor->GetPortion();
+                pPor = pPor->GetNextPortion();
 
             if ( nCnt && ( ! pPor || pPor->IsHolePortion() || pPor->InFixMargGrp() ) )
                 --nCnt;
@@ -177,9 +177,9 @@ static TextFrameIndex lcl_AddSpace(const SwTextSizeInfo &rInf,
     if (nPos < TextFrameIndex(rInf.GetText().getLength()))
     {
         sal_uInt8 nNextScript = 0;
-        const SwLinePortion* pPor = rPor.GetPortion();
+        const SwLinePortion* pPor = rPor.GetNextPortion();
         if ( pPor && pPor->IsKernPortion() )
-            pPor = pPor->GetPortion();
+            pPor = pPor->GetNextPortion();
 
         if (!pPor || pPor->InFixMargGrp())
             return nCnt;
@@ -217,7 +217,7 @@ SwTextPortion * SwTextPortion::CopyLinePortion(const SwLinePortion &rPortion)
 {
     SwTextPortion *const pNew(new SwTextPortion);
     static_cast<SwLinePortion&>(*pNew) = rPortion;
-    pNew->SetWhichPor( POR_TXT ); // overwrite that!
+    pNew->SetWhichPor( PortionType::Text ); // overwrite that!
     return pNew;
 }
 
@@ -448,7 +448,7 @@ bool SwTextPortion::Format( SwTextFormatInfo &rInf )
         Width( 0 );
         SetLen( TextFrameIndex(0) );
         SetAscent( 0 );
-        SetPortion( nullptr );  // ????
+        SetNextPortion( nullptr );  // ????
         return true;
     }
 
@@ -470,8 +470,8 @@ bool SwTextPortion::Format( SwTextFormatInfo &rInf )
 void SwTextPortion::FormatEOL( SwTextFormatInfo &rInf )
 {
     if( !(
-        ( !GetPortion() || ( GetPortion()->IsKernPortion() &&
-          !GetPortion()->GetPortion() ) ) &&
+        ( !GetNextPortion() || ( GetNextPortion()->IsKernPortion() &&
+          !GetNextPortion()->GetNextPortion() ) ) &&
         GetLen() &&
         rInf.GetIdx() < TextFrameIndex(rInf.GetText().getLength()) &&
         TextFrameIndex(1) < rInf.GetIdx() &&
@@ -548,8 +548,8 @@ void SwTextPortion::Paint( const SwTextPaintInfo &rInf ) const
         rInf.DrawBorder( *this );
 
         // do we have to repaint a post it portion?
-        if( rInf.OnWin() && pPortion && !pPortion->Width() )
-            pPortion->PrePaint( rInf, this );
+        if( rInf.OnWin() && mpNextPortion && !mpNextPortion->Width() )
+            mpNextPortion->PrePaint( rInf, this );
 
         auto const* pWrongList = rInf.GetpWrongList();
         auto const* pGrammarCheckList = rInf.GetGrammarCheckList();
@@ -652,13 +652,13 @@ long SwTextPortion::CalcSpacing( long nSpaceAdd, const SwTextSizeInfo &rInf ) co
         {
             nSpaceAdd = -nSpaceAdd;
             nCnt = GetLen();
-            SwLinePortion* pPor = GetPortion();
+            SwLinePortion* pPor = GetNextPortion();
 
             // we do not want an extra space in front of margin portions
             if ( nCnt )
             {
                 while ( pPor && !pPor->Width() && ! pPor->IsHolePortion() )
-                    pPor = pPor->GetPortion();
+                    pPor = pPor->GetNextPortion();
 
                 if ( !pPor || pPor->InFixMargGrp() || pPor->IsHolePortion() )
                     --nCnt;
@@ -677,7 +677,7 @@ void SwTextPortion::HandlePortion( SwPortionHandler& rPH ) const
 SwTextInputFieldPortion::SwTextInputFieldPortion()
     : SwTextPortion()
 {
-    SetWhichPor( POR_INPUTFLD );
+    SetWhichPor( PortionType::InputField );
 }
 
 bool SwTextInputFieldPortion::Format(SwTextFormatInfo &rTextFormatInfo)
@@ -689,7 +689,7 @@ void SwTextInputFieldPortion::Paint( const SwTextPaintInfo &rInf ) const
 {
     if ( Width() )
     {
-        rInf.DrawViewOpt( *this, POR_INPUTFLD );
+        rInf.DrawViewOpt( *this, PortionType::InputField );
         SwTextSlot aPaintText( &rInf, this, true, true, OUString() );
         SwTextPortion::Paint( rInf );
     }
@@ -730,7 +730,7 @@ SwHolePortion::SwHolePortion( const SwTextPortion &rPor )
     SetLen( TextFrameIndex(1) );
     Height( rPor.Height() );
     SetAscent( rPor.GetAscent() );
-    SetWhichPor( POR_HOLE );
+    SetWhichPor( PortionType::Hole );
 }
 
 SwLinePortion *SwHolePortion::Compress() { return this; }

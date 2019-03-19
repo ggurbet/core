@@ -19,12 +19,12 @@
 
 #include <sal/config.h>
 
-#include <o3tl/make_unique.hxx>
 #include <sdr/properties/pageproperties.hxx>
 #include <svl/itemset.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdpool.hxx>
 #include <vcl/outdev.hxx>
+#include <tools/debug.hxx>
 
 
 namespace sdr
@@ -35,7 +35,7 @@ namespace sdr
         std::unique_ptr<SfxItemSet> PageProperties::CreateObjectSpecificItemSet(SfxItemPool& rPool)
         {
             // override to legally return a valid ItemSet
-            return o3tl::make_unique<SfxItemSet>(rPool);
+            return std::make_unique<SfxItemSet>(rPool);
         }
 
         PageProperties::PageProperties(SdrObject& rObj)

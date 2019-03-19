@@ -19,6 +19,7 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_HANGULHANJADLG_HXX
 #define INCLUDED_CUI_SOURCE_INC_HANGULHANJADLG_HXX
 
+#include <vcl/customweld.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/button.hxx>
 #include <vcl/lstbox.hxx>
@@ -39,23 +40,18 @@
 namespace svx
 {
 
-    class SuggestionSet : public ValueSet
+    class SuggestionSet : public SvtValueSet
     {
     public:
-        SuggestionSet( vcl::Window* pParent );
-        virtual ~SuggestionSet() override;
-        virtual void dispose() override;
+        SuggestionSet(std::unique_ptr<weld::ScrolledWindow> xScrolledWindow);
 
         virtual void    UserDraw( const UserDrawEvent& rUDEvt ) override;
-        void            ClearSet();
     };
 
-    class SuggestionDisplay : public Control
+    class SuggestionDisplay
     {
     public:
-        SuggestionDisplay( vcl::Window* pParent, WinBits nBits );
-        virtual ~SuggestionDisplay() override;
-        virtual void dispose() override;
+        SuggestionDisplay(weld::Builder& rBuilder);
 
         void DisplayListBox( bool bDisplayListBox );
 
@@ -70,89 +66,79 @@ namespace svx
         OUString GetEntry( sal_uInt16 nPos ) const;
         OUString GetSelectedEntry() const;
 
-        virtual void StateChanged( StateChangedType nStateChange ) override;
-
-        virtual void KeyInput( const KeyEvent& rKEvt ) override;
-        virtual void KeyUp( const KeyEvent& rKEvt ) override;
-        virtual void Activate() override;
-        virtual void Deactivate() override;
-        virtual void GetFocus() override;
-        virtual void LoseFocus() override;
-        virtual void Command( const CommandEvent& rCEvt ) override;
-
-        DECL_LINK( SelectSuggestionListBoxHdl, ListBox&, void );
-        DECL_LINK( SelectSuggestionValueSetHdl, ValueSet*, void );
-        void SelectSuggestionHdl(Control const *);
+        DECL_LINK( SelectSuggestionListBoxHdl, weld::TreeView&, void );
+        DECL_LINK( SelectSuggestionValueSetHdl, SvtValueSet*, void );
+        void SelectSuggestionHdl(bool bListBox);
 
         void SetHelpIds();
 
+        void set_size_request(int nWidth, int nHeight)
+        {
+            m_xValueSetWin->set_size_request(nWidth, nHeight);
+            m_xListBox->set_size_request(nWidth, nHeight);
+        }
+
     private:
         void implUpdateDisplay();
-        bool hasCurrentControl();
-        Control& implGetCurrentControl();
+        weld::Widget& implGetCurrentControl();
 
     private:
-        bool          m_bDisplayListBox;//otherwise ValueSet
-        VclPtr<SuggestionSet> m_aValueSet;
-        VclPtr<ListBox>  m_aListBox;
-
-        Link<SuggestionDisplay&,void> m_aSelectLink;
+        bool          m_bDisplayListBox; //otherwise ValueSet
         bool          m_bInSelectionUpdate;
+        Link<SuggestionDisplay&,void> m_aSelectLink;
+
+        std::unique_ptr<SuggestionSet> m_xValueSet;
+        std::unique_ptr<weld::CustomWeld> m_xValueSetWin;
+        std::unique_ptr<weld::TreeView> m_xListBox;
     };
 
     class RubyRadioButton;
 
-    class HangulHanjaConversionDialog : public  ModalDialog
+    class HangulHanjaConversionDialog : public weld::GenericDialogController
     {
     private:
-
-        VclPtr<PushButton>         m_pFind;
-        VclPtr<PushButton>         m_pIgnore;
-        VclPtr<PushButton>         m_pIgnoreAll;
-        VclPtr<PushButton>         m_pReplace;
-        VclPtr<PushButton>         m_pReplaceAll;
-        VclPtr<PushButton>         m_pOptions;
-        VclPtr<SuggestionDisplay>  m_pSuggestions;
-        VclPtr<RadioButton>        m_pSimpleConversion;
-        VclPtr<RadioButton>        m_pHangulBracketed;
-        VclPtr<RadioButton>        m_pHanjaBracketed;
-        VclPtr<Edit>               m_pWordInput;
-        VclPtr<FixedText>          m_pOriginalWord;
-        VclPtr<RubyRadioButton>    m_pHanjaAbove;
-        VclPtr<RubyRadioButton>    m_pHanjaBelow;
-        VclPtr<RubyRadioButton>    m_pHangulAbove;
-        VclPtr<RubyRadioButton>    m_pHangulBelow;
-        VclPtr<CheckBox>           m_pHangulOnly;
-        VclPtr<CheckBox>           m_pHanjaOnly;
-        VclPtr<CheckBox>           m_pReplaceByChar;
-
-        VclPtr<CheckBox>           m_pIgnoreNonPrimary;
         /** are we working for a document? This is normally true, but in case
             the user uses the "find" functionality, we switch to working
             with what the user entered, which then does not have any relation to
             the document anymore. Some functionality must be disabled then */
         bool                       m_bDocumentMode;
 
-        Link<LinkParamNone*,void>  m_aOptionsChangedLink;
-        Link<CheckBox*,void>       m_aClickByCharacterLink;
+        Link<LinkParamNone*,void> m_aOptionsChangedLink;
+        Link<weld::ToggleButton&,void> m_aClickByCharacterLink;
 
+        std::unique_ptr<weld::Button> m_xFind;
+        std::unique_ptr<weld::Button> m_xIgnore;
+        std::unique_ptr<weld::Button> m_xIgnoreAll;
+        std::unique_ptr<weld::Button> m_xReplace;
+        std::unique_ptr<weld::Button> m_xReplaceAll;
+        std::unique_ptr<weld::Button> m_xOptions;
+        std::unique_ptr<SuggestionDisplay> m_xSuggestions;
+        std::unique_ptr<weld::RadioButton> m_xSimpleConversion;
+        std::unique_ptr<weld::RadioButton> m_xHangulBracketed;
+        std::unique_ptr<weld::RadioButton> m_xHanjaBracketed;
+        std::unique_ptr<weld::Entry> m_xWordInput;
+        std::unique_ptr<weld::Label> m_xOriginalWord;
+        std::unique_ptr<RubyRadioButton> m_xHanjaAbove;
+        std::unique_ptr<RubyRadioButton> m_xHanjaBelow;
+        std::unique_ptr<RubyRadioButton> m_xHangulAbove;
+        std::unique_ptr<RubyRadioButton> m_xHangulBelow;
+        std::unique_ptr<weld::CheckButton> m_xHangulOnly;
+        std::unique_ptr<weld::CheckButton> m_xHanjaOnly;
+        std::unique_ptr<weld::CheckButton> m_xReplaceByChar;
     public:
-        HangulHanjaConversionDialog(
-                vcl::Window* _pParent,
-                editeng::HangulHanjaConversion::ConversionDirection _ePrimaryDirection );
+        HangulHanjaConversionDialog(weld::Window* pParent);
         virtual ~HangulHanjaConversionDialog() override;
-        virtual void dispose() override;
 
     public:
         void    SetOptionsChangedHdl( const Link<LinkParamNone*,void>& _rHdl );
-        void    SetIgnoreHdl( const Link<Button*,void>& _rHdl );
-        void    SetIgnoreAllHdl( const Link<Button*,void>& _rHdl );
-        void    SetChangeHdl( const Link<Button*,void>& _rHdl );
-        void    SetChangeAllHdl( const Link<Button*,void>& _rHdl );
+        void    SetIgnoreHdl( const Link<weld::Button&,void>& _rHdl );
+        void    SetIgnoreAllHdl( const Link<weld::Button&,void>& _rHdl );
+        void    SetChangeHdl( const Link<weld::Button&,void>& _rHdl );
+        void    SetChangeAllHdl( const Link<weld::Button&,void>& _rHdl );
 
-        void    SetClickByCharacterHdl( const Link<CheckBox*,void>& _rHdl );
-        void    SetConversionFormatChangedHdl( const Link<Button*,void>& _rHdl );
-        void    SetFindHdl( const Link<Button*,void>& _rHdl );
+        void    SetClickByCharacterHdl( const Link<weld::ToggleButton&,void>& _rHdl );
+        void    SetConversionFormatChangedHdl( const Link<weld::Button&,void>& _rHdl );
+        void    SetFindHdl( const Link<weld::Button&,void>& _rHdl );
 
         OUString  GetCurrentString( ) const;
         void    SetCurrentString(
@@ -183,11 +169,11 @@ namespace svx
         void            EnableRubySupport( bool bVal );
 
     private:
-        DECL_LINK( OnOption, Button*, void );
-        DECL_LINK( OnSuggestionModified, Edit&, void );
+        DECL_LINK( OnOption, weld::Button&, void );
+        DECL_LINK( OnSuggestionModified, weld::Entry&, void );
         DECL_LINK( OnSuggestionSelected, SuggestionDisplay&, void );
-        DECL_LINK( OnConversionDirectionClicked, Button*, void );
-        DECL_LINK( ClickByCharacterHdl, Button*, void );
+        DECL_LINK( OnConversionDirectionClicked, weld::ToggleButton&, void );
+        DECL_LINK( ClickByCharacterHdl, weld::ToggleButton&, void );
 
         /// fill the suggestion list box with suggestions for the actual input
         void FillSuggestions( const css::uno::Sequence< OUString >& _rSuggestions );
@@ -196,32 +182,31 @@ namespace svx
 
     typedef std::vector< css::uno::Reference< css::linguistic2::XConversionDictionary > > HHDictList;
 
-    class HangulHanjaOptionsDialog : public ModalDialog
+    class HangulHanjaOptionsDialog : public weld::GenericDialogController
     {
     private:
-        VclPtr<SvxCheckListBox>    m_pDictsLB;
-        VclPtr<CheckBox>           m_pIgnorepostCB;
-        VclPtr<CheckBox>           m_pShowrecentlyfirstCB;
-        VclPtr<CheckBox>           m_pAutoreplaceuniqueCB;
-        VclPtr<PushButton>         m_pNewPB;
-        VclPtr<PushButton>         m_pEditPB;
-        VclPtr<PushButton>         m_pDeletePB;
-        VclPtr<OKButton>           m_pOkPB;
-
         HHDictList          m_aDictList;
         css::uno::Reference< css::linguistic2::XConversionDictionaryList > m_xConversionDictionaryList;
 
-        DECL_LINK( OkHdl, Button*, void );
-        DECL_LINK( DictsLB_SelectHdl, SvTreeListBox*, void );
-        DECL_LINK( NewDictHdl, Button*, void );
-        DECL_LINK( EditDictHdl, Button*, void );
-        DECL_LINK( DeleteDictHdl, Button*, void );
+        std::unique_ptr<weld::TreeView> m_xDictsLB;
+        std::unique_ptr<weld::CheckButton> m_xIgnorepostCB;
+        std::unique_ptr<weld::CheckButton> m_xShowrecentlyfirstCB;
+        std::unique_ptr<weld::CheckButton> m_xAutoreplaceuniqueCB;
+        std::unique_ptr<weld::Button> m_xNewPB;
+        std::unique_ptr<weld::Button> m_xEditPB;
+        std::unique_ptr<weld::Button> m_xDeletePB;
+        std::unique_ptr<weld::Button> m_xOkPB;
+
+        DECL_LINK( OkHdl, weld::Button&, void );
+        DECL_LINK( DictsLB_SelectHdl, weld::TreeView&, void );
+        DECL_LINK( NewDictHdl, weld::Button&, void );
+        DECL_LINK( EditDictHdl, weld::Button&, void );
+        DECL_LINK( DeleteDictHdl, weld::Button&, void );
 
         void                Init();       ///< reads settings from core and init controls
     public:
-                            HangulHanjaOptionsDialog( vcl::Window* _pParent );
-        virtual             ~HangulHanjaOptionsDialog() override;
-        virtual void        dispose() override;
+        HangulHanjaOptionsDialog(weld::Window* pParent);
+        virtual ~HangulHanjaOptionsDialog() override;
 
         void                AddDict( const OUString& _rName, bool _bChecked );
     };
@@ -244,26 +229,31 @@ namespace svx
     };
 
     class SuggestionList;
+    class HangulHanjaEditDictDialog;
 
-    class SuggestionEdit : public Edit
+    class SuggestionEdit
     {
     private:
-        VclPtr<SuggestionEdit>     m_pPrev;
-        VclPtr<SuggestionEdit>     m_pNext;
-        VclPtr<ScrollBar>          m_pScrollBar;
+        HangulHanjaEditDictDialog* m_pParent;
+        SuggestionEdit*     m_pPrev;
+        SuggestionEdit*     m_pNext;
+        weld::ScrolledWindow* m_pScrollBar;
+        std::unique_ptr<weld::Entry> m_xEntry;
 
         bool                ShouldScroll( bool _bUp ) const;
         void                DoJump( bool _bUp );
     public:
-                            SuggestionEdit( vcl::Window* pParent, WinBits nBits );
-        virtual             ~SuggestionEdit() override;
-        virtual void        dispose() override;
-        virtual bool        PreNotify( NotifyEvent& rNEvt ) override;
-        void init( ScrollBar* pScrollBar, SuggestionEdit* pPrev, SuggestionEdit* pNext);
+        SuggestionEdit(std::unique_ptr<weld::Entry> xEntry, HangulHanjaEditDictDialog* pParent);
+        DECL_LINK(KeyInputHdl, const KeyEvent&, bool);
+        void init(weld::ScrolledWindow* pScrollBar, SuggestionEdit* pPrev, SuggestionEdit* pNext);
+
+        void grab_focus() { m_xEntry->grab_focus(); }
+        OUString get_text() const { return m_xEntry->get_text(); }
+        void set_text(const OUString& rText) { m_xEntry->set_text(rText); }
+        void connect_changed(const Link<weld::Entry&, void>& rLink) { m_xEntry->connect_changed(rLink); }
     };
 
-
-    class HangulHanjaEditDictDialog : public ModalDialog
+    class HangulHanjaEditDictDialog : public weld::GenericDialogController
     {
     private:
         const OUString  m_aEditHintText;
@@ -271,54 +261,51 @@ namespace svx
         sal_uInt32      m_nCurrentDict;
 
         OUString        m_aOriginal;
-        std::unique_ptr<SuggestionList> m_pSuggestions;
-
-        VclPtr<ListBox>        m_aBookLB;
-        VclPtr<ComboBox>       m_aOriginalLB;
-        VclPtr<SuggestionEdit> m_aEdit1;
-        VclPtr<SuggestionEdit> m_aEdit2;
-        VclPtr<SuggestionEdit> m_aEdit3;
-        VclPtr<SuggestionEdit> m_aEdit4;
-        VclPtr<ScrollBar>      m_aScrollSB;
-        VclPtr<PushButton>     m_aNewPB;
-        VclPtr<PushButton>     m_aDeletePB;
+        std::unique_ptr<SuggestionList> m_xSuggestions;
 
         sal_uInt16      m_nTopPos;
         bool            m_bModifiedSuggestions;
         bool            m_bModifiedOriginal;
 
-        DECL_LINK( OriginalModifyHdl, Edit&, void );
-        DECL_LINK( ScrollHdl, ScrollBar*, void );
-        DECL_LINK( EditModifyHdl1, Edit&, void );
-        DECL_LINK( EditModifyHdl2, Edit&, void );
-        DECL_LINK( EditModifyHdl3, Edit&, void );
-        DECL_LINK( EditModifyHdl4, Edit&, void );
+        std::unique_ptr<weld::ComboBox> m_xBookLB;
+        std::unique_ptr<weld::ComboBox> m_xOriginalLB;
+        std::unique_ptr<SuggestionEdit> m_xEdit1;
+        std::unique_ptr<SuggestionEdit> m_xEdit2;
+        std::unique_ptr<SuggestionEdit> m_xEdit3;
+        std::unique_ptr<SuggestionEdit> m_xEdit4;
+        std::unique_ptr<weld::Widget> m_xContents;
+        std::unique_ptr<weld::ScrolledWindow> m_xScrollSB;
+        std::unique_ptr<weld::Button> m_xNewPB;
+        std::unique_ptr<weld::Button> m_xDeletePB;
 
-        DECL_LINK( BookLBSelectHdl, ListBox&, void );
-        DECL_LINK( NewPBPushHdl, Button*, void );
-        DECL_LINK( DeletePBPushHdl, Button*, void );
+        DECL_LINK( OriginalModifyHdl, weld::ComboBox&, void );
+        DECL_LINK( ScrollHdl, weld::ScrolledWindow&, void );
+        DECL_LINK( EditModifyHdl1, weld::Entry&, void );
+        DECL_LINK( EditModifyHdl2, weld::Entry&, void );
+        DECL_LINK( EditModifyHdl3, weld::Entry&, void );
+        DECL_LINK( EditModifyHdl4, weld::Entry&, void );
 
-        void            InitEditDictDialog( sal_uInt32 _nSelDict );
+        DECL_LINK( BookLBSelectHdl, weld::ComboBox&, void );
+        DECL_LINK( NewPBPushHdl, weld::Button&, void );
+        DECL_LINK( DeletePBPushHdl, weld::Button&, void );
+
+        void            InitEditDictDialog(sal_uInt32 nSelDict);
         void            UpdateOriginalLB();
         void            UpdateSuggestions();
         void            UpdateButtonStates();
 
-        void            SetEditText( Edit& _rEdit, sal_uInt16 _nEntryNum );
-        void            EditModify( Edit const * _pEdit, sal_uInt8 _nEntryOffset );
+        void            SetEditText( SuggestionEdit& rEdit, sal_uInt16 nEntryNum );
+        void            EditModify( const weld::Entry* pEdit, sal_uInt8 nEntryOffset );
 
         bool            DeleteEntryFromDictionary( const css::uno::Reference< css::linguistic2::XConversionDictionary >& xDict );
 
     public:
-                        HangulHanjaEditDictDialog( vcl::Window* _pParent, HHDictList& _rDictList, sal_uInt32 _nSelDict );
-                        virtual ~HangulHanjaEditDictDialog() override;
-        virtual void    dispose() override;
+        HangulHanjaEditDictDialog(weld::Window* pParent, HHDictList& rDictList, sal_uInt32 nSelDict);
+        virtual ~HangulHanjaEditDictDialog() override;
 
         void            UpdateScrollbar();
     };
-
-
 }
-
 
 #endif // SVX_HANGUL_HANJA_HXX
 

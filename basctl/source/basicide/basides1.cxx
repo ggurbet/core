@@ -33,6 +33,7 @@
 #include <basic/sbmeth.hxx>
 #include <com/sun/star/script/ModuleType.hpp>
 #include <com/sun/star/script/XLibraryContainerPassword.hpp>
+#include <com/sun/star/script/XLibraryContainer2.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <svl/srchdefs.hxx>
 #include <sal/log.hxx>
@@ -49,6 +50,7 @@
 #include <svl/visitem.hxx>
 #include <svl/whiter.hxx>
 #include <vcl/xtextedt.hxx>
+#include <vcl/textview.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 
@@ -741,8 +743,8 @@ void Shell::ExecuteGlobal( SfxRequest& rReq )
         {
             std::shared_ptr<SfxRequest> pRequest(new SfxRequest(rReq));
             rReq.Ignore(); // the 'old' request is not relevant any more
-            auto pDlg = VclPtr<ManageLanguageDialog>::Create(pCurWin, m_pCurLocalizationMgr);
-            pDlg->StartExecuteAsync([=](sal_Int32 /*nResult*/){
+            std::shared_ptr<ManageLanguageDialog> xDlg(new ManageLanguageDialog(pCurWin ? pCurWin->GetFrameWeld() : nullptr, m_pCurLocalizationMgr));
+            weld::DialogController::runAsync(xDlg, [=](sal_Int32 /*nResult*/){
                     pRequest->Done();
                 });
         }
@@ -895,6 +897,8 @@ void Shell::GetState(SfxItemSet &rSet)
             case SID_INSERT_PATTERNFIELD:
             case SID_INSERT_FILECONTROL:
             case SID_INSERT_SPINBUTTON:
+            case SID_INSERT_GRIDCONTROL:
+            case SID_INSERT_HYPERLINKCONTROL:
             case SID_INSERT_TREECONTROL:
             case SID_INSERT_FORM_RADIO:
             case SID_INSERT_FORM_CHECK:

@@ -90,7 +90,6 @@ namespace DOM
                 Context::Namespace aNS;
                 aNS.maPrefix = prefix;
                 aNS.mnToken = aIter->second;
-                aNS.maNamespaceURL = val;
 
                 io_rContext.maNamespaces.back().push_back(aNS);
 
@@ -783,7 +782,7 @@ namespace DOM
         Reference< XDocumentEvent > docevent(getOwnerDocument(), UNO_QUERY);
         Reference< XMutationEvent > event(docevent->createEvent(
             "DOMNodeRemoved"), UNO_QUERY);
-            event->initMutationEvent("DOMNodeRemoved",
+        event->initMutationEvent("DOMNodeRemoved",
             true,
             false,
             this,

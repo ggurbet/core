@@ -239,6 +239,7 @@ DomainMapper_Impl::DomainMapper_Impl(
         m_aSmartTagHandler(m_xComponentContext, m_xTextDocument),
         m_xInsertTextRange(rMediaDesc.getUnpackedValueOrDefault("TextInsertModeRange", uno::Reference<text::XTextRange>())),
         m_bIsNewDoc(!rMediaDesc.getUnpackedValueOrDefault("InsertMode", false)),
+        m_bIsReadGlossaries(rMediaDesc.getUnpackedValueOrDefault("ReadGlossaries", false)),
         m_bInTableStyleRunProps(false),
         m_nTableDepth(0),
         m_nTableCellDepth(0),
@@ -514,6 +515,15 @@ void DomainMapper_Impl::SetParaSectpr(bool bParaSectpr)
 void DomainMapper_Impl::SetSdt(bool bSdt)
 {
     m_bSdt = bSdt;
+
+    if (m_bSdt)
+    {
+        m_xStdEntryStart = GetTopTextAppend()->getEnd();
+    }
+    else
+    {
+        m_xStdEntryStart = uno::Reference< text::XTextRange >();
+    }
 }
 
 
@@ -2006,6 +2016,12 @@ void DomainMapper_Impl::PushFootOrEndnote( bool bIsFootnote )
         m_aRedlines.push(std::vector< RedlineParamsPtr >());
 
         PropertyMapPtr pTopContext = GetTopContext();
+
+        // Remove style reference, if any. This reference did appear here as a side effect of tdf#43017
+        // Seems it is not required by LO, but causes side effects during editing. So remove it
+        // for footnotes/endnotes to restore original LO behavior here.
+        pTopContext->Erase(PROP_CHAR_STYLE_NAME);
+
         uno::Reference< text::XText > xFootnoteText;
         if (GetTextFactory().is())
             xFootnoteText.set( GetTextFactory()->createInstance(
@@ -2023,9 +2039,10 @@ void DomainMapper_Impl::PushFootOrEndnote( bool bIsFootnote )
         CheckRedline( xFootnote->getAnchor( ) );
 
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("writerfilter.dmapper", "exception in PushFootOrEndnote: " << e);
+        SAL_WARN("writerfilter.dmapper", "exception in PushFootOrEndnote: "
+            << exceptionToString( cppu::getCaughtException() ));
     }
 }
 
@@ -2273,7 +2290,7 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
             // So that the original bitmap-only shape will be replaced by the embedded object.
             m_aAnchoredStack.top().bToRemove = true;
             m_aTextAppendStack.pop();
-               appendTextContent(m_xEmbedded, uno::Sequence<beans::PropertyValue>());
+            appendTextContent(m_xEmbedded, uno::Sequence<beans::PropertyValue>());
         }
         else
         {
@@ -2804,8 +2821,7 @@ static OUString lcl_ExctractVariableAndHint( const OUString& rCommand, OUString&
         ++nIndex;
     OUString sShortCommand( rCommand.copy( nIndex ) ); //cut off the " ASK "
 
-    nIndex = 0;
-    sShortCommand = sShortCommand.getToken( 0, '\\', nIndex);
+    sShortCommand = sShortCommand.getToken(0, '\\');
     nIndex = 0;
     OUString sRet = sShortCommand.getToken( 0, ' ', nIndex);
     if( nIndex > 0)
@@ -3401,6 +3417,15 @@ void DomainMapper_Impl::handleFieldFormula
      uno::Reference< beans::XPropertySet > const& xFieldProperties)
 {
     OUString command = pContext->GetCommand().trim();
+
+    //  Remove number formatting from \# to end of command
+    //  TODO: handle custom number formatting
+    sal_Int32 delimPos = command.indexOf("\\#");
+    if (delimPos != -1)
+    {
+        command = command.replaceAt(delimPos, command.getLength() - delimPos, "").trim();
+    }
+
     // command must contains = and at least another char
     if (command.getLength() < 2)
         return;
@@ -3671,6 +3696,42 @@ static uno::Sequence< beans::PropertyValues > lcl_createTOXLevelHyperlinks( bool
     return aNewLevel;
 }
 
+/// Returns title of the TOC placed in paragraph(s) before TOC field inside STD-frame
+OUString DomainMapper_Impl::extractTocTitle()
+{
+    if (!m_xStdEntryStart.is())
+        return OUString();
+
+    uno::Reference< text::XTextAppend > xTextAppend = m_aTextAppendStack.top().xTextAppend;
+    if(!xTextAppend.is())
+        return OUString();
+
+    // try-catch was added in the same way as inside appendTextSectionAfter()
+    try
+    {
+        uno::Reference< text::XParagraphCursor > xCursor( xTextAppend->createTextCursorByRange( m_xStdEntryStart ), uno::UNO_QUERY_THROW);
+        if (!xCursor.is())
+            return OUString();
+
+        //the cursor has been moved to the end of the paragraph because of the appendTextPortion() calls
+        xCursor->gotoStartOfParagraph( false );
+        if (m_aTextAppendStack.top().xInsertPosition.is())
+            xCursor->gotoRange( m_aTextAppendStack.top().xInsertPosition, true );
+        else
+            xCursor->gotoEnd( true );
+
+        //the paragraph after this new section is already inserted
+        xCursor->goLeft(1, true);
+
+        return xCursor->getString();
+    }
+    catch(const uno::Exception&)
+    {
+    }
+
+    return OUString();
+}
+
 void DomainMapper_Impl::handleToc
     (const FieldContextPtr& pContext,
     const OUString & sTOCServiceName)
@@ -3759,8 +3820,7 @@ void DomainMapper_Impl::handleToc
 //                  \t  Builds a table of contents by using style names other than the standard outline styles
     if( lcl_FindInCommand( pContext->GetCommand(), 't', sValue ))
     {
-        sal_Int32 nPos = 0;
-        OUString sToken = sValue.getToken( 1, '"', nPos);
+        OUString sToken = sValue.getToken(1, '"');
         sTemplate = sToken.isEmpty() ? sValue : sToken;
     }
 //                  \u  Builds a table of contents by using the applied paragraph outline level
@@ -3781,25 +3841,66 @@ void DomainMapper_Impl::handleToc
         bNewLine = true ;
     }
 //                  \z Hides page numbers within the table of contents when shown in Web Layout View
-                    if( lcl_FindInCommand( pContext->GetCommand(), 'z', sValue ))
-                    {
-                        bHideTabLeaderPageNumbers = true ;
-                    }
+    if( lcl_FindInCommand( pContext->GetCommand(), 'z', sValue ))
+    {
+        bHideTabLeaderPageNumbers = true ;
+    }
 
                     //if there's no option then it should be created from outline
     if( !bFromOutline && !bFromEntries && sTemplate.isEmpty()  )
         bFromOutline = true;
 
+    const OUString aTocTitle = extractTocTitle();
 
-    if (m_xTextFactory.is())
-        xTOC.set(
-                m_xTextFactory->createInstance
-                ( bTableOfFigures ?
-                  "com.sun.star.text.IllustrationsIndex"
-                  : sTOCServiceName),
-                uno::UNO_QUERY_THROW);
+    if (m_xTextFactory.is() && ! m_aTextAppendStack.empty())
+    {
+        if (aTocTitle.isEmpty() || bTableOfFigures)
+        {
+            xTOC.set(
+                    m_xTextFactory->createInstance
+                    ( bTableOfFigures ?
+                      "com.sun.star.text.IllustrationsIndex"
+                      : sTOCServiceName),
+                    uno::UNO_QUERY_THROW);
+
+            OUString const sMarker("Y");
+            //insert index
+            uno::Reference< text::XTextContent > xToInsert( xTOC, uno::UNO_QUERY );
+            uno::Reference< text::XTextAppend >  xTextAppend = m_aTextAppendStack.top().xTextAppend;
+            if (xTextAppend.is())
+            {
+                uno::Reference< text::XTextCursor > xCrsr = xTextAppend->getText()->createTextCursor();
+                uno::Reference< text::XText > xText = xTextAppend->getText();
+                if(xCrsr.is() && xText.is())
+                {
+                    xCrsr->gotoEnd(false);
+                    xText->insertString(xCrsr, sMarker, false);
+                    xText->insertTextContent(uno::Reference< text::XTextRange >( xCrsr, uno::UNO_QUERY_THROW ), xToInsert, false);
+                    xTOCMarkerCursor = xCrsr;
+                }
+            }
+        }
+        else
+        {
+            // create TOC section
+            css::uno::Reference<css::text::XTextRange> xTextRangeEndOfTocHeader = GetTopTextAppend()->getEnd();
+            xTOC = createSectionForRange(m_xStdEntryStart, xTextRangeEndOfTocHeader, sTOCServiceName, false);
+
+            // init [xTOCMarkerCursor]
+            uno::Reference< text::XTextAppend >  xTextAppend = m_aTextAppendStack.top().xTextAppend;
+            uno::Reference< text::XText > xText = xTextAppend->getText();
+            uno::Reference< text::XTextCursor > xCrsr = xText->createTextCursor();
+            xTOCMarkerCursor = xCrsr;
+
+            // create header of the TOC with the TOC title inside
+            const OUString aObjectType("com.sun.star.text.IndexHeaderSection");
+            uno::Reference<beans::XPropertySet> xIfc = createSectionForRange(m_xStdEntryStart, xTextRangeEndOfTocHeader, aObjectType, true);
+        }
+    }
+
     if (xTOC.is())
-        xTOC->setPropertyValue(getPropertyName( PROP_TITLE ), uno::makeAny(OUString()));
+        xTOC->setPropertyValue(getPropertyName( PROP_TITLE ), uno::makeAny(aTocTitle));
+
     if (!aBookmarkName.isEmpty())
         xTOC->setPropertyValue(getPropertyName(PROP_TOC_BOOKMARK), uno::makeAny(aBookmarkName));
     if( !bTableOfFigures && xTOC.is() )
@@ -3889,27 +3990,45 @@ void DomainMapper_Impl::handleToc
     }
     pContext->SetTOC( xTOC );
     m_bParaHadField = false;
+}
 
+uno::Reference<beans::XPropertySet> DomainMapper_Impl::createSectionForRange(
+    uno::Reference< css::text::XTextRange > xStart,
+    uno::Reference< css::text::XTextRange > xEnd,
+    const OUString & sObjectType,
+    bool stepLeft)
+{
+    if (!xStart.is())
+        return uno::Reference<beans::XPropertySet>();
+    if (!xEnd.is())
+        return uno::Reference<beans::XPropertySet>();
+
+    uno::Reference< beans::XPropertySet > xRet;
     if (m_aTextAppendStack.empty())
-        return;
-
-    OUString const sMarker("Y");
-    //insert index
-    uno::Reference< text::XTextContent > xToInsert( xTOC, uno::UNO_QUERY );
+        return xRet;
     uno::Reference< text::XTextAppend >  xTextAppend = m_aTextAppendStack.top().xTextAppend;
-    if (xTextAppend.is())
+    if(xTextAppend.is())
     {
-        uno::Reference< text::XTextCursor > xCrsr = xTextAppend->getText()->createTextCursor();
-
-        uno::Reference< text::XText > xText = xTextAppend->getText();
-        if(xCrsr.is() && xText.is())
+        try
         {
-            xCrsr->gotoEnd(false);
-            xText->insertString(xCrsr, sMarker, false);
-            xText->insertTextContent(uno::Reference< text::XTextRange >( xCrsr, uno::UNO_QUERY_THROW ), xToInsert, false);
-            xTOCMarkerCursor = xCrsr;
+            uno::Reference< text::XParagraphCursor > xCursor(
+                xTextAppend->createTextCursorByRange( xStart ), uno::UNO_QUERY_THROW);
+            //the cursor has been moved to the end of the paragraph because of the appendTextPortion() calls
+            xCursor->gotoStartOfParagraph( false );
+            xCursor->gotoRange( xEnd, true );
+            //the paragraph after this new section is already inserted
+            if (stepLeft)
+                xCursor->goLeft(1, true);
+            uno::Reference< text::XTextContent > xSection( m_xTextFactory->createInstance(sObjectType), uno::UNO_QUERY_THROW );
+            xSection->attach( uno::Reference< text::XTextRange >( xCursor, uno::UNO_QUERY_THROW) );
+            xRet.set(xSection, uno::UNO_QUERY );
+        }
+        catch(const uno::Exception&)
+        {
         }
     }
+
+    return xRet;
 }
 
 void DomainMapper_Impl::handleBibliography
@@ -4226,12 +4345,9 @@ void DomainMapper_Impl::CloseFieldCommand()
                     }
                     break;
                     case FIELD_FILLIN       :
-                    {
-                        sal_Int32 nIndex = 0;
                         if (xFieldProperties.is())
                             xFieldProperties->setPropertyValue(
-                                    getPropertyName(PROP_HINT), uno::makeAny( pContext->GetCommand().getToken( 1, '\"', nIndex)));
-                    }
+                                    getPropertyName(PROP_HINT), uno::makeAny( pContext->GetCommand().getToken(1, '\"')));
                     break;
                     case FIELD_FILENAME:
                     {
@@ -4654,7 +4770,7 @@ void DomainMapper_Impl::CloseFieldCommand()
 
                         xFieldInterface = m_xTextFactory->createInstance(
                                   OUString::createFromAscii(aIt->second.cFieldServiceName));
-                                  uno::Reference< beans::XPropertySet > xTC(xFieldInterface,
+                        uno::Reference< beans::XPropertySet > xTC(xFieldInterface,
                                   uno::UNO_QUERY_THROW);
                         OUString sCmd(pContext->GetCommand());//sCmd is the entire instrText inclusing the index e.g. CITATION Kra06 \l 1033
                         if( !sCmd.isEmpty()){
@@ -4996,10 +5112,13 @@ void DomainMapper_Impl::PopFieldContext()
                         }
                         else
                         {
-                            xTOCMarkerCursor->goLeft(1,true);
-                            xTOCMarkerCursor->setString(OUString());
-                            xTOCMarkerCursor->goLeft(1,true);
-                            xTOCMarkerCursor->setString(OUString());
+                            if (!m_xStdEntryStart.is())
+                            {
+                                xTOCMarkerCursor->goLeft(1,true);
+                                xTOCMarkerCursor->setString(OUString());
+                                xTOCMarkerCursor->goLeft(1,true);
+                                xTOCMarkerCursor->setString(OUString());
+                            }
                         }
                     }
                     if (m_bStartedTOC || m_bStartIndex || m_bStartBibliography)
@@ -5691,7 +5810,9 @@ void DomainMapper_Impl::ApplySettingsTable()
                 {
                     aViewProps.emplace_back("ZoomFactor", -1, uno::makeAny(m_pSettingsTable->GetZoomFactor()), beans::PropertyState_DIRECT_VALUE);
                     aViewProps.emplace_back("VisibleBottom", -1, uno::makeAny(sal_Int32(0)), beans::PropertyState_DIRECT_VALUE);
-                    aViewProps.emplace_back("ZoomType", -1, uno::makeAny(sal_Int16(0)), beans::PropertyState_DIRECT_VALUE);
+                    aViewProps.emplace_back("ZoomType", -1,
+                                            uno::makeAny(m_pSettingsTable->GetZoomType()),
+                                            beans::PropertyState_DIRECT_VALUE);
                 }
                 uno::Reference<container::XIndexContainer> xBox = document::IndexedPropertyValues::create(m_xComponentContext);
                 xBox->insertByIndex(sal_Int32(0), uno::makeAny(comphelper::containerToSequence(aViewProps)));

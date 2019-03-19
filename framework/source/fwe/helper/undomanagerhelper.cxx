@@ -18,13 +18,16 @@
  */
 
 #include <framework/undomanagerhelper.hxx>
+#include <framework/imutex.hxx>
 
 #include <com/sun/star/document/EmptyUndoStackException.hpp>
 #include <com/sun/star/document/UndoContextNotClosedException.hpp>
 #include <com/sun/star/document/UndoFailedException.hpp>
+#include <com/sun/star/document/XUndoManager.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/util/InvalidStateException.hpp>
 #include <com/sun/star/util/NotLockedException.hpp>
+#include <com/sun/star/util/XModifyListener.hpp>
 
 #include <comphelper/interfacecontainer2.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -33,7 +36,6 @@
 #include <svl/undo.hxx>
 #include <tools/diagnose_ex.h>
 #include <osl/conditn.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <functional>
 #include <stack>
@@ -656,7 +658,7 @@ namespace framework
         const bool bHadRedoActions = ( rUndoManager.GetRedoActionCount() > 0 );
         {
             ::comphelper::FlagGuard aNotificationGuard( m_bAPIActionRunning );
-            rUndoManager.AddUndoAction( o3tl::make_unique<UndoActionWrapper>( i_action ) );
+            rUndoManager.AddUndoAction( std::make_unique<UndoActionWrapper>( i_action ) );
         }
         const bool bHasRedoActions = ( rUndoManager.GetRedoActionCount() > 0 );
 

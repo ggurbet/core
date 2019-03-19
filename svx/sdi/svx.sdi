@@ -425,6 +425,23 @@ SvxColorItem BackgroundColor SID_BACKGROUND_COLOR
     GroupId = SfxGroupId::Format;
 ]
 
+SvxColorItem TableCellBackgroundColor SID_TABLE_CELL_BACKGROUND_COLOR
+
+[
+    AutoUpdate = TRUE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+
+    AccelConfig = FALSE,
+    MenuConfig = FALSE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Format;
+]
 
 SvxBrushItem BackgroundPattern SID_ATTR_BRUSH
 
@@ -1028,7 +1045,7 @@ SfxVoidItem ChangeCaseToHiragana SID_TRANSLITERATE_HIRAGANA
 ]
 
 
-SfxVoidItem ChangeCaseToKatakana SID_TRANSLITERATE_KATAGANA
+SfxVoidItem ChangeCaseToKatakana SID_TRANSLITERATE_KATAKANA
 ()
 [
     AutoUpdate = TRUE,
@@ -1605,25 +1622,6 @@ SfxVoidItem Config SID_FM_CONFIG
     FastCall = FALSE,
     ReadOnlyDoc = FALSE,
     Toggle = FALSE,
-    Container = FALSE,
-    RecordAbsolute = FALSE,
-    RecordPerSet;
-
-
-    AccelConfig = FALSE,
-    MenuConfig = FALSE,
-    ToolBoxConfig = TRUE,
-    GroupId = SfxGroupId::Controls;
-]
-
-
-SfxBoolItem MoreControls SID_FM_MORE_CONTROLS
-
-[
-    AutoUpdate = TRUE,
-    FastCall = FALSE,
-    ReadOnlyDoc = FALSE,
-    Toggle = TRUE,
     Container = FALSE,
     RecordAbsolute = FALSE,
     RecordPerSet;
@@ -2555,7 +2553,24 @@ SfxBoolItem InsertTreeControl SID_INSERT_TREECONTROL
     GroupId = SfxGroupId::Controls;
 ]
 
+SfxBoolItem InsertHyperlinkControl SID_INSERT_HYPERLINKCONTROL
+()
+[
+    /* flags: */
+    AutoUpdate = TRUE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
 
+    /* config: */
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Controls;
+]
 
 XFillBitmapItem FillBitmap SID_ATTR_FILL_BITMAP
 
@@ -3455,7 +3470,9 @@ SfxBoolItem Freeline SID_DRAW_FREELINE
 
 
 SfxBoolItem Freeline_Unfilled SID_DRAW_FREELINE_NOFILL
-
+(SfxUInt16Item Transparence FN_PARAM_1, SfxStringItem Color FN_PARAM_2,
+ SfxUInt16Item Width FN_PARAM_3, SfxBoolItem IsSticky FN_PARAM_4,
+ SfxStringItem ShapeName SID_SHAPE_NAME)
 [
     AutoUpdate = TRUE,
     FastCall = FALSE,
@@ -6360,6 +6377,23 @@ SfxBoolItem PatternField SID_FM_PATTERNFIELD
     GroupId = SfxGroupId::Controls;
 ]
 
+SfxBoolItem InsertGridControl SID_INSERT_GRIDCONTROL
+
+[
+    AutoUpdate = TRUE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Controls;
+]
 
 SfxBoolItem Pie SID_DRAW_PIE
 (SfxUInt32Item CenterX ID_VAL_CENTER_X,SfxUInt32Item CenterY ID_VAL_CENTER_Y,SfxUInt32Item AxisX ID_VAL_AXIS_X,SfxUInt32Item AxisY ID_VAL_AXIS_Y,SfxUInt32Item StartAngle ID_VAL_ANGLESTART,SfxUInt32Item EndAngle ID_VAL_ANGLEEND)
@@ -6809,7 +6843,11 @@ SfxVoidItem RecSearch SID_FM_SEARCH
 
 
 SfxBoolItem Rect SID_DRAW_RECT
-(SfxUInt32Item MouseStartX ID_VAL_MOUSESTART_X,SfxUInt32Item MouseStartY ID_VAL_MOUSESTART_Y,SfxUInt32Item MouseEndX ID_VAL_MOUSEEND_X,SfxUInt32Item MouseEndY ID_VAL_MOUSEEND_Y)
+(SfxUInt32Item MouseStartX ID_VAL_MOUSESTART_X, SfxUInt32Item MouseStartY ID_VAL_MOUSESTART_Y,
+ SfxUInt32Item MouseEndX ID_VAL_MOUSEEND_X, SfxUInt32Item MouseEndY ID_VAL_MOUSEEND_Y,
+ SfxUInt16Item FillTransparence FN_PARAM_1, SfxStringItem FillColor FN_PARAM_2,
+ SfxUInt16Item LineStyle FN_PARAM_3, SfxBoolItem IsSticky FN_PARAM_4,
+ SfxStringItem ShapeName SID_SHAPE_NAME)
 [
     AutoUpdate = TRUE,
     FastCall = FALSE,
@@ -10817,6 +10855,22 @@ SfxVoidItem InsertNonBreakingSpace FN_INSERT_HARD_SPACE
     GroupId = SfxGroupId::Insert;
 ]
 
+SfxVoidItem InsertNarrowNobreakSpace FN_INSERT_NNBSP
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = TRUE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Insert;
+]
 
 SfxVoidItem ManageLanguage SID_BASICIDE_MANAGE_LANG
 ()

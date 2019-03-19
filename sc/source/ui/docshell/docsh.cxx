@@ -38,7 +38,7 @@
 #include <sfx2/dinfdlg.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/event.hxx>
-#include <sfx2/fcontnr.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/objface.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/documentlockfile.hxx>
@@ -61,16 +61,6 @@
 #include <com/sun/star/ui/theModuleUIConfigurationManagerSupplier.hpp>
 #include <com/sun/star/ui/XAcceleratorConfiguration.hpp>
 #include <com/sun/star/util/VetoException.hpp>
-#include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
-#include <com/sun/star/sheet/XSpreadsheet.hpp>
-#include <com/sun/star/container/XIndexAccess.hpp>
-#include <com/sun/star/table/XTableChartsSupplier.hpp>
-#include <com/sun/star/table/XTableCharts.hpp>
-#include <com/sun/star/table/XTableChart.hpp>
-#include <com/sun/star/chart2/XChartDocument.hpp>
-#include <com/sun/star/document/XEmbeddedObjectSupplier.hpp>
-#include <com/sun/star/frame/XStorable2.hpp>
-#include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
 #include <ooo/vba/excel/XWorkbook.hpp>
 
@@ -81,7 +71,6 @@
 #include <svx/dialogs.hrc>
 
 #include <formulacell.hxx>
-#include <postit.hxx>
 #include <global.hxx>
 #include <filter.hxx>
 #include <scmod.hxx>
@@ -98,8 +87,6 @@
 #include <autostyl.hxx>
 #include <attrib.hxx>
 #include <asciiopt.hxx>
-#include <waitoff.hxx>
-#include <docpool.hxx>
 #include <progress.hxx>
 #include <pntlock.hxx>
 #include <docuno.hxx>
@@ -114,7 +101,6 @@
 #include <hints.hxx>
 #include <xmlwrap.hxx>
 #include <drwlayer.hxx>
-#include <refreshtimer.hxx>
 #include <dbdata.hxx>
 #include <scextopt.hxx>
 #include <compiler.hxx>
@@ -122,28 +108,23 @@
 #include <optsolver.hxx>
 #include <sheetdata.hxx>
 #include <tabprotection.hxx>
-#include <transobj.hxx>
 #include <docparam.hxx>
 #include "docshimp.hxx"
 #include <sizedev.hxx>
 #include <refreshtimerprotector.hxx>
-#include <orcus/orcus_import_ods.hpp>
-#include <orcusfiltersimpl.hxx>
 
 #include <officecfg/Office/Calc.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <unotools/configmgr.hxx>
 #include <uiitems.hxx>
-#include <cellsuno.hxx>
 #include <dpobject.hxx>
 #include <markdata.hxx>
-#include <optuno.hxx>
+#include <docoptio.hxx>
 #include <orcusfilters.hxx>
 #include <datastream.hxx>
 #include <documentlinkmgr.hxx>
 #include <refupdatecontext.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <memory>
 #include <vector>
@@ -1060,7 +1041,7 @@ void ScDocShell::Notify( SfxBroadcaster&, const SfxHint& rHint )
             // document's drawing layer pages and what not, which otherwise when
             // pasting to another document after this document was destructed would
             // attempt to access non-existing data. Preserve the text data though.
-            ScDocument* pClipDoc = GetClipDoc();
+            ScDocument* pClipDoc = ScModule::GetClipDoc();
             if (pClipDoc)
                 pClipDoc->ClosingClipboardSource();
         }
@@ -1942,6 +1923,7 @@ void ScDocShell::AsciiSave( SvStream& rStream, const ScImportOptions& rAsciiOpt 
     sal_Unicode cStrDelim = rAsciiOpt.nTextSepCode;
     rtl_TextEncoding eCharSet      = rAsciiOpt.eCharSet;
     bool bFixedWidth      = rAsciiOpt.bFixedWidth;
+    bool bSaveNumberAsSuch = rAsciiOpt.bSaveNumberAsSuch;
     bool bSaveAsShown     = rAsciiOpt.bSaveAsShown;
     bool bShowFormulas    = rAsciiOpt.bSaveFormulas;
 
@@ -2072,6 +2054,7 @@ void ScDocShell::AsciiSave( SvStream& rStream, const ScImportOptions& rAsciiOpt 
                       pProtAttr->GetHideFormula() ) )
                 eType = CELLTYPE_NONE;  // hide
         }
+        bool bForceQuotes = false;
         bool bString;
         switch ( eType )
         {
@@ -2104,7 +2087,7 @@ void ScDocShell::AsciiSave( SvStream& rStream, const ScImportOptions& rAsciiOpt 
                         else
                         {
                             ScCellFormat::GetInputString(*pCell, nFormat, aString, rFormatter, &m_aDocument);
-                            bString = false;
+                            bString = bForceQuotes = !bSaveNumberAsSuch;
                         }
                     }
                     else
@@ -2154,7 +2137,7 @@ void ScDocShell::AsciiSave( SvStream& rStream, const ScImportOptions& rAsciiOpt 
                     else
                     {
                         ScCellFormat::GetInputString(*pCell, nFormat, aString, rFormatter, &m_aDocument);
-                        bString = false;
+                        bString = bForceQuotes = !bSaveNumberAsSuch;
                     }
                 }
                 break;
@@ -2197,10 +2180,10 @@ void ScDocShell::AsciiSave( SvStream& rStream, const ScImportOptions& rAsciiOpt 
                         escapeTextSep<OUString, OUStringBuffer>(
                             nPos, OUString(cStrDelim), aUniString);
 
-                        if ( bNeedQuotes )
+                        if ( bNeedQuotes || bForceQuotes )
                             rStream.WriteUniOrByteChar( cStrDelim, eCharSet );
                         write_uInt16s_FromOUString(rStream, aUniString);
-                        if ( bNeedQuotes )
+                        if ( bNeedQuotes || bForceQuotes )
                             rStream.WriteUniOrByteChar( cStrDelim, eCharSet );
                     }
                     else
@@ -2235,10 +2218,10 @@ void ScDocShell::AsciiSave( SvStream& rStream, const ScImportOptions& rAsciiOpt 
                                 nPos, aStrDelimDecoded, aStrDec);
 
                             // write byte re-encoded
-                            if ( bNeedQuotes )
+                            if ( bNeedQuotes || bForceQuotes )
                                 rStream.WriteUniOrByteChar( cStrDelim, eCharSet );
                             rStream.WriteUnicodeOrByteText( aStrDec, eCharSet );
-                            if ( bNeedQuotes )
+                            if ( bNeedQuotes || bForceQuotes )
                                 rStream.WriteUniOrByteChar( cStrDelim, eCharSet );
                         }
                         else
@@ -2254,11 +2237,11 @@ void ScDocShell::AsciiSave( SvStream& rStream, const ScImportOptions& rAsciiOpt 
                                 nPos, aStrDelimEncoded, aStrEnc);
 
                             // write byte encoded
-                            if ( bNeedQuotes )
+                            if ( bNeedQuotes || bForceQuotes )
                                 rStream.WriteBytes(
                                     aStrDelimEncoded.getStr(), aStrDelimEncoded.getLength());
                             rStream.WriteBytes(aStrEnc.getStr(), aStrEnc.getLength());
-                            if ( bNeedQuotes )
+                            if ( bNeedQuotes || bForceQuotes )
                                 rStream.WriteBytes(
                                     aStrDelimEncoded.getStr(), aStrDelimEncoded.getLength());
                         }
@@ -2349,7 +2332,7 @@ bool ScDocShell::ConvertTo( SfxMedium &rMed )
             ScExtDocOptions* pExtDocOpt = m_aDocument.GetExtDocOptions();
             if( !pExtDocOpt )
             {
-                m_aDocument.SetExtDocOptions( o3tl::make_unique<ScExtDocOptions>() );
+                m_aDocument.SetExtDocOptions( std::make_unique<ScExtDocOptions>() );
                 pExtDocOpt = m_aDocument.GetExtDocOptions();
             }
             pViewShell->GetViewData().WriteExtOptions( *pExtDocOpt );
@@ -2734,24 +2717,7 @@ bool ScDocShell::HasAutomaticTableName( const OUString& rFilter )
 
 std::unique_ptr<ScDocFunc> ScDocShell::CreateDocFunc()
 {
-    return o3tl::make_unique<ScDocFuncDirect>( *this );
-}
-
-ScDocument* ScDocShell::GetClipDoc()
-{
-    vcl::Window* pWin = nullptr;
-    if (ScTabViewShell* pViewShell = GetBestViewShell())
-        pWin = pViewShell->GetViewData().GetActiveWin();
-
-    const ScTransferObj* pObj = ScTransferObj::GetOwnClipboard(ScTabViewShell::GetClipData(pWin));
-    if (pObj)
-    {
-        ScDocument* pDoc = pObj->GetDocument();
-        assert((!pDoc || pDoc->IsClipboard()) && "Document is not clipboard, how can that be?");
-        return pDoc;
-    }
-
-    return nullptr;
+    return std::make_unique<ScDocFuncDirect>( *this );
 }
 
 ScDocShell::ScDocShell( const SfxModelFlags i_nSfxCreationFlags ) :
@@ -2999,10 +2965,8 @@ namespace {
 
 void removeKeysIfExists(const Reference<ui::XAcceleratorConfiguration>& xScAccel, const vector<const awt::KeyEvent*>& rKeys)
 {
-    vector<const awt::KeyEvent*>::const_iterator itr = rKeys.begin(), itrEnd = rKeys.end();
-    for (; itr != itrEnd; ++itr)
+    for (const awt::KeyEvent* p : rKeys)
     {
-        const awt::KeyEvent* p = *itr;
         if (!p)
             continue;
 

@@ -19,30 +19,19 @@
 
 #include <config_features.h>
 
-#include <editeng/eeitem.hxx>
-
 #include <svx/fmobjfac.hxx>
 #include <svx/objfac3d.hxx>
-#include <svx/tbxcolor.hxx>
 
-#include <comphelper/classids.hxx>
 #include <sfx2/sidebar/SidebarChildWindow.hxx>
-#include <sfx2/docfilt.hxx>
-#include <sfx2/fcontnr.hxx>
-#include <sfx2/docfile.hxx>
 #include <sfx2/app.hxx>
-#include <avmedia/mediaplayer.hxx>
 #include <avmedia/mediatoolbox.hxx>
 #include <svx/ParaLineSpacingPopup.hxx>
 #include <svx/TextCharacterSpacingPopup.hxx>
 #include <svx/TextUnderlinePopup.hxx>
 #include <NumberFormatControl.hxx>
 
-#include <svtools/parhtml.hxx>
 #include <unotools/resmgr.hxx>
-#include <sot/formats.hxx>
 
-#include <scitems.hxx>
 #include <scmod.hxx>
 #include <scresid.hxx>
 #include <sc.hrc>
@@ -64,7 +53,6 @@
 #include <pgbrksh.hxx>
 #include <scdll.hxx>
 
-#include <docpool.hxx>
 #include <appoptio.hxx>
 #include <searchresults.hxx>
 
@@ -77,7 +65,6 @@
 #include <svx/selctrl.hxx>
 #include <svx/insctrl.hxx>
 #include <svx/zoomctrl.hxx>
-#include <editeng/flditem.hxx>
 #include <svx/modctrl.hxx>
 #include <svx/pszctrl.hxx>
 #include <svx/grafctrl.hxx>
@@ -101,11 +88,6 @@
 #include <svx/hyperdlg.hxx>
 #include <svx/imapdlg.hxx>
 
-#include <editutil.hxx>
-
-#include <dwfunctr.hxx>
-#include <acredlin.hxx>
-#include <o3tl/make_unique.hxx>
 #include <filter.hxx>
 #include <scabstdlg.hxx>
 
@@ -124,7 +106,7 @@ void ScDLL::Init()
     if ( SfxApplication::GetModule(SfxToolsModule::Calc) )    // Module already active
         return;
 
-    auto pUniqueModule = o3tl::make_unique<ScModule>(&ScDocShell::Factory());
+    auto pUniqueModule = std::make_unique<ScModule>(&ScDocShell::Factory());
     ScModule* pMod = pUniqueModule.get();
     SfxApplication::SetModule(SfxToolsModule::Calc, std::move(pUniqueModule));
 

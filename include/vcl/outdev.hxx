@@ -294,6 +294,8 @@ namespace vcl {
 
 VCL_DLLPUBLIC void DrawFocusRect(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect);
 
+typedef struct _cairo_surface cairo_surface_t;
+
 /**
 * Some things multiple-inherit from VclAbstractDialog and OutputDevice,
 * so we need to use virtual inheritance to keep the referencing counting
@@ -344,7 +346,7 @@ private:
     long                            mnOutHeight;
     sal_Int32                       mnDPIX;
     sal_Int32                       mnDPIY;
-    sal_Int32                       mnDPIScalePercentage; ///< For Hi-DPI displays, we want to draw elements for a percentage larger
+    sal_Int32                       mnDPIScalePercentage; ///< For HiDPI displays, we want to draw elements for a percentage larger
     /// font specific text alignment offsets in pixel units
     mutable long                    mnTextOffX;
     mutable long                    mnTextOffY;
@@ -1155,7 +1157,7 @@ public:
                                               sal_Int32 nIndex, sal_Int32 nLen,
                                               long nCharExtra,
                                               vcl::TextLayoutCache const* = nullptr) const;
-    std::shared_ptr<vcl::TextLayoutCache> CreateTextLayoutCache(OUString const&) const;
+    static std::shared_ptr<vcl::TextLayoutCache> CreateTextLayoutCache(OUString const&);
 
 protected:
     SAL_DLLPRIVATE void         ImplInitTextLineSize();
@@ -1262,6 +1264,9 @@ public:
     //drop and fetch font data for all outputdevices
     //If bNewFontLists is true then drop and refetch lists of system fonts
     SAL_DLLPRIVATE static void  ImplUpdateAllFontData( bool bNewFontLists );
+
+    // Lock font updates for all output devices
+    static void LockFontUpdates(bool bLock);
 
 protected:
     SAL_DLLPRIVATE const LogicalFontInstance* GetFontInstance() const;

@@ -19,7 +19,8 @@
 
 #include <sal/config.h>
 
-#include <o3tl/string_view.hxx>
+#include <string_view>
+
 #include <officecfg/Inet.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <officecfg/Office/Security.hxx>
@@ -115,7 +116,7 @@ bool isValidPort(OUString const & value) {
         return true;
     }
     // Overflow in OUString::toUInt64 returns 0, so need to check value contains only zeroes:
-    return o3tl::u16string_view(value).find_first_not_of(u'0') == o3tl::u16string_view::npos;
+    return std::u16string_view(value).find_first_not_of(u'0') == std::u16string_view::npos;
 }
 
 }
@@ -574,7 +575,6 @@ IMPL_STATIC_LINK( SvxProxyTabPage, LoseFocusHdl_Impl, Control&, rControl, void )
 SvxSecurityTabPage::SvxSecurityTabPage(vcl::Window* pParent, const SfxItemSet& rSet)
     : SfxTabPage(pParent, "OptSecurityPage", "cui/ui/optsecuritypage.ui", &rSet)
     , mpSecOptions(new SvtSecurityOptions)
-    , mpCertPathDlg(nullptr)
 {
     get(m_pSecurityOptionsPB, "options");
     get(m_pSavePasswordsCB, "savepassword");
@@ -623,7 +623,7 @@ SvxSecurityTabPage::~SvxSecurityTabPage()
 void SvxSecurityTabPage::dispose()
 {
     mpSecOptions.reset();
-    mpCertPathDlg.disposeAndClear();
+    mpCertPathDlg.reset();
     m_xSecOptDlg.reset();
     m_pSecurityOptionsPB.clear();
     m_pSavePasswordsCB.clear();
@@ -784,8 +784,8 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, ShowPasswordsHdl, Button*, void)
 
         if ( xMasterPasswd->isPersistentStoringAllowed() && xMasterPasswd->authorizateWithMasterPassword(xTmpHandler) )
         {
-            ScopedVclPtrInstance< svx::WebConnectionInfoDialog > aDlg(this);
-            aDlg->Execute();
+            svx::WebConnectionInfoDialog aDlg(GetDialogFrameWeld());
+            aDlg.run();
         }
     }
     catch (const Exception&)
@@ -795,15 +795,16 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, ShowPasswordsHdl, Button*, void)
 IMPL_LINK_NOARG(SvxSecurityTabPage, CertPathPBHdl, Button*, void)
 {
     if (!mpCertPathDlg)
-        mpCertPathDlg = VclPtr<CertPathDialog>::Create(this);
+        mpCertPathDlg.reset(new CertPathDialog(GetDialogFrameWeld()));
 
     OUString sOrig = mpCertPathDlg->getDirectory();
-    short nRet = mpCertPathDlg->Execute();
+    short nRet = mpCertPathDlg->run();
 
     if (nRet == RET_OK && sOrig != mpCertPathDlg->getDirectory())
     {
         SolarMutexGuard aGuard;
-        svtools::executeRestartDialog(comphelper::getProcessComponentContext(), nullptr, svtools::RESTART_REASON_ADDING_PATH);
+        if (svtools::executeRestartDialog(comphelper::getProcessComponentContext(), nullptr, svtools::RESTART_REASON_ADDING_PATH))
+            GetParentDialog()->EndDialog(RET_OK);
     }
 }
 
@@ -811,18 +812,17 @@ IMPL_LINK_NOARG(SvxSecurityTabPage, TSAURLsPBHdl, Button*, void)
 {
     // Unlike the mpCertPathDlg, we *don't* keep the same dialog object around between
     // invocations. Seems clearer to my little brain that way.
-
-    ScopedVclPtrInstance<TSAURLsDialog> pTSAURLsDlg(this);
-
-    pTSAURLsDlg->Execute();
+    TSAURLsDialog aTSAURLsDlg(GetDialogFrameWeld());
+    aTSAURLsDlg.run();
 }
 
-IMPL_STATIC_LINK_NOARG(SvxSecurityTabPage, MacroSecPBHdl, Button*, void)
+IMPL_LINK_NOARG(SvxSecurityTabPage, MacroSecPBHdl, Button*, void)
 {
     try
     {
         Reference< security::XDocumentDigitalSignatures > xD(
             security::DocumentDigitalSignatures::createDefault(comphelper::getProcessComponentContext() ) );
+        xD->setParentWindow(VCLUnoHelper::GetInterface(GetParentDialog()));
         xD->manageTrustedSources();
     }
     catch (const Exception& e)

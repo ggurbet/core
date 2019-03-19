@@ -44,6 +44,8 @@
 #include <docary.hxx>
 #include <charfmt.hxx>
 #include <cmdid.h>
+#include <unomid.h>
+#include <unomap.hxx>
 #include <unostyle.hxx>
 #include <unosett.hxx>
 #include <docsh.hxx>
@@ -69,6 +71,7 @@
 #include <com/sun/star/drawing/BitmapMode.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
+#include <com/sun/star/document/XEventsSupplier.hpp>
 #include <istyleaccess.hxx>
 #include <GetMetricVal.hxx>
 #include <fmtfsize.hxx>
@@ -80,7 +83,6 @@
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/sequence.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 #include <svl/stylepool.hxx>
@@ -100,6 +102,9 @@
 #include <memory>
 #include <set>
 #include <limits>
+
+class SwXStyle;
+class SwStyleProperties_Impl;
 
 namespace
 {
@@ -1294,7 +1299,7 @@ SwXStyle::SwXStyle(SwDoc* pDoc, SfxStyleFamily eFamily, bool bConditional)
     assert(!m_bIsConditional || m_rEntry.m_eFamily == SfxStyleFamily::Para); // only paragraph styles are conditional
     // Register ourselves as a listener to the document (via the page descriptor)
     SvtListener::StartListening(pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->GetNotifier());
-    m_pPropertiesImpl = o3tl::make_unique<SwStyleProperties_Impl>(
+    m_pPropertiesImpl = std::make_unique<SwStyleProperties_Impl>(
             aSwMapProvider.GetPropertySet(m_bIsConditional ? PROPERTY_MAP_CONDITIONAL_PARA_STYLE :  m_rEntry.m_nPropMapType)->getPropertyMap());
 }
 
@@ -2285,11 +2290,9 @@ uno::Any SwXStyle::GetStyleProperty<OWN_ATTR_FILLBMP_MODE>(const SfxItemProperty
 {
     PrepareStyleBase(rBase);
     const SfxItemSet& rSet = rBase.GetItemSet();
-    const XFillBmpTileItem* pTileItem = &rSet.Get(XATTR_FILLBMP_TILE);
-    if(pTileItem && pTileItem->GetValue())
+    if (rSet.Get(XATTR_FILLBMP_TILE).GetValue())
         return uno::makeAny(drawing::BitmapMode_REPEAT);
-    const XFillBmpStretchItem* pStretchItem = &rSet.Get(XATTR_FILLBMP_STRETCH);
-    if(pStretchItem && pStretchItem->GetValue())
+    if (rSet.Get(XATTR_FILLBMP_STRETCH).GetValue())
         return uno::makeAny(drawing::BitmapMode_STRETCH);
     return uno::makeAny(drawing::BitmapMode_NO_REPEAT);
 }
@@ -3321,11 +3324,10 @@ const SfxPoolItem* SwXFrameStyle::GetItem(sal_uInt16 eAtr)
 
 uno::Sequence<uno::Type> SwXFrameStyle::getTypes()
 {
-    uno::Sequence<uno::Type> aTypes = SwXStyle::getTypes();
-    sal_Int32 nLen = aTypes.getLength();
-    aTypes.realloc(nLen + 1);
-    aTypes[nLen] = cppu::UnoType<XEventsSupplier>::get();
-    return aTypes;
+    return cppu::OTypeCollection(
+            cppu::UnoType<XEventsSupplier>::get(),
+            SwXStyle::getTypes()
+        ).getTypes();
 }
 
 uno::Any SwXFrameStyle::queryInterface(const uno::Type& rType)
@@ -3468,17 +3470,16 @@ SwXAutoStyleFamily::SwXAutoStyleFamily(SwDocShell* pDocSh, IStyleAccess::SwAutoS
     m_pDocShell( pDocSh ), m_eFamily(nFamily)
 {
     // Register ourselves as a listener to the document (via the page descriptor)
-    pDocSh->GetDoc()->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->Add(this);
+    StartListening(pDocSh->GetDoc()->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->GetNotifier());
 }
 
 SwXAutoStyleFamily::~SwXAutoStyleFamily()
 {
 }
 
-void SwXAutoStyleFamily::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwXAutoStyleFamily::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-    if(!GetRegisteredIn())
+    if(rHint.GetId() == SfxHintId::Dying)
         m_pDocShell = nullptr;
 }
 
@@ -3643,7 +3644,7 @@ uno::Reference< style::XAutoStyle > SwXAutoStyleFamily::insertStyle(
 
                     aChangedBrushItem.PutValue(aValue, nMemberId);
 
-                    if(!(aChangedBrushItem == aOriginalBrushItem))
+                    if(aChangedBrushItem != aOriginalBrushItem)
                     {
                         setSvxBrushItemAsFillAttributesToTargetSet(aChangedBrushItem, aSet);
                     }
@@ -3766,20 +3767,17 @@ SwXAutoStylesEnumerator::SwXAutoStylesEnumerator( SwDoc* pDoc, IStyleAccess::SwA
 : m_pImpl( new SwAutoStylesEnumImpl( pDoc, eFam ) )
 {
     // Register ourselves as a listener to the document (via the page descriptor)
-    pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->Add(this);
+    StartListening(pDoc->getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->GetNotifier());
 }
 
 SwXAutoStylesEnumerator::~SwXAutoStylesEnumerator()
 {
 }
 
-void SwXAutoStylesEnumerator::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwXAutoStylesEnumerator::Notify( const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-    if(!GetRegisteredIn())
-    {
+    if(rHint.GetId() == SfxHintId::Dying)
         m_pImpl.reset();
-    }
 }
 
 sal_Bool SwXAutoStylesEnumerator::hasMoreElements(  )
@@ -3820,20 +3818,17 @@ SwXAutoStyle::SwXAutoStyle(
     mrDoc(*pDoc)
 {
     // Register ourselves as a listener to the document (via the page descriptor)
-    mrDoc.getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->Add(this);
+    //StartListening(mrDoc.getIDocumentStylePoolAccess().GetPageDescFromPool(RES_POOLPAGE_STANDARD)->GetNotifier());
 }
 
 SwXAutoStyle::~SwXAutoStyle()
 {
 }
 
-void SwXAutoStyle::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwXAutoStyle::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-    if(!GetRegisteredIn())
-    {
+    if(rHint.GetId() == SfxHintId::Dying)
         mpSet.reset();
-    }
 }
 
 uno::Reference< beans::XPropertySetInfo > SwXAutoStyle::getPropertySetInfo(  )
@@ -3982,14 +3977,11 @@ uno::Sequence< uno::Any > SwXAutoStyle::GetPropertyValues_Impl(
                 }
                 case OWN_ATTR_FILLBMP_MODE:
                 {
-                    const XFillBmpStretchItem* pStretchItem = &mpSet->Get(XATTR_FILLBMP_STRETCH);
-                    const XFillBmpTileItem* pTileItem = &mpSet->Get(XATTR_FILLBMP_TILE);
-
-                    if( pTileItem && pTileItem->GetValue() )
+                    if (mpSet->Get(XATTR_FILLBMP_TILE).GetValue())
                     {
                         aTarget <<= drawing::BitmapMode_REPEAT;
                     }
-                    else if( pStretchItem && pStretchItem->GetValue() )
+                    else if (mpSet->Get(XATTR_FILLBMP_STRETCH).GetValue())
                     {
                         aTarget <<= drawing::BitmapMode_STRETCH;
                     }
@@ -4239,7 +4231,7 @@ uno::Sequence< beans::PropertyValue > SwXAutoStyle::getProperties()
     const SfxItemPropertyMap &rMap = pPropSet->getPropertyMap();
     PropertyEntryVector_t aPropVector = rMap.getPropertyEntries();
 
-    SfxItemSet& rSet = *mpSet.get();
+    SfxItemSet& rSet = *mpSet;
     SfxItemIter aIter(rSet);
     const SfxPoolItem* pItem = aIter.FirstItem();
 
@@ -4391,7 +4383,7 @@ void SwXTextTableStyle::SetPhysical()
                 uno::Reference<style::XStyle> xCellStyle(pOldBoxFormat->GetXObject(), uno::UNO_QUERY);
                 if (!xCellStyle.is())
                     continue;
-                SwXTextCellStyle& rStyle = dynamic_cast<SwXTextCellStyle&>(*xCellStyle.get());
+                SwXTextCellStyle& rStyle = dynamic_cast<SwXTextCellStyle&>(*xCellStyle);
                 SwBoxAutoFormat& rNewBoxFormat = pTableAutoFormat->GetBoxFormat(aTableTemplateMap[i]);
                 rStyle.SetBoxFormat(&rNewBoxFormat);
                 rNewBoxFormat.SetXObject(xCellStyle);

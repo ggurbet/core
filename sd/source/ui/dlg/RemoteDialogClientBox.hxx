@@ -25,10 +25,6 @@
 #include <vcl/button.hxx>
 #include <vcl/field.hxx>
 
-#include <cppuhelper/implbase.hxx>
-
-#include <com/sun/star/lang/XEventListener.hpp>
-
 #include <memory>
 
 namespace sd {
@@ -58,23 +54,6 @@ struct ClientBoxEntry
 };
 
 // class ExtensionBox_Impl
-class ClientBox;
-
-class ClientRemovedListener : public ::cppu::WeakImplHelper<css::lang::XEventListener>
-{
-    VclPtr<ClientBox> m_pParent;
-
-public:
-
-    explicit ClientRemovedListener(ClientBox *pParent)
-    {
-        m_pParent = pParent;
-    }
-    virtual ~ClientRemovedListener() override;
-
-    // XEventListener
-    virtual void SAL_CALL disposing(css::lang::EventObject const & evt) override;
-};
 
 class ClientBox : public Control
 {
@@ -94,8 +73,6 @@ class ClientBox : public Control
     ::tools::Rectangle m_sPinTextRect;
 
     VclPtr<ScrollBar> m_aScrollBar;
-
-    rtl::Reference< ClientRemovedListener > m_xRemoveListener;
 
     //This mutex is used for synchronizing access to m_vEntries.
     //Currently it is used to synchronize adding, removing entries and

@@ -79,9 +79,11 @@ void SwBaseShell::InsertRegionDialog(SfxRequest& rReq)
         // height=width for more consistent preview (analog to edit region)
         aSet.Put(SvxSizeItem(SID_ATTR_PAGE_SIZE, Size(nWidth, nWidth)));
         SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractInsertSectionTabDialog> aTabDlg(pFact->CreateInsertSectionTabDialog(
-            &GetView().GetViewFrame()->GetWindow(), aSet , rSh));
-        aTabDlg->Execute();
+        VclPtr<AbstractInsertSectionTabDialog> aTabDlg(pFact->CreateInsertSectionTabDialog(
+            GetView().GetViewFrame()->GetWindow().GetFrameWeld(), aSet , rSh));
+        aTabDlg->StartExecuteAsync([aTabDlg](sal_Int32 /*nResult*/){
+            aTabDlg->disposeOnce();
+        });
         rReq.Ignore();
     }
     else
@@ -169,13 +171,8 @@ void SwBaseShell::InsertRegionDialog(SfxRequest& rReq)
     }
 }
 
-IMPL_LINK( SwWrtShell, InsertRegionDialog, void*, p, void )
+void SwWrtShell::StartInsertRegionDialog(const SwSectionData& rSectionData)
 {
-    SwSectionData* pSect = static_cast<SwSectionData*>(p);
-    std::unique_ptr<SwSectionData> xSectionData(pSect);
-    if (!xSectionData)
-        return;
-
     SfxItemSet aSet(
         GetView().GetPool(),
         svl::Items<
@@ -191,11 +188,10 @@ IMPL_LINK( SwWrtShell, InsertRegionDialog, void*, p, void )
     // height=width for more consistent preview (analog to edit region)
     aSet.Put(SvxSizeItem(SID_ATTR_PAGE_SIZE, Size(nWidth, nWidth)));
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-    ScopedVclPtr<AbstractInsertSectionTabDialog> aTabDlg(pFact->CreateInsertSectionTabDialog(
-        &GetView().GetViewFrame()->GetWindow(),aSet , *this));
-    aTabDlg->SetSectionData(*xSectionData);
-    aTabDlg->Execute();
-
+    VclPtr<AbstractInsertSectionTabDialog> aTabDlg(pFact->CreateInsertSectionTabDialog(
+        GetView().GetViewFrame()->GetWindow().GetFrameWeld(), aSet, *this));
+    aTabDlg->SetSectionData(rSectionData);
+    aTabDlg->StartExecuteAsync(nullptr);
 }
 
 void SwBaseShell::EditRegionDialog(SfxRequest const & rReq)
@@ -212,7 +208,7 @@ void SwBaseShell::EditRegionDialog(SfxRequest const & rReq)
         case FN_EDIT_REGION:
         case FN_EDIT_CURRENT_REGION:
         {
-            vcl::Window* pParentWin = &GetView().GetViewFrame()->GetWindow();
+            weld::Window* pParentWin = GetView().GetViewFrame()->GetWindow().GetFrameWeld();
             {
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
                 ScopedVclPtr<AbstractEditRegionDlg> pEditRegionDlg(pFact->CreateEditRegionDlg(pParentWin, rWrtShell));

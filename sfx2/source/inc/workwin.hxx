@@ -27,6 +27,7 @@
 #include <com/sun/star/frame/XLayoutManagerListener.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/propshlp.hxx>
+#include <cppuhelper/weakref.hxx>
 
 #include <rtl/ustring.hxx>
 #include <o3tl/typed_flags_set.hxx>
@@ -99,7 +100,7 @@ struct SfxChild_Impl
         nVisible = bIsVisible ? SfxChildVisibility::VISIBLE : SfxChildVisibility::NOT_VISIBLE;
     }
 
-    SfxChild_Impl(std::shared_ptr<SfxModelessDialogController>& rChild,
+    SfxChild_Impl(const std::shared_ptr<SfxModelessDialogController>& rChild,
                   SfxChildAlignment eAlignment):
         pWin(nullptr), xController(rChild), eAlign(eAlignment), bResize(false),
         bSetFocus( false )

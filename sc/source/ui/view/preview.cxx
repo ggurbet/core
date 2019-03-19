@@ -202,9 +202,9 @@ void ScPreview::TestLastPage()
             nTab = 0;
             nPageNo = nTabPage = nTabStart = nDisplayStart = 0;
             aState.nPrintTab = 0;
-                        aState.nStartCol = aState.nEndCol = 0;
-                        aState.nStartRow = aState.nEndRow = 0;
-                        aState.nZoom = 0;
+            aState.nStartCol = aState.nEndCol = 0;
+            aState.nStartRow = aState.nEndRow = 0;
+            aState.nZoom = 0;
             aState.nPagesX = aState.nPagesY = 0;
             aState.nTabPages = aState.nTotalPages =
             aState.nPageStart = aState.nDocPages = 0;
@@ -278,7 +278,6 @@ void ScPreview::CalcPages()
             nTabStart = nThisStart;
 
             aPrintFunc.GetPrintState( aState );
-            aPageSize = aPrintFunc.GetPageSize();
         }
     }
 
@@ -1052,7 +1051,7 @@ void ScPreview::MouseButtonUp( const MouseEvent& rMEvt )
 
         if( rMEvt.IsLeft() && GetPointer() == PointerStyle::HSizeBar )
         {
-            SetPointer( Pointer( PointerStyle::Arrow ) );
+            SetPointer( PointerStyle::Arrow );
 
             ScDocument& rDoc = pDocShell->GetDocument();
             OUString aOldName = rDoc.GetPageStyle( nTab );
@@ -1112,7 +1111,7 @@ void ScPreview::MouseButtonUp( const MouseEvent& rMEvt )
                     if( bUndo )
                     {
                         pDocShell->GetUndoManager()->AddUndoAction(
-                            o3tl::make_unique<ScUndoModifyStyle>( pDocShell, SfxStyleFamily::Page,
+                            std::make_unique<ScUndoModifyStyle>( pDocShell, SfxStyleFamily::Page,
                             aOldData, aNewData ) );
                     }
 
@@ -1214,7 +1213,7 @@ void ScPreview::MouseButtonUp( const MouseEvent& rMEvt )
                     if( bUndo )
                     {
                         pDocShell->GetUndoManager()->AddUndoAction(
-                            o3tl::make_unique<ScUndoModifyStyle>( pDocShell, SfxStyleFamily::Page,
+                            std::make_unique<ScUndoModifyStyle>( pDocShell, SfxStyleFamily::Page,
                             aOldData, aNewData ) );
                     }
 
@@ -1232,11 +1231,11 @@ void ScPreview::MouseButtonUp( const MouseEvent& rMEvt )
                     bHeaderRulerChange = false;
                     bFooterRulerChange = false;
                  }
-              }
-              bTopRulerMove = false;
-              bBottomRulerMove = false;
-              bHeaderRulerMove = false;
-              bFooterRulerMove = false;
+            }
+            bTopRulerMove = false;
+            bBottomRulerMove = false;
+            bHeaderRulerMove = false;
+            bFooterRulerMove = false;
         }
         if( rMEvt.IsLeft() && GetPointer() == PointerStyle::HSplit )
         {
@@ -1308,12 +1307,12 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
     {
         ScPrintOptions aOptions = SC_MOD()->GetPrintOptions();
 
-        ScPrintFunc* pPrintFunc;
+        std::unique_ptr<ScPrintFunc> pPrintFunc;
 
         if (bStateValid)
-            pPrintFunc = new ScPrintFunc( this, pDocShell, aState, &aOptions );
+            pPrintFunc.reset(new ScPrintFunc( this, pDocShell, aState, &aOptions ));
         else
-            pPrintFunc = new ScPrintFunc( this, pDocShell, nTab, nFirstAttr[nTab], nTotalPages, nullptr, &aOptions );
+            pPrintFunc.reset(new ScPrintFunc( this, pDocShell, nTab, nFirstAttr[nTab], nTotalPages, nullptr, &aOptions ));
 
         nLeftMargin = static_cast<long>( pPrintFunc->GetLeftMargin() * HMM_PER_TWIPS - aOffset.X() );
         nRightMargin = static_cast<long>( pPrintFunc->GetRightMargin() * HMM_PER_TWIPS );
@@ -1331,7 +1330,6 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
             nHeaderHeight = static_cast<long>( nTopMargin + pPrintFunc->GetHeader().nHeight * HMM_PER_TWIPS );
             nFooterHeight = static_cast<long>( nBottomMargin - pPrintFunc->GetFooter().nHeight * HMM_PER_TWIPS );
         }
-        delete pPrintFunc;
     }
 
     Point   aPixPt( rMEvt.GetPosPixel() );
@@ -1409,7 +1407,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
         {
             if( bOnColRulerChange || bColRulerMove )
             {
-                SetPointer( Pointer( PointerStyle::HSplit ) );
+                SetPointer( PointerStyle::HSplit );
                 if( bColRulerMove )
                 {
                     if( aMouseMovePoint.X() > -aOffset.X() && aMouseMovePoint.X() < nWidth * HMM_PER_TWIPS - aOffset.X() )
@@ -1420,7 +1418,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
             {
                 if( bLeftRulerChange && !bTopRulerMove && !bBottomRulerMove && !bHeaderRulerMove && !bFooterRulerMove )
                 {
-                    SetPointer( Pointer( PointerStyle::HSizeBar ) );
+                    SetPointer( PointerStyle::HSizeBar );
                     if( bLeftRulerMove )
                     {
                        if( aMouseMovePoint.X() > -aOffset.X() && aMouseMovePoint.X() < nWidth * HMM_PER_TWIPS - aOffset.X() )
@@ -1429,7 +1427,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
                 }
                 else if( bRightRulerChange && !bTopRulerMove && !bBottomRulerMove && !bHeaderRulerMove && !bFooterRulerMove )
                 {
-                    SetPointer( Pointer( PointerStyle::HSizeBar ) );
+                    SetPointer( PointerStyle::HSizeBar );
                     if( bRightRulerMove )
                     {
                        if( aMouseMovePoint.X() > -aOffset.X() && aMouseMovePoint.X() < nWidth * HMM_PER_TWIPS - aOffset.X() )
@@ -1448,7 +1446,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
             {
                 if( bTopRulerChange )
                 {
-                    SetPointer( Pointer( PointerStyle::VSizeBar ) );
+                    SetPointer( PointerStyle::VSizeBar );
                     if( bTopRulerMove )
                     {
                         if( aMouseMovePoint.Y() > -aOffset.Y() && aMouseMovePoint.Y() < nHeight * HMM_PER_TWIPS - aOffset.Y() )
@@ -1457,7 +1455,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
                 }
                 else if( bBottomRulerChange )
                 {
-                    SetPointer( Pointer( PointerStyle::VSizeBar ) );
+                    SetPointer( PointerStyle::VSizeBar );
                     if( bBottomRulerMove )
                     {
                         if( aMouseMovePoint.Y() > -aOffset.Y() && aMouseMovePoint.Y() < nHeight * HMM_PER_TWIPS - aOffset.Y() )
@@ -1466,7 +1464,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
                 }
                 else if( bHeaderRulerChange )
                 {
-                    SetPointer( Pointer( PointerStyle::VSizeBar ) );
+                    SetPointer( PointerStyle::VSizeBar );
                     if( bHeaderRulerMove )
                     {
                         if( aMouseMovePoint.Y() > -aOffset.Y() && aMouseMovePoint.Y() < nHeight * HMM_PER_TWIPS - aOffset.Y() )
@@ -1475,7 +1473,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
                 }
                 else if( bFooterRulerChange )
                 {
-                    SetPointer( Pointer( PointerStyle::VSizeBar ) );
+                    SetPointer( PointerStyle::VSizeBar );
                     if( bFooterRulerMove )
                     {
                         if( aMouseMovePoint.Y() > -aOffset.Y() && aMouseMovePoint.Y() < nHeight * HMM_PER_TWIPS - aOffset.Y() )
@@ -1484,7 +1482,7 @@ void ScPreview::MouseMove( const MouseEvent& rMEvt )
                 }
             }
             else
-                SetPointer( Pointer( PointerStyle::Arrow ) );
+                SetPointer( PointerStyle::Arrow );
         }
     }
 }

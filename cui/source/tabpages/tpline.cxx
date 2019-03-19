@@ -108,7 +108,6 @@ SvxLineTabPage::SvxLineTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs
     , m_xMtrEndWidth(m_xBuilder->weld_metric_spin_button("MTR_FLD_END_WIDTH", FieldUnit::CM))
     , m_xTsbCenterEnd(m_xBuilder->weld_check_button("TSB_CENTER_END"))
     , m_xCbxSynchronize(m_xBuilder->weld_check_button("CBX_SYNCHRONIZE"))
-    , m_xMenu(m_xBuilder->weld_menu("menuSELECT"))
     , m_xCtlPreview(new weld::CustomWeld(*m_xBuilder, "CTL_PREVIEW", m_aCtlPreview))
     , m_xFLEdgeStyle(m_xBuilder->weld_widget("FL_EDGE_STYLE"))
     , m_xGridEdgeCaps(m_xBuilder->weld_widget("gridEDGE_CAPS"))
@@ -192,7 +191,7 @@ void SvxLineTabPage::ShowSymbolControls(bool bOn)
     // Symbols on a line (e.g. StarCharts), symbol-enable controls
 
     m_bSymbols=bOn;
-    m_xFlSymbol->show(bOn);
+    m_xFlSymbol->set_visible(bOn);
     m_aCtlPreview.ShowSymbol(bOn);
 }
 
@@ -337,13 +336,10 @@ void SvxLineTabPage::ActivatePage( const SfxItemSet& rSet )
         }
 
             // ColorList
-            if( *m_pnColorListState != ChangeType::NONE )
-            {
-                if( *m_pnColorListState & ChangeType::CHANGED )
-                    m_pColorList = static_cast<SvxLineTabDialog*>(GetDialogController())->GetNewColorList();
-
-                ChangePreviewHdl_Impl( nullptr );
-            }
+        if( *m_pnColorListState != ChangeType::NONE )
+        {
+            ChangePreviewHdl_Impl( nullptr );
+        }
 
         m_nPageType = PageType::Area;
     }
@@ -1410,7 +1406,7 @@ IMPL_LINK_NOARG(SvxLineTabPage, MenuCreateHdl_Impl, weld::ToggleButton&, void)
                     aBitmap.Scale(nScale, nScale);
 
                 }
-                pVD->SetOutputSizePixel(aBitmap.GetSizePixel(), false);
+                pVD->SetOutputSizePixel(aBitmap.GetSizePixel());
                 pVD->DrawBitmapEx(Point(), aBitmap);
                 m_xGalleryMenu->append(pInfo->sItemId, *pUIName, *pVD);
             }
@@ -1422,7 +1418,7 @@ IMPL_LINK_NOARG(SvxLineTabPage, MenuCreateHdl_Impl, weld::ToggleButton&, void)
         }
 
         if (m_aGrfNames.empty())
-            m_xMenu->set_sensitive("gallery", false);
+            m_xSymbolMB->set_item_sensitive("gallery", false);
     }
 
     if (!m_xSymbolsMenu && m_pSymbolList)
@@ -1494,15 +1490,15 @@ IMPL_LINK_NOARG(SvxLineTabPage, MenuCreateHdl_Impl, weld::ToggleButton&, void)
                                         double(MAX_BMP_HEIGHT) / static_cast<double>(aSize.Height());
                     aBitmapEx.Scale(nScale, nScale);
                 }
-                pVD->SetOutputSizePixel(aBitmapEx.GetSizePixel(), false);
+                pVD->SetOutputSizePixel(aBitmapEx.GetSizePixel());
                 pVD->DrawBitmapEx(Point(), aBitmapEx);
-                m_xSymbolsMenu->append(pInfo->sItemId, "foo", *pVD);
+                m_xSymbolsMenu->append(pInfo->sItemId, "", *pVD);
             }
             pInvisibleSquare=pPage->RemoveObject(0);
             SdrObject::Free(pInvisibleSquare);
 
             if (m_aGrfNames.empty())
-                m_xMenu->set_sensitive("symbols", false);
+                m_xSymbolMB->set_item_sensitive("symbols", false);
         }
     }
 }
@@ -1522,10 +1518,12 @@ IMPL_LINK(SvxLineTabPage, GraphicHdl_Impl, const OString&, rIdent, void)
     {
         SvxBmpItemInfo* pInfo = m_aGalleryBrushItems[sNumber.toUInt32()].get();
         pGraphic = pInfo->pBrushItem->GetGraphic();
+        m_nSymbolType = SVX_SYMBOLTYPE_BRUSHITEM;
     }
     else if (rIdent.startsWith("symbol", &sNumber))
     {
-        SvxBmpItemInfo* pInfo = m_aSymbolBrushItems[sNumber.toUInt32()].get();
+        m_nSymbolType = sNumber.toUInt32();
+        SvxBmpItemInfo* pInfo = m_aSymbolBrushItems[m_nSymbolType].get();
         pGraphic = pInfo->pBrushItem->GetGraphic();
     }
     else if (rIdent == "automatic")
@@ -1559,7 +1557,7 @@ IMPL_LINK(SvxLineTabPage, GraphicHdl_Impl, const OString&, rIdent, void)
             return;
     }
 
-    if(pGraphic)
+    if (pGraphic)
     {
         Size aSize = SvxNumberFormat::GetGraphicSizeMM100(pGraphic);
         aSize = OutputDevice::LogicToLogic(aSize, MapMode(MapUnit::Map100thMM), MapMode(m_ePoolUnit));
@@ -1663,7 +1661,6 @@ void SvxLineTabPage::DataChanged( const DataChangedEvent& rDCEvt )
 
 void SvxLineTabPage::PageCreated(const SfxAllItemSet& aSet)
 {
-    const SvxColorListItem* pColorListItem = aSet.GetItem<SvxColorListItem>(SID_COLOR_TABLE, false);
     const SvxDashListItem* pDashListItem = aSet.GetItem<SvxDashListItem>(SID_DASH_LIST, false);
     const SvxLineEndListItem* pLineEndListItem = aSet.GetItem<SvxLineEndListItem>(SID_LINEEND_LIST, false);
     const SfxUInt16Item* pPageTypeItem = aSet.GetItem<SfxUInt16Item>(SID_PAGE_TYPE, false);
@@ -1672,8 +1669,6 @@ void SvxLineTabPage::PageCreated(const SfxAllItemSet& aSet)
     const SfxTabDialogItem* pSymbolAttrItem = aSet.GetItem<SfxTabDialogItem>(SID_ATTR_SET, false);
     const SvxGraphicItem* pGraphicItem = aSet.GetItem<SvxGraphicItem>(SID_GRAPHIC, false);
 
-    if (pColorListItem)
-        SetColorList(pColorListItem->GetColorList());
     if (pDashListItem)
         SetDashList(pDashListItem->GetDashList());
     if (pLineEndListItem)

@@ -69,6 +69,7 @@
 #include <vcl/vcllayout.hxx>
 
 #include <map>
+#include <string_view>
 #include <vector>
 
 namespace vcl
@@ -694,9 +695,17 @@ OString Menu::GetItemIdent(sal_uInt16 nId) const
 
 void Menu::SetItemBits( sal_uInt16 nItemId, MenuItemBits nBits )
 {
-    MenuItemData* pData = pItemList->GetData( nItemId );
-    if ( pData )
+    size_t        nPos;
+    MenuItemData* pData = pItemList->GetData(nItemId, nPos);
+
+    if (pData && (pData->nBits != nBits))
+    {
         pData->nBits = nBits;
+
+        // update native menu
+        if (ImplGetSalMenu())
+            ImplGetSalMenu()->SetItemBits(nPos, nBits);
+    }
 }
 
 MenuItemBits Menu::GetItemBits( sal_uInt16 nItemId ) const
@@ -1528,8 +1537,8 @@ Size Menu::ImplCalcSize( vcl::Window* pWin )
             // SubMenu?
             if (!IsMenuBar() && pData->pSubMenu)
             {
-                    if ( nFontHeight > nWidth )
-                        nWidth += nFontHeight;
+                if ( nFontHeight > nWidth )
+                    nWidth += nFontHeight;
 
                 pData->aSz.setHeight( std::max( std::max( nFontHeight, pData->aSz.Height() ), nMinMenuItemHeight ) );
             }
@@ -1669,9 +1678,9 @@ static OUString getShortenedString( const OUString& i_rLong, vcl::RenderContext 
         if (nPos < aNonMnem.getLength() && i_rLong[nPos+1] == aNonMnem[nPos])
         {
             OUStringBuffer aBuf( i_rLong.getLength() );
-            aBuf.appendCopy( aNonMnem, 0, nPos );
+            aBuf.append( std::u16string_view(aNonMnem).substr(0, nPos) );
             aBuf.append( '~' );
-            aBuf.appendCopy( aNonMnem, nPos );
+            aBuf.append( std::u16string_view(aNonMnem).substr(nPos) );
             aNonMnem = aBuf.makeStringAndClear();
         }
     }
@@ -2668,6 +2677,21 @@ bool MenuBar::HandleMenuButtonEvent( sal_uInt16 i_nButtonId )
 {
     MenuBarWindow* pMenuWin = getMenuBarWindow();
     return pMenuWin && pMenuWin->HandleMenuButtonEvent(i_nButtonId);
+}
+
+int MenuBar::GetMenuBarHeight() const
+{
+    MenuBar* pMenuBar = const_cast<MenuBar*>(this);
+    const SalMenu *pNativeMenu = pMenuBar->ImplGetSalMenu();
+    int nMenubarHeight;
+    if (pNativeMenu)
+        nMenubarHeight = pNativeMenu->GetMenuBarHeight();
+    else
+    {
+        vcl::Window* pMenubarWin = GetWindow();
+        nMenubarHeight = pMenubarWin ? pMenubarWin->GetOutputHeightPixel() : 0;
+    }
+    return nMenubarHeight;
 }
 
 // bool PopupMenu::bAnyPopupInExecute = false;

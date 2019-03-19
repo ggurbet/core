@@ -42,11 +42,12 @@
 #include <svdata.hxx>
 #include <window.h>
 #include <controldata.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 
 #include <comphelper/dispatchcommand.hxx>
+#include <comphelper/lok.hxx>
+#include <officecfg/Office/Common.hxx>
 
 
 using namespace css;
@@ -95,7 +96,7 @@ mbSmallSymbol(false), maImage(), meImageAlign(ImageAlign::Top), meSymbolAlign(Sy
 
 Button::Button( WindowType nType ) :
     Control( nType ),
-    mpButtonData( o3tl::make_unique<ImplCommonButtonData>() )
+    mpButtonData( std::make_unique<ImplCommonButtonData>() )
 {
 }
 
@@ -185,11 +186,6 @@ void Button::SetImageAlign( ImageAlign eAlign )
 ImageAlign Button::GetImageAlign() const
 {
     return mpButtonData->meImageAlign;
-}
-
-void Button::SetFocusRect( const tools::Rectangle& rFocusRect )
-{
-    ImplSetFocusRect( rFocusRect );
 }
 
 long Button::ImplGetSeparatorX() const
@@ -1817,6 +1813,16 @@ void HelpButton::Click()
     PushButton::Click();
 }
 
+void HelpButton::StateChanged( StateChangedType nStateChange )
+{
+    // Hide when we have no help URL.
+    if (comphelper::LibreOfficeKit::isActive() &&
+        officecfg::Office::Common::Help::HelpRootURL::get().isEmpty())
+        Hide();
+    else
+        PushButton::StateChanged(nStateChange);
+}
+
 void RadioButton::ImplInitRadioButtonData()
 {
     mbChecked       = false;
@@ -1882,11 +1888,6 @@ void RadioButton::ImplInitSettings( bool bBackground )
                 SetBackground( pParent->GetBackground() );
         }
     }
-}
-
-void RadioButton::DrawRadioButtonState(vcl::RenderContext& rRenderContext)
-{
-    ImplDrawRadioButtonState(rRenderContext);
 }
 
 void RadioButton::ImplDrawRadioButtonState(vcl::RenderContext& rRenderContext)
@@ -2845,8 +2846,15 @@ Size RadioButton::CalcMinimumSize() const
     else
     {
         aSize = maImage.GetSizePixel();
-        aSize.AdjustWidth(8 );
-        aSize.AdjustHeight(8 );
+        aSize.AdjustWidth(8);
+        aSize.AdjustHeight(8);
+    }
+
+    if (Button::HasImage() && !(ImplGetButtonState() & DrawButtonFlags::NoImage))
+    {
+        Size aImgSize = GetModeImage().GetSizePixel();
+        aSize = Size(std::max(aImgSize.Width(), aSize.Width()),
+                     std::max(aImgSize.Height(), aSize.Height()));
     }
 
     OUString aText = GetText();

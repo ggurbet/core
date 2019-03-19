@@ -19,6 +19,7 @@
 
 
 #include <string.h>
+#include <string_view>
 
 #include "keyimpl.hxx"
 
@@ -256,21 +257,15 @@ RegError ORegKey::getValueInfo(const OUString& valueName, RegValueType* pValueTy
     readUINT32(pBuffer.get()+VALUE_TYPEOFFSET, size);
 
     *pValueType = static_cast<RegValueType>(type);
-//    if (*pValueType == RegValueType::UNICODE)
-//    {
-//        *pValueSize = (size / 2) * sizeof(sal_Unicode);
-//    } else
-//    {
-        if (*pValueType > RegValueType::BINARY)
-        {
-            pBuffer.reset(new sal_uInt8[4]);
-            rValue.readAt(VALUE_HEADEROFFSET, pBuffer.get(), 4, readBytes);
+    if (*pValueType > RegValueType::BINARY)
+    {
+        pBuffer.reset(new sal_uInt8[4]);
+        rValue.readAt(VALUE_HEADEROFFSET, pBuffer.get(), 4, readBytes);
 
-            readUINT32(pBuffer.get(), size);
-        }
+        readUINT32(pBuffer.get(), size);
+    }
 
-        *pValueSize = size;
-//    }
+    *pValueSize = size;
 
     return RegError::NO_ERROR;
 }
@@ -987,7 +982,7 @@ OUString ORegKey::getFullPath(OUString const & path) const {
     OUStringBuffer b(m_name);
     if (!b.isEmpty() && b[b.getLength() - 1] == '/') {
         if (path[0] == '/') {
-            b.appendCopy(path,1);
+            b.append(std::u16string_view(path).substr(1));
         } else {
             b.append(path);
         }

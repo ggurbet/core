@@ -18,12 +18,10 @@
  */
 
 #include <fprogressbar.hxx>
-#include <global.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <progress.hxx>
 #include <osl/diagnose.h>
-#include <o3tl/make_unique.hxx>
 #include <tools/stream.hxx>
 
 #include <climits>
@@ -145,7 +143,7 @@ sal_Int32 ScfProgressBar::AddSegment( std::size_t nSize )
     if( nSize == 0 )
         return SCF_INV_SEGMENT;
 
-    maSegments.push_back( o3tl::make_unique<ScfProgressSegment>( nSize ) );
+    maSegments.push_back( std::make_unique<ScfProgressSegment>( nSize ) );
     mnTotalSize += nSize;
     return static_cast< sal_Int32 >( maSegments.size() - 1 );
 }

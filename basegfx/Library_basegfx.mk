@@ -40,7 +40,6 @@ $(eval $(call gb_Library_add_exception_objects,basegfx,\
     basegfx/source/matrix/b3dhommatrix \
     basegfx/source/matrix/b3dhommatrixtools \
 	basegfx/source/numeric/ftools \
-    basegfx/source/pixel/bpixel \
     basegfx/source/point/b2dpoint \
     basegfx/source/point/b2ipoint \
     basegfx/source/point/b3dpoint \
@@ -59,7 +58,6 @@ $(eval $(call gb_Library_add_exception_objects,basegfx,\
     basegfx/source/polygon/b3dpolygontools \
     basegfx/source/polygon/b3dpolypolygon \
     basegfx/source/polygon/b3dpolypolygontools \
-    basegfx/source/range/b1drange \
     basegfx/source/range/b2dpolyrange \
     basegfx/source/range/b2drange \
     basegfx/source/range/b2drangeclipper \
@@ -77,10 +75,7 @@ $(eval $(call gb_Library_add_exception_objects,basegfx,\
     basegfx/source/tools/unopolypolygon \
     basegfx/source/tools/zoomtools \
     basegfx/source/tuple/b2dtuple \
-    basegfx/source/tuple/b2i64tuple \
-    basegfx/source/tuple/b2ituple \
     basegfx/source/tuple/b3dtuple \
-    basegfx/source/tuple/b3ituple \
     basegfx/source/vector/b2dvector \
     basegfx/source/vector/b2ivector \
     basegfx/source/vector/b3dvector \

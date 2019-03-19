@@ -98,11 +98,11 @@ void ScScreenshotTest::initialize()
 
     SvMemoryStream* pNewMemStream = new SvMemoryStream(const_cast<sal_Unicode *>(mCsv.getStr()), mCsv.getLength() * sizeof(sal_Unicode), StreamMode::READ);
     pNewMemStream->SetStreamCharSet( RTL_TEXTENCODING_UNICODE );
-    #ifdef OSL_BIGENDIAN
-        pNewMemStream->SetEndian(SvStreamEndian::BIG);
-    #else
-        pNewMemStream->SetEndian(SvStreamEndian::LITTLE);
-    #endif
+#ifdef OSL_BIGENDIAN
+    pNewMemStream->SetEndian(SvStreamEndian::BIG);
+#else
+    pNewMemStream->SetEndian(SvStreamEndian::LITTLE);
+#endif
     mpStream.reset(pNewMemStream);
 }
 
@@ -209,7 +209,7 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
 
         case 10: // "modules/scalc/ui/textimportoptions.ui"
         {
-            pReturnDialog = mpFact->CreateScTextImportOptionsDlg();
+            pReturnDialog = mpFact->CreateScTextImportOptionsDlg(mpViewShell->GetFrameWeld());
             break;
         }
 

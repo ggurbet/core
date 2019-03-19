@@ -92,6 +92,13 @@ interface Annotation : _Annotation
         DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
     ]
 
+    FN_INSERT_NNBSP // status(final|play)
+    [
+        ExecMethod = Exec ;
+        StateMethod = NoState ;
+        DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
+    ]
+
     SID_INSERT_RLM
     [
         ExecMethod = Exec ;
@@ -223,7 +230,7 @@ interface Annotation : _Annotation
         DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
     ]
 
-    SID_TRANSLITERATE_KATAGANA
+    SID_TRANSLITERATE_KATAKANA
     [
         ExecMethod = ExecTransliteration;
         StateMethod = GetState ;

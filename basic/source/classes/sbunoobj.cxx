@@ -20,7 +20,6 @@
 #include <sal/config.h>
 
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/mutex.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/errcode.hxx>
@@ -4406,14 +4405,8 @@ static DisposeItemVector GaDisposeItemVector;
 
 static DisposeItemVector::iterator lcl_findItemForBasic( StarBASIC const * pBasic )
 {
-    DisposeItemVector::iterator it;
-    for( it = GaDisposeItemVector.begin() ; it != GaDisposeItemVector.end() ; ++it )
-    {
-        StarBasicDisposeItem* pItem = *it;
-        if( pItem->m_pBasic == pBasic )
-            return it;
-    }
-    return GaDisposeItemVector.end();
+    return std::find_if(GaDisposeItemVector.begin(), GaDisposeItemVector.end(),
+        [&pBasic](StarBasicDisposeItem* pItem) { return pItem->m_pBasic == pBasic; });
 }
 
 static StarBasicDisposeItem* lcl_getOrCreateItemForBasic( StarBASIC* pBasic )
@@ -4631,12 +4624,9 @@ void SbUnoStructRefObject::initMemberCache()
 {
     if ( mbMemberCacheInit )
         return;
-    sal_Int32 nAll = 0;
     typelib_TypeDescription * pTD = nullptr;
     maMemberInfo.getType().getDescription(&pTD);
     typelib_CompoundTypeDescription * pCompTypeDescr = reinterpret_cast<typelib_CompoundTypeDescription *>(pTD);
-    for ( ; pCompTypeDescr; pCompTypeDescr = pCompTypeDescr->pBaseTypeDescription )
-        nAll += pCompTypeDescr->nMembers;
     for ( pCompTypeDescr = reinterpret_cast<typelib_CompoundTypeDescription *>(pTD); pCompTypeDescr;
         pCompTypeDescr = pCompTypeDescr->pBaseTypeDescription )
     {
@@ -4646,7 +4636,7 @@ void SbUnoStructRefObject::initMemberCache()
         for ( sal_Int32 nPos = pCompTypeDescr->nMembers; nPos--; )
         {
             OUString aName( ppNames[nPos] );
-            maFields[ aName ] = o3tl::make_unique<StructRefInfo>( maMemberInfo.getRootAnyRef(), ppTypeRefs[nPos], maMemberInfo.getPos() + pMemberOffsets[nPos] );
+            maFields[ aName ] = std::make_unique<StructRefInfo>( maMemberInfo.getRootAnyRef(), ppTypeRefs[nPos], maMemberInfo.getPos() + pMemberOffsets[nPos] );
         }
     }
     typelib_typedescription_release(pTD);
@@ -4811,7 +4801,7 @@ void SbUnoStructRefObject::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
         SbUnoProperty* pProp = dynamic_cast<SbUnoProperty*>( pVar );
         if( pProp )
         {
-             StructFieldInfo::iterator it =  maFields.find(  pProp->GetName() );
+            StructFieldInfo::iterator it =  maFields.find(  pProp->GetName() );
             // handle get/set of members of struct
             if( pHint->GetId() == SfxHintId::BasicDataWanted )
             {
@@ -4822,11 +4812,10 @@ void SbUnoStructRefObject::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
                     // Id == -1: Display implemented interfaces according the ClassProvider
                     if( nId == -1 )     // Property ID_DBG_SUPPORTEDINTERFACES"
                     {
-                        OUStringBuffer aRet;
-                        aRet.append( ID_DBG_SUPPORTEDINTERFACES );
-                        aRet.append( " not available.\n(TypeClass is not TypeClass_INTERFACE)\n" );
+                        OUString aRet = OUStringLiteral( ID_DBG_SUPPORTEDINTERFACES )
+                                      + " not available.\n(TypeClass is not TypeClass_INTERFACE)\n";
 
-                        pVar->PutString( aRet.makeStringAndClear() );
+                        pVar->PutString( aRet );
                     }
                     // Id == -2: output properties
                     else if( nId == -2 )        // Property ID_DBG_PROPERTIES
@@ -4841,11 +4830,10 @@ void SbUnoStructRefObject::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
                     {
                         // by now all properties must be established
                         implCreateAll();
-                        OUStringBuffer aRet;
-                        aRet.append("Methods of object ");
-                        aRet.append( getDbgObjectName() );
-                        aRet.append( "\nNo methods found\n" );
-                        pVar->PutString( aRet.makeStringAndClear() );
+                        OUString aRet = "Methods of object "
+                                      + getDbgObjectName()
+                                      + "\nNo methods found\n";
+                        pVar->PutString( aRet );
                     }
                     return;
                 }

@@ -526,7 +526,7 @@ void ScDBFunc::DoSubTotals( const ScSubTotalParam& rParam, bool bRecord,
         if (bRecord)
         {
             pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoSubTotals>( pDocSh, nTab,
+                std::make_unique<ScUndoSubTotals>( pDocSh, nTab,
                                         rParam, aNewParam.nRow2,
                                         std::move(pUndoDoc), std::move(pUndoTab), // pUndoDBData,
                                         std::move(pUndoRange), std::move(pUndoDB) ) );
@@ -613,7 +613,7 @@ bool ScDBFunc::MakePivotTable(
         if (bUndo)
         {
             pDocSh->GetUndoManager()->AddUndoAction(
-                        o3tl::make_unique<ScUndoInsertTab>( pDocSh, nNewTab, bAppend, lcl_MakePivotTabName( aName, i ) ));
+                        std::make_unique<ScUndoInsertTab>( pDocSh, nNewTab, bAppend, lcl_MakePivotTabName( aName, i ) ));
         }
 
         GetViewData().InsertTab( nNewTab );
@@ -1136,15 +1136,15 @@ void ScDBFunc::GroupDataPilot()
         }
     }
 
-    ScDPSaveGroupDimension* pNewGroupDim = nullptr;
+    std::unique_ptr<ScDPSaveGroupDimension> pNewGroupDim;
     if ( !pGroupDimension )
     {
         // create a new group dimension
         OUString aGroupDimName =
             pDimData->CreateGroupDimName(aBaseDimName, *pDPObj, false, nullptr);
-        pNewGroupDim = new ScDPSaveGroupDimension( aBaseDimName, aGroupDimName );
+        pNewGroupDim.reset(new ScDPSaveGroupDimension( aBaseDimName, aGroupDimName ));
 
-        pGroupDimension = pNewGroupDim;     // make changes to the new dim if none existed
+        pGroupDimension = pNewGroupDim.get();     // make changes to the new dim if none existed
 
         if ( pBaseGroupDim )
         {
@@ -1194,10 +1194,10 @@ void ScDBFunc::GroupDataPilot()
     if ( pNewGroupDim )
     {
         pDimData->AddGroupDimension( *pNewGroupDim );
-        delete pNewGroupDim;        // AddGroupDimension copies the object
+        pNewGroupDim.reset();        // AddGroupDimension copies the object
         // don't access pGroupDimension after here
     }
-    pGroupDimension = pNewGroupDim = nullptr;
+    pGroupDimension = nullptr;
 
     // set orientation
     ScDPSaveDimension* pSaveDimension = aData.GetDimensionByName( aGroupDimName );
@@ -2218,7 +2218,7 @@ void ScDBFunc::RepeatDB( bool bRecord )
             }
 
             GetViewData().GetDocShell()->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoRepeatDB>( GetViewData().GetDocShell(), nTab,
+                std::make_unique<ScUndoRepeatDB>( GetViewData().GetDocShell(), nTab,
                                         nStartCol, nStartRow, nEndCol, nEndRow,
                                         nNewEndRow,
                                         nCurX, nCurY,

@@ -41,6 +41,7 @@
 #include <viewopt.hxx>
 #include <dflyobj.hxx>
 #include <dcontact.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <tabfrm.hxx>
 #include <rowfrm.hxx>
@@ -64,6 +65,7 @@
 #include <objectformatter.hxx>
 #include <calbck.hxx>
 #include <DocumentSettingManager.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentTimerAccess.hxx>
 #include <IDocumentRedlineAccess.hxx>
 #include <IDocumentFieldsAccess.hxx>
@@ -1037,7 +1039,7 @@ void AppendObj(SwFrame *const pFrame, SwPageFrame *const pPage, SwFrameFormat *c
 
 static bool IsShown(sal_uLong const nIndex,
     const SwFormatAnchor & rAnch,
-    std::vector<sw::Extent>::const_iterator *const pIter,
+    std::vector<sw::Extent>::const_iterator const*const pIter,
     std::vector<sw::Extent>::const_iterator const*const pEnd)
 {
     assert(!pIter || *pIter == *pEnd || (*pIter)->pNode->GetIndex() == nIndex);
@@ -1081,7 +1083,7 @@ static bool IsShown(sal_uLong const nIndex,
 }
 
 void RemoveHiddenObjsOfNode(SwTextNode const& rNode,
-    std::vector<sw::Extent>::const_iterator *const pIter,
+    std::vector<sw::Extent>::const_iterator const*const pIter,
     std::vector<sw::Extent>::const_iterator const*const pEnd)
 {
     std::vector<SwFrameFormat*> const*const pFlys(rNode.GetAnchoredFlys());
@@ -1107,7 +1109,7 @@ void RemoveHiddenObjsOfNode(SwTextNode const& rNode,
 
 void AppendObjsOfNode(SwFrameFormats const*const pTable, sal_uLong const nIndex,
     SwFrame *const pFrame, SwPageFrame *const pPage, SwDoc *const pDoc,
-    std::vector<sw::Extent>::const_iterator *const pIter,
+    std::vector<sw::Extent>::const_iterator const*const pIter,
     std::vector<sw::Extent>::const_iterator const*const pEnd)
 {
 #if OSL_DEBUG_LEVEL > 0
@@ -1345,8 +1347,8 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
     SwPageFrame *pPage = pLay->FindPageFrame();
     const SwFrameFormats *pTable = pDoc->GetSpzFrameFormats();
     SwFrame       *pFrame = nullptr;
-    SwActualSection *pActualSection = nullptr;
-    SwLayHelper *pPageMaker;
+    std::unique_ptr<SwActualSection> pActualSection;
+    std::unique_ptr<SwLayHelper> pPageMaker;
 
     //If the layout will be created (bPages == true) we do head on the progress
     //Flys and DrawObjects are not connected immediately, this
@@ -1355,8 +1357,8 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
     {
         // Attention: the SwLayHelper class uses references to the content-,
         // page-, layout-frame etc. and may change them!
-        pPageMaker = new SwLayHelper( pDoc, pFrame, pPrv, pPage, pLay,
-                pActualSection, nIndex, 0 == nEndIndex );
+        pPageMaker.reset(new SwLayHelper( pDoc, pFrame, pPrv, pPage, pLay,
+                pActualSection, nIndex, 0 == nEndIndex ));
         if( bStartPercent )
         {
             const sal_uLong nPageCount = pPageMaker->CalcPageCount();
@@ -1383,7 +1385,7 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
         if( ( !pLay->IsInFootnote() || pSct->IsInFootnote() ) &&
             ( !pLay->IsInTab() || pSct->IsInTab() ) )
         {
-            pActualSection = new SwActualSection( nullptr, pSct, nullptr );
+            pActualSection.reset(new SwActualSection( nullptr, pSct, nullptr ));
             OSL_ENSURE( !pLay->Lower() || !pLay->Lower()->IsColumnFrame(),
                 "InsertCnt_: Wrong Call" );
         }
@@ -1548,8 +1550,8 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
             else
             {
                 pFrame = pNode->MakeFrame( pLay );
-                pActualSection = new SwActualSection( pActualSection,
-                                                static_cast<SwSectionFrame*>(pFrame), pNode );
+                pActualSection.reset( new SwActualSection( pActualSection.release(),
+                                                static_cast<SwSectionFrame*>(pFrame), pNode ) );
                 if ( pActualSection->GetUpper() )
                 {
                     //Insert behind the Upper, the "Follow" of the Upper will be
@@ -1638,10 +1640,10 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
 
             //Close the section, where appropriate activate the surrounding
             //section again.
-            SwActualSection *pTmp = pActualSection ? pActualSection->GetUpper() : nullptr;
-            delete pActualSection;
+            SwActualSection *pActualSectionUpper1 = pActualSection ? pActualSection->GetUpper() : nullptr;
+            pActualSection.reset(pActualSectionUpper1);
             pLay = pLay->FindSctFrame();
-            if ( nullptr != (pActualSection = pTmp) )
+            if ( pActualSection )
             {
                 //Could be, that the last SectionFrame remains empty.
                 //Then now is the time to remove them.
@@ -1734,7 +1736,7 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
             pLay->RemoveFromLayout();
             SwFrame::DestroyFrame(pLay);
         }
-        delete pActualSection;
+        pActualSection.reset();
     }
 
     if ( bPages ) // let the Flys connect to each other
@@ -1747,7 +1749,7 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
     if( pPageMaker )
     {
         pPageMaker->CheckFlyCache( pPage );
-        delete pPageMaker;
+        pPageMaker.reset();
         if( pDoc->GetLayoutCache() )
         {
 #ifdef DBG_UTIL
@@ -2540,7 +2542,8 @@ static void lcl_RemoveObjsFromPage( SwFrame* _pFrame )
         {
             if (pObj->GetFrameFormat().GetAnchor().GetAnchorId() != RndStdIds::FLY_AS_CHAR)
             {
-                pObj->GetPageFrame()->RemoveDrawObjFromPage(
+                if (SwPageFrame *pPg = pObj->GetPageFrame())
+                    pPg->RemoveDrawObjFromPage(
                                 *static_cast<SwAnchoredDrawObject*>(pObj) );
             }
         }
@@ -2881,8 +2884,8 @@ static void lcl_Regist( SwPageFrame *pPage, const SwFrame *pAnch )
             if ( pPage != pObj->GetPageFrame() )
             {
                 // #i28701#
-                if ( pObj->GetPageFrame() )
-                    pObj->GetPageFrame()->RemoveDrawObjFromPage( *pObj );
+                if (SwPageFrame *pPg = pObj->GetPageFrame())
+                    pPg->RemoveDrawObjFromPage( *pObj );
                 pPage->AppendDrawObjToPage( *pObj );
             }
         }

@@ -23,7 +23,6 @@
 #include <rtl/textenc.h>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <o3tl/make_unique.hxx>
 
 PropEntry::PropEntry( sal_uInt32 nId, const sal_uInt8* pBuf, sal_uInt32 nBufSize ) :
     mnId        ( nId ),
@@ -206,7 +205,7 @@ Section::Section( const Section& rSection )
     for ( int i = 0; i < 16; i++ )
         aFMTID[ i ] = rSection.aFMTID[ i ];
     for(const std::unique_ptr<PropEntry>& rEntry : rSection.maEntries)
-        maEntries.push_back(o3tl::make_unique<PropEntry>(*rEntry));
+        maEntries.push_back(std::make_unique<PropEntry>(*rEntry));
 }
 
 Section::Section( const sal_uInt8* pFMTID )
@@ -252,11 +251,11 @@ void Section::AddProperty( sal_uInt32 nId, const sal_uInt8* pBuf, sal_uInt32 nBu
         if ( (*iter)->mnId == nId )
             (*iter).reset(new PropEntry( nId, pBuf, nBufSize ));
         else
-            maEntries.insert( iter, o3tl::make_unique<PropEntry>( nId, pBuf, nBufSize ));
+            maEntries.insert( iter, std::make_unique<PropEntry>( nId, pBuf, nBufSize ));
     }
     else
     {
-        maEntries.push_back( o3tl::make_unique<PropEntry>( nId, pBuf, nBufSize ) );
+        maEntries.push_back( std::make_unique<PropEntry>( nId, pBuf, nBufSize ) );
     }
 }
 
@@ -520,7 +519,7 @@ Section& Section::operator=( const Section& rSection )
         memcpy( static_cast<void*>(aFMTID), static_cast<void const *>(rSection.aFMTID), 16 );
 
         for(const std::unique_ptr<PropEntry>& rEntry : rSection.maEntries)
-            maEntries.push_back(o3tl::make_unique<PropEntry>(*rEntry));
+            maEntries.push_back(std::make_unique<PropEntry>(*rEntry));
     }
     return *this;
 }
@@ -554,37 +553,37 @@ void PropRead::Read()
 {
     maSections.clear();
 
-    if ( mbStatus )
+    if ( !mbStatus )
+        return;
+
+    sal_uInt16              mnVersionLo;
+    sal_uInt16              mnVersionHi;
+    sal_uInt16              mnFormat;
+    mpSvStream->ReadUInt16( mnByteOrder ).ReadUInt16( mnFormat ).ReadUInt16( mnVersionLo ).ReadUInt16( mnVersionHi );
+    if ( mnByteOrder != 0xfffe )
+        return;
+
+    std::vector<sal_uInt8> aSectCLSID(16);
+    mpSvStream->ReadBytes(mApplicationCLSID, 16);
+    sal_uInt32 nSections(0);
+    mpSvStream->ReadUInt32(nSections);
+    if ( nSections > 2 )                // sj: PowerPoint documents are containing max 2 sections
     {
-        sal_uInt16              mnVersionLo;
-        sal_uInt16              mnVersionHi;
-        sal_uInt16              mnFormat;
-        mpSvStream->ReadUInt16( mnByteOrder ).ReadUInt16( mnFormat ).ReadUInt16( mnVersionLo ).ReadUInt16( mnVersionHi );
-        if ( mnByteOrder == 0xfffe )
+        mbStatus = false;
+    }
+    else for ( sal_uInt32 i = 0; i < nSections; i++ )
+    {
+        mpSvStream->ReadBytes(aSectCLSID.data(), aSectCLSID.size());
+        sal_uInt32 nSectionOfs(0);
+        mpSvStream->ReadUInt32( nSectionOfs );
+        sal_uInt32 nCurrent = mpSvStream->Tell();
+        if (checkSeek(*mpSvStream, nSectionOfs))
         {
-            std::vector<sal_uInt8> aSectCLSID(16);
-            mpSvStream->ReadBytes(mApplicationCLSID, 16);
-            sal_uInt32 nSections(0);
-            mpSvStream->ReadUInt32(nSections);
-            if ( nSections > 2 )                // sj: PowerPoint documents are containing max 2 sections
-            {
-                mbStatus = false;
-            }
-            else for ( sal_uInt32 i = 0; i < nSections; i++ )
-            {
-                mpSvStream->ReadBytes(aSectCLSID.data(), aSectCLSID.size());
-                sal_uInt32 nSectionOfs(0);
-                mpSvStream->ReadUInt32( nSectionOfs );
-                sal_uInt32 nCurrent = mpSvStream->Tell();
-                if (checkSeek(*mpSvStream, nSectionOfs))
-                {
-                    Section aSection(aSectCLSID.data());
-                    aSection.Read(mpSvStream.get());
-                    maSections.push_back(o3tl::make_unique<Section>(aSection));
-                }
-                mpSvStream->Seek( nCurrent );
-            }
+            Section aSection(aSectCLSID.data());
+            aSection.Read(mpSvStream.get());
+            maSections.push_back(std::make_unique<Section>(aSection));
         }
+        mpSvStream->Seek( nCurrent );
     }
 }
 
@@ -599,7 +598,7 @@ PropRead& PropRead::operator=( const PropRead& rPropRead )
         memcpy( mApplicationCLSID, rPropRead.mApplicationCLSID, 16 );
 
         for(const std::unique_ptr<Section>& rSection : rPropRead.maSections)
-            maSections.push_back(o3tl::make_unique<Section>(*rSection));
+            maSections.push_back(std::make_unique<Section>(*rSection));
     }
     return *this;
 }

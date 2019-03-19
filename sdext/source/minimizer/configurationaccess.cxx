@@ -28,6 +28,7 @@
 #include <comphelper/propertysequence.hxx>
 #include <sal/macros.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -41,89 +42,89 @@ static OUString GetPathToConfigurationRoot()
 
 void OptimizerSettings::LoadSettingsFromConfiguration( const Reference< XNameAccess >& rSettings )
 {
-    if ( rSettings.is() )
+    if ( !rSettings.is() )
+        return;
+
+    const Sequence< OUString > aElements( rSettings->getElementNames() );
+    for ( int i = 0; i < aElements.getLength(); i++ )
     {
-        const Sequence< OUString > aElements( rSettings->getElementNames() );
-        for ( int i = 0; i < aElements.getLength(); i++ )
+        try
         {
-            try
+            const OUString aPropertyName( aElements[ i ] );
+            Any aValue( rSettings->getByName( aPropertyName ) );
+            switch( TKGet( aPropertyName ) )
             {
-                const OUString aPropertyName( aElements[ i ] );
-                Any aValue( rSettings->getByName( aPropertyName ) );
-                switch( TKGet( aPropertyName ) )
-                {
-                    case TK_Name :                      aValue >>= maName; break;
-                    case TK_JPEGCompression :           aValue >>= mbJPEGCompression; break;
-                    case TK_JPEGQuality :               aValue >>= mnJPEGQuality; break;
-                    case TK_RemoveCropArea :            aValue >>= mbRemoveCropArea; break;
-                    case TK_ImageResolution :           aValue >>= mnImageResolution; break;
-                    case TK_EmbedLinkedGraphics :       aValue >>= mbEmbedLinkedGraphics; break;
-                    case TK_OLEOptimization :           aValue >>= mbOLEOptimization; break;
-                    case TK_OLEOptimizationType :       aValue >>= mnOLEOptimizationType; break;
-                    case TK_DeleteUnusedMasterPages :   aValue >>= mbDeleteUnusedMasterPages; break;
-                    case TK_DeleteHiddenSlides :        aValue >>= mbDeleteHiddenSlides; break;
-                    case TK_DeleteNotesPages :          aValue >>= mbDeleteNotesPages ;break;
-                    case TK_SaveAs :                    aValue >>= mbSaveAs; break;
+                case TK_Name :                      aValue >>= maName; break;
+                case TK_JPEGCompression :           aValue >>= mbJPEGCompression; break;
+                case TK_JPEGQuality :               aValue >>= mnJPEGQuality; break;
+                case TK_RemoveCropArea :            aValue >>= mbRemoveCropArea; break;
+                case TK_ImageResolution :           aValue >>= mnImageResolution; break;
+                case TK_EmbedLinkedGraphics :       aValue >>= mbEmbedLinkedGraphics; break;
+                case TK_OLEOptimization :           aValue >>= mbOLEOptimization; break;
+                case TK_OLEOptimizationType :       aValue >>= mnOLEOptimizationType; break;
+                case TK_DeleteUnusedMasterPages :   aValue >>= mbDeleteUnusedMasterPages; break;
+                case TK_DeleteHiddenSlides :        aValue >>= mbDeleteHiddenSlides; break;
+                case TK_DeleteNotesPages :          aValue >>= mbDeleteNotesPages ;break;
+                case TK_SaveAs :                    aValue >>= mbSaveAs; break;
 //                  case TK_SaveAsURL :                 aValue >>= maSaveAsURL; break;      // URL is not saved to configuration
 //                  case TK_FilterName :                aValue >>= maFilterName; break;     // URL is not saved to configuration
-                    case TK_OpenNewDocument :           aValue >>= mbOpenNewDocument; break;
-                    default: break;
-                }
+                case TK_OpenNewDocument :           aValue >>= mbOpenNewDocument; break;
+                default: break;
             }
-            catch (const Exception&)
-            {
-            }
+        }
+        catch (const Exception&)
+        {
         }
     }
 }
 
 void OptimizerSettings::SaveSettingsToConfiguration( const Reference< XNameReplace >& rSettings )
 {
-    if ( rSettings.is() )
-    {
-        OUString pNames[] = {
-            OUString("Name"),
-            OUString("JPEGCompression"),
-            OUString("JPEGQuality"),
-            OUString("RemoveCropArea"),
-            OUString("ImageResolution"),
-            OUString("EmbedLinkedGraphics"),
-            OUString("OLEOptimization"),
-            OUString("OLEOptimizationType"),
-            OUString("DeleteUnusedMasterPages"),
-            OUString("DeleteHiddenSlides"),
-            OUString("DeleteNotesPages"),
-            OUString("SaveAs"),
+    if ( !rSettings.is() )
+        return;
+
+    OUString pNames[] = {
+        OUString("Name"),
+        OUString("JPEGCompression"),
+        OUString("JPEGQuality"),
+        OUString("RemoveCropArea"),
+        OUString("ImageResolution"),
+        OUString("EmbedLinkedGraphics"),
+        OUString("OLEOptimization"),
+        OUString("OLEOptimizationType"),
+        OUString("DeleteUnusedMasterPages"),
+        OUString("DeleteHiddenSlides"),
+        OUString("DeleteNotesPages"),
+        OUString("SaveAs"),
 //          OUString("SaveAsURL"),
 //          OUString("FilterName"),
-            OUString("OpenNewDocument") };
+        OUString("OpenNewDocument") };
 
-        Any pValues[] = {
-            Any( maName ),
-            Any( mbJPEGCompression ),
-            Any( mnJPEGQuality ),
-            Any( mbRemoveCropArea ),
-            Any( mnImageResolution ),
-            Any( mbEmbedLinkedGraphics ),
-            Any( mbOLEOptimization ),
-            Any( mnOLEOptimizationType ),
-            Any( mbDeleteUnusedMasterPages ),
-            Any( mbDeleteHiddenSlides ),
-            Any( mbDeleteNotesPages ),
-            Any( mbSaveAs ),
+    Any pValues[] = {
+        Any( maName ),
+        Any( mbJPEGCompression ),
+        Any( mnJPEGQuality ),
+        Any( mbRemoveCropArea ),
+        Any( mnImageResolution ),
+        Any( mbEmbedLinkedGraphics ),
+        Any( mbOLEOptimization ),
+        Any( mnOLEOptimizationType ),
+        Any( mbDeleteUnusedMasterPages ),
+        Any( mbDeleteHiddenSlides ),
+        Any( mbDeleteNotesPages ),
+        Any( mbSaveAs ),
 //          Any( maSaveAsURL ),
 //          Any( maFilterName ),
-            Any( mbOpenNewDocument ) };
+        Any( mbOpenNewDocument ) };
 
-        for ( int i = 0; i < int(SAL_N_ELEMENTS( pNames )); i++ )
+    for ( int i = 0; i < int(SAL_N_ELEMENTS( pNames )); i++ )
+    {
+        try
         {
-            try
-            {
-                rSettings->replaceByName( pNames[ i ], pValues[ i ] );
-            }
-            catch (const Exception&)
-            {
-            }
+            rSettings->replaceByName( pNames[ i ], pValues[ i ] );
+        }
+        catch (const Exception&)
+        {
         }
     }
 }
@@ -328,10 +329,11 @@ Reference< XInterface > ConfigurationAccess::GetConfigurationNode(
             }
         }
     }
-    catch (const Exception& rException)
+    catch (const Exception&)
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         SAL_WARN("sdext.minimizer", "caught exception while getting configuration node "
-                  << sPathToNode << " : " << rException);
+                  << sPathToNode << " : " << exceptionToString(ex));
     }
     return xNode;
 }

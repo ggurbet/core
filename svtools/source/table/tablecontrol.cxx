@@ -29,7 +29,9 @@
 
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
+#include <unotools/accessiblestatesethelper.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/vclevent.hxx>
 
 using namespace ::com::sun::star::uno;
 using ::com::sun::star::accessibility::XAccessible;
@@ -218,7 +220,7 @@ namespace svt { namespace table
     }
 
 
-    void TableControl::SelectRow( RowPos const i_rowIndex, bool const i_select )
+    void TableControl::SelectRow( sal_Int32 const i_rowIndex, bool const i_select )
     {
         ENSURE_OR_RETURN_VOID( ( i_rowIndex >= 0 ) && ( i_rowIndex < m_pImpl->getModel()->getRowCount() ),
             "TableControl::SelectRow: invalid row index!" );

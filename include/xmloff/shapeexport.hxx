@@ -28,20 +28,20 @@
 #include <rtl/ustrbuf.hxx>
 #include <salhelper/simplereferenceobject.hxx>
 
-#include <com/sun/star/drawing/XShape.hpp>
-#include <com/sun/star/drawing/XShapes.hpp>
-#include <com/sun/star/awt/Point.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
-
 #include <map>
-#include <xmloff/xmlprmap.hxx>
-#include <xmloff/xmlexppr.hxx>
 #include <xmloff/animexp.hxx>
 #include <xmloff/families.hxx>
 #include <xmloff/txtparae.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
-#include <xmloff/table/XMLTableExport.hxx>
+namespace com { namespace sun { namespace star { namespace awt { struct Point; } } } }
+namespace com { namespace sun { namespace star { namespace beans { class XPropertySet; } } } }
+namespace com { namespace sun { namespace star { namespace drawing { class XShape; } } } }
+namespace com { namespace sun { namespace star { namespace drawing { class XShapes; } } } }
+
+class XMLTableExport;
+class SvXMLAttributeList;
+class XMLPropertyHandlerFactory;
 
 // shape export features are bits used for the nFeature
 // parameter of XMLShapeExport::exportShape
@@ -158,14 +158,12 @@ class XMLOFF_DLLPUBLIC XMLShapeExport : public salhelper::SimpleReferenceObject
 private:
 
     SvXMLExport&                                mrExport;
-    rtl::Reference< XMLPropertyHandlerFactory >   mxSdPropHdlFactory;
     rtl::Reference< SvXMLExportPropertyMapper >   mxPropertySetMapper;
     rtl::Reference< XMLAnimationsExporter >       mxAnimationsExporter;
     ShapesInfos                                 maShapesInfos;
     ShapesInfos::iterator                       maCurrentShapesIter;
     bool                                        mbExportLayer;
     ImplXMLShapeExportInfoVector                maShapeInfos;
-    ImplXMLShapeExportInfoVector::iterator      maCurrentInfo;
     OUString                                    msPresentationStylePrefix;
 
     // #88546# possibility to switch progress bar handling on/off

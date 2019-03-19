@@ -24,7 +24,6 @@
 #include <unotools/charclass.hxx>
 #include <com/sun/star/sheet/NamedRangeFlag.hpp>
 #include <osl/diagnose.h>
-#include <o3tl/make_unique.hxx>
 
 #include <token.hxx>
 #include <tokenarray.hxx>
@@ -126,7 +125,7 @@ ScRangeData::ScRangeData( ScDocument* pDok,
 ScRangeData::ScRangeData(const ScRangeData& rScRangeData, ScDocument* pDocument, const ScAddress* pPos) :
     aName   (rScRangeData.aName),
     aUpperName  (rScRangeData.aUpperName),
-    pCode       (rScRangeData.pCode ? rScRangeData.pCode->Clone() : new ScTokenArray()),   // make real copy (not copy-ctor)
+    pCode       (rScRangeData.pCode ? rScRangeData.pCode->Clone().release() : new ScTokenArray()),   // make real copy (not copy-ctor)
     aPos        (pPos ? *pPos : rScRangeData.aPos),
     eType       (rScRangeData.eType),
     pDoc        (pDocument ? pDocument : rScRangeData.pDoc),
@@ -154,8 +153,7 @@ void ScRangeData::CompileRangeData( const OUString& rSymbol, bool bSetError )
     ScCompiler aComp( pDoc, aPos, eTempGrammar );
     if (bSetError)
         aComp.SetExtendedErrorDetection( ScCompiler::EXTENDED_ERROR_DETECTION_NAME_NO_BREAK);
-    ScTokenArray* pNewCode = aComp.CompileString( rSymbol );
-    pCode.reset(pNewCode);
+    pCode = aComp.CompileString( rSymbol );
     pCode->SetFromRangeName(true);
     if( pCode->GetCodeError() == FormulaError::NONE )
     {
@@ -658,7 +656,7 @@ ScRangeName::ScRangeName(const ScRangeName& r)
 {
     for (auto const& it : r.m_Data)
     {
-        m_Data.insert(std::make_pair(it.first, o3tl::make_unique<ScRangeData>(*it.second)));
+        m_Data.insert(std::make_pair(it.first, std::make_unique<ScRangeData>(*it.second)));
     }
     // std::map was cloned, so each collection needs its own index to data.
     maIndexToData.resize( r.maIndexToData.size(), nullptr);
@@ -881,20 +879,10 @@ void ScRangeName::clear()
 
 bool ScRangeName::operator== (const ScRangeName& r) const
 {
-    if (m_Data.size() != r.m_Data.size())
-    {
-        return false;
-    }
-    for (auto iter1 = m_Data.begin(), iter2 = r.m_Data.begin();
-         iter1 != m_Data.end();
-         ++iter1, ++iter2)
-    {
-        if (!(iter1->first == iter2->first && *iter1->second == *iter2->second))
-        {
-            return false;
-        }
-    }
-    return true;
+    return std::equal(m_Data.begin(), m_Data.end(), r.m_Data.begin(), r.m_Data.end(),
+        [](const DataType::value_type& lhs, const DataType::value_type& rhs) {
+            return (lhs.first == rhs.first) && (*lhs.second == *rhs.second);
+        });
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

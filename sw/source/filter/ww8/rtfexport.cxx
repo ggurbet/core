@@ -56,7 +56,6 @@
 #include <svx/xflclit.hxx>
 #include <editeng/hyphenzoneitem.hxx>
 #include <fmtmeta.hxx>
-#include <o3tl/make_unique.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <fmtfsize.hxx>
 #include <ndtxt.hxx>
@@ -692,7 +691,7 @@ ErrCode RtfExport::ExportDocument_Impl()
     // Font table
     WriteFonts();
 
-    m_pStyles.reset(new MSWordStyles(*this));
+    m_pStyles = std::make_unique<MSWordStyles>(*this);
     // Color and stylesheet table
     WriteStyles();
 
@@ -1048,16 +1047,16 @@ RtfExport::RtfExport(RtfExportFilter* pFilter, SwDoc* pDocument, SwPaM* pCurrent
 {
     m_bExportModeRTF = true;
     // the attribute output for the document
-    m_pAttrOutput = o3tl::make_unique<RtfAttributeOutput>(*this);
+    m_pAttrOutput = std::make_unique<RtfAttributeOutput>(*this);
     // that just causes problems for RTF
     m_bSubstituteBullets = false;
     // needed to have a complete font table
     m_aFontHelper.bLoadAllFonts = true;
     // the related SdrExport
-    m_pSdrExport = o3tl::make_unique<RtfSdrExport>(*this);
+    m_pSdrExport = std::make_unique<RtfSdrExport>(*this);
 
     if (!m_pWriter)
-        m_pWriter = &m_pFilter->m_aWriter;
+        m_pWriter = &m_pFilter->GetWriter();
 }
 
 RtfExport::~RtfExport() = default;
@@ -1070,7 +1069,7 @@ SvStream& RtfExport::Strm()
     return m_pWriter->Strm();
 }
 
-void RtfExport::setStream() { m_pStream = o3tl::make_unique<SvMemoryStream>(); }
+void RtfExport::setStream() { m_pStream = std::make_unique<SvMemoryStream>(); }
 
 OString RtfExport::getStream()
 {

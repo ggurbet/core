@@ -11,7 +11,12 @@ dnl in order to create a configure script.
 
 AC_INIT([LibreOffice],[6.3.0.0.alpha0+],[],[],[http://documentfoundation.org/])
 
+dnl libnumbertext needs autoconf 2.68, but that can pick up autoconf268 just fine if it is installed
+dnl whereas aclocal (as run by autogen.sh) insists on using autoconf and fails hard
+dnl so check for the version of autoconf that is actually used to create the configure script
 AC_PREREQ([2.59])
+m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.68]), -1,
+    [AC_MSG_ERROR([at least autoconf version 2.68 is needed (you can use AUTOCONF environment variable to point to a suitable one)])])
 
 if test -n "$BUILD_TYPE"; then
     AC_MSG_ERROR([You have sourced config_host.mk in this shell.  This may lead to trouble, please run in a fresh (login) shell.])
@@ -459,7 +464,7 @@ if test -n "$with_android_ndk"; then
     # linker is required if you compile large parts of the code with -g. A 32-bit linker just won't
     # manage to link the (app-specific) single huge .so that is built for the app in
     # android/source/ if there is debug information in a significant part of the object files.
-    # (A 64-bit ld.gold grows to much over 10 gigabytes of virtual space when linking such a .so if
+    # (A 64-bit ld.gold grows too much over 10 gigabytes of virtual space when linking such a .so if
     # all objects have been built with debug information.)
     case $build_os in
     linux-gnu*)
@@ -548,6 +553,8 @@ test_cups=yes
 test_dbus=yes
 test_fontconfig=yes
 test_cairo=no
+test_gdb_index=no
+test_split_debug=no
 
 # Default values, as such probably valid just for Linux, set
 # differently below just for Mac OSX, but at least better than
@@ -600,6 +607,8 @@ linux-gnu*|k*bsd*-gnu*)
     build_gstreamer_0_10=yes
     test_kde5=yes
     test_gtk3_kde5=yes
+    test_gdb_index=yes
+    test_split_debug=yes
     if test "$enable_fuzzers" != yes; then
         test_freetype=yes
         test_fontconfig=yes
@@ -803,13 +812,6 @@ haiku*)
     ;;
 esac
 
-if test "$_os" != "WINNT"; then
-AC_C_BIGENDIAN([ENDIANNESS=big], [ENDIANNESS=little])
-else
-ENDIANNESS=little
-fi
-AC_SUBST(ENDIANNESS)
-
 if test "$_os" = "Android" ; then
     # Verify that the NDK and SDK options are proper
     if test -z "$with_android_ndk"; then
@@ -925,7 +927,7 @@ my_original_CXXFLAGS=$CXXFLAGS
 my_original_CPPFLAGS=$CPPFLAGS
 
 dnl The following checks for gcc, cc and then cl (if it weren't guarded for win32)
-dnl Needs to precede the AC_SEARCH_LIBS call below, which apparently calls
+dnl Needs to precede the AC_C_BIGENDIAN and AC_SEARCH_LIBS calls below, which apparently call
 dnl AC_PROG_CC internally.
 if test "$_os" != "WINNT"; then
     # AC_PROG_CC sets CFLAGS to -g -O2 if not set, avoid that
@@ -933,6 +935,13 @@ if test "$_os" != "WINNT"; then
     AC_PROG_CC
     CFLAGS=$save_CFLAGS
 fi
+
+if test "$_os" != "WINNT"; then
+AC_C_BIGENDIAN([ENDIANNESS=big], [ENDIANNESS=little])
+else
+ENDIANNESS=little
+fi
+AC_SUBST(ENDIANNESS)
 
 if test $_os != "WINNT"; then
     save_LIBS="$LIBS"
@@ -1123,14 +1132,14 @@ libo_FUZZ_ARG_ENABLE(debug,
          extra debugging code like assertions. Extra large build! (enables -g compiler flag).]))
 
 libo_FUZZ_ARG_ENABLE(split-debug,
-    AS_HELP_STRING([--enable-split-debug],
-        [Uses split debug information (-gsplit-dwarf compile flag). Saves disk space and build time,
-         but requires tools that support it (both build tools and debuggers).]))
+    AS_HELP_STRING([--disable-split-debug],
+        [Disable using split debug information (-gsplit-dwarf compile flag). Split debug information
+         saves disk space and build time, but requires tools that support it (both build tools and debuggers).]))
 
 libo_FUZZ_ARG_ENABLE(gdb-index,
-    AS_HELP_STRING([--enable-gdb-index],
-        [Creates debug information in the gdb index format, which makes gdb start faster.
-         Requires the gold or lld linker.]))
+    AS_HELP_STRING([--disable-gdb-index],
+        [Disables creating debug information in the gdb index format, which makes gdb start faster.
+         The feature requires the gold or lld linker.]))
 
 libo_FUZZ_ARG_ENABLE(sal-log,
     AS_HELP_STRING([--enable-sal-log],
@@ -1348,7 +1357,8 @@ AC_ARG_ENABLE(icecream,
 
 AC_ARG_ENABLE(ld,
     AS_HELP_STRING([--enable-ld=<linker>],
-        [Use the specified linker. Both 'gold' and 'lld' linkers generally use less memory and link faster.]),
+        [Use the specified linker. Both 'gold' and 'lld' linkers generally use less memory and link faster.
+         By default tries to use the best linker possible, use --disable-ld to use the default linker.]),
 ,)
 
 libo_FUZZ_ARG_ENABLE(cups,
@@ -1508,6 +1518,11 @@ libo_FUZZ_ARG_ENABLE(formula-logger,
         [Enable formula logger for logging formula calculation flow in Calc.]
     )
 )
+
+AC_ARG_ENABLE(ldap,
+    AS_HELP_STRING([--disable-ldap],
+        [Disable LDAP support.]),
+,enable_ldap=yes)
 
 dnl ===================================================================
 dnl Optional Packages (--with/without-)
@@ -1709,6 +1724,11 @@ AC_ARG_WITH(system-openldap,
     AS_HELP_STRING([--with-system-openldap],
         [Use the OpenLDAP LDAP SDK already on system.]),,
     [with_system_openldap="$with_system_libs"])
+
+libo_FUZZ_ARG_ENABLE(poppler,
+    AS_HELP_STRING([--disable-poppler],
+        [Disable building Poppler.])
+)
 
 AC_ARG_WITH(system-poppler,
     AS_HELP_STRING([--with-system-poppler],
@@ -1993,8 +2013,7 @@ AC_ARG_WITH(symbol-config,
 
 AC_ARG_WITH(export-validation,
     AS_HELP_STRING([--without-export-validation],
-        [Disable validating OOXML and ODF files as exported from in-tree tests.
-         Use this option e.g. if your system only provides Java 5.]),
+        [Disable validating OOXML and ODF files as exported from in-tree tests.]),
 ,with_export_validation=auto)
 
 AC_ARG_WITH(bffvalidator,
@@ -3152,73 +3171,6 @@ else
 fi
 AC_SUBST(CROSS_COMPILING)
 
-USE_LD=
-if test -n "$enable_ld" -a "$enable_ld" != "no"; then
-    AC_MSG_CHECKING([for -fuse-ld=$enable_ld linker support])
-    if test "$GCC" = "yes"; then
-        ldflags_save=$LDFLAGS
-        LDFLAGS="$LDFLAGS -fuse-ld=$enable_ld"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([
-#include <stdio.h>
-            ],[
-printf ("hello world\n");
-            ])], USE_LD=$enable_ld, [])
-        if test -n "$USE_LD"; then
-            AC_MSG_RESULT( yes )
-            LDFLAGS="$ldflags_save -fuse-ld=$enable_ld"
-        else
-            AC_MSG_ERROR( no )
-        fi
-    else
-        AC_MSG_ERROR( not supported )
-    fi
-fi
-AC_SUBST(USE_LD)
-
-ENABLE_GDB_INDEX=
-if test "$enable_gdb_index" = "yes"; then
-    AC_MSG_CHECKING([whether $CC supports -ggnu-pubnames])
-    save_CFLAGS=$CFLAGS
-    CFLAGS="$CFLAGS -Werror -ggnu-pubnames"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ AC_MSG_RESULT( yes )],[ AC_MSG_ERROR( no )])
-
-    AC_MSG_CHECKING([whether $CC supports -Wl,--gdb-index])
-    ldflags_save=$LDFLAGS
-    LDFLAGS="$LDFLAGS -Wl,--gdb-index"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([
-#include <stdio.h>
-        ],[
-printf ("hello world\n");
-        ])], ENABLE_GDB_INDEX=TRUE, [])
-    if test "$ENABLE_GDB_INDEX" = "TRUE"; then
-        AC_MSG_RESULT( yes )
-    else
-        AC_MSG_ERROR( no )
-    fi
-    CFLAGS=$save_CFLAGS
-    LDFLAGS=$ldflags_save
-fi
-AC_SUBST(ENABLE_GDB_INDEX)
-
-HAVE_LD_BSYMBOLIC_FUNCTIONS=
-if test "$GCC" = "yes"; then
-    AC_MSG_CHECKING([for -Bsymbolic-functions linker support])
-    bsymbolic_functions_ldflags_save=$LDFLAGS
-    LDFLAGS="$LDFLAGS -Wl,-Bsymbolic-functions"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([
-#include <stdio.h>
-        ],[
-printf ("hello world\n");
-        ])], HAVE_LD_BSYMBOLIC_FUNCTIONS=TRUE, [])
-    if test "$HAVE_LD_BSYMBOLIC_FUNCTIONS" = "TRUE"; then
-        AC_MSG_RESULT( found )
-    else
-        AC_MSG_RESULT( not found )
-    fi
-    LDFLAGS=$bsymbolic_functions_ldflags_save
-fi
-AC_SUBST(HAVE_LD_BSYMBOLIC_FUNCTIONS)
-
 # Use -isystem (gcc) if possible, to avoid warnings in 3rd party headers.
 # NOTE: must _not_ be used for bundled external libraries!
 ISYSTEM=
@@ -3605,15 +3557,18 @@ if test "$_os" = "WINNT"; then
     # needed to support TWAIN scan on both 32- and 64-bit systems
 
     BUILD_X86=
-    CXX_X86_BINARY=
 
     if test "$BITNESS_OVERRIDE" = "64"; then
         AC_MSG_CHECKING([for a x86 compiler and libraries for 32-bit binaries required for TWAIN support])
-        if "$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX86/x86/cl.exe" -? </dev/null >/dev/null 2>&1; then
+        if test -n "$CXX_X86_BINARY"; then
+            BUILD_X86=TRUE
+            AC_MSG_RESULT([preset])
+        elif "$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX86/x86/cl.exe" -? </dev/null >/dev/null 2>&1; then
             BUILD_X86=TRUE
             CXX_X86_BINARY="$VC_PRODUCT_DIR/Tools/MSVC/$vcbuildnumber/bin/HostX86/x86/cl.exe -arch:SSE"
             AC_MSG_RESULT([found])
         else
+            CXX_X86_BINARY=
             AC_MSG_RESULT([not found])
             AC_MSG_WARN([Installation set will not contain 32-bit binaries required for TWAIN support])
         fi
@@ -3739,8 +3694,6 @@ fi
 # ===================================================================
 
 HAVE_GCC_GGDB2=
-HAVE_GCC_FINLINE_LIMIT=
-HAVE_GCC_FNO_INLINE=
 if test "$GCC" = "yes"; then
     AC_MSG_CHECKING([whether $CC supports -ggdb2])
     save_CFLAGS=$CFLAGS
@@ -3748,28 +3701,6 @@ if test "$GCC" = "yes"; then
     AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ HAVE_GCC_GGDB2=TRUE ],[])
     CFLAGS=$save_CFLAGS
     if test "$HAVE_GCC_GGDB2" = "TRUE"; then
-        AC_MSG_RESULT([yes])
-    else
-        AC_MSG_RESULT([no])
-    fi
-
-    AC_MSG_CHECKING([whether $CC supports -finline-limit=0])
-    save_CFLAGS=$CFLAGS
-    CFLAGS="$CFLAGS -Werror -finline-limit=0"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ HAVE_GCC_FINLINE_LIMIT=TRUE ],[])
-    CFLAGS=$save_CFLAGS
-    if test "$HAVE_GCC_FINLINE_LIMIT" = "TRUE"; then
-        AC_MSG_RESULT([yes])
-    else
-        AC_MSG_RESULT([no])
-    fi
-
-    AC_MSG_CHECKING([whether $CC supports -fno-inline])
-    save_CFLAGS=$CFLAGS
-    CFLAGS="$CFLAGS -Werror -fno-inline"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ HAVE_GCC_FNO_INLINE=TRUE ],[])
-    CFLAGS=$save_CFLAGS
-    if test "$HAVE_GCC_FNO_INLINE" = "TRUE"; then
         AC_MSG_RESULT([yes])
     else
         AC_MSG_RESULT([no])
@@ -3789,8 +3720,6 @@ if test "$GCC" = "yes"; then
     fi
 fi
 AC_SUBST(HAVE_GCC_GGDB2)
-AC_SUBST(HAVE_GCC_FINLINE_LIMIT)
-AC_SUBST(HAVE_GCC_FNO_INLINE)
 
 dnl ===================================================================
 dnl  Test the gcc version
@@ -3908,9 +3837,140 @@ else
 fi
 AC_SUBST(ENABLE_DEBUG)
 
-if test "$enable_split_debug" = yes; then
-    HAVE_GSPLIT_DWARF=
+dnl ===================================================================
+dnl Select the linker to use (gold/lld/ld.bfd).
+dnl This is done only after compiler checks (need to know if Clang is
+dnl used, for different defaults) and after checking if a debug build
+dnl is wanted (non-debug builds get the default linker if not explicitly
+dnl specified otherwise).
+dnl All checks for linker features/options should come after this.
+dnl ===================================================================
+check_use_ld()
+{
+    use_ld=$1
+    use_ld_fail_if_error=$2
+    use_ld_ok=
+    AC_MSG_CHECKING([for -fuse-ld=$use_ld linker support])
+    use_ld_ldflags_save="$LDFLAGS"
+    LDFLAGS="$LDFLAGS -fuse-ld=$use_ld"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <stdio.h>
+        ],[
+printf ("hello world\n");
+        ])], USE_LD=$use_ld, [])
+    if test -n "$USE_LD"; then
+        AC_MSG_RESULT( yes )
+        use_ld_ok=yes
+        dnl For obscure reasons, unxgcc.mk uses the --dynamic-list-cpp-typeinfo linker option
+        dnl if sanitizers are used, and lld doesn't support this option.
+        use_ld_has_sanitizers=
+        for i in $CC; do
+            case $i in
+            -fsanitize=*)
+                use_ld_has_sanitizers=yes
+                break
+                ;;
+            esac
+        done
+        if test -n "$use_ld_has_sanitizers"; then
+            AC_MSG_CHECKING([for --dynamic-list-cpp-typeinfo linker support (-fuse-ld=$use_ld)])
+            use_ld_ldflags_save_2="$LDFLAGS"
+            LDFLAGS="$LDFLAGS -Wl,--dynamic-list-cpp-typeinfo"
+            use_ld_has_cpp_typeinfo=
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <stdio.h>
+                ],[
+printf ("hello world\n");
+                ])], use_ld_has_cpp_typeinfo=yes, [])
+            LDFLAGS="$use_ld_ldflags_save_2"
+            if test -n "$use_ld_has_cpp_typeinfo"; then
+                AC_MSG_RESULT( yes )
+            else
+                AC_MSG_RESULT( no )
+                use_ld_ok=
+            fi
+        fi
+    else
+        if test -n "$use_ld_fail_if_error"; then
+            AC_MSG_ERROR( no )
+        else
+            AC_MSG_RESULT( no )
+        fi
+    fi
+    if test -n "$use_ld_ok"; then
+        dnl keep the value of LDFLAGS
+        return 0
+    fi
+    LDFLAGS="$use_ld_ldflags_save"
+    return 1
+}
+USE_LD=
+if test "$enable_ld" != "no"; then
     if test "$GCC" = "yes"; then
+        if test -n "$enable_ld"; then
+            check_use_ld "$enable_ld" fail_if_error
+        elif test -z "$ENABLE_DEBUG$ENABLE_DBGUTIL"; then
+            dnl non-debug builds default to the default linker
+            true
+        elif test -n "$COM_IS_CLANG"; then
+            check_use_ld lld
+            if test $? -ne 0; then
+                check_use_ld gold
+            fi
+        else
+            check_use_ld gold
+        fi
+        ld_output=$(echo 'int main() { return 0; }' | $CC -Wl,-v -x c -o conftest.out - $CFLAGS $LDFLAGS 2>/dev/null)
+        rm conftest.out
+        ld_used=$(echo "$ld_output" | grep -E '(^GNU gold|^GNU ld|^LLD)')
+        if test -z "$ld_used"; then
+            ld_used="unknown"
+        fi
+        AC_MSG_CHECKING([for linker that is used])
+        AC_MSG_RESULT([$ld_used])
+        if test -n "$ENABLE_DEBUG$ENABLE_DBGUTIL"; then
+            if echo "$ld_used" | grep -q "^GNU ld"; then
+                if test -n "$COM_IS_CLANG"; then
+                    AC_MSG_WARN([The default GNU linker is slow, consider using the LLD or the GNU gold linker.])
+                    add_warning "The default GNU linker is slow, consider using the LLD or the GNU gold linker."
+                else
+                    AC_MSG_WARN([The default GNU linker is slow, consider using the GNU gold linker.])
+                    add_warning "The default GNU linker is slow, consider using the GNU gold linker."
+                fi
+            fi
+        fi
+    else
+        if test "$enable_ld" = "yes"; then
+            AC_MSG_ERROR([--enable-ld not supported])
+        fi
+    fi
+fi
+AC_SUBST(USE_LD)
+
+HAVE_LD_BSYMBOLIC_FUNCTIONS=
+if test "$GCC" = "yes"; then
+    AC_MSG_CHECKING([for -Bsymbolic-functions linker support])
+    bsymbolic_functions_ldflags_save=$LDFLAGS
+    LDFLAGS="$LDFLAGS -Wl,-Bsymbolic-functions"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <stdio.h>
+        ],[
+printf ("hello world\n");
+        ])], HAVE_LD_BSYMBOLIC_FUNCTIONS=TRUE, [])
+    if test "$HAVE_LD_BSYMBOLIC_FUNCTIONS" = "TRUE"; then
+        AC_MSG_RESULT( found )
+    else
+        AC_MSG_RESULT( not found )
+    fi
+    LDFLAGS=$bsymbolic_functions_ldflags_save
+fi
+AC_SUBST(HAVE_LD_BSYMBOLIC_FUNCTIONS)
+
+
+HAVE_GSPLIT_DWARF=
+if test "$enable_split_debug" != no; then
+    dnl Currently by default enabled only on Linux, feel free to set test_split_debug above also for other platforms.
+    if test "$enable_split_debug" = yes -o \( "$test_split_debug" = "yes" -a -n "$ENABLE_DEBUG$ENABLE_DBGUTIL" \); then
         AC_MSG_CHECKING([whether $CC supports -gsplit-dwarf])
         save_CFLAGS=$CFLAGS
         CFLAGS="$CFLAGS -Werror -gsplit-dwarf"
@@ -3919,11 +3979,64 @@ if test "$enable_split_debug" = yes; then
         if test "$HAVE_GCC_SPLIT_DWARF" = "TRUE"; then
             AC_MSG_RESULT([yes])
         else
-            AC_MSG_RESULT([no])
+            if test "$enable_split_debug" = yes; then
+                AC_MSG_ERROR([no])
+            else
+                AC_MSG_RESULT([no])
+            fi
         fi
     fi
-    AC_SUBST(HAVE_GCC_SPLIT_DWARF)
+    if test -z "$HAVE_GCC_SPLIT_DWARF" -a "$test_split_debug" = "yes" -a -n "$ENABLE_DEBUG$ENABLE_DBGUTIL"; then
+        AC_MSG_WARN([Compiler is not capable of creating split debug info, linking will require more time and disk space.])
+        add_warning "Compiler is not capable of creating split debug info, linking will require more time and disk space."
+    fi
 fi
+AC_SUBST(HAVE_GCC_SPLIT_DWARF)
+
+ENABLE_GDB_INDEX=
+if test "$enable_gdb_index" != "no"; then
+    dnl Currently by default enabled only on Linux, feel free to set test_gdb_index above also for other platforms.
+    if test "$enable_gdb_index" = yes -o \( "$test_gdb_index" = "yes" -o -n "$ENABLE_DEBUG$ENABLE_DBGUTIL" \); then
+        AC_MSG_CHECKING([whether $CC supports -ggnu-pubnames])
+        save_CFLAGS=$CFLAGS
+        CFLAGS="$CFLAGS -Werror -ggnu-pubnames"
+        have_ggnu_pubnames=
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[have_ggnu_pubnames=TRUE],[have_ggnu_pubnames=])
+        if test "$have_ggnu_pubnames" != "TRUE"; then
+            if test "$enable_gdb_index" = "yes"; then
+                AC_MSG_ERROR( no, --enable-gdb-index not supported )
+            else
+                AC_MSG_RESULT( no )
+            fi
+        else
+            AC_MSG_RESULT( yes )
+            AC_MSG_CHECKING([whether $CC supports -Wl,--gdb-index])
+            ldflags_save=$LDFLAGS
+            LDFLAGS="$LDFLAGS -Wl,--gdb-index"
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <stdio.h>
+                ],[
+printf ("hello world\n");
+                ])], ENABLE_GDB_INDEX=TRUE, [])
+            if test "$ENABLE_GDB_INDEX" = "TRUE"; then
+                AC_MSG_RESULT( yes )
+            else
+                if test "$enable_gdb_index" = "yes"; then
+                    AC_MSG_ERROR( no )
+                else
+                    AC_MSG_RESULT( no )
+                fi
+            fi
+            LDFLAGS=$ldflags_save
+        fi
+        CFLAGS=$save_CFLAGS
+        fi
+    if test -z "$ENABLE_GDB_INDEX" -a "$test_gdb_index" = "yes" -a -n "$ENABLE_DEBUG$ENABLE_DBGUTIL"; then
+        AC_MSG_WARN([Linker is not capable of creating gdb index, debugger startup will be slow.])
+        add_warning "Linker is not capable of creating gdb index, debugger startup will be slow."
+    fi
+fi
+AC_SUBST(ENABLE_GDB_INDEX)
 
 if test "$enable_sal_log" = yes; then
     ENABLE_SAL_LOG=TRUE
@@ -6262,6 +6375,7 @@ elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
         ])
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
             #include <algorithm>
+            #include <cmath>
             #include <functional>
             #include <vector>
 
@@ -6281,6 +6395,13 @@ elif test "$GCC" = "yes" -o "$COM_IS_CLANG" = TRUE; then
             void f(std::vector<int> & v, std::function<bool(int, int)> fn) {
                 std::sort(v.begin(), v.end(), fn);
             }
+
+            // At least with glibc-headers-2.28-26.fc29.x86_64, when building for Linux x86 32-bit
+            // (via -m32) and passed-in CXXFLAGS setting -O1 (or higher; overriding -Os as set in
+            // solenv/gbuild/platform/LINUX_INTEL_GCC.mk), std=gnu* would cause math_errhandling to
+            // get undef'ed in /usr/include/bits/mathinline.h, while std=c* keeps it defined (as
+            // needed by sc/source/core/tool/math.cxx):
+            int g() { return math_errhandling; }
             ]])],[CXXFLAGS_CXX11=$flag $my_float128hack])
         AC_LANG_POP([C++])
         CXXFLAGS=$save_CXXFLAGS
@@ -6540,6 +6661,63 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 CXXFLAGS=$save_CXXFLAGS
 AC_LANG_POP([C++])
 
+dnl At least GCC 8.2 with -O2 (i.e., --enable-optimized) causes a false-positive -Wmaybe-
+dnl uninitialized warning for code like
+dnl
+dnl   OString f();
+dnl   boost::optional<OString> * g(bool b) {
+dnl       boost::optional<OString> o;
+dnl       if (b) o = f();
+dnl       return new boost::optional<OString>(o);
+dnl   }
+dnl
+dnl (as is e.g. present, in a slightly more elaborate form, in
+dnl librdf_TypeConverter::extractNode_NoLock in unoxml/source/rdf/librdf_repository.cxx); the below
+dnl code is meant to be a faithfully stripped-down and self-contained version of the above code:
+HAVE_BROKEN_GCC_WMAYBE_UNINITIALIZED=
+if test "$GCC" = yes && test "$COM_IS_CLANG" != TRUE; then
+    AC_MSG_CHECKING([whether $CXX might report false -Werror=maybe-uninitialized])
+    AC_LANG_PUSH([C++])
+    save_CXXFLAGS=$CXXFLAGS
+    CXXFLAGS="$CXXFLAGS $CXXFLAGS_CXX11 -Werror -Wmaybe-uninitialized"
+    if test "$ENABLE_OPTIMIZED" = TRUE; then
+        CXXFLAGS="$CXXFLAGS -O2"
+    else
+        CXXFLAGS="$CXXFLAGS -O0"
+    fi
+    AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+            #include <new>
+            void f1(int);
+            struct S1 {
+                ~S1() { f1(n); }
+                int n = 0;
+            };
+            struct S2 {
+                S2() {}
+                S2(S2 const & s) { if (s.init) set(*reinterpret_cast<S1 const *>(s.stg)); }
+                ~S2() { if (init) reinterpret_cast<S1 *>(stg)->S1::~S1(); }
+                void set(S1 s) {
+                    new (stg) S1(s);
+                    init = true;
+                }
+                bool init = false;
+                char stg[sizeof (S1)];
+            } ;
+            S1 f2();
+            S2 * f3(bool b) {
+                S2 o;
+                if (b) o.set(f2());
+                return new S2(o);
+            }
+        ]])], [AC_MSG_RESULT([no])], [
+            HAVE_BROKEN_GCC_WMAYBE_UNINITIALIZED=TRUE
+            AC_MSG_RESULT([yes])
+        ])
+    CXXFLAGS=$save_CXXFLAGS
+    AC_LANG_POP([C++])
+fi
+AC_SUBST([HAVE_BROKEN_GCC_WMAYBE_UNINITIALIZED])
+
 dnl ===================================================================
 dnl system stl sanity tests
 dnl ===================================================================
@@ -6654,22 +6832,8 @@ dnl ===================================================================
 dnl  Clang++ tests
 dnl ===================================================================
 
-HAVE_GCC_FNO_DEFAULT_INLINE=
 HAVE_GCC_FNO_ENFORCE_EH_SPECS=
 if test "$GCC" = "yes"; then
-    AC_MSG_CHECKING([whether $CXX supports -fno-default-inline])
-    AC_LANG_PUSH([C++])
-    save_CXXFLAGS=$CXXFLAGS
-    CXXFLAGS="$CFLAGS -Werror -fno-default-inline"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ return 0; ]])],[ HAVE_GCC_FNO_DEFAULT_INLINE=TRUE ],[])
-    CXXFLAGS=$save_CXXFLAGS
-    AC_LANG_POP([C++])
-    if test "$HAVE_GCC_FNO_DEFAULT_INLINE" = "TRUE"; then
-        AC_MSG_RESULT([yes])
-    else
-        AC_MSG_RESULT([no])
-    fi
-
     AC_MSG_CHECKING([whether $CXX supports -fno-enforce-eh-specs])
     AC_LANG_PUSH([C++])
     save_CXXFLAGS=$CXXFLAGS
@@ -6683,7 +6847,6 @@ if test "$GCC" = "yes"; then
         AC_MSG_RESULT([no])
     fi
 fi
-AC_SUBST(HAVE_GCC_FNO_DEFAULT_INLINE)
 AC_SUBST(HAVE_GCC_FNO_ENFORCE_EH_SPECS)
 
 dnl ===================================================================
@@ -6724,9 +6887,11 @@ if test "$COM_IS_CLANG" = "TRUE"; then
         AC_LANG_PUSH([C++])
         save_CPPFLAGS=$CPPFLAGS
         save_CXX=$CXX
+        save_CXXCPP=$CXXCPP
         # compiler plugins must be built with "native" compiler that was used to build Clang itself:
         : "${COMPILER_PLUGINS_CXX=g++ -std=c++11}"
         CXX=$COMPILER_PLUGINS_CXX
+        CXXCPP="$COMPILER_PLUGINS_CXX -E"
         CPPFLAGS="$CPPFLAGS -I$CLANGDIR/include -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
         AC_CHECK_HEADER(clang/AST/RecursiveASTVisitor.h,
             [COMPILER_PLUGINS=TRUE],
@@ -6739,6 +6904,7 @@ if test "$COM_IS_CLANG" = "TRUE"; then
             fi
             ])
         CXX=$save_CXX
+        CXXCPP=$save_CXXCPP
         CPPFLAGS=$save_CPPFLAGS
         AC_LANG_POP([C++])
     fi
@@ -6939,7 +7105,6 @@ if test "$ENABLE_JAVA" != ""; then
     fi
 fi
 
-HAVE_JAVA9=
 dnl ===================================================================
 dnl Checks for JDK.
 dnl ===================================================================
@@ -6991,9 +7156,6 @@ you must use the "--with-jdk-home" configure option explicitly])
             if test "$_jdk_ver" -gt 10600; then
                 JAVA_CLASSPATH_NOT_SET=TRUE
             fi
-            if test "$_jdk_ver" -ge 10900; then
-                HAVE_JAVA9=TRUE
-            fi
 
             AC_MSG_RESULT([checked (JDK $_jdk)])
             JAVA_HOME=`echo $JAVAINTERPRETER | $SED -n "s,//*bin//*java,,p"`
@@ -7016,23 +7178,12 @@ else
 fi
 
 dnl ===================================================================
-dnl Set target Java bytecode version
-dnl ===================================================================
-if test "$ENABLE_JAVA" != ""; then
-    if test "$HAVE_JAVA9" = "TRUE"; then
-        _java_target_ver="1.6"
-    else
-        _java_target_ver="1.5"
-    fi
-    JAVA_SOURCE_VER="$_java_target_ver"
-    JAVA_TARGET_VER="$_java_target_ver"
-fi
-
-dnl ===================================================================
 dnl Checks for javac
 dnl ===================================================================
 if test "$ENABLE_JAVA" != ""; then
     javacompiler="javac"
+    JAVA_SOURCE_VER="1.6"
+    JAVA_TARGET_VER="1.6"
     if test -z "$with_jdk_home"; then
         AC_PATH_PROG(JAVACOMPILER, $javacompiler)
     else
@@ -7593,7 +7744,7 @@ if test "$enable_epm" = "yes"; then
         if test "$with_epm" = "no" -a "$_os" != "Darwin"; then
             if test "`echo $EPM_VERSION | cut -d'.' -f1`" -lt "4"; then
                 AC_MSG_CHECKING([whether epm is patched for LibreOffice's needs])
-                if grep "Patched for LibreOffice" $EPM >/dev/null 2>/dev/null; then
+                if grep "Patched for .*Office" $EPM >/dev/null 2>/dev/null; then
                     AC_MSG_RESULT([yes])
                 else
                     AC_MSG_RESULT([no])
@@ -7783,7 +7934,7 @@ if test "$with_system_jpeg" = "yes"; then
     AC_CHECK_HEADER(jpeglib.h, [ LIBJPEG_CFLAGS= ],
         [AC_MSG_ERROR(jpeg.h not found. install libjpeg)], [])
     AC_CHECK_LIB(jpeg, jpeg_resync_to_restart, [ LIBJPEG_LIBS="-ljpeg" ],
-        [AC_MSG_ERROR(jpeg library not found or fuctional)], [])
+        [AC_MSG_ERROR(jpeg library not found or functional)], [])
 else
     SYSTEM_LIBJPEG=
     AC_MSG_RESULT([internal, libjpeg-turbo])
@@ -8445,7 +8596,7 @@ internal)
     SYSTEM_PYTHON=
     PYTHON_VERSION_MAJOR=3
     PYTHON_VERSION_MINOR=5
-    PYTHON_VERSION=${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}.5
+    PYTHON_VERSION=${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}.6
     if ! grep -q -i python.*${PYTHON_VERSION} ${SRC_ROOT}/download.lst; then
         AC_MSG_ERROR([PYTHON_VERSION ${PYTHON_VERSION} but no matching file in download.lst])
     fi
@@ -8474,7 +8625,7 @@ AC_SUBST(PYTHON_VERSION_MAJOR)
 AC_SUBST(PYTHON_VERSION_MINOR)
 
 ENABLE_MARIADBC=TRUE
-if test "$_os" = "Android" -o "$_os" = "iOS"; then
+if test "$_os" = "Android" -o "$_os" = "iOS" -o "$enable_mpl_subset" = "yes"; then
     ENABLE_MARIADBC=
 fi
 MARIADBC_MAJOR=1
@@ -8671,11 +8822,17 @@ if test "x$enable_postgresql_sdbc" != "xno"; then
             done
         fi
         AC_PATH_PROG(PGCONFIG, pg_config, ,$PATH$pg_supp_path)
-        if test -z "$PGCONFIG"; then
-            AC_MSG_ERROR([pg_config needed; set PGCONFIG if not in PATH])
+        if test -n "$PGCONFIG"; then
+            POSTGRESQL_INC=-I$(${PGCONFIG} --includedir)
+            POSTGRESQL_LIB="-L$(${PGCONFIG} --libdir)"
+        else
+            PKG_CHECK_MODULES(POSTGRESQL, libpq, [
+              POSTGRESQL_INC=$POSTGRESQL_CFLAGS
+              POSTGRESQL_LIB=$POSTGRESQL_LIBS
+            ],[
+              AC_MSG_ERROR([pg_config or 'pkg-config libpq' needed; set PGCONFIG if not in PATH])
+            ])
         fi
-        POSTGRESQL_INC=-I$(${PGCONFIG} --includedir)
-        POSTGRESQL_LIB="-L$(${PGCONFIG} --libdir)"
         FilterLibs "${POSTGRESQL_LIB}"
         POSTGRESQL_LIB="${filteredlibs}"
     else
@@ -8863,16 +9020,16 @@ int fb_api_is_30(void) { return 0; }
     else
         dnl Embedded Firebird has version 3.0
         AC_DEFINE(HAVE_FIREBIRD_30, 1)
-        dnl We need libatomic-ops for any non X86/X64 system
+        dnl We need libatomic_ops for any non X86/X64 system
         if test "${CPUNAME}" != INTEL -a "${CPUNAME}" != X86_64; then
             dnl ===================================================================
-            dnl Check for system libatomic-ops
+            dnl Check for system libatomic_ops
             dnl ===================================================================
             libo_CHECK_SYSTEM_MODULE([libatomic_ops],[ATOMIC_OPS],[atomic_ops >= 0.7.2])
             if test "$with_system_libatomic_ops" = "yes"; then
                 SYSTEM_LIBATOMIC_OPS=TRUE
                 AC_CHECK_HEADERS(atomic_ops.h, [],
-                [AC_MSG_ERROR(atomic_ops.h not found. install libatomic-ops)], [])
+                [AC_MSG_ERROR(atomic_ops.h not found. install libatomic_ops)], [])
             else
                 SYSTEM_LIBATOMIC_OPS=
                 LIBATOMIC_OPS_CFLAGS="-I${WORKDIR}/UnpackedTarball/libatomic_ops/include"
@@ -9061,12 +9218,29 @@ else
 fi
 AC_SUBST(SYSTEM_ODBC_HEADERS)
 
+dnl ===================================================================
+dnl Enable LDAP support
+dnl ===================================================================
+
+if test "$_os" != "WINNT" -a "$_os" != "iOS" -a "$_os" != "Android"; then
+AC_MSG_CHECKING([whether to enable LDAP support])
+    if test "$enable_ldap" != "yes"; then
+        AC_MSG_RESULT([no])
+        ENABLE_LDAP=""
+        enable_ldap=no
+    else
+        AC_MSG_RESULT([yes])
+        ENABLE_LDAP="TRUE"
+        AC_DEFINE(HAVE_FEATURE_LDAP)
+    fi
+fi
+AC_SUBST(ENABLE_LDAP)
 
 dnl ===================================================================
 dnl Check for system openldap
 dnl ===================================================================
 
-if test "$_os" != "WINNT" -a "$_os" != "iOS" -a "$_os" != "Android"; then
+if test "$_os" != "WINNT" -a "$_os" != "iOS" -a "$_os" != "Android" -a "$ENABLE_LDAP" != ""; then
 AC_MSG_CHECKING([which openldap library to use])
 if test "$with_system_openldap" = "yes"; then
     AC_MSG_RESULT([external])
@@ -9510,8 +9684,8 @@ AC_MSG_CHECKING([whether to execute CVE tests])
 if test -z "$enable_cve_tests"; then
     case "$OS" in
     WNT)
-        # Default cves off for windows with its wild and wonderful
-        # varienty of AV software kicking in and panicking
+        # Default cves off for Windows with its wild and wonderful
+        # variety of AV software kicking in and panicking
         enable_cve_tests=no
         ;;
     *)
@@ -10455,7 +10629,7 @@ dnl =================================================
 dnl Check whether to build with dconf support.
 dnl =================================================
 
-if test "$enable_dconf" != no; then
+if test $_os != Android -a $_os != iOS -a "$enable_dconf" != no; then
     PKG_CHECK_MODULES([DCONF], [dconf >= 0.15.2], [], [
         if test "$enable_dconf" = yes; then
             AC_MSG_ERROR([dconf not found])
@@ -10464,7 +10638,7 @@ if test "$enable_dconf" != no; then
         fi])
 fi
 AC_MSG_CHECKING([whether to enable dconf])
-if test "$enable_dconf" = no; then
+if test $_os = Android -o $_os = iOS -o "$enable_dconf" = no; then
     DCONF_CFLAGS=
     DCONF_LIBS=
     ENABLE_DCONF=
@@ -10485,11 +10659,50 @@ if test $_os != Android -a $_os != iOS -a \( -z "$enable_pdfimport" -o "$enable_
     AC_MSG_RESULT([yes])
     ENABLE_PDFIMPORT=TRUE
     AC_DEFINE(HAVE_FEATURE_PDFIMPORT)
+else
+    AC_MSG_RESULT([no])
+fi
 
+# Pdfium?
+AC_MSG_CHECKING([whether to build PDFium])
+ENABLE_PDFIUM=
+if test \( -z "$enable_pdfium" -a "$ENABLE_PDFIMPORT" == "TRUE" \) -o "$enable_pdfium" = yes; then
+    AC_MSG_RESULT([yes])
+    ENABLE_PDFIUM=TRUE
+    AC_DEFINE(HAVE_FEATURE_PDFIUM)
+    BUILD_TYPE="$BUILD_TYPE PDFIUM"
+else
+    AC_MSG_RESULT([no])
+fi
+AC_SUBST(ENABLE_PDFIUM)
+
+dnl ===================================================================
+dnl Check for poppler
+dnl ===================================================================
+ENABLE_POPPLER=
+AC_MSG_CHECKING([whether to build Poppler])
+if test \( -z "$enable_poppler" -a "$ENABLE_PDFIMPORT" == "TRUE" \) -o "$enable_poppler" = yes; then
+    AC_MSG_RESULT([yes])
+    ENABLE_POPPLER=TRUE
+    AC_DEFINE(HAVE_FEATURE_POPPLER)
+else
+    AC_MSG_RESULT([no])
+fi
+AC_SUBST(ENABLE_POPPLER)
+
+if test "$ENABLE_PDFIMPORT" == "TRUE" -a "$ENABLE_POPPLER" != "TRUE" -a "$ENABLE_PDFIUM" != "TRUE"; then
+    AC_MSG_ERROR([Cannot import PDF without either Pdfium or Poppler; please enable either of them.])
+fi
+
+if test "$ENABLE_PDFIMPORT" != "TRUE" -a \( "$ENABLE_POPPLER" == "TRUE" -o "$ENABLE_PDFIUM" == "TRUE" \); then
+    AC_MSG_ERROR([Cannot enable Pdfium or Poppler when PDF importing is disabled; please enable PDF import first.])
+fi
+
+if test "$ENABLE_PDFIMPORT" == "TRUE" -a "$ENABLE_POPPLER" == "TRUE"; then
     dnl ===================================================================
     dnl Check for system poppler
     dnl ===================================================================
-    AC_MSG_CHECKING([which PDF import backend to use])
+    AC_MSG_CHECKING([which PDF import poppler to use])
     if test "$with_system_poppler" = "yes"; then
         AC_MSG_RESULT([external])
         SYSTEM_POPPLER=TRUE
@@ -10516,26 +10729,11 @@ if test $_os != Android -a $_os != iOS -a \( -z "$enable_pdfimport" -o "$enable_
         AC_DEFINE([HAVE_POPPLER_VERSION_H], 1)
     fi
     AC_DEFINE([ENABLE_PDFIMPORT],1)
-else
-    AC_MSG_RESULT([no])
 fi
 AC_SUBST(ENABLE_PDFIMPORT)
 AC_SUBST(SYSTEM_POPPLER)
 AC_SUBST(POPPLER_CFLAGS)
 AC_SUBST(POPPLER_LIBS)
-
-# pdf import?
-AC_MSG_CHECKING([whether to build PDFium])
-ENABLE_PDFIUM=
-if test -z "$enable_pdfium" -o "$enable_pdfium" = yes; then
-    AC_MSG_RESULT([yes])
-    ENABLE_PDFIUM=TRUE
-    AC_DEFINE(HAVE_FEATURE_PDFIUM)
-    BUILD_TYPE="$BUILD_TYPE PDFIUM"
-else
-    AC_MSG_RESULT([no])
-fi
-AC_SUBST(ENABLE_PDFIUM)
 
 SYSTEM_GPGMEPP=
 
@@ -10596,17 +10794,30 @@ elif test "$_os" = "Linux" -o "$_os" = "Darwin" -o "$_os" = "WINNT" ; then
       if test -d /run/user/$uid; then
         AC_MSG_RESULT([yes])
         AC_PATH_PROG(GPGCONF, gpgconf)
-        AC_MSG_CHECKING([for gpgconf --create-socketdir... ])
-        if $GPGCONF --dump-options > /dev/null ; then
-          if $GPGCONF --dump-options | grep -q create-socketdir ; then
-	    AC_MSG_RESULT([yes])
-            AC_DEFINE([HAVE_GPGCONF_SOCKETDIR])
-            AC_DEFINE_UNQUOTED([GPGME_GPGCONF], ["$GPGCONF"])
+
+        # Older versions of gpgconf are not working as expected, since
+        # `gpgconf --remove-socketdir` fails to exit any gpg-agent daemon operating
+        # on that socket dir that has (indirectly) been started by the tests in xmlsecurity/qa/unit/signing/signing.cxx
+        # (see commit message of f0305ec0a7d199e605511844d9d6af98b66d4bfd%5E )
+        AC_MSG_CHECKING([whether version of gpgconf is suitable ... ])
+        GPGCONF_VERSION=`"$GPGCONF" --version | "$AWK" '/^gpgconf \(GnuPG\)/{print $3}'`
+        GPGCONF_NUMVER=`echo $GPGCONF_VERSION | $AWK -F. '{ print \$1*10000+\$2*100+\$3 }'`
+        if test "$GPGCONF_VERSION" = "2.2_OOo" -o "$GPGCONF_NUMVER" -ge "020200"; then
+          AC_MSG_RESULT([yes, $GPGCONF_VERSION])
+          AC_MSG_CHECKING([for gpgconf --create-socketdir... ])
+          if $GPGCONF --dump-options > /dev/null ; then
+            if $GPGCONF --dump-options | grep -q create-socketdir ; then
+              AC_MSG_RESULT([yes])
+              AC_DEFINE([HAVE_GPGCONF_SOCKETDIR])
+              AC_DEFINE_UNQUOTED([GPGME_GPGCONF], ["$GPGCONF"])
+            else
+              AC_MSG_RESULT([no])
+            fi
           else
-            AC_MSG_RESULT([no])
+            AC_MSG_RESULT([no. missing or broken gpgconf?])
           fi
         else
-	  AC_MSG_RESULT([no. missing or broken gpgconf?])
+          AC_MSG_RESULT([no, $GPGCONF_VERSION])
         fi
       else
         AC_MSG_RESULT([no])
@@ -10893,6 +11104,20 @@ fi
 AC_SUBST(ENABLE_SCRIPTING_JAVASCRIPT)
 AC_SUBST(SYSTEM_RHINO)
 AC_SUBST(RHINO_JAR)
+
+# This is only used in Qt5/KDE5 checks to determine if /usr/lib64
+# paths should be added to library search path. So lets put all 64-bit
+# platforms there.
+supports_multilib=
+case "$host_cpu" in
+x86_64 | powerpc64 | powerpc64le | s390x | aarch64 | mips64 | mips64el)
+    if test "$SAL_TYPES_SIZEOFLONG" = "8"; then
+        supports_multilib="yes"
+    fi
+    ;;
+*)
+    ;;
+esac
 
 dnl ===================================================================
 dnl QT5 Integration
@@ -12339,7 +12564,7 @@ if test "$enable_mpl_subset" = "yes"; then
     if test "$WITH_WEBDAV" = "neon"; then
         AC_MSG_ERROR([need --with-webdav=serf or --without-webdav - webdav support.])
     fi
-    if test -n "$ENABLE_PDFIMPORT"; then
+    if test -n "$ENABLE_POPPLER"; then
         if test "x$SYSTEM_POPPLER" = "x"; then
             AC_MSG_ERROR([need to disable PDF import via poppler or use system library])
         fi
@@ -12619,8 +12844,8 @@ to install a pre-compiled binary make for Win32
 
  mkdir -p /opt/lo/bin
  cd /opt/lo/bin
- wget https://dev-www.libreoffice.org/bin/cygwin/make-85047eb-msvc.exe
- cp make-85047eb-msvc.exe make
+ wget https://dev-www.libreoffice.org/bin/cygwin/make-4.2.1-msvc.exe
+ cp make-4.2.1-msvc.exe make
  chmod +x make
 
 to install from source:

@@ -31,6 +31,7 @@
 #include <vcl/textview.hxx>
 #include <svx/svxids.hrc>
 #include <vcl/scrbar.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/app.hxx>
 #include <svtools/htmltokn.h>
@@ -78,7 +79,6 @@ static void lcl_Highlight(const OUString& rSource, TextPortions& aPortionList)
     const sal_uInt16 nStrLen = rSource.getLength();
     sal_uInt16 nInsert = 0;         // number of inserted portions
     sal_uInt16 nActPos = 0;         // position, where '<' was found
-    sal_uInt16 nOffset = 0;         // Offset of nActPos to '<'
     sal_uInt16 nPortStart = USHRT_MAX;  // for the TextPortion
     sal_uInt16 nPortEnd  =  0;
     TextPortion aText;
@@ -119,7 +119,6 @@ static void lcl_Highlight(const OUString& rSource, TextPortions& aPortionList)
                 // "</" ignore slash
                 nPortStart = nActPos;
                 nActPos++;
-                nOffset++;
             }
             if(svtools::HTMLUNKNOWN == eFoundType)
             {
@@ -495,7 +494,7 @@ void SwSrcEditWindow::CreateTextEngine()
     const Color &rCol = GetSettings().GetStyleSettings().GetWindowColor();
     m_pOutWin = VclPtr<TextViewOutWin>::Create(this, 0);
     m_pOutWin->SetBackground(Wallpaper(rCol));
-    m_pOutWin->SetPointer(Pointer(PointerStyle::Text));
+    m_pOutWin->SetPointer(PointerStyle::Text);
     m_pOutWin->Show();
 
     // create Scrollbars

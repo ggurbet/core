@@ -43,6 +43,7 @@
 #include <vcl/i18nhelp.hxx>
 #include <vcl/dockingarea.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <sal/log.hxx>
 
 
@@ -3267,7 +3268,6 @@ void SAL_CALL ToolbarLayoutManager::startDocking( const awt::DockingEvent& e )
     m_bDockingInProgress = bWinFound;
     m_aDockUIElement = aUIElement;
     m_aDockUIElement.m_bUserActive = true;
-    m_aStartDockMousePos = aMousePos;
 }
 
 awt::DockingData SAL_CALL ToolbarLayoutManager::docking( const awt::DockingEvent& e )
@@ -4075,7 +4075,7 @@ awt::Point ToolbarLayoutManager::getToolbarPos( const OUString& rResourceURL )
 
 void ToolbarLayoutManager::setToolbarSize( const OUString& rResourceURL, const awt::Size& aSize )
 {
-  uno::Reference< awt::XWindow2 > xWindow( implts_getXWindow( rResourceURL ), uno::UNO_QUERY );
+    uno::Reference< awt::XWindow2 > xWindow( implts_getXWindow( rResourceURL ), uno::UNO_QUERY );
     uno::Reference< awt::XDockableWindow > xDockWindow( xWindow, uno::UNO_QUERY );
     UIElement aUIElement = implts_findToolbar( rResourceURL );
 

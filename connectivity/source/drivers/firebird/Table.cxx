@@ -20,6 +20,7 @@
 
 #include <com/sun/star/sdbc/ColumnValue.hpp>
 #include <com/sun/star/sdbcx/Privilege.hpp>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 
 using namespace ::connectivity;
 using namespace ::connectivity::firebird;
@@ -195,8 +196,7 @@ void SAL_CALL Table::alterColumnByName(const OUString& rColName,
 
     if (bDefaultChanged)
     {
-        OUString sOldDefault, sNewDefault;
-        xColumn->getPropertyValue("DefaultValue") >>= sOldDefault;
+        OUString sNewDefault;
         rDescriptor->getPropertyValue("DefaultValue") >>= sNewDefault;
 
         OUString sSql;

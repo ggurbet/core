@@ -259,8 +259,8 @@ bool CreateDir( const INetURLObject& rURL )
             aProps[0] = "Title";
             aValues[0] <<= rURL.GetName();
 
-        ::ucbhelper::Content aContent( rURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), aCmdEnv, comphelper::getProcessComponentContext() );
-        bRet = aParent.insertNewContent( "application/vnd.sun.staroffice.fsys-folder", aProps, aValues, aContent );
+            ::ucbhelper::Content aContent( rURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), aCmdEnv, comphelper::getProcessComponentContext() );
+            bRet = aParent.insertNewContent( "application/vnd.sun.staroffice.fsys-folder", aProps, aValues, aContent );
         }
         catch( const ucb::ContentCreationException& )
         {
@@ -331,7 +331,7 @@ bool KillFile( const INetURLObject& rURL )
 }
 
 
-GalleryProgress::GalleryProgress( GraphicFilter* pFilter )
+GalleryProgress::GalleryProgress( const GraphicFilter* pFilter )
 {
 
     uno::Reference< lang::XMultiServiceFactory > xMgr( ::comphelper::getProcessServiceFactory() );

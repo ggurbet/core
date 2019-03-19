@@ -22,6 +22,7 @@
 #include <sal/log.hxx>
 
 #include <cmdid.h>
+#include <unomid.h>
 
 #include <drawdoc.hxx>
 #include <unodraw.hxx>
@@ -57,6 +58,7 @@
 #include <editeng/lrspitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <o3tl/any.hxx>
+#include <o3tl/safeint.hxx>
 #include <svx/shapepropertynotifier.hxx>
 #include <crstate.hxx>
 #include <comphelper/extract.hxx>
@@ -510,21 +512,10 @@ uno::Any SwXDrawPage::queryInterface( const uno::Type& aType )
 
 uno::Sequence< uno::Type > SwXDrawPage::getTypes()
 {
-    uno::Sequence< uno::Type > aPageTypes = SwXDrawPageBaseClass::getTypes();
-    uno::Sequence< uno::Type > aSvxTypes = GetSvxPage()->getTypes();
-
-    long nIndex = aPageTypes.getLength();
-    aPageTypes.realloc(aPageTypes.getLength() + aSvxTypes.getLength() + 1);
-
-    uno::Type* pPageTypes = aPageTypes.getArray();
-    const uno::Type* pSvxTypes = aSvxTypes.getConstArray();
-    long nPos;
-    for(nPos = 0; nPos < aSvxTypes.getLength(); nPos++)
-    {
-        pPageTypes[nIndex++] = pSvxTypes[nPos];
-    }
-    pPageTypes[nIndex] = cppu::UnoType<form::XFormsSupplier2>::get();
-    return aPageTypes;
+    return comphelper::concatSequences(
+                SwXDrawPageBaseClass::getTypes(),
+                GetSvxPage()->getTypes(),
+                uno::Sequence { cppu::UnoType<form::XFormsSupplier2>::get() });
 }
 
 sal_Int32 SwXDrawPage::getCount()
@@ -585,16 +576,16 @@ void SwXDrawPage::add(const uno::Reference< drawing::XShape > & xShape)
                 sal::static_int_cast< sal_IntPtr >( xShapeTunnel->getSomething(SvxShape::getUnoTunnelId()) ));
     }
 
-    if(!pShape || pShape->GetRegisteredIn() || !pShape->m_bDescriptor )
-    {
-        uno::RuntimeException aExcept;
-        if(pShape)
-            aExcept.Message = "object already inserted";
-        else
-            aExcept.Message = "illegal object";
-        throw aExcept;
-    }
+    // this is not a writer shape
+    if(!pShape)
+        throw uno::RuntimeException("illegal object",
+                                    static_cast< cppu::OWeakObject * > ( this ) );
 
+    // we're already registered in the model / SwXDrawPage::add() already called
+    if(pShape->GetRegisteredIn() || !pShape->m_bDescriptor )
+        return;
+
+    // we're inserted elsewhere already
     if ( pSvxShape->GetSdrObject() )
     {
         if ( pSvxShape->GetSdrObject()->IsInserted() )
@@ -1013,15 +1004,7 @@ uno::Sequence< uno::Type > SwXShape::getTypes(  )
         {
             uno::Reference< XTypeProvider > xAggProv;
             aProv >>= xAggProv;
-            uno::Sequence< uno::Type > aAggTypes = xAggProv->getTypes();
-            const uno::Type* pAggTypes = aAggTypes.getConstArray();
-            long nIndex = aRet.getLength();
-
-            aRet.realloc(nIndex + aAggTypes.getLength());
-            uno::Type* pBaseTypes = aRet.getArray();
-
-            for(long i = 0; i < aAggTypes.getLength(); i++)
-                pBaseTypes[nIndex++] = pAggTypes[i];
+            return comphelper::concatSequences(aRet, xAggProv->getTypes());
         }
     }
     return aRet;
@@ -2020,7 +2003,7 @@ void SwXShape::attach(const uno::Reference< text::XTextRange > & xTextRange)
 
     // get access to SwDoc
     // (see also SwXTextRange::XTextRangeToSwPaM)
-    SwDoc*      pDoc = nullptr;
+    const SwDoc* pDoc = nullptr;
     uno::Reference<lang::XUnoTunnel> xRangeTunnel( xTextRange, uno::UNO_QUERY);
     if(xRangeTunnel.is())
     {
@@ -2043,28 +2026,22 @@ void SwXShape::attach(const uno::Reference< text::XTextRange > & xTextRange)
 
         if (pRange)
             pDoc = &pRange->GetDoc();
-        else if (!pDoc && pText)
+        else if (pText)
             pDoc = pText->GetDoc();
-        else if (!pDoc && pCursor)
+        else if (pCursor)
             pDoc = pCursor->GetDoc();
-        else if ( !pDoc && pPortion )
-        {
+        else if (pPortion)
             pDoc = pPortion->GetCursor().GetDoc();
-        }
-        else if ( !pDoc && pParagraph && pParagraph->GetTextNode( ) )
-        {
-            pDoc = const_cast<SwDoc*>(pParagraph->GetTextNode()->GetDoc());
-        }
+        else if (pParagraph && pParagraph->GetTextNode())
+            pDoc = pParagraph->GetTextNode()->GetDoc();
 
     }
 
     if(!pDoc)
         throw uno::RuntimeException();
-    SwDocShell *pDocSh = pDoc->GetDocShell();
-    if (pDocSh)
+    if (const SwDocShell* pDocSh = pDoc->GetDocShell())
     {
-        uno::Reference< frame::XModel > xModel;
-        xModel = pDocSh->GetModel();
+        uno::Reference<frame::XModel> xModel = pDocSh->GetModel();
         uno::Reference< drawing::XDrawPageSupplier > xDPS(xModel, uno::UNO_QUERY);
         if (xDPS.is())
         {
@@ -2228,10 +2205,10 @@ awt::Point SAL_CALL SwXShape::getPosition()
             // #i53320# - relative position of group member and
             // top group object is always given in horizontal left-to-right layout.
             awt::Point aOffset( 0, 0 );
-                {
-                    aOffset.X = ( aMemberObjRect.Left() - aGroupObjRect.Left() );
-                    aOffset.Y = ( aMemberObjRect.Top() - aGroupObjRect.Top() );
-                }
+            {
+                aOffset.X = ( aMemberObjRect.Left() - aGroupObjRect.Left() );
+                aOffset.Y = ( aMemberObjRect.Top() - aGroupObjRect.Top() );
+            }
             aOffset.X = convertTwipToMm100(aOffset.X);
             aOffset.Y = convertTwipToMm100(aOffset.Y);
             aPos.X += aOffset.X;
@@ -2307,8 +2284,8 @@ void SAL_CALL SwXShape::setPosition( const awt::Point& aPosition )
             awt::Point aAttrPosInHoriL2R(
                     ConvertPositionToHoriL2R( xGroupShape->getPosition(),
                                                xGroupShape->getSize() ) );
-            aNewPos.X -= aAttrPosInHoriL2R.X;
-            aNewPos.Y -= aAttrPosInHoriL2R.Y;
+            aNewPos.X = o3tl::saturating_sub(aNewPos.X, aAttrPosInHoriL2R.X);
+            aNewPos.Y = o3tl::saturating_sub(aNewPos.Y, aAttrPosInHoriL2R.Y);
         }
         // convert relative position in horizontal left-to-right layout into
         // absolute position in horizontal left-to-right layout
@@ -2322,8 +2299,8 @@ void SAL_CALL SwXShape::setPosition( const awt::Point& aPosition )
             SvxShape* pSvxGroupShape = reinterpret_cast< SvxShape * >(
                     sal::static_int_cast< sal_IntPtr >( xGrpShapeTunnel->getSomething(SvxShape::getUnoTunnelId()) ));
             const awt::Point aGroupPos = pSvxGroupShape->getPosition();
-            aNewPos.X += aGroupPos.X;
-            aNewPos.Y += aGroupPos.Y;
+            aNewPos.X = o3tl::saturating_add(aNewPos.X, aGroupPos.X);
+            aNewPos.Y = o3tl::saturating_add(aNewPos.Y, aGroupPos.Y);
         }
         // set position
         mxShape->setPosition( aNewPos );

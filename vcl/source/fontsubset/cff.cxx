@@ -31,8 +31,6 @@ typedef sal_uInt8 U8;
 typedef sal_uInt16 U16;
 typedef sal_Int64 S64;
 
-typedef sal_Int32 GlyphWidth;
-
 typedef double RealType;
 typedef RealType ValType;
 
@@ -273,7 +271,7 @@ public:
     bool    initialCffRead();
     void    emitAsType1( class Type1Emitter&,
                 const sal_GlyphId* pGlyphIds, const U8* pEncoding,
-                GlyphWidth* pGlyphWidths, int nGlyphCount, FontSubsetInfo& );
+                sal_Int32* pGlyphWidths, int nGlyphCount, FontSubsetInfo& );
 
 private:
     int     convert2Type1Ops( CffLocal*, const U8* pType2Ops, int nType2Len, U8* pType1Ops);
@@ -379,11 +377,10 @@ inline int CffSubsetterContext::popInt()
 
 inline void CffSubsetterContext::updateWidth( bool bUseFirstVal)
 {
-#if 1 // TODO: is this still needed?
     // the first value is not a hint but the charwidth
     if( hasCharWidth())
         return;
-#endif
+
     if( bUseFirstVal) {
         maCharWidth = mpCffLocal->maNominalWidth + mnValStack[0];
         // remove bottom stack entry
@@ -1086,43 +1083,51 @@ int CffSubsetterContext::convert2Type1Ops( CffLocal* pCffLocal, const U8* const 
 
     // prepare the charstring conversion
     mpWritePtr = pT1Ops;
-#if 1   // TODO: update caller
     U8 aType1Ops[ MAX_T1OPS_SIZE];
     if( !pT1Ops)
         mpWritePtr = aType1Ops;
     *const_cast<U8**>(&pT1Ops) = mpWritePtr;
-#else
-    assert( pT1Ops);
-#endif
 
     // prepend random seed for T1crypt
     *(mpWritePtr++) = 0x48;
     *(mpWritePtr++) = 0x44;
     *(mpWritePtr++) = 0x55;
     *(mpWritePtr++) = ' ';
-#if 1 // convert the Type2 charstring to Type1
+
+    // convert the Type2 charstring to Type1
     mpReadPtr = pT2Ops;
     mpReadEnd = pT2Ops + nT2Len;
     // prepend "hsbw" or "sbw"
     // TODO: only emit hsbw when charwidth is known
-    // TODO: remove charwidth from T2 stack
-    writeType1Val( 0); // TODO: aSubsetterContext.getLeftSideBearing();
-    writeType1Val( 1000/*###getCharWidth()###*/);
-    writeTypeOp( TYPE1OP::HSBW);
-mbNeedClose = false;
-mbIgnoreHints = false;
-mnHintSize=mnHorzHintSize=mnStackIdx=0; maCharWidth=-1;//#######
-mnCntrMask = 0;
+    writeType1Val(0); // TODO: aSubsetterContext.getLeftSideBearing();
+    U8* pCharWidthPtr=mpWritePtr; // need to overwrite that later
+    // pad out 5 bytes for the char width with default val 1000 (to be
+    // filled with the actual value below)
+    *(mpWritePtr++) = 255;
+    *(mpWritePtr++) = static_cast<U8>(0);
+    *(mpWritePtr++) = static_cast<U8>(0);
+    *(mpWritePtr++) = static_cast<U8>(250);
+    *(mpWritePtr++) = static_cast<U8>(124);
+    writeTypeOp(TYPE1OP::HSBW);
+    mbNeedClose = false;
+    mbIgnoreHints = false;
+    mnHintSize=mnHorzHintSize=mnStackIdx=0; maCharWidth=-1;//#######
+    mnCntrMask = 0;
     while( mpReadPtr < mpReadEnd)
         convertOneTypeOp();
-//  if( bActivePath)
-//      writeTypeOp( TYPE1OP::CLOSEPATH);
-//  if( bSubRoutine)
-//      writeTypeOp( TYPE1OP::RETURN);
-#else // useful for manually encoding charstrings
-    mpWritePtr = pT1Ops;
-    mpWritePtr += sprintf( (char*)mpWritePtr, "OOo_\x8b\x8c\x0c\x10\x0b");
-#endif
+    if( maCharWidth != -1 )
+    {
+        // overwrite earlier charWidth value, which we only now have
+        // parsed out of mpReadPtr buffer (by way of
+        // convertOneTypeOp()s above)
+        const int nInt = static_cast<int>(maCharWidth);
+        *(pCharWidthPtr++) = 255;
+        *(pCharWidthPtr++) = static_cast<U8>(nInt >> 24);
+        *(pCharWidthPtr++) = static_cast<U8>(nInt >> 16);
+        *(pCharWidthPtr++) = static_cast<U8>(nInt >> 8);
+        *(pCharWidthPtr++) = static_cast<U8>(nInt);
+    }
+
     const int nType1Len = mpWritePtr - pT1Ops;
 
     // encrypt the Type1 charstring
@@ -1496,7 +1501,7 @@ int CffSubsetterContext::getGlyphSID( int nGlyphIndex) const
         return -1;
 
     // get the SID/CID from the Charset table
-     const U8* pReadPtr = mpBasePtr + mnCharsetBase;
+    const U8* pReadPtr = mpBasePtr + mnCharsetBase;
     const U8 nCSetFormat = *(pReadPtr++);
     int nGlyphsToSkip = nGlyphIndex - 1;
     switch( nCSetFormat) {
@@ -1566,7 +1571,7 @@ const char* CffSubsetterContext::getGlyphName( int nGlyphIndex)
              sprintf( aDefaultGlyphName, "bad%03d", nSID);
     }
 
-     return pGlyphName;
+    return pGlyphName;
 }
 
 class Type1Emitter
@@ -1734,7 +1739,7 @@ void Type1Emitter::emitValVector( const char* pLineHead, const char* pLineTail,
 
 void CffSubsetterContext::emitAsType1( Type1Emitter& rEmitter,
     const sal_GlyphId* pReqGlyphIds, const U8* pReqEncoding,
-    GlyphWidth* pGlyphWidths, int nGlyphCount, FontSubsetInfo& rFSInfo)
+    sal_Int32* pGlyphWidths, int nGlyphCount, FontSubsetInfo& rFSInfo)
 {
     // prepare some fontdirectory details
     static const int nUniqueIdBase = 4100000; // using private-interchange UniqueIds
@@ -1975,7 +1980,7 @@ void CffSubsetterContext::emitAsType1( Type1Emitter& rEmitter,
             ValType aCharWidth = getCharWidth();
             if( maFontMatrix.size() >= 4)
                 aCharWidth *= 1000.0F * maFontMatrix[0];
-            pGlyphWidths[i] = static_cast<GlyphWidth>(aCharWidth);
+            pGlyphWidths[i] = static_cast<sal_Int32>(aCharWidth);
         }
     }
     pOut += sprintf( pOut, "end end\nreadonly put\nput\n");
@@ -1984,10 +1989,10 @@ void CffSubsetterContext::emitAsType1( Type1Emitter& rEmitter,
     rEmitter.emitAllCrypted();
 
     // mark stop of eexec encryption
-     if( rEmitter.mbPfbSubset) {
+    if( rEmitter.mbPfbSubset) {
         const int nEExecLen = rEmitter.tellPos() - nEExecSegTell;
         rEmitter.updateLen( nEExecSegTell-4, nEExecLen);
-     }
+    }
 
     // create PFB footer
     static const char aPfxFooter[] = "\x80\x01\x14\x02\x00\x00\n" // TODO: check segment len
@@ -2029,7 +2034,7 @@ void CffSubsetterContext::emitAsType1( Type1Emitter& rEmitter,
     rFSInfo.m_aPSName   = OUString( rEmitter.maSubsetName, strlen(rEmitter.maSubsetName), RTL_TEXTENCODING_UTF8 );
 }
 
-bool FontSubsetInfo::CreateFontSubsetFromCff( GlyphWidth* pOutGlyphWidths )
+bool FontSubsetInfo::CreateFontSubsetFromCff( sal_Int32* pOutGlyphWidths )
 {
     CffSubsetterContext aCff( mpInFontBytes, mnInByteLength);
     bool bRC = aCff.initialCffRead();

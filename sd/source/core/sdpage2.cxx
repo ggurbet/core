@@ -19,18 +19,15 @@
 
 #include <vector>
 #include <libxml/xmlwriter.h>
-#include <o3tl/make_unique.hxx>
 #include <sfx2/docfile.hxx>
-#include <vcl/svapp.hxx>
-#include <editeng/outliner.hxx>
 #include <sfx2/linkmgr.hxx>
-#include <svx/svdotext.hxx>
 #include <svx/svdundo.hxx>
 #include <editeng/outlobj.hxx>
-#include <svl/urihelper.hxx>
 #include <editeng/xmlcnitm.hxx>
 #include <svx/svditer.hxx>
 #include <com/sun/star/text/XTextCopy.hpp>
+#include <tools/debug.hxx>
+#include <svx/svddef.hxx>
 
 #include <Annotation.hxx>
 #include <notifydocumentevent.hxx>
@@ -41,14 +38,11 @@
 #include <drawdoc.hxx>
 #include <stlpool.hxx>
 #include <pglink.hxx>
-#include <anminfo.hxx>
 
 #include <strings.hxx>
 #include <DrawDocShell.hxx>
 
-#include <tools/tenccvt.hxx>
 #include <svl/itemset.hxx>
-#include <rtl/strbuf.hxx>
 
 using namespace ::sd;
 using namespace ::com::sun::star;
@@ -257,23 +251,23 @@ void SdPage::EndListenOutlineText()
 {
     SdrObject* pOutlineTextObj = GetPresObj(PRESOBJ_OUTLINE);
 
-    if (pOutlineTextObj)
+    if (!pOutlineTextObj)
+        return;
+
+    SdStyleSheetPool* pSPool = static_cast<SdStyleSheetPool*>(getSdrModelFromSdrPage().GetStyleSheetPool());
+    DBG_ASSERT(pSPool, "StyleSheetPool missing");
+    OUString aTrueLayoutName(maLayoutName);
+    sal_Int32 nIndex = aTrueLayoutName.indexOf( SD_LT_SEPARATOR );
+    if( nIndex != -1 )
+        aTrueLayoutName = aTrueLayoutName.copy(0, nIndex);
+
+    std::vector<SfxStyleSheetBase*> aOutlineStyles;
+    pSPool->CreateOutlineSheetList(aTrueLayoutName,aOutlineStyles);
+
+    for (auto& rpStyle : aOutlineStyles)
     {
-        SdStyleSheetPool* pSPool = static_cast<SdStyleSheetPool*>(getSdrModelFromSdrPage().GetStyleSheetPool());
-        DBG_ASSERT(pSPool, "StyleSheetPool missing");
-        OUString aTrueLayoutName(maLayoutName);
-        sal_Int32 nIndex = aTrueLayoutName.indexOf( SD_LT_SEPARATOR );
-        if( nIndex != -1 )
-            aTrueLayoutName = aTrueLayoutName.copy(0, nIndex);
-
-        std::vector<SfxStyleSheetBase*> aOutlineStyles;
-        pSPool->CreateOutlineSheetList(aTrueLayoutName,aOutlineStyles);
-
-        for (auto& rpStyle : aOutlineStyles)
-        {
-            SfxStyleSheet *pSheet = static_cast<SfxStyleSheet*>(rpStyle);
-            pOutlineTextObj->EndListening(*pSheet);
-        }
+        SfxStyleSheet *pSheet = static_cast<SfxStyleSheet*>(rpStyle);
+        pOutlineTextObj->EndListening(*pSheet);
     }
 }
 
@@ -298,25 +292,25 @@ void SdPage::ConnectLink()
 {
     sfx2::LinkManager* pLinkManager(getSdrModelFromSdrPage().GetLinkManager());
 
-    if (pLinkManager && !mpPageLink && !maFileName.isEmpty() && !maBookmarkName.isEmpty() &&
+    if (!(pLinkManager && !mpPageLink && !maFileName.isEmpty() && !maBookmarkName.isEmpty() &&
         mePageKind==PageKind::Standard && !IsMasterPage() &&
-        static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).IsNewOrLoadCompleted())
-    {
-        /**********************************************************************
-        * Connect
-        * Only standard pages are allowed to be linked
-        **********************************************************************/
-        ::sd::DrawDocShell* pDocSh = static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetDocSh();
+        static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).IsNewOrLoadCompleted()))
+        return;
 
-        if (!pDocSh || pDocSh->GetMedium()->GetOrigURL() != maFileName)
-        {
-            // No links to document owned pages!
-            mpPageLink = new SdPageLink(this, maFileName, maBookmarkName);
-            OUString aFilterName(SdResId(STR_IMPRESS));
-            pLinkManager->InsertFileLink(*mpPageLink, OBJECT_CLIENT_FILE,
-                                         maFileName, &aFilterName, &maBookmarkName);
-            mpPageLink->Connect();
-        }
+    /**********************************************************************
+    * Connect
+    * Only standard pages are allowed to be linked
+    **********************************************************************/
+    ::sd::DrawDocShell* pDocSh = static_cast< SdDrawDocument& >(getSdrModelFromSdrPage()).GetDocSh();
+
+    if (!pDocSh || pDocSh->GetMedium()->GetOrigURL() != maFileName)
+    {
+        // No links to document owned pages!
+        mpPageLink = new SdPageLink(this, maFileName, maBookmarkName);
+        OUString aFilterName(SdResId(STR_IMPRESS));
+        pLinkManager->InsertFileLink(*mpPageLink, OBJECT_CLIENT_FILE,
+                                     maFileName, &aFilterName, &maBookmarkName);
+        mpPageLink->Connect();
     }
 }
 
@@ -453,7 +447,7 @@ SfxStyleSheet* SdPage::GetTextStyleSheetForObject( SdrObject* pObj ) const
 SfxItemSet* SdPage::getOrCreateItems()
 {
     if( mpItems == nullptr )
-        mpItems = o3tl::make_unique<SfxItemSet>( getSdrModelFromSdrPage().GetItemPool(), svl::Items<SDRATTR_XMLATTRIBUTES, SDRATTR_XMLATTRIBUTES>{} );
+        mpItems = std::make_unique<SfxItemSet>( getSdrModelFromSdrPage().GetItemPool(), svl::Items<SDRATTR_XMLATTRIBUTES, SDRATTR_XMLATTRIBUTES>{} );
 
     return mpItems.get();
 }

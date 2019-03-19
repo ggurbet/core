@@ -41,6 +41,7 @@
 #include <svx/clipfmtitem.hxx>
 #include <svx/contdlg.hxx>
 #include <vcl/graph.hxx>
+#include <vcl/inputctx.hxx>
 #include <svl/slstitm.hxx>
 #include <svl/ptitem.hxx>
 #include <svl/itemiter.hxx>
@@ -110,6 +111,7 @@
 
 #include <SwStyleNameMapper.hxx>
 #include <poolfmt.hxx>
+#include <shellres.hxx>
 
 FlyMode SwBaseShell::eFrameMode = FLY_DRAG_END;
 
@@ -2202,7 +2204,7 @@ void SwBaseShell::GetBckColState(SfxItemSet &rSet)
     SelectionType nSelType(rSh.GetSelectionType());
     SvxBrushItem aBrushItem(RES_BACKGROUND);
 
-    if( SelectionType::TableCell & nSelType )
+    if( nWhich == SID_TABLE_CELL_BACKGROUND_COLOR )
     {
         rSh.GetBoxBackground( aBrushItem );
     }
@@ -2230,6 +2232,7 @@ void SwBaseShell::GetBckColState(SfxItemSet &rSet)
         switch(nWhich)
         {
             case SID_BACKGROUND_COLOR:
+            case SID_TABLE_CELL_BACKGROUND_COLOR:
             {
                 SvxColorItem aColorItem(aBrushItem.GetColor(),SID_BACKGROUND_COLOR);
                 rSet.Put(aColorItem);
@@ -2255,14 +2258,14 @@ void SwBaseShell::ExecBckCol(SfxRequest& rReq)
     const SfxItemSet* pArgs = rReq.GetArgs();
     sal_uInt16 nSlot(rReq.GetSlot());
 
-    if (!pArgs && nSlot != SID_BACKGROUND_COLOR)
+    if (!pArgs && ( nSlot != SID_BACKGROUND_COLOR || nSlot != SID_TABLE_CELL_BACKGROUND_COLOR ) )
     {
         return;
     }
 
     SvxBrushItem aBrushItem(RES_BACKGROUND);
 
-    if( SelectionType::TableCell & nSelType )
+    if ( nSlot == SID_TABLE_CELL_BACKGROUND_COLOR )
     {
         rSh.GetBoxBackground( aBrushItem );
     }
@@ -2288,12 +2291,13 @@ void SwBaseShell::ExecBckCol(SfxRequest& rReq)
     switch(nSlot)
     {
         case SID_BACKGROUND_COLOR:
+        case SID_TABLE_CELL_BACKGROUND_COLOR:
         {
             aBrushItem.SetGraphicPos(GPOS_NONE);
 
             if(pArgs)
             {
-                const SvxColorItem& rNewColorItem = pArgs->Get(SID_BACKGROUND_COLOR);
+                const SvxColorItem& rNewColorItem = pArgs->Get(nSlot == SID_BACKGROUND_COLOR ? SID_BACKGROUND_COLOR : SID_TABLE_CELL_BACKGROUND_COLOR );
                 const Color& rNewColor = rNewColorItem.GetValue();
                 aBrushItem.SetColor(rNewColor);
                 GetView().GetViewFrame()->GetBindings().SetState(rNewColorItem);
@@ -2322,7 +2326,7 @@ void SwBaseShell::ExecBckCol(SfxRequest& rReq)
         }
     }
 
-    if( SelectionType::TableCell & nSelType )
+    if ( nSlot == SID_TABLE_CELL_BACKGROUND_COLOR )
     {
         rSh.SetBoxBackground( aBrushItem );
     }
@@ -2613,7 +2617,7 @@ void SwBaseShell::InsertTable( SfxRequest& _rRequest )
             SwInsertTableOptions aInsTableOpts( SwInsertTableFlags::All, 1 );
             OUString aTableName;
             OUString aAutoName;
-            SwTableAutoFormat* pTAFormat = nullptr;
+            std::unique_ptr<SwTableAutoFormat> pTAFormat;
 
             if( pArgs && pArgs->Count() >= 2 )
             {
@@ -2640,7 +2644,7 @@ void SwBaseShell::InsertTable( SfxRequest& _rRequest )
                         {
                             if ( aTableTable[n].GetName() == aAutoName )
                             {
-                                pTAFormat = new SwTableAutoFormat( aTableTable[n] );
+                                pTAFormat.reset(new SwTableAutoFormat( aTableTable[n] ));
                                 break;
                             }
                         }
@@ -2686,19 +2690,24 @@ void SwBaseShell::InsertTable( SfxRequest& _rRequest )
                 if( rSh.HasSelection() )
                     rSh.DelRight();
 
-                rSh.InsertTable( aInsTableOpts, nRows, nCols, pTAFormat );
+                rSh.InsertTable( aInsTableOpts, nRows, nCols, pTAFormat.get() );
                 rSh.MoveTable( GotoPrevTable, fnTableStart );
 
                 if( !aTableName.isEmpty() && !rSh.GetTableStyle( aTableName ) )
                     rSh.GetTableFormat()->SetName( aTableName );
 
-                if( pTAFormat != nullptr && aAutoName != SwStyleNameMapper::GetUIName( RES_POOLTABSTYLE_DEFAULT, OUString() ) )
-                    rSh.SetTableStyle( aAutoName );
+                if( pTAFormat != nullptr && !aAutoName.isEmpty()
+                        && aAutoName != SwStyleNameMapper::GetUIName( RES_POOLTABSTYLE_DEFAULT, OUString() )
+                        && aAutoName != SwViewShell::GetShellRes()->aStrNone )
+                {
+                    SwTableNode* pTableNode = const_cast<SwTableNode*>( rSh.IsCursorInTable() );
+                    if ( pTableNode )
+                        pTableNode->GetTable().SetTableStyleName( aAutoName );
+                }
 
                 rSh.EndAllAction();
                 rTempView.AutoCaption(TABLE_CAP);
             }
-            delete pTAFormat;
         }
 
         if( bCallEndUndo )

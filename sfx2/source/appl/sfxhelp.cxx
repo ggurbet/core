@@ -21,6 +21,7 @@
 #include <sfx2/sfxhelp.hxx>
 
 #include <set>
+#include <string_view>
 #include <algorithm>
 #include <cassert>
 
@@ -47,6 +48,7 @@
 #include <svtools/helpopt.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <tools/urlobj.hxx>
+#include <tools/debug.hxx>
 #include <ucbhelper/content.hxx>
 #include <unotools/pathoptions.hxx>
 #include <rtl/byteseq.hxx>
@@ -60,6 +62,7 @@
 #include <rtl/uri.hxx>
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/layout.hxx>
+#include <vcl/waitobj.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/ehdl.hxx>
 #include <svtools/sfxecode.hxx>
@@ -80,6 +83,7 @@
 #include <sfx2/frame.hxx>
 #include <rtl/string.hxx>
 #include <svtools/langtab.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star::beans;
 using namespace ::com::sun::star::frame;
@@ -396,7 +400,8 @@ static OUString getCurrentModuleIdentifier_Impl()
         }
         catch (const Exception&)
         {
-            SAL_WARN( "sfx.appl", "SfxHelp::getCurrentModuleIdentifier_Impl(): exception of XModuleManager::identify()" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "sfx.appl", "SfxHelp::getCurrentModuleIdentifier_Impl(): exception of XModuleManager::identify() " << exceptionToString(ex) );
         }
     }
 
@@ -477,7 +482,8 @@ OUString SfxHelp::GetHelpModuleName_Impl(const OUString& rHelpID)
             }
             catch (const Exception&)
             {
-                SAL_WARN( "sfx.appl", "SfxHelp::GetHelpModuleName_Impl(): exception of XNameAccess::getByName()" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "sfx.appl", "SfxHelp::GetHelpModuleName_Impl(): " << exceptionToString(ex) );
             }
         }
     }
@@ -685,12 +691,11 @@ bool SfxHelp::Start(const OUString& rURL, weld::Widget* pWidget)
 /// Redirect the vnd.sun.star.help:// urls to http://help.libreoffice.org
 static bool impl_showOnlineHelp( const OUString& rURL )
 {
-    OUString aInternal( "vnd.sun.star.help://"  );
+    static const OUString aInternal("vnd.sun.star.help://");
     if ( rURL.getLength() <= aInternal.getLength() || !rURL.startsWith(aInternal) )
         return false;
 
-    OUString aHelpLink( "https://help.libreoffice.org/help.html?"  );
-
+    OUString aHelpLink = officecfg::Office::Common::Help::HelpRootURL::get();
     OUString aTarget = "Target=" + rURL.copy(aInternal.getLength());
     aTarget = aTarget.replaceAll("%2F", "/").replaceAll("?", "&");
     aHelpLink += aTarget;
@@ -757,7 +762,7 @@ bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
                             << " before [Instance] app-path");
                     throw Failure();
                 }
-                o3tl::string_view const line(
+                std::string_view const line(
                     reinterpret_cast<char const *>(bytes.getConstArray()), bytes.getLength());
                 if (instance) {
                     static constexpr auto keyPath = OUStringLiteral("app-path=");
@@ -841,7 +846,7 @@ bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
                     "sfx.appl",
                     "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
                         << "\" doesn't contain /app/org.libreoffice.LibreOffice/");
-                    throw Failure();
+                throw Failure();
             }
             auto const i2 = i1 + segments.size;
             auto i3 = path.indexOf('/', i2);
@@ -850,7 +855,7 @@ bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
                     "sfx.appl",
                     "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
                         << "\" doesn't contain branch segment");
-                    throw Failure();
+                throw Failure();
             }
             i3 = path.indexOf('/', i3 + 1);
             if (i3 == -1) {
@@ -858,7 +863,7 @@ bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
                     "sfx.appl",
                     "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
                         << "\" doesn't contain sha segment");
-                    throw Failure();
+                throw Failure();
             }
             ++i3;
             auto const i4 = path.indexOf('/', i3);
@@ -867,7 +872,7 @@ bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
                     "sfx.appl",
                     "LIBO_FLATPAK mode /.flatpak-info [Instance] app-path \"" << path
                         << "\" doesn't contain files segment");
-                    throw Failure();
+                throw Failure();
             }
             path = path.copy(0, i1) + "/runtime/org.libreoffice.LibreOffice.Help/"
                 + path.copy(i2, i3 - i2) + sha + path.copy(i4);
@@ -1115,8 +1120,11 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
 
             pWindow = GetBestParent(pWindow);
 
+            TopLevelWindowLocker aBusy;
+
             if(bShowOfflineHelpPopUp)
             {
+                aBusy.incBusy(pWindow);
                 std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWindow ? pWindow->GetFrameWeld() : nullptr, "sfx/ui/helpmanual.ui"));
                 std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
                 std::unique_ptr<weld::CheckButton> m_xHideOfflineHelpCB(xBuilder->weld_check_button("hidedialog"));
@@ -1127,6 +1135,7 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
                 short OnlineHelpBox = xQueryBox->run();
                 bShowOfflineHelpPopUp = OnlineHelpBox != RET_OK;
                 aHelpOptions.SetOfflineHelpPopUp(!m_xHideOfflineHelpCB->get_state());
+                aBusy.decBusy();
             }
             if(!bShowOfflineHelpPopUp)
             {
@@ -1134,8 +1143,10 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
                     return true;
                 else
                 {
+                    aBusy.incBusy(pWindow);
                     NoHelpErrorBox aErrBox(pWindow ? pWindow->GetFrameWeld() : nullptr);
                     aErrBox.run();
+                    aBusy.decBusy();
                     return false;
                 }
             }
@@ -1222,26 +1233,22 @@ bool SfxHelp::Start_Impl(const OUString& rURL, weld::Widget* pWidget, const OUSt
 
             if ( impl_hasHelpInstalled() && pWidget && SfxContentHelper::IsHelpErrorDocument( aHelpURL ) )
             {
-                // no help found -> try with parent help id.
-                std::unique_ptr<weld::Widget> xParent(pWidget->weld_parent());
-                while (xParent)
-                {
-                    OString aHelpId = xParent->get_help_id();
-                    aHelpURL = CreateHelpURL( OStringToOUString(aHelpId, RTL_TEXTENCODING_UTF8), aHelpModuleName );
+                bool bUseFinalFallback = true;
+                // no help found -> try ids of parents.
+                pWidget->help_hierarchy_foreach([&aHelpModuleName, &aHelpURL, &bUseFinalFallback](const OString& rHelpId){
+                    if (rHelpId.isEmpty())
+                        return false;
+                    aHelpURL = CreateHelpURL( OStringToOUString(rHelpId, RTL_TEXTENCODING_UTF8), aHelpModuleName);
+                    bool bFinished = !SfxContentHelper::IsHelpErrorDocument(aHelpURL);
+                    if (bFinished)
+                        bUseFinalFallback = false;
+                    return bFinished;
+                });
 
-                    if ( !SfxContentHelper::IsHelpErrorDocument( aHelpURL ) )
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        xParent.reset(xParent->weld_parent());
-                        if (!xParent)
-                        {
-                            // create help url of start page ( helpid == 0 -> start page)
-                            aHelpURL = CreateHelpURL( OUString(), aHelpModuleName );
-                        }
-                    }
+                if (bUseFinalFallback)
+                {
+                    // create help url of start page ( helpid == 0 -> start page)
+                    aHelpURL = CreateHelpURL( OUString(), aHelpModuleName );
                 }
             }
             break;

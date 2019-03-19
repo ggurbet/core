@@ -227,7 +227,7 @@ bool Options::initOptions(std::vector< std::string > & rArgs)
     {
     case 'O':
       {
-        if (!((++first != last) && ((*first)[0] != '-')))
+        if ((++first == last) || ((*first)[0] == '-'))
         {
           return badOption("invalid", option);
         }
@@ -237,7 +237,7 @@ bool Options::initOptions(std::vector< std::string > & rArgs)
       }
     case 'M':
       {
-        if (!((++first != last) && ((*first)[0] != '-')))
+        if ((++first == last) || ((*first)[0] == '-'))
         {
           return badOption("invalid", option);
         }
@@ -247,7 +247,7 @@ bool Options::initOptions(std::vector< std::string > & rArgs)
       }
     case 'I':
       {
-        if (!((++first != last) && ((*first)[0] != '-')))
+        if ((++first == last) || ((*first)[0] == '-'))
         {
           return badOption("invalid", option);
         }
@@ -283,11 +283,12 @@ bool Options::initOptions(std::vector< std::string > & rArgs)
       }
     case 'D':
       {
-        if (!((++first != last) && ((*first)[0] != '-')))
+        if ((++first == last) || ((*first)[0] == '-'))
         {
           return badOption("invalid", option);
         }
-        OString param("-D"); param += OString((*first).c_str(), (*first).size());
+        OString param("-D");
+        param += OString((*first).c_str(), (*first).size());
         if (m_options.count("-D") > 0)
         {
           OStringBuffer buffer(m_options["-D"]);

@@ -203,7 +203,10 @@ SQLExceptionInfo createConnection(  const Reference< css::beans::XPropertySet>& 
     catch(const SQLContext& e) { aInfo = SQLExceptionInfo(e); }
     catch(const SQLWarning& e) { aInfo = SQLExceptionInfo(e); }
     catch(const SQLException& e) { aInfo = SQLExceptionInfo(e); }
-    catch(const Exception&) { SAL_WARN("dbaccess.ui", "SbaTableQueryBrowser::OnExpandEntry: could not connect - unknown exception!"); }
+    catch(const Exception&) {
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("dbaccess.ui", "SbaTableQueryBrowser::OnExpandEntry: could not connect - unknown exception! " << exceptionToString(ex));
+    }
 
     return aInfo;
 }
@@ -460,11 +463,9 @@ void fillTypeInfo(  const Reference< css::sdbc::XConnection>& _rxConnection,
             aValue.fill(nPos,aTypes[nPos],aNullable[nPos],xRow);
             pInfo->nPrecision       = aValue;
             ++nPos;
-            aValue.fill(nPos,aTypes[nPos],aNullable[nPos],xRow);
-            pInfo->aLiteralPrefix   = aValue;
+            aValue.fill(nPos,aTypes[nPos],aNullable[nPos],xRow); // LiteralPrefix
             ++nPos;
-            aValue.fill(nPos,aTypes[nPos],aNullable[nPos],xRow);
-            pInfo->aLiteralSuffix   = aValue;
+            aValue.fill(nPos,aTypes[nPos],aNullable[nPos],xRow); //LiteralSuffix
             ++nPos;
             aValue.fill(nPos,aTypes[nPos],aNullable[nPos],xRow);
             pInfo->aCreateParams    = aValue;
@@ -741,7 +742,7 @@ SvxCellHorJustify mapTextJustify(sal_Int32 _nAlignment)
 void callColumnFormatDialog(const Reference<XPropertySet>& xAffectedCol,
                             const Reference<XPropertySet>& xField,
                             SvNumberFormatter* _pFormatter,
-                            vcl::Window* _pParent)
+                            const vcl::Window* _pParent)
 {
     if (xAffectedCol.is() && xField.is())
     {
@@ -774,7 +775,7 @@ void callColumnFormatDialog(const Reference<XPropertySet>& xAffectedCol,
     }
 }
 
-bool callColumnFormatDialog(vcl::Window* _pParent,
+bool callColumnFormatDialog(const vcl::Window* _pParent,
                                 SvNumberFormatter* _pFormatter,
                                 sal_Int32 _nDataType,
                                 sal_Int32& _nFormatKey,
@@ -1294,7 +1295,7 @@ Reference<XPropertySet> createView( const OUString& _rName, const Reference< XCo
     return createView( _rName, _rxConnection, sCommand );
 }
 
-bool insertHierachyElement( vcl::Window* _pParent, const Reference< XComponentContext >& _rxContext,
+bool insertHierachyElement(weld::Window* pParent, const Reference< XComponentContext >& _rxContext,
                            const Reference<XHierarchicalNameContainer>& _xNames,
                            const OUString& _sParentFolder,
                            bool _bForm,
@@ -1339,18 +1340,17 @@ bool insertHierachyElement( vcl::Window* _pParent, const Reference< XComponentCo
             // here we have everything needed to create a new query object ...
             HierarchicalNameCheck aNameChecker( _xNames.get(), _sParentFolder );
             // ... ehm, except a new name
-            ScopedVclPtrInstance<OSaveAsDlg> aAskForName(
-                                   _pParent,
-                                    _rxContext,
-                                    sTargetName,
-                                    sLabel,
-                                    aNameChecker,
-                                    SADFlags::AdditionalDescription | SADFlags::TitlePasteAs );
-            if ( RET_OK != aAskForName->Execute() )
+            OSaveAsDlg aAskForName(pParent,
+                                   _rxContext,
+                                   sTargetName,
+                                   sLabel,
+                                   aNameChecker,
+                                   SADFlags::AdditionalDescription | SADFlags::TitlePasteAs);
+            if ( RET_OK != aAskForName.run() )
                 // cancelled by the user
                 return false;
 
-            sNewName = aAskForName->getName();
+            sNewName = aAskForName.getName();
         }
     }
     else if ( xNameAccess->hasByName(sNewName) )

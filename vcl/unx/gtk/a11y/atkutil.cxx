@@ -31,6 +31,7 @@
 #include <com/sun/star/accessibility/XAccessibleText.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <cppuhelper/implbase.hxx>
+#include <cppuhelper/weakref.hxx>
 #include <rtl/ref.hxx>
 #include <sal/log.hxx>
 
@@ -65,7 +66,7 @@ static guint focus_notify_handler = 0;
 
 extern "C" {
 
-static gint
+static gboolean
 atk_wrapper_focus_idle_handler (gpointer data)
 {
     SolarMutexGuard aGuard;
@@ -114,7 +115,7 @@ atk_wrapper_focus_idle_handler (gpointer data)
         }
     }
 
-    return FALSE;
+    return false;
 }
 
 } // extern "C"
@@ -783,9 +784,9 @@ ooo_atk_util_get_type()
         } ;
 
         type = g_type_register_static (parent_type, "OOoUtil", &typeInfo, GTypeFlags(0)) ;
-  }
+    }
 
-  return type;
+    return type;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -20,6 +20,7 @@
 #include <uielement/toolbarsmenucontroller.hxx>
 
 #include <algorithm>
+#include <string_view>
 
 #include <services.h>
 #include <strings.hrc>
@@ -32,6 +33,7 @@
 #include <com/sun/star/awt/MenuItemStyle.hpp>
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <com/sun/star/frame/XDispatchProvider.hpp>
+#include <com/sun/star/util/XURLTransformer.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
@@ -55,6 +57,7 @@
 #include <unotools/cmdoptions.hxx>
 #include <svtools/miscopt.hxx>
 #include <unotools/collatorwrapper.hxx>
+#include <unotools/syslocale.hxx>
 
 //  Defines
 
@@ -394,7 +397,7 @@ void ToolbarsMenuController::fillPopupMenu( Reference< css::awt::XPopupMenu > co
 
             sal_Int32 n = aSortedTbs[i].aCommand.lastIndexOf( '/' );
             if (( n > 0 ) && (( n+1 ) < aSortedTbs[i].aCommand.getLength() ))
-                aStrBuf.appendCopy( aSortedTbs[i].aCommand, n+1 );
+                aStrBuf.append( std::u16string_view(aSortedTbs[i].aCommand).substr(n+1) );
 
             OUString aCmd( aStrBuf.makeStringAndClear() );
 
@@ -666,7 +669,7 @@ void SAL_CALL ToolbarsMenuController::itemSelected( const css::awt::MenuEvent& r
                     if (( nIndex > 0 ) && (( nIndex+1 ) < aCmd.getLength() ))
                     {
                         OUStringBuffer aBuf( "private:resource/toolbar/" );
-                        aBuf.appendCopy( aCmd, nIndex+1 );
+                        aBuf.append( std::u16string_view(aCmd).substr(nIndex+1) );
 
                         bool      bShow( !pVCLPopupMenu->IsItemChecked( rEvent.MenuId ));
                         OUString aToolBarResName( aBuf.makeStringAndClear() );

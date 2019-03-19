@@ -19,30 +19,20 @@
 
 #include "htmlex.hxx"
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
-#include <com/sun/star/document/XExporter.hpp>
-#include <com/sun/star/document/XFilter.hpp>
 #include <com/sun/star/drawing/GraphicExportFilter.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 
-#include <rtl/uri.hxx>
 #include <sal/log.hxx>
 #include <rtl/tencinfo.h>
 #include <comphelper/processfactory.hxx>
 #include <osl/file.hxx>
 #include <unotools/pathoptions.hxx>
-#include <vcl/FilterConfigItem.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <com/sun/star/frame/XStorable.hpp>
-#include <sfx2/app.hxx>
-#include <sfx2/dispatch.hxx>
-#include <sfx2/docfile.hxx>
-#include <sfx2/fcontnr.hxx>
 #include <sfx2/frmhtmlw.hxx>
 #include <sfx2/progress.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/wrkwin.hxx>
-#include <svl/aeitem.hxx>
 #include <svx/svditer.hxx>
 #include <vcl/imaprect.hxx>
 #include <vcl/imapcirc.hxx>
@@ -50,11 +40,8 @@
 #include <editeng/outlobj.hxx>
 #include <editeng/editobj.hxx>
 #include <svx/svdopath.hxx>
-#include <svx/xoutbmp.hxx>
 #include <svtools/htmlout.hxx>
-#include <vcl/cvtgrf.hxx>
 #include <svtools/colorcfg.hxx>
-#include <vcl/graphicfilter.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/wghtitem.hxx>
@@ -68,20 +55,17 @@
 #include <svx/svdogrp.hxx>
 #include <svx/svdotable.hxx>
 #include <tools/urlobj.hxx>
-#include <vcl/bitmapaccess.hxx>
 #include <svtools/sfxecode.hxx>
-#include <com/sun/star/beans/PropertyState.hpp>
-#include <unotools/resmgr.hxx>
 #include <comphelper/anytostring.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <drawdoc.hxx>
 #include <DrawDocShell.hxx>
 #include "htmlpublishmode.hxx"
 #include <Outliner.hxx>
 #include <sdpage.hxx>
-#include <sdattr.hxx>
 #include <strings.hrc>
 #include <strings.hxx>
 #include <anminfo.hxx>
@@ -737,7 +721,7 @@ void HtmlExport::ExportHtml()
     nProgrCount += mbImpress?mnSdPageCount:0;
     nProgrCount += mbContentsPage?1:0;
     nProgrCount += (mbFrames && mbNotes)?mnSdPageCount:0;
-    nProgrCount += (mbFrames)?8:0;
+    nProgrCount += mbFrames ? 8 : 0;
     InitProgress( nProgrCount );
 
     mpDocSh->SetWaitCursor( true );
@@ -2662,20 +2646,20 @@ OUString HtmlExport::CreateNavBar( sal_uInt16 nSdPage, bool bIsText ) const
 // export navigation graphics from button set
 void HtmlExport::CreateBitmaps()
 {
-    if(mnButtonThema != -1 && mpButtonSet.get() )
+    if(mnButtonThema == -1 || !mpButtonSet.get())
+        return;
+
+    for( int nButton = 0; nButton != SAL_N_ELEMENTS(pButtonNames); nButton++ )
     {
-        for( int nButton = 0; nButton != SAL_N_ELEMENTS(pButtonNames); nButton++ )
-        {
-            if(!mbFrames && (nButton == BTN_MORE || nButton == BTN_LESS))
-                continue;
+        if(!mbFrames && (nButton == BTN_MORE || nButton == BTN_LESS))
+            continue;
 
-            if(!mbImpress && (nButton == BTN_TEXT || nButton == BTN_MORE || nButton == BTN_LESS ))
-                continue;
+        if(!mbImpress && (nButton == BTN_TEXT || nButton == BTN_MORE || nButton == BTN_LESS ))
+            continue;
 
-            OUString aFull(maExportPath);
-            aFull += GetButtonName(nButton);
-            mpButtonSet->exportButton( mnButtonThema, aFull, GetButtonName(nButton) );
-        }
+        OUString aFull(maExportPath);
+        aFull += GetButtonName(nButton);
+        mpButtonSet->exportButton( mnButtonThema, aFull, GetButtonName(nButton) );
     }
 }
 
@@ -3056,7 +3040,7 @@ bool HtmlExport::checkFileExists( Reference< css::ucb::XSimpleFileAccess3 > cons
     catch( css::uno::Exception& )
     {
         SAL_WARN( "sd", "sd::HtmlExport::checkFileExists(), exception caught: "
-                    << comphelper::anyToString( cppu::getCaughtException() ) );
+                    << exceptionToString( cppu::getCaughtException() ) );
     }
 
     return false;
@@ -3107,7 +3091,7 @@ bool HtmlExport::checkForExistingFiles()
     catch( Exception& )
     {
         SAL_WARN( "sd", "sd::HtmlExport::checkForExistingFiles(), exception caught: "
-                    << comphelper::anyToString( cppu::getCaughtException() ) );
+                    << exceptionToString( cppu::getCaughtException() ) );
         bFound = false;
     }
 

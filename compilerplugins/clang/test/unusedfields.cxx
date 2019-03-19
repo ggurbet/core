@@ -7,6 +7,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#if defined _WIN32 //TODO, see corresponding TODO in compilerplugins/clang/unusedfields.cxx
+// expected-no-diagnostics
+#else
+
 #include <vector>
 #include <ostream>
 #include <com/sun/star/uno/Any.hxx>
@@ -26,13 +30,15 @@ struct Bar
 // expected-error@-5 {{read m_barfunctionpointer [loplugin:unusedfields]}}
 // expected-error@-6 {{read m_bar8 [loplugin:unusedfields]}}
 // expected-error@-7 {{read m_bar10 [loplugin:unusedfields]}}
-// expected-error@-8 {{write m_bar1 [loplugin:unusedfields]}}
-// expected-error@-9 {{write m_bar2 [loplugin:unusedfields]}}
-// expected-error@-10 {{write m_bar3 [loplugin:unusedfields]}}
-// expected-error@-11 {{write m_bar3b [loplugin:unusedfields]}}
-// expected-error@-12 {{write m_bar4 [loplugin:unusedfields]}}
-// expected-error@-13 {{write m_bar7 [loplugin:unusedfields]}}
-// expected-error@-14 {{write m_bar9 [loplugin:unusedfields]}}
+// expected-error@-8 {{read m_bar11 [loplugin:unusedfields]}}
+// expected-error@-9 {{write m_bar1 [loplugin:unusedfields]}}
+// expected-error@-10 {{write m_bar2 [loplugin:unusedfields]}}
+// expected-error@-11 {{write m_bar3 [loplugin:unusedfields]}}
+// expected-error@-12 {{write m_bar3b [loplugin:unusedfields]}}
+// expected-error@-13 {{write m_bar4 [loplugin:unusedfields]}}
+// expected-error@-14 {{write m_bar7 [loplugin:unusedfields]}}
+// expected-error@-15 {{write m_bar9 [loplugin:unusedfields]}}
+// expected-error@-16 {{write m_bar12 [loplugin:unusedfields]}}
 {
     int  m_bar1;
     int  m_bar2 = 1;
@@ -45,8 +51,10 @@ struct Bar
     int m_bar7[5];
     int m_bar8;
     int m_barstream;
-    int m_bar9;
-    int m_bar10;
+    sal_Int32 m_bar9;
+    sal_Int32 m_bar10;
+    css::uno::Any m_bar11;
+    css::uno::Any m_bar12;
 
     // check that we see reads of fields like m_foo1 when referred to via constructor initializer
     Bar(Foo const & foo) : m_bar1(foo.m_foo1) {}
@@ -99,6 +107,20 @@ struct Bar
     {
         css::uno::Any any;
         any <<= m_bar10;
+    }
+
+    // check that we see reads of the LHS when calling operator>>=
+    void bar11()
+    {
+        int x;
+        m_bar11 >>= x;
+    }
+
+    // check that we see writes of the LHS when calling operator<<=
+    void bar12()
+    {
+        int x;
+        m_bar12 <<= x;
     }
 };
 
@@ -194,5 +216,31 @@ struct ReadOnlyAnalysis4
         x = m_readonlyCss.getArray()[0];
     }
 };
+
+template<class T>
+struct VclPtr
+{
+    VclPtr(T*);
+    void clear();
+};
+
+// Check calls to operators
+struct WriteOnlyAnalysis2
+// expected-error@-1 {{write m_vclwriteonly [loplugin:unusedfields]}}
+{
+    VclPtr<int> m_vclwriteonly;
+
+    WriteOnlyAnalysis2() : m_vclwriteonly(nullptr)
+    {
+        m_vclwriteonly = nullptr;
+    }
+
+    ~WriteOnlyAnalysis2()
+    {
+        m_vclwriteonly.clear();
+    }
+};
+
+#endif
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab cinoptions=b1,g0,N-s cinkeys+=0=break: */

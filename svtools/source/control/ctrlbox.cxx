@@ -23,9 +23,12 @@
 #include <tools/stream.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/customweld.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/field.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/image.hxx>
+#include <vcl/virdev.hxx>
 #include <sal/macros.h>
 #include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
@@ -466,13 +469,13 @@ void LineListBox::ImpGetLine( long nLine1, long nLine2, long nDistance,
     aVirDev->SetFillColor( aColor1 );
 
     double y1 = double( n1 ) / 2;
-    svtools::DrawLine( *aVirDev.get(), basegfx::B2DPoint( 0, y1 ), basegfx::B2DPoint( aSize.Width( ), y1 ), n1, nStyle );
+    svtools::DrawLine( *aVirDev, basegfx::B2DPoint( 0, y1 ), basegfx::B2DPoint( aSize.Width( ), y1 ), n1, nStyle );
 
     if ( n2 )
     {
         double y2 =  n1 + nDist + double( n2 ) / 2;
         aVirDev->SetFillColor( aColor2 );
-        svtools::DrawLine( *aVirDev.get(), basegfx::B2DPoint( 0, y2 ), basegfx::B2DPoint( aSize.Width(), y2 ), n2, SvxBorderLineStyle::SOLID );
+        svtools::DrawLine( *aVirDev, basegfx::B2DPoint( 0, y2 ), basegfx::B2DPoint( aSize.Width(), y2 ), n2, SvxBorderLineStyle::SOLID );
     }
     rBmp = aVirDev->GetBitmapEx( Point(), Size( aSize.Width(), n1+nDist+n2 ) );
 }
@@ -1043,20 +1046,6 @@ extern "C" SAL_DLLPUBLIC_EXPORT void makeFontStyleBox(VclPtr<vcl::Window> & rRet
     rRet = pListBox;
 }
 
-void FontStyleBox::Select()
-{
-    // keep text over fill operation
-    aLastStyle = GetText();
-    ComboBox::Select();
-}
-
-void FontStyleBox::LoseFocus()
-{
-    // keep text over fill operation
-    aLastStyle = GetText();
-    ComboBox::LoseFocus();
-}
-
 void FontStyleBox::Modify()
 {
     CharClass   aChrCls( ::comphelper::getProcessComponentContext(),
@@ -1291,7 +1280,6 @@ void FontSizeBox::Fill( const FontMetric* pFontMetric, const FontList* pList )
 
     if( pFontMetric )
     {
-        aFontMetric = *pFontMetric;
         pAry = pList->GetSizeAry( *pFontMetric );
     }
     else
@@ -1401,6 +1389,8 @@ sal_Int64 FontSizeBox::GetValueFromStringUnit(const OUString& rStr, FieldUnit eO
 SvtFontSizeBox::SvtFontSizeBox(std::unique_ptr<weld::ComboBox> p)
     : pFontList(nullptr)
     , nSavedValue(0)
+    , nMin(20)
+    , nMax(9999)
     , eUnit(FieldUnit::POINT)
     , nDecimalDigits(1)
     , nRelMin(0)
@@ -1616,6 +1606,7 @@ void SvtFontSizeBox::SetRelative( bool bNewRelative )
         if (bPtRelative)
         {
             SetDecimalDigits( 1 );
+            SetRange(nPtRelMin, nPtRelMax);
             SetUnit(FieldUnit::POINT);
 
             short i = nPtRelMin, n = 0;
@@ -1629,6 +1620,7 @@ void SvtFontSizeBox::SetRelative( bool bNewRelative )
         else
         {
             SetDecimalDigits(0);
+            SetRange(nRelMin, nRelMax);
             SetUnit(FieldUnit::PERCENT);
 
             sal_uInt16 i = nRelMin;
@@ -1645,6 +1637,7 @@ void SvtFontSizeBox::SetRelative( bool bNewRelative )
             m_xComboBox->clear();
         bRelative = bPtRelative = false;
         SetDecimalDigits(1);
+        SetRange(20, 9999);
         SetUnit(FieldUnit::POINT);
         if ( pFontList)
             Fill( &aFontMetric, pFontList );
@@ -1685,6 +1678,10 @@ OUString SvtFontSizeBox::format_number(int nValue) const
 void SvtFontSizeBox::SetValue(int nNewValue, FieldUnit eInUnit)
 {
     auto nTempValue = MetricField::ConvertValue(nNewValue, 0, GetDecimalDigits(), eInUnit, GetUnit());
+    if (nTempValue < nMin)
+        nTempValue = nMin;
+    else if (nTempValue > nMax)
+        nTempValue = nMax;
     if (!bRelative)
     {
         FontSizeNames aFontSizeNames(Application::GetSettings().GetUILanguageTag().getLanguageType());
@@ -1725,6 +1722,13 @@ int SvtFontSizeBox::get_value() const
     const LocaleDataWrapper& rLocaleData = aSysLocale.GetLocaleData();
     double fResult(0.0);
     MetricFormatter::TextToValue(aStr, fResult, 0, GetDecimalDigits(), rLocaleData, GetUnit());
+    if (!aStr.isEmpty())
+    {
+        if (fResult < nMin)
+            fResult = nMin;
+        else if (fResult > nMax)
+            fResult = nMax;
+    }
     return fResult;
 }
 
@@ -1789,13 +1793,13 @@ void SvtLineListBox::ImpGetLine( long nLine1, long nLine2, long nDistance,
     aVirDev->SetFillColor( aColor1 );
 
     double y1 = double( n1 ) / 2;
-    svtools::DrawLine( *aVirDev.get(), basegfx::B2DPoint( 0, y1 ), basegfx::B2DPoint( aSize.Width( ), y1 ), n1, nStyle );
+    svtools::DrawLine( *aVirDev, basegfx::B2DPoint( 0, y1 ), basegfx::B2DPoint( aSize.Width( ), y1 ), n1, nStyle );
 
     if ( n2 )
     {
         double y2 =  n1 + nDist + double( n2 ) / 2;
         aVirDev->SetFillColor( aColor2 );
-        svtools::DrawLine( *aVirDev.get(), basegfx::B2DPoint( 0, y2 ), basegfx::B2DPoint( aSize.Width(), y2 ), n2, SvxBorderLineStyle::SOLID );
+        svtools::DrawLine( *aVirDev, basegfx::B2DPoint( 0, y2 ), basegfx::B2DPoint( aSize.Width(), y2 ), n2, SvxBorderLineStyle::SOLID );
     }
     rBmp = aVirDev->GetBitmapEx( Point(), Size( aSize.Width(), n1+nDist+n2 ) );
 }
@@ -2035,6 +2039,39 @@ void SvtLineListBox::UpdatePreview()
         m_xControl->set_image(aVirDev.get());
         aVirDev->Pop();
     }
+}
+
+SvtCalendarBox::SvtCalendarBox(std::unique_ptr<weld::MenuButton> pControl)
+    : m_xControl(std::move(pControl))
+    , m_xBuilder(Application::CreateBuilder(m_xControl.get(), "svt/ui/datewindow.ui"))
+    , m_xTopLevel(m_xBuilder->weld_widget("date_popup_window"))
+    , m_xCalendar(m_xBuilder->weld_calendar("date"))
+{
+    m_xControl->set_popover(m_xTopLevel.get());
+    m_xCalendar->connect_selected(LINK(this, SvtCalendarBox, SelectHdl));
+    m_xCalendar->connect_activated(LINK(this, SvtCalendarBox, ActivateHdl));
+}
+
+void SvtCalendarBox::set_date(const Date& rDate)
+{
+    m_xCalendar->set_date(rDate);
+    SelectHdl(*m_xCalendar);
+}
+
+IMPL_LINK(SvtCalendarBox, SelectHdl, weld::Calendar&, rCalendar, void)
+{
+    const LocaleDataWrapper& rLocaleData = Application::GetSettings().GetLocaleDataWrapper();
+    m_xControl->set_label(rLocaleData.getDate(rCalendar.get_date()));
+}
+
+IMPL_LINK_NOARG(SvtCalendarBox, ActivateHdl, weld::Calendar&, void)
+{
+    if (m_xControl->get_active())
+        m_xControl->set_active(false);
+}
+
+SvtCalendarBox::~SvtCalendarBox()
+{
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

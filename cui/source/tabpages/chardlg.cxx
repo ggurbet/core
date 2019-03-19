@@ -251,7 +251,9 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
     , m_xCTLFontFeaturesButton(m_xBuilder->weld_button("ctl_features_button"))
 {
     m_xPreviewWin.reset(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWin));
-
+#ifdef IOS
+    m_xPreviewWin->hide();
+#endif
     m_pImpl->m_aNoStyleText = CuiResId( RID_SVXSTR_CHARNAME_NOSTYLE );
 
     SvtLanguageOptions aLanguageOptions;
@@ -328,8 +330,8 @@ SvxCharNamePage::SvxCharNamePage(TabPageParent pParent, const SfxItemSet& rInSet
     m_xCTLFontStyleFT->set_label(sFontStyleString);
 
     m_xWestFrame->show();
-    m_xEastFrame->show(bShowCJK);
-    m_xCTLFrame->show(bShowCTL);
+    m_xEastFrame->set_visible(bShowCJK);
+    m_xCTLFrame->set_visible(bShowCTL);
 
     m_xWestFontLanguageLB->SetLanguageList(SvxLanguageListFlags::WESTERN, true, false, true);
     m_xEastFontLanguageLB->SetLanguageList(SvxLanguageListFlags::CJK, true, false, true);
@@ -401,7 +403,7 @@ const FontList* SvxCharNamePage::GetFontList() const
             {
                 DBG_ASSERT(nullptr != static_cast<const SvxFontListItem*>(pItem)->GetFontList(),
                            "Where is the font list?");
-                    m_pImpl->m_pFontList = static_cast<const SvxFontListItem*>(pItem )->GetFontList()->Clone();
+                m_pImpl->m_pFontList = static_cast<const SvxFontListItem*>(pItem )->GetFontList()->Clone();
             }
         }
         if(!m_pImpl->m_pFontList)
@@ -673,7 +675,12 @@ void SvxCharNamePage::Reset_Impl( const SfxItemSet& rSet, LanguageGroup eLangGrp
     if ( eState >= SfxItemState::DEFAULT )
     {
         pFontItem = static_cast<const SvxFontItem*>(&( rSet.Get( nWhich ) ));
-        pNameBox->set_active_text( pFontItem->GetFamilyName() );
+        const OUString &rName = pFontItem->GetFamilyName();
+        int nIndex = pNameBox->find_text(rName);
+        pNameBox->set_active(nIndex);
+        // tdf#122992 if it didn't exist in the list, set the entry text to it anyway
+        if (nIndex == -1)
+            pNameBox->set_entry_text(rName);
     }
     else
     {
@@ -1170,7 +1177,7 @@ IMPL_LINK(SvxCharNamePage, FontFeatureButtonClicked, weld::Button&, rButton, voi
         cui::FontFeaturesDialog aDialog(GetDialogFrameWeld(), sFontName);
         if (aDialog.run() == RET_OK)
         {
-            pNameBox->set_active_text(aDialog.getResultFontName());
+            pNameBox->set_entry_text(aDialog.getResultFontName());
             UpdatePreview_Impl();
         }
     }
@@ -1353,6 +1360,9 @@ SvxCharEffectsPage::SvxCharEffectsPage(TabPageParent pParent, const SfxItemSet& 
     , m_xA11yWarningFT(m_xBuilder->weld_label("a11ywarning"))
 {
     m_xPreviewWin.reset(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWin));
+#ifdef IOS
+    m_xPreviewWin->hide();
+#endif
     m_xFontColorLB->SetSlotId(SID_ATTR_CHAR_COLOR);
     m_xOverlineColorLB->SetSlotId(SID_ATTR_CHAR_COLOR);
     m_xUnderlineColorLB->SetSlotId(SID_ATTR_CHAR_COLOR);
@@ -1443,7 +1453,7 @@ void SvxCharEffectsPage::Initialize()
         m_xPositionLB->hide();
     }
 
-    m_xA11yWarningFT->show(officecfg::Office::Common::Accessibility::IsAutomaticFontColor::get());
+    m_xA11yWarningFT->set_visible(officecfg::Office::Common::Accessibility::IsAutomaticFontColor::get());
 }
 
 void SvxCharEffectsPage::UpdatePreview_Impl()
@@ -1612,7 +1622,7 @@ IMPL_LINK( SvxCharEffectsPage, SelectListBoxHdl_Impl, weld::ComboBox&, rBox, voi
     SelectHdl_Impl(&rBox);
 }
 
-void SvxCharEffectsPage::SelectHdl_Impl(weld::ComboBox* pBox)
+void SvxCharEffectsPage::SelectHdl_Impl(const weld::ComboBox* pBox)
 {
     if (m_xEmphasisLB.get() == pBox)
     {
@@ -2474,6 +2484,9 @@ SvxCharPositionPage::SvxCharPositionPage(TabPageParent pParent, const SfxItemSet
     , m_xPairKerningBtn(m_xBuilder->weld_check_button("pairkerning"))
 {
     m_xPreviewWin.reset(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWin));
+#ifdef IOS
+    m_xPreviewWin->hide();
+#endif
     Initialize();
 }
 
@@ -3068,6 +3081,9 @@ SvxCharTwoLinesPage::SvxCharTwoLinesPage(TabPageParent pParent, const SfxItemSet
         m_xEndBracketLB->append(OUString::number(TWOLINE_CLOSE[i].second), CuiResId(TWOLINE_CLOSE[i].first));
 
     m_xPreviewWin.reset(new weld::CustomWeld(*m_xBuilder, "preview", m_aPreviewWin));
+#ifdef IOS
+    m_xPreviewWin->hide();
+#endif
     Initialize();
 }
 

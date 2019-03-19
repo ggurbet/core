@@ -31,6 +31,7 @@
 #include <com/sun/star/i18n/NativeNumberSupplier.hpp>
 
 #include <string.h>
+#include <string_view>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::i18n;
@@ -653,8 +654,12 @@ ParserFlags cclass_Unicode::getFlagsExtended(sal_uInt32 const c)
         case U_OTHER_PUNCTUATION:
             // fdo#61754 Lets see (if we not at the start) if this is midletter
             // punctuation and allow it in a word if it is similarly to
-            // U_NON_SPACING_MARK
-            if (bStart || U_WB_MIDLETTER != u_getIntPropertyValue(c, UCHAR_WORD_BREAK))
+            // U_NON_SPACING_MARK, for example U+00B7 MIDDLE DOT.
+            // tdf#123575 for U+30FB KATAKANA MIDDLE DOT property is not
+            // U_WB_MIDLETTER but U_WB_KATAKANA instead, explicitly test that
+            // and U+FF65 HALFWIDTH KATAKANA MIDDLE DOT.
+            if (bStart || (U_WB_MIDLETTER != u_getIntPropertyValue(c, UCHAR_WORD_BREAK)
+                        && c != 0x30FB && c != 0xFF65))
                 return ParserFlags::ILLEGAL;
             else
             {
@@ -902,13 +907,13 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
                     {
                         if ( cLast == '\\' )
                         {   // escaped
-                            aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 2);
+                            aSymbol.append(std::u16string_view(rText).substr(postSymbolIndex, nextCharIndex - postSymbolIndex - 2));
                             aSymbol.append(OUString(&current, 1));
                         }
                         else
                         {
                             eState = ssStop;
-                            aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
+                            aSymbol.append(std::u16string_view(rText).substr(postSymbolIndex, nextCharIndex - postSymbolIndex - 1));
                         }
                         postSymbolIndex = nextCharIndex;
                     }
@@ -927,13 +932,13 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
                 {
                     if ( cLast == '\\' )
                     {   // escaped
-                        aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 2);
+                        aSymbol.append(std::u16string_view(rText).substr(postSymbolIndex, nextCharIndex - postSymbolIndex - 2));
                         aSymbol.append(OUString(&current, 1));
                     }
                     else if (current == nextChar &&
                             !(nContTypes & KParseTokens::TWO_DOUBLE_QUOTES_BREAK_STRING) )
                     {   // "" => literal " escaped
-                        aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex);
+                        aSymbol.append(std::u16string_view(rText).substr(postSymbolIndex, nextCharIndex - postSymbolIndex));
                         nextCharIndex = index;
                         if (index < rText.getLength()) { ++nCodePoints; }
                         nextChar = (index < rText.getLength()) ? rText.iterateCodePoints(&index) : 0;
@@ -941,7 +946,7 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
                     else
                     {
                         eState = ssStop;
-                        aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
+                        aSymbol.append(std::u16string_view(rText).substr(postSymbolIndex, nextCharIndex - postSymbolIndex - 1));
                     }
                     postSymbolIndex = nextCharIndex;
                 }
@@ -1050,7 +1055,7 @@ void cclass_Unicode::parseText( ParseResult& r, const OUString& rText, sal_Int32
     {
         if (postSymbolIndex < nextCharIndex)
         {   //! open quote
-            aSymbol.appendCopy(rText, postSymbolIndex, nextCharIndex - postSymbolIndex - 1);
+            aSymbol.append(std::u16string_view(rText).substr(postSymbolIndex, nextCharIndex - postSymbolIndex - 1));
             r.TokenType |= KParseType::MISSING_QUOTE;
         }
         r.DequotedNameOrString = aSymbol.toString();

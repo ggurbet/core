@@ -93,7 +93,7 @@ namespace
         void impCreateTextPortionPrimitive(const DrawPortionInfo& rInfo);
         static drawinglayer::primitive2d::BasePrimitive2D* impCheckFieldPrimitive(drawinglayer::primitive2d::BasePrimitive2D* pPrimitive, const DrawPortionInfo& rInfo);
         void impFlushTextPortionPrimitivesToLinePrimitives();
-        void impFlushLinePrimitivesToParagraphPrimitives();
+        void impFlushLinePrimitivesToParagraphPrimitives(sal_Int32 nPara);
         void impHandleDrawPortionInfo(const DrawPortionInfo& rInfo);
         void impHandleDrawBulletInfo(const DrawBulletInfo& rInfo);
 
@@ -221,9 +221,8 @@ namespace
         // prepare DXArray content. To make it independent from font size (and such from
         // the text transformation), scale it to unit coordinates
         ::std::vector< double > aDXArray;
-        static bool bDisableTextArray(false);
 
-        if(!bDisableTextArray && rInfo.mpDXArray && rInfo.mnTextLen)
+        if(rInfo.mpDXArray && rInfo.mnTextLen)
         {
             aDXArray.reserve(rInfo.mnTextLen);
 
@@ -482,12 +481,21 @@ namespace
         }
     }
 
-    void impTextBreakupHandler::impFlushLinePrimitivesToParagraphPrimitives()
+    void impTextBreakupHandler::impFlushLinePrimitivesToParagraphPrimitives(sal_Int32 nPara)
     {
+        sal_Int16 nDepth = mrOutliner.GetDepth(nPara);
+        EBulletInfo eInfo = mrOutliner.GetBulletInfo(nPara);
+        // Pass -1 to signal VclMetafileProcessor2D that there is no active
+        // bullets/numbering in this paragraph (i.e. this is normal text)
+        const sal_Int16 nOutlineLevel( eInfo.bVisible ?  nDepth : -1);
+
         // ALWAYS create a paragraph primitive, even when no content was added. This is done to
         // have the correct paragraph count even with empty paragraphs. Those paragraphs will
         // have an empty sub-PrimitiveSequence.
-        maParagraphPrimitives.push_back(new drawinglayer::primitive2d::TextHierarchyParagraphPrimitive2D(maLinePrimitives));
+        maParagraphPrimitives.push_back(
+            new drawinglayer::primitive2d::TextHierarchyParagraphPrimitive2D(
+                maLinePrimitives,
+                nOutlineLevel));
         maLinePrimitives.clear();
     }
 
@@ -502,7 +510,7 @@ namespace
 
         if(rInfo.mbEndOfParagraph)
         {
-            impFlushLinePrimitivesToParagraphPrimitives();
+            impFlushLinePrimitivesToParagraphPrimitives(rInfo.mnPara);
         }
     }
 
@@ -637,7 +645,7 @@ namespace
         if(!maLinePrimitives.empty())
         {
             // collect non-closed paragraphs
-            impFlushLinePrimitivesToParagraphPrimitives();
+            impFlushLinePrimitivesToParagraphPrimitives(mrOutliner.GetParagraphCount() - 1);
         }
 
         return maParagraphPrimitives;

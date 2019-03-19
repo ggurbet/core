@@ -254,7 +254,6 @@ PresenterScreen::PresenterScreen (
       mxController(),
       mxConfigurationControllerWeak(),
       mxContextWeak(rxContext),
-      mxSlideShowControllerWeak(),
       mpPresenterController(),
       mxSavedConfiguration(),
       mpPaneContainer(),
@@ -302,7 +301,6 @@ void SAL_CALL PresenterScreen::disposing()
 
 void SAL_CALL PresenterScreen::disposing (const lang::EventObject& /*rEvent*/)
 {
-    mxSlideShowControllerWeak = WeakReference<presentation::XSlideShowController>();
     RequestShutdownPresenterScreen();
 }
 
@@ -317,7 +315,6 @@ void PresenterScreen::InitializePresenterScreen()
         Reference<XPresentationSupplier> xPS ( mxModel, UNO_QUERY_THROW);
         Reference<XPresentation2> xPresentation(xPS->getPresentation(), UNO_QUERY_THROW);
         Reference<presentation::XSlideShowController> xSlideShowController( xPresentation->getController() );
-        mxSlideShowControllerWeak = xSlideShowController;
 
         if( !xSlideShowController.is() || !xSlideShowController->isFullScreen() )
             return;
@@ -794,25 +791,25 @@ void PresenterScreen::SetupView(
     const PresenterPaneContainer::ViewInitializationFunction& rViewInitialization)
 {
     Reference<XConfigurationController> xCC (mxConfigurationControllerWeak);
-    if (xCC.is())
-    {
-        Reference<XResourceId> xPaneId (ResourceId::createWithAnchor(rxContext,rsPaneURL,rxAnchorId));
-        // Look up the view descriptor.
-        ViewDescriptor aViewDescriptor;
-        ViewDescriptorContainer::const_iterator iDescriptor (maViewDescriptors.find(rsViewURL));
-        if (iDescriptor != maViewDescriptors.end())
-            aViewDescriptor = iDescriptor->second;
+    if (!xCC.is())
+        return;
 
-        // Prepare the pane.
-        OSL_ASSERT(mpPaneContainer.get() != nullptr);
-        mpPaneContainer->PreparePane(
-            xPaneId,
-            rsViewURL,
-            aViewDescriptor.msTitle,
-            aViewDescriptor.msAccessibleTitle,
-            aViewDescriptor.mbIsOpaque,
-            rViewInitialization);
-    }
+    Reference<XResourceId> xPaneId (ResourceId::createWithAnchor(rxContext,rsPaneURL,rxAnchorId));
+    // Look up the view descriptor.
+    ViewDescriptor aViewDescriptor;
+    ViewDescriptorContainer::const_iterator iDescriptor (maViewDescriptors.find(rsViewURL));
+    if (iDescriptor != maViewDescriptors.end())
+        aViewDescriptor = iDescriptor->second;
+
+    // Prepare the pane.
+    OSL_ASSERT(mpPaneContainer.get() != nullptr);
+    mpPaneContainer->PreparePane(
+        xPaneId,
+        rsViewURL,
+        aViewDescriptor.msTitle,
+        aViewDescriptor.msAccessibleTitle,
+        aViewDescriptor.mbIsOpaque,
+        rViewInitialization);
 }
 
 } } // end of namespace ::sdext::presenter

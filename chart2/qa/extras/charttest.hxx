@@ -19,25 +19,19 @@
 #include <com/sun/star/frame/Desktop.hpp>
 
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
-#include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/table/XTableChartsSupplier.hpp>
-#include <com/sun/star/table/XTableCharts.hpp>
 #include <com/sun/star/table/XTableChart.hpp>
 #include <com/sun/star/table/XTablePivotChartsSupplier.hpp>
-#include <com/sun/star/table/XTablePivotCharts.hpp>
 #include <com/sun/star/table/XTablePivotChart.hpp>
 #include <com/sun/star/document/XEmbeddedObjectSupplier.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
 
 #include <unotools/tempfile.hxx>
 
 #include <com/sun/star/chart2/XAnyDescriptionAccess.hpp>
 #include <com/sun/star/chart2/XChartDocument.hpp>
-#include <com/sun/star/chart2/XDiagram.hpp>
-#include <com/sun/star/chart2/XDataSeries.hpp>
 #include <com/sun/star/chart2/XChartTypeContainer.hpp>
 #include <com/sun/star/chart2/XCoordinateSystemContainer.hpp>
 #include <com/sun/star/chart2/XDataSeriesContainer.hpp>
@@ -47,11 +41,8 @@
 #include <com/sun/star/chart2/data/XLabeledDataSequence.hpp>
 #include <com/sun/star/chart2/data/XDataSource.hpp>
 #include <com/sun/star/chart/XChartDataArray.hpp>
-#include <com/sun/star/chart/XComplexDescriptionAccess.hpp>
-#include <com/sun/star/chart/DataLabelPlacement.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
-#include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/chart/XChartDocument.hpp>
 #include <com/sun/star/text/XTextEmbeddedObjectsSupplier.hpp>
 #include <com/sun/star/util/XNumberFormatsSupplier.hpp>
@@ -62,15 +53,17 @@
 #include <iostream>
 #include <memory>
 
-#include <libxml/xmlwriter.h>
-#include <libxml/xpath.h>
-
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/XVisualObject.hpp>
 #include <com/sun/star/chart2/RelativeSize.hpp>
 
 using namespace css;
 using namespace css::uno;
+
+namespace com { namespace sun { namespace star { namespace chart2 { class XDataSeries; } } } }
+namespace com { namespace sun { namespace star { namespace chart2 { class XDiagram; } } } }
+namespace com { namespace sun { namespace star { namespace table { class XTableCharts; } } } }
+namespace com { namespace sun { namespace star { namespace table { class XTablePivotCharts; } } } }
 
 class ChartTest : public test::BootstrapFixture, public unotest::MacrosTest
 {
@@ -347,7 +340,6 @@ Reference< chart2::data::XDataSequence > getLabelDataSequenceFromDoc(
     }
 
     CPPUNIT_FAIL("no Label sequence found");
-    return Reference< chart2::data::XDataSequence > ();
 }
 
 Reference< chart2::data::XDataSequence > getDataSequenceFromDocByRole(
@@ -601,7 +593,7 @@ awt::Size ChartTest::getPageSize( const Reference< chart2::XChartDocument > & xC
     uno::Reference< com::sun::star::embed::XVisualObject > xVisualObject( xChartDoc, uno::UNO_QUERY );
     CPPUNIT_ASSERT( xVisualObject.is() );
     aSize = xVisualObject->getVisualAreaSize( com::sun::star::embed::Aspects::MSOLE_CONTENT );
-return aSize;
+    return aSize;
 }
 
 awt::Size ChartTest::getSize(css::uno::Reference<chart2::XDiagram> xDiagram, const awt::Size& rPageSize)

@@ -57,8 +57,9 @@
 #include <calbck.hxx>
 #include <DocumentSettingManager.hxx>
 #include <docary.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
+#include <frmatr.hxx>
+#include <frmtool.hxx>
 
 using namespace ::com::sun::star;
 
@@ -1291,16 +1292,16 @@ bool SwTabFrame::Split( const SwTwips nCutPos, bool bTryToSplit, bool bTableRowK
         // recalculate the split line
         bRet = lcl_RecalcSplitLine( *pLastRow, *pFollowRow, nRemainingSpaceForLastRow, nShrink );
 
+        // RecalcSplitLine did not work. In this case we conceal the split error:
+        if (!bRet && !bSplitRowAllowed)
+        {
+            bRet = true;
+        }
+
         // NEW TABLES
         // check if each cell in the row span line has a good height
         if ( bRet && pFollowRow->IsRowSpanLine() )
             lcl_AdjustRowSpanCells( pFollowRow );
-
-        // We The RowSplitLine stuff did not work. In this case we conceal the split error:
-        if ( !bRet && !bSplitRowAllowed )
-        {
-            bRet = true;
-        }
     }
 
     return bRet;
@@ -1861,7 +1862,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
     const bool bFootnotesInDoc = !GetFormat()->GetDoc()->GetFootnoteIdxs().empty();
     const bool bFly     = IsInFly();
 
-    auto pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+    auto pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
     const SwBorderAttrs *pAttrs = pAccess->Get();
 
     const bool bLargeTable = GetTable()->GetTabLines().size() > 64;  //arbitrary value, virtually guaranteed to be larger than one page.
@@ -1976,7 +1977,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                     pAccess.reset();
                     m_bCalcLowers |= pLayout->Resize(
                         pLayout->GetBrowseWidthByTabFrame( *this ) );
-                    pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+                    pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
                     pAttrs = pAccess->Get();
                 }
 
@@ -2016,7 +2017,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                 pAccess.reset();
                 m_bCalcLowers |= pLayout->Resize(
                     pLayout->GetBrowseWidthByTabFrame( *this ) );
-                pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+                pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
                 pAttrs = pAccess->Get();
             }
             if ( aOldPrtPos != aRectFnSet.GetPos(getFramePrintArea()) )
@@ -2066,7 +2067,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                             m_bCalcLowers |= pHTMLLayout->Resize(
                                 pHTMLLayout->GetBrowseWidthByTabFrame( *this ) );
 
-                            pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+                            pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
                             pAttrs = pAccess->Get();
                         }
 
@@ -2255,7 +2256,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
                     // is found, get its first content.
                     const SwFrame* pTmpNxt = sw_FormatNextContentForKeep( this );
 
-                    pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+                    pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
                     pAttrs = pAccess->Get();
 
                     // The last row wants to keep with the frame behind the table.
@@ -2497,7 +2498,7 @@ void SwTabFrame::MakeAll(vcl::RenderContext* pRenderContext)
 
                             GetFollow()->MakeAll(pRenderContext);
 
-                            pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+                            pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
                             pAttrs = pAccess->Get();
 
                             GetFollow()->SetLowersFormatted(false);
@@ -3786,7 +3787,7 @@ long CalcHeightWithFlys( const SwFrame *pFrame )
 
             if ( pMaster )
             {
-                 pObjs = static_cast<const SwTextFrame*>(pTmp)->FindMaster()->GetDrawObjs();
+                pObjs = static_cast<const SwTextFrame*>(pTmp)->FindMaster()->GetDrawObjs();
                 bIsFollow = true;
             }
         }
@@ -5593,11 +5594,15 @@ SwTwips SwTabFrame::CalcHeightOfFirstContentLine() const
             // just return the height of the first line. Basically we need to get the height of the
             // line as it would be on the last page. Since this is quite complicated to calculate,
             // we only calculate the height of the first line.
+            SwFormatFrameSize const& rFrameSize(pFirstRow->GetAttrSet()->GetFrameSize());
             if ( pFirstRow->GetPrev() &&
-                 static_cast<const SwRowFrame*>(pFirstRow->GetPrev())->IsRowSpanLine() )
+                 static_cast<const SwRowFrame*>(pFirstRow->GetPrev())->IsRowSpanLine()
+                && rFrameSize.GetHeightSizeType() != ATT_FIX_SIZE)
             {
                 // Calculate maximum height of all cells with rowspan = 1:
-                SwTwips nMaxHeight = 0;
+                SwTwips nMaxHeight = rFrameSize.GetHeightSizeType() == ATT_MIN_SIZE
+                    ? rFrameSize.GetHeight()
+                    : 0;
                 const SwCellFrame* pLower2 = static_cast<const SwCellFrame*>(pFirstRow->Lower());
                 while ( pLower2 )
                 {

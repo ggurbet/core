@@ -25,7 +25,6 @@
 
 #include <sal/types.h>
 
-#include <rtl/alloc.h>
 #include <rtl/crc.h>
 #include <rtl/ref.hxx>
 
@@ -35,8 +34,6 @@
 #include <store/types.h>
 
 #include <memory>
-#include <stddef.h>
-#include <string.h>
 #include <utility>
 
 /** @file store common internals.
@@ -486,7 +483,7 @@ public:
         return (*pImpl);
     }
 
-    static storeError guard (std::shared_ptr<PageData> & rxPage, sal_uInt32 nAddr)
+    static storeError guard (std::shared_ptr<PageData> const & rxPage, sal_uInt32 nAddr)
     {
         PageData * pHead = rxPage.get();
         if (!pHead)
@@ -517,8 +514,6 @@ public:
         return pImpl->verify();
     }
 };
-
-class OStorePageBIOS;
 
 class OStorePageObject
 {

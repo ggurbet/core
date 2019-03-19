@@ -19,23 +19,14 @@
 
 #include <comphelper/string.hxx>
 #include <editeng/editview.hxx>
-#include <sfx2/bindings.hxx>
-#include <sfx2/dispatch.hxx>
-#include <sfx2/objsh.hxx>
 #include <sfx2/viewsh.hxx>
 #include <formula/funcvarargs.h>
 #include <vcl/fixed.hxx>
 
-#include <sc.hrc>
 #include <global.hxx>
-#include <reffact.hxx>
-#include <document.hxx>
-#include <formulacell.hxx>
 #include <scmod.hxx>
 #include <inputhdl.hxx>
 #include <tabvwsh.hxx>
-#include <appoptio.hxx>
-#include <compiler.hxx>
 #include <funcdesc.hxx>
 
 #include <dwfunctr.hxx>
@@ -84,7 +75,7 @@ ScFunctionWin::ScFunctionWin(vcl::Window* pParent, const css::uno::Reference<css
 
     aCatBox->SelectEntryPos(0);
 
-    SelHdl(*aCatBox.get());
+    SelHdl(*aCatBox);
 }
 
 /*************************************************************************
@@ -239,10 +230,8 @@ void ScFunctionWin::UpdateFunctionList()
     }
     else // LRU list
     {
-        for (::std::vector<const formula::IFunctionDescription*>::iterator iter=aLRUList.begin();
-                iter != aLRUList.end(); ++iter)
+        for (const formula::IFunctionDescription* pDesc : aLRUList)
         {
-            const formula::IFunctionDescription* pDesc = *iter;
             if (pDesc)
                 aFuncList->SetEntryData( aFuncList->InsertEntry( pDesc->getFunctionName()), const_cast<formula::IFunctionDescription *>(pDesc));
         }

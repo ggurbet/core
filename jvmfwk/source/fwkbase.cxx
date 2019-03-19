@@ -79,8 +79,7 @@ OUString getParamFirstUrl(OUString const & name)
     // Some parameters can consist of multiple URLs (separated by space
     // characters, although trim() harmlessly also removes other white-space),
     // of which only the first is used:
-    sal_Int32 i = 0;
-    return getParam(name).trim().getToken(0, ' ', i);
+    return getParam(name).trim().getToken(0, ' ');
 }
 
 }//blind namespace
@@ -317,7 +316,7 @@ OUString BootParams::getVendorSettings()
                                  UNO_JAVA_JFW_VENDOR_SETTINGS);
             }
         }
-    SAL_INFO(
+        SAL_INFO(
         "jfw.level2",
         "Using bootstrap parameter " UNO_JAVA_JFW_VENDOR_SETTINGS " = "
             << sVendor);

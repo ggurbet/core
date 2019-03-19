@@ -25,6 +25,7 @@
 #include <vcl/weld.hxx>
 #include <vcl/txtattr.hxx>
 #include <vcl/xtextedt.hxx>
+#include <vcl/textview.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/treelistentry.hxx>
@@ -167,16 +168,16 @@ IMPL_LINK_NOARG(SwMailMergeAddressBlockPage, AddressListHdl_Impl, Button*, void)
 {
     try
     {
-        ScopedVclPtrInstance< SwAddressListDialog > xAddrDialog(this);
-        if(RET_OK == xAddrDialog->Execute())
+        SwAddressListDialog aAddrDialog(this);
+        if (RET_OK == aAddrDialog.run())
         {
             SwMailMergeConfigItem& rConfigItem = m_pWizard->GetConfigItem();
             rConfigItem.SetCurrentConnection(
-                            xAddrDialog->GetSource(),
-                            xAddrDialog->GetConnection(),
-                            xAddrDialog->GetColumnsSupplier(),
-                            xAddrDialog->GetDBData());
-            OUString sFilter = xAddrDialog->GetFilter();
+                            aAddrDialog.GetSource(),
+                            aAddrDialog.GetConnection(),
+                            aAddrDialog.GetColumnsSupplier(),
+                            aAddrDialog.GetDBData());
+            OUString sFilter = aAddrDialog.GetFilter();
             rConfigItem.SetFilter( sFilter );
             InsertDataHdl_Impl(nullptr);
             GetWizard()->UpdateRoadmap();

@@ -929,15 +929,13 @@ OUString MSWordExportBase::GetBookmarkName( sal_uInt16 nTyp, const OUString* pNa
         case REF_SETREFATTR:
             if ( pName )
             {
-                sRet += "Ref_";
-                sRet += *pName;
+                sRet = "Ref_" + *pName;
             }
             break;
         case REF_SEQUENCEFLD:
         {
             assert(pName);
-            sRet += "Ref_";
-            sRet += *pName;
+            sRet = "Ref_" + *pName;
             break;
         }
         case REF_BOOKMARK:
@@ -947,12 +945,10 @@ OUString MSWordExportBase::GetBookmarkName( sal_uInt16 nTyp, const OUString* pNa
         case REF_OUTLINE:
             break;      // ???
         case REF_FOOTNOTE:
-            sRet += "_RefF";
-            sRet += OUString::number( nSeqNo );
+            sRet = "_RefF" + OUString::number( nSeqNo );
             break;
         case REF_ENDNOTE:
-            sRet += "_RefE";
-            sRet += OUString::number( nSeqNo );
+            sRet = "_RefE" + OUString::number( nSeqNo );
             break;
     }
     return BookmarkToWord( sRet ); // #i43956# - encode bookmark accordingly
@@ -1022,7 +1018,7 @@ void WW8AttributeOutput::StartRun( const SwRedlineData* pRedlineData, sal_Int32 
             if (m_rWW8Export.m_pAtn->IsNewRedlineComment(pRedlineData))
             {
                 m_rWW8Export.m_pAtn->Append( m_rWW8Export.Fc2Cp( m_rWW8Export.Strm().Tell() ), pRedlineData );
-                m_rWW8Export.WritePostItBegin( m_rWW8Export.pO );
+                m_rWW8Export.WritePostItBegin( m_rWW8Export.pO.get() );
             }
         }
     }
@@ -1698,10 +1694,8 @@ static void InsertSpecialChar( WW8Export& rWrt, sal_uInt8 c,
 
 static OUString lcl_GetExpandedField(const SwField &rField)
 {
-    OUString sRet(rField.ExpandField(true, nullptr));
-
     //replace LF 0x0A with VT 0x0B
-    return sRet.replace(0x0A, 0x0B);
+    return rField.ExpandField(true, nullptr).replace(0x0A, 0x0B);
 }
 
 WW8_WrPlcField* WW8Export::CurrentFieldPlc() const
@@ -1876,15 +1870,13 @@ void WW8Export::OutputField( const SwField* pField, ww::eField eFieldType,
 
 void WW8Export::StartCommentOutput(const OUString& rName)
 {
-    OUString sStr(FieldString(ww::eQUOTE));
-    sStr += "[" + rName + "] ";
+    const OUString sStr{ FieldString(ww::eQUOTE) + "[" + rName + "] " };
     OutputField(nullptr, ww::eQUOTE, sStr, FieldFlags::Start | FieldFlags::CmdStart);
 }
 
 void WW8Export::EndCommentOutput(const OUString& rName)
 {
-    OUString sStr(" [");
-    sStr += rName + "] ";
+    const OUString sStr{ " [" + rName + "] " };
     OutputField(nullptr, ww::eQUOTE, sStr, FieldFlags::CmdEnd | FieldFlags::End |
         FieldFlags::Close);
 }
@@ -2075,15 +2067,13 @@ void AttributeOutputBase::GenerateBookmarksForSequenceField(const SwTextNode& rN
                                         }
                                     }
                                     // Generate bookmarks on the right position
-                                    OUString sName("Ref_" + pRefField->GetSetRefName());
-                                    sName += OUString::number(pRefField->GetSeqNo());
+                                    OUString sName("Ref_" + pRefField->GetSetRefName() + OUString::number(pRefField->GetSeqNo()));
                                     switch (pRefField->GetFormat())
                                     {
                                         case REF_PAGE:
                                         case REF_PAGE_PGDESC:
                                         case REF_CONTENT:
                                         case REF_UPDOWN:
-                                            sName += "_full";
                                             if(!bHaveFullBkm)
                                             {
                                                 sal_Int32 nLastAttrStart = 0;
@@ -2094,15 +2084,15 @@ void AttributeOutputBase::GenerateBookmarksForSequenceField(const SwTextNode& rN
                                                     aLocalAttrIter.NextPos();
                                                     nActAttr = aLocalAttrIter.WhereNext();
                                                 }
-                                                WriteBookmarkInActParagraph( sName, std::min(nCategoryStart, pHt->GetStart()), nLastAttrStart );
+                                                WriteBookmarkInActParagraph( sName + "_full", std::min(nCategoryStart, pHt->GetStart()), nLastAttrStart );
                                                 bHaveFullBkm = true;
                                             }
                                             break;
                                         case REF_ONLYNUMBER:
                                         {
-                                            sName += "_label_and_number";
                                             if(!bHaveLabelAndNumberBkm)
                                             {
+                                                sName += "_label_and_number";
                                                 if(bCategoryFirst)
                                                     WriteBookmarkInActParagraph( sName, std::min(nCategoryStart, pHt->GetStart()), std::max(nCategoryStart, pHt->GetStart()) );
                                                 else
@@ -2125,7 +2115,6 @@ void AttributeOutputBase::GenerateBookmarksForSequenceField(const SwTextNode& rN
                                         }
                                         case REF_ONLYCAPTION:
                                         {
-                                            sName += "_caption_only";
                                             if(!bHaveCaptionOnlyBkm)
                                             {
                                                 // Find last run
@@ -2137,17 +2126,16 @@ void AttributeOutputBase::GenerateBookmarksForSequenceField(const SwTextNode& rN
                                                     aLocalAttrIter.NextPos();
                                                     nActAttr = aLocalAttrIter.WhereNext();
                                                 }
-                                                WriteBookmarkInActParagraph( sName, nRefTextPos, nLastAttrStart );
+                                                WriteBookmarkInActParagraph( sName + "_caption_only", nRefTextPos, nLastAttrStart );
                                                 bHaveCaptionOnlyBkm = true;
                                             }
                                             break;
                                         }
                                         case REF_ONLYSEQNO:
                                         {
-                                            sName += "_number_only";
                                             if(!bHaveNumberOnlyBkm)
                                             {
-                                                WriteBookmarkInActParagraph( sName, pHt->GetStart(), pHt->GetStart() );
+                                                WriteBookmarkInActParagraph( sName + "_number_only", pHt->GetStart(), pHt->GetStart() );
                                                 bHaveNumberOnlyBkm = true;
                                             }
                                             break;
@@ -2212,10 +2200,9 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                     const OUString& sName = pTOX->GetEntryTypeName();
                     if(!sName.isEmpty())
                     {
-                       sStr += sName;
-                       sStr += sEntryEnd;
+                       sStr += sName + sEntryEnd;
                     }
-                 }
+                }
 
                 if (!pTOX->GetTOXForm().IsCommaSeparated())
                 {
@@ -2233,9 +2220,7 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                         else
                             aFillText.clear();
                     }
-                    sStr += "\\e \"";
-                    sStr += aFillText;
-                    sStr += sEntryEnd;
+                    sStr += "\\e \"" + aFillText + sEntryEnd;
                 }
                 break;
 
@@ -2244,15 +2229,11 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
             case TOX_TABLES:
                 if (!pTOX->IsFromObjectNames())
                 {
-                    sStr = FieldString(eCode);
-
-                    sStr += "\\c ";
+                    sStr = FieldString(eCode) + "\\c ";
                     const OUString& seqName = pTOX->GetSequenceName();
                     if(!seqName.isEmpty())
                     {
-                        sStr += "\"";
-                        sStr += seqName;
-                        sStr += sEntryEnd;
+                        sStr += "\"" + seqName + sEntryEnd;
                     }
                     OUString aText;
                     int nRet = ::lcl_CheckForm( pTOX->GetTOXForm(), 1, aText );
@@ -2260,9 +2241,7 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                         sStr += "\\n ";
                     else if( 3 == nRet || 4 == nRet )
                     {
-                        sStr += "\\p \"";
-                        sStr += aText;
-                        sStr += sEntryEnd;
+                        sStr += "\\p \"" + aText + sEntryEnd;
                     }
                 }
                 break;
@@ -2302,17 +2281,14 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
 
                         if( TOX_USER == pTOX->GetType() )
                         {
-                            sStr += "\"";
-                            sStr += OUString(static_cast<sal_Char>( 'A' + GetExport( ).GetId( *pTOX->GetTOXType() ) ));
-                            sStr += sEntryEnd;
+                            sStr += "\""
+                                + OUString(static_cast<sal_Char>( 'A' + GetExport( ).GetId( *pTOX->GetTOXType() ) ))
+                                + sEntryEnd;
                         }
                     }
                     if(SwTOXElement::Bookmark & pTOX->GetCreateType())
                     {
-                        sStr += "\\b \"";
-                        const OUString& bName = pTOX->GetBookmarkName();
-                        sStr += bName;
-                        sStr += sEntryEnd;
+                        sStr += "\\b \"" + pTOX->GetBookmarkName() + sEntryEnd;
                     }
 
                     if( SwTOXElement::OutlineLevel & pTOX->GetCreateType() )
@@ -2364,9 +2340,7 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                             if (nMaxMSAutoEvaluate > WW8ListManager::nMaxLevel)
                                 nMaxMSAutoEvaluate = WW8ListManager::nMaxLevel;
 
-                            sStr += "\\o \"1-";
-                            sStr += OUString::number(nMaxMSAutoEvaluate);
-                            sStr += sEntryEnd;
+                            sStr += "\\o \"1-" + OUString::number(nMaxMSAutoEvaluate) + sEntryEnd;
                         }
 
                         //collect up any other styles in the writer TOC which will
@@ -2396,36 +2370,35 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                         sStr +="\\u " ;
                     }
 
-                        if( SwTOXElement::Template & pTOX->GetCreateType() )
+                    if( SwTOXElement::Template & pTOX->GetCreateType() )
+                    {
+                        // #i99641# - Consider additional styles regardless of TOX-outlinelevel
+                        for( n = 0; n < MAXLEVEL; ++n )
                         {
-                            // #i99641# - Consider additional styles regardless of TOX-outlinelevel
-                            for( n = 0; n < MAXLEVEL; ++n )
+                            const OUString& rStyles = pTOX->GetStyleNames( n );
+                            if( !rStyles.isEmpty() )
                             {
-                                const OUString& rStyles = pTOX->GetStyleNames( n );
-                                if( !rStyles.isEmpty() )
-                                {
-                                    sal_Int32 nPos = 0;
-                                    OUString sLvl = OUString(',');
-                                    sLvl += OUString::number( n + 1 );
-                                    do {
-                                        OUString sStyle( rStyles.getToken( 0, TOX_STYLE_DELIMITER, nPos ));
-                                        if( !sStyle.isEmpty() )
+                                sal_Int32 nPos = 0;
+                                const OUString sLvl{ "," + OUString::number( n + 1 ) };
+                                do {
+                                    const OUString sStyle( rStyles.getToken( 0, TOX_STYLE_DELIMITER, nPos ));
+                                    if( !sStyle.isEmpty() )
+                                    {
+                                        SwTextFormatColl* pColl = GetExport().m_pDoc->FindTextFormatCollByName(sStyle);
+                                        if (pColl)
                                         {
-                                            SwTextFormatColl* pColl = GetExport().m_pDoc->FindTextFormatCollByName(sStyle);
-                                            if (pColl)
+                                            if (!pColl->IsAssignedToListLevelOfOutlineStyle() || pColl->GetAssignedOutlineStyleLevel() < nTOXLvl)
                                             {
-                                                if (!pColl->IsAssignedToListLevelOfOutlineStyle() || pColl->GetAssignedOutlineStyleLevel() < nTOXLvl)
-                                                {
-                                                    if( !sTOption.isEmpty() )
-                                                        sTOption += ",";
-                                                    sTOption += sStyle + sLvl;
-                                                }
+                                                if( !sTOption.isEmpty() )
+                                                    sTOption += ",";
+                                                sTOption += sStyle + sLvl;
                                             }
                                         }
-                                    } while( -1 != nPos );
-                                }
+                                    }
+                                } while( -1 != nPos );
                             }
                         }
+                    }
 
                     // No 'else' branch; why the below snippet is a block I have no idea.
                     {
@@ -2464,29 +2437,25 @@ void AttributeOutputBase::StartTOX( const SwSection& rSect )
                         {
                             if (WW8ListManager::nMaxLevel < nNoPgEnd)
                                 nNoPgEnd = WW8ListManager::nMaxLevel;
-                            sStr += "\\n ";
-                            sStr += OUString::number( nNoPgStt );
-                            sStr += "-";
-                            sStr += OUString::number( nNoPgEnd  );
-                            sStr += " ";
+                            sStr += "\\n "
+                                + OUString::number( nNoPgStt )
+                                + "-"
+                                + OUString::number( nNoPgEnd )
+                                + " ";
                         }
                         if( bOnlyText )
                         {
-                            sStr += "\\p \"";
-                            sStr += aFillText;
-                            sStr += sEntryEnd;
+                            sStr += "\\p \"" + aFillText + sEntryEnd;
                         }
                     }
 
                     if( !sTOption.isEmpty() )
                     {
-                        sStr += "\\t \"";
-                        sStr += sTOption;
-                        sStr += sEntryEnd;
+                        sStr += "\\t \"" + sTOption + sEntryEnd;
                     }
 
-                        if (lcl_IsHyperlinked(pTOX->GetTOXForm(), nTOXLvl))
-                            sStr += "\\h";
+                    if (lcl_IsHyperlinked(pTOX->GetTOXForm(), nTOXLvl))
+                        sStr += "\\h";
                     break;
                 }
             }
@@ -2615,10 +2584,9 @@ OUString FieldString(ww::eField eIndex)
 
 void WW8AttributeOutput::HiddenField( const SwField& rField )
 {
-    OUString sExpand(rField.GetPar2());
-
     //replace LF 0x0A with VT 0x0B
-    sExpand = sExpand.replace(0x0A, 0x0B);
+    const OUString sExpand(rField.GetPar2().replace(0x0A, 0x0B));
+
     m_rWW8Export.m_pChpPlc->AppendFkpEntry(m_rWW8Export.Strm().Tell());
     SwWW8Writer::WriteString16(m_rWW8Export.Strm(), sExpand, false);
     static sal_uInt8 aArr[] =
@@ -2659,7 +2627,7 @@ void WW8AttributeOutput::PostitField( const SwField* pField )
 {
     const SwPostItField *pPField = static_cast<const SwPostItField*>(pField);
     m_rWW8Export.m_pAtn->Append( m_rWW8Export.Fc2Cp( m_rWW8Export.Strm().Tell() ), pPField );
-    m_rWW8Export.WritePostItBegin( m_rWW8Export.pO );
+    m_rWW8Export.WritePostItBegin( m_rWW8Export.pO.get() );
 }
 
 bool WW8AttributeOutput::DropdownField( const SwField* pField )
@@ -2681,11 +2649,10 @@ bool WW8AttributeOutput::PlaceholderField( const SwField* )
 
 void WW8AttributeOutput::RefField( const SwField &rField, const OUString &rRef)
 {
-    OUString sStr( FieldString( ww::eREF ) );
-    sStr += "\"" + rRef + "\" ";
+    const OUString sStr{ FieldString( ww::eREF ) + "\"" + rRef + "\" " };
     m_rWW8Export.OutputField( &rField, ww::eREF, sStr, FieldFlags::Start |
         FieldFlags::CmdStart | FieldFlags::CmdEnd );
-    OUString sVar = lcl_GetExpandedField( rField );
+    const OUString sVar = lcl_GetExpandedField( rField );
     if ( !sVar.isEmpty() )
     {
         SwWW8Writer::WriteString16( m_rWW8Export.Strm(), sVar, false );
@@ -2695,8 +2662,7 @@ void WW8AttributeOutput::RefField( const SwField &rField, const OUString &rRef)
 
 void WW8AttributeOutput::WriteExpand( const SwField* pField )
 {
-    OUString sExpand( lcl_GetExpandedField( *pField ) );
-    SwWW8Writer::WriteString16( m_rWW8Export.Strm(), sExpand, false );
+    SwWW8Writer::WriteString16( m_rWW8Export.Strm(), lcl_GetExpandedField( *pField ), false );
 }
 
 namespace
@@ -2761,7 +2727,7 @@ void AttributeOutputBase::TextField( const SwFormatField& rField )
         {
             OUString sStr;
             if (GetExport().FieldsQuoted())
-                sStr = FieldString(ww::eSEQ) +  pField->GetTyp()->GetName() + " ";
+                sStr = FieldString(ww::eSEQ) + pField->GetTyp()->GetName() + " ";
             else
                 sStr = FieldString(ww::eSEQ) + "\"" + pField->GetTyp()->GetName() +"\" ";
             GetNumberPara( sStr, *pField );
@@ -2894,19 +2860,18 @@ void AttributeOutputBase::TextField( const SwFormatField& rField )
                 case DI_CUSTOM:
                     eField = ww::eDOCPROPERTY;
                     {
-                        OUString sQuotes('\"');
                         const SwDocInfoField * pDocInfoField =
                         dynamic_cast<const SwDocInfoField *> (pField);
 
                         if (pDocInfoField != nullptr)
                         {
                             OUString sFieldname = pDocInfoField->GetFieldName();
-                            sal_Int32 nIndex = sFieldname.indexOf(':');
 
-                            if (nIndex != sFieldname.getLength())
+                            const sal_Int32 nIndex = sFieldname.indexOf(':');
+                            if (nIndex >= 0)
                                 sFieldname = sFieldname.copy(nIndex + 1);
 
-                            sStr = sQuotes + sFieldname + sQuotes;
+                            sStr = "\"" + sFieldname + "\"";
                         }
                     }
                     break;
@@ -3080,8 +3045,7 @@ void AttributeOutputBase::TextField( const SwFormatField& rField )
                     }
                     // Generate a unique bookmark name
                     {
-                        OUString sName(rRField.GetSetRefName());
-                        sName += OUString::number(rRField.GetSeqNo());
+                        OUString sName{rRField.GetSetRefName() + OUString::number(rRField.GetSeqNo())};
                         switch (pField->GetFormat())
                         {
                             case REF_PAGE:
@@ -3396,18 +3360,18 @@ void WW8Export::WriteFootnoteBegin( const SwFormatFootnote& rFootnote, ww::bytes
     }
     else
     {
-        ww::bytes aOutArr;
+        std::unique_ptr<ww::bytes> pOwnOutArr(new ww::bytes);
 
         // insert at start of array, so the "hard" attribute overrule the
         // attributes of the character template
-        aOutArr.insert( aOutArr.begin(), aAttrArr.begin(), aAttrArr.end() );
+        pOwnOutArr->insert(pOwnOutArr->begin(), aAttrArr.begin(), aAttrArr.end());
 
         // write for the ftn number in the content, the font of the anchor
         const SwTextFootnote* pTextFootnote = rFootnote.GetTextFootnote();
         if( pTextFootnote )
         {
-            ww::bytes* pOld = pO;
-            pO = &aOutArr;
+            std::unique_ptr<ww::bytes> pOld = std::move(pO);
+            pO = std::move(pOwnOutArr);
             SfxItemSet aSet( m_pDoc->GetAttrPool(), svl::Items<RES_CHRATR_FONT,
                                                   RES_CHRATR_FONT>{} );
 
@@ -3423,10 +3387,11 @@ void WW8Export::WriteFootnoteBegin( const SwFormatFootnote& rFootnote, ww::bytes
             {
                 m_pAttrOutput->OutputItem( pCFormat->GetAttrSet().Get(RES_CHRATR_FONT) );
             }
-            pO = pOld;
+            pOwnOutArr = std::move(pO);
+            pO = std::move(pOld);
         }
-        m_pChpPlc->AppendFkpEntry( Strm().Tell(), aOutArr.size(),
-                                                aOutArr.data() );
+        m_pChpPlc->AppendFkpEntry( Strm().Tell(), pOwnOutArr->size(),
+                                                pOwnOutArr->data() );
     }
 }
 
@@ -3491,7 +3456,7 @@ void WW8AttributeOutput::TextFootnote_Impl( const SwFormatFootnote& rFootnote )
         pFootnoteEnd = m_rWW8Export.pFootnote.get();
 
     pFootnoteEnd->Append( m_rWW8Export.Fc2Cp( m_rWW8Export.Strm().Tell() ), rFootnote );
-    m_rWW8Export.WriteFootnoteBegin( rFootnote, m_rWW8Export.pO );
+    m_rWW8Export.WriteFootnoteBegin( rFootnote, m_rWW8Export.pO.get() );
 }
 
 void WW8AttributeOutput::TextCharFormat( const SwFormatCharFormat& rCharFormat )
@@ -4216,8 +4181,26 @@ void WW8AttributeOutput::FormatBackground( const SvxBrushItem& rBrush )
     }
 }
 
-void WW8AttributeOutput::FormatFillStyle( const XFillStyleItem& /*rFillStyle*/ )
+void WW8AttributeOutput::FormatFillStyle( const XFillStyleItem& rFillStyle )
 {
+    // WW cannot have background in a section
+    if ( !m_rWW8Export.m_bOutPageDescs )
+    {
+        // see MSWordExportBase::OutputItemSet for how _SOLID is handled
+        if ( rFillStyle.GetValue() == drawing::FillStyle_NONE )
+        {
+            //Shd80Nil
+            m_rWW8Export.InsUInt16( NS_sprm::sprmPShd80 );
+            m_rWW8Export.InsUInt16( 0xffff );
+
+            //cvAuto
+            m_rWW8Export.InsUInt16( NS_sprm::sprmPShd );
+            m_rWW8Export.pO->push_back( 10 );
+            m_rWW8Export.InsUInt32( 0xFF000000 );
+            m_rWW8Export.InsUInt32( 0xFF000000 );
+            m_rWW8Export.InsUInt16( 0x0000 );
+        }
+    }
 }
 
 void WW8AttributeOutput::FormatFillGradient( const XFillGradientItem& /*rFillGradient*/ )
@@ -4783,30 +4766,8 @@ void WW8AttributeOutput::FormatFrameDirection( const SvxFrameDirectionItem& rDir
     SvxFrameDirection nDir = rDirection.GetValue();
 
     if ( nDir == SvxFrameDirection::Environment )
-    {
-        if ( m_rWW8Export.m_bOutPageDescs )
-            nDir = m_rWW8Export.GetCurrentPageDirection();
-        else if ( m_rWW8Export.m_pOutFormatNode )
-        {
-            if ( m_rWW8Export.m_bOutFlyFrameAttrs )  //frame
-            {
-                nDir = m_rWW8Export.TrueFrameDirection(
-                    *static_cast<const SwFrameFormat*>(m_rWW8Export.m_pOutFormatNode) );
-            }
-            else if ( dynamic_cast< const SwContentNode *>( m_rWW8Export.m_pOutFormatNode ) !=  nullptr )   //pagagraph
-            {
-                const SwContentNode* pNd =
-                    static_cast<const SwContentNode*>(m_rWW8Export.m_pOutFormatNode);
-                SwPosition aPos( *pNd );
-                nDir = m_rWW8Export.m_pDoc->GetTextDirection( aPos );
-            }
-            else if ( dynamic_cast< const SwTextFormatColl *>( m_rWW8Export.m_pOutFormatNode ) !=  nullptr )
-                nDir = SvxFrameDirection::Horizontal_LR_TB;    //what else can we do :-(
-        }
+        nDir = GetExport( ).GetDefaultFrameDirection( );
 
-        if ( nDir == SvxFrameDirection::Environment )
-            nDir = SvxFrameDirection::Horizontal_LR_TB;    //Set something
-    }
 
     switch ( nDir )
     {

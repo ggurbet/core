@@ -195,10 +195,7 @@ SwWW8AttrIter::SwWW8AttrIter(MSWordExportBase& rWr, const SwTextNode& rTextNd) :
 {
 
     SwPosition aPos(rTextNd);
-    if (SvxFrameDirection::Horizontal_RL_TB == rWr.m_pDoc->GetTextDirection(aPos))
-        mbParaIsRTL = true;
-    else
-        mbParaIsRTL = false;
+    mbParaIsRTL = SvxFrameDirection::Horizontal_RL_TB == rWr.m_pDoc->GetTextDirection(aPos);
 
     maCharRunIter = maCharRuns.begin();
     IterToCurrent();
@@ -1548,7 +1545,7 @@ SvxFrameDirection MSWordExportBase::GetDefaultFrameDirection( ) const
         {
             nDir = TrueFrameDirection( *static_cast< const SwFrameFormat * >(m_pOutFormatNode) );
         }
-        else if ( dynamic_cast< const SwContentNode *>( m_pOutFormatNode ) !=  nullptr )    //pagagraph
+        else if ( dynamic_cast< const SwContentNode *>( m_pOutFormatNode ) !=  nullptr )    //paragraph
         {
             const SwContentNode *pNd = static_cast<const SwContentNode *>(m_pOutFormatNode);
             SwPosition aPos( *pNd );
@@ -2116,8 +2113,9 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
 
     bool bFlyInTable = m_pParentFrame && IsInTable();
 
+    SwTextFormatColl& rTextColl = lcl_getFormatCollection( *this, &rNode );
     if ( !bFlyInTable )
-        m_nStyleBeforeFly = GetId( lcl_getFormatCollection( *this, &rNode ) );
+        m_nStyleBeforeFly = GetId( rTextColl );
 
     // nStyleBeforeFly may change when we recurse into another node, so we
     // have to remember it in nStyle
@@ -2665,7 +2663,7 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
                 }
             }
 
-            bool bParaRTL = aAttrIter.IsParaRTL();
+            const bool bParaRTL = aAttrIter.IsParaRTL();
 
             int nNumberLevel = -1;
             if (rNode.IsNumbered())
@@ -2745,18 +2743,26 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
             If a given para is using the SvxFrameDirection::Environment direction we
             cannot export that, if it's ltr then that's ok as that is word's
             default. Otherwise we must add a RTL attribute to our export list
+            Only necessary if the ParaStyle doesn't define the direction.
             */
             const SvxFrameDirectionItem* pItem =
                 rNode.GetSwAttrSet().GetItem(RES_FRAMEDIR);
             if (
                 (!pItem || pItem->GetValue() == SvxFrameDirection::Environment) &&
-                aAttrIter.IsParaRTL()
+                rTextColl.GetFrameDir().GetValue() == SvxFrameDirection::Environment
                )
             {
                 if ( !pTmpSet )
                     pTmpSet = new SfxItemSet(rNode.GetSwAttrSet());
 
-                pTmpSet->Put(SvxFrameDirectionItem(SvxFrameDirection::Horizontal_RL_TB, RES_FRAMEDIR));
+                if ( bParaRTL )
+                    pTmpSet->Put(SvxFrameDirectionItem(SvxFrameDirection::Horizontal_RL_TB, RES_FRAMEDIR));
+                else
+                    pTmpSet->Put(SvxFrameDirectionItem(SvxFrameDirection::Horizontal_LR_TB, RES_FRAMEDIR));
+
+                const SvxAdjustItem* pAdjust = rNode.GetSwAttrSet().GetItem(RES_PARATR_ADJUST);
+                if ( pAdjust && (pAdjust->GetAdjust() == SvxAdjust::Left || pAdjust->GetAdjust() == SvxAdjust::Right ) )
+                    pTmpSet->Put( *pAdjust, RES_PARATR_ADJUST );
             }
             // move code for handling of numbered,
             // but not counted paragraphs to this place. Otherwise, the paragraph
@@ -2829,16 +2835,15 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
             if ( !rNode.GetpSwAttrSet() ||
                  SfxItemState::SET != rNode.GetpSwAttrSet()->GetItemState(RES_BREAK, false) )
             {
-                const SvxFormatBreakItem* pBreakAtParaStyle =
-                    &(ItemGet<SvxFormatBreakItem>(rNode.GetSwAttrSet(), RES_BREAK));
-                if ( pBreakAtParaStyle &&
-                     pBreakAtParaStyle->GetBreak() == SvxBreak::PageAfter )
+                const SvxFormatBreakItem& rBreakAtParaStyle
+                    = ItemGet<SvxFormatBreakItem>(rNode.GetSwAttrSet(), RES_BREAK);
+                if (rBreakAtParaStyle.GetBreak() == SvxBreak::PageAfter)
                 {
                     if ( !pTmpSet )
                     {
                         pTmpSet = new SfxItemSet(rNode.GetSwAttrSet());
                     }
-                    pTmpSet->Put( *pBreakAtParaStyle );
+                    pTmpSet->Put(rBreakAtParaStyle);
                 }
                 else if( pTmpSet )
                 {   // Even a pagedesc item is set, the break item can be set 'NONE',

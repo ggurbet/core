@@ -21,6 +21,7 @@
 #include <rootfrm.hxx>
 #include <pagefrm.hxx>
 #include <viewopt.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <txtftn.hxx>
 #include <fmtftn.hxx>
@@ -44,7 +45,6 @@
 
 #include <DocumentSettingManager.hxx>
 #include <IDocumentLayoutAccess.hxx>
-#include <o3tl/make_unique.hxx>
 
 // Move methods
 
@@ -775,7 +775,7 @@ void SwPageFrame::MakeAll(vcl::RenderContext* pRenderContext)
             {
                 if (!pAccess)
                 {
-                    pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+                    pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
                     pAttrs = pAccess->Get();
                 }
                 assert(pAttrs);
@@ -894,7 +894,7 @@ void SwLayoutFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
     const SwLayNotify aNotify( this );
     bool bVert = IsVertical();
 
-    SwRectFn fnRect = ( IsNeighbourFrame() == bVert )? fnRectHori : ( IsVertLR() ? fnRectVertL2R : fnRectVert );
+    SwRectFn fnRect = ( IsNeighbourFrame() == bVert )? fnRectHori : ( IsVertLR() ? (IsVertLRBT() ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert );
 
     std::unique_ptr<SwBorderAttrAccess> pAccess;
     const SwBorderAttrs*pAttrs = nullptr;
@@ -964,7 +964,7 @@ void SwLayoutFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
         {
             if ( !pAccess )
             {
-                pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+                pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
                 pAttrs  = pAccess->Get();
             }
             Format( getRootFrame()->GetCurrShell()->GetOut(), pAttrs );
@@ -1172,7 +1172,7 @@ void SwContentFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
         return;
     }
 
-    auto xDeleteGuard = o3tl::make_unique<SwFrameDeleteGuard>(this);
+    auto xDeleteGuard = std::make_unique<SwFrameDeleteGuard>(this);
     LockJoin();
     long nFormatCount = 0;
     // - loop prevention

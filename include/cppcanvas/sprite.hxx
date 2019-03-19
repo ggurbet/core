@@ -20,7 +20,6 @@
 #ifndef INCLUDED_CPPCANVAS_SPRITE_HXX
 #define INCLUDED_CPPCANVAS_SPRITE_HXX
 
-#include <com/sun/star/uno/Reference.hxx>
 #include <memory>
 
 namespace basegfx
@@ -29,11 +28,6 @@ namespace basegfx
     class B2DPolyPolygon;
     class B2DPoint;
 }
-
-namespace com { namespace sun { namespace star { namespace rendering
-{
-    class  XSprite;
-} } } }
 
 
 /* Definition of Sprite class */
@@ -97,8 +91,6 @@ namespace cppcanvas
          */
         virtual void setPriority( double fPriority ) = 0;
     };
-
-    typedef std::shared_ptr< ::cppcanvas::Sprite > SpriteSharedPtr;
 }
 
 #endif // INCLUDED_CPPCANVAS_SPRITE_HXX

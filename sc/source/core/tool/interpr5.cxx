@@ -1051,7 +1051,7 @@ template<class Function>
 static ScMatrixRef lcl_MatrixCalculation(
     const ScMatrix& rMat1, const ScMatrix& rMat2, ScInterpreter* pInterpreter)
 {
-    static Function Op;
+    static const Function Op;
 
     SCSIZE nC1, nC2, nMinC;
     SCSIZE nR1, nR2, nMinR;
@@ -1593,18 +1593,7 @@ void ScInterpreter::ScPow()
     }
     else
     {
-        if (fVal1 < 0 && fVal2 != 0.0)
-        {
-            int i = static_cast<int>(1 / fVal2 + ((fVal2 < 0) ? -0.5 : 0.5));
-            if (i % 2 != 0 && rtl::math::approxEqual(1 / static_cast<double>(i), fVal2))
-                PushDouble(-pow(-fVal1, fVal2));
-            else
-                PushDouble(pow(fVal1, fVal2));
-        }
-        else
-        {
-            PushDouble(pow(fVal1,fVal2));
-        }
+        PushDouble( sc::power( fVal1, fVal2));
     }
 }
 
@@ -2003,10 +1992,10 @@ bool lcl_TCalculateQRdecomposition(const ScMatrixRef& pMatA,
 }
 
 /* Applies a Householder transformation to a column vector Y with is given as
- * Nx1 Matrix. The Vektor u, from which the Householder transformation is build,
+ * Nx1 Matrix. The vector u, from which the Householder transformation is built,
  * is the column part in matrix A, with column index C, starting with row
  * index C. A is the result of the QR decomposition as obtained from
- * lcl_CaluclateQRdecomposition.
+ * lcl_CalculateQRdecomposition.
  */
 void lcl_ApplyHouseholderTransformation(const ScMatrixRef& pMatA, SCSIZE nC,
                                         const ScMatrixRef& pMatY, SCSIZE nN)
@@ -2270,8 +2259,8 @@ bool ScInterpreter::CheckMatrix(bool _bLOG, sal_uInt8& nCase, SCSIZE& nCX,
     else
     {
         pMatX = GetNewMat(nCY, nRY);
-            nCX = nCY;
-            nRX = nRY;
+        nCX = nCY;
+        nRX = nRY;
         if (!pMatX)
         {
             PushIllegalArgument();

@@ -32,7 +32,6 @@
 #include <drawinglayer/processor2d/processor2dtools.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <memory>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 
@@ -67,11 +66,11 @@ bool XHatchList::Create()
     aStr.append(" 1");
 
     sal_Int32 nLen = aStr.getLength() - 1;
-    Insert(o3tl::make_unique<XHatchEntry>(XHatch(COL_BLACK,css::drawing::HatchStyle_SINGLE,100,  0),aStr.toString()));
+    Insert(std::make_unique<XHatchEntry>(XHatch(COL_BLACK,css::drawing::HatchStyle_SINGLE,100,  0),aStr.toString()));
     aStr[nLen] = '2';
-    Insert(o3tl::make_unique<XHatchEntry>(XHatch(COL_RED  ,css::drawing::HatchStyle_DOUBLE, 80,450),aStr.toString()));
+    Insert(std::make_unique<XHatchEntry>(XHatch(COL_RED  ,css::drawing::HatchStyle_DOUBLE, 80,450),aStr.toString()));
     aStr[nLen] = '3';
-    Insert(o3tl::make_unique<XHatchEntry>(XHatch(COL_BLUE ,css::drawing::HatchStyle_TRIPLE,120,  0),aStr.toString()));
+    Insert(std::make_unique<XHatchEntry>(XHatch(COL_BLUE ,css::drawing::HatchStyle_TRIPLE,120,  0),aStr.toString()));
 
     return true;
 }
@@ -161,7 +160,7 @@ BitmapEx XHatchList::CreateBitmap( long nIndex, const Size& rSize) const
 
         // create processor and draw primitives
         std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor2D(drawinglayer::processor2d::createPixelProcessor2DFromOutputDevice(
-            *pVirtualDevice.get(),
+            *pVirtualDevice,
             aNewViewInformation2D));
 
         if(pProcessor2D)

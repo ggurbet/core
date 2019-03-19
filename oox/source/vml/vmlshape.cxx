@@ -25,6 +25,7 @@
 #include <o3tl/safeint.hxx>
 #include <oox/vml/vmlshape.hxx>
 #include <vcl/wmf.hxx>
+#include <vcl/wmfexternal.hxx>
 #include <vcl/virdev.hxx>
 
 #include <com/sun/star/beans/PropertyValues.hpp>
@@ -366,7 +367,8 @@ Reference< XShape > ShapeBase::convertAndInsert( const Reference< XShapes >& rxS
                     sal_Int32 seqPos = sLinkChainName.indexOf("_s",idPos);
                     if (idPos < seqPos)
                     {
-                        id = sLinkChainName.copy(idPos+2,seqPos-idPos+2).toInt32();
+                        auto idPosEnd = idPos+2;
+                        id = sLinkChainName.copy(idPosEnd, seqPos - idPosEnd).toInt32();
                         seq = sLinkChainName.copy(seqPos+2).toInt32();
                     }
                 }

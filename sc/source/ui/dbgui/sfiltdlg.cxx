@@ -22,7 +22,6 @@
 
 #include <uiitems.hxx>
 #include <rangenam.hxx>
-#include <dbdata.hxx>
 #include <reffact.hxx>
 #include <viewdata.hxx>
 #include <document.hxx>
@@ -66,27 +65,27 @@ ScSpecialFilterDlg::ScSpecialFilterDlg( SfxBindings* pB, SfxChildWindow* pCW, vc
         pRefInputEdit   ( nullptr ),
         bRefInputMode   ( false )
 {
-        get(pLbFilterArea,"lbfilterarea");
-        get(pEdFilterArea,"edfilterarea");
-        pEdFilterArea->SetReferences(this, get<VclFrame>("filterframe")->get_label_widget());
-        get(pRbFilterArea,"rbfilterarea");
-        pRbFilterArea->SetReferences(this, pEdFilterArea);
-        get(pBtnCase,"case");
-        get(pBtnRegExp,"regexp");
-        get(pBtnHeader,"header");
-        get(pBtnUnique,"unique");
-        get(pBtnCopyResult,"copyresult");
-        get(pLbCopyArea,"lbcopyarea");
-        get(pEdCopyArea,"edcopyarea");
-        pEdCopyArea->SetReferences(this, pBtnCopyResult);
-        get(pRbCopyArea,"rbcopyarea");
-        pRbCopyArea->SetReferences(this, pEdCopyArea);
-        get(pBtnDestPers,"destpers");
-        get(pFtDbAreaLabel,"dbarealabel");
-        get(pFtDbArea,"dbarea");
-        get(pBtnOk,"ok");
-        get(pBtnCancel,"cancel");
-        get(pExpander,"more");
+    get(pLbFilterArea,"lbfilterarea");
+    get(pEdFilterArea,"edfilterarea");
+    pEdFilterArea->SetReferences(this, get<VclFrame>("filterframe")->get_label_widget());
+    get(pRbFilterArea,"rbfilterarea");
+    pRbFilterArea->SetReferences(this, pEdFilterArea);
+    get(pBtnCase,"case");
+    get(pBtnRegExp,"regexp");
+    get(pBtnHeader,"header");
+    get(pBtnUnique,"unique");
+    get(pBtnCopyResult,"copyresult");
+    get(pLbCopyArea,"lbcopyarea");
+    get(pEdCopyArea,"edcopyarea");
+    pEdCopyArea->SetReferences(this, pBtnCopyResult);
+    get(pRbCopyArea,"rbcopyarea");
+    pRbCopyArea->SetReferences(this, pEdCopyArea);
+    get(pBtnDestPers,"destpers");
+    get(pFtDbAreaLabel,"dbarealabel");
+    get(pFtDbArea,"dbarea");
+    get(pBtnOk,"ok");
+    get(pBtnCancel,"cancel");
+    get(pExpander,"more");
 
     Init( rArgSet );
     pEdFilterArea->GrabFocus();
@@ -163,15 +162,14 @@ void ScSpecialFilterDlg::Init( const SfxItemSet& rArgSet )
         pLbFilterArea->Clear();
         pLbFilterArea->InsertEntry( aStrUndefined, 0 );
 
-        ScRangeName::const_iterator itr = pRangeNames->begin(), itrEnd = pRangeNames->end();
-        for (; itr != itrEnd; ++itr)
+        for (const auto& rEntry : *pRangeNames)
         {
-            if (!itr->second->HasType(ScRangeData::Type::Criteria))
+            if (!rEntry.second->HasType(ScRangeData::Type::Criteria))
                 continue;
 
-            const sal_Int32 nInsert = pLbFilterArea->InsertEntry(itr->second->GetName());
+            const sal_Int32 nInsert = pLbFilterArea->InsertEntry(rEntry.second->GetName());
             OUString aSymbol;
-            itr->second->GetSymbol(aSymbol);
+            rEntry.second->GetSymbol(aSymbol);
             pLbFilterArea->SetEntryData(nInsert, new OUString(aSymbol));
         }
 

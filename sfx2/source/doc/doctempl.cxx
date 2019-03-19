@@ -29,6 +29,8 @@
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/pathoptions.hxx>
 #include <tools/urlobj.hxx>
+#include <tools/debug.hxx>
+#include <tools/diagnose_ex.h>
 #include <svtools/ehdl.hxx>
 #include <svtools/sfxecode.hxx>
 #include <comphelper/processfactory.hxx>
@@ -93,7 +95,6 @@ using namespace ::ucbhelper;
 #include <svtools/templatefoldercache.hxx>
 
 #include <unotools/ucbhelper.hxx>
-#include <o3tl/make_unique.hxx>
 #include <memory>
 #include <vector>
 
@@ -148,7 +149,6 @@ class RegionData_Impl
     std::vector<std::unique_ptr<DocTempl_EntryData_Impl>> maEntries;
     OUString                    maTitle;
     OUString                    maOwnURL;
-    OUString                    maTargetURL;
 
 private:
     size_t                      GetEntryPos( const OUString& rTitle,
@@ -159,7 +159,6 @@ public:
                         RegionData_Impl( const SfxDocTemplate_Impl* pParent,
                                          const OUString& rTitle );
 
-    void                SetTargetURL( const OUString& rURL ) { maTargetURL = rURL; }
     void                SetHierarchyURL( const OUString& rURL) { maOwnURL = rURL; }
 
     DocTempl_EntryData_Impl*     GetEntry( size_t nIndex ) const;
@@ -1021,7 +1020,7 @@ bool SfxDocumentTemplates::InsertDir
 
     if ( xTemplates->addGroup( rText ) )
     {
-        return pImp->InsertRegion( o3tl::make_unique<RegionData_Impl>( pImp.get(), rText ), nRegion );
+        return pImp->InsertRegion( std::make_unique<RegionData_Impl>( pImp.get(), rText ), nRegion );
     }
 
     return false;
@@ -1069,7 +1068,6 @@ bool SfxDocumentTemplates::SetName( const OUString& rName, sal_uInt16 nRegion, s
         if ( xTemplates->renameGroup( pRegion->GetTitle(), rName ) )
         {
             pRegion->SetTitle( rName );
-            pRegion->SetTargetURL( "" );
             pRegion->SetHierarchyURL( "" );
             return true;
         }
@@ -1347,23 +1345,23 @@ void RegionData_Impl::AddEntry( const OUString& rTitle,
     bool        bFound = false;
     size_t          nPos = GetEntryPos( rTitle, bFound );
 
-    if ( !bFound )
-    {
-        if ( pPos )
-            nPos = *pPos;
+    if ( bFound )
+        return;
 
-        auto pEntry = o3tl::make_unique<DocTempl_EntryData_Impl>(
-            this, rTitle );
-        pEntry->SetTargetURL( rTargetURL );
-        pEntry->SetHierarchyURL( aLinkURL );
-        if ( nPos < maEntries.size() ) {
-            auto it = maEntries.begin();
-            std::advance( it, nPos );
-            maEntries.insert( it, std::move(pEntry) );
-        }
-        else
-            maEntries.push_back( std::move(pEntry) );
+    if ( pPos )
+        nPos = *pPos;
+
+    auto pEntry = std::make_unique<DocTempl_EntryData_Impl>(
+        this, rTitle );
+    pEntry->SetTargetURL( rTargetURL );
+    pEntry->SetHierarchyURL( aLinkURL );
+    if ( nPos < maEntries.size() ) {
+        auto it = maEntries.begin();
+        std::advance( it, nPos );
+        maEntries.insert( it, std::move(pEntry) );
     }
+    else
+        maEntries.push_back( std::move(pEntry) );
 }
 
 
@@ -1491,7 +1489,7 @@ void SfxDocTemplate_Impl::DeleteRegion( size_t nIndex )
 void SfxDocTemplate_Impl::AddRegion( const OUString& rTitle,
                                      Content& rContent )
 {
-    auto pRegion = o3tl::make_unique<RegionData_Impl>( this, rTitle );
+    auto pRegion = std::make_unique<RegionData_Impl>( this, rTitle );
     auto pRegionTmp = pRegion.get();
 
     if ( ! InsertRegion( std::move(pRegion), size_t(-1) ) )
@@ -1514,19 +1512,19 @@ void SfxDocTemplate_Impl::AddRegion( const OUString& rTitle,
     }
     catch ( Exception& ) {}
 
-    if ( xResultSet.is() )
-    {
-        uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
+    if ( !xResultSet.is() )
+        return;
 
-        try
+    uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
+
+    try
+    {
+        while ( xResultSet->next() )
         {
-            while ( xResultSet->next() )
-            {
-                pRegionTmp->AddEntry( xRow->getString( 1 ), xRow->getString( 2 ), nullptr );
-            }
+            pRegionTmp->AddEntry( xRow->getString( 1 ), xRow->getString( 2 ), nullptr );
         }
-        catch ( Exception& ) {}
     }
+    catch ( Exception& ) {}
 }
 
 
@@ -1544,24 +1542,24 @@ void SfxDocTemplate_Impl::CreateFromHierarchy( Content &rTemplRoot )
     }
     catch ( Exception& ) {}
 
-    if ( xResultSet.is() )
+    if ( !xResultSet.is() )
+        return;
+
+    uno::Reference< XCommandEnvironment > aCmdEnv;
+    uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
+    uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
+
+    try
     {
-        uno::Reference< XCommandEnvironment > aCmdEnv;
-        uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
-        uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
-
-        try
+        while ( xResultSet->next() )
         {
-            while ( xResultSet->next() )
-            {
-                const OUString aId = xContentAccess->queryContentIdentifierString();
-                Content  aContent( aId, aCmdEnv, comphelper::getProcessComponentContext() );
+            const OUString aId = xContentAccess->queryContentIdentifierString();
+            Content  aContent( aId, aCmdEnv, comphelper::getProcessComponentContext() );
 
-                AddRegion( xRow->getString( 1 ), aContent );
-            }
+            AddRegion( xRow->getString( 1 ), aContent );
         }
-        catch ( Exception& ) {}
     }
+    catch ( Exception& ) {}
 }
 
 
@@ -1661,7 +1659,8 @@ void SfxDocTemplate_Impl::Rescan()
     }
     catch( const Exception& )
     {
-        SAL_WARN( "sfx.doc", "SfxDocTemplate_Impl::Rescan: caught an exception while doing the update!" );
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sfx.doc", "SfxDocTemplate_Impl::Rescan: caught an exception while doing the update! " << exceptionToString(ex) );
     }
 }
 

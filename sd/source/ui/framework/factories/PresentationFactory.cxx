@@ -90,19 +90,8 @@ static const char gsPresentationViewURL[] = "private:resource/view/Presentation"
 PresentationFactory::PresentationFactory (
     const Reference<frame::XController>& rxController)
     : PresentationFactoryInterfaceBase(MutexOwner::maMutex),
-      mxConfigurationController(),
       mxController(rxController)
 {
-    try
-    {
-        // Get the XController from the first argument.
-        Reference<XControllerManager> xControllerManager(rxController, UNO_QUERY_THROW);
-        mxConfigurationController = xControllerManager->getConfigurationController();
-    }
-    catch (RuntimeException&)
-    {
-        DBG_UNHANDLED_EXCEPTION("sd");
-    }
 }
 
 PresentationFactory::~PresentationFactory()
@@ -185,23 +174,23 @@ void PresentationFactoryProvider::disposing()
 void SAL_CALL PresentationFactoryProvider::initialize(
     const Sequence<Any>& aArguments)
 {
-    if (aArguments.getLength() > 0)
+    if (aArguments.getLength() <= 0)
+        return;
+
+    try
     {
-        try
-        {
-            // Get the XController from the first argument.
-            Reference<frame::XController> xController (aArguments[0], UNO_QUERY_THROW);
-            Reference<XControllerManager> xCM (xController, UNO_QUERY_THROW);
-            Reference<XConfigurationController> xCC (xCM->getConfigurationController());
-            if (xCC.is())
-                xCC->addResourceFactory(
-                    gsPresentationViewURL,
-                    new PresentationFactory(xController));
-        }
-        catch (RuntimeException&)
-        {
-            DBG_UNHANDLED_EXCEPTION("sd");
-        }
+        // Get the XController from the first argument.
+        Reference<frame::XController> xController (aArguments[0], UNO_QUERY_THROW);
+        Reference<XControllerManager> xCM (xController, UNO_QUERY_THROW);
+        Reference<XConfigurationController> xCC (xCM->getConfigurationController());
+        if (xCC.is())
+            xCC->addResourceFactory(
+                gsPresentationViewURL,
+                new PresentationFactory(xController));
+    }
+    catch (RuntimeException&)
+    {
+        DBG_UNHANDLED_EXCEPTION("sd");
     }
 }
 

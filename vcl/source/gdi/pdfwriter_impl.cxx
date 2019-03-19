@@ -42,7 +42,6 @@
 #include <cppuhelper/implbase.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <o3tl/numeric.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/file.hxx>
 #include <osl/thread.h>
 #include <rtl/crc.h>
@@ -1596,25 +1595,25 @@ bool PDFWriterImpl::PDFPage::appendLineInfo( const LineInfo& rInfo, OStringBuffe
         rBuffer.append( "[ " );
         if( rInfo.GetDashLen() == rInfo.GetDotLen() ) // degraded case
         {
-            appendMappedLength( static_cast<sal_Int32>(rInfo.GetDashLen()), rBuffer );
+            appendMappedLength( rInfo.GetDashLen(), rBuffer );
             rBuffer.append( ' ' );
-            appendMappedLength( static_cast<sal_Int32>(rInfo.GetDistance()), rBuffer );
+            appendMappedLength( rInfo.GetDistance(), rBuffer );
             rBuffer.append( ' ' );
         }
         else
         {
             for( int n = 0; n < rInfo.GetDashCount(); n++ )
             {
-                appendMappedLength( static_cast<sal_Int32>(rInfo.GetDashLen()), rBuffer );
+                appendMappedLength( rInfo.GetDashLen(), rBuffer );
                 rBuffer.append( ' ' );
-                appendMappedLength( static_cast<sal_Int32>(rInfo.GetDistance()), rBuffer );
+                appendMappedLength( rInfo.GetDistance(), rBuffer );
                 rBuffer.append( ' ' );
             }
             for( int m = 0; m < rInfo.GetDotCount(); m++ )
             {
-                appendMappedLength( static_cast<sal_Int32>(rInfo.GetDotLen()), rBuffer );
+                appendMappedLength( rInfo.GetDotLen(), rBuffer );
                 rBuffer.append( ' ' );
-                appendMappedLength( static_cast<sal_Int32>(rInfo.GetDistance()), rBuffer );
+                appendMappedLength( rInfo.GetDistance(), rBuffer );
                 rBuffer.append( ' ' );
             }
         }
@@ -1623,7 +1622,7 @@ bool PDFWriterImpl::PDFPage::appendLineInfo( const LineInfo& rInfo, OStringBuffe
 
     if( rInfo.GetWidth() > 1 )
     {
-        appendMappedLength( static_cast<sal_Int32>(rInfo.GetWidth()), rBuffer );
+        appendMappedLength( rInfo.GetWidth(), rBuffer );
         rBuffer.append( " w\n" );
     }
     else if( rInfo.GetWidth() == 0 )
@@ -1700,6 +1699,7 @@ void PDFWriterImpl::PDFPage::appendWaveLine( sal_Int32 nWidth, sal_Int32 nY, sal
         m_bEncryptThisStream( false ),
         m_nAccessPermissions(0),
         m_bIsPDF_A1( false ),
+        m_bIsPDF_A2( false ),
         m_rOuterFace( i_rOuterFace )
 {
 #ifdef DO_TEST_PDF
@@ -1793,6 +1793,10 @@ void PDFWriterImpl::PDFPage::appendWaveLine( sal_Int32 nWidth, sal_Int32 nY, sal
     m_bIsPDF_A1 = (m_aContext.Version == PDFWriter::PDFVersion::PDF_A_1);
     if( m_bIsPDF_A1 )
         m_aContext.Version = PDFWriter::PDFVersion::PDF_1_4; //meaning we need PDF 1.4, PDF/A flavour
+
+    m_bIsPDF_A2 = (m_aContext.Version == PDFWriter::PDFVersion::PDF_A_2);
+    if( m_bIsPDF_A2 )
+        m_aContext.Version = PDFWriter::PDFVersion::PDF_1_6; //we could even use 1.7 features
 
     if( m_aContext.DPIx == 0 || m_aContext.DPIy == 0 )
         SetReferenceDevice( VirtualDevice::RefDevMode::PDF1 );
@@ -1984,7 +1988,8 @@ inline void PDFWriterImpl::appendUnicodeTextStringEncrypt( const OUString& rInSt
         //prepare a unicode string, encrypt it
         enableStringEncryption( nInObjectNumber );
         sal_uInt8 *pCopy = m_vEncryptionBuffer.data();
-        sal_Int32 nChars = 2;
+        sal_Int32 nChars = 2 + (nLen * 2);
+        m_vEncryptionBuffer.resize(nChars);
         *pCopy++ = 0xFE;
         *pCopy++ = 0xFF;
         // we need to prepare a byte stream from the unicode string buffer
@@ -1993,10 +1998,8 @@ inline void PDFWriterImpl::appendUnicodeTextStringEncrypt( const OUString& rInSt
             sal_Unicode aUnChar = pStr[i];
             *pCopy++ = static_cast<sal_uInt8>( aUnChar >> 8 );
             *pCopy++ = static_cast<sal_uInt8>( aUnChar & 255 );
-            nChars += 2;
         }
         //encrypt in place
-        m_vEncryptionBuffer.resize(nChars);
         rtl_cipher_encodeARCFOUR( m_aCipher, m_vEncryptionBuffer.data(), nChars, m_vEncryptionBuffer.data(), nChars );
         //now append, hexadecimal (appendHex), the encrypted result
         for(int i = 0; i < nChars; i++)
@@ -2090,8 +2093,8 @@ void PDFWriterImpl::beginCompression()
 {
     if (!g_bDebugDisableCompression)
     {
-        m_pCodec = o3tl::make_unique<ZCodec>( 0x4000, 0x4000 );
-        m_pMemStream = o3tl::make_unique<SvMemoryStream>();
+        m_pCodec = std::make_unique<ZCodec>( 0x4000, 0x4000 );
+        m_pMemStream = std::make_unique<SvMemoryStream>();
         m_pCodec->BeginCompression();
     }
 }
@@ -3736,7 +3739,7 @@ bool PDFWriterImpl::emitLinkAnnotations()
 // i59651: key /F set bits Print to 1 rest to 0. We don't set NoZoom NoRotate to 1, since it's a 'should'
 // see PDF 8.4.2 and ISO 19005-1:2005 6.5.3
         aLine.append( "<</Type/Annot" );
-        if( m_bIsPDF_A1 )
+        if( m_bIsPDF_A1 || m_bIsPDF_A2 )
             aLine.append( "/F 4" );
         aLine.append( "/Subtype/Link/Border[0 0 0]/Rect[" );
 
@@ -3958,7 +3961,7 @@ bool PDFWriterImpl::emitNoteAnnotations()
 // i59651: key /F set bits Print to 1 rest to 0. We don't set NoZoom NoRotate to 1, since it's a 'should'
 // see PDF 8.4.2 and ISO 19005-1:2005 6.5.3
         aLine.append( "<</Type/Annot" );
-        if( m_bIsPDF_A1 )
+        if( m_bIsPDF_A1 || m_bIsPDF_A2 )
             aLine.append( "/F 4" );
         aLine.append( "/Subtype/Text/Rect[" );
 
@@ -4486,6 +4489,19 @@ bool PDFWriterImpl::emitAppearances( PDFWidget& rWidget, OStringBuffer& rAnnotDi
             rAnnotDict.append( "/" );
             rAnnotDict.append( dict_item.first );
             bool bUseSubDict = (dict_item.second.size() > 1);
+
+            // PDF/A requires sub-dicts for /FT/Btn objects (clause
+            // 6.3.3)
+            if( m_bIsPDF_A1 || m_bIsPDF_A2 )
+            {
+                if( rWidget.m_eType == PDFWriter::RadioButton ||
+                    rWidget.m_eType == PDFWriter::CheckBox ||
+                    rWidget.m_eType == PDFWriter::PushButton )
+                {
+                    bUseSubDict = true;
+                }
+            }
+
             rAnnotDict.append( bUseSubDict ? "<<" : " " );
 
             for (auto const& stream_item : dict_item.second)
@@ -4758,8 +4774,11 @@ bool PDFWriterImpl::emitWidgetAnnotations()
                 }
                 else if( rWidget.m_aListEntries.empty() )
                 {
-                    // create a reset form action
-                    aLine.append( "/AA<</D<</Type/Action/S/ResetForm>>>>\n" );
+                    if( !m_bIsPDF_A2 )
+                    {
+                        // create a reset form action
+                        aLine.append( "/AA<</D<</Type/Action/S/ResetForm>>>>\n" );
+                    }
                 }
                 else if( rWidget.m_bSubmit )
                 {
@@ -5178,7 +5197,7 @@ bool PDFWriterImpl::emitCatalog()
         aLine.append( getResourceDictObj() );
         aLine.append( " 0 R" );
         // NeedAppearances must not be used if PDF is signed
-        if( m_bIsPDF_A1
+        if( m_bIsPDF_A1 || m_bIsPDF_A2
 #if HAVE_FEATURE_NSS
             || ( m_nSignatureObject != -1 )
 #endif
@@ -5402,8 +5421,8 @@ sal_Int32 PDFWriterImpl::emitInfoDict( )
             aLine.append( "\n" );
         }
 
-         aLine.append( "/CreationDate" );
-         appendLiteralStringEncrypt( m_aCreationDateString, nObject, aLine );
+        aLine.append( "/CreationDate" );
+        appendLiteralStringEncrypt( m_aCreationDateString, nObject, aLine );
         aLine.append( ">>\nendobj\n\n" );
         if( ! writeBuffer( aLine.getStr(), aLine.getLength() ) )
             nObject = 0;
@@ -5492,7 +5511,7 @@ sal_Int32 PDFWriterImpl::emitNamedDestinations()
 // emits the output intent dictionary
 sal_Int32 PDFWriterImpl::emitOutputIntent()
 {
-    if( !m_bIsPDF_A1 )
+    if( !m_bIsPDF_A1 && !m_bIsPDF_A2 )
         return 0;
 
     //emit the sRGB standard profile, in ICC format, in a stream, per IEC61966-2.1
@@ -5599,7 +5618,7 @@ static void escapeStringXML( const OUString& rStr, OUString &rValue)
 // emits the document metadata
 sal_Int32 PDFWriterImpl::emitDocumentMetadata()
 {
-    if( !m_bIsPDF_A1 )
+    if( !m_bIsPDF_A1 && !m_bIsPDF_A2 )
         return 0;
 
     //get the object number for all the destinations
@@ -5620,8 +5639,14 @@ sal_Int32 PDFWriterImpl::emitDocumentMetadata()
         //PDF/A part ( ISO 19005-1:2005 - 6.7.11 )
         aMetadataStream.append( "  <rdf:Description rdf:about=\"\"\n" );
         aMetadataStream.append( "      xmlns:pdfaid=\"http://www.aiim.org/pdfa/ns/id/\">\n" );
-        aMetadataStream.append( "   <pdfaid:part>1</pdfaid:part>\n" );
-        aMetadataStream.append( "   <pdfaid:conformance>A</pdfaid:conformance>\n" );
+        if( m_bIsPDF_A2 )
+            aMetadataStream.append( "   <pdfaid:part>2</pdfaid:part>\n" );
+        else
+            aMetadataStream.append( "   <pdfaid:part>1</pdfaid:part>\n" );
+        if( m_bIsPDF_A2 )
+            aMetadataStream.append( "   <pdfaid:conformance>B</pdfaid:conformance>\n" );
+        else
+            aMetadataStream.append( "   <pdfaid:conformance>A</pdfaid:conformance>\n" );
         aMetadataStream.append( "  </rdf:Description>\n" );
         //... Dublin Core properties go here
         if( !m_aContext.DocumentInfo.Title.isEmpty() ||

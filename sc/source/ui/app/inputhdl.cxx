@@ -18,6 +18,8 @@
  */
 
 #include <memory>
+#include <string_view>
+
 #include <inputhdl.hxx>
 #include <scitems.hxx>
 #include <editeng/eeitem.hxx>
@@ -25,7 +27,6 @@
 #include <sfx2/app.hxx>
 #include <editeng/acorrcfg.hxx>
 #include <formula/errorcodes.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/adjustitem.hxx>
 #include <editeng/brushitem.hxx>
 #include <svtools/colorcfg.hxx>
@@ -33,8 +34,6 @@
 #include <editeng/editobj.hxx>
 #include <editeng/editstat.hxx>
 #include <editeng/editview.hxx>
-#include <editeng/escapementitem.hxx>
-#include <editeng/forbiddencharacterstable.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/svxacorr.hxx>
 #include <editeng/unolingu.hxx>
@@ -43,7 +42,6 @@
 #include <editeng/misspellrange.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/printer.hxx>
 #include <svl/zforlist.hxx>
@@ -57,7 +55,6 @@
 #include <formula/funcvarargs.h>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <inputwin.hxx>
 #include <tabvwsh.hxx>
@@ -76,7 +73,6 @@
 #include <appoptio.hxx>
 #include <docoptio.hxx>
 #include <validat.hxx>
-#include <userlist.hxx>
 #include <rfindlst.hxx>
 #include <inputopt.hxx>
 #include <simpleformulacalc.hxx>
@@ -112,6 +108,9 @@ ScTypedCaseStrSet::const_iterator findText(
     const ScTypedCaseStrSet& rDataSet, ScTypedCaseStrSet::const_iterator const & itPos,
     const OUString& rStart, OUString& rResult, bool bBack)
 {
+    auto lIsMatch = [&rStart](const ScTypedStrData& rData) {
+        return (rData.GetStringType() != ScTypedStrData::Value) && ScGlobal::GetpTransliteration()->isMatch(rStart, rData.GetString()); };
+
     if (bBack) // Backwards
     {
         ScTypedCaseStrSet::const_reverse_iterator it = rDataSet.rbegin(), itEnd = rDataSet.rend();
@@ -123,42 +122,25 @@ ScTypedCaseStrSet::const_iterator findText(
             ++it;
         }
 
-        for (; it != itEnd; ++it)
+        it = std::find_if(it, itEnd, lIsMatch);
+        if (it != itEnd)
         {
-            const ScTypedStrData& rData = *it;
-            if (rData.GetStringType() == ScTypedStrData::Value)
-                // skip values
-                continue;
-
-            if (!ScGlobal::GetpTransliteration()->isMatch(rStart, rData.GetString()))
-                // not a match
-                continue;
-
-            rResult = rData.GetString();
+            rResult = it->GetString();
             return (++it).base(); // convert the reverse iterator back to iterator.
         }
     }
     else // Forwards
     {
         ScTypedCaseStrSet::const_iterator it = rDataSet.begin(), itEnd = rDataSet.end();
-        if (itPos != rDataSet.end())
+        if (itPos != itEnd)
         {
-            it = itPos;
-            ++it;
+            it = std::next(itPos);
         }
 
-        for (; it != itEnd; ++it)
+        it = std::find_if(it, itEnd, lIsMatch);
+        if (it != itEnd)
         {
-            const ScTypedStrData& rData = *it;
-            if (rData.GetStringType() == ScTypedStrData::Value)
-                // skip values
-                continue;
-
-            if (!ScGlobal::GetpTransliteration()->isMatch(rStart, rData.GetString()))
-                // not a match
-                continue;
-
-            rResult = rData.GetString();
+            rResult = it->GetString();
             return it;
         }
     }
@@ -168,18 +150,13 @@ ScTypedCaseStrSet::const_iterator findText(
 
 OUString getExactMatch(const ScTypedCaseStrSet& rDataSet, const OUString& rString)
 {
-    ScTypedCaseStrSet::const_iterator it = rDataSet.begin(), itEnd = rDataSet.end();
-    for (; it != itEnd; ++it)
-    {
-        const ScTypedStrData& rData = *it;
-        if (rData.GetStringType() == ScTypedStrData::Value)
-            continue;
-
-        if (!ScGlobal::GetpTransliteration()->isEqual(rData.GetString(), rString))
-            continue;
-
-        return rData.GetString();
-    }
+    auto it = std::find_if(rDataSet.begin(), rDataSet.end(),
+        [&rString](const ScTypedStrData& rData) {
+            return (rData.GetStringType() != ScTypedStrData::Value)
+                && ScGlobal::GetpTransliteration()->isEqual(rData.GetString(), rString);
+        });
+    if (it != rDataSet.end())
+        return it->GetString();
     return rString;
 }
 
@@ -713,10 +690,10 @@ void ScInputHandler::ImplCreateEditEngine()
         if ( pActiveViewSh )
         {
             ScDocument& rDoc = pActiveViewSh->GetViewData().GetDocShell()->GetDocument();
-            mpEditEngine = o3tl::make_unique<ScFieldEditEngine>(&rDoc, rDoc.GetEnginePool(), rDoc.GetEditPool());
+            mpEditEngine = std::make_unique<ScFieldEditEngine>(&rDoc, rDoc.GetEnginePool(), rDoc.GetEditPool());
         }
         else
-            mpEditEngine = o3tl::make_unique<ScFieldEditEngine>(nullptr, EditEngine::CreatePool(), nullptr, true);
+            mpEditEngine = std::make_unique<ScFieldEditEngine>(nullptr, EditEngine::CreatePool(), nullptr, true);
 
         mpEditEngine->SetWordDelimiters( ScEditUtil::ModifyDelimiters( mpEditEngine->GetWordDelimiters() ) );
         UpdateRefDevice();      // also sets MapMode
@@ -1001,9 +978,9 @@ void ScInputHandler::ShowArgumentsTip( OUString& rSelText )
                             if (nStartPosition > 0)
                             {
                                 OUStringBuffer aBuf;
-                                aBuf.appendCopy(aNew, 0, nStartPosition);
+                                aBuf.append(std::u16string_view(aNew).substr(0, nStartPosition));
                                 aBuf.append(u'\x25BA');
-                                aBuf.appendCopy(aNew, nStartPosition);
+                                aBuf.append(std::u16string_view(aNew).substr(nStartPosition));
                                 nArgs = ppFDesc->getParameterCount();
                                 sal_Int16 nVarArgsSet = 0;
                                 if ( nArgs >= PAIRED_VAR_ARGS )
@@ -2764,7 +2741,7 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
         // Find common (cell) attributes before RemoveAdjust
         if ( pActiveViewSh && bUniformAttribs )
         {
-            SfxItemSet* pCommonAttrs = nullptr;
+            std::unique_ptr<SfxItemSet> pCommonAttrs;
             for (sal_uInt16 nId = EE_CHAR_START; nId <= EE_CHAR_END; nId++)
             {
                 SfxItemState eState = aOldAttribs.GetItemState( nId, false, &pItem );
@@ -2774,7 +2751,7 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
                             *pItem != pEditDefaults->Get(nId) )
                 {
                     if ( !pCommonAttrs )
-                        pCommonAttrs = new SfxItemSet( mpEditEngine->GetEmptyItemSet() );
+                        pCommonAttrs.reset(new SfxItemSet( mpEditEngine->GetEmptyItemSet() ));
                     pCommonAttrs->Put( *pItem );
                 }
             }
@@ -2782,9 +2759,8 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
             if ( pCommonAttrs )
             {
                 ScDocument* pDoc = pActiveViewSh->GetViewData().GetDocument();
-                pCellAttrs = o3tl::make_unique<ScPatternAttr>(pDoc->GetPool());
-                pCellAttrs->GetFromEditItemSet( pCommonAttrs );
-                delete pCommonAttrs;
+                pCellAttrs = std::make_unique<ScPatternAttr>(pDoc->GetPool());
+                pCellAttrs->GetFromEditItemSet( pCommonAttrs.get() );
             }
         }
 
@@ -2938,7 +2914,7 @@ void ScInputHandler::EnterHandler( ScEnterMode nBlockMode )
 
             if ( bInsertPreCorrectedString && aString != aPreAutoCorrectString )
             {
-               ScInputStatusItem aItem(FID_INPUTLINE_STATUS,
+                ScInputStatusItem aItem(FID_INPUTLINE_STATUS,
                                        aCursorPos, aCursorPos, aCursorPos,
                                        aPreAutoCorrectString, pObject.get());
                 aArgs[0] = &aItem;

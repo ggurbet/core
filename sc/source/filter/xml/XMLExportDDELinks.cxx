@@ -20,15 +20,14 @@
 #include "XMLExportDDELinks.hxx"
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlnmspe.hxx>
-#include <xmloff/nmspmap.hxx>
 #include <sax/tools/converter.hxx>
 #include "xmlexprt.hxx"
 #include <unonames.hxx>
 #include <document.hxx>
 #include <scmatrix.hxx>
 #include <com/sun/star/sheet/XDDELink.hpp>
-
-class ScMatrix;
+#include <com/sun/star/container/XIndexAccess.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 
 using namespace com::sun::star;
 using namespace xmloff::token;

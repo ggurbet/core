@@ -18,6 +18,7 @@
  */
 
 
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include "controlfontdialog.hxx"
 #include <cppuhelper/typeprovider.hxx>
 #include "fontdialog.hxx"
@@ -148,7 +149,7 @@ namespace pcr
         // sets a new introspectee and re-executes us. In this case, the dialog returned here (upon the first
         // execute) will be re-used upon the second execute, and thus it won't be initialized correctly.
 
-        return svt::OGenericUnoDialog::Dialog(o3tl::make_unique<ControlCharacterDialog>(Application::GetFrameWeld(rParent), *m_pFontItems));
+        return svt::OGenericUnoDialog::Dialog(std::make_unique<ControlCharacterDialog>(Application::GetFrameWeld(rParent), *m_pFontItems));
     }
 
     void OControlFontDialog::executedDialog(sal_Int16 _nExecutionResult)

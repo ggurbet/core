@@ -35,7 +35,7 @@
 #include <algorithm>
 #include <vector>
 using std::min;
-static inline void copy_ustr_n( void *dest, const void *source, size_t length ) { memcpy(dest, source, length*sizeof(sal_Unicode)); }
+static void copy_ustr_n( void *dest, const void *source, size_t length ) { memcpy(dest, source, length*sizeof(sal_Unicode)); }
 
 #define LINES_INI       32
 #define LINES_ADD       10
@@ -337,7 +337,7 @@ static bool writeProfileImpl(osl_TFile* pFile)
     DWORD BytesWritten=0;
     BOOL bRet;
 
-    if ( !( pFile != nullptr && pFile->m_Handle != INVALID_HANDLE_VALUE ) || ( pFile->m_pWriteBuf == nullptr ) )
+    if ( pFile == nullptr || pFile->m_Handle == INVALID_HANDLE_VALUE || ( pFile->m_pWriteBuf == nullptr ) )
     {
         return false;
     }
@@ -984,7 +984,7 @@ sal_uInt32 SAL_CALL osl_getProfileSections(oslProfile Profile, sal_Char* pszBuff
     {
         if (MaxLen != 0)
         {
-             for (i = 0; i < pProfile->m_NoSections; i++)
+            for (i = 0; i < pProfile->m_NoSections; i++)
             {
                 osl_TProfileSection* pSec = &pProfile->m_Sections[i];
 
@@ -1003,7 +1003,7 @@ sal_uInt32 SAL_CALL osl_getProfileSections(oslProfile Profile, sal_Char* pszBuff
         }
         else
         {
-             for (i = 0; i < pProfile->m_NoSections; i++)
+            for (i = 0; i < pProfile->m_NoSections; i++)
                 n += pProfile->m_Sections[i].m_Len + 1;
 
             n += 1;
@@ -1632,10 +1632,10 @@ static void removeSection(osl_TProfileImpl* pProfile, osl_TProfileSection *pSect
 static osl_TProfileSection* findEntry(osl_TProfileImpl* pProfile, const sal_Char* Section,
                                       const sal_Char* Entry, sal_uInt32 *pNoEntry)
 {
-static  sal_uInt32    Sect = 0;
-        sal_uInt32    i, n;
-        sal_uInt32    Len;
-        osl_TProfileSection* pSec = nullptr;
+    static  sal_uInt32    Sect = 0;
+    sal_uInt32    i, n;
+    sal_uInt32    Len;
+    osl_TProfileSection* pSec = nullptr;
 
     Len = strlen(Section);
     Section = stripBlanks(Section, &Len);

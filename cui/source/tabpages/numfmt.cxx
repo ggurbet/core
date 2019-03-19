@@ -234,7 +234,7 @@ SvxNumberFormatTabPage::SvxNumberFormatTabPage(TabPageParent pParent,
     auto nWidth = approximate_char_width() * 26;
     m_xLbCategory->set_size_request(nWidth, m_xLbCategory->get_height_rows(7));
     m_xLbFormat->set_size_request(nWidth, m_xLbFormat->get_height_rows(5));
-    m_xLbCurrency->set_size_request(1, -1);  // width of 1, so real width will be that of its LbFormat sibling
+    m_xLbCurrency->set_size_request(nWidth, -1);  // force using (narrower) width of its LbFormat sibling
 
     // Initially remove the "Automatically" entry.
     m_xLbCurrency->set_active(-1); // First ensure that nothing is selected.
@@ -447,11 +447,11 @@ void SvxNumberFormatTabPage::Reset( const SfxItemSet* rSet )
         bool bInit = false;     // set to sal_True for debug test
         m_xCbSourceFormat->set_active( bInit );
         m_xCbSourceFormat->set_sensitive( bInit );
-        m_xCbSourceFormat->show( bInit );
+        m_xCbSourceFormat->set_visible( bInit );
     }
 
     // pNumItem must have been set from outside!
-    DBG_ASSERT( pNumItem, "No NumberInfo, no NumberFormatter, good bye.CRASH. :-(" );
+    DBG_ASSERT( pNumItem, "No NumberInfo, no NumberFormatter, goodbye. CRASH. :-(" );
 
     eState = rSet->GetItemState( GetWhich( SID_ATTR_NUMBERFORMAT_VALUE ) );
 
@@ -660,8 +660,8 @@ void SvxNumberFormatTabPage::EnableBySourceFormat_Impl()
 
 void SvxNumberFormatTabPage::HideLanguage(bool bFlag)
 {
-    m_xFtLanguage->show(!bFlag);
-    m_xLbLanguage->show(!bFlag);
+    m_xFtLanguage->set_visible(!bFlag);
+    m_xLbLanguage->set_visible(!bFlag);
 }
 
 /*************************************************************************
@@ -947,10 +947,10 @@ void SvxNumberFormatTabPage::UpdateOptions_Impl( bool bCheckCatChange /*= sal_Fa
                 m_xEdDecimals->set_text( "" ); //General format tdf#44399
             else
                 if ( nCategory == CAT_FRACTION )
-                    m_xEdDenominator->set_text( OUString::number( nDecimals ) );
+                    m_xEdDenominator->set_value( nDecimals );
                 else
-                    m_xEdDecimals->set_text( OUString::number( nDecimals ) );
-            m_xEdLeadZeroes->set_text( OUString::number( nZeroes ) );
+                    m_xEdDecimals->set_value( nDecimals );
+            m_xEdLeadZeroes->set_value( nZeroes );
             m_xBtnNegRed->set_active( bNegRed );
             if ( nCategory != CAT_SCIENTIFIC )
             {
@@ -976,8 +976,8 @@ void SvxNumberFormatTabPage::UpdateOptions_Impl( bool bCheckCatChange /*= sal_Fa
             m_xBtnNegRed->set_sensitive(false);
             m_xBtnThousand->set_sensitive(false);
             m_xBtnEngineering->set_sensitive(false);
-            m_xEdDecimals->set_text( OUString::number( 0 ) );
-            m_xEdLeadZeroes->set_text( OUString::number( 0 ) );
+            m_xEdDecimals->set_text( OUString() );
+            m_xEdLeadZeroes->set_text( OUString() );
             m_xBtnNegRed->set_active( false );
             m_xBtnThousand->set_active( false );
             m_xBtnEngineering->set_active( false );
@@ -1101,8 +1101,8 @@ void SvxNumberFormatTabPage::UpdateFormatListBox_Impl
 void SvxNumberFormatTabPage::UpdateThousandEngineeringCheckBox()
 {
     bool bIsScientific = m_xLbCategory->get_selected_index() == CAT_SCIENTIFIC;
-    m_xBtnThousand->show( !bIsScientific );
-    m_xBtnEngineering->show( bIsScientific );
+    m_xBtnThousand->set_visible( !bIsScientific );
+    m_xBtnEngineering->set_visible( bIsScientific );
 }
 
 
@@ -1115,10 +1115,10 @@ void SvxNumberFormatTabPage::UpdateThousandEngineeringCheckBox()
 void SvxNumberFormatTabPage::UpdateDecimalsDenominatorEditBox()
 {
     bool bIsFraction = m_xLbCategory->get_selected_index() == CAT_FRACTION;
-    m_xFtDecimals->show( !bIsFraction );
-    m_xEdDecimals->show( !bIsFraction );
-    m_xFtDenominator->show( bIsFraction );
-    m_xEdDenominator->show( bIsFraction );
+    m_xFtDecimals->set_visible( !bIsFraction );
+    m_xEdDecimals->set_visible( !bIsFraction );
+    m_xFtDenominator->set_visible( bIsFraction );
+    m_xEdDenominator->set_visible( bIsFraction );
 }
 
 
@@ -1138,15 +1138,10 @@ IMPL_LINK(SvxNumberFormatTabPage, DoubleClickHdl_Impl, weld::TreeView&, rLb, voi
 {
     SelFormatHdl_Impl(&rLb);
 
-    if (SfxTabDialogController* pController = GetDialogController())
-        pController->getDialog()->response(RET_OK);
-    else
-    {
-        SfxSingleTabDialog* pParent = dynamic_cast<SfxSingleTabDialog*>(GetParentDialog());
-        OKButton* pOKButton = pParent ? pParent->GetOKButton() : nullptr;
-        if ( pOKButton )
-            pOKButton->Click();
-    }
+    SfxOkDialogController* pController = GetDialogController();
+    assert(pController);
+    weld::Button& rOkButton = pController->GetOKButton();
+    rOkButton.clicked();
 }
 
 
@@ -1353,7 +1348,7 @@ bool SvxNumberFormatTabPage::Click_Impl(weld::Button& rIB)
             {
                 if ( bAdded && (nFmtLbSelPos != SELPOS_NONE) )
                 {
-                    // everything alright
+                    // everything all right
                     if(bOneAreaFlag)                  //@@ ???
                         SetCategory(0);
                     else
@@ -1501,7 +1496,7 @@ void SvxNumberFormatTabPage::EditHdl_Impl(const weld::Entry* pEdFormat)
                 if (nTmpCurPos != sal_uInt16(-1))
                     set_active_currency(nTmpCurPos);
             }
-            short nPosi=pNumFmtShell->GetListPos4Entry( nCurKey);
+            short nPosi=pNumFmtShell->GetListPos4Entry( nCurKey, aFormat);
             if(nPosi>=0)
                 m_xLbFormat->select(static_cast<sal_uInt16>(nPosi));
 
@@ -1708,7 +1703,7 @@ void SvxNumberFormatTabPage::FillCurrencyBox()
 
 void SvxNumberFormatTabPage::SetCategory(sal_uInt16 nPos)
 {
-    sal_uInt16 nCurCategory = m_xLbCategory->get_selected_index();
+    int nCurCategory = m_xLbCategory->get_selected_index();
     sal_uInt16 nTmpCatPos;
 
     if (bOneAreaFlag)

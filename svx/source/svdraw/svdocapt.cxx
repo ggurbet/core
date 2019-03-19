@@ -58,7 +58,7 @@
 #include <svx/xlnwtit.hxx>
 #include <svx/xpoly.hxx>
 #include <svx/xpool.hxx>
-#include <o3tl/make_unique.hxx>
+#include <vcl/ptrstyle.hxx>
 
 
 enum EscDir {LKS,RTS,OBN,UNT};
@@ -177,7 +177,7 @@ void ImpCaptParams::CalcEscPos(const Point& rTailPt, const tools::Rectangle& rRe
 
 std::unique_ptr<sdr::properties::BaseProperties> SdrCaptionObj::CreateObjectSpecificProperties()
 {
-    return o3tl::make_unique<sdr::properties::CaptionProperties>(*this);
+    return std::make_unique<sdr::properties::CaptionProperties>(*this);
 }
 
 
@@ -185,7 +185,7 @@ std::unique_ptr<sdr::properties::BaseProperties> SdrCaptionObj::CreateObjectSpec
 
 std::unique_ptr<sdr::contact::ViewContact> SdrCaptionObj::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfSdrCaptionObj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrCaptionObj>(*this);
 }
 
 
@@ -587,9 +587,9 @@ basegfx::B2DPolyPolygon SdrCaptionObj::TakeCreatePoly(const SdrDragStat& /*rDrag
     return aRetval;
 }
 
-Pointer SdrCaptionObj::GetCreatePointer() const
+PointerStyle SdrCaptionObj::GetCreatePointer() const
 {
-    return Pointer(PointerStyle::DrawCaption);
+    return PointerStyle::DrawCaption;
 }
 
 void SdrCaptionObj::NbcMove(const Size& rSiz)

@@ -42,15 +42,11 @@ SvxHyperlinkDocTp::SvxHyperlinkDocTp ( vcl::Window *pParent, IconChoiceDialog* p
     get(m_pCbbPath, "path");
     m_pCbbPath->SetSmartProtocol(INetProtocol::File);
     get(m_pBtFileopen, "fileopen");
-    BitmapEx aBitmap(RID_SVXBMP_FILEOPEN);
-    aBitmap.Scale(GetDPIScaleFactor(),GetDPIScaleFactor(),BmpScaleFlag::BestQuality);
-    m_pBtFileopen->SetModeImage(Image(aBitmap));
+    m_pBtFileopen->SetModeImage(Image(StockImage::Yes, RID_SVXBMP_FILEOPEN));
     get(m_pEdTarget, "target");
     get(m_pFtFullURL, "url");
     get(m_pBtBrowse, "browse");
-    aBitmap = BitmapEx(RID_SVXBMP_TARGET);
-    aBitmap.Scale(GetDPIScaleFactor(),GetDPIScaleFactor(),BmpScaleFlag::BestQuality );
-    m_pBtBrowse->SetModeImage(Image(aBitmap));
+    m_pBtBrowse->SetModeImage(Image(StockImage::Yes, RID_SVXBMP_TARGET));
 
     // Disable display of bitmap names.
     m_pBtBrowse->EnableTextDisplay (false);
@@ -105,7 +101,7 @@ void SvxHyperlinkDocTp::FillDlgFields(const OUString& rStrURL)
     OUString aStrMark;
     if ( nPos != -1 && nPos < rStrURL.getLength()-1 )
         aStrMark = rStrURL.copy( nPos+1 );
-     m_pEdTarget->SetText ( aStrMark );
+    m_pEdTarget->SetText ( aStrMark );
 
     ModifiedPathHdl_Impl ( *m_pCbbPath );
 }

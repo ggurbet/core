@@ -36,7 +36,6 @@
 #include <excform.hxx>
 #include <scmatrix.hxx>
 #include <documentimport.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 // Excel->Calc cell address/range conversion ==================================
@@ -127,10 +126,10 @@ void XclImpAddressConverter::ConvertRangeList( ScRangeList& rScRanges,
         const XclRangeList& rXclRanges, SCTAB nScTab, bool bWarn )
 {
     rScRanges.RemoveAll();
-    for( XclRangeVector::const_iterator aIt = rXclRanges.begin(), aEnd = rXclRanges.end(); aIt != aEnd; ++aIt )
+    for( const auto& rXclRange : rXclRanges )
     {
         ScRange aScRange( ScAddress::UNINITIALIZED );
-        if( ConvertRange( aScRange, *aIt, nScTab, nScTab, bWarn ) )
+        if( ConvertRange( aScRange, rXclRange, nScTab, nScTab, bWarn ) )
             rScRanges.push_back( aScRange );
     }
 }
@@ -846,7 +845,7 @@ XclImpCachedMatrix::XclImpCachedMatrix( XclImpStream& rStrm ) :
 
     for( SCSIZE nScRow = 0; nScRow < mnScRows; ++nScRow )
         for( SCSIZE nScCol = 0; nScCol < mnScCols; ++nScCol )
-            maValueList.push_back( o3tl::make_unique<XclImpCachedValue>( rStrm ) );
+            maValueList.push_back( std::make_unique<XclImpCachedValue>( rStrm ) );
 }
 
 XclImpCachedMatrix::~XclImpCachedMatrix()

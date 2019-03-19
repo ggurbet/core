@@ -362,7 +362,7 @@ RTFError RTFDocumentImpl::dispatchDestination(RTFKeyword nKeyword)
             case RTF_DPTXBXTEXT:
             {
                 bool bPictureFrame = false;
-                for (auto& rProperty : m_aStates.top().aShape.aProperties)
+                for (auto& rProperty : m_aStates.top().aShape.getProperties())
                 {
                     if (rProperty.first == "shapeType"
                         && rProperty.second == OUString::number(ESCHER_ShpInst_PictureFrame))
@@ -635,12 +635,11 @@ RTFError RTFDocumentImpl::dispatchDestination(RTFKeyword nKeyword)
             default:
             {
                 // Check if it's a math token.
-                RTFMathSymbol aSymbol;
-                aSymbol.eKeyword = nKeyword;
+                RTFMathSymbol aSymbol(nKeyword);
                 if (RTFTokenizer::lookupMathKeyword(aSymbol))
                 {
-                    m_aMathBuffer.appendOpeningTag(aSymbol.nToken);
-                    m_aStates.top().eDestination = aSymbol.eDestination;
+                    m_aMathBuffer.appendOpeningTag(aSymbol.GetToken());
+                    m_aStates.top().eDestination = aSymbol.GetDestination();
                     return RTFError::OK;
                 }
 

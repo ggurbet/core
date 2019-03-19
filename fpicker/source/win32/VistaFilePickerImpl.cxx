@@ -38,7 +38,7 @@
 #include <shlguid.h>
 #include <shlobj.h>
 
-static inline bool is_current_process_window(HWND hwnd)
+static bool is_current_process_window(HWND hwnd)
 {
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
@@ -159,8 +159,8 @@ static OUString lcl_AdjustFilterName(const OUString& sName)
 static ::std::vector<COMDLG_FILTERSPEC> lcl_buildFilterList(CFilterContainer& rContainer,
                                                             std::vector<OUString>& rvStrings)
 {
-          ::std::vector< COMDLG_FILTERSPEC > lList  ;
-          CFilterContainer::FILTER_ENTRY_T   aFilter;
+    ::std::vector< COMDLG_FILTERSPEC > lList  ;
+    CFilterContainer::FILTER_ENTRY_T   aFilter;
 
     rContainer.beginEnumFilter( );
     while( rContainer.getNextFilter(aFilter) )
@@ -425,7 +425,7 @@ void VistaFilePickerImpl::impl_sta_getCurrentFilter(const RequestRef& rRequest)
     ::osl::ResettableMutexGuard aLock(m_aMutex);
 
     OUString sTitle;
-    ::sal_Int32     nRealIndex = (nIndex-1); // COM dialog base on 1 ... filter container on 0 .-)
+    ::sal_Int32     nRealIndex = nIndex-1; // COM dialog base on 1 ... filter container on 0 .-)
     if (
         (nRealIndex >= 0                         ) &&
         (m_lFilters.getFilterNameByIndex(nRealIndex, sTitle))
@@ -1002,7 +1002,7 @@ void VistaFilePickerImpl::impl_sta_ShowDialogModal(const RequestRef& rRequest)
                     if ( SUCCEEDED(hResult) && nFileType > 0 )
                     {
                         // COM dialog base on 1 ... filter container on 0 .-)
-                        ::size_t nRealIndex = (nFileType-1);
+                        ::size_t nRealIndex = nFileType-1;
                         OUString sFilter;
                         if (m_lFilters.getFilterByIndex(nRealIndex, sFilter))
                         {
@@ -1133,7 +1133,7 @@ void VistaFilePickerImpl::impl_sta_SetControlValue(const RequestRef& rRequest)
         case css::ui::dialogs::ExtendedFilePickerElementIds::CHECKBOX_SELECTION :
             {
                 bool bValue   = false;
-                           aValue >>= bValue;
+                aValue >>= bValue;
                 iCustom->SetCheckButtonState(nId, bValue);
             }
             break;
@@ -1168,7 +1168,7 @@ void VistaFilePickerImpl::impl_sta_SetControlValue(const RequestRef& rRequest)
                     case css::ui::dialogs::ControlActions::SET_SELECT_ITEM :
                         {
                             ::sal_Int32 nItem    = 0;
-                                        aValue >>= nItem;
+                            aValue >>= nItem;
                             hResult = iCustom->SetSelectedControlItem(nId, nItem);
                         }
                         break;
@@ -1301,7 +1301,7 @@ void VistaFilePickerImpl::onAutoExtensionChanged (bool bChecked)
     ::osl::ResettableMutexGuard aLock(m_aMutex);
 
     const OUString sFilter = m_lFilters.getCurrentFilter ();
-          OUString sExt    ;
+    OUString sExt    ;
     if (!m_lFilters.getFilterByName(sFilter, sExt))
         return;
 

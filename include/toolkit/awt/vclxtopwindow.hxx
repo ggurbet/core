@@ -22,12 +22,13 @@
 
 #include <com/sun/star/awt/XSystemDependentWindowPeer.hpp>
 #include <com/sun/star/awt/XTopWindow2.hpp>
-#include <com/sun/star/awt/XMenuBar.hpp>
 #include <cppuhelper/weak.hxx>
 
 #include <cppuhelper/implbase1.hxx>
 
 #include <toolkit/awt/vclxcontainer.hxx>
+
+namespace com { namespace sun { namespace star { namespace awt { class XMenuBar; } } } }
 
 typedef ::cppu::ImplHelper1 <   css::awt::XTopWindow2
                             >   VCLXTopWindow_XBase;
@@ -38,9 +39,6 @@ class TOOLKIT_DLLPUBLIC VCLXTopWindow_Base  :public VCLXTopWindow_XBase
                                             ,public VCLXTopWindow_SBase
 {
 protected:
-    css::uno::Reference< css::awt::XMenuBar> mxMenuBar;
-
-
     virtual vcl::Window* GetWindowImpl() = 0;
     virtual ::comphelper::OInterfaceContainerHelper2& GetTopWindowListenersImpl() = 0;
 

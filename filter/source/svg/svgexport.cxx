@@ -47,6 +47,7 @@
 #include <comphelper/sequenceashashmap.hxx>
 #include <i18nlangtag/lang.h>
 #include <svl/zforlist.hxx>
+#include <tools/urlobj.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
 #include <xmloff/nmspmap.hxx>
@@ -704,8 +705,6 @@ bool SVGFilter::implExportWriterTextGraphic( const Reference< view::XSelectionSu
         SdrGrafObj* pGraphicObj = new SdrGrafObj(pSvxDrawPage->GetSdrPage()->getSdrModelFromSdrPage(), aGraphic, tools::Rectangle( aPos, aSize ));
         uno::Reference< drawing::XShape > xShape = GetXShapeForSdrObject(pGraphicObj);
         uno::Reference< XPropertySet > xShapePropSet(xShape, uno::UNO_QUERY);
-        css::awt::Rectangle aBoundRect (aPos.X(), aPos.Y(), aSize.Width(), aSize.Height());
-        xShapePropSet->setPropertyValue("BoundRect", uno::Any(aBoundRect));
         xShapePropSet->setPropertyValue("Graphic", uno::Any(xGraphic));
 
         maShapeSelection = drawing::ShapeCollection::create(comphelper::getProcessComponentContext());
@@ -1596,7 +1595,7 @@ void SVGFilter::implExportDrawPages( const std::vector< Reference< css::drawing:
         mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "DummySlide" );
         SvXMLElementExport aDummySlideElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
         {
-           SvXMLElementExport aGElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
+            SvXMLElementExport aGElement( *mpSVGExport, XML_NAMESPACE_NONE, "g", true, true );
             {
                 mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "id", "dummy-slide" );
                 mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "Slide" );
@@ -1953,13 +1952,18 @@ bool SVGFilter::implExportShape( const Reference< css::drawing::XShape >& rxShap
 
                         if( !aBookmark.isEmpty() )
                         {
-                            mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xlink:href", aBookmark);
-                            SvXMLElementExport alinkA( *mpSVGExport, XML_NAMESPACE_NONE, "a", true, true );
-                            mpSVGWriter->WriteMetaFile( aTopLeft, aSize, rMtf,
-                                                        0xffffffff,
-                                                        pElementId,
-                                                        &rxShape,
-                                                        pEmbeddedBitmapsMtf );
+                            INetURLObject aINetURLObject(aBookmark);
+                            if (!aINetURLObject.HasError()
+                                && aINetURLObject.GetProtocol() != INetProtocol::Javascript)
+                            {
+                                mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "xlink:href", aBookmark);
+                                SvXMLElementExport alinkA( *mpSVGExport, XML_NAMESPACE_NONE, "a", true, true );
+                                mpSVGWriter->WriteMetaFile( aTopLeft, aSize, rMtf,
+                                                            0xffffffff,
+                                                            pElementId,
+                                                            &rxShape,
+                                                            pEmbeddedBitmapsMtf );
+                            }
                         }
                         else
                         {
@@ -2016,7 +2020,6 @@ bool SVGFilter::implCreateObjects()
 
         if( xDrawPage.is() )
         {
-#ifdef ENABLE_EXPORT_CUSTOM_SLIDE_BACKGROUND
             // TODO complete the implementation for exporting custom background for each slide
             // implementation status:
             // - hatch stroke color is set to 'none' so the hatch is not visible, why?
@@ -2026,18 +2029,21 @@ bool SVGFilter::implCreateObjects()
             // - tiled bitmap: an image element is exported for each tile,
             //   this is really too expensive!
             Reference< XPropertySet > xPropSet( xDrawPage, UNO_QUERY );
-            Reference< XPropertySet > xBackground;
-            xPropSet->getPropertyValue( "Background" ) >>= xBackground;
-            if( xBackground.is() )
+            if( xPropSet.is() )
             {
-                drawing::FillStyle aFillStyle;
-                sal_Bool assigned = ( xBackground->getPropertyValue( "FillStyle" ) >>= aFillStyle );
-                if( assigned && aFillStyle != drawing::FillStyle_NONE )
+                Reference< XPropertySet > xBackground;
+                xPropSet->getPropertyValue( "Background" ) >>= xBackground;
+                if( xBackground.is() )
                 {
-                    implCreateObjectsFromBackground( xDrawPage );
+                    drawing::FillStyle aFillStyle;
+                    bool assigned = ( xBackground->getPropertyValue( "FillStyle" ) >>= aFillStyle );
+                    if( assigned && aFillStyle != drawing::FillStyle_NONE
+                                 && aFillStyle != drawing::FillStyle_BITMAP )
+                    {
+                        implCreateObjectsFromBackground( xDrawPage );
+                    }
                 }
             }
-#endif
             implCreateObjectsFromShapes( xDrawPage, xDrawPage );
         }
     }
@@ -2290,7 +2296,7 @@ IMPL_LINK( SVGFilter, CalcFieldHdl, EditFieldInfo*, pInfo, void )
                 OSL_FAIL( "error: !mCreateOjectsCurrentMasterPage.is()" );
                 return;
             }
-            bool bHasCharSetMap = !( mTextFieldCharSets.find( mCreateOjectsCurrentMasterPage ) == mTextFieldCharSets.end() );
+            bool bHasCharSetMap = mTextFieldCharSets.find( mCreateOjectsCurrentMasterPage ) != mTextFieldCharSets.end();
 
             static const OUString aHeaderId( NSPREFIX "header-field" );
             static const OUString aFooterId( aOOOAttrFooterField );

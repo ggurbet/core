@@ -32,6 +32,7 @@
 
 #include <comphelper/processfactory.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/image.hxx>
 #include <vcl/wrkwin.hxx>
@@ -392,7 +393,6 @@ IMPL_LINK_NOARG(TabBar, OnToolboxClicked, Button*, void)
         {
             DeckMenuData aData;
             aData.msDisplayName = xDeckDescriptor->msTitle;
-            aData.msDeckId = xDeckDescriptor->msId;
             aData.mbIsCurrentDeck = item.mpButton->IsChecked();
             aData.mbIsActive = !item.mbIsHidden;
             aData.mbIsEnabled = item.mpButton->IsEnabled();

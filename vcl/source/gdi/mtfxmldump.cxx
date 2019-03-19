@@ -376,6 +376,20 @@ OUString convertFractionToString(const Fraction& aFraction)
     return OUString::createFromAscii(ss.str().c_str());
 }
 
+OUString convertGradientStyle(GradientStyle eStyle)
+{
+    switch (eStyle)
+    {
+        case GradientStyle::Linear:     return OUString("Linear");
+        case GradientStyle::Axial:      return OUString("Axial");
+        case GradientStyle::Radial:     return OUString("Radial");
+        case GradientStyle::Elliptical: return OUString("Elliptical");
+        case GradientStyle::Square:     return OUString("Square");
+        case GradientStyle::Rect:       return OUString("Rect");
+        case GradientStyle::FORCE_EQUAL_SIZE: return OUString("ForceEqualSize");
+    }
+    return OUString();
+}
 
 OUString hex32(sal_uInt32 nNumber)
 {
@@ -1037,9 +1051,66 @@ void MetafileXmlDump::writeXml(const GDIMetaFile& rMetaFile, tools::XmlWriter& r
             }
             break;
 
+            case MetaActionType::GRADIENT:
+            {
+                const MetaGradientAction* pMeta = static_cast<MetaGradientAction*>(pAction);
+                tools::Rectangle aRectangle = pMeta->GetRect();
+                Gradient aGradient = pMeta->GetGradient();
+
+                rWriter.startElement(sCurrentElementTag);
+                rWriter.attribute("style", convertGradientStyle(aGradient.GetStyle()));
+                rWriter.attribute("startcolor", convertColorToString(aGradient.GetStartColor()));
+                rWriter.attribute("endcolor", convertColorToString(aGradient.GetEndColor()));
+                rWriter.attribute("angle", aGradient.GetAngle());
+                rWriter.attribute("border", aGradient.GetBorder());
+                rWriter.attribute("offsetx", aGradient.GetOfsX());
+                rWriter.attribute("offsety", aGradient.GetOfsY());
+                rWriter.attribute("startintensity", aGradient.GetStartIntensity());
+                rWriter.attribute("endintensity", aGradient.GetEndIntensity());
+                rWriter.attribute("steps", aGradient.GetSteps());
+
+                rWriter.startElement("rectangle");
+                writeRectangle(rWriter, aRectangle);
+                rWriter.endElement();
+
+                rWriter.endElement();
+            }
+            break;
+
+            case MetaActionType::Transparent:
+            {
+                const MetaTransparentAction* pMeta = static_cast<MetaTransparentAction*>(pAction);
+
+                rWriter.startElement(sCurrentElementTag);
+                rWriter.attribute("transparence", pMeta->GetTransparence());
+
+                tools::PolyPolygon const& rPolyPolygon(pMeta->GetPolyPolygon());
+
+                for (sal_uInt16 j = 0; j < rPolyPolygon.Count(); ++j)
+                {
+                    rWriter.startElement("polygon");
+                    tools::Polygon const& rPolygon = rPolyPolygon[j];
+                    bool bFlags = rPolygon.HasFlags();
+                    for (sal_uInt16 i = 0; i < rPolygon.GetSize(); ++i)
+                    {
+                        rWriter.startElement("point");
+                        writePoint(rWriter, rPolygon[i]);
+                        if (bFlags)
+                            rWriter.attribute("flags", convertPolygonFlags(rPolygon.GetFlags(i)));
+                        rWriter.endElement();
+                    }
+                    rWriter.endElement();
+                }
+
+                rWriter.endElement();
+            }
+            break;
+
             default:
             {
-                rWriter.element(sCurrentElementTag);
+                rWriter.startElement(sCurrentElementTag);
+                rWriter.attribute("note", OString("not implemented in xml dump"));
+                rWriter.endElement();
             }
             break;
         }

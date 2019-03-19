@@ -518,19 +518,19 @@ const OUString& Storage::GetName() const
 
 void Storage::FillInfoList( SvStorageInfoList* pList ) const
 {
-    if( Validate() && pList )
+    if( !(Validate() && pList) )
+        return;
+
+    StgIterator aIter( *pEntry );
+    StgDirEntry* p = aIter.First();
+    while( p )
     {
-        StgIterator aIter( *pEntry );
-        StgDirEntry* p = aIter.First();
-        while( p )
+        if( !p->m_bInvalid )
         {
-            if( !p->m_bInvalid )
-            {
-                SvStorageInfo aInfo( *p );
-                pList->push_back( aInfo );
-            }
-            p = aIter.Next();
+            SvStorageInfo aInfo( *p );
+            pList->push_back( aInfo );
         }
+        p = aIter.Next();
     }
 }
 
@@ -880,9 +880,7 @@ OUString Storage::GetUserName()
 
 bool Storage::ValidateFAT()
 {
-    Link<StgLinkArg&,void> aLink = StgIo::GetErrorLink();
     FatError nErr = pIo->ValidateFATs();
-    StgIo::SetErrorLink( aLink );
     return nErr == FatError::Ok;
 }
 
@@ -903,7 +901,7 @@ const ClsId& Storage::GetClassId() const
     if ( pEntry )
         return pEntry->m_aEntry.GetClassId();
 
-    static ClsId aDummyId = {0,0,0,{0,0,0,0,0,0,0,0}};
+    static const ClsId aDummyId = {0,0,0,{0,0,0,0,0,0,0,0}};
     return aDummyId;
 }
 

@@ -7,6 +7,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include <unicode/regex.h>
 
 #include <comphelper/configuration.hxx>
@@ -54,14 +58,14 @@ css::uno::Sequence<OUString> SetOfImplMatcherToStringSequence(const OpenCLConfig
     css::uno::Sequence<OUString> result(rSet.size());
 
     size_t n(0);
-    for (auto i = rSet.cbegin(); i != rSet.cend(); ++i)
+    for (const auto& rItem : rSet)
     {
         result[n++] =
-            (*i).maOS.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
-            (*i).maOSVersion.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
-            (*i).maPlatformVendor.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
-            (*i).maDevice.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
-            (*i).maDriverVersion.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B");
+            rItem.maOS.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
+            rItem.maOSVersion.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
+            rItem.maPlatformVendor.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
+            rItem.maDevice.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B") + "/" +
+            rItem.maDriverVersion.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll(";", "%3B");
     }
 
     return result;
@@ -76,7 +80,7 @@ OUString getToken(const OUString& string, sal_Int32& index)
     while ((p = token.indexOf('%', i)) >= 0)
     {
         if (p > i)
-            result.appendCopy(token, i, p - i);
+            result.append(std::u16string_view(token).substr(i, p - i));
         if (p < token.getLength() - 2)
         {
             result.append(OUStringLiteral1(token.copy(p+1, 2).toInt32(16)));
@@ -87,7 +91,7 @@ OUString getToken(const OUString& string, sal_Int32& index)
             i = token.getLength();
         }
     }
-    result.appendCopy(token,i);
+    result.append(std::u16string_view(token).substr(i));
 
     return result.makeStringAndClear();
 }
@@ -96,15 +100,15 @@ OpenCLConfig::ImplMatcherSet StringSequenceToSetOfImplMatcher(const css::uno::Se
 {
     OpenCLConfig::ImplMatcherSet result;
 
-    for (auto i = rSequence.begin(); i != rSequence.end(); ++i)
+    for (const auto& rItem : rSequence)
     {
         OpenCLConfig::ImplMatcher m;
         sal_Int32 index(0);
-        m.maOS = getToken(*i, index);
-        m.maOSVersion = getToken(*i, index);
-        m.maPlatformVendor = getToken(*i, index);
-        m.maDevice = getToken(*i, index);
-        m.maDriverVersion = getToken(*i, index);
+        m.maOS = getToken(rItem, index);
+        m.maOSVersion = getToken(rItem, index);
+        m.maPlatformVendor = getToken(rItem, index);
+        m.maDevice = getToken(rItem, index);
+        m.maDriverVersion = getToken(rItem, index);
 
         result.insert(m);
     }
@@ -154,12 +158,12 @@ bool match(const OpenCLConfig::ImplMatcher& rListEntry, const OpenCLPlatformInfo
 
 bool match(const OpenCLConfig::ImplMatcherSet& rList, const OpenCLPlatformInfo& rPlatform, const OpenCLDeviceInfo& rDevice, const char* sKindOfList)
 {
-    for (auto i = rList.cbegin(); i != rList.end(); ++i)
+    for (const auto& rListEntry : rList)
     {
         SAL_INFO("opencl", "Looking for match for platform=" << rPlatform << ", device=" << rDevice <<
-                 " in " << sKindOfList << " entry=" << *i);
+                 " in " << sKindOfList << " entry=" << rListEntry);
 
-        if (match(*i, rPlatform, rDevice))
+        if (match(rListEntry, rPlatform, rDevice))
         {
             SAL_INFO("opencl", "Match!");
             return true;

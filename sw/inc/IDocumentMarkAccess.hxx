@@ -27,6 +27,7 @@
 class SwPaM;
 struct SwPosition;
 class SwTextNode;
+class SwCursorShell;
 
 namespace sw { namespace mark {
     class SaveBookmark; // FIXME: Ugly: SaveBookmark is a core-internal class, and should not be used in the interface
@@ -47,6 +48,7 @@ class IDocumentMarkAccess
             ANNOTATIONMARK,
             TEXT_FIELDMARK,
             CHECKBOX_FIELDMARK,
+            DROPDOWN_FIELDMARK,
             NAVIGATOR_REMINDER
         };
 
@@ -253,6 +255,12 @@ class IDocumentMarkAccess
 
         virtual ::sw::mark::IFieldmark* getDropDownFor(const SwPosition& pos) const=0;
         virtual std::vector< ::sw::mark::IFieldmark* > getDropDownsFor(const SwPaM &rPaM) const=0;
+
+        virtual void deleteFieldmarkAt(const SwPosition& rPos) = 0;
+        virtual ::sw::mark::IFieldmark* changeNonTextFieldmarkType(::sw::mark::IFieldmark* pFieldmark, const OUString& rNewType) = 0;
+
+        virtual void NotifyCursorUpdate(const SwCursorShell& rCursorShell) = 0;
+        virtual void ClearFieldActivation() = 0;
 
         // Annotation Marks
         virtual const_iterator_t getAnnotationMarksBegin() const = 0;

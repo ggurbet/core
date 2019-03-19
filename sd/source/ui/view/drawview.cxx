@@ -166,7 +166,7 @@ bool DrawView::SetAttributes(const SfxItemSet& rSet,
 
                     // Undo-Action
                     mpDocSh->GetUndoManager()->AddUndoAction(
-                        o3tl::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
+                        std::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
 
                     pSheet->GetItemSet().Put(aTempSet);
                     pSheet->Broadcast(SfxHint(SfxHintId::DataChanged));
@@ -217,7 +217,7 @@ bool DrawView::SetAttributes(const SfxItemSet& rSet,
 
                             // Undo-Action
                             mpDocSh->GetUndoManager()->AddUndoAction(
-                                o3tl::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
+                                std::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
 
                             pSheet->GetItemSet().Put(aTempSet);
                             pSheet->Broadcast(SfxHint(SfxHintId::DataChanged));
@@ -293,7 +293,7 @@ bool DrawView::SetAttributes(const SfxItemSet& rSet,
 
                         // Undo-Action
                         mpDocSh->GetUndoManager()->AddUndoAction(
-                            o3tl::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
+                            std::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
 
                         pSheet->GetItemSet().Put(aTempSet,false);
                         pSheet->Broadcast(SfxHint(SfxHintId::DataChanged));
@@ -336,7 +336,7 @@ bool DrawView::SetAttributes(const SfxItemSet& rSet,
 
                             // Undo-Action
                             mpDocSh->GetUndoManager()->AddUndoAction(
-                                o3tl::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
+                                std::make_unique<StyleSheetUndoAction>(&mrDoc, pSheet, &aTempSet));
 
                             pSheet->GetItemSet().Set(aTempSet,false);
                             pSheet->Broadcast(SfxHint(SfxHintId::DataChanged));

@@ -7,6 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#ifndef LO_CLANG_SHARED_PLUGINS
+
 #include <cassert>
 #include <string>
 #include <iostream>
@@ -73,16 +75,20 @@ public:
     explicit UnnecessaryParen(loplugin::InstantiationData const & data):
         FilteringRewritePlugin(data) {}
 
-    virtual void run() override
+    virtual bool preRun() override
     {
         StringRef fn(handler.getMainFileName());
         // fixing this, makes the source in the .y files look horrible
         if (loplugin::isSamePathname(fn, WORKDIR "/YaccTarget/unoidl/source/sourceprovider-parser.cxx"))
-             return;
+            return false;
         if (loplugin::isSamePathname(fn, WORKDIR "/YaccTarget/idlc/source/parser.cxx"))
-             return;
-
-        TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
+            return false;
+        return true;
+    }
+    virtual void run() override
+    {
+        if( preRun())
+            TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
     }
 
     bool VisitParenExpr(const ParenExpr *);
@@ -219,6 +225,14 @@ bool UnnecessaryParen::VisitParenExpr(const ParenExpr* parenExpr)
                 << parenExpr->getSourceRange();
         }
         handled_.insert(parenExpr);
+    } else if (auto memberExpr = dyn_cast<MemberExpr>(subExpr)) {
+        if (isa<CXXThisExpr>(ignoreAllImplicit(memberExpr->getBase()))) {
+            report(
+                DiagnosticsEngine::Warning, "unnecessary parentheses around member expr",
+                compat::getBeginLoc(parenExpr))
+                << parenExpr->getSourceRange();
+            handled_.insert(parenExpr);
+        }
     }
 
     return true;
@@ -447,8 +461,9 @@ bool UnnecessaryParen::VisitVarDecl(const VarDecl* varDecl)
         return true;
 
     // these two are for "parentheses were disambiguated as a function declaration [-Werror,-Wvexing-parse]"
-    if (isa<CXXBindTemporaryExpr>(sub)
-        || isa<CXXFunctionalCastExpr>(sub))
+    auto const sub2 = sub->IgnoreImplicit();
+    if (isa<CXXTemporaryObjectExpr>(sub2)
+        || isa<CXXFunctionalCastExpr>(sub2))
         return true;
 
     report(
@@ -617,8 +632,10 @@ bool UnnecessaryParen::removeParens(ParenExpr const * expr) {
     return true;
 }
 
-loplugin::Plugin::Registration< UnnecessaryParen > X("unnecessaryparen", true);
+loplugin::Plugin::Registration< UnnecessaryParen > unnecessaryparen("unnecessaryparen", true);
 
 }
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

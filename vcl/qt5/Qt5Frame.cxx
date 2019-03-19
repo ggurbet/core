@@ -29,6 +29,7 @@
 #include <Qt5Menu.hxx>
 #include <Qt5DragAndDrop.hxx>
 
+#include <QtCore/QMimeData>
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
 #include <QtGui/QIcon>
@@ -93,6 +94,11 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     {
         if (nStyle & SalFrameStyleFlags::INTRO)
             aWinFlags |= Qt::SplashScreen;
+        // floating toolbars are frameless tool windows
+        // + they must be able to receive keyboard focus
+        else if ((nStyle & SalFrameStyleFlags::FLOAT)
+                 && (nStyle & SalFrameStyleFlags::OWNERDRAWDECORATION))
+            aWinFlags |= Qt::Tool | Qt::FramelessWindowHint;
         else if (nStyle & (SalFrameStyleFlags::FLOAT | SalFrameStyleFlags::TOOLTIP))
             aWinFlags |= Qt::ToolTip;
         else if ((nStyle & SalFrameStyleFlags::FLOAT)
@@ -102,30 +108,35 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
             aWinFlags |= Qt::Dialog;
         else if (nStyle & SalFrameStyleFlags::TOOLWINDOW)
             aWinFlags |= Qt::Tool;
-        else if (nStyle & SalFrameStyleFlags::OWNERDRAWDECORATION)
-            aWinFlags |= Qt::Window | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus;
         else
             aWinFlags |= Qt::Window;
     }
 
-    if (!pParent && (aWinFlags == Qt::Window))
+    if (aWinFlags == Qt::Window)
     {
-        m_pTopLevel = new Qt5MainWindow(*this, nullptr, aWinFlags);
+        QWidget* pParentWidget = nullptr;
+        if (m_pParent)
+        {
+            pParentWidget
+                = (m_pParent->m_pTopLevel) ? m_pParent->m_pTopLevel : m_pParent->m_pQWidget;
+        }
+
+        m_pTopLevel = new Qt5MainWindow(*this, pParentWidget, aWinFlags);
         m_pQWidget = new Qt5Widget(*this, aWinFlags);
         m_pTopLevel->setCentralWidget(m_pQWidget);
     }
     else
         m_pQWidget = new Qt5Widget(*this, aWinFlags);
 
-    connect(this, SIGNAL(setVisibleSignal(bool)), SLOT(setVisible(bool)));
     connect(this, &Qt5Frame::tooltipRequest, static_cast<Qt5Widget*>(m_pQWidget),
             &Qt5Widget::showTooltip);
 
     if (pParent && !(pParent->m_nStyle & SalFrameStyleFlags::PLUG))
     {
         QWindow* pParentWindow = pParent->GetQWidget()->window()->windowHandle();
-        QWindow* pChildWindow = m_pQWidget->window()->windowHandle();
-        if (pParentWindow != pChildWindow)
+        QWindow* pChildWindow = (m_pTopLevel ? m_pTopLevel->window()->windowHandle()
+                                             : m_pQWidget->window()->windowHandle());
+        if (pParentWindow && pChildWindow && (pParentWindow != pChildWindow))
             pChildWindow->setTransientParent(pParentWindow);
     }
 
@@ -150,6 +161,8 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     //m_aSystemData.pWidget = m_pQWidget;
     //m_aSystemData.nScreen = m_nXScreen.getXScreen();
     m_aSystemData.pToolkit = "qt5";
+
+    SetIcon(SV_ICON_ID_OFFICE);
 }
 
 Qt5Frame::~Qt5Frame()
@@ -280,6 +293,14 @@ bool Qt5Frame::isMaximized() const
         return m_pQWidget->isMaximized();
 }
 
+void Qt5Frame::SetWindowStateImpl(Qt::WindowStates eState)
+{
+    if (m_pTopLevel)
+        m_pTopLevel->setWindowState(eState);
+    else
+        m_pQWidget->setWindowState(eState);
+}
+
 void Qt5Frame::SetTitle(const OUString& rTitle)
 {
     m_pQWidget->window()->setWindowTitle(toQString(rTitle));
@@ -336,7 +357,9 @@ void Qt5Frame::Show(bool bVisible, bool /*bNoActivate*/)
     if (m_bDefaultSize)
         SetDefaultSize();
 
-    Q_EMIT setVisibleSignal(bVisible);
+    auto* pSalInst(static_cast<Qt5Instance*>(GetSalData()->m_pInstance));
+    assert(pSalInst);
+    pSalInst->RunInMainThread([this, bVisible]() { setVisible(bVisible); });
 }
 
 void Qt5Frame::SetMinClientSize(long nWidth, long nHeight)
@@ -366,8 +389,9 @@ void Qt5Frame::Center()
     if (m_pParent)
     {
         QWidget* pWindow = m_pParent->GetQWidget()->window();
-        m_pQWidget->move(pWindow->frameGeometry().topLeft() + pWindow->rect().center()
-                         - m_pQWidget->rect().center());
+        QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
+        pWidget->move(pWindow->frameGeometry().topLeft() + pWindow->rect().center()
+                      - pWidget->rect().center());
     }
 }
 
@@ -407,7 +431,7 @@ void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt1
         m_bDefaultSize = false;
         if (isChild(false) || !m_pQWidget->isMaximized())
         {
-            QWidget* const pWidget = (m_pTopLevel) ? m_pTopLevel : m_pQWidget;
+            QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
 
             if (m_nStyle & SalFrameStyleFlags::SIZEABLE)
                 pWidget->resize(nWidth, nHeight);
@@ -473,13 +497,25 @@ void Qt5Frame::SetModal(bool bModal)
 {
     if (isWindow())
     {
-        if (m_pTopLevel)
-            m_pTopLevel->setVisible(true);
-        // modality change is only effective if the window is hidden
-        windowHandle()->hide();
-        windowHandle()->setModality(bModal ? Qt::WindowModal : Qt::NonModal);
-        // and shown again
-        windowHandle()->show();
+        auto* pSalInst(static_cast<Qt5Instance*>(GetSalData()->m_pInstance));
+        assert(pSalInst);
+        pSalInst->RunInMainThread([this, bModal]() {
+            bool wasVisible = windowHandle()->isVisible();
+
+            // modality change is only effective if the window is hidden
+            if (wasVisible)
+            {
+                windowHandle()->hide();
+            }
+
+            windowHandle()->setModality(bModal ? Qt::WindowModal : Qt::NonModal);
+
+            // and shown again if it was visible
+            if (wasVisible)
+            {
+                windowHandle()->show();
+            }
+        });
     }
 }
 
@@ -497,7 +533,19 @@ void Qt5Frame::SetWindowState(const SalFrameState* pState)
 
     if ((pState->mnMask & WindowStateMask::State) && (pState->mnState & WindowStateState::Maximized)
         && !isMaximized() && (pState->mnMask & nMaxGeometryMask) == nMaxGeometryMask)
-        m_pQWidget->showMaximized();
+    {
+        if (m_pTopLevel)
+        {
+            m_pTopLevel->resize(pState->mnWidth, pState->mnHeight);
+            m_pTopLevel->move(pState->mnX, pState->mnY);
+        }
+        else
+        {
+            m_pQWidget->resize(pState->mnWidth, pState->mnHeight);
+            m_pQWidget->move(pState->mnX, pState->mnY);
+        }
+        SetWindowStateImpl(Qt::WindowMaximized);
+    }
     else if (pState->mnMask
              & (WindowStateMask::X | WindowStateMask::Y | WindowStateMask::Width
                 | WindowStateMask::Height))
@@ -525,16 +573,12 @@ void Qt5Frame::SetWindowState(const SalFrameState* pState)
     }
     else if (pState->mnMask & WindowStateMask::State && !isChild())
     {
-        if (pState->mnState & WindowStateState::Maximized && m_pTopLevel)
-        {
-            m_pTopLevel->showMaximized();
-            return;
-        }
-
-        if ((pState->mnState & WindowStateState::Minimized) && isWindow())
-            m_pQWidget->showMinimized();
+        if (pState->mnState & WindowStateState::Maximized)
+            SetWindowStateImpl(Qt::WindowMaximized);
+        else if (pState->mnState & WindowStateState::Minimized)
+            SetWindowStateImpl(Qt::WindowMinimized);
         else
-            m_pQWidget->showNormal();
+            SetWindowStateImpl(Qt::WindowNoState);
     }
 }
 
@@ -573,9 +617,19 @@ void Qt5Frame::ShowFullScreen(bool bFullScreen, sal_Int32 nScreen)
     if (!isWindow())
         m_pTopLevel->show();
 
-    // do that before going fullscreen
-    SetScreenNumber(nScreen);
-    m_bFullScreen ? windowHandle()->showFullScreen() : windowHandle()->showNormal();
+    if (m_bFullScreen)
+    {
+        m_aRestoreGeometry = m_pTopLevel->geometry();
+        // do that before going fullscreen
+        SetScreenNumber(nScreen);
+        windowHandle()->showFullScreen();
+    }
+    else
+    {
+        windowHandle()->showNormal();
+        m_pTopLevel->setGeometry(m_aRestoreGeometry);
+        m_aRestoreGeometry = QRect();
+    }
 }
 
 void Qt5Frame::StartPresentation(bool)
@@ -593,7 +647,6 @@ void Qt5Frame::SetAlwaysOnTop(bool bOnTop)
         pWidget->setWindowFlags(flags | Qt::CustomizeWindowHint | Qt::WindowStaysOnTopHint);
     else
         pWidget->setWindowFlags(flags & ~(Qt::CustomizeWindowHint | Qt::WindowStaysOnTopHint));
-    pWidget->show();
 }
 
 void Qt5Frame::ToTop(SalFrameToTop nFlags)
@@ -602,8 +655,10 @@ void Qt5Frame::ToTop(SalFrameToTop nFlags)
 
     if (isWindow() && !(nFlags & SalFrameToTop::GrabFocusOnly))
         pWidget->raise();
-    pWidget->setFocus();
-    pWidget->activateWindow();
+    if ((nFlags & SalFrameToTop::RestoreWhenMin) || (nFlags & SalFrameToTop::ForegroundTask))
+        pWidget->activateWindow();
+    else if ((nFlags & SalFrameToTop::GrabFocus) || (nFlags & SalFrameToTop::GrabFocusOnly))
+        m_pQWidget->setFocus();
 }
 
 void Qt5Frame::SetPointer(PointerStyle ePointerStyle)
@@ -984,7 +1039,7 @@ bool Qt5Frame::SetPluginParent(SystemParentData* /*pNewParent*/)
 
 void Qt5Frame::ResetClipRegion() { m_bNullRegion = true; }
 
-void Qt5Frame::BeginSetClipRegion(sal_uLong)
+void Qt5Frame::BeginSetClipRegion(sal_uInt32)
 {
     m_aRegion = QRegion(QRect(QPoint(0, 0), m_pQWidget->size()));
 }
@@ -1059,7 +1114,8 @@ void Qt5Frame::deregisterDropTarget(Qt5DropTarget const* pDropTarget)
     m_pDropTarget = nullptr;
 }
 
-void Qt5Frame::draggingStarted(const int x, const int y)
+void Qt5Frame::draggingStarted(const int x, const int y, Qt::DropActions eActions,
+                               const QMimeData* pQMimeData)
 {
     assert(m_pDropTarget);
 
@@ -1068,11 +1124,14 @@ void Qt5Frame::draggingStarted(const int x, const int y)
     aEvent.Context = static_cast<css::datatransfer::dnd::XDropTargetDragContext*>(m_pDropTarget);
     aEvent.LocationX = x;
     aEvent.LocationY = y;
-    aEvent.DropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
-    aEvent.SourceActions = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
+    aEvent.DropAction = getPreferredDropAction(eActions);
+    aEvent.SourceActions = toVclDropActions(eActions);
 
     css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
-    xTransferable = Qt5DragSource::m_ActiveDragSource->GetTransferable();
+    if (!pQMimeData->hasFormat(sInternalMimeType))
+        xTransferable = new Qt5DnDTransferable(pQMimeData);
+    else
+        xTransferable = Qt5DragSource::m_ActiveDragSource->GetTransferable();
 
     if (!m_bInDrag && xTransferable.is())
     {
@@ -1087,7 +1146,7 @@ void Qt5Frame::draggingStarted(const int x, const int y)
         m_pDropTarget->fire_dragOver(aEvent);
 }
 
-void Qt5Frame::dropping(const int x, const int y)
+void Qt5Frame::dropping(const int x, const int y, const QMimeData* pQMimeData)
 {
     assert(m_pDropTarget);
 
@@ -1101,7 +1160,10 @@ void Qt5Frame::dropping(const int x, const int y)
     aEvent.SourceActions = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
 
     css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
-    xTransferable = Qt5DragSource::m_ActiveDragSource->GetTransferable();
+    if (!pQMimeData->hasFormat(sInternalMimeType))
+        xTransferable = new Qt5DnDTransferable(pQMimeData);
+    else
+        xTransferable = Qt5DragSource::m_ActiveDragSource->GetTransferable();
     aEvent.Transferable = xTransferable;
 
     m_pDropTarget->fire_drop(aEvent);

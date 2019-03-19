@@ -194,7 +194,6 @@ private:
 
 class XclMacroHelper : public XclExpControlHelper
 {
-protected:
     XclTokenArrayRef    mxMacroLink;    /// Token array containing a link to an attached macro.
 
 public:
@@ -366,16 +365,13 @@ private:
 class XclExpComments : public XclExpRecord
 {
 public:
-    typedef XclExpRecordList< XclExpNote >
-                        XclExpNoteList;
-
-                        XclExpComments( SCTAB nTab, XclExpNoteList& rNotes );
+                        XclExpComments( SCTAB nTab, XclExpRecordList< XclExpNote >& rNotes );
 
     virtual void        SaveXml( XclExpXmlStream& rStrm ) override;
 
 private:
     SCTAB const         mnTab;
-    XclExpNoteList&     mrNotes;
+    XclExpRecordList< XclExpNote >& mrNotes;
 };
 
 // object manager =============================================================

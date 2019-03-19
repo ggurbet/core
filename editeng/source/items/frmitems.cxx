@@ -3867,6 +3867,9 @@ bool SvxFrameDirectionItem::PutValue( const css::uno::Any& rVal,
             case text::WritingMode2::TB_LR:
                 SetValue( SvxFrameDirection::Vertical_LR_TB );
                 break;
+            case text::WritingMode2::BT_LR:
+                SetValue( SvxFrameDirection::Vertical_LR_BT );
+                break;
             case text::WritingMode2::PAGE:
                 SetValue( SvxFrameDirection::Environment );
                 break;
@@ -3900,6 +3903,9 @@ bool SvxFrameDirectionItem::QueryValue( css::uno::Any& rVal,
         case SvxFrameDirection::Vertical_LR_TB:
             nVal = text::WritingMode2::TB_LR;
             break;
+        case SvxFrameDirection::Vertical_LR_BT:
+            nVal = text::WritingMode2::BT_LR;
+            break;
         case SvxFrameDirection::Environment:
             nVal = text::WritingMode2::PAGE;
             break;
@@ -3915,6 +3921,17 @@ bool SvxFrameDirectionItem::QueryValue( css::uno::Any& rVal,
         rVal <<= nVal;
     }
     return bRet;
+}
+
+void SvxFrameDirectionItem::dumpAsXml(xmlTextWriterPtr pWriter) const
+{
+    xmlTextWriterStartElement(pWriter, BAD_CAST("SvxFrameDirectionItem"));
+    xmlTextWriterWriteAttribute(pWriter, BAD_CAST("m_nWhich"),
+                                BAD_CAST(OString::number(Which()).getStr()));
+    xmlTextWriterWriteAttribute(
+        pWriter, BAD_CAST("m_nValue"),
+        BAD_CAST(OString::number(static_cast<sal_Int16>(GetValue())).getStr()));
+    xmlTextWriterEndElement(pWriter);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

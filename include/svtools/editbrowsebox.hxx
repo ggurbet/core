@@ -31,10 +31,8 @@
 
 #include <vcl/button.hxx>
 #include <svtools/brwbox.hxx>
-#include <vcl/timer.hxx>
 #include <svtools/brwhead.hxx>
 #include <svtools/svmedit.hxx>
-#include <vcl/svapp.hxx>
 #include <o3tl/typed_flags_set.hxx>
 
 
@@ -74,7 +72,6 @@ namespace o3tl
 
 
 class Edit;
-class SpinField;
 class FormattedField;
 
 
@@ -85,7 +82,6 @@ namespace svt
         friend class EditBrowseBox;
         Link<LinkParamNone*, void> maModifyHdl;
 
-    protected:
         VclPtr<Control>            pWindow;
         bool                       bSuspended;     // <true> if the window is hidden and disabled
 
@@ -626,7 +622,7 @@ namespace svt
         void    implCreateActiveAccessible( );
 
     private:
-        virtual void PaintField(OutputDevice& rDev, const tools::Rectangle& rRect,
+        virtual void PaintField(vcl::RenderContext& rDev, const tools::Rectangle& rRect,
                                 sal_uInt16 nColumnId ) const override;
         using Control::ImplInitSettings;
         SVT_DLLPRIVATE void ImplInitSettings( bool bFont, bool bForeground, bool bBackground );

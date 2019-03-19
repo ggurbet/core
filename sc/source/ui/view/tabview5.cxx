@@ -28,7 +28,6 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/lokhelper.hxx>
 #include <sfx2/objsh.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <tabview.hxx>
 #include <tabvwsh.hxx>
@@ -111,10 +110,10 @@ void ScTabView::Init()
         explicitly because the parent frame window is already RTL disabled. */
     pTabControl->EnableRTL( AllSettings::GetLayoutRTL() );
 
-    InitScrollBar( *aHScrollLeft.get(),    MAXCOL+1 );
-    InitScrollBar( *aHScrollRight.get(),   MAXCOL+1 );
-    InitScrollBar( *aVScrollTop.get(),     MAXROW+1 );
-    InitScrollBar( *aVScrollBottom.get(),  MAXROW+1 );
+    InitScrollBar( *aHScrollLeft,    MAXCOL+1 );
+    InitScrollBar( *aHScrollRight,   MAXCOL+1 );
+    InitScrollBar( *aVScrollTop,     MAXROW+1 );
+    InitScrollBar( *aVScrollBottom,  MAXROW+1 );
     /*  #i97900# scrollbars remain in correct RTL mode, needed mirroring etc.
         is now handled correctly at the respective places. */
 
@@ -641,7 +640,7 @@ void ScTabView::ResetBrushDocument()
     if ( HasPaintBrush() )
     {
         SetBrushDocument( nullptr, false );
-        SetActivePointer( Pointer( PointerStyle::Arrow ) );   // switch pointers also when ended with escape key
+        SetActivePointer( PointerStyle::Arrow );   // switch pointers also when ended with escape key
     }
 }
 
@@ -650,7 +649,7 @@ void ScTabView::OnLOKNoteStateChanged(const ScPostIt* pNote)
     if (!comphelper::LibreOfficeKit::isActive())
         return;
 
-    const SdrCaptionObj* pCaption = pNote->GetCaption().get();
+    const SdrCaptionObj* pCaption = pNote->GetCaption();
     if (!pCaption) return;
 
     tools::Rectangle aRect = pCaption->GetLogicRect();

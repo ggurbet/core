@@ -28,7 +28,6 @@
 #include <svx/svdopath.hxx>
 #include <vcl/svapp.hxx>
 #include <basegfx/point/b2dpoint.hxx>
-#include <o3tl/make_unique.hxx>
 
 namespace chart
 {
@@ -565,9 +564,9 @@ bool SelectionHelper::getMarkHandles( SdrHdlList& rHdlList )
     //@todo -> more flexible handle creation
     //2 scenarios possible:
     //1. add an additional invisible shape as a child to the selected object
-    //this child needs to be named somehow and handles need to be generated therefrom ...
+    //this child needs to be named somehow and handles need to be generated there from...
     //or 2. offer a central service per view where renderer and so can register for handle creation for a special shape
-    //.. or 3. feature from drawinglayer to create handles for each shape ... (bad performance ... ?) ?
+    //.. or 3. feature from drawinglayer to create handles for each shape... (bad performance... ?) ?
 
     //scenario 1 is now used:
     //if a child with name MarkHandles exists
@@ -595,7 +594,7 @@ bool SelectionHelper::getMarkHandles( SdrHdlList& rHdlList )
                 for( sal_uInt32 nM = 0; nM < aPolygon.count(); nM++)
                 {
                     const ::basegfx::B2DPoint aPoint(aPolygon.getB2DPoint(nM));
-                    rHdlList.AddHdl(o3tl::make_unique<SdrHdl>(Point(basegfx::fround(aPoint.getX()), basegfx::fround(aPoint.getY())), SdrHdlKind::Poly));
+                    rHdlList.AddHdl(std::make_unique<SdrHdl>(Point(basegfx::fround(aPoint.getX()), basegfx::fround(aPoint.getY())), SdrHdlKind::Poly));
                 }
             }
             return true;
@@ -640,7 +639,7 @@ bool SelectionHelper::getMarkHandles( SdrHdlList& rHdlList )
         }
 
         Point aPos = pSubObj->GetCurrentBoundRect().Center();
-        rHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aPos,SdrHdlKind::Poly));
+        rHdlList.AddHdl(std::make_unique<SdrHdl>(aPos,SdrHdlKind::Poly));
     }
     return true;
 }

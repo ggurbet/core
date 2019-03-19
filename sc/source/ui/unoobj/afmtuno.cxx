@@ -224,10 +224,10 @@ void SAL_CALL ScAutoFormatsObj::insertByName( const OUString& aName, const uno::
                 throw container::ElementExistException();
             }
 
-            ScAutoFormatData* pNew = new ScAutoFormatData();
+            std::unique_ptr<ScAutoFormatData> pNew(new ScAutoFormatData());
             pNew->SetName( aName );
 
-            if (pFormats->insert(pNew))
+            if (pFormats->insert(std::move(pNew)) != pFormats->end())
             {
                 //! notify to other objects
                 pFormats->Save();
@@ -333,10 +333,11 @@ uno::Sequence<OUString> SAL_CALL ScAutoFormatsObj::getElementNames()
     ScAutoFormat* pFormats = ScGlobal::GetOrCreateAutoFormat();
     uno::Sequence<OUString> aSeq(pFormats->size());
     OUString* pAry = aSeq.getArray();
-    ScAutoFormat::const_iterator it = pFormats->begin(), itEnd = pFormats->end();
-    for (size_t i = 0; it != itEnd; ++it, ++i)
+    size_t i = 0;
+    for (const auto& rEntry : *pFormats)
     {
-        pAry[i] = it->second->GetName();
+        pAry[i] = rEntry.second->GetName();
+        ++i;
     }
     return aSeq;
 }
@@ -492,13 +493,13 @@ void SAL_CALL ScAutoFormatObj::setName( const OUString& aNewName )
     ScAutoFormatData *const pData = it->second.get();
     OSL_ENSURE(pData,"AutoFormat data not available");
 
-    ScAutoFormatData* pNew = new ScAutoFormatData(*pData);
+    std::unique_ptr<ScAutoFormatData> pNew(new ScAutoFormatData(*pData));
     pNew->SetName( aNewName );
 
     pFormats->erase(it);
-    if (pFormats->insert(pNew))
+    it = pFormats->insert(std::move(pNew));
+    if (it != pFormats->end())
     {
-        it = pFormats->find(pNew);
         ScAutoFormat::iterator itBeg = pFormats->begin();
         nFormatIndex = std::distance(itBeg, it);
 

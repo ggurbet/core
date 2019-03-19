@@ -1079,7 +1079,7 @@ void SvxTableController::SetTableStyle( const SfxItemSet* pArgs )
             if( bUndo )
             {
                 rModel.BegUndo(SvxResId(STR_TABLE_STYLE));
-                rModel.AddUndo(o3tl::make_unique<TableStyleUndo>(rTableObj));
+                rModel.AddUndo(std::make_unique<TableStyleUndo>(rTableObj));
             }
 
             rTableObj.setTableStyle( xNewTableStyle );
@@ -1173,7 +1173,7 @@ void SvxTableController::SetTableStyleSettings( const SfxItemSet* pArgs )
     if( bUndo )
     {
         rModel.BegUndo( SvxResId(STR_TABLE_STYLE_SETTINGS) );
-        rModel.AddUndo(o3tl::make_unique<TableStyleUndo>(rTableObj));
+        rModel.AddUndo(std::make_unique<TableStyleUndo>(rTableObj));
     }
 
     rTableObj.setTableStyleSettings( aSettings );
@@ -1839,7 +1839,6 @@ void SvxTableController::MergeRange( sal_Int32 nFirstCol, sal_Int32 nFirstRow, s
             }
 
             xRange->merge();
-            mxTable->optimize();
             mbHasJustMerged = true;
             setSelectedCells( maCursorFirstPos, maCursorFirstPos );
 

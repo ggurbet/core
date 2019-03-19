@@ -231,7 +231,7 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,gnome, \
 ))
 endif
 
-ifneq ($(ENABLE_PDFIMPORT),)
+ifneq ($(ENABLE_POPPLER),)
 $(eval $(call gb_Helper_register_executables_for_install,OOO,pdfimport, \
 	xpdfimport \
 ))
@@ -389,7 +389,7 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	hyphen \
     icg \
 	$(if $(ENABLE_JAVA),jdbc) \
-	ldapbe2 \
+	$(if $(ENABLE_LDAP),ldapbe2) \
 	$(if $(filter WNT,$(OS)),WinUserInfoBe) \
 	localebe1 \
 	log \
@@ -405,7 +405,7 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 	$(call gb_Helper_optional,SCRIPTING,msforms) \
 	mtfrenderer \
 	$(call gb_Helper_optional,DBCONNECTIVITY,mysql_jdbc) \
-	$(call gb_Helper_optional,DBCONNECTIVITY,mysqlc) \
+	$(call gb_Helper_optional,MARIADBC,$(call gb_Helper_optional,DBCONNECTIVITY,mysqlc)) \
 	numbertext \
 	odbc \
 	odfflatxml \
@@ -945,6 +945,7 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo,\
 	wizards_properties \
 	wizards_wizardshare \
 	vcl_opengl_shader \
+	vcl_theme_definitions \
 	$(if $(filter WNT,$(OS)), \
 		vcl_opengl_blacklist \
 	) \
@@ -1003,7 +1004,7 @@ $(eval $(call gb_Helper_register_packages_for_install,ogltrans,\
 	slideshow_opengl_shader \
 ))
 
-ifneq ($(ENABLE_PDFIMPORT),)
+ifneq ($(ENABLE_POPPLER),)
 $(eval $(call gb_Helper_register_packages_for_install,pdfimport, \
 	sdext_pdfimport_pdf \
 ))

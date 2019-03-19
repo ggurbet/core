@@ -24,10 +24,10 @@
 
 // Transform table for token operators and opcodes
 
-typedef struct {
+struct OpTable {
         SbiToken  eTok;                 // Token
         SbiOpcode eOp;                  // Opcode
-} OpTable;
+};
 
 static const OpTable aOpTable [] = {
     { EXPON,SbiOpcode::EXP_ },
@@ -209,7 +209,6 @@ void SbiExprList::Gen(SbiCodeGen& rGen)
     {
         rGen.Gen( SbiOpcode::ARGC_ );
         // Type adjustment at DECLARE
-        sal_uInt16 nCount = 1;
 
         for( auto& pExpr: aData )
         {
@@ -249,7 +248,6 @@ void SbiExprList::Gen(SbiCodeGen& rGen)
             {
                 rGen.Gen( SbiOpcode::ARGV_ );
             }
-            nCount++;
         }
     }
 }

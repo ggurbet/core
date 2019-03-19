@@ -487,33 +487,33 @@ Hash::Hash( sal_uLong nSize )
     : nCount(1)
 {
 
-static const sal_uLong primes[] =
-{
-  509,
-  1021,
-  2039,
-  4093,
-  8191,
-  16381,
-  32749,
-  65521,
-  131071,
-  262139,
-  524287,
-  1048573,
-  2097143,
-  4194301,
-  8388593,
-  16777213,
-  33554393,
-  67108859,         /* Preposterously large . . . */
-  134217689,
-  268435399,
-  536870909,
-  1073741789,
-  2147483647,
-  0
-};
+    static const sal_uLong primes[] =
+    {
+      509,
+      1021,
+      2039,
+      4093,
+      8191,
+      16381,
+      32749,
+      65521,
+      131071,
+      262139,
+      524287,
+      1048573,
+      2097143,
+      4194301,
+      8388593,
+      16777213,
+      33554393,
+      67108859,         /* Preposterously large . . . */
+      134217689,
+      268435399,
+      536870909,
+      1073741789,
+      2147483647,
+      0
+    };
     int i;
 
     pDataArr.reset( new HashData[ nSize ] );
@@ -1679,7 +1679,7 @@ void CompareData::SetRedlinesToDoc( bool bUseDocInfo )
             if (rDoc.GetIDocumentUndoRedo().DoesUndo())
             {
                 rDoc.GetIDocumentUndoRedo().AppendUndo(
-                    o3tl::make_unique<SwUndoCompDoc>( *pTmp, false ));
+                    std::make_unique<SwUndoCompDoc>( *pTmp, false ));
             }
             rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( aRedlnData, *pTmp ), true );
 
@@ -1759,7 +1759,7 @@ void CompareData::SetRedlinesToDoc( bool bUseDocInfo )
                 rDoc.GetIDocumentUndoRedo().DoesUndo())
             {
                 rDoc.GetIDocumentUndoRedo().AppendUndo(
-                    o3tl::make_unique<SwUndoCompDoc>( *pTmp, true ));
+                    std::make_unique<SwUndoCompDoc>( *pTmp, true ));
             }
         } while( pInsRing.get() != ( pTmp = pTmp->GetNext()) );
     }

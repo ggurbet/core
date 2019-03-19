@@ -39,7 +39,6 @@ namespace rptxml
     class OControlStyleContext : public XMLPropStyleContext
     {
         OUString             m_sDataStyleName;
-        OUString             sPageStyle;
         SvXMLStylesContext*         pStyles;
         //  std::vector<ScXMLMapContent>    aMaps;
         sal_Int32                   m_nNumberFormat;
@@ -124,7 +123,6 @@ namespace rptxml
         virtual css::uno::Reference< css::container::XNameContainer >
             GetStylesContainer( sal_uInt16 nFamily ) const override;
         virtual OUString GetServiceName( sal_uInt16 nFamily ) const override;
-        virtual sal_uInt16 GetFamily( const OUString& rFamily ) const override;
 
         sal_Int32 GetIndex(const sal_Int16 nContextID);
     };

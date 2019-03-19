@@ -20,6 +20,7 @@
 #include <connectivity/parameters.hxx>
 
 #include <com/sun/star/form/DatabaseParameterEvent.hpp>
+#include <com/sun/star/form/XDatabaseParameterListener.hpp>
 #include <com/sun/star/sdbc/XParameters.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
@@ -27,6 +28,8 @@
 #include <com/sun/star/sdb/XParametersSupplier.hpp>
 #include <com/sun/star/sdb/XInteractionSupplyParameters.hpp>
 #include <com/sun/star/sdb/ParametersRequest.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
+#include <com/sun/star/task/XInteractionHandler.hpp>
 
 #include <connectivity/dbtools.hxx>
 #include <connectivity/filtermanager.hxx>
@@ -92,7 +95,7 @@ namespace dbtools
 
     void ParameterManager::clearAllParameterInformation()
     {
-       m_xInnerParamColumns.clear();
+        m_xInnerParamColumns.clear();
         if ( m_pOuterParameters.is() )
             m_pOuterParameters->dispose();
         m_pOuterParameters   = nullptr;
@@ -197,7 +200,8 @@ namespace dbtools
             }
             catch( const Exception& )
             {
-                SAL_WARN( "connectivity.commontools", "ParameterManager::collectInnerParameters: caught an exception!" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "connectivity.commontools", "ParameterManager::collectInnerParameters: caught an exception! " << exceptionToString(ex) );
             }
         }
     }
@@ -426,7 +430,8 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            SAL_WARN( "connectivity.commontools", "ParameterManager::analyzeFieldLinks: caught an exception!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "connectivity.commontools", "ParameterManager::analyzeFieldLinks: caught an exception! " << exceptionToString(ex) );
         }
     }
 
@@ -664,7 +669,8 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            SAL_WARN( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while calling the handler!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while calling the handler! " << exceptionToString(ex) );
         }
 
         if ( !pParams->wasSelected() )
@@ -694,7 +700,8 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            SAL_WARN( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while propagating the values!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "connectivity.commontools", "ParameterManager::completeParameters: caught an exception while propagating the values! " << exceptionToString(ex) );
         }
         return true;
     }
@@ -788,7 +795,8 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            SAL_WARN( "connectivity.commontools", "ParameterManager::cacheConnectionInfo: caught an exception!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "connectivity.commontools", "ParameterManager::cacheConnectionInfo: caught an exception! " << exceptionToString(ex) );
         }
     }
 
@@ -844,7 +852,8 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            SAL_WARN( "connectivity.commontools", "ParameterManager::getParentColumns: caught an exception!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "connectivity.commontools", "ParameterManager::getParentColumns: caught an exception! " << exceptionToString(ex) );
         }
         return _out_rxParentColumns.is();
     }
@@ -940,7 +949,8 @@ namespace dbtools
         }
         catch( const Exception& )
         {
-            SAL_WARN( "connectivity.commontools", "ParameterManager::resetParameterValues: caught an exception!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "connectivity.commontools", "ParameterManager::resetParameterValues: caught an exception! " << exceptionToString(ex) );
         }
 
     }

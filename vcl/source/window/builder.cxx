@@ -23,6 +23,7 @@
 #include <vcl/builder.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/button.hxx>
+#include <vcl/calendar.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/field.hxx>
@@ -58,6 +59,7 @@
 #include <desktop/crashreport.hxx>
 #include <salinst.hxx>
 #include <strings.hrc>
+#include <treeglue.hxx>
 #include <tools/svlibrary.h>
 #include <tools/diagnose_ex.h>
 
@@ -375,34 +377,8 @@ namespace weld
         m_aChangeHdl.Call(*this);
     }
 
-    void EntryTreeView::EntryModifyHdl(weld::Entry& rBox)
+    IMPL_LINK_NOARG(EntryTreeView, ModifyHdl, weld::Entry&, void)
     {
-        OUString sText(rBox.get_text());
-        int nExists = m_xTreeView->find_text(sText);
-        if (nExists != -1)
-        {
-            m_xTreeView->select(nExists);
-            return;
-        }
-
-        m_xTreeView->select(-1);
-        if (sText.isEmpty())
-            return;
-
-        int nCount = m_xTreeView->n_children();
-        for (int i = 0; i < nCount; ++i)
-        {
-            if (m_xTreeView->get_text(i).startsWith(sText))
-            {
-                m_xTreeView->select(i);
-                break;
-            }
-        }
-    }
-
-    IMPL_LINK(EntryTreeView, ModifyHdl, weld::Entry&, rBox, void)
-    {
-        EntryModifyHdl(rBox);
         m_aChangeHdl.Call(*this);
     }
 
@@ -689,6 +665,11 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
                 case 1:
                     pTarget->SetSmallSymbol();
                     break;
+                case 3:
+                    // large toolbar, make bigger than normal (4)
+                    pTarget->set_width_request(pTarget->GetOptimalSize().Width() * 1.5);
+                    pTarget->set_height_request(pTarget->GetOptimalSize().Height() * 1.5);
+                    break;
                 case 4:
                     break;
                 default:
@@ -876,6 +857,7 @@ namespace
         return bResizable;
     }
 
+#if HAVE_FEATURE_DESKTOP
     bool extractModal(VclBuilder::stringmap &rMap)
     {
         bool bModal = false;
@@ -887,6 +869,7 @@ namespace
         }
         return bModal;
     }
+#endif
 
     bool extractDecorated(VclBuilder::stringmap &rMap)
     {
@@ -1148,6 +1131,30 @@ namespace
         return bHeadersVisible;
     }
 
+    bool extractSortIndicator(VclBuilder::stringmap &rMap)
+    {
+        bool bSortIndicator = false;
+        VclBuilder::stringmap::iterator aFind = rMap.find(OString("sort-indicator"));
+        if (aFind != rMap.end())
+        {
+            bSortIndicator = toBool(aFind->second);
+            rMap.erase(aFind);
+        }
+        return bSortIndicator;
+    }
+
+    bool extractClickable(VclBuilder::stringmap &rMap)
+    {
+        bool bClickable = false;
+        VclBuilder::stringmap::iterator aFind = rMap.find(OString("clickable"));
+        if (aFind != rMap.end())
+        {
+            bClickable = toBool(aFind->second);
+            rMap.erase(aFind);
+        }
+        return bClickable;
+    }
+
     void setupFromActionName(Button *pButton, VclBuilder::stringmap &rMap, const css::uno::Reference<css::frame::XFrame>& rFrame)
     {
         if (!rFrame.is())
@@ -1208,13 +1215,13 @@ namespace
         return xWindow;
     }
 
-    VclPtr<Button> extractStockAndBuildMenuButton(vcl::Window *pParent, VclBuilder::stringmap &rMap)
+    VclPtr<MenuButton> extractStockAndBuildMenuButton(vcl::Window *pParent, VclBuilder::stringmap &rMap)
     {
         WinBits nBits = WB_CLIPCHILDREN|WB_CENTER|WB_VCENTER|WB_3DLOOK;
 
         nBits |= extractRelief(rMap);
 
-        VclPtr<Button> xWindow = VclPtr<MenuButton>::Create(pParent, nBits);
+        VclPtr<MenuButton> xWindow = VclPtr<MenuButton>::Create(pParent, nBits);
 
         if (extractStock(rMap))
         {
@@ -1430,6 +1437,18 @@ namespace
         }
         return sAdjustment;
     }
+
+    bool extractDrawIndicator(VclBuilder::stringmap &rMap)
+    {
+        bool bDrawIndicator = false;
+        VclBuilder::stringmap::iterator aFind = rMap.find(OString("draw-indicator"));
+        if (aFind != rMap.end())
+        {
+            bDrawIndicator = toBool(aFind->second);
+            rMap.erase(aFind);
+        }
+        return bDrawIndicator;
+    }
 }
 
 void VclBuilder::extractModel(const OString &id, stringmap &rMap)
@@ -1628,8 +1647,10 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
         if (extractResizable(rMap))
             nBits |= WB_SIZEABLE;
         xWindow = VclPtr<Dialog>::Create(pParent, nBits, !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default);
+#if HAVE_FEATURE_DESKTOP
         if (!m_bLegacy && !extractModal(rMap))
             xWindow->SetType(WindowType::MODELESSDIALOG);
+#endif
     }
     else if (name == "GtkMessageDialog")
     {
@@ -1705,13 +1726,16 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else if (name == "GtkMenuButton")
     {
-        VclPtr<Button> xButton;
-        xButton = extractStockAndBuildMenuButton(pParent, rMap);
+        VclPtr<MenuButton> xButton = extractStockAndBuildMenuButton(pParent, rMap);
         OUString sMenu = extractPopupMenu(rMap);
         if (!sMenu.isEmpty())
             m_pParserState->m_aButtonMenuMaps.emplace_back(id, sMenu);
         xButton->SetImageAlign(ImageAlign::Left); //default to left
         xButton->SetAccessibleRole(css::accessibility::AccessibleRole::BUTTON_MENU);
+
+        if (!extractDrawIndicator(rMap))
+            xButton->SetDropDown(PushButtonDropdownStyle::NONE);
+
         setupFromActionName(xButton, rMap, m_xFrame);
         xWindow = xButton;
     }
@@ -1914,7 +1938,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
         //   everything over to SvHeaderTabListBox/SvTabListBox
         //c) remove the users of makeSvTabListBox and makeSvTreeListBox
         extractModel(id, rMap);
-        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK;
+        WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_VCENTER|WB_3DLOOK|WB_HIDESELECTION;
         if (m_bLegacy)
         {
             OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
@@ -1947,7 +1971,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                 xHeader->SetHelpId(m_sHelpRoot + headerid);
                 m_aChildren.emplace_back(headerid, xHeader, true);
 
-                VclPtr<SvHeaderTabListBox> xHeaderBox = VclPtr<SvHeaderTabListBox>::Create(xContainer, nWinStyle);
+                VclPtr<LclHeaderTabListBox> xHeaderBox = VclPtr<LclHeaderTabListBox>::Create(xContainer, nWinStyle);
                 xHeaderBox->InitHeaderBar(xHeader);
                 xContainer->set_expand(true);
                 xHeader->Show();
@@ -1957,12 +1981,14 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
             }
             else
             {
-                xBox = VclPtr<SvTabListBox>::Create(pRealParent, nWinStyle);
+                xBox = VclPtr<LclTabListBox>::Create(pRealParent, nWinStyle);
                 xWindowForPackingProps = xBox;
             }
             xWindow = xBox;
             xBox->SetNoAutoCurEntry(true);
             xBox->SetQuickSearch(true);
+            xBox->SetSpaceBetweenEntries(3);
+            xBox->SetEntryHeight(16);
             xBox->SetHighlightRange(); // select over the whole width
         }
         if (pRealParent != pParent)
@@ -1975,8 +2001,11 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
             SvHeaderTabListBox* pTreeView = dynamic_cast<SvHeaderTabListBox*>(pParent);
             if (HeaderBar* pHeaderBar = pTreeView ? pTreeView->GetHeaderBar() : nullptr)
             {
-                OUString sTitle(extractTitle(rMap));
-                HeaderBarItemBits nBits = HeaderBarItemBits::LEFTIMAGE | HeaderBarItemBits::CLICKABLE;
+                HeaderBarItemBits nBits = HeaderBarItemBits::LEFTIMAGE;
+                if (extractClickable(rMap))
+                    nBits |= HeaderBarItemBits::CLICKABLE;
+                if (extractSortIndicator(rMap))
+                    nBits |= HeaderBarItemBits::DOWNARROW;
                 float fAlign = extractAlignment(rMap);
                 if (fAlign == 0.0)
                     nBits |= HeaderBarItemBits::LEFT;
@@ -1985,6 +2014,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                 else if (fAlign == 0.5)
                     nBits |= HeaderBarItemBits::CENTER;
                 auto nItemId = pHeaderBar->GetItemCount() + 1;
+                OUString sTitle(extractTitle(rMap));
                 pHeaderBar->InsertItem(nItemId, sTitle, 100, nBits);
             }
         }
@@ -2061,11 +2091,16 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
         extractBuffer(id, rMap);
 
         WinBits nWinStyle = WB_CLIPCHILDREN|WB_LEFT|WB_NOHIDESELECTION;
-        OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-        if (!sBorder.isEmpty())
-            nWinStyle |= WB_BORDER;
+        if (m_bLegacy)
+        {
+            OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
+            if (!sBorder.isEmpty())
+                nWinStyle |= WB_BORDER;
+        }
         //VclMultiLineEdit manages its own scrolling,
         vcl::Window *pRealParent = prepareWidgetOwnScrolling(pParent, nWinStyle);
+        if (pRealParent != pParent)
+            nWinStyle |= WB_BORDER;
         xWindow = VclPtr<VclMultiLineEdit>::Create(pRealParent, nWinStyle);
         if (pRealParent != pParent)
             cleanupWidgetOwnScrolling(pParent, xWindow, rMap);
@@ -2166,6 +2201,11 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     {
         WinBits nBits = extractDeferredBits(rMap);
         xWindow = VclPtr<ListControl>::Create(pParent, nBits);
+    }
+    else if (name == "GtkCalendar")
+    {
+        WinBits nBits = extractDeferredBits(rMap);
+        xWindow = VclPtr<Calendar>::Create(pParent, nBits);
     }
     else
     {
@@ -2367,7 +2407,7 @@ namespace BuilderUtils
     {
         using namespace com::sun::star::accessibility;
 
-        static const std::unordered_map<OString, sal_Int16, OStringHash> aAtkRoleToAccessibleRole = {
+        static const std::unordered_map<OString, sal_Int16> aAtkRoleToAccessibleRole = {
             /* This is in atkobject.h's AtkRole order */
             { "invalid",               AccessibleRole::UNKNOWN },
             { "accelerator label",     AccessibleRole::UNKNOWN },
@@ -3094,7 +3134,6 @@ std::vector<ComboBoxTextItem> VclBuilder::handleItems(xmlreader::XmlReader &read
     int nLevel = 1;
 
     std::vector<ComboBoxTextItem> aItems;
-    sal_Int32 nItemIndex = 0;
 
     while(true)
     {
@@ -3151,7 +3190,6 @@ std::vector<ComboBoxTextItem> VclBuilder::handleItems(xmlreader::XmlReader &read
                     sFinalValue = (*m_pStringReplace)(sFinalValue);
 
                 aItems.emplace_back(sFinalValue, sId);
-                ++nItemIndex;
             }
         }
 
@@ -3490,7 +3528,7 @@ template<typename T> static bool insertItems(vcl::Window *pWindow, VclBuilder::s
         sal_Int32 nPos = pContainer->InsertEntry(item.m_sItem);
         if (!item.m_sId.isEmpty())
         {
-            rUserData.emplace_back(o3tl::make_unique<OUString>(OUString::fromUtf8(item.m_sId)));
+            rUserData.emplace_back(std::make_unique<OUString>(OUString::fromUtf8(item.m_sId)));
             pContainer->SetEntryData(nPos, rUserData.back().get());
         }
     }
@@ -4139,7 +4177,7 @@ void VclBuilder::mungeModel(ComboBox &rTarget, const ListStore &rStore, sal_uInt
             {
                 if (!rRow[1].isEmpty())
                 {
-                    m_aUserData.emplace_back(o3tl::make_unique<OUString>(rRow[1]));
+                    m_aUserData.emplace_back(std::make_unique<OUString>(rRow[1]));
                     rTarget.SetEntryData(nEntry, m_aUserData.back().get());
                 }
             }
@@ -4166,7 +4204,7 @@ void VclBuilder::mungeModel(ListBox &rTarget, const ListStore &rStore, sal_uInt1
             {
                 if (!rRow[1].isEmpty())
                 {
-                    m_aUserData.emplace_back(o3tl::make_unique<OUString>(rRow[1]));
+                    m_aUserData.emplace_back(std::make_unique<OUString>(rRow[1]));
                     rTarget.SetEntryData(nEntry, m_aUserData.back().get());
                 }
             }
@@ -4193,7 +4231,7 @@ void VclBuilder::mungeModel(SvTabListBox& rTarget, const ListStore &rStore, sal_
             {
                 if (!rRow[1].isEmpty())
                 {
-                    m_aUserData.emplace_back(o3tl::make_unique<OUString>(rRow[1]));
+                    m_aUserData.emplace_back(std::make_unique<OUString>(rRow[1]));
                     pEntry->SetUserData(m_aUserData.back().get());
                 }
             }

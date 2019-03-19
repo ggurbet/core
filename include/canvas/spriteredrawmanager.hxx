@@ -24,13 +24,12 @@
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/vector/b2dvector.hxx>
 #include <basegfx/range/b2drange.hxx>
-#include <basegfx/range/b2irange.hxx>
-#include <basegfx/matrix/b2dhommatrix.hxx>
-#include <canvas/base/spritesurface.hxx>
+#include <basegfx/range/b2drectangle.hxx>
 
 #include <vector>
 #include <algorithm>
 
+#include <canvas/base/sprite.hxx>
 #include <canvas/canvastoolsdllapi.h>
 
 /* Definition of SpriteRedrawManager class */
@@ -361,8 +360,8 @@ namespace canvas
 
         bool areSpritesChanged( const UpdateArea& rUpdateArea ) const;
 
-        bool isAreaUpdateNotOpaque( const ::basegfx::B2DRange&  rUpdateRect,
-                                    const AreaComponent&        rComponent ) const;
+        bool isAreaUpdateNotOpaque( const ::basegfx::B2DRectangle&  rUpdateRect,
+                                    const AreaComponent&            rComponent ) const;
 
         bool isAreaUpdateOpaque( const UpdateArea&  rUpdateArea,
                                  ::std::size_t      nNumSprites ) const;
@@ -380,8 +379,8 @@ namespace canvas
             @param rUpdateArea
             Area to check for scroll update optimization
          */
-        bool isAreaUpdateScroll( ::basegfx::B2DRange&   o_rMoveStart,
-                                 ::basegfx::B2DRange&   o_rMoveEnd,
+        bool isAreaUpdateScroll( ::basegfx::B2DRectangle& o_rMoveStart,
+                                 ::basegfx::B2DRectangle& o_rMoveEnd,
                                  const UpdateArea&      rUpdateArea,
                                  ::std::size_t          nNumSprites ) const;
 

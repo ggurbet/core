@@ -31,6 +31,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/mnemonic.hxx>
+#include <vcl/event.hxx>
 #include "bibbeam.hxx"
 #include "bibview.hxx"
 #include "bibresid.hxx"
@@ -372,7 +373,8 @@ void BibToolBar::Click()
     {
         if(pDatMan)
         {
-            OUString sNew = pDatMan->CreateDBChangeDialog(GetParent());
+            vcl::Window* pWin = GetParent();
+            OUString sNew = pDatMan->CreateDBChangeDialog(pWin ? pWin->GetFrameWeld() : nullptr);
             if(!sNew.isEmpty())
                 pDatMan->setActiveDataSource(sNew);
         }

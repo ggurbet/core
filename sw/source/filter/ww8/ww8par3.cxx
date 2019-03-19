@@ -401,7 +401,7 @@ struct WW8LSTInfo   // sorted by nIdLst (in WW8 used list-Id)
     bool bUsedInDoc :1;// Flag, if this NumRule is used in the Doc,
                                                      //   or is supposed to be deleted on Reader-End
 
-    WW8LSTInfo(SwNumRule* pNumRule_, WW8LST& aLST)
+    WW8LSTInfo(SwNumRule* pNumRule_, const WW8LST& aLST)
         : pNumRule(pNumRule_), nIdLst(aLST.nIdLst),
         bSimpleList(aLST.bSimpleList), bUsedInDoc(false)
     {
@@ -586,7 +586,7 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
             const sal_uInt8 *pBegin = aSprm.pSprm - 2;
             for(int i=0;i<4;++i)
                 rParaSprms.push_back(*pBegin++);
-            short nDxaLeft = SVBT16ToShort(aSprm.pSprm);
+            short nDxaLeft = SVBT16ToUInt16(aSprm.pSprm);
             aLVL.nDxaLeft = (0 < nDxaLeft) ? static_cast<sal_uInt16>(nDxaLeft)
                             : static_cast<sal_uInt16>(-nDxaLeft);
         }
@@ -601,7 +601,7 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
             const sal_uInt8 *pBegin = aSprm.pSprm - 2;
             for(int i=0;i<4;++i)
                 rParaSprms.push_back(*pBegin++);
-            aLVL.nDxaLeft1 = SVBT16ToShort(aSprm.pSprm);
+            aLVL.nDxaLeft1 = SVBT16ToUInt16(aSprm.pSprm);
         }
 
         // #i86652# - read tab setting
@@ -616,7 +616,7 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
                 {
                     if (*pSprm++ == 1) //nIns
                     {
-                        nTabPos = SVBT16ToShort(pSprm);
+                        nTabPos = SVBT16ToUInt16(pSprm);
                         pSprm+=2;
                         if (*pSprm == 6) //type
                         {
@@ -1462,14 +1462,11 @@ WW8ListManager::WW8ListManager(SvStream& rSt_, SwWW8ImplReader& rReader_)
 
                 // 2.2.3 adjust LVL of the new NumRule
 
-                sal_uInt16 aFlagsNewCharFormat = 0;
                 bool bNewCharFormatCreated = false;
                 for (sal_uInt8 nLevel = 0; nLevel < rLFOInfo.nLfoLvl; ++nLevel)
                 {
                     AdjustLVL( nLevel, *rLFOInfo.pNumRule, aItemSet, aCharFormat,
                         bNewCharFormatCreated, sPrefix );
-                    if( bNewCharFormatCreated )
-                        aFlagsNewCharFormat += (1 << nLevel);
                 }
             }
         }
@@ -1524,7 +1521,7 @@ static bool IsEqualFormatting(const SwNumRule &rOne, const SwNumRule &rTwo)
             //The SvxNumberFormat compare, not the SwNumFormat compare
             const SvxNumberFormat &rO = rOne.Get(n);
             const SvxNumberFormat &rT = rTwo.Get(n);
-            if (!(rO == rT))
+            if (rO != rT)
             {
                 bRet = false;
                 break;
@@ -1742,18 +1739,11 @@ void SwWW8ImplReader::SetStylesList(sal_uInt16 nStyle, sal_uInt16 nCurrentLFO,
                 rStyleInf.m_nLFOIndex  = nCurrentLFO;
                 rStyleInf.m_nListLevel = nCurrentLevel;
 
-                if (
-                    (USHRT_MAX > nCurrentLFO) &&
-                    (WW8ListManager::nMaxLevel > nCurrentLevel)
-                   )
-                {
-                    std::vector<sal_uInt8> aParaSprms;
-                    SwNumRule *pNmRule =
-                        m_xLstManager->GetNumRuleForActivation(nCurrentLFO,
-                            nCurrentLevel, aParaSprms);
-                    if (pNmRule)
-                        UseListIndent(rStyleInf, pNmRule->Get(nCurrentLevel));
-                }
+                std::vector<sal_uInt8> aParaSprms;
+                SwNumRule* pNmRule = m_xLstManager->GetNumRuleForActivation(
+                    nCurrentLFO, nCurrentLevel, aParaSprms);
+                if (pNmRule)
+                    UseListIndent(rStyleInf, pNmRule->Get(nCurrentLevel));
             }
         }
     }
@@ -1942,11 +1932,7 @@ void SwWW8ImplReader::Read_ListLevel(sal_uInt16, const sal_uInt8* pData,
 
         if (WW8ListManager::nMaxLevel <= m_nListLevel )
             m_nListLevel = WW8ListManager::nMaxLevel;
-        else if
-           (
-             (USHRT_MAX > m_nLFOPosition) &&
-             (WW8ListManager::nMaxLevel > m_nListLevel)
-           )
+        else if (USHRT_MAX > m_nLFOPosition)
         {
             RegisterNumFormat(m_nLFOPosition, m_nListLevel);
             m_nLFOPosition = USHRT_MAX;
@@ -1973,7 +1959,7 @@ void SwWW8ImplReader::Read_LFOPosition(sal_uInt16, const sal_uInt8* pData,
         if( !pData )
             return;
 
-        short nData = SVBT16ToShort( pData );
+        short nData = SVBT16ToUInt16( pData );
         if( 0 >= nData )
         {
             // disable the numbering/list style apply to the paragraph or the style

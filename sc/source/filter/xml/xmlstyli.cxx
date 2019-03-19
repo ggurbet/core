@@ -26,11 +26,9 @@
 #include <xmloff/XMLGraphicsDefaultStyle.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
-#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
 #include <comphelper/extract.hxx>
 #include <xmloff/xmlprcon.hxx>
-#include <xmloff/xmluconv.hxx>
 #include "XMLTableHeaderFooterContext.hxx"
 #include "XMLConverter.hxx"
 #include "XMLTableShapeImportHelper.hxx"
@@ -44,14 +42,7 @@
 #include <unonames.hxx>
 #include <document.hxx>
 #include <conditio.hxx>
-#include <svl/intitem.hxx>
 #include <rangelst.hxx>
-#include <rangeutl.hxx>
-#include <docfunc.hxx>
-#include <markdata.hxx>
-#include <docpool.hxx>
-#include <scitems.hxx>
-#include <patattr.hxx>
 
 #define XML_LINE_LEFT 0
 #define XML_LINE_RIGHT 1
@@ -101,11 +92,9 @@ void ScXMLCellImportPropertyMapper::finished(::std::vector< XMLPropertyState >& 
     XMLPropertyState* pOldDiagBorderWidths[2] = { nullptr };      // old attribute names without "s"
     XMLPropertyState* pDiagBorderWidths[2] = { nullptr };
 
-    ::std::vector< XMLPropertyState >::iterator endproperty(rProperties.end());
-    for (::std::vector< XMLPropertyState >::iterator aIter =  rProperties.begin();
-        aIter != endproperty; ++aIter)
+    for (auto& rProperty : rProperties)
     {
-        XMLPropertyState*property = &(*aIter);
+        XMLPropertyState*property = &rProperty;
         if (property->mnIndex != -1)
         {
             sal_Int16 nContextID = getPropertySetMapper()->GetEntryContextId(property->mnIndex);
@@ -230,11 +219,9 @@ void ScXMLRowImportPropertyMapper::finished(::std::vector< XMLPropertyState >& r
     XMLPropertyState* pHeight(nullptr);
     XMLPropertyState* pOptimalHeight(nullptr);
     XMLPropertyState* pPageBreak(nullptr);
-    ::std::vector< XMLPropertyState >::iterator endproperty(rProperties.end());
-    for (::std::vector< XMLPropertyState >::iterator aIter = rProperties.begin();
-        aIter != endproperty; ++aIter)
+    for (auto& rProperty : rProperties)
     {
-        XMLPropertyState* property = &(*aIter);
+        XMLPropertyState* property = &rProperty;
         if (property->mnIndex != -1)
         {
             sal_Int16 nContextID = getPropertySetMapper()->GetEntryContextId(property->mnIndex);
@@ -502,28 +489,26 @@ void XMLTableStyleContext::ApplyCondFormat( const uno::Sequence<table::CellRange
     ScDocument* pDoc = GetScImport().GetDocument();
     SCTAB nTab = GetScImport().GetTables().GetCurrentSheet();
     ScConditionalFormatList* pFormatList = pDoc->GetCondFormList(nTab);
-    for(ScConditionalFormatList::iterator itr = pFormatList->begin(), itrEnd = pFormatList->end();
-                    itr != itrEnd; ++itr)
+    auto itr = std::find_if(pFormatList->begin(), pFormatList->end(),
+        [this](const std::unique_ptr<ScConditionalFormat>& rxFormat) { return rxFormat->EqualEntries(*mpCondFormat); });
+    if (itr != pFormatList->end())
     {
-        if ((*itr)->EqualEntries(*mpCondFormat))
+        ScRangeList& rRangeList = (*itr)->GetRangeList();
+        sal_uInt32 nCondId = (*itr)->GetKey();
+        size_t n = aRangeList.size();
+        for(size_t i = 0; i < n; ++i)
         {
-            ScRangeList& rRangeList = (*itr)->GetRangeList();
-            sal_uInt32 nCondId = (*itr)->GetKey();
-            size_t n = aRangeList.size();
-            for(size_t i = 0; i < n; ++i)
-            {
-                const ScRange & rRange = aRangeList[i];
-                rRangeList.Join(rRange);
-            }
-
-            pDoc->AddCondFormatData( aRangeList, nTab, nCondId );
-            return;
+            const ScRange & rRange = aRangeList[i];
+            rRangeList.Join(rRange);
         }
+
+        pDoc->AddCondFormatData( aRangeList, nTab, nCondId );
+        return;
     }
 
     if(mpCondFormat && mbDeleteCondFormat)
     {
-        sal_uLong nIndex = pDoc->AddCondFormat(mpCondFormat, nTab );
+        sal_uLong nIndex = pDoc->AddCondFormat(std::unique_ptr<ScConditionalFormat>(mpCondFormat), nTab );
         mpCondFormat->SetKey(nIndex);
         mpCondFormat->SetRange(aRangeList);
 
@@ -594,18 +579,12 @@ XMLPropertyState* XMLTableStyleContext::FindProperty(const sal_Int16 nContextID)
         xPrMap = xImpPrMap->getPropertySetMapper();
     if( xPrMap.is() )
     {
-        ::std::vector< XMLPropertyState >::iterator endproperty(GetProperties().end());
-        ::std::vector< XMLPropertyState >::iterator aIter(GetProperties().begin());
-        while(!pRet && aIter != endproperty)
-        {
-            XMLPropertyState* property = &(*aIter);
-            if (property->mnIndex != -1 && xPrMap->GetEntryContextId(property->mnIndex) == nContextID)
-            {
-                pRet = property;
-            }
-            else
-                ++aIter;
-        }
+        auto aIter = std::find_if(GetProperties().begin(), GetProperties().end(),
+            [&xPrMap, &nContextID](const XMLPropertyState& rProp) {
+                return rProp.mnIndex != -1 && xPrMap->GetEntryContextId(rProp.mnIndex) == nContextID;
+            });
+        if (aIter != GetProperties().end())
+            pRet = &(*aIter);
     }
     return pRet;
 }

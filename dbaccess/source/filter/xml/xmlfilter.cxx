@@ -23,6 +23,7 @@
 #include <vcl/errinf.hxx>
 #include <com/sun/star/uri/UriReferenceFactory.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
+#include <com/sun/star/util/XNumberFormatsSupplier.hpp>
 #include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/packages/zip/ZipIOException.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -39,6 +40,7 @@
 #include <xmloff/nmspmap.hxx>
 #include <com/sun/star/xml/sax/InputSource.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
+#include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <xmloff/ProgressBarHelper.hxx>
 #include <sfx2/docfile.hxx>
 #include <com/sun/star/io/XInputStream.hpp>
@@ -57,6 +59,7 @@
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <comphelper/types.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -157,9 +160,8 @@ static ErrCode ReadThroughComponent(
 
         try
         {
-            bool bEncrypted = false;
             // open stream (and set parser input)
-        OUString sStreamName = OUString::createFromAscii(pStreamName);
+            OUString sStreamName = OUString::createFromAscii(pStreamName);
             if ( !xStorage->hasByName( sStreamName ) || !xStorage->isStreamElement( sStreamName ) )
             {
                 // stream name not found! Then try the compatibility name.
@@ -177,10 +179,6 @@ static ErrCode ReadThroughComponent(
 
             // get input stream
             xDocStream = xStorage->openStreamElement( sStreamName, embed::ElementModes::READ );
-
-            uno::Reference< beans::XPropertySet > xProps( xDocStream, uno::UNO_QUERY_THROW );
-            uno::Any aAny = xProps->getPropertyValue("Encrypted");
-            aAny >>= bEncrypted;
         }
         catch (const packages::WrongPasswordException&)
         {
@@ -944,7 +942,7 @@ void ODBFilter::setPropertyInfo()
 
     Sequence<PropertyValue> aInfo;
     if ( !m_aInfoSequence.empty() )
-        aInfo = Sequence<PropertyValue>(&(*m_aInfoSequence.begin()),m_aInfoSequence.size());
+        aInfo = comphelper::containerToSequence(m_aInfoSequence);
     aDataSourceSettings.merge( ::comphelper::NamedValueCollection( aInfo ), true );
 
     aDataSourceSettings >>= aInfo;

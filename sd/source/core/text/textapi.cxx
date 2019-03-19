@@ -17,8 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/text/XTextField.hpp>
-#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 
 #include <textapi.hxx>
@@ -32,7 +30,9 @@
 #include <Outliner.hxx>
 #include <svx/svdpool.hxx>
 #include <svx/svdundo.hxx>
-#include <o3tl/make_unique.hxx>
+
+namespace com { namespace sun { namespace star { namespace container { class XNameContainer; } } } }
+namespace com { namespace sun { namespace star { namespace text { class XTextField; } } } }
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::text;
@@ -137,7 +137,7 @@ TextApiObject::~TextApiObject() throw()
 
 rtl::Reference< TextApiObject > TextApiObject::create( SdDrawDocument* pDoc )
 {
-    rtl::Reference< TextApiObject > xRet( new TextApiObject( o3tl::make_unique<TextAPIEditSource>( pDoc ) ) );
+    rtl::Reference< TextApiObject > xRet( new TextApiObject( std::make_unique<TextAPIEditSource>( pDoc ) ) );
     return xRet;
 }
 
@@ -160,7 +160,7 @@ void TextApiObject::SetText( OutlinerParaObject const & rText )
 {
     SdrModel* pModel = mpSource->GetDoc();
     if( pModel && pModel->IsUndoEnabled() )
-        pModel->AddUndo( o3tl::make_unique<UndoTextAPIChanged>( *pModel, this ) );
+        pModel->AddUndo( std::make_unique<UndoTextAPIChanged>( *pModel, this ) );
 
     mpSource->SetText( rText );
     maSelection.nStartPara = EE_PARA_MAX_COUNT;

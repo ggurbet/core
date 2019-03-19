@@ -38,6 +38,7 @@
 #include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
 #include <comphelper/string.hxx>
 #include <svl/srchdefs.hxx>
+#include <svtools/ehdl.hxx>
 #include <sfx2/dinfdlg.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
@@ -52,6 +53,7 @@
 #include <vcl/settings.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/xtextedt.hxx>
+#include <vcl/textview.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <cassert>
 

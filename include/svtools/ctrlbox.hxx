@@ -22,18 +22,17 @@
 
 #include <svtools/svtdllapi.h>
 
-#include <vcl/customweld.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/combobox.hxx>
-#include <vcl/image.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/metric.hxx>
 #include <vcl/field.hxx>
 #include <vcl/weld.hxx>
 
-#include <com/sun/star/table/BorderLineStyle.hpp>
 #include <memory>
 
+namespace weld { class CustomWeld; }
+
+class VirtualDevice;
 class BorderWidthImpl;
 class FontList;
 class ImpLineListData;
@@ -309,6 +308,30 @@ private:
     Link<SvtLineListBox&,void> maSelectHdl;
 };
 
+class SVT_DLLPUBLIC SvtCalendarBox
+{
+public:
+    SvtCalendarBox(std::unique_ptr<weld::MenuButton> pControl);
+    ~SvtCalendarBox();
+
+    weld::MenuButton& get_button() { return *m_xControl; }
+
+    void set_date(const Date& rDate);
+    Date get_date() const { return m_xCalendar->get_date(); }
+
+    void set_sensitive(bool bSensitive) { m_xControl->set_sensitive(bSensitive); }
+    bool get_sensitive() const { return m_xControl->get_sensitive(); }
+    void grab_focus() { m_xControl->grab_focus(); }
+private:
+    DECL_LINK(SelectHdl, weld::Calendar&, void);
+    DECL_LINK(ActivateHdl, weld::Calendar&, void);
+
+    std::unique_ptr<weld::MenuButton> m_xControl;
+    std::unique_ptr<weld::Builder> m_xBuilder;
+    std::unique_ptr<weld::Widget> m_xTopLevel;
+    std::unique_ptr<weld::Calendar> m_xCalendar;
+};
+
 class SVT_DLLPUBLIC FontNameBox : public ComboBox
 {
 private:
@@ -343,25 +366,13 @@ private:
 
 class SVT_DLLPUBLIC FontStyleBox : public ComboBox
 {
-    OUString        aLastStyle;
-
     Size            aOptimalSize;
 
-private:
-    using ComboBox::SetText;
 public:
     FontStyleBox( vcl::Window* pParent, WinBits nBits );
 
-    virtual void    Select() override;
-    virtual void    LoseFocus() override;
     virtual void    Modify() override;
     virtual Size    GetOptimalSize() const override;
-
-    void            SetText( const OUString& rText ) override
-    {
-        aLastStyle = rText;
-        ComboBox::SetText( rText );
-    }
 
 private:
                     FontStyleBox( const FontStyleBox& ) = delete;
@@ -392,7 +403,6 @@ private:
 
 class SVT_DLLPUBLIC FontSizeBox : public MetricBox
 {
-    FontMetric       aFontMetric;
     bool             bStdSize:1;
 
     using Window::ImplInit;
@@ -421,6 +431,8 @@ class SVT_DLLPUBLIC SvtFontSizeBox
     FontMetric      aFontMetric;
     const FontList* pFontList;
     int             nSavedValue;
+    int             nMin;
+    int             nMax;
     FieldUnit       eUnit;
     sal_uInt16      nDecimalDigits;
     sal_uInt16      nRelMin;
@@ -440,6 +452,7 @@ class SVT_DLLPUBLIC SvtFontSizeBox
     void SetDecimalDigits(sal_uInt16 nDigits) { nDecimalDigits = nDigits; }
     FieldUnit GetUnit() const { return eUnit; }
     void SetUnit(FieldUnit _eUnit) { eUnit = _eUnit; }
+    void SetRange(int nNewMin, int nNewMax) { nMin = nNewMin; nMax = nNewMax; }
     void SetValue(int nNewValue, FieldUnit eInUnit);
 
     void InsertValue(int i);

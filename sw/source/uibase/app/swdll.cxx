@@ -18,7 +18,6 @@
  */
 
 #include <memory>
-#include <config_features.h>
 
 #include <svx/svdobj.hxx>
 
@@ -47,7 +46,7 @@
 #include <swabstdlg.hxx>
 
 #include "swdllimpl.hxx"
-#include <o3tl/make_unique.hxx>
+
 using namespace com::sun::star;
 
 namespace
@@ -97,7 +96,7 @@ SwDLL::SwDLL()
 
     SfxObjectFactory* pWDocFact = &SwWebDocShell::Factory();
 
-    auto pUniqueModule = o3tl::make_unique<SwModule>(pWDocFact, pDocFact, pGlobDocFact);
+    auto pUniqueModule = std::make_unique<SwModule>(pWDocFact, pDocFact, pGlobDocFact);
     SwModule* pModule = pUniqueModule.get();
     SfxApplication::SetModule(SfxToolsModule::Writer, std::move(pUniqueModule));
 
@@ -132,10 +131,8 @@ SwDLL::SwDLL()
     // register your shell-interfaces here
     RegisterInterfaces();
 
-#if HAVE_FEATURE_DESKTOP
     // register your controllers here
     RegisterControls();
-#endif
 
     if (!utl::ConfigManager::IsFuzzing())
     {

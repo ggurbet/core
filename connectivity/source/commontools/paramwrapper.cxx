@@ -21,6 +21,7 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
 #include <com/sun/star/sdbc/SQLException.hpp>
+#include <com/sun/star/sdbc/XParameters.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/WrappedTargetException.hpp>
 #include <com/sun/star/sdb/XParametersSupplier.hpp>
@@ -115,13 +116,13 @@ namespace param
 
     Sequence< Type > SAL_CALL ParameterWrapper::getTypes(   )
     {
-        Sequence< Type > aTypes( 5 );
-        aTypes[ 0 ] = cppu::UnoType<XWeak>::get();
-        aTypes[ 1 ] = cppu::UnoType<XTypeProvider>::get();
-        aTypes[ 2 ] = cppu::UnoType<XPropertySet>::get();
-        aTypes[ 3 ] = cppu::UnoType<XFastPropertySet>::get();
-        aTypes[ 4 ] = cppu::UnoType<XMultiPropertySet>::get();
-        return aTypes;
+        return Sequence< Type > {
+                cppu::UnoType<XWeak>::get(),
+                cppu::UnoType<XTypeProvider>::get(),
+                cppu::UnoType<XPropertySet>::get(),
+                cppu::UnoType<XFastPropertySet>::get(),
+                cppu::UnoType<XMultiPropertySet>::get()
+            };
     }
 
 
@@ -203,9 +204,9 @@ namespace param
 
                 if ( m_xValueDestination.is() )
                 {
-                    for ( std::vector< sal_Int32 >::const_iterator aIter = m_aIndexes.begin(); aIter != m_aIndexes.end(); ++aIter )
+                    for ( const auto& rIndex : m_aIndexes )
                     {
-                        m_xValueDestination->setObjectWithInfo( *aIter + 1, rValue, nParamType, nScale );
+                        m_xValueDestination->setObjectWithInfo( rIndex + 1, rValue, nParamType, nScale );
                             // (the index of the parameters is one-based)
                     }
                 }
@@ -338,12 +339,9 @@ namespace param
         ::osl::MutexGuard aGuard( m_aMutex );
         impl_checkDisposed_throw();
 
-        for (   Parameters::const_iterator param = m_aParameters.begin();
-                param != m_aParameters.end();
-                ++param
-            )
+        for (const auto& rxParam : m_aParameters)
         {
-            (*param)->dispose();
+            rxParam->dispose();
         }
 
         Parameters aEmpty;

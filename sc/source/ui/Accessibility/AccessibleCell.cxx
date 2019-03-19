@@ -20,18 +20,14 @@
 #include <memory>
 #include <sal/config.h>
 
-#include <utility>
-
 #include <AccessibleCell.hxx>
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 
 #include <AccessibleText.hxx>
 #include <AccessibleDocument.hxx>
 #include <tabvwsh.hxx>
 #include <document.hxx>
 #include <attrib.hxx>
-#include <miscuno.hxx>
 #include <editsrc.hxx>
 #include <dociter.hxx>
 #include <markdata.hxx>
@@ -41,16 +37,14 @@
 
 #include <unotools/accessiblestatesethelper.hxx>
 #include <unotools/accessiblerelationsethelper.hxx>
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleRelationType.hpp>
 #include <com/sun/star/accessibility/XAccessibleTable.hpp>
 #include <editeng/brushitem.hxx>
-#include <float.h>
 #include <vcl/svapp.hxx>
 
 #include <AccessibleSpreadsheet.hxx>
-#include <o3tl/make_unique.hxx>
+
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
 
@@ -138,7 +132,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessibleCell::getAccessibleAtPoint(
 
 void SAL_CALL ScAccessibleCell::grabFocus(  )
 {
-     SolarMutexGuard aGuard;
+    SolarMutexGuard aGuard;
     IsObjectValid();
     if (getAccessibleParent().is() && mpViewShell)
     {
@@ -382,7 +376,7 @@ ScDocument* ScAccessibleCell::GetDocument(ScTabViewShell* pViewShell)
     {
         return ::std::unique_ptr< SvxEditSource >();
     }
-    ::std::unique_ptr< SvxEditSource > pEditSource (new ScAccessibilityEditSource(o3tl::make_unique<ScAccessibleCellTextData>(pViewShell, aCell, eSplitPos, this)));
+    ::std::unique_ptr< SvxEditSource > pEditSource (new ScAccessibilityEditSource(std::make_unique<ScAccessibleCellTextData>(pViewShell, aCell, eSplitPos, this)));
 
     return pEditSource;
 }

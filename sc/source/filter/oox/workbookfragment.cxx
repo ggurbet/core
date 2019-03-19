@@ -63,7 +63,6 @@
 
 #include <oox/core/fastparser.hxx>
 #include <comphelper/threadpool.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 #include <memory>
@@ -315,30 +314,29 @@ void importSheetFragments( WorkbookFragment& rWorkbookHandler, SheetFragmentVect
 
     sal_Int32 nSheetsLeft = 0;
     ProgressBarTimer aProgressUpdater;
-    SheetFragmentVector::iterator it = rSheets.begin(), itEnd = rSheets.end();
-    for( ; it != itEnd; ++it )
+    for( auto& [rxSheetGlob, rxFragment] : rSheets )
     {
          // getting at the WorksheetGlobals is rather unpleasant
-         IWorksheetProgress *pProgress = WorksheetHelper::getWorksheetInterface( it->first );
+         IWorksheetProgress *pProgress = WorksheetHelper::getWorksheetInterface( rxSheetGlob );
          pProgress->setCustomRowProgress(
                      aProgressUpdater.wrapProgress(
                              pProgress->getRowProgress() ) );
-         rSharedPool.pushTask( o3tl::make_unique<WorkerThread>( pTag, rWorkbookHandler, it->second,
+         rSharedPool.pushTask( std::make_unique<WorkerThread>( pTag, rWorkbookHandler, rxFragment,
                                            /* ref */ nSheetsLeft ) );
          nSheetsLeft++;
-     }
+    }
 
-     // coverity[loop_top] - this isn't an infinite loop where nSheetsLeft gets decremented by the above threads
-     while( nSheetsLeft > 0)
-     {
-         // This is a much more controlled re-enterancy hazard than
-         // allowing a yield deeper inside the filter code for progress
-         // bar updating.
-         Application::Yield();
-     }
-     rSharedPool.waitUntilDone(pTag);
+    // coverity[loop_top] - this isn't an infinite loop where nSheetsLeft gets decremented by the above threads
+    while( nSheetsLeft > 0)
+    {
+        // This is a much more controlled re-enterancy hazard than
+        // allowing a yield deeper inside the filter code for progress
+        // bar updating.
+        Application::Yield();
+    }
+    rSharedPool.waitUntilDone(pTag);
 
-     // threads joined in ThreadPool destructor
+    // threads joined in ThreadPool destructor
 }
 
 }
@@ -484,16 +482,16 @@ void WorkbookFragment::finalizeImport()
 
     recalcFormulaCells();
 
-    for( std::vector<WorksheetHelper*>::iterator aIt = aHelpers.begin(), aEnd = aHelpers.end(); aIt != aEnd; ++aIt )
+    for( WorksheetHelper* pHelper : aHelpers )
     {
-        (*aIt)->finalizeDrawingImport();
+        pHelper->finalizeDrawingImport();
     }
 
-    for( SheetFragmentVector::iterator aIt = aSheetFragments.begin(), aEnd = aSheetFragments.end(); aIt != aEnd; ++aIt )
+    for( auto& [rxSheetGlob, rxFragment] : aSheetFragments )
     {
         // delete fragment object and WorkbookGlobals object, will free all allocated sheet buffers
-        aIt->second.clear();
-        aIt->first.reset();
+        rxFragment.clear();
+        rxSheetGlob.reset();
     }
 
     OUString aRevHeadersPath = getFragmentPathFromFirstType(CREATE_OFFICEDOC_RELATION_TYPE("revisionHeaders"));

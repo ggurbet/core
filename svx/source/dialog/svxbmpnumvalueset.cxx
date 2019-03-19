@@ -31,9 +31,11 @@
 #include <editeng/brushitem.hxx>
 #include <svl/intitem.hxx>
 #include <sfx2/objsh.hxx>
+#include <vcl/event.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/virdev.hxx>
 #include <editeng/flstitem.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/xtable.hxx>
@@ -57,7 +59,6 @@
 using namespace com::sun::star::uno;
 using namespace com::sun::star::beans;
 using namespace com::sun::star::lang;
-using namespace com::sun::star::i18n;
 using namespace com::sun::star::text;
 using namespace com::sun::star::container;
 using namespace com::sun::star::style;
@@ -168,7 +169,7 @@ void  SvxNumValueSet::UserDraw( const UserDrawEvent& rUDEvt )
         pVDev = VclPtr<VirtualDevice>::Create(*pDev);
         pVDev->SetMapMode(pDev->GetMapMode());
         pVDev->EnableRTL( IsRTLEnabled() );
-         pVDev->SetOutputSize( aRectSize );
+        pVDev->SetOutputSize( aRectSize );
         aOrgRect = aRect;
         pVDev->SetFillColor( aBackColor );
         pVDev->SetLineColor(COL_LIGHTGRAY);
@@ -543,7 +544,7 @@ void NumValueSet::UserDraw( const UserDrawEvent& rUDEvt )
         pVDev = VclPtr<VirtualDevice>::Create(*pDev);
         pVDev->SetMapMode(pDev->GetMapMode());
         pVDev->EnableRTL( IsRTLEnabled() );
-         pVDev->SetOutputSize( aRectSize );
+        pVDev->SetOutputSize( aRectSize );
         aOrgRect = aRect;
         pVDev->SetFillColor( aBackColor );
         pVDev->SetLineColor(COL_LIGHTGRAY);

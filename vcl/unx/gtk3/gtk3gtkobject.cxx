@@ -60,7 +60,7 @@ GtkSalObject::GtkSalObject( GtkSalFrame* pParent, bool bShow )
 
 #if defined(GDK_WINDOWING_X11)
     GdkDisplay *pDisplay = GtkSalFrame::getGdkDisplay();
-    if (GDK_IS_X11_DISPLAY(pDisplay))
+    if (DLSYM_GDK_IS_X11_DISPLAY(pDisplay))
     {
         m_aSystemData.pDisplay = gdk_x11_display_get_xdisplay(pDisplay);
         m_aSystemData.pVisual = gdk_x11_visual_get_xvisual(pVisual);
@@ -104,7 +104,7 @@ void GtkSalObject::ResetClipRegion()
         gdk_window_shape_combine_region( widget_get_window(m_pSocket), nullptr, 0, 0 );
 }
 
-void GtkSalObject::BeginSetClipRegion( sal_uLong )
+void GtkSalObject::BeginSetClipRegion( sal_uInt32 )
 {
     if( m_pRegion )
         cairo_region_destroy( m_pRegion );

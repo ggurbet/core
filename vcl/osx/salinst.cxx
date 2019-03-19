@@ -43,6 +43,7 @@
 #include <vcl/svmain.hxx>
 #include <vcl/opengl/OpenGLContext.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 
 #include <osx/saldata.hxx>
 #include <osx/salinst.h>
@@ -59,7 +60,6 @@
 
 #include <print.h>
 #include <salimestatus.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <comphelper/processfactory.hxx>
 
@@ -80,6 +80,7 @@ extern "C" {
 using namespace std;
 using namespace ::com::sun::star;
 
+static int* gpnInit = nullptr;
 static NSMenu* pDockMenu = nil;
 static bool bLeftMain = false;
 
@@ -327,14 +328,12 @@ VCLPLUG_OSX_PUBLIC SalInstance* create_SalInstance()
     ImplGetSVData()->maNWFData.mbProgressNeedsErase = true;
     ImplGetSVData()->maNWFData.mnStatusBarLowerRightOffset = 10;
 
-    [NSApp finishLaunching];
-
     return pInst;
 }
 }
 
 AquaSalInstance::AquaSalInstance()
-    : SalInstance(o3tl::make_unique<SalYieldMutex>())
+    : SalInstance(std::make_unique<SalYieldMutex>())
     , mnActivePrintJobs( 0 )
     , mbIsLiveResize( false )
     , mbNoYieldLock( false )
@@ -385,9 +384,14 @@ void AquaSalInstance::handleAppDefinedEvent( NSEvent* pEvent )
         if ( pTimer )
             pTimer->handleStartTimerEvent( pEvent );
         break;
-    case AppEndLoopEvent:
+    case AppExecuteSVMain:
+    {
+        int nRet = ImplSVMain();
+        if (gpnInit)
+            *gpnInit = nRet;
         [NSApp stop: NSApp];
         break;
+    }
     case DispatchTimerEvent:
     {
         AquaSalInstance *pInst = GetSalData()->mpInstance;
@@ -957,5 +961,25 @@ NSImage* CreateNSImage( const Image& rImage )
     return pImage;
 }
 
+bool AquaSalInstance::SVMainHook(int* pnInit)
+{
+    gpnInit = pnInit;
+
+    OUString aExeURL, aExe;
+    osl_getExecutableFile( &aExeURL.pData );
+    osl_getSystemPathFromFileURL( aExeURL.pData, &aExe.pData );
+    OString aByteExe( OUStringToOString( aExe, osl_getThreadTextEncoding() ) );
+
+#ifdef DEBUG
+    aByteExe += OString ( " NSAccessibilityDebugLogLevel 1" );
+    const char* pArgv[] = { aByteExe.getStr(), NULL };
+    NSApplicationMain( 3, pArgv );
+#else
+    const char* pArgv[] = { aByteExe.getStr(), nullptr };
+    NSApplicationMain( 1, pArgv );
+#endif
+
+    return true; // indicate that ImplSVMainHook is implemented
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

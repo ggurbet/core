@@ -30,6 +30,7 @@
 #include <vcl/help.hxx>
 #include <vcl/splitwin.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <vcl/vclenum.hxx>
 
@@ -1033,7 +1034,7 @@ sal_uInt16 SplitWindow::ImplTestSplit( ImplSplitSet* pSet, const Point& rPos,
     return 0;
 }
 
-sal_uInt16 SplitWindow::ImplTestSplit( SplitWindow* pWindow, const Point& rPos,
+sal_uInt16 SplitWindow::ImplTestSplit( const SplitWindow* pWindow, const Point& rPos,
                                    long& rMouseOff, ImplSplitSet** ppFoundSet, sal_uInt16& rFoundPos )
 {
     // Resizable SplitWindow should be treated different
@@ -1107,7 +1108,7 @@ void SplitWindow::ImplDrawSplitTracking(const Point& rPos)
         aRect.SetRight( aRect.Left() + mpSplitSet->mnSplitSize - 1 );
         if (!(mnWinStyle & WB_NOSPLITDRAW))
             aRect.AdjustRight( -1 );
-        if ((mnSplitTest & SPLIT_WINDOW) && (mbFadeOut))
+        if ((mnSplitTest & SPLIT_WINDOW) && mbFadeOut)
         {
             aRect.AdjustLeft(SPLITWIN_SPLITSIZEEXLN );
             aRect.AdjustRight(SPLITWIN_SPLITSIZEEXLN );
@@ -1121,7 +1122,7 @@ void SplitWindow::ImplDrawSplitTracking(const Point& rPos)
         aRect.SetBottom( aRect.Top() + mpSplitSet->mnSplitSize - 1 );
         if (!(mnWinStyle & WB_NOSPLITDRAW))
             aRect.AdjustBottom( -1 );
-        if ((mnSplitTest & SPLIT_WINDOW) && (mbFadeOut))
+        if ((mnSplitTest & SPLIT_WINDOW) && mbFadeOut)
         {
             aRect.AdjustTop(SPLITWIN_SPLITSIZEEXLN );
             aRect.AdjustBottom(SPLITWIN_SPLITSIZEEXLN );
@@ -1428,7 +1429,7 @@ void SplitWindow::ImplSplitMousePos( Point& rMousePos )
 {
     if ( mnSplitTest & SPLIT_HORZ )
     {
-        rMousePos.AdjustX( -(mnMouseOff) );
+        rMousePos.AdjustX( -mnMouseOff );
         if ( rMousePos.X() < maDragRect.Left() )
             rMousePos.setX( maDragRect.Left() );
         else if ( rMousePos.X()+mpSplitSet->mnSplitSize+1 > maDragRect.Right() )
@@ -1438,7 +1439,7 @@ void SplitWindow::ImplSplitMousePos( Point& rMousePos )
     }
     else
     {
-        rMousePos.AdjustY( -(mnMouseOff) );
+        rMousePos.AdjustY( -mnMouseOff );
         if ( rMousePos.Y() < maDragRect.Top() )
             rMousePos.setY( maDragRect.Top() );
         else if ( rMousePos.Y()+mpSplitSet->mnSplitSize+1 > maDragRect.Bottom() )
@@ -1476,7 +1477,7 @@ void SplitWindow::ImplGetButtonRect( tools::Rectangle& rRect, bool bTest ) const
         rRect.SetBottom( mnDY-mnBottomBorder-1 );
         if ( bTest )
         {
-            rRect.AdjustTop( -(mnTopBorder) );
+            rRect.AdjustTop( -mnTopBorder );
             rRect.AdjustBottom(mnBottomBorder );
         }
         break;
@@ -1487,7 +1488,7 @@ void SplitWindow::ImplGetButtonRect( tools::Rectangle& rRect, bool bTest ) const
         rRect.SetBottom( mnTopBorder+nSplitSize-1 );
         if ( bTest )
         {
-            rRect.AdjustTop( -(mnTopBorder) );
+            rRect.AdjustTop( -mnTopBorder );
             rRect.AdjustBottom(mnBottomBorder );
         }
         break;
@@ -1498,7 +1499,7 @@ void SplitWindow::ImplGetButtonRect( tools::Rectangle& rRect, bool bTest ) const
         rRect.SetBottom( rRect.Top()+SPLITWIN_SPLITSIZEAUTOHIDE );
         if ( bTest )
         {
-            rRect.AdjustLeft( -(mnLeftBorder) );
+            rRect.AdjustLeft( -mnLeftBorder );
             rRect.AdjustRight(mnRightBorder );
         }
         break;
@@ -1509,7 +1510,7 @@ void SplitWindow::ImplGetButtonRect( tools::Rectangle& rRect, bool bTest ) const
         rRect.SetBottom( rRect.Top()+SPLITWIN_SPLITSIZEAUTOHIDE );
         if ( bTest )
         {
-            rRect.AdjustLeft( -(mnLeftBorder) );
+            rRect.AdjustLeft( -mnLeftBorder );
             rRect.AdjustRight(mnRightBorder );
         }
         break;
@@ -1849,9 +1850,7 @@ void SplitWindow::ImplStartSplit( const MouseEvent& rMEvt )
     else if ( mnSplitTest & SPLIT_VERT )
         eStyle = PointerStyle::VSplit;
 
-    Pointer aPtr( eStyle );
-    SetPointer( aPtr );
-
+    SetPointer( eStyle );
 }
 
 void SplitWindow::StartSplit()
@@ -1946,9 +1945,7 @@ void SplitWindow::MouseMove( const MouseEvent& rMEvt )
         }
     }
 
-    Pointer aPtr( eStyle );
-    SetPointer( aPtr );
-
+    SetPointer( eStyle );
 }
 
 void SplitWindow::Tracking( const TrackingEvent& rTEvt )

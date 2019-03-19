@@ -477,7 +477,7 @@ void X11SalGraphics::invert( sal_uInt32 nPoints,
 }
 
 bool X11SalGraphics::drawEPS( long nX, long nY, long nWidth,
-        long nHeight, void* pPtr, sal_uLong nSize )
+        long nHeight, void* pPtr, sal_uInt32 nSize )
 {
     return mxImpl->drawEPS( nX, nY, nWidth, nHeight, pPtr, nSize );
 }
@@ -566,7 +566,7 @@ cairo::SurfaceSharedPtr X11SalGraphics::CreateBitmapSurface( const OutputDevice&
 
 css::uno::Any X11SalGraphics::GetNativeSurfaceHandle(cairo::SurfaceSharedPtr& rSurface, const basegfx::B2ISize& /*rSize*/) const
 {
-    cairo::X11Surface& rXlibSurface=dynamic_cast<cairo::X11Surface&>(*rSurface.get());
+    cairo::X11Surface& rXlibSurface=dynamic_cast<cairo::X11Surface&>(*rSurface);
     css::uno::Sequence< css::uno::Any > args( 3 );
     args[0] <<= false;  // do not call XFreePixmap on it
     args[1] <<= rXlibSurface.getPixmap()->mhDrawable;

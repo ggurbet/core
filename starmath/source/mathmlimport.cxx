@@ -25,7 +25,7 @@ one go*/
 #include <com/sun/star/xml/sax/InputSource.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
 #include <com/sun/star/xml/sax/XFastParser.hpp>
-#include <com/sun/star/document/XDocumentProperties.hpp>
+#include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/packages/zip/ZipIOException.hpp>
@@ -33,18 +33,19 @@ one go*/
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/uno/Any.h>
+#include <com/sun/star/task/XStatusIndicator.hpp>
 
 #include <comphelper/fileformat.h>
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <comphelper/propertysetinfo.hxx>
-#include <o3tl/make_unique.hxx>
 #include <rtl/character.hxx>
 #include <sal/log.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <sfx2/sfxmodelfactory.hxx>
 #include <osl/diagnose.h>
 #include <sot/storage.hxx>
 #include <svtools/sfxecode.hxx>
@@ -66,7 +67,6 @@ one go*/
 
 #include "mathmlattr.hxx"
 #include "mathmlimport.hxx"
-#include "register.hxx"
 #include <document.hxx>
 #include <smdll.hxx>
 #include <unomodel.hxx>
@@ -670,86 +670,85 @@ void SmXMLContext_Helper::ApplyAttrs()
 {
     SmNodeStack &rNodeStack = rContext.GetSmImport().GetNodeStack();
 
-    if (IsFontNodeNeeded())
+    if (!IsFontNodeNeeded())
+        return;
+
+    SmToken aToken;
+    aToken.cMathChar = '\0';
+    aToken.nLevel = 5;
+
+    if (nIsBold != -1)
     {
-        SmToken aToken;
-        aToken.cMathChar = '\0';
-        aToken.nLevel = 5;
+        if (nIsBold)
+            aToken.eType = TBOLD;
+        else
+            aToken.eType = TNBOLD;
+        std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
+        pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
+        rNodeStack.push_front(std::move(pFontNode));
+    }
+    if (nIsItalic != -1)
+    {
+        if (nIsItalic)
+            aToken.eType = TITALIC;
+        else
+            aToken.eType = TNITALIC;
+        std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
+        pFontNode->SetSubNodes(nullptr,popOrZero(rNodeStack));
+        rNodeStack.push_front(std::move(pFontNode));
+    }
+    if (nFontSize != 0.0)
+    {
+        aToken.eType = TSIZE;
+        std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
 
-        if (nIsBold != -1)
+        if (util::MeasureUnit::PERCENT == rContext.GetSmImport()
+                .GetMM100UnitConverter().GetXMLMeasureUnit())
         {
-            if (nIsBold)
-                aToken.eType = TBOLD;
+            if (nFontSize < 100.00)
+                pFontNode->SetSizeParameter(Fraction(100.00/nFontSize),
+                    FontSizeType::DIVIDE);
             else
-                aToken.eType = TNBOLD;
-            std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
-            pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
-            rNodeStack.push_front(std::move(pFontNode));
+                pFontNode->SetSizeParameter(Fraction(nFontSize/100.00),
+                    FontSizeType::MULTIPLY);
         }
-        if (nIsItalic != -1)
-        {
-            if (nIsItalic)
-                aToken.eType = TITALIC;
-            else
-                aToken.eType = TNITALIC;
-            std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
-            pFontNode->SetSubNodes(nullptr,popOrZero(rNodeStack));
-            rNodeStack.push_front(std::move(pFontNode));
-        }
-        if (nFontSize != 0.0)
-        {
-            aToken.eType = TSIZE;
-            std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
+        else
+            pFontNode->SetSizeParameter(Fraction(nFontSize),FontSizeType::ABSOLUT);
 
-            if (util::MeasureUnit::PERCENT == rContext.GetSmImport()
-                    .GetMM100UnitConverter().GetXMLMeasureUnit())
-            {
-                if (nFontSize < 100.00)
-                    pFontNode->SetSizeParameter(Fraction(100.00/nFontSize),
-                        FontSizeType::DIVIDE);
-                else
-                    pFontNode->SetSizeParameter(Fraction(nFontSize/100.00),
-                        FontSizeType::MULTIPLY);
-            }
-            else
-                pFontNode->SetSizeParameter(Fraction(nFontSize),FontSizeType::ABSOLUT);
+        pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
+        rNodeStack.push_front(std::move(pFontNode));
+    }
+    if (!sFontFamily.isEmpty())
+    {
+        if (sFontFamily.equalsIgnoreAsciiCase(GetXMLToken(XML_FIXED)))
+            aToken.eType = TFIXED;
+        else if (sFontFamily.equalsIgnoreAsciiCase("sans"))
+            aToken.eType = TSANS;
+        else if (sFontFamily.equalsIgnoreAsciiCase("serif"))
+            aToken.eType = TSERIF;
+        else //Just give up, we need to extend our font mechanism to be
+            //more general
+            return;
 
-            pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
-            rNodeStack.push_front(std::move(pFontNode));
-        }
-        if (!sFontFamily.isEmpty())
-        {
-            if (sFontFamily.equalsIgnoreAsciiCase(GetXMLToken(XML_FIXED)))
-                aToken.eType = TFIXED;
-            else if (sFontFamily.equalsIgnoreAsciiCase("sans"))
-                aToken.eType = TSANS;
-            else if (sFontFamily.equalsIgnoreAsciiCase("serif"))
-                aToken.eType = TSERIF;
-            else //Just give up, we need to extend our font mechanism to be
-                //more general
-                return;
+        aToken.aText = sFontFamily;
+        std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
+        pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
+        rNodeStack.push_front(std::move(pFontNode));
+    }
+    if (sColor.isEmpty())
+        return;
 
-            aToken.aText = sFontFamily;
-            std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
-            pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
-            rNodeStack.push_front(std::move(pFontNode));
-        }
-        if (!sColor.isEmpty())
-        {
-            //Again we can only handle a small set of colours in
-            //StarMath for now.
-            const SvXMLTokenMap& rTokenMap =
-                rContext.GetSmImport().GetColorTokenMap();
-            sal_uInt16 tok = rTokenMap.Get(XML_NAMESPACE_MATH, sColor);
-            if (tok != XML_TOK_UNKNOWN)
-            {
-                aToken.eType = static_cast<SmTokenType>(tok);
-                std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
-                pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
-                rNodeStack.push_front(std::move(pFontNode));
-            }
-        }
-
+    //Again we can only handle a small set of colours in
+    //StarMath for now.
+    const SvXMLTokenMap& rTokenMap =
+        rContext.GetSmImport().GetColorTokenMap();
+    sal_uInt16 tok = rTokenMap.Get(XML_NAMESPACE_MATH, sColor);
+    if (tok != XML_TOK_UNKNOWN)
+    {
+        aToken.eType = static_cast<SmTokenType>(tok);
+        std::unique_ptr<SmFontNode> pFontNode(new SmFontNode(aToken));
+        pFontNode->SetSubNodes(nullptr, popOrZero(rNodeStack));
+        rNodeStack.push_front(std::move(pFontNode));
     }
 }
 
@@ -1211,7 +1210,7 @@ void SmXMLNumberContext_Impl::TCharacters(const OUString &rChars)
 
 void SmXMLNumberContext_Impl::EndElement()
 {
-    GetSmImport().GetNodeStack().push_front(o3tl::make_unique<SmTextNode>(aToken,FNT_NUMBER));
+    GetSmImport().GetNodeStack().push_front(std::make_unique<SmTextNode>(aToken,FNT_NUMBER));
 }
 
 
@@ -1288,7 +1287,7 @@ void SmXMLTextContext_Impl::TCharacters(const OUString &rChars)
 
 void SmXMLTextContext_Impl::EndElement()
 {
-    GetSmImport().GetNodeStack().push_front(o3tl::make_unique<SmTextNode>(aToken,FNT_TEXT));
+    GetSmImport().GetNodeStack().push_front(std::make_unique<SmTextNode>(aToken,FNT_TEXT));
 }
 
 
@@ -1329,7 +1328,7 @@ void SmXMLStringContext_Impl::TCharacters(const OUString &rChars)
 
 void SmXMLStringContext_Impl::EndElement()
 {
-    GetSmImport().GetNodeStack().push_front(o3tl::make_unique<SmTextNode>(aToken,FNT_FIXED));
+    GetSmImport().GetNodeStack().push_front(std::make_unique<SmTextNode>(aToken,FNT_FIXED));
 }
 
 
@@ -1826,7 +1825,7 @@ void SmXMLNoneContext_Impl::EndElement()
     aToken.nLevel = 5;
     aToken.eType = TIDENT;
     GetSmImport().GetNodeStack().push_front(
-        o3tl::make_unique<SmTextNode>(aToken,FNT_VARIABLE));
+        std::make_unique<SmTextNode>(aToken,FNT_VARIABLE));
 }
 
 
@@ -3121,41 +3120,41 @@ void SmXMLImport::SetViewSettings(const Sequence<PropertyValue>& aViewProps)
 void SmXMLImport::SetConfigurationSettings(const Sequence<PropertyValue>& aConfProps)
 {
     uno::Reference < XPropertySet > xProps ( GetModel(), UNO_QUERY );
-    if ( xProps.is() )
+    if ( !xProps.is() )
+        return;
+
+    Reference < XPropertySetInfo > xInfo ( xProps->getPropertySetInfo() );
+    if (!xInfo.is() )
+        return;
+
+    sal_Int32 nCount = aConfProps.getLength();
+    const PropertyValue* pValues = aConfProps.getConstArray();
+
+    const OUString sFormula ( "Formula" );
+    const OUString sBasicLibraries ( "BasicLibraries" );
+    const OUString sDialogLibraries ( "DialogLibraries" );
+    while ( nCount-- )
     {
-        Reference < XPropertySetInfo > xInfo ( xProps->getPropertySetInfo() );
-        if (xInfo.is() )
+        if (pValues->Name != sFormula &&
+            pValues->Name != sBasicLibraries &&
+            pValues->Name != sDialogLibraries)
         {
-            sal_Int32 nCount = aConfProps.getLength();
-            const PropertyValue* pValues = aConfProps.getConstArray();
-
-            const OUString sFormula ( "Formula" );
-            const OUString sBasicLibraries ( "BasicLibraries" );
-            const OUString sDialogLibraries ( "DialogLibraries" );
-            while ( nCount-- )
+            try
             {
-                if (pValues->Name != sFormula &&
-                    pValues->Name != sBasicLibraries &&
-                    pValues->Name != sDialogLibraries)
-                {
-                    try
-                    {
-                        if ( xInfo->hasPropertyByName( pValues->Name ) )
-                            xProps->setPropertyValue( pValues->Name, pValues->Value );
-                    }
-                    catch (const beans::PropertyVetoException &)
-                    {
-                        // dealing with read-only properties here. Nothing to do...
-                    }
-                    catch (const Exception&)
-                    {
-                        DBG_UNHANDLED_EXCEPTION("starmath");
-                    }
-                }
-
-                pValues++;
+                if ( xInfo->hasPropertyByName( pValues->Name ) )
+                    xProps->setPropertyValue( pValues->Name, pValues->Value );
+            }
+            catch (const beans::PropertyVetoException &)
+            {
+                // dealing with read-only properties here. Nothing to do...
+            }
+            catch (const Exception&)
+            {
+                DBG_UNHANDLED_EXCEPTION("starmath");
             }
         }
+
+        pValues++;
     }
 }
 

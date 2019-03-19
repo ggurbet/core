@@ -61,6 +61,8 @@
 #include <comphelper/lok.hxx>
 #include <svtools/imgdef.hxx>
 #include <tools/diagnose_ex.h>
+#include <vcl/status.hxx>
+#include <vcl/settings.hxx>
 #include <vcl/window.hxx>
 #include <vcl/wrkwin.hxx>
 #include <vcl/dockingarea.hxx>
@@ -73,6 +75,7 @@
 #include <comphelper/uno3.hxx>
 #include <rtl/instance.hxx>
 #include <unotools/cmdoptions.hxx>
+#include <unotools/compatibilityviewoptions.hxx>
 
 #include <rtl/ref.hxx>
 #include <rtl/strbuf.hxx>
@@ -152,6 +155,65 @@ LayoutManager::~LayoutManager()
     m_pGlobalSettings.reset();
 }
 
+void LayoutManager::implts_createMenuBar(const OUString& rMenuBarName)
+{
+    SolarMutexClearableGuard aWriteLock;
+
+    // Create a customized menu if compatibility mode is on
+    SvtCompatibilityViewOptions aCompOptions;
+    if( aCompOptions.HasMSOCompatibleFormsMenu() && m_aModuleIdentifier == "com.sun.star.text.TextDocument" )
+    {
+        implts_createMSCompatibleMenuBar(rMenuBarName);
+    }
+
+    // Create the default menubar otherwise
+    if (!m_bInplaceMenuSet && !m_xMenuBar.is())
+    {
+        m_xMenuBar = implts_createElement( rMenuBarName );
+        if ( m_xMenuBar.is() )
+        {
+            SolarMutexGuard aGuard;
+
+            SystemWindow* pSysWindow = getTopSystemWindow( m_xContainerWindow );
+            if ( pSysWindow )
+            {
+                Reference< awt::XMenuBar > xMenuBar;
+
+                Reference< XPropertySet > xPropSet( m_xMenuBar, UNO_QUERY );
+                if ( xPropSet.is() )
+                {
+                    try
+                    {
+                        xPropSet->getPropertyValue("XMenuBar") >>= xMenuBar;
+                    }
+                    catch (const beans::UnknownPropertyException&)
+                    {
+                    }
+                    catch (const lang::WrappedTargetException&)
+                    {
+                    }
+                }
+
+                if ( xMenuBar.is() )
+                {
+                    VCLXMenu* pAwtMenuBar = VCLXMenu::GetImplementation( xMenuBar );
+                    if ( pAwtMenuBar )
+                    {
+                        MenuBar* pMenuBar = static_cast<MenuBar*>(pAwtMenuBar->GetMenu());
+                        if ( pMenuBar )
+                        {
+                            pSysWindow->SetMenuBar(pMenuBar);
+                            pMenuBar->SetDisplayable( m_bMenuVisible );
+                            implts_updateMenuBarClose();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    aWriteLock.clear();
+}
+
 // Internal helper function
 void LayoutManager::impl_clearUpMenuBar()
 {
@@ -207,6 +269,7 @@ void LayoutManager::impl_clearUpMenuBar()
         m_xInplaceMenuBar.clear();
     }
     pMenuBar.disposeAndClear();
+    m_bInplaceMenuSet = false;
 
     Reference< XComponent > xComp( m_xMenuBar, UNO_QUERY );
     if ( xComp.is() )
@@ -372,7 +435,6 @@ void LayoutManager::implts_reset( bool bAttached )
 
         /* SAFE AREA ----------------------------------------------------------------------------------------------- */
         SolarMutexClearableGuard aWriteLock;
-        m_xModel = xModel;
         m_aDockingArea = awt::Rectangle();
         m_aModuleIdentifier = aModuleIdentifier;
         m_xModuleCfgMgr = xModCfgMgr;
@@ -1378,7 +1440,6 @@ void SAL_CALL LayoutManager::createElement( const OUString& aName )
 
     SolarMutexClearableGuard aReadLock;
     Reference< XFrame > xFrame = m_xFrame;
-    bool    bInPlaceMenu = m_bInplaceMenuSet;
     aReadLock.clear();
 
     if ( !xFrame.is() )
@@ -1414,55 +1475,13 @@ void SAL_CALL LayoutManager::createElement( const OUString& aName )
             bMustBeLayouted = m_xToolbarManager->isLayoutDirty();
         }
         else if ( aElementType.equalsIgnoreAsciiCase("menubar") &&
-                  aElementName.equalsIgnoreAsciiCase("menubar") )
+                  aElementName.equalsIgnoreAsciiCase("menubar") &&
+                  implts_isFrameOrWindowTop(xFrame) )
         {
-            // #i38743# don't create a menubar if frame isn't top
-            if ( !bInPlaceMenu && !m_xMenuBar.is() && implts_isFrameOrWindowTop( xFrame ))
-            {
-                m_xMenuBar = implts_createElement( aName );
-                if ( m_xMenuBar.is() )
-                {
-                    SolarMutexGuard aGuard;
+            implts_createMenuBar( aName );
+            if (m_bMenuVisible)
+                bNotify = true;
 
-                    SystemWindow* pSysWindow = getTopSystemWindow( m_xContainerWindow );
-                    if ( pSysWindow )
-                    {
-                        Reference< awt::XMenuBar > xMenuBar;
-
-                        Reference< XPropertySet > xPropSet( m_xMenuBar, UNO_QUERY );
-                        if ( xPropSet.is() )
-                        {
-                            try
-                            {
-                                xPropSet->getPropertyValue("XMenuBar") >>= xMenuBar;
-                            }
-                            catch (const beans::UnknownPropertyException&)
-                            {
-                            }
-                            catch (const lang::WrappedTargetException&)
-                            {
-                            }
-                        }
-
-                        if ( xMenuBar.is() )
-                        {
-                            VCLXMenu* pAwtMenuBar = VCLXMenu::GetImplementation( xMenuBar );
-                            if ( pAwtMenuBar )
-                            {
-                                MenuBar* pMenuBar = static_cast<MenuBar*>(pAwtMenuBar->GetMenu());
-                                if ( pMenuBar )
-                                {
-                                    pSysWindow->SetMenuBar(pMenuBar);
-                                    pMenuBar->SetDisplayable( m_bMenuVisible );
-                                    if ( m_bMenuVisible )
-                                        bNotify = true;
-                                    implts_updateMenuBarClose();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             aWriteLock.clear();
         }
         else if ( aElementType.equalsIgnoreAsciiCase("statusbar") &&
@@ -2515,6 +2534,60 @@ bool LayoutManager::implts_resetMenuBar()
     return false;
 }
 
+void LayoutManager::implts_createMSCompatibleMenuBar( const OUString& aName )
+{
+    SolarMutexClearableGuard aWriteLock;
+
+    // Find Forms menu in the original menubar
+    m_xMenuBar = implts_createElement( aName );
+    uno::Reference< XUIElementSettings > xMenuBarSettings(m_xMenuBar, UNO_QUERY);
+    uno::Reference< container::XIndexReplace > xMenuIndex(xMenuBarSettings->getSettings(true), UNO_QUERY);
+
+    sal_Int32 nFormsMenu = -1;
+    for (sal_Int32 nIndex = 0; nIndex < xMenuIndex->getCount(); ++nIndex)
+    {
+        uno::Sequence< beans::PropertyValue > aProps;
+        xMenuIndex->getByIndex( nIndex ) >>= aProps;
+        OUString aCommand;
+        for (sal_Int32 nSeqInd = 0; nSeqInd < aProps.getLength(); ++nSeqInd)
+        {
+            if (aProps[nSeqInd].Name == "CommandURL")
+            {
+                aProps[nSeqInd].Value >>= aCommand;
+                break;
+            }
+        }
+
+        if (aCommand == ".uno:FormatFormMenu")
+            nFormsMenu = nIndex;
+    }
+    assert(nFormsMenu != -1);
+
+    // Create the MS compatible Forms menu
+    css::uno::Reference< css::ui::XUIElement > xFormsMenu = implts_createElement( "private:resource/menubar/mscompatibleformsmenu" );
+    if(!xFormsMenu.is())
+        return;
+
+    // Merge the MS compatible Forms menu into the menubar
+    uno::Reference< XUIElementSettings > xFormsMenuSettings(xFormsMenu, UNO_QUERY);
+    uno::Reference< container::XIndexAccess > xFormsMenuIndex(xFormsMenuSettings->getSettings(true));
+
+    assert(xFormsMenuIndex->getCount() >= 1);
+    uno::Sequence< beans::PropertyValue > aNewFormsMenu;
+    xFormsMenuIndex->getByIndex( 0 ) >>= aNewFormsMenu;
+    xMenuIndex->replaceByIndex(nFormsMenu, uno::makeAny(aNewFormsMenu));
+
+    setMergedMenuBar( xMenuIndex );
+
+    // Clear up the temporal forms menubar
+    Reference< XComponent > xFormsMenuComp( xFormsMenu, UNO_QUERY );
+    if ( xFormsMenuComp.is() )
+        xFormsMenuComp->dispose();
+    xFormsMenu.clear();
+
+    aWriteLock.clear();
+}
+
 IMPL_LINK_NOARG(LayoutManager, MenuBarClose, void*, void)
 {
     SolarMutexClearableGuard aReadLock;
@@ -2661,11 +2734,6 @@ IMPL_LINK_NOARG(LayoutManager, AsyncLayoutHdl, Timer *, void)
     if( !m_xContainerWindow.is() )
         return;
 
-    awt::Rectangle aDockingArea( m_aDockingArea );
-    ::Size         aStatusBarSize( implts_getStatusBarSize() );
-
-    // Subtract status bar height
-    aDockingArea.Height -= aStatusBarSize.Height();
     aReadLock.clear();
 
     implts_setDockingAreaWindowSizes();
@@ -2863,11 +2931,11 @@ void SAL_CALL LayoutManager::elementRemoved( const ui::ConfigurationEvent& Event
 
     if ( xFrame.is() )
     {
-       OUString aElementType;
-       OUString aElementName;
-       bool            bRefreshLayout(false);
+        OUString aElementType;
+        OUString aElementName;
+        bool            bRefreshLayout(false);
 
-       parseResourceURL( Event.ResourceURL, aElementType, aElementName );
+        parseResourceURL( Event.ResourceURL, aElementType, aElementName );
         if ( aElementType.equalsIgnoreAsciiCase( UIRESOURCETYPE_TOOLBAR ))
         {
             if ( xToolbarManager.is() )
@@ -2912,7 +2980,7 @@ void SAL_CALL LayoutManager::elementRemoved( const ui::ConfigurationEvent& Event
                 }
 
                 // No settings anymore, element must be destroyed
-                    if ( xContainerWindow.is() && bNoSettings )
+                if ( xContainerWindow.is() && bNoSettings )
                 {
                     if ( aElementType.equalsIgnoreAsciiCase("menubar") &&
                          aElementName.equalsIgnoreAsciiCase("menubar") )

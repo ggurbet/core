@@ -35,9 +35,9 @@ class SvxMacroTableDtor;
 
 struct SFX2_DLLPUBLIC SfxEventName
 {
-    SvMacroItemId const mnId;
-    OUString const      maEventName;
-    OUString const      maUIName;
+    SvMacroItemId mnId;
+    OUString      maEventName;
+    OUString      maUIName;
 
             SfxEventName( SvMacroItemId nId,
                              const OUString& rEventName,
@@ -50,7 +50,7 @@ struct SFX2_DLLPUBLIC SfxEventName
 class SFX2_DLLPUBLIC SfxEventNamesList
 {
 private:
-    ::std::vector< std::unique_ptr<SfxEventName> > aEventNamesList;
+    ::std::vector< SfxEventName > aEventNamesList;
 
 public:
     SfxEventNamesList() {}
@@ -60,10 +60,10 @@ public:
 
     size_t size() const { return aEventNamesList.size(); };
 
-    SfxEventName* at( size_t Index ) const
-        { return Index < aEventNamesList.size() ? aEventNamesList[ Index ].get() : nullptr; }
+    SfxEventName& at( size_t Index ) { return aEventNamesList[ Index ]; }
+    SfxEventName const & at( size_t Index ) const { return aEventNamesList[ Index ]; }
 
-    void push_back( std::unique_ptr<SfxEventName> Item ) { aEventNamesList.push_back( std::move(Item) ); }
+    void push_back( SfxEventName Item ) { aEventNamesList.push_back( std::move(Item) ); }
 };
 
 class SFX2_DLLPUBLIC SfxEventNamesItem : public SfxPoolItem
@@ -98,7 +98,7 @@ class SFX2_DLLPUBLIC SfxEventConfiguration
 {
 public:
     static void                         ConfigureEvent( const OUString& aName, const SvxMacro&, SfxObjectShell const * pObjSh);
-    static SvxMacro*                    ConvertToMacro( const css::uno::Any& rElement, SfxObjectShell* pDoc );
+    static std::unique_ptr<SvxMacro>    ConvertToMacro( const css::uno::Any& rElement, SfxObjectShell* pDoc );
 };
 
 #endif

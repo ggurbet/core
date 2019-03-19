@@ -89,7 +89,6 @@
 #include <svl/listener.hxx>
 #include <svx/dataaccessdescriptor.hxx>
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/mutex.hxx>
 #include <vcl/svapp.hxx>
 #include <textapi.hxx>
@@ -1894,7 +1893,7 @@ void SAL_CALL SwXTextField::attach(
                 m_pImpl->m_pProps->sPar2,
                 nType,
                 m_pImpl->m_pProps->nFormat));
-           static_cast<SwTableField*>(xField.get())->ChgExpStr(m_pImpl->m_pProps->sPar1);
+            static_cast<SwTableField*>(xField.get())->ChgExpStr(m_pImpl->m_pProps->sPar1);
         }
         break;
         default: OSL_FAIL("What kind of type is that?");
@@ -2227,7 +2226,7 @@ SwXTextField::setPropertyValue(
         case FIELD_PROP_USHORT1:
         case FIELD_PROP_USHORT2:
             {
-                 sal_Int16 nVal = 0;
+                sal_Int16 nVal = 0;
                 rValue >>= nVal;
                 if( FIELD_PROP_USHORT1 == pEntry->nWID)
                     m_pImpl->m_pProps->nUSHORT1 = nVal;
@@ -2376,7 +2375,7 @@ uno::Any SAL_CALL SwXTextField::getPropertyValue(const OUString& rPropertyName)
                     if (!m_pImpl->m_xTextObject.is())
                     {
                         m_pImpl->m_xTextObject
-                            = new SwTextAPIObject( o3tl::make_unique<SwTextAPIEditSource>(m_pImpl->m_pDoc) );
+                            = new SwTextAPIObject( std::make_unique<SwTextAPIEditSource>(m_pImpl->m_pDoc) );
                     }
 
                     uno::Reference<text::XText> xText(m_pImpl->m_xTextObject.get());
@@ -2660,8 +2659,8 @@ static SwFieldIds lcl_GetIdByName( OUString& rName, OUString& rTypeName )
         rName = rName.copy(RTL_CONSTASCII_LENGTH(COM_TEXT_FLDMASTER_CC));
 
     SwFieldIds nResId = SwFieldIds::Unknown;
-    sal_Int32 nFound = 0;
-    rTypeName = rName.getToken( 0, '.', nFound );
+    sal_Int32 nIdx = 0;
+    rTypeName = rName.getToken( 0, '.', nIdx );
     if (rTypeName == "User")
         nResId = SwFieldIds::User;
     else if (rTypeName == "DDE")
@@ -2670,7 +2669,7 @@ static SwFieldIds lcl_GetIdByName( OUString& rName, OUString& rTypeName )
     {
         nResId = SwFieldIds::SetExp;
 
-        const OUString sFieldTypName( rName.getToken( 1, '.' ));
+        const OUString sFieldTypName( rName.getToken( 0, '.', nIdx ));
         const OUString sUIName( SwStyleNameMapper::GetSpecialExtraUIName( sFieldTypName ) );
 
         if( sUIName != sFieldTypName )

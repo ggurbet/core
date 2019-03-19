@@ -76,6 +76,9 @@ namespace com{namespace sun{namespace star{
     namespace container { class XNamed; }
 }}}
 
+
+namespace sw { namespace mark { class IFieldmark; } }
+
 typedef   void (*SwLabDlgMethod) (css::uno::Reference< css::frame::XModel> const & xModel, const SwLabItem& rItem);
 
 typedef OUString    (*GlossaryGetCurrGroup)();
@@ -120,7 +123,7 @@ protected:
 public:
     virtual void            GetValues( OUString& rName, sal_uInt16& rRow, sal_uInt16& rCol,
                                 SwInsertTableOptions& rInsTableFlags, OUString& rTableAutoFormatName,
-                                SwTableAutoFormat *& prTAFormat ) = 0;
+                                std::unique_ptr<SwTableAutoFormat>& prTAFormat ) = 0;
 };
 
 class AbstractJavaEditDialog : public VclAbstractDialog
@@ -359,18 +362,18 @@ class SwAbstractDialogFactory
 public:
     static SwAbstractDialogFactory*     Create();
 
-    virtual VclPtr<SfxAbstractDialog> CreateNumFormatDialog(weld::Window* pParent, const SfxItemSet& rAttr) = 0;
+    virtual VclPtr<SfxAbstractDialog> CreateNumFormatDialog(weld::Widget* pParent, const SfxItemSet& rAttr) = 0;
     virtual VclPtr<SfxAbstractDialog> CreateSwDropCapsDialog(weld::Window* pParent, const SfxItemSet& rSet) = 0;
     virtual VclPtr<SfxAbstractDialog> CreateSwBackgroundDialog(weld::Window* pParent, const SfxItemSet& rSet) = 0;
 
     virtual VclPtr<AbstractSwWordCountFloatDlg> CreateSwWordCountDialog(SfxBindings* pBindings,
         SfxChildWindow* pChild, weld::Window *pParent, SfxChildWinInfo* pInfo) = 0;
 
-    virtual VclPtr<AbstractSwInsertAbstractDlg> CreateSwInsertAbstractDlg() = 0;
-    virtual VclPtr<SfxAbstractDialog> CreateSwAddressAbstractDlg(vcl::Window* pParent, const SfxItemSet& rSet) = 0;
+    virtual VclPtr<AbstractSwInsertAbstractDlg> CreateSwInsertAbstractDlg(weld::Window* pParent) = 0;
+    virtual VclPtr<SfxAbstractDialog> CreateSwAddressAbstractDlg(weld::Window* pParent, const SfxItemSet& rSet) = 0;
     virtual VclPtr<AbstractSwAsciiFilterDlg>  CreateSwAsciiFilterDlg(weld::Window* pParent, SwDocShell& rDocSh,
                                                                 SvStream* pStream) = 0;
-    virtual VclPtr<VclAbstractDialog> CreateSwInsertBookmarkDlg( vcl::Window *pParent, SwWrtShell &rSh, SfxRequest& rReq ) = 0;
+    virtual VclPtr<VclAbstractDialog> CreateSwInsertBookmarkDlg(weld::Window *pParent, SwWrtShell &rSh, SfxRequest& rReq) = 0;
 
     virtual VclPtr<AbstractSwBreakDlg> CreateSwBreakDlg(weld::Window *pParent, SwWrtShell &rSh) = 0;
     virtual VclPtr<VclAbstractDialog> CreateSwChangeDBDlg(SwView& rVw) = 0;
@@ -387,6 +390,7 @@ public:
 
     virtual VclPtr<AbstractDropDownFieldDialog> CreateDropDownFieldDialog(weld::Window* pParent, SwWrtShell &rSh,
         SwField* pField, bool bPrevButton, bool bNextButton) = 0;
+    virtual VclPtr<VclAbstractDialog> CreateDropDownFormFieldDialog(weld::Window* pParent, sw::mark::IFieldmark* pDropDownField) = 0;
     virtual VclPtr<SfxAbstractTabDialog> CreateSwEnvDlg(weld::Window* pParent, const SfxItemSet& rSet, SwWrtShell* pWrtSh, Printer* pPrt, bool bInsert) = 0;
 
     virtual VclPtr<AbstractSwLabDlg> CreateSwLabDlg(weld::Window* pParent, const SfxItemSet& rSet,
@@ -473,9 +477,9 @@ public:
                                                 SwWrtShell &rShell,
                                                 SwTOXBase* pCurTOX,
                                                 bool bGlobal) = 0;
-    virtual VclPtr<AbstractEditRegionDlg>      CreateEditRegionDlg(vcl::Window* pParent, SwWrtShell& rWrtSh) = 0;
-    virtual VclPtr<AbstractInsertSectionTabDialog>     CreateInsertSectionTabDialog(
-        vcl::Window* pParent, const SfxItemSet& rSet, SwWrtShell& rSh) = 0;
+    virtual VclPtr<AbstractEditRegionDlg>      CreateEditRegionDlg(weld::Window* pParent, SwWrtShell& rWrtSh) = 0;
+    virtual VclPtr<AbstractInsertSectionTabDialog> CreateInsertSectionTabDialog(weld::Window* pParent,
+                                                       const SfxItemSet& rSet, SwWrtShell& rSh) = 0;
     virtual VclPtr<AbstractMarkFloatDlg>       CreateIndexMarkFloatDlg(
                                                        SfxBindings* pBindings,
                                                        SfxChildWindow* pChild,

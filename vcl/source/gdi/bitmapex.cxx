@@ -20,6 +20,7 @@
 #include <rtl/crc.h>
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
+#include <o3tl/underlyingenumvalue.hxx>
 #include <osl/diagnose.h>
 #include <tools/debug.hxx>
 #include <tools/stream.hxx>
@@ -291,10 +292,10 @@ BitmapChecksum BitmapEx::GetChecksum() const
     SVBT32      aBT32;
     BitmapChecksumOctetArray aBCOA;
 
-    UInt32ToSVBT32( static_cast<long>(meTransparent), aBT32 );
+    UInt32ToSVBT32( o3tl::underlyingEnumValue(meTransparent), aBT32 );
     nCrc = vcl_get_checksum( nCrc, aBT32, 4 );
 
-    UInt32ToSVBT32( static_cast<long>(mbAlpha), aBT32 );
+    UInt32ToSVBT32( sal_uInt32(mbAlpha), aBT32 );
     nCrc = vcl_get_checksum( nCrc, aBT32, 4 );
 
     if( ( TransparentType::Bitmap == meTransparent ) && !maMask.IsEmpty() )
@@ -897,8 +898,7 @@ BitmapEx BitmapEx::TransformBitmapEx(
 BitmapEx BitmapEx::getTransformed(
     const basegfx::B2DHomMatrix& rTransformation,
     const basegfx::B2DRange& rVisibleRange,
-    double fMaximumArea,
-    bool bSmooth) const
+    double fMaximumArea) const
 {
     BitmapEx aRetval;
 
@@ -971,7 +971,7 @@ BitmapEx BitmapEx::getTransformed(
     aTransform.invert();
 
     // create bitmap using source, destination and linear back-transformation
-    aRetval = TransformBitmapEx(fWidth, fHeight, aTransform, bSmooth);
+    aRetval = TransformBitmapEx(fWidth, fHeight, aTransform, /*bSmooth*/true);
 
     return aRetval;
 }

@@ -19,9 +19,7 @@
 
 #undef SC_DLLIMPLEMENTATION
 
-#include <scmod.hxx>
-#include <svl/eitem.hxx>
-#include <svl/stritem.hxx>
+#include <global.hxx>
 #include <tpformula.hxx>
 #include <formulaopt.hxx>
 #include <sc.hrc>
@@ -29,6 +27,7 @@
 #include <scresid.hxx>
 #include <formula/grammar.hxx>
 #include "calcoptionsdlg.hxx"
+#include <vcl/edit.hxx>
 
 #include <unotools/localedatawrapper.hxx>
 

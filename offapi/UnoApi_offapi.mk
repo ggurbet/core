@@ -2656,6 +2656,7 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/frame,\
 	XToolbarController \
 	XToolbarControllerListener \
 	XTransientDocumentsDocumentContentFactory \
+	XTransientDocumentsDocumentContentIdentifierFactory \
 	XUIControllerFactory \
 	XUIControllerRegistration \
 	XUntitledNumbers \
@@ -3784,6 +3785,8 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/text,\
 	XPagePrintable \
 	XParagraphAppend \
 	XParagraphCursor \
+	XPasteBroadcaster \
+	XPasteListener \
 	XRedline \
 	XReferenceMarksSupplier \
 	XRelativeTextContentInsert \

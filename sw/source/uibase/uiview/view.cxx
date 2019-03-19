@@ -93,6 +93,7 @@
 #include <linguistic/lngprops.hxx>
 #include <editeng/unolingu.hxx>
 #include <com/sun/star/frame/FrameSearchFlag.hpp>
+#include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/scanner/ScannerContext.hpp>
 #include <com/sun/star/scanner/XScannerManager2.hpp>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -503,7 +504,7 @@ extern "C"
 
 IMPL_LINK_NOARG(SwView, AttrChangedNotify, SwCursorShell*, void)
 {
-     if ( GetEditWin().IsChainMode() )
+    if ( GetEditWin().IsChainMode() )
         GetEditWin().SetChainMode( false );
 
     //Opt: Not if PaintLocked. During unlock a notify will be once more triggered.
@@ -592,11 +593,12 @@ void SwView::CheckReadonlyState()
             SID_UNDO,
             SID_REDO,                   SID_REPEAT,                 SID_PASTE,
             SID_PASTE_UNFORMATTED,
-            SID_PASTE_SPECIAL,            SID_SBA_BRW_INSERT,
+            SID_PASTE_SPECIAL,          SID_SBA_BRW_INSERT,
             SID_BACKGROUND_COLOR,       FN_INSERT_BOOKMARK,         SID_CHARMAP_CONTROL,
             SID_CHARMAP,                SID_EMOJI_CONTROL,          FN_INSERT_SOFT_HYPHEN,
-            FN_INSERT_HARDHYPHEN,       FN_INSERT_HARD_SPACE,       FN_INSERT_BREAK,
-            FN_INSERT_LINEBREAK,        FN_INSERT_COLUMN_BREAK,     FN_INSERT_BREAK_DLG,
+            FN_INSERT_HARDHYPHEN,       FN_INSERT_HARD_SPACE,       FN_INSERT_NNBSP,
+            FN_INSERT_BREAK,            FN_INSERT_LINEBREAK,        FN_INSERT_COLUMN_BREAK,
+            FN_INSERT_BREAK_DLG,
             FN_DELETE_SENT,             FN_DELETE_BACK_SENT,        FN_DELETE_WORD,
             FN_DELETE_BACK_WORD,        FN_DELETE_LINE,             FN_DELETE_BACK_LINE,
             FN_DELETE_PARA,             FN_DELETE_BACK_PARA,        FN_DELETE_WHOLE_LINE,
@@ -1065,6 +1067,9 @@ SwView::~SwView()
     SfxLokHelper::notifyOtherViews(this, LOK_CALLBACK_TEXT_VIEW_SELECTION, "selection", "");
     SfxLokHelper::notifyOtherViews(this, LOK_CALLBACK_GRAPHIC_VIEW_SELECTION, "selection", "EMPTY");
 
+    // Need to remove activated field's button before disposing EditWin.
+    GetWrtShell().getIDocumentMarkAccess()->ClearFieldActivation();
+
     GetViewFrame()->GetWindow().RemoveChildEventListener( LINK( this, SwView, WindowChildEventListener ) );
     m_pPostItMgr.reset();
 
@@ -1241,8 +1246,9 @@ void SwView::ReadUserData( const OUString &rUserData, bool bBrowse )
             //apply information from print preview - if available
             if( !m_sNewCursorPos.isEmpty() )
             {
-                long nXTmp = m_sNewCursorPos.getToken( 0, ';' ).toInt32(),
-                     nYTmp = m_sNewCursorPos.getToken( 1, ';' ).toInt32();
+                sal_Int32 nIdx{ 0 };
+                const long nXTmp = m_sNewCursorPos.getToken( 0, ';', nIdx ).toInt32();
+                const long nYTmp = m_sNewCursorPos.getToken( 0, ';', nIdx ).toInt32();
                 Point aCursorPos2( nXTmp, nYTmp );
                 bSelectObj = m_pWrtShell->IsObjSelectable( aCursorPos2 );
 

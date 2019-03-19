@@ -31,6 +31,7 @@
 #include <sfx2/printer.hxx>
 #include <editeng/udlnitem.hxx>
 #include <editeng/colritem.hxx>
+#include <editeng/boxitem.hxx>
 #include <svx/xoutbmp.hxx>
 #include <fmturl.hxx>
 #include <fmtsrnd.hxx>
@@ -74,12 +75,14 @@
 #include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <drawinglayer/primitive2d/graphicprimitive2d.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
+#include <basegfx/utils/b2dclipstate.hxx>
 #include <drawinglayer/processor2d/processor2dtools.hxx>
 #include <txtfly.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
 #include <drawinglayer/primitive2d/maskprimitive2d.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
+#include <drawinglayer/primitive2d/objectinfoprimitive2d.hxx>
 
 using namespace com::sun::star;
 
@@ -928,7 +931,10 @@ void paintGraphicUsingPrimitivesHelper(
     vcl::RenderContext & rOutputDevice,
     GraphicObject const& rGrfObj,
     GraphicAttr const& rGraphicAttr,
-    const basegfx::B2DHomMatrix& rGraphicTransform)
+    const basegfx::B2DHomMatrix& rGraphicTransform,
+    const OUString& rName,
+    const OUString& rTitle,
+    const OUString& rDescription)
 {
     // RotGrfFlyFrame: unify using GraphicPrimitive2D
     // -> the primitive handles all crop and mirror stuff
@@ -986,6 +992,17 @@ void paintGraphicUsingPrimitivesHelper(
                     basegfx::utils::createPolygonFromRect(aExpandedClipRange)),
                 aContent);
         }
+    }
+
+    if(!rName.isEmpty() || !rTitle.isEmpty() || !rDescription.isEmpty())
+    {
+        // Embed to ObjectInfoPrimitive2D when we have Name/Title/Description
+        // information available
+        aContent[0] = new drawinglayer::primitive2d::ObjectInfoPrimitive2D(
+            aContent,
+            rName,
+            rTitle,
+            rDescription);
     }
 
     basegfx::B2DRange aTargetRange(0.0, 0.0, 1.0, 1.0);
@@ -1129,7 +1146,10 @@ void SwNoTextFrame::PaintPicture( vcl::RenderContext* pOut, const SwRect &rGrfAr
                         *pOut,
                         rGrfObj,
                         aGrfAttr,
-                        aGraphicTransform);
+                        aGraphicTransform,
+                        nullptr == pGrfNd->GetFlyFormat() ? OUString() : pGrfNd->GetFlyFormat()->GetName(),
+                        rNoTNd.GetTitle(),
+                        rNoTNd.GetDescription());
                 }
             }
             else
@@ -1217,7 +1237,10 @@ void SwNoTextFrame::PaintPicture( vcl::RenderContext* pOut, const SwRect &rGrfAr
                     *pOut,
                     aTempGraphicObject,
                     aGrfAttr,
-                    aGraphicTransform);
+                    aGraphicTransform,
+                    nullptr == pOLENd->GetFlyFormat() ? OUString() : pOLENd->GetFlyFormat()->GetName(),
+                    rNoTNd.GetTitle(),
+                    rNoTNd.GetDescription());
 
                 // shade the representation if the object is activated outplace
                 uno::Reference < embed::XEmbeddedObject > xObj = pOLENd->GetOLEObj().GetOleRef();

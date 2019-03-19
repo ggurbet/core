@@ -19,6 +19,8 @@
 #include <com/sun/star/datatransfer/clipboard/XClipboardOwner.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboardListener.hpp>
 
+#include <QtGui/QClipboard>
+
 using namespace com::sun::star;
 using namespace com::sun::star::uno;
 using namespace com::sun::star::lang;
@@ -26,6 +28,8 @@ using namespace com::sun::star::lang;
 class Qt5Transferable : public cppu::WeakImplHelper<css::datatransfer::XTransferable>
 {
 public:
+    explicit Qt5Transferable(QClipboard::Mode aMode);
+
     virtual css::uno::Any SAL_CALL
     getTransferData(const css::datatransfer::DataFlavor& rFlavor) override;
 
@@ -35,20 +39,35 @@ public:
         SAL_CALL getTransferDataFlavors() override;
     virtual sal_Bool SAL_CALL
     isDataFlavorSupported(const css::datatransfer::DataFlavor& rFlavor) override;
+
+private:
+    QClipboard::Mode m_aClipboardMode;
 };
 
 class VclQt5Clipboard
-    : public cppu::WeakComponentImplHelper<datatransfer::clipboard::XSystemClipboard,
+    : public QObject,
+      public cppu::WeakComponentImplHelper<datatransfer::clipboard::XSystemClipboard,
                                            datatransfer::clipboard::XFlushableClipboard,
                                            XServiceInfo>
 {
+    Q_OBJECT
+
+private Q_SLOTS:
+    void handleClipboardChange(QClipboard::Mode mode);
+
+private:
     osl::Mutex m_aMutex;
     Reference<css::datatransfer::XTransferable> m_aContents;
     Reference<css::datatransfer::clipboard::XClipboardOwner> m_aOwner;
     std::vector<Reference<css::datatransfer::clipboard::XClipboardListener>> m_aListeners;
+    OUString m_aClipboardName;
+    QClipboard::Mode m_aClipboardMode;
+    // custom MIME type to detect whether clipboard content was added by self or externally
+    const QString m_sMimeTypeUuid = "application/x-libreoffice-clipboard-uuid";
+    const QByteArray m_aUuid;
 
 public:
-    explicit VclQt5Clipboard();
+    explicit VclQt5Clipboard(const OUString& aModeString);
     virtual ~VclQt5Clipboard() override;
 
     /*

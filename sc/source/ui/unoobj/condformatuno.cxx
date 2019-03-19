@@ -357,9 +357,9 @@ sal_Int32 ScCondFormatsObj::createByRange(const uno::Reference< sheet::XSheetCel
 
     SCTAB nTab = aCoreRange[0].aStart.Tab();
 
-    ScConditionalFormat* pNewFormat = new ScConditionalFormat(0, &mpDocShell->GetDocument());
+    auto pNewFormat = std::make_unique<ScConditionalFormat>(0, &mpDocShell->GetDocument());
     pNewFormat->SetRange(aCoreRange);
-    return mpDocShell->GetDocument().AddCondFormat(pNewFormat, nTab);
+    return mpDocShell->GetDocument().AddCondFormat(std::move(pNewFormat), nTab);
 }
 
 void ScCondFormatsObj::removeByID(const sal_Int32 nID)
@@ -376,9 +376,11 @@ uno::Sequence<uno::Reference<sheet::XConditionalFormat> > ScCondFormatsObj::getC
     size_t n = pFormatList->size();
     uno::Sequence<uno::Reference<sheet::XConditionalFormat> > aCondFormats(n);
     sal_Int32 i = 0;
-    for (ScConditionalFormatList::const_iterator itr = pFormatList->begin(); itr != pFormatList->end(); ++itr, ++i) {
-        uno::Reference<sheet::XConditionalFormat> xCondFormat(new ScCondFormatObj(mpDocShell, this, (*itr)->GetKey()));
+    for (const auto& rFormat : *pFormatList)
+    {
+        uno::Reference<sheet::XConditionalFormat> xCondFormat(new ScCondFormatObj(mpDocShell, this, rFormat->GetKey()));
         aCondFormats[i] = xCondFormat;
+        ++i;
     }
 
     return aCondFormats;
@@ -1009,13 +1011,13 @@ ScColorScaleEntry* ScColorScaleEntryObj::getCoreObject()
     return pFormat->GetEntry(mnPos);
 }
 
-util::Color ScColorScaleEntryObj::getColor()
+sal_Int32 ScColorScaleEntryObj::getColor()
 {
     Color aColor = getCoreObject()->GetColor();
     return sal_Int32(aColor);
 }
 
-void ScColorScaleEntryObj::setColor(util::Color aColor)
+void ScColorScaleEntryObj::setColor(sal_Int32 aColor)
 {
     getCoreObject()->SetColor(Color(aColor));
 }
@@ -1631,9 +1633,9 @@ uno::Any SAL_CALL ScIconSetFormatObj::getPropertyValue( const OUString& aPropert
         break;
         case IconSetEntries:
         {
-            uno::Sequence<uno::Reference<sheet::XIconSetEntry> > aEntries(getCoreObject()->size());
-            size_t i = 0;
-            for (auto it = getCoreObject()->begin(), itEnd = getCoreObject()->end(); it != itEnd; ++it, ++i)
+            size_t nSize = getCoreObject()->size();
+            uno::Sequence<uno::Reference<sheet::XIconSetEntry> > aEntries(nSize);
+            for (size_t i = 0; i < nSize; ++i)
             {
                 aEntries[i] = new ScIconSetEntryObj(this, i);
             }

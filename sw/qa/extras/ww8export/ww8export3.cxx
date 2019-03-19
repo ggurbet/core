@@ -18,6 +18,7 @@
 #include <com/sun/star/text/XTextTablesSupplier.hpp>
 
 #include <drawdoc.hxx>
+#include <svx/xfillit0.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -45,6 +46,22 @@ DECLARE_WW8EXPORT_TEST(testTdf37778_readonlySection, "tdf37778_readonlySection.d
     // This created an explicit section with protection. There should be just the default, non-explicit section.
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Number of Sections", sal_Int32(0), xSections->getCount());
     }
+
+DECLARE_WW8EXPORT_TEST(testTdf122429_header, "tdf122429_header.doc")
+{
+    uno::Reference<container::XNameAccess> pageStyles = getStyles("PageStyles");
+    uno::Reference<style::XStyle> pageStyle(pageStyles->getByName("Default Style"), uno::UNO_QUERY);
+    bool headerIsOn = getProperty<bool>(pageStyle, "HeaderIsOn");
+    CPPUNIT_ASSERT(headerIsOn);
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf122460_header, "tdf122460_header.odt")
+{
+    uno::Reference<container::XNameAccess> pageStyles = getStyles("PageStyles");
+    uno::Reference<style::XStyle> pageStyle(pageStyles->getByName("Default Style"), uno::UNO_QUERY);
+    bool headerIsOn = getProperty<bool>(pageStyle, "HeaderIsOn");
+    CPPUNIT_ASSERT(headerIsOn);
+}
 
 DECLARE_WW8EXPORT_TEST(testFdo53985, "fdo53985.doc")
 {
@@ -151,6 +168,25 @@ DECLARE_WW8EXPORT_TEST(testTdf120225_textControlCrossRef, "tdf120225_textControl
 
     // The actual name isn't critical, but if it fails, it is worth asking why.
     CPPUNIT_ASSERT_EQUAL(OUString("Text1"), sTextFieldName);
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf121111_fillStyleNone, "tdf121111_fillStyleNone.docx")
+{
+    uno::Reference<beans::XPropertySet> xStyle(getStyles("ParagraphStyles")->getByName("Numbering - First level"),
+                                                     uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(Color(184,204,228), Color(getProperty<sal_uInt32>(xStyle, "ParaBackColor")));//R:184 G:204 B:228
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, getProperty<drawing::FillStyle>(xStyle, "FillStyle"));
+
+    uno::Reference<text::XTextRange> xText(getParagraph(12));
+    CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(xText, "ParaBackColor")));
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, getProperty<drawing::FillStyle>(xText, "FillStyle"));
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf123433_fillStyleStop, "tdf123433_fillStyleStop.doc")
+{
+    uno::Reference<text::XTextRange> xText(getParagraph(12));
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_NONE, getProperty<drawing::FillStyle>(xText, "FillStyle"));
+    CPPUNIT_ASSERT_EQUAL(COL_AUTO, Color(getProperty<sal_uInt32>(xText, "ParaBackColor")));
 }
 
 DECLARE_WW8EXPORT_TEST(testTdf94009_zeroPgMargin, "tdf94009_zeroPgMargin.odt")

@@ -24,11 +24,12 @@
 #include <sfx2/Metadatable.hxx>
 #include <vcl/keycod.hxx>
 #include <memory>
-#include <map>
 #include <rtl/ustring.hxx>
 #include <osl/diagnose.h>
+#include <tools/ref.hxx>
 #include <IMark.hxx>
-#include <swserv.hxx>
+#include <swrect.hxx>
+#include "DropDownFormFieldButton.hxx"
 
 namespace com {
     namespace sun {
@@ -40,8 +41,9 @@ namespace com {
     }
 }
 
-struct SwPosition;  // fwd Decl. wg. UI
 class SwDoc;
+class SwEditWin;
+class SwServerObject;
 
 namespace sw {
     namespace mark {
@@ -88,7 +90,7 @@ namespace sw {
                 { m_pPos2.reset(); }
 
             virtual OUString ToString( ) const override;
-            virtual void dumpAsXml(struct _xmlTextWriter* pWriter) const override;
+            virtual void dumpAsXml(xmlTextWriterPtr pWriter) const override;
 
             void Swap()
             {
@@ -228,7 +230,7 @@ namespace sw {
 
             virtual void Invalidate() override;
             virtual OUString ToString() const override;
-            virtual void dumpAsXml(struct _xmlTextWriter* pWriter) const override;
+            virtual void dumpAsXml(xmlTextWriterPtr pWriter) const override;
 
         private:
             OUString m_aFieldname;
@@ -245,6 +247,7 @@ namespace sw {
             virtual void ReleaseDoc(SwDoc* const pDoc) override;
         };
 
+        /// Fieldmark representing a checkbox form field.
         class CheckboxFieldmark
             : virtual public ICheckboxFieldmark
             , public Fieldmark
@@ -255,6 +258,28 @@ namespace sw {
             virtual void ReleaseDoc(SwDoc* const pDoc) override;
             bool IsChecked() const override;
             void SetChecked(bool checked) override;
+        };
+
+        /// Fieldmark representing a drop-down form field.
+        class DropDownFieldmark
+            : public Fieldmark
+        {
+        public:
+            DropDownFieldmark(const SwPaM& rPaM);
+            virtual ~DropDownFieldmark() override;
+            virtual void InitDoc(SwDoc* const io_pDoc, sw::mark::InsertMode eMode) override;
+            virtual void ReleaseDoc(SwDoc* const pDoc) override;
+
+            // This method should be called only by the portion so we can now the portion's painting area
+            void SetPortionPaintArea(const SwRect& rPortionPaintArea);
+
+            void ShowButton(SwEditWin* pEditWin);
+            void HideButton();
+            void RemoveButton();
+
+        private:
+            SwRect m_aPortionPaintArea;
+            VclPtr<DropDownFormFieldButton> m_pButton;
         };
     }
 }

@@ -623,7 +623,7 @@ void ScEditEngineDefaulter::RepeatDefaults()
 
 void ScEditEngineDefaulter::RemoveParaAttribs()
 {
-    SfxItemSet* pCharItems = nullptr;
+    std::unique_ptr<SfxItemSet> pCharItems;
     bool bUpdateMode = GetUpdateMode();
     if ( bUpdateMode )
         SetUpdateMode( false );
@@ -641,7 +641,7 @@ void ScEditEngineDefaulter::RemoveParaAttribs()
                 if ( !pDefaults || *pParaItem != pDefaults->Get(nWhich) )
                 {
                     if (!pCharItems)
-                        pCharItems = new SfxItemSet( GetEmptyItemSet() );
+                        pCharItems.reset(new SfxItemSet( GetEmptyItemSet() ));
                     pCharItems->Put( *pParaItem );
                 }
             }
@@ -656,9 +656,8 @@ void ScEditEngineDefaulter::RemoveParaAttribs()
             //  that are not overridden by existing character attributes
 
             sal_Int32 nStart = 0;
-            for ( std::vector<sal_Int32>::const_iterator it(aPortions.begin()); it != aPortions.end(); ++it )
+            for ( const sal_Int32 nEnd : aPortions )
             {
-                sal_Int32 nEnd = *it;
                 ESelection aSel( nPar, nStart, nPar, nEnd );
                 SfxItemSet aOldCharAttrs = GetAttribs( aSel );
                 SfxItemSet aNewCharAttrs = *pCharItems;
@@ -679,7 +678,7 @@ void ScEditEngineDefaulter::RemoveParaAttribs()
                 nStart = nEnd;
             }
 
-            DELETEZ( pCharItems );
+            pCharItems.reset();
         }
 
         if ( rParaAttribs.Count() )

@@ -52,6 +52,12 @@ void FillFieldSelect(ListBox& rListBox)
         rListBox.InsertEntry(SwResId(FLD_SELECT[i]));
 }
 
+void FillFieldSelect(weld::TreeView& rListBox)
+{
+    for (size_t i = 0; i < SAL_N_ELEMENTS(FLD_SELECT); ++i)
+        rListBox.append_text(SwResId(FLD_SELECT[i]));
+}
+
 SwFieldDokInfPage::SwFieldDokInfPage(vcl::Window* pParent, const SfxItemSet *const pCoreSet)
     :  SwFieldPage(pParent, "FieldDocInfoPage",
         "modules/swriter/ui/flddocinfopage.ui", pCoreSet)
@@ -146,9 +152,10 @@ void SwFieldDokInfPage::Reset(const SfxItemSet* )
 
     sal_Int32 nSelEntryData = LISTBOX_ENTRY_NOTFOUND;
     const OUString sUserData = GetUserData();
-    if (sUserData.getToken(0, ';').equalsIgnoreAsciiCase(USER_DATA_VERSION_1))
+    sal_Int32 nIdx{ 0 };
+    if (sUserData.getToken(0, ';', nIdx).equalsIgnoreAsciiCase(USER_DATA_VERSION_1))
     {
-        nSelEntryData = sUserData.getToken(1, ';').toInt32();
+        nSelEntryData = sUserData.getToken(0, ';', nIdx).toInt32();
     }
 
     std::vector<OUString> aLst;

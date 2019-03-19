@@ -27,7 +27,9 @@
 #include <com/sun/star/sdb/XOfficeDatabaseDocument.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
+#include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <com/sun/star/document/GraphicStorageHandler.hpp>
+#include <com/sun/star/document/XEmbeddedObjectResolver.hpp>
 #include "xmlfilter.hxx"
 #include "xmlGroup.hxx"
 #include "xmlReport.hxx"
@@ -348,7 +350,6 @@ ORptFilter::ORptFilter( const uno::Reference< XComponentContext >& _rxContext, S
     m_xCellStylesPropertySetMapper = OXMLHelper::GetCellStylePropertyMap(true, false);
     m_xColumnStylesPropertySetMapper = new XMLPropertySetMapper(OXMLHelper::GetColumnStyleProps(), m_xPropHdlFactory, false);
     m_xRowStylesPropertySetMapper = new XMLPropertySetMapper(OXMLHelper::GetRowStyleProps(), m_xPropHdlFactory, false);
-    m_xTableStylesPropertySetMapper = new XMLTextPropertySetMapper( TextPropMap::TABLE_DEFAULTS, false );
 }
 
 

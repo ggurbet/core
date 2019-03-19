@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+#include <tools/debug.hxx>
 #include <vcl/opengl/OpenGLContext.hxx>
 #include <vcl/opengl/OpenGLHelper.hxx>
 #include <opengl/zone.hxx>
@@ -194,7 +195,7 @@ void AquaSalObject::ResetClipRegion()
     setClippedPosSize();
 }
 
-void AquaSalObject::BeginSetClipRegion( sal_uLong )
+void AquaSalObject::BeginSetClipRegion( sal_uInt32 )
 {
     mbClip = false;
 }

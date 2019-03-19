@@ -32,6 +32,7 @@
 #include <tools/urlobj.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <vcl/commandinfoprovider.hxx>
+#include <vcl/menu.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/toolbox.hxx>
 #include <sal/log.hxx>
@@ -43,6 +44,7 @@
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/frame/XSubToolbarController.hpp>
 #include <com/sun/star/frame/XUIControllerFactory.hpp>
+#include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/ucb/CommandFailedException.hpp>
 #include <com/sun/star/ucb/ContentCreationException.hpp>
@@ -287,10 +289,11 @@ GenericPopupToolbarController::GenericPopupToolbarController(
     {
         if ( ( arg >>= aPropValue ) && aPropValue.Name == "Value" )
         {
+            sal_Int32 nIdx{ 0 };
             OUString aValue;
             aPropValue.Value >>= aValue;
-            m_aPopupCommand = aValue.getToken(0, ';');
-            m_bReplaceWithLast = aValue.getToken(1, ';').toBoolean();
+            m_aPopupCommand = aValue.getToken(0, ';', nIdx);
+            m_bReplaceWithLast = aValue.getToken(0, ';', nIdx).toBoolean();
             break;
         }
     }

@@ -22,14 +22,9 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/documentconstants.hxx>
 
-#include <o3tl/make_unique.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/settings.hxx>
 #include <sfx2/doctempl.hxx>
 #include <com/sun/star/frame/DocumentTemplates.hpp>
 #include <com/sun/star/frame/XDocumentTemplates.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/ucb/XCommandEnvironment.hpp>
 #include <com/sun/star/ucb/XContentAccess.hpp>
 #include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
@@ -194,7 +189,7 @@ TemplateScanner::State TemplateScanner::ScanEntry()
                     ||  (sContentType == "Impress 2.0"))
                 {
                     OUString sLocalisedTitle = SfxDocumentTemplates::ConvertResourceString(sTitle);
-                    mpTemplateEntries.push_back(o3tl::make_unique<TemplateEntry>(sLocalisedTitle, sTargetURL));
+                    mpTemplateEntries.push_back(std::make_unique<TemplateEntry>(sLocalisedTitle, sTargetURL));
                 }
             }
 

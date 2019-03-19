@@ -71,7 +71,7 @@ struct HitItem
 ResultSetForQuery::ResultSetForQuery( const uno::Reference< uno::XComponentContext >& rxContext,
                                       const uno::Reference< XContentProvider >&  xProvider,
                                       const uno::Sequence< beans::Property >& seq,
-                                      URLParameter& aURLParameter,
+                                      const URLParameter& aURLParameter,
                                       Databases* pDatabases )
     : ResultSetBase( rxContext,xProvider,seq ),
       m_aURLParameter( aURLParameter )
@@ -118,7 +118,6 @@ ResultSetForQuery::ResultSetForQuery( const uno::Reference< uno::XComponentConte
     IndexFolderIterator aIndexFolderIt( *pDatabases, m_aURLParameter.get_module(), m_aURLParameter.get_language() );
     OUString idxDir;
     bool bExtension = false;
-    int iDir = 0;
     vector< vector<HitItem> > aIndexFolderResultVectorVector;
 
     bool bTemporary;
@@ -240,8 +239,6 @@ ResultSetForQuery::ResultSetForQuery( const uno::Reference< uno::XComponentConte
             SAL_WARN("xmlhelp", e);
         }
 
-        ++iDir;
-
         if( bTemporary )
             aIndexFolderIt.deleteTempIndexFolder( idxDir );
 
@@ -297,7 +294,7 @@ ResultSetForQuery::ResultSetForQuery( const uno::Reference< uno::XComponentConte
     {
         OUString aURL = aCompleteResultVector[r];
         OUString aResultStr = replWith + aURL.copy(replIdx);
-          m_aPath.push_back( aResultStr );
+        m_aPath.push_back( aResultStr );
     }
 
     m_aItems.resize( m_aPath.size() );

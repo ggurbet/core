@@ -21,7 +21,6 @@
 #include <basegfx/polygon/b3dpolygon.hxx>
 #include <basegfx/point/b3dpoint.hxx>
 #include <basegfx/matrix/b3dhommatrix.hxx>
-#include <rtl/instance.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/color/bcolor.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
@@ -336,11 +335,8 @@ public:
             BColorDataVector::const_iterator aEnd(rSource.maVector.end());
             maVector.insert(aIndex, aStart, aEnd);
 
-            for(; aStart != aEnd; ++aStart)
-            {
-                if(!aStart->equalZero())
-                    mnUsedEntries++;
-            }
+            mnUsedEntries += std::count_if(aStart, aEnd,
+                [](BColorDataVector::const_reference rData) { return !rData.equalZero(); });
         }
     }
 
@@ -350,13 +346,10 @@ public:
         {
             const BColorDataVector::iterator aDeleteStart(maVector.begin() + nIndex);
             const BColorDataVector::iterator aDeleteEnd(aDeleteStart + nCount);
-            BColorDataVector::const_iterator aStart(aDeleteStart);
 
-            for(; mnUsedEntries && aStart != aDeleteEnd; ++aStart)
-            {
-                if(!aStart->equalZero())
-                    mnUsedEntries--;
-            }
+            auto nDeleteUsed = std::count_if(aDeleteStart, aDeleteEnd,
+                [](BColorDataVector::const_reference rData) { return !rData.equalZero(); });
+            mnUsedEntries -= std::min(mnUsedEntries, static_cast<sal_uInt32>(nDeleteUsed));
 
             // remove point data
             maVector.erase(aDeleteStart, aDeleteEnd);
@@ -483,11 +476,8 @@ public:
             NormalsData3DVector::const_iterator aEnd(rSource.maVector.end());
             maVector.insert(aIndex, aStart, aEnd);
 
-            for(; aStart != aEnd; ++aStart)
-            {
-                if(!aStart->equalZero())
-                    mnUsedEntries++;
-            }
+            mnUsedEntries += std::count_if(aStart, aEnd,
+                [](NormalsData3DVector::const_reference rData) { return !rData.equalZero(); });
         }
     }
 
@@ -497,13 +487,10 @@ public:
         {
             const NormalsData3DVector::iterator aDeleteStart(maVector.begin() + nIndex);
             const NormalsData3DVector::iterator aDeleteEnd(aDeleteStart + nCount);
-            NormalsData3DVector::const_iterator aStart(aDeleteStart);
 
-            for(; mnUsedEntries && aStart != aDeleteEnd; ++aStart)
-            {
-                if(!aStart->equalZero())
-                    mnUsedEntries--;
-            }
+            auto nDeleteUsed = std::count_if(aDeleteStart, aDeleteEnd,
+                [](NormalsData3DVector::const_reference rData) { return !rData.equalZero(); });
+            mnUsedEntries -= std::min(mnUsedEntries, static_cast<sal_uInt32>(nDeleteUsed));
 
             // remove point data
             maVector.erase(aDeleteStart, aDeleteEnd);
@@ -638,11 +625,8 @@ public:
             TextureData2DVector::const_iterator aEnd(rSource.maVector.end());
             maVector.insert(aIndex, aStart, aEnd);
 
-            for(; aStart != aEnd; ++aStart)
-            {
-                if(!aStart->equalZero())
-                    mnUsedEntries++;
-            }
+            mnUsedEntries += std::count_if(aStart, aEnd,
+                [](TextureData2DVector::const_reference rData) { return !rData.equalZero(); });
         }
     }
 
@@ -652,13 +636,10 @@ public:
         {
             const TextureData2DVector::iterator aDeleteStart(maVector.begin() + nIndex);
             const TextureData2DVector::iterator aDeleteEnd(aDeleteStart + nCount);
-            TextureData2DVector::const_iterator aStart(aDeleteStart);
 
-            for(; mnUsedEntries && aStart != aDeleteEnd; ++aStart)
-            {
-                if(!aStart->equalZero())
-                    mnUsedEntries--;
-            }
+            auto nDeleteUsed = std::count_if(aDeleteStart, aDeleteEnd,
+                [](TextureData2DVector::const_reference rData) { return !rData.equalZero(); });
+            mnUsedEntries -= std::min(mnUsedEntries, static_cast<sal_uInt32>(nDeleteUsed));
 
             // remove point data
             maVector.erase(aDeleteStart, aDeleteEnd);
@@ -1317,17 +1298,17 @@ public:
                     const sal_uInt32 nIndex(maPoints.count() - 1);
                     bRemove = (maPoints.getCoordinate(0) == maPoints.getCoordinate(nIndex));
 
-                    if(bRemove && mpBColors && !(mpBColors->getBColor(0) == mpBColors->getBColor(nIndex)))
+                    if(bRemove && mpBColors && mpBColors->getBColor(0) != mpBColors->getBColor(nIndex))
                     {
                         bRemove = false;
                     }
 
-                    if(bRemove && mpNormals && !(mpNormals->getNormal(0) == mpNormals->getNormal(nIndex)))
+                    if(bRemove && mpNormals && mpNormals->getNormal(0) != mpNormals->getNormal(nIndex))
                     {
                         bRemove = false;
                     }
 
-                    if(bRemove && mpTextureCoordinates && !(mpTextureCoordinates->getTextureCoordinate(0) == mpTextureCoordinates->getTextureCoordinate(nIndex)))
+                    if(bRemove && mpTextureCoordinates && mpTextureCoordinates->getTextureCoordinate(0) != mpTextureCoordinates->getTextureCoordinate(nIndex))
                     {
                         bRemove = false;
                     }
@@ -1353,17 +1334,17 @@ public:
             const sal_uInt32 nNextIndex(nIndex + 1);
             bool bRemove(maPoints.getCoordinate(nIndex) == maPoints.getCoordinate(nNextIndex));
 
-            if(bRemove && mpBColors && !(mpBColors->getBColor(nIndex) == mpBColors->getBColor(nNextIndex)))
+            if(bRemove && mpBColors && mpBColors->getBColor(nIndex) != mpBColors->getBColor(nNextIndex))
             {
                 bRemove = false;
             }
 
-            if(bRemove && mpNormals && !(mpNormals->getNormal(nIndex) == mpNormals->getNormal(nNextIndex)))
+            if(bRemove && mpNormals && mpNormals->getNormal(nIndex) != mpNormals->getNormal(nNextIndex))
             {
                 bRemove = false;
             }
 
-            if(bRemove && mpTextureCoordinates && !(mpTextureCoordinates->getTextureCoordinate(nIndex) == mpTextureCoordinates->getTextureCoordinate(nNextIndex)))
+            if(bRemove && mpTextureCoordinates && mpTextureCoordinates->getTextureCoordinate(nIndex) != mpTextureCoordinates->getTextureCoordinate(nNextIndex))
             {
                 bRemove = false;
             }
@@ -1397,11 +1378,17 @@ public:
 
 namespace basegfx
 {
-    namespace { struct DefaultPolygon : public rtl::Static< B3DPolygon::ImplType,
-                                                            DefaultPolygon > {}; }
+    namespace {
+
+    B3DPolygon::ImplType const & getDefaultPolygon() {
+        static B3DPolygon::ImplType const singleton;
+        return singleton;
+    }
+
+    }
 
     B3DPolygon::B3DPolygon() :
-        mpPolygon(DefaultPolygon::get())
+        mpPolygon(getDefaultPolygon())
     {
     }
 
@@ -1581,7 +1568,7 @@ namespace basegfx
 
     void B3DPolygon::clear()
     {
-        mpPolygon = DefaultPolygon::get();
+        mpPolygon = getDefaultPolygon();
     }
 
     bool B3DPolygon::isClosed() const

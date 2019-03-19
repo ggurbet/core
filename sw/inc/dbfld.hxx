@@ -28,10 +28,10 @@ class SwDoc;
 // Database field.
 class SW_DLLPUBLIC SwDBFieldType : public SwValueFieldType
 {
-    SwDBData    aDBData;
-    OUString sName;          ///< only used in ::GetName() !
-    OUString sColumn;
-    long        nRefCnt;
+    SwDBData    m_aDBData;
+    OUString m_sName;          ///< only used in ::GetName() !
+    OUString m_sColumn;
+    long        m_nRefCnt;
 
 public:
 
@@ -41,11 +41,11 @@ public:
     virtual OUString GetName() const override;
     virtual SwFieldType*  Copy() const override;
 
-    void     AddRef() { nRefCnt++; }
+    void     AddRef() { m_nRefCnt++; }
     void            ReleaseRef();
 
-    const OUString&     GetColumnName() const {return sColumn;}
-    const SwDBData& GetDBData() const {return aDBData;}
+    const OUString&     GetColumnName() const {return m_sColumn;}
+    const SwDBData& GetDBData() const {return m_aDBData;}
 
     virtual void        QueryValue( css::uno::Any& rVal, sal_uInt16 nWhich ) const override;
     virtual void        PutValue( const css::uno::Any& rVal, sal_uInt16 nWhich ) override;
@@ -55,12 +55,12 @@ public:
 // Content is formatted according to the format (if available).
 class SW_DLLPUBLIC SwDBField : public SwValueField
 {
-    OUString aContent;
-    OUString sFieldCode; ///< contains Word's field code
-    sal_uInt16  nSubType;
-    bool    bIsInBodyText    : 1;
-    bool    bValidValue     : 1;
-    bool    bInitialized    : 1;
+    OUString m_aContent;
+    OUString m_sFieldCode; ///< contains Word's field code
+    sal_uInt16  m_nSubType;
+    bool    m_bIsInBodyText    : 1;
+    bool    m_bValidValue     : 1;
+    bool    m_bInitialized    : 1;
 
     virtual OUString    ExpandImpl(SwRootFrame const* pLayout) const override;
     virtual std::unique_ptr<SwField> Copy() const override;
@@ -91,15 +91,15 @@ public:
 
     inline void         ChgBodyTextFlag( bool bIsInBody );
 
-    bool         IsInitialized() const   { return bInitialized; }
-    void         ClearInitialized()      { bInitialized = false; }
-    void         SetInitialized()        { bInitialized = true; }
+    bool         IsInitialized() const   { return m_bInitialized; }
+    void         ClearInitialized()      { m_bInitialized = false; }
+    void         SetInitialized()        { m_bInitialized = true; }
 
     /// Get name.
     virtual OUString    GetPar1() const override;
 
     /// access to the command string
-    void                SetFieldCode(const OUString& rStr) { sFieldCode = rStr; }
+    void                SetFieldCode(const OUString& rStr) { m_sFieldCode = rStr; }
 
     /// DBName
     const SwDBData&  GetDBData() const { return static_cast<SwDBFieldType*>(GetTyp())->GetDBData(); }
@@ -111,28 +111,28 @@ public:
 };
 
 inline  void SwDBField::SetExpansion(const OUString& rStr)
-    { aContent = rStr; }
+    { m_aContent = rStr; }
 
 /// set from UpdateExpFields (the Node-Position is known there)
 inline void SwDBField::ChgBodyTextFlag( bool bIsInBody )
-    { bIsInBodyText = bIsInBody; }
+    { m_bIsInBodyText = bIsInBody; }
 
 // Base class for all other database fields.
 class SW_DLLPUBLIC SwDBNameInfField : public SwField
 {
-    SwDBData        aDBData;
-    sal_uInt16      nSubType;
+    SwDBData        m_aDBData;
+    sal_uInt16      m_nSubType;
 
 protected:
-    const SwDBData& GetDBData() const {return aDBData;}
-    SwDBData&       GetDBData() {return aDBData;}
+    const SwDBData& GetDBData() const {return m_aDBData;}
+    SwDBData&       GetDBData() {return m_aDBData;}
 
     SwDBNameInfField(SwFieldType* pTyp, const SwDBData& rDBData, sal_uInt32 nFormat = 0);
 
 public:
     /// DBName
-    const SwDBData&  GetRealDBData() const { return aDBData; }
-    SwDBData&        GetRealDBData() { return aDBData; }
+    const SwDBData&  GetRealDBData() const { return m_aDBData; }
+    SwDBData&        GetRealDBData() { return m_aDBData; }
 
     SwDBData                GetDBData(SwDoc* pDoc);
     void                    SetDBData(const SwDBData& rDBData);
@@ -157,8 +157,8 @@ public:
 // Next data record with condition.
 class SW_DLLPUBLIC SwDBNextSetField : public SwDBNameInfField
 {
-    OUString  aCond;
-    bool    bCondValid;
+    OUString  m_aCond;
+    bool    m_bCondValid;
 
 public:
     SwDBNextSetField( SwDBNextSetFieldType*,
@@ -179,10 +179,10 @@ public:
 };
 
 inline bool SwDBNextSetField::IsCondValid() const
-    { return bCondValid; }
+    { return m_bCondValid; }
 
 inline void SwDBNextSetField::SetCondValid(bool bCond)
-    { bCondValid = bCond; }
+    { m_bCondValid = bCond; }
 
 // Database field next record.
 class SwDBNumSetFieldType : public SwFieldType
@@ -197,9 +197,9 @@ public:
 // Number is in nFormat (bit of a misuse!)
 class SwDBNumSetField : public SwDBNameInfField
 {
-    OUString  aCond;
-    OUString  aPar2;
-    bool    bCondValid;
+    OUString  m_aCond;
+    OUString  m_aPar2;
+    bool    m_bCondValid;
 
 public:
     SwDBNumSetField(SwDBNumSetFieldType*, const OUString& rCond, const OUString& rDBNum, const SwDBData& rDBData);
@@ -225,15 +225,15 @@ public:
 };
 
 inline bool SwDBNumSetField::IsCondValid() const
-    { return bCondValid; }
+    { return m_bCondValid; }
 
 inline void SwDBNumSetField::SetCondValid(bool bCond)
-    { bCondValid = bCond; }
+    { m_bCondValid = bCond; }
 
 // Database name.
 class SwDBNameFieldType : public SwFieldType
 {
-        SwDoc *pDoc;
+        SwDoc *m_pDoc;
 public:
     SwDBNameFieldType(SwDoc*);
 
@@ -265,7 +265,7 @@ public:
 // Database field.
 class SW_DLLPUBLIC SwDBSetNumberField : public SwDBNameInfField
 {
-    long    nNumber;
+    long    m_nNumber;
 public:
     SwDBSetNumberField(SwDBSetNumberFieldType*, const SwDBData& rDBData, sal_uInt32 nFormat = 0);
 
@@ -280,10 +280,10 @@ public:
 };
 
 inline long SwDBSetNumberField::GetSetNumber() const
-    { return nNumber; }
+    { return m_nNumber; }
 
 inline void SwDBSetNumberField::SetSetNumber(long nNum)
-    { nNumber = nNum; }
+    { m_nNumber = nNum; }
 
 #endif // INCLUDED_SW_INC_DBFLD_HXX
 

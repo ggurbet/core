@@ -26,6 +26,8 @@
 #include <o3tl/typed_flags_set.hxx>
 #include <memory>
 
+class StyleSettings;
+
 /*
 
 Allowed StylbeBits
@@ -299,11 +301,7 @@ enum TabBarAllowRenamingReturnCode {
 };
 
 class MouseEvent;
-class TrackingEvent;
 class DataChangedEvent;
-class ImplTabButton;
-class ImplTabSizer;
-class TabBarEdit;
 
 struct ImplTabBarItem;
 struct TabBar_Impl;

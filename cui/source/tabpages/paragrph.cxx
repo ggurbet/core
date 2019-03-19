@@ -304,7 +304,7 @@ bool SvxStdParagraphTabPage::FillItemSet( SfxItemSet* rOutSet )
         aMargin.SetContextValue(m_xContextualCB->get_active());
         eState = GetItemSet().GetItemState( nWhich );
 
-        if ( !pOld || !( *static_cast<const SvxULSpaceItem*>(pOld) == aMargin ) ||
+        if ( !pOld || *static_cast<const SvxULSpaceItem*>(pOld) != aMargin ||
              SfxItemState::DONTCARE == eState )
         {
             rOutSet->Put( aMargin );
@@ -359,7 +359,7 @@ bool SvxStdParagraphTabPage::FillItemSet( SfxItemSet* rOutSet )
             bNullTab = true;
         eState = GetItemSet().GetItemState( nWhich );
 
-        if ( !pOld || !( *static_cast<const SvxLRSpaceItem*>(pOld) == aMargin ) ||
+        if ( !pOld || *static_cast<const SvxLRSpaceItem*>(pOld) != aMargin ||
              SfxItemState::DONTCARE == eState )
         {
             rOutSet->Put( aMargin );
@@ -591,9 +591,7 @@ void SvxStdParagraphTabPage::Reset( const SfxItemSet* rSet )
     // because for Impress the min of first-line indent depends on value of
     // left-indent!
     ELRLoseFocus();
-    m_xAutoCB->save_state();
-    m_xContextualCB->save_state();
-    m_xLineDist->save_value();
+    ChangesApplied();
 }
 
 void SvxStdParagraphTabPage::ChangesApplied()
@@ -869,12 +867,6 @@ void SvxStdParagraphTabPage::Init_Impl()
     m_xRightIndent->connect_value_changed(aLink2);
 
     Link<weld::MetricSpinButton&,void> aLink = LINK(this, SvxStdParagraphTabPage, ModifyHdl_Impl);
-#if 0
-    //TO DO
-    m_xFLineIndent->SetModifyHdl( aLink );
-    m_xLeftIndent->SetModifyHdl( aLink );
-    m_xRightIndent->SetModifyHdl( aLink );
-#endif
     m_xTopDist->connect_value_changed(aLink);
     m_xBottomDist->connect_value_changed(aLink);
 
@@ -943,7 +935,7 @@ void SvxStdParagraphTabPage::EnableAbsLineDist(long nMinTwip)
     nMinFixDist = nMinTwip;
 }
 
-void    SvxStdParagraphTabPage::PageCreated(const SfxAllItemSet& aSet)
+void SvxStdParagraphTabPage::PageCreated(const SfxAllItemSet& aSet)
 {
 
 /* different bit represent call to different method of SvxStdParagraphTabPage
@@ -1067,34 +1059,52 @@ bool SvxParaAlignTabPage::FillItemSet( SfxItemSet* rOutSet )
 {
     bool bModified = false;
 
+    bool bAdj = false;
     SvxAdjust eAdjust = SvxAdjust::Left;
 
-    if ( m_xLeft->get_active() )
+    if (m_xLeft->get_active())
+    {
         eAdjust = SvxAdjust::Left;
-    else if ( m_xRight->get_active() )
+        bAdj = m_xLeft->get_saved_state() == TRISTATE_FALSE;
+    }
+    else if (m_xRight->get_active())
+    {
         eAdjust = SvxAdjust::Right;
-    else if ( m_xCenter->get_active() )
+        bAdj = m_xRight->get_saved_state() == TRISTATE_FALSE;
+    }
+    else if (m_xCenter->get_active())
+    {
         eAdjust = SvxAdjust::Center;
-    else if ( m_xJustify->get_active() )
+        bAdj = m_xCenter->get_saved_state() == TRISTATE_FALSE;
+    }
+    else if (m_xJustify->get_active())
+    {
         eAdjust = SvxAdjust::Block;
+        bAdj = m_xJustify->get_saved_state() == TRISTATE_FALSE ||
+            m_xExpandCB->get_state_changed_from_saved() ||
+            m_xLastLineLB->get_value_changed_from_saved();
+    }
 
     sal_uInt16 _nWhich = GetWhich( SID_ATTR_PARA_ADJUST );
 
-    SvxAdjust eOneWord = m_xExpandCB->get_active() ? SvxAdjust::Block : SvxAdjust::Left;
+    if (bAdj)
+    {
+        SvxAdjust eOneWord = m_xExpandCB->get_active() ? SvxAdjust::Block : SvxAdjust::Left;
 
-    int nLBPos = m_xLastLineLB->get_active();
-    SvxAdjust eLastBlock = SvxAdjust::Left;
-    if ( 1 == nLBPos )
-        eLastBlock = SvxAdjust::Center;
-    else if ( 2 == nLBPos )
-        eLastBlock = SvxAdjust::Block;
+        int nLBPos = m_xLastLineLB->get_active();
+        SvxAdjust eLastBlock = SvxAdjust::Left;
+        if ( 1 == nLBPos )
+            eLastBlock = SvxAdjust::Center;
+        else if ( 2 == nLBPos )
+            eLastBlock = SvxAdjust::Block;
 
-    SvxAdjustItem aAdj( static_cast<const SvxAdjustItem&>(GetItemSet().Get( _nWhich )) );
-    aAdj.SetAdjust( eAdjust );
-    aAdj.SetOneWord( eOneWord );
-    aAdj.SetLastBlock( eLastBlock );
-    rOutSet->Put( aAdj );
-    bModified = true;
+        SvxAdjustItem aAdj( static_cast<const SvxAdjustItem&>(GetItemSet().Get( _nWhich )) );
+        aAdj.SetAdjust( eAdjust );
+        aAdj.SetOneWord( eOneWord );
+        aAdj.SetLastBlock( eLastBlock );
+        rOutSet->Put( aAdj );
+        bModified = true;
+    }
 
     if (m_xSnapToGridCB->get_state_changed_from_saved())
     {
@@ -1180,7 +1190,7 @@ void SvxParaAlignTabPage::Reset( const SfxItemSet* rSet )
         m_xExpandCB->hide();
         if(!(nHtmlMode & HTMLMODE_FULL_STYLES) )
             m_xJustify->set_sensitive(false);
-        m_xSnapToGridCB->show(false);
+        m_xSnapToGridCB->hide();
     }
     _nWhich = GetWhich(SID_ATTR_PARA_SNAPTOGRID);
     eItemState = rSet->GetItemState( _nWhich );
@@ -1366,7 +1376,7 @@ bool SvxExtParagraphTabPage::FillItemSet( SfxItemSet* rOutSet )
         aHyphen.GetMaxHyphens() = static_cast<sal_uInt8>(m_xMaxHyphenEdit->get_value());
 
         if ( !pOld ||
-            !( *static_cast<const SvxHyphenZoneItem*>(pOld) == aHyphen ) ||
+            *static_cast<const SvxHyphenZoneItem*>(pOld) != aHyphen ||
                 m_xHyphenBox->get_state_changed_from_saved())
         {
             rOutSet->Put( aHyphen );

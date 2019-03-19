@@ -21,6 +21,7 @@
 #include <sal/config.h>
 #include <sal/log.hxx>
 
+#include <unotools/configmgr.hxx>
 #include <vcl/FilterConfigItem.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/BitmapTools.hxx>
@@ -547,8 +548,8 @@ sal_uInt8* TIFFReader::getMapData(sal_uInt32 np)
 
 bool TIFFReader::ReadMap()
 {
-    //when fuzzing with a max len set, max decompress to 2000 times that limit
-    static size_t nMaxAllowedDecompression = [](const char* pEnv) { size_t nRet = pEnv ? std::atoi(pEnv) : 0; return nRet * 2000; }(std::getenv("FUZZ_MAX_INPUT_LEN"));
+    //when fuzzing with a max len set, max decompress to 250 times that limit
+    static size_t nMaxAllowedDecompression = [](const char* pEnv) { size_t nRet = pEnv ? std::atoi(pEnv) : 0; return nRet * 250; }(std::getenv("FUZZ_MAX_INPUT_LEN"));
     size_t nTotalDataRead = 0;
 
     if ( nCompression == 1 || nCompression == 32771 )
@@ -1587,10 +1588,17 @@ bool TIFFReader::ReadTIFF(SvStream & rTIFF, Graphic & rGraphic )
             {
                 if (o3tl::checked_multiply<sal_Int32>(nImageWidth, nImageLength, nImageDataSize) ||
                     o3tl::checked_multiply<sal_Int32>(nImageDataSize, (HasAlphaChannel() ? 4 : 3), nImageDataSize) ||
-                    nImageDataSize > SAL_MAX_INT32/2)
+                    nImageDataSize > SAL_MAX_INT32/4)
                 {
                     bStatus = false;
                 }
+            }
+
+            if (bStatus)
+            {
+                sal_Int32 nResult = 0;
+                if (utl::ConfigManager::IsFuzzing() && (o3tl::checked_multiply(nImageWidth, nImageLength, nResult) || nResult > 4000000))
+                    bStatus = false;
             }
 
             if ( bStatus )

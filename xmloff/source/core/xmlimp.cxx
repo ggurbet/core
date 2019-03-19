@@ -40,16 +40,21 @@
 #include <StyleMap.hxx>
 #include <xmloff/ProgressBarHelper.hxx>
 #include <xmloff/xmlerror.hxx>
+#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/ServiceNotRegisteredException.hpp>
 #include <com/sun/star/io/XOutputStream.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
+#include <com/sun/star/util/XNumberFormatsSupplier.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/document/XBinaryStreamResolver.hpp>
 #include <com/sun/star/document/XStorageBasedDocument.hpp>
 #include <com/sun/star/document/XGraphicStorageHandler.hpp>
+#include <com/sun/star/document/XEmbeddedObjectResolver.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/xml/sax/XLocator.hpp>
 #include <com/sun/star/xml/sax/FastParser.hpp>
+#include <com/sun/star/xml/sax/SAXException.hpp>
 #include <com/sun/star/packages/zip/ZipIOException.hpp>
 #include <comphelper/fileformat.h>
 #include <comphelper/namecontainer.hxx>
@@ -59,8 +64,8 @@
 #include <comphelper/extract.hxx>
 #include <comphelper/documentconstants.hxx>
 #include <comphelper/storagehelper.hxx>
+#include <comphelper/attributelist.hxx>
 #include <unotools/fontcvt.hxx>
-#include <o3tl/make_unique.hxx>
 #include <xmloff/fasttokenhandler.hxx>
 #include <vcl/GraphicExternalLink.hxx>
 
@@ -80,7 +85,7 @@ using namespace ::xmloff::token;
 
 css::uno::Reference< css::xml::sax::XFastTokenHandler > SvXMLImport::xTokenHandler( new FastTokenHandler() );
 std::unordered_map< sal_Int32, std::pair< OUString, OUString > > SvXMLImport::aNamespaceMap;
-std::unordered_map< OUString, OUString, OUStringHash > SvXMLImport::aNamespaceURIPrefixMap;
+std::unordered_map< OUString, OUString > SvXMLImport::aNamespaceURIPrefixMap;
 const OUString SvXMLImport::aDefaultNamespace = OUString("");
 const OUString SvXMLImport::aNamespaceSeparator = OUString(":");
 bool SvXMLImport::bIsNSMapsInitialized = false;
@@ -372,10 +377,8 @@ void SvXMLImport::InitCtor_()
                              GetXMLToken(XML_N_LO_EXT), XML_NAMESPACE_LO_EXT);
     }
 
-    msPackageProtocol = "vnd.sun.star.Package:";
-
     if (mxNumberFormatsSupplier.is())
-        mpNumImport = o3tl::make_unique<SvXMLNumFmtHelper>(mxNumberFormatsSupplier, GetComponentContext());
+        mpNumImport = std::make_unique<SvXMLNumFmtHelper>(mxNumberFormatsSupplier, GetComponentContext());
 
     if (mxModel.is() && !mxEventListener.is())
     {
@@ -394,7 +397,6 @@ SvXMLImport::SvXMLImport(
                 util::MeasureUnit::MM_100TH, util::MeasureUnit::MM_100TH) ),
 
     mnImportFlags( nImportFlags ),
-    mnErrorFlags(SvXMLErrorFlags::NO),
     isFastContext( false ),
     maNamespaceHandler( new SvXMLImportFastNamespaceHandler() ),
     mbIsFormsSupported( true ),
@@ -1519,7 +1521,7 @@ ProgressBarHelper*  SvXMLImport::GetProgressBarHelper()
 {
     if (!mpProgressBarHelper)
     {
-        mpProgressBarHelper = o3tl::make_unique<ProgressBarHelper>(mxStatusIndicator, false);
+        mpProgressBarHelper = std::make_unique<ProgressBarHelper>(mxStatusIndicator, false);
 
         if (mxImportInfo.is())
         {
@@ -1589,18 +1591,18 @@ XMLEventImportHelper& SvXMLImport::GetEventImport()
     {
         // construct event helper and register StarBasic handler and standard
         // event tables
-        mpEventImportHelper = o3tl::make_unique<XMLEventImportHelper>();
+        mpEventImportHelper = std::make_unique<XMLEventImportHelper>();
         const OUString& sStarBasic(GetXMLToken(XML_STARBASIC));
         mpEventImportHelper->RegisterFactory(sStarBasic,
-                                            o3tl::make_unique<XMLStarBasicContextFactory>());
+                                            std::make_unique<XMLStarBasicContextFactory>());
         const OUString& sScript(GetXMLToken(XML_SCRIPT));
         mpEventImportHelper->RegisterFactory(sScript,
-                                            o3tl::make_unique<XMLScriptContextFactory>());
+                                            std::make_unique<XMLScriptContextFactory>());
         mpEventImportHelper->AddTranslationTable(aStandardEventTable);
 
         // register StarBasic event handler with capitalized spelling
         mpEventImportHelper->RegisterFactory("StarBasic",
-                                            o3tl::make_unique<XMLStarBasicContextFactory>());
+                                            std::make_unique<XMLStarBasicContextFactory>());
     }
 
     return *mpEventImportHelper;
@@ -1769,7 +1771,7 @@ void SvXMLImport::CreateDataStylesImport_()
     uno::Reference<util::XNumberFormatsSupplier> xNum =
         GetNumberFormatsSupplier();
     if ( xNum.is() )
-        mpNumImport = o3tl::make_unique<SvXMLNumFmtHelper>(xNum, GetComponentContext() );
+        mpNumImport = std::make_unique<SvXMLNumFmtHelper>(xNum, GetComponentContext() );
 }
 
 sal_Unicode SvXMLImport::ConvStarBatsCharToStarSymbol( sal_Unicode c )
@@ -1812,17 +1814,9 @@ void SvXMLImport::SetError(
     const OUString& rExceptionMessage,
     const Reference<xml::sax::XLocator>& rLocator )
 {
-    // maintain error flags
-    if ( ( nId & XMLERROR_FLAG_ERROR ) != 0 )
-        mnErrorFlags |= SvXMLErrorFlags::ERROR_OCCURRED;
-    if ( ( nId & XMLERROR_FLAG_WARNING ) != 0 )
-        mnErrorFlags |= SvXMLErrorFlags::WARNING_OCCURRED;
-    if ( ( nId & XMLERROR_FLAG_SEVERE ) != 0 )
-        mnErrorFlags |= SvXMLErrorFlags::DO_NOTHING;
-
     // create error list on demand
     if ( !mpXMLErrors )
-        mpXMLErrors = o3tl::make_unique<XMLErrors>();
+        mpXMLErrors = std::make_unique<XMLErrors>();
 
     // save error information
     // use document locator (if none supplied)
@@ -1984,7 +1978,8 @@ void SvXMLImport::SetXmlId(uno::Reference<uno::XInterface> const & i_xIfc,
                 }
             }
         } catch (uno::Exception &) {
-            SAL_WARN("xmloff.core","SvXMLImport::SetXmlId: exception?");
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN("xmloff.core","SvXMLImport::SetXmlId: exception " << exceptionToString(ex));
         }
     }
 }
@@ -2188,10 +2183,10 @@ void SvXMLImportFastNamespaceHandler::registerNamespace( const OUString& rNamesp
     // Elements with default namespace parsed by FastParser have namespace prefix.
     // A default namespace needs to be registered with the prefix, to maintain the compatibility.
     if ( rNamespacePrefix.isEmpty() )
-        m_aNamespaceDefines.push_back( o3tl::make_unique<NamespaceDefine>(
+        m_aNamespaceDefines.push_back( std::make_unique<NamespaceDefine>(
                                     SvXMLImport::getNamespacePrefixFromURI( rNamespaceURI ), rNamespaceURI) );
 
-    m_aNamespaceDefines.push_back( o3tl::make_unique<NamespaceDefine>(
+    m_aNamespaceDefines.push_back( std::make_unique<NamespaceDefine>(
                                     rNamespacePrefix, rNamespaceURI) );
 }
 

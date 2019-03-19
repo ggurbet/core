@@ -24,14 +24,12 @@
 #include <sal/config.h>
 #include <xmloff/dllapi.h>
 #include <sal/types.h>
-#include <svl/style.hxx>
-#include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmlictxt.hxx>
 #include <memory>
 
 class SvXMLStylesContext_Impl;
-class SvXMLUnitConverter;
 class SvXMLImportPropertyMapper;
+class SvXMLTokenMap;
 
 namespace com { namespace sun { namespace star {
 namespace container { class XNameContainer; }
@@ -216,7 +214,7 @@ public:
                                       sal_uInt16 nFamily,
                                       const OUString& rName,
                                       bool bCreateIndex = false ) const;
-    virtual sal_uInt16 GetFamily( const OUString& rFamily ) const;
+    static sal_uInt16 GetFamily( const OUString& rFamily );
     virtual rtl::Reference < SvXMLImportPropertyMapper > GetImportPropertyMapper(
                         sal_uInt16 nFamily ) const;
 

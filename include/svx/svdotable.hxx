@@ -225,7 +225,7 @@ public:
     virtual bool BckCreate(SdrDragStat& rStat) override;
     virtual void BrkCreate(SdrDragStat& rStat) override;
     virtual basegfx::B2DPolyPolygon TakeCreatePoly(const SdrDragStat& rDrag) const override;
-    virtual Pointer GetCreatePointer() const override;
+    virtual PointerStyle GetCreatePointer() const override;
 
     virtual void NbcMove(const Size& rSiz) override;
     virtual void NbcResize(const Point& rRef, const Fraction& xFact, const Fraction& yFact) override;
@@ -259,7 +259,7 @@ public:
     static void ExportAsRTF( SvStream& rStrm, SdrTableObj& rObj );
     static void ImportAsRTF( SvStream& rStrm, SdrTableObj& rObj );
 
-    virtual void dumpAsXml(struct _xmlTextWriter* pWriter) const override;
+    virtual void dumpAsXml(xmlTextWriterPtr pWriter) const override;
 
 private:
     void init( sal_Int32 nColumns, sal_Int32 nRows );

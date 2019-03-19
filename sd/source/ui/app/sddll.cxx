@@ -21,9 +21,6 @@
 
 #include <avmedia/mediaplayer.hxx>
 #include <avmedia/mediatoolbox.hxx>
-#include <editeng/eeitem.hxx>
-#include <editeng/editeng.hxx>
-#include <svx/svdobj.hxx>
 #include <unotools/configmgr.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <svx/fmobjfac.hxx>
@@ -54,7 +51,6 @@
 #include <SpellDialogChildWindow.hxx>
 #include <SlideSorterViewShell.hxx>
 #include <SlideSorterViewShellBase.hxx>
-#include <strmname.h>
 #include <SdShapeTypes.hxx>
 #include <TextObjectBar.hxx>
 #include <tmplctrl.hxx>
@@ -79,21 +75,15 @@
 #include <svx/pszctrl.hxx>
 #include <svx/srchdlg.hxx>
 #include <svx/SvxColorChildWindow.hxx>
-#include <svx/SvxShapeTypes.hxx>
 #include <svx/tbcontrl.hxx>
 #include <svx/verttexttbxctrl.hxx>
 #include <svx/xmlsecctrl.hxx>
 #include <svx/zoomctrl.hxx>
 #include <svx/zoomsliderctrl.hxx>
 #include <svx/tbxctl.hxx>
-#include <sfx2/docfilt.hxx>
-#include <sfx2/docfile.hxx>
-#include <sfx2/fcontnr.hxx>
 #include <sfx2/emojipopup.hxx>
 #include <sfx2/charmappopup.hxx>
 #include <sfx2/sidebar/SidebarChildWindow.hxx>
-#include <vcl/FilterConfigItem.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sdabstdlg.hxx>
 #include <sdfilter.hxx>
 #include <sdmod.hxx>
@@ -252,7 +242,7 @@ void SdDLL::Init()
     if (!utl::ConfigManager::IsFuzzing() && SvtModuleOptions().IsDraw())
         pDrawFact = &::sd::GraphicDocShell::Factory();
 
-    auto pUniqueModule = o3tl::make_unique<SdModule>(pImpressFact, pDrawFact);
+    auto pUniqueModule = std::make_unique<SdModule>(pImpressFact, pDrawFact);
     SdModule* pModule = pUniqueModule.get();
     SfxApplication::SetModule(SfxToolsModule::Draw, std::move(pUniqueModule));
 

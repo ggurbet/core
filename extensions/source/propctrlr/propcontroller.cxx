@@ -36,6 +36,7 @@
 #include <com/sun/star/inspection/PropertyControlType.hpp>
 #include <com/sun/star/ucb/AlreadyInitializedException.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
+#include <com/sun/star/util/VetoException.hpp>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <comphelper/types.hxx>
@@ -290,7 +291,7 @@ namespace pcr
         sal_Int32 nLen = Requests.getLength();
         aReturn.realloc( nLen );
 
-                Reference< XDispatch >* pReturn     = aReturn.getArray();
+        Reference< XDispatch >* pReturn     = aReturn.getArray();
         const   Reference< XDispatch >* pReturnEnd  = aReturn.getArray() + nLen;
         const   DispatchDescriptor*     pDescripts  = Requests.getConstArray();
 
@@ -595,17 +596,10 @@ namespace pcr
             m_pView = nullptr;
         }
 
-        for (   InterfaceArray::iterator loop = m_aInspectedObjects.begin();
-                loop != m_aInspectedObjects.end();
-                ++loop
-            )
-        {
-            if ( *loop == _rSource.Source )
-            {
-                m_aInspectedObjects.erase( loop );
-                break;
-            }
-        }
+        auto it = std::find_if(m_aInspectedObjects.begin(), m_aInspectedObjects.end(),
+            [&_rSource](const InterfaceArray::value_type& rxObj) { return rxObj == _rSource.Source; });
+        if (it != m_aInspectedObjects.end())
+            m_aInspectedObjects.erase(it);
     }
 
 
@@ -1461,10 +1455,8 @@ namespace pcr
 
     bool OPropertyBrowserController::impl_findObjectProperty_nothrow( const OUString& _rName, OrderedPropertyMap::const_iterator* _pProperty )
     {
-        OrderedPropertyMap::const_iterator search = m_aProperties.begin();
-        for ( ; search != m_aProperties.end(); ++search )
-            if ( search->second.Name == _rName )
-                break;
+        OrderedPropertyMap::const_iterator search = std::find_if(m_aProperties.begin(), m_aProperties.end(),
+            [&_rName](const OrderedPropertyMap::value_type& rEntry) { return rEntry.second.Name == _rName; });
         if ( _pProperty )
             *_pProperty = search;
         return ( search != m_aProperties.end() );

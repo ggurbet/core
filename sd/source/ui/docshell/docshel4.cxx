@@ -26,16 +26,12 @@
 #include <DrawDocShell.hxx>
 #include <com/sun/star/document/PrinterIndependentLayout.hpp>
 #include <editeng/outlobj.hxx>
-#include <o3tl/make_unique.hxx>
 #include <tools/urlobj.hxx>
-#include <sfx2/progress.hxx>
 #include <vcl/waitobj.hxx>
 #include <svx/svxids.hrc>
 #include <editeng/editeng.hxx>
 #include <editeng/editstat.hxx>
 #include <editeng/flstitem.hxx>
-#include <editeng/eeitem.hxx>
-#include <svl/aeitem.hxx>
 #include <svl/flagitem.hxx>
 #include <sot/storage.hxx>
 #include <sfx2/dinfdlg.hxx>
@@ -43,17 +39,11 @@
 #include <sfx2/docfilt.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svx/svdotext.hxx>
-#include <svl/style.hxx>
 #include <sfx2/printer.hxx>
 #include <svtools/ctrltool.hxx>
-#include <svtools/sfxecode.hxx>
 #include <comphelper/classids.hxx>
 #include <sot/formats.hxx>
-#include <sfx2/request.hxx>
-#include <unotools/fltrcfg.hxx>
-#include <sfx2/frame.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <unotools/saveopt.hxx>
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XDrawView.hpp>
 
@@ -63,7 +53,7 @@
 #include <FrameView.hxx>
 #include <optsitem.hxx>
 #include <Outliner.hxx>
-#include <sdattr.hxx>
+#include <sdattr.hrc>
 #include <drawdoc.hxx>
 #include <ViewShell.hxx>
 #include <sdmod.hxx>
@@ -85,8 +75,6 @@
 #include <sdpdffilter.hxx>
 #include <framework/FrameworkHelper.hxx>
 
-#include <SdUnoDrawView.hxx>
-
 #include <sfx2/zoomitem.hxx>
 
 using namespace ::com::sun::star;
@@ -103,7 +91,7 @@ SfxPrinter* DrawDocShell::GetPrinter(bool bCreate)
     if (bCreate && !mpPrinter)
     {
         // create ItemSet with special pool area
-        auto pSet = o3tl::make_unique<SfxItemSet>( GetPool(),
+        auto pSet = std::make_unique<SfxItemSet>( GetPool(),
                             svl::Items<SID_PRINTER_NOTFOUND_WARN,  SID_PRINTER_NOTFOUND_WARN,
                             SID_PRINTER_CHANGESTODOC,   SID_PRINTER_CHANGESTODOC,
                             ATTR_OPTIONS_PRINT,         ATTR_OPTIONS_PRINT>{} );
@@ -209,41 +197,41 @@ void DrawDocShell::OnDocumentPrinterChanged(Printer* pNewPrinter)
 
 void DrawDocShell::UpdateRefDevice()
 {
-    if( mpDoc )
+    if( !mpDoc )
+        return;
+
+    // Determine the device for which the output will be formatted.
+    VclPtr< OutputDevice > pRefDevice;
+    switch (mpDoc->GetPrinterIndependentLayout())
     {
-        // Determine the device for which the output will be formatted.
-        VclPtr< OutputDevice > pRefDevice;
-        switch (mpDoc->GetPrinterIndependentLayout())
-        {
-            case css::document::PrinterIndependentLayout::DISABLED:
-                pRefDevice = mpPrinter.get();
-                break;
+        case css::document::PrinterIndependentLayout::DISABLED:
+            pRefDevice = mpPrinter.get();
+            break;
 
-            case css::document::PrinterIndependentLayout::ENABLED:
-                pRefDevice = SD_MOD()->GetVirtualRefDevice();
-                break;
+        case css::document::PrinterIndependentLayout::ENABLED:
+            pRefDevice = SD_MOD()->GetVirtualRefDevice();
+            break;
 
-            default:
-                // We are confronted with an invalid or un-implemented
-                // layout mode.  Use the printer as formatting device
-                // as a fall-back.
-                SAL_WARN( "sd", "DrawDocShell::UpdateRefDevice(): Unexpected printer layout mode");
+        default:
+            // We are confronted with an invalid or un-implemented
+            // layout mode.  Use the printer as formatting device
+            // as a fall-back.
+            SAL_WARN( "sd", "DrawDocShell::UpdateRefDevice(): Unexpected printer layout mode");
 
-                pRefDevice = mpPrinter.get();
-                break;
-        }
-        mpDoc->SetRefDevice( pRefDevice.get() );
-
-        SdOutliner* pOutl = mpDoc->GetOutliner( false );
-
-        if( pOutl )
-            pOutl->SetRefDevice( pRefDevice );
-
-        SdOutliner* pInternalOutl = mpDoc->GetInternalOutliner( false );
-
-        if( pInternalOutl )
-            pInternalOutl->SetRefDevice( pRefDevice );
+            pRefDevice = mpPrinter.get();
+            break;
     }
+    mpDoc->SetRefDevice( pRefDevice.get() );
+
+    SdOutliner* pOutl = mpDoc->GetOutliner( false );
+
+    if( pOutl )
+        pOutl->SetRefDevice( pRefDevice );
+
+    SdOutliner* pInternalOutl = mpDoc->GetInternalOutliner( false );
+
+    if( pInternalOutl )
+        pInternalOutl->SetRefDevice( pRefDevice );
 }
 
 /**
@@ -607,30 +595,30 @@ bool DrawDocShell::ConvertTo( SfxMedium& rMedium )
 
         if( aTypeName.indexOf( "graphic_HTML" ) >= 0 )
         {
-            xFilter = o3tl::make_unique<SdHTMLFilter>(rMedium, *this);
+            xFilter = std::make_unique<SdHTMLFilter>(rMedium, *this);
         }
         else if( aTypeName.indexOf( "MS_PowerPoint_97" ) >= 0 )
         {
-            xFilter = o3tl::make_unique<SdPPTFilter>(rMedium, *this);
+            xFilter = std::make_unique<SdPPTFilter>(rMedium, *this);
             static_cast<SdPPTFilter*>(xFilter.get())->PreSaveBasic();
         }
         else if ( aTypeName.indexOf( "CGM_Computer_Graphics_Metafile" ) >= 0 )
         {
-            xFilter = o3tl::make_unique<SdCGMFilter>(rMedium, *this);
+            xFilter = std::make_unique<SdCGMFilter>(rMedium, *this);
         }
         else if( aTypeName.indexOf( "draw8" ) >= 0 ||
                  aTypeName.indexOf( "impress8" ) >= 0 )
         {
-            xFilter = o3tl::make_unique<SdXMLFilter>(rMedium, *this);
+            xFilter = std::make_unique<SdXMLFilter>(rMedium, *this);
         }
         else if( aTypeName.indexOf( "StarOffice_XML_Impress" ) >= 0 ||
                  aTypeName.indexOf( "StarOffice_XML_Draw" ) >= 0 )
         {
-            xFilter = o3tl::make_unique<SdXMLFilter>(rMedium, *this, SDXMLMODE_Normal, SOFFICE_FILEFORMAT_60);
+            xFilter = std::make_unique<SdXMLFilter>(rMedium, *this, SDXMLMODE_Normal, SOFFICE_FILEFORMAT_60);
         }
         else
         {
-            xFilter = o3tl::make_unique<SdGRFFilter>(rMedium, *this);
+            xFilter = std::make_unique<SdGRFFilter>(rMedium, *this);
         }
 
         if (xFilter)
@@ -697,161 +685,162 @@ SfxStyleSheetBasePool* DrawDocShell::GetStyleSheetPool()
 
 void DrawDocShell::GotoBookmark(const OUString& rBookmark)
 {
-    if (auto pDrawViewShell = dynamic_cast<DrawViewShell *>( mpViewShell ))
+    auto pDrawViewShell = dynamic_cast<DrawViewShell *>( mpViewShell );
+    if (!pDrawViewShell)
+        return;
+
+    ViewShellBase& rBase (mpViewShell->GetViewShellBase());
+
+    bool bIsMasterPage = false;
+    sal_uInt16 nPageNumber = SDRPAGE_NOTFOUND;
+    SdrObject* pObj = nullptr;
+
+    const OUString sInteraction( "action?" );
+    if ( rBookmark.match( sInteraction ) )
     {
-        ViewShellBase& rBase (mpViewShell->GetViewShellBase());
-
-        bool bIsMasterPage = false;
-        sal_uInt16 nPageNumber = SDRPAGE_NOTFOUND;
-        SdrObject* pObj = nullptr;
-
-        const OUString sInteraction( "action?" );
-        if ( rBookmark.match( sInteraction ) )
+        const OUString sJump( "jump=" );
+        if ( rBookmark.match( sJump, sInteraction.getLength() ) )
         {
-            const OUString sJump( "jump=" );
-            if ( rBookmark.match( sJump, sInteraction.getLength() ) )
+            OUString aDestination( rBookmark.copy( sInteraction.getLength() + sJump.getLength() ) );
+            if ( aDestination.match( "firstslide" ) )
             {
-                OUString aDestination( rBookmark.copy( sInteraction.getLength() + sJump.getLength() ) );
-                if ( aDestination.match( "firstslide" ) )
-                {
-                    nPageNumber = 1;
-                }
-                else if ( aDestination.match( "lastslide" ) )
-                {
-                    nPageNumber = mpDoc->GetPageCount() - 2;
-                }
-                else if ( aDestination.match( "previousslide" ) )
-                {
-                    SdPage* pPage = pDrawViewShell->GetActualPage();
-                    nPageNumber = pPage->GetPageNum();
-                    nPageNumber = nPageNumber > 2 ? nPageNumber - 2 : SDRPAGE_NOTFOUND;
-                }
-                else if ( aDestination.match( "nextslide" ) )
-                {
-                    SdPage* pPage = pDrawViewShell->GetActualPage();
-                    nPageNumber = pPage->GetPageNum() + 2;
-                    if ( nPageNumber >= mpDoc->GetPageCount() )
-                        nPageNumber = SDRPAGE_NOTFOUND;
-                }
+                nPageNumber = 1;
+            }
+            else if ( aDestination.match( "lastslide" ) )
+            {
+                nPageNumber = mpDoc->GetPageCount() - 2;
+            }
+            else if ( aDestination.match( "previousslide" ) )
+            {
+                SdPage* pPage = pDrawViewShell->GetActualPage();
+                nPageNumber = pPage->GetPageNum();
+                nPageNumber = nPageNumber > 2 ? nPageNumber - 2 : SDRPAGE_NOTFOUND;
+            }
+            else if ( aDestination.match( "nextslide" ) )
+            {
+                SdPage* pPage = pDrawViewShell->GetActualPage();
+                nPageNumber = pPage->GetPageNum() + 2;
+                if ( nPageNumber >= mpDoc->GetPageCount() )
+                    nPageNumber = SDRPAGE_NOTFOUND;
             }
         }
-        else
-        {
-            // Is the bookmark a page?
-            nPageNumber = mpDoc->GetPageByName( rBookmark, bIsMasterPage );
-
-            if (nPageNumber == SDRPAGE_NOTFOUND)
-            {
-                // Is the bookmark a object?
-                pObj = mpDoc->GetObj(rBookmark);
-
-                if (pObj)
-                {
-                    nPageNumber = pObj->getSdrPageFromSdrObject()->GetPageNum();
-                }
-            }
-        }
-        if (nPageNumber != SDRPAGE_NOTFOUND)
-        {
-            // Jump to the bookmarked page.  This is done in three steps.
-
-            SdPage* pPage;
-            if (bIsMasterPage)
-                pPage = static_cast<SdPage*>( mpDoc->GetMasterPage(nPageNumber) );
-            else
-                pPage = static_cast<SdPage*>( mpDoc->GetPage(nPageNumber) );
-
-            // 1.) Change the view shell to the edit view, the notes view,
-            // or the handout view.
-            PageKind eNewPageKind = pPage->GetPageKind();
-
-            if( (eNewPageKind != PageKind::Standard) && (mpDoc->GetDocumentType() == DocumentType::Draw) )
-                return;
-
-            if (eNewPageKind != pDrawViewShell->GetPageKind())
-            {
-                // change work area
-                GetFrameView()->SetPageKind(eNewPageKind);
-                OUString sViewURL;
-                switch (eNewPageKind)
-                {
-                    case PageKind::Standard:
-                        sViewURL = FrameworkHelper::msImpressViewURL;
-                        break;
-                    case PageKind::Notes:
-                        sViewURL = FrameworkHelper::msNotesViewURL;
-                        break;
-                    case PageKind::Handout:
-                        sViewURL = FrameworkHelper::msHandoutViewURL;
-                        break;
-                    default:
-                        break;
-                }
-                if (!sViewURL.isEmpty())
-                {
-                    std::shared_ptr<FrameworkHelper> pHelper (
-                        FrameworkHelper::Instance(rBase));
-                    pHelper->RequestView(
-                        sViewURL,
-                        FrameworkHelper::msCenterPaneURL);
-                    pHelper->WaitForUpdate();
-
-                    // Get the new DrawViewShell.
-                    mpViewShell = pHelper->GetViewShell(FrameworkHelper::msCenterPaneURL).get();
-                    pDrawViewShell = dynamic_cast<sd::DrawViewShell*>(mpViewShell);
-                }
-                else
-                {
-                    pDrawViewShell = nullptr;
-                }
-            }
-
-            if (pDrawViewShell != nullptr)
-            {
-                setEditMode(pDrawViewShell, bIsMasterPage);
-
-                // Make the bookmarked page the current page.  This is done
-                // by using the API because this takes care of all the
-                // little things to be done.  Especially writing the view
-                // data to the frame view.
-                sal_uInt16 nSdPgNum = (nPageNumber - 1) / 2;
-                Reference<drawing::XDrawView> xController (rBase.GetController(), UNO_QUERY);
-                if (xController.is())
-                {
-                    Reference<drawing::XDrawPage> xDrawPage (pPage->getUnoPage(), UNO_QUERY);
-                    xController->setCurrentPage (xDrawPage);
-                }
-                else
-                {
-                    // As a fall back switch to the page via the core.
-                    DBG_ASSERT (xController.is(),
-                        "DrawDocShell::GotoBookmark: can't switch page via API");
-                    pDrawViewShell->SwitchPage(nSdPgNum);
-                }
-
-                // show page
-                SvxZoomItem aZoom;
-                aZoom.SetType( SvxZoomType::WHOLEPAGE );
-                pDrawViewShell->GetDispatcher()->ExecuteList(SID_ATTR_ZOOM, SfxCallMode::ASYNCHRON, { &aZoom });
-
-                if (pObj != nullptr)
-                {
-                    // select object
-                    pDrawViewShell->GetView()->UnmarkAll();
-                    pDrawViewShell->GetView()->MarkObj(
-                        pObj,
-                        pDrawViewShell->GetView()->GetSdrPageView());
-                }
-            }
-        }
-
-        SfxBindings& rBindings = ((pDrawViewShell && pDrawViewShell->GetViewFrame()!=nullptr)
-            ? pDrawViewShell->GetViewFrame()
-            : SfxViewFrame::Current() )->GetBindings();
-
-        rBindings.Invalidate(SID_NAVIGATOR_STATE, true);
-        rBindings.Invalidate(SID_NAVIGATOR_PAGENAME);
     }
+    else
+    {
+        // Is the bookmark a page?
+        nPageNumber = mpDoc->GetPageByName( rBookmark, bIsMasterPage );
+
+        if (nPageNumber == SDRPAGE_NOTFOUND)
+        {
+            // Is the bookmark a object?
+            pObj = mpDoc->GetObj(rBookmark);
+
+            if (pObj)
+            {
+                nPageNumber = pObj->getSdrPageFromSdrObject()->GetPageNum();
+            }
+        }
+    }
+    if (nPageNumber != SDRPAGE_NOTFOUND)
+    {
+        // Jump to the bookmarked page.  This is done in three steps.
+
+        SdPage* pPage;
+        if (bIsMasterPage)
+            pPage = static_cast<SdPage*>( mpDoc->GetMasterPage(nPageNumber) );
+        else
+            pPage = static_cast<SdPage*>( mpDoc->GetPage(nPageNumber) );
+
+        // 1.) Change the view shell to the edit view, the notes view,
+        // or the handout view.
+        PageKind eNewPageKind = pPage->GetPageKind();
+
+        if( (eNewPageKind != PageKind::Standard) && (mpDoc->GetDocumentType() == DocumentType::Draw) )
+            return;
+
+        if (eNewPageKind != pDrawViewShell->GetPageKind())
+        {
+            // change work area
+            GetFrameView()->SetPageKind(eNewPageKind);
+            OUString sViewURL;
+            switch (eNewPageKind)
+            {
+                case PageKind::Standard:
+                    sViewURL = FrameworkHelper::msImpressViewURL;
+                    break;
+                case PageKind::Notes:
+                    sViewURL = FrameworkHelper::msNotesViewURL;
+                    break;
+                case PageKind::Handout:
+                    sViewURL = FrameworkHelper::msHandoutViewURL;
+                    break;
+                default:
+                    break;
+            }
+            if (!sViewURL.isEmpty())
+            {
+                std::shared_ptr<FrameworkHelper> pHelper (
+                    FrameworkHelper::Instance(rBase));
+                pHelper->RequestView(
+                    sViewURL,
+                    FrameworkHelper::msCenterPaneURL);
+                pHelper->WaitForUpdate();
+
+                // Get the new DrawViewShell.
+                mpViewShell = pHelper->GetViewShell(FrameworkHelper::msCenterPaneURL).get();
+                pDrawViewShell = dynamic_cast<sd::DrawViewShell*>(mpViewShell);
+            }
+            else
+            {
+                pDrawViewShell = nullptr;
+            }
+        }
+
+        if (pDrawViewShell != nullptr)
+        {
+            setEditMode(pDrawViewShell, bIsMasterPage);
+
+            // Make the bookmarked page the current page.  This is done
+            // by using the API because this takes care of all the
+            // little things to be done.  Especially writing the view
+            // data to the frame view.
+            sal_uInt16 nSdPgNum = (nPageNumber - 1) / 2;
+            Reference<drawing::XDrawView> xController (rBase.GetController(), UNO_QUERY);
+            if (xController.is())
+            {
+                Reference<drawing::XDrawPage> xDrawPage (pPage->getUnoPage(), UNO_QUERY);
+                xController->setCurrentPage (xDrawPage);
+            }
+            else
+            {
+                // As a fall back switch to the page via the core.
+                DBG_ASSERT (xController.is(),
+                    "DrawDocShell::GotoBookmark: can't switch page via API");
+                pDrawViewShell->SwitchPage(nSdPgNum);
+            }
+
+            // show page
+            SvxZoomItem aZoom;
+            aZoom.SetType( SvxZoomType::WHOLEPAGE );
+            pDrawViewShell->GetDispatcher()->ExecuteList(SID_ATTR_ZOOM, SfxCallMode::ASYNCHRON, { &aZoom });
+
+            if (pObj != nullptr)
+            {
+                // select object
+                pDrawViewShell->GetView()->UnmarkAll();
+                pDrawViewShell->GetView()->MarkObj(
+                    pObj,
+                    pDrawViewShell->GetView()->GetSdrPageView());
+            }
+        }
+    }
+
+    SfxBindings& rBindings = ((pDrawViewShell && pDrawViewShell->GetViewFrame()!=nullptr)
+        ? pDrawViewShell->GetViewFrame()
+        : SfxViewFrame::Current() )->GetBindings();
+
+    rBindings.Invalidate(SID_NAVIGATOR_STATE, true);
+    rBindings.Invalidate(SID_NAVIGATOR_PAGENAME);
 }
 
 /**

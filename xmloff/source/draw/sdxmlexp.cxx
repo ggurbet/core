@@ -60,6 +60,8 @@
 #include <xmloff/families.hxx>
 #include <xmloff/styleexp.hxx>
 #include <xmloff/settingsstore.hxx>
+#include <xmloff/table/XMLTableExport.hxx>
+#include <xmloff/ProgressBarHelper.hxx>
 #include "sdpropls.hxx"
 #include <xmloff/xmlexppr.hxx>
 #include <com/sun/star/beans/XPropertyState.hpp>
@@ -418,7 +420,7 @@ void SAL_CALL SdXMLExport::setSourceDocument( const Reference< lang::XComponent 
     mpPresPagePropsMapper = new XMLPageExportPropertyMapper( xMapper, *this  );
 
     // add family name
-      GetAutoStylePool()->AddFamily(
+    GetAutoStylePool()->AddFamily(
         XML_STYLE_FAMILY_SD_GRAPHICS_ID,
         OUString(XML_STYLE_FAMILY_SD_GRAPHICS_NAME),
           GetPropertySetMapper(),
@@ -1768,7 +1770,7 @@ void SdXMLExport::ExportContent_()
                 else
                 {
                     // export old animations for ooo format
-                    rtl::Reference< XMLAnimationsExporter > xAnimExport = new XMLAnimationsExporter( GetShapeExport().get() );
+                    rtl::Reference< XMLAnimationsExporter > xAnimExport = new XMLAnimationsExporter();
                     GetShapeExport()->setAnimationsExporter( xAnimExport );
                 }
             }
@@ -2169,7 +2171,7 @@ void SdXMLExport::collectAutoStyles()
         // prepare animations exporter if impress
         if(IsImpress() && (!(getExportFlags() & SvXMLExportFlags::OASIS)) )
         {
-            rtl::Reference< XMLAnimationsExporter > xAnimExport = new XMLAnimationsExporter( GetShapeExport().get() );
+            rtl::Reference< XMLAnimationsExporter > xAnimExport = new XMLAnimationsExporter();
             GetShapeExport()->setAnimationsExporter( xAnimExport );
         }
 
@@ -2648,9 +2650,38 @@ uno::Reference< uno::XInterface > classname##_createInstance(const uno::Referenc
     return static_cast<cppu::OWeakObject*>(new SdXMLExport( comphelper::getComponentContext(rSMgr), implementationname, draw, flags )); \
 }
 
-SERVICE( XMLImpressExportOasis, "com.sun.star.comp.Impress.XMLOasisExporter", "XMLImpressExportOasis", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::META|SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::SETTINGS|SvXMLExportFlags::FONTDECLS|SvXMLExportFlags::EMBEDDED );
-SERVICE( XMLImpressStylesExportOasis, "com.sun.star.comp.Impress.XMLOasisStylesExporter", "XMLImpressStylesExportOasis", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::FONTDECLS );
-SERVICE( XMLImpressContentExportOasis, "com.sun.star.comp.Impress.XMLOasisContentExporter", "XMLImpressContentExportOasis", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::FONTDECLS );
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(
+        pCtx, "XMLImpressExportOasis", false,
+        SvXMLExportFlags::OASIS | SvXMLExportFlags::META | SvXMLExportFlags::STYLES
+            | SvXMLExportFlags::MASTERSTYLES | SvXMLExportFlags::AUTOSTYLES
+            | SvXMLExportFlags::CONTENT | SvXMLExportFlags::SCRIPTS | SvXMLExportFlags::SETTINGS
+            | SvXMLExportFlags::FONTDECLS | SvXMLExportFlags::EMBEDDED));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisStylesExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(
+        pCtx, "XMLImpressStylesExportOasis", false,
+        SvXMLExportFlags::OASIS | SvXMLExportFlags::STYLES | SvXMLExportFlags::MASTERSTYLES
+            | SvXMLExportFlags::AUTOSTYLES | SvXMLExportFlags::FONTDECLS));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisContentExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLImpressContentExportOasis", false,
+                                         SvXMLExportFlags::OASIS | SvXMLExportFlags::AUTOSTYLES
+                                             | SvXMLExportFlags::CONTENT | SvXMLExportFlags::SCRIPTS
+                                             | SvXMLExportFlags::FONTDECLS));
+}
+
 SERVICE( XMLImpressMetaExportOasis, "com.sun.star.comp.Impress.XMLOasisMetaExporter", "XMLImpressMetaExportOasis", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::META );
 SERVICE( XMLImpressSettingsExportOasis, "com.sun.star.comp.Impress.XMLOasisSettingsExporter", "XMLImpressSettingsExportOasis", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::SETTINGS );
 

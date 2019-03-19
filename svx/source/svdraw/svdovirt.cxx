@@ -28,7 +28,6 @@
 #include <svx/svdograf.hxx>
 #include <svx/svddrgv.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
-#include <o3tl/make_unique.hxx>
 
 
 sdr::properties::BaseProperties& SdrVirtObj::GetProperties() const
@@ -40,7 +39,7 @@ sdr::properties::BaseProperties& SdrVirtObj::GetProperties() const
 // #i27224#
 std::unique_ptr<sdr::contact::ViewContact> SdrVirtObj::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfVirtObj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfVirtObj>(*this);
 }
 
 SdrVirtObj::SdrVirtObj(
@@ -530,7 +529,7 @@ SdrObject* SdrVirtObj::CheckMacroHit(const SdrObjMacroHitRec& rRec) const
     return rRefObj.CheckMacroHit(rRec); // TODO: positioning offset
 }
 
-Pointer SdrVirtObj::GetMacroPointer(const SdrObjMacroHitRec& rRec) const
+PointerStyle SdrVirtObj::GetMacroPointer(const SdrObjMacroHitRec& rRec) const
 {
     return rRefObj.GetMacroPointer(rRec); // TODO: positioning offset
 }

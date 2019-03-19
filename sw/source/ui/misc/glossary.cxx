@@ -262,6 +262,22 @@ void SwGlossaryDlg::dispose()
     SvxStandardDialog::dispose();
 }
 
+namespace
+{
+
+OUString getCurrentGlossary()
+{
+    const OUString sTemp{ ::GetCurrGlosGroup() };
+
+    // the zeroth path is not being recorded!
+    if (sTemp.getToken(1, GLOS_DELIM).startsWith("0"))
+        return sTemp.getToken(0, GLOS_DELIM);
+
+    return sTemp;
+}
+
+}
+
 // select new group
 IMPL_LINK( SwGlossaryDlg, GrpSelect, SvTreeListBox *, pBox, void )
 {
@@ -299,11 +315,7 @@ IMPL_LINK( SwGlossaryDlg, GrpSelect, SvTreeListBox *, pBox, void )
     if( SfxRequest::HasMacroRecorder( pSh->GetView().GetViewFrame() ) )
     {
         SfxRequest aReq( pSh->GetView().GetViewFrame(), FN_SET_ACT_GLOSSARY );
-        OUString sTemp(::GetCurrGlosGroup());
-        // the zeroth path is not being recorded!
-        if (sTemp.getToken(1, GLOS_DELIM).startsWith("0"))
-            sTemp = sTemp.getToken(0, GLOS_DELIM);
-        aReq.AppendItem(SfxStringItem(FN_SET_ACT_GLOSSARY, sTemp));
+        aReq.AppendItem(SfxStringItem(FN_SET_ACT_GLOSSARY, getCurrentGlossary()));
         aReq.Done();
     }
     Invalidate(InvalidateFlags::Update);
@@ -319,11 +331,7 @@ void SwGlossaryDlg::Apply()
     if( SfxRequest::HasMacroRecorder( pSh->GetView().GetViewFrame() ) )
     {
         SfxRequest aReq( pSh->GetView().GetViewFrame(), FN_INSERT_GLOSSARY );
-        OUString sTemp(::GetCurrGlosGroup());
-        // the zeroth path is not being recorded!
-        if (sTemp.getToken(1, GLOS_DELIM).startsWith("0"))
-            sTemp = sTemp.getToken(0, GLOS_DELIM);
-        aReq.AppendItem(SfxStringItem(FN_INSERT_GLOSSARY, sTemp));
+        aReq.AppendItem(SfxStringItem(FN_INSERT_GLOSSARY, getCurrentGlossary()));
         aReq.AppendItem(SfxStringItem(FN_PARAM_1, aGlosName));
         aReq.Done();
     }
@@ -474,11 +482,7 @@ IMPL_LINK( SwGlossaryDlg, MenuHdl, Menu *, pMn, bool )
             if( SfxRequest::HasMacroRecorder( pSh->GetView().GetViewFrame() ) )
             {
                 SfxRequest aReq(pSh->GetView().GetViewFrame(), FN_NEW_GLOSSARY);
-                OUString sTemp(::GetCurrGlosGroup());
-                // the zeroth path is not being recorded!
-                if (sTemp.getToken(1, GLOS_DELIM).startsWith("0"))
-                    sTemp = sTemp.getToken(0, GLOS_DELIM);
-                aReq.AppendItem(SfxStringItem(FN_NEW_GLOSSARY, sTemp));
+                aReq.AppendItem(SfxStringItem(FN_NEW_GLOSSARY, getCurrentGlossary()));
                 aReq.AppendItem(SfxStringItem(FN_PARAM_1, aShortName));
                 aReq.AppendItem(SfxStringItem(FN_PARAM_2, aStr));
                 aReq.Done();
@@ -690,15 +694,17 @@ void SwGlossaryDlg::Init()
         OUString sGroupName(pGlossaryHdl->GetGroupName(nId, &sTitle));
         if(sGroupName.isEmpty())
             continue;
+        sal_Int32 nIdx{ 0 };
+        const OUString sName{ sGroupName.getToken( 0, GLOS_DELIM, nIdx ) };
         if(sTitle.isEmpty())
-            sTitle = sGroupName.getToken( 0, GLOS_DELIM );
+            sTitle = sName;
         if(sTitle == sMyAutoTextEnglish)
             sTitle = sMyAutoTextTranslated;
         SvTreeListEntry* pEntry = m_pCategoryBox->InsertEntry( sTitle );
-        const sal_Int32 nPath = sGroupName.getToken( 1, GLOS_DELIM ).toInt32();
+        const sal_Int32 nPath = sGroupName.getToken( 0, GLOS_DELIM, nIdx ).toInt32();
 
         GroupUserData* pData = new GroupUserData;
-        pData->sGroupName = sGroupName.getToken(0, GLOS_DELIM);
+        pData->sGroupName = sName;
         pData->nPathIdx = static_cast< sal_uInt16 >(nPath);
         pData->bReadonly = pGlossaryHdl->IsReadOnly(&sGroupName);
 
@@ -862,13 +868,13 @@ void SwGlTreeListBox::RequestHelp( const HelpEvent& rHEvt )
         if(pItem)
         {
             aPos = GetEntryPosition( pEntry );
-             Size aSize(pItem->GetSize( this, pEntry ));
+            Size aSize(pItem->GetSize( this, pEntry ));
             aPos.setX( GetTabPos( pEntry, pTab ) );
 
             if((aPos.X() + aSize.Width()) > GetSizePixel().Width())
                 aSize.setWidth( GetSizePixel().Width() - aPos.X() );
             aPos = OutputToScreenPixel(aPos);
-             tools::Rectangle aItemRect( aPos, aSize );
+            tools::Rectangle aItemRect( aPos, aSize );
             OUString sMsg;
             if(!GetParent(pEntry))
             {

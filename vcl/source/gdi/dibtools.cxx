@@ -29,6 +29,7 @@
 #include <tools/stream.hxx>
 #include <tools/fract.hxx>
 #include <tools/helpers.hxx>
+#include <unotools/configmgr.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/outdev.hxx>
@@ -544,6 +545,12 @@ bool ImplReadDIBBits(SvStream& rIStm, DIBV5Header& rHeader, BitmapWriteAccess& r
             rIStm.ReadUInt32( nBMask );
         }
 
+        const long nWidth(rHeader.nWidth);
+        const long nHeight(rHeader.nHeight);
+        long nResult = 0;
+        if (utl::ConfigManager::IsFuzzing() && (o3tl::checked_multiply(nWidth, nHeight, nResult) || nResult > 4000000))
+            return false;
+
         if (bRLE)
         {
             if(!rHeader.nSizeImage)
@@ -561,8 +568,14 @@ bool ImplReadDIBBits(SvStream& rIStm, DIBV5Header& rHeader, BitmapWriteAccess& r
         }
         else
         {
-            const long nWidth(rHeader.nWidth);
-            const long nHeight(rHeader.nHeight);
+            if (nAlignedWidth > rIStm.remainingSize())
+            {
+                // ofz#11188 avoid timeout
+                // all following paths will enter a case statement, and nCount
+                // is always at least 1, so we can check here before allocation
+                // if at least one row can be read
+                return false;
+            }
             std::vector<sal_uInt8> aBuf(nAlignedWidth);
 
             const long nI(bTopDown ? 1 : -1);
@@ -934,8 +947,19 @@ bool ImplReadDIBBody(SvStream& rIStm, Bitmap& rBmp, AlphaMask* pBmpAlpha, sal_uL
                 return false;
             break;
         }
+        default:
+            // tdf#122958 invalid compression value used
+            if (aHeader.nCompression & 0x000F)
+            {
+                // lets assume that there was an error in the generating application
+                // and allow through as COMPRESS_NONE if the bottom byte is 0
+                SAL_WARN( "vcl", "bad bmp compression scheme: " << aHeader.nCompression << ", rejecting bmp");
+                return false;
+            }
+            else
+                SAL_WARN( "vcl", "bad bmp compression scheme: " << aHeader.nCompression << ", assuming meant to be COMPRESS_NONE");
+        [[fallthrough]];
         case BITFIELDS:
-            break;
         case ZCOMPRESS:
         case COMPRESS_NONE:
         {
@@ -946,8 +970,6 @@ bool ImplReadDIBBody(SvStream& rIStm, Bitmap& rBmp, AlphaMask* pBmpAlpha, sal_uL
                 return false;
             break;
         }
-        default:
-            return false;
     }
 
     const Size aSizePixel(aHeader.nWidth, aHeader.nHeight);

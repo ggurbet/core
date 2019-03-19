@@ -34,6 +34,7 @@
 #include "OOXMLPropertySet.hxx"
 
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/resmgr.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -181,10 +182,11 @@ void OOXMLDocumentImpl::importSubStreamRelations(const OOXMLStream::Pointer_t& p
     {
         cStream = OOXMLDocumentFactory::createStream(pStream, nType);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         SAL_WARN("writerfilter.ooxml", "importSubStreamRelations: exception while "
-            "importing stream " << nType << " : " << e);
+            "importing stream " << nType << " : " << exceptionToString(ex));
         return;
     }
 
@@ -201,10 +203,11 @@ void OOXMLDocumentImpl::importSubStreamRelations(const OOXMLStream::Pointer_t& p
                  uno::Reference<xml::dom::XDocumentBuilder> xDomBuilder(xml::dom::DocumentBuilder::create(xcpContext));
                  xRelation = xDomBuilder->parse(xcpInputStream);
             }
-            catch (uno::Exception const& e)
+            catch (uno::Exception const&)
             {
+                css::uno::Any ex( cppu::getCaughtException() );
                 SAL_WARN("writerfilter.ooxml", "importSubStream: exception while "
-                         "parsing stream " << nType << " : " << e);
+                         "parsing stream " << nType << " : " << exceptionToString(ex));
                 mxCustomXmlProsDom = xRelation;
             }
 
@@ -519,7 +522,7 @@ void OOXMLDocumentImpl::resolve(Stream & rStream)
         catch (uno::Exception const&)
         {
             css::uno::Any anyEx = cppu::getCaughtException();
-            SAL_WARN("writerfilter.ooxml", "OOXMLDocumentImpl::resolve(): " << anyEx);
+            SAL_WARN("writerfilter.ooxml", "OOXMLDocumentImpl::resolve(): " << exceptionToString(anyEx));
             throw lang::WrappedTargetRuntimeException("", nullptr, anyEx);
         }
         catch (...)
@@ -548,13 +551,12 @@ void OOXMLDocumentImpl::resolveCustomXmlStream(Stream & rStream)
 {
     // Resolving all item[n].xml files from CustomXml folder.
     uno::Reference<embed::XRelationshipAccess> xRelationshipAccess;
-    xRelationshipAccess.set(dynamic_cast<OOXMLStreamImpl&>(*mpStream.get()).accessDocumentStream(), uno::UNO_QUERY);
+    xRelationshipAccess.set(dynamic_cast<OOXMLStreamImpl&>(*mpStream).accessDocumentStream(), uno::UNO_QUERY);
     if (xRelationshipAccess.is())
     {
         static const char sCustomType[] = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml";
         static const char sCustomTypeStrict[] = "http://purl.oclc.org/ooxml/officeDocument/relationships/customXml";
         bool bFound = false;
-        sal_Int32 counter = 0;
         uno::Sequence<uno::Sequence< beans::StringPair>> aSeqs = xRelationshipAccess->getAllRelationships();
         std::vector<uno::Reference<xml::dom::XDocument>> aCustomXmlDomList;
         std::vector<uno::Reference<xml::dom::XDocument>> aCustomXmlDomPropsList;
@@ -586,7 +588,6 @@ void OOXMLDocumentImpl::resolveCustomXmlStream(Stream & rStream)
                 {
                     aCustomXmlDomList.push_back(customXmlTemp);
                     aCustomXmlDomPropsList.push_back(mxCustomXmlProsDom);
-                    counter++;
                     resolveFastSubStream(rStream, OOXMLStream::CUSTOMXML);
                 }
 
@@ -622,15 +623,14 @@ void OOXMLDocumentImpl::resolveGlossaryStream(Stream & /*rStream*/)
         return;
     }
     uno::Reference<embed::XRelationshipAccess> xRelationshipAccess;
-    xRelationshipAccess.set(dynamic_cast<OOXMLStreamImpl&>(*pStream.get()).accessDocumentStream(), uno::UNO_QUERY);
+    xRelationshipAccess.set(dynamic_cast<OOXMLStreamImpl&>(*pStream).accessDocumentStream(), uno::UNO_QUERY);
     if (xRelationshipAccess.is())
     {
 
         uno::Sequence< uno::Sequence< beans::StringPair > >aSeqs = xRelationshipAccess->getAllRelationships();
         std::vector< uno::Sequence<uno::Any> > aGlossaryDomList;
-         sal_Int32 counter = 0;
-         for (sal_Int32 j = 0; j < aSeqs.getLength(); j++)
-         {
+        for (sal_Int32 j = 0; j < aSeqs.getLength(); j++)
+        {
               OOXMLStream::Pointer_t gStream;
               uno::Sequence< beans::StringPair > aSeq = aSeqs[j];
               //Follows following aSeq[0] is Id, aSeq[1] is Type, aSeq[2] is Target
@@ -704,18 +704,17 @@ void OOXMLDocumentImpl::resolveGlossaryStream(Stream & /*rStream*/)
                       glossaryTuple[3] <<= gTarget;
                       glossaryTuple[4] <<= contentType;
                       aGlossaryDomList.push_back(glossaryTuple);
-                      counter++;
                   }
               }
-          }
-          mxGlossaryDomList = comphelper::containerToSequence(aGlossaryDomList);
-      }
+        }
+        mxGlossaryDomList = comphelper::containerToSequence(aGlossaryDomList);
+    }
 }
 
 void OOXMLDocumentImpl::resolveEmbeddingsStream(const OOXMLStream::Pointer_t& pStream)
 {
     uno::Reference<embed::XRelationshipAccess> xRelationshipAccess;
-    xRelationshipAccess.set(dynamic_cast<OOXMLStreamImpl&>(*pStream.get()).accessDocumentStream(), uno::UNO_QUERY);
+    xRelationshipAccess.set(dynamic_cast<OOXMLStreamImpl&>(*pStream).accessDocumentStream(), uno::UNO_QUERY);
     if (xRelationshipAccess.is())
     {
         OUString const sChartType("http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart");

@@ -18,7 +18,6 @@
  */
 
 #include <fuconarc.hxx>
-#include <sc.hrc>
 #include <tabvwsh.hxx>
 #include <drawview.hxx>
 
@@ -75,22 +74,22 @@ void FuConstArc::Activate()
     switch (aSfxRequest.GetSlot() )
     {
         case SID_DRAW_ARC:
-            aNewPointer = Pointer( PointerStyle::DrawArc );
+            aNewPointer = PointerStyle::DrawArc;
             aObjKind = OBJ_CARC;
             break;
 
         case SID_DRAW_PIE:
-            aNewPointer = Pointer( PointerStyle::DrawPie );
+            aNewPointer = PointerStyle::DrawPie;
             aObjKind = OBJ_SECT;
             break;
 
         case SID_DRAW_CIRCLECUT:
-            aNewPointer = Pointer( PointerStyle::DrawCircleCut );
+            aNewPointer = PointerStyle::DrawCircleCut;
             aObjKind = OBJ_CCUT;
             break;
 
         default:
-            aNewPointer = Pointer( PointerStyle::Cross );
+            aNewPointer = PointerStyle::Cross;
             aObjKind = OBJ_CARC;
             break;
     }

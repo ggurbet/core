@@ -21,6 +21,7 @@
 #include <map>
 #include <optasian.hxx>
 #include <osl/diagnose.h>
+#include <tools/debug.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/unolingu.hxx>
 #include <o3tl/any.hxx>
@@ -126,7 +127,7 @@ SvxAsianLayoutPage::SvxAsianLayoutPage( vcl::Window* pParent, const SfxItemSet& 
     m_pStartED->SetModifyHdl(aLk);
     m_pEndED->SetModifyHdl(aLk);
 
-    m_pLanguageLB->SetLanguageList( SvxLanguageListFlags::FBD_CHARS, false );
+    m_pLanguageLB->SetLanguageList( SvxLanguageListFlags::FBD_CHARS, false, false );
 }
 
 SvxAsianLayoutPage::~SvxAsianLayoutPage()

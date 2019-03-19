@@ -44,6 +44,7 @@
 #include <unotools/tempfile.hxx>
 #include <unotools/ucbhelper.hxx>
 #include <comphelper/types.hxx>
+#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <connectivity/PColumn.hxx>
@@ -1068,12 +1069,12 @@ bool ODbaseTable::CreateImpl()
             }
             catch(const Exception&)
             {
-
+                css::uno::Any anyEx = cppu::getCaughtException();
                 const OUString sError( getConnection()->getResources().getResourceStringWithSubstitution(
                         STR_COULD_NOT_DELETE_FILE,
                         "$name$", aName
                      ) );
-                ::dbtools::throwGenericSQLException( sError, *this );
+                ::dbtools::throwGenericSQLException( sError, *this, anyEx );
             }
         }
         if (!CreateMemoFile(aURL))
@@ -1086,11 +1087,12 @@ bool ODbaseTable::CreateImpl()
             }
             catch(const ContentCreationException&)
             {
+                css::uno::Any anyEx = cppu::getCaughtException();
                 const OUString sError( getConnection()->getResources().getResourceStringWithSubstitution(
                         STR_COULD_NOT_DELETE_FILE,
                         "$name$", aName
                      ) );
-                ::dbtools::throwGenericSQLException( sError, *this );
+                ::dbtools::throwGenericSQLException( sError, *this, anyEx );
             }
             return false;
         }
@@ -1567,16 +1569,13 @@ bool ODbaseTable::DeleteRow(const OSQLColumns& _rCols)
                 ODbaseIndex* pIndex = reinterpret_cast< ODbaseIndex* >( xTunnel->getSomething(ODbaseIndex::getUnoTunnelImplementationId()) );
                 OSL_ENSURE(pIndex,"ODbaseTable::DeleteRow: No Index returned!");
 
-                OSQLColumns::Vector::const_iterator aIter = _rCols.get().begin();
-                sal_Int32 nPos = 1;
-                for(;aIter != _rCols.get().end();++aIter,++nPos)
-                {
-                    if(aCase(getString((*aIter)->getPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_REALNAME))),aColName))
-                        break;
-                }
+                OSQLColumns::Vector::const_iterator aIter = std::find_if(_rCols.get().begin(), _rCols.get().end(),
+                    [&aCase, &aColName](const OSQLColumns::Vector::value_type& rxCol) {
+                        return aCase(getString(rxCol->getPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_REALNAME))), aColName); });
                 if (aIter == _rCols.get().end())
                     continue;
 
+                auto nPos = static_cast<sal_Int32>(std::distance(_rCols.get().begin(), aIter)) + 1;
                 pIndex->Delete(m_nFilePos,*(aRow->get())[nPos]);
             }
         }
@@ -1822,16 +1821,17 @@ bool ODbaseTable::UpdateBuffer(OValueRefVector& rRow, const OValueRefRow& pOrgRo
                         aDate = ::dbtools::DBTypeConversion::toDate(thisColVal.getDouble());
                     else
                         aDate = thisColVal;
-                    char s[9];
+                    char s[sizeof("-327686553565535")];
+                        // reserve enough space for hypothetical max length
                     snprintf(s,
                         sizeof(s),
-                        "%04d%02d%02d",
-                        static_cast<int>(aDate.Year),
-                        static_cast<int>(aDate.Month),
-                        static_cast<int>(aDate.Day));
+                        "%04" SAL_PRIdINT32 "%02" SAL_PRIuUINT32 "%02" SAL_PRIuUINT32,
+                        static_cast<sal_Int32>(aDate.Year),
+                        static_cast<sal_uInt32>(aDate.Month),
+                        static_cast<sal_uInt32>(aDate.Day));
 
-                    // Exactly 8 bytes to copy:
-                    strncpy(pData,s,sizeof s - 1);
+                    // Exactly 8 bytes to copy (even if s could hypothetically be longer):
+                    memcpy(pData,s,8);
                 } break;
                 case DataType::INTEGER:
                     {
@@ -2330,11 +2330,10 @@ void ODbaseTable::addColumn(const Reference< XPropertySet >& _xNewColumn)
 {
     OUString sTempName = createTempFile();
 
-    ODbaseTable* pNewTable = new ODbaseTable(m_pTables,static_cast<ODbaseConnection*>(m_pConnection));
-    Reference< XPropertySet > xHold = pNewTable;
-    pNewTable->setPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_NAME),makeAny(sTempName));
+    rtl::Reference xNewTable(new ODbaseTable(m_pTables,static_cast<ODbaseConnection*>(m_pConnection)));
+    xNewTable->setPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_NAME),makeAny(sTempName));
     {
-        Reference<XAppend> xAppend(pNewTable->getColumns(),UNO_QUERY);
+        Reference<XAppend> xAppend(xNewTable->getColumns(),UNO_QUERY);
         bool bCase = getConnection()->getMetaData()->supportsMixedCaseQuotedIdentifiers();
         // copy the structure
         for(sal_Int32 i=0;i < m_xColumns->getCount();++i)
@@ -2359,7 +2358,7 @@ void ODbaseTable::addColumn(const Reference< XPropertySet >& _xNewColumn)
     }
 
     // construct the new table
-    if(!pNewTable->CreateImpl())
+    if(!xNewTable->CreateImpl())
     {
         const OUString sError( getConnection()->getResources().getResourceStringWithSubstitution(
                 STR_COLUMN_NOT_ADDABLE,
@@ -2368,16 +2367,16 @@ void ODbaseTable::addColumn(const Reference< XPropertySet >& _xNewColumn)
         ::dbtools::throwGenericSQLException( sError, *this );
     }
 
-    pNewTable->construct();
+    xNewTable->construct();
     // copy the data
-    copyData(pNewTable,pNewTable->m_xColumns->getCount());
+    copyData(xNewTable.get(),xNewTable->m_xColumns->getCount());
     // drop the old table
     if(DropImpl())
     {
-        pNewTable->renameImpl(m_Name);
+        xNewTable->renameImpl(m_Name);
         // release the temp file
     }
-    xHold.clear();
+    xNewTable.clear();
 
     FileClose();
     construct();
@@ -2389,11 +2388,10 @@ void ODbaseTable::dropColumn(sal_Int32 _nPos)
 {
     OUString sTempName = createTempFile();
 
-    ODbaseTable* pNewTable = new ODbaseTable(m_pTables,static_cast<ODbaseConnection*>(m_pConnection));
-    Reference< XPropertySet > xHold = pNewTable;
-    pNewTable->setPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_NAME),makeAny(sTempName));
+    rtl::Reference xNewTable(new ODbaseTable(m_pTables,static_cast<ODbaseConnection*>(m_pConnection)));
+    xNewTable->setPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_NAME),makeAny(sTempName));
     {
-        Reference<XAppend> xAppend(pNewTable->getColumns(),UNO_QUERY);
+        Reference<XAppend> xAppend(xNewTable->getColumns(),UNO_QUERY);
         bool bCase = getConnection()->getMetaData()->supportsMixedCaseQuotedIdentifiers();
         // copy the structure
         for(sal_Int32 i=0;i < m_xColumns->getCount();++i)
@@ -2417,24 +2415,23 @@ void ODbaseTable::dropColumn(sal_Int32 _nPos)
     }
 
     // construct the new table
-    if(!pNewTable->CreateImpl())
+    if(!xNewTable->CreateImpl())
     {
-        xHold.clear();
         const OUString sError( getConnection()->getResources().getResourceStringWithSubstitution(
                 STR_COLUMN_NOT_DROP,
                 "$position$", OUString::number(_nPos)
              ) );
         ::dbtools::throwGenericSQLException( sError, *this );
     }
-    pNewTable->construct();
+    xNewTable->construct();
     // copy the data
-    copyData(pNewTable,_nPos);
+    copyData(xNewTable.get(),_nPos);
     // drop the old table
     if(DropImpl())
-        pNewTable->renameImpl(m_Name);
+        xNewTable->renameImpl(m_Name);
         // release the temp file
 
-    xHold.clear();
+    xNewTable.clear();
 
     FileClose();
     construct();

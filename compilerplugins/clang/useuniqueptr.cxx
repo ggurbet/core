@@ -156,10 +156,6 @@ private:
     std::string fn;
 };
 
-static bool startswith(const std::string& rStr, const char* pSubStr) {
-    return rStr.compare(0, strlen(pSubStr), pSubStr) == 0;
-}
-
 bool UseUniquePtr::VisitFunctionDecl(const FunctionDecl* functionDecl)
 {
     if (ignoreLocation(functionDecl))
@@ -299,6 +295,16 @@ void UseUniquePtr::CheckDeleteExpr(const FunctionDecl* functionDecl, const CXXDe
     }
 }
 
+template<typename T>
+bool any_equal(std::string const & needle, T first) {
+  return needle == first;
+}
+
+template<typename T, typename... Args>
+bool any_equal(std::string const & needle, T first, Args... args) {
+  return needle == first || any_equal(needle, args...);
+}
+
 void UseUniquePtr::CheckDeleteLocalVar(const FunctionDecl* functionDecl, const CXXDeleteExpr* deleteExpr, const VarDecl* varDecl)
 {
     // ignore globals for now
@@ -316,23 +322,23 @@ void UseUniquePtr::CheckDeleteLocalVar(const FunctionDecl* functionDecl, const C
         }
     }
 
-    if (startswith(fn, SRCDIR "/sal/qa/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/sal/qa/"))
         return;
-    if (startswith(fn, SRCDIR "/comphelper/qa/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/comphelper/qa/"))
         return;
-    if (startswith(fn, SRCDIR "/cppuhelper/qa/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/cppuhelper/qa/"))
         return;
-    if (startswith(fn, SRCDIR "/libreofficekit/qa/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/libreofficekit/qa/"))
         return;
-    if (startswith(fn, SRCDIR "/vcl/qa/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/vcl/qa/"))
         return;
-    if (startswith(fn, SRCDIR "/sc/qa/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/sc/qa/"))
         return;
-    if (startswith(fn, SRCDIR "/sfx2/qa/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/sfx2/qa/"))
         return;
-    if (startswith(fn, SRCDIR "/smoketest/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/smoketest/"))
         return;
-    if (startswith(fn, WORKDIR))
+    if (loplugin::hasPathnamePrefix(fn, WORKDIR))
         return;
     // linked lists
     if (fn == SRCDIR "/vcl/source/gdi/regband.cxx")
@@ -432,13 +438,13 @@ void UseUniquePtr::CheckDeleteLocalVar(const FunctionDecl* functionDecl, const C
     // alloc/free routines for the hand constructed virtual function table
     if (fn == SRCDIR "/sal/textenc/convertisciidevangari.cxx")
         return;
-    if (startswith(fn, SRCDIR "/bridges/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/bridges/"))
         return;
     // bootstrap_map
     if (fn == SRCDIR "/sal/rtl/bootstrap.cxx")
         return;
     // too complicated for my small brain
-    if (startswith(fn, SRCDIR "/cppu/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/cppu/"))
         return;
     // linked list
     if (fn == SRCDIR "/vcl/source/gdi/octree.cxx")
@@ -464,6 +470,12 @@ void UseUniquePtr::CheckDeleteLocalVar(const FunctionDecl* functionDecl, const C
     // linked list
     if (fn == SRCDIR "/lotuswordpro/source/filter/lwpfribptr.cxx")
         return;
+    // complicated
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/connectivity/source/drivers/file/"))
+        return;
+    // complicated
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/unodevtools/source/skeletonmaker/"))
+        return;
 
     llvm::StringRef parentName;
     if (auto cxxMethodDecl = dyn_cast<CXXMethodDecl>(functionDecl))
@@ -473,6 +485,9 @@ void UseUniquePtr::CheckDeleteLocalVar(const FunctionDecl* functionDecl, const C
 
     // no idea what is going on here
     if (parentName == "ScChangeActionLinkEntry")
+        return;
+    // ok
+    if (parentName == "SfxItemSet" || parentName == "SfxItemPool")
         return;
     // linked list
     if (parentName == "ScFunctionList" || parentName == "SwNodes"
@@ -485,8 +500,11 @@ void UseUniquePtr::CheckDeleteLocalVar(const FunctionDecl* functionDecl, const C
     if (parentName == "ScBroadcastAreaSlot")
         return;
     // complicated
-    if (parentName == "SwFormatField" || parentName == "FontPropertyBox" || parentName == "SdFontPropertyBox"
-        || parentName == "SwHTMLParser" || parentName == "PDFWriterImpl")
+    if (any_equal(parentName, "SwFormatField", "FontPropertyBox", "SdFontPropertyBox",
+        "SwHTMLParser", "PDFWriterImpl", "SbiParser", "DictionaryList", "SwGlossaryHdl", "SwGlossaryGroupDlg"))
+        return;
+    // ok
+    if (any_equal(parentName, "SbTreeListBox"))
         return;
 
     if (functionDecl->getIdentifier())
@@ -505,23 +523,61 @@ void UseUniquePtr::CheckDeleteLocalVar(const FunctionDecl* functionDecl, const C
             || name == "reg_openRegistry")
             return;
         // linked list
-        if (name == "TypeWriter::createBlop" || name == "ImplDeleteConfigData" || name == "Config::DeleteGroup"
-            || name == "Config::DeleteKey")
+        if (any_equal(name, "TypeWriter::createBlop", "ImplDeleteConfigData", "Config::DeleteGroup",
+                "Config::DeleteKey", "E3dView::DoDepthArrange",
+                "DXFBlocks::Clear", "DXFTables::Clear", "DXFEntities::Clear",
+                "PSWriter::WritePS", "PSWriter::ImplWriteActions", "CUtList::Destroy",
+                "ScBroadcastAreaSlotMachine::UpdateBroadcastAreas"))
             return;
         // ok
-        if (name == "write_uInt16s_FromOUString" || name == "ProgressMonitor::removeText"
-            || name == "StgDirEntry::SetSize" || name == "UCBStorage::CopyStorageElement_Impl"
-            || parentName == "SfxItemSet" || parentName == "SfxItemPool"
-            || name == "OutputDevice::ImplDrawPolyPolygon" || name == "OutputDevice::ImplDrawPolyPolygon"
-            || name == "ImplListBox::InsertEntry" || name == "Edit::dispose")
+        if (any_equal(name, "write_uInt16s_FromOUString", "ProgressMonitor::removeText",
+            "StgDirEntry::SetSize", "UCBStorage::CopyStorageElement_Impl"
+            "OutputDevice::ImplDrawPolyPolygon", "OutputDevice::ImplDrawPolyPolygon",
+            "ImplListBox::InsertEntry", "Edit::dispose",
+            "ViewContact::deleteAllVOCs", "SfxViewFrame::ReleaseObjectShell_Impl",
+            "SfxViewFrame::SwitchToViewShell_Impl", "OfaSmartTagOptionsTabPage::ClearListBox",
+            "OfaSmartTagOptionsTabPage::FillItemSet", "doc_destroy", "lo_destroy",
+            "callColumnFormatDialog"))
             return;
         // very dodgy
-        if (name == "UCBStorage::OpenStorage_Impl")
+        if (any_equal(name, "UCBStorage::OpenStorage_Impl", "SdTransferable::GetData"))
             return;
         // complicated ownership
-        if (name == "ParseCMAP" || name == "OpenGLSalBitmap::CreateTexture" || name == "X11SalGraphicsImpl::drawAlphaBitmap"
-            || name == "SvEmbedTransferHelper::GetData" || name == "ORoadmap::dispose"
-            || name == "BrowseBox::SetMode" || name == "ExportDialog::GetFilterData")
+        if (any_equal(name, "ParseCMAP", "OpenGLSalBitmap::CreateTexture", "X11SalGraphicsImpl::drawAlphaBitmap"
+            "SvEmbedTransferHelper::GetData", "ORoadmap::dispose",
+            "BrowseBox::SetMode", "ExportDialog::GetFilterData", "disposeComVariablesForBasic",
+            "ImpEditEngine::ImpRemoveParagraph", "FactoryImpl::createAdapter",
+            "SfxStateCache::SetVisibleState", "SfxBindings::QueryState",
+            "ViewContact::deleteAllVOCs", "SvxMSDffManager::ProcessObj", "SvEmbedTransferHelper::GetData",
+            "SvXMLExportPropertyMapper::Filter_", "SdXMLExport::ImpGetOrCreatePageMasterInfo",
+            "SfxDocumentDescPage::FillItemSet", "SfxCustomPropertiesPage::FillItemSet",
+            "SfxCmisPropertiesPage::FillItemSet", "SfxObjectShell::DoSaveCompleted",
+            "SfxObjectShell::DoSave_Impl", "SfxObjectShell::PreDoSaveAs_Impl", "SfxObjectShell::Save_Impl",
+            "SfxFrame::DoClose_Impl", "SfxBaseModel::load",
+            "SdrTextObj::TakeTextRect", "SdrTableObj::TakeTextRect", "SdrObjCustomShape::TakeTextRect",
+            "CellProperties::ItemSetChanged", "CellProperties::ItemChange",
+            "TableLayouter::SetBorder", "TableLayouter::ClearBorderLayout",
+            "ImpXPolygon::Resize", "SvxTextEditSourceImpl::GetBackgroundTextForwarder",
+            "Svx3DSceneObject::setPropertyValueImpl", "lcl_RemoveTextEditOutlinerViews",
+            "SdrObjEditView::SdrEndTextEdit", "SvxShape::_setPropertyValue",
+            "AccessibleShape::Init", "AccessibleCell::Init",
+            "SdrTableRtfExporter::WriteCell", "GalleryItem::_getPropertyValues",
+            "VMLExport::StartShape", "DrawingML::WriteText",
+            "MtfTools::DrawText", "FormulaTokenArray::RewriteMissing",
+            "OSQLParseNode::negateSearchCondition", "OSQLParseNodesContainer::clearAndDelete",
+            "SdFilter::GetLibrarySymbol", "SdPage::SetObjText",
+            "SdDrawDocument::InsertBookmarkAsPage", "SdDrawDocument::InsertBookmarkAsObject",
+            "SdDrawDocument::RemoveUnnecessaryMasterPages",
+            "ScTable::CopyConditionalFormat", "ScTable::ValidQuery",
+            "ScTable::SetOptimalHeight", "ScTable::SetOptimalHeightOnly", "ScCompiler::CompileString",
+            "ScProgress::DeleteInterpretProgress", "ScInterpreter::ScBase",
+            "UCBStorage::CopyStorageElement_Impl", "X11SalGraphicsImpl::drawAlphaBitmap",
+            "MasterPagesSelector::ClearPageSet", "View::IsPresObjSelected",
+            "SdDrawPagesAccess::remove", "SdMasterPagesAccess::remove", "View::InsertData",
+            "RemoteServer::execute", "Implementation::ReleaseOutlinerView",
+            "SwFormat::CopyAttrs", "FinitCore", "SwCursorShell::MoveFieldType", "SwExtraPainter::PaintExtra",
+            "SwMarginPortion::AdjustRight", "SwPaintQueue::Repaint", "SwTOXMgr::UpdateOrInsertTOX",
+            "SwBaseShell::Execute", "WW8Export::WriteSdrTextObj"))
             return;
         // complicated delete
         if (name == "X11SalObject::CreateObject")
@@ -616,7 +672,7 @@ void UseUniquePtr::CheckLoopDelete(const FunctionDecl* functionDecl, const CXXDe
                                 init = compat::IgnoreImplicit(x->getArg(0));
                             }
                         if (auto x = dyn_cast<CXXMemberCallExpr>(init))
-                            init = x->getImplicitObjectArgument();
+                            init = x->getImplicitObjectArgument()->IgnoreParenImpCasts();
                         if ((memberExpr = dyn_cast<MemberExpr>(init)))
                             break;
                         // look for deletes of an iterator object where the iterator is over a var
@@ -661,7 +717,7 @@ void UseUniquePtr::CheckLoopDelete(const FunctionDecl* functionDecl, const CXXDe
         if (fn == SRCDIR "/sw/source/core/bastyp/swcache.cxx")
             return;
 
-        CheckMemberDeleteExpr(functionDecl, deleteExpr, memberExpr, "rather manage with std::some_container<std::unique_ptr<T>>");
+        CheckMemberDeleteExpr(functionDecl, deleteExpr, memberExpr, "rather manage this member with std::some_container<std::unique_ptr<T>>");
     }
 
     if (varDecl)
@@ -670,7 +726,7 @@ void UseUniquePtr::CheckLoopDelete(const FunctionDecl* functionDecl, const CXXDe
         if (varDecl->hasInit() && isa<ExplicitCastExpr>(varDecl->getInit()->IgnoreImpCasts()))
             return;
 
-        if (startswith(fn, SRCDIR "/vcl/qa/"))
+        if (loplugin::hasPathnamePrefix(fn, SRCDIR "/vcl/qa/"))
             return;
         // linked list
         if (fn == SRCDIR "/registry/source/reflwrit.cxx")
@@ -759,7 +815,6 @@ void UseUniquePtr::CheckLoopDelete(const FunctionDecl* functionDecl, const CXXDe
         if (fn == SRCDIR "/sw/qa/core/Test-BigPtrArray.cxx")
             return;
 
-
         report(
             DiagnosticsEngine::Warning,
             "loopdelete: rather manage this var with std::some_container<std::unique_ptr<T>>",
@@ -842,6 +897,11 @@ void UseUniquePtr::CheckCXXForRangeStmt(const FunctionDecl* functionDecl, const 
         // SfxPoolItem array
         if (fn == SRCDIR "/reportdesign/source/ui/report/ReportController.cxx")
             return;
+        // complicated
+        if (fn == SRCDIR "/svx/source/sdr/contact/viewcontact.cxx")
+            return;
+        if (fn == SRCDIR "/svx/source/sdr/contact/objectcontact.cxx")
+            return;
 
         report(
             DiagnosticsEngine::Warning,
@@ -875,7 +935,7 @@ void UseUniquePtr::CheckMemberDeleteExpr(const FunctionDecl* functionDecl, const
     if (ignoreLocation(fieldDecl))
         return;
     // to ignore things like the CPPUNIT macros
-    if (startswith(fn, WORKDIR "/"))
+    if (loplugin::hasPathnamePrefix(fn, WORKDIR "/"))
         return;
     // passes and stores pointers to member fields
     if (fn == SRCDIR "/sot/source/sdstor/stgdir.hxx")
@@ -896,14 +956,14 @@ void UseUniquePtr::CheckMemberDeleteExpr(const FunctionDecl* functionDecl, const
     if (fn == SRCDIR "/sc/inc/formulacell.hxx")
         return;
     // some weird stuff going on here around struct Entity
-    if (startswith(fn, SRCDIR "/sax/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/sax/"))
         return;
-    if (startswith(fn, SRCDIR "/include/sax/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/include/sax/"))
         return;
     // manipulation of tree structures ie. StgAvlNode, don't lend themselves to std::unique_ptr
-    if (startswith(fn, SRCDIR "/sot/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/sot/"))
         return;
-    if (startswith(fn, SRCDIR "/include/sot/"))
+    if (loplugin::hasPathnamePrefix(fn, SRCDIR "/include/sot/"))
         return;
     // the std::vector is being passed to another class
     if (fn == SRCDIR "/sfx2/source/explorer/nochaos.cxx")

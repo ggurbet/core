@@ -21,7 +21,6 @@
 #include <oox/token/tokens.hxx>
 #include <oox/helper/progressbar.hxx>
 #include <svl/sharedstringpool.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 using namespace ::com::sun::star::uno;
@@ -80,7 +79,7 @@ public:
         {
             // Create an entry for this column.
             std::pair<ColCacheType::iterator,bool> r =
-                maCache.emplace(rPos.Col(), o3tl::make_unique<Item>());
+                maCache.emplace(rPos.Col(), std::make_unique<Item>());
             if (!r.second)
                 // Insertion failed.
                 return;
@@ -117,11 +116,11 @@ void applySharedFormulas(
 
             ScCompiler aComp(&rDoc.getDoc(), aPos, formula::FormulaGrammar::GRAM_OOXML, true, false);
             aComp.SetNumberFormatter(&rFormatter);
-            ScTokenArray* pArray = aComp.CompileString(rTokenStr);
+            std::unique_ptr<ScTokenArray> pArray = aComp.CompileString(rTokenStr);
             if (pArray)
             {
                 aComp.CompileTokenArray(); // Generate RPN tokens.
-                aGroups.set(nId, pArray);
+                aGroups.set(nId, std::move(pArray));
             }
         }
     }
@@ -222,13 +221,13 @@ void applyCellFormulas(
         ScCompiler aCompiler(&rDoc.getDoc(), aPos, formula::FormulaGrammar::GRAM_OOXML, true, false);
         aCompiler.SetNumberFormatter(&rFormatter);
         aCompiler.SetExternalLinks(rExternalLinks);
-        ScTokenArray* pCode = aCompiler.CompileString(rItem.maTokenStr);
+        std::unique_ptr<ScTokenArray> pCode = aCompiler.CompileString(rItem.maTokenStr);
         if (!pCode)
             continue;
 
         aCompiler.CompileTokenArray(); // Generate RPN tokens.
 
-        ScFormulaCell* pCell = new ScFormulaCell(&rDoc.getDoc(), aPos, pCode);
+        ScFormulaCell* pCell = new ScFormulaCell(&rDoc.getDoc(), aPos, std::move(pCode));
         rDoc.setFormulaCell(aPos, pCell);
         rCache.store(aPos, pCell);
     }
@@ -355,7 +354,7 @@ void FormulaBuffer::finalizeImport()
     ISegmentProgressBarRef xFormulaBar = getProgressBar().createSegment( getProgressBar().getFreeLength() );
 
     ScDocumentImport& rDoc = getDocImport();
-    rDoc.getDoc().SetAutoNameCache(o3tl::make_unique<ScAutoNameCache>(&rDoc.getDoc()));
+    rDoc.getDoc().SetAutoNameCache(std::make_unique<ScAutoNameCache>(&rDoc.getDoc()));
     ScExternalRefManager::ApiGuard aExtRefGuard(&rDoc.getDoc());
 
     SCTAB nTabCount = rDoc.getDoc().GetTableCount();

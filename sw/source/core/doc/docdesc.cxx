@@ -392,7 +392,7 @@ void SwDoc::ChgPageDesc( size_t i, const SwPageDesc &rChged )
     if (GetIDocumentUndoRedo().DoesUndo())
     {
         GetIDocumentUndoRedo().AppendUndo(
-                o3tl::make_unique<SwUndoPageDesc>(rDesc, rChged, this));
+                std::make_unique<SwUndoPageDesc>(rDesc, rChged, this));
     }
     ::sw::UndoGuard const undoGuard(GetIDocumentUndoRedo());
 
@@ -633,7 +633,7 @@ void SwDoc::DelPageDesc( size_t i, bool bBroadcast )
     if (GetIDocumentUndoRedo().DoesUndo())
     {
         GetIDocumentUndoRedo().AppendUndo(
-            o3tl::make_unique<SwUndoPageDescDelete>(rDel, this));
+            std::make_unique<SwUndoPageDescDelete>(rDel, this));
     }
 
     PreDelPageDesc(&rDel); // #i7983#
@@ -682,7 +682,7 @@ SwPageDesc* SwDoc::MakePageDesc(const OUString &rName, const SwPageDesc *pCpy,
 
     if (GetIDocumentUndoRedo().DoesUndo())
     {
-        GetIDocumentUndoRedo().AppendUndo(o3tl::make_unique<SwUndoPageDescCreate>(pNew, this));
+        GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoPageDescCreate>(pNew, this));
     }
 
     getIDocumentState().SetModified();
@@ -724,7 +724,7 @@ void SwDoc::PrtOLENotify( bool bAll )
 
         mbOLEPrtNotifyPending = mbAllOLENotify = false;
 
-        SwOLENodes *pNodes = SwContentNode::CreateOLENodesArray( *GetDfltGrfFormatColl(), !bAll );
+        std::unique_ptr<SwOLENodes> pNodes = SwContentNode::CreateOLENodesArray( *GetDfltGrfFormatColl(), !bAll );
         if ( pNodes )
         {
             ::StartProgress( STR_STATSTR_SWGPRTOLENOTIFY,
@@ -751,11 +751,11 @@ void SwDoc::PrtOLENotify( bool bAll )
                 }
 
                 bool bFound = false;
-                for ( std::vector<SvGlobalName*>::size_type j = 0;
+                for ( std::vector<SvGlobalName>::size_type j = 0;
                       j < pGlobalOLEExcludeList->size() && !bFound;
                       ++j )
                 {
-                    bFound = *(*pGlobalOLEExcludeList)[j] == aName;
+                    bFound = (*pGlobalOLEExcludeList)[j] == aName;
                 }
                 if ( bFound )
                     continue;
@@ -764,10 +764,10 @@ void SwDoc::PrtOLENotify( bool bAll )
                 // If it doesn't want to be informed
                 if ( xObj.is() )
                 {
-                        pGlobalOLEExcludeList->push_back( new SvGlobalName( aName ) );
+                    pGlobalOLEExcludeList->push_back( aName );
                 }
             }
-            delete pNodes;
+            pNodes.reset();
             getIDocumentLayoutAccess().GetCurrentLayout()->EndAllAction();
             ::EndProgress( GetDocShell() );
         }
@@ -781,7 +781,7 @@ IMPL_LINK_NOARG( SwDoc, DoUpdateModifiedOLE, Timer *, void )
     {
         mbOLEPrtNotifyPending = mbAllOLENotify = false;
 
-        SwOLENodes *pNodes = SwContentNode::CreateOLENodesArray( *GetDfltGrfFormatColl(), true );
+        std::unique_ptr<SwOLENodes> pNodes = SwContentNode::CreateOLENodesArray( *GetDfltGrfFormatColl(), true );
         if( pNodes )
         {
             ::StartProgress( STR_STATSTR_SWGPRTOLENOTIFY,
@@ -805,7 +805,6 @@ IMPL_LINK_NOARG( SwDoc, DoUpdateModifiedOLE, Timer *, void )
             }
             getIDocumentLayoutAccess().GetCurrentLayout()->EndAllAction();
             ::EndProgress( GetDocShell() );
-            delete pNodes;
         }
     }
 }

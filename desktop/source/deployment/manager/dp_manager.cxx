@@ -33,6 +33,7 @@
 #include <rtl/bootstrap.hxx>
 #include <sal/log.hxx>
 #include <tools/urlobj.hxx>
+#include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
 #include <osl/file.hxx>
 #include <osl/security.hxx>
@@ -188,7 +189,7 @@ void PackageManagerImpl::initActivationLayer(
         // The data base can always be written because it is always in the user installation
         m_activePackagesDB.reset( new ActivePackages( dbName ) );
 
-        if (! m_readOnly && ! (m_context == "bundled"))
+        if (! m_readOnly && m_context != "bundled")
         {
             // clean up activation layer, scan for zombie temp dirs:
             ActivePackages::Entries id2temp( m_activePackagesDB->getEntries() );
@@ -597,10 +598,11 @@ OUString PackageManagerImpl::detectMediaType(
             if (xPackageType.is())
                 mediaType = xPackageType->getMediaType();
         }
-        catch (const lang::IllegalArgumentException & exc) {
+        catch (const lang::IllegalArgumentException &) {
             if (throw_exc)
                 throw;
-            SAL_WARN( "desktop", exc );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "desktop", exceptionToString(ex) );
         }
     }
     return mediaType;
@@ -957,7 +959,7 @@ OUString PackageManagerImpl::getDeployPath( ActivePackages::Data const & data )
     //The bundled extensions are not contained in an additional folder
     //with a unique name. data.temporaryName contains already the
     //UTF8 encoded folder name. See PackageManagerImpl::synchronize
-    if (!(m_context == "bundled"))
+    if (m_context != "bundled")
     {
         buf.append( "_/" );
         buf.append( ::rtl::Uri::encode( data.fileName, rtl_UriCharClassPchar,
@@ -1028,7 +1030,7 @@ PackageManagerImpl::getDeployedPackages_(
     ActivePackages::Entries id2temp( m_activePackagesDB->getEntries() );
     for (auto const& elem : id2temp)
     {
-        if (! (elem.second.failedPrerequisites == "0"))
+        if (elem.second.failedPrerequisites != "0")
             continue;
         try {
             packages.push_back(
@@ -1037,13 +1039,15 @@ PackageManagerImpl::getDeployedPackages_(
                     true /* xxx todo: think of GUI:
                             ignore other platforms than the current one */ ) );
         }
-        catch (const lang::IllegalArgumentException & exc) {
+        catch (const lang::IllegalArgumentException &) {
+            css::uno::Any ex( cppu::getCaughtException() );
             // ignore
-            SAL_WARN( "desktop", exc );
+            SAL_WARN( "desktop", exceptionToString(ex) );
         }
-        catch (const deployment::DeploymentException& exc) {
+        catch (const deployment::DeploymentException&) {
+            css::uno::Any ex( cppu::getCaughtException() );
             // ignore
-            SAL_WARN( "desktop", exc );
+            SAL_WARN( "desktop", exceptionToString(ex) );
         }
     }
     return comphelper::containerToSequence(packages);

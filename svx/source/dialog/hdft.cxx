@@ -88,7 +88,7 @@ namespace svx {
     {
         bool bRes = false;
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxBorderBackgroundDlg(pParent, *pBBSet, false /*bEnableDrawingLayerFillStyles*/));
+        ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxBorderBackgroundDlg(pParent, *pBBSet, true /*bEnableDrawingLayerFillStyles*/));
         if ( pDlg->Execute() == RET_OK && pDlg->GetOutputItemSet() )
         {
             SfxItemIter aIter( *pDlg->GetOutputItemSet() );
@@ -342,7 +342,7 @@ void SvxHFPage::Reset( const SfxItemSet* rSet )
     const SfxPoolItem* pExt2 = GetItem(*rSet, SID_ATTR_PAGE_EXT2);
     if (dynamic_cast<const SfxBoolItem*>(pExt1) && dynamic_cast<const SfxBoolItem*>(pExt2) )
         bIsCalc = true;
-    m_xCntSharedFirstBox->show(!bIsCalc);
+    m_xCntSharedFirstBox->set_visible(!bIsCalc);
 
     // Evaluate header-/footer- attributes
     const SvxSetItem* pSetItem = nullptr;
@@ -457,7 +457,7 @@ void SvxHFPage::InitHandler()
     m_xBackgroundBtn->connect_clicked(LINK(this,SvxHFPage, BackgroundHdl));
 }
 
-void SvxHFPage::TurnOn(weld::ToggleButton* pBox)
+void SvxHFPage::TurnOn(const weld::ToggleButton* pBox)
 {
     if (m_xTurnOnBox->get_active())
     {
@@ -582,7 +582,8 @@ IMPL_LINK_NOARG(SvxHFPage, BackgroundHdl, weld::Button&, void)
 
             pBBSet.reset( new SfxItemSet(
                 *GetItemSet().GetPool(),
-                {{nBrush, nBrush},
+                {{XATTR_FILL_FIRST, XATTR_FILL_LAST},
+                {nBrush, nBrush},
                 {nOuter, nOuter},
                 {nInner, nInner},
                 {nShadow, nShadow}}) );

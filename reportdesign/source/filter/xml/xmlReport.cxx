@@ -22,6 +22,7 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmluconv.hxx>
+#include <xmloff/ProgressBarHelper.hxx>
 #include "xmlHelper.hxx"
 #include "xmlGroup.hxx"
 #include "xmlSection.hxx"
@@ -59,7 +60,7 @@ OXMLReport::OXMLReport( ORptFilter& rImport,
     {
         for(sal_Int16 i = 0; i < nLength; ++i)
         {
-         OUString sLocalName;
+            OUString sLocalName;
             const OUString sAttrName = _xAttrList->getNameByIndex( i );
             const sal_uInt16 nPrefix = rMap.GetKeyByAttrName( sAttrName,&sLocalName );
             const OUString sValue = _xAttrList->getValueByIndex( i );
@@ -201,10 +202,8 @@ void OXMLReport::EndElement()
 {
     Reference< XFunctions > xFunctions = m_xReportDefinition->getFunctions();
     const ORptFilter::TGroupFunctionMap& aFunctions = m_rImport.getFunctions();
-    ORptFilter::TGroupFunctionMap::const_iterator aIter = aFunctions.begin();
-    const ORptFilter::TGroupFunctionMap::const_iterator aEnd = aFunctions.end();
-    for (; aIter != aEnd; ++aIter)
-        xFunctions->insertByIndex(xFunctions->getCount(),uno::makeAny(aIter->second));
+    for (const auto& rEntry : aFunctions)
+        xFunctions->insertByIndex(xFunctions->getCount(),uno::makeAny(rEntry.second));
 
     if ( !m_aMasterFields.empty() )
         m_xReportDefinition->setMasterFields(Sequence< OUString>(&*m_aMasterFields.begin(),m_aMasterFields.size()));

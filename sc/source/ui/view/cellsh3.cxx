@@ -504,7 +504,7 @@ void ScCellShell::Execute( SfxRequest& rReq )
                             bool bSheetProtected = pDoc->IsTabProtected(nTab);
                             ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
-                            ScopedVclPtr<AbstractScNewScenarioDlg> pNewDlg(pFact->CreateScNewScenarioDlg(pTabViewShell->GetDialogParent(), aName, false, bSheetProtected));
+                            ScopedVclPtr<AbstractScNewScenarioDlg> pNewDlg(pFact->CreateScNewScenarioDlg(pTabViewShell->GetFrameWeld(), aName, false, bSheetProtected));
                             if ( pNewDlg->Execute() == RET_OK )
                             {
                                 pNewDlg->GetScenarioData( aName, aComment, aColor, nFlags );
@@ -819,7 +819,7 @@ void ScCellShell::Execute( SfxRequest& rReq )
 
         case SID_AUTOFORMAT:
             {
-                vcl::Window* pDlgParent = pTabViewShell->GetDialogParent();
+                weld::Window* pDlgParent = pTabViewShell->GetFrameWeld();
                 SCCOL nStartCol;
                 SCROW nStartRow;
                 SCTAB nStartTab;
@@ -877,7 +877,7 @@ void ScCellShell::Execute( SfxRequest& rReq )
                 }
                 else
                 {
-                    std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(pDlgParent ? pDlgParent->GetFrameWeld() : nullptr,
+                    std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(pDlgParent,
                                                                    VclMessageType::Warning, VclButtonsType::Ok,
                                                                    ScResId(STR_INVALID_AFAREA)));
                     xErrorBox->run();

@@ -17,15 +17,13 @@
 #include <unx/gtk/gtkdata.hxx>
 #include <unx/gtk/gtkinst.hxx>
 #include <unx/gtk/gtkgdi.hxx>
+#include <unx/gtk/gtkbackend.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/settings.hxx>
 #include <unx/fontmanager.hxx>
 #include <headless/CustomWidgetDraw.hxx>
 
 #include "cairo_gtk3_cairo.hxx"
-#if defined(GDK_WINDOWING_WAYLAND)
-#   include <gdk/gdkwayland.h>
-#endif
 #include <boost/optional.hpp>
 
 GtkStyleContext* GtkSalGraphics::mpWindowStyle = nullptr;
@@ -387,19 +385,37 @@ static GtkWidget* gTreeViewWidget;
 
 namespace
 {
-    void parent_styles_context_set_state(GtkStyleContext* context, GtkStateFlags flags)
+    void style_context_set_state(GtkStyleContext* context, GtkStateFlags flags)
     {
-        while ((context = gtk_style_context_get_parent(context)))
+        do
         {
             gtk_style_context_set_state(context, flags);
         }
+        while ((context = gtk_style_context_get_parent(context)));
     }
 
-    void style_context_set_state(GtkStyleContext* context, GtkStateFlags flags)
+    class StyleContextSave
     {
-        gtk_style_context_set_state(context, flags);
-        parent_styles_context_set_state(context, flags);
-    }
+    private:
+        std::vector<std::pair<GtkStyleContext*, GtkStateFlags>> m_aStates;
+    public:
+        void save(GtkStyleContext* context)
+        {
+            do
+            {
+                m_aStates.emplace_back(context, gtk_style_context_get_state(context));
+            }
+            while ((context = gtk_style_context_get_parent(context)));
+        }
+        void restore()
+        {
+            for (auto a = m_aStates.rbegin(); a != m_aStates.rend(); ++a)
+            {
+                gtk_style_context_set_state(a->first, a->second);
+            }
+            m_aStates.clear();
+        }
+    };
 
     tools::Rectangle render_common(GtkStyleContext *pContext, cairo_t *cr, const tools::Rectangle &rIn, GtkStateFlags flags)
     {
@@ -1150,14 +1166,17 @@ void GtkSalGraphics::PaintSpinButton(GtkStateFlags flags,
 
 #define FALLBACK_ARROW_SIZE gint(11 * 0.85)
 
-tools::Rectangle GtkSalGraphics::NWGetComboBoxButtonRect(
+tools::Rectangle GtkSalGraphics::NWGetComboBoxButtonRect(ControlType nType,
                                                    ControlPart nPart,
                                                    tools::Rectangle aAreaRect )
 {
     tools::Rectangle    aButtonRect;
 
     GtkBorder padding;
-    gtk_style_context_get_padding( mpButtonStyle, gtk_style_context_get_state(mpButtonStyle), &padding);
+    if (nType == ControlType::Listbox)
+        gtk_style_context_get_padding(mpListboxButtonStyle, gtk_style_context_get_state(mpListboxButtonStyle), &padding);
+    else
+        gtk_style_context_get_padding(mpButtonStyle, gtk_style_context_get_state(mpButtonStyle), &padding);
 
     gint nArrowWidth = FALLBACK_ARROW_SIZE;
     if (gtk_check_version(3, 20, 0) == nullptr)
@@ -1210,7 +1229,7 @@ void GtkSalGraphics::PaintCombobox( GtkStateFlags flags, cairo_t *cr,
     // plus its actual draw rect excluding adornment
     areaRect = rControlRectangle;
 
-    buttonRect = NWGetComboBoxButtonRect( ControlPart::ButtonDown, areaRect );
+    buttonRect = NWGetComboBoxButtonRect(ControlType::Combobox, ControlPart::ButtonDown, areaRect);
 
     tools::Rectangle        aEditBoxRect( areaRect );
     aEditBoxRect.SetSize( Size( areaRect.GetWidth() - buttonRect.GetWidth(), aEditBoxRect.GetHeight() ) );
@@ -2491,6 +2510,8 @@ bool GtkSalGraphics::drawNativeControl( ControlType nType, ControlPart nPart, co
     long nWidth = rControlRegion.GetWidth();
     long nHeight = rControlRegion.GetHeight();
 
+    StyleContextSave aContextState;
+    aContextState.save(context);
     style_context_set_state(context, flags);
 
     if (styleClass)
@@ -2625,6 +2646,7 @@ bool GtkSalGraphics::drawNativeControl( ControlType nType, ControlPart nPart, co
     {
         gtk_style_context_remove_class(context, styleClass);
     }
+    aContextState.restore();
 
     cairo_destroy(cr); // unref
 
@@ -2766,12 +2788,12 @@ bool GtkSalGraphics::getNativeControlRegion( ControlType nType, ControlPart nPar
     else if ( (nType==ControlType::Combobox) &&
               ((nPart==ControlPart::ButtonDown) || (nPart==ControlPart::SubEdit)) )
     {
-        aEditRect = NWGetComboBoxButtonRect( nPart, rControlRegion );
+        aEditRect = NWGetComboBoxButtonRect(nType, nPart, rControlRegion);
     }
     else if ( (nType==ControlType::Listbox) &&
               ((nPart==ControlPart::ButtonDown) || (nPart==ControlPart::SubEdit)) )
     {
-        aEditRect = NWGetComboBoxButtonRect( nPart, rControlRegion );
+        aEditRect = NWGetComboBoxButtonRect(nType, nPart, rControlRegion);
     }
     else if (nType == ControlType::Editbox && nPart == ControlPart::Entire)
     {
@@ -2905,8 +2927,7 @@ vcl::Font pango_to_vcl(const PangoFontDescription* font, const css::lang::Locale
                   OUStringToOString( aInfo.m_aFamilyName, RTL_TEXTENCODING_ISO_8859_1 ).getStr() );
 #endif
 
-    int nPointHeight = 0;
-        nPointHeight = nPangoHeight/PANGO_SCALE;
+    int nPointHeight = nPangoHeight/PANGO_SCALE;
 
     vcl::Font aFont( aInfo.m_aFamilyName, Size( 0, nPointHeight ) );
     if( aInfo.m_eWeight != WEIGHT_DONTKNOW )
@@ -2929,6 +2950,8 @@ void GtkSalGraphics::updateSettings(AllSettings& rSettings)
     }
 
     GtkStyleContext* pStyle = gtk_widget_get_style_context( mpWindow );
+    StyleContextSave aContextState;
+    aContextState.save(pStyle);
     GtkSettings* pSettings = gtk_widget_get_settings( mpWindow );
     StyleSettings aStyleSet = rSettings.GetStyleSettings();
     GdkRGBA color;
@@ -2968,9 +2991,12 @@ void GtkSalGraphics::updateSettings(AllSettings& rSettings)
     aTextColor = getColor( text_color );
     aStyleSet.SetFieldRolloverTextColor( aTextColor );
 
+    aContextState.restore();
+
     // button mouse over colors
     {
         GdkRGBA normal_button_rollover_text_color, pressed_button_rollover_text_color;
+        aContextState.save(mpButtonStyle);
         style_context_set_state(mpButtonStyle, GTK_STATE_FLAG_PRELIGHT);
         gtk_style_context_get_color(mpButtonStyle, gtk_style_context_get_state(mpButtonStyle), &normal_button_rollover_text_color);
         aTextColor = getColor(normal_button_rollover_text_color);
@@ -2980,6 +3006,7 @@ void GtkSalGraphics::updateSettings(AllSettings& rSettings)
         aTextColor = getColor(pressed_button_rollover_text_color);
         style_context_set_state(mpButtonStyle, GTK_STATE_FLAG_NORMAL);
         aStyleSet.SetButtonPressedRolloverTextColor( aTextColor );
+        aContextState.restore();
     }
 
     // tooltip colors
@@ -3064,6 +3091,8 @@ void GtkSalGraphics::updateSettings(AllSettings& rSettings)
     aStyleSet.SetSkipDisabledInMenus( true );
     aStyleSet.SetPreferredContextMenuShortcuts( false );
 
+    aContextState.save(mpMenuItemLabelStyle);
+
     // menu colors
     style_context_set_state(mpMenuStyle, GTK_STATE_FLAG_NORMAL);
     gtk_style_context_get_background_color( mpMenuStyle, gtk_style_context_get_state(mpMenuStyle), &background_color );
@@ -3103,47 +3132,59 @@ void GtkSalGraphics::updateSettings(AllSettings& rSettings)
     ::Color aHighlightTextColor = getColor( color );
     aStyleSet.SetMenuHighlightTextColor( aHighlightTextColor );
 
+    aContextState.restore();
+
     // hyperlink colors
+    aContextState.save(mpLinkButtonStyle);
     style_context_set_state(mpLinkButtonStyle, GTK_STATE_FLAG_LINK);
     gtk_style_context_get_color(mpLinkButtonStyle, gtk_style_context_get_state(mpLinkButtonStyle), &text_color);
     aStyleSet.SetLinkColor(getColor(text_color));
     style_context_set_state(mpLinkButtonStyle, GTK_STATE_FLAG_VISITED);
     gtk_style_context_get_color(mpLinkButtonStyle, gtk_style_context_get_state(mpLinkButtonStyle), &text_color);
     aStyleSet.SetVisitedLinkColor(getColor(text_color));
+    aContextState.restore();
 
     {
         GtkStyleContext *pCStyle = mpNotebookHeaderTabsTabLabelStyle;
+        aContextState.save(pCStyle);
         style_context_set_state(pCStyle, GTK_STATE_FLAG_NORMAL);
         gtk_style_context_get_color(pCStyle, gtk_style_context_get_state(pCStyle), &text_color);
         aTextColor = getColor( text_color );
         aStyleSet.SetTabTextColor(aTextColor);
         aStyleSet.SetTabFont(getFont(mpNotebookHeaderTabsTabLabelStyle, rSettings.GetUILanguageTag().getLocale()));
+        aContextState.restore();
     }
 
     {
         GtkStyleContext *pCStyle = mpToolButtonStyle;
+        aContextState.save(pCStyle);
         style_context_set_state(pCStyle, GTK_STATE_FLAG_NORMAL);
         gtk_style_context_get_color(pCStyle, gtk_style_context_get_state(pCStyle), &text_color);
         aTextColor = getColor( text_color );
         aStyleSet.SetToolTextColor(aTextColor);
         aStyleSet.SetToolFont(getFont(mpToolButtonStyle, rSettings.GetUILanguageTag().getLocale()));
+        aContextState.restore();
     }
 
     // mouse over text colors
     {
         GtkStyleContext *pCStyle = mpNotebookHeaderTabsTabHoverLabelStyle;
+        aContextState.save(pCStyle);
         style_context_set_state(pCStyle, GTK_STATE_FLAG_PRELIGHT);
         gtk_style_context_get_color(pCStyle, gtk_style_context_get_state(pCStyle), &text_color);
         aTextColor = getColor( text_color );
         aStyleSet.SetTabRolloverTextColor(aTextColor);
+        aContextState.restore();
     }
 
     {
         GtkStyleContext *pCStyle = mpNotebookHeaderTabsTabActiveLabelStyle;
+        aContextState.save(pCStyle);
         style_context_set_state(pCStyle, ACTIVE_TAB());
         gtk_style_context_get_color(pCStyle, gtk_style_context_get_state(pCStyle), &text_color);
         aTextColor = getColor( text_color );
         aStyleSet.SetTabHighlightTextColor(aTextColor);
+        aContextState.restore();
     }
 
     // get cursor blink time
@@ -3417,7 +3458,7 @@ void GtkSalData::initNWF()
     //gnome#768128 for the car crash that is wayland
     //and floating dockable toolbars
     GdkDisplay *pDisplay = gdk_display_get_default();
-    if (GDK_IS_WAYLAND_DISPLAY(pDisplay))
+    if (DLSYM_GDK_IS_WAYLAND_DISPLAY(pDisplay))
         pSVData->maNWFData.mbCanDetermineWindowPosition = false;
 #endif
 }

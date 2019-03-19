@@ -30,6 +30,7 @@
 #include <cppuhelper/basemutex.hxx>
 #include <vcl/customweld.hxx>
 #include <vcl/bitmapaccess.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
@@ -207,9 +208,9 @@ public:
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
     virtual void Resize() override;
-    virtual void MouseButtonDown(const MouseEvent& rMEvt) override;
-    virtual void MouseMove(const MouseEvent& rMEvt) override;
-    virtual void MouseButtonUp(const MouseEvent& rMEvt) override;
+    virtual bool MouseButtonDown(const MouseEvent& rMEvt) override;
+    virtual bool MouseMove(const MouseEvent& rMEvt) override;
+    virtual bool MouseButtonUp(const MouseEvent& rMEvt) override;
 
     void UpdateBitmap();
     void ShowPosition( const Point& rPos, bool bUpdate );
@@ -291,17 +292,17 @@ void ColorFieldControl::UpdateBitmap()
     sal_uInt8* pRGB_Vert = maRGB_Vert.data();
     sal_uInt16* pPercent_Vert = maPercent_Vert.data();
 
-        Color aBitmapColor(maColor);
+    Color aBitmapColor(maColor);
 
-        sal_uInt16 nHue, nSat, nBri;
-        maColor.RGBtoHSB(nHue, nSat, nBri);
+    sal_uInt16 nHue, nSat, nBri;
+    maColor.RGBtoHSB(nHue, nSat, nBri);
 
         // this has been unlooped for performance reason, please do not merge back!
 
-        sal_uInt16 y = nHeight,x;
+    sal_uInt16 y = nHeight,x;
 
-        switch(meMode)
-        {
+    switch(meMode)
+    {
         case HUE:
             while (y--)
             {
@@ -374,7 +375,7 @@ void ColorFieldControl::UpdateBitmap()
                 }
             }
             break;
-        }
+    }
 }
 
 void ColorFieldControl::ShowPosition( const Point& rPos, bool bUpdate )
@@ -417,27 +418,30 @@ void ColorFieldControl::ShowPosition( const Point& rPos, bool bUpdate )
     }
 }
 
-void ColorFieldControl::MouseButtonDown(const MouseEvent& rMEvt)
+bool ColorFieldControl::MouseButtonDown(const MouseEvent& rMEvt)
 {
     CaptureMouse();
     mbMouseCaptured = true;
     ShowPosition(rMEvt.GetPosPixel(), true);
     Modify();
+    return true;
 }
 
-void ColorFieldControl::MouseMove(const MouseEvent& rMEvt)
+bool ColorFieldControl::MouseMove(const MouseEvent& rMEvt)
 {
     if (mbMouseCaptured)
     {
         ShowPosition(rMEvt.GetPosPixel(), true);
         Modify();
     }
+    return true;
 }
 
-void ColorFieldControl::MouseButtonUp(const MouseEvent&)
+bool ColorFieldControl::MouseButtonUp(const MouseEvent&)
 {
     ReleaseMouse();
     mbMouseCaptured = false;
+    return true;
 }
 
 void ColorFieldControl::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
@@ -506,9 +510,9 @@ public:
 
     virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
 
-    virtual void MouseButtonDown(const MouseEvent& rMEvt) override;
-    virtual void MouseMove(const MouseEvent& rMEvt) override;
-    virtual void MouseButtonUp(const MouseEvent& rMEvt) override;
+    virtual bool MouseButtonDown(const MouseEvent& rMEvt) override;
+    virtual bool MouseMove(const MouseEvent& rMEvt) override;
+    virtual bool MouseButtonUp(const MouseEvent& rMEvt) override;
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&) override;
     virtual void Resize() override;
 
@@ -640,25 +644,28 @@ void ColorSliderControl::ChangePosition(long nY)
     mdValue = double(nHeight - nY) / double(nHeight);
 }
 
-void ColorSliderControl::MouseButtonDown(const MouseEvent& rMEvt)
+bool ColorSliderControl::MouseButtonDown(const MouseEvent& rMEvt)
 {
     CaptureMouse();
     ChangePosition(rMEvt.GetPosPixel().Y());
     Modify();
+    return true;
 }
 
-void ColorSliderControl::MouseMove(const MouseEvent& rMEvt)
+bool ColorSliderControl::MouseMove(const MouseEvent& rMEvt)
 {
     if (IsMouseCaptured())
     {
         ChangePosition(rMEvt.GetPosPixel().Y());
         Modify();
     }
+    return true;
 }
 
-void ColorSliderControl::MouseButtonUp(const MouseEvent&)
+bool ColorSliderControl::MouseButtonUp(const MouseEvent&)
 {
     ReleaseMouse();
+    return true;
 }
 
 void ColorSliderControl::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
@@ -1204,7 +1211,6 @@ public:
     virtual sal_Int16 SAL_CALL execute(  ) override;
 
 private:
-    OUString msTitle;
     Color mnColor;
     sal_Int16 mnMode;
     Reference<css::awt::XWindow> mxParent;
@@ -1286,9 +1292,8 @@ void SAL_CALL ColorPicker::setPropertyValues( const Sequence< PropertyValue >& a
 }
 
 // XExecutableDialog
-void SAL_CALL ColorPicker::setTitle( const OUString& sTitle )
+void SAL_CALL ColorPicker::setTitle( const OUString& )
 {
-    msTitle = sTitle;
 }
 
 sal_Int16 SAL_CALL ColorPicker::execute()

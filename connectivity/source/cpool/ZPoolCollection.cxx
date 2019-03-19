@@ -32,6 +32,7 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::lang;
@@ -180,15 +181,12 @@ Reference< XDriver > SAL_CALL OPoolCollection::getDriverByURL( const OUString& _
     {
         Reference< XDriver > xExistentProxy;
         // look if we already have a proxy for this driver
-        for (   MapDriver2DriverRef::const_iterator aLookup = m_aDriverProxies.begin();
-                aLookup != m_aDriverProxies.end();
-                ++aLookup
-            )
+        for (const auto& [rxDriver, rxDriverRef] : m_aDriverProxies)
         {
             // hold the proxy alive as long as we're in this loop round
-            xExistentProxy = aLookup->second;
+            xExistentProxy = rxDriverRef;
 
-            if (xExistentProxy.is() && (aLookup->first.get() == xDriver.get()))
+            if (xExistentProxy.is() && (rxDriver.get() == xDriver.get()))
                 // already created a proxy for this
                 break;
         }
@@ -283,11 +281,9 @@ bool OPoolCollection::isPoolingEnabledByUrl(const OUString& _sUrl,
 
 void OPoolCollection::clearConnectionPools(bool _bDispose)
 {
-    OConnectionPools::const_iterator aIter = m_aPools.begin();
-    while(aIter != m_aPools.end())
+    for(auto& rEntry : m_aPools)
     {
-        aIter->second->clear(_bDispose);
-        ++aIter;
+        rEntry.second->clear(_bDispose);
     }
     m_aPools.clear();
 }
@@ -364,7 +360,8 @@ Reference<XInterface> OPoolCollection::openNode(const OUString& _rPath,const Ref
     }
     catch(Exception&)
     {
-        SAL_WARN("connectivity.cpool", "OConfigurationNode::openNode: caught an exception while retrieving the node!");
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("connectivity.cpool", "OConfigurationNode::openNode: caught an exception while retrieving the node! " << exceptionToString(ex));
     }
     return xNode;
 }
@@ -417,7 +414,7 @@ void SAL_CALL OPoolCollection::disposing( const EventObject& Source )
             {
                 if ( xProp.is() )
                     xProp->removePropertyChangeListener(getEnablePoolingNodeName(),this);
-            m_xConfigNode.clear();
+                m_xConfigNode.clear();
             }
             else if ( xProp.is() )
                 xProp->removePropertyChangeListener(getEnableNodeName(),this);
@@ -440,12 +437,7 @@ void SAL_CALL OPoolCollection::propertyChange( const css::beans::PropertyChangeE
         {
             m_aDriverProxies.clear();
             m_aDriverProxies = MapDriver2DriverRef();
-            OConnectionPools::iterator aIter = m_aPools.begin();
-            for(;aIter != m_aPools.end();++aIter)
-            {
-                aIter->second->clear(false);
-            }
-            m_aPools.clear();
+            clearConnectionPools(false);
         }
     }
     else if(evt.Source.is())
@@ -484,7 +476,7 @@ void OPoolCollection::clearDesktop()
     clearConnectionPools(true);
     if ( m_xDesktop.is() )
         m_xDesktop->removeTerminateListener(this);
-m_xDesktop.clear();
+    m_xDesktop.clear();
 }
 
 

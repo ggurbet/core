@@ -17,6 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <algorithm>
 
 #include <editeng/numitem.hxx>
 
@@ -24,7 +27,6 @@
 #include <com/sun/star/text/VertOrientation.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
 #include <editeng/brushitem.hxx>
-#include <o3tl/clamp.hxx>
 #include <vcl/font.hxx>
 #include <vcl/settings.hxx>
 #include <editeng/editids.hrc>
@@ -44,6 +46,7 @@
 #include <comphelper/processfactory.hxx>
 #include <tools/mapunit.hxx>
 #include <tools/stream.hxx>
+#include <tools/debug.hxx>
 #include <unotools/configmgr.hxx>
 #include <libxml/xmlwriter.h>
 #include <editeng/unonrule.hxx>
@@ -262,10 +265,10 @@ void SvxNumberFormat::Store(SvStream &rStream, FontToSubsFontConverter pConverte
     rStream.WriteUInt16( cBullet );
 
     rStream.WriteInt16(
-        sal_Int16(o3tl::clamp<sal_Int32>(nFirstLineOffset, SAL_MIN_INT16, SAL_MAX_INT16)) );
+        sal_Int16(std::clamp<sal_Int32>(nFirstLineOffset, SAL_MIN_INT16, SAL_MAX_INT16)) );
         //TODO: better way to handle out-of-bounds value?
     rStream.WriteInt16(
-        sal_Int16(o3tl::clamp<sal_Int32>(nAbsLSpace, SAL_MIN_INT16, SAL_MAX_INT16)) );
+        sal_Int16(std::clamp<sal_Int32>(nAbsLSpace, SAL_MIN_INT16, SAL_MAX_INT16)) );
         //TODO: better way to handle out-of-bounds value?
     rStream.WriteInt16( 0 ); // write a dummy for old now unused nLSpace
 
@@ -320,26 +323,26 @@ SvxNumberFormat& SvxNumberFormat::operator=( const SvxNumberFormat& rFormat )
     if (& rFormat == this) { return *this; }
 
     SvxNumberType::SetNumberingType(rFormat.GetNumberingType());
-        eNumAdjust          = rFormat.eNumAdjust ;
-        nInclUpperLevels    = rFormat.nInclUpperLevels ;
-        nStart              = rFormat.nStart ;
-        cBullet             = rFormat.cBullet ;
-        mePositionAndSpaceMode = rFormat.mePositionAndSpaceMode;
-        nFirstLineOffset    = rFormat.nFirstLineOffset;
-        nAbsLSpace          = rFormat.nAbsLSpace ;
-        nCharTextDistance   = rFormat.nCharTextDistance ;
-        meLabelFollowedBy = rFormat.meLabelFollowedBy;
-        mnListtabPos = rFormat.mnListtabPos;
-        mnFirstLineIndent = rFormat.mnFirstLineIndent;
-        mnIndentAt = rFormat.mnIndentAt;
-        eVertOrient         = rFormat.eVertOrient ;
-        sPrefix             = rFormat.sPrefix     ;
-        sSuffix             = rFormat.sSuffix     ;
-        aGraphicSize        = rFormat.aGraphicSize  ;
-        nBulletColor        = rFormat.nBulletColor   ;
-        nBulletRelSize      = rFormat.nBulletRelSize;
-        SetShowSymbol(rFormat.IsShowSymbol());
-        sCharStyleName      = rFormat.sCharStyleName;
+    eNumAdjust          = rFormat.eNumAdjust ;
+    nInclUpperLevels    = rFormat.nInclUpperLevels ;
+    nStart              = rFormat.nStart ;
+    cBullet             = rFormat.cBullet ;
+    mePositionAndSpaceMode = rFormat.mePositionAndSpaceMode;
+    nFirstLineOffset    = rFormat.nFirstLineOffset;
+    nAbsLSpace          = rFormat.nAbsLSpace ;
+    nCharTextDistance   = rFormat.nCharTextDistance ;
+    meLabelFollowedBy = rFormat.meLabelFollowedBy;
+    mnListtabPos = rFormat.mnListtabPos;
+    mnFirstLineIndent = rFormat.mnFirstLineIndent;
+    mnIndentAt = rFormat.mnIndentAt;
+    eVertOrient         = rFormat.eVertOrient ;
+    sPrefix             = rFormat.sPrefix     ;
+    sSuffix             = rFormat.sSuffix     ;
+    aGraphicSize        = rFormat.aGraphicSize  ;
+    nBulletColor        = rFormat.nBulletColor   ;
+    nBulletRelSize      = rFormat.nBulletRelSize;
+    SetShowSymbol(rFormat.IsShowSymbol());
+    sCharStyleName      = rFormat.sCharStyleName;
     pGraphicBrush.reset();
     if(rFormat.pGraphicBrush)
     {
@@ -688,7 +691,7 @@ void SvxNumRule::Store( SvStream &rStream )
     rStream.WriteUInt16( static_cast<sal_uInt16>(nFeatureFlags) );
 }
 
-void SvxNumRule::dumpAsXml(struct _xmlTextWriter* pWriter) const
+void SvxNumRule::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("SvxNumRule"));
     xmlTextWriterWriteAttribute(pWriter, BAD_CAST("levelCount"), BAD_CAST(OUString::number(nLevelCount).getStr()));
@@ -774,7 +777,7 @@ const SvxNumberFormat&  SvxNumRule::GetLevel(sal_uInt16 nLevel)const
     if(!pStdNumFmt)
     {
         pStdNumFmt = new SvxNumberFormat(SVX_NUM_ARABIC);
-         pStdOutlineNumFmt = new SvxNumberFormat(SVX_NUM_NUMBER_NONE);
+        pStdOutlineNumFmt = new SvxNumberFormat(SVX_NUM_NUMBER_NONE);
     }
 
     DBG_ASSERT(nLevel < SVX_MAX_NUM, "Wrong Level" );
@@ -970,7 +973,7 @@ bool SvxNumBulletItem::PutValue( const css::uno::Any& rVal, sal_uInt8 /*nMemberI
     return false;
 }
 
-void SvxNumBulletItem::dumpAsXml(struct _xmlTextWriter* pWriter) const
+void SvxNumBulletItem::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("SvxNumBulletItem"));
     xmlTextWriterWriteAttribute(pWriter, BAD_CAST("whichId"), BAD_CAST(OString::number(Which()).getStr()));

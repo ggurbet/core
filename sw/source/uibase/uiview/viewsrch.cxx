@@ -358,13 +358,15 @@ void SwView::ExecSearch(SfxRequest& rReq)
                     {   //Scope for SwWait-Object
                         SwWait aWait( *GetDocShell(), true );
                         m_pWrtShell->StartAllAction();
+
+                        // i#8288 "replace all" should not change cursor
+                        // position, so save current cursor
+                        m_pWrtShell->Push();
+
                         if (!m_pSrchItem->GetSelection())
                         {
                             // if we don't want to search in the selection...
                             m_pWrtShell->KillSelection(nullptr, false);
-                            // i#8288 "replace all" should not change cursor
-                            // position, so save current cursor
-                            m_pWrtShell->Push();
                             if (SwDocPositions::Start == aOpts.eEnd)
                             {
                                 m_pWrtShell->EndOfSection();
@@ -375,13 +377,10 @@ void SwView::ExecSearch(SfxRequest& rReq)
                             }
                         }
                         nFound = FUNC_Search( aOpts );
-                        if (!m_pSrchItem->GetSelection())
-                        {
-                            // create it just to overwrite it with stack cursor
-                            m_pWrtShell->CreateCursor();
-                            // i#8288 restore the original cursor position
-                            m_pWrtShell->Pop(SwCursorShell::PopMode::DeleteCurrent);
-                        }
+                        // create it just to overwrite it with stack cursor
+                        m_pWrtShell->CreateCursor();
+                        // i#8288 restore the original cursor position
+                        m_pWrtShell->Pop(SwCursorShell::PopMode::DeleteCurrent);
                         m_pWrtShell->EndAllAction();
                     }
 
@@ -442,7 +441,6 @@ void SwView::ExecSearch(SfxRequest& rReq)
 /*10 */         RES_CHRATR_ROTATE,      RES_CHRATR_ROTATE,
 /*12 */         RES_CHRATR_SCALEW,      RES_CHRATR_RELIEF,
 /*14 */         RES_CHRATR_OVERLINE,    RES_CHRATR_OVERLINE,
-// insert position for CJK/CTL attributes!
 /*16 */         RES_PARATR_LINESPACING, RES_PARATR_HYPHENZONE,
 /*18 */         RES_PARATR_REGISTER,    RES_PARATR_REGISTER,
 /*20 */         RES_PARATR_VERTALIGN,   RES_PARATR_VERTALIGN,
@@ -451,33 +449,20 @@ void SwView::ExecSearch(SfxRequest& rReq)
 /*26 */         0
             };
 
-            static const sal_uInt16 aCJKAttr[] =
-            {
-                RES_CHRATR_CJK_FONT,    RES_CHRATR_CJK_WEIGHT,
-                RES_CHRATR_EMPHASIS_MARK, RES_CHRATR_TWO_LINES,
-                RES_PARATR_SCRIPTSPACE, RES_PARATR_FORBIDDEN_RULES
-            };
-            static const sal_uInt16 aCTLAttr[] =
-            {
-                RES_CHRATR_CTL_FONT,    RES_CHRATR_CTL_WEIGHT
-            };
+            SfxItemSet aSet(m_pWrtShell->GetAttrPool(), aNormalAttr);
 
-            std::vector<sal_uInt16> aArr;
-            aArr.insert( aArr.begin(), aNormalAttr,
-                    aNormalAttr + SAL_N_ELEMENTS( aNormalAttr ));
             if( SW_MOD()->GetCTLOptions().IsCTLFontEnabled() )
             {
-                aArr.insert( aArr.begin() + 16, aCTLAttr,
-                        aCTLAttr + SAL_N_ELEMENTS( aCTLAttr ));
+                aSet.MergeRange(RES_CHRATR_CTL_FONT, RES_CHRATR_CTL_WEIGHT);
             }
             SvtCJKOptions aCJKOpt;
             if( aCJKOpt.IsAnyEnabled() )
             {
-                aArr.insert( aArr.begin() + 16, aCJKAttr,
-                        aCJKAttr + SAL_N_ELEMENTS( aCJKAttr ));
+                aSet.MergeRange(RES_CHRATR_CJK_FONT, RES_CHRATR_CJK_WEIGHT);
+                aSet.MergeRange(RES_CHRATR_EMPHASIS_MARK, RES_CHRATR_TWO_LINES);
+                aSet.MergeRange(RES_PARATR_SCRIPTSPACE, RES_PARATR_FORBIDDEN_RULES);
             }
 
-            SfxItemSet aSet( m_pWrtShell->GetAttrPool(), &aArr[0] );
             sal_uInt16 nWhich = SID_SEARCH_SEARCHSET;
 
             if ( FID_SEARCH_REPLACESET == nSlot )
@@ -623,6 +608,8 @@ bool SwView::SearchAndWrap(bool bApi)
         m_bExtra = true;
         if (FUNC_Search(aOpts))
             m_bFound = true;
+        else
+            m_bExtra = false;
     }
 
     m_pWrtShell->EndAllAction();

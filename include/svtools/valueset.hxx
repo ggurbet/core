@@ -23,7 +23,6 @@
 #include <svtools/svtdllapi.h>
 
 #include <vcl/ctrl.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/customweld.hxx>
 #include <memory>
@@ -35,12 +34,12 @@ class HelpEvent;
 class KeyEvent;
 class DataChangedEvent;
 class ScrollBar;
+class UserDrawEvent;
+class VirtualDevice;
 
 struct ValueSetItem;
 struct SvtValueSetItem;
 
-class ValueSetAcc;
-class ValueItemAcc;
 enum class DrawFrameStyle;
 
 /*************************************************************************
@@ -479,8 +478,8 @@ public:
 
     virtual void    SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
 
-    virtual void    MouseButtonDown( const MouseEvent& rMEvt ) override;
-    virtual void    MouseMove( const MouseEvent& rMEvt ) override;
+    virtual bool    MouseButtonDown( const MouseEvent& rMEvt ) override;
+    virtual bool    MouseMove( const MouseEvent& rMEvt ) override;
     virtual bool    KeyInput( const KeyEvent& rKEvt ) override;
     virtual void    Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
     virtual void    GetFocus() override;
@@ -548,6 +547,8 @@ public:
     void            SetItemImage( sal_uInt16 nItemId, const Image& rImage );
     Image           GetItemImage( sal_uInt16 nItemId ) const;
     Color           GetItemColor( sal_uInt16 nItemId ) const;
+    void            SetItemData( sal_uInt16 nItemId, void* pData );
+    void*           GetItemData( sal_uInt16 nItemId ) const;
     void            SetItemText( sal_uInt16 nItemId, const OUString& rStr );
     OUString        GetItemText( sal_uInt16 nItemId ) const;
     bool            IsColor() const

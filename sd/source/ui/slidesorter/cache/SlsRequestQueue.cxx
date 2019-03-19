@@ -113,7 +113,7 @@ void RequestQueue::AddRequest (
 #if OSL_DEBUG_LEVEL >=2
     bool bRemoved =
 #endif
-        RemoveRequest(aKey);
+    RemoveRequest(aKey);
 
     // The priority of the request inside its priority class is defined by
     // the page number.  This ensures a strict top-to-bottom, left-to-right
@@ -229,19 +229,19 @@ void RequestQueue::PopFront()
 {
     ::osl::MutexGuard aGuard (maMutex);
 
-    if ( ! mpRequestQueue->empty())
-    {
-        Container::const_iterator aIter(mpRequestQueue->begin());
-        SdrPage *pPage = const_cast<SdrPage*>(aIter->maKey);
-        pPage->RemovePageUser(*this);
-        mpRequestQueue->erase(aIter);
+    if (  mpRequestQueue->empty())
+        return;
 
-        // Reset the priority counter if possible.
-        if (mpRequestQueue->empty())
-        {
-            mnMinimumPriority = 0;
-            mnMaximumPriority = 1;
-        }
+    Container::const_iterator aIter(mpRequestQueue->begin());
+    SdrPage *pPage = const_cast<SdrPage*>(aIter->maKey);
+    pPage->RemovePageUser(*this);
+    mpRequestQueue->erase(aIter);
+
+    // Reset the priority counter if possible.
+    if (mpRequestQueue->empty())
+    {
+        mnMinimumPriority = 0;
+        mnMaximumPriority = 1;
     }
 }
 

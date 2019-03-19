@@ -26,6 +26,7 @@
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/io/XActiveDataSource.hpp>
 #include <com/sun/star/xml/sax/Writer.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <svl/itemprop.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <sot/storage.hxx>
@@ -37,6 +38,7 @@
 #include <xmloff/xmlmetae.hxx>
 #include <cppuhelper/implbase4.hxx>
 #include <comphelper/processfactory.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/streamwrap.hxx>
 #include <xmloff/xmlexp.hxx>
 #include <editeng/unoedsrc.hxx>
@@ -275,7 +277,7 @@ SvxXMLTextExportComponent::SvxXMLTextExportComponent(
 :   SvXMLExport( xContext, "", rFileName, xHandler, static_cast<frame::XModel*>(new SvxSimpleUnoModel()), FieldUnit::CM,
     SvXMLExportFlags::OASIS  |  SvXMLExportFlags::AUTOSTYLES  |  SvXMLExportFlags::CONTENT )
 {
-        SvxEditEngineSource aEditSource( pEditEngine );
+    SvxEditEngineSource aEditSource( pEditEngine );
 
     static const SfxItemPropertyMapEntry SvxXMLTextExportComponentPropertyMap[] =
     {
@@ -335,9 +337,10 @@ void SvxWriteXML( EditEngine& rEditEngine, SvStream& rStream, const ESelection& 
         }
         while( false );
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("editeng", "exception during xml export: " << e);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("editeng", "exception during xml export: " << exceptionToString(ex));
     }
 }
 

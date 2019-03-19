@@ -142,7 +142,7 @@ public:
     virtual void invert(sal_uInt32 nPoints, const SalPoint* pPtAry, SalInvert nFlags) override;
 
     virtual bool drawEPS(long nX, long nY, long nWidth, long nHeight, void* pPtr,
-                         sal_uLong nSize) override;
+                         sal_uInt32 nSize) override;
 
     virtual bool blendBitmap(const SalTwoRect&, const SalBitmap& rBitmap) override;
 
@@ -195,7 +195,7 @@ public:
     virtual void GetGlyphWidths(const PhysicalFontFace*, bool bVertical,
                                 std::vector<sal_Int32>& rWidths, Ucs2UIntMap& rUnicodeEnc) override;
 
-    virtual std::unique_ptr<SalLayout> GetTextLayout(ImplLayoutArgs&, int nFallbackLevel) override;
+    virtual std::unique_ptr<GenericSalLayout> GetTextLayout(int nFallbackLevel) override;
     virtual void DrawTextLayout(const GenericSalLayout&) override;
 
     // Native control support

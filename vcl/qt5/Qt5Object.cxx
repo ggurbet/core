@@ -18,6 +18,7 @@
  */
 
 #include <Qt5Object.hxx>
+#include <Qt5Object.moc>
 
 #include <Qt5Frame.hxx>
 
@@ -55,7 +56,7 @@ void Qt5Object::ResetClipRegion()
         m_pRegion = QRegion();
 }
 
-void Qt5Object::BeginSetClipRegion(sal_uLong) { m_pRegion = QRegion(); }
+void Qt5Object::BeginSetClipRegion(sal_uInt32) { m_pRegion = QRegion(); }
 
 void Qt5Object::UnionClipRegion(long nX, long nY, long nWidth, long nHeight)
 {

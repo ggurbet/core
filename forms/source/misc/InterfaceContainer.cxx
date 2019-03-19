@@ -866,8 +866,8 @@ void OInterfaceContainer::removeElementsNoEvents()
     OInterfaceArray::iterator i = m_aItems.begin();
     css::uno::Reference<css::uno::XInterface>  xElement(*i);
 
-    OInterfaceMap::iterator j = m_aMap.begin();
-    while (j != m_aMap.end() && (*j).second != xElement) ++j;
+    OInterfaceMap::iterator j = std::find_if(m_aMap.begin(), m_aMap.end(),
+        [&xElement](const OInterfaceMap::value_type& rEntry) { return rEntry.second == xElement; });
 
     m_aItems.erase(i);
     m_aMap.erase(j);
@@ -930,9 +930,8 @@ void OInterfaceContainer::implReplaceByIndex( const sal_Int32 _nIndex, const Any
         "OInterfaceContainer::implReplaceByIndex: elements should be held normalized!" );
 
     // locate the old element in the map
-    OInterfaceMap::iterator j = m_aMap.begin();
-    while ( ( j != m_aMap.end() ) && ( j->second.get() != xOldElement.get() ) )
-        ++j;
+    OInterfaceMap::iterator j = std::find_if(m_aMap.begin(), m_aMap.end(),
+        [&xOldElement](const OInterfaceMap::value_type& rEntry) { return rEntry.second.get() == xOldElement.get(); });
 
     // remove event knittings
     if ( m_xEventAttacher.is() )
@@ -1011,8 +1010,8 @@ void OInterfaceContainer::implRemoveByIndex( const sal_Int32 _nIndex, ::osl::Cle
     OInterfaceArray::iterator i = m_aItems.begin() + _nIndex;
     css::uno::Reference<css::uno::XInterface>  xElement(*i);
 
-    OInterfaceMap::iterator j = m_aMap.begin();
-    while (j != m_aMap.end() && (*j).second != xElement) ++j;
+    OInterfaceMap::iterator j = std::find_if(m_aMap.begin(), m_aMap.end(),
+        [&xElement](const OInterfaceMap::value_type& rEntry) { return rEntry.second == xElement; });
 
     m_aItems.erase(i);
     m_aMap.erase(j);
@@ -1089,7 +1088,8 @@ void SAL_CALL OInterfaceContainer::insertByName(const OUString& _rName, const An
     }
     catch( const Exception& )
     {
-        SAL_WARN("forms.misc", "OInterfaceContainer::insertByName: caught an exception!" );
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("forms.misc", "OInterfaceContainer::insertByName: caught an exception! " << exceptionToString(ex) );
     }
     implInsert( m_aItems.size(), xElementProps, true, aElementMetaData.get(), true );
 }
@@ -1196,10 +1196,10 @@ Sequence< ScriptEventDescriptor > SAL_CALL OInterfaceContainer::getScriptEvents(
     if ( m_xEventAttacher.is() )
     {
         aReturn = m_xEventAttacher->getScriptEvents( nIndex );
-            if ( lcl_hasVbaEvents( aReturn ) )
-            {
-                aReturn = lcl_stripVbaEvents( aReturn );
-            }
+        if ( lcl_hasVbaEvents( aReturn ) )
+        {
+            aReturn = lcl_stripVbaEvents( aReturn );
+        }
     }
     return aReturn;
 }
@@ -1287,7 +1287,7 @@ OFormComponents::~OFormComponents()
 void OFormComponents::disposing()
 {
     OInterfaceContainer::disposing();
-     ::cppu::OComponentHelper::disposing();
+    ::cppu::OComponentHelper::disposing();
     m_xParent = nullptr;
 }
 

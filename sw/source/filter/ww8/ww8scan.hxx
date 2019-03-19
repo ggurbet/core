@@ -282,7 +282,7 @@ public:
     explicit WW8SprmIter(const sal_uInt8* pSprms_, sal_Int32 nLen_,
         const wwSprmParser &rSprmParser);
     void  SetSprms(const sal_uInt8* pSprms_, sal_Int32 nLen_);
-    SprmResult FindSprm(sal_uInt16 nId, sal_uInt8* pNextByteMatch = nullptr);
+    SprmResult FindSprm(sal_uInt16 nId, const sal_uInt8* pNextByteMatch = nullptr);
     void  advance();
     const sal_uInt8* GetSprms() const
         { return ( pSprms && (0 < nRemLen) ) ? pSprms : nullptr; }
@@ -452,7 +452,7 @@ public:
     virtual sal_uInt32 GetIdx() const override;
     virtual void SetIdx(sal_uInt32 nI) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
     virtual void GetSprms( WW8PLCFxDesc* p ) override;
     virtual void advance() override;
 
@@ -477,7 +477,7 @@ public:
     virtual sal_uInt32 GetIdx() const override;
     virtual void SetIdx(sal_uInt32 nI) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
     virtual long GetNoSprms( WW8_CP& rStart, WW8_CP&, sal_Int32& rLen ) override;
     virtual void advance() override;
     WW8_CP CurrentPieceStartFc2Cp( WW8_FC nStartPos );
@@ -680,7 +680,7 @@ public:
     virtual sal_uInt32 GetIdx() const override;
     virtual void SetIdx(sal_uInt32 nIdx) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
     virtual void GetSprms( WW8PLCFxDesc* p ) override;
     virtual void advance() override;
     SprmResult HasSprm( sal_uInt16 nId ) const;
@@ -708,7 +708,7 @@ public:
     virtual sal_uInt32 GetIdx() const override;
     virtual void SetIdx(sal_uInt32 nIdx) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
 
     // returns reference descriptors
     const void* GetData() const
@@ -736,7 +736,7 @@ public:
     virtual sal_uInt32 GetIdx() const override;
     virtual void SetIdx(sal_uInt32 nIdx) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
     virtual void GetSprms(WW8PLCFxDesc* p) override;
     virtual void advance() override;
     bool StartPosIsFieldStart();
@@ -769,12 +769,12 @@ public:
     virtual sal_uInt32 GetIdx2() const override;
     virtual void SetIdx2(sal_uInt32 nIdx) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
     virtual long GetNoSprms( WW8_CP& rStart, WW8_CP& rEnd, sal_Int32& rLen ) override;
     virtual void advance() override;
     const OUString* GetName() const;
     WW8_CP GetStartPos() const
-        { return ( nIsEnd ) ? WW8_CP_MAX : pBook[0]->Where(); }
+        { return nIsEnd ? WW8_CP_MAX : pBook[0]->Where(); }
     long GetLen() const;
     bool GetIsEnd() const { return nIsEnd != 0; }
     long GetHandle() const;
@@ -806,7 +806,7 @@ public:
     virtual sal_uInt32 GetIdx2() const override;
     virtual void SetIdx2(sal_uInt32 nIdx) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
     virtual long GetNoSprms( WW8_CP& rStart, WW8_CP& rEnd, sal_Int32& rLen ) override;
     virtual void advance() override;
 
@@ -836,7 +836,7 @@ public:
     virtual sal_uInt32 GetIdx2() const override;
     virtual void SetIdx2(sal_uInt32 nIdx) override;
     virtual bool SeekPos(WW8_CP nCpPos) override;
-    virtual WW8_FC Where() override;
+    virtual WW8_CP Where() override;
     virtual long GetNoSprms(WW8_CP& rStart, WW8_CP& rEnd, sal_Int32& rLen) override;
     virtual void advance() override;
 
@@ -968,7 +968,7 @@ private:
     sal_uInt16 GetId(const WW8PLCFxDesc* p ) const;
 
 public:
-    WW8PLCFMan(WW8ScannerBase* pBase, ManTypes nType, long nStartCp,
+    WW8PLCFMan(const WW8ScannerBase* pBase, ManTypes nType, long nStartCp,
         bool bDoingDrawTextBox = false);
     ~WW8PLCFMan();
 
@@ -1033,7 +1033,7 @@ friend WW8PLCFx_PCDAttrs::WW8PLCFx_PCDAttrs(const WW8Fib& rFib,
 friend WW8PLCFx_Cp_FKP::WW8PLCFx_Cp_FKP( SvStream*, SvStream*, SvStream*,
     const WW8ScannerBase&, ePLCFT );
 
-friend WW8PLCFMan::WW8PLCFMan(WW8ScannerBase*, ManTypes, long, bool);
+friend WW8PLCFMan::WW8PLCFMan(const WW8ScannerBase*, ManTypes, long, bool);
 friend class SwWW8FltControlStack;
 
 private:
@@ -1571,8 +1571,8 @@ protected:
 
 public:
     WW8Style( SvStream& rSt, WW8Fib& rFibPara );
-    WW8_STD* Read1STDFixed(sal_uInt16& rSkip);
-    WW8_STD* Read1Style(sal_uInt16& rSkip, OUString* pString);
+    std::unique_ptr<WW8_STD> Read1STDFixed(sal_uInt16& rSkip);
+    std::unique_ptr<WW8_STD> Read1Style(sal_uInt16& rSkip, OUString* pString);
     sal_uInt16 GetCount() const { return m_cstd; }
 };
 

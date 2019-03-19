@@ -38,7 +38,7 @@ class AnimationAudioNode : public BaseNode, public AnimationEventHandler
 public:
     AnimationAudioNode(
         css::uno::Reference<css::animations::XAnimationNode> const& xNode,
-        ::std::shared_ptr<BaseContainerNode> const& pParent,
+        BaseContainerNodeSharedPtr const& pParent,
         NodeContext const& rContext );
 
 protected:
@@ -59,6 +59,7 @@ private:
 
     void createPlayer() const;
     void resetPlayer() const;
+    void checkPlayingStatus();
 };
 
 } // namespace internal

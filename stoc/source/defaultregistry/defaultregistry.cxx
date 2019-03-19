@@ -188,19 +188,19 @@ NestedKeyImpl::NestedKeyImpl( const OUString& rKeyName,
 void NestedKeyImpl::computeChanges()
 {
     Guard< Mutex > aGuard( m_xRegistry->m_mutex );
-    if ( m_state != m_xRegistry->m_state )
+    if ( m_state == m_xRegistry->m_state )
+        return;
+
+    Reference<XRegistryKey> rootKey(m_xRegistry->m_localReg->getRootKey());
+
+    Reference<XRegistryKey> tmpKey = rootKey->openKey(m_name);
+
+    if ( tmpKey.is() )
     {
-        Reference<XRegistryKey> rootKey(m_xRegistry->m_localReg->getRootKey());
-
-        Reference<XRegistryKey> tmpKey = rootKey->openKey(m_name);
-
-        if ( tmpKey.is() )
-        {
-            m_localKey = rootKey->openKey(m_name);
-        }
-
-        m_state = m_xRegistry->m_state;
+        m_localKey = rootKey->openKey(m_name);
     }
+
+    m_state = m_xRegistry->m_state;
 }
 
 
@@ -266,7 +266,7 @@ sal_Bool SAL_CALL NestedKeyImpl::isReadOnly(  )
     if ( !m_localKey.is() || !m_localKey->isValid() )
         throw InvalidRegistryException();
 
-   return m_localKey->isReadOnly();
+    return m_localKey->isReadOnly();
 }
 
 
@@ -641,7 +641,7 @@ Reference< XRegistryKey > SAL_CALL NestedKeyImpl::openKey( const OUString& aKeyN
 
     if ( localKey.is() || defaultKey.is() )
     {
-        return static_cast<XRegistryKey*>(new NestedKeyImpl(m_xRegistry.get(), localKey, defaultKey));
+        return new NestedKeyImpl(m_xRegistry.get(), localKey, defaultKey);
     }
     else
     {
@@ -678,7 +678,7 @@ Reference< XRegistryKey > SAL_CALL NestedKeyImpl::createKey( const OUString& aKe
 
             m_state = m_xRegistry->m_state++;
 
-            return static_cast<XRegistryKey*>(new NestedKeyImpl(m_xRegistry.get(), localKey, defaultKey));
+            return new NestedKeyImpl(m_xRegistry.get(), localKey, defaultKey);
         }
     }
     else
@@ -698,7 +698,7 @@ Reference< XRegistryKey > SAL_CALL NestedKeyImpl::createKey( const OUString& aKe
 
                 m_state = m_xRegistry->m_state++;
 
-                return static_cast<XRegistryKey*>(new NestedKeyImpl(m_xRegistry.get(), localKey, defaultKey));
+                return new NestedKeyImpl(m_xRegistry.get(), localKey, defaultKey);
             }
         }
     }
@@ -786,8 +786,7 @@ Sequence< Reference< XRegistryKey > > SAL_CALL NestedKeyImpl::openKeys(  )
         name = localSeq.getConstArray()[i];
         lastIndex = name.lastIndexOf('/');
         name = name.copy(lastIndex);
-        retSeq.getArray()[i] =
-            static_cast<XRegistryKey*>(new NestedKeyImpl(name, this));
+        retSeq.getArray()[i] = new NestedKeyImpl(name, this);
     }
 
     sal_uInt32 k = local;
@@ -810,8 +809,7 @@ Sequence< Reference< XRegistryKey > > SAL_CALL NestedKeyImpl::openKeys(  )
             name = defaultSeq.getConstArray()[i];
             lastIndex = name.lastIndexOf('/');
             name = name.copy(lastIndex);
-            retSeq.getArray()[k++] =
-                static_cast<XRegistryKey*>(new NestedKeyImpl(name, this));
+            retSeq.getArray()[k++] = new NestedKeyImpl(name, this);
         }
     }
 
@@ -1236,7 +1234,7 @@ Reference< XRegistryKey > SAL_CALL NestedRegistryImpl::getRootKey(  )
             defaultKey = m_defaultReg->getRootKey();
         }
 
-        return static_cast<XRegistryKey*>(new NestedKeyImpl(this, localKey, defaultKey));
+        return new NestedKeyImpl(this, localKey, defaultKey);
     }
 
     return Reference<XRegistryKey>();

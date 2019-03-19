@@ -51,7 +51,7 @@
 #include <svx/sdr/primitive2d/sdrattributecreator.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <svx/sdr/attribute/sdrformtextattribute.hxx>
-#include <o3tl/make_unique.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <memory>
 #include <sal/log.hxx>
 
@@ -320,20 +320,20 @@ void ImpPathCreateUser::CalcCircle(const Point& rP1, const Point& rP2, const Poi
     bool bRet=nTmpAngle!=9000 && nTmpAngle!=27000;
     long nRad=0;
     if (bRet) {
-        double cs=cos(nTmpAngle*nPi180);
+        double cs = cos(nTmpAngle * F_PI18000);
         double nR=static_cast<double>(GetLen(Point(dx,dy)))/cs/2;
         nRad=std::abs(FRound(nR));
     }
     if (dAngle<18000) {
         nCircStAngle=NormAngle36000(nTangAngle-9000);
         nCircRelAngle=NormAngle36000(2*dAngle);
-        aCircCenter.AdjustX(FRound(nRad*cos((nTangAngle+9000)*nPi180)) );
-        aCircCenter.AdjustY( -(FRound(nRad*sin((nTangAngle+9000)*nPi180))) );
+        aCircCenter.AdjustX(FRound(nRad * cos((nTangAngle + 9000) * F_PI18000)));
+        aCircCenter.AdjustY(-(FRound(nRad * sin((nTangAngle + 9000) * F_PI18000))));
     } else {
         nCircStAngle=NormAngle36000(nTangAngle+9000);
         nCircRelAngle=-NormAngle36000(36000-2*dAngle);
-        aCircCenter.AdjustX(FRound(nRad*cos((nTangAngle-9000)*nPi180)) );
-        aCircCenter.AdjustY( -(FRound(nRad*sin((nTangAngle-9000)*nPi180))) );
+        aCircCenter.AdjustX(FRound(nRad * cos((nTangAngle - 9000) * F_PI18000)));
+        aCircCenter.AdjustY(-(FRound(nRad * sin((nTangAngle - 9000) * F_PI18000))));
     }
     bAngleSnap=pView!=nullptr && pView->IsAngleSnapEnabled();
     if (bAngleSnap) {
@@ -451,7 +451,7 @@ void ImpPathCreateUser::CalcRect(const Point& rP1, const Point& rP2, const Point
         long nHypLen=aTmpPt.Y()-y;
         long nTangAngle=-GetAngle(rDir);
         // sin=g/h, g=h*sin
-        double a=nTangAngle*nPi180;
+        double a = nTangAngle * F_PI18000;
         double sn=sin(a);
         double cs=cos(a);
         double nGKathLen=nHypLen*sn;
@@ -517,7 +517,7 @@ public:
     bool EndCreate(SdrDragStat& rStat, SdrCreateCmd eCmd);
     bool BckCreate(SdrDragStat const & rStat);
     void BrkCreate(SdrDragStat& rStat);
-    Pointer GetCreatePointer() const;
+    PointerStyle GetCreatePointer() const;
 
     // helping stuff
     static bool IsClosed(SdrObjKind eKind) { return eKind==OBJ_POLY || eKind==OBJ_PATHPOLY || eKind==OBJ_PATHFILL || eKind==OBJ_FREEFILL || eKind==OBJ_SPLNFILL; }
@@ -1586,23 +1586,23 @@ basegfx::B2DPolyPolygon ImpPathForDragAndCreate::TakeDragPolyPolygon(const SdrDr
     return aRetval;
 }
 
-Pointer ImpPathForDragAndCreate::GetCreatePointer() const
+PointerStyle ImpPathForDragAndCreate::GetCreatePointer() const
 {
     switch (meObjectKind) {
-        case OBJ_LINE    : return Pointer(PointerStyle::DrawLine);
-        case OBJ_POLY    : return Pointer(PointerStyle::DrawPolygon);
-        case OBJ_PLIN    : return Pointer(PointerStyle::DrawPolygon);
-        case OBJ_PATHLINE: return Pointer(PointerStyle::DrawBezier);
-        case OBJ_PATHFILL: return Pointer(PointerStyle::DrawBezier);
-        case OBJ_FREELINE: return Pointer(PointerStyle::DrawFreehand);
-        case OBJ_FREEFILL: return Pointer(PointerStyle::DrawFreehand);
-        case OBJ_SPLNLINE: return Pointer(PointerStyle::DrawFreehand);
-        case OBJ_SPLNFILL: return Pointer(PointerStyle::DrawFreehand);
-        case OBJ_PATHPOLY: return Pointer(PointerStyle::DrawPolygon);
-        case OBJ_PATHPLIN: return Pointer(PointerStyle::DrawPolygon);
+        case OBJ_LINE    : return PointerStyle::DrawLine;
+        case OBJ_POLY    : return PointerStyle::DrawPolygon;
+        case OBJ_PLIN    : return PointerStyle::DrawPolygon;
+        case OBJ_PATHLINE: return PointerStyle::DrawBezier;
+        case OBJ_PATHFILL: return PointerStyle::DrawBezier;
+        case OBJ_FREELINE: return PointerStyle::DrawFreehand;
+        case OBJ_FREEFILL: return PointerStyle::DrawFreehand;
+        case OBJ_SPLNLINE: return PointerStyle::DrawFreehand;
+        case OBJ_SPLNFILL: return PointerStyle::DrawFreehand;
+        case OBJ_PATHPOLY: return PointerStyle::DrawPolygon;
+        case OBJ_PATHPLIN: return PointerStyle::DrawPolygon;
         default: break;
     } // switch
-    return Pointer(PointerStyle::Cross);
+    return PointerStyle::Cross;
 }
 
 SdrPathObjGeoData::SdrPathObjGeoData()
@@ -1618,7 +1618,7 @@ SdrPathObjGeoData::~SdrPathObjGeoData()
 
 std::unique_ptr<sdr::contact::ViewContact> SdrPathObj::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfSdrPathObj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrPathObj>(*this);
 }
 
 
@@ -1672,7 +1672,8 @@ void SdrPathObj::ImpForceLineAngle()
     const basegfx::B2DPoint aB2DPoint1(aPoly.getB2DPoint(1));
     const Point aPoint0(FRound(aB2DPoint0.getX()), FRound(aB2DPoint0.getY()));
     const Point aPoint1(FRound(aB2DPoint1.getX()), FRound(aB2DPoint1.getY()));
-    const Point aDelt(aPoint1 - aPoint0);
+    const basegfx::B2DPoint aB2DDelt(aB2DPoint1 - aB2DPoint0);
+    const Point aDelt(FRound(aB2DDelt.getX()), FRound(aB2DDelt.getY()));
 
     aGeo.nRotationAngle=GetAngle(aDelt);
     aGeo.nShearAngle=0;
@@ -2244,7 +2245,7 @@ basegfx::B2DPolyPolygon SdrPathObj::getDragPolyPolygon(const SdrDragStat& rDrag)
     return aRetval;
 }
 
-Pointer SdrPathObj::GetCreatePointer() const
+PointerStyle SdrPathObj::GetCreatePointer() const
 {
     return impGetDAC().GetCreatePointer();
 }
@@ -2285,7 +2286,8 @@ void SdrPathObj::NbcResize(const Point& rRef, const Fraction& xFact, const Fract
 void SdrPathObj::NbcRotate(const Point& rRef, long nAngle, double sn, double cs)
 {
     // Thank JOE, the angles are defined mirrored to the mathematical meanings
-    const basegfx::B2DHomMatrix aTrans(basegfx::utils::createRotateAroundPoint(rRef.X(), rRef.Y(), -nAngle * nPi180));
+    const basegfx::B2DHomMatrix aTrans(
+        basegfx::utils::createRotateAroundPoint(rRef.X(), rRef.Y(), -nAngle * F_PI18000));
     maPathPolygon.transform(aTrans);
 
     // #i19871# first modify locally, then call parent (to get correct SnapRect with GluePoints)

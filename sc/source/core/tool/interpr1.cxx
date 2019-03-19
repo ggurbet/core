@@ -837,19 +837,14 @@ bool ScInterpreter::JumpMatrix( short nStackLevel )
     {   // We're done with it, throw away jump matrix, keep result.
         // For an intermediate result of Reference use the array of references
         // if there are more than one reference and the current ForceArray
-        // context is not ForceArray or suppressed. Note that also
-        // ReferenceOrRefArray forces the array of references as result if
-        // there is more than one reference.
+        // context is ReferenceOrRefArray.
         // Else (also for a final result of Reference) use the matrix.
         // Treat the result of a jump command as final and use the matrix (see
         // tdf#115493 for why).
-        ParamClass eParamClass;
-        if (!FormulaCompiler::IsOpCodeJumpCommand( pJumpMatrix->GetOpCode()) &&
+        if (pCur->GetInForceArray() == ParamClass::ReferenceOrRefArray &&
                 pJumpMatrix->GetRefList().size() > 1 &&
                 ScParameterClassification::GetParameterType( pCur, SAL_MAX_UINT16) == ParamClass::Reference &&
-                (eParamClass = pCur->GetInForceArray()) != ParamClass::ForceArray &&
-                eParamClass != ParamClass::ReferenceOrForceArray &&
-                eParamClass != ParamClass::SuppressedReferenceOrForceArray &&
+                !FormulaCompiler::IsOpCodeJumpCommand( pJumpMatrix->GetOpCode()) &&
                 aCode.PeekNextOperator())
         {
             FormulaTokenRef xRef = new ScRefListToken(true);
@@ -5743,6 +5738,7 @@ void ScInterpreter::ScCountIf()
                 }
                 break;
                 default:
+                    PopError(); // Propagate it further
                     PushIllegalParameter();
                     return ;
             }
@@ -6148,10 +6144,12 @@ void ScInterpreter::IterateParametersIfs( double(*ResultFunc)( const sc::ParamIf
                     return;
                 }
 
-                std::vector<sal_uInt32>::iterator itRes = vConditions.begin(), itResEnd = vConditions.end();
                 std::vector<double>::const_iterator itThisRes = aResValues.begin();
-                for (; itRes != itResEnd; ++itRes, ++itThisRes)
-                    *itRes += *itThisRes;
+                for (auto& rCondition : vConditions)
+                {
+                    rCondition += *itThisRes;
+                    ++itThisRes;
+                }
             }
             else
             {
@@ -8687,14 +8685,14 @@ void ScInterpreter::ScAreas()
             case svSingleRef:
                 {
                     FormulaConstTokenRef xT = PopToken();
-                    ValidateRef( *xT.get()->GetSingleRef());
+                    ValidateRef( *xT->GetSingleRef());
                     ++nCount;
                 }
                 break;
             case svDoubleRef:
                 {
                     FormulaConstTokenRef xT = PopToken();
-                    ValidateRef( *xT.get()->GetDoubleRef());
+                    ValidateRef( *xT->GetDoubleRef());
                     ++nCount;
                 }
                 break;
@@ -8934,10 +8932,10 @@ void ScInterpreter::ScLeft()
     }
 }
 
-typedef struct {
+struct UBlockScript {
     UBlockCode const from;
     UBlockCode const to;
-} UBlockScript;
+};
 
 static const UBlockScript scriptList[] = {
     {UBLOCK_HANGUL_JAMO, UBLOCK_HANGUL_JAMO},

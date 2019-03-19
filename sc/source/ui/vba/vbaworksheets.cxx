@@ -100,13 +100,12 @@ public:
     {
         uno::Sequence< OUString > sNames( mSheetMap.size() );
         OUString* pString = sNames.getArray();
-        SheetMap::iterator it = mSheetMap.begin();
-        SheetMap::iterator it_end = mSheetMap.end();
 
-        for ( ; it != it_end; ++it, ++pString )
+        for ( const auto& rItem : mSheetMap )
         {
-            uno::Reference< container::XNamed > xName( *it, uno::UNO_QUERY_THROW );
+            uno::Reference< container::XNamed > xName( rItem, uno::UNO_QUERY_THROW );
             *pString = xName->getName();
+            ++pString;
         }
         return sNames;
     }
@@ -251,9 +250,9 @@ ScVbaWorksheets::Add( const uno::Any& Before, const uno::Any& After,
         aStringSheet = xApplication->getActiveWorkbook()->getActiveSheet()->getName();
         bBefore = true;
     }
-        nCount = static_cast< SCTAB >( m_xIndexAccess->getCount() );
-        for (SCTAB i=0; i < nCount; i++)
-        {
+    nCount = static_cast< SCTAB >( m_xIndexAccess->getCount() );
+    for (SCTAB i=0; i < nCount; i++)
+    {
             uno::Reference< sheet::XSpreadsheet > xSheet(m_xIndexAccess->getByIndex(i), uno::UNO_QUERY);
             uno::Reference< container::XNamed > xNamed( xSheet, uno::UNO_QUERY_THROW );
             if (xNamed->getName() == aStringSheet)
@@ -261,7 +260,7 @@ ScVbaWorksheets::Add( const uno::Any& Before, const uno::Any& After,
                 nSheetIndex = i;
                 break;
             }
-        }
+    }
 
     if(!bBefore)
         nSheetIndex++;

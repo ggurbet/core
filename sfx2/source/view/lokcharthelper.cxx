@@ -193,46 +193,46 @@ bool LokChartHelper::HitAny(const Point& aPos)
 
 void LokChartHelper::PaintTile(VirtualDevice& rRenderContext, const tools::Rectangle& rTileRect)
 {
-    if (mpViewShell)
-    {
-        vcl::Window* pChartWindow = GetWindow();
-        if (pChartWindow)
-        {
-            tools::Rectangle aChartRect = GetChartBoundingBox();
-            tools::Rectangle aTestRect = rTileRect;
-            aTestRect.Intersection( aChartRect );
-            if (!aTestRect.IsEmpty())
-            {
-                Point aOffset( aChartRect.Left() - rTileRect.Left(), aChartRect.Top() - rTileRect.Top() );
-                Point aOffsetFromTile = lcl_TwipsToHMM(aOffset);
-                Size aSize = lcl_TwipsToHMM(aChartRect.GetSize());
-                tools::Rectangle aRectangle(Point(0,0), aSize);
+    if (!mpViewShell)
+        return;
 
-                bool bEnableMapMode = !pChartWindow->IsMapModeEnabled();
-                pChartWindow->EnableMapMode();
-                bool bRenderContextEnableMapMode = !rRenderContext.IsMapModeEnabled();
-                rRenderContext.EnableMapMode();
+    vcl::Window* pChartWindow = GetWindow();
+    if (!pChartWindow)
+        return;
 
-                rRenderContext.Push(PushFlags::MAPMODE);
+    tools::Rectangle aChartRect = GetChartBoundingBox();
+    tools::Rectangle aTestRect = rTileRect;
+    aTestRect.Intersection( aChartRect );
+    if (aTestRect.IsEmpty())
+        return;
 
-                MapMode aCWMapMode = pChartWindow->GetMapMode();
-                aCWMapMode.SetScaleX(rRenderContext.GetMapMode().GetScaleX());
-                aCWMapMode.SetScaleY(rRenderContext.GetMapMode().GetScaleY());
+    Point aOffset( aChartRect.Left() - rTileRect.Left(), aChartRect.Top() - rTileRect.Top() );
+    Point aOffsetFromTile = lcl_TwipsToHMM(aOffset);
+    Size aSize = lcl_TwipsToHMM(aChartRect.GetSize());
+    tools::Rectangle aRectangle(Point(0,0), aSize);
 
-                aCWMapMode.SetOrigin(aOffsetFromTile);
-                rRenderContext.SetMapMode(aCWMapMode);
+    bool bEnableMapMode = !pChartWindow->IsMapModeEnabled();
+    pChartWindow->EnableMapMode();
+    bool bRenderContextEnableMapMode = !rRenderContext.IsMapModeEnabled();
+    rRenderContext.EnableMapMode();
 
-                pChartWindow->Paint(rRenderContext, aRectangle);
+    rRenderContext.Push(PushFlags::MAPMODE);
 
-                rRenderContext.Pop();
+    MapMode aCWMapMode = pChartWindow->GetMapMode();
+    aCWMapMode.SetScaleX(rRenderContext.GetMapMode().GetScaleX());
+    aCWMapMode.SetScaleY(rRenderContext.GetMapMode().GetScaleY());
 
-                if (bRenderContextEnableMapMode)
-                    rRenderContext.EnableMapMode(false);
-                if (bEnableMapMode)
-                    pChartWindow->EnableMapMode(false);
-            }
-        }
-    }
+    aCWMapMode.SetOrigin(aOffsetFromTile);
+    rRenderContext.SetMapMode(aCWMapMode);
+
+    pChartWindow->Paint(rRenderContext, aRectangle);
+
+    rRenderContext.Pop();
+
+    if (bRenderContextEnableMapMode)
+        rRenderContext.EnableMapMode(false);
+    if (bEnableMapMode)
+        pChartWindow->EnableMapMode(false);
 }
 
 void LokChartHelper::PaintAllChartsOnTile(VirtualDevice& rDevice,
@@ -240,37 +240,37 @@ void LokChartHelper::PaintAllChartsOnTile(VirtualDevice& rDevice,
                                           int nTilePosX, int nTilePosY,
                                           long nTileWidth, long nTileHeight)
 {
-    if (!comphelper::LibreOfficeKit::isTiledAnnotations())
+    if (comphelper::LibreOfficeKit::isTiledAnnotations())
+        return;
+
+    // Resizes the virtual device so to contain the entries context
+    rDevice.SetOutputSizePixel(Size(nOutputWidth, nOutputHeight));
+
+    rDevice.Push(PushFlags::MAPMODE);
+    MapMode aMapMode(rDevice.GetMapMode());
+
+    // Scaling. Must convert from pixels to twips. We know
+    // that VirtualDevices use a DPI of 96.
+    Fraction scaleX = Fraction(nOutputWidth, 96) * Fraction(1440) / Fraction(nTileWidth);
+    Fraction scaleY = Fraction(nOutputHeight, 96) * Fraction(1440) / Fraction(nTileHeight);
+    aMapMode.SetScaleX(scaleX);
+    aMapMode.SetScaleY(scaleY);
+    rDevice.SetMapMode(aMapMode);
+
+    SfxViewShell* pCurView = SfxViewShell::Current();
+    int nPartForCurView = pCurView ? pCurView->getPart() : -1;
+    tools::Rectangle aTileRect(Point(nTilePosX, nTilePosY), Size(nTileWidth, nTileHeight));
+    SfxViewShell* pViewShell = SfxViewShell::GetFirst();
+    while (pViewShell)
     {
-        // Resizes the virtual device so to contain the entries context
-        rDevice.SetOutputSizePixel(Size(nOutputWidth, nOutputHeight));
-
-        rDevice.Push(PushFlags::MAPMODE);
-        MapMode aMapMode(rDevice.GetMapMode());
-
-        // Scaling. Must convert from pixels to twips. We know
-        // that VirtualDevices use a DPI of 96.
-        Fraction scaleX = Fraction(nOutputWidth, 96) * Fraction(1440) / Fraction(nTileWidth);
-        Fraction scaleY = Fraction(nOutputHeight, 96) * Fraction(1440) / Fraction(nTileHeight);
-        aMapMode.SetScaleX(scaleX);
-        aMapMode.SetScaleY(scaleY);
-        rDevice.SetMapMode(aMapMode);
-
-        SfxViewShell* pCurView = SfxViewShell::Current();
-        int nPartForCurView = pCurView ? pCurView->getPart() : -1;
-        tools::Rectangle aTileRect(Point(nTilePosX, nTilePosY), Size(nTileWidth, nTileHeight));
-        SfxViewShell* pViewShell = SfxViewShell::GetFirst();
-        while (pViewShell)
+        if (pViewShell->getPart() == nPartForCurView)
         {
-            if (pViewShell->getPart() == nPartForCurView)
-            {
-                LokChartHelper aChartHelper(pViewShell);
-                aChartHelper.PaintTile(rDevice, aTileRect);
-            }
-            pViewShell = SfxViewShell::GetNext(*pViewShell);
+            LokChartHelper aChartHelper(pViewShell);
+            aChartHelper.PaintTile(rDevice, aTileRect);
         }
-        rDevice.Pop();
+        pViewShell = SfxViewShell::GetNext(*pViewShell);
     }
+    rDevice.Pop();
 }
 
 bool LokChartHelper::postMouseEvent(int nType, int nX, int nY,
@@ -284,33 +284,15 @@ bool LokChartHelper::postMouseEvent(int nType, int nX, int nY,
         tools::Rectangle rChartBBox = GetChartBoundingBox();
         if (rChartBBox.IsInside(aMousePos))
         {
-            vcl::ITiledRenderable::LOKAsyncEventData* pLOKEv = new vcl::ITiledRenderable::LOKAsyncEventData;
-            pLOKEv->mpWindow = pChartWindow;
-            switch (nType)
-            {
-                case LOK_MOUSEEVENT_MOUSEBUTTONDOWN:
-                    pLOKEv->mnEvent = VclEventId::WindowMouseButtonDown;
-                    break;
-                case LOK_MOUSEEVENT_MOUSEBUTTONUP:
-                    pLOKEv->mnEvent = VclEventId::WindowMouseButtonUp;
-                    break;
-                case LOK_MOUSEEVENT_MOUSEMOVE:
-                    pLOKEv->mnEvent = VclEventId::WindowMouseMove;
-                    break;
-                default:
-                    assert(false);
-            }
-
             int nChartWinX = nX - rChartBBox.Left();
             int nChartWinY = nY - rChartBBox.Top();
 
             // chart window expects pixels, but the conversion factor
             // can depend on the client zoom
             Point aPos(nChartWinX * fScaleX, nChartWinY * fScaleY);
-            pLOKEv->maMouseEvent = MouseEvent(aPos, nCount,
-                    MouseEventModifiers::SIMPLECLICK, nButtons, nModifier);
-
-            Application::PostUserEvent(Link<void*, void>(pLOKEv, vcl::ITiledRenderable::LOKPostAsyncEvent));
+            SfxLokHelper::postMouseEventAsync(pChartWindow, nType, aPos, nCount,
+                                              MouseEventModifiers::SIMPLECLICK,
+                                              nButtons, nModifier);
 
             return true;
         }

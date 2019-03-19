@@ -102,17 +102,16 @@ void ScConflictsListHelper::Transform_Impl( std::vector<sal_uLong>& rActionList,
 void ScConflictsListHelper::TransformConflictsList( ScConflictsList& rConflictsList,
     ScChangeActionMergeMap* pSharedMap, ScChangeActionMergeMap* pOwnMap )
 {
-    ScConflictsList::iterator aEnd = rConflictsList.end();
-    for ( ScConflictsList::iterator aItr = rConflictsList.begin(); aItr != aEnd; ++aItr )
+    for ( auto& rConflictEntry : rConflictsList )
     {
         if ( pSharedMap )
         {
-            ScConflictsListHelper::Transform_Impl( aItr->maSharedActions, pSharedMap );
+            ScConflictsListHelper::Transform_Impl( rConflictEntry.maSharedActions, pSharedMap );
         }
 
         if ( pOwnMap )
         {
-            ScConflictsListHelper::Transform_Impl( aItr->maOwnActions, pOwnMap );
+            ScConflictsListHelper::Transform_Impl( rConflictEntry.maOwnActions, pOwnMap );
         }
     }
 }
@@ -573,11 +572,11 @@ void ScConflictsDlg::KeepHandler( bool bMine )
     {
         return;
     }
-    SetPointer( Pointer( PointerStyle::Wait ) );
+    SetPointer( PointerStyle::Wait );
     ScConflictAction eConflictAction = ( bMine ? SC_CONFLICT_ACTION_KEEP_MINE : SC_CONFLICT_ACTION_KEEP_OTHER );
     SetConflictAction( pRootEntry, eConflictAction );
     m_pLbConflicts->RemoveEntry( pRootEntry );
-    SetPointer( Pointer( PointerStyle::Arrow ) );
+    SetPointer( PointerStyle::Arrow );
     if ( m_pLbConflicts->GetEntryCount() == 0 )
     {
         EndDialog( RET_OK );
@@ -592,7 +591,7 @@ void ScConflictsDlg::KeepAllHandler( bool bMine )
     {
         return;
     }
-    SetPointer( Pointer( PointerStyle::Wait ) );
+    SetPointer( PointerStyle::Wait );
     ScConflictAction eConflictAction = ( bMine ? SC_CONFLICT_ACTION_KEEP_MINE : SC_CONFLICT_ACTION_KEEP_OTHER );
     while ( pRootEntry )
     {
@@ -602,7 +601,7 @@ void ScConflictsDlg::KeepAllHandler( bool bMine )
     m_pLbConflicts->SetUpdateMode( false );
     m_pLbConflicts->Clear();
     m_pLbConflicts->SetUpdateMode( true );
-    SetPointer( Pointer( PointerStyle::Arrow ) );
+    SetPointer( PointerStyle::Arrow );
     EndDialog( RET_OK );
 }
 
@@ -628,17 +627,15 @@ IMPL_LINK_NOARG(ScConflictsDlg, KeepAllOthersHandle, Button*, void)
 
 void ScConflictsDlg::UpdateView()
 {
-    ScConflictsList::iterator aEndItr = mrConflictsList.end();
-    for ( ScConflictsList::iterator aItr = mrConflictsList.begin(); aItr != aEndItr; ++aItr )
+    for ( ScConflictsListEntry& rConflictEntry : mrConflictsList )
     {
-        ScConflictsListEntry& rConflictEntry = *aItr;
         if (rConflictEntry.meConflictAction == SC_CONFLICT_ACTION_NONE)
         {
-            RedlinData* pRootUserData = new RedlinData();
+            std::unique_ptr<RedlinData> pRootUserData(new RedlinData());
             pRootUserData->pData = static_cast<void*>(&rConflictEntry);
-            SvTreeListEntry* pRootEntry = m_pLbConflicts->InsertEntry( GetConflictString( *aItr ), pRootUserData );
+            SvTreeListEntry* pRootEntry = m_pLbConflicts->InsertEntry( GetConflictString( rConflictEntry ), std::move(pRootUserData) );
 
-            for ( auto& aSharedAction : aItr->maSharedActions )
+            for ( auto& aSharedAction : rConflictEntry.maSharedActions )
             {
                 ScChangeAction* pAction = mpSharedTrack ? mpSharedTrack->GetAction(aSharedAction) : nullptr;
                 if ( pAction )
@@ -647,18 +644,18 @@ void ScConflictsDlg::UpdateView()
                     if ( pAction->GetType() == SC_CAT_CONTENT )
                     {
                         ScChangeActionContent* pNextContent = dynamic_cast<ScChangeActionContent&>(*pAction).GetNextContent();
-                        if ( pNextContent && aItr->HasSharedAction( pNextContent->GetActionNumber() ) )
+                        if ( pNextContent && rConflictEntry.HasSharedAction( pNextContent->GetActionNumber() ) )
                         {
                             continue;
                         }
                     }
 
                     OUString aString( GetActionString( pAction, mpSharedDoc ) );
-                    m_pLbConflicts->InsertEntry( aString, static_cast< RedlinData* >( nullptr ), pRootEntry );
+                    m_pLbConflicts->InsertEntry( aString, std::unique_ptr<RedlinData>(), pRootEntry );
                 }
             }
 
-            for ( auto& aOwnAction : aItr->maOwnActions )
+            for ( auto& aOwnAction : rConflictEntry.maOwnActions )
             {
                 ScChangeAction* pAction = mpOwnTrack ? mpOwnTrack->GetAction(aOwnAction) : nullptr;
                 if ( pAction )
@@ -667,16 +664,16 @@ void ScConflictsDlg::UpdateView()
                     if ( pAction->GetType() == SC_CAT_CONTENT )
                     {
                         ScChangeActionContent* pNextContent = dynamic_cast<ScChangeActionContent&>(*pAction).GetNextContent();
-                        if ( pNextContent && aItr->HasOwnAction( pNextContent->GetActionNumber() ) )
+                        if ( pNextContent && rConflictEntry.HasOwnAction( pNextContent->GetActionNumber() ) )
                         {
                             continue;
                         }
                     }
 
                     OUString aString( GetActionString( pAction, mpOwnDoc ) );
-                    RedlinData* pUserData = new RedlinData();
+                    std::unique_ptr<RedlinData> pUserData(new RedlinData());
                     pUserData->pData = static_cast< void* >( pAction );
-                    m_pLbConflicts->InsertEntry( aString, pUserData, pRootEntry );
+                    m_pLbConflicts->InsertEntry( aString, std::move(pUserData), pRootEntry );
                 }
             }
 

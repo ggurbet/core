@@ -24,6 +24,7 @@
 #include <comphelper/processfactory.hxx>
 #include <osl/file.h>
 #include <sal/macros.h>
+#include <tools/debug.hxx>
 #include <unotools/resmgr.hxx>
 #include <com/sun/star/security/NoPasswordException.hpp>
 
@@ -82,8 +83,6 @@ void MacroWarning::SetDocumentURL( const OUString& rDocURL )
 {
     OUString aAbbreviatedPath;
     osl_abbreviateSystemPath(rDocURL.pData, &aAbbreviatedPath.pData, 50, nullptr);
-    fprintf(stderr, "in %s, out %s\n", OUStringToOString(rDocURL, RTL_TEXTENCODING_UTF8).getStr(),
-            OUStringToOString(aAbbreviatedPath, RTL_TEXTENCODING_UTF8).getStr());
     m_xDialog->set_primary_text(aAbbreviatedPath);
 }
 
@@ -95,6 +94,7 @@ IMPL_LINK_NOARG(MacroWarning, ViewSignsBtnHdl, weld::Button&, void)
         security::DocumentDigitalSignatures::createWithVersion(comphelper::getProcessComponentContext(), maODFVersion));
     if( xD.is() )
     {
+        xD->setParentWindow(m_xDialog->GetXWindow());
         if( mxCert.is() )
             xD->showCertificate( mxCert );
         else if( mxStore.is() )
@@ -108,6 +108,7 @@ IMPL_LINK_NOARG(MacroWarning, EnableBtnHdl, weld::Button&, void)
     {   // insert path into trusted path list
         uno::Reference< security::XDocumentDigitalSignatures > xD(
             security::DocumentDigitalSignatures::createWithVersion(comphelper::getProcessComponentContext(), maODFVersion));
+        xD->setParentWindow(m_xDialog->GetXWindow());
         if( mxCert.is() )
             xD->addAuthorToTrustedSources( mxCert );
         else if( mxStore.is() )

@@ -22,8 +22,10 @@
 
 #include <sal/types.h>
 #include <basegfx/numeric/ftools.hxx>
-#include <math.h>
+#include <cmath>
 #include <string.h>
+
+#include <memory>
 
 namespace basegfx
 {
@@ -390,7 +392,7 @@ namespace basegfx
                 for(sal_uInt16 a(0); a < RowSize; a++)
                 {
                     // prepare line
-            sal_uInt16 b;
+                    sal_uInt16 b;
                     for( b = 0; b < RowSize; b++)
                     {
                         fArray[b] = implGetDefaultValue(a, b);

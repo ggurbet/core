@@ -26,7 +26,9 @@
 #include <sfx2/sfxresid.hxx>
 #include <unotools/historyoptions.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/event.hxx>
 #include <vcl/pngread.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <tools/stream.hxx>
 #include <tools/urlobj.hxx>
 #include <com/sun/star/beans/NamedValue.hpp>
@@ -38,7 +40,6 @@
 #include <bitmaps.hlst>
 
 #include <officecfg/Office/Common.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 using namespace com::sun::star::uno;
@@ -218,7 +219,7 @@ BitmapEx RecentDocsView::getDefaultThumbnail(const OUString &rURL)
 
 void RecentDocsView::insertItem(const OUString &rURL, const OUString &rTitle, const BitmapEx &rThumbnail, sal_uInt16 nId)
 {
-    AppendItem( o3tl::make_unique<RecentDocsViewItem>(*this, rURL, rTitle, rThumbnail, nId, mnItemMaxSize) );
+    AppendItem( std::make_unique<RecentDocsViewItem>(*this, rURL, rTitle, rThumbnail, nId, mnItemMaxSize) );
 }
 
 void RecentDocsView::Reload()

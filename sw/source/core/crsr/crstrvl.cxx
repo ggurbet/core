@@ -804,8 +804,9 @@ bool SwCursorShell::MoveFieldType(
 
         if( bDelField )
         {
-            delete static_cast<SwFormatField*>(&pTextField->GetAttr());
+            auto const pFormat(static_cast<SwFormatField*>(&pTextField->GetAttr()));
             delete pTextField;
+            delete pFormat;
         }
 
         if( it != aSrtLst.end() && isSrch ) // found
@@ -1032,13 +1033,13 @@ bool SwCursorShell::GotoNextOutline()
 
     do
     {
-        if (nPos == rNds.GetOutLineNds().size())
-        {
-            nPos = 0;
-        }
-        else if (!bUseFirst)
+        if (!bUseFirst)
         {
             ++nPos;
+        }
+        if (rNds.GetOutLineNds().size() <= nPos)
+        {
+            nPos = 0;
         }
 
         if (bUseFirst)
@@ -1912,11 +1913,11 @@ bool SwContentAtPos::IsInRTLText()const
         SwTextFrame* pTmpFrame = aIter.First();
         while( pTmpFrame )
         {
-                if ( !pTmpFrame->IsFollow())
-                {
-                    bRet = pTmpFrame->IsRightToLeft();
-                    break;
-                }
+            if ( !pTmpFrame->IsFollow())
+            {
+                bRet = pTmpFrame->IsRightToLeft();
+                break;
+            }
             pTmpFrame = aIter.Next();
         }
     }

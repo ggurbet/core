@@ -136,7 +136,7 @@ void OControlStyleContext::SetAttribute( sal_uInt16 nPrefixKey,
     if( IsXMLToken(rLocalName, XML_DATA_STYLE_NAME ) )
         m_sDataStyleName = rValue;
     else if ( IsXMLToken(rLocalName, XML_MASTER_PAGE_NAME ) )
-        sPageStyle = rValue;
+        ;
     else
         XMLPropStyleContext::SetAttribute( nPrefixKey, rLocalName, rValue );
 }
@@ -405,12 +405,6 @@ sal_Int32 OReportStylesContext::GetIndex(const sal_Int16 nContextID)
     return -1;
 }
 
-
-sal_uInt16 OReportStylesContext::GetFamily( const OUString& rFamily ) const
-{
-    sal_uInt16 nFamily = SvXMLStylesContext::GetFamily(rFamily);
-    return nFamily;
-}
 
 } // rptxml
 

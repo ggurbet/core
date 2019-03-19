@@ -21,25 +21,25 @@
 #define INCLUDED_SW_SOURCE_CORE_INC_FRMTOOL_HXX
 
 #include <swtypes.hxx>
-#include "layfrm.hxx"
-#include <frmatr.hxx>
+#include "frame.hxx"
 #include "swcache.hxx"
 #include <editeng/lrspitem.hxx>
-#include "swfont.hxx"
-#include "flyfrm.hxx"
-#include <basegfx/utils/b2dclipstate.hxx>
+#include <swatrset.hxx>
 
+class SwLayoutFrame;
+class SwFont;
+class SwTextFrame;
+class SwFormatAnchor;
+class SwViewShell;
 class SwPageFrame;
 class SwFlyFrame;
 class SwContentFrame;
 class SwRootFrame;
 class SwDoc;
-class SwAttrSet;
 class SdrObject;
 class SvxBrushItem;
 class SdrMarkList;
 class SwNodeIndex;
-class OutputDevice;
 class GraphicObject;
 class GraphicAttr;
 class SwPageDesc;
@@ -47,6 +47,7 @@ class SwFrameFormats;
 class SwRegionRects;
 class SwTextNode;
 namespace sw { struct Extent; }
+namespace basegfx { namespace utils { class B2DClipState; } }
 
 #define FAR_AWAY (SAL_MAX_INT32 - 20000)  // initial position of a Fly
 #define BROWSE_HEIGHT (56700L * 10L) // 10 Meters
@@ -59,11 +60,11 @@ void AppendObjs( const SwFrameFormats *pTable, sal_uLong nIndex,
 
 void AppendObjsOfNode(SwFrameFormats const* pTable, sal_uLong nIndex,
         SwFrame * pFrame, SwPageFrame * pPage, SwDoc * pDoc,
-        std::vector<sw::Extent>::const_iterator * pIter,
+        std::vector<sw::Extent>::const_iterator const* pIter,
         std::vector<sw::Extent>::const_iterator const* pEnd);
 
 void RemoveHiddenObjsOfNode(SwTextNode const& rNode,
-        std::vector<sw::Extent>::const_iterator * pIter,
+        std::vector<sw::Extent>::const_iterator const* pIter,
         std::vector<sw::Extent>::const_iterator const* pEnd);
 
 bool IsAnchoredObjShown(SwTextFrame const& rFrame, SwFormatAnchor const& rAnchor);
@@ -75,7 +76,7 @@ void AppendAllObjs(const SwFrameFormats* pTable, const SwFrame* pSib);
 // transparency, saved in the color of the brush item.
 void DrawGraphic(
     const SvxBrushItem *,
-    OutputDevice *,
+    vcl::RenderContext *,
     const SwRect &rOrg,
     const SwRect &rOut,
     const sal_uInt8 nGrfNum = GRFNUM_NO,
@@ -85,14 +86,17 @@ bool DrawFillAttributes(
     const SwRect& rOriginalLayoutRect,
     const SwRegionRects& rPaintRegion,
     const basegfx::utils::B2DClipState& rClipState,
-    OutputDevice& rOut);
+    vcl::RenderContext& rOut);
 
 // RotGrfFlyFrame: Adapted to rotation
 void paintGraphicUsingPrimitivesHelper(
-    OutputDevice & rOutputDevice,
+    vcl::RenderContext & rOutputDevice,
     GraphicObject const& rGraphicObj,
     GraphicAttr const& rGraphicAttr,
-    const basegfx::B2DHomMatrix& rGraphicTransform);
+    const basegfx::B2DHomMatrix& rGraphicTransform,
+    const OUString& rName,
+    const OUString& rTitle,
+    const OUString& rDescription);
 
 // method to align rectangle.
 // Created declaration here to avoid <extern> declarations
@@ -100,7 +104,7 @@ void SwAlignRect( SwRect &rRect, const SwViewShell *pSh, const vcl::RenderContex
 
 // method to align graphic rectangle
 // Created declaration here to avoid <extern> declarations
-void SwAlignGrfRect( SwRect *pGrfRect, const OutputDevice &rOut );
+void SwAlignGrfRect( SwRect *pGrfRect, const vcl::RenderContext &rOut );
 
 /**
  * Paint border around a run of characters using frame painting code.
@@ -108,12 +112,13 @@ void SwAlignGrfRect( SwRect *pGrfRect, const OutputDevice &rOut );
  * @param[in]   rFont            font object of actual text, which specify the border
  * @param[in]   rPaintArea       rectangle area in which line portion takes place
  * @param[in]   bVerticalLayout  corresponding text frame verticality
+ * @param[in]   bVerticalLayoutLRBT corresponding text frame verticality (LRBT subset)
  * @param[in]   bJoinWithPrev    leave border with which actual border joins to the previous portion
  * @param[in]   bJoinWithNext    leave border with which actual border joins to the next portion
 **/
-void PaintCharacterBorder(
-    const SwFont& rFont, const SwRect& rPaintArea, const bool bVerticalLayout,
-    const bool bJoinWithPrev, const bool bJoinWithNext );
+void PaintCharacterBorder(const SwFont& rFont, const SwRect& rPaintArea, const bool bVerticalLayout,
+                          const bool bVerticalLayoutLRBT, const bool bJoinWithPrev,
+                          const bool bJoinWithNext);
 
 // get Fly, if no List is given use the current shell
 // Implementation in feshview.cxx
@@ -140,7 +145,7 @@ extern bool bDontCreateObjects;
 extern bool bSetCompletePaintOnInvalidate;
 
 // for table settings via keyboard
-long CalcRowRstHeight( SwLayoutFrame *pRow );
+SwTwips CalcRowRstHeight( SwLayoutFrame *pRow );
 long CalcHeightWithFlys( const SwFrame *pFrame );
 
 SwPageFrame *InsertNewPage( SwPageDesc &rDesc, SwFrame *pUpper,

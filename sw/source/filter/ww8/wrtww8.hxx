@@ -134,6 +134,7 @@ namespace mark
 class IFieldmark;
 }
 }
+typedef std::set< sal_Int32 > SwSoftPageBreakList;
 
 #define GRF_MAGIC_1 0x12    // 3 magic bytes for PicLocFc attribute
 #define GRF_MAGIC_2 0x34
@@ -200,7 +201,7 @@ protected:
     bool mbDocumentIsProtected;
     std::vector<WW8_SepInfo> aSects;
 
-    void CheckForFacinPg( WW8Export& rWrt ) const;
+    void CheckForFacinPg( const WW8Export& rWrt ) const;
     void NeedsDocumentProtected(const WW8_SepInfo &rInfo);
 
     //No copy, no assign
@@ -432,7 +433,7 @@ struct MSWordSaveData
 {
     Point* pOldFlyOffset;
     RndStdIds eOldAnchorType;
-    ww::bytes* pOOld;                ///< WW8Export only
+    std::unique_ptr<ww::bytes> pOOld; ///< WW8Export only
     SwPaM* pOldPam, *pOldEnd;
     sal_uLong nOldStart, nOldEnd;
     const ww8::Frame* pOldFlyFormat;
@@ -883,7 +884,7 @@ protected:
     void BulletDefinitions();
 
     bool NeedSectionBreak( const SwNode& rNd ) const;
-    bool NeedTextNodeSplit( const SwTextNode& rNd, std::set< sal_Int32 >& pList ) const;
+    bool NeedTextNodeSplit( const SwTextNode& rNd, SwSoftPageBreakList& pList ) const;
 
     std::vector<const Graphic*> m_vecBulletPic; ///< Vector to record all the graphics of bullets
 
@@ -961,7 +962,7 @@ private:
 class WW8Export : public MSWordExportBase
 {
 public:
-    ww::bytes *pO;                      ///< Buffer
+    std::unique_ptr<ww::bytes> pO;      ///< Buffer
 
     SvStream *pTableStrm, *pDataStrm;   ///< Streams for WW97 Export
 

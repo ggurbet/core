@@ -57,12 +57,10 @@ namespace pcr
 
         OUString composeModelElementUIName( const OUString& _rModelName, const OUString& _rElementName )
         {
-            OUStringBuffer aBuffer;
-            aBuffer.append( "[" );
-            aBuffer.append( _rModelName );
-            aBuffer.append( "] " );
-            aBuffer.append( _rElementName );
-            return aBuffer.makeStringAndClear();
+            OUString a = "["
+                       + _rModelName + "] "
+                       + _rElementName;
+            return a;
         }
     }
 
@@ -679,7 +677,7 @@ namespace pcr
                         Reference< xforms::XModel > xElementsModel;
                         xElement->getPropertyValue( PROPERTY_MODEL ) >>= xElementsModel;
                         OSL_ENSURE( xElementsModel == xModel, "EFormsHelper::getAllElementUINames: inconsistency in the model-element relationship!" );
-                        if ( !( xElementsModel == xModel ) )
+                        if ( xElementsModel != xModel )
                             xElement->setPropertyValue( PROPERTY_MODEL, makeAny( xModel ) );
                     }
 #endif

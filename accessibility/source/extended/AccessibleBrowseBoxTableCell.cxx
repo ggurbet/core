@@ -21,6 +21,7 @@
 #include <extended/AccessibleBrowseBoxTableCell.hxx>
 #include <vcl/accessibletableprovider.hxx>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 
 namespace accessibility
 {
@@ -44,7 +45,6 @@ namespace accessibility
     using namespace ::com::sun::star::uno;
     using ::com::sun::star::accessibility::XAccessible;
     using namespace ::com::sun::star::accessibility;
-    using namespace ::svt;
 
 
     // implementation of a table cell
@@ -74,8 +74,8 @@ namespace accessibility
     {
         m_nOffset = ( _nOffset == OFFSET_DEFAULT ) ? sal_Int32(vcl::BBINDEX_FIRSTCONTROL) : _nOffset;
         sal_Int32 nIndex = getIndex_Impl( _nRowPos, _nColPos, _rBrowseBox.GetColumnCount() );
-       setAccessibleName( _rBrowseBox.GetAccessibleObjectName( vcl::BBTYPE_TABLECELL, nIndex ) );
-       setAccessibleDescription( _rBrowseBox.GetAccessibleObjectDescription( vcl::BBTYPE_TABLECELL, nIndex ) );
+        setAccessibleName( _rBrowseBox.GetAccessibleObjectName( vcl::BBTYPE_TABLECELL, nIndex ) );
+        setAccessibleDescription( _rBrowseBox.GetAccessibleObjectDescription( vcl::BBTYPE_TABLECELL, nIndex ) );
         // Need to register as event listener
         Reference< XComponent > xComponent(_rxParent, UNO_QUERY);
         if( xComponent.is() )

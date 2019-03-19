@@ -18,6 +18,7 @@
  */
 
 #include <com/sun/star/document/XImporter.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
 #include <com/sun/star/util/XModifiable2.hpp>
 #include <tools/globname.hxx>
@@ -271,15 +272,15 @@ void XMLEmbeddedObjectImportContext::EndElement()
                                     GetPrefix(), GetLocalName() ) );
         xHandler->endDocument();
 
-    try
-    {
-        Reference < XModifiable2 > xModifiable2( xComp, UNO_QUERY_THROW );
-        xModifiable2->enableSetModified();
-        xModifiable2->setModified( true ); // trigger new replacement image generation
-    }
-    catch( Exception& )
-    {
-    }
+        try
+        {
+            Reference < XModifiable2 > xModifiable2( xComp, UNO_QUERY_THROW );
+            xModifiable2->enableSetModified();
+            xModifiable2->setModified( true ); // trigger new replacement image generation
+        }
+        catch( Exception& )
+        {
+        }
     }
 }
 

@@ -57,6 +57,7 @@
 #include <comphelper/sequence.hxx>
 #include <tools/urlobj.hxx>
 #include <unotools/mediadescriptor.hxx>
+#include <unotools/tempfile.hxx>
 
 #include <vector>
 #include <osl/thread.hxx>
@@ -574,17 +575,23 @@ bool DispatchWatcher::executeDispatchRequests( const std::vector<DispatchRequest
                             else
                                 aFilterOut = aParam.copy( nPathIndex+1 );
 
-                            INetURLObject aOutFilename( aObj );
-                            aOutFilename.SetExtension( aFilterExt );
                             FileBase::getFileURLFromSystemPath( aFilterOut, aFilterOut );
-                            OUString aOutFile = aFilterOut + "/" + aOutFilename.getName();
+                            INetURLObject aOutFilename(aFilterOut);
+                            aOutFilename.Append(aObj.getName(INetURLObject::LAST_SEGMENT, true,
+                                                             INetURLObject::DecodeMechanism::NONE));
+                            aOutFilename.SetExtension(aFilterExt);
+                            OUString aOutFile
+                                = aOutFilename.GetMainURL(INetURLObject::DecodeMechanism::NONE);
 
-                            OUString fileForCat;
+                            std::unique_ptr<utl::TempFile> fileForCat;
                             if( aDispatchRequest.aRequestType == REQUEST_CAT )
                             {
-                                if( ::osl::FileBase::createTempFile(nullptr, nullptr, &fileForCat) != ::osl::FileBase::E_None )
+                                fileForCat = std::make_unique<utl::TempFile>();
+                                if (fileForCat->IsValid())
+                                    fileForCat->EnableKillingFile();
+                                else
                                     std::cerr << "Error: Cannot create temporary file..." << std::endl ;
-                                aOutFile = fileForCat;
+                                aOutFile = fileForCat->GetURL();
                             }
 
                             if ( bGuess )
@@ -657,33 +664,18 @@ bool DispatchWatcher::executeDispatchRequests( const std::vector<DispatchRequest
                                     std::cerr << std::endl;
                                 }
 
-                                if (aDispatchRequest.aRequestType == REQUEST_CAT)
+                                if (fileForCat && fileForCat->IsValid())
                                 {
-                                    osl::File aFile(fileForCat);
-                                    osl::File::RC aRC = aFile.open(osl_File_OpenFlag_Read);
-                                    if (aRC != osl::File::E_None)
+                                    SvStream* aStream = fileForCat->GetStream(StreamMode::STD_READ);
+                                    while (aStream->good())
                                     {
-                                        std::cerr << "Error: Cannot read from temp file" << std::endl;
-                                    }
-                                    else
-                                    {
-                                        sal_Bool eof;
-                                        for (;;)
+                                        OString aStr;
+                                        aStream->ReadLine(aStr, SAL_MAX_INT32);
+                                        for (sal_Int32 i = 0; i < aStr.getLength(); ++i)
                                         {
-                                            aFile.isEndOfFile( &eof );
-                                            if (eof)
-                                                break;
-                                            rtl::ByteSequence bseq;
-                                            aFile.readLine(bseq);
-                                            unsigned const char * aStr = reinterpret_cast<unsigned char const *>(bseq.getConstArray());
-                                            for (sal_Int32 i = 0; i < bseq.getLength(); ++i)
-                                            {
-                                                std::cout << aStr[i];
-                                            }
-                                            std::cout << std::endl;
+                                            std::cout << aStr[i];
                                         }
-                                        aFile.close();
-                                        osl::File::remove(fileForCat);
+                                        std::cout << std::endl;
                                     }
                                 }
                             }

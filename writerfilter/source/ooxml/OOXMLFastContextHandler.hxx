@@ -51,15 +51,15 @@ public:
     virtual ~OOXMLFastContextHandler() override;
 
     // css::xml::sax::XFastContextHandler:
-    virtual void SAL_CALL startFastElement (Token_t Element, const css::uno::Reference< css::xml::sax::XFastAttributeList >& Attribs) override;
+    virtual void SAL_CALL startFastElement (sal_Int32 Element, const css::uno::Reference< css::xml::sax::XFastAttributeList >& Attribs) override;
 
     virtual void SAL_CALL startUnknownElement(const OUString & Namespace, const OUString & Name, const css::uno::Reference< css::xml::sax::XFastAttributeList > & Attribs) override;
 
-    virtual void SAL_CALL endFastElement(Token_t Element) override;
+    virtual void SAL_CALL endFastElement(sal_Int32 Element) override;
 
     virtual void SAL_CALL endUnknownElement(const OUString & Namespace, const OUString & Name) override;
 
-    virtual css::uno::Reference<css::xml::sax::XFastContextHandler> SAL_CALL createFastChildContext(Token_t Element,
+    virtual css::uno::Reference<css::xml::sax::XFastContextHandler> SAL_CALL createFastChildContext(sal_Int32 Element,
         const css::uno::Reference<css::xml::sax::XFastAttributeList>& Attribs) override;
 
     virtual css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL createUnknownChildContext(const OUString & Namespace, const OUString & Name,
@@ -348,7 +348,7 @@ public:
     explicit OOXMLFastContextHandlerTable(OOXMLFastContextHandler * pContext);
     virtual ~OOXMLFastContextHandlerTable() override;
 
-    virtual css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL createFastChildContext (Token_t Element,
+    virtual css::uno::Reference< css::xml::sax::XFastContextHandler > SAL_CALL createFastChildContext (sal_Int32 Element,
         const css::uno::Reference< css::xml::sax::XFastAttributeList > & Attribs) override;
 
 private:
@@ -483,7 +483,9 @@ protected:
 class OOXMLFastContextHandlerWrapper : public OOXMLFastContextHandler
 {
 public:
-    explicit OOXMLFastContextHandlerWrapper(OOXMLFastContextHandler * pParent, css::uno::Reference<css::xml::sax::XFastContextHandler> const & xContext);
+    OOXMLFastContextHandlerWrapper(OOXMLFastContextHandler * pParent,
+                                   css::uno::Reference<css::xml::sax::XFastContextHandler> const & xContext,
+            rtl::Reference<OOXMLFastContextHandlerShape> const & xShapeHandler);
     virtual ~OOXMLFastContextHandlerWrapper() override;
 
     // css::xml::sax::XFastContextHandler:
@@ -523,7 +525,8 @@ protected:
     virtual Token_t getToken() const override;
 
 private:
-    css::uno::Reference<css::xml::sax::XFastContextHandler> mxContext;
+    css::uno::Reference<css::xml::sax::XFastContextHandler> mxWrappedContext;
+    rtl::Reference<OOXMLFastContextHandlerShape> mxShapeHandler;
     std::set<Id> mMyNamespaces;
     std::set<Token_t> mMyTokens;
     OOXMLPropertySet::Pointer_t mpPropertySet;

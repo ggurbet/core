@@ -24,7 +24,6 @@
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
 #include <o3tl/numeric.hxx>
-#include <o3tl/make_unique.hxx>
 #include <o3tl/safeint.hxx>
 #include <sal/log.hxx>
 #include <svl/itemset.hxx>
@@ -170,7 +169,6 @@ class SwXMLTableCell_Impl
 {
     OUString aStyleName;
 
-    OUString mXmlId;
     OUString m_StringValue;
 
     OUString sFormula;  // cell formula; valid if length > 0
@@ -208,8 +206,7 @@ public:
                      bool bHasValue,
                      bool bCovered,
                      double dVal,
-                     OUString const*const pStringValue,
-                     OUString const& i_rXmlId);
+                     OUString const*const pStringValue);
 
     bool IsUsed() const { return pStartNode!=nullptr ||
                                      xSubTable.is() || bProtected;}
@@ -225,7 +222,7 @@ public:
     bool IsCovered() const { return mbCovered; }
     bool HasStringValue() const { return m_bHasStringValue; }
     OUString const* GetStringValue() const {
-        return (m_bHasStringValue) ? &m_StringValue : nullptr;
+        return m_bHasStringValue ? &m_StringValue : nullptr;
     }
 
     const SwStartNode *GetStartNode() const { return pStartNode; }
@@ -245,8 +242,7 @@ inline void SwXMLTableCell_Impl::Set( const OUString& rStyleName,
                                       bool bHasVal,
                                       bool bCov,
                                       double dVal,
-                                      OUString const*const pStringValue,
-                                      OUString const& i_rXmlId )
+                                      OUString const*const pStringValue )
 {
     aStyleName = rStyleName;
     nRowSpan = nRSpan;
@@ -262,11 +258,6 @@ inline void SwXMLTableCell_Impl::Set( const OUString& rStyleName,
     }
     m_bHasStringValue = (pStringValue != nullptr);
     bProtected = bProtect;
-
-    if (!mbCovered) // ensure uniqueness
-    {
-        mXmlId = i_rXmlId;
-    }
 
     // set formula, if valid
     if (pFormula != nullptr)
@@ -296,21 +287,18 @@ class SwXMLTableRow_Impl
 {
     OUString   aStyleName;
     OUString   aDfltCellStyleName;
-    OUString   mXmlId;
     std::vector<std::unique_ptr<SwXMLTableCell_Impl>> m_Cells;
     bool       bSplitable;
 
 public:
 
     SwXMLTableRow_Impl( const OUString& rStyleName, sal_uInt32 nCells,
-                        const OUString *pDfltCellStyleName = nullptr,
-                        const OUString& i_rXmlId = OUString() );
+                        const OUString *pDfltCellStyleName = nullptr );
 
     inline SwXMLTableCell_Impl *GetCell( sal_uInt32 nCol );
 
     inline void Set( const OUString& rStyleName,
-                     const OUString& rDfltCellStyleName,
-                     const OUString& i_rXmlId );
+                     const OUString& rDfltCellStyleName );
 
     void Expand( sal_uInt32 nCells, bool bOneCell );
 
@@ -325,10 +313,8 @@ public:
 
 SwXMLTableRow_Impl::SwXMLTableRow_Impl( const OUString& rStyleName,
                                         sal_uInt32 nCells,
-                                        const OUString *pDfltCellStyleName,
-                                        const OUString& i_rXmlId ) :
+                                        const OUString *pDfltCellStyleName ) :
     aStyleName( rStyleName ),
-    mXmlId( i_rXmlId ),
     bSplitable( false )
 {
     if( pDfltCellStyleName  )
@@ -340,7 +326,7 @@ SwXMLTableRow_Impl::SwXMLTableRow_Impl( const OUString& rStyleName,
 
     for( sal_uInt32 i=0U; i<nCells; ++i )
     {
-        m_Cells.push_back(o3tl::make_unique<SwXMLTableCell_Impl>());
+        m_Cells.push_back(std::make_unique<SwXMLTableCell_Impl>());
     }
 }
 
@@ -364,7 +350,7 @@ void SwXMLTableRow_Impl::Expand( sal_uInt32 nCells, bool bOneCell )
     sal_uInt32 nColSpan = nCells - m_Cells.size();
     for (size_t i = m_Cells.size(); i < nCells; ++i)
     {
-        m_Cells.push_back(o3tl::make_unique<SwXMLTableCell_Impl>(
+        m_Cells.push_back(std::make_unique<SwXMLTableCell_Impl>(
                 1UL, bOneCell ? nColSpan : 1UL));
         nColSpan--;
     }
@@ -374,12 +360,10 @@ void SwXMLTableRow_Impl::Expand( sal_uInt32 nCells, bool bOneCell )
 }
 
 inline void SwXMLTableRow_Impl::Set( const OUString& rStyleName,
-                                     const OUString& rDfltCellStyleName,
-                                     const OUString& i_rXmlId )
+                                     const OUString& rDfltCellStyleName )
 {
     aStyleName = rStyleName;
     aDfltCellStyleName = rDfltCellStyleName;
-    mXmlId = i_rXmlId;
 }
 
 void SwXMLTableRow_Impl::Dispose()
@@ -395,7 +379,6 @@ class SwXMLTableCellContext_Impl : public SvXMLImportContext
     OUString m_aStyleName;
     OUString m_sFormula;
     OUString m_sSaveParaDefault;
-    OUString mXmlId;
     OUString m_StringValue;
 
     SvXMLImportContextRef const   m_xMyTable;
@@ -468,9 +451,6 @@ SwXMLTableCellContext_Impl::SwXMLTableCellContext_Impl(
             GetSwImport().GetTableCellAttrTokenMap();
         switch( rTokenMap.Get( nPrefix, aLocalName ) )
         {
-        case XML_TOK_TABLE_XMLID:
-            mXmlId = rValue;
-            break;
         case XML_TOK_TABLE_STYLE_NAME:
             m_aStyleName = rValue;
             GetImport().GetTextImport()->SetCellParaStyleDefault(rValue);
@@ -585,7 +565,6 @@ inline void SwXMLTableCellContext_Impl::InsertContent_()
              !m_aStyleName.isEmpty()) ? & m_aStyleName : nullptr) );
     GetTable()->InsertCell( m_aStyleName, m_nRowSpan, m_nColSpan,
                             pStartNode,
-                            mXmlId,
                             nullptr, m_bProtect, &m_sFormula, m_bHasValue, m_fValue,
             (m_bHasStringValue && m_bValueTypeIsString) ? &m_StringValue : nullptr);
 }
@@ -600,7 +579,7 @@ inline void SwXMLTableCellContext_Impl::InsertContent()
 inline void SwXMLTableCellContext_Impl::InsertContent(
                                                 SwXMLTableContext *pTable )
 {
-    GetTable()->InsertCell( m_aStyleName, m_nRowSpan, m_nColSpan, nullptr, mXmlId, pTable, m_bProtect );
+    GetTable()->InsertCell( m_aStyleName, m_nRowSpan, m_nColSpan, nullptr, pTable, m_bProtect );
     m_bHasTableContent = true;
 }
 
@@ -932,8 +911,7 @@ SwXMLTableRowContext_Impl::SwXMLTableRowContext_Impl( SwXMLImport& rImport,
         }
     }
     if( GetTable()->IsValid() )
-        GetTable()->InsertRow( aStyleName, aDfltCellStyleName, bInHead,
-                               sXmlId );
+        GetTable()->InsertRow( aStyleName, aDfltCellStyleName, bInHead );
 }
 
 void SwXMLTableRowContext_Impl::EndElement()
@@ -1523,7 +1501,6 @@ OUString SwXMLTableContext::GetColumnDefaultCellStyleName( sal_uInt32 nCol ) con
 void SwXMLTableContext::InsertCell( const OUString& rStyleName,
                                     sal_uInt32 nRowSpan, sal_uInt32 nColSpan,
                                     const SwStartNode *pStartNode,
-                                    const OUString & i_rXmlId,
                                     SwXMLTableContext *pTable,
                                     bool bProtect,
                                     const OUString* pFormula,
@@ -1596,7 +1573,7 @@ void SwXMLTableContext::InsertCell( const OUString& rStyleName,
     if (m_pRows->size() < nRowsReq)
     {
         for (size_t i = m_pRows->size(); i < nRowsReq; ++i)
-            m_pRows->push_back(o3tl::make_unique<SwXMLTableRow_Impl>(
+            m_pRows->push_back(std::make_unique<SwXMLTableRow_Impl>(
                         "", GetColumnCount()));
     }
 
@@ -1623,7 +1600,7 @@ void SwXMLTableContext::InsertCell( const OUString& rStyleName,
                 throw css::lang::IndexOutOfBoundsException();
             pCell->Set( sStyleName, j, i, pStartNode,
                        pTable, bProtect, pFormula, bHasValue, bCovered, fValue,
-                       pStringValue, i_rXmlId );
+                       pStringValue );
         }
     }
 
@@ -1635,8 +1612,7 @@ void SwXMLTableContext::InsertCell( const OUString& rStyleName,
 
 void SwXMLTableContext::InsertRow( const OUString& rStyleName,
                                    const OUString& rDfltCellStyleName,
-                                   bool bInHead,
-                                   const OUString & i_rXmlId )
+                                   bool bInHead )
 {
     OSL_ENSURE( m_nCurRow < USHRT_MAX,
             "SwXMLTableContext::InsertRow: no space left" );
@@ -1652,14 +1628,14 @@ void SwXMLTableContext::InsertRow( const OUString& rStyleName,
         // The current row has already been inserted because of a row span
         // of a previous row.
         (*m_pRows)[m_nCurRow]->Set(
-            rStyleName, rDfltCellStyleName, i_rXmlId );
+            rStyleName, rDfltCellStyleName );
     }
     else
     {
         // add a new row
-        m_pRows->push_back(o3tl::make_unique<SwXMLTableRow_Impl>(
+        m_pRows->push_back(std::make_unique<SwXMLTableRow_Impl>(
                 rStyleName, GetColumnCount(),
-                                       &rDfltCellStyleName, i_rXmlId));
+                                       &rDfltCellStyleName));
     }
 
     // We start at the first column ...
@@ -1689,7 +1665,6 @@ void SwXMLTableContext::InsertRepRows( sal_uInt32 nCount )
                 InsertCell( pSrcCell->GetStyleName(), 1U,
                             pSrcCell->GetColSpan(),
                             InsertTableSection(),
-                            OUString(),
                             nullptr, pSrcCell->IsProtected(),
                             &pSrcCell->GetFormula(),
                             pSrcCell->HasValue(), pSrcCell->GetValue(),

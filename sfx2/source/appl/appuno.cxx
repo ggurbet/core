@@ -109,9 +109,11 @@ SfxFormalArgument const aFormalArgs[] = {
     { reinterpret_cast<SfxType*>(&aSfxBoolItem_Impl), "NoFileSync", SID_NO_FILE_SYNC },
     { reinterpret_cast<SfxType*>(&aSfxBoolItem_Impl), "NoThumbnail", SID_NO_THUMBNAIL },
     { reinterpret_cast<SfxType*>(&aSfxBoolItem_Impl), "NoEmbDataSet", SID_NO_EMBEDDED_DS },
+    { reinterpret_cast<SfxType*>(&aSfxBoolItem_Impl), "IsRedactMode", SID_IS_REDACT_MODE },
+    { reinterpret_cast<SfxType*>(&aSfxStringItem_Impl), "RedactionStyle", SID_REDACTION_STYLE },
 };
 
-static sal_uInt16 nMediaArgsCount = SAL_N_ELEMENTS(aFormalArgs);
+static sal_uInt16 const nMediaArgsCount = SAL_N_ELEMENTS(aFormalArgs);
 
 static char const sTemplateRegionName[] = "TemplateRegionName";
 static char const sTemplateName[] = "TemplateName";
@@ -876,7 +878,7 @@ void TransformParameters( sal_uInt16 nSlotId, const uno::Sequence<beans::Propert
             }
         }
     }
-#ifdef DB_UTIL
+#ifdef DBG_UTIL
     if ( nFoundArgs == nCount )
     {
         // except for the "special" slots: assure that every argument was convertible
@@ -1222,11 +1224,11 @@ void TransformItems( sal_uInt16 nSlotId, const SfxItemSet& rSet, uno::Sequence<b
                         continue;
                     if ( nId == SID_SAVEACOPYITEM )
                         continue;
-                     if ( nId == SID_MODIFYPASSWORDINFO )
+                    if ( nId == SID_MODIFYPASSWORDINFO )
                         continue;
-                     if ( nId == SID_SUGGESTEDSAVEASDIR )
+                    if ( nId == SID_SUGGESTEDSAVEASDIR )
                         continue;
-                     if ( nId == SID_SUGGESTEDSAVEASNAME )
+                    if ( nId == SID_SUGGESTEDSAVEASNAME )
                         continue;
                }
 

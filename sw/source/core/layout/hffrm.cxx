@@ -32,7 +32,6 @@
 #include <sortedobjs.hxx>
 #include <objectformatter.hxx>
 #include <ndindex.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 static SwTwips lcl_GetFrameMinHeight(const SwLayoutFrame & rFrame)
@@ -270,7 +269,7 @@ void SwHeadFootFrame::FormatSize(SwTwips nUL, const SwBorderAttrs * pAttrs)
                             static_cast<SwTextFrame*>(pFrame)->IsJoinLocked(),
                             "<SwHeadFootFrame::FormatSize(..)> - text frame invalid and not locked." );
 
-                            if ( pFrame->IsTextFrame() && pFrame->isFrameAreaDefinitionValid() )
+                    if ( pFrame->IsTextFrame() && pFrame->isFrameAreaDefinitionValid() )
                     {
                         if ( !SwObjectFormatter::FormatObjsAtFrame( *pFrame,
                                                                   *(pFrame->FindPageFrame()) ) )
@@ -455,7 +454,7 @@ SwTwips SwHeadFootFrame::GrowFrame( SwTwips nDist, bool bTst, bool bInfo )
     {
         nResult = 0;
 
-        auto pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+        auto pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
         OSL_ENSURE(pAccess, "no border attributes");
 
         SwBorderAttrs * pAttrs = pAccess->Get();
@@ -585,7 +584,7 @@ SwTwips SwHeadFootFrame::ShrinkFrame( SwTwips nDist, bool bTst, bool bInfo )
         bool bNotifyFlys = false;
         if (nRest > 0)
         {
-            auto pAccess = o3tl::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
+            auto pAccess = std::make_unique<SwBorderAttrAccess>(SwFrame::GetCache(), this);
             OSL_ENSURE(pAccess, "no border attributes");
 
             SwBorderAttrs * pAttrs = pAccess->Get();

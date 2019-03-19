@@ -18,7 +18,6 @@
  */
 
 #include <scitems.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/contouritem.hxx>
@@ -29,36 +28,29 @@
 #include <editeng/shdditem.hxx>
 #include <editeng/udlnitem.hxx>
 #include <editeng/wghtitem.hxx>
-#include <vcl/svapp.hxx>
 #include <svl/zforlist.hxx>
 #include <svtools/scriptedtext.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
-#include <sfx2/viewfrm.hxx>
+#include <vcl/virdev.hxx>
 #include <comphelper/processfactory.hxx>
 #include <drawinglayer/processor2d/processor2dtools.hxx>
 
 #include <strings.hrc>
-#include <scmod.hxx>
-#include <attrib.hxx>
 #include <zforauto.hxx>
 #include <global.hxx>
 #include <autoform.hxx>
 #include <autofmt.hxx>
 #include <scresid.hxx>
 #include <document.hxx>
-#include <docsh.hxx>
-#include <tabvwsh.hxx>
 #include <viewdata.hxx>
 
 #define FRAME_OFFSET 4
 
 // ScAutoFmtPreview
 
-ScAutoFmtPreview::ScAutoFmtPreview(vcl::Window* pParent)
-    : Window(pParent)
-    , pCurData(nullptr)
-    , aVD(*this)
+ScAutoFmtPreview::ScAutoFmtPreview()
+    : pCurData(nullptr)
     , bFitWidth(false)
     , mbRTL(false)
     , aStrJan(ScResId(STR_JAN))
@@ -73,11 +65,16 @@ ScAutoFmtPreview::ScAutoFmtPreview(vcl::Window* pParent)
     Init();
 }
 
-VCL_BUILDER_FACTORY(ScAutoFmtPreview)
+void ScAutoFmtPreview::SetDrawingArea(weld::DrawingArea* pDrawingArea)
+{
+    aVD.disposeAndReset(VclPtr<VirtualDevice>::Create(pDrawingArea->get_ref_device()));
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
+}
 
 void ScAutoFmtPreview::Resize()
 {
-    aPrvSize  = Size(GetSizePixel().Width() - 6, GetSizePixel().Height() - 30);
+    Size aSize(GetOutputSizePixel());
+    aPrvSize  = Size(aSize.Width() - 6, aSize.Height() - 30);
     mnLabelColWidth = (aPrvSize.Width() - 4) / 4 - 12;
     mnDataColWidth1 = (aPrvSize.Width() - 4 - 2 * mnLabelColWidth) / 3;
     mnDataColWidth2 = (aPrvSize.Width() - 4 - 2 * mnLabelColWidth) / 4;
@@ -87,13 +84,6 @@ void ScAutoFmtPreview::Resize()
 
 ScAutoFmtPreview::~ScAutoFmtPreview()
 {
-    disposeOnce();
-}
-
-void ScAutoFmtPreview::dispose()
-{
-    pNumFmt.reset();
-    vcl::Window::dispose();
 }
 
 static void lcl_SetFontProperties(
@@ -111,12 +101,12 @@ static void lcl_SetFontProperties(
     rFont.SetItalic     ( rPostureItem.GetValue() );
 }
 
-void ScAutoFmtPreview::MakeFonts( sal_uInt16 nIndex, vcl::Font& rFont, vcl::Font& rCJKFont, vcl::Font& rCTLFont )
+void ScAutoFmtPreview::MakeFonts(vcl::RenderContext const& rRenderContext, sal_uInt16 nIndex, vcl::Font& rFont, vcl::Font& rCJKFont, vcl::Font& rCTLFont)
 {
     if ( pCurData )
     {
-        rFont = rCJKFont = rCTLFont = GetFont();
-        Size aFontSize( rFont.GetFontSize().Width(), 10 * GetDPIScaleFactor() );
+        rFont = rCJKFont = rCTLFont = rRenderContext.GetFont();
+        Size aFontSize(rFont.GetFontSize().Width(), 10 * rRenderContext.GetDPIScaleFactor());
 
         const SvxFontItem*        pFontItem       = pCurData->GetItem( nIndex, ATTR_FONT );
         const SvxWeightItem*      pWeightItem     = pCurData->GetItem( nIndex, ATTR_FONT_WEIGHT );
@@ -140,7 +130,7 @@ void ScAutoFmtPreview::MakeFonts( sal_uInt16 nIndex, vcl::Font& rFont, vcl::Font
 
         Color aColor( pColorItem->GetValue() );
         if( aColor == COL_TRANSPARENT )
-            aColor = GetSettings().GetStyleSettings().GetWindowTextColor();
+            aColor = Application::GetSettings().GetStyleSettings().GetWindowTextColor();
 
 #define SETONALLFONTS( MethodName, Value ) \
 rFont.MethodName( Value ); rCJKFont.MethodName( Value ); rCTLFont.MethodName( Value );
@@ -269,7 +259,7 @@ void ScAutoFmtPreview::DrawString(vcl::RenderContext& rRenderContext, size_t nCo
             vcl::Font aFont, aCJKFont, aCTLFont;
             Size theMaxStrSize;
 
-            MakeFonts( nFmtIndex, aFont, aCJKFont, aCTLFont );
+            MakeFonts(rRenderContext, nFmtIndex, aFont, aCJKFont, aCTLFont);
 
             theMaxStrSize = Size(basegfx::fround(cellRange.getWidth()), basegfx::fround(cellRange.getHeight()));
             theMaxStrSize.AdjustWidth( -(FRAME_OFFSET) );
@@ -419,9 +409,7 @@ void ScAutoFmtPreview::PaintCells(vcl::RenderContext& rRenderContext)
 
 void ScAutoFmtPreview::Init()
 {
-    SetBorderStyle( WindowBorderStyle::MONO );
     maArray.Initialize( 5, 5 );
-//    maArray.SetUseDiagDoubleClipping( false );
     mnLabelColWidth = 0;
     mnDataColWidth1 = 0;
     mnDataColWidth2 = 0;
@@ -497,14 +485,15 @@ void ScAutoFmtPreview::NotifyChange( ScAutoFormatData* pNewData )
     CalcCellArray( bFitWidth );
     CalcLineMap();
 
-    Invalidate(tools::Rectangle(Point(0,0), GetSizePixel()));
+    Invalidate();
 }
 
 void ScAutoFmtPreview::DoPaint(vcl::RenderContext& rRenderContext)
 {
+    rRenderContext.Push(PushFlags::ALL);
     DrawModeFlags nOldDrawMode = aVD->GetDrawMode();
 
-    Size aWndSize(GetSizePixel());
+    Size aWndSize(GetOutputSizePixel());
     vcl::Font aFont(aVD->GetFont());
     Color aBackCol(rRenderContext.GetSettings().GetStyleSettings().GetWindowColor());
     tools::Rectangle aRect(Point(), aWndSize);
@@ -516,7 +505,7 @@ void ScAutoFmtPreview::DoPaint(vcl::RenderContext& rRenderContext)
     aVD->SetOutputSize(aWndSize);
     aVD->DrawRect(aRect);
 
-    PaintCells(*aVD.get());
+    PaintCells(*aVD);
 
     rRenderContext.SetLineColor();
     rRenderContext.SetFillColor(aBackCol);
@@ -525,8 +514,9 @@ void ScAutoFmtPreview::DoPaint(vcl::RenderContext& rRenderContext)
     Point aPos((aWndSize.Width() - aPrvSize.Width()) / 2, (aWndSize.Height() - aPrvSize.Height()) / 2);
     if (AllSettings::GetLayoutRTL())
        aPos.setX( -aPos.X() );
-    rRenderContext.DrawOutDev(aPos, aWndSize, Point(), aWndSize, *aVD.get());
+    rRenderContext.DrawOutDev(aPos, aWndSize, Point(), aWndSize, *aVD);
     aVD->SetDrawMode(nOldDrawMode);
+    rRenderContext.Pop();
 }
 
 void ScAutoFmtPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& /*rRect*/)

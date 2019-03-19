@@ -58,7 +58,6 @@
 #include "xltoolbar.hxx"
 #include <oox/ole/vbaproject.hxx>
 #include <oox/ole/olestorage.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace com::sun::star;
 using namespace ::comphelper;
@@ -107,7 +106,7 @@ public:
         uno::Reference< container::XIndexContainer > xElement;
         if ( ! ( aElement >>= xElement ) )
             throw lang::IllegalArgumentException();
-       IdToOleNameHash[ aName ] = xElement;
+        IdToOleNameHash[ aName ] = xElement;
     }
     virtual void SAL_CALL removeByName( const OUString& aName ) override
     {
@@ -226,7 +225,7 @@ void ImportExcel8::Scenman()
 
 void ImportExcel8::Scenario()
 {
-    maScenList.aEntries.push_back( o3tl::make_unique<ExcScenario>( aIn, *pExcRoot ) );
+    maScenList.aEntries.push_back( std::make_unique<ExcScenario>( aIn, *pExcRoot ) );
 }
 
 void ImportExcel8::Labelsst()

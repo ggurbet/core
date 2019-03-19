@@ -42,7 +42,6 @@
 #include <functional>
 
 class SfxBroadcaster;
-class Pointer;
 class AutoTimer;
 class OutlinerParaObject;
 class Outliner;
@@ -75,6 +74,7 @@ class SdrGluePoint;
 class SdrGluePointList;
 class SdrLayerIDSet;
 class Fraction;
+enum class PointerStyle;
 
 namespace basegfx
 {
@@ -184,8 +184,6 @@ class SVX_DLLPUBLIC SdrObjMacroHitRec
 {
 public:
     Point                       aPos;
-    Point                       aDownPos;
-    VclPtr<OutputDevice>        pOut;
     const SdrLayerIDSet*        pVisiLayer;
     const SdrPageView*          pPageView;
     sal_uInt16                  nTol;
@@ -200,11 +198,9 @@ public:
  */
 class SVX_DLLPUBLIC SdrObjUserData
 {
-protected:
     SdrInventor const                     nInventor;
     sal_uInt16 const                      nIdentifier;
 
-private:
     void operator=(const SdrObjUserData& rData) = delete;
     bool operator==(const SdrObjUserData& rData) const = delete;
     bool operator!=(const SdrObjUserData& rData) const = delete;
@@ -569,7 +565,7 @@ public:
     virtual void BrkCreate(SdrDragStat& rStat);
 
     /// get the cursor/pointer that signals creating this object
-    virtual Pointer GetCreatePointer() const;
+    virtual PointerStyle GetCreatePointer() const;
 
     /// Polygon dragged by the user when creating the object
     virtual basegfx::B2DPolyPolygon TakeCreatePoly(const SdrDragStat& rDrag) const;
@@ -686,7 +682,7 @@ public:
     // macro abilities, e.g. a rectangle as PushButton.
     virtual bool HasMacro() const;
     virtual SdrObject* CheckMacroHit (const SdrObjMacroHitRec& rRec) const;
-    virtual Pointer GetMacroPointer (const SdrObjMacroHitRec& rRec) const;
+    virtual PointerStyle GetMacroPointer (const SdrObjMacroHitRec& rRec) const;
     virtual void PaintMacro (OutputDevice& rOut, const tools::Rectangle& rDirtyRect, const SdrObjMacroHitRec& rRec) const;
     virtual bool DoMacro (const SdrObjMacroHitRec& rRec);
     bool IsMacroHit(const SdrObjMacroHitRec& rRec) const;
@@ -869,7 +865,7 @@ public:
 
     bool Equals(const SdrObject&) const;
 
-    virtual void dumpAsXml(struct _xmlTextWriter* pWriter) const;
+    virtual void dumpAsXml(xmlTextWriterPtr pWriter) const;
 
     /// Is this a textbox of a drawinglayer shape?
     virtual bool IsTextBox() const;

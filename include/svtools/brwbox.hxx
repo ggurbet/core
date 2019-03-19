@@ -21,9 +21,11 @@
 
 #include <svtools/svtdllapi.h>
 #include <vcl/scrbar.hxx>
+#include <vcl/status.hxx>
 #include <vcl/ctrl.hxx>
 #include <vcl/vclptr.hxx>
 #include <tools/multisel.hxx>
+#include <vcl/event.hxx>
 #include <vcl/headbar.hxx>
 #include <vcl/transfer.hxx>
 #include <vcl/AccessibleBrowseBoxObjType.hxx>
@@ -37,7 +39,6 @@
 
 class BrowserColumn;
 class BrowserDataWin;
-class MultiSelection;
 class BrowserHeader;
 
 namespace svt {
@@ -194,6 +195,7 @@ private:
     VclPtr<BrowserDataWin> pDataWin;       // window to display data rows
     VclPtr<ScrollBar>      pVScroll;       // vertical scrollbar
     VclPtr<ScrollBar>      aHScroll;       // horizontal scrollbar
+    VclPtr<StatusBar>      aStatusBar;     // statusbar, just to measure its height
 
     long            nDataRowHeight; // height of a single data-row
     sal_uInt16      nTitleLines;    // number of lines in title row
@@ -204,7 +206,6 @@ private:
 
     bool            bHLines;        // draw lines between rows
     bool            bVLines;        // draw lines between columns
-    Color           aGridLineColor;     // color for lines, default dark grey
     bool            bBootstrapped;  // child windows resized etc.
     long            nTopRow;        // no. of first visible row (0...)
     long            nCurRow;        // no. of row with cursor
@@ -216,8 +217,6 @@ private:
     bool            bRowDividerDrag;
     bool            bHit;
     bool            mbInteractiveRowHeight;
-    Point           a1stPoint;
-    Point           a2ndPoint;
 
     long            nResizeX;       // mouse position at start of resizing
     long            nMinResizeX;    // never drag more left
@@ -288,7 +287,9 @@ private:
     DECL_DLLPRIVATE_LINK(    ScrollHdl, ScrollBar*, void );
     DECL_DLLPRIVATE_LINK(    StartDragHdl, HeaderBar*, void );
 
-    SVT_DLLPRIVATE long            GetFrozenWidth() const;
+    SVT_DLLPRIVATE long GetFrozenWidth() const;
+
+    SVT_DLLPRIVATE long GetBarHeight() const;
 
     bool            GoToRow(long nRow, bool bRowColMove, bool bDoNotModifySelection = false );
 
@@ -330,7 +331,7 @@ protected:
     virtual bool    SeekRow( long nRow ) = 0;
     void            DrawCursor();
     void            PaintData(vcl::Window const & rWin, vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect);
-    virtual void    PaintField(OutputDevice& rDev, const tools::Rectangle& rRect, sal_uInt16 nColumnId) const = 0;
+    virtual void    PaintField(vcl::RenderContext& rDev, const tools::Rectangle& rRect, sal_uInt16 nColumnId) const = 0;
     // Advice for the subclass: the visible scope of rows has changed.
     // The subclass is able to announce changes of the model with the
     // help of the methods RowInserted and RowRemoved. Because of the
@@ -424,9 +425,6 @@ public:
     const vcl::Font& GetFont() const;
     void            SetTitleFont( const vcl::Font& rNewFont )
                         { Control::SetFont( rNewFont ); }
-
-    // color for line painting
-    void            SetGridLineColor(const Color& rColor) {aGridLineColor = rColor;}
 
     // inserting, changing, removing and freezing of columns
     void            InsertHandleColumn( sal_uLong nWidth );

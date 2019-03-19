@@ -71,6 +71,10 @@
 #include <cstddef>
 #include <memory>
 #include <swmodule.hxx>
+#include <MarkManager.hxx>
+#include <xmloff/odffields.hxx>
+#include <IDocumentContentOperations.hxx>
+#include <IDocumentUndoRedo.hxx>
 
 using namespace nsSwDocInfoSubType;
 
@@ -114,7 +118,6 @@ void SwTextShell::ExecField(SfxRequest &rReq)
     if(pArgs)
         pArgs->GetItemState(GetPool().GetWhich(nSlot), false, &pItem);
 
-    vcl::Window *pMDI = &GetView().GetViewFrame()->GetWindow();
     bool bMore = false;
     bool bIsText = true;
     sal_uInt16 nInsertType = 0;
@@ -137,7 +140,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                         if(rLink.IsVisible())
                         {
                             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                            ScopedVclPtr<SfxAbstractLinksDialog> pDlg(pFact->CreateLinksDialog( pMDI, &rSh.GetLinkManager(), false, &rLink ));
+                            ScopedVclPtr<SfxAbstractLinksDialog> pDlg(pFact->CreateLinksDialog(GetView().GetFrameWeld(), &rSh.GetLinkManager(), false, &rLink));
                             pDlg->Execute();
                         }
                         break;
@@ -567,7 +570,10 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                     rSh.EndAction();
 
                     rSh.ClearMark();
-                    rSh.SelNextRedline();   // Select current redline.
+                    // Select current redline.
+                    pActRed = rSh.SelNextRedline();
+                    if (pActRed != pRedline)
+                        rSh.SelPrevRedline();
 
                     rSh.StartAction();
                     rSh.Push();
@@ -711,6 +717,60 @@ FIELD_INSERT:
                                     OUString(), OUString(), nInsertFormat);
                 aFieldMgr.InsertField(aData);
                 rReq.Done();
+            }
+            break;
+
+            case FN_INSERT_TEXT_FORMFIELD:
+            {
+                rSh.GetDoc()->GetIDocumentUndoRedo().StartUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+
+                SwPaM* pCursorPos = rSh.GetCursor();
+                if(pCursorPos)
+                {
+                    // Insert five enspace into the text field so the field has extent
+                    sal_Unicode vEnSpaces[ODF_FORMFIELD_DEFAULT_LENGTH] = {8194, 8194, 8194, 8194, 8194};
+                    bool bSuccess = rSh.GetDoc()->getIDocumentContentOperations().InsertString(*pCursorPos, OUString(vEnSpaces, ODF_FORMFIELD_DEFAULT_LENGTH));
+                    if(bSuccess)
+                    {
+                        IDocumentMarkAccess* pMarksAccess = rSh.GetDoc()->getIDocumentMarkAccess();
+                        SwPaM aFieldPam(pCursorPos->GetPoint()->nNode, pCursorPos->GetPoint()->nContent.GetIndex()-5,
+                                        pCursorPos->GetPoint()->nNode, pCursorPos->GetPoint()->nContent.GetIndex());
+                        pMarksAccess->makeFieldBookmark(aFieldPam, OUString(), ODF_FORMTEXT);
+                    }
+                }
+
+                rSh.GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+                rSh.GetView().GetViewFrame()->GetBindings().Invalidate( SID_UNDO );
+            }
+            break;
+            case FN_INSERT_CHECKBOX_FORMFIELD:
+            {
+                rSh.GetDoc()->GetIDocumentUndoRedo().StartUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+
+                SwPaM* pCursorPos = rSh.GetCursor();
+                if(pCursorPos)
+                {
+                    IDocumentMarkAccess* pMarksAccess = rSh.GetDoc()->getIDocumentMarkAccess();
+                    pMarksAccess->makeNoTextFieldBookmark(*pCursorPos, OUString(), ODF_FORMCHECKBOX);
+                }
+
+                rSh.GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+                rSh.GetView().GetViewFrame()->GetBindings().Invalidate( SID_UNDO );
+            }
+            break;
+            case FN_INSERT_DROPDOWN_FORMFIELD:
+            {
+                rSh.GetDoc()->GetIDocumentUndoRedo().StartUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+
+                SwPaM* pCursorPos = rSh.GetCursor();
+                if(pCursorPos)
+                {
+                    IDocumentMarkAccess* pMarksAccess = rSh.GetDoc()->getIDocumentMarkAccess();
+                    pMarksAccess->makeNoTextFieldBookmark(*pCursorPos, OUString(), ODF_FORMDROPDOWN);
+                }
+
+                rSh.GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::INSERT_FORM_FIELD, nullptr);
+                rSh.GetView().GetViewFrame()->GetBindings().Invalidate( SID_UNDO );
             }
             break;
             default:
@@ -866,6 +926,33 @@ void SwTextShell::StateField( SfxItemSet &rSet )
             if ( rSh.CursorInsideInputField() )
             {
                 rSet.DisableItem(nWhich);
+            }
+            break;
+
+        case FN_INSERT_TEXT_FORMFIELD:
+        case FN_INSERT_CHECKBOX_FORMFIELD:
+        case FN_INSERT_DROPDOWN_FORMFIELD:
+            if ( rSh.CursorInsideInputField() )
+            {
+                rSet.DisableItem(nWhich);
+            }
+            else
+            {
+                // Check whether we are in a text form field
+                SwPosition aCursorPos(*rSh.GetCursor()->GetPoint());
+                sw::mark::IFieldmark* pFieldBM = GetShell().getIDocumentMarkAccess()->getFieldmarkFor(aCursorPos);
+                if ((!pFieldBM || pFieldBM->GetFieldname() != ODF_FORMTEXT)
+                    && aCursorPos.nContent.GetIndex() > 0)
+                {
+                    SwPosition aPos(aCursorPos);
+                    --aPos.nContent;
+                    pFieldBM = GetShell().getIDocumentMarkAccess()->getFieldmarkFor(aPos);
+                }
+                if (pFieldBM && pFieldBM->GetFieldname() == ODF_FORMTEXT &&
+                    (aCursorPos > pFieldBM->GetMarkStart() && aCursorPos < pFieldBM->GetMarkEnd() ))
+                {
+                    rSet.DisableItem(nWhich);
+                }
             }
             break;
 

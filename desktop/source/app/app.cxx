@@ -118,12 +118,12 @@
 #include <basic/sbstar.hxx>
 #include <desktop/crashreport.hxx>
 #include <tools/urlobj.hxx>
-
+#include <tools/diagnose_ex.h>
 #include <svtools/fontsubstconfig.hxx>
 #include <svtools/accessibilityoptions.hxx>
 #include <svtools/apearcfg.hxx>
 #include <vcl/graphicfilter.hxx>
-
+#include <vcl/window.hxx>
 #include "langselect.hxx"
 
 #if HAVE_FEATURE_BREAKPAD
@@ -504,7 +504,7 @@ void Desktop::Init()
         // of loading the office configuration initially. To use,
         // either set to true and compile, or set a breakpoint
         // in debugger and change the local bool
-        static bool bTryHardOfficeconfigBroken(false);
+        static bool bTryHardOfficeconfigBroken(false); // loplugin:constvars:ignore
 
         if (bTryHardOfficeconfigBroken)
         {
@@ -2501,7 +2501,8 @@ IMPL_STATIC_LINK_NOARG(Desktop, AsyncInitFirstRun, Timer *, void)
     }
     catch(const css::uno::Exception&)
     {
-        SAL_WARN( "desktop.app", "Desktop::DoFirstRunInitializations: caught an exception while trigger job executor ..." );
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "desktop.app", "Desktop::DoFirstRunInitializations: caught an exception while trigger job executor ... " << exceptionToString(ex) );
     }
 }
 

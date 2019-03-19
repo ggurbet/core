@@ -17,14 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <global.hxx>
 #include <reffact.hxx>
 #include <document.hxx>
 #include <docsh.hxx>
 #include <chgtrack.hxx>
 
 #include <highred.hxx>
-#include <sfx2/app.hxx>
 
 //  class ScHighlightChgDlg
 
@@ -84,9 +82,8 @@ void ScHighlightChgDlg::Init()
         aChangeViewSet.SetTheAuthorToShow(pChanges->GetUser());
         m_pFilterCtr->ClearAuthors();
         const std::set<OUString>& rUserColl = pChanges->GetUserCollection();
-        std::set<OUString>::const_iterator it = rUserColl.begin(), itEnd = rUserColl.end();
-        for (; it != itEnd; ++it)
-            m_pFilterCtr->InsertAuthor(*it);
+        for (const auto& rItem : rUserColl)
+            m_pFilterCtr->InsertAuthor(rItem);
     }
 
     ScChangeViewSettings* pViewSettings=pDoc->GetChangeViewSettings();

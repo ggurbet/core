@@ -50,7 +50,6 @@
 #include <swtypes.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 
@@ -665,7 +664,7 @@ void SvxCSS1Parser::StyleParsed( const CSS1Selector * /*pSelector*/,
     // you see nothing is happening here
 }
 
-bool SvxCSS1Parser::SelectorParsed( CSS1Selector *pSelector, bool bFirst )
+void SvxCSS1Parser::SelectorParsed( std::unique_ptr<CSS1Selector> pSelector, bool bFirst )
 {
     if( bFirst )
     {
@@ -682,22 +681,7 @@ bool SvxCSS1Parser::SelectorParsed( CSS1Selector *pSelector, bool bFirst )
         m_Selectors.clear();
     }
 
-    m_Selectors.push_back(std::unique_ptr<CSS1Selector>(pSelector));
-
-    return false; // Selector saved. Deleting deadly!
-}
-
-bool SvxCSS1Parser::DeclarationParsed( const OUString& rProperty,
-                                       const CSS1Expression *pExpr )
-{
-    OSL_ENSURE( pExpr, "DeclarationParsed() without Expression" );
-
-    if( !pExpr )
-        return true;
-
-    ParseProperty( rProperty, pExpr );
-
-    return true;    // the declaration isn't needed anymore. Delete it!
+    m_Selectors.push_back(std::move(pSelector));
 }
 
 SvxCSS1Parser::SvxCSS1Parser( SfxItemPool& rPool, const OUString& rBaseURL,
@@ -921,7 +905,7 @@ void SvxCSS1Parser::InsertMapEntry( const OUString& rKey,
     CSS1Map::iterator itr = rMap.find(rKey);
     if (itr == rMap.end())
     {
-        rMap.insert(std::make_pair(rKey, o3tl::make_unique<SvxCSS1MapEntry>(rItemSet, rProp)));
+        rMap.insert(std::make_pair(rKey, std::make_unique<SvxCSS1MapEntry>(rItemSet, rProp)));
     }
     else
     {
@@ -3150,8 +3134,8 @@ static bool CSS1PropEntryFindCompare(CSS1PropEntry const & lhs, OUString const &
     return s.compareToIgnoreAsciiCaseAscii(lhs.pName) > 0;
 }
 
-void SvxCSS1Parser::ParseProperty( const OUString& rProperty,
-                                   const CSS1Expression *pExpr )
+void SvxCSS1Parser::DeclarationParsed( const OUString& rProperty,
+                                       std::unique_ptr<CSS1Expression> pExpr )
 {
     OSL_ENSURE( pItemSet, "DeclarationParsed() without ItemSet" );
 
@@ -3168,7 +3152,7 @@ void SvxCSS1Parser::ParseProperty( const OUString& rProperty,
                                 CSS1PropEntryFindCompare );
     if( it != std::end(aCSS1PropFnTab) && !CSS1PropEntryFindCompare(*it,rProperty)  )
     {
-        it->pFunc( pExpr, *pItemSet, *pPropInfo, *this );
+        it->pFunc( pExpr.get(), *pItemSet, *pPropInfo, *this );
     }
 }
 

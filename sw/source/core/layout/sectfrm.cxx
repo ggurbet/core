@@ -45,6 +45,8 @@
 #include <flyfrms.hxx>
 #include <sortedobjs.hxx>
 #include <hints.hxx>
+#include <frmatr.hxx>
+#include <frmtool.hxx>
 
 namespace
 {
@@ -962,7 +964,7 @@ static SwFootnoteFrame* lcl_FindEndnote( SwSectionFrame* &rpSect, bool &rbEmpty,
     SwSectionFrame* pSect = rbEmpty ? rpSect->GetFollow() : rpSect;
     while( pSect )
     {
-       OSL_ENSURE( (pSect->Lower() && pSect->Lower()->IsColumnFrame()) || pSect->GetUpper()->IsFootnoteFrame(),
+        OSL_ENSURE( (pSect->Lower() && pSect->Lower()->IsColumnFrame()) || pSect->GetUpper()->IsFootnoteFrame(),
                 "InsertEndnotes: Where's my column?" );
 
         // i73332: Columned section in endnote
@@ -2598,12 +2600,12 @@ void SwSectionFrame::SwClientNotify( const SwModify& rMod, const SfxHint& rHint 
 {
     SwFrame::SwClientNotify(rMod, rHint);
     // #i117863#
-    const SwSectionFrameMoveAndDeleteHint* pHint =
-                    dynamic_cast<const SwSectionFrameMoveAndDeleteHint*>(&rHint);
-    if (pHint && pHint->GetId() == SfxHintId::Dying && &rMod == GetDep())
-    {
-        SwSectionFrame::MoveContentAndDelete( this, pHint->IsSaveContent() );
-    }
+    if(&rMod != GetDep())
+        return;
+    const auto pHint = dynamic_cast<const SwSectionFrameMoveAndDeleteHint*>(&rHint);
+    if(!pHint)
+        return;
+    SwSectionFrame::MoveContentAndDelete( this, pHint->IsSaveContent() );
 }
 
 void SwSectionFrame::UpdateAttr_( const SfxPoolItem *pOld, const SfxPoolItem *pNew,

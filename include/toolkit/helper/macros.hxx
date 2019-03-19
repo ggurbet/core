@@ -20,8 +20,6 @@
 #ifndef INCLUDED_TOOLKIT_HELPER_MACROS_HXX
 #define INCLUDED_TOOLKIT_HELPER_MACROS_HXX
 
-#include <string.h>
-
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <comphelper/servicehelper.hxx>
@@ -56,18 +54,6 @@ ClassName* ClassName::GetImplementation( const css::uno::Reference< css::uno::XI
 css::uno::Sequence< sal_Int8 > ClassName::getImplementationId() \
 { \
     return css::uno::Sequence<sal_Int8>(); \
-}
-
-#define IMPL_XTYPEPROVIDER_START( ClassName )   \
-IMPL_IMPLEMENTATION_ID( ClassName ) \
-css::uno::Sequence< css::uno::Type > ClassName::getTypes() \
-{ \
-    static ::cppu::OTypeCollection collection( \
-            cppu::UnoType<css::lang::XTypeProvider>::get(),
-
-#define IMPL_XTYPEPROVIDER_END \
-            ); \
-    return collection.getTypes(); \
 }
 
 
@@ -117,10 +103,11 @@ void ClassName::disposing( const css::lang::EventObject& ) \
 
 
 #if OSL_DEBUG_LEVEL > 0
-    #define DISPLAY_EXCEPTION( ClassName, MethodName, e )    \
-        SAL_WARN( "toolkit", #ClassName "::" #MethodName ": caught an exception! " << e);
+    #define DISPLAY_EXCEPTION( ClassName, MethodName )    \
+        css::uno::Any ex( cppu::getCaughtException() ); \
+        SAL_WARN( "toolkit", #ClassName "::" #MethodName ": caught an exception! " << exceptionToString(ex));
 #else
-    #define DISPLAY_EXCEPTION( ClassName, MethodName, e ) (void)e;
+    #define DISPLAY_EXCEPTION( ClassName, MethodName )
 #endif
 
 #define IMPL_TABLISTENERMULTIPLEXER_LISTENERMETHOD_BODY_1PARAM( ClassName, InterfaceName, MethodName, ParamType1 ) \
@@ -141,9 +128,9 @@ void ClassName::disposing( const css::lang::EventObject& ) \
             if ( e.Context == xListener || !e.Context.is() ) \
                 aIt.remove(); \
         } \
-        catch(const css::uno::RuntimeException& e) \
+        catch(const css::uno::RuntimeException&) \
         { \
-            DISPLAY_EXCEPTION( ClassName, MethodName, e ) \
+            DISPLAY_EXCEPTION( ClassName, MethodName ) \
         } \
     } \
 }
@@ -167,9 +154,9 @@ void ClassName::disposing( const css::lang::EventObject& ) \
             if ( e.Context == xListener || !e.Context.is() ) \
                 aIt.remove(); \
         } \
-        catch(const css::uno::RuntimeException& e) \
+        catch(const css::uno::RuntimeException&) \
         { \
-            DISPLAY_EXCEPTION( ClassName, MethodName, e ) \
+            DISPLAY_EXCEPTION( ClassName, MethodName ) \
         } \
     } \
 }

@@ -39,6 +39,8 @@
 #include <viewimp.hxx>
 #include <dflyobj.hxx>
 #include <flyfrm.hxx>
+#include <frmatr.hxx>
+#include <frmtool.hxx>
 #include <viewopt.hxx>
 #include <dview.hxx>
 #include <dcontact.hxx>
@@ -63,6 +65,7 @@
 #include <hffrm.hxx>
 #include <colfrm.hxx>
 #include <sw_primitivetypes2d.hxx>
+#include <swfont.hxx>
 
 #include <svx/sdr/primitive2d/sdrframeborderprimitive2d.hxx>
 #include <svx/sdr/contact/viewobjectcontactredirector.hxx>
@@ -70,6 +73,7 @@
 #include <svx/sdr/contact/viewcontact.hxx>
 #include <DocumentSettingManager.hxx>
 #include <IDocumentDeviceAccess.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 
 #include <ndole.hxx>
 #include <PostItMgr.hxx>
@@ -94,6 +98,7 @@
 #include <svx/framelinkarray.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/color/bcolortools.hxx>
+#include <basegfx/utils/b2dclipstate.hxx>
 #include <sal/log.hxx>
 
 #include <memory>
@@ -1255,7 +1260,7 @@ static void lcl_CalcBorderRect( SwRect &rRect, const SwFrame *pFrame,
         rRect = pFrame->getFramePrintArea();
         rRect.Pos() += pFrame->getFrameArea().Pos();
 
-        SwRectFn fnRect = pFrame->IsVertical() ? ( pFrame->IsVertLR() ? fnRectVertL2R : fnRectVert ) : fnRectHori;
+        SwRectFn fnRect = pFrame->IsVertical() ? ( pFrame->IsVertLR() ? (pFrame->IsVertLRBT() ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert ) : fnRectHori;
 
         const SvxBoxItem &rBox = rAttrs.GetBox();
         const bool bTop = 0 != (pFrame->*fnRect->fnGetTopMargin)();
@@ -1675,7 +1680,10 @@ static void lcl_DrawGraphic( const SvxBrushItem& rBrush, vcl::RenderContext *pOu
         *pOut,
         *pGrf,
         pGrf->GetAttr(),
-        aGraphicTransform);
+        aGraphicTransform,
+        OUString(),
+        OUString(),
+        OUString());
 
     if ( bNotInside )
         pOut->Pop();
@@ -1986,7 +1994,7 @@ void DrawGraphic(
         // to get color of brush, check background color against COL_TRANSPARENT ("no fill"/"auto fill")
         // instead of checking, if transparency is not set.
         const Color aColor( pBrush &&
-                            ( !(pBrush->GetColor() == COL_TRANSPARENT) ||
+                            ( (pBrush->GetColor() != COL_TRANSPARENT) ||
                               gProp.bSFlyMetafile )
                     ? pBrush->GetColor()
                     : aGlobalRetoucheColor );
@@ -2910,9 +2918,9 @@ void SwRootFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect const&
     else
         SwRootFrame::s_isInPaint = bResetRootPaint = true;
 
-    SwSavePaintStatics *pStatics = nullptr;
+    std::unique_ptr<SwSavePaintStatics> pStatics;
     if ( gProp.pSGlobalShell )
-        pStatics = new SwSavePaintStatics();
+        pStatics.reset(new SwSavePaintStatics());
     gProp.pSGlobalShell = pSh;
 
     if( !pSh->GetWin() )
@@ -3230,7 +3238,7 @@ void SwRootFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect const&
     if ( bResetRootPaint )
         SwRootFrame::s_isInPaint = false;
     if ( pStatics )
-        delete pStatics;
+        pStatics.reset();
     else
     {
         gProp.pSProgress = nullptr;
@@ -3337,9 +3345,10 @@ void SwLayoutFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect cons
         if ( pFrame->IsRetouche() )
         {
             if ( pFrame->IsRetoucheFrame() && bWin && !pFrame->GetNext() )
-            {   if ( !pPage )
+            {
+                if ( !pPage )
                     pPage = FindPageFrame();
-               pFrame->Retouch( pPage, rRect );
+                pFrame->Retouch( pPage, rRect );
             }
             pFrame->ResetRetouche();
         }
@@ -3916,7 +3925,7 @@ void SwFlyFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect const& 
                 //     to determine, if background has to be painted, by checking, if
                 //     background color is not COL_TRANSPARENT ("no fill"/"auto fill")
                 //     or a background graphic exists.
-                bPaintCompleteBack = !(aBack.GetColor() == COL_TRANSPARENT) ||
+                bPaintCompleteBack = (aBack.GetColor() != COL_TRANSPARENT) ||
                                      aBack.GetGraphicPos() != GPOS_NONE;
             }
         }
@@ -4690,6 +4699,7 @@ void PaintCharacterBorder(
     const SwFont& rFont,
     const SwRect& rPaintArea,
     const bool bVerticalLayout,
+    const bool bVerticalLayoutLRBT,
     const bool bJoinWithPrev,
     const bool bJoinWithNext )
 {
@@ -4701,7 +4711,7 @@ void PaintCharacterBorder(
     bool bLeft = true;
     bool bRight = true;
 
-    switch( rFont.GetOrientation(bVerticalLayout) )
+    switch (rFont.GetOrientation(bVerticalLayout, bVerticalLayoutLRBT))
     {
         case 0 :
             bLeft = !bJoinWithPrev;
@@ -4725,7 +4735,7 @@ void PaintCharacterBorder(
     {
         const SvxShadowItem aShadow(
             0, &rFont.GetShadowColor(), rFont.GetShadowWidth(),
-            rFont.GetAbsShadowLocation(bVerticalLayout));
+            rFont.GetAbsShadowLocation(bVerticalLayout, bVerticalLayoutLRBT));
 
         if( aShadow.GetLocation() != SvxShadowLocation::NONE )
         {
@@ -4738,10 +4748,19 @@ void PaintCharacterBorder(
         basegfx::utils::createScaleTranslateB2DHomMatrix(
             aAlignedRect.Width(), aAlignedRect.Height(),
             aAlignedRect.Left(), aAlignedRect.Top()));
-    const svx::frame::Style aStyleTop(bTop ? rFont.GetAbsTopBorder(bVerticalLayout).get_ptr() : nullptr, 1.0);
-    const svx::frame::Style aStyleRight(bRight ? rFont.GetAbsRightBorder(bVerticalLayout).get_ptr() : nullptr, 1.0);
-    const svx::frame::Style aStyleBottom(bBottom ? rFont.GetAbsBottomBorder(bVerticalLayout).get_ptr() : nullptr, 1.0);
-    const svx::frame::Style aStyleLeft(bLeft ? rFont.GetAbsLeftBorder(bVerticalLayout).get_ptr() : nullptr, 1.0);
+    const svx::frame::Style aStyleTop(
+        bTop ? rFont.GetAbsTopBorder(bVerticalLayout, bVerticalLayoutLRBT).get_ptr() : nullptr,
+        1.0);
+    const svx::frame::Style aStyleRight(
+        bRight ? rFont.GetAbsRightBorder(bVerticalLayout, bVerticalLayoutLRBT).get_ptr() : nullptr,
+        1.0);
+    const svx::frame::Style aStyleBottom(
+        bBottom ? rFont.GetAbsBottomBorder(bVerticalLayout, bVerticalLayoutLRBT).get_ptr()
+                : nullptr,
+        1.0);
+    const svx::frame::Style aStyleLeft(
+        bLeft ? rFont.GetAbsLeftBorder(bVerticalLayout, bVerticalLayoutLRBT).get_ptr() : nullptr,
+        1.0);
     drawinglayer::primitive2d::Primitive2DContainer aBorderLineTarget;
 
     aBorderLineTarget.append(
@@ -5214,7 +5233,7 @@ void SwLayoutFrame::PaintColLines( const SwRect &rRect, const SwFormatCol &rForm
     if ( !pCol || !pCol->IsColumnFrame() )
         return;
 
-    SwRectFn fnRect = pCol->IsVertical() ? ( pCol->IsVertLR() ? fnRectVertL2R : fnRectVert ) : fnRectHori;
+    SwRectFn fnRect = pCol->IsVertical() ? ( pCol->IsVertLR() ? (pCol->IsVertLRBT() ? fnRectVertL2RB2T : fnRectVertL2R) : fnRectVert ) : fnRectHori;
 
     SwRect aLineRect = getFramePrintArea();
     aLineRect += getFrameArea().Pos();
@@ -6214,12 +6233,12 @@ void SwFrame::PaintSwFrameBackground( const SwRect &rRect, const SwPageFrame *pP
 
             if ( aRect.HasArea() )
             {
-                SvxBrushItem* pNewItem = nullptr;
+                std::unique_ptr<SvxBrushItem> pNewItem;
 
                 if( pCol )
                 {
-                    pNewItem = new SvxBrushItem( *pCol, RES_BACKGROUND );
-                    pItem = pNewItem;
+                    pNewItem.reset(new SvxBrushItem( *pCol, RES_BACKGROUND ));
+                    pItem = pNewItem.get();
                     aFillAttributes.reset(new drawinglayer::attribute::SdrAllFillAttributesHelper(*pCol));
                 }
 
@@ -6278,7 +6297,7 @@ void SwFrame::PaintSwFrameBackground( const SwRect &rRect, const SwPageFrame *pP
                     //     background transparency have to be considered
                     //     Set missing 5th parameter to the default value GRFNUM_NO
                     //         - see declaration in /core/inc/frmtool.hxx.
-                            ::DrawGraphic(
+                        ::DrawGraphic(
                                 pItem,
                                 pOut,
                                 aOrigBackRect,
@@ -6287,8 +6306,6 @@ void SwFrame::PaintSwFrameBackground( const SwRect &rRect, const SwPageFrame *pP
                                 bConsiderBackgroundTransparency );
                     }
                 }
-                if( pCol )
-                    delete pNewItem;
             }
         }
         else
@@ -7386,7 +7403,7 @@ Graphic SwFlyFrameFormat::MakeGraphic( ImageMap* pMap )
         ::SetOutDevAndWin( pSh, pOld, pWin, nZoom );
 
         // #i92711# end Pre/PostPaint encapsulation when pOut is back and content is painted
-           pSh->DLPostPaint2(true);
+        pSh->DLPostPaint2(true);
 
         aMet.Stop();
         aMet.Move( -pFly->getFrameArea().Left(), -pFly->getFrameArea().Top() );

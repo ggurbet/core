@@ -30,6 +30,8 @@
 #include <float.h>
 #include <swtypes.hxx>
 #include <cmdid.h>
+#include <unomid.h>
+#include <unomap.hxx>
 #include <unotbl.hxx>
 #include <unostyle.hxx>
 #include <section.hxx>
@@ -139,66 +141,43 @@ namespace
             throw uno::RuntimeException("Table too complex", pObject);
         return pTable;
     }
-}
 
-#define UNO_TABLE_COLUMN_SUM    10000
-
-static void lcl_SendChartEvent(uno::Reference<uno::XInterface> const& xSource,
-                               ::cppu::OInterfaceContainerHelper & rListeners)
-{
-    if (!rListeners.getLength())
-        return;
-    //TODO: find appropriate settings of the Event
-    chart::ChartDataChangeEvent event;
-    event.Source = xSource;
-    event.Type = chart::ChartDataChangeType_ALL;
-    event.StartColumn = 0;
-    event.EndColumn = 1;
-    event.StartRow = 0;
-    event.EndRow = 1;
-    rListeners.notifyEach(
-            & chart::XChartDataChangeEventListener::chartDataChanged, event);
-}
-
-static void lcl_SendChartEvent(uno::Reference<uno::XInterface> const& xSource,
-                               ::comphelper::OInterfaceContainerHelper2 & rListeners)
-{
-    if (!rListeners.getLength())
-        return;
-    //TODO: find appropriate settings of the Event
-    chart::ChartDataChangeEvent event;
-    event.Source = xSource;
-    event.Type = chart::ChartDataChangeType_ALL;
-    event.StartColumn = 0;
-    event.EndColumn = 1;
-    event.StartRow = 0;
-    event.EndRow = 1;
-    rListeners.notifyEach(
-            & chart::XChartDataChangeEventListener::chartDataChanged, event);
-}
-
-static void lcl_SendChartEvent(::cppu::OWeakObject & rSource,
-                               ::comphelper::OInterfaceContainerHelper2 & rListeners)
-{
-    return lcl_SendChartEvent(&rSource, rListeners);
-}
-
-static void lcl_SendChartEvent(uno::Reference<uno::XInterface> const& xSource,
-                               ::cppu::OMultiTypeInterfaceContainerHelper const & rListeners)
-{
-    ::cppu::OInterfaceContainerHelper *const pContainer(rListeners.getContainer(
-            cppu::UnoType<chart::XChartDataChangeEventListener>::get()));
-    if (pContainer)
+    chart::ChartDataChangeEvent createChartEvent(uno::Reference<uno::XInterface> const& xSource)
     {
-        lcl_SendChartEvent(xSource, *pContainer);
+        //TODO: find appropriate settings of the Event
+        chart::ChartDataChangeEvent event;
+        event.Source = xSource;
+        event.Type = chart::ChartDataChangeType_ALL;
+        event.StartColumn = 0;
+        event.EndColumn = 1;
+        event.StartRow = 0;
+        event.EndRow = 1;
+        return event;
+    }
+
+    void lcl_SendChartEvent(
+            uno::Reference<uno::XInterface> const& xSource,
+            ::comphelper::OInterfaceContainerHelper2& rListeners)
+    {
+        rListeners.notifyEach(
+                &chart::XChartDataChangeEventListener::chartDataChanged,
+                createChartEvent(xSource));
+    }
+
+    void lcl_SendChartEvent(
+            uno::Reference<uno::XInterface> const& xSource,
+            ::cppu::OMultiTypeInterfaceContainerHelper const& rListeners)
+    {
+        auto pContainer(rListeners.getContainer(cppu::UnoType<chart::XChartDataChangeEventListener>::get()));
+        if (pContainer)
+            pContainer->notifyEach(
+                    &chart::XChartDataChangeEventListener::chartDataChanged,
+                    createChartEvent(xSource));
     }
 }
 
-static void lcl_SendChartEvent(::cppu::OWeakObject & rSource,
-                               ::cppu::OMultiTypeInterfaceContainerHelper const & rListeners)
-{
-    return lcl_SendChartEvent(&rSource, rListeners);
-}
+#define UNO_TABLE_COLUMN_SUM 10000
+
 
 static bool lcl_LineToSvxLine(const table::BorderLine& rLine, SvxBorderLine& rSvxLine)
 {
@@ -807,16 +786,10 @@ sal_Int64 SAL_CALL SwXCell::getSomething( const uno::Sequence< sal_Int8 >& rId )
 
 uno::Sequence< uno::Type > SAL_CALL SwXCell::getTypes(  )
 {
-    static uno::Sequence< uno::Type > aRetTypes = [&]()
-    {
-        const auto& rCellTypes = SwXCellBaseClass::getTypes();
-        const auto& rTextTypes = SwXText::getTypes();
-        auto tmp = uno::Sequence<uno::Type>(rCellTypes.getLength() + rTextTypes.getLength());
-        std::copy_n(rCellTypes.begin(), rCellTypes.getLength(), tmp.begin());
-        std::copy_n(rTextTypes.begin(), rTextTypes.getLength(), tmp.begin()+rCellTypes.getLength());
-        return tmp;
-    }();
-    return aRetTypes;
+    return comphelper::concatSequences(
+            SwXCellBaseClass::getTypes(),
+            SwXText::getTypes()
+        );
 }
 
 uno::Sequence< sal_Int8 > SAL_CALL SwXCell::getImplementationId(  )
@@ -1020,14 +993,8 @@ void SwXCell::setPropertyValue(const OUString& rPropertyName, const uno::Any& aV
     if(rPropertyName == "FRMDirection")
     {
         SvxFrameDirection eDir = SvxFrameDirection::Environment;
-        try
-        {
-            const std::array<SvxFrameDirection, 3> vDirs = { SvxFrameDirection::Horizontal_LR_TB,  SvxFrameDirection::Horizontal_RL_TB, SvxFrameDirection::Vertical_RL_TB };
-            eDir = vDirs.at(aValue.get<sal_Int32>());
-        } catch(std::out_of_range &) {
-            SAL_WARN("sw.uno", "unknown direction code, maybe it's a bitfield");
-        }
         SvxFrameDirectionItem aItem(eDir, RES_FRAMEDIR);
+        aItem.PutValue(aValue, 0);
         pBox->GetFrameFormat()->SetFormatAttr(aItem);
     }
     else if(rPropertyName == "TableRedlineParams")
@@ -1369,7 +1336,7 @@ void SwXTextTableRow::setPropertyValue(const OUString& rPropertyName, const uno:
                     {
                         sal_Int32 nHeight = 0;
                         aValue >>= nHeight;
-                         Size aSz(aFrameSize.GetSize());
+                        Size aSz(aFrameSize.GetSize());
                         aSz.setHeight( convertMm100ToTwip(nHeight) );
                         aFrameSize.SetSize(aSz);
                     }
@@ -1512,11 +1479,12 @@ SwUnoCursor&          SwXTextTableCursor::GetCursor()       { return *m_pUnoCurs
 uno::Sequence<OUString> SwXTextTableCursor::getSupportedServiceNames()
     { return {"com.sun.star.text.TextTableCursor"}; }
 
-SwXTextTableCursor::SwXTextTableCursor(SwFrameFormat* pFormat, SwTableBox const * pBox) :
-    SwClient(pFormat),
-    m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_TABLE_CURSOR))
+SwXTextTableCursor::SwXTextTableCursor(SwFrameFormat* pFrameFormat, SwTableBox const* pBox)
+    : m_pFrameFormat(pFrameFormat)
+    , m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_TABLE_CURSOR))
 {
-    SwDoc* pDoc = pFormat->GetDoc();
+    StartListening(m_pFrameFormat->GetNotifier());
+    SwDoc* pDoc = m_pFrameFormat->GetDoc();
     const SwStartNode* pSttNd = pBox->GetSttNd();
     SwPosition aPos(*pSttNd);
     m_pUnoCursor = pDoc->CreateUnoCursor(aPos, true);
@@ -1525,10 +1493,11 @@ SwXTextTableCursor::SwXTextTableCursor(SwFrameFormat* pFormat, SwTableBox const 
     rTableCursor.MakeBoxSels();
 }
 
-SwXTextTableCursor::SwXTextTableCursor(SwFrameFormat& rTableFormat, const SwTableCursor* pTableSelection) :
-    SwClient(&rTableFormat),
-    m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_TABLE_CURSOR))
+SwXTextTableCursor::SwXTextTableCursor(SwFrameFormat& rTableFormat, const SwTableCursor* pTableSelection)
+    : m_pFrameFormat(&rTableFormat)
+    , m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_TABLE_CURSOR))
 {
+    StartListening(m_pFrameFormat->GetNotifier());
     m_pUnoCursor = pTableSelection->GetDoc()->CreateUnoCursor(*pTableSelection->GetPoint(), true);
     if(pTableSelection->HasMark())
     {
@@ -1801,8 +1770,11 @@ void SwXTextTableCursor::addVetoableChangeListener(const OUString& /*rPropertyNa
 void SwXTextTableCursor::removeVetoableChangeListener(const OUString& /*rPropertyName*/, const uno::Reference< beans::XVetoableChangeListener > & /*xListener*/)
     { throw uno::RuntimeException("not implemented", static_cast<cppu::OWeakObject*>(this)); };
 
-void SwXTextTableCursor::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
-    { ClientModify(this, pOld, pNew); }
+void SwXTextTableCursor::Notify( const SfxHint& rHint )
+{
+    if(rHint.GetId() == SfxHintId::Dying)
+        m_pFrameFormat = nullptr;
+}
 
 
 // SwXTextTable ===========================================================
@@ -1949,9 +1921,10 @@ void SwTableProperties_Impl::ApplyTableAttr(const SwTable& rTable, SwDoc& rDoc)
 }
 
 class SwXTextTable::Impl
-    : public SwClient
+    : public SvtListener
 {
 private:
+    SwFrameFormat* m_pFrameFormat;
     ::osl::Mutex m_Mutex; // just for OInterfaceContainerHelper2
 
 public:
@@ -1972,8 +1945,8 @@ public:
     unsigned short m_nRows;
     unsigned short m_nColumns;
 
-    explicit Impl(SwFrameFormat *const pFrameFormat)
-        : SwClient(pFrameFormat)
+    explicit Impl(SwFrameFormat* const pFrameFormat)
+        : m_pFrameFormat(pFrameFormat)
         , m_Listeners(m_Mutex)
         , m_pPropSet(aSwMapProvider.GetPropertySet(PROPERTY_MAP_TEXT_TABLE))
         , m_bFirstRowAsLabel(false)
@@ -1982,17 +1955,19 @@ public:
         , m_nRows(pFrameFormat ? 0 : 2)
         , m_nColumns(pFrameFormat ? 0 : 2)
     {
+        if(m_pFrameFormat)
+            StartListening(m_pFrameFormat->GetNotifier());
     }
 
-    SwFrameFormat * GetFrameFormat()
+    SwFrameFormat* GetFrameFormat() { return m_pFrameFormat; }
+    void SetFrameFormat(SwFrameFormat& rFrameFormat)
     {
-        return static_cast<SwFrameFormat*>(GetRegisteredIn());
+        EndListeningAll();
+        m_pFrameFormat = &rFrameFormat;
+        StartListening(m_pFrameFormat->GetNotifier());
     }
 
-    bool IsDescriptor()
-    {
-        return m_pTableProps != nullptr;
-    }
+    bool IsDescriptor() { return m_pTableProps != nullptr; }
 
     // note: lock mutex before calling this to avoid concurrent update
     static std::pair<sal_uInt16, sal_uInt16> ThrowIfComplex(SwXTextTable &rThis)
@@ -2010,8 +1985,7 @@ public:
     sal_uInt16 GetRowCount();
     sal_uInt16 GetColumnCount();
 
-    // SwClient
-    virtual void Modify(const SfxPoolItem *pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint&) override;
 
 };
 
@@ -2191,7 +2165,8 @@ SwXTextTable::attach(const uno::Reference<text::XTextRange> & xTextRange)
             SwFrameFormat* pTableFormat(pTable->GetFrameFormat());
             lcl_FormatTable(pTableFormat);
 
-            pTableFormat->Add(m_pImpl.get());
+            m_pImpl->SetFrameFormat(*pTableFormat);
+
             if (!m_pImpl->m_sTableName.isEmpty())
             {
                 sal_uInt16 nIndex = 1;
@@ -2282,7 +2257,7 @@ uno::Reference<table::XCellRange> GetRangeByName(
     pUnoCursor->SetMark();
     pUnoCursor->GetPoint()->nNode = *pBRBox->GetSttNd();
     pUnoCursor->Move( fnMoveForward, GoInNode );
-    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
+    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor);
     // HACK: remove pending actions for selecting old style tables
     UnoActionRemoveContext aRemoveContext(rCursor);
     rCursor.MakeBoxSels();
@@ -3127,27 +3102,25 @@ sal_uInt16 SwXTextTable::Impl::GetColumnCount()
     return nRet;
 }
 
-void SwXTextTable::Impl::Modify(
-        SfxPoolItem const*const pOld, SfxPoolItem const*const pNew)
+void SwXTextTable::Impl::Notify(const SfxHint& rHint)
 {
-    if(pOld && pOld->Which() == RES_REMOVE_UNO_OBJECT &&
-        static_cast<void*>(GetRegisteredIn()) == static_cast<const SwPtrMsgPoolItem *>(pOld)->pObject )
-            EndListeningAll();
-    else
-        ClientModify(this, pOld, pNew);
+    if(rHint.GetId() == SfxHintId::Dying)
+    {
+        m_pFrameFormat = nullptr;
+        EndListeningAll();
+    }
     uno::Reference<uno::XInterface> const xThis(m_wThis);
-    if (!xThis.is())
+    if (xThis.is())
     {   // fdo#72695: if UNO object is already dead, don't revive it with event
-        return;
-    }
-    if (!GetRegisteredIn())
-    {
-        lang::EventObject const ev(xThis);
-        m_Listeners.disposeAndClear(ev);
-    }
-    else
-    {
-        lcl_SendChartEvent(xThis.get(), m_Listeners);
+        if(!m_pFrameFormat)
+        {
+            lang::EventObject const ev(xThis);
+            m_Listeners.disposeAndClear(ev);
+        }
+        else
+        {
+            lcl_SendChartEvent(xThis.get(), m_Listeners);
+        }
     }
 }
 
@@ -3168,10 +3141,11 @@ uno::Sequence<OUString> SwXTextTable::getSupportedServiceNames()
 
 
 class SwXCellRange::Impl
-    : public SwClient
+    : public SvtListener
 {
 private:
     ::osl::Mutex m_Mutex; // just for OInterfaceContainerHelper2
+    SwFrameFormat* m_pFrameFormat;
 
 public:
     uno::WeakReference<uno::XInterface> m_wThis;
@@ -3185,9 +3159,8 @@ public:
     bool m_bFirstRowAsLabel;
     bool m_bFirstColumnAsLabel;
 
-    Impl(sw::UnoCursorPointer const& pCursor, SwFrameFormat& rFrameFormat,
-            SwRangeDescriptor const & rDesc)
-        : SwClient(&rFrameFormat)
+    Impl(sw::UnoCursorPointer const& pCursor, SwFrameFormat& rFrameFormat, SwRangeDescriptor const& rDesc)
+        : m_pFrameFormat(&rFrameFormat)
         , m_ChartListeners(m_Mutex)
         , m_pTableCursor(pCursor)
         , m_RangeDescriptor(rDesc)
@@ -3195,12 +3168,13 @@ public:
         , m_bFirstRowAsLabel(false)
         , m_bFirstColumnAsLabel(false)
     {
+        StartListening(rFrameFormat.GetNotifier());
         m_RangeDescriptor.Normalize();
     }
 
     SwFrameFormat* GetFrameFormat()
     {
-        return static_cast<SwFrameFormat*>(GetRegisteredIn());
+        return m_pFrameFormat;
     }
 
     std::tuple<sal_uInt32, sal_uInt32, sal_uInt32, sal_uInt32> GetLabelCoordinates(bool bRow);
@@ -3213,8 +3187,7 @@ public:
     sal_Int32 GetRowCount();
     sal_Int32 GetColumnCount();
 
-    // SwClient
-    virtual void Modify(const SfxPoolItem *pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint& ) override;
 
 };
 
@@ -3359,7 +3332,7 @@ SwXCellRange::getCellRangeByPosition(
                     pUnoCursor->SetMark();
                     pUnoCursor->GetPoint()->nNode = *pBRBox->GetSttNd();
                     pUnoCursor->Move( fnMoveForward, GoInNode );
-                    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
+                    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor);
                     // HACK: remove pending actions for selecting old style tables
                     UnoActionRemoveContext aRemoveContext(rCursor);
                     rCursor.MakeBoxSels();
@@ -3880,24 +3853,20 @@ const SwUnoCursor* SwXCellRange::GetTableCursor() const
     return pFormat ? &(*m_pImpl->m_pTableCursor) : nullptr;
 }
 
-void SwXCellRange::Impl::Modify(
-        SfxPoolItem const*const pOld, SfxPoolItem const*const pNew)
+void SwXCellRange::Impl::Notify( const SfxHint& rHint )
 {
-    ClientModify(this, pOld, pNew);
     uno::Reference<uno::XInterface> const xThis(m_wThis);
-    if (!xThis.is())
-    {   // fdo#72695: if UNO object is already dead, don't revive it with event
-        return;
-    }
-    if(!GetRegisteredIn() || !m_pTableCursor)
+    if(rHint.GetId() == SfxHintId::Dying)
     {
+        m_pFrameFormat = nullptr;
         m_pTableCursor.reset(nullptr);
-        lang::EventObject const ev(xThis);
-        m_ChartListeners.disposeAndClear(ev);
     }
-    else
-    {
-        lcl_SendChartEvent(xThis.get(), m_ChartListeners);
+    if (xThis.is())
+    {   // fdo#72695: if UNO object is already dead, don't revive it with event
+        if(m_pFrameFormat)
+            lcl_SendChartEvent(xThis.get(), m_ChartListeners);
+        else
+            m_ChartListeners.disposeAndClear(lang::EventObject(xThis));
     }
 }
 
@@ -4048,7 +4017,7 @@ void SwXTableRows::removeByIndex(sal_Int32 nIndex, sal_Int32 nCount)
     pUnoCursor->SetMark();
     pUnoCursor->GetPoint()->nNode = *pBLBox->GetSttNd();
     pUnoCursor->Move(fnMoveForward, GoInNode);
-    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
+    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor);
     {
         // HACK: remove pending actions for selecting old style tables
         UnoActionRemoveContext aRemoveContext(rCursor);
@@ -4205,7 +4174,7 @@ void SwXTableColumns::removeByIndex(sal_Int32 nIndex, sal_Int32 nCount)
     pUnoCursor->SetMark();
     pUnoCursor->GetPoint()->nNode = *pTRBox->GetSttNd();
     pUnoCursor->Move(fnMoveForward, GoInNode);
-    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
+    SwUnoTableCursor& rCursor = dynamic_cast<SwUnoTableCursor&>(*pUnoCursor);
     {
         // HACK: remove pending actions for selecting old style tables
         UnoActionRemoveContext aRemoveContext(rCursor);

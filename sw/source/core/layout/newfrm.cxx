@@ -38,6 +38,7 @@
 #include <hints.hxx>
 #include <viewopt.hxx>
 #include <set>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <IDocumentFieldsAccess.hxx>
 #include <DocumentLayoutManager.hxx>
@@ -224,9 +225,70 @@ static SwRectFnCollection aVerticalLeftToRight = {
     /*.fnSetTopAndHeight =*/&SwRect::SetLeftAndWidth
 };
 
+/**
+ * This is the same as horizontal, but rotated counter-clockwise by 90 degrees.
+ * This means logical top is physical left, bottom is right, left is bottom,
+ * finally right is top. Values map from logical to physical.
+ */
+static SwRectFnCollection aVerticalLeftToRightBottomToTop = {
+    /*.fnGetTop =*/&SwRect::Left_,
+    /*.fnGetBottom =*/&SwRect::Right_,
+    /*.fnGetLeft =*/&SwRect::Bottom_,
+    /*.fnGetRight =*/&SwRect::Top_,
+    /*.fnGetWidth =*/&SwRect::Height_,
+    /*.fnGetHeight =*/&SwRect::Width_,
+    /*.fnGetPos =*/&SwRect::BottomLeft,
+    /*.fnGetSize =*/&SwRect::SwappedSize,
+
+    /*.fnSetTop =*/&SwRect::Left_,
+    /*.fnSetBottom =*/&SwRect::Right_,
+    /*.fnSetLeft =*/&SwRect::Bottom_,
+    /*.fnSetRight =*/&SwRect::Top_,
+    /*.fnSetWidth =*/&SwRect::Height_,
+    /*.fnSetHeight =*/&SwRect::Width_,
+
+    /*.fnSubTop =*/&SwRect::SubLeft,
+    /*.fnAddBottom =*/&SwRect::AddRight,
+    /*.fnSubLeft =*/&SwRect::AddBottom,
+    /*.fnAddRight =*/&SwRect::SubTop,
+    /*.fnAddWidth =*/&SwRect::AddHeight,
+    /*.fnAddHeight =*/&SwRect::AddWidth,
+
+    /*.fnSetPosX =*/&SwRect::SetPosY,
+    /*.fnSetPosY =*/&SwRect::SetPosX,
+
+    /*.fnGetTopMargin =*/&SwFrame::GetLeftMargin,
+    /*.fnGetBottomMargin =*/&SwFrame::GetRightMargin,
+    /*.fnGetLeftMargin =*/&SwFrame::GetBottomMargin,
+    /*.fnGetRightMargin =*/&SwFrame::GetTopMargin,
+    /*.fnSetXMargins =*/&SwFrame::SetTopBottomMargins,
+    /*.fnSetYMargins =*/&SwFrame::SetLeftRightMargins,
+    /*.fnGetPrtTop =*/&SwFrame::GetPrtLeft,
+    /*.fnGetPrtBottom =*/&SwFrame::GetPrtRight,
+    /*.fnGetPrtLeft =*/&SwFrame::GetPrtBottom,
+    /*.fnGetPrtRight =*/&SwFrame::GetPrtTop,
+    /*.fnTopDist =*/&SwRect::GetLeftDistance,
+    /*.fnBottomDist =*/&SwRect::GetRightDistance,
+    /*.fnLeftDist =*/&SwRect::GetBottomDistance,
+    /*.fnRightDist =*/&SwRect::GetTopDistance,
+    /*.fnSetLimit =*/&SwFrame::SetMaxRight,
+    /*.fnOverStep =*/&SwRect::OverStepRight,
+
+    /*.fnSetPos =*/&SwRect::SetLowerLeftCorner,
+    /*.fnMakePos =*/&SwFrame::MakeRightPos,
+    /*.fnXDiff =*/&SecondMinusFirst,
+    /*.fnYDiff =*/&FirstMinusSecond,
+    /*.fnXInc =*/&SwDecrement,
+    /*.fnYInc =*/&SwIncrement,
+
+    /*.fnSetLeftAndWidth =*/&SwRect::SetBottomAndHeight,
+    /*.fnSetTopAndHeight =*/&SwRect::SetLeftAndWidth
+};
+
 SwRectFn fnRectHori = &aHorizontal;
 SwRectFn fnRectVert = &aVertical;
 SwRectFn fnRectVertL2R = &aVerticalLeftToRight;
+SwRectFn fnRectVertL2RB2T = &aVerticalLeftToRightBottomToTop;
 
 // #i65250#
 sal_uInt32 SwFrameAreaDefinition::mnLastFrameId=0;

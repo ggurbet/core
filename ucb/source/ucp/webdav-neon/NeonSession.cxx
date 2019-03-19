@@ -671,7 +671,8 @@ void NeonSession::Init()
 {
     osl::Guard< osl::Mutex > theGuard( m_aMutex );
 
-    bool bCreateNewSession = false;
+    bool bCreateNewSession = m_bNeedNewSession;
+    m_bNeedNewSession = false;
 
     if ( m_pHttpSession == nullptr )
     {
@@ -725,13 +726,17 @@ void NeonSession::Init()
             m_aProxyName = rProxyCfg.aName;
             m_nProxyPort = rProxyCfg.nPort;
 
+            bCreateNewSession = true;
+        }
+
+        if (bCreateNewSession)
+        {
             // new session needed, destroy old first
             {
                 osl::Guard< osl::Mutex > theGlobalGuard(getGlobalNeonMutex());
                 ne_session_destroy( m_pHttpSession );
             }
             m_pHttpSession = nullptr;
-            bCreateNewSession = true;
         }
     }
 
@@ -1020,10 +1025,10 @@ void NeonSession::PROPFIND( const OUString & inPath,
 #if defined SAL_LOG_INFO
     { //debug
         SAL_INFO( "ucb.ucp.webdav", "PROPFIND - relative URL: <" << inPath << "> Depth: " << inDepth );
-         for(const auto& rPropName : inPropNames)
-         {
+        for(const auto& rPropName : inPropNames)
+        {
             SAL_INFO( "ucb.ucp.webdav", "PROPFIND - property requested: " << rPropName );
-         }
+        }
     } //debug
 #endif
 
@@ -1721,22 +1726,22 @@ bool NeonSession::UNLOCK( NeonLock * pLock )
     if ( ne_unlock( m_pHttpSession, pLock ) == NE_OK )
     {
 #if defined SAL_LOG_INFO
-    {
-        char * p = ne_uri_unparse( &(pLock->uri) );
-        SAL_INFO( "ucb.ucp.webdav", "UNLOCK (from store) - relative URL: <" << p << "> token: <" << pLock->token << "> succeeded." );
-        ne_free( p );
-    }
+        {
+            char * p = ne_uri_unparse( &(pLock->uri) );
+            SAL_INFO( "ucb.ucp.webdav", "UNLOCK (from store) - relative URL: <" << p << "> token: <" << pLock->token << "> succeeded." );
+            ne_free( p );
+        }
 #endif
         return true;
     }
     else
     {
 #if defined SAL_LOG_INFO
-    {
-        char * p = ne_uri_unparse( &(pLock->uri) );
-        SAL_INFO( "ucb.ucp.webdav", "UNLOCK (from store) - relative URL: <" << p << "> token: <" << pLock->token << "> failed!" );
-        ne_free( p );
-    }
+        {
+            char * p = ne_uri_unparse( &(pLock->uri) );
+            SAL_INFO( "ucb.ucp.webdav", "UNLOCK (from store) - relative URL: <" << p << "> token: <" << pLock->token << "> failed!" );
+            ne_free( p );
+        }
 #endif
         return false;
     }
@@ -1966,6 +1971,11 @@ void NeonSession::HandleError( int nError,
                                     m_aHostName, m_nPort ) );
 
         case NE_AUTH:         // User authentication failed on server
+            // m_pHttpSession could get invalidated, e.g., as result of clean_session called in
+            // ah_post_send in case when auth_challenge failed, which invalidates the auth_session
+            // which we established in Init(): the auth_session's sspi_host gets disposed, and
+            // next attempt to authenticate would crash in continue_sspi trying to dereference it
+            m_bNeedNewSession = true;
             throw DAVException( DAVException::DAV_HTTP_AUTH,
                                 NeonUri::makeConnectionEndPointString(
                                     m_aHostName, m_nPort ) );

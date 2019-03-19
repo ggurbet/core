@@ -29,7 +29,6 @@
 #include <sal/types.h>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <o3tl/make_unique.hxx>
 #include <comphelper/stl_types.hxx>
 
 #include <com/sun/star/sheet/XDimensionsSupplier.hpp>
@@ -43,7 +42,7 @@
 #include <com/sun/star/sheet/XMembersSupplier.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
-
+#include <tools/diagnose_ex.h>
 
 #include <unordered_map>
 #include <algorithm>
@@ -206,10 +205,10 @@ ScDPSaveDimension::ScDPSaveDimension(const ScDPSaveDimension& r) :
     bSubTotalDefault( r.bSubTotalDefault ),
     maSubTotalFuncs( r.maSubTotalFuncs )
 {
-    for (MemberList::const_iterator i=r.maMemberList.begin(); i != r.maMemberList.end() ; ++i)
+    for (const ScDPSaveMember* pMem : r.maMemberList)
     {
-        const OUString& rName =  (*i)->GetName();
-        std::unique_ptr<ScDPSaveMember> pNew(new ScDPSaveMember( **i ));
+        const OUString& rName = pMem->GetName();
+        std::unique_ptr<ScDPSaveMember> pNew(new ScDPSaveMember( *pMem ));
         maMemberList.push_back( pNew.get() );
         maMemberHash[rName] = std::move(pNew);
     }
@@ -249,15 +248,13 @@ bool ScDPSaveDimension::operator== ( const ScDPSaveDimension& r ) const
     if (maMemberHash.size() != r.maMemberHash.size() )
         return false;
 
-    MemberList::const_iterator a=maMemberList.begin();
-    MemberList::const_iterator b=r.maMemberList.begin();
-    for (; a != maMemberList.end() ; ++a, ++b)
-        if (!(**a == **b))
-            return false;
+    if (!std::equal(maMemberList.begin(), maMemberList.end(), r.maMemberList.begin(), r.maMemberList.end(),
+                    [](const ScDPSaveMember* a, const ScDPSaveMember* b) { return *a == *b; }))
+        return false;
 
     if( pReferenceValue && r.pReferenceValue )
     {
-        if ( !(*pReferenceValue == *r.pReferenceValue) )
+        if ( *pReferenceValue != *r.pReferenceValue )
         {
             return false;
         }
@@ -268,7 +265,7 @@ bool ScDPSaveDimension::operator== ( const ScDPSaveDimension& r ) const
     }
     if( this->pSortInfo && r.pSortInfo )
     {
-        if ( !(*this->pSortInfo == *r.pSortInfo) )
+        if ( *this->pSortInfo != *r.pSortInfo )
         {
             return false;
         }
@@ -279,7 +276,7 @@ bool ScDPSaveDimension::operator== ( const ScDPSaveDimension& r ) const
     }
     if( this->pAutoShowInfo && r.pAutoShowInfo )
     {
-        if ( !(*this->pAutoShowInfo == *r.pAutoShowInfo) )
+        if ( *this->pAutoShowInfo != *r.pAutoShowInfo )
         {
             return false;
         }
@@ -370,18 +367,13 @@ void ScDPSaveDimension::RemoveSubtotalName()
 
 bool ScDPSaveDimension::IsMemberNameInUse(const OUString& rName) const
 {
-    MemberList::const_iterator itr = maMemberList.begin(), itrEnd = maMemberList.end();
-    for (; itr != itrEnd; ++itr)
-    {
-        const ScDPSaveMember* pMem = *itr;
+    return std::any_of(maMemberList.begin(), maMemberList.end(), [&rName](const ScDPSaveMember* pMem) {
         if (rName.equalsIgnoreAsciiCase(pMem->GetName()))
             return true;
 
         const boost::optional<OUString> & pLayoutName = pMem->GetLayoutName();
-        if (pLayoutName && rName.equalsIgnoreAsciiCase(*pLayoutName))
-            return true;
-    }
-    return false;
+        return pLayoutName && rName.equalsIgnoreAsciiCase(*pLayoutName);
+    });
 }
 
 void ScDPSaveDimension::SetLayoutName(const OUString& rName)
@@ -436,10 +428,8 @@ void ScDPSaveDimension::SetCurrentPage( const OUString* pPage )
     // We use member's visibility attribute to filter by page dimension.
 
     // pPage == nullptr -> all members visible.
-    MemberList::iterator it = maMemberList.begin(), itEnd = maMemberList.end();
-    for (; it != itEnd; ++it)
+    for (ScDPSaveMember* pMem : maMemberList)
     {
-        ScDPSaveMember* pMem = *it;
         bool bVisible = !pPage || pMem->GetName() == *pPage;
         pMem->SetIsVisible(bVisible);
     }
@@ -447,13 +437,10 @@ void ScDPSaveDimension::SetCurrentPage( const OUString* pPage )
 
 OUString ScDPSaveDimension::GetCurrentPage() const
 {
-    MemberList::const_iterator it = maMemberList.begin(), itEnd = maMemberList.end();
-    for (; it != itEnd; ++it)
-    {
-        const ScDPSaveMember* pMem = *it;
-        if (pMem->GetIsVisible())
-            return pMem->GetName();
-    }
+    MemberList::const_iterator it = std::find_if(maMemberList.begin(), maMemberList.end(),
+        [](const ScDPSaveMember* pMem) { return pMem->GetIsVisible(); });
+    if (it != maMemberList.end())
+        return (*it)->GetName();
 
     return OUString();
 }
@@ -597,9 +584,8 @@ void ScDPSaveDimension::WriteToSource( const uno::Reference<uno::XInterface>& xD
                         if ( !pSortInfo || pSortInfo->Mode == sheet::DataPilotFieldSortMode::MANUAL )
                             nPosition = 0;
 
-                        for (MemberList::const_iterator i=maMemberList.begin(); i != maMemberList.end() ; ++i)
+                        for (ScDPSaveMember* pMember : maMemberList)
                         {
-                            ScDPSaveMember* pMember = *i;
                             if (!pMember->GetIsVisible())
                                 bHasHiddenMember = true;
                             OUString aMemberName = pMember->GetName();
@@ -627,10 +613,8 @@ void ScDPSaveDimension::WriteToSource( const uno::Reference<uno::XInterface>& xD
 void ScDPSaveDimension::UpdateMemberVisibility(const std::unordered_map<OUString, bool>& rData)
 {
     typedef std::unordered_map<OUString, bool> DataMap;
-    MemberList::iterator itrMem = maMemberList.begin(), itrMemEnd = maMemberList.end();
-    for (; itrMem != itrMemEnd; ++itrMem)
+    for (ScDPSaveMember* pMem : maMemberList)
     {
-        ScDPSaveMember* pMem = *itrMem;
         const OUString& rMemName = pMem->GetName();
         DataMap::const_iterator itr = rData.find(rMemName);
         if (itr != rData.end())
@@ -640,14 +624,8 @@ void ScDPSaveDimension::UpdateMemberVisibility(const std::unordered_map<OUString
 
 bool ScDPSaveDimension::HasInvisibleMember() const
 {
-    MemberList::const_iterator itrMem = maMemberList.begin(), itrMemEnd = maMemberList.end();
-    for (; itrMem != itrMemEnd; ++itrMem)
-    {
-        const ScDPSaveMember* pMem = *itrMem;
-        if (!pMem->GetIsVisible())
-            return true;
-    }
-    return false;
+    return std::any_of(maMemberList.begin(), maMemberList.end(),
+        [](const ScDPSaveMember* pMem) { return !pMem->GetIsVisible(); });
 }
 
 void ScDPSaveDimension::RemoveObsoleteMembers(const MemberSetType& rMembers)
@@ -702,10 +680,8 @@ void ScDPSaveDimension::Dump(int nIndent) const
     cout << aIndent << "    + is data layout: " << (bIsDataLayout ? "yes" : "no") << endl;
     cout << aIndent << "    + is duplicate: " << (bDupFlag ? "yes" : "no") << endl;
 
-    MemberList::const_iterator itMem = maMemberList.begin(), itMemEnd = maMemberList.end();
-    for (; itMem != itMemEnd; ++itMem)
+    for (ScDPSaveMember* pMem : maMemberList)
     {
-        ScDPSaveMember* pMem = *itMem;
         pMem->Dump(nIndent+1);
     }
 
@@ -740,7 +716,7 @@ ScDPSaveData::ScDPSaveData(const ScDPSaveData& r) :
 
     for (auto const& it : r.m_DimList)
     {
-        m_DimList.push_back(o3tl::make_unique<ScDPSaveDimension>(*it));
+        m_DimList.push_back(std::make_unique<ScDPSaveDimension>(*it));
     }
 }
 
@@ -924,15 +900,14 @@ ScDPSaveDimension* ScDPSaveData::DuplicateDimension(const OUString& rName)
 
 void ScDPSaveData::RemoveDimensionByName(const OUString& rName)
 {
-    for (auto iter = m_DimList.begin(); iter != m_DimList.end(); ++iter)
+    auto iter = std::find_if(m_DimList.begin(), m_DimList.end(),
+        [&rName](const std::unique_ptr<ScDPSaveDimension>& rxDim) {
+            return rxDim->GetName() == rName && !rxDim->IsDataLayout(); });
+    if (iter != m_DimList.end())
     {
-        if ((*iter)->GetName() != rName || (*iter)->IsDataLayout())
-            continue;
-
         m_DimList.erase(iter);
         RemoveDuplicateNameCount(rName);
         DimensionsChanged();
-        return;
     }
 }
 
@@ -948,11 +923,11 @@ ScDPSaveDimension* ScDPSaveData::GetInnermostDimension(DataPilotFieldOrientation
     // return the innermost dimension for the given orientation,
     // excluding data layout dimension
 
-    for (auto iter = m_DimList.rbegin(); iter != m_DimList.rend(); ++iter)
-    {
-        if ((*iter)->GetOrientation() == nOrientation && !(*iter)->IsDataLayout())
-            return iter->get();
-    }
+    auto iter = std::find_if(m_DimList.rbegin(), m_DimList.rend(),
+        [&nOrientation](const std::unique_ptr<ScDPSaveDimension>& rxDim) {
+            return rxDim->GetOrientation() == nOrientation && !rxDim->IsDataLayout(); });
+    if (iter != m_DimList.rend())
+        return iter->get();
 
     return nullptr;
 }
@@ -986,27 +961,23 @@ void ScDPSaveData::SetPosition( ScDPSaveDimension* pDim, long nNew )
 
     DataPilotFieldOrientation nOrient = pDim->GetOrientation();
 
-    for (auto it = m_DimList.begin(); it != m_DimList.end(); ++it)
+    auto it = std::find_if(m_DimList.begin(), m_DimList.end(),
+        [&pDim](const std::unique_ptr<ScDPSaveDimension>& rxDim) { return pDim == rxDim.get(); });
+    if (it != m_DimList.end())
     {
-        if (pDim == it->get())
-        {
-            // Tell vector<unique_ptr> to give up ownership of this element.
-            // Don't delete this instance as it is re-inserted into the
-            // container later.
-            it->release();
-            m_DimList.erase(it);
-            break;
-        }
+        // Tell vector<unique_ptr> to give up ownership of this element.
+        // Don't delete this instance as it is re-inserted into the
+        // container later.
+        it->release();
+        m_DimList.erase(it);
     }
 
-    auto iterInsert = m_DimList.begin();
-    while ( nNew > 0 && iterInsert != m_DimList.end())
-    {
-        if ((*iterInsert)->GetOrientation() == nOrient )
-            --nNew;
-
-        ++iterInsert;
-    }
+    auto iterInsert = std::find_if(m_DimList.begin(), m_DimList.end(),
+        [&nOrient, &nNew](const std::unique_ptr<ScDPSaveDimension>& rxDim) {
+            if (rxDim->GetOrientation() == nOrient )
+                --nNew;
+            return nNew <= 0;
+        });
 
     m_DimList.insert(iterInsert, std::unique_ptr<ScDPSaveDimension>(pDim));
     DimensionsChanged();
@@ -1105,15 +1076,14 @@ void ScDPSaveData::WriteToSource( const uno::Reference<sheet::XDimensionsSupplie
         uno::Reference<container::XIndexAccess> xIntDims = new ScNameToIndexAccess( xDimsName );
         long nIntCount = xIntDims->getCount();
 
-        auto iter = m_DimList.begin();
-        for (long i = 0; iter != m_DimList.end(); ++iter, ++i)
+        for (const auto& rxDim : m_DimList)
         {
-            OUString aName = (*iter)->GetName();
+            OUString aName = rxDim->GetName();
             OUString aCoreName = ScDPUtil::getSourceDimensionName(aName);
 
             SAL_INFO("sc.core", aName);
 
-            bool bData = (*iter)->IsDataLayout();
+            bool bData = rxDim->IsDataLayout();
 
             //TODO: getByName for ScDPSource, including DataLayoutDimension !!!!!!!!
 
@@ -1140,7 +1110,7 @@ void ScDPSaveData::WriteToSource( const uno::Reference<sheet::XDimensionsSupplie
 
                 if (bFound)
                 {
-                    if ((*iter)->GetDupFlag())
+                    if (rxDim->GetDupFlag())
                     {
                         uno::Reference<util::XCloneable> xCloneable(xIntDim, uno::UNO_QUERY);
                         SAL_WARN_IF(!xCloneable.is(), "sc.core", "cannot clone dimension");
@@ -1151,12 +1121,12 @@ void ScDPSaveData::WriteToSource( const uno::Reference<sheet::XDimensionsSupplie
                             if (xNewName.is())
                             {
                                 xNewName->setName(aName);
-                                (*iter)->WriteToSource(xNew);
+                                rxDim->WriteToSource(xNew);
                             }
                         }
                     }
                     else
-                        (*iter)->WriteToSource( xIntDim );
+                        rxDim->WriteToSource( xIntDim );
                 }
             }
             SAL_WARN_IF(!bFound, "sc.core", "WriteToSource: Dimension not found: " + aName + ".");
@@ -1172,9 +1142,10 @@ void ScDPSaveData::WriteToSource( const uno::Reference<sheet::XDimensionsSupplie
                     SC_UNO_DP_ROWGRAND, static_cast<bool>(nRowGrandMode) );
         }
     }
-    catch(uno::Exception&)
+    catch(uno::Exception const &)
     {
-        SAL_WARN("sc.core", "exception in WriteToSource");
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("sc.core", "exception in WriteToSource " << exceptionToString(ex));
     }
 }
 

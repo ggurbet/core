@@ -30,6 +30,7 @@
 #include <svl/undo.hxx>
 #include <unotools/lingucfg.hxx>
 #include <vcl/textdata.hxx>
+#include <vcl/textview.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <editeng/unolingu.hxx>
 #include <editeng/splwrap.hxx>
@@ -55,6 +56,7 @@
 #include <svtools/langtab.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <sal/log.hxx>
+#include <i18nlangtag/languagetag.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -290,13 +292,13 @@ void SpellDialog::Init_Impl()
     m_pLanguageLB->SetSelectHdl(LINK( this, SpellDialog, LanguageSelectHdl ) );
 
     // initialize language ListBox
-    m_pLanguageLB->SetLanguageList( SvxLanguageListFlags::SPELL_USED, false, false, true );
+    m_pLanguageLB->SetLanguageList( SvxLanguageListFlags::SPELL_USED, false, true );
 
     m_pSentenceED->ClearModifyFlag();
     LinguMgr::GetChangeAllList()->clear();
 }
 
-void SpellDialog::UpdateBoxes_Impl()
+void SpellDialog::UpdateBoxes_Impl(bool bCallFromSelectHdl)
 {
     sal_Int32 i;
     m_pSuggestionLB->Clear();
@@ -323,7 +325,8 @@ void SpellDialog::UpdateBoxes_Impl()
     }
     else
         SetTitle_Impl( nAltLanguage );
-    m_pLanguageLB->SelectLanguage( nAltLanguage );
+    if( !bCallFromSelectHdl )
+        m_pLanguageLB->SelectLanguage( nAltLanguage );
     int nDicts = InitUserDicts();
 
     // enter alternatives
@@ -488,16 +491,16 @@ IMPL_LINK( SpellDialog, CheckGrammarHdl, Button*, pBox, void )
 void SpellDialog::StartSpellOptDlg_Impl()
 {
     SfxItemSet aSet( SfxGetpApp()->GetPool(), svl::Items<SID_AUTOSPELL_CHECK,SID_AUTOSPELL_CHECK>{});
-    ScopedVclPtr<SfxSingleTabDialog> pDlg(
-        VclPtr<SfxSingleTabDialog>::Create(
-            this, aSet, "SpellOptionsDialog", "cui/ui/spelloptionsdialog.ui"));
-    VclPtr<SfxTabPage> pPage = SvxLinguTabPage::Create( pDlg->get_content_area(), &aSet );
-    static_cast<SvxLinguTabPage*>(pPage.get())->HideGroups( GROUP_MODULES );
-    pDlg->SetTabPage( pPage );
-    if(RET_OK == pDlg->Execute())
+    SfxSingleTabDialogController aDlg(GetFrameWeld(), aSet, "cui/ui/spelloptionsdialog.ui", "SpellOptionsDialog");
+
+    TabPageParent aParent(aDlg.get_content_area(), &aDlg);
+    VclPtr<SfxTabPage> xPage = SvxLinguTabPage::Create(aParent, &aSet);
+    static_cast<SvxLinguTabPage*>(xPage.get())->HideGroups( GROUP_MODULES );
+    aDlg.SetTabPage(xPage);
+    if (RET_OK == aDlg.run())
     {
         InitUserDicts();
-        const SfxItemSet* pOutSet = pDlg->GetOutputItemSet();
+        const SfxItemSet* pOutSet = aDlg.GetOutputItemSet();
         if(pOutSet)
             OfaTreeOptionsDialog::ApplyLanguageOptions(*pOutSet);
     }
@@ -764,9 +767,9 @@ IMPL_LINK(SpellDialog, LanguageSelectHdl, ListBox&, rBox, void)
             SpellContinue_Impl();
         }
 
-         m_pSentenceED->AddUndoAction(o3tl::make_unique<SpellUndoAction_Impl>(SPELLUNDO_CHANGE_LANGUAGE, aDialogUndoLink));
+        m_pSentenceED->AddUndoAction(std::make_unique<SpellUndoAction_Impl>(SPELLUNDO_CHANGE_LANGUAGE, aDialogUndoLink));
     }
-    SpellDialog::UpdateBoxes_Impl();
+    SpellDialog::UpdateBoxes_Impl(true);
 }
 
 
@@ -1849,7 +1852,7 @@ svx::SpellPortions SentenceEditWindow_Impl::CreateSpellPortions() const
             aRet.push_back(aPortion1);
 
         }
-        else if(!aBreakPositions.empty())
+        else
         {
             LanguagePositions_Impl::iterator aStart = aBreakPositions.begin();
             //start should always be Null
@@ -2002,7 +2005,7 @@ void  SentenceEditWindow_Impl::SetUndoEditMode(bool bSet)
     pTextEngine->RemoveAttribs( 0, sal_uInt16(TEXTATTR_FONTWEIGHT) );
 
     //put the appropriate action on the Undo-stack
-    AddUndoAction( o3tl::make_unique<SpellUndoAction_Impl>(
+    AddUndoAction( std::make_unique<SpellUndoAction_Impl>(
                         SPELLUNDO_UNDO_EDIT_MODE, GetSpellDialog()->aDialogUndoLink) );
     pSpellDialog->m_pChangePB->Enable();
 }

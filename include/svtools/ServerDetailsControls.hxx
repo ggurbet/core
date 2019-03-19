@@ -9,14 +9,23 @@
 #ifndef INCLUDED_SVTOOLS_SERVERDETAILSCONTROLS_HXX
 #define INCLUDED_SVTOOLS_SERVERDETAILSCONTROLS_HXX
 
-#include <map>
+#include <vector>
 
-#include <com/sun/star/ucb/XCommandEnvironment.hpp>
-#include <com/sun/star/task/PasswordContainer.hpp>
-#include <com/sun/star/task/XPasswordContainer2.hpp>
+#include <com/sun/star/uno/Reference.hxx>
 
+#include <tools/link.hxx>
 #include <tools/urlobj.hxx>
-#include <vcl/weld.hxx>
+
+namespace com :: sun :: star :: ucb { class XCommandEnvironment; }
+namespace com :: sun :: star :: awt { class XWindow; }
+
+namespace weld {
+    class Button;
+    class ComboBox;
+    class Entry;
+    class SpinButton;
+    class ToggleButton;
+}
 
 class PlaceEditDialog;
 
@@ -32,7 +41,7 @@ class DetailsContainer
 
         void setChangeHdl( const Link<DetailsContainer*,void>& rLink ) { m_aChangeHdl = rLink; }
 
-        virtual void show( bool bShow = true );
+        virtual void set_visible( bool bShow );
         virtual INetURLObject getUrl( );
 
         /** Try to split the URL in the controls of that container.
@@ -63,7 +72,7 @@ class HostDetailsContainer : public DetailsContainer
     public:
         HostDetailsContainer(PlaceEditDialog* pDialog, sal_uInt16 nPort, const OUString& sScheme);
 
-        virtual void show( bool bShow = true ) override;
+        virtual void set_visible( bool bShow ) override;
         virtual INetURLObject getUrl( ) override;
         virtual bool setUrl( const INetURLObject& rUrl ) override;
 
@@ -81,7 +90,7 @@ class DavDetailsContainer : public HostDetailsContainer
     public:
         DavDetailsContainer(PlaceEditDialog* pDialog);
 
-        virtual void show( bool bShow = true ) override;
+        virtual void set_visible( bool bShow ) override;
         virtual bool enableUserCredentials( ) override { return false; };
 
     protected:
@@ -101,7 +110,7 @@ class SmbDetailsContainer : public DetailsContainer
 
         virtual INetURLObject getUrl( ) override;
         virtual bool setUrl( const INetURLObject& rUrl ) override;
-        virtual void show( bool bShow = true ) override;
+        virtual void set_visible( bool bShow ) override;
 };
 
 class CmisDetailsContainer : public DetailsContainer
@@ -118,7 +127,7 @@ class CmisDetailsContainer : public DetailsContainer
     public:
         CmisDetailsContainer(PlaceEditDialog* pDialog, OUString const & sBinding);
 
-        virtual void show( bool bShow = true ) override;
+        virtual void set_visible( bool bShow ) override;
         virtual INetURLObject getUrl( ) override;
         virtual bool setUrl( const INetURLObject& rUrl ) override;
         virtual void setUsername( const OUString& rUsername ) override;

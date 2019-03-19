@@ -107,7 +107,7 @@ ImageHelper::getGraphicFromURL_nothrow( const OUString& _rURL )
 UnoControlEditModel::UnoControlEditModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXEdit );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXEdit>();
 }
 
 OUString UnoControlEditModel::getServiceName( )
@@ -313,7 +313,7 @@ void UnoEditControl::setText( const OUString& aText )
     {
         maText = aText;
         mbSetTextInPeer = true;
-            uno::Reference < awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
+        uno::Reference < awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
         if ( xText.is() )
             xText->setText( maText );
         }
@@ -382,7 +382,7 @@ OUString UnoEditControl::getText()
 OUString UnoEditControl::getSelectedText()
 {
     OUString sSelected;
-        uno::Reference< awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
+    uno::Reference< awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
     if ( xText.is() )
         sSelected = xText->getSelectedText();
 
@@ -391,7 +391,7 @@ OUString UnoEditControl::getSelectedText()
 
 void UnoEditControl::setSelection( const awt::Selection& aSelection )
 {
-        uno::Reference< awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
+    uno::Reference< awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
     if ( xText.is() )
         xText->setSelection( aSelection );
 }
@@ -399,7 +399,7 @@ void UnoEditControl::setSelection( const awt::Selection& aSelection )
 awt::Selection UnoEditControl::getSelection()
 {
     awt::Selection aSel;
-        uno::Reference< awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
+    uno::Reference< awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
     if ( xText.is() )
         aSel = xText->getSelection();
     return aSel;
@@ -435,7 +435,7 @@ void UnoEditControl::setMaxTextLen( sal_Int16 nLen )
     {
         mnMaxTextLen = nLen;
         mbSetMaxTextLenInPeer = true;
-            uno::Reference < awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
+        uno::Reference < awt::XTextComponent > xText( getPeer(), uno::UNO_QUERY );
         if ( xText.is() )
             xText->setMaxTextLen( mnMaxTextLen );
     }
@@ -676,7 +676,7 @@ void SAL_CALL GraphicControlModel::setFastPropertyValue_NoBroadcast( sal_Int32 n
 UnoControlButtonModel::UnoControlButtonModel( const Reference< XComponentContext >& rxContext )
     :GraphicControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXButton );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXButton>();
 
     osl_atomic_increment( &m_refCount );
     {
@@ -909,7 +909,7 @@ UnoControlImageControlModel::UnoControlImageControlModel( const Reference< XComp
     :GraphicControlModel( rxContext )
     ,mbAdjustingImageScaleMode( false )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXImageControl );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXImageControl>();
 }
 
 OUString UnoControlImageControlModel::getServiceName()
@@ -1079,7 +1079,7 @@ stardiv_Toolkit_UnoImageControlControl_get_implementation(
 UnoControlRadioButtonModel::UnoControlRadioButtonModel( const Reference< XComponentContext >& rxContext )
     :GraphicControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXRadioButton );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXRadioButton>();
 }
 
 OUString UnoControlRadioButtonModel::getServiceName()
@@ -1321,7 +1321,7 @@ stardiv_Toolkit_UnoRadioButtonControl_get_implementation(
 UnoControlCheckBoxModel::UnoControlCheckBoxModel( const Reference< XComponentContext >& rxContext )
     :GraphicControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXCheckBox );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXCheckBox>();
 }
 
 OUString UnoControlCheckBoxModel::getServiceName()
@@ -1466,14 +1466,14 @@ void UnoCheckBoxControl::setLabel( const OUString&  rLabel )
     ImplSetPropertyValue( GetPropertyName( BASEPROPERTY_LABEL ), uno::Any(rLabel), true );
 }
 
-void UnoCheckBoxControl::setState( short n )
+void UnoCheckBoxControl::setState( sal_Int16 n )
 {
-    ImplSetPropertyValue( GetPropertyName( BASEPROPERTY_STATE ), uno::Any(static_cast<sal_Int16>(n)), true );
+    ImplSetPropertyValue( GetPropertyName( BASEPROPERTY_STATE ), uno::Any(n), true );
 }
 
-short UnoCheckBoxControl::getState()
+sal_Int16 UnoCheckBoxControl::getState()
 {
-    short nState = 0;
+    sal_Int16 nState = 0;
     uno::Any aVal = ImplGetPropertyValue( GetPropertyName( BASEPROPERTY_STATE ) );
     aVal >>= nState;
     return nState;
@@ -1535,7 +1535,7 @@ stardiv_Toolkit_UnoCheckBoxControl_get_implementation(
 UnoControlFixedHyperlinkModel::UnoControlFixedHyperlinkModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXFixedHyperlink );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXFixedHyperlink>();
 }
 
 OUString UnoControlFixedHyperlinkModel::getServiceName()
@@ -1607,12 +1607,19 @@ uno::Any UnoFixedHyperlinkControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoControlBase::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoFixedHyperlinkControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoFixedHyperlinkControl )
-    cppu::UnoType<awt::XFixedHyperlink>::get(),
-    cppu::UnoType<awt::XLayoutConstrains>::get(),
-    UnoControlBase::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoFixedHyperlinkControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XFixedHyperlink>::get(),
+        cppu::UnoType<awt::XLayoutConstrains>::get(),
+        UnoControlBase::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 sal_Bool UnoFixedHyperlinkControl::isTransparent()
 {
@@ -1639,14 +1646,14 @@ OUString UnoFixedHyperlinkControl::getURL(  )
     return ImplGetPropertyValue_UString( BASEPROPERTY_URL );
 }
 
-void UnoFixedHyperlinkControl::setAlignment( short nAlign )
+void UnoFixedHyperlinkControl::setAlignment( sal_Int16 nAlign )
 {
-    ImplSetPropertyValue( GetPropertyName( BASEPROPERTY_ALIGN ), uno::Any(static_cast<sal_Int16>(nAlign)), true );
+    ImplSetPropertyValue( GetPropertyName( BASEPROPERTY_ALIGN ), uno::Any(nAlign), true );
 }
 
-short UnoFixedHyperlinkControl::getAlignment()
+sal_Int16 UnoFixedHyperlinkControl::getAlignment()
 {
-    short nAlign = 0;
+    sal_Int16 nAlign = 0;
     if ( mxModel.is() )
     {
         uno::Any aVal = ImplGetPropertyValue( GetPropertyName( BASEPROPERTY_ALIGN ) );
@@ -1721,7 +1728,7 @@ stardiv_Toolkit_UnoFixedHyperlinkControl_get_implementation(
 UnoControlFixedTextModel::UnoControlFixedTextModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXFixedText );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXFixedText>();
 }
 
 OUString UnoControlFixedTextModel::getServiceName()
@@ -1803,12 +1810,19 @@ uno::Any UnoFixedTextControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoControlBase::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoFixedTextControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoFixedTextControl )
-    cppu::UnoType<awt::XFixedText>::get(),
-    cppu::UnoType<awt::XLayoutConstrains>::get(),
-    UnoControlBase::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoFixedTextControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XFixedText>::get(),
+        cppu::UnoType<awt::XLayoutConstrains>::get(),
+        UnoControlBase::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 sal_Bool UnoFixedTextControl::isTransparent()
 {
@@ -1825,14 +1839,14 @@ OUString UnoFixedTextControl::getText()
     return ImplGetPropertyValue_UString( BASEPROPERTY_LABEL );
 }
 
-void UnoFixedTextControl::setAlignment( short nAlign )
+void UnoFixedTextControl::setAlignment( sal_Int16 nAlign )
 {
-    ImplSetPropertyValue( GetPropertyName( BASEPROPERTY_ALIGN ), uno::Any(static_cast<sal_Int16>(nAlign)), true );
+    ImplSetPropertyValue( GetPropertyName( BASEPROPERTY_ALIGN ), uno::Any(nAlign), true );
 }
 
-short UnoFixedTextControl::getAlignment()
+sal_Int16 UnoFixedTextControl::getAlignment()
 {
-    short nAlign = 0;
+    sal_Int16 nAlign = 0;
     if ( mxModel.is() )
     {
         uno::Any aVal = ImplGetPropertyValue( GetPropertyName( BASEPROPERTY_ALIGN ) );
@@ -2100,7 +2114,7 @@ UnoControlListBoxModel::UnoControlListBoxModel( const Reference< XComponentConte
 {
     if ( i_mode == ConstructDefault )
     {
-        UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXListBox );
+        UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXListBox>();
     }
 }
 
@@ -2976,7 +2990,7 @@ stardiv_Toolkit_UnoListBoxControl_get_implementation(
 UnoControlComboBoxModel::UnoControlComboBoxModel( const Reference< XComponentContext >& rxContext )
     :UnoControlListBoxModel( rxContext, ConstructWithoutProperties )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXComboBox );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXComboBox>();
 }
 
 OUString UnoControlComboBoxModel::getImplementationName()
@@ -3114,13 +3128,20 @@ uno::Any UnoComboBoxControl::queryAggregation( const uno::Type & rType )
     }
     return (aRet.hasValue() ? aRet : UnoEditControl::queryAggregation( rType ));
 }
+
+IMPL_IMPLEMENTATION_ID( UnoComboBoxControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoComboBoxControl )
-    cppu::UnoType<awt::XComboBox>::get(),
-    cppu::UnoType<awt::XItemListener>::get(),
-    cppu::UnoType<awt::XItemListListener>::get(),
-    UnoEditControl::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoComboBoxControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<awt::XComboBox>::get(),
+        cppu::UnoType<awt::XItemListener>::get(),
+        cppu::UnoType<awt::XItemListListener>::get(),
+        UnoEditControl::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 void UnoComboBoxControl::updateFromModel()
 {
@@ -3398,11 +3419,18 @@ uno::Any UnoSpinFieldControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoEditControl::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoSpinFieldControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoSpinFieldControl )
-    cppu::UnoType<awt::XSpinField>::get(),
-    UnoEditControl::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoSpinFieldControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XSpinField>::get(),
+        UnoEditControl::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 void UnoSpinFieldControl::createPeer( const uno::Reference< awt::XToolkit > & rxToolkit, const uno::Reference< awt::XWindowPeer >  & rParentPeer )
 {
@@ -3478,7 +3506,7 @@ void UnoSpinFieldControl::enableRepeat( sal_Bool bRepeat )
 UnoControlDateFieldModel::UnoControlDateFieldModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXDateField );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXDateField>();
 }
 
 OUString UnoControlDateFieldModel::getServiceName()
@@ -3556,11 +3584,18 @@ uno::Any UnoDateFieldControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoSpinFieldControl::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoDateFieldControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoDateFieldControl )
-    cppu::UnoType<awt::XDateField>::get(),
-    UnoSpinFieldControl::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoDateFieldControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XDateField>::get(),
+        UnoSpinFieldControl::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 void UnoDateFieldControl::createPeer( const uno::Reference< awt::XToolkit > & rxToolkit, const uno::Reference< awt::XWindowPeer >  & rParentPeer )
 {
@@ -3748,7 +3783,7 @@ stardiv_Toolkit_UnoDateFieldControl_get_implementation(
 UnoControlTimeFieldModel::UnoControlTimeFieldModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXTimeField );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXTimeField>();
 }
 
 OUString UnoControlTimeFieldModel::getServiceName()
@@ -3825,11 +3860,18 @@ uno::Any UnoTimeFieldControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoSpinFieldControl::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoTimeFieldControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoTimeFieldControl )
-    cppu::UnoType<awt::XTimeField>::get(),
-    UnoSpinFieldControl::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoTimeFieldControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XTimeField>::get(),
+        UnoSpinFieldControl::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 void UnoTimeFieldControl::createPeer( const uno::Reference< awt::XToolkit > & rxToolkit, const uno::Reference< awt::XWindowPeer >  & rParentPeer )
 {
@@ -3977,7 +4019,7 @@ stardiv_Toolkit_UnoTimeFieldControl_get_implementation(
 UnoControlNumericFieldModel::UnoControlNumericFieldModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXNumericField );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXNumericField>();
 }
 
 OUString UnoControlNumericFieldModel::getServiceName()
@@ -4054,11 +4096,18 @@ uno::Any UnoNumericFieldControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoSpinFieldControl::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoNumericFieldControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoNumericFieldControl )
-    cppu::UnoType<awt::XNumericField>::get(),
-    UnoSpinFieldControl::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoNumericFieldControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XNumericField>::get(),
+        UnoSpinFieldControl::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 void UnoNumericFieldControl::createPeer( const uno::Reference< awt::XToolkit > & rxToolkit, const uno::Reference< awt::XWindowPeer >  & rParentPeer )
 {
@@ -4197,7 +4246,7 @@ stardiv_Toolkit_UnoNumericFieldControl_get_implementation(
 UnoControlCurrencyFieldModel::UnoControlCurrencyFieldModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXCurrencyField );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXCurrencyField>();
 }
 
 OUString UnoControlCurrencyFieldModel::getServiceName()
@@ -4278,11 +4327,18 @@ uno::Any UnoCurrencyFieldControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoSpinFieldControl::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoCurrencyFieldControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoCurrencyFieldControl )
-    cppu::UnoType<awt::XCurrencyField>::get(),
-    UnoSpinFieldControl::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoCurrencyFieldControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XCurrencyField>::get(),
+        UnoSpinFieldControl::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 void UnoCurrencyFieldControl::createPeer( const uno::Reference< awt::XToolkit > & rxToolkit, const uno::Reference< awt::XWindowPeer >  & rParentPeer )
 {
@@ -4421,7 +4477,7 @@ stardiv_Toolkit_UnoCurrencyFieldControl_get_implementation(
 UnoControlPatternFieldModel::UnoControlPatternFieldModel( const Reference< XComponentContext >& rxContext )
     :UnoControlModel( rxContext )
 {
-    UNO_CONTROL_MODEL_REGISTER_PROPERTIES( VCLXPatternField );
+    UNO_CONTROL_MODEL_REGISTER_PROPERTIES<VCLXPatternField>();
 }
 
 OUString UnoControlPatternFieldModel::getServiceName()
@@ -4520,11 +4576,18 @@ uno::Any UnoPatternFieldControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoSpinFieldControl::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoPatternFieldControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoPatternFieldControl )
-    cppu::UnoType<awt::XPatternField>::get(),
-    UnoSpinFieldControl::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoPatternFieldControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XPatternField>::get(),
+        UnoSpinFieldControl::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 void UnoPatternFieldControl::setString( const OUString& rString )
 {
@@ -4673,11 +4736,18 @@ uno::Any UnoProgressBarControl::queryAggregation( const uno::Type & rType )
     return (aRet.hasValue() ? aRet : UnoControlBase::queryAggregation( rType ));
 }
 
+IMPL_IMPLEMENTATION_ID( UnoProgressBarControl )
+
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoProgressBarControl )
-    cppu::UnoType<awt::XProgressBar>::get(),
-    UnoControlBase::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoProgressBarControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XProgressBar>::get(),
+        UnoControlBase::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 // css::awt::XProgressBar
 void UnoProgressBarControl::setForegroundColor( sal_Int32 nColor )

@@ -21,7 +21,6 @@
 #include <unotools/textsearch.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/collatorwrapper.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/basedlgs.hxx>
 
@@ -32,7 +31,6 @@
 #include <docsh.hxx>
 #include <scresid.hxx>
 #include <strings.hrc>
-#include <simpref.hxx>
 #include <scmod.hxx>
 #include <tabvwsh.hxx>
 
@@ -202,9 +200,8 @@ void ScAcceptChgDlg::Init()
         aChangeViewSet.SetTheAuthorToShow(pChanges->GetUser());
         pTPFilter->ClearAuthors();
         const std::set<OUString>& rUserColl = pChanges->GetUserCollection();
-        std::set<OUString>::const_iterator it = rUserColl.begin(), itEnd = rUserColl.end();
-        for (; it != itEnd; ++it)
-            pTPFilter->InsertAuthor(*it);
+        for (const auto& rItem : rUserColl)
+            pTPFilter->InsertAuthor(rItem);
     }
 
     ScChangeViewSettings* pViewSettings=pDoc->GetChangeViewSettings();
@@ -371,7 +368,7 @@ SvTreeListEntry* ScAcceptChgDlg::AppendChangeAction(
     OUStringBuffer aBuf;
     OUString aDesc;
 
-    ScRedlinData* pNewData=new ScRedlinData;
+    std::unique_ptr<ScRedlinData> pNewData(new ScRedlinData);
     pNewData->pData=const_cast<ScChangeAction *>(pScChangeAction);
     pNewData->nActionNo=pScChangeAction->GetActionNumber();
     pNewData->bIsAcceptable=pScChangeAction->IsClickable();
@@ -475,12 +472,12 @@ SvTreeListEntry* ScAcceptChgDlg::AppendChangeAction(
     if(!bFlag&& bUseColor&& pParent==nullptr)
     {
         pEntry = pTheView->InsertEntry(
-            aBuf.makeStringAndClear() ,pNewData, COL_LIGHTBLUE, pParent, TREELIST_APPEND);
+            aBuf.makeStringAndClear(), std::move(pNewData), COL_LIGHTBLUE, pParent, TREELIST_APPEND);
     }
     else if(bFlag&& bUseColor&& pParent!=nullptr)
     {
         pEntry = pTheView->InsertEntry(
-            aBuf.makeStringAndClear(), pNewData, COL_GREEN, pParent, TREELIST_APPEND);
+            aBuf.makeStringAndClear(), std::move(pNewData), COL_GREEN, pParent, TREELIST_APPEND);
         SvTreeListEntry* pExpEntry=pParent;
 
         while(pExpEntry!=nullptr && !pTheView->IsExpanded(pExpEntry))
@@ -495,7 +492,7 @@ SvTreeListEntry* ScAcceptChgDlg::AppendChangeAction(
     else
     {
         pEntry = pTheView->InsertEntry(
-            aBuf.makeStringAndClear(), pNewData, pParent, TREELIST_APPEND);
+            aBuf.makeStringAndClear(), std::move(pNewData), pParent, TREELIST_APPEND);
     }
     return pEntry;
 }
@@ -546,7 +543,7 @@ SvTreeListEntry* ScAcceptChgDlg::AppendFilteredAction(
         OUString aString;
         OUString aDesc;
 
-        ScRedlinData* pNewData=new ScRedlinData;
+        std::unique_ptr<ScRedlinData> pNewData(new ScRedlinData);
         pNewData->pData=const_cast<ScChangeAction *>(pScChangeAction);
         pNewData->nActionNo=pScChangeAction->GetActionNumber();
         pNewData->bIsAcceptable=pScChangeAction->IsClickable();
@@ -615,10 +612,8 @@ SvTreeListEntry* ScAcceptChgDlg::AppendFilteredAction(
         if (pTheView->IsValidComment(aComment))
         {
             aString+=aComment;
-            pEntry=pTheView->InsertEntry(aString,pNewData,pParent,TREELIST_APPEND);
+            pEntry=pTheView->InsertEntry(aString,std::move(pNewData),pParent,TREELIST_APPEND);
         }
-        else
-            delete pNewData;
     }
     return pEntry;
 }
@@ -719,7 +714,7 @@ SvTreeListEntry* ScAcceptChgDlg::InsertChangeActionContent(const ScChangeActionC
 
     aString += aComment;
 
-    ScRedlinData* pNewData=new ScRedlinData;
+    std::unique_ptr<ScRedlinData> pNewData(new ScRedlinData);
     pNewData->nInfo=nSpecial;
     pNewData->pData=const_cast<ScChangeActionContent *>(pScChangeAction);
     pNewData->nActionNo=pScChangeAction->GetActionNumber();
@@ -734,10 +729,10 @@ SvTreeListEntry* ScAcceptChgDlg::InsertChangeActionContent(const ScChangeActionC
     if (pTheView->IsValidComment(aComment) && bFlag)
     {
         bHasFilterEntry=true;
-        pEntry=pTheView->InsertEntry(aString,pNewData,pParent);
+        pEntry=pTheView->InsertEntry(aString,std::move(pNewData),pParent);
     }
     else
-        pEntry=pTheView->InsertEntry(aString,pNewData,COL_LIGHTBLUE,pParent);
+        pEntry=pTheView->InsertEntry(aString,std::move(pNewData),COL_LIGHTBLUE,pParent);
     return pEntry;
 }
 
@@ -746,7 +741,7 @@ void ScAcceptChgDlg::UpdateView()
     SvTreeListEntry* pParent=nullptr;
     ScChangeTrack* pChanges=nullptr;
     const ScChangeAction* pScChangeAction=nullptr;
-    SetPointer(Pointer(PointerStyle::Wait));
+    SetPointer(PointerStyle::Wait);
     pTheView->SetUpdateMode(false);
     bool bFilterFlag = pTPFilter->IsDate() || pTPFilter->IsRange() ||
         pTPFilter->IsAuthor() || pTPFilter->IsComment();
@@ -819,19 +814,19 @@ void ScAcceptChgDlg::UpdateView()
     if(nAcceptCount>0)
     {
         pParent=pTheView->InsertEntry(
-            aStrAllAccepted, static_cast< RedlinData * >(nullptr),
+            aStrAllAccepted, std::unique_ptr<RedlinData>(),
             static_cast< SvTreeListEntry * >(nullptr));
         pParent->EnableChildrenOnDemand();
     }
     if(nRejectCount>0)
     {
         pParent=pTheView->InsertEntry(
-            aStrAllRejected, static_cast< RedlinData * >(nullptr),
+            aStrAllRejected, std::unique_ptr<RedlinData>(),
             static_cast< SvTreeListEntry * >(nullptr));
         pParent->EnableChildrenOnDemand();
     }
     pTheView->SetUpdateMode(true);
-    SetPointer(Pointer(PointerStyle::Arrow));
+    SetPointer(PointerStyle::Arrow);
     SvTreeListEntry* pEntry=pTheView->First();
     if(pEntry!=nullptr)
         pTheView->Select(pEntry);
@@ -909,7 +904,7 @@ IMPL_LINK( ScAcceptChgDlg, FilterHandle, SvxTPFilter*, pRef, void )
 
 IMPL_LINK( ScAcceptChgDlg, RejectHandle, SvxTPView*, pRef, void )
 {
-    SetPointer(Pointer(PointerStyle::Wait));
+    SetPointer(PointerStyle::Wait);
 
     bIgnoreMsg=true;
     ScChangeTrack* pChanges=pDoc->GetChangeTrack();
@@ -940,13 +935,13 @@ IMPL_LINK( ScAcceptChgDlg, RejectHandle, SvxTPView*, pRef, void )
         ClearView();
         UpdateView();
     }
-    SetPointer(Pointer(PointerStyle::Arrow));
+    SetPointer(PointerStyle::Arrow);
 
     bIgnoreMsg=false;
 }
 IMPL_LINK( ScAcceptChgDlg, AcceptHandle, SvxTPView*, pRef, void )
 {
-    SetPointer(Pointer(PointerStyle::Wait));
+    SetPointer(PointerStyle::Wait);
 
     ScChangeTrack* pChanges=pDoc->GetChangeTrack();
     bIgnoreMsg=true;
@@ -1023,7 +1018,7 @@ void ScAcceptChgDlg::AcceptFiltered()
 
 IMPL_LINK_NOARG(ScAcceptChgDlg, RejectAllHandle, SvxTPView*, void)
 {
-    SetPointer(Pointer(PointerStyle::Wait));
+    SetPointer(PointerStyle::Wait);
     bIgnoreMsg=true;
     ScChangeTrack* pChanges=pDoc->GetChangeTrack();
     if(pChanges!=nullptr)
@@ -1043,14 +1038,14 @@ IMPL_LINK_NOARG(ScAcceptChgDlg, RejectAllHandle, SvxTPView*, void)
         ClearView();
         UpdateView();
     }
-    SetPointer(Pointer(PointerStyle::Arrow));
+    SetPointer(PointerStyle::Arrow);
 
     bIgnoreMsg=false;
 }
 
 IMPL_LINK_NOARG(ScAcceptChgDlg, AcceptAllHandle, SvxTPView*, void)
 {
-    SetPointer(Pointer(PointerStyle::Wait));
+    SetPointer(PointerStyle::Wait);
 
     bIgnoreMsg=true;
     ScChangeTrack* pChanges=pDoc->GetChangeTrack();
@@ -1069,7 +1064,7 @@ IMPL_LINK_NOARG(ScAcceptChgDlg, AcceptAllHandle, SvxTPView*, void)
         UpdateView();
     }
     bIgnoreMsg=false;
-    SetPointer(Pointer(PointerStyle::Arrow));
+    SetPointer(PointerStyle::Arrow);
 }
 
 IMPL_LINK_NOARG(ScAcceptChgDlg, SelectHandle, SvTreeListBox*, void)
@@ -1124,13 +1119,8 @@ bool ScAcceptChgDlg::InsertContentChildren(ScChangeActionMap* pActionMap,SvTreeL
     }
     SvTreeListEntry* pEntry=nullptr;
 
-    ScChangeActionMap::iterator itChangeAction = pActionMap->begin();
-    while( itChangeAction != pActionMap->end() )
-    {
-        if( itChangeAction->second->GetState()==SC_CAS_VIRGIN )
-            break;
-        ++itChangeAction;
-    }
+    ScChangeActionMap::iterator itChangeAction = std::find_if(pActionMap->begin(), pActionMap->end(),
+        [](const std::pair<sal_uLong, ScChangeAction*>& rEntry) { return rEntry.second->GetState() == SC_CAS_VIRGIN; });
 
     if( itChangeAction == pActionMap->end() )
         return true;
@@ -1215,11 +1205,10 @@ bool ScAcceptChgDlg::InsertChildren(ScChangeActionMap* pActionMap,SvTreeListEntr
 {
     ScChangeTrack* pChanges=pDoc->GetChangeTrack();
     bool bTheTestFlag = true;
-    ScChangeActionMap::iterator itChangeAction;
 
-    for( itChangeAction = pActionMap->begin(); itChangeAction != pActionMap->end(); ++itChangeAction )
+    for( const auto& rChangeAction : *pActionMap )
     {
-        SvTreeListEntry* pEntry=AppendChangeAction( itChangeAction->second, pParent, false, true );
+        SvTreeListEntry* pEntry=AppendChangeAction( rChangeAction.second, pParent, false, true );
 
         if(pEntry!=nullptr)
         {
@@ -1230,8 +1219,8 @@ bool ScAcceptChgDlg::InsertChildren(ScChangeActionMap* pActionMap,SvTreeListEntr
             pEntryData->bIsAcceptable=false;
             pEntryData->bDisabled=true;
 
-            if( itChangeAction->second->IsDialogParent() )
-                Expand( pChanges, itChangeAction->second, pEntry );
+            if( rChangeAction.second->IsDialogParent() )
+                Expand( pChanges, rChangeAction.second, pEntry );
         }
     }
     return bTheTestFlag;
@@ -1243,15 +1232,14 @@ bool ScAcceptChgDlg::InsertDeletedChildren(const ScChangeAction* pScChangeAction
     ScChangeTrack* pChanges=pDoc->GetChangeTrack();
     bool bTheTestFlag = true;
     SvTreeListEntry* pEntry=nullptr;
-    ScChangeActionMap::iterator itChangeAction;
 
-    for( itChangeAction = pActionMap->begin(); itChangeAction != pActionMap->end(); ++itChangeAction )
+    for( const auto& rChangeAction : *pActionMap )
     {
 
-        if( pScChangeAction != itChangeAction->second )
-            pEntry = AppendChangeAction( itChangeAction->second, pParent, false, true );
+        if( pScChangeAction != rChangeAction.second )
+            pEntry = AppendChangeAction( rChangeAction.second, pParent, false, true );
         else
-            pEntry = AppendChangeAction( itChangeAction->second, pParent, true, true );
+            pEntry = AppendChangeAction( rChangeAction.second, pParent, true, true );
 
         if(pEntry!=nullptr)
         {
@@ -1262,8 +1250,8 @@ bool ScAcceptChgDlg::InsertDeletedChildren(const ScChangeAction* pScChangeAction
 
             bTheTestFlag=false;
 
-            if( itChangeAction->second->IsDialogParent() )
-                Expand( pChanges, itChangeAction->second, pEntry );
+            if( rChangeAction.second->IsDialogParent() )
+                Expand( pChanges, rChangeAction.second, pEntry );
         }
     }
     return bTheTestFlag;
@@ -1312,7 +1300,7 @@ bool ScAcceptChgDlg::Expand(
 IMPL_LINK( ScAcceptChgDlg, ExpandingHandle, SvTreeListBox*, pTable, bool )
 {
     ScChangeTrack* pChanges=pDoc->GetChangeTrack();
-    SetPointer(Pointer(PointerStyle::Wait));
+    SetPointer(PointerStyle::Wait);
     if(pTable!=nullptr && pChanges!=nullptr)
     {
         ScChangeActionMap aActionMap;
@@ -1367,7 +1355,7 @@ IMPL_LINK( ScAcceptChgDlg, ExpandingHandle, SvTreeListBox*, pTable, bool )
 
         }
     }
-    SetPointer(Pointer(PointerStyle::Arrow));
+    SetPointer(PointerStyle::Arrow);
     return true;
 }
 
@@ -1377,7 +1365,7 @@ void ScAcceptChgDlg::AppendChanges(const ScChangeTrack* pChanges,sal_uLong nStar
     if(pChanges!=nullptr)
     {
         SvTreeListEntry* pParent=nullptr;
-        SetPointer(Pointer(PointerStyle::Wait));
+        SetPointer(PointerStyle::Wait);
         pTheView->SetUpdateMode(false);
 
         bool bTheFlag = false;
@@ -1443,7 +1431,7 @@ void ScAcceptChgDlg::AppendChanges(const ScChangeTrack* pChanges,sal_uLong nStar
         pTPView->EnableRejectAll(bTheFlag);
 
         pTheView->SetUpdateMode(true);
-        SetPointer(Pointer(PointerStyle::Arrow));
+        SetPointer(PointerStyle::Arrow);
     }
 }
 
@@ -1546,38 +1534,35 @@ void ScAcceptChgDlg::UpdateEntrys(const ScChangeTrack* pChgTrack, sal_uLong nSta
 
 IMPL_LINK( ScAcceptChgDlg, ChgTrackModHdl, ScChangeTrack&, rChgTrack, void)
 {
-    ScChangeTrackMsgQueue::iterator iter;
     ScChangeTrackMsgQueue& aMsgQueue= rChgTrack.GetMsgQueue();
 
     sal_uLong   nStartAction;
     sal_uLong   nEndAction;
 
-    for (iter = aMsgQueue.begin(); iter != aMsgQueue.end(); ++iter)
+    for (const auto& rMsg : aMsgQueue)
     {
-        nStartAction=(*iter)->nStartAction;
-        nEndAction=(*iter)->nEndAction;
+        nStartAction = rMsg.nStartAction;
+        nEndAction = rMsg.nEndAction;
 
         if(!bIgnoreMsg)
         {
             bNoSelection=true;
 
-            switch((*iter)->eMsgType)
+            switch(rMsg.eMsgType)
             {
-                case SC_CTM_APPEND: AppendChanges(&rChgTrack,nStartAction,nEndAction);
+                case ScChangeTrackMsgType::Append:
+                                    AppendChanges(&rChgTrack,nStartAction,nEndAction);
                                     break;
-                case SC_CTM_REMOVE: RemoveEntrys(nStartAction,nEndAction);
+                case ScChangeTrackMsgType::Remove:
+                                    RemoveEntrys(nStartAction,nEndAction);
                                     break;
-                case SC_CTM_PARENT:
-                case SC_CTM_CHANGE: //bNeedsUpdate=true;
+                case ScChangeTrackMsgType::Parent:
+                case ScChangeTrackMsgType::Change: //bNeedsUpdate=true;
                                     UpdateEntrys(&rChgTrack,nStartAction,nEndAction);
                                     break;
-                default:
-                {
-                    // added to avoid warnings
-                }
+                default: assert(false); break;
             }
         }
-        delete *iter;
     }
 
     aMsgQueue.clear();

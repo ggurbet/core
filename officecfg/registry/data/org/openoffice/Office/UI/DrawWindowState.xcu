@@ -371,6 +371,20 @@
           <value>true</value>
         </prop>
       </node>
+      <node oor:name="private:resource/toolbar/redactedexportbar" oor:op="replace">
+        <prop oor:name="Docked" oor:type="xs:boolean">
+          <value>false</value>
+        </prop>
+        <prop oor:name="UIName" oor:type="xs:string">
+          <value xml:lang="en-US">Redacted Export</value>
+        </prop>
+        <prop oor:name="Visible" oor:type="xs:boolean">
+          <value>false</value>
+        </prop>
+        <prop oor:name="HideFromToolbarMenu" oor:type="xs:boolean">
+          <value>true</value>
+        </prop>
+      </node>
       <node oor:name="private:resource/toolbar/ellipsesbar" oor:op="replace">
         <prop oor:name="Docked" oor:type="xs:boolean">
           <value>false</value>
@@ -503,20 +517,6 @@
         </prop>
         <prop oor:name="Visible" oor:type="xs:boolean">
           <value>false</value>
-        </prop>
-      </node>
-      <node oor:name="private:resource/toolbar/moreformcontrols" oor:op="replace">
-        <prop oor:name="UIName" oor:type="xs:string">
-          <value xml:lang="en-US">More Controls</value>
-        </prop>
-        <prop oor:name="Docked" oor:type="xs:boolean">
-          <value>false</value>
-        </prop>
-        <prop oor:name="Visible" oor:type="xs:boolean">
-          <value>false</value>
-        </prop>
-        <prop oor:name="HideFromToolbarMenu" oor:type="xs:boolean">
-          <value>true</value>
         </prop>
       </node>
       <node oor:name="private:resource/toolbar/formdesign" oor:op="replace">
@@ -898,6 +898,17 @@
         </prop>
         <prop oor:name="HideFromToolbarMenu" oor:type="xs:boolean">
           <value>true</value>
+        </prop>
+      </node>
+      <node oor:name="private:resource/toolbar/redactionbar" oor:op="replace">
+        <prop oor:name="Docked" oor:type="xs:boolean">
+          <value>false</value>
+        </prop>
+        <prop oor:name="Visible" oor:type="xs:boolean">
+          <value>false</value>
+        </prop>
+        <prop oor:name="UIName" oor:type="xs:string">
+          <value xml:lang="en-US">Redaction</value>
         </prop>
       </node>
     </node>

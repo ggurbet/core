@@ -19,7 +19,9 @@
 
 #include <svx/frmsel.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/event.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 
 #include <algorithm>
 #include <math.h>
@@ -680,7 +682,7 @@ void FrameSelectorImpl::DrawAllFrameBorders()
     const drawinglayer::geometry::ViewInformation2D aNewViewInformation2D;
     std::unique_ptr<drawinglayer::processor2d::BaseProcessor2D> pProcessor2D(
         drawinglayer::processor2d::createPixelProcessor2DFromOutputDevice(
-            *mpVirDev.get(),
+            *mpVirDev,
             aNewViewInformation2D));
 
     if (pProcessor2D)
@@ -1063,7 +1065,7 @@ void FrameSelector::Paint(vcl::RenderContext& rRenderContext, const tools::Recta
         mxImpl->DrawAllTrackingRects(rRenderContext);
 }
 
-void FrameSelector::MouseButtonDown( const MouseEvent& rMEvt )
+bool FrameSelector::MouseButtonDown( const MouseEvent& rMEvt )
 {
     /*  Mouse handling:
         * Click on an unselected frame border:
@@ -1147,6 +1149,8 @@ void FrameSelector::MouseButtonDown( const MouseEvent& rMEvt )
             GetSelectHdl().Call( nullptr );
         }
     }
+
+    return true;
 }
 
 bool FrameSelector::KeyInput( const KeyEvent& rKEvt )

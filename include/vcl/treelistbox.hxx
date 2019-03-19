@@ -133,12 +133,16 @@ public:
 
 class VCL_DLLPUBLIC SvLBoxItem
 {
+protected:
+    bool mbDisabled;
+
 public:
                         SvLBoxItem();
     virtual             ~SvLBoxItem();
     virtual SvLBoxItemType GetType() const = 0;
     const Size&         GetSize(const SvTreeListBox* pView, const SvTreeListEntry* pEntry) const;
     static const Size&  GetSize(const SvViewDataEntry* pData, sal_uInt16 nItemPos);
+    void Enable(bool bEnabled) { mbDisabled = !bEnabled; }
 
     virtual void Paint(const Point& rPos, SvTreeListBox& rOutDev, vcl::RenderContext& rRenderContext, const SvViewDataEntry* pView, const SvTreeListEntry& rEntry) = 0;
 
@@ -611,7 +615,6 @@ public:
     void            SetDefaultCollapsedEntryBmp( const Image& rBmp );
 
     void            SetCheckButtonState( SvTreeListEntry*, SvButtonState );
-    void            SetCheckButtonInvisible( SvTreeListEntry* );
     SvButtonState   GetCheckButtonState( SvTreeListEntry* ) const;
 
     void            SetEntryText(SvTreeListEntry*, const OUString& );
@@ -712,6 +715,8 @@ public:
 
     // A Parent's Children are turned into Children of the Parent which comes next in hierarchy
     void            RemoveParentKeepChildren( SvTreeListEntry* pParent );
+
+    sal_Int32       DefaultCompare(const SvLBoxString* pLeftText, const SvLBoxString* pRightText);
 
     DECL_LINK( DefaultCompare, const SvSortData&, sal_Int32 );
     virtual void    ModelNotification( SvListAction nActionId, SvTreeListEntry* pEntry1,

@@ -60,6 +60,7 @@
 #include <vcl/svapp.hxx>
 #include <vcl/menubtn.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <edtwin.hxx>
 #include <view.hxx>
@@ -444,7 +445,7 @@ void SwAnnotationWin::InitControls()
     mpSidebarTextControl = VclPtr<SidebarTextControl>::Create( *this,
                                                  WB_NODIALOGCONTROL,
                                                  mrView, mrMgr );
-    mpSidebarTextControl->SetPointer(Pointer(PointerStyle::Text));
+    mpSidebarTextControl->SetPointer(PointerStyle::Text);
 
     // window controls for author and date
     mpMetadataAuthor = VclPtr<Edit>::Create( this, 0 );
@@ -1468,7 +1469,7 @@ void SwAnnotationWin::ChangeSidebarItem( SwSidebarItem const & rSidebarItem )
     const bool bAnchorChanged = mpAnchorFrame != rSidebarItem.maLayoutInfo.mpAnchorFrame;
     if ( bAnchorChanged )
     {
-        mrMgr.DisconnectSidebarWinFromFrame( *(mpAnchorFrame), *this );
+        mrMgr.DisconnectSidebarWinFromFrame( *mpAnchorFrame, *this );
     }
 
     mrSidebarItem = rSidebarItem;

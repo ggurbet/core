@@ -19,7 +19,6 @@
 
 #include <sal/config.h>
 
-#include <o3tl/make_unique.hxx>
 #include <svx/sdr/properties/defaultproperties.hxx>
 #include <sdr/properties/itemsettools.hxx>
 #include <svl/itemset.hxx>
@@ -41,7 +40,7 @@ namespace sdr
         std::unique_ptr<SfxItemSet> DefaultProperties::CreateObjectSpecificItemSet(SfxItemPool& rPool)
         {
             // Basic implementation; Basic object has NO attributes
-            return o3tl::make_unique<SfxItemSet>(rPool);
+            return std::make_unique<SfxItemSet>(rPool);
         }
 
         DefaultProperties::DefaultProperties(SdrObject& rObj)
@@ -231,7 +230,7 @@ namespace sdr
         {
         }
 
-        void DefaultProperties::dumpAsXml(struct _xmlTextWriter * pWriter) const
+        void DefaultProperties::dumpAsXml(xmlTextWriterPtr pWriter) const
         {
             xmlTextWriterStartElement(pWriter, BAD_CAST("DefaultProperties"));
             mpItemSet->dumpAsXml(pWriter);

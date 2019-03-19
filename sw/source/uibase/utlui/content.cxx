@@ -26,7 +26,6 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/event.hxx>
 #include <o3tl/enumrange.hxx>
-#include <o3tl/make_unique.hxx>
 #include <o3tl/sorted_vector.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
@@ -445,7 +444,7 @@ void SwContentType::Init(bool* pbInvalidateWindow)
             {
                 for(SwPostItMgr::const_iterator i = aMgr->begin(); i != aMgr->end(); ++i)
                 {
-                    if (const SwFormatField* pFormatField = dynamic_cast<const SwFormatField *>((*i)->GetBroadCaster())) // SwPostit
+                    if (const SwFormatField* pFormatField = dynamic_cast<const SwFormatField *>((*i)->GetBroadcaster())) // SwPostit
                     {
                         if (pFormatField->GetTextField() && pFormatField->IsFieldInDoc() &&
                             (*i)->mLayoutStatus!=SwPostItHelper::INVISIBLE )
@@ -711,7 +710,7 @@ void SwContentType::FillMemberList(bool* pbLevelOrVisibilityChanged)
             for (const auto& rRefMark : aRefMarks)
             {
                 // References sorted alphabetically
-                pMember->insert(o3tl::make_unique<SwContent>(this, rRefMark, 0));
+                pMember->insert(std::make_unique<SwContent>(this, rRefMark, 0));
             }
         }
         break;
@@ -753,7 +752,7 @@ void SwContentType::FillMemberList(bool* pbLevelOrVisibilityChanged)
             {
                 for(SwPostItMgr::const_iterator i = aMgr->begin(); i != aMgr->end(); ++i)
                 {
-                    if (const SwFormatField* pFormatField = dynamic_cast<const SwFormatField *>((*i)->GetBroadCaster())) // SwPostit
+                    if (const SwFormatField* pFormatField = dynamic_cast<const SwFormatField *>((*i)->GetBroadcaster())) // SwPostit
                     {
                         if (pFormatField->GetTextField() && pFormatField->IsFieldInDoc() &&
                             (*i)->mLayoutStatus!=SwPostItHelper::INVISIBLE )
@@ -829,7 +828,8 @@ enum STR_CONTEXT_IDX
     IDX_STR_ACTIVE = 8,
     IDX_STR_INACTIVE = 9,
     IDX_STR_EDIT_ENTRY = 10,
-    IDX_STR_DELETE_ENTRY = 11
+    IDX_STR_DELETE_ENTRY = 11,
+    IDX_STR_SEND_OUTLINE_TO_CLIPBOARD_ENTRY = 12
 };
 
 static const char* STR_CONTEXT_ARY[] =
@@ -845,7 +845,8 @@ static const char* STR_CONTEXT_ARY[] =
     STR_ACTIVE,
     STR_INACTIVE,
     STR_EDIT_ENTRY,
-    STR_DELETE_ENTRY
+    STR_DELETE_ENTRY,
+    STR_SEND_OUTLINE_TO_CLIPBOARD_ENTRY
 };
 
 SwContentTree::SwContentTree(vcl::Window* pParent, SwNavigationPI* pDialog)
@@ -1317,6 +1318,11 @@ VclPtr<PopupMenu> SwContentTree::CreateContextMenu()
     {
         assert(dynamic_cast<SwContentType*>(static_cast<SwTypeNumber*>(pEntry->GetUserData())));
         SwContentType* pType = static_cast<SwContentType*>(pEntry->GetUserData());
+        if(ContentTypeId::OUTLINE == pType->GetType())
+        {
+            pPop->InsertSeparator();
+            pPop->InsertItem(700, m_aContextStrings[IDX_STR_SEND_OUTLINE_TO_CLIPBOARD_ENTRY]);
+        }
         if ( (pType->GetType() == ContentTypeId::POSTIT) &&  (!m_pActiveShell->GetView().GetDocShell()->IsReadOnly()) && ( pType->GetMemberCount() > 0) )
         {
             bSubPop4 = true;
@@ -3117,6 +3123,11 @@ void SwContentTree::ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry )
                 m_pActiveShell->GetView().GetPostItMgr()->Delete();
                 break;
             }
+        case 700:
+            {
+                m_pActiveShell->GetView().GetViewFrame()->GetDispatcher()->Execute(FN_OUTLINE_TO_CLIPBOARD);
+                break;
+            }
         //Display
         default:
         if(nSelectedPopupEntry > 300 && nSelectedPopupEntry < 400)
@@ -3620,7 +3631,7 @@ void SwContentTree::InitEntry(SvTreeListEntry* pEntry,
     const size_t nColToHilite = 1; //0==Bitmap;1=="Column1";2=="Column2"
     SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2, eButtonKind );
     SvLBoxString& rCol = static_cast<SvLBoxString&>(pEntry->GetItem( nColToHilite ));
-    pEntry->ReplaceItem(o3tl::make_unique<SwContentLBoxString>(rCol.GetText()), nColToHilite);
+    pEntry->ReplaceItem(std::make_unique<SwContentLBoxString>(rCol.GetText()), nColToHilite);
 }
 
 void SwContentLBoxString::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::RenderContext& rRenderContext,
@@ -3643,7 +3654,7 @@ void SwContentLBoxString::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::Ren
 
 void SwContentTree::DataChanged(const DataChangedEvent& rDCEvt)
 {
-  if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) &&
+    if ( (rDCEvt.GetType() == DataChangedEventType::SETTINGS) &&
          (rDCEvt.GetFlags() & AllSettingsFlags::STYLE) )
     {
         FindActiveTypeAndRemoveUserData();

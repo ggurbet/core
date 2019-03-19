@@ -942,8 +942,8 @@ namespace
         Reference< XInteractionHandler > xHandler( aArgs.getOrDefault( "InteractionHandler", Reference< XInteractionHandler >() ) );
         if ( xHandler.is() )
         {
-            rtl::Reference< ::comphelper::OInteractionRequest > pRequest( new ::comphelper::OInteractionRequest( _rException ) );
-            rtl::Reference< ::comphelper::OInteractionApprove > pApprove( new ::comphelper::OInteractionApprove );
+            rtl::Reference pRequest( new ::comphelper::OInteractionRequest( _rException ) );
+            rtl::Reference pApprove( new ::comphelper::OInteractionApprove );
             pRequest->addContinuation( pApprove.get() );
 
             try
@@ -2013,7 +2013,7 @@ void OApplicationController::renameEntry()
         if ( xContainer.is() )
         {
             std::unique_ptr< IObjectNameCheck > pNameChecker;
-            VclPtr< OSaveAsDlg > aDialog;
+            std::unique_ptr<OSaveAsDlg> xDialog;
 
             Reference<XRename> xRename;
             const ElementType eType = getContainer()->getElementType();
@@ -2046,9 +2046,8 @@ void OApplicationController::renameEntry()
                                     }
                                 }
                                 pNameChecker.reset( new HierarchicalNameCheck( xHNames.get(), OUString() ) );
-                                aDialog.reset( VclPtr<OSaveAsDlg>::Create(
-
-                                    getView(), getORB(), sName, sLabel, *pNameChecker, SADFlags::TitleRename ) );
+                                xDialog.reset(new OSaveAsDlg(
+                                    getFrameWeld(), getORB(), sName, sLabel, *pNameChecker, SADFlags::TitleRename));
                             }
                         }
                     }
@@ -2066,37 +2065,35 @@ void OApplicationController::renameEntry()
 
                         ensureConnection();
                         pNameChecker.reset( new DynamicTableOrQueryNameCheck( getConnection(), nCommandType ) );
-                        aDialog.reset( VclPtr<OSaveAsDlg>::Create(
-
-                            getView(), nCommandType, getORB(), getConnection(),
-                                *aList.begin(), *pNameChecker, SADFlags::TitleRename ) );
+                        xDialog.reset(new OSaveAsDlg(getFrameWeld(), nCommandType, getORB(), getConnection(),
+                                *aList.begin(), *pNameChecker, SADFlags::TitleRename));
                     }
                     break;
                 default:
                     break;
             }
 
-            if ( xRename.is() && aDialog.get() )
+            if (xRename.is() && xDialog)
             {
 
                 bool bTryAgain = true;
                 while( bTryAgain )
                 {
-                    if ( aDialog->Execute() == RET_OK )
+                    if (xDialog->run() == RET_OK)
                     {
                         try
                         {
                             OUString sNewName;
                             if ( eType == E_TABLE )
                             {
-                                OUString sName = aDialog->getName();
-                                OUString sCatalog = aDialog->getCatalog();
-                                OUString sSchema  = aDialog->getSchema();
+                                OUString sName = xDialog->getName();
+                                OUString sCatalog = xDialog->getCatalog();
+                                OUString sSchema  = xDialog->getSchema();
 
                                 sNewName = ::dbtools::composeTableName( m_xMetaData, sCatalog, sSchema, sName, false, ::dbtools::EComposeRule::InDataManipulation );
                             }
                             else
-                                sNewName = aDialog->getName();
+                                sNewName = xDialog->getName();
 
                             OUString sOldName = *aList.begin();
                             if ( eType == E_FORM || eType == E_REPORT )
@@ -2159,7 +2156,7 @@ void OApplicationController::onSelectionChanged()
     if ( pView->getSelectionCount() == 1 )
     {
         const ElementType eType = pView->getElementType();
-          if ( pView->isALeafSelected() )
+        if ( pView->isALeafSelected() )
         {
             const OUString sName = pView->getQualifiedName( nullptr /* means 'first selected' */ );
             showPreviewFor( eType, sName );

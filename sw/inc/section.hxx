@@ -252,7 +252,7 @@ class SwSectionFrameMoveAndDeleteHint : public SfxHint
 {
     public:
         SwSectionFrameMoveAndDeleteHint( const bool bSaveContent )
-            : SfxHint( SfxHintId::Dying )
+            : SfxHint( SfxHintId::SwSectionFrameMoveAndDelete )
             , mbSaveContent( bSaveContent )
         {}
 
@@ -330,7 +330,7 @@ public:
     virtual bool IsInUndo() const override;
     virtual bool IsInContent() const override;
     virtual css::uno::Reference< css::rdf::XMetadatable > MakeUnoObject() override;
-    void dumpAsXml(struct _xmlTextWriter* pWriter) const;
+    void dumpAsXml(xmlTextWriterPtr pWriter) const;
 
 };
 

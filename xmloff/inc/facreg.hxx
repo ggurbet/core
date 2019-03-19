@@ -34,11 +34,6 @@ namespace com { namespace sun { namespace star {
 } } }
 
 // impress oasis import
-OUString XMLImpressImportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressImportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressImportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
 OUString XMLImpressStylesImportOasis_getImplementationName() throw();
 css::uno::Sequence<OUString> XMLImpressStylesImportOasis_getSupportedServiceNames() throw();
 /// @throws css::uno::Exception
@@ -61,21 +56,6 @@ css::uno::Reference<css::uno::XInterface> XMLImpressSettingsImportOasis_createIn
     css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
 
 // impress oasis export
-OUString XMLImpressExportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressExportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressExportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressStylesExportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressStylesExportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressStylesExportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
-OUString XMLImpressContentExportOasis_getImplementationName() throw();
-css::uno::Sequence<OUString> XMLImpressContentExportOasis_getSupportedServiceNames() throw();
-/// @throws css::uno::Exception
-css::uno::Reference<css::uno::XInterface> XMLImpressContentExportOasis_createInstance(
-    css::uno::Reference<css::lang::XMultiServiceFactory> const & rSMgr);
 OUString XMLImpressMetaExportOasis_getImplementationName() throw();
 css::uno::Sequence<OUString> XMLImpressMetaExportOasis_getSupportedServiceNames() throw();
 /// @throws css::uno::Exception

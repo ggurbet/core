@@ -19,6 +19,8 @@
 
 
 #include "main.hxx"
+#include <sal/log.hxx>
+#include <unotools/configmgr.hxx>
 #include <vcl/BitmapTools.hxx>
 #include <memory>
 
@@ -308,13 +310,20 @@ bool CGMBitmap::ImplGetDimensions( CGMBitmapDescriptor& rDesc )
 
 void CGMBitmap::ImplInsert( CGMBitmapDescriptor const & rSource, CGMBitmapDescriptor& rDest )
 {
+    if (utl::ConfigManager::IsFuzzing() && rDest.mxBitmap.GetSizePixel().Height() + rSource.mnY > SAL_MAX_UINT16)
+    {
+        SAL_WARN("filter.icgm", "bitmap would expand too much");
+        rDest.mbStatus = false;
+        return;
+    }
+    rDest.mxBitmap.Expand( 0, rSource.mnY );
+    rDest.mxBitmap.CopyPixel( tools::Rectangle( Point( 0, rDest.mnY ), Size( rSource.mnX, rSource.mnY ) ),
+        tools::Rectangle( Point( 0, 0 ), Size( rSource.mnX, rSource.mnY ) ), &rSource.mxBitmap );
+
     if ( ( rSource.mnR.Y == rDest.mnQ.Y ) && ( rSource.mnR.X == rDest.mnQ.X ) )
     {   // Insert on Bottom
         if ( mpCGM->mnVDCYmul == -1 )
             rDest.mnOrigin = rSource.mnOrigin;          // new origin
-        rDest.mxBitmap.Expand( 0, rSource.mnY );
-        rDest.mxBitmap.CopyPixel( tools::Rectangle( Point( 0, rDest.mnY ), Size( rSource.mnX, rSource.mnY ) ),
-            tools::Rectangle( Point( 0, 0 ), Size( rSource.mnX, rSource.mnY ) ), &rSource.mxBitmap );
         FloatPoint aFloatPoint;
         aFloatPoint.X = rSource.mnQ.X - rSource.mnR.X;
         aFloatPoint.Y = rSource.mnQ.Y - rSource.mnR.Y;
@@ -327,9 +336,6 @@ void CGMBitmap::ImplInsert( CGMBitmapDescriptor const & rSource, CGMBitmapDescri
     {   // Insert on Top
         if ( mpCGM->mnVDCYmul == 1 )
             rDest.mnOrigin = rSource.mnOrigin;          // new origin
-        rDest.mxBitmap.Expand( 0, rSource.mnY );
-        rDest.mxBitmap.CopyPixel( tools::Rectangle( Point( 0, rDest.mnY ), Size( rSource.mnX, rSource.mnY ) ),
-            tools::Rectangle( Point( 0, 0 ), Size( rSource.mnX, rSource.mnY ) ), &rSource.mxBitmap );
         rDest.mnP = rSource.mnP;
         rDest.mnR = rSource.mnR;
     }
@@ -349,7 +355,7 @@ std::unique_ptr<CGMBitmap> CGMBitmap::GetNext()
             ( ( xCGMTempBitmap->pCGMBitmapDescriptor->mnQ.X == pCGMBitmapDescriptor->mnR.X ) &&
                     ( xCGMTempBitmap->pCGMBitmapDescriptor->mnQ.Y == pCGMBitmapDescriptor->mnR.Y ) ) ) )
         {
-            ImplInsert( *(xCGMTempBitmap->pCGMBitmapDescriptor), *(pCGMBitmapDescriptor) );
+            ImplInsert( *(xCGMTempBitmap->pCGMBitmapDescriptor), *pCGMBitmapDescriptor );
             xCGMTempBitmap.reset();
             return xCGMTempBitmap;
         }

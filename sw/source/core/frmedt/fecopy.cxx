@@ -470,7 +470,7 @@ bool SwFEShell::Copy( SwFEShell* pDestShell, const Point& rSttPt,
     // If there are table formulas in the area, then display the table first
     // so that the table formula can calculate a new value first
     // (individual boxes in the area are retrieved via the layout)
-     SwFieldType* pTableFieldTyp = pDestShell->GetDoc()->getIDocumentFieldsAccess().GetSysFieldType( SwFieldIds::Table );
+    SwFieldType* pTableFieldTyp = pDestShell->GetDoc()->getIDocumentFieldsAccess().GetSysFieldType( SwFieldIds::Table );
 
     if( IsFrameSelected() )
     {
@@ -584,20 +584,20 @@ bool SwFEShell::Copy( SwFEShell* pDestShell, const Point& rSttPt,
             aBoxes.empty() ? nullptr : aBoxes[0]->GetSttNd()->FindTableNode());
         if (nullptr != pTableNd)
         {
-            SwPosition* pDstPos = nullptr;
+            std::unique_ptr<SwPosition> pDstPos;
             if( this == pDestShell )
             {
                 // same shell? Then create new Cursor at the
                 // DocumentPosition passed
-                pDstPos = new SwPosition( *GetCursor()->GetPoint() );
+                pDstPos.reset(new SwPosition( *GetCursor()->GetPoint() ));
                 Point aPt( rInsPt );
-                GetLayout()->GetCursorOfst( pDstPos, aPt );
+                GetLayout()->GetCursorOfst( pDstPos.get(), aPt );
                 if( !pDstPos->nNode.GetNode().IsNoTextNode() )
                     bRet = true;
             }
             else if( !pDestShell->GetCursor()->GetNode().IsNoTextNode() )
             {
-                pDstPos = new SwPosition( *pDestShell->GetCursor()->GetPoint() );
+                pDstPos.reset(new SwPosition( *pDestShell->GetCursor()->GetPoint() ));
                 bRet = true;
             }
 
@@ -624,7 +624,6 @@ bool SwFEShell::Copy( SwFEShell* pDestShell, const Point& rSttPt,
                 if( this == pDestShell )
                     GetCursorDocPos() = rInsPt;
             }
-            delete pDstPos;
         }
     }
     else
@@ -1178,6 +1177,8 @@ void SwFEShell::PastePages( SwFEShell& rToFill, sal_uInt16 nStartPage, sal_uInt1
     EndAllAction();
 }
 
+comphelper::OInterfaceContainerHelper2& SwFEShell::GetPasteListeners() { return m_aPasteListeners; }
+
 bool SwFEShell::GetDrawObjGraphic( SotClipboardFormatId nFormat, Graphic& rGrf ) const
 {
     OSL_ENSURE( Imp()->HasDrawView(), "GetDrawObjGraphic without DrawView?" );
@@ -1569,7 +1570,7 @@ bool SwFEShell::Paste(const Graphic &rGrf, const OUString& rURL)
         }
         else
         {
-            pView->AddUndo(o3tl::make_unique<SdrUndoAttrObj>(*pObj));
+            pView->AddUndo(std::make_unique<SdrUndoAttrObj>(*pObj));
 
             SfxItemSet aSet(pView->GetModel()->GetItemPool(), svl::Items<XATTR_FILLSTYLE, XATTR_FILLBITMAP>{});
 

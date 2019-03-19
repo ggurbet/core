@@ -739,8 +739,6 @@ void SwFltControlStack::SetAttrInDoc(const SwPosition& rTmpPos,
                 }
             }
 
-            delete pTOXAttr->GetBase();
-
             // set (above saved and removed) the break item at the node following the TOX
             if (pNd && aBkSet.Count())
                 pNd->SetAttr(aBkSet);
@@ -750,7 +748,7 @@ void SwFltControlStack::SetAttrInDoc(const SwPosition& rTmpPos,
         {
             if (rEntry.MakeRegion(pDoc, aRegion, true))
             {
-              pDoc->getIDocumentRedlineAccess().SetRedlineFlags( RedlineFlags::On
+                pDoc->getIDocumentRedlineAccess().SetRedlineFlags( RedlineFlags::On
                                               | RedlineFlags::ShowInsert
                                               | RedlineFlags::ShowDelete );
                 SwFltRedline& rFltRedline = *static_cast<SwFltRedline*>(rEntry.pAttr.get());
@@ -1083,14 +1081,14 @@ const std::vector< std::pair<OUString, OUString> >& SwFltRDFMark::GetAttributes(
 
 // methods of SwFltTOX follow
 SwFltTOX::SwFltTOX(SwTOXBase* pBase)
-    : SfxPoolItem(RES_FLTR_TOX), pTOXBase(pBase),
+    : SfxPoolItem(RES_FLTR_TOX), m_xTOXBase(pBase),
       bHadBreakItem( false ), bHadPageDescItem( false )
 {
 }
 
 bool SwFltTOX::operator==(const SfxPoolItem& rItem) const
 {
-    return pTOXBase == static_cast<const SwFltTOX&>(rItem).pTOXBase;
+    return m_xTOXBase.get() == static_cast<const SwFltTOX&>(rItem).m_xTOXBase.get();
 }
 
 SfxPoolItem* SwFltTOX::Clone(SfxItemPool*) const

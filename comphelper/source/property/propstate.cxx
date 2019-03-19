@@ -146,7 +146,8 @@ namespace comphelper
     {
         // simply compare the current and the default value
         Any aCurrentValue = getPropertyDefaultByHandle( _nHandle );
-        Any aDefaultValue;  getFastPropertyValue( aDefaultValue, _nHandle );
+        Any aDefaultValue;
+        getFastPropertyValue( aDefaultValue, _nHandle );
 
         bool bEqual = uno_type_equalData(
                 const_cast< void* >( aCurrentValue.getValue() ), aCurrentValue.getValueType().getTypeLibType(),
@@ -186,12 +187,10 @@ namespace comphelper
 
     Sequence< Type > SAL_CALL OStatefulPropertySet::getTypes()
     {
-        Sequence< Type > aOwnTypes( 2 );
-        aOwnTypes[0] = cppu::UnoType<XWeak>::get();
-        aOwnTypes[1] = cppu::UnoType<XTypeProvider>::get();
-
         return concatSequences(
-            aOwnTypes,
+            Sequence {
+                cppu::UnoType<XWeak>::get(),
+                cppu::UnoType<XTypeProvider>::get() },
             OPropertyStateHelper::getTypes()
         );
     }

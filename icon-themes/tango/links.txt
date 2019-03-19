@@ -360,8 +360,8 @@ fpicker/res/fp011.png res/sc06303.png
 sfx2/res/styfam1.png sw/res/sf01.png
 sfx2/res/styfam2.png sw/res/sf02.png
 sfx2/res/styfam4.png sw/res/sf04.png
-extensions/source/scanner/minus.png sfx2/res/minus.png
-extensions/source/scanner/plus.png sfx2/res/plus.png
+extensions/res/scanner/minus.png sfx2/res/minus.png
+extensions/res/scanner/plus.png sfx2/res/plus.png
 res/minus.png sfx2/res/minus.png
 res/plus.png sfx2/res/plus.png
 sc/res/sf02.png sw/res/sf04.png
@@ -533,6 +533,8 @@ cmd/sc_sheetcommentmenu.png cmd/sc_insertannotation.png
 # text background colour Impress/Draw
 cmd/sc_charbackcolor.png cmd/sc_backcolor.png
 cmd/lc_charbackcolor.png cmd/lc_backcolor.png
+cmd/sc_tablecellbackgroundcolor.png cmd/sc_backgroundcolor.png
+cmd/lc_tablecellbackgroundcolor.png cmd/lc_backgroundcolor.png
 
 # Toggle graphics visibility in Writer
 cmd/sc_showgraphics.png cmd/sc_insertgraphic.png
@@ -632,3 +634,7 @@ cmd/sc_viewsidebarstyles.png cmd/sc_designerdialog.png
 cmd/sc_charactermenu.png cmd/sc_fontdialog.png
 cmd/sc_paragraphmenu.png cmd/sc_paragraphdialog.png
 cmd/sc_numberingmenu.png cmd/sc_outlinebullet.png
+
+# Grid
+cmd/sc_insertgridcontrol.png cmd/sc_gridvisible.png
+cmd/lc_insertgridcontrol.png cmd/lc_gridvisible.png

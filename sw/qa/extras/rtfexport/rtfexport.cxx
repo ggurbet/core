@@ -878,72 +878,6 @@ DECLARE_RTFEXPORT_TEST(testFdo82858, "fdo82858.docx")
                          getProperty<table::BorderLine2>(getShape(1), "TopBorder").LineStyle);
 }
 
-DECLARE_RTFEXPORT_TEST(testCjklist12, "cjklist12.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::AIU_HALFWIDTH_JA, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist13, "cjklist13.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::IROHA_HALFWIDTH_JA, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist16, "cjklist16.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_TRADITIONAL_JA, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist20, "cjklist20.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::AIU_FULLWIDTH_JA, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist21, "cjklist21.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::IROHA_FULLWIDTH_JA, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist24, "cjklist24.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::HANGUL_SYLLABLE_KO, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist25, "cjklist25.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::HANGUL_JAMO_KO, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist30, "cjklist30.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::TIAN_GAN_ZH, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist31, "cjklist31.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::DI_ZI_ZH, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist34, "cjklist34.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_UPPER_ZH_TW, numFormat);
-}
-
-DECLARE_RTFEXPORT_TEST(testCjklist38, "cjklist38.rtf")
-{
-    sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
-    CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_UPPER_ZH, numFormat);
-}
-
 DECLARE_RTFEXPORT_TEST(testTdf104936, "tdf104936.rtf")
 {
     uno::Reference<text::XTextRange> xShape1(getShape(1), uno::UNO_QUERY);
@@ -1092,6 +1026,8 @@ DECLARE_RTFEXPORT_TEST(testTdf94043, "tdf94043.rtf")
     // This was 0, the separator line was not visible due to 0 width.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2),
                          getProperty<sal_Int32>(xTextColumns, "SeparatorLineWidth"));
+
+    CPPUNIT_ASSERT_EQUAL(7, getParagraphs());
 }
 
 DECLARE_RTFEXPORT_TEST(testTdf94377, "tdf94377.rtf")
@@ -1417,7 +1353,7 @@ DECLARE_RTFEXPORT_TEST(testTdf112507, "tdf112507.rtf")
     // First table's second row had 3 cells (so 2 separators).
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), aSeparators.getLength());
     // This was 3333, i.e. the B2 cell was too narrow and the text needed 2 lines.
-    CPPUNIT_ASSERT_GREATER(5000, aSeparators[1].Position - aSeparators[0].Position);
+    CPPUNIT_ASSERT_GREATEREQUAL(5000, aSeparators[1].Position - aSeparators[0].Position);
 }
 
 DECLARE_RTFEXPORT_TEST(testTdf107480, "tdf107480.rtf")

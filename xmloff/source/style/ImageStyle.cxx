@@ -19,6 +19,7 @@
 
 #include <xmloff/ImageStyle.hxx>
 #include <com/sun/star/awt/XBitmap.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <xmloff/attrlist.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmluconv.hxx>
@@ -89,7 +90,7 @@ void XMLImageStyle::exportXML(OUString const & rStrName, uno::Any const & rValue
 bool XMLImageStyle::importXML(uno::Reference<xml::sax::XAttributeList> const & xAttrList,
                               uno::Any& rValue, OUString& rStrName, SvXMLImport& rImport)
 {
-     static const SvXMLTokenMapEntry aHatchAttrTokenMap[] =
+    static const SvXMLTokenMapEntry aHatchAttrTokenMap[] =
     {
         { XML_NAMESPACE_DRAW, XML_NAME, XML_TOK_IMAGE_NAME },
         { XML_NAMESPACE_DRAW, XML_DISPLAY_NAME, XML_TOK_IMAGE_DISPLAY_NAME },

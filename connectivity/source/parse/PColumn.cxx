@@ -25,6 +25,9 @@
 #include <comphelper/types.hxx>
 #include <tools/diagnose_ex.h>
 
+#include <com/sun/star/sdbc/XResultSetMetaData.hpp>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
+
 using namespace ::comphelper;
 using namespace connectivity;
 using namespace dbtools;
@@ -103,7 +106,7 @@ OParseColumn::OParseColumn( const OUString& Name,
     const Reference< XDatabaseMetaData >& _rxDBMetaData,const Reference< XNameAccess>& i_xQueryColumns )
 {
     sal_Int32 nColumnCount = _rxResMetaData->getColumnCount();
-    ::rtl::Reference< OSQLColumns > aReturn( new OSQLColumns ); aReturn->get().reserve( nColumnCount );
+    ::rtl::Reference aReturn( new OSQLColumns ); aReturn->get().reserve( nColumnCount );
 
     StringMap aColumnMap;
     for ( sal_Int32 i = 1; i <= nColumnCount; ++i )

@@ -31,12 +31,12 @@
 #include <com/sun/star/animations/IterateContainer.hpp>
 #include <com/sun/star/animations/ParallelTimeContainer.hpp>
 #include <com/sun/star/animations/SequenceTimeContainer.hpp>
-#include <com/sun/star/animations/Timing.hpp>
 #include <com/sun/star/animations/XCommand.hpp>
 #include <com/sun/star/animations/XIterateContainer.hpp>
 #include <com/sun/star/animations/XAnimateTransform.hpp>
 #include <com/sun/star/animations/XAnimateMotion.hpp>
 #include <com/sun/star/animations/XAnimate.hpp>
+#include <com/sun/star/animations/AnimationRestart.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
@@ -59,7 +59,6 @@
 
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
-#include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/range/b2drange.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 
@@ -411,122 +410,122 @@ sal_Int32 CustomAnimationEffect::get_node_type( const Reference< XAnimationNode 
 
 void CustomAnimationEffect::setPresetClass( sal_Int16 nPresetClass )
 {
-    if( mnPresetClass != nPresetClass )
+    if( mnPresetClass == nPresetClass )
+        return;
+
+    mnPresetClass = nPresetClass;
+    if( !mxNode.is() )
+        return;
+
+    // first try to find a "preset-class" entry in the user data
+    // and change it
+    Sequence< NamedValue > aUserData( mxNode->getUserData() );
+    sal_Int32 nLength = aUserData.getLength();
+    bool bFound = false;
+    if( nLength )
     {
-        mnPresetClass = nPresetClass;
-        if( mxNode.is() )
+        NamedValue* p = aUserData.getArray();
+        while( nLength-- )
         {
-            // first try to find a "preset-class" entry in the user data
-            // and change it
-            Sequence< NamedValue > aUserData( mxNode->getUserData() );
-            sal_Int32 nLength = aUserData.getLength();
-            bool bFound = false;
-            if( nLength )
+            if ( p->Name == "preset-class" )
             {
-                NamedValue* p = aUserData.getArray();
-                while( nLength-- )
-                {
-                    if ( p->Name == "preset-class" )
-                    {
-                        p->Value <<= mnPresetClass;
-                        bFound = true;
-                        break;
-                    }
-                    p++;
-                }
+                p->Value <<= mnPresetClass;
+                bFound = true;
+                break;
             }
-
-            // no "node-type" entry inside user data, so add it
-            if( !bFound )
-            {
-                nLength = aUserData.getLength();
-                aUserData.realloc( nLength + 1);
-                aUserData[nLength].Name = "preset-class";
-                aUserData[nLength].Value <<= mnPresetClass;
-            }
-
-            mxNode->setUserData( aUserData );
+            p++;
         }
     }
+
+    // no "node-type" entry inside user data, so add it
+    if( !bFound )
+    {
+        nLength = aUserData.getLength();
+        aUserData.realloc( nLength + 1);
+        aUserData[nLength].Name = "preset-class";
+        aUserData[nLength].Value <<= mnPresetClass;
+    }
+
+    mxNode->setUserData( aUserData );
 }
 
 void CustomAnimationEffect::setNodeType( sal_Int16 nNodeType )
 {
-    if( mnNodeType != nNodeType )
+    if( mnNodeType == nNodeType )
+        return;
+
+    mnNodeType = nNodeType;
+    if( !mxNode.is() )
+        return;
+
+    // first try to find a "node-type" entry in the user data
+    // and change it
+    Sequence< NamedValue > aUserData( mxNode->getUserData() );
+    sal_Int32 nLength = aUserData.getLength();
+    bool bFound = false;
+    if( nLength )
     {
-        mnNodeType = nNodeType;
-        if( mxNode.is() )
+        NamedValue* p = aUserData.getArray();
+        while( nLength-- )
         {
-            // first try to find a "node-type" entry in the user data
-            // and change it
-            Sequence< NamedValue > aUserData( mxNode->getUserData() );
-            sal_Int32 nLength = aUserData.getLength();
-            bool bFound = false;
-            if( nLength )
+            if ( p->Name == "node-type" )
             {
-                NamedValue* p = aUserData.getArray();
-                while( nLength-- )
-                {
-                    if ( p->Name == "node-type" )
-                    {
-                        p->Value <<= mnNodeType;
-                        bFound = true;
-                        break;
-                    }
-                    p++;
-                }
+                p->Value <<= mnNodeType;
+                bFound = true;
+                break;
             }
-
-            // no "node-type" entry inside user data, so add it
-            if( !bFound )
-            {
-                nLength = aUserData.getLength();
-                aUserData.realloc( nLength + 1);
-                aUserData[nLength].Name = "node-type";
-                aUserData[nLength].Value <<= mnNodeType;
-            }
-
-            mxNode->setUserData( aUserData );
+            p++;
         }
     }
+
+    // no "node-type" entry inside user data, so add it
+    if( !bFound )
+    {
+        nLength = aUserData.getLength();
+        aUserData.realloc( nLength + 1);
+        aUserData[nLength].Name = "node-type";
+        aUserData[nLength].Value <<= mnNodeType;
+    }
+
+    mxNode->setUserData( aUserData );
 }
 
 void CustomAnimationEffect::setGroupId( sal_Int32 nGroupId )
 {
     mnGroupId = nGroupId;
-    if( mxNode.is() )
+    if( !mxNode.is() )
+        return;
+
+    // first try to find a "group-id" entry in the user data
+    // and change it
+    Sequence< NamedValue > aUserData( mxNode->getUserData() );
+    sal_Int32 nLength = aUserData.getLength();
+    bool bFound = false;
+    if( nLength )
     {
-        // first try to find a "group-id" entry in the user data
-        // and change it
-        Sequence< NamedValue > aUserData( mxNode->getUserData() );
-        sal_Int32 nLength = aUserData.getLength();
-        bool bFound = false;
-        if( nLength )
+        NamedValue* p = aUserData.getArray();
+        while( nLength-- )
         {
-            NamedValue* p = aUserData.getArray();
-            while( nLength-- )
+            if ( p->Name == "group-id" )
             {
-                if ( p->Name == "group-id" )
-                {
-                    p->Value <<= mnGroupId;
-                    bFound = true;
-                    break;
-                }
-                p++;
+                p->Value <<= mnGroupId;
+                bFound = true;
+                break;
             }
+            p++;
         }
-
-        // no "node-type" entry inside user data, so add it
-        if( !bFound )
-        {
-            nLength = aUserData.getLength();
-            aUserData.realloc( nLength + 1);
-            aUserData[nLength].Name = "group-id";
-            aUserData[nLength].Value <<= mnGroupId;
-        }
-
-        mxNode->setUserData( aUserData );
     }
+
+    // no "node-type" entry inside user data, so add it
+    if( !bFound )
+    {
+        nLength = aUserData.getLength();
+        aUserData.realloc( nLength + 1);
+        aUserData[nLength].Name = "group-id";
+        aUserData[nLength].Value <<= mnGroupId;
+    }
+
+    mxNode->setUserData( aUserData );
 }
 
 /** checks if the text for this effect has changed and updates internal flags.
@@ -719,7 +718,10 @@ void CustomAnimationEffect::setTargetSubItem( sal_Int16 nSubItem )
 
 void CustomAnimationEffect::setDuration( double fDuration )
 {
-    if( (mfDuration != -1.0) && (mfDuration != fDuration) ) try
+    if( (mfDuration == -1.0) || (mfDuration == fDuration) )
+        return;
+
+    try
     {
         double fScale = fDuration / mfDuration;
         mfDuration = fDuration;
@@ -976,7 +978,10 @@ Reference< XAnimationNode > CustomAnimationEffect::createAfterEffectNode() const
 
 void CustomAnimationEffect::setIterateType( sal_Int16 nIterateType )
 {
-    if( mnIterateType != nIterateType ) try
+    if( mnIterateType == nIterateType )
+        return;
+
+    try
     {
         // do we need to exchange the container node?
         if( (mnIterateType == 0) || (nIterateType == 0) )
@@ -1065,19 +1070,19 @@ void CustomAnimationEffect::setIterateType( sal_Int16 nIterateType )
 
 void CustomAnimationEffect::setIterateInterval( double fIterateInterval )
 {
-    if( mfIterateInterval != fIterateInterval )
+    if( mfIterateInterval == fIterateInterval )
+        return;
+
+    Reference< XIterateContainer > xIter( mxNode, UNO_QUERY );
+
+    DBG_ASSERT( xIter.is(), "sd::CustomAnimationEffect::setIterateInterval(), not an iteration node" );
+    if( xIter.is() )
     {
-        Reference< XIterateContainer > xIter( mxNode, UNO_QUERY );
-
-        DBG_ASSERT( xIter.is(), "sd::CustomAnimationEffect::setIterateInterval(), not an iteration node" );
-        if( xIter.is() )
-        {
-            mfIterateInterval = fIterateInterval;
-            xIter->setIterateInterval( fIterateInterval );
-        }
-
-        calculateIterateDuration();
+        mfIterateInterval = fIterateInterval;
+        xIter->setIterateInterval( fIterateInterval );
     }
+
+    calculateIterateDuration();
 }
 
 OUString CustomAnimationEffect::getPath() const
@@ -1108,7 +1113,10 @@ OUString CustomAnimationEffect::getPath() const
 
 void CustomAnimationEffect::setPath( const OUString& rPath )
 {
-    if( mxNode.is() ) try
+    if( !mxNode.is() )
+        return;
+
+    try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY_THROW );
         Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
@@ -1277,7 +1285,10 @@ Any CustomAnimationEffect::getColor( sal_Int32 nIndex )
 
 void CustomAnimationEffect::setColor( sal_Int32 nIndex, const Any& rColor )
 {
-    if( mxNode.is() ) try
+    if( !mxNode.is() )
+        return;
+
+    try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY );
         if( xEnumerationAccess.is() )
@@ -1417,7 +1428,10 @@ void CustomAnimationEffect::createAudio( const css::uno::Any& rSource )
 {
     DBG_ASSERT( !mxAudio.is(), "sd::CustomAnimationEffect::createAudio(), node already has an audio!" );
 
-    if( !mxAudio.is() ) try
+    if( mxAudio.is() )
+        return;
+
+    try
     {
         Reference< XComponentContext > xContext( ::comphelper::getProcessComponentContext() );
         Reference< XAudio > xAudio( Audio::create( xContext ) );
@@ -1487,7 +1501,10 @@ void CustomAnimationEffect::removeAudio()
 
 void CustomAnimationEffect::setAudio( const Reference< css::animations::XAudio >& xAudio )
 {
-    if( mxAudio != xAudio ) try
+    if( mxAudio == xAudio )
+        return;
+
+    try
     {
         removeAudio();
         mxAudio = xAudio;
@@ -1504,7 +1521,10 @@ void CustomAnimationEffect::setAudio( const Reference< css::animations::XAudio >
 
 void CustomAnimationEffect::setStopAudio()
 {
-    if( mnCommand != EffectCommands::STOPAUDIO ) try
+    if( mnCommand == EffectCommands::STOPAUDIO )
+        return;
+
+    try
     {
         if( mxAudio.is() )
             removeAudio();
@@ -1754,7 +1774,10 @@ CustomAnimationEffectPtr EffectSequenceHelper::append( const SdrPathObj& rPathOb
 
 void EffectSequenceHelper::replace( const CustomAnimationEffectPtr& pEffect, const CustomAnimationPresetPtr& pPreset, const OUString& rPresetSubType, double fDuration /* = -1.0 */ )
 {
-    if( pEffect.get() && pPreset.get() ) try
+    if( !(pEffect.get() && pPreset.get()) )
+        return;
+
+    try
     {
         Reference< XAnimationNode > xNewNode( pPreset->create( rPresetSubType ) );
         if( xNewNode.is() )
@@ -2389,7 +2412,10 @@ void EffectSequenceHelper::createTextGroupParagraphEffects( const CustomAnimatio
     bool bTextReverse = pTextGroup->mbTextReverse;
 
     // now add an effect for each paragraph
-    if( nTextGrouping >= 0 ) try
+    if( nTextGrouping < 0 )
+        return;
+
+    try
     {
         EffectSequence::iterator aInsertIter( find( pEffect ) );
 
@@ -2749,7 +2775,10 @@ void EffectSequenceHelper::create( const css::uno::Reference< css::animations::X
 {
     DBG_ASSERT( xNode.is(), "sd::EffectSequenceHelper::create(), illegal argument" );
 
-    if( xNode.is() ) try
+    if( !xNode.is() )
+        return;
+
+    try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( xNode, UNO_QUERY_THROW );
         Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
@@ -2769,7 +2798,10 @@ void EffectSequenceHelper::createEffectsequence( const Reference< XAnimationNode
 {
     DBG_ASSERT( xNode.is(), "sd::EffectSequenceHelper::createEffectsequence(), illegal argument" );
 
-    if( xNode.is() ) try
+    if( !xNode.is() )
+        return;
+
+    try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( xNode, UNO_QUERY_THROW );
         Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
@@ -2790,7 +2822,10 @@ void EffectSequenceHelper::createEffects( const Reference< XAnimationNode >& xNo
 {
     DBG_ASSERT( xNode.is(), "sd::EffectSequenceHelper::createEffects(), illegal argument" );
 
-    if( xNode.is() ) try
+    if( !xNode.is() )
+        return;
+
+    try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( xNode, UNO_QUERY_THROW );
         Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
@@ -3065,6 +3100,7 @@ InteractiveSequencePtr MainSequence::createInteractiveSequence( const css::uno::
     uno::Sequence< css::beans::NamedValue > aUserData
         { { "node-type", css::uno::makeAny(css::presentation::EffectNodeType::INTERACTIVE_SEQUENCE) } };
     xISRoot->setUserData( aUserData );
+    xISRoot->setRestart( css::animations::AnimationRestart::WHEN_NOT_ACTIVE );
 
     Reference< XChild > xChild( mxSequenceRoot, UNO_QUERY_THROW );
     Reference< XTimeContainer > xParent( xChild->getParent(), UNO_QUERY_THROW );

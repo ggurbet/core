@@ -21,6 +21,7 @@
 
 #include <editeng/eeitem.hxx>
 #include <vcl/waitobj.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <editeng/flditem.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/svdoole2.hxx>
@@ -74,6 +75,8 @@ namespace sd {
 FuDraw::FuDraw(ViewShell* pViewSh, ::sd::Window* pWin, ::sd::View* pView,
                SdDrawDocument* pDoc, SfxRequest& rReq)
     : FuPoor(pViewSh, pWin, pView, pDoc, rReq)
+    , aNewPointer(PointerStyle::Arrow)
+    , aOldPointer(PointerStyle::Arrow)
     , bMBDown(false)
     , bDragHelpLine(false)
     , nHelpLine(0)
@@ -478,7 +481,7 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
         {
             // water can mode
             bDefPointer = false;
-            mpWindow->SetPointer(Pointer(PointerStyle::Fill));
+            mpWindow->SetPointer(PointerStyle::Fill);
         }
     }
     else
@@ -489,7 +492,7 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
         {
             // water can mode
             bDefPointer = false;
-            mpWindow->SetPointer(Pointer(PointerStyle::Fill));
+            mpWindow->SetPointer(PointerStyle::Fill);
         }
         else if (!pHdl &&
                  mpViewShell->GetViewFrame()->HasChildWindow(SvxBmpMaskChildWindow::GetChildWindowId()))
@@ -500,7 +503,7 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
             if (pMask && pMask->IsEyedropping())
             {
                 bDefPointer = false;
-                mpWindow->SetPointer(Pointer(PointerStyle::RefHand));
+                mpWindow->SetPointer(PointerStyle::RefHand);
             }
         }
         else if (!mpView->IsAction())
@@ -526,7 +529,7 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
                 SdrObject* pObject = rMarkList.GetMark(0)->GetMarkedSdrObj();
                 if ((dynamic_cast<const E3dObject* >(pObject) !=  nullptr) && (rMarkList.GetMarkCount() == 1))
                 {
-                    mpWindow->SetPointer(Pointer(PointerStyle::Rotate));
+                    mpWindow->SetPointer(PointerStyle::Rotate);
                     bDefPointer = false;     // Otherwise it'll be called Joe's routine and the mousepointer will reconfigurate again
                 }
             }
@@ -551,7 +554,7 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
                 {
                     pObj = nullptr;
                     bDefPointer = false;
-                    mpWindow->SetPointer(Pointer(PointerStyle::Arrow));
+                    mpWindow->SetPointer(PointerStyle::Arrow);
                 }
             }
 
@@ -648,7 +651,7 @@ bool FuDraw::SetPointer(SdrObject* pObj, const Point& rPos)
                     {
                         // Animation object
                         bSet = true;
-                        mpWindow->SetPointer(Pointer(PointerStyle::RefHand));
+                        mpWindow->SetPointer(PointerStyle::RefHand);
                     }
             }
             else if (bImageMapInfo &&
@@ -658,7 +661,7 @@ bool FuDraw::SetPointer(SdrObject* pObj, const Point& rPos)
                 * ImageMap
                 ******************************************************/
                 bSet = true;
-                mpWindow->SetPointer(Pointer(PointerStyle::RefHand));
+                mpWindow->SetPointer(PointerStyle::RefHand);
             }
         }
     }
@@ -765,6 +768,9 @@ bool FuDraw::RequestHelp(const HelpEvent& rHEvt)
         bReturn = FuPoor::RequestHelp(rHEvt);
     }
 
+    if (!bReturn)
+       bReturn = mpView->RequestHelp(rHEvt);
+
     return bReturn;
 }
 
@@ -857,35 +863,34 @@ bool FuDraw::SetHelpText(SdrObject* pObj, const Point& rPosPixel, const SdrViewE
             case presentation::ClickAction_BOOKMARK:
             {
                 // jump to object/page
-                aHelpText = SdResId(STR_CLICK_ACTION_BOOKMARK);
-                aHelpText += ": ";
-                aHelpText += INetURLObject::decode( pInfo->GetBookmark(), INetURLObject::DecodeMechanism::WithCharset );
+                aHelpText = SdResId(STR_CLICK_ACTION_BOOKMARK)
+                    + ": "
+                    + INetURLObject::decode( pInfo->GetBookmark(), INetURLObject::DecodeMechanism::WithCharset );
             }
             break;
 
             case presentation::ClickAction_DOCUMENT:
             {
                 // jump to document (object/page)
-                aHelpText = SdResId(STR_CLICK_ACTION_DOCUMENT);
-                aHelpText += ": ";
-                aHelpText += INetURLObject::decode( pInfo->GetBookmark(), INetURLObject::DecodeMechanism::WithCharset );
+                aHelpText = SdResId(STR_CLICK_ACTION_DOCUMENT)
+                    + ": "
+                    + INetURLObject::decode( pInfo->GetBookmark(), INetURLObject::DecodeMechanism::WithCharset );
             }
             break;
 
             case presentation::ClickAction_PROGRAM:
             {
                 // execute program
-                aHelpText = SdResId(STR_CLICK_ACTION_PROGRAM);
-                aHelpText += ": ";
-                aHelpText += INetURLObject::decode( pInfo->GetBookmark(), INetURLObject::DecodeMechanism::WithCharset );
+                aHelpText = SdResId(STR_CLICK_ACTION_PROGRAM)
+                    + ": "
+                    + INetURLObject::decode( pInfo->GetBookmark(), INetURLObject::DecodeMechanism::WithCharset );
             }
             break;
 
             case presentation::ClickAction_MACRO:
             {
                 // execute program
-                aHelpText = SdResId(STR_CLICK_ACTION_MACRO);
-                aHelpText += ": ";
+                aHelpText = SdResId(STR_CLICK_ACTION_MACRO) + ": ";
 
                 if ( SfxApplication::IsXScriptURL( pInfo->GetBookmark() ) )
                 {
@@ -894,11 +899,11 @@ bool FuDraw::SetHelpText(SdrObject* pObj, const Point& rPosPixel, const SdrViewE
                 else
                 {
                     OUString sBookmark( pInfo->GetBookmark() );
-                    aHelpText += sBookmark.getToken( 2, '.' );
-                    aHelpText += ".";
-                    aHelpText += sBookmark.getToken( 1, '.' );
-                    aHelpText += ".";
-                    aHelpText += sBookmark.getToken( 0, '.' );
+                    sal_Int32 nIdx{ 0 };
+                    const OUString s0{ sBookmark.getToken( 0, '.', nIdx ) };
+                    const OUString s1{ sBookmark.getToken( 0, '.', nIdx ) };
+                    const OUString s2{ sBookmark.getToken( 0, '.', nIdx ) };
+                    aHelpText += s2 + "." + s1 + "." + s0;
                 }
             }
             break;

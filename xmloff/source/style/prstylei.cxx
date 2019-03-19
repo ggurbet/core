@@ -39,6 +39,8 @@
 #include <xmloff/xmlerror.hxx>
 #include <xmloff/xmltypes.hxx>
 #include <xmloff/maptype.hxx>
+#include <xmloff/xmlimppr.hxx>
+#include <xmloff/xmlprmap.hxx>
 #include <comphelper/sequence.hxx>
 #include <com/sun/star/drawing/FillStyle.hpp>
 
@@ -58,7 +60,7 @@ void XMLPropStyleContext::SetAttribute( sal_uInt16 nPrefixKey,
 {
     if( XML_NAMESPACE_STYLE == nPrefixKey && IsXMLToken( rLocalName, XML_FAMILY ) )
     {
-        SAL_WARN_IF( GetFamily() != static_cast<SvXMLStylesContext *>(mxStyles.get())->GetFamily( rValue ), "xmloff", "unexpected style family" );
+        SAL_WARN_IF( GetFamily() != SvXMLStylesContext::GetFamily( rValue ), "xmloff", "unexpected style family" );
     }
     else
     {

@@ -245,10 +245,10 @@ void SwBasicEscherEx::WriteHyperlinkWithinFly( SvMemoryStream& rStrm, const SwFo
     else if( eProtocol != INetProtocol::NotValid )
     {
         tmpStrm.WriteBytes(aGuidUrlMoniker, sizeof(aGuidUrlMoniker));
-            SwWW8Writer::WriteLong(tmpStrm, 2*(rUrl.getLength()+1));
+        SwWW8Writer::WriteLong(tmpStrm, 2*(rUrl.getLength()+1));
 
         SwWW8Writer::WriteString16(tmpStrm, rUrl, true);
-            nFlags |= WW8_HLINK_BODY | WW8_HLINK_ABS;
+        nFlags |= WW8_HLINK_BODY | WW8_HLINK_ABS;
     }
     else if (rUrl[0] == '#' )
     {
@@ -265,7 +265,7 @@ void SwBasicEscherEx::WriteHyperlinkWithinFly( SvMemoryStream& rStrm, const SwFo
     if (!tmpTextMark.isEmpty())
     {
         SwWW8Writer::WriteLong(tmpStrm, tmpTextMark.getLength()+1);
-            SwWW8Writer::WriteString16(tmpStrm, tmpTextMark, true);
+        SwWW8Writer::WriteString16(tmpStrm, tmpTextMark, true);
 
         nFlags |= WW8_HLINK_MARK;
     }
@@ -2330,7 +2330,7 @@ SwEscherEx::SwEscherEx(SvStream* pStrm, WW8Export& rWW8Wrt)
 
             CloseContainer();   // ESCHER_SpContainer
         }
-    CloseContainer();   // ESCHER_DgContainer
+        CloseContainer();   // ESCHER_DgContainer
     }
 }
 
@@ -2426,9 +2426,8 @@ bool WinwordAnchoring::ConvertPosition( SwFormatHoriOrient& _iorHoriOri,
     {
         SwTextNode& rAnchorTextNode =
             dynamic_cast<SwTextNode&>(_rFrameFormat.GetAnchor().GetContentAnchor()->nNode.GetNode());
-        const SvxFormatBreakItem* pBreak = &(ItemGet<SvxFormatBreakItem>(rAnchorTextNode, RES_BREAK));
-        if ( pBreak &&
-             pBreak->GetBreak() == SvxBreak::ColumnBefore )
+        const SvxFormatBreakItem& rBreak = ItemGet<SvxFormatBreakItem>(rAnchorTextNode, RES_BREAK);
+        if (rBreak.GetBreak() == SvxBreak::ColumnBefore)
         {
             bConvDueToAnchoredAtColBreakPara = true;
         }
@@ -2949,7 +2948,7 @@ void SwEscherEx::WriteOCXControl( const SwFrameFormat& rFormat, sal_uInt32 nShap
 }
 
 void SwEscherEx::MakeZOrderArrAndFollowIds(
-    std::vector<DrawObj>& rSrcArr, std::vector<DrawObj*>&rDstArr)
+    std::vector<DrawObj>& rSrcArr, DrawObjPointerVector&rDstArr)
 {
     ::lcl_makeZOrderArray(rWrt, rSrcArr, rDstArr);
 

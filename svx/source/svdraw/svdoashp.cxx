@@ -83,7 +83,6 @@
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <svdobjplusdata.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -362,7 +361,8 @@ static SdrObject* ImpCreateShadowObjectClone(const SdrObject& rOriginal, const S
                     {
                         for(long x(0); x < pReadAccess->Width(); x++)
                         {
-                            sal_uInt16 nLuminance(static_cast<sal_uInt16>(pReadAccess->GetLuminance(y, x)) + 1);
+                            const BitmapColor aColor = pReadAccess->GetColor(y, x);
+                            sal_uInt16 nLuminance(static_cast<sal_uInt16>(aColor.GetLuminance()) + 1);
                             const Color aDestColor(
                                 static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetRed())) >> 8),
                                 static_cast<sal_uInt8>((nLuminance * static_cast<sal_uInt16>(aShadowColor.GetGreen())) >> 8),
@@ -807,7 +807,7 @@ static void lcl_ShapePropertiesFromDFF( const SvxMSDffHandle* pData, css::beans:
 
 std::unique_ptr<sdr::properties::BaseProperties> SdrObjCustomShape::CreateObjectSpecificProperties()
 {
-    return o3tl::make_unique<sdr::properties::CustomShapeProperties>(*this);
+    return std::make_unique<sdr::properties::CustomShapeProperties>(*this);
 }
 
 SdrObjCustomShape::SdrObjCustomShape(SdrModel& rSdrModel)
@@ -3038,7 +3038,7 @@ bool SdrObjCustomShape::TRGetBaseGeometry(basegfx::B2DHomMatrix& rMatrix, basegf
 
 std::unique_ptr<sdr::contact::ViewContact> SdrObjCustomShape::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfSdrObjCustomShape>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrObjCustomShape>(*this);
 }
 
 // #i33136#

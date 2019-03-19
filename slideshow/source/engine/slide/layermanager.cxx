@@ -546,7 +546,7 @@ namespace slideshow
                 {
                 }
 
-                virtual bool isOnView(std::shared_ptr<View> const& /*rView*/) const override
+                virtual bool isOnView(ViewSharedPtr const& /*rView*/) const override
                 {
                     return true; // visible on all views
                 }
@@ -635,7 +635,7 @@ namespace slideshow
                 {
                     // TODO(E1): Might be superfluous. Nowadays,
                     // addViewLayer swallows all errors, anyway.
-                    SAL_WARN( "slideshow", comphelper::anyToString( cppu::getCaughtException() ) );
+                    SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
                     // at least one shape could not be rendered
                     bRet = false;
                 }
@@ -664,27 +664,27 @@ namespace slideshow
                                                const LayerShapeMap::const_iterator&  aEndLayerShapes )
         {
             const bool bLayerExists( maLayers.size() > nCurrLayerIndex );
-            if( bLayerExists )
+            if( !bLayerExists )
+                return;
+
+            const LayerSharedPtr& rLayer( maLayers.at(nCurrLayerIndex) );
+            const bool bLayerResized( rLayer->commitBounds() );
+            rLayer->setPriority( basegfx::B1DRange(nCurrLayerIndex,
+                                                   nCurrLayerIndex+1) );
+
+            if( !bLayerResized )
+                return;
+
+            // need to re-render whole layer - start from
+            // clean state
+            rLayer->clearContent();
+
+            // render and remove from update set
+            while( aFirstLayerShape != aEndLayerShapes )
             {
-                const LayerSharedPtr& rLayer( maLayers.at(nCurrLayerIndex) );
-                const bool bLayerResized( rLayer->commitBounds() );
-                rLayer->setPriority( basegfx::B1DRange(nCurrLayerIndex,
-                                                       nCurrLayerIndex+1) );
-
-                if( bLayerResized )
-                {
-                    // need to re-render whole layer - start from
-                    // clean state
-                    rLayer->clearContent();
-
-                    // render and remove from update set
-                    while( aFirstLayerShape != aEndLayerShapes )
-                    {
-                        maUpdateShapes.erase(aFirstLayerShape->first);
-                        aFirstLayerShape->first->render();
-                        ++aFirstLayerShape;
-                    }
-                }
+                maUpdateShapes.erase(aFirstLayerShape->first);
+                aFirstLayerShape->first->render();
+                ++aFirstLayerShape;
             }
         }
 

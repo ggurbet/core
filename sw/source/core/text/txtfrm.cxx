@@ -47,6 +47,7 @@
 #include <dflyobj.hxx>
 #include <flyfrm.hxx>
 #include <tabfrm.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <pagedesc.hxx>
 #include <tgrditem.hxx>
@@ -374,8 +375,8 @@ namespace sw {
         rNode.SwContentNode::GetAttr(rFormatSet);
         if (pLayout && pLayout->IsHideRedlines())
         {
-            if (sw::MergedPara const*const pMerged =
-                static_cast<SwTextFrame*>(rNode.getLayoutFrame(pLayout))->GetMergedPara())
+            auto pFrame = static_cast<SwTextFrame*>(rNode.getLayoutFrame(pLayout));
+            if (sw::MergedPara const*const pMerged = pFrame ? pFrame->GetMergedPara() : nullptr)
             {
                 if (pMerged->pFirstNode != &rNode)
                 {
@@ -478,8 +479,18 @@ void SwTextFrame::SwitchHorizontalToVertical( SwRect& rRect ) const
     long nOfstX, nOfstY;
     if ( IsVertLR() )
     {
-        nOfstX = rRect.Left() - getFrameArea().Left();
-        nOfstY = rRect.Top() - getFrameArea().Top();
+        if (IsVertLRBT())
+        {
+            // X and Y offsets here mean the position of the point that will be the top left corner
+            // after the switch.
+            nOfstX = rRect.Left() + rRect.Width() - getFrameArea().Left();
+            nOfstY = rRect.Top() - getFrameArea().Top();
+        }
+        else
+        {
+            nOfstX = rRect.Left() - getFrameArea().Left();
+            nOfstY = rRect.Top() - getFrameArea().Top();
+        }
     }
     else
     {
@@ -491,7 +502,9 @@ void SwTextFrame::SwitchHorizontalToVertical( SwRect& rRect ) const
     const long nHeight = rRect.Height();
 
     if ( IsVertLR() )
+    {
         rRect.Left(getFrameArea().Left() + nOfstY);
+    }
     else
     {
         if ( mbIsSwapped )
@@ -501,7 +514,14 @@ void SwTextFrame::SwitchHorizontalToVertical( SwRect& rRect ) const
             rRect.Left( getFrameArea().Left() + getFrameArea().Width() - nOfstY );
     }
 
-    rRect.Top( getFrameArea().Top() + nOfstX );
+    if (IsVertLRBT())
+    {
+        SAL_WARN_IF(!mbIsSwapped, "sw.core",
+                    "SwTextFrame::SwitchHorizontalToVertical, IsVertLRBT, not swapped");
+        rRect.Top(getFrameArea().Top() + getFrameArea().Width() - nOfstX);
+    }
+    else
+        rRect.Top(getFrameArea().Top() + nOfstX);
     rRect.Width( nHeight );
     rRect.Height( nWidth );
 }
@@ -512,6 +532,21 @@ void SwTextFrame::SwitchHorizontalToVertical( SwRect& rRect ) const
  */
 void SwTextFrame::SwitchHorizontalToVertical( Point& rPoint ) const
 {
+    if (IsVertLRBT())
+    {
+        // The horizontal origo is the top left corner, the LRBT origo is the
+        // bottom left corner. Finally x and y has to be swapped.
+        SAL_WARN_IF(!mbIsSwapped, "sw.core",
+                    "SwTextFrame::SwitchHorizontalToVertical, IsVertLRBT, not swapped");
+        Point aPoint(rPoint);
+        rPoint.setX(getFrameArea().Left() + (aPoint.Y() - getFrameArea().Top()));
+        // This would be bottom - x delta, but bottom is top + height, finally
+        // width (and not height), as it's swapped.
+        rPoint.setY(getFrameArea().Top() + getFrameArea().Width()
+                    - (aPoint.X() - getFrameArea().Left()));
+        return;
+    }
+
     // calc offset inside frame
     const long nOfstX = rPoint.X() - getFrameArea().Left();
     const long nOfstY = rPoint.Y() - getFrameArea().Top();
@@ -580,16 +615,29 @@ void SwTextFrame::SwitchVerticalToHorizontal( Point& rPoint ) const
 
     // calc offset inside frame
     if ( IsVertLR() )
+        // X offset is Y - left.
         nOfstX = rPoint.X() - getFrameArea().Left();
     else
     {
+        // X offset is right - X.
         if ( mbIsSwapped )
             nOfstX = getFrameArea().Left() + getFrameArea().Height() - rPoint.X();
         else
             nOfstX = getFrameArea().Left() + getFrameArea().Width() - rPoint.X();
     }
 
-    const long nOfstY = rPoint.Y() - getFrameArea().Top();
+    long nOfstY;
+    if (IsVertLRBT())
+    {
+        // Y offset is bottom - Y.
+        if (mbIsSwapped)
+            nOfstY = getFrameArea().Top() + getFrameArea().Width() - rPoint.Y();
+        else
+            nOfstY = getFrameArea().Top() + getFrameArea().Height() - rPoint.Y();
+    }
+    else
+        // Y offset is Y - top.
+        nOfstY = rPoint.Y() - getFrameArea().Top();
 
     // calc rotated coords
     rPoint.setX( getFrameArea().Left() + nOfstY );
@@ -1788,17 +1836,15 @@ static void lcl_SetScriptInval(SwTextFrame& rFrame, TextFrameIndex const nPos)
         rFrame.GetPara()->GetScriptInfo().SetInvalidityA( nPos );
 }
 
-static void lcl_ModifyOfst(SwTextFrame* pFrame, TextFrameIndex const nPos, TextFrameIndex const nLen)
+// note: SwClientNotify will be called once for every frame => just fix own Ofst
+static void lcl_ModifyOfst(SwTextFrame & rFrame,
+        TextFrameIndex const nPos, TextFrameIndex const nLen,
+        TextFrameIndex (* op)(TextFrameIndex const&, TextFrameIndex const&))
 {
-    while( pFrame && pFrame->GetOfst() <= nPos )
-        pFrame = pFrame->GetFollow();
-    while( pFrame )
+    assert(nLen != TextFrameIndex(COMPLETE_STRING));
+    if (rFrame.IsFollow() && nPos < rFrame.GetOfst())
     {
-        if (nLen == TextFrameIndex(COMPLETE_STRING))
-            pFrame->ManipOfst(TextFrameIndex(pFrame->GetText().getLength()));
-        else
-            pFrame->ManipOfst( pFrame->GetOfst() + nLen );
-        pFrame = pFrame->GetFollow();
+        rFrame.ManipOfst( op(rFrame.GetOfst(), nLen) );
     }
 }
 
@@ -1859,11 +1905,8 @@ void UpdateMergedParaForMove(sw::MergedPara & rMerged,
             {
                 // InvalidateRange/lcl_SetScriptInval was called sufficiently for SwInsText
                 lcl_SetWrong(rTextFrame, rDestNode, nStart, it.first - it.second, false);
-                if (rTextFrame.HasFollow())
-                {
-                    TextFrameIndex const nIndex(sw::MapModelToView(rMerged, &rDestNode, nStart));
-                    lcl_ModifyOfst(&rTextFrame, nIndex, nDeleted); // FIXME why positive?
-                }
+                TextFrameIndex const nIndex(sw::MapModelToView(rMerged, &rDestNode, nStart));
+                lcl_ModifyOfst(rTextFrame, nIndex, nDeleted, &o3tl::operator-<sal_Int32, Tag_TextFrameIndex>);
             }
         }
     }
@@ -1878,6 +1921,15 @@ void UpdateMergedParaForMove(sw::MergedPara & rMerged,
 static bool isA11yRelevantAttribute(sal_uInt16 nWhich)
 {
     return nWhich != RES_CHRATR_RSID;
+}
+
+static bool hasA11yRelevantAttribute( const std::vector<sal_uInt16>& rWhichFmtAttr )
+{
+    for( sal_uInt16 nWhich : rWhichFmtAttr )
+        if ( isA11yRelevantAttribute( nWhich ) )
+            return true;
+
+    return false;
 }
 
 // Note: for now this overrides SwClient::SwClientNotify; the intermediary
@@ -1994,8 +2046,7 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
             {
                 lcl_SetScriptInval( *this, nPos );
                 bSetFieldsDirty = bRecalcFootnoteFlag = true;
-                if (HasFollow())
-                    lcl_ModifyOfst( this, nPos, nLen );
+                lcl_ModifyOfst(*this, nPos, nLen, &o3tl::operator-<sal_Int32, Tag_TextFrameIndex>);
             }
         }
     }
@@ -2023,8 +2074,7 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
             lcl_SetWrong( *this, rNode, nNPos, nNLen, false );
             lcl_SetScriptInval( *this, nPos );
             bSetFieldsDirty = true;
-            if (HasFollow())
-                lcl_ModifyOfst( this, nPos, nLen );
+            lcl_ModifyOfst(*this, nPos, nLen, &o3tl::operator+<sal_Int32, Tag_TextFrameIndex>);
         }
     }
     else if (pMoveText)
@@ -2082,8 +2132,7 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
             lcl_SetWrong( *this, rNode, nNPos, nNLen, true );
             lcl_SetScriptInval( *this, nPos );
             bSetFieldsDirty = true;
-            if( HasFollow() )
-                lcl_ModifyOfst( this, nPos, nLen );
+            lcl_ModifyOfst(*this, nPos, nLen, &o3tl::operator+<sal_Int32, Tag_TextFrameIndex>);
         }
         break;
         case RES_DEL_CHR:
@@ -2104,8 +2153,7 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
                 InvalidateRange( SwCharRange(nPos, nLen), -1 );
                 lcl_SetScriptInval( *this, nPos );
                 bSetFieldsDirty = bRecalcFootnoteFlag = true;
-                if (HasFollow())
-                    lcl_ModifyOfst(this, nPos, TextFrameIndex(COMPLETE_STRING));
+                lcl_ModifyOfst(*this, nPos, nLen, &o3tl::operator-<sal_Int32, Tag_TextFrameIndex>);
             }
         }
         break;
@@ -2135,15 +2183,16 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
             {
                 lcl_SetScriptInval( *this, nPos );
                 bSetFieldsDirty = bRecalcFootnoteFlag = true;
-                if (HasFollow())
-                    lcl_ModifyOfst( this, nPos, nLen );
+                lcl_ModifyOfst(*this, nPos, nLen, &o3tl::operator-<sal_Int32, Tag_TextFrameIndex>);
             }
         }
         break;
         case RES_UPDATE_ATTR:
         {
-            sal_Int32 const nNPos = static_cast<const SwUpdateAttr*>(pNew)->getStart();
-            sal_Int32 const nNLen = static_cast<const SwUpdateAttr*>(pNew)->getEnd() - nNPos;
+            const SwUpdateAttr* pNewUpdate = static_cast<const SwUpdateAttr*>(pNew);
+
+            sal_Int32 const nNPos = pNewUpdate->getStart();
+            sal_Int32 const nNLen = pNewUpdate->getEnd() - nNPos;
             nPos = MapModelToView(&rNode, nNPos);
             nLen = MapModelToView(&rNode, nNPos + nNLen) - nPos;
             if( IsIdxInside( nPos, nLen ) )
@@ -2157,13 +2206,23 @@ void SwTextFrame::SwClientNotify(SwModify const& rModify, SfxHint const& rHint)
                     nLen = TextFrameIndex(1);
 
                 InvalidateRange_( SwCharRange( nPos, nLen) );
-                const sal_uInt16 nTmp = static_cast<const SwUpdateAttr*>(pNew)->getWhichAttr();
+                const sal_uInt16 nTmp = pNewUpdate->getWhichAttr();
 
                 if( ! nTmp || RES_TXTATR_CHARFMT == nTmp || RES_TXTATR_INETFMT == nTmp || RES_TXTATR_AUTOFMT == nTmp ||
                     RES_FMT_CHG == nTmp || RES_ATTRSET_CHG == nTmp )
                 {
                     lcl_SetWrong( *this, rNode, nNPos, nNPos + nNLen, false );
                     lcl_SetScriptInval( *this, nPos );
+                }
+            }
+
+            if( isA11yRelevantAttribute( pNewUpdate->getWhichAttr() ) &&
+                hasA11yRelevantAttribute( pNewUpdate->getFmtAttrs() ) )
+            {
+                SwViewShell* pViewSh = getRootFrame() ? getRootFrame()->GetCurrShell() : nullptr;
+                if ( pViewSh  )
+                {
+                    pViewSh->InvalidateAccessibleParaAttrs( *this );
                 }
             }
         }
@@ -2556,7 +2615,6 @@ void SwTextFrame::PrepWidows( const sal_uInt16 nNeed, bool bNotify )
     SwParaPortion *pPara = GetPara();
     if ( !pPara )
         return;
-    pPara->SetPrepWidows();
 
     sal_uInt16 nHave = nNeed;
 
@@ -2588,6 +2646,7 @@ void SwTextFrame::PrepWidows( const sal_uInt16 nNeed, bool bNotify )
 
         if( bSplit )
         {
+            pPara->SetPrepWidows();
             GetFollow()->SetOfst( aLine.GetEnd() );
             aLine.TruncLines( true );
             if( pPara->IsFollowField() )
@@ -3417,12 +3476,12 @@ void SwTextFrame::CalcAdditionalFirstLineOffset()
             {
                 SwTwips nNumberPortionWidth( pFirstPortion->Width() );
 
-                const SwLinePortion* pPortion = pFirstPortion->GetPortion();
+                const SwLinePortion* pPortion = pFirstPortion->GetNextPortion();
                 while ( pPortion &&
                         pPortion->InNumberGrp() && !pPortion->IsFootnoteNumPortion())
                 {
                     nNumberPortionWidth += pPortion->Width();
-                    pPortion = pPortion->GetPortion();
+                    pPortion = pPortion->GetNextPortion();
                 }
 
                 if ( ( IsRightToLeft() &&
@@ -3674,7 +3733,7 @@ sal_uInt16 SwTextFrame::GetLineCount(TextFrameIndex const nPos)
 
 void SwTextFrame::ChgThisLines()
 {
-    // not necessary to format here (GerFormatted etc.), because we have to come from there!
+    // not necessary to format here (GetFormatted etc.), because we have to come from there!
     sal_uLong nNew = 0;
     const SwLineNumberInfo &rInf = GetDoc().GetLineNumberInfo();
     if ( !GetText().isEmpty() && HasPara() )
@@ -3797,7 +3856,7 @@ void SwTextFrame::VisitPortions( SwPortionHandler& rPH ) const
             while ( pPor )
             {
                 pPor->HandlePortion( rPH );
-                pPor = pPor->GetPortion();
+                pPor = pPor->GetNextPortion();
             }
 
             rPH.LineBreak(pLine->Width());

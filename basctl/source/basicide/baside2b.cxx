@@ -41,8 +41,10 @@
 #include <svl/urihelper.hxx>
 #include <svx/svxids.hrc>
 #include <vcl/xtextedt.hxx>
+#include <vcl/textview.hxx>
 #include <vcl/txtattr.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <svtools/textwindowpeer.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/taskpanelist.hxx>
@@ -230,7 +232,7 @@ EditorWindow::EditorWindow (vcl::Window* pParent, ModulWindow* pModulWindow) :
     pCodeCompleteWnd(VclPtr<CodeCompleteWindow>::Create(this))
 {
     SetBackground(Wallpaper(rModulWindow.GetLayout().GetBackgroundColor()));
-    SetPointer( Pointer( PointerStyle::Text ) );
+    SetPointer( PointerStyle::Text );
     SetHelpId( HID_BASICIDE_EDITORWINDOW );
 
     listener_ = new ChangesListener(*this);
@@ -2875,32 +2877,9 @@ UnoTypeCodeCompletetor::UnoTypeCodeCompletetor( const std::vector< OUString >& a
         return;
     }
 
-    auto j = aVect.begin() + 1;//start from aVect[1]: aVect[0] is the variable name
-    OUString sMethName;
-
-    while( j != aVect.end() )
-    {
-        sMethName = *j;
-
-        if( CodeCompleteOptions::IsExtendedTypeDeclaration() )
-        {
-            if( !CheckMethod(sMethName) && !CheckField(sMethName) )
-            {
-                bCanComplete = false;
-                break;
-            }
-        }
-        else
-        {
-            if( !CheckField(sMethName) )
-            {
-                bCanComplete = false;
-                break;
-            }
-        }
-
-        ++j;
-    }
+    //start from aVect[1]: aVect[0] is the variable name
+    bCanComplete = std::none_of(aVect.begin() + 1, aVect.end(), [this](const OUString& rMethName) {
+        return (!CodeCompleteOptions::IsExtendedTypeDeclaration() || !CheckMethod(rMethName)) && !CheckField(rMethName); });
 }
 
 std::vector< OUString > UnoTypeCodeCompletetor::GetXIdlClassMethods() const

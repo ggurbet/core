@@ -262,12 +262,9 @@ std::shared_ptr<SwMailMergeConfigItem> SwView::EnsureMailMergeConfigItem(const S
                 aDescriptor[svx::DataAccessDescriptorProperty::Command]      >>= aDBData.sCommand;
                 aDescriptor[svx::DataAccessDescriptorProperty::CommandType]  >>= aDBData.nCommandType;
 
-                uno::Sequence< uno::Any >                   aSelection;
                 uno::Reference< sdbc::XConnection>          xConnection;
                 uno::Reference< sdbc::XDataSource>          xSource;
                 uno::Reference< sdbcx::XColumnsSupplier>    xColumnsSupplier;
-                if (aDescriptor.has(svx::DataAccessDescriptorProperty::Selection))
-                    aDescriptor[svx::DataAccessDescriptorProperty::Selection] >>= aSelection;
                 if (aDescriptor.has(svx::DataAccessDescriptorProperty::Connection))
                     aDescriptor[svx::DataAccessDescriptorProperty::Connection] >>= xConnection;
                 uno::Reference<container::XChild> xChild(xConnection, uno::UNO_QUERY);
@@ -287,9 +284,10 @@ std::shared_ptr<SwMailMergeConfigItem> SwView::EnsureMailMergeConfigItem(const S
             {
                 OUString sDBName(aDBNameList[0]);
                 SwDBData aDBData;
-                aDBData.sDataSource = sDBName.getToken(0, DB_DELIM);
-                aDBData.sCommand = sDBName.getToken(1, DB_DELIM);
-                aDBData.nCommandType = sDBName.getToken(2, DB_DELIM).toInt32();
+                sal_Int32 nIdx{ 0 };
+                aDBData.sDataSource = sDBName.getToken(0, DB_DELIM, nIdx);
+                aDBData.sCommand = sDBName.getToken(0, DB_DELIM, nIdx);
+                aDBData.nCommandType = sDBName.getToken(0, DB_DELIM, nIdx).toInt32();
                 //set the currently used database for the wizard
                 xMMConfig->SetCurrentDBData(aDBData);
             }

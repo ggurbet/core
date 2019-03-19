@@ -139,7 +139,7 @@ void ScViewFunc::CutToClip()
 
         if ( bRecord )                          // Draw-Undo now available
             pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoCut>( pDocSh, aRange, aOldEnd, rMark, std::move(pUndoDoc) ) );
+                std::make_unique<ScUndoCut>( pDocSh, aRange, aOldEnd, rMark, std::move(pUndoDoc) ) );
 
         aModificator.SetDocumentModified();
         pDocSh->UpdateOle(&GetViewData());
@@ -288,7 +288,7 @@ bool ScViewFunc::CopyToClipSingleRange( ScDocument* pClipDoc, const ScRangeList&
     return true;
 }
 
-bool ScViewFunc::CopyToClipMultiRange( ScDocument* pInputClipDoc, const ScRangeList& rRanges, bool bCut, bool bApi, bool bIncludeObjects )
+bool ScViewFunc::CopyToClipMultiRange( const ScDocument* pInputClipDoc, const ScRangeList& rRanges, bool bCut, bool bApi, bool bIncludeObjects )
 {
     if (bCut)
     {
@@ -642,7 +642,6 @@ void ScViewFunc::PasteFromTransferable( const uno::Reference<datatransfer::XTran
     else
     {
             TransferableDataHelper aDataHelper( rxTransferable );
-        {
             SotClipboardFormatId nBiff8 = SotExchange::RegisterFormatName("Biff8");
             SotClipboardFormatId nBiff5 = SotExchange::RegisterFormatName("Biff5");
             SotClipboardFormatId nFormatId = SotClipboardFormatId::NONE;
@@ -707,7 +706,6 @@ void ScViewFunc::PasteFromTransferable( const uno::Reference<datatransfer::XTran
 
             PasteDataFormat( nFormatId, aDataHelper.GetTransferable(),
                 GetViewData().GetCurX(), GetViewData().GetCurY(), nullptr );
-        }
     }
 }
 
@@ -1236,7 +1234,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
     bool bRowInfo = ( nStartCol==0 && nEndCol==MAXCOL );
 
     ScDocumentUniquePtr pUndoDoc;
-    ScDocument* pRefUndoDoc = nullptr;
+    std::unique_ptr<ScDocument> pRefUndoDoc;
     std::unique_ptr<ScRefUndoData> pUndoData;
 
     if ( bRecord )
@@ -1251,7 +1249,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
 
         if ( bCutMode )
         {
-            pRefUndoDoc = new ScDocument( SCDOCMODE_UNDO );
+            pRefUndoDoc.reset(new ScDocument( SCDOCMODE_UNDO ));
             pRefUndoDoc->InitUndo( pDoc, 0, nTabCount-1 );
 
             pUndoData.reset(new ScRefUndoData( pDoc ));
@@ -1300,23 +1298,23 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
     {
         //  copy normally (original range)
         pDoc->CopyFromClip( aUserRange, aFilteredMark, nNoObjFlags,
-                pRefUndoDoc, pClipDoc, true, false, bIncludeFiltered,
+                pRefUndoDoc.get(), pClipDoc, true, false, bIncludeFiltered,
                 bSkipEmpty, (bMarkIsFiltered ? &aRangeList : nullptr) );
 
         // adapt refs manually in case of transpose
         if ( bTranspose && bCutMode && (nFlags & InsertDeleteFlags::CONTENTS) )
-            pDoc->UpdateTranspose( aUserRange.aStart, pOrigClipDoc, aFilteredMark, pRefUndoDoc );
+            pDoc->UpdateTranspose( aUserRange.aStart, pOrigClipDoc, aFilteredMark, pRefUndoDoc.get() );
     }
     else if (!bTranspose)
     {
         //  copy with bAsLink=TRUE
-        pDoc->CopyFromClip( aUserRange, aFilteredMark, nNoObjFlags, pRefUndoDoc, pClipDoc,
+        pDoc->CopyFromClip( aUserRange, aFilteredMark, nNoObjFlags, pRefUndoDoc.get(), pClipDoc,
                                 true, true, bIncludeFiltered, bSkipEmpty );
     }
     else
     {
         //  copy all content (TransClipDoc contains only formula)
-        pDoc->CopyFromClip( aUserRange, aFilteredMark, nContFlags, pRefUndoDoc, pClipDoc );
+        pDoc->CopyFromClip( aUserRange, aFilteredMark, nContFlags, pRefUndoDoc.get(), pClipDoc );
     }
 
     // skipped rows and merged cells don't mix
@@ -1349,7 +1347,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
 
         //  Paste the drawing objects after the row heights have been updated.
 
-        pDoc->CopyFromClip( aUserRange, aFilteredMark, InsertDeleteFlags::OBJECTS, pRefUndoDoc, pClipDoc,
+        pDoc->CopyFromClip( aUserRange, aFilteredMark, InsertDeleteFlags::OBJECTS, pRefUndoDoc.get(), pClipDoc,
                                 true, false, bIncludeFiltered );
     }
 
@@ -1383,7 +1381,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
 
             SCTAB nTabCount = pDoc->GetTableCount();
             pRedoDoc->AddUndoTab( 0, nTabCount-1 );
-            pDoc->CopyUpdated( pRefUndoDoc, pRedoDoc.get() );
+            pDoc->CopyUpdated( pRefUndoDoc.get(), pRedoDoc.get() );
 
             //      move old refs to Undo-Doc
 
@@ -1392,7 +1390,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
             pRefUndoDoc->DeleteArea( nStartCol, nStartRow, nEndCol, nEndRow, aFilteredMark, InsertDeleteFlags::ALL );
             pRefUndoDoc->CopyToDocument( 0,0,0, MAXCOL,MAXROW,nTabCount-1,
                                             InsertDeleteFlags::FORMULA, false, *pUndoDoc );
-            delete pRefUndoDoc;
+            pRefUndoDoc.reset();
         }
 
         //  DeleteUnchanged for pUndoData is in ScUndoPaste ctor,
@@ -1415,7 +1413,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
             //  Merge the paste undo action into the insert action.
             //  Use ScUndoWrapper so the ScUndoPaste pointer can be stored in the insert action.
 
-            pUndoMgr->AddUndoAction( o3tl::make_unique<ScUndoWrapper>( std::move(pUndo) ), true );
+            pUndoMgr->AddUndoAction( std::make_unique<ScUndoWrapper>( std::move(pUndo) ), true );
         }
         else
             pUndoMgr->AddUndoAction( std::move(pUndo) );
@@ -1608,7 +1606,7 @@ bool ScViewFunc::PasteMultiRangesFromClip(
             aMarkedRange, aMark, std::move(pUndoDoc), nullptr, nFlags|nUndoFlags, nullptr, false, &aOptions));
 
         if (bInsertCells)
-            pUndoMgr->AddUndoAction(o3tl::make_unique<ScUndoWrapper>(std::move(pUndo)), true);
+            pUndoMgr->AddUndoAction(std::make_unique<ScUndoWrapper>(std::move(pUndo)), true);
         else
             pUndoMgr->AddUndoAction(std::move(pUndo));
 
@@ -1771,7 +1769,7 @@ bool ScViewFunc::PasteFromClipToMultiRanges(
 
 
         pUndoMgr->AddUndoAction(
-            o3tl::make_unique<ScUndoPaste>(
+            std::make_unique<ScUndoPaste>(
                 pDocSh, aRanges, aMark, std::move(pUndoDoc), nullptr, nFlags|nUndoFlags, nullptr, false, &aOptions));
         pUndoMgr->LeaveListAction();
     }
@@ -1992,7 +1990,7 @@ void ScViewFunc::DataFormPutData( SCROW nCurrentRow ,
                                                    nUndoEndCol, nUndoEndRow, nEndTab, rMark,
                                                    std::move(pUndoDoc), std::move(pRedoDoc),
                                                    std::move(pUndoData) ) );
-        pUndoMgr->AddUndoAction( o3tl::make_unique<ScUndoWrapper>( std::move(pUndo) ), true );
+        pUndoMgr->AddUndoAction( std::make_unique<ScUndoWrapper>( std::move(pUndo) ), true );
 
         PaintPartFlags nPaint = PaintPartFlags::Grid;
         if (bColInfo)

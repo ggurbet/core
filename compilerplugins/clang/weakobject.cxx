@@ -7,6 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#ifndef LO_CLANG_SHARED_PLUGINS
+
 #include "check.hxx"
 #include "plugin.hxx"
 
@@ -19,16 +21,18 @@
 namespace {
 
 class WeakObject
-    : public clang::RecursiveASTVisitor<WeakObject>
-    , public loplugin::Plugin
+    : public loplugin::FilteringPlugin<WeakObject>
 {
 
 public:
-    explicit WeakObject(loplugin::InstantiationData const& rData): Plugin(rData)
+    explicit WeakObject(loplugin::InstantiationData const& rData): FilteringPlugin(rData)
     {}
 
+    virtual bool preRun() override {
+        return compiler.getLangOpts().CPlusPlus; // no OWeakObject in C
+    }
     void run() override {
-        if (compiler.getLangOpts().CPlusPlus) { // no OWeakObject in C
+        if( preRun()) {
             TraverseDecl(compiler.getASTContext().getTranslationUnitDecl());
         }
     }
@@ -154,8 +158,10 @@ public:
 
 };
 
-loplugin::Plugin::Registration<WeakObject> X("weakobject");
+loplugin::Plugin::Registration<WeakObject> weakobject("weakobject");
 
 } // namespace
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -374,7 +374,7 @@ IMPL_LINK(ScTablePage, PageNoHdl, weld::ToggleButton&, rBtn, void)
     PageNoHdl(&rBtn);
 }
 
-void ScTablePage::PageNoHdl(weld::ToggleButton* pBtn)
+void ScTablePage::PageNoHdl(const weld::ToggleButton* pBtn)
 {
     if (m_xBtnPageNo->get_active())
     {
@@ -389,13 +389,13 @@ void ScTablePage::PageNoHdl(weld::ToggleButton* pBtn)
 IMPL_LINK_NOARG(ScTablePage, ScaleHdl, weld::ComboBox&, void)
 {
     // controls for Box "Reduce/enlarge"
-    m_xBxScaleAll->show(m_xLbScaleMode->get_active() == SC_TPTABLE_SCALE_PERCENT);
+    m_xBxScaleAll->set_visible(m_xLbScaleMode->get_active() == SC_TPTABLE_SCALE_PERCENT);
 
     // controls for Grid "Scale to width/height"
-    m_xGrHeightWidth->show(m_xLbScaleMode->get_active() == SC_TPTABLE_SCALE_TO);
+    m_xGrHeightWidth->set_visible(m_xLbScaleMode->get_active() == SC_TPTABLE_SCALE_TO);
 
     // controls for Box "Scale to pages"
-    m_xBxScalePageNum->show(m_xLbScaleMode->get_active() == SC_TPTABLE_SCALE_TO_PAGES);
+    m_xBxScalePageNum->set_visible(m_xLbScaleMode->get_active() == SC_TPTABLE_SCALE_TO_PAGES);
 }
 
 IMPL_LINK(ScTablePage, ToggleHdl, weld::ToggleButton&, rBox, void)

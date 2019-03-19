@@ -1079,15 +1079,13 @@ void SAL_CALL OReportDefinition::close(sal_Bool bDeliverOwnership)
 
 
     ::std::vector< uno::Reference< frame::XController> > aCopy = m_pImpl->m_aControllers;
-    ::std::vector< uno::Reference< frame::XController> >::iterator aIter = aCopy.begin();
-    ::std::vector< uno::Reference< frame::XController> >::const_iterator aEnd = aCopy.end();
-    for (;aIter != aEnd ; ++aIter)
+    for (auto& rxController : aCopy)
     {
-        if ( aIter->is() )
+        if ( rxController.is() )
         {
             try
             {
-                uno::Reference< util::XCloseable> xFrame( (*aIter)->getFrame(), uno::UNO_QUERY );
+                uno::Reference< util::XCloseable> xFrame( rxController->getFrame(), uno::UNO_QUERY );
                 if ( xFrame.is() )
                     xFrame->close( bDeliverOwnership );
             }
@@ -1654,11 +1652,11 @@ void SAL_CALL OReportDefinition::setVisualAreaSize( ::sal_Int64 _nAspect, const 
 {
     ::osl::MutexGuard aGuard(m_aMutex);
     ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
-        bool bChanged =
+    bool bChanged =
             (m_pImpl->m_aVisualAreaSize.Width != _aSize.Width ||
              m_pImpl->m_aVisualAreaSize.Height != _aSize.Height);
-        m_pImpl->m_aVisualAreaSize = _aSize;
-        if( bChanged )
+    m_pImpl->m_aVisualAreaSize = _aSize;
+    if( bChanged )
             setModified( true );
     m_pImpl->m_nAspect = _nAspect;
 }
@@ -1844,15 +1842,13 @@ uno::Reference< container::XIndexAccess > SAL_CALL OReportDefinition::getViewDat
     {
         m_pImpl->m_xViewData.set( document::IndexedPropertyValues::create(m_aProps->m_xContext), uno::UNO_QUERY);
         uno::Reference< container::XIndexContainer > xContainer(m_pImpl->m_xViewData,uno::UNO_QUERY);
-        ::std::vector< uno::Reference< frame::XController> >::const_iterator aIter = m_pImpl->m_aControllers.begin();
-        ::std::vector< uno::Reference< frame::XController> >::const_iterator aEnd = m_pImpl->m_aControllers.end();
-        for (;aIter != aEnd ; ++aIter)
+        for (const auto& rxController : m_pImpl->m_aControllers)
         {
-            if ( aIter->is() )
+            if ( rxController.is() )
             {
                 try
                 {
-                    xContainer->insertByIndex(xContainer->getCount(),(*aIter)->getViewData());
+                    xContainer->insertByIndex(xContainer->getCount(), rxController->getViewData());
                 }
                 catch (const uno::Exception&)
                 {
@@ -2054,10 +2050,6 @@ uno::Reference< uno::XInterface > SAL_CALL OReportDefinition::createInstance( co
     {
         uno::Reference< style::XStyle> xStyle = new OStyle();
         xStyle->setName("Default");
-        uno::Reference<beans::XPropertySet> xProp(xStyle,uno::UNO_QUERY);
-        OUString sTray;
-        xProp->getPropertyValue("PrinterPaperTray")>>= sTray;
-
         return xStyle.get();
     }
     else if ( aServiceSpecifier == "com.sun.star.document.Settings" )
@@ -2227,7 +2219,7 @@ OUString SAL_CALL OReportDefinition::getShapeType(  )
     ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
     if ( m_aProps->m_xShape.is() )
         return m_aProps->m_xShape->getShapeType();
-   return OUString("com.sun.star.drawing.OLE2Shape");
+    return OUString("com.sun.star.drawing.OLE2Shape");
 }
 
 typedef ::cppu::WeakImplHelper< container::XNameContainer,
@@ -2318,9 +2310,11 @@ uno::Sequence< OUString > SAL_CALL OStylesHelper::getElementNames(  )
     uno::Sequence< OUString > aNameList(m_aElementsPos.size());
 
     OUString* pStringArray = aNameList.getArray();
-    ::std::vector<TStyleElements::iterator>::const_iterator aEnd = m_aElementsPos.end();
-    for(::std::vector<TStyleElements::iterator>::const_iterator aIter = m_aElementsPos.begin();         aIter != aEnd;++aIter,++pStringArray)
-        *pStringArray = (*aIter)->first;
+    for(const auto& rIter : m_aElementsPos)
+    {
+        *pStringArray = rIter->first;
+        ++pStringArray;
+    }
 
     return aNameList;
 }

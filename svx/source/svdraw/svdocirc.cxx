@@ -49,7 +49,7 @@
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnwtit.hxx>
 #include <svx/xpool.hxx>
-#include <o3tl/make_unique.hxx>
+#include <vcl/ptrstyle.hxx>
 
 using namespace com::sun::star;
 
@@ -60,7 +60,7 @@ static Point GetAnglePnt(const tools::Rectangle& rR, long nAngle)
     long nHgt=rR.Bottom()-rR.Top();
     long nMaxRad=(std::max(nWdt,nHgt)+1) /2;
     double a;
-    a=nAngle*nPi180;
+    a = nAngle * F_PI18000;
     Point aRetval(FRound(cos(a)*nMaxRad),-FRound(sin(a)*nMaxRad));
     if (nWdt==0) aRetval.setX(0 );
     if (nHgt==0) aRetval.setY(0 );
@@ -94,7 +94,7 @@ static Point GetAnglePnt(const tools::Rectangle& rR, long nAngle)
 
 std::unique_ptr<sdr::properties::BaseProperties> SdrCircObj::CreateObjectSpecificProperties()
 {
-    return o3tl::make_unique<sdr::properties::CircleProperties>(*this);
+    return std::make_unique<sdr::properties::CircleProperties>(*this);
 }
 
 
@@ -102,7 +102,7 @@ std::unique_ptr<sdr::properties::BaseProperties> SdrCircObj::CreateObjectSpecifi
 
 std::unique_ptr<sdr::contact::ViewContact> SdrCircObj::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfSdrCircObj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrCircObj>(*this);
 }
 
 SdrCircObj::SdrCircObj(
@@ -378,7 +378,6 @@ struct ImpCircUser : public SdrDragStatUserData
     tools::Rectangle                   aR;
     Point                       aCenter;
     Point                       aP1;
-    Point                       aP2;
     long                        nHgt;
     long                        nWdt;
     long                        nStart;
@@ -654,7 +653,6 @@ void ImpCircUser::SetCreateParams(SdrDragStat const & rStat)
         }
         aP1 = GetAnglePnt(aR,nStart);
         nEnd=nStart;
-        aP2=aP1;
     } else aP1=aCenter;
     if (rStat.GetPointCount()>3) {
         Point aP(rStat.GetPoint(3)-aCenter);
@@ -673,8 +671,7 @@ void ImpCircUser::SetCreateParams(SdrDragStat const & rStat)
                 nEnd=NormAngle36000(nEnd);
             }
         }
-        aP2 = GetAnglePnt(aR,nEnd);
-    } else aP2=aCenter;
+    }
 }
 
 void SdrCircObj::ImpSetCreateParams(SdrDragStat& rStat)
@@ -792,16 +789,16 @@ basegfx::B2DPolyPolygon SdrCircObj::TakeCreatePoly(const SdrDragStat& rDrag) con
     }
 }
 
-Pointer SdrCircObj::GetCreatePointer() const
+PointerStyle SdrCircObj::GetCreatePointer() const
 {
     switch (meCircleKind) {
-        case OBJ_CIRC: return Pointer(PointerStyle::DrawEllipse);
-        case OBJ_SECT: return Pointer(PointerStyle::DrawPie);
-        case OBJ_CARC: return Pointer(PointerStyle::DrawArc);
-        case OBJ_CCUT: return Pointer(PointerStyle::DrawCircleCut);
+        case OBJ_CIRC: return PointerStyle::DrawEllipse;
+        case OBJ_SECT: return PointerStyle::DrawPie;
+        case OBJ_CARC: return PointerStyle::DrawArc;
+        case OBJ_CCUT: return PointerStyle::DrawCircleCut;
         default: break;
     } // switch
-    return Pointer(PointerStyle::Cross);
+    return PointerStyle::Cross;
 }
 
 void SdrCircObj::NbcMove(const Size& aSiz)
@@ -883,13 +880,13 @@ void SdrCircObj::NbcMirror(const Point& rRef1, const Point& rRef2)
         long nMaxRad=(std::max(nWdt,nHgt)+1) /2;
         double a;
         // starting point
-        a=nStartAngle*nPi180;
+        a = nStartAngle * F_PI18000;
         aTmpPt1=Point(FRound(cos(a)*nMaxRad),-FRound(sin(a)*nMaxRad));
         if (nWdt==0) aTmpPt1.setX(0 );
         if (nHgt==0) aTmpPt1.setY(0 );
         aTmpPt1+=aCenter;
         // finishing point
-        a=nEndAngle*nPi180;
+        a = nEndAngle * F_PI18000;
         aTmpPt2=Point(FRound(cos(a)*nMaxRad),-FRound(sin(a)*nMaxRad));
         if (nWdt==0) aTmpPt2.setX(0 );
         if (nHgt==0) aTmpPt2.setY(0 );

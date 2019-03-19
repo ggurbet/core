@@ -27,9 +27,6 @@
     <glade-widget-class title="Search Results Box" name="sfxlo-SearchResultsBox"
                         generic-name="SearchResultsBox" parent="GtkComboBoxText"
                         icon-name="widget-gtk-comboboxtext"/>
-    <glade-widget-class title="Address Control" name="swuilo-SwAddressControlImpl"
-                        generic-name="SwAddressControlImpl" parent="GtkComboBoxText"
-                        icon-name="widget-gtk-comboboxtext"/>
     <glade-widget-class title="Thesaurus View" name="cuilo-ThesaurusAlternativesCtrl"
                         generic-name="ThesaurusAlternativesCtrl" parent="GtkTextView"
                         icon-name="widget-gtk-textview"/>
@@ -42,9 +39,6 @@
     <glade-widget-class title="Condition Edit" name="rptuilo-ConditionField"
                         generic-name="ConditionEdit" parent="GtkEntry"
                         icon-name="widget-gtk-comboboxtext"/>
-    <glade-widget-class title="OSQL NameEdit" name="dbulo-OSQLNameEdit"
-                        generic-name="OSQLNameEdit" parent="GtkEntry"
-                        icon-name="widget-gtk-textentry"/>
 
     <glade-widget-class title="VclComboBoxText" name="VclComboBoxText"
                         generic-name="ComboBoxText" parent="GtkComboBoxText"
@@ -120,10 +114,6 @@
       </properties>
     </glade-widget-class>
 
-    <glade-widget-class title="OSQL NameComboBox" name="dbulo-OSQLNameComboBox"
-                        generic-name="OSQLNameComboBox" parent="GtkComboBox"
-                        icon-name="widget-gtk-combobox"/>
-
     <glade-widget-class title="Font Preview" name="svxlo-SvxFontPrevWindow"
                         generic-name="Font Preview Window" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea">
@@ -169,12 +159,6 @@
     <glade-widget-class title="Address MultiLine Edit" name="swuilo-AddressMultiLineEdit"
                         generic-name="AddressMultiLineEdit" parent="GtkTextView"
                         icon-name="widget-gtk-textview"/>
-    <glade-widget-class title="Cui Custom MultiLine Edit" name="cuilo-CuiCustomMultilineEdit"
-                        generic-name="CuiCustomMultiLineEdit" parent="GtkTextView"
-                        icon-name="widget-gtk-textview"/>
-    <glade-widget-class title="LicenseView" name="deploymentgui-LicenseView"
-                        generic-name="LicenseView" parent="GtkTextView"
-                        icon-name="widget-gtk-textview"/>
     <glade-widget-class title="SvtValueSet" name="svtlo-ValueSet"
                         generic-name="Set of Value Options" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
@@ -199,26 +183,8 @@
     <glade-widget-class title="Check List Box" name="svxcorelo-SvxCheckListBox"
                         generic-name="Check List Box" parent="GtkTreeView"
                         icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="SwDBTreeList" name="swlo-SwDBTreeList"
-                        generic-name="SwDBTreeList" parent="GtkTreeView"
-                        icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="Macro EventListBox" name="cuilo-MacroEventListBox"
-                        generic-name="Macro EventListBox" parent="GtkTreeView"
-                        icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="ConfigGroup ListBox" name="cuilo-SfxConfigGroupListBox"
-                        generic-name="ConfigGroup ListBox" parent="GtkTreeView"
-                        icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="SfxAccCfgTabListBox" name="cuilo-SfxAccCfgTabListBox"
-                        generic-name="AccCfgTabListBox" parent="GtkTreeView"
-                        icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="ConfigGroupFunction ListBox" name="cuilo-SfxConfigFunctionListBox"
-                        generic-name="ConfigGroupFunction ListBox" parent="GtkTreeView"
-                        icon-name="widget-gtk-treeview"/>
     <glade-widget-class title="Table Preview" name="swuilo-AutoFmtPreview"
                         generic-name="Table Preview Window" parent="GtkDrawingArea"
-                        icon-name="widget-gtk-drawingarea"/>
-    <glade-widget-class title="Calc Table Preview" name="sclo-ScAutoFmtPreview"
-                        generic-name="Calc Table Preview Window" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
     <glade-widget-class title="Extension List" name="deploymentgui-ExtensionBox"
                         generic-name="Extensions List" parent="GtkDrawingArea"
@@ -253,9 +219,6 @@
     <glade-widget-class title="Ruby Edit" name="svxlo-RubyEdit"
                         generic-name="RubyEdit" parent="GtkEntry"
                         icon-name="widget-gtk-textentry"/>
-    <glade-widget-class title="Dictionary Edit" name="cuilo-SvxDictEdit"
-                        generic-name="SvxDictEdit" parent="GtkEntry"
-                        icon-name="widget-gtk-textentry"/>
     <glade-widget-class title="Extended Macro Library" name="basctllo-ExtTreeListBox"
                         generic-name="Extended Macro Library List" parent="GtkTreeView"
                         icon-name="widget-gtk-treeview"/>
@@ -285,11 +248,8 @@
     <glade-widget-class title="Animation ListBox" name="sdlo-CustomAnimationList"
                         generic-name="Animation ListBox" parent="vcllo-SvTreeListBox"
                         icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="Tab List" name="vcllo-SvTabListBox"
-                        generic-name="Tab List" parent="vcllo-SvTreeListBox"
-                        icon-name="widget-gtk-treeview"/>
     <glade-widget-class title="CheckBox List" name="basctllo-CheckBox"
-                        generic-name="CheckBox List" parent="vcllo-SvTabListBox"
+                        generic-name="CheckBox List" parent="vcllo-SvTreeListBox"
                         icon-name="widget-gtk-treeview"/>
     <glade-widget-class title="Tooltip Tree List" name="swuilo-SwFldRefTreeListBox"
                         generic-name="Tooltip Tree List" parent="vcllo-SvTreeListBox"
@@ -402,10 +362,6 @@
                         generic-name="Condition Edit" parent="GtkEntry"
                         icon-name="widget-gtk-textentry"/>
 
-    <glade-widget-class title="Return Action Edit" name="swlo-ReturnActionEdit"
-                        generic-name="Return Action Edit" parent="GtkEntry"
-                        icon-name="widget-gtk-textentry"/>
-
     <glade-widget-class title="Text View" name="sclo-ScEditWindow"
                         generic-name="Text View" parent="GtkTextView"
                         icon-name="widget-gtk-textentry"/>
@@ -475,10 +431,6 @@
                         generic-name="CondFormatList" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
 
-    <glade-widget-class title="ScDPFunctionListBox" name="scuilo-ScDPFunctionListBox"
-                        generic-name="DPFunctionListBox" parent="GtkTreeView"
-                        icon-name="widget-gtk-treeview"/>
-
     <glade-widget-class title="OTableTreeListBox" name="dbulo-OTableTreeListBox"
                         generic-name="OTableTreeListBox" parent="GtkTreeView"
                         icon-name="widget-gtk-treeview"/>
@@ -531,15 +483,6 @@
                         generic-name="DataTreeListBox" parent="GtkTreeView"
                         icon-name="widget-gtk-treeview"/>
 
-    <glade-widget-class title="Suggestion Edit" name="cuilo-SuggestionEdit"
-                        generic-name="SuggestionEdit" parent="GtkEntry"
-                        icon-name="widget-gtk-textentry"/>
-    <glade-widget-class title="Suggestion Display" name="cuilo-SuggestionDisplay"
-                        generic-name="SuggestionDisplay" parent="GtkTextView"
-                        icon-name="widget-gtk-textview"/>
-    <glade-widget-class title="Ruby RadioButton" name="cuilo-RubyRadioButton"
-                        generic-name="RubyRadioButton" parent="GtkRadioButton"
-                        icon-name="widget-gtk-radiobutton"/>
     <glade-widget-class title="Char Win" name="sfxlo-SvxCharViewControl"
                         generic-name="ShowText" parent="GtkDrawingArea"
                         icon-name="widget-gtk-drawingarea"/>
@@ -582,9 +525,6 @@
     <glade-widget-class title="Category ListBox" name="sdlo-CategoryListBox"
                         generic-name="Category ListBox" parent="GtkTreeView"
                         icon-name="widget-gtk-treeview"/>
-    <glade-widget-class title="Command Category ListBox" name="cuilo-CommandCategoryListBox"
-                        generic-name="Command Category ListBox" parent="GtkComboBox"
-                        icon-name="widget-gtk-combobox"/>
     <glade-widget-class title="Color Config Control" name="cuilo-ColorConfigCtrl"
                         generic-name="ColorConfigCtrl" parent="GtkBox"
                         icon-name="widget-gtk-box"/>

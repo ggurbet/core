@@ -20,7 +20,6 @@
 
 #include <cppuhelper/exc_hlp.hxx>
 #include <comphelper/anytostring.hxx>
-#include <o3tl/clamp.hxx>
 #include <sal/log.hxx>
 #include <com/sun/star/presentation/ParagraphTarget.hpp>
 #include <com/sun/star/animations/Timing.hpp>
@@ -209,7 +208,7 @@ bool AnimationBaseNode::init_st()
         mpActivity = createActivity();
     }
     catch (uno::Exception const&) {
-        SAL_WARN( "slideshow",  comphelper::anyToString(cppu::getCaughtException()) );
+        SAL_WARN( "slideshow", exceptionToString(cppu::getCaughtException()) );
         // catch and ignore. We later handle empty activities, but for
         // other nodes to function properly, the core functionality of
         // this node must remain up and running.
@@ -328,30 +327,30 @@ void AnimationBaseNode::deactivate_st( NodeState eDestState )
         }
     }
 
-    if (eDestState == ENDED) {
+    if (eDestState != ENDED)
+        return;
 
-        // no shape anymore, no layer needed:
-        maAttributeLayerHolder.reset();
+    // no shape anymore, no layer needed:
+    maAttributeLayerHolder.reset();
 
-        if (! isDependentSubsettedShape()) {
+    if (! isDependentSubsettedShape()) {
 
-            // for all other shapes, removing the
-            // attribute layer quite possibly changes
-            // shape display. Thus, force update
-            AttributableShapeSharedPtr const pShape( getShape() );
+        // for all other shapes, removing the
+        // attribute layer quite possibly changes
+        // shape display. Thus, force update
+        AttributableShapeSharedPtr const pShape( getShape() );
 
-            // don't anybody dare to check against
-            // pShape->isVisible() here, removing the
-            // attribute layer might actually make the
-            // shape invisible!
-            getContext().mpSubsettableShapeManager->notifyShapeUpdate( pShape );
-        }
+        // don't anybody dare to check against
+        // pShape->isVisible() here, removing the
+        // attribute layer might actually make the
+        // shape invisible!
+        getContext().mpSubsettableShapeManager->notifyShapeUpdate( pShape );
+    }
 
-        if (mpActivity) {
-            // kill activity, if still running
-            mpActivity->dispose();
-            mpActivity.reset();
-        }
+    if (mpActivity) {
+        // kill activity, if still running
+        mpActivity->dispose();
+        mpActivity.reset();
     }
 }
 
@@ -448,7 +447,7 @@ AnimationBaseNode::fillCommonParameters() const
 
     // Calculate the minimum frame count that depends on the duration and
     // the minimum frame count.
-    const sal_Int32 nMinFrameCount (o3tl::clamp<sal_Int32>(
+    const sal_Int32 nMinFrameCount (std::clamp<sal_Int32>(
         basegfx::fround(nDuration * FrameRate::MinimumFramesPerSecond), 1, 10));
 
     return ActivitiesFactory::CommonParameters(

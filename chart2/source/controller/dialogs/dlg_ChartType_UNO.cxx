@@ -73,7 +73,7 @@ void ChartTypeUnoDlg::implInitialize(const uno::Any& _rValue)
 }
 svt::OGenericUnoDialog::Dialog ChartTypeUnoDlg::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
 {
-    return svt::OGenericUnoDialog::Dialog(o3tl::make_unique<ChartTypeDialog>(Application::GetFrameWeld(rParent), m_xChartModel));
+    return svt::OGenericUnoDialog::Dialog(std::make_unique<ChartTypeDialog>(Application::GetFrameWeld(rParent), m_xChartModel));
 }
 uno::Reference<beans::XPropertySetInfo>  SAL_CALL ChartTypeUnoDlg::getPropertySetInfo()
 {

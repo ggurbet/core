@@ -19,7 +19,6 @@
 
 #include <hintids.hxx>
 
-#include <o3tl/make_unique.hxx>
 #include <svl/whiter.hxx>
 #include <svl/stritem.hxx>
 #include <svl/itemiter.hxx>
@@ -64,7 +63,7 @@ void SwTextShell::ExecCharAttr(SfxRequest &rReq)
 {
     SwWrtShell &rSh = GetShell();
     const SfxItemSet  *pArgs   = rReq.GetArgs();
-          int          eState = STATE_TOGGLE;
+    int        eState = STATE_TOGGLE;
     sal_uInt16 nWhich = rReq.GetSlot();
 
     if(pArgs )
@@ -255,7 +254,7 @@ void SwTextShell::ExecCharAttrArgs(SfxRequest &rReq)
             {
                 // must create new one, otherwise document is without pam
                 SwPaM* pPaM = rWrtSh.GetCursor();
-                vItems.emplace_back( pSize, o3tl::make_unique<SwPaM>( *(pPaM->GetMark()), *(pPaM->GetPoint())) );
+                vItems.emplace_back( pSize, std::make_unique<SwPaM>( *(pPaM->GetMark()), *(pPaM->GetPoint())) );
             }
             else
                 vItems = rWrtSh.GetItemWithPaM( RES_CHRATR_FONTSIZE );
@@ -436,7 +435,7 @@ SET_LINESPACE:
         rWrtSh.AutoUpdatePara(pColl, aSet);
     }
     else
-        rWrtSh.SetAttrSet( aSet );
+        rWrtSh.SetAttrSet( aSet, SetAttrMode::DEFAULT, nullptr, true);
     rReq.Done();
 }
 

@@ -408,7 +408,7 @@ static void GetFormatAndCreateCursorFromRangeRep(
                 pUnoCursor->GetPoint()->nNode = *pBRBox->GetSttNd();
                 pUnoCursor->Move( fnMoveForward, GoInNode );
                 SwUnoTableCursor& rCursor =
-                    dynamic_cast<SwUnoTableCursor&>(*pUnoCursor.get());
+                    dynamic_cast<SwUnoTableCursor&>(*pUnoCursor);
                 // HACK: remove pending actions for old style tables
                 UnoActionRemoveContext aRemoveContext(rCursor);
                 rCursor.MakeBoxSels();
@@ -734,8 +734,7 @@ uno::Reference< chart2::data::XDataSource > SwChartDataProvider::Impl_createData
 
                 // get length of data sequence
                 sal_Int32 nL = 0;
-                sal_Char c;
-                while (ii< iiEnd && 'x' == (c = bDtaSrcIsColumns ? aMap[ii][oi] : aMap[oi][ii]))
+                while (ii< iiEnd && 'x' == (bDtaSrcIsColumns ? aMap[ii][oi] : aMap[oi][ii]))
                 {
                     ++nL;   ++ii;
                 }
@@ -745,7 +744,7 @@ uno::Reference< chart2::data::XDataSource > SwChartDataProvider::Impl_createData
                 // to be found because that is not supported
                 while (ii < iiEnd)
                 {
-                    if ('x' == (c = bDtaSrcIsColumns ? aMap[ii][oi] : aMap[oi][ii]))
+                    if ('x' == (bDtaSrcIsColumns ? aMap[ii][oi] : aMap[oi][ii]))
                         throw lang::IllegalArgumentException();
                     ++ii;
                 }
@@ -1798,10 +1797,10 @@ uno::Sequence< OUString > SAL_CALL SwChartDataSource::getSupportedServiceNames( 
 }
 
 SwChartDataSequence::SwChartDataSequence(
-        SwChartDataProvider &rProvider,
-        SwFrameFormat   &rTableFormat,
+        SwChartDataProvider& rProvider,
+        SwFrameFormat& rTableFormat,
         const std::shared_ptr<SwUnoCursor>& pTableCursor ) :
-    SwClient( &rTableFormat ),
+    m_pFormat(&rTableFormat),
     m_aEvtListeners( GetChartMutex() ),
     m_aModifyListeners( GetChartMutex() ),
     m_aRowLabelText( SwResId( STR_CHART2_ROW_LABEL_TEXT ) ),
@@ -1810,6 +1809,7 @@ SwChartDataSequence::SwChartDataSequence(
     m_pTableCursor( pTableCursor ),
     m_pPropSet( aSwMapProvider.GetPropertySet( PROPERTY_MAP_CHART2_DATA_SEQUENCE ) )
 {
+    StartListening(rTableFormat.GetNotifier());
     m_bDisposed = false;
 
     acquire();
@@ -1846,7 +1846,8 @@ SwChartDataSequence::SwChartDataSequence(
 
 SwChartDataSequence::SwChartDataSequence( const SwChartDataSequence &rObj ) :
     SwChartDataSequenceBaseClass(rObj),
-    SwClient( rObj.GetFrameFormat() ),
+    SvtListener(),
+    m_pFormat( rObj.m_pFormat ),
     m_aEvtListeners( GetChartMutex() ),
     m_aModifyListeners( GetChartMutex() ),
     m_aRole( rObj.m_aRole ),
@@ -1856,6 +1857,8 @@ SwChartDataSequence::SwChartDataSequence( const SwChartDataSequence &rObj ) :
     m_pTableCursor( rObj.m_pTableCursor ),
     m_pPropSet( rObj.m_pPropSet )
 {
+    if(m_pFormat)
+        StartListening(m_pFormat->GetNotifier());
     m_bDisposed = false;
 
     acquire();
@@ -2190,17 +2193,17 @@ uno::Sequence< OUString > SAL_CALL SwChartDataSequence::getSupportedServiceNames
     return { "com.sun.star.chart2.data.DataSequence" };
 }
 
-void SwChartDataSequence::Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew)
+void SwChartDataSequence::Notify( const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew );
-
-    // table was deleted or cursor was deleted
-    if(!GetRegisteredIn() || !m_pTableCursor)
+    if(rHint.GetId() == SfxHintId::Dying)
+        m_pFormat = nullptr;
+    if(!m_pFormat || !m_pTableCursor)
     {
+        m_pFormat = nullptr;
         m_pTableCursor.reset(nullptr);
         dispose();
     }
-    else
+    else if (dynamic_cast<const sw::LegacyModifyHint*>(&rHint))
     {
         setModified( true );
     }
@@ -2292,10 +2295,10 @@ void SAL_CALL SwChartDataSequence::dispose(  )
             //exception threw out.  Recorrect the logic of code in
             //SwChartDataSequence::Dispose(), release the relationship
             //here...
-            SwModify* pLclRegisteredIn = GetRegisteredInNonConst();
-            if (pLclRegisteredIn && pLclRegisteredIn->HasWriterListeners())
+            if (m_pFormat && m_pFormat->HasWriterListeners())
             {
                 EndListeningAll();
+                m_pFormat = nullptr;
                 m_pTableCursor.reset(nullptr);
             }
         }

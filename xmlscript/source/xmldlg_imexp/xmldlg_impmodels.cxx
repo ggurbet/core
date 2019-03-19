@@ -31,6 +31,7 @@
 
 #include <cppuhelper/exc_hlp.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <i18nlangtag/languagetag.hxx>
 
 using namespace ::com::sun::star;
@@ -72,9 +73,9 @@ Reference< xml::input::XElement > Frame::startChildElement(
 
 void Frame::endElement()
 {
-        if ( !m_xContainer.is() )
+    if ( !m_xContainer.is() )
             m_xContainer.set( m_xImport->_xDialogModelFactory->createInstance( "com.sun.star.awt.UnoFrameModel" ), UNO_QUERY );
-        Reference< beans::XPropertySet > xProps( m_xContainer, UNO_QUERY_THROW );
+    Reference< beans::XPropertySet > xProps( m_xContainer, UNO_QUERY_THROW );
         // m_xImport is what we need to add to ( e.g. the dialog in this case )
     ControlImportContext ctx( m_xImport.get(), xProps,   getControlId( _xAttributes ) );
 
@@ -118,7 +119,7 @@ Reference< xml::input::XElement > MultiPage::startChildElement(
         // Create new DialogImport for this container
 
         DialogImport* pMultiPageImport = new DialogImport( *m_xImport );
-                pMultiPageImport->_xDialogModel = m_xContainer;
+        pMultiPageImport->_xDialogModel = m_xContainer;
         return new BulletinBoardElement( rLocalName, xAttributes, this,  pMultiPageImport );
     }
     else
@@ -130,7 +131,7 @@ Reference< xml::input::XElement > MultiPage::startChildElement(
 
 void MultiPage::endElement()
 {
-        Reference< beans::XPropertySet > xProps( m_xContainer, UNO_QUERY_THROW );
+    Reference< beans::XPropertySet > xProps( m_xContainer, UNO_QUERY_THROW );
         // m_xImport is what we need to add to ( e.g. the dialog in this case )
     ControlImportContext ctx( m_xImport.get(), xProps, getControlId( _xAttributes ));
 
@@ -148,7 +149,7 @@ void MultiPage::endElement()
 
     ctx.importDefaults( 0, 0, _xAttributes ); // inherited from BulletinBoardElement
     ctx.importLongProperty("MultiPageValue" , "value",  _xAttributes );
-        ctx.importBooleanProperty( "Decoration", "withtabs",  _xAttributes) ;
+    ctx.importBooleanProperty( "Decoration", "withtabs",  _xAttributes) ;
     ctx.importEvents( _events );
     // avoid ring-reference:
     // vector< event elements > holding event elements holding this (via _pParent)
@@ -171,7 +172,7 @@ Reference< xml::input::XElement > Page::startChildElement(
     {
 
         DialogImport* pPageImport = new DialogImport( *m_xImport );
-                pPageImport->_xDialogModel = m_xContainer;
+        pPageImport->_xDialogModel = m_xContainer;
         return new BulletinBoardElement( rLocalName, xAttributes, this,  pPageImport );
     }
     else
@@ -183,7 +184,7 @@ Reference< xml::input::XElement > Page::startChildElement(
 
 void Page::endElement()
 {
-        Reference< beans::XPropertySet > xProps( m_xContainer, UNO_QUERY_THROW );
+    Reference< beans::XPropertySet > xProps( m_xContainer, UNO_QUERY_THROW );
 
     ControlImportContext ctx( m_xImport.get(), xProps, getControlId( _xAttributes ));
 
@@ -541,7 +542,7 @@ void FormattedFieldElement::endElement()
         catch (const util::MalformedNumberFormatException & exc)
         {
             css::uno::Any anyEx = cppu::getCaughtException();
-            SAL_WARN( "xmlscript.xmldlg", exc );
+            SAL_WARN( "xmlscript.xmldlg", exceptionToString(anyEx) );
             // rethrow
             throw xml::sax::SAXException( exc.Message, Reference< XInterface >(), anyEx );
         }
@@ -981,7 +982,6 @@ void FixedHyperLinkElement::endElement()
     ctx.importDefaults( _nBasePosX, _nBasePosY, _xAttributes );
     ctx.importStringProperty( "Label", "value", _xAttributes );
     ctx.importStringProperty( "URL", "url", _xAttributes );
-    ctx.importStringProperty( "Description", "description", _xAttributes );
 
     ctx.importAlignProperty( "Align", "align" ,_xAttributes );
     ctx.importVerticalAlignProperty( "VerticalAlign", "valign", _xAttributes );
@@ -1700,6 +1700,11 @@ Reference< xml::input::XElement > BulletinBoardElement::startChildElement(
     {
         return new ProgressBarElement( rLocalName, xAttributes, this, m_xImport.get() );
     }
+    // table
+    else if (rLocalName == "table")
+    {
+        return new GridControlElement( rLocalName, xAttributes, this, m_xImport.get() );
+    }
     else if ( rLocalName == "multipage" )
     {
         return new MultiPage( rLocalName, xAttributes, this, m_xImport.get() );
@@ -1839,6 +1844,60 @@ void WindowElement::endElement()
     // vector< event elements > holding event elements holding this (via _pParent)
     _events.clear();
 }
+
+// table
+Reference< xml::input::XElement > GridControlElement::startChildElement(
+    sal_Int32 nUid, OUString const & rLocalName,
+    Reference< xml::input::XAttributes > const & xAttributes )
+{
+    // event
+    if (m_xImport->isEventElement( nUid, rLocalName ))
+    {
+        return new EventElement( nUid, rLocalName, xAttributes, this, m_xImport.get() );
+    }
+    else
+    {
+        throw xml::sax::SAXException( "expected event element!", Reference< XInterface >(), Any() );
+    }
+}
+
+void GridControlElement::endElement()
+{
+    ControlImportContext ctx( m_xImport.get(), getControlId( _xAttributes ), "com.sun.star.awt.grid.UnoControlGridModel");
+    Reference< beans::XPropertySet > xControlModel( ctx.getControlModel() );
+    Reference< xml::input::XElement > xStyle( getStyle( _xAttributes ) );
+    if (xStyle.is())
+    {
+        StyleElement * pStyle = static_cast< StyleElement * >( xStyle.get () );
+        pStyle->importBackgroundColorStyle( xControlModel );
+        pStyle->importBorderStyle( xControlModel );
+        pStyle->importTextColorStyle( xControlModel );
+        pStyle->importTextLineColorStyle( xControlModel );
+        pStyle->importFontStyle( xControlModel );
+    }
+    ctx.importDefaults( _nBasePosX, _nBasePosY, _xAttributes );
+    ctx.importBooleanProperty( "Tabstop", "tabstop", _xAttributes );
+    ctx.importVerticalAlignProperty( "VerticalAlign", "valign", _xAttributes );
+    ctx.importSelectionTypeProperty( "SelectionModel", "selectiontype", _xAttributes );
+    ctx.importBooleanProperty( "ShowColumnHeader", "showcolumnheader", _xAttributes );
+    ctx.importBooleanProperty( "ShowRowHeader", "showrowheader", _xAttributes );
+    ctx.importHexLongProperty( "GridLineColor", "gridline-color", _xAttributes );
+    ctx.importBooleanProperty( "UseGridLines", "usegridlines", _xAttributes );
+    ctx.importHexLongProperty( "HeaderBackgroundColor", "headerbackground-color", _xAttributes );
+    ctx.importHexLongProperty( "HeaderTextColor", "headertext-color", _xAttributes );
+    ctx.importHexLongProperty( "ActiveSelectionBackgroundColor", "activeselectionbackground-color", _xAttributes );
+    ctx.importHexLongProperty( "ActiveSelectionTextColor", "activeselectiontext-color", _xAttributes );
+    ctx.importHexLongProperty( "InactiveSelectionBackgroundColor", "inactiveselectionbackground-color", _xAttributes );
+    ctx.importHexLongProperty( "InactiveSelectionTextColor", "inactiveselectiontext-color", _xAttributes );
+    ctx.importEvents( _events );
+    // avoid ring-reference:
+    // vector< event elements > holding event elements holding this (via _pParent)
+    _events.clear();
+
+    ctx.finish();
+}
+
+//##################################################################################################
 
 }
 

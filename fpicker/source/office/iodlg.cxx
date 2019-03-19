@@ -1258,7 +1258,7 @@ IMPL_LINK_NOARG( SvtFileDialog, ConnectToServerPressed_Hdl, Button*, void )
             PlacePtr newPlace = aDlg.GetPlace();
             pImpl->_pPlaces->AppendPlace(newPlace);
 
-      break;
+            break;
         }
         case RET_CANCEL :
         default :
@@ -1373,7 +1373,7 @@ void SvtFileDialog::OpenMultiSelection_Impl()
 
 void SvtFileDialog::UpdateControls( const OUString& rURL )
 {
-       pImpl->_pEdFileName->SetBaseURL( rURL );
+    pImpl->_pEdFileName->SetBaseURL( rURL );
 
     INetURLObject aObj( rURL );
 
@@ -1767,12 +1767,9 @@ void SvtFileDialog::EnableUI( bool _bEnable )
 
     if ( _bEnable )
     {
-        for ( auto aLoop = m_aDisabledControls.begin();
-              aLoop != m_aDisabledControls.end();
-              ++aLoop
-            )
+        for ( auto& rxControl : m_aDisabledControls )
         {
-            (*aLoop)->Enable( false );
+            rxControl->Enable( false );
         }
     }
 }
@@ -1940,7 +1937,7 @@ bool SvtFileDialog::PrepareExecute()
     bool bFileToSelect = nFileNameLen != 0;
     if ( bFileToSelect && aFileName[ nFileNameLen - 1 ] != '/' )
     {
-         OUString aDecodedName = aFolderURL.getName( INetURLObject::LAST_SEGMENT, true, INetURLObject::DecodeMechanism::WithCharset );
+        OUString aDecodedName = aFolderURL.getName( INetURLObject::LAST_SEGMENT, true, INetURLObject::DecodeMechanism::WithCharset );
         pImpl->_pEdFileName->SetText( aDecodedName );
         aFolderURL.removeSegment();
     }

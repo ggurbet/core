@@ -18,6 +18,7 @@
  */
 
 #include <hintids.hxx>
+#include <comphelper/lok.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdobj.hxx>
 #include <svl/ptitem.hxx>
@@ -271,15 +272,15 @@ bool SwDrawBase::MouseButtonUp(const MouseEvent& rMEvt)
             m_pSh->EndCreate(SdrCreateCmd::ForceEnd);
             if (OBJ_NONE == nDrawMode)   // Text border inserted
             {
-               uno::Reference< frame::XDispatchRecorder > xRecorder =
+                uno::Reference< frame::XDispatchRecorder > xRecorder =
                     m_pSh->GetView().GetViewFrame()->GetBindings().GetRecorder();
                 if ( xRecorder.is() )
                 {
                     SfxRequest aReq(m_pSh->GetView().GetViewFrame(),FN_INSERT_FRAME);
-                        aReq.AppendItem(SfxUInt16Item( FN_INSERT_FRAME,
+                    aReq .AppendItem(SfxUInt16Item( FN_INSERT_FRAME,
                                 static_cast<sal_uInt16>(RndStdIds::FLY_AT_PARA) ));
-                        aReq.AppendItem(SfxPointItem( FN_PARAM_1, m_pSh->GetAnchorObjDiff()));
-                        aReq.AppendItem(SvxSizeItem( FN_PARAM_2, m_pSh->GetObjSize()));
+                    aReq.AppendItem(SfxPointItem( FN_PARAM_1, m_pSh->GetAnchorObjDiff()));
+                    aReq.AppendItem(SvxSizeItem( FN_PARAM_2, m_pSh->GetObjSize()));
                     aReq.Done();
                 }
                 bAutoCap = true;
@@ -472,11 +473,10 @@ void SwDrawBase::BreakCreate()
 void SwDrawBase::SetDrawPointer()
 {
     SdrView *pSdrView = m_pSh->GetDrawView();
-        Point aPnt(m_pWin->OutputToScreenPixel(m_pWin->GetPointerPosPixel()));
+    Point aPnt(m_pWin->OutputToScreenPixel(m_pWin->GetPointerPosPixel()));
     aPnt = m_pWin->PixelToLogic(m_pWin->ScreenToOutputPixel(aPnt));
-    const Pointer aPointTyp = pSdrView->GetPreferredPointer(aPnt, m_pSh->GetOut());
-    const Pointer aDrawPt(aPointTyp);
-    m_pWin->SetPointer(aDrawPt);
+    PointerStyle aPointTyp = pSdrView->GetPreferredPointer(aPnt, m_pSh->GetOut());
+    m_pWin->SetPointer(aPointTyp);
 }
 
 // If necessary switch into selection mode
@@ -524,13 +524,21 @@ void SwDrawBase::CreateDefaultObject()
 Point  SwDrawBase::GetDefaultCenterPos()
 {
     Size aDocSz(m_pSh->GetDocSize());
-    const SwRect& rVisArea = m_pSh->VisArea();
-    Point aStartPos = rVisArea.Center();
-    if(rVisArea.Width() > aDocSz.Width())
-        aStartPos.setX( aDocSz.Width() / 2 + rVisArea.Left() );
-    if(rVisArea.Height() > aDocSz.Height())
-        aStartPos.setY( aDocSz.Height() / 2 + rVisArea.Top() );
-    return aStartPos;
+
+    SwRect aVisArea(m_pSh->VisArea());
+    if (comphelper::LibreOfficeKit::isActive())
+    {
+        aVisArea = m_pSh->getLOKVisibleArea();
+        aVisArea.Intersection(SwRect(Point(), aDocSz));
+    }
+
+    Point aCenter = aVisArea.Center();
+    if (aVisArea.Width() > aDocSz.Width())
+        aCenter.setX(aDocSz.Width() / 2 + aVisArea.Left());
+    if (aVisArea.Height() > aDocSz.Height())
+        aCenter.setY(aDocSz.Height() / 2 + aVisArea.Top());
+
+    return aCenter;
 }
 
 // #i33136#

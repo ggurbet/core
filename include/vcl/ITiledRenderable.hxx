@@ -15,9 +15,10 @@
 #include <vcl/commandevent.hxx>
 #include <vcl/event.hxx>
 #include <vcl/vclevent.hxx>
-#include <vcl/pointr.hxx>
 #include <vcl/ptrstyle.hxx>
 #include <map>
+
+namespace com { namespace sun { namespace star { namespace beans { struct PropertyValue; } } } }
 
 namespace vcl
 {
@@ -30,56 +31,7 @@ namespace vcl
      * by css, it might turn out to be worth mapping some of these missing cursors
      * to available cursors?
      */
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning( disable : 4592)
-#endif
-    static const std::map <PointerStyle, OString> gaLOKPointerMap {
-    { PointerStyle::Arrow, "default" },
-    // PointerStyle::Null ?
-    { PointerStyle::Wait, "wait" },
-    { PointerStyle::Text, "text" },
-    { PointerStyle::Help, "help" },
-    { PointerStyle::Cross, "crosshair" },
-    { PointerStyle::Fill, "fill" },
-    { PointerStyle::Move, "move" },
-    { PointerStyle::NSize, "n-resize" },
-    { PointerStyle::SSize, "s-resize" },
-    { PointerStyle::WSize, "w-resize" },
-    { PointerStyle::ESize, "e-resize" },
-    { PointerStyle::NWSize, "ne-resize" },
-    { PointerStyle::NESize, "ne-resize" },
-    { PointerStyle::SWSize, "sw-resize" },
-    { PointerStyle::SESize, "se-resize" },
-    // WindowNSize through WindowSESize
-    { PointerStyle::HSplit, "col-resize" },
-    { PointerStyle::VSplit, "row-resize" },
-    { PointerStyle::HSizeBar, "col-resize" },
-    { PointerStyle::VSizeBar, "row-resize" },
-    { PointerStyle::Hand, "grab" },
-    { PointerStyle::RefHand, "pointer" },
-    // Pen, Magnify, Fill, Rotate
-    // HShear, VShear
-    // Mirror, Crook, Crop, MovePoint, MoveBezierWeight
-    // MoveData
-    { PointerStyle::CopyData, "copy" },
-    { PointerStyle::LinkData, "alias" },
-    // MoveDataLink, CopyDataLink
-    //MoveFile, CopyFile, LinkFile
-    // MoveFileLink, CopyFileLink, MoveFiless, CopyFiles
-    { PointerStyle::NotAllowed, "not-allowed" },
-    // DrawLine through DrawCaption
-    // Chart, Detective, PivotCol, PivotRow, PivotField, Chain, ChainNotAllowed
-    // TimeEventMove, TimeEventSize
-    // AutoScrollN through AutoScrollNSWE
-    // Airbrush
-    { PointerStyle::TextVertical, "vertical-text" }
-    // Pivot Delete, TabSelectS through TabSelectSW
-    // PaintBrush, HideWhiteSpace, ShowWhiteSpace
-    };
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+    extern const std::map <PointerStyle, OString> gaLOKPointerMap;
 
 
 class VCL_DLLPUBLIC ITiledRenderable
@@ -88,56 +40,6 @@ protected:
     int mnTilePixelWidth, mnTilePixelHeight;
     int mnTileTwipWidth, mnTileTwipHeight;
 public:
-    struct LOKAsyncEventData
-    {
-        VclPtr<vcl::Window> mpWindow;
-        VclEventId mnEvent;
-        MouseEvent maMouseEvent;
-        KeyEvent maKeyEvent;
-    };
-
-    static void LOKPostAsyncEvent(void* pEv, void*)
-    {
-        LOKAsyncEventData* pLOKEv = static_cast<LOKAsyncEventData*>(pEv);
-        if (pLOKEv->mpWindow->IsDisposed())
-            return;
-
-        switch (pLOKEv->mnEvent)
-        {
-        case VclEventId::WindowKeyInput:
-            pLOKEv->mpWindow->KeyInput(pLOKEv->maKeyEvent);
-            break;
-        case VclEventId::WindowKeyUp:
-            pLOKEv->mpWindow->KeyUp(pLOKEv->maKeyEvent);
-            break;
-        case VclEventId::WindowMouseButtonDown:
-            pLOKEv->mpWindow->LogicMouseButtonDown(pLOKEv->maMouseEvent);
-            // Invoke the context menu
-            if (pLOKEv->maMouseEvent.GetButtons() & MOUSE_RIGHT)
-            {
-                const CommandEvent aCEvt(pLOKEv->maMouseEvent.GetPosPixel(), CommandEventId::ContextMenu, true, nullptr);
-                pLOKEv->mpWindow->Command(aCEvt);
-            }
-            break;
-        case VclEventId::WindowMouseButtonUp:
-            pLOKEv->mpWindow->LogicMouseButtonUp(pLOKEv->maMouseEvent);
-
-            // sometimes MouseButtonDown captures mouse and starts tracking, and VCL
-            // will not take care of releasing that with tiled rendering
-            if (pLOKEv->mpWindow->IsTracking())
-                pLOKEv->mpWindow->EndTracking();
-
-            break;
-        case VclEventId::WindowMouseMove:
-            pLOKEv->mpWindow->LogicMouseMove(pLOKEv->maMouseEvent);
-            break;
-        default:
-            assert(false);
-            break;
-        }
-
-        delete pLOKEv;
-    }
 
     virtual ~ITiledRenderable();
 
@@ -283,7 +185,7 @@ public:
         return OString();
     }
 
-    virtual Pointer getPointer() = 0;
+    virtual PointerStyle getPointer() = 0;
 
     /// Sets the clipboard of the component.
     virtual void setClipboard(const css::uno::Reference<css::datatransfer::clipboard::XClipboard>& xClipboard) = 0;
@@ -366,7 +268,6 @@ public:
     {
         return OUString();
     }
-
 };
 } // namespace vcl
 

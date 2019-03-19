@@ -23,7 +23,6 @@
 #include <i18nlangtag/languagetag.hxx>
 #include <svtools/collatorres.hxx>
 #include <unotools/collatorwrapper.hxx>
-#include <unotools/localedatawrapper.hxx>
 #include <comphelper/processfactory.hxx>
 
 #include <scitems.hxx>
@@ -31,7 +30,6 @@
 #include <viewdata.hxx>
 #include <document.hxx>
 #include <global.hxx>
-#include <globalnames.hxx>
 #include <dbdata.hxx>
 #include <userlist.hxx>
 #include <rangeutl.hxx>
@@ -406,7 +404,7 @@ sal_uInt16 ScTabPageSortFields::GetFieldSelPos( SCCOLROW nField )
 void ScTabPageSortFields::SetLastSortKey( sal_uInt16 nItem )
 {
     // Extend local SortParam copy
-    const ScSortKeyState atempKeyState = { false, 0, true };
+    const ScSortKeyState atempKeyState = { 0, false, true };
     aSortData.maKeyState.push_back( atempKeyState );
 
     // Add Sort Key Item
@@ -440,10 +438,8 @@ IMPL_LINK( ScTabPageSortFields, SelectHdl, weld::ComboBox&, rLb, void )
     }
 
     // Find selected listbox
-    for ( pIter = m_aSortWin.m_aSortKeyItems.begin(); pIter != m_aSortWin.m_aSortKeyItems.end(); ++pIter )
-    {
-        if ( (*pIter)->m_xLbSort.get() == &rLb ) break;
-    }
+    pIter = std::find_if(m_aSortWin.m_aSortKeyItems.begin(), m_aSortWin.m_aSortKeyItems.end(),
+        [&rLb](const ScSortKeyItems::value_type& rItem) { return rItem->m_xLbSort.get() == &rLb; });
 
     if (pIter == m_aSortWin.m_aSortKeyItems.end())
         return;

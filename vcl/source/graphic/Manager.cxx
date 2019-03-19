@@ -20,7 +20,6 @@
 #include <graphic/Manager.hxx>
 #include <impgraph.hxx>
 #include <vcl/lazydelete.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
 using namespace css;
@@ -108,7 +107,7 @@ IMPL_LINK(Manager, SwapOutTimerHandler, Timer*, pTimer, void)
     pTimer->Start();
 }
 
-void Manager::registerGraphic(std::shared_ptr<ImpGraphic>& pImpGraphic,
+void Manager::registerGraphic(const std::shared_ptr<ImpGraphic>& pImpGraphic,
                               OUString const& /*rsContext*/)
 {
     // make some space first
@@ -146,7 +145,7 @@ void Manager::unregisterGraphic(ImpGraphic* pImpGraphic)
 
 std::shared_ptr<ImpGraphic> Manager::copy(std::shared_ptr<ImpGraphic> const& rImpGraphicPtr)
 {
-    auto pReturn = std::make_shared<ImpGraphic>(*rImpGraphicPtr.get());
+    auto pReturn = std::make_shared<ImpGraphic>(*rImpGraphicPtr);
     registerGraphic(pReturn, "Copy");
     return pReturn;
 }

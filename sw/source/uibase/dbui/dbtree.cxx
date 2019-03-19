@@ -98,11 +98,8 @@ void SwDBTreeList_Impl::elementInserted( const ContainerEvent&  )
     // information not needed
 }
 
-void SwDBTreeList_Impl::elementRemoved( const ContainerEvent& rEvent )
+void SwDBTreeList_Impl::elementRemoved( const ContainerEvent& )
 {
-    SolarMutexGuard aGuard;
-    OUString sSource;
-    rEvent.Accessor >>= sSource;
 }
 
 void SwDBTreeList_Impl::disposing( const EventObject&  )
@@ -136,48 +133,23 @@ Reference<XConnection>  SwDBTreeList_Impl::GetConnection(const OUString& rSource
     return xRet;
 }
 
-SwDBTreeList::SwDBTreeList(vcl::Window *pParent, WinBits nStyle)
-    : SvTreeListBox(pParent, nStyle)
-    , bInitialized(false)
+SwDBTreeList::SwDBTreeList(std::unique_ptr<weld::TreeView> xTreeView)
+    : bInitialized(false)
     , bShowColumns(false)
     , pImpl(new SwDBTreeList_Impl)
+    , m_xTreeView(std::move(xTreeView))
 {
-    if (IsVisible())
-        InitTreeList();
-}
-
-VCL_BUILDER_FACTORY_CONSTRUCTOR(SwDBTreeList, WB_TABSTOP)
-
-Size SwDBTreeList::GetOptimalSize() const
-{
-    return LogicToPixel(Size(100, 62), MapMode(MapUnit::MapAppFont));
+    m_xTreeView->connect_expanding(LINK(this, SwDBTreeList, RequestingChildrenHdl));
 }
 
 SwDBTreeList::~SwDBTreeList()
 {
-    disposeOnce();
-}
-
-void SwDBTreeList::dispose()
-{
-    pImpl = nullptr;
-    SvTreeListBox::dispose();
 }
 
 void SwDBTreeList::InitTreeList()
 {
-    if(!pImpl->HasContext() && pImpl->GetWrtShell())
+    if (!pImpl->HasContext() && pImpl->GetWrtShell())
         return;
-    SetSelectionMode(SelectionMode::Single);
-    SetStyle(GetStyle()|WB_HASLINES|WB_CLIPCHILDREN|WB_HASBUTTONS|WB_HASBUTTONSATROOT|WB_HSCROLL);
-    // don't set font, so that the Control's font is being applied!
-    SetSpaceBetweenEntries(0);
-    SetNodeBitmaps(Image(StockImage::Yes, RID_BMP_COLLAPSE),
-                   Image(StockImage::Yes, RID_BMP_EXPAND));
-
-    SetDragDropMode(DragDropMode::APP_COPY);
-
-    GetModel()->SetCompareHdl(LINK(this, SwDBTreeList, DBCompare));
 
     Sequence< OUString > aDBNames = pImpl->GetContext()->getElementNames();
     auto const sort = comphelper::string::NaturalStringSorter(
@@ -188,16 +160,16 @@ void SwDBTreeList::InitTreeList()
         [&sort](OUString const & x, OUString const & y)
         { return sort.compare(x, y) < 0; });
     const OUString* pDBNames = aDBNames.getConstArray();
-    long nCount = aDBNames.getLength();
+    sal_Int32 nCount = aDBNames.getLength();
 
-    Image aImg(StockImage::Yes, RID_BMP_DB);
-    for(long i = 0; i < nCount; i++)
+    OUString aImg(RID_BMP_DB);
+    for (sal_Int32 i = 0; i < nCount; ++i)
     {
         OUString sDBName(pDBNames[i]);
         Reference<XConnection> xConnection = pImpl->GetConnection(sDBName);
         if (xConnection.is())
         {
-            InsertEntry(sDBName, aImg, aImg, nullptr, true);
+            m_xTreeView->insert(nullptr, -1, &sDBName, nullptr, nullptr, nullptr, &aImg, true, nullptr);
         }
     }
     Select(OUString(), OUString(), OUString());
@@ -207,60 +179,29 @@ void SwDBTreeList::InitTreeList()
 
 void SwDBTreeList::AddDataSource(const OUString& rSource)
 {
-    Image aImg(StockImage::Yes, RID_BMP_DB);
-    SvTreeListEntry* pEntry = InsertEntry(rSource, aImg, aImg, nullptr, true);
-    SvTreeListBox::Select(pEntry);
+    OUString aImg(RID_BMP_DB);
+    std::unique_ptr<weld::TreeIter> xIter(m_xTreeView->make_iterator());
+    m_xTreeView->insert(nullptr, -1, &rSource, nullptr, nullptr, nullptr, &aImg, true, xIter.get());
+    m_xTreeView->select(*xIter);
 }
 
-void SwDBTreeList::ShowColumns(bool bShowCol)
+IMPL_LINK(SwDBTreeList, RequestingChildrenHdl, const weld::TreeIter&, rParent, bool)
 {
-    if (bShowCol != bShowColumns)
+    if (!m_xTreeView->iter_has_child(rParent))
     {
-        bShowColumns = bShowCol;
-        OUString sTableName;
-        OUString sColumnName;
-        const OUString sDBName(GetDBName(sTableName, sColumnName));
-
-        SetUpdateMode(false);
-
-        SvTreeListEntry* pEntry = First();
-
-        while (pEntry)
-        {
-            pEntry = GetRootLevelParent( pEntry );
-            Collapse(pEntry);       // zuklappen
-
-            SvTreeListEntry* pChild;
-            while ((pChild = FirstChild(pEntry)) != nullptr)
-                GetModel()->Remove(pChild);
-
-            pEntry = Next(pEntry);
-        }
-
-        if (!sDBName.isEmpty())
-        {
-            Select(sDBName, sTableName, sColumnName);   // force RequestingChildren
-        }
-        SetUpdateMode(true);
-    }
-}
-
-void  SwDBTreeList::RequestingChildren(SvTreeListEntry* pParent)
-{
-    if (!pParent->HasChildren())
-    {
-        if (GetParent(pParent)) // column names
+        if (m_xTreeView->get_iter_depth(rParent)) // column names
         {
             try
             {
-
-                OUString sSourceName = GetEntryText(GetParent(pParent));
-                OUString sTableName = GetEntryText(pParent);
+                std::unique_ptr<weld::TreeIter> xGrandParent(m_xTreeView->make_iterator(&rParent));
+                m_xTreeView->iter_parent(*xGrandParent);
+                OUString sSourceName = m_xTreeView->get_text(*xGrandParent);
+                OUString sTableName = m_xTreeView->get_text(rParent);
 
                 if(!pImpl->GetContext()->hasByName(sSourceName))
-                    return;
+                    return true;
                 Reference<XConnection> xConnection = pImpl->GetConnection(sSourceName);
-                bool bTable = pParent->GetUserData() == nullptr;
+                bool bTable = m_xTreeView->get_id(rParent).isEmpty();
                 Reference<XColumnsSupplier> xColsSupplier;
                 if(bTable)
                 {
@@ -310,7 +251,7 @@ void  SwDBTreeList::RequestingChildren(SvTreeListEntry* pParent)
                     for (long i = 0; i < nCount; i++)
                     {
                         OUString sName = pColNames[i];
-                        InsertEntry(sName, pParent);
+                        m_xTreeView->append(&rParent, sName);
                     }
                 }
             }
@@ -322,9 +263,9 @@ void  SwDBTreeList::RequestingChildren(SvTreeListEntry* pParent)
         {
             try
             {
-                OUString sSourceName = GetEntryText(pParent);
-                if(!pImpl->GetContext()->hasByName(sSourceName))
-                    return;
+                OUString sSourceName = m_xTreeView->get_text(rParent);
+                if (!pImpl->GetContext()->hasByName(sSourceName))
+                    return true;
                 Reference<XConnection> xConnection = pImpl->GetConnection(sSourceName);
                 if (xConnection.is())
                 {
@@ -336,13 +277,12 @@ void  SwDBTreeList::RequestingChildren(SvTreeListEntry* pParent)
                         OUString sTableName;
                         long nCount = aTableNames.getLength();
                         const OUString* pTableNames = aTableNames.getConstArray();
-                        Image aImg(StockImage::Yes, RID_BMP_DBTABLE);
+                        OUString aImg(RID_BMP_DBTABLE);
                         for (long i = 0; i < nCount; i++)
                         {
                             sTableName = pTableNames[i];
-                            SvTreeListEntry* pTableEntry = InsertEntry(sTableName, aImg, aImg, pParent, bShowColumns);
-                            //to discriminate between queries and tables the user data of table entries is set
-                            pTableEntry->SetUserData(nullptr);
+                            m_xTreeView->insert(&rParent, -1, &sTableName, nullptr,
+                                                nullptr, nullptr, &aImg, bShowColumns, nullptr);
                         }
                     }
 
@@ -354,12 +294,14 @@ void  SwDBTreeList::RequestingChildren(SvTreeListEntry* pParent)
                         OUString sQueryName;
                         long nCount = aQueryNames.getLength();
                         const OUString* pQueryNames = aQueryNames.getConstArray();
-                        Image aImg(StockImage::Yes, RID_BMP_DBQUERY);
+                        OUString aImg(RID_BMP_DBQUERY);
                         for (long i = 0; i < nCount; i++)
                         {
                             sQueryName = pQueryNames[i];
-                            SvTreeListEntry* pQueryEntry = InsertEntry(sQueryName, aImg, aImg, pParent, bShowColumns);
-                            pQueryEntry->SetUserData(reinterpret_cast<void*>(1));
+                            //to discriminate between queries and tables the user data of query entries is set
+                            OUString sId(OUString::number(1));
+                            m_xTreeView->insert(&rParent, -1, &sQueryName, &sId,
+                                                nullptr, nullptr, &aImg, bShowColumns, nullptr);
                         }
                     }
                 }
@@ -369,36 +311,27 @@ void  SwDBTreeList::RequestingChildren(SvTreeListEntry* pParent)
             }
         }
     }
-}
-
-IMPL_LINK( SwDBTreeList, DBCompare, const SvSortData&, rData, sal_Int32 )
-{
-    SvTreeListEntry* pRight = const_cast<SvTreeListEntry*>(rData.pRight);
-
-    if (GetParent(pRight) && GetParent(GetParent(pRight)))
-        return 1; // don't sort column names
-
-    return DefaultCompare(rData);   // otherwise call base class
+    return true;
 }
 
 OUString SwDBTreeList::GetDBName(OUString& rTableName, OUString& rColumnName, sal_Bool* pbIsTable)
 {
     OUString sDBName;
-    SvTreeListEntry* pEntry = FirstSelected();
-
-    if (pEntry && GetParent(pEntry))
+    std::unique_ptr<weld::TreeIter> xIter(m_xTreeView->make_iterator());
+    if (m_xTreeView->get_selected(xIter.get()) && m_xTreeView->get_iter_depth(*xIter))
     {
-        if (GetParent(GetParent(pEntry)))
+        if (m_xTreeView->get_iter_depth(*xIter) > 1)
         {
-            rColumnName = GetEntryText(pEntry);
-            pEntry = GetParent(pEntry); // column name was selected
+            rColumnName = m_xTreeView->get_text(*xIter);
+            m_xTreeView->iter_parent(*xIter); // column name was selected
         }
-        sDBName = GetEntryText(GetParent(pEntry));
-        if(pbIsTable)
+        if (pbIsTable)
         {
-            *pbIsTable = pEntry->GetUserData() == nullptr;
+            *pbIsTable = m_xTreeView->get_id(*xIter).isEmpty();
         }
-        rTableName = GetEntryText(pEntry);
+        rTableName = m_xTreeView->get_text(*xIter);
+        m_xTreeView->iter_parent(*xIter);
+        sDBName = m_xTreeView->get_text(*xIter);
     }
     return sDBName;
 }
@@ -406,87 +339,110 @@ OUString SwDBTreeList::GetDBName(OUString& rTableName, OUString& rColumnName, sa
 // Format: database.table
 void SwDBTreeList::Select(const OUString& rDBName, const OUString& rTableName, const OUString& rColumnName)
 {
-    SvTreeListEntry* pParent;
-    SvTreeListEntry* pChild;
-    sal_uInt16 nParent = 0;
-    sal_uInt16 nChild = 0;
+    std::unique_ptr<weld::TreeIter> xParent(m_xTreeView->make_iterator());
+    if (!m_xTreeView->get_iter_first(*xParent))
+        return;
 
-    while ((pParent = GetEntry(nParent++)) != nullptr)
+    do
     {
-        if (rDBName == GetEntryText(pParent))
+        if (rDBName == m_xTreeView->get_text(*xParent))
         {
-            if (!pParent->HasChildren())
-                RequestingChildren(pParent);
-            while ((pChild = GetEntry(pParent, nChild++)) != nullptr)
+            if (!m_xTreeView->iter_has_child(*xParent))
+                m_xTreeView->expand_row(*xParent);
+            std::unique_ptr<weld::TreeIter> xChild(m_xTreeView->make_iterator(xParent.get()));
+            if (!m_xTreeView->iter_children(*xChild))
+                continue;
+            do
             {
-                if (rTableName == GetEntryText(pChild))
+                if (rTableName == m_xTreeView->get_text(*xChild))
                 {
-                    pParent = pChild;
+                    m_xTreeView->copy_iterator(*xChild, *xParent);
 
+                    bool bNoChild = false;
                     if (bShowColumns && !rColumnName.isEmpty())
                     {
-                        nChild = 0;
+                        if (!m_xTreeView->iter_has_child(*xParent))
+                            m_xTreeView->expand_row(*xParent);
 
-                        if (!pParent->HasChildren())
-                            RequestingChildren(pParent);
-
-                        while ((pChild = GetEntry(pParent, nChild++)) != nullptr)
-                            if (rColumnName == GetEntryText(pChild))
-                                break;
+                        bNoChild = true;
+                        if (m_xTreeView->iter_children(*xChild))
+                        {
+                            do
+                            {
+                                if (rColumnName == m_xTreeView->get_text(*xChild))
+                                {
+                                    bNoChild = false;
+                                    break;
+                                }
+                            }
+                            while (m_xTreeView->iter_next_sibling(*xChild));
+                        }
                     }
-                    if (!pChild)
-                        pChild = pParent;
 
-                    MakeVisible(pChild);
-                    SvTreeListBox::Select(pChild);
+                    if (bNoChild)
+                        m_xTreeView->copy_iterator(*xParent, *xChild);
+
+                    m_xTreeView->scroll_to_row(*xChild);
+                    m_xTreeView->select(*xChild);
                     return;
                 }
             }
+            while (m_xTreeView->iter_next_sibling(*xChild));
         }
-    }
-}
-
-void SwDBTreeList::StartDrag( sal_Int8 /*nAction*/, const Point& /*rPosPixel*/ )
-{
-    OUString sTableName;
-    OUString sColumnName;
-    OUString sDBName( GetDBName( sTableName, sColumnName ));
-    if (!sDBName.isEmpty())
-    {
-        rtl::Reference<TransferDataContainer> pContainer = new TransferDataContainer;
-        if( !sColumnName.isEmpty() )
-        {
-            // drag database field
-            rtl::Reference< svx::OColumnTransferable > xColTransfer( new svx::OColumnTransferable(
-                            sDBName,
-                            sTableName,
-                            sColumnName,
-                            (ColumnTransferFormatFlags::FIELD_DESCRIPTOR|ColumnTransferFormatFlags::COLUMN_DESCRIPTOR) ) );
-            xColTransfer->addDataToContainer( pContainer.get() );
-        }
-
-        sDBName += "." + sTableName;
-        if (!sColumnName.isEmpty())
-        {
-            sDBName += "." + sColumnName;
-        }
-
-        pContainer->CopyString( SotClipboardFormatId::STRING, sDBName );
-        pContainer->StartDrag( this, DND_ACTION_COPY | DND_ACTION_LINK,
-                                Link<sal_Int8,void>() );
-    }
-}
-
-sal_Int8 SwDBTreeList::AcceptDrop( const AcceptDropEvent& /*rEvt*/ )
-{
-    return DND_ACTION_NONE;
+    } while (m_xTreeView->iter_next_sibling(*xParent));
 }
 
 void SwDBTreeList::SetWrtShell(SwWrtShell& rSh)
 {
     pImpl->SetWrtShell(rSh);
-    if (IsVisible() && !bInitialized)
+    if (m_xTreeView->get_visible() && !bInitialized)
         InitTreeList();
+}
+
+namespace
+{
+    void GotoRootLevelParent(weld::TreeView& rTreeView, weld::TreeIter& rEntry)
+    {
+        while (rTreeView.get_iter_depth(rEntry))
+            rTreeView.iter_parent(rEntry);
+    }
+}
+
+void SwDBTreeList::ShowColumns(bool bShowCol)
+{
+    if (bShowCol != bShowColumns)
+    {
+        bShowColumns = bShowCol;
+        OUString sTableName;
+        OUString sColumnName;
+        const OUString sDBName(GetDBName(sTableName, sColumnName));
+
+        m_xTreeView->freeze();
+
+        std::unique_ptr<weld::TreeIter> xIter(m_xTreeView->make_iterator());
+        std::unique_ptr<weld::TreeIter> xChild(m_xTreeView->make_iterator());
+        if (m_xTreeView->get_iter_first(*xIter))
+        {
+            do
+            {
+                GotoRootLevelParent(*m_xTreeView, *xIter);
+                m_xTreeView->collapse_row(*xIter);
+                while (m_xTreeView->iter_has_child(*xIter))
+                {
+                    m_xTreeView->copy_iterator(*xIter, *xChild);
+                    m_xTreeView->iter_children(*xChild);
+                    m_xTreeView->remove(*xChild);
+                }
+            } while (m_xTreeView->iter_next(*xIter));
+        }
+
+        m_xTreeView->thaw();
+
+        if (!sDBName.isEmpty())
+        {
+            Select(sDBName, sTableName, sColumnName);   // force RequestingChildren
+        }
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

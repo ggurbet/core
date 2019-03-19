@@ -48,7 +48,6 @@ GalleryControl::GalleryControl (
               [this] ()
                   { return mpBrowser2->SelectTheme(mpBrowser1->GetSelectedTheme()); })),
       mpBrowser2(VclPtr<GalleryBrowser2>::Create(this, mpGallery)),
-      maLastSize(GetOutputSizePixel()),
       mbIsInitialResize(true)
 {
     mpBrowser1->SelectTheme(0);
@@ -171,8 +170,6 @@ void GalleryControl::Resize()
             Point( nFrameLen, nSplitPos + nSplitSize ),
             Size( aNewSize.Width() - nFrameLen2, aNewSize.Height() - nSplitSize - nSplitPos - nFrameLen ));
     }
-
-    maLastSize = aNewSize;
 }
 
 bool GalleryControl::GalleryKeyInput( const KeyEvent& rKEvt )
@@ -185,25 +182,35 @@ bool GalleryControl::GalleryKeyInput( const KeyEvent& rKEvt )
     {
         if( !rKEvt.GetKeyCode().IsShift() )
         {
-            if( mpBrowser1->mpThemes->HasChildPathFocus( true ) )
-                mpBrowser2->GetViewWindow()->GrabFocus();
-            else if( mpBrowser2->GetViewWindow()->HasFocus() )
+            if( mpBrowser1->maNewTheme->HasFocus() )
+                mpBrowser1->mpThemes->GrabFocus();
+            else if( mpBrowser1->mpThemes->HasChildPathFocus( true ) )
                 mpBrowser2->maViewBox->GrabFocus();
             else if( mpBrowser2->maViewBox->HasFocus() )
-                mpBrowser1->maNewTheme->GrabFocus();
+                mpBrowser2->GetViewWindow()->GrabFocus();
             else
-                mpBrowser1->mpThemes->GrabFocus();
+            {
+                if( mpBrowser1->maNewTheme->IsEnabled() )
+                    mpBrowser1->maNewTheme->GrabFocus();
+                else
+                    mpBrowser1->mpThemes->GrabFocus();
+            }
         }
         else
         {
-            if( mpBrowser1->mpThemes->HasChildPathFocus( true ) )
-                mpBrowser1->maNewTheme->GrabFocus();
-            else if( mpBrowser1->maNewTheme->HasFocus() )
+            if( mpBrowser2->GetViewWindow()->HasFocus() )
                 mpBrowser2->maViewBox->GrabFocus();
             else if( mpBrowser2->maViewBox->HasFocus() )
-                mpBrowser2->GetViewWindow()->GrabFocus();
-            else
                 mpBrowser1->mpThemes->GrabFocus();
+            else if( mpBrowser1->mpThemes->HasChildPathFocus( true ) )
+            {
+                if( mpBrowser1->maNewTheme->IsEnabled() )
+                    mpBrowser1->maNewTheme->GrabFocus();
+                else
+                    mpBrowser2->GetViewWindow()->GrabFocus();
+            }
+            else
+                mpBrowser2->GetViewWindow()->GrabFocus();
         }
     }
 

@@ -25,8 +25,11 @@
 #include <tools/fract.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/idle.hxx>
+#include <vcl/inputctx.hxx>
 #include <vcl/window.hxx>
+#include <vcl/settings.hxx>
 #include <o3tl/typed_flags_set.hxx>
+#include <cppuhelper/weakref.hxx>
 
 #include <boost/optional.hpp>
 #include <list>
@@ -245,7 +248,7 @@ public:
     css::uno::WeakReference< css::rendering::XCanvas >    mxCanvas;
 
     vcl::Cursor*        mpCursor;
-    Pointer             maPointer;
+    PointerStyle        maPointer;
     Fraction            maZoom;
     OUString            maText;
     std::unique_ptr<vcl::Font>

@@ -14,7 +14,6 @@
 #include <datatransformation.hxx>
 #include <datamapper.hxx>
 #include <dbdata.hxx>
-#include <docsh.hxx>
 
 #include <comphelper/string.hxx>
 #include <sal/log.hxx>
@@ -23,6 +22,8 @@
 #include <utility>
 #include <vcl/lstbox.hxx>
 #include <vcl/fixed.hxx>
+#include <vcl/field.hxx>
+#include <vcl/layout.hxx>
 
 constexpr int MENU_START = 0;
 constexpr int MENU_COLUMN = 1;
@@ -35,10 +36,6 @@ class ScDataProviderBaseControl : public VclContainer,
     VclPtr<Edit> maEditURL;
     VclPtr<Edit> maEditID;
     VclPtr<PushButton> mpApplyBtn;
-
-    OUString maOldProvider;
-    OUString maURL;
-    OUString maID;
 
     Link<Window*, void> const maImportCallback;
 
@@ -162,19 +159,16 @@ void ScDataProviderBaseControl::updateApplyBtn(bool bValidConfig)
 IMPL_LINK_NOARG(ScDataProviderBaseControl, ProviderSelectHdl, ListBox&, void)
 {
     isValid();
-    maOldProvider = maProviderList->GetSelectedEntry();
 }
 
 IMPL_LINK_NOARG(ScDataProviderBaseControl, IDEditHdl, Edit&, void)
 {
     isValid();
-    maID = maEditID->GetText();
 }
 
 IMPL_LINK_NOARG(ScDataProviderBaseControl, URLEditHdl, Edit&, void)
 {
     isValid();
-    maURL = maEditURL->GetText();
 }
 
 IMPL_LINK_NOARG(ScDataProviderBaseControl, ApplyBtnHdl, Button*, void)
@@ -950,7 +944,7 @@ std::shared_ptr<sc::DataTransformation> ScDateTimeTransformation::getTransformat
 }
 
 ScDataProviderDlg::ScDataProviderDlg(vcl::Window* pParent, std::shared_ptr<ScDocument> pDoc,
-                                     ScDocument* pDocument)
+                                     const ScDocument* pDocument)
     : ModalDialog(pParent, "dataproviderdlg", "modules/scalc/ui/dataproviderdlg.ui", true)
     , mpDoc(std::move(pDoc))
     , mpBar(VclPtr<MenuBar>::Create())

@@ -463,6 +463,8 @@ private:
     sal_uInt16              nFormulaTrackCount;
     HardRecalcState         eHardRecalcState;               // off, temporary, eternal
     SCTAB                   nVisibleTab;                    // for OLE etc., don't use inside ScDocument
+    SCCOL                   nPosLeft;                       // for OLE etc., don't use inside ScDocument
+    SCROW                   nPosTop;                        // for OLE etc., don't use inside ScDocument
 
     ScLkUpdMode         eLinkMode;
 
@@ -543,6 +545,8 @@ private:
 
     bool                mbTrackFormulasPending  : 1;
     bool                mbFinalTrackFormulas    : 1;
+    // This indicates if a ScDocShell::DoRecalc() or ScDocShell::DoHardRecalc() is in progress.
+    bool                mbDocShellRecalc        : 1;
 
     size_t              mnMutationGuardFlags;
 
@@ -583,8 +587,7 @@ public:
 
     ScInterpreterContext& GetNonThreadedContext() const
     {
-        // GetFormatTable() asserts that we are not in a threaded calculation
-        maInterpreterContext.mpFormatter = GetFormatTable();
+        assert(!IsThreadedGroupCalcInProgress());
         return maInterpreterContext;
     }
     // Uses thread_local.
@@ -828,6 +831,10 @@ public:
 
     SCTAB             GetVisibleTab() const       { return nVisibleTab; }
     SC_DLLPUBLIC void SetVisibleTab(SCTAB nTab)   { nVisibleTab = nTab; }
+    SCCOL             GetPosLeft() const          { return nPosLeft; }
+    SC_DLLPUBLIC void SetPosLeft(SCCOL nCol)      { nPosLeft = nCol; }
+    SCROW             GetPosTop() const           { return nPosTop; }
+    SC_DLLPUBLIC void SetPosTop(SCROW nRow)       { nPosTop = nRow; }
 
     SC_DLLPUBLIC bool HasTable( SCTAB nTab ) const;
     SC_DLLPUBLIC bool GetHashCode( SCTAB nTab, sal_Int64& rHashCode) const;
@@ -911,7 +918,7 @@ public:
     SC_DLLPUBLIC sal_uLong      TransferTab(ScDocument* pSrcDoc, SCTAB nSrcPos, SCTAB nDestPos,
                                             bool bInsertNew = true,
                                             bool bResultsOnly = false );
-    SC_DLLPUBLIC void           TransferDrawPage(ScDocument* pSrcDoc, SCTAB nSrcPos, SCTAB nDestPos);
+    SC_DLLPUBLIC void           TransferDrawPage(const ScDocument* pSrcDoc, SCTAB nSrcPos, SCTAB nDestPos);
     SC_DLLPUBLIC void           SetVisible( SCTAB nTab, bool bVisible );
     SC_DLLPUBLIC bool           IsVisible( SCTAB nTab ) const;
     bool                        IsStreamValid( SCTAB nTab ) const;
@@ -1186,14 +1193,14 @@ public:
     /** Notes **/
     SC_DLLPUBLIC ScPostIt*       GetNote(const ScAddress& rPos);
     SC_DLLPUBLIC ScPostIt*       GetNote(SCCOL nCol, SCROW nRow, SCTAB nTab);
-    void                         SetNote(const ScAddress& rPos, ScPostIt* pNote);
-    void                         SetNote(SCCOL nCol, SCROW nRow, SCTAB nTab, ScPostIt* pNote);
+    void                         SetNote(const ScAddress& rPos, std::unique_ptr<ScPostIt> pNote);
+    void                         SetNote(SCCOL nCol, SCROW nRow, SCTAB nTab, std::unique_ptr<ScPostIt> pNote);
     SC_DLLPUBLIC bool            HasNote(const ScAddress& rPos) const;
     bool                         HasNote(SCCOL nCol, SCROW nRow, SCTAB nTab) const;
     SC_DLLPUBLIC bool            HasColNotes(SCCOL nCol, SCTAB nTab) const;
     SC_DLLPUBLIC bool            HasTabNotes(SCTAB nTab) const;
     bool                         HasNotes() const;
-    SC_DLLPUBLIC ScPostIt*       ReleaseNote(const ScAddress& rPos);
+    SC_DLLPUBLIC std::unique_ptr<ScPostIt> ReleaseNote(const ScAddress& rPos);
     SC_DLLPUBLIC ScPostIt*       GetOrCreateNote(const ScAddress& rPos);
     SC_DLLPUBLIC ScPostIt*       CreateNote(const ScAddress& rPos);
     size_t                       GetNoteCount( SCTAB nTab, SCCOL nCol ) const;
@@ -1325,7 +1332,7 @@ public:
     void            DelayFormulaGrouping( bool delay );
     bool            IsDelayedFormulaGrouping() const { return pDelayedFormulaGrouping.get() != nullptr; }
     /// To be used only by SharedFormulaUtil::joinFormulaCells().
-    void            AddDelayedFormulaGroupingCell( ScFormulaCell* cell );
+    void            AddDelayedFormulaGroupingCell( const ScFormulaCell* cell );
 
     FormulaError    GetErrCode( const ScAddress& ) const;
 
@@ -1719,7 +1726,7 @@ public:
     void            ClearSelectionItems( const sal_uInt16* pWhich, const ScMarkData& rMark );
     void            ChangeSelectionIndent( bool bIncrement, const ScMarkData& rMark );
 
-    SC_DLLPUBLIC sal_uLong  AddCondFormat( ScConditionalFormat* pNew, SCTAB nTab );
+    SC_DLLPUBLIC sal_uLong  AddCondFormat( std::unique_ptr<ScConditionalFormat> pNew, SCTAB nTab );
     void                    DeleteConditionalFormat( sal_uLong nIndex, SCTAB nTab );
 
     void                                    SetCondFormList( ScConditionalFormatList* pList, SCTAB nTab );
@@ -2430,12 +2437,18 @@ public:
     /**
      * Make sure all of the formula cells in the specified range have been
      * fully calculated.  This method only re-calculates those formula cells
-     * that have been flagged dirty.
+     * that have been flagged dirty. In case of formula-groups, this calculates
+     * only the dirty subspans along with the dependents in the same way
+     * recursively.
      *
-     * @param rRange range in which to potentially calculate the formula
-     *               cells.
+     * @param rRange       range in which to potentially calculate the formula
+     *                     cells.
+     * @param bSkipRunning flag to skip evaluation of formula-cells that are
+     *                     marked as already being evaluated.
+     * @return             true if at least one formula-cell in the specified range was dirty
+     *                     else returns false.
      */
-    void EnsureFormulaCellResults( const ScRange& rRange );
+    SC_DLLPUBLIC bool EnsureFormulaCellResults( const ScRange& rRange, bool bSkipRunning = false );
 
     SvtBroadcaster*         GetBroadcaster( const ScAddress& rPos );
     const SvtBroadcaster*   GetBroadcaster( const ScAddress& rPos ) const;
@@ -2462,6 +2475,9 @@ public:
     bool                TableExists( SCTAB nTab ) const;
 
     SC_DLLPUBLIC ScColumnsRange GetColumnsRange(SCTAB nTab, SCCOL nColBegin, SCCOL nColEnd) const;
+
+    bool IsInDocShellRecalc() const   { return mbDocShellRecalc; }
+    void SetDocShellRecalc(bool bSet) { mbDocShellRecalc = bSet; }
 
 private:
 
@@ -2585,6 +2601,25 @@ struct ScMutationGuard
     size_t mnFlags;
     ScDocument* mpDocument;
 #endif
+
+};
+
+class ScDocShellRecalcGuard
+{
+    ScDocument& mrDoc;
+
+public:
+    ScDocShellRecalcGuard(ScDocument& rDoc)
+        : mrDoc(rDoc)
+    {
+        assert(!mrDoc.IsInDocShellRecalc());
+        mrDoc.SetDocShellRecalc(true);
+    }
+
+    ~ScDocShellRecalcGuard()
+    {
+        mrDoc.SetDocShellRecalc(false);
+    }
 };
 
 #endif

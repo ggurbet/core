@@ -20,11 +20,11 @@
 #include "ximpcustomshape.hxx"
 #include "ximpshap.hxx"
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <rtl/math.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/ustring.hxx>
 #include <com/sun/star/uno/Reference.h>
+#include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/xml/sax/XAttributeList.hpp>
 #include <com/sun/star/container/XIndexContainer.hpp>
@@ -35,6 +35,7 @@
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/nmspmap.hxx>
 #include <xmloff/xmluconv.hxx>
+#include <xmloff/xmlement.hxx>
 #include <xexptran.hxx>
 #include <xmloff/xmlerror.hxx>
 #include <com/sun/star/drawing/Direction3D.hpp>
@@ -46,6 +47,7 @@
 #include <com/sun/star/drawing/EnhancedCustomShapeSegmentCommand.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeTextPathMode.hpp>
 #include <com/sun/star/drawing/ProjectionMode.hpp>
+#include <com/sun/star/drawing/Position3D.hpp>
 #include <sax/tools/converter.hxx>
 #include <comphelper/sequence.hxx>
 #include <memory>
@@ -789,16 +791,33 @@ static void GetEnhancedPath( std::vector< css::beans::PropertyValue >& rDest,   
         }
         else if ( nParameterCount >= nParametersNeeded )
         {
-            // check if the last command is identical,
-            // if so, we just need to increment the count
-            if ( !vSegments.empty() && ( vSegments[ vSegments.size() - 1 ].Command == nLatestSegmentCommand ) )
-                vSegments[ vSegments.size() -1 ].Count++;
-            else
+            // Special rule for moveto in ODF 1.2 section 19.145
+            // "If a moveto is followed by multiple pairs of coordinates, they are treated as lineto."
+            if ( nLatestSegmentCommand == css::drawing::EnhancedCustomShapeSegmentCommand::MOVETO )
             {
                 css::drawing::EnhancedCustomShapeSegment aSegment;
-                aSegment.Command = nLatestSegmentCommand;
+                aSegment.Command = css::drawing::EnhancedCustomShapeSegmentCommand::MOVETO;
                 aSegment.Count = 1;
                 vSegments.push_back( aSegment );
+                nIndex--;
+                nLatestSegmentCommand = css::drawing::EnhancedCustomShapeSegmentCommand::LINETO;
+                nParametersNeeded = 1;
+            }
+            else
+            {
+                // General rule in ODF 1.2. section 19.145
+                // "If a command is repeated multiple times, all repeated command characters
+                // except the first one may be omitted." Thus check if the last command is identical,
+                // if so, we just need to increment the count
+                if ( !vSegments.empty() && ( vSegments[ vSegments.size() - 1 ].Command == nLatestSegmentCommand ) )
+                    vSegments[ vSegments.size() -1 ].Count++;
+                else
+                {
+                    css::drawing::EnhancedCustomShapeSegment aSegment;
+                    aSegment.Command = nLatestSegmentCommand;
+                    aSegment.Count = 1;
+                    vSegments.push_back( aSegment );
+                }
             }
             nParameterCount = 0;
         }
@@ -1170,7 +1189,7 @@ void XMLEnhancedCustomShapeContext::EndElement()
     if ( !maEquations.empty() )
     {
         // creating hash map containing the name and index of each equation
-        std::unique_ptr<EquationHashMap> pH = o3tl::make_unique<EquationHashMap>();
+        std::unique_ptr<EquationHashMap> pH = std::make_unique<EquationHashMap>();
         std::vector< OUString >::iterator aEquationNameIter = maEquationNames.begin();
         std::vector< OUString >::iterator aEquationNameEnd  = maEquationNames.end();
         while( aEquationNameIter != aEquationNameEnd )

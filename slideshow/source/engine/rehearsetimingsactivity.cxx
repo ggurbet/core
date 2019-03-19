@@ -29,6 +29,7 @@
 #include <cppcanvas/basegfxfactory.hxx>
 #include <basegfx/range/b2drange.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 #include <cppuhelper/exc_hlp.hxx>
 
@@ -192,7 +193,7 @@ std::shared_ptr<RehearseTimingsActivity> RehearseTimingsActivity::create(
         new RehearseTimingsActivity( rContext ));
 
     pActivity->mpMouseHandler.reset(
-        new MouseHandler(*pActivity.get()) );
+        new MouseHandler(*pActivity) );
     pActivity->mpWakeUpEvent.reset(
         new WakeupEvent( rContext.mrEventQueue.getTimer(),
                          pActivity,
@@ -387,19 +388,19 @@ void RehearseTimingsActivity::viewChanged( const UnoViewSharedPtr& rView )
 
 void RehearseTimingsActivity::viewsChanged()
 {
-    if( !maViews.empty() )
-    {
-        // new sprite pos, transformation might have changed:
-        maSpriteRectangle = calcSpriteRectangle( maViews.front().first );
+    if( maViews.empty() )
+        return;
 
-        ::basegfx::B2DPoint nMin = maSpriteRectangle.getMinimum();
-        // reposition sprites
-        for_each_sprite( [nMin]( const ::cppcanvas::CustomSpriteSharedPtr& pSprite )
-                         { return pSprite->move( nMin ); } );
+    // new sprite pos, transformation might have changed:
+    maSpriteRectangle = calcSpriteRectangle( maViews.front().first );
 
-        // sprites changed, need screen update
-        mrScreenUpdater.notifyUpdate();
-    }
+    ::basegfx::B2DPoint nMin = maSpriteRectangle.getMinimum();
+    // reposition sprites
+    for_each_sprite( [nMin]( const ::cppcanvas::CustomSpriteSharedPtr& pSprite )
+                     { return pSprite->move( nMin ); } );
+
+    // sprites changed, need screen update
+    mrScreenUpdater.notifyUpdate();
 }
 
 void RehearseTimingsActivity::paintAllSprites() const

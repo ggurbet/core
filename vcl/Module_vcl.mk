@@ -21,7 +21,8 @@ $(eval $(call gb_Module_Module,vcl))
 
 $(eval $(call gb_Module_add_targets,vcl,\
     Library_vcl \
-	Package_opengl \
+    Package_opengl \
+    Package_theme_definitions \
     UIConfig_vcl \
 	$(if $(filter WNT,$(OS)), \
 		Package_opengl_blacklist ) \
@@ -205,6 +206,8 @@ $(eval $(call gb_Module_add_check_targets,vcl,\
 	CppunitTest_vcl_errorhandler \
 	CppunitTest_vcl_bitmap_render_test \
 	CppunitTest_vcl_apitests \
+	CppunitTest_vcl_png_test \
+	CppunitTest_vcl_widget_definition_reader_test \
 ))
 
 ifneq (,$(filter PDFIUM,$(BUILD_TYPE)))
@@ -243,5 +246,11 @@ endif
 $(eval $(call gb_Module_add_screenshot_targets,vcl,\
     CppunitTest_vcl_dialogs_test \
 ))
+
+ifneq ($(DISPLAY),)
+$(eval $(call gb_Module_add_slowcheck_targets,vcl,\
+    CppunitTest_vcl_gen \
+))
+endif
 
 # vim: set noet sw=4 ts=4:

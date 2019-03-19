@@ -38,6 +38,7 @@
 #include <rtl/instance.hxx>
 #include <comphelper/string.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
@@ -47,7 +48,7 @@
 #include <set>
 #include <string.h>
 #include <vector>
-#include <o3tl/make_unique.hxx>
+
 using namespace css::accessibility;
 
 // Drag&Drop
@@ -294,6 +295,7 @@ long SvLBoxTab::CalcOffset( long nItemWidth, long nTabWidth )
 
 
 SvLBoxItem::SvLBoxItem()
+    : mbDisabled(false)
 {
 }
 
@@ -1531,12 +1533,12 @@ void SvTreeListBox::InitEntry(SvTreeListEntry* pEntry,
 {
     if( nTreeFlags & SvTreeFlags::CHKBTN )
     {
-        pEntry->AddItem(o3tl::make_unique<SvLBoxButton>(eButtonKind, pCheckButtonData));
+        pEntry->AddItem(std::make_unique<SvLBoxButton>(eButtonKind, pCheckButtonData));
     }
 
-    pEntry->AddItem(o3tl::make_unique<SvLBoxContextBmp>( aCollEntryBmp,aExpEntryBmp, mbContextBmpExpanded));
+    pEntry->AddItem(std::make_unique<SvLBoxContextBmp>( aCollEntryBmp,aExpEntryBmp, mbContextBmpExpanded));
 
-    pEntry->AddItem(o3tl::make_unique<SvLBoxString>(aStr));
+    pEntry->AddItem(std::make_unique<SvLBoxString>(aStr));
 }
 
 OUString SvTreeListBox::GetEntryText(SvTreeListEntry* pEntry) const
@@ -1746,19 +1748,6 @@ void SvTreeListBox::SetCheckButtonState( SvTreeListEntry* pEntry, SvButtonState 
             break;
     }
     InvalidateEntry( pEntry );
-}
-
-void SvTreeListBox::SetCheckButtonInvisible( SvTreeListEntry* pEntry)
-{
-    SvLBoxButton* pItem = (nTreeFlags & SvTreeFlags::CHKBTN) ?
-        static_cast<SvLBoxButton*>(pEntry->GetFirstItem(SvLBoxItemType::Button)) :
-        nullptr;
-
-    if (!pItem)
-        return;
-
-    pItem->SetStateInvisible();
-    InvalidateEntry(pEntry);
 }
 
 SvButtonState SvTreeListBox::GetCheckButtonState( SvTreeListEntry* pEntry ) const
@@ -2700,8 +2689,8 @@ void SvTreeListBox::PaintEntry1(SvTreeListEntry& rEntry, long nLine, vcl::Render
             if (bCurFontIsSel || rEntry.GetTextColor())
             {
                 bCurFontIsSel = false;
-                if (const auto* pCustomTextColor = rEntry.GetTextColor())
-                    rRenderContext.SetTextColor(*pCustomTextColor);
+                if (const auto & xCustomTextColor = rEntry.GetTextColor())
+                    rRenderContext.SetTextColor(*xCustomTextColor);
                 else
                     rRenderContext.SetTextColor(aBackupTextColor);
                 rRenderContext.SetFont(aBackupFont);
@@ -3088,6 +3077,10 @@ Size SvTreeListBox::GetOptimalSize() const
     }
     long nMinWidth = nMinWidthInChars * approximate_char_width();
     aRet.setWidth( std::max(aRet.Width(), nMinWidth) );
+
+    if (GetStyle() & WB_VSCROLL)
+        aRet.AdjustWidth(GetSettings().GetStyleSettings().GetScrollBarSize());
+
     return aRet;
 }
 
@@ -3311,14 +3304,21 @@ void SvTreeListBox::RequestHelp( const HelpEvent& rHEvt )
         Control::RequestHelp( rHEvt );
 }
 
+sal_Int32 SvTreeListBox::DefaultCompare(const SvLBoxString* pLeftText, const SvLBoxString* pRightText)
+{
+    OUString aLeft = pLeftText ? pLeftText->GetText() : OUString();
+    OUString aRight = pRightText ? pRightText->GetText() : OUString();
+    pImpl->UpdateStringSorter();
+    return pImpl->m_pStringSorter->compare(aLeft, aRight);
+}
+
 IMPL_LINK( SvTreeListBox, DefaultCompare, const SvSortData&, rData, sal_Int32 )
 {
     const SvTreeListEntry* pLeft = rData.pLeft;
     const SvTreeListEntry* pRight = rData.pRight;
-    OUString aLeft( static_cast<const SvLBoxString*>(pLeft->GetFirstItem(SvLBoxItemType::String))->GetText());
-    OUString aRight( static_cast<const SvLBoxString*>(pRight->GetFirstItem(SvLBoxItemType::String))->GetText());
-    pImpl->UpdateStringSorter();
-    return pImpl->m_pStringSorter->compare(aLeft, aRight);
+    const SvLBoxString* pLeftText = static_cast<const SvLBoxString*>(pLeft->GetFirstItem(SvLBoxItemType::String));
+    const SvLBoxString* pRightText = static_cast<const SvLBoxString*>(pRight->GetFirstItem(SvLBoxItemType::String));
+    return DefaultCompare(pLeftText, pRightText);
 }
 
 void SvTreeListBox::ModelNotification( SvListAction nActionId, SvTreeListEntry* pEntry1,
@@ -3641,6 +3641,11 @@ bool SvTreeListBox::set_property(const OString &rKey, const OUString &rValue)
     else if (rKey == "enable-search")
     {
         SetQuickSearch(toBool(rValue));
+    }
+    else if (rKey == "reorderable")
+    {
+        if (toBool(rValue))
+            SetDragDropMode(DragDropMode::CTRL_MOVE | DragDropMode::ENABLE_TOP);
     }
     else
         return Control::set_property(rKey, rValue);

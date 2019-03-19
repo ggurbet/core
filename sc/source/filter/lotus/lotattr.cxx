@@ -24,10 +24,8 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/justifyitem.hxx>
-#include <svx/algitem.hxx>
 #include <sal/log.hxx>
 
-#include <attrib.hxx>
 #include <docpool.hxx>
 #include <document.hxx>
 #include <lotfntbf.hxx>
@@ -216,11 +214,10 @@ void LotAttrCol::Apply(LOTUS_ROOT* pLotusRoot, const SCCOL nColNum, const SCTAB 
 {
     ScDocument*     pDoc = pLotusRoot->pDoc;
 
-    std::vector<std::unique_ptr<ENTRY> >::iterator iter;
-    for (iter = aEntries.begin(); iter != aEntries.end(); ++iter)
+    for (const auto& rxEntry : aEntries)
     {
-        pDoc->ApplyPatternAreaTab(nColNum, (*iter)->nFirstRow, nColNum, (*iter)->nLastRow,
-                                  nTabNum, *((*iter)->pPattAttr));
+        pDoc->ApplyPatternAreaTab(nColNum, rxEntry->nFirstRow, nColNum, rxEntry->nLastRow,
+                                  nTabNum, *(rxEntry->pPattAttr));
     }
 }
 

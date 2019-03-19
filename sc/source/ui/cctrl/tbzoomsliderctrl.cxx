@@ -17,21 +17,14 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 #include <tbzoomsliderctrl.hxx>
+#include <vcl/event.hxx>
 #include <vcl/image.hxx>
 #include <vcl/toolbox.hxx>
 #include <vcl/virdev.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/settings.hxx>
-#include <svl/itemset.hxx>
-#include <sfx2/viewfrm.hxx>
-#include <sfx2/objsh.hxx>
 #include <svx/zoomslideritem.hxx>
 #include <set>
-#include <docsh.hxx>
-#include <stlpool.hxx>
-#include <scitems.hxx>
-#include <printfun.hxx>
 #include <bitmaps.hlst>
 
 // class ScZoomSliderControl ---------------------------------------
@@ -139,20 +132,13 @@ sal_uInt16 ScZoomSliderWnd::Offset2Zoom( long nOffset ) const
         return mpImpl->mnMaxZoom;
 
     // check for snapping points:
-    sal_uInt16 nCount = 0;
-    std::vector< long >::iterator aSnappingPointIter;
-    for ( aSnappingPointIter = mpImpl->maSnappingPointOffsets.begin();
-        aSnappingPointIter != mpImpl->maSnappingPointOffsets.end();
-        ++aSnappingPointIter )
+    auto aSnappingPointIter = std::find_if(mpImpl->maSnappingPointOffsets.begin(), mpImpl->maSnappingPointOffsets.end(),
+        [nOffset](const long nCurrent) { return std::abs(nCurrent - nOffset) < nSnappingEpsilon; });
+    if (aSnappingPointIter != mpImpl->maSnappingPointOffsets.end())
     {
-        const long nCurrent = *aSnappingPointIter;
-        if ( std::abs(nCurrent - nOffset) < nSnappingEpsilon )
-        {
-            nOffset = nCurrent;
-            nRet = mpImpl->maSnappingPointZooms[ nCount ];
-            break;
-        }
-        ++nCount;
+        nOffset = *aSnappingPointIter;
+        auto nCount = static_cast<sal_uInt16>(std::distance(mpImpl->maSnappingPointOffsets.begin(), aSnappingPointIter));
+        nRet = mpImpl->maSnappingPointZooms[ nCount ];
     }
 
     if( 0 == nRet )
@@ -342,34 +328,32 @@ void ScZoomSliderWnd::UpdateFromItem( const SvxZoomSliderItem* pZoomSliderItem )
             mpImpl->mnMaxZoom >= mpImpl->mnCurrentZoom &&
             mpImpl->mnMaxZoom > gnSliderCenter,
             "Looks like the zoom slider item is corrupted" );
-       const css::uno::Sequence < sal_Int32 >& rSnappingPoints = pZoomSliderItem->GetSnappingPoints();
-       mpImpl->maSnappingPointOffsets.clear();
-       mpImpl->maSnappingPointZooms.clear();
+        const css::uno::Sequence < sal_Int32 >& rSnappingPoints = pZoomSliderItem->GetSnappingPoints();
+        mpImpl->maSnappingPointOffsets.clear();
+        mpImpl->maSnappingPointZooms.clear();
 
-       // get all snapping points:
-       std::set< sal_uInt16 > aTmpSnappingPoints;
-       for ( sal_Int32 j = 0; j < rSnappingPoints.getLength(); ++j )
-       {
-           const sal_Int32 nSnappingPoint = rSnappingPoints[j];
-           aTmpSnappingPoints.insert( static_cast<sal_uInt16>(nSnappingPoint) );
-       }
+        // get all snapping points:
+        std::set< sal_uInt16 > aTmpSnappingPoints;
+        for ( sal_Int32 j = 0; j < rSnappingPoints.getLength(); ++j )
+        {
+            const sal_Int32 nSnappingPoint = rSnappingPoints[j];
+            aTmpSnappingPoints.insert( static_cast<sal_uInt16>(nSnappingPoint) );
+        }
 
-       // remove snapping points that are to close to each other:
-       std::set< sal_uInt16 >::iterator aSnappingPointIter;
-       long nLastOffset = 0;
+        // remove snapping points that are too close to each other:
+        long nLastOffset = 0;
 
-       for ( aSnappingPointIter = aTmpSnappingPoints.begin(); aSnappingPointIter != aTmpSnappingPoints.end(); ++aSnappingPointIter )
-       {
-           const sal_uInt16 nCurrent = *aSnappingPointIter;
-           const long nCurrentOffset = Zoom2Offset( nCurrent );
+        for ( const sal_uInt16 nCurrent : aTmpSnappingPoints )
+        {
+            const long nCurrentOffset = Zoom2Offset( nCurrent );
 
-           if ( nCurrentOffset - nLastOffset >= nSnappingPointsMinDist )
-           {
-               mpImpl->maSnappingPointOffsets.push_back( nCurrentOffset );
-               mpImpl->maSnappingPointZooms.push_back( nCurrent );
-               nLastOffset = nCurrentOffset;
-           }
-       }
+            if ( nCurrentOffset - nLastOffset >= nSnappingPointsMinDist )
+            {
+                mpImpl->maSnappingPointOffsets.push_back( nCurrentOffset );
+                mpImpl->maSnappingPointZooms.push_back( nCurrent );
+                nLastOffset = nCurrentOffset;
+            }
+        }
     }
 
     Size aSliderWindowSize = GetOutputSizePixel();
@@ -439,16 +423,13 @@ void ScZoomSliderWnd::DoPaint(vcl::RenderContext& rRenderContext)
     pVDev->DrawRect(aLeft);
 
     // draw snapping points:
-    std::vector<long>::iterator aSnappingPointIter;
-    for (aSnappingPointIter = mpImpl->maSnappingPointOffsets.begin();
-        aSnappingPointIter != mpImpl->maSnappingPointOffsets.end();
-        ++aSnappingPointIter)
+    for (const auto& rSnappingPointOffset : mpImpl->maSnappingPointOffsets)
     {
         pVDev->SetLineColor(COL_GRAY);
         tools::Rectangle aSnapping(aRect);
         aSnapping.SetBottom( aSlider.Top() );
         aSnapping.SetTop( aSnapping.Bottom() - nSnappingHeight );
-        aSnapping.AdjustLeft(*aSnappingPointIter );
+        aSnapping.AdjustLeft(rSnappingPointOffset );
         aSnapping.SetRight( aSnapping.Left() );
         pVDev->DrawRect(aSnapping);
 

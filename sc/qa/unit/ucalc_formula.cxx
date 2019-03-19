@@ -35,7 +35,6 @@
 #include <svl/itemset.hxx>
 
 #include <formula/vectortoken.hxx>
-#include <o3tl/make_unique.hxx>
 #include <svl/broadcast.hxx>
 #include <svl/intitem.hxx>
 #include <sfx2/docfile.hxx>
@@ -55,17 +54,13 @@ ScRange getCachedRange(const ScExternalRefCache::TableTypeRef& pCacheTab)
 
     vector<SCROW> aRows;
     pCacheTab->getAllRows(aRows);
-    vector<SCROW>::const_iterator itrRow = aRows.begin(), itrRowEnd = aRows.end();
     bool bFirst = true;
-    for (; itrRow != itrRowEnd; ++itrRow)
+    for (const SCROW nRow : aRows)
     {
-        SCROW nRow = *itrRow;
         vector<SCCOL> aCols;
         pCacheTab->getAllCols(nRow, aCols);
-        vector<SCCOL>::const_iterator itrCol = aCols.begin(), itrColEnd = aCols.end();
-        for (; itrCol != itrColEnd; ++itrCol)
+        for (const SCCOL nCol : aCols)
         {
-            SCCOL nCol = *itrCol;
             if (bFirst)
             {
                 aRange.aStart = ScAddress(nCol, nRow, 0);
@@ -1003,11 +998,8 @@ void Test::testFormulaCompiler()
 
     for (size_t i = 0; i < SAL_N_ELEMENTS(aTests); ++i)
     {
-        std::unique_ptr<ScTokenArray> pArray;
-        {
-            pArray.reset(compileFormula(m_pDoc, OUString::createFromAscii(aTests[i].pInput), aTests[i].eInputGram));
-            CPPUNIT_ASSERT_MESSAGE("Token array shouldn't be NULL!", pArray);
-        }
+        std::unique_ptr<ScTokenArray> pArray = compileFormula(m_pDoc, OUString::createFromAscii(aTests[i].pInput), aTests[i].eInputGram);
+        CPPUNIT_ASSERT_MESSAGE("Token array shouldn't be NULL!", pArray);
 
         OUString aFormula = toString(*m_pDoc, ScAddress(), *pArray, aTests[i].eOutputGram);
         CPPUNIT_ASSERT_EQUAL(OUString::createFromAscii(aTests[i].pOutput), aFormula);
@@ -3958,7 +3950,7 @@ void Test::testFormulaRefUpdateValidity()
     SfxUInt32Item aItem(ATTR_VALIDDATA, nIndex);
 
     ScPatternAttr aNewAttrs(
-        o3tl::make_unique<SfxItemSet>(*m_pDoc->GetPool(), svl::Items<ATTR_PATTERN_START, ATTR_PATTERN_END>{}));
+        std::make_unique<SfxItemSet>(*m_pDoc->GetPool(), svl::Items<ATTR_PATTERN_START, ATTR_PATTERN_END>{}));
     aNewAttrs.GetItemSet().Put(aItem);
 
     m_pDoc->ApplyPattern(0, 1, 0, aNewAttrs);
@@ -8778,6 +8770,33 @@ void Test::testFuncJumpMatrixArrayIF()
     m_pDoc->InsertMatrixFormula( 2,10, 2,10, aMark,
             "=SUM(IF(EXACT(OFFSET(A7;0;0):OFFSET(A7;2;0);A$1);OFFSET(A7;0;1):OFFSET(A7;2;1);0))");
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Formula C11 failed", 5.0, m_pDoc->GetValue(ScAddress(2,10,0)));
+
+    m_pDoc->DeleteTab(0);
+}
+
+// tdf#123477 OFFSET() returns the matrix result instead of the reference list
+// array if result is not used as ReferenceOrRefArray.
+void Test::testFuncJumpMatrixArrayOFFSET()
+{
+    sc::AutoCalcSwitch aACSwitch(*m_pDoc, true); // turn auto calc on.
+    m_pDoc->InsertTab(0, "Test");
+
+    std::vector<std::vector<const char*>> aData = {
+        { "abc" },
+        { "bcd" },
+        { "cde" }
+    };
+    insertRangeData(m_pDoc, ScAddress(0,0,0), aData);   // A1:A3
+
+    ScMarkData aMark;
+    aMark.SelectOneTable(0);
+
+    // Matrix in C5:C7, COLUMN()-3 here offsets by 0 but the entire expression
+    // is in array/matrix context.
+    m_pDoc->InsertMatrixFormula( 2,4, 2,6, aMark, "=FIND(\"c\";OFFSET(A1:A3;0;COLUMN()-3))");
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Formula C5 failed", 3.0, m_pDoc->GetValue(ScAddress(2,4,0)));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Formula C6 failed", 2.0, m_pDoc->GetValue(ScAddress(2,5,0)));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Formula C7 failed", 1.0, m_pDoc->GetValue(ScAddress(2,6,0)));
 
     m_pDoc->DeleteTab(0);
 }

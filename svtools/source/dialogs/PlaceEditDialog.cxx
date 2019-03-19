@@ -7,6 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <config_oauth2.h>
+
 #include <svtools/PlaceEditDialog.hxx>
 #include <svtools/ServerDetailsControls.hxx>
 
@@ -14,6 +16,7 @@
 #include <officecfg/Office/Common.hxx>
 #include <svtools/svtresid.hxx>
 #include <svtools/strings.hrc>
+#include <svtools/place.hxx>
 
 using namespace com::sun::star::uno;
 
@@ -223,10 +226,17 @@ void PlaceEditDialog::InitDetails( )
     xSshDetails->setChangeHdl( LINK( this, PlaceEditDialog, EditHdl ) );
     m_aDetailsContainers.push_back(xSshDetails);
 
+    // Remove Windows Share entry from dialog on Windows OS, where it's non-functional
+#if defined(_WIN32)
+    // nPos is the position of first item that is pre-defined in svtools/uiconfig/ui/placeedit.ui,
+    // after other CMIS types were inserted
+    m_xLBServerType->remove(nPos + 3);
+#else
     // Create Windows Share control
     std::shared_ptr<DetailsContainer> xSmbDetails(std::make_shared<SmbDetailsContainer>(this));
     xSmbDetails->setChangeHdl( LINK( this, PlaceEditDialog, EditHdl ) );
     m_aDetailsContainers.push_back(xSmbDetails);
+#endif
 
     // Set default to first value
     m_xLBServerType->set_active(0);
@@ -344,19 +354,19 @@ void PlaceEditDialog::SelectType(bool bSkipSeparator)
     }
 
     if (m_xCurrentDetails.get())
-        m_xCurrentDetails->show(false);
+        m_xCurrentDetails->set_visible(false);
 
     const int nPos = m_xLBServerType->get_active( );
     m_xCurrentDetails = m_aDetailsContainers[nPos];
     m_nCurrentType = nPos;
 
-    m_xCurrentDetails->show();
+    m_xCurrentDetails->set_visible(true);
 
-    m_xCBPassword->show( m_bShowPassword && m_xCurrentDetails->enableUserCredentials() );
-    m_xEDPassword->show( m_bShowPassword && m_xCurrentDetails->enableUserCredentials() );
-    m_xFTPasswordLabel->show( m_bShowPassword && m_xCurrentDetails->enableUserCredentials() );
-    m_xEDUsername->show( m_xCurrentDetails->enableUserCredentials() );
-    m_xFTUsernameLabel->show( m_xCurrentDetails->enableUserCredentials() );
+    m_xCBPassword->set_visible( m_bShowPassword && m_xCurrentDetails->enableUserCredentials() );
+    m_xEDPassword->set_visible( m_bShowPassword && m_xCurrentDetails->enableUserCredentials() );
+    m_xFTPasswordLabel->set_visible( m_bShowPassword && m_xCurrentDetails->enableUserCredentials() );
+    m_xEDUsername->set_visible( m_xCurrentDetails->enableUserCredentials() );
+    m_xFTUsernameLabel->set_visible( m_xCurrentDetails->enableUserCredentials() );
 
     m_xDialog->resize_to_request();
 

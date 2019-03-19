@@ -17,18 +17,19 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#ifdef DISABLE_DYNLOADING
 #include <config_java.h>
+#endif
 
 #include "IdentityMapping.hxx"
 
-#include <algorithm>
 #include <cassert>
 #include <set>
 #include <unordered_map>
 
 #include <rtl/ustring.hxx>
 #include <rtl/ustrbuf.hxx>
-#include <osl/module.h>
+#include <osl/module.hxx>
 #include <osl/diagnose.h>
 #include <osl/mutex.hxx>
 #include <osl/interlck.h>
@@ -607,10 +608,9 @@ void SAL_CALL uno_getMapping(
     if (! aRet.is()) // try callback chain
     {
         MutexGuard aGuard( rData.aCallbacksMutex );
-        for ( t_CallbackSet::const_iterator iPos( rData.aCallbacks.begin() );
-              iPos != rData.aCallbacks.end(); ++iPos )
+        for ( const auto& rCallback : rData.aCallbacks )
         {
-            (**iPos)( ppMapping, pFrom, pTo, aAddPurpose.pData );
+            (*rCallback)( ppMapping, pFrom, pTo, aAddPurpose.pData );
             if (*ppMapping)
                 return;
         }

@@ -870,7 +870,7 @@ void OQueryController::impl_initialize()
 
         ClearUndoManager();
 
-        if  (  ( m_bGraphicalDesign )
+        if  (  m_bGraphicalDesign
             && (  ( m_sName.isEmpty() && !editingCommand() )
                || ( m_sStatement.isEmpty() && editingCommand() )
                )
@@ -902,19 +902,17 @@ void OQueryController::onLoadedMenu(const Reference< css::frame::XLayoutManager 
 
 OUString OQueryController::getPrivateTitle( ) const
 {
-    OUString sName = m_sName;
-    if ( sName.isEmpty() )
+    if ( m_sName.isEmpty() )
     {
         if ( !editingCommand() )
         {
             SolarMutexGuard aSolarGuard;
             ::osl::MutexGuard aGuard( getMutex() );
             OUString aDefaultName = DBA_RES(editingView() ? STR_VIEW_TITLE : STR_QRY_TITLE);
-            sName = aDefaultName.getToken(0,' ');
-            sName += OUString::number(getCurrentStartNumber());
+            return aDefaultName.getToken(0, ' ') + OUString::number(getCurrentStartNumber());
         }
     }
-    return sName;
+    return m_sName;
 }
 
 void OQueryController::setQueryComposer()
@@ -1205,13 +1203,12 @@ bool OQueryController::askForNewName(const Reference<XNameAccess>& _xElements, b
         else
         {
             OUString sName = DBA_RES(editingView() ? STR_VIEW_TITLE : STR_QRY_TITLE);
-            aDefaultName = sName.getToken(0,' ');
-            aDefaultName = ::dbtools::createUniqueName(_xElements,aDefaultName);
+            aDefaultName = ::dbtools::createUniqueName(_xElements, sName.getToken(0, ' '));
         }
 
         DynamicTableOrQueryNameCheck aNameChecker( getConnection(), CommandType::QUERY );
-        ScopedVclPtrInstance<OSaveAsDlg> aDlg(
-                getView(),
+        OSaveAsDlg aDlg(
+                getFrameWeld(),
                 m_nCommandType,
                 getORB(),
                 getConnection(),
@@ -1219,14 +1216,14 @@ bool OQueryController::askForNewName(const Reference<XNameAccess>& _xElements, b
                 aNameChecker,
                 SADFlags::NONE );
 
-        bRet = ( aDlg->Execute() == RET_OK );
+        bRet = ( aDlg.run() == RET_OK );
         if ( bRet )
         {
-            m_sName = aDlg->getName();
+            m_sName = aDlg.getName();
             if ( editingView() )
             {
-                m_sUpdateCatalogName    = aDlg->getCatalog();
-                m_sUpdateSchemaName     = aDlg->getSchema();
+                m_sUpdateCatalogName    = aDlg.getCatalog();
+                m_sUpdateSchemaName     = aDlg.getSchema();
             }
         }
     }

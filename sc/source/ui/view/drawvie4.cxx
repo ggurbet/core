@@ -457,7 +457,7 @@ void ScDrawView::SetMarkedOriginalSize()
         if (nIdent == OBJ_OLE2)
         {
             // TODO/LEAN: working with visual area can switch object to running state
-             uno::Reference < embed::XEmbeddedObject > xObj( static_cast<SdrOle2Obj*>(pObj)->GetObjRef(), uno::UNO_QUERY );
+            uno::Reference < embed::XEmbeddedObject > xObj( static_cast<SdrOle2Obj*>(pObj)->GetObjRef(), uno::UNO_QUERY );
             if ( xObj.is() )    // NULL for an invalid object that couldn't be loaded
             {
                 sal_Int64 nAspect = static_cast<SdrOle2Obj*>(pObj)->GetAspect();
@@ -517,7 +517,7 @@ void ScDrawView::SetMarkedOriginalSize()
         {
             tools::Rectangle aDrawRect = pObj->GetLogicRect();
 
-            pUndoGroup->AddAction( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+            pUndoGroup->AddAction( std::make_unique<SdrUndoGeoObj>( *pObj ) );
             pObj->Resize( aDrawRect.TopLeft(), Fraction( aOriginalSize.Width(), aDrawRect.GetWidth() ),
                                                  Fraction( aOriginalSize.Height(), aDrawRect.GetHeight() ) );
             ++nDone;
@@ -578,7 +578,7 @@ void ScDrawView::FitToCellSize()
         aCellRect.setHeight(static_cast<double>(aGraphicRect.GetHeight()) * fScaleMin);
     }
 
-    pUndoGroup->AddAction( o3tl::make_unique<SdrUndoGeoObj>( *pObj ) );
+    pUndoGroup->AddAction( std::make_unique<SdrUndoGeoObj>( *pObj ) );
 
     pObj->SetSnapRect(aCellRect);
 

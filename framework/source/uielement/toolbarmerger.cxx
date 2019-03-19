@@ -229,7 +229,6 @@ ReferenceToolbarPathInfo ToolBarMerger::FindReferencePoint(
 {
     ReferenceToolbarPathInfo aResult;
     aResult.bResult  = false;
-    aResult.pToolbar = pToolbar;
     aResult.nPos     = ToolBox::ITEM_NOTFOUND;
 
     const ToolBox::ImplToolItems::size_type nSize( pToolbar->GetItemCount() );
@@ -435,7 +434,6 @@ void ToolBarMerger::MergeItems(
 {
     const sal_Int32 nSize( rAddonToolbarItems.size() );
 
-    sal_uInt16 nIndex( 0 );
     for ( sal_Int32 i = 0; i < nSize; i++ )
     {
         const AddonToolbarItem& rItem = rAddonToolbarItems[i];
@@ -469,7 +467,6 @@ void ToolBarMerger::MergeItems(
                 ToolBarMerger::CreateToolbarItem( pToolbar, nInsPos, rItemId, rItem );
             }
 
-            ++nIndex;
             ++rItemId;
         }
     }
@@ -629,7 +626,6 @@ void ToolBarMerger::CreateToolbarItem( ToolBox* pToolbar, ToolBox::ImplToolItems
     // Use the user data to store add-on specific data with the toolbar item
     AddonsParams* pAddonParams = new AddonsParams;
     pAddonParams->aImageId     = rItem.aImageIdentifier;
-    pAddonParams->aTarget      = rItem.aTarget;
     pAddonParams->aControlType = rItem.aControlType;
     pAddonParams->nWidth       = rItem.nWidth;
     pToolbar->SetItemData( nItemId, pAddonParams );

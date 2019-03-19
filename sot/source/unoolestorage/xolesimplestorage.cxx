@@ -154,27 +154,27 @@ OLESimpleStorage::~OLESimpleStorage()
 
 void OLESimpleStorage::UpdateOriginal_Impl()
 {
-    if ( !m_bNoTemporaryCopy )
-    {
-        uno::Reference< io::XSeekable > xSeek( m_xStream, uno::UNO_QUERY_THROW );
-        xSeek->seek( 0 );
+    if ( m_bNoTemporaryCopy )
+        return;
 
-        uno::Reference< io::XSeekable > xTempSeek( m_xTempStream, uno::UNO_QUERY_THROW );
-        sal_Int64 nPos = xTempSeek->getPosition();
-        xTempSeek->seek( 0 );
+    uno::Reference< io::XSeekable > xSeek( m_xStream, uno::UNO_QUERY_THROW );
+    xSeek->seek( 0 );
 
-        uno::Reference< io::XInputStream > xTempInp = m_xTempStream->getInputStream();
-        uno::Reference< io::XOutputStream > xOutputStream = m_xStream->getOutputStream();
-        if ( !xTempInp.is() || !xOutputStream.is() )
-            throw uno::RuntimeException();
+    uno::Reference< io::XSeekable > xTempSeek( m_xTempStream, uno::UNO_QUERY_THROW );
+    sal_Int64 nPos = xTempSeek->getPosition();
+    xTempSeek->seek( 0 );
 
-        uno::Reference< io::XTruncate > xTrunc( xOutputStream, uno::UNO_QUERY_THROW );
-        xTrunc->truncate();
+    uno::Reference< io::XInputStream > xTempInp = m_xTempStream->getInputStream();
+    uno::Reference< io::XOutputStream > xOutputStream = m_xStream->getOutputStream();
+    if ( !xTempInp.is() || !xOutputStream.is() )
+        throw uno::RuntimeException();
 
-        ::comphelper::OStorageHelper::CopyInputToOutput( xTempInp, xOutputStream );
-        xOutputStream->flush();
-        xTempSeek->seek( nPos );
-    }
+    uno::Reference< io::XTruncate > xTrunc( xOutputStream, uno::UNO_QUERY_THROW );
+    xTrunc->truncate();
+
+    ::comphelper::OStorageHelper::CopyInputToOutput( xTempInp, xOutputStream );
+    xOutputStream->flush();
+    xTempSeek->seek( nPos );
 }
 
 
@@ -267,7 +267,7 @@ void SAL_CALL OLESimpleStorage::insertByName( const OUString& aName, const uno::
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-      if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     uno::Reference< io::XStream > xStream;
@@ -316,7 +316,7 @@ void SAL_CALL OLESimpleStorage::removeByName( const OUString& aName )
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-      if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     if ( !m_bNoTemporaryCopy && !m_xStream.is() )
@@ -350,7 +350,7 @@ void SAL_CALL OLESimpleStorage::replaceByName( const OUString& aName, const uno:
     }
     catch( container::ElementExistException& )
     {
-           uno::Any aCaught( ::cppu::getCaughtException() );
+        uno::Any aCaught( ::cppu::getCaughtException() );
 
         throw lang::WrappedTargetException("Can't copy raw stream",
                                             uno::Reference< uno::XInterface >(),
@@ -366,7 +366,7 @@ uno::Any SAL_CALL OLESimpleStorage::getByName( const OUString& aName )
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-      if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     if ( !m_pStorage->IsContained( aName ) )
@@ -468,7 +468,7 @@ uno::Sequence< OUString > SAL_CALL OLESimpleStorage::getElementNames()
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-      if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     SvStorageInfoList aList;
@@ -495,7 +495,7 @@ sal_Bool SAL_CALL OLESimpleStorage::hasByName( const OUString& aName )
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-     if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     bool bResult = m_pStorage->IsContained( aName );
@@ -528,7 +528,7 @@ sal_Bool SAL_CALL OLESimpleStorage::hasElements()
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-      if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     SvStorageInfoList aList;
@@ -556,7 +556,7 @@ void SAL_CALL OLESimpleStorage::dispose()
 
     if ( m_pListenersContainer )
     {
-           lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
+        lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
         m_pListenersContainer->disposeAndClear( aSource );
     }
 
@@ -608,7 +608,7 @@ void SAL_CALL OLESimpleStorage::commit()
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-     if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     if ( !m_bNoTemporaryCopy && !m_xStream.is() )
@@ -631,7 +631,7 @@ void SAL_CALL OLESimpleStorage::revert()
     if ( m_bDisposed )
         throw lang::DisposedException();
 
-     if ( !m_pStorage )
+    if ( !m_pStorage )
         throw uno::RuntimeException();
 
     if ( !m_bNoTemporaryCopy && !m_xStream.is() )

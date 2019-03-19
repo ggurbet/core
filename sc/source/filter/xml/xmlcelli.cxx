@@ -20,18 +20,13 @@
 #include <memory>
 #include "xmlcelli.hxx"
 #include "xmlimprt.hxx"
-#include "xmltabi.hxx"
-#include "xmlstyli.hxx"
 #include "xmlannoi.hxx"
 #include <global.hxx>
 #include <cellvalue.hxx>
 #include <document.hxx>
-#include <cellsuno.hxx>
 #include <docuno.hxx>
-#include <unonames.hxx>
 #include <postit.hxx>
 #include <sheetdata.hxx>
-#include <docsh.hxx>
 #include <cellform.hxx>
 #include <validat.hxx>
 #include <patattr.hxx>
@@ -45,33 +40,27 @@
 
 #include <arealink.hxx>
 #include <sfx2/linkmgr.hxx>
-#include <convuno.hxx>
-#include "XMLConverter.hxx"
 #include <scerrors.hxx>
 #include <editutil.hxx>
 #include <formulacell.hxx>
 #include "editattributemap.hxx"
-#include <stringutil.hxx>
 #include <tokenarray.hxx>
 #include <scmatrix.hxx>
 #include <documentimport.hxx>
-#include <datastream.hxx>
-#include <rangeutl.hxx>
+#include <externalrefmgr.hxx>
 
 #include <xmloff/maptype.hxx>
-#include <xmloff/xmlaustp.hxx>
 #include <xmloff/xmltkmap.hxx>
 #include <xmloff/xmltoken.hxx>
-#include <xmloff/nmspmap.hxx>
+#include <xmloff/xmlprmap.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/families.hxx>
-#include <xmloff/numehelp.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/prstylei.hxx>
+#include <xmloff/xmlimppr.hxx>
 #include <svl/zforlist.hxx>
 #include <svx/svdocapt.hxx>
 #include <editeng/outlobj.hxx>
-#include <editeng/editobj.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/fhgtitem.hxx>
@@ -91,23 +80,18 @@
 #include <editeng/emphasismarkitem.hxx>
 #include <editeng/langitem.hxx>
 #include <svx/unoapi.hxx>
-#include <svl/languageoptions.hxx>
 #include <svl/sharedstringpool.hxx>
-#include <svtools/miscopt.hxx>
 #include <sax/tools/converter.hxx>
 #include <sax/fastattribs.hxx>
 
 #include <com/sun/star/util/NumberFormat.hpp>
-#include <com/sun/star/util/Date.hpp>
 
 #include <com/sun/star/sheet/ValidationType.hpp>
 #include <com/sun/star/sheet/ValidationAlertStyle.hpp>
 
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
-#include <tools/date.hxx>
 #include <i18nlangtag/lang.h>
-#include <o3tl/make_unique.hxx>
 
 using namespace com::sun::star;
 using namespace xmloff::token;
@@ -333,7 +317,7 @@ void ScXMLTableRowCellContext::PushParagraphSpan(const OUString& rSpan, const OU
 void ScXMLTableRowCellContext::PushParagraphField(std::unique_ptr<SvxFieldData> pData, const OUString& rStyleName)
 {
     mbHasFormatRuns = true;
-    maFields.push_back(o3tl::make_unique<Field>(std::move(pData)));
+    maFields.push_back(std::make_unique<Field>(std::move(pData)));
     Field& rField = *maFields.back().get();
 
     sal_Int32 nPos = maParagraph.getLength();
@@ -378,7 +362,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
     const ScXMLEditAttributeMap& rEditAttrMap = GetScImport().GetEditAttributeMap();
 
     mbHasFormatRuns = true;
-    maFormats.push_back(o3tl::make_unique<ParaFormat>(*mpEditEngine));
+    maFormats.push_back(std::make_unique<ParaFormat>(*mpEditEngine));
     ParaFormat& rFmt = *maFormats.back().get();
     rFmt.maSelection.nStartPara = rFmt.maSelection.nEndPara = mnCurParagraph;
     rFmt.maSelection.nStartPos = nBegin;
@@ -392,13 +376,12 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
     std::unique_ptr<SfxPoolItem> pPoolItem;
     sal_uInt16 nLastItemID = EE_CHAR_END + 1;
 
-    std::vector<XMLPropertyState>::const_iterator it = rProps.begin(), itEnd = rProps.end();
-    for (; it != itEnd; ++it)
+    for (const auto& rProp : rProps)
     {
-        if (it->mnIndex == -1 || it->mnIndex >= nEntryCount)
+        if (rProp.mnIndex == -1 || rProp.mnIndex >= nEntryCount)
             continue;
 
-        const OUString& rName = xMapper->GetEntryAPIName(it->mnIndex);
+        const OUString& rName = xMapper->GetEntryAPIName(rProp.mnIndex);
         const ScXMLEditAttributeMap::Entry* pEntry = rEditAttrMap.getEntryByAPIName(rName);
         if (!pEntry)
             continue;
@@ -420,7 +403,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxFontItem(pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_WEIGHT:
@@ -430,7 +413,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxWeightItem(WEIGHT_NORMAL, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_FONTHEIGHT:
@@ -440,7 +423,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxFontHeightItem(240, 100, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_ITALIC:
@@ -450,7 +433,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxPostureItem(ITALIC_NONE, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_UNDERLINE:
@@ -458,7 +441,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxUnderlineItem(LINESTYLE_NONE, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_OVERLINE:
@@ -466,7 +449,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxOverlineItem(LINESTYLE_NONE, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_COLOR:
@@ -474,7 +457,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxColorItem(pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_WLM:
@@ -482,7 +465,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxWordLineModeItem(false, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_STRIKEOUT:
@@ -490,7 +473,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxCrossedOutItem(STRIKEOUT_NONE, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_RELIEF:
@@ -498,7 +481,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxCharReliefItem(FontRelief::NONE, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_OUTLINE:
@@ -506,7 +489,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxContourItem(false, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_SHADOW:
@@ -514,7 +497,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxShadowedItem(false, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_KERNING:
@@ -522,7 +505,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxKerningItem(0, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_PAIRKERNING:
@@ -530,7 +513,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxAutoKernItem(false, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_FONTWIDTH:
@@ -538,7 +521,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxCharScaleWidthItem(100, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_ESCAPEMENT:
@@ -546,7 +529,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxEscapementItem(pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_EMPHASISMARK:
@@ -554,7 +537,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxEmphasisMarkItem(FontEmphasisMark::NONE, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             case EE_CHAR_LANGUAGE:
@@ -564,7 +547,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
                 if (!pPoolItem)
                     pPoolItem.reset(new SvxLanguageItem(LANGUAGE_DONTKNOW, pEntry->mnItemID));
 
-                pPoolItem->PutValue(it->maValue, pEntry->mnFlag);
+                pPoolItem->PutValue(rProp.maValue, pEntry->mnFlag);
             }
             break;
             default:
@@ -588,18 +571,18 @@ OUString ScXMLTableRowCellContext::GetFirstParagraph() const
 
 void ScXMLTableRowCellContext::PushParagraphFieldDate(const OUString& rStyleName)
 {
-    PushParagraphField(o3tl::make_unique<SvxDateField>(), rStyleName);
+    PushParagraphField(std::make_unique<SvxDateField>(), rStyleName);
 }
 
 void ScXMLTableRowCellContext::PushParagraphFieldSheetName(const OUString& rStyleName)
 {
     SCTAB nTab = GetScImport().GetTables().GetCurrentCellPos().Tab();
-    PushParagraphField(o3tl::make_unique<SvxTableField>(nTab), rStyleName);
+    PushParagraphField(std::make_unique<SvxTableField>(nTab), rStyleName);
 }
 
 void ScXMLTableRowCellContext::PushParagraphFieldDocTitle(const OUString& rStyleName)
 {
-    PushParagraphField(o3tl::make_unique<SvxFileField>(), rStyleName);
+    PushParagraphField(std::make_unique<SvxFileField>(), rStyleName);
 }
 
 void ScXMLTableRowCellContext::PushParagraphFieldURL(
@@ -956,12 +939,9 @@ void ScXMLTableRowCellContext::SetAnnotation(const ScAddress& rPos)
     ScSheetSaveData* pSheetData = ScModelObj::getImplementation(rXMLImport.GetModel())->GetSheetSaveData();
     pSheetData->HandleNoteStyles( mxAnnotationData->maStyleName, mxAnnotationData->maTextStyle, rPos );
 
-    std::vector<ScXMLAnnotationStyleEntry>::const_iterator aIter = mxAnnotationData->maContentStyles.begin();
-    std::vector<ScXMLAnnotationStyleEntry>::const_iterator aEnd = mxAnnotationData->maContentStyles.end();
-    while (aIter != aEnd)
+    for (const auto& rContentStyle : mxAnnotationData->maContentStyles)
     {
-        pSheetData->AddNoteContentStyle( aIter->mnFamily, aIter->maName, rPos, aIter->maSelection );
-        ++aIter;
+        pSheetData->AddNoteContentStyle( rContentStyle.mnFamily, rContentStyle.maName, rPos, rContentStyle.maSelection );
     }
 }
 
@@ -973,18 +953,15 @@ void ScXMLTableRowCellContext::SetDetectiveObj( const ScAddress& rPosition )
         LockSolarMutex();
         ScDetectiveFunc aDetFunc( rXMLImport.GetDocument(), rPosition.Tab() );
         uno::Reference<container::XIndexAccess> xShapesIndex (rXMLImport.GetTables().GetCurrentXShapes(), uno::UNO_QUERY); // make draw page
-        ScMyImpDetectiveObjVec::iterator aItr(pDetectiveObjVec->begin());
-        ScMyImpDetectiveObjVec::iterator aEndItr(pDetectiveObjVec->end());
-        while(aItr != aEndItr)
+        for(const auto& rDetectiveObj : *pDetectiveObjVec)
         {
-            aDetFunc.InsertObject( aItr->eObjType, rPosition, aItr->aSourceRange, aItr->bHasError );
+            aDetFunc.InsertObject( rDetectiveObj.eObjType, rPosition, rDetectiveObj.aSourceRange, rDetectiveObj.bHasError );
             if (xShapesIndex.is())
             {
                 sal_Int32 nShapes = xShapesIndex->getCount();
                 uno::Reference < drawing::XShape > xShape;
                 rXMLImport.GetShapeImport()->shapeWithZIndexAdded(xShape, nShapes);
             }
-            ++aItr;
         }
     }
 }
@@ -1121,17 +1098,11 @@ void ScXMLTableRowCellContext::PutTextCell( const ScAddress& rCurrentPos,
             else
             {
                 // This text either has format runs, has field(s), or consists of multiple lines.
-                {
-                    ParaFormatsType::const_iterator it = maFormats.begin(), itEnd = maFormats.end();
-                    for (; it != itEnd; ++it)
-                        mpEditEngine->QuickSetAttribs((*it)->maItemSet, (*it)->maSelection);
-                }
+                for (const auto& rxFormat : maFormats)
+                    mpEditEngine->QuickSetAttribs(rxFormat->maItemSet, rxFormat->maSelection);
 
-                {
-                    FieldsType::const_iterator it = maFields.begin(), itEnd = maFields.end();
-                    for (; it != itEnd; ++it)
-                        mpEditEngine->QuickInsertField(SvxFieldItem(*(*it)->mpData, EE_FEATURE_FIELD), (*it)->maSelection);
-                }
+                for (const auto& rxField : maFields)
+                    mpEditEngine->QuickInsertField(SvxFieldItem(*rxField->mpData, EE_FEATURE_FIELD), rxField->maSelection);
 
                 // This edit engine uses the SfxItemPool instance returned
                 // from pDoc->GetEditPool() to create the text object, which
@@ -1382,7 +1353,7 @@ void ScXMLTableRowCellContext::PutFormulaCell( const ScAddress& rCellPos )
     if ( !aText.isEmpty() )
     {
         // temporary formula string as string tokens
-        ScTokenArray *pCode = new ScTokenArray();
+        std::unique_ptr<ScTokenArray> pCode(new ScTokenArray());
 
         // Check the special case of a single error constant without leading
         // '=' and create an error formula cell without tokens.
@@ -1411,7 +1382,7 @@ void ScXMLTableRowCellContext::PutFormulaCell( const ScAddress& rCellPos )
             }
         }
 
-        ScFormulaCell* pNewCell = new ScFormulaCell(pDoc, rCellPos, pCode, eGrammar, ScMatrixMode::NONE);
+        ScFormulaCell* pNewCell = new ScFormulaCell(pDoc, rCellPos, std::move(pCode), eGrammar, ScMatrixMode::NONE);
         SetFormulaCell(pNewCell);
         rDoc.setFormulaCell(rCellPos, pNewCell);
     }

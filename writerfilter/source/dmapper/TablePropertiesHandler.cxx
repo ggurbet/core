@@ -78,25 +78,9 @@ namespace dmapper {
                     pProperties->resolve(*pMeasureHandler);
                     TablePropertyMapPtr pPropMap( new TablePropertyMap );
 
-                    DomainMapperTableManager* pManager = dynamic_cast<DomainMapperTableManager*>(m_pTableManager);
-                    // In case any of the cells has the btLr cell direction, then an explicit minimal size will just hide the whole row, don't do that.
-                    const int MINLAY = 23; // sw/inc/swtypes.hxx, minimal possible size of frames.
-                    if (!pManager || !pManager->HasBtlrCell() || pMeasureHandler->getMeasureValue() > ConversionHelper::convertTwipToMM100(MINLAY))
-                    {
-                        bool bCantSplit = false;
-                        if (pManager && pManager->getRowProps())
-                        {
-                            boost::optional<PropertyMap::Property> oIsSplitAllowed = pManager->getRowProps()->getProperty(PROP_IS_SPLIT_ALLOWED);
-                            bCantSplit = oIsSplitAllowed && !oIsSplitAllowed->second.get<bool>();
-                        }
-                        // In case a cell already wanted fixed size and the row has <w:cantSplit/>, we should not overwrite it here.
-                        if (!pManager || !pManager->IsRowSizeTypeInserted() || !bCantSplit)
-                            pPropMap->Insert( PROP_SIZE_TYPE, uno::makeAny( pMeasureHandler->GetRowHeightSizeType() ), false);
-                        else
-                            pPropMap->Insert( PROP_SIZE_TYPE, uno::makeAny(text::SizeType::FIX), false);
+                    pPropMap->Insert( PROP_SIZE_TYPE, uno::makeAny( pMeasureHandler->GetRowHeightSizeType() ), false);
+                    pPropMap->Insert( PROP_HEIGHT, uno::makeAny(pMeasureHandler->getMeasureValue() ));
 
-                        pPropMap->Insert( PROP_HEIGHT, uno::makeAny(pMeasureHandler->getMeasureValue() ));
-                    }
                     insertRowProps(pPropMap);
                 }
             }
@@ -273,6 +257,7 @@ namespace dmapper {
                     }
                 }
             break;
+/*          // tdf#123189 skip to keep MSO interoperability
             case NS_ooxml::LN_CT_TblPrBase_shd:
             {
                 writerfilter::Reference<Properties>::Pointer_t pProperties = rSprm.getProps();
@@ -284,6 +269,7 @@ namespace dmapper {
                     insertTableProps( pCellColorHandler->getProperties() );
                 }
             }
+*/
             break;
             case NS_ooxml::LN_CT_TcPrBase_shd:
             {

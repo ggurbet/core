@@ -13,7 +13,7 @@ $(eval $(call gb_Module_add_targets,sd,\
     Library_sd \
     Library_sdd \
     Library_sdfilt \
-    $(call gb_Helper_optional,DESKTOP,Library_sdui) \
+    Library_sdui \
     Package_opengl \
     Package_web \
     Package_xml \
@@ -61,5 +61,6 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sd,\
 
 $(eval $(call gb_Module_add_uicheck_targets,sd,\
 	UITest_impress_tests \
+	UITest_findReplace \
 ))
 # vim: set noet sw=4 ts=4:

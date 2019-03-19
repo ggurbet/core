@@ -597,7 +597,7 @@ namespace {
                     nPrintRange = 1;
                 }
             }
-
+/*
             OUString aPrintRangeName( "PrintContent" );
             aHelpIds.realloc( 1 );
             aHelpIds[0] = ".HelpID:vcl:PrintDialog:PageContentType:ListBox";
@@ -606,7 +606,27 @@ namespace {
                                 mbImpress ? CreateChoice( STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE ) ) :
                                             CreateChoice( STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE ) ),
                                 nPrintRange ) );
+*/
+            OUString aPrintRangeName( "PrintContent" );
+            aHelpIds.realloc( 5 );
+            aHelpIds[0] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:0" ;
+            aHelpIds[1] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:1" ;
+            aHelpIds[2] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:2" ;
+            aHelpIds[3] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:3" ;
+            aHelpIds[4] = ".HelpID:vcl:PrintDialog:PrintContent:RadioButton:4" ;
+            aWidgetIds.realloc( 5 );
+            aWidgetIds[0] = "rbAllPages";
+            aWidgetIds[1] = "rbRangePages";
+            aWidgetIds[2] = "rbEvenPages";
+            aWidgetIds[3] = "rbOddPages";
+            aWidgetIds[4] = "rbRangeSelection";
 
+            AddDialogControl( vcl::PrinterOptionsHelper::setChoiceRadiosControlOpt(aWidgetIds, OUString(),
+                                aHelpIds, aPrintRangeName,
+                                mbImpress ? CreateChoice(STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_IMPRESS_PRINT_UI_PAGE_RANGE_CHOICE)) :
+                                            CreateChoice(STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE, SAL_N_ELEMENTS(STR_DRAW_PRINT_UI_PAGE_RANGE_CHOICE)),
+                                nPrintRange )
+                            );
             // create a an Edit dependent on "Pages" selected
             vcl::PrinterOptionsHelper::UIControlOptions aPageRangeOpt( aPrintRangeName, 1, true );
             AddDialogControl(vcl::PrinterOptionsHelper::setEditControlOpt("pagerange", "",
@@ -881,19 +901,19 @@ namespace {
             }
 
             pPageToPrint = rDocument.GetSdPage(mnSecondPageIndex, mePageKind);
-            if( pPageToPrint )
-            {
-                aMap.SetOrigin(maSecondOffset);
-                rPrinter.SetMapMode(aMap);
-                PrintPage(
-                    rPrinter,
-                    rPrintView,
-                    *pPageToPrint,
-                    pView,
-                    mbPrintMarkedOnly,
-                    rVisibleLayers,
-                    rPrintableLayers);
-            }
+            if( !pPageToPrint )
+                return;
+
+            aMap.SetOrigin(maSecondOffset);
+            rPrinter.SetMapMode(aMap);
+            PrintPage(
+                rPrinter,
+                rPrintView,
+                *pPageToPrint,
+                pView,
+                mbPrintMarkedOnly,
+                rVisibleLayers,
+                rPrintableLayers);
         }
 
     private:
@@ -1375,82 +1395,81 @@ private:
 
         PrintInfo aInfo (mpPrinter, mpOptions->IsPrintMarkedOnly());
 
-        if (aInfo.mpPrinter!=nullptr && pShell!=nullptr)
+        if (aInfo.mpPrinter==nullptr || pShell==nullptr)
+            return;
+
+        MapMode aMap (aInfo.mpPrinter->GetMapMode());
+        aMap.SetMapUnit(MapUnit::Map100thMM);
+        aInfo.maMap = aMap;
+        mpPrinter->SetMapMode(aMap);
+
+        ::Outliner& rOutliner = mrBase.GetDocument()->GetDrawOutliner();
+        const EEControlBits nSavedControlWord (rOutliner.GetControlWord());
+        EEControlBits nCntrl = nSavedControlWord;
+        nCntrl &= ~EEControlBits::MARKFIELDS;
+        nCntrl &= ~EEControlBits::ONLINESPELLING;
+        rOutliner.SetControlWord( nCntrl );
+
+        // When in outline view then apply all pending changes to the model.
+        if( auto pOutlineViewShell = dynamic_cast< OutlineViewShell *>( pShell ) )
+            pOutlineViewShell->PrepareClose (false);
+
+        // Collect some frequently used data.
+        if (mpOptions->IsDate())
         {
-
-            MapMode aMap (aInfo.mpPrinter->GetMapMode());
-            aMap.SetMapUnit(MapUnit::Map100thMM);
-            aInfo.maMap = aMap;
-            mpPrinter->SetMapMode(aMap);
-
-            ::Outliner& rOutliner = mrBase.GetDocument()->GetDrawOutliner();
-            const EEControlBits nSavedControlWord (rOutliner.GetControlWord());
-            EEControlBits nCntrl = nSavedControlWord;
-            nCntrl &= ~EEControlBits::MARKFIELDS;
-            nCntrl &= ~EEControlBits::ONLINESPELLING;
-            rOutliner.SetControlWord( nCntrl );
-
-            // When in outline view then apply all pending changes to the model.
-            if( auto pOutlineViewShell = dynamic_cast< OutlineViewShell *>( pShell ) )
-                pOutlineViewShell->PrepareClose (false);
-
-            // Collect some frequently used data.
-            if (mpOptions->IsDate())
-            {
-                aInfo.msTimeDate += GetSdrGlobalData().GetLocaleData()->getDate( Date( Date::SYSTEM ) );
-                aInfo.msTimeDate += " ";
-            }
-
-            if (mpOptions->IsTime())
-                aInfo.msTimeDate += GetSdrGlobalData().GetLocaleData()->getTime( ::tools::Time( ::tools::Time::SYSTEM ), false );
-
-            // Draw and Notes should usually use specified paper size when printing
-            if (!mpOptions->IsPrinterPreferred())
-            {
-                aInfo.maPrintSize = mrBase.GetDocument()->GetSdPage(0, PageKind::Standard)->GetSize();
-                maPrintSize = awt::Size(aInfo.maPrintSize.Width(),
-                                        aInfo.maPrintSize.Height());
-            }
-            else
-            {
-                aInfo.maPrintSize = aInfo.mpPrinter->GetOutputSize();
-                maPrintSize = awt::Size(
-                    aInfo.mpPrinter->GetPaperSize().Width(),
-                    aInfo.mpPrinter->GetPaperSize().Height());
-            }
-
-            switch (mpOptions->GetOutputQuality())
-            {
-                case 1: // Grayscale
-                    aInfo.mnDrawMode = DrawModeFlags::GrayLine | DrawModeFlags::GrayFill
-                        | DrawModeFlags::GrayText | DrawModeFlags::GrayBitmap
-                        | DrawModeFlags::GrayGradient;
-                    break;
-
-                case 2: // Black & White
-                    aInfo.mnDrawMode = DrawModeFlags::BlackLine | DrawModeFlags::WhiteFill
-                        | DrawModeFlags::BlackText | DrawModeFlags::GrayBitmap
-                        | DrawModeFlags::WhiteGradient;
-                    break;
-
-                default:
-                    aInfo.mnDrawMode = DrawModeFlags::Default;
-            }
-
-            if (mpOptions->IsDraw())
-                PrepareStdOrNotes(PageKind::Standard, aInfo);
-            if (mpOptions->IsNotes())
-                PrepareStdOrNotes(PageKind::Notes, aInfo);
-            if (mpOptions->IsHandout())
-            {
-                InitHandoutTemplate();
-                PrepareHandout(aInfo);
-            }
-            if (mpOptions->IsOutline())
-                PrepareOutline(aInfo);
-
-            rOutliner.SetControlWord(nSavedControlWord);
+            aInfo.msTimeDate += GetSdrGlobalData().GetLocaleData()->getDate( Date( Date::SYSTEM ) );
+            aInfo.msTimeDate += " ";
         }
+
+        if (mpOptions->IsTime())
+            aInfo.msTimeDate += GetSdrGlobalData().GetLocaleData()->getTime( ::tools::Time( ::tools::Time::SYSTEM ), false );
+
+        // Draw and Notes should usually use specified paper size when printing
+        if (!mpOptions->IsPrinterPreferred())
+        {
+            aInfo.maPrintSize = mrBase.GetDocument()->GetSdPage(0, PageKind::Standard)->GetSize();
+            maPrintSize = awt::Size(aInfo.maPrintSize.Width(),
+                                    aInfo.maPrintSize.Height());
+        }
+        else
+        {
+            aInfo.maPrintSize = aInfo.mpPrinter->GetOutputSize();
+            maPrintSize = awt::Size(
+                aInfo.mpPrinter->GetPaperSize().Width(),
+                aInfo.mpPrinter->GetPaperSize().Height());
+        }
+
+        switch (mpOptions->GetOutputQuality())
+        {
+            case 1: // Grayscale
+                aInfo.mnDrawMode = DrawModeFlags::GrayLine | DrawModeFlags::GrayFill
+                    | DrawModeFlags::GrayText | DrawModeFlags::GrayBitmap
+                    | DrawModeFlags::GrayGradient;
+                break;
+
+            case 2: // Black & White
+                aInfo.mnDrawMode = DrawModeFlags::BlackLine | DrawModeFlags::WhiteFill
+                    | DrawModeFlags::BlackText | DrawModeFlags::GrayBitmap
+                    | DrawModeFlags::WhiteGradient;
+                break;
+
+            default:
+                aInfo.mnDrawMode = DrawModeFlags::Default;
+        }
+
+        if (mpOptions->IsDraw())
+            PrepareStdOrNotes(PageKind::Standard, aInfo);
+        if (mpOptions->IsNotes())
+            PrepareStdOrNotes(PageKind::Notes, aInfo);
+        if (mpOptions->IsHandout())
+        {
+            InitHandoutTemplate();
+            PrepareHandout(aInfo);
+        }
+        if (mpOptions->IsOutline())
+            PrepareOutline(aInfo);
+
+        rOutliner.SetControlWord(nSavedControlWord);
     }
 
     /** Create the page objects of the handout template.  When the actual
@@ -2080,20 +2099,20 @@ private:
         else
             nPaperBin = rInfo.mpPrinter->GetPaperBin();
 
-        if ( CheckForFrontBackPages( nPageIndex ) )
-        {
-            maPrinterPages.push_back(
-            std::shared_ptr<PrinterPage>(
-                new TiledPrinterPage(
-                    sal::static_int_cast<sal_uInt16>(nPageIndex),
-                    ePageKind,
-                    rInfo.mbPrintMarkedOnly,
-                    rInfo.msPageString,
-                    rInfo.mpPrinter->GetPageOffset(),
-                    rInfo.mnDrawMode,
-                    rInfo.meOrientation,
-                    nPaperBin)));
-        }
+        if ( !CheckForFrontBackPages( nPageIndex ) )
+            return;
+
+        maPrinterPages.push_back(
+        std::shared_ptr<PrinterPage>(
+            new TiledPrinterPage(
+                sal::static_int_cast<sal_uInt16>(nPageIndex),
+                ePageKind,
+                rInfo.mbPrintMarkedOnly,
+                rInfo.msPageString,
+                rInfo.mpPrinter->GetPageOffset(),
+                rInfo.mnDrawMode,
+                rInfo.meOrientation,
+                nPaperBin)));
     }
 
     /** Print one standard slide or notes page on one to many printer

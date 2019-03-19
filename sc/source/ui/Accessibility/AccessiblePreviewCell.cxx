@@ -20,12 +20,10 @@
 #include <sal/config.h>
 
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 #include <tools/gen.hxx>
 #include <AccessibleText.hxx>
 #include <editsrc.hxx>
 #include <AccessiblePreviewCell.hxx>
-#include <AccessibilityHints.hxx>
 #include <prevwsh.hxx>
 #include <prevloc.hxx>
 #include <document.hxx>
@@ -36,7 +34,7 @@
 #include <vcl/svapp.hxx>
 #include <toolkit/helper/convert.hxx>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
-#include <o3tl/make_unique.hxx>
+
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
 
@@ -96,7 +94,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePreviewCell::getAccessibleAtP
     uno::Reference<XAccessible> xRet;
     if (containsPoint(rPoint))
     {
-         SolarMutexGuard aGuard;
+        SolarMutexGuard aGuard;
         IsObjectValid();
 
         if(!mpTextHelper)
@@ -110,7 +108,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePreviewCell::getAccessibleAtP
 
 void SAL_CALL ScAccessiblePreviewCell::grabFocus()
 {
-     SolarMutexGuard aGuard;
+    SolarMutexGuard aGuard;
     IsObjectValid();
     if (getAccessibleParent().is())
     {
@@ -270,8 +268,8 @@ void ScAccessiblePreviewCell::CreateTextHelper()
     if (!mpTextHelper)
     {
         mpTextHelper.reset( new ::accessibility::AccessibleTextHelper(
-            o3tl::make_unique<ScAccessibilityEditSource>(
-                o3tl::make_unique<ScAccessiblePreviewCellTextData>(
+            std::make_unique<ScAccessibilityEditSource>(
+                std::make_unique<ScAccessiblePreviewCellTextData>(
                     mpViewShell, maCellAddress))) );
         mpTextHelper->SetEventSource( this );
 

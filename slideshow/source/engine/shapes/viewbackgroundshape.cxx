@@ -113,7 +113,7 @@ namespace slideshow
                 ::cppcanvas::RendererSharedPtr pRenderer(
                     ::cppcanvas::VCLFactory::createRenderer(
                         pBitmapCanvas,
-                        *rMtf.get(),
+                        *rMtf,
                         ::cppcanvas::Renderer::Parameters() ) );
 
                 ENSURE_OR_RETURN_FALSE( pRenderer,
@@ -185,7 +185,7 @@ namespace slideshow
             }
             catch( uno::Exception& )
             {
-                SAL_WARN( "slideshow", comphelper::anyToString( cppu::getCaughtException() ) );
+                SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
                 return false;
             }
 

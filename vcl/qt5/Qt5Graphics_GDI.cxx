@@ -512,7 +512,7 @@ void Qt5Graphics::invert(sal_uInt32 /*nPoints*/, const SalPoint* /*pPtAry*/, Sal
 }
 
 bool Qt5Graphics::drawEPS(long /*nX*/, long /*nY*/, long /*nWidth*/, long /*nHeight*/,
-                          void* /*pPtr*/, sal_uLong /*nSize*/)
+                          void* /*pPtr*/, sal_uInt32 /*nSize*/)
 {
     return false;
 }
@@ -643,8 +643,8 @@ void Qt5Graphics::GetResolution(sal_Int32& rDPIX, sal_Int32& rDPIY)
         return;
 
     QScreen* pScreen = m_pFrame->GetQWidget()->window()->windowHandle()->screen();
-    rDPIX = pScreen->physicalDotsPerInchX();
-    rDPIY = pScreen->physicalDotsPerInchY();
+    rDPIX = pScreen->logicalDotsPerInchX();
+    rDPIY = pScreen->logicalDotsPerInchY();
 }
 
 sal_uInt16 Qt5Graphics::GetBitCount() const { return getFormatBits(m_pQImage->format()); }

@@ -43,6 +43,7 @@
 #include <ndtxt.hxx>
 #include <ftninfo.hxx>
 #include <fmthdft.hxx>
+#include <frmatr.hxx>
 #include <section.hxx>
 #include <fmtcntnt.hxx>
 #include <fmtftn.hxx>
@@ -376,7 +377,7 @@ OString const & MSWordStyles::GetStyleId(sal_uInt16 nId) const
 }
 
 /// For WW8 only - extend pO so that the size of pTableStrm is even.
-static void impl_SkipOdd( ww::bytes* pO, std::size_t nTableStrmTell )
+static void impl_SkipOdd(std::unique_ptr<ww::bytes> const& pO, std::size_t nTableStrmTell)
 {
     if ( ( nTableStrmTell + pO->size() ) & 1 )     // start on even
         pO->push_back( sal_uInt8(0) );         // Address
@@ -597,6 +598,10 @@ void MSWordStyles::OutputStyle( SwFormat* pFormat, sal_uInt16 nPos )
         {
             assert( pFormat->GetPoolFormatId() == RES_POOLCOLL_STANDARD );
             aName = "Normal";
+
+            // force bidi property to be SET, so that it exports an appropriate locale value
+            if ( SfxItemState::SET != pFormat->GetItemState(RES_FRAMEDIR, false) )
+                pFormat->SetFormatAttr(pFormat->GetFrameDir());
         }
         else if (aName.equalsIgnoreAsciiCase("Normal"))
         {
@@ -1012,7 +1017,7 @@ MSWordSections::MSWordSections( MSWordExportBase& rExport )
         AppendSection( *static_cast<const SwFormatPageDesc*>(pI), *pNd, pFormat, nRstLnNum );
     }
     else
-        AppendSection( rExport.m_pCurrentPageDesc, pFormat, nRstLnNum );
+        AppendSection( rExport.m_pCurrentPageDesc, pFormat, nRstLnNum, /*bIsFirstParagraph=*/true );
 }
 
 WW8_WrPlcSepx::WW8_WrPlcSepx( MSWordExportBase& rExport )
@@ -1246,7 +1251,7 @@ bool WW8_SepInfo::IsProtected() const
     return bRet;
 }
 
-void MSWordSections::CheckForFacinPg( WW8Export& rWrt ) const
+void MSWordSections::CheckForFacinPg( const WW8Export& rWrt ) const
 {
     // 2 values getting set
     //      Dop.fFacingPages            == Header and Footer different
@@ -1555,7 +1560,7 @@ void MSWordExportBase::SectionProperties( const WW8_SepInfo& rSepInfo, WW8_PdAtt
         }
 
         if ( reinterpret_cast<SwSectionFormat*>(sal_IntPtr(-1)) == rSepInfo.pSectionFormat )
-            bEnsureHeaderFooterWritten |= !rSepInfo.pPDNd && GetExportFormat() == ExportFormat::DOCX;
+            bEnsureHeaderFooterWritten |= !rSepInfo.pPDNd && GetExportFormat() != ExportFormat::RTF;
         else
         {
             if ( nBreakCode == 0 )

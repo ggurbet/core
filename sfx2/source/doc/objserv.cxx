@@ -97,6 +97,7 @@
 #include <sfx2/objface.hxx>
 #include <sfx2/checkin.hxx>
 #include <sfx2/infobar.hxx>
+#include <SfxRedactionHelper.hxx>
 
 #include <com/sun/star/document/XDocumentSubStorageSupplier.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
@@ -109,6 +110,7 @@
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 #include <com/sun/star/frame/XDesktop2.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
+#include <com/sun/star/frame/XLayoutManager.hpp>
 
 #include <guisaveas.hxx>
 #include <saveastemplatedlg.hxx>
@@ -118,6 +120,7 @@
 #include <unotools/streamwrap.hxx>
 
 #include <svx/unoshape.hxx>
+#include <com/sun/star/util/Color.hpp>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang;
@@ -222,29 +225,29 @@ bool SfxInstanceCloseGuard_Impl::Init_Impl( const uno::Reference< util::XCloseab
 
 SfxInstanceCloseGuard_Impl::~SfxInstanceCloseGuard_Impl()
 {
-    if ( m_xCloseable.is() && m_xPreventer.is() )
+    if ( !m_xCloseable.is() || !m_xPreventer.is() )
+        return;
+
+    try
     {
-        try
-        {
-            m_xCloseable->removeCloseListener( m_xPreventer.get() );
-        }
-        catch( uno::Exception& )
-        {
-        }
+        m_xCloseable->removeCloseListener( m_xPreventer.get() );
+    }
+    catch( uno::Exception& )
+    {
+    }
 
-        try
+    try
+    {
+        if ( m_xPreventer.is() )
         {
-            if ( m_xPreventer.is() )
-            {
-                m_xPreventer->SetPreventClose( false );
+            m_xPreventer->SetPreventClose( false );
 
-                if ( m_xPreventer->HasOwnership() )
-                    m_xCloseable->close( true ); // TODO: do it asynchronously
-            }
+            if ( m_xPreventer->HasOwnership() )
+                m_xCloseable->close( true ); // TODO: do it asynchronously
         }
-        catch( uno::Exception& )
-        {
-        }
+    }
+    catch( uno::Exception& )
+    {
     }
 }
 
@@ -401,16 +404,24 @@ uno::Sequence< document::CmisVersion > SfxObjectShell::GetCmisVersions( )
     return uno::Sequence< document::CmisVersion > ( );
 }
 
-
 void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
 {
+    weld::Window* pDialogParent = rReq.GetFrameWeld();
+    if (!pDialogParent)
+    {
+        SfxViewFrame* pFrame = GetFrame();
+        if (!pFrame)
+            pFrame = SfxViewFrame::GetFirst(this);
+        if (pFrame)
+            pDialogParent = pFrame->GetWindow().GetFrameWeld();
+    }
 
     sal_uInt16 nId = rReq.GetSlot();
 
     if( SID_SIGNATURE == nId || SID_MACRO_SIGNATURE == nId )
     {
         if ( QueryHiddenInformation( HiddenWarningFact::WhenSigning, nullptr ) == RET_YES )
-            ( SID_SIGNATURE == nId ) ? SignDocumentContent(rReq.GetFrameWeld()) : SignScriptingContent(rReq.GetFrameWeld());
+            ( SID_SIGNATURE == nId ) ? SignDocumentContent(pDialogParent) : SignScriptingContent(pDialogParent);
         return;
     }
 
@@ -437,7 +448,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             if ( !IsOwnStorageFormat( *GetMedium() ) )
                 return;
 
-            SfxVersionDialog aDlg(rReq.GetFrameWeld(), pFrame, IsSaveVersionOnClose());
+            SfxVersionDialog aDlg(pDialogParent, pFrame, IsSaveVersionOnClose());
             aDlg.run();
             SetSaveVersionOnClose(aDlg.IsSaveVersionOnClose());
             rReq.Done();
@@ -538,70 +549,133 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             if(!xModel.is())
                 return;
 
-            uno::Reference<text::XTextViewCursorSupplier> xTextViewCursorSupplier(
-                        xModel->getCurrentController(), uno::UNO_QUERY);
-            if(!xTextViewCursorSupplier.is())
-                return;
-
-            uno::Reference<text::XPageCursor> xCursor(xTextViewCursorSupplier->getViewCursor(),
-                                                      uno::UNO_QUERY);
-            if(!xCursor.is())
-                return;
-
             uno::Reference< lang::XComponent > xSourceDoc( xModel );
-            DocumentToGraphicRenderer aRenderer(xSourceDoc, /*bSelectionOnly=*/false);
 
-            // Only take the first page for now
-            sal_Int16 nPage = 1;
+            DocumentToGraphicRenderer aRenderer(xSourceDoc, false);
 
-            ::Size aDocumentSizePixel = aRenderer.getDocumentSizeInPixels(nPage);
-            ::Point aLogicPos;
-            ::Size aLogic = aRenderer.getDocumentSizeIn100mm(nPage, &aLogicPos);
-            // FIXME: This is a temporary hack. Need to figure out a proper way to derive this scale factor.
-            ::Size aTargetSize(aDocumentSizePixel.Width() * 1.23, aDocumentSizePixel.Height() * 1.23);
+            bool bIsWriter = aRenderer.isWriter();
+            bool bIsCalc = aRenderer.isCalc();
 
-            Graphic aGraphic = aRenderer.renderToGraphic(nPage, aDocumentSizePixel, aTargetSize, COL_TRANSPARENT,
-                                                         /*bExtOutDevData=*/true);
-            auto& rGDIMetaFile = const_cast<GDIMetaFile&>(aGraphic.GetGDIMetaFile());
+            if (!bIsWriter && !bIsCalc)
+            {
+                SAL_WARN( "sfx.doc", "Redaction is supported only for Writer and Calc! (for now...)");
+                return;
+            }
 
-            // Set preferred map unit and size on the metafile, so the Shape size
-            // will be correct in MM.
-            MapMode aMapMode;
-            aMapMode.SetMapUnit(MapUnit::Map100thMM);
-            aMapMode.SetOrigin(::Point(-aLogicPos.getX(), -aLogicPos.getY()));
-            rGDIMetaFile.SetPrefMapMode(aMapMode);
-            rGDIMetaFile.SetPrefSize(aLogic);
+            sal_Int32 nPages = aRenderer.getPageCount();
+            std::vector< GDIMetaFile > aMetaFiles;
+
+            // Convert the pages of the document to gdimetafiles
+            SfxRedactionHelper::getPageMetaFilesFromDoc(aMetaFiles, nPages, aRenderer, bIsWriter, bIsCalc);
 
             // Create an empty Draw component.
             uno::Reference<frame::XDesktop2> xDesktop = css::frame::Desktop::create(comphelper::getProcessComponentContext());
             uno::Reference<frame::XComponentLoader> xComponentLoader(xDesktop, uno::UNO_QUERY);
             uno::Reference<lang::XComponent> xComponent = xComponentLoader->loadComponentFromURL("private:factory/sdraw", "_default", 0, {});
 
-            // Access the draw pages
-            uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier(xComponent, uno::UNO_QUERY);
-            uno::Reference<drawing::XDrawPages> xDrawPages = xDrawPagesSupplier->getDrawPages();
-            uno::Reference< drawing::XDrawPage > xPage( xDrawPages->getByIndex( 0 ), uno::UNO_QUERY_THROW );
+            // Add the doc pages to the new draw document
+            SfxRedactionHelper::addPagesToDraw(xComponent, nPages, aMetaFiles, bIsCalc);
 
-            uno::Reference<graphic::XGraphic> xGraph = aGraphic.GetXGraphic();
-
-            // Create and insert the shape
-            uno::Reference<css::lang::XMultiServiceFactory> xFactory(xComponent, uno::UNO_QUERY);
-            uno::Reference<drawing::XShape> xShape(
-                    xFactory->createInstance("com.sun.star.drawing.GraphicObjectShape"), uno::UNO_QUERY);
-            uno::Reference<beans::XPropertySet> xShapeProperySet(xShape, uno::UNO_QUERY);
-            xShapeProperySet->setPropertyValue("Graphic", uno::Any( xGraph ));
-
-            // Set size and position
-            xShape->setSize(awt::Size(rGDIMetaFile.GetPrefSize().Width(),rGDIMetaFile.GetPrefSize().Height()) );
-
-            xPage->add(xShape);
+            // Show the Redaction toolbar
+            SfxViewFrame* pViewFrame = SfxViewFrame::Current();
+            if (!pViewFrame)
+                return;
+            SfxRedactionHelper::showRedactionToolbar(pViewFrame);
 
             return;
         }
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        case SID_EXPORTDOCASPDF:
         case SID_DIRECTEXPORTDOCASPDF:
+        {
+            uno::Reference< lang::XComponent > xComponent( GetCurrentComponent(), uno::UNO_QUERY );
+            if (!xComponent.is())
+                return;
+
+            uno::Reference< lang::XServiceInfo > xServiceInfo( xComponent, uno::UNO_QUERY);
+
+            // Redaction finalization takes place in Draw
+            if ( xServiceInfo.is() && xServiceInfo->supportsService("com.sun.star.drawing.DrawingDocument")
+                 && SfxRedactionHelper::isRedactMode(rReq) )
+            {
+                OUString sRedactionStyle(SfxRedactionHelper::getStringParam(rReq, SID_REDACTION_STYLE));
+
+                // Access the draw pages
+                uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier(xComponent, uno::UNO_QUERY);
+                uno::Reference<drawing::XDrawPages> xDrawPages = xDrawPagesSupplier->getDrawPages();
+
+                sal_Int32 nPageCount = xDrawPages->getCount();
+                for (sal_Int32 nPageNum = 0; nPageNum < nPageCount; ++nPageNum)
+                {
+                    // Get the page
+                    uno::Reference< drawing::XDrawPage > xPage( xDrawPages->getByIndex( nPageNum ), uno::UNO_QUERY );
+
+                    if (!xPage.is())
+                        continue;
+
+                    // Go through all shapes
+                    sal_Int32 nShapeCount = xPage->getCount();
+                    for (sal_Int32 nShapeNum = 0; nShapeNum < nShapeCount; ++nShapeNum)
+                    {
+                        uno::Reference< drawing::XShape > xCurrShape(xPage->getByIndex(nShapeNum), uno::UNO_QUERY);
+                        if (!xCurrShape.is())
+                            continue;
+
+                        uno::Reference< beans::XPropertySet > xPropSet(xCurrShape, uno::UNO_QUERY);
+                        if (!xPropSet.is())
+                            continue;
+
+                        uno::Reference< beans::XPropertySetInfo> xInfo = xPropSet->getPropertySetInfo();
+                        if (!xInfo.is())
+                            continue;
+
+                        OUString sShapeName;
+                        if (xInfo->hasPropertyByName("Name"))
+                        {
+                            uno::Any aAnyShapeName = xPropSet->getPropertyValue("Name");
+                            aAnyShapeName >>= sShapeName;
+                        }
+                        else
+                            continue;
+
+                        // Rectangle redaction
+                        if (sShapeName == "RectangleRedactionShape"
+                                && xInfo->hasPropertyByName("FillTransparence") && xInfo->hasPropertyByName("FillColor"))
+                        {
+                            xPropSet->setPropertyValue("FillTransparence", css::uno::makeAny(static_cast<sal_Int16>(0)));
+                            if (sRedactionStyle == "White")
+                            {
+                                xPropSet->setPropertyValue("FillColor", css::uno::makeAny(COL_WHITE));
+                                xPropSet->setPropertyValue("LineStyle", css::uno::makeAny(css::drawing::LineStyle::LineStyle_SOLID));
+                                xPropSet->setPropertyValue("LineColor", css::uno::makeAny(COL_BLACK));
+                            }
+                            else
+                            {
+                                xPropSet->setPropertyValue("FillColor", css::uno::makeAny(COL_BLACK));
+                                xPropSet->setPropertyValue("LineStyle", css::uno::makeAny(css::drawing::LineStyle::LineStyle_NONE));
+                            }
+                        }
+                        // Freeform redaction
+                        else if (sShapeName == "FreeformRedactionShape"
+                                 && xInfo->hasPropertyByName("LineTransparence") && xInfo->hasPropertyByName("LineColor"))
+                        {
+                            xPropSet->setPropertyValue("LineTransparence", css::uno::makeAny(static_cast<sal_Int16>(0)));
+
+                            if (sRedactionStyle == "White")
+                            {
+                                xPropSet->setPropertyValue("LineColor", css::uno::makeAny(COL_WHITE));
+                            }
+                            else
+                            {
+                                xPropSet->setPropertyValue("LineColor", css::uno::makeAny(COL_BLACK));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+            [[fallthrough]];
+        case SID_EXPORTDOCASPDF:
             bIsPDFExport = true;
             [[fallthrough]];
         case SID_EXPORTDOCASEPUB:
@@ -692,6 +766,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
                         xParentWindow = xCtrl->getFrame()->getContainerWindow();
 
                     uno::Reference< uno::XComponentContext > xContext = ::comphelper::getProcessComponentContext();
+
                     uno::Reference< task::XInteractionHandler2 > xInteract(
                         task::InteractionHandler::createWithParent(xContext, xParentWindow) );
 
@@ -792,7 +867,84 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             if ( lErr != ERRCODE_IO_ABORT )
             {
                 SfxErrorContext aEc(ERRCTX_SFX_SAVEASDOC,GetTitle());
-                ErrorHandler::HandleError(lErr, rReq.GetFrameWeld());
+                ErrorHandler::HandleError(lErr, pDialogParent);
+            }
+
+            if (nId == SID_DIRECTEXPORTDOCASPDF &&
+                    SfxRedactionHelper::isRedactMode(rReq))
+            {
+                // Return the finalized redaction shapes back to normal (gray & transparent)
+                uno::Reference< lang::XComponent > xComponent( GetCurrentComponent(), uno::UNO_QUERY );
+                if (!xComponent.is())
+                    return;
+
+                uno::Reference< lang::XServiceInfo > xServiceInfo( xComponent, uno::UNO_QUERY);
+
+                // Redaction finalization takes place in Draw
+                if ( xServiceInfo.is() && xServiceInfo->supportsService("com.sun.star.drawing.DrawingDocument") )
+                {
+                    // Access the draw pages
+                    uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier(xComponent, uno::UNO_QUERY);
+                    uno::Reference<drawing::XDrawPages> xDrawPages = xDrawPagesSupplier->getDrawPages();
+
+                    sal_Int32 nPageCount = xDrawPages->getCount();
+                    for (sal_Int32 nPageNum = 0; nPageNum < nPageCount; ++nPageNum)
+                    {
+                        // Get the page
+                        uno::Reference< drawing::XDrawPage > xPage( xDrawPages->getByIndex( nPageNum ), uno::UNO_QUERY );
+
+                        if (!xPage.is())
+                            continue;
+
+                        // Go through all shapes
+                        sal_Int32 nShapeCount = xPage->getCount();
+                        for (sal_Int32 nShapeNum = 0; nShapeNum < nShapeCount; ++nShapeNum)
+                        {
+                            uno::Reference< drawing::XShape > xCurrShape(xPage->getByIndex(nShapeNum), uno::UNO_QUERY);
+                            if (!xCurrShape.is())
+                                continue;
+
+                            uno::Reference< beans::XPropertySet > xPropSet(xCurrShape, uno::UNO_QUERY);
+                            if (!xPropSet.is())
+                                continue;
+
+                            uno::Reference< beans::XPropertySetInfo> xInfo = xPropSet->getPropertySetInfo();
+                            if (!xInfo.is())
+                                continue;
+
+                            // Not a shape we converted?
+                            if (!xInfo->hasPropertyByName("Name"))
+                                continue;
+
+                            OUString sShapeName;
+                            if (xInfo->hasPropertyByName("Name"))
+                            {
+                                uno::Any aAnyShapeName = xPropSet->getPropertyValue("Name");
+                                aAnyShapeName >>= sShapeName;
+                            }
+                            else
+                                continue;
+
+                            // Rectangle redaction
+                            if (sShapeName == "RectangleRedactionShape"
+                                    && xInfo->hasPropertyByName("FillTransparence") && xInfo->hasPropertyByName("FillColor"))
+                            {
+                                xPropSet->setPropertyValue("FillTransparence", css::uno::makeAny(static_cast<sal_Int16>(50)));
+                                xPropSet->setPropertyValue("FillColor", css::uno::makeAny(COL_GRAY7));
+                                xPropSet->setPropertyValue("LineStyle", css::uno::makeAny(css::drawing::LineStyle::LineStyle_NONE));
+
+                            }
+                            // Freeform redaction
+                            else if (sShapeName == "FreeformRedactionShape")
+                            {
+                                xPropSet->setPropertyValue("LineTransparence", css::uno::makeAny(static_cast<sal_Int16>(50)));
+                                xPropSet->setPropertyValue("LineColor", css::uno::makeAny(COL_GRAY7));
+                            }
+                        }
+                    }
+
+
+                }
             }
 
             if ( nId == SID_EXPORTDOCASPDF )
@@ -881,7 +1033,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
 
             SetModified( false );
             ErrCode lErr = GetErrorCode();
-            ErrorHandler::HandleError(lErr, rReq.GetFrameWeld());
+            ErrorHandler::HandleError(lErr, pDialogParent);
 
             rReq.SetReturnValue( SfxBoolItem(0, true) );
             rReq.Done();
@@ -894,7 +1046,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
         case SID_DOCTEMPLATE:
         {
             // save as document templates
-            SfxSaveAsTemplateDialog aDlg(rReq.GetFrameWeld(), GetModel());
+            SfxSaveAsTemplateDialog aDlg(pDialogParent, GetModel());
             (void)aDlg.run();
             break;
         }
@@ -1664,7 +1816,7 @@ void SfxObjectShell::SignDocumentContent(weld::Window* pDialogParent)
     if (CheckIsReadonly(false))
         return;
 
-    bool bSignSuccess = GetMedium()->SignContents_Impl(false, HasValidSignatures());
+    bool bSignSuccess = GetMedium()->SignContents_Impl(pDialogParent, false, HasValidSignatures());
 
     AfterSigning(bSignSuccess, false);
 }
@@ -1760,7 +1912,7 @@ void SfxObjectShell::SignSignatureLine(weld::Window* pDialogParent,
     if (CheckIsReadonly(false))
         return;
 
-    bool bSignSuccess = GetMedium()->SignContents_Impl(
+    bool bSignSuccess = GetMedium()->SignContents_Impl(pDialogParent,
         false, HasValidSignatures(), aSignatureLineId, xCert, xValidGraphic, xInvalidGraphic, aComment);
 
     AfterSigning(bSignSuccess, false);
@@ -1785,7 +1937,7 @@ void SfxObjectShell::SignScriptingContent(weld::Window* pDialogParent)
     if (CheckIsReadonly(true))
         return;
 
-    bool bSignSuccess = GetMedium()->SignContents_Impl(true, HasValidSignatures());
+    bool bSignSuccess = GetMedium()->SignContents_Impl(pDialogParent, true, HasValidSignatures());
 
     AfterSigning(bSignSuccess, true);
 }

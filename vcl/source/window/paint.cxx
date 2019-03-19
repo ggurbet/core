@@ -1313,12 +1313,12 @@ void Window::Update()
 
         // trigger an update also for system windows on top of us,
         // otherwise holes would remain
-         vcl::Window* pUpdateOverlapWindow = ImplGetFirstOverlapWindow()->mpWindowImpl->mpFirstOverlap;
-         while ( pUpdateOverlapWindow )
-         {
+        vcl::Window* pUpdateOverlapWindow = ImplGetFirstOverlapWindow()->mpWindowImpl->mpFirstOverlap;
+        while ( pUpdateOverlapWindow )
+        {
              pUpdateOverlapWindow->Update();
              pUpdateOverlapWindow = pUpdateOverlapWindow->mpWindowImpl->mpNext;
-         }
+        }
 
         pUpdateWindow->ImplCallPaint(nullptr, pUpdateWindow->mpWindowImpl->mnPaintFlags);
         pUpdateWindow->LogicInvalidate(nullptr);
@@ -1386,9 +1386,11 @@ void Window::ImplPaintToDevice( OutputDevice* i_pTargetOutDev, const Point& i_rP
         if (!IsPaintTransparent() && IsBackground() && ! (GetParentClipMode() & ParentClipMode::NoClip))
             Erase(*pDevice);
 
+        pDevice->SetMapMode(GetMapMode());
+
         Paint(*pDevice, tools::Rectangle(Point(), GetOutputSizePixel()));
 
-        i_pTargetOutDev->DrawOutDev(i_rPos, aSize, Point(), aSize, *pDevice);
+        i_pTargetOutDev->DrawOutDev(i_rPos, aSize, Point(), pDevice->PixelToLogic(aSize), *pDevice);
 
         // get rid of virtual device now so they don't pile up during recursive calls
         pDevice.disposeAndClear();

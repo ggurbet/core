@@ -23,7 +23,6 @@
 #include <osl/diagnose.h>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <vcl/dibtools.hxx>
-#include <o3tl/make_unique.hxx>
 #include <o3tl/safeint.hxx>
 #include <tools/stream.hxx>
 #include <memory>
@@ -793,8 +792,9 @@ namespace emfio
 
                     case EMR_SETVIEWPORTEXTEX :
                     {
-                        mpInputStream->ReadUInt32( nW ).ReadUInt32( nH );
-                        SetDevExt( Size( nW, nH ) );
+                        sal_Int32 w = 0, h = 0;
+                        mpInputStream->ReadInt32( w ).ReadInt32( h );
+                        SetDevExt( Size( w, h ) );
                     }
                     break;
 
@@ -1002,7 +1002,7 @@ namespace emfio
                                 default :
                                     aLineInfo.SetLineJoin ( basegfx::B2DLineJoin::NONE );
                             }
-                            CreateObjectIndexed(nIndex, o3tl::make_unique<WinMtfLineStyle>( ReadColor(), aLineInfo, bTransparent ));
+                            CreateObjectIndexed(nIndex, std::make_unique<WinMtfLineStyle>( ReadColor(), aLineInfo, bTransparent ));
                         }
                     }
                     break;
@@ -1017,8 +1017,8 @@ namespace emfio
                         if ( ( nIndex & ENHMETA_STOCK_OBJECT ) == 0 )
                         {
                             mpInputStream->ReadUInt32( offBmi ).ReadUInt32( cbBmi ).ReadUInt32( offBits ).ReadUInt32( cbBits ). ReadUInt32( nStyle ).ReadUInt32( nWidth ).ReadUInt32( nBrushStyle );
-                             aColorRef = ReadColor();
-                             mpInputStream->ReadInt32( elpHatch ).ReadUInt32( elpNumEntries );
+                            aColorRef = ReadColor();
+                            mpInputStream->ReadInt32( elpHatch ).ReadUInt32( elpNumEntries );
 
                             LineInfo    aLineInfo;
                             if ( nWidth )
@@ -1092,7 +1092,7 @@ namespace emfio
                                 default :
                                     aLineInfo.SetLineJoin ( basegfx::B2DLineJoin::NONE );
                             }
-                            CreateObjectIndexed(nIndex, o3tl::make_unique<WinMtfLineStyle>( aColorRef, aLineInfo, bTransparent ));
+                            CreateObjectIndexed(nIndex, std::make_unique<WinMtfLineStyle>( aColorRef, aLineInfo, bTransparent ));
                         }
                     }
                     break;
@@ -1104,7 +1104,7 @@ namespace emfio
                         if ( ( nIndex & ENHMETA_STOCK_OBJECT ) == 0 )
                         {
                             mpInputStream->ReadUInt32( nStyle );
-                            CreateObjectIndexed(nIndex, o3tl::make_unique<WinMtfFillStyle>( ReadColor(), ( nStyle == BS_HOLLOW ) ));
+                            CreateObjectIndexed(nIndex, std::make_unique<WinMtfFillStyle>( ReadColor(), ( nStyle == BS_HOLLOW ) ));
                         }
                     }
                     break;
@@ -1371,7 +1371,7 @@ namespace emfio
                                     }
 
     #ifdef DBG_UTIL
-                                    static bool bDoSaveForVisualControl(false);
+                                    static bool bDoSaveForVisualControl(false); // loplugin:constvars:ignore
 
                                     if(bDoSaveForVisualControl)
                                     {
@@ -1565,7 +1565,7 @@ namespace emfio
                             // aLogFont.lfHeight = aTransVec.getY();
                             if (mpInputStream->good() && aLogFont.lfHeight != SAL_MIN_INT32 && aLogFont.lfWidth != SAL_MIN_INT32)
                             {
-                                CreateObjectIndexed(nIndex, o3tl::make_unique<WinMtfFontStyle>( aLogFont ));
+                                CreateObjectIndexed(nIndex, std::make_unique<WinMtfFontStyle>( aLogFont ));
                             }
                         }
                     }
@@ -1759,7 +1759,7 @@ namespace emfio
                             }
                         }
 
-                        CreateObjectIndexed(nIndex, o3tl::make_unique<WinMtfFillStyle>( aBitmap ));
+                        CreateObjectIndexed(nIndex, std::make_unique<WinMtfFillStyle>( aBitmap ));
                     }
                     break;
 

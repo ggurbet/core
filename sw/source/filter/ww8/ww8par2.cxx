@@ -460,9 +460,7 @@ ApoTestResults SwWW8ImplReader::TestApo(int nCellLevel, bool bTableRowEnd,
     bool bNowApo = aRet.HasFrame() || pTopLevelTable;
     if (bNowApo)
     {
-        if (WW8FlyPara *pTest = ConstructApo(aRet, pTabPos))
-            delete pTest;
-        else
+        if (!ConstructApo(aRet, pTabPos))
             bNowApo = false;
     }
 
@@ -571,11 +569,11 @@ static void SetBaseAnlv(SwNumFormat &rNum, WW8_ANLV const &rAV, sal_uInt8 nSwLev
     {
         rNum.SetIncludeUpperLevels(nSwLevel + 1);
     }
-    rNum.SetStart( SVBT16ToShort( rAV.iStartAt ) );
+    rNum.SetStart( SVBT16ToUInt16( rAV.iStartAt ) );
     rNum.SetNumAdjust( eAdjA[ rAV.aBits1 & 0x3] );
 
-    rNum.SetCharTextDistance( SVBT16ToShort( rAV.dxaSpace ) );
-    sal_Int16 nIndent = std::abs(static_cast<sal_Int16>(SVBT16ToShort( rAV.dxaIndent )));
+    rNum.SetCharTextDistance( SVBT16ToUInt16( rAV.dxaSpace ) );
+    sal_Int16 nIndent = std::abs(static_cast<sal_Int16>(SVBT16ToUInt16( rAV.dxaIndent )));
     if( rAV.aBits1 & 0x08 )      //fHang
     {
         rNum.SetFirstLineOffset( -nIndent );
@@ -603,7 +601,7 @@ void SwWW8ImplReader::SetAnlvStrings(SwNumFormat &rNum, WW8_ANLV const &rAV,
     bool bInsert = false;                       // Default
     rtl_TextEncoding eCharSet = m_eStructCharSet;
 
-    const WW8_FFN* pF = m_xFonts->GetFont(SVBT16ToShort(rAV.ftc)); // FontInfo
+    const WW8_FFN* pF = m_xFonts->GetFont(SVBT16ToUInt16(rAV.ftc)); // FontInfo
     bool bListSymbol = pF && ( pF->aFFNBase.chs == 2 );      // Symbol/WingDings/...
 
     OUStringBuffer sText;
@@ -628,7 +626,7 @@ void SwWW8ImplReader::SetAnlvStrings(SwNumFormat &rNum, WW8_ANLV const &rAV,
         }
         for(sal_uInt32 i = 0; i < nLen; ++i, pText += 2)
         {
-            sText.append(static_cast<sal_Unicode>(SVBT16ToShort(*reinterpret_cast<SVBT16 const *>(pText))));
+            sText.append(static_cast<sal_Unicode>(SVBT16ToUInt16(*reinterpret_cast<SVBT16 const *>(pText))));
         }
     }
 
@@ -660,7 +658,7 @@ void SwWW8ImplReader::SetAnlvStrings(SwNumFormat &rNum, WW8_ANLV const &rAV,
             OUString aName;
             FontPitch ePitch;
 
-            if( GetFontParams( SVBT16ToShort( rAV.ftc ), eFamily, aName,
+            if( GetFontParams( SVBT16ToUInt16( rAV.ftc ), eFamily, aName,
                                 ePitch, eCharSet ) ){
 
                 vcl::Font aFont;
@@ -1126,7 +1124,7 @@ void WW8TabBandDesc::ReadDef(bool bVer67, const sal_uInt8* pS, short nLen)
 
     const sal_uInt8* pT = &pS[1];
     for (int i = 0; i <= nCols; i++, pT+=2)
-        nCenter[i] = static_cast<sal_Int16>(SVBT16ToShort( pT ));    // X-borders
+        nCenter[i] = static_cast<sal_Int16>(SVBT16ToUInt16( pT ));    // X-borders
 
     if( nCols != nOldCols ) // different column count
     {
@@ -1197,7 +1195,7 @@ void WW8TabBandDesc::ReadDef(bool bVer67, const sal_uInt8* pS, short nLen)
             WW8_TCellVer8 const * pTc = reinterpret_cast<WW8_TCellVer8 const *>(pT);
             for (int k = 0; k < nColsToRead; ++k, ++pCurrentTC, ++pTc )
             {
-                sal_uInt16 aBits1 = SVBT16ToShort( pTc->aBits1Ver8 );
+                sal_uInt16 aBits1 = SVBT16ToUInt16( pTc->aBits1Ver8 );
                 pCurrentTC->bFirstMerged    = sal_uInt8( ( aBits1 & 0x0001 ) != 0 );
                 pCurrentTC->bMerged         = sal_uInt8( ( aBits1 & 0x0002 ) != 0 );
                 pCurrentTC->bVertical       = sal_uInt8( ( aBits1 & 0x0004 ) != 0 );
@@ -1350,7 +1348,7 @@ void WW8TabBandDesc::ProcessSprmTDxaCol(const sal_uInt8* pParamsTDxaCol)
     {
         sal_uInt8 nitcFirst= pParamsTDxaCol[0]; // first col to be changed
         sal_uInt8 nitcLim  = pParamsTDxaCol[1]; // (last col to be changed)+1
-        short nDxaCol = static_cast<sal_Int16>(SVBT16ToShort( pParamsTDxaCol + 2 ));
+        short nDxaCol = static_cast<sal_Int16>(SVBT16ToUInt16( pParamsTDxaCol + 2 ));
 
         for( int i = nitcFirst; (i < nitcLim) && (i < nWwCols); i++ )
         {
@@ -1373,7 +1371,7 @@ void WW8TabBandDesc::ProcessSprmTInsert(const sal_uInt8* pParamsTInsert)
     if (nitcInsert >= MAX_COL)  // cannot insert into cell outside max possible index
         return;
     sal_uInt8 nctc  = pParamsTInsert[1];      // number of cells
-    sal_uInt16 ndxaCol = SVBT16ToShort( pParamsTInsert+2 );
+    sal_uInt16 ndxaCol = SVBT16ToUInt16( pParamsTInsert+2 );
 
     short nNewWwCols;
     if (nitcInsert > nWwCols)
@@ -1440,7 +1438,7 @@ void WW8TabBandDesc::ProcessDirection(const sal_uInt8* pParams)
 {
     sal_uInt8 nStartCell = *pParams++;
     sal_uInt8 nEndCell = *pParams++;
-    sal_uInt16 nCode = SVBT16ToShort(pParams);
+    sal_uInt16 nCode = SVBT16ToUInt16(pParams);
 
     OSL_ENSURE(nStartCell < nEndCell, "not as I thought");
     OSL_ENSURE(nEndCell < MAX_COL + 1, "not as I thought");
@@ -1470,7 +1468,7 @@ void WW8TabBandDesc::ProcessSpacing(const sal_uInt8* pParams)
     sal_uInt8 nSideBits = *pParams++;
     OSL_ENSURE(nSideBits < 0x10, "Unexpected value for nSideBits");
     ++pParams; //unknown byte
-    sal_uInt16 nValue =  SVBT16ToShort( pParams );
+    sal_uInt16 nValue =  SVBT16ToUInt16( pParams );
     for (int i = wwTOP; i <= wwRIGHT; i++)
     {
         switch (nSideBits & (1 << i))
@@ -1519,7 +1517,7 @@ void WW8TabBandDesc::ProcessSpecificSpacing(const sal_uInt8* pParams)
     OSL_ENSURE(nUnknown2 == 0x3, "Unexpected value for spacing2");
 #endif
     ++pParams;
-    sal_uInt16 nValue =  SVBT16ToShort( pParams );
+    sal_uInt16 nValue =  SVBT16ToUInt16( pParams );
 
     for (int i=0; i < 4; i++)
     {
@@ -1893,13 +1891,13 @@ WW8TabDesc::WW8TabDesc(SwWW8ImplReader* pIoClass, WW8_CP nStartCp) :
                             m_eOri = aOriArr[*pParams & 0x3];
                         break;
                     case sprmTFBiDi:
-                        m_bIsBiDi = SVBT16ToShort(pParams) != 0;
+                        m_bIsBiDi = SVBT16ToUInt16(pParams) != 0;
                         break;
                     case sprmTDxaGapHalf:
-                        pNewBand->nGapHalf = static_cast<sal_Int16>(SVBT16ToShort( pParams ));
+                        pNewBand->nGapHalf = static_cast<sal_Int16>(SVBT16ToUInt16( pParams ));
                         break;
                     case sprmTDyaRowHeight:
-                        pNewBand->nLineHeight = static_cast<sal_Int16>(SVBT16ToShort( pParams ));
+                        pNewBand->nLineHeight = static_cast<sal_Int16>(SVBT16ToUInt16( pParams ));
                         m_bClaimLineFormat = true;
                         break;
                     case sprmTDefTable:
@@ -1918,7 +1916,7 @@ WW8TabDesc::WW8TabDesc(SwWW8ImplReader* pIoClass, WW8_CP nStartCp) :
                         // parameter (meaning the left-most position) and then
                         // shift the whole table to that margin (see below)
                         {
-                            short nDxaNew = static_cast<sal_Int16>(SVBT16ToShort( pParams ));
+                            short nDxaNew = static_cast<sal_Int16>(SVBT16ToUInt16( pParams ));
                             if( nDxaNew < nTabeDxaNew )
                                 nTabeDxaNew = nDxaNew;
                         }
@@ -2080,13 +2078,15 @@ WW8TabDesc::WW8TabDesc(SwWW8ImplReader* pIoClass, WW8_CP nStartCp) :
         if (aApo.mbStartApo)
         {
             //if there really is a fly here, and not a "null" fly then break.
-            WW8FlyPara *pNewFly = m_pIo->ConstructApo(aApo, pTabPos);
-            if (pNewFly)
-                delete pNewFly;
-            else
+            if (m_pIo->ConstructApo(aApo, pTabPos))
                 break;
         }
 
+        if (nStartCp == aRes.nEndPos)
+        {
+            SAL_WARN("sw.ww8", "WW8TabDesc End same as Start, abandoning to avoid looping");
+            break;
+        }
         nStartCp = aRes.nEndPos;
     }
     while(true);
@@ -3408,7 +3408,7 @@ bool SwWW8ImplReader::StartTable(WW8_CP nStartCp)
 
     // #i33818# - determine absolute position object attributes,
     // if possible. It's needed for nested tables.
-    WW8FlyPara* pTableWFlyPara( nullptr );
+    std::unique_ptr<WW8FlyPara> pTableWFlyPara;
     WW8SwFlyPara* pTableSFlyPara( nullptr );
     // #i45301# - anchor nested table inside Writer fly frame
     // only at-character, if absolute position object attributes are available.
@@ -3485,7 +3485,7 @@ bool SwWW8ImplReader::StartTable(WW8_CP nStartCp)
             // if existing, and apply them to the created Writer fly frame.
             if ( pTableWFlyPara && pTableSFlyPara )
             {
-                WW8FlySet aFlySet( *this, pTableWFlyPara, pTableSFlyPara, false );
+                WW8FlySet aFlySet( *this, pTableWFlyPara.get(), pTableSFlyPara, false );
                 SwFormatAnchor aAnchor( RndStdIds::FLY_AT_CHAR );
                 aAnchor.SetAnchor( m_xTableDesc->m_pParentPos );
                 aFlySet.Put( aAnchor );
@@ -3510,7 +3510,6 @@ bool SwWW8ImplReader::StartTable(WW8_CP nStartCp)
         PopTableDesc();
 
     // #i33818#
-    delete pTableWFlyPara;
     delete pTableSFlyPara;
 
     return m_xTableDesc != nullptr;
@@ -4577,14 +4576,14 @@ void WW8RStyle::Import()
 
 rtl_TextEncoding SwWW8StyInf::GetCharSet() const
 {
-    if ((m_pFormat) && (m_pFormat->GetFrameDir().GetValue() == SvxFrameDirection::Horizontal_RL_TB))
+    if (m_pFormat && (m_pFormat->GetFrameDir().GetValue() == SvxFrameDirection::Horizontal_RL_TB))
         return m_eRTLFontSrcCharSet;
     return m_eLTRFontSrcCharSet;
 }
 
 rtl_TextEncoding SwWW8StyInf::GetCJKCharSet() const
 {
-    if ((m_pFormat) && (m_pFormat->GetFrameDir().GetValue() == SvxFrameDirection::Horizontal_RL_TB))
+    if (m_pFormat && (m_pFormat->GetFrameDir().GetValue() == SvxFrameDirection::Horizontal_RL_TB))
         return m_eRTLFontSrcCharSet;
     return m_eCJKFontSrcCharSet;
 }

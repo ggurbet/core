@@ -29,6 +29,7 @@
 #include <svtools/sfxecode.hxx>
 #include <svtools/ehdl.hxx>
 #include <tools/urlobj.hxx>
+#include <tools/debug.hxx>
 
 #include <sfx2/strings.hrc>
 #include <sfx2/sfxsids.hrc>
@@ -118,51 +119,51 @@ IMPL_LINK_NOARG(SfxNewFileDialog, Update, Timer*, void)
         return;
     }
 
-    if (m_xMoreBt->get_expanded() && (m_nFlags == SfxNewFileDialogMode::Preview))
+    if (!m_xMoreBt->get_expanded() || (m_nFlags != SfxNewFileDialogMode::Preview))
+        return;
+
+    OUString aFileName = m_aTemplates.GetPath(m_xRegionLb->get_selected_index(), nEntry - 1);
+    INetURLObject aTestObj(aFileName);
+    if (aTestObj.GetProtocol() == INetProtocol::NotValid)
     {
-        OUString aFileName = m_aTemplates.GetPath(m_xRegionLb->get_selected_index(), nEntry - 1);
-        INetURLObject aTestObj(aFileName);
-        if (aTestObj.GetProtocol() == INetProtocol::NotValid)
-        {
-            // temp. fix until Templates are managed by UCB compatible service
-            // does NOT work with locally cached components !
-            OUString aTemp;
-            osl::FileBase::getFileURLFromSystemPath( aFileName, aTemp );
-            aFileName = aTemp;
-        }
+        // temp. fix until Templates are managed by UCB compatible service
+        // does NOT work with locally cached components !
+        OUString aTemp;
+        osl::FileBase::getFileURLFromSystemPath( aFileName, aTemp );
+        aFileName = aTemp;
+    }
 
-        INetURLObject aObj(aFileName);
-        for (SfxObjectShell* pTmp = SfxObjectShell::GetFirst(); pTmp; pTmp = SfxObjectShell::GetNext(*pTmp))
-        {
-            //! fsys bug op==
-            if (pTmp->GetMedium())
-                // ??? HasName() MM
-                if (INetURLObject( pTmp->GetMedium()->GetName() ) == aObj)
-                {
-                    m_xDocShell = pTmp;
-                    break;
-                }
-        }
+    INetURLObject aObj(aFileName);
+    for (SfxObjectShell* pTmp = SfxObjectShell::GetFirst(); pTmp; pTmp = SfxObjectShell::GetNext(*pTmp))
+    {
+        //! fsys bug op==
+        if (pTmp->GetMedium())
+            // ??? HasName() MM
+            if (INetURLObject( pTmp->GetMedium()->GetName() ) == aObj)
+            {
+                m_xDocShell = pTmp;
+                break;
+            }
+    }
 
+    if (!m_xDocShell.Is())
+    {
+        SfxErrorContext eEC(ERRCTX_SFX_LOADTEMPLATE, m_xDialog.get());
+        SfxApplication *pSfxApp = SfxGetpApp();
+        std::unique_ptr<SfxItemSet> pSet(new SfxAllItemSet(pSfxApp->GetPool()));
+        pSet->Put(SfxBoolItem(SID_TEMPLATE, true));
+        pSet->Put(SfxBoolItem(SID_PREVIEW, true));
+        ErrCode lErr = pSfxApp->LoadTemplate(m_xDocShell, aFileName, std::move(pSet));
+        if (lErr)
+            ErrorHandler::HandleError(lErr);
         if (!m_xDocShell.Is())
         {
-            SfxErrorContext eEC(ERRCTX_SFX_LOADTEMPLATE, m_xDialog.get());
-            SfxApplication *pSfxApp = SfxGetpApp();
-            std::unique_ptr<SfxItemSet> pSet(new SfxAllItemSet(pSfxApp->GetPool()));
-            pSet->Put(SfxBoolItem(SID_TEMPLATE, true));
-            pSet->Put(SfxBoolItem(SID_PREVIEW, true));
-            ErrCode lErr = pSfxApp->LoadTemplate(m_xDocShell, aFileName, std::move(pSet));
-            if (lErr)
-                ErrorHandler::HandleError(lErr);
-            if (!m_xDocShell.Is())
-            {
-                m_xPreviewController->SetObjectShell(nullptr);
-                return;
-            }
+            m_xPreviewController->SetObjectShell(nullptr);
+            return;
         }
-
-        m_xPreviewController->SetObjectShell(m_xDocShell);
     }
+
+    m_xPreviewController->SetObjectShell(m_xDocShell);
 }
 
 IMPL_LINK( SfxNewFileDialog, RegionSelect, weld::TreeView&, rBox, void )
@@ -183,7 +184,8 @@ IMPL_LINK( SfxNewFileDialog, RegionSelect, weld::TreeView&, rBox, void )
     for (sal_uInt16 i = 0; i < nCount; ++i)
         m_xTemplateLb->append_text(m_aTemplates.GetName(nRegion, i));
     m_xTemplateLb->thaw();
-    m_xTemplateLb->select(0);
+    if (nCount)
+        m_xTemplateLb->select(0);
     TemplateSelect(*m_xTemplateLb);
 }
 

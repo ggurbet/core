@@ -18,6 +18,7 @@
  */
 
 #include "TEditControl.hxx"
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbc/XDatabaseMetaData.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
 #include <com/sun/star/sdbcx/XAlterTable.hpp>
@@ -41,11 +42,11 @@
 #include <SqlNameEdit.hxx>
 #include <TableRowExchange.hxx>
 #include <sot/storage.hxx>
-#include <o3tl/make_unique.hxx>
 #include <UITools.hxx>
 #include "TableFieldControl.hxx"
 #include <dsntypes.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/svapp.hxx>
 
 #include <dbaccess_slotid.hrc>
 
@@ -509,7 +510,7 @@ void OTableEditorCtrl::SaveData(long nRow, sal_uInt16 nColId)
                 // If FieldDescr exists, the field is deleted and the old content restored
                 if (pActFieldDescr)
                 {
-                    GetUndoManager().AddUndoAction(o3tl::make_unique<OTableEditorTypeSelUndoAct>(this, nRow, FIELD_TYPE, pActFieldDescr->getTypeInfo()));
+                    GetUndoManager().AddUndoAction(std::make_unique<OTableEditorTypeSelUndoAct>(this, nRow, FIELD_TYPE, pActFieldDescr->getTypeInfo()));
                     SwitchType(TOTypeInfoSP());
                     pActFieldDescr = pActRow->GetActFieldDescr();
                 }
@@ -660,14 +661,14 @@ void OTableEditorCtrl::CellModified( long nRow, sal_uInt16 nColId )
         nInvalidateTypeEvent = Application::PostUserEvent( LINK(this, OTableEditorCtrl, InvalidateFieldType), nullptr, true );
         pActFieldDescr = pActRow->GetActFieldDescr();
         pDescrWin->DisplayData( pActFieldDescr );
-        GetUndoManager().AddUndoAction( o3tl::make_unique<OTableEditorTypeSelUndoAct>(this, nRow, nColId+1, TOTypeInfoSP()) );
+        GetUndoManager().AddUndoAction( std::make_unique<OTableEditorTypeSelUndoAct>(this, nRow, nColId+1, TOTypeInfoSP()) );
     }
 
     if( nColId != FIELD_TYPE )
-        GetUndoManager().AddUndoAction( o3tl::make_unique<OTableDesignCellUndoAct>(this, nRow, nColId) );
+        GetUndoManager().AddUndoAction( std::make_unique<OTableDesignCellUndoAct>(this, nRow, nColId) );
     else
     {
-        GetUndoManager().AddUndoAction(o3tl::make_unique<OTableEditorTypeSelUndoAct>(this, GetCurRow(), nColId, GetFieldDescr(GetCurRow())->getTypeInfo()));
+        GetUndoManager().AddUndoAction(std::make_unique<OTableEditorTypeSelUndoAct>(this, GetCurRow(), nColId, GetFieldDescr(GetCurRow())->getTypeInfo()));
         resetType();
     }
 
@@ -712,8 +713,8 @@ void OTableEditorCtrl::CopyRows()
         pDescrWin->SaveData( pActRow->GetActFieldDescr() );
 
     // Copy selected rows to the ClipboardList
-     std::shared_ptr<OTableRow>  pClipboardRow;
-     std::shared_ptr<OTableRow>  pRow;
+    std::shared_ptr<OTableRow>  pClipboardRow;
+    std::shared_ptr<OTableRow>  pRow;
     std::vector< std::shared_ptr<OTableRow> > vClipboardList;
     vClipboardList.reserve(GetSelectRowCount());
 
@@ -775,7 +776,7 @@ void OTableEditorCtrl::InsertRows( long nRow )
             aStreamRef->Seek(STREAM_SEEK_TO_BEGIN);
             aStreamRef->ResetError();
             long nInsertRow = nRow;
-             std::shared_ptr<OTableRow>  pRow;
+            std::shared_ptr<OTableRow>  pRow;
             sal_Int32 nSize = 0;
             (*aStreamRef).ReadInt32( nSize );
             vInsertedUndoRedoRows.reserve(nSize);
@@ -801,7 +802,7 @@ void OTableEditorCtrl::InsertRows( long nRow )
     RowInserted( nRow,vInsertedUndoRedoRows.size() );
 
     // Create the Undo-Action
-    GetUndoManager().AddUndoAction( o3tl::make_unique<OTableEditorInsUndoAct>(this, nRow,vInsertedUndoRedoRows) );
+    GetUndoManager().AddUndoAction( std::make_unique<OTableEditorInsUndoAct>(this, nRow,vInsertedUndoRedoRows) );
     GetView()->getController().setModified( true );
     InvalidateFeatures();
 }
@@ -810,7 +811,7 @@ void OTableEditorCtrl::DeleteRows()
 {
     OSL_ENSURE(GetView()->getController().isDropAllowed(),"Call of DeleteRows not valid here. Please check isDropAllowed!");
     // Create the Undo-Action
-    GetUndoManager().AddUndoAction( o3tl::make_unique<OTableEditorDelUndoAct>(this) );
+    GetUndoManager().AddUndoAction( std::make_unique<OTableEditorDelUndoAct>(this) );
 
     // Delete all marked rows
     long nIndex = FirstSelectedRow();
@@ -847,7 +848,7 @@ void OTableEditorCtrl::InsertNewRows( long nRow )
     long nInsertRows = GetSelectRowCount();
     if( !nInsertRows )
         nInsertRows = 1;
-    GetUndoManager().AddUndoAction( o3tl::make_unique<OTableEditorInsNewUndoAct>(this, nRow, nInsertRows) );
+    GetUndoManager().AddUndoAction( std::make_unique<OTableEditorInsNewUndoAct>(this, nRow, nInsertRows) );
     // Insert the number of selected rows
     for( long i=nRow; i<(nRow+nInsertRows); i++ )
         m_pRowList->insert( m_pRowList->begin()+i ,std::make_shared<OTableRow>());
@@ -1068,7 +1069,7 @@ OFieldDescription* OTableEditorCtrl::GetFieldDescr( long nRow )
         OSL_FAIL("(nRow<0) || (nRow>=nListCount)");
         return nullptr;
     }
-     std::shared_ptr<OTableRow>  pRow = (*m_pRowList)[ nRow ];
+    std::shared_ptr<OTableRow>  pRow = (*m_pRowList)[ nRow ];
     if( !pRow )
         return nullptr;
     return pRow->GetActFieldDescr();
@@ -1120,7 +1121,7 @@ bool OTableEditorCtrl::IsCopyAllowed()
             return false;
 
         // If one of the selected rows is empty, Copy is not possible
-         std::shared_ptr<OTableRow>  pRow;
+        std::shared_ptr<OTableRow>  pRow;
         long nIndex = FirstSelectedRow();
         while( nIndex != SFX_ENDOFSELECTION )
         {
@@ -1279,7 +1280,7 @@ bool OTableEditorCtrl::IsPrimaryKeyAllowed( long /*nRow*/ )
     // - No Memo or Image entries
     // - DROP is not permitted (see above) and the column is not Required (not null flag is not set).
     long nIndex = FirstSelectedRow();
-     std::shared_ptr<OTableRow>  pRow;
+    std::shared_ptr<OTableRow>  pRow;
     while( nIndex != SFX_ENDOFSELECTION )
     {
         pRow = (*m_pRowList)[nIndex];
@@ -1432,12 +1433,9 @@ IMPL_LINK_NOARG( OTableEditorCtrl, DelayedPaste, void*, void )
     if (!IsInsertNewAllowed(nPastePosition))
     {   // Insertion is not allowed, only appending, so test if there are full cells after the PastePosition
 
-        sal_Int32 nFreeFromPos; // from here on there are only empty rows
-        std::vector< std::shared_ptr<OTableRow> >::const_reverse_iterator aIter = m_pRowList->rbegin();
-        for(nFreeFromPos = m_pRowList->size();
-            aIter != m_pRowList->rend() && (!(*aIter) || !(*aIter)->GetActFieldDescr() || (*aIter)->GetActFieldDescr()->GetName().isEmpty());
-            --nFreeFromPos, ++aIter)
-            ;
+        auto aIter = std::find_if(m_pRowList->rbegin(), m_pRowList->rend(), [](const std::shared_ptr<OTableRow>& rxRow) {
+            return rxRow && rxRow->GetActFieldDescr() && !rxRow->GetActFieldDescr()->GetName().isEmpty(); });
+        auto nFreeFromPos = static_cast<sal_Int32>(std::distance(aIter, m_pRowList->rend())); // from here on there are only empty rows
         if (nPastePosition < nFreeFromPos)  // if at least one PastePosition is full, go right to the end
             nPastePosition = nFreeFromPos;
     }
@@ -1518,7 +1516,7 @@ void OTableEditorCtrl::SetPrimaryKey( bool bSet )
         while( nIndex != SFX_ENDOFSELECTION )
         {
             // Set the key
-             std::shared_ptr<OTableRow>  pRow = (*m_pRowList)[nIndex];
+            std::shared_ptr<OTableRow>  pRow = (*m_pRowList)[nIndex];
             OFieldDescription* pFieldDescr = pRow->GetActFieldDescr();
             if(pFieldDescr)
                 AdjustFieldDescription(pFieldDescr,aInsertedPrimKeys,nIndex,false,true);
@@ -1527,7 +1525,7 @@ void OTableEditorCtrl::SetPrimaryKey( bool bSet )
         }
     }
 
-    GetUndoManager().AddUndoAction( o3tl::make_unique<OPrimKeyUndoAct>(this, aDeletedPrimKeys, aInsertedPrimKeys) );
+    GetUndoManager().AddUndoAction( std::make_unique<OPrimKeyUndoAct>(this, aDeletedPrimKeys, aInsertedPrimKeys) );
 
     // Invalidate the handle-columns
     InvalidateHandleColumn();
@@ -1567,7 +1565,7 @@ void OTableEditorCtrl::SwitchType( const TOTypeInfoSP& _pType )
     if ( nRow < 0 || nRow > static_cast<long>(m_pRowList->size()) )
         return;
     // Show the new description
-     std::shared_ptr<OTableRow>  pRow = (*m_pRowList)[nRow];
+    std::shared_ptr<OTableRow>  pRow = (*m_pRowList)[nRow];
     pRow->SetFieldType( _pType, true );
     if ( _pType.get() )
     {

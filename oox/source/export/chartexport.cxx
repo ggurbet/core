@@ -26,6 +26,7 @@
 #include <drawingml/chart/typegroupconverter.hxx>
 
 #include <cstdio>
+#include <iterator>
 
 #include <com/sun/star/awt/Gradient.hpp>
 #include <com/sun/star/chart/XChartDocument.hpp>
@@ -831,7 +832,7 @@ void ChartExport::exportLegend( const Reference< css::chart::XChartDocument >& x
         try
         {
             Any aAny( xProp->getPropertyValue( "Alignment" ));
-                aAny >>= aLegendPos;
+            aAny >>= aLegendPos;
         }
         catch( beans::UnknownPropertyException & )
         {
@@ -3134,6 +3135,17 @@ void writeLabelProperties( const FSHelperPtr& pFS, ChartExport* pChartExport,
     pFS->singleElement(FSNS(XML_c, XML_showCatName), XML_val, ToPsz10(aLabel.ShowCategoryName), FSEND);
     pFS->singleElement(FSNS(XML_c, XML_showSerName), XML_val, ToPsz10(false), FSEND);
     pFS->singleElement(FSNS(XML_c, XML_showPercent), XML_val, ToPsz10(aLabel.ShowNumberInPercent), FSEND);
+
+    // Export the text "separator" if exists
+    uno::Any aAny = xPropSet->getPropertyValue("LabelSeparator");
+    if( aAny.hasValue() )
+    {
+        OUString nLabelSeparator;
+        aAny >>= nLabelSeparator;
+        pFS->startElement( FSNS( XML_c, XML_separator ), FSEND );
+        pFS->writeEscaped( nLabelSeparator );
+        pFS->endElement( FSNS( XML_c, XML_separator ) );
+    }
 }
 
 }
@@ -3155,7 +3167,7 @@ void ChartExport::exportDataLabels(
     if (GetProperty(xPropSet, "LinkNumberFormatToSource"))
         mAny >>= bLinkedNumFmt;
 
-    if (GetProperty(xPropSet, "NumberFormat"))
+    if (GetProperty(xPropSet, "NumberFormat") || GetProperty(xPropSet, "PercentageNumberFormat"))
     {
         sal_Int32 nKey = 0;
         mAny >>= nKey;
@@ -3221,17 +3233,33 @@ void ChartExport::exportDataLabels(
 
     const sal_Int32* p = aAttrLabelIndices.getConstArray();
     const sal_Int32* pEnd = p + aAttrLabelIndices.getLength();
+
+
     for (; p != pEnd; ++p)
     {
         sal_Int32 nIdx = *p;
         uno::Reference<beans::XPropertySet> xLabelPropSet = xSeries->getDataPointByIndex(nIdx);
+
         if (!xLabelPropSet.is())
             continue;
 
-        // Individual label property that overwrites the baseline.
         pFS->startElement(FSNS(XML_c, XML_dLbl), FSEND);
         pFS->singleElement(FSNS(XML_c, XML_idx), XML_val, I32S(nIdx), FSEND);
-        exportTextProps( xPropSet );
+
+        if (GetProperty(xLabelPropSet, "NumberFormat") || GetProperty(xLabelPropSet, "PercentageNumberFormat"))
+        {
+            sal_Int32 nKey = 0;
+            mAny >>= nKey;
+
+            OUString aNumberFormatString = getNumberFormatCode(nKey);
+            OString sNumberFormatString = OUStringToOString(aNumberFormatString, RTL_TEXTENCODING_UTF8);
+
+            pFS->singleElement(FSNS(XML_c, XML_numFmt), XML_formatCode, sNumberFormatString.getStr(),
+                               XML_sourceLinked, bLinkedNumFmt ? "1" : "0", FSEND);
+        }
+
+        // Individual label property that overwrites the baseline.
+        exportTextProps( xLabelPropSet );
         writeLabelProperties(pFS, this, xLabelPropSet, aParam);
         pFS->endElement(FSNS(XML_c, XML_dLbl));
     }
@@ -3856,6 +3884,8 @@ void ChartExport::exportErrorBar(const Reference< XPropertySet>& xErrorBarProps,
                 XML_val, aVal.getStr(),
                 FSEND );
     }
+
+    exportShapeProps( xErrorBarProps );
 
     pFS->endElement( FSNS( XML_c, XML_errBars) );
 }

@@ -130,7 +130,7 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
                                           rParam.nCol2, rParam.nRow2 );
     if (!pDBData)
     {
-         OSL_FAIL( "DoImport: no DBData" );
+        OSL_FAIL( "DoImport: no DBData" );
         return false;
     }
 
@@ -342,12 +342,7 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
                             ++nInserted;
                             if (!(nInserted & 15))
                             {
-                                OUString aPict = ScResId( STR_PROGRESS_IMPORT );
-                                OUString aText = aPict.getToken(0,'#');
-                                aText += OUString::number( nInserted );
-                                aText += aPict.getToken(1,'#');
-
-                                aProgress.SetStateText( 0, aText );
+                                aProgress.SetState( 0 );
                             }
                         }
                         else        // past the end of the spreadsheet
@@ -584,7 +579,7 @@ bool ScDBDocFunc::DoImport( SCTAB nTab, const ScImportParam& rParam,
             std::unique_ptr<ScDBData> pRedoDBData(new ScDBData(*pDBData));
 
             rDocShell.GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoImportData>( &rDocShell, nTab,
+                std::make_unique<ScUndoImportData>( &rDocShell, nTab,
                                         rParam, nUndoEndCol, nUndoEndRow,
                                         nFormulaCols,
                                         std::move(pUndoDoc), std::move(pRedoDoc),

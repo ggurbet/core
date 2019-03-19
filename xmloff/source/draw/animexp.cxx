@@ -18,6 +18,7 @@
  */
 
 
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/presentation/AnimationSpeed.hpp>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
@@ -225,7 +226,6 @@ class AnimExpImpl
 {
 public:
     list<XMLEffectHint> maEffects;
-    rtl::Reference< XMLShapeExport > mxShapeExp;
 
     static constexpr OUStringLiteral gsDimColor = "DimColor";
     static constexpr OUStringLiteral gsDimHide = "DimHide";
@@ -241,10 +241,9 @@ public:
     static constexpr OUStringLiteral gsAnimPath = "AnimationPath";
 };
 
-XMLAnimationsExporter::XMLAnimationsExporter( XMLShapeExport* pShapeExp )
+XMLAnimationsExporter::XMLAnimationsExporter()
     : mpImpl( new AnimExpImpl )
 {
-    mpImpl->mxShapeExp = pShapeExp;
 }
 
 XMLAnimationsExporter::~XMLAnimationsExporter()

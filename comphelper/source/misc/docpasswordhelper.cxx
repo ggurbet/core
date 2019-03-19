@@ -253,11 +253,7 @@ Sequence< sal_Int8 > DocPasswordHelper::GetXLHashAsSequence(
                 const OUString& aUString )
 {
     sal_uInt16 nHash = GetXLHashAsUINT16( aUString );
-    Sequence< sal_Int8 > aResult( 2 );
-    aResult[0] = ( nHash >> 8 );
-    aResult[1] = ( nHash & 0xFF );
-
-    return aResult;
+    return {sal_Int8(nHash >> 8), sal_Int8(nHash & 0xFF)};
 }
 
 
@@ -435,14 +431,16 @@ OUString DocPasswordHelper::GetOoxHashAsBase64(
         *pbIsDefaultPassword = false;
     if( pDefaultPasswords )
     {
-        for( std::vector< OUString >::const_iterator aIt = pDefaultPasswords->begin(), aEnd = pDefaultPasswords->end(); (eResult == DocPasswordVerifierResult::WrongPassword) && (aIt != aEnd); ++aIt )
+        for( const auto& rPassword : *pDefaultPasswords )
         {
-            OSL_ENSURE( !aIt->isEmpty(), "DocPasswordHelper::requestAndVerifyDocPassword - unexpected empty default password" );
-            if( !aIt->isEmpty() )
+            OSL_ENSURE( !rPassword.isEmpty(), "DocPasswordHelper::requestAndVerifyDocPassword - unexpected empty default password" );
+            if( !rPassword.isEmpty() )
             {
-                eResult = rVerifier.verifyPassword( *aIt, aEncData );
+                eResult = rVerifier.verifyPassword( rPassword, aEncData );
                 if( pbIsDefaultPassword )
                     *pbIsDefaultPassword = eResult == DocPasswordVerifierResult::OK;
+                if( eResult != DocPasswordVerifierResult::WrongPassword )
+                    break;
             }
         }
     }

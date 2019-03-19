@@ -25,6 +25,7 @@
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/HomogenMatrix3.hpp>
 #include <com/sun/star/drawing/LineStyle.hpp>
+#include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/drawing/XEnhancedCustomShapeDefaulter.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
@@ -60,6 +61,7 @@
 #include <utility>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/virdev.hxx>
 
 #include <hintids.hxx>
 #include <doc.hxx>
@@ -348,7 +350,6 @@ struct SignatureDescr
     OUString msSignature;
     OUString msUsage;
     OUString msDate;
-    OUString msId;
 
     bool isValid() const { return !msSignature.isEmpty(); }
 };
@@ -358,7 +359,6 @@ SignatureDescr lcl_getSignatureDescr(const uno::Reference<frame::XModel>& xModel
                                      const OUString& sFieldId)
 {
     SignatureDescr aDescr;
-    aDescr.msId = sFieldId;
 
     const OUString prefix = ParagraphSignatureRDFNamespace + sFieldId;
     const std::map<OUString, OUString> aStatements = lcl_getRDFStatements(xModel, xParagraph);
@@ -675,7 +675,7 @@ void lcl_ValidateParagraphSignatures(SwDoc* pDoc, const uno::Reference<text::XTe
         {
             pDoc->GetIDocumentUndoRedo().StartUndo(SwUndoId::PARA_SIGN_ADD, nullptr);
             pDoc->GetIDocumentUndoRedo().AppendUndo(
-                o3tl::make_unique<SwUndoParagraphSigning>(pDoc, xField, xParagraph, false));
+                std::make_unique<SwUndoParagraphSigning>(pDoc, xField, xParagraph, false));
             lcl_RemoveParagraphMetadataField(xField);
             pDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::PARA_SIGN_ADD, nullptr);
         }
@@ -1811,7 +1811,7 @@ void SwEditShell::SignParagraph()
     lcl_UpdateParagraphSignatureField(GetDoc(), xModel, xParagraph, xField, utf8Text);
 
     GetDoc()->GetIDocumentUndoRedo().AppendUndo(
-        o3tl::make_unique<SwUndoParagraphSigning>(GetDoc(), xField, xParagraph, true));
+        std::make_unique<SwUndoParagraphSigning>(GetDoc(), xField, xParagraph, true));
 
     GetDoc()->GetIDocumentUndoRedo().EndUndo(SwUndoId::PARA_SIGN_ADD, nullptr);
 }

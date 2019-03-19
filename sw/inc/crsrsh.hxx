@@ -95,8 +95,6 @@ namespace o3tl {
 
 struct SwContentAtPos
 {
-    IsAttrAtPos eContentAtPos;
-
     union {
         const SwField* pField;
         const SfxPoolItem* pAttr;
@@ -104,9 +102,8 @@ struct SwContentAtPos
         SwContentNode * pNode;
         const sw::mark::IFieldmark* pFieldmark;
     } aFnd;
-
+    IsAttrAtPos eContentAtPos;
     int nDist;
-
     OUString sStr;
     const SwTextAttr* pFndTextAttr;
 
@@ -161,6 +158,10 @@ public:
         CHKRANGE    = (1 << 2),     ///< check overlapping PaMs
         READONLY    = (1 << 3)      ///< make visible in spite of Readonly
     };
+
+    SAL_DLLPRIVATE void UpdateCursor(
+        sal_uInt16 eFlags = SwCursorShell::SCROLLWIN|SwCursorShell::CHKRANGE,
+        bool bIdleEnd = false );
 
 private:
 
@@ -232,10 +233,6 @@ private:
 
     SwFrame* m_oldColFrame;
 
-    SAL_DLLPRIVATE void UpdateCursor(
-        sal_uInt16 eFlags = SwCursorShell::SCROLLWIN|SwCursorShell::CHKRANGE,
-        bool bIdleEnd = false );
-
     SAL_DLLPRIVATE void MoveCursorToNum();
 
     SAL_DLLPRIVATE void ParkPams( SwPaM* pDelRg, SwShellCursor** ppDelRing );
@@ -257,8 +254,6 @@ private:
     SAL_DLLPRIVATE bool UpDown( bool, sal_uInt16 );
     SAL_DLLPRIVATE bool LRMargin( bool, bool bAPI = false );
     SAL_DLLPRIVATE bool IsAtLRMargin( bool, bool bAPI = false ) const;
-
-    SAL_DLLPRIVATE SvxFrameDirection GetTextDirection( const Point* pPt = nullptr ) const;
 
     SAL_DLLPRIVATE bool isInHiddenTextFrame(SwShellCursor* pShellCursor);
 
@@ -804,13 +799,14 @@ public:
     void SetAutoUpdateCells( bool bFlag )       { m_bAutoUpdateCells = bFlag; }
 
     bool GetShadowCursorPos( const Point& rPt, SwFillMode eFillMode,
-                            SwRect& rRect, short& rOrient );
+                            SwRect& rRect, sal_Int16& rOrient );
     bool SetShadowCursorPos( const Point& rPt, SwFillMode eFillMode );
 
     const SwRangeRedline* SelNextRedline();
     const SwRangeRedline* SelPrevRedline();
     const SwRangeRedline* GotoRedline( SwRedlineTable::size_type nArrPos, bool bSelect );
 
+    SAL_DLLPRIVATE SvxFrameDirection GetTextDirection( const Point* pPt = nullptr ) const;
     // is cursor or the point in/over a vertical formatted text?
     bool IsInVerticalText( const Point* pPt = nullptr ) const;
     // is cursor or the point in/over a right to left formatted text?
@@ -847,7 +843,7 @@ public:
      */
     OUString GetCursorDescr() const;
 
-    virtual void dumpAsXml(struct _xmlTextWriter* pWriter) const override;
+    virtual void dumpAsXml(xmlTextWriterPtr pWriter) const override;
     /// Implementation of lok::Document::getPartPageRectangles() for Writer.
     OUString getPageRectangles();
 

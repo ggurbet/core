@@ -22,6 +22,7 @@
 #include <vcl/texteng.hxx>
 #include <vcl/textview.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/inputctx.hxx>
 #include "textdoc.hxx"
 #include "textdat2.hxx"
 #include "textundo.hxx"
@@ -32,7 +33,6 @@
 #include <vcl/edit.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <o3tl/make_unique.hxx>
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyValues.hpp>
@@ -62,6 +62,7 @@
 #include <cstdlib>
 #include <memory>
 #include <set>
+#include <string_view>
 #include <vector>
 
 using namespace ::com::sun::star;
@@ -271,7 +272,7 @@ OUString TextEngine::GetTextLines( LineEnd aSeparator ) const
         for ( size_t nL = 0; nL < nLines; ++nL )
         {
             TextLine& rLine = pTEParaPortion->GetLines()[nL];
-            aText.appendCopy( pTEParaPortion->GetNode()->GetText(), rLine.GetStart(), rLine.GetEnd() - rLine.GetStart() );
+            aText.append( std::u16string_view(pTEParaPortion->GetNode()->GetText()).substr(rLine.GetStart(), rLine.GetEnd() - rLine.GetStart()) );
             if ( pSep && ( ( (nP+1) < nParas ) || ( (nL+1) < nLines ) ) )
                 aText.append(pSep);
         }
@@ -408,7 +409,7 @@ OUString TextEngine::GetText( const TextSelection& rSel, LineEnd aSeparator ) co
         if ( nNode == nEndPara ) // may also be == nStart!
             nEndPos = aSel.GetEnd().GetIndex();
 
-        aText.appendCopy(pNode->GetText(), nStartPos, nEndPos-nStartPos);
+        aText.append(std::u16string_view(pNode->GetText()).substr(nStartPos, nEndPos-nStartPos));
         if ( nNode < nEndPara )
             aText.append(pSep);
     }
@@ -487,7 +488,7 @@ void TextEngine::ImpRemoveChars( const TextPaM& rPaM, sal_Int32 nChars )
                 break;  // for
             }
         }
-        InsertUndo( o3tl::make_unique<TextUndoRemoveChars>( this, rPaM, aStr ) );
+        InsertUndo( std::make_unique<TextUndoRemoveChars>( this, rPaM, aStr ) );
     }
 
     mpDoc->RemoveChars( rPaM, nChars );
@@ -502,7 +503,7 @@ TextPaM TextEngine::ImpConnectParagraphs( sal_uInt32 nLeft, sal_uInt32 nRight )
     TextNode* pRight = mpDoc->GetNodes()[ nRight ].get();
 
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo( o3tl::make_unique<TextUndoConnectParas>( this, nLeft, pLeft->GetText().getLength() ) );
+        InsertUndo( std::make_unique<TextUndoConnectParas>( this, nLeft, pLeft->GetText().getLength() ) );
 
     // first lookup Portions, as pRight is gone after ConnectParagraphs
     TEParaPortion* pLeftPortion = mpTEParaPortions->GetObject( nLeft );
@@ -597,7 +598,7 @@ void TextEngine::ImpRemoveParagraph( sal_uInt32 nPara )
     // the Node is handled by Undo and is deleted if appropriate
     mpDoc->GetNodes().erase( mpDoc->GetNodes().begin() + nPara );
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo( o3tl::make_unique<TextUndoDelPara>( this, pNode.release(), nPara ) );
+        InsertUndo( std::make_unique<TextUndoDelPara>( this, pNode.release(), nPara ) );
 
     mpTEParaPortions->Remove( nPara );
 
@@ -764,7 +765,7 @@ TextPaM TextEngine::ImpInsertText( const TextSelection& rCurSel, const OUString&
         {
             OUString aLine(aText.copy(nStart, nEnd-nStart));
             if ( IsUndoEnabled() && !IsInUndo() )
-                InsertUndo( o3tl::make_unique<TextUndoInsertChars>( this, aPaM, aLine ) );
+                InsertUndo( std::make_unique<TextUndoInsertChars>( this, aPaM, aLine ) );
 
             TEParaPortion* pPortion = mpTEParaPortions->GetObject( aPaM.GetPara() );
             pPortion->MarkInvalid( aPaM.GetIndex(), aLine.getLength() );
@@ -804,7 +805,7 @@ TextPaM TextEngine::ImpInsertParaBreak( const TextSelection& rCurSel )
 TextPaM TextEngine::ImpInsertParaBreak( const TextPaM& rPaM )
 {
     if ( IsUndoEnabled() && !IsInUndo() )
-        InsertUndo( o3tl::make_unique<TextUndoSplitPara>( this, rPaM.GetPara(), rPaM.GetIndex() ) );
+        InsertUndo( std::make_unique<TextUndoSplitPara>( this, rPaM.GetPara(), rPaM.GetIndex() ) );
 
     TextNode* pNode = mpDoc->GetNodes()[ rPaM.GetPara() ].get();
     bool bFirstParaContentChanged = rPaM.GetIndex() < pNode->GetText().getLength();
@@ -2146,9 +2147,8 @@ bool TextEngine::CreateLines( sal_uInt32 nPara )
         std::size_t nTmpPortion = pLine->GetStartPortion();
         long nTmpWidth = mpDoc->GetLeftMargin();
         // do not subtract margin; it is included in TmpWidth
-        long nXWidth = mnMaxTextWidth ? mnMaxTextWidth : std::numeric_limits<long>::max();
-        if ( nXWidth < nTmpWidth )
-            nXWidth = nTmpWidth;
+        long nXWidth = std::max(
+            mnMaxTextWidth ? mnMaxTextWidth : std::numeric_limits<long>::max(), nTmpWidth);
 
         // search for Portion that does not fit anymore into line
         TETextPortion* pPortion = nullptr;
@@ -2525,7 +2525,7 @@ void TextEngine::SetAttrib( const TextAttrib& rAttr, sal_uInt32 nPara, sal_Int32
         if ( nEnd > nMax )
             nEnd = nMax;
 
-        pNode->GetCharAttribs().InsertAttrib( o3tl::make_unique<TextCharAttrib>( rAttr, nStart, nEnd ) );
+        pNode->GetCharAttribs().InsertAttrib( std::make_unique<TextCharAttrib>( rAttr, nStart, nEnd ) );
         pTEParaPortion->MarkSelectionInvalid( nStart );
 
         mbFormatted = false;

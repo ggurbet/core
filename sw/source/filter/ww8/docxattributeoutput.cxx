@@ -236,17 +236,17 @@ public:
                             const OUString& rHint,
                             bool bChecked )
     {
-       writeCommonStart( rName, rEntryMacro, rExitMacro, rHelp, rHint );
-       // Checkbox specific bits
-       m_pSerializer->startElementNS( XML_w, XML_checkBox, FSEND );
-       // currently hardcoding autosize
-       // #TODO check if this defaulted
-       m_pSerializer->startElementNS( XML_w, XML_sizeAuto, FSEND );
-       m_pSerializer->endElementNS( XML_w, XML_sizeAuto );
-       if ( bChecked )
+        writeCommonStart( rName, rEntryMacro, rExitMacro, rHelp, rHint );
+        // Checkbox specific bits
+        m_pSerializer->startElementNS( XML_w, XML_checkBox, FSEND );
+        // currently hardcoding autosize
+        // #TODO check if this defaulted
+        m_pSerializer->startElementNS( XML_w, XML_sizeAuto, FSEND );
+        m_pSerializer->endElementNS( XML_w, XML_sizeAuto );
+        if ( bChecked )
             m_pSerializer->singleElementNS( XML_w, XML_checked, FSEND );
         m_pSerializer->endElementNS( XML_w, XML_checkBox );
-       writeFinish();
+        writeFinish();
     }
     void WriteFormText(  const OUString& rName,
                          const OUString& rEntryMacro,
@@ -281,7 +281,7 @@ public:
                 FSEND );
         m_pSerializer->endElementNS( XML_w, XML_textInput );
 
-       writeFinish();
+        writeFinish();
     }
 };
 
@@ -316,8 +316,92 @@ static bool lcl_isOnelinerSdt(const OUString& rName)
     return rName == "Title" || rName == "Subtitle" || rName == "Company";
 }
 
+// write a floating table directly to docx without the surrounding frame
+void DocxAttributeOutput::WriteFloatingTable(ww8::Frame const* pParentFrame)
+{
+    sax_fastparser::FSHelperPtr pFS = GetSerializer();
+    const SwFrameFormat& rFrameFormat = pParentFrame->GetFrameFormat();
+    m_aFloatingTablesOfParagraph.insert(&rFrameFormat);
+    const SwNodeIndex* pNodeIndex = rFrameFormat.GetContent().GetContentIdx();
+
+    sal_uLong nStt = pNodeIndex ? pNodeIndex->GetIndex() + 1 : 0;
+    sal_uLong nEnd = pNodeIndex ? pNodeIndex->GetNode().EndOfSectionIndex() : 0;
+
+    //Save data here and restore when out of scope
+    ExportDataSaveRestore aDataGuard(GetExport(), nStt, nEnd, pParentFrame);
+
+    // set a floatingTableFrame AND unset parent frame,
+    // otherwise exporter thinks we are still in a frame
+    m_rExport.SetFloatingTableFrame(pParentFrame);
+    m_rExport.m_pParentFrame = nullptr;
+
+    GetExport().WriteText();
+
+    m_rExport.SetFloatingTableFrame(nullptr);
+}
+
+static void checkAndWriteFloatingTables(DocxAttributeOutput& rDocxAttributeOutput)
+{
+    const auto& rExport = rDocxAttributeOutput.GetExport();
+    // iterate though all SpzFrameFormats and check whether they are anchored to the current text node
+    for( sal_uInt16 nCnt = rExport.m_pDoc->GetSpzFrameFormats()->size(); nCnt; )
+    {
+        const SwFrameFormat* pFrameFormat = (*rExport.m_pDoc->GetSpzFrameFormats())[ --nCnt ];
+        const SwFormatAnchor& rAnchor = pFrameFormat->GetAnchor();
+        const SwPosition* pPosition = rAnchor.GetContentAnchor();
+
+        if (!pPosition || ! rExport.m_pCurPam->GetNode().GetTextNode())
+            continue;
+
+        if (pPosition->nNode != rExport.m_pCurPam->GetNode().GetTextNode()->GetIndex())
+            continue;
+
+        const SwNodeIndex* pStartNode = pFrameFormat->GetContent().GetContentIdx();
+        if (!pStartNode)
+            continue;
+
+        SwNodeIndex aStartNode = *pStartNode;
+
+        // go to the next node (actual content)
+        aStartNode++;
+
+        // this has to be a table
+        if (!aStartNode.GetNode().IsTableNode())
+            continue;
+
+        // go to the end of the table
+        sal_uLong aEndIndex = aStartNode.GetNode().EndOfSectionIndex();
+        // go one deeper
+        aEndIndex++;
+        // this has to be the end of the content
+        if (aEndIndex != pFrameFormat->GetContent().GetContentIdx()->GetNode().EndOfSectionIndex())
+            continue;
+
+        // check for a grabBag and "TablePosition" attribute -> then we can export the table directly
+        SwTableNode* pTableNode = aStartNode.GetNode().GetTableNode();
+        SwTable& rTable = pTableNode->GetTable();
+        SwFrameFormat* pTableFormat = rTable.GetFrameFormat();
+        const SfxGrabBagItem* pTableGrabBag = pTableFormat->GetAttrSet().GetItem<SfxGrabBagItem>(RES_FRMATR_GRABBAG);
+        std::map<OUString, css::uno::Any> aTableGrabBag = pTableGrabBag->GetGrabBag();
+        // no grabbag?
+        if (aTableGrabBag.find("TablePosition") == aTableGrabBag.end())
+            continue;
+
+        // write table to docx
+        ww8::Frame aFrame(*pFrameFormat,*pPosition);
+        rDocxAttributeOutput.WriteFloatingTable(&aFrame);
+    }
+}
+
 void DocxAttributeOutput::StartParagraph( ww8::WW8TableNodeInfo::Pointer_t pTextNodeInfo )
 {
+    // look ahead for floating tables that were put into a frame during import
+    // floating tables in shapes are not supported: exclude this case
+    if (!pTextNodeInfo && !m_rExport.SdrExporter().IsDMLAndVMLDrawingOpen())
+    {
+        checkAndWriteFloatingTables(*this);
+    }
+
     if ( m_nColBreakStatus == COLBRK_POSTPONE )
         m_nColBreakStatus = COLBRK_WRITE;
 
@@ -615,6 +699,12 @@ void DocxAttributeOutput::EndParagraph( ww8::WW8TableNodeInfoInner::Pointer_t pT
         m_pPostponedCustomShape.reset(nullptr);
 
         m_aFramesOfParagraph.clear();
+
+        if (!pTextNodeInfoInner)
+        {
+            // Ending a non-table paragraph, clear floating tables before paragraph.
+            m_aFloatingTablesOfParagraph.clear();
+        }
     }
 
     --m_nTextFrameLevel;
@@ -1138,14 +1228,17 @@ void DocxAttributeOutput::EndParagraphProperties(const SfxItemSet& rParagraphMar
         m_pSerializer->endElementNS(XML_w, XML_smartTag);
     }
 
-    if ( m_nColBreakStatus == COLBRK_WRITE )
+    if ( m_nColBreakStatus == COLBRK_WRITE || m_nColBreakStatus == COLBRK_WRITEANDPOSTPONE )
     {
         m_pSerializer->startElementNS( XML_w, XML_r, FSEND );
         m_pSerializer->singleElementNS( XML_w, XML_br,
                 FSNS( XML_w, XML_type ), "column", FSEND );
         m_pSerializer->endElementNS( XML_w, XML_r );
 
-        m_nColBreakStatus = COLBRK_NONE;
+        if ( m_nColBreakStatus == COLBRK_WRITEANDPOSTPONE )
+            m_nColBreakStatus = COLBRK_POSTPONE;
+        else
+            m_nColBreakStatus = COLBRK_NONE;
     }
 
     if ( m_bPostponedPageBreak && !m_bWritingHeaderFooter )
@@ -1483,6 +1576,21 @@ void DocxAttributeOutput::EndRun(const SwTextNode* pNode, sal_Int32 nPos, bool /
         }
         m_nFieldsInHyperlink = 0;
     }
+
+    // end ToX fields
+    for (auto it = m_Fields.rbegin(); it != m_Fields.rend(); )
+    {
+        if (it->bClose && !it->pField)
+        {
+            EndField_Impl( pNode, nPos, *it );
+            it = decltype(m_Fields)::reverse_iterator(m_Fields.erase(it.base() - 1));
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
 
     DoWriteBookmarksStart(m_rFinalBookmarksStart);
     DoWriteBookmarksEnd(m_rFinalBookmarksEnd);
@@ -2030,7 +2138,7 @@ void DocxAttributeOutput::EndField_Impl( const SwTextNode* pNode, sal_Int32 nPos
             sExpand = static_cast<SwAuthorityField const*>(rInfos.pField.get())
                         ->ExpandCitation(AUTH_FIELD_TITLE, nullptr);
         }
-        else
+        else if(rInfos.eType != ww::eFORMDROPDOWN)
         {
             sExpand = rInfos.pField->ExpandField(true, nullptr);
         }
@@ -2823,6 +2931,8 @@ void DocxAttributeOutput::Redline( const SwRedlineData* pRedlineData)
                     // we are done exporting the redline attributes.
                     rtl::Reference<sax_fastparser::FastAttributeList> pFontsAttrList_Original(m_pFontsAttrList);
                     m_pFontsAttrList.clear();
+                    rtl::Reference<sax_fastparser::FastAttributeList> pColorAttrList_Original(m_pColorAttrList);
+                    m_pColorAttrList.clear();
                     rtl::Reference<sax_fastparser::FastAttributeList> pEastAsianLayoutAttrList_Original(m_pEastAsianLayoutAttrList);
                     m_pEastAsianLayoutAttrList.clear();
                     rtl::Reference<sax_fastparser::FastAttributeList> pCharLangAttrList_Original(m_pCharLangAttrList);
@@ -2836,6 +2946,7 @@ void DocxAttributeOutput::Redline( const SwRedlineData* pRedlineData)
 
                     // Revert back the original values that were stored in 'm_pFontsAttrList', 'm_pEastAsianLayoutAttrList', 'm_pCharLangAttrList'
                     m_pFontsAttrList = pFontsAttrList_Original;
+                    m_pColorAttrList = pColorAttrList_Original;
                     m_pEastAsianLayoutAttrList = pEastAsianLayoutAttrList_Original;
                     m_pCharLangAttrList = pCharLangAttrList_Original;
 
@@ -3473,7 +3584,6 @@ void DocxAttributeOutput::EndTableCell(sal_uInt32 nCell)
 
     m_pSerializer->endElementNS( XML_w, XML_tc );
 
-    m_bBtLr = false;
     m_tableReference->m_bTableCellOpen = false;
     m_tableReference->m_bTableCellParaSdtOpen = false;
 }
@@ -3590,6 +3700,13 @@ void DocxAttributeOutput::TableDefinition( ww8::WW8TableNodeInfoInner::Pointer_t
     SwFrameFormat *pTableFormat = pTable->GetFrameFormat( );
     const SwFormatFrameSize &rSize = pTableFormat->GetFrameSize();
     int nWidthPercent = rSize.GetWidthPercent();
+    // If we export a floating table: we use the widthPercent of the surrounding frame
+    const ww8::Frame* pFloatingTableFrame = m_rExport.GetFloatingTableFrame();
+    if (pFloatingTableFrame)
+    {
+        const SwFormatFrameSize &rFrameSize = pFloatingTableFrame->GetFrameFormat().GetFrameSize();
+        nWidthPercent = rFrameSize.GetWidthPercent();
+    }
     uno::Reference<beans::XPropertySet> xPropertySet(SwXTextTables::GetObject(*pTable->GetFrameFormat( )),uno::UNO_QUERY);
     bool isWidthRelative = false;
     xPropertySet->getPropertyValue("IsWidthRelative") >>= isWidthRelative;
@@ -4080,28 +4197,11 @@ void DocxAttributeOutput::TableVerticalCell( ww8::WW8TableNodeInfoInner::Pointer
         m_pSerializer->singleElementNS( XML_w, XML_textDirection,
                FSNS( XML_w, XML_val ), "tbRl",
                FSEND );
-    else if ( SvxFrameDirection::Horizontal_LR_TB == m_rExport.TrueFrameDirection( *pFrameFormat ) )
+    else if ( SvxFrameDirection::Vertical_LR_BT == m_rExport.TrueFrameDirection( *pFrameFormat ) )
     {
-        // Undo the text direction mangling done by the btLr handler in writerfilter::dmapper::DomainMapperTableManager::sprm()
-        const SwStartNode* pSttNd = pTabBox->GetSttNd();
-        if (pSttNd)
-        {
-            SwPaM aPam(*pSttNd, 0);
-            ++aPam.GetPoint()->nNode;
-            if (aPam.GetPoint()->nNode.GetNode().IsTextNode())
-            {
-                const SwTextNode& rTextNode = static_cast<const SwTextNode&>(aPam.GetPoint()->nNode.GetNode());
-                if( const SwAttrSet* pAttrSet = rTextNode.GetpSwAttrSet())
-                {
-                    const SvxCharRotateItem& rCharRotate = pAttrSet->GetCharRotate();
-                    if (rCharRotate.GetValue() == 900)
-                    {
-                        m_pSerializer->singleElementNS( XML_w, XML_textDirection, FSNS( XML_w, XML_val ), "btLr", FSEND );
-                        m_bBtLr = true;
-                    }
-                }
-            }
-        }
+        m_pSerializer->singleElementNS( XML_w, XML_textDirection,
+               FSNS( XML_w, XML_val ), "btLr",
+               FSEND );
     }
 
     const SwWriteTableRows& rRows = m_xTableWrt->GetRows( );
@@ -4130,7 +4230,7 @@ void DocxAttributeOutput::TableVerticalCell( ww8::WW8TableNodeInfoInner::Pointer
 void DocxAttributeOutput::TableNodeInfoInner( ww8::WW8TableNodeInfoInner::Pointer_t pNodeInfoInner )
 {
     // This is called when the nested table ends in a cell, and there's no
-    // paragraph benhind that; so we must check for the ends of cell, rows,
+    // paragraph behind that; so we must check for the ends of cell, rows,
     // tables
     // ['true' to write an empty paragraph, MS Word insists on that]
     FinishTableRowCell( pNodeInfoInner, true );
@@ -4649,7 +4749,27 @@ void DocxAttributeOutput::FlyFrameGraphic( const SwGrfNode* pGrfNode, const Size
         CharGrabBag(*pGrabBag);
     }
 
-    m_rExport.SdrExporter().startDMLAnchorInline(pFrameFormat, rSize);
+    rtl::Reference<sax_fastparser::FastAttributeList> xFrameAttributes(
+        FastSerializerHelper::createAttrList());
+    Size aSize = rSize;
+    if (pGrfNode)
+    {
+        const SwAttrSet& rSet = pGrfNode->GetSwAttrSet();
+        MirrorGraph eMirror = rSet.Get(RES_GRFATR_MIRRORGRF).GetValue();
+        if (eMirror == MirrorGraph::Vertical || eMirror == MirrorGraph::Both)
+            // Mirror on the vertical axis is a horizontal flip.
+            xFrameAttributes->add(XML_flipH, "1");
+        // RES_GRFATR_ROTATION is sal_uInt16; use sal_uInt32 for multiplication later
+        if (sal_uInt32 nRot = rSet.Get(RES_GRFATR_ROTATION).GetValue())
+        {
+            // RES_GRFATR_ROTATION is in 10ths of degree; convert to 100ths for macro
+            sal_uInt32 mOOXMLRot = oox::drawingml::ExportRotateClockwisify(nRot*10);
+            xFrameAttributes->add(XML_rot, OString::number(mOOXMLRot));
+            aSize = pGrfNode->GetTwipSize();
+        }
+    }
+
+    m_rExport.SdrExporter().startDMLAnchorInline(pFrameFormat, aSize);
 
     // picture description (used for pic:cNvPr later too)
     ::sax_fastparser::FastAttributeList* docPrattrList = FastSerializerHelper::createAttrList();
@@ -4756,25 +4876,14 @@ void DocxAttributeOutput::FlyFrameGraphic( const SwGrfNode* pGrfNode, const Size
             XML_bwMode, "auto",
             FSEND );
 
-    rtl::Reference<sax_fastparser::FastAttributeList> xFrameAttributes(
-        FastSerializerHelper::createAttrList());
-
-    if (pGrfNode)
-    {
-        MirrorGraph eMirror = pGrfNode->GetSwAttrSet().Get(RES_GRFATR_MIRRORGRF).GetValue();
-        if (eMirror == MirrorGraph::Vertical || eMirror == MirrorGraph::Both)
-            // Mirror on the vertical axis is a horizontal flip.
-            xFrameAttributes->add(XML_flipH, "1");
-    }
-
     m_pSerializer->startElementNS(
         XML_a, XML_xfrm, uno::Reference<xml::sax::XFastAttributeList>(xFrameAttributes.get()));
 
     m_pSerializer->singleElementNS( XML_a, XML_off,
             XML_x, "0", XML_y, "0",
             FSEND );
-    OString aWidth( OString::number( TwipsToEMU( rSize.Width() ) ) );
-    OString aHeight( OString::number( TwipsToEMU( rSize.Height() ) ) );
+    OString aWidth( OString::number( TwipsToEMU( aSize.Width() ) ) );
+    OString aHeight( OString::number( TwipsToEMU( aSize.Height() ) ) );
     m_pSerializer->singleElementNS( XML_a, XML_ext,
             XML_cx, aWidth.getStr(),
             XML_cy, aHeight.getStr(),
@@ -5037,7 +5146,13 @@ void DocxAttributeOutput::WritePostponedFormControl(const SdrObject* pObject)
             }
         }
         else
+        {
             aContentText = xPropertySet->getPropertyValue("HelpText").get<OUString>();
+            if(aContentText.isEmpty())
+                aContentText = " "; // Need to write out something to have it imported by MS Word
+            if(sDateFormat.isEmpty())
+                sDateFormat = "dd/MM/yyyy"; // Need to set date format even if there is no date set
+        }
 
         // output component
 
@@ -5491,6 +5606,10 @@ void DocxAttributeOutput::OutputFlyFrame_Impl( const ww8::Frame &rFrame, const P
                 if (DocxSdrExport::isTextBox(rFrame.GetFrameFormat()))
                     break;
 
+                // If this is a TextBox containing a table which we already exported directly, ignore it
+                if (m_aFloatingTablesOfParagraph.find(&rFrame.GetFrameFormat()) != m_aFloatingTablesOfParagraph.end())
+                    break;
+
                 // The frame output is postponed to the end of the anchor paragraph
                 bool bDuplicate = false;
                 const OUString& rName = rFrame.GetFrameFormat().GetName();
@@ -5919,7 +6038,10 @@ void DocxAttributeOutput::SectionBreak( sal_uInt8 nC, const WW8_SepInfo* pSectio
     {
         case msword::ColumnBreak:
             // The column break should be output in the next paragraph...
-            m_nColBreakStatus = COLBRK_POSTPONE;
+            if ( m_nColBreakStatus == COLBRK_WRITE )
+                m_nColBreakStatus = COLBRK_WRITEANDPOSTPONE;
+            else
+                m_nColBreakStatus = COLBRK_POSTPONE;
             break;
         case msword::PageBreak:
             if ( pSectionInfo )
@@ -6418,7 +6540,7 @@ void DocxAttributeOutput::EmbedFontStyle( const OUString& name, int tag, FontFam
         fontKey[ 0 ] = fontKey[ 15 ] = m_nextFontId % 256;
         fontKeyStr[ 1 ] = fontKeyStr[ 35 ] = toHexChar(( m_nextFontId % 256 ) / 16 );
         fontKeyStr[ 2 ] = fontKeyStr[ 36 ] = toHexChar(( m_nextFontId % 256 ) % 16 );
-        char buffer[ 4096 ];
+        unsigned char buffer[ 4096 ];
         sal_uInt64 readSize;
         file.read( buffer, 32, readSize );
         if( readSize < 32 )
@@ -6796,7 +6918,7 @@ void DocxAttributeOutput::CharEscapement( const SvxEscapementItem& rEscapement )
         if( ( 100 != nProp || sIss.match( "baseline" ) ) && !m_rExport.m_bFontSizeWritten )
         {
             OString sSize = OString::number( ( nHeight * nProp + 500 ) / 1000 );
-                m_pSerializer->singleElementNS( XML_w, XML_sz,
+            m_pSerializer->singleElementNS( XML_w, XML_sz,
                     FSNS( XML_w, XML_val ), sSize.getStr( ), FSEND );
         }
     }
@@ -7048,7 +7170,7 @@ void DocxAttributeOutput::CharIdctHint( const SfxPoolItem& )
 void DocxAttributeOutput::CharRotate( const SvxCharRotateItem& rRotate)
 {
     // Not rotated or we the rotation already handled?
-    if ( !rRotate.GetValue() || m_bBtLr || m_rExport.SdrExporter().getFrameBtLr())
+    if ( !rRotate.GetValue() || m_rExport.SdrExporter().getFrameBtLr())
         return;
 
     AddToAttrList( m_pEastAsianLayoutAttrList, FSNS( XML_w, XML_vert ), "true" );
@@ -7689,7 +7811,10 @@ void DocxAttributeOutput::ParaAdjust( const SvxAdjustItem& rAdjust )
             break;
         case SvxAdjust::BlockLine:
         case SvxAdjust::Block:
-            pAdjustString = "both";
+            if (rAdjust.GetLastBlock() == SvxAdjust::Block)
+                pAdjustString = "distribute";
+            else
+                pAdjustString = "both";
             break;
         case SvxAdjust::Center:
             pAdjustString = "center";
@@ -9179,7 +9304,6 @@ DocxAttributeOutput::DocxAttributeOutput( DocxExport &rExport, const FSHelperPtr
       m_nextFontId( 1 ),
       m_tableReference(new TableReference()),
       m_bIgnoreNextFill(false),
-      m_bBtLr(false),
       m_pTableStyleExport(new DocxTableStyleExport(rExport.m_pDoc, pSerializer)),
       m_bParaBeforeAutoSpacing(false),
       m_bParaAfterAutoSpacing(false),

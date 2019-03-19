@@ -205,8 +205,8 @@ Bridge::Bridge(
 }
 
 void Bridge::start() {
-    rtl::Reference< Reader > r(new Reader(this));
-    rtl::Reference< Writer > w(new Writer(this));
+    rtl::Reference r(new Reader(this));
+    rtl::Reference w(new Writer(this));
     {
         osl::MutexGuard g(mutex_);
         assert(
@@ -888,10 +888,8 @@ OUString Bridge::getName() {
 }
 
 OUString Bridge::getDescription() {
-    OUStringBuffer b(name_);
-    b.append(':');
-    b.append(connection_->getDescription());
-    return b.makeStringAndClear();
+    OUString b = name_ + ":" + connection_->getDescription();
+    return b;
 }
 
 void Bridge::dispose() {

@@ -23,9 +23,9 @@
 #include <strings.hrc>
 #include <bitmaps.hlst>
 #include <iderid.hxx>
-#include <o3tl/make_unique.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 #include <svtools/imagemgr.hxx>
 #include <vcl/treelistentry.hxx>
 #include <com/sun/star/script/XLibraryContainerPassword.hpp>
@@ -211,7 +211,7 @@ void TreeListBox::ScanEntry( const ScriptDocument& rDocument, LibraryLocation eL
         AddEntry(
             aRootName,
             aImage,
-            nullptr, true, o3tl::make_unique<DocumentEntry>(rDocument, eLocation));
+            nullptr, true, std::make_unique<DocumentEntry>(rDocument, eLocation));
     }
 
     SetUpdateMode(true);
@@ -273,7 +273,7 @@ void TreeListBox::ImpCreateLibEntries( SvTreeListEntry* pDocumentRootEntry, cons
                     aLibName,
                     Image(StockImage::Yes, sId),
                     pDocumentRootEntry, true,
-                    o3tl::make_unique<Entry>(OBJ_TYPE_LIBRARY));
+                    std::make_unique<Entry>(OBJ_TYPE_LIBRARY));
             }
         }
     }
@@ -309,7 +309,7 @@ void TreeListBox::ImpCreateLibSubEntries( SvTreeListEntry* pLibRootEntry, const 
                                 aModName,
                                 Image(StockImage::Yes, RID_BMP_MODULE),
                                 pLibRootEntry, false,
-                                o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
+                                std::make_unique<Entry>(OBJ_TYPE_MODULE));
                         }
 
                         // methods
@@ -372,7 +372,7 @@ void TreeListBox::ImpCreateLibSubEntriesInVBAMode( SvTreeListEntry* pLibRootEntr
             AddEntry(
                 aEntryName,
                 Image(StockImage::Yes, RID_BMP_MODLIB),
-                pLibRootEntry, true, o3tl::make_unique<Entry>(eType));
+                pLibRootEntry, true, std::make_unique<Entry>(eType));
         }
     }
 }
@@ -434,7 +434,7 @@ void TreeListBox::ImpCreateLibSubSubEntriesInVBAMode( SvTreeListEntry* pLibSubRo
                     aEntryName,
                     Image(StockImage::Yes, RID_BMP_MODULE),
                     pLibSubRootEntry, false,
-                    o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
+                    std::make_unique<Entry>(OBJ_TYPE_MODULE));
             }
 
             // methods
@@ -638,7 +638,7 @@ void TreeListBox::FillTreeListBox( SvTreeListEntry* pRootEntry, const Sequence< 
                 aName,
                 Image(StockImage::Yes, aBmpMacro),
                 pRootEntry, false,
-                o3tl::make_unique<Entry>( eType ));
+                std::make_unique<Entry>( eType ));
         }
     }
 }
@@ -912,12 +912,12 @@ void SbTreeListBox::ScanEntry( const ScriptDocument& rDocument, LibraryLocation 
     {
         OUString aRootName(GetRootEntryName(rDocument, eLocation));
         OUString aImage(GetRootEntryBitmaps(rDocument));
-        AddEntry(aRootName, aImage, nullptr, true, o3tl::make_unique<DocumentEntry>(rDocument, eLocation));
+        AddEntry(aRootName, aImage, nullptr, true, std::make_unique<DocumentEntry>(rDocument, eLocation));
     }
     m_xControl->thaw();
 }
 
-void SbTreeListBox::ImpCreateLibEntries(weld::TreeIter& rIter, const ScriptDocument& rDocument, LibraryLocation eLocation)
+void SbTreeListBox::ImpCreateLibEntries(const weld::TreeIter& rIter, const ScriptDocument& rDocument, LibraryLocation eLocation)
 {
     // get a sorted list of library names
     Sequence< OUString > aLibNames( rDocument.getLibraryNames() );
@@ -970,13 +970,13 @@ void SbTreeListBox::ImpCreateLibEntries(weld::TreeIter& rIter, const ScriptDocum
             }
             else
             {
-                AddEntry(aLibName, sId, &rIter, true, o3tl::make_unique<Entry>(OBJ_TYPE_LIBRARY));
+                AddEntry(aLibName, sId, &rIter, true, std::make_unique<Entry>(OBJ_TYPE_LIBRARY));
             }
         }
     }
 }
 
-void SbTreeListBox::ImpCreateLibSubEntries(weld::TreeIter& rLibRootEntry, const ScriptDocument& rDocument, const OUString& rLibName)
+void SbTreeListBox::ImpCreateLibSubEntries(const weld::TreeIter& rLibRootEntry, const ScriptDocument& rDocument, const OUString& rLibName)
 {
     // modules
     if ( nMode & BrowseMode::Modules )
@@ -1007,7 +1007,7 @@ void SbTreeListBox::ImpCreateLibSubEntries(weld::TreeIter& rLibRootEntry, const 
                         bool bModuleEntry = FindEntry(aModName, OBJ_TYPE_MODULE, *xTreeIter);
                         if (!bModuleEntry)
                         {
-                            AddEntry(aModName, RID_BMP_MODULE, &rLibRootEntry, false, o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
+                            AddEntry(aModName, RID_BMP_MODULE, &rLibRootEntry, false, std::make_unique<Entry>(OBJ_TYPE_MODULE));
                         }
 
                         // methods
@@ -1026,7 +1026,7 @@ void SbTreeListBox::ImpCreateLibSubEntries(weld::TreeIter& rLibRootEntry, const 
                                 bool bEntry = FindEntry(aName, OBJ_TYPE_METHOD, *xSubTreeIter);
                                 if (!bEntry)
                                 {
-                                    AddEntry(aName, RID_BMP_MACRO, xTreeIter.get(), false, o3tl::make_unique<Entry>(OBJ_TYPE_METHOD));
+                                    AddEntry(aName, RID_BMP_MACRO, xTreeIter.get(), false, std::make_unique<Entry>(OBJ_TYPE_METHOD));
                                 }
                             }
                         }
@@ -1063,7 +1063,7 @@ void SbTreeListBox::ImpCreateLibSubEntries(weld::TreeIter& rLibRootEntry, const 
                     bool bDialogEntry = FindEntry(aDlgName, OBJ_TYPE_DIALOG, *xTreeIter);
                     if (!bDialogEntry)
                     {
-                        AddEntry(aDlgName, RID_BMP_DIALOG, &rLibRootEntry, false, o3tl::make_unique<Entry>(OBJ_TYPE_DIALOG));
+                        AddEntry(aDlgName, RID_BMP_DIALOG, &rLibRootEntry, false, std::make_unique<Entry>(OBJ_TYPE_DIALOG));
                     }
                 }
             }
@@ -1075,7 +1075,7 @@ void SbTreeListBox::ImpCreateLibSubEntries(weld::TreeIter& rLibRootEntry, const 
     }
 }
 
-void SbTreeListBox::ImpCreateLibSubEntriesInVBAMode(weld::TreeIter& rLibRootEntry, const ScriptDocument& rDocument, const OUString& rLibName )
+void SbTreeListBox::ImpCreateLibSubEntriesInVBAMode(const weld::TreeIter& rLibRootEntry, const ScriptDocument& rDocument, const OUString& rLibName )
 {
     auto const aEntries = {
         std::make_pair( OBJ_TYPE_DOCUMENT_OBJECTS, IDEResId(RID_STR_DOCUMENT_OBJECTS) ),
@@ -1097,12 +1097,12 @@ void SbTreeListBox::ImpCreateLibSubEntriesInVBAMode(weld::TreeIter& rLibRootEntr
         else
         {
             m_xControl->copy_iterator(rLibRootEntry, *xLibSubRootEntry);
-            AddEntry(aEntryName, RID_BMP_MODLIB, xLibSubRootEntry.get(), true, o3tl::make_unique<Entry>(eType));
+            AddEntry(aEntryName, RID_BMP_MODLIB, xLibSubRootEntry.get(), true, std::make_unique<Entry>(eType));
         }
     }
 }
 
-void SbTreeListBox::ImpCreateLibSubSubEntriesInVBAMode(weld::TreeIter& rLibSubRootEntry, const ScriptDocument& rDocument, const OUString& rLibName)
+void SbTreeListBox::ImpCreateLibSubSubEntriesInVBAMode(const weld::TreeIter& rLibSubRootEntry, const ScriptDocument& rDocument, const OUString& rLibName)
 {
     uno::Reference< container::XNameContainer > xLib = rDocument.getOrCreateLibrary( E_SCRIPTS, rLibName );
     if( !xLib.is() )
@@ -1158,7 +1158,7 @@ void SbTreeListBox::ImpCreateLibSubSubEntriesInVBAMode(weld::TreeIter& rLibSubRo
             {
                 m_xControl->copy_iterator(rLibSubRootEntry, *xModuleEntry);
                 AddEntry(aEntryName, RID_BMP_MODULE, xModuleEntry.get(), false,
-                         o3tl::make_unique<Entry>(OBJ_TYPE_MODULE));
+                         std::make_unique<Entry>(OBJ_TYPE_MODULE));
             }
 
             // methods
@@ -1175,7 +1175,7 @@ void SbTreeListBox::ImpCreateLibSubSubEntriesInVBAMode(weld::TreeIter& rLibSubRo
                     bool bEntry = FindEntry(aName, OBJ_TYPE_METHOD, *xEntry);
                     if (!bEntry)
                     {
-                        AddEntry(aName, RID_BMP_MACRO, xModuleEntry.get(), false, o3tl::make_unique<Entry>(OBJ_TYPE_METHOD));
+                        AddEntry(aName, RID_BMP_MACRO, xModuleEntry.get(), false, std::make_unique<Entry>(OBJ_TYPE_METHOD));
                     }
                 }
             }
@@ -1319,7 +1319,7 @@ bool SbTreeListBox::FindEntry(const OUString& rText, EntryType eType, weld::Tree
     return false;
 }
 
-bool SbTreeListBox::IsEntryProtected(weld::TreeIter* pEntry)
+bool SbTreeListBox::IsEntryProtected(const weld::TreeIter* pEntry)
 {
     bool bProtected = false;
     if (pEntry && m_xControl->get_iter_depth(*pEntry) == 1)
@@ -1347,17 +1347,17 @@ bool SbTreeListBox::IsEntryProtected(weld::TreeIter* pEntry)
 void SbTreeListBox::AddEntry(
     const OUString& rText,
     const OUString& rImage,
-    weld::TreeIter* pParent,
+    const weld::TreeIter* pParent,
     bool bChildrenOnDemand,
     std::unique_ptr<Entry>&& rUserData)
 {
     OUString sId(OUString::number(reinterpret_cast<sal_uInt64>(rUserData.release())));
-    m_xControl->insert(pParent, -1, &rText, &sId, nullptr, nullptr, &rImage, bChildrenOnDemand);
+    m_xControl->insert(pParent, -1, &rText, &sId, nullptr, nullptr, &rImage, bChildrenOnDemand, nullptr);
 }
 
-void SbTreeListBox::SetEntryBitmaps(weld::TreeIter& rIter, const OUString& rImage)
+void SbTreeListBox::SetEntryBitmaps(const weld::TreeIter& rIter, const OUString& rImage)
 {
-    m_xControl->set_expander_image(rIter, rImage);
+    m_xControl->set_image(rIter, rImage, -1);
 }
 
 LibraryType SbTreeListBox::GetLibraryType() const

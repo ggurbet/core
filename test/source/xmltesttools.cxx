@@ -130,7 +130,6 @@ OUString XmlTestTools::getXPathContent(xmlDocPtr pXmlDoc, const OString& rXPath)
     }
 
     CPPUNIT_FAIL("Invalid XPath type");
-    return OUString(); // to suppress "Not all control paths return a value" warning on MSVC
 }
 
 void XmlTestTools::assertXPath(xmlDocPtr pXmlDoc, const OString& rXPath, const OString& rAttribute, const OUString& rExpectedValue)

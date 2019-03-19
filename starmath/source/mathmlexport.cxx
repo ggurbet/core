@@ -203,7 +203,7 @@ bool SmXMLExportWrapper::Export(SfxMedium &rMedium)
         }
         if ( bRet )
         {
-           if (xStatusIndicator.is())
+            if (xStatusIndicator.is())
                 xStatusIndicator->setValue(nSteps++);
 
             bRet = WriteThroughComponent(
@@ -479,26 +479,26 @@ void SmXMLExport::ExportContent_()
 
     ExportNodes(pTree, 0);
 
-    if (!aText.isEmpty())
-    {
-        // Convert symbol names
-        if (pDocShell)
-        {
-            SmParser &rParser = pDocShell->GetParser();
-            bool bVal = rParser.IsExportSymbolNames();
-            rParser.SetExportSymbolNames( true );
-            auto pTmpTree = rParser.Parse( aText );
-            aText = rParser.GetText();
-            pTmpTree.reset();
-            rParser.SetExportSymbolNames( bVal );
-        }
+    if (aText.isEmpty())
+        return;
 
-        AddAttribute(XML_NAMESPACE_MATH, XML_ENCODING,
-            OUString("StarMath 5.0"));
-        SvXMLElementExport aAnnotation(*this, XML_NAMESPACE_MATH,
-            XML_ANNOTATION, true, false);
-        GetDocHandler()->characters( aText );
+    // Convert symbol names
+    if (pDocShell)
+    {
+        SmParser &rParser = pDocShell->GetParser();
+        bool bVal = rParser.IsExportSymbolNames();
+        rParser.SetExportSymbolNames( true );
+        auto pTmpTree = rParser.Parse( aText );
+        aText = rParser.GetText();
+        pTmpTree.reset();
+        rParser.SetExportSymbolNames( bVal );
     }
+
+    AddAttribute(XML_NAMESPACE_MATH, XML_ENCODING,
+        OUString("StarMath 5.0"));
+    SvXMLElementExport aAnnotation(*this, XML_NAMESPACE_MATH,
+        XML_ANNOTATION, true, false);
+    GetDocHandler()->characters( aText );
 }
 
 void SmXMLExport::GetViewSettings( Sequence < PropertyValue >& aProps)
@@ -541,37 +541,38 @@ void SmXMLExport::GetViewSettings( Sequence < PropertyValue >& aProps)
 void SmXMLExport::GetConfigurationSettings( Sequence < PropertyValue > & rProps)
 {
     Reference < XPropertySet > xProps ( GetModel(), UNO_QUERY );
-    if ( xProps.is() )
-    {
-        Reference< XPropertySetInfo > xPropertySetInfo = xProps->getPropertySetInfo();
-        if (xPropertySetInfo.is())
-        {
-            Sequence< Property > aProps = xPropertySetInfo->getProperties();
-            if (const sal_Int32 nCount = aProps.getLength())
-            {
-                rProps.realloc(nCount);
-                SmMathConfig* pConfig = SM_MOD()->GetConfig();
-                const bool bUsedSymbolsOnly = pConfig && pConfig->IsSaveOnlyUsedSymbols();
+    if ( !xProps.is() )
+        return;
 
-                std::transform(aProps.begin(), aProps.end(), rProps.begin(),
-                               [bUsedSymbolsOnly, &xProps](Property& prop) {
-                                   PropertyValue aRet;
-                                   if (prop.Name != "Formula" && prop.Name != "BasicLibraries"
-                                       && prop.Name != "DialogLibraries"
-                                       && prop.Name != "RuntimeUID")
-                                   {
-                                       aRet.Name = prop.Name;
-                                       OUString aActualName(prop.Name);
-                                       // handle 'save used symbols only'
-                                       if (bUsedSymbolsOnly && prop.Name == "Symbols")
-                                           aActualName = "UserDefinedSymbolsInUse";
-                                       aRet.Value = xProps->getPropertyValue(aActualName);
-                                   }
-                                   return aRet;
-                               });
-            }
-        }
-    }
+    Reference< XPropertySetInfo > xPropertySetInfo = xProps->getPropertySetInfo();
+    if (!xPropertySetInfo.is())
+        return;
+
+    Sequence< Property > aProps = xPropertySetInfo->getProperties();
+    const sal_Int32 nCount = aProps.getLength();
+    if (!nCount)
+        return;
+
+    rProps.realloc(nCount);
+    SmMathConfig* pConfig = SM_MOD()->GetConfig();
+    const bool bUsedSymbolsOnly = pConfig && pConfig->IsSaveOnlyUsedSymbols();
+
+    std::transform(aProps.begin(), aProps.end(), rProps.begin(),
+                   [bUsedSymbolsOnly, &xProps](Property& prop) {
+                       PropertyValue aRet;
+                       if (prop.Name != "Formula" && prop.Name != "BasicLibraries"
+                           && prop.Name != "DialogLibraries"
+                           && prop.Name != "RuntimeUID")
+                       {
+                           aRet.Name = prop.Name;
+                           OUString aActualName(prop.Name);
+                           // handle 'save used symbols only'
+                           if (bUsedSymbolsOnly && prop.Name == "Symbols")
+                               aActualName = "UserDefinedSymbolsInUse";
+                           aRet.Value = xProps->getPropertyValue(aActualName);
+                       }
+                       return aRet;
+                   });
 }
 
 void SmXMLExport::ExportLine(const SmNode *pNode, int nLevel)
@@ -721,11 +722,11 @@ void SmXMLExport::ExportTable(const SmNode *pNode, int nLevel)
     {
         if (const SmNode *pTemp = pNode->GetSubNode(i))
         {
-            SvXMLElementExport *pRow=nullptr;
-            SvXMLElementExport *pCell=nullptr;
+            std::unique_ptr<SvXMLElementExport> pRow;
+            std::unique_ptr<SvXMLElementExport> pCell;
             if (pTable)
             {
-                pRow  = new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MTR, true, true);
+                pRow.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MTR, true, true));
                 SmTokenType eAlign = TALIGNC;
                 if (pTemp->GetType() == SmNodeType::Align)
                 {
@@ -752,11 +753,9 @@ void SmXMLExport::ExportTable(const SmNode *pNode, int nLevel)
                     AddAttribute(XML_NAMESPACE_MATH, XML_COLUMNALIGN,
                         eAlign == TALIGNL ? XML_LEFT : XML_RIGHT);
                 }
-                pCell = new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MTD, true, true);
+                pCell.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MTD, true, true));
             }
             ExportNodes(pTemp, nLevel+1);
-            delete pCell;
-            delete pRow;
         }
     }
 }
@@ -863,7 +862,7 @@ void SmXMLExport::ExportSubSupScript(const SmNode *pNode, int nLevel)
     const SmNode *pCSup = nullptr;
     const SmNode *pLSub = nullptr;
     const SmNode *pLSup = nullptr;
-    SvXMLElementExport *pThing2 = nullptr;
+    std::unique_ptr<SvXMLElementExport> pThing2;
 
     //if we have prescripts at all then we must use the tensor notation
 
@@ -881,18 +880,18 @@ void SmXMLExport::ExportSubSupScript(const SmNode *pNode, int nLevel)
         if (nullptr != (pCSub = pNode->GetSubNode(CSUB+1))
             && nullptr != (pCSup = pNode->GetSubNode(CSUP+1)))
         {
-            pThing2 = new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
-                XML_MUNDEROVER, true, true);
+            pThing2.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
+                XML_MUNDEROVER, true, true));
         }
         else if (nullptr != (pCSub = pNode->GetSubNode(CSUB+1)))
         {
-            pThing2 = new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
-                XML_MUNDER, true, true);
+            pThing2.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
+                XML_MUNDER, true, true));
         }
         else if (nullptr != (pCSup = pNode->GetSubNode(CSUP+1)))
         {
-            pThing2 = new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
-                XML_MOVER, true, true);
+            pThing2.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
+                XML_MOVER, true, true));
         }
 
         ExportNodes(pNode->GetSubNode(0), nLevel+1);    //Main Term
@@ -901,7 +900,7 @@ void SmXMLExport::ExportSubSupScript(const SmNode *pNode, int nLevel)
             ExportNodes(pCSub, nLevel+1);
         if (pCSup)
             ExportNodes(pCSup, nLevel+1);
-        delete pThing2;
+        pThing2.reset();
 
         pSub = pNode->GetSubNode(RSUB+1);
         pSup = pNode->GetSubNode(RSUP+1);
@@ -946,39 +945,39 @@ void SmXMLExport::ExportSubSupScript(const SmNode *pNode, int nLevel)
     }
     else
     {
-        SvXMLElementExport *pThing = nullptr;
+        std::unique_ptr<SvXMLElementExport> pThing;
         if (nullptr != (pSub = pNode->GetSubNode(RSUB+1)) &&
             nullptr != (pSup = pNode->GetSubNode(RSUP+1)))
         {
-            pThing = new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
-                XML_MSUBSUP, true, true);
+            pThing.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
+                XML_MSUBSUP, true, true));
         }
         else if (nullptr != (pSub = pNode->GetSubNode(RSUB+1)))
         {
-            pThing = new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MSUB,
-                true, true);
+            pThing.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MSUB,
+                true, true));
         }
         else if (nullptr != (pSup = pNode->GetSubNode(RSUP+1)))
         {
-            pThing = new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MSUP,
-                true, true);
+            pThing.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH, XML_MSUP,
+                true, true));
         }
 
         if (nullptr != (pCSub = pNode->GetSubNode(CSUB+1))
             && nullptr != (pCSup=pNode->GetSubNode(CSUP+1)))
         {
-            pThing2 = new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
-                XML_MUNDEROVER, true, true);
+            pThing2.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
+                XML_MUNDEROVER, true, true));
         }
         else if (nullptr != (pCSub = pNode->GetSubNode(CSUB+1)))
         {
-            pThing2 = new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
-                XML_MUNDER, true, true);
+            pThing2.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
+                XML_MUNDER, true, true));
         }
         else if (nullptr != (pCSup = pNode->GetSubNode(CSUP+1)))
         {
-            pThing2 = new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
-                XML_MOVER, true, true);
+            pThing2.reset(new SvXMLElementExport(*this, XML_NAMESPACE_MATH,
+                XML_MOVER, true, true));
         }
         ExportNodes(pNode->GetSubNode(0), nLevel+1);    //Main Term
 
@@ -986,13 +985,13 @@ void SmXMLExport::ExportSubSupScript(const SmNode *pNode, int nLevel)
             ExportNodes(pCSub, nLevel+1);
         if (pCSup)
             ExportNodes(pCSup, nLevel+1);
-        delete pThing2;
+        pThing2.reset();
 
         if (pSub)
             ExportNodes(pSub, nLevel+1);
         if (pSup)
             ExportNodes(pSup, nLevel+1);
-        delete pThing;
+        pThing.reset();
     }
 }
 

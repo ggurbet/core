@@ -41,15 +41,13 @@ class Impl3DMirrorConstructOverlay;
 
 class SVX_DLLPUBLIC E3dView : public SdrView
 {
-protected:
     E3dDefaultAttributes        a3DDefaultAttr;
     MouseEvent                  aMouseEvent;                    // The parameters of the last Events (Mouse, Keyboard)
-    Color                       aDefaultLightColor;             // The parameters for the last colors
-    Color                       aDefaultAmbientColor;
 
     // Migrate selections
     std::unique_ptr<Impl3DMirrorConstructOverlay> mpMirrorOverlay;
 
+protected:
     void InitView();
 
     void ImpCreate3DObject(E3dScene* pScene, SdrObject* pObj, bool bExtrude, double fDepth, basegfx::B2DHomMatrix const & rLatheMat);

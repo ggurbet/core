@@ -25,6 +25,7 @@
 #include <vcl/help.hxx>
 #include <vcl/image.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <rtl/string.hxx>
 #include <tools/debug.hxx>
 #include <tools/fract.hxx>
@@ -178,7 +179,6 @@ BrowserDataWin::BrowserDataWin( BrowseBox* pParent )
     ,DragSourceHelper( this )
     ,DropTargetHelper( this )
     ,pHeaderBar( nullptr )
-    ,pEventWin( pParent )
     ,pCornerWin( nullptr )
     ,bInDtor( false )
     ,bInPaint( false )
@@ -215,7 +215,6 @@ void BrowserDataWin::dispose()
 
     aInvalidRegion.clear();
     pHeaderBar.clear();
-    pEventWin.clear();
     pCornerWin.clear();
     DragSourceHelper::dispose();
     DropTargetHelper::dispose();
@@ -452,7 +451,7 @@ void BrowserDataWin::MouseMove( const MouseEvent& rEvt )
     PointerStyle ePointerStyle = PointerStyle::Arrow;
     if ( ImplRowDividerHitTest( aBrowserEvent ) )
         ePointerStyle = PointerStyle::VSizeBar;
-    SetPointer( Pointer( ePointerStyle ) );
+    SetPointer( ePointerStyle );
 
     // dragging out of the visible area?
     if ( rEvt.IsLeft() &&
@@ -568,9 +567,7 @@ void BrowserDataWin::KeyInput( const KeyEvent& rEvt )
 
 void BrowserDataWin::RequestHelp( const HelpEvent& rHEvt )
 {
-    pEventWin = this;
     GetParent()->RequestHelp( rHEvt );
-    pEventWin = GetParent();
 }
 
 

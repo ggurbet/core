@@ -425,7 +425,7 @@ void DrawXmlOptimizer::visit( PolyPolyElement& elem, const std::list< std::uniqu
     const GraphicsContext& rThisGC =
                    m_rProcessor.getGraphicsContext( elem.GCId );
 
-    if( rThisGC.BlendMode      == rNextGC.BlendMode &&
+    if( !(rThisGC.BlendMode      == rNextGC.BlendMode &&
          rThisGC.Flatness       == rNextGC.Flatness &&
          rThisGC.Transformation == rNextGC.Transformation &&
          rThisGC.Clip           == rNextGC.Clip &&
@@ -434,22 +434,22 @@ void DrawXmlOptimizer::visit( PolyPolyElement& elem, const std::list< std::uniqu
          rThisGC.FillColor.Blue == rNextGC.FillColor.Blue &&
          rThisGC.FillColor.Alpha== rNextGC.FillColor.Alpha &&
          pNext->Action          == PATH_STROKE &&
-         (elem.Action == PATH_FILL || elem.Action == PATH_EOFILL) )
-    {
-        GraphicsContext aGC = rThisGC;
-        aGC.LineJoin  = rNextGC.LineJoin;
-        aGC.LineCap   = rNextGC.LineCap;
-        aGC.LineWidth = rNextGC.LineWidth;
-        aGC.MiterLimit= rNextGC.MiterLimit;
-        aGC.DashArray = rNextGC.DashArray;
-        aGC.LineColor = rNextGC.LineColor;
-        elem.GCId = m_rProcessor.getGCId( aGC );
+         (elem.Action == PATH_FILL || elem.Action == PATH_EOFILL)) )
+        return;
 
-        elem.Action |= pNext->Action;
+    GraphicsContext aGC = rThisGC;
+    aGC.LineJoin  = rNextGC.LineJoin;
+    aGC.LineCap   = rNextGC.LineCap;
+    aGC.LineWidth = rNextGC.LineWidth;
+    aGC.MiterLimit= rNextGC.MiterLimit;
+    aGC.DashArray = rNextGC.DashArray;
+    aGC.LineColor = rNextGC.LineColor;
+    elem.GCId = m_rProcessor.getGCId( aGC );
 
-        elem.Children.splice( elem.Children.end(), pNext->Children );
-        elem.Parent->Children.erase(next_it);
-    }
+    elem.Action |= pNext->Action;
+
+    elem.Children.splice( elem.Children.end(), pNext->Children );
+    elem.Parent->Children.erase(next_it);
 }
 
 void DrawXmlOptimizer::visit( ParagraphElement& elem, const std::list< std::unique_ptr<Element> >::const_iterator& )
@@ -615,8 +615,8 @@ void DrawXmlOptimizer::visit( PageElement& elem, const std::list< std::unique_pt
 
 
         // move element to current paragraph
-       if (! pCurPara )  // new paragraph, insert one
-       {
+        if (! pCurPara )  // new paragraph, insert one
+        {
             pCurPara = ElementFactory::createParagraphElement( nullptr );
             // set parent
             pCurPara->Parent = &elem;
@@ -627,7 +627,7 @@ void DrawXmlOptimizer::visit( PageElement& elem, const std::list< std::unique_pt
             // update next_element which is now invalid
             next_page_element = page_element;
             ++ next_page_element;
-       }
+        }
         Element* pCurEle = page_element->get();
         Element::setParent( page_element, pCurPara );
         OSL_ENSURE( !pText || pCurEle == pText || pCurEle == pLink, "paragraph child list in disorder" );
@@ -709,9 +709,9 @@ void DrawXmlOptimizer::optimizeTextElements(Element& rParent)
                 {
                     pCur->updateGeometryWith( pNext );
                     // append text to current element
-                        pCur->Text.append( pNext->Text );
+                    pCur->Text.append( pNext->Text );
 
-                        str = pCur->Text.getStr();
+                    str = pCur->Text.getStr();
                     for(int i=0; i< str.getLength(); i++)
                     {
                         sal_Int16 nType = GetBreakIterator()->getScriptType( str, i );

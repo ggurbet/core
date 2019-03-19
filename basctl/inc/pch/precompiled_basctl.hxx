@@ -161,7 +161,6 @@
 #include <vcl/outdev.hxx>
 #include <vcl/outdevmap.hxx>
 #include <vcl/outdevstate.hxx>
-#include <vcl/pointr.hxx>
 #include <vcl/ptrstyle.hxx>
 #include <vcl/quickselectionengine.hxx>
 #include <vcl/region.hxx>
@@ -391,7 +390,6 @@
 #include <i18nlangtag/languagetag.hxx>
 #include <o3tl/cow_wrapper.hxx>
 #include <o3tl/enumarray.hxx>
-#include <o3tl/make_unique.hxx>
 #include <o3tl/sorted_vector.hxx>
 #include <o3tl/strong_int.hxx>
 #include <o3tl/typed_flags_set.hxx>

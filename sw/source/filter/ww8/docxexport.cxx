@@ -85,6 +85,7 @@
 #include <sal/log.hxx>
 #include <vcl/font.hxx>
 #include <unotools/ucbstreamhelper.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace sax_fastparser;
 using namespace ::comphelper;
@@ -932,8 +933,28 @@ void DocxExport::WriteSettings()
     // Zoom
     if (pViewShell)
     {
+        rtl::Reference<sax_fastparser::FastAttributeList> pAttributeList(
+            sax_fastparser::FastSerializerHelper::createAttrList());
+
+        switch (pViewShell->GetViewOptions()->GetZoomType())
+        {
+            case SvxZoomType::WHOLEPAGE:
+                pAttributeList->add(FSNS(XML_w, XML_val), "fullPage");
+                break;
+            case SvxZoomType::PAGEWIDTH:
+                pAttributeList->add(FSNS(XML_w, XML_val), "bestFit");
+                break;
+            case SvxZoomType::OPTIMAL:
+                pAttributeList->add(FSNS(XML_w, XML_val), "textFit");
+                break;
+            default:
+                break;
+        }
+
         OString aZoom(OString::number(pViewShell->GetViewOptions()->GetZoom()));
-        pFS->singleElementNS(XML_w, XML_zoom, FSNS(XML_w, XML_percent), aZoom.getStr(), FSEND);
+        pAttributeList->add(FSNS(XML_w, XML_percent), aZoom);
+        sax_fastparser::XFastAttributeListRef xAttributeList(pAttributeList.get());
+        pFS->singleElementNS(XML_w, XML_zoom, xAttributeList);
     }
 
     // Display Background Shape
@@ -1420,7 +1441,8 @@ void DocxExport::WriteEmbeddings()
             }
             catch(const uno::Exception&)
             {
-                SAL_WARN("sw.ww8", "WriteEmbeddings() ::Failed to copy Inputstream to outputstream exception caught!");
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN("sw.ww8", "WriteEmbeddings() ::Failed to copy Inputstream to outputstream exception caught! " << exceptionToString(ex));
             }
             xOutStream->closeOutput();
         }
@@ -1441,6 +1463,11 @@ void DocxExport::WriteMainText()
 {
     // setup the namespaces
     m_pDocumentFS->startElementNS( XML_w, XML_document, MainXmlNamespaces());
+
+    if ( getenv("SW_DEBUG_DOM") )
+    {
+        m_pDoc->dumpAsXml();
+    }
 
     // reset the incrementing linked-textboxes chain ID before re-saving.
     m_nLinkedTextboxesChainId=0;

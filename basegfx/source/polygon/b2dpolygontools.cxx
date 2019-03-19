@@ -21,13 +21,11 @@
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <osl/diagnose.h>
 #include <rtl/math.hxx>
-#include <rtl/instance.hxx>
 #include <sal/log.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/range/b2drange.hxx>
 #include <basegfx/curve/b2dcubicbezier.hxx>
-#include <basegfx/polygon/b2dpolypolygoncutter.hxx>
 #include <basegfx/point/b3dpoint.hxx>
 #include <basegfx/matrix/b3dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
@@ -35,14 +33,10 @@
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 
 #include <numeric>
-#include <limits>
 
 // #i37443#
 #define ANGLE_BOUND_START_VALUE     (2.25)
 #define ANGLE_BOUND_MINIMUM_VALUE   (0.1)
-#ifdef DBG_UTIL
-static double fAngleBoundStartValue = ANGLE_BOUND_START_VALUE;
-#endif
 #define STEPSPERQUARTER     (3)
 
 namespace basegfx
@@ -271,11 +265,7 @@ namespace basegfx
                     // #i37443# prepare convenient AngleBound if none was given
                     if(fAngleBound == 0.0)
                     {
-#ifdef DBG_UTIL
-                        fAngleBound = fAngleBoundStartValue;
-#else
                         fAngleBound = ANGLE_BOUND_START_VALUE;
-#endif
                     }
                     else if(fTools::less(fAngleBound, ANGLE_BOUND_MINIMUM_VALUE))
                     {
@@ -1321,7 +1311,7 @@ namespace basegfx
                     if(nCount > 1)
                     {
                         // these polygons were created above, there exists none with less than two points,
-                        // thus dircet point access below is allowed
+                        // thus direct point access below is allowed
                         const B2DPolygon aFirst(pLineTarget->getB2DPolygon(0));
                         B2DPolygon aLast(pLineTarget->getB2DPolygon(nCount - 1));
 
@@ -1343,7 +1333,7 @@ namespace basegfx
                     if(nCount > 1)
                     {
                         // these polygons were created above, there exists none with less than two points,
-                        // thus dircet point access below is allowed
+                        // thus direct point access below is allowed
                         const B2DPolygon aFirst(pGapTarget->getB2DPolygon(0));
                         B2DPolygon aLast(pGapTarget->getB2DPolygon(nCount - 1));
 
@@ -1510,24 +1500,8 @@ namespace basegfx
             const double fZero(0.0);
             const double fOne(1.0);
 
-            // crop to useful values
-            if(fTools::less(fRadiusX, fZero))
-            {
-                fRadiusX = fZero;
-            }
-            else if(fTools::more(fRadiusX, fOne))
-            {
-                fRadiusX = fOne;
-            }
-
-            if(fTools::less(fRadiusY, fZero))
-            {
-                fRadiusY = fZero;
-            }
-            else if(fTools::more(fRadiusY, fOne))
-            {
-                fRadiusY = fOne;
-            }
+            fRadiusX = std::clamp(fRadiusX, 0.0, 1.0);
+            fRadiusY = std::clamp(fRadiusY, 0.0, 1.0);
 
             if(rtl::math::approxEqual(fZero, fRadiusX) || rtl::math::approxEqual(fZero, fRadiusY))
             {
@@ -1637,13 +1611,9 @@ namespace basegfx
             return aPolygon;
         }
 
-        namespace
+        B2DPolygon const & createUnitPolygon()
         {
-            struct theUnitPolygon :
-                public rtl::StaticWithInit<B2DPolygon, theUnitPolygon>
-            {
-                B2DPolygon operator () ()
-                {
+            static auto const singleton = [] {
                     B2DPolygon aPolygon {
                         { 0.0, 0.0 },
                         { 1.0, 0.0 },
@@ -1655,13 +1625,8 @@ namespace basegfx
                     aPolygon.setClosed( true );
 
                     return aPolygon;
-                }
-            };
-        }
-
-        B2DPolygon const & createUnitPolygon()
-        {
-            return theUnitPolygon::get();
+            }();
+            return singleton;
         }
 
         B2DPolygon createPolygonFromCircle( const B2DPoint& rCenter, double fRadius )
@@ -1703,13 +1668,9 @@ namespace basegfx
             return aUnitCircle;
         }
 
-        namespace
+        B2DPolygon const & createHalfUnitCircle()
         {
-            struct theUnitHalfCircle :
-                public rtl::StaticWithInit<B2DPolygon, theUnitHalfCircle>
-            {
-                B2DPolygon operator()()
-                {
+            static auto const singleton = [] {
                     B2DPolygon aUnitHalfCircle;
                     const double fSegmentKappa(impDistanceBezierPointToControl(F_PI2 / STEPSPERQUARTER));
                     const B2DHomMatrix aRotateMatrix(createRotateB2DHomMatrix(F_PI2 / STEPSPERQUARTER));
@@ -1727,40 +1688,8 @@ namespace basegfx
                         aForward *= aRotateMatrix;
                     }
                     return aUnitHalfCircle;
-                }
-            };
-        }
-
-        B2DPolygon const & createHalfUnitCircle()
-        {
-            return theUnitHalfCircle::get();
-        }
-
-        namespace
-        {
-            struct theUnitCircleStartQuadrantOne :
-                public rtl::StaticWithInit<B2DPolygon, theUnitCircleStartQuadrantOne>
-            {
-                B2DPolygon operator()() { return impCreateUnitCircle(1); }
-            };
-
-            struct theUnitCircleStartQuadrantTwo :
-                public rtl::StaticWithInit<B2DPolygon, theUnitCircleStartQuadrantTwo>
-            {
-                B2DPolygon operator()() { return impCreateUnitCircle(2); }
-            };
-
-            struct theUnitCircleStartQuadrantThree :
-                public rtl::StaticWithInit<B2DPolygon, theUnitCircleStartQuadrantThree>
-            {
-                B2DPolygon operator()() { return impCreateUnitCircle(3); }
-            };
-
-            struct theUnitCircleStartQuadrantZero :
-                public rtl::StaticWithInit<B2DPolygon, theUnitCircleStartQuadrantZero>
-            {
-                B2DPolygon operator()() { return impCreateUnitCircle(0); }
-            };
+                }();
+            return singleton;
         }
 
         B2DPolygon const & createPolygonFromUnitCircle(sal_uInt32 nStartQuadrant)
@@ -1768,16 +1697,28 @@ namespace basegfx
             switch(nStartQuadrant % 4)
             {
                 case 1 :
-                    return theUnitCircleStartQuadrantOne::get();
+                    {
+                        static auto const singleton = impCreateUnitCircle(1);
+                        return singleton;
+                    }
 
                 case 2 :
-                    return theUnitCircleStartQuadrantTwo::get();
+                    {
+                        static auto const singleton = impCreateUnitCircle(2);
+                        return singleton;
+                    }
 
                 case 3 :
-                    return theUnitCircleStartQuadrantThree::get();
+                    {
+                        static auto const singleton = impCreateUnitCircle(3);
+                        return singleton;
+                    }
 
                 default : // case 0 :
-                    return theUnitCircleStartQuadrantZero::get();
+                    {
+                        static auto const singleton = impCreateUnitCircle(0);
+                        return singleton;
+                    }
             }
         }
 

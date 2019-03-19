@@ -22,7 +22,6 @@
 #include "nthesdta.hxx"
 #include <linguistic/misc.hxx>
 
-using namespace utl;
 using namespace osl;
 using namespace com::sun::star;
 using namespace com::sun::star::beans;
@@ -59,7 +58,7 @@ OUString SAL_CALL Meaning::getMeaning()
 Sequence< OUString > SAL_CALL Meaning::querySynonyms()
 {
     MutexGuard  aGuard( GetLinguMutex() );
-        return aSyn;
+    return aSyn;
 }
 
 void Meaning::SetSynonyms( const Sequence< OUString > &rSyn )

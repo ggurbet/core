@@ -111,9 +111,7 @@ SvxHyperlinkNewDocTp::SvxHyperlinkNewDocTp ( vcl::Window *pParent, IconChoiceDia
     get(m_pCbbPath, "path");
     m_pCbbPath->SetSmartProtocol(INetProtocol::File);
     get(m_pBtCreate, "create");
-    BitmapEx aBitmap(RID_SVXBMP_NEWDOC);
-    aBitmap.Scale(GetDPIScaleFactor(),GetDPIScaleFactor(),BmpScaleFlag::BestQuality );
-    m_pBtCreate->SetModeImage(Image(aBitmap));
+    m_pBtCreate->SetModeImage(Image(StockImage::Yes, RID_SVXBMP_NEWDOC));
     get(m_pLbDocTypes, "types");
     m_pLbDocTypes->set_height_request(m_pLbDocTypes->GetTextHeight() * 5);
 
@@ -179,18 +177,14 @@ void SvxHyperlinkNewDocTp::FillDocumentList ()
     {
         uno::Sequence< beans::PropertyValue >& rDynamicMenuEntry = aDynamicMenuEntries[ i ];
 
-        OUString aDocumentUrl, aTitle, aImageId, aTargetName;
+        OUString aDocumentUrl, aTitle;
 
-           for ( int e = 0; e < rDynamicMenuEntry.getLength(); e++ )
+        for ( int e = 0; e < rDynamicMenuEntry.getLength(); e++ )
         {
             if ( rDynamicMenuEntry[ e ].Name == DYNAMICMENU_PROPERTYNAME_URL )
                 rDynamicMenuEntry[ e ].Value >>= aDocumentUrl;
             else if ( rDynamicMenuEntry[e].Name == DYNAMICMENU_PROPERTYNAME_TITLE )
                 rDynamicMenuEntry[e].Value >>= aTitle;
-            else if ( rDynamicMenuEntry[e].Name == DYNAMICMENU_PROPERTYNAME_IMAGEIDENTIFIER )
-                rDynamicMenuEntry[e].Value >>= aImageId;
-            else if ( rDynamicMenuEntry[e].Name == DYNAMICMENU_PROPERTYNAME_TARGETNAME )
-                rDynamicMenuEntry[e].Value >>= aTargetName;
         }
         //#i96822# business cards, labels and database should not be inserted here
         if( aDocumentUrl == "private:factory/swriter?slot=21051" ||

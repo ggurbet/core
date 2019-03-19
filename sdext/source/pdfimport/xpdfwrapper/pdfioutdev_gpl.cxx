@@ -298,7 +298,7 @@ static void writePpm_( OutputBuffer&     o_rOutputBuf,
     o_rOutputBuf.resize(header_size);
 
     // initialize stream
-    Guchar *p;
+    unsigned char *p;
     GfxRGB rgb;
     std::unique_ptr<ImageStream> imgStr(
         new ImageStream(str,
@@ -401,7 +401,7 @@ static void writeImage_( OutputBuffer&     o_rOutputBuf,
                 oneColor = { byteToCol( 0xff ), byteToCol( 0xff ), byteToCol( 0xff ) };
         if( colorMap->getColorSpace()->getMode() == csIndexed || colorMap->getColorSpace()->getMode() == csDeviceGray )
         {
-            Guchar nIndex = 0;
+            unsigned char nIndex = 0;
             colorMap->getRGB( &nIndex, &zeroColor );
             nIndex = 1;
             colorMap->getRGB( &nIndex, &oneColor );
@@ -553,19 +553,23 @@ void PDFOutDev::processLink(Link* link, Catalog*)
     link->getRect( &x1, &y1, &x2, &y2 );
 
     LinkAction* pAction = link->getAction();
-    if (pAction && pAction->getKind() == actionURI)
-    {
-        const char* pURI = static_cast<LinkURI*>(pAction)->getURI()->getCString();
+    if (!(pAction && pAction->getKind() == actionURI))
+return;
 
-        std::vector<char> aEsc( lcl_escapeLineFeeds(pURI) );
+#if POPPLER_CHECK_VERSION(0, 72, 0)
+    const char* pURI = static_cast<LinkURI*>(pAction)->getURI()->c_str();
+#else
+    const char* pURI = static_cast<LinkURI*>(pAction)->getURI()->getCString();
+#endif
 
-        printf( "drawLink %f %f %f %f %s\n",
-                normalize(x1),
-                normalize(y1),
-                normalize(x2),
-                normalize(y2),
-                aEsc.data() );
-    }
+    std::vector<char> aEsc( lcl_escapeLineFeeds(pURI) );
+
+    printf( "drawLink %f %f %f %f %s\n",
+            normalize(x1),
+            normalize(y1),
+            normalize(x2),
+            normalize(y2),
+            aEsc.data() );
 }
 
 void PDFOutDev::saveState(GfxState*)
@@ -730,48 +734,52 @@ void PDFOutDev::updateFont(GfxState *state)
     assert(state);
 
     GfxFont *gfxFont = state->getFont();
-    if( gfxFont )
-    {
-        FontAttributes aFont;
-        int nEmbedSize=0;
+    if( !gfxFont )
+        return;
+
+    FontAttributes aFont;
+    int nEmbedSize=0;
 
 #if POPPLER_CHECK_VERSION(0, 64, 0)
-        const
+    const
 #endif
-        Ref* pID = gfxFont->getID();
-        // TODO(Q3): Portability problem
-        long long fontID = static_cast<long long>(pID->gen) << 32 | static_cast<long long>(pID->num);
-        std::unordered_map< long long, FontAttributes >::const_iterator it =
-            m_aFontMap.find( fontID );
-        if( it == m_aFontMap.end() )
-        {
-            nEmbedSize = parseFont( fontID, gfxFont, state );
-            it = m_aFontMap.find( fontID );
-        }
-
-        printf( "updateFont" );
-        if( it != m_aFontMap.end() )
-        {
-            // conflating this with printf below crashes under Windoze
-            printf( " %lld", fontID );
-
-            aFont = it->second;
-
-            std::vector<char> aEsc( lcl_escapeLineFeeds(aFont.familyName.getCString()) );
-            printf( " %d %d %d %d %f %d %s",
-                    aFont.isEmbedded,
-                    aFont.isBold,
-                    aFont.isItalic,
-                    aFont.isUnderline,
-                    normalize(state->getTransformedFontSize()),
-                    nEmbedSize,
-                    aEsc.data() );
-        }
-        printf( "\n" );
-
-        if( nEmbedSize )
-            writeFontFile(gfxFont);
+    Ref* pID = gfxFont->getID();
+    // TODO(Q3): Portability problem
+    long long fontID = static_cast<long long>(pID->gen) << 32 | static_cast<long long>(pID->num);
+    std::unordered_map< long long, FontAttributes >::const_iterator it =
+        m_aFontMap.find( fontID );
+    if( it == m_aFontMap.end() )
+    {
+        nEmbedSize = parseFont( fontID, gfxFont, state );
+        it = m_aFontMap.find( fontID );
     }
+
+    printf( "updateFont" );
+    if( it != m_aFontMap.end() )
+    {
+        // conflating this with printf below crashes under Windoze
+        printf( " %lld", fontID );
+
+        aFont = it->second;
+
+#if POPPLER_CHECK_VERSION(0, 72, 0)
+        std::vector<char> aEsc( lcl_escapeLineFeeds(aFont.familyName.c_str()) );
+#else
+        std::vector<char> aEsc( lcl_escapeLineFeeds(aFont.familyName.getCString()) );
+#endif
+        printf( " %d %d %d %d %f %d %s",
+                aFont.isEmbedded,
+                aFont.isBold,
+                aFont.isItalic,
+                aFont.isUnderline,
+                normalize(state->getTransformedFontSize()),
+                nEmbedSize,
+                aEsc.data() );
+    }
+    printf( "\n" );
+
+    if( nEmbedSize )
+        writeFontFile(gfxFont);
 }
 
 void PDFOutDev::updateRender(GfxState *state)

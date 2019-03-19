@@ -53,6 +53,7 @@
 #include <vcl/mnemonic.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/virdev.hxx>
 #include <svtools/colorcfg.hxx>
 #include <com/sun/star/table/BorderLine2.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
@@ -1267,7 +1268,7 @@ SvxColorWindow::SvxColorWindow(const OUString&            rCommand,
                                const Reference< XFrame >& rFrame,
                                vcl::Window*               pParentWindow,
                                bool                       bReuseParentForPicker,
-                               std::function<void(const OUString&, const NamedColor&)> const & aFunction):
+                               ColorSelectFunction const & aFunction):
 
     ToolbarPopup( rFrame, pParentWindow, "palette_popup_window", "svx/ui/oldcolorwindow.ui" ),
     theSlotId( nSlotId ),
@@ -1294,6 +1295,7 @@ SvxColorWindow::SvxColorWindow(const OUString&            rCommand,
         case SID_ATTR_CHAR_COLOR_BACKGROUND:
         case SID_BACKGROUND_COLOR:
         case SID_ATTR_CHAR_BACK_COLOR:
+        case SID_TABLE_CELL_BACKGROUND_COLOR:
         {
             mpButtonAutoColor->SetText( SvxResId( RID_SVXSTR_NOFILL ) );
             break;
@@ -1380,7 +1382,7 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
                          weld::Window*              pParentWindow,
                          weld::MenuButton*          pMenuButton,
                          bool                       bInterimBuilder,
-                         std::function<void(const OUString&, const NamedColor&)> const & aFunction)
+                         ColorSelectFunction const & aFunction)
     : ToolbarPopupBase(rFrame)
     , m_xBuilder(bInterimBuilder ? Application::CreateInterimBuilder(pMenuButton, "svx/ui/colorwindow.ui")
                                  : Application::CreateBuilder(pMenuButton, "svx/ui/colorwindow.ui"))
@@ -1409,6 +1411,7 @@ ColorWindow::ColorWindow(std::shared_ptr<PaletteManager> const & rPaletteManager
         case SID_ATTR_CHAR_COLOR_BACKGROUND:
         case SID_BACKGROUND_COLOR:
         case SID_ATTR_CHAR_BACK_COLOR:
+        case SID_TABLE_CELL_BACKGROUND_COLOR:
         {
             mxButtonAutoColor->set_label( SvxResId( RID_SVXSTR_NOFILL ) );
             break;
@@ -1545,6 +1548,7 @@ namespace
             case SID_ATTR_CHAR_COLOR_BACKGROUND:
             case SID_BACKGROUND_COLOR:
             case SID_ATTR_CHAR_BACK_COLOR:
+            case SID_TABLE_CELL_BACKGROUND_COLOR:
                 aColor = COL_TRANSPARENT;
                 sColorName = SvxResId(RID_SVXSTR_NOFILL);
                 break;
@@ -1605,10 +1609,6 @@ IMPL_LINK(SvxColorWindow, SelectHdl, ValueSet*, pColorSet, void)
     VclPtr<SvxColorWindow> xThis(this);
 
     NamedColor aNamedColor = GetSelectEntryColor(pColorSet);
-    /*  #i33380# DR 2004-09-03 Moved the following line above the Dispatch() calls.
-        This instance may be deleted in the meantime (i.e. when a dialog is opened
-        while in Dispatch()), accessing members will crash in this case. */
-    pColorSet->SetNoSelection();
 
     if ( pColorSet != mpRecentColorSet )
     {
@@ -1628,10 +1628,6 @@ IMPL_LINK(SvxColorWindow, SelectHdl, ValueSet*, pColorSet, void)
 IMPL_LINK(ColorWindow, SelectHdl, SvtValueSet*, pColorSet, void)
 {
     NamedColor aNamedColor = GetSelectEntryColor(pColorSet);
-    /*  #i33380# DR 2004-09-03 Moved the following line above the Dispatch() calls.
-        This instance may be deleted in the meantime (i.e. when a dialog is opened
-        while in Dispatch()), accessing members will crash in this case. */
-    pColorSet->SetNoSelection();
 
     if (pColorSet != mxRecentColorSet.get())
     {
@@ -2477,7 +2473,7 @@ struct SvxStyleToolBoxControl::Impl
             if(bSpecModeWriter)
             {
                 Reference<container::XNameAccess> xParaStyles;
-                    xStylesSupplier->getStyleFamilies()->getByName("ParagraphStyles") >>=
+                xStylesSupplier->getStyleFamilies()->getByName("ParagraphStyles") >>=
                     xParaStyles;
                 static const std::vector<OUString> aWriterStyles =
                 {
@@ -3032,6 +3028,8 @@ sal_uInt16 MapCommandToSlotId(const OUString& rCommand)
         return SID_ATTR_CHAR_BACK_COLOR;
     else if (rCommand == ".uno:BackgroundColor")
         return SID_BACKGROUND_COLOR;
+    else if (rCommand == ".uno:TableCellBackgroundColor")
+        return SID_TABLE_CELL_BACKGROUND_COLOR;
     else if (rCommand == ".uno:Extrusion3DColor")
         return SID_EXTRUSION_3D_COLOR;
     else if (rCommand == ".uno:XLineColor")

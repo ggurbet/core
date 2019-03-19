@@ -1002,23 +1002,16 @@ uno::Any SwAccessibleParagraph::queryInterface( const uno::Type& rType )
 // XTypeProvider
 uno::Sequence< uno::Type > SAL_CALL SwAccessibleParagraph::getTypes()
 {
-    uno::Sequence< uno::Type > aTypes( SwAccessibleContext::getTypes() );
-
-    sal_Int32 nIndex = aTypes.getLength();
     // #i63870# - add type accessibility::XAccessibleTextAttributes
     // #i89175# - add type accessibility::XAccessibleTextMarkup and
-    // accessibility::XAccessibleMultiLineText
-    aTypes.realloc( nIndex + 6 );
-
-    uno::Type* pTypes = aTypes.getArray();
-    pTypes[nIndex++] = cppu::UnoType<XAccessibleEditableText>::get();
-    pTypes[nIndex++] = cppu::UnoType<XAccessibleTextAttributes>::get();
-    pTypes[nIndex++] = ::cppu::UnoType<XAccessibleSelection>::get();
-    pTypes[nIndex++] = cppu::UnoType<XAccessibleTextMarkup>::get();
-    pTypes[nIndex++] = cppu::UnoType<XAccessibleMultiLineText>::get();
-    pTypes[nIndex] = cppu::UnoType<XAccessibleHypertext>::get();
-
-    return aTypes;
+    return cppu::OTypeCollection(
+            cppu::UnoType<XAccessibleEditableText>::get(),
+            cppu::UnoType<XAccessibleTextAttributes>::get(),
+            ::cppu::UnoType<XAccessibleSelection>::get(),
+            cppu::UnoType<XAccessibleTextMarkup>::get(),
+            cppu::UnoType<XAccessibleMultiLineText>::get(),
+            cppu::UnoType<XAccessibleHypertext>::get(),
+            SwAccessibleContext::getTypes() ).getTypes();
 }
 
 uno::Sequence< sal_Int8 > SAL_CALL SwAccessibleParagraph::getImplementationId()
@@ -2908,7 +2901,7 @@ sal_Int32 SAL_CALL SwAccessibleParagraph::getHyperLinkIndex( sal_Int32 nCharInde
 
     if (nRet == -1)
         throw lang::IndexOutOfBoundsException();
-     return nRet;
+    return nRet;
 }
 
 // #i71360#, #i108125# - adjustments for change tracking text markup

@@ -1,4 +1,4 @@
-%{
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; fill-column: 100 -*- */
 /*
  * This file is part of the LibreOffice project.
  *
@@ -17,39 +17,41 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+%{
+
 /*
  * lexer for parsing cfg source files
  */
 
-#include "sal/config.h"
+#include <sal/config.h>
 
 /* enlarge token buffer to tokenize whole strings */
 #undef YYLMAX
 #define YYLMAX 64000
 
 /* to enable debug output define LEXDEBUG */
-#define LEXDEBUG		1
+#define LEXDEBUG        1
 #ifdef LEXDEBUG
-#define OUTPUT	fprintf
+#define OUTPUT  fprintf
 #else
 #define OUTPUT(Par1,Par2);
 #endif
 
 /* table of possible token ids */
-#include "tokens.h"
+#include <tokens.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "sal/main.h"
+#include <sal/main.h>
 
-#include "cfglex.hxx"
+#include <cfglex.hxx>
 
 #define YY_NO_UNISTD_H
 
-int yycolumn = 1;
+static int yycolumn = 1;
 #define YY_USER_ACTION yycolumn += yyleng;
 
-int bText=0;
+static int bText=0;
 %}
 
 %option yylineno
@@ -61,105 +63,96 @@ int bText=0;
 
 %%
 
-\<[^\>]*"xml:lang="\""x-no-translate"\"[^\<]*\/\>	{
-	bText = 0;
-	workOnTokenSet( CFG_TOKEN_NO_TRANSLATE, yytext );
+\<[^\>]*"xml:lang="\""x-no-translate"\"[^\<]*\/\>   {
+    bText = 0;
+    workOnTokenSet( CFG_TOKEN_NO_TRANSLATE, yytext );
 }
 
 \<.*\/\> {
-	bText = 0;
-	workOnTokenSet( ANYTOKEN, yytext );
+    bText = 0;
+    workOnTokenSet( ANYTOKEN, yytext );
 }
 
-\<[^\>]*"xml:lang="\".*\"[^\<]*\>	{
-	bText = 1;
-	workOnTokenSet( CFG_TEXT_START, yytext );
-}
-
-
-\<[^\/\!][^\>]*\>	{
-	bText = 0;
-	workOnTokenSet( CFG_TAG, yytext );
-}
-
-"<!"DOCTYPE[^\>]*\>	{
-	bText = 0;
-	workOnTokenSet( CFG_TAG, yytext );
+\<[^\>]*"xml:lang="\".*\"[^\<]*\>   {
+    bText = 1;
+    workOnTokenSet( CFG_TEXT_START, yytext );
 }
 
 
-\<\!\-\-	{
-	char c1 = 0, c2 = 0;
-	int c3 = yyinput();
-	char pChar[2];
-	pChar[1] = 0x00;
-	pChar[0] = c3;
+\<[^\/\!][^\>]*\>   {
+    bText = 0;
+    workOnTokenSet( CFG_TAG, yytext );
+}
 
-	workOnTokenSet( COMMENT, yytext );
-	workOnTokenSet( COMMENT, pChar );
+"<!"DOCTYPE[^\>]*\> {
+    bText = 0;
+    workOnTokenSet( CFG_TAG, yytext );
+}
 
-	for(;;) {
-		if ( c3 == EOF )
-			break;
-		if ( c1 == '-' && c2 == '-' && c3 == '>' )
-			break;
-		c1 = c2;
-		c2 = c3;
-		c3 = yyinput();
 
-		pChar[0] = c3;
-		workOnTokenSet( COMMENT, pChar );
-	}
+\<\!\-\-    {
+    char c1 = 0, c2 = 0;
+    int c3 = yyinput();
+    char pChar[2];
+    pChar[1] = 0x00;
+    pChar[0] = c3;
+
+    workOnTokenSet( COMMENT, yytext );
+    workOnTokenSet( COMMENT, pChar );
+
+    for(;;) {
+        if ( c3 == EOF )
+            break;
+        if ( c1 == '-' && c2 == '-' && c3 == '>' )
+            break;
+        c1 = c2;
+        c2 = c3;
+        c3 = yyinput();
+
+        pChar[0] = c3;
+        workOnTokenSet( COMMENT, pChar );
+    }
 }
 
 \<\/[^\>]*\> {
-	bText = 0;
-	workOnTokenSet( CFG_CLOSETAG, yytext );
+    bText = 0;
+    workOnTokenSet( CFG_CLOSETAG, yytext );
 }
 
 \<[^\>\!]*\> {
-	bText = 0;
-	if ( yytext[ 1 ] == '!' && yytext[ 2 ] == '-' && yytext[ 3 ] == '-' )
-		workOnTokenSet( COMMENT, yytext );
-	else
-		workOnTokenSet( CFG_UNKNOWNTAG, yytext );
+    bText = 0;
+    if ( yytext[ 1 ] == '!' && yytext[ 2 ] == '-' && yytext[ 3 ] == '-' )
+        workOnTokenSet( COMMENT, yytext );
+    else
+        workOnTokenSet( CFG_UNKNOWNTAG, yytext );
 }
 
 .|\n {
     yycolumn = 1;
-	if ( bText == 1 )
-		workOnTokenSet( CFG_TEXTCHAR, yytext );
-	else
-		workOnTokenSet( UNKNOWNCHAR, yytext );
+    if ( bText == 1 )
+        workOnTokenSet( CFG_TEXTCHAR, yytext );
+    else
+        workOnTokenSet( UNKNOWNCHAR, yytext );
 }
 
 
 %%
 
 /*****************************************************************************/
-int	yywrap(void)
+int yywrap(void)
 /*****************************************************************************/
 {
-	return 1;
-}
-
-/*****************************************************************************/
-void YYWarning( const char *s )
-/*****************************************************************************/
-{
-	/* write warning to stderr */
-	fprintf( stderr,
-		"Warning: \"%s\" in line %d, column %d: \"%s\"\n", s, yylineno, yycolumn, yytext  );
+    return 1;
 }
 
 /*****************************************************************************/
 void yyerror ( const char *s )
 /*****************************************************************************/
 {
-	/* write error to stderr */
-	fprintf( stderr,
-		"Error: \"%s\" in line %d, column %d: \"%s\"\n", s, yylineno, yycolumn, yytext  );
-	exit(EXIT_FAILURE);
+    /* write error to stderr */
+    fprintf( stderr,
+        "Error: \"%s\" in line %d, column %d: \"%s\"\n", s, yylineno, yycolumn, yytext  );
+    exit(EXIT_FAILURE);
 }
 
 SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv) {
@@ -167,3 +160,5 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv) {
     yylex();
     return EXIT_SUCCESS;
 }
+
+/* vim:set shiftwidth=4 softtabstop=4 expandtab cinoptions=b1,g0,N-s cinkeys+=0=break: */

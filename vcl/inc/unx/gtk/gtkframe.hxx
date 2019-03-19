@@ -219,8 +219,6 @@ class GtkSalFrame : public SalFrame
     cairo_region_t*                 m_pRegion;
     GtkDropTarget*                  m_pDropTarget;
     GtkDragSource*                  m_pDragSource;
-    bool                            m_bInDrag;
-    GtkDnDTransferable*             m_pFormatConversionRequest;
     bool                            m_bGeometryIsProvisional;
 #else
     GdkRegion*                      m_pRegion;
@@ -419,11 +417,6 @@ public:
         m_pDragSource = nullptr;
     }
 
-    void SetFormatConversionRequest(GtkDnDTransferable *pRequest)
-    {
-        m_pFormatConversionRequest = pRequest;
-    }
-
     void startDrag(gint nButton, gint nDragOriginX, gint nDragOriginY,
                    GdkDragAction sourceActions, GtkTargetList* pTargetList);
 
@@ -528,7 +521,7 @@ public:
     // set clip region to none (-> rectangular windows, normal state)
     virtual void                ResetClipRegion() override;
     // start setting the clipregion consisting of nRects rectangles
-    virtual void                BeginSetClipRegion( sal_uLong nRects ) override;
+    virtual void                BeginSetClipRegion( sal_uInt32 nRects ) override;
     // add a rectangle to the clip region
     virtual void                UnionClipRegion( long nX, long nY, long nWidth, long nHeight ) override;
     // done setting up the clipregion

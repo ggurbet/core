@@ -482,26 +482,21 @@ void ScChangeAction::GetDescription(
     {
         ScChangeActionMap aMap;
         pCT->GetDependents( pReject, aMap, false, true );
-        ScChangeActionMap::iterator itChangeAction;
-        for( itChangeAction = aMap.begin(); itChangeAction != aMap.end(); ++itChangeAction )
+        ScChangeActionMap::iterator itChangeAction = std::find_if(aMap.begin(), aMap.end(),
+            [&pReject](const ScChangeActionMap::value_type& rEntry) {
+                return rEntry.second->GetType() == SC_CAT_MOVE || pReject->IsDeleteType(); });
+        if (itChangeAction != aMap.end())
         {
             if( itChangeAction->second->GetType() == SC_CAT_MOVE)
-            {
                 aBuf.append(
                     ScResId(STR_CHANGED_MOVE_REJECTION_WARNING));
-                aBuf.append(' ');
-                rStr = aBuf.makeStringAndClear();
-                return;
-            }
-
-            if (pReject->IsDeleteType())
-            {
+            else
                 aBuf.append(
                     ScResId(STR_CHANGED_DELETE_REJECTION_WARNING));
-                aBuf.append(' ');
-                rStr = aBuf.makeStringAndClear();
-                return;
-            }
+
+            aBuf.append(' ');
+            rStr = aBuf.makeStringAndClear();
+            return;
         }
     }
 }
@@ -2099,7 +2094,7 @@ void ScChangeTrack::Init()
     pLinkInsertRow = nullptr;
     pLinkInsertTab = nullptr;
     pLinkMove = nullptr;
-    pBlockModifyMsg = nullptr;
+    xBlockModifyMsg.reset();
     nActionMax = 0;
     nGeneratedMin = SC_CHGTRACK_GENERATED_START;
     nMarkLastSaved = 0;
@@ -2127,7 +2122,6 @@ void ScChangeTrack::DtorClear()
 {
     ScChangeAction* p;
     ScChangeAction* pNext;
-    ScChangeActionMap::iterator itChangeAction;
     for ( p = GetFirst(); p; p = pNext )
     {
         pNext = p->GetNext();
@@ -2138,9 +2132,9 @@ void ScChangeTrack::DtorClear()
         pNext = p->GetNext();
         delete p;
     }
-    for( itChangeAction = aPasteCutMap.begin(); itChangeAction != aPasteCutMap.end(); ++itChangeAction )
+    for( auto& rEntry : aPasteCutMap )
     {
-        delete itChangeAction->second;
+        delete rEntry.second;
     }
     pLastCutMove.reset();
     ClearMsgQueue();
@@ -2148,20 +2142,9 @@ void ScChangeTrack::DtorClear()
 
 void ScChangeTrack::ClearMsgQueue()
 {
-    if ( pBlockModifyMsg )
-    {
-        delete pBlockModifyMsg;
-        pBlockModifyMsg = nullptr;
-    }
-    std::for_each(aMsgStackTmp.rbegin(), aMsgStackTmp.rend(), std::default_delete<ScChangeTrackMsgInfo>());
+    xBlockModifyMsg.reset();
     aMsgStackTmp.clear();
-    std::for_each(aMsgStackFinal.rbegin(), aMsgStackFinal.rend(), std::default_delete<ScChangeTrackMsgInfo>());
     aMsgStackFinal.clear();
-
-    ScChangeTrackMsgQueue::iterator itQueue;
-    for ( itQueue = aMsgQueue.begin(); itQueue != aMsgQueue.end(); ++itQueue)
-        delete *itQueue;
-
     aMsgQueue.clear();
 }
 
@@ -2262,11 +2245,12 @@ void ScChangeTrack::StartBlockModify( ScChangeTrackMsgType eMsgType,
 {
     if ( aModifiedLink.IsSet() )
     {
-        if ( pBlockModifyMsg )
-            aMsgStackTmp.push_back( pBlockModifyMsg ); // Block in Block
-        pBlockModifyMsg = new ScChangeTrackMsgInfo;
-        pBlockModifyMsg->eMsgType = eMsgType;
-        pBlockModifyMsg->nStartAction = nStartAction;
+        if ( xBlockModifyMsg )
+            aMsgStackTmp.push_back( *xBlockModifyMsg ); // Block in Block
+        xBlockModifyMsg = ScChangeTrackMsgInfo();
+        xBlockModifyMsg->eMsgType = eMsgType;
+        xBlockModifyMsg->nStartAction = nStartAction;
+        xBlockModifyMsg->nEndAction = 0;
     }
 }
 
@@ -2274,25 +2258,25 @@ void ScChangeTrack::EndBlockModify( sal_uLong nEndAction )
 {
     if ( aModifiedLink.IsSet() )
     {
-        if ( pBlockModifyMsg )
+        if ( xBlockModifyMsg )
         {
-            if ( pBlockModifyMsg->nStartAction <= nEndAction )
+            if ( xBlockModifyMsg->nStartAction <= nEndAction )
             {
-                pBlockModifyMsg->nEndAction = nEndAction;
+                xBlockModifyMsg->nEndAction = nEndAction;
                 // Blocks dissolved in Blocks
-                aMsgStackFinal.push_back( pBlockModifyMsg );
+                aMsgStackFinal.push_back( *xBlockModifyMsg );
             }
             else
-                delete pBlockModifyMsg;
+                xBlockModifyMsg.reset();
             if (aMsgStackTmp.empty())
-                pBlockModifyMsg = nullptr;
+                xBlockModifyMsg.reset();
             else
             {
-                pBlockModifyMsg = aMsgStackTmp.back(); // Maybe Block in Block
+                xBlockModifyMsg = aMsgStackTmp.back(); // Maybe Block in Block
                 aMsgStackTmp.pop_back();
             }
         }
-        if ( !pBlockModifyMsg )
+        if ( !xBlockModifyMsg )
         {
             bool bNew = !aMsgStackFinal.empty();
             aMsgQueue.reserve(aMsgQueue.size() + aMsgStackFinal.size());
@@ -2314,9 +2298,9 @@ void ScChangeTrack::NotifyModified( ScChangeTrackMsgType eMsgType,
 {
     if ( aModifiedLink.IsSet() )
     {
-        if ( !pBlockModifyMsg || pBlockModifyMsg->eMsgType != eMsgType ||
+        if ( !xBlockModifyMsg || xBlockModifyMsg->eMsgType != eMsgType ||
                 (IsGenerated( nStartAction ) &&
-                (eMsgType == SC_CTM_APPEND || eMsgType == SC_CTM_REMOVE)) )
+                (eMsgType == ScChangeTrackMsgType::Append || eMsgType == ScChangeTrackMsgType::Remove)) )
         {   // Append within Append e.g. not
             StartBlockModify( eMsgType, nStartAction );
             EndBlockModify( nEndAction );
@@ -2429,18 +2413,18 @@ void ScChangeTrack::Append( ScChangeAction* pAppend, sal_uLong nAction )
 
     if ( aModifiedLink.IsSet() )
     {
-        NotifyModified( SC_CTM_APPEND, nAction, nAction );
+        NotifyModified( ScChangeTrackMsgType::Append, nAction, nAction );
         if ( pAppend->GetType() == SC_CAT_CONTENT )
         {
             ScChangeActionContent* pContent = static_cast<ScChangeActionContent*>(pAppend);
             if ( ( pContent = pContent->GetPrevContent() ) != nullptr )
             {
                 sal_uLong nMod = pContent->GetActionNumber();
-                NotifyModified( SC_CTM_CHANGE, nMod, nMod );
+                NotifyModified( ScChangeTrackMsgType::Change, nMod, nMod );
             }
         }
         else
-            NotifyModified( SC_CTM_CHANGE, pFirst->GetActionNumber(),
+            NotifyModified( ScChangeTrackMsgType::Change, pFirst->GetActionNumber(),
                 pLast->GetActionNumber() );
     }
 }
@@ -2462,7 +2446,7 @@ void ScChangeTrack::AppendDeleteRange( const ScRange& rRange,
         ScDocument* pRefDoc, SCTAB nDz, sal_uLong nRejectingInsert )
 {
     SetInDeleteRange( rRange );
-    StartBlockModify( SC_CTM_APPEND, GetActionMax() + 1 );
+    StartBlockModify( ScChangeTrackMsgType::Append, GetActionMax() + 1 );
     SCCOL nCol1;
     SCROW nRow1;
     SCTAB nTab1;
@@ -2744,7 +2728,7 @@ void ScChangeTrack::AppendContentRange( const ScRange& rRange,
         Undo( nStartLastCut, nEndLastCut ); // Remember Cuts here
         // StartAction only after Undo!
         nStartAction = GetActionMax() + 1;
-        StartBlockModify( SC_CTM_APPEND, nStartAction );
+        StartBlockModify( ScChangeTrackMsgType::Append, nStartAction );
         // Contents to overwrite in ToRange
         LookUpContents( aRange, pRefDoc, 0, 0, 0 );
         pLastCutMove->SetStartLastCut( nStartLastCut );
@@ -2757,7 +2741,7 @@ void ScChangeTrack::AppendContentRange( const ScRange& rRange,
     {
         bDoContents = true;
         nStartAction = GetActionMax() + 1;
-        StartBlockModify( SC_CTM_APPEND, nStartAction );
+        StartBlockModify( ScChangeTrackMsgType::Append, nStartAction );
     }
     if ( bDoContents )
     {
@@ -2792,7 +2776,7 @@ void ScChangeTrack::AppendContentsIfInRefDoc( ScDocument* pRefDoc,
     if (aIter.first())
     {
         nStartAction = GetActionMax() + 1;
-        StartBlockModify( SC_CTM_APPEND, nStartAction );
+        StartBlockModify( ScChangeTrackMsgType::Append, nStartAction );
         SvNumberFormatter* pFormatter = pRefDoc->GetFormatTable();
         do
         {
@@ -2857,7 +2841,7 @@ ScChangeActionContent* ScChangeTrack::GenerateDelContent(
     }
     pFirstGeneratedDelContent = pContent;
     aGeneratedMap.insert( std::make_pair( nGeneratedMin, pContent ) );
-    NotifyModified( SC_CTM_APPEND, nGeneratedMin, nGeneratedMin );
+    NotifyModified( ScChangeTrackMsgType::Append, nGeneratedMin, nGeneratedMin );
     return pContent;
 }
 
@@ -2872,7 +2856,7 @@ void ScChangeTrack::DeleteGeneratedDelContent( ScChangeActionContent* pContent )
     if ( pContent->pPrev )
         pContent->pPrev->pNext = pContent->pNext;
     delete pContent;
-    NotifyModified( SC_CTM_REMOVE, nAct, nAct );
+    NotifyModified( ScChangeTrackMsgType::Remove, nAct, nAct );
     if ( nAct == nGeneratedMin )
         ++nGeneratedMin; // Only after NotifyModified due to IsGenerated!
 }
@@ -2903,7 +2887,7 @@ void ScChangeTrack::AddDependentWithNotify( ScChangeAction* pParent,
     if ( aModifiedLink.IsSet() )
     {
         sal_uLong nMod = pParent->GetActionNumber();
-        NotifyModified( SC_CTM_PARENT, nMod, nMod );
+        NotifyModified( ScChangeTrackMsgType::Parent, nMod, nMod );
     }
 }
 
@@ -3077,18 +3061,18 @@ void ScChangeTrack::Remove( ScChangeAction* pRemove )
     // That happens automatically on delete by LinkEntry without traversing lists
     if ( aModifiedLink.IsSet() )
     {
-        NotifyModified( SC_CTM_REMOVE, nAct, nAct );
+        NotifyModified( ScChangeTrackMsgType::Remove, nAct, nAct );
         if ( pRemove->GetType() == SC_CAT_CONTENT )
         {
             ScChangeActionContent* pContent = static_cast<ScChangeActionContent*>(pRemove);
             if ( ( pContent = pContent->GetPrevContent() ) != nullptr )
             {
                 sal_uLong nMod = pContent->GetActionNumber();
-                NotifyModified( SC_CTM_CHANGE, nMod, nMod );
+                NotifyModified( ScChangeTrackMsgType::Change, nMod, nMod );
             }
         }
         else if ( pLast )
-            NotifyModified( SC_CTM_CHANGE, pFirst->GetActionNumber(),
+            NotifyModified( ScChangeTrackMsgType::Change, pFirst->GetActionNumber(),
                 pLast->GetActionNumber() );
     }
 
@@ -3119,7 +3103,7 @@ void ScChangeTrack::Undo( sal_uLong nStartAction, sal_uLong nEndAction, bool bMe
         if ( nStartAction == nStartLastCut && nEndAction == nEndLastCut &&
                 !IsInPasteCut() )
             ResetLastCut();
-        StartBlockModify( SC_CTM_REMOVE, nStartAction );
+        StartBlockModify( ScChangeTrackMsgType::Remove, nStartAction );
         for ( sal_uLong j = nEndAction; j >= nStartAction; --j )
         {   // Traverse backwards to recycle nActionMax and for faster access via pLast
             // Deletes are in right order
@@ -3154,7 +3138,7 @@ void ScChangeTrack::Undo( sal_uLong nStartAction, sal_uLong nEndAction, bool bMe
                 {   // Recover LastCut
                     // Break Links before Cut Append!
                     pMove->RemoveAllLinks();
-                    StartBlockModify( SC_CTM_APPEND, nStart );
+                    StartBlockModify( ScChangeTrackMsgType::Append, nStart );
                     for ( sal_uLong nCut = nStart; nCut <= nEnd; nCut++ )
                     {
                         ScChangeActionMap::iterator itCut = aPasteCutMap.find( nCut );
@@ -4142,13 +4126,12 @@ bool ScChangeTrack::Accept( ScChangeAction* pAct )
     if ( pAct->IsDeleteType() || pAct->GetType() == SC_CAT_CONTENT )
     {
         ScChangeActionMap aActionMap;
-        ScChangeActionMap::iterator itChangeAction;
 
         GetDependents( pAct, aActionMap, false, true );
 
-        for( itChangeAction = aActionMap.begin(); itChangeAction != aActionMap.end(); ++itChangeAction )
+        for( auto& rEntry : aActionMap )
         {
-            itChangeAction->second->Accept();
+            rEntry.second->Accept();
         }
     }
     pAct->Accept();

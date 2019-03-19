@@ -81,12 +81,13 @@ $(eval $(call gb_UIConfig_add_toolbarfiles,modules/sdraw,\
 	sd/uiconfig/sdraw/toolbar/linesbar \
 	sd/uiconfig/sdraw/toolbar/masterviewtoolbar \
 	sd/uiconfig/sdraw/toolbar/mediaobjectbar \
-	sd/uiconfig/sdraw/toolbar/moreformcontrols \
 	sd/uiconfig/sdraw/toolbar/notebookbarshortcuts \
 	sd/uiconfig/sdraw/toolbar/optimizetablebar \
 	sd/uiconfig/sdraw/toolbar/optionsbar \
 	sd/uiconfig/sdraw/toolbar/positionbar \
 	sd/uiconfig/sdraw/toolbar/rectanglesbar \
+	sd/uiconfig/sdraw/toolbar/redactedexportbar \
+	sd/uiconfig/sdraw/toolbar/redactionbar \
 	sd/uiconfig/sdraw/toolbar/standardbar \
 	sd/uiconfig/sdraw/toolbar/starshapes \
 	sd/uiconfig/sdraw/toolbar/symbolshapes \

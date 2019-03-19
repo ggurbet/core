@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/lang/Locale.hpp>
 #include <comphelper/string.hxx>
 #include <scitems.hxx>
 
@@ -37,16 +36,12 @@
 #include <editeng/ulspitem.hxx>
 #include <svx/hlnkitem.hxx>
 #include <svx/svdoutl.hxx>
-#include <editeng/unolingu.hxx>
-#include <editeng/outlobj.hxx>
 #include <editeng/postitem.hxx>
 #include <editeng/scripttypeitem.hxx>
 #include <editeng/shdditem.hxx>
-#include <svl/srchitem.hxx>
 #include <editeng/udlnitem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/writingmodeitem.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objface.hxx>
 #include <sfx2/objsh.hxx>
@@ -58,7 +53,6 @@
 #include <svl/languageoptions.hxx>
 
 #include <svx/svxdlg.hxx>
-#include <svx/dialogs.hrc>
 #include <vcl/EnumContext.hxx>
 
 #include <sc.hrc>
@@ -66,7 +60,6 @@
 #include <scresid.hxx>
 #include <scmod.hxx>
 #include <drtxtob.hxx>
-#include <fudraw.hxx>
 #include <viewdata.hxx>
 #include <document.hxx>
 #include <drawview.hxx>
@@ -76,8 +69,6 @@
 
 #define ShellClass_ScDrawTextObjectBar
 #include <scslots.hxx>
-
-#include <memory>
 
 using namespace ::com::sun::star;
 
@@ -425,8 +416,8 @@ void ScDrawTextObjectBar::GetState( SfxItemSet& rSet )
         ScViewUtil::HideDisabledSlot( rSet, pViewFrm->GetBindings(), SID_TRANSLITERATE_FULLWIDTH );
     if( rSet.GetItemState( SID_TRANSLITERATE_HIRAGANA ) != SfxItemState::UNKNOWN )
         ScViewUtil::HideDisabledSlot( rSet, pViewFrm->GetBindings(), SID_TRANSLITERATE_HIRAGANA );
-    if( rSet.GetItemState( SID_TRANSLITERATE_KATAGANA ) != SfxItemState::UNKNOWN )
-        ScViewUtil::HideDisabledSlot( rSet, pViewFrm->GetBindings(), SID_TRANSLITERATE_KATAGANA );
+    if( rSet.GetItemState( SID_TRANSLITERATE_KATAKANA ) != SfxItemState::UNKNOWN )
+        ScViewUtil::HideDisabledSlot( rSet, pViewFrm->GetBindings(), SID_TRANSLITERATE_KATAKANA );
 
     if ( rSet.GetItemState( SID_ENABLE_HYPHENATION ) != SfxItemState::UNKNOWN )
     {
@@ -1035,7 +1026,7 @@ void ScDrawTextObjectBar::GetAttrState( SfxItemSet& rDestSet )
     rDestSet.Put( SfxBoolItem( SID_ALIGN_ANY_RIGHT,     eAdj == SvxAdjust::Right ) );
     rDestSet.Put( SfxBoolItem( SID_ALIGN_ANY_JUSTIFIED, eAdj == SvxAdjust::Block ) );
 
-        SvxLRSpaceItem aLR = aAttrSet.Get( EE_PARA_LRSPACE );
+    SvxLRSpaceItem aLR = aAttrSet.Get( EE_PARA_LRSPACE );
     aLR.SetWhich(SID_ATTR_PARA_LRSPACE);
     rDestSet.Put(aLR);
     Invalidate( SID_ATTR_PARA_LRSPACE );

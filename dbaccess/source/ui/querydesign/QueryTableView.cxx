@@ -49,7 +49,6 @@
 #include <strings.hrc>
 #include <strings.hxx>
 #include <vcl/treelistentry.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace dbaui;
 using namespace ::com::sun::star::uno;
@@ -111,7 +110,7 @@ namespace
         // add an undo action
         if ( _bAddUndo )
             addUndoAction(  _pView,
-                            o3tl::make_unique<OQueryAddTabConnUndoAction>(_pView),
+                            std::make_unique<OQueryAddTabConnUndoAction>(_pView),
                             static_cast< OQueryTableConnection*>(_pConnection));
         // redraw
         _pConnection->RecalcLines();
@@ -173,7 +172,7 @@ namespace
             ScopedVclPtrInstance< OQueryTableConnection > aNewConn(_pView, aNewConnData);
             // referring to the local variable is not important, as NotifyQueryTabConn creates a new copy
             // to add me (if not existent)
-            _pView->NotifyTabConnection(*aNewConn.get(), false);
+            _pView->NotifyTabConnection(*aNewConn, false);
                 // don't create an Undo-Action for the new connection : the connection is
                 // covered by the Undo-Action for the tabwin, as the "Undo the insert" will
                 // automatically remove all connections adjacent to the win.
@@ -564,7 +563,7 @@ void OQueryTableView::AddConnection(const OJoinExchangeData& jxdSource, const OJ
         pNewConnectionData->AppendConnLine( aSourceFieldName,aDestFieldName );
 
         ScopedVclPtrInstance< OQueryTableConnection > aNewConnection(this, aNewConnectionData);
-        NotifyTabConnection(*aNewConnection.get());
+        NotifyTabConnection(*aNewConnection);
         // As usual with NotifyTabConnection, using a local variable is fine because a copy is made
     }
     else
@@ -630,7 +629,7 @@ bool OQueryTableView::RemoveConnection(VclPtr<OTableConnection>& rConnection, bo
 
     // add undo action
     addUndoAction(this,
-                  o3tl::make_unique<OQueryDelTabConnUndoAction>(this),
+                  std::make_unique<OQueryDelTabConnUndoAction>(this),
                   xConnection.get(),
                   true);
 
@@ -739,14 +738,10 @@ void OQueryTableView::HideTabWin( OQueryTableWindow* pTabWin, OQueryTabWinUndoAc
     getDesignView()->SaveTabWinUIConfig(pTabWin);
     // (I need to go via the parent, as only the parent knows the position of the scrollbars)
     // and then out of the TabWins list and hide
-    OTableWindowMap::const_iterator aIter = rTabWins.begin();
-    OTableWindowMap::const_iterator aEnd  = rTabWins.end();
-    for ( ;aIter != aEnd ; ++aIter )
-        if ( aIter->second == pTabWin )
-        {
-            rTabWins.erase( aIter );
-            break;
-        }
+    OTableWindowMap::const_iterator aIter = std::find_if(rTabWins.begin(), rTabWins.end(),
+        [&pTabWin](const OTableWindowMap::value_type& rEntry) { return rEntry.second == pTabWin; });
+    if (aIter != rTabWins.end())
+        rTabWins.erase( aIter );
 
     pTabWin->Hide();    // do not destroy it, as it is still in the undo list!!
 

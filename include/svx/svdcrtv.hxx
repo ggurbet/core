@@ -45,7 +45,7 @@ protected:
     // compile the apps all the time
     std::unique_ptr<ImpSdrCreateViewExtraData> mpCreateViewExtraData;
 
-    Pointer                     aCurrentCreatePointer;
+    PointerStyle                aCurrentCreatePointer;
 
     sal_Int32                   nAutoCloseDistPix;
     sal_Int32                   nFreeHandMinDistPix;
@@ -117,6 +117,9 @@ public:
     void BrkCreateObj();
     bool IsCreateObj() const { return pCurrentCreate!=nullptr; }
     SdrObject* GetCreateObj() const { return pCurrentCreate; }
+
+    /// Setup layer (eg. foreground / background) of the given object.
+    static void SetupObjLayer(const SdrPageView* pPageView, const OUString& aActiveLayer, SdrObject* pObj);
 
     // BegCreateCaptionObj() creates a SdrCaptionObj (legend item).
     // rObjSiz is the initial size of the legend text frame.

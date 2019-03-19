@@ -50,8 +50,6 @@ static constexpr auto DRAWTEXT_FLAGS_ICON =
 #define EVENTID_SHOW_CURSOR             (reinterpret_cast<void*>(1))
 #define EVENTID_ADJUST_SCROLLBARS       (reinterpret_cast<void*>(2))
 
-static bool bEndScrollInvalidate = true;
-
 SvxIconChoiceCtrl_Impl::SvxIconChoiceCtrl_Impl(
     SvtIconChoiceCtrl* pCurView,
     WinBits nWinStyle
@@ -192,14 +190,12 @@ IMPL_LINK( SvxIconChoiceCtrl_Impl, ScrollUpDownHdl, ScrollBar*, pScrollBar, void
 {
     // arrow up: delta=-1; arrow down: delta=+1
     Scroll( 0, pScrollBar->GetDelta() );
-    bEndScrollInvalidate = true;
 }
 
 IMPL_LINK( SvxIconChoiceCtrl_Impl, ScrollLeftRightHdl, ScrollBar*, pScrollBar, void )
 {
     // arrow left: delta=-1; arrow right: delta=+1
     Scroll( pScrollBar->GetDelta(), 0 );
-    bEndScrollInvalidate = true;
 }
 
 void SvxIconChoiceCtrl_Impl::FontModified()
@@ -520,7 +516,7 @@ void SvxIconChoiceCtrl_Impl::ImpArrange( bool bKeepPredecessors )
     RecalcAllBoundingRectsSmart();
     // TODO: the invalidation in the detail view should be more intelligent
     //if( !(nWinBits & WB_DETAILS ))
-        pView->Invalidate( InvalidateFlags::NoChildren );
+    pView->Invalidate( InvalidateFlags::NoChildren );
     nFlags &= ~IconChoiceFlags::Arranging;
     if( (nWinBits & WB_SMART_ARRANGE) && aCurOutputArea.TopLeft() != aEmptyPoint )
     {
@@ -532,8 +528,6 @@ void SvxIconChoiceCtrl_Impl::ImpArrange( bool bKeepPredecessors )
 
 void SvxIconChoiceCtrl_Impl::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect)
 {
-    bEndScrollInvalidate = false;
-
 #if defined(OV_DRAWGRID)
     Color aOldColor (rRenderContext.GetLineColor());
     Color aCOL_BLACK);
@@ -1116,14 +1110,14 @@ void SvxIconChoiceCtrl_Impl::PositionScrollBars( long nRealWidth, long nRealHeig
 {
     // horizontal scrollbar
     Point aPos( 0, nRealHeight );
-    aPos.AdjustY( -(nHorSBarHeight) );
+    aPos.AdjustY( -nHorSBarHeight );
 
     if( aHorSBar->GetPosPixel() != aPos )
         aHorSBar->SetPosPixel( aPos );
 
     // vertical scrollbar
     aPos.setX( nRealWidth ); aPos.setY( 0 );
-    aPos.AdjustX( -(nVerSBarWidth) );
+    aPos.AdjustX( -nVerSBarWidth );
     aPos.AdjustX( 1 );
     aPos.AdjustY( -1 );
 
@@ -1411,8 +1405,6 @@ void SvxIconChoiceCtrl_Impl::SetUpdateMode( bool bUpdate )
 void SvxIconChoiceCtrl_Impl::PaintEmphasis(const tools::Rectangle& rTextRect, bool bSelected,
                                            vcl::RenderContext& rRenderContext)
 {
-    static Color aTransparent(COL_TRANSPARENT);
-
     Color aOldFillColor(rRenderContext.GetFillColor());
 
     bool bSolidTextRect = false;
@@ -1421,7 +1413,7 @@ void SvxIconChoiceCtrl_Impl::PaintEmphasis(const tools::Rectangle& rTextRect, bo
     {
         const Color& rFillColor = rRenderContext.GetFont().GetFillColor();
         rRenderContext.SetFillColor(rFillColor);
-        if (rFillColor != aTransparent)
+        if (rFillColor != COL_TRANSPARENT)
             bSolidTextRect = true;
     }
 
@@ -1525,7 +1517,7 @@ void SvxIconChoiceCtrl_Impl::PaintEntry(SvxIconChoiceCtrlEntry* pEntry, const Po
     PaintEmphasis(aTextRect, bSelected, rRenderContext);
 
     if ( bShowSelection )
-        vcl::RenderTools::DrawSelectionBackground(rRenderContext, *pView.get(), CalcFocusRect(pEntry),
+        vcl::RenderTools::DrawSelectionBackground(rRenderContext, *pView, CalcFocusRect(pEntry),
                                                   bActiveSelection ? 1 : 2, false, true, false);
 
 
@@ -1985,8 +1977,7 @@ void SvxIconChoiceCtrl_Impl::Command( const CommandEvent& rCEvt )
 
 void SvxIconChoiceCtrl_Impl::ToTop( SvxIconChoiceCtrlEntry* pEntry )
 {
-    if( !(!maZOrderList.empty()
-           && pEntry != maZOrderList.back()))
+    if( maZOrderList.empty() || pEntry == maZOrderList.back())
         return;
 
     auto it = std::find(maZOrderList.begin(), maZOrderList.end(), pEntry);
@@ -2704,7 +2695,7 @@ void SvxIconChoiceCtrl_Impl::InitSettings()
     pView->SetBackground( rStyleSettings.GetFieldColor());
 
     long nScrBarSize = rStyleSettings.GetScrollBarSize();
-    if( !(nScrBarSize != nHorSBarHeight || nScrBarSize != nVerSBarWidth) )
+    if( nScrBarSize == nHorSBarHeight && nScrBarSize == nVerSBarWidth )
         return;
 
     nHorSBarHeight = nScrBarSize;

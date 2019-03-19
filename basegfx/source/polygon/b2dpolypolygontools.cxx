@@ -18,14 +18,14 @@
  */
 
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
-#include <o3tl/clamp.hxx>
 #include <osl/diagnose.h>
 #include <com/sun/star/drawing/PolyPolygonBezierCoords.hpp>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/numeric/ftools.hxx>
-#include <basegfx/polygon/b2dpolypolygoncutter.hxx>
+
+#include <algorithm>
 #include <numeric>
 
 namespace basegfx
@@ -511,7 +511,7 @@ namespace basegfx
             }
             else
             {
-                nNumber=o3tl::clamp<sal_uInt32>(nNumber,'0','9') - '0';
+                nNumber=std::clamp<sal_uInt32>(nNumber,'0','9') - '0';
             }
 
             B2DPolygon aCurrSegment;

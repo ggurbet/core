@@ -29,11 +29,11 @@
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include "CustomAnimationList.hxx"
 #include <CustomAnimationPreset.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/commandevent.hxx>
-#include <o3tl/make_unique.hxx>
+#include <vcl/event.hxx>
+#include <tools/debug.hxx>
 #include <osl/diagnose.h>
 
 #include <sdresid.hxx>
@@ -128,16 +128,25 @@ OUString getShapeDescription( const Reference< XShape >& xShape, bool bWithText 
     Reference< XPropertySet > xSet( xShape, UNO_QUERY );
     bool bAppendIndex = true;
 
-    if( xSet.is() )
+    if(xSet.is()) try
     {
         Reference<XPropertySetInfo> xInfo(xSet->getPropertySetInfo());
+        if (xInfo.is())
+        {
+            const OUString aPropName1("Name");
+            if(xInfo->hasPropertyByName(aPropName1))
+                xSet->getPropertyValue(aPropName1) >>= aDescription;
 
-        xSet->getPropertyValue("Name") >>= aDescription;
-        bAppendIndex = aDescription.isEmpty();
+            bAppendIndex = aDescription.isEmpty();
 
-        const OUString aPropName("UINameSingular");
-        if(xInfo->hasPropertyByName(aPropName))
-            xSet->getPropertyValue(aPropName) >>= aDescription;
+            const OUString aPropName2("UINameSingular");
+            if(xInfo->hasPropertyByName(aPropName2))
+                xSet->getPropertyValue(aPropName2) >>= aDescription;
+        }
+    }
+    catch( Exception& )
+    {
+        OSL_FAIL("sd::getShapeDescription(), exception caught!" );
     }
 
     if (bAppendIndex)
@@ -243,6 +252,8 @@ CustomAnimationListEntryItem::CustomAnimationListEntryItem( const OUString& aDes
         msEffectName = SdResId(STR_CUSTOMANIMATION_EMPHASIS); break;
     case EffectPresetClass::MOTIONPATH:
         msEffectName = SdResId(STR_CUSTOMANIMATION_MOTION_PATHS); break;
+    default:
+        msEffectName = SdResId(STR_CUSTOMANIMATION_MISC); break;
     }
     msEffectName = msEffectName.replaceFirst( "%1" , CustomAnimationPresets::getCustomAnimationPresets().getUINameForPresetId(mpEffect->getPresetId()));
 }
@@ -698,11 +709,13 @@ sal_Int8 CustomAnimationList::ExecuteDrop( const ExecuteDropEvent& /*rEvt*/ )
         ret = DND_ACTION_MOVE;
     }
 
+    // NOTE: Don't call SvTreeListBox::ExecuteDrop(...) because all required
+    //       move operations have been completed here to update the model.
     return ret;
 }
 
 // D'n'D #6: Cleanup (regardless of if we were target of drop or not)
-void CustomAnimationList::DragFinished( sal_Int8 nDropAction )
+void CustomAnimationList::DragFinished( sal_Int8 /*nDropAction*/ )
 {
     mpDndEffectDragging = nullptr;
     mpDndEffectInsertBefore = nullptr;
@@ -712,7 +725,9 @@ void CustomAnimationList::DragFinished( sal_Int8 nDropAction )
     // Can hit this without running ExecuteDrop(...) when drag canceled.
     mpMainSequence->rebuild();
 
-    SvTreeListBox::DragFinished( nDropAction );
+    // Note: Don't call SvTreeListBox::DragFinished(...) because we don't call
+    //       SvTreeListBox::ExecuteDrop(...) which sets variables that are
+    //       needed in its DragFinished(...) method.
 }
 
 VCL_BUILDER_FACTORY(CustomAnimationList)
@@ -897,11 +912,11 @@ void CustomAnimationList::update()
             if( xShape.is() )
             {
                 SvTreeListEntry* pLBoxEntry = new CustomAnimationListEntry;
-                pLBoxEntry->AddItem(o3tl::make_unique<SvLBoxContextBmp>(Image(), Image(), false));
+                pLBoxEntry->AddItem(std::make_unique<SvLBoxContextBmp>(Image(), Image(), false));
                 OUString aDescription = SdResId(STR_CUSTOMANIMATION_TRIGGER);
                 aDescription += ": ";
                 aDescription += getShapeDescription( xShape, false );
-                pLBoxEntry->AddItem(o3tl::make_unique<CustomAnimationTriggerEntryItem>(aDescription));
+                pLBoxEntry->AddItem(std::make_unique<CustomAnimationTriggerEntryItem>(aDescription));
                 Insert( pLBoxEntry );
                 SvViewDataEntry* pViewData = GetViewData( pLBoxEntry );
                 if( pViewData )
@@ -997,7 +1012,10 @@ void CustomAnimationList::append( CustomAnimationEffectPtr pEffect )
     OUString aDescription;
 
     Any aTarget( pEffect->getTarget() );
-    if( aTarget.hasValue() ) try
+    if( !aTarget.hasValue() )
+        return;
+
+    try
     {
         aDescription = getDescription( aTarget, pEffect->getTargetSubItem() != ShapeAnimationSubType::ONLY_BACKGROUND );
 
@@ -1014,8 +1032,8 @@ void CustomAnimationList::append( CustomAnimationEffectPtr pEffect )
         // create an entry for the effect
         SvTreeListEntry* pEntry = new CustomAnimationListEntry( pEffect );
 
-        pEntry->AddItem(o3tl::make_unique<SvLBoxContextBmp>(Image(), Image(), false));
-        pEntry->AddItem(o3tl::make_unique<CustomAnimationListEntryItem>(aDescription, pEffect, this));
+        pEntry->AddItem(std::make_unique<SvLBoxContextBmp>(Image(), Image(), false));
+        pEntry->AddItem(std::make_unique<CustomAnimationListEntryItem>(aDescription, pEffect, this));
 
         if( pParentEntry )
         {
@@ -1091,12 +1109,79 @@ void CustomAnimationList::onSelectionChanged(const Any& rSelection)
     }
 }
 
+// Notify controller to refresh UI when we are notified of selection change from base class
 void CustomAnimationList::SelectHdl()
 {
     if( mbIgnorePaint )
         return;
     SvTreeListBox::SelectHdl();
     mpController->onSelect();
+}
+
+// Notify controller to refresh UI when we are notified of selection change from base class
+void CustomAnimationList::DeselectHdl()
+{
+    if( mbIgnorePaint )
+        return;
+    SvTreeListBox::DeselectHdl();
+    mpController->onSelect();
+}
+
+
+bool CustomAnimationList::Expand( SvTreeListEntry* pParent )
+{
+    bool result = SvTreeListBox::Expand( pParent );
+
+    // If expanded entry is selected, then select its children too.
+    if( IsSelected( pParent )) {
+        for( auto pChild = FirstChild( pParent ); pChild; pChild = pChild->NextSibling() )
+        {
+            if( !IsSelected( pChild ) )
+            {
+                SelectListEntry( pChild, true );
+            }
+        }
+    }
+
+    // Notify controller that selection has changed (it should update the UI)
+    mpController->onSelect();
+
+    return result;
+}
+
+bool CustomAnimationList::Collapse( SvTreeListEntry* pParent )
+{
+    // SvTreeListBox::Collapse(..) discards multi-selection state
+    // of list entries, so first save current selection state
+    std::vector< SvTreeListEntry* > selectedEntries;
+    for( auto pEntry = FirstSelected(); pEntry; pEntry = NextSelected( pEntry ))
+    {
+        selectedEntries.push_back( pEntry );
+    }
+
+    // Execute collapse on base class
+    bool result = SvTreeListBox::Collapse( pParent );
+
+    // Deselect all entries as SvTreeListBox::Collapse selects the last
+    // entry to have focus (or its parent), which is not desired
+    for( auto pEntry = FirstSelected(); pEntry; pEntry = NextSelected( pEntry ))
+    {
+        SelectListEntry( pEntry, false );
+    }
+
+    // Restore selection state for entries which are still visible
+    for( auto &pEntry : selectedEntries )
+    {
+        if( IsEntryVisible( pEntry ))
+        {
+            SelectListEntry( pEntry, true );
+        }
+    }
+
+    // Notify controller that selection has changed (it should update the UI)
+    mpController->onSelect();
+
+    return result;
 }
 
 bool CustomAnimationList::isExpanded( const CustomAnimationEffectPtr& pEffect ) const
@@ -1234,24 +1319,24 @@ void CustomAnimationList::Paint(vcl::RenderContext& rRenderContext, const ::tool
     SvTreeListBox::Paint(rRenderContext, rRect);
 
     // draw help text if list box is still empty
-    if( First() == nullptr )
-    {
-        Color aOldColor(rRenderContext.GetTextColor());
-        rRenderContext.SetTextColor(rRenderContext.GetSettings().GetStyleSettings().GetDisableColor());
-        ::Point aOffset(rRenderContext.LogicToPixel(Point(6, 6), MapMode(MapUnit::MapAppFont)));
+    if( First() != nullptr )
+        return;
 
-        ::tools::Rectangle aRect(Point(0,0), GetOutputSizePixel());
+    Color aOldColor(rRenderContext.GetTextColor());
+    rRenderContext.SetTextColor(rRenderContext.GetSettings().GetStyleSettings().GetDisableColor());
+    ::Point aOffset(rRenderContext.LogicToPixel(Point(6, 6), MapMode(MapUnit::MapAppFont)));
 
-        aRect.AdjustLeft(aOffset.X() );
-        aRect.AdjustTop(aOffset.Y() );
-        aRect.AdjustRight( -(aOffset.X()) );
-        aRect.AdjustBottom( -(aOffset.Y()) );
+    ::tools::Rectangle aRect(Point(0,0), GetOutputSizePixel());
 
-        rRenderContext.DrawText(aRect, SdResId(STR_CUSTOMANIMATION_LIST_HELPTEXT),
-                                DrawTextFlags::MultiLine | DrawTextFlags::WordBreak | DrawTextFlags::Center | DrawTextFlags::VCenter );
+    aRect.AdjustLeft(aOffset.X() );
+    aRect.AdjustTop(aOffset.Y() );
+    aRect.AdjustRight( -(aOffset.X()) );
+    aRect.AdjustBottom( -(aOffset.Y()) );
 
-        rRenderContext.SetTextColor(aOldColor);
-    }
+    rRenderContext.DrawText(aRect, SdResId(STR_CUSTOMANIMATION_LIST_HELPTEXT),
+                            DrawTextFlags::MultiLine | DrawTextFlags::WordBreak | DrawTextFlags::Center | DrawTextFlags::VCenter );
+
+    rRenderContext.SetTextColor(aOldColor);
 }
 
 }

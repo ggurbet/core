@@ -112,7 +112,8 @@ CBenTOCReader::ReadLabel(unsigned long * pTOCOffset, unsigned long * pTOCSize)
     BenByte * pCurrLabel = Label + BEN_MAGIC_BYTES_SIZE;
 
     BenWord Flags =
-        UtGetIntelWord(pCurrLabel); pCurrLabel += 2; // Flags
+        UtGetIntelWord(pCurrLabel);
+    pCurrLabel += 2; // Flags
     // Newer files are 0x0101--indicates if big or little endian.  Older
     // files are 0x0 for flags
     if (Flags != 0x0101 && Flags != 0x0)
@@ -271,33 +272,32 @@ CBenTOCReader::ReadTOC()
 
                     #define STACK_BUFFER_SIZE 256
                     char sStackBuffer[STACK_BUFFER_SIZE];
-                    char * sAllocBuffer;
+                    std::unique_ptr<char[]> sAllocBuffer;
                     char * sBuffer;
                     if (Length > STACK_BUFFER_SIZE)
                     {
-                        sBuffer = new char[Length];
-                        sAllocBuffer = sBuffer;
+                        sAllocBuffer.reset(new char[Length]);
+                        sBuffer = sAllocBuffer.get();
                     }
                     else
                     {
                         sBuffer = sStackBuffer;
-                        sAllocBuffer = nullptr;
                     }
 
                     if ((Err = cpContainer->ReadKnownSize(sBuffer, Length)) !=
                       BenErr_OK)
                     {
-                        delete[] sAllocBuffer;
                         return Err;
                     }
 
-                    OString sName(sBuffer, Length);
+                    OString sName;
+                    if (Length)
+                        sName = OString(sBuffer, Length - 1);
 
                     CUtListElmt * pPrevNamedObjectListElmt;
                     if (FindNamedObject(&cpContainer->GetNamedObjects(),
                       sName, &pPrevNamedObjectListElmt) != nullptr)
                     {
-                        delete[] sAllocBuffer;
                         return BenErr_DuplicateName;
                     }
 
@@ -305,11 +305,10 @@ CBenTOCReader::ReadTOC()
 
                     if (PropertyID == BEN_PROPID_GLOBAL_PROPERTY_NAME)
                         pObject = new CBenPropertyName(cpContainer, ObjectID,
-                          pPrevObject, sName, pPrevNamedObjectListElmt);
-                    else pObject = new CBenTypeName(cpContainer, ObjectID,
-                      pPrevObject, sName, pPrevNamedObjectListElmt);
-
-                    delete[] sAllocBuffer;
+                           pPrevObject, sName, pPrevNamedObjectListElmt);
+                    else
+                        pObject = new CBenTypeName(cpContainer, ObjectID,
+                           pPrevObject, sName, pPrevNamedObjectListElmt);
                 }
                 else if (PropertyID == BEN_PROPID_OBJ_REFERENCES)
                 {

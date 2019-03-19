@@ -38,6 +38,8 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <mediamisc.hxx>
+#include <osl/file.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star;
 
@@ -415,14 +417,10 @@ CreateStream(uno::Reference<embed::XStorage> const& xStorage,
 
 
 bool EmbedMedia(uno::Reference<frame::XModel> const& xModel,
-        OUString const& rSourceURL, OUString & o_rEmbeddedURL)
+        OUString const& rSourceURL, OUString & o_rEmbeddedURL, uno::Reference<io::XInputStream> const& xInputStream)
 {
     try
     {
-        ::ucbhelper::Content sourceContent(rSourceURL,
-                uno::Reference<ucb::XCommandEnvironment>(),
-                comphelper::getProcessComponentContext());
-
         uno::Reference<document::XStorageBasedDocument> const xSBD(xModel,
                 uno::UNO_QUERY_THROW);
         uno::Reference<embed::XStorage> const xStorage(
@@ -439,10 +437,22 @@ bool EmbedMedia(uno::Reference<frame::XModel> const& xModel,
         uno::Reference<io::XOutputStream> const xOutStream(
             xStream->getOutputStream(), uno::UNO_SET_THROW);
 
-        if (!sourceContent.openStream(xOutStream)) // copy file to storage
+        if (xInputStream.is())
         {
-            SAL_INFO("avmedia", "openStream to storage failed");
-            return false;
+            // Throw Exception if failed.
+            ::comphelper::OStorageHelper::CopyInputToOutput(xInputStream, xOutStream);
+        }
+        else
+        {
+            ::ucbhelper::Content sourceContent(rSourceURL,
+                uno::Reference<ucb::XCommandEnvironment>(),
+                comphelper::getProcessComponentContext());
+
+            if (!sourceContent.openStream(xOutStream)) // copy file to storage
+            {
+                SAL_INFO("avmedia", "openStream to storage failed");
+                return false;
+            }
         }
 
         uno::Reference<embed::XTransactedObject> const xSubTransaction(
@@ -467,6 +477,50 @@ bool EmbedMedia(uno::Reference<frame::XModel> const& xModel,
     return false;
 }
 
+bool CreateMediaTempFile(uno::Reference<io::XInputStream> const& xInStream,
+        OUString& o_rTempFileURL, const OUString& rDesiredExtension)
+{
+    OUString tempFileURL;
+    ::osl::FileBase::RC const err =
+        ::osl::FileBase::createTempFile(nullptr, nullptr, & tempFileURL);
+    if (::osl::FileBase::E_None != err)
+    {
+        SAL_WARN("avmedia", "cannot create temp file");
+        return false;
+    }
+
+    if (!rDesiredExtension.isEmpty())
+    {
+        OUString newTempFileURL = tempFileURL + rDesiredExtension;
+        if (osl::File::move(tempFileURL, newTempFileURL) != osl::FileBase::E_None)
+        {
+            SAL_WARN("avmedia", "Could not rename file '" << tempFileURL << "' to '" << newTempFileURL << "'");
+            return false;
+        }
+        tempFileURL = newTempFileURL;
+    }
+
+    try
+    {
+        ::ucbhelper::Content tempContent(tempFileURL,
+                uno::Reference<ucb::XCommandEnvironment>(),
+                comphelper::getProcessComponentContext());
+        tempContent.writeStream(xInStream, true); // copy stream to file
+    }
+    catch (uno::Exception const&)
+    {
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("avmedia", "exception: " << exceptionToString(ex));
+        return false;
+    }
+    o_rTempFileURL = tempFileURL;
+    return true;
+}
+
+MediaTempFile::~MediaTempFile()
+{
+    ::osl::File::remove(m_TempFileURL);
+}
 
 } // namespace avmedia
 

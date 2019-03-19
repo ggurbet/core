@@ -287,9 +287,8 @@ IntrospectionAccessStatic_Impl::IntrospectionAccessStatic_Impl( Reference< XIdlR
 
 sal_Int32 IntrospectionAccessStatic_Impl::getPropertyIndex( const OUString& aPropertyName ) const
 {
-    IntrospectionAccessStatic_Impl* pThis = const_cast<IntrospectionAccessStatic_Impl*>(this);
-    IntrospectionNameMap::iterator aIt = pThis->maPropertyNameMap.find( aPropertyName );
-    if (aIt != pThis->maPropertyNameMap.end())
+    auto aIt = maPropertyNameMap.find(aPropertyName);
+    if (aIt != maPropertyNameMap.end())
         return aIt->second;
 
     return -1;
@@ -297,9 +296,8 @@ sal_Int32 IntrospectionAccessStatic_Impl::getPropertyIndex( const OUString& aPro
 
 sal_Int32 IntrospectionAccessStatic_Impl::getMethodIndex( const OUString& aMethodName ) const
 {
-    IntrospectionAccessStatic_Impl* pThis = const_cast<IntrospectionAccessStatic_Impl*>(this);
-    IntrospectionNameMap::iterator aIt = pThis->maMethodNameMap.find( aMethodName );
-    if (aIt != pThis->maMethodNameMap.end())
+    auto aIt = maMethodNameMap.find(aMethodName);
+    if (aIt != maMethodNameMap.end())
     {
         return aIt->second;
     }
@@ -315,8 +313,8 @@ sal_Int32 IntrospectionAccessStatic_Impl::getMethodIndex( const OUString& aMetho
 
         OUString aPureMethodName = aMethodName.copy( nFound + 1 );
 
-        aIt = pThis->maMethodNameMap.find( aPureMethodName );
-        if (aIt != pThis->maMethodNameMap.end())
+        aIt = maMethodNameMap.find( aPureMethodName );
+        if (aIt != maMethodNameMap.end())
         {
             // Check if it can be a type?
             // Problem: Does not work if package names contain _ ?!
@@ -1842,9 +1840,6 @@ css::uno::Reference<css::beans::XIntrospectionAccess> Implementation::inspect(
 
                     // 3. Methods
 
-                    // Counter for found listeners
-                    sal_Int32 nListenerCount = 0;
-
                     // Get and remember all methods
                     Sequence< Reference<XIdlMethod> > methods = rxIfaceClass->getMethods();
                     const Reference<XIdlMethod>* pSourceMethods = methods.getConstArray();
@@ -2134,7 +2129,6 @@ css::uno::Reference<css::beans::XIntrospectionAccess> Implementation::inspect(
 
                                 pMethodTypes[i] = ADD_LISTENER_METHOD;
                                 pMethodTypes[k] = REMOVE_LISTENER_METHOD;
-                                nListenerCount++;
                             }
                         }
                     }

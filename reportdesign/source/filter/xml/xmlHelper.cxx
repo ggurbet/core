@@ -21,6 +21,7 @@
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/families.hxx>
 #include <xmloff/controlpropertyhdl.hxx>
+#include <xmloff/xmltkmap.hxx>
 #include <connectivity/dbtools.hxx>
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/propertysetinfo.hxx>
@@ -49,6 +50,7 @@
 #include <com/sun/star/sdb/CommandType.hpp>
 #include <com/sun/star/style/VerticalAlignment.hpp>
 #include <xmloff/EnumPropertyHdl.hxx>
+#include <osl/diagnose.h>
 
 #define XML_RPT_ALGINMENT   (XML_DB_TYPES_START+1)
 namespace rptxml

@@ -21,6 +21,8 @@
 #include <float.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <string_view>
+
 #include <comphelper/string.hxx>
 #include <sal/log.hxx>
 #include <tools/debug.hxx>
@@ -1734,7 +1736,7 @@ short SvNumberformat::ImpNextSymbol(OUStringBuffer& rString,
                         0 <= nNatNumNum && nNatNumNum <= 19 )
                 {
                     sBuffSymbol.stripStart('[');
-                    sBuffSymbol.appendCopy( aBufStr, --nPos, aNatNum.getLength()+1 );
+                    sBuffSymbol.append( std::u16string_view(aBufStr).substr(--nPos, aNatNum.getLength()+1) );
                     nPos += aNatNum.getLength()+1;
                     //! SymbolType is negative
                     eSymbolType = static_cast<short>(BRACKET_SYMBOLTYPE_NATNUM0 - nNatNumNum);
@@ -1744,7 +1746,7 @@ short SvNumberformat::ImpNextSymbol(OUStringBuffer& rString,
                         1 <= nDBNum && nDBNum <= 9 )
                 {
                     sBuffSymbol.stripStart('[');
-                    sBuffSymbol.appendCopy( aBufStr, --nPos, aDBNum.getLength()+1 );
+                    sBuffSymbol.append( std::u16string_view(aBufStr).substr(--nPos, aDBNum.getLength()+1) );
                     nPos += aDBNum.getLength()+1;
                     //! SymbolType is negative
                     eSymbolType = sal::static_int_cast< short >( BRACKET_SYMBOLTYPE_DBNUM1 - (nDBNum - 1) );
@@ -1972,7 +1974,7 @@ OUString SvNumberformat::StripNewCurrencyDelimiters( const OUString& rStr )
         }
         else
         {
-            aTmp.appendCopy(rStr, nStartPos, nPos - nStartPos );
+            aTmp.append(std::u16string_view(rStr).substr(nStartPos, nPos - nStartPos) );
             nStartPos = nPos + 2;
             sal_Int32 nDash;
             nEnd = nStartPos - 1;
@@ -2003,13 +2005,13 @@ OUString SvNumberformat::StripNewCurrencyDelimiters( const OUString& rStr )
             {
                 nPos = nDash;
             }
-            aTmp.appendCopy(rStr, nStartPos, nPos - nStartPos );
+            aTmp.append(std::u16string_view(rStr).substr(nStartPos, nPos - nStartPos) );
             nStartPos = nClose + 1;
         }
     }
     if ( nLen > nStartPos )
     {
-        aTmp.appendCopy(rStr, nStartPos, nLen - nStartPos );
+        aTmp.append(std::u16string_view(rStr).substr(nStartPos, nLen - nStartPos) );
     }
     return aTmp.makeStringAndClear();
 }
@@ -2998,7 +3000,7 @@ bool SvNumberformat::ImpGetTimeOutput(double fNumber,
 {
     using namespace ::com::sun::star::i18n;
     bool bCalendarSet = false;
-    double fNumberOrig = fNumber;
+    const double fNumberOrig = fNumber;
     bool bRes = false;
     bool bSign = false;
     if (fNumber < 0.0)
@@ -3018,10 +3020,6 @@ bool SvNumberformat::ImpGetTimeOutput(double fNumber,
             return false;
         }
     }
-    else
-    {
-        fNumber -= floor(fNumber); // Else truncate date
-    }
     bool bInputLine;
     sal_Int32 nCntPost;
     if ( rScan.GetStandardPrec() == SvNumberFormatter::INPUTSTRING_PRECISION &&
@@ -3035,10 +3033,6 @@ bool SvNumberformat::ImpGetTimeOutput(double fNumber,
         bInputLine = false;
         nCntPost = rInfo.nCntPost;
     }
-    if (bSign && !rInfo.bThousand) // No [] format
-    {
-        fNumber = 1.0 - fNumber; // "Inverse"
-    }
 
     OUStringBuffer sSecStr;
     sal_Int32 nSecPos = 0; // For figure by figure processing
@@ -3047,7 +3041,7 @@ bool SvNumberformat::ImpGetTimeOutput(double fNumber,
     {
         sal_uInt16 nCHour, nCMinute, nCSecond;
         double fFractionOfSecond;
-        tools::Time::GetClock( fNumber, nCHour, nCMinute, nCSecond, fFractionOfSecond, nCntPost);
+        tools::Time::GetClock( fNumberOrig, nCHour, nCMinute, nCSecond, fFractionOfSecond, nCntPost);
         nHour = nCHour;
         nMin = nCMinute;
         nSec = nCSecond;
@@ -3056,14 +3050,7 @@ bool SvNumberformat::ImpGetTimeOutput(double fNumber,
     }
     else
     {
-        double fTime = fNumber * 86400.0;
-        const double fOrigTime = fTime;
-        const double fFullSeconds = std::trunc(fTime);
-        fTime = rtl::math::round( fTime, int(nCntPost));
-        // Do not round up into the next magnitude, truncate instead.
-        if (fTime >= fFullSeconds + 1.0 || (fTime == 0.0 && fOrigTime != 0.0))
-            fTime = rtl::math::pow10Exp( std::trunc( rtl::math::pow10Exp( fOrigTime, nCntPost)), -nCntPost);
-
+        const double fTime = rtl::math::round( fNumber * 86400.0, int(nCntPost));
         if (bSign && fTime == 0.0)
         {
             bSign = false; // Not -00:00:00

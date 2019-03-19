@@ -66,13 +66,13 @@ using namespace ::com::sun::star::frame;
 std::unique_ptr<SfxChildWindowContext> SwNavigationChild::CreateImpl( vcl::Window *pParent,
         SfxBindings *pBindings, SfxChildWinInfo* /*pInfo*/ )
 {
-    return o3tl::make_unique<SwNavigationChild>(pParent,
+    return std::make_unique<SwNavigationChild>(pParent,
             /* cast is safe here! */static_cast< sal_uInt16 >(SwView::GetInterfaceId()),
             pBindings);
 }
 void    SwNavigationChild::RegisterChildWindowContext(SfxModule* pMod)
 {
-    auto pFact = o3tl::make_unique<SfxChildWinContextFactory>(
+    auto pFact = std::make_unique<SfxChildWinContextFactory>(
        SwNavigationChild::CreateImpl,
        /* cast is safe here! */static_cast< sal_uInt16 >(SwView::GetInterfaceId()) );
     SfxChildWindowContext::RegisterChildWindowContext(pMod, SID_NAVIGATOR, std::move(pFact));
@@ -648,7 +648,7 @@ SwNavigationPI::SwNavigationPI(SfxBindings* _pBindings,
     tools::Rectangle aSecondRect = m_aContentToolBox->GetItemRect(m_aContentToolBox->GetItemId("header"));
     Size aItemWinSize( aFirstRect.Left() - aSecondRect.Left(),
                        aFirstRect.Bottom() - aFirstRect.Top() );
-    Size aOptimalSize(m_xEdit->get_preferred_size());
+    Size aOptimalSize(m_xEdit->CalcMinimumSizeForText(m_xEdit->CreateFieldText(9999)));
     aItemWinSize.setWidth( std::max(aItemWinSize.Width(), aOptimalSize.Width()) );
     m_xEdit->SetSizePixel(aItemWinSize);
     m_aContentToolBox->InsertSeparator(4);
@@ -739,7 +739,10 @@ SwNavigationPI::SwNavigationPI(SfxBindings* _pBindings,
                     pActView->GetWrtShellPtr()->IsGlblDocSaveLinks());
         if (m_pConfig->IsGlobalActive())
             ToggleTree();
+        m_aGlobalTree->GrabFocus();
     }
+    else
+        m_aContentTree->GrabFocus();
     UsePage();
     m_aPageChgIdle.SetInvokeHandler(LINK(this, SwNavigationPI, ChangePageHdl));
     m_aPageChgIdle.SetPriority(TaskPriority::LOWEST);
@@ -800,6 +803,7 @@ void SwNavigationPI::dispose()
 
 void SwNavigationPI::SetPopupWindow( SfxPopupWindow* pWindow )
 {
+    m_pPopupWindow.disposeAndClear();
     m_pPopupWindow = pWindow;
     m_pPopupWindow->SetPopupModeEndHdl( LINK( this, SwNavigationPI, PopupModeEndHdl ));
     m_pPopupWindow->SetDeleteLink_Impl( LINK( this, SwNavigationPI, ClosePopupWindow ));

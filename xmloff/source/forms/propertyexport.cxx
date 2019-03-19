@@ -21,13 +21,13 @@
 
 #include <memory>
 
-#include <o3tl/make_unique.hxx>
-
 #include <xmloff/xmlexp.hxx>
 #include "strings.hxx"
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/families.hxx>
+#include <xmloff/xmlexppr.hxx>
+#include <xmloff/xmlprmap.hxx>
 #include <sax/tools/converter.hxx>
 #include <osl/diagnose.h>
 #include <rtl/strbuf.hxx>
@@ -93,10 +93,12 @@ namespace xmloff
     OPropertyExport::exportRemainingPropertiesSequence(
         Any const & value, token::XMLTokenEnum eValueAttName)
     {
-        OSequenceIterator< T > i(value);
-        while (i.hasMoreElements())
+        css::uno::Sequence<T> anySeq;
+        bool bSuccess = value >>= anySeq;
+        assert(bSuccess); (void)bSuccess;
+        for (T const & i : anySeq)
         {
-            OUString sValue(implConvertAny(i.nextElement()));
+            OUString sValue(implConvertAny(makeAny(i)));
             AddAttribute(XML_NAMESPACE_OFFICE, eValueAttName, sValue );
             SvXMLElementExport aValueTag(
                 m_rContext.getGlobalContext(), XML_NAMESPACE_FORM,
@@ -122,7 +124,7 @@ namespace xmloff
 
             // now that we have the first sub-tag we need the form:properties element
             if (!pPropertiesTag)
-                pPropertiesTag = o3tl::make_unique<SvXMLElementExport>(m_rContext.getGlobalContext(), XML_NAMESPACE_FORM, token::XML_PROPERTIES, true, true);
+                pPropertiesTag = std::make_unique<SvXMLElementExport>(m_rContext.getGlobalContext(), XML_NAMESPACE_FORM, token::XML_PROPERTIES, true, true);
 
             // add the name attribute
             AddAttribute(XML_NAMESPACE_FORM, token::XML_PROPERTY_NAME, rProperty);

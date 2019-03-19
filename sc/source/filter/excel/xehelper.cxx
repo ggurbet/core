@@ -17,6 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <sfx2/objsh.hxx>
@@ -443,9 +447,9 @@ XclExpStringRef lclCreateFormattedString(
         rEE.GetPortions( nPara, aPosList );
 
         // process all portions in the paragraph
-        for( std::vector<sal_Int32>::const_iterator it(aPosList.begin()); it != aPosList.end(); ++it )
+        for( const auto& rPos : aPosList )
         {
-            aSel.nEndPos =  *it;
+            aSel.nEndPos = rPos;
             OUString aXclPortionText = aParaText.copy( aSel.nStartPos, aSel.nEndPos - aSel.nStartPos );
 
             aItemSet.ClearItem();
@@ -712,9 +716,9 @@ void XclExpHFConverter::AppendPortion( const EditTextObject* pTextObj, sal_Unico
         std::vector<sal_Int32> aPosList;
         mrEE.GetPortions( nPara, aPosList );
 
-        for( std::vector<sal_Int32>::const_iterator it( aPosList.begin() ); it != aPosList.end(); ++it )
+        for( const auto& rPos : aPosList )
         {
-            aSel.nEndPos = *it;
+            aSel.nEndPos = rPos;
             if( aSel.nStartPos < aSel.nEndPos )
             {
 
@@ -730,7 +734,7 @@ void XclExpHFConverter::AppendPortion( const EditTextObject* pTextObj, sal_Unico
                 aNewData.maName = XclTools::GetXclFontName( aFont.GetFamilyName() );
                 aNewData.mnWeight = (aFont.GetWeight() > WEIGHT_NORMAL) ? EXC_FONTWGHT_BOLD : EXC_FONTWGHT_NORMAL;
                 aNewData.mbItalic = (aFont.GetItalic() != ITALIC_NONE);
-                bool bNewFont = !(aFontData.maName == aNewData.maName);
+                bool bNewFont = (aFontData.maName != aNewData.maName);
                 bool bNewStyle = (aFontData.mnWeight != aNewData.mnWeight) ||
                                  (aFontData.mbItalic != aNewData.mbItalic);
                 if( bNewFont || (bNewStyle && pFontList) )
@@ -921,7 +925,7 @@ OUString lclEncodeDosUrl(
                 // Excel seems confused by this token).
                 aBuf.append(EXC_URL_PARENTDIR);
             else
-                aBuf.appendCopy(aOldUrl,0,nPos).append(EXC_URL_SUBDIR);
+                aBuf.append(std::u16string_view(aOldUrl).substr(0,nPos)).append(EXC_URL_SUBDIR);
 
             aOldUrl = aOldUrl.copy(nPos + 1);
         }

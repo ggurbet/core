@@ -27,6 +27,7 @@
 #include <unotools/useroptions.hxx>
 #include <unotools/cmdoptions.hxx>
 #include <unotools/compatibility.hxx>
+#include <unotools/compatibilityviewoptions.hxx>
 #include <unotools/defaultoptions.hxx>
 #include <unotools/dynamicmenuoptions.hxx>
 #include <unotools/eventcfg.hxx>
@@ -46,6 +47,7 @@
 #include <unotools/syslocaleoptions.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
+#include <tools/diagnose_ex.h>
 
 ItemHolder1::ItemHolder1()
     : ItemHolderMutexBase()
@@ -59,13 +61,14 @@ ItemHolder1::ItemHolder1()
         xCfg->addEventListener(static_cast< css::lang::XEventListener* >(this));
     }
 #ifdef DBG_UTIL
-    catch(const css::uno::Exception& rEx)
+    catch(const css::uno::Exception&)
     {
         static bool bMessage = true;
         if(bMessage)
         {
             bMessage = false;
-            SAL_WARN( "unotools", "CreateInstance with arguments exception: " << rEx);
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "unotools", "CreateInstance with arguments exception: " << exceptionToString(ex));
         }
     }
 #else
@@ -128,6 +131,10 @@ void ItemHolder1::impl_newItem(TItemInfo& rItem)
 
         case EItem::Compatibility :
             rItem.pItem.reset( new SvtCompatibilityOptions() );
+            break;
+
+        case EItem::CompatibilityView :
+            rItem.pItem.reset( new SvtCompatibilityViewOptions() );
             break;
 
         case EItem::DefaultOptions :

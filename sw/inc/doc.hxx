@@ -139,6 +139,7 @@ namespace sw { namespace mark {
     class MarkManager;
 }}
 namespace sw {
+    enum class RedlineMode;
     class MetaFieldManager;
     class UndoManager;
     class IShellCursorSupplier;
@@ -312,11 +313,14 @@ private:
     bool mbColumnSelection       : 1;    //< TRUE: this content has been created by a column selection (clipboard docs only)
     bool mbIsPrepareSelAll       : 1;
 
+    enum MissingDictionary { False = -1, Undefined = 0, True = 1 };
+    MissingDictionary meDictionaryMissing;
+
     // true: Document contains at least one anchored object, which is anchored AT_PAGE with a content position.
     //       Thus, certain adjustment needed during formatting for these kind of anchored objects.
     bool mbContainsAtPageObjWithContentAnchor : 1;
 
-    static SwAutoCompleteWord *mpACmpltWords;  //< List of all words for AutoComplete
+    static SwAutoCompleteWord *s_pAutoCompleteWords;  //< List of all words for AutoComplete
 
     // private methods
     SwFlyFrameFormat* MakeFlySection_( const SwPosition& rAnchPos,
@@ -917,6 +921,11 @@ public:
                                             const SfxItemSet* pSet = nullptr,
                                             bool bExpand = false,
                                     SwRootFrame const* pLayout = nullptr);
+    SwTOXBaseSection* InsertTableOf( const SwPaM& aPam,
+                                            const SwTOXBase& rTOX,
+                                            const SfxItemSet* pSet = nullptr,
+                                            bool bExpand = false,
+                                    SwRootFrame const* pLayout = nullptr );
     void              InsertTableOf( sal_uLong nSttNd, sal_uLong nEndNd,
                                             const SwTOXBase& rTOX,
                                             const SfxItemSet* pSet );
@@ -1143,7 +1152,7 @@ public:
     */
     const SwTable* InsertTable( const SwInsertTableOptions& rInsTableOpts,  // HeadlineNoBorder
                                 const SwPosition& rPos, sal_uInt16 nRows,
-                                sal_uInt16 nCols, short eAdjust,
+                                sal_uInt16 nCols, sal_Int16 eAdjust,
                                 const SwTableAutoFormat* pTAFormat = nullptr,
                                 const std::vector<sal_uInt16> *pColArr = nullptr,
                                 bool bCalledFromShell = false,
@@ -1156,7 +1165,7 @@ public:
     // Create a balanced table out of the selected range.
     const SwTable* TextToTable( const SwInsertTableOptions& rInsTableOpts, // HeadlineNoBorder,
                                 const SwPaM& rRange, sal_Unicode cCh,
-                                short eAdjust,
+                                sal_Int16 eAdjust,
                                 const SwTableAutoFormat* );
 
     // text to table conversion - API support
@@ -1225,8 +1234,8 @@ public:
     // Change (replace) a table style named rName. Tracked by undo.
     void ChgTableStyle(const OUString& rName, const SwTableAutoFormat& rNewFormat);
 
-    const SwCellStyleTable& GetCellStyles() const  { return *mpCellStyles.get(); }
-          SwCellStyleTable& GetCellStyles()        { return *mpCellStyles.get(); }
+    const SwCellStyleTable& GetCellStyles() const  { return *mpCellStyles; }
+          SwCellStyleTable& GetCellStyles()        { return *mpCellStyles; }
 
     void AppendUndoForInsertFromDB( const SwPaM& rPam, bool bIsTable );
 
@@ -1307,7 +1316,7 @@ public:
 
     // insert section (the ODF kind of section, not the nodesarray kind)
     SwSection * InsertSwSection(SwPaM const& rRange, SwSectionData &,
-            SwTOXBase const*const pTOXBase,
+            std::pair<SwTOXBase const*, sw::RedlineMode> const* pTOXBase,
             SfxItemSet const*const pAttr, bool const bUpdate = true);
     static sal_uInt16 IsInsRegionAvailable( const SwPaM& rRange,
                                 const SwNode** ppSttNd = nullptr );
@@ -1507,7 +1516,7 @@ public:
     SwExtTextInput* GetExtTextInput() const;
 
     // Interface for access to AutoComplete-List.
-    static SwAutoCompleteWord& GetAutoCompleteWords() { return *mpACmpltWords; }
+    static SwAutoCompleteWord& GetAutoCompleteWords() { return *s_pAutoCompleteWords; }
 
     bool ContainsMSVBasic() const          { return mbContains_MSVBasic; }
     void SetContainsMSVBasic( bool bFlag )  { mbContains_MSVBasic = bFlag; }
@@ -1608,7 +1617,7 @@ public:
     /**
      * Dumps the entire nodes structure to the given destination (file nodes.xml in the current directory by default)
      */
-    void dumpAsXml(struct _xmlTextWriter* = nullptr) const;
+    void dumpAsXml(xmlTextWriterPtr = nullptr) const;
 
     std::set<Color> GetDocColors();
     std::vector< std::weak_ptr<SwUnoCursor> > mvUnoCursorTable;
@@ -1629,6 +1638,11 @@ public:
      * @returns true if new background checking jobs were started
      */
     bool StartGrammarChecking( bool bSkipStart = false );
+
+    /// Use to notify if the dictionary can be found for a single content portion (has to be called for all portions)
+    void SetMissingDictionaries( bool bIsMissing );
+    /// Returns true if no dictionary can be found for any content
+    bool IsDictionaryMissing() { return meDictionaryMissing == MissingDictionary::True; }
 
 private:
     // Copies master header to left / first one, if necessary - used by ChgPageDesc().

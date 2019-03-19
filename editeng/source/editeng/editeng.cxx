@@ -887,7 +887,7 @@ const EditDoc& EditEngine::GetEditDoc() const
     return pImpEditEngine->GetEditDoc();
 }
 
-void EditEngine::dumpAsXmlEditDoc(struct _xmlTextWriter* pWriter) const
+void EditEngine::dumpAsXmlEditDoc(xmlTextWriterPtr pWriter) const
 {
     pImpEditEngine->GetEditDoc().dumpAsXml(pWriter);
 }
@@ -1442,7 +1442,7 @@ sal_uInt32 EditEngine::CalcTextWidth()
         pImpEditEngine->FormatDoc();
 
     sal_uInt32 nWidth = !IsVertical() ? pImpEditEngine->CalcTextWidth( true ) : pImpEditEngine->GetTextHeight();
-     return nWidth;
+    return nWidth;
 }
 
 void EditEngine::SetUpdateMode( bool bUpdate )

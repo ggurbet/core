@@ -17,12 +17,17 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/xml/dom/SAXDocumentBuilder.hpp>
 #include <com/sun/star/xml/dom/XSAXDocumentBuilder2.hpp>
 #include <com/sun/star/xml/xpath/XPathAPI.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
+#include <com/sun/star/document/XDocumentProperties.hpp>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <rtl/character.hxx>
@@ -236,8 +241,8 @@ void SvXMLMetaDocumentContext::setBuildId(OUString const& i_rBuildId, const uno:
                 if ( nBegin != -1 )
                 {
                     sBuffer.append( '$' );
-                    sBuffer.appendCopy( i_rBuildId,
-                        nBegin + sBuildCompare.getLength() );
+                    sBuffer.append( std::u16string_view(i_rBuildId).substr(
+                        nBegin + sBuildCompare.getLength()) );
                     sBuildId = sBuffer.makeStringAndClear();
                 }
             }

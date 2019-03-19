@@ -123,18 +123,6 @@ namespace sdr
 
             for(const auto& rRect : aRectangles)
             {
-#ifdef DBG_UTIL
-                // #i72754# possible graphical region test only with non-pro
-                static bool bDoPaintForVisualControl(false);
-
-                if(bDoPaintForVisualControl)
-                {
-                    getOutputDevice().SetLineColor(COL_LIGHTGREEN);
-                    getOutputDevice().SetFillColor();
-                    getOutputDevice().DrawRect(rRect);
-                }
-#endif
-
                 // restore the area
                 const Point aTopLeft(rRect.TopLeft());
                 const Size aSize(rRect.GetSize());
@@ -142,7 +130,7 @@ namespace sdr
                 getOutputDevice().DrawOutDev(
                     aTopLeft, aSize, // destination
                     aTopLeft, aSize, // source
-                    *mpBufferDevice.get());
+                    *mpBufferDevice);
             }
 
             // restore MapModes
@@ -294,7 +282,7 @@ namespace sdr
                         mpOutputBufferDevice->DrawOutDev(
                             aTopLeft, aSize, // destination
                             aTopLeft, aSize, // source
-                            *mpBufferDevice.get());
+                            *mpBufferDevice);
 
                         // restore MapModes
                         mpBufferDevice->EnableMapMode(bMapModeWasEnabledDest);
@@ -303,7 +291,7 @@ namespace sdr
                     // paint overlay content for remembered region, use
                     // method from base class directly
                     mpOutputBufferDevice->EnableMapMode();
-                    OverlayManager::ImpDrawMembers(aBufferRememberedRangeLogic, *mpOutputBufferDevice.get());
+                    OverlayManager::ImpDrawMembers(aBufferRememberedRangeLogic, *mpOutputBufferDevice);
                     mpOutputBufferDevice->EnableMapMode(false);
 
                     // copy to output
@@ -314,7 +302,7 @@ namespace sdr
                         getOutputDevice().DrawOutDev(
                             aTopLeft, aSize, // destination
                             aTopLeft, aSize, // source
-                            *mpOutputBufferDevice.get());
+                            *mpOutputBufferDevice);
 
                         // debug
                         /*getOutputDevice().SetLineCOL_RED);

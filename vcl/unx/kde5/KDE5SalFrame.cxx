@@ -85,7 +85,9 @@ static vcl::Font toFont(const QFont& rQFont, const css::lang::Locale& rLocale)
 
     // set width
     int nStretch = rQFont.stretch();
-    if (nStretch <= QFont::UltraCondensed)
+    if (nStretch == 0) // QFont::AnyStretch since Qt 5.8
+        aInfo.m_eWidth = WIDTH_DONTKNOW;
+    else if (nStretch <= QFont::UltraCondensed)
         aInfo.m_eWidth = WIDTH_ULTRA_CONDENSED;
     else if (nStretch <= QFont::ExtraCondensed)
         aInfo.m_eWidth = WIDTH_EXTRA_CONDENSED;
@@ -208,7 +210,7 @@ SalGraphics* KDE5SalFrame::AcquireGraphics()
 
     if (!m_pKDE5Graphics.get())
     {
-        m_pKDE5Graphics.reset(new KDE5SalGraphics());
+        m_pKDE5Graphics.reset(new KDE5SalGraphics(this));
         Qt5Frame::InitSvpSalGraphics(m_pKDE5Graphics.get());
     }
 

@@ -17,15 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <math.h>
-
 #include <svl/zforlist.hxx>
 #include <osl/diagnose.h>
-#include <attrib.hxx>
 #include <dif.hxx>
 #include <docpool.hxx>
 #include <document.hxx>
-#include <filter.hxx>
 #include <fprogressbar.hxx>
 #include <ftools.hxx>
 #include <patattr.hxx>
@@ -654,14 +650,14 @@ void DifColumn::Apply( ScDocument& rDoc, const SCCOL nCol, const SCTAB nTab )
     ScPatternAttr aAttr( rDoc.GetPool() );
     SfxItemSet &rItemSet = aAttr.GetItemSet();
 
-    for (std::vector<ENTRY>::const_iterator it = maEntries.begin(); it != maEntries.end(); ++it)
+    for (const auto& rEntry : maEntries)
     {
-        OSL_ENSURE( it->nNumFormat > 0,
+        OSL_ENSURE( rEntry.nNumFormat > 0,
             "+DifColumn::Apply(): Number format must not be 0!" );
 
-        rItemSet.Put( SfxUInt32Item( ATTR_VALUE_FORMAT, it->nNumFormat ) );
+        rItemSet.Put( SfxUInt32Item( ATTR_VALUE_FORMAT, rEntry.nNumFormat ) );
 
-        rDoc.ApplyPatternAreaTab( nCol, it->nStart, nCol, it->nEnd, nTab, aAttr );
+        rDoc.ApplyPatternAreaTab( nCol, rEntry.nStart, nCol, rEntry.nEnd, nTab, aAttr );
 
         rItemSet.ClearItem();
     }

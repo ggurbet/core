@@ -22,10 +22,8 @@
 #include <tools/gen.hxx>
 #include <AccessiblePageHeaderArea.hxx>
 #include <AccessibleText.hxx>
-#include <AccessibilityHints.hxx>
 #include <editsrc.hxx>
 #include <prevwsh.hxx>
-#include <prevloc.hxx>
 #include <scresid.hxx>
 #include <strings.hrc>
 #include <strings.hxx>
@@ -36,10 +34,9 @@
 #include <editeng/editobj.hxx>
 #include <svx/AccessibleTextHelper.hxx>
 #include <unotools/accessiblestatesethelper.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <toolkit/helper/convert.hxx>
 #include <vcl/svapp.hxx>
-#include <o3tl/make_unique.hxx>
+
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
 
@@ -107,7 +104,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePageHeaderArea::getAccessible
     uno::Reference<XAccessible> xRet;
     if (containsPoint(rPoint))
     {
-         SolarMutexGuard aGuard;
+        SolarMutexGuard aGuard;
         IsObjectValid();
 
         if(!mpTextHelper)
@@ -276,8 +273,8 @@ void ScAccessiblePageHeaderArea::CreateTextHelper()
     if (!mpTextHelper)
     {
         mpTextHelper.reset( new ::accessibility::AccessibleTextHelper(
-            o3tl::make_unique<ScAccessibilityEditSource>(
-                o3tl::make_unique<ScAccessibleHeaderTextData>(
+            std::make_unique<ScAccessibilityEditSource>(
+                std::make_unique<ScAccessibleHeaderTextData>(
                     mpViewShell, mpEditObj.get(), meAdjust))) );
         mpTextHelper->SetEventSource(this);
     }

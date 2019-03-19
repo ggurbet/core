@@ -1523,8 +1523,16 @@ void ScTable::GetNextPos( SCCOL& rCol, SCROW& rRow, SCCOL nMovX, SCROW nMovY,
             const SCROW nRowAdd = (bUp ? -1 : 1);
             sal_uInt16 nWrap = 0;
 
-            for (SCCOL i = 0; i < nColCount; ++i)
-                pNextRows[i] = (i + nStartCol < nCol) ? (nRow + nRowAdd) : nRow;
+            if (bUp)
+            {
+                for (SCCOL i = 0; i < nColCount; ++i)
+                    pNextRows[i] = (i + nStartCol > nCol) ? (nRow + nRowAdd) : nRow;
+            }
+            else
+            {
+                for (SCCOL i = 0; i < nColCount; ++i)
+                    pNextRows[i] = (i + nStartCol < nCol) ? (nRow + nRowAdd) : nRow;
+            }
             do
             {
                 SCROW nNextRow = pNextRows[nCol - nStartCol] + nRowAdd;
@@ -1712,12 +1720,12 @@ void ScTable::UpdateReference(
         SCROW nERow = 0;
         bool bRecalcPages = false;
 
-        for ( ScRangeVec::iterator aIt = aPrintRanges.begin(), aEnd = aPrintRanges.end(); aIt != aEnd; ++aIt )
+        for ( auto& rPrintRange : aPrintRanges )
         {
-            nSCol = aIt->aStart.Col();
-            nSRow = aIt->aStart.Row();
-            nECol = aIt->aEnd.Col();
-            nERow = aIt->aEnd.Row();
+            nSCol = rPrintRange.aStart.Col();
+            nSRow = rPrintRange.aStart.Row();
+            nECol = rPrintRange.aEnd.Col();
+            nERow = rPrintRange.aEnd.Row();
 
             // do not try to modify sheet index of print range
             if ( ScRefUpdate::Update( pDocument, eUpdateRefMode,
@@ -1725,7 +1733,7 @@ void ScTable::UpdateReference(
                                       nDx,nDy,0,
                                       nSCol,nSRow,nSTab, nECol,nERow,nETab ) )
             {
-                *aIt = ScRange( nSCol, nSRow, 0, nECol, nERow, 0 );
+                rPrintRange = ScRange( nSCol, nSRow, 0, nECol, nERow, 0 );
                 bRecalcPages = true;
             }
         }
@@ -2276,7 +2284,7 @@ void ScTable::SetAnonymousDBData(std::unique_ptr<ScDBData> pDBData)
     pDBDataNoName = std::move(pDBData);
 }
 
-sal_uLong ScTable::AddCondFormat( ScConditionalFormat* pNew )
+sal_uLong ScTable::AddCondFormat( std::unique_ptr<ScConditionalFormat> pNew )
 {
     if(!mpCondFormatList)
         mpCondFormatList.reset(new ScConditionalFormatList());
@@ -2284,7 +2292,7 @@ sal_uLong ScTable::AddCondFormat( ScConditionalFormat* pNew )
     sal_uInt32 nMax = mpCondFormatList->getMaxKey();
 
     pNew->SetKey(nMax+1);
-    mpCondFormatList->InsertNew(pNew);
+    mpCondFormatList->InsertNew(std::move(pNew));
 
     return nMax + 1;
 }
@@ -2525,4 +2533,12 @@ ScColumnsRange ScTable::GetColumnsRange(SCCOL nColBegin, SCCOL nColEnd) const
                            ScColumnsRange::Iterator( aCol.begin() + nEffEnd));
 }
 
+// out-of-line the cold part of the CreateColumnIfNotExists function
+void ScTable::CreateColumnIfNotExistsImpl( const SCCOL nScCol )
+{
+    const SCCOL aOldColSize = aCol.size();
+    aCol.resize( static_cast< size_t >( nScCol + 1 ) );
+    for (SCCOL i = aOldColSize; i <= nScCol; i++)
+        aCol[i].Init( i, nTab, pDocument, false );
+}
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

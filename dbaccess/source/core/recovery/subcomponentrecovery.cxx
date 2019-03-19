@@ -32,6 +32,7 @@
 #include <com/sun/star/sdb/XFormDocumentsSupplier.hpp>
 #include <com/sun/star/sdb/XReportDocumentsSupplier.hpp>
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
+#include <com/sun/star/xml/sax/SAXException.hpp>
 
 #include <comphelper/namedvaluecollection.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -537,7 +538,7 @@ namespace dbaccess
         if ( xDocDefinition.is() )
         {
             Reference< XController > xController( m_xDocumentUI, UNO_QUERY_THROW );
-            rtl::Reference< SubComponentLoader >( new SubComponentLoader( xController, xDocDefinition ) );
+            rtl::Reference( new SubComponentLoader( xController, xDocDefinition ) );
         }
 
         return xSubComponent;
@@ -590,7 +591,7 @@ namespace dbaccess
         }
 
         Reference< XController > xController( m_xDocumentUI, UNO_QUERY_THROW );
-        rtl::Reference< SubComponentLoader >( new SubComponentLoader( xController, xSubComponent ) );
+        rtl::Reference( new SubComponentLoader( xController, xSubComponent ) );
 
         return xSubComponent;
     }

@@ -43,21 +43,15 @@ namespace comphelper
         }
     }
 
-    /// concat two sequences
-    template <class T>
-    inline css::uno::Sequence<T> concatSequences(const css::uno::Sequence<T>& _rLeft, const css::uno::Sequence<T>& _rRight)
+    /// concat several sequences
+    template <class T, class... Ss>
+    inline css::uno::Sequence<T> concatSequences(const css::uno::Sequence<T>& rS1, const Ss&... rSn)
     {
-        sal_Int32 nLeft(_rLeft.getLength()), nRight(_rRight.getLength());
-        const T* pLeft = _rLeft.getConstArray();
-        const T* pRight = _rRight.getConstArray();
-
-        sal_Int32 nReturnLen(nLeft + nRight);
-        css::uno::Sequence<T> aReturn(nReturnLen);
+        // unary fold to disallow empty parameter pack: at least have one sequence in rSn
+        css::uno::Sequence<T> aReturn(rS1.getLength() + (... + rSn.getLength()));
         T* pReturn = aReturn.getArray();
-
-        internal::implCopySequence(pLeft, pReturn, nLeft);
-        internal::implCopySequence(pRight, pReturn, nRight);
-
+        (internal::implCopySequence(rS1.getConstArray(), pReturn, rS1.getLength()), ...,
+         internal::implCopySequence(rSn.getConstArray(), pReturn, rSn.getLength()));
         return aReturn;
     }
 
@@ -89,27 +83,6 @@ namespace comphelper
         return ret;
     }
 
-    /// concat three sequences
-    template <class T>
-    inline css::uno::Sequence<T> concatSequences(const css::uno::Sequence<T>& _rLeft, const css::uno::Sequence<T>& _rMiddle, const css::uno::Sequence<T>& _rRight)
-    {
-        sal_Int32 nLeft(_rLeft.getLength()), nMiddle(_rMiddle.getLength()), nRight(_rRight.getLength());
-        const T* pLeft = _rLeft.getConstArray();
-        const T* pMiddle = _rMiddle.getConstArray();
-        const T* pRight = _rRight.getConstArray();
-
-        sal_Int32 nReturnLen(nLeft + nMiddle + nRight);
-        css::uno::Sequence<T> aReturn(nReturnLen);
-        T* pReturn = aReturn.getArray();
-
-        internal::implCopySequence(pLeft, pReturn, nLeft);
-        internal::implCopySequence(pMiddle, pReturn, nMiddle);
-        internal::implCopySequence(pRight, pReturn, nRight);
-
-        return aReturn;
-    }
-
-
     /// remove a specified element from a sequences
     template<class T>
     inline void removeElementAt(css::uno::Sequence<T>& _rSeq, sal_Int32 _nPos)
@@ -118,85 +91,10 @@ namespace comphelper
 
         OSL_ENSURE(0 <= _nPos && _nPos < nLength, "invalid index");
 
-        for (sal_Int32 i = _nPos + 1; i < nLength; ++i)
-        {
-            _rSeq[i-1] = _rSeq[i];
-        }
+        T* pPos = _rSeq.getArray() + _nPos;
+        internal::implCopySequence(pPos + 1, pPos, nLength - _nPos - 1);
 
         _rSeq.realloc(nLength-1);
-    }
-
-
-    //= iterating through sequences
-
-    /** a helper class for iterating through a sequence
-    */
-    template <class TYPE>
-    class OSequenceIterator
-    {
-        const TYPE* m_pElements;
-        sal_Int32   m_nLen;
-        const TYPE* m_pCurrent;
-
-    public:
-        /** construct a sequence iterator from a sequence
-        */
-        OSequenceIterator(const css::uno::Sequence< TYPE >& _rSeq);
-        /** construct a sequence iterator from a Any containing a sequence
-        */
-        OSequenceIterator(const css::uno::Any& _rSequenceAny);
-
-        bool hasMoreElements() const;
-        css::uno::Any  nextElement();
-
-    private:
-        inline void construct(const css::uno::Sequence< TYPE >& _rSeq);
-    };
-
-
-    template <class TYPE>
-    inline OSequenceIterator<TYPE>::OSequenceIterator(const css::uno::Sequence< TYPE >& _rSeq)
-        :m_pElements(nullptr)
-        ,m_nLen(0)
-        ,m_pCurrent(nullptr)
-    {
-        construct(_rSeq);
-    }
-
-
-    template <class TYPE>
-    inline OSequenceIterator<TYPE>::OSequenceIterator(const css::uno::Any& _rSequenceAny)
-        :m_pElements(nullptr)
-        ,m_nLen(0)
-        ,m_pCurrent(nullptr)
-    {
-        css::uno::Sequence< TYPE > aContainer;
-        bool bSuccess = _rSequenceAny >>= aContainer;
-        OSL_ENSURE(bSuccess, "OSequenceIterator::OSequenceIterator: invalid Any!");
-        construct(aContainer);
-    }
-
-
-    template <class TYPE>
-    void OSequenceIterator<TYPE>::construct(const css::uno::Sequence< TYPE >& _rSeq)
-    {
-        m_pElements = _rSeq.getConstArray();
-        m_nLen = _rSeq.getLength();
-        m_pCurrent = m_pElements;
-    }
-
-
-    template <class TYPE>
-    inline bool OSequenceIterator<TYPE>::hasMoreElements() const
-    {
-        return m_pCurrent - m_pElements < m_nLen;
-    }
-
-
-    template <class TYPE>
-    inline css::uno::Any OSequenceIterator<TYPE>::nextElement()
-    {
-        return css::uno::toAny(*m_pCurrent++);
     }
 
     /** Copy from a plain C/C++ array into a Sequence.

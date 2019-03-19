@@ -745,8 +745,8 @@ std::shared_ptr<PresenterTheme::Theme> ReadContext::ReadTheme (
     std::shared_ptr<PresenterTheme::Theme> pTheme;
 
     OUString sCurrentThemeName (rsThemeName);
-     if (sCurrentThemeName.isEmpty())
-     {
+    if (sCurrentThemeName.isEmpty())
+    {
          // No theme name given.  Look up the CurrentTheme property.
          rConfiguration.GetConfigurationNode("Presenter/CurrentTheme") >>= sCurrentThemeName;
          if (sCurrentThemeName.isEmpty())
@@ -754,7 +754,7 @@ std::shared_ptr<PresenterTheme::Theme> ReadContext::ReadTheme (
              // Still no name.  Use "DefaultTheme".
              sCurrentThemeName = "DefaultTheme";
          }
-     }
+    }
 
     Reference<container::XNameAccess> xThemes (
         rConfiguration.GetConfigurationNode("Presenter/Themes"),
@@ -765,7 +765,7 @@ std::shared_ptr<PresenterTheme::Theme> ReadContext::ReadTheme (
         Sequence<OUString> aKeys (xThemes->getElementNames());
         for (sal_Int32 nItemIndex=0; nItemIndex < aKeys.getLength(); ++nItemIndex)
         {
-             const OUString& rsKey (aKeys[nItemIndex]);
+            const OUString& rsKey (aKeys[nItemIndex]);
             Reference<container::XHierarchicalNameAccess> xTheme (
                 xThemes->getByName(rsKey), UNO_QUERY);
             if (xTheme.is())
@@ -816,24 +816,24 @@ void PaneStyleContainer::Read (
             rxThemeRoot,
             "PaneStyles"),
         UNO_QUERY);
-    if (xPaneStyleList.is())
-    {
-        ::std::vector<OUString> aProperties;
-        aProperties.reserve(6);
-        aProperties.emplace_back("StyleName");
-        aProperties.emplace_back("ParentStyle");
-        aProperties.emplace_back("TitleFont");
-        aProperties.emplace_back("InnerBorderSize");
-        aProperties.emplace_back("OuterBorderSize");
-        aProperties.emplace_back("BorderBitmapList");
-        PresenterConfigurationAccess::ForAll(
-            xPaneStyleList,
-            aProperties,
-            [this, &rReadContext] (std::vector<uno::Any> const& rValues)
-            {
-                return this->ProcessPaneStyle(rReadContext, rValues);
-            });
-    }
+    if (!xPaneStyleList.is())
+        return;
+
+    ::std::vector<OUString> aProperties;
+    aProperties.reserve(6);
+    aProperties.emplace_back("StyleName");
+    aProperties.emplace_back("ParentStyle");
+    aProperties.emplace_back("TitleFont");
+    aProperties.emplace_back("InnerBorderSize");
+    aProperties.emplace_back("OuterBorderSize");
+    aProperties.emplace_back("BorderBitmapList");
+    PresenterConfigurationAccess::ForAll(
+        xPaneStyleList,
+        aProperties,
+        [this, &rReadContext] (std::vector<uno::Any> const& rValues)
+        {
+            return this->ProcessPaneStyle(rReadContext, rValues);
+        });
 }
 
 void PaneStyleContainer::ProcessPaneStyle(
@@ -1048,19 +1048,19 @@ void StyleAssociationContainer::Read (
             rxThemeRoot,
             "StyleAssociations"),
         UNO_QUERY);
-    if (xStyleAssociationList.is())
-    {
-        ::std::vector<OUString> aProperties (2);
-        aProperties[0] = "ResourceURL";
-        aProperties[1] = "StyleName";
-        PresenterConfigurationAccess::ForAll(
-            xStyleAssociationList,
-            aProperties,
-            [this] (std::vector<uno::Any> const& rValues)
-            {
-                return this->ProcessStyleAssociation(rValues);
-            });
-    }
+    if (!xStyleAssociationList.is())
+        return;
+
+    ::std::vector<OUString> aProperties (2);
+    aProperties[0] = "ResourceURL";
+    aProperties[1] = "StyleName";
+    PresenterConfigurationAccess::ForAll(
+        xStyleAssociationList,
+        aProperties,
+        [this] (std::vector<uno::Any> const& rValues)
+        {
+            return this->ProcessStyleAssociation(rValues);
+        });
 }
 
 OUString StyleAssociationContainer::GetStyleName (const OUString& rsResourceName) const

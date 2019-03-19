@@ -99,7 +99,7 @@ OUString lcl_makeStringFromBigint(const std::vector<sal_uInt8>& bytes)
             byte = ~byte;
         // add 1 to byte array
         // FIXME e.g. 10000 valid ?
-        for (size_t i = aBytes.size() - 1; i != 0; ++i)
+        for (size_t i = aBytes.size() - 1; i != 0; --i)
         {
             aBytes[i] += 1;
             if (aBytes[i] != 0)
@@ -133,8 +133,6 @@ using namespace css::sdbc;
 using namespace css::io;
 using namespace boost::posix_time;
 using namespace boost::gregorian;
-
-typedef std::vector<ColumnDefinition> ColumnTypeVector;
 
 HsqlRowInputStream::HsqlRowInputStream() {}
 
@@ -239,7 +237,7 @@ bool HsqlRowInputStream::checkNull()
     return nNull == 0;
 }
 
-std::vector<Any> HsqlRowInputStream::readOneRow(const ColumnTypeVector& nColTypes)
+std::vector<Any> HsqlRowInputStream::readOneRow(const std::vector<ColumnDefinition>& nColTypes)
 {
     auto nLen = nColTypes.size();
     std::vector<Any> aData;

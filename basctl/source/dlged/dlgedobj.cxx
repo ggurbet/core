@@ -236,11 +236,9 @@ bool DlgEdObj::TransformControlToSdrCoordinates(
     DBG_ASSERT( xPSetForm.is(), "DlgEdObj::TransformControlToSdrCoordinates: no form property set!" );
     if ( !xPSetForm.is() )
         return false;
-    sal_Int32 nFormX = 0, nFormY = 0, nFormWidth, nFormHeight;
+    sal_Int32 nFormX = 0, nFormY = 0;
     xPSetForm->getPropertyValue( DLGED_PROP_POSITIONX ) >>= nFormX;
     xPSetForm->getPropertyValue( DLGED_PROP_POSITIONY ) >>= nFormY;
-    xPSetForm->getPropertyValue( DLGED_PROP_WIDTH ) >>= nFormWidth;
-    xPSetForm->getPropertyValue( DLGED_PROP_HEIGHT ) >>= nFormHeight;
     Size aFormPos( nFormX, nFormY );
 
     // convert logic units to pixel
@@ -556,7 +554,7 @@ void DlgEdObj::TabIndexChange( const beans::PropertyChangeEvent& evt )
                 sal_Int16 nTabIndex = -1;
                 Any aCtrl = xNameAcc->getByName( aName );
                 Reference< beans::XPropertySet > xPSet;
-                   aCtrl >>= xPSet;
+                aCtrl >>= xPSet;
                 if ( xPSet.is() && xPSet == Reference< beans::XPropertySet >( evt.Source, UNO_QUERY ) )
                     evt.OldValue >>= nTabIndex;
                 else if ( xPSet.is() )
@@ -594,7 +592,7 @@ void DlgEdObj::TabIndexChange( const beans::PropertyChangeEvent& evt )
             {
                 Any aCtrl = xNameAcc->getByName( aNameList[i] );
                 Reference< beans::XPropertySet > xPSet;
-                   aCtrl >>= xPSet;
+                aCtrl >>= xPSet;
                 if ( xPSet.is() )
                 {
                     assert(i >= SAL_MIN_INT16);
@@ -721,6 +719,14 @@ OUString DlgEdObj::GetDefaultName() const
     {
         sResId = RID_STR_CLASS_TREECONTROL;
     }
+    else if ( supportsService( "com.sun.star.awt.grid.UnoControlGridModel" ) )
+    {
+        sResId = RID_STR_CLASS_GRIDCONTROL;
+    }
+    else if ( supportsService( "com.sun.star.awt.UnoControlFixedHyperlinkModel" ) )
+    {
+        sResId = RID_STR_CLASS_HYPERLINKCONTROL;
+    }
     else if ( supportsService( "com.sun.star.awt.UnoControlSpinButtonModel" ) )
     {
         sResId = RID_STR_CLASS_SPINCONTROL;
@@ -846,6 +852,14 @@ sal_uInt16 DlgEdObj::GetObjIdentifier() const
     {
         return OBJ_DLG_TREECONTROL;
     }
+    else if ( supportsService( "com.sun.star.awt.grid.UnoControlGridModel" ))
+    {
+        return OBJ_DLG_GRIDCONTROL;
+    }
+    else if ( supportsService( "com.sun.star.awt.UnoControlFixedHyperlinkModel" ))
+    {
+        return OBJ_DLG_HYPERLINKCONTROL;
+    }
     else
     {
         return OBJ_DLG_CONTROL;
@@ -873,7 +887,7 @@ void DlgEdObj::clonedFrom(const DlgEdObj* _pSource)
         if ( xCont.is() )
         {
             // set tabindex
-               Sequence< OUString > aNames = xCont->getElementNames();
+            Sequence< OUString > aNames = xCont->getElementNames();
             xPSet->setPropertyValue( DLGED_PROP_TABINDEX, Any(static_cast<sal_Int16>(aNames.getLength())) );
 
             // insert control model in dialog model
@@ -1013,7 +1027,7 @@ void DlgEdObj::SetDefaults()
             if ( xCont.is() )
             {
                 // set tabindex
-                   Sequence< OUString > aNames = xCont->getElementNames();
+                Sequence< OUString > aNames = xCont->getElementNames();
                 uno::Any aTabIndex;
                 aTabIndex <<= static_cast<sal_Int16>(aNames.getLength());
                 xPSet->setPropertyValue( DLGED_PROP_TABINDEX, aTabIndex );
@@ -1436,7 +1450,7 @@ void DlgEdForm::UpdateTabIndices()
             sal_Int16 nTabIndex = -1;
             Any aCtrl = xNameAcc->getByName( aName );
             Reference< css::beans::XPropertySet > xPSet;
-               aCtrl >>= xPSet;
+            aCtrl >>= xPSet;
             if ( xPSet.is() )
                 xPSet->getPropertyValue( DLGED_PROP_TABINDEX ) >>= nTabIndex;
 
@@ -1450,7 +1464,7 @@ void DlgEdForm::UpdateTabIndices()
         {
             Any aCtrl = xNameAcc->getByName( indexToName.second );
             Reference< beans::XPropertySet > xPSet;
-               aCtrl >>= xPSet;
+            aCtrl >>= xPSet;
             if ( xPSet.is() )
             {
                 xPSet->setPropertyValue( DLGED_PROP_TABINDEX, Any(nNewTabIndex) );

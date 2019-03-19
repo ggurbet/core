@@ -77,6 +77,7 @@
 #include <sfx2/templdlg.hxx>
 #include <svl/aeitem.hxx>
 #include <basic/sbstar.hxx>
+#include <basic/sberrors.hxx>
 #include <xmloff/autolayout.hxx>
 
 using namespace ::com::sun::star;
@@ -151,33 +152,33 @@ void  ViewShell::GetMenuState( SfxItemSet &rSet )
         }
     }
 
-    if(SfxItemState::DEFAULT == rSet.GetItemState(SID_REDO))
+    if(SfxItemState::DEFAULT != rSet.GetItemState(SID_REDO))
+        return;
+
+    SfxUndoManager* pUndoManager = ImpGetUndoManager();
+    if(!pUndoManager)
+        return;
+
+    if(pUndoManager->GetRedoActionCount() != 0)
     {
-        SfxUndoManager* pUndoManager = ImpGetUndoManager();
-        if(pUndoManager)
+        // If another view created the first undo action, prevent redoing it from this view.
+        const SfxUndoAction* pAction = pUndoManager->GetRedoAction();
+        if (pAction->GetViewShellId() != GetViewShellBase().GetViewShellId())
         {
-            if(pUndoManager->GetRedoActionCount() != 0)
-            {
-                // If another view created the first undo action, prevent redoing it from this view.
-                const SfxUndoAction* pAction = pUndoManager->GetRedoAction();
-                if (pAction->GetViewShellId() != GetViewShellBase().GetViewShellId())
-                {
-                    rSet.Put(SfxUInt32Item(SID_REDO, static_cast<sal_uInt32>(SID_REPAIRPACKAGE)));
-                }
-                else
-                {
-                    // Set the necessary string like in
-                    // sfx2/source/view/viewfrm.cxx ver 1.23 ln 1081 ff.
-                    OUString aTmp(SvtResId(STR_REDO));
-                    aTmp += pUndoManager->GetRedoActionComment();
-                    rSet.Put(SfxStringItem(SID_REDO, aTmp));
-                }
-            }
-            else
-            {
-                rSet.DisableItem(SID_REDO);
-            }
+            rSet.Put(SfxUInt32Item(SID_REDO, static_cast<sal_uInt32>(SID_REPAIRPACKAGE)));
         }
+        else
+        {
+            // Set the necessary string like in
+            // sfx2/source/view/viewfrm.cxx ver 1.23 ln 1081 ff.
+            OUString aTmp(SvtResId(STR_REDO));
+            aTmp += pUndoManager->GetRedoActionComment();
+            rSet.Put(SfxStringItem(SID_REDO, aTmp));
+        }
+    }
+    else
+    {
+        rSet.DisableItem(SID_REDO);
     }
 }
 

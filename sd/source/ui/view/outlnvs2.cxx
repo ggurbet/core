@@ -384,6 +384,7 @@ void OutlineViewShell::FuTemporaryModify(SfxRequest &rReq)
         case FN_INSERT_SOFT_HYPHEN:
         case FN_INSERT_HARDHYPHEN:
         case FN_INSERT_HARD_SPACE:
+        case FN_INSERT_NNBSP:
         case SID_INSERT_RLM :
         case SID_INSERT_LRM :
         case SID_INSERT_ZWNBSP :
@@ -570,7 +571,7 @@ void OutlineViewShell::FuTemporaryModify(SfxRequest &rReq)
                 // Dialog...
                 SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
                 vcl::Window* pWin = GetActiveWindow();
-                ScopedVclPtr<AbstractSdModifyFieldDlg> pDlg(pFact ? pFact->CreateSdModifyFieldDlg(pWin ? pWin->GetFrameWeld() : nullptr, pFldItem->GetField(), pOutlinerView->GetAttribs() ) : nullptr);
+                ScopedVclPtr<AbstractSdModifyFieldDlg> pDlg(pFact->CreateSdModifyFieldDlg(pWin ? pWin->GetFrameWeld() : nullptr, pFldItem->GetField(), pOutlinerView->GetAttribs() ));
                 if( pDlg->Execute() == RET_OK )
                 {
                     std::unique_ptr<SvxFieldData> pField(pDlg->GetField());

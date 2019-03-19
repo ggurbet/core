@@ -69,7 +69,7 @@
 #include <svx/xpoly.hxx>
 #include <unotools/syslocale.hxx>
 #include <unotools/localedatawrapper.hxx>
-#include <o3tl/make_unique.hxx>
+#include <vcl/ptrstyle.hxx>
 
 
 SdrMeasureObjGeoData::SdrMeasureObjGeoData() {}
@@ -188,7 +188,7 @@ OUString SdrMeasureObj::TakeRepresentation(SdrMeasureFieldKind eMeasureFieldKind
 
 std::unique_ptr<sdr::properties::BaseProperties> SdrMeasureObj::CreateObjectSpecificProperties()
 {
-    return o3tl::make_unique<sdr::properties::MeasureProperties>(*this);
+    return std::make_unique<sdr::properties::MeasureProperties>(*this);
 }
 
 
@@ -196,7 +196,7 @@ std::unique_ptr<sdr::properties::BaseProperties> SdrMeasureObj::CreateObjectSpec
 
 std::unique_ptr<sdr::contact::ViewContact> SdrMeasureObj::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfSdrMeasureObj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrMeasureObj>(*this);
 }
 
 
@@ -266,8 +266,6 @@ struct ImpMeasureRec : public SdrDragStatUserData
     bool                        bBelowRefEdge;
     bool                        bTextRota90;
     bool                        bTextUpsideDown;
-    Fraction                    aMeasureScale;
-    OUString                    aFormatString;
     bool                        bTextAutoAngle;
     long                        nTextAutoAngleView;
 };
@@ -321,8 +319,6 @@ void SdrMeasureObj::ImpTakeAttr(ImpMeasureRec& rRec) const
     rRec.bBelowRefEdge     =rSet.Get(SDRATTR_MEASUREBELOWREFEDGE    ).GetValue();
     rRec.bTextRota90       =rSet.Get(SDRATTR_MEASURETEXTROTA90      ).GetValue();
     rRec.bTextUpsideDown   =static_cast<const SdrMeasureTextUpsideDownItem&   >(rSet.Get(SDRATTR_MEASURETEXTUPSIDEDOWN  )).GetValue();
-    rRec.aMeasureScale     =rSet.Get(SDRATTR_MEASURESCALE           ).GetValue();
-    rRec.aFormatString     =rSet.Get(SDRATTR_MEASUREFORMATSTRING    ).GetValue();
     rRec.bTextAutoAngle    =rSet.Get(SDRATTR_MEASURETEXTAUTOANGLE    ).GetValue();
     rRec.nTextAutoAngleView=static_cast<const SdrMeasureTextAutoAngleViewItem&>(rSet.Get(SDRATTR_MEASURETEXTAUTOANGLEVIEW)).GetValue();
 }
@@ -421,7 +417,7 @@ void SdrMeasureObj::ImpCalcGeometrics(const ImpMeasureRec& rRec, ImpMeasurePoly&
     rPol.nArrow2Len=nArrow2Len;
 
     rPol.nLineAngle=GetAngle(aDelt);
-    double a=rPol.nLineAngle*nPi180;
+    double a = rPol.nLineAngle * F_PI18000;
     double nLineSin=sin(a);
     double nLineCos=cos(a);
     rPol.nLineSin=nLineSin;
@@ -883,7 +879,7 @@ OUString SdrMeasureObj::getSpecialDragComment(const SdrDragStat& /*rDrag*/) cons
 void SdrMeasureObj::ImpEvalDrag(ImpMeasureRec& rRec, const SdrDragStat& rDrag) const
 {
     long nLineAngle=GetAngle(rRec.aPt2-rRec.aPt1);
-    double a=nLineAngle*nPi180;
+    double a = nLineAngle * F_PI18000;
     double nSin=sin(a);
     double nCos=cos(a);
 
@@ -1000,9 +996,9 @@ basegfx::B2DPolyPolygon SdrMeasureObj::TakeCreatePoly(const SdrDragStat& /*rDrag
     return ImpCalcXPoly(aMPol);
 }
 
-Pointer SdrMeasureObj::GetCreatePointer() const
+PointerStyle SdrMeasureObj::GetCreatePointer() const
 {
-    return Pointer(PointerStyle::Cross);
+    return PointerStyle::Cross;
 }
 
 void SdrMeasureObj::NbcMove(const Size& rSiz)

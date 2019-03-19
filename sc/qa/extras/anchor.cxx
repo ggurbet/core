@@ -7,10 +7,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <test/calc_unoapi_test.hxx>
+#include <sfx2/dispatch.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdpage.hxx>
-#include <sfx2/dispatch.hxx>
+#include <test/calc_unoapi_test.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
@@ -18,18 +18,18 @@
 #include <com/sun/star/text/XText.hpp>
 #include <unonames.hxx>
 
-#include <tabvwsh.hxx>
 #include <docsh.hxx>
-#include <svx/svdocirc.hxx>
-#include <scitems.hxx>
 #include <drwlayer.hxx>
+#include <scitems.hxx>
+#include <svx/svdocirc.hxx>
+#include <tabvwsh.hxx>
 
 #include <sc.hrc>
 
 using namespace css;
 
-namespace sc_apitest {
-
+namespace sc_apitest
+{
 class ScAnchorTest : public CalcUnoApiTest
 {
 public:
@@ -41,16 +41,18 @@ public:
     void testTdf76183();
     void testODFAnchorTypes();
     void testCopyColumnWithImages();
+    void testCutWithImages();
 
     CPPUNIT_TEST_SUITE(ScAnchorTest);
     CPPUNIT_TEST(testUndoAnchor);
     CPPUNIT_TEST(testTdf76183);
     CPPUNIT_TEST(testODFAnchorTypes);
     CPPUNIT_TEST(testCopyColumnWithImages);
+    CPPUNIT_TEST(testCutWithImages);
     CPPUNIT_TEST_SUITE_END();
-private:
 
-    uno::Reference< lang::XComponent > mxComponent;
+private:
+    uno::Reference<lang::XComponent> mxComponent;
 };
 
 ScAnchorTest::ScAnchorTest()
@@ -58,13 +60,12 @@ ScAnchorTest::ScAnchorTest()
 {
 }
 
-
 void ScAnchorTest::testUndoAnchor()
 {
     OUString aFileURL;
     createFileURL("document_with_linked_graphic.ods", aFileURL);
     // open the document with graphic included
-    uno::Reference< css::lang::XComponent > xComponent = loadFromDesktop(aFileURL);
+    uno::Reference<css::lang::XComponent> xComponent = loadFromDesktop(aFileURL);
     CPPUNIT_ASSERT(xComponent.is());
 
     // Get the document model
@@ -79,7 +80,7 @@ void ScAnchorTest::testUndoAnchor()
     ScDrawLayer* pDrawLayer = rDoc.GetDrawLayer();
     CPPUNIT_ASSERT(pDrawLayer);
 
-    const SdrPage *pPage = pDrawLayer->GetPage(0);
+    const SdrPage* pPage = pDrawLayer->GetPage(0);
     CPPUNIT_ASSERT(pPage);
 
     SdrGrafObj* pObject = dynamic_cast<SdrGrafObj*>(pPage->GetObj(0));
@@ -100,7 +101,7 @@ void ScAnchorTest::testUndoAnchor()
 
     // Select graphic object
     pDrawView->MarkNextObj();
-    CPPUNIT_ASSERT(pDrawView->AreObjectsMarked() );
+    CPPUNIT_ASSERT(pDrawView->AreObjectsMarked());
 
     // Set Cell Anchor
     ScDrawLayer::SetCellAnchoredFromPosition(*pObject, rDoc, 0, false);
@@ -161,12 +162,12 @@ void ScAnchorTest::testUndoAnchor()
 
 void ScAnchorTest::testTdf76183()
 {
-    uno::Reference< lang::XComponent > xComponent = loadFromDesktop("private:factory/scalc");
+    uno::Reference<lang::XComponent> xComponent = loadFromDesktop("private:factory/scalc");
     SfxObjectShell* pFoundShell = SfxObjectShell::GetShellFromComponent(xComponent);
     ScDocShell* pDocSh = dynamic_cast<ScDocShell*>(pFoundShell);
     ScDocument& rDoc = pDocSh->GetDocument();
     ScDrawLayer* pDrawLayer = rDoc.GetDrawLayer();
-    SdrPage *pPage = pDrawLayer->GetPage(0);
+    SdrPage* pPage = pDrawLayer->GetPage(0);
 
     // Add a circle somewhere below first row.
     const tools::Rectangle aOrigRect = tools::Rectangle(1000, 1000, 1200, 1200);
@@ -196,7 +197,7 @@ void ScAnchorTest::testODFAnchorTypes()
     OUString aFileURL;
     createFileURL("3AnchorTypes.ods", aFileURL);
     // open the document with graphic included
-    uno::Reference< css::lang::XComponent > xComponent = loadFromDesktop(aFileURL);
+    uno::Reference<css::lang::XComponent> xComponent = loadFromDesktop(aFileURL);
     CPPUNIT_ASSERT(xComponent.is());
 
     // Get the document model
@@ -211,7 +212,7 @@ void ScAnchorTest::testODFAnchorTypes()
     ScDrawLayer* pDrawLayer = rDoc.GetDrawLayer();
     CPPUNIT_ASSERT(pDrawLayer);
 
-    const SdrPage *pPage = pDrawLayer->GetPage(0);
+    const SdrPage* pPage = pDrawLayer->GetPage(0);
     CPPUNIT_ASSERT(pPage);
 
     // Check 1st object: Page anchored
@@ -226,7 +227,7 @@ void ScAnchorTest::testODFAnchorTypes()
     anchorType = ScDrawLayer::GetAnchorType(*pObject);
     CPPUNIT_ASSERT_EQUAL(SCA_CELL_RESIZE, anchorType);
 
-     // Check 3rd object: Cell anchored
+    // Check 3rd object: Cell anchored
     pObject = dynamic_cast<SdrGrafObj*>(pPage->GetObj(2));
     CPPUNIT_ASSERT(pObject);
     anchorType = ScDrawLayer::GetAnchorType(*pObject);
@@ -308,6 +309,65 @@ void ScAnchorTest::testCopyColumnWithImages()
     pDocSh->DoClose();
 }
 
+void ScAnchorTest::testCutWithImages()
+{
+    OUString aFileURL;
+    createFileURL("3AnchorTypes.ods", aFileURL);
+    // open the document with graphic included
+    uno::Reference<css::lang::XComponent> xComponent = loadFromDesktop(aFileURL);
+    CPPUNIT_ASSERT(xComponent.is());
+
+    // Get the document model
+    SfxObjectShell* pFoundShell = SfxObjectShell::GetShellFromComponent(xComponent);
+    CPPUNIT_ASSERT_MESSAGE("Failed to access document shell", pFoundShell);
+
+    ScDocShell* pDocSh = dynamic_cast<ScDocShell*>(pFoundShell);
+    CPPUNIT_ASSERT(pDocSh);
+
+    ScDocument* pDoc = &(pDocSh->GetDocument());
+    ScDrawLayer* pDrawLayer = pDoc->GetDrawLayer();
+    CPPUNIT_ASSERT(pDrawLayer);
+
+    // Get the document controller
+    ScTabViewShell* pViewShell = pDocSh->GetBestViewShell(false);
+    CPPUNIT_ASSERT(pViewShell != nullptr);
+
+    // Cut whole column
+    {
+        // Cut source range
+        ScRange aSrcRange;
+        aSrcRange.Parse("A1:A11", pDoc, pDoc->GetAddressConvention());
+        pViewShell->GetViewData().GetMarkData().SetMarkArea(aSrcRange);
+        pViewShell->GetViewData().GetView()->CutToClip();
+
+        std::map<SCROW, std::vector<SdrObject*>> aRowObjects
+            = pDrawLayer->GetObjectsAnchoredToRange(0, 0, 0, 11);
+
+        // Images should have been removed from the cells
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("There should be no image anchored to A3", 0,
+                                     static_cast<int>(aRowObjects[2].size()));
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("There should be no image anchored to A11", 0,
+                                     static_cast<int>(aRowObjects[10].size()));
+    }
+
+    // Cut individual cells
+    {
+        // Cut source cells
+        ScRange aSrcRange;
+        aSrcRange.Parse("A3:B3", pDoc, pDoc->GetAddressConvention());
+        pViewShell->GetViewData().GetMarkData().SetMarkArea(aSrcRange);
+        pViewShell->GetViewData().GetView()->CutToClip();
+
+        // Image should have been removed from the cell
+        std::map<SCROW, std::vector<SdrObject*>> aRowObjects
+            = pDrawLayer->GetObjectsAnchoredToRange(0, 0, 2, 2);
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("There should be no image anchored to A3", 0,
+                                     static_cast<int>(aRowObjects[2].size()));
+    }
+
+    pDocSh->DoClose();
+}
+
 void ScAnchorTest::tearDown()
 {
     if (mxComponent.is())
@@ -319,7 +379,6 @@ void ScAnchorTest::tearDown()
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScAnchorTest);
-
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

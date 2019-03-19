@@ -58,7 +58,6 @@
 #include <hints.hxx>
 #include <memory>
 #include "ndsect.hxx"
-#include <o3tl/make_unique.hxx>
 #include <tools/datetimeutils.hxx>
 
 // #i21457# - new implementation of local method <lcl_IsInSameTableBox(..)>.
@@ -153,7 +152,7 @@ static void lcl_CheckEmptyLayFrame( SwNodes const & rNds, SwSectionData& rSectio
 
 SwSection *
 SwDoc::InsertSwSection(SwPaM const& rRange, SwSectionData & rNewData,
-                       SwTOXBase const*const pTOXBase,
+       std::pair<SwTOXBase const*, sw::RedlineMode> const*const pTOXBaseAndMode,
                        SfxItemSet const*const pAttr, bool const bUpdate)
 {
     const SwNode* pPrvNd = nullptr;
@@ -186,7 +185,7 @@ SwDoc::InsertSwSection(SwPaM const& rRange, SwSectionData & rNewData,
     bool const bUndo(GetIDocumentUndoRedo().DoesUndo());
     if (bUndo)
     {
-        pUndoInsSect = new SwUndoInsSection(rRange, rNewData, pAttr, pTOXBase);
+        pUndoInsSect = new SwUndoInsSection(rRange, rNewData, pAttr, pTOXBaseAndMode);
         GetIDocumentUndoRedo().AppendUndo( std::unique_ptr<SwUndo>(pUndoInsSect) );
         GetIDocumentUndoRedo().DoUndo(false);
     }
@@ -197,6 +196,7 @@ SwDoc::InsertSwSection(SwPaM const& rRange, SwSectionData & rNewData,
         pFormat->SetFormatAttr( *pAttr );
     }
 
+    SwTOXBase const*const pTOXBase(pTOXBaseAndMode ? pTOXBaseAndMode->first : nullptr);
     SwSectionNode* pNewSectNode = nullptr;
 
     RedlineFlags eOld = getIDocumentRedlineAccess().GetRedlineFlags();
@@ -354,7 +354,7 @@ SwDoc::InsertSwSection(SwPaM const& rRange, SwSectionData & rNewData,
     if( !GetFootnoteIdxs().empty() && pAttr )
     {
         sal_uInt16 nVal = pAttr->Get( RES_FTN_AT_TXTEND ).GetValue();
-           if( ( FTNEND_ATTXTEND_OWNNUMSEQ == nVal ||
+        if( ( FTNEND_ATTXTEND_OWNNUMSEQ == nVal ||
               FTNEND_ATTXTEND_OWNNUMANDFMT == nVal ) ||
             ( FTNEND_ATTXTEND_OWNNUMSEQ == ( nVal = pAttr->Get( RES_END_AT_TXTEND ).GetValue() ) ||
               FTNEND_ATTXTEND_OWNNUMANDFMT == nVal ))
@@ -537,7 +537,7 @@ void SwDoc::DelSectionFormat( SwSectionFormat *pFormat, bool bDelNodes )
             {
                 SwNodeIndex aUpdIdx( *pIdx );
                 SwPaM aPaM( *pSectNd->EndOfSectionNode(), *pSectNd );
-                GetIDocumentUndoRedo().AppendUndo( o3tl::make_unique<SwUndoDelete>( aPaM ));
+                GetIDocumentUndoRedo().AppendUndo( std::make_unique<SwUndoDelete>( aPaM ));
                 if( pFootnoteEndAtTextEnd )
                     GetFootnoteIdxs().UpdateFootnote( aUpdIdx );
                 getIDocumentState().SetModified();

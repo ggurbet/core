@@ -1091,14 +1091,13 @@ void SAL_CALL ScDataPilotTableObj::release() throw()
 
 Sequence< uno::Type > SAL_CALL ScDataPilotTableObj::getTypes()
 {
-    static const Sequence< uno::Type > aTypes = comphelper::concatSequences(
+    return comphelper::concatSequences(
         ScDataPilotDescriptorBase::getTypes(),
         Sequence< uno::Type >
         {
             cppu::UnoType<XDataPilotTable2>::get(),
             cppu::UnoType<XModifyBroadcaster>::get()
         } );
-    return aTypes;
 }
 
 Sequence<sal_Int8> SAL_CALL ScDataPilotTableObj::getImplementationId()
@@ -1334,7 +1333,7 @@ ScDataPilotDescriptor::ScDataPilotDescriptor(ScDocShell* pDocSh) :
 {
     ScDPSaveData aSaveData;
     // set defaults like in ScPivotParam constructor
-     aSaveData.SetColumnGrand( true );
+    aSaveData.SetColumnGrand( true );
     aSaveData.SetRowGrand( true );
     aSaveData.SetIgnoreEmptyRows( false );
     aSaveData.SetRepeatIfEmpty( false );
@@ -1629,7 +1628,6 @@ static bool lcl_GetFieldDataByName( ScDPObject* pDPObj, const OUString& rFieldNa
 
 ScDataPilotFieldObj* ScDataPilotFieldsObj::GetObjectByIndex_Impl( sal_Int32 nIndex ) const
 {
-// TODO
     if (ScDPObject* pObj = GetDPObject())
     {
         ScFieldIdentifier aFieldId;
@@ -1663,7 +1661,6 @@ Reference<XEnumeration> SAL_CALL ScDataPilotFieldsObj::createEnumeration()
 sal_Int32 SAL_CALL ScDataPilotFieldsObj::getCount()
 {
     SolarMutexGuard aGuard;
-// TODO
     ScDPObject* pDPObj = GetDPObject();
     return pDPObj ? lcl_GetFieldCount( pDPObj->GetSource(), maOrient ) : 0;
 }
@@ -1677,6 +1674,8 @@ Any SAL_CALL ScDataPilotFieldsObj::getByIndex( sal_Int32 nIndex )
     return Any( xField );
 }
 
+// XElementAccess
+
 uno::Type SAL_CALL ScDataPilotFieldsObj::getElementType()
 {
     SolarMutexGuard aGuard;
@@ -1688,6 +1687,8 @@ sal_Bool SAL_CALL ScDataPilotFieldsObj::hasElements()
     SolarMutexGuard aGuard;
     return ( getCount() != 0 );
 }
+
+// XNameAccess
 
 Any SAL_CALL ScDataPilotFieldsObj::getByName( const OUString& aName )
 {
@@ -1701,7 +1702,6 @@ Any SAL_CALL ScDataPilotFieldsObj::getByName( const OUString& aName )
 Sequence<OUString> SAL_CALL ScDataPilotFieldsObj::getElementNames()
 {
     SolarMutexGuard aGuard;
-// TODO
     if (ScDPObject* pDPObj = GetDPObject())
     {
         Sequence< OUString > aSeq( lcl_GetFieldCount( pDPObj->GetSource(), maOrient ) );
@@ -2566,14 +2566,14 @@ Reference< XDataPilotField > SAL_CALL ScDataPilotFieldObj::createNameGroup( cons
             }
         }
 
-        ScDPSaveGroupDimension* pNewGroupDim = nullptr;
+        std::unique_ptr<ScDPSaveGroupDimension> pNewGroupDim;
         if ( !pGroupDimension )
         {
             // create a new group dimension
             sNewDim = pDimData->CreateGroupDimName( aBaseDimName, *pDPObj, false, nullptr );
-            pNewGroupDim = new ScDPSaveGroupDimension( aBaseDimName, sNewDim );
+            pNewGroupDim.reset(new ScDPSaveGroupDimension( aBaseDimName, sNewDim ));
 
-            pGroupDimension = pNewGroupDim;     // make changes to the new dim if none existed
+            pGroupDimension = pNewGroupDim.get();     // make changes to the new dim if none existed
 
             if ( pBaseGroupDim )
             {
@@ -2624,10 +2624,10 @@ Reference< XDataPilotField > SAL_CALL ScDataPilotFieldObj::createNameGroup( cons
         if ( pNewGroupDim )
         {
             pDimData->AddGroupDimension( *pNewGroupDim );
-            delete pNewGroupDim;        // AddGroupDimension copies the object
+            pNewGroupDim.reset();        // AddGroupDimension copies the object
             // don't access pGroupDimension after here
         }
-        pGroupDimension = pNewGroupDim = nullptr;
+        pGroupDimension = nullptr;
 
         // set orientation
         ScDPSaveDimension* pSaveDimension = aSaveData.GetDimensionByName( aGroupDimName );
@@ -2852,8 +2852,11 @@ Sequence< OUString > SAL_CALL ScDataPilotFieldGroupsObj::getElementNames()
     {
         aSeq.realloc( static_cast< sal_Int32 >( maGroups.size() ) );
         OUString* pName = aSeq.getArray();
-        for( ScFieldGroups::iterator aIt = maGroups.begin(), aEnd = maGroups.end(); aIt != aEnd; ++aIt, ++pName )
-            *pName = aIt->maName;
+        for( const auto& rGroup : maGroups )
+        {
+            *pName = rGroup.maName;
+            ++pName;
+        }
     }
     return aSeq;
 }
@@ -2971,7 +2974,7 @@ ScFieldGroup& ScDataPilotFieldGroupsObj::getFieldGroup( const OUString& rName )
     ScFieldGroups::iterator aIt = implFindByName( rName );
     if( aIt == maGroups.end() )
         throw RuntimeException("Field Group with name \"" + rName + "\" not found", static_cast<cppu::OWeakObject*>(this));
-     return *aIt;
+    return *aIt;
 }
 
 void ScDataPilotFieldGroupsObj::renameFieldGroup( const OUString& rOldName, const OUString& rNewName )
@@ -2989,10 +2992,8 @@ void ScDataPilotFieldGroupsObj::renameFieldGroup( const OUString& rOldName, cons
 
 ScFieldGroups::iterator ScDataPilotFieldGroupsObj::implFindByName( const OUString& rName )
 {
-    for( ScFieldGroups::iterator aIt = maGroups.begin(), aEnd = maGroups.end(); aIt != aEnd; ++aIt )
-        if( aIt->maName == rName )
-            return aIt;
-    return maGroups.end();
+    return std::find_if(maGroups.begin(), maGroups.end(),
+        [&rName](const ScFieldGroup& rGroup) { return rGroup.maName == rName; });
 }
 
 namespace {

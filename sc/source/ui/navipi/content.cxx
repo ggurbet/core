@@ -19,20 +19,15 @@
 
 #include <svx/svditer.hxx>
 #include <svx/svdobj.hxx>
-#include <svx/svdpage.hxx>
-#include <svx/svdpagv.hxx>
 #include <svx/svdview.hxx>
-#include <svx/svdxcgv.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <vcl/help.hxx>
 #include <vcl/svapp.hxx>
 #include <tools/urlobj.hxx>
-#include <svl/urlbmk.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
-#include <stdlib.h>
 #include <sal/log.hxx>
 #include <unotools/charclass.hxx>
 
@@ -48,8 +43,6 @@
 #include <transobj.hxx>
 #include <drwtrans.hxx>
 #include <lnktrans.hxx>
-#include <formulacell.hxx>
-#include <dociter.hxx>
 #include <strings.hrc>
 #include <scresid.hxx>
 #include <bitmaps.hlst>
@@ -61,7 +54,7 @@
 #include <drawview.hxx>
 #include <clipparam.hxx>
 #include <markdata.hxx>
-#include <o3tl/make_unique.hxx>
+
 using namespace com::sun::star;
 
 //  order of the categories in navigator -------------------------------------
@@ -529,11 +522,11 @@ void ScContentTree::KeyInput( const KeyEvent& rKEvt )
                             while( pBeginEntry )
                             {
                                 OUString aTempText( GetEntryText( pBeginEntry ) );
-                                 if( pScDrawView->GetObjectIsMarked( pScDrawView->GetObjectByName( aTempText ) ) )
-                                 {
+                                if( pScDrawView->GetObjectIsMarked( pScDrawView->GetObjectByName( aTempText ) ) )
+                                {
                                     bHasMakredObject = true;
                                     break;
-                                  }
+                                }
                                 pBeginEntry =  Next( pBeginEntry );
                             }
                             if(  !bHasMakredObject && pScTabViewShell)
@@ -769,8 +762,8 @@ void ScContentTree::ObjectFresh( ScContentId nType, const SvTreeListEntry* pEntr
 {
     if ( bHiddenDoc && !pHiddenDocument )
         return;     // other document displayed
-      if(nType ==ScContentId::GRAPHIC||nType ==ScContentId::OLEOBJECT||nType ==ScContentId::DRAWING)
-        {
+    if(nType ==ScContentId::GRAPHIC||nType ==ScContentId::OLEOBJECT||nType ==ScContentId::DRAWING)
+    {
         SetUpdateMode(false);
         ClearType( nType );
         GetDrawNames( nType/*, nId*/ );
@@ -800,7 +793,7 @@ void ScContentTree::ObjectFresh( ScContentId nType, const SvTreeListEntry* pEntr
                 Select( pOldEntry );
             }
         }
-        }
+    }
 }
 
 void ScContentTree::Refresh( ScContentId nType )
@@ -890,11 +883,10 @@ void ScContentTree::GetAreaNames()
     ScRange aDummy;
     std::set<OUString> aSet;
     ScRangeName* pRangeNames = pDoc->GetRangeName();
-    ScRangeName::const_iterator itrBeg = pRangeNames->begin(), itrEnd = pRangeNames->end();
-    for (ScRangeName::const_iterator itr = itrBeg; itr != itrEnd; ++itr)
+    for (const auto& rEntry : *pRangeNames)
     {
-        if (itr->second->IsValidReference(aDummy))
-            aSet.insert(itr->second->GetName());
+        if (rEntry.second->IsValidReference(aDummy))
+            aSet.insert(rEntry.second->GetName());
     }
     for (SCTAB i = 0; i < pDoc->GetTableCount(); ++i)
     {
@@ -903,18 +895,17 @@ void ScContentTree::GetAreaNames()
         {
             OUString aTableName;
             pDoc->GetName(i, aTableName);
-            for (ScRangeName::const_iterator itr = pLocalRangeName->begin(); itr != pLocalRangeName->end(); ++itr)
+            for (const auto& rEntry : *pLocalRangeName)
             {
-                if (itr->second->IsValidReference(aDummy))
-                    aSet.insert(createLocalRangeName(itr->second->GetName(), aTableName));
+                if (rEntry.second->IsValidReference(aDummy))
+                    aSet.insert(createLocalRangeName(rEntry.second->GetName(), aTableName));
             }
         }
     }
 
-    for (std::set<OUString>::iterator itr = aSet.begin();
-            itr != aSet.end(); ++itr)
+    for (const auto& rItem : aSet)
     {
-        InsertContent(ScContentId::RANGENAME, *itr);
+        InsertContent(ScContentId::RANGENAME, rItem);
     }
 }
 
@@ -929,10 +920,9 @@ void ScContentTree::GetDbNames()
 
     ScDBCollection* pDbNames = pDoc->GetDBCollection();
     const ScDBCollection::NamedDBs& rDBs = pDbNames->getNamedDBs();
-    ScDBCollection::NamedDBs::const_iterator itr = rDBs.begin(), itrEnd = rDBs.end();
-    for (; itr != itrEnd; ++itr)
+    for (const auto& rxDB : rDBs)
     {
-        const OUString& aStrName = (*itr)->GetName();
+        const OUString& aStrName = rxDB->GetName();
         InsertContent(ScContentId::DBAREA, aStrName);
     }
 }
@@ -1095,9 +1085,8 @@ void ScContentTree::GetNoteStrings()
     // loop over cell notes
     std::vector<sc::NoteEntry> aEntries;
     pDoc->GetAllNoteEntries(aEntries);
-    std::vector<sc::NoteEntry>::const_iterator it = aEntries.begin(), itEnd = aEntries.end();
-    for (; it != itEnd; ++it)
-        InsertContent(ScContentId::NOTE, lcl_NoteString(*it->mpNote));
+    for (const auto& rEntry : aEntries)
+        InsertContent(ScContentId::NOTE, lcl_NoteString(*rEntry.mpNote));
 }
 
 ScAddress ScContentTree::GetNotePos( sal_uLong nIndex )
@@ -1123,10 +1112,9 @@ bool ScContentTree::NoteStringsChanged()
 
     std::vector<sc::NoteEntry> aEntries;
     pDoc->GetAllNoteEntries(aEntries);
-    std::vector<sc::NoteEntry>::const_iterator it = aEntries.begin(), itEnd = aEntries.end();
-    for (; it != itEnd; ++it)
+    for (const auto& rEntry : aEntries)
     {
-        const ScPostIt* pNote = it->mpNote;
+        const ScPostIt* pNote = rEntry.mpNote;
         if (!pEntry)
             return true;
 
@@ -1712,7 +1700,7 @@ void ScContentTree::InitEntry(SvTreeListEntry* pEntry,
     sal_uInt16 nColToHilite = 1; //0==Bitmap;1=="Spalte1";2=="Spalte2"
     SvTreeListBox::InitEntry( pEntry, rStr, rImg1, rImg2, eButtonKind );
     SvLBoxString& rCol = static_cast<SvLBoxString&>(pEntry->GetItem( nColToHilite ));
-    pEntry->ReplaceItem(o3tl::make_unique<SvLBoxString>(rCol.GetText()), nColToHilite);
+    pEntry->ReplaceItem(std::make_unique<SvLBoxString>(rCol.GetText()), nColToHilite);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -25,6 +25,7 @@
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
+#include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <unotools/accessiblestatesethelper.hxx>
 #include <unotools/accessiblerelationsethelper.hxx>
@@ -310,7 +311,7 @@ Reference< awt::XFont > OAccessibleMenuComponent::getFont(  )
             {
                 const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
                 VCLXFont* pVCLXFont = new VCLXFont;
-                pVCLXFont->Init( *xDev.get(), rStyleSettings.GetMenuFont() );
+                pVCLXFont->Init( *xDev, rStyleSettings.GetMenuFont() );
                 xFont = pVCLXFont;
             }
         }

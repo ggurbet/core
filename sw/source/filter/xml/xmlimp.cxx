@@ -506,7 +506,7 @@ void SwXMLImport::startDocument()
 
     Reference< XPropertySet > xImportInfo( getImportInfo() );
     Reference< XPropertySetInfo > xPropertySetInfo;
-       if( xImportInfo.is() )
+    if( xImportInfo.is() )
         xPropertySetInfo = xImportInfo->getPropertySetInfo();
     if( xPropertySetInfo.is() )
     {
@@ -1089,7 +1089,7 @@ void SwXMLImport::MergeListsAtDocumentInsertPosition(SwDoc *pDoc)
                 // check style of the each list level
                 for( sal_uInt8 n = 0; n < MAXLEVEL; ++n )
                 {
-                    if( !( pNumRule1->Get( n ) == pNumRule2->Get( n ) ))
+                    if( pNumRule1->Get( n ) != pNumRule2->Get( n ) )
                     {
                         return;
                     }
@@ -1323,6 +1323,7 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
 
     std::unordered_set< OUString > aExcludeAlways;
     aExcludeAlways.insert("LinkUpdateMode");
+    // this should contain things that are actually user-settable, via Tools->Options
     std::unordered_set< OUString > aExcludeWhenNotLoadingUserSettings;
     aExcludeWhenNotLoadingUserSettings.insert("ForbiddenCharacters");
     aExcludeWhenNotLoadingUserSettings.insert("IsKernAsianPunctuation");
@@ -1348,15 +1349,12 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
     aExcludeWhenNotLoadingUserSettings.insert("UpdateFromTemplate");
     aExcludeWhenNotLoadingUserSettings.insert("PrinterIndependentLayout");
     aExcludeWhenNotLoadingUserSettings.insert("PrintEmptyPages");
-    aExcludeWhenNotLoadingUserSettings.insert("SmallCapsPercentage66");
-    aExcludeWhenNotLoadingUserSettings.insert("TabOverflow");
-    aExcludeWhenNotLoadingUserSettings.insert("UnbreakableNumberings");
-    aExcludeWhenNotLoadingUserSettings.insert("ClippedPictures");
-    aExcludeWhenNotLoadingUserSettings.insert("BackgroundParaOverDrawings");
-    aExcludeWhenNotLoadingUserSettings.insert("TabOverMargin");
-    aExcludeWhenNotLoadingUserSettings.insert("PropLineSpacingShrinksFirstLine");
+    aExcludeWhenNotLoadingUserSettings.insert("ConsiderTextWrapOnObjPos");
+    aExcludeWhenNotLoadingUserSettings.insert("DoNotJustifyLinesWithManualBreak");
+    aExcludeWhenNotLoadingUserSettings.insert("ProtectForm");
+    aExcludeWhenNotLoadingUserSettings.insert("MsWordCompTrailingBlanks");
     aExcludeWhenNotLoadingUserSettings.insert("SubtractFlysAnchoredAtFlys");
-    aExcludeWhenNotLoadingUserSettings.insert("DisableOffPagePositioning");
+    aExcludeWhenNotLoadingUserSettings.insert("EmptyDbFieldHidesPara");
 
     sal_Int32 nCount = aConfigProps.getLength();
     const PropertyValue* pValues = aConfigProps.getConstArray();
@@ -1391,7 +1389,7 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
     bool bTabOverMarginValue = false;
     bool bPropLineSpacingShrinksFirstLine = false;
     bool bSubtractFlysAnchoredAtFlys = false;
-    bool bDisableOffPagePositioning = false;
+    bool bCollapseEmptyCellPara = false;
 
     const PropertyValue* currentDatabaseDataSource = nullptr;
     const PropertyValue* currentDatabaseCommand = nullptr;
@@ -1487,8 +1485,8 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
                     bPropLineSpacingShrinksFirstLine = true;
                 else if (pValues->Name == "SubtractFlysAnchoredAtFlys")
                     bSubtractFlysAnchoredAtFlys = true;
-                else if (pValues->Name == "DisableOffPagePositioning")
-                    bDisableOffPagePositioning = true;
+                else if (pValues->Name == "CollapseEmptyCellPara")
+                    bCollapseEmptyCellPara = true;
             }
             catch( Exception& )
             {
@@ -1657,8 +1655,8 @@ void SwXMLImport::SetConfigurationSettings(const Sequence < PropertyValue > & aC
     if (!bSubtractFlysAnchoredAtFlys)
         xProps->setPropertyValue("SubtractFlysAnchoredAtFlys", makeAny(true));
 
-    if ( bDisableOffPagePositioning )
-        xProps->setPropertyValue("DisableOffPagePositioning", makeAny(true));
+    if (!bCollapseEmptyCellPara)
+        xProps->setPropertyValue("CollapseEmptyCellPara", makeAny(false));
 
     SwDoc *pDoc = getDoc();
     SfxPrinter *pPrinter = pDoc->getIDocumentDeviceAccess().getPrinter( false );

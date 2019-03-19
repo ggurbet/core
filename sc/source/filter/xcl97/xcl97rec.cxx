@@ -17,45 +17,31 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <svx/svdpool.hxx>
 #include <svx/sdtaitm.hxx>
 #include <svx/svdotext.hxx>
 #include <editeng/editobj.hxx>
 #include <svx/svdoole2.hxx>
 #include <sot/storage.hxx>
 #include <svl/itemset.hxx>
-#include <svx/svdpage.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/unoapi.hxx>
 #include <editeng/writingmodeitem.hxx>
-#include <vcl/svapp.hxx>
-#include <vcl/settings.hxx>
 #include <tools/urlobj.hxx>
 
 #include <rtl/math.hxx>
 #include <rtl/uuid.h>
 #include <sal/log.hxx>
-#include <svl/zformat.hxx>
-#include <formulacell.hxx>
 #include <drwlayer.hxx>
 
 #include <root.hxx>
 #include <xcl97rec.hxx>
 #include <xcl97esc.hxx>
-#include <editutil.hxx>
-#include <xecontent.hxx>
 #include <xeescher.hxx>
-#include <xestyle.hxx>
 #include <xehelper.hxx>
 #include <xelink.hxx>
 #include <xlcontent.hxx>
 
-#include <scitems.hxx>
-
 #include <unotools/fltrcfg.hxx>
-#include <editeng/brushitem.hxx>
-#include <editeng/boxitem.hxx>
-#include <editeng/frmdiritem.hxx>
 #include <editeng/adjustitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <filter/msfilter/msoleexp.hxx>
@@ -65,13 +51,8 @@
 #include <stdio.h>
 
 #include <document.hxx>
-#include <conditio.hxx>
 #include <rangelst.hxx>
-#include <stlpool.hxx>
-#include <viewopti.hxx>
-#include <scextopt.hxx>
 #include <docoptio.hxx>
-#include <patattr.hxx>
 #include <tabprotection.hxx>
 
 #include <com/sun/star/embed/Aspects.hpp>
@@ -162,8 +143,8 @@ void XclExpObjList::Save( XclExpStream& rStrm )
     //! Escher must be written, even if there are no objects
     pMsodrawingPerSheet->Save( rStrm );
 
-    for ( auto pIter = maObjs.begin(); pIter != maObjs.end(); ++pIter )
-        (*pIter)->Save( rStrm );
+    for ( const auto& rxObj : maObjs )
+        rxObj->Save( rStrm );
 
     if( pSolverContainer )
         pSolverContainer->Save( rStrm );
@@ -184,13 +165,8 @@ bool IsVmlObject( const XclObj *rObj )
 
 sal_Int32 GetVmlObjectCount( XclExpObjList& rList )
 {
-    sal_Int32 nNumVml = 0;
-
-    for ( auto pIter = rList.begin(); pIter != rList.end(); ++pIter )
-        if( IsVmlObject( pIter->get() ) )
-            ++nNumVml;
-
-    return nNumVml;
+    return static_cast<sal_Int32>(std::count_if(rList.begin(), rList.end(),
+        [](const std::unique_ptr<XclObj>& rxObj) { return IsVmlObject( rxObj.get() ); }));
 }
 
 bool IsValidObject( const XclObj& rObj )
@@ -238,12 +214,12 @@ void SaveDrawingMLObjects( XclExpObjList& rList, XclExpXmlStream& rStrm, sal_Int
 {
     std::vector<XclObj*> aList;
     aList.reserve(rList.size());
-    for (auto it = rList.begin(), itEnd = rList.end(); it != itEnd; ++it)
+    for (const auto& rxObj : rList)
     {
-        if (IsVmlObject(it->get()) || !IsValidObject(**it))
+        if (IsVmlObject(rxObj.get()) || !IsValidObject(*rxObj))
             continue;
 
-        aList.push_back(it->get());
+        aList.push_back(rxObj.get());
     }
 
     if (aList.empty())
@@ -270,8 +246,8 @@ void SaveDrawingMLObjects( XclExpObjList& rList, XclExpXmlStream& rStrm, sal_Int
             FSNS( XML_xmlns, XML_r ),   XclXmlUtils::ToOString(rStrm.getNamespaceURL(OOX_NS(officeRel))).getStr(),
             FSEND );
 
-    for (auto it = aList.begin(), itEnd = aList.end(); it != itEnd; ++it)
-        (*it)->SaveXml(rStrm);
+    for (const auto& rpObj : aList)
+        rpObj->SaveXml(rStrm);
 
     pDrawing->endElement( FSNS( XML_xdr, XML_wsDr ) );
 
@@ -305,11 +281,11 @@ void SaveVmlObjects( XclExpObjList& rList, XclExpXmlStream& rStrm, sal_Int32& nV
             FSNS( XML_xmlns, XML_w10 ), XclXmlUtils::ToOString(rStrm.getNamespaceURL(OOX_NS(vmlWord))).getStr(),
             FSEND );
 
-    for ( auto pIter = rList.begin(); pIter != rList.end(); ++pIter )
+    for ( const auto& rxObj : rList )
     {
-        if( !IsVmlObject( pIter->get() ) )
+        if( !IsVmlObject( rxObj.get() ) )
             continue;
-        (*pIter)->SaveXml( rStrm );
+        rxObj->SaveXml( rStrm );
     }
 
     pVmlDrawing->endElement( XML_xml );
@@ -879,8 +855,8 @@ void XclTxo::Save( XclExpStream& rStrm )
         // CONTINUE for formatting runs
         rStrm.StartRecord( EXC_ID_CONT, 8 * mpString->GetFormatsCount() );
         const XclFormatRunVec& rFormats = mpString->GetFormats();
-        for( XclFormatRunVec::const_iterator aIt = rFormats.begin(), aEnd = rFormats.end(); aIt != aEnd; ++aIt )
-            rStrm << aIt->mnChar << aIt->mnFontIdx << sal_uInt32( 0 );
+        for( const auto& rFormat : rFormats )
+            rStrm << rFormat.mnChar << rFormat.mnFontIdx << sal_uInt32( 0 );
         rStrm.EndRecord();
     }
 }
@@ -1444,11 +1420,10 @@ void ExcEScenario::SaveCont( XclExpStream& rStrm )
     if( sComment.Len() )
         rStrm << sComment;
 
-    std::vector<ExcEScenarioCell>::iterator pIter;
-    for( pIter = aCells.begin(); pIter != aCells.end(); ++pIter )
-        pIter->WriteAddress( rStrm );           // pos of cell
-    for( pIter = aCells.begin(); pIter != aCells.end(); ++pIter )
-        pIter->WriteText( rStrm );              // string content
+    for( const auto& rCell : aCells )
+        rCell.WriteAddress( rStrm );           // pos of cell
+    for( const auto& rCell : aCells )
+        rCell.WriteText( rStrm );              // string content
     rStrm.SetSliceSize( 2 );
     rStrm.WriteZeroBytes( 2 * count );  // date format
 }
@@ -1475,9 +1450,8 @@ void ExcEScenario::SaveXml( XclExpXmlStream& rStrm )
             XML_comment,    XESTRING_TO_PSZ( sComment ),
             FSEND );
 
-    std::vector<ExcEScenarioCell>::iterator pIter;
-    for( pIter = aCells.begin(); pIter != aCells.end(); ++pIter )
-        pIter->SaveXml( rStrm );
+    for( const auto& rCell : aCells )
+        rCell.SaveXml( rStrm );
 
     rWorkbook->endElement( XML_scenario );
 }

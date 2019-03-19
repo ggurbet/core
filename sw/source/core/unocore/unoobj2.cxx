@@ -112,7 +112,6 @@
 #include <sortopt.hxx>
 #include <algorithm>
 #include <iterator>
-#include <calbck.hxx>
 
 using namespace ::com::sun::star;
 
@@ -602,8 +601,7 @@ SwXParagraphEnumerationImpl::NextElement_Impl()
         SwPosition* pStart = rUnoCursor.Start();
         auto aNewCursor(rUnoCursor.GetDoc()->CreateUnoCursor(*pStart));
         // one may also go into tables here
-        if ((CursorType::TableText != m_eCursorType) &&
-            (CursorType::SelectionInTable != m_eCursorType))
+        if (CursorType::SelectionInTable != m_eCursorType)
         {
             aNewCursor->SetRemainInSection( false );
         }
@@ -612,8 +610,7 @@ SwXParagraphEnumerationImpl::NextElement_Impl()
         // of a selection; if there is no selection we don't have to care
         SwTableNode *const pTableNode = aNewCursor->GetNode().FindTableNode();
         bool bMovedFromTable = false;
-        if (((CursorType::TableText != m_eCursorType) &&
-            (CursorType::SelectionInTable != m_eCursorType)) && pTableNode)
+        if (CursorType::SelectionInTable != m_eCursorType && pTableNode)
         {
             aNewCursor->GetPoint()->nNode = pTableNode->EndOfSectionIndex();
             aNewCursor->Move(fnMoveForward, GoInNode);
@@ -671,7 +668,7 @@ SwXParagraphEnumerationImpl::NextElement_Impl()
 
         SwPosition* pStart = rUnoCursor.Start();
         const sal_Int32 nFirstContent =
-            (m_bFirstParagraph) ? m_nFirstParaStart : -1;
+            m_bFirstParagraph ? m_nFirstParaStart : -1;
         const sal_Int32 nLastContent =
             (m_nEndIndex == pStart->nNode.GetIndex()) ? m_nLastParaEnd : -1;
 

@@ -553,15 +553,19 @@ void SfxDocTplService_Impl::getDirList()
     const OUString aPrefix(
         "vnd.sun.star.expand:"  );
 
+    sal_Int32 nIdx{ 0 };
     for (sal_Int32 i = 0; i < nCount; ++i)
     {
         aURL.SetSmartProtocol( INetProtocol::File );
-        aURL.SetURL( aDirs.getToken( i, C_DELIM ) );
+        aURL.SetURL( aDirs.getToken( 0, C_DELIM, nIdx ) );
         maTemplateDirs[i] = aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE );
 
-        sal_Int32 nIndex = maTemplateDirs[i].indexOf( aPrefix );
-        if ( nIndex != -1 && xExpander.is() )
+        if ( xExpander.is() )
         {
+            const sal_Int32 nIndex{ maTemplateDirs[i].indexOf( aPrefix ) };
+            if (nIndex<0)
+                continue;
+
             maTemplateDirs[i] = maTemplateDirs[i].replaceAt(nIndex,
                                                             aPrefix.getLength(),
                                                             OUString());
@@ -771,13 +775,10 @@ bool SfxDocTplService_Impl::createFolder( const OUString& rNewFolderURL,
             aParent.insertNewContent( aType, aNames, aValues, rNewFolder );
             bCreatedFolder = true;
         }
-        catch( RuntimeException& )
+        catch( Exception const & )
         {
-            SAL_WARN( "sfx.doc", "createFolder(): got runtime exception" );
-        }
-        catch( Exception& )
-        {
-            SAL_WARN( "sfx.doc", "createFolder(): Could not create new folder" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "sfx.doc", "createFolder(): Could not create new folder " << exceptionToString(ex) );
         }
     }
     else if ( bCreateParent )
@@ -808,8 +809,8 @@ bool SfxDocTplService_Impl::CreateNewUniqueFolderWithPrefix( const OUString& aPa
 
     Content aParent;
     uno::Reference< XCommandEnvironment > aQuietEnv;
-       if ( Content::create( aDirPath.GetMainURL( INetURLObject::DecodeMechanism::NONE ), aQuietEnv, comphelper::getProcessComponentContext(), aParent ) )
-       {
+    if ( Content::create( aDirPath.GetMainURL( INetURLObject::DecodeMechanism::NONE ), aQuietEnv, comphelper::getProcessComponentContext(), aParent ) )
+    {
         for ( sal_Int32 nInd = 0; nInd < 32000; nInd++ )
         {
             OUString aTryName = aPrefix;
@@ -864,7 +865,7 @@ OUString SfxDocTplService_Impl::CreateNewUniqueFileWithPrefix( const OUString& a
     OUString aNewFileURL;
     INetURLObject aDirPath( aPath );
 
-       Content aParent;
+    Content aParent;
 
     uno::Reference< XCommandEnvironment > aQuietEnv;
     if ( Content::create( aDirPath.GetMainURL( INetURLObject::DecodeMechanism::NONE ), aQuietEnv, comphelper::getProcessComponentContext(), aParent ) )
@@ -1591,9 +1592,9 @@ bool SfxDocTplService_Impl::renameGroup( const OUString& rOldName,
     // create the group url
     Content         aGroup;
     INetURLObject   aGroupObj( maRootURL );
-                    aGroupObj.insertName( rNewName, false,
-                                          INetURLObject::LAST_SEGMENT,
-                                          INetURLObject::EncodeMechanism::All );
+    aGroupObj.insertName( rNewName, false,
+                          INetURLObject::LAST_SEGMENT,
+                          INetURLObject::EncodeMechanism::All );
     OUString        aGroupURL = aGroupObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
 
     // Check, if there is a group with the new name, return false
@@ -2336,45 +2337,45 @@ void SfxDocTplService_Impl::addHierGroup( GroupList_Impl& rList,
     }
     catch (Exception&) {}
 
-    if ( xResultSet.is() )
+    if ( !xResultSet.is() )
+        return;
+
+    GroupData_Impl *pGroup = new GroupData_Impl( rTitle );
+    pGroup->setHierarchy( true );
+    pGroup->setHierarchyURL( rOwnURL );
+    rList.push_back( std::unique_ptr<GroupData_Impl>(pGroup) );
+
+    uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
+    uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
+
+    try
     {
-        GroupData_Impl *pGroup = new GroupData_Impl( rTitle );
-        pGroup->setHierarchy( true );
-        pGroup->setHierarchyURL( rOwnURL );
-        rList.push_back( std::unique_ptr<GroupData_Impl>(pGroup) );
-
-        uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
-        uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
-
-        try
+        while ( xResultSet->next() )
         {
-            while ( xResultSet->next() )
+            bool             bUpdateType = false;
+            DocTemplates_EntryData_Impl  *pData;
+
+            const OUString aTitle( xRow->getString( 1 ) );
+            const OUString aTargetDir( xRow->getString( 2 ) );
+            OUString aType( xRow->getString( 3 ) );
+            const OUString aHierURL {xContentAccess->queryContentIdentifierString()};
+
+            if ( aType.isEmpty() )
             {
-                bool             bUpdateType = false;
-                DocTemplates_EntryData_Impl  *pData;
+                OUString aTmpTitle;
 
-                const OUString aTitle( xRow->getString( 1 ) );
-                const OUString aTargetDir( xRow->getString( 2 ) );
-                OUString aType( xRow->getString( 3 ) );
-                const OUString aHierURL {xContentAccess->queryContentIdentifierString()};
+                bool bDocHasTitle = false;
+                getTitleFromURL( aTargetDir, aTmpTitle, aType, bDocHasTitle );
 
-                if ( aType.isEmpty() )
-                {
-                    OUString aTmpTitle;
-
-                    bool bDocHasTitle = false;
-                    getTitleFromURL( aTargetDir, aTmpTitle, aType, bDocHasTitle );
-
-                    if ( !aType.isEmpty() )
-                        bUpdateType = true;
-                }
-
-                pData = pGroup->addEntry( aTitle, aTargetDir, aType, aHierURL );
-                pData->setUpdateType( bUpdateType );
+                if ( !aType.isEmpty() )
+                    bUpdateType = true;
             }
+
+            pData = pGroup->addEntry( aTitle, aTargetDir, aType, aHierURL );
+            pData->setUpdateType( bUpdateType );
         }
-        catch ( Exception& ) {}
     }
+    catch ( Exception& ) {}
 }
 
 
@@ -2438,30 +2439,30 @@ void SfxDocTplService_Impl::addFsysGroup( GroupList_Impl& rList,
     }
     catch ( Exception& ) {}
 
-    if ( xResultSet.is() )
+    if ( !xResultSet.is() )
+        return;
+
+    uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
+    uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
+
+    try
     {
-        uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
-        uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
-
-        try
+        while ( xResultSet->next() )
         {
-            while ( xResultSet->next() )
-            {
-                OUString aChildTitle( xRow->getString( 1 ) );
-                const OUString aTargetURL {xContentAccess->queryContentIdentifierString()};
-                OUString aType;
+            OUString aChildTitle( xRow->getString( 1 ) );
+            const OUString aTargetURL {xContentAccess->queryContentIdentifierString()};
+            OUString aType;
 
-                if ( aChildTitle == "sfx.tlx" || aChildTitle == "groupuinames.xml" )
-                    continue;
+            if ( aChildTitle == "sfx.tlx" || aChildTitle == "groupuinames.xml" )
+                continue;
 
-                bool bDocHasTitle = false;
-                getTitleFromURL( aTargetURL, aChildTitle, aType, bDocHasTitle );
+            bool bDocHasTitle = false;
+            getTitleFromURL( aTargetURL, aChildTitle, aType, bDocHasTitle );
 
-                pGroup->addEntry( aChildTitle, aTargetURL, aType, OUString() );
-            }
+            pGroup->addEntry( aChildTitle, aTargetURL, aType, OUString() );
         }
-        catch ( Exception& ) {}
     }
+    catch ( Exception& ) {}
 }
 
 
@@ -2496,37 +2497,37 @@ void SfxDocTplService_Impl::createFromContent( GroupList_Impl& rList,
     }
     catch ( Exception& ) {}
 
-    if ( xResultSet.is() )
+    if ( !xResultSet.is() )
+        return;
+
+    uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
+    uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
+
+    try
     {
-        uno::Reference< XContentAccess > xContentAccess( xResultSet, UNO_QUERY );
-        uno::Reference< XRow > xRow( xResultSet, UNO_QUERY );
-
-        try
+        while ( xResultSet->next() )
         {
-            while ( xResultSet->next() )
+            // TODO/LATER: clarify the encoding of the Title
+            const OUString aTitle( xRow->getString( 1 ) );
+            const OUString aTargetSubfolderURL( xContentAccess->queryContentIdentifierString() );
+
+            if ( bHierarchy )
+                addHierGroup( rList, aTitle, aTargetSubfolderURL );
+            else
             {
-                // TODO/LATER: clarify the encoding of the Title
-                const OUString aTitle( xRow->getString( 1 ) );
-                const OUString aTargetSubfolderURL( xContentAccess->queryContentIdentifierString() );
+                OUString aUITitle;
+                for (beans::StringPair & rUIName : aUINames)
+                    if ( rUIName.First == aTitle )
+                    {
+                        aUITitle = rUIName.Second;
+                        break;
+                    }
 
-                if ( bHierarchy )
-                    addHierGroup( rList, aTitle, aTargetSubfolderURL );
-                else
-                {
-                    OUString aUITitle;
-                    for (beans::StringPair & rUIName : aUINames)
-                        if ( rUIName.First == aTitle )
-                        {
-                            aUITitle = rUIName.Second;
-                            break;
-                        }
-
-                    addFsysGroup( rList, aTitle, aUITitle, aTargetSubfolderURL, bWriteableContent );
-                }
+                addFsysGroup( rList, aTitle, aUITitle, aTargetSubfolderURL, bWriteableContent );
             }
         }
-        catch ( Exception& ) {}
     }
+    catch ( Exception& ) {}
 }
 
 

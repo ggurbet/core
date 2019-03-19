@@ -28,6 +28,7 @@
 #include <sfx2/docfac.hxx>
 #include <vcl/treelistentry.hxx>
 #include <osl/diagnose.h>
+#include <tools/debug.hxx>
 
 namespace basctl
 {
@@ -129,7 +130,7 @@ void TreeListBox::RequestingChildren( SvTreeListEntry* pEntry )
     }
 }
 
-IMPL_LINK(SbTreeListBox, RequestingChildrenHdl, weld::TreeIter&, rEntry, bool)
+IMPL_LINK(SbTreeListBox, RequestingChildrenHdl, const weld::TreeIter&, rEntry, bool)
 {
     EntryDescriptor aDesc = GetEntryDescriptor(&rEntry);
     const ScriptDocument& aDocument = aDesc.GetDocument();
@@ -257,7 +258,7 @@ void SbTreeListBox::ScanAllEntries()
     }
 }
 
-SbxVariable* SbTreeListBox::FindVariable(weld::TreeIter* pEntry)
+SbxVariable* SbTreeListBox::FindVariable(const weld::TreeIter* pEntry)
 {
     if ( !pEntry )
         return nullptr;
@@ -448,7 +449,7 @@ EntryDescriptor TreeListBox::GetEntryDescriptor( SvTreeListEntry* pEntry )
     return EntryDescriptor( aDocument, eLocation, aLibName, aLibSubName, aName, aMethodName, eType );
 }
 
-EntryDescriptor SbTreeListBox::GetEntryDescriptor(weld::TreeIter* pEntry)
+EntryDescriptor SbTreeListBox::GetEntryDescriptor(const weld::TreeIter* pEntry)
 {
     ScriptDocument aDocument( ScriptDocument::getApplicationScriptDocument() );
     LibraryLocation eLocation = LIBRARY_LOCATION_UNKNOWN;
@@ -690,7 +691,7 @@ bool SbTreeListBox::IsValidEntry(weld::TreeIter& rEntry)
     return bIsValid;
 }
 
-SbModule* SbTreeListBox::FindModule(weld::TreeIter* pEntry)
+SbModule* SbTreeListBox::FindModule(const weld::TreeIter* pEntry)
 {
     return dynamic_cast<SbModule*>(FindVariable(pEntry));
 }

@@ -109,7 +109,6 @@ namespace svt
         m_aImpl.reset(new EditBrowseBoxImpl);
 
         SetCompoundControl(true);
-        SetGridLineColor( COL_LIGHTGRAY );
 
         ImplInitSettings(true, true, true);
 
@@ -223,7 +222,7 @@ namespace svt
         }
     }
 
-    void EditBrowseBox::PaintField( OutputDevice& rDev, const tools::Rectangle& rRect,
+    void EditBrowseBox::PaintField( vcl::RenderContext& rDev, const tools::Rectangle& rRect,
                                     sal_uInt16 nColumnId ) const
     {
         if (nColumnId == HandleColumnId)

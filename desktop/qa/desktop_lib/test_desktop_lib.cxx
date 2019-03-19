@@ -127,6 +127,7 @@ public:
     void testInsertCertificate_PEM_ODT();
     void testInsertCertificate_PEM_DOCX();
     void testSignDocument_PEM_PDF();
+    void testTextSelectionHandles();
     void testABI();
 
     CPPUNIT_TEST_SUITE(DesktopLOKTest);
@@ -176,11 +177,14 @@ public:
     CPPUNIT_TEST(testInsertCertificate_PEM_ODT);
     CPPUNIT_TEST(testInsertCertificate_PEM_DOCX);
     CPPUNIT_TEST(testSignDocument_PEM_PDF);
+    CPPUNIT_TEST(testTextSelectionHandles);
     CPPUNIT_TEST(testABI);
     CPPUNIT_TEST_SUITE_END();
 
     uno::Reference<lang::XComponent> mxComponent;
     OString m_aTextSelection;
+    OString m_aTextSelectionStart;
+    OString m_aTextSelectionEnd;
     std::vector<OString> m_aSearchResultSelection;
     std::vector<int> m_aSearchResultPart;
     int m_nSelectionBeforeSearchResult;
@@ -255,6 +259,12 @@ void DesktopLOKTest::callbackImpl(int nType, const char* pPayload)
         else
             ++m_nSelectionAfterSearchResult;
     }
+    break;
+    case LOK_CALLBACK_TEXT_SELECTION_START:
+        m_aTextSelectionStart = pPayload;
+    break;
+    case LOK_CALLBACK_TEXT_SELECTION_END:
+        m_aTextSelectionEnd = pPayload;
     break;
     case LOK_CALLBACK_SEARCH_RESULT_SELECTION:
     {
@@ -456,6 +466,7 @@ void DesktopLOKTest::testSearchCalc()
     // Result is on the first sheet.
     CPPUNIT_ASSERT_EQUAL(0, m_aSearchResultPart[0]);
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -482,6 +493,7 @@ void DesktopLOKTest::testSearchAllNotificationsCalc()
     // But we do get the selection afterwards.
     CPPUNIT_ASSERT(m_nSelectionAfterSearchResult > 0);
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -833,6 +845,7 @@ void DesktopLOKTest::testCommandResult()
     CPPUNIT_ASSERT_EQUAL(std::string(".uno:Bold"), aTree.get_child("commandName").get_value<std::string>());
     CPPUNIT_ASSERT_EQUAL(true, aTree.get_child("success").get_value<bool>());
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -876,6 +889,7 @@ void DesktopLOKTest::testWriterComments()
     // This was empty, typed characters ended up in the body text.
     CPPUNIT_ASSERT_EQUAL(OUString("test"), xTextField->getPropertyValue("Content").get<OUString>());
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -900,6 +914,7 @@ void DesktopLOKTest::testTrackChanges()
     // This was 1, only the active view was notified.
     CPPUNIT_ASSERT_EQUAL(2, m_nTrackChanges);
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -934,6 +949,7 @@ void DesktopLOKTest::testSheetOperations()
         CPPUNIT_ASSERT_EQUAL(aExpected[i], OString(pDocument->pClass->getPartName(pDocument, i)));
     }
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -1047,6 +1063,7 @@ void DesktopLOKTest::testSheetSelections()
         free(pCopiedContent);
     }
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -1229,6 +1246,7 @@ void DesktopLOKTest::testContextMenuCalc()
         CPPUNIT_ASSERT_EQUAL(aCheckedToCell.get().data(), std::string("false"));
     }
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -1286,6 +1304,7 @@ void DesktopLOKTest::testContextMenuWriter()
         CPPUNIT_ASSERT_EQUAL(aEnabled.get().data(), std::string("true"));
     }
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -1414,6 +1433,7 @@ void DesktopLOKTest::testContextMenuImpress()
         CPPUNIT_ASSERT_EQUAL(aCheckedHelpFront.get().data(), std::string("true"));
     }
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -1885,6 +1905,7 @@ void DesktopLOKTest::testPaintPartTile()
 
     mxComponent.clear();
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -1927,6 +1948,7 @@ void DesktopLOKTest::testWriterCommentInsertCursor()
     Scheduler::ProcessEventsToIdle();
     mxComponent.clear();
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -2205,6 +2227,7 @@ void DesktopLOKTest::testCommentsCallbacksWriter()
     boost::property_tree::read_json(aStream, aTree);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(5), aTree.get_child("comments").size());
 
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -2544,6 +2567,50 @@ void DesktopLOKTest::testSignDocument_PEM_PDF()
 
     CPPUNIT_ASSERT(bResult);
 
+    comphelper::LibreOfficeKit::setActive(false);
+}
+
+void DesktopLOKTest::testTextSelectionHandles()
+{
+    comphelper::LibreOfficeKit::setActive();
+
+    LibLODocument_Impl* pDocument = loadDoc("blank_text.odt");
+    pDocument->pClass->registerCallback(pDocument, &DesktopLOKTest::callback, this);
+
+    OString aText("hello");
+    CPPUNIT_ASSERT(pDocument->pClass->paste(pDocument, "text/plain;charset=utf-8", aText.getStr(), aText.getLength()));
+
+    // select the inserted text
+    pDocument->pClass->postUnoCommand(pDocument, ".uno:SelectAll", nullptr, false);
+    Scheduler::ProcessEventsToIdle();
+    char* pText = pDocument->pClass->getTextSelection(pDocument, "text/plain;charset=utf-8", nullptr);
+    CPPUNIT_ASSERT_EQUAL(aText, OString(pText));
+    free(pText);
+    CPPUNIT_ASSERT_EQUAL(OString("1418, 1418, 0, 275"), m_aTextSelectionStart);
+    CPPUNIT_ASSERT_EQUAL(OString("1898, 1418, 0, 275"), m_aTextSelectionEnd);
+
+    // deselect & check
+    m_aTextSelectionStart = "";
+    m_aTextSelectionEnd = "";
+    pDocument->pClass->postKeyEvent(pDocument, LOK_KEYEVENT_KEYINPUT, 0, com::sun::star::awt::Key::ESCAPE);
+    Scheduler::ProcessEventsToIdle();
+    pText = pDocument->pClass->getTextSelection(pDocument, "text/plain;charset=utf-8", nullptr);
+    CPPUNIT_ASSERT_EQUAL(OString(), OString(pText));
+    free(pText);
+    CPPUNIT_ASSERT_EQUAL(OString(), m_aTextSelectionStart);
+    CPPUNIT_ASSERT_EQUAL(OString(), m_aTextSelectionEnd);
+
+    // select again; the positions of the selection handles have to be sent
+    // again
+    pDocument->pClass->postUnoCommand(pDocument, ".uno:SelectAll", nullptr, false);
+    Scheduler::ProcessEventsToIdle();
+    pText = pDocument->pClass->getTextSelection(pDocument, "text/plain;charset=utf-8", nullptr);
+    CPPUNIT_ASSERT_EQUAL(aText, OString(pText));
+    free(pText);
+    CPPUNIT_ASSERT_EQUAL(OString("1418, 1418, 0, 275"), m_aTextSelectionStart);
+    CPPUNIT_ASSERT_EQUAL(OString("1898, 1418, 0, 275"), m_aTextSelectionEnd);
+
+    pDocument->pClass->registerCallback(pDocument, nullptr, nullptr);
     comphelper::LibreOfficeKit::setActive(false);
 }
 

@@ -17,6 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include <comphelper/classids.hxx>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/embed/XLinkageSupport.hpp>
@@ -26,6 +30,7 @@
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/txtprmap.hxx>
 #include <xmloff/maptype.hxx>
+#include <xmloff/xmlexppr.hxx>
 
 #include <svx/svdobj.hxx>
 #include <doc.hxx>
@@ -154,16 +159,8 @@ static void lcl_addFrameProperties(
     if ( !xSet.is() )
         return;
 
-    OUString aURL;
-    Any aAny = xSet->getPropertyValue("FrameURL");
-    aAny >>= aURL;
-
-    OUString aName;
-    aAny = xSet->getPropertyValue("FrameName");
-    aAny >>= aName;
-
     bool bIsAutoScroll = false, bIsScrollingMode = false;
-    aAny = xSet->getPropertyValue("FrameIsAutoScroll");
+    Any aAny = xSet->getPropertyValue("FrameIsAutoScroll");
     aAny >>= bIsAutoScroll;
     if ( !bIsAutoScroll )
     {
@@ -367,7 +364,7 @@ void SwXMLTextParagraphExport::_exportTextEmbedded(
                         if( aBuffer.isEmpty() )
                         {
                             aBuffer.append( '\'' );
-                            aBuffer.appendCopy( sRange, 0, i );
+                            aBuffer.append( std::u16string_view(sRange).substr(0, i) );
                         }
                         if( '\'' == c || '\\' == c )
                             aBuffer.append( '\\' );

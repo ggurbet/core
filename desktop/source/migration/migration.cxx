@@ -337,18 +337,11 @@ bool MigrationImpl::checkMigrationCompleted()
 
 static void insertSorted(migrations_available& rAvailableMigrations, supported_migration const & aSupportedMigration)
 {
-    bool                           bInserted( false );
-    migrations_available::iterator pIter = rAvailableMigrations.begin();
-    while (pIter != rAvailableMigrations.end())
-    {
-        if ( pIter->nPriority < aSupportedMigration.nPriority ) {
-            rAvailableMigrations.insert(pIter, aSupportedMigration );
-            bInserted = true;
-            break; // i111193: insert invalidates iterator!
-        }
-        ++pIter;
-    }
-    if ( !bInserted )
+    migrations_available::iterator pIter = std::find_if(rAvailableMigrations.begin(), rAvailableMigrations.end(),
+        [&aSupportedMigration](const supported_migration& rMigration) { return rMigration.nPriority < aSupportedMigration.nPriority; });
+    if (pIter != rAvailableMigrations.end())
+        rAvailableMigrations.insert(pIter, aSupportedMigration );
+    else
         rAvailableMigrations.push_back( aSupportedMigration );
 }
 
@@ -394,7 +387,6 @@ migrations_vr MigrationImpl::readMigrationSteps(const OUString& rMigrationName)
         // get current migration step
         theNameAccess->getByName(rMigrationStep) >>= tmpAccess;
         migration_step tmpStep;
-        tmpStep.name = rMigrationStep;
 
         // read included files from current step description
         if (tmpAccess->getByName("IncludedFiles") >>= tmpSeq) {

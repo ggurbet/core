@@ -196,7 +196,7 @@ SalGtkFilePicker::SalGtkFilePicker( const uno::Reference< uno::XComponentContext
             setLabel( LISTBOX_##elem##_LABEL, aLabel ); \
             break
 
-          switch( i )
+        switch( i )
         {
             LABEL_LIST( VERSION );
             LABEL_LIST( TEMPLATE );
@@ -849,10 +849,7 @@ uno::Sequence<OUString> SAL_CALL SalGtkFilePicker::getSelectedFiles()
 
                     if ( sToken.lastIndexOf( ';' ) != -1 )
                     {
-                        sal_Int32 nZero = 0;
-                        OUString aCurrentToken = sToken.getToken( 0, ';', nZero);
-
-                        sToken = aCurrentToken;
+                        sToken = sToken.getToken(0, ';');
                         break;
                     }
                 }
@@ -903,6 +900,10 @@ sal_Int16 SAL_CALL SalGtkFilePicker::execute()
     sal_Int16 retVal = 0;
 
     SetFilters();
+
+    // tdf#84431 - set the filter after the corresponding widget is created
+    if ( !m_aCurrentFilter.isEmpty() )
+        SetCurFilter(m_aCurrentFilter);
 
     mnHID_FolderChange =
         g_signal_connect( GTK_FILE_CHOOSER( m_pDialog ), "current-folder-changed",

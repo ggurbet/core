@@ -18,8 +18,10 @@
  */
 
 #include <memory>
+#include <string_view>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/xml/AttributeData.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/beans/XMultiPropertySet.hpp>
 #include <com/sun/star/beans/XTolerantMultiPropertySet.hpp>
@@ -937,7 +939,7 @@ void SvXMLExportPropertyMapper::_exportXML(
                                 sPrefix = pNamespaceMap->GetPrefixByKey( nKey );
                             }
                             // In any case, the attribute name has to be adapted.
-                            sNameBuffer.append(sPrefix).append(":").appendCopy(*pAttribName, nColonPos+1 );
+                            sNameBuffer.append(sPrefix).append(":").append(std::u16string_view(*pAttribName).substr(nColonPos+1) );
                             sAttribName = sNameBuffer.makeStringAndClear();
                         }
 

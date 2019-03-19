@@ -119,7 +119,13 @@ uno::Reference<xml::sax::XFastContextHandler> const & ShapeContextHandler::getWp
         switch (getBaseToken(nStartElement))
         {
             case XML_wsp:
-                mxWpsContext.set(new WpsContext(*rFragmentHandler, xShape));
+                mxWpsContext.set(new WpsContext(
+                                     *rFragmentHandler,
+                                     xShape,
+                                     pMasterShape,
+                                     ShapePtr(
+                                         new oox::drawingml::Shape(
+                                             "com.sun.star.drawing.CustomShape"))));
                 break;
             default:
                 break;
@@ -192,7 +198,7 @@ ShapeContextHandler::getDrawingShapeContext()
     else
     {
         // Reset the handler if fragment path has changed
-        OUString sHandlerFragmentPath = dynamic_cast<ContextHandler&>(*mxDrawingFragmentHandler.get()).getFragmentPath();
+        OUString sHandlerFragmentPath = dynamic_cast<ContextHandler&>(*mxDrawingFragmentHandler).getFragmentPath();
         if ( msRelationFragmentPath != sHandlerFragmentPath )
         {
             mxDrawingFragmentHandler.clear();
@@ -425,23 +431,8 @@ ShapeContextHandler::getShape()
                     oox::drawingml::ShapePtr pShapePtr( new Shape( "com.sun.star.drawing.GroupShape" ) );
                     pShapePtr->setDiagramType();
                     mxFilterBase->importFragment(new ShapeDrawingFragmentHandler(*mxFilterBase, aFragmentPath, pShapePtr));
-
-                    uno::Sequence<beans::PropertyValue> aValue(mpShape->getDiagramDoms());
-                    uno::Sequence < uno::Any > diagramDrawing(2);
-                    // drawingValue[0] => dom, drawingValue[1] => Sequence of associated relationships
-
-                    sal_Int32 length = aValue.getLength();
-                    aValue.realloc(length+1);
-
-                    diagramDrawing[0] <<= mxFilterBase->importFragment( aFragmentPath );
-                    diagramDrawing[1] <<= pShapePtr->resolveRelationshipsOfTypeFromOfficeDoc(
-                                *mxFilterBase, aFragmentPath, "image" );
-
-                    beans::PropertyValue* pValue = aValue.getArray();
-                    pValue[length].Name = "OOXDrawing";
-                    pValue[length].Value <<= diagramDrawing;
-
-                    pShapePtr->setDiagramDoms( aValue );
+                    pShapePtr->setDiagramDoms(mpShape->getDiagramDoms());
+                    pShapePtr->keepDiagramDrawing(*mxFilterBase, aFragmentPath);
 
                     pShapePtr->addShape( *mxFilterBase, mpThemePtr.get(), xShapes, aMatrix, pShapePtr->getFillProperties() );
                     xResult = pShapePtr->getXShape();
@@ -452,7 +443,7 @@ ShapeContextHandler::getShape()
         }
         else if (mxLockedCanvasContext.is())
         {
-            ShapePtr pShape = dynamic_cast<LockedCanvasContext&>(*mxLockedCanvasContext.get()).getShape();
+            ShapePtr pShape = dynamic_cast<LockedCanvasContext&>(*mxLockedCanvasContext).getShape();
             if (pShape)
             {
                 basegfx::B2DHomMatrix aMatrix;
@@ -480,7 +471,7 @@ ShapeContextHandler::getShape()
         }
         else if (mxWpsContext.is())
         {
-            ShapePtr pShape = dynamic_cast<WpsContext&>(*mxWpsContext.get()).getShape();
+            ShapePtr pShape = dynamic_cast<WpsContext&>(*mxWpsContext).getShape();
             if (pShape)
             {
                 basegfx::B2DHomMatrix aMatrix;
@@ -493,14 +484,14 @@ ShapeContextHandler::getShape()
         }
         else if (mxWpgContext.is())
         {
-            ShapePtr pShape = dynamic_cast<WpgContext&>(*mxWpgContext.get()).getShape();
+            ShapePtr pShape = dynamic_cast<WpgContext&>(*mxWpgContext).getShape();
             if (pShape)
             {
                 basegfx::B2DHomMatrix aMatrix;
                 pShape->setPosition(maPosition);
                 pShape->addShape(*mxFilterBase, mpThemePtr.get(), xShapes, aMatrix, pShape->getFillProperties());
                 xResult = pShape->getXShape();
-                mxWpgContext.clear();
+                mxSavedShape = xResult;
             }
         }
         else if (mpShape.get() != nullptr)

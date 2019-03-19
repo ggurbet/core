@@ -20,7 +20,6 @@
 #include <svsys.h>
 
 #include "gdiimpl.hxx"
-#include "scoped_gdi.hxx"
 
 #include <string.h>
 #include <rtl/strbuf.hxx>
@@ -33,6 +32,7 @@
 #include <win/saldata.hxx>
 #include <win/salgdi.h>
 #include <win/salbmp.h>
+#include <win/scoped_gdi.hxx>
 #include <vcl/salbtype.hxx>
 #include <win/salframe.h>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
@@ -240,7 +240,7 @@ void WinSalGraphicsImpl::freeResources()
 {
 }
 
-bool WinSalGraphicsImpl::drawEPS(long, long, long, long, void*, sal_uLong)
+bool WinSalGraphicsImpl::drawEPS(long, long, long, long, void*, sal_uInt32)
 {
     return false;
 }
@@ -296,9 +296,8 @@ void MakeInvisibleArea(const RECT& rSrcRect,
         rhInvalidateRgn = CreateRectRgnIndirect(&rSrcRect);
     }
 
-    HRGN hTempRgn = CreateRectRgn(nLeft, nTop, nRight, nBottom);
-    CombineRgn(rhInvalidateRgn, rhInvalidateRgn, hTempRgn, RGN_DIFF);
-    DeleteRegion(hTempRgn);
+    ScopedHRGN hTempRgn(CreateRectRgn(nLeft, nTop, nRight, nBottom));
+    CombineRgn(rhInvalidateRgn, rhInvalidateRgn, hTempRgn.get(), RGN_DIFF);
 }
 
 void ImplCalcOutSideRgn( const RECT& rSrcRect,
@@ -560,7 +559,8 @@ void ImplDrawBitmap( HDC hDC, const SalTwoRect& rPosAry, const WinSalBitmap& rSa
         }
         else if( hDrawDDB && !bPrintDDB )
         {
-            HDC         hBmpDC = ImplGetCachedDC( CACHED_HDC_DRAW, hDrawDDB );
+            ScopedCachedHDC<CACHED_HDC_DRAW> hBmpDC(hDrawDDB);
+
             COLORREF    nOldBkColor = RGB(0xFF,0xFF,0xFF);
             COLORREF    nOldTextColor = RGB(0,0,0);
             bool        bMono = ( rSalBitmap.GetBitCount() == 1 );
@@ -593,7 +593,7 @@ void ImplDrawBitmap( HDC hDC, const SalTwoRect& rPosAry, const WinSalBitmap& rSa
                 BitBlt( hDC,
                         static_cast<int>(rPosAry.mnDestX), static_cast<int>(rPosAry.mnDestY),
                         static_cast<int>(rPosAry.mnDestWidth), static_cast<int>(rPosAry.mnDestHeight),
-                        hBmpDC,
+                        hBmpDC.get(),
                         static_cast<int>(rPosAry.mnSrcX), static_cast<int>(rPosAry.mnSrcY),
                         nDrawMode );
             }
@@ -604,7 +604,7 @@ void ImplDrawBitmap( HDC hDC, const SalTwoRect& rPosAry, const WinSalBitmap& rSa
                 StretchBlt( hDC,
                             static_cast<int>(rPosAry.mnDestX), static_cast<int>(rPosAry.mnDestY),
                             static_cast<int>(rPosAry.mnDestWidth), static_cast<int>(rPosAry.mnDestHeight),
-                            hBmpDC,
+                            hBmpDC.get(),
                             static_cast<int>(rPosAry.mnSrcX), static_cast<int>(rPosAry.mnSrcY),
                             static_cast<int>(rPosAry.mnSrcWidth), static_cast<int>(rPosAry.mnSrcHeight),
                             nDrawMode );
@@ -617,8 +617,6 @@ void ImplDrawBitmap( HDC hDC, const SalTwoRect& rPosAry, const WinSalBitmap& rSa
                 SetBkColor( hDC, nOldBkColor );
                 ::SetTextColor( hDC, nOldTextColor );
             }
-
-            ImplReleaseCachedDC( CACHED_HDC_DRAW );
         }
     }
 }
@@ -679,20 +677,21 @@ void WinSalGraphicsImpl::drawBitmap( const SalTwoRect& rPosAry,
     int         nDstWidth = static_cast<int>(aPosAry.mnDestWidth);
     int         nDstHeight = static_cast<int>(aPosAry.mnDestHeight);
     HDC         hDC = mrParent.getHDC();
-    HBITMAP     hMemBitmap = nullptr;
-    HBITMAP     hMaskBitmap = nullptr;
+
+    ScopedHBITMAP hMemBitmap;
+    ScopedHBITMAP hMaskBitmap;
 
     if( ( nDstWidth > CACHED_HDC_DEFEXT ) || ( nDstHeight > CACHED_HDC_DEFEXT ) )
     {
-        hMemBitmap = CreateCompatibleBitmap( hDC, nDstWidth, nDstHeight );
-        hMaskBitmap = CreateCompatibleBitmap( hDC, nDstWidth, nDstHeight );
+        hMemBitmap.reset(CreateCompatibleBitmap(hDC, nDstWidth, nDstHeight));
+        hMaskBitmap.reset(CreateCompatibleBitmap(hDC, nDstWidth, nDstHeight));
     }
 
-    HDC hMemDC = ImplGetCachedDC( CACHED_HDC_1, hMemBitmap );
-    HDC hMaskDC = ImplGetCachedDC( CACHED_HDC_2, hMaskBitmap );
+    ScopedCachedHDC<CACHED_HDC_1> hMemDC(hMemBitmap.get());
+    ScopedCachedHDC<CACHED_HDC_2> hMaskDC(hMaskBitmap.get());
 
     aPosAry.mnDestX = aPosAry.mnDestY = 0;
-    BitBlt( hMemDC, 0, 0, nDstWidth, nDstHeight, hDC, nDstX, nDstY, SRCCOPY );
+    BitBlt( hMemDC.get(), 0, 0, nDstWidth, nDstHeight, hDC, nDstX, nDstY, SRCCOPY );
 
     // WIN/WNT seems to have a minor problem mapping the correct color of the
     // mask to the palette if we draw the DIB directly ==> draw DDB
@@ -701,42 +700,32 @@ void WinSalGraphicsImpl::drawBitmap( const SalTwoRect& rPosAry,
         WinSalBitmap aTmp;
 
         if( aTmp.Create( rTransparentBitmap, &mrParent ) )
-            ImplDrawBitmap( hMaskDC, aPosAry, aTmp, false, SRCCOPY );
+            ImplDrawBitmap( hMaskDC.get(), aPosAry, aTmp, false, SRCCOPY );
     }
     else
-        ImplDrawBitmap( hMaskDC, aPosAry, rTransparentBitmap, false, SRCCOPY );
+        ImplDrawBitmap( hMaskDC.get(), aPosAry, rTransparentBitmap, false, SRCCOPY );
 
     // now MemDC contains background, MaskDC the transparency mask
 
     // #105055# Respect XOR mode
     if( mbXORMode )
     {
-        ImplDrawBitmap( hMaskDC, aPosAry, rSalBitmap, false, SRCERASE );
+        ImplDrawBitmap( hMaskDC.get(), aPosAry, rSalBitmap, false, SRCERASE );
         // now MaskDC contains the bitmap area with black background
-        BitBlt( hMemDC, 0, 0, nDstWidth, nDstHeight, hMaskDC, 0, 0, SRCINVERT );
+        BitBlt( hMemDC.get(), 0, 0, nDstWidth, nDstHeight, hMaskDC.get(), 0, 0, SRCINVERT );
         // now MemDC contains background XORed bitmap area ontop
     }
     else
     {
-        BitBlt( hMemDC, 0, 0, nDstWidth, nDstHeight, hMaskDC, 0, 0, SRCAND );
+        BitBlt( hMemDC.get(), 0, 0, nDstWidth, nDstHeight, hMaskDC.get(), 0, 0, SRCAND );
         // now MemDC contains background with masked-out bitmap area
-        ImplDrawBitmap( hMaskDC, aPosAry, rSalBitmap, false, SRCERASE );
+        ImplDrawBitmap( hMaskDC.get(), aPosAry, rSalBitmap, false, SRCERASE );
         // now MaskDC contains the bitmap area with black background
-        BitBlt( hMemDC, 0, 0, nDstWidth, nDstHeight, hMaskDC, 0, 0, SRCPAINT );
+        BitBlt( hMemDC.get(), 0, 0, nDstWidth, nDstHeight, hMaskDC.get(), 0, 0, SRCPAINT );
         // now MemDC contains background and bitmap merged together
     }
     // copy to output DC
-    BitBlt( hDC, nDstX, nDstY, nDstWidth, nDstHeight, hMemDC, 0, 0, SRCCOPY );
-
-    ImplReleaseCachedDC( CACHED_HDC_1 );
-    ImplReleaseCachedDC( CACHED_HDC_2 );
-
-    // hMemBitmap != 0 ==> hMaskBitmap != 0
-    if( hMemBitmap )
-    {
-        DeleteObject( hMemBitmap );
-        DeleteObject( hMaskBitmap );
-    }
+    BitBlt( hDC, nDstX, nDstY, nDstWidth, nDstHeight, hMemDC.get(), 0, 0, SRCCOPY );
 }
 
 bool WinSalGraphicsImpl::drawAlphaRect( long nX, long nY, long nWidth,
@@ -745,8 +734,8 @@ bool WinSalGraphicsImpl::drawAlphaRect( long nX, long nY, long nWidth,
     if( mbPen || !mbBrush || mbXORMode )
         return false; // can only perform solid fills without XOR.
 
-    HDC hMemDC = ImplGetCachedDC( CACHED_HDC_1 );
-    SetPixel( hMemDC, int(0), int(0), mnBrushColor );
+    ScopedCachedHDC<CACHED_HDC_1> hMemDC(nullptr);
+    SetPixel( hMemDC.get(), int(0), int(0), mnBrushColor );
 
     BLENDFUNCTION aFunc = {
         AC_SRC_OVER,
@@ -758,10 +747,8 @@ bool WinSalGraphicsImpl::drawAlphaRect( long nX, long nY, long nWidth,
     // hMemDC contains a 1x1 bitmap of the right color - stretch-blit
     // that to dest hdc
     bool bRet = GdiAlphaBlend(mrParent.getHDC(), nX, nY, nWidth, nHeight,
-                              hMemDC, 0,0,1,1,
+                              hMemDC.get(), 0,0,1,1,
                               aFunc ) == TRUE;
-
-    ImplReleaseCachedDC( CACHED_HDC_1 );
 
     return bRet;
 }
@@ -779,10 +766,9 @@ void WinSalGraphicsImpl::drawMask(const SalTwoRect& rPosAry,
     SalTwoRect  aPosAry = rPosAry;
     const HDC hDC = mrParent.getHDC();
 
-    ScopedHBRUSH hMaskBrush(CreateSolidBrush(RGB(nMaskColor.GetRed(),
-                                                 nMaskColor.GetGreen(),
-                                                 nMaskColor.GetBlue())));
-    HBRUSH  hOldBrush = SelectBrush(hDC, hMaskBrush.get());
+    ScopedSelectedHBRUSH hBrush(hDC, CreateSolidBrush(RGB(nMaskColor.GetRed(),
+                                                          nMaskColor.GetGreen(),
+                                                          nMaskColor.GetBlue())));
 
     // WIN/WNT seems to have a minor problem mapping the correct color of the
     // mask to the palette if we draw the DIB directly ==> draw DDB
@@ -795,8 +781,6 @@ void WinSalGraphicsImpl::drawMask(const SalTwoRect& rPosAry,
     }
     else
         ImplDrawBitmap( hDC, aPosAry, rSalBitmap, false, 0x00B8074AUL );
-
-    SelectBrush(hDC, hOldBrush);
 }
 
 std::shared_ptr<SalBitmap> WinSalGraphicsImpl::getBitmap( long nX, long nY, long nDX, long nDY )
@@ -810,11 +794,15 @@ std::shared_ptr<SalBitmap> WinSalGraphicsImpl::getBitmap( long nX, long nY, long
 
     HDC     hDC = mrParent.getHDC();
     HBITMAP hBmpBitmap = CreateCompatibleBitmap( hDC, nDX, nDY );
-    HDC     hBmpDC = ImplGetCachedDC( CACHED_HDC_1, hBmpBitmap );
     bool    bRet;
 
-    bRet = BitBlt( hBmpDC, 0, 0, static_cast<int>(nDX), static_cast<int>(nDY), hDC, static_cast<int>(nX), static_cast<int>(nY), SRCCOPY ) ? TRUE : FALSE;
-    ImplReleaseCachedDC( CACHED_HDC_1 );
+    {
+        ScopedCachedHDC<CACHED_HDC_1> hBmpDC(hBmpBitmap);
+
+        bRet = BitBlt(hBmpDC.get(), 0, 0,
+                      static_cast<int>(nDX), static_cast<int>(nDY), hDC,
+                      static_cast<int>(nX), static_cast<int>(nY), SRCCOPY) ? TRUE : FALSE;
+    }
 
     if( bRet )
     {
@@ -988,7 +976,7 @@ void WinSalGraphicsImpl::ResetClipRegion()
         mrParent.mhRegion = nullptr;
     }
 
-     SelectClipRgn( mrParent.getHDC(), nullptr );
+    SelectClipRgn( mrParent.getHDC(), nullptr );
 }
 
 static bool containsOnlyHorizontalAndVerticalEdges(const basegfx::B2DPolygon& rCandidate)
@@ -1100,7 +1088,7 @@ bool WinSalGraphicsImpl::setClipRegion( const vcl::Region& i_rClip )
             {
                 const basegfx::B2DRange aRangeS(aPolyPolygon.getB2DRange());
                 const basegfx::B2DRange aRangeT(aRangeS.getMinimum(), aRangeS.getMaximum() + basegfx::B2DTuple(1.0, 1.0));
-                aExpand = basegfx::B2DHomMatrix(basegfx::utils::createSourceRangeTargetRangeTransform(aRangeS, aRangeT));
+                aExpand = basegfx::utils::createSourceRangeTargetRangeTransform(aRangeS, aRangeT);
             }
 
             for(auto const& rPolygon : aPolyPolygon)
@@ -1259,9 +1247,8 @@ bool WinSalGraphicsImpl::setClipRegion( const vcl::Region& i_rClip )
 
                     for( sal_uLong n = 1; n < pHeader.nCount; n++, pRect++ )
                     {
-                        HRGN hRgn = CreateRectRgn( pRect->left, pRect->top, pRect->right, pRect->bottom );
-                        CombineRgn( mrParent.mhRegion, mrParent.mhRegion, hRgn, RGN_OR );
-                        DeleteRegion( hRgn );
+                        ScopedHRGN hRgn(CreateRectRgn(pRect->left, pRect->top, pRect->right, pRect->bottom));
+                        CombineRgn( mrParent.mhRegion, mrParent.mhRegion, hRgn.get(), RGN_OR );
                     }
                 }
             }
@@ -1576,10 +1563,8 @@ void WinSalGraphicsImpl::DrawPixelImpl( long nX, long nY, COLORREF crColor )
         return;
     }
 
-    ScopedHBRUSH hBrush(CreateSolidBrush(crColor));
-    HBRUSH hOldBrush = SelectBrush(hDC, hBrush.get());
+    ScopedSelectedHBRUSH hBrush(hDC, CreateSolidBrush(crColor));
     PatBlt(hDC, static_cast<int>(nX), static_cast<int>(nY), int(1), int(1), PATINVERT);
-    SelectBrush(hDC, hOldBrush);
 }
 
 void WinSalGraphicsImpl::drawPixel( long nX, long nY )
@@ -1943,7 +1928,7 @@ static void impAddB2DPolygonToGDIPlusGraphicsPathReal(
 
                     // tdf#99165 MS Gdiplus cannot handle creating correct extra geometry for fat lines
                     // with LineCap or LineJoin when a bezier segment starts or ends trivial, e.g. has
-                    // no 1st or 2nd control point, despite that these are mathematicaly correct definitions
+                    // no 1st or 2nd control point, despite that these are mathematically correct definitions
                     // (basegfx can handle that).
                     // Caution: This error (and it's correction) might be necessary for other graphical
                     // sub-systems in a similar way.
@@ -2347,6 +2332,21 @@ bool WinSalGraphicsImpl::drawPolyLine(
         aGraphics.SetSmoothingMode(Gdiplus::SmoothingModeNone);
     }
 
+    if(mrParent.isPrinter())
+    {
+        // tdf#122384 As mentioned above in WinSalGraphicsImpl::drawPolyPolygon
+        // (look for 'One more hint: This *may* also be needed now in'...).
+        // See comments in same spot above *urgently* before doing changes here,
+        // these comments are *still fully valid* at this place (!)
+        const Gdiplus::REAL aDpiX(aGraphics.GetDpiX());
+        const Gdiplus::REAL aDpiY(aGraphics.GetDpiY());
+
+        aGraphics.ScaleTransform(
+            Gdiplus::REAL(100.0) / aDpiX,
+            Gdiplus::REAL(100.0) / aDpiY,
+            Gdiplus::MatrixOrderAppend);
+    }
+
     aGraphics.DrawPath(
         &aPen,
         &(*pGraphicsPath));
@@ -2436,7 +2436,7 @@ bool WinSalGraphicsImpl::TryDrawBitmapGDIPlus(const SalTwoRect& rTR, const SalBi
             paintToGdiPlus(
                 aGraphics,
                 rTR,
-                *aARGB.get());
+                *aARGB);
 
             return true;
         }
@@ -2489,7 +2489,7 @@ bool WinSalGraphicsImpl::drawAlphaBitmap(
             paintToGdiPlus(
                 aGraphics,
                 rTR,
-                *aARGB.get());
+                *aARGB);
 
             return true;
         }

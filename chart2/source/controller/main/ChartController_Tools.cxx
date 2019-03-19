@@ -67,7 +67,6 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/unoapi.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <tools/diagnose_ex.h>
@@ -158,7 +157,7 @@ std::unique_ptr<ReferenceSizeProvider> ChartController::impl_createReferenceSize
 {
     awt::Size aPageSize( ChartModelHelper::getPageSize( getModel() ) );
 
-    return o3tl::make_unique<ReferenceSizeProvider>(
+    return std::make_unique<ReferenceSizeProvider>(
         aPageSize, Reference<chart2::XChartDocument>(getModel(), uno::UNO_QUERY));
 }
 
@@ -412,7 +411,7 @@ void ChartController::impl_PasteShapes( SdrModel* pModel )
                         }
 
                         pDestPage->InsertObject( pNewObj );
-                        m_pDrawViewWrapper->AddUndo( o3tl::make_unique<SdrUndoInsertObj>( *pNewObj ) );
+                        m_pDrawViewWrapper->AddUndo( std::make_unique<SdrUndoInsertObj>( *pNewObj ) );
                         xSelShape = xShape;
                     }
                 }
@@ -475,7 +474,7 @@ void ChartController::impl_PasteStringAsTextShape( const OUString& rString, cons
                 if ( pObj )
                 {
                     m_pDrawViewWrapper->BegUndo( SvxResId( RID_SVX_3D_UNDO_EXCHANGE_PASTE ) );
-                    m_pDrawViewWrapper->AddUndo( o3tl::make_unique<SdrUndoInsertObj>( *pObj ) );
+                    m_pDrawViewWrapper->AddUndo( std::make_unique<SdrUndoInsertObj>( *pObj ) );
                     m_pDrawViewWrapper->EndUndo();
 
                     impl_switchDiagramPositioningToExcludingPositioning();
@@ -819,7 +818,7 @@ void ChartController::executeDispatch_ToggleLegend()
     Reference< frame::XModel > xModel( getModel() );
     UndoGuard aUndoGuard(
         SchResId( STR_ACTION_TOGGLE_LEGEND ), m_xUndoManager );
-    ChartModel& rModel = dynamic_cast<ChartModel&>(*xModel.get());
+    ChartModel& rModel = dynamic_cast<ChartModel&>(*xModel);
     Reference< beans::XPropertySet > xLegendProp( LegendHelper::getLegend(rModel), uno::UNO_QUERY );
     bool bChanged = false;
     if( xLegendProp.is())

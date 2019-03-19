@@ -42,6 +42,7 @@
 #include <cairo.h>
 #include <headless/svpgdi.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 
 void Qt5Widget::paintEvent(QPaintEvent* pEvent)
 {
@@ -188,29 +189,30 @@ void Qt5Widget::wheelEvent(QWheelEvent* pEvent)
     pEvent->accept();
 }
 
-void Qt5Widget::startDrag()
+void Qt5Widget::startDrag(sal_Int8 nSourceActions)
 {
     // internal drag source
     QMimeData* mimeData = new QMimeData;
-    mimeData->setData(m_InternalMimeType, nullptr);
+    mimeData->setData(sInternalMimeType, nullptr);
 
     QDrag* drag = new QDrag(this);
     drag->setMimeData(mimeData);
-    drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::MoveAction);
+    drag->exec(toQtDropActions(nSourceActions), Qt::MoveAction);
 }
 
 void Qt5Widget::dragEnterEvent(QDragEnterEvent* event)
 {
-    if (event->mimeData()->hasFormat(m_InternalMimeType))
+    if (event->mimeData()->hasFormat(sInternalMimeType))
         event->accept();
-    // else FIXME: external drag source
+    else
+        event->acceptProposedAction();
 }
 
 void Qt5Widget::dragMoveEvent(QDragMoveEvent* event)
 {
     QPoint point = event->pos();
 
-    m_pFrame->draggingStarted(point.x(), point.y());
+    m_pFrame->draggingStarted(point.x(), point.y(), event->possibleActions(), event->mimeData());
     QWidget::dragMoveEvent(event);
 }
 
@@ -218,7 +220,7 @@ void Qt5Widget::dropEvent(QDropEvent* event)
 {
     QPoint point = event->pos();
 
-    m_pFrame->dropping(point.x(), point.y());
+    m_pFrame->dropping(point.x(), point.y(), event->mimeData());
     QWidget::dropEvent(event);
 }
 
@@ -236,7 +238,7 @@ void Qt5Widget::closeEvent(QCloseEvent* /*pEvent*/)
     m_pFrame->CallCallback(SalEvent::Close, nullptr);
 }
 
-static sal_uInt16 GetKeyCode(int keyval)
+static sal_uInt16 GetKeyCode(int keyval, Qt::KeyboardModifiers modifiers)
 {
     sal_uInt16 nCode = 0;
     if (keyval >= Qt::Key_0 && keyval <= Qt::Key_9)
@@ -245,6 +247,11 @@ static sal_uInt16 GetKeyCode(int keyval)
         nCode = KEY_A + (keyval - Qt::Key_A);
     else if (keyval >= Qt::Key_F1 && keyval <= Qt::Key_F26)
         nCode = KEY_F1 + (keyval - Qt::Key_F1);
+    else if (modifiers.testFlag(Qt::KeypadModifier)
+             && (keyval == Qt::Key_Period || keyval == Qt::Key_Comma))
+        // Qt doesn't use a special keyval for decimal separator ("," or ".")
+        // on numerical keypad, but sets Qt::KeypadModifier in addition
+        nCode = KEY_DECIMAL;
     else
     {
         switch (keyval)
@@ -383,7 +390,7 @@ bool Qt5Widget::handleKeyEvent(QKeyEvent* pEvent, bool bDown)
 
     aEvent.mnCharCode = (pEvent->text().isEmpty() ? 0 : pEvent->text().at(0).unicode());
     aEvent.mnRepeat = 0;
-    aEvent.mnCode = GetKeyCode(pEvent->key());
+    aEvent.mnCode = GetKeyCode(pEvent->key(), pEvent->modifiers());
     aEvent.mnCode |= GetKeyModCode(pEvent->modifiers());
 
     bool bStopProcessingKey;
@@ -394,10 +401,24 @@ bool Qt5Widget::handleKeyEvent(QKeyEvent* pEvent, bool bDown)
     return bStopProcessingKey;
 }
 
-void Qt5Widget::keyPressEvent(QKeyEvent* pEvent)
+bool Qt5Widget::event(QEvent* pEvent)
 {
-    if (handleKeyEvent(pEvent, true))
-        pEvent->accept();
+    if (pEvent->type() == QEvent::ShortcutOverride)
+    {
+        // Accepted event disables shortcut activation,
+        // but enables keypress event.
+        // If event is not accepted and shortcut is successfully activated,
+        // KeyPress event is omitted.
+        //
+        // Instead of processing keyPressEvent, handle ShortcutOverride event,
+        // and if it's handled - disable the shortcut, it should have been activated.
+        // Don't process keyPressEvent generated after disabling shortcut since it was handled here.
+        // If event is not handled, don't accept it and let Qt activate related shortcut.
+        if (handleKeyEvent(static_cast<QKeyEvent*>(pEvent), true))
+            pEvent->accept();
+    }
+
+    return QWidget::event(pEvent);
 }
 
 void Qt5Widget::keyReleaseEvent(QKeyEvent* pEvent)

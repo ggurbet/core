@@ -23,9 +23,11 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <com/sun/star/registry/XRegistryKey.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <i18nlangtag/languagetag.hxx>
 #include <tools/debug.hxx>
 #include <osl/mutex.hxx>
+#include <osl/thread.h>
 
 #include <hyphen.h>
 #include "hyphenimp.hxx"
@@ -127,7 +129,7 @@ Sequence< Locale > SAL_CALL Hyphenator::getLocales()
 
         // to prefer dictionaries with configuration entries we will only
         // use those old style dictionaries that add a language that
-        // is not yet supported by the list od new style dictionaries
+        // is not yet supported by the list of new style dictionaries
         MergeNewStyleDicsAndOldStyleDics( aDics, aOldStyleDics );
 
         sal_Int32 numdict = aDics.size();
@@ -263,7 +265,7 @@ bool LoadDictionary(HDInfo& rDict)
 Reference< XHyphenatedWord > SAL_CALL Hyphenator::hyphenate( const OUString& aWord,
        const css::lang::Locale& aLocale,
        sal_Int16 nMaxLeading,
-       const css::beans::PropertyValues& aProperties )
+       const css::uno::Sequence< css::beans::PropertyValue >& aProperties )
 {
     PropertyHelper_Hyphenation& rHelper = GetPropHelper();
     rHelper.SetTmpPropVals(aProperties);
@@ -489,7 +491,7 @@ Reference < XHyphenatedWord > SAL_CALL Hyphenator::queryAlternativeSpelling(
         const OUString& aWord,
         const css::lang::Locale& aLocale,
         sal_Int16 nIndex,
-        const css::beans::PropertyValues& aProperties )
+        const css::uno::Sequence< css::beans::PropertyValue >& aProperties )
 {
     // Firstly we allow only one plus character before the hyphen to avoid to miss the right break point:
     for (int extrachar = 1; extrachar <= 2; extrachar++)
@@ -503,7 +505,7 @@ Reference < XHyphenatedWord > SAL_CALL Hyphenator::queryAlternativeSpelling(
 
 Reference< XPossibleHyphens > SAL_CALL Hyphenator::createPossibleHyphens( const OUString& aWord,
         const css::lang::Locale& aLocale,
-        const css::beans::PropertyValues& aProperties )
+        const css::uno::Sequence< css::beans::PropertyValue >& aProperties )
 {
     PropertyHelper_Hyphenation& rHelper = GetPropHelper();
     rHelper.SetTmpPropVals(aProperties);

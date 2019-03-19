@@ -19,19 +19,13 @@
 
 #include <copydlg.hxx>
 #include <svx/colorbox.hxx>
-#include <svx/dlgutil.hxx>
 #include <sfx2/module.hxx>
 #include <svx/xcolit.hxx>
-#include <svx/xflclit.hxx>
-#include <svx/xdef.hxx>
-#include <svx/xfillit0.hxx>
-#include <svx/xenum.hxx>
 
-#include <sfx2/app.hxx>
 #include <unotools/viewoptions.hxx>
+#include <svtools/unitconv.hxx>
 
-#include <sdattr.hxx>
-
+#include <sdattr.hrc>
 #include <View.hxx>
 #include <drawdoc.hxx>
 
@@ -94,8 +88,9 @@ void CopyDlg::Reset()
     // Set Min/Max values
     ::tools::Rectangle aRect = mpView->GetAllMarkedRect();
     Size aPageSize = mpView->GetSdrPageView()->GetPage()->GetSize();
-    SetMetricValue( *m_xMtrFldMoveX, long(1000000 / maUIScale), MapUnit::Map100thMM);
-    double fScaleFactor = m_xMtrFldMoveX->get_value(FieldUnit::NONE)/1000000.0;
+    auto const n1 = m_xMtrFldMoveX->normalize(long(1000000 / maUIScale));
+    auto const n2 = m_xMtrFldMoveX->convert_value_from(n1, FieldUnit::MM_100TH);
+    double fScaleFactor = m_xMtrFldMoveX->convert_value_to(n2, FieldUnit::NONE)/1000000.0;
 
     long nPageWidth  = aPageSize.Width()  * fScaleFactor;
     long nPageHeight = aPageSize.Height() * fScaleFactor;

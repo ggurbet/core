@@ -69,7 +69,6 @@
 #include <svx/xflftrit.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/drawitem.hxx>
-#include <o3tl/make_unique.hxx>
 
 // The Format names in the list of all names have the
 // following family as their first character:
@@ -1455,7 +1454,7 @@ void SwDocStyleSheet::SetItemSet( const SfxItemSet& rSet,
     }
 
     SwFormat* pFormat = nullptr;
-    SwPageDesc* pNewDsc = nullptr;
+    std::unique_ptr<SwPageDesc> pNewDsc;
     size_t nPgDscPos = 0;
 
     switch(nFamily)
@@ -1611,7 +1610,7 @@ void SwDocStyleSheet::SetItemSet( const SfxItemSet& rSet,
 
                 if (rDoc.FindPageDesc(pDesc->GetName(), &nPgDscPos))
                 {
-                    pNewDsc = new SwPageDesc( *pDesc );
+                    pNewDsc.reset( new SwPageDesc( *pDesc ) );
                     // #i48949# - no undo actions for the
                     // copy of the page style
                     ::sw::UndoGuard const ug(rDoc.GetIDocumentUndoRedo());
@@ -1696,8 +1695,8 @@ void SwDocStyleSheet::SetItemSet( const SfxItemSet& rSet,
             ::ItemSetToPageDesc( aSet, *pNewDsc );
             rDoc.ChgPageDesc( nPgDscPos, *pNewDsc );
             pDesc = &rDoc.GetPageDesc( nPgDscPos );
-            rDoc.PreDelPageDesc(pNewDsc); // #i7983#
-            delete pNewDsc;
+            rDoc.PreDelPageDesc(pNewDsc.get()); // #i7983#
+            pNewDsc.reset();
         }
         else
             rDoc.ChgFormat(*pFormat, aSet);       // put all that is set
@@ -1707,8 +1706,8 @@ void SwDocStyleSheet::SetItemSet( const SfxItemSet& rSet,
         aCoreSet.ClearItem();
         if( pNewDsc )       // we still need to delete it
         {
-            rDoc.PreDelPageDesc(pNewDsc); // #i7983#
-            delete pNewDsc;
+            rDoc.PreDelPageDesc(pNewDsc.get()); // #i7983#
+            pNewDsc.reset();
         }
     }
 
@@ -2436,7 +2435,7 @@ SfxStyleSheetBase*   SwDocStyleSheetPool::Create( const OUString &,
 
 std::unique_ptr<SfxStyleSheetIterator> SwDocStyleSheetPool::CreateIterator( SfxStyleFamily eFam, SfxStyleSearchBits _nMask )
 {
-    return o3tl::make_unique<SwStyleSheetIterator>( this, eFam, _nMask );
+    return std::make_unique<SwStyleSheetIterator>( this, eFam, _nMask );
 }
 
 void SwDocStyleSheetPool::dispose()
@@ -2553,8 +2552,7 @@ bool  SwDocStyleSheetPool::SetParent( SfxStyleFamily eFam,
             else
                 mxStyleSheet->PresetFollow( OUString() );
 
-            Broadcast( SfxStyleSheetHint( SfxHintId::StyleSheetModified,
-                                            *(mxStyleSheet.get()) ) );
+            Broadcast( SfxStyleSheetHint( SfxHintId::StyleSheetModified, *mxStyleSheet ) );
         }
     }
 

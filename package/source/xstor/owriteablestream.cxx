@@ -48,6 +48,7 @@
 
 #include <rtl/digest.h>
 #include <rtl/instance.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <PackageConstants.hxx>
 
@@ -481,13 +482,12 @@ void OWriteStream_Impl::DisposeWrappers()
 
     if ( !m_aInputStreamsVector.empty() )
     {
-        for ( InputStreamsVector_Impl::iterator pStreamIter = m_aInputStreamsVector.begin();
-              pStreamIter != m_aInputStreamsVector.end(); ++pStreamIter )
+        for ( auto& pStream : m_aInputStreamsVector )
         {
-            if ( *pStreamIter )
+            if ( pStream )
             {
-                (*pStreamIter)->InternalDispose();
-                (*pStreamIter) = nullptr;
+                pStream->InternalDispose();
+                pStream = nullptr;
             }
         }
 
@@ -806,7 +806,7 @@ void OWriteStream_Impl::Commit()
         uno::Reference< io::XInputStream > xInStream;
         try
         {
-            xInStream.set( static_cast< io::XInputStream* >( new OSelfTerminateFileStream( m_xContext, m_aTempURL ) ), uno::UNO_QUERY );
+            xInStream = new OSelfTerminateFileStream(m_xContext, m_aTempURL);
         }
         catch( const uno::Exception& )
         {
@@ -2361,10 +2361,10 @@ void SAL_CALL OWriteStream::dispose()
                     m_pImpl->Revert();
                 }
             }
-            catch( const uno::Exception& rException )
+            catch( const uno::Exception& )
             {
-                SAL_INFO("package.xstor", "Rethrow: " << rException);
                 uno::Any aCaught( ::cppu::getCaughtException() );
+                SAL_INFO("package.xstor", "Rethrow: " << exceptionToString(aCaught));
                 throw lang::WrappedTargetRuntimeException("Can not commit/revert the storage!",
                                                 static_cast< OWeakObject* >( this ),
                                                 aCaught );
@@ -2378,7 +2378,7 @@ void SAL_CALL OWriteStream::dispose()
     // for now the listener is just notified at the end of the method to workaround the problem
     // in future a more elegant way should be found
 
-       lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
+    lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
     m_pData->m_aListenersContainer.disposeAndClear( aSource );
 }
 
@@ -2490,10 +2490,10 @@ sal_Bool SAL_CALL OWriteStream::hasEncryptionData()
         SAL_INFO("package.xstor", "Rethrow: " << rRuntimeException);
         throw;
     }
-    catch( const uno::Exception& rException )
+    catch( const uno::Exception& )
     {
-        SAL_INFO("package.xstor", "Rethrow: " << rException);
         uno::Any aCaught( ::cppu::getCaughtException() );
+        SAL_INFO("package.xstor", "Rethrow: " << exceptionToString(aCaught));
         throw lang::WrappedTargetRuntimeException( "Problems on hasEncryptionData!",
                                   static_cast< ::cppu::OWeakObject* >( this ),
                                   aCaught );
@@ -3096,12 +3096,12 @@ void OWriteStream::BroadcastTransaction( sal_Int8 nMessage )
         throw lang::DisposedException();
     }
 
-       lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
+    lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >(this) );
 
-       ::cppu::OInterfaceContainerHelper* pContainer =
+    ::cppu::OInterfaceContainerHelper* pContainer =
             m_pData->m_aListenersContainer.getContainer(
                 cppu::UnoType<embed::XTransactionListener>::get());
-       if ( pContainer )
+    if ( pContainer )
     {
            ::cppu::OInterfaceIteratorHelper pIterator( *pContainer );
            while ( pIterator.hasMoreElements( ) )
@@ -3170,10 +3170,10 @@ void SAL_CALL OWriteStream::commit()
         SAL_INFO("package.xstor", "Rethrow: " << rRuntimeException);
         throw;
     }
-    catch( const uno::Exception& rException )
+    catch( const uno::Exception& )
     {
-        SAL_INFO("package.xstor", "Rethrow: " << rException);
         uno::Any aCaught( ::cppu::getCaughtException() );
+        SAL_INFO("package.xstor", "Rethrow: " << exceptionToString(aCaught));
         throw embed::StorageWrappedTargetException( "Problems on commit!",
                                   static_cast< ::cppu::OWeakObject* >( this ),
                                   aCaught );
@@ -3225,10 +3225,10 @@ void SAL_CALL OWriteStream::revert()
         SAL_INFO("package.xstor", "Rethrow: " << rRuntimeException);
         throw;
     }
-    catch( const uno::Exception& rException )
+    catch( const uno::Exception& )
     {
-        SAL_INFO("package.xstor", "Rethrow: " << rException);
         uno::Any aCaught( ::cppu::getCaughtException() );
+        SAL_INFO("package.xstor", "Rethrow: " << exceptionToString(aCaught));
         throw embed::StorageWrappedTargetException( "Problems on revert!",
                                   static_cast< ::cppu::OWeakObject* >( this ),
                                   aCaught );

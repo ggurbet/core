@@ -168,7 +168,7 @@ void ScViewFunc::PasteDraw( const Point& rLogicPos, SdrModel* pModel,
                         pNewObj->NbcMove(Size(nDiffX,nDiffY));
                     if (pDestPage)
                         pDestPage->InsertObject( pNewObj );
-                    pScDrawView->AddUndo(o3tl::make_unique<SdrUndoInsertObj>( *pNewObj ));
+                    pScDrawView->AddUndo(std::make_unique<SdrUndoInsertObj>( *pNewObj ));
 
                     if (ScDrawLayer::IsCellAnchored(*pNewObj))
                         ScDrawLayer::SetCellAnchoredFromPosition(*pNewObj, *GetViewData().GetDocument(), nTab,

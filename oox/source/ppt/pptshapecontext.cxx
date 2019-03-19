@@ -127,7 +127,7 @@ ContextHandlerRef PPTShapeContext::onCreateContext( sal_Int32 aElementToken, con
                               default:
                                   break;
                         }
-                          if ( nFirstPlaceholder )
+                        if ( nFirstPlaceholder )
                           {
                               oox::drawingml::ShapePtr pPlaceholder;
                               if ( eShapeLocation == Layout )       // for layout objects the referenced object can be found within the same shape tree
@@ -148,7 +148,7 @@ ContextHandlerRef PPTShapeContext::onCreateContext( sal_Int32 aElementToken, con
                               {
                                   SAL_INFO("oox.ppt","shape " << mpShapePtr->getId() <<
                                           " will get shape reference " << pPlaceholder->getId() << " applied");
-                                  mpShapePtr->applyShapeReference( *pPlaceholder.get() );
+                                  mpShapePtr->applyShapeReference( *pPlaceholder );
                                   PPTShape* pPPTShape = dynamic_cast< PPTShape* >( pPlaceholder.get() );
                                   if ( pPPTShape )
                                       pPPTShape->setReferenced( true );
@@ -158,8 +158,8 @@ ContextHandlerRef PPTShapeContext::onCreateContext( sal_Int32 aElementToken, con
                     }
                   }
 
-              }
-              break;
+            }
+            break;
         }
 
         // nvSpPr CT_ShapeNonVisual end

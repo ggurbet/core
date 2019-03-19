@@ -24,6 +24,7 @@
 #include <vcl/svapp.hxx>
 #include <dbu_dlg.hxx>
 #include <com/sun/star/sdbc/KeyRule.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
@@ -62,8 +63,6 @@ ORelationDialog::ORelationDialog( OJoinTableView* pParent,
     get(m_pRB_CascDelNull, "delnull");
     get(m_pRB_CascDelDefault, "deldefault");
     get(m_pPB_OK, "ok");
-
-    m_xConnection = pParent->getDesignView()->getController().getConnection();
 
     // Copy connection
     m_pConnData.reset( static_cast<ORelationTableConnectionData*>(pConnectionData->NewInstance()) );

@@ -52,7 +52,7 @@ void throwGenericSQLException( const OUString& _rMessage )
     throw aError;
 }
 
-/** throws an SQLException saying than no Mac OS installation was found
+/** throws an SQLException saying that no Mac OS installation was found
  */
 void throwNoMacOSException()
 {
@@ -204,9 +204,9 @@ void MacabDriver::disposing()
     ::osl::MutexGuard aGuard(m_aMutex);
 
     // when driver will be destroyed so all our connections have to be destroyed as well
-    for (OWeakRefArray::iterator i = m_xConnections.begin(); m_xConnections.end() != i; ++i)
+    for (auto& rxConnection : m_xConnections)
     {
-        Reference< XComponent > xComp(i->get(), UNO_QUERY);
+        Reference< XComponent > xComp(rxConnection.get(), UNO_QUERY);
         if (xComp.is())
             xComp->dispose();
     }

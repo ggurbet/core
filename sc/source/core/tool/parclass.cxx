@@ -146,7 +146,8 @@ const ScParameterClassification::RawData ScParameterClassification::pRawData[] =
     { ocForecast_ETS_STA, {{ ForceArray, ForceArray, ForceArray, Value, Value, Value        }, 0, Value }},
     { ocForecast_ETS_STM, {{ ForceArray, ForceArray, ForceArray, Value, Value, Value        }, 0, Value }},
     { ocFormula,         {{ Reference                                            }, 0, Value }},
-    { ocFrequency,       {{ Reference, Reference                                 }, 0, Value }},
+    { ocFourier,         {{ ForceArray, Value, Value, Value                      }, 0, Value }},
+    { ocFrequency,       {{ ReferenceOrForceArray, ReferenceOrForceArray         }, 0, ForceArrayReturn }},
     { ocGCD,             {{ Reference                                            }, 1, Value }},
     { ocGeoMean,         {{ Reference                                            }, 1, Value }},
     { ocGreater,         {{ Array, Array                                         }, 0, Value }},
@@ -173,7 +174,7 @@ const ScParameterClassification::RawData ScParameterClassification::pRawData[] =
     { ocMatDet,          {{ ForceArray                                           }, 0, Value }},
     { ocMatInv,          {{ ForceArray                                           }, 0, Value }},
     { ocMatMult,         {{ ForceArray, ForceArray                               }, 0, Value }},
-    { ocMatTrans,        {{ Array                                                }, 0, Value }}, // strange, but Xcl doesn't force MatTrans array
+    { ocMatTrans,        {{ ForceArray                                           }, 0, ForceArrayReturn }},
     { ocMatValue,        {{ Reference, Value, Value                              }, 0, Value }},
     { ocMatch,           {{ Value, ReferenceOrForceArray, Value                  }, 0, Value }},
     { ocMax,             {{ ReferenceOrRefArray                                  }, 1, Value }},

@@ -45,9 +45,10 @@ class Qt5Widget : public QWidget
     bool handleKeyEvent(QKeyEvent*, bool);
     void handleMouseButtonEvent(QMouseEvent*, bool);
 
+    virtual bool event(QEvent*) override;
+
     virtual void focusInEvent(QFocusEvent*) override;
     virtual void focusOutEvent(QFocusEvent*) override;
-    virtual void keyPressEvent(QKeyEvent*) override;
     virtual void keyReleaseEvent(QKeyEvent*) override;
     virtual void mouseMoveEvent(QMouseEvent*) override;
     virtual void mousePressEvent(QMouseEvent*) override;
@@ -65,15 +66,13 @@ class Qt5Widget : public QWidget
     void inputMethodEvent(QInputMethodEvent*) override;
     QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
 
-    const QString m_InternalMimeType = "application/x-libreoffice-dnditem";
-
 public slots:
     static void showTooltip(const OUString& rTip);
 
 public:
     Qt5Widget(Qt5Frame& rFrame, Qt::WindowFlags f = Qt::WindowFlags());
     Qt5Frame* m_pFrame;
-    void startDrag();
+    void startDrag(sal_Int8 nSourceActions);
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

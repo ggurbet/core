@@ -26,12 +26,13 @@
 #include <com/sun/star/beans/PropertyConcept.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
+#include <com/sun/star/frame/XController.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <basic/sbx.hxx>
 #include <basic/sbstar.hxx>
 #include <basic/sbmeth.hxx>
 #include "vbacontrols.hxx"
 #include <sal/log.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::ooo::vba;
 using namespace ::com::sun::star;
@@ -53,7 +54,7 @@ ScVbaUserForm::ScVbaUserForm( uno::Sequence< uno::Any > const& aArgs, uno::Refer
     m_xDialog.set( m_xControl, uno::UNO_QUERY_THROW );
     uno::Reference< awt::XControl > xControl( m_xDialog, uno::UNO_QUERY_THROW );
     m_xProps.set( xControl->getModel(), uno::UNO_QUERY_THROW );
-    setGeometryHelper( o3tl::make_unique<UserFormGeometryHelper>( xControl, 0.0, 0.0 ) );
+    setGeometryHelper( std::make_unique<UserFormGeometryHelper>( xControl, 0.0, 0.0 ) );
     if ( aArgs.getLength() >= 4 )
         aArgs[ 3 ] >>= m_sLibName;
 }

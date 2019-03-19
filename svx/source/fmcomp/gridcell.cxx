@@ -55,7 +55,6 @@
 #include <connectivity/formattedcolumnvalue.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <i18nlangtag/lang.h>
-#include <o3tl/make_unique.hxx>
 
 #include <rtl/math.hxx>
 #include <svtools/calendar.hxx>
@@ -65,9 +64,11 @@
 #include <svtools/svmedit.hxx>
 #include <svx/dialmgr.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/longcurr.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/dbconversion.hxx>
 #include <connectivity/sqlnode.hxx>
@@ -1787,7 +1788,7 @@ OUString DbPatternField::GetFormatText(const Reference< css::sdb::XColumn >& _rx
 
     if (!rpFormatter)
     {
-        rpFormatter = o3tl::make_unique< FormattedColumnValue> (
+        rpFormatter = std::make_unique< FormattedColumnValue> (
             m_xContext, getCursor(), Reference< XPropertySet >( _rxField, UNO_QUERY ) );
         OSL_ENSURE(rpFormatter, "DbPatternField::Init: no value formatter!");
     }
@@ -3896,7 +3897,7 @@ void SAL_CALL FmXCheckBoxCell::removeItemListener( const Reference< css::awt::XI
 }
 
 
-void SAL_CALL FmXCheckBoxCell::setState( short n )
+void SAL_CALL FmXCheckBoxCell::setState( sal_Int16 n )
 {
     ::osl::MutexGuard aGuard( m_aMutex );
 
@@ -3908,14 +3909,14 @@ void SAL_CALL FmXCheckBoxCell::setState( short n )
 }
 
 
-short SAL_CALL FmXCheckBoxCell::getState()
+sal_Int16 SAL_CALL FmXCheckBoxCell::getState()
 {
     ::osl::MutexGuard aGuard( m_aMutex );
 
     if (m_pBox)
     {
         UpdateFromColumn();
-        return static_cast<short>(m_pBox->GetState());
+        return static_cast<sal_Int16>(m_pBox->GetState());
     }
     return TRISTATE_INDET;
 }

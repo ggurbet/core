@@ -70,7 +70,6 @@
 #include <calbck.hxx>
 #include <ToxTextGenerator.hxx>
 #include <ToxTabStopTokenHandler.hxx>
-#include <o3tl/make_unique.hxx>
 #include <tools/datetimeutils.hxx>
 #include <tools/globname.hxx>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
@@ -347,18 +346,32 @@ const SwTOXMark& SwDoc::GotoTOXMark( const SwTOXMark& rCurTOXMark,
 }
 
 SwTOXBaseSection* SwDoc::InsertTableOf( const SwPosition& rPos,
-                                                const SwTOXBase& rTOX,
-                                                const SfxItemSet* pSet,
-                                                bool bExpand,
+                                        const SwTOXBase& rTOX,
+                                        const SfxItemSet* pSet,
+                                        bool bExpand,
                                         SwRootFrame const*const pLayout)
+{
+    SwPaM aPam( rPos );
+    return InsertTableOf( aPam, rTOX, pSet, bExpand, pLayout );
+}
+
+SwTOXBaseSection* SwDoc::InsertTableOf( const SwPaM& aPam,
+                                        const SwTOXBase& rTOX,
+                                        const SfxItemSet* pSet,
+                                        bool bExpand,
+                                        SwRootFrame const*const pLayout )
 {
     GetIDocumentUndoRedo().StartUndo( SwUndoId::INSTOX, nullptr );
 
     OUString sSectNm = GetUniqueTOXBaseName( *rTOX.GetTOXType(), rTOX.GetTOXName() );
-    SwPaM aPam( rPos );
     SwSectionData aSectionData( TOX_CONTENT_SECTION, sSectNm );
+
+    std::pair<SwTOXBase const*, sw::RedlineMode> const tmp(&rTOX,
+        pLayout && pLayout->IsHideRedlines()
+            ? sw::RedlineMode::Hidden
+            : sw::RedlineMode::Shown);
     SwTOXBaseSection *const pNewSection = dynamic_cast<SwTOXBaseSection *>(
-        InsertSwSection( aPam, aSectionData, & rTOX, pSet, false ));
+        InsertSwSection(aPam, aSectionData, & tmp, pSet, false));
     if (pNewSection)
     {
         SwSectionNode *const pSectNd = pNewSection->GetFormat()->GetSectionNode();

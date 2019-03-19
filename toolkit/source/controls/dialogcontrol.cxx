@@ -25,6 +25,7 @@
 #include <toolkit/controls/dialogcontrol.hxx>
 #include <toolkit/controls/geometrycontrolmodel.hxx>
 #include <toolkit/helper/property.hxx>
+#include <toolkit/helper/servicenames.hxx>
 #include <toolkit/controls/stdtabcontroller.hxx>
 #include <com/sun/star/awt/PosSize.hpp>
 #include <com/sun/star/awt/WindowAttribute.hpp>
@@ -337,7 +338,7 @@ sal_Bool UnoDialogControl::setModel( const Reference< XControlModel >& rxModel )
 {
         // #Can we move all the Resource stuff to the ControlContainerBase ?
     SolarMutexGuard aGuard;
-        bool bRet = ControlContainerBase::setModel( rxModel );
+    bool bRet = ControlContainerBase::setModel( rxModel );
     ImplStartListingForResourceEvents();
     return bRet;
 }
@@ -481,7 +482,7 @@ void SAL_CALL UnoDialogControl::windowResized( const css::awt::WindowEvent& e )
     if ( !pOutDev || mbSizeModified )
         return;
 
-    // Currentley we are simply using MapUnit::MapAppFont
+    // Currently we are simply using MapUnit::MapAppFont
     ::Size aAppFontSize( e.Width, e.Height );
 
     Reference< XControl > xDialogControl( *this, UNO_QUERY_THROW );
@@ -733,13 +734,19 @@ void SAL_CALL UnoMultiPageControl::removeTabListener( const Reference< XTabListe
     maTabListeners.removeInterface( Listener );
 }
 
+IMPL_IMPLEMENTATION_ID( UnoMultiPageControl )
 
 // lang::XTypeProvider
-IMPL_XTYPEPROVIDER_START( UnoMultiPageControl )
-    cppu::UnoType<awt::XSimpleTabController>::get(),
-    cppu::UnoType<awt::XTabListener>::get(),
-    ControlContainerBase::getTypes()
-IMPL_XTYPEPROVIDER_END
+css::uno::Sequence< css::uno::Type > UnoMultiPageControl::getTypes()
+{
+    static const ::cppu::OTypeCollection aTypeList(
+        cppu::UnoType<css::lang::XTypeProvider>::get(),
+        cppu::UnoType<awt::XSimpleTabController>::get(),
+        cppu::UnoType<awt::XTabListener>::get(),
+        ControlContainerBase::getTypes()
+    );
+    return aTypeList.getTypes();
+}
 
 // uno::XInterface
 uno::Any UnoMultiPageControl::queryAggregation( const uno::Type & rType )
@@ -766,8 +773,8 @@ void UnoMultiPageControl::bindPage( const uno::Reference< awt::XControl >& _rxCo
     uno::Reference< awt::XSimpleTabController > xTabCntrl( getPeer(), uno::UNO_QUERY );
     uno::Reference< beans::XPropertySet > xProps( _rxControl->getModel(), uno::UNO_QUERY );
 
-   VCLXTabPage* pXPage = dynamic_cast< VCLXTabPage* >( xPage.get() );
-   TabPage* pPage = pXPage ? pXPage->getTabPage() : nullptr;
+    VCLXTabPage* pXPage = dynamic_cast< VCLXTabPage* >( xPage.get() );
+    TabPage* pPage = pXPage ? pXPage->getTabPage() : nullptr;
     if ( xTabCntrl.is() && pPage )
     {
         VCLXMultiPage* pXTab = dynamic_cast< VCLXMultiPage* >( xTabCntrl.get() );

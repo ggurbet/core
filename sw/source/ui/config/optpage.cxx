@@ -55,7 +55,6 @@
 #include <editeng/fontitem.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/svxenum.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/macros.h>
 #include <sfx2/dialoghelper.hxx>
 #include <sfx2/request.hxx>
@@ -110,6 +109,9 @@ SwContentOptPage::SwContentOptPage( vcl::Window* pParent,
     get (m_pDrwCB, "drawings");
     get (m_pFieldNameCB, "fieldcodes");
     get (m_pPostItCB, "comments");
+
+    get(m_pFieldHiddenCB, "hiddentextfield");
+    get(m_pFieldHiddenParaCB, "hiddenparafield");
 
     get (m_pSettingsFrame, "settingsframe");
     get (m_pSettingsLabel, "settingslabel");
@@ -190,6 +192,8 @@ void SwContentOptPage::dispose()
     m_pDrwCB.clear();
     m_pFieldNameCB.clear();
     m_pPostItCB.clear();
+    m_pFieldHiddenCB.clear();
+    m_pFieldHiddenParaCB.clear();
     m_pSettingsFrame.clear();
     m_pSettingsLabel.clear();
     m_pMetricLabel.clear();
@@ -241,6 +245,8 @@ void SwContentOptPage::Reset(const SfxItemSet* rSet)
         m_pVRulerRightCBox->Check (pElemAttr->bVertRulerRight);
         m_pSmoothCBox->Check (pElemAttr->bSmoothScroll);
         m_pShowInlineTooltips->Check (pElemAttr->bShowInlineTooltips);
+        m_pFieldHiddenCB->Check ( pElemAttr->bFieldHiddenText );
+        m_pFieldHiddenParaCB->Check ( pElemAttr->bShowHiddenPara );
     }
     m_pMetricLB->SetNoSelection();
     lcl_SelectMetricLB(m_pMetricLB, SID_ATTR_METRIC, *rSet);
@@ -264,6 +270,8 @@ bool SwContentOptPage::FillItemSet(SfxItemSet* rSet)
     aElem.bVertRulerRight       = m_pVRulerRightCBox->IsChecked();
     aElem.bSmoothScroll         = m_pSmoothCBox->IsChecked();
     aElem.bShowInlineTooltips   = m_pShowInlineTooltips->IsChecked();
+    aElem.bFieldHiddenText      = m_pFieldHiddenCB->IsChecked();
+    aElem.bShowHiddenPara       = m_pFieldHiddenParaCB->IsChecked();
 
     bool bRet = !pOldAttr || aElem != *pOldAttr;
     if(bRet)
@@ -364,7 +372,7 @@ SwAddPrinterTabPage::SwAddPrinterTabPage(TabPageParent pParent,
     }
     m_xProspectCB_RTL->set_sensitive(false);
     SvtCTLOptions aCTLOptions;
-    m_xProspectCB_RTL->show(aCTLOptions.IsCTLFontEnabled());
+    m_xProspectCB_RTL->set_visible(aCTLOptions.IsCTLFontEnabled());
 }
 
 SwAddPrinterTabPage::~SwAddPrinterTabPage()
@@ -779,7 +787,7 @@ void SwStdFontTabPage::Reset( const SfxItemSet* rSet)
     }
     else
     {
-        auto pPrinterSet = o3tl::make_unique<SfxItemSet>( *rSet->GetPool(),
+        auto pPrinterSet = std::make_unique<SfxItemSet>( *rSet->GetPool(),
                     svl::Items<SID_PRINTER_NOTFOUND_WARN, SID_PRINTER_NOTFOUND_WARN,
                     SID_PRINTER_CHANGESTODOC, SID_PRINTER_CHANGESTODOC>{} );
         m_pPrt = VclPtr<SfxPrinter>::Create(std::move(pPrinterSet));
@@ -1262,8 +1270,6 @@ SwShdwCursorOptionsTabPage::SwShdwCursorOptionsTabPage( vcl::Window* pParent,
     get(m_pTabCB, "tabs");
     get(m_pBreakCB, "break");
     get(m_pCharHiddenCB, "hiddentext");
-    get(m_pFieldHiddenCB, "hiddentextfield");
-    get(m_pFieldHiddenParaCB, "hiddenparafield");
 
     get(m_pDirectCursorFrame, "directcrsrframe");
     get(m_pOnOffCB, "cursoronoff");
@@ -1303,8 +1309,8 @@ SwShdwCursorOptionsTabPage::SwShdwCursorOptionsTabPage( vcl::Window* pParent,
 
     m_pTabCB->Hide();
     m_pCharHiddenCB->Hide();
-    m_pFieldHiddenCB->Hide();
-    m_pFieldHiddenParaCB->Hide();
+//    m_pFieldHiddenCB->Hide();
+//    m_pFieldHiddenParaCB->Hide();
 
     m_pDirectCursorFrame->Hide();
     m_pOnOffCB->Hide();
@@ -1333,8 +1339,6 @@ void SwShdwCursorOptionsTabPage::dispose()
     m_pTabCB.clear();
     m_pBreakCB.clear();
     m_pCharHiddenCB.clear();
-    m_pFieldHiddenCB.clear();
-    m_pFieldHiddenParaCB.clear();
     m_pDirectCursorFrame.clear();
     m_pOnOffCB.clear();
     m_pFillMarginRB.clear();
@@ -1409,9 +1413,7 @@ bool SwShdwCursorOptionsTabPage::FillItemSet( SfxItemSet* rSet )
     aDisp.bSpace                = m_pSpacesCB->IsChecked();
     aDisp.bNonbreakingSpace     = m_pHSpacesCB->IsChecked();
     aDisp.bSoftHyphen           = m_pSHyphCB->IsChecked();
-    aDisp.bFieldHiddenText        = m_pFieldHiddenCB->IsChecked();
     aDisp.bCharHiddenText       = m_pCharHiddenCB->IsChecked();
-    aDisp.bShowHiddenPara       = m_pFieldHiddenParaCB->IsChecked();
     aDisp.bManualBreak          = m_pBreakCB->IsChecked();
 
     bRet |= (!pOldAttr || aDisp != *pOldAttr);
@@ -1464,8 +1466,6 @@ void SwShdwCursorOptionsTabPage::Reset( const SfxItemSet* rSet )
         m_pHSpacesCB->Check  ( pDocDisplayAttr->bNonbreakingSpace );
         m_pSHyphCB->Check  ( pDocDisplayAttr->bSoftHyphen );
         m_pCharHiddenCB->Check ( pDocDisplayAttr->bCharHiddenText );
-        m_pFieldHiddenCB->Check  ( pDocDisplayAttr->bFieldHiddenText );
-        m_pFieldHiddenParaCB->Check ( pDocDisplayAttr->bShowHiddenPara );
         m_pBreakCB->Check  ( pDocDisplayAttr->bManualBreak );
     }
 }

@@ -9,9 +9,6 @@
 
 boost_patches :=
 
-#http://gcc.gnu.org/bugzilla/show_bug.cgi?id=47679
-boost_patches += boost.gcc47679.patch
-
 #https://svn.boost.org/trac/boost/ticket/6142
 boost_patches += boost.6142.warnings.patch.1
 
@@ -33,7 +30,6 @@ boost_patches += clang-cl.patch.0
 boost_patches += boost_1_60_0.undef.warning.patch
 boost_patches += boost_1_63_0.undef.warning.patch.1
 
-# https://svn.boost.org/trac10/ticket/13230
 boost_patches += boost-android-unified.patch.1
 
 boost_patches += windows-no-utf8-locales.patch.0
@@ -41,6 +37,8 @@ boost_patches += windows-no-utf8-locales.patch.0
 boost_patches += gcc9.patch.0
 
 boost_patches += msvc2017.patch.0
+
+boost_patches += sse.patch.0
 
 $(eval $(call gb_UnpackedTarball_UnpackedTarball,boost))
 

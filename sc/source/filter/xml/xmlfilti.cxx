@@ -21,17 +21,12 @@
 #include "xmlimprt.hxx"
 #include "xmldrani.hxx"
 #include "xmldpimp.hxx"
-#include <docuno.hxx>
-#include <convuno.hxx>
-#include "XMLConverter.hxx"
 #include <rangeutl.hxx>
 #include <queryentry.hxx>
 #include <document.hxx>
 
 #include <o3tl/safeint.hxx>
 #include <svl/sharedstringpool.hxx>
-#include <xmloff/xmltkmap.hxx>
-#include <xmloff/nmspmap.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlnmspe.hxx>
 
@@ -492,14 +487,10 @@ ScXMLDPFilterContext::ScXMLDPFilterContext( ScXMLImport& rImport,
     eSearchType(utl::SearchParam::SearchType::Normal),
     nFilterFieldCount(0),
     bSkipDuplicates(false),
-    bCopyOutputData(false),
     bIsCaseSensitive(false),
     bConnectionOr(true),
-    bNextConnectionOr(true),
-    bConditionSourceRange(false)
+    bNextConnectionOr(true)
 {
-    ScDocument* pDoc(GetScImport().GetDocument());
-
     if ( rAttrList.is() )
     {
         for (auto &aIter : *rAttrList)
@@ -508,20 +499,12 @@ ScXMLDPFilterContext::ScXMLDPFilterContext( ScXMLImport& rImport,
             {
                 case XML_ELEMENT( TABLE, XML_TARGET_RANGE_ADDRESS ):
                 {
-                    ScRange aScRange;
-                    sal_Int32 nOffset(0);
-                    if (ScRangeStringConverter::GetRangeFromString( aScRange, aIter.toString(), pDoc, ::formula::FormulaGrammar::CONV_OOO, nOffset ))
-                    {
-                        aOutputPosition = aScRange.aStart;
-                        bCopyOutputData = true;
-                    }
+                    // not supported
                 }
                 break;
                 case XML_ELEMENT( TABLE, XML_CONDITION_SOURCE_RANGE_ADDRESS ):
                 {
-                    sal_Int32 nOffset(0);
-                    if(ScRangeStringConverter::GetRangeFromString( aConditionSourceRangeAddress, aIter.toString(), pDoc, ::formula::FormulaGrammar::CONV_OOO, nOffset ))
-                        bConditionSourceRange = true;
+                    // not supported
                 }
                 break;
                 case XML_ELEMENT( TABLE, XML_CONDITION_SOURCE ):
@@ -580,12 +563,8 @@ void SAL_CALL ScXMLDPFilterContext::endFastElement( sal_Int32 /*nElement*/ )
     aFilterFields.eSearchType = eSearchType;
     aFilterFields.bCaseSens = bIsCaseSensitive;
     aFilterFields.bDuplicate = !bSkipDuplicates;
-    if (bCopyOutputData)
-        pDataPilotTable->SetFilterOutputPosition(aOutputPosition);
 
     pDataPilotTable->SetSourceQueryParam(aFilterFields);
-    if (bConditionSourceRange)
-        pDataPilotTable->SetFilterSourceRange(aConditionSourceRangeAddress);
 }
 
 void ScXMLDPFilterContext::AddFilterField (const ScQueryEntry& aFilterField)

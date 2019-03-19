@@ -21,7 +21,7 @@
 #define INCLUDED_SW_INC_CMDID_H
 
 #include <sfx2/sfxsids.hrc>
-#include "unomid.h"
+#include <svl/solar.hrc>
 
 #define FN_FILE                 SID_SW_START
 #define FN_EDIT                 (SID_SW_START +  100)
@@ -271,6 +271,12 @@
 
 #define FN_INSERT_MULTI_TOX         (FN_INSERT2 + 20)   /* insert any TOX */
 #define FN_INSERT_AUTH_ENTRY_DLG    (FN_INSERT2 + 21)   /* insert entry for table of authorities*/
+
+// MSO legacy form fields
+#define FN_INSERT_TEXT_FORMFIELD        (FN_INSERT2 + 22)
+#define FN_INSERT_CHECKBOX_FORMFIELD    (FN_INSERT2 + 23)
+#define FN_INSERT_DROPDOWN_FORMFIELD    (FN_INSERT2 + 24)
+
 
 // Region: Format
 #define FN_AUTOFORMAT_APPLY     (FN_FORMAT + 1 ) /* apply autoformat options */

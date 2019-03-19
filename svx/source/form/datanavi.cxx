@@ -489,12 +489,12 @@ namespace svxform
             DBG_ASSERT( xModel.is(), "XFormsPage::DoToolBoxAction(): Action without model" );
             if ( DGTSubmission == m_eGroup )
             {
-                ScopedVclPtrInstance< AddSubmissionDialog > aDlg( this, nullptr, m_xUIHelper );
-                if ( aDlg->Execute() == RET_OK && aDlg->GetNewSubmission().is() )
+                AddSubmissionDialog aDlg(GetFrameWeld(), nullptr, m_xUIHelper);
+                if ( aDlg.run() == RET_OK && aDlg.GetNewSubmission().is() )
                 {
                     try
                     {
-                        Reference< css::xforms::XSubmission > xNewSubmission = aDlg->GetNewSubmission();
+                        Reference< css::xforms::XSubmission > xNewSubmission = aDlg.GetNewSubmission();
                         Reference< XSet > xSubmissions( xModel->getSubmissions(), UNO_QUERY );
                         xSubmissions->insert( makeAny( xNewSubmission ) );
                         Reference< XPropertySet > xNewPropSet( xNewSubmission, UNO_QUERY );
@@ -502,9 +502,10 @@ namespace svxform
                         m_pItemList->Select( pEntry );
                         bIsDocModified = true;
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while adding submission" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while adding submission " << exceptionToString(ex) );
                     }
                 }
             }
@@ -538,9 +539,10 @@ namespace svxform
                             pResId = RID_STR_DATANAV_ADD_ELEMENT;
                             xNewNode = m_xUIHelper->createElement( xParentNode, NEW_ELEMENT );
                         }
-                        catch ( Exception& )
+                        catch ( Exception const & )
                         {
-                            SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while create element" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while create element " << exceptionToString(ex) );
                         }
                     }
                     else
@@ -552,9 +554,10 @@ namespace svxform
                         {
                             xNewNode = m_xUIHelper->createAttribute( xParentNode, NEW_ATTRIBUTE );
                         }
-                        catch ( Exception& )
+                        catch ( Exception const & )
                         {
-                            SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while create attribute" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while create attribute " << exceptionToString(ex) );
                         }
                     }
 
@@ -566,13 +569,15 @@ namespace svxform
                     {
                         if ( e.Code == css::xml::dom::DOMExceptionType_DOMSTRING_SIZE_ERR )
                         {
-                            SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): domexception: size error" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): domexception: size error " << exceptionToString(ex) );
                         }
                         SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): domexception while append child" );
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while append child" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while append child " << exceptionToString(ex) );
                     }
 
                     try
@@ -584,18 +589,20 @@ namespace svxform
                         DBG_ASSERT( m_nAddAttributeId == _nToolBoxID
                                     || xPNode.is(), "XFormsPage::DoToolboxAction(): node not added" );
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught " << exceptionToString(ex) );
                     }
 
                     try
                     {
                         m_xUIHelper->getBindingForNode( xNewNode, true );
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while get binding for node" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while get binding for node " << exceptionToString(ex) );
                     }
                     pNode.reset(new ItemNode( xNewNode ));
                 }
@@ -610,16 +617,17 @@ namespace svxform
                         pNode.reset(new ItemNode( xNewBinding ));
                         eType = DITBinding;
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while adding binding" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "XFormsPage::DoToolBoxAction(): exception while adding binding " << exceptionToString(ex) );
                     }
                 }
 
-                ScopedVclPtrInstance< AddDataItemDialog > aDlg( this, pNode.get(), m_xUIHelper );
-                aDlg->SetText( SvxResId( pResId ) );
-                aDlg->InitText( eType );
-                short nReturn = aDlg->Execute();
+                AddDataItemDialog aDlg(GetFrameWeld(), pNode.get(), m_xUIHelper);
+                aDlg.set_title(SvxResId(pResId));
+                aDlg.InitText( eType );
+                short nReturn = aDlg.run();
                 if (  DGTInstance == m_eGroup )
                 {
                     if ( RET_OK == nReturn )
@@ -640,9 +648,10 @@ namespace svxform
                                 xPNode = xNode->getParentNode();
                             DBG_ASSERT( !xPNode.is(), "XFormsPage::RemoveEntry(): node not removed" );
                         }
-                        catch ( Exception& )
+                        catch ( Exception const & )
                         {
-                            SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught " << exceptionToString(ex) );
                         }
                     }
                 }
@@ -661,9 +670,10 @@ namespace svxform
                             Reference< XSet > xBindings( xModel->getBindings(), UNO_QUERY );
                             xBindings->remove( makeAny( xNewBinding ) );
                         }
-                        catch ( Exception& )
+                        catch ( Exception const & )
                         {
-                            SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught " << exceptionToString(ex) );
                         }
                     }
                 }
@@ -687,7 +697,7 @@ namespace svxform
                             return bHandled;
                     }
 
-                    ScopedVclPtrInstance< AddDataItemDialog > aDlg( this, pNode, m_xUIHelper );
+                    AddDataItemDialog aDlg(GetFrameWeld(), pNode, m_xUIHelper);
                     DataItemType eType = DITElement;
                     const char* pResId = RID_STR_DATANAV_EDIT_ELEMENT;
                     if ( pNode && pNode->m_xNode.is() )
@@ -701,9 +711,10 @@ namespace svxform
                                 eType = DITAttribute;
                             }
                         }
-                        catch ( Exception& )
+                        catch ( Exception const & )
                         {
-                            SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught " << exceptionToString(ex) );
                         }
                     }
                     else if ( DGTBinding == m_eGroup )
@@ -711,9 +722,9 @@ namespace svxform
                         pResId = RID_STR_DATANAV_EDIT_BINDING;
                         eType = DITBinding;
                     }
-                    aDlg->SetText( SvxResId( pResId ) );
-                    aDlg->InitText( eType );
-                    if ( aDlg->Execute() == RET_OK )
+                    aDlg.set_title(SvxResId(pResId));
+                    aDlg.InitText( eType );
+                    if (aDlg.run() == RET_OK)
                     {
                         // Set the new name
                         OUString sNewName;
@@ -724,9 +735,10 @@ namespace svxform
                                 sNewName = m_xUIHelper->getNodeDisplayName(
                                     pNode->m_xNode, m_pNaviWin->IsShowDetails() );
                             }
-                            catch ( Exception& )
+                            catch ( Exception const & )
                             {
-                                SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught" );
+                                css::uno::Any ex( cppu::getCaughtException() );
+                                SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught " << exceptionToString(ex) );
                             }
                         }
                         else if (pNode)
@@ -740,9 +752,10 @@ namespace svxform
                                 pNode->m_xPropSet->getPropertyValue( PN_BINDING_EXPR ) >>= sTemp;
                                 sNewName += sTemp;
                             }
-                            catch ( Exception& )
+                            catch ( Exception const & )
                             {
-                                SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught" );
+                                css::uno::Any ex( cppu::getCaughtException() );
+                                SAL_WARN( "svx.form", "XFormsPage::DoToolboxAction(): exception caught " << exceptionToString(ex) );
                             }
                         }
 
@@ -752,9 +765,9 @@ namespace svxform
                 }
                 else
                 {
-                    ScopedVclPtrInstance< AddSubmissionDialog > aDlg( this, pNode, m_xUIHelper );
-                    aDlg->SetText( SvxResId( RID_STR_DATANAV_EDIT_SUBMISSION ) );
-                    if ( aDlg->Execute() == RET_OK )
+                    AddSubmissionDialog aDlg(GetFrameWeld(), pNode, m_xUIHelper);
+                    aDlg.set_title(SvxResId(RID_STR_DATANAV_EDIT_SUBMISSION));
+                    if (aDlg.run() == RET_OK)
                     {
                         EditEntry( pNode->m_xPropSet );
                         bIsDocModified = true;
@@ -844,9 +857,10 @@ namespace svxform
                 sEntry += m_aReplaceString.toUI( sTemp );
                 m_pItemList->InsertEntry( sEntry, aImage, aImage, pEntry );
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "XFormsPage::AddEntry(Ref): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "XFormsPage::AddEntry(Ref): exception caught " << exceptionToString(ex) );
             }
         }
         else // then Binding Page
@@ -862,9 +876,10 @@ namespace svxform
                 pEntry = m_pItemList->InsertEntry(
                     sName, aImage, aImage, nullptr, false, TREELIST_APPEND, pNode );
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "XFormsPage::AddEntry(Ref): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "XFormsPage::AddEntry(Ref): exception caught " << exceptionToString(ex) );
             }
         }
 
@@ -920,9 +935,10 @@ namespace svxform
                 pChild = m_pItemList->GetEntry( pEntry, nPos++ );
                 m_pItemList->SetEntryText( pChild, sEntry );
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "XFormsPage::EditEntry(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "XFormsPage::EditEntry(): exception caught " << exceptionToString(ex) );
             }
         }
     }
@@ -972,9 +988,10 @@ namespace svxform
                         bRet = true;
                     }
                 }
-                catch ( Exception& )
+                catch ( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "XFormsPage::RemoveEntry(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "XFormsPage::RemoveEntry(): exception caught " << exceptionToString(ex) );
                 }
             }
             else
@@ -989,9 +1006,10 @@ namespace svxform
                 {
                     pNode->m_xPropSet->getPropertyValue( sProperty ) >>= sName;
                 }
-                catch ( Exception& )
+                catch ( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "XFormsPage::RemoveEntry(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "XFormsPage::RemoveEntry(): exception caught " << exceptionToString(ex) );
                 }
                 std::unique_ptr<weld::MessageDialog> xQBox(Application::CreateMessageDialog(GetFrameWeld(),
                                                                          VclMessageType::Question, VclButtonsType::YesNo,
@@ -1009,9 +1027,10 @@ namespace svxform
                             xModel->getBindings()->remove( makeAny( pNode->m_xPropSet ) );
                         bRet = true;
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "XFormsPage::RemoveEntry(): exception caught" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "XFormsPage::RemoveEntry(): exception caught " << exceptionToString(ex) );
                     }
                 }
             }
@@ -1103,9 +1122,10 @@ namespace svxform
                         }
                     }
                 }
-                catch( Exception& )
+                catch( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "XFormsPage::SetModel(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "XFormsPage::SetModel(): exception caught " << exceptionToString(ex) );
                 }
                 break;
             }
@@ -1135,9 +1155,10 @@ namespace svxform
                         }
                     }
                 }
-                catch( Exception& )
+                catch( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "XFormsPage::SetModel(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "XFormsPage::SetModel(): exception caught " << exceptionToString(ex) );
                 }
                 break;
             }
@@ -1180,9 +1201,10 @@ namespace svxform
                         }
                     }
                 }
-                catch( Exception& )
+                catch( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "XFormsPage::SetModel(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "XFormsPage::SetModel(): exception caught " << exceptionToString(ex) );
                 }
                 break;
             }
@@ -1231,9 +1253,10 @@ namespace svxform
                         if ( xRoot->hasChildNodes() )
                             AddChildren(nullptr, xRoot);
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "XFormsPage::LoadInstance(): exception caught" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "XFormsPage::LoadInstance(): exception caught " << exceptionToString(ex) );
                     }
                 }
             }
@@ -1287,9 +1310,10 @@ namespace svxform
                             bEnableAdd = false;
                         }
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                       SAL_WARN( "svx.form", "XFormsPage::EnableMenuItems(): exception caught" );
+                       css::uno::Any ex( cppu::getCaughtException() );
+                       SAL_WARN( "svx.form", "XFormsPage::EnableMenuItems(): exception caught " << exceptionToString(ex) );
                     }
                 }
             }
@@ -1329,9 +1353,10 @@ namespace svxform
                             pResId2 = RID_STR_DATANAV_REMOVE_ATTRIBUTE;
                         }
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                       SAL_WARN( "svx.form", "XFormsPage::EnableMenuItems(): exception caught" );
+                       css::uno::Any ex( cppu::getCaughtException() );
+                       SAL_WARN( "svx.form", "XFormsPage::EnableMenuItems(): exception caught " << exceptionToString(ex) );
                     }
                 }
             }
@@ -1470,9 +1495,10 @@ namespace svxform
             if ( aAny >>= xModel )
                 xUIHelper.set( xModel, UNO_QUERY );
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught " << exceptionToString(ex) );
         }
         DBG_ASSERT( xUIHelper.is(), "DataNavigatorWindow::MenuSelectHdl(): no UIHelper" );
 
@@ -1519,9 +1545,10 @@ namespace svxform
                                 ModelSelectHdl(m_pModelsBox);
                                 bIsDocModified = true;
                             }
-                            catch ( Exception& )
+                            catch ( Exception const & )
                             {
-                                SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught" );
+                                css::uno::Any ex( cppu::getCaughtException() );
+                                SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught " << exceptionToString(ex) );
                             }
                         }
                     }
@@ -1579,9 +1606,10 @@ namespace svxform
                             m_pModelsBox->SelectEntryPos( nSelectedPos );
                             bIsDocModified = true;
                         }
-                        catch ( Exception& )
+                        catch ( Exception const & )
                         {
-                            SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught " << exceptionToString(ex) );
                         }
                     }
                 }
@@ -1600,9 +1628,10 @@ namespace svxform
                     {
                         xUIHelper->removeModel( m_xFrameModel, sSelectedModel );
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught " << exceptionToString(ex) );
                     }
                     m_pModelsBox->RemoveEntry( nSelectedPos );
                     if ( m_pModelsBox->GetEntryCount() <= nSelectedPos )
@@ -1633,9 +1662,10 @@ namespace svxform
                     {
                         xUIHelper->newInstance( sName, sURL, !bLinkOnce );
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught " << exceptionToString(ex) );
                     }
                     ModelSelectHdl( nullptr );
                     m_pTabCtrl->SetCurPageId( nInst );
@@ -1670,9 +1700,10 @@ namespace svxform
                                                        sURL,
                                                        !bLinkOnce );
                         }
-                        catch ( Exception& )
+                        catch ( Exception const & )
                         {
-                            SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught" );
+                            css::uno::Any ex( cppu::getCaughtException() );
+                            SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught " << exceptionToString(ex) );
                         }
                         pPage->SetInstanceName(sNewName);
                         pPage->SetInstanceURL(sURL);
@@ -1723,7 +1754,8 @@ namespace svxform
                             }
                             catch (const Exception&)
                             {
-                                SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught" );
+                                css::uno::Any ex( cppu::getCaughtException() );
+                                SAL_WARN( "svx.form", "DataNavigatorWindow::MenuSelectHdl(): exception caught " << exceptionToString(ex) );
                             }
                             m_pTabCtrl->RemovePage( nId );
                             m_pTabCtrl->SetCurPageId(m_pTabCtrl->GetPageId("instance"));
@@ -1854,9 +1886,10 @@ namespace svxform
                 {
                     m_xFrameModel = xCtrl->getModel();
                 }
-                catch ( Exception& )
+                catch ( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "DataNavigatorWindow::LoadModels(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "DataNavigatorWindow::LoadModels(): exception caught " << exceptionToString(ex) );
                 }
             }
         }
@@ -1885,9 +1918,10 @@ namespace svxform
                     }
                 }
             }
-            catch( Exception& )
+            catch( Exception const & )
             {
-                SAL_WARN( "svx.form", "DataNavigatorWindow::LoadModels(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "DataNavigatorWindow::LoadModels(): exception caught " << exceptionToString(ex) );
             }
         }
 
@@ -1927,9 +1961,10 @@ namespace svxform
         {
             SAL_WARN( "svx.form", "DataNavigatorWindow::SetPageModel(): no such element" );
         }
-        catch( Exception& )
+        catch( Exception const & )
         {
-            SAL_WARN( "svx.form", "DataNavigatorWindow::SetPageModel(): unexpected exception" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "DataNavigatorWindow::SetPageModel(): unexpected exception " << exceptionToString(ex) );
         }
     }
 
@@ -1976,9 +2011,10 @@ namespace svxform
         {
             SAL_WARN( "svx.form", "DataNavigatorWindow::SetPageModel(): no such element" );
         }
-        catch( Exception& )
+        catch( Exception const & )
         {
-            SAL_WARN( "svx.form", "DataNavigatorWindow::SetPageModel(): unexpected exception" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "DataNavigatorWindow::SetPageModel(): unexpected exception " << exceptionToString(ex) );
         }
     }
 
@@ -2229,9 +2265,9 @@ namespace svxform
         static_cast<SfxDockingWindow*>(GetWindow())->Initialize( _pInfo );
     }
 
-    AddDataItemDialog::AddDataItemDialog(vcl::Window* pParent, ItemNode* _pNode,
+    AddDataItemDialog::AddDataItemDialog(weld::Window* pParent, ItemNode* _pNode,
         const Reference< css::xforms::XFormsUIHelper1 >& _rUIHelper)
-        : ModalDialog(pParent, "AddDataItemDialog" , "svx/ui/adddataitemdialog.ui")
+        : GenericDialogController(pParent, "svx/ui/adddataitemdialog.ui", "AddDataItemDialog")
         , m_xUIHelper(_rUIHelper)
         , m_pItemNode(_pNode)
         , m_eItemType(DITNone)
@@ -2239,42 +2275,34 @@ namespace svxform
         , m_sFL_Attribute(SvxResId(RID_STR_ATTRIBUTE))
         , m_sFL_Binding(SvxResId(RID_STR_BINDING))
         , m_sFT_BindingExp(SvxResId(RID_STR_BINDING_EXPR))
+        , m_xItemFrame(m_xBuilder->weld_frame("itemframe"))
+        , m_xNameFT(m_xBuilder->weld_label("nameft"))
+        , m_xNameED(m_xBuilder->weld_entry("name"))
+        , m_xDefaultFT(m_xBuilder->weld_label("valueft"))
+        , m_xDefaultED(m_xBuilder->weld_entry("value"))
+        , m_xDefaultBtn(m_xBuilder->weld_button("browse"))
+        , m_xSettingsFrame(m_xBuilder->weld_widget("settingsframe"))
+        , m_xDataTypeFT(m_xBuilder->weld_label("datatypeft"))
+        , m_xDataTypeLB(m_xBuilder->weld_combo_box("datatype"))
+        , m_xRequiredCB(m_xBuilder->weld_check_button("required"))
+        , m_xRequiredBtn(m_xBuilder->weld_button("requiredcond"))
+        , m_xRelevantCB(m_xBuilder->weld_check_button("relevant"))
+        , m_xRelevantBtn(m_xBuilder->weld_button("relevantcond"))
+        , m_xConstraintCB(m_xBuilder->weld_check_button("constraint"))
+        , m_xConstraintBtn(m_xBuilder->weld_button("constraintcond"))
+        , m_xReadonlyCB(m_xBuilder->weld_check_button("readonly"))
+        , m_xReadonlyBtn(m_xBuilder->weld_button("readonlycond"))
+        , m_xCalculateCB(m_xBuilder->weld_check_button("calculate"))
+        , m_xCalculateBtn(m_xBuilder->weld_button("calculatecond"))
+        , m_xOKBtn(m_xBuilder->weld_button("ok"))
     {
-        get(m_pItemFrame, "itemframe");
-        get(m_pNameFT, "nameft");
-        get(m_pNameED, "name");
-        get(m_pDefaultFT, "valueft");
-        get(m_pDefaultED, "value");
-        get(m_pDefaultBtn, "browse");
-        get(m_pSettingsFrame, "settingsframe");
-        get(m_pDataTypeFT, "datatypeft");
-        get(m_pDataTypeLB, "datatype");
-        get(m_pRequiredCB, "required");
-        get(m_pRequiredBtn, "requiredcond");
-        get(m_pRelevantCB, "relevant");
-        get(m_pRelevantBtn, "relevantcond");
-        get(m_pConstraintCB, "constraint");
-        get(m_pConstraintBtn, "constraintcond");
-        get(m_pReadonlyCB, "readonly");
-        get(m_pReadonlyBtn, "readonlycond");
-        get(m_pCalculateCB, "calculate");
-        get(m_pCalculateBtn, "calculatecond");
-        get(m_pOKBtn, "ok");
-        m_pDataTypeLB->SetDropDownLineCount( 10 );
-
         InitDialog();
         InitFromNode();
         InitDataTypeBox();
-        CheckHdl( nullptr );
+        Check(nullptr);
     }
-
 
     AddDataItemDialog::~AddDataItemDialog()
-    {
-        disposeOnce();
-    }
-
-    void AddDataItemDialog::dispose()
     {
         if ( m_xTempBinding.is() )
         {
@@ -2289,7 +2317,8 @@ namespace svxform
                 }
                 catch (const Exception&)
                 {
-                    SAL_WARN( "svx.form", "AddDataItemDialog::Dtor(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "AddDataItemDialog::Dtor(): exception caught " << exceptionToString(ex) );
                 }
             }
         }
@@ -2298,54 +2327,36 @@ namespace svxform
             // remove binding, if it does not convey 'useful' information
             m_xUIHelper->removeBindingIfUseless( m_xBinding );
         }
-        m_pItemFrame.clear();
-        m_pNameFT.clear();
-        m_pNameED.clear();
-        m_pDefaultFT.clear();
-        m_pDefaultED.clear();
-        m_pDefaultBtn.clear();
-        m_pSettingsFrame.clear();
-        m_pDataTypeFT.clear();
-        m_pDataTypeLB.clear();
-        m_pRequiredCB.clear();
-        m_pRequiredBtn.clear();
-        m_pRelevantCB.clear();
-        m_pRelevantBtn.clear();
-        m_pConstraintCB.clear();
-        m_pConstraintBtn.clear();
-        m_pReadonlyCB.clear();
-        m_pReadonlyBtn.clear();
-        m_pCalculateCB.clear();
-        m_pCalculateBtn.clear();
-        m_pOKBtn.clear();
-        ModalDialog::dispose();
     }
 
-
-    IMPL_LINK( AddDataItemDialog, CheckHdl, Button *, pButton, void )
+    IMPL_LINK(AddDataItemDialog, CheckHdl, weld::ToggleButton&, rBox, void)
     {
-        CheckBox* pBox = static_cast<CheckBox*>(pButton);
+        Check(&rBox);
+    }
+
+    void AddDataItemDialog::Check(weld::ToggleButton* pBox)
+    {
         // Condition buttons are only enable if their check box is checked
-        m_pReadonlyBtn->Enable( m_pReadonlyCB->IsChecked() );
-        m_pRequiredBtn->Enable( m_pRequiredCB->IsChecked() );
-        m_pRelevantBtn->Enable( m_pRelevantCB->IsChecked() );
-        m_pConstraintBtn->Enable( m_pConstraintCB->IsChecked() );
-        m_pCalculateBtn->Enable( m_pCalculateCB->IsChecked() );
+        m_xReadonlyBtn->set_sensitive( m_xReadonlyCB->get_active() );
+        m_xRequiredBtn->set_sensitive( m_xRequiredCB->get_active() );
+        m_xRelevantBtn->set_sensitive( m_xRelevantCB->get_active() );
+        m_xConstraintBtn->set_sensitive( m_xConstraintCB->get_active() );
+        m_xCalculateBtn->set_sensitive( m_xCalculateCB->get_active() );
 
         if ( pBox && m_xTempBinding.is() )
         {
             OUString sTemp, sPropName;
-            if ( m_pRequiredCB == pBox )
+            if ( m_xRequiredCB.get() == pBox )
                 sPropName = PN_REQUIRED_EXPR;
-            else if ( m_pRelevantCB == pBox )
+            else if ( m_xRelevantCB.get() == pBox )
                 sPropName = PN_RELEVANT_EXPR;
-            else if ( m_pConstraintCB == pBox )
+            else if ( m_xConstraintCB.get() == pBox )
                 sPropName = PN_CONSTRAINT_EXPR;
-            else if ( m_pReadonlyCB == pBox )
+            else if ( m_xReadonlyCB.get() == pBox )
                 sPropName = PN_READONLY_EXPR;
-            else if ( m_pCalculateCB == pBox )
+            else if ( m_xCalculateCB.get() == pBox )
                 sPropName = PN_CALCULATE_EXPR;
-            bool bIsChecked = pBox->IsChecked();
+            bool bIsChecked = pBox->get_active();
             m_xTempBinding->getPropertyValue( sPropName ) >>= sTemp;
             if ( bIsChecked && sTemp.isEmpty() )
                 sTemp = TRUE_VALUE;
@@ -2355,28 +2366,26 @@ namespace svxform
         }
     }
 
-
-    IMPL_LINK( AddDataItemDialog, ConditionHdl, Button *, pButton, void )
+    IMPL_LINK(AddDataItemDialog, ConditionHdl, weld::Button&, rBtn, void)
     {
-        PushButton* pBtn = static_cast<PushButton*>(pButton);
         OUString sTemp, sPropName;
-        if ( m_pDefaultBtn == pBtn )
+        if ( m_xDefaultBtn.get() == &rBtn )
             sPropName = PN_BINDING_EXPR;
-        else if ( m_pRequiredBtn == pBtn )
+        else if ( m_xRequiredBtn.get() == &rBtn )
             sPropName = PN_REQUIRED_EXPR;
-        else if ( m_pRelevantBtn == pBtn )
+        else if ( m_xRelevantBtn.get() == &rBtn )
             sPropName = PN_RELEVANT_EXPR;
-        else if ( m_pConstraintBtn == pBtn )
+        else if ( m_xConstraintBtn.get() == &rBtn )
             sPropName = PN_CONSTRAINT_EXPR;
-        else if (m_pReadonlyBtn == pBtn)
+        else if (m_xReadonlyBtn.get() == &rBtn)
             sPropName = PN_READONLY_EXPR;
-        else if (m_pCalculateBtn == pBtn)
+        else if (m_xCalculateBtn.get() == &rBtn)
             sPropName = PN_CALCULATE_EXPR;
-        ScopedVclPtrInstance< AddConditionDialog > aDlg(this, sPropName, m_xTempBinding);
-        bool bIsDefBtn = ( m_pDefaultBtn == pBtn );
+        AddConditionDialog aDlg(m_xDialog.get(), sPropName, m_xTempBinding);
+        bool bIsDefBtn = ( m_xDefaultBtn.get() == &rBtn );
         OUString sCondition;
         if ( bIsDefBtn )
-            sCondition = m_pDefaultED->GetText();
+            sCondition = m_xDefaultED->get_text();
         else
         {
             m_xTempBinding->getPropertyValue( sPropName ) >>= sTemp;
@@ -2384,13 +2393,13 @@ namespace svxform
                 sTemp = TRUE_VALUE;
             sCondition = sTemp;
         }
-        aDlg->SetCondition( sCondition );
+        aDlg.SetCondition( sCondition );
 
-        if ( aDlg->Execute() == RET_OK )
+        if (aDlg.run() == RET_OK)
         {
-            OUString sNewCondition = aDlg->GetCondition();
+            OUString sNewCondition = aDlg.GetCondition();
             if ( bIsDefBtn )
-                m_pDefaultED->SetText( sNewCondition );
+                m_xDefaultED->set_text(sNewCondition);
             else
             {
 
@@ -2428,24 +2437,24 @@ namespace svxform
                 // else: no property? then ignore.
             }
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "svx.form", "copyPropSet(): exception caught" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "copyPropSet(): exception caught " << exceptionToString(ex) );
         }
     }
 
-
-    IMPL_LINK_NOARG(AddDataItemDialog, OKHdl, Button*, void)
+    IMPL_LINK_NOARG(AddDataItemDialog, OKHdl, weld::Button&, void)
     {
         bool bIsHandleBinding = ( DITBinding == m_eItemType );
         bool bIsHandleText = ( DITText == m_eItemType );
-        OUString sNewName( m_pNameED->GetText() );
+        OUString sNewName( m_xNameED->get_text() );
 
         if ( ( !bIsHandleBinding && !bIsHandleText && !m_xUIHelper->isValidXMLName( sNewName ) ) ||
              ( bIsHandleBinding && sNewName.isEmpty() ) )
         {
             // Error and don't close the dialog
-            std::unique_ptr<weld::MessageDialog> xErrBox(Application::CreateMessageDialog(GetFrameWeld(),
+            std::unique_ptr<weld::MessageDialog> xErrBox(Application::CreateMessageDialog(m_xDialog.get(),
                                                                      VclMessageType::Warning, VclButtonsType::Ok,
                                                                      SvxResId(RID_STR_INVALID_XMLNAME)));
             xErrBox->set_primary_text(xErrBox->get_primary_text().replaceFirst(MSG_VARIABLE, sNewName));
@@ -2453,7 +2462,7 @@ namespace svxform
             return;
         }
 
-        OUString sDataType( m_pDataTypeLB->GetSelectedEntry() );
+        OUString sDataType( m_xDataTypeLB->get_active_text() );
         m_xTempBinding->setPropertyValue( PN_BINDING_TYPE, makeAny( sDataType ) );
 
         if ( bIsHandleBinding )
@@ -2462,14 +2471,15 @@ namespace svxform
             copyPropSet( m_xTempBinding, m_pItemNode->m_xPropSet );
             try
             {
-                OUString sValue = m_pNameED->GetText();
+                OUString sValue = m_xNameED->get_text();
                 m_pItemNode->m_xPropSet->setPropertyValue( PN_BINDING_ID, makeAny( sValue ) );
-                sValue = m_pDefaultED->GetText();
+                sValue = m_xDefaultED->get_text();
                 m_pItemNode->m_xPropSet->setPropertyValue( PN_BINDING_EXPR, makeAny( sValue ) );
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "AddDataDialog::OKHdl(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "AddDataDialog::OKHdl(): exception caught " << exceptionToString(ex) );
             }
         }
         else
@@ -2479,46 +2489,45 @@ namespace svxform
             try
             {
                 if ( bIsHandleText )
-                    m_xUIHelper->setNodeValue( m_pItemNode->m_xNode, m_pDefaultED->GetText() );
+                    m_xUIHelper->setNodeValue( m_pItemNode->m_xNode, m_xDefaultED->get_text() );
                 else
                 {
                     Reference< css::xml::dom::XNode > xNewNode =
-                        m_xUIHelper->renameNode( m_pItemNode->m_xNode, m_pNameED->GetText() );
-                    m_xUIHelper->setNodeValue( xNewNode, m_pDefaultED->GetText() );
+                        m_xUIHelper->renameNode( m_pItemNode->m_xNode, m_xNameED->get_text() );
+                    m_xUIHelper->setNodeValue( xNewNode, m_xDefaultED->get_text() );
                     m_pItemNode->m_xNode = xNewNode;
                 }
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "AddDataDialog::OKHdl(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "AddDataDialog::OKHdl(): exception caught " << exceptionToString(ex) );
             }
         }
         // then close the dialog
-        EndDialog( RET_OK );
+        m_xDialog->response(RET_OK);
     }
-
 
     void AddDataItemDialog::InitDialog()
     {
         // set handler
-        Link<Button*,void> aLink = LINK( this, AddDataItemDialog, CheckHdl );
-        m_pRequiredCB->SetClickHdl( aLink );
-        m_pRelevantCB->SetClickHdl( aLink );
-        m_pConstraintCB->SetClickHdl( aLink );
-        m_pReadonlyCB->SetClickHdl( aLink );
-        m_pCalculateCB->SetClickHdl( aLink );
+        Link<weld::ToggleButton&,void> aLink = LINK( this, AddDataItemDialog, CheckHdl );
+        m_xRequiredCB->connect_toggled( aLink );
+        m_xRelevantCB->connect_toggled( aLink );
+        m_xConstraintCB->connect_toggled( aLink );
+        m_xReadonlyCB->connect_toggled( aLink );
+        m_xCalculateCB->connect_toggled( aLink );
 
-        aLink = LINK( this, AddDataItemDialog, ConditionHdl );
-        m_pDefaultBtn->SetClickHdl( aLink );
-        m_pRequiredBtn->SetClickHdl( aLink );
-        m_pRelevantBtn->SetClickHdl( aLink );
-        m_pConstraintBtn->SetClickHdl( aLink );
-        m_pReadonlyBtn->SetClickHdl( aLink );
-        m_pCalculateBtn->SetClickHdl( aLink );
+        Link<weld::Button&,void> aLink2 = LINK( this, AddDataItemDialog, ConditionHdl );
+        m_xDefaultBtn->connect_clicked( aLink2 );
+        m_xRequiredBtn->connect_clicked( aLink2 );
+        m_xRelevantBtn->connect_clicked( aLink2 );
+        m_xConstraintBtn->connect_clicked( aLink2 );
+        m_xReadonlyBtn->connect_clicked( aLink2 );
+        m_xCalculateBtn->connect_clicked( aLink2 );
 
-        m_pOKBtn->SetClickHdl( LINK( this, AddDataItemDialog, OKHdl ) );
+        m_xOKBtn->connect_clicked( LINK( this, AddDataItemDialog, OKHdl ) );
     }
-
 
     void AddDataItemDialog::InitFromNode()
     {
@@ -2569,13 +2578,14 @@ namespace svxform
                     if ( m_eItemType != DITText )
                     {
                         OUString sName( m_xUIHelper->getNodeName( m_pItemNode->m_xNode ) );
-                        m_pNameED->SetText( sName );
+                        m_xNameED->set_text( sName );
                     }
-                    m_pDefaultED->SetText( m_pItemNode->m_xNode->getNodeValue() );
+                    m_xDefaultED->set_text( m_pItemNode->m_xNode->getNodeValue() );
                 }
-                catch( Exception& )
+                catch( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught " << exceptionToString(ex) );
                 }
             }
             else if ( m_pItemNode->m_xPropSet.is() )
@@ -2591,9 +2601,10 @@ namespace svxform
                         if ( xBindings.is() )
                             xBindings->insert( makeAny( m_xTempBinding ) );
                     }
-                    catch ( Exception& )
+                    catch ( Exception const & )
                     {
-                        SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught" );
+                        css::uno::Any ex( cppu::getCaughtException() );
+                        SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught " << exceptionToString(ex) );
                     }
                 }
                 OUString sTemp;
@@ -2603,28 +2614,23 @@ namespace svxform
                     if ( xInfo->hasPropertyByName( PN_BINDING_ID ) )
                     {
                         m_pItemNode->m_xPropSet->getPropertyValue( PN_BINDING_ID ) >>= sTemp;
-                        m_pNameED->SetText( sTemp );
+                        m_xNameED->set_text( sTemp );
                         m_pItemNode->m_xPropSet->getPropertyValue( PN_BINDING_EXPR ) >>= sTemp;
-                        m_pDefaultED->SetText( sTemp );
+                        m_xDefaultED->set_text( sTemp );
                     }
                     else if ( xInfo->hasPropertyByName( PN_SUBMISSION_BIND ) )
                     {
                         m_pItemNode->m_xPropSet->getPropertyValue( PN_SUBMISSION_ID ) >>= sTemp;
-                        m_pNameED->SetText( sTemp );
+                        m_xNameED->set_text( sTemp );
                     }
                 }
-                catch( Exception& )
+                catch( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught " << exceptionToString(ex) );
                 }
 
-                Size a3and1Sz = LogicToPixel( Size(3, 1), MapMode(MapUnit::MapAppFont));
-                Size aNewSz = m_pDefaultED->GetSizePixel();
-                Point aNewPnt = m_pDefaultED->GetPosPixel();
-                aNewPnt.AdjustY(a3and1Sz.Height() );
-                aNewSz.AdjustWidth( -( m_pDefaultBtn->GetSizePixel().Width() + a3and1Sz.Width() ) );
-                m_pDefaultED->SetPosSizePixel( aNewPnt, aNewSz );
-                m_pDefaultBtn->Show();
+                m_xDefaultBtn->show();
             }
 
             if ( m_xTempBinding.is() )
@@ -2634,35 +2640,35 @@ namespace svxform
                 {
                     if ( ( m_xTempBinding->getPropertyValue( PN_REQUIRED_EXPR ) >>= sTemp )
                         && !sTemp.isEmpty() )
-                        m_pRequiredCB->Check();
+                        m_xRequiredCB->set_active(true);
                     if ( ( m_xTempBinding->getPropertyValue( PN_RELEVANT_EXPR ) >>= sTemp )
                         && !sTemp.isEmpty() )
-                        m_pRelevantCB->Check();
+                        m_xRelevantCB->set_active(true);
                     if ( ( m_xTempBinding->getPropertyValue( PN_CONSTRAINT_EXPR ) >>= sTemp )
                         && !sTemp.isEmpty() )
-                        m_pConstraintCB->Check();
+                        m_xConstraintCB->set_active(true);
                     if ( ( m_xTempBinding->getPropertyValue( PN_READONLY_EXPR ) >>= sTemp )
                         && !sTemp.isEmpty() )
-                        m_pReadonlyCB->Check();
+                        m_xReadonlyCB->set_active(true);
                     if ( ( m_xTempBinding->getPropertyValue( PN_CALCULATE_EXPR ) >>= sTemp )
                         && !sTemp.isEmpty() )
-                        m_pCalculateCB->Check();
+                        m_xCalculateCB->set_active(true);
                 }
                 catch (const Exception&)
                 {
-                    SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "AddDataItemDialog::InitFromNode(): exception caught " << exceptionToString(ex) );
                 }
             }
         }
 
         if ( DITText == m_eItemType )
         {
-            m_pSettingsFrame->Hide();
-            m_pNameFT->Disable();
-            m_pNameED->Disable();
+            m_xSettingsFrame->hide();
+            m_xNameFT->set_sensitive(false);
+            m_xNameED->set_sensitive(false);
         }
     }
-
 
     void AddDataItemDialog::InitDataTypeBox()
     {
@@ -2681,7 +2687,7 @@ namespace svxform
                         sal_Int32 i, nCount = aNameList.getLength();
                         OUString* pNames = aNameList.getArray();
                         for ( i = 0; i < nCount; ++i )
-                            m_pDataTypeLB->InsertEntry( pNames[i] );
+                            m_xDataTypeLB->append_text(pNames[i]);
                     }
 
                     if ( m_xTempBinding.is() )
@@ -2689,16 +2695,20 @@ namespace svxform
                         OUString sTemp;
                         if ( m_xTempBinding->getPropertyValue( PN_BINDING_TYPE ) >>= sTemp )
                         {
-                            sal_Int32 nPos = m_pDataTypeLB->GetEntryPos( sTemp );
-                            if ( LISTBOX_ENTRY_NOTFOUND == nPos )
-                                nPos = m_pDataTypeLB->InsertEntry( sTemp );
-                            m_pDataTypeLB->SelectEntryPos( nPos );
+                            int nPos = m_xDataTypeLB->find_text(sTemp);
+                            if (nPos == -1)
+                            {
+                                m_xDataTypeLB->append_text(sTemp);
+                                nPos = m_xDataTypeLB->get_count() - 1;
+                            }
+                            m_xDataTypeLB->set_active(nPos);
                         }
                     }
                 }
-                catch ( Exception& )
+                catch ( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "AddDataItemDialog::InitDataTypeBox(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "AddDataItemDialog::InitDataTypeBox(): exception caught " << exceptionToString(ex) );
                 }
             }
         }
@@ -2719,7 +2729,7 @@ namespace svxform
             case DITBinding :
             {
                 sText = m_sFL_Binding;
-                m_pDefaultFT->SetText( m_sFT_BindingExp );
+                m_xDefaultFT->set_label(m_sFT_BindingExp);
                 break;
             }
 
@@ -2729,31 +2739,30 @@ namespace svxform
             }
         }
 
-        m_pItemFrame->set_label(sText);
+        m_xItemFrame->set_label(sText);
     }
 
-    AddConditionDialog::AddConditionDialog(vcl::Window* pParent,
+    AddConditionDialog::AddConditionDialog(weld::Window* pParent,
         const OUString& _rPropertyName,
         const Reference< XPropertySet >& _rPropSet)
-        : ModalDialog(pParent, "AddConditionDialog", "svx/ui/addconditiondialog.ui")
+        : GenericDialogController(pParent, "svx/ui/addconditiondialog.ui", "AddConditionDialog")
         , m_sPropertyName(_rPropertyName)
         , m_xBinding(_rPropSet)
-
+        , m_xConditionED(m_xBuilder->weld_text_view("condition"))
+        , m_xResultWin(m_xBuilder->weld_text_view("result"))
+        , m_xEditNamespacesBtn(m_xBuilder->weld_button("edit"))
+        , m_xOKBtn(m_xBuilder->weld_button("ok"))
     {
-        get(m_pConditionED, "condition");
-        get(m_pResultWin, "result");
-        get(m_pEditNamespacesBtn, "edit");
-        get(m_pOKBtn, "ok");
         DBG_ASSERT( m_xBinding.is(), "AddConditionDialog::Ctor(): no Binding" );
 
-        m_pConditionED->set_height_request(m_pConditionED->GetTextHeight() * 4);
-        m_pConditionED->set_width_request(m_pConditionED->approximate_char_width() * 62);
-        m_pResultWin->set_height_request(m_pResultWin->GetTextHeight() * 4);
-        m_pResultWin->set_width_request(m_pResultWin->approximate_char_width() * 62);
+        m_xConditionED->set_size_request(m_xConditionED->get_approximate_digit_width() * 52,
+                                         m_xConditionED->get_height_rows(4));
+        m_xResultWin->set_size_request(m_xResultWin->get_approximate_digit_width() * 52,
+                                       m_xResultWin->get_height_rows(4));
 
-        m_pConditionED->SetModifyHdl( LINK( this, AddConditionDialog, ModifyHdl ) );
-        m_pEditNamespacesBtn->SetClickHdl( LINK( this, AddConditionDialog, EditHdl ) );
-        m_pOKBtn->SetClickHdl( LINK( this, AddConditionDialog, OKHdl ) );
+        m_xConditionED->connect_changed( LINK( this, AddConditionDialog, ModifyHdl ) );
+        m_xEditNamespacesBtn->connect_clicked( LINK( this, AddConditionDialog, EditHdl ) );
+        m_xOKBtn->connect_clicked( LINK( this, AddConditionDialog, OKHdl ) );
         m_aResultIdle.SetPriority( TaskPriority::LOWEST );
         m_aResultIdle.SetInvokeHandler( LINK( this, AddConditionDialog, ResultHdl ) );
 
@@ -2765,12 +2774,12 @@ namespace svxform
                 if ( ( m_xBinding->getPropertyValue( m_sPropertyName ) >>= sTemp )
                     && !sTemp.isEmpty() )
                 {
-                    m_pConditionED->SetText( sTemp );
+                    m_xConditionED->set_text( sTemp );
                 }
                 else
                 {
 //!                 m_xBinding->setPropertyValue( m_sPropertyName, makeAny( TRUE_VALUE ) );
-                    m_pConditionED->SetText( TRUE_VALUE );
+                    m_xConditionED->set_text( TRUE_VALUE );
                 }
 
                 Reference< css::xforms::XModel > xModel;
@@ -2779,7 +2788,8 @@ namespace svxform
             }
             catch (const Exception&)
             {
-                SAL_WARN( "svx.form", "AddConditionDialog::Ctor(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "AddConditionDialog::Ctor(): exception caught " << exceptionToString(ex) );
             }
         }
 
@@ -2789,68 +2799,46 @@ namespace svxform
 
     AddConditionDialog::~AddConditionDialog()
     {
-        disposeOnce();
     }
 
-    void AddConditionDialog::dispose()
-    {
-        m_pConditionED.clear();
-        m_pResultWin.clear();
-        m_pEditNamespacesBtn.clear();
-        m_pOKBtn.clear();
-        ModalDialog::dispose();
-    }
-
-    IMPL_LINK_NOARG(AddConditionDialog, EditHdl, Button*, void)
+    IMPL_LINK_NOARG(AddConditionDialog, EditHdl, weld::Button&, void)
     {
         Reference< XNameContainer > xNameContnr;
         try
         {
             m_xBinding->getPropertyValue( PN_BINDING_NAMESPACES ) >>= xNameContnr;
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "svx.form", "AddDataItemDialog::EditHdl(): exception caught" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "AddDataItemDialog::EditHdl(): exception caught " << exceptionToString(ex) );
         }
-        ScopedVclPtrInstance< NamespaceItemDialog > aDlg( this, xNameContnr );
-        aDlg->Execute();
+        NamespaceItemDialog aDlg(this, xNameContnr);
+        aDlg.run();
         try
         {
             m_xBinding->setPropertyValue( PN_BINDING_NAMESPACES, makeAny( xNameContnr ) );
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "svx.form", "AddDataItemDialog::EditHdl(): exception caught" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "AddDataItemDialog::EditHdl(): exception caught " << exceptionToString(ex) );
         }
     }
 
-
-    IMPL_LINK_NOARG(AddConditionDialog, OKHdl, Button*, void)
+    IMPL_LINK_NOARG(AddConditionDialog, OKHdl, weld::Button&, void)
     {
-/*!!!
-        try
-        {
-            if ( m_xBinding.is() )
-                m_xBinding->setPropertyValue( m_sPropertyName, makeAny( OUString( m_pConditionED->GetText() ) ) );
-        }
-        catch( const Exception& )
-        {
-            SAL_WARN( "svx.form", "AddConditionDialog, OKHdl: caught an exception!" );
-        }
-*/
-        EndDialog( RET_OK );
+        m_xDialog->response(RET_OK);
     }
 
-
-    IMPL_LINK_NOARG(AddConditionDialog, ModifyHdl, Edit&, void)
+    IMPL_LINK_NOARG(AddConditionDialog, ModifyHdl, weld::TextView&, void)
     {
         m_aResultIdle.Start();
     }
 
-
     IMPL_LINK_NOARG(AddConditionDialog, ResultHdl, Timer *, void)
     {
-        OUString sCondition = comphelper::string::strip(m_pConditionED->GetText(), ' ');
+        OUString sCondition = comphelper::string::strip(m_xConditionED->get_text(), ' ');
         OUString sResult;
         if ( !sCondition.isEmpty() )
         {
@@ -2858,131 +2846,100 @@ namespace svxform
             {
                 sResult = m_xUIHelper->getResultForExpression( m_xBinding, ( m_sPropertyName == PN_BINDING_EXPR ), sCondition );
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "AddConditionDialog::ResultHdl(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "AddConditionDialog::ResultHdl(): exception caught " << exceptionToString(ex) );
             }
         }
-        m_pResultWin->SetText( sResult );
+        m_xResultWin->set_text(sResult);
     }
 
-    NamespaceItemDialog::NamespaceItemDialog(
-        AddConditionDialog* _pCondDlg,
-            Reference< XNameContainer >& _rContainer )
-        : ModalDialog( _pCondDlg, "NamespaceDialog",
-            "svx/ui/namespacedialog.ui" )
-        , m_pConditionDlg(_pCondDlg)
-        , m_rNamespaces(_rContainer)
+    NamespaceItemDialog::NamespaceItemDialog(AddConditionDialog* pCondDlg, Reference<XNameContainer>& rContainer)
+        : GenericDialogController(pCondDlg->getDialog(), "svx/ui/namespacedialog.ui", "NamespaceDialog")
+        , m_pConditionDlg(pCondDlg)
+        , m_rNamespaces(rContainer)
+        , m_xNamespacesList(m_xBuilder->weld_tree_view("namespaces"))
+        , m_xAddNamespaceBtn(m_xBuilder->weld_button("add"))
+        , m_xEditNamespaceBtn(m_xBuilder->weld_button("edit"))
+        , m_xDeleteNamespaceBtn(m_xBuilder->weld_button("delete"))
+        , m_xOKBtn(m_xBuilder->weld_button("ok"))
     {
-        get(m_pAddNamespaceBtn, "add");
-        get(m_pEditNamespaceBtn, "edit");
-        get(m_pDeleteNamespaceBtn, "delete");
-        get(m_pOKBtn, "ok");
+        m_xNamespacesList->set_size_request(m_xNamespacesList->get_approximate_digit_width() * 80,
+                                            m_xNamespacesList->get_height_rows(8));
 
-        SvSimpleTableContainer* pNamespacesListContainer =
-            get<SvSimpleTableContainer>("namespaces");
-        Size aControlSize(175, 72);
-        aControlSize = LogicToPixel(aControlSize, MapMode(MapUnit::MapAppFont));
-        pNamespacesListContainer->set_width_request(aControlSize.Width());
-        pNamespacesListContainer->set_height_request(aControlSize.Height());
-        m_pNamespacesList = VclPtr<SvSimpleTable>::Create(*pNamespacesListContainer, 0);
+        std::vector<int> aWidths;
+        aWidths.push_back(m_xNamespacesList->get_approximate_digit_width() * 20);
+        m_xNamespacesList->set_column_fixed_widths(aWidths);
 
-        static long aTabPositions[]= { 0, 35, 200 };
-        m_pNamespacesList->SvSimpleTable::SetTabs( SAL_N_ELEMENTS(aTabPositions), aTabPositions );
-        OUString sHeader = get<FixedText>("prefix")->GetText();
-        sHeader += "\t";
-        sHeader += get<FixedText>("url")->GetText();
-        m_pNamespacesList->InsertHeaderEntry(
-            sHeader, HEADERBAR_APPEND, HeaderBarItemBits::LEFT /*| HeaderBarItemBits::FIXEDPOS | HeaderBarItemBits::FIXED*/ );
-
-        m_pNamespacesList->SetSelectHdl( LINK( this, NamespaceItemDialog, SelectHdl ) );
-        Link<Button*,void> aLink = LINK( this, NamespaceItemDialog, ClickHdl );
-        m_pAddNamespaceBtn->SetClickHdl( aLink );
-        m_pEditNamespaceBtn->SetClickHdl( aLink );
-        m_pDeleteNamespaceBtn->SetClickHdl( aLink );
-        m_pOKBtn->SetClickHdl( LINK( this, NamespaceItemDialog, OKHdl ) );
+        m_xNamespacesList->connect_changed( LINK( this, NamespaceItemDialog, SelectHdl ) );
+        Link<weld::Button&,void> aLink = LINK( this, NamespaceItemDialog, ClickHdl );
+        m_xAddNamespaceBtn->connect_clicked( aLink );
+        m_xEditNamespaceBtn->connect_clicked( aLink );
+        m_xDeleteNamespaceBtn->connect_clicked( aLink );
+        m_xOKBtn->connect_clicked( LINK( this, NamespaceItemDialog, OKHdl ) );
 
         LoadNamespaces();
-        SelectHdl( m_pNamespacesList );
+        SelectHdl(*m_xNamespacesList);
     }
-
 
     NamespaceItemDialog::~NamespaceItemDialog()
     {
-        disposeOnce();
     }
 
-    void NamespaceItemDialog::dispose()
+    IMPL_LINK_NOARG( NamespaceItemDialog, SelectHdl, weld::TreeView&, void)
     {
-        m_pNamespacesList.disposeAndClear();
-        m_pAddNamespaceBtn.clear();
-        m_pEditNamespaceBtn.clear();
-        m_pDeleteNamespaceBtn.clear();
-        m_pOKBtn.clear();
-        m_pConditionDlg.clear();
-        ModalDialog::dispose();
+        bool bEnable = m_xNamespacesList->get_selected_index() != -1;
+        m_xEditNamespaceBtn->set_sensitive( bEnable );
+        m_xDeleteNamespaceBtn->set_sensitive( bEnable );
     }
 
-
-    IMPL_LINK_NOARG( NamespaceItemDialog, SelectHdl, SvTreeListBox *, void)
+    IMPL_LINK( NamespaceItemDialog, ClickHdl, weld::Button&, rButton, void )
     {
-        bool bEnable = ( m_pNamespacesList->FirstSelected() != nullptr );
-        m_pEditNamespaceBtn->Enable( bEnable );
-        m_pDeleteNamespaceBtn->Enable( bEnable );
-    }
-
-
-    IMPL_LINK( NamespaceItemDialog, ClickHdl, Button *, pButton, void )
-    {
-        PushButton* pBtn = static_cast<PushButton*>(pButton);
-        if ( m_pAddNamespaceBtn == pBtn )
+        if (m_xAddNamespaceBtn.get() == &rButton)
         {
-            ManageNamespaceDialog aDlg(GetFrameWeld(), m_pConditionDlg, false);
+            ManageNamespaceDialog aDlg(m_xDialog.get(), m_pConditionDlg, false);
             if (aDlg.run() == RET_OK)
             {
-                OUString sEntry = aDlg.GetPrefix();
-                sEntry += "\t";
-                sEntry += aDlg.GetURL();
-                m_pNamespacesList->InsertEntry( sEntry );
+                m_xNamespacesList->append_text(aDlg.GetPrefix());
+                int nRow = m_xNamespacesList->n_children();
+                m_xNamespacesList->set_text(nRow - 1, aDlg.GetURL(), 1);
             }
         }
-        else if ( m_pEditNamespaceBtn == pBtn )
+        else if (m_xEditNamespaceBtn.get() == &rButton)
         {
-            ManageNamespaceDialog aDlg(GetFrameWeld(), m_pConditionDlg, true);
-            SvTreeListEntry* pEntry = m_pNamespacesList->FirstSelected();
-            DBG_ASSERT( pEntry, "NamespaceItemDialog::ClickHdl(): no entry" );
-            OUString sPrefix( SvTabListBox::GetEntryText( pEntry, 0 ) );
-            aDlg.SetNamespace(
-                sPrefix,
-                SvTabListBox::GetEntryText( pEntry, 1 ) );
+            ManageNamespaceDialog aDlg(m_xDialog.get(), m_pConditionDlg, true);
+            int nEntry = m_xNamespacesList->get_selected_index();
+            DBG_ASSERT( nEntry != -1, "NamespaceItemDialog::ClickHdl(): no entry" );
+            OUString sPrefix(m_xNamespacesList->get_text(nEntry, 0));
+            aDlg.SetNamespace(sPrefix, m_xNamespacesList->get_text(nEntry, 1));
             if (aDlg.run() == RET_OK)
             {
                 // if a prefix was changed, mark the old prefix as 'removed'
                 if( sPrefix != aDlg.GetPrefix() )
                     m_aRemovedList.push_back( sPrefix );
 
-                m_pNamespacesList->SetEntryText( aDlg.GetPrefix(), pEntry, 0 );
-                m_pNamespacesList->SetEntryText( aDlg.GetURL(), pEntry, 1 );
+                m_xNamespacesList->set_text(nEntry, aDlg.GetPrefix(), 0);
+                m_xNamespacesList->set_text(nEntry, aDlg.GetURL(), 1);
             }
         }
-        else if ( m_pDeleteNamespaceBtn == pBtn )
+        else if (m_xDeleteNamespaceBtn.get() == &rButton)
         {
-            SvTreeListEntry* pEntry = m_pNamespacesList->FirstSelected();
-            DBG_ASSERT( pEntry, "NamespaceItemDialog::ClickHdl(): no entry" );
-            OUString sPrefix( SvTabListBox::GetEntryText( pEntry, 0 ) );
+            int nEntry = m_xNamespacesList->get_selected_index();
+            DBG_ASSERT( nEntry != -1, "NamespaceItemDialog::ClickHdl(): no entry" );
+            OUString sPrefix(m_xNamespacesList->get_text(nEntry, 0));
             m_aRemovedList.push_back( sPrefix );
-            m_pNamespacesList->GetModel()->Remove( pEntry );
+            m_xNamespacesList->remove(nEntry);
         }
         else
         {
             SAL_WARN( "svx.form", "NamespaceItemDialog::ClickHdl(): invalid button" );
         }
 
-        SelectHdl( m_pNamespacesList );
+        SelectHdl(*m_xNamespacesList);
     }
 
-
-    IMPL_LINK_NOARG(NamespaceItemDialog, OKHdl, Button*, void)
+    IMPL_LINK_NOARG(NamespaceItemDialog, OKHdl, weld::Button&, void)
     {
         try
         {
@@ -2991,12 +2948,11 @@ namespace svxform
             for( i = 0; i < nRemovedCount; ++i )
                 m_rNamespaces->removeByName( m_aRemovedList[i] );
 
-            sal_Int32 nEntryCount = m_pNamespacesList->GetEntryCount();
+            sal_Int32 nEntryCount = m_xNamespacesList->n_children();
             for( i = 0; i < nEntryCount; ++i )
             {
-                SvTreeListEntry* pEntry = m_pNamespacesList->GetEntry(i);
-                OUString sPrefix( SvTabListBox::GetEntryText( pEntry, 0 ) );
-                OUString sURL( SvTabListBox::GetEntryText( pEntry, 1 ) );
+                OUString sPrefix(m_xNamespacesList->get_text(i, 0));
+                OUString sURL(m_xNamespacesList->get_text(i, 1));
 
                 if ( m_rNamespaces->hasByName( sPrefix ) )
                     m_rNamespaces->replaceByName( sPrefix, makeAny( sURL ) );
@@ -3004,19 +2960,20 @@ namespace svxform
                     m_rNamespaces->insertByName( sPrefix, makeAny( sURL ) );
             }
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "svx.form", "NamespaceItemDialog::OKHdl(): exception caught" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "NamespaceItemDialog::OKHdl(): exception caught " << exceptionToString(ex) );
         }
         // and close the dialog
-        EndDialog( RET_OK );
+        m_xDialog->response(RET_OK);
     }
-
 
     void NamespaceItemDialog::LoadNamespaces()
     {
         try
         {
+            int nRow = 0;
             Sequence< OUString > aAllNames = m_rNamespaces->getElementNames();
             const OUString* pAllNames = aAllNames.getConstArray();
             const OUString* pAllNamesEnd = pAllNames + aAllNames.getLength();
@@ -3027,26 +2984,25 @@ namespace svxform
                 if ( m_rNamespaces->hasByName( sPrefix ) )
                 {
                     Any aAny = m_rNamespaces->getByName( sPrefix );
-                    if ( aAny >>= sURL )
+                    if (aAny >>= sURL)
                     {
-                        OUString sEntry( sPrefix );
-                        sEntry += "\t";
-                        sEntry += sURL;
-
-                        m_pNamespacesList->InsertEntry( sEntry );
+                        m_xNamespacesList->append_text(sPrefix);
+                        m_xNamespacesList->set_text(nRow, sURL, 1);
+                        ++nRow;
                     }
                 }
             }
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "svx.form", "NamespaceItemDialog::LoadNamespaces(): exception caught" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "NamespaceItemDialog::LoadNamespaces(): exception caught " << exceptionToString(ex) );
         }
     }
 
-    ManageNamespaceDialog::ManageNamespaceDialog(weld::Window* pParent, AddConditionDialog* _pCondDlg, bool bIsEdit)
+    ManageNamespaceDialog::ManageNamespaceDialog(weld::Window* pParent, AddConditionDialog* pCondDlg, bool bIsEdit)
         : GenericDialogController(pParent, "svx/ui/addnamespacedialog.ui", "AddNamespaceDialog")
-        , m_xConditionDlg(_pCondDlg)
+        , m_pConditionDlg(pCondDlg)
         , m_xPrefixED(m_xBuilder->weld_entry("prefix"))
         , m_xUrlED(m_xBuilder->weld_entry("url"))
         , m_xOKBtn(m_xBuilder->weld_button("ok"))
@@ -3068,7 +3024,7 @@ namespace svxform
 
         try
         {
-            if (!m_xConditionDlg->GetUIHelper()->isValidPrefixName(sPrefix))
+            if (!m_pConditionDlg->GetUIHelper()->isValidPrefixName(sPrefix))
             {
                 std::unique_ptr<weld::MessageDialog> xErrBox(Application::CreateMessageDialog(m_xDialog.get(),
                                                                          VclMessageType::Warning, VclButtonsType::Ok,
@@ -3078,9 +3034,10 @@ namespace svxform
                 return;
             }
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "svx.form", "ManageNamespacesDialog::OKHdl(): exception caught" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "svx.form", "ManageNamespacesDialog::OKHdl(): exception caught " << exceptionToString(ex) );
         }
 
         // no error so close the dialog
@@ -3088,65 +3045,47 @@ namespace svxform
     }
 
     AddSubmissionDialog::AddSubmissionDialog(
-        vcl::Window* pParent, ItemNode* _pNode,
+        weld::Window* pParent, ItemNode* _pNode,
         const Reference< css::xforms::XFormsUIHelper1 >& _rUIHelper)
-        : ModalDialog(pParent, "AddSubmissionDialog",
-            "svx/ui/addsubmissiondialog.ui")
+        : GenericDialogController(pParent, "svx/ui/addsubmissiondialog.ui", "AddSubmissionDialog")
         , m_pItemNode(_pNode)
         , m_xUIHelper(_rUIHelper)
+        , m_xNameED(m_xBuilder->weld_entry("name"))
+        , m_xActionED(m_xBuilder->weld_entry("action"))
+        , m_xMethodLB(m_xBuilder->weld_combo_box("method"))
+        , m_xRefED(m_xBuilder->weld_entry("expression"))
+        , m_xRefBtn(m_xBuilder->weld_button("browse"))
+        , m_xBindLB(m_xBuilder->weld_combo_box("binding"))
+        , m_xReplaceLB(m_xBuilder->weld_combo_box("replace"))
+        , m_xOKBtn(m_xBuilder->weld_button("ok"))
     {
-        get(m_pNameED, "name");
-        get(m_pActionED, "action");
-        get(m_pMethodLB, "method");
-        get(m_pRefED, "expression");
-        get(m_pRefBtn, "browse");
-        get(m_pBindLB, "binding");
-        get(m_pReplaceLB, "replace");
-        get(m_pOKBtn, "ok");
         FillAllBoxes();
 
-        m_pRefBtn->SetClickHdl( LINK( this, AddSubmissionDialog, RefHdl ) );
-        m_pOKBtn->SetClickHdl( LINK( this, AddSubmissionDialog, OKHdl ) );
+        m_xRefBtn->connect_clicked( LINK( this, AddSubmissionDialog, RefHdl ) );
+        m_xOKBtn->connect_clicked( LINK( this, AddSubmissionDialog, OKHdl ) );
     }
-
 
     AddSubmissionDialog::~AddSubmissionDialog()
-    {
-        disposeOnce();
-    }
-
-    void AddSubmissionDialog::dispose()
     {
         // #i38991# if we have added a binding, we need to remove it as well.
         if( m_xCreatedBinding.is() && m_xUIHelper.is() )
             m_xUIHelper->removeBindingIfUseless( m_xCreatedBinding );
-        m_pNameED.clear();
-        m_pActionED.clear();
-        m_pMethodLB.clear();
-        m_pRefED.clear();
-        m_pRefBtn.clear();
-        m_pBindLB.clear();
-        m_pReplaceLB.clear();
-        m_pOKBtn.clear();
-        ModalDialog::dispose();
     }
 
-
-    IMPL_LINK_NOARG(AddSubmissionDialog, RefHdl, Button*, void)
+    IMPL_LINK_NOARG(AddSubmissionDialog, RefHdl, weld::Button&, void)
     {
-        ScopedVclPtrInstance< AddConditionDialog > aDlg(this, PN_BINDING_EXPR, m_xTempBinding );
-        aDlg->SetCondition( m_pRefED->GetText() );
-        if ( aDlg->Execute() == RET_OK )
-            m_pRefED->SetText( aDlg->GetCondition() );
+        AddConditionDialog aDlg(m_xDialog.get(), PN_BINDING_EXPR, m_xTempBinding );
+        aDlg.SetCondition( m_xRefED->get_text() );
+        if ( aDlg.run() == RET_OK )
+            m_xRefED->set_text(aDlg.GetCondition());
     }
 
-
-    IMPL_LINK_NOARG(AddSubmissionDialog, OKHdl, Button*, void)
+    IMPL_LINK_NOARG(AddSubmissionDialog, OKHdl, weld::Button&, void)
     {
-        OUString sName(m_pNameED->GetText());
+        OUString sName(m_xNameED->get_text());
         if(sName.isEmpty())
         {
-            std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(GetFrameWeld(),
+            std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(m_xDialog.get(),
                                                                      VclMessageType::Warning, VclButtonsType::Ok,
                                                                      SvxResId(RID_STR_EMPTY_SUBMISSIONNAME)));
             xErrorBox->set_primary_text(Application::GetDisplayName());
@@ -3168,51 +3107,52 @@ namespace svxform
                     m_xNewSubmission = xModel->createSubmission();
                     m_xSubmission.set( m_xNewSubmission, UNO_QUERY );
                 }
-                catch ( Exception& )
+                catch ( Exception const & )
                 {
-                    SAL_WARN( "svx.form", "AddSubmissionDialog::OKHdl(): exception caught" );
+                    css::uno::Any ex( cppu::getCaughtException() );
+                    SAL_WARN( "svx.form", "AddSubmissionDialog::OKHdl(): exception caught " << exceptionToString(ex) );
                 }
             }
         }
 
         if ( m_xSubmission.is() )
         {
-            OUString sTemp = m_pNameED->GetText();
+            OUString sTemp = m_xNameED->get_text();
             try
             {
                 m_xSubmission->setPropertyValue( PN_SUBMISSION_ID, makeAny( sTemp ) );
-                sTemp = m_pActionED->GetText();
+                sTemp = m_xActionED->get_text();
                 m_xSubmission->setPropertyValue( PN_SUBMISSION_ACTION, makeAny( sTemp ) );
-                sTemp = m_aMethodString.toAPI( m_pMethodLB->GetSelectedEntry() );
+                sTemp = m_aMethodString.toAPI( m_xMethodLB->get_active_text() );
                 m_xSubmission->setPropertyValue( PN_SUBMISSION_METHOD, makeAny( sTemp ) );
-                sTemp = m_pRefED->GetText();
+                sTemp = m_xRefED->get_text();
                 m_xSubmission->setPropertyValue( PN_SUBMISSION_REF, makeAny( sTemp ) );
-                OUString sEntry = m_pBindLB->GetSelectedEntry();
+                OUString sEntry = m_xBindLB->get_active_text();
                 sal_Int32 nColonIdx = sEntry.indexOf(':');
                 if (nColonIdx != -1)
                     sEntry = sEntry.copy(0, nColonIdx);
                 sTemp = sEntry;
                 m_xSubmission->setPropertyValue( PN_SUBMISSION_BIND, makeAny( sTemp ) );
-                sTemp = m_aReplaceString.toAPI( m_pReplaceLB->GetSelectedEntry() );
+                sTemp = m_aReplaceString.toAPI( m_xReplaceLB->get_active_text() );
                 m_xSubmission->setPropertyValue( PN_SUBMISSION_REPLACE, makeAny( sTemp ) );
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "AddSubmissionDialog::OKHdl(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "AddSubmissionDialog::OKHdl(): exception caught " << exceptionToString(ex) );
             }
         }
 
-        EndDialog( RET_OK );
+        m_xDialog->response(RET_OK);
     }
-
 
     void AddSubmissionDialog::FillAllBoxes()
     {
         // method box
-        m_pMethodLB->InsertEntry( SvxResId( RID_STR_METHOD_POST   ) );
-        m_pMethodLB->InsertEntry( SvxResId( RID_STR_METHOD_PUT ) );
-        m_pMethodLB->InsertEntry( SvxResId( RID_STR_METHOD_GET ) );
-        m_pMethodLB->SelectEntryPos(0);
+        m_xMethodLB->append_text(SvxResId(RID_STR_METHOD_POST));
+        m_xMethodLB->append_text(SvxResId(RID_STR_METHOD_PUT));
+        m_xMethodLB->append_text(SvxResId(RID_STR_METHOD_GET));
+        m_xMethodLB->set_active(0);
 
         // binding box
         Reference< css::xforms::XModel > xModel( m_xUIHelper, UNO_QUERY );
@@ -3239,7 +3179,7 @@ namespace svxform
                                 sEntry += ": ";
                                 xPropSet->getPropertyValue( PN_BINDING_EXPR ) >>= sTemp;
                                 sEntry += sTemp;
-                                m_pBindLB->InsertEntry( sEntry );
+                                m_xBindLB->append_text(sEntry);
 
                                 if ( !m_xTempBinding.is() )
                                     m_xTempBinding = xPropSet;
@@ -3248,9 +3188,10 @@ namespace svxform
                     }
                 }
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "AddSubmissionDialog::FillAllBoxes(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "AddSubmissionDialog::FillAllBoxes(): exception caught " << exceptionToString(ex) );
             }
         }
 
@@ -3267,9 +3208,9 @@ namespace svxform
         }
 
         // replace box
-        m_pReplaceLB->InsertEntry( SvxResId( RID_STR_REPLACE_NONE ) );
-        m_pReplaceLB->InsertEntry( SvxResId( RID_STR_REPLACE_INST ) );
-        m_pReplaceLB->InsertEntry( SvxResId( RID_STR_REPLACE_DOC ) );
+        m_xReplaceLB->append_text(SvxResId(RID_STR_REPLACE_NONE));
+        m_xReplaceLB->append_text(SvxResId(RID_STR_REPLACE_INST));
+        m_xReplaceLB->append_text(SvxResId(RID_STR_REPLACE_DOC));
 
 
         // init the controls with the values of the submission
@@ -3280,41 +3221,51 @@ namespace svxform
             try
             {
                 m_xSubmission->getPropertyValue( PN_SUBMISSION_ID ) >>= sTemp;
-                m_pNameED->SetText( sTemp );
+                m_xNameED->set_text( sTemp );
                 m_xSubmission->getPropertyValue( PN_SUBMISSION_ACTION ) >>= sTemp;
-                m_pActionED->SetText( sTemp );
+                m_xActionED->set_text( sTemp );
                 m_xSubmission->getPropertyValue( PN_SUBMISSION_REF ) >>= sTemp;
-                m_pRefED->SetText( sTemp );
+                m_xRefED->set_text(sTemp);
 
                 m_xSubmission->getPropertyValue( PN_SUBMISSION_METHOD ) >>= sTemp;
                 sTemp = m_aMethodString.toUI( sTemp );
-                sal_Int32 nPos = m_pMethodLB->GetEntryPos( sTemp );
-                if ( LISTBOX_ENTRY_NOTFOUND == nPos )
-                    nPos = m_pMethodLB->InsertEntry( sTemp );
-                m_pMethodLB->SelectEntryPos( nPos );
+                sal_Int32 nPos = m_xMethodLB->find_text( sTemp );
+                if (nPos == -1)
+                {
+                    m_xMethodLB->append_text( sTemp );
+                    nPos = m_xMethodLB->get_count() - 1;
+                }
+                m_xMethodLB->set_active( nPos );
 
                 m_xSubmission->getPropertyValue( PN_SUBMISSION_BIND ) >>= sTemp;
-                nPos = m_pBindLB->GetEntryPos( sTemp );
-                if ( LISTBOX_ENTRY_NOTFOUND == nPos )
-                    nPos = m_pBindLB->InsertEntry( sTemp );
-                m_pBindLB->SelectEntryPos( nPos );
+                nPos = m_xBindLB->find_text(sTemp);
+                if (nPos == -1)
+                {
+                    m_xBindLB->append_text(sTemp);
+                    nPos = m_xBindLB->get_count() - 1;
+                }
+                m_xBindLB->set_active(nPos);
 
                 m_xSubmission->getPropertyValue( PN_SUBMISSION_REPLACE ) >>= sTemp;
                 sTemp = m_aReplaceString.toUI( sTemp );
                 if ( sTemp.isEmpty() )
-                    sTemp = m_pReplaceLB->GetEntry(0); // first entry == "none"
-                nPos = m_pReplaceLB->GetEntryPos( sTemp );
-                if ( LISTBOX_ENTRY_NOTFOUND == nPos )
-                    nPos = m_pReplaceLB->InsertEntry( sTemp );
-                m_pReplaceLB->SelectEntryPos( nPos );
+                    sTemp = m_xReplaceLB->get_text(0); // first entry == "none"
+                nPos = m_xReplaceLB->find_text(sTemp);
+                if (nPos == -1)
+                {
+                    m_xReplaceLB->append_text(sTemp);
+                    nPos = m_xReplaceLB->get_count() - 1;
+                }
+                m_xReplaceLB->set_active(nPos);
             }
-            catch ( Exception& )
+            catch ( Exception const & )
             {
-                SAL_WARN( "svx.form", "AddSubmissionDialog::FillAllBoxes(): exception caught" );
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "svx.form", "AddSubmissionDialog::FillAllBoxes(): exception caught " << exceptionToString(ex) );
             }
         }
 
-        m_pRefBtn->Enable( m_xTempBinding.is() );
+        m_xRefBtn->set_sensitive(m_xTempBinding.is());
     }
 
     AddModelDialog::AddModelDialog(weld::Window* pParent, bool bIsEdit)
@@ -3368,7 +3319,7 @@ namespace svxform
         aDlg.SetDisplayDirectory( aFile.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
 
         if (aDlg.Execute() == ERRCODE_NONE)
-            m_xURLED->SetText( aDlg.GetPath() );
+            m_xURLED->set_entry_text(aDlg.GetPath());
     }
 
     LinkedInstanceWarningBox::LinkedInstanceWarningBox(weld::Widget* pParent)

@@ -316,10 +316,12 @@ void SwRedlineAcceptDlg::InitAuthors()
     }
 
     m_pTPView->EnableAccept( bEnable && bSel );
-    m_pTPView->EnableReject( bEnable && bIsNotFormated && bSel );
+    m_pTPView->EnableReject( bEnable && bSel );
+    m_pTPView->EnableClearFormat( bEnable && !bIsNotFormated && bSel );
     m_pTPView->EnableAcceptAll( bEnable );
-    m_pTPView->EnableRejectAll( bEnable &&
-                                !m_bOnlyFormatedRedlines );
+    m_pTPView->EnableRejectAll( bEnable );
+    m_pTPView->EnableClearFormatAll( bEnable &&
+                                m_bOnlyFormatedRedlines );
 }
 
 OUString SwRedlineAcceptDlg::GetRedlineText(const SwRangeRedline& rRedln, DateTime &rDateTime, sal_uInt16 nStack)
@@ -601,13 +603,13 @@ void SwRedlineAcceptDlg::InsertChildren(SwRedlineDataParent *pParent, const SwRa
 
         if (bValidChild)
         {
-            RedlinData *pData = new RedlinData;
+            std::unique_ptr<RedlinData> pData(new RedlinData);
             pData->pData = pRedlineChild;
             pData->bDisabled = true;
             sChild = GetRedlineText(rRedln, pData->aDateTime, nStack);
 
             SvTreeListEntry* pChild = m_pTable->InsertEntry(GetActionImage(rRedln, nStack),
-                    sChild, pData, pParent->pTLBParent);
+                    sChild, std::move(pData), pParent->pTLBParent);
 
             pRedlineChild->pTLBChild = pChild;
             if (!bValidParent)
@@ -748,12 +750,12 @@ void SwRedlineAcceptDlg::InsertParents(SwRedlineTable::size_type nStart, SwRedli
         m_RedlineParents.insert(m_RedlineParents.begin() + i,
                 std::unique_ptr<SwRedlineDataParent>(pRedlineParent));
 
-        RedlinData *pData = new RedlinData;
+        std::unique_ptr<RedlinData> pData(new RedlinData);
         pData->pData = pRedlineParent;
         pData->bDisabled = false;
 
         sParent = GetRedlineText(rRedln, pData->aDateTime);
-        pParent = m_pTable->InsertEntry(GetActionImage(rRedln), sParent, pData, nullptr, i);
+        pParent = m_pTable->InsertEntry(GetActionImage(rRedln), sParent, std::move(pData), nullptr, i);
         if( pCurrRedline == &rRedln )
         {
             m_pTable->SetCurEntry( pParent );
@@ -791,7 +793,22 @@ void SwRedlineAcceptDlg::CallAcceptReject( bool bSelect, bool bAccept )
 
             RedlinData *pData = static_cast<RedlinData *>(pEntry->GetUserData());
 
-            if( !pData->bDisabled )
+            bool bIsNotFormatted = true;
+
+            // first remove only changes with insertion/deletion, if they exist
+            // (format-only changes haven't had real rejection yet, only an
+            // approximation: clear direct formatting, so try to warn
+            // with the extended button label "Reject All/Clear formatting")
+            if ( !bSelect && !bAccept && !m_bOnlyFormatedRedlines )
+            {
+                SwRedlineTable::size_type nPosition = GetRedlinePos( *pEntry );
+                const SwRangeRedline& rRedln = pSh->GetRedline(nPosition);
+
+                if( nsRedlineType_t::REDLINE_FORMAT == rRedln.GetType() )
+                    bIsNotFormatted = false;
+            }
+
+            if( !pData->bDisabled && bIsNotFormatted )
                 aRedlines.push_back( pEntry );
         }
 
@@ -990,8 +1007,10 @@ IMPL_LINK_NOARG(SwRedlineAcceptDlg, GotoHdl, Timer *, void)
     }
     bool bEnable = !pSh->getIDocumentRedlineAccess().GetRedlinePassword().getLength();
     m_pTPView->EnableAccept( bEnable && bSel /*&& !bReadonlySel*/ );
-    m_pTPView->EnableReject( bEnable && bSel && bIsNotFormated /*&& !bReadonlySel*/ );
-    m_pTPView->EnableRejectAll( bEnable && !m_bOnlyFormatedRedlines );
+    m_pTPView->EnableReject( bEnable && bSel /*&& !bReadonlySel*/ );
+    m_pTPView->EnableClearFormat( bEnable && bSel && !bIsNotFormated /*&& !bReadonlySel*/ );
+    m_pTPView->EnableRejectAll( bEnable );
+    m_pTPView->EnableClearFormatAll( bEnable && m_bOnlyFormatedRedlines );
 }
 
 IMPL_LINK_NOARG(SwRedlineAcceptDlg, CommandHdl, SvSimpleTable*, void)
@@ -1113,6 +1132,7 @@ IMPL_LINK_NOARG(SwRedlineAcceptDlg, CommandHdl, SvSimpleTable*, void)
                 // insert / change comment
                 pSh->SetRedlineComment(sMsg);
                 m_pTable->SetEntryText(sMsg.replace('\n', ' '), pEntry, 3);
+                Init();
             }
 
             SwViewShell::SetCareDialog(nullptr);

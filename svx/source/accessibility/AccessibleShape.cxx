@@ -53,6 +53,7 @@
 #include <unotools/accessiblestatesethelper.hxx>
 #include <unotools/accessiblerelationsethelper.hxx>
 #include <svx/svdview.hxx>
+#include <tools/diagnose_ex.h>
 #include <cppuhelper/queryinterface.hxx>
 #include <comphelper/servicehelper.hxx>
 #include "AccessibleEmptyEditSource.hxx"
@@ -60,7 +61,7 @@
 #include <algorithm>
 #include <memory>
 #include <utility>
-#include <o3tl/make_unique.hxx>
+
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
 using ::com::sun::star::uno::Reference;
@@ -171,12 +172,12 @@ void AccessibleShape::Init()
                 if( !pOutlinerParaObject )
                 {
                     // empty text -> use proxy edit source to delay creation of EditEngine
-                    mpText.reset( new AccessibleTextHelper( o3tl::make_unique<AccessibleEmptyEditSource >(*pSdrObject, *pView, *pWindow) ) );
+                    mpText.reset( new AccessibleTextHelper( std::make_unique<AccessibleEmptyEditSource >(*pSdrObject, *pView, *pWindow) ) );
                 }
                 else
                 {
                     // non-empty text -> use full-fledged edit source right away
-                    mpText.reset( new AccessibleTextHelper( o3tl::make_unique<SvxTextEditSource >(*pSdrObject, nullptr, *pView, *pWindow) ) );
+                    mpText.reset( new AccessibleTextHelper( std::make_unique<SvxTextEditSource >(*pSdrObject, nullptr, *pView, *pWindow) ) );
                 }
                 if( pWindow->HasFocus() )
                     mpText->SetFocus();
@@ -300,7 +301,7 @@ bool AccessibleShape::GetState (sal_Int16 aState)
 // OverWrite the parent's getAccessibleName method
 OUString SAL_CALL AccessibleShape::getAccessibleName()
 {
-        ThrowIfDisposed ();
+    ThrowIfDisposed ();
     if (m_pShape && !m_pShape->GetTitle().isEmpty())
         return CreateAccessibleName() + " " + m_pShape->GetTitle();
     else
@@ -963,7 +964,8 @@ void SAL_CALL
     }
     catch (uno::RuntimeException const&)
     {
-        SAL_WARN("svx", "caught exception while disposing");
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("svx", "caught exception while disposing " << exceptionToString(ex));
     }
 }
 

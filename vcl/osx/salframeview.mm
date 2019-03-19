@@ -22,6 +22,8 @@
 #include <sal/macros.h>
 #include <tools/helpers.hxx>
 
+#include <vcl/event.hxx>
+#include <vcl/inputctx.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
@@ -564,7 +566,7 @@ static AquaSalFrame* getMouseContainerFrame()
         NSPoint aPt = [NSEvent mouseLocation];
         NSRect aFrameRect = [pDispatchFrame->getNSWindow() frame];
 
-	if ( ! NSPointInRect( aPt, aFrameRect ) )
+        if ( ! NSPointInRect( aPt, aFrameRect ) )
         {
             // no, it is not
             // now we need to find the one it may be in

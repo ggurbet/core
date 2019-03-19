@@ -20,14 +20,11 @@
 #include "xmldpimp.hxx"
 #include "xmlimprt.hxx"
 #include "xmlfilti.hxx"
-#include "xmlsorti.hxx"
 #include <document.hxx>
-#include <docuno.hxx>
 #include <dpshttab.hxx>
 #include <dpsdbtab.hxx>
 #include <attrib.hxx>
 #include "XMLConverter.hxx"
-#include <dpgroup.hxx>
 #include <dpdimsave.hxx>
 #include <rangeutl.hxx>
 #include <dpoutputgeometry.hxx>
@@ -35,12 +32,9 @@
 
 #include "pivotsource.hxx"
 
-#include <xmloff/xmltkmap.hxx>
-#include <xmloff/nmspmap.hxx>
 #include <xmloff/xmltoken.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmluconv.hxx>
-#include <sax/tools/converter.hxx>
 
 #include <com/sun/star/sheet/DataPilotFieldReferenceType.hpp>
 #include <com/sun/star/sheet/DataPilotFieldReferenceItemType.hpp>
@@ -952,19 +946,13 @@ void SAL_CALL ScXMLDataPilotFieldContext::endFastElement( sal_Int32 /*nElement*/
                     aGroupDim.SetDateInfo(aInfo, nGroupPart);
                 else
                 {
-                    ::std::vector<ScXMLDataPilotGroup>::const_iterator aItr(aGroups.begin());
-                    ::std::vector<ScXMLDataPilotGroup>::const_iterator aEndItr(aGroups.end());
-                    while (aItr != aEndItr)
+                    for (const auto& rGroup : aGroups)
                     {
-                        ScDPSaveGroupItem aItem(aItr->aName);
-                        ::std::vector<OUString>::const_iterator aMembersItr(aItr->aMembers.begin());
-                        ::std::vector<OUString>::const_iterator aMembersEndItr(aItr->aMembers.end());
-                        while (aMembersItr != aMembersEndItr)
+                        ScDPSaveGroupItem aItem(rGroup.aName);
+                        for (const auto& rMember : rGroup.aMembers)
                         {
-                            aItem.AddElement(*aMembersItr);
-                            ++aMembersItr;
+                            aItem.AddElement(rMember);
                         }
-                        ++aItr;
                         aGroupDim.AddGroupItem(aItem);
                     }
                 }

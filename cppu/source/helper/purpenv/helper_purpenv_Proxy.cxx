@@ -20,11 +20,9 @@
 
 #include "Proxy.hxx"
 
-#include <sal/alloca.h>
 #include <sal/log.hxx>
 #include <uno/dispatcher.h>
 #include <typelib/typedescription.hxx>
-#include <cppu/EnvDcp.hxx>
 
 using namespace com::sun::star;
 
@@ -186,7 +184,7 @@ static void s_acquireAndRegister_v(va_list * pParam)
     uno_ExtEnvironment               * pEnv       = va_arg(*pParam, uno_ExtEnvironment *);
 
     pUnoI->acquire(pUnoI);
-     pEnv->registerInterface(pEnv, reinterpret_cast<void **>(&pUnoI), pOid, pTypeDescr);
+    pEnv->registerInterface(pEnv, reinterpret_cast<void **>(&pUnoI), pOid, pTypeDescr);
 }
 }
 

@@ -27,7 +27,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
-#include <osl/mutex.hxx>
+#include <tools/debug.hxx>
 #include <vcl/window.hxx>
 #include <vcl/svapp.hxx>
 #include <comphelper/sequence.hxx>
@@ -169,13 +169,6 @@ namespace accessibility
 
         // a wrapper for the text forwarders (guarded by solar mutex)
         mutable SvxEditSourceAdapter maEditSource;
-
-        // guard for maOffset
-        mutable ::osl::Mutex maMutex;
-
-        /// our current offset to the containing shape/cell (guarded by maMutex)
-        Point maOffset;
-
     };
 
 
@@ -184,9 +177,7 @@ namespace accessibility
 
     AccessibleStaticTextBase_Impl::AccessibleStaticTextBase_Impl() :
         mxTextParagraph( new AccessibleEditableTextPara(nullptr) ),
-        maEditSource(),
-        maMutex(),
-        maOffset(0,0)
+        maEditSource()
     {
 
         // TODO: this is still somewhat of a hack, all the more since
@@ -203,13 +194,6 @@ namespace accessibility
 
     void AccessibleStaticTextBase_Impl::SetOffset( const Point& rPoint )
     {
-
-        // guard against non-atomic access to maOffset data structure
-        {
-            ::osl::MutexGuard aGuard( maMutex );
-            maOffset = rPoint;
-        }
-
         if( mxTextParagraph.is() )
             mxTextParagraph->SetEEOffset( rPoint );
     }
@@ -912,12 +896,11 @@ namespace accessibility
             uno::Sequence< beans::PropertyValue > aSeq = mpImpl->GetParagraph( nPara ).getDefaultAttributes( RequestedAttributes );
             PropertyValueVector aIntersectionVec;
 
-            PropertyValueVector::const_iterator aEnd = aDefAttrVec.end();
-            for ( PropertyValueVector::const_iterator aItr = aDefAttrVec.begin(); aItr != aEnd; ++aItr )
+            for ( const auto& rDefAttr : aDefAttrVec )
             {
                 const beans::PropertyValue* pItr = aSeq.getConstArray();
                 const beans::PropertyValue* pEnd  = pItr + aSeq.getLength();
-                const beans::PropertyValue* pFind = std::find_if( pItr, pEnd, PropertyValueEqualFunctor(*aItr) );
+                const beans::PropertyValue* pFind = std::find_if( pItr, pEnd, PropertyValueEqualFunctor(rDefAttr) );
                 if ( pFind != pEnd )
                 {
                     aIntersectionVec.push_back( *pFind );

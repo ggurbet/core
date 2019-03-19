@@ -69,6 +69,9 @@
 // for StructureTagPrimitive support in sd's unomodel.cxx
 #include <drawinglayer/primitive2d/structuretagprimitive2d.hxx>
 
+// for support of Title/Description in all apps when embedding pictures
+#include <drawinglayer/primitive2d/objectinfoprimitive2d.hxx>
+
 using namespace com::sun::star;
 
 // #112245# definition for maximum allowed point count due to Metafile target.
@@ -559,7 +562,10 @@ namespace drawinglayer
             mnSvtGraphicFillCount(0),
             mnSvtGraphicStrokeCount(0),
             mfCurrentUnifiedTransparence(0.0),
-            mpPDFExtOutDevData(dynamic_cast< vcl::PDFExtOutDevData* >(rOutDev.GetExtOutDevData()))
+            mpPDFExtOutDevData(dynamic_cast< vcl::PDFExtOutDevData* >(rOutDev.GetExtOutDevData())),
+            mnCurrentOutlineLevel(-1),
+            mbInListItem(false),
+            mbBulletPresent(false)
         {
             OSL_ENSURE(rOutDev.GetConnectMetaFile(), "VclMetafileProcessor2D: Used on OutDev which has no MetaFile Target (!)");
             // draw to logic coordinates, do not initialize maCurrentTransformation to viewTransformation
@@ -898,6 +904,11 @@ namespace drawinglayer
                     RenderEpsPrimitive2D(static_cast< const primitive2d::EpsPrimitive2D& >(rCandidate));
                     break;
                 }
+                case PRIMITIVE2D_ID_OBJECTINFOPRIMITIVE2D :
+                {
+                    RenderObjectInfoPrimitive2D(static_cast< const primitive2d::ObjectInfoPrimitive2D& >(rCandidate));
+                    break;
+                }
                 default :
                 {
                     // process recursively
@@ -911,7 +922,7 @@ namespace drawinglayer
         {
             bool bUsingPDFExtOutDevData(false);
             basegfx::B2DVector aTranslate, aScale;
-            static bool bSuppressPDFExtOutDevDataSupport(false);
+            static bool bSuppressPDFExtOutDevDataSupport(false); // loplugin:constvars:ignore
 
             if(mpPDFExtOutDevData && !bSuppressPDFExtOutDevDataSupport)
             {
@@ -991,10 +1002,43 @@ namespace drawinglayer
                         sal_Int32(ceil(aCropRange.getMaxX())), sal_Int32(ceil(aCropRange.getMaxY())));
                 }
 
+                // Create image alternative description from ObjectInfoPrimitive2D info
+                // for PDF export
+                if(mpPDFExtOutDevData->GetIsExportTaggedPDF() && nullptr != getObjectInfoPrimitive2D())
+                {
+                    OUString aAlternateDescription;
+
+                    if(!getObjectInfoPrimitive2D()->getTitle().isEmpty())
+                    {
+                        aAlternateDescription += getObjectInfoPrimitive2D()->getTitle();
+                    }
+
+                    if(!getObjectInfoPrimitive2D()->getDesc().isEmpty())
+                    {
+                        if(!aAlternateDescription.isEmpty())
+                        {
+                            aAlternateDescription += " - ";
+                        }
+
+                        aAlternateDescription += getObjectInfoPrimitive2D()->getDesc();
+                    }
+
+                    // Use SetAlternateText to set it. This will work as long as some
+                    // structure is used (see PDFWriterImpl::setAlternateText and
+                    // m_nCurrentStructElement - tagged PDF export works with this in
+                    // Draw/Impress/Writer, but not in Calc due to too less structure...)
+                    //Z maybe add structure to Calc PDF export, may need some BeginGroup/EndGroup stuff ..?
+                    if(!aAlternateDescription.isEmpty())
+                    {
+                        mpPDFExtOutDevData->SetAlternateText(aAlternateDescription);
+                    }
+                }
+
                 // #i123295# 3rd param is uncropped rect, 4th is cropped. The primitive has the cropped
                 // object transformation, thus aCurrentRect *is* the clip region while aCropRect is the expanded,
                 // uncropped region. Thus, correct order is aCropRect, aCurrentRect
-                mpPDFExtOutDevData->EndGroup(rGraphicPrimitive.getGraphicObject().GetGraphic(),
+                mpPDFExtOutDevData->EndGroup(
+                    rGraphicPrimitive.getGraphicObject().GetGraphic(),
                     rAttr.GetTransparency(),
                     aCropRect,
                     aCurrentRect);
@@ -1185,30 +1229,104 @@ namespace drawinglayer
             // "XTEXT_EOC" is used, use here, too.
             const OString aCommentString("XTEXT_EOC");
 
+            // this is a part of list item, start LILabel ( = bullet)
+            if(mbInListItem)
+                mpPDFExtOutDevData->BeginStructureElement(vcl::PDFWriter::LILabel);
+
             // process recursively and add MetaFile comment
             process(rBulletPrimitive);
             mpMetaFile->AddAction(new MetaCommentAction(aCommentString));
+
+            if(mbInListItem)
+            {
+                mpPDFExtOutDevData->EndStructureElement(); // end LILabel
+                mbBulletPresent = true;
+            }
         }
 
         void VclMetafileProcessor2D::processTextHierarchyParagraphPrimitive2D(const primitive2d::TextHierarchyParagraphPrimitive2D& rParagraphPrimitive)
         {
             const OString aCommentString("XTEXT_EOP");
+            static bool bSuppressPDFExtOutDevDataSupport(false); // loplugin:constvars:ignore
 
-            if(mpPDFExtOutDevData)
+            if(nullptr == mpPDFExtOutDevData || bSuppressPDFExtOutDevDataSupport)
             {
-                // emulate data handling from ImpEditEngine::Paint
+                // Non-PDF export behaviour (metafile only).
+                // Process recursively and add MetaFile comment.
+                process(rParagraphPrimitive);
+                mpMetaFile->AddAction(new MetaCommentAction(aCommentString));
+                return;
+            }
+
+            if(!mpPDFExtOutDevData->GetIsExportTaggedPDF())
+            {
+                // No Tagged PDF -> Dump as Paragraph
+                // Emulate data handling from old ImpEditEngine::Paint
+                mpPDFExtOutDevData->BeginStructureElement( vcl::PDFWriter::Paragraph );
+
+                // Process recursively and add MetaFile comment
+                process(rParagraphPrimitive);
+                mpMetaFile->AddAction(new MetaCommentAction(aCommentString));
+
+                // Emulate data handling from ImpEditEngine::Paint
+                mpPDFExtOutDevData->EndStructureElement();
+                return;
+            }
+
+            // Create Tagged PDF -> deeper tagged data using StructureElements.
+            // Use OutlineLevel from ParagraphPrimitive, ensure not below -1 what
+            // means 'not active'
+            const sal_Int16 nNewOutlineLevel(std::max(static_cast<sal_Int16>(-1), rParagraphPrimitive.getOutlineLevel()));
+
+            // Do we have a change in OutlineLevel compared to the current one?
+            if(nNewOutlineLevel != mnCurrentOutlineLevel)
+            {
+                if(nNewOutlineLevel > mnCurrentOutlineLevel)
+                {
+                    // increase List level
+                    for(sal_Int16 a(mnCurrentOutlineLevel); a != nNewOutlineLevel; a++)
+                    {
+                        mpPDFExtOutDevData->BeginStructureElement( vcl::PDFWriter::List );
+                    }
+                }
+                else // if(nNewOutlineLevel < mnCurrentOutlineLevel)
+                {
+                    // decrease List level
+                    for(sal_Int16 a(mnCurrentOutlineLevel); a != nNewOutlineLevel; a--)
+                    {
+                        mpPDFExtOutDevData->EndStructureElement();
+                    }
+                }
+
+                // Remember new current OutlineLevel
+                mnCurrentOutlineLevel = nNewOutlineLevel;
+            }
+
+            const bool bDumpAsListItem(-1 != mnCurrentOutlineLevel);
+
+            if(bDumpAsListItem)
+            {
+                // Dump as ListItem
+                mpPDFExtOutDevData->BeginStructureElement( vcl::PDFWriter::ListItem );
+                mbInListItem = true;
+            }
+            else
+            {
+                // Dump as Paragraph
                 mpPDFExtOutDevData->BeginStructureElement( vcl::PDFWriter::Paragraph );
             }
 
-            // process recursively and add MetaFile comment
+            // Process recursively and add MetaFile comment
             process(rParagraphPrimitive);
             mpMetaFile->AddAction(new MetaCommentAction(aCommentString));
 
-            if(mpPDFExtOutDevData)
+            if(bDumpAsListItem)
             {
-                // emulate data handling from ImpEditEngine::Paint
-                mpPDFExtOutDevData->EndStructureElement();
+                mpPDFExtOutDevData->EndStructureElement(); // end ListItem
+                mbInListItem = false;
             }
+
+            mpPDFExtOutDevData->EndStructureElement();
         }
 
         void VclMetafileProcessor2D::processTextHierarchyBlockPrimitive2D(const primitive2d::TextHierarchyBlockPrimitive2D& rBlockPrimitive)
@@ -1228,8 +1346,19 @@ namespace drawinglayer
             const DrawModeFlags nOriginalDrawMode(mpOutputDevice->GetDrawMode());
             adaptTextToFillDrawMode();
 
+            // this is a 2nd portion of list item
+            // bullet has been already processed, start LIBody
+            if (mbInListItem && mbBulletPresent)
+                mpPDFExtOutDevData->BeginStructureElement(vcl::PDFWriter::LIBody);
+
             // directdraw of text simple portion; use default processing
             RenderTextSimpleOrDecoratedPortionPrimitive2D(rTextCandidate);
+
+            if (mbInListItem && mbBulletPresent)
+            {
+                mpPDFExtOutDevData->EndStructureElement(); // end LIBody
+                mbBulletPresent = false;
+            }
 
             // restore DrawMode
             mpOutputDevice->SetDrawMode(nOriginalDrawMode);
@@ -1866,7 +1995,7 @@ namespace drawinglayer
                     // try to identify a single PolyPolygonColorPrimitive2D in the
                     // content part of the transparence primitive
                     const primitive2d::PolyPolygonColorPrimitive2D* pPoPoColor = nullptr;
-                    static bool bForceToMetafile(false);
+                    static bool bForceToMetafile(false); // loplugin:constvars:ignore
 
                     if(!bForceToMetafile && 1 == rContent.size())
                     {
@@ -1960,7 +2089,7 @@ namespace drawinglayer
                 // try to identify a single FillGradientPrimitive2D in the
                 // transparence part of the primitive
                 const primitive2d::FillGradientPrimitive2D* pFiGradient = nullptr;
-                static bool bForceToBigTransparentVDev(false);
+                static bool bForceToBigTransparentVDev(false); // loplugin:constvars:ignore
 
                 if(!bForceToBigTransparentVDev && 1 == rTransparence.size())
                 {
@@ -2058,7 +2187,7 @@ namespace drawinglayer
                             getViewInformation2D().getViewTime(),
                             getViewInformation2D().getExtendedInformationSequence());
 
-                        VclPixelProcessor2D aBufferProcessor(aViewInfo, *aBufferDevice.get());
+                        VclPixelProcessor2D aBufferProcessor(aViewInfo, *aBufferDevice);
 
                         // draw content using pixel renderer
                         aBufferProcessor.process(rContent);
@@ -2084,11 +2213,13 @@ namespace drawinglayer
             // structured tag primitive
             const vcl::PDFWriter::StructElement& rTagElement(rStructureTagCandidate.getStructureElement());
             const bool bTagUsed(vcl::PDFWriter::NonStructElement != rTagElement);
+            const bool bIsBackground(rStructureTagCandidate.isBackground());
 
-            if(mpPDFExtOutDevData &&  bTagUsed)
+            if(mpPDFExtOutDevData && bTagUsed)
             {
-                // write start tag
-                mpPDFExtOutDevData->BeginStructureElement(rTagElement);
+                // Write start tag. For background elements use NonStructElement instead of real element type (e.g. Figure)
+                // to guarantee it gets exported as artifact (tagged PDF)
+                mpPDFExtOutDevData->BeginStructureElement(bIsBackground ? vcl::PDFWriter::NonStructElement : rTagElement);
             }
 
             // process children normally

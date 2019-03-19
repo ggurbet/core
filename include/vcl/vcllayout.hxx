@@ -21,18 +21,18 @@
 #define INCLUDED_VCL_VCLLAYOUT_HXX
 
 #include <memory>
-#include <vector>
 
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <tools/gen.hxx>
 #include <vcl/devicecoordinate.hxx>
 #include <vcl/dllapi.h>
-#include <vcl/glyphitem.hxx>
 
 class ImplLayoutArgs;
 class PhysicalFontFace;
 class SalGraphics;
 struct GlyphItem;
+class SalLayoutGlyphs;
+
 namespace vcl
 {
     class TextLayoutCache;
@@ -101,8 +101,6 @@ public:
     virtual bool GetOutline(basegfx::B2DPolyPolygonVector&) const;
     bool GetBoundRect(tools::Rectangle&) const;
 
-    virtual std::shared_ptr<vcl::TextLayoutCache>
-        CreateTextLayoutCache(OUString const&) const;
     virtual const SalLayoutGlyphs* GetGlyphs() const;
 
 protected:

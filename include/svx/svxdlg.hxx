@@ -356,7 +356,7 @@ public:
                                             TargetList& rTargetList ) = 0;
 
     virtual VclPtr<SfxAbstractTabDialog> CreateTabItemDialog(weld::Window* pParent, const SfxItemSet& rSet) = 0;
-    virtual VclPtr<VclAbstractDialog>      CreateSvxSearchAttributeDialog( vcl::Window* pParent,
+    virtual VclPtr<VclAbstractDialog>      CreateSvxSearchAttributeDialog(weld::Window* pParent,
                                             SearchAttrItemList& rLst,
                                             const sal_uInt16* pWhRanges)=0;
     virtual VclPtr<AbstractSvxSearchSimilarityDialog> CreateSvxSearchSimilarityDialog( weld::Window* pParent,
@@ -383,8 +383,7 @@ public:
                                                                                   TransliterationFlags nInitialFlags) = 0;
     virtual VclPtr<AbstractFmInputRecordNoDialog> CreateFmInputRecordNoDialog(weld::Window* pParent) = 0;
     virtual VclPtr<AbstractSvxNewDictionaryDialog> CreateSvxNewDictionaryDialog(weld::Window* pParent) = 0;
-    virtual VclPtr<VclAbstractDialog>     CreateSvxEditDictionaryDialog( vcl::Window* pParent,
-                                            const OUString& rName) = 0;
+    virtual VclPtr<VclAbstractDialog>     CreateSvxEditDictionaryDialog(weld::Window* pParent, const OUString& rName) = 0;
     virtual VclPtr<AbstractSvxNameDialog> CreateSvxNameDialog(weld::Window* pParent,
                                             const OUString& rName, const OUString& rDesc ) = 0;
 
@@ -392,10 +391,10 @@ public:
     virtual VclPtr<AbstractSvxObjectNameDialog> CreateSvxObjectNameDialog(weld::Window* pParent, const OUString& rName) = 0;
     virtual VclPtr<AbstractSvxObjectTitleDescDialog> CreateSvxObjectTitleDescDialog(weld::Window* pParent, const OUString& rTitle, const OUString& rDescription) = 0;
 
-    virtual VclPtr<AbstractSvxMultiPathDialog>    CreateSvxMultiPathDialog(vcl::Window* pParent) = 0 ;
+    virtual VclPtr<AbstractSvxMultiPathDialog>    CreateSvxMultiPathDialog(weld::Window* pParent) = 0 ;
     virtual VclPtr<AbstractSvxMultiPathDialog>    CreateSvxPathSelectDialog(weld::Window* pParent) = 0 ;
     virtual VclPtr<AbstractSvxHpLinkDlg>  CreateSvxHpLinkDlg(vcl::Window* pParent, SfxBindings* pBindings)=0;
-    virtual VclPtr<AbstractFmSearchDialog> CreateFmSearchDialog(vcl::Window* pParent,
+    virtual VclPtr<AbstractFmSearchDialog> CreateFmSearchDialog(weld::Window* pParent,
                                                         const OUString& strInitialText,
                                                         const ::std::vector< OUString >& _rContexts,
                                                         sal_Int16 nInitialContext,
@@ -421,7 +420,7 @@ public:
                                                                  SdrModel* pModel,
                                                                  const SdrObject* pObj,
                                                                  bool bHasObj )=0;
-    virtual VclPtr<SfxAbstractDialog>       CreateSfxDialog( vcl::Window* pParent,
+    virtual VclPtr<SfxAbstractDialog>       CreateSfxDialog( weld::Window* pParent,
                                                                         const SfxItemSet& rAttr,
                                                                         const SdrView* pView,
                                                                         sal_uInt32 nResId )=0;
@@ -429,20 +428,17 @@ public:
     virtual VclPtr<SfxAbstractDialog>       CreateEventConfigDialog(weld::Window* pParent, const SfxItemSet& rAttr,
                                                                     const css::uno::Reference< css::frame::XFrame >& _rxFrame) = 0;
     virtual VclPtr<AbstractSvxPostItDialog>    CreateSvxPostItDialog(weld::Window* pParent, const SfxItemSet& rCoreSet, bool bPrevNext = false) = 0;
-    virtual VclPtr<VclAbstractDialog>          CreateSvxScriptOrgDialog( vcl::Window* pParent, const OUString& rLanguage ) override = 0;
+    virtual VclPtr<VclAbstractDialog>          CreateSvxScriptOrgDialog(weld::Window* pParent, const OUString& rLanguage) override = 0;
 
     virtual DialogGetRanges                    GetDialogGetRangesFunc() = 0;
 
-    virtual VclPtr<AbstractScriptSelectorDialog>
-        CreateScriptSelectorDialog(
-            vcl::Window* pParent,
-            const css::uno::Reference< css::frame::XFrame >& _rxFrame
-        ) override = 0;
+    virtual VclPtr<AbstractScriptSelectorDialog> CreateScriptSelectorDialog(weld::Window* pParent,
+            const css::uno::Reference< css::frame::XFrame >& rxFrame) override = 0;
 
     virtual VclPtr<VclAbstractDialog> CreateScriptErrorDialog(const css::uno::Any& rException) override = 0;
 
     virtual VclPtr<VclAbstractDialog> CreateSvxMacroAssignDlg(
-                vcl::Window* _pParent,
+                weld::Window* _pParent,
                 const css::uno::Reference< css::frame::XFrame >& _rxDocumentFrame,
                 const bool _bUnoDialogMode,
                 const css::uno::Reference< css::container::XNameReplace >& _rxEvents,

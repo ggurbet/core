@@ -17,14 +17,18 @@
         },
         {
             "name": "gvfs",
-            "cleanup": [ "/libexec/*", "/share/dbus-1/services/*", "/share/gvfs/mounts" ],
-            "config-opts": [ "--disable-hal", "--disable-gdu", "--disable-gcr", "--disable-obexftp",
-                             "--disable-avahi", "--disable-documentation", "--disable-admin" ],
+            "buildsystem": "meson",
+            "config-opts": [ "-Dsystemduserunitdir=no", "-Dtmpfilesdir=no", "-Dinstalled_tests=true",
+            "-Ddbus_service_dir=/usr/share/dbus-1/services", "-Dadmin=false", "-Dafc=false", "-Dafp=false",
+            "-Darchive=false", "-Dcdda=false", "-Ddnssd=false", "-Dgoa=false", "-Dgoogle=false",
+            "-Dgphoto2=false", "-Dhttp=false", "-Dmtp=false", "-Dnfs=false", "-Dsftp=false", "-Dsmb=false",
+            "-Dudisks2=false", "-Dbluray=false", "-Dfuse=false", "-Dgcr=false", "-Dgcrypt=false",
+            "-Dgudev=false", "-Dkeyring=false", "-Dlogind=false", "-Dlibusb=false" ],
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.gnome.org/sources/gvfs/1.36/gvfs-1.36.1.tar.xz",
-                    "sha256": "3840dff386c2c8a445337bea4ade0eb71339efaff8602767659fa2896792f026"
+                    "url": "https://download.gnome.org/sources/gvfs/1.38/gvfs-1.38.1.tar.xz",
+                    "sha256": "ed136a842c996d25c835da405c4775c77106b46470e75bdc242bdd59ec0d61a0"
                 }
             ]
         },
@@ -50,8 +54,8 @@
                 },
                 {
                     "type": "archive",
-                    "url": "https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.2-bin.tar.xz",
-                    "sha256": "361c8ad2ed8341416e323e7c28af10a8297170a80fdffba294a5c2031527bb6c",
+                    "url": "https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.5-bin.tar.xz",
+                    "sha256": "cebb705dbbe26a41d359b8be08ec066caba4e8686670070ce44bbf2b57ae113f",
                     "dest": "ant"
                 },
                 {
@@ -61,10 +65,10 @@
                     "type": "shell"
                 },
                 {
-                    "url": "https://dev-www.libreoffice.org/src/pdfium-3613.tar.bz2",
-                    "sha256": "c42cdff8e18b9369bc9383e0e8c2531b5631a2712852a26d8e7593021561de89",
+                    "url": "https://dev-www.libreoffice.org/src/pdfium-3667.tar.bz2",
+                    "sha256": "012ef554e7a6ec6d794f9ff7e66ff71011cab1b67317b427d9c820c48c141e5e",
                     "type": "file",
-                    "dest-filename": "external/tarballs/pdfium-3613.tar.bz2"
+                    "dest-filename": "external/tarballs/pdfium-3667.tar.bz2"
                 },
                 {
                     "url": "https://dev-www.libreoffice.org/src/0168229624cfac409e766913506961a8-ucpp-1.3.2.tar.gz",
@@ -145,10 +149,10 @@
                     "dest-filename": "external/tarballs/EmojiOneColor-SVGinOT-1.3.tar.gz"
                 },
                 {
-                    "url": "https://dev-www.libreoffice.org/src/boost_1_66_0.tar.bz2",
-                    "sha256": "5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9",
+                    "url": "https://dev-www.libreoffice.org/src/boost_1_69_0.tar.bz2",
+                    "sha256": "8f32d4617390d1c2d16f26a27ab60d97807b35440d45891fa340fc2648b04406",
                     "type": "file",
-                    "dest-filename": "external/tarballs/boost_1_66_0.tar.bz2"
+                    "dest-filename": "external/tarballs/boost_1_69_0.tar.bz2"
                 },
                 {
                     "url": "https://dev-www.libreoffice.org/src/48d647fbd8ef8889e5a7f422c1bfda94-clucene-core-2.3.3.4.tar.gz",
@@ -367,10 +371,10 @@
                     "dest-filename": "external/tarballs/liborcus-0.14.1.tar.gz"
                 },
                 {
-                    "url": "https://dev-www.libreoffice.org/src/poppler-0.66.0.tar.xz",
-                    "sha256": "2c096431adfb74bc2f53be466889b7646e1b599f28fa036094f3f7235cc9eae7",
+                    "url": "https://dev-www.libreoffice.org/src/poppler-0.73.0.tar.xz",
+                    "sha256": "e44b5543903128884ba4538c2a97d3bcc8889e97ffacc4636112101f0238db03",
                     "type": "file",
-                    "dest-filename": "external/tarballs/poppler-0.66.0.tar.xz"
+                    "dest-filename": "external/tarballs/poppler-0.73.0.tar.xz"
                 },
                 {
                     "url": "https://dev-www.libreoffice.org/src/postgresql-9.2.24.tar.bz2",
@@ -553,6 +557,12 @@
                     "dest-filename": "external/tarballs/libnumbertext-1.0.5.tar.xz"
                 },
                 {
+                    "url": "https://dev-www.libreoffice.org/src/libatomic_ops-7.6.8.tar.gz",
+                    "sha256": "1d6a279edf81767e74d2ad2c9fce09459bc65f12c6525a40b0cb3e53c089f665",
+                    "type": "file",
+                    "dest-filename": "external/tarballs/libatomic_ops-7.6.8.tar.gz"
+                },
+                {
                     "url": "https://dev-www.libreoffice.org/extern/49a64f3bcf20a7909ba2751349231d6652ded9cd2840e961b5164d09de3ffa63-opens___.ttf",
                     "sha256": "49a64f3bcf20a7909ba2751349231d6652ded9cd2840e961b5164d09de3ffa63",
                     "type": "file",
@@ -562,11 +572,9 @@
             "buildsystem": "simple",
             "build-commands": [
                 "./autogen.sh --prefix=/run/build/libreoffice/inst --with-distro=LibreOfficeFlatpak",
-                "make $(if test \"$(uname -i)\" = i386; then printf build-nocheck; fi)",
+                "make $(if test \"$FLATPAK_ARCH\" = i386; then printf build-nocheck; fi)",
                 "make distro-pack-install",
-                "make cmd cmd='$(SRCDIR)/solenv/bin/assemble-flatpak.sh'",
-                "desktop-file-edit --set-key=X-Endless-Alias --set-value=libreoffice-startcenter /app/share/applications/org.libreoffice.LibreOffice.desktop",
-                "for i in base calc draw impress math writer xsltfilter; do desktop-file-edit --set-key=X-Endless-Alias --set-value=libreoffice-$i /app/share/applications/org.libreoffice.LibreOffice-$i.desktop; done"
+                "make cmd cmd='$(SRCDIR)/solenv/bin/assemble-flatpak.sh'"
             ]
         }
     ],

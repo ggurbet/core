@@ -51,6 +51,8 @@
 #include <vector>
 #include <typeinfo>
 #include <algorithm>
+#include <queue>
+#include <iterator>
 
 #include <com/sun/star/task/XStatusIndicatorSupplier.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
@@ -159,8 +161,6 @@ public:
 
     void SetChartRangeAddress( const OUString& rAddress )
         { msChartAddress = rAddress; }
-    void SetTableNumberList( const OUString& rList )
-        { msTableNumberList = rList; }
 
     void InitRangeSegmentationProperties(
         const css::uno::Reference< css::chart2::XChartDocument > & xChartDoc );
@@ -257,7 +257,6 @@ public:
     bool mbHasCategoryLabels; //if the categories are only automatically generated this will be false
     bool mbRowSourceColumns;
     OUString msChartAddress;
-    OUString msTableNumberList;
     css::uno::Sequence< sal_Int32 > maSequenceMapping;
 
     OUString const msCLSID;
@@ -1641,7 +1640,7 @@ void SchXMLExportHelper_Impl::exportTable()
                     {
                         bExportString = false;
 
-                            ::sax::Converter::convertDouble(
+                        ::sax::Converter::convertDouble(
                                 msStringBuffer, fValue);
                         msString = msStringBuffer.makeStringAndClear();
                         mrExport.AddAttribute( XML_NAMESPACE_OFFICE, XML_VALUE_TYPE, XML_FLOAT );
@@ -1696,7 +1695,7 @@ void SchXMLExportHelper_Impl::exportTable()
                         {
                             bExportString = false;
 
-                        ::sax::Converter::convertDouble(msStringBuffer, fValue);
+                            ::sax::Converter::convertDouble(msStringBuffer, fValue);
                             msString = msStringBuffer.makeStringAndClear();
                             mrExport.AddAttribute( XML_NAMESPACE_OFFICE, XML_VALUE_TYPE, XML_FLOAT );
                             mrExport.AddAttribute( XML_NAMESPACE_OFFICE, XML_VALUE, msString );
@@ -3608,11 +3607,6 @@ void SchXMLExport::ExportContent_()
                             aAny >>= sChartAddress;
                             maExportHelper->m_pImpl->SetChartRangeAddress( sChartAddress );
 
-                            OUString sTableNumberList;
-                            aAny = xProp->getPropertyValue( "TableNumberList" );
-                            aAny >>= sTableNumberList;
-                            maExportHelper->m_pImpl->SetTableNumberList( sTableNumberList );
-
                             // do not include own table if there are external addresses
                             bIncludeTable = sChartAddress.isEmpty();
                         }
@@ -3667,8 +3661,6 @@ void SchXMLExportHelper_Impl::InitRangeSegmentationProperties( const Reference< 
                     }
                     else if ( aArgs[i].Name == "SequenceMapping" )
                         aArgs[i].Value >>= maSequenceMapping;
-                    else if ( aArgs[i].Name == "TableNumberList" )
-                        aArgs[i].Value >>= msTableNumberList;
                 }
 
                 // #i79009# For Writer we have to export a broken version of the

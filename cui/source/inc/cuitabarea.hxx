@@ -239,8 +239,6 @@ private:
     SfxItemSet&         m_rXFSet;
 
 protected:
-    Size m_aColorSize;
-
     std::unique_ptr<weld::Container> m_xFillTab;
     std::unique_ptr<weld::ToggleButton> m_xBtnNone;
     std::unique_ptr<weld::ToggleButton> m_xBtnColor;
@@ -248,6 +246,11 @@ protected:
     std::unique_ptr<weld::ToggleButton> m_xBtnHatch;
     std::unique_ptr<weld::ToggleButton> m_xBtnBitmap;
     std::unique_ptr<weld::ToggleButton> m_xBtnPattern;
+
+    void SetOptimalSize(weld::DialogController* pController);
+
+    void SelectFillType( weld::ToggleButton& rButton, const SfxItemSet* _pSet = nullptr );
+    SfxTabPage* GetFillTabPage() { return m_pFillTabPage; }
 
 private:
     DECL_LINK(SelectFillTypeHdl_Impl, weld::ToggleButton&, void);
@@ -558,6 +561,7 @@ private:
     void ClickBitmapHdl_Impl();
     void CalculateBitmapPresetSize();
     sal_Int32 SearchBitmapList(const OUString& rBitmapName);
+    sal_Int32 SearchBitmapList(const GraphicObject& rGraphicObject);
 
 public:
     SvxBitmapTabPage(TabPageParent pParent, const SfxItemSet& rInAttrs);
@@ -756,6 +760,8 @@ public:
 
 
     void    SetColorChgd( ChangeType* pIn ) { pnColorListState = pIn; }
+
+    void    SetCtlPreviewOld( SfxItemSet& rAttrs ) { m_aCtlPreviewOld.SetAttributes( rAttrs ); }
 
     virtual void FillUserData() override;
 };

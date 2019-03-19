@@ -50,7 +50,7 @@ using namespace ::com::sun::star::task;
 struct SfxProgress_Impl
 {
     Reference < XStatusIndicator > xStatusInd;
-    OUString                aText, aStateText;
+    OUString                aText;
     sal_uIntPtr             nMax;
     clock_t                 nCreate;
     bool                    bWaitMode;
@@ -170,17 +170,6 @@ void SfxProgress::Stop()
         SfxGetpApp()->SetProgress_Impl(nullptr);
 }
 
-void SfxProgress::SetStateText
-(
-    sal_uInt32       nNewVal,     /* New value for the progress-bar */
-    const OUString& rNewVal     /* Status as Text */
-)
-
-{
-    pImpl->aStateText = rNewVal;
-    SetState( nNewVal );
-}
-
 void SfxProgress::SetState
 (
     sal_uInt32   nNewVal,    /* new value for the progress bar */
@@ -268,35 +257,35 @@ void SfxProgress::Resume()
 
 {
     if( pImpl->pActiveProgress ) return;
-    if ( bSuspended )
+    if ( !bSuspended )
+        return;
+
+    SAL_INFO("sfx.bastyp", "SfxProgress: resumed");
+    if ( pImpl->xStatusInd.is() )
     {
-        SAL_INFO("sfx.bastyp", "SfxProgress: resumed");
-        if ( pImpl->xStatusInd.is() )
-        {
-            pImpl->xStatusInd->start( pImpl->aText, pImpl->nMax );
-            pImpl->xStatusInd->setValue( nVal );
-        }
+        pImpl->xStatusInd->start( pImpl->aText, pImpl->nMax );
+        pImpl->xStatusInd->setValue( nVal );
+    }
 
-        if ( pImpl->bWaitMode )
-        {
-            if ( pImpl->xObjSh.is() )
-            {
-                for ( SfxViewFrame *pFrame = SfxViewFrame::GetFirst(pImpl->xObjSh.get() );
-                        pFrame;
-                        pFrame = SfxViewFrame::GetNext( *pFrame, pImpl->xObjSh.get() ) )
-                    pFrame->GetWindow().EnterWait();
-            }
-        }
-
+    if ( pImpl->bWaitMode )
+    {
         if ( pImpl->xObjSh.is() )
         {
-            SfxViewFrame *pFrame = SfxViewFrame::GetFirst(pImpl->xObjSh.get());
-            if ( pFrame )
-                pFrame->GetBindings().ENTERREGISTRATIONS();
+            for ( SfxViewFrame *pFrame = SfxViewFrame::GetFirst(pImpl->xObjSh.get() );
+                    pFrame;
+                    pFrame = SfxViewFrame::GetNext( *pFrame, pImpl->xObjSh.get() ) )
+                pFrame->GetWindow().EnterWait();
         }
-
-        bSuspended = false;
     }
+
+    if ( pImpl->xObjSh.is() )
+    {
+        SfxViewFrame *pFrame = SfxViewFrame::GetFirst(pImpl->xObjSh.get());
+        if ( pFrame )
+            pFrame->GetBindings().ENTERREGISTRATIONS();
+    }
+
+    bSuspended = false;
 }
 
 
@@ -313,30 +302,30 @@ void SfxProgress::Suspend()
 
 {
     if( pImpl->pActiveProgress ) return;
-    if ( !bSuspended )
+    if ( bSuspended )
+        return;
+
+    SAL_INFO("sfx.bastyp", "SfxProgress: suspended");
+    bSuspended = true;
+
+    if ( pImpl->xStatusInd.is() )
     {
-        SAL_INFO("sfx.bastyp", "SfxProgress: suspended");
-        bSuspended = true;
+        pImpl->xStatusInd->reset();
+    }
 
-        if ( pImpl->xStatusInd.is() )
-        {
-            pImpl->xStatusInd->reset();
-        }
-
-        if ( pImpl->xObjSh.is() )
-        {
-            for ( SfxViewFrame *pFrame =
-                    SfxViewFrame::GetFirst(pImpl->xObjSh.get());
-                    pFrame;
-                    pFrame = SfxViewFrame::GetNext( *pFrame, pImpl->xObjSh.get() ) )
-                pFrame->GetWindow().LeaveWait();
-        }
-        if ( pImpl->xObjSh.is() )
-        {
-            SfxViewFrame *pFrame = SfxViewFrame::GetFirst( pImpl->xObjSh.get() );
-            if ( pFrame )
-                pFrame->GetBindings().LEAVEREGISTRATIONS();
-        }
+    if ( pImpl->xObjSh.is() )
+    {
+        for ( SfxViewFrame *pFrame =
+                SfxViewFrame::GetFirst(pImpl->xObjSh.get());
+                pFrame;
+                pFrame = SfxViewFrame::GetNext( *pFrame, pImpl->xObjSh.get() ) )
+            pFrame->GetWindow().LeaveWait();
+    }
+    if ( pImpl->xObjSh.is() )
+    {
+        SfxViewFrame *pFrame = SfxViewFrame::GetFirst( pImpl->xObjSh.get() );
+        if ( pFrame )
+            pFrame->GetBindings().LEAVEREGISTRATIONS();
     }
 }
 

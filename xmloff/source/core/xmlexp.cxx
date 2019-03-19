@@ -33,9 +33,11 @@
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/document/XBinaryStreamResolver.hpp>
+#include <com/sun/star/document/XEmbeddedObjectResolver.hpp>
 #include <com/sun/star/xml/sax/SAXInvalidCharacterException.hpp>
 #include <com/sun/star/uri/XUriReferenceFactory.hpp>
 #include <com/sun/star/uri/UriReferenceFactory.hpp>
+#include <com/sun/star/util/XNumberFormatsSupplier.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
 #include <i18nlangtag/languagetag.hxx>
 #include <comphelper/processfactory.hxx>
@@ -51,12 +53,14 @@
 #include <xmloff/XMLSettingsExportContext.hxx>
 #include <xmloff/families.hxx>
 #include <xmloff/XMLEventExport.hxx>
+#include <xmloff/ProgressBarHelper.hxx>
 #include <XMLStarBasicExportHandler.hxx>
 #include <XMLScriptExportHandler.hxx>
 #include <xmloff/SettingsExportHelper.hxx>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/document/XViewDataSupplier.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <xmloff/GradientStyle.hxx>
 #include <xmloff/HatchStyle.hxx>
 #include <xmloff/ImageStyle.hxx>
@@ -96,7 +100,6 @@
 
 #include <comphelper/xmltools.hxx>
 #include <comphelper/graphicmimetype.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::osl;
 using namespace ::com::sun::star;
@@ -1902,8 +1905,12 @@ bool SvXMLExport::AddEmbeddedXGraphicAsBase64(uno::Reference<graphic::XGraphic> 
         Reference<XInputStream> xInputStream(mxGraphicStorageHandler->createInputStream(rxGraphic));
         if (xInputStream.is())
         {
-            XMLBase64Export aBase64Exp(*this);
-            return aBase64Exp.exportOfficeBinaryDataElement(xInputStream);
+            Graphic aGraphic(rxGraphic);
+            if (aGraphic.getOriginURL().isEmpty()) // don't add the base64 if the origin URL is set (image is from an external URL)
+            {
+                XMLBase64Export aBase64Exp(*this);
+                return aBase64Exp.exportOfficeBinaryDataElement(xInputStream);
+            }
         }
     }
 
@@ -2012,8 +2019,8 @@ XMLEventExport& SvXMLExport::GetEventExport()
         mpEventExport.reset( new XMLEventExport(*this) );
 
         // and register standard handlers + names
-        mpEventExport->AddHandler("StarBasic", o3tl::make_unique<XMLStarBasicExportHandler>());
-        mpEventExport->AddHandler("Script", o3tl::make_unique<XMLScriptExportHandler>());
+        mpEventExport->AddHandler("StarBasic", std::make_unique<XMLStarBasicExportHandler>());
+        mpEventExport->AddHandler("Script", std::make_unique<XMLScriptExportHandler>());
         mpEventExport->AddTranslationTable(aStandardEventTable);
     }
 

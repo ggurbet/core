@@ -1448,14 +1448,20 @@ void SwView::StateStatusLine(SfxItemSet &rSet)
                         long nVisPercent = aWindowSize.Height() * 100 / aPageSize.Height();
                         nFac = std::min( nFac, nVisPercent );
 
-                        aZoomSliderItem.AddSnappingPoint( nFac );
+                        if (nFac >= MINZOOM)
+                        {
+                            aZoomSliderItem.AddSnappingPoint( nFac );
+                        }
 
                         if ( bAutomaticViewLayout )
                         {
                             nTmpWidth += aPageSize.Width() + pVOpt->GetGapBetweenPages();
                             nFac = aWindowSize.Width() * 100 / nTmpWidth;
                             nFac = std::min( nFac, nVisPercent );
-                            aZoomSliderItem.AddSnappingPoint( nFac );
+                            if (nFac >= MINZOOM)
+                            {
+                                aZoomSliderItem.AddSnappingPoint( nFac );
+                            }
                         }
                     }
 
@@ -1900,7 +1906,7 @@ void SwView::EditLinkDlg()
 {
     bool bWeb = dynamic_cast<SwWebView*>( this ) !=  nullptr;
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<SfxAbstractLinksDialog> pDlg(pFact->CreateLinksDialog( &GetViewFrame()->GetWindow(), &GetWrtShell().GetLinkManager(), bWeb ));
+    ScopedVclPtr<SfxAbstractLinksDialog> pDlg(pFact->CreateLinksDialog(GetViewFrame()->GetWindow().GetFrameWeld(), &GetWrtShell().GetLinkManager(), bWeb));
     pDlg->Execute();
 }
 
@@ -2381,9 +2387,10 @@ void SwView::GenerateFormLetter(bool bUseCurrentDocument)
         if(!aDBNameList.empty())
         {
             OUString sDBName(aDBNameList[0]);
-            aData.sDataSource = sDBName.getToken(0, DB_DELIM);
-            aData.sCommand = sDBName.getToken(1, DB_DELIM);
-            aData.nCommandType = sDBName.getToken(2, DB_DELIM ).toInt32();
+            sal_Int32 nIdx {0};
+            aData.sDataSource = sDBName.getToken(0, DB_DELIM, nIdx);
+            aData.sCommand = sDBName.getToken(0, DB_DELIM, nIdx);
+            aData.nCommandType = sDBName.getToken(0, DB_DELIM, nIdx).toInt32();
         }
         rSh.EnterStdMode(); // force change in text shell; necessary for mixing DB fields
         AttrChangedNotify( &rSh );

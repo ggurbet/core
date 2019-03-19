@@ -23,6 +23,7 @@
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/xml/sax/InputSource.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
+#include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <com/sun/star/text/XTextRange.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/document/NamedPropertyValues.hpp>
@@ -84,6 +85,7 @@
 #include <istyleaccess.hxx>
 
 #include <sfx2/DocumentMetadataAccess.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -184,8 +186,9 @@ ErrCode ReadThroughComponent(
         else
             xParser->parseStream( aParserInput );
     }
-    catch( xml::sax::SAXParseException& r )
+    catch( xml::sax::SAXParseException& r)
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         // sax parser sends wrapped exceptions,
         // try to find the original one
         xml::sax::SAXException aSaxEx = *static_cast<xml::sax::SAXException*>(&r);
@@ -207,7 +210,7 @@ ErrCode ReadThroughComponent(
         if( bEncrypted )
             return ERRCODE_SFX_WRONGPASSWORD;
 
-        SAL_WARN( "sw", "SAX parse exception caught while importing: " << r );
+        SAL_WARN( "sw", "SAX parse exception caught while importing: " << exceptionToString(ex) );
 
         const OUString sErr( OUString::number( r.LineNumber )
             + ","
@@ -230,6 +233,7 @@ ErrCode ReadThroughComponent(
     }
     catch(const xml::sax::SAXException& r)
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         packages::zip::ZipIOException aBrokenPackage;
         if ( r.WrappedException >>= aBrokenPackage )
             return ERRCODE_IO_BROKENPACKAGE;
@@ -237,22 +241,25 @@ ErrCode ReadThroughComponent(
         if( bEncrypted )
             return ERRCODE_SFX_WRONGPASSWORD;
 
-        SAL_WARN( "sw", "SAX exception caught while importing: " << r);
+        SAL_WARN( "sw", "uno exception caught while importing: " << exceptionToString(ex) );
         return ERR_SWG_READ_ERROR;
     }
-    catch(const packages::zip::ZipIOException& r)
+    catch(const packages::zip::ZipIOException&)
     {
-        SAL_WARN( "sw", "Zip exception caught while importing: " << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sw", "uno exception caught while importing: " << exceptionToString(ex) );
         return ERRCODE_IO_BROKENPACKAGE;
     }
-    catch(const io::IOException& r)
+    catch(const io::IOException&)
     {
-        SAL_WARN( "sw", "IO exception caught while importing: " << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sw", "uno exception caught while importing: " << exceptionToString(ex) );
         return ERR_SWG_READ_ERROR;
     }
-    catch(const uno::Exception& r)
+    catch(const uno::Exception&)
     {
-        SAL_WARN( "sw", "uno exception caught while importing: " << r );
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sw", "uno exception caught while importing: " << exceptionToString(ex) );
         return ERR_SWG_READ_ERROR;
     }
 
@@ -795,8 +802,10 @@ ErrCode XMLReader::Read( SwDoc &rDoc, const OUString& rBaseURL, SwPaM &rPaM, con
         {
             const uno::Reference<rdf::XDocumentMetadataAccess> xDMA(xModelComp,
                 uno::UNO_QUERY_THROW);
+            const uno::Reference<frame::XModel> xModel(xModelComp,
+                uno::UNO_QUERY_THROW);
             const uno::Reference<rdf::XURI> xBaseURI( ::sfx2::createBaseURI(
-                xContext, xStorage, rBaseURL, StreamPath) );
+                xContext, xModel, rBaseURL, StreamPath) );
             const uno::Reference<task::XInteractionHandler> xHandler(
                 pDocSh->GetMedium()->GetInteractionHandler() );
             xDMA->loadMetadataFromStorage(xStorage, xBaseURI, xHandler);

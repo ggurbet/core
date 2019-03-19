@@ -189,6 +189,7 @@ public:
     void testMiscRowHeights();
     void testOptimalHeightReset();
     void testCustomNumFormatHybridCellODS();
+    void testTdf121040();
 
     void testPrintRangeODS();
     void testOutlineODS();
@@ -328,6 +329,7 @@ public:
     CPPUNIT_TEST(testMiscRowHeights);
     CPPUNIT_TEST(testOptimalHeightReset);
     CPPUNIT_TEST(testCustomNumFormatHybridCellODS);
+    CPPUNIT_TEST(testTdf121040);
     CPPUNIT_TEST(testPrintRangeODS);
     CPPUNIT_TEST(testOutlineODS);
     CPPUNIT_TEST(testColumnStyleXLSX);
@@ -1676,7 +1678,7 @@ void ScFiltersTest::testControlImport()
 void ScFiltersTest::testActiveXOptionButtonGroup()
 {
     ScDocShellRef xDocSh = loadDoc("tdf111980_radioButtons.", FORMAT_XLSX);
-    CPPUNIT_ASSERT_MESSAGE("Failed to load singlecontrol.xlsx", xDocSh.is());
+    CPPUNIT_ASSERT_MESSAGE("Failed to load tdf111980_radioButtons.xlsx", xDocSh.is());
     uno::Reference< frame::XModel > xModel = xDocSh->GetModel();
     uno::Reference< sheet::XSpreadsheetDocument > xDoc(xModel, UNO_QUERY_THROW);
     uno::Reference< container::XIndexAccess > xIA(xDoc->getSheets(), UNO_QUERY_THROW);
@@ -1744,6 +1746,8 @@ void ScFiltersTest::testActiveXOptionButtonGroup()
     xPropertySet.set(xControlShape->getControl(), uno::UNO_QUERY_THROW);
     xPropertySet->getPropertyValue("GroupName") >>= sGroupName10;
     CPPUNIT_ASSERT_EQUAL( sGroupName, sGroupName10 );
+
+    xDocSh->DoClose();
 }
 
 void ScFiltersTest::testChartImportODS()
@@ -2047,13 +2051,12 @@ void ScFiltersTest::testRichTextContentODS()
     CPPUNIT_ASSERT_EQUAL(OUString("Sentence with bold and italic."), aParaText);
     std::vector<EECharAttrib> aAttribs;
     pEditText->GetCharAttribs(0, aAttribs);
-    std::vector<EECharAttrib>::const_iterator it = aAttribs.begin(), itEnd = aAttribs.end();
     {
         bool bHasBold = false, bHasItalic = false;
-        for (; it != itEnd; ++it)
+        for (const auto& rAttrib : aAttribs)
         {
-            OUString aSeg = aParaText.copy(it->nStart, it->nEnd - it->nStart);
-            const SfxPoolItem* pAttr = it->pAttr;
+            OUString aSeg = aParaText.copy(rAttrib.nStart, rAttrib.nEnd - rAttrib.nStart);
+            const SfxPoolItem* pAttr = rAttrib.pAttr;
             if (aSeg == "bold" && pAttr->Which() == EE_CHAR_WEIGHT && !bHasBold)
             {
                 const SvxWeightItem& rItem = static_cast<const SvxWeightItem&>(*pAttr);
@@ -2063,7 +2066,6 @@ void ScFiltersTest::testRichTextContentODS()
             {
                 const SvxPostureItem& rItem = static_cast<const SvxPostureItem&>(*pAttr);
                 bHasItalic = (rItem.GetPosture() == ITALIC_NORMAL);
-
             }
         }
         CPPUNIT_ASSERT_MESSAGE("This sentence is expected to have both bold and italic sequences.", bHasBold && bHasItalic);
@@ -2085,48 +2087,24 @@ void ScFiltersTest::testRichTextContentODS()
     // first line is bold.
     pEditText->GetCharAttribs(0, aAttribs);
     {
-        bool bHasBold = false;
-        for (it = aAttribs.begin(), itEnd = aAttribs.end(); it != itEnd; ++it)
-        {
-            if (it->pAttr->Which() == EE_CHAR_WEIGHT)
-            {
-                const SvxWeightItem& rItem = static_cast<const SvxWeightItem&>(*it->pAttr);
-                bHasBold = (rItem.GetWeight() == WEIGHT_BOLD);
-                if (bHasBold)
-                    break;
-            }
-        }
+        bool bHasBold = std::any_of(aAttribs.begin(), aAttribs.end(), [](const EECharAttrib& rAttrib) {
+            return rAttrib.pAttr->Which() == EE_CHAR_WEIGHT &&
+                static_cast<const SvxWeightItem&>(*rAttrib.pAttr).GetWeight() == WEIGHT_BOLD; });
         CPPUNIT_ASSERT_MESSAGE("First line should be bold.", bHasBold);
     }
 
     // second line is italic.
     pEditText->GetCharAttribs(1, aAttribs);
-    bool bHasItalic = false;
-    for (it = aAttribs.begin(), itEnd = aAttribs.end(); it != itEnd; ++it)
-    {
-        if (it->pAttr->Which() == EE_CHAR_ITALIC)
-        {
-            const SvxPostureItem& rItem = static_cast<const SvxPostureItem&>(*it->pAttr);
-            bHasItalic = (rItem.GetPosture() == ITALIC_NORMAL);
-            if (bHasItalic)
-                break;
-        }
-    }
+    bool bHasItalic = std::any_of(aAttribs.begin(), aAttribs.end(), [](const EECharAttrib& rAttrib) {
+            return rAttrib.pAttr->Which() == EE_CHAR_ITALIC &&
+                static_cast<const SvxPostureItem&>(*rAttrib.pAttr).GetPosture() == ITALIC_NORMAL; });
     CPPUNIT_ASSERT_MESSAGE("Second line should be italic.", bHasItalic);
 
     // third line is underlined.
     pEditText->GetCharAttribs(2, aAttribs);
-    bool bHasUnderline = false;
-    for (it = aAttribs.begin(), itEnd = aAttribs.end(); it != itEnd; ++it)
-    {
-        if (it->pAttr->Which() == EE_CHAR_UNDERLINE)
-        {
-            const SvxUnderlineItem& rItem = static_cast<const SvxUnderlineItem&>(*it->pAttr);
-            bHasUnderline = (rItem.GetLineStyle() == LINESTYLE_SINGLE);
-            if (bHasUnderline)
-                break;
-        }
-    }
+    bool bHasUnderline = std::any_of(aAttribs.begin(), aAttribs.end(), [](const EECharAttrib& rAttrib) {
+        return rAttrib.pAttr->Which() == EE_CHAR_UNDERLINE &&
+            static_cast<const SvxUnderlineItem&>(*rAttrib.pAttr).GetLineStyle() == LINESTYLE_SINGLE; });
     CPPUNIT_ASSERT_MESSAGE("Second line should be underlined.", bHasUnderline);
 
     // URL with formats applied.  For now, we'll check whether or not the
@@ -2185,20 +2163,14 @@ void ScFiltersTest::testRichTextContentODS()
     CPPUNIT_ASSERT_EQUAL(OUString("one     two"), aParaText);
     pEditText->GetCharAttribs(0, aAttribs);
     {
-        bool bHasBold = false;
-        for (it = aAttribs.begin(), itEnd = aAttribs.end(); it != itEnd; ++it)
+        auto it = std::find_if(aAttribs.begin(), aAttribs.end(), [](const EECharAttrib& rAttrib) {
+            return rAttrib.pAttr->Which() == EE_CHAR_WEIGHT &&
+                static_cast<const SvxWeightItem&>(*rAttrib.pAttr).GetWeight() == WEIGHT_BOLD; });
+        bool bHasBold = (it != aAttribs.end());
+        if (bHasBold)
         {
-            if (it->pAttr->Which() == EE_CHAR_WEIGHT)
-            {
-                const SvxWeightItem& rItem = static_cast<const SvxWeightItem&>(*it->pAttr);
-                bHasBold = (rItem.GetWeight() == WEIGHT_BOLD);
-                if (bHasBold)
-                {
-                    OUString aSeg = aParaText.copy(it->nStart, it->nEnd - it->nStart);
-                    CPPUNIT_ASSERT_EQUAL(OUString("e     t"), aSeg);
-                    break;
-                }
-            }
+            OUString aSeg = aParaText.copy(it->nStart, it->nEnd - it->nStart);
+            CPPUNIT_ASSERT_EQUAL(OUString("e     t"), aSeg);
         }
         CPPUNIT_ASSERT_MESSAGE("Expected a bold sequence.", bHasBold);
     }
@@ -2869,6 +2841,24 @@ void ScFiltersTest::testCustomNumFormatHybridCellODS()
     xDocSh->DoClose();
 }
 
+void ScFiltersTest::testTdf121040()
+{
+    ScDocShellRef xDocSh = loadDoc("tdf121040.", FORMAT_ODS);
+    CPPUNIT_ASSERT_MESSAGE("Failed to load tdf121040.ods", xDocSh.is());
+
+    const SCTAB nTab = 0;
+    ScDocument& rDoc = xDocSh->GetDocument();
+
+    // The first 9 rows should have the same height
+    const sal_uInt16 nHeight = rDoc.GetRowHeight(0, nTab, false);
+    for (SCTAB nRow=1; nRow<9; nRow++)
+    {
+        CPPUNIT_ASSERT_EQUAL(nHeight, rDoc.GetRowHeight(nRow, nTab, false));
+    }
+
+    xDocSh->DoClose();
+}
+
 void ScFiltersTest::testPrintRangeODS()
 {
     ScDocShellRef xDocSh = loadDoc("print-range.", FORMAT_ODS);
@@ -3391,12 +3381,12 @@ void ScFiltersTest::testEditEngStrikeThroughXLSX()
 
     std::vector<EECharAttrib> aAttribs;
     pObj->GetCharAttribs(0, aAttribs);
-    for (std::vector<EECharAttrib>::const_iterator itr = aAttribs.begin(); itr != aAttribs.end(); ++itr)
+    for (const auto& rAttrib : aAttribs)
     {
-        if (itr->pAttr->Which() == EE_CHAR_STRIKEOUT)
+        if (rAttrib.pAttr->Which() == EE_CHAR_STRIKEOUT)
         {
-            const SvxCrossedOutItem& rItem = static_cast<const SvxCrossedOutItem&>(*itr->pAttr);
-            if (itr->nStart == 0)
+            const SvxCrossedOutItem& rItem = static_cast<const SvxCrossedOutItem&>(*rAttrib.pAttr);
+            if (rAttrib.nStart == 0)
             {
                 CPPUNIT_ASSERT(rItem.GetStrikeout() != STRIKEOUT_NONE);
             }

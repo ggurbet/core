@@ -629,8 +629,8 @@ void SwTextFrame::ConnectFootnote( SwTextFootnote *pFootnote, const SwTwips nDea
             if( !pSrcFrame )
             {
                 SwFootnoteFrame *pNew = new SwFootnoteFrame(pDoc->GetDfltFrameFormat(),this,this,pFootnote);
-                 SwNodeIndex aIdx( *pFootnote->GetStartNode(), 1 );
-                 ::InsertCnt_( pNew, pDoc, aIdx.GetIndex() );
+                SwNodeIndex aIdx( *pFootnote->GetStartNode(), 1 );
+                ::InsertCnt_( pNew, pDoc, aIdx.GetIndex() );
                 pDoc->getIDocumentLayoutAccess().GetLayouter()->CollectEndnote( pNew );
             }
             else if( pSrcFrame != this )
@@ -737,9 +737,8 @@ void SwTextFrame::ConnectFootnote( SwTextFootnote *pFootnote, const SwTwips nDea
         if( bBrutal )
         {
             pBoss->RemoveFootnote( pSrcFrame, pFootnote, false );
-            SwSaveFootnoteHeight *pHeight = bEnd ? nullptr : new SwSaveFootnoteHeight( pBoss, nDeadLine );
+            std::unique_ptr<SwSaveFootnoteHeight> pHeight(bEnd ? nullptr : new SwSaveFootnoteHeight( pBoss, nDeadLine ));
             pBoss->AppendFootnote( this, pFootnote );
-            delete pHeight;
         }
     }
 
@@ -1049,7 +1048,7 @@ TextFrameIndex SwTextFormatter::FormatQuoVadis(TextFrameIndex const nOffset)
         if ( pPor->IsFlyPortion() )
             nLastLeft = static_cast<SwFlyPortion*>(pPor)->GetFix() +
                         static_cast<SwFlyPortion*>(pPor)->Width();
-        pPor = pPor->GetPortion();
+        pPor = pPor->GetNextPortion();
     }
 
     // The old game all over again: we want the Line to wrap around
@@ -1107,7 +1106,7 @@ TextFrameIndex SwTextFormatter::FormatQuoVadis(TextFrameIndex const nOffset)
         pGlue->Width( 0 );
         pGlue->SetLen(TextFrameIndex(0));
         pGlue->SetAscent( 0 );
-        pGlue->SetPortion( nullptr );
+        pGlue->SetNextPortion( nullptr );
         pGlue->SetFixWidth(0);
     }
 
@@ -1161,7 +1160,7 @@ TextFrameIndex SwTextFormatter::FormatQuoVadis(TextFrameIndex const nOffset)
             pGlue = new SwGluePortion(0);
             pGlue->Width( nLastLeft );
             pPor->Append( pGlue );
-            pPor = pPor->GetPortion();
+            pPor = pPor->GetNextPortion();
         }
     }
 
@@ -1171,9 +1170,9 @@ TextFrameIndex SwTextFormatter::FormatQuoVadis(TextFrameIndex const nOffset)
     {
         // pPor->Append deletes the pPortion pointer of pPor.
         // Therefore we have to keep a pointer to the next portion
-        pQuo = static_cast<SwQuoVadisPortion*>(pCurrPor->GetPortion());
+        pQuo = static_cast<SwQuoVadisPortion*>(pCurrPor->GetNextPortion());
         pPor->Append( pCurrPor );
-        pPor = pPor->GetPortion();
+        pPor = pPor->GetNextPortion();
         pCurrPor = pQuo;
     }
 
@@ -1310,7 +1309,7 @@ SwFootnotePortion::SwFootnotePortion( const OUString &rExpand,
         , mnPreferredScriptType( SwFontScript::Latin )
 {
     SetLen(TextFrameIndex(1));
-    SetWhichPor( POR_FTN );
+    SetWhichPor( PortionType::Footnote );
 }
 
 bool SwFootnotePortion::GetExpText( const SwTextSizeInfo &, OUString &rText ) const
@@ -1343,7 +1342,7 @@ void SwFootnotePortion::Paint( const SwTextPaintInfo &rInf ) const
     // #i98418#
 //    SwFootnoteSave aFootnoteSave( rInf, pFootnote );
     SwFootnoteSave aFootnoteSave( rInf, pFootnote, mbPreferredScriptTypeSet, mnPreferredScriptType );
-    rInf.DrawViewOpt( *this, POR_FTN );
+    rInf.DrawViewOpt( *this, PortionType::Footnote );
     SwExpandPortion::Paint( rInf );
 }
 
@@ -1371,7 +1370,7 @@ SwQuoVadisPortion::SwQuoVadisPortion( const OUString &rExp, const OUString& rStr
     : SwFieldPortion( rExp ), aErgo(rStr)
 {
     SetLen(TextFrameIndex(0));
-    SetWhichPor( POR_QUOVADIS );
+    SetWhichPor( PortionType::QuoVadis );
 }
 
 bool SwQuoVadisPortion::Format( SwTextFormatInfo &rInf )
@@ -1422,7 +1421,7 @@ void SwQuoVadisPortion::Paint( const SwTextPaintInfo &rInf ) const
     // can quickly switch
     if( PrtWidth() )
     {
-        rInf.DrawViewOpt( *this, POR_QUOVADIS );
+        rInf.DrawViewOpt( *this, PortionType::QuoVadis );
         SwTextSlot aDiffText( &rInf, this, true, false );
         SwFontSave aSave( rInf, m_pFont.get() );
         rInf.DrawText( *this, rInf.GetLen(), true );
@@ -1442,7 +1441,7 @@ SwErgoSumPortion::SwErgoSumPortion(const OUString &rExp, const OUString& rStr)
 
     // One blank distance to the text
     m_aExpand += " ";
-    SetWhichPor( POR_ERGOSUM );
+    SetWhichPor( PortionType::ErgoSum );
 }
 
 TextFrameIndex SwErgoSumPortion::GetCursorOfst(const sal_uInt16) const
@@ -1481,7 +1480,7 @@ void SwParaPortion::SetErgoSumNum( const OUString& rErgo )
     {
         if ( pPor->IsQuoVadisPortion() )
             pQuo = static_cast<SwQuoVadisPortion*>(pPor);
-        pPor = pPor->GetPortion();
+        pPor = pPor->GetNextPortion();
     }
     if( pQuo )
         pQuo->SetNumber( rErgo );
@@ -1503,7 +1502,7 @@ bool SwParaPortion::UpdateQuoVadis( const OUString &rQuo )
     {
         if ( pPor->IsQuoVadisPortion() )
             pQuo = static_cast<SwQuoVadisPortion*>(pPor);
-        pPor = pPor->GetPortion();
+        pPor = pPor->GetNextPortion();
     }
 
     if( !pQuo )

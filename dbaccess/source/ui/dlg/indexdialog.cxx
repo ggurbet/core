@@ -30,6 +30,7 @@
 #include <indexcollection.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <com/sun/star/sdb/SQLContext.hpp>
 #include <UITools.hxx>
@@ -56,25 +57,9 @@ namespace dbaui
             &&  (_rLHS.bSortAscending == _rRHS.bSortAscending);
     }
 
-    static bool operator !=(const OIndexField& _rLHS, const OIndexField& _rRHS)
-    {
-        return !(_rLHS == _rRHS);
-    }
-
     static bool operator ==(const IndexFields& _rLHS, const IndexFields& _rRHS)
     {
-        if (_rLHS.size() != _rRHS.size())
-            return false;
-
-        IndexFields::const_iterator aRight = _rRHS.begin();
-        for (auto const& left : _rLHS)
-        {
-            if (left != *aRight)
-                return false;
-            ++aRight;
-        }
-
-        return true;
+        return std::equal(_rLHS.begin(), _rLHS.end(), _rRHS.begin(), _rRHS.end());
     }
 
     static bool operator !=(const IndexFields& _rLHS, const IndexFields& _rRHS)

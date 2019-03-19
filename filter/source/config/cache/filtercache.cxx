@@ -42,8 +42,6 @@
 #include <comphelper/sequence.hxx>
 #include <comphelper/processfactory.hxx>
 
-#include <o3tl/make_unique.hxx>
-
 #include <unotools/configmgr.hxx>
 #include <unotools/configpaths.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -125,7 +123,7 @@ std::unique_ptr<FilterCache> FilterCache::clone() const
     // SAFE -> ----------------------------------
     ::osl::ResettableMutexGuard aLock(m_aLock);
 
-    auto pClone = o3tl::make_unique<FilterCache>();
+    auto pClone = std::make_unique<FilterCache>();
 
     // Don't copy the configuration access points here.
     // They will be created on demand inside the cloned instance,
@@ -1411,7 +1409,7 @@ void FilterCache::impl_loadSet(const css::uno::Reference< css::container::XNameA
     // for mapping extensions to its types!
 
     const OUString* pItems = lItems.getConstArray();
-          sal_Int32        c      = lItems.getLength();
+    sal_Int32       c      = lItems.getLength();
     for (sal_Int32 i=0; i<c; ++i)
     {
         CacheItemList::iterator pItem = pCache->find(pItems[i]);
@@ -1481,8 +1479,8 @@ void FilterCache::impl_readPatchUINames(const css::uno::Reference< css::containe
 
     const ::std::vector< OUString >                 lLocales(comphelper::sequenceToContainer< ::std::vector< OUString >>(
                                                                 xUIName->getElementNames()));
-          ::std::vector< OUString >::const_iterator pLocale ;
-          ::comphelper::SequenceAsHashMap                                   lUINames;
+    ::std::vector< OUString >::const_iterator pLocale ;
+    ::comphelper::SequenceAsHashMap           lUINames;
 
     for (auto const& locale : lLocales)
     {

@@ -77,7 +77,7 @@ XMLTransformerContext *XMLTransformerBase::CreateContext( sal_uInt16 nPrefix,
     XMLTransformerActions::const_iterator aIter =
         GetElemActions().find( aKey );
 
-    if( !(aIter == GetElemActions().end()) )
+    if( aIter != GetElemActions().end() )
     {
         sal_uInt32 nActionType = (*aIter).second.m_nActionType;
         if( (nActionType & XML_ETACTION_USER_DEFINED) != 0 )
@@ -346,9 +346,8 @@ void SAL_CALL XMLTransformerBase::processingInstruction( const OUString& rTarget
     m_xHandler->processingInstruction( rTarget, rData );
 }
 
-void SAL_CALL XMLTransformerBase::setDocumentLocator( const Reference< XLocator >& rLocator )
+void SAL_CALL XMLTransformerBase::setDocumentLocator( const Reference< XLocator >& )
 {
-    m_xLocator = rLocator;
 }
 
 // XExtendedDocumentHandler
@@ -487,7 +486,7 @@ XMLMutableAttributeList *XMLTransformerBase::ProcessAttrList(
             XMLTransformerActions::key_type aKey( nPrefix, aLocalName );
             XMLTransformerActions::const_iterator aIter =
                     pActions->find( aKey );
-            if( !(aIter == pActions->end() ) )
+            if( aIter != pActions->end() )
             {
                 if( !pMutableAttrList )
                 {
@@ -824,7 +823,7 @@ XMLMutableAttributeList *XMLTransformerBase::ProcessAttrList(
                         XMLTransformerContext* pFirstContext = m_vContexts[0].get();
                         OUString aFirstContextLocalName;
                         /* sal_uInt16 nFirstContextPrefix = */
-                            GetNamespaceMap().GetKeyByAttrName( pFirstContext->GetQName(),
+                        GetNamespaceMap().GetKeyByAttrName( pFirstContext->GetQName(),
                                                                 &aFirstContextLocalName );
                         bool bIsDocumentStyle(
                             ::xmloff::token::IsXMLToken( aFirstContextLocalName,

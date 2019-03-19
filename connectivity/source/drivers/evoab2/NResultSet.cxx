@@ -40,7 +40,6 @@
 #include <connectivity/dbexception.hxx>
 #include <connectivity/sqlerror.hxx>
 #include <cppuhelper/typeprovider.hxx>
-#include <o3tl/make_unique.hxx>
 #include <rtl/string.hxx>
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
@@ -72,7 +71,7 @@ OUString SAL_CALL OEvoabResultSet::getImplementationName(  )
 
  Sequence< OUString > SAL_CALL OEvoabResultSet::getSupportedServiceNames(  )
 {
-     Sequence< OUString > aSupported { "com.sun.star.sdbc.ResultSet" };
+    Sequence< OUString > aSupported { "com.sun.star.sdbc.ResultSet" };
     return aSupported;
 }
 
@@ -157,7 +156,7 @@ static EContactAddress *
 getDefaultContactAddress( EContact *pContact,int *value )
 {
     EContactAddress *ec = static_cast<EContactAddress *>(e_contact_get(pContact,whichAddress(WORK_ADDR_LINE1)));
-    if ( ec && (strlen(ec->street)>0) )
+    if ( ec && (ec->street[0]!='\0') )
     {
         *value= *value +WORK_ADDR_LINE1 -1;
         return ec;
@@ -165,7 +164,7 @@ getDefaultContactAddress( EContact *pContact,int *value )
     else
         {
             ec = static_cast<EContactAddress *>(e_contact_get(pContact,whichAddress(HOME_ADDR_LINE1)));
-            if ( ec && (strlen(ec->street)>0) )
+            if ( ec && (ec->street[0]!='\0') )
             {
                 *value=*value+HOME_ADDR_LINE1-1;
                 return ec;
@@ -314,12 +313,9 @@ static int CompareContacts( gconstpointer _lhs, gconstpointer _rhs, gpointer _us
     bool bLhs(false), bRhs(false);
 
     const ComparisonData& rCompData = *static_cast< const ComparisonData* >( _userData );
-    for (   SortDescriptor::const_iterator sortCol = rCompData.rSortOrder.begin();
-            sortCol != rCompData.rSortOrder.end();
-            ++sortCol
-        )
+    for ( const auto& sortCol : rCompData.rSortOrder )
     {
-        sal_Int32 nField = sortCol->nField;
+        sal_Int32 nField = sortCol.nField;
         GType eFieldType = evoab::getGFieldType( nField );
 
         bool success =  getValue( lhs, nField, eFieldType, &aLhsValue, bLhsNull )
@@ -628,11 +624,11 @@ OEvoabResultSet::OEvoabResultSet( OCommonStatement* pStmt, OEvoabConnection *pCo
     ,m_nLength(0)
 {
     if (eds_check_version( 3, 7, 6 ) == nullptr)
-        m_pVersionHelper  = o3tl::make_unique<OEvoabVersion38Helper>();
+        m_pVersionHelper  = std::make_unique<OEvoabVersion38Helper>();
     else if (eds_check_version( 3, 6, 0 ) == nullptr)
-        m_pVersionHelper  = o3tl::make_unique<OEvoabVersion36Helper>();
+        m_pVersionHelper  = std::make_unique<OEvoabVersion36Helper>();
     else
-        m_pVersionHelper  = o3tl::make_unique<OEvoabVersion35Helper>();
+        m_pVersionHelper  = std::make_unique<OEvoabVersion35Helper>();
 
     #define REGISTER_PROP( id, member ) \
         registerProperty( \
@@ -1032,7 +1028,7 @@ Reference< XInterface > SAL_CALL OEvoabResultSet::getStatement(  )
 {
     ::osl::MutexGuard aGuard( m_aMutex );
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
-css::uno::WeakReferenceHelper      aStatement(static_cast<OWeakObject*>(m_pStatement));
+    css::uno::WeakReferenceHelper      aStatement(static_cast<OWeakObject*>(m_pStatement));
     return aStatement.get();
 }
 

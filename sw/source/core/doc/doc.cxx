@@ -45,7 +45,6 @@
 #include <svx/svxids.hrc>
 
 #include <comphelper/random.hxx>
-#include <o3tl/make_unique.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/poly.hxx>
 #include <tools/multisel.hxx>
@@ -488,6 +487,8 @@ void SwDoc::ChgDBData(const SwDBData& rNewData)
     {
         maDBData = rNewData;
         getIDocumentState().SetModified();
+        if (m_pDBManager)
+            m_pDBManager->CommitLastRegistrations();
     }
     getIDocumentFieldsAccess().GetSysFieldType(SwFieldIds::DatabaseName)->UpdateFields();
 }
@@ -1420,7 +1421,7 @@ bool SwDoc::RemoveInvisibleContent()
         for (SwFieldType* pType : *getIDocumentFieldsAccess().GetFieldTypes())
         {
             if (FieldCanHideParaWeight(pType->Which()))
-                aHidingFieldTypes.push_back(o3tl::make_unique<FieldTypeGuard>(pType));
+                aHidingFieldTypes.push_back(std::make_unique<FieldTypeGuard>(pType));
         }
         for (const auto& pTypeGuard : aHidingFieldTypes)
         {
@@ -1734,7 +1735,7 @@ void SwDoc::ChangeTOX(SwTOXBase & rTOX, const SwTOXBase & rNew,
         GetIDocumentUndoRedo().DelAllUndoObj();
 
         GetIDocumentUndoRedo().AppendUndo(
-            o3tl::make_unique<SwUndoTOXChange>(this, &rTOX, rNew));
+            std::make_unique<SwUndoTOXChange>(this, &rTOX, rNew));
     }
 
     rTOX = rNew;
@@ -1826,5 +1827,14 @@ SwDoc::GetVbaEventProcessor()
 #endif
     return mxVbaEvents;
 }
+
+void SwDoc::SetMissingDictionaries( bool bIsMissing )
+{
+    if( bIsMissing && meDictionaryMissing == MissingDictionary::Undefined )
+        meDictionaryMissing = MissingDictionary::True;
+    else if( !bIsMissing )
+        meDictionaryMissing = MissingDictionary::False;
+};
+
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

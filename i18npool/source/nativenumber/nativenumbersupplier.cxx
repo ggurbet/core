@@ -28,6 +28,7 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <map>
 #include <memory>
+#include <string_view>
 #include <unordered_map>
 #include <com/sun/star/linguistic2/NumberText.hpp>
 
@@ -35,13 +36,13 @@ using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::i18n;
 using namespace ::com::sun::star::lang;
 
-typedef struct {
+struct Number {
     sal_Int16 number;
     const sal_Unicode *multiplierChar;
     sal_Int16 numberFlag;
     sal_Int16 exponentCount;
     const sal_Int16 *multiplierExponent;
-} Number;
+};
 
 
 #define NUMBER_OMIT_ZERO (1 << 0)
@@ -471,7 +472,7 @@ const sal_Char *natnum1Locales[] = {
     "fa",
     "cu"
 };
-sal_Int16 nbOfLocale = SAL_N_ELEMENTS(natnum1Locales);
+const sal_Int16 nbOfLocale = SAL_N_ELEMENTS(natnum1Locales);
 
 //! ATTENTION: Do not change order of elements!
 //! Number and order must match elements of natnum1Locales!
@@ -1070,7 +1071,7 @@ OUString getHebrewNativeNumberString(const OUString& aNumberString, bool useGere
         makeHebrewNumber(value, output, true, useGeresh);
 
         if (i < len)
-            output.appendCopy(aNumberString,i);
+            output.append(std::u16string_view(aNumberString).substr(i));
 
         return output.makeStringAndClear();
     }
@@ -1189,7 +1190,7 @@ OUString getCyrillicNativeNumberString(const OUString& aNumberString)
         makeCyrillicNumber(value, output, true);
 
         if (i < len)
-            output.appendCopy(aNumberString,i);
+            output.append(std::u16string_view(aNumberString).substr(i));
 
         return output.makeStringAndClear();
     }

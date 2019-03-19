@@ -17,6 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <string_view>
+
 #include <comphelper/string.hxx>
 #include <tools/bigint.hxx>
 #include <sal/log.hxx>
@@ -117,7 +121,7 @@ bool ImplCurrencyGetValue( const OUString& rStr, BigInt& rValue,
     if ( nDecPos != -1 )
     {
         aStr1 = aStr.copy( 0, nDecPos );
-        aStr2.appendCopy(aStr, nDecPos+1);
+        aStr2.append(std::u16string_view(aStr).substr(nDecPos+1));
     }
     else
         aStr1 = aStr;
@@ -241,12 +245,10 @@ bool ImplLongCurrencyReformat( const OUString& rStr, BigInt const & nMin, BigInt
 
 void LongCurrencyFormatter::ImpInit()
 {
-    mnFieldValue        = 0;
     mnLastValue         = 0;
     mnMin               = 0;
     mnMax               = 0x7FFFFFFF;
     mnMax              *= 0x7FFFFFFF;
-    mnCorrectedValue    = 0;
     mnDecimalDigits     = 0;
     mbThousandSep       = true;
     SetDecimalDigits( 0 );
@@ -276,7 +278,6 @@ OUString const & LongCurrencyFormatter::GetCurrencySymbol() const
 void LongCurrencyFormatter::SetValue(const BigInt& rNewValue)
 {
     SetUserValue(rNewValue);
-    mnFieldValue = mnLastValue;
     SetEmptyFieldValueData( false );
 }
 

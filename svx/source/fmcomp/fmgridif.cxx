@@ -36,6 +36,7 @@
 #include <com/sun/star/form/XFormComponent.hpp>
 #include <com/sun/star/form/XLoadable.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/NoSupportException.hpp>
 #include <com/sun/star/sdbc/ResultSetType.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
@@ -54,6 +55,8 @@
 #include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <vcl/unohelp.hxx>
+#include <vcl/svapp.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/macros.h>
 
@@ -2252,7 +2255,7 @@ void FmXGridPeer::selectionChanged(const EventObject& evt)
         Any aSelection = xSelSupplier->getSelection();
         DBG_ASSERT(aSelection.getValueType().getTypeClass() == TypeClass_INTERFACE, "FmXGridPeer::selectionChanged : invalid selection !");
         Reference< XPropertySet >  xSelection;
-         aSelection >>= xSelection;
+        aSelection >>= xSelection;
         if (xSelection.is())
         {
             Reference< XPropertySet > xCol;

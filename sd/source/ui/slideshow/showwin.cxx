@@ -20,6 +20,7 @@
 #include <com/sun/star/awt/Key.hpp>
 
 #include "showwindow.hxx"
+#include "slideshowimpl.hxx"
 
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/syslocale.hxx>
@@ -27,6 +28,7 @@
 
 
 #include <slideshow.hxx>
+#include <ViewShell.hxx>
 #include <ViewShellBase.hxx>
 #include <sdresid.hxx>
 #include <helpids.h>
@@ -292,21 +294,21 @@ void ShowWindow::LoseFocus()
 
 void ShowWindow::SetEndMode()
 {
-    if( ( SHOWWINDOWMODE_NORMAL == meShowWindowMode ) && mpViewShell && mpViewShell->GetView() )
+    if( !(( SHOWWINDOWMODE_NORMAL == meShowWindowMode ) && mpViewShell && mpViewShell->GetView()) )
+        return;
+
+    DeleteWindowFromPaintView();
+    meShowWindowMode = SHOWWINDOWMODE_END;
+    maShowBackground = Wallpaper( COL_BLACK );
+
+    // hide navigator if it is visible
+    if( mpViewShell->GetViewFrame()->GetChildWindow( SID_NAVIGATOR ) )
     {
-        DeleteWindowFromPaintView();
-        meShowWindowMode = SHOWWINDOWMODE_END;
-        maShowBackground = Wallpaper( COL_BLACK );
-
-        // hide navigator if it is visible
-        if( mpViewShell->GetViewFrame()->GetChildWindow( SID_NAVIGATOR ) )
-        {
-            mpViewShell->GetViewFrame()->ShowChildWindow( SID_NAVIGATOR, false );
-            mbShowNavigatorAfterSpecialMode = true;
-        }
-
-        Invalidate();
+        mpViewShell->GetViewFrame()->ShowChildWindow( SID_NAVIGATOR, false );
+        mbShowNavigatorAfterSpecialMode = true;
     }
+
+    Invalidate();
 }
 
 bool ShowWindow::SetPauseMode( sal_Int32 nTimeout, Graphic const * pLogo )
@@ -421,7 +423,7 @@ void ShowWindow::RestartShow( sal_Int32 nPageIndexToRestart )
     {
         rtl::Reference< SlideShow > xSlideShow( SlideShow::GetSlideShow( mpViewShell->GetViewShellBase() ) );
 
-         if( xSlideShow.is() )
+        if( xSlideShow.is() )
         {
             AddWindowToPaintView();
 
@@ -508,7 +510,7 @@ void ShowWindow::DrawPauseScene( bool bTimeoutOnly )
             aText += aLocaleData.getDuration( ::tools::Time( 0, 0, mnPauseTimeout ) );
             aText += " )";
             pVDev->DrawText( Point( aOffset.Width(), 0 ), aText );
-            DrawOutDev( Point( aOutOrg.X(), aOffset.Height() ), aVDevSize, Point(), aVDevSize, *pVDev.get() );
+            DrawOutDev( Point( aOutOrg.X(), aOffset.Height() ), aVDevSize, Point(), aVDevSize, *pVDev );
             bDrawn = true;
         }
     }
@@ -576,11 +578,6 @@ IMPL_LINK( ShowWindow, EventHdl, VclWindowEvent&, rEvent, void )
             maMouseTimer.Start();
         }
     }
-}
-
-void ShowWindow::SetPresentationArea( const ::tools::Rectangle& rPresArea )
-{
-    maPresArea = rPresArea;
 }
 
 void ShowWindow::DeleteWindowFromPaintView()

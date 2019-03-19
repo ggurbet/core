@@ -24,12 +24,10 @@
 #include "RemoteDialogClientBox.hxx"
 #include <RemoteServer.hxx>
 
-#include <com/sun/star/i18n/CollatorOptions.hpp>
-#include <com/sun/star/deployment/DependencyException.hpp>
-#include <com/sun/star/deployment/DeploymentException.hpp>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 
 #include <sdresid.hxx>
 #include <strings.hrc>
@@ -50,13 +48,6 @@ ClientBoxEntry::ClientBoxEntry(const std::shared_ptr<ClientInfo>& pClientInfo)
 
 ClientBoxEntry::~ClientBoxEntry()
 {}
-
-void ClientRemovedListener::disposing( lang::EventObject const & )
-{}
-
-ClientRemovedListener::~ClientRemovedListener()
-{
-}
 
 // ClientBox
 
@@ -97,8 +88,6 @@ ClientBox::ClientBox( vcl::Window* pParent, WinBits nStyle ) :
     else
         SetBackground( rStyleSettings.GetFieldColor() );
 
-    m_xRemoveListener = new ClientRemovedListener( this );
-
     populateEntries();
 
     Show();
@@ -119,8 +108,6 @@ ClientBox::~ClientBox()
 void ClientBox::dispose()
 {
     m_vEntries.clear();
-
-    m_xRemoveListener.clear();
 
     m_aPinBox.disposeAndClear();
     m_aDeauthoriseButton.disposeAndClear();
@@ -274,7 +261,7 @@ void ClientBox::DrawRow(vcl::RenderContext& rRenderContext, const ::tools::Recta
     }
 
     // FIXME: draw bluetooth or wifi icon
-     Point aPos(rRect.TopLeft());
+    Point aPos(rRect.TopLeft());
 
     // Setup fonts
     vcl::Font aStdFont(rRenderContext.GetFont());

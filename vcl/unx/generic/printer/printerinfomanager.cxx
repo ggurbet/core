@@ -186,7 +186,6 @@ bool PrinterInfoManager::checkPrintersChanged( bool bWait )
 void PrinterInfoManager::initialize()
 {
     m_bUseIncludeFeature = false;
-    rtl_TextEncoding aEncoding = osl_getThreadTextEncoding();
     m_aPrinters.clear();
     m_aWatchFiles.clear();
     OUString aDefaultPrinter;
@@ -234,10 +233,11 @@ void PrinterInfoManager::initialize()
             aValue = aConfig.ReadKey( "MarginAdjust" );
             if (!aValue.isEmpty())
             {
-                m_aGlobalDefaults.m_nLeftMarginAdjust = aValue.getToken(0, ',').toInt32();
-                m_aGlobalDefaults.m_nRightMarginAdjust  = aValue.getToken(1, ',').toInt32();
-                m_aGlobalDefaults.m_nTopMarginAdjust = aValue.getToken(2, ',').toInt32();
-                m_aGlobalDefaults.m_nBottomMarginAdjust = aValue.getToken(3, ',').toInt32();
+                sal_Int32 nIdx {0};
+                m_aGlobalDefaults.m_nLeftMarginAdjust = aValue.getToken(0, ',', nIdx).toInt32();
+                m_aGlobalDefaults.m_nRightMarginAdjust  = aValue.getToken(0, ',', nIdx).toInt32();
+                m_aGlobalDefaults.m_nTopMarginAdjust = aValue.getToken(0, ',', nIdx).toInt32();
+                m_aGlobalDefaults.m_nBottomMarginAdjust = aValue.getToken(0, ',', nIdx).toInt32();
             }
 
             aValue = aConfig.ReadKey( "ColorDepth", "24" );
@@ -417,10 +417,11 @@ void PrinterInfoManager::initialize()
                 aValue = aConfig.ReadKey( "MarginAdjust" );
                 if (!aValue.isEmpty())
                 {
-                    aPrinter.m_aInfo.m_nLeftMarginAdjust = aValue.getToken(0, ',' ).toInt32();
-                    aPrinter.m_aInfo.m_nRightMarginAdjust = aValue.getToken(1, ',' ).toInt32();
-                    aPrinter.m_aInfo.m_nTopMarginAdjust = aValue.getToken(2, ',' ).toInt32();
-                    aPrinter.m_aInfo.m_nBottomMarginAdjust = aValue.getToken(3, ',' ).toInt32();
+                    sal_Int32 nIdx {0};
+                    aPrinter.m_aInfo.m_nLeftMarginAdjust = aValue.getToken(0, ',', nIdx).toInt32();
+                    aPrinter.m_aInfo.m_nRightMarginAdjust = aValue.getToken(0, ',', nIdx).toInt32();
+                    aPrinter.m_aInfo.m_nTopMarginAdjust = aValue.getToken(0, ',', nIdx).toInt32();
+                    aPrinter.m_aInfo.m_nBottomMarginAdjust = aValue.getToken(0, ',', nIdx).toInt32();
                 }
 
                 aValue = aConfig.ReadKey( "ColorDepth" );
@@ -460,9 +461,11 @@ void PrinterInfoManager::initialize()
 
                 setDefaultPaper( aPrinter.m_aInfo.m_aContext );
 
+                // if it's a "Generic Printer", apply defaults from config...
+                aPrinter.m_aInfo.resolveDefaultBackend();
+
                 // finally insert printer
                 FileBase::getFileURLFromSystemPath( aFile.PathToFileName(), aPrinter.m_aFile );
-                aPrinter.m_aGroup       = aConfig.GetGroupName( nGroup );
                 std::unordered_map< OUString, Printer >::const_iterator find_it =
                 m_aPrinters.find( aPrinterName );
                 if( find_it != m_aPrinters.end() )
@@ -533,7 +536,6 @@ void PrinterInfoManager::initialize()
         aPrinter.m_aInfo.m_aCommand         = aCmd;
         aPrinter.m_aInfo.m_aComment         = printQueue.m_aComment;
         aPrinter.m_aInfo.m_aLocation        = printQueue.m_aLocation;
-        aPrinter.m_aGroup                   = OUStringToOString(aPrinterName, aEncoding); //provide group name in case user makes this one permanent
 
         m_aPrinters[ aPrinterName ] = aPrinter;
     }
@@ -563,9 +565,7 @@ bool PrinterInfoManager::checkFeatureToken( const OUString& rPrinterName, const 
     while( nIndex != -1 )
     {
         OUString aOuterToken = rPrinterInfo.m_aFeatures.getToken( 0, ',', nIndex );
-        sal_Int32 nInnerIndex = 0;
-        OUString aInnerToken = aOuterToken.getToken( 0, '=', nInnerIndex );
-        if( aInnerToken.equalsIgnoreAsciiCaseAscii( pToken ) )
+        if( aOuterToken.getToken( 0, '=' ).equalsIgnoreAsciiCaseAscii( pToken ) )
             return true;
     }
     return false;

@@ -24,6 +24,7 @@
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 
 #include <cppcanvas/canvasgraphic.hxx>
+#include <cppcanvas/canvas.hxx>
 
 #include <boost/optional.hpp>
 
@@ -63,7 +64,6 @@ namespace cppcanvas
 
             boost::optional<basegfx::B2DPolyPolygon>                              maClipPolyPolygon;
             CanvasSharedPtr                                                       mpCanvas;
-            css::uno::Reference< css::rendering::XGraphicDevice >                 mxGraphicDevice;
         };
 
     }

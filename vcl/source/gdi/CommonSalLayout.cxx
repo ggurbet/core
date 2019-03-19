@@ -60,7 +60,7 @@ GenericSalLayout::GenericSalLayout(LogicalFontInstance &rFont)
     : mpVertGlyphs(nullptr)
     , mbFuzzing(utl::ConfigManager::IsFuzzing())
 {
-    new SalGenericLayoutGlyphsImpl(m_GlyphItems, rFont);
+    new SalLayoutGlyphsImpl(m_GlyphItems, rFont);
 }
 
 GenericSalLayout::~GenericSalLayout()
@@ -74,9 +74,9 @@ void GenericSalLayout::ParseFeatures(const OUString& aName)
     if (!sLanguage.isEmpty())
         msLanguage = OUStringToOString(sLanguage, RTL_TEXTENCODING_ASCII_US);
 
-    for (std::pair<sal_uInt32, sal_uInt32> const & rPair : aParser.getFeatures())
+    for (auto const &rFeat : aParser.getFeatures())
     {
-        hb_feature_t aFeature { rPair.first, rPair.second, 0, SAL_MAX_UINT32 };
+        hb_feature_t aFeature { rFeat.m_nTag, rFeat.m_nValue, rFeat.m_nStart, rFeat.m_nEnd };
         maFeatures.push_back(aFeature);
     }
 }
@@ -164,7 +164,7 @@ namespace {
 
 } // namespace
 
-std::shared_ptr<vcl::TextLayoutCache> GenericSalLayout::CreateTextLayoutCache(OUString const& rString) const
+std::shared_ptr<vcl::TextLayoutCache> GenericSalLayout::CreateTextLayoutCache(OUString const& rString)
 {
     return std::make_shared<vcl::TextLayoutCache>(rString.getStr(), rString.getLength());
 }
@@ -409,9 +409,9 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
         {
             hb_buffer_clear_contents(pHbBuffer);
 
-            int nMinRunPos = aSubRun.mnMin;
-            int nEndRunPos = aSubRun.mnEnd;
-            int nRunLen = nEndRunPos - nMinRunPos;
+            const int nMinRunPos = aSubRun.mnMin;
+            const int nEndRunPos = aSubRun.mnEnd;
+            const int nRunLen = nEndRunPos - nMinRunPos;
 
             OString sLanguage = msLanguage;
             if (sLanguage.isEmpty())
@@ -616,7 +616,7 @@ void GenericSalLayout::GetCharWidths(DeviceCoordinate* pCharWidths) const
 //   * For any RTL glyph that has DX adjustment, insert enough Kashidas to
 //     fill in the added space.
 
-void GenericSalLayout::ApplyDXArray(ImplLayoutArgs& rArgs)
+void GenericSalLayout::ApplyDXArray(const ImplLayoutArgs& rArgs)
 {
     if (rArgs.mpDXArray == nullptr)
         return;
@@ -636,7 +636,6 @@ void GenericSalLayout::ApplyDXArray(ImplLayoutArgs& rArgs)
         else
             pNewCharWidths[i] = rArgs.mpDXArray[i] - rArgs.mpDXArray[i - 1];
     }
-
 
     bool bKashidaJustify = false;
     DeviceCoordinate nKashidaWidth = 0;

@@ -68,7 +68,6 @@
 #include <unorefmark.hxx>
 #include <unometa.hxx>
 #include <docsh.hxx>
-#include <calbck.hxx>
 #include <hints.hxx>
 #include <com/sun/star/document/XCodeNameQuery.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
@@ -76,6 +75,7 @@
 #include <com/sun/star/script/ModuleInfo.hpp>
 #include <com/sun/star/script/ModuleType.hpp>
 #include <com/sun/star/script/vba/XVBAModuleInfo.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <vbahelper/vbaaccesshelper.hxx>
 #include <basic/basmgr.hxx>
 #include <comphelper/processfactory.hxx>
@@ -578,14 +578,14 @@ SwXServiceProvider::MakeInstance(SwServiceType nObjectType, SwDoc & rDoc)
         case  SwServiceType::VbaProjectNameProvider :
 #if HAVE_FEATURE_SCRIPTING
         {
-                        uno::Reference< container::XNameContainer > xProjProv = rDoc.GetVBATemplateToProjectCache();
-                        if (!xProjProv.is() && rDoc.GetDocShell()
+                uno::Reference< container::XNameContainer > xProjProv = rDoc.GetVBATemplateToProjectCache();
+                if (!xProjProv.is() && rDoc.GetDocShell()
                             && ooo::vba::isAlienWordDoc(*rDoc.GetDocShell()))
-                        {
-                xProjProv = new SwVbaProjectNameProvider;
-                            rDoc.SetVBATemplateToProjectCache(xProjProv);
-                        }
-            xRet = xProjProv;
+                {
+                    xProjProv = new SwVbaProjectNameProvider;
+                    rDoc.SetVBATemplateToProjectCache(xProjProv);
+                }
+                xRet = xProjProv;
         }
 #endif
         break;

@@ -31,6 +31,7 @@
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/vclstatuslistener.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <tools/poly.hxx>
 #include <svl/imageitm.hxx>
@@ -797,7 +798,7 @@ void ToolBox::ImplCalcFloatSizes()
                 nCalcSize += mnMaxItemWidth;
                 nTempLines = ImplCalcBreaks( nCalcSize, &nMaxLineWidth, true );
             }
-            while ( (nCalcSize < upperBoundWidth) && (nLines < nTempLines) && (nTempLines != 1) );
+            while ((nCalcSize < upperBoundWidth) && (nLines < nTempLines)); // implies nTempLines>1
             if ( nTempLines < nLines )
                 nLines = nTempLines;
         }
@@ -2493,8 +2494,10 @@ static void ImplDrawDropdownArrow(vcl::RenderContext& rRenderContext, const tool
 
     tools::Polygon aPoly(4);
 
-    long width = 7 * fScaleFactor;
-    long height = 4 * fScaleFactor;
+    long width = round(rDropDownRect.getHeight()/5.5) * fScaleFactor; // scale triangle depending on theme/toolbar height with 7 for gtk, 5 for gen
+    long height = round(rDropDownRect.getHeight()/9.5) * fScaleFactor; // 4 for gtk, 3 for gen
+    if (width < 4) width = 4;
+    if (height < 3) height = 3;
 
     long x = rDropDownRect.Left() + (rDropDownRect.getWidth() - width)/2;
     long y = rDropDownRect.Top() + (rDropDownRect.getHeight() - height)/2;
@@ -3372,8 +3375,7 @@ void ToolBox::MouseMove( const MouseEvent& rMEvt )
     if ( meLastStyle != eStyle )
     {
         meLastStyle = eStyle;
-        Pointer aPtr( eStyle );
-        SetPointer( aPtr );
+        SetPointer( eStyle );
     }
 
     DockingWindow::MouseMove( rMEvt );
@@ -3862,17 +3864,17 @@ void ToolBox::RequestHelp( const HelpEvent& rHEvt )
 
             // get text and display it
             OUString aStr = GetQuickHelpText( nItemId );
-            const OUString& rHelpStr = GetHelpText( nItemId );
             if (aStr.isEmpty())
                 aStr = MnemonicGenerator::EraseAllMnemonicChars( GetItemText( nItemId ) );
             if ( rHEvt.GetMode() & HelpEventMode::BALLOON )
             {
+                const OUString& rHelpStr = GetHelpText( nItemId );
                 if (!rHelpStr.isEmpty())
                     aStr = rHelpStr;
                 Help::ShowBalloon( this, aHelpPos, aTempRect, aStr );
             }
             else
-                Help::ShowQuickHelp( this, aTempRect, aStr, rHelpStr, QuickHelpFlags::CtrlText );
+                Help::ShowQuickHelp( this, aTempRect, aStr, QuickHelpFlags::CtrlText );
             return;
         }
     }

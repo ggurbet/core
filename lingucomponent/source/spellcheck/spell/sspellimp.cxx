@@ -20,6 +20,7 @@
 #include <com/sun/star/uno/Reference.h>
 
 #include <com/sun/star/linguistic2/SpellFailure.hpp>
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/factory.hxx>
@@ -29,6 +30,7 @@
 #include <com/sun/star/registry/XRegistryKey.hpp>
 #include <tools/debug.hxx>
 #include <osl/mutex.hxx>
+#include <osl/thread.h>
 #include <com/sun/star/ucb/XSimpleFileAccess.hpp>
 
 #include <lingutil.hxx>
@@ -52,7 +54,6 @@
 #include <vector>
 #include <set>
 #include <string.h>
-#include <o3tl/make_unique.hxx>
 
 using namespace utl;
 using namespace osl;
@@ -314,7 +315,7 @@ sal_Int16 SpellChecker::GetSpellFailure(const OUString &rWord, const Locale &rLo
                     OString aTmpdict(OU2ENC(dict,osl_getThreadTextEncoding()));
 #endif
 
-                    currDict.m_pDict = o3tl::make_unique<Hunspell>(aTmpaff.getStr(),aTmpdict.getStr());
+                    currDict.m_pDict = std::make_unique<Hunspell>(aTmpaff.getStr(),aTmpdict.getStr());
 #if defined(H_DEPRECATED)
                     currDict.m_aDEnc = getTextEncodingFromCharset(currDict.m_pDict->get_dict_encoding().c_str());
 #else
@@ -379,11 +380,11 @@ sal_Int16 SpellChecker::GetSpellFailure(const OUString &rWord, const Locale &rLo
 }
 
 sal_Bool SAL_CALL SpellChecker::isValid( const OUString& rWord, const Locale& rLocale,
-            const PropertyValues& rProperties )
+            const css::uno::Sequence< css::beans::PropertyValue >& rProperties )
 {
     MutexGuard  aGuard( GetLinguMutex() );
 
-     if (rLocale == Locale()  ||  rWord.isEmpty())
+    if (rLocale == Locale()  ||  rWord.isEmpty())
         return true;
 
     if (!hasLocale( rLocale ))
@@ -504,11 +505,11 @@ Reference< XSpellAlternatives >
 
 Reference< XSpellAlternatives > SAL_CALL SpellChecker::spell(
         const OUString& rWord, const Locale& rLocale,
-        const PropertyValues& rProperties )
+        const css::uno::Sequence< css::beans::PropertyValue >& rProperties )
 {
     MutexGuard  aGuard( GetLinguMutex() );
 
-     if (rLocale == Locale()  ||  rWord.isEmpty())
+    if (rLocale == Locale()  ||  rWord.isEmpty())
         return nullptr;
 
     if (!hasLocale( rLocale ))

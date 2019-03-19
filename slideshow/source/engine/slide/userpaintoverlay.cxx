@@ -26,6 +26,7 @@
 #include <sal/log.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
+#include <basegfx/matrix/b2dhommatrix.hxx>
 #include <cppcanvas/basegfxfactory.hxx>
 
 #include <activity.hxx>
@@ -171,8 +172,8 @@ namespace slideshow
                     repaintWithoutPolygons();
                     maPolygons.clear();
                 }
-            mbIsEraseAllModeActivated=false;
-            return true;
+                mbIsEraseAllModeActivated=false;
+                return true;
             }
 
             bool eraseInkWidthChanged( sal_Int32 rEraseInkSize ) override

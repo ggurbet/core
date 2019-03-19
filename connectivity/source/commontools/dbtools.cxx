@@ -79,6 +79,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/stream.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <strings.hrc>
 #include <resource/sharedresources.hxx>
@@ -847,7 +848,7 @@ void qualifiedNameComponents(const Reference< XDatabaseMetaData >& _rxConnMetaDa
     OUString sSeparator = _rxConnMetaData->getCatalogSeparator();
 
     OUString sName(_rQualifiedName);
-    // do we have catalogs ?
+    // do we have catalogs?
     if ( aNameComps.bCatalogs )
     {
         if (_rxConnMetaData->isCatalogAtStart())
@@ -862,7 +863,7 @@ void qualifiedNameComponents(const Reference< XDatabaseMetaData >& _rxConnMetaDa
         }
         else
         {
-            // Catalogue name at the end
+            // Catalog name at the end
             sal_Int32 nIndex = sName.lastIndexOf(sSeparator);
             if (-1 != nIndex)
             {
@@ -875,7 +876,7 @@ void qualifiedNameComponents(const Reference< XDatabaseMetaData >& _rxConnMetaDa
     if ( aNameComps.bSchemas )
     {
         sal_Int32 nIndex = sName.indexOf('.');
-        //  OSL_ENSURE(-1 != nIndex, "QualifiedNameComponents : no schema separator!");
+        //  OSL_ENSURE(-1 != nIndex, "QualifiedNameComponents: no schema separator!");
         if ( nIndex != -1 )
             _rSchema = sName.copy(0, nIndex);
         sName = sName.copy(nIndex + 1);
@@ -1640,15 +1641,14 @@ namespace
             std::vector<bool, std::allocator<bool> >::const_iterator aIter = m_aSet.begin();
             std::vector<bool, std::allocator<bool> >::const_iterator aEnd = m_aSet.end();
             sal_Int32 i = 0;
-            sal_Int32 nParamPos = -1;
             for(; aIter != aEnd && i <= Index; ++aIter)
             {
-                ++nParamPos;
                 if ( !*aIter )
                 {
                     ++i;
                 }
             }
+            auto nParamPos = static_cast<sal_Int32>(std::distance(m_aSet.cbegin(), aIter)) - 1;
             return m_xSource->getByIndex(nParamPos);
         }
     };
@@ -1735,13 +1735,11 @@ void askForParameters(const Reference< XSingleSelectQueryComposer >& _xComposer,
                     xParamColumn->getPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_SCALE)) >>= nScale;
                     // (the index of the parameters is one-based)
                 TParameterPositions::const_iterator aFind = aParameterNames.find(pFinalValues->Name);
-                std::vector<sal_Int32>::const_iterator aIterPos = aFind->second.begin();
-                std::vector<sal_Int32>::const_iterator aEndPos = aFind->second.end();
-                for(;aIterPos != aEndPos;++aIterPos)
+                for(const auto& rItem : aFind->second)
                 {
-                    if ( _aParametersSet.empty() || !_aParametersSet[(*aIterPos)-1] )
+                    if ( _aParametersSet.empty() || !_aParametersSet[rItem-1] )
                     {
-                        _xParameters->setObjectWithInfo(*aIterPos, pFinalValues->Value, nParamType, nScale);
+                        _xParameters->setObjectWithInfo(rItem, pFinalValues->Value, nParamType, nScale);
                     }
                 }
             }

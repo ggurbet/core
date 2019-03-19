@@ -320,7 +320,7 @@ void SwViewShell::ImplEndAction( const bool bIdleEnd )
             }
             mbPaintWorks = true;
 
-            SwRegionRects *pRegion = Imp()->GetRegion();
+            std::unique_ptr<SwRegionRects> pRegion = std::move(Imp()->m_pRegion);
 
             //JP 27.11.97: what hid the selection, must also Show it,
             //             else we get Paint errors!
@@ -334,8 +334,6 @@ void SwViewShell::ImplEndAction( const bool bIdleEnd )
             if ( pRegion )
             {
                 SwRootFrame* pCurrentLayout = GetLayout();
-
-                (void) Imp()->m_pRegion.release(); // pRegion owns it now
 
                 //First Invert then Compress, never the other way round!
                 pRegion->Invert();
@@ -409,7 +407,7 @@ void SwViewShell::ImplEndAction( const bool bIdleEnd )
                     }
                     if ( bPaint )
                     {
-                        if (GetWin() && GetWin()->SupportsDoubleBuffering())
+                        if (GetWin()->SupportsDoubleBuffering())
                             InvalidateWindows(aRect.SVRect());
                         else
                         {
@@ -435,9 +433,6 @@ void SwViewShell::ImplEndAction( const bool bIdleEnd )
                     else
                         lcl_PaintTransparentFormControls(*this, aRect); // i#107365
                 }
-
-                delete pRegion;
-                Imp()->DelRegion();
             }
             if( bShowCursor )
                 static_cast<SwCursorShell*>(this)->ShowCursors( true );
@@ -2081,7 +2076,7 @@ SwRootFrame *SwViewShell::GetLayout() const
     return mpLayout.get();
 }
 
-OutputDevice& SwViewShell::GetRefDev() const
+vcl::RenderContext& SwViewShell::GetRefDev() const
 {
     OutputDevice* pTmpOut = nullptr;
     if (  GetWin() &&
@@ -2252,8 +2247,8 @@ void SwViewShell::ImplApplyViewOptions( const SwViewOption &rOpt )
         Fraction aSnGrWdtY(rSz.Height(), rOpt.GetDivisionY() + 1);
         pDView->SetSnapGridWidth( aSnGrWdtX, aSnGrWdtY );
 
-            // set handle size to 9 pixels, always
-            pDView->SetMarkHdlSizePixel(9);
+        // set handle size to 9 pixels, always
+        pDView->SetMarkHdlSizePixel(9);
     }
 
     bool bOnlineSpellChgd = mpOpt->IsOnlineSpell() != rOpt.IsOnlineSpell();

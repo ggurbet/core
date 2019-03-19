@@ -191,12 +191,8 @@ namespace DOM
         m_aNodeStack.top()->appendChild(aInstruction);
     }
 
-    void SAL_CALL CSAXDocumentBuilder::setDocumentLocator( const Reference< XLocator >& xLocator )
+    void SAL_CALL CSAXDocumentBuilder::setDocumentLocator( const Reference< XLocator >& )
     {
-        ::osl::MutexGuard g(m_Mutex);
-
-        // set the document locator...
-        m_aLocator = xLocator;
     }
 
     void SAL_CALL CSAXDocumentBuilder::startFastElement( sal_Int32 nElement , const Reference< XFastAttributeList >& xAttribs  )
@@ -359,12 +355,12 @@ namespace DOM
         ::osl::MutexGuard g(m_Mutex);
 
         //  append text node to the current top element
-         if (m_aState != SAXDocumentBuilderState_BUILDING_DOCUMENT &&
+        if (m_aState != SAXDocumentBuilderState_BUILDING_DOCUMENT &&
              m_aState != SAXDocumentBuilderState_BUILDING_FRAGMENT)
             throw SAXException();
 
-         Reference< XText > aText = m_aDocument->createTextNode(rChars);
-         m_aNodeStack.top()->appendChild(aText);
+        Reference< XText > aText = m_aDocument->createTextNode(rChars);
+        m_aNodeStack.top()->appendChild(aText);
     }
 }
 

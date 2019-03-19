@@ -25,6 +25,7 @@
 #include <notxtfrm.hxx>
 #include <tabfrm.hxx>
 #include <sectfrm.hxx>
+#include <frmatr.hxx>
 #include <flyfrms.hxx>
 #include <ftnfrm.hxx>
 #include <txtftn.hxx>
@@ -341,11 +342,11 @@ const SwLayoutFrame *SwFrame::ImplGetNextLayoutLeaf( bool bFwd ) const
              }
          }
 
-        // If I could not go down or forward, I'll have to go up
-        bGoingUp = !bGoingFwdOrBwd && !bGoingDown;
+         // If I could not go down or forward, I'll have to go up
+         bGoingUp = !bGoingFwdOrBwd && !bGoingDown;
 
-        pFrame = p;
-        p = lcl_GetLower( pFrame, true );
+         pFrame = p;
+         p = lcl_GetLower( pFrame, true );
 
     } while( ( p && !p->IsFlowFrame() ) ||
              pFrame == this ||
@@ -1476,6 +1477,7 @@ void SwFrame::SetDirFlags( bool bVert )
             {
                 mbVertical = pAsk->IsVertical();
                 mbVertLR  = pAsk->IsVertLR();
+                mbVertLRBT = pAsk->IsVertLRBT();
 
                 if ( !pAsk->mbInvalidVert )
                     mbInvalidVert = false;

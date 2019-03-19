@@ -21,7 +21,6 @@
 #define INCLUDED_SVTOOLS_IMAGEMGR_HXX
 
 #include <rtl/ustring.hxx>
-#include <sal/types.h>
 #include <svtools/svtdllapi.h>
 
 enum class SvImageId {
@@ -119,7 +118,7 @@ private:
     static OUString    GetDescription_Impl( const INetURLObject& rObject, bool bDetectFolder );
 
 public:
-    SVT_DLLPUBLIC static OUString GetImageId( const INetURLObject& rURL );
+    SVT_DLLPUBLIC static OUString GetImageId( const INetURLObject& rURL, bool bBig = false );
     SVT_DLLPUBLIC static Image  GetImage( const INetURLObject& rURL, bool bBig = false );
     SVT_DLLPUBLIC static OUString GetFileImageId( const INetURLObject& rURL );
     SVT_DLLPUBLIC static Image  GetFileImage( const INetURLObject& rURL );

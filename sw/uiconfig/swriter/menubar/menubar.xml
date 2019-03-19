@@ -142,8 +142,6 @@
           <menu:menuitem menu:id=".uno:MergeDocuments"/>
         </menu:menupopup>
       </menu:menu>
-      <menu:menuseparator/>
-      <menu:menuitem menu:id=".uno:EditHyperlink"/>
       <menu:menu menu:id=".uno:EditCommentsMenu">
         <menu:menupopup>
           <menu:menuitem menu:id=".uno:ReplyComment"/>
@@ -152,6 +150,8 @@
           <menu:menuitem menu:id=".uno:DeleteAllNotes"/>
         </menu:menupopup>
       </menu:menu>
+      <menu:menuseparator/>
+      <menu:menuitem menu:id=".uno:EditHyperlink"/>
       <menu:menu menu:id=".uno:EditLinksMenu">
         <menu:menupopup>
           <menu:menuitem menu:id=".uno:EditFootnote"/>
@@ -192,7 +192,6 @@
       <menu:menuitem menu:id=".uno:ViewBounds"/>
       <menu:menuitem menu:id=".uno:TableBoundaries"/>
       <menu:menuitem menu:id=".uno:ShowGraphics"/>
-      <menu:menuitem menu:id=".uno:ShowAnnotations"/>
       <menu:menuitem menu:id=".uno:ControlCodes"/>
       <menu:menu menu:id=".uno:GridMenu">
         <menu:menupopup>
@@ -202,7 +201,9 @@
         </menu:menupopup>
       </menu:menu>
       <menu:menuitem menu:id=".uno:HideWhitespace"/>
+      <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:ViewTrackChanges"/>
+      <menu:menuitem menu:id=".uno:ShowAnnotations"/>
       <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:Marks"/>
       <menu:menuitem menu:id=".uno:Fieldnames"/>
@@ -311,6 +312,7 @@
           <menu:menuitem menu:id=".uno:InsertNonBreakingSpace"/>
           <menu:menuitem menu:id=".uno:InsertHardHyphen"/>
           <menu:menuitem menu:id=".uno:InsertSoftHyphen"/>
+          <menu:menuitem menu:id=".uno:InsertNarrowNobreakSpace"/>
           <menu:menuitem menu:id=".uno:InsertZWSP"/>
           <menu:menuitem menu:id=".uno:InsertZWNBSP"/>
           <menu:menuitem menu:id=".uno:InsertLRM"/>
@@ -551,27 +553,27 @@
   </menu:menu>
   <menu:menu menu:id=".uno:FormatStylesMenu">
     <menu:menupopup>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Text body&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Title&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Subtitle&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Heading 1&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Heading 2&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Heading 3&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Quotations&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Preformatted Text&amp;FamilyName:string=ParagraphStyles" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:TextBodyParaStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:TitleParaStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:SubtitleParaStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:Heading1ParaStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:Heading2ParaStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:Heading3ParaStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:QuoteParaStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:PreformattedParaStyle" menu:style="radio"/>
       <menu:menuseparator/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Standard&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Emphasis&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Strong Emphasis&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Citation&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Source Text&amp;FamilyName:string=CharacterStyles" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:DefaultCharStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:EmphasisCharStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:StrongEmphasisCharStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:QuoteCharStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:SourceCharStyle" menu:style="radio"/>
       <menu:menuseparator/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=List 1&amp;FamilyName:string=NumberingStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Numbering 123&amp;FamilyName:string=NumberingStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Numbering ABC&amp;FamilyName:string=NumberingStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Numbering abc&amp;FamilyName:string=NumberingStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Numbering IVX&amp;FamilyName:string=NumberingStyles" menu:style="radio"/>
-      <menu:menuitem menu:id=".uno:StyleApply?Style:string=Numbering ivx&amp;FamilyName:string=NumberingStyles" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:BulletListStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:NumberListStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:AlphaListStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:AlphaLowListStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:RomanListStyle" menu:style="radio"/>
+      <menu:menuitem menu:id=".uno:RomanLowListStyle" menu:style="radio"/>
       <menu:menuseparator/>
       <menu:menuitem menu:id=".uno:EditStyle"/>
       <menu:menuitem menu:id=".uno:StyleUpdateByExample"/>

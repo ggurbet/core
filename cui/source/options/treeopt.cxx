@@ -75,7 +75,6 @@
 #include <editeng/optitems.hxx>
 #include <editeng/unolingu.hxx>
 #include <linguistic/misc.hxx>
-#include <o3tl/make_unique.hxx>
 #include <officecfg/Office/OptionsDialog.hxx>
 #include <osl/module.hxx>
 #include <osl/process.h>
@@ -95,6 +94,7 @@
 #include <svx/xpool.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/urlobj.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/configmgr.hxx>
 #include <unotools/linguprops.hxx>
 #include <unotools/misccfg.hxx>
@@ -469,12 +469,10 @@ struct OptionsGroupInfo
     SfxShell*           m_pShell;       // used to create the page
     SfxModule*          m_pModule;      // used to create the ItemSet
     sal_uInt16          m_nDialogId;    // Id of the former dialog
-    OUString       m_sPageURL;
 
     OptionsGroupInfo( SfxShell* pSh, SfxModule* pMod, sal_uInt16 nId ) :
         m_pShell( pSh ),
-        m_pModule( pMod ), m_nDialogId( nId ),
-        m_sPageURL( OUString() ) {}
+        m_pModule( pMod ), m_nDialogId( nId ) {}
 };
 
 #define INI_LIST() \
@@ -683,6 +681,11 @@ void OfaTreeOptionsDialog::ApplyOptions(bool deactivate)
                     pPageInfo->m_pExtPage->DeactivatePage();
                 }
                 pPageInfo->m_pExtPage->SavePage();
+            }
+            if ( pPageInfo->m_pPage && RID_OPTPAGE_CHART_DEFCOLORS == pPageInfo->m_nPageId )
+            {
+                SvxDefaultColorOptPage* pPage = static_cast<SvxDefaultColorOptPage *>(pPageInfo->m_pPage.get());
+                pPage->SaveChartOptions();
             }
         }
         pEntry = pTreeLB->Next(pEntry);
@@ -999,7 +1002,7 @@ void OfaTreeOptionsDialog::SelectHdl_Impl()
                 ? pGroupInfo->m_pShell->CreateItemSet( pGroupInfo->m_nDialogId )
                 : CreateItemSet( pGroupInfo->m_nDialogId );
         if(!pGroupInfo->m_pOutItemSet)
-            pGroupInfo->m_pOutItemSet = o3tl::make_unique<SfxItemSet>(
+            pGroupInfo->m_pOutItemSet = std::make_unique<SfxItemSet>(
                 *pGroupInfo->m_pInItemSet->GetPool(),
                 pGroupInfo->m_pInItemSet->GetRanges());
 
@@ -1096,7 +1099,7 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
     {
         case SID_GENERAL_OPTIONS:
         {
-            pRet = o3tl::make_unique<SfxItemSet>(
+            pRet = std::make_unique<SfxItemSet>(
                 SfxGetpApp()->GetPool(),
                 svl::Items<
                     SID_HTML_MODE, SID_HTML_MODE,
@@ -1137,7 +1140,7 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
         break;
         case SID_LANGUAGE_OPTIONS :
         {
-            pRet = o3tl::make_unique<SfxItemSet>(
+            pRet = std::make_unique<SfxItemSet>(
                 SfxGetpApp()->GetPool(),
                 svl::Items<
                     SID_ATTR_CHAR_CJK_LANGUAGE, SID_ATTR_CHAR_CJK_LANGUAGE,
@@ -1205,7 +1208,7 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
         }
         break;
         case SID_INET_DLG :
-                pRet = o3tl::make_unique<SfxItemSet>( SfxGetpApp()->GetPool(),
+                pRet = std::make_unique<SfxItemSet>( SfxGetpApp()->GetPool(),
                                 svl::Items<SID_BASIC_ENABLED, SID_BASIC_ENABLED,
                 //SID_OPTIONS_START - ..END
                                 SID_SAVEREL_INET, SID_SAVEREL_FSYS,
@@ -1214,7 +1217,7 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
                 SfxGetpApp()->GetOptions(*pRet);
         break;
         case SID_FILTER_DLG:
-            pRet = o3tl::make_unique<SfxItemSet>(
+            pRet = std::make_unique<SfxItemSet>(
                 SfxGetpApp()->GetPool(),
                 svl::Items<
                     SID_ATTR_WARNALIENFORMAT, SID_ATTR_WARNALIENFORMAT,
@@ -1225,7 +1228,7 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
             break;
 
         case SID_SB_STARBASEOPTIONS:
-            pRet = o3tl::make_unique<SfxItemSet>( SfxGetpApp()->GetPool(),
+            pRet = std::make_unique<SfxItemSet>( SfxGetpApp()->GetPool(),
             svl::Items<SID_SB_POOLING_ENABLED, SID_SB_DB_REGISTER>{} );
             ::offapp::ConnectionPoolConfig::GetOptions(*pRet);
             svx::DbRegisteredNamesConfig::GetOptions(*pRet);
@@ -1234,7 +1237,7 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
         case SID_SCH_EDITOPTIONS:
         {
             SvxChartOptions aChartOpt;
-            pRet = o3tl::make_unique<SfxItemSet>( SfxGetpApp()->GetPool(), svl::Items<SID_SCH_EDITOPTIONS, SID_SCH_EDITOPTIONS>{} );
+            pRet = std::make_unique<SfxItemSet>( SfxGetpApp()->GetPool(), svl::Items<SID_SCH_EDITOPTIONS, SID_SCH_EDITOPTIONS>{} );
             pRet->Put( SvxChartColorTableItem( SID_SCH_EDITOPTIONS, aChartOpt.GetDefaultColors() ) );
             break;
         }
@@ -1408,9 +1411,10 @@ static OUString getCurrentFactory_Impl( const Reference< XFrame >& _xFrame )
         {
             SAL_INFO( "cui.options", "unknown module" );
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "cui.options", "getActiveModule_Impl(): exception of XModuleManager::identify()" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "cui.options", "getActiveModule_Impl(): exception of XModuleManager::identify() " << exceptionToString(ex) );
         }
     }
 
@@ -1751,9 +1755,10 @@ OUString OfaTreeOptionsDialog::GetModuleIdentifier( const Reference< XFrame >& r
         {
             SAL_INFO( "cui.options", "unknown module" );
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "cui.options", "OfaTreeOptionsDialog::GetModuleIdentifier(): exception of XModuleManager::identify()" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "cui.options", "OfaTreeOptionsDialog::GetModuleIdentifier(): exception of XModuleManager::identify() " << exceptionToString(ex));
         }
     }
     return sModule;
@@ -1841,23 +1846,20 @@ VectorOfNodes OfaTreeOptionsDialog::LoadNodes(
 
         if ( xNodeAccess.is() )
         {
-            OUString sNodeId, sLabel, sPageURL, sGroupId;
+            OUString sNodeId, sLabel, sPageURL;
             bool bAllModules = false;
-            sal_Int32 nGroupIndex = 0;
 
             sNodeId = seqNames[i];
             xNodeAccess->getByName( "Label" ) >>= sLabel;
             xNodeAccess->getByName( "OptionsPage" ) >>= sPageURL;
             xNodeAccess->getByName( "AllModules" ) >>= bAllModules;
-            xNodeAccess->getByName( "GroupId" ) >>= sGroupId;
-            xNodeAccess->getByName( "GroupIndex" ) >>= nGroupIndex;
 
             if ( sLabel.isEmpty() )
                 sLabel = sGroupName;
             OUString sTemp = getGroupName( sLabel, !rExtensionId.isEmpty() );
             if ( !sTemp.isEmpty() )
                 sLabel = sTemp;
-            std::unique_ptr<OptionsNode> pNode(new OptionsNode(sNodeId, sLabel, sPageURL, bAllModules));
+            std::unique_ptr<OptionsNode> pNode(new OptionsNode(sNodeId, sLabel, bAllModules));
 
             if ( rExtensionId.isEmpty() && !isNodeActive( pNode.get(), pModule ) )
             {
@@ -1984,17 +1986,6 @@ static void lcl_insertLeaf(
     {
         sal_uInt16 nNodeGrpId = getGroupNodeId( pNode->m_sId );
         nGrpId = pDlg->AddGroup( pNode->m_sLabel, nullptr, nullptr, nNodeGrpId );
-        if ( !pNode->m_sPageURL.isEmpty() )
-        {
-            SvTreeListEntry* pGrpEntry = rTreeLB.GetEntry( nullptr, nGrpId );
-            DBG_ASSERT( pGrpEntry, "OfaTreeOptionsDialog::InsertNodes(): no group" );
-            if ( pGrpEntry )
-            {
-                OptionsGroupInfo* pGrpInfo =
-                    static_cast<OptionsGroupInfo*>(pGrpEntry->GetUserData());
-                pGrpInfo->m_sPageURL = pNode->m_sPageURL;
-            }
-        }
     }
     OptionsPageInfo* pInfo = pDlg->AddTabPage( 0, pLeaf->m_sLabel, nGrpId );
     pInfo->m_sPageURL = pLeaf->m_sPageURL;
@@ -2123,13 +2114,10 @@ void ExtensionsTabPage::CreateDialogWithHandler()
             }
         }
     }
-    catch (const css::lang::IllegalArgumentException& e)
+    catch (const Exception&)
     {
-        SAL_WARN("cui.options", "ExtensionsTabPage::CreateDialogWithHandler(): illegal argument:" << e);
-    }
-    catch (const Exception& e)
-    {
-        SAL_WARN( "cui.options", "ExtensionsTabPage::CreateDialogWithHandler(): exception of XDialogProvider2::createDialogWithHandler(): " << e);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "cui.options", "ExtensionsTabPage::CreateDialogWithHandler(): exception of XDialogProvider2::createDialogWithHandler(): " << exceptionToString(ex));
     }
 }
 
@@ -2143,9 +2131,10 @@ bool ExtensionsTabPage::DispatchAction( const OUString& rAction )
         {
             bRet = m_xEventHdl->callHandlerMethod( m_xPage, Any( rAction ), "external_event" );
         }
-        catch ( Exception& )
+        catch ( Exception const & )
         {
-            SAL_WARN( "cui.options", "ExtensionsTabPage::DispatchAction(): exception of XDialogEventHandler::callHandlerMethod()" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "cui.options", "ExtensionsTabPage::DispatchAction(): exception of XDialogEventHandler::callHandlerMethod() " << exceptionToString(ex) );
         }
     }
     return bRet;

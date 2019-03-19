@@ -140,20 +140,20 @@ void FuPage::DoExecute( SfxRequest& )
         mpPage = mpDrawViewShell->getCurrentPage();
     }
 
-    if( mpPage )
-    {
-        // if there are no arguments given, open the dialog
-        if( !mpArgs )
-        {
-            mpView->SdrEndTextEdit();
-            mpArgs = ExecuteDialog(mpWindow ? mpWindow->GetFrameWeld() : nullptr);
-        }
+    if( !mpPage )
+        return;
 
-        // if we now have arguments, apply them to current page
-        if( mpArgs )
-        {
-            ApplyItemSet( mpArgs );
-        }
+    // if there are no arguments given, open the dialog
+    if( !mpArgs )
+    {
+        mpView->SdrEndTextEdit();
+        mpArgs = ExecuteDialog(mpWindow ? mpWindow->GetFrameWeld() : nullptr);
+    }
+
+    // if we now have arguments, apply them to current page
+    if( mpArgs )
+    {
+        ApplyItemSet( mpArgs );
     }
 }
 
@@ -387,9 +387,9 @@ const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent)
 
             if( mbMasterPage )
             {
-                mpDocSh->GetUndoManager()->AddUndoAction(o3tl::make_unique<StyleSheetUndoAction>(
+                mpDocSh->GetUndoManager()->AddUndoAction(std::make_unique<StyleSheetUndoAction>(
                     mpDoc, static_cast<SfxStyleSheet*>(pStyleSheet), &(*pTempSet)));
-                pStyleSheet->GetItemSet().Put( *(pTempSet.get()) );
+                pStyleSheet->GetItemSet().Put( *pTempSet );
                 sdr::properties::CleanupFillProperties( pStyleSheet->GetItemSet() );
                 pStyleSheet->Broadcast(SfxHint(SfxHintId::DataChanged));
             }
@@ -421,7 +421,7 @@ const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent)
                 "MasterPage without StyleSheet detected (!)");
         }
 
-        aNewAttr.Put(*(pTempSet.get()));
+        aNewAttr.Put(*pTempSet);
         mrReq.Done( aNewAttr );
 
         return mrReq.GetArgs();

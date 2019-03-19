@@ -123,7 +123,7 @@ class DemoRenderer
                                             0, 1 );
             rendering::FontRequest aFontRequest( aFontInfo, 12.0, 0.0, aLocale );
             uno::Sequence< beans::PropertyValue > aExtraFontProperties;
-             mxDefaultFont = xCanvas->createFont( aFontRequest, aExtraFontProperties, aFontMatrix );
+            mxDefaultFont = xCanvas->createFont( aFontRequest, aExtraFontProperties, aFontMatrix );
             if( !mxDefaultFont.is() )
                 fprintf( stderr, "Failed to create font\n" );
         }
@@ -155,7 +155,7 @@ class DemoRenderer
             mxCanvas->drawText( aText, mxDefaultFont, maViewState, aRenderState, 0);
         }
 
-        void drawRect( tools::Rectangle rRect, uno::Sequence< double > &aColor, int /*nWidth*/ )
+        void drawRect( tools::Rectangle rRect, const uno::Sequence< double > &aColor, int /*nWidth*/ )
         {
             uno::Sequence< geometry::RealPoint2D > aPoints(4);
             uno::Reference< rendering::XLinePolyPolygon2D > xPoly;

@@ -21,6 +21,7 @@
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 #include <cppuhelper/queryinterface.hxx>
+#include <cppuhelper/typeprovider.hxx>
 #include <comphelper/processfactory.hxx>
 #include <connectivity/dbexception.hxx>
 
@@ -135,7 +136,7 @@ OCommonStatement::StatementType OCommonStatement::parseSql( const OUString& sql 
 
             // at this moment we support only one table per select statement
 
-            OSL_ENSURE( rTabs.begin() != rTabs.end(), "Need a Table");
+            OSL_ENSURE( !rTabs.empty(), "Need a Table");
 
             m_pTable = static_cast< OTable* > (rTabs.begin()->second.get());
             m_xColNames     = m_pTable->getColumns();
@@ -173,7 +174,7 @@ Reference< XResultSet > OCommonStatement::impl_executeCurrentQuery()
 {
     clearCachedResultSet();
 
-    ::rtl::Reference< OResultSet > pResult( new OResultSet( this, m_pSQLIterator ) );
+    ::rtl::Reference pResult( new OResultSet( this, m_pSQLIterator ) );
     initializeResultSet( pResult.get() );
 
     pResult->executeQuery();

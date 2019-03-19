@@ -21,7 +21,6 @@
 #include <osl/diagnose.h>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/queryinterface.hxx>
-#include <cppuhelper/weak.hxx>
 #include <cppuhelper/propshlp.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
@@ -249,7 +248,7 @@ void OPropertySetHelper::disposing()
 Reference < XPropertySetInfo > OPropertySetHelper::createPropertySetInfo(
     IPropertyArrayHelper & rProperties )
 {
-    return static_cast< XPropertySetInfo * >( new OPropertySetHelperInfo_Impl( rProperties ) );
+    return new OPropertySetHelperInfo_Impl(rProperties);
 }
 
 // XPropertySet
@@ -804,15 +803,15 @@ void OPropertySetHelper::setFastPropertyValues(
     OSL_ENSURE( !rBHelper.bInDispose, "do not getFastPropertyValue in the dispose call" );
     OSL_ENSURE( !rBHelper.bDisposed, "object is disposed" );
 
-        // get the map table
-        IPropertyArrayHelper & rPH = getInfoHelper();
+    // get the map table
+    IPropertyArrayHelper & rPH = getInfoHelper();
 
-        std::unique_ptr<Any[]> pConvertedValues(new Any[ nHitCount ]);
-        std::unique_ptr<Any[]> pOldValues(new Any[ nHitCount ]);
-        sal_Int32 n = 0;
-        sal_Int32 i;
+    std::unique_ptr<Any[]> pConvertedValues(new Any[ nHitCount ]);
+    std::unique_ptr<Any[]> pOldValues(new Any[ nHitCount ]);
+    sal_Int32 n = 0;
+    sal_Int32 i;
 
-        {
+    {
         // must lock the mutex outside the loop. So all values are consistent.
         MutexGuard aGuard( rBHelper.rMutex );
         for( i = 0; i < nSeqLen; i++ )
@@ -835,12 +834,12 @@ void OPropertySetHelper::setFastPropertyValues(
             }
         }
         // release guard to fire events
-        }
+    }
 
-        // fire vetoable events
-        fire( pHandles, pConvertedValues.get(), pOldValues.get(), n, true );
+    // fire vetoable events
+    fire( pHandles, pConvertedValues.get(), pOldValues.get(), n, true );
 
-        {
+    {
         // must lock the mutex outside the loop.
         MutexGuard aGuard( rBHelper.rMutex );
         // Loop over all changed properties
@@ -850,10 +849,10 @@ void OPropertySetHelper::setFastPropertyValues(
             setFastPropertyValue_NoBroadcast( pHandles[i], pConvertedValues[i] );
         }
         // release guard to fire events
-        }
+    }
 
-        // fire change events
-        impl_fireAll( pHandles, pConvertedValues.get(), pOldValues.get(), n );
+    // fire change events
+    impl_fireAll( pHandles, pConvertedValues.get(), pOldValues.get(), n );
 }
 
 // XMultiPropertySet

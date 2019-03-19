@@ -39,6 +39,7 @@
 #include <validat.hxx>
 #include <global.hxx>
 #include <scmod.hxx>
+#include <dpcache.hxx>
 #include <dpobject.hxx>
 
 #include <svx/svdpage.hxx>
@@ -208,6 +209,7 @@ public:
 
     void testTdf118990();
     void testTdf121612();
+    void testPivotCacheAfterExportXLSX();
 
     void testXltxExport();
 
@@ -324,6 +326,7 @@ public:
 
     CPPUNIT_TEST(testTdf118990);
     CPPUNIT_TEST(testTdf121612);
+    CPPUNIT_TEST(testPivotCacheAfterExportXLSX);
 
     CPPUNIT_TEST(testXltxExport);
 
@@ -1372,139 +1375,62 @@ void ScExportTest::testRichTextExportODS()
     {
         static bool isBold(const editeng::Section& rAttr)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_WEIGHT)
-                    continue;
-
-                return static_cast<const SvxWeightItem*>(p)->GetWeight() == WEIGHT_BOLD;
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(), [](const SfxPoolItem* p) {
+                return p->Which() == EE_CHAR_WEIGHT &&
+                    static_cast<const SvxWeightItem*>(p)->GetWeight() == WEIGHT_BOLD; });
         }
 
         static bool isItalic(const editeng::Section& rAttr)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_ITALIC)
-                    continue;
-
-                return static_cast<const SvxPostureItem*>(p)->GetPosture() == ITALIC_NORMAL;
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(), [](const SfxPoolItem* p) {
+                return p->Which() == EE_CHAR_ITALIC &&
+                    static_cast<const SvxPostureItem*>(p)->GetPosture() == ITALIC_NORMAL; });
         }
 
         static bool isStrikeOut(const editeng::Section& rAttr)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_STRIKEOUT)
-                    continue;
-
-                return static_cast<const SvxCrossedOutItem*>(p)->GetStrikeout() == STRIKEOUT_SINGLE;
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(), [](const SfxPoolItem* p) {
+                return p->Which() == EE_CHAR_STRIKEOUT &&
+                    static_cast<const SvxCrossedOutItem*>(p)->GetStrikeout() == STRIKEOUT_SINGLE; });
         }
 
         static bool isOverline(const editeng::Section& rAttr, FontLineStyle eStyle)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_OVERLINE)
-                    continue;
-
-                return static_cast<const SvxOverlineItem*>(p)->GetLineStyle() == eStyle;
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(), [&eStyle](const SfxPoolItem* p) {
+                return p->Which() == EE_CHAR_OVERLINE &&
+                    static_cast<const SvxOverlineItem*>(p)->GetLineStyle() == eStyle; });
         }
 
         static bool isUnderline(const editeng::Section& rAttr, FontLineStyle eStyle)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_UNDERLINE)
-                    continue;
-
-                return static_cast<const SvxUnderlineItem*>(p)->GetLineStyle() == eStyle;
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(), [&eStyle](const SfxPoolItem* p) {
+                return p->Which() == EE_CHAR_UNDERLINE &&
+                    static_cast<const SvxUnderlineItem*>(p)->GetLineStyle() == eStyle; });
         }
 
         static bool isFont(const editeng::Section& rAttr, const OUString& rFontName)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_FONTINFO)
-                    continue;
-
-                return static_cast<const SvxFontItem*>(p)->GetFamilyName() == rFontName;
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(), [&rFontName](const SfxPoolItem* p) {
+                return p->Which() == EE_CHAR_FONTINFO &&
+                    static_cast<const SvxFontItem*>(p)->GetFamilyName() == rFontName; });
         }
 
         static bool isEscapement(const editeng::Section& rAttr, short nEsc, sal_uInt8 nRelSize)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_ESCAPEMENT)
-                    continue;
-
-                const SvxEscapementItem* pItem = static_cast<const SvxEscapementItem*>(p);
-                return ((pItem->GetEsc() == nEsc) && (pItem->GetProportionalHeight() == nRelSize));
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(),
+                [&nEsc, &nRelSize](const SfxPoolItem* p) {
+                    if (p->Which() != EE_CHAR_ESCAPEMENT)
+                        return false;
+                    const SvxEscapementItem* pItem = static_cast<const SvxEscapementItem*>(p);
+                    return ((pItem->GetEsc() == nEsc) && (pItem->GetProportionalHeight() == nRelSize));
+                });
         }
 
         static bool isColor(const editeng::Section& rAttr, Color nColor)
         {
-            if (rAttr.maAttributes.empty())
-                return false;
-
-            std::vector<const SfxPoolItem*>::const_iterator it = rAttr.maAttributes.begin(), itEnd = rAttr.maAttributes.end();
-            for (; it != itEnd; ++it)
-            {
-                const SfxPoolItem* p = *it;
-                if (p->Which() != EE_CHAR_COLOR)
-                    continue;
-
-                return static_cast<const SvxColorItem*>(p)->GetValue() == nColor;
-            }
-            return false;
+            return std::any_of(rAttr.maAttributes.begin(), rAttr.maAttributes.end(), [&nColor](const SfxPoolItem* p) {
+                return p->Which() == EE_CHAR_COLOR &&
+                    static_cast<const SvxColorItem*>(p)->GetValue() == nColor; });
         }
 
         bool checkB2(const EditTextObject* pText) const
@@ -4160,18 +4086,12 @@ void ScExportTest::testTdf118990()
     // file:///share/lookupsource.xlsx - which is incorrect, since it points to local filesystem
     // and not to Windows network share.
 
-#if defined LINUX // following INetURLObject::setAbsURIRef
-#define TDF118990_SCHEME "smb:"
-#else // for Windows and macOS
-#define TDF118990_SCHEME "file:"
-#endif
-
     ASSERT_FORMULA_EQUAL(rDoc, ScAddress(0, 1, 0),
-                         "VLOOKUP(B1,'" TDF118990_SCHEME "//192.168.1.1/share/lookupsource.xlsx'#$Sheet1.A1:B5,2)",
+                         "VLOOKUP(B1,'file://192.168.1.1/share/lookupsource.xlsx'#$Sheet1.A1:B5,2)",
                          "Wrong Windows share (using host IP) URL in A2");
 
     ASSERT_FORMULA_EQUAL(rDoc, ScAddress(0, 2, 0),
-                         "VLOOKUP(B1,'" TDF118990_SCHEME "//NETWORKHOST/share/lookupsource.xlsx'#$Sheet1.A1:B5,2)",
+                         "VLOOKUP(B1,'file://NETWORKHOST/share/lookupsource.xlsx'#$Sheet1.A1:B5,2)",
                          "Wrong Windows share (using hostname) URL in A3");
 
     xDocSh->DoClose();
@@ -4208,6 +4128,35 @@ void ScExportTest::testXltxExport()
     CPPUNIT_ASSERT(pDoc);
     assertXPath(pDoc, "/ContentType:Types/ContentType:Override[@PartName='/xl/workbook.xml']",
         "ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml");
+}
+
+void ScExportTest::testPivotCacheAfterExportXLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("numgroup_example.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    // export only
+    std::shared_ptr<utl::TempFile> pTemp = saveAs(xDocSh.get(), FORMAT_XLSX);
+
+    ScDocument& rDoc = xDocSh->GetDocument();
+    CPPUNIT_ASSERT(rDoc.HasPivotTable());
+
+    // Two pivot tables
+    ScDPCollection* pDPColl = rDoc.GetDPCollection();
+    CPPUNIT_ASSERT(pDPColl);
+    CPPUNIT_ASSERT_EQUAL(size_t(2), pDPColl->GetCount());
+
+    // One cache
+    ScDPCollection::SheetCaches& rSheetCaches = pDPColl->GetSheetCaches();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rSheetCaches.size());
+    const ScDPCache* pCache = rSheetCaches.getExistingCache(ScRange(0, 0, 0, 3, 30, 0));
+    CPPUNIT_ASSERT_MESSAGE("Pivot cache is expected for A1:D31 on the first sheet.", pCache);
+
+    // See if XLSX export didn't damage group info of the 1st pivot table
+    const ScDPNumGroupInfo* pInfo = pCache->GetNumGroupInfo(1);
+    CPPUNIT_ASSERT_MESSAGE("No number group info :(", pInfo);
+
+    xDocSh->DoClose();
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScExportTest);

@@ -7,6 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#ifndef LO_CLANG_SHARED_PLUGINS
+
 #include <memory>
 #include <cassert>
 #include <string>
@@ -18,11 +20,11 @@
 
 namespace
 {
-class SimplifyConstruct : public RecursiveASTVisitor<SimplifyConstruct>, public loplugin::Plugin
+class SimplifyConstruct : public loplugin::FilteringPlugin<SimplifyConstruct>
 {
 public:
     explicit SimplifyConstruct(loplugin::InstantiationData const& data)
-        : Plugin(data)
+        : FilteringPlugin(data)
     {
     }
 
@@ -34,6 +36,10 @@ public:
     bool TraverseReturnStmt(ReturnStmt*) { return true; }
     bool TraverseInitListExpr(InitListExpr*) { return true; }
     bool TraverseCXXBindTemporaryExpr(CXXBindTemporaryExpr*) { return true; }
+    // ignore them for the shared visitor too
+    bool PreTraverseReturnStmt(ReturnStmt*) { return false; }
+    bool PreTraverseInitListExpr(InitListExpr*) { return false; }
+    bool PreTraverseCXXBindTemporaryExpr(CXXBindTemporaryExpr*) { return false; }
 };
 
 bool SimplifyConstruct::VisitCXXConstructExpr(CXXConstructExpr const* constructExpr)
@@ -63,7 +69,9 @@ bool SimplifyConstruct::VisitCXXConstructExpr(CXXConstructExpr const* constructE
     return true;
 }
 
-loplugin::Plugin::Registration<SimplifyConstruct> X("simplifyconstruct", true);
+loplugin::Plugin::Registration<SimplifyConstruct> simplifyconstruct("simplifyconstruct", true);
 }
+
+#endif // LO_CLANG_SHARED_PLUGINS
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

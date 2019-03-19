@@ -22,10 +22,6 @@
 #include <svx/svdobj.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdouno.hxx>
-#include <svx/svdocapt.hxx>
-#include <svx/svdpage.hxx>
-#include <svx/svditer.hxx>
-#include <svx/svdundo.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 
@@ -36,7 +32,6 @@
 #include <drwlayer.hxx>
 #include <userdat.hxx>
 #include <docsh.hxx>
-#include <postit.hxx>
 #include <drawview.hxx>
 
 // base class for draw module specific functions
@@ -664,7 +659,7 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
 
         if ( pView->IsTextEdit() )
         {
-            rViewShell.SetActivePointer(Pointer(PointerStyle::Text));        // can't be ?
+            rViewShell.SetActivePointer(PointerStyle::Text);        // can't be ?
         }
         else if ( pHdl )
         {
@@ -673,13 +668,13 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
         }
         else if ( pView->IsMarkedHit(aPnt) )
         {
-            rViewShell.SetActivePointer( Pointer(PointerStyle::Move) );
+            rViewShell.SetActivePointer( PointerStyle::Move );
         }
         else if ( !bAlt && ( !pMEvt || !pMEvt->GetButtons() )
                         && lcl_UrlHit( pView, aPosPixel, pWindow ) )
         {
             //  could be suppressed with ALT
-            pWindow->SetPointer( Pointer( PointerStyle::RefHand ) );          // Text-URL / ImageMap
+            pWindow->SetPointer( PointerStyle::RefHand );          // Text-URL / ImageMap
         }
         else if ( !bAlt && (pObj = pView->PickObj(aPnt, pView->getHitTolLog(), pPV, SdrSearchOptions::PICKMACRO)) )
         {
@@ -688,9 +683,9 @@ void FuDraw::ForcePointer(const MouseEvent* pMEvt)
             rViewShell.SetActivePointer( pObj->GetMacroPointer(aHitRec) );
         }
         else if ( !bAlt && pInfo && (!pInfo->GetMacro().isEmpty() || !pInfo->GetHlink().isEmpty()) )
-            pWindow->SetPointer( Pointer( PointerStyle::RefHand ) );
+            pWindow->SetPointer( PointerStyle::RefHand );
         else if ( IsDetectiveHit( aPnt ) )
-            rViewShell.SetActivePointer( Pointer( PointerStyle::Detective ) );
+            rViewShell.SetActivePointer( PointerStyle::Detective );
         else
             rViewShell.SetActivePointer( aNewPointer );            //! in Gridwin?
     }

@@ -219,6 +219,12 @@ interface BaseText
         StateMethod = NoState ;
         DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
     ]
+    FN_INSERT_NNBSP // status(final|play)
+    [
+        ExecMethod = ExecInsert ;
+        StateMethod = NoState ;
+        DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
+    ]
     SID_INSERT_RLM
     [
         ExecMethod = ExecInsert ;
@@ -1594,7 +1600,7 @@ interface BaseText
         StateMethod = GetState ;
         DisableFlags="SfxDisableFlags::SwOnProtectedCursor";
     ]
-    SID_TRANSLITERATE_KATAGANA
+    SID_TRANSLITERATE_KATAKANA
     [
         ExecMethod = ExecTransliteration;
         StateMethod = GetState ;
@@ -1674,6 +1680,30 @@ interface BaseText
         ExecMethod = Execute ;
         StateMethod = GetState ;
         DisableFlags="SfxDisableFlags::SwOnProtectedCursor";  // e.g. disable for read-only documents
+    ]
+
+    FN_INSERT_TEXT_FORMFIELD
+    [
+        ExecMethod = ExecField ;
+        StateMethod = StateField ;
+    ]
+
+    FN_INSERT_CHECKBOX_FORMFIELD
+    [
+        ExecMethod = ExecField ;
+        StateMethod = StateField ;
+    ]
+
+    FN_INSERT_DROPDOWN_FORMFIELD
+    [
+        ExecMethod = ExecField ;
+        StateMethod = StateField ;
+    ]
+
+    SID_FM_CTL_PROPERTIES
+    [
+        ExecMethod = Execute ;
+        StateMethod = GetState ;
     ]
 
 }  // end of interface text

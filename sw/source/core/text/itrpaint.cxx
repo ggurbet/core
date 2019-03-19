@@ -114,7 +114,7 @@ SwLinePortion *SwTextPainter::CalcPaintOfst( const SwRect &rPaint )
             else
                 pPor->Move( GetInfo() );
             pLast = pPor;
-            pPor = pPor->GetPortion();
+            pPor = pPor->GetNextPortion();
         }
 
         // 7529: if PostIts return also pLast.
@@ -134,7 +134,7 @@ SwLinePortion *SwTextPainter::CalcPaintOfst( const SwRect &rPaint )
 //    (objectively slow, subjectively fast)
 // Since the user usually judges subjectively the second method is set as default.
 void SwTextPainter::DrawTextLine( const SwRect &rPaint, SwSaveClip &rClip,
-                                 const bool bUnderSz )
+                                 const bool bUnderSized )
 {
 #if OSL_DEBUG_LEVEL > 1
 //    sal_uInt16 nFntHeight = GetInfo().GetFont()->GetHeight( GetInfo().GetVsh(), GetInfo().GetOut() );
@@ -169,15 +169,15 @@ void SwTextPainter::DrawTextLine( const SwRect &rPaint, SwSaveClip &rClip,
         {
             if( pPorIter->InTabGrp() )
             {
-               const SwTabPortion* pTabPor = static_cast<SwTabPortion*>(pPorIter);
-               const SwTwips nTabPos = nTmpLeft + pTabPor->GetTabPos();
+                const SwTabPortion* pTabPor = static_cast<SwTabPortion*>(pPorIter);
+                const SwTwips nTabPos = nTmpLeft + pTabPor->GetTabPos();
                 if( nMaxRight < nTabPos )
                 {
                     nMaxRight = rPaint.Right();
                     break;
                 }
             }
-            pPorIter = pPorIter->GetPortion();
+            pPorIter = pPorIter->GetNextPortion();
         }
     }
     if( !bEndPor && nTmpLeft >= nMaxRight )
@@ -200,7 +200,7 @@ void SwTextPainter::DrawTextLine( const SwRect &rPaint, SwSaveClip &rClip,
     // bClip decides if there's a need to clip
     // The whole thing must be done before retouching
 
-    bool bClip = ( bDrawInWindow || bUnderSz ) && !rClip.IsChg();
+    bool bClip = ( bDrawInWindow || bUnderSized ) && !rClip.IsChg();
     if( bClip && pPor )
     {
         // If TopLeft or BottomLeft of the line are outside, the we must clip.
@@ -356,7 +356,7 @@ void SwTextPainter::DrawTextLine( const SwRect &rPaint, SwSaveClip &rClip,
         }
 
         // Portions, which lay "below" the text like post-its
-        SwLinePortion *pNext = pPor->GetPortion();
+        SwLinePortion *pNext = pPor->GetNextPortion();
         if( GetInfo().OnWin() && pNext && !pNext->Width() )
         {
             // Fix 11289: Fields were omitted here because of Last!=Owner during
@@ -456,11 +456,12 @@ void SwTextPainter::DrawTextLine( const SwRect &rPaint, SwSaveClip &rClip,
                   GetTextFrame()->GetNext()->IsTextFrame() &&
                   static_cast<SwTextFrame*>(GetTextFrame()->GetNext())->IsUndersized() ) ;
 
-            if( bUnderSz || bNextUndersized )
+            if( bUnderSized || bNextUndersized )
             {
                 if ( bAdjustBaseLine )
                     GetInfo().Y( GetInfo().GetPos().Y() + m_pCurr->GetAscent() );
 
+                // Left arrow (text overflowing)
                 if( pArrow )
                     GetInfo().DrawRedArrow( *pArrow );
 
@@ -472,6 +473,7 @@ void SwTextPainter::DrawTextLine( const SwRect &rPaint, SwSaveClip &rClip,
                     (nDiff >= 0 && bNextUndersized) )
 
                 {
+                    // Right arrow (text overflowing)
                     SwArrowPortion aArrow( GetInfo() );
                     GetInfo().DrawRedArrow( aArrow );
                 }
@@ -646,7 +648,7 @@ void SwTextPainter::CheckSpecialUnderline( const SwLinePortion* pPor,
             ++nNumberOfPortions;
 
             nTmpIdx += pPor->GetLen();
-            pPor = pPor->GetPortion();
+            pPor = pPor->GetNextPortion();
         }
 
         // resulting height

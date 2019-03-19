@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <vclpluginapi.h>
+
 #include <cppuhelper/compbase.hxx>
 
 #include <com/sun/star/lang/XServiceInfo.hpp>
@@ -41,6 +43,7 @@
 
 #include <memory>
 
+class QComboBox;
 class QGridLayout;
 class QLabel;
 class QWidget;
@@ -50,9 +53,16 @@ typedef ::cppu::WeakComponentImplHelper<
     css::ui::dialogs::XFolderPicker2, css::lang::XInitialization, css::lang::XServiceInfo>
     Qt5FilePicker_Base;
 
-class Qt5FilePicker : public QObject, public Qt5FilePicker_Base
+class VCLPLUG_QT5_PUBLIC Qt5FilePicker : public QObject, public Qt5FilePicker_Base
 {
     Q_OBJECT
+
+private:
+    // whether to show (i.e. not remove) the file extension in the filter title,
+    // e.g. whether to use "ODF Text Document (*.odt)" or just
+    // "ODF Text Document" as filter title
+    // (non-native QFileDialog e.g. adds that information by itself anyway)
+    bool m_bShowFileExtensionInFilterTitle;
 
 protected:
     css::uno::Reference<css::ui::dialogs::XFilePickerListener> m_xListener;
@@ -63,6 +73,8 @@ protected:
 
     QStringList m_aNamedFilterList; ///< to keep the original sequence
     QHash<QString, QString> m_aTitleToFilterMap;
+    // to retrieve the filename extension for a given filter
+    QHash<QString, QString> m_aNamedFilterToExtensionMap;
     QString m_aCurrentFilter;
 
     QWidget* m_pExtraControls; ///< widget to contain extra custom controls
@@ -71,8 +83,13 @@ protected:
     QLabel* m_pFilterLabel; ///< label to display the filter
     QHash<sal_Int16, QWidget*> m_aCustomWidgetsMap; ///< map of SAL control ID's to widget
 
+    bool m_bIsFolderPicker;
+
 public:
-    explicit Qt5FilePicker(QFileDialog::FileMode);
+    // use non-native file dialog by default; there's no easy way to add custom widgets
+    // in a generic way in the native one
+    explicit Qt5FilePicker(QFileDialog::FileMode, bool bShowFileExtensionInFilterTitle = false,
+                           bool bUseNativeDialog = false);
     virtual ~Qt5FilePicker() override;
 
     // XFilePickerNotifier
@@ -134,126 +151,16 @@ public:
     virtual OUString SAL_CALL getDirectory() override;
     virtual void SAL_CALL setDescription(const OUString& rDescription) override;
 
-private Q_SLOTS:
-    // XExecutableDialog functions
-    /// @throws css::uno::RuntimeException
-    void setTitleSlot(const OUString& rTitle) { return setTitle(rTitle); }
-    /// @throws css::uno::RuntimeException
-    sal_Int16 executeSlot() { return execute(); }
-
-    // XFilePicker functions
-    /// @throws css::uno::RuntimeException
-    void setMultiSelectionModeSlot(bool bMode) { return setMultiSelectionMode(bMode); }
-    /// @throws css::uno::RuntimeException
-    void setDefaultNameSlot(const OUString& rName) { return setDefaultName(rName); }
-    /// @throws css::uno::RuntimeException
-    void setDisplayDirectorySlot(const OUString& rDirectory)
-    {
-        return setDisplayDirectory(rDirectory);
-    }
-    /// @throws css::uno::RuntimeException
-    OUString getDisplayDirectorySlot() { return getDisplayDirectory(); }
-    /// @throws css::uno::RuntimeException
-    css::uno::Sequence<OUString> getFilesSlot() { return getFiles(); }
-
-    // XFilterManager functions
-    /// @throws css::lang::IllegalArgumentException
-    /// @throws css::uno::RuntimeException
-    void appendFilterSlot(const OUString& rTitle, const OUString& rFilter)
-    {
-        return appendFilter(rTitle, rFilter);
-    }
-    /// @throws css::lang::IllegalArgumentException
-    /// @throws css::uno::RuntimeException
-    void setCurrentFilterSlot(const OUString& rTitle) { return setCurrentFilter(rTitle); }
-    /// @throws css::uno::RuntimeException
-    OUString getCurrentFilterSlot() { return getCurrentFilter(); }
-
-    // XFilterGroupManager functions
-    /// @throws css::lang::IllegalArgumentException
-    /// @throws css::uno::RuntimeException
-    void appendFilterGroupSlot(const OUString& rGroupTitle,
-                               const css::uno::Sequence<css::beans::StringPair>& rFilters)
-    {
-        return appendFilterGroup(rGroupTitle, rFilters);
-    }
-
-    // XFilePickerControlAccess functions
-    /// @throws css::uno::RuntimeException
-    void setValueSlot(sal_Int16 nControlId, sal_Int16 nControlAction, const css::uno::Any& rValue)
-    {
-        return setValue(nControlId, nControlAction, rValue);
-    }
-    /// @throws css::uno::RuntimeException
-    css::uno::Any getValueSlot(sal_Int16 nControlId, sal_Int16 nControlAction)
-    {
-        return getValue(nControlId, nControlAction);
-    }
-    /// @throws css::uno::RuntimeException
-    void enableControlSlot(sal_Int16 nControlId, bool bEnable)
-    {
-        return enableControl(nControlId, bEnable);
-    }
-    /// @throws css::uno::RuntimeException
-    void setLabelSlot(sal_Int16 nControlId, const OUString& rLabel)
-    {
-        return setLabel(nControlId, rLabel);
-    }
-    /// @throws css::uno::RuntimeException
-    OUString getLabelSlot(sal_Int16 nControlId) { return getLabel(nControlId); }
-
-    // XFilePicker2 functions
-    /// @throws css::uno::RuntimeException
-    css::uno::Sequence<OUString> getSelectedFilesSlot() { return getSelectedFiles(); }
-
-    // XInitialization
-    /// @throws css::uno::Exception
-    /// @throws css::uno::RuntimeException
-    void initializeSlot(const css::uno::Sequence<css::uno::Any>& rArguments)
-    {
-        return initialize(rArguments);
-    }
-
-Q_SIGNALS:
-    // XExecutableDialog functions
-    void setTitleSignal(const OUString& rTitle);
-    sal_Int16 executeSignal();
-
-    // XFilePicker functions
-    void setMultiSelectionModeSignal(bool bMode);
-    void setDefaultNameSignal(const OUString& rName);
-    void setDisplayDirectorySignal(const OUString& rDirectory);
-    OUString getDisplayDirectorySignal();
-    css::uno::Sequence<OUString> getFilesSignal();
-
-    // XFilterManager functions
-    void appendFilterSignal(const OUString& rTitle, const OUString& rFilter);
-    void setCurrentFilterSignal(const OUString& rTitle);
-    OUString getCurrentFilterSignal();
-
-    // XFilterGroupManager functions
-    void appendFilterGroupSignal(const OUString& rGroupTitle,
-                                 const css::uno::Sequence<css::beans::StringPair>& rFilters);
-
-    // XFilePickerControlAccess functions
-    void setValueSignal(sal_Int16 nControlId, sal_Int16 nControlAction,
-                        const css::uno::Any& rValue);
-    css::uno::Any getValueSignal(sal_Int16 nControlId, sal_Int16 nControlAction);
-    void enableControlSignal(sal_Int16 nControlId, bool bEnable);
-    void setLabelSignal(sal_Int16 nControlId, const OUString& rLabel);
-    OUString getLabelSignal(sal_Int16 nControlId);
-
-    // XFilePicker2 functions
-    css::uno::Sequence<OUString> getSelectedFilesSignal();
-
-    // XInitialization
-    void initializeSignal(const css::uno::Sequence<css::uno::Any>& rArguments);
+protected:
+    static css::uno::Any handleGetListValue(QComboBox* pWidget, sal_Int16 nControlAction);
+    static void handleSetListValue(QComboBox* pQComboBox, sal_Int16 nAction,
+                                   const css::uno::Any& rValue);
+    virtual void addCustomControl(sal_Int16 controlId);
+    void setCustomControlWidgetLayout(QGridLayout* pLayout) { m_pLayout = pLayout; }
 
 private:
     Qt5FilePicker(const Qt5FilePicker&) = delete;
     Qt5FilePicker& operator=(const Qt5FilePicker&) = delete;
-
-    void addCustomControl(sal_Int16 controlId);
 
     static QString getResString(const char* pRedId);
 
@@ -262,6 +169,8 @@ private Q_SLOTS:
     void filterSelected(const QString&);
     // emit XFilePickerListener fileSelectionChanged event
     void currentChanged(const QString&);
+    // (un)set automatic file extension
+    void updateAutomaticFileExtension();
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

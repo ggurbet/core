@@ -26,6 +26,7 @@
 #include <vcl/field.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/lstbox.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <global.hxx>
 #include <scresid.hxx>
@@ -35,15 +36,12 @@
 #include <strings.hxx>
 #include <csvtablebox.hxx>
 #include <osl/thread.h>
-#include <rtl/tencinfo.h>
 #include <unotools/transliterationwrapper.hxx>
-#include <editutil.hxx>
 
 #include <optutil.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <miscuno.hxx>
-#include <tools/urlobj.hxx>
 #include <osl/diagnose.h>
 
 //! TODO make dynamic
@@ -477,7 +475,7 @@ ScImportAsciiDlg::ScImportAsciiDlg( vcl::Window* pParent, const OUString& aDatNa
     pLbCharSet->SetSelectHdl( LINK( this, ScImportAsciiDlg, CharSetHdl ) );
 
     pLbCustomLang->SetLanguageList(
-        SvxLanguageListFlags::ALL | SvxLanguageListFlags::ONLY_KNOWN, false);
+        SvxLanguageListFlags::ALL | SvxLanguageListFlags::ONLY_KNOWN, false, false);
     pLbCustomLang->InsertLanguage(LANGUAGE_SYSTEM);
     pLbCustomLang->SelectLanguage(static_cast<LanguageType>(nLanguage));
 
@@ -738,12 +736,12 @@ IMPL_LINK( ScImportAsciiDlg, RbSepFixHdl, Button*, pButton, void )
 
     if( (pButton == pRbFixed) || (pButton == pRbSeparated) )
     {
-        SetPointer( Pointer( PointerStyle::Wait ) );
+        SetPointer( PointerStyle::Wait );
         if( pRbFixed->IsChecked() )
             mpTableBox->SetFixedWidthMode();
         else
             mpTableBox->SetSeparatorsMode();
-        SetPointer( Pointer( PointerStyle::Arrow ) );
+        SetPointer( PointerStyle::Arrow );
 
         SetupSeparatorCtrls();
     }
@@ -790,7 +788,7 @@ IMPL_LINK( ScImportAsciiDlg, CharSetHdl, ListBox&, rListBox, void )
     SvxTextEncodingBox* pCharSetBox = static_cast<SvxTextEncodingBox*>(&rListBox);
     if( (pCharSetBox == pLbCharSet) && (pCharSetBox->GetSelectedEntryCount() == 1) )
     {
-        SetPointer( Pointer( PointerStyle::Wait ) );
+        SetPointer( PointerStyle::Wait );
         rtl_TextEncoding eOldCharSet = meCharSet;
         SetSelectedCharSet();
         // switching char-set invalidates 8bit -> String conversions
@@ -798,7 +796,7 @@ IMPL_LINK( ScImportAsciiDlg, CharSetHdl, ListBox&, rListBox, void )
             UpdateVertical();
 
         mpTableBox->Execute( CSVCMD_NEWCELLTEXTS );
-        SetPointer( Pointer( PointerStyle::Arrow ) );
+        SetPointer( PointerStyle::Arrow );
     }
 }
 

@@ -28,6 +28,7 @@
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <vcl/toolbox.hxx>
+#include <vcl/vclevent.hxx>
 #include <comphelper/accessiblewrapper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/types.hxx>
@@ -215,15 +216,14 @@ void VCLXAccessibleToolBox::UpdateFocus_Impl()
     {
         sal_uInt16 nHighlightItemId = pToolBox->GetHighlightItemId();
         sal_uInt16 nFocusCount = 0;
-        for ( ToolBoxItemsMap::iterator aIter = m_aAccessibleChildren.begin();
-              aIter != m_aAccessibleChildren.end(); ++aIter )
+        for ( const auto& [rPos, rxChild] : m_aAccessibleChildren )
         {
-            sal_uInt16 nItemId = pToolBox->GetItemId( aIter->first );
+            sal_uInt16 nItemId = pToolBox->GetItemId( rPos );
 
-            if ( aIter->second.is() )
+            if ( rxChild.is() )
             {
                 VCLXAccessibleToolBoxItem* pItem =
-                    static_cast< VCLXAccessibleToolBoxItem* >( aIter->second.get() );
+                    static_cast< VCLXAccessibleToolBoxItem* >( rxChild.get() );
                 if ( pItem->HasFocus() && nItemId != nHighlightItemId )
                 {
                     // reset the old focused item
@@ -237,9 +237,9 @@ void VCLXAccessibleToolBox::UpdateFocus_Impl()
                     nFocusCount++;
                 }
             }
-        // both items changed?
-        if ( nFocusCount > 1 )
-            break;
+            // both items changed?
+            if ( nFocusCount > 1 )
+                break;
         }
     }
 }
@@ -269,13 +269,12 @@ void VCLXAccessibleToolBox::UpdateChecked_Impl( ToolBox::ImplToolItems::size_typ
         sal_uInt16 nFocusId = pToolBox->GetItemId( _nPos );
         VCLXAccessibleToolBoxItem* pFocusItem = nullptr;
 
-        for ( ToolBoxItemsMap::iterator aIter = m_aAccessibleChildren.begin();
-              aIter != m_aAccessibleChildren.end(); ++aIter )
+        for ( const auto& [rPos, rxChild] : m_aAccessibleChildren )
         {
-                sal_uInt16 nItemId = pToolBox->GetItemId( aIter->first );
+                sal_uInt16 nItemId = pToolBox->GetItemId( rPos );
 
                 VCLXAccessibleToolBoxItem* pItem =
-                    static_cast< VCLXAccessibleToolBoxItem* >( aIter->second.get() );
+                    static_cast< VCLXAccessibleToolBoxItem* >( rxChild.get() );
                 pItem->SetChecked( pToolBox->IsItemChecked( nItemId ) );
                 if ( nItemId == nFocusId )
                     pFocusItem = pItem;
@@ -534,7 +533,7 @@ void VCLXAccessibleToolBox::ProcessWindowEvent( const VclWindowEvent& rVclWindow
             else if( pToolBox->GetItemPos(pToolBox->GetCurItemId()) != ToolBox::ITEM_NOTFOUND )
             {
                 UpdateChecked_Impl( pToolBox->GetItemPos(pToolBox->GetCurItemId()) );
-                        UpdateIndeterminate_Impl( pToolBox->GetItemPos(pToolBox->GetCurItemId()) );
+                UpdateIndeterminate_Impl( pToolBox->GetItemPos(pToolBox->GetCurItemId()) );
             }
             break;
         }
@@ -551,7 +550,7 @@ void VCLXAccessibleToolBox::ProcessWindowEvent( const VclWindowEvent& rVclWindow
                 UpdateChecked_Impl( ToolBox::ITEM_NOTFOUND );
                 UpdateIndeterminate_Impl( static_cast<ToolBox::ImplToolItems::size_type>(reinterpret_cast<sal_IntPtr>(rVclWindowEvent.GetData())) );
             }
-        break;
+            break;
         }
 
         case VclEventId::ToolboxHighlight:

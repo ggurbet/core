@@ -22,6 +22,7 @@
 #include <basic/sbx.hxx>
 #include <basic/sberrors.hxx>
 #include <rtl/character.hxx>
+#include <rtl/ustrbuf.hxx>
 
 
 static SbxVariableRef Element
@@ -311,7 +312,7 @@ static SbxVariableRef Element
                         // One copies the parameter, so that
                         // one have the current status (triggers also
                         // the call per access)
-                        refPar->Put( new SbxVariable( *(refArg.get()) ), ++nArg );
+                        refPar->Put( new SbxVariable( *refArg ), ++nArg );
                     }
                     p = SkipWhitespace( p );
                     if( *p == ',' )

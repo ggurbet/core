@@ -145,7 +145,7 @@ AlignmentTabPage::AlignmentTabPage(TabPageParent pParent, const SfxItemSet& rCor
     m_xCbStacked->connect_toggled(LINK(this, AlignmentTabPage, UpdateEnableClickHdl));
 
     // Asian vertical mode
-    m_xCbAsianMode->show(SvtCJKOptions().IsVerticalTextEnabled());
+    m_xCbAsianMode->set_visible(SvtCJKOptions().IsVerticalTextEnabled());
 
     m_xLbFrameDir->append(SvxFrameDirection::Horizontal_LR_TB, SvxResId(RID_SVXSTR_FRAMEDIR_LTR));
     m_xLbFrameDir->append(SvxFrameDirection::Horizontal_RL_TB, SvxResId(RID_SVXSTR_FRAMEDIR_RTL));
@@ -596,24 +596,17 @@ void AlignmentTabPage::InitVsRefEgde()
     // remember selection - is deleted in call to ValueSet::Clear()
     sal_uInt16 nSel = m_aVsRefEdge.GetSelectedItemId();
 
-    BitmapEx aBottomLock(RID_SVXBMP_BOTTOMLOCK);
-    BitmapEx aTopLock(RID_SVXBMP_TOPLOCK);
-    BitmapEx aCellLock(RID_SVXBMP_CELLLOCK);
-
-    if( GetDPIScaleFactor() > 1 )
-    {
-        aBottomLock.Scale(GetDPIScaleFactor(), GetDPIScaleFactor(), BmpScaleFlag::Fast);
-        aTopLock.Scale(GetDPIScaleFactor(), GetDPIScaleFactor(), BmpScaleFlag::Fast);
-        aCellLock.Scale(GetDPIScaleFactor(), GetDPIScaleFactor(), BmpScaleFlag::Fast);
-    }
+    Image aBottomLock(StockImage::Yes, RID_SVXBMP_BOTTOMLOCK);
+    Image aTopLock(StockImage::Yes, RID_SVXBMP_TOPLOCK);
+    Image aCellLock(StockImage::Yes, RID_SVXBMP_CELLLOCK);
 
     m_aVsRefEdge.Clear();
     m_aVsRefEdge.SetStyle(m_aVsRefEdge.GetStyle() | WB_ITEMBORDER | WB_DOUBLEBORDER);
 
     m_aVsRefEdge.SetColCount(3);
-    m_aVsRefEdge.InsertItem(IID_BOTTOMLOCK, Image(aBottomLock),  m_xFtBotLock->get_label());
-    m_aVsRefEdge.InsertItem(IID_TOPLOCK,    Image(aTopLock),     m_xFtTopLock->get_label());
-    m_aVsRefEdge.InsertItem(IID_CELLLOCK,   Image(aCellLock),    m_xFtCelLock->get_label());
+    m_aVsRefEdge.InsertItem(IID_BOTTOMLOCK, aBottomLock,  m_xFtBotLock->get_label());
+    m_aVsRefEdge.InsertItem(IID_TOPLOCK,    aTopLock,     m_xFtTopLock->get_label());
+    m_aVsRefEdge.InsertItem(IID_CELLLOCK,   aCellLock,    m_xFtCelLock->get_label());
     m_aVsRefEdge.SetOptimalSize();
 
     m_aVsRefEdge.SelectItem( nSel );
@@ -641,11 +634,11 @@ void AlignmentTabPage::UpdateEnableControls()
     m_xBtnShrink->set_sensitive( (m_xBtnWrap->get_state() == TRISTATE_FALSE) && !bHorBlock && !bHorFill && !bHorDist );
 
     // visibility of frames
-    m_xAlignmentFrame->show(m_xLbHorAlign->get_visible() || m_xEdIndent->get_visible() ||
+    m_xAlignmentFrame->set_visible(m_xLbHorAlign->get_visible() || m_xEdIndent->get_visible() ||
         m_xLbVerAlign->get_visible());
-    m_xOrientFrame->show(m_xCtrlDial->get_visible() || m_xVsRefEdge->get_visible() ||
+    m_xOrientFrame->set_visible(m_xCtrlDial->get_visible() || m_xVsRefEdge->get_visible() ||
         m_xCbStacked->get_visible() || m_xCbAsianMode->get_visible());
-    m_xPropertiesFrame->show(m_xBtnWrap->get_visible() || m_xBtnHyphen->get_visible() ||
+    m_xPropertiesFrame->set_visible(m_xBtnWrap->get_visible() || m_xBtnHyphen->get_visible() ||
         m_xBtnShrink->get_visible() || m_xLbFrameDir->get_visible());
 
     bool bStackedText = m_xCbStacked->get_active();

@@ -56,6 +56,7 @@
 #include <sfx2/dispatch.hxx>
 #include <comphelper/extract.hxx>
 #include <tools/urlobj.hxx>
+#include <tools/debug.hxx>
 #include <osl/security.hxx>
 #include <osl/file.hxx>
 #include <osl/module.hxx>
@@ -122,7 +123,7 @@ extern "C" {
 
 namespace {
 
-boost::logic::tribool loaded(boost::logic::indeterminate);
+boost::logic::tribool loaded(boost::logic::indeterminate); // loplugin:constvars:ignore
 oslGenericFunction pInitSystray = disabled_initSystray;
 oslGenericFunction pDeInitSystray = disabled_deInitSystray;
 
@@ -143,7 +144,7 @@ bool LoadModule()
 #endif // ENABLE_QUICKSTART_APPLET
     }
     assert(!boost::logic::indeterminate(loaded));
-    return loaded;
+    return bool(loaded);
 }
 
 }
@@ -195,32 +196,32 @@ ShutdownIcon::~ShutdownIcon()
 
 void ShutdownIcon::OpenURL( const OUString& aURL, const OUString& rTarget, const Sequence< PropertyValue >& aArgs )
 {
-    if ( getInstance() && getInstance()->m_xDesktop.is() )
+    if ( !getInstance() || !getInstance()->m_xDesktop.is() )
+        return;
+
+    css::uno::Reference < XDispatchProvider > xDispatchProvider( getInstance()->m_xDesktop, UNO_QUERY );
+    if ( !xDispatchProvider.is() )
+        return;
+
+    css::util::URL aDispatchURL;
+    aDispatchURL.Complete = aURL;
+
+    css::uno::Reference< util::XURLTransformer > xURLTransformer( util::URLTransformer::create( ::comphelper::getProcessComponentContext() ) );
+    try
     {
-        css::uno::Reference < XDispatchProvider > xDispatchProvider( getInstance()->m_xDesktop, UNO_QUERY );
-        if ( xDispatchProvider.is() )
-        {
-            css::util::URL aDispatchURL;
-            aDispatchURL.Complete = aURL;
+        css::uno::Reference< css::frame::XDispatch > xDispatch;
 
-            css::uno::Reference< util::XURLTransformer > xURLTransformer( util::URLTransformer::create( ::comphelper::getProcessComponentContext() ) );
-            try
-            {
-                css::uno::Reference< css::frame::XDispatch > xDispatch;
-
-                xURLTransformer->parseStrict( aDispatchURL );
-                xDispatch = xDispatchProvider->queryDispatch( aDispatchURL, rTarget, 0 );
-                if ( xDispatch.is() )
-                    xDispatch->dispatch( aDispatchURL, aArgs );
-            }
-            catch ( css::uno::RuntimeException& )
-            {
-                throw;
-            }
-            catch ( css::uno::Exception& )
-            {
-            }
-        }
+        xURLTransformer->parseStrict( aDispatchURL );
+        xDispatch = xDispatchProvider->queryDispatch( aDispatchURL, rTarget, 0 );
+        if ( xDispatch.is() )
+            xDispatch->dispatch( aDispatchURL, aArgs );
+    }
+    catch ( css::uno::RuntimeException& )
+    {
+        throw;
+    }
+    catch ( css::uno::Exception& )
+    {
     }
 }
 
@@ -238,40 +239,40 @@ void ShutdownIcon::FileOpen()
 
 void ShutdownIcon::FromTemplate()
 {
-    if ( getInstance() && getInstance()->m_xDesktop.is() )
+    if ( !getInstance() || !getInstance()->m_xDesktop.is() )
+        return;
+
+    css::uno::Reference < css::frame::XFramesSupplier > xDesktop ( getInstance()->m_xDesktop, UNO_QUERY);
+    css::uno::Reference < css::frame::XFrame > xFrame( xDesktop->getActiveFrame() );
+    if ( !xFrame.is() )
+        xFrame.set( xDesktop, UNO_QUERY );
+
+    URL aTargetURL;
+    aTargetURL.Complete = ".uno:NewDoc";
+    css::uno::Reference< util::XURLTransformer > xTrans( util::URLTransformer::create( ::comphelper::getProcessComponentContext() ) );
+    xTrans->parseStrict( aTargetURL );
+
+    css::uno::Reference < css::frame::XDispatchProvider > xProv( xFrame, UNO_QUERY );
+    css::uno::Reference < css::frame::XDispatch > xDisp;
+    if ( xProv.is() )
     {
-        css::uno::Reference < css::frame::XFramesSupplier > xDesktop ( getInstance()->m_xDesktop, UNO_QUERY);
-        css::uno::Reference < css::frame::XFrame > xFrame( xDesktop->getActiveFrame() );
-        if ( !xFrame.is() )
-            xFrame.set( xDesktop, UNO_QUERY );
-
-        URL aTargetURL;
-        aTargetURL.Complete = ".uno:NewDoc";
-        css::uno::Reference< util::XURLTransformer > xTrans( util::URLTransformer::create( ::comphelper::getProcessComponentContext() ) );
-        xTrans->parseStrict( aTargetURL );
-
-        css::uno::Reference < css::frame::XDispatchProvider > xProv( xFrame, UNO_QUERY );
-        css::uno::Reference < css::frame::XDispatch > xDisp;
-        if ( xProv.is() )
-        {
-            xDisp = xProv->queryDispatch( aTargetURL, "_self", 0 );
-        }
-        if ( xDisp.is() )
-        {
-            Sequence<PropertyValue> aArgs(1);
-            PropertyValue* pArg = aArgs.getArray();
-            pArg[0].Name = "Referer";
-            pArg[0].Value <<= OUString("private:user");
-            css::uno::Reference< css::frame::XNotifyingDispatch > xNotifier(xDisp, UNO_QUERY);
-            if (xNotifier.is())
-            {
-                EnterModalMode();
-                xNotifier->dispatchWithNotification(aTargetURL, aArgs, new SfxNotificationListener_Impl);
-            }
-            else
-                xDisp->dispatch( aTargetURL, aArgs );
-        }
+        xDisp = xProv->queryDispatch( aTargetURL, "_self", 0 );
     }
+    if ( !xDisp.is() )
+        return;
+
+    Sequence<PropertyValue> aArgs(1);
+    PropertyValue* pArg = aArgs.getArray();
+    pArg[0].Name = "Referer";
+    pArg[0].Value <<= OUString("private:user");
+    css::uno::Reference< css::frame::XNotifyingDispatch > xNotifier(xDisp, UNO_QUERY);
+    if (xNotifier.is())
+    {
+        EnterModalMode();
+        xNotifier->dispatchWithNotification(aTargetURL, aArgs, new SfxNotificationListener_Impl);
+    }
+    else
+        xDisp->dispatch( aTargetURL, aArgs );
 }
 
 OUString ShutdownIcon::GetUrlDescription( const OUString& aUrl )
@@ -715,7 +716,7 @@ css::uno::Any SAL_CALL ShutdownIcon::getFastPropertyValue( ::sal_Int32 nHandle )
         case PROPHANDLE_TERMINATEVETOSTATE :
              {
                 bool bState   = (m_bListenForTermination && m_bVeto);
-                     aValue <<= bState;
+                aValue <<= bState;
              }
              break;
 

@@ -198,6 +198,7 @@ public:
     void testTdf119118();
     void testTdf99213();
     void testPotxExport();
+    void testTdf44223();
 
     CPPUNIT_TEST_SUITE(SdOOXMLExportTest2);
 
@@ -278,6 +279,7 @@ public:
     CPPUNIT_TEST(testTdf119118);
     CPPUNIT_TEST(testTdf99213);
     CPPUNIT_TEST(testPotxExport);
+    CPPUNIT_TEST(testTdf44223);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -297,6 +299,7 @@ public:
             { "wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" },
             { "p", "http://schemas.openxmlformats.org/presentationml/2006/main" },
             { "p14", "http://schemas.microsoft.com/office/powerpoint/2010/main" },
+            { "r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships" },
             { "w", "http://schemas.openxmlformats.org/wordprocessingml/2006/main" },
             { "a14", "http://schemas.microsoft.com/office/drawing/2010/main" },
             { "wps", "http://schemas.microsoft.com/office/word/2010/wordprocessingShape" },
@@ -1410,10 +1413,10 @@ void SdOOXMLExportTest2::testGroupsPosition()
     xDocShRef->DoClose();
 
     xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[3]/p:spPr/a:xfrm/a:off", "x", "6796800");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[3]/p:spPr/a:xfrm/a:off", "y", "4273920");
     assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[1]/p:spPr/a:xfrm/a:off", "x", "4040640");
     assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[1]/p:spPr/a:xfrm/a:off", "y", "4273920");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[3]/p:spPr/a:xfrm/a:off", "x", "6796800");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[3]/p:spPr/a:xfrm/a:off", "y", "4273920");
 }
 
 void SdOOXMLExportTest2::testGroupsRotatedPosition()
@@ -1764,8 +1767,8 @@ void SdOOXMLExportTest2::testTdf90627()
     xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
 
     xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
-    // Don't export empty conditions
-    assertXPath(pXmlDocContent, "/p:sld/p:timing/p:tnLst/p:par/p:cTn/p:childTnLst[1]/p:seq/p:cTn/p:childTnLst[1]/p:par[2]/p:cTn/p:childTnLst[1]/p:par/p:cTn/p:childTnLst[1]/p:par/p:cTn/p:endCondLst", 0);
+    // Don't export empty endCondLst without cond.
+    assertXPath(pXmlDocContent, "/p:sld/p:timing/p:tnLst/p:par/p:cTn/p:childTnLst[1]/p:seq/p:cTn/p:childTnLst[1]/p:par[2]/p:cTn/p:childTnLst[1]/p:par/p:cTn/p:childTnLst[1]/p:par/p:cTn/p:endCondLst[not(*)]", 0);
 
     xDocShRef->DoClose();
 }
@@ -1878,7 +1881,7 @@ void SdOOXMLExportTest2::testTdf118836()
     xDocShRef->DoClose();
 }
 
-static double getAdjustmentValue( uno::Reference<beans::XPropertySet>& xSet )
+static double getAdjustmentValue( const uno::Reference<beans::XPropertySet>& xSet )
 {
     auto aGeomPropSeq = xSet->getPropertyValue( "CustomShapeGeometry" )
                             .get<uno::Sequence<beans::PropertyValue>>();
@@ -1903,7 +1906,7 @@ static double getAdjustmentValue( uno::Reference<beans::XPropertySet>& xSet )
     return -1.0;
 }
 
-static bool getScaleXValue(uno::Reference<beans::XPropertySet>& xSet)
+static bool getScaleXValue(const uno::Reference<beans::XPropertySet>& xSet)
 {
     bool bScaleX = false;
 
@@ -2066,6 +2069,40 @@ void SdOOXMLExportTest2::testPotxExport()
     assertXPath(pContentTypes, "/ContentType:Types/ContentType:Override[@PartName='/ppt/presentation.xml']",
         "ContentType", "application/vnd.openxmlformats-officedocument.presentationml.template.main+xml");
 }
+
+void SdOOXMLExportTest2::testTdf44223()
+{
+    utl::TempFile tempFile;
+    ::sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf44223.pptx"), PPTX);
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    std::shared_ptr<SvStream> const pStream1(parseExportStream(tempFile, "media/audio1.wav"));
+    CPPUNIT_ASSERT_EQUAL(sal_uInt64(11140), pStream1->remainingSize());
+
+    std::shared_ptr<SvStream> const pStream2(parseExportStream(tempFile, "media/audio2.wav"));
+    CPPUNIT_ASSERT_EQUAL(sal_uInt64(28074), pStream2->remainingSize());
+
+    xmlDocPtr pXmlContentType = parseExport(tempFile, "[Content_Types].xml");
+    assertXPath(pXmlContentType,
+                "/ContentType:Types/ContentType:Override[@PartName='/media/audio1.wav']",
+                "ContentType",
+                "audio/x-wav");
+
+    assertXPath(pXmlContentType,
+                "/ContentType:Types/ContentType:Override[@PartName='/media/audio2.wav']",
+                "ContentType",
+                "audio/x-wav");
+
+    xmlDocPtr pDoc1 = parseExport(tempFile, "ppt/slides/slide1.xml");
+    assertXPath(pDoc1 , "//p:audio/p:cMediaNode/p:tgtEl/p:sndTgt[@r:embed]", 1);
+
+    xmlDocPtr pDoc2 = parseExport(tempFile, "ppt/slides/slide2.xml");
+    assertXPath(pDoc2 , "//p:transition/p:sndAc/p:stSnd/p:snd[@r:embed]", 2);
+
+    xDocShRef->DoClose();
+}
+
 CPPUNIT_TEST_SUITE_REGISTRATION(SdOOXMLExportTest2);
 
 CPPUNIT_PLUGIN_IMPLEMENT();

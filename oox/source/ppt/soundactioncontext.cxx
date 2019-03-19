@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include <oox/ppt/soundactioncontext.hxx>
 
 #include <cppuhelper/exc_hlp.hxx>
@@ -27,6 +29,8 @@
 #include <oox/token/namespaces.hxx>
 #include <oox/token/properties.hxx>
 #include <oox/token/tokens.hxx>
+#include <oox/core/xmlfilterbase.hxx>
+#include <avmedia/mediaitem.hxx>
 
 using namespace ::oox::core;
 using namespace ::com::sun::star::xml::sax;
@@ -54,12 +58,18 @@ namespace oox { namespace ppt {
             if( mbHasStartSound )
             {
                 OUString url;
-                // TODO this is very wrong
+#if HAVE_FEATURE_AVMEDIA
                 if ( !msSndName.isEmpty() )
                 {
-                    // try the builtIn version
-                    url = msSndName;
+                    Reference<css::io::XInputStream>
+                        xInputStream = getFilter().openInputStream(msSndName);
+                    if (xInputStream.is())
+                    {
+                        ::avmedia::EmbedMedia(getFilter().getModel(), msSndName, url, xInputStream);
+                        xInputStream->closeInput();
+                    }
                 }
+#endif
                 if ( !url.isEmpty() )
                 {
                     maSlideProperties.setProperty( PROP_Sound, url);

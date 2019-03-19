@@ -24,6 +24,7 @@
 #include <vcl/settings.hxx>
 #include <svl/zforlist.hxx>
 
+#include <svtools/HtmlWriter.hxx>
 #include <svtools/htmlout.hxx>
 #include <svtools/htmlkywd.hxx>
 #include <vcl/imap.hxx>
@@ -32,6 +33,7 @@
 #include <vcl/imappoly.hxx>
 #include <svl/urihelper.hxx>
 #include <rtl/character.hxx>
+#include <tools/debug.hxx>
 
 #include <sstream>
 

@@ -27,9 +27,7 @@
 #include <svx/svdoashp.hxx>
 #include <editeng/eeitem.hxx>
 #include <svx/sdtagitm.hxx>
-#include <fuconuno.hxx>
 #include <tabvwsh.hxx>
-#include <sc.hrc>
 #include <drawview.hxx>
 #include <editeng/adjustitem.hxx>
 
@@ -99,7 +97,7 @@ void FuConstCustomShape::Activate()
 {
     pView->SetCurrentObj( OBJ_CUSTOMSHAPE );
 
-    aNewPointer = Pointer( PointerStyle::DrawRect );
+    aNewPointer = PointerStyle::DrawRect;
     aOldPointer = pWindow->GetPointer();
     rViewShell.SetActivePointer( aNewPointer );
 

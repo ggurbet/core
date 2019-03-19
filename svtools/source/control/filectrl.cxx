@@ -26,6 +26,7 @@
 #include <osl/diagnose.h>
 #include <svtools/svtresid.hxx>
 #include <tools/urlobj.hxx>
+#include <vcl/edit.hxx>
 #include <vcl/stdtext.hxx>
 #include <svtools/strings.hrc>
 
@@ -228,7 +229,7 @@ IMPL_LINK_NOARG(FileControl, ButtonHdl, Button*, void)
                 if ( aObj.GetProtocol() == INetProtocol::File )
                     aNewText = aObj.PathToFileName();
                 SetText( aNewText );
-                maEdit->GetModifyHdl().Call( *maEdit.get() );
+                maEdit->GetModifyHdl().Call( *maEdit );
             }
         }
     }

@@ -61,7 +61,7 @@ class RTFParserState;
 class RTFDocumentImpl;
 class RTFTokenizer;
 class RTFSdrImport;
-struct TableRowBuffer;
+class TableRowBuffer;
 
 enum class RTFBorderState
 {
@@ -76,6 +76,8 @@ enum class RTFBorderState
 /// Different kind of buffers for table cell contents.
 enum RTFBufferTypes
 {
+    BUFFER_SETSTYLE,
+    /// Stores properties, should be created only in bufferProperties().
     BUFFER_PROPS,
     BUFFER_NESTROW,
     BUFFER_CELLEND,
@@ -122,24 +124,39 @@ using Buf_t = std::tuple<RTFBufferTypes, RTFValue::Pointer_t, tools::SvRef<Table
 using RTFBuffer_t = std::deque<Buf_t>;
 
 /// holds one nested table row
-struct TableRowBuffer : public virtual SvRefBase
+class TableRowBuffer : public virtual SvRefBase
 {
-    RTFBuffer_t buffer;
-    ::std::deque<RTFSprms> cellsSprms;
-    ::std::deque<RTFSprms> cellsAttributes;
-    int const nCells;
-    writerfilter::Reference<Properties>::Pointer_t pParaProperties;
-    writerfilter::Reference<Properties>::Pointer_t pFrameProperties;
-    writerfilter::Reference<Properties>::Pointer_t pRowProperties;
+    RTFBuffer_t m_aBuffer;
+    ::std::deque<RTFSprms> m_aCellsSprms;
+    ::std::deque<RTFSprms> m_aCellsAttributes;
+    int const m_nCells;
+    writerfilter::Reference<Properties>::Pointer_t m_pParaProperties;
+    writerfilter::Reference<Properties>::Pointer_t m_pFrameProperties;
+    writerfilter::Reference<Properties>::Pointer_t m_pRowProperties;
 
+public:
     TableRowBuffer(RTFBuffer_t aBuffer, std::deque<RTFSprms> aSprms,
-                   std::deque<RTFSprms> aAttributes, int const i_nCells)
-        : buffer(std::move(aBuffer))
-        , cellsSprms(std::move(aSprms))
-        , cellsAttributes(std::move(aAttributes))
-        , nCells(i_nCells)
+                   std::deque<RTFSprms> aAttributes, int const nCells)
+        : m_aBuffer(std::move(aBuffer))
+        , m_aCellsSprms(std::move(aSprms))
+        , m_aCellsAttributes(std::move(aAttributes))
+        , m_nCells(nCells)
     {
     }
+
+    RTFBuffer_t& GetBuffer() { return m_aBuffer; }
+    std::deque<RTFSprms>& GetCellsSprms() { return m_aCellsSprms; }
+    std::deque<RTFSprms>& GetCellsAttributes() { return m_aCellsAttributes; }
+    int GetCells() const { return m_nCells; }
+    writerfilter::Reference<Properties>::Pointer_t& GetParaProperties()
+    {
+        return m_pParaProperties;
+    }
+    writerfilter::Reference<Properties>::Pointer_t& GetFrameProperties()
+    {
+        return m_pFrameProperties;
+    }
+    writerfilter::Reference<Properties>::Pointer_t& GetRowProperties() { return m_pRowProperties; }
 };
 
 /// An entry in the color table.
@@ -175,27 +192,103 @@ class RTFShape : public virtual SvRefBase
 {
 public:
     RTFShape();
-    std::vector<std::pair<OUString, OUString>> aProperties; ///< Properties of a single shape.
+
+    std::vector<std::pair<OUString, OUString>>& getProperties() { return m_aProperties; }
+
+    const std::vector<std::pair<OUString, OUString>>& getProperties() const
+    {
+        return m_aProperties;
+    }
+
+    std::vector<std::pair<OUString, OUString>>& getGroupProperties() { return m_aGroupProperties; }
+
+    void setLeft(sal_Int32 nLeft) { m_nLeft = nLeft; }
+
+    sal_Int32 getLeft() const { return m_nLeft; }
+
+    void setTop(sal_Int32 nTop) { m_nTop = nTop; }
+
+    sal_Int32 getTop() const { return m_nTop; }
+
+    void setRight(sal_Int32 nRight) { m_nRight = nRight; }
+
+    sal_Int32 getRight() const { return m_nRight; }
+
+    void setBottom(sal_Int32 nBottom) { m_nBottom = nBottom; }
+
+    sal_Int32 getBottom() const { return m_nBottom; }
+
+    void setZ(sal_Int32 nZ) { m_oZ.reset(nZ); }
+
+    bool hasZ() const { return bool(m_oZ); }
+
+    sal_Int32 getZ() const { return *m_oZ; }
+
+    void setHoriOrientRelation(sal_Int16 nHoriOrientRelation)
+    {
+        m_nHoriOrientRelation = nHoriOrientRelation;
+    }
+
+    sal_Int16 getHoriOrientRelation() const { return m_nHoriOrientRelation; }
+
+    void setVertOrientRelation(sal_Int16 nVertOrientRelation)
+    {
+        m_nVertOrientRelation = nVertOrientRelation;
+    }
+
+    sal_Int16 getVertOrientRelation() const { return m_nVertOrientRelation; }
+
+    void setHoriOrientRelationToken(sal_uInt32 nHoriOrientRelationToken)
+    {
+        m_nHoriOrientRelationToken = nHoriOrientRelationToken;
+    }
+
+    sal_uInt32 getHoriOrientRelationToken() const { return m_nHoriOrientRelationToken; }
+
+    void setVertOrientRelationToken(sal_uInt32 nVertOrientRelationToken)
+    {
+        m_nVertOrientRelationToken = nVertOrientRelationToken;
+    }
+
+    sal_uInt32 getVertOrientRelationToken() const { return m_nVertOrientRelationToken; }
+
+    void setWrap(css::text::WrapTextMode nWrap) { m_nWrap = nWrap; }
+
+    css::text::WrapTextMode getWrap() const { return m_nWrap; }
+
+    void setInBackground(bool bInBackground) { m_bInBackground = bInBackground; }
+
+    bool getInBackground() const { return m_bInBackground; }
+
+    RTFSprms& getWrapPolygonSprms() { return m_aWrapPolygonSprms; }
+
+    RTFSprms& getAnchorAttributes() { return m_aAnchorAttributes; }
+
+    std::pair<Id, RTFValue::Pointer_t>& getWrapSprm() { return m_aWrapSprm; }
+
+private:
+    std::vector<std::pair<OUString, OUString>> m_aProperties; ///< Properties of a single shape.
     std::vector<std::pair<OUString, OUString>>
-        aGroupProperties; ///< Properties applied on the groupshape.
-    sal_Int32 nLeft = 0;
-    sal_Int32 nTop = 0;
-    sal_Int32 nRight = 0;
-    sal_Int32 nBottom = 0;
-    boost::optional<sal_Int32> oZ; ///< Z-Order of the shape.
-    sal_Int16 nHoriOrientRelation = 0; ///< Horizontal text::RelOrientation for drawinglayer shapes.
-    sal_Int16 nVertOrientRelation = 0; ///< Vertical text::RelOrientation for drawinglayer shapes.
-    sal_uInt32 nHoriOrientRelationToken = 0; ///< Horizontal dmapper token for Writer pictures.
-    sal_uInt32 nVertOrientRelationToken = 0; ///< Vertical dmapper token for Writer pictures.
-    css::text::WrapTextMode nWrap = css::text::WrapTextMode::WrapTextMode_MAKE_FIXED_SIZE;
+        m_aGroupProperties; ///< Properties applied on the groupshape.
+    sal_Int32 m_nLeft = 0;
+    sal_Int32 m_nTop = 0;
+    sal_Int32 m_nRight = 0;
+    sal_Int32 m_nBottom = 0;
+    boost::optional<sal_Int32> m_oZ; ///< Z-Order of the shape.
+    sal_Int16 m_nHoriOrientRelation
+        = 0; ///< Horizontal text::RelOrientation for drawinglayer shapes.
+    sal_Int16 m_nVertOrientRelation = 0; ///< Vertical text::RelOrientation for drawinglayer shapes.
+    sal_uInt32 m_nHoriOrientRelationToken = 0; ///< Horizontal dmapper token for Writer pictures.
+    sal_uInt32 m_nVertOrientRelationToken = 0; ///< Vertical dmapper token for Writer pictures.
+    css::text::WrapTextMode m_nWrap = css::text::WrapTextMode::WrapTextMode_MAKE_FIXED_SIZE;
     /// If shape is below text (true) or text is below shape (false).
-    bool bInBackground = false;
+    bool m_bInBackground = false;
     /// Wrap polygon, written by RTFSdrImport::resolve(), read by RTFDocumentImpl::resolvePict().
-    RTFSprms aWrapPolygonSprms;
+    RTFSprms m_aWrapPolygonSprms;
     /// Anchor attributes like wrap distance, written by RTFSdrImport::resolve(), read by RTFDocumentImpl::resolvePict().
-    RTFSprms aAnchorAttributes;
+    RTFSprms m_aAnchorAttributes;
     /// Wrap type, written by RTFDocumentImpl::popState(), read by RTFDocumentImpl::resolvePict().
-    std::pair<Id, RTFValue::Pointer_t> aWrapSprm{ 0, nullptr };
+    std::pair<Id, RTFValue::Pointer_t> m_aWrapSprm{ 0, nullptr };
 };
 
 /// Stores the properties of a drawing object.
@@ -203,29 +296,67 @@ class RTFDrawingObject : public RTFShape
 {
 public:
     RTFDrawingObject();
-    css::uno::Reference<css::drawing::XShape> xShape;
-    css::uno::Reference<css::beans::XPropertySet> xPropertySet;
-    std::vector<css::beans::PropertyValue> aPendingProperties;
-    sal_uInt8 nLineColorR = 0;
-    sal_uInt8 nLineColorG = 0;
-    sal_uInt8 nLineColorB = 0;
-    bool bHasLineColor = false;
-    sal_uInt8 nFillColorR = 0;
-    sal_uInt8 nFillColorG = 0;
-    sal_uInt8 nFillColorB = 0;
-    bool bHasFillColor = false;
-    sal_Int32 nDhgt = 0;
-    sal_Int32 nFLine = -1;
-    sal_Int32 nPolyLineCount = 0;
-    std::vector<css::awt::Point> aPolyLinePoints;
-    bool bHadShapeText = false;
+
+    void setShape(const css::uno::Reference<css::drawing::XShape>& xShape) { m_xShape = xShape; }
+    const css::uno::Reference<css::drawing::XShape>& getShape() const { return m_xShape; }
+    void setPropertySet(const css::uno::Reference<css::beans::XPropertySet>& xPropertySet)
+    {
+        m_xPropertySet = xPropertySet;
+    }
+    const css::uno::Reference<css::beans::XPropertySet>& getPropertySet() const
+    {
+        return m_xPropertySet;
+    }
+    std::vector<css::beans::PropertyValue>& getPendingProperties() { return m_aPendingProperties; }
+    void setLineColorR(sal_uInt8 nLineColorR) { m_nLineColorR = nLineColorR; }
+    sal_uInt8 getLineColorR() const { return m_nLineColorR; }
+    void setLineColorG(sal_uInt8 nLineColorG) { m_nLineColorG = nLineColorG; }
+    sal_uInt8 getLineColorG() const { return m_nLineColorG; }
+    void setLineColorB(sal_uInt8 nLineColorB) { m_nLineColorB = nLineColorB; }
+    sal_uInt8 getLineColorB() const { return m_nLineColorB; }
+    void setHasLineColor(bool bHasLineColor) { m_bHasLineColor = bHasLineColor; }
+    bool getHasLineColor() const { return m_bHasLineColor; }
+    void setFillColorR(sal_uInt8 nFillColorR) { m_nFillColorR = nFillColorR; }
+    sal_uInt8 getFillColorR() const { return m_nFillColorR; }
+    void setFillColorG(sal_uInt8 nFillColorG) { m_nFillColorG = nFillColorG; }
+    sal_uInt8 getFillColorG() const { return m_nFillColorG; }
+    void setFillColorB(sal_uInt8 nFillColorB) { m_nFillColorB = nFillColorB; }
+    sal_uInt8 getFillColorB() const { return m_nFillColorB; }
+    void setHasFillColor(bool bHasFillColor) { m_bHasFillColor = bHasFillColor; }
+    bool getHasFillColor() const { return m_bHasFillColor; }
+    void setDhgt(sal_Int32 nDhgt) { m_nDhgt = nDhgt; }
+    sal_Int32 getDhgt() const { return m_nDhgt; }
+    void setFLine(sal_Int32 nFLine) { m_nFLine = nFLine; }
+    sal_Int32 getFLine() const { return m_nFLine; }
+    void setPolyLineCount(sal_Int32 nPolyLineCount) { m_nPolyLineCount = nPolyLineCount; }
+    sal_Int32 getPolyLineCount() const { return m_nPolyLineCount; }
+    std::vector<css::awt::Point>& getPolyLinePoints() { return m_aPolyLinePoints; }
+    void setHadShapeText(bool bHadShapeText) { m_bHadShapeText = bHadShapeText; }
+    bool getHadShapeText() const { return m_bHadShapeText; }
+
+private:
+    css::uno::Reference<css::drawing::XShape> m_xShape;
+    css::uno::Reference<css::beans::XPropertySet> m_xPropertySet;
+    std::vector<css::beans::PropertyValue> m_aPendingProperties;
+    sal_uInt8 m_nLineColorR = 0;
+    sal_uInt8 m_nLineColorG = 0;
+    sal_uInt8 m_nLineColorB = 0;
+    bool m_bHasLineColor = false;
+    sal_uInt8 m_nFillColorR = 0;
+    sal_uInt8 m_nFillColorG = 0;
+    sal_uInt8 m_nFillColorB = 0;
+    bool m_bHasFillColor = false;
+    sal_Int32 m_nDhgt = 0;
+    sal_Int32 m_nFLine = -1;
+    sal_Int32 m_nPolyLineCount = 0;
+    std::vector<css::awt::Point> m_aPolyLinePoints;
+    bool m_bHadShapeText = false;
 };
 
 /// Stores the properties of a picture.
 class RTFPicture : public virtual SvRefBase
 {
 public:
-    RTFPicture();
     sal_Int32 nWidth = 0;
     sal_Int32 nHeight = 0;
     sal_Int32 nGoalWidth = 0;
@@ -499,6 +630,9 @@ public:
     bool isStyleSheetImport();
     /// Resets m_aStates.top().aFrame.
     void resetFrame();
+    /// Buffers properties to be sent later.
+    void bufferProperties(RTFBuffer_t& rBuffer, const RTFValue::Pointer_t& pValue,
+                          const tools::SvRef<TableRowBuffer>& pTableProperties);
 
 private:
     SvStream& Strm();
@@ -518,7 +652,7 @@ private:
     void parBreak();
     void tableBreak();
     writerfilter::Reference<Properties>::Pointer_t
-    getProperties(RTFSprms& rAttributes, RTFSprms const& rSprms, Id nStyleType);
+    getProperties(const RTFSprms& rAttributes, RTFSprms const& rSprms, Id nStyleType);
     void checkNeedPap();
     void sectBreak(bool bFinal = false);
     void prepareProperties(RTFParserState& rState,
@@ -720,10 +854,6 @@ private:
 
     /// Are we after a \cell, but before a \row?
     bool m_bAfterCellBeforeRow;
-    /// cells in row, to ignore extra text content of the row
-    int m_nCellsInRow;
-    /// actual cell in row
-    int m_nActualCellInRow;
 };
 } // namespace rtftok
 } // namespace writerfilter

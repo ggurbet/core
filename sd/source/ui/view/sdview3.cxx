@@ -104,12 +104,12 @@ struct ImpRememberOrigAndClone
     SdrObject*      pClone;
 };
 
-static SdrObject* ImpGetClone(std::vector<ImpRememberOrigAndClone*>& aConnectorContainer, SdrObject const * pConnObj)
+static SdrObject* ImpGetClone(std::vector<ImpRememberOrigAndClone>& aConnectorContainer, SdrObject const * pConnObj)
 {
-    for(ImpRememberOrigAndClone* p : aConnectorContainer)
+    for(ImpRememberOrigAndClone& rImp : aConnectorContainer)
     {
-        if(pConnObj == p->pOrig)
-            return p->pClone;
+        if(pConnObj == rImp.pOrig)
+            return rImp.pClone;
     }
     return nullptr;
 }
@@ -117,32 +117,32 @@ static SdrObject* ImpGetClone(std::vector<ImpRememberOrigAndClone*>& aConnectorC
 // restrict movement to WorkArea
 static void ImpCheckInsertPos(Point& rPos, const Size& rSize, const ::tools::Rectangle& rWorkArea)
 {
-    if(!rWorkArea.IsEmpty())
+    if(rWorkArea.IsEmpty())
+        return;
+
+    ::tools::Rectangle aMarkRect(Point(rPos.X() - (rSize.Width() / 2), rPos.Y() - (rSize.Height() / 2)), rSize);
+
+    if(aMarkRect.IsInside(rWorkArea))
+        return;
+
+    if(aMarkRect.Left() < rWorkArea.Left())
     {
-        ::tools::Rectangle aMarkRect(Point(rPos.X() - (rSize.Width() / 2), rPos.Y() - (rSize.Height() / 2)), rSize);
+        rPos.AdjustX(rWorkArea.Left() - aMarkRect.Left() );
+    }
 
-        if(!aMarkRect.IsInside(rWorkArea))
-        {
-            if(aMarkRect.Left() < rWorkArea.Left())
-            {
-                rPos.AdjustX(rWorkArea.Left() - aMarkRect.Left() );
-            }
+    if(aMarkRect.Right() > rWorkArea.Right())
+    {
+        rPos.AdjustX( -(aMarkRect.Right() - rWorkArea.Right()) );
+    }
 
-            if(aMarkRect.Right() > rWorkArea.Right())
-            {
-                rPos.AdjustX( -(aMarkRect.Right() - rWorkArea.Right()) );
-            }
+    if(aMarkRect.Top() < rWorkArea.Top())
+    {
+        rPos.AdjustY(rWorkArea.Top() - aMarkRect.Top() );
+    }
 
-            if(aMarkRect.Top() < rWorkArea.Top())
-            {
-                rPos.AdjustY(rWorkArea.Top() - aMarkRect.Top() );
-            }
-
-            if(aMarkRect.Bottom() > rWorkArea.Bottom())
-            {
-                rPos.AdjustY( -(aMarkRect.Bottom() - rWorkArea.Bottom()) );
-            }
-        }
+    if(aMarkRect.Bottom() > rWorkArea.Bottom())
+    {
+        rPos.AdjustY( -(aMarkRect.Bottom() - rWorkArea.Bottom()) );
     }
 }
 
@@ -458,7 +458,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                 pMarkList->ForceSort();
 
                                 // stuff to remember originals and clones
-                                std::vector<ImpRememberOrigAndClone*> aConnectorContainer;
+                                std::vector<ImpRememberOrigAndClone> aConnectorContainer;
                                 size_t nConnectorCount = 0;
                                 Point       aCurPos;
 
@@ -500,10 +500,10 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                             EndUndo();
                                         }
 
-                                        ImpRememberOrigAndClone* pRem = new ImpRememberOrigAndClone;
-                                        pRem->pOrig = pM->GetMarkedSdrObj();
-                                        pRem->pClone = pObj;
-                                        aConnectorContainer.push_back(pRem);
+                                        ImpRememberOrigAndClone aRem;
+                                        aRem.pOrig = pM->GetMarkedSdrObj();
+                                        aRem.pClone = pObj;
+                                        aConnectorContainer.push_back(aRem);
 
                                         if(dynamic_cast< SdrEdgeObj *>( pObj ) !=  nullptr)
                                             nConnectorCount++;
@@ -515,7 +515,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                 {
                                     for(size_t a = 0; a < aConnectorContainer.size(); ++a)
                                     {
-                                        ImpRememberOrigAndClone* pRem = aConnectorContainer[a];
+                                        ImpRememberOrigAndClone* pRem = &aConnectorContainer[a];
 
                                         if(dynamic_cast< const SdrEdgeObj *>( pRem->pClone ) !=  nullptr)
                                         {
@@ -588,10 +588,6 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                                         }
                                     }
                                 }
-
-                                // cleanup remember classes
-                                for(ImpRememberOrigAndClone* p : aConnectorContainer)
-                                    delete p;
 
                                 if( pMarkList != mpDragSrcMarkList.get() )
                                     delete pMarkList;
@@ -799,7 +795,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
 
                                 if( bUndo )
                                     AddUndo(
-                                        o3tl::make_unique<E3dAttributesUndoAction>(
+                                        std::make_unique<E3dAttributesUndoAction>(
                                             *static_cast< E3dObject* >(pPickObj),
                                             aNewSet,
                                             aOldSet));
@@ -1449,7 +1445,7 @@ bool View::InsertData( const TransferableDataHelper& rDataHelper,
                 if( pOLV )
                 {
                     ::tools::Rectangle   aRect( pOLV->GetOutputArea() );
-                       Point       aPos( pOLV->GetWindow()->PixelToLogic( maDropPos ) );
+                    Point       aPos( pOLV->GetWindow()->PixelToLogic( maDropPos ) );
 
                     if( aRect.IsInside( aPos ) || ( !bDrag && IsTextEdit() ) )
                     {

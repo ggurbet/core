@@ -24,7 +24,6 @@
 #include <undorangename.hxx>
 #include <tabvwsh.hxx>
 #include <tokenarray.hxx>
-#include <sc.hrc>
 
 ScNameDefDlg::ScNameDefDlg( SfxBindings* pB, SfxChildWindow* pCW, vcl::Window* pParent,
         const ScViewData* pViewData, const std::map<OUString, ScRangeName*>& aRangeMap,
@@ -123,16 +122,14 @@ void ScNameDefDlg::CancelPushed()
 bool ScNameDefDlg::IsFormulaValid()
 {
     ScCompiler aComp( mpDoc, maCursorPos, mpDoc->GetGrammar());
-    ScTokenArray* pCode = aComp.CompileString(m_pEdRange->GetText());
+    std::unique_ptr<ScTokenArray> pCode = aComp.CompileString(m_pEdRange->GetText());
     if (pCode->GetCodeError() != FormulaError::NONE)
     {
         //TODO: info message
-        delete pCode;
         return false;
     }
     else
     {
-        delete pCode;
         return true;
     }
 }
@@ -260,7 +257,7 @@ void ScNameDefDlg::AddPushed()
                     assert( pNewEntry);     // undo of no insertion smells fishy
                     if (pNewEntry)
                         mpDocShell->GetUndoManager()->AddUndoAction(
-                                o3tl::make_unique<ScUndoAddRangeData>( mpDocShell, pNewEntry, nTab) );
+                                std::make_unique<ScUndoAddRangeData>( mpDocShell, pNewEntry, nTab) );
 
                     // set table stream invalid, otherwise RangeName won't be saved if no other
                     // call invalidates the stream

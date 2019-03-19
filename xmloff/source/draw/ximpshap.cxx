@@ -54,6 +54,8 @@
 #include <com/sun/star/drawing/PolyPolygonBezierCoords.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <com/sun/star/drawing/HomogenMatrix3.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
+#include <com/sun/star/style/XStyle.hpp>
 
 #include <sax/tools/converter.hxx>
 #include <comphelper/sequence.hxx>
@@ -74,6 +76,9 @@
 #include "ximpcustomshape.hxx"
 #include <XMLEmbeddedObjectImportContext.hxx>
 #include <xmloff/xmlerror.hxx>
+#include <xmloff/table/XMLTableImport.hxx>
+#include <xmloff/ProgressBarHelper.hxx>
+#include <xmloff/attrlist.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <com/sun/star/drawing/XEnhancedCustomShapeDefaulter.hpp>
 #include <com/sun/star/container/XChild.hpp>
@@ -881,16 +886,6 @@ void SdXMLShapeContext::processAttribute( sal_uInt16 nPrefix, const OUString& rL
             // because of #85127# take svg:transform into account and handle like
             // draw:transform for compatibility
             mnTransform.SetString(rValue, GetImport().GetMM100UnitConverter());
-        }
-
-        // #i68101#
-        else if( IsXMLToken( rLocalName, XML_TITLE ) )
-        {
-            maShapeTitle = rValue;
-        }
-        else if( IsXMLToken( rLocalName, XML_DESC ) )
-        {
-            maShapeDescription = rValue;
         }
     }
     else if (nPrefix == XML_NAMESPACE_STYLE)
@@ -3437,7 +3432,7 @@ SvXMLImportContextRef SdXMLFrameShapeContext::CreateChildContext( sal_uInt16 nPr
             SdXMLPluginShapeContext* pPluginContext = dynamic_cast<SdXMLPluginShapeContext*>(pShapeContext);
             if( pPluginContext && pPluginContext->getMimeType() == "model/vnd.gltf+json" )
             {
-                 mxImplContext = nullptr;
+                mxImplContext = nullptr;
                 return new SvXMLImportContext(GetImport(), nPrefix, rLocalName);
             }
         }
@@ -3448,7 +3443,7 @@ SvXMLImportContextRef SdXMLFrameShapeContext::CreateChildContext( sal_uInt16 nPr
 
         if(getSupportsMultipleContents() && dynamic_cast< SdXMLGraphicObjectShapeContext* >(xContext.get()))
         {
-            addContent(*mxImplContext.get());
+            addContent(*mxImplContext);
         }
     }
     else if(getSupportsMultipleContents() && XML_NAMESPACE_DRAW == nPrefix && IsXMLToken(rLocalName, XML_IMAGE))
@@ -3460,7 +3455,7 @@ SvXMLImportContextRef SdXMLFrameShapeContext::CreateChildContext( sal_uInt16 nPr
 
         if(dynamic_cast< SdXMLGraphicObjectShapeContext* >(xContext.get()))
         {
-            addContent(*mxImplContext.get());
+            addContent(*mxImplContext);
         }
     }
     else if( mbSupportsReplacement && !mxReplImplContext.is() &&

@@ -32,6 +32,7 @@
 #include <com/sun/star/embed/StorageFormats.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
+#include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/ucb/XContent.hpp>
 #include <com/sun/star/ucb/XContentIdentifierFactory.hpp>
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
@@ -39,6 +40,8 @@
 #include <com/sun/star/ucb/Command.hpp>
 #include <com/sun/star/uno/SecurityException.hpp>
 #include <vcl/weld.hxx>
+#include <vcl/svapp.hxx>
+#include <tools/date.hxx>
 #include <unotools/securityoptions.hxx>
 #include <com/sun/star/security/CertificateValidity.hpp>
 #include <com/sun/star/security/CertificateKind.hpp>
@@ -53,6 +56,8 @@
 #include <com/sun/star/security/XDocumentDigitalSignatures.hpp>
 #include <com/sun/star/xml/crypto/XXMLSecurityContext.hpp>
 
+#include <map>
+
 using namespace css;
 using namespace css::uno;
 using namespace css::lang;
@@ -65,6 +70,8 @@ class DocumentDigitalSignatures
 {
 private:
     css::uno::Reference<css::uno::XComponentContext> mxCtx;
+    css::uno::Reference<css::awt::XWindow> mxParentWindow;
+
     /// will be set by XInitialization. If not we assume true. false means an earlier version (whatever that means,
     /// this is a string, not a boolean).
     /// Note that the code talks about "ODF version" even if this class is also used to sign OOXML.
@@ -174,6 +181,11 @@ public:
                             css::uno::Reference<css::security::XCertificate> const & xCertificate,
                             css::uno::Reference<css::embed::XStorage> const & xStoragexStorage,
                             css::uno::Reference<css::io::XStream> const & xStream) override;
+
+    void SAL_CALL setParentWindow(const css::uno::Reference<css::awt::XWindow>& rParentwindow) override
+    {
+        mxParentWindow = rParentwindow;
+    }
 };
 
 DocumentDigitalSignatures::DocumentDigitalSignatures( const Reference< XComponentContext >& rxCtx ):
@@ -389,19 +401,19 @@ bool DocumentDigitalSignatures::ImplViewSignatures(
     DocumentSignatureMode eMode, bool bReadOnly )
 {
     bool bChanges = false;
-    ScopedVclPtrInstance<DigitalSignaturesDialog> aSignaturesDialog(
-        nullptr, mxCtx, eMode, bReadOnly, m_sODFVersion,
+    DigitalSignaturesDialog aSignaturesDialog(
+        Application::GetFrameWeld(mxParentWindow), mxCtx, eMode, bReadOnly, m_sODFVersion,
         m_bHasDocumentSignature);
-    bool bInit = aSignaturesDialog->Init();
+    bool bInit = aSignaturesDialog.Init();
     SAL_WARN_IF( !bInit, "xmlsecurity.comp", "Error initializing security context!" );
     if ( bInit )
     {
-        aSignaturesDialog->SetStorage(rxStorage);
+        aSignaturesDialog.SetStorage(rxStorage);
 
-        aSignaturesDialog->SetSignatureStream( xSignStream );
-        if ( aSignaturesDialog->Execute() )
+        aSignaturesDialog.SetSignatureStream( xSignStream );
+        if (aSignaturesDialog.run() == RET_OK)
         {
-            if ( aSignaturesDialog->SignaturesChanged() )
+            if (aSignaturesDialog.SignaturesChanged())
             {
                 bChanges = true;
                 // If we have a storage and no stream, we are responsible for commit
@@ -415,7 +427,7 @@ bool DocumentDigitalSignatures::ImplViewSignatures(
     }
     else
     {
-        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(nullptr,
+        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(Application::GetFrameWeld(mxParentWindow),
                                                   VclMessageType::Warning, VclButtonsType::Ok,
                                                   XsResId(RID_XMLSECWB_NO_MOZILLA_PROFILE)));
         xBox->run();
@@ -582,8 +594,8 @@ void DocumentDigitalSignatures::manageTrustedSources(  )
     if (aSignatureManager.init())
         xSecEnv = aSignatureManager.getSecurityEnvironment();
 
-    ScopedVclPtrInstance< MacroSecurity > aDlg( nullptr, xSecEnv );
-    aDlg->Execute();
+    MacroSecurity aDlg(Application::GetFrameWeld(mxParentWindow), xSecEnv);
+    aDlg.run();
 }
 
 void DocumentDigitalSignatures::showCertificate(
@@ -597,10 +609,9 @@ void DocumentDigitalSignatures::showCertificate(
 
     if ( bInit )
     {
-        ScopedVclPtrInstance<CertificateViewer> aViewer(nullptr, aSignatureManager.getSecurityEnvironment(), Certificate, false);
-        aViewer->Execute();
+        CertificateViewer aViewer(Application::GetFrameWeld(mxParentWindow), aSignatureManager.getSecurityEnvironment(), Certificate, false, nullptr);
+        aViewer.run();
     }
-
 }
 
 sal_Bool DocumentDigitalSignatures::isAuthorTrusted(
@@ -641,17 +652,17 @@ DocumentDigitalSignatures::chooseCertificatesImpl(std::map<OUString, OUString>& 
             xSecContexts.push_back(aSignatureManager.getGpgSecurityContext());
     }
 
-    ScopedVclPtrInstance< CertificateChooser > aChooser(nullptr, mxCtx, xSecContexts, eAction);
+    CertificateChooser aChooser(Application::GetFrameWeld(mxParentWindow), xSecContexts, eAction);
 
     uno::Sequence< Reference< css::security::XCertificate > > xCerts(1);
     xCerts[0] = Reference< css::security::XCertificate >(nullptr);
 
-    if (aChooser->Execute() != RET_OK)
+    if (aChooser.run() != RET_OK)
         return xCerts;
 
-    xCerts = aChooser->GetSelectedCertificates();
-    rProperties["Description"] = aChooser->GetDescription();
-    rProperties["Usage"] = aChooser->GetUsageText();
+    xCerts = aChooser.GetSelectedCertificates();
+    rProperties["Description"] = aChooser.GetDescription();
+    rProperties["Usage"] = aChooser.GetUsageText();
 
     return xCerts;
 }

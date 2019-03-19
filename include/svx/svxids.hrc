@@ -165,7 +165,8 @@ class SfxStringItem;
 #define FN_INSERT_BREAK         (FN_INSERT + 3)
 #define FN_INSERT_SOFT_HYPHEN   (FN_INSERT + 43)    /* optional hyphen */
 #define FN_INSERT_HARD_SPACE    (FN_INSERT + 44)    /* hard space */
-#define FN_INSERT_HARDHYPHEN    (FN_INSERT + 85)   /* hyphen without break*/
+#define FN_INSERT_NNBSP         (FN_INSERT + 45)    /* U+202F NARROW NO-BREAK SPACE (NNBSP) */
+#define FN_INSERT_HARDHYPHEN    (FN_INSERT + 85)    /* hyphen without break*/
 
 //!! be aware to not overwrite something that is used in sw/inc/cmdid.h already !!
 #define FN_FORMAT               (SID_SW_START +  400)
@@ -457,6 +458,8 @@ class SfxStringItem;
 
 // CAUTION! Range <413 .. 413> used by EditEngine (!)
 
+#define SID_DRAWTBX_REDACTED_EXPORT                     ( SID_SVX_START + 606 )
+
 #define SID_ATTR_3D_START                               ( SID_SVX_START + 415 )
 #define SID_RULER_PROTECT                               SID_ATTR_3D_START
 #define SID_COLOR_CONTROL                               ( SID_SVX_START + 417 )
@@ -539,7 +542,7 @@ class SfxStringItem;
 #define SID_FM_DBGRID                                   ( SID_SVX_START + 603 )
 #define SID_FM_IMAGEBUTTON                              ( SID_SVX_START + 604 )
 #define SID_FM_FILECONTROL                              ( SID_SVX_START + 605 )
-//FREE
+//( SID_SVX_START + 606 ) is used by SID_DRAWTBX_REDACTED_EXPORT
 #define SID_FM_NAVIGATIONBAR                            ( SID_SVX_START + 607 )
 //FREE
 //FREE
@@ -631,7 +634,7 @@ class SfxStringItem;
 #define SID_FM_CONVERTTO_IMAGECONTROL                   ( SID_SVX_START + 750 )
 #define SID_FM_CONVERTTO_FORMATTED                      ( SID_SVX_START + 751 )
 #define SID_FM_FILTER_NAVIGATOR_CONTROL                 ( SID_SVX_START + 752 )
-//FREE
+#define SID_INSERT_GRIDCONTROL                          ( SID_SVX_START + 753 )
 //FREE
 //FREE
 //FREE
@@ -693,7 +696,7 @@ class SfxStringItem;
 #define SID_TRANSLITERATE_HALFWIDTH                     ( SID_SVX_START + 914 )
 #define SID_TRANSLITERATE_FULLWIDTH                     ( SID_SVX_START + 915 )
 #define SID_TRANSLITERATE_HIRAGANA                      ( SID_SVX_START + 916 )
-#define SID_TRANSLITERATE_KATAGANA                      ( SID_SVX_START + 917 )
+#define SID_TRANSLITERATE_KATAKANA                      ( SID_SVX_START + 917 )
 
 // CAUTION! Range <919 .. 920> used by EditEngine (!)
 
@@ -817,7 +820,7 @@ class SfxStringItem;
 #define SID_FLAG_TYPE                                   ( SID_SVX_START + 1034 )
 #define SID_SWMODE_TYPE                                 ( SID_SVX_START + 1035 )
 #define SID_DISABLE_CTL                                 ( SID_SVX_START + 1036 )
-//FREE
+#define SID_INSERT_HYPERLINKCONTROL                     ( SID_SVX_START + 1037 )
 #define SID_ENUM_PAGE_MODE                              ( SID_SVX_START + 1038 )
 #define SID_PAPER_START                                 ( SID_SVX_START + 1039 )
 #define SID_PAPER_END                                   ( SID_SVX_START + 1040 )
@@ -826,7 +829,6 @@ class SfxStringItem;
 #define SID_SHRINK_FONT_SIZE                            ( SID_SVX_START + 1043 )
 // color subtoolbar on graphictoolbar
 #define SID_COLOR_SETTINGS                              ( SID_SVX_START + 1044 )
-#define SID_FM_MORE_CONTROLS                            ( SID_SVX_START + 1045 )
 #define SID_FM_FORM_DESIGN_TOOLS                        ( SID_SVX_START + 1046 )
 #define SID_DRAWTBX_CS_BASIC                            ( SID_SVX_START + 1047 )
 #define SID_DRAWTBX_CS_SYMBOL                           ( SID_SVX_START + 1048 )
@@ -975,9 +977,11 @@ class SfxStringItem;
 #define SID_TABLE_OPTIMAL_COLUMN_WIDTH                  ( SID_SVX_START + 1187 )
 #define SID_TABLE_OPTIMAL_ROW_HEIGHT                    ( SID_SVX_START + 1188 )
 
+#define SID_TABLE_CELL_BACKGROUND_COLOR                 TypedWhichId<SvxColorItem>( SID_SVX_START + 1189 )
+
 
 // IMPORTANT NOTE: adjust SID_SVX_FIRSTFREE, when adding new slot id
-#define SID_SVX_FIRSTFREE                               ( SID_TABLE_OPTIMAL_ROW_HEIGHT + 1 )
+#define SID_SVX_FIRSTFREE                               ( SID_SVX_START + 1189 + 1 )
 
 // Overflow check for slot IDs
 #if SID_SVX_FIRSTFREE > SID_SVX_END

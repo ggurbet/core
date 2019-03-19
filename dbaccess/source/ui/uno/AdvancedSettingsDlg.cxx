@@ -125,7 +125,7 @@ namespace dbaui
 
     svt::OGenericUnoDialog::Dialog OAdvancedSettingsDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
     {
-        return svt::OGenericUnoDialog::Dialog(o3tl::make_unique<AdvancedSettingsDialog>(Application::GetFrameWeld(rParent), m_pDatasourceItems.get(),
+        return svt::OGenericUnoDialog::Dialog(std::make_unique<AdvancedSettingsDialog>(Application::GetFrameWeld(rParent), m_pDatasourceItems.get(),
                                                                                         m_aContext, m_aInitialSelection));
     }
 

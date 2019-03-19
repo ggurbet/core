@@ -386,8 +386,8 @@ void ImplFontMetricData::ImplInitFlags( const OutputDevice* pDev )
         const OUString sFullstop( u'\x3001' ); // Fullwidth fullstop
         tools::Rectangle aRect;
         pDev->GetTextBoundRect( aRect, sFullstop );
-        const sal_uInt16 nH = rFont.GetFontSize().Height();
-        const sal_uInt16 nB = aRect.Left();
+        const auto nH = rFont.GetFontSize().Height();
+        const auto nB = aRect.Left();
         // Use 18.75% as a threshold to define a centered fullwidth fullstop.
         // In general, nB/nH < 5% for most Japanese fonts.
         bCentered = nB > (((nH >> 1)+nH)>>3);
@@ -395,7 +395,7 @@ void ImplFontMetricData::ImplInitFlags( const OutputDevice* pDev )
     SetFullstopCenteredFlag( bCentered );
 }
 
-bool ImplFontMetricData::ShouldUseWinMetrics(vcl::TTGlobalFontInfo& rInfo)
+bool ImplFontMetricData::ShouldUseWinMetrics(const vcl::TTGlobalFontInfo& rInfo)
 {
     if (utl::ConfigManager::IsFuzzing())
         return false;

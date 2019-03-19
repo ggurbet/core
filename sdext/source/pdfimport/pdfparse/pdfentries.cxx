@@ -21,7 +21,6 @@
 #include <pdfparse.hxx>
 
 #include <comphelper/hash.hxx>
-#include <o3tl/make_unique.hxx>
 
 #include <rtl/strbuf.hxx>
 #include <rtl/ustring.hxx>
@@ -313,11 +312,11 @@ OString PDFString::getFilteredString() const
         {
             sal_Char rResult = 0;
             if( *pRun >= '0' && *pRun <= '9' )
-                rResult = sal_Char( *pRun-'0' ) << 4;
+                rResult = sal_Char( ( *pRun-'0' ) << 4 );
             else if( *pRun >= 'a' && *pRun <= 'f' )
-                rResult = sal_Char( *pRun-'a' + 10 ) << 4;
+                rResult = sal_Char( ( *pRun-'a' + 10 ) << 4 );
             else if( *pRun >= 'A' && *pRun <= 'F' )
-                rResult = sal_Char( *pRun-'A' + 10 ) << 4;
+                rResult = sal_Char( ( *pRun-'A' + 10 ) << 4 );
             pRun++;
             if( *pRun != '>' && pRun - pStr < nLen )
             {
@@ -533,7 +532,7 @@ void PDFDict::insertValue( const OString& rName, std::unique_ptr<PDFEntry> pValu
     if( it == m_aMap.end() )
     {
         // new name/value, pair, append it
-        m_aSubElements.emplace_back(o3tl::make_unique<PDFName>(rName));
+        m_aSubElements.emplace_back(std::make_unique<PDFName>(rName));
         m_aSubElements.emplace_back( std::move(pValue) );
     }
     else
@@ -781,21 +780,21 @@ static void unzipToBuffer( char* pBegin, unsigned int nLen,
 
 void PDFObject::writeStream( EmitContext& rWriteContext, const PDFFile* pParsedFile ) const
 {
-    if( m_pStream )
+    if( !m_pStream )
+        return;
+
+    std::unique_ptr<char[]> pStream;
+    unsigned int nBytes = 0;
+    if( getDeflatedStream( pStream, &nBytes, pParsedFile, rWriteContext ) && nBytes && rWriteContext.m_bDeflate )
     {
-        std::unique_ptr<char[]> pStream;
-        unsigned int nBytes = 0;
-        if( getDeflatedStream( pStream, &nBytes, pParsedFile, rWriteContext ) && nBytes && rWriteContext.m_bDeflate )
-        {
-            sal_uInt8* pOutBytes = nullptr;
-            sal_uInt32 nOutBytes = 0;
-            unzipToBuffer( pStream.get(), nBytes, &pOutBytes, &nOutBytes );
-            rWriteContext.write( pOutBytes, nOutBytes );
-            std::free( pOutBytes );
-        }
-        else if( pStream && nBytes )
-            rWriteContext.write( pStream.get(), nBytes );
+        sal_uInt8* pOutBytes = nullptr;
+        sal_uInt32 nOutBytes = 0;
+        unzipToBuffer( pStream.get(), nBytes, &pOutBytes, &nOutBytes );
+        rWriteContext.write( pOutBytes, nOutBytes );
+        std::free( pOutBytes );
     }
+    else if( pStream && nBytes )
+        rWriteContext.write( pStream.get(), nBytes );
 }
 
 bool PDFObject::emit( EmitContext& rWriteContext ) const

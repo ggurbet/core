@@ -24,6 +24,7 @@
 #include <o3tl/numeric.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <svx/xattr.hxx>
 #include <svx/xpoly.hxx>
 #include <svx/svdetc.hxx>
@@ -1081,7 +1082,7 @@ void SdrDragMovHdl::MoveSdrDrag(const Point& rNoSnapPnt)
                     nNewAngle/=nSA;
                     nNewAngle*=nSA;
                     nNewAngle=NormAngle36000(nNewAngle);
-                    double a=(nNewAngle-nAngle)*nPi180;
+                    double a=(nNewAngle-nAngle)*F_PI18000;
                     double nSin=sin(a);
                     double nCos=cos(a);
                     RotatePoint(aPnt,aRef,nSin,nCos);
@@ -1155,7 +1156,7 @@ void SdrDragMovHdl::CancelSdrDrag()
         pHM->Touch();
 }
 
-Pointer SdrDragMovHdl::GetSdrDragPointer() const
+PointerStyle SdrDragMovHdl::GetSdrDragPointer() const
 {
     const SdrHdl* pHdl = GetDragHdl();
 
@@ -1164,7 +1165,7 @@ Pointer SdrDragMovHdl::GetSdrDragPointer() const
         return pHdl->GetPointer();
     }
 
-    return Pointer(PointerStyle::RefHand);
+    return PointerStyle::RefHand;
 }
 
 
@@ -1446,7 +1447,7 @@ bool SdrDragObjOwn::EndSdrDrag(bool /*bCopy*/)
     return bRet;
 }
 
-Pointer SdrDragObjOwn::GetSdrDragPointer() const
+PointerStyle SdrDragObjOwn::GetSdrDragPointer() const
 {
     const SdrHdl* pHdl=GetDragHdl();
 
@@ -1455,7 +1456,7 @@ Pointer SdrDragObjOwn::GetSdrDragPointer() const
         return pHdl->GetPointer();
     }
 
-    return Pointer(PointerStyle::Move);
+    return PointerStyle::Move;
 }
 
 
@@ -1714,15 +1715,15 @@ bool SdrDragMove::EndSdrDrag(bool bCopy)
     return true;
 }
 
-Pointer SdrDragMove::GetSdrDragPointer() const
+PointerStyle SdrDragMove::GetSdrDragPointer() const
 {
     if (IsDraggingPoints() || IsDraggingGluePoints())
     {
-        return Pointer(PointerStyle::MovePoint);
+        return PointerStyle::MovePoint;
     }
     else
     {
-        return Pointer(PointerStyle::Move);
+        return PointerStyle::Move;
     }
 }
 
@@ -2042,7 +2043,7 @@ bool SdrDragResize::EndSdrDrag(bool bCopy)
     return true;
 }
 
-Pointer SdrDragResize::GetSdrDragPointer() const
+PointerStyle SdrDragResize::GetSdrDragPointer() const
 {
     const SdrHdl* pHdl=GetDragHdl();
 
@@ -2051,13 +2052,13 @@ Pointer SdrDragResize::GetSdrDragPointer() const
         return pHdl->GetPointer();
     }
 
-    return Pointer(PointerStyle::Move);
+    return PointerStyle::Move;
 }
 
 
 void SdrDragRotate::applyCurrentTransformationToSdrObject(SdrObject& rTarget)
 {
-    rTarget.Rotate(DragStat().GetRef1(), nAngle, sin(nAngle*nPi180), cos(nAngle*nPi180));
+    rTarget.Rotate(DragStat().GetRef1(), nAngle, sin(nAngle * F_PI18000), cos(nAngle * F_PI18000));
 }
 
 SdrDragRotate::SdrDragRotate(SdrDragView& rNewView)
@@ -2157,7 +2158,7 @@ void SdrDragRotate::MoveSdrDrag(const Point& rPnt_)
                 bRight=false;
 
             nAngle=nNewAngle;
-            double a=nAngle*nPi180;
+            double a = nAngle * F_PI18000;
             double nSin1=sin(a); // calculate now, so as little time as possible
             double nCos1=cos(a); // passes between Hide() and Show()
             Hide();
@@ -2191,9 +2192,9 @@ bool SdrDragRotate::EndSdrDrag(bool bCopy)
     return true;
 }
 
-Pointer SdrDragRotate::GetSdrDragPointer() const
+PointerStyle SdrDragRotate::GetSdrDragPointer() const
 {
-    return Pointer(PointerStyle::Rotate);
+    return PointerStyle::Rotate;
 }
 
 
@@ -2373,7 +2374,7 @@ void SdrDragShear::MoveSdrDrag(const Point& rPnt)
         if (bUpSideDown) nNewAngle-=18000;
         if (bNeg) nTmpAngle=-nTmpAngle;
         bResize=true;
-        aNewFract = cos(nTmpAngle*nPi180);
+        aNewFract = cos(nTmpAngle * F_PI18000);
         aFact.ReduceInaccurate(10); // three decimals should be enough
     }
 
@@ -2387,7 +2388,7 @@ void SdrDragShear::MoveSdrDrag(const Point& rPnt)
     {
         nAngle=nNewAngle;
         aFact=aNewFract;
-        double a=nAngle*nPi180;
+        double a = nAngle * F_PI18000;
         double nTan1=tan(a); // calculate now, so as little time as possible passes between Hide() and Show()
         Hide();
         nTan=nTan1;
@@ -2412,7 +2413,7 @@ void SdrDragShear::applyCurrentTransformationToSdrObject(SdrObject& rTarget)
 
     if (nAngle!=0)
     {
-        rTarget.Shear(DragStat().GetRef1(),nAngle,tan(nAngle*nPi180),bVertical);
+        rTarget.Shear(DragStat().GetRef1(), nAngle, tan(nAngle * F_PI18000), bVertical);
     }
 }
 
@@ -2464,12 +2465,12 @@ bool SdrDragShear::EndSdrDrag(bool bCopy)
     return false;
 }
 
-Pointer SdrDragShear::GetSdrDragPointer() const
+PointerStyle SdrDragShear::GetSdrDragPointer() const
 {
     if (bVertical)
-        return Pointer(PointerStyle::VShear);
+        return PointerStyle::VShear;
     else
-        return Pointer(PointerStyle::HShear);
+        return PointerStyle::HShear;
 }
 
 
@@ -2595,9 +2596,9 @@ bool SdrDragMirror::EndSdrDrag(bool bCopy)
     return true;
 }
 
-Pointer SdrDragMirror::GetSdrDragPointer() const
+PointerStyle SdrDragMirror::GetSdrDragPointer() const
 {
-    return Pointer(PointerStyle::Mirror);
+    return PointerStyle::Mirror;
 }
 
 
@@ -2753,9 +2754,9 @@ void SdrDragGradient::CancelSdrDrag()
     pIAOHandle->FromIAOToItem(getSdrDragView().GetMarkedObjectList().GetMark(0)->GetMarkedSdrObj(), true, false);
 }
 
-Pointer SdrDragGradient::GetSdrDragPointer() const
+PointerStyle SdrDragGradient::GetSdrDragPointer() const
 {
-    return Pointer(PointerStyle::RefHand);
+    return PointerStyle::RefHand;
 }
 
 
@@ -3186,7 +3187,7 @@ void SdrDragCrook::MoveSdrDrag(const Point& rPnt)
             nPntWink = std::abs(nPntWink);
         }
 
-        double nUmfang = 2 * std::abs(nNewRad)*nPi;
+        double nUmfang = 2 * std::abs(nNewRad) * M_PI;
 
         if (bResize)
         {
@@ -3373,7 +3374,6 @@ bool SdrDragCrook::EndSdrDrag(bool bCopy)
         if (bDoCrook)
         {
             getSdrDragView().CrookMarkedObj(aCenter,aRad,eMode,bVertical,!bContortion,bCopy);
-            getSdrDragView().SetLastCrookCenter(aCenter);
         }
 
         if (bResize && bUndo)
@@ -3385,9 +3385,9 @@ bool SdrDragCrook::EndSdrDrag(bool bCopy)
     return false;
 }
 
-Pointer SdrDragCrook::GetSdrDragPointer() const
+PointerStyle SdrDragCrook::GetSdrDragPointer() const
 {
-    return Pointer(PointerStyle::Crook);
+    return PointerStyle::Crook;
 }
 
 
@@ -3515,9 +3515,9 @@ bool SdrDragDistort::EndSdrDrag(bool bCopy)
     return false;
 }
 
-Pointer SdrDragDistort::GetSdrDragPointer() const
+PointerStyle SdrDragDistort::GetSdrDragPointer() const
 {
-    return Pointer(PointerStyle::RefHand);
+    return PointerStyle::RefHand;
 }
 
 void SdrDragDistort::applyCurrentTransformationToSdrObject(SdrObject& rTarget)
@@ -3865,9 +3865,9 @@ bool SdrDragCrop::EndSdrDrag(bool /*bCopy*/)
     return true;
 }
 
-Pointer SdrDragCrop::GetSdrDragPointer() const
+PointerStyle SdrDragCrop::GetSdrDragPointer() const
 {
-    return Pointer(PointerStyle::Crop);
+    return PointerStyle::Crop;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

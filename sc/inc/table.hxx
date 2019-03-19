@@ -276,18 +276,11 @@ public:
     ScColumn& CreateColumnIfNotExists( const SCCOL nScCol )
     {
         if ( nScCol >= aCol.size() )
-        {
-            const SCCOL aOldColSize = aCol.size();
-            bool bUseEmptyAttrArray = false;
-            if ( aOldColSize == 0 )
-                bUseEmptyAttrArray = true;
-            aCol.resize( static_cast< size_t >( nScCol + 1 ) );
-            for (SCCOL i = aOldColSize; i <= nScCol; i++)
-                aCol[i].Init( i, nTab, pDocument, bUseEmptyAttrArray );
-
-        }
+            CreateColumnIfNotExistsImpl(nScCol);
         return aCol[nScCol];
     }
+    // out-of-line the cold part of the function
+    void CreateColumnIfNotExistsImpl( const SCCOL nScCol );
     sal_uLong       GetCellCount() const;
     sal_uLong       GetWeightedCount() const;
     sal_uLong       GetWeightedCount(SCROW nStartRow, SCROW nEndRow) const;
@@ -460,7 +453,7 @@ public:
     void        GetFirstDataPos(SCCOL& rCol, SCROW& rRow) const;
     void        GetLastDataPos(SCCOL& rCol, SCROW& rRow) const;
 
-    ScPostIt* ReleaseNote( SCCOL nCol, SCROW nRow );
+    std::unique_ptr<ScPostIt> ReleaseNote( SCCOL nCol, SCROW nRow );
 
     size_t GetNoteCount( SCCOL nCol ) const;
     SCROW GetNotePosition( SCCOL nCol, size_t nIndex ) const;
@@ -979,7 +972,7 @@ public:
 
     void DeleteConditionalFormat(sal_uLong nOldIndex);
 
-    sal_uLong          AddCondFormat( ScConditionalFormat* pNew );
+    sal_uLong          AddCondFormat( std::unique_ptr<ScConditionalFormat> pNew );
 
     SvtScriptType GetScriptType( SCCOL nCol, SCROW nRow ) const;
     void SetScriptType( SCCOL nCol, SCROW nRow, SvtScriptType nType );
@@ -1050,7 +1043,7 @@ public:
 
     std::unique_ptr<sc::ColumnIterator> GetColumnIterator( SCCOL nCol, SCROW nRow1, SCROW nRow2 ) const;
 
-    void EnsureFormulaCellResults( const SCCOL nCol1, SCROW nRow1, const SCCOL nCol2, SCROW nRow2 );
+    bool EnsureFormulaCellResults( const SCCOL nCol1, SCROW nRow1, const SCCOL nCol2, SCROW nRow2, bool bSkipRunning = false );
 
     void ConvertFormulaToValue(
         sc::EndListeningContext& rCxt,

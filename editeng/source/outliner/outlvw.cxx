@@ -41,12 +41,13 @@
 #include <editeng/eeitem.hxx>
 #include <editeng/numitem.hxx>
 #include <vcl/window.hxx>
+#include <vcl/event.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <svl/itemset.hxx>
 #include <svl/eitem.hxx>
 #include <editeng/editstat.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 
@@ -292,7 +293,7 @@ bool OutlinerView::MouseMove( const MouseEvent& rMEvt )
     if( !pEditView->GetOutputArea().IsInside( aMousePosWin ) )
         return false;
 
-    Pointer aPointer = GetPointer( rMEvt.GetPosPixel() );
+    PointerStyle aPointer = GetPointer( rMEvt.GetPosPixel() );
     pEditView->GetWindow()->SetPointer( aPointer );
     return pEditView->MouseMove( rMEvt );
 }
@@ -307,7 +308,7 @@ bool OutlinerView::MouseButtonDown( const MouseEvent& rMEvt )
     if( !pEditView->GetOutputArea().IsInside( aMousePosWin ) )
         return false;
 
-    Pointer aPointer = GetPointer( rMEvt.GetPosPixel() );
+    PointerStyle aPointer = GetPointer( rMEvt.GetPosPixel() );
     pEditView->GetWindow()->SetPointer( aPointer );
 
     MouseTarget eTarget;
@@ -355,7 +356,7 @@ bool OutlinerView::MouseButtonUp( const MouseEvent& rMEvt )
     if( !pEditView->GetOutputArea().IsInside( aMousePosWin ) )
         return false;
 
-    Pointer aPointer = GetPointer( rMEvt.GetPosPixel() );
+    PointerStyle aPointer = GetPointer( rMEvt.GetPosPixel() );
     pEditView->GetWindow()->SetPointer( aPointer );
 
     return pEditView->MouseButtonUp( rMEvt );
@@ -405,7 +406,7 @@ void OutlinerView::SetAttribs( const SfxItemSet& rAttrs )
         pOwner->ImplCalcBulletText( nPara, false, false );
 
         if( !pOwner->IsInUndo() && pOwner->IsUndoEnabled() )
-            pOwner->InsertUndo( o3tl::make_unique<OutlinerUndoCheckPara>( pOwner, nPara ) );
+            pOwner->InsertUndo( std::make_unique<OutlinerUndoCheckPara>( pOwner, nPara ) );
     }
 
     if( !pOwner->IsInUndo() && pOwner->IsUndoEnabled() )
@@ -478,7 +479,7 @@ void OutlinerView::Indent( short nDiff )
                 pOwner->pEditEngine->QuickMarkInvalid( ESelection( nPara, 0, nPara, 0 ) );
 
                 if( bUndo )
-                    pOwner->InsertUndo( o3tl::make_unique<OutlinerUndoChangeParaFlags>( pOwner, nPara, nPrevFlags, pPara->nFlags ) );
+                    pOwner->InsertUndo( std::make_unique<OutlinerUndoChangeParaFlags>( pOwner, nPara, nPrevFlags, pPara->nFlags ) );
 
                 continue;
             }
@@ -729,7 +730,7 @@ SfxStyleSheet* OutlinerView::GetStyleSheet()
     return pEditView->GetStyleSheet();
 }
 
-Pointer OutlinerView::GetPointer( const Point& rPosPixel )
+PointerStyle OutlinerView::GetPointer( const Point& rPosPixel )
 {
     MouseTarget eTarget;
     ImpCheckMousePos( rPosPixel, eTarget );
@@ -748,7 +749,7 @@ Pointer OutlinerView::GetPointer( const Point& rPosPixel )
         ePointerStyle = PointerStyle::Move;
     }
 
-    return Pointer( ePointerStyle );
+    return ePointerStyle;
 }
 
 

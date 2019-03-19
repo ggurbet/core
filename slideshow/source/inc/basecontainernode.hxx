@@ -24,6 +24,10 @@
 namespace slideshow {
 namespace internal {
 
+class BaseContainerNode;
+typedef ::std::shared_ptr< BaseContainerNode > BaseContainerNodeSharedPtr;
+
+
 /** This interface extends BaseNode with child handling methods.
     Used for XAnimationNode objects which have children
 */
@@ -32,7 +36,7 @@ class BaseContainerNode : public BaseNode
 public:
     BaseContainerNode(
         css::uno::Reference<css::animations::XAnimationNode> const& xNode,
-        ::std::shared_ptr<BaseContainerNode> const& pParent,
+        BaseContainerNodeSharedPtr const& pParent,
         NodeContext const& rContext );
 
     /** Add given child node to this container
@@ -85,10 +89,10 @@ protected:
     double       mnLeftIterations;
 
 private:
+    const bool          mbRepeatIndefinite;
+    const bool          mbRestart;
     const bool          mbDurationIndefinite;
 };
-
-typedef ::std::shared_ptr< BaseContainerNode > BaseContainerNodeSharedPtr;
 
 } // namespace interface
 } // namespace presentation

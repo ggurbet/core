@@ -20,6 +20,7 @@
 #include <sal/config.h>
 
 #include <cstddef>
+#include <string_view>
 
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/PropertyChangeEvent.hpp>
@@ -358,14 +359,14 @@ void Test::testListener()
 
     // test with no props.
     {
-        rtl::Reference<comphelper::ConfigurationListener> xListener(
+        rtl::Reference xListener(
             new comphelper::ConfigurationListener(aRandomPath));
         xListener->dispose();
     }
 
     // test some changes
     {
-        rtl::Reference<comphelper::ConfigurationListener> xListener(
+        rtl::Reference xListener(
             new comphelper::ConfigurationListener(aRandomPath));
 
         comphelper::ConfigurationListenerProperty<bool> aSetting(xListener, "AutoRedraw");
@@ -553,7 +554,7 @@ void normalize(
     } else {
         OUStringBuffer buf(path);
         buf.append('/');
-        buf.appendCopy(relative, 0, i);
+        buf.append(std::u16string_view(relative).substr(0, i));
         *normalizedPath = buf.makeStringAndClear();
         *name = relative.copy(i + 1);
     }

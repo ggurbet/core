@@ -56,12 +56,12 @@ css::uno::Sequence< sal_Int16 > SAL_CALL DispatchInformationProvider::getSupport
             continue;
 
         const css::uno::Sequence< sal_Int16 > lProviderGroups = xProvider->getSupportedCommandGroups();
-              sal_Int32                       c2              = lProviderGroups.getLength();
-              sal_Int32                       i2              = 0;
+        sal_Int32                             c2              = lProviderGroups.getLength();
+        sal_Int32                             i2              = 0;
         for (i2=0; i2<c2; ++i2)
         {
-            const sal_Int16&                                                  rGroup = lProviderGroups[i2];
-                  ::std::vector< sal_Int16 >::const_iterator pGroup =
+            const sal_Int16&                           rGroup = lProviderGroups[i2];
+            ::std::vector< sal_Int16 >::const_iterator pGroup =
                             ::std::find(lGroups.begin(), lGroups.end(), rGroup);
             if (pGroup == lGroups.end())
                 lGroups.push_back(rGroup);
@@ -89,12 +89,12 @@ css::uno::Sequence< css::frame::DispatchInformation > SAL_CALL DispatchInformati
                 continue;
 
             const css::uno::Sequence< css::frame::DispatchInformation > lProviderInfos = xProvider->getConfigurableDispatchInformation(nCommandGroup);
-                  sal_Int32                                             c2             = lProviderInfos.getLength();
-                  sal_Int32                                             i2             = 0;
+            sal_Int32                                                   c2             = lProviderInfos.getLength();
+            sal_Int32                                                   i2             = 0;
             for (i2=0; i2<c2; ++i2)
             {
-                const css::frame::DispatchInformation&                            rInfo = lProviderInfos[i2];
-                      auto pInfo = lInfos.find(rInfo.Command);
+                const css::frame::DispatchInformation& rInfo = lProviderInfos[i2];
+                auto pInfo = lInfos.find(rInfo.Command);
                 if (pInfo == lInfos.end())
                     lInfos[rInfo.Command] = rInfo;
             }
@@ -105,17 +105,7 @@ css::uno::Sequence< css::frame::DispatchInformation > SAL_CALL DispatchInformati
             { continue; }
     }
 
-    c1 = static_cast<sal_Int32>(lInfos.size());
-    i1 = 0;
-
-    css::uno::Sequence< css::frame::DispatchInformation >       lReturn(c1);
-    for (auto pStepp  = lInfos.begin();
-           pStepp != lInfos.end  () && i1<c1;
-         ++pStepp, ++i1                      )
-    {
-        lReturn[i1] = pStepp->second;
-    }
-    return lReturn;
+    return comphelper::mapValuesToSequence(lInfos);
 }
 
 css::uno::Sequence< css::uno::Reference< css::frame::XDispatchInformationProvider > > DispatchInformationProvider::implts_getAllSubProvider()

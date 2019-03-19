@@ -23,12 +23,9 @@
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 
-#include <editeng/editdata.hxx>
 #include <svx/dialogs.hrc>
-#include <editeng/eeitem.hxx>
 #include <svx/flagsdef.hxx>
 
-#include <editeng/outliner.hxx>
 #include <paragr.hxx>
 #include <sdattr.hrc>
 
@@ -180,7 +177,7 @@ SdParagraphDlg::SdParagraphDlg(weld::Window* pParent, const SfxItemSet* pAttr)
     else
         RemoveTabPage( "labelNUMBERING" );
 
-      AddTabPage("labelTP_TABULATOR", RID_SVXPAGE_TABULATOR);
+    AddTabPage("labelTP_TABULATOR", RID_SVXPAGE_TABULATOR);
 }
 
 void SdParagraphDlg::PageCreated(const OString& rId, SfxTabPage &rPage)

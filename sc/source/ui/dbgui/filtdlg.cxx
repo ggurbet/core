@@ -17,13 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <rangelst.hxx>
 #include <sfx2/dispatch.hxx>
 #include <vcl/waitobj.hxx>
 #include <sal/log.hxx>
 
 #include <uiitems.hxx>
-#include <dbdata.hxx>
 #include <reffact.hxx>
 #include <viewdata.hxx>
 #include <document.hxx>
@@ -39,8 +37,6 @@
 #include <filtdlg.hxx>
 #include <vcl/weld.hxx>
 #include <svl/sharedstringpool.hxx>
-
-#include <o3tl/make_unique.hxx>
 
 #include <limits>
 
@@ -321,17 +317,17 @@ void ScFilterDlg::Init( const SfxItemSet& rArgSet )
     pLbConnect1->Hide();
     // Disable/Enable Logic:
 
-       (pLbField1->GetSelectedEntryPos() != 0)
+    (pLbField1->GetSelectedEntryPos() != 0)
     && (pLbField2->GetSelectedEntryPos() != 0)
         ? pLbConnect2->SelectEntryPos( static_cast<sal_uInt16>(theQueryData.GetEntry(1).eConnect) )
         : pLbConnect2->SetNoSelection();
 
-       (pLbField2->GetSelectedEntryPos() != 0)
+    (pLbField2->GetSelectedEntryPos() != 0)
     && (pLbField3->GetSelectedEntryPos() != 0)
         ? pLbConnect3->SelectEntryPos( static_cast<sal_uInt16>(theQueryData.GetEntry(2).eConnect) )
         : pLbConnect3->SetNoSelection();
 
-       (pLbField3->GetSelectedEntryPos() != 0)
+    (pLbField3->GetSelectedEntryPos() != 0)
     && (pLbField4->GetSelectedEntryPos() != 0)
         ? pLbConnect4->SelectEntryPos( static_cast<sal_uInt16>(theQueryData.GetEntry(3).eConnect) )
         : pLbConnect4->SetNoSelection();
@@ -490,7 +486,7 @@ void ScFilterDlg::UpdateValueList( size_t nList )
 
                 // first without the first line
                 std::pair<EntryListsMap::iterator, bool> r =
-                    m_EntryLists.insert(std::make_pair(nColumn, o3tl::make_unique<EntryList>()));
+                    m_EntryLists.insert(std::make_pair(nColumn, std::make_unique<EntryList>()));
                 if (!r.second)
                     // insertion failed.
                     return;
@@ -534,10 +530,9 @@ void ScFilterDlg::UpdateValueList( size_t nList )
 
             OSL_ASSERT(pList);
 
-            std::vector<ScTypedStrData>::const_iterator it = pList->maFilterEntries.begin(), itEnd = pList->maFilterEntries.end();
-            for (; it != itEnd; ++it)
+            for (const auto& rEntry : pList->maFilterEntries)
             {
-                pValList->InsertEntry(it->GetString(), nListPos++);
+                pValList->InsertEntry(rEntry.GetString(), nListPos++);
             }
         }
         pValList->SetText( aCurValue );

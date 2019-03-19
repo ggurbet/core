@@ -22,7 +22,6 @@
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <vcl/graph.hxx>
-#include <o3tl/make_unique.hxx>
 #include <editeng/brushitem.hxx>
 #include <vcl/metric.hxx>
 #include <vcl/outdev.hxx>
@@ -32,6 +31,7 @@
 #include "porfld.hxx"
 #include "inftxt.hxx"
 #include <blink.hxx>
+#include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <viewsh.hxx>
 #include <docsh.hxx>
@@ -44,6 +44,7 @@
 #include <accessibilityoptions.hxx>
 #include <editeng/lrspitem.hxx>
 #include <unicode/ubidi.h>
+#include <bookmrk.hxx>
 
 using namespace ::com::sun::star;
 
@@ -82,7 +83,7 @@ SwFieldPortion::SwFieldPortion( const OUString &rExpand, std::unique_ptr<SwFont>
     , m_bNoLength( false )
     , m_nAttrFieldType(0)
 {
-    SetWhichPor( POR_FLD );
+    SetWhichPor( PortionType::Field );
 }
 
 SwFieldPortion::SwFieldPortion( const SwFieldPortion& rField )
@@ -106,7 +107,7 @@ SwFieldPortion::SwFieldPortion( const SwFieldPortion& rField )
     if ( rField.HasFont() )
         m_pFont.reset( new SwFont( *rField.GetFont() ) );
 
-    SetWhichPor( POR_FLD );
+    SetWhichPor( PortionType::Field );
 }
 
 SwFieldPortion::~SwFieldPortion()
@@ -360,7 +361,7 @@ bool SwFieldPortion::Format( SwTextFormatInfo &rInf )
 
         // The char is held in the first position
         // Unconditionally after format!
-        SetLen( (m_bNoLength) ? TextFrameIndex(0) : nFollow );
+        SetLen( m_bNoLength ? TextFrameIndex(0) : nFollow );
 
         if( nRest )
         {
@@ -404,7 +405,7 @@ bool SwFieldPortion::Format( SwTextFormatInfo &rInf )
             SwFieldPortion *pField = Clone( aNew );
             if( !aNew.isEmpty() && !pField->GetFont() )
             {
-                pField->SetFont( o3tl::make_unique<SwFont>( *rInf.GetFont() ) );
+                pField->SetFont( std::make_unique<SwFont>( *rInf.GetFont() ) );
             }
             pField->SetFollow( true );
             SetHasFollow( true );
@@ -432,7 +433,7 @@ void SwFieldPortion::Paint( const SwTextPaintInfo &rInf ) const
     if( Width() && ( !m_bPlaceHolder || rInf.GetOpt().IsShowPlaceHolderFields() ) )
     {
         // A very liberal use of the background
-        rInf.DrawViewOpt( *this, POR_FLD );
+        rInf.DrawViewOpt( *this, PortionType::Field );
         SwExpandPortion::Paint( rInf );
     }
 }
@@ -480,7 +481,7 @@ void SwHiddenPortion::Paint( const SwTextPaintInfo &rInf ) const
     if( Width() )
     {
         SwFontSave aSave( rInf, m_pFont.get() );
-        rInf.DrawViewOpt( *this, POR_HIDDEN );
+        rInf.DrawViewOpt( *this, PortionType::Hidden );
         SwExpandPortion::Paint( rInf );
     }
 }
@@ -502,7 +503,7 @@ SwNumberPortion::SwNumberPortion( const OUString &rExpand,
           nMinDist( nMinDst ),
           mbLabelAlignmentPosAndSpaceModeActive( bLabelAlignmentPosAndSpaceModeActive )
 {
-    SetWhichPor( POR_NUMBER );
+    SetWhichPor( PortionType::Number );
     SetLeft( bLft );
     SetHide( false );
     SetCenter( bCntr );
@@ -624,9 +625,9 @@ void SwNumberPortion::Paint( const SwTextPaintInfo &rInf ) const
 {
     if ( IsHide() && rInf.GetParaPortion() && rInf.GetParaPortion()->GetNext() )
     {
-        SwLinePortion *pTmp = GetPortion();
+        SwLinePortion *pTmp = GetNextPortion();
         while ( pTmp && !pTmp->InTextGrp() )
-            pTmp = pTmp->GetPortion();
+            pTmp = pTmp->GetNextPortion();
         if ( !pTmp )
             return;
     }
@@ -641,7 +642,7 @@ void SwNumberPortion::Paint( const SwTextPaintInfo &rInf ) const
     {
         nSumWidth = nSumWidth + pTmp->Width();
         if ( static_cast<const SwNumberPortion*>(pTmp)->HasFollow() )
-            pTmp = pTmp->GetPortion();
+            pTmp = pTmp->GetNextPortion();
         else
         {
             nOffset = pTmp->Width() - static_cast<const SwNumberPortion*>(pTmp)->nFixWidth;
@@ -655,7 +656,7 @@ void SwNumberPortion::Paint( const SwTextPaintInfo &rInf ) const
     {
         SwNumberPortion *pThis = const_cast<SwNumberPortion*>(this);
         pThis->Width( nSumWidth );
-        rInf.DrawViewOpt( *this, POR_NUMBER );
+        rInf.DrawViewOpt( *this, PortionType::Number );
         pThis->Width( nOldWidth );
     }
 
@@ -744,7 +745,7 @@ SwBulletPortion::SwBulletPortion( const sal_Unicode cBullet,
                        std::move(pFont), bLft, bCntr, nMinDst,
                        bLabelAlignmentPosAndSpaceModeActive )
 {
-    SetWhichPor( POR_BULLET );
+    SetWhichPor( PortionType::Bullet );
 }
 
 #define GRFNUM_SECURE 10
@@ -759,7 +760,7 @@ SwGrfNumPortion::SwGrfNumPortion(
                      bLabelAlignmentPosAndSpaceModeActive ),
     pBrush( new SvxBrushItem(RES_BACKGROUND) ), nId( 0 )
 {
-    SetWhichPor( POR_GRFNUM );
+    SetWhichPor( PortionType::GrfNum );
     SetAnimated( false );
     m_bReplace = false;
     if( pGrfBrush )
@@ -880,9 +881,9 @@ void SwGrfNumPortion::Paint( const SwTextPaintInfo &rInf ) const
         return;
     if ( IsHide() && rInf.GetParaPortion() && rInf.GetParaPortion()->GetNext() )
     {
-        SwLinePortion *pTmp = GetPortion();
+        SwLinePortion *pTmp = GetNextPortion();
         while ( pTmp && !pTmp->InTextGrp() )
-            pTmp = pTmp->GetPortion();
+            pTmp = pTmp->GetNextPortion();
         if ( !pTmp )
             return;
     }
@@ -915,7 +916,7 @@ void SwGrfNumPortion::Paint( const SwTextPaintInfo &rInf ) const
 
     if( m_bReplace )
     {
-        const long nTmpH = GetPortion() ? GetPortion()->GetAscent() : 120;
+        const long nTmpH = GetNextPortion() ? GetNextPortion()->GetAscent() : 120;
         aSize = Size( nTmpH, nTmpH );
         aPos.setY( rInf.Y() - nTmpH );
     }
@@ -1038,7 +1039,7 @@ void SwTextFrame::StopAnimation( OutputDevice* pOut )
         SwLineLayout *pLine = GetPara();
         while( pLine )
         {
-            SwLinePortion *pPor = pLine->GetPortion();
+            SwLinePortion *pPor = pLine->GetNextPortion();
             while( pPor )
             {
                 if( pPor->IsGrfNumPortion() )
@@ -1046,7 +1047,7 @@ void SwTextFrame::StopAnimation( OutputDevice* pOut )
                 // The NumberPortion is always at the first char,
                 // which means we can cancel as soon as we've reached a portion
                 // with a length > 0
-                pPor = pPor->GetLen() ? nullptr : pPor->GetPortion();
+                pPor = pPor->GetLen() ? nullptr : pPor->GetNextPortion();
             }
             pLine = pLine->GetLen() ? nullptr : pLine->GetNext();
         }
@@ -1063,7 +1064,7 @@ SwCombinedPortion::SwCombinedPortion( const OUString &rText )
     , nProportion(55)
 {
     SetLen(TextFrameIndex(1));
-    SetWhichPor( POR_COMBINED );
+    SetWhichPor( PortionType::Combined );
     if( m_aExpand.getLength() > 6 )
         m_aExpand = m_aExpand.copy( 0, 6 );
 
@@ -1092,11 +1093,11 @@ void SwCombinedPortion::Paint( const SwTextPaintInfo &rInf ) const
         return;
 
     rInf.DrawBackBrush( *this );
-    rInf.DrawViewOpt( *this, POR_FLD );
+    rInf.DrawViewOpt( *this, PortionType::Field );
 
     // do we have to repaint a post it portion?
-    if( rInf.OnWin() && pPortion && !pPortion->Width() )
-        pPortion->PrePaint( rInf, this );
+    if( rInf.OnWin() && mpNextPortion && !mpNextPortion->Width() )
+        mpNextPortion->PrePaint( rInf, this );
 
     const sal_Int32 nCount = m_aExpand.getLength();
     if( !nCount )
@@ -1311,7 +1312,20 @@ sal_uInt16 SwCombinedPortion::GetViewWidth( const SwTextSizeInfo &rInf ) const
 
 SwFieldPortion *SwFieldFormDropDownPortion::Clone(const OUString &rExpand) const
 {
-    return new SwFieldFormDropDownPortion(rExpand);
+    return new SwFieldFormDropDownPortion(m_pFieldMark, rExpand);
+}
+
+void SwFieldFormDropDownPortion::Paint( const SwTextPaintInfo &rInf ) const
+{
+    SwFieldPortion::Paint( rInf );
+
+    ::sw::mark::DropDownFieldmark* pDropDownField = dynamic_cast< ::sw::mark::DropDownFieldmark* >(m_pFieldMark);
+    if(pDropDownField)
+    {
+        SwRect aPaintArea;
+        rInf.CalcRect( *this, &aPaintArea );
+        pDropDownField->SetPortionPaintArea(aPaintArea);
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

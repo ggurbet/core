@@ -22,7 +22,6 @@
 #include "decode.hxx"
 #include "gifread.hxx"
 #include <memory>
-#include <o3tl/make_unique.hxx>
 #include <bitmapwriteaccess.hxx>
 
 #define NO_PENDING( rStm ) ( ( rStm ).GetError() != ERRCODE_IO_PENDING )
@@ -561,9 +560,9 @@ void GIFReader::FillImages( const sal_uInt8* pBytes, sal_uLong nCount )
                     if( ( nMinY > nLastImageY ) && ( nLastImageY < ( nImageHeight - 1 ) ) )
                     {
                         sal_uInt8*  pScanline8 = pAcc8->GetScanline( nYAcc );
-                        sal_uLong   nSize8 = pAcc8->GetScanlineSize();
+                        sal_uInt32  nSize8 = pAcc8->GetScanlineSize();
                         sal_uInt8*  pScanline1 = nullptr;
-                        sal_uLong   nSize1 = 0;
+                        sal_uInt32  nSize1 = 0;
 
                         if( bGCTransparent )
                         {
@@ -798,7 +797,7 @@ bool GIFReader::ProcessGIF()
             else if( NO_PENDING( rIStm ) )
             {
                 bRead = true;
-                pDecomp = o3tl::make_unique<GIFLZWDecompressor>( cDataSize );
+                pDecomp = std::make_unique<GIFLZWDecompressor>( cDataSize );
                 eActAction = NEXT_BLOCK_READING;
                 bOverreadBlock = false;
             }

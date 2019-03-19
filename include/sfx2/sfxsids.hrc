@@ -27,6 +27,7 @@ class SvxZoomItem;
 class SfxUInt16Item;
 class SvxHyperlinkItem;
 class SfxDocumentInfoItem;
+class SvxSearchItem;
 
 // Please be careful:
 // Changing just one part here doesn't add new
@@ -256,8 +257,10 @@ class SfxDocumentInfoItem;
 // Used to export a temporary file for preview in Mail Merge Wizard, where saving the data source is
 // not required for preview, but interferes with not-yet-saved embedded data source for main document.
 #define SID_NO_EMBEDDED_DS                  TypedWhichId<SfxBoolItem>(SID_SFX_START + 1731)
+#define SID_IS_REDACT_MODE                  (SID_SFX_START + 1733)
+#define SID_REDACTION_STYLE                 (SID_SFX_START + 1734)
 
-//      SID_SFX_free_START                  (SID_SFX_START + 1733)
+//      SID_SFX_free_START                  (SID_SFX_START + 1735)
 //      SID_SFX_free_END                    (SID_SFX_START + 3999)
 
 #define SID_OPEN_NEW_VIEW                   (SID_SFX_START + 520)
@@ -415,7 +418,9 @@ class SfxDocumentInfoItem;
 #define SID_PASTE_ONLY_TEXT                 (SID_SFX_START + 802)
 #define SID_PASTE_ONLY_FORMULA              (SID_SFX_START + 803)
 #define SID_PASTE_ONLY_VALUE                (SID_SFX_START + 804)
-    // FREE: SID_SFX_START + 808
+
+// Used for redaction
+#define SID_SHAPE_NAME                      (SID_SFX_START + 808)
     // FREE: SID_SFX_START + 809
     // FREE: SID_SFX_START + 810
 #define SID_ASYNCHRON                       (SID_SFX_START + 811)

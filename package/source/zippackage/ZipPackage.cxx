@@ -80,7 +80,6 @@
 #include <comphelper/sequenceashashmap.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/sequence.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace std;
 using namespace osl;
@@ -619,7 +618,7 @@ void SAL_CALL ZipPackage::initialize( const uno::Sequence< Any >& aArguments )
                         m_aURL = aParamUrl.copy( 0, nParam );
                         OUString aParam = aParamUrl.copy( nParam + 1 );
 
-                          sal_Int32 nIndex = 0;
+                        sal_Int32 nIndex = 0;
                         do
                         {
                             OUString aCommand = aParam.getToken( 0, '&', nIndex );
@@ -771,7 +770,7 @@ void SAL_CALL ZipPackage::initialize( const uno::Sequence< Any >& aArguments )
             OUString message;
             try
             {
-                m_pZipFile = o3tl::make_unique<ZipFile>(m_aMutexHolder, m_xContentStream, m_xContext, true, m_bForceRecovery);
+                m_pZipFile = std::make_unique<ZipFile>(m_aMutexHolder, m_xContentStream, m_xContext, true, m_bForceRecovery);
                 getZipFileContents();
             }
             catch ( IOException & e )
@@ -1104,20 +1103,17 @@ void ZipPackage::WriteContentTypes( ZipOutputStream& aZipOut, const vector< uno:
 
     uno::Sequence< beans::StringPair > aOverridesSequence(aManList.size());
     sal_Int32 nOverSeqLength = 0;
-    for ( vector< uno::Sequence< beans::PropertyValue > >::const_iterator aIter = aManList.begin(),
-            aEnd = aManList.end();
-         aIter != aEnd;
-         ++aIter)
+    for (const auto& rMan : aManList)
     {
         OUString aPath;
         OUString aType;
-        OSL_ENSURE( ( *aIter )[PKG_MNFST_MEDIATYPE].Name == "MediaType" && ( *aIter )[PKG_MNFST_FULLPATH].Name == "FullPath",
+        OSL_ENSURE( rMan[PKG_MNFST_MEDIATYPE].Name == "MediaType" && rMan[PKG_MNFST_FULLPATH].Name == "FullPath",
                     "The mediatype sequence format is wrong!" );
-        ( *aIter )[PKG_MNFST_MEDIATYPE].Value >>= aType;
+        rMan[PKG_MNFST_MEDIATYPE].Value >>= aType;
         if ( !aType.isEmpty() )
         {
             // only nonempty type makes sense here
-            ( *aIter )[PKG_MNFST_FULLPATH].Value >>= aPath;
+            rMan[PKG_MNFST_FULLPATH].Value >>= aPath;
             //FIXME: For now we have no way of differentiating defaults from others.
             aOverridesSequence[nOverSeqLength].First = "/" + aPath;
             aOverridesSequence[nOverSeqLength].Second = aType;
@@ -1151,7 +1147,7 @@ void ZipPackage::ConnectTo( const uno::Reference< io::XInputStream >& xInStream 
     if ( m_pZipFile )
         m_pZipFile->setInputStream( m_xContentStream );
     else
-        m_pZipFile = o3tl::make_unique<ZipFile>(m_aMutexHolder, m_xContentStream, m_xContext, false);
+        m_pZipFile = std::make_unique<ZipFile>(m_aMutexHolder, m_xContentStream, m_xContext, false);
 }
 
 namespace
@@ -1338,7 +1334,7 @@ uno::Reference< io::XInputStream > ZipPackage::writeTempFile()
         if( bUseTemp )
         {
             // no information loss appears, thus no special handling is required
-               uno::Any aCaught( ::cppu::getCaughtException() );
+            uno::Any aCaught( ::cppu::getCaughtException() );
 
             // it is allowed to throw WrappedTargetException
             WrappedTargetException aException;
@@ -1400,10 +1396,10 @@ uno::Reference< XActiveDataStreamer > ZipPackage::openOriginalForOutput()
             }
 
             OpenCommandArgument2 aArg;
-               aArg.Mode        = OpenMode::DOCUMENT;
-               aArg.Priority    = 0; // unused
-               aArg.Sink       = xSink;
-               aArg.Properties = uno::Sequence< Property >( 0 ); // unused
+            aArg.Mode        = OpenMode::DOCUMENT;
+            aArg.Priority    = 0; // unused
+            aArg.Sink       = xSink;
+            aArg.Properties = uno::Sequence< Property >( 0 ); // unused
 
             aOriginalContent.executeCommand("open", makeAny( aArg ) );
         }
@@ -1437,7 +1433,7 @@ void SAL_CALL ZipPackage::commitChanges()
     }
     catch (const ucb::ContentCreationException&)
     {
-       css::uno::Any anyEx = cppu::getCaughtException();
+        css::uno::Any anyEx = cppu::getCaughtException();
         throw WrappedTargetException(THROW_WHERE "Temporary file should be creatable!",
                     static_cast < OWeakObject * > ( this ), anyEx );
     }

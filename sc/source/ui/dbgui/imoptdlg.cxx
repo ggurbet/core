@@ -21,7 +21,6 @@
 #include <asciiopt.hxx>
 #include <comphelper/string.hxx>
 #include <osl/thread.h>
-#include <rtl/tencinfo.h>
 #include <global.hxx>
 
 static const sal_Char pStrFix[] = "FIX";
@@ -41,38 +40,42 @@ ScImportOptions::ScImportOptions( const OUString& rStr )
     eCharSet = RTL_TEXTENCODING_DONTKNOW;
     bSaveAsShown = true;    // "true" if not in string (after CSV import)
     bQuoteAllText = false;
+    bSaveNumberAsSuch = true;
     bSaveFormulas = false;
     bRemoveSpace = false;
     sal_Int32 nTokenCount = comphelper::string::getTokenCount(rStr, ',');
     if ( nTokenCount >= 3 )
     {
+        sal_Int32 nIdx{ 0 };
         // first 3 tokens: common
-        OUString aToken( rStr.getToken( 0, ',' ) );
+        OUString aToken( rStr.getToken( 0, ',', nIdx ) );
         if( aToken.equalsIgnoreAsciiCase( pStrFix ) )
             bFixedWidth = true;
         else
             nFieldSepCode = ScAsciiOptions::GetWeightedFieldSep( aToken, true);
-        nTextSepCode  = static_cast<sal_Unicode>(rStr.getToken(1,',').toInt32());
-        aStrFont      = rStr.getToken(2,',');
+        nTextSepCode  = static_cast<sal_Unicode>(rStr.getToken(0, ',', nIdx).toInt32());
+        aStrFont      = rStr.getToken(0, ',', nIdx);
         eCharSet      = ScGlobal::GetCharsetValue(aStrFont);
 
         if ( nTokenCount == 4 )
         {
             // compatibility with old options string: "Save as shown" as 4th token, numeric
-            bSaveAsShown = rStr.getToken( 3, ',' ).toInt32() != 0;
+            bSaveAsShown = rStr.getToken(0, ',', nIdx).toInt32() != 0;
             bQuoteAllText = true;   // use old default then
         }
         else
         {
             // look at the same positions as in ScAsciiOptions
             if ( nTokenCount >= 7 )
-                bQuoteAllText = rStr.getToken(6, ',') == "true";
+                bQuoteAllText = rStr.getToken(3, ',', nIdx) == "true";  // 7th token
+            if ( nTokenCount >= 8 )
+                bSaveNumberAsSuch = rStr.getToken(0, ',', nIdx) == "true";
             if ( nTokenCount >= 9 )
-                bSaveAsShown = rStr.getToken(8, ',') == "true";
+                bSaveAsShown = rStr.getToken(0, ',', nIdx) == "true";
             if ( nTokenCount >= 10 )
-                bSaveFormulas = rStr.getToken(9, ',') == "true";
+                bSaveFormulas = rStr.getToken(0, ',', nIdx) == "true";
             if ( nTokenCount >= 11 )
-                bRemoveSpace = rStr.getToken(10, ',') == "true";
+                bRemoveSpace = rStr.getToken(0, ',', nIdx) == "true";
         }
     }
 }
@@ -89,7 +92,9 @@ OUString ScImportOptions::BuildString() const
                                                  // use the same string format as ScAsciiOptions:
             ",1,,0," +                           // first row, no column info, default language
             OUString::boolean( bQuoteAllText ) + // same as "quoted field as text" in ScAsciiOptions
-            ",true," +                           // "detect special numbers"
+            "," +
+            OUString::boolean( bSaveNumberAsSuch ) + // "save number as such": not in ScAsciiOptions
+            "," +
             OUString::boolean( bSaveAsShown ) +  // "save as shown": not in ScAsciiOptions
             "," +
             OUString::boolean( bSaveFormulas ) +  // "save formulas": not in ScAsciiOptions

@@ -69,6 +69,7 @@
 #include <com/sun/star/xml/xpath/XXPathAPI.hpp>
 #include <com/sun/star/deployment/XPackageManager.hpp>
 #include <boost/optional.hpp>
+#include <tools/diagnose_ex.h>
 
 #include <algorithm>
 #include <memory>
@@ -554,7 +555,7 @@ OUString BackendImpl::PackageImpl::getTextFromURL(
     catch (const css::uno::Exception&)
     {
         Any exc( ::cppu::getCaughtException() );
-            throw css::deployment::DeploymentException(
+        throw css::deployment::DeploymentException(
                 "Could not read file " + licenseUrl, nullptr, exc);
     }
 
@@ -629,7 +630,7 @@ bool BackendImpl::PackageImpl::checkLicense(
     {
         ::boost::optional<SimpleLicenseAttributes> simplLicAttr
             = info.getSimpleLicenseAttributes();
-       if (! simplLicAttr)
+        if (! simplLicAttr)
             return true;
         OUString sLic = info.getLocalizedLicenseURL();
         //If we do not get a localized licence then there is an error in the description.xml
@@ -639,7 +640,7 @@ bool BackendImpl::PackageImpl::checkLicense(
             throw css::deployment::DeploymentException(
                 "Could not obtain path to license. Possible error in description.xml", nullptr, Any());
         OUString sHref = m_url_expanded + "/" + sLic;
-           OUString sLicense = getTextFromURL(xCmdEnv, sHref);
+        OUString sLicense = getTextFromURL(xCmdEnv, sHref);
         ////determine who has to agree to the license
         //check correct value for attribute
         if ( ! (simplLicAttr->acceptBy == "user" || simplLicAttr->acceptBy == "admin"))
@@ -775,9 +776,9 @@ uno::Reference< graphic::XGraphic > BackendImpl::PackageImpl::getIcon( sal_Bool 
         uno::Reference< XComponentContext > xContext( getMyBackend()->getComponentContext() );
         uno::Reference< graphic::XGraphicProvider > xGraphProvider( graphic::GraphicProvider::create(xContext) );
 
-            uno::Sequence< beans::PropertyValue > aMediaProps( 1 );
-            aMediaProps[0].Name = "URL";
-            aMediaProps[0].Value <<= aFullIconURL;
+        uno::Sequence< beans::PropertyValue > aMediaProps( 1 );
+        aMediaProps[0].Name = "URL";
+        aMediaProps[0].Value <<= aFullIconURL;
 
         xGraphic = xGraphProvider->queryGraphic( aMediaProps );
     }
@@ -845,8 +846,7 @@ void BackendImpl::PackageImpl::processPackage_(
                         }
                         catch (const Exception &)
                         {
-                            SAL_WARN( "desktop", ::comphelper::anyToString(
-                                                ::cppu::getCaughtException() ) );
+                            SAL_WARN( "desktop", exceptionToString( cppu::getCaughtException() ) );
                             // ignore any errors of rollback
                         }
                     }
@@ -933,7 +933,7 @@ OUString BackendImpl::PackageImpl::getDescription()
         }
         catch ( const css::deployment::DeploymentException& )
         {
-            SAL_WARN( "desktop", ::comphelper::anyToString( ::cppu::getCaughtException() ) );
+            SAL_WARN( "desktop", exceptionToString( cppu::getCaughtException() ) );
         }
     }
 
@@ -959,11 +959,11 @@ OUString BackendImpl::PackageImpl::getLicenseText()
         if ( !aLicenseURL.isEmpty() )
         {
             OUString aFullURL = m_url_expanded + "/" + aLicenseURL;
-               sLicense = getTextFromURL( Reference< ucb::XCommandEnvironment >(), aFullURL);
-           }
+            sLicense = getTextFromURL( Reference< ucb::XCommandEnvironment >(), aFullURL);
+        }
     }
 
-     return sLicense;
+    return sLicense;
 }
 
 
@@ -1055,11 +1055,10 @@ void BackendImpl::PackageImpl::exportTo(
         }
         // xxx todo: think about exception specs:
         catch (const deployment::DeploymentException &) {
-            SAL_WARN( "desktop", ::comphelper::anyToString(
-                                ::cppu::getCaughtException() ) );
+            SAL_WARN( "desktop", exceptionToString( cppu::getCaughtException() ) );
         }
         catch (const lang::IllegalArgumentException & exc) {
-            SAL_WARN( "desktop", exc );
+            SAL_WARN( "desktop", exceptionToString(Any(exc)) );
         }
 
         std::vector< Sequence<beans::PropertyValue> > manifest;

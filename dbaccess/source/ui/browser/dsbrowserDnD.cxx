@@ -28,6 +28,7 @@
 
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/sdb/CommandType.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbc/XConnection.hpp>
 
 #include <connectivity/dbexception.hxx>
@@ -37,6 +38,7 @@
 #include <tools/diagnose_ex.h>
 #include <osl/diagnose.h>
 #include <vcl/treelistentry.hxx>
+#include <vcl/svapp.hxx>
 
 #include <algorithm>
 #include <functional>

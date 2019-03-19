@@ -36,6 +36,7 @@
 #include <com/sun/star/sdb/XRowSetSupplier.hpp>
 #include <com/sun/star/sdbc/ColumnValue.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/util/VetoException.hpp>
 #include <com/sun/star/util/XModifyBroadcaster.hpp>
 
@@ -1307,7 +1308,7 @@ void OBoundControlModel::suspendValueListening( )
     OSL_PRECOND( !m_sValuePropertyName.isEmpty(), "OBoundControlModel::suspendValueListening: don't have a value property!" );
     OSL_PRECOND( m_pAggPropMultiplexer, "OBoundControlModel::suspendValueListening: I *am* not listening!" );
 
-if ( m_pAggPropMultiplexer )
+    if ( m_pAggPropMultiplexer )
         m_pAggPropMultiplexer->lock();
 }
 

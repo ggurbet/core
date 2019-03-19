@@ -101,6 +101,7 @@ public:
     void testTdf111884();
     void testTdf112633();
     void testCustomXml();
+    void testTdf94238();
 
     CPPUNIT_TEST_SUITE(SdOOXMLExportTest1);
 
@@ -131,6 +132,7 @@ public:
     CPPUNIT_TEST(testTdf111884);
     CPPUNIT_TEST(testTdf112633);
     CPPUNIT_TEST(testCustomXml);
+    CPPUNIT_TEST(testTdf94238);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -229,7 +231,7 @@ void SdOOXMLExportTest1::testBnc870233_2()
 
     // Second smart art has "dk2" font color (style)
     {
-        const SdrObjGroup *pObjGroup = dynamic_cast<SdrObjGroup *>(pPage->GetObj(2)); // FIXME should be 1, smartart import creates an additional empty group for some reason
+        const SdrObjGroup *pObjGroup = dynamic_cast<SdrObjGroup *>(pPage->GetObj(1));
         CPPUNIT_ASSERT(pObjGroup);
         const SdrTextObj *pObj = dynamic_cast<SdrTextObj *>(pObjGroup->GetSubList()->GetObj(0));
         checkFontAttributes<Color, SvxColorItem>( pObj, Color(0x1F497D) );
@@ -237,7 +239,7 @@ void SdOOXMLExportTest1::testBnc870233_2()
 
     // Third smart art has white font color (style)
     {
-        const SdrObjGroup *pObjGroup = dynamic_cast<SdrObjGroup *>(pPage->GetObj(4)); // FIXME should be 2, smartart import creates an additional empty group for some reason
+        const SdrObjGroup *pObjGroup = dynamic_cast<SdrObjGroup *>(pPage->GetObj(2));
         CPPUNIT_ASSERT(pObjGroup);
         const SdrTextObj *pObj = dynamic_cast<SdrTextObj *>(pObjGroup->GetSubList()->GetObj(0));
         checkFontAttributes<Color, SvxColorItem>(pObj, Color(0xffffff));
@@ -372,7 +374,7 @@ void SdOOXMLExportTest1::testBnc880763()
     CPPUNIT_ASSERT_EQUAL( Color(0x0000ff),(static_cast< const XColorItem& >(pObj->GetMergedItem(XATTR_FILLCOLOR))).GetColorValue());
 
     // Second object at the front has green background color
-    pObj = pPage->GetObj(2); // FIXME should be 1, smartart import creates an additional empty group for some reason
+    pObj = pPage->GetObj(1);
     CPPUNIT_ASSERT_MESSAGE( "no object", pObj != nullptr);
     CPPUNIT_ASSERT_EQUAL( Color(0x00ff00),(static_cast< const XColorItem& >(pObj->GetMergedItem(XATTR_FILLCOLOR))).GetColorValue());
 
@@ -844,6 +846,44 @@ void SdOOXMLExportTest1::testCustomXml()
 
     std::shared_ptr<SvStream> pStream = parseExportStream(tempFile, "ddp/ddpfile.xen");
     CPPUNIT_ASSERT(pStream);
+}
+
+void SdOOXMLExportTest1::testTdf94238()
+{
+    // Load document and export it to a temporary file.
+    ::sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf94238.pptx"), PPTX);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    uno::Reference<drawing::XDrawPagesSupplier> xDoc(xDocShRef->GetDoc()->getUnoModel(),
+                                                     uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xDoc.is());
+
+    uno::Reference<drawing::XDrawPage> xPage(xDoc->getDrawPages()->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xPage.is());
+
+    uno::Reference<beans::XPropertySet> xShape(getShape(0, xPage));
+    CPPUNIT_ASSERT(xShape.is());
+
+    awt::Gradient aGradient;
+    CPPUNIT_ASSERT(xShape->getPropertyValue("FillGradient") >>= aGradient);
+
+    // Without the accompanying fix in place, this test would have failed with
+    // the following details:
+    // - aGradient.Style was awt::GradientStyle_ELLIPTICAL
+    // - aGradient.YOffset was 70
+    // - aGradient.Border was 0
+    CPPUNIT_ASSERT_EQUAL(awt::GradientStyle_RADIAL, aGradient.Style);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(100), aGradient.YOffset);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(39), aGradient.Border);
+
+    // Without the accompanying fix in place, this test would have failed with
+    // 'Expected: 0, Actual  : 10592673', i.e. the start color of the gradient
+    // was incorrect.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), aGradient.StartColor);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0x8B8B8B), aGradient.EndColor);
+
+    xDocShRef->DoClose();
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SdOOXMLExportTest1);

@@ -43,6 +43,7 @@
 #include <osl/diagnose.h>
 #include <vcl/treelistentry.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/svapp.hxx>
 
 using namespace ::svt;
 using namespace ::dbaui;
@@ -64,7 +65,7 @@ namespace
 {
     bool isFieldNameAsterisk(const OUString& _sFieldName )
     {
-        bool bAsterisk = !(!_sFieldName.isEmpty() && _sFieldName.toChar() != '*');
+        bool bAsterisk = _sFieldName.isEmpty() || _sFieldName.toChar() == '*';
         if ( !bAsterisk )
         {
             sal_Int32 nTokenCount = comphelper::string::getTokenCount(_sFieldName, '.');
@@ -682,7 +683,7 @@ bool OSelectionBrowseBox::saveField(OUString& _sFieldName ,OTableFieldDescRef co
         OUString sQuotedFullFieldName(::dbtools::quoteName( xMetaData->getIdentifierQuoteString(), _sFieldName ));
         OUString sFullFieldName(_sFieldName);
 
-        if  ( _pEntry->isAggreateFunction() )
+        if  ( _pEntry->isAggregateFunction() )
         {
             OSL_ENSURE(!_pEntry->GetFunction().isEmpty(),"No empty Function name allowed here! ;-(");
             sQuotedFullFieldName = _pEntry->GetFunction() + "(" + sQuotedFullFieldName + ")";
@@ -1424,16 +1425,12 @@ void OSelectionBrowseBox::DeleteFields(const OUString& rAliasName)
         if (bWasEditing)
             DeactivateCell();
 
-        OTableFields::const_reverse_iterator aIter = getFields().rbegin();
-        OTableFieldDescRef pEntry;
-        for(sal_uInt16 nPos=sal::static_int_cast< sal_uInt16 >(getFields().size());aIter != getFields().rend();++aIter,--nPos)
+        auto aIter = std::find_if(getFields().rbegin(), getFields().rend(),
+            [&rAliasName](const OTableFieldDescRef pEntry) { return pEntry->GetAlias() == rAliasName; });
+        if (aIter != getFields().rend())
         {
-            pEntry = *aIter;
-            if ( pEntry->GetAlias() == rAliasName )
-            {
-                RemoveField( GetColumnId( nPos ) );
-                break;
-            }
+            sal_uInt16 nPos = sal::static_int_cast<sal_uInt16>(std::distance(aIter, getFields().rend()));
+            RemoveField( GetColumnId( nPos ) );
         }
 
         if (bWasEditing)
@@ -1647,7 +1644,7 @@ void OSelectionBrowseBox::AddGroupBy( const OTableFieldDescRef& rInfo )
             pEntry->GetFunctionType() == rInfo->GetFunctionType() &&
             pEntry->GetFunction() == rInfo->GetFunction())
         {
-            if ( pEntry->isNumericOrAggreateFunction() && rInfo->IsGroupBy() )
+            if ( pEntry->isNumericOrAggregateFunction() && rInfo->IsGroupBy() )
             {
                 pEntry->SetGroupBy(false);
                 // we do want to consider that bAllFieldsSearched still true here
@@ -1672,7 +1669,7 @@ void OSelectionBrowseBox::AddGroupBy( const OTableFieldDescRef& rInfo )
     if (bAllFieldsSearched)
     {
         OTableFieldDescRef pTmp = InsertField(rInfo, BROWSER_INVALIDID, false, false );
-        if ( pTmp->isNumericOrAggreateFunction() && rInfo->IsGroupBy() ) // the GroupBy is inherited from rInfo
+        if ( pTmp->isNumericOrAggregateFunction() && rInfo->IsGroupBy() ) // the GroupBy is inherited from rInfo
             pTmp->SetGroupBy(false);
     }
 }
@@ -1722,7 +1719,7 @@ void OSelectionBrowseBox::AddCondition( const OTableFieldDescRef& rInfo, const O
             pEntry->GetFunction() == rInfo->GetFunction() &&
             pEntry->IsGroupBy() == rInfo->IsGroupBy() )
         {
-            if ( pEntry->isNumericOrAggreateFunction() && rInfo->IsGroupBy() )
+            if ( pEntry->isNumericOrAggregateFunction() && rInfo->IsGroupBy() )
                 pEntry->SetGroupBy(false);
             else
             {
@@ -1768,7 +1765,7 @@ void OSelectionBrowseBox::AddCondition( const OTableFieldDescRef& rInfo, const O
     else if (bAllFieldsSearched)
     {
         OTableFieldDescRef pTmp = InsertField(rInfo, BROWSER_INVALIDID, false, false );
-        if ( pTmp->isNumericOrAggreateFunction() && rInfo->IsGroupBy() ) // the GroupBy was inherited from rInfo
+        if ( pTmp->isNumericOrAggregateFunction() && rInfo->IsGroupBy() ) // the GroupBy was inherited from rInfo
             pTmp->SetGroupBy(false);
         if ( pTmp.is() )
         {
@@ -2128,7 +2125,7 @@ OUString OSelectionBrowseBox::GetCellText(long nRow, sal_uInt16 nColId) const
             // we always show the group function at first
             if ( pEntry->IsGroupBy() )
                 aText = m_aFunctionStrings.copy(m_aFunctionStrings.lastIndexOf(';')+1);
-            else if ( pEntry->isNumericOrAggreateFunction() )
+            else if ( pEntry->isNumericOrAggregateFunction() )
                 aText = pEntry->GetFunction();
             break;
         default:

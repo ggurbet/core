@@ -19,6 +19,7 @@
 
 #include <tools/time.hxx>
 #include <sal/log.hxx>
+#include <o3tl/deleter.hxx>
 
 #include <brdwin.hxx>
 #include <svdata.hxx>
@@ -491,7 +492,6 @@ void ImplDockingWindowWrapper::ImplStartDocking( const Point& rPos )
         return;
 
     maMouseOff      = rPos;
-    maMouseStart    = maMouseOff;
     mbDocking       = true;
     mbLastFloatMode = IsFloatingMode();
 
@@ -584,8 +584,8 @@ void ImplDockingWindowWrapper::Tracking( const TrackingEvent& rTEvt )
             {
                 if ( bFloatMode )
                 {
-                    aTrackRect.AdjustLeft( -(mnDockLeft) );
-                    aTrackRect.AdjustTop( -(mnDockTop) );
+                    aTrackRect.AdjustLeft( -mnDockLeft );
+                    aTrackRect.AdjustTop( -mnDockTop );
                     aTrackRect.AdjustRight(mnDockRight );
                     aTrackRect.AdjustBottom(mnDockBottom );
                 }
@@ -595,8 +595,8 @@ void ImplDockingWindowWrapper::Tracking( const TrackingEvent& rTEvt )
                     {
                         aTrackRect.AdjustLeft(mnDockLeft );
                         aTrackRect.AdjustTop(mnDockTop );
-                        aTrackRect.AdjustRight( -(mnDockRight) );
-                        aTrackRect.AdjustBottom( -(mnDockBottom) );
+                        aTrackRect.AdjustRight( -mnDockRight );
+                        aTrackRect.AdjustBottom( -mnDockBottom );
                     }
                 }
                 mbLastFloatMode = bFloatMode;

@@ -190,7 +190,11 @@ int ImplSVMain()
 
     int nReturn = EXIT_FAILURE;
 
-    bool bInit = isInitVCL() || InitVCL();
+    const bool bWasInitVCL = isInitVCL();
+    const bool bInit = bWasInitVCL || InitVCL();
+    int nRet = 0;
+    if (!bWasInitVCL && bInit && pSVData->mpDefInst->SVMainHook(&nRet))
+        return nRet;
 
     if( bInit )
     {
@@ -217,7 +221,7 @@ int ImplSVMain()
             SolarMutexReleaser aReleaser;
             pSVData->mxAccessBridge->dispose();
         }
-      pSVData->mxAccessBridge.clear();
+        pSVData->mxAccessBridge.clear();
     }
 
 #if HAVE_FEATURE_OPENGL
@@ -553,9 +557,7 @@ void DeInitVCL()
     pSVData->maGDIData.mpFirstPrnGraphics = nullptr;
     pSVData->maGDIData.mpLastPrnGraphics = nullptr;
     pSVData->maGDIData.mpFirstVirDev = nullptr;
-    pSVData->maGDIData.mpLastVirDev = nullptr;
     pSVData->maGDIData.mpFirstPrinter = nullptr;
-    pSVData->maGDIData.mpLastPrinter = nullptr;
     pSVData->maWinData.mpFirstFrame = nullptr;
     pSVData->maWinData.mpAppWin = nullptr;
     pSVData->maWinData.mpActiveApplicationFrame = nullptr;
@@ -570,6 +572,11 @@ void DeInitVCL()
 
     pSVData->maGDIData.mxScreenFontList.reset();
     pSVData->maGDIData.mxScreenFontCache.reset();
+    pSVData->maGDIData.maScaleCache.remove_if([](const o3tl::lru_map<SalBitmap*, BitmapEx>::key_value_pair_t&)
+                                                { return true; });
+
+    pSVData->maGDIData.maThemeDrawCommandsCache.clear();
+    pSVData->maGDIData.maThemeImageCache.clear();
 
     // Deinit Sal
     if (pSVData->mpDefInst)

@@ -18,10 +18,10 @@
  */
 
 #include <DrawModelBroadcaster.hxx>
-#include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/unomod.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star;
 
@@ -68,9 +68,10 @@ void ScDrawModelBroadcaster::Notify( SfxBroadcaster&,
         {
             xListener->notifyEvent( aEvent );
         }
-        catch( const uno::RuntimeException& r )
+        catch( const uno::RuntimeException& )
         {
-            SAL_WARN("sc.ui", "Runtime exception caught while notifying shape. : " << r);
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN("sc.ui", "Runtime exception caught while notifying shape. : " << exceptionToString(ex));
         }
     }
 }

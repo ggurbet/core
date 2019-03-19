@@ -18,11 +18,13 @@
  */
 
 #include <svtools/simptabl.hxx>
+#include <unotools/intlwrapper.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/event.hxx>
 #include <uitest/uiobject.hxx>
 
 SvSimpleTableContainer::SvSimpleTableContainer(vcl::Window* pParent, WinBits nBits)
@@ -265,11 +267,6 @@ bool SvSimpleTable::IsEnabled() const
     return m_rParentTableContainer.IsEnabled();
 }
 
-sal_uInt16 SvSimpleTable::GetSelectedCol()
-{
-    return (aHeaderBar->GetCurItemId()-1);
-}
-
 void SvSimpleTable::SortByCol(sal_uInt16 nCol, bool bDir)
 {
     if(nSortCol!=0xFFFF)
@@ -324,8 +321,6 @@ void SvSimpleTable::HBarClick()
     {
         SortByCol(nId-1,bSortDirection);
     }
-
-    aHeaderBarClickLink.Call(this);
 }
 
 void SvSimpleTable::HBarDrag()

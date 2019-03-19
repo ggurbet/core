@@ -24,6 +24,7 @@
 #include <unotools/confignode.hxx>
 #include <resource/sharedresources.hxx>
 #include <strings.hrc>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbc/XConnection.hpp>
 #include <com/sun/star/sdbc/ColumnValue.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
@@ -47,6 +48,7 @@
 #include <tools/diagnose_ex.h>
 #include <unotools/sharedunocomponent.hxx>
 #include <algorithm>
+#include <string_view>
 
 namespace dbtools
 {
@@ -132,7 +134,7 @@ OUString createStandardTypePart(const Reference< XPropertySet >& xColProp,const 
         }
         else
         {
-            aSql.appendCopy(sTypeName, 0, ++nParenPos);
+            aSql.append(std::u16string_view(sTypeName).substr(0, ++nParenPos));
         }
 
         if ( nPrecision > 0 && nDataType != DataType::TIMESTAMP )
@@ -149,7 +151,7 @@ OUString createStandardTypePart(const Reference< XPropertySet >& xColProp,const 
         else
         {
             nParenPos = sTypeName.indexOf(')',nParenPos);
-            aSql.appendCopy(sTypeName, nParenPos);
+            aSql.append(std::u16string_view(sTypeName).substr(nParenPos));
         }
     }
     else
@@ -938,7 +940,7 @@ sal_Int32 DBTypeConversion::convertUnicodeStringToLength( const OUString& _rSour
         );
     }
 
-   return nLen;
+    return nLen;
 }
 static OUString lcl_getReportEngines()
 {

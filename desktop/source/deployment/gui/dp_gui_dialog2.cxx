@@ -56,6 +56,7 @@
 #include <cppuhelper/bootstrap.hxx>
 
 #include <comphelper/processfactory.hxx>
+#include <tools/diagnose_ex.h>
 #include <ucbhelper/content.hxx>
 #include <unotools/collatorwrapper.hxx>
 #include <unotools/configmgr.hxx>
@@ -299,8 +300,8 @@ void ExtBoxWithBtns_Impl::MouseButtonDown( const MouseEvent& rMEvt )
                                 break;
             case CMD_SHOW_LICENSE:
                 {
-                    ScopedVclPtrInstance< ShowLicenseDialog > aLicenseDlg( m_pParent, GetEntryData( nPos )->m_xPackage );
-                    aLicenseDlg->Execute();
+                    ShowLicenseDialog aLicenseDlg(m_pParent->GetFrameWeld(), GetEntryData(nPos)->m_xPackage);
+                    aLicenseDlg.run();
                     break;
                 }
         }
@@ -340,7 +341,6 @@ DialogHelper::DialogHelper(const uno::Reference< uno::XComponentContext > &xCont
                            Dialog *pWindow)
     : m_xVCLWindow(pWindow)
     , m_nEventID(nullptr)
-    , m_nBusy(0)
 {
     m_xContext = xContext;
 }
@@ -460,34 +460,6 @@ void DialogHelper::PostUserEvent( const Link<void*,void>& rLink, void* pCaller )
         Application::RemoveUserEvent( m_nEventID );
 
     m_nEventID = Application::PostUserEvent( rLink, pCaller, true/*bReferenceLink*/ );
-}
-
-void DialogHelper::incBusy()
-{
-    ++m_nBusy;
-    // lock any toplevel windows from being closed until busy is over
-    // ensure any dialogs are reset before entering
-    vcl::Window *xTopWin = Application::GetFirstTopLevelWindow();
-    while (xTopWin)
-    {
-        if (xTopWin != m_xVCLWindow)
-            xTopWin->IncModalCount();
-        xTopWin = Application::GetNextTopLevelWindow(xTopWin);
-    }
-}
-
-void DialogHelper::decBusy()
-{
-    --m_nBusy;
-    // unlock any toplevel windows from being closed until busy is over
-    // ensure any dialogs are reset before entering
-    vcl::Window *xTopWin = Application::GetFirstTopLevelWindow();
-    while (xTopWin)
-    {
-        if (xTopWin != m_xVCLWindow)
-            xTopWin->DecModalCount();
-        xTopWin = Application::GetNextTopLevelWindow(xTopWin);
-    }
 }
 
 //                             ExtMgrDialog
@@ -767,9 +739,10 @@ uno::Sequence< OUString > ExtMgrDialog::raiseAddPicker()
         {
             xFilePicker->appendFilter( elem.first, elem.second );
         }
-        catch (const lang::IllegalArgumentException & exc)
+        catch (const lang::IllegalArgumentException &)
         {
-            SAL_WARN( "desktop", exc );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "desktop", exceptionToString(ex) );
         }
     }
     xFilePicker->setCurrentFilter( sDefaultFilter );
@@ -1417,8 +1390,9 @@ bool UpdateRequiredDialog::isEnabled( const uno::Reference< deployment::XPackage
             bRegistered = false;
     }
     catch ( const uno::RuntimeException & ) { throw; }
-    catch (const uno::Exception & exc) {
-        SAL_WARN( "desktop", exc );
+    catch (const uno::Exception & ) {
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "desktop", exceptionToString(ex) );
         bRegistered = false;
     }
 
@@ -1477,29 +1451,19 @@ void UpdateRequiredDialog::disableAllEntries()
         m_pCloseBtn->SetText( m_sCloseText );
 }
 
-
 //                             ShowLicenseDialog
-
-ShowLicenseDialog::ShowLicenseDialog( vcl::Window * pParent,
-                                      const uno::Reference< deployment::XPackage > &xPackage )
-    : ModalDialog(pParent, "ShowLicenseDialog", "desktop/ui/showlicensedialog.ui")
+ShowLicenseDialog::ShowLicenseDialog(weld::Window* pParent,
+                                     const uno::Reference< deployment::XPackage> &xPackage)
+    : GenericDialogController(pParent, "desktop/ui/showlicensedialog.ui", "ShowLicenseDialog")
+    , m_xLicenseText(m_xBuilder->weld_text_view("textview"))
 {
-    get(m_pLicenseText, "textview");
-    Size aSize(m_pLicenseText->LogicToPixel(Size(290, 170), MapMode(MapUnit::MapAppFont)));
-    m_pLicenseText->set_width_request(aSize.Width());
-    m_pLicenseText->set_height_request(aSize.Height());
-    m_pLicenseText->SetText(xPackage->getLicenseText());
+    m_xLicenseText->set_size_request(m_xLicenseText->get_approximate_digit_width() * 72,
+                                     m_xLicenseText->get_height_rows(21));
+    m_xLicenseText->set_text(xPackage->getLicenseText());
 }
 
 ShowLicenseDialog::~ShowLicenseDialog()
 {
-    disposeOnce();
-}
-
-void ShowLicenseDialog::dispose()
-{
-    m_pLicenseText.clear();
-    ModalDialog::dispose();
 }
 
 // UpdateRequiredDialogService

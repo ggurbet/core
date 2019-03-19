@@ -17,14 +17,11 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <global.hxx>
-#include <document.hxx>
 #include <filter.hxx>
 #include <editutil.hxx>
 #include <rtfimp.hxx>
 #include <rtfparse.hxx>
 #include <ftools.hxx>
-#include <o3tl/make_unique.hxx>
 
 ErrCode ScFormatFilterPluginImpl::ScImportRTF( SvStream &rStream, const OUString& rBaseURL, ScDocument *pDoc, ScRange& rRange )
 {
@@ -38,7 +35,7 @@ ErrCode ScFormatFilterPluginImpl::ScImportRTF( SvStream &rStream, const OUString
 
 std::unique_ptr<ScEEAbsImport> ScFormatFilterPluginImpl::CreateRTFImport( ScDocument* pDoc, const ScRange& rRange )
 {
-    return o3tl::make_unique<ScRTFImport>( pDoc, rRange );
+    return std::make_unique<ScRTFImport>( pDoc, rRange );
 }
 
 ScRTFImport::ScRTFImport( ScDocument* pDocP, const ScRange& rRange ) :

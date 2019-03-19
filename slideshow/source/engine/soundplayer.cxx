@@ -31,7 +31,7 @@
 #include <tools/urlobj.hxx>
 
 #include <avmedia/mediawindow.hxx>
-
+#include <mediafilemanager.hxx>
 #include <soundplayer.hxx>
 
 #include <algorithm>
@@ -48,12 +48,14 @@ namespace slideshow
         std::shared_ptr<SoundPlayer> SoundPlayer::create(
             EventMultiplexer & rEventMultiplexer,
             const OUString& rSoundURL,
-            const uno::Reference< uno::XComponentContext>&  rComponentContext )
+            const uno::Reference< uno::XComponentContext>&  rComponentContext,
+            MediaFileManager& rMediaFileManager)
         {
             std::shared_ptr<SoundPlayer> pPlayer(
                 new SoundPlayer( rEventMultiplexer,
                                  rSoundURL,
-                                 rComponentContext ) );
+                                 rComponentContext,
+                                 rMediaFileManager) );
             rEventMultiplexer.addPauseHandler( pPlayer );
             pPlayer->mThis = pPlayer;
             return pPlayer;
@@ -86,7 +88,8 @@ namespace slideshow
         SoundPlayer::SoundPlayer(
             EventMultiplexer & rEventMultiplexer,
             const OUString& rSoundURL,
-            const uno::Reference< uno::XComponentContext>&  rComponentContext )
+            const uno::Reference< uno::XComponentContext>&  rComponentContext,
+            MediaFileManager& rMediaFileManager)
             : mrEventMultiplexer(rEventMultiplexer),
               mThis(),
               mxPlayer()
@@ -96,7 +99,11 @@ namespace slideshow
 
             try
             {
-                const INetURLObject aURL( rSoundURL );
+                if (rSoundURL.startsWithIgnoreAsciiCase("vnd.sun.star.Package:"))
+                {
+                    mpMediaTempFile = rMediaFileManager.getMediaTempFile(rSoundURL);
+                }
+                const INetURLObject aURL( mpMediaTempFile ? mpMediaTempFile->m_TempFileURL : rSoundURL );
                 mxPlayer.set( avmedia::MediaWindow::createPlayer(
                                 aURL.GetMainURL( INetURLObject::DecodeMechanism::Unambiguous ), ""/*TODO!*/ ),
                                 uno::UNO_QUERY);
@@ -121,7 +128,7 @@ namespace slideshow
                 dispose();
             }
             catch (uno::Exception &) {
-                SAL_WARN( "slideshow", comphelper::anyToString( cppu::getCaughtException() ) );
+                SAL_WARN( "slideshow", exceptionToString( cppu::getCaughtException() ) );
             }
         }
 
@@ -162,6 +169,11 @@ namespace slideshow
         {
             if( mxPlayer.is() )
                 mxPlayer->setPlaybackLoop( bLoop );
+        }
+
+        bool SoundPlayer::isPlaying() const
+        {
+            return mxPlayer->isPlaying();
         }
     }
 }

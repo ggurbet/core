@@ -25,7 +25,6 @@
 #include <editeng/flstitem.hxx>
 #include <editeng/paperinf.hxx>
 #include <editeng/sizeitem.hxx>
-#include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/app.hxx>
@@ -55,7 +54,6 @@
 #include <chgviset.hxx>
 #include <progress.hxx>
 #include <redcom.hxx>
-#include <sc.hrc>
 #include <inputopt.hxx>
 #include <drwlayer.hxx>
 #include <inputhdl.hxx>
@@ -626,7 +624,7 @@ void ScDocShell::SetChangeComment( ScChangeAction* pAction, const OUString& rCom
         if (pTrack)
         {
             sal_uLong nNumber = pAction->GetActionNumber();
-            pTrack->NotifyModified( SC_CTM_CHANGE, nNumber, nNumber );
+            pTrack->NotifyModified( ScChangeTrackMsgType::Change, nNumber, nNumber );
         }
     }
 }
@@ -1176,17 +1174,17 @@ bool ScDocShell::MergeSharedDocument( ScDocShell* pSharedDocShell )
             // merge own changes into shared document
             sal_uLong nActStartShared = pSharedAction->GetActionNumber();
             sal_uLong nActEndShared = pSharedTrack->GetActionMax();
-            ScDocument* pTmpDoc = new ScDocument;
+            std::unique_ptr<ScDocument> pTmpDoc(new ScDocument);
             for ( sal_Int32 nIndex = 0; nIndex < m_aDocument.GetTableCount(); ++nIndex )
             {
                 OUString sTabName;
                 pTmpDoc->CreateValidTabName( sTabName );
                 pTmpDoc->InsertTab( SC_TAB_APPEND, sTabName );
             }
-            m_aDocument.GetChangeTrack()->Clone( pTmpDoc );
+            m_aDocument.GetChangeTrack()->Clone( pTmpDoc.get() );
             ScChangeActionMergeMap aOwnInverseMergeMap;
             pSharedDocShell->MergeDocument( *pTmpDoc, true, true, 0, &aOwnInverseMergeMap, true );
-            delete pTmpDoc;
+            pTmpDoc.reset();
             sal_uLong nActStartOwn = nActEndShared + 1;
             sal_uLong nActEndOwn = pSharedTrack->GetActionMax();
 
@@ -1224,14 +1222,14 @@ bool ScDocShell::MergeSharedDocument( ScDocShell* pSharedDocShell )
             pSharedTrack->Undo( nActStartOwn, nActEndOwn );
 
             // clone change track for merging into own document
-            pTmpDoc = new ScDocument;
+            pTmpDoc.reset(new ScDocument);
             for ( sal_Int32 nIndex = 0; nIndex < m_aDocument.GetTableCount(); ++nIndex )
             {
                 OUString sTabName;
                 pTmpDoc->CreateValidTabName( sTabName );
                 pTmpDoc->InsertTab( SC_TAB_APPEND, sTabName );
             }
-            pThisTrack->Clone( pTmpDoc );
+            pThisTrack->Clone( pTmpDoc.get() );
 
             // undo own changes since last save in own document
             sal_uLong nStartShared = pThisAction->GetActionNumber();
@@ -1276,7 +1274,7 @@ bool ScDocShell::MergeSharedDocument( ScDocShell* pSharedDocShell )
             sal_uLong nStartOwn = nEndShared + 1;
             ScChangeActionMergeMap aOwnMergeMap;
             MergeDocument( *pTmpDoc, true, true, nEndShared - nStartShared + 1, &aOwnMergeMap );
-            delete pTmpDoc;
+            pTmpDoc.reset();
             sal_uLong nEndOwn = pThisTrack->GetActionMax();
 
             // resolve conflicts for shared content actions and own actions

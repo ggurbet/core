@@ -18,7 +18,6 @@
  */
 
 #include <scitems.hxx>
-#include <o3tl/make_unique.hxx>
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
 #include <tools/urlobj.hxx>
@@ -113,7 +112,7 @@ SfxPrinter* ScDocument::GetPrinter(bool bCreateIfNotExist)
     if ( !mpPrinter && bCreateIfNotExist )
     {
         auto pSet =
-            o3tl::make_unique<SfxItemSet>( *mxPoolHelper->GetDocPool(),
+            std::make_unique<SfxItemSet>( *mxPoolHelper->GetDocPool(),
                             svl::Items<SID_PRINTER_NOTFOUND_WARN,  SID_PRINTER_NOTFOUND_WARN,
                             SID_PRINTER_CHANGESTODOC,   SID_PRINTER_CHANGESTODOC,
                             SID_PRINT_SELECTEDSHEET,    SID_PRINT_SELECTEDSHEET,
@@ -1234,11 +1233,13 @@ void ScDocument::TransliterateText( const ScMarkData& rMultiMark, Transliteratio
     std::unique_ptr<ScEditEngineDefaulter> pEngine;        // not using mpEditEngine member because of defaults
 
     SCTAB nCount = GetTableCount();
-    ScMarkData::const_iterator itr = rMultiMark.begin(), itrEnd = rMultiMark.end();
-    for (; itr != itrEnd && *itr < nCount; ++itr)
-        if ( maTabs[*itr] )
+    for (const SCTAB& nTab : rMultiMark)
+    {
+        if (nTab >= nCount)
+            break;
+
+        if ( maTabs[nTab] )
         {
-            SCTAB nTab = *itr;
             SCCOL nCol = 0;
             SCROW nRow = 0;
 
@@ -1338,6 +1339,7 @@ void ScDocument::TransliterateText( const ScMarkData& rMultiMark, Transliteratio
                 bFound = GetNextMarkedCell( nCol, nRow, nTab, rMultiMark );
             }
         }
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -20,15 +20,9 @@
 #undef SC_DLLIMPLEMENTATION
 
 #include <tabbgcolordlg.hxx>
-#include <sc.hrc>
 
 #include <tools/color.hxx>
-#include <sfx2/objsh.hxx>
-#include <svx/xtable.hxx>
-#include <svx/drawitem.hxx>
-#include <unotools/pathoptions.hxx>
-#include <vcl/builderfactory.hxx>
-#include <osl/diagnose.h>
+#include <vcl/event.hxx>
 
 #include <officecfg/Office/Common.hxx>
 

@@ -806,30 +806,30 @@ void SfxSingleTabDialog::SetTabPage(SfxTabPage* pTabPage)
     pImpl->m_pSfxPage.disposeAndClear();
     pImpl->m_pSfxPage = pTabPage;
 
-    if ( pImpl->m_pSfxPage )
-    {
-        // First obtain the user data, only then Reset()
-        OUString sConfigId = OStringToOUString(pImpl->m_pSfxPage->GetConfigId(), RTL_TEXTENCODING_UTF8);
-        SvtViewOptions aPageOpt(EViewType::TabPage, sConfigId);
-        Any aUserItem = aPageOpt.GetUserItem( USERITEM_NAME );
-        OUString sUserData;
-        aUserItem >>= sUserData;
-        pImpl->m_pSfxPage->SetUserData(sUserData);
-        pImpl->m_pSfxPage->Reset( GetInputItemSet() );
-        pImpl->m_pSfxPage->Show();
+    if ( !pImpl->m_pSfxPage )
+        return;
 
-        pHelpBtn->Show(Help::IsContextHelpEnabled());
+    // First obtain the user data, only then Reset()
+    OUString sConfigId = OStringToOUString(pImpl->m_pSfxPage->GetConfigId(), RTL_TEXTENCODING_UTF8);
+    SvtViewOptions aPageOpt(EViewType::TabPage, sConfigId);
+    Any aUserItem = aPageOpt.GetUserItem( USERITEM_NAME );
+    OUString sUserData;
+    aUserItem >>= sUserData;
+    pImpl->m_pSfxPage->SetUserData(sUserData);
+    pImpl->m_pSfxPage->Reset( GetInputItemSet() );
+    pImpl->m_pSfxPage->Show();
 
-        // Set TabPage text in the Dialog if there is any
-        OUString sTitle(pImpl->m_pSfxPage->GetText());
-        if (!sTitle.isEmpty())
-            SetText(sTitle);
+    pHelpBtn->Show(Help::IsContextHelpEnabled());
 
-        // Dialog receives the HelpId of TabPage if there is any
-        OString sHelpId(pImpl->m_pSfxPage->GetHelpId());
-        if (!sHelpId.isEmpty())
-            SetHelpId(sHelpId);
-    }
+    // Set TabPage text in the Dialog if there is any
+    OUString sTitle(pImpl->m_pSfxPage->GetText());
+    if (!sTitle.isEmpty())
+        SetText(sTitle);
+
+    // Dialog receives the HelpId of TabPage if there is any
+    OString sHelpId(pImpl->m_pSfxPage->GetHelpId());
+    if (!sHelpId.isEmpty())
+        SetHelpId(sHelpId);
 }
 
 SfxDialogController::SfxDialogController(weld::Widget* pParent, const OUString& rUIFile,
@@ -844,9 +844,9 @@ IMPL_STATIC_LINK_NOARG(SfxDialogController, InstallLOKNotifierHdl, void*, vcl::I
     return SfxViewShell::Current();
 }
 
-SfxSingleTabDialogController::SfxSingleTabDialogController(weld::Window *pParent, const SfxItemSet& rSet,
+SfxSingleTabDialogController::SfxSingleTabDialogController(weld::Widget *pParent, const SfxItemSet& rSet,
     const OUString& rUIXMLDescription, const OString& rID)
-    : SfxDialogController(pParent, rUIXMLDescription, rID)
+    : SfxOkDialogController(pParent, rUIXMLDescription, rID)
     , m_pInputSet(&rSet)
     , m_xContainer(m_xDialog->weld_content_area())
     , m_xOKBtn(m_xBuilder->weld_button("ok"))
@@ -871,29 +871,29 @@ void SfxSingleTabDialogController::SetTabPage(SfxTabPage* pTabPage)
     m_xSfxPage.disposeAndClear();
     m_xSfxPage = pTabPage;
 
-    if (m_xSfxPage)
-    {
-        // First obtain the user data, only then Reset()
-        OUString sConfigId = OStringToOUString(m_xSfxPage->GetConfigId(), RTL_TEXTENCODING_UTF8);
-        SvtViewOptions aPageOpt(EViewType::TabPage, sConfigId);
-        Any aUserItem = aPageOpt.GetUserItem( USERITEM_NAME );
-        OUString sUserData;
-        aUserItem >>= sUserData;
-        m_xSfxPage->SetUserData(sUserData);
-        m_xSfxPage->Reset(GetInputItemSet());
+    if (!m_xSfxPage)
+        return;
 
-        m_xHelpBtn->show(Help::IsContextHelpEnabled());
+    // First obtain the user data, only then Reset()
+    OUString sConfigId = OStringToOUString(m_xSfxPage->GetConfigId(), RTL_TEXTENCODING_UTF8);
+    SvtViewOptions aPageOpt(EViewType::TabPage, sConfigId);
+    Any aUserItem = aPageOpt.GetUserItem( USERITEM_NAME );
+    OUString sUserData;
+    aUserItem >>= sUserData;
+    m_xSfxPage->SetUserData(sUserData);
+    m_xSfxPage->Reset(GetInputItemSet());
 
-        // Set TabPage text in the Dialog if there is any
-        OUString sTitle(m_xSfxPage->GetText());
-        if (!sTitle.isEmpty())
-            m_xDialog->set_title(sTitle);
+    m_xHelpBtn->set_visible(Help::IsContextHelpEnabled());
 
-        // Dialog receives the HelpId of TabPage if there is any
-        OString sHelpId(m_xSfxPage->GetHelpId());
-        if (!sHelpId.isEmpty())
-            m_xDialog->set_help_id(sHelpId);
-    }
+    // Set TabPage text in the Dialog if there is any
+    OUString sTitle(m_xSfxPage->GetText());
+    if (!sTitle.isEmpty())
+        m_xDialog->set_title(sTitle);
+
+    // Dialog receives the HelpId of TabPage if there is any
+    OString sHelpId(m_xSfxPage->GetHelpId());
+    if (!sHelpId.isEmpty())
+        m_xDialog->set_help_id(sHelpId);
 }
 
 /*  [Description]

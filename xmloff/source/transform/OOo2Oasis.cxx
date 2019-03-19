@@ -44,6 +44,7 @@
 #include "OOo2Oasis.hxx"
 #include "XMLFilterRegistration.hxx"
 #include <cppuhelper/supportsservice.hxx>
+#include <cppuhelper/typeprovider.hxx>
 
 using namespace ::xmloff::token;
 using namespace ::com::sun::star::uno;
@@ -1317,7 +1318,7 @@ void XMLTabStopOOoTContext_Impl::StartElement(
         XMLTransformerActions::key_type aKey( nPrefix, aLocalName );
         XMLTransformerActions::const_iterator aIter =
             pActions->find( aKey );
-        if( !(aIter == pActions->end() ) )
+        if( aIter != pActions->end() )
         {
             if( !pMutableAttrList )
             {
@@ -1814,7 +1815,7 @@ Any OOo2OasisTransformer::queryInterface( const Type& rType )
     if ( rType == cppu::UnoType<XImporter>::get())
     {
         Reference<XImporter> xThis( this );
-           aRet <<= xThis;
+        aRet <<= xThis;
     }
     else if ( rType == cppu::UnoType<XFilter>::get())
     {
@@ -1967,19 +1968,13 @@ Sequence< OUString > SAL_CALL OOo2OasisTransformer::getSupportedServiceNames(  )
 }
 
 // XTypeProvider
-Sequence< css::uno::Type > SAL_CALL
-    OOo2OasisTransformer::getTypes()
+Sequence< css::uno::Type > SAL_CALL OOo2OasisTransformer::getTypes()
 {
-    Sequence< css::uno::Type > aTypes( XMLTransformerBase::getTypes() );
-
-    sal_Int32 nIndex = aTypes.getLength();
-    aTypes.realloc( nIndex + 2 );
-
-    css::uno::Type* pTypes = aTypes.getArray();
-    pTypes[nIndex++] = cppu::UnoType<XImporter>::get();
-    pTypes[nIndex++] = cppu::UnoType<XFilter>::get();
-
-    return aTypes;
+    return cppu::OTypeCollection(
+            cppu::UnoType<XImporter>::get(),
+            cppu::UnoType<XFilter>::get(),
+            XMLTransformerBase::getTypes()
+        ).getTypes();
 }
 
 // Service registration

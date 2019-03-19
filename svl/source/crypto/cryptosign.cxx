@@ -107,10 +107,10 @@ MessageImprint ::= SEQUENCE  {
     hashedMessage OCTET STRING  }
 */
 
-typedef struct {
+struct MessageImprint {
     SECAlgorithmID hashAlgorithm;
     SECItem hashedMessage;
-} MessageImprint;
+};
 
 /*
 Extension  ::=  SEQUENCE  {
@@ -119,11 +119,11 @@ Extension  ::=  SEQUENCE  {
     extnValue OCTET STRING  }
 */
 
-typedef struct {
+struct Extension {
     SECItem const extnID;
     SECItem const critical;
     SECItem const extnValue;
-} Extension;
+};
 
 /*
 Extensions ::= SEQUENCE SIZE (1..MAX) OF Extension
@@ -143,14 +143,14 @@ TimeStampReq ::= SEQUENCE  {
     extensions     [0] IMPLICIT Extensions OPTIONAL  }
 */
 
-typedef struct {
+struct TimeStampReq {
     SECItem version;
     MessageImprint messageImprint;
     SECItem reqPolicy;
     SECItem nonce;
     SECItem certReq;
     Extension *extensions;
-} TimeStampReq;
+};
 
 /**
  * General name, defined by RFC 3280.
@@ -278,11 +278,11 @@ const SEC_ASN1Template SigningCertificateV2Template[] =
     {0, 0, nullptr, 0}
 };
 
-typedef struct {
+struct PKIStatusInfo {
     SECItem status;
     SECItem statusString;
     SECItem failInfo;
-} PKIStatusInfo;
+};
 
 const SEC_ASN1Template PKIStatusInfo_Template[] =
 {
@@ -298,10 +298,10 @@ const SEC_ASN1Template Any_Template[] =
     { SEC_ASN1_ANY, 0, nullptr, sizeof(SECItem) }
 };
 
-typedef struct {
+struct TimeStampResp {
     PKIStatusInfo status;
     SECItem timeStampToken;
-} TimeStampResp;
+};
 
 const SEC_ASN1Template TimeStampResp_Template[] =
 {
@@ -406,71 +406,71 @@ my_SEC_StringToOID(SECItem *to, const char *from, PRUint32 len)
 
     if (!from || !to) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
-    return SECFailure;
+        return SECFailure;
     }
     if (!len) {
         len = PL_strlen(from);
     }
     if (len >= 4 && !PL_strncasecmp(from, OIDstring, 4)) {
         from += 4; /* skip leading "OID." if present */
-    len  -= 4;
+        len  -= 4;
     }
     if (!len) {
 bad_data:
         PORT_SetError(SEC_ERROR_BAD_DATA);
-    return SECFailure;
+        return SECFailure;
     }
     do {
-    PRUint32 decimal = 0;
+        PRUint32 decimal = 0;
         while (len > 0 && rtl::isAsciiDigit(static_cast<unsigned char>(*from))) {
-        PRUint32 addend = *from++ - '0';
-        --len;
-        if (decimal > max_decimal)  /* overflow */
-            goto bad_data;
-        decimal = (decimal * 10) + addend;
-        if (decimal < addend)   /* overflow */
-        goto bad_data;
-    }
-    if (len != 0 && *from != '.') {
-        goto bad_data;
-    }
-    if (decimal_numbers == 0) {
-        if (decimal > 2)
-            goto bad_data;
-        result[0] = decimal * 40;
-        result_bytes = 1;
-    } else if (decimal_numbers == 1) {
-        if (decimal > 40)
-            goto bad_data;
-        result[0] += decimal;
-    } else {
-        /* encode the decimal number,  */
-        PRUint8 * rp;
-        PRUint32 num_bytes = 0;
-        PRUint32 tmp = decimal;
-        while (tmp) {
-            num_bytes++;
-        tmp >>= 7;
+            PRUint32 addend = *from++ - '0';
+            --len;
+            if (decimal > max_decimal)  /* overflow */
+                goto bad_data;
+            decimal = (decimal * 10) + addend;
+            if (decimal < addend)   /* overflow */
+                goto bad_data;
         }
-        if (!num_bytes )
-            ++num_bytes;  /* use one byte for a zero value */
-        if (num_bytes + result_bytes > sizeof result)
+        if (len != 0 && *from != '.') {
             goto bad_data;
-        tmp = num_bytes;
-        rp = result + result_bytes - 1;
-        rp[tmp] = static_cast<PRUint8>(decimal & 0x7f);
-        decimal >>= 7;
-        while (--tmp > 0) {
-        rp[tmp] = static_cast<PRUint8>(decimal | 0x80);
-        decimal >>= 7;
         }
-        result_bytes += num_bytes;
-    }
-    ++decimal_numbers;
-    if (len > 0) { /* skip trailing '.' */
-        ++from;
-        --len;
-    }
+        if (decimal_numbers == 0) {
+            if (decimal > 2)
+                goto bad_data;
+            result[0] = decimal * 40;
+            result_bytes = 1;
+        } else if (decimal_numbers == 1) {
+            if (decimal > 40)
+                goto bad_data;
+            result[0] += decimal;
+        } else {
+            /* encode the decimal number,  */
+            PRUint8 * rp;
+            PRUint32 num_bytes = 0;
+            PRUint32 tmp = decimal;
+            while (tmp) {
+                num_bytes++;
+                tmp >>= 7;
+            }
+            if (!num_bytes )
+                ++num_bytes;  /* use one byte for a zero value */
+            if (num_bytes + result_bytes > sizeof result)
+                goto bad_data;
+            tmp = num_bytes;
+            rp = result + result_bytes - 1;
+            rp[tmp] = static_cast<PRUint8>(decimal & 0x7f);
+            decimal >>= 7;
+            while (--tmp > 0) {
+                rp[tmp] = static_cast<PRUint8>(decimal | 0x80);
+                decimal >>= 7;
+            }
+            result_bytes += num_bytes;
+        }
+        ++decimal_numbers;
+        if (len > 0) { /* skip trailing '.' */
+            ++from;
+            --len;
+        }
     } while (len > 0);
     /* now result contains result_bytes of data */
     if (to->data && to->len >= result_bytes) {
@@ -479,9 +479,9 @@ bad_data:
         rv = SECSuccess;
     } else {
         SECItem result_item = {siBuffer, nullptr, 0 };
-    result_item.data = result;
-    result_item.len  = result_bytes;
-    rv = SECITEM_CopyItem(nullptr, to, &result_item);
+        result_item.data = result;
+        result_item.len  = result_bytes;
+        rv = SECITEM_CopyItem(nullptr, to, &result_item);
     }
     return rv;
 }

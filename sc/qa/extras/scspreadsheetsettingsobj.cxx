@@ -8,22 +8,22 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/beans/xpropertyset.hxx>
 #include <test/sheet/spreadsheetdocumentsettings.hxx>
 
 #include <com/sun/star/lang/XComponent.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
 
 #include <com/sun/star/uno/Reference.hxx>
 
 using namespace css;
-using namespace css::uno;
-using namespace com::sun::star;
 
 namespace sc_apitest
 {
-class ScSpreadsheetSettingsObj : public CalcUnoApiTest, public apitest::SpreadsheetDocumentSettings
+class ScSpreadsheetSettingsObj : public CalcUnoApiTest,
+                                 public apitest::SpreadsheetDocumentSettings,
+                                 public apitest::XPropertySet
 {
 public:
     ScSpreadsheetSettingsObj();
@@ -37,6 +37,13 @@ public:
     // SpreadsheetDocumentSettings
     CPPUNIT_TEST(testSpreadsheetDocumentSettingsProperties);
 
+    // XPropertySet
+    CPPUNIT_TEST(testGetPropertySetInfo);
+    CPPUNIT_TEST(testGetPropertyValue);
+    CPPUNIT_TEST(testSetPropertyValue);
+    CPPUNIT_TEST(testPropertyChangeListener);
+    CPPUNIT_TEST(testVetoableChangeListener);
+
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -45,12 +52,27 @@ private:
 
 ScSpreadsheetSettingsObj::ScSpreadsheetSettingsObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XPropertySet({
+          "AreaLinks",
+          "CharLocale",
+          "CharLocaleAsian",
+          "CharLocaleComplex",
+          "ColumnLabelRanges",
+          "DDELinks",
+          "DatabaseRanges",
+          "ExternalDocLinks",
+          "InteropGrabBag",
+          "NamedRanges",
+          "NullDate",
+          "RowLabelRanges",
+          "SheetLinks",
+      })
 {
 }
 
 uno::Reference<uno::XInterface> ScSpreadsheetSettingsObj::init()
 {
-    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, uno::UNO_QUERY_THROW);
     return xDoc;
 }
 
@@ -69,7 +91,7 @@ void ScSpreadsheetSettingsObj::tearDown()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScSpreadsheetSettingsObj);
 
-} // end namespace
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

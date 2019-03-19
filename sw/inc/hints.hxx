@@ -136,9 +136,11 @@ private:
     sal_Int32 const m_nStart;
     sal_Int32 const m_nEnd;
     sal_uInt16 const m_nWhichAttr;
+    std::vector<sal_uInt16> m_aWhichFmtAttrs; // attributes changed inside RES_TXTATR_AUTOFMT
 
 public:
     SwUpdateAttr( sal_Int32 nS, sal_Int32 nE, sal_uInt16 nW );
+    SwUpdateAttr( sal_Int32 nS, sal_Int32 nE, sal_uInt16 nW, std::vector<sal_uInt16> aW );
 
     sal_Int32 getStart() const
     {
@@ -154,6 +156,11 @@ public:
     {
         return m_nWhichAttr;
     }
+
+    const std::vector<sal_uInt16>& getFmtAttrs() const
+    {
+        return m_aWhichFmtAttrs;
+    }
 };
 
 /** SwRefMarkFieldUpdate is sent when the referencemarks should be updated.
@@ -161,8 +168,8 @@ public:
       For this we need the current outputdevice */
 class SwRefMarkFieldUpdate : public SwMsgPoolItem
 {
-public:
     VclPtr<OutputDevice> pOut; ///< pointer to the current output device
+public:
     /** Is sent if reference marks should be updated.
 
         To get the page/chapter number, the frame has to be asked. For that we need

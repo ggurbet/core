@@ -31,7 +31,6 @@
 #include <com/sun/star/accessibility/AccessibleTableModelChange.hpp>
 #include <com/sun/star/accessibility/AccessibleTableModelChangeType.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
-#include <toolkit/helper/convert.hxx>
 #include <unotools/accessiblerelationsethelper.hxx>
 #include <unotools/accessiblestatesethelper.hxx>
 #include <comphelper/sequence.hxx>
@@ -50,8 +49,7 @@
 #include <svtools/colorcfg.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <editutil.hxx>
-#include <o3tl/make_unique.hxx>
+
 using ::utl::AccessibleRelationSetHelper;
 using ::utl::AccessibleStateSetHelper;
 using ::accessibility::AccessibleStaticTextBase;
@@ -712,9 +710,8 @@ OUString SAL_CALL ScAccessibleCsvRuler::getImplementationName()
 
 Sequence< css::uno::Type > SAL_CALL ScAccessibleCsvRuler::getTypes()
 {
-    Sequence< css::uno::Type > aSeq( 1 );
-    aSeq[ 0 ] = cppu::UnoType<XAccessibleText>::get();
-    return ::comphelper::concatSequences( ScAccessibleCsvControl::getTypes(), aSeq );
+    return ::comphelper::concatSequences( ScAccessibleCsvControl::getTypes(),
+        Sequence { cppu::UnoType<XAccessibleText>::get() });
 }
 
 Sequence< sal_Int8 > SAL_CALL ScAccessibleCsvRuler::getImplementationId()
@@ -847,8 +844,8 @@ ScAccessibleCsvGrid::~ScAccessibleCsvGrid()
 void ScAccessibleCsvGrid::disposing()
 {
     SolarMutexGuard aGuard;
-    for (XAccessibleSet::iterator aI = maAccessibleChildren.begin(); aI != maAccessibleChildren.end(); ++aI)
-        aI->second->dispose();
+    for (auto& rEntry : maAccessibleChildren)
+        rEntry.second->dispose();
     maAccessibleChildren.clear();
     ScAccessibleCsvControl::disposing();
 }
@@ -1196,10 +1193,10 @@ OUString SAL_CALL ScAccessibleCsvGrid::getImplementationName()
 
 Sequence< css::uno::Type > SAL_CALL ScAccessibleCsvGrid::getTypes()
 {
-    Sequence< css::uno::Type > aSeq( 2 );
-    aSeq[ 0 ] = cppu::UnoType<XAccessibleTable>::get();
-    aSeq[ 1 ] = cppu::UnoType<XAccessibleSelection>::get();
-    return ::comphelper::concatSequences( ScAccessibleCsvControl::getTypes(), aSeq );
+    return ::comphelper::concatSequences( ScAccessibleCsvControl::getTypes(),
+        Sequence {
+            cppu::UnoType<XAccessibleTable>::get(),
+            cppu::UnoType<XAccessibleSelection>::get() });
 }
 
 Sequence< sal_Int8 > SAL_CALL ScAccessibleCsvGrid::getImplementationId()
@@ -1542,7 +1539,7 @@ tools::Rectangle ScAccessibleCsvCell::implGetBoundingBox() const
 {
     ScCsvGrid& rGrid = implGetGrid();
 
-    ::std::unique_ptr< SvxEditSource > pEditSource( new ScAccessibilityEditSource( o3tl::make_unique<ScAccessibleCsvTextData>(&rGrid, rGrid.GetEditEngine(), maCellText, implGetRealSize()) ) );
+    ::std::unique_ptr< SvxEditSource > pEditSource( new ScAccessibilityEditSource( std::make_unique<ScAccessibleCsvTextData>(&rGrid, rGrid.GetEditEngine(), maCellText, implGetRealSize()) ) );
     return pEditSource;
 }
 

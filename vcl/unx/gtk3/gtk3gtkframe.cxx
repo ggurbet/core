@@ -51,12 +51,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
-#if defined(GDK_WINDOWING_X11)
-#   include <gdk/gdkx.h>
-#endif
-#if defined(GDK_WINDOWING_WAYLAND)
-#   include <gdk/gdkwayland.h>
-#endif
+#include <unx/gtk/gtkbackend.hxx>
 
 #include <dlfcn.h>
 #include <vcl/salbtype.hxx>
@@ -98,11 +93,6 @@
 
 #define IS_WIDGET_REALIZED gtk_widget_get_realized
 #define IS_WIDGET_MAPPED   gtk_widget_get_mapped
-
-#ifndef GDK_IS_X11_DISPLAY
-#define GDK_IS_X11_DISPLAY(foo) (true)
-#endif
-
 
 using namespace com::sun::star;
 
@@ -631,7 +621,7 @@ static gboolean ensure_dbus_setup( gpointer data )
         // fdo#70885 we don't want app menu under Unity
         const bool bDesktopIsUnity = (SalGetDesktopEnvironment() == "UNITY");
 #if defined(GDK_WINDOWING_X11)
-        if (GDK_IS_X11_DISPLAY(pDisplay))
+        if (DLSYM_GDK_IS_X11_DISPLAY(pDisplay))
         {
             gdk_x11_window_set_utf8_property( gdkWindow, "_GTK_APPLICATION_ID", "org.libreoffice" );
             if (!bDesktopIsUnity)
@@ -643,7 +633,7 @@ static gboolean ensure_dbus_setup( gpointer data )
         }
 #endif
 #if defined(GDK_WINDOWING_WAYLAND)
-        if (GDK_IS_WAYLAND_DISPLAY(pDisplay))
+        if (DLSYM_GDK_IS_WAYLAND_DISPLAY(pDisplay))
         {
             gdk_wayland_window_set_dbus_properties_libgtk_only(gdkWindow, "org.libreoffice",
                                                                "/org/libreoffice/menus/appmenu",
@@ -1009,6 +999,7 @@ void GtkSalFrame::InitCommon()
     // add the fixed container child,
     // fixed is needed since we have to position plugin windows
     m_pFixedContainer = GTK_FIXED(g_object_new( ooo_fixed_get_type(), nullptr ));
+    gtk_widget_set_size_request(GTK_WIDGET(m_pFixedContainer), 1, 1);
     gtk_container_add( GTK_CONTAINER(m_pEventBox), GTK_WIDGET(m_pFixedContainer) );
 
     GtkWidget *pEventWidget = getMouseEventWidget();
@@ -1016,7 +1007,7 @@ void GtkSalFrame::InitCommon()
     gtk_widget_set_app_paintable(GTK_WIDGET(m_pFixedContainer), true);
     /*non-X11 displays won't show anything at all without double-buffering
       enabled*/
-    if (GDK_IS_X11_DISPLAY(getGdkDisplay()))
+    if (DLSYM_GDK_IS_X11_DISPLAY(getGdkDisplay()))
         gtk_widget_set_double_buffered(GTK_WIDGET(m_pFixedContainer), false);
     gtk_widget_set_redraw_on_allocate(GTK_WIDGET(m_pFixedContainer), false);
 
@@ -1083,8 +1074,6 @@ void GtkSalFrame::InitCommon()
     m_pRegion           = nullptr;
     m_pDropTarget       = nullptr;
     m_pDragSource       = nullptr;
-    m_bInDrag           = false;
-    m_pFormatConversionRequest = nullptr;
     m_bGeometryIsProvisional = false;
     m_ePointerStyle     = static_cast<PointerStyle>(0xffff);
     m_pSalMenu          = nullptr;
@@ -1120,7 +1109,7 @@ void GtkSalFrame::InitCommon()
 
 #if defined(GDK_WINDOWING_X11)
     GdkDisplay *pDisplay = getGdkDisplay();
-    if (GDK_IS_X11_DISPLAY(pDisplay))
+    if (DLSYM_GDK_IS_X11_DISPLAY(pDisplay))
     {
         m_aSystemData.pDisplay = gdk_x11_display_get_xdisplay(pDisplay);
         m_aSystemData.pVisual = gdk_x11_visual_get_xvisual(pVisual);
@@ -1259,7 +1248,7 @@ void GtkSalFrame::Init( SalFrame* pParent, SalFrameStyleFlags nStyle )
         //built-in close button of the titlebar follows the overridden direction rather than continue in the same
         //direction as every other titlebar on the user's desktop. So if they don't match set an explicit
         //header bar with the desired 'outside' direction
-        if ((eType == GDK_WINDOW_TYPE_HINT_NORMAL || eType == GDK_WINDOW_TYPE_HINT_DIALOG) && GDK_IS_WAYLAND_DISPLAY(GtkSalFrame::getGdkDisplay()))
+        if ((eType == GDK_WINDOW_TYPE_HINT_NORMAL || eType == GDK_WINDOW_TYPE_HINT_DIALOG) && DLSYM_GDK_IS_WAYLAND_DISPLAY(GtkSalFrame::getGdkDisplay()))
         {
             const bool bDesktopIsRTL = MsLangId::isRightToLeft(MsLangId::getSystemUILanguage());
             const bool bAppIsRTL = gtk_widget_get_default_direction() == GTK_TEXT_DIR_RTL;
@@ -1468,7 +1457,7 @@ void GtkSalFrame::Show( bool bVisible, bool /*bNoActivate*/ )
             //startcenter when initially shown to at least get
             //the default LibreOffice icon and not the broken
             //app icon
-            if (GDK_IS_WAYLAND_DISPLAY(getGdkDisplay()))
+            if (DLSYM_GDK_IS_WAYLAND_DISPLAY(getGdkDisplay()))
             {
                 OString sOrigName(g_get_prgname());
                 g_set_prgname("libreoffice-startcenter");
@@ -1935,6 +1924,26 @@ void GtkSalFrame::SetScreen( unsigned int nNewScreen, SetType eType, tools::Rect
     gdk_window_set_fullscreen_mode( widget_get_window(m_pWindow), m_bSpanMonitorsWhenFullscreen
         ? GDK_FULLSCREEN_ON_ALL_MONITORS : GDK_FULLSCREEN_ON_CURRENT_MONITOR );
 
+    GtkWidget* pMenuBarContainerWidget = m_pSalMenu ? m_pSalMenu->GetMenuBarContainerWidget() : nullptr;
+    if( eType == SetType::Fullscreen )
+    {
+        if (pMenuBarContainerWidget)
+            gtk_widget_hide(pMenuBarContainerWidget);
+        if (m_bSpanMonitorsWhenFullscreen)
+            gtk_window_fullscreen(GTK_WINDOW(m_pWindow));
+        else
+        {
+            gtk_window_fullscreen_on_monitor(GTK_WINDOW(m_pWindow), pScreen, nMonitor);
+        }
+
+    }
+    else if( eType == SetType::UnFullscreen )
+    {
+        if (pMenuBarContainerWidget)
+            gtk_widget_show(pMenuBarContainerWidget);
+        gtk_window_unfullscreen( GTK_WINDOW( m_pWindow ) );
+    }
+
     if( eType == SetType::UnFullscreen &&
         !(m_nStyle & SalFrameStyleFlags::SIZEABLE) )
         gtk_window_set_resizable( GTK_WINDOW( m_pWindow ), FALSE );
@@ -1951,25 +1960,6 @@ void GtkSalFrame::SetScreen( unsigned int nNewScreen, SetType eType, tools::Rect
 
     if( bVisible )
         Show( true );
-
-    GtkWidget* pMenuBarContainerWidget = m_pSalMenu ? m_pSalMenu->GetMenuBarContainerWidget() : nullptr;
-    if( eType == SetType::Fullscreen )
-    {
-        if (pMenuBarContainerWidget)
-            gtk_widget_hide(pMenuBarContainerWidget);
-        if (m_bSpanMonitorsWhenFullscreen)
-            gtk_window_fullscreen(GTK_WINDOW(m_pWindow));
-        else
-        {
-            gtk_window_fullscreen_on_monitor(GTK_WINDOW(m_pWindow), pScreen, nMonitor);
-        }
-    }
-    else if( eType == SetType::UnFullscreen )
-    {
-        if (pMenuBarContainerWidget)
-            gtk_widget_show(pMenuBarContainerWidget);
-        gtk_window_unfullscreen( GTK_WINDOW( m_pWindow ) );
-    }
 }
 
 void GtkSalFrame::SetScreenNumber( unsigned int nNewScreen )
@@ -2423,7 +2413,7 @@ void GtkSalFrame::ResetClipRegion()
         gdk_window_shape_combine_region( widget_get_window( m_pWindow ), nullptr, 0, 0 );
 }
 
-void GtkSalFrame::BeginSetClipRegion( sal_uLong )
+void GtkSalFrame::BeginSetClipRegion( sal_uInt32 )
 {
     if( m_pRegion )
         cairo_region_destroy( m_pRegion );
@@ -3323,15 +3313,7 @@ gboolean GtkSalFrame::signalKey(GtkWidget* pWidget, GdkEventKey* pEvent, gpointe
 gboolean GtkSalFrame::signalDelete( GtkWidget*, GdkEvent*, gpointer frame )
 {
     GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
-
-    //If we went into the backdrop we disabled the toplevel window, if we
-    //receive a delete here, re-enable so we can process it
-    bool bBackDrop = (gtk_widget_get_state_flags(GTK_WIDGET(pThis->m_pWindow)) & GTK_STATE_FLAG_BACKDROP);
-    if (bBackDrop)
-        pThis->GetWindow()->Enable();
-
     pThis->CallCallbackExc( SalEvent::Close, nullptr );
-
     return true;
 }
 
@@ -3484,15 +3466,15 @@ class GtkDnDTransferable : public GtkTransferable
     GdkDragContext *m_pContext;
     guint m_nTime;
     GtkWidget *m_pWidget;
-    GtkSalFrame *m_pFrame;
+    GtkDropTarget* m_pDropTarget;
     GMainLoop *m_pLoop;
     GtkSelectionData *m_pData;
 public:
-    GtkDnDTransferable(GdkDragContext *pContext, guint nTime, GtkWidget *pWidget, GtkSalFrame *pFrame)
+    GtkDnDTransferable(GdkDragContext *pContext, guint nTime, GtkWidget *pWidget, GtkDropTarget *pDropTarget)
         : m_pContext(pContext)
         , m_nTime(nTime)
         , m_pWidget(pWidget)
-        , m_pFrame(pFrame)
+        , m_pDropTarget(pDropTarget)
         , m_pLoop(nullptr)
         , m_pData(nullptr)
     {
@@ -3514,7 +3496,7 @@ public:
          */
         {
             m_pLoop = g_main_loop_new(nullptr, true);
-            m_pFrame->SetFormatConversionRequest(this);
+            m_pDropTarget->SetFormatConversionRequest(this);
 
             gtk_drag_get_data(m_pWidget, m_pContext, it->second, m_nTime);
 
@@ -3527,7 +3509,7 @@ public:
 
             g_main_loop_unref(m_pLoop);
             m_pLoop = nullptr;
-            m_pFrame->SetFormatConversionRequest(nullptr);
+            m_pDropTarget->SetFormatConversionRequest(nullptr);
         }
 
         css::uno::Any aRet;
@@ -3577,12 +3559,15 @@ GtkDragSource* GtkDragSource::g_ActiveDragSource;
 gboolean GtkSalFrame::signalDragDrop(GtkWidget* pWidget, GdkDragContext* context, gint x, gint y, guint time, gpointer frame)
 {
     GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
-
     if (!pThis->m_pDropTarget)
         return false;
+    return pThis->m_pDropTarget->signalDragDrop(pWidget, context, x, y, time);
+}
 
+gboolean GtkDropTarget::signalDragDrop(GtkWidget* pWidget, GdkDragContext* context, gint x, gint y, guint time)
+{
     css::datatransfer::dnd::DropTargetDropEvent aEvent;
-    aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(pThis->m_pDropTarget);
+    aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(this);
     aEvent.Context = new GtkDropTargetDropContext(context, time);
     aEvent.LocationX = x;
     aEvent.LocationY = y;
@@ -3606,13 +3591,14 @@ gboolean GtkSalFrame::signalDragDrop(GtkWidget* pWidget, GdkDragContext* context
     if (GtkDragSource::g_ActiveDragSource)
         xTransferable = GtkDragSource::g_ActiveDragSource->GetTransferrable();
     else
-        xTransferable = new GtkDnDTransferable(context, time, pWidget, pThis);
+        xTransferable = new GtkDnDTransferable(context, time, pWidget, this);
     aEvent.Transferable = xTransferable;
 
-    pThis->m_pDropTarget->fire_drop(aEvent);
+    fire_drop(aEvent);
 
     return true;
 }
+
 
 class GtkDropTargetDragContext : public cppu::WeakImplHelper<css::datatransfer::dnd::XDropTargetDragContext>
 {
@@ -3636,10 +3622,16 @@ public:
     }
 };
 
-void GtkSalFrame::signalDragDropReceived(GtkWidget* /*pWidget*/, GdkDragContext * /*context*/, gint /*x*/, gint /*y*/, GtkSelectionData* data, guint /*ttype*/, guint /*time*/, gpointer frame)
+void GtkSalFrame::signalDragDropReceived(GtkWidget* pWidget, GdkDragContext* context, gint x, gint y, GtkSelectionData* data, guint ttype, guint time, gpointer frame)
 {
     GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
+    if (!pThis->m_pDropTarget)
+        return;
+    pThis->m_pDropTarget->signalDragDropReceived(pWidget, context, x, y, data, ttype, time);
+}
 
+void GtkDropTarget::signalDragDropReceived(GtkWidget* /*pWidget*/, GdkDragContext * /*context*/, gint /*x*/, gint /*y*/, GtkSelectionData* data, guint /*ttype*/, guint /*time*/)
+{
     /*
      * If we get a drop, then we will call like gtk_clipboard_wait_for_contents
      * with a loop inside a loop to get the right format, so if this is the
@@ -3647,24 +3639,28 @@ void GtkSalFrame::signalDragDropReceived(GtkWidget* /*pWidget*/, GdkDragContext 
      *
      * don't look at me like that.
      */
-    if (!pThis->m_pFormatConversionRequest)
+    if (!m_pFormatConversionRequest)
         return;
 
-    pThis->m_pFormatConversionRequest->LoopEnd(gtk_selection_data_copy(data));
+    m_pFormatConversionRequest->LoopEnd(gtk_selection_data_copy(data));
 }
 
 gboolean GtkSalFrame::signalDragMotion(GtkWidget *pWidget, GdkDragContext *context, gint x, gint y, guint time, gpointer frame)
 {
     GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
-
     if (!pThis->m_pDropTarget)
         return false;
+    return pThis->m_pDropTarget->signalDragMotion(pWidget, context, x, y, time);
+}
 
-    if (!pThis->m_bInDrag)
+
+gboolean GtkDropTarget::signalDragMotion(GtkWidget *pWidget, GdkDragContext *context, gint x, gint y, guint time)
+{
+    if (!m_bInDrag)
         gtk_drag_highlight(pWidget);
 
     css::datatransfer::dnd::DropTargetDragEnterEvent aEvent;
-    aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(pThis->m_pDropTarget);
+    aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(this);
     GtkDropTargetDragContext* pContext = new GtkDropTargetDragContext(context, time);
     //preliminary accept the Drag and select the preferred action, the fire_* will
     //inform the original caller of our choice and the callsite can decide
@@ -3702,7 +3698,7 @@ gboolean GtkSalFrame::signalDragMotion(GtkWidget *pWidget, GdkDragContext *conte
     aEvent.DropAction = GdkToVcl(eAction);
     aEvent.SourceActions = nSourceActions;
 
-    if (!pThis->m_bInDrag)
+    if (!m_bInDrag)
     {
         css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
         // For LibreOffice internal D&D we provide the Transferable without Gtk
@@ -3710,26 +3706,31 @@ gboolean GtkSalFrame::signalDragMotion(GtkWidget *pWidget, GdkDragContext *conte
         if (GtkDragSource::g_ActiveDragSource)
             xTransferable = GtkDragSource::g_ActiveDragSource->GetTransferrable();
         else
-            xTransferable = new GtkDnDTransferable(context, time, pWidget, pThis);
+            xTransferable = new GtkDnDTransferable(context, time, pWidget, this);
         css::uno::Sequence<css::datatransfer::DataFlavor> aFormats = xTransferable->getTransferDataFlavors();
         aEvent.SupportedDataFlavors = aFormats;
-        pThis->m_pDropTarget->fire_dragEnter(aEvent);
-        pThis->m_bInDrag = true;
+        fire_dragEnter(aEvent);
+        m_bInDrag = true;
     }
     else
     {
-        pThis->m_pDropTarget->fire_dragOver(aEvent);
+        fire_dragOver(aEvent);
     }
 
     return true;
 }
 
-void GtkSalFrame::signalDragLeave(GtkWidget *pWidget, GdkDragContext * /*context*/, guint /*time*/, gpointer frame)
+void GtkSalFrame::signalDragLeave(GtkWidget *pWidget, GdkDragContext *context, guint time, gpointer frame)
 {
     GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
     if (!pThis->m_pDropTarget)
         return;
-    pThis->m_bInDrag = false;
+    pThis->m_pDropTarget->signalDragLeave(pWidget, context, time);
+}
+
+void GtkDropTarget::signalDragLeave(GtkWidget* pWidget, GdkDragContext* /*context*/, guint /*time*/)
+{
+    m_bInDrag = false;
     gtk_drag_unhighlight(pWidget);
 }
 
@@ -4327,13 +4328,13 @@ sal_uIntPtr GtkSalFrame::GetNativeWindowHandle(GtkWidget *pWidget)
     GdkWindow *pWindow = gtk_widget_get_window(pWidget);
 
 #if defined(GDK_WINDOWING_X11)
-    if (GDK_IS_X11_DISPLAY(pDisplay))
+    if (DLSYM_GDK_IS_X11_DISPLAY(pDisplay))
     {
         return GDK_WINDOW_XID(pWindow);
     }
 #endif
 #if defined(GDK_WINDOWING_WAYLAND)
-    if (GDK_IS_WAYLAND_DISPLAY(pDisplay))
+    if (DLSYM_GDK_IS_WAYLAND_DISPLAY(pDisplay))
     {
         return reinterpret_cast<sal_uIntPtr>(gdk_wayland_window_get_wl_surface(pWindow));
     }

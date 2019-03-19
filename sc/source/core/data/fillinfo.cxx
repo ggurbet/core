@@ -41,7 +41,6 @@
 
 #include <vector>
 #include <memory>
-#include <o3tl/make_unique.hxx>
 
 // Similar as in output.cxx
 
@@ -151,8 +150,8 @@ class RowInfoFiller
     }
 
 public:
-    RowInfoFiller(ScDocument& rDoc, SCTAB nTab, RowInfo* pRowInfo, SCCOL nArrX, SCSIZE& rArrY) :
-        mrDoc(rDoc), mnTab(nTab), mpRowInfo(pRowInfo), mnArrX(nArrX), mnArrY(rArrY),
+    RowInfoFiller(ScDocument& rDoc, SCTAB nTab, RowInfo* pRowInfo, SCCOL nArrX, SCSIZE nArrY) :
+        mrDoc(rDoc), mnTab(nTab), mpRowInfo(pRowInfo), mnArrX(nArrX), mnArrY(nArrY),
         mnHiddenEndRow(-1), mbHiddenRow(false) {}
 
     void operator() (size_t nRow, double fVal)
@@ -288,10 +287,9 @@ bool handleConditionalFormat(ScConditionalFormatList& rCondFormList, const std::
 {
     bool bFound = false;
     bool bAnyCondition = false;
-    for(std::vector<sal_uInt32>::const_iterator itr = rCondFormats.begin();
-            itr != rCondFormats.end() && !bFound; ++itr)
+    for(const auto& rCondFormat : rCondFormats)
     {
-        ScConditionalFormat* pCondForm = rCondFormList.GetFormat(*itr);
+        ScConditionalFormat* pCondForm = rCondFormList.GetFormat(rCondFormat);
         if(!pCondForm)
             continue;
 
@@ -341,6 +339,9 @@ bool handleConditionalFormat(ScConditionalFormatList& rCondFormList, const std::
             pInfo->pIconSet = std::move(aData.pIconSet);
             bFound = true;
         }
+
+        if (bFound)
+            break;
     }
 
     return bAnyCondition;
@@ -662,7 +663,7 @@ void ScDocument::FillInfo(
                 {
                     if ( ScStyleSheet* pPreviewStyle = GetPreviewCellStyle( nCol, pRowInfo[nArrRow].nRowNo, nTab ) )
                     {
-                        aAltPatterns.push_back( o3tl::make_unique<ScPatternAttr>( *pInfo->pPatternAttr ) );
+                        aAltPatterns.push_back( std::make_unique<ScPatternAttr>( *pInfo->pPatternAttr ) );
                         pModifiedPatt = aAltPatterns.back().get();
                         pModifiedPatt->SetStyleSheet( pPreviewStyle );
                     }

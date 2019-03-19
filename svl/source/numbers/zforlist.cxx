@@ -24,7 +24,6 @@
 #include <svl/currencytable.hxx>
 
 #include <comphelper/string.hxx>
-#include <o3tl/make_unique.hxx>
 #include <tools/debug.hxx>
 #include <unotools/charclass.hxx>
 #include <unotools/configmgr.hxx>
@@ -2862,15 +2861,16 @@ OUString SvNumberFormatter::GenerateFormat(sal_uInt32 nIndex,
     {
         eLnge = IniLnge;
     }
-    SvNumFormatType eType = GetType(nIndex);
+
+    const SvNumberformat* pFormat = GetFormatEntry( nIndex );
+    const SvNumFormatType eType = (pFormat ? pFormat->GetMaskedType() : SvNumFormatType::UNDEFINED);
+
     ImpGenerateCL(eLnge);           // create new standard formats if necessary
 
     utl::DigitGroupingIterator aGrouping( xLocaleData->getDigitGrouping());
     // always group of 3 for Engineering notation
     const sal_Int32 nDigitsInFirstGroup = ( bThousand && (eType == SvNumFormatType::SCIENTIFIC) ) ? 3 : aGrouping.get();
     const OUString& rThSep = GetNumThousandSep();
-
-    SvNumberformat* pFormat = GetFormatEntry( nIndex );
 
     OUStringBuffer sString;
     using comphelper::string::padToLength;
@@ -3019,7 +3019,7 @@ OUString SvNumberFormatter::GenerateFormat(sal_uInt32 nIndex,
         {
             OUStringBuffer sTmpStr(sString);
 
-            if ( pFormat->HasPositiveBracketPlaceholder() )
+            if (pFormat && pFormat->HasPositiveBracketPlaceholder())
             {
                  sTmpStr.append('_');
                  sTmpStr.append(')');
@@ -3841,7 +3841,7 @@ void SvNumberFormatter::ImpInitCurrencyTable()
     // First entry is SYSTEM:
     theCurrencyTable::get().insert(
         theCurrencyTable::get().begin(),
-        o3tl::make_unique<NfCurrencyEntry>(*pLocaleData, LANGUAGE_SYSTEM));
+        std::make_unique<NfCurrencyEntry>(*pLocaleData, LANGUAGE_SYSTEM));
     sal_uInt16 nCurrencyPos = 1;
 
     css::uno::Sequence< css::lang::Locale > xLoc = LocaleDataWrapper::getInstalledLocaleNames();
@@ -3904,7 +3904,7 @@ void SvNumberFormatter::ImpInitCurrencyTable()
                 {
                     rLegacyOnlyCurrencyTable.insert(
                         rLegacyOnlyCurrencyTable.begin() + nLegacyOnlyCurrencyPos++,
-                        o3tl::make_unique<NfCurrencyEntry>(
+                        std::make_unique<NfCurrencyEntry>(
                             pCurrencies[nCurrency], *pLocaleData, eLang));
                 }
                 else if ( nCurrency != nDefault )

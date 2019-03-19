@@ -26,6 +26,7 @@
 #include "swdllapi.h"
 #include <o3tl/typed_flags_set.hxx>
 #include <i18nlangtag/lang.h>
+#include <vcl/outdev.hxx>
 
 namespace com { namespace sun { namespace star {
     namespace linguistic2{
@@ -130,7 +131,7 @@ css::uno::Reference< css::linguistic2::XThesaurus >     GetThesaurus();
 css::uno::Reference< css::linguistic2::XLinguProperties > GetLinguPropertySet();
 
 // Returns the twip size of this graphic.
-SW_DLLPUBLIC Size GetGraphicSizeTwip( const Graphic&, OutputDevice* pOutDev );
+SW_DLLPUBLIC Size GetGraphicSizeTwip( const Graphic&, vcl::RenderContext* pOutDev );
 
 // Separator for jumps to different content types in document.
 const sal_Unicode cMarkSeparator = '|';
@@ -175,6 +176,7 @@ constexpr bool SW_ISPRINTABLE(sal_Unicode c) { return c >= ' ' && 127 != c; }
 #define CHAR_LRM            u'\x200E'
 #define CHAR_ZWSP           u'\x200B'
 #define CHAR_ZWNBSP         u'\x2060'
+#define CHAR_NNBSP          u'\x202F' //NARROW NO-BREAK SPACE
 
 // Returns the APP - CharClass instance - used for all ToUpper/ToLower/...
 SW_DLLPUBLIC CharClass& GetAppCharClass();

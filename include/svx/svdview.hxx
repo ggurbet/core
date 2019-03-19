@@ -27,6 +27,7 @@
 #include <svtools/accessibilityoptions.hxx>
 #include <svx/svxdllapi.h>
 #include <svx/svdcrtv.hxx>
+#include <vcl/event.hxx>
 #include <unotools/options.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
@@ -153,7 +154,6 @@ class SVX_DLLPUBLIC SdrView : public SdrCreateView, public virtual tools::WeakBa
     bool                        bNoExtendedKeyDispatcher : 1;
     bool                        mbMasterPagePaintCaching : 1;
 
-protected:
     SvtAccessibilityOptions maAccessibilityOptions;
 
 public:
@@ -186,6 +186,7 @@ public:
     virtual bool MouseButtonDown(const MouseEvent& rMEvt, vcl::Window* pWin) override;
     virtual bool MouseButtonUp(const MouseEvent& rMEvt, vcl::Window* pWin) override;
     virtual bool MouseMove(const MouseEvent& rMEvt, vcl::Window* pWin) override;
+    using SdrCreateView::RequestHelp;
     virtual bool Command(const CommandEvent& rCEvt, vcl::Window* pWin) override;
 
     virtual void ConfigurationChanged( utl::ConfigurationBroadcaster*, ConfigurationHints ) override;
@@ -198,7 +199,7 @@ public:
     // incomplete implementation:
     // OutputDevice is necessary to determine HandleSize.
     // If NULL the first signed on Win is used.
-    Pointer GetPreferredPointer(const Point& rMousePos, const OutputDevice* pOut, sal_uInt16 nModifier=0, bool bLeftDown=false) const;
+    PointerStyle GetPreferredPointer(const Point& rMousePos, const OutputDevice* pOut, sal_uInt16 nModifier=0, bool bLeftDown=false) const;
     SdrHitKind PickAnything(const MouseEvent& rMEvt, SdrMouseEventKind nMouseDownOrMoveOrUp, SdrViewEvent& rVEvt) const;
     SdrHitKind PickAnything(const Point& rLogicPos, SdrViewEvent& rVEvt) const;
     bool DoMouseEvent(const SdrViewEvent& rVEvt);

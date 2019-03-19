@@ -21,6 +21,7 @@
 #include "controltype.hxx"
 #include "pcrservices.hxx"
 #include <propctrlr.h>
+#include <helpids.h>
 #include "fontdialog.hxx"
 #include "formcomponenthandler.hxx"
 #include "formlinkdialog.hxx"
@@ -858,7 +859,7 @@ namespace pcr
 
         if ( aProperties.empty() )
             return Sequence< Property >();
-        return Sequence< Property >( &(*aProperties.begin()), aProperties.size() );
+        return comphelper::containerToSequence(aProperties);
     }
 
     Sequence< OUString > SAL_CALL FormComponentPropertyHandler::getSupersededProperties( )
@@ -892,7 +893,7 @@ namespace pcr
         aInterestingProperties.push_back(  PROPERTY_FORMATKEY );
         aInterestingProperties.push_back(  PROPERTY_EMPTY_IS_NULL );
         aInterestingProperties.push_back(  PROPERTY_TOGGLE );
-        return Sequence< OUString >( &(*aInterestingProperties.begin()), aInterestingProperties.size() );
+        return comphelper::containerToSequence(aInterestingProperties);
     }
 
     LineDescriptor SAL_CALL FormComponentPropertyHandler::describePropertyLine( const OUString& _rPropertyName,
@@ -998,6 +999,13 @@ namespace pcr
         case PROPERTY_ID_FILLCOLOR:
         case PROPERTY_ID_SYMBOLCOLOR:
         case PROPERTY_ID_BORDERCOLOR:
+        case PROPERTY_ID_GRIDLINECOLOR:
+        case PROPERTY_ID_HEADERBACKGROUNDCOLOR:
+        case PROPERTY_ID_HEADERTEXTCOLOR:
+        case PROPERTY_ID_ACTIVESELECTIONBACKGROUNDCOLOR:
+        case PROPERTY_ID_ACTIVESELECTIONTEXTCOLOR:
+        case PROPERTY_ID_INACTIVESELECTIONBACKGROUNDCOLOR:
+        case PROPERTY_ID_INACTIVESELECTIONTEXTCOLOR:
             nControlType = PropertyControlType::ColorListBox;
 
             switch( nPropId )
@@ -1010,10 +1018,25 @@ namespace pcr
                 aDescriptor.PrimaryButtonId = UID_PROP_DLG_SYMBOLCOLOR; break;
             case PROPERTY_ID_BORDERCOLOR:
                 aDescriptor.PrimaryButtonId = UID_PROP_DLG_BORDERCOLOR; break;
+            case PROPERTY_ID_GRIDLINECOLOR:
+                aDescriptor.PrimaryButtonId = HID_PROP_GRIDLINECOLOR; break;
+            case PROPERTY_ID_HEADERBACKGROUNDCOLOR:
+                aDescriptor.PrimaryButtonId = HID_PROP_HEADERBACKGROUNDCOLOR; break;
+            case PROPERTY_ID_HEADERTEXTCOLOR:
+                aDescriptor.PrimaryButtonId = HID_PROP_HEADERTEXTCOLOR; break;
+            case PROPERTY_ID_ACTIVESELECTIONBACKGROUNDCOLOR:
+                aDescriptor.PrimaryButtonId = HID_PROP_ACTIVESELECTIONBACKGROUNDCOLOR; break;
+            case PROPERTY_ID_ACTIVESELECTIONTEXTCOLOR:
+                aDescriptor.PrimaryButtonId = HID_PROP_ACTIVESELECTIONTEXTCOLOR; break;
+            case PROPERTY_ID_INACTIVESELECTIONBACKGROUNDCOLOR:
+                aDescriptor.PrimaryButtonId = HID_PROP_INACTIVESELECTIONBACKGROUNDCOLOR; break;
+            case PROPERTY_ID_INACTIVESELECTIONTEXTCOLOR:
+                aDescriptor.PrimaryButtonId = HID_PROP_INACTIVESELECTIONTEXTCOLOR; break;
             }
             break;
 
         case PROPERTY_ID_LABEL:
+        case PROPERTY_ID_URL:
             nControlType = PropertyControlType::MultiLineTextField;
             break;
 
@@ -1405,6 +1428,13 @@ namespace pcr
         case PROPERTY_ID_FILLCOLOR:
         case PROPERTY_ID_SYMBOLCOLOR:
         case PROPERTY_ID_BORDERCOLOR:
+        case PROPERTY_ID_GRIDLINECOLOR:
+        case PROPERTY_ID_HEADERBACKGROUNDCOLOR:
+        case PROPERTY_ID_HEADERTEXTCOLOR:
+        case PROPERTY_ID_ACTIVESELECTIONBACKGROUNDCOLOR:
+        case PROPERTY_ID_ACTIVESELECTIONTEXTCOLOR:
+        case PROPERTY_ID_INACTIVESELECTIONBACKGROUNDCOLOR:
+        case PROPERTY_ID_INACTIVESELECTIONTEXTCOLOR:
             if ( impl_dialogColorChooser_throw( nPropId, _rData, aGuard ) )
                 eResult = InteractiveSelectionResult_ObtainedValue;
             break;
@@ -2277,7 +2307,7 @@ namespace pcr
         clearContainer( _rFieldNames );
         try
         {
-            WaitCursor aWaitCursor( impl_getDefaultDialogParent_nothrow() );
+            weld::WaitObject aWaitCursor(impl_getDefaultDialogFrame_nothrow());
 
             // get the form of the control we're inspecting
             Reference< XPropertySet > xFormSet( impl_getRowSet_throw(), UNO_QUERY );
@@ -2333,7 +2363,7 @@ namespace pcr
         {
             if ( xRowSetProps.is() )
             {
-                WaitCursor aWaitCursor( impl_getDefaultDialogParent_nothrow() );
+                weld::WaitObject aWaitCursor(impl_getDefaultDialogFrame_nothrow());
                 m_xRowSetConnection = ::dbtools::ensureRowSetConnection( xRowSet, m_xContext );
             }
         }
@@ -2373,7 +2403,7 @@ namespace pcr
     {
         try
         {
-            WaitCursor aWaitCursor( impl_getDefaultDialogParent_nothrow() );
+            weld::WaitObject aWaitCursor(impl_getDefaultDialogFrame_nothrow());
 
 
             // Set the UI data
@@ -2641,20 +2671,21 @@ namespace pcr
             aCoreSet.Put( aFormatter );
 
             // a tab dialog with a single page
-            ScopedVclPtrInstance< SfxSingleTabDialog > xDialog( impl_getDefaultDialogParent_nothrow(), aCoreSet,
-                "FormatNumberDialog", "cui/ui/formatnumberdialog.ui");
+            SfxSingleTabDialogController aDialog(impl_getDefaultDialogFrame_nothrow(), aCoreSet,
+                "cui/ui/formatnumberdialog.ui", "FormatNumberDialog");
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
             ::CreateTabPage fnCreatePage = pFact->GetTabPageCreatorFunc( RID_SVXPAGE_NUMBERFORMAT );
             if ( !fnCreatePage )
                 throw RuntimeException();   // caught below
 
-            VclPtr<SfxTabPage> pPage = (*fnCreatePage)( xDialog->get_content_area(), &aCoreSet );
-            xDialog->SetTabPage( pPage );
+            TabPageParent aParent(aDialog.get_content_area(), &aDialog);
+            VclPtr<SfxTabPage> xPage = (*fnCreatePage)(aParent, &aCoreSet);
+            aDialog.SetTabPage(xPage);
 
             _rClearBeforeDialog.clear();
-            if ( RET_OK == xDialog->Execute() )
+            if ( RET_OK == aDialog.run() )
             {
-                const SfxItemSet* pResult = xDialog->GetOutputItemSet();
+                const SfxItemSet* pResult = aDialog.GetOutputItemSet();
 
                 const SfxPoolItem* pItem = pResult->GetItem( SID_ATTR_NUMBERFORMAT_INFO );
                 const SvxNumberInfoItem* pInfoItem = dynamic_cast< const SvxNumberInfoItem* >( pItem );
@@ -2685,10 +2716,10 @@ namespace pcr
         bool bIsLink = true;// reflect the legacy behavior
         OUString aStrTrans = m_pInfoService->getPropertyTranslation( PROPERTY_ID_IMAGE_URL );
 
-        vcl::Window* pWin = impl_getDefaultDialogParent_nothrow();
+        weld::Window* pWin = impl_getDefaultDialogFrame_nothrow();
         ::sfx2::FileDialogHelper aFileDlg(
                 ui::dialogs::TemplateDescription::FILEOPEN_LINK_PREVIEW,
-                FileDialogFlags::Graphic, pWin ? pWin->GetFrameWeld() : nullptr);
+                FileDialogFlags::Graphic, pWin);
 
         aFileDlg.SetTitle(aStrTrans);
         // non-linked images ( e.g. those located in the document
@@ -2752,10 +2783,10 @@ namespace pcr
 
     bool FormComponentPropertyHandler::impl_browseForTargetURL_nothrow( Any& _out_rNewValue, ::osl::ClearableMutexGuard& _rClearBeforeDialog ) const
     {
-        vcl::Window* pWin = impl_getDefaultDialogParent_nothrow();
+        weld::Window* pWin = impl_getDefaultDialogFrame_nothrow();
         ::sfx2::FileDialogHelper aFileDlg(
                 ui::dialogs::TemplateDescription::FILEOPEN_READONLY_VERSION,
-                FileDialogFlags::NONE, pWin ? pWin->GetFrameWeld() : nullptr);
+                FileDialogFlags::NONE, pWin);
 
         OUString sURL;
         OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_TARGET_URL ) >>= sURL );
@@ -2807,10 +2838,10 @@ namespace pcr
 
     bool FormComponentPropertyHandler::impl_browseForDatabaseDocument_throw( Any& _out_rNewValue, ::osl::ClearableMutexGuard& _rClearBeforeDialog ) const
     {
-        vcl::Window* pWin = impl_getDefaultDialogParent_nothrow();
+        weld::Window* pWin = impl_getDefaultDialogFrame_nothrow();
         ::sfx2::FileDialogHelper aFileDlg(
                 ui::dialogs::TemplateDescription::FILEOPEN_READONLY_VERSION, FileDialogFlags::NONE,
-                "sdatabase", SfxFilterFlags::NONE, SfxFilterFlags::NONE, pWin ? pWin->GetFrameWeld() : nullptr);
+                "sdatabase", SfxFilterFlags::NONE, SfxFilterFlags::NONE, pWin);
 
         OUString sDataSource;
         OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_DATASOURCE ) >>= sDataSource );
@@ -2835,7 +2866,6 @@ namespace pcr
         return bSuccess;
     }
 
-
     bool FormComponentPropertyHandler::impl_dialogColorChooser_throw( sal_Int32 _nColorPropertyId, Any& _out_rNewValue, ::osl::ClearableMutexGuard& _rClearBeforeDialog ) const
     {
         ::Color aColor;
@@ -2844,22 +2874,22 @@ namespace pcr
         aColorDlg.SetColor( aColor );
 
         _rClearBeforeDialog.clear();
-        vcl::Window* pParent = impl_getDefaultDialogParent_nothrow();
-        if (!aColorDlg.Execute(pParent ? pParent->GetFrameWeld() : nullptr))
+        weld::Window* pParent = impl_getDefaultDialogFrame_nothrow();
+        if (!aColorDlg.Execute(pParent))
             return false;
 
         _out_rNewValue <<= aColorDlg.GetColor();
         return true;
     }
 
-
     bool FormComponentPropertyHandler::impl_dialogChooseLabelControl_nothrow( Any& _out_rNewValue, ::osl::ClearableMutexGuard& _rClearBeforeDialog ) const
     {
-        ScopedVclPtrInstance< OSelectLabelDialog > dlgSelectLabel( impl_getDefaultDialogParent_nothrow(), m_xComponent );
+        weld::Window* pParent = impl_getDefaultDialogFrame_nothrow();
+        OSelectLabelDialog dlgSelectLabel(pParent, m_xComponent);
         _rClearBeforeDialog.clear();
-        bool bSuccess = ( RET_OK == dlgSelectLabel->Execute() );
+        bool bSuccess = (RET_OK == dlgSelectLabel.run());
         if ( bSuccess )
-            _out_rNewValue <<= dlgSelectLabel->GetSelected();
+            _out_rNewValue <<= dlgSelectLabel.GetSelected();
         return bSuccess;
     }
 

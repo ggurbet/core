@@ -19,9 +19,7 @@
 
 #include <AccessiblePageHeader.hxx>
 #include <AccessiblePageHeaderArea.hxx>
-#include <AccessibilityHints.hxx>
 #include <prevwsh.hxx>
-#include <miscuno.hxx>
 #include <prevloc.hxx>
 #include <document.hxx>
 #include <stlpool.hxx>
@@ -41,11 +39,7 @@
 #include <vcl/svapp.hxx>
 #include <unotools/accessiblestatesethelper.hxx>
 #include <svl/style.hxx>
-#include <svl/itempool.hxx>
 #include <editeng/editobj.hxx>
-#include <toolkit/helper/convert.hxx>
-
-#include <algorithm>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
@@ -175,7 +169,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePageHeader::getAccessibleAtPo
 
 void SAL_CALL ScAccessiblePageHeader::grabFocus()
 {
-     SolarMutexGuard aGuard;
+    SolarMutexGuard aGuard;
     IsObjectValid();
     if (getAccessibleParent().is())
     {
@@ -227,20 +221,20 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePageHeader::getAccessibleChil
     if(mnChildCount < 0)
         getAccessibleChildCount();
 
-    auto aItr = maAreas.begin();
-    auto aEndItr = maAreas.end();
-    while (!xRet.is() && (nIndex >= 0) && (aItr != aEndItr))
-    {
-        if (aItr->is())
+    if (nIndex >= 0)
+        for (const auto& rxArea : maAreas)
         {
-            if (nIndex == 0)
-                xRet = aItr->get();
-            else
-                --nIndex;
+            if (rxArea.is())
+            {
+                if (nIndex == 0)
+                {
+                    xRet = rxArea.get();
+                    break;
+                }
+                else
+                    --nIndex;
+            }
         }
-        else
-            ++aItr;
-    }
 
     if ( !xRet.is() )
         throw lang::IndexOutOfBoundsException();

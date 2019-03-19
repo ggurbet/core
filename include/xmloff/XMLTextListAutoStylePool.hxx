@@ -24,12 +24,13 @@
 #include <xmloff/dllapi.h>
 #include <sal/types.h>
 #include <rtl/ustring.hxx>
-#include <com/sun/star/ucb/XAnyCompare.hpp>
+#include <com/sun/star/uno/Reference.hxx>
 #include <memory>
 #include <set>
 
 namespace com { namespace sun { namespace star { namespace container {
     class XIndexReplace; } } } }
+namespace com { namespace sun { namespace star { namespace ucb { class XAnyCompare; } } } }
 
 
 class XMLTextListAutoStylePool_Impl;
@@ -51,7 +52,7 @@ class XMLOFF_DLLPUBLIC XMLTextListAutoStylePool
         the NumRules don't have names */
     css::uno::Reference< css::ucb::XAnyCompare > mxNumRuleCompare;
 
-    SAL_DLLPRIVATE sal_uInt32 Find( XMLTextListAutoStylePoolEntry_Impl* pEntry )
+    SAL_DLLPRIVATE sal_uInt32 Find( const XMLTextListAutoStylePoolEntry_Impl* pEntry )
         const;
 public:
 

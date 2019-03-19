@@ -20,6 +20,7 @@
 #include <com/sun/star/sdbcx/CompareBookmark.hpp>
 #include <component/CResultSet.hxx>
 #include <com/sun/star/lang/DisposedException.hpp>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <comphelper/sequence.hxx>
 #include <comphelper/types.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -50,7 +51,7 @@ OUString SAL_CALL OComponentResultSet::getImplementationName(  )
 
 Sequence< OUString > SAL_CALL OComponentResultSet::getSupportedServiceNames(  )
 {
-     Sequence< OUString > aSupported(2);
+    Sequence< OUString > aSupported(2);
     aSupported[0] = "com.sun.star.sdbc.ResultSet";
     aSupported[1] = "com.sun.star.sdbcx.ResultSet";
     return aSupported;
@@ -76,7 +77,7 @@ Any SAL_CALL OComponentResultSet::queryInterface( const Type & rType )
 // XRowLocate
 Any SAL_CALL OComponentResultSet::getBookmark(  )
 {
-     ::osl::MutexGuard aGuard( m_aMutex );
+    ::osl::MutexGuard aGuard( m_aMutex );
     checkDisposed(OResultSet_BASE::rBHelper.bDisposed);
 
 

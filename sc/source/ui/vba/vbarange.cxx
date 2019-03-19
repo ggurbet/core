@@ -588,7 +588,7 @@ public:
         if ( xTypes.is() )
         {
             sal_Int32 nNewIndex = xTypes->getStandardFormat( nType, aLocale );
-               mxRangeProps->setPropertyValue( "NumberFormat", uno::makeAny( nNewIndex ) );
+            mxRangeProps->setPropertyValue( "NumberFormat", uno::makeAny( nNewIndex ) );
         }
     }
 
@@ -678,7 +678,7 @@ public:
     {
         if ( !hasMoreElements() )
             throw container::NoSuchElementException();
-        CellPos aPos = *(m_it)++;
+        CellPos aPos = *m_it++;
 
         uno::Reference< table::XCellRange > xRangeArea = getArea( aPos.m_nArea );
         uno::Reference< table::XCellRange > xCellRange( xRangeArea->getCellByPosition(  aPos.m_nCol, aPos.m_nRow ), uno::UNO_QUERY_THROW );
@@ -1177,14 +1177,11 @@ bool getScRangeListForAddress( const OUString& sName, ScDocShell* pDocSh, const 
     if ( vNames.empty() )
         vNames.push_back( sName );
 
-    std::vector< OUString >::iterator it = vNames.begin();
-    std::vector< OUString >::iterator it_end = vNames.end();
-    for ( ; it != it_end; ++it )
+    for ( const auto& rName : vNames )
     {
-
         formula::FormulaGrammar::AddressConvention eConv = aConv;
         // spaces are illegal ( but the user of course can enter them )
-        OUString sAddress = (*it).trim();
+        OUString sAddress = rName.trim();
         // if a local name ( on the active sheet ) exists this will
         // take precedence over a global with the same name
         if ( !xNameAccess->hasByName( sAddress ) )
@@ -1417,7 +1414,7 @@ lcl_setupBorders( const uno::Reference< excel::XRange >& xParentRange, const uno
     uno::Reference< XHelperInterface > xParent( xParentRange, uno::UNO_QUERY_THROW );
     ScDocument& rDoc = getDocumentFromRange(xRange);
     ScVbaPalette aPalette( rDoc.GetDocumentShell() );
-     uno::Reference< XCollection > borders( new ScVbaBorders( xParent, xContext, xRange, aPalette ) );
+    uno::Reference< XCollection > borders( new ScVbaBorders( xParent, xContext, xRange, aPalette ) );
     return borders;
 }
 
@@ -2045,7 +2042,7 @@ ScVbaRange::Address(  const uno::Any& RowAbsolute, const uno::Any& ColumnAbsolut
         // Multi-Area Range
         OUStringBuffer sAddress;
         uno::Reference< XCollection > xCollection( m_Areas, uno::UNO_QUERY_THROW );
-                uno::Any aExternalCopy = External;
+        uno::Any aExternalCopy = External;
         for ( sal_Int32 index = 1; index <= xCollection->getCount(); ++index )
         {
             uno::Reference< excel::XRange > xRange( xCollection->Item( uno::makeAny( index ), uno::Any() ), uno::UNO_QUERY_THROW );
@@ -2298,14 +2295,14 @@ ScVbaRange::Activate()
     RangeHelper thisRange( xCellRange );
     uno::Reference< sheet::XCellRangeAddressable > xThisRangeAddress = thisRange.getCellRangeAddressable();
     table::CellRangeAddress thisRangeAddress = xThisRangeAddress->getRangeAddress();
-        uno::Reference< frame::XModel > xModel;
-        ScDocShell* pShell = getScDocShell();
+    uno::Reference< frame::XModel > xModel;
+    ScDocShell* pShell = getScDocShell();
 
-        if ( pShell )
-            xModel = pShell->GetModel();
+    if ( pShell )
+        xModel = pShell->GetModel();
 
-        if ( !xModel.is() )
-            throw uno::RuntimeException();
+    if ( !xModel.is() )
+        throw uno::RuntimeException();
 
     // get current selection
     uno::Reference< sheet::XCellRangeAddressable > xRange( xModel->getCurrentSelection(), ::uno::UNO_QUERY);
@@ -2440,9 +2437,10 @@ ScVbaRange::setMergeCells( const uno::Any& aIsMerged )
         {
             uno::Reference< sheet::XCellRangeAddressable > xRangeAddr( mxRanges->getByIndex( nIndex ), uno::UNO_QUERY_THROW );
             table::CellRangeAddress aAddress = xRangeAddr->getRangeAddress();
-            for( ::std::vector< table::CellRangeAddress >::const_iterator aIt = aList.begin(), aEnd = aList.end(); aIt != aEnd; ++aIt )
-                if( ScUnoConversion::Intersects( *aIt, aAddress ) )
-                    return;
+            if (std::any_of(aList.begin(), aList.end(),
+                    [&aAddress](const table::CellRangeAddress& rAddress)
+                    { return ScUnoConversion::Intersects( rAddress, aAddress ); }))
+                return;
             aList.push_back( aAddress );
         }
 
@@ -2643,8 +2641,8 @@ ScVbaRange::getWrapText()
         uno::Any aResult;
         for ( sal_Int32 index=1; index <= nItems; ++index )
         {
-                uno::Reference< excel::XRange > xRange( m_Areas->Item( uno::makeAny(index), uno::Any() ), uno::UNO_QUERY_THROW );
-                if ( index > 1 )
+            uno::Reference< excel::XRange > xRange( m_Areas->Item( uno::makeAny(index), uno::Any() ), uno::UNO_QUERY_THROW );
+            if ( index > 1 )
                 if ( aResult != xRange->getWrapText() )
                     return aNULL();
             aResult = xRange->getWrapText();
@@ -2666,7 +2664,7 @@ ScVbaRange::getWrapText()
 uno::Reference< excel::XInterior > ScVbaRange::Interior( )
 {
     uno::Reference< beans::XPropertySet > xProps( mxRange, uno::UNO_QUERY_THROW );
-        return new ScVbaInterior ( this, mxContext, xProps, &getScDocument() );
+    return new ScVbaInterior ( this, mxContext, xProps, &getScDocument() );
 }
 uno::Reference< excel::XRange >
 ScVbaRange::Range( const uno::Any &Cell1, const uno::Any &Cell2 )
@@ -3312,7 +3310,7 @@ const OUString& sPropName )
     const beans::PropertyValue* pProp = props.getConstArray();
     sal_Int32 nItems = props.getLength();
 
-     sal_Int32 count=0;
+    sal_Int32 count=0;
     for ( ; count < nItems; ++count, ++pProp )
         if ( pProp->Name == sPropName )
             return count;
@@ -3672,10 +3670,10 @@ ScVbaRange::Delete( const uno::Any& Shift )
         }
     }
     else
-        {
+    {
         bool bFullRow = ( thisAddress.StartColumn == 0 && thisAddress.EndColumn == MAXCOL );
-            sal_Int32 nCols = thisAddress.EndColumn - thisAddress.StartColumn;
-            sal_Int32 nRows = thisAddress.EndRow - thisAddress.StartRow;
+        sal_Int32 nCols = thisAddress.EndColumn - thisAddress.StartColumn;
+        sal_Int32 nRows = thisAddress.EndRow - thisAddress.StartRow;
         if ( mbIsRows || bFullRow || ( nCols >=  nRows ) )
             mode = sheet::CellDeleteMode_UP;
         else
@@ -3706,12 +3704,12 @@ ScVbaRange::createEnumeration()
     {
         uno::Reference< table::XColumnRowRange > xColumnRowRange(mxRange, uno::UNO_QUERY );
         uno::Reference< excel::XRange > xRange( m_Areas->Item( uno::makeAny( sal_Int32(1) ), uno::Any() ), uno::UNO_QUERY_THROW );
-                sal_Int32 nElems = 0;
+        sal_Int32 nElems = 0;
         if ( mbIsColumns )
             nElems = xColumnRowRange->getColumns()->getCount();
         else
             nElems = xColumnRowRange->getRows()->getCount();
-                return new ColumnsRowEnumeration( xRange, nElems );
+        return new ColumnsRowEnumeration( xRange, nElems );
 
     }
     return new CellsEnumeration( mxParent, mxContext, m_Areas );
@@ -3936,7 +3934,7 @@ ScVbaRange::getRowHeight()
 
     sal_Int32 nStartRow = thisAddress.StartRow;
     sal_Int32 nEndRow = thisAddress.EndRow;
-        sal_uInt16 nRowTwips = 0;
+    sal_uInt16 nRowTwips = 0;
     // #TODO probably possible to use the SfxItemSet (and see if
     //  SfxItemState::DONTCARE is set) to improve performance
 // #CHECKME looks like this is general behaviour not just row Range specific
@@ -3972,7 +3970,7 @@ ScVbaRange::setRowHeight( const uno::Any& _rowheight)
         return;
     }
     double nHeight = 0; // Incoming height is in points
-        _rowheight >>= nHeight;
+    _rowheight >>= nHeight;
     nHeight = lcl_Round2DecPlaces( nHeight );
     RangeHelper thisRange( mxRange );
     table::CellRangeAddress thisAddress = thisRange.getCellRangeAddressable()->getRangeAddress();
@@ -4066,7 +4064,7 @@ ScVbaRange::getHeight()
     double nHeight = 0;
     for ( sal_Int32 index=0; index<nElems; ++index )
     {
-            uno::Reference< sheet::XCellRangeAddressable > xAddressable( xIndexAccess->getByIndex( index ), uno::UNO_QUERY_THROW );
+        uno::Reference< sheet::XCellRangeAddressable > xAddressable( xIndexAccess->getByIndex( index ), uno::UNO_QUERY_THROW );
         nHeight += getCalcRowHeight(xAddressable->getRangeAddress() );
     }
     return uno::makeAny( nHeight );
@@ -4172,7 +4170,7 @@ ScVbaRange::getWorksheet()
         ScDocShell* pDocShell = getDocShellFromRange(xRange);
         RangeHelper rHelper(xRange);
         // parent should be Thisworkbook
-           xSheet.set( new ScVbaWorksheet( uno::Reference< XHelperInterface >(), mxContext,rHelper.getSpreadSheet(),pDocShell->GetModel()) );
+        xSheet.set( new ScVbaWorksheet( uno::Reference< XHelperInterface >(), mxContext,rHelper.getSpreadSheet(),pDocShell->GetModel()) );
     }
     return xSheet;
 }
@@ -4488,137 +4486,137 @@ ScVbaRange::AutoFilter( const uno::Any& aField, const uno::Any& Criteria1, const
             bool bAll = false;
             uno::Sequence< sheet::TableFilterField2 > sTabFilts;
             uno::Reference< beans::XPropertySet > xDescProps( xDesc, uno::UNO_QUERY_THROW );
-        if ( Criteria1.hasValue() )
-        {
-            sTabFilts.realloc( 1 );
-            sTabFilts[0].Operator = sheet::FilterOperator2::EQUAL;// sensible default
-            if ( !bCritHasNumericValue )
+            if ( Criteria1.hasValue() )
             {
-                Criteria1 >>= sCriteria1;
-                if ( sCriteria1.isEmpty() )
+                sTabFilts.realloc( 1 );
+                sTabFilts[0].Operator = sheet::FilterOperator2::EQUAL;// sensible default
+                if ( !bCritHasNumericValue )
                 {
-                    uno::Sequence< OUString > aCriteria1;
-                    Criteria1 >>= aCriteria1;
-                    sal_uInt16 nLength = aCriteria1.getLength();
-                    if ( nLength )
+                    Criteria1 >>= sCriteria1;
+                    if ( sCriteria1.isEmpty() )
                     {
-                        // When sequence is provided for Criteria1 don't care about Criteria2
-                        bAcceptCriteria2 = false;
-
-                        sTabFilts.realloc( nLength );
-                        for ( sal_uInt16 i = 0; i < nLength; ++i )
+                        uno::Sequence< OUString > aCriteria1;
+                        Criteria1 >>= aCriteria1;
+                        sal_uInt16 nLength = aCriteria1.getLength();
+                        if ( nLength )
                         {
-                            lcl_setTableFieldsFromCriteria( aCriteria1[i], xDescProps, sTabFilts[i] );
-                            sTabFilts[i].Connection = sheet::FilterConnection_OR;
-                            sTabFilts[i].Field = (nField - 1);
+                            // When sequence is provided for Criteria1 don't care about Criteria2
+                            bAcceptCriteria2 = false;
+
+                            sTabFilts.realloc( nLength );
+                            for ( sal_uInt16 i = 0; i < nLength; ++i )
+                            {
+                                lcl_setTableFieldsFromCriteria( aCriteria1[i], xDescProps, sTabFilts[i] );
+                                sTabFilts[i].Connection = sheet::FilterConnection_OR;
+                                sTabFilts[i].Field = (nField - 1);
+                            }
                         }
+                        else
+                            bAll = true;
                     }
                     else
-                        bAll = true;
-                }
-                else
-                {
-                    sTabFilts[0].IsNumeric = bCritHasNumericValue;
-                    if ( bHasCritValue && !sCriteria1.isEmpty() )
-                        lcl_setTableFieldsFromCriteria( sCriteria1, xDescProps, sTabFilts[0]  );
-                    else
-                        bAll = true;
-                }
-            }
-            else // numeric
-            {
-                sTabFilts[0].IsNumeric = true;
-                sTabFilts[0].NumericValue = nCriteria1;
-            }
-        }
-        else // no value specified
-            bAll = true;
-        // not sure what the relationship between Criteria1 and Operator is,
-        // e.g. can you have a Operator without a Criteria ? in openoffice it
-        if ( Operator.hasValue()  && ( Operator >>= nOperator ) )
-        {
-            // if it's a bottom/top Ten(Percent/Value) and there
-            // is no value specified for criteria1 set it to 10
-            if ( !bCritHasNumericValue && sCriteria1.isEmpty() && ( nOperator != excel::XlAutoFilterOperator::xlOr ) && ( nOperator != excel::XlAutoFilterOperator::xlAnd ) )
-            {
-                sTabFilts[0].IsNumeric = true;
-                sTabFilts[0].NumericValue = 10;
-                bAll = false;
-            }
-            switch ( nOperator )
-            {
-                case excel::XlAutoFilterOperator::xlBottom10Items:
-                    sTabFilts[0].Operator = sheet::FilterOperator2::BOTTOM_VALUES;
-                    break;
-                case excel::XlAutoFilterOperator::xlBottom10Percent:
-                    sTabFilts[0].Operator = sheet::FilterOperator2::BOTTOM_PERCENT;
-                    break;
-                case excel::XlAutoFilterOperator::xlTop10Items:
-                    sTabFilts[0].Operator = sheet::FilterOperator2::TOP_VALUES;
-                    break;
-                case excel::XlAutoFilterOperator::xlTop10Percent:
-                    sTabFilts[0].Operator = sheet::FilterOperator2::TOP_PERCENT;
-                    break;
-                case excel::XlAutoFilterOperator::xlOr:
-                    nConn = sheet::FilterConnection_OR;
-                    break;
-                case excel::XlAutoFilterOperator::xlAnd:
-                    nConn = sheet::FilterConnection_AND;
-                    break;
-                default:
-                    throw uno::RuntimeException("UnknownOption" );
-
-            }
-
-        }
-        if ( !bAll && bAcceptCriteria2 )
-        {
-            sTabFilts[0].Connection = sheet::FilterConnection_AND;
-            sTabFilts[0].Field = (nField - 1);
-
-            OUString sCriteria2;
-            uno::Sequence< OUString > aCriteria2;
-            if ( Criteria2.hasValue() ) // there is a Criteria2
-            {
-                sTabFilts.realloc(2);
-                sTabFilts[1].Field = sTabFilts[0].Field;
-                sTabFilts[1].Connection = nConn;
-
-                if ( Criteria2 >>= sCriteria2 )
-                {
-                    if ( !sCriteria2.isEmpty() )
                     {
-                        uno::Reference< beans::XPropertySet > xProps;
-                        lcl_setTableFieldsFromCriteria( sCriteria2, xProps,  sTabFilts[1] );
-                        sTabFilts[1].IsNumeric = false;
-                    }
-                }
-                else if ( Criteria2 >>= aCriteria2 )
-                {
-                    sal_uInt16 nLength = aCriteria2.getLength();
-                    if ( nLength )
-                    {
-                        // For compatibility use only the last value form the sequence
-                        lcl_setTableFieldsFromCriteria( aCriteria2[nLength - 1], xDescProps, sTabFilts[1] );
+                        sTabFilts[0].IsNumeric = bCritHasNumericValue;
+                        if ( bHasCritValue && !sCriteria1.isEmpty() )
+                            lcl_setTableFieldsFromCriteria( sCriteria1, xDescProps, sTabFilts[0]  );
+                        else
+                            bAll = true;
                     }
                 }
                 else // numeric
                 {
-                    Criteria2 >>= sTabFilts[1].NumericValue;
-                    sTabFilts[1].IsNumeric = true;
-                    sTabFilts[1].Operator = sheet::FilterOperator2::EQUAL;
+                    sTabFilts[0].IsNumeric = true;
+                    sTabFilts[0].NumericValue = nCriteria1;
                 }
             }
-        }
+            else // no value specified
+                bAll = true;
+            // not sure what the relationship between Criteria1 and Operator is,
+            // e.g. can you have a Operator without a Criteria ? in openoffice it
+            if ( Operator.hasValue()  && ( Operator >>= nOperator ) )
+            {
+                // if it's a bottom/top Ten(Percent/Value) and there
+                // is no value specified for criteria1 set it to 10
+                if ( !bCritHasNumericValue && sCriteria1.isEmpty() && ( nOperator != excel::XlAutoFilterOperator::xlOr ) && ( nOperator != excel::XlAutoFilterOperator::xlAnd ) )
+                {
+                    sTabFilts[0].IsNumeric = true;
+                    sTabFilts[0].NumericValue = 10;
+                    bAll = false;
+                }
+                switch ( nOperator )
+                {
+                    case excel::XlAutoFilterOperator::xlBottom10Items:
+                        sTabFilts[0].Operator = sheet::FilterOperator2::BOTTOM_VALUES;
+                        break;
+                    case excel::XlAutoFilterOperator::xlBottom10Percent:
+                        sTabFilts[0].Operator = sheet::FilterOperator2::BOTTOM_PERCENT;
+                        break;
+                    case excel::XlAutoFilterOperator::xlTop10Items:
+                        sTabFilts[0].Operator = sheet::FilterOperator2::TOP_VALUES;
+                        break;
+                    case excel::XlAutoFilterOperator::xlTop10Percent:
+                        sTabFilts[0].Operator = sheet::FilterOperator2::TOP_PERCENT;
+                        break;
+                    case excel::XlAutoFilterOperator::xlOr:
+                        nConn = sheet::FilterConnection_OR;
+                        break;
+                    case excel::XlAutoFilterOperator::xlAnd:
+                        nConn = sheet::FilterConnection_AND;
+                        break;
+                    default:
+                        throw uno::RuntimeException("UnknownOption" );
 
-        xDesc->setFilterFields2( sTabFilts );
-        if ( !bAll )
-        {
-            xDataBaseRange->refresh();
-        }
-        else
-            // was 0 based now seems to be 1
-            lcl_SetAllQueryForField( pShell, nField, nSheet );
+                }
+
+            }
+            if ( !bAll && bAcceptCriteria2 )
+            {
+                sTabFilts[0].Connection = sheet::FilterConnection_AND;
+                sTabFilts[0].Field = (nField - 1);
+
+                OUString sCriteria2;
+                uno::Sequence< OUString > aCriteria2;
+                if ( Criteria2.hasValue() ) // there is a Criteria2
+                {
+                    sTabFilts.realloc(2);
+                    sTabFilts[1].Field = sTabFilts[0].Field;
+                    sTabFilts[1].Connection = nConn;
+
+                    if ( Criteria2 >>= sCriteria2 )
+                    {
+                        if ( !sCriteria2.isEmpty() )
+                        {
+                            uno::Reference< beans::XPropertySet > xProps;
+                            lcl_setTableFieldsFromCriteria( sCriteria2, xProps,  sTabFilts[1] );
+                            sTabFilts[1].IsNumeric = false;
+                        }
+                    }
+                    else if ( Criteria2 >>= aCriteria2 )
+                    {
+                        sal_uInt16 nLength = aCriteria2.getLength();
+                        if ( nLength )
+                        {
+                            // For compatibility use only the last value form the sequence
+                            lcl_setTableFieldsFromCriteria( aCriteria2[nLength - 1], xDescProps, sTabFilts[1] );
+                        }
+                    }
+                    else // numeric
+                    {
+                        Criteria2 >>= sTabFilts[1].NumericValue;
+                        sTabFilts[1].IsNumeric = true;
+                        sTabFilts[1].Operator = sheet::FilterOperator2::EQUAL;
+                    }
+                }
+            }
+
+            xDesc->setFilterFields2( sTabFilts );
+            if ( !bAll )
+            {
+                xDataBaseRange->refresh();
+            }
+            else
+                // was 0 based now seems to be 1
+                lcl_SetAllQueryForField( pShell, nField, nSheet );
         }
     }
     else
@@ -4716,11 +4714,11 @@ ScVbaRange::Autofit()
         // if the range is a not a row or column range autofit will
         // throw an error
 
-        if ( !( mbIsColumns || mbIsRows ) )
+    if ( !( mbIsColumns || mbIsRows ) )
             DebugHelper::basicexception(ERRCODE_BASIC_METHOD_FAILED, OUString());
-        ScDocShell* pDocShell = getDocShellFromRange( mxRange );
-        if ( pDocShell )
-        {
+    ScDocShell* pDocShell = getDocShellFromRange( mxRange );
+    if ( pDocShell )
+    {
             RangeHelper thisRange( mxRange );
             table::CellRangeAddress thisAddress = thisRange.getCellRangeAddressable()->getRangeAddress();
 
@@ -5405,12 +5403,10 @@ ScVbaRange::SpecialCells( const uno::Any& _oType, const uno::Any& _oValue)
                     }
                 }
                 ScRangeList aCellRanges;
-                std::vector< table::CellRangeAddress >::iterator it = rangeResults.begin();
-                std::vector< table::CellRangeAddress >::iterator it_end = rangeResults.end();
-                for ( ; it != it_end; ++ it )
+                for ( const auto& rRangeResult : rangeResults )
                 {
                     ScRange refRange;
-                    ScUnoConversion::FillScRange( refRange, *it );
+                    ScUnoConversion::FillScRange( refRange, rRangeResult );
                     aCellRanges.push_back( refRange );
                 }
                 // Single range

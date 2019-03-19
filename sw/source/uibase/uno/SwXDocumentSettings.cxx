@@ -25,7 +25,6 @@
 #include <utility>
 
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sfx2/sfxbasecontroller.hxx>
 #include "SwXDocumentSettings.hxx"
 #include <comphelper/MasterPropertySetInfo.hxx>
@@ -299,20 +298,15 @@ void SwXDocumentSettings::release ()
 
 uno::Sequence< uno::Type > SAL_CALL SwXDocumentSettings::getTypes(  )
 {
-    SolarMutexGuard aGuard;
-
-    uno::Sequence< uno::Type > aBaseTypes( 5 );
-    uno::Type* pBaseTypes = aBaseTypes.getArray();
-
-    // from MasterPropertySet
-    pBaseTypes[0] = cppu::UnoType<XPropertySet>::get();
-    pBaseTypes[1] = cppu::UnoType<XPropertyState>::get();
-    pBaseTypes[2] = cppu::UnoType<XMultiPropertySet>::get();
-
-    pBaseTypes[3] = cppu::UnoType<XServiceInfo>::get();
-    pBaseTypes[4] = cppu::UnoType<XTypeProvider>::get();
-
-    return aBaseTypes;
+    static const uno::Sequence< uno::Type > aTypes {
+        // from MasterPropertySet
+        cppu::UnoType<XPropertySet>::get(),
+        cppu::UnoType<XPropertyState>::get(),
+        cppu::UnoType<XMultiPropertySet>::get(),
+        cppu::UnoType<XServiceInfo>::get(),
+        cppu::UnoType<XTypeProvider>::get(),
+    };
+    return aTypes;
 }
 
 uno::Sequence< sal_Int8 > SAL_CALL SwXDocumentSettings::getImplementationId(  )
@@ -447,7 +441,7 @@ void SwXDocumentSettings::_setSingleValue( const comphelper::PropertyInfo & rInf
                     SID_PRINTER_CHANGESTODOC, SID_PRINTER_CHANGESTODOC,
                     0
                 };
-                auto pItemSet = o3tl::make_unique<SfxItemSet>( mpDoc->GetAttrPool(), nRange );
+                auto pItemSet = std::make_unique<SfxItemSet>( mpDoc->GetAttrPool(), nRange );
                 VclPtr<SfxPrinter> pPrinter = SfxPrinter::Create ( aStream, std::move(pItemSet) );
                 assert (! pPrinter->isDisposed() );
                 // set printer only once; in _postSetValues
@@ -1400,7 +1394,7 @@ void SwXDocumentSettings::_postGetValues ()
 // XServiceInfo
 OUString SAL_CALL SwXDocumentSettings::getImplementationName(  )
 {
-    return OUString("com.sun.star.comp.Writer.DocumentSettings");
+    return OUString("SwXDocumentSettings");
 }
 
 sal_Bool SAL_CALL SwXDocumentSettings::supportsService( const OUString& ServiceName )

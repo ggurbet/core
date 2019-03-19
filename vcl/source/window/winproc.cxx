@@ -40,6 +40,7 @@
 #include <vcl/virdev.hxx>
 #include <vcl/lazydelete.hxx>
 #include <vcl/uitest/logger.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <svdata.hxx>
 #include <salwtype.hxx>
@@ -1869,13 +1870,13 @@ static void DelayedCloseEventLink( void* pCEvent, void* )
     delete pEv;
 }
 
-static void ImplHandleClose( vcl::Window* pWindow )
+static void ImplHandleClose( const vcl::Window* pWindow )
 {
     ImplSVData* pSVData = ImplGetSVData();
 
     bool bWasPopup = false;
     if( pWindow->ImplIsFloatingWindow() &&
-        static_cast<FloatingWindow*>(pWindow)->ImplIsInPrivatePopupMode() )
+        static_cast<const FloatingWindow*>(pWindow)->ImplIsInPrivatePopupMode() )
     {
         bWasPopup = true;
     }
@@ -2064,7 +2065,7 @@ static void ImplHandleSalKeyMod( vcl::Window* pWindow, SalKeyModEvent const * pE
     if ( nOldCode != nNewCode )
     {
 #ifdef MACOSX
-    nNewCode |= pWindow->ImplGetWindowImpl()->mpFrameData->mnMouseCode & ~(KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_MOD3);
+        nNewCode |= pWindow->ImplGetWindowImpl()->mpFrameData->mnMouseCode & ~(KEY_SHIFT | KEY_MOD1 | KEY_MOD2 | KEY_MOD3);
 #else
         nNewCode |= pWindow->ImplGetWindowImpl()->mpFrameData->mnMouseCode & ~(KEY_SHIFT | KEY_MOD1 | KEY_MOD2);
 #endif

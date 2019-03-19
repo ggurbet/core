@@ -22,6 +22,7 @@
 
 #include <config_version.h>
 
+#include <o3tl/lru_map.hxx>
 #include <tools/fldunit.hxx>
 #include <unotools/options.hxx>
 #include <vcl/bitmapex.hxx>
@@ -41,6 +42,7 @@
 #include <boost/functional/hash.hpp>
 #include "ControlCacheKey.hxx"
 #include "schedulerimpl.hxx"
+#include <basegfx/DrawCommands.hxx>
 
 struct ImplPostEventData;
 struct ImplTimerData;
@@ -187,18 +189,20 @@ struct ImplSVGDIData
     VclPtr<OutputDevice>    mpFirstPrnGraphics;             // First OutputDevice with a InfoPrinter Graphics
     VclPtr<OutputDevice>    mpLastPrnGraphics;              // Last OutputDevice with a InfoPrinter Graphics
     VclPtr<VirtualDevice>   mpFirstVirDev;                  // First VirtualDevice
-    VclPtr<VirtualDevice>   mpLastVirDev;                   // Last VirtualDevice
     OpenGLContext*          mpLastContext = nullptr;        // Last OpenGLContext
     VclPtr<Printer>         mpFirstPrinter;                 // First Printer
-    VclPtr<Printer>         mpLastPrinter;                  // Last Printer
     std::unique_ptr<ImplPrnQueueList> mpPrinterQueueList;   // List of all printer queue
     std::shared_ptr<PhysicalFontCollection> mxScreenFontList; // Screen-Font-List
     std::shared_ptr<ImplFontCache> mxScreenFontCache;       // Screen-Font-Cache
+    o3tl::lru_map<SalBitmap*, BitmapEx> maScaleCache = o3tl::lru_map<SalBitmap*, BitmapEx>(10); // Cache for scaled images
     ImplDirectFontSubstitution* mpDirectFontSubst = nullptr; // Font-Substitutions defined in Tools->Options->Fonts
     GraphicConverter*       mpGrfConverter = nullptr;       // Converter for graphics
     long                    mnAppFontX = 0;                 // AppFont X-Numenator for 40/tel Width
     long                    mnAppFontY = 0;                 // AppFont Y-Numenator for 80/tel Height
     bool                    mbFontSubChanged = false;       // true: FontSubstitution was changed between Begin/End
+
+    o3tl::lru_map<OUString, BitmapEx> maThemeImageCache = o3tl::lru_map<OUString, BitmapEx>(10);
+    o3tl::lru_map<OUString, gfx::DrawRoot> maThemeDrawCommandsCache = o3tl::lru_map<OUString, gfx::DrawRoot>(50);
 };
 
 struct ImplSVWinData
@@ -351,6 +355,9 @@ struct ImplSVData
     bool                    mbDeInit = false;               // Is VCL deinitializing
     std::unique_ptr<SalI18NImeStatus> mpImeStatus;          // interface to ime status window, only used by the X11 backend
     std::unique_ptr<SalSystem> mpSalSystem;                 // SalSystem interface
+    int                     mnFontUpdatesLockCount = 0;     // avoid repeated font updates
+    bool                    mbFontUpdatesPending = false;   // need to update font data after unlock
+    bool                    mbFontUpdatesNewLists = false;  // generate new font lists
     bool                    mbResLocaleSet = false;         // SV-Resource-Manager
     std::locale             maResLocale;                    // Resource locale
     ImplSchedulerContext    maSchedCtx;                     // indepen data for class Scheduler

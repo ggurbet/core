@@ -18,7 +18,6 @@
  */
 
 #include <vcl/errinf.hxx>
-#include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
@@ -42,7 +41,6 @@
 #include <DrawDocShell.hxx>
 
 #include <sdxmlwrp.hxx>
-#include <strmname.h>
 #include <svx/xmleohlp.hxx>
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
 #include <com/sun/star/xml/sax/XFastParser.hpp>
@@ -51,21 +49,14 @@
 #include <com/sun/star/document/XExporter.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
-#include <com/sun/star/document/XGraphicStorageHandler.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
-#include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/packages/zip/ZipIOException.hpp>
 
-#include <com/sun/star/xml/sax/XErrorHandler.hpp>
-#include <com/sun/star/xml/sax/XEntityResolver.hpp>
 #include <com/sun/star/xml/sax/InputSource.hpp>
-#include <com/sun/star/xml/sax/XDTDHandler.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
 #include <com/sun/star/xml/sax/Writer.hpp>
 #include <com/sun/star/io/XActiveDataSource.hpp>
-#include <com/sun/star/io/XActiveDataControl.hpp>
 #include <comphelper/genericpropertyset.hxx>
 #include <comphelper/propertysetinfo.hxx>
 #include <editeng/eeitem.hxx>
@@ -83,6 +74,7 @@
 #include <strings.hrc>
 
 #include <sfx2/frame.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace com::sun::star;
 using namespace com::sun::star::uno;
@@ -236,6 +228,7 @@ ErrCode ReadThroughComponent(
     }
     catch (const xml::sax::SAXParseException& r)
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         // sax parser sends wrapped exceptions,
         // try to find the original one
         xml::sax::SAXException aSaxEx = *static_cast<xml::sax::SAXException const *>(&r);
@@ -257,7 +250,7 @@ ErrCode ReadThroughComponent(
         if( bEncrypted )
             return ERRCODE_SFX_WRONGPASSWORD;
 
-        SAL_WARN( "sd.filter", "SAX parse exception caught while importing:" << r);
+        SAL_WARN( "sd.filter", "SAX parse exception caught while importing: " << exceptionToString(ex));
 
         OUString sErr( OUString::number( r.LineNumber ));
         sErr += ",";
@@ -280,6 +273,7 @@ ErrCode ReadThroughComponent(
     }
     catch (const xml::sax::SAXException& r)
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         packages::zip::ZipIOException aBrokenPackage;
         if ( r.WrappedException >>= aBrokenPackage )
             return ERRCODE_IO_BROKENPACKAGE;
@@ -287,22 +281,25 @@ ErrCode ReadThroughComponent(
         if( bEncrypted )
             return ERRCODE_SFX_WRONGPASSWORD;
 
-        SAL_WARN( "sd.filter", "SAX exception caught while importing:" << r);
+        SAL_WARN( "sd.filter", "SAX exception caught while importing: " << exceptionToString(ex));
         return SD_XML_READERROR;
     }
-    catch (const packages::zip::ZipIOException& r)
+    catch (const packages::zip::ZipIOException&)
     {
-        SAL_WARN( "sd.filter", "Zip exception caught while importing:" << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sd.filter", "Zip exception caught while importing: " << exceptionToString(ex));
         return ERRCODE_IO_BROKENPACKAGE;
     }
-    catch (const io::IOException& r)
+    catch (const io::IOException&)
     {
-        SAL_WARN( "sd.filter", "IO exception caught while importing:" << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sd.filter", "IO exception caught while importing: " << exceptionToString(ex));
         return SD_XML_READERROR;
     }
-    catch (const uno::Exception& r)
+    catch (const uno::Exception&)
     {
-        SAL_WARN( "sd.filter", "uno exception caught while importing:" << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN( "sd.filter", "uno exception caught while importing: " << exceptionToString(ex));
         return SD_XML_READERROR;
     }
 
@@ -725,7 +722,8 @@ bool SdXMLFilter::Import( ErrCode& nError )
         }
         catch (const Exception&)
         {
-            SAL_WARN( "sd.filter","sd::SdXMLFilter::Import(), exception during clearing of unused named items");
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN( "sd.filter","sd::SdXMLFilter::Import(), exception during clearing of unused named items " << exceptionToString(ex));
         }
     }
 

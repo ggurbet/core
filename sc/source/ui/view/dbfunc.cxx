@@ -317,7 +317,7 @@ void ScDBFunc::ToggleAutoFilter()
         ScRange aRange;
         pDBData->GetArea( aRange );
         pDocSh->GetUndoManager()->AddUndoAction(
-            o3tl::make_unique<ScUndoAutoFilter>( pDocSh, aRange, pDBData->GetName(), false ) );
+            std::make_unique<ScUndoAutoFilter>( pDocSh, aRange, pDBData->GetName(), false ) );
 
         pDBData->SetAutoFilter(false);
 
@@ -356,7 +356,7 @@ void ScDBFunc::ToggleAutoFilter()
             ScRange aRange;
             pDBData->GetArea( aRange );
             pDocSh->GetUndoManager()->AddUndoAction(
-                o3tl::make_unique<ScUndoAutoFilter>( pDocSh, aRange, pDBData->GetName(), true ) );
+                std::make_unique<ScUndoAutoFilter>( pDocSh, aRange, pDBData->GetName(), true ) );
 
             pDBData->SetAutoFilter(true);
 
@@ -415,7 +415,7 @@ void ScDBFunc::HideAutoFilter()
     ScRange aRange;
     pDBData->GetArea( aRange );
     pDocSh->GetUndoManager()->AddUndoAction(
-        o3tl::make_unique<ScUndoAutoFilter>( pDocSh, aRange, pDBData->GetName(), false ) );
+        std::make_unique<ScUndoAutoFilter>( pDocSh, aRange, pDBData->GetName(), false ) );
 
     pDBData->SetAutoFilter(false);
 

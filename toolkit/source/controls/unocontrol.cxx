@@ -24,6 +24,8 @@
 #include <com/sun/star/awt/VclWindowPeerAttribute.hpp>
 #include <com/sun/star/awt/PosSize.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/beans/XMultiPropertySet.hpp>
 #include <com/sun/star/lang/NoSupportException.hpp>
 #include <com/sun/star/resource/XStringResourceResolver.hpp>
 #include <toolkit/controls/unocontrol.hxx>
@@ -1161,6 +1163,16 @@ void UnoControl::createPeer( const Reference< XToolkit >& rxToolkit, const Refer
         bool b = bool();
         if ( ( aVal >>= b ) && b)
             aDescr.WindowAttributes |= WindowAttribute::MOVEABLE;
+    }
+
+    // Sizeable
+    aPropName = GetPropertyName( BASEPROPERTY_SIZEABLE );
+    if ( xInfo->hasPropertyByName( aPropName ) )
+    {
+        aVal = xPSet->getPropertyValue( aPropName );
+        bool b = bool();
+        if ( ( aVal >>= b ) && b)
+            aDescr.WindowAttributes |= WindowAttribute::SIZEABLE;
     }
 
     // Closeable

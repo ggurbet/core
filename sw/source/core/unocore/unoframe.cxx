@@ -31,7 +31,6 @@
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
 #include <com/sun/star/drawing/TextVerticalAdjust.hpp>
 #include <o3tl/any.hxx>
-#include <o3tl/make_unique.hxx>
 #include <svx/svxids.hrc>
 #include <svx/xfillit0.hxx>
 #include <svx/xflgrit.hxx>
@@ -41,6 +40,7 @@
 #include <editeng/memberids.h>
 #include <swtypes.hxx>
 #include <cmdid.h>
+#include <unomid.h>
 #include <memory>
 #include <utility>
 #include <hints.hxx>
@@ -1006,13 +1006,13 @@ bool SwFrameProperties_Impl::AnyToItemSet(SwDoc *pDoc, SfxItemSet& rSet, SfxItem
     {
         rtl::Reference< SwDocStyleSheet > xStyle( new SwDocStyleSheet( *pStyle ) );
         const ::SfxItemSet *pItemSet = &xStyle->GetItemSet();
-           bRet = FillBaseProperties( rSet, *pItemSet, rSizeFound );
+        bRet = FillBaseProperties( rSet, *pItemSet, rSizeFound );
         lcl_FillCol ( rSet, *pItemSet, pColumns );
     }
     else
     {
         const ::SfxItemSet *pItemSet = &pDoc->getIDocumentStylePoolAccess().GetFrameFormatFromPool( RES_POOLFRM_FRAME )->GetAttrSet();
-           bRet = FillBaseProperties( rSet, *pItemSet, rSizeFound );
+        bRet = FillBaseProperties( rSet, *pItemSet, rSizeFound );
         lcl_FillCol ( rSet, *pItemSet, pColumns );
     }
     const ::uno::Any* pEdit;
@@ -1548,7 +1548,7 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
 
             UnoActionContext aAction(pFormat->GetDoc());
 
-            SfxItemSet* pSet = nullptr;
+            std::unique_ptr<SfxItemSet> pSet;
             // #i31771#, #i25798# - No adjustment of
             // anchor ( no call of method <sw_ChkAndSetNewAnchor(..)> ),
             // if document is currently in reading mode.
@@ -1563,21 +1563,18 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
                     const ::SfxPoolItem* pItem;
                     if( SfxItemState::SET == pFrameFormat->GetItemState( RES_ANCHOR, false, &pItem ))
                     {
-                        pSet = new SfxItemSet( pDoc->GetAttrPool(), aFrameFormatSetRange );
+                        pSet.reset(new SfxItemSet( pDoc->GetAttrPool(), aFrameFormatSetRange ));
                         pSet->Put( *pItem );
                         if ( pFormat->GetDoc()->GetEditShell() != nullptr
                              && !sw_ChkAndSetNewAnchor( *pFly, *pSet ) )
                         {
-                            delete pSet;
-                            pSet = nullptr;
+                            pSet.reset();
                         }
                     }
                 }
             }
 
-            pFormat->GetDoc()->SetFrameFormatToFly( *pFormat, *pFrameFormat, pSet );
-            delete pSet;
-
+            pFormat->GetDoc()->SetFrameFormatToFly( *pFormat, *pFrameFormat, pSet.get() );
         }
         else if (FN_UNO_GRAPHIC_FILTER == pEntry->nWID)
         {
@@ -1776,7 +1773,7 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
 
                 aChangedBrushItem.PutValue(aValue, nMemberId);
 
-                if(!(aChangedBrushItem == aOriginalBrushItem))
+                if(aChangedBrushItem != aOriginalBrushItem)
                 {
                     setSvxBrushItemAsFillAttributesToTargetSet(aChangedBrushItem, aSet);
                     pFormat->GetDoc()->SetFlyFrameAttr( *pFormat, aSet );
@@ -1997,7 +1994,7 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
     if(FN_UNO_ANCHOR_TYPES == pEntry->nWID)
     {
         uno::Sequence<text::TextContentAnchorType> aTypes(5);
-         text::TextContentAnchorType* pArray = aTypes.getArray();
+        text::TextContentAnchorType* pArray = aTypes.getArray();
         pArray[0] = text::TextContentAnchorType_AT_PARAGRAPH;
         pArray[1] = text::TextContentAnchorType_AS_CHARACTER;
         pArray[2] = text::TextContentAnchorType_AT_PAGE;
@@ -2080,7 +2077,7 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
         {
             OUString sFltName;
             SwDoc::GetGrfNms( *static_cast<SwFlyFrameFormat*>(pFormat), nullptr, &sFltName );
-                aAny <<= sFltName;
+            aAny <<= sFltName;
         }
         else if( FN_UNO_GRAPHIC_URL == pEntry->nWID )
         {
@@ -2232,14 +2229,11 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
             }
             else if(OWN_ATTR_FILLBMP_MODE == pEntry->nWID)
             {
-                const XFillBmpStretchItem* pStretchItem = &rSet.Get(XATTR_FILLBMP_STRETCH);
-                const XFillBmpTileItem* pTileItem = &rSet.Get(XATTR_FILLBMP_TILE);
-
-                if( pTileItem && pTileItem->GetValue() )
+                if (rSet.Get(XATTR_FILLBMP_TILE).GetValue())
                 {
                     aAny <<= drawing::BitmapMode_REPEAT;
                 }
-                else if( pStretchItem && pStretchItem->GetValue() )
+                else if (rSet.Get(XATTR_FILLBMP_STRETCH).GetValue())
                 {
                     aAny <<= drawing::BitmapMode_STRETCH;
                 }
@@ -2273,7 +2267,7 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
     else
         throw uno::RuntimeException();
 
-    if(pEntry && pEntry->aType == ::cppu::UnoType<sal_Int16>::get() && pEntry->aType != aAny.getValueType())
+    if (pEntry->aType == ::cppu::UnoType<sal_Int16>::get() && pEntry->aType != aAny.getValueType())
     {
         // since the sfx uint16 item now exports a sal_Int32, we may have to fix this here
         sal_Int32 nValue = 0;
@@ -3141,27 +3135,11 @@ void SAL_CALL SwXTextFrame::release(  )throw()
 
 uno::Sequence< uno::Type > SAL_CALL SwXTextFrame::getTypes(  )
 {
-    uno::Sequence< uno::Type > aTextFrameTypes = SwXTextFrameBaseClass::getTypes();
-    uno::Sequence< uno::Type > aFrameTypes = SwXFrame::getTypes();
-    uno::Sequence< uno::Type > aTextTypes = SwXText::getTypes();
-
-    long nIndex = aTextFrameTypes.getLength();
-    aTextFrameTypes.realloc(
-        aTextFrameTypes.getLength() +
-        aFrameTypes.getLength() +
-        aTextTypes.getLength());
-
-    uno::Type* pTextFrameTypes = aTextFrameTypes.getArray();
-    const uno::Type* pFrameTypes = aFrameTypes.getConstArray();
-    long nPos;
-    for(nPos = 0; nPos <aFrameTypes.getLength(); nPos++)
-        pTextFrameTypes[nIndex++] = pFrameTypes[nPos];
-
-    const uno::Type* pTextTypes = aTextTypes.getConstArray();
-    for(nPos = 0; nPos <aTextTypes.getLength(); nPos++)
-        pTextFrameTypes[nIndex++] = pTextTypes[nPos];
-
-    return aTextFrameTypes;
+    return comphelper::concatSequences(
+        SwXTextFrameBaseClass::getTypes(),
+        SwXFrame::getTypes(),
+        SwXText::getTypes()
+    );
 }
 
 uno::Sequence< sal_Int8 > SAL_CALL SwXTextFrame::getImplementationId(  )
@@ -3543,11 +3521,25 @@ uno::Reference<container::XNameReplace> SAL_CALL
     return new SwFrameEventDescriptor( *this );
 }
 
-
-SwXOLEListener::SwXOLEListener( SwFormat& rOLEFormat, uno::Reference< XModel > const & xOLE) :
-    SwClient(&rOLEFormat),
-    xOLEModel(xOLE)
+namespace
 {
+    SwOLENode* lcl_GetOLENode(const SwFormat* pFormat)
+    {
+        if(!pFormat)
+            return nullptr;
+        const SwNodeIndex* pIdx(pFormat->GetContent().GetContentIdx());
+        if(!pIdx)
+            return nullptr;
+        const SwNodeIndex aIdx(*pIdx, 1);
+        return aIdx.GetNode().GetNoTextNode()->GetOLENode();
+    }
+}
+
+SwXOLEListener::SwXOLEListener( SwFormat& rOLEFormat, uno::Reference< XModel > const & xOLE)
+    : m_pOLEFormat(&rOLEFormat)
+    , m_xOLEModel(xOLE)
+{
+    StartListening(m_pOLEFormat->GetNotifier());
 }
 
 SwXOLEListener::~SwXOLEListener()
@@ -3556,30 +3548,17 @@ SwXOLEListener::~SwXOLEListener()
 void SwXOLEListener::modified( const lang::EventObject& /*rEvent*/ )
 {
     SolarMutexGuard aGuard;
-
-    SwOLENode* pNd = nullptr;
-    SwFormat* pFormat = static_cast<SwFormat*>(GetRegisteredIn());
-    if(pFormat)
-    {const SwNodeIndex* pIdx = pFormat->GetContent().GetContentIdx();
-        if(pIdx)
-        {
-            SwNodeIndex aIdx(*pIdx, 1);
-            SwNoTextNode* pNoText = aIdx.GetNode().GetNoTextNode();
-            pNd = pNoText->GetOLENode();
-        }
-    }
+    const auto pNd = lcl_GetOLENode(m_pOLEFormat);
     if(!pNd)
         throw uno::RuntimeException();
-
-    uno::Reference < embed::XEmbeddedObject > xIP = pNd->GetOLEObj().GetOleRef();
-    if ( xIP.is() )
+    const auto xIP = pNd->GetOLEObj().GetOleRef();
+    if(xIP.is())
     {
         sal_Int32 nState = xIP->getCurrentState();
-        if ( nState == embed::EmbedStates::INPLACE_ACTIVE || nState == embed::EmbedStates::UI_ACTIVE )
+        if(nState == embed::EmbedStates::INPLACE_ACTIVE || nState == embed::EmbedStates::UI_ACTIVE)
+            // if the OLE-Node is UI-Active do nothing
             return;
     }
-
-    // if the OLE-Node is UI-Active do nothing
     pNd->SetOLESizeInvalid(true);
     pNd->GetDoc()->SetOLEObjModified();
 }
@@ -3587,16 +3566,14 @@ void SwXOLEListener::modified( const lang::EventObject& /*rEvent*/ )
 void SwXOLEListener::disposing( const lang::EventObject& rEvent )
 {
     SolarMutexGuard aGuard;
-
-    uno::Reference< util::XModifyListener >  xListener( this );
-
-    uno::Reference< frame::XModel >  xModel( rEvent.Source, uno::UNO_QUERY );
-    uno::Reference< util::XModifyBroadcaster >  xBrdcst(xModel, uno::UNO_QUERY);
-
+    uno::Reference<util::XModifyListener> xListener( this );
+    uno::Reference<frame::XModel> xModel(rEvent.Source, uno::UNO_QUERY);
+    uno::Reference<util::XModifyBroadcaster> xBrdcst(xModel, uno::UNO_QUERY);
+    if(!xBrdcst.is())
+        return;
     try
     {
-        if( xBrdcst.is() )
-            xBrdcst->removeModifyListener( xListener );
+        xBrdcst->removeModifyListener(xListener);
     }
     catch(uno::Exception const &)
     {
@@ -3604,11 +3581,13 @@ void SwXOLEListener::disposing( const lang::EventObject& rEvent )
     }
 }
 
-void SwXOLEListener::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
+void SwXOLEListener::Notify( const SfxHint& rHint )
 {
-    ClientModify(this, pOld, pNew);
-    if(!GetRegisteredIn())
-        xOLEModel = nullptr;
+    if(rHint.GetId() == SfxHintId::Dying)
+    {
+        m_xOLEModel = nullptr;
+        m_pOLEFormat = nullptr;
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -19,7 +19,6 @@
 #ifndef INCLUDED_SW_INC_FMTFOLLOWTEXTFLOW_HXX
 #define INCLUDED_SW_INC_FMTFOLLOWTEXTFLOW_HXX
 
-#include <sal/log.hxx>
 #include <svl/eitem.hxx>
 #include "hintids.hxx"
 #include "format.hxx"
@@ -59,7 +58,7 @@ public:
 
     bool QueryValue(css::uno::Any& rVal, sal_uInt8 aInt = 0) const override;
 
-    void dumpAsXml(struct _xmlTextWriter* pWriter) const override;
+    void dumpAsXml(xmlTextWriterPtr pWriter) const override;
 
     bool operator==(const SfxPoolItem& rItem) const override;
 };

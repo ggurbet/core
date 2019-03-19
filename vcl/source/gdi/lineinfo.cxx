@@ -26,16 +26,16 @@
 #include <numeric>
 
 
-ImplLineInfo::ImplLineInfo() :
-    meStyle     ( LineStyle::Solid ),
-    mnWidth     ( 0 ),
-    mnDashCount ( 0 ),
-    mnDashLen   ( 0 ),
-    mnDotCount  ( 0 ),
-    mnDotLen    ( 0 ),
-    mnDistance  ( 0 ),
-    meLineJoin  ( basegfx::B2DLineJoin::Round ),
-    meLineCap   ( css::drawing::LineCap_BUTT )
+ImplLineInfo::ImplLineInfo()
+    : mnWidth(0)
+    , mnDashLen(0)
+    , mnDotLen(0)
+    , mnDistance(0)
+    , meLineJoin(basegfx::B2DLineJoin::Round)
+    , meLineCap(css::drawing::LineCap_BUTT)
+    , meStyle(LineStyle::Solid)
+    , mnDashCount(0)
+    , mnDotCount(0)
 {
 }
 
@@ -53,7 +53,7 @@ inline bool ImplLineInfo::operator==( const ImplLineInfo& rB ) const
 }
 
 
-LineInfo::LineInfo( LineStyle eStyle, long nWidth ) : mpImplLineInfo()
+LineInfo::LineInfo( LineStyle eStyle, sal_Int32 nWidth ) : mpImplLineInfo()
 {
     mpImplLineInfo->meStyle = eStyle;
     mpImplLineInfo->mnWidth = nWidth;
@@ -79,7 +79,7 @@ void LineInfo::SetStyle( LineStyle eStyle )
     mpImplLineInfo->meStyle = eStyle;
 }
 
-void LineInfo::SetWidth( long nWidth )
+void LineInfo::SetWidth( sal_Int32 nWidth )
 {
     mpImplLineInfo->mnWidth = nWidth;
 }
@@ -89,7 +89,7 @@ void LineInfo::SetDashCount( sal_uInt16 nDashCount )
     mpImplLineInfo->mnDashCount = nDashCount;
 }
 
-void LineInfo::SetDashLen( long nDashLen )
+void LineInfo::SetDashLen( sal_Int32 nDashLen )
 {
     mpImplLineInfo->mnDashLen = nDashLen;
 }
@@ -99,12 +99,12 @@ void LineInfo::SetDotCount( sal_uInt16 nDotCount )
     mpImplLineInfo->mnDotCount = nDotCount;
 }
 
-void LineInfo::SetDotLen( long nDotLen )
+void LineInfo::SetDotLen( sal_Int32 nDotLen )
 {
     mpImplLineInfo->mnDotLen = nDotLen;
 }
 
-void LineInfo::SetDistance( long nDistance )
+void LineInfo::SetDistance( sal_Int32 nDistance )
 {
     mpImplLineInfo->mnDistance = nDistance;
 }

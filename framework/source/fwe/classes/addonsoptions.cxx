@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <com/sun/star/beans/PropertyValue.hpp>
 #include <framework/addonsoptions.hxx>
 #include <unotools/configmgr.hxx>
 #include <unotools/configitem.hxx>
@@ -32,6 +33,7 @@
 #include <vcl/graph.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/toolbox.hxx>
+#include <vcl/svapp.hxx>
 
 #include <algorithm>
 #include <unordered_map>
@@ -1101,7 +1103,7 @@ bool AddonsOptions_Impl::ReadMenuItem( const OUString& aMenuNodeName, Sequence< 
             OUString aMenuImageId;
 
             aMenuItemNodePropValues[ OFFSET_MENUITEM_IMAGEIDENTIFIER ] >>= aMenuImageId;
-             ReadAndAssociateImages( aStrValue, aMenuImageId );
+            ReadAndAssociateImages( aStrValue, aMenuImageId );
 
             aMenuItem[ OFFSET_MENUITEM_URL              ].Value <<= aStrValue;
             aMenuItem[ OFFSET_MENUITEM_TARGET           ].Value = aMenuItemNodePropValues[ OFFSET_MENUITEM_TARGET         ];

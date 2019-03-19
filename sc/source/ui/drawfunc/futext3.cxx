@@ -17,30 +17,20 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <editeng/editeng.hxx>
-#include <editeng/outlobj.hxx>
 #include <svx/svdocapt.hxx>
-#include <svx/svdpage.hxx>
 #include <svx/svdundo.hxx>
-#include <svx/svdview.hxx>
-#include <editeng/editobj.hxx>
 #include <vcl/cursor.hxx>
-#include <sfx2/objsh.hxx>
-#include <editeng/writingmodeitem.hxx>
 
 #include <global.hxx>
 #include <drwlayer.hxx>
 #include <userdat.hxx>
 #include <tabvwsh.hxx>
 #include <document.hxx>
-#include <editutil.hxx>
 #include <futext.hxx>
 #include <docsh.hxx>
 #include <postit.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
-#include <attrib.hxx>
-#include <scitems.hxx>
 #include <drawview.hxx>
 #include <undocell.hxx>
 
@@ -68,7 +58,7 @@ void FuText::StopEditMode()
     {
         aNotePos = pCaptData->maStart;
         pNote = rDoc.GetNote( aNotePos );
-        OSL_ENSURE( pNote && (pNote->GetCaption().get() == pObject), "FuText::StopEditMode - missing or invalid cell note" );
+        OSL_ENSURE( pNote && (pNote->GetCaption() == pObject), "FuText::StopEditMode - missing or invalid cell note" );
     }
 
     ScDocShell* pDocShell = rViewData.GetDocShell();
@@ -88,11 +78,11 @@ void FuText::StopEditMode()
             /*  Note has been created before editing, if first undo action is
                 an insert action. Needed below to decide whether to drop the
                 undo if editing a new note has been cancelled. */
-            bNewNote = (pCalcUndo->GetActionCount() > 0) && dynamic_cast< ScUndoNewSdrCaptionObj* >(pCalcUndo->GetAction( 0 ));
+            bNewNote = (pCalcUndo->GetActionCount() > 0) && dynamic_cast< SdrUndoNewObj* >(pCalcUndo->GetAction( 0 ));
 
             // create a "insert note" undo action if needed
             if( bNewNote )
-                pUndoMgr->AddUndoAction( o3tl::make_unique<ScUndoReplaceNote>( *pDocShell, aNotePos, pNote->GetNoteData(), true, std::move(pCalcUndo) ) );
+                pUndoMgr->AddUndoAction( std::make_unique<ScUndoReplaceNote>( *pDocShell, aNotePos, pNote->GetNoteData(), true, std::move(pCalcUndo) ) );
             else
                 pUndoMgr->AddUndoAction( std::move(pCalcUndo) );
         }
@@ -143,7 +133,7 @@ void FuText::StopEditMode()
                 // delete note from document (removes caption, but does not delete it)
                 rDoc.ReleaseNote(aNotePos);
                 // create undo action for removed note
-                pUndoMgr->AddUndoAction( o3tl::make_unique<ScUndoReplaceNote>( *pDocShell, aNotePos, aNoteData, false, pDrawLayer->GetCalcUndo() ) );
+                pUndoMgr->AddUndoAction( std::make_unique<ScUndoReplaceNote>( *pDocShell, aNotePos, aNoteData, false, pDrawLayer->GetCalcUndo() ) );
             }
             else
             {

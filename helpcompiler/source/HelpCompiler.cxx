@@ -298,7 +298,7 @@ static void trim(std::string& str)
             str.erase(0, pos);
     }
     else
-        str.erase(str.begin(), str.end());
+        str.clear();
 }
 
 void myparser::traverse( xmlNodePtr parentNode )
@@ -488,7 +488,6 @@ void HelpCompiler::compile()
     streamTable.appl_helptexts = std::move(aparser.helptexts);
     streamTable.appl_keywords = std::move(aparser.keywords);
 
-    streamTable.document_id = documentId;
     streamTable.document_path = fileName;
     streamTable.document_title = title;
     std::string actMod = module;

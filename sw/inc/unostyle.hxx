@@ -19,20 +19,16 @@
 #ifndef INCLUDED_SW_INC_UNOSTYLE_HXX
 #define INCLUDED_SW_INC_UNOSTYLE_HXX
 
+#include <svl/listener.hxx>
 #include <svl/style.hxx>
-#include <svl/lstner.hxx>
 #include "unocoll.hxx"
-#include "unomap.hxx"
+#include "tblafmt.hxx"
 #include <com/sun/star/style/XStyle.hpp>
-#include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <com/sun/star/style/XStyleLoader.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/beans/XMultiPropertySet.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
-#include <com/sun/star/beans/XMultiPropertyStates.hpp>
 #include <cppuhelper/implbase.hxx>
-#include <com/sun/star/document/XEventsSupplier.hpp>
 #include "calbck.hxx"
 
 #include <com/sun/star/style/XAutoStyleFamily.hpp>
@@ -43,17 +39,11 @@
 #include <memory>
 #include <map>
 
+namespace com { namespace sun { namespace star { namespace document { class XEventsSupplier; } } } }
+
 class SwDocShell;
-class SfxItemPropertySet;
-class SwXStyle;
-class SwStyleProperties_Impl;
 class SwAutoStylesEnumImpl;
-class IStyleAccess;
 class SfxItemSet;
-namespace sw
-{
-    class XStyleFamily;
-};
 
 class SwXStyleFamilies :  public cppu::WeakImplHelper
 <
@@ -142,14 +132,11 @@ public:
 };
 
 // access to a family of automatic styles (character or paragraph or ...)
-class SwXAutoStyleFamily : public cppu::WeakImplHelper< css::style::XAutoStyleFamily >,
-    public SwClient
+class SwXAutoStyleFamily : public cppu::WeakImplHelper< css::style::XAutoStyleFamily >, public SvtListener
 {
     SwDocShell *m_pDocShell;
     IStyleAccess::SwAutoStyleFamily const m_eFamily;
 
-protected:
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
 
 public:
     SwXAutoStyleFamily(SwDocShell* pDocShell, IStyleAccess::SwAutoStyleFamily eFamily);
@@ -165,10 +152,10 @@ public:
     virtual css::uno::Type SAL_CALL getElementType(  ) override;
     virtual sal_Bool SAL_CALL hasElements(  ) override;
 
+    virtual void Notify( const SfxHint&) override;
 };
 
-class SwXAutoStylesEnumerator : public cppu::WeakImplHelper< css::container::XEnumeration >,
-    public SwClient
+class SwXAutoStylesEnumerator : public cppu::WeakImplHelper< css::container::XEnumeration >, public SvtListener
 {
     std::unique_ptr<SwAutoStylesEnumImpl> m_pImpl;
 public:
@@ -178,8 +165,8 @@ public:
     //XEnumeration
     virtual sal_Bool SAL_CALL hasMoreElements(  ) override;
     virtual css::uno::Any SAL_CALL nextElement(  ) override;
-protected:
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+
+    virtual void Notify( const SfxHint&) override;
 };
 
 // an automatic style
@@ -189,7 +176,7 @@ class SwXAutoStyle : public cppu::WeakImplHelper
     css::beans::XPropertyState,
     css::style::XAutoStyle
 >,
-    public SwClient
+    public SvtListener
 {
 private:
     std::shared_ptr<SfxItemSet>            mpSet;
@@ -235,12 +222,11 @@ public:
 
     // Special
     virtual css::uno::Sequence< css::beans::PropertyValue > SAL_CALL getProperties() override;
-protected:
-    virtual void Modify( const SfxPoolItem* pOld, const SfxPoolItem *pNew) override;
+
+    virtual void Notify( const SfxHint& ) override;
 
 };
 
-class SwTableAutoFormat;
 typedef std::map<OUString, sal_Int32> CellStyleNameMap;
 
 /// A text table style is a uno api wrapper for a SwTableAutoFormat
@@ -336,7 +322,6 @@ public:
     static css::uno::Reference<css::style::XStyle> CreateXTextTableStyle(SwDocShell* pDocShell, const OUString& rTableAutoFormatName);
 };
 
-class SwBoxAutoFormat;
 /// A text cell style is a uno api wrapper for a SwBoxAutoFormat core class
 class SwXTextCellStyle : public cppu::WeakImplHelper
 <

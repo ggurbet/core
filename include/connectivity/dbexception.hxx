@@ -20,9 +20,9 @@
 #ifndef INCLUDED_CONNECTIVITY_DBEXCEPTION_HXX
 #define INCLUDED_CONNECTIVITY_DBEXCEPTION_HXX
 
-#include <com/sun/star/sdbc/SQLException.hpp>
 #include <connectivity/standardsqlstate.hxx>
 #include <connectivity/dbtoolsdllapi.hxx>
+#include <com/sun/star/uno/Reference.hxx>
 
 namespace com
 {
@@ -38,6 +38,7 @@ namespace com
             namespace sdbc
             {
                 class SQLWarning;
+                class SQLException;
             }
         }
     }
@@ -272,7 +273,8 @@ OOO_DLLPUBLIC_DBTOOLS void throwGenericSQLException(
 */
 OOO_DLLPUBLIC_DBTOOLS void throwFeatureNotImplementedSQLException(
         const OUString& _rFeatureName,
-        const css::uno::Reference< css::uno::XInterface >& _rxContext
+        const css::uno::Reference< css::uno::XInterface >& _rxContext,
+        const css::uno::Any& _rNextException = css::uno::Any()
     );
 
 /** throw a RuntimeException (Optional feature not implemented)

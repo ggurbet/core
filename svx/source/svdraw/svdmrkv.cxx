@@ -828,53 +828,53 @@ void SdrMarkView::SetMarkHandles(SfxViewShell* pOtherShell)
 
                 if (bWdt0 && bHgt0)
                 {
-                    maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.TopLeft(), SdrHdlKind::UpperLeft));
+                    maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.TopLeft(), SdrHdlKind::UpperLeft));
                 }
                 else if (!bStdDrag && (bWdt0 || bHgt0))
                 {
-                    maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.TopLeft(), SdrHdlKind::UpperLeft));
-                    maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.BottomRight(), SdrHdlKind::LowerRight));
+                    maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.TopLeft(), SdrHdlKind::UpperLeft));
+                    maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.BottomRight(), SdrHdlKind::LowerRight));
                 }
                 else
                 {
                     if (!bWdt0 && !bHgt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.TopLeft(), SdrHdlKind::UpperLeft));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.TopLeft(), SdrHdlKind::UpperLeft));
                     }
 
                     if (!bLimitedRotation && !bHgt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.TopCenter(), SdrHdlKind::Upper));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.TopCenter(), SdrHdlKind::Upper));
                     }
 
                     if (!bWdt0 && !bHgt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.TopRight(), SdrHdlKind::UpperRight));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.TopRight(), SdrHdlKind::UpperRight));
                     }
 
                     if (!bLimitedRotation && !bWdt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.LeftCenter(), SdrHdlKind::Left ));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.LeftCenter(), SdrHdlKind::Left ));
                     }
 
                     if (!bLimitedRotation && !bWdt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.RightCenter(), SdrHdlKind::Right));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.RightCenter(), SdrHdlKind::Right));
                     }
 
                     if (!bWdt0 && !bHgt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.BottomLeft(), SdrHdlKind::LowerLeft));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.BottomLeft(), SdrHdlKind::LowerLeft));
                     }
 
                     if (!bLimitedRotation && !bHgt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.BottomCenter(), SdrHdlKind::Lower));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.BottomCenter(), SdrHdlKind::Lower));
                     }
 
                     if (!bWdt0 && !bHgt0)
                     {
-                        maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(aRect.BottomRight(), SdrHdlKind::LowerRight));
+                        maHdlList.AddHdl(std::make_unique<SdrHdl>(aRect.BottomRight(), SdrHdlKind::LowerRight));
                     }
                 }
             }
@@ -1049,7 +1049,7 @@ void SdrMarkView::AddDragModeHdl(SdrDragMode eMode)
         case SdrDragMode::Rotate:
         {
             // add rotation center
-            maHdlList.AddHdl(o3tl::make_unique<SdrHdl>(maRef1, SdrHdlKind::Ref1));
+            maHdlList.AddHdl(std::make_unique<SdrHdl>(maRef1, SdrHdlKind::Ref1));
             break;
         }
         case SdrDragMode::Mirror:
@@ -1221,6 +1221,25 @@ bool SdrMarkView::MouseMove(const MouseEvent& rMEvt, vcl::Window* pWin)
         }
     }
     return SdrSnapView::MouseMove(rMEvt, pWin);
+}
+
+bool SdrMarkView::RequestHelp(const HelpEvent& rHEvt)
+{
+    if (maHdlList.GetHdlCount())
+    {
+        const size_t nHdlCount = maHdlList.GetHdlCount();
+
+        for (size_t nHdl = 0; nHdl < nHdlCount; ++nHdl)
+        {
+            SdrHdl* pCurrentHdl = GetHdl(nHdl);
+            if (pCurrentHdl->mbMouseOver)
+            {
+                pCurrentHdl->onHelpRequest(rHEvt);
+                return true;
+            }
+        }
+    }
+    return SdrSnapView::RequestHelp(rHEvt);
 }
 
 void SdrMarkView::ForceRefToMarked()
@@ -1662,7 +1681,7 @@ void SdrMarkView::MarkObj(const tools::Rectangle& rRect, bool bUnmark)
 
 namespace {
 
-void collectUIInformation(SdrObject* pObj)
+void collectUIInformation(const SdrObject* pObj)
 {
     EventDescription aDescription;
     aDescription.aAction = "SELECT";
@@ -2014,7 +2033,6 @@ SdrObject* SdrMarkView::PickObj(const Point& rPnt, short nTol, SdrPageView*& rpP
         if (pObj!=nullptr && (nOptions & SdrSearchOptions::TESTMACRO)) {
             SdrObjMacroHitRec aHitRec;
             aHitRec.aPos=rPnt;
-            aHitRec.aDownPos=rPnt;
             aHitRec.nTol=nTol;
             aHitRec.pVisiLayer=&pPV->GetVisibleLayers();
             aHitRec.pPageView=pPV;
@@ -2053,8 +2071,8 @@ bool SdrMarkView::PickMarkedObj(const Point& rPnt, SdrObject*& rpObj, SdrPageVie
             SdrPageView* pPV=pM->GetPageView();
             SdrObject* pObj=pM->GetMarkedSdrObj();
             tools::Rectangle aRect(pObj->GetCurrentBoundRect());
-            aRect.AdjustLeft( -(mnHitTolLog) );
-            aRect.AdjustTop( -(mnHitTolLog) );
+            aRect.AdjustLeft( -mnHitTolLog );
+            aRect.AdjustTop( -mnHitTolLog );
             aRect.AdjustRight(mnHitTolLog );
             aRect.AdjustBottom(mnHitTolLog );
             if (aRect.IsInside(rPnt)) {

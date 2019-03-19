@@ -113,7 +113,6 @@ private:
     XLineAttrSetItem    m_aXLineAttr;
     SfxItemSet&         m_rXLSet;
 
-    XColorListRef         m_pColorList;
     XDashListRef          m_pDashList;
     XLineEndListRef       m_pLineEndList;
 
@@ -148,9 +147,6 @@ private:
     std::unique_ptr<weld::MetricSpinButton> m_xMtrEndWidth;
     std::unique_ptr<weld::CheckButton> m_xTsbCenterEnd;
     std::unique_ptr<weld::CheckButton> m_xCbxSynchronize;
-    std::unique_ptr<weld::Menu> m_xMenu;
-    std::unique_ptr<weld::Menu> m_xGalleryMenu;
-    std::unique_ptr<weld::Menu> m_xSymbolsMenu;
     std::unique_ptr<weld::CustomWeld> m_xCtlPreview;
 
     std::unique_ptr<weld::Widget> m_xFLEdgeStyle;
@@ -163,6 +159,8 @@ private:
     std::unique_ptr<weld::Widget> m_xFlSymbol;
     std::unique_ptr<weld::Widget> m_xGridIconSize;
     std::unique_ptr<weld::MenuButton> m_xSymbolMB;
+    std::unique_ptr<weld::Menu> m_xSymbolsMenu;
+    std::unique_ptr<weld::Menu> m_xGalleryMenu;
     std::unique_ptr<weld::MetricSpinButton> m_xSymbolWidthMF;
     std::unique_ptr<weld::MetricSpinButton> m_xSymbolHeightMF;
     std::unique_ptr<weld::CheckButton> m_xSymbolRatioCB;
@@ -215,7 +213,6 @@ public:
 
     virtual void FillUserData() override;
 
-    void    SetColorList( XColorListRef const & pColorList ) { m_pColorList = pColorList; }
     void    SetDashList( XDashListRef const & pDshLst ) { m_pDashList = pDshLst; }
     void    SetLineEndList( XLineEndListRef const & pLneEndLst) { m_pLineEndList = pLneEndLst; }
     void    SetObjSelected( bool bHasObj ) { m_bObjSelected = bHasObj; }
@@ -288,8 +285,8 @@ private:
     DECL_LINK(ClickSaveHdl_Impl, weld::Button&, void);
     DECL_LINK(ChangeMetricHdl_Impl, weld::ToggleButton&, void);
     DECL_LINK(SelectTypeListBoxHdl_Impl, weld::ComboBox&, void);
-    void SelectTypeHdl_Impl(weld::ComboBox*);
-    void ChangeMetricHdl_Impl(weld::ToggleButton*);
+    void SelectTypeHdl_Impl(const weld::ComboBox*);
+    void ChangeMetricHdl_Impl(const weld::ToggleButton*);
 
     void CheckChanges_Impl();
 

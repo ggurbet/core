@@ -55,7 +55,6 @@
 #include <salbmp.hxx>
 #include <salprn.hxx>
 #include <sallayout.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace psp;
 
@@ -457,7 +456,7 @@ void GenPspGraphics::invert( sal_uInt32,
     SAL_WARN( "vcl", "Error: PrinterGfx::Invert() not implemented" );
 }
 
-bool GenPspGraphics::drawEPS( long nX, long nY, long nWidth, long nHeight, void* pPtr, sal_uLong nSize )
+bool GenPspGraphics::drawEPS( long nX, long nY, long nWidth, long nHeight, void* pPtr, sal_uInt32 nSize )
 {
     return m_pPrinterGfx->DrawEPS( tools::Rectangle( Point( nX, nY ), Size( nWidth, nHeight ) ), pPtr, nSize );
 }
@@ -537,7 +536,7 @@ ImplPspFontData::ImplPspFontData(const psp::FastPrintFontInfo& rInfo)
 class PspSalLayout : public GenericSalLayout
 {
 public:
-    PspSalLayout(psp::PrinterGfx&, FreetypeFont& rFont);
+    PspSalLayout(psp::PrinterGfx&, const FreetypeFont& rFont);
 
     void                InitFont() const final override;
 
@@ -551,7 +550,7 @@ private:
     bool                mbArtBold;
 };
 
-PspSalLayout::PspSalLayout(::psp::PrinterGfx& rGfx, FreetypeFont& rFont)
+PspSalLayout::PspSalLayout(::psp::PrinterGfx& rGfx, const FreetypeFont& rFont)
 :   GenericSalLayout(*rFont.GetFontInstance())
 ,   mrPrinterGfx(rGfx)
 {
@@ -733,11 +732,12 @@ void GenPspGraphics::GetFontMetric(ImplFontMetricDataRef& rxFontMetric, int nFal
         m_pFreetypeFont[nFallbackLevel]->GetFontMetric(rxFontMetric);
 }
 
-std::unique_ptr<SalLayout> GenPspGraphics::GetTextLayout(ImplLayoutArgs& /*rArgs*/, int nFallbackLevel)
+std::unique_ptr<GenericSalLayout> GenPspGraphics::GetTextLayout(int nFallbackLevel)
 {
+    assert(m_pFreetypeFont[nFallbackLevel]);
     if (!m_pFreetypeFont[nFallbackLevel])
         return nullptr;
-    return o3tl::make_unique<PspSalLayout>(*m_pPrinterGfx, *m_pFreetypeFont[nFallbackLevel]);
+    return std::make_unique<PspSalLayout>(*m_pPrinterGfx, *m_pFreetypeFont[nFallbackLevel]);
 }
 
 bool GenPspGraphics::CreateFontSubset(

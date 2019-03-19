@@ -26,11 +26,11 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <basegfx/range/b2drectangle.hxx>
-#include <o3tl/make_unique.hxx>
 #include <osl/file.hxx>
 #include <osl/process.h>
 #include <rtl/bootstrap.h>
 #include <rtl/strbuf.hxx>
+#include <comphelper/lok.hxx>
 
 #include <vcl/metric.hxx>
 #include <vcl/fontcharmap.hxx>
@@ -213,6 +213,9 @@ AquaSalGraphics::AquaSalGraphics()
 
     for (int i = 0; i < MAX_FALLBACK; ++i)
         mpTextStyle[i] = nullptr;
+
+    if (comphelper::LibreOfficeKit::isActive())
+        initWidgetDrawBackends(true);
 }
 
 AquaSalGraphics::~AquaSalGraphics()
@@ -425,10 +428,7 @@ void AquaSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
     }
 
     if (aGlyphIds.empty())
-    {
-        SAL_WARN("vcl.quartz", "aGlyphIds is empty!?");
         return;
-    }
 
     assert(aGlyphIds.size() == aGlyphPos.size());
 #if 0
@@ -506,11 +506,12 @@ void AquaSalGraphics::SetFont(LogicalFontInstance* pReqFont, int nFallbackLevel)
     mpTextStyle[nFallbackLevel] = static_cast<CoreTextStyle*>(pReqFont);
 }
 
-std::unique_ptr<SalLayout> AquaSalGraphics::GetTextLayout(ImplLayoutArgs& /*rArgs*/, int nFallbackLevel)
+std::unique_ptr<GenericSalLayout> AquaSalGraphics::GetTextLayout(int nFallbackLevel)
 {
+    assert(mpTextStyle[nFallbackLevel]);
     if (!mpTextStyle[nFallbackLevel])
         return nullptr;
-    return o3tl::make_unique<GenericSalLayout>(*mpTextStyle[nFallbackLevel]);
+    return std::make_unique<GenericSalLayout>(*mpTextStyle[nFallbackLevel]);
 }
 
 const FontCharMapRef AquaSalGraphics::GetFontCharMap() const

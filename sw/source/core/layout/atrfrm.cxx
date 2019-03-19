@@ -51,6 +51,7 @@
 #include <fmtline.hxx>
 #include <tgrditem.hxx>
 #include <hfspacingitem.hxx>
+#include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentUndoRedo.hxx>
 #include <IDocumentContentOperations.hxx>
 #include <IDocumentLayoutAccess.hxx>
@@ -157,7 +158,7 @@ static void lcl_DelHFFormat( SwClient *pToRemove, SwFrameFormat *pFormat )
                         if( pShell )
                         {
                             pShell->ParkCursor( aIdx );
-                                aIdx = nEnd-1;
+                            aIdx = nEnd-1;
                         }
                     }
                     ++aIdx;
@@ -449,21 +450,21 @@ sal_uInt16  SwFormatFillOrder::GetValueCount() const
 SwFormatHeader::SwFormatHeader( SwFrameFormat *pHeaderFormat )
     : SfxPoolItem( RES_HEADER ),
     SwClient( pHeaderFormat ),
-    bActive( pHeaderFormat )
+    m_bActive( pHeaderFormat )
 {
 }
 
 SwFormatHeader::SwFormatHeader( const SwFormatHeader &rCpy )
     : SfxPoolItem( RES_HEADER ),
     SwClient( const_cast<SwModify*>(rCpy.GetRegisteredIn()) ),
-    bActive( rCpy.IsActive() )
+    m_bActive( rCpy.IsActive() )
 {
 }
 
 SwFormatHeader::SwFormatHeader( bool bOn )
     : SfxPoolItem( RES_HEADER ),
     SwClient( nullptr ),
-    bActive( bOn )
+    m_bActive( bOn )
 {
 }
 
@@ -477,7 +478,7 @@ bool SwFormatHeader::operator==( const SfxPoolItem& rAttr ) const
 {
     assert(SfxPoolItem::operator==(rAttr));
     return ( GetRegisteredIn() == static_cast<const SwFormatHeader&>(rAttr).GetRegisteredIn() &&
-             bActive == static_cast<const SwFormatHeader&>(rAttr).IsActive() );
+             m_bActive == static_cast<const SwFormatHeader&>(rAttr).IsActive() );
 }
 
 SfxPoolItem*  SwFormatHeader::Clone( SfxItemPool* ) const
@@ -494,21 +495,21 @@ void SwFormatHeader::RegisterToFormat( SwFormat& rFormat )
 SwFormatFooter::SwFormatFooter( SwFrameFormat *pFooterFormat )
     : SfxPoolItem( RES_FOOTER ),
     SwClient( pFooterFormat ),
-    bActive( pFooterFormat )
+    m_bActive( pFooterFormat )
 {
 }
 
 SwFormatFooter::SwFormatFooter( const SwFormatFooter &rCpy )
     : SfxPoolItem( RES_FOOTER ),
     SwClient( const_cast<SwModify*>(rCpy.GetRegisteredIn()) ),
-    bActive( rCpy.IsActive() )
+    m_bActive( rCpy.IsActive() )
 {
 }
 
 SwFormatFooter::SwFormatFooter( bool bOn )
     : SfxPoolItem( RES_FOOTER ),
     SwClient( nullptr ),
-    bActive( bOn )
+    m_bActive( bOn )
 {
 }
 
@@ -527,7 +528,7 @@ bool SwFormatFooter::operator==( const SfxPoolItem& rAttr ) const
 {
     assert(SfxPoolItem::operator==(rAttr));
     return ( GetRegisteredIn() == static_cast<const SwFormatFooter&>(rAttr).GetRegisteredIn() &&
-             bActive == static_cast<const SwFormatFooter&>(rAttr).IsActive() );
+             m_bActive == static_cast<const SwFormatFooter&>(rAttr).IsActive() );
 }
 
 SfxPoolItem*  SwFormatFooter::Clone( SfxItemPool* ) const
@@ -585,15 +586,15 @@ void SwFormatContent::dumpAsXml(xmlTextWriterPtr pWriter) const
 SwFormatPageDesc::SwFormatPageDesc( const SwFormatPageDesc &rCpy )
     : SfxPoolItem( RES_PAGEDESC ),
     SwClient( const_cast<SwPageDesc*>(rCpy.GetPageDesc()) ),
-    oNumOffset( rCpy.oNumOffset ),
-    pDefinedIn( nullptr )
+    m_oNumOffset( rCpy.m_oNumOffset ),
+    m_pDefinedIn( nullptr )
 {
 }
 
 SwFormatPageDesc::SwFormatPageDesc( const SwPageDesc *pDesc )
     : SfxPoolItem( RES_PAGEDESC ),
     SwClient( const_cast<SwPageDesc*>(pDesc) ),
-    pDefinedIn( nullptr )
+    m_pDefinedIn( nullptr )
 {
 }
 
@@ -601,8 +602,8 @@ SwFormatPageDesc &SwFormatPageDesc::operator=(const SwFormatPageDesc &rCpy)
 {
     if (rCpy.GetPageDesc())
         RegisterToPageDesc(*const_cast<SwPageDesc*>(rCpy.GetPageDesc()));
-    oNumOffset = rCpy.oNumOffset;
-    pDefinedIn = nullptr;
+    m_oNumOffset = rCpy.m_oNumOffset;
+    m_pDefinedIn = nullptr;
 
     return *this;
 }
@@ -617,8 +618,8 @@ bool SwFormatPageDesc::KnowsPageDesc() const
 bool SwFormatPageDesc::operator==( const SfxPoolItem& rAttr ) const
 {
     assert(SfxPoolItem::operator==(rAttr));
-    return  ( pDefinedIn == static_cast<const SwFormatPageDesc&>(rAttr).pDefinedIn ) &&
-            ( oNumOffset == static_cast<const SwFormatPageDesc&>(rAttr).oNumOffset ) &&
+    return  ( m_pDefinedIn == static_cast<const SwFormatPageDesc&>(rAttr).m_pDefinedIn ) &&
+            ( m_oNumOffset == static_cast<const SwFormatPageDesc&>(rAttr).m_oNumOffset ) &&
             ( GetPageDesc() == static_cast<const SwFormatPageDesc&>(rAttr).GetPageDesc() );
 }
 
@@ -662,7 +663,7 @@ void SwFormatPageDesc::RegisterToPageDesc( SwPageDesc& rDesc )
 
 void SwFormatPageDesc::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
 {
-    if( !pDefinedIn )
+    if( !m_pDefinedIn )
         return;
 
     const sal_uInt16 nWhichId = pOld ? pOld->Which() : pNew ? pNew->Which() : 0;
@@ -671,15 +672,15 @@ void SwFormatPageDesc::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew 
         case RES_OBJECTDYING:
                 //The Pagedesc where I'm registered dies, therefore I unregister
                 //from that format. During this I get deleted!
-            if( typeid(SwFormat) == typeid( pDefinedIn ))
+            if( typeid(SwFormat) == typeid( m_pDefinedIn ))
             {
                 bool const bResult =
-                    static_cast<SwFormat*>(pDefinedIn)->ResetFormatAttr(RES_PAGEDESC);
+                    static_cast<SwFormat*>(m_pDefinedIn)->ResetFormatAttr(RES_PAGEDESC);
                 OSL_ENSURE( bResult, "FormatPageDesc not deleted" );
             }
-            else if( typeid(SwContentNode) == typeid( pDefinedIn ))
+            else if( typeid(SwContentNode) == typeid( m_pDefinedIn ))
             {
-                bool const bResult = static_cast<SwContentNode*>(pDefinedIn)
+                bool const bResult = static_cast<SwContentNode*>(m_pDefinedIn)
                         ->ResetAttr(RES_PAGEDESC);
                 OSL_ENSURE( bResult, "FormatPageDesc not deleted" );
             }
@@ -768,8 +769,8 @@ void SwFormatPageDesc::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     xmlTextWriterStartElement(pWriter, BAD_CAST("SwFormatPageDesc"));
     xmlTextWriterWriteAttribute(pWriter, BAD_CAST("whichId"), BAD_CAST(OString::number(Which()).getStr()));
-    if (oNumOffset)
-        xmlTextWriterWriteAttribute(pWriter, BAD_CAST("oNumOffset"), BAD_CAST(OString::number(*oNumOffset).getStr()));
+    if (m_oNumOffset)
+        xmlTextWriterWriteAttribute(pWriter, BAD_CAST("oNumOffset"), BAD_CAST(OString::number(*m_oNumOffset).getStr()));
     else
         xmlTextWriterWriteAttribute(pWriter, BAD_CAST("oNumOffset"), BAD_CAST("none"));
     xmlTextWriterWriteFormatAttribute(pWriter, BAD_CAST("pPageDesc"), "%p", GetPageDesc());
@@ -1088,10 +1089,10 @@ bool SwFormatCol::PutValue( const uno::Any& rVal, sal_uInt8 nMemberId )
                 for(sal_uInt16 i = 0; i < nCount; i++)
                 {
                     SwColumn aCol;
-                    aCol.SetWishWidth(static_cast<sal_uInt16>(pArray[i].Width) );
-                    nWidthSum = static_cast<sal_uInt16>(nWidthSum + pArray[i].Width);
-                    aCol.SetLeft (static_cast<sal_uInt16>(convertMm100ToTwip(pArray[i].LeftMargin)));
-                    aCol.SetRight(static_cast<sal_uInt16>(convertMm100ToTwip(pArray[i].RightMargin)));
+                    aCol.SetWishWidth(pArray[i].Width );
+                    nWidthSum = nWidthSum + pArray[i].Width;
+                    aCol.SetLeft (convertMm100ToTwip(pArray[i].LeftMargin));
+                    aCol.SetRight(convertMm100ToTwip(pArray[i].RightMargin));
                     m_aColumns.insert(m_aColumns.begin() + i, aCol);
                 }
             bRet = true;
@@ -1916,10 +1917,10 @@ SwFormatFootnoteEndAtTextEnd& SwFormatFootnoteEndAtTextEnd::operator=(
                         const SwFormatFootnoteEndAtTextEnd& rAttr )
 {
     SfxEnumItem::SetValue( rAttr.GetValue() );
-    aFormat = rAttr.aFormat;
-    nOffset = rAttr.nOffset;
-    sPrefix = rAttr.sPrefix;
-    sSuffix = rAttr.sSuffix;
+    m_aFormat = rAttr.m_aFormat;
+    m_nOffset = rAttr.m_nOffset;
+    m_sPrefix = rAttr.m_sPrefix;
+    m_sSuffix = rAttr.m_sSuffix;
     return *this;
 }
 
@@ -1927,10 +1928,10 @@ bool SwFormatFootnoteEndAtTextEnd::operator==( const SfxPoolItem& rItem ) const
 {
     const SwFormatFootnoteEndAtTextEnd& rAttr = static_cast<const SwFormatFootnoteEndAtTextEnd&>(rItem);
     return SfxEnumItem::operator==( rAttr ) &&
-            aFormat.GetNumberingType() == rAttr.aFormat.GetNumberingType() &&
-            nOffset == rAttr.nOffset &&
-            sPrefix == rAttr.sPrefix &&
-            sSuffix == rAttr.sSuffix;
+            m_aFormat.GetNumberingType() == rAttr.m_aFormat.GetNumberingType() &&
+            m_nOffset == rAttr.m_nOffset &&
+            m_sPrefix == rAttr.m_sPrefix &&
+            m_sSuffix == rAttr.m_sSuffix;
 }
 
 bool SwFormatFootnoteEndAtTextEnd::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
@@ -1944,13 +1945,13 @@ bool SwFormatFootnoteEndAtTextEnd::QueryValue( uno::Any& rVal, sal_uInt8 nMember
         case MID_RESTART_NUM :
             rVal <<= GetValue() >= FTNEND_ATTXTEND_OWNNUMSEQ;
         break;
-        case MID_NUM_START_AT: rVal <<= static_cast<sal_Int16>(nOffset); break;
+        case MID_NUM_START_AT: rVal <<= static_cast<sal_Int16>(m_nOffset); break;
         case MID_OWN_NUM     :
             rVal <<= GetValue() >= FTNEND_ATTXTEND_OWNNUMANDFMT;
         break;
-        case MID_NUM_TYPE    : rVal <<= static_cast<sal_Int16>(aFormat.GetNumberingType()); break;
-        case MID_PREFIX      : rVal <<= sPrefix; break;
-        case MID_SUFFIX      : rVal <<= sSuffix; break;
+        case MID_NUM_TYPE    : rVal <<= static_cast<sal_Int16>(m_aFormat.GetNumberingType()); break;
+        case MID_PREFIX      : rVal <<= m_sPrefix; break;
+        case MID_SUFFIX      : rVal <<= m_sSuffix; break;
         default: return false;
     }
     return true;
@@ -1985,7 +1986,7 @@ bool SwFormatFootnoteEndAtTextEnd::PutValue( const uno::Any& rVal, sal_uInt8 nMe
             sal_Int16 nVal = 0;
             rVal >>= nVal;
             if(nVal >= 0)
-                nOffset = nVal;
+                m_nOffset = nVal;
             else
                 bRet = false;
         }
@@ -2007,7 +2008,7 @@ bool SwFormatFootnoteEndAtTextEnd::PutValue( const uno::Any& rVal, sal_uInt8 nMe
                 (nVal <= SVX_NUM_ARABIC ||
                     SVX_NUM_CHARS_UPPER_LETTER_N == nVal ||
                         SVX_NUM_CHARS_LOWER_LETTER_N == nVal ))
-                aFormat.SetNumberingType(static_cast<SvxNumType>(nVal));
+                m_aFormat.SetNumberingType(static_cast<SvxNumType>(nVal));
             else
                 bRet = false;
         }
@@ -2015,13 +2016,13 @@ bool SwFormatFootnoteEndAtTextEnd::PutValue( const uno::Any& rVal, sal_uInt8 nMe
         case MID_PREFIX      :
         {
             OUString sVal; rVal >>= sVal;
-            sPrefix = sVal;
+            m_sPrefix = sVal;
         }
         break;
         case MID_SUFFIX      :
         {
             OUString sVal; rVal >>= sVal;
-            sSuffix = sVal;
+            m_sSuffix = sVal;
         }
         break;
         default: bRet = false;
@@ -2071,17 +2072,17 @@ SfxPoolItem* SwFormatChain::Clone( SfxItemPool* ) const
 void SwFormatChain::SetPrev( SwFlyFrameFormat *pFormat )
 {
     if ( pFormat )
-        pFormat->Add( &aPrev );
+        pFormat->Add( &m_aPrev );
     else
-        aPrev.EndListeningAll();
+        m_aPrev.EndListeningAll();
 }
 
 void SwFormatChain::SetNext( SwFlyFrameFormat *pFormat )
 {
     if ( pFormat )
-        pFormat->Add( &aNext );
+        pFormat->Add( &m_aNext );
     else
-        aNext.EndListeningAll();
+        m_aNext.EndListeningAll();
 }
 
 bool SwFormatChain::QueryValue( uno::Any& rVal, sal_uInt8 nMemberId ) const
@@ -2375,7 +2376,7 @@ bool SwTextGridItem::PutValue( const uno::Any& rVal, sal_uInt8 nMemberId )
         case MID_GRID_STANDARD_MODE:
         {
             bool bStandard = *o3tl::doAccess<bool>(rVal);
-               SetSquaredMode( !bStandard );
+            SetSquaredMode( !bStandard );
             break;
         }
         default:
@@ -3393,12 +3394,7 @@ OUString SwDrawFrameFormat::GetDescription() const
     {
         if (pSdrObj != m_pSdrObjectCached)
         {
-            SdrObject * pSdrObjCopy(pSdrObj->CloneSdrObject(pSdrObj->getSdrModelFromSdrObject()));
-            SdrUndoNewObj * pSdrUndo = new SdrUndoNewObj(*pSdrObjCopy);
-            m_sSdrObjectCachedComment = pSdrUndo->GetComment();
-
-            delete pSdrUndo;
-
+            m_sSdrObjectCachedComment = SdrUndoNewObj::GetComment(*pSdrObj);
             m_pSdrObjectCached = pSdrObj;
         }
 

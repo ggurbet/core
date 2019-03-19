@@ -28,11 +28,12 @@
 #include <sharedformula.hxx>
 #include <drwlayer.hxx>
 #include <compiler.hxx>
+#include <recursionhelper.hxx>
 
 #include <svl/sharedstringpool.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sal/log.hxx>
 
+#include <numeric>
 #include <vector>
 #include <cassert>
 
@@ -118,10 +119,8 @@ void ScColumn::DeleteBeforeCopyFromClip(
     bool bContinue = true;
     while (bContinue)
     {
-        sc::SingleColumnSpanSet::SpansType::const_iterator it = aSpans.begin(), itEnd = aSpans.end();
-        for (; it != itEnd && bContinue; ++it)
+        for (const sc::RowSpan& r : aSpans)
         {
-            const sc::RowSpan& r = *it;
             SCROW nDestRow1 = r.mnRow1 + nDestOffset;
             SCROW nDestRow2 = r.mnRow2 + nDestOffset;
 
@@ -129,7 +128,7 @@ void ScColumn::DeleteBeforeCopyFromClip(
             {
                 // We're done.
                 bContinue = false;
-                continue;
+                break;
             }
 
             if (nDestRow2 > aRange.mnRow2)
@@ -140,6 +139,9 @@ void ScColumn::DeleteBeforeCopyFromClip(
             }
 
             aDestSpans.emplace_back(nDestRow1, nDestRow2);
+
+            if (!bContinue)
+                break;
         }
 
         nDestOffset += nClipRowLen;
@@ -149,11 +151,10 @@ void ScColumn::DeleteBeforeCopyFromClip(
     sc::ColumnBlockPosition aBlockPos;
     InitBlockPosition(aBlockPos);
 
-    std::vector<sc::RowSpan>::const_iterator it = aDestSpans.begin(), itEnd = aDestSpans.end();
-    for (; it != itEnd; ++it)
+    for (const auto& rDestSpan : aDestSpans)
     {
-        SCROW nRow1 = it->mnRow1;
-        SCROW nRow2 = it->mnRow2;
+        SCROW nRow1 = rDestSpan.mnRow1;
+        SCROW nRow2 = rDestSpan.mnRow2;
 
         if (nDelFlag & InsertDeleteFlags::CONTENTS)
         {
@@ -295,7 +296,7 @@ void ScColumn::CopyOneCellFromClip( sc::CopyFromClipContext& rCxt, SCROW nRow1, 
         for (size_t i = 0; i < nDestSize; ++i)
         {
             bool bCloneCaption = (nFlags & InsertDeleteFlags::NOCAPTIONS) == InsertDeleteFlags::NONE;
-            aNotes.push_back(pNote->Clone(rSrcPos, *pDocument, aDestPos, bCloneCaption));
+            aNotes.push_back(pNote->Clone(rSrcPos, *pDocument, aDestPos, bCloneCaption).release());
             aDestPos.IncRow();
         }
 
@@ -316,13 +317,16 @@ void ScColumn::SetValues( const SCROW nRow, const std::vector<double>& rVals )
         return;
 
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
-    DetachFormulaCells(aPos, rVals.size());
+    std::vector<SCROW> aNewSharedRows;
+    DetachFormulaCells(aPos, rVals.size(), &aNewSharedRows);
 
     maCells.set(nRow, rVals.begin(), rVals.end());
     std::vector<sc::CellTextAttr> aDefaults(rVals.size());
     maCellTextAttrs.set(nRow, aDefaults.begin(), aDefaults.end());
 
     CellStorageModified();
+
+    StartListeningUnshared( aNewSharedRows);
 
     std::vector<SCROW> aRows;
     aRows.reserve(rVals.size());
@@ -343,7 +347,7 @@ void ScColumn::TransferCellValuesTo( SCROW nRow, size_t nLen, sc::CellValues& rD
         return;
 
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
-    DetachFormulaCells(aPos, nLen);
+    DetachFormulaCells(aPos, nLen, nullptr);
 
     rDest.transferFrom(*this, nRow, nLen);
 
@@ -368,7 +372,7 @@ void ScColumn::CopyCellValuesFrom( SCROW nRow, const sc::CellValues& rSrc )
         return;
 
     sc::CellStoreType::position_type aPos = maCells.position(nRow);
-    DetachFormulaCells(aPos, rSrc.size());
+    DetachFormulaCells(aPos, rSrc.size(), nullptr);
 
     rSrc.copyTo(*this, nRow);
 
@@ -444,7 +448,7 @@ void ScColumn::ConvertFormulaToValue(
         // No formula cells encountered.
         return;
 
-    DetachFormulaCells(rCxt, nRow1, nRow2);
+    DetachFormulaCells(rCxt, nRow1, nRow2, nullptr);
 
     // Undo storage to hold static values which will get swapped to the cell storage later.
     sc::CellValues aUndoCells;
@@ -501,12 +505,11 @@ void ScColumn::SwapNonEmpty(
 
     // Detach formula cells within the spans (if any).
     EndListeningHandler aEndLisFunc(rEndCxt);
-    std::vector<sc::CellValueSpan>::const_iterator it = aSpans.begin(), itEnd = aSpans.end();
     sc::CellStoreType::iterator itPos = maCells.begin();
-    for (; it != itEnd; ++it)
+    for (const auto& rSpan : aSpans)
     {
-        SCROW nRow1 = it->mnRow1;
-        SCROW nRow2 = it->mnRow2;
+        SCROW nRow1 = rSpan.mnRow1;
+        SCROW nRow2 = rSpan.mnRow2;
         itPos = sc::ProcessFormula(itPos, maCells, nRow1, nRow2, aEndLisFunc);
     }
 
@@ -515,12 +518,11 @@ void ScColumn::SwapNonEmpty(
 
     // Attach formula cells within the spans (if any).
     StartListeningHandler aStartLisFunc(rStartCxt);
-    it = aSpans.begin();
     itPos = maCells.begin();
-    for (; it != itEnd; ++it)
+    for (const auto& rSpan : aSpans)
     {
-        SCROW nRow1 = it->mnRow1;
-        SCROW nRow2 = it->mnRow2;
+        SCROW nRow1 = rSpan.mnRow1;
+        SCROW nRow2 = rSpan.mnRow2;
         itPos = sc::ProcessFormula(itPos, maCells, nRow1, nRow2, aStartLisFunc);
     }
 
@@ -529,9 +531,8 @@ void ScColumn::SwapNonEmpty(
 
 void ScColumn::DeleteRanges( const std::vector<sc::RowSpan>& rRanges, InsertDeleteFlags nDelFlag )
 {
-    std::vector<sc::RowSpan>::const_iterator itSpan = rRanges.begin(), itSpanEnd = rRanges.end();
-    for (; itSpan != itSpanEnd; ++itSpan)
-        DeleteArea(itSpan->mnRow1, itSpan->mnRow2, nDelFlag, false/*bBroadcast*/);
+    for (const auto& rSpan : rRanges)
+        DeleteArea(rSpan.mnRow1, rSpan.mnRow2, nDelFlag, false/*bBroadcast*/);
 }
 
 void ScColumn::CloneFormulaCell(
@@ -553,10 +554,9 @@ void ScColumn::CloneFormulaCell(
 
     ScDocument* pDocument = GetDoc();
     std::vector<ScFormulaCell*> aFormulas;
-    std::vector<sc::RowSpan>::const_iterator itSpan = rRanges.begin(), itSpanEnd = rRanges.end();
-    for (; itSpan != itSpanEnd; ++itSpan)
+    for (const auto& rSpan : rRanges)
     {
-        SCROW nRow1 = itSpan->mnRow1, nRow2 = itSpan->mnRow2;
+        SCROW nRow1 = rSpan.mnRow1, nRow2 = rSpan.mnRow2;
         size_t nLen = nRow2 - nRow1 + 1;
         assert(nLen > 0);
         aFormulas.clear();
@@ -611,29 +611,24 @@ void ScColumn::CloneFormulaCell(
     CellStorageModified();
 }
 
-ScPostIt* ScColumn::ReleaseNote( SCROW nRow )
+std::unique_ptr<ScPostIt> ScColumn::ReleaseNote( SCROW nRow )
 {
     if (!ValidRow(nRow))
         return nullptr;
 
     ScPostIt* p = nullptr;
     maCellNotes.release(nRow, p);
-    return p;
+    return std::unique_ptr<ScPostIt>(p);
 }
 
 size_t ScColumn::GetNoteCount() const
 {
-    size_t nCount = 0;
-    sc::CellNoteStoreType::const_iterator it = maCellNotes.begin(), itEnd = maCellNotes.end();
-    for (; it != itEnd; ++it)
-    {
-        if (it->type != sc::element_type_cellnote)
-            continue;
-
-        nCount += it->size;
-    }
-
-    return nCount;
+    return std::accumulate(maCellNotes.begin(), maCellNotes.end(), size_t(0),
+        [](const size_t& rCount, const auto& rCellNote) {
+            if (rCellNote.type != sc::element_type_cellnote)
+                return rCount;
+            return rCount + rCellNote.size;
+        });
 }
 
 namespace {
@@ -688,23 +683,21 @@ SCROW ScColumn::GetNotePosition( size_t nIndex ) const
 {
     // Return the row position of the nth note in the column.
 
-    sc::CellNoteStoreType::const_iterator it = maCellNotes.begin(), itEnd = maCellNotes.end();
-
     size_t nCount = 0; // Number of notes encountered so far.
-    for (; it != itEnd; ++it)
+    for (const auto& rCellNote : maCellNotes)
     {
-        if (it->type != sc::element_type_cellnote)
+        if (rCellNote.type != sc::element_type_cellnote)
             // Skip the empty blocks.
             continue;
 
-        if (nIndex < nCount + it->size)
+        if (nIndex < nCount + rCellNote.size)
         {
             // Index falls within this block.
             size_t nOffset = nIndex - nCount;
-            return it->position + nOffset;
+            return rCellNote.position + nOffset;
         }
 
-        nCount += it->size;
+        nCount += rCellNote.size;
     }
 
     return -1;
@@ -897,10 +890,10 @@ public:
                 // Create a new token array from the hybrid formula string, and
                 // set it to the group.
                 ScCompiler aComp(mrCompileFormulaCxt, pTop->aPos);
-                ScTokenArray* pNewCode = aComp.CompileString(aFormula);
+                std::unique_ptr<ScTokenArray> pNewCode = aComp.CompileString(aFormula);
                 ScFormulaCellGroupRef xGroup = pTop->GetCellGroup();
                 assert(xGroup);
-                xGroup->setCode(pNewCode);
+                xGroup->setCode(std::move(pNewCode));
                 xGroup->compileCode(*mpDoc, pTop->aPos, mpDoc->GetGrammar());
 
                 // Propagate the new token array to all formula cells in the group.
@@ -924,14 +917,14 @@ public:
             {
                 // Create token array from formula string.
                 ScCompiler aComp(mrCompileFormulaCxt, pCell->aPos);
-                ScTokenArray* pNewCode = aComp.CompileString(aFormula);
+                std::unique_ptr<ScTokenArray> pNewCode = aComp.CompileString(aFormula);
 
                 // Generate RPN tokens.
                 ScCompiler aComp2(mpDoc, pCell->aPos, *pNewCode, formula::FormulaGrammar::GRAM_UNSPECIFIED,
                                   true, pCell->GetMatrixFlag() != ScMatrixMode::NONE);
                 aComp2.CompileTokenArray();
 
-                pCell->SetCode(pNewCode);
+                pCell->SetCode(std::move(pNewCode));
                 pCell->StartListeningTo(mrStartListenCxt);
                 pCell->SetDirty();
             }
@@ -1640,23 +1633,204 @@ std::unique_ptr<sc::ColumnIterator> ScColumn::GetColumnIterator( SCROW nRow1, SC
     if (!ValidRow(nRow1) || !ValidRow(nRow2) || nRow1 > nRow2)
         return std::unique_ptr<sc::ColumnIterator>();
 
-    return o3tl::make_unique<sc::ColumnIterator>(maCells, nRow1, nRow2);
+    return std::make_unique<sc::ColumnIterator>(maCells, nRow1, nRow2);
 }
 
-void ScColumn::EnsureFormulaCellResults( SCROW nRow1, SCROW nRow2 )
+static bool lcl_InterpretSpan(sc::formula_block::const_iterator& rSpanIter, SCROW nStartOffset, SCROW nEndOffset,
+                              const ScFormulaCellGroupRef& mxParentGroup, bool& bAllowThreading)
+{
+    bAllowThreading = true;
+    ScFormulaCell* pCellStart = nullptr;
+    SCROW nSpanStart = -1;
+    SCROW nSpanEnd = -1;
+    sc::formula_block::const_iterator itSpanStart;
+    bool bAnyDirty = false;
+    for (SCROW nFGOffset = nStartOffset; nFGOffset <= nEndOffset; ++rSpanIter, ++nFGOffset)
+    {
+        bool bThisDirty = (*rSpanIter)->NeedsInterpret();
+        if (!pCellStart && bThisDirty)
+        {
+            pCellStart = *rSpanIter;
+            itSpanStart = rSpanIter;
+            nSpanStart = nFGOffset;
+            bAnyDirty = true;
+        }
+
+        if (pCellStart && (!bThisDirty || nFGOffset == nEndOffset))
+        {
+            nSpanEnd = bThisDirty ? nFGOffset : nFGOffset - 1;
+            assert(nSpanStart >= nStartOffset && nSpanStart <= nSpanEnd && nSpanEnd <= nEndOffset);
+
+            // Found a completely dirty sub span [nSpanStart, nSpanEnd] inside the required span [nStartOffset, nEndOffset]
+            bool bGroupInterpreted = pCellStart->Interpret(nSpanStart, nSpanEnd);
+
+            // child cell's Interpret could result in calling dependency calc
+            // and that could detect a cycle involving mxGroup
+            // and do early exit in that case.
+            if (mxParentGroup && mxParentGroup->mbPartOfCycle)
+            {
+                // Set pCellStart as dirty as pCellStart may be interpreted in InterpretTail()
+                pCellStart->SetDirtyVar();
+                bAllowThreading = false;
+                return bAnyDirty;
+            }
+
+            if (!bGroupInterpreted)
+            {
+                // Evaluate from second cell in non-grouped style (no point in trying group-interpret again).
+                ++itSpanStart;
+                for (SCROW nIdx = nSpanStart+1; nIdx <= nSpanEnd; ++nIdx, ++itSpanStart)
+                    (*itSpanStart)->Interpret(); // We know for sure that this cell is dirty so directly call Interpret().
+            }
+
+            pCellStart = nullptr; // For next sub span start detection.
+        }
+    }
+
+    return bAnyDirty;
+}
+
+static void lcl_EvalDirty(sc::CellStoreType& rCells, SCROW nRow1, SCROW nRow2, ScDocument& rDoc,
+                          const ScFormulaCellGroupRef& mxGroup, bool bThreadingDepEval, bool bSkipRunning,
+                          bool& bIsDirty, bool& bAllowThreading)
+{
+    std::pair<sc::CellStoreType::const_iterator,size_t> aPos = rCells.position(nRow1);
+    sc::CellStoreType::const_iterator it = aPos.first;
+    size_t nOffset = aPos.second;
+    SCROW nRow = nRow1;
+
+    bIsDirty = false;
+
+    for (;it != rCells.end() && nRow <= nRow2; ++it, nOffset = 0)
+    {
+        switch( it->type )
+        {
+            case sc::element_type_edittext:
+                // These require EditEngine (in ScEditUtils::GetString()), which is probably
+                // too complex for use in threads.
+                if (bThreadingDepEval)
+                {
+                    bAllowThreading = false;
+                    return;
+                }
+                break;
+            case sc::element_type_formula:
+            {
+                size_t nRowsToRead = nRow2 - nRow + 1;
+                const size_t nEnd = std::min(it->size, nOffset+nRowsToRead); // last row + 1
+                sc::formula_block::const_iterator itCell = sc::formula_block::begin(*it->data);
+                std::advance(itCell, nOffset);
+
+                // Loop inside the formula block.
+                size_t nCellIdx = nOffset;
+                while (nCellIdx < nEnd)
+                {
+                    const ScFormulaCellGroupRef& mxGroupChild = (*itCell)->GetCellGroup();
+                    ScFormulaCell* pChildTopCell = mxGroupChild ? mxGroupChild->mpTopCell : *itCell;
+
+                    // Check if itCell is already in path.
+                    // If yes use a cycle guard to mark all elements of the cycle
+                    // and return false
+                    if (bThreadingDepEval && pChildTopCell->GetSeenInPath())
+                    {
+                        ScRecursionHelper& rRecursionHelper = rDoc.GetRecursionHelper();
+                        ScFormulaGroupCycleCheckGuard aCycleCheckGuard(rRecursionHelper, pChildTopCell);
+                        bAllowThreading = false;
+                        return;
+                    }
+
+                    if (bSkipRunning && (*itCell)->IsRunning())
+                    {
+                        ++itCell;
+                        nCellIdx += 1;
+                        nRow += 1;
+                        nRowsToRead -= 1;
+                        continue;
+                    }
+
+                    if (mxGroupChild)
+                    {
+                        // It is a Formula-group, evaluate the necessary parts of it (spans).
+                        const SCROW nFGStartOffset = (*itCell)->aPos.Row() - pChildTopCell->aPos.Row();
+                        const SCROW nFGEndOffset = std::min(nFGStartOffset + static_cast<SCROW>(nRowsToRead) - 1, mxGroupChild->mnLength - 1);
+                        assert(nFGEndOffset >= nFGStartOffset);
+                        const SCROW nSpanLen = nFGEndOffset - nFGStartOffset + 1;
+                        // The (main) span required to be evaluated is [nFGStartOffset, nFGEndOffset], but this span may contain
+                        // non-dirty cells, so split this into sets of completely-dirty spans and try evaluate each of them in grouped-style.
+
+                        bool bAnyDirtyInSpan = lcl_InterpretSpan(itCell, nFGStartOffset, nFGEndOffset, mxGroup, bAllowThreading);
+                        if (!bAllowThreading)
+                            return;
+                        // itCell will now point to cell just after the end of span [nFGStartOffset, nFGEndOffset].
+                        bIsDirty = bIsDirty || bAnyDirtyInSpan;
+
+                        // update the counters by nSpanLen.
+                        // itCell already got updated.
+                        nCellIdx += nSpanLen;
+                        nRow += nSpanLen;
+                        nRowsToRead -= nSpanLen;
+                    }
+                    else
+                    {
+                        // No formula-group here.
+                        bool bDirtyFlag = (*itCell)->MaybeInterpret();
+                        bIsDirty = bIsDirty || bDirtyFlag;
+
+                        // child cell's Interpret could result in calling dependency calc
+                        // and that could detect a cycle involving mxGroup
+                        // and do early exit in that case.
+                        if (bThreadingDepEval && mxGroup && mxGroup->mbPartOfCycle)
+                        {
+                            // Set itCell as dirty as itCell may be interpreted in InterpretTail()
+                            (*itCell)->SetDirtyVar();
+                            bAllowThreading = false;
+                            return;
+                        }
+
+                        // update the counters by 1.
+                        nCellIdx += 1;
+                        nRow += 1;
+                        nRowsToRead -= 1;
+                        ++itCell;
+                    }
+                }
+                break;
+            }
+            default:
+                // Skip this block.
+                nRow += it->size - nOffset;
+                continue;
+        }
+    }
+
+    if (bThreadingDepEval)
+        bAllowThreading = true;
+
+}
+
+// Returns true if at least one FC is dirty.
+bool ScColumn::EnsureFormulaCellResults( SCROW nRow1, SCROW nRow2, bool bSkipRunning )
 {
     if (!ValidRow(nRow1) || !ValidRow(nRow2) || nRow1 > nRow2)
-        return;
+        return false;
 
     if (!HasFormulaCell(nRow1, nRow2))
-        return;
+        return false;
 
-    sc::ProcessFormula(maCells.begin(), maCells, nRow1, nRow2,
-        []( size_t /*nRow*/, ScFormulaCell* pCell )
-        {
-            pCell->MaybeInterpret();
-        }
-    );
+    bool bAnyDirty = false, bTmp = false;
+    lcl_EvalDirty(maCells, nRow1, nRow2, *GetDoc(), nullptr, false, bSkipRunning, bAnyDirty, bTmp);
+    return bAnyDirty;
+}
+
+bool ScColumn::HandleRefArrayForParallelism( SCROW nRow1, SCROW nRow2, const ScFormulaCellGroupRef& mxGroup )
+{
+    if (nRow1 > nRow2)
+        return false;
+
+    bool bAllowThreading = true, bTmp = false;
+    lcl_EvalDirty(maCells, nRow1, nRow2, *GetDoc(), mxGroup, true, false, bTmp, bAllowThreading);
+
+    return bAllowThreading;
 }
 
 namespace {
@@ -1791,9 +1965,9 @@ void ScColumn::RestoreFromCache(SvStream& rStrm)
             {
                 // nDataSize double values
                 std::vector<double> aValues(nDataSize);
-                for (SCROW nRow = 0; nRow < static_cast<SCROW>(nDataSize); ++nRow)
+                for (auto& rValue : aValues)
                 {
-                    rStrm.ReadDouble(aValues[nRow]);
+                    rStrm.ReadDouble(rValue);
                 }
                 maCells.set(nStartRow, aValues.begin(), aValues.end());
             }
@@ -1802,7 +1976,7 @@ void ScColumn::RestoreFromCache(SvStream& rStrm)
             {
                 std::vector<svl::SharedString> aStrings(nDataSize);
                 svl::SharedStringPool& rPool = pDocument->GetSharedStringPool();
-                for (SCROW nRow = 0; nRow < static_cast<SCROW>(nDataSize); ++nRow)
+                for (auto& rString : aStrings)
                 {
                     sal_Int32 nStrLength = 0;
                     rStrm.ReadInt32(nStrLength);
@@ -1810,7 +1984,7 @@ void ScColumn::RestoreFromCache(SvStream& rStrm)
                     rStrm.ReadBytes(pStr.get(), nStrLength);
                     OString aOStr(pStr.get(), nStrLength);
                     OUString aStr = OStringToOUString(aOStr, RTL_TEXTENCODING_UTF8);
-                    aStrings[nRow] = rPool.intern(aStr);
+                    rString = rPool.intern(aStr);
                 }
                 maCells.set(nStartRow, aStrings.begin(), aStrings.end());
 

@@ -18,14 +18,11 @@
  */
 
 #include <AccessibleContextBase.hxx>
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/IllegalAccessibleComponentStateException.hpp>
-#include <com/sun/star/beans/PropertyChangeEvent.hpp>
 #include <tools/gen.hxx>
 #include <tools/color.hxx>
-#include <unotools/accessiblestatesethelper.hxx>
 #include <toolkit/helper/convert.hxx>
 #include <svl/hint.hxx>
 #include <comphelper/sequence.hxx>
@@ -268,9 +265,9 @@ sal_Int32 SAL_CALL
                     nIndex = i;
             }
         }
-   }
+    }
 
-   return nIndex;
+    return nIndex;
 }
 
 sal_Int16 SAL_CALL

@@ -35,7 +35,6 @@
 #include <svx/svdoole2.hxx>
 #include <svx/svdocapt.hxx>
 #include <editeng/outlobj.hxx>
-#include <o3tl/make_unique.hxx>
 #include <unotools/tempfile.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <svtools/embedhlp.hxx>
@@ -983,9 +982,9 @@ void XclExpTbxControlObj::WriteSubRecs( XclExpStream& rStrm )
                 if( nEntryCount )
                 {
                     ScfUInt8Vec aSelEx( nEntryCount, 0 );
-                    for( ScfInt16Vec::const_iterator aIt = maMultiSel.begin(), aEnd = maMultiSel.end(); aIt != aEnd; ++aIt )
-                        if( *aIt < nEntryCount )
-                            aSelEx[ *aIt ] = 1;
+                    for( const auto& rItem : maMultiSel )
+                        if( rItem < nEntryCount )
+                            aSelEx[ rItem ] = 1;
                     rStrm.Write( &aSelEx[ 0 ], aSelEx.size() );
                 }
             }
@@ -1186,11 +1185,11 @@ XclExpNote::XclExpNote(const XclExpRoot& rRoot, const ScAddress& rScPos,
             // TODO: additional text
             if( pScNote )
             {
-                if( SdrCaptionObj* pCaption = pScNote->GetOrCreateCaption( maScPos ).get() )
+                if( SdrCaptionObj* pCaption = pScNote->GetOrCreateCaption( maScPos ) )
                 {
                     lcl_GetFromTo( rRoot, pCaption->GetLogicRect(), maScPos.Tab(), maCommentFrom, maCommentTo );
                     if( const OutlinerParaObject* pOPO = pCaption->GetOutlinerParaObject() )
-                        mnObjId = rRoot.GetObjectManager().AddObj( o3tl::make_unique<XclObjComment>( rRoot.GetObjectManager(), pCaption->GetLogicRect(), pOPO->GetTextObject(), pCaption, mbVisible, maScPos, maCommentFrom, maCommentTo ) );
+                        mnObjId = rRoot.GetObjectManager().AddObj( std::make_unique<XclObjComment>( rRoot.GetObjectManager(), pCaption->GetLogicRect(), pOPO->GetTextObject(), pCaption, mbVisible, maScPos, maCommentFrom, maCommentTo ) );
 
                     SfxItemSet aItemSet = pCaption->GetMergedItemSet();
                     meTVA       = pCaption->GetTextVerticalAdjust();
@@ -1446,10 +1445,10 @@ void XclExpComments::SaveXml( XclExpXmlStream& rStrm )
         aAuthors.insert( XclXmlUtils::ToOUString( mrNotes.GetRecord( i )->GetAuthor() ) );
     }
 
-    for( Authors::const_iterator b = aAuthors.begin(), e = aAuthors.end(); b != e; ++b )
+    for( const auto& rAuthor : aAuthors )
     {
         rComments->startElement( XML_author, FSEND );
-        rComments->writeEscaped( *b );
+        rComments->writeEscaped( rAuthor );
         rComments->endElement( XML_author );
     }
 
@@ -1459,7 +1458,7 @@ void XclExpComments::SaveXml( XclExpXmlStream& rStrm )
     Authors::const_iterator aAuthorsBegin = aAuthors.begin();
     for( size_t i = 0; i < nNotes; ++i )
     {
-        XclExpNoteList::RecordRefType xNote = mrNotes.GetRecord( i );
+        XclExpRecordList< XclExpNote >::RecordRefType xNote = mrNotes.GetRecord( i );
         Authors::const_iterator aAuthor = aAuthors.find(
                 XclXmlUtils::ToOUString( xNote->GetAuthor() ) );
         sal_Int32 nAuthorId = distance( aAuthorsBegin, aAuthor );

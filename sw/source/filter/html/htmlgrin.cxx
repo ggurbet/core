@@ -303,7 +303,7 @@ void SwHTMLParser::GetDefaultScriptType( ScriptType& rType,
 
 namespace
 {
-    bool allowAccessLink(SwDoc& rDoc)
+    bool allowAccessLink(const SwDoc& rDoc)
     {
         OUString sReferer;
         SfxObjectShell * sh = rDoc.GetPersist();
@@ -499,7 +499,7 @@ IMAGE_SETEVENT:
         {
             GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
             aGraphic = rFilter.ImportUnloadedGraphic(*pStream);
-                sGrfNm.clear();
+            sGrfNm.clear();
 
             if (!sGrfNm.isEmpty())
             {

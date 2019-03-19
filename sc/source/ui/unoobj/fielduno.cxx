@@ -332,7 +332,7 @@ uno::Reference<text::XTextField> ScCellFieldsObj::GetObjectByIndex_Impl(sal_Int3
 
     sal_Int32 eType = pData->GetClassId();
     uno::Reference<text::XTextField> xRet(
-        new ScEditFieldObj(mxContent, o3tl::make_unique<ScCellEditSource>(pDocShell, aCellPos), eType, aSelection));
+        new ScEditFieldObj(mxContent, std::make_unique<ScCellEditSource>(pDocShell, aCellPos), eType, aSelection));
     return xRet;
 }
 
@@ -485,7 +485,7 @@ uno::Reference<text::XTextField> ScHeaderFieldsObj::GetObjectByIndex_Impl(sal_In
 
     sal_Int32 eRealType = pData->GetClassId();
     uno::Reference<text::XTextField> xRet(
-        new ScEditFieldObj(xTextRange, o3tl::make_unique<ScHeaderFooterEditSource>(mrData), eRealType, aSelection));
+        new ScEditFieldObj(xTextRange, std::make_unique<ScHeaderFooterEditSource>(mrData), eRealType, aSelection));
     return xRet;
 }
 
@@ -616,7 +616,7 @@ SvxFieldData& ScEditFieldObj::getData()
                 mpData.reset(new SvxFieldData);
         }
     }
-    return *mpData.get();
+    return *mpData;
 }
 
 void ScEditFieldObj::setPropertyValueURL(const OUString& rName, const css::uno::Any& rVal)
@@ -1335,7 +1335,7 @@ uno::Sequence<OUString> SAL_CALL ScEditFieldObj::getSupportedServiceNames()
 
 uno::Sequence<uno::Type> SAL_CALL ScEditFieldObj::getTypes()
 {
-    static const uno::Sequence<uno::Type> aTypes = comphelper::concatSequences(
+    return comphelper::concatSequences(
         OComponentHelper::getTypes(),
         uno::Sequence<uno::Type>
         {
@@ -1344,7 +1344,6 @@ uno::Sequence<uno::Type> SAL_CALL ScEditFieldObj::getTypes()
             cppu::UnoType<lang::XUnoTunnel>::get(),
             cppu::UnoType<lang::XServiceInfo>::get()
         } );
-    return aTypes;
 }
 
 uno::Sequence<sal_Int8> SAL_CALL ScEditFieldObj::getImplementationId()

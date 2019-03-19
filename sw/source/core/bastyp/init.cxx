@@ -430,9 +430,9 @@ SfxItemInfo aSlotTab[] =
     { 0, true }                            // RES_UNKNOWNATR_CONTAINER
 };
 
-std::vector<SvGlobalName*> *pGlobalOLEExcludeList = nullptr;
+std::vector<SvGlobalName> *pGlobalOLEExcludeList = nullptr;
 
-SwAutoCompleteWord* SwDoc::mpACmpltWords = nullptr;
+SwAutoCompleteWord* SwDoc::s_pAutoCompleteWords = nullptr;
 
 SwCheckIt* pCheckIt = nullptr;
 static CharClass* pAppCharClass = nullptr;
@@ -648,17 +648,17 @@ void InitCore()
     SwSelPaintRects::s_pMapMode = new MapMode;
     SwFntObj::pPixMap = new MapMode;
 
-    pGlobalOLEExcludeList = new std::vector<SvGlobalName*>;
+    pGlobalOLEExcludeList = new std::vector<SvGlobalName>;
 
     if (!utl::ConfigManager::IsFuzzing())
     {
         const SvxSwAutoFormatFlags& rAFlags = SvxAutoCorrCfg::Get().GetAutoCorrect()->GetSwFlags();
-        SwDoc::mpACmpltWords = new SwAutoCompleteWord( rAFlags.nAutoCmpltListLen,
+        SwDoc::s_pAutoCompleteWords = new SwAutoCompleteWord( rAFlags.nAutoCmpltListLen,
                                             rAFlags.nAutoCmpltWordLen );
     }
     else
     {
-        SwDoc::mpACmpltWords = new SwAutoCompleteWord( 0, 0 );
+        SwDoc::s_pAutoCompleteWords = new SwAutoCompleteWord( 0, 0 );
     }
 }
 
@@ -687,7 +687,7 @@ void FinitCore()
     if ( aAttrTab[0]->GetRefCount() )
         SfxItemPool::ReleaseDefaults( &aAttrTab );
 #endif
-    delete SwDoc::mpACmpltWords;
+    delete SwDoc::s_pAutoCompleteWords;
 
     delete SwStyleNameMapper::s_pTextUINameArray;
     delete SwStyleNameMapper::s_pListsUINameArray;
@@ -733,8 +733,6 @@ void FinitCore()
         delete pHt;
     }
 
-    for (SvGlobalName* p : *pGlobalOLEExcludeList)
-        delete p;
     delete pGlobalOLEExcludeList;
 }
 
@@ -752,10 +750,10 @@ CharClass& GetAppCharClass()
 
 void SwCalendarWrapper::LoadDefaultCalendar( LanguageType eLang )
 {
-    if( eLang != nLang )
+    if( eLang != m_nLang )
     {
-        nLang = eLang;
-        loadDefaultCalendar( LanguageTag::convertToLocale( nLang ));
+        m_nLang = eLang;
+        loadDefaultCalendar( LanguageTag::convertToLocale( m_nLang ));
     }
 }
 
@@ -800,22 +798,22 @@ namespace
     class TransWrp
     {
     private:
-        std::unique_ptr<utl::TransliterationWrapper> xTransWrp;
+        std::unique_ptr<utl::TransliterationWrapper> m_xTransWrp;
     public:
         TransWrp()
         {
             uno::Reference< uno::XComponentContext > xContext = ::comphelper::getProcessComponentContext();
 
-            xTransWrp.reset(new ::utl::TransliterationWrapper( xContext,
+            m_xTransWrp.reset(new ::utl::TransliterationWrapper( xContext,
                     TransliterationFlags::IGNORE_CASE |
                     TransliterationFlags::IGNORE_KANA |
                     TransliterationFlags::IGNORE_WIDTH ));
 
-            xTransWrp->loadModuleIfNeeded( GetAppLanguage() );
+            m_xTransWrp->loadModuleIfNeeded( GetAppLanguage() );
         }
         const ::utl::TransliterationWrapper& getTransliterationWrapper() const
         {
-            return *xTransWrp;
+            return *m_xTransWrp;
         }
     };
 

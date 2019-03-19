@@ -8,6 +8,7 @@
  */
 
 #include <memory>
+#include <thread>
 #include <boost/property_tree/json_parser.hpp>
 #include <cppunit/TestFixture.h>
 #include <cppunit/plugin/TestPlugIn.h>
@@ -36,192 +37,6 @@
 using namespace ::boost;
 using namespace ::lok;
 using namespace ::std;
-
-OUString getFileURLFromSystemPath(OUString const & path)
-{
-    OUString url;
-    osl::FileBase::RC e = osl::FileBase::getFileURLFromSystemPath(path, url);
-    CPPUNIT_ASSERT_EQUAL(osl::FileBase::E_None, e);
-    if (!url.endsWith("/"))
-        url += "/";
-    return url;
-}
-
-// We specifically don't use the usual BootStrapFixture, as LOK does
-// all its own setup and bootstrapping, and should be usable in a
-// raw C++ program.
-class TiledRenderingTest : public ::CppUnit::TestFixture
-{
-public:
-    const string m_sSrcRoot;
-    const string m_sInstDir;
-    const string m_sLOPath;
-
-    TiledRenderingTest()
-        : m_sSrcRoot( getenv( "SRC_ROOT" ) )
-        , m_sInstDir( getenv( "INSTDIR" ) )
-        , m_sLOPath( m_sInstDir + "/program" )
-    {
-    }
-
-    // Currently it isn't possible to do multiple startup/shutdown
-    // cycle of LOK in a single process -- hence we run all our tests
-    // as one test, which simply carries out the individual test
-    // components on the one Office instance that we retrieve.
-    void runAllTests();
-
-    void testDocumentLoadFail( Office* pOffice );
-    void testDocumentTypes( Office* pOffice );
-    void testImpressSlideNames( Office* pOffice );
-    void testCalcSheetNames( Office* pOffice );
-    void testPaintPartTile( Office* pOffice );
-    void testDocumentLoadLanguage(Office* pOffice);
-#if 0
-    void testOverlay( Office* pOffice );
-#endif
-
-    CPPUNIT_TEST_SUITE(TiledRenderingTest);
-    CPPUNIT_TEST(runAllTests);
-    CPPUNIT_TEST_SUITE_END();
-};
-
-void TiledRenderingTest::runAllTests()
-{
-    // set UserInstallation to user profile dir in test/user-template
-    const char* pWorkdirRoot = getenv("WORKDIR_FOR_BUILD");
-    OUString aWorkdirRootPath = OUString::createFromAscii(pWorkdirRoot);
-    OUString aWorkdirRootURL = getFileURLFromSystemPath(aWorkdirRootPath);
-    OUString sUserInstallURL = aWorkdirRootURL + "/unittest";
-    rtl::Bootstrap::set("UserInstallation", sUserInstallURL);
-
-    std::unique_ptr< Office > pOffice( lok_cpp_init(
-                                      m_sLOPath.c_str() ) );
-    CPPUNIT_ASSERT( pOffice.get() );
-
-    testDocumentLoadFail( pOffice.get() );
-    testDocumentTypes( pOffice.get() );
-    testImpressSlideNames( pOffice.get() );
-    testCalcSheetNames( pOffice.get() );
-    testPaintPartTile( pOffice.get() );
-    testDocumentLoadLanguage(pOffice.get());
-#if 0
-    testOverlay( pOffice.get() );
-#endif
-}
-
-void TiledRenderingTest::testDocumentLoadFail( Office* pOffice )
-{
-    const string sDocPath = m_sSrcRoot + "/libreofficekit/qa/data/IDONOTEXIST.odt";
-    std::unique_ptr< Document> pDocument( pOffice->documentLoad( sDocPath.c_str() ) );
-    CPPUNIT_ASSERT( !pDocument.get() );
-    // TODO: we probably want to have some way of returning what
-    // the cause of failure was. getError() will return
-    // something along the lines of:
-    // "Unsupported URL <file:///SRC_ROOT/libreofficekit/qa/data/IDONOTEXIST.odt>: "type detection failed""
-}
-
-// Our dumped .png files end up in
-// workdir/CppunitTest/libreofficekit_tiledrendering.test.core
-
-int getDocumentType( Office* pOffice, const string& rPath )
-{
-    std::unique_ptr< Document> pDocument( pOffice->documentLoad( rPath.c_str() ) );
-    CPPUNIT_ASSERT( pDocument.get() );
-    return pDocument->getDocumentType();
-}
-
-void TiledRenderingTest::testDocumentTypes( Office* pOffice )
-{
-    const string sTextDocPath = m_sSrcRoot + "/libreofficekit/qa/data/blank_text.odt";
-    const string sTextLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock.blank_text.odt#";
-
-    // FIXME: same comment as below wrt lockfile removal.
-    remove( sTextLockFile.c_str() );
-
-    std::unique_ptr<Document> pDocument(pOffice->documentLoad( sTextDocPath.c_str()));
-    CPPUNIT_ASSERT(pDocument.get());
-    CPPUNIT_ASSERT_EQUAL(LOK_DOCTYPE_TEXT, static_cast<LibreOfficeKitDocumentType>(pDocument->getDocumentType()));
-    // This crashed.
-    pDocument->postUnoCommand(".uno:Bold");
-    Scheduler::ProcessEventsToIdle();
-
-    const string sPresentationDocPath = m_sSrcRoot + "/libreofficekit/qa/data/blank_presentation.odp";
-    const string sPresentationLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock.blank_presentation.odp#";
-
-    // FIXME: same comment as below wrt lockfile removal.
-    remove( sPresentationLockFile.c_str() );
-
-    CPPUNIT_ASSERT_EQUAL(LOK_DOCTYPE_PRESENTATION, static_cast<LibreOfficeKitDocumentType>(getDocumentType(pOffice, sPresentationDocPath)));
-
-    // TODO: do this for all supported document types
-}
-
-void TiledRenderingTest::testImpressSlideNames( Office* pOffice )
-{
-    const string sDocPath = m_sSrcRoot + "/libreofficekit/qa/data/impress_slidenames.odp";
-    const string sLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock.impress_slidenames.odp#";
-
-    // FIXME: this is a temporary hack: LOK will fail when trying to open a
-    // locked file, and since we're reusing the file for a different unit
-    // test it's entirely possible that an unwanted lock file will remain.
-    // Hence forcefully remove it here.
-    remove( sLockFile.c_str() );
-
-    std::unique_ptr< Document> pDocument( pOffice->documentLoad( sDocPath.c_str() ) );
-
-    CPPUNIT_ASSERT_EQUAL(3, pDocument->getParts());
-    CPPUNIT_ASSERT_EQUAL(std::string("TestText1"), std::string(pDocument->getPartName(0)));
-    CPPUNIT_ASSERT_EQUAL(std::string("TestText2"), std::string(pDocument->getPartName(1)));
-    // The third slide hasn't had a name given to it (i.e. using the rename
-    // context menu in Impress), thus it should (as far as I can determine)
-    // have a localised version of "Slide 3".
-}
-
-void TiledRenderingTest::testCalcSheetNames( Office* pOffice )
-{
-    const string sDocPath = m_sSrcRoot + "/libreofficekit/qa/data/calc_sheetnames.ods";
-    const string sLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock.calc_sheetnames.ods#";
-
-    // FIXME: LOK will fail when trying to open a locked file
-    remove( sLockFile.c_str() );
-
-    std::unique_ptr< Document> pDocument( pOffice->documentLoad( sDocPath.c_str() ) );
-
-    CPPUNIT_ASSERT_EQUAL(3, pDocument->getParts());
-    CPPUNIT_ASSERT_EQUAL(std::string("TestText1"), std::string(pDocument->getPartName(0)));
-    CPPUNIT_ASSERT_EQUAL(std::string("TestText2"), std::string(pDocument->getPartName(1)));
-    CPPUNIT_ASSERT_EQUAL(std::string("Sheet3"), std::string(pDocument->getPartName(2)));
-}
-
-void TiledRenderingTest::testPaintPartTile(Office* pOffice)
-{
-    const string sTextDocPath = m_sSrcRoot + "/libreofficekit/qa/data/blank_text.odt";
-    const string sTextLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock.blank_text.odt#";
-
-    // FIXME: same comment as below wrt lockfile removal.
-    remove(sTextLockFile.c_str());
-
-    std::unique_ptr<Document> pDocument(pOffice->documentLoad( sTextDocPath.c_str()));
-    CPPUNIT_ASSERT(pDocument.get());
-    CPPUNIT_ASSERT_EQUAL(LOK_DOCTYPE_TEXT, static_cast<LibreOfficeKitDocumentType>(pDocument->getDocumentType()));
-
-    // Create two views.
-    pDocument->getView();
-    pDocument->createView();
-
-    int nView2 = pDocument->getView();
-
-    // Destroy the current view
-    pDocument->destroyView(nView2);
-
-    int nCanvasWidth = 256;
-    int nCanvasHeight = 256;
-    std::vector<unsigned char> aBuffer(nCanvasWidth * nCanvasHeight * 4);
-
-    // And try to paintPartTile() - this used to crash when the current viewId
-    // was destroyed
-    pDocument->paintPartTile(aBuffer.data(), /*nPart=*/0, nCanvasWidth, nCanvasHeight, /*nTilePosX=*/0, /*nTilePosY=*/0, /*nTileWidth=*/3840, /*nTileHeight=*/3840);
-}
 
 namespace {
 
@@ -252,16 +67,186 @@ void insertString(Document& rDocument, const std::string& s)
 
 }
 
+OUString getFileURLFromSystemPath(OUString const & path)
+{
+    OUString url;
+    osl::FileBase::RC e = osl::FileBase::getFileURLFromSystemPath(path, url);
+    CPPUNIT_ASSERT_EQUAL(osl::FileBase::E_None, e);
+    if (!url.endsWith("/"))
+        url += "/";
+    return url;
+}
+
+// We specifically don't use the usual BootStrapFixture, as LOK does
+// all its own setup and bootstrapping, and should be usable in a
+// raw C++ program.
+class TiledRenderingTest : public ::CppUnit::TestFixture
+{
+public:
+    const string m_sSrcRoot;
+    const string m_sInstDir;
+    const string m_sLOPath;
+
+    std::unique_ptr<Document> loadDocument( Office *pOffice, const string &pName,
+                                            const char *pFilterOptions = nullptr );
+
+    TiledRenderingTest()
+        : m_sSrcRoot( getenv( "SRC_ROOT" ) )
+        , m_sInstDir( getenv( "INSTDIR" ) )
+        , m_sLOPath( m_sInstDir + "/program" )
+    {
+    }
+
+    // Currently it isn't possible to do multiple startup/shutdown
+    // cycle of LOK in a single process -- hence we run all our tests
+    // as one test, which simply carries out the individual test
+    // components on the one Office instance that we retrieve.
+    void runAllTests();
+
+    void testDocumentLoadFail( Office* pOffice );
+    void testDocumentTypes( Office* pOffice );
+    void testImpressSlideNames( Office* pOffice );
+    void testCalcSheetNames( Office* pOffice );
+    void testPaintPartTile( Office* pOffice );
+    void testDocumentLoadLanguage(Office* pOffice);
+    void testMultiKeyInput(Office *pOffice);
+#if 0
+    void testOverlay( Office* pOffice );
+#endif
+
+    CPPUNIT_TEST_SUITE(TiledRenderingTest);
+    CPPUNIT_TEST(runAllTests);
+    CPPUNIT_TEST_SUITE_END();
+};
+
+void TiledRenderingTest::runAllTests()
+{
+    // set UserInstallation to user profile dir in test/user-template
+    const char* pWorkdirRoot = getenv("WORKDIR_FOR_BUILD");
+    OUString aWorkdirRootPath = OUString::createFromAscii(pWorkdirRoot);
+    OUString aWorkdirRootURL = getFileURLFromSystemPath(aWorkdirRootPath);
+    OUString sUserInstallURL = aWorkdirRootURL + "/unittest";
+    rtl::Bootstrap::set("UserInstallation", sUserInstallURL);
+
+    std::unique_ptr< Office > pOffice( lok_cpp_init(
+                                      m_sLOPath.c_str() ) );
+    CPPUNIT_ASSERT( pOffice.get() );
+
+    testDocumentLoadFail( pOffice.get() );
+    testDocumentTypes( pOffice.get() );
+    testMultiKeyInput(pOffice.get());
+    testImpressSlideNames( pOffice.get() );
+    testCalcSheetNames( pOffice.get() );
+    testPaintPartTile( pOffice.get() );
+    testDocumentLoadLanguage(pOffice.get());
+#if 0
+    testOverlay( pOffice.get() );
+#endif
+}
+
+void TiledRenderingTest::testDocumentLoadFail( Office* pOffice )
+{
+    const string sDocPath = m_sSrcRoot + "/libreofficekit/qa/data/IDONOTEXIST.odt";
+    std::unique_ptr< Document> pDocument( pOffice->documentLoad( sDocPath.c_str() ) );
+    CPPUNIT_ASSERT( !pDocument.get() );
+    // TODO: we probably want to have some way of returning what
+    // the cause of failure was. getError() will return
+    // something along the lines of:
+    // "Unsupported URL <file:///SRC_ROOT/libreofficekit/qa/data/IDONOTEXIST.odt>: "type detection failed""
+}
+
+// Our dumped .png files end up in
+// workdir/CppunitTest/libreofficekit_tiledrendering.test.core
+
+int getDocumentType( Office* pOffice, const string& rPath )
+{
+    std::unique_ptr< Document> pDocument( pOffice->documentLoad( rPath.c_str() ) );
+    CPPUNIT_ASSERT( pDocument.get() );
+    return pDocument->getDocumentType();
+}
+
+std::unique_ptr<Document> TiledRenderingTest::loadDocument( Office *pOffice, const string &pName,
+                                                            const char *pFilterOptions )
+{
+    const string sDocPath = m_sSrcRoot + "/libreofficekit/qa/data/" + pName;
+    const string sLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock." + pName + "#";
+
+    remove( sLockFile.c_str() );
+
+    return std::unique_ptr<Document>(pOffice->documentLoad( sDocPath.c_str(), pFilterOptions ));
+}
+
+void TiledRenderingTest::testDocumentTypes( Office* pOffice )
+{
+    std::unique_ptr<Document> pDocument(loadDocument(pOffice, "blank_text.odt"));
+
+    CPPUNIT_ASSERT(pDocument.get());
+    CPPUNIT_ASSERT_EQUAL(LOK_DOCTYPE_TEXT, static_cast<LibreOfficeKitDocumentType>(pDocument->getDocumentType()));
+    // This crashed.
+    pDocument->postUnoCommand(".uno:Bold");
+    processEventsToIdle();
+
+    const string sPresentationDocPath = m_sSrcRoot + "/libreofficekit/qa/data/blank_presentation.odp";
+    const string sPresentationLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock.blank_presentation.odp#";
+
+    // FIXME: same comment as below wrt lockfile removal.
+    remove( sPresentationLockFile.c_str() );
+
+    CPPUNIT_ASSERT_EQUAL(LOK_DOCTYPE_PRESENTATION, static_cast<LibreOfficeKitDocumentType>(getDocumentType(pOffice, sPresentationDocPath)));
+
+    // TODO: do this for all supported document types
+}
+
+void TiledRenderingTest::testImpressSlideNames( Office* pOffice )
+{
+    std::unique_ptr<Document> pDocument(loadDocument(pOffice, "impress_slidenames.odp"));
+
+    CPPUNIT_ASSERT_EQUAL(3, pDocument->getParts());
+    CPPUNIT_ASSERT_EQUAL(std::string("TestText1"), std::string(pDocument->getPartName(0)));
+    CPPUNIT_ASSERT_EQUAL(std::string("TestText2"), std::string(pDocument->getPartName(1)));
+    // The third slide hasn't had a name given to it (i.e. using the rename
+    // context menu in Impress), thus it should (as far as I can determine)
+    // have a localised version of "Slide 3".
+}
+
+void TiledRenderingTest::testCalcSheetNames( Office* pOffice )
+{
+    std::unique_ptr<Document> pDocument(loadDocument(pOffice, "calc_sheetnames.ods"));
+
+    CPPUNIT_ASSERT_EQUAL(3, pDocument->getParts());
+    CPPUNIT_ASSERT_EQUAL(std::string("TestText1"), std::string(pDocument->getPartName(0)));
+    CPPUNIT_ASSERT_EQUAL(std::string("TestText2"), std::string(pDocument->getPartName(1)));
+    CPPUNIT_ASSERT_EQUAL(std::string("Sheet3"), std::string(pDocument->getPartName(2)));
+}
+
+void TiledRenderingTest::testPaintPartTile(Office* pOffice)
+{
+    std::unique_ptr<Document> pDocument(loadDocument(pOffice, "blank_text.odt"));
+
+    CPPUNIT_ASSERT(pDocument.get());
+    CPPUNIT_ASSERT_EQUAL(LOK_DOCTYPE_TEXT, static_cast<LibreOfficeKitDocumentType>(pDocument->getDocumentType()));
+
+    // Create two views.
+    pDocument->getView();
+    pDocument->createView();
+
+    int nView2 = pDocument->getView();
+
+    // Destroy the current view
+    pDocument->destroyView(nView2);
+
+    int nCanvasWidth = 256;
+    int nCanvasHeight = 256;
+    std::vector<unsigned char> aBuffer(nCanvasWidth * nCanvasHeight * 4);
+
+    // And try to paintPartTile() - this used to crash when the current viewId
+    // was destroyed
+    pDocument->paintPartTile(aBuffer.data(), /*nPart=*/0, nCanvasWidth, nCanvasHeight, /*nTilePosX=*/0, /*nTilePosY=*/0, /*nTileWidth=*/3840, /*nTileHeight=*/3840);
+}
+
 void TiledRenderingTest::testDocumentLoadLanguage(Office* pOffice)
 {
-    const string sDocPath = m_sSrcRoot + "/libreofficekit/qa/data/empty.ods";
-    const string sLockFile = m_sSrcRoot +"/libreofficekit/qa/data/.~lock.empty.ods#";
-
-    // FIXME: LOK will fail when trying to open a locked file
-    remove(sLockFile.c_str());
-
-    // first try with the en-US locale
-    std::unique_ptr<Document> pDocument(pOffice->documentLoad(sDocPath.c_str(), "Language=en-US"));
+    std::unique_ptr<Document> pDocument(loadDocument(pOffice, "blank_text.odt", "Language=en-US"));
 
     // assert that '.' is the decimal separator
     insertString(*pDocument, "1.5");
@@ -411,6 +396,59 @@ void TiledRenderingTest::testOverlay( Office* /*pOffice*/ )
     }
 }
 #endif
+
+void TiledRenderingTest::testMultiKeyInput(Office *pOffice)
+{
+    std::unique_ptr<Document> pDocument(loadDocument(pOffice, "blank_text.odt"));
+
+    CPPUNIT_ASSERT(pDocument.get());
+    CPPUNIT_ASSERT_EQUAL(LOK_DOCTYPE_TEXT, static_cast<LibreOfficeKitDocumentType>(pDocument->getDocumentType()));
+
+    // Create two views.
+    int nViewA = pDocument->getView();
+    pDocument->initializeForRendering("{\".uno:Author\":{\"type\":\"string\",\"value\":\"jill\"}}");
+
+    pDocument->createView();
+    int nViewB = pDocument->getView();
+    pDocument->initializeForRendering("{\".uno:Author\":{\"type\":\"string\",\"value\":\"jack\"}}");
+
+    // Enable change tracking
+    pDocument->postUnoCommand(".uno:TrackChanges");
+
+    // First a key-stroke from a
+    pDocument->setView(nViewA);
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 97, 0); // a
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, 512);   // 'a
+
+    // A space on 'a' - force commit
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 32, 0); // ' '
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, 1284);   // '' '
+
+    // Another 'a'
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 97, 0); // a
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, 512);   // 'a
+
+    // FIXME: Wait for writer input handler to commit that.
+    // without this we fall foul of edtwin's KeyInputFlushTimer
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // Quickly a new key-stroke from b
+    pDocument->setView(nViewB);
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 98, 0); // b
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, 514);   // 'b
+
+    // A space on 'b' - force commit
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 32, 0); // ' '
+    pDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, 1284);   // '' '
+
+    // Wait for writer input handler to commit that.
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // get track changes ?
+    char *values = pDocument->getCommandValues(".uno:AcceptTrackedChanges");
+    std::cerr << "Values: '" << values << "'\n";
+    CPPUNIT_ASSERT(0);
+}
 
 CPPUNIT_TEST_SUITE_REGISTRATION(TiledRenderingTest);
 

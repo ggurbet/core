@@ -103,6 +103,9 @@ class SvmTest : public test::BootstrapFixture, public XmlTestTools
     void checkTextLineColor(const GDIMetaFile& rMetaFile);
     void testTextLineColor();
 
+    void checkGradient(const GDIMetaFile& rMetaFile);
+    void testGradient();
+
 public:
     SvmTest()
         : BootstrapFixture(true, false)
@@ -134,6 +137,7 @@ public:
     CPPUNIT_TEST(testTextColor);
     CPPUNIT_TEST(testTextFillColor);
     CPPUNIT_TEST(testTextLineColor);
+    CPPUNIT_TEST(testGradient);
     CPPUNIT_TEST_SUITE_END();
 };
 
@@ -168,7 +172,7 @@ static GDIMetaFile writeAndRead(GDIMetaFile& rMetaFile, const OUString& sUrl)
     // Turn on to output the SVM bitstreams to files (using the input URL)
     // to inspect the content or to create a reference file, otherwise leave
     // disabled for normal test runs.
-    static bool bOutputToFile = false;
+    static const bool bOutputToFile = false;
 
     if (bOutputToFile)
     {
@@ -241,7 +245,7 @@ void SvmTest::testPixel()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->DrawPixel(Point(8, 1), COL_GREEN);
     pVirtualDev->DrawPixel(Point(1, 8), COL_BLUE);
@@ -262,7 +266,7 @@ void SvmTest::testPoint()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->DrawPixel(Point(4, 4));
 
@@ -304,7 +308,7 @@ void SvmTest::testLine()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->DrawLine(Point(1, 1), Point(8, 8));
     LineInfo aLineInfo(LineStyle::Dash, 7);
@@ -338,7 +342,7 @@ void SvmTest::testRect()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetLineColor(Color(0x123456));
     pVirtualDev->SetFillColor(Color(0x654321));
@@ -366,7 +370,7 @@ void SvmTest::testRoundRect()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetLineColor(Color(0x123456));
     pVirtualDev->SetFillColor(Color(0x654321));
@@ -393,7 +397,7 @@ void SvmTest::testEllipse()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetLineColor(Color(0x123456));
     pVirtualDev->SetFillColor(Color(0x654321));
@@ -423,7 +427,7 @@ void SvmTest::testArc()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetLineColor(Color(0x123456));
     pVirtualDev->SetFillColor(Color(0x654321));
@@ -453,7 +457,7 @@ void SvmTest::testPie()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetLineColor(Color(0x123456));
     pVirtualDev->SetFillColor(Color(0x654321));
@@ -483,7 +487,7 @@ void SvmTest::testChord()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetLineColor(Color(0x123456));
     pVirtualDev->SetFillColor(Color(0x654321));
@@ -526,7 +530,7 @@ void SvmTest::testPolyLine()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     tools::Polygon aPolygon(3);
     aPolygon.SetPoint(Point(1, 8), 0);
@@ -578,7 +582,7 @@ void SvmTest::testPolygon()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     tools::Polygon aPolygon(3);
     aPolygon.SetPoint(Point(1, 8), 0);
@@ -621,7 +625,7 @@ void SvmTest::testPolyPolygon()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     tools::Polygon aPolygon(3);
     aPolygon.SetPoint(Point(1, 8), 0);
@@ -663,7 +667,7 @@ void SvmTest::testText()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->DrawText(Point(4,6), "xABC", 1, 2);
 
@@ -685,7 +689,7 @@ void SvmTest::testTextArray()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
     long const aDX[] = { 10, 15, 20, 25, 30, 35 };
     pVirtualDev->DrawTextArray(Point(4,6), "123456", aDX, 1, 4);
 
@@ -707,7 +711,7 @@ void SvmTest::testStrechText()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
     pVirtualDev->DrawStretchText(Point(4,6), 10, "123456", 1, 4);
 
     checkStrechText(writeAndRead(aGDIMetaFile, "strecthtext.svm"));
@@ -728,7 +732,7 @@ void SvmTest::testTextRect()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
     pVirtualDev->DrawText(tools::Rectangle(Point(0,0), Size(5,5)), "123456", DrawTextFlags::Center);
 
     checkTextRect(writeAndRead(aGDIMetaFile, "textrectangle.svm"));
@@ -748,7 +752,7 @@ void SvmTest::testTextLine()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
     pVirtualDev->DrawTextLine(Point(4,6), 10, STRIKEOUT_SINGLE, LINESTYLE_SINGLE, LINESTYLE_SINGLE);
 
     checkTextLine(writeAndRead(aGDIMetaFile, "textline.svm"));
@@ -785,7 +789,7 @@ void SvmTest::testBitmaps()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     Bitmap aBitmap1(Size(4,4), 24);
     {
@@ -846,7 +850,7 @@ void SvmTest::testBitmapExs()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     Bitmap aBitmap1(Size(4,4), 24);
     {
@@ -902,7 +906,7 @@ void SvmTest::testMasks()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     Bitmap aBitmap1(Size(4,4), 24);
     {
@@ -948,7 +952,7 @@ void SvmTest::testPushPop()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetLineColor(COL_YELLOW);
     pVirtualDev->Push();
@@ -977,7 +981,7 @@ void SvmTest::testTextColor()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetTextColor(Color(0x123456));
 
@@ -997,7 +1001,7 @@ void SvmTest::testTextFillColor()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetTextFillColor(Color(0x234567));
 
@@ -1017,11 +1021,49 @@ void SvmTest::testTextLineColor()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
     pVirtualDev->SetTextLineColor(Color(0x345678));
 
     checkTextLineColor(writeAndRead(aGDIMetaFile, "textlinecolor.svm"));
+}
+
+void SvmTest::checkGradient(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/gradient[1]", {
+        {"style", "Linear"},
+        {"startcolor", "#ffffff"},
+        {"endcolor", "#000000"},
+        {"angle", "0"},
+        {"border", "0"},
+        {"offsetx", "50"},
+        {"offsety", "50"},
+        {"startintensity", "100"},
+        {"endintensity", "100"},
+        {"steps", "0"},
+    });
+    assertXPathAttrs(pDoc, "/metafile/gradient[1]/rectangle", {
+        {"left", "1"},
+        {"top", "2"},
+        {"right", "4"},
+        {"bottom", "6"},
+    });
+}
+
+void SvmTest::testGradient()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+
+    tools::Rectangle aRectangle(Point(1, 2), Size(4,5));
+
+    Gradient aGradient(GradientStyle::Linear, COL_WHITE, COL_BLACK);
+    pVirtualDev->DrawGradient(aRectangle, aGradient);
+
+    checkGradient(writeAndRead(aGDIMetaFile, "gradient.svm"));
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SvmTest);

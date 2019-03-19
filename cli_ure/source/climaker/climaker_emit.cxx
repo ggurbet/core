@@ -624,7 +624,7 @@ Assembly ^ TypeEmitter::type_resolve(
         }
     }
     ::System::String ^ cts_name = to_cts_name( uno_name );
-    // if the struct is an instantiated polymorpic struct then we create the simple struct name
+    // if the struct is an instantiated polymorphic struct then we create the simple struct name
     // For example:
     // void func ([in] PolyStruct<boolean> arg);
     //PolyStruct<boolean> will be converted to PolyStruct
@@ -1780,7 +1780,7 @@ Assembly ^ TypeEmitter::type_resolve(
                 ilGen->Emit(Emit::OpCodes::Ldloc, arLocalAny[i]);
                 ilGen->Emit(Emit::OpCodes::Stobj, typeAny);
             }
-            // call createInstanceWithContextAndArguments
+            // call createInstanceWithArgumentsAndContext
             ilGen->Emit(Emit::OpCodes::Ldloc, local_factory);
             ilGen->Emit(Emit::OpCodes::Ldstr, ustring_to_String(xServiceType->getName()));
             ilGen->Emit(Emit::OpCodes::Ldloc, local_anyParams);

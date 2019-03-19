@@ -41,7 +41,6 @@
 #include <pam.hxx>
 #include <redline.hxx>
 #include <rolbck.hxx>
-#include <o3tl/make_unique.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
@@ -55,6 +54,7 @@
 #include <viscrs.hxx>
 #include <edimp.hxx>
 #include <tools/datetimeutils.hxx>
+#include <view.hxx>
 
 using namespace ::sw::mark;
 
@@ -156,7 +156,7 @@ namespace
             return lcl_PositionFromContentNode( pNode, bPosAtEndOfNode );
         }
 
-        return o3tl::make_unique<SwPosition>(rOtherPosition);
+        return std::make_unique<SwPosition>(rOtherPosition);
     }
 
     IMark* lcl_getMarkAfter(const IDocumentMarkAccess::container_t& rMarks, const SwPosition& rPos)
@@ -339,6 +339,8 @@ IDocumentMarkAccess::MarkType IDocumentMarkAccess::GetType(const IMark& rBkmk)
         return MarkType::TEXT_FIELDMARK;
     else if(*pMarkTypeInfo == typeid(CheckboxFieldmark))
         return MarkType::CHECKBOX_FIELDMARK;
+    else if(*pMarkTypeInfo == typeid(DropDownFieldmark))
+        return MarkType::DROPDOWN_FIELDMARK;
     else if(*pMarkTypeInfo == typeid(NavigatorReminder))
         return MarkType::NAVIGATOR_REMINDER;
     else
@@ -371,6 +373,7 @@ namespace sw { namespace mark
         , m_vFieldmarks()
         , m_vAnnotationMarks()
         , m_pDoc(&rDoc)
+        , m_pLastActiveFieldmark(nullptr)
     { }
 
     ::sw::mark::IMark* MarkManager::makeMark(const SwPaM& rPaM,
@@ -414,6 +417,9 @@ namespace sw { namespace mark
                 break;
             case IDocumentMarkAccess::MarkType::CHECKBOX_FIELDMARK:
                 pMark = std::shared_ptr<IMark>(new CheckboxFieldmark(rPaM));
+                break;
+            case IDocumentMarkAccess::MarkType::DROPDOWN_FIELDMARK:
+                pMark = std::shared_ptr<IMark>(new DropDownFieldmark(rPaM));
                 break;
             case IDocumentMarkAccess::MarkType::NAVIGATOR_REMINDER:
                 pMark = std::shared_ptr<IMark>(new NavigatorReminder(rPaM));
@@ -463,6 +469,7 @@ namespace sw { namespace mark
                 break;
             case IDocumentMarkAccess::MarkType::TEXT_FIELDMARK:
             case IDocumentMarkAccess::MarkType::CHECKBOX_FIELDMARK:
+            case IDocumentMarkAccess::MarkType::DROPDOWN_FIELDMARK:
                 lcl_InsertMarkSorted(m_vFieldmarks, pMark);
                 break;
             case IDocumentMarkAccess::MarkType::ANNOTATIONMARK:
@@ -491,12 +498,22 @@ namespace sw { namespace mark
         const OUString& rName,
         const OUString& rType )
     {
+        // Disable undo, because we handle it using SwUndoInsTextFieldmark
+        bool bUndoIsEnabled = m_pDoc->GetIDocumentUndoRedo().DoesUndo();
+        m_pDoc->GetIDocumentUndoRedo().DoUndo(false);
+
         sw::mark::IMark* pMark = makeMark( rPaM, rName,
                 IDocumentMarkAccess::MarkType::TEXT_FIELDMARK,
                 sw::mark::InsertMode::New);
         sw::mark::IFieldmark* pFieldMark = dynamic_cast<sw::mark::IFieldmark*>( pMark );
         if (pFieldMark)
             pFieldMark->SetFieldname( rType );
+
+        if (bUndoIsEnabled)
+        {
+            m_pDoc->GetIDocumentUndoRedo().DoUndo(bUndoIsEnabled);
+            m_pDoc->GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoInsTextFieldmark>(*pFieldMark));
+        }
 
         return pFieldMark;
     }
@@ -506,12 +523,39 @@ namespace sw { namespace mark
         const OUString& rName,
         const OUString& rType)
     {
-        sw::mark::IMark* pMark = makeMark( rPaM, rName,
-                IDocumentMarkAccess::MarkType::CHECKBOX_FIELDMARK,
-                sw::mark::InsertMode::New);
+        // Disable undo, because we handle it using SwUndoInsNoTextFieldmark
+        bool bUndoIsEnabled = m_pDoc->GetIDocumentUndoRedo().DoesUndo();
+        m_pDoc->GetIDocumentUndoRedo().DoUndo(false);
+
+        bool bEnableSetModified = m_pDoc->getIDocumentState().IsEnableSetModified();
+        m_pDoc->getIDocumentState().SetEnableSetModified(false);
+
+        sw::mark::IMark* pMark = nullptr;
+        if(rType == ODF_FORMCHECKBOX)
+        {
+            pMark = makeMark( rPaM, rName,
+                    IDocumentMarkAccess::MarkType::CHECKBOX_FIELDMARK,
+                    sw::mark::InsertMode::New);
+        }
+        else if(rType == ODF_FORMDROPDOWN)
+        {
+            pMark = makeMark( rPaM, rName,
+                    IDocumentMarkAccess::MarkType::DROPDOWN_FIELDMARK,
+                    sw::mark::InsertMode::New);
+        }
+
         sw::mark::IFieldmark* pFieldMark = dynamic_cast<sw::mark::IFieldmark*>( pMark );
         if (pFieldMark)
             pFieldMark->SetFieldname( rType );
+
+        if (bUndoIsEnabled)
+        {
+            m_pDoc->GetIDocumentUndoRedo().DoUndo(bUndoIsEnabled);
+            m_pDoc->GetIDocumentUndoRedo().AppendUndo(std::make_unique<SwUndoInsNoTextFieldmark>(*pFieldMark));
+        }
+
+        m_pDoc->getIDocumentState().SetEnableSetModified(bEnableSetModified);
+        m_pDoc->getIDocumentState().SetModified();
 
         return pFieldMark;
     }
@@ -581,7 +625,7 @@ namespace sw { namespace mark
                 if (m_pDoc->GetIDocumentUndoRedo().DoesUndo())
                 {
                     m_pDoc->GetIDocumentUndoRedo().AppendUndo(
-                            o3tl::make_unique<SwUndoRenameBookmark>(sOldName, rNewName, m_pDoc));
+                            std::make_unique<SwUndoRenameBookmark>(sOldName, rNewName, m_pDoc));
                 }
                 m_pDoc->getIDocumentState().SetModified();
             }
@@ -786,7 +830,7 @@ namespace sw { namespace mark
                 {
                     if ( pEndIdx != nullptr )
                     {
-                        pNewPos = o3tl::make_unique< SwPosition >( rEnd, *pEndIdx );
+                        pNewPos = std::make_unique< SwPosition >( rEnd, *pEndIdx );
                     }
                     else
                     {
@@ -909,10 +953,14 @@ namespace sw { namespace mark
 
             case IDocumentMarkAccess::MarkType::TEXT_FIELDMARK:
             case IDocumentMarkAccess::MarkType::CHECKBOX_FIELDMARK:
+            case IDocumentMarkAccess::MarkType::DROPDOWN_FIELDMARK:
                 {
                     IDocumentMarkAccess::iterator_t ppFieldmark = lcl_FindMark(m_vFieldmarks, *ppMark);
                     if ( ppFieldmark != m_vFieldmarks.end() )
                     {
+                        if(m_pLastActiveFieldmark == ppFieldmark->get())
+                            ClearFieldActivation();
+
                         m_vFieldmarks.erase(ppFieldmark);
                         ret.reset(new LazyFieldmarkDeleter(*ppMark, m_pDoc));
                     }
@@ -988,6 +1036,7 @@ namespace sw { namespace mark
 
     void MarkManager::clearAllMarks()
     {
+        ClearFieldActivation();
         m_vFieldmarks.clear();
         m_vBookmarks.clear();
 
@@ -1039,6 +1088,95 @@ namespace sw { namespace mark
             [&rPos] (pMark_t const& rpMark) { return rpMark->IsCoveringPosition(rPos); } );
         if(pFieldmark == m_vFieldmarks.end()) return nullptr;
         return dynamic_cast<IFieldmark*>(pFieldmark->get());
+    }
+
+    void MarkManager::deleteFieldmarkAt(const SwPosition& rPos)
+    {
+        const_iterator_t pFieldmark = find_if(
+            m_vFieldmarks.begin(),
+            m_vFieldmarks.end(),
+            [&rPos] (pMark_t const& rpMark) { return rpMark->IsCoveringPosition(rPos); } );
+        if(pFieldmark == m_vFieldmarks.end()) return;
+
+        deleteMark(lcl_FindMark(m_vAllMarks, *pFieldmark));
+    }
+
+    ::sw::mark::IFieldmark* MarkManager::changeNonTextFieldmarkType(::sw::mark::IFieldmark* pFieldmark, const OUString& rNewType)
+    {
+        bool bActualChange = false;
+        if(rNewType == ODF_FORMDROPDOWN)
+        {
+            if (dynamic_cast<::sw::mark::CheckboxFieldmark*>(pFieldmark))
+                bActualChange = true;
+        }
+        else if(rNewType == ODF_FORMCHECKBOX)
+        {
+            if (dynamic_cast<::sw::mark::DropDownFieldmark*>(pFieldmark))
+                bActualChange = true;
+        }
+
+        if (!bActualChange)
+            return nullptr;
+
+        // Store attributes needed to create the new fieldmark
+        OUString sName = pFieldmark->GetName();
+        SwPaM aPaM(pFieldmark->GetMarkPos());
+
+        // Remove the old fieldmark and create a new one with the new type
+        if(aPaM.GetPoint()->nContent > 0)
+        {
+            --aPaM.GetPoint()->nContent;
+            SwPosition aNewPos (aPaM.GetPoint()->nNode, aPaM.GetPoint()->nContent);
+            deleteFieldmarkAt(aNewPos);
+            return makeNoTextFieldBookmark(aPaM, sName, rNewType);
+        }
+        return nullptr;
+    }
+
+    void MarkManager::NotifyCursorUpdate(const SwCursorShell& rCursorShell)
+    {
+        SwView* pSwView = dynamic_cast<SwView *>(rCursorShell.GetSfxViewShell());
+        if(!pSwView)
+            return;
+
+        SwEditWin& rEditWin = pSwView->GetEditWin();
+        SwPosition aPos(*rCursorShell.GetCursor()->GetPoint());
+        IFieldmark* pFieldBM = getFieldmarkFor(aPos);
+        DropDownFieldmark* pNewActiveFieldmark = nullptr;
+        if ((!pFieldBM || pFieldBM->GetFieldname() != ODF_FORMDROPDOWN)
+            && aPos.nContent.GetIndex() > 0 )
+        {
+            --aPos.nContent;
+            pFieldBM = getFieldmarkFor(aPos);
+        }
+
+        if ( pFieldBM && pFieldBM->GetFieldname() == ODF_FORMDROPDOWN )
+        {
+            if (m_pLastActiveFieldmark != pFieldBM)
+            {
+                DropDownFieldmark* pDropDownFm = dynamic_cast<DropDownFieldmark*>(pFieldBM);
+                pDropDownFm->ShowButton(&rEditWin);
+                pNewActiveFieldmark = pDropDownFm;
+            }
+            else
+            {
+                pNewActiveFieldmark = m_pLastActiveFieldmark;
+            }
+        }
+
+        if(pNewActiveFieldmark != m_pLastActiveFieldmark)
+        {
+            ClearFieldActivation();
+            m_pLastActiveFieldmark = pNewActiveFieldmark;
+        }
+    }
+
+    void MarkManager::ClearFieldActivation()
+    {
+        if(m_pLastActiveFieldmark)
+            m_pLastActiveFieldmark->RemoveButton();
+
+        m_pLastActiveFieldmark = nullptr;
     }
 
     IFieldmark* MarkManager::getDropDownFor(const SwPosition& rPos) const

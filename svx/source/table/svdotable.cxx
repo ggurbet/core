@@ -22,8 +22,8 @@
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
-#include <o3tl/make_unique.hxx>
 #include <vcl/canvastools.hxx>
+#include <vcl/ptrstyle.hxx>
 #include <com/sun/star/style/XStyle.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <basegfx/polygon/b2dpolygontools.hxx>
@@ -127,7 +127,7 @@ void TableProperties::ItemChange(const sal_uInt16 nWhich, const SfxPoolItem* pNe
 // create a new itemset
 std::unique_ptr<SfxItemSet> TableProperties::CreateObjectSpecificItemSet(SfxItemPool& rPool)
 {
-    return o3tl::make_unique<SfxItemSet>(rPool,
+    return std::make_unique<SfxItemSet>(rPool,
 
         // range from SdrAttrObj
         svl::Items<SDRATTR_START, SDRATTR_SHADOW_LAST,
@@ -232,7 +232,7 @@ public:
     void connectTableStyle();
     void disconnectTableStyle();
     virtual bool isInUse() override;
-    void dumpAsXml(struct _xmlTextWriter* pWriter) const;
+    void dumpAsXml(xmlTextWriterPtr pWriter) const;
 private:
     static SdrTableObjImpl* lastLayoutTable;
     static tools::Rectangle lastLayoutInputRectangle;
@@ -834,7 +834,7 @@ void SdrTableObjImpl::UpdateCells( tools::Rectangle const & rArea )
 
 std::unique_ptr<sdr::properties::BaseProperties> SdrTableObj::CreateObjectSpecificProperties()
 {
-    return o3tl::make_unique<TableProperties>(*this);
+    return std::make_unique<TableProperties>(*this);
 }
 
 
@@ -843,7 +843,7 @@ std::unique_ptr<sdr::properties::BaseProperties> SdrTableObj::CreateObjectSpecif
 
 std::unique_ptr<sdr::contact::ViewContact> SdrTableObj::CreateObjectSpecificViewContact()
 {
-    return o3tl::make_unique<sdr::contact::ViewContactOfTableObj>(*this);
+    return std::make_unique<sdr::contact::ViewContactOfTableObj>(*this);
 }
 
 SdrTableObj::SdrTableObj(SdrModel& rSdrModel)
@@ -1476,7 +1476,7 @@ void SdrTableObj::TakeTextRect( const CellPos& rPos, SdrOutliner& rOutliner, too
     // supporting full width for vertical text.
 //  if( SDRTEXTHORZADJUST_BLOCK == eHAdj && !IsVerticalWriting())
 //  {
-        rOutliner.SetMinAutoPaperSize(Size(aAnkRect.GetWidth(), 0));
+    rOutliner.SetMinAutoPaperSize(Size(aAnkRect.GetWidth(), 0));
 //  }
 //  else if(SDRTEXTVERTADJUST_BLOCK == eVAdj && IsVerticalWriting())
 //  {
@@ -1647,7 +1647,7 @@ void SdrTableObj::TakeTextEditArea( const CellPos& rPos, Size* pPaperMin, Size* 
 
     aPaperMax=aMaxSiz;
 
-        aPaperMin.setWidth( aAnkSiz.Width() );
+    aPaperMin.setWidth( aAnkSiz.Width() );
 
     if (pViewMin!=nullptr)
     {
@@ -2147,15 +2147,15 @@ void SdrTableObj::AddToHdlList(SdrHdlList& rHdlList) const
 
     // add remaining handles
     SdrHdlList tempList(nullptr);
-    tempList.AddHdl( o3tl::make_unique<TableBorderHdl>( maRect, !IsTextEditActive() ) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.TopLeft(),SdrHdlKind::UpperLeft) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.TopCenter(),SdrHdlKind::Upper) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.TopRight(),SdrHdlKind::UpperRight) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.LeftCenter(),SdrHdlKind::Left) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.RightCenter(),SdrHdlKind::Right) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.BottomLeft(),SdrHdlKind::LowerLeft) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.BottomCenter(),SdrHdlKind::Lower) );
-    tempList.AddHdl( o3tl::make_unique<SdrHdl>(maRect.BottomRight(),SdrHdlKind::LowerRight) );
+    tempList.AddHdl( std::make_unique<TableBorderHdl>( maRect, !IsTextEditActive() ) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.TopLeft(),SdrHdlKind::UpperLeft) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.TopCenter(),SdrHdlKind::Upper) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.TopRight(),SdrHdlKind::UpperRight) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.LeftCenter(),SdrHdlKind::Left) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.RightCenter(),SdrHdlKind::Right) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.BottomLeft(),SdrHdlKind::LowerLeft) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.BottomCenter(),SdrHdlKind::Lower) );
+    tempList.AddHdl( std::make_unique<SdrHdl>(maRect.BottomRight(),SdrHdlKind::LowerRight) );
     for( size_t nHdl = 0; nHdl < tempList.GetHdlCount(); ++nHdl )
         tempList.GetHdl(nHdl)->SetMoveOutside(true);
     tempList.MoveTo(rHdlList);
@@ -2237,7 +2237,7 @@ bool SdrTableObj::applySpecialDrag(SdrDragStat& rDrag)
 
         case SdrHdlKind::Move:
         {
-               NbcMove( Size( rDrag.GetDX(), rDrag.GetDY() ) );
+            NbcMove( Size( rDrag.GetDX(), rDrag.GetDY() ) );
             break;
         }
 
@@ -2346,9 +2346,9 @@ basegfx::B2DPolyPolygon SdrTableObj::TakeCreatePoly(const SdrDragStat& rDrag) co
 }
 
 
-Pointer SdrTableObj::GetCreatePointer() const
+PointerStyle SdrTableObj::GetCreatePointer() const
 {
-    return Pointer(PointerStyle::Cross);
+    return PointerStyle::Cross;
 }
 
 

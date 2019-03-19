@@ -191,8 +191,8 @@ public:
                                     std::vector< sal_Int32 >& rWidths,
                                     Ucs2UIntMap& rUnicodeEnc ) = 0;
 
-    virtual std::unique_ptr<SalLayout>
-                                GetTextLayout( ImplLayoutArgs&, int nFallbackLevel ) = 0;
+    virtual std::unique_ptr<GenericSalLayout>
+                                GetTextLayout(int nFallbackLevel) = 0;
     virtual void                DrawTextLayout( const GenericSalLayout& ) = 0;
 
     virtual bool                supportsOperation( OutDevSupportType ) const = 0;
@@ -336,7 +336,7 @@ public:
                                     long nX, long nY,
                                     long nWidth, long nHeight,
                                     void* pPtr,
-                                    sal_uLong nSize,
+                                    sal_uInt32 nSize,
                                     const OutputDevice *pOutDev );
 
     //  native widget rendering functions
@@ -348,8 +348,7 @@ public:
      * @param [in] ePart The part of the widget.
      * @return true if the platform supports native drawing of the widget type defined by part.
      */
-    virtual bool                IsNativeControlSupported(
-                                    ControlType eType, ControlPart ePart );
+    bool IsSupported(ControlType eType, ControlPart ePart);
 
 
     /**
@@ -443,6 +442,11 @@ public:
 
 #endif // ENABLE_CAIRO_CANVAS
 
+private:
+    bool callGetNativeControlRegion(ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState nState, const ImplControlValue& aValue, tools::Rectangle &rNativeBoundingRegion, tools::Rectangle &rNativeContentRegion);
+    bool callDrawNativeControl(ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState nState, const ImplControlValue& aValue, const OUString& rCaption);
+    bool callHitTestNativeControl(ControlType eType, ControlPart nPart, const tools::Rectangle& rControlRegion, const Point& aPos, bool& rIsInside);
+
 protected:
     virtual bool                setClipRegion( const vcl::Region& ) = 0;
 
@@ -534,7 +538,16 @@ protected:
                                     long nX, long nY,
                                     long nWidth, long nHeight,
                                     void* pPtr,
-                                    sal_uLong nSize ) = 0;
+                                    sal_uInt32 nSize ) = 0;
+
+    /**
+     * Query the platform layer for native control support.
+     *
+     * @param [in] eType The widget type.
+     * @param [in] ePart The part of the widget.
+     * @return true if the platform supports native drawing of the widget type defined by part.
+     */
+    virtual bool IsNativeControlSupported(ControlType eType, ControlPart ePart);
 
     /**
      * Query if a position is inside the native widget part.
@@ -601,6 +614,7 @@ protected:
                                     tools::Rectangle &rNativeBoundingRegion,
                                     tools::Rectangle &rNativeContentRegion );
 
+
     /** Blend the bitmap with the current buffer */
     virtual bool                blendBitmap(
                                     const SalTwoRect&,
@@ -666,11 +680,13 @@ protected:
 
     inline long GetDeviceWidth(const OutputDevice* pOutDev) const;
 
+    // native controls
+    bool initWidgetDrawBackends(bool bForce = false);
+
     bool hasWidgetDraw()
     {
         return bool(m_pWidgetDraw);
     }
-
     std::unique_ptr<vcl::WidgetDrawInterface> m_pWidgetDraw;
 };
 

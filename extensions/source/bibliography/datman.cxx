@@ -39,6 +39,7 @@
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
 #include <com/sun/star/sdbc/XConnection.hpp>
 #include <com/sun/star/sdb/XCompletedConnection.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/form/ListSourceType.hpp>
 #include <com/sun/star/form/XLoadable.hpp>
@@ -174,9 +175,10 @@ static Reference< XNameAccess >  getColumns(const Reference< XForm > & _rxForm)
                 if (xSupplyCols.is())
                     xReturn = xSupplyCols->getColumns();
             }
-            catch (const Exception& e)
+            catch (const Exception&)
             {
-                SAL_WARN( "extensions.biblio", "::getColumns : caught an exception. " << e);
+                css::uno::Any ex( cppu::getCaughtException() );
+                SAL_WARN( "extensions.biblio", "::getColumns : caught an exception. " << exceptionToString(ex));
             }
 
         }
@@ -448,41 +450,35 @@ IMPL_LINK_NOARG(MappingDialog_Impl, OkHdl, Button*, void)
     EndDialog(bModified ? RET_OK : RET_CANCEL);
 }
 
-class DBChangeDialog_Impl : public ModalDialog
+class DBChangeDialog_Impl : public weld::GenericDialogController
 {
-    VclPtr<ListBox>    m_pSelectionLB;
-    DBChangeDialogConfig_Impl   aConfig;
-
+    DBChangeDialogConfig_Impl aConfig;
     BibDataManager* pDatMan;
 
-    DECL_LINK(DoubleClickHdl, ListBox&, void);
+    std::unique_ptr<weld::TreeView> m_xSelectionLB;
+
+    DECL_LINK(DoubleClickHdl, weld::TreeView&, void);
 public:
-    DBChangeDialog_Impl(vcl::Window* pParent, BibDataManager* pMan );
-    virtual ~DBChangeDialog_Impl() override;
-    virtual void dispose() override;
+    DBChangeDialog_Impl(weld::Window* pParent, BibDataManager* pMan);
 
     OUString     GetCurrentURL()const;
 };
 
-DBChangeDialog_Impl::DBChangeDialog_Impl(vcl::Window* pParent, BibDataManager* pMan )
-    : ModalDialog(pParent, "ChooseDataSourceDialog",
-        "modules/sbibliography/ui/choosedatasourcedialog.ui")
-    ,
-    pDatMan(pMan)
+DBChangeDialog_Impl::DBChangeDialog_Impl(weld::Window* pParent, BibDataManager* pMan )
+    : GenericDialogController(pParent, "modules/sbibliography/ui/choosedatasourcedialog.ui", "ChooseDataSourceDialog")
+    , pDatMan(pMan)
+    , m_xSelectionLB(m_xBuilder->weld_tree_view("treeview"))
 {
-    get(m_pSelectionLB, "treeview");
-    m_pSelectionLB->set_height_request(m_pSelectionLB->GetTextHeight() * 6);
-
-    m_pSelectionLB->SetStyle(m_pSelectionLB->GetStyle() | WB_SORT);
-    m_pSelectionLB->SetDoubleClickHdl( LINK(this, DBChangeDialog_Impl, DoubleClickHdl));
+    m_xSelectionLB->set_size_request(-1, m_xSelectionLB->get_height_rows(6));
+    m_xSelectionLB->connect_row_activated(LINK(this, DBChangeDialog_Impl, DoubleClickHdl));
+    m_xSelectionLB->make_sorted();
 
     try
     {
         OUString sActiveSource = pDatMan->getActiveDataSource();
         for (const OUString& rSourceName : aConfig.GetDataSourceNames())
-            m_pSelectionLB->InsertEntry(rSourceName);
-
-        m_pSelectionLB->SelectEntry(sActiveSource);
+            m_xSelectionLB->append_text(rSourceName);
+        m_xSelectionLB->select_text(sActiveSource);
     }
     catch (const Exception& e)
     {
@@ -492,25 +488,14 @@ DBChangeDialog_Impl::DBChangeDialog_Impl(vcl::Window* pParent, BibDataManager* p
     }
 }
 
-IMPL_LINK_NOARG(DBChangeDialog_Impl, DoubleClickHdl, ListBox&, void)
+IMPL_LINK_NOARG(DBChangeDialog_Impl, DoubleClickHdl, weld::TreeView&, void)
 {
-    EndDialog(RET_OK);
-}
-
-DBChangeDialog_Impl::~DBChangeDialog_Impl()
-{
-    disposeOnce();
-}
-
-void DBChangeDialog_Impl::dispose()
-{
-    m_pSelectionLB.clear();
-    ModalDialog::dispose();
+    m_xDialog->response(RET_OK);
 }
 
 OUString  DBChangeDialog_Impl::GetCurrentURL()const
 {
-    return m_pSelectionLB->GetSelectedEntry();
+    return m_xSelectionLB->get_selected_text();
 }
 
 // XDispatchProvider
@@ -588,7 +573,6 @@ void SAL_CALL BibInterceptorHelper::setMasterDispatchProvider( const css::uno::R
 }
 
 
-#define STR_UID "uid"
 OUString const gGridName("theGrid");
 OUString const gViewName("theView");
 OUString const gGlobalName("theGlobals");
@@ -613,7 +597,6 @@ BibDataManager::~BibDataManager()
     {
         Reference< XComponent >  xConnection;
         xPrSet->getPropertyValue("ActiveConnection") >>= xConnection;
-        RemoveMeAsUidListener();
         if (xLoad.is())
             xLoad->unload();
         if (xComp.is())
@@ -1085,7 +1068,6 @@ void SAL_CALL BibDataManager::load(  )
     if ( xFormAsLoadable.is() )
     {
         xFormAsLoadable->load();
-        SetMeAsUidListener();
 
         EventObject aEvt( static_cast< XWeak* >( this ) );
         m_aLoadListeners.notifyEach( &XLoadListener::loaded, aEvt );
@@ -1109,7 +1091,6 @@ void SAL_CALL BibDataManager::unload(  )
             m_aLoadListeners.notifyEach( &XLoadListener::unloading, aEvt );
         }
 
-        RemoveMeAsUidListener();
         xFormAsLoadable->unload();
 
         {
@@ -1374,106 +1355,6 @@ Reference< awt::XControlModel > BibDataManager::loadControlModel(
     return xModel;
 }
 
-void BibDataManager::disposing( const EventObject& /*Source*/ )
-{
-    // not interested in
-}
-
-
-void BibDataManager::propertyChange(const beans::PropertyChangeEvent& evt)
-{
-    try
-    {
-        if(evt.PropertyName == FM_PROP_VALUE)
-        {
-            if( evt.NewValue.getValueType() == cppu::UnoType<io::XInputStream>::get())
-            {
-                Reference< io::XDataInputStream >  xStream(
-                    evt.NewValue, UNO_QUERY );
-                aUID <<= xStream->readUTF();
-            }
-            else
-                aUID = evt.NewValue;
-        }
-    }
-    catch (const Exception&)
-    {
-        OSL_FAIL("::propertyChange: something went wrong !");
-    }
-}
-
-
-void BibDataManager::SetMeAsUidListener()
-{
-    try
-    {
-        Reference< XNameAccess >  xFields = getColumns( m_xForm );
-        if (!xFields.is())
-            return;
-
-        OUString theFieldName;
-        for( const OUString& rName : xFields->getElementNames() )
-        {
-            if (rName.equalsIgnoreAsciiCase(STR_UID))
-            {
-                theFieldName=rName;
-                break;
-            }
-        }
-
-        if(!theFieldName.isEmpty())
-        {
-            Any aElement;
-
-            aElement = xFields->getByName(theFieldName);
-            auto xPropSet = o3tl::doAccess<Reference<XPropertySet>>(aElement);
-
-            (*xPropSet)->addPropertyChangeListener(FM_PROP_VALUE, this);
-        }
-
-    }
-    catch (const Exception&)
-    {
-        OSL_FAIL("Exception in BibDataManager::SetMeAsUidListener");
-    }
-}
-
-
-void BibDataManager::RemoveMeAsUidListener()
-{
-    try
-    {
-        Reference< XNameAccess >  xFields = getColumns( m_xForm );
-        if (!xFields.is())
-            return;
-
-        OUString theFieldName;
-        for(const OUString& rName : xFields->getElementNames() )
-        {
-            if (rName.equalsIgnoreAsciiCase(STR_UID))
-            {
-                theFieldName=rName;
-                break;
-            }
-        }
-
-        if(!theFieldName.isEmpty())
-        {
-            Any aElement;
-
-            aElement = xFields->getByName(theFieldName);
-            auto xPropSet = o3tl::doAccess<Reference<XPropertySet>>(aElement);
-
-            (*xPropSet)->removePropertyChangeListener(FM_PROP_VALUE, this);
-        }
-
-    }
-    catch (const Exception&)
-    {
-        OSL_FAIL("Exception in BibDataManager::RemoveMeAsUidListener");
-    }
-}
-
 void BibDataManager::CreateMappingDialog(vcl::Window* pParent)
 {
     VclPtrInstance< MappingDialog_Impl > pDlg(pParent, this);
@@ -1483,13 +1364,13 @@ void BibDataManager::CreateMappingDialog(vcl::Window* pParent)
     }
 }
 
-OUString BibDataManager::CreateDBChangeDialog(vcl::Window* pParent)
+OUString BibDataManager::CreateDBChangeDialog(weld::Window* pParent)
 {
     OUString uRet;
-    VclPtrInstance< DBChangeDialog_Impl > pDlg(pParent, this );
-    if(RET_OK == pDlg->Execute())
+    DBChangeDialog_Impl aDlg(pParent, this);
+    if (aDlg.run() == RET_OK)
     {
-        OUString sNewURL = pDlg->GetCurrentURL();
+        OUString sNewURL = aDlg.GetCurrentURL();
         if(sNewURL != getActiveDataSource())
         {
             uRet = sNewURL;

@@ -18,15 +18,11 @@
  */
 
 #include <PaneDockingWindow.hxx>
-#include <Window.hxx>
 #include <ViewShellBase.hxx>
 #include <framework/FrameworkHelper.hxx>
 
 #include <sfx2/dispatch.hxx>
-#include <vcl/toolbox.hxx>
-#include <vcl/taskpanelist.hxx>
 #include <vcl/splitwin.hxx>
-#include <vcl/svapp.hxx>
 #include <tools/wintypes.hxx>
 
 using namespace ::com::sun::star;
@@ -97,22 +93,22 @@ void PaneDockingWindow::MouseButtonDown (const MouseEvent& rEvent)
 void PaneDockingWindow::SetValidSizeRange (const Range& rValidSizeRange)
 {
     SplitWindow* pSplitWindow = dynamic_cast<SplitWindow*>(GetParent());
-    if (pSplitWindow != nullptr)
-    {
-        const sal_uInt16 nId (pSplitWindow->GetItemId(static_cast< vcl::Window*>(this)));
-        const sal_uInt16 nSetId (pSplitWindow->GetSet(nId));
-        // Because the PaneDockingWindow paints its own decoration, we have
-        // to compensate the valid size range for that.
-        const SvBorder aBorder (GetDecorationBorder());
-        sal_Int32 nCompensation (pSplitWindow->IsHorizontal()
-            ? aBorder.Top() + aBorder.Bottom()
-            : aBorder.Left() + aBorder.Right());
-        pSplitWindow->SetItemSizeRange(
-            nSetId,
-            Range(
-                rValidSizeRange.Min() + nCompensation,
-                rValidSizeRange.Max() + nCompensation));
-    }
+    if (pSplitWindow == nullptr)
+        return;
+
+    const sal_uInt16 nId (pSplitWindow->GetItemId(static_cast< vcl::Window*>(this)));
+    const sal_uInt16 nSetId (pSplitWindow->GetSet(nId));
+    // Because the PaneDockingWindow paints its own decoration, we have
+    // to compensate the valid size range for that.
+    const SvBorder aBorder (GetDecorationBorder());
+    sal_Int32 nCompensation (pSplitWindow->IsHorizontal()
+        ? aBorder.Top() + aBorder.Bottom()
+        : aBorder.Left() + aBorder.Right());
+    pSplitWindow->SetItemSizeRange(
+        nSetId,
+        Range(
+            rValidSizeRange.Min() + nCompensation,
+            rValidSizeRange.Max() + nCompensation));
 }
 
 PaneDockingWindow::Orientation PaneDockingWindow::GetOrientation() const

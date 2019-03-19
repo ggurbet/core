@@ -21,9 +21,7 @@
 #include <AccessiblePreviewTable.hxx>
 #include <AccessiblePreviewCell.hxx>
 #include <AccessiblePreviewHeaderCell.hxx>
-#include <AccessibilityHints.hxx>
 #include <prevwsh.hxx>
-#include <miscuno.hxx>
 #include <prevloc.hxx>
 #include <attrib.hxx>
 #include <document.hxx>
@@ -443,7 +441,7 @@ uno::Reference< XAccessible > SAL_CALL ScAccessiblePreviewTable::getAccessibleAt
 
 void SAL_CALL ScAccessiblePreviewTable::grabFocus()
 {
-     SolarMutexGuard aGuard;
+    SolarMutexGuard aGuard;
     IsObjectValid();
     if (getAccessibleParent().is())
     {

@@ -19,6 +19,7 @@
 
 #include <com/sun/star/text/ReferenceFieldPart.hpp>
 #include <com/sun/star/text/ReferenceFieldSource.hpp>
+#include <o3tl/unreachable.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/charclass.hxx>
 #include <editeng/unolingu.hxx>
@@ -557,16 +558,14 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
                     nEnd = std::min(nStart + 1, nLen);
                     break;
 
-                default:
-                    assert(false); // fall through to appease MSVC C4701
-#ifdef NDEBUG
-                    [[fallthrough]];
-#endif
                 // "Reference" (whole Text)
                 case REF_CONTENT:
                     nStart = 0;
                     nEnd = nLen;
                     break;
+
+                default:
+                    O3TL_UNREACHABLE;
                 }
                 break;
 
@@ -601,15 +600,13 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
                 }
                 return;
 
-            default:
-                assert(false); // fall through to appease MSVC C4701
-#ifdef NDEBUG
-                [[fallthrough]];
-#endif
             case REF_SETREFATTR:
                 nStart = nNumStart;
                 nEnd = nNumEnd;
                 break;
+
+            default:
+                O3TL_UNREACHABLE;
             }
 
             if( nStart != nEnd ) // a section?
@@ -666,10 +663,10 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
                     lcl_formatReferenceLanguage(rText, false, GetLanguage(), m_sSetReferenceLanguage);
             }
           };
-            // sw_redlinehide: currently only one of these layouts will exist,
-            // so the getLayoutFrame will use the same frame in both cases
-            func(m_sText, pLayout);
-            func(m_sTextRLHidden, pLayoutRLHidden);
+          // sw_redlinehide: currently only one of these layouts will exist,
+          // so the getLayoutFrame will use the same frame in both cases
+          func(m_sText, pLayout);
+          func(m_sTextRLHidden, pLayoutRLHidden);
         }
         break;
 
@@ -692,8 +689,8 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
                     lcl_formatReferenceLanguage(rText, false, GetLanguage(), m_sSetReferenceLanguage);
             }
           };
-            func(m_sText, pLayout);
-            func(m_sTextRLHidden, pLayoutRLHidden);
+          func(m_sText, pLayout);
+          func(m_sTextRLHidden, pLayoutRLHidden);
         }
         break;
 

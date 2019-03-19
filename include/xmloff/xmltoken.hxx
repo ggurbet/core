@@ -22,7 +22,6 @@
 
 #include <sal/config.h>
 #include <xmloff/dllapi.h>
-#include <sal/types.h>
 #include <rtl/ustring.hxx>
 #include <sax/fastattribs.hxx>
 
@@ -2184,6 +2183,7 @@ namespace xmloff { namespace token {
 
         XML_RL_TB,
         XML_TB_LR,
+        XML_BT_LR,
         XML_LR,
         XML_RL,
         XML_TB,

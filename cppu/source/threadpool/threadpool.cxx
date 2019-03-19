@@ -26,7 +26,6 @@
 
 #include <osl/diagnose.h>
 #include <osl/mutex.hxx>
-#include <osl/thread.h>
 #include <rtl/instance.hxx>
 #include <sal/log.hxx>
 
@@ -180,7 +179,7 @@ namespace cppu_threadpool
             }
         }
 
-        rtl::Reference< ORequestThread > pThread(
+        rtl::Reference pThread(
             new ORequestThread( this, pQueue , aThreadId, bAsynchron) );
         return pThread->launch();
     }
@@ -418,7 +417,7 @@ uno_threadpool_enter( uno_ThreadPool hPool , void **ppJob )
 extern "C" void SAL_CALL
 uno_threadpool_detach(SAL_UNUSED_PARAMETER uno_ThreadPool) SAL_THROW_EXTERN_C()
 {
-    // we might do here some tiding up in case a thread called attach but never detach
+    // we might do here some tidying up in case a thread called attach but never detach
 }
 
 extern "C" void SAL_CALL

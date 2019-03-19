@@ -11,6 +11,7 @@
 #define INCLUDED_SC_SOURCE_UI_INC_NAMEMGRTABLE_HXX
 
 #include <svtools/simptabl.hxx>
+#include <vcl/weld.hxx>
 
 #include <address.hxx>
 
@@ -84,6 +85,42 @@ public:
 
     DECL_LINK( ScrollHdl, SvTreeListBox*, void);
     DECL_LINK( HeaderEndDragHdl, HeaderBar*, void);
+};
+
+class SC_DLLPUBLIC RangeManagerTable
+{
+private:
+    std::unique_ptr<weld::TreeView> m_xTreeView;
+
+    OUString const maGlobalString;
+
+    // should be const because we should not modify it here
+    const std::map<OUString, std::unique_ptr<ScRangeName>>& m_RangeMap;
+    // for performance, save which entries already have the formula entry
+    // otherwise opening the dialog with a lot of range names is extremely slow because
+    // we would calculate all formula strings during opening
+    std::map<OUString, bool> maCalculatedFormulaEntries;
+    const ScAddress maPos;
+
+    int m_nId;
+
+    void GetLine(ScRangeNameLine& aLine, weld::TreeIter& rEntry);
+    void Init();
+    void CheckForFormulaString();
+    const ScRangeData* findRangeData(const ScRangeNameLine& rLine);
+
+    DECL_LINK(SizeAllocHdl, const Size&, void);
+    DECL_LINK(VisRowsScrolledHdl, weld::TreeView&, void);
+
+public:
+    RangeManagerTable(std::unique_ptr<weld::TreeView>,
+        const std::map<OUString, std::unique_ptr<ScRangeName>>& rTabRangeNames,
+        const ScAddress& rPos);
+
+    int n_children() const { return m_xTreeView->n_children(); }
+
+    void addEntry(const ScRangeNameLine& rLine);
+    std::vector<ScRangeNameLine> GetSelectedEntries();
 };
 
 #endif

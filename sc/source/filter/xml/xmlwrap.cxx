@@ -18,7 +18,6 @@
  */
 
 #include <vcl/errinf.hxx>
-#include <svl/style.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/objsh.hxx>
 #include <sot/storage.hxx>
@@ -26,7 +25,6 @@
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
-#include <unotools/streamwrap.hxx>
 #include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svx/xmlgrhlp.hxx>
@@ -37,10 +35,12 @@
 #include <sfx2/sfxsids.hrc>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
+#include <com/sun/star/frame/XTransientDocumentsDocumentContentFactory.hpp>
 #include <com/sun/star/xml/sax/InputSource.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
 #include <com/sun/star/xml/sax/XFastParser.hpp>
 #include <com/sun/star/xml/sax/Writer.hpp>
+#include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <comphelper/propertysetinfo.hxx>
@@ -51,19 +51,19 @@
 #include <com/sun/star/script/vba/XVBACompatibility.hpp>
 #include <com/sun/star/rdf/XDocumentMetadataAccess.hpp>
 #include <com/sun/star/ucb/InteractiveAugmentedIOException.hpp>
+#include <com/sun/star/task/XStatusIndicator.hpp>
 
 #include <sfx2/DocumentMetadataAccess.hxx>
 #include <comphelper/documentconstants.hxx>
 #include <svx/xmleohlp.hxx>
-#include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 #include <unotools/saveopt.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <document.hxx>
 #include <xmlwrap.hxx>
 #include "xmlimprt.hxx"
 #include "xmlexprt.hxx"
-#include <global.hxx>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <scerrors.hxx>
@@ -76,6 +76,7 @@
 #include <unonames.hxx>
 
 using namespace com::sun::star;
+using namespace css::uno;
 
 ScXMLImportWrapper::ScXMLImportWrapper( ScDocShell& rDocSh, SfxMedium* pM, const uno::Reference < embed::XStorage >& xStor ) :
     mrDocShell(rDocSh),
@@ -193,6 +194,7 @@ ErrCode ScXMLImportWrapper::ImportFromComponent(const uno::Reference<uno::XCompo
     }
     catch( const xml::sax::SAXParseException& r )
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         // sax parser sends wrapped exceptions,
         // try to find the original one
         xml::sax::SAXException aSaxEx = *static_cast<xml::sax::SAXException const *>(&r);
@@ -214,7 +216,7 @@ ErrCode ScXMLImportWrapper::ImportFromComponent(const uno::Reference<uno::XCompo
             nReturn = ERRCODE_SFX_WRONGPASSWORD;
         else
         {
-            SAL_WARN("sc.filter", "SAX parse exception caught while importing: " << r);
+            SAL_WARN("sc.filter", "SAX parse exception caught while importing: " << exceptionToString(ex));
 
             OUString sErr = OUString::number( r.LineNumber ) +
                           "," +
@@ -238,6 +240,7 @@ ErrCode ScXMLImportWrapper::ImportFromComponent(const uno::Reference<uno::XCompo
     }
     catch( const xml::sax::SAXException& r )
     {
+        css::uno::Any ex( cppu::getCaughtException() );
         packages::zip::ZipIOException aBrokenPackage;
         if ( r.WrappedException >>= aBrokenPackage )
             return ERRCODE_IO_BROKENPACKAGE;
@@ -245,26 +248,29 @@ ErrCode ScXMLImportWrapper::ImportFromComponent(const uno::Reference<uno::XCompo
             nReturn = ERRCODE_SFX_WRONGPASSWORD;
         else
         {
-            SAL_WARN("sc.filter", "SAX exception caught while importing: " << r);
+            SAL_WARN("sc.filter", "SAX exception caught while importing: " << exceptionToString(ex));
 
             nReturn = SCERR_IMPORT_FORMAT;
         }
     }
-    catch( const packages::zip::ZipIOException& r )
+    catch( const packages::zip::ZipIOException& )
     {
-        SAL_WARN("sc.filter", "Zip exception caught while importing: " << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("sc.filter", "Zip exception caught while importing: " << exceptionToString(ex));
 
         nReturn = ERRCODE_IO_BROKENPACKAGE;
     }
-    catch( const io::IOException& r )
+    catch( const io::IOException& )
     {
-        SAL_WARN("sc.filter", "IO exception caught while importing: " << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("sc.filter", "IO exception caught while importing: " << exceptionToString(ex));
 
         nReturn = SCERR_IMPORT_OPEN;
     }
-    catch( const uno::Exception& r )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("sc.filter", "uno exception caught while importing: " << r);
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("sc.filter", "uno exception caught while importing: " << exceptionToString(ex));
 
         nReturn = SCERR_IMPORT_UNKNOWN;
     }
@@ -395,7 +401,7 @@ bool ScXMLImportWrapper::Import( ImportFlags nMode, ErrCode& rError )
             const uno::Reference< rdf::XDocumentMetadataAccess > xDMA(
                 xModel, uno::UNO_QUERY_THROW );
             const uno::Reference< rdf::XURI > xBaseURI(
-                ::sfx2::createBaseURI( xContext, xStorage, aBaseURL, aName ) );
+                ::sfx2::createBaseURI( xContext, xModel, aBaseURL, aName ) );
             uno::Reference<task::XInteractionHandler> xHandler =
                 mrDocShell.GetMedium()->GetInteractionHandler();
             xDMA->loadMetadataFromStorage( xStorage, xBaseURI, xHandler );
@@ -614,7 +620,7 @@ bool ScXMLImportWrapper::ExportToComponent(const uno::Reference<uno::XComponentC
     const uno::Reference<frame::XModel>& xModel, const uno::Reference<xml::sax::XWriter>& xWriter,
     const uno::Sequence<beans::PropertyValue>& aDescriptor, const OUString& sName,
     const OUString& sMediaType, const OUString& sComponentName,
-    const uno::Sequence<uno::Any>& aArgs, ScMySharedData*& pSharedData)
+    const uno::Sequence<uno::Any>& aArgs, std::unique_ptr<ScMySharedData>& pSharedData)
 {
     bool bRet(false);
     uno::Reference<io::XOutputStream> xOut;
@@ -667,7 +673,7 @@ bool ScXMLImportWrapper::ExportToComponent(const uno::Reference<uno::XComponentC
     if ( xFilter.is() )
     {
         ScXMLExport* pExport = static_cast<ScXMLExport*>(SvXMLExport::getImplementation(xFilter));
-        pExport->SetSharedData(pSharedData);
+        pExport->SetSharedData(std::move(pSharedData));
 
         // if there are sheets to copy, get the source stream
         if ( sName == "content.xml" && lcl_HasValidStream(rDoc) && ( pExport->getExportFlags() & SvXMLExportFlags::OASIS ) )
@@ -715,7 +721,7 @@ bool ScXMLImportWrapper::ExportToComponent(const uno::Reference<uno::XComponentC
         else
             bRet = xFilter->filter( aDescriptor );
 
-        pSharedData = pExport->GetSharedData();
+        pSharedData = pExport->ReleaseSharedData();
     }
 
     return bRet;
@@ -817,7 +823,7 @@ bool ScXMLImportWrapper::Export(bool bStylesOnly)
         bool bStylesRet (false);
         bool bDocRet(false);
         bool bSettingsRet(false);
-        ScMySharedData* pSharedData = nullptr;
+        std::unique_ptr<ScMySharedData> pSharedData;
 
         bool bOasis = ( SotStorage::GetVersion( xStorage ) > SOFFICE_FILEFORMAT_60 );
 
@@ -956,7 +962,7 @@ bool ScXMLImportWrapper::Export(bool bStylesOnly)
             SAL_INFO( "sc.filter", "settings export end" );
         }
 
-        delete pSharedData;
+        pSharedData.reset();
 
         if (xStatusIndicator.is())
             xStatusIndicator->end();

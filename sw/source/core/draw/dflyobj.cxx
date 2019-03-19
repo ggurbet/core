@@ -25,6 +25,7 @@
 #include <editeng/opaqitem.hxx>
 #include <svx/svdpage.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/ptrstyle.hxx>
 
 #include <fmtclds.hxx>
 #include <fmtornt.hxx>
@@ -60,11 +61,11 @@
 // AW: For VCOfDrawVirtObj and stuff
 #include <svx/sdr/contact/viewcontactofvirtobj.hxx>
 #include <drawinglayer/primitive2d/baseprimitive2d.hxx>
+#include <drawinglayer/geometry/viewinformation2d.hxx>
 #include <sw_primitivetypes2d.hxx>
 #include <drawinglayer/primitive2d/sdrdecompositiontools2d.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <notxtfrm.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
 
@@ -112,14 +113,14 @@ namespace sdr
 std::unique_ptr<sdr::properties::BaseProperties> SwFlyDrawObj::CreateObjectSpecificProperties()
 {
     // create default properties
-    return o3tl::make_unique<sdr::properties::DefaultProperties>(*this);
+    return std::make_unique<sdr::properties::DefaultProperties>(*this);
 }
 
 std::unique_ptr<sdr::contact::ViewContact> SwFlyDrawObj::CreateObjectSpecificViewContact()
 {
     // needs an own VC since createViewIndependentPrimitive2DSequence()
     // is called when RecalcBoundRect() is used
-    return o3tl::make_unique<sdr::contact::VCOfSwFlyDrawObj>(*this);
+    return std::make_unique<sdr::contact::VCOfSwFlyDrawObj>(*this);
 }
 
 SwFlyDrawObj::SwFlyDrawObj(SdrModel& rSdrModel)
@@ -415,7 +416,7 @@ std::unique_ptr<sdr::contact::ViewContact> SwVirtFlyDrawObj::CreateObjectSpecifi
 {
     // need an own ViewContact (VC) to allow creation of a specialized primitive
     // for being able to visualize the FlyFrames in primitive renderers
-    return o3tl::make_unique<sdr::contact::VCOfSwVirtFlyDrawObj>(*this);
+    return std::make_unique<sdr::contact::VCOfSwVirtFlyDrawObj>(*this);
 }
 
 SwVirtFlyDrawObj::SwVirtFlyDrawObj(
@@ -1209,31 +1210,31 @@ void SwVirtFlyDrawObj::addCropHandles(SdrHdlList& rTarget) const
             basegfx::B2DPoint aPos;
 
             aPos = aTargetTransform * basegfx::B2DPoint(0.0, 0.0);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::UpperLeft, fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::UpperLeft, fShearX, fRotate));
             aPos = aTargetTransform * basegfx::B2DPoint(0.5, 0.0);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Upper, fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Upper, fShearX, fRotate));
             aPos = aTargetTransform * basegfx::B2DPoint(1.0, 0.0);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::UpperRight, fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::UpperRight, fShearX, fRotate));
             aPos = aTargetTransform * basegfx::B2DPoint(0.0, 0.5);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Left , fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Left , fShearX, fRotate));
             aPos = aTargetTransform * basegfx::B2DPoint(1.0, 0.5);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Right, fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Right, fShearX, fRotate));
             aPos = aTargetTransform * basegfx::B2DPoint(0.0, 1.0);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::LowerLeft, fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::LowerLeft, fShearX, fRotate));
             aPos = aTargetTransform * basegfx::B2DPoint(0.5, 1.0);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Lower, fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::Lower, fShearX, fRotate));
             aPos = aTargetTransform * basegfx::B2DPoint(1.0, 1.0);
-            rTarget.AddHdl(o3tl::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::LowerRight, fShearX, fRotate));
+            rTarget.AddHdl(std::make_unique<SdrCropHdl>(Point(basegfx::fround(aPos.getX()), basegfx::fround(aPos.getY())), SdrHdlKind::LowerRight, fShearX, fRotate));
         }
     }
 }
 
 // Macro
 
-Pointer  SwVirtFlyDrawObj::GetMacroPointer(
+PointerStyle  SwVirtFlyDrawObj::GetMacroPointer(
     const SdrObjMacroHitRec& ) const
 {
-    return Pointer( PointerStyle::RefHand );
+    return PointerStyle::RefHand;
 }
 
 bool SwVirtFlyDrawObj::HasMacro() const

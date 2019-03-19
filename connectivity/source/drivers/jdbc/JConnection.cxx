@@ -701,9 +701,11 @@ void java_sql_Connection::loadDriverFromProperties( const OUString& _sDriverClas
     }
     catch( Exception& )
     {
+        css::uno::Any anyEx = cppu::getCaughtException();
         ::dbtools::throwGenericSQLException(
             lcl_getDriverLoadErrorMessage( getResources(),_sDriverClass, _sDriverClassPath ),
-            *this
+            *this,
+            anyEx
         );
     }
 }
@@ -808,7 +810,7 @@ bool java_sql_Connection::construct(const OUString& url,
             m_aConnectionInfo = info;
         } //mID
     } //t.pEnv
-     return object != nullptr;
+    return object != nullptr;
 }
 
 

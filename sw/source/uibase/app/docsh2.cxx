@@ -51,6 +51,7 @@
 #include <sfx2/printer.hxx>
 #include <sfx2/evntconf.hxx>
 #include <svtools/sfxecode.hxx>
+#include <svtools/ehdl.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
 #include <svx/dialogs.hrc>
@@ -768,7 +769,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
         case FN_ABSTRACT_NEWDOC:
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            ScopedVclPtr<AbstractSwInsertAbstractDlg> pDlg(pFact->CreateSwInsertAbstractDlg());
+            ScopedVclPtr<AbstractSwInsertAbstractDlg> pDlg(pFact->CreateSwInsertAbstractDlg(GetView()->GetViewFrame()->GetWindow().GetFrameWeld()));
             if(RET_OK == pDlg->Execute())
             {
                 sal_uInt8 nLevel = pDlg->GetLevel();
@@ -843,7 +844,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 WriterRef xWrt;
                 // mba: looks as if relative URLs don't make sense here
                 ::GetRTFWriter( OUString('O'), OUString(), xWrt );
-                SvMemoryStream *pStrm = new SvMemoryStream();
+                std::unique_ptr<SvMemoryStream> pStrm (new SvMemoryStream());
                 pStrm->SetBufferSize( 16348 );
                 SwWriter aWrt( *pStrm, *GetDoc() );
                 ErrCode eErr = aWrt.Write( xWrt );
@@ -864,7 +865,7 @@ void SwDocShell::Execute(SfxRequest& rReq)
                         pStrm->Seek( STREAM_SEEK_TO_BEGIN );
 
                         // Transfer ownership of stream to a lockbytes object
-                        SvLockBytes aLockBytes( pStrm, true );
+                        SvLockBytes aLockBytes( pStrm.release(), true );
                         SvLockBytesStat aStat;
                         if ( aLockBytes.Stat( &aStat ) == ERRCODE_NONE )
                         {
@@ -887,7 +888,6 @@ void SwDocShell::Execute(SfxRequest& rReq)
                                     pStrm->GetData()), pStrm->GetEndOfData() );
                         pClipCntnr->CopyToClipboard(
                             GetView()? &GetView()->GetEditWin() : nullptr );
-                        delete pStrm;
                     }
                 }
                 else
@@ -1409,8 +1409,8 @@ void SwDocShell::SetModified( bool bSet )
     SfxObjectShell::SetModified( bSet );
     if( IsEnableSetModified())
     {
-         if (!m_xDoc->getIDocumentState().IsInCallModified())
-         {
+        if (!m_xDoc->getIDocumentState().IsInCallModified())
+        {
             EnableSetModified( false );
             if( bSet )
             {
@@ -1425,7 +1425,7 @@ void SwDocShell::SetModified( bool bSet )
                 m_xDoc->getIDocumentState().ResetModified();
 
             EnableSetModified();
-         }
+        }
 
         UpdateChildWindows();
         Broadcast(SfxHint(SfxHintId::DocChanged));
@@ -1615,7 +1615,7 @@ ErrCode SwDocShell::LoadStylesFromFile( const OUString& rURL,
     }
     if ( bImport )
     {
-        SwRead pRead =  ReadXML;
+        Reader* pRead =  ReadXML;
         SwReaderPtr pReader;
         std::unique_ptr<SwPaM> pPam;
         // the SW3IO - Reader need the pam/wrtshell, because only then he
@@ -1667,15 +1667,6 @@ SfxInPlaceClient* SwDocShell::GetIPClient( const ::svt::EmbeddedObjectRef& xObjR
     }
 
     return pResult;
-}
-
-static bool lcl_MergePortions(SwNode *const& pNode, void *)
-{
-    if (pNode->IsTextNode())
-    {
-        pNode->GetTextNode()->FileLoadedInitHints();
-    }
-    return true;
 }
 
 int SwFindDocShell( SfxObjectShellRef& xDocSh,
@@ -1768,8 +1759,6 @@ int SwFindDocShell( SfxObjectShellRef& xDocSh,
             xDocSh = static_cast<SfxObjectShell*>(xLockRef);
             if (xDocSh->DoLoad(xMed.release()))
             {
-                SwDoc const& rDoc(*pNew->GetDoc());
-                const_cast<SwDoc&>(rDoc).GetNodes().ForEach(&lcl_MergePortions);
                 return 2;
             }
         }

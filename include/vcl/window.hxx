@@ -23,21 +23,14 @@
 #include <tools/solar.h>
 #include <vcl/dllapi.h>
 #include <vcl/outdev.hxx>
-#include <vcl/pointr.hxx>
+#include <tools/link.hxx>
 #include <tools/wintypes.hxx>
 #include <vcl/vclenum.hxx>
-#include <vcl/inputtypes.hxx>
-#include <vcl/cursor.hxx>
-#include <vcl/inputctx.hxx>
 #include <vcl/keycodes.hxx>
 #include <vcl/region.hxx>
-#include <vcl/salnativewidgets.hxx>
 #include <vcl/uitest/factory.hxx>
-#include <vcl/vclevent.hxx>
 #include <vcl/IDialogRenderable.hxx>
 #include <rtl/ustring.hxx>
-#include <rtl/ref.hxx>
-#include <cppuhelper/weakref.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <memory>
 
@@ -49,13 +42,10 @@ struct ImplCalcToTopData;
 struct SystemEnvData;
 struct SystemParentData;
 class ImplBorderWindow;
-class Idle;
 class Timer;
 class DockingManager;
 class ScrollBar;
-class Bitmap;
 class FixedText;
-class Image;
 class MouseEvent;
 class KeyEvent;
 class CommandEvent;
@@ -69,27 +59,26 @@ class SalFrame;
 class MenuFloatingWindow;
 class VCLXWindow;
 class VclWindowEvent;
+class AllSettings;
+class InputContext;
 enum class ImplPaintFlags;
 enum class VclEventId;
+enum class PointerStyle;
 
 namespace com { namespace sun { namespace star {
 namespace accessibility {
     class XAccessible;
 }
-namespace beans {
-    struct PropertyValue;
-}
+
 namespace rendering {
     class XCanvas;
     class XSpriteCanvas;
 }
 namespace awt {
     class XWindowPeer;
-    class XWindow;
 }
 namespace uno {
     class Any;
-    class XInterface;
 }
 namespace datatransfer { namespace clipboard {
     class XClipboard;
@@ -420,16 +409,12 @@ const char* ImplDbgCheckWindow( const void* pObj );
 
 namespace vcl { class Window; }
 namespace vcl { class Cursor; }
-namespace vcl { class ILibreOfficeKitNotifier; }
 class Dialog;
 class WindowImpl;
 class PaintHelper;
 class VclSizeGroup;
-class OutputDevice;
 class Application;
-class SystemWindow;
 class WorkWindow;
-class Dialog;
 class MessBox;
 class MessageDialog;
 class DockingWindow;
@@ -438,12 +423,9 @@ class GroupBox;
 class PushButton;
 class RadioButton;
 class SystemChildWindow;
-class ImplBorderWindow;
 class ImplDockingWindowWrapper;
 class ImplPopupFloatWin;
-class MenuFloatingWindow;
 class LifecycleTest;
-namespace svt { class PopupWindowControllerImpl; }
 
 
 enum class WindowHitTest {
@@ -616,7 +598,7 @@ protected:
 
     SAL_DLLPRIVATE void                 ImplInvalidate( const vcl::Region* rRegion, InvalidateFlags nFlags );
 
-    SAL_DLLPRIVATE WindowHitTest        ImplHitTest( const Point& rFramePos );
+    virtual WindowHitTest               ImplHitTest( const Point& rFramePos );
 
     SAL_DLLPRIVATE void                 ImplSetMouseTransparent( bool bTransparent );
 
@@ -1115,8 +1097,8 @@ public:
     void                                ReleaseMouse();
     bool                                IsMouseCaptured() const;
 
-    void                                SetPointer( const Pointer& rPointer );
-    const Pointer&                      GetPointer() const;
+    void                                SetPointer( PointerStyle );
+    PointerStyle                        GetPointer() const;
     void                                EnableChildPointerOverwrite( bool bOverwrite );
     void                                SetPointerPosPixel( const Point& rPos );
     Point                               GetPointerPosPixel();
@@ -1594,10 +1576,6 @@ public:
 };
 
 }
-
-// Only for compatibility - because many people outside haven't included event.hxx
-// These require Window to be defined for VclPtr<Window>
-#include <vcl/event.hxx>
 
 #endif // INCLUDED_VCL_WINDOW_HXX
 

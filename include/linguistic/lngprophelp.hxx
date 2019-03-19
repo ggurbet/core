@@ -24,9 +24,9 @@
 #include <comphelper/interfacecontainer2.hxx>
 #include <com/sun/star/beans/XPropertyChangeListener.hpp>
 #include <com/sun/star/beans/PropertyValues.hpp>
-#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <com/sun/star/linguistic2/XLinguServiceEventBroadcaster.hpp>
 #include <linguistic/lngdllapi.h>
+#include <rtl/ref.hxx>
 
 namespace com { namespace sun { namespace star { namespace beans {
     class   XPropertySet;
@@ -35,6 +35,8 @@ namespace com { namespace sun { namespace star { namespace beans {
 namespace com { namespace sun { namespace star { namespace linguistic2 {
     struct  LinguServiceEvent;
 }}}}
+
+namespace com::sun::star::linguistic2 { class XLinguProperties; }
 
 
 namespace linguistic
@@ -148,8 +150,7 @@ public:
 
 class LNG_DLLPUBLIC PropertyHelper_Thesaurus
 {
-    PropertyHelper_Thes* pInst;
-    css::uno::Reference< css::beans::XPropertyChangeListener >    xPropHelper;
+    rtl::Reference< PropertyHelper_Thes >    mxPropHelper;
 
     // disallow use of copy-constructor and assignment-operator
     PropertyHelper_Thesaurus( const PropertyHelper_Thes & ) = delete;
@@ -209,8 +210,7 @@ public:
 
 class LNG_DLLPUBLIC PropertyHelper_Spelling
 {
-    PropertyHelper_Spell* pInst;
-    css::uno::Reference< css::beans::XPropertyChangeListener >    xPropHelper;
+    rtl::Reference< PropertyHelper_Spell >    mxPropHelper;
 
     // disallow use of copy-constructor and assignment-operator
     PropertyHelper_Spelling( const PropertyHelper_Spell & ) = delete;
@@ -279,8 +279,7 @@ public:
 
 class LNG_DLLPUBLIC PropertyHelper_Hyphenation
 {
-    PropertyHelper_Hyphen* pInst;
-    css::uno::Reference< css::beans::XPropertyChangeListener >    xPropHelper;
+    rtl::Reference< PropertyHelper_Hyphen >    mxPropHelper;
 
     // disallow use of copy-constructor and assignment-operator
     PropertyHelper_Hyphenation( const PropertyHelper_Hyphen & ) = delete;

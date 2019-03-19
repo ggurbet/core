@@ -18,6 +18,7 @@
  */
 
 #include <hintids.hxx>
+#include <osl/diagnose.h>
 #include <tools/date.hxx>
 #include <tools/time.hxx>
 #include <svl/urihelper.hxx>
@@ -55,13 +56,22 @@
 #include <poolfmt.hxx>
 #include <fltini.hxx>
 #include <docsh.hxx>
+#include <ndtxt.hxx>
 #include <redline.hxx>
 #include <swerror.h>
 #include <paratr.hxx>
 #include <pausethreadstarting.hxx>
-#include <o3tl/make_unique.hxx>
 
 using namespace ::com::sun::star;
+
+static bool sw_MergePortions(SwNode *const& pNode, void *)
+{
+    if (pNode->IsTextNode())
+    {
+        pNode->GetTextNode()->FileLoadedInitHints();
+    }
+    return true;
+}
 
 ErrCode SwReader::Read( const Reader& rOptions )
 {
@@ -269,7 +279,7 @@ ErrCode SwReader::Read( const Reader& rOptions )
                                 // UGLY: temp. enable undo
                                 mxDoc->GetIDocumentUndoRedo().DoUndo(true);
                                 mxDoc->GetIDocumentUndoRedo().AppendUndo(
-                                    o3tl::make_unique<SwUndoInsLayFormat>( pFrameFormat,0,0 ) );
+                                    std::make_unique<SwUndoInsLayFormat>( pFrameFormat,0,0 ) );
                                 mxDoc->GetIDocumentUndoRedo().DoUndo(false);
                                 mxDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( RedlineFlags::Ignore );
                             }
@@ -337,6 +347,13 @@ ErrCode SwReader::Read( const Reader& rOptions )
             pStrm->ResetError();
         }
     }
+
+    // fdo#52028: ODF file import does not result in MergePortions being called
+    // for every attribute, since that would be inefficient.  So call it here.
+    // This is only necessary for formats that may contain RSIDs (ODF,MSO).
+    // It's too hard to figure out which nodes were inserted in Insert->File
+    // case (redlines, flys, footnotes, header/footer) so just do every node.
+    mxDoc->GetNodes().ForEach(&sw_MergePortions);
 
     mxDoc->SetInReading( false );
     mxDoc->SetInXMLImport( false );
@@ -644,7 +661,7 @@ bool SwReader::HasGlossaries( const Reader& rOptions )
 
     // if a Medium is selected, get its Stream
     bool bRet = false;
-    if( !( nullptr != (po->m_pMedium = pMedium ) && !po->SetStrmStgPtr() ))
+    if(  nullptr == (po->m_pMedium = pMedium ) || po->SetStrmStgPtr() )
         bRet = po->HasGlossaries();
     return bRet;
 }
@@ -660,7 +677,7 @@ bool SwReader::ReadGlossaries( const Reader& rOptions,
 
     // if a Medium is selected, get its Stream
     bool bRet = false;
-    if( !( nullptr != (po->m_pMedium = pMedium ) && !po->SetStrmStgPtr() ))
+    if( nullptr == (po->m_pMedium = pMedium ) || po->SetStrmStgPtr() )
         bRet = po->ReadGlossaries( rBlocks, bSaveRelFiles );
     return bRet;
 }

@@ -35,6 +35,7 @@
 #include <vcl/lstbox.hxx>
 #include <vcl/idle.hxx>
 
+#include <svtools/colorcfg.hxx>
 #include <sfx2/progress.hxx>
 #include <o3tl/enumarray.hxx>
 
@@ -278,10 +279,10 @@ public:
     explicit ComplexEditorWindow( ModulWindow* pParent );
     virtual             ~ComplexEditorWindow() override;
     virtual void        dispose() override;
-    BreakPointWindow&   GetBrkWindow()      { return *aBrkWindow.get(); }
-    LineNumberWindow&   GetLineNumberWindow() { return *aLineNumberWindow.get(); }
-    EditorWindow&       GetEdtWindow()      { return *aEdtWindow.get(); }
-    ScrollBar&          GetEWVScrollBar()   { return *aEWVScrollBar.get(); }
+    BreakPointWindow&   GetBrkWindow()      { return *aBrkWindow; }
+    LineNumberWindow&   GetLineNumberWindow() { return *aLineNumberWindow; }
+    EditorWindow&       GetEdtWindow()      { return *aEdtWindow; }
+    ScrollBar&          GetEWVScrollBar()   { return *aEWVScrollBar; }
 
     void SetLineNumberDisplay(bool b);
 };

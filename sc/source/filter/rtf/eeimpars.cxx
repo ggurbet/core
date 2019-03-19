@@ -22,22 +22,15 @@
 
 #include <editeng/adjustitem.hxx>
 #include <editeng/editobj.hxx>
-#include <editeng/editview.hxx>
 #include <editeng/escapementitem.hxx>
-#include <editeng/justifyitem.hxx>
 #include <editeng/langitem.hxx>
-#include <editeng/shaditem.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdpage.hxx>
-#include <editeng/scripttypeitem.hxx>
 #include <svtools/htmlcfg.hxx>
 #include <sfx2/sfxhtml.hxx>
-#include <svtools/parhtml.hxx>
-#include <svtools/htmltokn.h>
 #include <svl/zforlist.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/svapp.hxx>
-#include <unotools/syslocale.hxx>
 #include <unotools/charclass.hxx>
 #include <comphelper/string.hxx>
 
@@ -45,7 +38,6 @@
 #include <global.hxx>
 #include <document.hxx>
 #include <editutil.hxx>
-#include <stlsheet.hxx>
 #include <docpool.hxx>
 #include <attrib.hxx>
 #include <patattr.hxx>
@@ -123,10 +115,10 @@ void ScEEImport::WriteToDocument( bool bSizeColsRows, double nOutputFactor, SvNu
     sal_uLong nProgress = 0;
 
     SCCOL nStartCol, nEndCol;
-        SCROW nStartRow, nEndRow;
-        SCTAB nTab;
-        SCROW nOverlapRowMax, nLastMergedRow;
-        SCCOL nMergeColAdd;
+    SCROW nStartRow, nEndRow;
+    SCTAB nTab;
+    SCROW nOverlapRowMax, nLastMergedRow;
+    SCCOL nMergeColAdd;
     nStartCol = maRange.aStart.Col();
     nStartRow = maRange.aStart.Row();
     nTab = maRange.aStart.Tab();

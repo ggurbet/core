@@ -19,6 +19,7 @@
 #include <svx/svxids.hrc>
 #include <svx/dlgutil.hxx>
 #include <svx/rulritem.hxx>
+#include <vcl/virdev.hxx>
 
 #include <sfx2/sidebar/ControlFactory.hxx>
 #include <sfx2/dispatch.hxx>
@@ -34,7 +35,6 @@
 #include <docsh.hxx>
 
 #include <comphelper/documentconstants.hxx>
-#include <o3tl/make_unique.hxx>
 #include <sfx2/docfile.hxx>
 
 namespace sw { namespace sidebar {
@@ -107,18 +107,18 @@ BitmapEx GenerateStylePreview(SfxObjectShell& rSource, OUString const & aName)
 
     {
         tools::Rectangle aRenderRect(Point(nMargin, y), aSize);
-        renderPreview(pStyleManager, *pVirtualDev.get(), "Title", nTitleHeight, aRenderRect);
+        renderPreview(pStyleManager, *pVirtualDev, "Title", nTitleHeight, aRenderRect);
         y += nTitleHeight;
     }
 
     {
         tools::Rectangle aRenderRect(Point(nMargin, y), aSize);
-        renderPreview(pStyleManager, *pVirtualDev.get(), "Heading 1", nHeadingHeight, aRenderRect);
+        renderPreview(pStyleManager, *pVirtualDev, "Heading 1", nHeadingHeight, aRenderRect);
         y += nHeadingHeight;
     }
     {
         tools::Rectangle aRenderRect(Point(nMargin, y), aSize);
-        renderPreview(pStyleManager, *pVirtualDev.get(), "Text Body", nTextBodyHeight, aRenderRect);
+        renderPreview(pStyleManager, *pVirtualDev, "Text Body", nTextBodyHeight, aRenderRect);
     }
 
     return pVirtualDev->GetBitmapEx(Point(), aSize);
@@ -178,7 +178,7 @@ void StylePresetsPanel::RefreshList()
                 OUString aURL = aTemplates.GetPath(i,j);
                 BitmapEx aPreview = CreatePreview(aURL, aName);
                 mpValueSet->InsertItem(j, Image(aPreview), aName);
-                maTemplateEntries.push_back(o3tl::make_unique<TemplateEntry>(aURL));
+                maTemplateEntries.push_back(std::make_unique<TemplateEntry>(aURL));
                 mpValueSet->SetItemData(j, maTemplateEntries.back().get());
             }
         }

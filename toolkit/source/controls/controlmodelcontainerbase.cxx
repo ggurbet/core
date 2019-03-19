@@ -97,7 +97,8 @@ struct DisposeControlModel
         }
         catch (const Exception&)
         {
-            SAL_WARN("toolkit", "caught an exception while disposing a component!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN("toolkit", "caught an exception while disposing a component! " << exceptionToString(ex) );
         }
     }
 };
@@ -423,6 +424,7 @@ Sequence< OUString > ControlModelContainerBase::getAvailableServiceNames()
             "com.sun.star.awt.UnoControlRoadmapModel",
             "com.sun.star.awt.tree.TreeControlModel",
             "com.sun.star.awt.grid.UnoControlGridModel",
+            "com.sun.star.awt.UnoControlFixedHyperlinkModel",
             "com.sun.star.awt.tab.UnoControlTabPageContainerModel",
             "com.sun.star.awt.tab.UnoControlTabPageModel",
             "com.sun.star.awt.UnoMultiPageModel",
@@ -538,7 +540,7 @@ void ControlModelContainerBase::insertByName( const OUString& aName, const Any& 
     if ( xM.is() )
     {
         Reference< beans::XPropertySet > xProps( xM, UNO_QUERY );
-            if ( xProps.is() )
+        if ( xProps.is() )
             {
 
                 Reference< beans::XPropertySetInfo > xPropInfo = xProps.get()->getPropertySetInfo();
@@ -816,7 +818,8 @@ namespace
         }
         catch (const Exception&)
         {
-            SAL_WARN("toolkit", "caught an exception while determining the dialog page!" );
+            css::uno::Any ex( cppu::getCaughtException() );
+            SAL_WARN("toolkit", "caught an exception while determining the dialog page! " << exceptionToString(ex) );
         }
         return nStep;
     }

@@ -62,7 +62,6 @@
 
 #include <excform.hxx>
 #include <documentimport.hxx>
-#include <o3tl/make_unique.hxx>
 
 #if defined(_WIN32)
 #include <math.h>
@@ -363,7 +362,7 @@ void ImportExcel::ReadBoolErr()
         double fValue;
         std::unique_ptr<ScTokenArray> pScTokArr = ErrorToFormula( nType != EXC_BOOLERR_BOOL, nValue, fValue );
         ScFormulaCell* pCell = pScTokArr
-            ? new ScFormulaCell(pD, aScPos, pScTokArr.release())
+            ? new ScFormulaCell(pD, aScPos, std::move(pScTokArr))
             : new ScFormulaCell(pD, aScPos);
         pCell->SetHybridDouble( fValue );
         GetDocImport().setFormulaCell(aScPos, pCell);
@@ -844,7 +843,7 @@ void ImportExcel::Shrfmla()
 
     ScDocumentImport& rDoc = GetDocImport();
 
-    ScFormulaCell* pCell = new ScFormulaCell(pD, aPos, pResult.release());
+    ScFormulaCell* pCell = new ScFormulaCell(pD, aPos, std::move(pResult));
     pCell->GetCode()->WrapReference(aPos, EXC_MAXCOL8, EXC_MAXROW8);
     rDoc.getDoc().CheckLinkFormulaNeedingCheck( *pCell->GetCode());
     rDoc.getDoc().EnsureTable(aPos.Tab());
@@ -1245,8 +1244,8 @@ void ImportExcel::PostDocLoad()
         pStyleSheet->GetItemSet().Put( SfxUInt16Item( ATTR_PAGE_FIRSTPAGENO, 0 ) );
 
     // outlines for all sheets, sets hidden rows and columns (#i11776# after filtered ranges)
-    for (XclImpOutlineListBuffer::iterator itBuffer = pOutlineListBuffer->begin(); itBuffer != pOutlineListBuffer->end(); ++itBuffer)
-        (*itBuffer)->Convert();
+    for (auto& rxBuffer : *pOutlineListBuffer)
+        rxBuffer->Convert();
 
     // document view settings (before visible OLE area)
     GetDocViewSettings().Finalize();
@@ -1293,7 +1292,7 @@ void ImportExcel::PostDocLoad()
     GetExtDocOptions().SetChanged( true );
 
     // root data owns the extended document options -> create a new object
-    GetDoc().SetExtDocOptions( o3tl::make_unique<ScExtDocOptions>( GetExtDocOptions() ) );
+    GetDoc().SetExtDocOptions( std::make_unique<ScExtDocOptions>( GetExtDocOptions() ) );
 
     const SCTAB     nLast = pD->GetTableCount();
     const ScRange*      p;

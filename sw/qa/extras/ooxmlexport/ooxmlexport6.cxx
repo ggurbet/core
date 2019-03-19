@@ -448,7 +448,7 @@ DECLARE_OOXMLEXPORT_TEST(testTableFloatingMargins, "table-floating-margins.docx"
     xmlDocPtr pXmlDoc = parseExport();
     if (!pXmlDoc)
         return;
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent/mc:Fallback/w:pict/v:rect/v:textbox/w:txbxContent/w:tbl/w:tr[1]/w:tc[1]/w:p/w:pPr/w:spacing", "after", "0");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tr[1]/w:tc[1]/w:p/w:pPr/w:spacing", "after", "0");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFdo69636, "fdo69636.docx")
@@ -678,7 +678,7 @@ DECLARE_OOXMLEXPORT_TEST(testFdo73247, "fdo73247.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testFdo70942, "fdo70942.docx")
 {
-     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
     if (!pXmlDoc)
         return;
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:r[1]/mc:AlternateContent/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:prstGeom",

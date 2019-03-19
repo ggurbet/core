@@ -42,11 +42,13 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/PropertyChangeEvent.hpp>
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 #include <tools/fract.hxx>
 #include <vcl/builder.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/commandevent.hxx>
+#include <vcl/svapp.hxx>
 
 #include <svx/strings.hrc>
 
@@ -434,14 +436,9 @@ sal_uInt16 DbGridControl::NavigationBar::ArrangeControls()
     sal_uInt16      nX = 1;
     sal_uInt16      nY = 0;
 
-    // Is the font of this edit larger than the field?
-    if (m_aAbsolute->GetTextHeight() > nH)
     {
-        vcl::Font aApplFont (m_aAbsolute->GetFont());
-        const Size pointAbsoluteSize(m_aAbsolute->PixelToLogic( Size( 0, nH - 2 ), MapMode(MapUnit::MapPoint) ));
-        aApplFont.SetFontSize( pointAbsoluteSize );
+        vcl::Font aApplFont(GetSettings().GetStyleSettings().GetToolFont());
         m_aAbsolute->SetControlFont( aApplFont );
-
         aApplFont.SetTransparent( true );
         m_aRecordText->SetControlFont( aApplFont );
         m_aRecordOf->SetControlFont( aApplFont );
@@ -488,7 +485,7 @@ sal_uInt16 DbGridControl::NavigationBar::ArrangeControls()
 
     nX = sal::static_int_cast< sal_uInt16 >(aButtonPos.X() + 1);
 
-    nW -= GetSettings().GetStyleSettings().GetScrollBarSize();
+    nW = std::max(nW - GetSettings().GetStyleSettings().GetScrollBarSize(), 0L);
 
     if (nX > nW)
     {
@@ -817,7 +814,7 @@ void DbGridControl::NavigationBar::StateChanged(StateChangedType nType)
             Fraction aZoom = GetZoom();
 
             // not all of these controls need to know the new zoom, but to be sure ...
-            vcl::Font aFont(GetSettings().GetStyleSettings().GetFieldFont());
+            vcl::Font aFont(GetSettings().GetStyleSettings().GetToolFont());
             if (IsControlFont())
                 aFont.Merge(GetControlFont());
 
@@ -1115,7 +1112,7 @@ void DbGridControl::ImplInitWindow( const InitWindowFacet _eInitWhat )
     {
         if ( m_bNavigationBar )
         {
-            vcl::Font aFont = m_aBar->GetSettings().GetStyleSettings().GetFieldFont();
+            vcl::Font aFont = m_aBar->GetSettings().GetStyleSettings().GetToolFont();
             if ( IsControlFont() )
                 m_aBar->SetControlFont( GetControlFont() );
             else
@@ -2790,9 +2787,9 @@ void DbGridControl::executeRowContextMenu( long _nRow, const Point& _rPreferredP
     VclBuilder aBuilder(nullptr, VclBuilderContainer::getUIRootDir(), "svx/ui/rowsmenu.ui", "");
     VclPtr<PopupMenu> aContextMenu(aBuilder.get_menu("menu"));
 
-    PreExecuteRowContextMenu( static_cast<sal_uInt16>(_nRow), *aContextMenu.get() );
+    PreExecuteRowContextMenu( static_cast<sal_uInt16>(_nRow), *aContextMenu );
     aContextMenu->RemoveDisabledEntries( true, true );
-    PostExecuteRowContextMenu( static_cast<sal_uInt16>(_nRow), *aContextMenu.get(), aContextMenu->Execute( this, _rPreferredPos ) );
+    PostExecuteRowContextMenu( static_cast<sal_uInt16>(_nRow), *aContextMenu, aContextMenu->Execute( this, _rPreferredPos ) );
 }
 
 void DbGridControl::Command(const CommandEvent& rEvt)

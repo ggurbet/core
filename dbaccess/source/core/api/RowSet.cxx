@@ -103,24 +103,18 @@ com_sun_star_comp_dba_ORowSet_get_implementation(css::uno::XComponentContext* co
 #define NOTIFY_LISTENERS_CHECK(_rListeners,T,method)                             \
     std::vector< Reference< XInterface > > aListenerSeq = _rListeners.getElements(); \
                                                                                   \
-    auto it = aListenerSeq.rbegin();                                              \
-    const auto itEnd = aListenerSeq.rend();                                       \
-                                                                                  \
     _rGuard.clear();                                                              \
-    bool bCheck = true;                                                           \
-    for ( ; it != itEnd; )                                                        \
-    {                                                                             \
-        try                                                                       \
-        {                                                                         \
-            bCheck = static_cast< T* >( it->get() )->method(aEvt);                \
-            if (!bCheck)                                                          \
-                break;                                                            \
-        }                                                                         \
-        catch( RuntimeException& )                                                \
-        {                                                                         \
-        }                                                                         \
-        ++it;                                                                     \
-    }                                                                             \
+    bool bCheck = std::all_of(aListenerSeq.rbegin(), aListenerSeq.rend(),         \
+        [&aEvt](Reference<XInterface>& rxItem) {                                  \
+            try                                                                   \
+            {                                                                     \
+                return static_cast<bool>(static_cast<T*>(rxItem.get())->method(aEvt)); \
+            }                                                                     \
+            catch( RuntimeException& )                                            \
+            {                                                                     \
+                return true;                                                      \
+            }                                                                     \
+        });                                                                       \
     _rGuard.reset();
 
 
@@ -569,7 +563,7 @@ void ORowSet::freeResources( bool _bComplete )
         // let our warnings container forget the reference to the (possibly disposed) old result set
         m_aWarnings.setExternalWarnings( nullptr );
 
-        DELETEZ(m_pCache);
+        m_pCache.reset();
 
         impl_resetTables_nothrow();
 
@@ -769,7 +763,7 @@ void SAL_CALL ORowSet::updateBinaryStream( sal_Int32 columnIndex, const Referenc
     checkUpdateConditions(columnIndex);
     checkUpdateIterator();
 
-     {
+    {
         Sequence<sal_Int8> aSeq;
         if(x.is())
             x->readBytes(aSeq,length);
@@ -913,7 +907,7 @@ void SAL_CALL ORowSet::insertRow()
 
     if ( !aBookmarks.empty() )
     {
-        RowsChangeEvent aUpEvt(*this,RowChangeAction::UPDATE,aBookmarks.size(),Sequence<Any>(&(*aBookmarks.begin()),aBookmarks.size()));
+        RowsChangeEvent aUpEvt(*this,RowChangeAction::UPDATE,aBookmarks.size(),comphelper::containerToSequence(aBookmarks));
         notifyAllListenersRowChanged(aGuard,aUpEvt);
     }
 
@@ -952,7 +946,7 @@ void SAL_CALL ORowSet::updateRow(  )
         std::vector< Any > aBookmarks;
         m_pCache->updateRow(m_aCurrentRow.operator ->(),aBookmarks);
         if ( !aBookmarks.empty() )
-            aEvt.Bookmarks = Sequence<Any>(&(*aBookmarks.begin()),aBookmarks.size());
+            aEvt.Bookmarks = comphelper::containerToSequence(aBookmarks);
         aEvt.Rows += aBookmarks.size();
         m_aBookmark     = m_pCache->getBookmark();
         m_aCurrentRow   = m_pCache->m_aMatrixIter;
@@ -1067,7 +1061,6 @@ void ORowSet::implCancelRowUpdates( bool _bNotifyModified )
     m_aBookmark     = m_pCache->getBookmark();
     m_aCurrentRow   = m_pCache->m_aMatrixIter;
     m_bIsInsertRow  = false;
-    m_aCurrentRow.setBookmark(m_aBookmark);
 
     // notification order
     // IsModified
@@ -1479,9 +1472,10 @@ void SAL_CALL ORowSet::executeWithCompletion( const Reference< XInteractionHandl
     {
         throw;
     }
-    catch(Exception&)
+    catch(Exception const &)
     {
-        SAL_WARN("dbaccess", "ORowSet::executeWithCompletion: caught an unexpected exception type while filling in the parameters!");
+        css::uno::Any ex( cppu::getCaughtException() );
+        SAL_WARN("dbaccess", "ORowSet::executeWithCompletion: caught an unexpected exception type while filling in the parameters! " << exceptionToString(ex));
     }
 
     // we're done with the parameters, now for the real execution
@@ -1700,13 +1694,9 @@ Reference< XResultSet > ORowSet::impl_prepareAndExecute_throw()
         aComposedUpdateTableName = composeTableName( m_xActiveConnection->getMetaData(), m_aUpdateCatalogName, m_aUpdateSchemaName, m_aUpdateTableName, false, ::dbtools::EComposeRule::InDataManipulation );
 
     SAL_INFO("dbaccess", "ORowSet::impl_prepareAndExecute_throw: creating cache" );
-    if(m_pCache)
-    {
-        DELETEZ(m_pCache);
-    }
-    m_pCache
-        = new ORowSetCache(xResultSet, m_xComposer.get(), m_aContext, aComposedUpdateTableName,
-                           m_bModified, m_bNew, *m_aParameterValueForCache, m_aFilter, m_nMaxRows);
+    m_pCache.reset(
+        new ORowSetCache(xResultSet, m_xComposer.get(), m_aContext, aComposedUpdateTableName,
+               m_bModified, m_bNew, *m_aParameterValueForCache, m_aFilter, m_nMaxRows));
     if ( m_nResultSetConcurrency == ResultSetConcurrency::READ_ONLY )
     {
         m_nPrivileges = Privilege::SELECT;
@@ -1765,7 +1755,7 @@ void ORowSet::impl_initializeColumnSettings_nothrow( const Reference< XPropertyS
         return;
 
     // the template column could not provide *any* setting. Okay, probably it's a parser column, which
-    // does not offer those. However, perhaps the template column referes to a table column, which we
+    // does not offer those. However, perhaps the template column refers to a table column, which we
     // can use as new template column
     try
     {
@@ -2218,7 +2208,7 @@ Reference< XConnection >  ORowSet::calcConnection(const Reference< XInteractionH
                 Any aError = ::cppu::getCaughtException();
                 OUString sMessage = ResourceManager::loadString( RID_NO_SUCH_DATA_SOURCE,
                     "$name$", m_aDataSourceName, "$error$", extractExceptionMessage( m_aContext, aError ) );
-                ::dbtools::throwGenericSQLException( sMessage, *this );
+                ::dbtools::throwGenericSQLException( sMessage, *this, aError );
             }
         }
         setActiveConnection(xNewConn);
@@ -2578,9 +2568,10 @@ void SAL_CALL ORowSet::setBinaryStream( sal_Int32 parameterIndex, const Referenc
         m_bParametersDirty = true;
         x->closeInput();
     }
-    catch( Exception& )
+    catch( Exception const & )
     {
-        throw SQLException();
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw SQLException("ORowSet::setBinaryStream", *this, "S1000", 0,anyEx);
     }
 }
 
@@ -2601,9 +2592,10 @@ void SAL_CALL ORowSet::setCharacterStream( sal_Int32 parameterIndex, const Refer
         rParamValue.setTypeKind( DataType::LONGVARCHAR );
         x->closeInput();
     }
-    catch( Exception& )
+    catch( Exception const & )
     {
-        throw SQLException();
+        css::uno::Any anyEx = cppu::getCaughtException();
+        throw SQLException("ORowSet::setCharacterStream", *this, "S1000", 0, anyEx);
     }
 }
 

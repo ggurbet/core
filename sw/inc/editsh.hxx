@@ -179,7 +179,7 @@ public:
     /// Remove a complete paragraph.
     bool DelFullPara();
 
-    /// Change text to Upper/Lower/Hiragana/Katagana/...
+    /// Change text to Upper/Lower/Hiragana/Katakana/...
     void TransliterateText( TransliterationFlags nType );
 
     /// Count words in current selection.
@@ -229,8 +229,10 @@ public:
                      const bool bMergeIndentValuesOfNumRule = false ) const;
     bool GetCurAttr( SfxItemSet& ,
                      const bool bMergeIndentValuesOfNumRule = false ) const;
-    void SetAttrItem( const SfxPoolItem&, SetAttrMode nFlags = SetAttrMode::DEFAULT );
-    void SetAttrSet( const SfxItemSet&, SetAttrMode nFlags = SetAttrMode::DEFAULT, SwPaM* pCursor = nullptr );
+    void SetAttrItem( const SfxPoolItem&, SetAttrMode nFlags = SetAttrMode::DEFAULT,
+                     const bool bParagraphSetting = false );
+    void SetAttrSet( const SfxItemSet&, SetAttrMode nFlags = SetAttrMode::DEFAULT,
+                     SwPaM* pCursor = nullptr, const bool bParagraphSetting = false );
 
     /** Get RES_CHRATR_* items of one type in the current selection.
      * @param nWhich WhichId of the collected items.
