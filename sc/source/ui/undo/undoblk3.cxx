@@ -20,41 +20,32 @@
 #include <sal/config.h>
 
 #include <memory>
-#include <utility>
 
 #include <scitems.hxx>
-#include <svx/algitem.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <svl/srchitem.hxx>
 #include <sfx2/linkmgr.hxx>
-#include <sfx2/bindings.hxx>
 #include <vcl/virdev.hxx>
 #include <sfx2/app.hxx>
 #include <svx/svdundo.hxx>
 
 #include <undoblk.hxx>
-#include <sc.hrc>
 #include <globstr.hrc>
 #include <scresid.hxx>
 #include <global.hxx>
-#include <rangenam.hxx>
 #include <arealink.hxx>
 #include <patattr.hxx>
 #include <target.hxx>
 #include <document.hxx>
 #include <docpool.hxx>
-#include <table.hxx>
 #include <docsh.hxx>
 #include <tabvwsh.hxx>
 #include <undoolk.hxx>
 #include <undoutil.hxx>
 #include <chgtrack.hxx>
-#include <dociter.hxx>
-#include <formulacell.hxx>
 #include <paramisc.hxx>
 #include <postit.hxx>
-#include <docuno.hxx>
 #include <progress.hxx>
 #include <editutil.hxx>
 #include <editdataarray.hxx>
@@ -360,9 +351,9 @@ ScUndoSelectionAttr::ScUndoSelectionAttr( ScDocShell* pNewDocShell,
         bMulti      ( bNewMulti )
 {
     ScDocumentPool* pPool = pDocShell->GetDocument().GetPool();
-    pApplyPattern = const_cast<ScPatternAttr*>(static_cast<const ScPatternAttr*>( &pPool->Put( *pNewApply ) ));
-    pLineOuter = pNewOuter ? const_cast<SvxBoxItem*>(static_cast<const SvxBoxItem*>( &pPool->Put( *pNewOuter ) )) : nullptr;
-    pLineInner = pNewInner ? const_cast<SvxBoxInfoItem*>(static_cast<const SvxBoxInfoItem*>( &pPool->Put( *pNewInner ) )) : nullptr;
+    pApplyPattern = const_cast<ScPatternAttr*>(&pPool->Put( *pNewApply ));
+    pLineOuter = pNewOuter ? const_cast<SvxBoxItem*>( &pPool->Put( *pNewOuter ) ) : nullptr;
+    pLineInner = pNewInner ? const_cast<SvxBoxInfoItem*>( &pPool->Put( *pNewInner ) ) : nullptr;
     aRangeCover = pRangeCover ? *pRangeCover : aRange;
 }
 

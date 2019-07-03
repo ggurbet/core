@@ -131,8 +131,7 @@ bool LifeTimeManager::dispose()
 
     //--do the disposing of listeners after calling this method
     {
-        uno::Reference< lang::XComponent > xComponent =
-            uno::Reference< lang::XComponent >(m_pComponent);
+        uno::Reference< lang::XComponent > xComponent(m_pComponent);
         if(xComponent.is())
         {
             // notify XCLoseListeners
@@ -217,8 +216,7 @@ bool CloseableLifeTimeManager::g_close_startTryClose(bool bDeliverOwnership)
 
     try
     {
-        uno::Reference< util::XCloseable > xCloseable =
-            uno::Reference< util::XCloseable >(m_pCloseable);
+        uno::Reference< util::XCloseable > xCloseable(m_pCloseable);
         if(xCloseable.is())
         {
             //--call queryClosing on all registered close listeners
@@ -354,8 +352,7 @@ void CloseableLifeTimeManager::impl_doClose()
 
     if(xCloseable.is())
     {
-        uno::Reference< lang::XComponent > xComponent =
-            uno::Reference< lang::XComponent >( xCloseable, uno::UNO_QUERY );
+        uno::Reference< lang::XComponent > xComponent( xCloseable, uno::UNO_QUERY );
         if(xComponent.is())
         {
             OSL_ENSURE( m_bClosed, "a not closed component will be disposed " );

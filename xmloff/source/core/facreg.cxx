@@ -60,11 +60,6 @@ XMLOFF_DLLPUBLIC void * xo_component_getFactory( const sal_Char * pImplName, voi
         SINGLEFACTORY( XMLImpressStylesImportOasis )
         else SINGLEFACTORY( XMLImpressContentImportOasis )
         else SINGLEFACTORY( XMLImpressMetaImportOasis )
-        else SINGLEFACTORY( XMLImpressSettingsImportOasis )
-
-        // impress oasis export
-        else SINGLEFACTORY( XMLImpressMetaExportOasis )
-        else SINGLEFACTORY( XMLImpressSettingsExportOasis )
 
         else SINGLEFACTORY( AnimationsImport )
 
@@ -74,13 +69,6 @@ XMLOFF_DLLPUBLIC void * xo_component_getFactory( const sal_Char * pImplName, voi
         else SINGLEFACTORY( XMLImpressContentExportOOO )
         else SINGLEFACTORY( XMLImpressMetaExportOOO )
         else SINGLEFACTORY( XMLImpressSettingsExportOOO )
-
-        // draw oasis import
-        else SINGLEFACTORY( XMLDrawImportOasis )
-        else SINGLEFACTORY( XMLDrawStylesImportOasis )
-        else SINGLEFACTORY( XMLDrawContentImportOasis )
-        else SINGLEFACTORY( XMLDrawMetaImportOasis )
-        else SINGLEFACTORY( XMLDrawSettingsImportOasis )
 
         // draw oasis export
         else SINGLEFACTORY( XMLDrawExportOasis )

@@ -181,7 +181,7 @@ bool CachedContentResultSet::CCRS_Cache
 
     return ( m_pResult->FetchError & FetchError::ENDOFDATA )
         && m_pResult->Orientation
-        && m_pResult->Rows.getLength();
+        && m_pResult->Rows.hasElements();
 }
 
 bool CachedContentResultSet::CCRS_Cache
@@ -2136,8 +2136,7 @@ Reference< XResultSet > SAL_CALL CachedContentResultSetFactory
             const Reference< XResultSet > & xSource,
             const Reference< XContentIdentifierMapping > & xMapping )
 {
-    Reference< XResultSet > xRet;
-    xRet = new CachedContentResultSet( m_xContext, xSource, xMapping );
+    Reference< XResultSet > xRet = new CachedContentResultSet( m_xContext, xSource, xMapping );
     return xRet;
 }
 

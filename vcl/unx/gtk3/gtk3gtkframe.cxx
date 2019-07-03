@@ -23,7 +23,6 @@
 #include <unx/gtk/gtkgdi.hxx>
 #include <unx/gtk/gtksalmenu.hxx>
 #include <unx/gtk/hudawareness.h>
-#include <vcl/help.hxx>
 #include <vcl/keycodes.hxx>
 #include <vcl/layout.hxx>
 #include <unx/wmadaptor.hxx>
@@ -37,6 +36,7 @@
 #include <rtl/bootstrap.hxx>
 #include <rtl/process.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <vcl/floatwin.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
@@ -75,19 +75,10 @@
 #include <cstdlib>
 #include <cmath>
 
-#include <comphelper/processfactory.hxx>
-#include <comphelper/sequenceashashmap.hxx>
 #include <com/sun/star/accessibility/XAccessibleContext.hpp>
-#include <com/sun/star/accessibility/AccessibleRole.hpp>
-#include <com/sun/star/accessibility/XAccessibleStateSet.hpp>
-#include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/XAccessibleEditableText.hpp>
 #include <com/sun/star/awt/MouseButton.hpp>
 #include <com/sun/star/datatransfer/dnd/DNDConstants.hpp>
-#include <com/sun/star/frame/Desktop.hpp>
-#include <com/sun/star/frame/ModuleManager.hpp>
-#include <com/sun/star/frame/XFrame.hpp>
-#include <com/sun/star/util/URLTransformer.hpp>
 
 #include <config_folders.h>
 
@@ -144,7 +135,7 @@ sal_uInt16 GtkSalFrame::GetKeyCode(guint keyval)
         switch( keyval )
         {
             // - - - - - Sun keyboard, see vcl/unx/source/app/saldisp.cxx
-            // althopugh GDK_KEY_F1 ... GDK_KEY_L10 are known to
+            // although GDK_KEY_F1 ... GDK_KEY_L10 are known to
             // gdk/gdkkeysyms.h, they are unlikely to be generated
             // except possibly by Solaris systems
             // this whole section needs review
@@ -522,73 +513,6 @@ static void hud_activated( gboolean hud_active, gpointer user_data )
     }
 }
 
-static void activate_uno(GSimpleAction *action, GVariant*, gpointer)
-{
-    uno::Reference< css::uno::XComponentContext > xContext = ::comphelper::getProcessComponentContext();
-
-    uno::Reference< css::frame::XDesktop2 > xDesktop = css::frame::Desktop::create( xContext );
-
-    uno::Reference < css::frame::XFrame > xFrame(xDesktop->getActiveFrame());
-    if (!xFrame.is())
-        xFrame.set(xDesktop, uno::UNO_QUERY);
-
-    if (!xFrame.is())
-        return;
-
-    uno::Reference< css::frame::XDispatchProvider > xDispatchProvider(xFrame, uno::UNO_QUERY);
-    if (!xDispatchProvider.is())
-        return;
-
-    gchar *strval = nullptr;
-    g_object_get(action, "name", &strval, nullptr);
-    if (!strval)
-        return;
-
-    if (strcmp(strval, "New") == 0)
-    {
-        g_free(strval);
-
-        uno::Reference<frame::XModuleManager2> xModuleManager(frame::ModuleManager::create(xContext));
-        OUString aModuleId(xModuleManager->identify(xFrame));
-        if (aModuleId.isEmpty())
-            return;
-
-        comphelper::SequenceAsHashMap lModuleDescription(xModuleManager->getByName(aModuleId));
-        OUString sFactoryService;
-        lModuleDescription[OUString("ooSetupFactoryEmptyDocumentURL")] >>= sFactoryService;
-        if (sFactoryService.isEmpty())
-            return;
-
-        uno::Sequence < css::beans::PropertyValue > args(0);
-        xDesktop->loadComponentFromURL(sFactoryService, "_blank", 0, args);
-        return;
-    }
-
-    OUString sCommand(".uno:");
-    sCommand += OUString(strval, strlen(strval), RTL_TEXTENCODING_UTF8);
-    g_free(strval);
-
-    css::util::URL aCommand;
-    aCommand.Complete = sCommand;
-    uno::Reference< css::util::XURLTransformer > xParser = css::util::URLTransformer::create(xContext);
-    xParser->parseStrict(aCommand);
-
-    uno::Reference< css::frame::XDispatch > xDisp = xDispatchProvider->queryDispatch(aCommand, OUString(), 0);
-
-    if (!xDisp.is())
-        return;
-
-    xDisp->dispatch(aCommand, css::uno::Sequence< css::beans::PropertyValue >());
-}
-
-static const GActionEntry app_entries[] = {
-  { "OptionsTreeDialog", activate_uno, nullptr, nullptr, nullptr, {0} },
-  { "About", activate_uno, nullptr, nullptr, nullptr, {0} },
-  { "HelpIndex", activate_uno, nullptr, nullptr, nullptr, {0} },
-  { "Quit", activate_uno, nullptr, nullptr, nullptr, {0} },
-  { "New", activate_uno, nullptr, nullptr, nullptr, {0} }
-};
-
 static gboolean ensure_dbus_setup( gpointer data )
 {
     GtkSalFrame* pSalFrame = static_cast< GtkSalFrame* >( data );
@@ -618,14 +542,10 @@ static gboolean ensure_dbus_setup( gpointer data )
         g_object_set_data_full( G_OBJECT( gdkWindow ), "g-lo-action-group", pActionGroup, ObjectDestroyedNotify );
 
         GdkDisplay *pDisplay = GtkSalFrame::getGdkDisplay();
-        // fdo#70885 we don't want app menu under Unity
-        const bool bDesktopIsUnity = (SalGetDesktopEnvironment() == "UNITY");
 #if defined(GDK_WINDOWING_X11)
         if (DLSYM_GDK_IS_X11_DISPLAY(pDisplay))
         {
             gdk_x11_window_set_utf8_property( gdkWindow, "_GTK_APPLICATION_ID", "org.libreoffice" );
-            if (!bDesktopIsUnity)
-                gdk_x11_window_set_utf8_property( gdkWindow, "_GTK_APP_MENU_OBJECT_PATH", "/org/libreoffice/menus/appmenu" );
             gdk_x11_window_set_utf8_property( gdkWindow, "_GTK_MENUBAR_OBJECT_PATH", aDBusMenubarPath );
             gdk_x11_window_set_utf8_property( gdkWindow, "_GTK_WINDOW_OBJECT_PATH", aDBusWindowPath );
             gdk_x11_window_set_utf8_property( gdkWindow, "_GTK_APPLICATION_OBJECT_PATH", "/org/libreoffice" );
@@ -636,8 +556,8 @@ static gboolean ensure_dbus_setup( gpointer data )
         if (DLSYM_GDK_IS_WAYLAND_DISPLAY(pDisplay))
         {
             gdk_wayland_window_set_dbus_properties_libgtk_only(gdkWindow, "org.libreoffice",
-                                                               "/org/libreoffice/menus/appmenu",
-                                                               !bDesktopIsUnity ? aDBusMenubarPath : nullptr,
+                                                               nullptr,
+                                                               aDBusMenubarPath,
                                                                aDBusWindowPath,
                                                                "/org/libreoffice",
                                                                g_dbus_connection_get_unique_name( pSessionBus ));
@@ -650,73 +570,8 @@ static gboolean ensure_dbus_setup( gpointer data )
         pSalFrame->m_nActionGroupExportId = g_dbus_connection_export_action_group( pSessionBus, aDBusWindowPath, pActionGroup, nullptr);
         pSalFrame->m_nHudAwarenessId = hud_awareness_register( pSessionBus, aDBusMenubarPath, hud_activated, pSalFrame, nullptr, nullptr );
 
-        //app menu, to-do translations, block normal menus when active, honor use appmenu settings
-        if (!bDesktopIsUnity)
-        {
-            GMenu *menu = g_menu_new ();
-            GMenuItem* item;
-
-            GMenu *firstsubmenu = g_menu_new ();
-
-            OString sNew(OUStringToOString(VclResId(SV_BUTTONTEXT_NEW),
-                RTL_TEXTENCODING_UTF8).replaceFirst("~", "_"));
-
-            item = g_menu_item_new(sNew.getStr(), "app.New");
-            g_menu_append_item( firstsubmenu, item );
-            g_object_unref(item);
-
-            g_menu_append_section( menu, nullptr, G_MENU_MODEL(firstsubmenu));
-            g_object_unref(firstsubmenu);
-
-            GMenu *secondsubmenu = g_menu_new ();
-
-            OString sPreferences(OUStringToOString(VclResId(SV_STDTEXT_PREFERENCES),
-                RTL_TEXTENCODING_UTF8).replaceFirst("~", "_"));
-
-            item = g_menu_item_new(sPreferences.getStr(), "app.OptionsTreeDialog");
-            g_menu_append_item( secondsubmenu, item );
-            g_object_unref(item);
-
-            g_menu_append_section( menu, nullptr, G_MENU_MODEL(secondsubmenu));
-            g_object_unref(secondsubmenu);
-
-            GMenu *thirdsubmenu = g_menu_new ();
-
-            OString sHelp(OUStringToOString(VclResId(SV_BUTTONTEXT_HELP),
-                RTL_TEXTENCODING_UTF8).replaceFirst("~", "_"));
-
-            item = g_menu_item_new(sHelp.getStr(), "app.HelpIndex");
-            g_menu_append_item( thirdsubmenu, item );
-            g_object_unref(item);
-
-            OString sAbout(OUStringToOString(VclResId(SV_STDTEXT_ABOUT),
-                RTL_TEXTENCODING_UTF8).replaceFirst("~", "_"));
-
-            item = g_menu_item_new(sAbout.getStr(), "app.About");
-            g_menu_append_item( thirdsubmenu, item );
-            g_object_unref(item);
-
-            OString sQuit(OUStringToOString(VclResId(SV_MENU_MAC_QUITAPP),
-                RTL_TEXTENCODING_UTF8).replaceFirst("~", "_"));
-
-            item = g_menu_item_new(sQuit.getStr(), "app.Quit");
-            g_menu_append_item( thirdsubmenu, item );
-            g_object_unref(item);
-            g_menu_append_section( menu, nullptr, G_MENU_MODEL(thirdsubmenu));
-            g_object_unref(thirdsubmenu);
-
-            GSimpleActionGroup *group = g_simple_action_group_new ();
-            g_action_map_add_action_entries (G_ACTION_MAP (group), app_entries, G_N_ELEMENTS (app_entries), nullptr);
-            GActionGroup* pAppActionGroup = G_ACTION_GROUP(group);
-
-            pSalFrame->m_nAppActionGroupExportId = g_dbus_connection_export_action_group( pSessionBus, "/org/libreoffice", pAppActionGroup, nullptr);
-            g_object_unref(pAppActionGroup);
-            pSalFrame->m_nAppMenuExportId = g_dbus_connection_export_menu_model (pSessionBus, "/org/libreoffice/menus/appmenu", G_MENU_MODEL (menu), nullptr);
-            g_object_unref(menu);
-        }
-
-        g_free( aDBusMenubarPath );
         g_free( aDBusWindowPath );
+        g_free( aDBusMenubarPath );
     }
 
     return FALSE;
@@ -855,12 +710,8 @@ GtkSalFrame::~GtkSalFrame()
                     hud_awareness_unregister( pSessionBus, m_nHudAwarenessId );
                 if ( m_nMenuExportId )
                     g_dbus_connection_unexport_menu_model( pSessionBus, m_nMenuExportId );
-                if ( m_nAppMenuExportId )
-                    g_dbus_connection_unexport_menu_model( pSessionBus, m_nAppMenuExportId );
                 if ( m_nActionGroupExportId )
                     g_dbus_connection_unexport_action_group( pSessionBus, m_nActionGroupExportId );
-                if ( m_nAppActionGroupExportId )
-                    g_dbus_connection_unexport_action_group( pSessionBus, m_nAppActionGroupExportId );
             }
             gtk_widget_destroy( m_pWindow );
         }
@@ -913,11 +764,30 @@ void GtkSalFrame::resizeWindow( long nWidth, long nHeight )
         window_resize(nWidth, nHeight);
 }
 
+// tdf#124694 GtkFixed takes the max size of all its children as its
+// preferred size, causing it to not clip its child, but grow instead.
+
+static void
+ooo_fixed_get_preferred_height(GtkWidget*, gint *minimum, gint *natural)
+{
+    *minimum = 0;
+    *natural = 0;
+}
+
+static void
+ooo_fixed_get_preferred_width(GtkWidget*, gint *minimum, gint *natural)
+{
+    *minimum = 0;
+    *natural = 0;
+}
+
 static void
 ooo_fixed_class_init(GtkFixedClass *klass)
 {
     GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
     widget_class->get_accessible = ooo_fixed_get_accessible;
+    widget_class->get_preferred_height = ooo_fixed_get_preferred_height;
+    widget_class->get_preferred_width = ooo_fixed_get_preferred_width;
 }
 
 /*
@@ -1079,9 +949,7 @@ void GtkSalFrame::InitCommon()
     m_pSalMenu          = nullptr;
     m_nWatcherId        = 0;
     m_nMenuExportId     = 0;
-    m_nAppMenuExportId  = 0;
     m_nActionGroupExportId = 0;
-    m_nAppActionGroupExportId = 0;
     m_nHudAwarenessId   = 0;
 
     gtk_widget_add_events( m_pWindow,
@@ -1113,6 +981,14 @@ void GtkSalFrame::InitCommon()
     {
         m_aSystemData.pDisplay = gdk_x11_display_get_xdisplay(pDisplay);
         m_aSystemData.pVisual = gdk_x11_visual_get_xvisual(pVisual);
+        m_aSystemData.pPlatformName = "xcb";
+    }
+#endif
+#if defined(GDK_WINDOWING_WAYLAND)
+    if (DLSYM_GDK_IS_WAYLAND_DISPLAY(pDisplay))
+    {
+        m_aSystemData.pDisplay = gdk_wayland_display_get_wl_display(pDisplay);
+        m_aSystemData.pPlatformName = "wayland";
     }
 #endif
 
@@ -2366,7 +2242,7 @@ void GtkSalFrame::UpdateSettings( AllSettings& rSettings )
         bFreeGraphics = true;
     }
 
-    pGraphics->updateSettings( rSettings );
+    pGraphics->UpdateSettings( rSettings );
 
     if( bFreeGraphics )
         ReleaseGraphics( pGraphics );
@@ -2864,17 +2740,14 @@ void GtkSalFrame::gestureSwipe(GtkGestureSwipe* gesture, gdouble velocity_x, gdo
     }
 }
 
-void GtkSalFrame::gestureLongPress(GtkGestureLongPress* gesture, gpointer frame)
+void GtkSalFrame::gestureLongPress(GtkGestureLongPress* gesture, gdouble x, gdouble y, gpointer frame)
 {
-    GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
-
-    if(pThis)
+    GdkEventSequence *sequence = gtk_gesture_single_get_current_sequence(GTK_GESTURE_SINGLE(gesture));
+    if (gtk_gesture_get_point(GTK_GESTURE(gesture), sequence, &x, &y))
     {
-        SalLongPressEvent aEvent;
+        GtkSalFrame* pThis = static_cast<GtkSalFrame*>(frame);
 
-        gdouble x, y;
-        GdkEventSequence *sequence = gtk_gesture_single_get_current_sequence(GTK_GESTURE_SINGLE(gesture));
-        gtk_gesture_get_point(GTK_GESTURE(gesture), sequence, &x, &y);
+        SalLongPressEvent aEvent;
         aEvent.mnX = x;
         aEvent.mnY = y;
 
@@ -3669,10 +3542,16 @@ gboolean GtkDropTarget::signalDragMotion(GtkWidget *pWidget, GdkDragContext *con
     GdkModifierType mask;
     gdk_window_get_pointer(widget_get_window(pWidget), nullptr, nullptr, &mask);
 
+    // tdf#124411 default to move if drag originates within LO itself, default
+    // to copy if it comes from outside, this is similar to srcAndDestEqual
+    // in macosx DropTarget::determineDropAction equivalent
+    sal_Int8 nNewDropAction = GtkDragSource::g_ActiveDragSource ?
+                                css::datatransfer::dnd::DNDConstants::ACTION_MOVE :
+                                css::datatransfer::dnd::DNDConstants::ACTION_COPY;
+
     // tdf#109227 if a modifier is held down, default to the matching
     // action for that modifier combo, otherwise pick the preferred
     // default from the possible source actions
-    sal_Int8 nNewDropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
     if ((mask & GDK_SHIFT_MASK) && !(mask & GDK_CONTROL_MASK))
         nNewDropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
     else if ((mask & GDK_CONTROL_MASK) && !(mask & GDK_SHIFT_MASK))
@@ -3855,7 +3734,7 @@ void GtkSalFrame::IMHandler::endExtTextInput( EndExtTextInputFlags /*nFlags*/ )
         if( ! aDel.isDeleted() )
         {
             // mark previous preedit state again (will e.g. be sent at focus gain)
-            m_aInputEvent.mpTextAttr = &m_aInputFlags[0];
+            m_aInputEvent.mpTextAttr = m_aInputFlags.data();
             if( m_bFocused )
             {
                 // begin preedit again
@@ -4162,7 +4041,7 @@ void GtkSalFrame::IMHandler::signalIMPreeditChanged( GtkIMContext*, gpointer im_
     } while (pango_attr_iterator_next (iter));
     pango_attr_iterator_destroy(iter);
 
-    pThis->m_aInputEvent.mpTextAttr = &pThis->m_aInputFlags[0];
+    pThis->m_aInputEvent.mpTextAttr = pThis->m_aInputFlags.data();
 
     g_free( pText );
     pango_attr_list_unref( pAttrs );
@@ -4194,48 +4073,6 @@ void GtkSalFrame::IMHandler::signalIMPreeditEnd( GtkIMContext*, gpointer im_hand
         pThis->updateIMSpotLocation();
 }
 
-static uno::Reference<accessibility::XAccessibleEditableText>
-    FindFocus(uno::Reference< accessibility::XAccessibleContext > const & xContext)
-{
-    if (!xContext.is())
-        return uno::Reference< accessibility::XAccessibleEditableText >();
-
-    uno::Reference<accessibility::XAccessibleStateSet> xState = xContext->getAccessibleStateSet();
-    if (xState.is())
-    {
-        if (xState->contains(accessibility::AccessibleStateType::FOCUSED))
-        {
-            uno::Reference< accessibility::XAccessibleEditableText > xText =
-                uno::Reference<accessibility::XAccessibleEditableText>(xContext, uno::UNO_QUERY);
-            if (xText.is())
-                return xText;
-            if (xState->contains(accessibility::AccessibleStateType::MANAGES_DESCENDANTS))
-                return uno::Reference< accessibility::XAccessibleEditableText >();
-        }
-    }
-
-    bool bSafeToIterate = true;
-    sal_Int32 nCount = xContext->getAccessibleChildCount();
-    if (nCount < 0 || nCount > SAL_MAX_UINT16 /* slow enough for anyone */)
-        bSafeToIterate = false;
-    if (!bSafeToIterate)
-        return uno::Reference< accessibility::XAccessibleEditableText >();
-
-    for (sal_Int32 i = 0; i < xContext->getAccessibleChildCount(); ++i)
-    {
-        uno::Reference< accessibility::XAccessible > xChild = xContext->getAccessibleChild(i);
-        if (!xChild.is())
-            continue;
-        uno::Reference< accessibility::XAccessibleContext > xChildContext = xChild->getAccessibleContext();
-        if (!xChildContext.is())
-            continue;
-        uno::Reference< accessibility::XAccessibleEditableText > xText = FindFocus(xChildContext);
-        if (xText.is())
-            return xText;
-    }
-    return uno::Reference< accessibility::XAccessibleEditableText >();
-}
-
 static uno::Reference<accessibility::XAccessibleEditableText> lcl_GetxText(vcl::Window *pFocusWin)
 {
     uno::Reference<accessibility::XAccessibleEditableText> xText;
@@ -4243,11 +4080,11 @@ static uno::Reference<accessibility::XAccessibleEditableText> lcl_GetxText(vcl::
     {
         uno::Reference< accessibility::XAccessible > xAccessible( pFocusWin->GetAccessible() );
         if (xAccessible.is())
-            xText = FindFocus(xAccessible->getAccessibleContext());
+            xText = FindFocusedEditableText(xAccessible->getAccessibleContext());
     }
     catch(const uno::Exception& e)
     {
-        SAL_WARN( "vcl.gtk3", "Exception in getting input method surrounding text: " << e);
+        TOOLS_WARN_EXCEPTION( "vcl.gtk3", "Exception in getting input method surrounding text");
     }
     return xText;
 }
@@ -4521,6 +4358,31 @@ void GtkSalFrame::nopaint_container_resize_children(GtkContainer *pContainer)
     m_bSalObjectSetPosSize = true;
     gtk_container_resize_children(pContainer);
     m_bSalObjectSetPosSize = false;
+}
+
+GdkEvent* GtkSalFrame::makeFakeKeyPress(GtkWidget* pWidget)
+{
+    GdkEvent *event = gdk_event_new(GDK_KEY_PRESS);
+    event->key.window = GDK_WINDOW(g_object_ref(gtk_widget_get_window(pWidget)));
+
+#if GTK_CHECK_VERSION(3, 20, 0)
+    if (gtk_check_version(3, 20, 0) == nullptr)
+    {
+        GdkSeat *seat = gdk_display_get_default_seat(gtk_widget_get_display(pWidget));
+        gdk_event_set_device(event, gdk_seat_get_keyboard(seat));
+    }
+#endif
+
+    event->key.send_event = 1 /* TRUE */;
+    event->key.time = gtk_get_current_event_time();
+    event->key.state = 0;
+    event->key.keyval = 0;
+    event->key.length = 0;
+    event->key.string = nullptr;
+    event->key.hardware_keycode = 0;
+    event->key.group = 0;
+    event->key.is_modifier = false;
+    return event;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -139,6 +139,7 @@ $(eval $(call gb_Library_add_exception_objects,svl,\
     svl/source/items/IndexedStyleSheets \
     svl/source/items/itemset \
     svl/source/items/lckbitem \
+    svl/source/items/legacyitem \
     svl/source/items/macitem \
     svl/source/items/poolcach \
     svl/source/items/poolio \
@@ -158,7 +159,8 @@ $(eval $(call gb_Library_add_exception_objects,svl,\
     svl/source/misc/PasswordHelper \
     svl/source/misc/adrparse \
     $(if $(filter DESKTOP,$(BUILD_TYPE)),\
-        svl/source/misc/documentlockfile) \
+        svl/source/misc/documentlockfile \
+        svl/source/misc/msodocumentlockfile) \
     svl/source/misc/filenotation \
     svl/source/misc/fstathelper \
     svl/source/misc/getstringresource \

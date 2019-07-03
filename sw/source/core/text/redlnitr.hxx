@@ -19,8 +19,6 @@
 #ifndef INCLUDED_SW_SOURCE_CORE_TEXT_REDLNITR_HXX
 #define INCLUDED_SW_SOURCE_CORE_TEXT_REDLNITR_HXX
 
-#include <ndhints.hxx>
-
 #include <IDocumentRedlineAccess.hxx>
 
 #include <swfont.hxx>
@@ -28,6 +26,7 @@
 #include <vcl/commandevent.hxx>
 
 #include <cstddef>
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -90,7 +89,7 @@ private:
 
     void Clear_( SwFont* pFnt );
     bool ChkSpecialUnderline_() const;
-    void FillHints( std::size_t nAuthor, RedlineType_t eType );
+    void FillHints( std::size_t nAuthor, RedlineType eType );
     short EnterExtend(SwFont& rFnt, sal_uLong const nNode, sal_Int32 const nNew)
     {
         if (m_pExt) return m_pExt->Enter(rFnt, nNode, nNew);

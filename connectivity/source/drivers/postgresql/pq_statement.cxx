@@ -71,10 +71,7 @@ using osl::MutexGuard;
 
 
 using com::sun::star::uno::Any;
-using com::sun::star::uno::makeAny;
 using com::sun::star::uno::Type;
-using com::sun::star::uno::RuntimeException;
-using com::sun::star::uno::Exception;
 using com::sun::star::uno::Sequence;
 using com::sun::star::uno::Reference;
 using com::sun::star::uno::XInterface;
@@ -296,8 +293,7 @@ static std::vector< OUString > lookupKeys(
     else if( -1 == table.indexOf( '.' ) )
     {
         // it wasn't a fully qualified name. Now need to skip through all tables.
-        Reference< XEnumerationAccess > enumerationAccess =
-            Reference< XEnumerationAccess > ( tables, UNO_QUERY );
+        Reference< XEnumerationAccess > enumerationAccess( tables, UNO_QUERY );
 
         Reference< css::container::XEnumeration > enumeration =
             enumerationAccess->createEnumeration();
@@ -365,8 +361,7 @@ static std::vector< OUString > lookupKeys(
                 keyType == css::sdbcx::KeyType::PRIMARY )
             {
                 Reference< XColumnsSupplier > columns( set, UNO_QUERY );
-                Reference< XIndexAccess > indexAccess =
-                    Reference< XIndexAccess > ( columns->getColumns(), UNO_QUERY );
+                Reference< XIndexAccess > indexAccess( columns->getColumns(), UNO_QUERY );
 
                 int length = indexAccess->getCount();
                 ret.resize( length );
@@ -713,7 +708,7 @@ Reference< XResultSet > getGeneratedValuesFromLastInsert(
         //       in postgresql doc
 
         Sequence< OUString > keyColumnNames = getPrimaryKeyColumnNames( connection, schemaName, tableName );
-        if( keyColumnNames.getLength() )
+        if( keyColumnNames.hasElements() )
         {
             OUStringBuffer buf( 128 );
             buf.append( "SELECT * FROM " );

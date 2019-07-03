@@ -19,7 +19,9 @@
 
 #include <config_features.h>
 #include <osl/file.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/infobar.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/classificationhelper.hxx>
 #include <sfx2/notebookbar/SfxNotebookBar.hxx>
@@ -214,7 +216,7 @@ bool IsSignPDF(const SfxObjectShellRef& xObjSh)
 bool AskPasswordToModify_Impl( const uno::Reference< task::XInteractionHandler >& xHandler, const OUString& aPath, const std::shared_ptr<const SfxFilter>& pFilter, sal_uInt32 nPasswordHash, const uno::Sequence< beans::PropertyValue >& aInfo )
 {
     // TODO/LATER: In future the info should replace the direct hash completely
-    bool bResult = ( !nPasswordHash && !aInfo.getLength() );
+    bool bResult = ( !nPasswordHash && !aInfo.hasElements() );
 
     SAL_WARN_IF( !(pFilter && ( pFilter->GetFilterFlags() & SfxFilterFlags::PASSWORDTOMODIFY )), "sfx.view",
                        "PasswordToModify feature is active for a filter that does not support it!");
@@ -240,7 +242,7 @@ bool AskPasswordToModify_Impl( const uno::Reference< task::XInteractionHandler >
 
             if ( pPasswordRequest->isPassword() )
             {
-                if ( aInfo.getLength() )
+                if ( aInfo.hasElements() )
                 {
                     bResult = ::comphelper::DocPasswordHelper::IsModifyPasswordCorrect( pPasswordRequest->getPasswordToModify(), aInfo );
                 }
@@ -356,7 +358,7 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
             else
             {
                 if ( pSh->IsReadOnlyMedium()
-                  && ( pSh->GetModifyPasswordHash() || pSh->GetModifyPasswordInfo().getLength() )
+                  && ( pSh->GetModifyPasswordHash() || pSh->GetModifyPasswordInfo().hasElements() )
                   && !pSh->IsModifyPasswordEntered() )
                 {
                     const OUString aDocumentName = INetURLObject( pMed->GetOrigURL() ).GetMainURL( INetURLObject::DecodeMechanism::WithCharset );
@@ -995,7 +997,7 @@ void SfxViewFrame::StateHistory_Impl( SfxItemSet &rSet )
         }
         else
         {
-            rSet.Put( SfxStringItem( SID_REDO, SvtResId(STR_REDO)+pShUndoMgr->GetRedoActionComment() ) );
+            rSet.Put(SfxStringItem(SID_REDO, SvtResId(STR_REDO) + pShUndoMgr->GetRedoActionComment()));
         }
     }
     else
@@ -1217,9 +1219,59 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                 rBind.Invalidate( SID_RELOAD );
                 rBind.Invalidate( SID_EDITDOC );
 
+                const auto t0 = std::chrono::system_clock::now().time_since_epoch();
+
+                bool bIsUITest = false; //uitest.uicheck fails when the dialog is open
+                for( sal_uInt16 i = 0; i < Application::GetCommandLineParamCount(); i++ )
+                {
+                    if( Application::GetCommandLineParam(i) == "--nologo" )
+                        bIsUITest = true;
+                }
+
+                //what's new infobar
+                if (!officecfg::Setup::Product::ooSetupLastVersion::isReadOnly()) //don't show/update when readonly
+                {
+                    OUString sSetupVersion = utl::ConfigManager::getProductVersion();
+                    sal_Int32 iCurrent = sSetupVersion.getToken(0,'.').toInt32() * 10 + sSetupVersion.getToken(1,'.').toInt32();
+                    OUString sLastVersion
+                        = officecfg::Setup::Product::ooSetupLastVersion::get().value_or("0.0");
+                    sal_Int32 iLast = sLastVersion.getToken(0,'.').toInt32() * 10 + sLastVersion.getToken(1,'.').toInt32();
+                    if ((iCurrent > iLast) && !Application::IsHeadlessModeEnabled() && !bIsUITest)
+                    {
+                        VclPtr<SfxInfoBarWindow> pInfoBar = AppendInfoBar("whatsnew", SfxResId(STR_WHATSNEW_TEXT), InfoBarType::Info);
+                        if (pInfoBar)
+                        {
+                            VclPtrInstance<PushButton> xWhatsNewButton(&GetWindow());
+                            xWhatsNewButton->SetText(SfxResId(STR_WHATSNEW_BUTTON));
+                            xWhatsNewButton->SetSizePixel(xWhatsNewButton->GetOptimalSize());
+                            xWhatsNewButton->SetClickHdl(LINK(this, SfxViewFrame, WhatsNewHandler));
+                            pInfoBar->addButton(xWhatsNewButton);
+
+                            //update lastversion
+                            std::shared_ptr<comphelper::ConfigurationChanges> batch(comphelper::ConfigurationChanges::create());
+                            officecfg::Setup::Product::ooSetupLastVersion::set(
+                                sSetupVersion, batch);
+                            batch->commit();
+                        }
+                    }
+                }
+
+                // show tip-of-the-day dialog
+                const bool bShowTipOfTheDay = officecfg::Office::Common::Misc::ShowTipOfTheDay::get();
+                if (bShowTipOfTheDay && !Application::IsHeadlessModeEnabled() && !bIsUITest) {
+                    const sal_Int32 nLastTipOfTheDay = officecfg::Office::Common::Misc::LastTipOfTheDayShown::get();
+                    const sal_Int32 nDay = std::chrono::duration_cast<std::chrono::hours>(t0).count()/24; // days since 1970-01-01
+                    if (nDay-nLastTipOfTheDay > 0) { //only once per day
+                        VclAbstractDialogFactory* pFact = VclAbstractDialogFactory::Create();
+                        ScopedVclPtr<VclAbstractDialog> pDlg(
+                            pFact->CreateTipOfTheDayDialog(GetWindow().GetFrameWeld()));
+                        pDlg->Execute();
+                    }
+                }
+
                 // inform about the community involvement
                 const sal_Int64 nLastGetInvolvedShown = officecfg::Setup::Product::LastTimeGetInvolvedShown::get();
-                const sal_Int64 nNow = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+                const sal_Int64 nNow = std::chrono::duration_cast<std::chrono::seconds>(t0).count();
                 const sal_Int64 nPeriodSec(60 * 60 * 24 * 180); // 180 days in seconds
                 bool bUpdateLastTimeGetInvolvedShown = false;
 
@@ -1256,13 +1308,13 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                 {
                     bUpdateLastTimeDonateShown = true;
 
-                    VclPtr<SfxInfoBarWindow> pInfoBar = AppendInfoBar("getdonate", SfxResId(STR_GET_DONATE_TEXT), InfoBarType::Info);
+                    VclPtr<SfxInfoBarWindow> pInfoBar = AppendInfoBar("donate", SfxResId(STR_DONATE_TEXT), InfoBarType::Info);
 
-                    VclPtrInstance<PushButton> xGetDonateButton(&GetWindow());
-                    xGetDonateButton->SetText(SfxResId(STR_GET_DONATE_BUTTON));
-                    xGetDonateButton->SetSizePixel(xGetDonateButton->GetOptimalSize());
-                    xGetDonateButton->SetClickHdl(LINK(this, SfxViewFrame, GetDonateHandler));
-                    pInfoBar->addButton(xGetDonateButton);
+                    VclPtrInstance<PushButton> xDonateButton(&GetWindow());
+                    xDonateButton->SetText(SfxResId(STR_DONATE_BUTTON));
+                    xDonateButton->SetSizePixel(xDonateButton->GetOptimalSize());
+                    xDonateButton->SetClickHdl(LINK(this, SfxViewFrame, DonationHandler));
+                    pInfoBar->addButton(xDonateButton);
                 }
 
                 if (bUpdateLastTimeDonateShown
@@ -1396,12 +1448,17 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
     }
 }
 
+IMPL_LINK_NOARG(SfxViewFrame, WhatsNewHandler, Button*, void)
+{
+    GetDispatcher()->Execute(SID_WHATSNEW);
+}
+
 IMPL_LINK_NOARG(SfxViewFrame, GetInvolvedHandler, Button*, void)
 {
     GetDispatcher()->Execute(SID_GETINVOLVED);
 }
 
-IMPL_LINK_NOARG(SfxViewFrame, GetDonateHandler, Button*, void)
+IMPL_LINK_NOARG(SfxViewFrame, DonationHandler, Button*, void)
 {
     GetDispatcher()->Execute(SID_DONATION);
 }
@@ -1873,7 +1930,7 @@ SfxViewShell* SfxViewFrame::LoadViewIntoFrame_Impl( const SfxObjectShell& i_rDoc
 {
     Reference< XModel > xDocument( i_rDoc.GetModel(), UNO_SET_THROW );
 
-    ::comphelper::NamedValueCollection aTransformLoadArgs( i_rLoadArgs.getLength() ? i_rLoadArgs : xDocument->getArgs() );
+    ::comphelper::NamedValueCollection aTransformLoadArgs( i_rLoadArgs.hasElements() ? i_rLoadArgs : xDocument->getArgs() );
     aTransformLoadArgs.put( "Model", xDocument );
     if ( i_nViewId )
         aTransformLoadArgs.put( "ViewId", sal_uInt16( i_nViewId ) );

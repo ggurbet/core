@@ -23,7 +23,6 @@
 #include <rtl/ref.hxx>
 #include <svx/sdr/animation/scheduler.hxx>
 #include <svx/sdr/overlay/overlayobject.hxx>
-#include <vcl/mapmod.hxx>
 #include <tools/color.hxx>
 #include <tools/gen.hxx>
 #include <svx/svxdllapi.h>
@@ -87,6 +86,8 @@ namespace sdr
             // return mfDiscreteOne to derivations, but also check for buffered local
             // ViewTransformation and evtl. correct mfDiscreteOne
             double getDiscreteOne() const;
+
+            tools::Rectangle RangeToInvalidateRectangle(const basegfx::B2DRange& rRange) const;
 
             OverlayManager(OutputDevice& rOutputDevice);
             virtual ~OverlayManager() override;

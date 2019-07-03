@@ -23,6 +23,7 @@
 #include <svl/sharedstringpool.hxx>
 #include <unotools/charclass.hxx>
 #include <osl/diagnose.h>
+#include <vcl/svapp.hxx>
 
 #include <scitems.hxx>
 #include <funcuno.hxx>
@@ -543,7 +544,7 @@ uno::Any SAL_CALL ScFunctionAccess::callFunction( const OUString& aName,
             // currently, only our own cell ranges are supported
 
             uno::Reference<table::XCellRange> xRange(rArg, uno::UNO_QUERY);
-            ScCellRangesBase* pImpl = ScCellRangesBase::getImplementation( xRange );
+            ScCellRangesBase* pImpl = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( xRange );
             if ( pImpl )
             {
                 ScDocument* pSrcDoc = pImpl->GetDocument();

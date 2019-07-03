@@ -21,6 +21,7 @@
 #include <svx/svdocapt.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
+#include <svl/stritem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <editeng/editview.hxx>
@@ -329,6 +330,11 @@ void ScViewFunc::InsertCurrentTime(SvNumFormatType nReqFmt, const OUString& rUnd
     }
     else
     {
+        // Clear "Enter pastes" mode.
+        rViewData.SetPasteMode( ScPasteFlags::NONE );
+        // Clear CopySourceOverlay in each window of a split/frozen tabview.
+        rViewData.GetViewShell()->UpdateCopySourceOverlay();
+
         bool bForceReqFmt = false;
         const double fCell = rDoc.GetValue( aCurPos);
         // Combine requested date/time stamp with existing cell time/date, if any.

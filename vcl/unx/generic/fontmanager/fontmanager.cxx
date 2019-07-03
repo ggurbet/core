@@ -31,6 +31,7 @@
 #include <svdata.hxx>
 #include <unx/geninst.h>
 #include <unx/gendata.hxx>
+#include <unx/helper.hxx>
 #include <vcl/strhelper.hxx>
 #include <vcl/ppdparser.hxx>
 #include <vcl/embeddedfontshelper.hxx>
@@ -108,6 +109,7 @@ PrintFontManager::PrintFont::PrintFont()
 ,   m_nYMax(0)
 ,   m_nDirectory(0)
 ,   m_nCollectionEntry(0)
+,   m_nVariationEntry(0)
 {
 }
 
@@ -165,7 +167,7 @@ std::vector<fontID> PrintFontManager::addFontFile( const OString& rFileName )
 {
     rtl_TextEncoding aEncoding = osl_getThreadTextEncoding();
     INetURLObject aPath( OStringToOUString( rFileName, aEncoding ), FSysStyle::Detect );
-    OString aName( OUStringToOString( aPath.GetName( INetURLObject::DecodeMechanism::WithCharset, aEncoding ), aEncoding ) );
+    OString aName(OUStringToOString(aPath.GetLastName(INetURLObject::DecodeMechanism::WithCharset, aEncoding), aEncoding));
     OString aDir( OUStringToOString(
         INetURLObject::decode( aPath.GetPath(), INetURLObject::DecodeMechanism::WithCharset, aEncoding ), aEncoding ) );
 
@@ -275,7 +277,7 @@ std::vector<std::unique_ptr<PrintFontManager::PrintFont>> PrintFontManager::anal
     return aNewFonts;
 }
 
-fontID PrintFontManager::findFontFileID( int nDirID, const OString& rFontFile, int nFaceIndex ) const
+fontID PrintFontManager::findFontFileID(int nDirID, const OString& rFontFile, int nFaceIndex, int nVariationIndex) const
 {
     fontID nID = 0;
 
@@ -290,7 +292,9 @@ fontID PrintFontManager::findFontFileID( int nDirID, const OString& rFontFile, i
             continue;
         PrintFont* const pFont = (*it).second.get();
         if (pFont->m_nDirectory == nDirID &&
-            pFont->m_aFontFile == rFontFile && pFont->m_nCollectionEntry == nFaceIndex)
+            pFont->m_aFontFile == rFontFile &&
+            pFont->m_nCollectionEntry == nFaceIndex &&
+            pFont->m_nVariationEntry == nVariationIndex)
         {
             nID = it->first;
             if (nID)
@@ -835,6 +839,19 @@ int PrintFontManager::getFontFaceNumber( fontID nFontID ) const
     return nRet;
 }
 
+int PrintFontManager::getFontFaceVariation( fontID nFontID ) const
+{
+    int nRet = 0;
+    PrintFont* pFont = getFont( nFontID );
+    if (pFont)
+    {
+        nRet = pFont->m_nVariationEntry;
+        if (nRet < 0)
+            nRet = 0;
+    }
+    return nRet;
+}
+
 FontFamily PrintFontManager::matchFamilyName( const OUString& rFamily )
 {
     struct family_t {
@@ -1105,7 +1122,7 @@ void PrintFontManager::getGlyphWidths( fontID nFont,
         for (int i = 0; i < nGlyphs; i++)
             aGlyphIds[i] = sal_uInt16(i);
         std::unique_ptr<sal_uInt16[]> pMetrics = GetTTSimpleGlyphMetrics(pTTFont,
-                                                                 &aGlyphIds[0],
+                                                                 aGlyphIds.data(),
                                                                  nGlyphs,
                                                                  bVertical);
         if (pMetrics)

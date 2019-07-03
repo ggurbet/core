@@ -21,10 +21,8 @@
 #include <comphelper/logging.hxx>
 
 #include <com/sun/star/logging/LoggerPool.hpp>
-#include <com/sun/star/logging/LogLevel.hpp>
 
 #include <osl/diagnose.h>
-#include <rtl/ustrbuf.hxx>
 
 
 namespace comphelper
@@ -34,7 +32,6 @@ namespace comphelper
     using ::com::sun::star::logging::XLoggerPool;
     using ::com::sun::star::logging::LoggerPool;
     using ::com::sun::star::logging::XLogger;
-    using ::com::sun::star::uno::UNO_QUERY_THROW;
     using ::com::sun::star::uno::Exception;
 
     class EventLogger_Impl
@@ -89,7 +86,7 @@ namespace comphelper
         return false;
     }
 
-    const css::uno::Reference<css::logging::XLogger> EventLogger::getLogger()
+    const css::uno::Reference<css::logging::XLogger> & EventLogger::getLogger()
     {
         return m_pImpl->getLogger();
     }

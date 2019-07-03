@@ -32,12 +32,12 @@ enum SwDateSubFormat
     DATE_VAR
 };
 
-class SwDateTimeFieldType : public SwValueFieldType
+class SAL_DLLPUBLIC_RTTI SwDateTimeFieldType : public SwValueFieldType
 {
 public:
         SwDateTimeFieldType(SwDoc* pDoc);
 
-        virtual SwFieldType*    Copy() const override;
+        virtual std::unique_ptr<SwFieldType> Copy() const override;
 };
 
 class SW_DLLPUBLIC SwDateTimeField : public SwValueField

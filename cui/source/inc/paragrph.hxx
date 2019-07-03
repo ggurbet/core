@@ -221,6 +221,15 @@ protected:
 private:
     SvxExtParagraphTabPage(TabPageParent pParent, const SfxItemSet& rSet);
 
+    weld::TriStateEnabled aHyphenState;
+    weld::TriStateEnabled aPageBreakState;
+    weld::TriStateEnabled aApplyCollState;
+    weld::TriStateEnabled aPageNumState;
+    weld::TriStateEnabled aKeepTogetherState;
+    weld::TriStateEnabled aKeepParaState;
+    weld::TriStateEnabled aOrphanState;
+    weld::TriStateEnabled aWidowState;
+
     bool                bPageBreak;
     bool                bHtmlMode;
     sal_uInt16          nStdPos;
@@ -258,6 +267,14 @@ private:
     std::unique_ptr<weld::SpinButton> m_xWidowRowNo;
     std::unique_ptr<weld::Label> m_xWidowRowLabel;
 
+    void HyphenClickHdl();
+    void PageNumBoxClickHdl();
+    void ApplyCollClickHdl();
+    void PageBreakHdl();
+    void KeepTogetherHdl();
+    void OrphanHdl();
+    void WidowHdl();
+
     DECL_LINK(PageBreakHdl_Impl, weld::ToggleButton&, void);
     DECL_LINK(KeepTogetherHdl_Impl, weld::ToggleButton&, void);
     DECL_LINK(WidowHdl_Impl, weld::ToggleButton&, void);
@@ -267,6 +284,7 @@ private:
     DECL_LINK(PageBreakPosHdl_Impl, weld::ComboBox&, void);
     DECL_LINK(PageBreakTypeHdl_Impl, weld::ComboBox&, void);
     DECL_LINK(PageNumBoxClickHdl_Impl, weld::ToggleButton&, void);
+    DECL_LINK(KeepParaBoxClickHdl_Impl, weld::ToggleButton&, void);
 
     virtual void            PageCreated(const SfxAllItemSet& aSet) override;
 };

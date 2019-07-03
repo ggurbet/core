@@ -45,6 +45,7 @@
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <comphelper/lok.hxx>
 #include <unx/gendata.hxx>
+#include <dlfcn.h>
 
 #if ENABLE_CAIRO_CANVAS
 #   if defined CAIRO_VERSION && CAIRO_VERSION < CAIRO_VERSION_ENCODE(1, 10, 0)
@@ -547,7 +548,7 @@ bool SvpSalGraphics::drawAlphaRect(long nX, long nY, long nWidth, long nHeight, 
     cairo_t* cr = getCairoContext(false);
     clipRegion(cr);
 
-    const double fTransparency = (100 - nTransparency) * (1.0/100);
+    const double fTransparency = nTransparency * (1.0/100);
 
     // To make releaseCairoContext work, use empty extents
     basegfx::B2DRange extents;
@@ -556,10 +557,7 @@ bool SvpSalGraphics::drawAlphaRect(long nX, long nY, long nWidth, long nHeight, 
 
     if (bHasFill)
     {
-        cairo_set_source_rgba(cr, m_aFillColor.GetRed()/255.0,
-                                  m_aFillColor.GetGreen()/255.0,
-                                  m_aFillColor.GetBlue()/255.0,
-                                  fTransparency);
+        applyColor(cr, m_aFillColor, fTransparency);
 
         // set FillDamage
         extents = getClippedFillDamage(cr);
@@ -575,10 +573,7 @@ bool SvpSalGraphics::drawAlphaRect(long nX, long nY, long nWidth, long nHeight, 
         cairo_matrix_init_translate(&aMatrix, 0.5, 0.5);
         cairo_set_matrix(cr, &aMatrix);
 
-        cairo_set_source_rgba(cr, m_aLineColor.GetRed()/255.0,
-                                  m_aLineColor.GetGreen()/255.0,
-                                  m_aLineColor.GetBlue()/255.0,
-                                  fTransparency);
+        applyColor(cr, m_aLineColor, fTransparency);
 
         // expand with possible StrokeDamage
         extents.expand(getClippedStrokeDamage(cr));
@@ -599,9 +594,10 @@ SvpSalGraphics::SvpSalGraphics()
     , m_ePaintMode(PaintMode::Over)
     , m_aTextRenderImpl(*this)
 {
-    if (!initWidgetDrawBackends())
+    bool bLOKActive = comphelper::LibreOfficeKit::isActive();
+    if (!initWidgetDrawBackends(bLOKActive))
     {
-        if (comphelper::LibreOfficeKit::isActive())
+        if (bLOKActive)
             m_pWidgetDraw.reset(new vcl::CustomWidgetDraw(*this));
     }
 }
@@ -614,9 +610,7 @@ void SvpSalGraphics::setSurface(cairo_surface_t* pSurface, const basegfx::B2IVec
 {
     m_pSurface = pSurface;
     m_aFrameSize = rSize;
-#if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 14, 0)
-    cairo_surface_get_device_scale(pSurface, &m_fScale, nullptr);
-#endif
+    dl_cairo_surface_get_device_scale(pSurface, &m_fScale, nullptr);
     ResetClipRegion();
 }
 
@@ -1145,6 +1139,9 @@ bool SvpSalGraphics::drawPolyLine(
             fMiterMinimumAngle,
             bPixelSnapHairline));
 
+    // if transformation has been applied, transform also extents (ranges)
+    // of damage so they can be correctly redrawn
+    aExtents.transform(rObjectToDevice);
     releaseCairoContext(cr, false, aExtents);
 
     return bRetval;
@@ -1345,20 +1342,8 @@ bool SvpSalGraphics::drawPolyLine(
     }
 
     // extract extents
-    if(nullptr != pExtents)
-    {
-        // This uses cairo_stroke_extents and combines with cairo_clip_extents, so
-        // referring to Cairo-documentation:
-        // "Computes a bounding box in user coordinates covering the area that would
-        //  be affected, (the "inked" area), by a cairo_stroke() operation given the
-        //  current path and stroke parameters."
-        // It *should* use the current set cairo_matrix_t.
+    if (pExtents)
         *pExtents = getClippedStrokeDamage(cr);
-
-        // If not - the following code needs to be used to correct that:
-        // if(!pExtents->isEmpty() && !bObjectToDeviceIsIdentity)
-        //     pExtents->transform(rObjectToDevice);
-    }
 
     // draw and consume
     cairo_stroke(cr);
@@ -1461,11 +1446,7 @@ bool SvpSalGraphics::drawPolyPolygon(
 
     if (bHasFill)
     {
-        cairo_set_source_rgba(cr, m_aFillColor.GetRed()/255.0,
-                                  m_aFillColor.GetGreen()/255.0,
-                                  m_aFillColor.GetBlue()/255.0,
-                                  1.0-fTransparency);
-
+        applyColor(cr, m_aFillColor, fTransparency);
         // Get FillDamage (will be extended for LineDamage below)
         extents = getClippedFillDamage(cr);
 
@@ -1479,12 +1460,7 @@ bool SvpSalGraphics::drawPolyPolygon(
         cairo_matrix_init_translate(&aMatrix, 0.5, 0.5);
         cairo_set_matrix(cr, &aMatrix);
 
-        // Note: Other methods use applyColor(...) to set the Color. That
-        // seems to do some more. Maybe it should be used here, too (?)
-        cairo_set_source_rgba(cr, m_aLineColor.GetRed()/255.0,
-                                  m_aLineColor.GetGreen()/255.0,
-                                  m_aLineColor.GetBlue()/255.0,
-                                  1.0-fTransparency);
+        applyColor(cr, m_aLineColor, fTransparency);
 
         // expand with possible StrokeDamage
         extents.expand(getClippedStrokeDamage(cr));
@@ -1492,19 +1468,22 @@ bool SvpSalGraphics::drawPolyPolygon(
         cairo_stroke_preserve(cr);
     }
 
+    // if transformation has been applied, transform also extents (ranges)
+    // of damage so they can be correctly redrawn
+    extents.transform(rObjectToDevice);
     releaseCairoContext(cr, true, extents);
 
     return true;
 }
 
-void SvpSalGraphics::applyColor(cairo_t *cr, Color aColor)
+void SvpSalGraphics::applyColor(cairo_t *cr, Color aColor, double fTransparency)
 {
     if (cairo_surface_get_content(m_pSurface) == CAIRO_CONTENT_COLOR_ALPHA)
     {
         cairo_set_source_rgba(cr, aColor.GetRed()/255.0,
                                   aColor.GetGreen()/255.0,
                                   aColor.GetBlue()/255.0,
-                                  1.0);
+                                  1.0 - fTransparency);
     }
     else
     {
@@ -1599,9 +1578,7 @@ void SvpSalGraphics::copyBits( const SalTwoRect& rTR,
                                             cairo_surface_get_content(m_pSurface),
                                             aTR.mnSrcWidth * m_fScale,
                                             aTR.mnSrcHeight * m_fScale);
-#if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 14, 0)
-        cairo_surface_set_device_scale(pCopy, m_fScale, m_fScale);
-#endif
+        dl_cairo_surface_set_device_scale(pCopy, m_fScale, m_fScale);
         cairo_t* cr = cairo_create(pCopy);
         cairo_set_source_surface(cr, source, -aTR.mnSrcX, -aTR.mnSrcY);
         cairo_rectangle(cr, 0, 0, aTR.mnSrcWidth, aTR.mnSrcHeight);
@@ -1624,7 +1601,7 @@ void SvpSalGraphics::drawBitmap(const SalTwoRect& rTR, const SalBitmap& rSourceB
 {
     SourceHelper aSurface(rSourceBitmap);
     cairo_surface_t* source = aSurface.getSurface();
-    copySource(rTR, source);
+    copyWithOperator(rTR, source, CAIRO_OPERATOR_OVER);
 }
 
 void SvpSalGraphics::drawBitmap(const SalTwoRect& rTR, const BitmapBuffer* pBuffer, cairo_operator_t eOp)
@@ -1749,11 +1726,10 @@ std::shared_ptr<SalBitmap> SvpSalGraphics::getBitmap( long nX, long nY, long nWi
 Color SvpSalGraphics::getPixel( long nX, long nY )
 {
 #if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 12, 0)
-    cairo_surface_t *target = cairo_surface_create_similar_image(m_pSurface,
+    cairo_surface_t *target = cairo_surface_create_similar_image(m_pSurface, CAIRO_FORMAT_ARGB32, 1, 1);
 #else
-    cairo_surface_t *target = cairo_image_surface_create(
+    cairo_surface_t *target = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
 #endif
-            CAIRO_FORMAT_ARGB32, 1, 1);
 
     cairo_t* cr = cairo_create(target);
 
@@ -1769,11 +1745,10 @@ Color SvpSalGraphics::getPixel( long nX, long nY )
     sal_uInt8 b = unpremultiply_table[a][data[SVP_CAIRO_BLUE]];
     sal_uInt8 g = unpremultiply_table[a][data[SVP_CAIRO_GREEN]];
     sal_uInt8 r = unpremultiply_table[a][data[SVP_CAIRO_RED]];
-    Color nRet = Color(r, g, b);
-
+    Color aColor(0xFF - a, r, g, b);
     cairo_surface_destroy(target);
 
-    return nRet;
+    return aColor;
 }
 
 namespace
@@ -1850,9 +1825,7 @@ void SvpSalGraphics::invert(const basegfx::B2DPolygon &rPoly, SalInvert nFlags)
                                                                     extents.getWidth() * m_fScale,
                                                                     extents.getHeight() * m_fScale);
 
-#if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 14, 0)
-            cairo_surface_set_device_scale(surface, m_fScale, m_fScale);
-#endif
+            dl_cairo_surface_set_device_scale(surface, m_fScale, m_fScale);
             cairo_t* stipple_cr = cairo_create(surface);
             cairo_set_source_rgb(stipple_cr, 1.0, 1.0, 1.0);
             cairo_mask(stipple_cr, pattern);
@@ -1891,69 +1864,6 @@ void SvpSalGraphics::invert(sal_uInt32 nPoints, const SalPoint* pPtAry, SalInver
 bool SvpSalGraphics::drawEPS( long, long, long, long, void*, sal_uInt32 )
 {
     return false;
-}
-
-/* Widget drawing */
-
-bool SvpSalGraphics::IsNativeControlSupported(ControlType eType, ControlPart ePart)
-{
-    if (hasWidgetDraw())
-        return m_pWidgetDraw->isNativeControlSupported(eType, ePart);
-
-    return false;
-}
-
-bool SvpSalGraphics::hitTestNativeControl(ControlType eType, ControlPart ePart,
-                                       const tools::Rectangle& rBoundingControlRegion,
-                                       const Point& rPosition, bool& rIsInside)
-{
-    if (hasWidgetDraw())
-    {
-        return m_pWidgetDraw->hitTestNativeControl(eType, ePart, rBoundingControlRegion, rPosition, rIsInside);
-    }
-
-    return false;
-}
-
-bool SvpSalGraphics::drawNativeControl(ControlType eType, ControlPart ePart,
-                                   const tools::Rectangle& rControlRegion,
-                                   ControlState eState, const ImplControlValue& aValue,
-                                   const OUString& aCaptions)
-{
-    if (hasWidgetDraw())
-    {
-        bool bReturn = m_pWidgetDraw->drawNativeControl(eType, ePart, rControlRegion,
-                                                        eState, aValue, aCaptions);
-        return bReturn;
-    }
-
-    return false;
-}
-
-bool SvpSalGraphics::getNativeControlRegion(ControlType eType, ControlPart ePart,
-                                         const tools::Rectangle& rBoundingControlRegion,
-                                         ControlState eState,
-                                         const ImplControlValue& aValue,
-                                         const OUString& aCaption,
-                                         tools::Rectangle& rNativeBoundingRegion,
-                                         tools::Rectangle& rNativeContentRegion)
-{
-    if (hasWidgetDraw())
-    {
-        return m_pWidgetDraw->getNativeControlRegion(eType, ePart, rBoundingControlRegion,
-                                                     eState, aValue, aCaption,
-                                                     rNativeBoundingRegion, rNativeContentRegion);
-    }
-
-    return false;
-}
-
-void SvpSalGraphics::updateSettings(AllSettings& rSettings)
-{
-    if (hasWidgetDraw())
-    {
-        m_pWidgetDraw->updateSettings(rSettings);
-    }
 }
 
 namespace
@@ -2006,9 +1916,7 @@ cairo_t* SvpSalGraphics::createTmpCompatibleCairoContext() const
             m_aFrameSize.getX() * m_fScale,
             m_aFrameSize.getY() * m_fScale);
 
-#if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 14, 0)
-    cairo_surface_set_device_scale(target, m_fScale, m_fScale);
-#endif
+    dl_cairo_surface_set_device_scale(target, m_fScale, m_fScale);
 
     return cairo_create(target);
 }
@@ -2202,6 +2110,29 @@ GlyphCache& SvpSalGraphics::getPlatformGlyphCache()
     GenericUnixSalData* const pSalData(GetGenericUnixSalData());
     assert(pSalData);
     return *pSalData->GetGlyphCache();
+}
+
+void dl_cairo_surface_set_device_scale(cairo_surface_t *surface, double x_scale, double y_scale)
+{
+    static auto func = reinterpret_cast<void(*)(cairo_surface_t*, double, double)>(
+        dlsym(nullptr, "cairo_surface_set_device_scale"));
+    if (func)
+        func(surface, x_scale, y_scale);
+}
+
+void dl_cairo_surface_get_device_scale(cairo_surface_t *surface, double* x_scale, double* y_scale)
+{
+    static auto func = reinterpret_cast<void(*)(cairo_surface_t*, double*, double*)>(
+        dlsym(nullptr, "cairo_surface_get_device_scale"));
+    if (func)
+        func(surface, x_scale, y_scale);
+    else
+    {
+        if (x_scale)
+            *x_scale = 1.0;
+        if (y_scale)
+            *y_scale = 1.0;
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

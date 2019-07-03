@@ -32,33 +32,40 @@ package net.adaptivebox.deps;
  *     -> an agent perspective
  */
 
-import net.adaptivebox.deps.behavior.*;
+import net.adaptivebox.deps.behavior.AbsGTBehavior;
+import net.adaptivebox.deps.behavior.DEGTBehavior;
+import net.adaptivebox.deps.behavior.PSGTBehavior;
 import net.adaptivebox.goodness.IGoodnessCompareEngine;
-import net.adaptivebox.knowledge.*;
-import net.adaptivebox.problem.*;
-import net.adaptivebox.space.*;
+import net.adaptivebox.knowledge.ILibEngine;
+import net.adaptivebox.knowledge.Library;
+import net.adaptivebox.knowledge.SearchPoint;
+import net.adaptivebox.problem.ProblemEncoder;
+import net.adaptivebox.space.BasicPoint;
 
 public class DEPSAgent implements ILibEngine {
 
-  //Describes the problem to be solved
+  // Describes the problem to be solved
   private ProblemEncoder problemEncoder;
-  //Forms the goodness landscape
+
+  // Forms the goodness landscape
   private IGoodnessCompareEngine qualityComparator;
 
-  //store the point that generated in current learning cycle
+  // store the point that generated in current learning cycle
   private SearchPoint trailPoint;
 
-  //temp variable
+  // temp variable
   private AbsGTBehavior selectGTBehavior;
 
-  //the own memory: store the point that generated in old learning cycle
+  // the own memory: store the point that generated in old learning cycle
   private BasicPoint pold_t;
-  //the own memory: store the point that generated in last learning cycle
+
+  // the own memory: store the point that generated in last learning cycle
   private BasicPoint pcurrent_t;
-  //the own memory: store the personal best point
+
+  // the own memory: store the personal best point
   private SearchPoint pbest_t;
 
-  //Generate-and-test Behaviors
+  // Generate-and-test Behaviors
   private DEGTBehavior deGTBehavior;
   private PSGTBehavior psGTBehavior;
   public double switchP = 0.5;
@@ -84,7 +91,7 @@ public class DEPSAgent implements ILibEngine {
   }
 
   private AbsGTBehavior getGTBehavior() {
-    if (Math.random()<switchP) {
+    if (Math.random() < switchP) {
       return deGTBehavior;
     } else {
       return psGTBehavior;
@@ -93,12 +100,12 @@ public class DEPSAgent implements ILibEngine {
 
   public void setGTBehavior(AbsGTBehavior gtBehavior) {
     if (gtBehavior instanceof DEGTBehavior) {
-      deGTBehavior = ((DEGTBehavior)gtBehavior);
+      deGTBehavior = ((DEGTBehavior) gtBehavior);
       deGTBehavior.setPbest(pbest_t);
       return;
     }
     if (gtBehavior instanceof PSGTBehavior) {
-      psGTBehavior = ((PSGTBehavior)gtBehavior);
+      psGTBehavior = ((PSGTBehavior) gtBehavior);
       psGTBehavior.setMemPoints(pbest_t, pcurrent_t, pold_t);
       return;
     }
@@ -109,7 +116,8 @@ public class DEPSAgent implements ILibEngine {
     // its memory and the library
     selectGTBehavior = this.getGTBehavior();
     selectGTBehavior.generateBehavior(trailPoint, problemEncoder);
-    //evaluate into goodness information
+
+    // evaluate into goodness information
     problemEncoder.evaluate(trailPoint);
   }
 
@@ -121,4 +129,3 @@ public class DEPSAgent implements ILibEngine {
     return trailPoint;
   }
 }
-

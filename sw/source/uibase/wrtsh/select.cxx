@@ -20,8 +20,10 @@
 #include <limits.h>
 #include <hintids.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/eitem.hxx>
 #include <svl/macitem.hxx>
+#include <svx/svxids.hrc>
 #include <unotools/charclass.hxx>
 #include <editeng/scripttypeitem.hxx>
 #include <sfx2/event.hxx>
@@ -361,6 +363,16 @@ long SwWrtShell::ResetSelect(const Point *,bool)
     Invalidate();
     SwTransferable::ClearSelection( *this );
     return 1;
+}
+
+bool SwWrtShell::IsSplitVerticalByDefault() const
+{
+    return GetDoc()->IsSplitVerticalByDefault();
+}
+
+void SwWrtShell::SetSplitVerticalByDefault(bool value)
+{
+    GetDoc()->SetSplitVerticalByDefault(value);
 }
 
 // Do nothing

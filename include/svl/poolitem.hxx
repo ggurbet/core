@@ -31,7 +31,6 @@
 #include <tools/mapunit.hxx>
 
 class IntlWrapper;
-class SvStream;
 
 enum class SfxItemKind : sal_Int8
 {
@@ -152,6 +151,11 @@ public:
     bool                     operator!=( const SfxPoolItem& rItem ) const
                              { return !(*this == rItem); }
 
+    // Sorting is only used for faster searching in a pool which contains large quantities
+    // of a single kind of pool item.
+    virtual bool             operator<( const SfxPoolItem& ) const { assert(false); return false; }
+    virtual bool             IsSortable() const { return false; }
+
     /**  @return true if it has a valid string representation */
     virtual bool             GetPresentation( SfxItemPresentation ePresentation,
                                     MapUnit eCoreMetric,
@@ -159,15 +163,12 @@ public:
                                     OUString &rText,
                                     const IntlWrapper& rIntlWrapper ) const;
 
-    virtual sal_uInt16       GetVersion( sal_uInt16 nFileFormatVersion ) const;
     virtual void             ScaleMetrics( long lMult, long lDiv );
     virtual bool             HasMetrics() const;
 
     virtual bool             QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const;
     virtual bool             PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId );
 
-    virtual SfxPoolItem*     Create( SvStream &, sal_uInt16 nItemVersion ) const;
-    virtual SvStream&        Store( SvStream &, sal_uInt16 nItemVersion ) const;
     virtual SfxPoolItem*     Clone( SfxItemPool *pPool = nullptr ) const = 0;
     // clone and call SetWhich
     std::unique_ptr<SfxPoolItem> CloneSetWhich( sal_uInt16 nNewWhich ) const;

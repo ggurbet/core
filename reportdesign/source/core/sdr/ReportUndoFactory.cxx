@@ -63,9 +63,9 @@ std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoAttrObject( SdrObje
     return m_pUndoFactory->CreateUndoAttrObject( rObject, bStyleSheet1, bSaveText );
 }
 
-std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoRemoveObject( SdrObject& rObject, bool bOrdNumDirect )
+std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoRemoveObject(SdrObject& rObject)
 {
-    return m_pUndoFactory->CreateUndoRemoveObject( rObject, bOrdNumDirect );
+    return m_pUndoFactory->CreateUndoRemoveObject(rObject);
 }
 
 std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoInsertObject( SdrObject& rObject, bool /*bOrdNumDirect*/ )
@@ -93,9 +93,9 @@ std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoObjectOrdNum( SdrOb
     return m_pUndoFactory->CreateUndoObjectOrdNum( rObject, nOldOrdNum1, nNewOrdNum1 );
 }
 
-std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoReplaceObject( SdrObject& rOldObject, SdrObject& rNewObject, bool bOrdNumDirect )
+std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoReplaceObject( SdrObject& rOldObject, SdrObject& rNewObject )
 {
-    return m_pUndoFactory->CreateUndoReplaceObject( rOldObject, rNewObject, bOrdNumDirect );
+    return m_pUndoFactory->CreateUndoReplaceObject( rOldObject, rNewObject );
 }
 
 std::unique_ptr<SdrUndoAction> OReportUndoFactory::CreateUndoObjectLayerChange( SdrObject& rObject, SdrLayerID aOldLayer, SdrLayerID aNewLayer )

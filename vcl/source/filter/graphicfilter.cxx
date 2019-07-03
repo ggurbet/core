@@ -26,6 +26,7 @@
 #include <ucbhelper/content.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <tools/fract.hxx>
+#include <unotools/configmgr.hxx>
 #include <unotools/resmgr.hxx>
 #include <tools/stream.hxx>
 #include <tools/urlobj.hxx>
@@ -72,6 +73,8 @@
 
 #include "FilterConfigCache.hxx"
 #include "graphicfilter_internal.hxx"
+
+#include <graphic/GraphicFormatDetector.hxx>
 
 #define PMGCHUNG_msOG       0x6d734f47      // Microsoft Office Animated GIF
 
@@ -238,52 +241,11 @@ bool isPCT(SvStream& rStream, sal_uLong nStreamPos, sal_uLong nStreamLen)
  *
  *************************************************************************/
 
-static bool ImpPeekGraphicFormat( SvStream& rStream, OUString& rFormatExtension, bool bTest )
+bool ImpPeekGraphicFormat( SvStream& rStream, OUString& rFormatExtension, bool bTest )
 {
-    sal_uInt8   sFirstBytes[ 256 ];
-    sal_uLong   nFirstLong(0), nSecondLong(0);
-    sal_uLong   nStreamPos = rStream.Tell();
-    sal_uLong   nStreamLen = rStream.remainingSize();
-
-    if ( !nStreamLen )
-    {
-        SvLockBytes* pLockBytes = rStream.GetLockBytes();
-        if ( pLockBytes  )
-            pLockBytes->SetSynchronMode();
-
-        nStreamLen = rStream.remainingSize();
-    }
-
-    if (!nStreamLen)
-    {
-        return false; // this prevents at least a STL assertion
-    }
-    else if (nStreamLen >= 256)
-    {
-        // load first 256 bytes into a buffer
-        sal_uLong nRead = rStream.ReadBytes(sFirstBytes, 256);
-        if (nRead < 256)
-            nStreamLen = nRead;
-    }
-    else
-    {
-        nStreamLen = rStream.ReadBytes(sFirstBytes, nStreamLen);
-    }
-
-
-    if (rStream.GetError())
+    vcl::GraphicFormatDetector aDetector(rStream, rFormatExtension);
+    if (!aDetector.detect())
         return false;
-
-    for (sal_uLong i = nStreamLen; i < 256; ++i)
-        sFirstBytes[i] = 0;
-
-    // Accommodate the first 8 bytes in nFirstLong, nSecondLong
-    // Big-Endian:
-    for (int i = 0; i < 4; ++i)
-    {
-        nFirstLong=(nFirstLong<<8)|static_cast<sal_uLong>(sFirstBytes[i]);
-        nSecondLong=(nSecondLong<<8)|static_cast<sal_uLong>(sFirstBytes[i+4]);
-    }
 
     // The following variable is used when bTest == true. It remains false
     // if the format (rFormatExtension) has not yet been set.
@@ -296,446 +258,236 @@ static bool ImpPeekGraphicFormat( SvStream& rStream, OUString& rFormatExtension,
     // Therefore, in the case of a format check (bTest == true)  we only test *exactly* this
     // format. Everything else could have fatal consequences, for example if the user says it is
     // a BMP file (and it is a BMP) file, and the file would go through the MET test ...
-    //--------------------------- MET ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "MET" ) )
-    {
-        bSomethingTested=true;
-        if( sFirstBytes[2] == 0xd3 )
-        {
-            rStream.SetEndian( SvStreamEndian::BIG );
-            rStream.Seek( nStreamPos );
-            sal_uInt16 nFieldSize;
-            sal_uInt8 nMagic;
-            bool bOK=true;
-            rStream.ReadUInt16( nFieldSize ).ReadUChar( nMagic );
-            for (int i=0; i<3; i++) {
-                if (nFieldSize<6) { bOK=false; break; }
-                if (nStreamLen < rStream.Tell() + nFieldSize ) { bOK=false; break; }
-                rStream.SeekRel(nFieldSize-3);
-                rStream.ReadUInt16( nFieldSize ).ReadUChar( nMagic );
-                if (nMagic!=0xd3) { bOK=false; break; }
-            }
-            rStream.SetEndian( SvStreamEndian::LITTLE );
-            if (bOK && !rStream.GetError()) {
-                rFormatExtension = "MET";
-                return true;
-            }
-        }
-    }
 
-    //--------------------------- BMP ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "BMP" )  )
-    {
-        sal_uInt8 nOffs;
-
-        bSomethingTested=true;
-
-        // We're possibly also able to read an OS/2 bitmap array
-        // ('BA'), therefore we must adjust the offset to discover the
-        // first bitmap in the array
-        if ( sFirstBytes[0] == 0x42 && sFirstBytes[1] == 0x41 )
-            nOffs = 14;
-        else
-            nOffs = 0;
-
-        // Now we initially test on 'BM'
-        if ( sFirstBytes[0+nOffs]==0x42 && sFirstBytes[1+nOffs]==0x4d )
-        {
-
-            // OS/2 can set the Reserved flags to a value other than 0
-            // (which they really should not do...);
-            // In this case we test the size of the BmpInfoHeaders
-            if ( ( sFirstBytes[6+nOffs]==0x00 &&
-                   sFirstBytes[7+nOffs]==0x00 &&
-                   sFirstBytes[8+nOffs]==0x00 &&
-                   sFirstBytes[9+nOffs]==0x00 ) ||
-                   sFirstBytes[14+nOffs] == 0x28 ||
-                   sFirstBytes[14+nOffs] == 0x0c )
-            {
-                rFormatExtension = "BMP";
-                return true;
-            }
-        }
-    }
-
-    //--------------------------- WMF/EMF ------------------------------------
-
-    if( !bTest ||
-        rFormatExtension.startsWith( "WMF" ) ||
-        rFormatExtension.startsWith( "EMF" ) )
+    if (!bTest || rFormatExtension.startsWith("MET"))
     {
         bSomethingTested = true;
-
-        if ( nFirstLong==0xd7cdc69a || nFirstLong==0x01000900 )
+        if (aDetector.checkMET())
         {
-            rFormatExtension = "WMF";
-            return true;
-        }
-        else if( nFirstLong == 0x01000000 && sFirstBytes[ 40 ] == 0x20 && sFirstBytes[ 41 ] == 0x45 &&
-            sFirstBytes[ 42 ] == 0x4d && sFirstBytes[ 43 ] == 0x46 )
-        {
-            rFormatExtension = "EMF";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
 
-    //--------------------------- PCX ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "PCX" ) )
-    {
-        bSomethingTested=true;
-        if (sFirstBytes[0]==0x0a)
-        {
-            sal_uInt8 nVersion=sFirstBytes[1];
-            sal_uInt8 nEncoding=sFirstBytes[2];
-            if( ( nVersion==0 || nVersion==2 || nVersion==3 || nVersion==5 ) && nEncoding<=1 )
-            {
-                rFormatExtension = "PCX";
-                return true;
-            }
-        }
-    }
-
-    //--------------------------- TIF ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "TIF" ) )
-    {
-        bSomethingTested=true;
-        if ( nFirstLong==0x49492a00 || nFirstLong==0x4d4d002a )
-        {
-            rFormatExtension = "TIF";
-            return true;
-        }
-    }
-
-    //--------------------------- GIF ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "GIF" ) )
-    {
-        bSomethingTested=true;
-        if ( nFirstLong==0x47494638 && (sFirstBytes[4]==0x37 || sFirstBytes[4]==0x39) && sFirstBytes[5]==0x61 )
-        {
-            rFormatExtension = "GIF";
-            return true;
-        }
-    }
-
-    //--------------------------- PNG ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "PNG" ) )
-    {
-        bSomethingTested=true;
-        if (nFirstLong==0x89504e47 && nSecondLong==0x0d0a1a0a)
-        {
-            rFormatExtension = "PNG";
-            return true;
-        }
-    }
-
-    //--------------------------- JPG ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "JPG" ) )
-    {
-        bSomethingTested=true;
-        if ( ( nFirstLong==0xffd8ffe0 && sFirstBytes[6]==0x4a && sFirstBytes[7]==0x46 && sFirstBytes[8]==0x49 && sFirstBytes[9]==0x46 ) ||
-             ( nFirstLong==0xffd8fffe ) || ( 0xffd8ff00 == ( nFirstLong & 0xffffff00 ) ) )
-        {
-            rFormatExtension = "JPG";
-            return true;
-        }
-    }
-
-    //--------------------------- SVM ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "SVM" ) )
-    {
-        bSomethingTested=true;
-        if( nFirstLong==0x53564744 && sFirstBytes[4]==0x49 )
-        {
-            rFormatExtension = "SVM";
-            return true;
-        }
-        else if( sFirstBytes[0]==0x56 && sFirstBytes[1]==0x43 && sFirstBytes[2]==0x4C &&
-                 sFirstBytes[3]==0x4D && sFirstBytes[4]==0x54 && sFirstBytes[5]==0x46 )
-        {
-            rFormatExtension = "SVM";
-            return true;
-        }
-    }
-
-    //--------------------------- PCD ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "PCD" ) )
+    if (!bTest || rFormatExtension.startsWith("BMP"))
     {
         bSomethingTested = true;
-        if( nStreamLen >= 2055 )
+        if (aDetector.checkBMP())
         {
-            char sBuf[8];
-            rStream.Seek( nStreamPos + 2048 );
-            rStream.ReadBytes( sBuf, 7 );
-
-            if( strncmp( sBuf, "PCD_IPI", 7 ) == 0 )
-            {
-                rFormatExtension = "PCD";
-                return true;
-            }
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
         }
     }
 
-    //--------------------------- PSD ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "PSD" ) )
+    if (!bTest ||
+        rFormatExtension.startsWith("WMF") ||
+        rFormatExtension.startsWith("EMF"))
     {
         bSomethingTested = true;
-        if ( ( nFirstLong == 0x38425053 ) && ( (nSecondLong >> 16 ) == 1 ) )
+        if (aDetector.checkWMForEMF())
         {
-            rFormatExtension = "PSD";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
 
-    //--------------------------- EPS ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "EPS" ) )
+    if (!bTest || rFormatExtension.startsWith("PCX"))
     {
         bSomethingTested = true;
-        if ( ( nFirstLong == 0xC5D0D3C6 ) || ( ImplSearchEntry( sFirstBytes, reinterpret_cast<sal_uInt8 const *>("%!PS-Adobe"), 10, 10 ) &&
-             ImplSearchEntry( &sFirstBytes[15], reinterpret_cast<sal_uInt8 const *>("EPS"), 3, 3 ) ) )
+        if (aDetector.checkPCX())
         {
-            rFormatExtension = "EPS";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
 
-    //--------------------------- DXF ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "DXF" ) )
-    {
-        // Binary DXF File Format
-        if( strncmp( reinterpret_cast<char*>(sFirstBytes), "AutoCAD Binary DXF", 18 ) == 0 )
-        {
-            rFormatExtension = "DXF";
-            return true;
-        }
-
-        // ASCII DXF File Format
-        int i=0;
-        while (i<256 && sFirstBytes[i]<=32)
-            ++i;
-
-        if (i<256 && sFirstBytes[i]=='0')
-        {
-            ++i;
-
-            // only now do we have sufficient data to make a judgement
-            // based on a '0' + 'SECTION' == DXF argument
-            bSomethingTested=true;
-
-            while( i<256 && sFirstBytes[i]<=32 )
-                ++i;
-
-            if (i+7<256 && (strncmp(reinterpret_cast<char*>(sFirstBytes+i),"SECTION",7)==0))
-            {
-                rFormatExtension = "DXF";
-                return true;
-            }
-        }
-
-    }
-
-    //--------------------------- PCT ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "PCT" ) )
+    if (!bTest || rFormatExtension.startsWith("TIF"))
     {
         bSomethingTested = true;
-        if (isPCT(rStream, nStreamPos, nStreamLen))
+        if (aDetector.checkTIF())
         {
-            rFormatExtension = "PCT";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
 
-    //------------------------- PBM + PGM + PPM ---------------------------
-    if( !bTest ||
-        rFormatExtension.startsWith( "PBM" ) ||
-        rFormatExtension.startsWith( "PGM" ) ||
-        rFormatExtension.startsWith( "PPM" ) )
-    {
-        bSomethingTested=true;
-        if ( sFirstBytes[ 0 ] == 'P' )
-        {
-            switch( sFirstBytes[ 1 ] )
-            {
-                case '1' :
-                case '4' :
-                    rFormatExtension = "PBM";
-                return true;
-
-                case '2' :
-                case '5' :
-                    rFormatExtension = "PGM";
-                return true;
-
-                case '3' :
-                case '6' :
-                    rFormatExtension = "PPM";
-                return true;
-            }
-        }
-    }
-
-    //--------------------------- RAS( SUN RasterFile )------------------
-    if( !bTest || rFormatExtension.startsWith( "RAS" ) )
-    {
-        bSomethingTested=true;
-        if( nFirstLong == 0x59a66a95 )
-        {
-            rFormatExtension = "RAS";
-            return true;
-        }
-    }
-
-    //--------------------------- XPM ------------------------------------
-    if( !bTest )
+    if (!bTest || rFormatExtension.startsWith("GIF"))
     {
         bSomethingTested = true;
-        if( ImplSearchEntry( sFirstBytes, reinterpret_cast<sal_uInt8 const *>("/* XPM */"), 256, 9 ) )
+        if (aDetector.checkGIF())
         {
-            rFormatExtension = "XPM";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
-    else if( rFormatExtension.startsWith( "XPM" ) )
+
+    if (!bTest || rFormatExtension.startsWith("PNG"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkPNG())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("JPG"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkJPG())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("SVM"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkSVM())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("PCD"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkPCD())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("PSD"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkPSD())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("EPS"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkEPS())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("DXF"))
+    {
+        if (aDetector.checkDXF())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("PCT"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkPCT())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest ||
+        rFormatExtension.startsWith("PBM") ||
+        rFormatExtension.startsWith("PGM") ||
+        rFormatExtension.startsWith("PPM"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkPBMorPGMorPPM())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest || rFormatExtension.startsWith("RAS"))
+    {
+        bSomethingTested = true;
+        if (aDetector.checkRAS())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+
+    if (!bTest)
+    {
+        bSomethingTested = true;
+        if (aDetector.checkXPM())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+
+    }
+    else if (rFormatExtension.startsWith("XPM"))
     {
         return true;
     }
 
-    //--------------------------- XBM ------------------------------------
-    if( !bTest )
+    if (!bTest)
     {
-        sal_uLong nSize = std::min<sal_uLong>( nStreamLen, 2048 );
-        std::unique_ptr<sal_uInt8[]> pBuf(new sal_uInt8 [ nSize ]);
-
-        rStream.Seek( nStreamPos );
-        rStream.ReadBytes( pBuf.get(), nSize );
-        sal_uInt8* pPtr = ImplSearchEntry( pBuf.get(), reinterpret_cast<sal_uInt8 const *>("#define"), nSize, 7 );
-
-        if( pPtr )
+        if (aDetector.checkXBM())
         {
-            if( ImplSearchEntry( pPtr, reinterpret_cast<sal_uInt8 const *>("_width"), pBuf.get() + nSize - pPtr, 6 ) )
-            {
-                rFormatExtension = "XBM";
-                return true;
-            }
-        }
-    }
-    else if( rFormatExtension.startsWith( "XBM" ) )
-    {
-        return true;
-    }
-
-    //--------------------------- SVG ------------------------------------
-    if( !bTest )
-    {
-        sal_uInt8* pCheckArray = sFirstBytes;
-        sal_uLong nCheckSize = std::min<sal_uLong>(nStreamLen, 256);
-
-        sal_uInt8 sExtendedOrDecompressedFirstBytes[2048];
-        sal_uLong nDecompressedSize = nCheckSize;
-
-        bool bIsGZip(false);
-
-        // check if it is gzipped -> svgz
-        if(sFirstBytes[0] == 0x1F && sFirstBytes[1] == 0x8B)
-        {
-            ZCodec aCodec;
-            rStream.Seek(nStreamPos);
-            aCodec.BeginCompression(ZCODEC_DEFAULT_COMPRESSION, false, true);
-            nDecompressedSize = aCodec.Read(rStream, sExtendedOrDecompressedFirstBytes, 2048);
-            nCheckSize = std::min<sal_uLong>(nDecompressedSize, 256);
-            aCodec.EndCompression();
-            pCheckArray = sExtendedOrDecompressedFirstBytes;
-
-            bIsGZip = true;
-        }
-
-        bool bIsSvg(false);
-
-        // check for Xml
-        // #119176# SVG files which have no xml header at all have shown up this is optional
-        if( ImplSearchEntry(pCheckArray, reinterpret_cast<sal_uInt8 const *>("<?xml"), nCheckSize, 5 ) // is it xml
-            && ImplSearchEntry(pCheckArray, reinterpret_cast<sal_uInt8 const *>("version"), nCheckSize, 7 )) // does it have a version (required for xml)
-        {
-
-            // check for DOCTYPE svg combination
-            if( ImplSearchEntry(pCheckArray, reinterpret_cast<sal_uInt8 const *>("DOCTYPE"), nCheckSize, 7 ) // 'DOCTYPE' is there
-                && ImplSearchEntry(pCheckArray, reinterpret_cast<sal_uInt8 const *>("svg"), nCheckSize, 3 )) // 'svg' is there
-            {
-                bIsSvg = true;
-            }
-        }
-
-        // check for svg element in 1st 256 bytes
-        if(!bIsSvg && ImplSearchEntry(pCheckArray, reinterpret_cast<sal_uInt8 const *>("<svg"), nCheckSize, 4 )) // '<svg'
-        {
-            bIsSvg = true;
-        }
-
-        // extended search for svg element
-        if(!bIsSvg)
-        {
-            // it's a xml, look for '<svg' in full file. Should not happen too
-            // often since the tests above will handle most cases, but can happen
-            // with Svg files containing big comment headers or Svg as the host
-            // language
-
-            pCheckArray = sExtendedOrDecompressedFirstBytes;
-
-            if (bIsGZip)
-            {
-                nCheckSize = std::min<sal_uLong>(nDecompressedSize, 2048);
-            }
-            else
-            {
-                nCheckSize = std::min<sal_uLong>(nStreamLen, 2048);
-                rStream.Seek(nStreamPos);
-                nCheckSize = rStream.ReadBytes(sExtendedOrDecompressedFirstBytes, nCheckSize);
-            }
-
-            if(ImplSearchEntry(pCheckArray, reinterpret_cast<sal_uInt8 const *>("<svg"), nCheckSize, 4)) // '<svg'
-            {
-                bIsSvg = true;
-            }
-        }
-
-        if(bIsSvg)
-        {
-            rFormatExtension = "SVG";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
-    else if( rFormatExtension.startsWith( "SVG" ) )
+    else if (rFormatExtension.startsWith("XBM"))
     {
         return true;
     }
 
-    //--------------------------- TGA ------------------------------------
-    if( !bTest || rFormatExtension.startsWith( "TGA" ) )
+    if (!bTest)
+    {
+        if (aDetector.checkSVG())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
+            return true;
+        }
+    }
+    else if (rFormatExtension.startsWith("SVG"))
+    {
+        return true;
+    }
+
+    if (!bTest || rFormatExtension.startsWith("TGA"))
     {
         bSomethingTested = true;
-
-        // just a simple test for the extension
-        if( rFormatExtension.startsWith( "TGA" ) )
+        if (aDetector.checkTGA())
+        {
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
+        }
     }
 
-    if(!bTest || rFormatExtension.startsWith( "MOV" ))
+    if (!bTest || rFormatExtension.startsWith("MOV"))
     {
-        if ((sFirstBytes[ 4 ] == 'f' && sFirstBytes[ 5 ] == 't' && sFirstBytes[ 6 ] == 'y' &&
-             sFirstBytes[ 7 ] == 'p' && sFirstBytes[ 8 ] == 'q' && sFirstBytes[ 9 ] == 't') ||
-            (sFirstBytes[ 4 ] == 'm' && sFirstBytes[ 5 ] == 'o' && sFirstBytes[ 6 ] == 'o' &&
-             sFirstBytes[ 7 ] == 'v' && sFirstBytes[ 11 ] == 'l' && sFirstBytes[ 12 ] == 'm'))
+        if (aDetector.checkMOV())
         {
-            rFormatExtension = "MOV";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
 
     if (!bTest || rFormatExtension.startsWith("PDF"))
     {
-        if (sFirstBytes[0] == '%' && sFirstBytes[1] == 'P' && sFirstBytes[2] == 'D' &&
-            sFirstBytes[3] == 'F' && sFirstBytes[4] == '-')
+        if (aDetector.checkPDF())
         {
-            rFormatExtension = "PDF";
+            rFormatExtension = aDetector.msDetectedFormat;
             return true;
         }
     }
@@ -970,27 +722,27 @@ PFilterCall ImpFilterLibCacheEntry::GetImportFunction()
         else if (maFormatName == "iti")
             mpfnImport = reinterpret_cast<PFilterCall>(maLibrary.getFunctionSymbol("itiGraphicImport"));
  #else
-        if (maFiltername ==  "icd")
+        if (maFormatName ==  "icd")
             mpfnImport = icdGraphicImport;
-        else if (maFiltername ==  "idx")
+        else if (maFormatName ==  "idx")
             mpfnImport = idxGraphicImport;
-        else if (maFiltername ==  "ime")
+        else if (maFormatName ==  "ime")
             mpfnImport = imeGraphicImport;
-        else if (maFiltername ==  "ipb")
+        else if (maFormatName ==  "ipb")
             mpfnImport = ipbGraphicImport;
-        else if (maFiltername ==  "ipd")
+        else if (maFormatName ==  "ipd")
             mpfnImport = ipdGraphicImport;
-        else if (maFiltername ==  "ips")
+        else if (maFormatName ==  "ips")
             mpfnImport = ipsGraphicImport;
-        else if (maFiltername ==  "ipt")
+        else if (maFormatName ==  "ipt")
             mpfnImport = iptGraphicImport;
-        else if (maFiltername ==  "ipx")
+        else if (maFormatName ==  "ipx")
             mpfnImport = ipxGraphicImport;
-        else if (maFiltername ==  "ira")
+        else if (maFormatName ==  "ira")
             mpfnImport = iraGraphicImport;
-        else if (maFiltername ==  "itg")
+        else if (maFormatName ==  "itg")
             mpfnImport = itgGraphicImport;
-        else if (maFiltername ==  "iti")
+        else if (maFormatName ==  "iti")
             mpfnImport = itiGraphicImport;
  #endif
     }
@@ -1389,7 +1141,7 @@ void GraphicFilter::ImportGraphics(std::vector< std::shared_ptr<Graphic> >& rGra
     // Process data after import.
     for (auto& rContext : aContexts)
     {
-        rContext.m_pAccess.reset(nullptr);
+        rContext.m_pAccess.reset();
 
         if (rContext.m_nStatus == ERRCODE_NONE && (rContext.m_eLinkType != GfxLinkType::NONE) && !rContext.m_pGraphic->GetContext())
         {
@@ -1427,7 +1179,8 @@ void GraphicFilter::ImportGraphics(std::vector< std::shared_ptr<Graphic> >& rGra
     }
 }
 
-Graphic GraphicFilter::ImportUnloadedGraphic(SvStream& rIStream)
+Graphic GraphicFilter::ImportUnloadedGraphic(SvStream& rIStream, sal_uInt64 sizeLimit,
+                                             Size* pSizeHint)
 {
     Graphic aGraphic;
     sal_uInt16 nFormat = GRFILTER_FORMAT_DONTKNOW;
@@ -1442,7 +1195,9 @@ Graphic GraphicFilter::ImportUnloadedGraphic(SvStream& rIStream)
     ErrCode nStatus = ImpTestOrFindFormat("", rIStream, nFormat);
 
     rIStream.Seek(nStreamBegin);
-    const sal_uInt32 nStreamLength(rIStream.remainingSize());
+    sal_uInt32 nStreamLength(rIStream.remainingSize());
+    if (sizeLimit && sizeLimit < nStreamLength)
+        nStreamLength = sizeLimit;
 
     OUString aFilterName = pConfig->GetImportFilterName(nFormat);
     OUString aExternalFilterName = pConfig->GetExternalFilterName(nFormat, false);
@@ -1650,7 +1405,7 @@ Graphic GraphicFilter::ImportUnloadedGraphic(SvStream& rIStream)
                 bAnimated = IsGIFAnimated(aMemoryStream);
             }
             aGraphic.SetGfxLink(std::make_shared<GfxLink>(std::move(pGraphicContent), nGraphicContentSize, eLinkType));
-            aGraphic.ImplGetImpGraphic()->ImplSetPrepared(bAnimated);
+            aGraphic.ImplGetImpGraphic()->ImplSetPrepared(bAnimated, pSizeHint);
         }
     }
 
@@ -1686,13 +1441,12 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
 
     if ( pFilterData )
     {
-        sal_Int32 i;
-        for ( i = 0; i < pFilterData->getLength(); i++ )
+        for ( const auto& rPropVal : *pFilterData )
         {
-            if ( (*pFilterData)[ i ].Name == "PreviewSizeHint" )
+            if ( rPropVal.Name == "PreviewSizeHint" )
             {
                 css::awt::Size aSize;
-                if ( (*pFilterData)[ i ].Value >>= aSize )
+                if ( rPropVal.Value >>= aSize )
                 {
                     aPreviewSizeHint = Size( aSize.Width, aSize.Height );
                     if ( aSize.Width || aSize.Height )
@@ -1701,13 +1455,13 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
                         nImportFlags &=~GraphicFilterImportFlags::ForPreview;
                 }
             }
-            else if ( (*pFilterData)[ i ].Name == "AllowPartialStreamRead" )
+            else if ( rPropVal.Name == "AllowPartialStreamRead" )
             {
-                (*pFilterData)[ i ].Value >>= bAllowPartialStreamRead;
+                rPropVal.Value >>= bAllowPartialStreamRead;
             }
-            else if ( (*pFilterData)[ i ].Name == "CreateNativeLink" )
+            else if ( rPropVal.Name == "CreateNativeLink" )
             {
-                (*pFilterData)[ i ].Value >>= bCreateNativeLink;
+                rPropVal.Value >>= bCreateNativeLink;
             }
         }
     }
@@ -1845,7 +1599,7 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
             if(nStreamLength > 0)
             {
                 std::vector<sal_uInt8> aTwoBytes(2);
-                rIStream.ReadBytes(&aTwoBytes[0], 2);
+                rIStream.ReadBytes(aTwoBytes.data(), 2);
                 rIStream.Seek(nStreamPosition);
 
                 if(aTwoBytes[0] == 0x1F && aTwoBytes[1] == 0x8B)
@@ -2017,7 +1771,7 @@ ErrCode GraphicFilter::ImportGraphic( Graphic& rGraphic, const OUString& rPath, 
                 if( nFormat != GRFILTER_FORMAT_DONTKNOW )
                 {
                     aShortName = GetImportFormatShortName( nFormat ).toAsciiUpperCase();
-                    if (aShortName == "PCD")
+                    if (aShortName == "PCD" && !utl::ConfigManager::IsFuzzing())
                     {
                         OUString aFilterConfigPath( "Office.Common/Filter/Graphic/Import/PCD" );
                         pFilterConfigItem = std::make_unique<FilterConfigItem>( aFilterConfigPath );
@@ -2140,14 +1894,10 @@ ErrCode GraphicFilter::ExportGraphic( const Graphic& rGraphic, const OUString& r
 
     FilterConfigItem aConfigItem( pFilterData );
     OUString aFilterName( pConfig->GetExportFilterName( nFormat ) );
-#ifndef DISABLE_DYNLOADING
     OUString aExternalFilterName(pConfig->GetExternalFilterName(nFormat, true));
-#endif
     ErrCode     nStatus = ERRCODE_NONE;
     GraphicType eType;
-    Graphic     aGraphic( rGraphic );
-
-    aGraphic = ImpGetScaledGraphic( rGraphic, aConfigItem );
+    Graphic     aGraphic = ImpGetScaledGraphic( rGraphic, aConfigItem );
     eType = aGraphic.GetType();
 
     if( pConfig->IsExportPixelFormat( nFormat ) )
@@ -2300,26 +2050,25 @@ ErrCode GraphicFilter::ExportGraphic( const Graphic& rGraphic, const OUString& r
                 vcl::PNGWriter aPNGWriter( aGraphic.GetBitmapEx(), pFilterData );
                 if ( pFilterData )
                 {
-                    sal_Int32 k, j, i = 0;
-                    for ( i = 0; i < pFilterData->getLength(); i++ )
+                    for ( const auto& rPropVal : *pFilterData )
                     {
-                        if ( (*pFilterData)[ i ].Name == "AdditionalChunks" )
+                        if ( rPropVal.Name == "AdditionalChunks" )
                         {
                             css::uno::Sequence< css::beans::PropertyValue > aAdditionalChunkSequence;
-                            if ( (*pFilterData)[ i ].Value >>= aAdditionalChunkSequence )
+                            if ( rPropVal.Value >>= aAdditionalChunkSequence )
                             {
-                                for ( j = 0; j < aAdditionalChunkSequence.getLength(); j++ )
+                                for ( const auto& rAdditionalChunk : aAdditionalChunkSequence )
                                 {
-                                    if ( aAdditionalChunkSequence[ j ].Name.getLength() == 4 )
+                                    if ( rAdditionalChunk.Name.getLength() == 4 )
                                     {
                                         sal_uInt32 nChunkType = 0;
-                                        for ( k = 0; k < 4; k++ )
+                                        for ( sal_Int32 k = 0; k < 4; k++ )
                                         {
                                             nChunkType <<= 8;
-                                            nChunkType |= static_cast<sal_uInt8>(aAdditionalChunkSequence[ j ].Name[ k ]);
+                                            nChunkType |= static_cast<sal_uInt8>(rAdditionalChunk.Name[ k ]);
                                         }
                                         css::uno::Sequence< sal_Int8 > aByteSeq;
-                                        if ( aAdditionalChunkSequence[ j ].Value >>= aByteSeq )
+                                        if ( rAdditionalChunk.Value >>= aByteSeq )
                                         {
                                             std::vector< vcl::PNGWriter::ChunkData >& rChunkData = aPNGWriter.GetChunks();
                                             if ( !rChunkData.empty() )
@@ -2331,7 +2080,7 @@ ErrCode GraphicFilter::ExportGraphic( const Graphic& rGraphic, const OUString& r
                                                 if ( nChunkLen )
                                                 {
                                                     aChunkData.aData.resize( nChunkLen );
-                                                    memcpy( &aChunkData.aData[ 0 ], aByteSeq.getConstArray(), nChunkLen );
+                                                    memcpy( aChunkData.aData.data(), aByteSeq.getConstArray(), nChunkLen );
                                                 }
                                                 std::vector< vcl::PNGWriter::ChunkData >::iterator aIter = rChunkData.end() - 1;
                                                 rChunkData.insert( aIter, aChunkData );
@@ -2436,11 +2185,11 @@ ErrCode GraphicFilter::ExportGraphic( const Graphic& rGraphic, const OUString& r
  #else
                 --nIdx; // Just one iteration
                 PFilterCall pFunc = NULL;
-                if (aFilterName == "egi")
+                if (aExternalFilterName == "egi")
                     pFunc = egiGraphicExport;
-                else if (aFilterName == "eps")
+                else if (aExternalFilterName == "eps")
                     pFunc = epsGraphicExport;
-                else if (aFilterName == "eti")
+                else if (aExternalFilterName == "eti")
                     pFunc = etiGraphicExport;
  #endif
                 if( pFunc )

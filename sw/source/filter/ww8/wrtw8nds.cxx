@@ -468,8 +468,7 @@ void SwWW8AttrIter::OutAttr( sal_Int32 nSwPos, bool bWriteCombChars)
     {
         if (const SfxGrabBagItem *pCharFmtGrabBag = aExportSet.GetItem<SfxGrabBagItem>(RES_CHRATR_GRABBAG, false))
         {
-            std::unique_ptr<SfxPoolItem> pNewItem(pCharFmtGrabBag->Clone());
-            SfxGrabBagItem* pNewCharFmtGrabBag = dynamic_cast<SfxGrabBagItem*>(pNewItem.get());
+            std::unique_ptr<SfxGrabBagItem> pNewCharFmtGrabBag(static_cast<SfxGrabBagItem*>(pCharFmtGrabBag->Clone()));
             assert(pNewCharFmtGrabBag);
             auto & rNewFmtMap = pNewCharFmtGrabBag->GetGrabBag();
             for (auto const & item : pAutoFmtGrabBag->GetGrabBag())
@@ -477,7 +476,7 @@ void SwWW8AttrIter::OutAttr( sal_Int32 nSwPos, bool bWriteCombChars)
                 if (item.second.hasValue())
                     rNewFmtMap.erase(item.first);
             }
-            aExportSet.Put(*pNewCharFmtGrabBag);
+            aExportSet.Put(std::move(pNewCharFmtGrabBag));
         }
     }
 
@@ -564,6 +563,21 @@ bool SwWW8AttrIter::IsAnchorLinkedToThisNode( sal_uLong nNodePos )
     return false ;
 }
 
+bool SwWW8AttrIter::HasFlysAt(sal_Int32 nSwPos) const
+{
+    for (const auto& rFly : maFlyFrames)
+    {
+        const SwPosition& rAnchor = rFly.GetPosition();
+        const sal_Int32 nPos = rAnchor.nContent.GetIndex();
+        if (nPos == nSwPos)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 FlyProcessingState SwWW8AttrIter::OutFlys(sal_Int32 nSwPos)
 {
     // collection point to first gather info about all of the potentially linked textboxes: to be analyzed later.
@@ -582,7 +596,7 @@ FlyProcessingState SwWW8AttrIter::OutFlys(sal_Int32 nSwPos)
             xPropertySetInfo = xPropertySet->getPropertySetInfo();
         if( xPropertySetInfo.is() )
         {
-            MSWordExportBase::LinkedTextboxInfo aLinkedTextboxInfo = MSWordExportBase::LinkedTextboxInfo();
+            MSWordExportBase::LinkedTextboxInfo aLinkedTextboxInfo;
 
             if( xPropertySetInfo->hasPropertyByName("LinkDisplayName") )
                 xPropertySet->getPropertyValue("LinkDisplayName") >>= sLinkChainName;
@@ -602,8 +616,7 @@ FlyProcessingState SwWW8AttrIter::OutFlys(sal_Int32 nSwPos)
                 //there are many discarded duplicates in documents - no duplicates allowed in the list, so try to find the real one.
                 //if this LinkDisplayName/ChainName already exists on a different shape...
                 //  the earlier processed duplicates are thrown out unless this one can be proved as bad. (last processed duplicate usually is stored)
-                std::map<OUString,MSWordExportBase::LinkedTextboxInfo>::iterator linkFinder;
-                linkFinder = m_rExport.m_aLinkedTextboxesHelper.find(sLinkChainName);
+                auto linkFinder = m_rExport.m_aLinkedTextboxesHelper.find(sLinkChainName);
                 if( linkFinder != m_rExport.m_aLinkedTextboxesHelper.end() )
                 {
                     //If my NEXT/PREV targets have already been discovered, but don't match me, then assume I'm an abandoned remnant
@@ -1159,6 +1172,8 @@ OUString BookmarkToWord(const OUString &rBookmark)
         rBookmark.replace(' ', '_'), // Spaces are prohibited in bookmark name
         INetURLObject::PART_REL_SEGMENT_EXTRA,
         INetURLObject::EncodeMechanism::All, RTL_TEXTENCODING_ASCII_US));
+    // Unicode letters are allowed
+    sRet = INetURLObject::decode(sRet, INetURLObject::DecodeMechanism::Unambiguous, RTL_TEXTENCODING_UTF8);
     return TruncateBookmark(sRet);
 }
 
@@ -1310,7 +1325,7 @@ int SwWW8AttrIter::OutAttrWithRange(const SwTextNode& rNode, sal_Int32 nPos)
                     }
                     break;
             }
-            if (nPos < *pHt->GetAnyEnd())
+            if (nPos < pHt->GetAnyEnd())
                 break; // sorted by end
         }
         for ( size_t i = 0; i < pTextAttrs->Count(); ++i )
@@ -1442,7 +1457,7 @@ const SwRedlineData* SwWW8AttrIter::GetParagraphLevelRedline( )
             // Maybe add here a check that also the start & end of the redline is the entire paragraph
 
             // Only return if this is a paragraph formatting redline
-            if (pRedl->GetType() == nsRedlineType_t::REDLINE_PARAGRAPH_FORMAT)
+            if (pRedl->GetType() == RedlineType::ParagraphFormat)
             {
                 // write data of this redline
                 pCurRedline = pRedl;
@@ -1462,9 +1477,9 @@ const SwRedlineData* SwWW8AttrIter::GetRunLevelRedline( sal_Int32 nPos )
         {
             switch( pCurRedline->GetType() )
             {
-                case nsRedlineType_t::REDLINE_INSERT:
-                case nsRedlineType_t::REDLINE_DELETE:
-                case nsRedlineType_t::REDLINE_FORMAT:
+                case RedlineType::Insert:
+                case RedlineType::Delete:
+                case RedlineType::Format:
                     // write data of this redline
                     return &( pCurRedline->GetRedlineData() );
                     break;
@@ -1496,9 +1511,9 @@ const SwRedlineData* SwWW8AttrIter::GetRunLevelRedline( sal_Int32 nPos )
                 {
                         switch( pRedl->GetType() )
                         {
-                            case nsRedlineType_t::REDLINE_INSERT:
-                            case nsRedlineType_t::REDLINE_DELETE:
-                            case nsRedlineType_t::REDLINE_FORMAT:
+                            case RedlineType::Insert:
+                            case RedlineType::Delete:
+                            case RedlineType::Format:
                                 // write data of this redline
                                 pCurRedline = pRedl;
                                 return &( pCurRedline->GetRedlineData() );
@@ -1624,7 +1639,7 @@ const SvxBrushItem* WW8Export::GetCurrentPageBgBrush() const
     return pRet;
 }
 
-SvxBrushItem WW8Export::TrueFrameBgBrush(const SwFrameFormat &rFlyFormat) const
+std::shared_ptr<SvxBrushItem> WW8Export::TrueFrameBgBrush(const SwFrameFormat &rFlyFormat) const
 {
     const SwFrameFormat *pFlyFormat = &rFlyFormat;
     const SvxBrushItem* pRet = nullptr;
@@ -1658,9 +1673,12 @@ SvxBrushItem WW8Export::TrueFrameBgBrush(const SwFrameFormat &rFlyFormat) const
         pRet = GetCurrentPageBgBrush();
 
     const Color aTmpColor( COL_WHITE );
-    SvxBrushItem aRet( aTmpColor, RES_BACKGROUND );
+    std::shared_ptr<SvxBrushItem> aRet(std::make_shared<SvxBrushItem>(aTmpColor, RES_BACKGROUND));
+
     if (pRet && (pRet->GetGraphic() ||( pRet->GetColor() != COL_TRANSPARENT)))
-        aRet = *pRet;
+    {
+        aRet.reset(static_cast<SvxBrushItem*>(pRet->Clone()));
+    }
 
     return aRet;
 }
@@ -1745,7 +1763,7 @@ static SwTextFormatColl& lcl_getFormatCollection( MSWordExportBase& rExport, con
                                     ? pRedl->GetMark()
                                     : pRedl->GetPoint();
         // Looking for deletions, which ends in current pTextNode
-        if( nsRedlineType_t::REDLINE_DELETE == pRedl->GetRedlineData().GetType() &&
+        if( RedlineType::Delete == pRedl->GetRedlineData().GetType() &&
             pEnd->nNode == *pTextNode && pStt->nNode != *pTextNode &&
             pStt->nNode.GetNode().IsTextNode() )
         {
@@ -1832,7 +1850,7 @@ sal_Int32 MSWordExportBase::GetNextPos( SwWW8AttrIter const * aAttrIter, const S
     {
         GetSortedBookmarks( rNode, nCurrentPos, nNextBookmark - nCurrentPos );
         NearestBookmark( nNextBookmark, nCurrentPos, false );
-        GetSortedAnnotationMarks( rNode, nCurrentPos, nNextAnnotationMark - nCurrentPos );
+        GetSortedAnnotationMarks(*aAttrIter, nCurrentPos, nNextAnnotationMark - nCurrentPos);
         NearestAnnotationMark( nNextAnnotationMark, nCurrentPos, false );
     }
     return std::min( nNextPos, std::min( nNextBookmark, nNextAnnotationMark ) );
@@ -1859,7 +1877,7 @@ bool MSWordExportBase::GetBookmarks( const SwTextNode& rNd, sal_Int32 nStt,
     const sal_Int32 nMarks = pMarkAccess->getAllMarksCount();
     for ( sal_Int32 i = 0; i < nMarks; i++ )
     {
-        IMark* pMark = ( pMarkAccess->getAllMarksBegin() + i )->get();
+        IMark* pMark = pMarkAccess->getAllMarksBegin()[i];
 
         if ( IDocumentMarkAccess::GetType( *pMark ) == IDocumentMarkAccess::MarkType::ANNOTATIONMARK )
         {
@@ -1886,16 +1904,16 @@ bool MSWordExportBase::GetBookmarks( const SwTextNode& rNd, sal_Int32 nStt,
     return ( !rArr.empty() );
 }
 
-bool MSWordExportBase::GetAnnotationMarks( const SwTextNode& rNd, sal_Int32 nStt,
+bool MSWordExportBase::GetAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int32 nStt,
                     sal_Int32 nEnd, IMarkVector& rArr )
 {
     IDocumentMarkAccess* const pMarkAccess = m_pDoc->getIDocumentMarkAccess();
-    sal_uLong nNd = rNd.GetIndex( );
+    sal_uLong nNd = rAttrs.GetNode().GetIndex();
 
     const sal_Int32 nMarks = pMarkAccess->getAnnotationMarksCount();
     for ( sal_Int32 i = 0; i < nMarks; i++ )
     {
-        IMark* pMark = ( pMarkAccess->getAnnotationMarksBegin() + i )->get();
+        IMark* pMark = pMarkAccess->getAnnotationMarksBegin()[i];
 
         // Only keep the bookmarks starting or ending in this node
         if ( pMark->GetMarkStart().nNode == nNd ||
@@ -1912,6 +1930,16 @@ bool MSWordExportBase::GetAnnotationMarks( const SwTextNode& rNd, sal_Int32 nStt
             // point of the comment field. In this case Word wants only the
             // comment field, so ignore the annotation mark itself.
             bool bSingleChar = pMark->GetMarkStart().nNode == pMark->GetMarkEnd().nNode && nBStart + 1 == nBEnd;
+
+            if (bSingleChar)
+            {
+                if (rAttrs.HasFlysAt(nBStart))
+                {
+                    // There is content (an at-char anchored frame) between the annotation mark
+                    // start/end, so still emit range start/end.
+                    bSingleChar = false;
+                }
+            }
 
             if ( ( bIsStartOk || bIsEndOk ) && !bSingleChar )
             {
@@ -1995,10 +2023,10 @@ void MSWordExportBase::NearestAnnotationMark( sal_Int32& rNearest, const sal_Int
     }
 }
 
-void MSWordExportBase::GetSortedAnnotationMarks( const SwTextNode& rNode, sal_Int32 nCurrentPos, sal_Int32 nLen )
+void MSWordExportBase::GetSortedAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int32 nCurrentPos, sal_Int32 nLen )
 {
     IMarkVector aMarksStart;
-    if ( GetAnnotationMarks( rNode, nCurrentPos, nCurrentPos + nLen, aMarksStart ) )
+    if (GetAnnotationMarks(rAttrs, nCurrentPos, nCurrentPos + nLen, aMarksStart))
     {
         IMarkVector aSortedEnd;
         IMarkVector aSortedStart;
@@ -2008,6 +2036,7 @@ void MSWordExportBase::GetSortedAnnotationMarks( const SwTextNode& rNode, sal_In
             const sal_Int32 nStart = pMark->GetMarkStart().nContent.GetIndex();
             const sal_Int32 nEnd = pMark->GetMarkEnd().nContent.GetIndex();
 
+            const SwTextNode& rNode = rAttrs.GetNode();
             if ( nStart > nCurrentPos && ( pMark->GetMarkStart().nNode == rNode.GetIndex()) )
                 aSortedStart.push_back( pMark );
 
@@ -2277,7 +2306,7 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
             // Append bookmarks in this range after flys, exclusive of final
             // position of this range
             AppendBookmarks( rNode, nCurrentPos, nNextAttr - nCurrentPos );
-            AppendAnnotationMarks( rNode, nCurrentPos, nNextAttr - nCurrentPos );
+            AppendAnnotationMarks(aAttrIter, nCurrentPos, nNextAttr - nCurrentPos);
 
             // At the moment smarttags are only written for paragraphs, at the
             // beginning of the paragraph.
@@ -2461,7 +2490,7 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
                         nStateOfFlyFrame = aAttrIter.OutFlys( nEnd );
                         // insert final bookmarks if any before CR and after flys
                         AppendBookmarks( rNode, nEnd, 1 );
-                        AppendAnnotationMarks( rNode, nEnd, 1 );
+                        AppendAnnotationMarks(aAttrIter, nEnd, 1);
                         if ( pTOXSect )
                         {
                             m_aCurrentCharPropStarts.pop();
@@ -2515,7 +2544,7 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
                     nStateOfFlyFrame = aAttrIter.OutFlys( nEnd );
                     // insert final bookmarks if any before CR and after flys
                     AppendBookmarks( rNode, nEnd, 1 );
-                    AppendAnnotationMarks( rNode, nEnd, 1 );
+                    AppendAnnotationMarks(aAttrIter, nEnd, 1);
                     WriteCR( pTextNodeInfoInner );
                     // #i120928 - position of the bullet's graphic is at end of doc
                     if (bLastCR && (!bExported))
@@ -2964,8 +2993,8 @@ void MSWordExportBase::OutputTextNode( SwTextNode& rNode )
         {
             aParagraphMarkerProperties.Put(*rNode.GetpSwAttrSet());
         }
-        const SwRedlineData* pRedlineParagraphMarkerDelete = AttrOutput().GetParagraphMarkerRedline( rNode, nsRedlineType_t::REDLINE_DELETE );
-        const SwRedlineData* pRedlineParagraphMarkerInsert = AttrOutput().GetParagraphMarkerRedline( rNode, nsRedlineType_t::REDLINE_INSERT );
+        const SwRedlineData* pRedlineParagraphMarkerDelete = AttrOutput().GetParagraphMarkerRedline( rNode, RedlineType::Delete );
+        const SwRedlineData* pRedlineParagraphMarkerInsert = AttrOutput().GetParagraphMarkerRedline( rNode, RedlineType::Insert );
         const SwRedlineData* pParagraphRedlineData = aAttrIter.GetParagraphLevelRedline( );
         AttrOutput().EndParagraphProperties(aParagraphMarkerProperties, pParagraphRedlineData, pRedlineParagraphMarkerDelete, pRedlineParagraphMarkerInsert);
 
@@ -3294,15 +3323,15 @@ void WW8AttributeOutput::Redline( const SwRedlineData* pRedline )
     const sal_uInt16* pSprmIds = nullptr;
     switch( pRedline->GetType() )
     {
-    case nsRedlineType_t::REDLINE_INSERT:
+    case RedlineType::Insert:
         pSprmIds = insSprmIds;
         break;
 
-    case nsRedlineType_t::REDLINE_DELETE:
+    case RedlineType::Delete:
         pSprmIds = delSprmIds;
         break;
 
-    case nsRedlineType_t::REDLINE_FORMAT:
+    case RedlineType::Format:
         m_rWW8Export.InsUInt16( NS_sprm::sprmCPropRMark90 );
         m_rWW8Export.pO->push_back( 7 );       // len
         m_rWW8Export.pO->push_back( 1 );

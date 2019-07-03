@@ -49,9 +49,6 @@ public:
     virtual OUString
         CreateAccessibleBaseName () override;
 
-    /// Create a description string that contains the accessible description.
-    virtual OUString
-        CreateAccessibleDescription () override;
     OUString GetStyle() override;
 
 private:

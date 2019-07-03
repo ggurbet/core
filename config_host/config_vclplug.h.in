@@ -1,6 +1,6 @@
 /*
 
-Settings about which X11 desktops have support enabled.
+Settings about which desktops have support enabled.
 
 */
 
@@ -8,7 +8,13 @@ Settings about which X11 desktops have support enabled.
 #define CONFIG_VCLPLUG_H
 
 #define ENABLE_GTK 0
-#define ENABLE_KDE5 0
+#define ENABLE_GTK3 0
 #define ENABLE_GTK3_KDE5 0
+#define ENABLE_KDE5 0
+#define ENABLE_QT5 0
+
+#define ENABLE_GSTREAMER_1_0 0
+#define QT5_HAVE_GOBJECT 0
+#define QT5_USING_X11 0
 
 #endif

@@ -31,6 +31,7 @@
 #include <tools/debug.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/metaact.hxx>
+#include <vcl/metric.hxx>
 #include <vcl/textrectinfo.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/bitmapaccess.hxx>
@@ -1264,14 +1265,15 @@ std::unique_ptr<SalLayout> OutputDevice::ImplLayout(const OUString& rOrigStr,
         pLayoutCache = nullptr; // don't use cache with modified string!
         pGlyphs = nullptr;
     }
+
     DeviceCoordinate nPixelWidth = static_cast<DeviceCoordinate>(nLogicalWidth);
-    std::unique_ptr<DeviceCoordinate[]> xDXPixelArray;
-    DeviceCoordinate* pDXPixelArray(nullptr);
     if( nLogicalWidth && mbMap )
     {
         nPixelWidth = LogicWidthToDeviceCoordinate( nLogicalWidth );
     }
 
+    std::unique_ptr<DeviceCoordinate[]> xDXPixelArray;
+    DeviceCoordinate* pDXPixelArray(nullptr);
     if( pDXArray)
     {
         if(mbMap)

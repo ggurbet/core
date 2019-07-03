@@ -27,7 +27,9 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 #include <basic/sbxcore.hxx>
+#include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
+#include <vcl/svapp.hxx>
 
 #include <tabvwsh.hxx>
 #include <client.hxx>

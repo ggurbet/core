@@ -360,8 +360,7 @@ public:
     ScMarkData&     GetMarkData();
     const ScMarkData& GetMarkData() const;
 
-    vcl::Window*    GetDialogParent();          // forwarded from tabvwsh
-    weld::Window*   GetFrameWeld();             // forwarded from tabvwsh
+    weld::Window*   GetDialogParent();          // forwarded from tabvwsh
     ScGridWindow*   GetActiveWin();             // from View
     const ScGridWindow* GetActiveWin() const;
     ScDrawView*     GetScDrawView();            // from View
@@ -393,8 +392,8 @@ public:
 
     SCTAB           GetTabNo() const                        { return nTabNo; }
     ScSplitPos      GetActivePart() const                   { return pThisTab->eWhichActive; }
-    SCCOL           GetPosX( ScHSplitPos eWhich ) const     { return pThisTab->nPosX[eWhich]; }
-    SCROW           GetPosY( ScVSplitPos eWhich ) const     { return pThisTab->nPosY[eWhich]; }
+    SCCOL           GetPosX( ScHSplitPos eWhich ) const;
+    SCROW           GetPosY( ScVSplitPos eWhich ) const;
     SCCOL           GetCurX() const                         { return pThisTab->nCurX; }
     SCROW           GetCurY() const                         { return pThisTab->nCurY; }
     SCCOL           GetCurXForTab( SCTAB nTabIndex ) const;

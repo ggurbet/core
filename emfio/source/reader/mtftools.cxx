@@ -73,14 +73,12 @@ namespace emfio
 
     void WinMtfClipPath::intersectClipRect( const tools::Rectangle& rRect )
     {
-        maClip.intersectRange(
-            vcl::unotools::b2DRectangleFromRectangle(rRect));
+        maClip.intersectRange(vcl::unotools::b2DRectangleFromRectangle(rRect));
     }
 
     void WinMtfClipPath::excludeClipRect( const tools::Rectangle& rRect )
     {
-        maClip.subtractRange(
-            vcl::unotools::b2DRectangleFromRectangle(rRect));
+        maClip.subtractRange(vcl::unotools::b2DRectangleFromRectangle(rRect));
     }
 
     void WinMtfClipPath::setClipPath( const tools::PolyPolygon& rPolyPolygon, sal_Int32 nClippingMode )
@@ -1285,8 +1283,9 @@ namespace emfio
             if ( mbComplexClip )
             {
                 tools::PolyPolygon aPolyPoly( rPolygon );
-                tools::PolyPolygon aDest;
-                tools::PolyPolygon(maClipPath.getClipPath()).GetIntersection( aPolyPoly, aDest );
+                auto tmp = maClipPath.getClip();
+                tmp.intersectPolyPolygon(aPolyPoly.getB2DPolyPolygon());
+                tools::PolyPolygon aDest(tmp.getClipPoly());
                 ImplDrawClippedPolyPolygon( aDest );
             }
             else
@@ -1314,20 +1313,20 @@ namespace emfio
                     if (maLatestFillStyle.aType != WinMtfFillStyleType::Pattern)
                         mpGDIMetaFile->AddAction( new MetaPolygonAction( rPolygon ) );
                     else {
-                        SvtGraphicFill aFill = SvtGraphicFill( tools::PolyPolygon( rPolygon ),
-                                                               Color(),
-                                                               0.0,
-                                                               SvtGraphicFill::fillNonZero,
-                                                               SvtGraphicFill::fillTexture,
-                                                               SvtGraphicFill::Transform(),
-                                                               true,
-                                                               SvtGraphicFill::hatchSingle,
-                                                               Color(),
-                                                               SvtGraphicFill::GradientType::Linear,
-                                                               Color(),
-                                                               Color(),
-                                                               0,
-                                                               Graphic (maLatestFillStyle.aBmp) );
+                        SvtGraphicFill aFill( tools::PolyPolygon( rPolygon ),
+                                              Color(),
+                                              0.0,
+                                              SvtGraphicFill::fillNonZero,
+                                              SvtGraphicFill::fillTexture,
+                                              SvtGraphicFill::Transform(),
+                                              true,
+                                              SvtGraphicFill::hatchSingle,
+                                              Color(),
+                                              SvtGraphicFill::GradientType::Linear,
+                                              Color(),
+                                              Color(),
+                                              0,
+                                              Graphic (maLatestFillStyle.aBmp) );
 
                         SvMemoryStream  aMemStm;
 

@@ -8,6 +8,8 @@
  */
 
 #include "ShadowPropertyPanel.hxx"
+#include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <sfx2/sidebar/ControlFactory.hxx>
 #include <svx/colorbox.hxx>
 #include <svx/svxids.hrc>
@@ -19,7 +21,6 @@
 #include <svtools/valueset.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/pathoptions.hxx>
-#include <svx/xattr.hxx>
 #include <svx/svddef.hxx>
 #include <svx/sdooitm.hxx>
 #include <svx/sdshitm.hxx>

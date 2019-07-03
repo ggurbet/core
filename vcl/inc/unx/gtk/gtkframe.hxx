@@ -269,7 +269,7 @@ class GtkSalFrame : public SalFrame
                                           guint time, gpointer frame);
 
     static void         gestureSwipe(GtkGestureSwipe* gesture, gdouble velocity_x, gdouble velocity_y, gpointer frame);
-    static void         gestureLongPress(GtkGestureLongPress* gesture, gpointer frame);
+    static void         gestureLongPress(GtkGestureLongPress* gesture, gdouble x, gdouble y, gpointer frame);
 #else
     static gboolean     signalExpose( GtkWidget*, GdkEventExpose*, gpointer );
     void askForXEmbedFocus( sal_Int32 nTimecode );
@@ -358,9 +358,7 @@ public:
     GtkSalFrame( SystemParentData* pSysData );
 
     guint                           m_nMenuExportId;
-    guint                           m_nAppMenuExportId;
     guint                           m_nActionGroupExportId;
-    guint                           m_nAppActionGroupExportId;
     guint                           m_nHudAwarenessId;
     std::vector<gulong>             m_aMouseSignalIds;
 
@@ -560,6 +558,7 @@ public:
     static sal_uInt16           GetKeyCode(guint nKeyVal);
     static guint                GetKeyValFor(GdkKeymap* pKeyMap, guint16 hardware_keycode, guint8 group);
     static sal_uInt16           GetKeyModCode(guint nState);
+    static GdkEvent*            makeFakeKeyPress(GtkWidget* pWidget);
 };
 
 #define OOO_TYPE_FIXED ooo_fixed_get_type()

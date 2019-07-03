@@ -218,8 +218,7 @@ Reference< XDynamicResultSet > SAL_CALL CachedDynamicResultSetStubFactory
     ::createCachedDynamicResultSetStub(
             const Reference< XDynamicResultSet > & Source )
 {
-    Reference< XDynamicResultSet > xRet;
-    xRet = new CachedDynamicResultSetStub( Source, m_xContext );
+    Reference< XDynamicResultSet > xRet = new CachedDynamicResultSetStub( Source, m_xContext );
     return xRet;
 }
 
@@ -236,7 +235,7 @@ void SAL_CALL CachedDynamicResultSetStubFactory
     OSL_ENSURE( TargetCache.is(), "a TargetCache is needed" );
 
     Reference< XDynamicResultSet > xSource( Source );
-    if( SortingInfo.getLength() &&
+    if( SortingInfo.hasElements() &&
         !( xSource->getCapabilities() & ContentResultSetCapability::SORTED )
         )
     {

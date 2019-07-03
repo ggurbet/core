@@ -20,13 +20,13 @@
 #include "BasicToolBarFactory.hxx"
 
 #include <ViewTabBar.hxx>
-#include <facreg.hxx>
 #include <framework/FrameworkHelper.hxx>
 #include <unotools/mediadescriptor.hxx>
 
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/lang/XUnoTunnel.hpp>
-#include <DrawController.hxx>
+#include <com/sun/star/drawing/framework/XConfigurationController.hpp>
+#include <com/sun/star/frame/XController.hpp>
+#include <com/sun/star/drawing/framework/XControllerManager.hpp>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -69,7 +69,7 @@ void BasicToolBarFactory::Shutdown()
 
 void SAL_CALL BasicToolBarFactory::initialize (const Sequence<Any>& aArguments)
 {
-    if (aArguments.getLength() <= 0)
+    if (!aArguments.hasElements())
         return;
 
     try

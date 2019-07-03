@@ -29,6 +29,10 @@
 #include <svx/svdograf.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/dialmgr.hxx>
+#include <svx/sdooitm.hxx>
+#include <svx/sdshitm.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
 #include "svdfmtf.hxx"
 #include "svdpdf.hxx"
 #include <svx/svdetc.hxx>
@@ -42,6 +46,7 @@
 #include <svx/svdoashp.hxx>
 #include <basegfx/polygon/b2dpolypolygoncutter.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 #include <memory>
 #include <vector>
 
@@ -1966,8 +1971,11 @@ void SdrEditView::ImpConvertTo(bool bPath, bool bLineToArea)
             }
         }
         EndUndo();
-        if (bMrkChg) AdjustMarkHdl();
-        if (bMrkChg) MarkListHasChanged();
+        if (bMrkChg)
+        {
+            AdjustMarkHdl();
+            MarkListHasChanged();
+        }
     }
 }
 

@@ -26,7 +26,6 @@
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 
 #include <sfx2/objsh.hxx>
-#include "types.hxx"
 #include <svl/itempool.hxx>
 #include <svl/itemset.hxx>
 #include <svx/svdtypes.hxx>
@@ -209,7 +208,7 @@ namespace sw
         /** Provide a dynamic_cast style cast for SfxPoolItems
 
             A SfxPoolItem generally need to be cast back to its original type
-            to be useful, which is both tedious and errorprone. So item_cast is
+            to be useful, which is both tedious and error prone. So item_cast is
             a helper template to aid the process and test if the cast is
             correct.
 

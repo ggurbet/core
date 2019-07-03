@@ -24,6 +24,7 @@
 
 #include <o3tl/any.hxx>
 #include <sfx2/printer.hxx>
+#include <svl/itemset.hxx>
 #include <vcl/svapp.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <vcl/settings.hxx>
@@ -35,6 +36,7 @@
 #include <comphelper/propertysetinfo.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/servicehelper.hxx>
+#include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <tools/mapunit.hxx>
@@ -989,7 +991,7 @@ void SAL_CALL SmModel::render(
     if (!xRenderDevice.is())
         return;
 
-    VCLXDevice*   pDevice = VCLXDevice::GetImplementation( xRenderDevice );
+    VCLXDevice*   pDevice = comphelper::getUnoTunnelImplementation<VCLXDevice>( xRenderDevice );
     VclPtr< OutputDevice> pOut = pDevice ? pDevice->GetOutputDevice()
                                          : VclPtr< OutputDevice >();
     if (!pOut)

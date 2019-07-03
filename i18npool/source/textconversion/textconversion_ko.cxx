@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <assert.h>
 #include <textconversion.hxx>
 #include <com/sun/star/i18n/TextConversionType.hpp>
 #include <com/sun/star/i18n/TextConversionOption.hpp>
@@ -44,9 +43,7 @@ namespace i18npool {
 TextConversion_ko::TextConversion_ko( const Reference < XComponentContext >& xContext )
     : TextConversionService("com.sun.star.i18n.TextConversion_ko")
 {
-    Reference < XInterface > xI;
-
-    xI = xContext->getServiceManager()->createInstanceWithContext(
+    Reference < XInterface > xI = xContext->getServiceManager()->createInstanceWithContext(
         "com.sun.star.i18n.ConversionDictionary_ko", xContext);
 
     if ( xI.is() )

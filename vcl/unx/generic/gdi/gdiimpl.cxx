@@ -112,10 +112,10 @@ namespace
             if (rPalette.GetEntryCount() == 2)
             {
                 const BitmapColor aWhite(rPalette[rPalette.GetBestIndex(COL_WHITE)]);
-                rValues.foreground = rColMap.GetPixel(aWhite.GetColor());
+                rValues.foreground = rColMap.GetPixel(aWhite);
 
                 const BitmapColor aBlack(rPalette[rPalette.GetBestIndex(COL_BLACK)]);
-                rValues.background = rColMap.GetPixel(aBlack.GetColor());
+                rValues.background = rColMap.GetPixel(aBlack);
             }
             rBitmap.ReleaseBuffer(pBitmapBuffer, BitmapAccessMode::Read);
         }
@@ -1489,7 +1489,7 @@ bool X11SalGraphicsImpl::drawPolyPolygon(
     const int nTrapCount = aB2DTrapVector.size();
     if( !nTrapCount )
         return true;
-    const bool bDrawn = drawFilledTrapezoids( &aB2DTrapVector[0], nTrapCount, fTransparency );
+    const bool bDrawn = drawFilledTrapezoids( aB2DTrapVector.data(), nTrapCount, fTransparency );
     return bDrawn;
 }
 
@@ -1565,7 +1565,7 @@ bool X11SalGraphicsImpl::drawFilledTrapezoids( const basegfx::B2DTrapezoid* pB2D
     // render the trapezoids
     const XRenderPictFormat* pMaskFormat = rRenderPeer.GetStandardFormatA8();
     rRenderPeer.CompositeTrapezoids( PictOpOver,
-        rEntry.m_aPicture, aDstPic, pMaskFormat, 0, 0, &aTrapVector[0], aTrapVector.size() );
+        rEntry.m_aPicture, aDstPic, pMaskFormat, 0, 0, aTrapVector.data(), aTrapVector.size() );
 
     return true;
 }
@@ -1586,9 +1586,7 @@ bool X11SalGraphicsImpl::drawFilledTriangles(
     }
 
     // prepare transformation for ObjectToDevice coordinate system
-    basegfx::B2DHomMatrix aObjectToDevice(rObjectToDevice);
-
-    aObjectToDevice = basegfx::utils::createTranslateB2DHomMatrix(0.5, 0.5) * aObjectToDevice;
+    basegfx::B2DHomMatrix aObjectToDevice = basegfx::utils::createTranslateB2DHomMatrix(0.5, 0.5) * rObjectToDevice;
 
      // convert the Triangles into XRender-Triangles
     std::vector<XTriangle> aTriVector(rTriangles.size());
@@ -1639,7 +1637,7 @@ bool X11SalGraphicsImpl::drawFilledTriangles(
     // render the trapezoids
     const XRenderPictFormat* pMaskFormat = rRenderPeer.GetStandardFormatA8();
     rRenderPeer.CompositeTriangles( PictOpOver,
-        rEntry.m_aPicture, aDstPic, pMaskFormat, 0, 0, &aTriVector[0], aTriVector.size() );
+        rEntry.m_aPicture, aDstPic, pMaskFormat, 0, 0, aTriVector.data(), aTriVector.size() );
 
     return true;
 }

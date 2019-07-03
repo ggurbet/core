@@ -17,6 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <utility>
+
 #include "gio_mount.hxx"
 #include <ucbhelper/simpleauthenticationrequest.hxx>
 #include <string.h>
@@ -47,6 +51,7 @@ static void ooo_mount_operation_finalize (GObject *object)
         free(mount_op->m_pPrevUsername);
     if (mount_op->m_pPrevPassword)
         free(mount_op->m_pPrevPassword);
+    mount_op->context.reset();
 
     G_OBJECT_CLASS (ooo_mount_operation_parent_class)->finalize (object);
 }
@@ -60,15 +65,31 @@ static void ooo_mount_operation_class_init (OOoMountOperationClass *klass)
     mount_op_class->ask_password = ooo_mount_operation_ask_password;
 }
 
-using namespace com::sun::star;
+namespace {
+
+// Temporarily undo the g_main_context_push_thread_default done in the surrounding MountOperation
+// ctor (in ucb/source/ucp/gio/gio_content.cxx):
+struct GlibThreadDefaultMainContextScope {
+public:
+    GlibThreadDefaultMainContextScope(GMainContext * context): context_(context)
+    { g_main_context_push_thread_default(context_); }
+
+    ~GlibThreadDefaultMainContextScope() { g_main_context_pop_thread_default(context_); }
+
+private:
+    GMainContext * context_;
+};
+
+}
 
 static void ooo_mount_operation_ask_password (GMountOperation *op,
     const char * /*message*/, const char *default_user,
     const char *default_domain, GAskPasswordFlags flags)
 {
-    uno::Reference< task::XInteractionHandler > xIH;
+    css::uno::Reference< css::task::XInteractionHandler > xIH;
 
     OOoMountOperation *pThis = reinterpret_cast<OOoMountOperation*>(op);
+    GlibThreadDefaultMainContextScope scope(pThis->context.get());
 
     const css::uno::Reference< css::ucb::XCommandEnvironment > &xEnv = *(pThis->pEnv);
 
@@ -130,7 +151,7 @@ static void ooo_mount_operation_ask_password (GMountOperation *op,
         return;
     }
 
-    uno::Reference< task::XInteractionAbort > xAbort(xSelection.get(), uno::UNO_QUERY );
+    css::uno::Reference< css::task::XInteractionAbort > xAbort(xSelection.get(), css::uno::UNO_QUERY );
     if ( xAbort.is() )
     {
         g_mount_operation_reply (op, G_MOUNT_OPERATION_ABORTED);
@@ -153,13 +174,13 @@ static void ooo_mount_operation_ask_password (GMountOperation *op,
     switch (xSupp->getRememberPasswordMode())
     {
     default:
-        case ucb::RememberAuthentication_NO:
+        case css::ucb::RememberAuthentication_NO:
             g_mount_operation_set_password_save(op, G_PASSWORD_SAVE_NEVER);
             break;
-        case ucb::RememberAuthentication_SESSION:
+        case css::ucb::RememberAuthentication_SESSION:
             g_mount_operation_set_password_save(op, G_PASSWORD_SAVE_FOR_SESSION);
             break;
-        case ucb::RememberAuthentication_PERSISTENT:
+        case css::ucb::RememberAuthentication_PERSISTENT:
             g_mount_operation_set_password_save(op, G_PASSWORD_SAVE_PERMANENTLY);
             break;
     }
@@ -173,9 +194,10 @@ static void ooo_mount_operation_ask_password (GMountOperation *op,
     g_mount_operation_reply (op, G_MOUNT_OPERATION_HANDLED);
 }
 
-GMountOperation *ooo_mount_operation_new(const uno::Reference< ucb::XCommandEnvironment >& rEnv)
+GMountOperation *ooo_mount_operation_new(ucb::ucp::gio::glib::MainContextRef && context, const css::uno::Reference< css::ucb::XCommandEnvironment >& rEnv)
 {
     OOoMountOperation *pRet = static_cast<OOoMountOperation*>(g_object_new (OOO_TYPE_MOUNT_OPERATION, nullptr));
+    pRet->context = std::move(context);
     pRet->pEnv = &rEnv;
     return &pRet->parent_instance;
 }

@@ -30,7 +30,6 @@
 #include <com/sun/star/io/XMarkableStream.hpp>
 #include <com/sun/star/i18n/Currency2.hpp>
 #include <toolkit/controls/unocontrolmodel.hxx>
-#include <toolkit/helper/macros.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <rtl/uuid.h>
@@ -46,6 +45,7 @@
 #include <unotools/configmgr.hxx>
 #include <comphelper/sequence.hxx>
 #include <comphelper/extract.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/unohelp.hxx>
 #include <uno/data.h>
@@ -345,33 +345,35 @@ css::uno::Any UnoControlModel::ImplGetDefaultValue( sal_uInt16 nPropId ) const
 
                 // look for the currency entry (for this language) which has the given bank symbol
                 Sequence< Currency2 > aAllCurrencies = aLocaleInfo.getAllCurrencies();
-                const Currency2* pAllCurrencies     =                       aAllCurrencies.getConstArray();
-                const Currency2* pAllCurrenciesEnd  =   pAllCurrencies  +   aAllCurrencies.getLength();
 
                 OUString sCurrencySymbol = aLocaleInfo.getCurrSymbol();
                 if ( sBankSymbol.isEmpty() )
                 {
-                    DBG_ASSERT( pAllCurrencies != pAllCurrenciesEnd, "UnoControlModel::ImplGetDefaultValue: no currencies at all!" );
-                    if ( pAllCurrencies != pAllCurrenciesEnd )
+                    DBG_ASSERT( aAllCurrencies.hasElements(), "UnoControlModel::ImplGetDefaultValue: no currencies at all!" );
+                    if ( aAllCurrencies.hasElements() )
                     {
-                        sBankSymbol = pAllCurrencies->BankSymbol;
-                        sCurrencySymbol = pAllCurrencies->Symbol;
+                        sBankSymbol = aAllCurrencies[0].BankSymbol;
+                        sCurrencySymbol = aAllCurrencies[0].Symbol;
                     }
                 }
 
                 if ( !sBankSymbol.isEmpty() )
                 {
                     bool bLegacy = false;
-                    for ( ;pAllCurrencies != pAllCurrenciesEnd; ++pAllCurrencies )
-                        if ( pAllCurrencies->BankSymbol == sBankSymbol )
+                    bool bFound = false;
+                    for ( const Currency2& rCurrency : aAllCurrencies )
+                        if ( rCurrency.BankSymbol == sBankSymbol )
                         {
-                            sCurrencySymbol = pAllCurrencies->Symbol;
-                            if ( pAllCurrencies->LegacyOnly )
+                            sCurrencySymbol = rCurrency.Symbol;
+                            if ( rCurrency.LegacyOnly )
                                 bLegacy = true;
                             else
+                            {
+                                bFound = true;
                                 break;
+                            }
                         }
-                    DBG_ASSERT( bLegacy || pAllCurrencies != pAllCurrenciesEnd, "UnoControlModel::ImplGetDefaultValue: did not find the given bank symbol!" );
+                    DBG_ASSERT( bLegacy || bFound, "UnoControlModel::ImplGetDefaultValue: did not find the given bank symbol!" );
                 }
 
                 aDefault <<= sCurrencySymbol;
@@ -426,7 +428,23 @@ css::uno::Any UnoControlModel::queryAggregation( const css::uno::Type & rType )
 }
 
 // css::lang::XUnoTunnel
-IMPL_XUNOTUNNEL_MINIMAL( UnoControlModel )
+namespace
+{
+    class theUnoControlModelUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theUnoControlModelUnoTunnelId> {};
+}
+
+const css::uno::Sequence< sal_Int8 >& UnoControlModel::GetUnoTunnelId() throw()
+{
+    return theUnoControlModelUnoTunnelId::get().getSeq();
+}
+
+sal_Int64 UnoControlModel::getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier )
+{
+    if( ( rIdentifier.getLength() == 16 ) && ( memcmp( UnoControlModel::GetUnoTunnelId().getConstArray(), rIdentifier.getConstArray(), 16 ) == 0 ) )
+        return sal::static_int_cast< sal_Int64 >(reinterpret_cast< sal_IntPtr >(this));
+
+    return 0;
+}
 
 // XInterface
 IMPLEMENT_FORWARD_REFCOUNT( UnoControlModel, UnoControlModel_Base )
@@ -488,14 +506,12 @@ css::uno::Sequence< css::beans::PropertyState > UnoControlModel::getPropertyStat
 {
     ::osl::Guard< ::osl::Mutex > aGuard( GetMutex() );
 
-    sal_uInt32 nNames = PropertyNames.getLength();
-    const OUString* pNames = PropertyNames.getConstArray();
+    sal_Int32 nNames = PropertyNames.getLength();
 
     css::uno::Sequence< css::beans::PropertyState > aStates( nNames );
-    css::beans::PropertyState* pStates = aStates.getArray();
 
-    for ( sal_uInt32 n = 0; n < nNames; n++ )
-        pStates[n] = getPropertyState( pNames[n] );
+    std::transform(PropertyNames.begin(), PropertyNames.end(), aStates.begin(),
+        [this](const OUString& rName) -> css::beans::PropertyState { return getPropertyState(rName); });
 
     return aStates;
 }
@@ -654,8 +670,8 @@ void UnoControlModel::write( const css::uno::Reference< css::io::XObjectOutputSt
                 rValue >>= aSeq;
                 long nEntries = aSeq.getLength();
                 OutStream->writeLong( nEntries );
-                for ( long n = 0; n < nEntries; n++ )
-                    OutStream->writeUTF( aSeq.getConstArray()[n] );
+                for ( const auto& rVal : aSeq )
+                    OutStream->writeUTF( rVal );
             }
             else if ( rType == cppu::UnoType< cppu::UnoSequenceType<cppu::UnoUnsignedShortType> >::get() )
             {
@@ -663,8 +679,8 @@ void UnoControlModel::write( const css::uno::Reference< css::io::XObjectOutputSt
                 rValue >>= aSeq;
                 long nEntries = aSeq.getLength();
                 OutStream->writeLong( nEntries );
-                for ( long n = 0; n < nEntries; n++ )
-                    OutStream->writeShort( aSeq.getConstArray()[n] );
+                for ( const auto nVal : aSeq )
+                    OutStream->writeShort( nVal );
             }
             else if ( rType == cppu::UnoType< css::uno::Sequence<sal_Int16> >::get() )
             {
@@ -672,8 +688,8 @@ void UnoControlModel::write( const css::uno::Reference< css::io::XObjectOutputSt
                 rValue >>= aSeq;
                 long nEntries = aSeq.getLength();
                 OutStream->writeLong( nEntries );
-                for ( long n = 0; n < nEntries; n++ )
-                    OutStream->writeShort( aSeq.getConstArray()[n] );
+                for ( const auto nVal : aSeq )
+                    OutStream->writeShort( nVal );
             }
             else if ( rType.getTypeClass() == TypeClass_ENUM )
             {
@@ -1034,8 +1050,7 @@ sal_Bool UnoControlModel::supportsService( const OUString& rServiceName )
 
 css::uno::Sequence< OUString > UnoControlModel::getSupportedServiceNames(  )
 {
-    OUString sName( "com.sun.star.awt.UnoControlModel" );
-    return Sequence< OUString >( &sName, 1 );
+    return { "com.sun.star.awt.UnoControlModel" };
 }
 
 sal_Bool UnoControlModel::convertFastPropertyValue( Any & rConvertedValue, Any & rOldValue, sal_Int32 nPropId, const Any& rValue )
@@ -1262,8 +1277,7 @@ void UnoControlModel::setFastPropertyValue( sal_Int32 nPropId, const css::uno::A
 
         Any aNewValue;
         aNewValue <<= aNewFontDescriptor;
-        sal_Int32 nDescriptorId( BASEPROPERTY_FONTDESCRIPTOR );
-        nDescriptorId = BASEPROPERTY_FONTDESCRIPTOR;
+        sal_Int32 nDescriptorId = BASEPROPERTY_FONTDESCRIPTOR;
 
         // also, we need  fire a propertyChange event for the single property, since with
         // the above line, only an event for the FontDescriptor property will be fired

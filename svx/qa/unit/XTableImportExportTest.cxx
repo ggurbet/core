@@ -12,6 +12,7 @@
 #include <cppunit/TestAssert.h>
 #include <cppunit/TestFixture.h>
 #include <cppunit/extensions/HelperMacros.h>
+#include <unotest/bootstrapfixturebase.hxx>
 
 #include <sal/types.h>
 #include <sfx2/app.hxx>
@@ -30,20 +31,14 @@ using namespace css;
 class XTableImportExportTest : public CppUnit::TestFixture
 {
 public:
-    void testImportExport();
-
     virtual void setUp() override
     {
         CppUnit::TestFixture::setUp();
         SfxApplication::GetOrCreate();
     }
-
-    CPPUNIT_TEST_SUITE(XTableImportExportTest);
-    CPPUNIT_TEST(testImportExport);
-    CPPUNIT_TEST_SUITE_END();
 };
 
-void XTableImportExportTest::testImportExport()
+CPPUNIT_TEST_FIXTURE(XTableImportExportTest, testImportExport)
 {
     utl::TempFile aTempFile(nullptr, true);
     aTempFile.EnableKillingFile();
@@ -81,12 +76,10 @@ void XTableImportExportTest::testImportExport()
         uno::Reference<graphic::XGraphic> xGraphic(xBitmap, uno::UNO_QUERY);
         CPPUNIT_ASSERT(xGraphic.is());
         Graphic aGraphic(xGraphic);
-        CPPUNIT_ASSERT(aGraphic);
+        CPPUNIT_ASSERT(!aGraphic.IsNone());
         Bitmap aBitmap = aGraphic.GetBitmapEx().GetBitmap();
         CPPUNIT_ASSERT_EQUAL(aChecksum, aBitmap.GetChecksum());
     }
 }
-
-CPPUNIT_TEST_SUITE_REGISTRATION(XTableImportExportTest);
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

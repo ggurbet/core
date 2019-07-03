@@ -19,6 +19,7 @@
 
 
 #include <memory>
+#include <tools/diagnose_ex.h>
 #include "filtercache.hxx"
 #include "constant.hxx"
 #include "cacheupdatelistener.hxx"
@@ -121,7 +122,7 @@ FilterCache::~FilterCache()
 std::unique_ptr<FilterCache> FilterCache::clone() const
 {
     // SAFE -> ----------------------------------
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     auto pClone = std::make_unique<FilterCache>();
 
@@ -153,7 +154,7 @@ std::unique_ptr<FilterCache> FilterCache::clone() const
 void FilterCache::takeOver(const FilterCache& rClone)
 {
     // SAFE -> ----------------------------------
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // a)
     // Don't copy the configuration access points here!
@@ -201,7 +202,7 @@ void FilterCache::takeOver(const FilterCache& rClone)
 void FilterCache::load(EFillState eRequired)
 {
     // SAFE -> ----------------------------------
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // check if required fill state is already reached ...
     // There is nothing to do then.
@@ -240,7 +241,7 @@ void FilterCache::load(EFillState eRequired)
 bool FilterCache::isFillState(FilterCache::EFillState eState) const
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
     return ((m_eFillState & eState) == eState);
     // <- SAFE
 }
@@ -251,7 +252,7 @@ std::vector<OUString> FilterCache::getMatchingItemsByProps(      EItemType  eTyp
                                                   const CacheItem& lEProps) const
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // search for right list
     // An exception is thrown - "eType" is unknown.
@@ -281,7 +282,7 @@ std::vector<OUString> FilterCache::getMatchingItemsByProps(      EItemType  eTyp
 bool FilterCache::hasItems(EItemType eType) const
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // search for right list
     // An exception is thrown - "eType" is unknown.
@@ -296,7 +297,7 @@ bool FilterCache::hasItems(EItemType eType) const
 std::vector<OUString> FilterCache::getItemNames(EItemType eType) const
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // search for right list
     // An exception is thrown - "eType" is unknown.
@@ -317,7 +318,7 @@ bool FilterCache::hasItem(      EItemType        eType,
                               const OUString& sItem)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // search for right list
     // An exception is thrown - "eType" is unknown.
@@ -349,7 +350,7 @@ CacheItem FilterCache::getItem(      EItemType        eType,
                                const OUString& sItem)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // search for right list
     // An exception is thrown if "eType" is unknown.
@@ -399,7 +400,7 @@ void FilterCache::removeItem(      EItemType        eType,
                              const OUString& sItem)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // search for right list
     // An exception is thrown - "eType" is unknown.
@@ -420,7 +421,7 @@ void FilterCache::setItem(      EItemType        eType ,
                           const CacheItem&       aValue)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // search for right list
     // An exception is thrown - "eType" is unknown.
@@ -447,7 +448,7 @@ void FilterCache::refreshItem(      EItemType        eType,
                               const OUString& sItem)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
     impl_loadItemOnDemand(eType, sItem);
 }
 
@@ -457,7 +458,7 @@ void FilterCache::addStatePropsToItem(      EItemType        eType,
                                             CacheItem&       rItem)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // Note: Opening of the configuration layer throws some exceptions
     // if it failed. So we mustn't check any reference here...
@@ -549,8 +550,7 @@ void FilterCache::addStatePropsToItem(      EItemType        eType,
 
 void FilterCache::removeStatePropsFromItem(CacheItem& rItem)
 {
-    CacheItem::iterator pIt;
-    pIt = rItem.find(PROPNAME_FINALIZED);
+    CacheItem::iterator pIt = rItem.find(PROPNAME_FINALIZED);
     if (pIt != rItem.end())
         rItem.erase(pIt);
     pIt = rItem.find(PROPNAME_MANDATORY);
@@ -562,7 +562,7 @@ void FilterCache::removeStatePropsFromItem(CacheItem& rItem)
 void FilterCache::flush()
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // renew all dependencies and optimizations
     impl_validateAndOptimize();
@@ -664,7 +664,7 @@ void FilterCache::detectFlatForURL(const css::util::URL& aURL      ,
     sExtension = sExtension.toAsciiLowerCase();
 
     // SAFE -> ----------------------------------
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
 
     // i) Step over all well known URL pattern
@@ -707,14 +707,13 @@ void FilterCache::detectFlatForURL(const css::util::URL& aURL      ,
         }
     }
 
-    aLock.clear();
     // <- SAFE ----------------------------------
 }
 
 const CacheItemList& FilterCache::impl_getItemList(EItemType eType) const
 {
     // SAFE -> ----------------------------------
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     switch(eType)
     {
@@ -733,7 +732,7 @@ const CacheItemList& FilterCache::impl_getItemList(EItemType eType) const
 CacheItemList& FilterCache::impl_getItemList(EItemType eType)
 {
     // SAFE -> ----------------------------------
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     switch(eType)
     {
@@ -751,7 +750,7 @@ CacheItemList& FilterCache::impl_getItemList(EItemType eType)
 
 css::uno::Reference< css::uno::XInterface > FilterCache::impl_openConfig(EConfigProvider eProvider)
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     OUString                              sPath      ;
     css::uno::Reference< css::uno::XInterface >* pConfig = nullptr;
@@ -862,9 +861,9 @@ css::uno::Any FilterCache::impl_getDirectCFGValue(const OUString& sDirectKey)
     }
     catch(const css::uno::RuntimeException&)
         { throw; }
-    catch(const css::uno::Exception& ex)
+    catch(const css::uno::Exception&)
         {
-            SAL_WARN( "filter.config", ex);
+            TOOLS_WARN_EXCEPTION( "filter.config", "");
             aValue.clear();
         }
 
@@ -877,7 +876,7 @@ css::uno::Reference< css::uno::XInterface > FilterCache::impl_createConfigAccess
                                                                                        bool         bLocalesMode)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     css::uno::Reference< css::uno::XInterface > xCfg;
 
@@ -937,7 +936,7 @@ css::uno::Reference< css::uno::XInterface > FilterCache::impl_createConfigAccess
 void FilterCache::impl_validateAndOptimize()
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // First check if any filter or type could be read
     // from the underlying configuration!
@@ -1254,7 +1253,7 @@ FilterCache::EItemFlushState FilterCache::impl_specifyFlushOperation(const css::
 void FilterCache::impl_load(EFillState eRequiredState)
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     // Attention: Detect services are part of the standard set!
     // So there is no need to handle it separately.
@@ -1467,7 +1466,7 @@ void FilterCache::impl_readPatchUINames(const css::uno::Reference< css::containe
 {
 
     // SAFE -> ----------------------------------
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::ClearableMutexGuard aLock(m_aLock);
     OUString sActLocale     = m_sActLocale    ;
     aLock.clear();
     // <- SAFE ----------------------------------
@@ -1572,12 +1571,11 @@ CacheItem FilterCache::impl_loadItem(const css::uno::Reference< css::container::
             css::uno::Sequence< OUString > &rNames = m_aTypeProps[eOption];
 
             // read standard properties of a filter
-            if (rNames.getLength() > 0)
+            if (rNames.hasElements())
             {
                 css::uno::Reference< css::beans::XMultiPropertySet >
                     xPropSet( xItem, css::uno::UNO_QUERY_THROW);
-                css::uno::Sequence< css::uno::Any > aValues;
-                aValues = xPropSet->getPropertyValues(rNames);
+                css::uno::Sequence< css::uno::Any > aValues = xPropSet->getPropertyValues(rNames);
 
                 for (sal_Int32 i = 0; i < aValues.getLength(); i++)
                     aItem[rNames[i]] = aValues[i];
@@ -1597,12 +1595,11 @@ CacheItem FilterCache::impl_loadItem(const css::uno::Reference< css::container::
             css::uno::Sequence< OUString > &rNames = m_aStandardProps[eOption];
 
             // read standard properties of a filter
-            if (rNames.getLength() > 0)
+            if (rNames.hasElements())
             {
                 css::uno::Reference< css::beans::XMultiPropertySet >
                     xPropSet( xItem, css::uno::UNO_QUERY_THROW);
-                css::uno::Sequence< css::uno::Any > aValues;
-                aValues = xPropSet->getPropertyValues(rNames);
+                css::uno::Sequence< css::uno::Any > aValues = xPropSet->getPropertyValues(rNames);
 
                 for (sal_Int32 i = 0; i < rNames.getLength(); i++)
                 {
@@ -2058,8 +2055,7 @@ void FilterCache::impl_readOldFormat()
     try
     {
         css::uno::Reference< css::uno::XInterface > xInt = impl_openConfig(E_PROVIDER_OLD);
-        css::uno::Reference< css::container::XNameAccess > xCfg =
-            css::uno::Reference< css::container::XNameAccess >(xInt, css::uno::UNO_QUERY_THROW);
+        css::uno::Reference< css::container::XNameAccess > xCfg(xInt, css::uno::UNO_QUERY_THROW);
 
         OUString TYPES_SET("Types");
 
@@ -2203,14 +2199,15 @@ bool FilterCache::impl_isModuleInstalled(const OUString& sModule)
     css::uno::Reference< css::container::XNameAccess > xCfg;
 
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
-    if (! m_xModuleCfg.is())
     {
-        m_xModuleCfg = officecfg::Setup::Office::Factories::get();
-    }
+        osl::MutexGuard aLock(m_aLock);
+        if (!m_xModuleCfg.is())
+        {
+            m_xModuleCfg = officecfg::Setup::Office::Factories::get();
+        }
 
-    xCfg = m_xModuleCfg;
-    aLock.clear();
+        xCfg = m_xModuleCfg;
+    }
     // <- SAFE
 
     if (xCfg.is())

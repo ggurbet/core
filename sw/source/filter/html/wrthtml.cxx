@@ -28,6 +28,7 @@
 
 #include <svtools/htmlcfg.hxx>
 #include <svtools/htmltokn.h>
+#include <svtools/htmlkywd.hxx>
 #include <vcl/svapp.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <sfx2/frmhtmlw.hxx>
@@ -1068,9 +1069,8 @@ const SwPageDesc *SwHTMLWriter::MakeHeader( sal_uInt16 &rHeaderAttrs )
         const SfxItemSet& rItemSet = pPageDesc->GetMaster().GetAttrSet();
 
         // fdo#86857 page styles now contain the XATTR_*, not RES_BACKGROUND
-        SvxBrushItem const aBrushItem(
-                getSvxBrushItemFromSourceSet(rItemSet, RES_BACKGROUND));
-        OutBackground(&aBrushItem, true);
+        std::shared_ptr<SvxBrushItem> const aBrushItem(getSvxBrushItemFromSourceSet(rItemSet, RES_BACKGROUND));
+        OutBackground(aBrushItem.get(), true);
 
         m_nDirection = GetHTMLDirection( rItemSet );
         OutDirection( m_nDirection );
@@ -1119,7 +1119,7 @@ void SwHTMLWriter::OutBookmarks()
     const ::sw::mark::IMark* pBookmark = nullptr;
     IDocumentMarkAccess* const pMarkAccess = m_pDoc->getIDocumentMarkAccess();
     if(m_nBkmkTabPos != -1)
-        pBookmark = (pMarkAccess->getAllMarksBegin() + m_nBkmkTabPos)->get();
+        pBookmark = pMarkAccess->getAllMarksBegin()[m_nBkmkTabPos];
     // Output all bookmarks in this paragraph. The content position
     // for the moment isn't considered!
     sal_uInt32 nNode = m_pCurrentPam->GetPoint()->nNode.GetIndex();
@@ -1137,7 +1137,7 @@ void SwHTMLWriter::OutBookmarks()
         if( ++m_nBkmkTabPos >= pMarkAccess->getAllMarksCount() )
             m_nBkmkTabPos = -1;
         else
-            pBookmark = (pMarkAccess->getAllMarksBegin() + m_nBkmkTabPos)->get();
+            pBookmark = pMarkAccess->getAllMarksBegin()[m_nBkmkTabPos];
     }
 
     decltype(m_aOutlineMarkPoss)::size_type nPos;

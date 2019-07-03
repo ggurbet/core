@@ -10,7 +10,6 @@
 $(eval $(call gb_Library_Library,subsequenttest))
 
 $(eval $(call gb_Library_set_include,subsequenttest,\
-	-I$(SRCDIR)/test/inc \
     $$(INCLUDE) \
 ))
 
@@ -42,6 +41,7 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/unoapi_test \
 	test/source/calc_unoapi_test \
 	test/source/beans/xpropertyset \
+	test/source/chart/xchartdata \
 	test/source/container/xchild \
 	test/source/container/xelementaccess \
 	test/source/container/xenumeration \
@@ -56,6 +56,11 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/document/xlinktargetsupplier \
 	test/source/drawing/captionshape \
 	test/source/drawing/xdrawpages \
+	test/source/drawing/xgluepointssupplier \
+	test/source/drawing/xshapedescriptor \
+	test/source/drawing/xshapegrouper \
+	test/source/drawing/xshape \
+	test/source/drawing/xshapes \
 	test/source/lang/xserviceinfo \
 	test/source/lang/xcomponent \
 	test/source/sheet/cellarealink \
@@ -161,8 +166,11 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/sheet/xviewpane \
 	test/source/sheet/xviewsplitable \
 	test/source/style/xstyleloader \
+	test/source/table/tablecolumn \
+	test/source/table/tablerow \
 	test/source/table/xcell \
 	test/source/table/xcellcursor \
+	test/source/table/xcellrange \
 	test/source/table/xcolumnrowrange \
 	test/source/table/xtablechart \
 	test/source/table/xtablecharts \
@@ -170,6 +178,7 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
 	test/source/table/xtablecolumns \
 	test/source/table/xtablerows \
 	test/source/text/baseindex \
+	test/source/text/textcontent \
 	test/source/text/xsimpletext \
 	test/source/text/xtext \
 	test/source/text/xtextcontent \
@@ -180,12 +189,16 @@ $(eval $(call gb_Library_add_exception_objects,subsequenttest,\
     test/source/text/textprintersettings \
     test/source/text/textsettings \
     test/source/text/textdocumentindex \
+	test/source/util/searchdescriptor \
 	test/source/util/xindent \
 	test/source/util/xmergeable \
 	test/source/util/xrefreshable \
 	test/source/util/xreplaceable \
+	test/source/util/xreplacedescriptor \
 	test/source/util/xsearchable \
+	test/source/util/xsearchdescriptor \
 	test/source/view/xcontrolaccess \
+	test/source/view/xformlayeraccess \
 ))
 
 # vim: set noet sw=4 ts=4:

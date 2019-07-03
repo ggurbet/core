@@ -106,10 +106,11 @@
 #include <svtools/miscopt.hxx>
 #include <svtools/menuoptions.hxx>
 #include <rtl/bootstrap.hxx>
+#include <vcl/glxtestprocess.hxx>
 #include <vcl/help.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/settings.hxx>
-#include <sfx2/sfxhelp.hxx>
+#include <sfx2/flatpak.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/app.hxx>
 #include <sfx2/safemode.hxx>
@@ -304,8 +305,8 @@ void SetRestartState() {
             comphelper::ConfigurationChanges::create());
         officecfg::Setup::Office::OfficeRestartInProgress::set(true, batch);
         batch->commit();
-    } catch (css::uno::Exception & e) {
-        SAL_WARN("desktop.app", "ignoring " << e);
+    } catch (css::uno::Exception) {
+        TOOLS_WARN_EXCEPTION("desktop.app", "ignoring");
     }
 }
 
@@ -322,9 +323,8 @@ void DoRestartActionsIfNecessary(bool quickstart) {
                     comphelper::getProcessComponentContext(),
                     shouldLaunchQuickstart());
             }
-        } catch (css::uno::Exception & e) {
-            SAL_WARN(
-                "desktop.app", "ignoring " << e);
+        } catch (css::uno::Exception &) {
+            TOOLS_WARN_EXCEPTION("desktop.app", "ignoring");
         }
     }
 }
@@ -648,7 +648,7 @@ void Desktop::HandleBootstrapPathErrors( ::utl::Bootstrap::Status aBootstrapStat
     }
 }
 
-// Create a error message depending on bootstrap failure code and an optional file url
+// Create an error message depending on bootstrap failure code and an optional file url
 OUString    Desktop::CreateErrorMsgString(
     utl::Bootstrap::FailureCode nFailureCode,
     const OUString& aFileURL )
@@ -1102,11 +1102,11 @@ void restartOnMac(bool passArguments) {
         argPtrs.push_back(elem.getStr());
     }
     argPtrs.push_back(nullptr);
-    execv(execPath8.getStr(), const_cast< char ** >(&argPtrs[0]));
+    execv(execPath8.getStr(), const_cast< char ** >(argPtrs.data()));
     if (errno == ENOTSUP) { // happens when multithreaded on macOS < 10.6
         pid_t pid = fork();
         if (pid == 0) {
-            execv(execPath8.getStr(), const_cast< char ** >(&argPtrs[0]));
+            execv(execPath8.getStr(), const_cast< char ** >(argPtrs.data()));
         } else if (pid > 0) {
             // Two simultaneously running soffice processes lead to two dock
             // icons, so avoid waiting here unless it must be assumed that the
@@ -1695,7 +1695,7 @@ int Desktop::doShutdown()
 
     // remove temp directory
     RemoveTemporaryDirectory();
-    SfxHelp::removeFlatpakHelpTemporaryDirectory();
+    flatpak::removeTemporaryHtmlDirectory();
 
     // flush evtl. configuration changes so that all config files in user
     // dir are written
@@ -1730,8 +1730,8 @@ int Desktop::doShutdown()
 
     // be sure that path/language options gets destroyed before
     // UCB is deinitialized
-    pExecGlobals->pLanguageOptions.reset( nullptr );
-    pExecGlobals->pPathOptions.reset( nullptr );
+    pExecGlobals->pLanguageOptions.reset();
+    pExecGlobals->pPathOptions.reset();
 
     comphelper::ThreadPool::getSharedOptimalPool().shutdown();
 
@@ -1911,7 +1911,7 @@ class ExitTimer : public Timer
     }
     virtual void Invoke() override
     {
-        exit(42);
+        _exit(42);
     }
 };
 
@@ -2022,9 +2022,9 @@ void Desktop::OpenClients()
 
             xRecovery->dispatch(aCmd, css::uno::Sequence< css::beans::PropertyValue >());
         }
-        catch(const css::uno::Exception& e)
+        catch(const css::uno::Exception&)
         {
-            SAL_WARN( "desktop.app", "Could not disable AutoRecovery." << e);
+            TOOLS_WARN_EXCEPTION( "desktop.app", "Could not disable AutoRecovery.");
         }
     }
     else
@@ -2051,9 +2051,9 @@ void Desktop::OpenClients()
                     false          , // false => force recovery instead of emergency save
                     bExistsRecoveryData);
             }
-            catch(const css::uno::Exception& e)
+            catch(const css::uno::Exception&)
             {
-                SAL_WARN( "desktop.app", "Error during recovery" << e);
+                TOOLS_WARN_EXCEPTION( "desktop.app", "Error during recovery");
             }
         }
 
@@ -2065,9 +2065,9 @@ void Desktop::OpenClients()
             xSessionListener = SessionListener::createWithOnQuitFlag(
                     ::comphelper::getProcessComponentContext(), bUIOnSessionShutdownAllowed);
         }
-        catch(const css::uno::Exception& e)
+        catch(const css::uno::Exception&)
         {
-            SAL_WARN( "desktop.app", "Registration of session listener failed" << e);
+            TOOLS_WARN_EXCEPTION( "desktop.app", "Registration of session listener failed");
         }
 
         if ( !bExistsRecoveryData && xSessionListener.is() )
@@ -2077,9 +2077,9 @@ void Desktop::OpenClients()
             {
                 xSessionListener->doRestore();
             }
-            catch(const css::uno::Exception& e)
+            catch(const css::uno::Exception&)
             {
-                SAL_WARN( "desktop.app", "Error in session management" << e);
+                TOOLS_WARN_EXCEPTION( "desktop.app", "Error in session management");
             }
         }
     }

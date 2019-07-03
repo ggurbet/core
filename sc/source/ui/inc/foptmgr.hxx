@@ -27,6 +27,8 @@
 namespace formula
 {
     class RefButton;
+    class RefButton;
+    class RefEdit;
 }
 struct ScQueryParam;
 class ScDocument;
@@ -35,20 +37,20 @@ class ScViewData;
 class ScFilterOptionsMgr
 {
 public:
-    ScFilterOptionsMgr( ScViewData*         ptrViewData,
-                        const ScQueryParam& refQueryData,
-                        CheckBox*           refBtnCase,
-                        CheckBox*           refBtnRegExp,
-                        CheckBox*           refBtnHeader,
-                        CheckBox*           refBtnUnique,
-                        CheckBox*           refBtnCopyResult,
-                        CheckBox*           refBtnDestPers,
-                        ListBox*            refLbCopyArea,
-                        Edit*               refEdCopyArea,
-                        formula::RefButton* refRbCopyArea,
-                        FixedText*          refFtDbAreaLabel,
-                        FixedText*          refFtDbArea,
-                        const OUString&       refStrUndefined );
+    ScFilterOptionsMgr(ScViewData* ptrViewData,
+                     const ScQueryParam& refQueryData,
+                     weld::CheckButton*  refBtnCase,
+                     weld::CheckButton* refBtnRegExp,
+                     weld::CheckButton* refBtnHeader,
+                     weld::CheckButton* refBtnUnique,
+                     weld::CheckButton* refBtnCopyResult,
+                     weld::CheckButton* refBtnDestPers,
+                     weld::ComboBox* refLbCopyArea,
+                     formula::RefEdit* refEdCopyArea,
+                     formula::RefButton* refRbCopyArea,
+                     weld::Label* refFtDbAreaLabel,
+                     weld::Label* refFtDbArea,
+                     const OUString& refStrUndefined );
     ~ScFilterOptionsMgr();
     bool    VerifyPosStr ( const OUString& rPosStr ) const;
 
@@ -56,17 +58,17 @@ private:
     ScViewData* const     pViewData;
     ScDocument* const     pDoc;
 
-    VclPtr<CheckBox>       pBtnCase;
-    VclPtr<CheckBox>       pBtnRegExp;
-    VclPtr<CheckBox>       pBtnHeader;
-    VclPtr<CheckBox>       pBtnUnique;
-    VclPtr<CheckBox>       pBtnCopyResult;
-    VclPtr<CheckBox>       pBtnDestPers;
-    VclPtr<ListBox>        pLbCopyArea;
-    VclPtr<Edit>           pEdCopyArea;
-    VclPtr<formula::RefButton> pRbCopyArea;
-    VclPtr<FixedText>      pFtDbAreaLabel;
-    VclPtr<FixedText>      pFtDbArea;
+    weld::CheckButton* pBtnCase;
+    weld::CheckButton* pBtnRegExp;
+    weld::CheckButton* pBtnHeader;
+    weld::CheckButton* pBtnUnique;
+    weld::CheckButton* pBtnCopyResult;
+    weld::CheckButton* pBtnDestPers;
+    weld::ComboBox* pLbCopyArea;
+    formula::RefEdit* pEdCopyArea;
+    formula::RefButton* pRbCopyArea;
+    weld::Label* pFtDbAreaLabel;
+    weld::Label* pFtDbArea;
 
     const OUString&   rStrUndefined;
 
@@ -76,10 +78,11 @@ private:
     void Init();
 
     // Handler:
-    DECL_LINK( EdAreaModifyHdl,     Edit&, void );
-    DECL_LINK( LbAreaSelHdl,        ListBox&, void );
-    DECL_LINK( BtnCopyResultHdl,    CheckBox&, void );
+    DECL_LINK( EdAreaModifyHdl, formula::RefEdit&, void );
+    DECL_LINK( LbAreaSelHdl, weld::ComboBox&, void );
+    DECL_LINK( BtnCopyResultHdl, weld::ToggleButton&, void );
 };
+
 
 #endif // INCLUDED_SC_SOURCE_UI_INC_FOPTMGR_HXX
 

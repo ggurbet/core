@@ -37,12 +37,15 @@
 
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/document/LinkUpdateModes.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <formula/grammar.hxx>
 #include <sfx2/printer.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <vcl/svapp.hxx>
+#include <osl/diagnose.h>
+#include <tools/stream.hxx>
 
 using namespace com::sun::star;
 

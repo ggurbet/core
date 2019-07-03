@@ -28,6 +28,7 @@
 #include <vcl/embeddedfontshelper.hxx>
 #include <osl/file.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -355,8 +356,7 @@ std::unordered_set<OUString> XMLFontAutoStylePool::getUsedFontList()
     GetExport().collectAutoStyles();
 
     // Check auto-styles for fonts
-    std::vector<xmloff::AutoStyleEntry> aAutoStyleEntries;
-    aAutoStyleEntries = GetExport().GetAutoStylePool()->GetAutoStyleEntries();
+    std::vector<xmloff::AutoStyleEntry> aAutoStyleEntries = GetExport().GetAutoStylePool()->GetAutoStyleEntries();
     for (auto const & rAutoStyleEntry : aAutoStyleEntries)
     {
         for (auto const & rPair : rAutoStyleEntry.m_aXmlProperties)
@@ -606,7 +606,7 @@ OUString XMLFontAutoStylePool::embedFontFile(OUString const & fileUrl, OUString 
 
         uno::Reference< embed::XStorage > storage;
         storage.set( GetExport().GetTargetStorage()->openStorageElement( "Fonts",
-            ::embed::ElementModes::WRITE ), uno::UNO_QUERY_THROW );
+            ::embed::ElementModes::WRITE ), uno::UNO_SET_THROW );
 
         OUString name = getFreeFontName(storage, rFamilyName);
 
@@ -650,9 +650,9 @@ OUString XMLFontAutoStylePool::embedFontFile(OUString const & fileUrl, OUString 
                 return sInternalName;
             }
         }
-    } catch( const Exception& e )
+    } catch( const Exception& )
     {
-        SAL_WARN( "xmloff", "Exception when embedding a font file:" << e );
+        TOOLS_WARN_EXCEPTION( "xmloff", "Exception when embedding a font file" );
     }
     return OUString();
 }

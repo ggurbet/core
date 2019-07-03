@@ -77,6 +77,7 @@
 #include <unotools/configmgr.hxx>
 #include <unotools/ucbhelper.hxx>
 #include <i18nlangtag/languagetag.hxx>
+#include <ucbhelper/content.hxx>
 
 #include <sfx2/sfxresid.hxx>
 #include <sfxurlrelocator.hxx>
@@ -431,9 +432,8 @@ void SfxDocTplService_Impl::init_Impl()
         try {
             m_xDocProps.set(document::DocumentProperties::create(
                         ::comphelper::getProcessComponentContext()));
-        } catch (uno::RuntimeException const& e) {
-            SAL_WARN("sfx.doc", "SfxDocTplService_Impl::init_Impl: "
-                "cannot create DocumentProperties service:" << e);
+        } catch (uno::RuntimeException const&) {
+            TOOLS_WARN_EXCEPTION("sfx.doc", "SfxDocTplService_Impl::init_Impl: cannot create DocumentProperties service:");
         }
 
         OUString const aService = SERVICENAME_TYPEDETECTION;
@@ -449,11 +449,10 @@ void SfxDocTplService_Impl::init_Impl()
 
             VclPtrInstance< WaitWindow_Impl > pWin;
             aSolarGuard.clear();
-            ::osl::ClearableMutexGuard anotherGuard( maMutex );
-
-            update();
-
-            anotherGuard.clear();
+            {
+                osl::MutexGuard anotherGuard(maMutex);
+                update();
+            }
             SolarMutexGuard aSecondSolarGuard;
 
             pWin.disposeAndClear();
@@ -1352,7 +1351,7 @@ OUString SfxDocTplService_Impl::CreateNewGroupFsys( const OUString& rGroupName, 
 {
     OUString aResultURL;
 
-    if ( maTemplateDirs.getLength() )
+    if ( maTemplateDirs.hasElements() )
     {
         OUString aTargetPath = maTemplateDirs[ maTemplateDirs.getLength() - 1 ];
 
@@ -1509,7 +1508,7 @@ bool SfxDocTplService_Impl::removeGroup( const OUString& rGroupName )
         if ( aGroupTargetURL.isEmpty() )
             return false; // nothing is allowed to be removed
 
-        if ( !maTemplateDirs.getLength() )
+        if ( !maTemplateDirs.hasElements() )
             return false;
 
         // check that the fs location is in writable folder and this is not a "My templates" folder
@@ -1622,7 +1621,7 @@ bool SfxDocTplService_Impl::renameGroup( const OUString& rOldName,
     if ( aGroupTargetURL.isEmpty() )
         return false;
 
-    if ( !maTemplateDirs.getLength() )
+    if ( !maTemplateDirs.hasElements() )
         return false;
 
     // check that the fs location is in writable folder and this is not a "My templates" folder
@@ -1723,7 +1722,7 @@ bool SfxDocTplService_Impl::storeTemplate( const OUString& rGroupName,
         if ( getProperty( aTemplateToRemove, TARGET_URL, aValue ) )
             aValue >>= aTemplateToRemoveTargetURL;
 
-        if ( aGroupTargetURL.isEmpty() || !maTemplateDirs.getLength()
+        if ( aGroupTargetURL.isEmpty() || !maTemplateDirs.hasElements()
           || (!aTemplateToRemoveTargetURL.isEmpty() && isInternalTemplateDir(aTemplateToRemoveTargetURL)) )
             return false; // it is not allowed to remove the template
     }
@@ -1778,9 +1777,7 @@ bool SfxDocTplService_Impl::storeTemplate( const OUString& rGroupName,
             throw uno::RuntimeException();
 
         // find the mediatype and extension
-        uno::Reference< container::XNameAccess > xTypeDetection;
-
-        xTypeDetection =
+        uno::Reference< container::XNameAccess > xTypeDetection =
             mxType.is() ?
                 uno::Reference< container::XNameAccess >( mxType, uno::UNO_QUERY_THROW ) :
                 uno::Reference< container::XNameAccess >(
@@ -1790,7 +1787,7 @@ bool SfxDocTplService_Impl::storeTemplate( const OUString& rGroupName,
         SequenceAsHashMap aTypeProps( xTypeDetection->getByName( aTypeName ) );
         uno::Sequence< OUString > aAllExt =
             aTypeProps.getUnpackedValueOrDefault("Extensions", Sequence< OUString >() );
-        if ( !aAllExt.getLength() )
+        if ( !aAllExt.hasElements() )
             throw uno::RuntimeException();
 
         const OUString aMediaType {aTypeProps.getUnpackedValueOrDefault("MediaType", OUString() )};
@@ -2281,7 +2278,7 @@ void SAL_CALL SfxDocTplService::update()
 
 WaitWindow_Impl::WaitWindow_Impl() : WorkWindow(nullptr, WB_BORDER | WB_3DLOOK)
 {
-    tools::Rectangle aRect = tools::Rectangle(0, 0, 300, 30000);
+    tools::Rectangle aRect(0, 0, 300, 30000);
     maText = SfxResId(RID_CNT_STR_WAITING);
     maRect = GetTextRect(aRect, maText, gnTextStyle);
     aRect = maRect;
@@ -2745,7 +2742,7 @@ void SfxURLRelocator_Impl::implExpandURL( OUString& io_url )
     {
         if ( !mxMacroExpander.is() )
         {
-            mxMacroExpander.set( theMacroExpander::get(mxContext), UNO_QUERY_THROW );
+            mxMacroExpander.set( theMacroExpander::get(mxContext), UNO_SET_THROW );
         }
         io_url = mxMacroExpander->expandMacros( io_url );
     }

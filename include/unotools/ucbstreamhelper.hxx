@@ -19,6 +19,8 @@
 #ifndef INCLUDED_UNOTOOLS_UCBSTREAMHELPER_HXX
 #define INCLUDED_UNOTOOLS_UCBSTREAMHELPER_HXX
 
+#include <com/sun/star/uno/Reference.hxx>
+
 #include <unotools/unotoolsdllapi.h>
 
 #include <tools/stream.hxx>
@@ -38,16 +40,17 @@ namespace com
         }
     }
 }
-namespace com { namespace sun { namespace star { namespace uno { template <typename > class Reference; } } } }
+
+namespace com::sun::star::awt { class XWindow; }
 
 namespace utl
 {
     class UNOTOOLS_DLLPUBLIC UcbStreamHelper
     {
     public:
-        static std::unique_ptr<SvStream> CreateStream( const OUString& rFileName, StreamMode eOpenMode );
-        static std::unique_ptr<SvStream> CreateStream( const OUString& rFileName, StreamMode eOpenMode,
-                                                       bool bFileExists );
+        static std::unique_ptr<SvStream> CreateStream(const OUString& rFileName, StreamMode eOpenMode, css::uno::Reference<css::awt::XWindow> xParentWin = nullptr);
+        static std::unique_ptr<SvStream> CreateStream(const OUString& rFileName, StreamMode eOpenMode,
+                                                      bool bFileExists, css::uno::Reference<css::awt::XWindow> xParentWin = nullptr);
         static std::unique_ptr<SvStream> CreateStream( const css::uno::Reference < css::io::XInputStream >& xStream );
         static std::unique_ptr<SvStream> CreateStream( const css::uno::Reference < css::io::XStream >& xStream );
         static std::unique_ptr<SvStream> CreateStream( const css::uno::Reference < css::io::XInputStream >& xStream, bool bCloseStream );

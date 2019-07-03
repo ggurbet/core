@@ -23,9 +23,9 @@
 #include <scdllapi.h>
 #include <cppuhelper/weakref.hxx>
 #include <tools/wintypes.hxx>
+#include <editeng/weldeditview.hxx>
 #include <editeng/svxenum.hxx>
-#include <vcl/ctrl.hxx>
-#include <vcl/menu.hxx>
+#include <vcl/customweld.hxx>
 
 #include <functional>
 
@@ -46,16 +46,14 @@ enum ScEditWindowLocation
     Right
 };
 
-class SC_DLLPUBLIC ScEditWindow : public Control
+class SC_DLLPUBLIC ScEditWindow : public WeldEditView
 {
 public:
-            ScEditWindow( vcl::Window* pParent,  WinBits nBits , ScEditWindowLocation eLoc );
-            virtual ~ScEditWindow() override;
-    virtual void dispose() override;
+    ScEditWindow(ScEditWindowLocation eLoc, weld::Window* pParent);
+    virtual void SetDrawingArea(weld::DrawingArea* pArea) override;
+    virtual ~ScEditWindow() override;
 
-    using Control::SetFont;
     void            SetFont( const ScPatternAttr& rPattern );
-    using Control::SetText;
     void            SetText( const EditTextObject& rTextObject );
     std::unique_ptr<EditTextObject> CreateTextObject();
     void            SetCharAttributes();
@@ -66,33 +64,27 @@ public:
 
     virtual css::uno::Reference< css::accessibility::XAccessible > CreateAccessible() override;
 
-    ScHeaderEditEngine*  GetEditEngine() const { return pEdEngine.get(); }
+    ScHeaderEditEngine* GetEditEngine() const;
     void SetObjectSelectHdl( const Link<ScEditWindow&,void>& aLink) { aObjectSelectLink = aLink; }
     void SetGetFocusHdl(const std::function<void (ScEditWindow&)>& rLink) { m_GetFocusLink = rLink; }
 
-    void SetLocation(ScEditWindowLocation eLoc) { eLocation = eLoc; }
 protected:
-    virtual void    Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect ) override;
-    virtual void    MouseMove( const MouseEvent& rMEvt ) override;
-    virtual void    MouseButtonDown( const MouseEvent& rMEvt ) override;
-    virtual void    MouseButtonUp( const MouseEvent& rMEvt ) override;
-    virtual void    KeyInput( const KeyEvent& rKEvt ) override;
-    virtual void    Command( const CommandEvent& rCEvt ) override;
-    virtual void    GetFocus() override;
-    virtual void    LoseFocus() override;
-    virtual void    Resize() override;
+    virtual void makeEditEngine() override;
+    virtual bool KeyInput( const KeyEvent& rKEvt ) override;
+    virtual void GetFocus() override;
+    virtual void LoseFocus() override;
 
 private:
-    std::unique_ptr<ScHeaderEditEngine> pEdEngine;
-    std::unique_ptr<EditView>           pEdView;
     ScEditWindowLocation eLocation;
     bool mbRTL;
+    weld::Window* mpDialog;
 
     css::uno::WeakReference< css::accessibility::XAccessible > xAcc;
     ScAccessibleEditObject* pAcc;
 
     Link<ScEditWindow&,void> aObjectSelectLink;
     std::function<void (ScEditWindow&)> m_GetFocusLink;
+
 };
 
 #endif // INCLUDED_SC_SOURCE_UI_INC_TPHFEDIT_HXX

@@ -34,6 +34,7 @@
 #include <com/sun/star/i18n/TextConversionOption.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
 #include <vcl/stdtext.hxx>
+#include <vcl/weld.hxx>
 #include <unotools/charclass.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
@@ -442,8 +443,7 @@ namespace editeng
         if( m_eConvType == HHC::eConvHangulHanja && m_pConversionDialog )
         {
             m_bTryBothDirections = m_pConversionDialog->GetUseBothDirections();
-            HHC::ConversionDirection eDialogDirection = HHC::eHangulToHanja;
-            eDialogDirection = m_pConversionDialog->GetDirection( eDialogDirection );
+            HHC::ConversionDirection eDialogDirection = m_pConversionDialog->GetDirection( HHC::eHangulToHanja );
 
             if( !m_bTryBothDirections && eDialogDirection != m_eCurrentConversionDirection )
             {
@@ -541,7 +541,7 @@ namespace editeng
             if (!m_bIsInteractive)
             {
                 // silent conversion (e.g. for simplified/traditional Chinese)...
-                if(m_aCurrentSuggestions.getLength()>0)
+                if(m_aCurrentSuggestions.hasElements())
                     implChange( m_aCurrentSuggestions.getConstArray()[0] );
             }
             else if (bAutoChange)

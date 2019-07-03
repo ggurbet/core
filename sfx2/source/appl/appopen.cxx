@@ -19,6 +19,7 @@
 
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/frame/FrameSearchFlag.hpp>
 #include <com/sun/star/frame/XDispatchProvider.hpp>
 #include <com/sun/star/util/XCloseable.hpp>
@@ -39,6 +40,7 @@
 #include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/uno/Sequence.h>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <rtl/ustring.hxx>
 
 #include <comphelper/processfactory.hxx>
@@ -70,6 +72,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/new.hxx>
 #include <sfx2/objitem.hxx>
@@ -90,6 +93,7 @@
 #include <sfx2/docfac.hxx>
 #include <sfx2/event.hxx>
 #include <sfx2/templatedlg.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <openuriexternally.hxx>
 
 #include <officecfg/Office/ProtocolHandler.hxx>
@@ -447,12 +451,12 @@ void SfxApplication::NewDocExec_Impl( SfxRequest& rReq )
         if(pCurrentShell)
             xModel = pCurrentShell->GetModel();
 
-        ScopedVclPtrInstance< SfxTemplateManagerDlg > aTemplDlg;
+        SfxTemplateManagerDlg aTemplDlg(rReq.GetFrameWeld());
 
         if (xModel.is())
-            aTemplDlg->setDocumentModel(xModel);
+            aTemplDlg.setDocumentModel(xModel);
 
-        int nRet = aTemplDlg->Execute();
+        int nRet = aTemplDlg.run();
         if ( nRet == RET_OK )
         {
             rReq.Done();

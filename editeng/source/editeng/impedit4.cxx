@@ -58,6 +58,7 @@
 #include "textconv.hxx"
 #include <rtl/tencinfo.h>
 #include <svtools/rtfout.hxx>
+#include <tools/stream.hxx>
 #include <edtspell.hxx>
 #include <editeng/scripttypeitem.hxx>
 #include <editeng/unolingu.hxx>
@@ -240,7 +241,7 @@ ErrCode ImpEditEngine::WriteText( SvStream& rOutput, EditSelection aSel )
 }
 
 bool ImpEditEngine::WriteItemListAsRTF( ItemList& rLst, SvStream& rOutput, sal_Int32 nPara, sal_Int32 nPos,
-                        std::vector<SvxFontItem*>& rFontTable, SvxColorList& rColorList )
+                        std::vector<std::unique_ptr<SvxFontItem>>& rFontTable, SvxColorList& rColorList )
 {
     const SfxPoolItem* pAttrItem = rLst.First();
     while ( pAttrItem )
@@ -297,11 +298,11 @@ ErrCode ImpEditEngine::WriteRTF( SvStream& rOutput, EditSelection aSel )
     rtl_TextEncoding eDestEnc = RTL_TEXTENCODING_MS_1252;
 
     // Generate and write out Font table  ...
-    std::vector<SvxFontItem*> aFontTable;
+    std::vector<std::unique_ptr<SvxFontItem>> aFontTable;
     // default font must be up front, so DEF font in RTF
-    aFontTable.push_back( new SvxFontItem( aEditDoc.GetItemPool().GetDefaultItem( EE_CHAR_FONTINFO ) ) );
-    aFontTable.push_back( new SvxFontItem( aEditDoc.GetItemPool().GetDefaultItem( EE_CHAR_FONTINFO_CJK ) ) );
-    aFontTable.push_back( new SvxFontItem( aEditDoc.GetItemPool().GetDefaultItem( EE_CHAR_FONTINFO_CTL ) ) );
+    aFontTable.emplace_back( new SvxFontItem( aEditDoc.GetItemPool().GetDefaultItem( EE_CHAR_FONTINFO ) ) );
+    aFontTable.emplace_back( new SvxFontItem( aEditDoc.GetItemPool().GetDefaultItem( EE_CHAR_FONTINFO_CJK ) ) );
+    aFontTable.emplace_back( new SvxFontItem( aEditDoc.GetItemPool().GetDefaultItem( EE_CHAR_FONTINFO_CTL ) ) );
     for ( sal_uInt16 nScriptType = 0; nScriptType < 3; nScriptType++ )
     {
         sal_uInt16 nWhich = EE_CHAR_FONTINFO;
@@ -310,15 +311,9 @@ ErrCode ImpEditEngine::WriteRTF( SvStream& rOutput, EditSelection aSel )
         else if ( nScriptType == 2 )
             nWhich = EE_CHAR_FONTINFO_CTL;
 
-        auto const nFonts(aEditDoc.GetItemPool().GetItemCount2(nWhich));
-        for (sal_uInt32 i = 0; i < nFonts; ++i)
+        for (const SfxPoolItem* pItem : aEditDoc.GetItemPool().GetItemSurrogates(nWhich))
         {
-            SvxFontItem const*const pFontItem = static_cast<const SvxFontItem*>(
-                    aEditDoc.GetItemPool().GetItem2(nWhich, i));
-            if (!pFontItem)
-            {
-                continue;
-            }
+            SvxFontItem const*const pFontItem = static_cast<const SvxFontItem*>(pItem);
             bool bAlreadyExist = false;
             sal_uLong nTestMax = nScriptType ? aFontTable.size() : 1;
             for ( sal_uLong nTest = 0; !bAlreadyExist && ( nTest < nTestMax ); nTest++ )
@@ -327,7 +322,7 @@ ErrCode ImpEditEngine::WriteRTF( SvStream& rOutput, EditSelection aSel )
             }
 
             if ( !bAlreadyExist )
-                aFontTable.push_back( new SvxFontItem( *pFontItem ) );
+                aFontTable.emplace_back( new SvxFontItem( *pFontItem ) );
         }
     }
 
@@ -335,7 +330,7 @@ ErrCode ImpEditEngine::WriteRTF( SvStream& rOutput, EditSelection aSel )
     rOutput.WriteChar( '{' ).WriteCharPtr( OOO_STRING_SVTOOLS_RTF_FONTTBL );
     for ( std::vector<SvxFontItem*>::size_type j = 0; j < aFontTable.size(); j++ )
     {
-        SvxFontItem* pFontItem = aFontTable[ j ];
+        SvxFontItem* pFontItem = aFontTable[ j ].get();
         rOutput.WriteChar( '{' );
         rOutput.WriteCharPtr( OOO_STRING_SVTOOLS_RTF_F );
         rOutput.WriteUInt32AsString( j );
@@ -390,10 +385,9 @@ ErrCode ImpEditEngine::WriteRTF( SvStream& rOutput, EditSelection aSel )
     {
         aColorList.push_back(rDefault.GetValue());
     }
-    auto const nColors(aEditDoc.GetItemPool().GetItemCount2(EE_CHAR_COLOR));
-    for (sal_uInt32 i = 0; i < nColors; ++i)
+    for (const SfxPoolItem* pItem : aEditDoc.GetItemPool().GetItemSurrogates(EE_CHAR_COLOR))
     {
-        SvxColorItem const*const pColorItem(aEditDoc.GetItemPool().GetItem2(EE_CHAR_COLOR, i));
+        auto pColorItem(dynamic_cast<SvxColorItem const*>(pItem));
         if (pColorItem && pColorItem->GetValue() != COL_AUTO) // may be null!
         {
             aColorList.push_back(pColorItem->GetValue());
@@ -652,15 +646,14 @@ ErrCode ImpEditEngine::WriteRTF( SvStream& rOutput, EditSelection aSel )
     rOutput.WriteCharPtr( "}}" );    // 1xparentheses paragraphs, 1xparentheses RTF document
     rOutput.Flush();
 
-    for (auto& pItem : aFontTable)
-        delete pItem;
+    aFontTable.clear();
 
     return rOutput.GetError();
 }
 
 
 void ImpEditEngine::WriteItemAsRTF( const SfxPoolItem& rItem, SvStream& rOutput, sal_Int32 nPara, sal_Int32 nPos,
-                            std::vector<SvxFontItem*>& rFontTable, SvxColorList& rColorList )
+                            std::vector<std::unique_ptr<SvxFontItem>>& rFontTable, SvxColorList& rColorList )
 {
     sal_uInt16 nWhich = rItem.Which();
     switch ( nWhich )
@@ -1238,7 +1231,7 @@ EditSelection ImpEditEngine::InsertTextObject( const EditTextObject& rTextObject
                         else
                         {
                             std::unique_ptr<SfxPoolItem> pNew(rX.GetItem()->Clone());
-                            ConvertItem( *pNew, eSourceUnit, eDestUnit );
+                            ConvertItem( pNew, eSourceUnit, eDestUnit );
                             pAttr = MakeCharAttrib( aEditDoc.GetItemPool(), *pNew, rX.GetStart()+nStartPos, rX.GetEnd()+nStartPos );
                         }
                         DBG_ASSERT( pAttr->GetEnd() <= aPaM.GetNode()->Len(), "InsertBinTextObject: Attribute does not fit! (1)" );
@@ -1641,7 +1634,7 @@ void ImpEditEngine::ImpConvert( OUString &rConvTxt, LanguageType &rConvTxtLang,
     LanguageType nResLang = LANGUAGE_NONE;
 
     EditPaM aPos( CreateEditPaM( pConvInfo->aConvContinue ) );
-    EditSelection aCurSel = EditSelection( aPos, aPos );
+    EditSelection aCurSel( aPos, aPos );
 
     OUString aWord;
 
@@ -1943,7 +1936,7 @@ bool ImpEditEngine::SpellSentence(EditView const & rEditView,
         //search for all errors in the rest of the sentence and add all the portions
         do
         {
-            EditSelection aNextSel = EditSelection(aCurSel.Max(), aSentencePaM.Max());
+            EditSelection aNextSel(aCurSel.Max(), aSentencePaM.Max());
             xAlt = ImpFindNextError(aNextSel);
             if(xAlt.is())
             {
@@ -2360,7 +2353,7 @@ void ImpEditEngine::DoOnlineSpelling( ContentNode* pThisNodeOnly, bool bSpellAtC
                             {
                                 // convert to window coordinates ....
                                 aClipRect.SetPos( pView->pImpEditView->GetWindowPos( aClipRect.TopLeft() ) );
-                                pView->pImpEditView->GetWindow()->Invalidate(aClipRect);
+                                pView->pImpEditView->InvalidateAtWindow(aClipRect);
                             }
                         }
                     }
@@ -2437,7 +2430,8 @@ EESpellState ImpEditEngine::StartThesaurus( EditView* pEditView )
         return EESpellState::ErrorFound;
 
     EditAbstractDialogFactory* pFact = EditAbstractDialogFactory::Create();
-    ScopedVclPtr<AbstractThesaurusDialog> xDlg(pFact->CreateThesaurusDialog( pEditView->GetWindow(), xThes, aWord, GetLanguage( aCurSel.Max() ) ));
+    ScopedVclPtr<AbstractThesaurusDialog> xDlg(pFact->CreateThesaurusDialog(pEditView->GetWindow()->GetFrameWeld(), xThes,
+                                               aWord, GetLanguage( aCurSel.Max() ) ));
     if (xDlg->Execute() == RET_OK)
     {
         // Replace Word...
@@ -2852,8 +2846,7 @@ EditSelection ImpEditEngine::TransliterateText( const EditSelection& rSelection,
                     aChanges.push_back( aChgData );
                 }
 
-                i18n::Boundary aFirstWordBndry;
-                aFirstWordBndry = _xBI->nextWord(
+                i18n::Boundary aFirstWordBndry = _xBI->nextWord(
                         aNodeStr, nCurrentEnd,
                         GetLocale( EditPaM( pNode, nCurrentEnd + 1 ) ),
                         nWordType);

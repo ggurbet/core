@@ -397,7 +397,7 @@ UUIInteractionHelper::handleRequest_impl(
             std::vector< OUString > aArguments;
             uno::Sequence< OUString > sModules
                 = aModSizeException.Names;
-            if ( sModules.getLength() )
+            if ( sModules.hasElements() )
             {
                 OUStringBuffer aName;
                 for ( sal_Int32 index=0; index< sModules.getLength(); ++index )
@@ -884,20 +884,18 @@ UUIInteractionHelper::getInteractionHandlerList(
         uno::Reference< container::XNameAccess > xNameAccess(
             xInterface, uno::UNO_QUERY_THROW );
         uno::Sequence< OUString > aElems = xNameAccess->getElementNames();
-        const OUString* pElems = aElems.getConstArray();
-        sal_Int32 nCount = aElems.getLength();
 
-        if ( nCount > 0 )
+        if ( aElems.hasElements() )
         {
             uno::Reference< container::XHierarchicalNameAccess >
                                 xHierNameAccess( xInterface, uno::UNO_QUERY_THROW );
 
             // Iterate over children.
-            for ( sal_Int32 n = 0; n < nCount; ++n )
+            for ( const auto& rElem : aElems )
             {
                 OUStringBuffer aElemBuffer;
                 aElemBuffer.append( "['" );
-                aElemBuffer.append( pElems[ n ] );
+                aElemBuffer.append( rElem );
 
                 try
                 {
@@ -1142,7 +1140,7 @@ UUIInteractionHelper::handleMacroConfirmRequest(
 
     bool bApprove = false;
 
-    bool bShowSignatures = aSignInfo.getLength() > 0;
+    bool bShowSignatures = aSignInfo.hasElements();
     uno::Reference<awt::XWindow> xParent = getParentXWindow();
     MacroWarning aWarning(Application::GetFrameWeld(xParent), bShowSignatures);
 

@@ -55,26 +55,33 @@
 
 package net.adaptivebox.deps.behavior;
 
-import net.adaptivebox.goodness.*;
-import net.adaptivebox.knowledge.*;
-import net.adaptivebox.problem.*;
-import net.adaptivebox.space.*;
+import net.adaptivebox.goodness.IGoodnessCompareEngine;
+import net.adaptivebox.knowledge.Library;
+import net.adaptivebox.knowledge.SearchPoint;
+import net.adaptivebox.problem.ProblemEncoder;
+import net.adaptivebox.space.BasicPoint;
+import net.adaptivebox.space.DesignSpace;
 
 public class PSGTBehavior extends AbsGTBehavior {
-  // Two normally choices for (c1, c2, weight), i.e., (2, 2, 0.4), or (1.494, 1.494, 0.729)
-  // The first is used in dissipative PSO (cf. [4]) as CL>0, and the second is achieved by using
-  // constriction factors (cf. [3])
-  public double c1=2;
-  public double c2=2;
-  public double weight = 0.4; //inertia weight
+  // Two normally choices for (c1, c2, weight), i.e., (2, 2, 0.4), or (1.494,
+  // 1.494, 0.729) The first is used in dissipative PSO (cf. [4]) as CL>0, and
+  // the second is achieved by using constriction factors (cf. [3])
+  public double c1 = 2;
+  public double c2 = 2;
 
-  public double CL=0;  //See ref[4], normally be 0.001~0.005
+  //inertia weight
+  public double weight = 0.4;
 
-  //the own memory: store the point that generated in old learning cycle
+  //See ref[4], normally be 0.001~0.005
+  public double CL = 0;
+
+  // the own memory: store the point that generated in old learning cycle
   private BasicPoint pold_t;
-  //the own memory: store the point that generated in last learning cycle
+
+  // the own memory: store the point that generated in last learning cycle
   private BasicPoint pcurrent_t;
-  //the own memory: store the personal best point
+
+  // the own memory: store the personal best point
   private SearchPoint pbest_t;
 
   public void setMemPoints(SearchPoint pbest, BasicPoint pcurrent, BasicPoint pold) {
@@ -89,21 +96,22 @@ public class PSGTBehavior extends AbsGTBehavior {
     DesignSpace designSpace = problemEncoder.getDesignSpace();
     int DIMENSION = designSpace.getDimension();
     double deltaxb, deltaxbm;
-    for (int b=0;b<DIMENSION;b++) {
-      if (Math.random()<CL) {
+    for (int b = 0; b < DIMENSION; b++) {
+      if (Math.random() < CL) {
         designSpace.mutationAt(trailPoint.getLocation(), b);
       } else {
-        deltaxb = weight*(pcurrent_t.getLocation()[b]-pold_t.getLocation()[b])
-             + c1*Math.random()*(pbest_t.getLocation()[b]-pcurrent_t.getLocation()[b])
-             + c2*Math.random()*(gbest_t.getLocation()[b]-pcurrent_t.getLocation()[b]);
-        //limitation for delta_x
-        deltaxbm = 0.5*designSpace.getMagnitudeIn(b);
-        if(deltaxb<-deltaxbm) {
+        deltaxb = weight * (pcurrent_t.getLocation()[b] - pold_t.getLocation()[b])
+            + c1 * Math.random() * (pbest_t.getLocation()[b] - pcurrent_t.getLocation()[b])
+            + c2 * Math.random() * (gbest_t.getLocation()[b] - pcurrent_t.getLocation()[b]);
+
+        // limitation for delta_x
+        deltaxbm = 0.5 * designSpace.getMagnitudeIn(b);
+        if (deltaxb < -deltaxbm) {
           deltaxb = -deltaxbm;
-        } else if (deltaxb>deltaxbm) {
+        } else if (deltaxb > deltaxbm) {
           deltaxb = deltaxbm;
         }
-        trailPoint.getLocation()[b] = pcurrent_t.getLocation()[b]+deltaxb;
+        trailPoint.getLocation()[b] = pcurrent_t.getLocation()[b] + deltaxb;
       }
     }
   }
@@ -113,7 +121,5 @@ public class PSGTBehavior extends AbsGTBehavior {
     Library.replace(qualityComparator, trailPoint, pbest_t);
     pold_t.importLocation(pcurrent_t);
     pcurrent_t.importLocation(trailPoint);
-   }
-
+  }
 }
-

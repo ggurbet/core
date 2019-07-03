@@ -145,6 +145,7 @@ __LineStyle_DOTTED__ = 2
 class __Doc__:
     def __init__(self, doc):
         self.doc = doc
+        self.secure = False
         try:
             self.drawpage = doc.DrawPage # Writer
         except:
@@ -468,10 +469,58 @@ class LogoProgram(threading.Thread):
         self.code = code
         threading.Thread.__init__(self)
 
+    def secure(self):
+        # 0 = secure
+        if _.secure:
+            return 0
+
+        # 1 = forms, fields or embedded objects are forbidden
+        if _.doc.DrawPage.Forms.getCount() > 0 or _.doc.getTextFields().createEnumeration().hasMoreElements() or _.doc.getEmbeddedObjects().getCount() > 0:
+            return 1
+
+        # 2 = hyperlinks with script events
+        nodes = _.doc.Text.createEnumeration()
+        while nodes.hasMoreElements():
+            node = nodes.nextElement()
+            if node.supportsService("com.sun.star.text.Paragraph"):
+                portions = node.createEnumeration()
+                while portions.hasMoreElements():
+                    portion = portions.nextElement()
+                    if portion.PropertySetInfo.hasPropertyByName("HyperLinkEvents"):
+                        events = portion.getPropertyValue("HyperLinkEvents")
+                        for event in events.getElementNames():
+                            attributes = events.getByName(event)
+                            for attribute in attributes:
+                                if attribute.Name == "EventType" and attribute.Value == "Script":
+                                    return 2
+
+        # 2 = images with script events
+        images = _.doc.DrawPage.createEnumeration()
+        while images.hasMoreElements():
+            image = images.nextElement()
+            try:
+                events = image.Events
+                for event in events.getElementNames():
+                    attributes = events.getByName(event)
+                    for attribute in attributes:
+                        if attribute.Name == "EventType" and attribute.Value == "Script":
+                            return 2
+            except:
+                pass
+
+        _.secure = True
+        return 0
+
     def run(self):
         global __thread__
         try:
-            exec(self.code)
+            # check document security
+            secid = self.secure()
+            if secid > 0:
+                parent = _.doc.CurrentController.Frame.ContainerWindow
+                MessageBox(parent, "Document objects with%s script events" % [" possible", ""][secid-1], "LibreLogo program can't start", "errorbox")
+            else:
+                exec(self.code)
             if _.origcursor[0] and _.origcursor[1]:
                 __dispatcher__(".uno:Escape")
                 try:
@@ -1764,10 +1813,10 @@ def __l2p__(i, par, insub, inarray):
             for j in range(par["names"][subname]):
                 # add commas, except if already added, eg. with special RANGE
                 # (variable argument counts: RANGE 1 or RANGE 1 100 or RANGE 1 100 10)
-                if j > 0 and par["out"][-1] != ",":
-                    par["out"] = re.sub("( *),$",",\\1", par["out"] + ",")
+                if j > 0 and par["out"].rstrip()[-1] != ",":
+                    par["out"] = re.sub("( +),$",",\\1", par["out"] + ",")
                 __l2p__(i, par, True, False)
-            par["out"] = re.sub("( *)\\)$", ")\\1", par["out"] + ")")
+            par["out"] = re.sub("( +)\\)$", ")\\1", par["out"] + ")")
         # operators
         elif pos in par["op"]:
             op = i[pos:par["op"][pos]]

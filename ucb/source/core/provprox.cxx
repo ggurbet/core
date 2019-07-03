@@ -21,6 +21,7 @@
 #include <osl/thread.h>
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include "provprox.hxx"
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/ucb/IllegalIdentifierException.hpp>
@@ -54,9 +55,7 @@ XSERVICEINFO_COMMOM_IMPL( UcbContentProviderProxyFactory,
 static css::uno::Reference< css::uno::XInterface >
 UcbContentProviderProxyFactory_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new UcbContentProviderProxyFactory( rSMgr ));
-    return css::uno::Reference< css::uno::XInterface >::query( pX );
+    return static_cast<css::lang::XServiceInfo*>(new UcbContentProviderProxyFactory(rSMgr));
 }
 css::uno::Sequence< OUString >
 UcbContentProviderProxyFactory::getSupportedServiceNames_Static()
@@ -313,9 +312,9 @@ UcbContentProviderProxy::getContentProvider()
         {
             throw;
         }
-        catch ( Exception const & e)
+        catch ( Exception const & )
         {
-            SAL_INFO( "ucb.core", "Exception when getting content provider: " << e );
+            TOOLS_INFO_EXCEPTION( "ucb.core", "Exception getting content provider");
         }
 
         // registerInstance called at proxy, but not yet at original?

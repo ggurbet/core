@@ -19,38 +19,31 @@
 
 #include <fupage.hxx>
 
-#include <sfx2/viewfrm.hxx>
-
 // arrange Tab-Page
 
 #include <sfx2/sfxdlg.hxx>
+#include <svx/pageitem.hxx>
 #include <svx/svxids.hrc>
-#include <svx/dialogs.hrc>
 #include <svl/itempool.hxx>
-#include <vcl/layout.hxx>
 #include <sfx2/request.hxx>
-#include <svl/stritem.hxx>
 #include <vcl/prntypes.hxx>
-#include <svl/style.hxx>
+#include <vcl/graphicfilter.hxx>
 #include <stlsheet.hxx>
-#include <svx/svdorect.hxx>
-#include <svx/svdundo.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <svx/graphichelper.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xbtmpit.hxx>
-#include <svx/xsetit.hxx>
+#include <svx/xflbstit.hxx>
+#include <svx/xflbmtit.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <svx/sdr/properties/properties.hxx>
-#include <sfx2/bindings.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/sizeitem.hxx>
 #include <editeng/pbinitem.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/opengrf.hxx>
-#include <rtl/ustring.hxx>
 
 #include <strings.hrc>
 #include <sdpage.hxx>
@@ -60,21 +53,16 @@
 #include <drawdoc.hxx>
 #include <DrawDocShell.hxx>
 #include <ViewShell.hxx>
-#include <ViewShellBase.hxx>
 #include <DrawViewShell.hxx>
 #include <app.hrc>
 #include <unchss.hxx>
 #include <undoback.hxx>
 #include <sdabstdlg.hxx>
 #include <sdresid.hxx>
-#include <sdundogr.hxx>
-#include <helpids.h>
 
 #include <memory>
 
 using namespace com::sun::star;
-
-namespace vcl { class Window; }
 
 namespace sd {
 
@@ -126,7 +114,7 @@ rtl::Reference<FuPoor> FuPage::Create( ViewShell* pViewSh, ::sd::Window* pWin, :
     return xFunc;
 }
 
-void FuPage::DoExecute( SfxRequest& )
+void FuPage::DoExecute(SfxRequest& rReq)
 {
     mpDrawViewShell = dynamic_cast<DrawViewShell*>(mpViewShell);
     DBG_ASSERT( mpDrawViewShell, "sd::FuPage::FuPage(), called without a current DrawViewShell!" );
@@ -144,10 +132,11 @@ void FuPage::DoExecute( SfxRequest& )
         return;
 
     // if there are no arguments given, open the dialog
-    if( !mpArgs )
+    const SfxPoolItem* pItem;
+    if (!mpArgs || mpArgs->GetItemState(SID_SELECT_BACKGROUND, true, &pItem) == SfxItemState::SET)
     {
         mpView->SdrEndTextEdit();
-        mpArgs = ExecuteDialog(mpWindow ? mpWindow->GetFrameWeld() : nullptr);
+        mpArgs = ExecuteDialog(mpWindow ? mpWindow->GetFrameWeld() : nullptr, rReq);
     }
 
     // if we now have arguments, apply them to current page
@@ -204,7 +193,7 @@ void MergePageBackgroundFilling(SdPage *pPage, SdStyleSheet *pStyleSheet, bool b
     }
 }
 
-const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent)
+const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent, SfxRequest& rReq)
 {
     if (!mpDrawViewShell)
         return nullptr;
@@ -303,26 +292,50 @@ const SfxItemSet* FuPage::ExecuteDialog(weld::Window* pParent)
     }
     else if (nId == SID_SELECT_BACKGROUND)
     {
-        SvxOpenGraphicDialog aDlg(SdResId(STR_SET_BACKGROUND_PICTURE), pParent);
+        OUString aFileName;
+        OUString aFilterName;
+        Graphic aGraphic;
+        ErrCode nError = ERRCODE_GRFILTER_OPENERROR;
 
-        if( aDlg.Execute() == ERRCODE_NONE )
+        const SfxItemSet* pArgs = rReq.GetArgs();
+        const SfxPoolItem* pItem;
+
+        if (pArgs && pArgs->GetItemState(SID_SELECT_BACKGROUND, true, &pItem) == SfxItemState::SET)
         {
-            Graphic     aGraphic;
-            ErrCode nError = aDlg.GetGraphic(aGraphic);
-            if( nError == ERRCODE_NONE )
+            aFileName = static_cast<const SfxStringItem*>(pItem)->GetValue();
+
+            if (pArgs->GetItemState(FN_PARAM_FILTER, true, &pItem) == SfxItemState::SET)
+                aFilterName = static_cast<const SfxStringItem*>(pItem)->GetValue();
+
+            nError = GraphicFilter::LoadGraphic(aFileName, aFilterName, aGraphic,
+                                                &GraphicFilter::GetGraphicFilter());
+        }
+        else
+        {
+            SvxOpenGraphicDialog aDlg(SdResId(STR_SET_BACKGROUND_PICTURE), pParent);
+
+            nError = aDlg.Execute();
+            if (nError != ERRCODE_NONE)
             {
-                pTempSet.reset( new SfxItemSet( mpDoc->GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{}) );
-
-                pTempSet->Put( XFillStyleItem( drawing::FillStyle_BITMAP ) );
-
-                // MigrateItemSet makes sure the XFillBitmapItem will have a unique name
-                SfxItemSet aMigrateSet( mpDoc->GetPool(), svl::Items<XATTR_FILLBITMAP, XATTR_FILLBITMAP>{} );
-                aMigrateSet.Put(XFillBitmapItem("background", aGraphic));
-                SdrModel::MigrateItemSet( &aMigrateSet, pTempSet.get(), mpDoc );
-
-                pTempSet->Put( XFillBmpStretchItem( true ));
-                pTempSet->Put( XFillBmpTileItem( false ));
+                nError = aDlg.GetGraphic(aGraphic);
+                aFileName = aDlg.GetPath();
+                aFilterName = aDlg.GetDetectedFilter();
             }
+        }
+
+        if (nError == ERRCODE_NONE)
+        {
+            pTempSet.reset( new SfxItemSet( mpDoc->GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{}) );
+
+            pTempSet->Put( XFillStyleItem( drawing::FillStyle_BITMAP ) );
+
+            // MigrateItemSet makes sure the XFillBitmapItem will have a unique name
+            SfxItemSet aMigrateSet( mpDoc->GetPool(), svl::Items<XATTR_FILLBITMAP, XATTR_FILLBITMAP>{} );
+            aMigrateSet.Put(XFillBitmapItem("background", aGraphic));
+            SdrModel::MigrateItemSet( &aMigrateSet, pTempSet.get(), mpDoc );
+
+            pTempSet->Put( XFillBmpStretchItem( true ));
+            pTempSet->Put( XFillBmpTileItem( false ));
         }
     }
 

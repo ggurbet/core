@@ -27,7 +27,8 @@
 #include <rtl/uri.hxx>
 #include <comphelper/scopeguard.hxx>
 
-#include <libxml/uri.h>
+#include <com/sun/star/xml/crypto/XUriBinding.hpp>
+
 #include <xmlsec-wrapper.h>
 
 static bool g_bInputCallbacksEnabled = false;

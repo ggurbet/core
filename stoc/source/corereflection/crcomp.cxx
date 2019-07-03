@@ -17,8 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <rtl/strbuf.hxx>
 #include <cppuhelper/queryinterface.hxx>
+#include <cppuhelper/typeprovider.hxx>
 
 #include <com/sun/star/reflection/XIdlField.hpp>
 #include <com/sun/star/reflection/XIdlField2.hpp>
@@ -268,7 +268,7 @@ sal_Bool CompoundIdlClassImpl::isAssignableFrom( const Reference< XIdlClass > & 
             else
             {
                 const Sequence< Reference< XIdlClass > > & rSeq = xType->getSuperclasses();
-                if (rSeq.getLength())
+                if (rSeq.hasElements())
                 {
                     OSL_ENSURE( rSeq.getLength() == 1, "### unexpected len of super classes!" );
                     return isAssignableFrom( rSeq[0] );

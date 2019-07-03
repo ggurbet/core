@@ -28,7 +28,7 @@ UIObjectUnoObj::UIObjectUnoObj(std::unique_ptr<UIObject> pObj):
 UIObjectUnoObj::~UIObjectUnoObj()
 {
     {
-        std::lock_guard<std::mutex> lk3(mMutex);
+        std::scoped_lock<std::mutex> lk3(mMutex);
     }
     SolarMutexGuard aGuard;
     mpObj.reset();
@@ -46,7 +46,7 @@ css::uno::Reference<css::ui::test::XUIObject> SAL_CALL UIObjectUnoObj::getChild(
 
 IMPL_LINK_NOARG(UIObjectUnoObj, NotifyHdl, Timer*, void)
 {
-    std::lock_guard<std::mutex> lk(mMutex);
+    std::scoped_lock<std::mutex> lk(mMutex);
     mReady = true;
     cv.notify_all();
 }
@@ -115,13 +115,13 @@ void SAL_CALL UIObjectUnoObj::executeAction(const OUString& rAction, const css::
 
         SolarMutexGuard aGuard;
         StringMap aMap;
-        for (sal_Int32 i = 0, n = mPropValues.getLength(); i < n; ++i)
+        for (const auto& rPropVal : mPropValues)
         {
             OUString aVal;
-            if (!(mPropValues[i].Value >>= aVal))
+            if (!(rPropVal.Value >>= aVal))
                 continue;
 
-            aMap[mPropValues[i].Name] = aVal;
+            aMap[rPropVal.Name] = aVal;
         }
         mpObj->execute(mAction, aMap);
     };

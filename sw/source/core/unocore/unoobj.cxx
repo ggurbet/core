@@ -835,20 +835,6 @@ OUString SwXTextCursor::getImplementationName()
     return OUString("SwXTextCursor");
 }
 
-static char const*const g_ServicesTextCursor[] =
-{
-    "com.sun.star.text.TextCursor",
-    "com.sun.star.style.CharacterProperties",
-    "com.sun.star.style.CharacterPropertiesAsian",
-    "com.sun.star.style.CharacterPropertiesComplex",
-    "com.sun.star.style.ParagraphProperties",
-    "com.sun.star.style.ParagraphPropertiesAsian",
-    "com.sun.star.style.ParagraphPropertiesComplex",
-    "com.sun.star.text.TextSortable",
-};
-
-static const size_t g_nServicesTextCursor(SAL_N_ELEMENTS(g_ServicesTextCursor));
-
 sal_Bool SAL_CALL SwXTextCursor::supportsService(const OUString& rServiceName)
 {
     return cppu::supportsService(this, rServiceName);
@@ -857,8 +843,16 @@ sal_Bool SAL_CALL SwXTextCursor::supportsService(const OUString& rServiceName)
 uno::Sequence< OUString > SAL_CALL
 SwXTextCursor::getSupportedServiceNames()
 {
-    return ::sw::GetSupportedServiceNamesImpl(
-            g_nServicesTextCursor, g_ServicesTextCursor);
+    return {
+        "com.sun.star.text.TextCursor",
+        "com.sun.star.style.CharacterProperties",
+        "com.sun.star.style.CharacterPropertiesAsian",
+        "com.sun.star.style.CharacterPropertiesComplex",
+        "com.sun.star.style.ParagraphProperties",
+        "com.sun.star.style.ParagraphPropertiesAsian",
+        "com.sun.star.style.ParagraphPropertiesComplex",
+        "com.sun.star.text.TextSortable"
+    };
 }
 
 namespace
@@ -1782,7 +1776,7 @@ void SwUnoCursorHelper::SetPropertyValues(
     const uno::Sequence< beans::PropertyValue > &rPropertyValues,
     const SetAttrMode nAttrMode)
 {
-    if (!rPropertyValues.getLength())
+    if (!rPropertyValues.hasElements())
         return;
 
     SwDoc *const pDoc = rPaM.GetDoc();
@@ -1820,7 +1814,7 @@ void SwUnoCursorHelper::SetPropertyValues(
     if (!aWhichPairs.empty())
     {
         aWhichPairs.push_back(0); // terminate
-        SfxItemSet aItemSet(pDoc->GetAttrPool(), &aWhichPairs[0]);
+        SfxItemSet aItemSet(pDoc->GetAttrPool(), aWhichPairs.data());
 
         // Fetch, overwrite, and re-set the attributes from the core
 
@@ -2543,10 +2537,10 @@ SwUnoCursorHelper::CreateSortDescriptor(const bool bFromTable)
     // get collator algorithm to be used for the locale
     uno::Sequence< OUString > aSeq(
             GetAppCollator().listCollatorAlgorithms( aLang ) );
-    const sal_Int32 nLen = aSeq.getLength();
-    OSL_ENSURE( nLen > 0, "list of collator algorithms is empty!");
+    const bool bHasElements = aSeq.hasElements();
+    OSL_ENSURE( bHasElements, "list of collator algorithms is empty!");
     OUString aCollAlg;
-    if (nLen > 0)
+    if (bHasElements)
     {
         aCollAlg = aSeq.getConstArray()[0];
     }

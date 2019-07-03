@@ -10,6 +10,7 @@
 
 #include "ooxmlsecparser.hxx"
 #include <xmlsignaturehelper.hxx>
+#include <xsecctl.hxx>
 #include <sal/log.hxx>
 
 using namespace com::sun::star;
@@ -72,7 +73,7 @@ void SAL_CALL OOXMLSecParser::startElement(const OUString& rName, const uno::Ref
     {
         OUString aURI = xAttribs->getValueByName("URI");
         if (aURI.startsWith("#"))
-            m_pXSecController->addReference(aURI.copy(1), xml::crypto::DigestID::SHA1);
+            m_pXSecController->addReference(aURI.copy(1), xml::crypto::DigestID::SHA1, OUString());
         else
         {
             m_aReferenceURI = aURI;

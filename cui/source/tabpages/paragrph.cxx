@@ -26,6 +26,7 @@
 #include <sfx2/module.hxx>
 #include <vcl/mnemonic.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 
 #include <svl/languageoptions.hxx>
 #include <svl/cjkoptions.hxx>
@@ -953,27 +954,28 @@ void SvxStdParagraphTabPage::PageCreated(const SfxAllItemSet& aSet)
         nWidth = pPageWidthItem->GetValue();
 
     if (pFlagSetItem )
+    {
         if (( 0x0001 & pFlagSetItem->GetValue())== 0x0001 )
             EnableRelativeMode();
 
-    if (pFlagSetItem)
         if (( 0x0002 & pFlagSetItem->GetValue())== 0x0002 )
                 EnableRegisterMode();
 
-    if (pFlagSetItem)
         if ( ( 0x0004 & pFlagSetItem->GetValue())== 0x0004 )
             EnableAutoFirstLine();
+    }
 
     if(pLineDistItem)
         EnableAbsLineDist(pLineDistItem->GetValue());
 
     if (pFlagSetItem)
+    {
         if  (( 0x0008 & pFlagSetItem->GetValue()) == 0x0008 )
                 EnableNegativeMode();
 
-    if (pFlagSetItem)
         if  (( 0x0010 & pFlagSetItem->GetValue()) == 0x0010 )
                 EnableContextualMode();
+    }
 }
 
 #define LASTLINEPOS_DEFAULT     0
@@ -1573,6 +1575,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
     {
         const SvxHyphenZoneItem& rHyphen =
             static_cast<const SvxHyphenZoneItem&>(rSet->Get( _nWhich ));
+        aHyphenState.bTriStateEnabled = false;
 
         bIsHyphen = rHyphen.IsHyphen();
         m_xHyphenBox->set_state(bIsHyphen ? TRISTATE_TRUE : TRISTATE_FALSE);
@@ -1599,6 +1602,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
     {
         case SfxItemState::SET:
         {
+            aPageNumState.bTriStateEnabled = false;
             m_xPageNumBox->set_state(TRISTATE_TRUE);
             SfxUInt16Item const*const pItem(rSet->GetItem<SfxUInt16Item>(_nWhich));
             const sal_uInt16 nPageNum(pItem->GetValue());
@@ -1607,6 +1611,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
         }
         case SfxItemState::DONTCARE:
         {
+            aPageNumState.bTriStateEnabled = true;
             m_xPageNumBox->set_state(TRISTATE_INDET);
             break;
         }
@@ -1614,6 +1619,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
         case SfxItemState::DEFAULT:
         case SfxItemState::DISABLED:
         {
+            aPageNumState.bTriStateEnabled = false;
             m_xPageNumBox->set_state(TRISTATE_FALSE);
             break;
         }
@@ -1631,6 +1637,8 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
 
         if ( eItemState >= SfxItemState::SET )
         {
+            aApplyCollState.bTriStateEnabled = false;
+
             const SvxPageModelItem& rModel =
                 static_cast<const SvxPageModelItem&>(rSet->Get( _nWhich ));
             const OUString& aStr( rModel.GetValue() );
@@ -1642,6 +1650,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
                 bIsPageModel = true;
 
                 m_xPageBreakBox->set_sensitive(true);
+                aPageBreakState.bTriStateEnabled = false;
                 m_xBreakTypeFT->set_sensitive(true);
                 m_xBreakTypeLB->set_sensitive(true);
                 m_xBreakPositionFT->set_sensitive(true);
@@ -1662,6 +1671,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
         }
         else if ( SfxItemState::DONTCARE == eItemState )
         {
+            aApplyCollState.bTriStateEnabled = true;
             m_xApplyCollBtn->set_state(TRISTATE_INDET);
             m_xApplyCollBox->set_active(-1);
         }
@@ -1688,6 +1698,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
                 // PageBreak not via CTRL-RETURN,
                 // then CheckBox can be freed
                 m_xPageBreakBox->set_sensitive(true);
+                aPageBreakState.bTriStateEnabled = false;
                 m_xBreakTypeFT->set_sensitive(true);
                 m_xBreakTypeLB->set_sensitive(true);
                 m_xBreakPositionFT->set_sensitive(true);
@@ -1743,7 +1754,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
         }
 
         PageBreakPosHdl_Impl(*m_xBreakPositionLB);
-        PageBreakHdl_Impl(*m_xPageBreakBox);
+        PageBreakHdl();
     }
 
     _nWhich = GetWhich( SID_ATTR_PARA_KEEP );
@@ -1751,6 +1762,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
 
     if ( eItemState >= SfxItemState::DEFAULT )
     {
+        aKeepParaState.bTriStateEnabled = false;
         const SvxFormatKeepItem& rKeep =
             static_cast<const SvxFormatKeepItem&>(rSet->Get( _nWhich ));
 
@@ -1771,6 +1783,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
     {
         const SvxFormatSplitItem& rSplit =
             static_cast<const SvxFormatSplitItem&>(rSet->Get( _nWhich ));
+        aKeepTogetherState.bTriStateEnabled = false;
 
         if ( !rSplit.GetValue() )
             m_xKeepTogetherBox->set_state(TRISTATE_TRUE);
@@ -1787,6 +1800,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
             {
                 const SvxWidowsItem& rWidow =
                     static_cast<const SvxWidowsItem&>(rSet->Get( _nWhich ));
+                aWidowState.bTriStateEnabled = false;
                 const sal_uInt16 nLines = rWidow.GetValue();
 
                 bool _bEnable = nLines > 0;
@@ -1810,6 +1824,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
                 const SvxOrphansItem& rOrphan =
                     static_cast<const SvxOrphansItem&>(rSet->Get( _nWhich ));
                 const sal_uInt16 nLines = rOrphan.GetValue();
+                aOrphanState.bTriStateEnabled = false;
 
                 bool _bEnable = nLines > 0;
                 m_xOrphanBox->set_state(_bEnable ? TRISTATE_TRUE : TRISTATE_FALSE);
@@ -1822,6 +1837,7 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
                 m_xOrphanBox->set_state(TRISTATE_INDET);
             else
                 m_xOrphanBox->set_sensitive(false);
+            aOrphanState.eState = m_xOrphanBox->get_state();
         }
     }
     else if ( SfxItemState::DONTCARE == eItemState )
@@ -1830,9 +1846,9 @@ void SvxExtParagraphTabPage::Reset( const SfxItemSet* rSet )
         m_xKeepTogetherBox->set_sensitive(false);
 
     // so that everything is enabled correctly
-    KeepTogetherHdl_Impl(*m_xKeepTogetherBox);
-    WidowHdl_Impl(*m_xWidowBox);
-    OrphanHdl_Impl(*m_xOrphanBox);
+    KeepTogetherHdl();
+    WidowHdl();
+    OrphanHdl();
     ChangesApplied();
 }
 void SvxExtParagraphTabPage::ChangesApplied()
@@ -1921,6 +1937,7 @@ SvxExtParagraphTabPage::SvxExtParagraphTabPage(TabPageParent pParent, const SfxI
     m_xBreakTypeLB->connect_changed(LINK(this, SvxExtParagraphTabPage, PageBreakTypeHdl_Impl));
     m_xBreakPositionLB->connect_changed(LINK(this, SvxExtParagraphTabPage, PageBreakPosHdl_Impl));
     m_xPageNumBox->connect_toggled(LINK(this, SvxExtParagraphTabPage, PageNumBoxClickHdl_Impl));
+    m_xKeepParaBox->connect_toggled(LINK(this, SvxExtParagraphTabPage, KeepParaBoxClickHdl_Impl));
 
     SfxObjectShell* pSh = SfxObjectShell::Current();
     if ( pSh )
@@ -1963,7 +1980,7 @@ SvxExtParagraphTabPage::~SvxExtParagraphTabPage()
 {
 }
 
-IMPL_LINK_NOARG(SvxExtParagraphTabPage, PageBreakHdl_Impl, weld::ToggleButton&, void)
+void SvxExtParagraphTabPage::PageBreakHdl()
 {
     switch (m_xPageBreakBox->get_state())
     {
@@ -2003,14 +2020,26 @@ IMPL_LINK_NOARG(SvxExtParagraphTabPage, PageBreakHdl_Impl, weld::ToggleButton&, 
     }
 }
 
-IMPL_LINK_NOARG(SvxExtParagraphTabPage, KeepTogetherHdl_Impl, weld::ToggleButton&, void)
+IMPL_LINK(SvxExtParagraphTabPage, PageBreakHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aPageBreakState.ButtonToggled(rToggle);
+    PageBreakHdl();
+}
+
+void SvxExtParagraphTabPage::KeepTogetherHdl()
 {
     bool bEnable = m_xKeepTogetherBox->get_state() == TRISTATE_FALSE;
     m_xWidowBox->set_sensitive(bEnable);
     m_xOrphanBox->set_sensitive(bEnable);
 }
 
-IMPL_LINK_NOARG(SvxExtParagraphTabPage, WidowHdl_Impl, weld::ToggleButton&, void)
+IMPL_LINK(SvxExtParagraphTabPage, KeepTogetherHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aKeepTogetherState.ButtonToggled(rToggle);
+    KeepTogetherHdl();
+}
+
+void SvxExtParagraphTabPage::WidowHdl()
 {
     switch (m_xWidowBox->get_state())
     {
@@ -2030,7 +2059,19 @@ IMPL_LINK_NOARG(SvxExtParagraphTabPage, WidowHdl_Impl, weld::ToggleButton&, void
     }
 }
 
-IMPL_LINK_NOARG(SvxExtParagraphTabPage, OrphanHdl_Impl, weld::ToggleButton&, void)
+IMPL_LINK(SvxExtParagraphTabPage, WidowHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aWidowState.ButtonToggled(rToggle);
+    WidowHdl();
+}
+
+IMPL_LINK(SvxExtParagraphTabPage, OrphanHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aOrphanState.ButtonToggled(rToggle);
+    OrphanHdl();
+}
+
+void SvxExtParagraphTabPage::OrphanHdl()
 {
     switch (m_xOrphanBox->get_state())
     {
@@ -2051,7 +2092,7 @@ IMPL_LINK_NOARG(SvxExtParagraphTabPage, OrphanHdl_Impl, weld::ToggleButton&, voi
     }
 }
 
-IMPL_LINK_NOARG(SvxExtParagraphTabPage, HyphenClickHdl_Impl, weld::ToggleButton&, void)
+void SvxExtParagraphTabPage::HyphenClickHdl()
 {
     bool bEnable = m_xHyphenBox->get_state() == TRISTATE_TRUE;
     m_xBeforeText->set_sensitive(bEnable);
@@ -2063,7 +2104,13 @@ IMPL_LINK_NOARG(SvxExtParagraphTabPage, HyphenClickHdl_Impl, weld::ToggleButton&
     m_xHyphenBox->set_state(bEnable ? TRISTATE_TRUE : TRISTATE_FALSE);
 }
 
-IMPL_LINK_NOARG(SvxExtParagraphTabPage, ApplyCollClickHdl_Impl, weld::ToggleButton&, void)
+IMPL_LINK(SvxExtParagraphTabPage, HyphenClickHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aHyphenState.ButtonToggled(rToggle);
+    HyphenClickHdl();
+}
+
+void SvxExtParagraphTabPage::ApplyCollClickHdl()
 {
     bool bEnable = false;
     if (m_xApplyCollBtn->get_state() == TRISTATE_TRUE && m_xApplyCollBox->get_count())
@@ -2081,6 +2128,12 @@ IMPL_LINK_NOARG(SvxExtParagraphTabPage, ApplyCollClickHdl_Impl, weld::ToggleButt
         m_xPageNumBox->set_sensitive(bEnable);
         m_xPagenumEdit->set_sensitive(bEnable && m_xPageNumBox->get_state() == TRISTATE_TRUE);
     }
+}
+
+IMPL_LINK(SvxExtParagraphTabPage, ApplyCollClickHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aApplyCollState.ButtonToggled(rToggle);
+    ApplyCollClickHdl();
 }
 
 IMPL_LINK(SvxExtParagraphTabPage, PageBreakPosHdl_Impl, weld::ComboBox&, rListBox, void)
@@ -2124,9 +2177,20 @@ IMPL_LINK(SvxExtParagraphTabPage, PageBreakTypeHdl_Impl, weld::ComboBox&, rListB
         PageBreakPosHdl_Impl(*m_xBreakPositionLB);
 }
 
-IMPL_LINK_NOARG(SvxExtParagraphTabPage, PageNumBoxClickHdl_Impl, weld::ToggleButton&, void)
+void SvxExtParagraphTabPage::PageNumBoxClickHdl()
 {
     m_xPagenumEdit->set_sensitive(m_xPageNumBox->get_state() == TRISTATE_TRUE);
+}
+
+IMPL_LINK(SvxExtParagraphTabPage, PageNumBoxClickHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aPageNumState.ButtonToggled(rToggle);
+    PageNumBoxClickHdl();
+}
+
+IMPL_LINK(SvxExtParagraphTabPage, KeepParaBoxClickHdl_Impl, weld::ToggleButton&, rToggle, void)
+{
+    aKeepParaState.ButtonToggled(rToggle);
 }
 
 void SvxExtParagraphTabPage::PageCreated(const SfxAllItemSet& aSet)
@@ -2174,7 +2238,7 @@ bool SvxAsianTabPage::FillItemSet( SfxItemSet* rSet )
         std::unique_ptr<SfxBoolItem> pNewItem(static_cast<SfxBoolItem*>(rSet->Get(
             pPool->GetWhich(SID_ATTR_PARA_SCRIPTSPACE)).Clone()));
         pNewItem->SetValue(m_xScriptSpaceCB->get_active());
-        rSet->Put(*pNewItem);
+        rSet->Put(std::move(pNewItem));
         bRet = true;
     }
     if (m_xHangingPunctCB->get_sensitive() && m_xHangingPunctCB->get_state_changed_from_saved())
@@ -2182,7 +2246,7 @@ bool SvxAsianTabPage::FillItemSet( SfxItemSet* rSet )
         std::unique_ptr<SfxBoolItem> pNewItem(static_cast<SfxBoolItem*>(rSet->Get(
             pPool->GetWhich(SID_ATTR_PARA_HANGPUNCTUATION)).Clone()));
         pNewItem->SetValue(m_xHangingPunctCB->get_active());
-        rSet->Put(*pNewItem);
+        rSet->Put(std::move(pNewItem));
         bRet = true;
     }
     if (m_xForbiddenRulesCB->get_sensitive() && m_xForbiddenRulesCB->get_state_changed_from_saved())
@@ -2190,7 +2254,7 @@ bool SvxAsianTabPage::FillItemSet( SfxItemSet* rSet )
         std::unique_ptr<SfxBoolItem> pNewItem(static_cast<SfxBoolItem*>(rSet->Get(
             pPool->GetWhich(SID_ATTR_PARA_FORBIDDEN_RULES)).Clone()));
         pNewItem->SetValue(m_xForbiddenRulesCB->get_active());
-        rSet->Put(*pNewItem);
+        rSet->Put(std::move(pNewItem));
         bRet = true;
     }
     return bRet;

@@ -26,13 +26,18 @@
 
 #include <svtools/toolbarmenu.hxx>
 #include <svtools/popupwindowcontroller.hxx>
+#include <svtools/valueset.hxx>
 
 #include <svx/strings.hrc>
 #include <svx/svxids.hrc>
 #include <helpids.h>
 
 #include <svx/drawitem.hxx>
-#include <svx/xattr.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlnwtit.hxx>
+#include <svx/xlndsit.hxx>
+#include <svx/xlnstit.hxx>
+#include <svx/xlnedit.hxx>
 #include <svx/xtable.hxx>
 #include <svx/linectrl.hxx>
 #include <svx/itemwin.hxx>

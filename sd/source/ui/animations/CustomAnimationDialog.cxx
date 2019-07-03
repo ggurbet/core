@@ -46,6 +46,8 @@
 #include <svtools/ctrlbox.hxx>
 #include <svtools/ctrltool.hxx>
 #include <sfx2/objsh.hxx>
+#include <tools/debug.hxx>
+#include <tools/urlobj.hxx>
 
 #include <editeng/flstitem.hxx>
 
@@ -1859,7 +1861,7 @@ CustomAnimationEffectTabPage::CustomAnimationEffectTabPage(weld::Container* pPar
             {
                 sal_Int32 nColor = 0;
                 aDimColor >>= nColor;
-                Color aColor = Color(nColor);
+                Color aColor(nColor);
                 mxCLBDimColor->SelectEntry(aColor);
             }
             else
@@ -2238,7 +2240,7 @@ void CustomAnimationEffectTabPage::onSoundPreview()
     if( nPos >= 2 ) try
     {
         const OUString aSoundURL( maSoundList[ nPos-2 ] );
-        mxPlayer.set( avmedia::MediaWindow::createPlayer( aSoundURL, "" ), uno::UNO_QUERY_THROW );
+        mxPlayer.set( avmedia::MediaWindow::createPlayer( aSoundURL, "" ), uno::UNO_SET_THROW );
         mxPlayer->start();
     }
     catch( uno::Exception& )

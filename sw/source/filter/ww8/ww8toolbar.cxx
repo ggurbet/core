@@ -20,6 +20,7 @@
 #include <fstream>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/configmgr.hxx>
 #include <vcl/graph.hxx>
 #include <map>
@@ -284,7 +285,7 @@ bool Customization::ImportMenu( SwCTBWrapper& rWrapper, CustomToolBarImportHelpe
                         if ( helper.getAppCfgManager()->hasSettings( sMenuBar ) )
                             xIndexContainer.set( helper.getAppCfgManager()->getSettings( sMenuBar, true ), uno::UNO_QUERY_THROW );
                         else
-                            xIndexContainer.set( helper.getAppCfgManager()->createSettings(), uno::UNO_QUERY_THROW );
+                            xIndexContainer.set( helper.getAppCfgManager()->createSettings(), uno::UNO_SET_THROW );
                     }
 
                     uno::Reference< lang::XSingleComponentFactory > xSCF( xIndexContainer, uno::UNO_QUERY_THROW );
@@ -430,7 +431,7 @@ bool SwCTB::ImportCustomToolBar( SwCTBWrapper& rWrapper, CustomToolBarImportHelp
         if ( !tb.IsEnabled() )
             return true;  // didn't fail, just ignoring
         // Create default setting
-        uno::Reference< container::XIndexContainer > xIndexContainer( helper.getCfgManager()->createSettings(), uno::UNO_QUERY_THROW );
+        uno::Reference< container::XIndexContainer > xIndexContainer( helper.getCfgManager()->createSettings(), uno::UNO_SET_THROW );
         uno::Reference< container::XIndexAccess > xIndexAccess( xIndexContainer, uno::UNO_QUERY_THROW );
         uno::Reference< beans::XPropertySet > xProps( xIndexContainer, uno::UNO_QUERY_THROW );
 
@@ -458,9 +459,9 @@ bool SwCTB::ImportCustomToolBar( SwCTBWrapper& rWrapper, CustomToolBarImportHelp
 #endif
         bRes = true;
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_INFO("sw.ww8","***** For some reason we have an " << e );
+        TOOLS_INFO_EXCEPTION("sw.ww8","***** For some reason we have an" );
         bRes = false;
     }
     return bRes;

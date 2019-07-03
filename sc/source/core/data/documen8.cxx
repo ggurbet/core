@@ -20,6 +20,7 @@
 #include <scitems.hxx>
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <tools/urlobj.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/frmdiritem.hxx>
@@ -38,6 +39,7 @@
 #include <unotools/transliterationwrapper.hxx>
 #include <sal/log.hxx>
 
+#include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 
@@ -578,6 +580,7 @@ bool ScDocument::IdleCalcTextWidth()            // true = try next again
     sal_uInt16 nZoom = getScaleValue(*pStyle, ATTR_PAGE_SCALE);
     Fraction aZoomFract(nZoom, 100);
 
+    aScope.setCol(pTab->ClampToAllocatedColumns(aScope.Col()));
     // Start at specified cell position (nCol, nRow, nTab).
     ScColumn* pCol  = &pTab->aCol[aScope.Col()];
     std::unique_ptr<ScColumnTextWidthIterator> pColIter(new ScColumnTextWidthIterator(*pCol, aScope.Row(), MAXROW));
@@ -646,6 +649,8 @@ bool ScDocument::IdleCalcTextWidth()            // true = try next again
                 bNewTab = true;
             }
 
+            aScope.setCol(pTab->ClampToAllocatedColumns(aScope.Col()));
+
             if ( nRestart < 2 )
             {
                 if ( bNewTab )
@@ -704,7 +709,7 @@ void ScDocument::RepaintRange( const ScRange& rRange )
 {
     if ( bIsVisible && mpShell )
     {
-        ScModelObj* pModel = ScModelObj::getImplementation( mpShell->GetModel() );
+        ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>( mpShell->GetModel() );
         if ( pModel )
             pModel->RepaintRange( rRange );     // locked repaints are checked there
     }
@@ -714,7 +719,7 @@ void ScDocument::RepaintRange( const ScRangeList& rRange )
 {
     if ( bIsVisible && mpShell )
     {
-        ScModelObj* pModel = ScModelObj::getImplementation( mpShell->GetModel() );
+        ScModelObj* pModel = comphelper::getUnoTunnelImplementation<ScModelObj>( mpShell->GetModel() );
         if ( pModel )
             pModel->RepaintRange( rRange );     // locked repaints are checked there
     }
@@ -800,7 +805,7 @@ bool ScDocument::IsInLinkUpdate() const
     return bInLinkUpdate || IsInDdeLinkUpdate();
 }
 
-void ScDocument::UpdateExternalRefLinks(vcl::Window* pWin)
+void ScDocument::UpdateExternalRefLinks(weld::Window* pWin)
 {
     if (!pExternalRefMgr)
         return;
@@ -824,7 +829,7 @@ void ScDocument::UpdateExternalRefLinks(vcl::Window* pWin)
             aRefLinks.push_back(pRefLink);
     }
 
-    sc::WaitPointerSwitch aWaitSwitch(pWin);
+    weld::WaitObject aWaitSwitch(pWin);
 
     pExternalRefMgr->enableDocTimer(false);
     ScProgress aProgress(GetDocumentShell(), ScResId(SCSTR_UPDATE_EXTDOCS), aRefLinks.size(), true);
@@ -851,7 +856,7 @@ void ScDocument::UpdateExternalRefLinks(vcl::Window* pWin)
         aBuf.append(ScResId(SCSTR_EXTDOC_NOT_LOADED));
         aBuf.append("\n\n");
         aBuf.append(aFile);
-        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin,
                                                   VclMessageType::Warning, VclButtonsType::Ok,
                                                   aBuf.makeStringAndClear()));
         xBox->run();
@@ -1263,19 +1268,19 @@ void ScDocument::TransliterateText( const ScMarkData& rMultiMark, Transliteratio
 
                     // defaults from cell attributes must be set so right language is used
                     const ScPatternAttr* pPattern = GetPattern( nCol, nRow, nTab );
-                    SfxItemSet* pDefaults = new SfxItemSet( pEngine->GetEmptyItemSet() );
+                    std::unique_ptr<SfxItemSet> pDefaults(new SfxItemSet( pEngine->GetEmptyItemSet() ));
                     if ( ScStyleSheet* pPreviewStyle = GetPreviewCellStyle( nCol, nRow, nTab ) )
                     {
                         std::unique_ptr<ScPatternAttr> pPreviewPattern(new ScPatternAttr( *pPattern ));
                         pPreviewPattern->SetStyleSheet(pPreviewStyle);
-                        pPreviewPattern->FillEditItemSet( pDefaults );
+                        pPreviewPattern->FillEditItemSet( pDefaults.get() );
                     }
                     else
                     {
                         SfxItemSet* pFontSet = GetPreviewFont( nCol, nRow, nTab );
-                        pPattern->FillEditItemSet( pDefaults, pFontSet );
+                        pPattern->FillEditItemSet( pDefaults.get(), pFontSet );
                     }
-                    pEngine->SetDefaults( pDefaults );
+                    pEngine->SetDefaults( std::move(pDefaults) );
                     if (aCell.meType == CELLTYPE_STRING)
                         pEngine->SetText(aCell.mpString->getString());
                     else if (aCell.mpEditText)
@@ -1297,8 +1302,7 @@ void ScDocument::TransliterateText( const ScMarkData& rMultiMark, Transliteratio
                         if ( aTester.NeedsObject() )
                         {
                             // remove defaults (paragraph attributes) before creating text object
-                            SfxItemSet* pEmpty = new SfxItemSet( pEngine->GetEmptyItemSet() );
-                            pEngine->SetDefaults( pEmpty );
+                            pEngine->SetDefaults( std::make_unique<SfxItemSet>( pEngine->GetEmptyItemSet() ) );
 
                             // The cell will take ownership of the text object instance.
                             SetEditText(ScAddress(nCol,nRow,nTab), pEngine->CreateTextObject());

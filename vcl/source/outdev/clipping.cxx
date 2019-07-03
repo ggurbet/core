@@ -153,19 +153,7 @@ void OutputDevice::InitClipRegion()
             mbOutputClipped = false;
 
             // #102532# Respect output offset also for clip region
-            vcl::Region aRegion( ImplPixelToDevicePixel( maRegion ) );
-            const bool bClipDeviceBounds((OUTDEV_PDF != GetOutDevType())
-                                          && (OUTDEV_PRINTER != GetOutDevType()));
-            if( bClipDeviceBounds )
-            {
-                // Perform actual rect clip against outdev
-                // dimensions, to generate empty clips whenever one of the
-                // values is completely off the device.
-                tools::Rectangle aDeviceBounds( mnOutOffX, mnOutOffY,
-                                         mnOutOffX+GetOutputWidthPixel()-1,
-                                         mnOutOffY+GetOutputHeightPixel()-1 );
-                aRegion.Intersect( aDeviceBounds );
-            }
+            vcl::Region aRegion = ClipToDeviceBounds(ImplPixelToDevicePixel(maRegion));
 
             if ( aRegion.IsEmpty() )
             {
@@ -192,6 +180,16 @@ void OutputDevice::InitClipRegion()
     }
 
     mbInitClipRegion = false;
+}
+
+vcl::Region OutputDevice::ClipToDeviceBounds(vcl::Region aRegion) const
+{
+    aRegion.Intersect(tools::Rectangle{mnOutOffX,
+                                       mnOutOffY,
+                                       mnOutOffX + GetOutputWidthPixel() - 1,
+                                       mnOutOffY + GetOutputHeightPixel() - 1
+                                      });
+    return aRegion;
 }
 
 vcl::Region OutputDevice::GetActiveClipRegion() const

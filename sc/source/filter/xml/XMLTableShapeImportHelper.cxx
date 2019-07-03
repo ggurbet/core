@@ -140,7 +140,7 @@ void XMLTableShapeImportHelper::finishShape(
             }
             SetLayer(rShape, nLayerID, rShape->getShapeType());
 
-            if (SvxShape* pShapeImp = SvxShape::getImplementation(rShape))
+            if (SvxShape* pShapeImp = comphelper::getUnoTunnelImplementation<SvxShape>(rShape))
             {
                 if (SdrObject *pSdrObj = pShapeImp->GetSdrObject())
                 {
@@ -198,7 +198,7 @@ void XMLTableShapeImportHelper::finishShape(
             // the group
             Point aStartPoint( rShape->getPosition().X,rShape->getPosition().Y );
             uno::Reference< drawing::XShape > xChild( rShapes, uno::UNO_QUERY );
-            if (SvxShape* pGroupShapeImp = xChild.is() ? SvxShape::getImplementation(lcl_getTopLevelParent(xChild)) : nullptr)
+            if (SvxShape* pGroupShapeImp = xChild.is() ? comphelper::getUnoTunnelImplementation<SvxShape>(lcl_getTopLevelParent(xChild)) : nullptr)
             {
                 if (SdrObject *pSdrObj = pGroupShapeImp->GetSdrObject())
                 {
@@ -236,7 +236,7 @@ void XMLTableShapeImportHelper::finishShape(
     if (!bNote)
     {
         // any shape other than a note prevents copying the sheet
-        ScSheetSaveData* pSheetData = ScModelObj::getImplementation(mrImporter.GetModel())->GetSheetSaveData();
+        ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(mrImporter.GetModel())->GetSheetSaveData();
         pSheetData->BlockSheet( rTables.GetCurrentSheet() );
     }
 

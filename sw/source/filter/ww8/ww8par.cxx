@@ -24,6 +24,8 @@
 
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
+#include <com/sun/star/frame/XModel.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <i18nlangtag/languagetag.hxx>
 
@@ -44,6 +46,7 @@
 
 #include <editeng/outlobj.hxx>
 #include <editeng/brushitem.hxx>
+#include <editeng/formatbreakitem.hxx>
 #include <editeng/tstpitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/langitem.hxx>
@@ -58,7 +61,11 @@
 #include <filter/msfilter/mscodec.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/xflclit.hxx>
-
+#include <svx/sdasitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtcfitm.hxx>
+#include <svx/sdtditm.hxx>
+#include <svx/sdtmfitm.hxx>
 #include <unotools/fltrcfg.hxx>
 #include <fmtfld.hxx>
 #include <fmturl.hxx>
@@ -75,6 +82,7 @@
 #include <ndtxt.hxx>
 #include <pagedesc.hxx>
 #include <paratr.hxx>
+#include <poolfmt.hxx>
 #include <fmtclbl.hxx>
 #include <section.hxx>
 #include <docsh.hxx>
@@ -797,10 +805,9 @@ SdrObject* SwMSDffManager::ProcessObj(SvStream& rSt,
                     SvxMSDffShapeInfo& rInfo = **it;
                     pImpRec->bReplaceByFly   = rInfo.bReplaceByFly;
                 }
-            }
 
-            if( bIsSimpleDrawingTextBox )
-                ApplyAttributes( rSt, aSet, rObjData );
+                ApplyAttributes(rSt, aSet, rObjData);
+            }
 
             if (GetPropertyValue(DFF_Prop_FitTextToShape, 0) & 2)
             {
@@ -1485,7 +1492,7 @@ const SfxPoolItem* SwWW8FltControlStack::GetFormatAttr(const SwPosition& rPos,
                 if (const SfxItemSet *pSet = pNd->GetpSwAttrSet())
                     eState = pSet->GetItemState(RES_LR_SPACE, false);
                 if (eState != SfxItemState::SET && rReader.m_nCurrentColl < rReader.m_vColl.size())
-                    pItem = &(rReader.m_vColl[rReader.m_nCurrentColl].maWordLR);
+                    pItem = rReader.m_vColl[rReader.m_nCurrentColl].maWordLR.get();
             }
 
             /*
@@ -1586,7 +1593,7 @@ void SwWW8FltRefStack::SetAttrInDoc(const SwPosition& rTmpPos,
                 sal_uInt16 nBkmNo;
                 if( IsFootnoteEdnBkmField(rFormatField, nBkmNo) )
                 {
-                    ::sw::mark::IMark const * const pMark = (pDoc->getIDocumentMarkAccess()->getAllMarksBegin() + nBkmNo)->get();
+                    ::sw::mark::IMark const * const pMark = pDoc->getIDocumentMarkAccess()->getAllMarksBegin()[nBkmNo];
 
                     const SwPosition& rBkMrkPos = pMark->GetMarkPos();
 
@@ -1658,7 +1665,7 @@ void SwWW8ImplReader::Read_Tab(sal_uInt16 , const sal_uInt8* pData, short nLen)
 
     WW8_TBD const * pTyp = reinterpret_cast<WW8_TBD const *>(pData + 2*nDel + 2*nIns + 2); // Type Array
 
-    SvxTabStopItem aAttr(0, 0, SvxTabAdjust::Default, RES_PARATR_TABSTOP);
+    std::shared_ptr<SvxTabStopItem> aAttr(std::make_shared<SvxTabStopItem>(0, 0, SvxTabAdjust::Default, RES_PARATR_TABSTOP));
 
     const SwFormat * pSty = nullptr;
     sal_uInt16 nTabBase;
@@ -1684,7 +1691,9 @@ void SwWW8ImplReader::Read_Tab(sal_uInt16 , const sal_uInt8* pData, short nLen)
         bFound = pSty->GetAttrSet().GetItemState(RES_PARATR_TABSTOP, false,
             &pTabs) == SfxItemState::SET;
         if( bFound )
-            aAttr = *static_cast<const SvxTabStopItem*>(pTabs);
+        {
+            aAttr.reset(static_cast<SvxTabStopItem*>(pTabs->Clone()));
+        }
         else
         {
             sal_uInt16 nOldTabBase = nTabBase;
@@ -1717,9 +1726,9 @@ void SwWW8ImplReader::Read_Tab(sal_uInt16 , const sal_uInt8* pData, short nLen)
     SvxTabStop aTabStop;
     for (short i=0; i < nDel; ++i)
     {
-        sal_uInt16 nPos = aAttr.GetPos(SVBT16ToUInt16(pDel + i*2));
+        sal_uInt16 nPos = aAttr->GetPos(SVBT16ToUInt16(pDel + i*2));
         if( nPos != SVX_TAB_NOTFOUND )
-            aAttr.Remove( nPos );
+            aAttr->Remove( nPos );
     }
 
     for (short i=0; i < nIns; ++i)
@@ -1761,14 +1770,14 @@ void SwWW8ImplReader::Read_Tab(sal_uInt16 , const sal_uInt8* pData, short nLen)
                 break;
         }
 
-        sal_uInt16 nPos2 = aAttr.GetPos( nPos );
+        sal_uInt16 nPos2 = aAttr->GetPos( nPos );
         if (nPos2 != SVX_TAB_NOTFOUND)
-            aAttr.Remove(nPos2); // Or else Insert() refuses
-        aAttr.Insert(aTabStop);
+            aAttr->Remove(nPos2); // Or else Insert() refuses
+        aAttr->Insert(aTabStop);
     }
 
     if (nIns || nDel)
-        NewAttr(aAttr);
+        NewAttr(*aAttr);
     else
     {
         // Here we have a tab definition which inserts no extra tabs, or deletes
@@ -1935,12 +1944,12 @@ void SwWW8ImplReader::ImportDop()
 
 void SwWW8ImplReader::ImportDopTypography(const WW8DopTypography &rTypo)
 {
-    switch (rTypo.iLevelOfKinsoku)
+    switch (rTypo.m_iLevelOfKinsoku)
     {
         case 2: // custom
             {
-                i18n::ForbiddenCharacters aForbidden(rTypo.rgxchFPunct,
-                    rTypo.rgxchLPunct);
+                i18n::ForbiddenCharacters aForbidden(rTypo.m_rgxchFPunct,
+                    rTypo.m_rgxchLPunct);
                 m_rDoc.getIDocumentSettingAccess().setForbiddenCharacters(rTypo.GetConvertedLang(),
                         aForbidden);
                 // Obviously cannot set the standard level 1 for japanese, so
@@ -1959,15 +1968,15 @@ void SwWW8ImplReader::ImportDopTypography(const WW8DopTypography &rTypo)
     hack in the writer. Its our default as well, but we can set it anyway
     as a flag for later.
     */
-    if (!rTypo.reserved2)
+    if (!rTypo.m_reserved2)
     {
         i18n::ForbiddenCharacters aForbidden(WW8DopTypography::GetJapanNotBeginLevel1(),
             WW8DopTypography::GetJapanNotEndLevel1());
         m_rDoc.getIDocumentSettingAccess().setForbiddenCharacters(LANGUAGE_JAPANESE,aForbidden);
     }
 
-    m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::KERN_ASIAN_PUNCTUATION, bool(rTypo.fKerningPunct));
-    m_rDoc.getIDocumentSettingAccess().setCharacterCompressionType(static_cast<CharCompressType>(rTypo.iJustification));
+    m_rDoc.getIDocumentSettingAccess().set(DocumentSettingId::KERN_ASIAN_PUNCTUATION, bool(rTypo.m_fKerningPunct));
+    m_rDoc.getIDocumentSettingAccess().setCharacterCompressionType(static_cast<CharCompressType>(rTypo.m_iJustification));
 }
 
 /**
@@ -2815,7 +2824,9 @@ rtl_TextEncoding SwWW8ImplReader::GetCurrentCharSet()
     rtl_TextEncoding eSrcCharSet = m_eHardCharSet;
     if (eSrcCharSet == RTL_TEXTENCODING_DONTKNOW)
     {
-        if (!m_aFontSrcCharSets.empty())
+        if (!m_bVer67)
+            eSrcCharSet = GetCharSetFromLanguage();
+        else if (!m_aFontSrcCharSets.empty())
             eSrcCharSet = m_aFontSrcCharSets.top();
         if ((eSrcCharSet == RTL_TEXTENCODING_DONTKNOW) && m_nCharFormat >= 0 && static_cast<size_t>(m_nCharFormat) < m_vColl.size() )
             eSrcCharSet = m_vColl[m_nCharFormat].GetCharSet();
@@ -4371,7 +4382,7 @@ void wwSectionManager::SetSegmentToPageDesc(const wwSection &rSection,
 void wwSectionManager::SetUseOn(wwSection &rSection)
 {
     bool bMirror = mrReader.m_xWDop->fMirrorMargins ||
-        mrReader.m_xWDop->doptypography.f2on1;
+        mrReader.m_xWDop->doptypography.m_f2on1;
 
     UseOnPage eUseBase = bMirror ? UseOnPage::Mirror : UseOnPage::All;
     UseOnPage eUse = eUseBase;
@@ -5089,8 +5100,7 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
             FTNNUM_DOC, FTNNUM_CHAPTER, FTNNUM_PAGE, FTNNUM_DOC
         };
 
-        SwFootnoteInfo aInfo;
-        aInfo = m_rDoc.GetFootnoteInfo(); // Copy-Ctor private
+        SwFootnoteInfo aInfo = m_rDoc.GetFootnoteInfo(); // Copy-Ctor private
 
         aInfo.ePos = FTNPOS_PAGE;
         aInfo.eNum = eNumA[m_xWDop->rncFootnote];
@@ -5102,8 +5112,7 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
     }
     if (m_xSBase->AreThereEndnotes())
     {
-        SwEndNoteInfo aInfo;
-        aInfo = m_rDoc.GetEndNoteInfo(); // Same as for Footnote
+        SwEndNoteInfo aInfo = m_rDoc.GetEndNoteInfo(); // Same as for Footnote
         sal_uInt16 nfcEdnRef = m_xWDop->nfcEdnRef & 0xF;
         aInfo.aFormat.SetNumberingType( eNumTA[nfcEdnRef] );
         if( m_xWDop->nEdn )
@@ -5171,7 +5180,7 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
             m_pDocShell->SetIsTemplate( m_xWwFib->m_fDot ); // point at tgc record
             uno::Reference<document::XDocumentPropertiesSupplier> const
                 xDocPropSupp(m_pDocShell->GetModel(), uno::UNO_QUERY_THROW);
-            uno::Reference< document::XDocumentProperties > xDocProps( xDocPropSupp->getDocumentProperties(), uno::UNO_QUERY_THROW );
+            uno::Reference< document::XDocumentProperties > xDocProps( xDocPropSupp->getDocumentProperties(), uno::UNO_SET_THROW );
 
             OUString sCreatedFrom = xDocProps->getTemplateURL();
             uno::Reference< container::XNameContainer > xPrjNameCache;
@@ -5341,9 +5350,9 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
         {
             IDocumentMarkAccess::const_iterator_t ppBkmk = pMarkAccess->findBookmark( "_PictureBullets" );
             if ( ppBkmk != pMarkAccess->getBookmarksEnd() &&
-                       IDocumentMarkAccess::GetType( *(ppBkmk->get()) ) == IDocumentMarkAccess::MarkType::BOOKMARK )
+                       IDocumentMarkAccess::GetType(**ppBkmk) == IDocumentMarkAccess::MarkType::BOOKMARK )
             {
-                SwTextNode* pTextNode = ppBkmk->get()->GetMarkStart().nNode.GetNode().GetTextNode();
+                SwTextNode* pTextNode = (*ppBkmk)->GetMarkStart().nNode.GetNode().GetTextNode();
 
                 if ( pTextNode )
                 {
@@ -5354,7 +5363,7 @@ ErrCode SwWW8ImplReader::CoreLoad(WW8Glossary const *pGloss)
                         const sal_Int32 st = pHt->GetStart();
                         if( pHt
                             && pHt->Which() == RES_TXTATR_FLYCNT
-                            && (st >= ppBkmk->get()->GetMarkStart().nContent.GetIndex()) )
+                            && (st >= (*ppBkmk)->GetMarkStart().nContent.GetIndex()) )
                         {
                             SwFrameFormat* pFrameFormat = pHt->GetFlyCnt().GetFrameFormat();
                             vecFrameFormat.push_back(pFrameFormat);
@@ -5542,7 +5551,8 @@ namespace
                 {
                     ::comphelper::DocPasswordRequest* pRequest = new ::comphelper::DocPasswordRequest(
                         ::comphelper::DocPasswordRequestType::MS, task::PasswordRequestMode_PASSWORD_ENTER,
-                        INetURLObject( rMedium.GetOrigURL() ).GetName( INetURLObject::DecodeMechanism::WithCharset ) );
+                        INetURLObject(rMedium.GetOrigURL())
+                            .GetLastName(INetURLObject::DecodeMechanism::WithCharset));
                     uno::Reference< task::XInteractionRequest > xRequest( pRequest );
 
                     xHandler->handle( xRequest );
@@ -5566,7 +5576,7 @@ namespace
         if ( pEncryptionData && ( pEncryptionData->GetValue() >>= aEncryptionData ) && !rCodec.InitCodec( aEncryptionData ) )
             aEncryptionData.realloc( 0 );
 
-        if ( !aEncryptionData.getLength() )
+        if ( !aEncryptionData.hasElements() )
         {
             OUString sUniPassword = QueryPasswordForMedium( rMedium );
 
@@ -5620,7 +5630,7 @@ namespace
         if ( pEncryptionData && ( pEncryptionData->GetValue() >>= aEncryptionData ) && !rCodec.InitCodec( aEncryptionData ) )
             aEncryptionData.realloc( 0 );
 
-        if ( !aEncryptionData.getLength() )
+        if ( !aEncryptionData.hasElements() )
         {
             OUString sUniPassword = QueryPasswordForMedium( rMedium );
 
@@ -5766,7 +5776,7 @@ ErrCode SwWW8ImplReader::LoadThroughDecryption(WW8Glossary *pGloss)
                     uno::Sequence< beans::NamedValue > aEncryptionData = InitXorWord95Codec(aCtx, *pMedium, m_xWwFib.get());
 
                     // if initialization has failed the EncryptionData should be empty
-                    if (aEncryptionData.getLength() && aCtx.VerifyKey(m_xWwFib->m_nKey, m_xWwFib->m_nHash))
+                    if (aEncryptionData.hasElements() && aCtx.VerifyKey(m_xWwFib->m_nKey, m_xWwFib->m_nHash))
                     {
                         nErrRet = ERRCODE_NONE;
                         pTempMain = MakeTemp(aDecryptMain);
@@ -5832,7 +5842,7 @@ ErrCode SwWW8ImplReader::LoadThroughDecryption(WW8Glossary *pGloss)
                         aEncryptionData = Init97Codec(*xCtx, info.verifier.salt, *pMedium);
                     else
                         nErrRet = ERRCODE_SVX_READ_FILTER_CRYPT;
-                    if (aEncryptionData.getLength() && xCtx->VerifyKey(info.verifier.encryptedVerifier,
+                    if (aEncryptionData.hasElements() && xCtx->VerifyKey(info.verifier.encryptedVerifier,
                                                                        info.verifier.encryptedVerifierHash))
                     {
                         nErrRet = ERRCODE_NONE;

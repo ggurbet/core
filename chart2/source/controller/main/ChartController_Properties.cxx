@@ -53,12 +53,14 @@
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <com/sun/star/util/CloseVetoException.hpp>
 #include <com/sun/star/chart2/XRegressionCurveContainer.hpp>
+#include <comphelper/servicehelper.hxx>
 
 #include <memory>
 
 #include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 #include <svx/ActionDescriptionProvider.hxx>
+#include <tools/diagnose_ex.h>
 
 namespace chart
 {
@@ -299,7 +301,7 @@ wrapper::ItemConverter* createItemConverter(
     }
     else
     {
-        //create itemconverter for a all objects of given type
+        //create itemconverter for all objects of given type
         switch(eObjectType)
         {
             case OBJECTTYPE_TITLE:
@@ -739,7 +741,7 @@ bool ChartController::executeDlg_ObjectProperties_withoutUndoGuard(
         std::unique_ptr<wrapper::ItemConverter> pItemConverter(
             createItemConverter( rObjectCID, getModel(), m_xCC,
                                  m_pDrawModelWrapper->getSdrModel(),
-                                 ExplicitValueProvider::getExplicitValueProvider(m_xChartView),
+                                 comphelper::getUnoTunnelImplementation<ExplicitValueProvider>(m_xChartView),
                                  pRefSizeProv.get()));
 
         if (!pItemConverter)
@@ -753,7 +755,7 @@ bool ChartController::executeDlg_ObjectProperties_withoutUndoGuard(
         pItemConverter->FillItemSet(aItemSet);
 
         //prepare dialog
-        ObjectPropertiesDialogParameter aDialogParameter = ObjectPropertiesDialogParameter( rObjectCID );
+        ObjectPropertiesDialogParameter aDialogParameter( rObjectCID );
         aDialogParameter.init( getModel() );
         ViewElementListProvider aViewElementListProvider( m_pDrawModelWrapper.get() );
 
@@ -820,13 +822,13 @@ void ChartController::executeDispatch_View3D()
 
         //open dialog
         SolarMutexGuard aSolarGuard;
-        ScopedVclPtrInstance< View3DDialog > aDlg(GetChartWindow(), getModel());
-        if( aDlg->Execute() == RET_OK )
+        View3DDialog aDlg(GetChartFrame(), getModel());
+        if (aDlg.run() == RET_OK)
             aUndoGuard.commit();
     }
-    catch(const uno::RuntimeException& e)
+    catch(const uno::RuntimeException&)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 

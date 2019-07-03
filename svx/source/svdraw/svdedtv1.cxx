@@ -40,7 +40,9 @@
 #include <svx/rectenum.hxx>
 #include <svx/sdr/contact/objectcontact.hxx>
 #include <svx/sdr/contact/viewcontact.hxx>
-#include <svx/svdattr.hxx>
+#include <svx/sdooitm.hxx>
+#include <svx/sderitm.hxx>
+#include <svx/sdtagitm.hxx>
 #include <svx/svdedtv.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdlayer.hxx>
@@ -88,7 +90,10 @@ void SdrEditView::SetMarkedObjRect(const tools::Rectangle& rRect)
 
     const bool bUndo = IsUndoEnabled();
     if( bUndo )
+    {
+        EndTextEditAllViews();
         BegUndo(ImpGetDescriptionString(STR_EditPosSize));
+    }
 
     for (size_t nm=0; nm<nCount; ++nm)
     {
@@ -177,6 +182,7 @@ void SdrEditView::MoveMarkedObj(const Size& rSiz, bool bCopy)
 
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr(SvxResId(STR_EditMove));
         if (bCopy)
             aStr += SvxResId(STR_EditWithCopy);
@@ -209,6 +215,7 @@ void SdrEditView::ResizeMarkedObj(const Point& rRef, const Fraction& xFact, cons
     const bool bUndo = IsUndoEnabled();
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr {ImpGetDescriptionString(STR_EditResize)};
         if (bCopy)
             aStr+=SvxResId(STR_EditWithCopy);
@@ -243,6 +250,7 @@ void SdrEditView::ResizeMultMarkedObj(const Point& rRef,
     const bool bUndo = IsUndoEnabled();
     if( bUndo )
     {
+        EndTextEditAllViews();
         BegUndo(ImpGetDescriptionString(STR_EditResize));
     }
 
@@ -303,6 +311,7 @@ void SdrEditView::RotateMarkedObj(const Point& rRef, long nAngle, bool bCopy)
     const bool bUndo = IsUndoEnabled();
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr {ImpGetDescriptionString(STR_EditRotate)};
         if (bCopy) aStr+=SvxResId(STR_EditWithCopy);
         BegUndo(aStr);
@@ -359,6 +368,7 @@ void SdrEditView::MirrorMarkedObj(const Point& rRef1, const Point& rRef2, bool b
 
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr;
         Point aDif(rRef2-rRef1);
         if (aDif.X()==0)
@@ -458,6 +468,7 @@ void SdrEditView::ShearMarkedObj(const Point& rRef, long nAngle, bool bVShear, b
 
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr {ImpGetDescriptionString(STR_EditShear)};
         if (bCopy)
             aStr+=SvxResId(STR_EditWithCopy);
@@ -573,6 +584,7 @@ void SdrEditView::CrookMarkedObj(const Point& rRef, const Point& rRad, SdrCrookM
 
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr {ImpGetDescriptionString(bNoContortion ? STR_EditCrook : STR_EditCrookContortion)};
         if (bCopy)
             aStr+=SvxResId(STR_EditWithCopy);
@@ -646,6 +658,7 @@ void SdrEditView::DistortMarkedObj(const tools::Rectangle& rRef, const XPolygon&
 
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr {ImpGetDescriptionString(STR_EditDistort)};
         if (bCopy)
             aStr+=SvxResId(STR_EditWithCopy);
@@ -752,6 +765,8 @@ void SdrEditView::SetNotPersistAttrToMarked(const SfxItemSet& rAttr)
     }
 
     const bool bUndo = IsUndoEnabled();
+    if( bUndo )
+        EndTextEditAllViews();
 
     // TODO: check if WhichRange is necessary.
     const size_t nMarkCount=GetMarkedObjectCount();
@@ -1002,6 +1017,7 @@ void SdrEditView::SetAttrToMarked(const SfxItemSet& rAttr, bool bReplaceAll)
     const bool bUndo = IsUndoEnabled();
     if( bUndo )
     {
+        EndTextEditAllViews();
         BegUndo(ImpGetDescriptionString(STR_EditSetAttributes));
     }
 
@@ -1181,6 +1197,7 @@ void SdrEditView::SetStyleSheetToMarked(SfxStyleSheet* pStyleSheet, bool bDontRe
 
         if( bUndo )
         {
+            EndTextEditAllViews();
             OUString aStr;
             if (pStyleSheet!=nullptr)
                 aStr = ImpGetDescriptionString(STR_EditSetStylesheet);
@@ -1425,19 +1442,7 @@ static Point ImpGetPoint(const tools::Rectangle& rRect, RectPoint eRP)
 
 void SdrEditView::SetGeoAttrToMarked(const SfxItemSet& rAttr)
 {
-    bool bDealingWithTwips = false;
     const bool bTiledRendering = comphelper::LibreOfficeKit::isActive();
-    if (bTiledRendering)
-    {
-        // We gets the position in twips
-        if (OutputDevice* pOutputDevice = mpMarkedPV->GetView().GetFirstOutputDevice())
-        {
-            if (pOutputDevice->GetMapMode().GetMapUnit() == MapUnit::Map100thMM)
-            {
-                bDealingWithTwips = true;
-            }
-        }
-    }
 
     tools::Rectangle aRect(GetMarkedObjRect());
 
@@ -1453,14 +1458,8 @@ void SdrEditView::SetGeoAttrToMarked(const SfxItemSet& rAttr)
     SdrObject* pObj=nullptr;
 
     RectPoint eSizePoint=RectPoint::MM;
-    long nPosX=aRect.Left();
-    long nPosY=aRect.Top();
-    if (bDealingWithTwips)
-    {
-        nPosX = OutputDevice::LogicToLogic(nPosX, MapUnit::Map100thMM, MapUnit::MapTwip);
-        nPosY = OutputDevice::LogicToLogic(nPosY, MapUnit::Map100thMM, MapUnit::MapTwip);
-    }
-
+    long nPosDX=0;
+    long nPosDY=0;
     long nSizX=0;
     long nSizY=0;
     long nRotateAngle=0;
@@ -1502,11 +1501,11 @@ void SdrEditView::SetGeoAttrToMarked(const SfxItemSet& rAttr)
 
     // position
     if (SfxItemState::SET==rAttr.GetItemState(SID_ATTR_TRANSFORM_POS_X,true,&pPoolItem)) {
-        nPosX=static_cast<const SfxInt32Item*>(pPoolItem)->GetValue();
+        nPosDX=static_cast<const SfxInt32Item*>(pPoolItem)->GetValue() - aRect.Left();
         bChgPos=true;
     }
     if (SfxItemState::SET==rAttr.GetItemState(SID_ATTR_TRANSFORM_POS_Y,true,&pPoolItem)){
-        nPosY=static_cast<const SfxInt32Item*>(pPoolItem)->GetValue();
+        nPosDY=static_cast<const SfxInt32Item*>(pPoolItem)->GetValue() - aRect.Top();
         bChgPos=true;
     }
     // size
@@ -1595,18 +1594,6 @@ void SdrEditView::SetGeoAttrToMarked(const SfxItemSet& rAttr)
         aSetAttr.Put(makeSdrEckenradiusItem(nRadius));
         bSetAttr=true;
     }
-
-    if(bDealingWithTwips) {
-        nPosX = OutputDevice::LogicToLogic(nPosX, MapUnit::MapTwip, MapUnit::Map100thMM);
-        nPosY = OutputDevice::LogicToLogic(nPosY, MapUnit::MapTwip, MapUnit::Map100thMM);
-        nSizX = OutputDevice::LogicToLogic(nSizX, MapUnit::MapTwip, MapUnit::Map100thMM);
-        nSizY = OutputDevice::LogicToLogic(nSizY, MapUnit::MapTwip, MapUnit::Map100thMM);
-        nRotateX = OutputDevice::LogicToLogic(nRotateX, MapUnit::MapTwip, MapUnit::Map100thMM);
-        nRotateY = OutputDevice::LogicToLogic(nRotateY, MapUnit::MapTwip, MapUnit::Map100thMM);
-    }
-
-    long nPosDX = nPosX - aRect.Left();
-    long nPosDY = nPosY - aRect.Top();
 
     ForcePossibilities();
 
@@ -1772,6 +1759,7 @@ void SdrEditView::AlignMarkedObjects(SdrHorAlign eHor, SdrVertAlign eVert)
     const bool bUndo = IsUndoEnabled();
     if( bUndo )
     {
+        EndTextEditAllViews();
         OUString aStr(GetDescriptionOfMarkedObjects());
         if (eHor==SdrHorAlign::NONE)
         {

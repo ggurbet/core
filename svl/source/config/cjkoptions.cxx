@@ -23,7 +23,6 @@
 #include <svl/languageoptions.hxx>
 #include <i18nlangtag/lang.h>
 #include <unotools/configitem.hxx>
-#include <tools/solar.h>
 #include <com/sun/star/uno/Any.h>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <osl/mutex.hxx>
@@ -146,7 +145,7 @@ void    SvtCJKOptions_Impl::SetAll(bool bSet)
 void SvtCJKOptions_Impl::Load()
 {
     Sequence<OUString> &rPropertyNames = PropertyNames::get();
-    if(!rPropertyNames.getLength())
+    if(!rPropertyNames.hasElements())
     {
         rPropertyNames.realloc(9);
         OUString* pNames = rPropertyNames.getArray();

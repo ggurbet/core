@@ -22,6 +22,7 @@
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/linguistic2/XThesaurus.hpp>
 #include <com/sun/star/linguistic2/ProofreadingResult.hpp>
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <com/sun/star/i18n/TextConversionOption.hpp>
 #include <linguistic/lngprops.hxx>
 #include <comphelper/lok.hxx>
@@ -38,6 +39,7 @@
 #include <sfx2/request.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/dialmgr.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/langitem.hxx>
 #include <svx/svxerr.hxx>
 #include <editeng/unolingu.hxx>
@@ -66,6 +68,7 @@
 #include <hhcwrp.hxx>
 
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
+#include <com/sun/star/ui/ContextMenuExecuteEvent.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/frame/XDispatch.hpp>
 #include <com/sun/star/frame/XDispatchProvider.hpp>
@@ -74,6 +77,7 @@
 #include <com/sun/star/awt/PopupMenuDirection.hpp>
 #include <com/sun/star/util/URL.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
 #include <com/sun/star/util/XURLTransformer.hpp>
 
@@ -574,7 +578,7 @@ void SwView::StartThesaurus()
             SwWait aWait( *GetDocShell(), true );
             // load library with dialog only on demand ...
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            pDlg.reset(pFact->CreateThesaurusDialog(&GetEditWin(), xThes, aTmp, eLang));
+            pDlg.reset(pFact->CreateThesaurusDialog(GetEditWin().GetFrameWeld(), xThes, aTmp, eLang));
         }
 
         if (pDlg)
@@ -586,6 +590,7 @@ void SwView::StartThesaurus()
                     InsertThesaurusSynonym(pDlg->GetWord(), aTmp, bSelection);
 
                 pVOpt->SetIdle(bOldIdle);
+                pDlg->disposeOnce();
             });
         }
     }
@@ -676,7 +681,7 @@ bool SwView::ExecSpellPopup(const Point& rPt)
             sal_Int32 nErrorInResult = -1;
             uno::Sequence< OUString > aSuggestions;
             bool bCorrectionRes = false;
-            if (!xAlt.is() || xAlt->getAlternatives().getLength() == 0)
+            if (!xAlt.is() || !xAlt->getAlternatives().hasElements())
             {
                 sal_Int32 nErrorPosInText = -1;
                 bCorrectionRes = m_pWrtShell->GetGrammarCorrection( aGrammarCheckRes, nErrorPosInText, nErrorInResult, aSuggestions, &rPt, aToFill );
@@ -686,12 +691,12 @@ bool SwView::ExecSpellPopup(const Point& rPt)
                 // we like to use the grammar checking context menu if we either get
                 // some suggestions or at least a comment about the error found...
                 bUseGrammarContext = bCorrectionRes &&
-                        (aSuggestions.getLength() > 0 || !aMessageText.isEmpty());
+                        (aSuggestions.hasElements() || !aMessageText.isEmpty());
             }
 
             // open respective context menu for spell check or grammar errors with correction suggestions...
             if ((!bUseGrammarContext && xAlt.is()) ||
-                (bUseGrammarContext && bCorrectionRes && aGrammarCheckRes.aErrors.getLength() > 0))
+                (bUseGrammarContext && bCorrectionRes && aGrammarCheckRes.aErrors.hasElements()))
             {
                 // get paragraph text
                 OUString aParaText;

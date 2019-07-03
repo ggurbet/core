@@ -26,11 +26,32 @@
 #include <svx/sdtaitm.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/udlnitem.hxx>
-#include <svx/xlineit.hxx>
-#include <svx/xfillit.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlnclit.hxx>
+#include <svx/xlnwtit.hxx>
+#include <svx/xlndsit.hxx>
+#include <svx/xlnstit.hxx>
+#include <svx/xlnedit.hxx>
+#include <svx/xlnstwit.hxx>
+#include <svx/xlnedwit.hxx>
+#include <svx/xlnstcit.hxx>
+#include <svx/xlnedcit.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xbtmpit.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/sxctitm.hxx>
+#include <svx/sdggaitm.hxx>
+#include <svx/sdgluitm.hxx>
+#include <svx/sdgmoitm.hxx>
+#include <svx/sdmetitm.hxx>
+#include <svx/sdooitm.hxx>
+#include <svx/sdshitm.hxx>
+#include <svx/sdsxyitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtditm.hxx>
+#include <svx/sdtfsitm.hxx>
 #include <editeng/editeng.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdopath.hxx>
@@ -512,9 +533,7 @@ void SwWW8ImplReader::InsertTxbxStyAttrs( SfxItemSet& rS, sal_uInt16 nColl )
                     ( SfxItemState::SET != rS.GetItemState(nWhich, false) )
                    )
                 {
-                    std::unique_ptr<SfxPoolItem> pCopy(pItem->Clone());
-                    pCopy->SetWhich( nWhich );
-                    rS.Put( *pCopy );
+                    rS.Put( pItem->CloneSetWhich(nWhich) );
                 }
             }
         }
@@ -726,9 +745,7 @@ void SwWW8ImplReader::InsertAttrsAsDrawingAttrs(WW8_CP nStartCp, WW8_CP nEndCp,
                             nWhich != nSlotId
                         )
                         {
-                            std::unique_ptr<SfxPoolItem> pCopy(pItem->Clone());
-                            pCopy->SetWhich( nWhich );
-                            pS->Put( *pCopy );
+                            pS->Put( pItem->CloneSetWhich(nWhich) );
                         }
                     }
                 }
@@ -1682,6 +1699,35 @@ void SwWW8ImplReader::MatchSdrItemsIntoFlySet( SdrObject const * pSdrObj,
             rFlySet.Put( *pPoolItem );
         }
 
+    // take new XATTR items directly. Skip old RES_BACKGROUND if new FILLSTYLE taken.
+    bool bSkipResBackground = false;
+    SfxItemPool* pPool = rFlySet.GetPool();
+    if ( pPool )
+    {
+        for ( sal_uInt16 i = XATTR_START; i < XATTR_END; ++i )
+        {
+            // Not all Fly types support XATTRs - skip unsupported attributes
+            SfxItemPool* pAttrPool = pPool->GetMasterPool();
+            while ( pAttrPool && !pAttrPool->IsInRange(i) )
+                pAttrPool = pAttrPool->GetSecondaryPool();
+            if ( !pAttrPool )
+                continue;
+
+            if ( SfxItemState::SET == rOldSet.GetItemState(i, false, &pPoolItem) )
+            {
+                rFlySet.Put( *pPoolItem );
+                if ( i == XATTR_FILLSTYLE )
+                {
+                    const drawing::FillStyle eFill = static_cast<const XFillStyleItem*>(pPoolItem)->GetValue();
+                    // Transparency forced in certain situations when fillstyle is none - use old logic for that case still
+                    // which is especially needed for export purposes (tdf112618).
+                    if ( eFill != drawing::FillStyle_NONE )
+                        bSkipResBackground = true;
+                }
+            }
+        }
+    }
+
     // now calculate the borders and build the box: The unit is needed for the
     // frame SIZE!
     SvxBoxItem aBox(sw::util::ItemGet<SvxBoxItem>(rFlySet, RES_BOX));
@@ -1744,9 +1790,9 @@ void SwWW8ImplReader::MatchSdrItemsIntoFlySet( SdrObject const * pSdrObj,
     {
         SwFormatFrameSize aSize = rFlySet.Get(RES_FRM_SIZE);
 
-        SwFormatFrameSize aNewSize = SwFormatFrameSize(bFixSize ? ATT_FIX_SIZE : ATT_VAR_SIZE,
-            aSize.GetWidth()  + 2*nOutside,
-            aSize.GetHeight() + 2*nOutside);
+        SwFormatFrameSize aNewSize(bFixSize ? ATT_FIX_SIZE : ATT_VAR_SIZE,
+                                   aSize.GetWidth()  + 2*nOutside,
+                                   aSize.GetHeight() + 2*nOutside);
         aNewSize.SetWidthSizeType(aSize.GetWidthSizeType());
         rFlySet.Put( aNewSize );
     }
@@ -1808,7 +1854,7 @@ void SwWW8ImplReader::MatchSdrItemsIntoFlySet( SdrObject const * pSdrObj,
 
     // Separate transparency
     eState = rOldSet.GetItemState(XATTR_FILLTRANSPARENCE, true, &pItem);
-    if (eState == SfxItemState::SET)
+    if (!bSkipResBackground && eState == SfxItemState::SET)
     {
         sal_uInt16 nRes = WW8ITEMVALUE(rOldSet, XATTR_FILLTRANSPARENCE,
             XFillTransparenceItem);
@@ -1819,7 +1865,7 @@ void SwWW8ImplReader::MatchSdrItemsIntoFlySet( SdrObject const * pSdrObj,
 
     // Background: SvxBrushItem
     eState = rOldSet.GetItemState(XATTR_FILLSTYLE, true, &pItem);
-    if (eState == SfxItemState::SET)
+    if (!bSkipResBackground && eState == SfxItemState::SET)
     {
         const drawing::FillStyle eFill = static_cast<const XFillStyleItem*>(pItem)->GetValue();
 
@@ -2528,6 +2574,17 @@ SwFrameFormat* SwWW8ImplReader::Read_GrafLayer( long nGrafAnchorCp )
     {
         OSL_ENSURE( false, "Where is the Shape ?" );
         return nullptr;
+    }
+
+    // tdf#118375 Word relates position to the unrotated rectangle,
+    // Writer uses the rotated one.
+    if (pObject->GetRotateAngle())
+    {
+        tools::Rectangle aObjSnapRect(pObject->GetSnapRect()); // recalculates the SnapRect
+        pF->nXaLeft = aObjSnapRect.Left();
+        pF->nYaTop = aObjSnapRect.Top();
+        pF->nXaRight = aObjSnapRect.Right();
+        pF->nYaBottom = aObjSnapRect.Bottom();
     }
 
     bool bDone = false;

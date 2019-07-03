@@ -441,7 +441,7 @@ void NetChart::createShapes()
                             sal_Int32& rIndex = pSeries->m_nPolygonIndex;
                             if( 0<= rIndex && rIndex < rPolygon.SequenceX.getLength() )
                             {
-                                if( rPolygon.SequenceX[ rIndex ].getLength() )
+                                if( rPolygon.SequenceX[ rIndex ].hasElements() )
                                     rIndex++; //start a new polygon for the next point if the current poly is not empty
                             }
                         }
@@ -528,8 +528,7 @@ void NetChart::createShapes()
                         pSeries->getPointCID_Stub(), nIndex );
                     uno::Reference< drawing::XShapes > xPointGroupShape_Shapes(
                         createGroupShape(xSeriesGroupShape_Shapes,aPointCID) );
-                    uno::Reference<drawing::XShape> xPointGroupShape_Shape =
-                            uno::Reference<drawing::XShape>( xPointGroupShape_Shapes, uno::UNO_QUERY );
+                    uno::Reference<drawing::XShape> xPointGroupShape_Shape( xPointGroupShape_Shapes, uno::UNO_QUERY );
 
                     {
                         //create data point

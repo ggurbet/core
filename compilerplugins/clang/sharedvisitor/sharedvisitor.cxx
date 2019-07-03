@@ -410,6 +410,11 @@ public:
     {
         if( ignoreLocation( arg ))
             return true;
+        if( blockBlock != nullptr )
+        {
+            if( !blockBlock->VisitCaseStmt( arg ))
+                blockBlock = nullptr;
+        }
         if( unnecessaryParen != nullptr )
         {
             if( !unnecessaryParen->VisitCaseStmt( arg ))
@@ -625,6 +630,11 @@ public:
         {
             if( !externVar->VisitVarDecl( arg ))
                 externVar = nullptr;
+        }
+        if( simplifyConstruct != nullptr )
+        {
+            if( !simplifyConstruct->VisitVarDecl( arg ))
+                simplifyConstruct = nullptr;
         }
         if( stringStatic != nullptr )
         {

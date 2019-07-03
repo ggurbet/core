@@ -28,7 +28,6 @@
 #include <vector>
 
 class SwContentFrame;
-class SwViewShell;
 class SdrPage;
 class SwFrameFormat;
 class SwPaM;
@@ -77,7 +76,7 @@ using SwDestroyList = std::set<SwSectionFrame*>;
 
 /// The root element of a Writer document layout. Lower frames are expected to
 /// be SwPageFrame instances.
-class SwRootFrame: public SwLayoutFrame
+class SAL_DLLPUBLIC_RTTI SwRootFrame: public SwLayoutFrame
 {
     // Needs to disable the Superfluous temporarily
     friend void AdjustSizeChgNotify( SwRootFrame *pRoot );

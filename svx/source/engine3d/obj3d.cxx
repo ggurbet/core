@@ -22,7 +22,6 @@
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 #include <svx/svdview.hxx>
-#include <svx/svdattr.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/svditer.hxx>
@@ -40,7 +39,6 @@
 #include <vcl/settings.hxx>
 #include <svx/xlnclit.hxx>
 #include <svl/metitem.hxx>
-#include <svx/xfillit.hxx>
 #include <svx/xlnwtit.hxx>
 #include <vcl/virdev.hxx>
 #include <tools/poly.hxx>

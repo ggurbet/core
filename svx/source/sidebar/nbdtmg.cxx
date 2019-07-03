@@ -36,6 +36,8 @@
 #include <vcl/settings.hxx>
 
 #include <i18nlangtag/languagetag.hxx>
+#include <tools/debug.hxx>
+#include <tools/urlobj.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/pathoptions.hxx>
@@ -536,8 +538,7 @@ void NumberingTypeMgr::ApplyNumRule(SvxNumRule& aNum, sal_uInt16 nIndex, sal_uIn
 OUString NumberingTypeMgr::GetDescription(sal_uInt16 nIndex, bool isDefault)
 {
     OUString sRet;
-    sal_uInt16 nLength = 0;
-    nLength = maNumberSettingsArr.size();
+    sal_uInt16 nLength = maNumberSettingsArr.size();
 
     if ( nIndex >= nLength )
         return sRet;
@@ -551,8 +552,7 @@ OUString NumberingTypeMgr::GetDescription(sal_uInt16 nIndex, bool isDefault)
 bool NumberingTypeMgr::IsCustomized(sal_uInt16 nIndex)
 {
     bool bRet = false;
-    sal_uInt16 nLength = 0;
-    nLength = maNumberSettingsArr.size();
+    sal_uInt16 nLength = maNumberSettingsArr.size();
 
     if ( nIndex >= nLength )
         bRet = false;

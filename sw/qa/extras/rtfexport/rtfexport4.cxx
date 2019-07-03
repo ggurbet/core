@@ -9,28 +9,7 @@
 
 #include <swmodeltestbase.hxx>
 
-#include <com/sun/star/awt/Gradient.hpp>
-#include <com/sun/star/awt/XBitmap.hpp>
-#include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
-#include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/drawing/PointSequenceSequence.hpp>
-#include <com/sun/star/style/PageStyleLayout.hpp>
-#include <com/sun/star/table/BorderLine2.hpp>
-#include <com/sun/star/table/ShadowFormat.hpp>
-#include <com/sun/star/text/FontEmphasis.hpp>
-#include <com/sun/star/text/RelOrientation.hpp>
-#include <com/sun/star/text/TableColumnSeparator.hpp>
-#include <com/sun/star/text/TextContentAnchorType.hpp>
-#include <com/sun/star/text/XFootnotesSupplier.hpp>
-#include <com/sun/star/text/XPageCursor.hpp>
-#include <com/sun/star/text/XTextViewCursorSupplier.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
-#include <com/sun/star/view/XViewSettingsSupplier.hpp>
-#include <com/sun/star/text/RubyAdjust.hpp>
-#include <com/sun/star/text/RubyPosition.hpp>
-#include <com/sun/star/text/XTextColumns.hpp>
-#include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 
 /**
@@ -130,6 +109,24 @@ DECLARE_RTFEXPORT_TEST(testCjklist38, "cjklist38.rtf")
 {
     sal_Int16 numFormat = getNumberingTypeOfParagraph(1);
     CPPUNIT_ASSERT_EQUAL(style::NumberingType::NUMBER_UPPER_ZH, numFormat);
+}
+
+DECLARE_RTFEXPORT_TEST(testBtlrCell, "btlr-cell.rtf")
+{
+    // Without the accompanying fix in place, this test would have failed, as
+    // the btlr text direction in the A1 cell was lost.
+    uno::Reference<text::XTextTablesSupplier> xSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xTables = xSupplier->getTextTables();
+    uno::Reference<text::XTextTable> xTable(xTables->getByName("Table1"), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xA1(xTable->getCellByName("A1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::BT_LR, getProperty<sal_Int16>(xA1, "WritingMode"));
+
+    uno::Reference<beans::XPropertySet> xB1(xTable->getCellByName("B1"), uno::UNO_QUERY);
+    auto nActual = getProperty<sal_Int16>(xB1, "WritingMode");
+    CPPUNIT_ASSERT(nActual == text::WritingMode2::LR_TB || nActual == text::WritingMode2::CONTEXT);
+
+    uno::Reference<beans::XPropertySet> xC1(xTable->getCellByName("C1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::TB_RL, getProperty<sal_Int16>(xC1, "WritingMode"));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

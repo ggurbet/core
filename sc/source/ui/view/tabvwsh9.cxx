@@ -22,12 +22,14 @@
 #include <svx/svdview.hxx>
 #include <svx/gallery.hxx>
 #include <svx/hlnkitem.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/bindings.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/sidebar/Sidebar.hxx>
 #include <svl/whiter.hxx>
+#include <svl/stritem.hxx>
 
 #include "imapwrap.hxx"
 #include <tabvwsh.hxx>

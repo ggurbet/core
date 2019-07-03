@@ -76,7 +76,7 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
 
     private:
 
-        /** @short reference to an uno service manager,
+        /** @short reference to a uno service manager,
                    which can be used to create own needed
                    uno resources. */
         css::uno::Reference< css::uno::XComponentContext > m_xContext;
@@ -87,7 +87,7 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
 
         /** @short  used for asynchronous callbacks within the main thread.
             @descr  Internally we work asynchronous. Because our callis
-                    are not aware, that her request can kill its own environment ... */
+                    are not aware, that her request can kill its own environment... */
         std::unique_ptr<vcl::EventPoster> m_aAsyncCallback;
 
         /** @short  used inside asynchronous callback to decide,
@@ -107,7 +107,7 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
     public:
 
         /** @short  connect a new CloseDispatcher instance to its frame.
-            @descr  One CloseDispatcher instance is bound to onw frame only.
+            @descr  One CloseDispatcher instance is bound to own frame only.
                     That makes an implementation (e.g. of listener support)
                     much more easier .-)
 
@@ -176,7 +176,7 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
                     We need it to implement the CLOSE_DOC semantic.
 
             @return [boolean]
-                    sal_True if closing was successfully.
+                    sal_True if closing was successful.
          */
         bool implts_prepareFrameForClosing(const css::uno::Reference< css::frame::XFrame >& xFrame,
                                            bool                                   bCloseAllOtherViewsToo,
@@ -194,7 +194,7 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
                     frame is closed ....
 
             @return [bool]
-                    sal_True if closing was successfully.
+                    sal_True if closing was successful.
          */
         bool implts_closeFrame();
 
@@ -202,7 +202,7 @@ class CloseDispatcher : public  ::cppu::WeakImplHelper<
                     as new component of our m_xCloseFrame.
 
             @return [bool]
-                    sal_True if operation was successfully.
+                    sal_True if operation was successful.
          */
         bool implts_establishBackingMode();
 

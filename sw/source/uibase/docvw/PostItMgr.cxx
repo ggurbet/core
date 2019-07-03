@@ -70,6 +70,7 @@
 #include <svl/hint.hxx>
 
 #include <svx/svdview.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/eeitem.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/kernitem.hxx>
@@ -558,7 +559,7 @@ bool SwPostItMgr::CalcRects()
                         SwPostItHelper::getLayoutInfos(
                             pItem->maLayoutInfo,
                             pItem->GetAnchorPosition(),
-                            &pAnnotationMark->GetMarkStart() );
+                            pAnnotationMark );
                 }
                 else
                 {

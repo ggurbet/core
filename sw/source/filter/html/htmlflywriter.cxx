@@ -20,6 +20,7 @@
 #include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/text/VertOrientation.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <svx/svxids.hrc>
 #include <hintids.hxx>
 #include <tools/fract.hxx>
@@ -260,12 +261,15 @@ sal_uInt16 SwHTMLWriter::GuessFrameType( const SwFrameFormat& rFrameFormat,
                 }
                 if( bEmpty )
                 {
-                    SvxBrushItem aBrush = rFrameFormat.makeBackgroundBrushItem();
+                    std::shared_ptr<SvxBrushItem> aBrush = rFrameFormat.makeBackgroundBrushItem();
                     /// background is not empty, if it has a background graphic
                     /// or its background color is not "no fill"/"auto fill".
-                    if( GPOS_NONE != aBrush.GetGraphicPos() ||
-                        aBrush.GetColor() != COL_TRANSPARENT )
+                    if( aBrush &&
+                        (GPOS_NONE != aBrush->GetGraphicPos() ||
+                        aBrush->GetColor() != COL_TRANSPARENT ))
+                    {
                         bEmpty = false;
+                    }
                 }
                 if( bEmpty )
                 {
@@ -2095,15 +2099,14 @@ void SwHTMLWriter::AddLinkTarget( const OUString& rURL )
 
 void SwHTMLWriter::CollectLinkTargets()
 {
-    const SwFormatINetFormat* pINetFormat;
     const SwTextINetFormat* pTextAttr;
 
-    sal_uInt32 n, nMaxItems = m_pDoc->GetAttrPool().GetItemCount2( RES_TXTATR_INETFMT );
-    for( n = 0; n < nMaxItems; ++n )
+    for (const SfxPoolItem* pItem : m_pDoc->GetAttrPool().GetItemSurrogates(RES_TXTATR_INETFMT))
     {
+        auto pINetFormat = dynamic_cast<const SwFormatINetFormat*>(pItem);
         const SwTextNode* pTextNd;
 
-        if( nullptr != ( pINetFormat = m_pDoc->GetAttrPool().GetItem2( RES_TXTATR_INETFMT, n ) ) &&
+        if( pINetFormat &&
             nullptr != ( pTextAttr = pINetFormat->GetTextINetFormat()) &&
             nullptr != ( pTextNd = pTextAttr->GetpTextNode() ) &&
             pTextNd->GetNodes().IsDocNodes() )
@@ -2112,12 +2115,10 @@ void SwHTMLWriter::CollectLinkTargets()
         }
     }
 
-    const SwFormatURL *pURL;
-    nMaxItems = m_pDoc->GetAttrPool().GetItemCount2( RES_URL );
-    for( n = 0; n < nMaxItems; ++n )
+    for (const SfxPoolItem* pItem : m_pDoc->GetAttrPool().GetItemSurrogates(RES_URL))
     {
-        if( nullptr != (pURL = m_pDoc->GetAttrPool().GetItem2(
-            RES_URL, n ) ) )
+        auto pURL = dynamic_cast<const SwFormatURL*>(pItem);
+        if( pURL )
         {
             AddLinkTarget( pURL->GetURL() );
             const ImageMap *pIMap = pURL->GetMap();

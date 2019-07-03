@@ -22,14 +22,13 @@
 #include <svx/svxdllapi.h>
 
 #include <com/sun/star/view/XSelectionSupplier.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/beans/XPropertyChangeListener.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/container/XContainer.hpp>
 #include <com/sun/star/container/XContainerListener.hpp>
 #include <com/sun/star/sdbc/XRowSetListener.hpp>
 #include <com/sun/star/sdb/XRowSetSupplier.hpp>
-#include <com/sun/star/form/XReset.hpp>
+#include <com/sun/star/form/XResetListener.hpp>
 #include <com/sun/star/form/XBoundComponent.hpp>
 #include <com/sun/star/form/XLoadListener.hpp>
 #include <com/sun/star/form/XGridControl.hpp>
@@ -38,7 +37,6 @@
 #include <com/sun/star/frame/XStatusListener.hpp>
 #include <com/sun/star/frame/XDispatchProviderInterception.hpp>
 #include <com/sun/star/view/XSelectionChangeListener.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/util/XModeSelector.hpp>
 #include <com/sun/star/util/XModifyListener.hpp>
 #include <com/sun/star/util/XModifyBroadcaster.hpp>
@@ -46,10 +44,14 @@
 #include <tools/wintypes.hxx>
 #include <toolkit/controls/unocontrol.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <comphelper/uno3.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/implbase10.hxx>
 #include <memory>
+
+namespace com::sun::star::beans { class XPropertySet; }
+namespace com::sun::star::uno { class XComponentContext; }
 
 class DbGridColumn;
 enum class DbGridControlNavigationBarState;
@@ -376,9 +378,7 @@ public:
     void Create(vcl::Window* pParent, WinBits nStyle);
 
 // css::lang::XUnoTunnel
-    static const css::uno::Sequence< sal_Int8 >&   getUnoTunnelImplementationId() throw();
-    static FmXGridPeer*                                         getImplementation( const css::uno::Reference< css::uno::XInterface >& _rxIFace ) throw();
-    sal_Int64                                                   SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& _rIdentifier ) override;
+    UNO3_GETIMPLEMENTATION_DECL(FmXGridPeer)
 
 // css::form::XGridPeer
     virtual css::uno::Reference< css::container::XIndexContainer > SAL_CALL getColumns(  ) override;

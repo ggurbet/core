@@ -18,7 +18,6 @@
  */
 
 #include <tools/color.hxx>
-#include <i18nlangtag/mslangid.hxx>
 #include <o3tl/any.hxx>
 #include <osl/mutex.hxx>
 #include <osl/diagnose.h>
@@ -123,7 +122,7 @@ void SAL_CALL SvNumberFormatterServiceObj::attachNumberFormatsSupplier( const un
     {
         ::osl::MutexGuard aGuard( ::osl::Mutex::getGlobalMutex() );
 
-        SvNumberFormatsSupplierObj* pNew = SvNumberFormatsSupplierObj::getImplementation( _xSupplier );
+        SvNumberFormatsSupplierObj* pNew = comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>( _xSupplier );
         if (!pNew)
             throw uno::RuntimeException(); // wrong object
 

@@ -65,8 +65,9 @@ class SVX_DLLPUBLIC SdrObjEditView : public SdrGlueEditView, public EditViewCall
 
     // Now derived from EditViewCallbacks and overriding these callbacks to
     // allow own EditText visualization
-    virtual void EditViewInvalidate() const override;
+    virtual void EditViewInvalidate(const tools::Rectangle& rRect) const override;
     virtual void EditViewSelectionChange() const override;
+    virtual OutputDevice& EditViewOutputDevice() const override;
 
     // The OverlayObjects used for visualizing active TextEdit (currently
     // using TextEditOverlayObject, but not limited to it
@@ -235,9 +236,9 @@ public:
     OutlinerView* GetTextEditOutlinerView() { return pTextEditOutlinerView; }
 
     virtual bool KeyInput(const KeyEvent& rKEvt, vcl::Window* pWin) override;
-    virtual bool MouseButtonDown(const MouseEvent& rMEvt, vcl::Window* pWin) override;
-    virtual bool MouseButtonUp(const MouseEvent& rMEvt, vcl::Window* pWin) override;
-    virtual bool MouseMove(const MouseEvent& rMEvt, vcl::Window* pWin) override;
+    virtual bool MouseButtonDown(const MouseEvent& rMEvt, OutputDevice* pWin) override;
+    virtual bool MouseButtonUp(const MouseEvent& rMEvt, OutputDevice* pWin) override;
+    virtual bool MouseMove(const MouseEvent& rMEvt, OutputDevice* pWin) override;
     virtual bool Command(const CommandEvent& rCEvt, vcl::Window* pWin) override;
 
     // #97766# make virtual to change implementation e.g. for SdOutlineView

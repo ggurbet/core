@@ -17,11 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/IDialogRenderable.hxx>
-#include <vcl/decoview.hxx>
 #include <vcl/event.hxx>
 #include <vcl/cursor.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/weld.hxx>
@@ -38,10 +35,8 @@
 #include <com/sun/star/i18n/BreakIterator.hpp>
 #include <com/sun/star/i18n/CharacterIteratorMode.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
-#include <cppuhelper/weak.hxx>
 #include <com/sun/star/datatransfer/XTransferable.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <com/sun/star/datatransfer/dnd/DNDConstants.hpp>
 #include <com/sun/star/datatransfer/dnd/XDragGestureRecognizer.hpp>
@@ -50,7 +45,6 @@
 #include <com/sun/star/i18n/InputSequenceChecker.hpp>
 #include <com/sun/star/i18n/InputSequenceCheckMode.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
-#include <com/sun/star/container/XNameAccess.hpp>
 
 #include <com/sun/star/uno/Any.hxx>
 
@@ -63,7 +57,6 @@
 #include <sal/log.hxx>
 
 #include <i18nlangtag/languagetag.hxx>
-#include <vcl/unohelp.hxx>
 #include <vcl/unohelp2.hxx>
 
 #include <officecfg/Office/Common.hxx>
@@ -195,6 +188,10 @@ bool Edit::set_property(const OString &rKey, const OUString &rValue)
     {
         SetReadOnly(!toBool(rValue));
     }
+    else if (rKey == "overwrite-mode")
+    {
+        SetInsertMode(!toBool(rValue));
+    }
     else if (rKey == "visibility")
     {
         mbPassword = false;
@@ -325,6 +322,7 @@ void Edit::ImplInit(vcl::Window* pParent, WinBits nStyle)
     SetCursor( new vcl::Cursor );
 
     SetPointer( PointerStyle::Text );
+    ApplySettings(*this);
 
     uno::Reference< datatransfer::dnd::XDragGestureListener> xDGL( mxDnDListener, uno::UNO_QUERY );
     uno::Reference< datatransfer::dnd::XDragGestureRecognizer > xDGR = GetDragGestureRecognizer();
@@ -378,7 +376,7 @@ void Edit::ApplySettings(vcl::RenderContext& rRenderContext)
     Color aTextColor = rStyleSettings.GetFieldTextColor();
     ApplyControlForeground(rRenderContext, aTextColor);
 
-    if (ImplUseNativeBorder(rRenderContext, GetStyle()) || IsPaintTransparent())
+    if (ImplUseNativeBorder(rRenderContext, GetStyle()))
     {
         // Transparent background
         rRenderContext.SetBackground();
@@ -739,8 +737,7 @@ void Edit::ImplDelete( const Selection& rSelection, sal_uInt8 nDirection, sal_uI
 
 OUString Edit::ImplGetValidString( const OUString& rString )
 {
-    OUString aValidString( rString );
-    aValidString = aValidString.replaceAll("\n", "").replaceAll("\r", "");
+    OUString aValidString = rString.replaceAll("\n", "").replaceAll("\r", "");
     aValidString = aValidString.replace('\t', ' ');
     return aValidString;
 }
@@ -789,13 +786,19 @@ void Edit::ImplInsertText( const OUString& rStr, const Selection* pNewSel, bool 
     aSelection.Justify();
 
     OUString aNewText( ImplGetValidString( rStr ) );
-    ImplTruncateToMaxLen( aNewText, aSelection.Len() );
+
+    // as below, if there's no selection, but we're in overwrite mode and not beyond
+    // the end of the existing text then that's like a selection of 1
+    auto nSelectionLen = aSelection.Len();
+    if (!nSelectionLen && !mbInsertMode && aSelection.Max() < maText.getLength())
+        nSelectionLen = 1;
+    ImplTruncateToMaxLen( aNewText, nSelectionLen );
 
     ImplClearLayoutData();
 
     if ( aSelection.Len() )
         maText.remove( static_cast<sal_Int32>(aSelection.Min()), static_cast<sal_Int32>(aSelection.Len()) );
-    else if ( !mbInsertMode && (aSelection.Max() < maText.getLength()) )
+    else if (!mbInsertMode && aSelection.Max() < maText.getLength())
         maText.remove( static_cast<sal_Int32>(aSelection.Max()), 1 );
 
     // take care of input-sequence-checking now
@@ -1023,15 +1026,13 @@ void Edit::ImplPaintBorder(vcl::RenderContext const & rRenderContext)
                     aClipRgn.Move(xNew - aBounds.Left(), 0);
 
                     // move offset of border window
-                    Point aBorderOffs;
-                    aBorderOffs = pBorder->ScreenToOutputPixel(OutputToScreenPixel(aBorderOffs));
+                    Point aBorderOffs = pBorder->ScreenToOutputPixel(OutputToScreenPixel(Point()));
                     aClipRgn.Move(aBorderOffs.X(), aBorderOffs.Y());
                 }
                 else
                 {
                     // normal case
-                    Point aBorderOffs;
-                    aBorderOffs = pBorder->ScreenToOutputPixel(OutputToScreenPixel(aBorderOffs));
+                    Point aBorderOffs = pBorder->ScreenToOutputPixel(OutputToScreenPixel(Point()));
                     aClipRgn.Move(aBorderOffs.X(), aBorderOffs.Y());
                 }
 
@@ -1459,7 +1460,7 @@ bool Edit::ImplHandleKeyEvent( const KeyEvent& rKEvt )
             if ( pImplFncGetSpecialChars )
             {
                 Selection aSaveSel = GetSelection(); // if someone changes the selection in Get/LoseFocus, e.g. URL bar
-                OUString aChars = pImplFncGetSpecialChars( this, GetFont() );
+                OUString aChars = pImplFncGetSpecialChars( GetFrameWeld(), GetFont() );
                 SetSelection( aSaveSel );
                 if ( !aChars.isEmpty() )
                 {
@@ -2020,7 +2021,7 @@ void Edit::Command( const CommandEvent& rCEvt )
         }
         else if (sCommand == "specialchar" && pImplFncGetSpecialChars)
         {
-            OUString aChars = pImplFncGetSpecialChars( this, GetFont() );
+            OUString aChars = pImplFncGetSpecialChars(GetFrameWeld(), GetFont());
             SetSelection( aSaveSel );
             if (!aChars.isEmpty())
             {
@@ -2217,7 +2218,7 @@ void Edit::StateChanged( StateChangedType nType )
         }
 
     }
-    else if (nType == StateChangedType::Zoom)
+    else if ((nType == StateChangedType::Zoom) || (nType == StateChangedType::ControlFont))
     {
         if (!mpSubEdit)
         {
@@ -2226,24 +2227,7 @@ void Edit::StateChanged( StateChangedType nType )
             Invalidate();
         }
     }
-    else if (nType == StateChangedType::ControlFont)
-    {
-        if (!mpSubEdit)
-        {
-            ApplySettings(*this);
-            ImplShowCursor();
-            Invalidate();
-        }
-    }
-    else if (nType == StateChangedType::ControlForeground)
-    {
-        if (!mpSubEdit)
-        {
-            ApplySettings(*this);
-            Invalidate();
-        }
-    }
-    else if (nType == StateChangedType::ControlBackground)
+    else if ((nType == StateChangedType::ControlForeground) || (nType == StateChangedType::ControlBackground))
     {
         if (!mpSubEdit)
         {
@@ -2933,18 +2917,12 @@ void Edit::dragEnter( const css::datatransfer::dnd::DropTargetDragEnterEvent& rD
     }
     // search for string data type
     const Sequence< css::datatransfer::DataFlavor >& rFlavors( rDTDE.SupportedDataFlavors );
-    sal_Int32 nEle = rFlavors.getLength();
-    mpDDInfo->bIsStringSupported = false;
-    for( sal_Int32 i = 0; i < nEle; i++ )
-    {
-        sal_Int32 nIndex = 0;
-        const OUString aMimetype = rFlavors[i].MimeType.getToken( 0, ';', nIndex );
-        if ( aMimetype == "text/plain" )
-        {
-            mpDDInfo->bIsStringSupported = true;
-            break;
-        }
-    }
+    mpDDInfo->bIsStringSupported = std::any_of(rFlavors.begin(), rFlavors.end(),
+        [](const css::datatransfer::DataFlavor& rFlavor) {
+            sal_Int32 nIndex = 0;
+            const OUString aMimetype = rFlavor.MimeType.getToken( 0, ';', nIndex );
+            return aMimetype == "text/plain";
+        });
 }
 
 void Edit::dragExit( const css::datatransfer::dnd::DropTargetEvent& )

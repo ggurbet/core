@@ -60,6 +60,7 @@
 #include <formula/vectortoken.hxx>
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <numeric>
 
@@ -362,9 +363,8 @@ long ScColumn::GetNeededSize(
         MapMode aHMMMode( MapUnit::Map100thMM, Point(), rZoomX, rZoomY );
 
         // save in document ?
-        std::unique_ptr<ScFieldEditEngine> pEngine = pDocument->CreateFieldEditEngine();
+        std::unique_ptr<ScFieldEditEngine> pEngine = pDocument->CreateFieldEditEngine(/*bUpdateMode*/false);
 
-        pEngine->SetUpdateMode( false );
         bool bTextWysiwyg = ( pDev->GetOutDevType() == OUTDEV_PRINTER );
         EEControlBits nCtrl = pEngine->GetControlWord();
         if ( bTextWysiwyg )
@@ -376,17 +376,17 @@ long ScColumn::GetNeededSize(
         pDev->SetMapMode( aHMMMode );
         pEngine->SetRefDevice( pDev );
         pDocument->ApplyAsianEditSettings( *pEngine );
-        SfxItemSet* pSet = new SfxItemSet( pEngine->GetEmptyItemSet() );
+        std::unique_ptr<SfxItemSet> pSet(new SfxItemSet( pEngine->GetEmptyItemSet() ));
         if ( ScStyleSheet* pPreviewStyle = pDocument->GetPreviewCellStyle( nCol, nRow, nTab ) )
         {
             std::unique_ptr<ScPatternAttr> pPreviewPattern(new ScPatternAttr( *pPattern ));
             pPreviewPattern->SetStyleSheet(pPreviewStyle);
-            pPreviewPattern->FillEditItemSet( pSet, pCondSet );
+            pPreviewPattern->FillEditItemSet( pSet.get(), pCondSet );
         }
         else
         {
             SfxItemSet* pFontSet = pDocument->GetPreviewFont( nCol, nRow, nTab );
-            pPattern->FillEditItemSet( pSet, pFontSet ? pFontSet : pCondSet );
+            pPattern->FillEditItemSet( pSet.get(), pFontSet ? pFontSet : pCondSet );
         }
 //          no longer needed, are set with the text (is faster)
 //          pEngine->SetDefaults( pSet );
@@ -397,7 +397,7 @@ long ScColumn::GetNeededSize(
             pEngine->SetHyphenator( xXHyphenator );
         }
 
-        Size aPaper = Size( 1000000, 1000000 );
+        Size aPaper( 1000000, 1000000 );
         if ( eOrient==SvxCellOrientation::Stacked && !bAsianVertical )
             aPaper.setWidth( 1 );
         else if (bBreak)
@@ -437,7 +437,7 @@ long ScColumn::GetNeededSize(
 
         if (aCell.meType == CELLTYPE_EDIT)
         {
-            pEngine->SetTextNewDefaults(*aCell.mpEditText, pSet);
+            pEngine->SetTextNewDefaults(*aCell.mpEditText, std::move(pSet));
         }
         else
         {
@@ -448,14 +448,13 @@ long ScColumn::GetNeededSize(
                 rOptions.bFormula);
 
             if (!aString.isEmpty())
-                pEngine->SetTextNewDefaults(aString, pSet);
+                pEngine->SetTextNewDefaults(aString, std::move(pSet));
             else
-                pEngine->SetDefaults(pSet);
+                pEngine->SetDefaults(std::move(pSet));
         }
 
         bool bEngineVertical = pEngine->IsVertical();
         pEngine->SetVertical( bAsianVertical );
-        pEngine->SetUpdateMode( true );
 
         bool bEdWidth = bWidth;
         if ( eOrient != SvxCellOrientation::Standard && eOrient != SvxCellOrientation::Stacked )
@@ -738,7 +737,8 @@ sal_uInt16 ScColumn::GetOptimalColWidth(
     if (bFound)
     {
         nWidth += 2;
-        sal_uInt16 nTwips = static_cast<sal_uInt16>(nWidth / nPPTX);
+        sal_uInt16 nTwips = static_cast<sal_uInt16>(
+            std::min(nWidth / nPPTX, double(std::numeric_limits<sal_uInt16>::max())));
         return nTwips;
     }
     else
@@ -937,9 +937,12 @@ void ScColumn::GetOptimalHeight(
                         {
                             aOptions.pPattern = pPattern;
                             const ScPatternAttr* pOldPattern = pPattern;
-                            sal_uInt16 nHeight = static_cast<sal_uInt16>( GetNeededSize( nRow, rCxt.getOutputDevice(), rCxt.getPPTX(), rCxt.getPPTY(),
-                                                        rCxt.getZoomX(), rCxt.getZoomY(), false, aOptions,
-                                                        &pPattern) / rCxt.getPPTY() );
+                            sal_uInt16 nHeight = static_cast<sal_uInt16>(
+                                std::min(
+                                    GetNeededSize( nRow, rCxt.getOutputDevice(), rCxt.getPPTX(), rCxt.getPPTY(),
+                                                   rCxt.getZoomX(), rCxt.getZoomY(), false, aOptions,
+                                                   &pPattern) / rCxt.getPPTY(),
+                                    double(std::numeric_limits<sal_uInt16>::max())));
                             if (nHeight > rHeights.getValue(nRow))
                                 rHeights.setValue(nRow, nRow, nHeight);
                             // Pattern changed due to calculation? => sync.
@@ -1904,6 +1907,11 @@ const ScPostIt* ScColumn::GetCellNote( sc::ColumnBlockConstPosition& rBlockPos, 
     return sc::cellnote_block::at(*aPos.first->data, aPos.second);
 }
 
+ScPostIt* ScColumn::GetCellNote( sc::ColumnBlockConstPosition& rBlockPos, SCROW nRow )
+{
+    return const_cast<ScPostIt*>(const_cast<const ScColumn*>(this)->GetCellNote( rBlockPos, nRow ));
+}
+
 void ScColumn::SetCellNote(SCROW nRow, std::unique_ptr<ScPostIt> pNote)
 {
     //pNote->UpdateCaptionPos(ScAddress(nCol, nRow, nTab)); // TODO notes useful ? slow import with many notes
@@ -2219,13 +2227,13 @@ struct CellBucket
         }
         else if (!maNumVals.empty())
         {
-            const double* p = &maNumVals[0];
+            const double* p = maNumVals.data();
             rMat.PutDouble(p, maNumVals.size(), nCol, mnNumValStart);
             reset();
         }
         else if (!maStrVals.empty())
         {
-            const svl::SharedString* p = &maStrVals[0];
+            const svl::SharedString* p = maStrVals.data();
             rMat.PutString(p, maStrVals.size(), nCol, mnStrValStart);
             reset();
         }
@@ -2304,7 +2312,7 @@ public:
                         aSSs.push_back(mpPool->intern(aStr));
                 }
 
-                const svl::SharedString* p = &aSSs[0];
+                const svl::SharedString* p = aSSs.data();
                 mrMat.PutString(p, nDataSize, mnMatCol, nMatRow);
             }
             break;
@@ -3077,6 +3085,38 @@ bool ScColumn::HasDataAt(SCROW nRow, bool bConsiderCellNotes, bool bConsiderCell
         return true;
 
     return maCells.get_type(nRow) != sc::element_type_empty;
+}
+
+bool ScColumn::HasDataAt(sc::ColumnBlockConstPosition& rBlockPos, SCROW nRow,
+                         bool bConsiderCellNotes, bool bConsiderCellDrawObjects) const
+{
+    if (bConsiderCellNotes && !IsNotesEmptyBlock(nRow, nRow))
+        return true;
+
+    if (bConsiderCellDrawObjects && !IsDrawObjectsEmptyBlock(nRow, nRow))
+        return true;
+
+    std::pair<sc::CellStoreType::const_iterator,size_t> aPos = maCells.position(rBlockPos.miCellPos, nRow);
+    if (aPos.first == maCells.end())
+        return false;
+    rBlockPos.miCellPos = aPos.first; // Store this for next call.
+    return aPos.first->type != sc::element_type_empty;
+}
+
+bool ScColumn::HasDataAt(sc::ColumnBlockPosition& rBlockPos, SCROW nRow,
+                         bool bConsiderCellNotes, bool bConsiderCellDrawObjects)
+{
+    if (bConsiderCellNotes && !IsNotesEmptyBlock(nRow, nRow))
+        return true;
+
+    if (bConsiderCellDrawObjects && !IsDrawObjectsEmptyBlock(nRow, nRow))
+        return true;
+
+    std::pair<sc::CellStoreType::iterator,size_t> aPos = maCells.position(rBlockPos.miCellPos, nRow);
+    if (aPos.first == maCells.end())
+        return false;
+    rBlockPos.miCellPos = aPos.first; // Store this for next call.
+    return aPos.first->type != sc::element_type_empty;
 }
 
 bool ScColumn::IsAllAttrEqual( const ScColumn& rCol, SCROW nStartRow, SCROW nEndRow ) const

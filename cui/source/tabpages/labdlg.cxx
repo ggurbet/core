@@ -20,7 +20,9 @@
 #include <sfx2/app.hxx>
 #include <sfx2/module.hxx>
 #include <swpossizetabpage.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
+#include <svtools/unitconv.hxx>
 
 #include <svx/dialogs.hrc>
 #include <svx/svddef.hxx>

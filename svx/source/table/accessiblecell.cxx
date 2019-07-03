@@ -29,6 +29,7 @@
 
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
+#include <com/sun/star/accessibility/AccessibleEventId.hpp>
 
 #include <vcl/svapp.hxx>
 
@@ -38,6 +39,7 @@
 #include <svx/IAccessibleViewForwarder.hxx>
 #include <svx/unoshtxt.hxx>
 #include <svx/svdotext.hxx>
+#include <tools/debug.hxx>
 
 using namespace sdr::table;
 using namespace ::com::sun::star;

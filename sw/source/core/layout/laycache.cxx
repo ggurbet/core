@@ -19,6 +19,7 @@
 
 #include <editeng/formatbreakitem.hxx>
 #include <sal/log.hxx>
+#include <tools/stream.hxx>
 #include <doc.hxx>
 #include <IDocumentStatistics.hxx>
 #include <IDocumentLayoutAccess.hxx>
@@ -44,6 +45,7 @@
 #include <sortedobjs.hxx>
 #include <ndindex.hxx>
 #include <node.hxx>
+#include <ndtxt.hxx>
 
 #include <limits>
 #include <set>

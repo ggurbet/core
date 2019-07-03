@@ -55,7 +55,7 @@ size_t SwEditShell::GetFieldTypeCount(SwFieldIds nResId ) const
 
     // all types with the same ResId
     size_t nIdx  = 0;
-    for(const auto pFieldType : *pFieldTypes)
+    for(const auto & pFieldType : *pFieldTypes)
     {
         // same ResId -> increment index
         if(pFieldType->Which() == nResId)
@@ -71,17 +71,17 @@ SwFieldType* SwEditShell::GetFieldType(size_t nField, SwFieldIds nResId ) const
 
     if(nResId == SwFieldIds::Unknown && nField < pFieldTypes->size())
     {
-        return (*pFieldTypes)[nField];
+        return (*pFieldTypes)[nField].get();
     }
 
     size_t nIdx = 0;
-    for(const auto pFieldType : *pFieldTypes)
+    for(const auto & pFieldType : *pFieldTypes)
     {
         // same ResId -> increment index
         if(pFieldType->Which() == nResId)
         {
             if(nIdx == nField)
-                return pFieldType;
+                return pFieldType.get();
             nIdx++;
         }
     }
@@ -112,7 +112,7 @@ void SwEditShell::RemoveFieldType(SwFieldIds nResId, const OUString& rStr)
     for(SwFieldTypes::size_type i = 0; i < nSize; ++i)
     {
         // same ResId -> increment index
-        SwFieldType* pFieldType = (*pFieldTypes)[i];
+        SwFieldType* pFieldType = (*pFieldTypes)[i].get();
         if( pFieldType->Which() == nResId )
         {
             if( aTmp == rCC.lowercase( pFieldType->GetName() ) )
@@ -173,17 +173,18 @@ static SwTextField* lcl_FindInputField( SwDoc* pDoc, SwField& rField )
 {
     // Search field via its address. For input fields this needs to be done in protected fields.
     SwTextField* pTField = nullptr;
-    if( SwFieldIds::Input == rField.Which() )
+    if (SwFieldIds::Input == rField.Which()
+        || (SwFieldIds::SetExp == rField.Which()
+            && static_cast<SwSetExpField&>(rField).GetInputFlag()
+            && (static_cast<SwSetExpFieldType*>(rField.GetTyp())->GetType()
+                & nsSwGetSetExpType::GSE_STRING)))
     {
-        const sal_uInt32 nMaxItems =
-            pDoc->GetAttrPool().GetItemCount2( RES_TXTATR_INPUTFIELD );
-        for( sal_uInt32 n = 0; n < nMaxItems; ++n )
+        for (const SfxPoolItem* pItem : pDoc->GetAttrPool().GetItemSurrogates(RES_TXTATR_INPUTFIELD))
         {
-            const SfxPoolItem* pItem = nullptr;
-            if( nullptr != (pItem = pDoc->GetAttrPool().GetItem2( RES_TXTATR_INPUTFIELD, n ) )
-                && static_cast<const SwFormatField*>(pItem)->GetField() == &rField )
+            auto pFormatField = dynamic_cast<const SwFormatField*>(pItem);
+            if( pFormatField && pFormatField->GetField() == &rField )
             {
-                pTField = const_cast<SwFormatField*>(static_cast<const SwFormatField*>(pItem))->GetTextField();
+                pTField = const_cast<SwFormatField*>(pFormatField)->GetTextField();
                 break;
             }
         }
@@ -191,15 +192,12 @@ static SwTextField* lcl_FindInputField( SwDoc* pDoc, SwField& rField )
     else if( SwFieldIds::SetExp == rField.Which()
         && static_cast<SwSetExpField&>(rField).GetInputFlag() )
     {
-        const sal_uInt32 nMaxItems =
-            pDoc->GetAttrPool().GetItemCount2( RES_TXTATR_FIELD );
-        for( sal_uInt32 n = 0; n < nMaxItems; ++n )
+        for (const SfxPoolItem* pItem : pDoc->GetAttrPool().GetItemSurrogates(RES_TXTATR_FIELD))
         {
-            const SfxPoolItem* pItem = nullptr;
-            if( nullptr != (pItem = pDoc->GetAttrPool().GetItem2( RES_TXTATR_FIELD, n ) )
-                && static_cast<const SwFormatField*>(pItem)->GetField() == &rField )
+            auto pFormatField = dynamic_cast<const SwFormatField*>(pItem);
+            if( pFormatField && pFormatField->GetField() == &rField )
             {
-                pTField = const_cast<SwFormatField*>(static_cast<const SwFormatField*>(pItem))->GetTextField();
+                pTField = const_cast<SwFormatField*>(pFormatField)->GetTextField();
                 break;
             }
         }
@@ -397,7 +395,7 @@ void SwEditShell::ChangeAuthorityData(const SwAuthEntry* pNewData)
 bool SwEditShell::IsAnyDatabaseFieldInDoc()const
 {
     const SwFieldTypes * pFieldTypes = GetDoc()->getIDocumentFieldsAccess().GetFieldTypes();
-    for(const auto pFieldType : *pFieldTypes)
+    for(const auto & pFieldType : *pFieldTypes)
     {
         if(IsUsed(*pFieldType))
         {

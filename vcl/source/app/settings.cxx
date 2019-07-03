@@ -41,14 +41,11 @@
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/i18nhelp.hxx>
-#include <vcl/ImageTree.hxx>
 #include <vcl/configsettings.hxx>
-#include <vcl/gradient.hxx>
 #include <vcl/outdev.hxx>
 
 #include <unotools/fontcfg.hxx>
 #include <unotools/localedatawrapper.hxx>
-#include <unotools/collatorwrapper.hxx>
 #include <unotools/confignode.hxx>
 #include <unotools/configmgr.hxx>
 #include <unotools/syslocale.hxx>
@@ -1981,6 +1978,11 @@ StyleSettings::operator !=( const StyleSettings& rSet ) const
     return !(*this == rSet);
 }
 
+void StyleSettings::SetListBoxPreviewDefaultLogicSize(Size const& rSize)
+{
+    mxData->maListBoxPreviewDefaultLogicSize = rSize;
+}
+
 const Size& StyleSettings::GetListBoxPreviewDefaultPixelSize() const
 {
     if(0 == mxData->maListBoxPreviewDefaultPixelSize.Width() || 0 == mxData->maListBoxPreviewDefaultPixelSize.Height())
@@ -2707,7 +2709,7 @@ namespace
             if ( aNode.isValid() )
             {
                 bool bTmp = bool();
-                css::uno::Any aValue = aNode.getNodeValue( OUString("UIMirroring") );
+                css::uno::Any aValue = aNode.getNodeValue( "UIMirroring" );
                 if( aValue >>= bTmp )
                 {
                     // found true or false; if it was nil, nothing is changed

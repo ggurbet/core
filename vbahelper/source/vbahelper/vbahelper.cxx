@@ -41,12 +41,14 @@
 
 #include <comphelper/automationinvokedzone.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <i18nlangtag/languagetag.hxx>
 
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/app.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <svl/stritem.hxx>
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
@@ -68,6 +70,7 @@
 #include <sal/log.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <vcl/syswin.hxx>
 #include <tools/diagnose_ex.h>
@@ -162,11 +165,7 @@ dispatchRequests (const uno::Reference< frame::XModel>& xModel, const OUString &
     if ( nProps )
     {
         dispatchProps.realloc( nProps + 1 );
-        // need to acquire pDest after realloc
-        beans::PropertyValue* pDest = dispatchProps.getArray();
-        const beans::PropertyValue* pSrc = sProps.getConstArray();
-        for ( sal_Int32 index=0; index<nProps; ++index, ++pSrc, ++pDest )
-            *pDest = *pSrc;
+        std::copy(sProps.begin(), sProps.end(), dispatchProps.begin());
     }
 
     if ( xDispatcher.is() )
@@ -515,21 +514,17 @@ ContainerUtilities::getUniqueName( const uno::Sequence< OUString >&  _slist, con
 OUString
 ContainerUtilities::getUniqueName( const uno::Sequence< OUString >& _slist, const OUString& _sElementName, const OUString& _sSuffixSeparator, sal_Int32 _nStartSuffix)
 {
-    sal_Int32 a = _nStartSuffix;
-    OUString scompname = _sElementName;
-    sal_Int32 nLen = _slist.getLength();
-    if ( nLen == 0 )
+    if ( !_slist.hasElements() )
         return _sElementName;
+
+    OUString scompname = _sElementName;
+    sal_Int32 a = _nStartSuffix;
 
     for (;;)
     {
-        for (sal_Int32 i = 0; i < nLen; i++)
-        {
-            if (FieldInList(_slist, scompname) == -1)
-            {
-                return scompname;
-            }
-        }
+        if (FieldInList(_slist, scompname) == -1)
+            return scompname;
+
         scompname = _sElementName + _sSuffixSeparator + OUString::number( a++ );
     }
 }
@@ -537,20 +532,9 @@ ContainerUtilities::getUniqueName( const uno::Sequence< OUString >& _slist, cons
 sal_Int32
 ContainerUtilities::FieldInList( const uno::Sequence< OUString >& SearchList, const OUString& SearchString )
 {
-    sal_Int32 FieldLen = SearchList.getLength();
-    sal_Int32 retvalue = -1;
-    for (sal_Int32 i = 0; i < FieldLen; i++)
-    {
-        // I wonder why comparing lexicographically is done
-        // when it's a match, is it interesting?
-        if ( SearchList[i] == SearchString )
-        {
-            retvalue = i;
-            break;
-        }
-    }
-    return retvalue;
-
+    // I wonder why comparing lexicographically is done
+    // when it's a match, is it interesting?
+    return comphelper::findValue(SearchList, SearchString);
 }
 
 static bool NeedEsc(sal_Unicode cCode)
@@ -755,25 +739,21 @@ void setDefaultPropByIntrospection( const uno::Any& aObj, const uno::Any& aValue
 
 uno::Any getPropertyValue( const uno::Sequence< beans::PropertyValue >& aProp, const OUString& aName )
 {
-    for ( sal_Int32 i = 0; i < aProp.getLength(); i++ )
-    {
-        if ( aProp[i].Name == aName )
-        {
-            return aProp[i].Value;
-        }
-    }
+    auto pProp = std::find_if(aProp.begin(), aProp.end(),
+        [&aName](const beans::PropertyValue& rProp) { return rProp.Name == aName; });
+    if (pProp != aProp.end())
+        return pProp->Value;
     return uno::Any();
 }
 
 bool setPropertyValue( uno::Sequence< beans::PropertyValue >& aProp, const OUString& aName, const uno::Any& aValue )
 {
-    for ( sal_Int32 i = 0; i < aProp.getLength(); i++ )
+    auto pProp = std::find_if(aProp.begin(), aProp.end(),
+        [&aName](const beans::PropertyValue& rProp) { return rProp.Name == aName; });
+    if (pProp != aProp.end())
     {
-        if ( aProp[i].Name == aName )
-        {
-            aProp[i].Value = aValue;
-            return true;
-        }
+        pProp->Value = aValue;
+        return true;
     }
     return false;
 }

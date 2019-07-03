@@ -29,17 +29,16 @@
 #include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
 #include <com/sun/star/text/SizeType.hpp>
-#include <com/sun/star/text/VertOrientation.hpp>
 #include <com/sun/star/text/XTextRangeCompare.hpp>
-#include <com/sun/star/style/ParagraphAdjust.hpp>
 #include "TablePositionHandler.hxx"
 #include "ConversionHelper.hxx"
 #include "util.hxx"
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <comphelper/sequence.hxx>
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
 #include "PropertyMapHelper.hxx"
 #include <rtl/ustring.hxx>
 #endif
@@ -70,7 +69,7 @@ void DomainMapperTableHandler::startTable(const TablePropertyMapPtr& pProps)
     m_aTableProperties = pProps;
     m_aTableRanges.clear();
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("tablehandler.table");
 
     if (pProps.get() != nullptr)
@@ -168,7 +167,7 @@ static void lcl_computeCellBorders( const PropertyMapPtr& pTableBorders, const P
     }
 }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
 
 static void lcl_debug_BorderLine(table::BorderLine const & rLine)
 {
@@ -413,7 +412,7 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
                     aGrabBag["TableStyleRightBorder"] <<= aBorderLine;
                 }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                 TagLogger::getInstance().startElement("mergedProps");
                 if (pMergedProperties)
                     pMergedProperties->dumpXml();
@@ -423,7 +422,7 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
                 m_aTableProperties->InsertProps(pMergedProperties);
                 m_aTableProperties->InsertProps(pTableProps);
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                 TagLogger::getInstance().startElement("TableProperties");
                 m_aTableProperties->dumpXml();
                 TagLogger::getInstance().endElement();
@@ -450,7 +449,7 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
         // Set the table default attributes for the cells
         rInfo.pTableDefaults->InsertProps(m_aTableProperties.get());
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().startElement("TableDefaults");
         rInfo.pTableDefaults->dumpXml();
         TagLogger::getInstance().endElement();
@@ -533,7 +532,7 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
 
         m_aTableProperties->Insert( PROP_TABLE_BORDER, uno::makeAny( aTableBorder ) );
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         lcl_debug_TableBorder(aTableBorder);
 #endif
 
@@ -620,7 +619,7 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
 
         rInfo.aTableProperties = m_aTableProperties->GetPropertyValues();
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().startElement("debug.tableprops");
         m_aTableProperties->dumpXml();
         TagLogger::getInstance().endElement();
@@ -646,7 +645,7 @@ TableStyleSheetEntry * DomainMapperTableHandler::endTableGetTableStyle(TableInfo
 
 CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(TableInfo & rInfo, std::vector<HorizontallyMergedCell>& rMerges)
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("getCellProperties");
 #endif
 
@@ -654,7 +653,7 @@ CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(Tabl
 
     if ( m_aCellProperties.empty() )
     {
-        #ifdef DEBUG_WRITERFILTER
+        #ifdef DBG_UTIL
         TagLogger::getInstance().endElement();
         #endif
         return aCellProperties;
@@ -811,7 +810,7 @@ CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(Tabl
                 pAllCellProps->InsertProps(*aCellIterator);
                 std::swap(*(*aCellIterator), *pAllCellProps );
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                 TagLogger::getInstance().startElement("cell");
                 TagLogger::getInstance().attribute("cell", nCell);
                 TagLogger::getInstance().attribute("row", nRow);
@@ -829,7 +828,7 @@ CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(Tabl
                 aCellIterator->get()->Insert( PROP_BOTTOM_BORDER_DISTANCE,
                                                  uno::makeAny(rInfo.nBottomBorderDistance ), false);
 
-                // Horizontal merge is not an UNO property, extract that info here to rMerges, and then remove it from the map.
+                // Horizontal merge is not a UNO property, extract that info here to rMerges, and then remove it from the map.
                 const boost::optional<PropertyMap::Property> aHorizontalMergeVal = (*aCellIterator)->getProperty(PROP_HORIZONTAL_MERGE);
                 if (aHorizontalMergeVal)
                 {
@@ -848,23 +847,8 @@ CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(Tabl
                     }
                     (*aCellIterator)->Erase(PROP_HORIZONTAL_MERGE);
                 }
-
-                // Cell direction is not an UNO Property, either.
-                const boost::optional<PropertyMap::Property> aCellDirectionVal = (*aCellIterator)->getProperty(PROP_CELL_DIRECTION);
-                if (aCellDirectionVal)
-                {
-                    if (aCellDirectionVal->second.get<sal_Int32>() == static_cast<sal_Int32>(NS_ooxml::LN_Value_ST_TextDirection_btLr))
-                    {
-                        // btLr, so map ParagraphAdjust_CENTER to VertOrientation::CENTER.
-                        uno::Reference<beans::XPropertySet> xPropertySet(m_aTableRanges[nRow][nCell][0], uno::UNO_QUERY);
-                        if (xPropertySet.is() && xPropertySet->getPropertyValue("ParaAdjust").get<sal_Int16>() == sal_Int16(style::ParagraphAdjust_CENTER))
-                            (*aCellIterator)->Insert(PROP_VERT_ORIENT, uno::makeAny(text::VertOrientation::CENTER));
-                    }
-                    (*aCellIterator)->Erase(PROP_CELL_DIRECTION);
-                }
-
                 pSingleCellProperties[nCell] = (*aCellIterator)->GetPropertyValues();
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                 TagLogger::getInstance().endElement();
 #endif
             }
@@ -876,7 +860,7 @@ CellPropertyValuesSeq_t DomainMapperTableHandler::endTableGetCellProperties(Tabl
         ++aRowIter;
     }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endElement();
 #endif
 
@@ -906,7 +890,7 @@ static bool lcl_emptyRow(std::vector<RowSequence_t>& rTableRanges, sal_Int32 nRo
     }
 
     RowSequence_t rRowSeq = rTableRanges[nRow];
-    if (rRowSeq.getLength() == 0)
+    if (!rRowSeq.hasElements())
     {
         SAL_WARN("writerfilter.dmapper", "m_aCellProperties not in sync with rTableRanges?");
         return false;
@@ -923,16 +907,18 @@ static bool lcl_emptyRow(std::vector<RowSequence_t>& rTableRanges, sal_Int32 nRo
     uno::Reference<text::XTextRangeCompare> xTextRangeCompare(rRowSeq[0][0]->getText(), uno::UNO_QUERY);
     try
     {
-        for (sal_Int32 nCell = 0; nCell < rRowSeq.getLength(); ++nCell)
-            // See SwXText::Impl::ConvertCell(), we need to compare the start of
-            // the start and the end of the end. However for our text ranges, only
-            // the starts are set, so compareRegionStarts() does what we need.
-            if (xTextRangeCompare->compareRegionStarts(rRowSeq[nCell][0], rRowSeq[nCell][1]) != 0)
-                return false;
+        // See SwXText::Impl::ConvertCell(), we need to compare the start of
+        // the start and the end of the end. However for our text ranges, only
+        // the starts are set, so compareRegionStarts() does what we need.
+        bool bRangesAreNotEqual = std::any_of(rRowSeq.begin(), rRowSeq.end(),
+            [&xTextRangeCompare](const CellSequence_t& rCellSeq) {
+                return xTextRangeCompare->compareRegionStarts(rCellSeq[0], rCellSeq[1]) != 0; });
+        if (bRangesAreNotEqual)
+            return false;
     }
-    catch (const lang::IllegalArgumentException& e)
+    catch (const lang::IllegalArgumentException&)
     {
-        SAL_WARN( "writerfilter.dmapper", "compareRegionStarts() failed: " << e);
+        TOOLS_WARN_EXCEPTION( "writerfilter.dmapper", "compareRegionStarts() failed");
         return false;
     }
     return true;
@@ -940,7 +926,7 @@ static bool lcl_emptyRow(std::vector<RowSequence_t>& rTableRanges, sal_Int32 nRo
 
 css::uno::Sequence<css::beans::PropertyValues> DomainMapperTableHandler::endTableGetRowProperties()
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("getRowProperties");
 #endif
 
@@ -948,7 +934,7 @@ css::uno::Sequence<css::beans::PropertyValues> DomainMapperTableHandler::endTabl
     sal_Int32 nRow = 0;
     for( const auto& rRow : m_aRowProperties )
     {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().startElement("rowProps.row");
 #endif
         if (rRow)
@@ -966,18 +952,18 @@ css::uno::Sequence<css::beans::PropertyValues> DomainMapperTableHandler::endTabl
             }
 
             aRowProperties[nRow] = rRow->GetPropertyValues();
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
             rRow->dumpXml();
             lcl_DumpPropertyValues(aRowProperties[nRow]);
 #endif
         }
         ++nRow;
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().endElement();
 #endif
     }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endElement();
 #endif
 
@@ -1003,7 +989,7 @@ static void lcl_ApplyCellParaProps(uno::Reference<table::XCell> const& xCell,
 
 void DomainMapperTableHandler::endTable(unsigned int nestedTableLevel, bool bTableStartsAtCellStart)
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("tablehandler.endTable");
 #endif
 
@@ -1020,7 +1006,7 @@ void DomainMapperTableHandler::endTable(unsigned int nestedTableLevel, bool bTab
 
     css::uno::Sequence<css::beans::PropertyValues> aRowProperties = endTableGetRowProperties();
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     lcl_DumpPropertyValueSeq(aRowProperties);
 #endif
 
@@ -1031,11 +1017,11 @@ void DomainMapperTableHandler::endTable(unsigned int nestedTableLevel, bool bTab
 
         bool bFloating = !aFrameProperties.empty();
         // Additional checks: if we can do this.
-        if (bFloating && m_aTableRanges[0].getLength() > 0 && m_aTableRanges[0][0].getLength() > 0)
+        if (bFloating && m_aTableRanges[0].hasElements() && m_aTableRanges[0][0].hasElements())
         {
             xStart = m_aTableRanges[0][0][0];
             uno::Sequence< uno::Sequence< uno::Reference<text::XTextRange> > >& rLastRow = m_aTableRanges[m_aTableRanges.size() - 1];
-            if (rLastRow.getLength())
+            if (rLastRow.hasElements())
             {
                 uno::Sequence< uno::Reference<text::XTextRange> >& rLastCell = rLastRow[rLastRow.getLength() - 1];
                 xEnd = rLastCell[1];
@@ -1100,37 +1086,33 @@ void DomainMapperTableHandler::endTable(unsigned int nestedTableLevel, bool bTab
                 }
 
                 // OOXML table style may container paragraph properties, apply these now.
-                for (int i = 0; i < aTableInfo.aTableProperties.getLength(); ++i)
+                auto pTableProp = std::find_if(aTableInfo.aTableProperties.begin(), aTableInfo.aTableProperties.end(),
+                    [](const beans::PropertyValue& rProp) { return rProp.Name == "ParaBottomMargin"; });
+                if (pTableProp != aTableInfo.aTableProperties.end())
                 {
-                    if (aTableInfo.aTableProperties[i].Name == "ParaBottomMargin")
+                    uno::Reference<table::XCellRange> xCellRange(xTable, uno::UNO_QUERY);
+                    uno::Any aBottomMargin = pTableProp->Value;
+                    sal_Int32 nRows = aCellProperties.getLength();
+                    for (sal_Int32 nRow = 0; nRow < nRows; ++nRow)
                     {
-                        uno::Reference<table::XCellRange> xCellRange(xTable, uno::UNO_QUERY);
-                        uno::Any aBottomMargin = aTableInfo.aTableProperties[i].Value;
-                        sal_Int32 nRows = aCellProperties.getLength();
-                        for (sal_Int32 nRow = 0; nRow < nRows; ++nRow)
-                        {
-                            const uno::Sequence< beans::PropertyValues > aCurrentRow = aCellProperties[nRow];
-                            sal_Int32 nCells = aCurrentRow.getLength();
-                            for (sal_Int32 nCell = 0; nCell < nCells; ++nCell)
-                                lcl_ApplyCellParaProps(xCellRange->getCellByPosition(nCell, nRow), aBottomMargin);
-                        }
-                        break;
+                        const uno::Sequence< beans::PropertyValues > aCurrentRow = aCellProperties[nRow];
+                        sal_Int32 nCells = aCurrentRow.getLength();
+                        for (sal_Int32 nCell = 0; nCell < nCells; ++nCell)
+                            lcl_ApplyCellParaProps(xCellRange->getCellByPosition(nCell, nRow), aBottomMargin);
                     }
                 }
             }
         }
-        catch ( const lang::IllegalArgumentException &e )
+        catch ( const lang::IllegalArgumentException & )
         {
-            SAL_INFO("writerfilter.dmapper",
-                    "Conversion to table error: " << e);
-#ifdef DEBUG_WRITERFILTER
+            TOOLS_INFO_EXCEPTION("writerfilter.dmapper", "Conversion to table error");
+#ifdef DBG_UTIL
             TagLogger::getInstance().chars(std::string("failed to import table!"));
 #endif
         }
-        catch ( const uno::Exception &e )
+        catch ( const uno::Exception & )
         {
-            SAL_INFO("writerfilter.dmapper",
-                    "Exception during table creation: " << e);
+            TOOLS_INFO_EXCEPTION("writerfilter.dmapper", "Exception during table creation");
         }
 
         // If we have a table with a start and an end position, we should make it a floating one.
@@ -1197,7 +1179,7 @@ void DomainMapperTableHandler::endTable(unsigned int nestedTableLevel, bool bTab
     m_aRowProperties.clear();
     m_bHadFootOrEndnote = false;
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endElement();
     TagLogger::getInstance().endElement();
 #endif
@@ -1208,7 +1190,7 @@ void DomainMapperTableHandler::startRow(const TablePropertyMapPtr& pProps)
     m_aRowProperties.push_back( pProps.get() );
     m_aCellProperties.emplace_back( );
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("table.row");
     if (pProps != nullptr)
         pProps->dumpXml();
@@ -1220,7 +1202,7 @@ void DomainMapperTableHandler::startRow(const TablePropertyMapPtr& pProps)
 void DomainMapperTableHandler::endRow()
 {
     m_aTableRanges.push_back(comphelper::containerToSequence(m_aRowRanges));
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endElement();
 #endif
 }
@@ -1239,7 +1221,7 @@ void DomainMapperTableHandler::startCell(const css::uno::Reference< css::text::X
         m_aCellProperties[nRow - 1].push_back( pEmptyProps.get() );
     }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("table.cell");
     TagLogger::getInstance().startElement("table.cell.start");
     TagLogger::getInstance().chars(XTextRangeToString(start));
@@ -1258,7 +1240,7 @@ void DomainMapperTableHandler::startCell(const css::uno::Reference< css::text::X
 
 void DomainMapperTableHandler::endCell(const css::uno::Reference< css::text::XTextRange > & end)
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("table.cell.end");
     TagLogger::getInstance().chars(XTextRangeToString(end));
     TagLogger::getInstance().endElement();

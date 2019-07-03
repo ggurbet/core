@@ -169,9 +169,7 @@ void ObjectCopySource::copyFilterAndSortingTo( const Reference< XConnection >& _
                 if ( !sFilter.isEmpty() )
                 {
                     sStatement.append(aPropertie.second);
-                    OUString sReplace = sFilter;
-                    sReplace = sReplace.replaceFirst(sSourceName,sTargetNameTemp);
-                    sFilter = sReplace;
+                    sFilter = sFilter.replaceFirst(sSourceName,sTargetNameTemp);
                     _rxObject->setPropertyValue( aPropertie.first, makeAny(sFilter) );
                     sStatement.append(sFilter);
                 }
@@ -481,8 +479,8 @@ namespace
 
     bool lcl_sameConnection_throw( const Reference< XConnection >& _rxLHS, const Reference< XConnection >& _rxRHS )
     {
-        Reference< XDatabaseMetaData > xMetaLHS( _rxLHS->getMetaData(), UNO_QUERY_THROW );
-        Reference< XDatabaseMetaData > xMetaRHS( _rxRHS->getMetaData(), UNO_QUERY_THROW );
+        Reference< XDatabaseMetaData > xMetaLHS( _rxLHS->getMetaData(), UNO_SET_THROW );
+        Reference< XDatabaseMetaData > xMetaRHS( _rxRHS->getMetaData(), UNO_SET_THROW );
         return xMetaLHS->getURL() == xMetaRHS->getURL();
     }
 }
@@ -1155,7 +1153,7 @@ void OCopyTableWizard::appendKey( Reference<XKeysSupplier> const & _rxSup, const
     {
         appendColumns(xColSup,_pVec,true);
         Reference<XNameAccess> xColumns = xColSup->getColumns();
-        if(xColumns.is() && xColumns->getElementNames().getLength())
+        if(xColumns.is() && xColumns->getElementNames().hasElements())
             xAppend->appendByDescriptor(xKey);
     }
 
@@ -1392,7 +1390,7 @@ OUString OCopyTableWizard::convertColumnName(const TColumnFindFunctor&   _rCmpFu
                 sName = sAlias + OUString::number(++nPos);
             }
             sAlias = sName;
-            // we have to check again, it could happen that the name is already to long
+            // we have to check again, it could happen that the name is already too long
         }
         while(_nMaxNameLen && sAlias.getLength() > _nMaxNameLen);
     }
@@ -1516,7 +1514,7 @@ OUString OCopyTableWizard::createUniqueName(const OUString& _sName)
 {
     OUString sName = _sName;
     Sequence< OUString > aColumnNames( m_rSourceObject.getColumnNames() );
-    if ( aColumnNames.getLength() )
+    if ( aColumnNames.hasElements() )
         sName = ::dbtools::createUniqueName( aColumnNames, sName, false );
     else
     {

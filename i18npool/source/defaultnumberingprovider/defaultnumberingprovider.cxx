@@ -18,16 +18,17 @@
  */
 
 #include <defaultnumberingprovider.hxx>
+#include <transliterationImpl.hxx>
+#include <com/sun/star/i18n/NativeNumberMode.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/style/NumberingType.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
-#include <com/sun/star/text/HoriOrientation.hpp>
+#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <osl/diagnose.h>
 #include <rtl/ref.hxx>
 #include <localedata.hxx>
 #include <nativenumbersupplier.hxx>
-#include <stdio.h>
 #include <string.h>
 #include <comphelper/propertysequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -66,13 +67,9 @@
 #define S_HI_TWO "\xDB\xB2"
 #define S_HI_THREE "\xDB\xB3"
 
-#include <math.h>
 #include <sal/macros.h>
 #include <rtl/ustring.hxx>
 #include <rtl/ustrbuf.hxx>
-#include <com/sun/star/i18n/XTransliteration.hpp>
-#include <com/sun/star/i18n/TransliterationType.hpp>
-#include <com/sun/star/i18n/XLocaleData.hpp>
 
 #include <bullet.h>
 
@@ -908,8 +905,9 @@ DefaultNumberingProvider::makeNumberingString( const Sequence<beans::PropertyVal
      }
 
      if (natNum) {
-            rtl::Reference<NativeNumberSupplierService> xNatNum(new NativeNumberSupplierService);
-            result += xNatNum->getNativeNumberStringParams(OUString::number(number), locale,
+            if (!mxNatNum)
+                mxNatNum.set(new NativeNumberSupplierService);
+            result += mxNatNum->getNativeNumberStringParams(OUString::number(number), locale,
                                                                  natNum, sNatNumParams);
      } else if (tableSize) {
             if ( number > tableSize && !bRecycleSymbol)
@@ -1074,17 +1072,29 @@ Sequence< sal_Int16 > DefaultNumberingProvider::getSupportedNumberingTypes(  )
 
 sal_Int16 DefaultNumberingProvider::getNumberingType( const OUString& rNumberingIdentifier )
 {
+    auto it = maSupportedTypesCache.find(rNumberingIdentifier);
+    if (it != maSupportedTypesCache.end())
+        return it->second->nType;
     for(sal_Int16 i = 0; i < nSupported_NumberingTypes; i++)
         if(rNumberingIdentifier == makeNumberingIdentifier(i))
+        {
+            maSupportedTypesCache.emplace(rNumberingIdentifier, &aSupportedTypes[i]);
             return aSupportedTypes[i].nType;
+        }
     throw RuntimeException();
 }
 
 sal_Bool DefaultNumberingProvider::hasNumberingType( const OUString& rNumberingIdentifier )
 {
+    auto it = maSupportedTypesCache.find(rNumberingIdentifier);
+    if (it != maSupportedTypesCache.end())
+        return true;
     for(sal_Int16 i = 0; i < nSupported_NumberingTypes; i++)
         if(rNumberingIdentifier == makeNumberingIdentifier(i))
+        {
+            maSupportedTypesCache.emplace(rNumberingIdentifier, &aSupportedTypes[i]);
             return true;
+        }
     return false;
 }
 

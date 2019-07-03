@@ -27,9 +27,6 @@
 
 #include <desktop/exithelper.h>
 
-#include <tools/debug.hxx>
-#include <unotools/resmgr.hxx>
-
 #include <comphelper/processfactory.hxx>
 #include <comphelper/asyncnotification.hxx>
 #include <i18nlangtag/mslangid.hxx>
@@ -43,7 +40,6 @@
 #include <vcl/ImageTree.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/toolkit/unowrap.hxx>
-#include <vcl/commandinfoprovider.hxx>
 #include <vcl/configsettings.hxx>
 #include <vcl/lazydelete.hxx>
 #include <vcl/embeddedfontshelper.hxx>
@@ -67,29 +63,22 @@
 #include <jni.h>
 #endif
 
+#include <impfontcache.hxx>
 #include <salinst.hxx>
-#include <salwtype.hxx>
 #include <svdata.hxx>
 #include <vcl/svmain.hxx>
 #include <dbggui.hxx>
 #include <accmgr.hxx>
-#include <outdev.h>
-#include <fontinstance.hxx>
 #include <PhysicalFontCollection.hxx>
 #include <print.h>
-#include <salgdi.hxx>
 #include <salsys.hxx>
 #include <saltimer.hxx>
 #include <salimestatus.hxx>
 #include <displayconnectiondispatch.hxx>
 
 #include <config_features.h>
-#if HAVE_FEATURE_OPENGL
-#include <vcl/opengl/OpenGLContext.hxx>
-#endif
 
 #include <osl/process.h>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 
@@ -102,6 +91,7 @@
 #include <opengl/watchdog.hxx>
 
 #include <basegfx/utils/systemdependentdata.hxx>
+#include <tools/diagnose_ex.h>
 
 #if OSL_DEBUG_LEVEL > 0
 #include <typeinfo>
@@ -111,8 +101,6 @@
 using namespace ::com::sun::star;
 
 static bool g_bIsLeanException;
-
-static bool isInitVCL();
 
 static oslSignalAction VCLExceptionSignal_impl( void* /*pData*/, oslSignalInfo* pInfo)
 {
@@ -190,7 +178,7 @@ int ImplSVMain()
 
     int nReturn = EXIT_FAILURE;
 
-    const bool bWasInitVCL = isInitVCL();
+    const bool bWasInitVCL = IsVCLInit();
     const bool bInit = bWasInitVCL || InitVCL();
     int nRet = 0;
     if (!bWasInitVCL && bInit && pSVData->mpDefInst->SVMainHook(&nRet))
@@ -273,7 +261,7 @@ uno::Any SAL_CALL DesktopEnvironmentContext::getValueByName( const OUString& Nam
     return retVal;
 }
 
-static bool isInitVCL()
+bool IsVCLInit()
 {
     ImplSVData* pSVData = ImplGetSVData();
     return  pExceptionHandler != nullptr &&
@@ -294,6 +282,12 @@ namespace vclmain
 
 bool InitVCL()
 {
+    if (IsVCLInit())
+    {
+        SAL_INFO("vcl.app", "Double initialization of vcl");
+        return true;
+    }
+
     if( pExceptionHandler != nullptr )
         return false;
 
@@ -340,9 +334,9 @@ bool InitVCL()
             osl_setEnvironment(envVar.pData, aLocaleString.pData);
         }
     }
-    catch (const uno::Exception &e)
+    catch (const uno::Exception &)
     {
-        SAL_INFO("vcl.app", "Unable to get ui language: '" << e);
+        TOOLS_INFO_EXCEPTION("vcl.app", "Unable to get ui language:");
     }
 
     pSVData->mpDefInst->AfterAppInit();
@@ -473,7 +467,8 @@ void DeInitVCL()
 
     pSVData->mpSettingsConfigItem.reset();
 
-    // empty and deactivate the SystemDependentDataManager
+    // prevent unnecessary painting during Scheduler shutdown
+    // as this processes all pending events in debug builds.
     ImplGetSystemDependentDataManager().flushAll();
 
     Scheduler::ImplDeInitScheduler();

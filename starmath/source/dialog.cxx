@@ -27,6 +27,8 @@
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
 #include <vcl/combobox.hxx>
+#include <vcl/event.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/ctrltool.hxx>
@@ -940,15 +942,19 @@ Point SmShowSymbolSet::OffsetPoint(const Point &rPoint) const
     return Point(rPoint.X() + nXOffset, rPoint.Y() + nYOffset);
 }
 
-void SmShowSymbolSet::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
+void SmShowSymbolSet::Resize()
 {
+    CustomWidgetController::Resize();
     Size aWinSize(GetOutputSizePixel());
     if (aWinSize != m_aOldSize)
     {
-        calccols(rRenderContext);
+        calccols(GetDrawingArea()->get_ref_device());
         m_aOldSize = aWinSize;
     }
+}
 
+void SmShowSymbolSet::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
+{
     Color aBackgroundColor;
     Color aTextColor;
     lclGetSettingColors(aBackgroundColor, aTextColor);
@@ -1088,6 +1094,7 @@ void SmShowSymbolSet::calccols(const vcl::RenderContext& rRenderContext)
 void SmShowSymbolSet::SetSymbolSet(const SymbolPtrVec_t& rSymbolSet)
 {
     aSymbolSet = rSymbolSet;
+    SetScrollBarRange();
     Invalidate();
 }
 
@@ -1802,8 +1809,7 @@ bool SmSymDefineDialog::SelectSymbolSet(weld::ComboBox& rComboBox,
     assert((&rComboBox == m_xOldSymbolSets.get() || &rComboBox == m_xSymbolSets.get()) && "Sm : wrong ComboBox");
 
     // trim SymbolName (no leading and trailing blanks)
-    OUString  aNormName (rSymbolSetName);
-    aNormName = comphelper::string::stripStart(aNormName, ' ');
+    OUString aNormName = comphelper::string::stripStart(rSymbolSetName, ' ');
     aNormName = comphelper::string::stripEnd(aNormName, ' ');
     // and remove possible deviations within the input
     rComboBox.set_entry_text(aNormName);

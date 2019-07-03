@@ -65,12 +65,14 @@
 #include <com/sun/star/drawing/EnhancedCustomShapeSegment.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeSegmentCommand.hpp>
 #include <editeng/writingmodeitem.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnclit.hxx>
 #include <svx/svxids.hrc>
 #include <svl/whiter.hxx>
 #include <sdr/properties/customshapeproperties.hxx>
 #include <sdr/contact/viewcontactofsdrobjcustomshape.hxx>
 #include <svx/xlntrit.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xfltrit.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xflgrit.hxx>
@@ -79,6 +81,12 @@
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/virdev.hxx>
 #include <svx/svdview.hxx>
+#include <svx/sdmetitm.hxx>
+#include <svx/sdprcitm.hxx>
+#include <svx/sdshitm.hxx>
+#include <svx/sdsxyitm.hxx>
+#include <svx/sdtmfitm.hxx>
+#include <svx/sdasitm.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>

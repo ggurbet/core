@@ -28,7 +28,6 @@
 #include <sfx2/viewsh.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <vcl/configsettings.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/mnemonic.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <i18nlangtag/languagetag.hxx>
@@ -68,6 +67,7 @@
 #include <officecfg/Office/Common.hxx>
 #include <officecfg/Setup.hxx>
 #include <comphelper/configuration.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -84,6 +84,7 @@
 #include <com/sun/star/container/XSet.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <com/sun/star/office/Quickstart.hpp>
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -96,6 +97,7 @@
 #include <svtools/apearcfg.hxx>
 #include <svtools/optionsdrawinglayer.hxx>
 #include <svtools/restartdialog.hxx>
+#include <svtools/imgdef.hxx>
 #include <comphelper/solarmutex.hxx>
 
 #include <config_vclplug.h>
@@ -259,6 +261,7 @@ OfaMiscTabPage::OfaMiscTabPage(TabPageParent pParent, const SfxItemSet& rSet)
     : SfxTabPage(pParent, "cui/ui/optgeneralpage.ui", "OptGeneralPage", &rSet)
     , m_xExtHelpCB(m_xBuilder->weld_check_button("exthelp"))
     , m_xPopUpNoHelpCB(m_xBuilder->weld_check_button("popupnohelp"))
+    , m_xShowTipOfTheDay(m_xBuilder->weld_check_button("cbShowTipOfTheDay"))
     , m_xFileDlgFrame(m_xBuilder->weld_widget("filedlgframe"))
     , m_xPrintDlgFrame(m_xBuilder->weld_widget("printdlgframe"))
     , m_xFileDlgROImage(m_xBuilder->weld_widget("lockimage"))
@@ -328,6 +331,12 @@ bool OfaMiscTabPage::FillItemSet( SfxItemSet* rSet )
     if ( m_xExtHelpCB->get_state_changed_from_saved() )
         aHelpOptions.SetExtendedHelp( m_xExtHelpCB->get_active() );
 
+    if ( m_xShowTipOfTheDay->get_state_changed_from_saved() )
+    {
+        officecfg::Office::Common::Misc::ShowTipOfTheDay::set(m_xShowTipOfTheDay->get_active(), batch);
+        bModified = true;
+    }
+
     if ( m_xFileDlgCB->get_state_changed_from_saved() )
     {
         SvtMiscOptions aMiscOpt;
@@ -381,6 +390,8 @@ void OfaMiscTabPage::Reset( const SfxItemSet* rSet )
     m_xExtHelpCB->save_state();
     m_xPopUpNoHelpCB->set_active( aHelpOptions.IsOfflineHelpPopUp() );
     m_xPopUpNoHelpCB->save_state();
+    m_xShowTipOfTheDay->set_active( officecfg::Office::Common::Misc::ShowTipOfTheDay::get() );
+    m_xShowTipOfTheDay->save_state();
     SvtMiscOptions aMiscOpt;
     m_xFileDlgCB->set_active( !aMiscOpt.UseSystemFileDialog() );
     m_xFileDlgCB->save_state();
@@ -1208,11 +1219,11 @@ OfaLanguagesTabPage::OfaLanguagesTabPage(vcl::Window* pParent, const SfxItemSet&
         }
 
     }
-    catch (const Exception &e)
+    catch (const Exception &)
     {
         // we'll just leave the box in its default setting and won't
         // even give it event handler...
-        SAL_WARN("cui.options", "ignoring " << e);
+        TOOLS_WARN_EXCEPTION("cui.options", "ignoring" );
     }
 
     m_pWesternLanguageLB->SetLanguageList( SvxLanguageListFlags::WESTERN | SvxLanguageListFlags::ONLY_KNOWN, true, true );
@@ -1388,11 +1399,11 @@ bool OfaLanguagesTabPage::FillItemSet( SfxItemSet* rSet )
             css::office::Quickstart::createAndSetVeto(xContext, false, false, false/*DisableVeto*/);
         }
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
         // we'll just leave the box in its default setting and won't
         // even give it event handler...
-        SAL_WARN("cui.options", "ignoring Exception \"" << e << "\"");
+        TOOLS_WARN_EXCEPTION("cui.options", "ignoring");
     }
 
     LanguageTag aLanguageTag( pLangConfig->aSysLocaleOptions.GetLanguageTag());

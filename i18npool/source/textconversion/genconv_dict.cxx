@@ -24,7 +24,6 @@
 #include <errno.h>
 #include <sal/main.h>
 #include <sal/types.h>
-#include <rtl/strbuf.hxx>
 #include <rtl/ustring.hxx>
 
 #include <vector>
@@ -61,7 +60,7 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv)
     fprintf(cfp, " * Copyright(c) 1999 - 2000, Sun Microsystems, Inc.\n");
     fprintf(cfp, " * All Rights Reserved.\n");
     fprintf(cfp, " */\n\n");
-    fprintf(cfp, "/* !!!The file is generated automatically. DONOT edit the file manually!!! */\n\n");
+    fprintf(cfp, "/* !!!The file is generated automatically. DO NOT edit the file manually!!! */\n\n");
     fprintf(cfp, "#include <sal/types.h>\n");
     fprintf(cfp, "#include <textconversion.hxx>\n");
     fprintf(cfp, "\nextern \"C\" {\n");
@@ -402,7 +401,7 @@ void make_stc_word(FILE *sfp, FILE *cfp)
     sal_uInt16 STC_WordIndex[0x100];
 
     if (count_S2T > 0) {
-        qsort(&STC_WordEntry_S2T[0], count_S2T, sizeof(Index), Index_comp);
+        qsort(STC_WordEntry_S2T.data(), count_S2T, sizeof(Index), Index_comp);
 
         fprintf(cfp, "\nstatic const sal_uInt16 STC_WordEntry_S2T[] = {");
         count = 0;
@@ -435,7 +434,7 @@ void make_stc_word(FILE *sfp, FILE *cfp)
     }
 
     if (count_T2S > 0) {
-        qsort(&STC_WordEntry_T2S[0], count_T2S, sizeof(Index), Index_comp);
+        qsort(STC_WordEntry_T2S.data(), count_T2S, sizeof(Index), Index_comp);
 
         fprintf(cfp, "\nstatic const sal_uInt16 STC_WordEntry_T2S[] = {");
         count = 0;

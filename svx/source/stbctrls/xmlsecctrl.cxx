@@ -22,6 +22,8 @@
 #include <vcl/builder.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/image.hxx>
+#include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <sfx2/signaturestate.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/module.hxx>
@@ -39,6 +41,8 @@
 #include <tools/urlobj.hxx>
 #include <bitmaps.hlst>
 #include <sal/log.hxx>
+
+#include <com/sun/star/beans/PropertyValue.hpp>
 
 SFX_IMPL_STATUSBAR_CONTROL( XmlSecStatusBarControl, SfxUInt16Item );
 

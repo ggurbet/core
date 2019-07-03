@@ -210,7 +210,7 @@ void PackageManagerImpl::initActivationLayer(
                             1 /* Title */ ) );
                 if (title.endsWith("removed", &title))
                 {
-                    //save the file name withouth the "removed" part
+                    //save the file name without the "removed" part
                     removedEntries.push_back(::rtl::Uri::encode(
                                                 title, rtl_UriCharClassPchar,
                                                 rtl_UriEncodeIgnoreEscapes,
@@ -486,7 +486,7 @@ void PackageManagerImpl::disposing()
         m_xLogFile.clear();
         try_dispose( m_xRegistry );
         m_xRegistry.clear();
-        m_activePackagesDB.reset(nullptr);
+        m_activePackagesDB.reset();
         m_xComponentContext.clear();
 
         t_pm_helper::disposing();
@@ -1279,9 +1279,9 @@ bool PackageManagerImpl::synchronizeRemovedExtensions(
                 bModified = true;
             }
         }
-        catch( const uno::Exception & e )
+        catch( const uno::Exception & )
         {
-            SAL_WARN("desktop.deployment", e);
+            TOOLS_WARN_EXCEPTION("desktop.deployment", "");
         }
     }
     return bModified;
@@ -1416,10 +1416,10 @@ bool PackageManagerImpl::synchronizeAddedExtensions(
                 }
             }
         }
-        catch (const uno::Exception & e)
+        catch (const uno::Exception &)
         {
             // Looks like exceptions being caught here is not an uncommon case.
-            SAL_WARN("desktop.deployment", e);
+            TOOLS_WARN_EXCEPTION("desktop.deployment", "");
         }
     }
     return bModified;

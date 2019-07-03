@@ -29,11 +29,7 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/datatransfer/XTransferable.hpp>
-#include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
-#include <com/sun/star/datatransfer/clipboard/XClipboardEx.hpp>
-#include <com/sun/star/datatransfer/clipboard/XClipboardNotifier.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboardListener.hpp>
 #include <com/sun/star/datatransfer/clipboard/XSystemClipboard.hpp>
 #include <com/sun/star/datatransfer/dnd/XDragSource.hpp>
@@ -169,14 +165,14 @@ sal_Int8 GenericClipboard::getRenderingCapabilities()
 
 void GenericClipboard::addClipboardListener( const Reference< datatransfer::clipboard::XClipboardListener >& listener )
 {
-    osl::ClearableMutexGuard aGuard( m_aMutex );
+    osl::MutexGuard aGuard(m_aMutex);
 
     m_aListeners.push_back( listener );
 }
 
 void GenericClipboard::removeClipboardListener( const Reference< datatransfer::clipboard::XClipboardListener >& listener )
 {
-    osl::ClearableMutexGuard aGuard( m_aMutex );
+    osl::MutexGuard aGuard(m_aMutex);
 
     m_aListeners.erase(std::remove(m_aListeners.begin(), m_aListeners.end(), listener), m_aListeners.end());
 }
@@ -220,6 +216,8 @@ OUString Clipboard_getImplementationName()
     return OUString(
     #if defined MACOSX
     "com.sun.star.datatransfer.clipboard.AquaClipboard"
+    #elif defined IOS
+    "com.sun.star.datatransfer.clipboard.iOSClipboard"
     #elif defined ANDROID
     "com.sun.star.datatransfer.VCLGenericClipboard"
     #elif defined UNX

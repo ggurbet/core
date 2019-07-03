@@ -491,7 +491,7 @@ void ScCellValue::release( ScColumn& rColumn, SCROW nRow, sc::StartListeningType
     mfValue = 0.0;
 }
 
-OUString ScCellValue::getString( const ScDocument* pDoc )
+OUString ScCellValue::getString( const ScDocument* pDoc ) const
 {
     return getStringImpl(*this, pDoc);
 }
@@ -567,6 +567,11 @@ ScRefCellValue::ScRefCellValue( ScDocument& rDoc, const ScAddress& rPos )
     assign( rDoc, rPos);
 }
 
+ScRefCellValue::ScRefCellValue( ScDocument& rDoc, const ScAddress& rPos, sc::ColumnBlockPosition& rBlockPos )
+{
+    assign( rDoc, rPos, rBlockPos );
+}
+
 void ScRefCellValue::clear()
 {
     // Reset to empty value.
@@ -577,6 +582,11 @@ void ScRefCellValue::clear()
 void ScRefCellValue::assign( ScDocument& rDoc, const ScAddress& rPos )
 {
     *this = rDoc.GetRefCellValue(rPos);
+}
+
+void ScRefCellValue::assign( ScDocument& rDoc, const ScAddress& rPos, sc::ColumnBlockPosition& rBlockPos )
+{
+    *this = rDoc.GetRefCellValue(rPos, rBlockPos);
 }
 
 void ScRefCellValue::commit( ScDocument& rDoc, const ScAddress& rPos ) const
@@ -647,7 +657,7 @@ double ScRefCellValue::getRawValue() const
     return 0.0;
 }
 
-OUString ScRefCellValue::getString( const ScDocument* pDoc )
+OUString ScRefCellValue::getString( const ScDocument* pDoc ) const
 {
     return getStringImpl(*this, pDoc);
 }

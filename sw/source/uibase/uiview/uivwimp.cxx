@@ -29,9 +29,11 @@
 #include <vcl/wrkwin.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/docfile.hxx>
 
 #include <sfx2/docinsert.hxx>
 #include <sfx2/request.hxx>
+#include <svx/svxids.hrc>
 #include <uivwimp.hxx>
 #include <wview.hxx>
 #include <unotxvw.hxx>
@@ -122,7 +124,7 @@ void SwView_Impl::ExecuteScan( SfxRequest& rReq )
                     const Sequence< ScannerContext >
                         aContexts( xScanMgr->getAvailableScanners() );
 
-                    if( aContexts.getLength() )
+                    if( aContexts.hasElements() )
                     {
                         Reference< XEventListener > xLstner = &rListener;
                         ScannerContext aContext( aContexts.getConstArray()[ 0 ] );
@@ -154,7 +156,7 @@ void SwView_Impl::ExecuteScan( SfxRequest& rReq )
                 try
                 {
                     const Sequence< scanner::ScannerContext >aContexts( xScanMgr->getAvailableScanners() );
-                    if( aContexts.getLength() )
+                    if( aContexts.hasElements() )
                     {
                         Reference< XEventListener > xLstner = &rListener;
                         xScanMgr->startScan( aContexts.getConstArray()[ 0 ], xLstner );
@@ -223,7 +225,7 @@ void SwView_Impl::Invalidate()
 void SwView_Impl::AddTransferable(SwTransferable& rTransferable)
 {
     //prevent removing of the non-referenced SwTransferable
-    rTransferable.m_refCount++;
+    osl_atomic_increment(&rTransferable.m_refCount);
     {
         // Remove previously added, but no longer existing weak references.
         mxTransferables.erase(std::remove_if(mxTransferables.begin(), mxTransferables.end(),
@@ -234,7 +236,7 @@ void SwView_Impl::AddTransferable(SwTransferable& rTransferable)
 
         mxTransferables.emplace_back(uno::Reference<lang::XUnoTunnel>(&rTransferable));
     }
-    rTransferable.m_refCount--;
+    osl_atomic_decrement(&rTransferable.m_refCount);
 }
 
 void SwView_Impl::StartDocumentInserter(

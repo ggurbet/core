@@ -34,7 +34,6 @@
 #include <sfx2/filedlghelper.hxx>
 #include <editeng/sizeitem.hxx>
 #include <svtools/htmlcfg.hxx>
-#include <vcl/treelistentry.hxx>
 
 #include <uitool.hxx>
 #include <IMark.hxx>
@@ -57,10 +56,12 @@
 #include <bitmaps.hlst>
 #include <sfx2/bindings.hxx>
 #include <sfx2/htmlmode.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/svxdlg.hxx>
 #include <svx/flagsdef.hxx>
+#include <svx/svxids.hrc>
 #include <memory>
 
 using namespace ::com::sun::star;
@@ -134,7 +135,7 @@ static void lcl_FillSubRegionList( SwWrtShell& rSh, weld::ComboBox& rSubRegions,
         ppMark != pMarkAccess->getBookmarksEnd();
         ++ppMark)
     {
-        const ::sw::mark::IMark* pBkmk = ppMark->get();
+        const ::sw::mark::IMark* pBkmk = *ppMark;
         if( pBkmk->IsExpanded() )
             rSubRegions.append_text( pBkmk->GetName() );
     }
@@ -146,12 +147,12 @@ class SectRepr
 private:
     SwSectionData           m_SectionData;
     SwFormatCol                m_Col;
-    SvxBrushItem            m_Brush;
+    std::shared_ptr<SvxBrushItem>            m_Brush;
     SwFormatFootnoteAtTextEnd        m_FootnoteNtAtEnd;
     SwFormatEndAtTextEnd        m_EndNtAtEnd;
     SwFormatNoBalancedColumns  m_Balance;
-    SvxFrameDirectionItem   m_FrameDirItem;
-    SvxLRSpaceItem          m_LRSpaceItem;
+    std::shared_ptr<SvxFrameDirectionItem>   m_FrameDirItem;
+    std::shared_ptr<SvxLRSpaceItem>          m_LRSpaceItem;
     const size_t            m_nArrPos;
     // shows, if maybe textcontent is in the region
     bool                    m_bContent  : 1;
@@ -164,12 +165,12 @@ public:
 
     SwSectionData &     GetSectionData()        { return m_SectionData; }
     SwFormatCol&               GetCol()            { return m_Col; }
-    SvxBrushItem&           GetBackground()     { return m_Brush; }
+    std::shared_ptr<SvxBrushItem>&           GetBackground()     { return m_Brush; }
     SwFormatFootnoteAtTextEnd&       GetFootnoteNtAtEnd()     { return m_FootnoteNtAtEnd; }
     SwFormatEndAtTextEnd&       GetEndNtAtEnd()     { return m_EndNtAtEnd; }
     SwFormatNoBalancedColumns& GetBalance()        { return m_Balance; }
-    SvxFrameDirectionItem&  GetFrameDir()         { return m_FrameDirItem; }
-    SvxLRSpaceItem&         GetLRSpace()        { return m_LRSpaceItem; }
+    std::shared_ptr<SvxFrameDirectionItem>&  GetFrameDir()         { return m_FrameDirItem; }
+    std::shared_ptr<SvxLRSpaceItem>&         GetLRSpace()        { return m_LRSpaceItem; }
 
     size_t              GetArrPos() const { return m_nArrPos; }
     OUString            GetFile() const;
@@ -191,9 +192,9 @@ public:
 
 SectRepr::SectRepr( size_t nPos, SwSection& rSect )
     : m_SectionData( rSect )
-    , m_Brush( RES_BACKGROUND )
-    , m_FrameDirItem( SvxFrameDirection::Environment, RES_FRAMEDIR )
-    , m_LRSpaceItem( RES_LR_SPACE )
+    , m_Brush(std::make_shared<SvxBrushItem>(RES_BACKGROUND))
+    , m_FrameDirItem(std::make_shared<SvxFrameDirectionItem>(SvxFrameDirection::Environment, RES_FRAMEDIR))
+    , m_LRSpaceItem(std::make_shared<SvxLRSpaceItem>(RES_LR_SPACE))
     , m_nArrPos(nPos)
     , m_bContent(m_SectionData.GetLinkFileName().isEmpty())
     , m_bSelected(false)
@@ -206,8 +207,8 @@ SectRepr::SectRepr( size_t nPos, SwSection& rSect )
         m_FootnoteNtAtEnd = pFormat->GetFootnoteAtTextEnd();
         m_EndNtAtEnd = pFormat->GetEndAtTextEnd();
         m_Balance.SetValue(pFormat->GetBalancedColumns().GetValue());
-        m_FrameDirItem = pFormat->GetFrameDir();
-        m_LRSpaceItem = pFormat->GetLRSpace();
+        m_FrameDirItem.reset(static_cast<SvxFrameDirectionItem*>(pFormat->GetFrameDir().Clone()));
+        m_LRSpaceItem.reset(static_cast<SvxLRSpaceItem*>(pFormat->GetLRSpace().Clone()));
     }
 }
 
@@ -334,7 +335,7 @@ SwEditRegionDlg::SwEditRegionDlg(weld::Window* pParent, SwWrtShell& rWrtSh)
     , m_xPasswdPB(m_xBuilder->weld_button("password"))
     , m_xHideCB(m_xBuilder->weld_check_button("hide"))
     , m_xConditionFT(m_xBuilder->weld_label("conditionft"))
-    , m_xConditionED(new SwConditionEdit(m_xBuilder->weld_entry("condition")))
+    , m_xConditionED(new ConditionEdit(m_xBuilder->weld_entry("condition")))
     , m_xEditInReadonlyCB(m_xBuilder->weld_check_button("editinro"))
     , m_xOK(m_xBuilder->weld_button("ok"))
     , m_xOptionsPB(m_xBuilder->weld_button("options"))
@@ -408,8 +409,8 @@ bool SwEditRegionDlg::CheckPasswd(weld::ToggleButton* pBox)
 
     m_xTree->selected_foreach([this, &bRet](weld::TreeIter& rEntry){
         SectRepr* pRepr = reinterpret_cast<SectRepr*>(m_xTree->get_id(rEntry).toInt64());
-        if (!pRepr->GetTempPasswd().getLength()
-            && pRepr->GetSectionData().GetPassword().getLength())
+        if (!pRepr->GetTempPasswd().hasElements()
+            && pRepr->GetSectionData().GetPassword().hasElements())
         {
             SfxPasswordDialog aPasswdDlg(m_xDialog.get());
             bRet = false;
@@ -661,7 +662,7 @@ IMPL_LINK(SwEditRegionDlg, GetFirstEntryHdl, weld::TreeView&, rBox, void)
             return;
         }
         else
-            m_xPasswdCB->set_active(aCurPasswd.getLength() > 0);
+            m_xPasswdCB->set_active(aCurPasswd.hasElements());
     }
     else if (bEntry )
     {
@@ -675,7 +676,7 @@ IMPL_LINK(SwEditRegionDlg, GetFirstEntryHdl, weld::TreeView&, rBox, void)
         bool bHide = TRISTATE_TRUE == m_xHideCB->get_state();
         m_xConditionED->set_sensitive(bHide);
         m_xConditionFT->set_sensitive(bHide);
-        m_xPasswdCB->set_active(rData.GetPassword().getLength() > 0);
+        m_xPasswdCB->set_active(rData.GetPassword().hasElements());
 
         m_xOK->set_sensitive(true);
         m_xPasswdCB->set_sensitive(true);
@@ -779,9 +780,9 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OkHdl, weld::Button&, void)
                 if( pFormat->GetCol() != pRepr->GetCol() )
                     pSet->Put( pRepr->GetCol() );
 
-                SvxBrushItem aBrush(pFormat->makeBackgroundBrushItem(false));
-                if( aBrush != pRepr->GetBackground() )
-                    pSet->Put( pRepr->GetBackground() );
+                std::shared_ptr<SvxBrushItem> aBrush(pFormat->makeBackgroundBrushItem(false));
+                if( aBrush != pRepr->GetBackground() || (aBrush && pRepr->GetBackground() && *aBrush != *pRepr->GetBackground()))
+                    pSet->Put( *pRepr->GetBackground() );
 
                 if( pFormat->GetFootnoteAtTextEnd(false) != pRepr->GetFootnoteNtAtEnd() )
                     pSet->Put( pRepr->GetFootnoteNtAtEnd() );
@@ -792,11 +793,11 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OkHdl, weld::Button&, void)
                 if( pFormat->GetBalancedColumns() != pRepr->GetBalance() )
                     pSet->Put( pRepr->GetBalance() );
 
-                if( pFormat->GetFrameDir() != pRepr->GetFrameDir() )
-                    pSet->Put( pRepr->GetFrameDir() );
+                if( pFormat->GetFrameDir() != *pRepr->GetFrameDir() )
+                    pSet->Put( *pRepr->GetFrameDir() );
 
-                if( pFormat->GetLRSpace() != pRepr->GetLRSpace())
-                    pSet->Put( pRepr->GetLRSpace());
+                if( pFormat->GetLRSpace() != *pRepr->GetLRSpace())
+                    pSet->Put( *pRepr->GetLRSpace());
 
                 rSh.UpdateSection( nNewPos, pRepr->GetSectionData(),
                                    pSet->Count() ? pSet.get() : nullptr );
@@ -1029,12 +1030,12 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OptionsHdl, weld::Button&, void)
             SID_ATTR_PAGE_SIZE, SID_ATTR_PAGE_SIZE>{});
 
     aSet.Put( pSectRepr->GetCol() );
-    aSet.Put( pSectRepr->GetBackground() );
+    aSet.Put( *pSectRepr->GetBackground() );
     aSet.Put( pSectRepr->GetFootnoteNtAtEnd() );
     aSet.Put( pSectRepr->GetEndNtAtEnd() );
     aSet.Put( pSectRepr->GetBalance() );
-    aSet.Put( pSectRepr->GetFrameDir() );
-    aSet.Put( pSectRepr->GetLRSpace() );
+    aSet.Put( *pSectRepr->GetFrameDir() );
+    aSet.Put( *pSectRepr->GetLRSpace() );
 
     const SwSectionFormats& rDocFormats = rSh.GetDoc()->GetSections();
     SwSectionFormats aOrigArray(rDocFormats);
@@ -1085,7 +1086,7 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OptionsHdl, weld::Button&, void)
                     if( SfxItemState::SET == eColState )
                         pRepr->GetCol() = *static_cast<const SwFormatCol*>(pColItem);
                     if( SfxItemState::SET == eBrushState )
-                        pRepr->GetBackground() = *static_cast<const SvxBrushItem*>(pBrushItem);
+                        pRepr->GetBackground().reset(static_cast<SvxBrushItem*>(pBrushItem->Clone()));
                     if( SfxItemState::SET == eFootnoteState )
                         pRepr->GetFootnoteNtAtEnd() = *static_cast<const SwFormatFootnoteAtTextEnd*>(pFootnoteItem);
                     if( SfxItemState::SET == eEndState )
@@ -1093,9 +1094,9 @@ IMPL_LINK_NOARG(SwEditRegionDlg, OptionsHdl, weld::Button&, void)
                     if( SfxItemState::SET == eBalanceState )
                         pRepr->GetBalance().SetValue(static_cast<const SwFormatNoBalancedColumns*>(pBalanceItem)->GetValue());
                     if( SfxItemState::SET == eFrameDirState )
-                        pRepr->GetFrameDir().SetValue(static_cast<const SvxFrameDirectionItem*>(pFrameDirItem)->GetValue());
+                        pRepr->GetFrameDir()->SetValue(static_cast<const SvxFrameDirectionItem*>(pFrameDirItem)->GetValue());
                     if( SfxItemState::SET == eLRState )
-                        pRepr->GetLRSpace() = *static_cast<const SvxLRSpaceItem*>(pLRSpaceItem);
+                        pRepr->GetLRSpace().reset(static_cast<SvxLRSpaceItem*>(pLRSpaceItem->Clone()));
                     return false;
                 });
             }
@@ -1218,7 +1219,7 @@ void SwEditRegionDlg::ChangePasswd(bool bChange)
         SectRepr* pRepr = reinterpret_cast<SectRepr*>(m_xTree->get_id(rEntry).toInt64());
         if(bSet)
         {
-            if(!pRepr->GetTempPasswd().getLength() || bChange)
+            if(!pRepr->GetTempPasswd().hasElements() || bChange)
             {
                 SfxPasswordDialog aPasswdDlg(m_xDialog.get());
                 aPasswdDlg.ShowExtras(SfxShowExtras::CONFIRM);
@@ -1488,7 +1489,7 @@ SwInsertSectionTabPage::SwInsertSectionTabPage(TabPageParent pParent, const SfxI
     , m_xPasswdPB(m_xBuilder->weld_button("selectpassword"))
     , m_xHideCB(m_xBuilder->weld_check_button("hide"))
     , m_xConditionFT(m_xBuilder->weld_label("condlabel"))
-    , m_xConditionED(new SwConditionEdit(m_xBuilder->weld_entry("withcond")))
+    , m_xConditionED(new ConditionEdit(m_xBuilder->weld_entry("withcond")))
     // edit in readonly sections
     , m_xEditInReadonlyCB(m_xBuilder->weld_check_button("editable"))
 {
@@ -1638,7 +1639,7 @@ void SwInsertSectionTabPage::ChangePasswd(bool bChange)
     bool bSet = bChange ? bChange : m_xPasswdCB->get_active();
     if (bSet)
     {
-        if(!m_aNewPasswd.getLength() || bChange)
+        if(!m_aNewPasswd.hasElements() || bChange)
         {
             SfxPasswordDialog aPasswdDlg(GetDialogFrameWeld());
             aPasswdDlg.ShowExtras(SfxShowExtras::CONFIRM);

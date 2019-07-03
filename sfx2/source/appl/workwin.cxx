@@ -35,15 +35,18 @@
 #include <childwinimpl.hxx>
 #include <sfx2/msgpool.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/toolbarids.hxx>
 #include <vcl/taskpanelist.hxx>
 #include <vcl/toolbox.hxx>
+#include <vcl/svapp.hxx>
 #include <tools/diagnose_ex.h>
 #include <svl/itempool.hxx>
 #include <svl/itemiter.hxx>
 #include <svl/whiter.hxx>
 #include <svl/intitem.hxx>
 #include <svl/eitem.hxx>
+#include <tools/svborder.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <com/sun/star/ui/XUIElement.hpp>
 #include <com/sun/star/frame/LayoutManagerEvents.hpp>
@@ -584,7 +587,13 @@ void SfxWorkWindow::DeleteControllers_Impl()
             // After TH a cancellation on the SplitWindow is not necessary
             // since this window is also destroyed (see below).
             if (pCW->pCli)
-                ReleaseChild_Impl(*pChild->GetWindow());
+            {
+                if (pChild->GetController())
+                    ReleaseChild_Impl(*pChild->GetController());
+                else
+                    ReleaseChild_Impl(*pChild->GetWindow());
+            }
+
             pCW->pWin = nullptr;
             pWorkWin->GetSystemWindow()->GetTaskPaneList()->RemoveWindow( pChild->GetWindow() );
             pChild->Destroy();
@@ -882,7 +891,7 @@ SfxChild_Impl* SfxWorkWindow::RegisterChild_Impl( vcl::Window& rWindow,
     return aChildren.back().get();
 }
 
-SfxChild_Impl* SfxWorkWindow::RegisterChild_Impl(std::shared_ptr<SfxModelessDialogController>& rController,
+SfxChild_Impl* SfxWorkWindow::RegisterChild_Impl(std::shared_ptr<SfxDialogController>& rController,
                     SfxChildAlignment eAlign )
 {
     DBG_ASSERT( aChildren.size() < 255, "too many children" );
@@ -915,7 +924,7 @@ void SfxWorkWindow::ReleaseChild_Impl( vcl::Window& rWindow )
     OSL_FAIL( "releasing unregistered child" );
 }
 
-void SfxWorkWindow::ReleaseChild_Impl(SfxModelessDialogController& rController)
+void SfxWorkWindow::ReleaseChild_Impl(SfxDialogController& rController)
 {
 
     SfxChild_Impl *pChild = nullptr;
@@ -1493,6 +1502,11 @@ void SfxWorkWindow::HidePopups_Impl(bool bHide, sal_uInt16 nId )
         {
             vcl::Window *pWin = pCW->GetWindow();
             SfxChild_Impl *pChild = FindChild_Impl(*pWin);
+            if (!pChild)
+            {
+                SAL_WARN("sfx.appl", "missing SfxChild_Impl child!");
+                continue;
+            }
             if (bHide)
             {
                 pChild->nVisible &= ~SfxChildVisibility::ACTIVE;
@@ -2320,7 +2334,7 @@ void SfxWorkWindow::ArrangeAutoHideWindows( SfxSplitWindow *pActSplitWin )
                 // If a Window is visible to the right, then the free region
                 // starts to the left from it, for example at the Client area
                 long nRight = aPos.X();
-                if ( nRight < aArea.Right() )
+                if ( !aArea.IsWidthEmpty() && nRight < aArea.Right() )
                     aArea.SetRight( nRight );
                 break;
             }

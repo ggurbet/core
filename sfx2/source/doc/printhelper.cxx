@@ -47,6 +47,7 @@
 #include <osl/mutex.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
@@ -151,7 +152,7 @@ SfxPrintHelper::SfxPrintHelper()
 
 void SAL_CALL SfxPrintHelper::initialize( const css::uno::Sequence< css::uno::Any >& aArguments )
 {
-    if ( !aArguments.getLength() )
+    if ( !aArguments.hasElements() )
         return;
 
     css::uno::Reference < css::frame::XModel > xModel;
@@ -639,7 +640,7 @@ void SAL_CALL SfxPrintHelper::print(const uno::Sequence< beans::PropertyValue >&
                 // We try to convert it to a file URL. If its possible
                 // we put the system path to the item set and let vcl work with it.
                 // No ucb or thread will be necessary then. In case it couldn't be
-                // converted it's not an URL nor a system path. Then we can't accept
+                // converted it's not a URL nor a system path. Then we can't accept
                 // this parameter and have to throw an exception.
                 const OUString& sSystemPath(sTemp);
                 OUString sFileURL;

@@ -34,6 +34,7 @@
 #include <editeng/unonrule.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/printer.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <svx/rotmodit.hxx>
 #include <svl/stritem.hxx>
 #include <vcl/virdev.hxx>
@@ -43,6 +44,7 @@
 #include <svl/intitem.hxx>
 #include <svl/zformat.hxx>
 #include <tools/fract.hxx>
+#include <osl/diagnose.h>
 
 #include <com/sun/star/table/BorderLine.hpp>
 #include <com/sun/star/table/CellVertJustify2.hpp>
@@ -60,6 +62,7 @@
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <comphelper/propertysequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
@@ -665,7 +668,7 @@ void SAL_CALL ScStyleFamilyObj::insertByName( const OUString& aName, const uno::
     uno::Reference< uno::XInterface > xInterface(aElement, uno::UNO_QUERY);
     if ( xInterface.is() )
     {
-        ScStyleObj* pStyleObj = ScStyleObj::getImplementation( xInterface );
+        ScStyleObj* pStyleObj = comphelper::getUnoTunnelImplementation<ScStyleObj>( xInterface );
         if ( pStyleObj && pStyleObj->GetFamily() == eFamily &&
                 !pStyleObj->IsInserted() )  // not yet inserted?
         {
@@ -953,36 +956,7 @@ ScStyleObj::~ScStyleObj()
 
 // XUnoTunnel
 
-sal_Int64 SAL_CALL ScStyleObj::getSomething(
-                const uno::Sequence<sal_Int8 >& rId )
-{
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-    }
-    return 0;
-}
-
-namespace
-{
-    class theScStyleObjUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theScStyleObjUnoTunnelId> {};
-}
-
-const uno::Sequence<sal_Int8>& ScStyleObj::getUnoTunnelId()
-{
-    return theScStyleObjUnoTunnelId::get().getSeq();
-}
-
-ScStyleObj* ScStyleObj::getImplementation(const uno::Reference<uno::XInterface>& rObj)
-{
-    ScStyleObj* pRet = nullptr;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScStyleObj*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
-}
+UNO3_GETIMPLEMENTATION_IMPL(ScStyleObj);
 
 void ScStyleObj::Notify( SfxBroadcaster&, const SfxHint& rHint )
 {
@@ -1765,18 +1739,23 @@ void ScStyleObj::setPropertyValue_Impl( const OUString& rPropertyName, const Sfx
         ScDocument& rDoc = pDocShell->GetDocument();
         if ( eFamily == SfxStyleFamily::Para )
         {
-            // update line height
-            ScopedVclPtrInstance< VirtualDevice > pVDev;
-            Point aLogic = pVDev->LogicToPixel(Point(1000,1000), MapMode(MapUnit::MapTwip));
-            double nPPTX = aLogic.X() / 1000.0;
-            double nPPTY = aLogic.Y() / 1000.0;
-            Fraction aZoom(1,1);
-            rDoc.StyleSheetChanged( pStyle, false, pVDev, nPPTX, nPPTY, aZoom, aZoom );
-
-            if (!rDoc.IsImportingXML())
+            // If we are loading, we can delay line height calculcation, because we are going to re-calc all of those
+            // after load.
+            if (pDocShell && !pDocShell->IsLoading())
             {
-                pDocShell->PostPaint( 0,0,0, MAXCOL,MAXROW,MAXTAB, PaintPartFlags::Grid|PaintPartFlags::Left );
-                pDocShell->SetDocumentModified();
+                // update line height
+                ScopedVclPtrInstance< VirtualDevice > pVDev;
+                Point aLogic = pVDev->LogicToPixel(Point(1000,1000), MapMode(MapUnit::MapTwip));
+                double nPPTX = aLogic.X() / 1000.0;
+                double nPPTY = aLogic.Y() / 1000.0;
+                Fraction aZoom(1,1);
+                rDoc.StyleSheetChanged( pStyle, false, pVDev, nPPTX, nPPTY, aZoom, aZoom );
+
+                if (!rDoc.IsImportingXML())
+                {
+                    pDocShell->PostPaint( 0,0,0, MAXCOL,MAXROW,MAXTAB, PaintPartFlags::Grid|PaintPartFlags::Left );
+                    pDocShell->SetDocumentModified();
+                }
             }
         }
         else

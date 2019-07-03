@@ -156,6 +156,8 @@ gb_CFLAGS := \
 	-wd4800 \
 	-wd4267 \
 
+gb_Helper_disable_warnings = $(filter-out -W4,$(1)) -w
+
 ifneq ($(COM_IS_CLANG),TRUE)
 
 # clang-cl doesn't support -Wv:18 for now
@@ -259,13 +261,16 @@ gb_DEBUGINFO_FLAGS := \
 	-FS \
 	-Zi \
 
+# See gb_Windows_PE_TARGETTYPEFLAGS_DEBUGINFO
+gb_LINKER_DEBUGINFO_FLAGS :=
+
 gb_COMPILEROPTFLAGS := -O2 -Oy-
 gb_COMPILERNOOPTFLAGS := -Od
 
 ifeq ($(gb_FULLDEPS),$(true))
 gb_COMPILERDEPFLAGS := -showIncludes
 define gb_create_deps
-| $(GBUILDDIR)/platform/filter-showIncludes.awk -vdepfile=$(1) -vobjectfile=$(2) -vsourcefile=$(3); exit $${PIPESTATUS[0]}
+| LC_ALL=C $(GBUILDDIR)/platform/filter-showIncludes.awk -vdepfile=$(1) -vobjectfile=$(2) -vsourcefile=$(3); exit $${PIPESTATUS[0]}
 endef
 else
 gb_COMPILERDEPFLAGS :=

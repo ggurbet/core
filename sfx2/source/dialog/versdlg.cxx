@@ -20,6 +20,8 @@
 #include <sal/config.h>
 
 #include <com/sun/star/document/XCmisDocument.hpp>
+#include <com/sun/star/util/RevisionTag.hpp>
+#include <com/sun/star/beans/NamedValue.hpp>
 
 #include <unotools/localedatawrapper.hxx>
 #include <svl/eitem.hxx>
@@ -27,11 +29,9 @@
 #include <svl/stritem.hxx>
 #include <svl/itemset.hxx>
 #include <unotools/useroptions.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <tools/datetime.hxx>
-#include <vcl/treelistentry.hxx>
 #include <svtools/miscopt.hxx>
 
 #include <versdlg.hxx>
@@ -218,6 +218,7 @@ void SfxVersionDialog::Init_Impl()
     SfxMedium* pMedium = pObjShell->GetMedium();
     uno::Sequence < util::RevisionTag > aVersions = pMedium->GetVersionList( true );
     m_pTable.reset(new SfxVersionTableDtor( aVersions ));
+    m_xVersionBox->freeze();
     for (size_t n = 0; n < m_pTable->size(); ++n)
     {
         SfxVersionInfo *pInfo = m_pTable->at( n );
@@ -227,6 +228,7 @@ void SfxVersionDialog::Init_Impl()
         m_xVersionBox->set_text(nLastRow, pInfo->aAuthor, 1);
         m_xVersionBox->set_text(nLastRow, ConvertWhiteSpaces_Impl(pInfo->aComment), 2);
     }
+    m_xVersionBox->thaw();
 
     if (auto nCount = m_pTable->size())
         m_xVersionBox->select(nCount - 1);
@@ -332,8 +334,8 @@ IMPL_LINK(SfxVersionDialog, ButtonHdl_Impl, weld::Button&, rButton, void)
             m_pViewFrame->GetBindings().ExecuteSynchron( SID_SAVEDOC, aItems );
             m_xVersionBox->freeze();
             m_xVersionBox->clear();
-            Init_Impl();
             m_xVersionBox->thaw();
+            Init_Impl();
         }
     }
     else if (&rButton == m_xDeleteButton.get() && nEntry != -1)
@@ -343,8 +345,8 @@ IMPL_LINK(SfxVersionDialog, ButtonHdl_Impl, weld::Button&, rButton, void)
         pObjShell->SetModified();
         m_xVersionBox->freeze();
         m_xVersionBox->clear();
-        Init_Impl();
         m_xVersionBox->thaw();
+        Init_Impl();
     }
     else if (&rButton == m_xOpenButton.get() && nEntry != -1)
     {

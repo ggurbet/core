@@ -215,12 +215,17 @@ namespace sw {
             SwpHints const*const pHints(0 < m_CurrentExtent
                 ? m_pMerged->extents[m_CurrentExtent-1].pNode->GetpSwpHints()
                 : nullptr);
-            m_CurrentHint = pHints ? pHints->Count() : 0;
+            if (pHints)
+            {
+                pHints->SortIfNeedBe();
+                m_CurrentHint = pHints->Count();
+            }
         }
         else
         {
             if (SwpHints const*const pHints = m_pNode->GetpSwpHints())
             {
+                pHints->SortIfNeedBe();
                 m_CurrentHint = pHints->Count();
             }
         }
@@ -239,7 +244,7 @@ namespace sw {
                     {
                         SwTextAttr *const pHint(
                                 pHints->GetSortedByEnd(m_CurrentHint - 1));
-                        if (*pHint->GetAnyEnd() < rExtent.nStart
+                        if (pHint->GetAnyEnd() < rExtent.nStart
                                 // <= if it has end and isn't empty
                             || (pHint->GetEnd()
                                 && *pHint->GetEnd() != pHint->GetStart()
@@ -248,7 +253,7 @@ namespace sw {
                             break;
                         }
                         --m_CurrentHint;
-                        if (*pHint->GetAnyEnd() <= rExtent.nEnd)
+                        if (pHint->GetAnyEnd() <= rExtent.nEnd)
                         {
                             if (ppNode)
                             {
@@ -265,6 +270,8 @@ namespace sw {
                     SwpHints const*const pHints(
                         m_pMerged->extents[m_CurrentExtent-1].pNode->GetpSwpHints());
                     m_CurrentHint = pHints ? pHints->Count() : 0; // reset
+                    if (pHints)
+                        pHints->SortIfNeedBe();
                 }
             }
             return nullptr;
@@ -516,9 +523,10 @@ void SwTextFrame::SwitchHorizontalToVertical( SwRect& rRect ) const
 
     if (IsVertLRBT())
     {
-        SAL_WARN_IF(!mbIsSwapped, "sw.core",
-                    "SwTextFrame::SwitchHorizontalToVertical, IsVertLRBT, not swapped");
-        rRect.Top(getFrameArea().Top() + getFrameArea().Width() - nOfstX);
+        if (mbIsSwapped)
+            rRect.Top(getFrameArea().Top() + getFrameArea().Width() - nOfstX);
+        else
+            rRect.Top(getFrameArea().Top() + getFrameArea().Height() - nOfstX);
     }
     else
         rRect.Top(getFrameArea().Top() + nOfstX);
@@ -594,7 +602,18 @@ void SwTextFrame::SwitchVerticalToHorizontal( SwRect& rRect ) const
             nOfstX = getFrameArea().Left() + getFrameArea().Width() - ( rRect.Left() + rRect.Width() );
     }
 
-    const long nOfstY = rRect.Top() - getFrameArea().Top();
+    long nOfstY;
+    if (IsVertLRBT())
+    {
+        // Note that mbIsSwapped only affects the frame area, not rRect, so rRect.Height() is used
+        // here unconditionally.
+        if (mbIsSwapped)
+            nOfstY = getFrameArea().Top() + getFrameArea().Width() - (rRect.Top() + rRect.Height());
+        else
+            nOfstY = getFrameArea().Top() + getFrameArea().Height() - (rRect.Top() + rRect.Height());
+    }
+    else
+        nOfstY = rRect.Top() - getFrameArea().Top();
     const long nWidth = rRect.Height();
     const long nHeight = rRect.Width();
 
@@ -869,6 +888,7 @@ void SwTextFrame::DestroyImpl()
 
 SwTextFrame::~SwTextFrame()
 {
+    RemoveFromCache();
 }
 
 namespace sw {
@@ -1321,8 +1341,7 @@ void SwTextFrame::ResetPreps()
 {
     if ( GetCacheIdx() != USHRT_MAX )
     {
-        SwParaPortion *pPara;
-        if( nullptr != (pPara = GetPara()) )
+        if (SwParaPortion *pPara = GetPara())
             pPara->ResetPreps();
     }
 }
@@ -1844,7 +1863,7 @@ static void lcl_ModifyOfst(SwTextFrame & rFrame,
     assert(nLen != TextFrameIndex(COMPLETE_STRING));
     if (rFrame.IsFollow() && nPos < rFrame.GetOfst())
     {
-        rFrame.ManipOfst( op(rFrame.GetOfst(), nLen) );
+        rFrame.ManipOfst( std::max(TextFrameIndex(0), op(rFrame.GetOfst(), nLen)) );
     }
 }
 
@@ -2615,6 +2634,7 @@ void SwTextFrame::PrepWidows( const sal_uInt16 nNeed, bool bNotify )
     SwParaPortion *pPara = GetPara();
     if ( !pPara )
         return;
+    pPara->SetPrepWidows();
 
     sal_uInt16 nHave = nNeed;
 
@@ -2646,7 +2666,6 @@ void SwTextFrame::PrepWidows( const sal_uInt16 nNeed, bool bNotify )
 
         if( bSplit )
         {
-            pPara->SetPrepWidows();
             GetFollow()->SetOfst( aLine.GetEnd() );
             aLine.TruncLines( true );
             if( pPara->IsFollowField() )
@@ -3976,7 +3995,8 @@ void SwTextFrame::CalcBaseOfstForFly()
     if (!GetDoc().getIDocumentSettingAccess().get(DocumentSettingId::ADD_VERTICAL_FLY_OFFSETS))
         return;
 
-    mnFlyAnchorVertOfstNoWrap = nFlyAnchorVertOfstNoWrap;
+    if (mnFlyAnchorOfstNoWrap > 0)
+        mnFlyAnchorVertOfstNoWrap = nFlyAnchorVertOfstNoWrap;
 }
 
 SwTwips SwTextFrame::GetBaseVertOffsetForFly(bool bIgnoreFlysAnchoredAtThisFrame) const

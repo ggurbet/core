@@ -617,7 +617,7 @@ void OViewsWindow::setMarked(const uno::Sequence< uno::Reference< report::XRepor
             OSectionWindow* pSectionWindow = getSectionWindow(xSection);
             if ( pSectionWindow )
             {
-                SvxShape* pShape = SvxShape::getImplementation( *pIter );
+                SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( *pIter );
                 SdrObject* pObject = pShape ? pShape->GetSdrObject() : nullptr;
                 OSL_ENSURE( pObject, "OViewsWindow::setMarked: no SdrObject for the shape!" );
                 if ( pObject )
@@ -1022,7 +1022,7 @@ void OViewsWindow::BegDragObj(const Point& _aPnt, SdrHdl* _pHdl,const OSectionVi
 
     int nViewCount = 0;
     Point aNewObjPos(0,0);
-    Point aLeftTop = Point(SAL_MAX_INT32, SAL_MAX_INT32);
+    Point aLeftTop(SAL_MAX_INT32, SAL_MAX_INT32);
     for (const auto& rxSection : m_aSections)
     {
         OReportSection& rReportSection = rxSection->getReportSection();
@@ -1212,7 +1212,7 @@ void OViewsWindow::EndDragObj(bool _bControlKeyPressed, const OSectionView* _pSe
                 pInSection->EndDragObj();
         }
 
-        if ( aAllreadyCopiedObjects.getLength() )
+        if ( aAllreadyCopiedObjects.hasElements() )
         {
             try
             {

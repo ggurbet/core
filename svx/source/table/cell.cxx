@@ -23,6 +23,7 @@
 #include <com/sun/star/text/WritingMode.hpp>
 #include <com/sun/star/table/TableBorder.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
+#include <com/sun/star/lang/Locale.hpp>
 
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -41,13 +42,17 @@
 #include <svx/svdoutl.hxx>
 #include <svx/unoshtxt.hxx>
 #include <svx/svdmodel.hxx>
-
+#include <svx/sdooitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdmetitm.hxx>
+#include <svx/xit.hxx>
 #include <getallcharpropids.hxx>
 #include "tableundo.hxx"
 #include <cell.hxx>
 #include <svx/unoshprp.hxx>
 #include <svx/unoshape.hxx>
 #include <editeng/editobj.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/charrotateitem.hxx>
 #include <svx/xflbstit.hxx>

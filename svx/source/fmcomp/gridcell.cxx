@@ -32,6 +32,7 @@
 #include <com/sun/star/awt/MouseWheelBehavior.hpp>
 #include <com/sun/star/awt/VisualEffect.hpp>
 #include <com/sun/star/container/XChild.hpp>
+#include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/container/XNamed.hpp>
 #include <com/sun/star/form/FormComponentType.hpp>
 #include <com/sun/star/form/XBoundComponent.hpp>
@@ -41,9 +42,12 @@
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
 #include <com/sun/star/sdbc/ColumnValue.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
+#include <com/sun/star/sdbc/XRowSet.hpp>
 #include <com/sun/star/sdbc/XStatement.hpp>
 #include <com/sun/star/util/NumberFormat.hpp>
 #include <com/sun/star/util/XNumberFormatsSupplier.hpp>
+#include <com/sun/star/util/XNumberFormatter.hpp>
 #include <com/sun/star/util/Time.hpp>
 #include <com/sun/star/util/Date.hpp>
 
@@ -61,7 +65,6 @@
 #include <vcl/fmtfield.hxx>
 #include <svl/numuno.hxx>
 #include <svl/zforlist.hxx>
-#include <svtools/svmedit.hxx>
 #include <svx/dialmgr.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/debug.hxx>
@@ -1326,7 +1329,7 @@ void DbFormattedField::Init( vcl::Window& rParent, const Reference< XRowSet >& x
     SvNumberFormatter* pFormatterUsed = nullptr;
     if (m_xSupplier.is())
     {
-        SvNumberFormatsSupplierObj* pImplmentation = SvNumberFormatsSupplierObj::getImplementation(m_xSupplier);
+        SvNumberFormatsSupplierObj* pImplmentation = comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>(m_xSupplier);
         if (pImplmentation)
             pFormatterUsed = pImplmentation->GetNumberFormatter();
         else
@@ -1911,7 +1914,7 @@ void DbNumericField::implAdjustGenericFieldSetting( const Reference< XPropertySe
     SvNumberFormatter* pFormatterUsed = nullptr;
     if ( xSupplier.is() )
     {
-        SvNumberFormatsSupplierObj* pImplmentation = SvNumberFormatsSupplierObj::getImplementation( xSupplier );
+        SvNumberFormatsSupplierObj* pImplmentation = comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>( xSupplier );
         pFormatterUsed = pImplmentation ? pImplmentation->GetNumberFormatter() : nullptr;
     }
     if ( nullptr == pFormatterUsed )
@@ -2551,7 +2554,7 @@ void DbListBox::SetList(const Any& rItems)
                  pField->InsertEntry(*pStrings);
 
             m_rColumn.getModel()->getPropertyValue(FM_PROP_VALUE_SEQ) >>= m_aValueList;
-            m_bBound = m_aValueList.getLength() > 0;
+            m_bBound = m_aValueList.hasElements();
 
             // tell the grid control that this controller is invalid and has to be re-initialized
             invalidatedController();
@@ -2637,7 +2640,7 @@ void DbListBox::updateFromModel( Reference< XPropertySet > _rxModel )
     _rxModel->getPropertyValue( FM_PROP_SELECT_SEQ ) >>= aSelection;
 
     sal_Int16 nSelection = -1;
-    if ( aSelection.getLength() > 0 )
+    if ( aSelection.hasElements() )
         nSelection = aSelection[ 0 ];
 
     ListBox* pListBox = static_cast< ListBox* >( m_pWindow.get() );
@@ -3559,9 +3562,9 @@ void FmXTextCell::PaintFieldToCell(OutputDevice& rDev,
         else
             rDev.DrawText(rRect, aText, nStyle);
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN("svx.fmcomp", "PaintFieldToCell: caught " << e);
+        TOOLS_WARN_EXCEPTION("svx.fmcomp", "PaintFieldToCell");
     }
 }
 

@@ -23,6 +23,11 @@
 #include <view.hxx>
 #include <drawbase.hxx>
 #include <unobaseclass.hxx>
+#include <fmtanchr.hxx>
+#include <flyfrm.hxx>
+#include <ndtxt.hxx>
+#include <IDocumentUndoRedo.hxx>
+#include <i18nutil/unicode.hxx>
 #include <rtl/character.hxx>
 
 inline void SwWrtShell::OpenMark()
@@ -44,23 +49,6 @@ inline void SwWrtShell::CloseMark( bool bOkFlag )
     EndAllAction();
 }
 
-namespace {
-
-bool isUnicodeVariationSequenceSelector( sal_uInt32 nCode )
-{
-    return ( nCode >= 0xFE00 && nCode <= 0xFE0F )   // Variation Selectors block
-        || ( nCode >= 0xE0100 && nCode <= 0xE01EF );// Variation Selectors Supplement block
-}
-
-// Return if the character might be a base character of a CJK ideographic variation sequence
-bool isCJKIVSCharacters( sal_uInt32 nCode )
-{
-    return ( nCode >= 0x4E00 && nCode <= 0x9FFF )       // CJK Unified Ideographs
-        || ( nCode >= 0x3400 && nCode <= 0x4DBF )       // CJK Unified Ideographs Extension A
-        || ( nCode >= 0x20000 && nCode <= 0x2A6DF );    // CJK Unified Ideographs Extension B
-}
-
-}
 
 
 // #i23725#
@@ -268,14 +256,14 @@ bool SwWrtShell::DelLeft()
                 nCode = sStr.iterateCodePoints( &nIndex );
             }
 
-            if ( isUnicodeVariationSequenceSelector( nCode ) )
+            if ( unicode::isIVSSelector( nCode ) )
             {
                 SwCursorShell::Push();
                 SwCursorShell::Left(1, CRSR_SKIP_CHARS);
                 OUString sStr = GetSelText();
                 sal_Int32 nIndex = 0;
                 nCode = sStr.iterateCodePoints( &nIndex );
-                if ( isCJKIVSCharacters( nCode ) )
+                if ( unicode::isCJKIVSCharacter( nCode ) )
                     SwCursorShell::Pop( SwCursorShell::PopMode::DeleteStack );
                 else
                     SwCursorShell::Pop( SwCursorShell::PopMode::DeleteCurrent ); // For the weak script.
@@ -410,7 +398,43 @@ bool SwWrtShell::DelRight()
             // #108205# Remember object's position.
             Point aTmpPt = GetObjRect().TopLeft();
 
+            // Remember the anchor of the selected object before deletion.
+            std::unique_ptr<SwPosition> pAnchor;
+            SwFlyFrame* pFly = GetSelectedFlyFrame();
+            if (pFly)
+            {
+                SwFrameFormat* pFormat = pFly->GetFormat();
+                if (pFormat && pFormat->GetAnchor().GetAnchorId() == RndStdIds::FLY_AT_CHAR)
+                {
+                    if (pFormat->GetAnchor().GetContentAnchor())
+                    {
+                        pAnchor.reset(new SwPosition(*pFormat->GetAnchor().GetContentAnchor()));
+                    }
+                }
+            }
+
+            // Group deletion of the object and its comment together.
+            mxDoc->GetIDocumentUndoRedo().StartUndo(SwUndoId::EMPTY, nullptr);
+
             DelSelectedObj();
+
+            if (pAnchor)
+            {
+                SwTextNode* pTextNode = pAnchor->nNode.GetNode().GetTextNode();
+                if (pTextNode)
+                {
+                    const SwTextField* pField(
+                        pTextNode->GetFieldTextAttrAt(pAnchor->nContent.GetIndex(), true));
+                    if (pField)
+                    {
+                        // Remove the comment of the deleted object.
+                        *GetCurrentShellCursor().GetPoint() = *pAnchor;
+                        DelRight();
+                    }
+                }
+            }
+
+            mxDoc->GetIDocumentUndoRedo().EndUndo(SwUndoId::EMPTY, nullptr);
 
             // #108205# Set cursor to remembered position.
             SetCursor(&aTmpPt);

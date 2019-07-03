@@ -28,6 +28,7 @@
 #include <sfx2/sfxbasecontroller.hxx>
 #include "SwXDocumentSettings.hxx"
 #include <comphelper/MasterPropertySetInfo.hxx>
+#include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/i18n/XForbiddenCharacters.hpp>
@@ -640,7 +641,7 @@ void SwXDocumentSettings::_setSingleValue( const comphelper::PropertyInfo & rInf
             if(rValue >>= aNew)
             {
                 mpDoc->getIDocumentRedlineAccess().SetRedlinePassword(aNew);
-                if(aNew.getLength())
+                if(aNew.hasElements())
                 {
                     RedlineFlags eMode = mpDoc->getIDocumentRedlineAccess().GetRedlineFlags();
                     eMode |= RedlineFlags::On;

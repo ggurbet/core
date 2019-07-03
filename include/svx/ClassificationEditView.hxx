@@ -13,11 +13,9 @@
 
 #include <sal/config.h>
 #include <svx/svxdllapi.h>
-#include <vcl/ctrl.hxx>
-#include <editeng/flditem.hxx>
-#include <editeng/numitem.hxx>
-#include <editeng/editeng.hxx>
-#include <editeng/editview.hxx>
+#include <editeng/weldeditview.hxx>
+#include <editeng/svxenum.hxx>
+#include <vcl/customweld.hxx>
 
 namespace svx {
 
@@ -29,14 +27,13 @@ public:
     virtual OUString CalcFieldValue(const SvxFieldItem& rField, sal_Int32 nPara, sal_Int32 nPos, boost::optional<Color>& rTxtColor, boost::optional<Color>& rFldColor) override;
 };
 
-class SVX_DLLPUBLIC ClassificationEditView : public Control
+class SVX_DLLPUBLIC ClassificationEditView : public WeldEditView
 {
 public:
-    ClassificationEditView(vcl::Window* pParent,  WinBits nBits);
+    ClassificationEditView();
     virtual ~ClassificationEditView() override;
 
-    using Control::SetFont;
-    using Control::SetText;
+    virtual void makeEditEngine() override;
 
     void SetCharAttributes();
 
@@ -46,28 +43,20 @@ public:
 
     void SetNumType(SvxNumType eNumType);
 
-    std::unique_ptr<ClassificationEditEngine> pEdEngine;
-    std::unique_ptr<EditView> pEdView;
-
-    const ClassificationEditEngine& getEditEngine()
+    ClassificationEditEngine& getEditEngine()
     {
-        return *pEdEngine;
+        return *static_cast<ClassificationEditEngine*>(m_xEditEngine.get());
+    }
+
+    EditView& getEditView()
+    {
+        return *m_xEditView.get();
     }
 
     void SetModifyHdl(const Link<LinkParamNone*,void>& rLink)
     {
-        pEdEngine->SetModifyHdl(rLink);
+        m_xEditEngine->SetModifyHdl(rLink);
     }
-
-protected:
-    virtual void Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect ) override;
-    virtual void MouseMove( const MouseEvent& rMEvt ) override;
-    virtual void MouseButtonDown( const MouseEvent& rMEvt ) override;
-    virtual void MouseButtonUp( const MouseEvent& rMEvt ) override;
-    virtual void KeyInput( const KeyEvent& rKEvt ) override;
-    virtual void Command( const CommandEvent& rCEvt ) override;
-    virtual void GetFocus() override;
-    virtual void Resize() override;
 };
 
 } // end svx namespace

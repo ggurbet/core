@@ -57,9 +57,7 @@ private:
 
     void UpdateDefaultSettings();
     void UpdatePersonaSettings();
-
 };
-
 
 #endif // INCLUDED_VCL_NOTEBOOKBAR_HXX
 

@@ -180,6 +180,7 @@
 #include <memory>
 #include <fchrfmt.hxx>
 #include <redline.hxx>
+#include <DocumentRedlineManager.hxx>
 
 #define TWIPS_PER_PIXEL 15
 
@@ -947,8 +948,7 @@ Reference< XIndexAccess >
     auto pResultCursor(FindAny(xDesc, xCursor, true, nResult, xTmp));
     if(!pResultCursor)
         throw RuntimeException("No result cursor");
-    Reference< XIndexAccess >  xRet;
-    xRet = SwXTextRanges::Create( nResult ? &(*pResultCursor) : nullptr );
+    Reference< XIndexAccess >  xRet = SwXTextRanges::Create( nResult ? &(*pResultCursor) : nullptr );
     return xRet;
 }
 
@@ -1082,12 +1082,10 @@ void SwXTextDocument::setPagePrintSettings(const Sequence< beans::PropertyValue 
     const SwPagePreviewPrtData* pData = pDocShell->GetDoc()->GetPreviewPrtData();
     if(pData)
         aData = *pData;
-    const beans::PropertyValue* pProperties = aSettings.getConstArray();
-    int nCount = aSettings.getLength();
-    for(int i = 0; i < nCount; i++)
+    for(const beans::PropertyValue& rProperty : aSettings)
     {
-        OUString sName = pProperties[i].Name;
-        const Any& rVal = pProperties[i].Value;
+        OUString sName = rProperty.Name;
+        const Any& rVal = rProperty.Value;
         bool bException;
         sal_uInt32 nVal = lcl_Any_To_ULONG(rVal, bException);
         if( sName == "PageRows" )
@@ -1155,10 +1153,9 @@ void SwXTextDocument::printPages(const Sequence< beans::PropertyValue >& xOption
                                 pDocShell->GetDoc()->GetAttrPool());
     aReq.AppendItem(SfxBoolItem(FN_PRINT_PAGEPREVIEW, true));
 
-    for ( int n = 0; n < xOptions.getLength(); ++n )
+    for ( const beans::PropertyValue &rProp : xOptions )
     {
         // get Property-Value from options
-        const beans::PropertyValue &rProp = xOptions.getConstArray()[n];
         Any aValue( rProp.Value );
 
         // FileName-Property?
@@ -1765,18 +1762,15 @@ Reference< XInterface >  SwXTextDocument::createInstanceWithArguments(
 Sequence< OUString > SwXTextDocument::getAvailableServiceNames()
 {
     static Sequence< OUString > aServices;
-    if ( aServices.getLength() == 0 )
+    if ( !aServices.hasElements() )
     {
         Sequence< OUString > aRet =  SvxFmMSFactory::getAvailableServiceNames();
-        OUString* pRet = aRet.getArray();
-        for ( sal_Int32 i = 0; i < aRet.getLength(); ++i )
+        auto i = comphelper::findValue(aRet, "com.sun.star.drawing.OLE2Shape");
+        if (i != -1)
         {
-            if ( pRet[i] == "com.sun.star.drawing.OLE2Shape" )
-            {
-                pRet[i] = pRet[aRet.getLength() - 1];
-                aRet.realloc( aRet.getLength() - 1 ); // <pRet> no longer valid.
-                break;
-            }
+            auto nLength = aRet.getLength();
+            aRet[i] = aRet[nLength - 1];
+            aRet.realloc( nLength - 1 );
         }
         Sequence< OUString > aOwn = SwXServiceProvider::GetAllServiceNames();
         aServices = SvxFmMSFactory::concatServiceNames(aRet, aOwn);
@@ -1878,10 +1872,9 @@ void SwXTextDocument::setPropertyValue(const OUString& rPropertyName, const Any&
             RedlineFlags eMode = pDocShell->GetDoc()->getIDocumentRedlineAccess().GetRedlineFlags();
             if(WID_DOC_CHANGES_SHOW == pEntry->nWID)
             {
-                eMode &= ~RedlineFlags(RedlineFlags::ShowInsert | RedlineFlags::ShowDelete);
-                eMode |= RedlineFlags::ShowInsert;
-                if( bSet )
-                    eMode |= RedlineFlags::ShowDelete;
+                eMode |= RedlineFlags(RedlineFlags::ShowInsert | RedlineFlags::ShowDelete);
+                if( !bSet )
+                    pDocShell->GetDoc()->GetDocumentRedlineManager().SetHideRedlines(true);
             }
             else if(WID_DOC_CHANGES_RECORD == pEntry->nWID)
             {
@@ -1897,7 +1890,7 @@ void SwXTextDocument::setPropertyValue(const OUString& rPropertyName, const Any&
             {
                 SwDoc* pDoc = pDocShell->GetDoc();
                 pDoc->getIDocumentRedlineAccess().SetRedlinePassword(aNew);
-                if(aNew.getLength())
+                if(aNew.hasElements())
                 {
                     RedlineFlags eMode = pDoc->getIDocumentRedlineAccess().GetRedlineFlags();
                     eMode |= RedlineFlags::On;
@@ -2281,12 +2274,10 @@ PropertyState SAL_CALL SwXTextDocument::getPropertyState( const OUString& rPrope
 Sequence< PropertyState > SAL_CALL SwXTextDocument::getPropertyStates( const Sequence< OUString >& rPropertyNames )
 {
     const sal_Int32 nCount = rPropertyNames.getLength();
-    const OUString * pNames = rPropertyNames.getConstArray();
     Sequence < PropertyState > aRet ( nCount );
-    PropertyState *pState = aRet.getArray();
 
-    for ( sal_Int32 nIndex = 0; nIndex < nCount; nIndex++)
-        pState[nIndex] = getPropertyState( pNames[nIndex] );
+    std::transform(rPropertyNames.begin(), rPropertyNames.end(), aRet.begin(),
+        [this](const OUString& rName) -> PropertyState { return getPropertyState(rName); });
 
     return aRet;
 }
@@ -2332,7 +2323,7 @@ static VclPtr< OutputDevice > lcl_GetOutputDevice( const SwPrintUIOptions &rPrin
     aAny >>= xRenderDevice;
     if (xRenderDevice.is())
     {
-        VCLXDevice*     pDevice = VCLXDevice::GetImplementation( xRenderDevice );
+        VCLXDevice*     pDevice = comphelper::getUnoTunnelImplementation<VCLXDevice>( xRenderDevice );
         pOut = pDevice ? pDevice->GetOutputDevice() : VclPtr< OutputDevice >();
     }
 
@@ -2343,15 +2334,9 @@ static bool lcl_SeqHasProperty(
     const uno::Sequence< beans::PropertyValue >& rOptions,
     const sal_Char *pPropName )
 {
-    bool bRes = false;
-    const sal_Int32 nLen = rOptions.getLength();
-    const beans::PropertyValue *pProps = rOptions.getConstArray();
-    for (sal_Int32 i = 0;  i < nLen && !bRes;  ++i)
-    {
-        if (pProps[i].Name.equalsAscii( pPropName ))
-            bRes = true;
-    }
-    return bRes;
+    return std::any_of(rOptions.begin(), rOptions.end(),
+        [&pPropName](const beans::PropertyValue& rProp) {
+            return rProp.Name.equalsAscii( pPropName ); });
 }
 
 static bool lcl_GetBoolProperty(
@@ -2359,16 +2344,11 @@ static bool lcl_GetBoolProperty(
     const sal_Char *pPropName )
 {
     bool bRes = false;
-    const sal_Int32 nLen = rOptions.getLength();
-    const beans::PropertyValue *pProps = rOptions.getConstArray();
-    for ( sal_Int32 i = 0;  i < nLen;  ++i )
-    {
-        if ( pProps[i].Name.equalsAscii( pPropName ) )
-        {
-            pProps[i].Value >>= bRes;
-            break;
-        }
-    }
+    auto pOption = std::find_if(rOptions.begin(), rOptions.end(),
+        [&pPropName](const beans::PropertyValue& rProp) {
+            return rProp.Name.equalsAscii( pPropName ); });
+    if (pOption != rOptions.end())
+        pOption->Value >>= bRes;
     return bRes;
 }
 
@@ -2384,16 +2364,10 @@ SfxViewShell * SwXTextDocument::GetRenderView(
     else
     {
         uno::Any aTmp;
-        const sal_Int32 nLen = rOptions.getLength();
-        const beans::PropertyValue *pProps = rOptions.getConstArray();
-        for (sal_Int32 i = 0; i < nLen; ++i)
-        {
-            if ( pProps[i].Name == "View" )
-            {
-                aTmp = pProps[i].Value;
-                break;
-            }
-        }
+        auto pOption = std::find_if(rOptions.begin(), rOptions.end(),
+            [](const beans::PropertyValue& rProp) { return rProp.Name == "View"; });
+        if (pOption != rOptions.end())
+            aTmp = pOption->Value;
 
         uno::Reference< frame::XController > xController;
         if (aTmp >>= xController)
@@ -2614,22 +2588,25 @@ sal_Int32 SAL_CALL SwXTextDocument::getRendererCount(
             // since printing now also use the API for PDF export this option
             // should be set for printing as well ...
             pViewShell->SetPDFExportOption( true );
-            bool bOrigStatus = pRenderDocShell->IsEnableSetModified();
-            // check configuration: shall update of printing information in DocInfo set the document to "modified"?
+
+            // there is some redundancy between those two function calls, but right now
+            // there is no time to sort this out.
+            //TODO: check what exactly needs to be done and make just one function for that
+            pViewShell->CalcLayout();
+            pViewShell->CalcPagesForPrint( pViewShell->GetPageCount() );
+
+
+            // #122919# Force field update before PDF export, but after layout init (tdf#121962)
             bool bStateChanged = false;
-            if ( bOrigStatus && !SvtPrintWarningOptions().IsModifyDocumentOnPrintingAllowed() )
+            // check configuration: shall update of printing information in DocInfo set the document to "modified"?
+            if ( pRenderDocShell->IsEnableSetModified() && !SvtPrintWarningOptions().IsModifyDocumentOnPrintingAllowed() )
             {
                 pRenderDocShell->EnableSetModified( false );
                 bStateChanged = true;
             }
-
+            pViewShell->SwViewShell::UpdateFields(true);
             if( bStateChanged )
                 pRenderDocShell->EnableSetModified();
-
-            // tdf#122607 Re-layout the doc. Calling CalcLayout here is not enough, as it depends
-            // on the currently visible area which is 0 when doing headless conversion.
-            pViewShell->Reformat();
-            pViewShell->CalcPagesForPrint( pViewShell->GetPageCount() );
 
             pViewShell->SetPDFExportOption( false );
 
@@ -3304,7 +3281,7 @@ OUString SwXTextDocument::getTrackedChanges()
             boost::property_tree::ptree aTrackedChange;
             aTrackedChange.put("index", rRedlineTable[i]->GetId());
             aTrackedChange.put("author", rRedlineTable[i]->GetAuthorString(1).toUtf8().getStr());
-            aTrackedChange.put("type", nsRedlineType_t::SwRedlineTypeToOUString(
+            aTrackedChange.put("type", SwRedlineTypeToOUString(
                                            rRedlineTable[i]->GetRedlineData().GetType())
                                            .toUtf8()
                                            .getStr());
@@ -3458,9 +3435,8 @@ void SwXTextDocument::initializeForTiledRendering(const css::uno::Sequence<css::
     // Tiled rendering defaults.
     SwViewOption aViewOption(*pViewShell->GetViewOptions());
     aViewOption.SetHardBlank(false);
-    for (sal_Int32 i = 0; i < rArguments.getLength(); ++i)
+    for (const beans::PropertyValue& rValue : rArguments)
     {
-        const beans::PropertyValue& rValue = rArguments[i];
         if (rValue.Name == ".uno:HideWhitespace" && rValue.Value.has<bool>())
             aViewOption.SetHideWhitespaceMode(rValue.Value.get<bool>());
         else if (rValue.Name == ".uno:ShowBorderShadow" && rValue.Value.has<bool>())
@@ -3573,7 +3549,7 @@ void SwXTextDocument::setTextSelection(int nType, int nX, int nY)
     }
 }
 
-OString SwXTextDocument::getTextSelection(const char* pMimeType, OString& rUsedMimeType)
+uno::Reference<datatransfer::XTransferable> SwXTextDocument::getSelection()
 {
     SolarMutexGuard aGuard;
 
@@ -3603,50 +3579,7 @@ OString SwXTextDocument::getTextSelection(const char* pMimeType, OString& rUsedM
     if (!xTransferable.is())
         xTransferable = new SwTransferable(*pWrtShell);
 
-    // Take care of UTF-8 text here.
-    OString aMimeType(pMimeType);
-    bool bConvert = false;
-    sal_Int32 nIndex = 0;
-    if (aMimeType.getToken(0, ';', nIndex) == "text/plain")
-    {
-        if (aMimeType.getToken(0, ';', nIndex) == "charset=utf-8")
-        {
-            aMimeType = "text/plain;charset=utf-16";
-            bConvert = true;
-        }
-    }
-
-    datatransfer::DataFlavor aFlavor;
-    aFlavor.MimeType = OUString::fromUtf8(aMimeType.getStr());
-    if (aMimeType == "text/plain;charset=utf-16")
-        aFlavor.DataType = cppu::UnoType<OUString>::get();
-    else
-        aFlavor.DataType = cppu::UnoType< uno::Sequence<sal_Int8> >::get();
-
-    if (!xTransferable->isDataFlavorSupported(aFlavor))
-        return OString();
-
-    uno::Any aAny(xTransferable->getTransferData(aFlavor));
-
-    OString aRet;
-    if (aFlavor.DataType == cppu::UnoType<OUString>::get())
-    {
-        OUString aString;
-        aAny >>= aString;
-        if (bConvert)
-            aRet = OUStringToOString(aString, RTL_TEXTENCODING_UTF8);
-        else
-            aRet = OString(reinterpret_cast<const sal_Char *>(aString.getStr()), aString.getLength() * sizeof(sal_Unicode));
-    }
-    else
-    {
-        uno::Sequence<sal_Int8> aSequence;
-        aAny >>= aSequence;
-        aRet = OString(reinterpret_cast<sal_Char*>(aSequence.getArray()), aSequence.getLength());
-    }
-
-    rUsedMimeType = pMimeType;
-    return aRet;
+    return xTransferable;
 }
 
 void SwXTextDocument::setGraphicSelection(int nType, int nX, int nY)
@@ -3807,18 +3740,21 @@ uno::Sequence< lang::Locale > SAL_CALL SwXTextDocument::getDocumentLanguages(
             LanguageType nLang = LANGUAGE_DONTKNOW;
             if (bLatin)
             {
+                assert(pSet);
                 nLang = dynamic_cast< const SvxLanguageItem & >(pSet->Get( RES_CHRATR_LANGUAGE, false )).GetLanguage();
                 if (nLang != LANGUAGE_DONTKNOW && nLang != LANGUAGE_SYSTEM)
                     aAllLangs.insert( nLang );
             }
             if (bAsian)
             {
+                assert(pSet);
                 nLang = dynamic_cast< const SvxLanguageItem & >(pSet->Get( RES_CHRATR_CJK_LANGUAGE, false )).GetLanguage();
                 if (nLang != LANGUAGE_DONTKNOW && nLang != LANGUAGE_SYSTEM)
                     aAllLangs.insert( nLang );
             }
             if (bComplex)
             {
+                assert(pSet);
                 nLang = dynamic_cast< const SvxLanguageItem & >(pSet->Get( RES_CHRATR_CTL_LANGUAGE, false )).GetLanguage();
                 if (nLang != LANGUAGE_DONTKNOW && nLang != LANGUAGE_SYSTEM)
                     aAllLangs.insert( nLang );
@@ -4129,13 +4065,9 @@ Sequence< OUString > SwXLinkNameAccessWrapper::getElementNames()
     else
     {
         Sequence< OUString > aOrg = xRealAccess->getElementNames();
-        const OUString* pOrgArr = aOrg.getConstArray();
         aRet.realloc(aOrg.getLength());
-        OUString* pResArr = aRet.getArray();
-        for(long i = 0; i < aOrg.getLength(); i++)
-        {
-            pResArr[i] = pOrgArr[i] + sLinkSuffix;
-        }
+        std::transform(aOrg.begin(), aOrg.end(), aRet.begin(),
+            [this](const OUString& rOrg) -> OUString { return rOrg + sLinkSuffix; });
     }
     return aRet;
 }

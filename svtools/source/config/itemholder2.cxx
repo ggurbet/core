@@ -35,6 +35,7 @@
 #include <svtools/printoptions.hxx>
 #include <unotools/options.hxx>
 #include <svtools/miscopt.hxx>
+#include <tools/diagnose_ex.h>
 
 namespace svtools {
 
@@ -54,13 +55,13 @@ ItemHolder2::ItemHolder2()
         throw;
     }
 #ifdef DBG_UTIL
-    catch(const css::uno::Exception& rEx)
+    catch(const css::uno::Exception&)
     {
         static bool bMessage = true;
         if(bMessage)
         {
             bMessage = false;
-            SAL_WARN( "svtools", "CreateInstance with arguments: " << rEx );
+            TOOLS_WARN_EXCEPTION( "svtools", "CreateInstance with arguments" );
         }
     }
 #else
@@ -90,7 +91,7 @@ void SAL_CALL ItemHolder2::disposing(const css::lang::EventObject&)
 
 void ItemHolder2::impl_addItem(EItem eItem)
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     for ( auto const & rInfo : m_lItems )
     {
@@ -110,7 +111,7 @@ void ItemHolder2::impl_releaseAllItems()
 {
     std::vector<TItemInfo> items;
     {
-        ::osl::ResettableMutexGuard aLock(m_aLock);
+        osl::MutexGuard aLock(m_aLock);
         items.swap(m_lItems);
     }
 

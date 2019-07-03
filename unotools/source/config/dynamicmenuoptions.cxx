@@ -21,8 +21,6 @@
 
 #include <sal/log.hxx>
 #include <unotools/dynamicmenuoptions.hxx>
-#include <unotools/moduleoptions.hxx>
-#include <unotools/configmgr.hxx>
 #include <unotools/configitem.hxx>
 #include <tools/debug.hxx>
 #include <com/sun/star/uno/Any.hxx>
@@ -483,8 +481,7 @@ void SvtDynamicMenuOptions_Impl::impl_SortAndExpandPropertyNames( const Sequence
 
     // Copy all items to temp. vector to use fast sort operations :-)
     lTemp.reserve(nSourceCount);
-    for (sal_Int32 nSourceStep = 0; nSourceStep < nSourceCount; ++nSourceStep)
-        lTemp.push_back( lSource[nSourceStep] );
+    std::copy(lSource.begin(), lSource.end(), std::back_inserter(lTemp));
 
     // Sort all entries by number ...
     stable_sort( lTemp.begin(), lTemp.end(), CountWithPrefixSort() );

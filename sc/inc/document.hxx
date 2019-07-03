@@ -24,6 +24,7 @@
 #include <vcl/errcode.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <vcl/vclptr.hxx>
+#include "patattr.hxx"
 #include "scdllapi.h"
 #include "interpretercontext.hxx"
 #include "rangelst.hxx"
@@ -36,6 +37,7 @@
 #include "calcmacros.hxx"
 #include "calcconfig.hxx"
 #include <o3tl/deleter.hxx>
+#include <o3tl/sorted_vector.hxx>
 #include <svl/hint.hxx>
 #include <svl/typedwhich.hxx>
 #include <svl/zforlist.hxx>
@@ -141,7 +143,6 @@ class ScExternalRefManager;
 class ScFormulaCell;
 class ScMacroManager;
 class ScOutlineTable;
-class ScPatternAttr;
 class ScPrintRangeSaver;
 class ScStyleSheet;
 class ScStyleSheetPool;
@@ -195,6 +196,7 @@ enum class ScSheetEventId;
 class BitmapEx;
 class ScColumnsRange;
 struct ScFilterEntries;
+typedef o3tl::sorted_vector<sal_uInt32> ScCondFormatIndexes;
 
 namespace sc {
 
@@ -222,6 +224,12 @@ namespace com { namespace sun { namespace star {
         struct TablePageBreakData;
     }
 } } }
+
+namespace weld {
+
+class Window;
+
+}
 
 #define SC_DOC_NEW          0xFFFF
 
@@ -626,7 +634,7 @@ public:
 
     void                        Clear( bool bFromDestructor = false );
 
-    std::unique_ptr<ScFieldEditEngine> CreateFieldEditEngine();
+    std::unique_ptr<ScFieldEditEngine> CreateFieldEditEngine(bool bUpdateMode);
     void                        DisposeFieldEditEngine(std::unique_ptr<ScFieldEditEngine>& rpEditEngine);
 
     /**
@@ -785,6 +793,9 @@ public:
     ScRangePairList*    GetRowNameRanges() { return xRowNameRanges.get(); }
     ScRangePairListRef& GetColNameRangesRef() { return xColNameRanges; }
     ScRangePairListRef& GetRowNameRangesRef() { return xRowNameRanges; }
+
+    SC_DLLPUBLIC SCCOL ClampToAllocatedColumns(SCTAB nTab, SCCOL nCol) const;
+    SC_DLLPUBLIC SCCOL GetAllocatedColumnsCount(SCTAB nTab) const;
 
     SC_DLLPUBLIC ScDBCollection* GetDBCollection() const { return pDBCollection.get();}
     void                         SetDBCollection( std::unique_ptr<ScDBCollection> pNewDBCollection,
@@ -972,7 +983,7 @@ public:
     ScFormulaParserPool& GetFormulaParserPool() const;
 
     bool            HasAreaLinks() const;
-    void            UpdateExternalRefLinks(vcl::Window* pWin);
+    void            UpdateExternalRefLinks(weld::Window* pWin);
     void            UpdateAreaLinks();
 
                     // originating DDE links
@@ -1507,7 +1518,7 @@ public:
     bool                         HasOLEObjectsInArea( const ScRange& rRange, const ScMarkData* pTabMark = nullptr );
 
     void                         DeleteObjectsInArea( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
-                                                      const ScMarkData& rMark );
+                                                      const ScMarkData& rMark, bool bAnchored = false );
     void                         DeleteObjectsInSelection( const ScMarkData& rMark );
 
     void                         DeleteArea( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2, const ScMarkData& rMark,
@@ -1545,7 +1556,7 @@ public:
     void CopyTabToClip( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                         SCTAB nTab, ScDocument* pClipDoc);
 
-    bool InitColumnBlockPosition( sc::ColumnBlockPosition& rBlockPos, SCTAB nTab, SCCOL nCol );
+    SC_DLLPUBLIC bool InitColumnBlockPosition( sc::ColumnBlockPosition& rBlockPos, SCTAB nTab, SCCOL nCol );
 
     void DeleteBeforeCopyFromClip( sc::CopyFromClipContext& rCxt, const ScMarkData& rMark,
                                    sc::ColumnSpanSet& rBroadcastSpans );
@@ -1687,10 +1698,12 @@ public:
     void                                    RemoveCondFormatData( const ScRangeList& rRange, SCTAB nTab, sal_uInt32 nIndex );
 
     SC_DLLPUBLIC ScConditionalFormat*       GetCondFormat( SCCOL nCol, SCROW nRow, SCTAB nTab ) const;
-    SC_DLLPUBLIC const SfxItemSet*          GetCondResult( SCCOL nCol, SCROW nRow, SCTAB nTab ) const;
+    // pCell is an optimization, must point to rPos
+    SC_DLLPUBLIC const SfxItemSet*          GetCondResult( SCCOL nCol, SCROW nRow, SCTAB nTab,
+                                                           ScRefCellValue* pCell = nullptr ) const;
     const SfxItemSet*                       GetCondResult( ScRefCellValue& rCell, const ScAddress& rPos,
                                                            const ScConditionalFormatList& rList,
-                                                           const std::vector<sal_uInt32>& rIndex ) const;
+                                                           const ScCondFormatIndexes& rIndex ) const;
     const SfxPoolItem*                      GetEffItem( SCCOL nCol, SCROW nRow, SCTAB nTab, sal_uInt16 nWhich ) const;
     template<class T> const T*              GetEffItem( SCCOL nCol, SCROW nRow, SCTAB nTab, TypedWhichId<T> nWhich ) const
     {
@@ -1700,8 +1713,12 @@ public:
     SC_DLLPUBLIC const css::uno::Reference< css::i18n::XBreakIterator >& GetBreakIterator();
     bool                        HasStringWeakCharacters( const OUString& rString );
     SC_DLLPUBLIC SvtScriptType  GetStringScriptType( const OUString& rString );
-    SC_DLLPUBLIC SvtScriptType  GetCellScriptType( const ScAddress& rPos, sal_uInt32 nNumberFormat );
-    SC_DLLPUBLIC SvtScriptType  GetScriptType( SCCOL nCol, SCROW nRow, SCTAB nTab );
+    // pCell is an optimization, must point to rPos
+    SC_DLLPUBLIC SvtScriptType  GetCellScriptType( const ScAddress& rPos, sal_uInt32 nNumberFormat,
+                                                   ScRefCellValue* pCell = nullptr );
+    // pCell is an optimization, must point to nCol,nRow,nTab
+    SC_DLLPUBLIC SvtScriptType  GetScriptType( SCCOL nCol, SCROW nRow, SCTAB nTab,
+                                               ScRefCellValue* pCell = nullptr );
     SvtScriptType               GetRangeScriptType( sc::ColumnBlockPosition& rBlockPos, const ScAddress& rPos, SCROW nLength );
     SvtScriptType               GetRangeScriptType( const ScRangeList& rRanges );
 
@@ -1787,6 +1804,7 @@ public:
                                          SCTAB nTab, ScMF nFlags );
 
     SC_DLLPUBLIC void    SetPattern( const ScAddress&, const ScPatternAttr& rAttr );
+    SC_DLLPUBLIC const ScPatternAttr* SetPattern( SCCOL nCol, SCROW nRow, SCTAB nTab, std::unique_ptr<ScPatternAttr> );
     SC_DLLPUBLIC void    SetPattern( SCCOL nCol, SCROW nRow, SCTAB nTab, const ScPatternAttr& rAttr );
 
     void                 AutoFormat( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW nEndRow,
@@ -2198,7 +2216,6 @@ public:
     void                Broadcast( const ScHint& rHint );
 
     void BroadcastCells( const ScRange& rRange, SfxHintId nHint, bool bBroadcastSingleBroadcasters = true );
-    void BroadcastRefMoved( const sc::RefMovedHint& rHint );
 
                         /// only area, no cell broadcast
     void                AreaBroadcast( const ScHint& rHint );
@@ -2216,8 +2233,6 @@ public:
     void EndListeningCell( sc::EndListeningContext& rCxt, const ScAddress& rPos, SvtListener& rListener );
 
     void EndListeningFormulaCells( std::vector<ScFormulaCell*>& rCells );
-    void CollectAllAreaListeners(
-        std::vector<SvtListener*>& rListeners, const ScRange& rRange, sc::AreaOverlapType eType );
 
     void                PutInFormulaTree( ScFormulaCell* pCell );
     void                RemoveFromFormulaTree( ScFormulaCell* pCell );
@@ -2455,6 +2470,7 @@ public:
     void                    DeleteBroadcasters( sc::ColumnBlockPosition& rBlockPos, const ScAddress& rTopPos, SCROW nLength );
 
     std::unique_ptr<sc::ColumnIterator> GetColumnIterator( SCTAB nTab, SCCOL nCol, SCROW nRow1, SCROW nRow2 ) const;
+    void CreateColumnIfNotExists( SCTAB nTab, SCCOL nCol );
 
     SC_DLLPUBLIC void StoreTabToCache(SCTAB nTab, SvStream& rStrm) const;
     SC_DLLPUBLIC void RestoreTabFromCache(SCTAB nTab, SvStream& rStream);
@@ -2523,6 +2539,7 @@ private:
     bool    HasPartOfMerged( const ScRange& rRange );
 
     ScRefCellValue GetRefCellValue( const ScAddress& rPos );
+    ScRefCellValue GetRefCellValue( const ScAddress& rPos, sc::ColumnBlockPosition& rBlockPos );
 
     std::map< SCTAB, ScSortParam > mSheetSortParams;
 

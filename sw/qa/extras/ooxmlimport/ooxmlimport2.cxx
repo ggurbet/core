@@ -7,8 +7,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <memory>
-
 #ifdef MACOSX
 #define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
 #include <premac.h>
@@ -18,9 +16,9 @@
 
 #include <swmodeltestbase.hxx>
 #include <wrtsh.hxx>
-#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/document/XEmbeddedObjectSupplier2.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
+#include <com/sun/star/text/WritingMode2.hpp>
 
 class Test : public SwModelTestBase
 {
@@ -90,7 +88,7 @@ DECLARE_OOXMLIMPORT_TEST(testGroupShapeFontName, "groupshape-fontname.docx")
     // Font names inside a group shape were not imported
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
     uno::Reference<text::XText> xText
-        = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY)->getText();
+        = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY_THROW)->getText();
 
     CPPUNIT_ASSERT_EQUAL(
         OUString("Calibri"),
@@ -197,6 +195,7 @@ DECLARE_OOXMLIMPORT_TEST(testTdf117843, "tdf117843.docx")
         getProperty<sal_Int32>(getParagraphOfText(1, xHeaderText), "ParaTopMargin"));
 }
 
+// related tdf#124754
 DECLARE_OOXMLIMPORT_TEST(testTdf43017, "tdf43017.docx")
 {
     uno::Reference<text::XTextRange> xParagraph = getParagraph(1);
@@ -204,6 +203,20 @@ DECLARE_OOXMLIMPORT_TEST(testTdf43017, "tdf43017.docx")
 
     // Ensure that hyperlink text color is not blue (0x0000ff), but default (-1)
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Hyperlink color should be black!", sal_Int32(-1),
+                                 getProperty<sal_Int32>(xText, "CharColor"));
+}
+
+// related tdf#43017
+DECLARE_OOXMLIMPORT_TEST(testTdf124754, "tdf124754.docx")
+{
+    uno::Reference<text::XText> textbox(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(1, getParagraphs(textbox));
+
+    uno::Reference<text::XTextRange> xParagraph = getParagraphOfText(1, textbox);
+    uno::Reference<text::XTextRange> xText = getRun(xParagraph, 2);
+
+    // Ensure that hyperlink text color is not black
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Hyperlink color should be not black!", sal_Int32(353217),
                                  getProperty<sal_Int32>(xText, "CharColor"));
 }
 
@@ -219,6 +232,18 @@ DECLARE_OOXMLIMPORT_TEST(testTdf112443, "tdf112443.docx")
 // Both should layout text regardless of existing text box
 // and as result only one page should be generated.
 DECLARE_OOXMLIMPORT_TEST(testTdf113182, "tdf113182.docx") { CPPUNIT_ASSERT_EQUAL(1, getPages()); }
+
+DECLARE_OOXMLIMPORT_TEST(testTdf124398, "tdf124398.docx")
+{
+    uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xGroup.is());
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 2; Actual:
+    // 1', i.e. the chart children of the group shape was lost.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), xGroup->getCount());
+
+    uno::Reference<drawing::XShapeDescriptor> xShape(xGroup->getByIndex(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(OUString("com.sun.star.drawing.OLE2Shape"), xShape->getShapeType());
+}
 
 DECLARE_OOXMLIMPORT_TEST(testTdf113946, "tdf113946.docx")
 {
@@ -329,6 +354,23 @@ DECLARE_OOXMLIMPORT_TEST(testTdf121440, "tdf121440.docx")
     CPPUNIT_ASSERT_EQUAL_MESSAGE(
         "Inserted text should be not a superscript!", static_cast<sal_Int32>(0),
         getProperty<sal_Int32>(getRun(getParagraph(1), 1), "CharEscapement"));
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf124670, "tdf124670.docx")
+{
+    CPPUNIT_ASSERT_EQUAL(1, getParagraphs());
+    // We need to take xml:space attribute into account, even in w:document element
+    uno::Reference<text::XTextRange> paragraph = getParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(
+        OUString("You won't believe, but that's how it was in markup of original      bugdoc!"),
+        paragraph->getString());
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf126114, "tdf126114.docx")
+{
+    // The problem was that after the drop-down form field, also the placeholder string
+    // was imported as text. Beside the duplication of the field, it also caused a crash.
+    CPPUNIT_ASSERT_EQUAL(7, getLength());
 }
 
 // tests should only be added to ooxmlIMPORT *if* they fail round-tripping in ooxmlEXPORT

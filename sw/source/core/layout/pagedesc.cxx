@@ -90,6 +90,9 @@ SwPageDesc::SwPageDesc( const SwPageDesc &rCpy )
 
 SwPageDesc & SwPageDesc::operator = (const SwPageDesc & rSrc)
 {
+    if(this == &rSrc)
+        return *this;
+
     m_StyleName = rSrc.m_StyleName;
     m_NumType = rSrc.m_NumType;
     m_Master = rSrc.m_Master;
@@ -156,7 +159,7 @@ void SwPageDesc::Mirror()
     aSet.Put( m_Master.GetPaperBin() );
     aSet.Put( m_Master.GetULSpace() );
     aSet.Put( m_Master.GetBox() );
-    aSet.Put( m_Master.makeBackgroundBrushItem() );
+    aSet.Put( *m_Master.makeBackgroundBrushItem() );
     aSet.Put( m_Master.GetShadow() );
     aSet.Put( m_Master.GetCol() );
     aSet.Put( m_Master.GetFrameDir() );
@@ -512,8 +515,7 @@ SwPageDescExt & SwPageDescExt::operator = (const SwPageDesc & rSrc)
 
 SwPageDescExt & SwPageDescExt::operator = (const SwPageDescExt & rSrc)
 {
-    SetPageDesc(rSrc.m_PageDesc);
-
+    operator=(rSrc.m_PageDesc);
     return *this;
 }
 

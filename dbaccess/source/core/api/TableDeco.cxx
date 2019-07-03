@@ -420,14 +420,14 @@ Reference< XNameAccess> ODBTableDecorator::getIndexes()
 {
     ::osl::MutexGuard aGuard(m_aMutex);
     ::connectivity::checkDisposed(OTableDescriptor_BASE::rBHelper.bDisposed);
-    return Reference< XIndexesSupplier>(m_xTable,UNO_QUERY)->getIndexes();
+    return Reference< XIndexesSupplier>(m_xTable,UNO_QUERY_THROW)->getIndexes();
 }
 
 Reference< XIndexAccess> ODBTableDecorator::getKeys()
 {
     ::osl::MutexGuard aGuard(m_aMutex);
     ::connectivity::checkDisposed(OTableDescriptor_BASE::rBHelper.bDisposed);
-    return Reference< XKeysSupplier>(m_xTable,UNO_QUERY)->getKeys();
+    return Reference< XKeysSupplier>(m_xTable,UNO_QUERY_THROW)->getKeys();
 }
 
 Reference< XNameAccess> ODBTableDecorator::getColumns()
@@ -553,7 +553,7 @@ void ODBTableDecorator::refreshColumns()
         OContainerMediator* pMediator = new OContainerMediator( pCol, m_xColumnDefinitions );
         m_xColumnMediator = pMediator;
         pCol->setMediator( pMediator );
-        m_pColumns = pCol;
+        m_pColumns.reset(pCol);
     }
     else
         m_pColumns->reFill(aVector);

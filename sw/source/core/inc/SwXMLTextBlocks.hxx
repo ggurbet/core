@@ -21,11 +21,9 @@
 #define INCLUDED_SW_SOURCE_CORE_INC_SWXMLTEXTBLOCKS_HXX
 
 #include <sfx2/objsh.hxx>
-#include <sfx2/docfile.hxx>
 #include "swblocks.hxx"
 #include <o3tl/typed_flags_set.hxx>
 
-class SwPaM;
 class SwDoc;
 class SvxMacroTableDtor;
 
@@ -60,7 +58,6 @@ public:
     virtual ~SwXMLTextBlocks() override;
     virtual ErrCode Delete( sal_uInt16 ) override;
     virtual ErrCode Rename( sal_uInt16, const OUString&, const OUString& ) override;
-    virtual ErrCode CopyBlock( SwImpBlocks& rImp, OUString& rShort, const OUString& rLong) override;
     virtual void  ClearDoc() override;
     virtual ErrCode GetDoc( sal_uInt16 ) override;
     virtual ErrCode BeginPutDoc( const OUString&, const OUString& ) override;

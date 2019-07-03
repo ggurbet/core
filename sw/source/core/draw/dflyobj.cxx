@@ -24,6 +24,7 @@
 #include <editeng/protitem.hxx>
 #include <editeng/opaqitem.hxx>
 #include <svx/svdpage.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/ptrstyle.hxx>
 
@@ -520,7 +521,7 @@ void SwVirtFlyDrawObj::wrap_DoPaintObject(
             {
                 // it is also necessary to restore the VCL MapMode from ViewInformation since e.g.
                 // the VCL PixelRenderer resets it at the used OutputDevice. Unfortunately, this
-                // excludes shears and rotates which are not expressable in MapMode.
+                // excludes shears and rotates which are not expressible in MapMode.
                 // OD #i102707#
                 // new helper class to restore MapMode - restoration, only if
                 // needed and consideration of paint for meta file creation .
@@ -623,7 +624,7 @@ void SwVirtFlyDrawObj::NbcSetLogicRect(const tools::Rectangle& )
 ::basegfx::B2DPolyPolygon SwVirtFlyDrawObj::TakeXorPoly() const
 {
     const tools::Rectangle aSourceRectangle(GetFlyFrame()->getFrameArea().SVRect());
-    const ::basegfx::B2DRange aSourceRange(aSourceRectangle.Left(), aSourceRectangle.Top(), aSourceRectangle.Right(), aSourceRectangle.Bottom());
+    const ::basegfx::B2DRange aSourceRange = vcl::unotools::b2DRectangleFromRectangle(aSourceRectangle);
     ::basegfx::B2DPolyPolygon aRetval;
 
     aRetval.append(::basegfx::utils::createPolygonFromRect(aSourceRange));
@@ -1168,6 +1169,19 @@ sal_uInt16 SwVirtFlyDrawObj::getPossibleRotationFromFraphicFrame(Size& rSize) co
     }
 
     return nRetval;
+}
+
+long SwVirtFlyDrawObj::GetRotateAngle() const
+{
+    if(ContainsSwGrfNode())
+    {
+        Size aSize;
+        return getPossibleRotationFromFraphicFrame(aSize);
+    }
+    else
+    {
+        return SdrVirtObj::GetRotateAngle();
+    }
 }
 
 SdrObject* SwVirtFlyDrawObj::getFullDragClone() const

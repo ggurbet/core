@@ -40,7 +40,6 @@ namespace logging
     using ::com::sun::star::lang::XServiceInfo;
     using ::com::sun::star::uno::Reference;
     using ::com::sun::star::uno::XComponentContext;
-    using ::com::sun::star::uno::RuntimeException;
     using ::com::sun::star::logging::XLogFormatter;
     using ::com::sun::star::uno::Sequence;
     using ::com::sun::star::logging::LogRecord;
@@ -100,7 +99,7 @@ namespace logging
     {
         ::osl::MutexGuard aGuard( m_aMutex );
 
-        if ( arguments.getLength() == 0 )
+        if ( !arguments.hasElements() )
         {   // create() - nothing to init
             m_aHandlerHelper.setIsInitialized();
             return;

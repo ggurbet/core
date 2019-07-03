@@ -27,7 +27,6 @@
 #include <svx/svdlayer.hxx>
 #include <vcl/window.hxx>
 #include <svtools/colorcfg.hxx>
-#include <com/sun/star/awt/XControlContainer.hpp>
 #include <svl/itemset.hxx>
 #include <vcl/timer.hxx>
 #include <svx/svxdllapi.h>
@@ -43,6 +42,7 @@ class SdrPageWindow;
 namespace com { namespace sun { namespace star { namespace awt {
     class XControlContainer;
 }}}}
+namespace sdr { namespace overlay { class OverlayManager; } }
 
 class SdrPage;
 class SdrView;
@@ -220,6 +220,8 @@ public:
     bool IsPagePaintingAllowed() const { return mbPagePaintingAllowed;}
     void SetPagePaintingAllowed(bool bNew);
 
+    virtual rtl::Reference<sdr::overlay::OverlayManager> CreateOverlayManager(OutputDevice& rDevice) const;
+
 protected:
     svtools::ColorConfig            maColorConfig;
     Color                           maGridColor;
@@ -227,6 +229,7 @@ protected:
     // Interface to SdrPaintWindow
     void DeletePaintWindow(SdrPaintWindow& rOld);
     void ConfigurationChanged( ::utl::ConfigurationBroadcaster*, ConfigurationHints ) override;
+    void InitOverlayManager(rtl::Reference<sdr::overlay::OverlayManager> xOverlayManager) const;
 
 public:
     sal_uInt32 PaintWindowCount() const { return maPaintWindows.size(); }
@@ -427,8 +430,8 @@ public:
 
     /// If the View should not call Invalidate() on the windows, override
     /// the following 2 methods and do something else.
-    virtual void InvalidateOneWin(vcl::Window& rWin);
-    virtual void InvalidateOneWin(vcl::Window& rWin, const tools::Rectangle& rRect);
+    virtual void InvalidateOneWin(OutputDevice& rWin);
+    virtual void InvalidateOneWin(OutputDevice& rWin, const tools::Rectangle& rRect);
 
     void SetActiveLayer(const OUString& rName) { maActualLayer=rName; }
     const OUString&  GetActiveLayer() const { return maActualLayer; }
@@ -460,9 +463,9 @@ public:
     void SetSwapAsynchron(bool bJa=true) { mbSwapAsynchron=bJa; }
     virtual bool KeyInput(const KeyEvent& rKEvt, vcl::Window* pWin);
 
-    virtual bool MouseButtonDown(const MouseEvent& /*rMEvt*/, vcl::Window* /*pWin*/) { return false; }
-    virtual bool MouseButtonUp(const MouseEvent& /*rMEvt*/, vcl::Window* /*pWin*/) { return false; }
-    virtual bool MouseMove(const MouseEvent& /*rMEvt*/, vcl::Window* /*pWin*/) { return false; }
+    virtual bool MouseButtonDown(const MouseEvent& /*rMEvt*/, OutputDevice* /*pWin*/) { return false; }
+    virtual bool MouseButtonUp(const MouseEvent& /*rMEvt*/, OutputDevice* /*pWin*/) { return false; }
+    virtual bool MouseMove(const MouseEvent& /*rMEvt*/, OutputDevice* /*pWin*/) { return false; }
     virtual bool RequestHelp(const HelpEvent& /*rHEvt*/) { return false; }
     virtual bool Command(const CommandEvent& /*rCEvt*/, vcl::Window* /*pWin*/) { return false; }
 

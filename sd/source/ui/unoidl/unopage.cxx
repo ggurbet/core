@@ -17,11 +17,13 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/presentation/FadeEffect.hpp>
 #include <com/sun/star/presentation/AnimationSpeed.hpp>
 #include <com/sun/star/view/PaperOrientation.hpp>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/profilezone.hxx>
 #include <comphelper/servicehelper.hxx>
@@ -57,6 +59,7 @@
 #include <svx/svdoole2.hxx>
 #include <svx/svdpool.hxx>
 #include <svx/svdview.hxx>
+#include <svx/xfillit0.hxx>
 #include <View.hxx>
 #include <DrawDocShell.hxx>
 #include <ViewShell.hxx>
@@ -70,6 +73,8 @@
 #include <vcl/dibtools.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdoashp.hxx>
+#include <tools/debug.hxx>
+#include <tools/stream.hxx>
 
 using ::com::sun::star::animations::XAnimationNode;
 using ::com::sun::star::animations::XAnimationNodeSupplier;
@@ -384,7 +389,7 @@ void SdGenericDrawPage::UpdateModel()
     if( mpSdrModel )
     {
         uno::Reference< uno::XInterface > xModel( SvxFmDrawPage::mpModel->getUnoModel() );
-        mpDocModel = SdXImpressDocument::getImplementation( xModel );
+        mpDocModel = comphelper::getUnoTunnelImplementation<SdXImpressDocument>( xModel );
     }
     else
     {
@@ -1465,13 +1470,13 @@ Reference< drawing::XShape >  SdGenericDrawPage::CreateShape(SdrObject *pObj) co
             }
 
             if( !pShape )
-                pShape = SvxShape::getImplementation( xShape );
+                pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
 
             if( pShape )
                 pShape->SetShapeType( aShapeType );
         }
 
-        SvxShape *pSdShape = SvxShape::getImplementation(xShape);
+        SvxShape *pSdShape = comphelper::getUnoTunnelImplementation<SvxShape>(xShape);
         if (pSdShape)
         {
             // SdXShape aggregates SvxShape
@@ -2056,7 +2061,7 @@ Sequence< uno::Type > SAL_CALL SdDrawPage::getTypes()
 
     throwIfDisposed();
 
-    if( maTypeSequence.getLength() == 0 )
+    if( !maTypeSequence.hasElements() )
     {
         const PageKind ePageKind = GetPage() ? GetPage()->GetPageKind() : PageKind::Standard;
         bool bPresPage = IsImpressDocument() && ePageKind != PageKind::Handout;
@@ -2331,7 +2336,7 @@ void SAL_CALL SdDrawPage::setMasterPage( const Reference< drawing::XDrawPage >& 
     if(!SvxFmDrawPage::mpPage)
         return;
 
-    SdMasterPage* pMasterPage = SdMasterPage::getImplementation( xMasterPage );
+    SdMasterPage* pMasterPage = comphelper::getUnoTunnelImplementation<SdMasterPage>( xMasterPage );
     if( !(pMasterPage && pMasterPage->isValid()) )
         return;
 
@@ -2411,7 +2416,7 @@ void SAL_CALL SdDrawPage::remove( const Reference< drawing::XShape >& xShape )
 
     throwIfDisposed();
 
-    SvxShape* pShape = SvxShape::getImplementation( xShape );
+    SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
     if( pShape )
     {
         SdrObject* pObj = pShape->GetSdrObject();
@@ -2440,7 +2445,7 @@ void SdDrawPage::setBackground( const Any& rValue )
     }
 
     // is it our own implementation?
-    SdUnoPageBackground* pBack = SdUnoPageBackground::getImplementation( xSet );
+    SdUnoPageBackground* pBack = comphelper::getUnoTunnelImplementation<SdUnoPageBackground>( xSet );
 
     SfxItemSet aSet( GetModel()->GetDoc()->GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{} );
 
@@ -2674,7 +2679,7 @@ Sequence< uno::Type > SAL_CALL SdMasterPage::getTypes()
 
     throwIfDisposed();
 
-    if( maTypeSequence.getLength() == 0 )
+    if( !maTypeSequence.hasElements() )
     {
         const PageKind ePageKind = GetPage() ? GetPage()->GetPageKind() : PageKind::Standard;
         bool bPresPage = IsImpressDocument() && SvxFmDrawPage::mpPage && ePageKind != PageKind::Handout;
@@ -2787,13 +2792,13 @@ void SdMasterPage::setBackground( const Any& rValue )
     {
         if( GetModel() && IsImpressDocument() )
         {
-            Reference< container::XNameAccess >  xFamilies( GetModel()->getStyleFamilies(), UNO_QUERY_THROW );
+            Reference< container::XNameAccess >  xFamilies( GetModel()->getStyleFamilies(), UNO_SET_THROW );
             Reference< container::XNameAccess > xFamily( xFamilies->getByName( getName() ), UNO_QUERY_THROW ) ;
             OUString aStyleName(sUNO_PseudoSheet_Background);
 
             Reference< beans::XPropertySet >  xStyleSet( xFamily->getByName( aStyleName ), UNO_QUERY_THROW );
 
-            Reference< beans::XPropertySetInfo >  xSetInfo( xInputSet->getPropertySetInfo(), UNO_QUERY_THROW );
+            Reference< beans::XPropertySetInfo >  xSetInfo( xInputSet->getPropertySetInfo(), UNO_SET_THROW );
             Reference< beans::XPropertyState > xSetStates( xInputSet, UNO_QUERY );
 
             PropertyEntryVector_t aBackgroundProperties = ImplGetPageBackgroundPropertySet()->getPropertyMap().getPropertyEntries();
@@ -2812,7 +2817,7 @@ void SdMasterPage::setBackground( const Any& rValue )
         {
             // first fill an item set
             // is it our own implementation?
-            SdUnoPageBackground* pBack = SdUnoPageBackground::getImplementation( xInputSet );
+            SdUnoPageBackground* pBack = comphelper::getUnoTunnelImplementation<SdUnoPageBackground>( xInputSet );
 
             SfxItemSet aSet( GetModel()->GetDoc()->GetPool(), svl::Items<XATTR_FILL_FIRST, XATTR_FILL_LAST>{} );
 
@@ -2824,9 +2829,9 @@ void SdMasterPage::setBackground( const Any& rValue )
             {
                 SdUnoPageBackground* pBackground = new SdUnoPageBackground();
 
-                Reference< beans::XPropertySetInfo > xInputSetInfo( xInputSet->getPropertySetInfo(), UNO_QUERY_THROW );
+                Reference< beans::XPropertySetInfo > xInputSetInfo( xInputSet->getPropertySetInfo(), UNO_SET_THROW );
                 Reference< beans::XPropertySet > xDestSet( static_cast<beans::XPropertySet*>(pBackground) );
-                Reference< beans::XPropertySetInfo > xDestSetInfo( xDestSet->getPropertySetInfo(), UNO_QUERY_THROW );
+                Reference< beans::XPropertySetInfo > xDestSetInfo( xDestSet->getPropertySetInfo(), UNO_SET_THROW );
 
                 uno::Sequence< beans::Property> aProperties( xDestSetInfo->getProperties() );
                 sal_Int32 nCount = aProperties.getLength();
@@ -2884,7 +2889,7 @@ void SdMasterPage::getBackground( Any& rValue )
     {
         if( IsImpressDocument() )
         {
-            Reference< container::XNameAccess > xFamilies( GetModel()->getStyleFamilies(), UNO_QUERY_THROW );
+            Reference< container::XNameAccess > xFamilies( GetModel()->getStyleFamilies(), UNO_SET_THROW );
             Reference< container::XNameAccess > xFamily( xFamilies->getByName( getName() ), UNO_QUERY_THROW );
 
             const OUString aStyleName(sUNO_PseudoSheet_Background);
@@ -3020,7 +3025,7 @@ void SAL_CALL SdMasterPage::remove( const Reference< drawing::XShape >& xShape )
 
     throwIfDisposed();
 
-    SvxShape* pShape = SvxShape::getImplementation( xShape );
+    SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
     if( pShape )
     {
         SdrObject* pObj = pShape->GetSdrObject();
@@ -3037,7 +3042,7 @@ Reference< uno::XInterface > createUnoPageImpl( SdPage* pPage )
 
     if( pPage )
     {
-        SdXImpressDocument* pModel = SdXImpressDocument::getImplementation( pPage->getSdrModelFromSdrPage().getUnoModel() );
+        SdXImpressDocument* pModel = comphelper::getUnoTunnelImplementation<SdXImpressDocument>( pPage->getSdrModelFromSdrPage().getUnoModel() );
         if( pModel )
         {
             if( pPage->IsMasterPage() )

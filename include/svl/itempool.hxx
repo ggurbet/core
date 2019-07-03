@@ -25,6 +25,7 @@
 #include <svl/typedwhich.hxx>
 #include <memory>
 #include <vector>
+#include <o3tl/sorted_vector.hxx>
 
 class SfxBroadcaster;
 struct SfxItemPool_Impl;
@@ -56,6 +57,8 @@ protected:
 class SVL_DLLPUBLIC SfxItemPool
 {
     friend struct SfxItemPool_Impl;
+    friend class SfxItemSet;
+    friend class SfxAllItemSet;
 
     const SfxItemInfo*              pItemInfos;
     std::unique_ptr<SfxItemPool_Impl>               pImpl;
@@ -145,7 +148,10 @@ public:
     virtual SfxItemPool*            Clone() const;
     const OUString&                 GetName() const;
 
-    virtual const SfxPoolItem&      Put( const SfxPoolItem&, sal_uInt16 nWhich = 0 );
+    template<class T> const T&      Put( std::unique_ptr<T> xItem, sal_uInt16 nWhich = 0 )
+    { return static_cast<const T&>(PutImpl( *xItem.release(), nWhich, /*bPassingOwnership*/true)); }
+    template<class T> const T&      Put( const T& rItem, sal_uInt16 nWhich = 0 )
+    { return static_cast<const T&>(PutImpl( rItem, nWhich, /*bPassingOwnership*/false)); }
     void                            Remove( const SfxPoolItem& );
 
     const SfxPoolItem&              GetDefaultItem( sal_uInt16 nWhich ) const;
@@ -154,15 +160,25 @@ public:
 
     bool                            CheckItemInPool(const SfxPoolItem *) const;
 
-    const SfxPoolItem *             GetItem2(sal_uInt16 nWhich, sal_uInt32 nSurrogate) const;
-    template<class T> const T*      GetItem2( TypedWhichId<T> nWhich, sal_uInt32 nSurrogate ) const
-    { return dynamic_cast<const T*>(GetItem2(sal_uInt16(nWhich), nSurrogate)); }
-
+    struct Item2Range
+    {
+        o3tl::sorted_vector<SfxPoolItem*>::const_iterator m_begin;
+        o3tl::sorted_vector<SfxPoolItem*>::const_iterator m_end;
+        o3tl::sorted_vector<SfxPoolItem*>::const_iterator const & begin() const { return m_begin; }
+        o3tl::sorted_vector<SfxPoolItem*>::const_iterator const & end() const { return m_end; }
+    };
     const SfxPoolItem *             GetItem2Default(sal_uInt16 nWhich) const;
     template<class T> const T*      GetItem2Default( TypedWhichId<T> nWhich ) const
     { return static_cast<const T*>(GetItem2Default(sal_uInt16(nWhich))); }
 
     sal_uInt32                      GetItemCount2(sal_uInt16 nWhich) const;
+    Item2Range                      GetItemSurrogates(sal_uInt16 nWhich) const;
+    /*
+        This is only valid for SfxPoolItem that override IsSortable and operator<.
+        Returns a range of items defined by using operator<.
+        @param rNeedle must be the same type or a supertype of the pool items for nWhich.
+    */
+    std::vector<const SfxPoolItem*> FindItemSurrogate(sal_uInt16 nWhich, SfxPoolItem const & rNeedle) const;
 
     sal_uInt16                      GetFirstWhich() const;
     sal_uInt16                      GetLastWhich() const;
@@ -190,6 +206,8 @@ public:
 
     void                            dumpAsXml(xmlTextWriterPtr pWriter) const;
 
+protected:
+    virtual const SfxPoolItem&      PutImpl( const SfxPoolItem&, sal_uInt16 nWhich = 0, bool bPassingOwnership = false );
 private:
     const SfxItemPool&              operator=(const SfxItemPool &) = delete;
 

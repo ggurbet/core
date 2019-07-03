@@ -19,9 +19,11 @@
 
 #include <sfx2/app.hxx>
 #include <svtools/ruler.hxx>
+#include <svtools/unitconv.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
+#include <vcl/svapp.hxx>
 
 #include <editeng/lrspitem.hxx>
 #include <tabstpge.hxx>
@@ -64,7 +66,7 @@ void TabWin_Impl::Paint(vcl::RenderContext& rRenderContext, const ::tools::Recta
 SvxTabulatorTabPage::SvxTabulatorTabPage(TabPageParent pParent, const SfxItemSet& rAttr)
     : SfxTabPage(pParent, "cui/ui/paratabspage.ui", "ParagraphTabsPage", &rAttr)
     , aCurrentTab(0)
-    , aNewTabs(0, 0, SvxTabAdjust::Left, GetWhich(SID_ATTR_TABSTOP))
+    , aNewTabs(std::make_unique<SvxTabStopItem>(0, 0, SvxTabAdjust::Left, GetWhich(SID_ATTR_TABSTOP)))
     , nDefDist(0)
     , m_xTabSpin(m_xBuilder->weld_metric_spin_button("SP_TABPOS", FieldUnit::CM))
     , m_xTabBox(m_xBuilder->weld_entry_tree_view("tabgrid", "ED_TABPOS", "LB_TABPOS"))
@@ -114,22 +116,22 @@ SvxTabulatorTabPage::SvxTabulatorTabPage(TabPageParent pParent, const SfxItemSet
     m_xDelBtn->connect_clicked(LINK(this,SvxTabulatorTabPage, DelHdl_Impl));
     m_xDelAllBtn->connect_clicked(LINK(this,SvxTabulatorTabPage, DelAllHdl_Impl));
 
-    Link<weld::Button&,void> aLink = LINK(this, SvxTabulatorTabPage, TabTypeCheckHdl_Impl);
-    m_xLeftTab->connect_clicked(aLink);
-    m_xRightTab->connect_clicked(aLink);
-    m_xDezTab->connect_clicked(aLink);
-    m_xCenterTab->connect_clicked(aLink);
+    Link<weld::ToggleButton&,void> aLink = LINK(this, SvxTabulatorTabPage, TabTypeCheckHdl_Impl);
+    m_xLeftTab->connect_toggled(aLink);
+    m_xRightTab->connect_toggled(aLink);
+    m_xDezTab->connect_toggled(aLink);
+    m_xCenterTab->connect_toggled(aLink);
 
     m_xDezChar->connect_focus_out(LINK(this,  SvxTabulatorTabPage, GetDezCharHdl_Impl));
     m_xDezChar->set_sensitive(false);
     m_xDezCharLabel->set_sensitive(false);
 
     aLink = LINK(this, SvxTabulatorTabPage, FillTypeCheckHdl_Impl);
-    m_xNoFillChar->connect_clicked(aLink);
-    m_xFillPoints->connect_clicked(aLink);
-    m_xFillDashLine->connect_clicked(aLink);
-    m_xFillSolidLine->connect_clicked(aLink);
-    m_xFillSpecial->connect_clicked(aLink);
+    m_xNoFillChar->connect_toggled(aLink);
+    m_xFillPoints->connect_toggled(aLink);
+    m_xFillDashLine->connect_toggled(aLink);
+    m_xFillSolidLine->connect_toggled(aLink);
+    m_xFillSpecial->connect_toggled(aLink);
     m_xFillChar->connect_focus_out(LINK(this,  SvxTabulatorTabPage, GetFillCharHdl_Impl));
     m_xFillChar->set_sensitive(false);
 
@@ -171,7 +173,7 @@ bool SvxTabulatorTabPage::FillItemSet(SfxItemSet* rSet)
     GetDezCharHdl_Impl(*m_xDezChar);
     GetFillCharHdl_Impl(*m_xFillChar);
 
-    FillUpWithDefTabs_Impl(nDefDist, aNewTabs);
+    FillUpWithDefTabs_Impl(nDefDist, *aNewTabs);
     SfxItemPool* pPool = rSet->GetPool();
     MapUnit eUnit = pPool->GetMetric(GetWhich(SID_ATTR_TABSTOP));
     const SfxPoolItem* pOld = GetOldItem(*rSet, SID_ATTR_TABSTOP);
@@ -188,28 +190,28 @@ bool SvxTabulatorTabPage::FillItemSet(SfxItemSet* rSet)
         if (pLRSpace && static_cast<const SvxLRSpaceItem*>(pLRSpace)->GetTextFirstLineOfst() < 0)
         {
             SvxTabStop aNull(0, SvxTabAdjust::Default);
-            aNewTabs.Insert(aNull);
+            aNewTabs->Insert(aNull);
         }
 
-        SvxTabStopItem aTmp(aNewTabs);
-        aTmp.Remove(0, aTmp.Count());
+        std::unique_ptr<SvxTabStopItem> aTmp(static_cast<SvxTabStopItem*>(aNewTabs->Clone()));
+        aTmp->Remove(0, aTmp->Count());
 
-        for (sal_uInt16 i = 0; i < aNewTabs.Count(); ++i)
+        for (sal_uInt16 i = 0; i < aNewTabs->Count(); ++i)
         {
-            SvxTabStop aTmpStop = aNewTabs[i];
+            SvxTabStop aTmpStop = (*aNewTabs)[i];
             aTmpStop.GetTabPos() = LogicToLogic(aTmpStop.GetTabPos(), MapUnit::Map100thMM, eUnit);
-            aTmp.Insert(aTmpStop);
+            aTmp->Insert(aTmpStop);
         }
 
-        if (!pOld || *static_cast<const SvxTabStopItem*>(pOld) != aTmp)
+        if (!pOld || *static_cast<const SvxTabStopItem*>(pOld) != *aTmp)
         {
-            rSet->Put(aTmp);
+            rSet->Put(*aTmp);
             bModified = true;
         }
     }
-    else if (!pOld || *static_cast<const SvxTabStopItem*>(pOld) != aNewTabs)
+    else if (!pOld || *static_cast<const SvxTabStopItem*>(pOld) != *aNewTabs)
     {
-        rSet->Put(aNewTabs);
+        rSet->Put(*aNewTabs);
         bModified = true;
     }
 
@@ -233,21 +235,25 @@ void SvxTabulatorTabPage::Reset(const SfxItemSet* rSet)
     {
         if (MapUnit::Map100thMM != eUnit)
         {
-            SvxTabStopItem aTmp(*static_cast<const SvxTabStopItem*>(pItem));
-            aNewTabs.Remove(0, aNewTabs.Count());
+            std::unique_ptr<SvxTabStopItem> aTmp(static_cast<SvxTabStopItem*>(pItem->Clone()));
+            aNewTabs->Remove(0, aNewTabs->Count());
 
-            for (sal_uInt16 i = 0; i < aTmp.Count(); ++i)
+            for (sal_uInt16 i = 0; i < aTmp->Count(); ++i)
             {
-                SvxTabStop aTmpStop = aTmp[i];
+                SvxTabStop aTmpStop = (*aTmp)[i];
                 aTmpStop.GetTabPos() = LogicToLogic(aTmpStop.GetTabPos(), eUnit, MapUnit::Map100thMM);
-                aNewTabs.Insert(aTmpStop);
+                aNewTabs->Insert(aTmpStop);
             }
         }
         else
-            aNewTabs = *static_cast<const SvxTabStopItem*>(pItem);
+        {
+            aNewTabs.reset(static_cast<SvxTabStopItem*>(pItem->Clone()));
+        }
     }
     else
-        aNewTabs.Remove(0, aNewTabs.Count());
+    {
+        aNewTabs->Remove(0, aNewTabs->Count());
+    }
 
     // Default tab distance
     nDefDist = SVX_TAB_DEFDIST;
@@ -330,20 +336,21 @@ void SvxTabulatorTabPage::InitTabPos_Impl( sal_uInt16 nTabPos )
     }
 
     // Correct current TabPos and default tabs
-    for ( sal_uInt16 i = 0; i < aNewTabs.Count(); i++ )
+    for ( sal_uInt16 i = 0; i < aNewTabs->Count(); i++ )
     {
-        if ( aNewTabs[i].GetAdjustment() != SvxTabAdjust::Default )
+        if ( (*aNewTabs)[i].GetAdjustment() != SvxTabAdjust::Default )
         {
-            m_xTabSpin->set_value(m_xTabSpin->normalize(
-                aNewTabs[i].GetTabPos() + nOffset ), eDefUnit);
+            m_xTabSpin->set_value(m_xTabSpin->normalize((*aNewTabs)[i].GetTabPos() + nOffset ), eDefUnit);
             m_xTabBox->append_text(m_xTabSpin->get_text());
         }
         else
-            aNewTabs.Remove( i-- );
+        {
+            aNewTabs->Remove( i-- );
+        }
     }
 
     // Select current tabulator
-    const sal_uInt16 nSize = aNewTabs.Count();
+    const sal_uInt16 nSize = aNewTabs->Count();
 
     if ( nTabPos >= nSize )
         nTabPos = 0;
@@ -355,7 +362,7 @@ void SvxTabulatorTabPage::InitTabPos_Impl( sal_uInt16 nTabPos )
     if (m_xTabBox->get_count() > 0)
     {
         m_xTabBox->set_active(nTabPos);
-        aCurrentTab = aNewTabs[nTabPos];
+        aCurrentTab = (*aNewTabs)[nTabPos];
 
         SetFillAndTabType_Impl();
         m_xNewBtn->set_sensitive(false);
@@ -449,7 +456,7 @@ void SvxTabulatorTabPage::NewHdl_Impl(const weld::Button* pBtn)
     sal_Int32 i;
     for( i = 0; i < nSize; i++ )
     {
-        if ( nReal < aNewTabs[i].GetTabPos() )
+        if ( nReal < (*aNewTabs)[i].GetTabPos() )
             break;
     }
 
@@ -468,7 +475,7 @@ void SvxTabulatorTabPage::NewHdl_Impl(const weld::Button* pBtn)
         eAdj = SvxTabAdjust::Decimal;
 
     aCurrentTab.GetAdjustment() = eAdj;
-    aNewTabs.Insert( aCurrentTab );
+    aNewTabs->Insert( aCurrentTab );
 
     m_xNewBtn->set_sensitive(false);
     m_xDelBtn->set_sensitive(true);
@@ -497,17 +504,17 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, DelHdl_Impl, weld::Button&, void)
 
     // Delete Tab
     m_xTabBox->remove(nPos);
-    aNewTabs.Remove( nPos );
+    aNewTabs->Remove( nPos );
 
     // Reset aCurrentTab
-    const sal_uInt16 nSize = aNewTabs.Count();
+    const sal_uInt16 nSize = aNewTabs->Count();
 
     if ( nSize > 0 )
     {
         // Correct Pos
         nPos = ( ( nSize - 1 ) >= nPos) ? nPos : nPos - 1;
         m_xTabBox->set_active(nPos);
-        aCurrentTab = aNewTabs[nPos];
+        aCurrentTab = (*aNewTabs)[nPos];
     }
 
     // If no Tabs Enable Disable Controls
@@ -521,15 +528,18 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, DelHdl_Impl, weld::Button&, void)
 
 IMPL_LINK_NOARG(SvxTabulatorTabPage, DelAllHdl_Impl, weld::Button&, void)
 {
-    if ( aNewTabs.Count() )
+    if ( aNewTabs->Count() )
     {
-        aNewTabs = SvxTabStopItem( 0 );
+        aNewTabs = std::make_unique<SvxTabStopItem>( 0 );
         InitTabPos_Impl();
     }
 }
 
-IMPL_LINK(SvxTabulatorTabPage, TabTypeCheckHdl_Impl, weld::Button&, rBox, void)
+IMPL_LINK(SvxTabulatorTabPage, TabTypeCheckHdl_Impl, weld::ToggleButton&, rBox, void)
 {
+    if (!rBox.get_active())
+        return;
+
     SvxTabAdjust eAdj;
     m_xDezChar->set_sensitive(false);
     m_xDezCharLabel->set_sensitive(false);
@@ -553,13 +563,16 @@ IMPL_LINK(SvxTabulatorTabPage, TabTypeCheckHdl_Impl, weld::Button&, rBox, void)
     int nPos = FindCurrentTab();
     if (nPos != -1)
     {
-        aNewTabs.Remove( nPos );
-        aNewTabs.Insert( aCurrentTab );
+        aNewTabs->Remove( nPos );
+        aNewTabs->Insert( aCurrentTab );
     }
 }
 
-IMPL_LINK(SvxTabulatorTabPage, FillTypeCheckHdl_Impl, weld::Button&, rBox, void)
+IMPL_LINK(SvxTabulatorTabPage, FillTypeCheckHdl_Impl, weld::ToggleButton&, rBox, void)
 {
+    if (!rBox.get_active())
+        return;
+
     sal_uInt8 cFill = ' ';
     m_xFillChar->set_text( "" );
     m_xFillChar->set_sensitive(false);
@@ -579,8 +592,8 @@ IMPL_LINK(SvxTabulatorTabPage, FillTypeCheckHdl_Impl, weld::Button&, rBox, void)
     int nPos = FindCurrentTab();
     if (nPos != -1)
     {
-        aNewTabs.Remove( nPos );
-        aNewTabs.Insert( aCurrentTab );
+        aNewTabs->Remove( nPos );
+        aNewTabs->Insert( aCurrentTab );
     }
 }
 
@@ -593,8 +606,8 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, GetFillCharHdl_Impl, weld::Widget&, void)
     const int nPos = FindCurrentTab();
     if (nPos != -1)
     {
-        aNewTabs.Remove( nPos );
-        aNewTabs.Insert( aCurrentTab );
+        aNewTabs->Remove( nPos );
+        aNewTabs->Insert( aCurrentTab );
     }
 }
 
@@ -607,8 +620,8 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, GetDezCharHdl_Impl, weld::Widget&, void)
     const int nPos = FindCurrentTab();
     if (nPos != -1)
     {
-        aNewTabs.Remove( nPos );
-        aNewTabs.Insert( aCurrentTab );
+        aNewTabs->Remove( nPos );
+        aNewTabs->Insert( aCurrentTab );
     }
 }
 
@@ -617,7 +630,7 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, SelectHdl_Impl, weld::TreeView&, void)
     const int nPos = FindCurrentTab();
     if (nPos != -1)
     {
-        aCurrentTab = aNewTabs[nPos];
+        aCurrentTab = (*aNewTabs)[nPos];
         m_xNewBtn->set_sensitive(false);
         SetFillAndTabType_Impl();
     }
@@ -640,7 +653,7 @@ IMPL_LINK_NOARG(SvxTabulatorTabPage, ModifyHdl_Impl, weld::ComboBox&, void)
     const int nPos = FindCurrentTab();
     if (nPos != -1)
     {
-        aCurrentTab = aNewTabs[nPos];
+        aCurrentTab = (*aNewTabs)[nPos];
         SetFillAndTabType_Impl();
 
         m_xTabSpin->set_text(m_xTabBox->get_active_text());

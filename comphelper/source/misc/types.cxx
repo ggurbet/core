@@ -19,17 +19,13 @@
 
 #include <comphelper/types.hxx>
 #include <comphelper/extract.hxx>
-#include <com/sun/star/util/Date.hpp>
-#include <com/sun/star/util/Time.hpp>
-#include <com/sun/star/util/DateTime.hpp>
 #include <com/sun/star/awt/FontUnderline.hpp>
 #include <com/sun/star/awt/FontStrikeout.hpp>
 #include <com/sun/star/awt/FontDescriptor.hpp>
 #include <o3tl/any.hxx>
 #include <osl/diagnose.h>
 #include <typelib/typedescription.hxx>
-
-#include <memory.h>
+#include <sal/log.hxx>
 
 
 namespace comphelper
@@ -38,13 +34,13 @@ namespace comphelper
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::awt;
-using namespace ::com::sun::star::util;
 using namespace ::com::sun::star::lang;
 
 sal_Int64 getINT64(const Any& _rAny)
 {
     sal_Int64 nReturn = 0;
-    OSL_VERIFY( _rAny >>= nReturn );
+    if(!(_rAny >>= nReturn))
+        SAL_WARN("comphelper", "conversion from Any to sal_Int64 failed");
     return nReturn;
 }
 
@@ -52,7 +48,8 @@ sal_Int64 getINT64(const Any& _rAny)
 sal_Int32 getINT32(const Any& _rAny)
 {
     sal_Int32 nReturn = 0;
-    OSL_VERIFY( _rAny >>= nReturn );
+    if(!(_rAny >>= nReturn))
+        SAL_WARN("comphelper", "conversion from Any to sal_Int32 failed");
     return nReturn;
 }
 
@@ -60,7 +57,8 @@ sal_Int32 getINT32(const Any& _rAny)
 sal_Int16 getINT16(const Any& _rAny)
 {
     sal_Int16 nReturn = 0;
-    OSL_VERIFY( _rAny >>= nReturn );
+    if(!(_rAny >>= nReturn))
+        SAL_WARN("comphelper", "conversion from Any to sal_Int16 failed");
     return nReturn;
 }
 
@@ -68,7 +66,8 @@ sal_Int16 getINT16(const Any& _rAny)
 double getDouble(const Any& _rAny)
 {
     double nReturn = 0.0;
-    OSL_VERIFY( _rAny >>= nReturn );
+    if(!(_rAny >>= nReturn))
+        SAL_WARN("comphelper", "conversion from Any to double failed");
     return nReturn;
 }
 
@@ -76,7 +75,8 @@ double getDouble(const Any& _rAny)
 float getFloat(const Any& _rAny)
 {
     float nReturn = 0.0;
-    OSL_VERIFY( _rAny >>= nReturn );
+    if(!(_rAny >>= nReturn))
+        SAL_WARN("comphelper", "conversion from Any to float failed");
     return nReturn;
 }
 
@@ -84,7 +84,8 @@ float getFloat(const Any& _rAny)
 OUString getString(const Any& _rAny)
 {
     OUString nReturn;
-    OSL_VERIFY( _rAny >>= nReturn );
+    if(!(_rAny >>= nReturn))
+        SAL_WARN("comphelper", "conversion from Any to OUString failed");
     return nReturn;
 }
 
@@ -114,7 +115,7 @@ FontDescriptor  getDefaultFont()
     FontDescriptor aReturn;
     aReturn.Slant = FontSlant_DONTKNOW;
     aReturn.Underline = FontUnderline::DONTKNOW;
-    aReturn.Strikeout = FontStrikeout::DONTKNOW;
+    aReturn.Strikeout = com::sun::star::awt::FontStrikeout::DONTKNOW;
     return aReturn;
 }
 

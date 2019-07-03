@@ -43,6 +43,7 @@
 #include <comphelper/processfactory.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/aeitem.hxx>
 #include <svl/visitem.hxx>
 #include <svl/whiter.hxx>
@@ -50,8 +51,11 @@
 #include <svx/svxids.hrc>
 #include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
+#include <vcl/button.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <xmlscript/xmldlg_imexp.hxx>
 
 namespace basctl
@@ -671,8 +675,7 @@ void DialogWindow::SaveDialog()
             if( xStringResourceResolver.is() )
             {
                 Sequence< lang::Locale > aLocaleSeq = xStringResourceResolver->getLocales();
-                sal_Int32 nLocaleCount = aLocaleSeq.getLength();
-                if( nLocaleCount > 0 )
+                if( aLocaleSeq.hasElements() )
                     bResource = true;
             }
 
@@ -994,8 +997,7 @@ bool implImportDialog(weld::Window* pWin, const OUString& rCurPath, const Script
                 {
                     const std::shared_ptr<LocalizationMgr>& pCurMgr = pShell->GetCurLocalizationMgr();
 
-                    lang::Locale aFirstLocale;
-                    aFirstLocale = aOnlyInImportLanguages[0];
+                    lang::Locale aFirstLocale = aOnlyInImportLanguages[0];
                     if( nOnlyInImportLanguageCount > 1 )
                     {
                         // Check if import default belongs to only import languages and use it then
@@ -1240,8 +1242,7 @@ void DialogWindow::InitSettings()
 {
     // FIXME RenderContext
     const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
-    vcl::Font aFont;
-    aFont = rStyleSettings.GetFieldFont();
+    vcl::Font aFont = rStyleSettings.GetFieldFont();
     SetPointFont(*this, aFont);
 
     SetTextColor( rStyleSettings.GetFieldTextColor() );

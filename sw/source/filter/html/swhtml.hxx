@@ -27,7 +27,6 @@
 #include <editeng/svxenum.hxx>
 #include <rtl/ref.hxx>
 #include <fltshell.hxx>
-#include <fmtornt.hxx>
 #include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/form/XFormComponent.hpp>
 
@@ -448,7 +447,7 @@ class SwHTMLParser : public SfxHTMLParser, public SwClient
     bool m_bSelect : 1;
     bool m_bInFootEndNoteAnchor : 1;
     bool m_bInFootEndNoteSymbol : 1;
-    bool const m_bIgnoreHTMLComments : 1;
+    bool m_bIgnoreHTMLComments : 1;
     bool m_bRemoveHidden : 1; // the filter implementation might set the hidden flag
 
     bool m_bBodySeen : 1;
@@ -807,7 +806,7 @@ public:
     const SwStartNode *InsertTableSection( sal_uInt16 nPoolId );
 
     // Insert methods for various table tags
-    HTMLTableCnts *InsertTableContents( bool bHead );
+    std::unique_ptr<HTMLTableCnts> InsertTableContents( bool bHead );
 
 private:
     // Create a section for the temporary storage of the table caption

@@ -82,6 +82,7 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
+#include <unotools/localedatawrapper.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/window.hxx>
@@ -1156,7 +1157,7 @@ void FormController::disposing()
             }
         }
 
-        Reference< XComponent > (rpChild, UNO_QUERY)->dispose();
+        Reference< XComponent > (rpChild, UNO_QUERY_THROW)->dispose();
     }
     m_aChildren.clear();
 
@@ -3498,7 +3499,7 @@ vcl::Window* FormController::getDialogParentWindow()
     try
     {
         Reference< XControl > xContainerControl( getContainer(), UNO_QUERY_THROW );
-        Reference< XWindowPeer > xContainerPeer( xContainerControl->getPeer(), UNO_QUERY_THROW );
+        Reference< XWindowPeer > xContainerPeer( xContainerControl->getPeer(), UNO_SET_THROW );
         pParentWindow = VCLUnoHelper::GetWindow( xContainerPeer ).get();
     }
     catch( const Exception& )
@@ -4031,7 +4032,7 @@ void SAL_CALL FormController::invalidateAllFeatures(  )
     Sequence< sal_Int16 > aInterceptedFeatures( comphelper::mapKeysToSequence(m_aFeatureDispatchers) );
 
     aGuard.clear();
-    if ( aInterceptedFeatures.getLength() )
+    if ( aInterceptedFeatures.hasElements() )
         invalidateFeatures( aInterceptedFeatures );
 }
 

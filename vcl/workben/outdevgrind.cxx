@@ -19,6 +19,7 @@
 
 #include <sal/main.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/extendapplicationenvironment.hxx>
 
 #include <cppuhelper/bootstrap.hxx>
@@ -550,15 +551,6 @@ void setupMethodStubs( functor_vector_type& res )
             return pDev->DrawWallpaper(aRect2, aWallpaper);
         });
 
-#ifdef FIXME_HAVE_WAVE_NORMAL
-    /* void DrawWaveLine( const Point& rStartPos, const Point& rEndPos, sal_uInt16 nStyle ); */
-    add(res,
-        "DrawWaveLine",
-        [&] (OutputDevice * pDev) {
-            return pDev->DrawWaveLine(aPt1, aPt2, (sal_uInt16)WAVE_NORMAL);
-        });
-#endif
-
     /* void DrawGrid( const Rectangle& rRect, const Size& rDist, sal_uLong nFlags ); */
     add(res,
         "DrawGrid",
@@ -740,9 +732,9 @@ SAL_IMPLEMENT_MAIN()
 
         DeInitVCL();
     }
-    catch (const css::uno::Exception& e)
+    catch (const css::uno::Exception&)
     {
-        SAL_WARN("vcl.app", "Fatal: " << e);
+        TOOLS_WARN_EXCEPTION("vcl.app", "Fatal");
         return EXIT_FAILURE;
     }
     catch (const std::exception& e)

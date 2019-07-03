@@ -19,8 +19,6 @@
 
 #include <rtl/ustring.hxx>
 #include <rtl/string.hxx>
-#include <rtl/ustrbuf.hxx>
-#include <rtl/strbuf.hxx>
 
 #include <i18nlangtag/mslangid.hxx>
 #include <i18nlangtag/languagetag.hxx>
@@ -186,7 +184,9 @@ static IsoLanguageCountryEntry const aImplIsoLangEntries[] =
     { LANGUAGE_GREEK,                       "el", "GR", k0    },
     { LANGUAGE_CHINESE_SIMPLIFIED,          "zh", "CN", k0    },
     { LANGUAGE_CHINESE_SIMPLIFIED_LEGACY,   "zh", "CN", k0    },
+    { LANGUAGE_CHINESE_SIMPLIFIED,         "cmn", "CN", kSAME },
     { LANGUAGE_CHINESE_TRADITIONAL,         "zh", "TW", k0    },
+    { LANGUAGE_CHINESE_TRADITIONAL,        "cmn", "TW", kSAME },
     { LANGUAGE_CHINESE_HONGKONG,            "zh", "HK", k0    },
     { LANGUAGE_CHINESE_SINGAPORE,           "zh", "SG", k0    },
     { LANGUAGE_CHINESE_MACAU,               "zh", "MO", k0    },
@@ -677,6 +677,7 @@ static IsoLanguageCountryEntry const aImplIsoLangEntries[] =
     { LANGUAGE_USER_JUHOAN,                "ktz", "NA", k0    },
     { LANGUAGE_USER_NARO,                  "nhr", "BW", k0    },
     { LANGUAGE_USER_ILOKO,                 "ilo", "PH", k0    },
+    { LANGUAGE_USER_ENGLISH_ZAMBIA,         "en", "ZM", k0    },
     { LANGUAGE_MULTIPLE,                   "mul", ""  , k0    },    // multiple languages, many languages are used
     { LANGUAGE_UNDETERMINED,               "und", ""  , k0    },    // undetermined language, language cannot be identified
     { LANGUAGE_NONE,                       "zxx", ""  , k0    },    // added to ISO 639-2 on 2006-01-11: Used to declare the absence of linguistic information

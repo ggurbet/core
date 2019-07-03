@@ -248,7 +248,7 @@ bool ScDocument::DrawGetPrintArea( ScRange& rRange, bool bSetHor, bool bSetVer )
 }
 
 void ScDocument::DeleteObjectsInArea( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
-                        const ScMarkData& rMark )
+                        const ScMarkData& rMark, bool bAnchored)
 {
     if (!mpDrawLayer)
         return;
@@ -259,7 +259,7 @@ void ScDocument::DeleteObjectsInArea( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCR
         if (rTab >= nTabCount)
             break;
         if (maTabs[rTab])
-            mpDrawLayer->DeleteObjectsInArea( rTab, nCol1, nRow1, nCol2, nRow2 );
+            mpDrawLayer->DeleteObjectsInArea( rTab, nCol1, nRow1, nCol2, nRow2, bAnchored);
     }
 }
 
@@ -553,25 +553,23 @@ void ScDocument::UpdateFontCharSet()
     if ( eSrcSet != eSysSet || bUpdateOld )
     {
         ScDocumentPool* pPool = mxPoolHelper->GetDocPool();
-        sal_uInt32 nCount = pPool->GetItemCount2(ATTR_FONT);
-        for (sal_uInt32 i=0; i<nCount; i++)
+        for (const SfxPoolItem* pItem : pPool->GetItemSurrogates(ATTR_FONT))
         {
-            SvxFontItem* pItem = const_cast<SvxFontItem*>(pPool->GetItem2(ATTR_FONT, i));
-            if ( pItem && ( pItem->GetCharSet() == eSrcSet ||
-                            ( bUpdateOld && pItem->GetCharSet() != RTL_TEXTENCODING_SYMBOL ) ) )
-                pItem->SetCharSet(eSysSet);
+            auto pFontItem = const_cast<SvxFontItem*>(dynamic_cast<const SvxFontItem*>(pItem));
+            if ( pFontItem && ( pFontItem->GetCharSet() == eSrcSet ||
+                               ( bUpdateOld && pFontItem->GetCharSet() != RTL_TEXTENCODING_SYMBOL ) ) )
+                pFontItem->SetCharSet(eSysSet);
         }
 
         if ( mpDrawLayer )
         {
             SfxItemPool& rDrawPool = mpDrawLayer->GetItemPool();
-            nCount = rDrawPool.GetItemCount2(EE_CHAR_FONTINFO);
-            for (sal_uInt32 i=0; i<nCount; i++)
+            for (const SfxPoolItem* pItem : rDrawPool.GetItemSurrogates(EE_CHAR_FONTINFO))
             {
-                SvxFontItem* pItem = const_cast<SvxFontItem*>(rDrawPool.GetItem2(EE_CHAR_FONTINFO, i));
-                if ( pItem && ( pItem->GetCharSet() == eSrcSet ||
-                                ( bUpdateOld && pItem->GetCharSet() != RTL_TEXTENCODING_SYMBOL ) ) )
-                    pItem->SetCharSet( eSysSet );
+                SvxFontItem* pFontItem = const_cast<SvxFontItem*>(dynamic_cast<const SvxFontItem*>(pItem));
+                if ( pFontItem && ( pFontItem->GetCharSet() == eSrcSet ||
+                                   ( bUpdateOld && pFontItem->GetCharSet() != RTL_TEXTENCODING_SYMBOL ) ) )
+                    pFontItem->SetCharSet( eSysSet );
             }
         }
     }

@@ -21,6 +21,7 @@
 #include <drawinglayer/primitive2d/modifiedcolorprimitive2d.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <drawinglayer/primitive2d/transformprimitive2d.hxx>
+#include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <drawinglayer/processor2d/processor2dtools.hxx>
 #include <vcl/virdev.hxx>
 
@@ -99,8 +100,14 @@ namespace drawinglayer
 #ifdef DBG_UTIL
                 if(bDoSaveForVisualControl)
                 {
-                    SvFileStream aNew("c:\\test_content.png", StreamMode::WRITE|StreamMode::TRUNC);
-                    BitmapEx aContentEx = BitmapEx(aContent);
+                    SvFileStream aNew(
+#ifdef _WIN32
+                    "c:\\test_content.png"
+#else
+                    "~/test_content.png"
+#endif
+                    , StreamMode::WRITE|StreamMode::TRUNC);
+                    BitmapEx aContentEx(aContent);
                     vcl::PNGWriter aPNGWriter(aContentEx);
                     aPNGWriter.Write(aNew);
                 }
@@ -130,8 +137,14 @@ namespace drawinglayer
 #ifdef DBG_UTIL
                 if(bDoSaveForVisualControl)
                 {
-                    SvFileStream aNew("c:\\test_alpha.png", StreamMode::WRITE|StreamMode::TRUNC);
-                    BitmapEx aAlphaEx = BitmapEx(aAlpha);
+                    SvFileStream aNew(
+#ifdef _WIN32
+                    "c:\\test_alpha.png"
+#else
+                    "~/test_alpha.png"
+#endif
+                    , StreamMode::WRITE|StreamMode::TRUNC);
+                    BitmapEx aAlphaEx(aAlpha);
                     vcl::PNGWriter aPNGWriter(aAlphaEx);
                     aPNGWriter.Write(aNew);
                 }
@@ -142,7 +155,13 @@ namespace drawinglayer
 #ifdef DBG_UTIL
                 if(bDoSaveForVisualControl)
                 {
-                    SvFileStream aNew("c:\\test_combined.png", StreamMode::WRITE|StreamMode::TRUNC);
+                    SvFileStream aNew(
+#ifdef _WIN32
+                    "c:\\test_combined.png"
+#else
+                    "~/test_combined.png"
+#endif
+                    , StreamMode::WRITE|StreamMode::TRUNC);
                     vcl::PNGWriter aPNGWriter(aRetval);
                     aPNGWriter.Write(aNew);
                 }

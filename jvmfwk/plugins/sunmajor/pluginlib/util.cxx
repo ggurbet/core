@@ -17,18 +17,16 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
 #include <config_folders.h>
 
 #include "util.hxx"
 
 #include <osl/process.h>
-#include <osl/security.hxx>
 #include <osl/file.hxx>
 #include <osl/module.hxx>
 #include <osl/diagnose.h>
 #include <osl/getglobalmutex.hxx>
-#include <rtl/byteseq.hxx>
+#include <rtl/bootstrap.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/instance.hxx>
 #include <sal/log.hxx>
@@ -733,8 +731,7 @@ void bubbleSortVersion(vector<rtl::Reference<VendorBase> >& vec)
             }
             if(nCmp == 1) // cur > next
             {
-                vec.at(j-1)= cur;
-                vec.at(j)= next;
+                std::swap(cur, next);
             }
         }
         ++cIter;
@@ -1032,6 +1029,7 @@ rtl::Reference<VendorBase> getJREInfoByPath(
         }
     }
 
+    auto knownVendor = false;
     if (!sVendorName.isEmpty())
     {
         //find the creator func for the respective vendor name
@@ -1043,9 +1041,15 @@ rtl::Reference<VendorBase> getJREInfoByPath(
             if (sNameMap == sVendorName)
             {
                 ret = createInstance(gVendorMap[c].createFunc, props);
+                knownVendor = true;
                 break;
             }
         }
+    }
+    // For unknown vendors, try SunInfo as fallback:
+    if (!knownVendor)
+    {
+        ret = createInstance(SunInfo::createInstance, props);
     }
     if (!ret.is())
     {

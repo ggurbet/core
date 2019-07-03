@@ -26,6 +26,10 @@
 #include <svl/itemset.hxx>
 #include <tools/solar.h>
 #include <vcl/abstdlg.hxx>
+#include <svx/svxdlg.hxx>
+
+#include <com/sun/star/beans/PropertyValue.hpp>
+
 #include "prlayout.hxx"
 #include "pres.hxx"
 #include "sddllapi.h"
@@ -167,6 +171,7 @@ class SdAbstractDialogFactory
 public:
     SD_DLLPUBLIC static SdAbstractDialogFactory*     Create();
 
+    virtual VclPtr<AbstractSvxBulletAndPositionDlg> CreateSvxBulletAndPositionDlg(weld::Window* pParent, const SfxItemSet* pAttr, ::sd::View* pView) = 0;
     virtual VclPtr<VclAbstractDialog>          CreateBreakDlg(weld::Window* pWindow, ::sd::DrawView* pDrView, ::sd::DrawDocShell* pShell, sal_uLong nSumActionCount, sal_uLong nObjCount ) = 0;
     virtual VclPtr<AbstractCopyDlg>            CreateCopyDlg(weld::Window* pWindow, const SfxItemSet& rInAttrs, ::sd::View* pView ) = 0;
     virtual VclPtr<AbstractSdCustomShowDlg>    CreateSdCustomShowDlg(weld::Window* pWindow, SdDrawDocument& rDrawDoc) = 0;
@@ -191,10 +196,10 @@ public:
 
     virtual VclPtr<VclAbstractDialog>          CreateMasterLayoutDialog(weld::Window* pParent, SdDrawDocument* pDoc, SdPage*) = 0;
 
-    virtual VclPtr<AbstractHeaderFooterDialog> CreateHeaderFooterDialog( sd::ViewShell* pViewShell,
-                                                                  vcl::Window* pParent,
-                                                                  SdDrawDocument* pDoc,
-                                                                  SdPage* pCurrentPage ) = 0;
+    virtual VclPtr<AbstractHeaderFooterDialog> CreateHeaderFooterDialog(sd::ViewShell* pViewShell,
+                                                                        weld::Window* pParent,
+                                                                        SdDrawDocument* pDoc,
+                                                                        SdPage* pCurrentPage) = 0;
 
     virtual CreateTabPage               GetSdOptionsContentsTabPageCreatorFunc() = 0;
     virtual CreateTabPage               GetSdPrintOptionsTabPageCreatorFunc() = 0;

@@ -22,6 +22,7 @@
 #include "breakiteratorImpl.hxx"
 
 #include <unicode/brkiter.h>
+#include <unicode/utext.h>
 #include <memory>
 #include <unordered_map>
 

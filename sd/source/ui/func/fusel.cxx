@@ -29,19 +29,16 @@
 #include <drawview.hxx>
 #include <vcl/imapobj.hxx>
 #include <svl/urihelper.hxx>
-#include <unotools/localfilehelper.hxx>
 #include <unotools/securityoptions.hxx>
 #include <svx/svxids.hrc>
 #include <svx/xfillit0.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/viewfrm.hxx>
-#include <svl/aeitem.hxx>
 #include <svl/stritem.hxx>
 #include <svl/intitem.hxx>
 #include <sfx2/dispatch.hxx>
 #include <tools/urlobj.hxx>
 #include <sfx2/docfile.hxx>
-#include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
 
 #include <svx/svdotable.hxx>
@@ -60,11 +57,9 @@
 #include <View.hxx>
 #include <Window.hxx>
 #include <drawdoc.hxx>
-#include <sdpage.hxx>
 #include <DrawViewShell.hxx>
 #include <ToolBarManager.hxx>
 #include <pgjump.hxx>
-#include <svx/globl3d.hxx>
 #include <Client.hxx>
 
 #include <slideshow.hxx>
@@ -126,6 +121,17 @@ FuSelection::~FuSelection()
     if ( mpView->GetDragMode() != SdrDragMode::Move )
     {
         mpView->SetDragMode(SdrDragMode::Move);
+    }
+}
+
+namespace {
+    bool lcl_followHyperlinkAllowed(const MouseEvent& rMEvt) {
+        SvtSecurityOptions aSecOpt;
+        if (!rMEvt.IsMod1() && aSecOpt.IsOptionSet(SvtSecurityOptions::EOption::CtrlClickHyperlink))
+            return false;
+        if (rMEvt.IsMod1() && !aSecOpt.IsOptionSet(SvtSecurityOptions::EOption::CtrlClickHyperlink))
+            return false;
+        return true;
     }
 }
 
@@ -269,10 +275,7 @@ bool FuSelection::MouseButtonDown(const MouseEvent& rMEvt)
              {
                 mpWindow->ReleaseMouse();
 
-                SvtSecurityOptions aSecOpt;
-                if (!rMEvt.IsMod1() && aSecOpt.IsOptionSet(SvtSecurityOptions::EOption::CtrlClickHyperlink))
-                    return true;
-                if (rMEvt.IsMod1() && !aSecOpt.IsOptionSet(SvtSecurityOptions::EOption::CtrlClickHyperlink))
+                if (!lcl_followHyperlinkAllowed(rMEvt))
                     return true;
 
                 SfxStringItem aStrItem(SID_FILE_NAME, aVEvt.pURLField->GetURL());
@@ -314,24 +317,31 @@ bool FuSelection::MouseButtonDown(const MouseEvent& rMEvt)
                 pObj = mpView->PickObj(aMDPos, mpView->getHitTolLog(), pPV, SdrSearchOptions::ALSOONMASTER);
                 if (pObj)
                 {
-                    // Animate object when not just selecting.
-                    if ( ! bSelectionOnly)
-                        bReturn = AnimateObj(pObj, aMDPos);
-
-                    if( !bReturn && (dynamic_cast< const SdrObjGroup *>( pObj ) != nullptr || dynamic_cast< const E3dScene* >(pObj) != nullptr))
+                    // Handle ImageMap click when not just selecting
+                    if (!bSelectionOnly)
                     {
-                        if(rMEvt.GetClicks() == 1)
+                        if (lcl_followHyperlinkAllowed(rMEvt))
+                            bReturn = HandleImageMapClick(pObj, aMDPos);
+                    }
+
+                    if (!bReturn
+                        && (dynamic_cast<const SdrObjGroup*>(pObj) != nullptr
+                            || dynamic_cast<const E3dScene*>(pObj) != nullptr))
+                    {
+                        if (rMEvt.GetClicks() == 1)
                         {
                             // Look into the group
-                            pObj = mpView->PickObj(aMDPos, mpView->getHitTolLog(), pPV, SdrSearchOptions::ALSOONMASTER | SdrSearchOptions::DEEP);
-                            if (pObj)
-                                bReturn = AnimateObj(pObj, aMDPos);
+                            pObj = mpView->PickObj(aMDPos, mpView->getHitTolLog(), pPV,
+                                                   SdrSearchOptions::ALSOONMASTER
+                                                       | SdrSearchOptions::DEEP);
+                            if (pObj && lcl_followHyperlinkAllowed(rMEvt))
+                                bReturn = HandleImageMapClick(pObj, aMDPos);
                         }
-                        else if( !bReadOnly && rMEvt.GetClicks() == 2)
+                        else if (!bReadOnly && rMEvt.GetClicks() == 2)
                         {
                             // New: double click on selected Group object
                             // enter group
-                            if ( ! bSelectionOnly
+                            if (!bSelectionOnly
                                 && pObj->getSdrPageFromSdrObject() == pPV->GetPage())
                                 bReturn = pPV->EnterGroup(pObj);
                         }
@@ -1190,11 +1200,10 @@ void FuSelection::SetEditMode(sal_uInt16 nMode)
 }
 
 /**
- * Execute animation or interaction
+ * Execute ImageMap interaction
  */
-bool FuSelection::AnimateObj(SdrObject* pObj, const Point& rPos)
+bool FuSelection::HandleImageMapClick(SdrObject* pObj, const Point& rPos)
 {
-    bool bAnimated = false;
     bool bClosed = pObj->IsClosedObj();
     bool bFilled = false;
 
@@ -1209,30 +1218,33 @@ bool FuSelection::AnimateObj(SdrObject* pObj, const Point& rPos)
     }
 
     const SdrLayerIDSet* pVisiLayer = &mpView->GetSdrPageView()->GetVisibleLayers();
-    sal_uInt16 nHitLog = sal_uInt16 ( mpWindow->PixelToLogic(Size(HITPIX,0)).Width() );
-    const long  n2HitLog = nHitLog * 2;
+    sal_uInt16 nHitLog = sal_uInt16(mpWindow->PixelToLogic(Size(HITPIX, 0)).Width());
+    const long n2HitLog = nHitLog * 2;
     Point aHitPosR(rPos);
     Point aHitPosL(rPos);
     Point aHitPosT(rPos);
     Point aHitPosB(rPos);
 
-    aHitPosR.AdjustX(n2HitLog );
-    aHitPosL.AdjustX( -n2HitLog );
-    aHitPosT.AdjustY( n2HitLog );
-    aHitPosB.AdjustY( -n2HitLog );
+    aHitPosR.AdjustX(n2HitLog);
+    aHitPosL.AdjustX(-n2HitLog);
+    aHitPosT.AdjustY(n2HitLog);
+    aHitPosB.AdjustY(-n2HitLog);
 
-    if ( !bClosed                                      ||
-         !bFilled                                      ||
-         (SdrObjectPrimitiveHit(*pObj, aHitPosR, nHitLog, *mpView->GetSdrPageView(), pVisiLayer, false) &&
-          SdrObjectPrimitiveHit(*pObj, aHitPosL, nHitLog, *mpView->GetSdrPageView(), pVisiLayer, false) &&
-          SdrObjectPrimitiveHit(*pObj, aHitPosT, nHitLog, *mpView->GetSdrPageView(), pVisiLayer, false) &&
-          SdrObjectPrimitiveHit(*pObj, aHitPosB, nHitLog, *mpView->GetSdrPageView(), pVisiLayer, false) ) )
+    if (!bClosed || !bFilled
+        || (SdrObjectPrimitiveHit(*pObj, aHitPosR, nHitLog, *mpView->GetSdrPageView(), pVisiLayer,
+                                  false)
+            && SdrObjectPrimitiveHit(*pObj, aHitPosL, nHitLog, *mpView->GetSdrPageView(),
+                                     pVisiLayer, false)
+            && SdrObjectPrimitiveHit(*pObj, aHitPosT, nHitLog, *mpView->GetSdrPageView(),
+                                     pVisiLayer, false)
+            && SdrObjectPrimitiveHit(*pObj, aHitPosB, nHitLog, *mpView->GetSdrPageView(),
+                                     pVisiLayer, false)))
     {
-        if ( SdDrawDocument::GetIMapInfo( pObj ) )
+        if (SdDrawDocument::GetIMapInfo(pObj))
         {
-            const IMapObject* pIMapObj = SdDrawDocument::GetHitIMapObject( pObj, rPos );
+            const IMapObject* pIMapObj = SdDrawDocument::GetHitIMapObject(pObj, rPos);
 
-            if ( pIMapObj && !pIMapObj->GetURL().isEmpty() )
+            if (pIMapObj && !pIMapObj->GetURL().isEmpty())
             {
                 // Jump to Document
                 mpWindow->ReleaseMouse();
@@ -1240,229 +1252,18 @@ bool FuSelection::AnimateObj(SdrObject* pObj, const Point& rPos)
                 SfxStringItem aReferer(SID_REFERER, mpDocSh->GetMedium()->GetName());
                 SfxViewFrame* pFrame = mpViewShell->GetViewFrame();
                 SfxFrameItem aFrameItem(SID_DOCFRAME, pFrame);
-                SfxBoolItem aBrowseItem( SID_BROWSE, true );
+                SfxBoolItem aBrowseItem(SID_BROWSE, true);
                 mpWindow->ReleaseMouse();
-                pFrame->GetDispatcher()->ExecuteList(SID_OPENDOC,
-                        SfxCallMode::ASYNCHRON | SfxCallMode::RECORD,
-                        { &aStrItem, &aFrameItem, &aBrowseItem, &aReferer });
+                pFrame->GetDispatcher()->ExecuteList(
+                    SID_OPENDOC, SfxCallMode::ASYNCHRON | SfxCallMode::RECORD,
+                    { &aStrItem, &aFrameItem, &aBrowseItem, &aReferer });
 
-                bAnimated = true;
-            }
-        }
-        else if( dynamic_cast< const GraphicDocShell *>( mpDocSh ) ==  nullptr        &&
-                 dynamic_cast< const DrawView *>( mpView ) !=  nullptr                 &&
-                 SdDrawDocument::GetAnimationInfo(pObj))
-        {
-            /**********************************************************
-            * Animation-object hit in the middle -> interaction
-            **********************************************************/
-            SdAnimationInfo* pInfo = SdDrawDocument::GetAnimationInfo(pObj);
-            DrawViewShell* pDrViewSh = static_cast<DrawViewShell*>(mpViewShell);
-            mpWindow->ReleaseMouse();
-
-            switch (pInfo->meClickAction)
-            {
-                case presentation::ClickAction_BOOKMARK:
-                {
-                     // Jump to Bookmark (Page or Object)
-                    SfxStringItem aItem(SID_NAVIGATOR_OBJECT, pInfo->GetBookmark());
-                    mpViewShell->GetViewFrame()->GetDispatcher()->ExecuteList(
-                        SID_NAVIGATOR_OBJECT,
-                        SfxCallMode::SLOT | SfxCallMode::RECORD, { &aItem });
-                    bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_DOCUMENT:
-                {
-                    OUString sBookmark( pInfo->GetBookmark() );
-                    // Jump to document
-                    if (!sBookmark.isEmpty())
-                    {
-                        SfxStringItem aReferer(SID_REFERER, mpDocSh->GetMedium()->GetName());
-                        SfxStringItem aStrItem(SID_FILE_NAME, sBookmark);
-                        SfxViewFrame* pFrame = mpViewShell->GetViewFrame();
-                        SfxFrameItem aFrameItem(SID_DOCFRAME, pFrame);
-                        SfxBoolItem aBrowseItem( SID_BROWSE, true );
-                        pFrame->GetDispatcher()->
-                        ExecuteList(SID_OPENDOC,
-                            SfxCallMode::ASYNCHRON | SfxCallMode::RECORD,
-                            { &aStrItem, &aFrameItem, &aBrowseItem, &aReferer });
-                    }
-
-                    bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_PREVPAGE:
-                {
-                    // Jump to the previous page
-                    SfxUInt16Item aItem(SID_NAVIGATOR_PAGE, PAGE_PREVIOUS);
-                    mpViewShell->GetViewFrame()->GetDispatcher()->
-                    ExecuteList(SID_NAVIGATOR_PAGE,
-                            SfxCallMode::SLOT | SfxCallMode::RECORD,
-                            { &aItem });
-                    bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_NEXTPAGE:
-                {
-                    // Jump to the next page
-                    SfxUInt16Item aItem(SID_NAVIGATOR_PAGE, PAGE_NEXT);
-                    mpViewShell->GetViewFrame()->GetDispatcher()->
-                    ExecuteList(SID_NAVIGATOR_PAGE,
-                            SfxCallMode::SLOT | SfxCallMode::RECORD,
-                            { &aItem });
-                    bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_FIRSTPAGE:
-                {
-                    // Jump to the first page
-                    SfxUInt16Item aItem(SID_NAVIGATOR_PAGE, PAGE_FIRST);
-                    mpViewShell->GetViewFrame()->GetDispatcher()->
-                    ExecuteList(SID_NAVIGATOR_PAGE,
-                            SfxCallMode::SLOT | SfxCallMode::RECORD,
-                            { &aItem });
-                    bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_LASTPAGE:
-                {
-                    // Jump to the last page
-                    SfxUInt16Item aItem(SID_NAVIGATOR_PAGE, PAGE_LAST);
-                    mpViewShell->GetViewFrame()->GetDispatcher()->
-                    ExecuteList(SID_NAVIGATOR_PAGE,
-                            SfxCallMode::SLOT | SfxCallMode::RECORD,
-                            { &aItem });
-                    bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_SOUND:
-                {
-#if HAVE_FEATURE_AVMEDIA
-                        try
-                        {
-                            mxPlayer.set( avmedia::MediaWindow::createPlayer( pInfo->GetBookmark(), ""/*TODO?*/), uno::UNO_QUERY_THROW );
-                            mxPlayer->start();
-                        }
-                        catch( uno::Exception& )
-                        {
-                        }
-#endif
-                        bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_VERB:
-                {
-                    // Assign verb
-                    mpView->UnmarkAll();
-                    mpView->MarkObj(pObj, mpView->GetSdrPageView());
-                    pDrViewSh->DoVerb(static_cast<sal_Int16>(pInfo->mnVerb));
-                    bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_PROGRAM:
-                {
-                   OUString aBaseURL = GetDocSh()->GetMedium()->GetBaseURL();
-                   INetURLObject aURL( ::URIHelper::SmartRel2Abs( INetURLObject(aBaseURL), pInfo->GetBookmark(),
-                                                URIHelper::GetMaybeFileHdl(), true, false,
-                                                INetURLObject::EncodeMechanism::WasEncoded, INetURLObject::DecodeMechanism::Unambiguous ) );
-
-                   if( INetProtocol::File == aURL.GetProtocol() )
-                   {
-                        SfxStringItem aUrl( SID_FILE_NAME, aURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
-                        SfxBoolItem aBrowsing( SID_BROWSE, true );
-
-                        SfxViewFrame* pViewFrm = SfxViewFrame::Current();
-                        if (pViewFrm)
-                            pViewFrm->GetDispatcher()->ExecuteList(SID_OPENDOC,
-                                  SfxCallMode::ASYNCHRON | SfxCallMode::RECORD,
-                                  { &aUrl, &aBrowsing });
-                   }
-
-                   bAnimated = true;
-                }
-                break;
-
-                case presentation::ClickAction_MACRO:
-                {
-                    // Execute macro
-                    OUString aMacro = pInfo->GetBookmark();
-
-                    if ( SfxApplication::IsXScriptURL( aMacro ) )
-                    {
-                        uno::Any aRet;
-                        uno::Sequence< sal_Int16 > aOutArgsIndex;
-                        uno::Sequence<uno::Any> aParams;
-                        uno::Sequence< uno::Any > aOutArgs;
-
-                        ErrCode eErr = mpDocSh->CallXScript( aMacro,
-                            aParams, aRet, aOutArgsIndex, aOutArgs);
-
-                        // Check the return value from the script
-                        bool bTmp = false;
-                        bAnimated = eErr == ERRCODE_NONE &&
-                             aRet.getValueType() == cppu::UnoType<bool>::get() &&
-                             ( aRet >>= bTmp ) &&
-                             bTmp;
-                    }
-                    else
-                    {
-                        // aMacro has got following format:
-                        // "Macroname.Modulname.Libname.Documentname" or
-                        // "Macroname.Modulname.Libname.Applicationname"
-                        sal_Int32 nIdx{ 0 };
-                        const OUString aMacroName = aMacro.getToken(0, '.', nIdx);
-                        const OUString aModulName = aMacro.getToken(0, '.', nIdx);
-
-                        // In this moment the Call-method only
-                        // resolves modulename+macroname
-                        OUString aExecMacro(aModulName + "." + aMacroName);
-                        bAnimated = mpDocSh->GetBasic()->Call(aExecMacro);
-                    }
-                }
-                break;
-
-                default:
-                {
-                    bAnimated = false;
-                }
-                break;
-            }
-        }
-
-        if (!bAnimated                               &&
-            dynamic_cast< const DrawView *>( mpView ) !=  nullptr                 &&
-            dynamic_cast< const GraphicDocShell *>( mpDocSh ) ==  nullptr        &&
-            SlideShow::IsRunning( mpViewShell->GetViewShellBase() ) &&
-            SdDrawDocument::GetAnimationInfo(pObj))
-        {
-            /**********************************************************
-            * Effect-Object hit in the middle -> Play effect
-            **********************************************************/
-            SdAnimationInfo* pInfo = SdDrawDocument::GetAnimationInfo(pObj);
-
-            switch (pInfo->meClickAction)
-            {
-                case presentation::ClickAction_VANISH:
-                case presentation::ClickAction_INVISIBLE:
-                    break;
-
-                default:
-                    bAnimated = false;
-                break;
+                return true;
             }
         }
     }
 
-    return bAnimated;
+    return false;
 }
 
 /** is called when the current function should be aborted. <p>

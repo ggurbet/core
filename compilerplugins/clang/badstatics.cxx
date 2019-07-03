@@ -160,7 +160,7 @@ public:
         {
             auto const name(pVarDecl->getName());
             if (   name == "g_pI18NStatusInstance" // I18NStatus::free()
-                || name == "s_pPreviousView" // not a owning pointer
+                || name == "s_pPreviousView" // not an owning pointer
                 || name == "s_pDefCollapsed" // SvImpLBox::~SvImpLBox()
                 || name == "s_pDefExpanded"  // SvImpLBox::~SvImpLBox()
                 || name == "g_pDDSource" // SvTreeListBox::dispose()
@@ -209,6 +209,8 @@ public:
                 || name == "gStaticManager" // vcl/source/graphic/Manager.cxx - stores non-owning pointers
                 || name == "aThreadedInterpreterPool"    // ScInterpreterContext(Pool), not owning
                 || name == "aNonThreadedInterpreterPool" // ScInterpreterContext(Pool), not owning
+                || name == "lcl_parserContext" // getParserContext(), the chain from this to a VclPtr is not owning
+                || name == "aReaderWriter" // /home/noel/libo/sw/source/filter/basflt/fltini.cxx, non-owning
                ) // these variables appear unproblematic
             {
                 return true;

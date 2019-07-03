@@ -23,6 +23,7 @@
 #include <i18nlangtag/lang.h>
 #include <tools/color.hxx>
 #include <tools/gen.hxx>
+#include <svl/poolitem.hxx>
 #include <editeng/svxfont.hxx>
 #include <swtypes.hxx>
 #include "drawfont.hxx"
@@ -33,7 +34,6 @@
 class SfxItemSet;
 class SwAttrSet;
 class SwDoCapitals;     // DoCapitals
-class SwDrawTextInfo;   // DrawText_
 class SwScriptInfo;     // GetTextSize_
 class SwViewShell;
 class IDocumentSettingAccess;

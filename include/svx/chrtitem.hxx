@@ -19,7 +19,6 @@
 #ifndef INCLUDED_SVX_CHRTITEM_HXX
 #define INCLUDED_SVX_CHRTITEM_HXX
 
-#include <com/sun/star/uno/Any.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
 #include <svl/eitem.hxx>
@@ -28,7 +27,6 @@
 
 class IntlWrapper;
 class SfxItemPool;
-class SvStream;
 
 enum class SvxChartTextOrder
 {
@@ -88,7 +86,6 @@ public:
     virtual SfxPoolItem* Clone(SfxItemPool* pPool = nullptr) const override;
 
     sal_uInt16 GetValueCount() const override { return CHREGRESS_COUNT; }
-    sal_uInt16 GetVersion (sal_uInt16 nFileFormatVersion) const override;
 };
 
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxChartTextOrderItem : public SfxEnumItem<SvxChartTextOrder>
@@ -114,8 +111,6 @@ public:
     virtual SfxPoolItem* Clone(SfxItemPool* pPool = nullptr) const override;
 
     sal_uInt16 GetValueCount() const override { return CHERROR_COUNT; }
-
-    sal_uInt16 GetVersion (sal_uInt16 nFileFormatVersion) const override;
 };
 
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxChartIndicateItem : public SfxEnumItem<SvxChartIndicate>
@@ -127,8 +122,6 @@ public:
     virtual SfxPoolItem* Clone(SfxItemPool* pPool = nullptr) const override;
 
     sal_uInt16 GetValueCount() const override { return CHINDICATE_COUNT; }
-
-    sal_uInt16 GetVersion (sal_uInt16 nFileFormatVersion) const override;
 };
 
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxDoubleItem : public SfxPoolItem

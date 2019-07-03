@@ -50,6 +50,7 @@
 #include <com/sun/star/text/FootnoteNumbering.hpp>
 #include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/style/LineNumberPosition.hpp>
+#include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
@@ -61,6 +62,7 @@
 #include <vcl/metric.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/GraphicLoader.hxx>
+#include <sfx2/docfile.hxx>
 #include <svtools/ctrltool.hxx>
 #include <vcl/svapp.hxx>
 #include <editeng/unofdesc.hxx>
@@ -1302,13 +1304,21 @@ uno::Sequence<beans::PropertyValue> SwXNumberingRules::GetNumberingRuleByIndex(
         SwStyleNameMapper::FillProgName(sValue, aUString, SwGetPoolIdFromName::TxtColl);
     }
 
-    return GetPropertiesForNumFormat(rFormat, CharStyleName, m_pDocShell ? & aUString : nullptr);
+    OUString referer;
+    if (m_pDoc != nullptr) {
+        auto const sh = m_pDoc->GetPersist();
+        if (sh != nullptr && sh->HasName()) {
+            referer = sh->GetMedium()->GetName();
+        }
+    }
+    return GetPropertiesForNumFormat(
+        rFormat, CharStyleName, m_pDocShell ? & aUString : nullptr, referer);
 
 }
 
 uno::Sequence<beans::PropertyValue> SwXNumberingRules::GetPropertiesForNumFormat(
         const SwNumFormat& rFormat, OUString const& rCharFormatName,
-        OUString const*const pHeadingStyleName)
+        OUString const*const pHeadingStyleName, OUString const & referer)
 {
     bool bChapterNum = pHeadingStyleName != nullptr;
 
@@ -1430,7 +1440,7 @@ uno::Sequence<beans::PropertyValue> SwXNumberingRules::GetPropertiesForNumFormat
         if (SVX_NUM_BITMAP == rFormat.GetNumberingType())
         {
             const SvxBrushItem* pBrush = rFormat.GetBrush();
-            const Graphic* pGraphic = pBrush ? pBrush->GetGraphic() : nullptr;
+            const Graphic* pGraphic = pBrush ? pBrush->GetGraphic(referer) : nullptr;
             if (pGraphic)
             {
                 //GraphicBitmap
@@ -2019,7 +2029,7 @@ void SwXNumberingRules::SetPropertiesToNumFormat(
                         }
 
                         Graphic aGraphic = vcl::graphic::loadFromURL(aURL);
-                        if (aGraphic)
+                        if (!aGraphic.IsNone())
                             pSetBrush->SetGraphic(aGraphic);
                     }
                     else
@@ -2321,7 +2331,7 @@ SwXTextColumns::SwXTextColumns(const SwFormatCol& rFormatCol) :
         pColumns[i].LeftMargin =    convertTwipToMm100(pCol->GetLeft ());
         pColumns[i].RightMargin =   convertTwipToMm100(pCol->GetRight());
     }
-    if(!m_aTextColumns.getLength())
+    if(!m_aTextColumns.hasElements())
         m_nReference = USHRT_MAX;
 
     m_nSepLineWidth = rFormatCol.GetLineWidth();

@@ -21,13 +21,11 @@
 #define INCLUDED_SVX_XBTMPIT_HXX
 
 #include <svx/svxdllapi.h>
+#include <svx/xdef.hxx>
 #include <svx/xit.hxx>
 #include <vcl/GraphicObject.hxx>
-#include <array>
 
 class SdrModel;
-class BitmapColor;
-
 
 // class XFillBitmapItem
 
@@ -44,8 +42,9 @@ public:
             XFillBitmapItem( const XFillBitmapItem& rItem );
 
     virtual bool            operator==( const SfxPoolItem& rItem ) const override;
+    // no idea why, but this item does not play nice with the sorting optimisation, get failures in sd_import_tests
+    virtual bool            IsSortable() const override { return false; }
     virtual SfxPoolItem*    Clone( SfxItemPool* pPool = nullptr ) const override;
-    virtual sal_uInt16      GetVersion( sal_uInt16 nFileFormatVersion ) const override;
 
     virtual bool            QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;
     virtual bool            PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId ) override;

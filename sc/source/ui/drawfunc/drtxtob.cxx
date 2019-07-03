@@ -24,6 +24,7 @@
 #include <svx/clipfmtitem.hxx>
 #include <editeng/contouritem.hxx>
 #include <editeng/crossedoutitem.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/escapementitem.hxx>
@@ -36,6 +37,7 @@
 #include <editeng/ulspitem.hxx>
 #include <svx/hlnkitem.hxx>
 #include <svx/svdoutl.hxx>
+#include <svx/sdooitm.hxx>
 #include <editeng/postitem.hxx>
 #include <editeng/scripttypeitem.hxx>
 #include <editeng/shdditem.hxx>
@@ -49,6 +51,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <svtools/cliplistener.hxx>
 #include <vcl/transfer.hxx>
+#include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
 #include <svl/languageoptions.hxx>
 
@@ -203,7 +206,7 @@ void ScDrawTextObjectBar::Execute( SfxRequest &rReq )
                 const SvxFontItem& rItem = pOutView->GetAttribs().Get(EE_CHAR_FONTINFO);
 
                 OUString aString;
-                SvxFontItem aNewItem( EE_CHAR_FONTINFO );
+                std::shared_ptr<SvxFontItem> aNewItem(std::make_shared<SvxFontItem>(EE_CHAR_FONTINFO));
 
                 const SfxItemSet *pArgs = rReq.GetArgs();
                 const SfxPoolItem* pItem = nullptr;
@@ -220,12 +223,15 @@ void ScDrawTextObjectBar::Execute( SfxRequest &rReq )
                     {
                         const OUString& aFontName(pFontItem->GetValue());
                         vcl::Font aFont(aFontName, Size(1,1)); // Size only because of CTOR
-                        aNewItem = SvxFontItem( aFont.GetFamilyType(), aFont.GetFamilyName(),
-                                    aFont.GetStyleName(), aFont.GetPitch(),
-                                    aFont.GetCharSet(), ATTR_FONT  );
+                        aNewItem = std::make_shared<SvxFontItem>(
+                            aFont.GetFamilyType(), aFont.GetFamilyName(),
+                            aFont.GetStyleName(), aFont.GetPitch(),
+                            aFont.GetCharSet(), ATTR_FONT);
                     }
                     else
-                        aNewItem = rItem;
+                    {
+                        aNewItem.reset(static_cast<SvxFontItem*>(rItem.Clone()));
+                    }
                 }
                 else
                     ScViewUtil::ExecuteCharMap( rItem, *pViewData->GetViewShell()->GetViewFrame() );
@@ -233,7 +239,15 @@ void ScDrawTextObjectBar::Execute( SfxRequest &rReq )
                 if ( !aString.isEmpty() )
                 {
                     SfxItemSet aSet( pOutliner->GetEmptyItemSet() );
-                    aSet.Put( aNewItem );
+                    // tdf#125054
+                    // checked against original, indeed aNewItem looks as if it can have
+                    // either WhichID EE_CHAR_FONTINFO or ATTR_FONT when it was reset
+                    // above, original uses '= SvxFontItem(..., ATTR_FONT).
+                    // BUT beware: the operator=() did not copy the WhichID when resetting,
+                    // so it indeed has WhichID of EE_CHAR_FONTINFO despite copying an Item
+                    // that was constructed using ATTR_FONT as WhichID (!)
+                    aSet.Put( *aNewItem, EE_CHAR_FONTINFO );
+
                     //  If nothing is selected, then SetAttribs of the View selects a word
                     pOutView->GetOutliner()->QuickSetAttribs( aSet, pOutView->GetSelection() );
                     pOutView->InsertText(aString);
@@ -860,8 +874,7 @@ void ScDrawTextObjectBar::ExecuteAttr( SfxRequest &rReq )
             case SID_DRAWTEXT_ATTR_DLG:
                 {
                     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                    vcl::Window* pWin = pViewData->GetDialogParent();
-                    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog( pWin ? pWin->GetFrameWeld() : nullptr, &aEditAttr, pView ));
+                    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog(pViewData->GetDialogParent(), &aEditAttr, pView));
 
                     bDone = ( RET_OK == pDlg->Execute() );
 

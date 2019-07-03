@@ -17,25 +17,15 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <stdlib.h>
 #include <string.h>
 #include <vector>
 
 #include <cppuhelper/exc_hlp.hxx>
-#include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/weak.hxx>
 #include <cppuhelper/implbase.hxx>
-#include <cppuhelper/implementationentry.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/sequence.hxx>
-
-#include <uno/mapping.hxx>
-#include <osl/thread.h>
-
-#include <rtl/ref.hxx>
 #include <rtl/ustring.hxx>
-#include <rtl/ustrbuf.hxx>
-#include <osl/process.h>
 
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
@@ -52,8 +42,6 @@
 
 #if defined(_WIN32)
 #include <io.h>
-#else
-#include <unistd.h>
 #endif
 
 
@@ -105,7 +93,7 @@ void deleteAllLinkReferences(const Reference < XSimpleRegistry >& xReg,
 
     Sequence<OUString> linkNames = xKey->getAsciiListValue();
 
-    if (!linkNames.getLength())
+    if (!linkNames.hasElements())
         return;
 
     const OUString* pLinkNames = linkNames.getConstArray();
@@ -156,7 +144,7 @@ void deleteAllLinkReferences(const Reference < XSimpleRegistry >& xReg,
         {
             xLinkParent = xReg->getRootKey()->openKey(aLinkParent);
 
-            if (xLinkParent.is() && (xLinkParent->getKeyNames().getLength() == 0))
+            if (xLinkParent.is() && !xLinkParent->getKeyNames().hasElements())
             {
                 aLinkName = aLinkParent;
 
@@ -165,7 +153,8 @@ void deleteAllLinkReferences(const Reference < XSimpleRegistry >& xReg,
                 sEnd = aLinkName.lastIndexOf( '/' );
 
                 aLinkParent = aLinkName.copy(0, sEnd);
-            } else
+            }
+            else
             {
                 break;
             }
@@ -396,9 +385,7 @@ void prepareUserLink(const Reference < XSimpleRegistry >& xDest,
                                 const OUString& linkTarget,
                                 const OUString& implName)
 {
-    Reference < XRegistryKey > xRootKey;
-
-    xRootKey = xDest->getRootKey();
+    Reference < XRegistryKey > xRootKey = xDest->getRootKey();
 
     if (xRootKey->getKeyType(linkName) == RegistryKeyType_LINK)
     {
@@ -425,7 +412,7 @@ void deletePathIfPossible(const Reference < XRegistryKey >& xRootKey,
     {
         Sequence<OUString> keyNames(xRootKey->openKey(path)->getKeyNames());
 
-        if (keyNames.getLength() == 0 &&
+        if (!keyNames.hasElements() &&
             xRootKey->openKey(path)->getValueType() == RegistryValueType_NOT_DEFINED)
         {
             xRootKey->deleteKey(path);
@@ -557,7 +544,7 @@ void prepareUserKeys(const Reference < XSimpleRegistry >& xDest,
     Sequence<OUString> keyNames = xKey->getKeyNames();
 
     OUString relativKey;
-    if (keyNames.getLength())
+    if (keyNames.hasElements())
         relativKey = keyNames.getConstArray()[0].copy(xKey->getKeyName().getLength()+1);
 
     if (keyNames.getLength() == 1 &&
@@ -581,7 +568,7 @@ void prepareUserKeys(const Reference < XSimpleRegistry >& xDest,
     {
         Sequence< Reference < XRegistryKey> > subKeys = xKey->openKeys();
 
-        if (subKeys.getLength())
+        if (subKeys.hasElements())
         {
             hasSubKeys = true;
             const Reference < XRegistryKey > * pSubKeys = subKeys.getConstArray();
@@ -631,7 +618,7 @@ void deleteAllImplementations(   const Reference < XSimpleRegistry >& xReg,
 {
     Sequence < Reference < XRegistryKey > > subKeys = xSource->openKeys();
 
-    if (subKeys.getLength() > 0)
+    if (subKeys.hasElements())
     {
         const Reference < XRegistryKey> * pSubKeys = subKeys.getConstArray();
         Reference < XRegistryKey > xImplKey;
@@ -664,7 +651,7 @@ void deleteAllImplementations(   const Reference < XSimpleRegistry >& xReg,
                     {
                         Sequence< Reference < XRegistryKey > > subKeys2 = xKey->openKeys();
 
-                        if (subKeys2.getLength())
+                        if (subKeys2.hasElements())
                         {
                             const Reference < XRegistryKey > * pSubKeys2 = subKeys2.getConstArray();
 
@@ -694,7 +681,7 @@ void deleteAllImplementations(   const Reference < XSimpleRegistry >& xReg,
         }
 
         subKeys = xSource->openKeys();
-        if (subKeys.getLength() == 0)
+        if (!subKeys.hasElements())
         {
             OUString path(xSource->getKeyName());
             xSource->closeKey();
@@ -779,7 +766,7 @@ void deleteAllServiceEntries(    const Reference < XSimpleRegistry >& xReg,
 {
     Sequence< Reference < XRegistryKey > > subKeys = xSource->openKeys();
 
-    if (subKeys.getLength() > 0)
+    if (subKeys.hasElements())
     {
         const Reference < XRegistryKey > * pSubKeys = subKeys.getConstArray();
         Reference < XRegistryKey > xServiceKey;
@@ -834,7 +821,7 @@ void deleteAllServiceEntries(    const Reference < XSimpleRegistry >& xReg,
         }
 
         subKeys = xSource->openKeys();
-        if (subKeys.getLength() == 0)
+        if (!subKeys.hasElements())
         {
             OUString path(xSource->getKeyName());
             xSource->closeKey();
@@ -994,7 +981,7 @@ void prepareRegistry(
 {
     Sequence< Reference < XRegistryKey > > subKeys = xSource->openKeys();
 
-    if (!subKeys.getLength())
+    if (!subKeys.hasElements())
     {
         throw InvalidRegistryException(
             "prepareRegistry(): source registry is empty" );
@@ -1039,7 +1026,7 @@ void prepareRegistry(
             {
                 Sequence< Reference < XRegistryKey > > subKeys2 = xKey->openKeys();
 
-                if (subKeys2.getLength())
+                if (subKeys2.hasElements())
                 {
                     const Reference < XRegistryKey > * pSubKeys2 = subKeys2.getConstArray();
 
@@ -1079,7 +1066,7 @@ void prepareRegistry(
             // update link entries in REGISTRY_LINKS section
             Sequence<OUString> linkNames = xKey->getAsciiListValue();
 
-            if (linkNames.getLength())
+            if (linkNames.hasElements())
             {
                 const OUString* pLinkNames = linkNames.getConstArray();
 
@@ -1105,7 +1092,7 @@ void findImplementations(    const Reference < XRegistryKey > & xSource,
         Reference < XRegistryKey > xKey = xSource->openKey(
             slash_UNO_slash_SERVICES );
 
-        if (xKey.is() && (xKey->getKeyNames().getLength() > 0))
+        if (xKey.is() && xKey->getKeyNames().hasElements())
         {
             isImplKey = true;
 
@@ -1128,7 +1115,7 @@ void findImplementations(    const Reference < XRegistryKey > & xSource,
     {
         Sequence< Reference < XRegistryKey > > subKeys = xSource->openKeys();
 
-        if (subKeys.getLength() > 0)
+        if (subKeys.hasElements())
         {
             const Reference < XRegistryKey >* pSubKeys = subKeys.getConstArray();
 

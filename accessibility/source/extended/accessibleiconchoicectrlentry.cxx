@@ -18,7 +18,7 @@
  */
 
 #include <extended/accessibleiconchoicectrlentry.hxx>
-#include <svtools/ivctrl.hxx>
+#include <vcl/ivctrl.hxx>
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/awt/Size.hpp>
@@ -186,10 +186,7 @@ namespace accessibility
 
     Locale AccessibleIconChoiceCtrlEntry::implGetLocale()
     {
-        Locale aLocale;
-        aLocale = Application::GetSettings().GetUILanguageTag().getLocale();
-
-        return aLocale;
+        return Application::GetSettings().GetUILanguageTag().getLocale();
     }
     void AccessibleIconChoiceCtrlEntry::implGetSelection( sal_Int32& nStartIndex, sal_Int32& nEndIndex )
     {

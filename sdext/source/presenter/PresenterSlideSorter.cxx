@@ -276,9 +276,9 @@ PresenterSlideSorter::PresenterSlideSorter (
         // Get pane and window.
         Reference<XControllerManager> xCM (rxController, UNO_QUERY_THROW);
         Reference<XConfigurationController> xCC (
-            xCM->getConfigurationController(), UNO_QUERY_THROW);
+            xCM->getConfigurationController(), UNO_SET_THROW);
         Reference<lang::XMultiComponentFactory> xFactory (
-            mxComponentContext->getServiceManager(), UNO_QUERY_THROW);
+            mxComponentContext->getServiceManager(), UNO_SET_THROW);
 
         mxPane.set(xCC->getResource(rxViewId->getAnchor()), UNO_QUERY_THROW);
         mxWindow = mxPane->getWindow();
@@ -1203,8 +1203,7 @@ void PresenterSlideSorter::Layout::SetupVisibleArea()
 
 bool PresenterSlideSorter::Layout::IsScrollBarNeeded (const sal_Int32 nSlideCount)
 {
-    geometry::RealPoint2D aBottomRight;
-    aBottomRight = GetPoint(
+    geometry::RealPoint2D aBottomRight = GetPoint(
         mnColumnCount * (GetRow(nSlideCount)+1) - 1, +1, +1);
     return aBottomRight.X > maBoundingBox.X2-maBoundingBox.X1
         || aBottomRight.Y > maBoundingBox.Y2-maBoundingBox.Y1;
@@ -1391,8 +1390,7 @@ bool PresenterSlideSorter::Layout::SetVerticalOffset (const double nOffset)
 
 void PresenterSlideSorter::Layout::UpdateScrollBars()
 {
-    sal_Int32 nTotalRowCount (0);
-    nTotalRowCount = sal_Int32(ceil(double(mnSlideCount) / double(mnColumnCount)));
+    sal_Int32 nTotalRowCount = sal_Int32(ceil(double(mnSlideCount) / double(mnColumnCount)));
 
     if (mpVerticalScrollBar.get() != nullptr)
     {

@@ -258,8 +258,7 @@ sal_Bool SAL_CALL DropTarget::supportsService( const OUString& ServiceName )
 
 Sequence< OUString > SAL_CALL DropTarget::getSupportedServiceNames(  )
 {
-    OUString names[1]= {OUString(DNDTARGET_SERVICE_NAME)};
-    return Sequence<OUString>(names, 1);
+    return { DNDTARGET_SERVICE_NAME };
 }
 
 // XDropTarget
@@ -312,8 +311,7 @@ HRESULT DropTarget::DragEnter( IDataObject *pDataObj,
         // will be DROPEFFECT_NONE throughout
         m_nLastDropAction= ACTION_DEFAULT | ACTION_MOVE;
 
-        m_currentDragContext= static_cast<XDropTargetDragContext*>( new TargetDragContext(
-            this ) );
+        m_currentDragContext = new TargetDragContext(this);
 
         //--> TRA
 
@@ -344,7 +342,7 @@ HRESULT DropTarget::DragEnter( IDataObject *pDataObj,
 
             fire_dragEnter( e);
             // Check if the action derived from grfKeyState (m_nCurrentDropAction) or the action set
-            // by the listener (m_nCurrentDropAction) is allowed by the source. Only a allowed action is set
+            // by the listener (m_nCurrentDropAction) is allowed by the source. Only an allowed action is set
             // in pdwEffect. The listener notification is asynchron, that is we cannot expect that the listener
             // has already reacted to the notification.
             // If there is more than one valid action which is the case when ALT or RIGHT MOUSE BUTTON is pressed
@@ -392,7 +390,7 @@ HRESULT DropTarget::DragOver( DWORD grfKeyState,
             // The Event contains a XDropTargetDragContext implementation.
             fire_dragOver( e);
             // Check if the action derived from grfKeyState (m_nCurrentDropAction) or the action set
-            // by the listener (m_nCurrentDropAction) is allowed by the source. Only a allowed action is set
+            // by the listener (m_nCurrentDropAction) is allowed by the source. Only an allowed action is set
             // in pdwEffect. The listener notification is asynchron, that is we cannot expect that the listener
             // has already reacted to the notification.
             // If there is more than one valid action which is the case when ALT or RIGHT MOUSE BUTTON is pressed
@@ -451,7 +449,7 @@ HRESULT DropTarget::Drop( IDataObject  * /*pDataObj*/,
         m_bDropComplete= false;
 
         m_nCurrentDropAction= getFilteredActions( grfKeyState, *pdwEffect);
-        m_currentDropContext= static_cast<XDropTargetDropContext*>( new TargetDropContext( this )  );
+        m_currentDropContext = new TargetDropContext(this);
         if( m_nCurrentDropAction)
         {
             DropTargetDropEvent e;
@@ -566,7 +564,7 @@ void DropTarget::fire_dropActionChanged( const DropTargetDragEvent& dtde )
 // XDropTargetDropContext
 // Returning sal_False would cause the XDropTargetDropContext or ..DragContext implementation
 // to throw an InvalidDNDOperationException, meaning that a Drag is not currently performed.
-// return sal_False results in throwing a InvalidDNDOperationException in the caller.
+// return sal_False results in throwing an InvalidDNDOperationException in the caller.
 
 void DropTarget::_acceptDrop(sal_Int8 dropOperation, const Reference<XDropTargetDropContext>& context)
 {

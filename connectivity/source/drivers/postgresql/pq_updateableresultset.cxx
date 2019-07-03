@@ -55,12 +55,10 @@ using osl::MutexGuard;
 
 
 using com::sun::star::uno::Reference;
-using com::sun::star::uno::makeAny;
 using com::sun::star::uno::Sequence;
 using com::sun::star::uno::UNO_QUERY;
 using com::sun::star::uno::Any;
 using com::sun::star::uno::Type;
-using com::sun::star::uno::RuntimeException;
 
 using com::sun::star::sdbc::XGeneratedResultSet;
 using com::sun::star::sdbc::XResultSetMetaDataSupplier;
@@ -123,7 +121,7 @@ css::uno::Reference< css::sdbc::XCloseable > UpdateableResultSet::createFromPGRe
     UpdateableResultSet *pRS =  new UpdateableResultSet(
         mutex, owner, columnNames, data, ppSettings, schema, table, primaryKey );
 
-    Reference <XCloseable > ret = pRS; // give it an refcount
+    Reference <XCloseable > ret = pRS; // give it a refcount
 
     pRS->m_meta = new ResultSetMetaData( mutex, pRS,nullptr, ppSettings, result, schema, table );
 

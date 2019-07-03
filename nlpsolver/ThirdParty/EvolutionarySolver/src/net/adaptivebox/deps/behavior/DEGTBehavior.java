@@ -28,42 +28,85 @@
 
 package net.adaptivebox.deps.behavior;
 
-import net.adaptivebox.goodness.*;
-import net.adaptivebox.global.*;
-import net.adaptivebox.knowledge.*;
-import net.adaptivebox.problem.*;
-import net.adaptivebox.space.*;
+import net.adaptivebox.global.RandomGenerator;
+import net.adaptivebox.goodness.IGoodnessCompareEngine;
+import net.adaptivebox.knowledge.ILibEngine;
+import net.adaptivebox.knowledge.Library;
+import net.adaptivebox.knowledge.SearchPoint;
+import net.adaptivebox.problem.ProblemEncoder;
+import net.adaptivebox.space.BasicPoint;
 
 public class DEGTBehavior extends AbsGTBehavior implements ILibEngine {
-  private static final int DVNum = 2;  //Number of differential vectors, normally be 1 or 2
-  public double FACTOR = 0.5; //scale constant: (0, 1.2], normally be 0.5
-  public double CR = 0.9;     //crossover constant: [0, 1], normally be 0.1 or 0.9
+  //Number of differential vectors, normally be 1 or 2
+  private static final int DVNum = 2;
 
-  //the own memory: store the point that generated in last learning cycle
+  //scale constant: (0, 1.2], normally be 0.5
+  public double MIN_FACTOR = 0.5;
+
+  //scale constant: (0, 1.2], normally be 0.5
+  public double MAX_FACTOR = 0.5;
+
+  //crossover constant: [0, 1], normally be 0.1 or 0.9
+  public double CR = 0.9;
+
+  // the own memory: store the point that generated in last learning cycle
   private SearchPoint pbest_t;
 
   public void setPbest(SearchPoint pbest) {
     pbest_t = pbest;
   }
 
+  /**
+   * Crossover and mutation for a single vector element done in a single step.
+   *
+   * @param index             Index of the trial vector element to be changed.
+   * @param trialVector       Trial vector reference.
+   * @param globalVector      Global best found vector reference.
+   * @param differenceVectors List of vectors used for difference delta
+   *                          calculation.
+   */
+  private void crossoverAndMutation(int index, double trialVector[], double globalVector[],
+      BasicPoint differenceVectors[]) {
+    double delta = 0D;
+
+    for (int i = 0; i < differenceVectors.length; i++) {
+      delta += (i % 2 == 0 ? +1D : -1D) * differenceVectors[i].getLocation()[index];
+    }
+
+    trialVector[index] = globalVector[index] + RandomGenerator.doubleRangeRandom(MIN_FACTOR, MAX_FACTOR) * delta;
+  }
+
   @Override
   public void generateBehavior(SearchPoint trailPoint, ProblemEncoder problemEncoder) {
-    SearchPoint gbest_t = socialLib.getGbest();
-
     BasicPoint[] referPoints = getReferPoints();
     int DIMENSION = problemEncoder.getDesignSpace().getDimension();
-    int rj = RandomGenerator.intRangeRandom(0, DIMENSION-1);
-    for (int k=0; k<DIMENSION; k++) {
-      if (Math.random()<CR || k == DIMENSION-1) {
-        double Dabcd = 0;
-        for(int i=0; i<referPoints.length; i++) {
-          Dabcd += Math.pow(-1, i%2)*referPoints[i].getLocation()[rj];
-        }
-        trailPoint.getLocation()[rj] = gbest_t.getLocation()[rj]+FACTOR*Dabcd;
-      } else {
-        trailPoint.getLocation()[rj] = pbest_t.getLocation()[rj];
+    int guaranteeIndex = RandomGenerator.intRangeRandom(0, DIMENSION - 1);
+
+    double[] trailVector = trailPoint.getLocation();
+    double[] locaclVector = pbest_t.getLocation();
+    double[] globalVector = socialLib.getGbest().getLocation();
+
+    /* Handle first part of the trial vector. */
+    for (int index = 0; index < guaranteeIndex; index++) {
+      if (CR <= Math.random()) {
+        trailVector[index] = locaclVector[index];
+        continue;
       }
-      rj = (rj+1)%DIMENSION;
+
+      crossoverAndMutation(index, trailVector, globalVector, referPoints);
+    }
+
+    /* Guarantee for at least one change in the trial vector. */
+    crossoverAndMutation(guaranteeIndex, trailVector, globalVector, referPoints);
+
+    /* Handle second part of the trial vector. */
+    for (int index = guaranteeIndex + 1; index < DIMENSION; index++) {
+      if (CR <= Math.random()) {
+        trailVector[index] = locaclVector[index];
+        continue;
+      }
+
+      crossoverAndMutation(index, trailVector, globalVector, referPoints);
     }
   }
 
@@ -73,11 +116,10 @@ public class DEGTBehavior extends AbsGTBehavior implements ILibEngine {
   }
 
   private SearchPoint[] getReferPoints() {
-    SearchPoint[] referPoints = new SearchPoint[DVNum*2];
-    for(int i=0; i<referPoints.length; i++) {
-      referPoints[i] = socialLib.getSelectedPoint(RandomGenerator.intRangeRandom(0, socialLib.getPopSize()-1));
+    SearchPoint[] referPoints = new SearchPoint[DVNum * 2];
+    for (int i = 0; i < referPoints.length; i++) {
+      referPoints[i] = socialLib.getSelectedPoint(RandomGenerator.intRangeRandom(0, socialLib.getPopSize() - 1));
     }
     return referPoints;
   }
 }
-

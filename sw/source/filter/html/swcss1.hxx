@@ -20,6 +20,9 @@
 #ifndef INCLUDED_SW_SOURCE_FILTER_HTML_SWCSS1_HXX
 #define INCLUDED_SW_SOURCE_FILTER_HTML_SWCSS1_HXX
 
+#include <svtools/htmltokn.h>
+#include <tools/solar.h>
+
 #include <poolfmt.hxx>
 
 #include "svxcss1.hxx"
@@ -145,7 +148,7 @@ public:
     void SetBodyLinkSet() { m_bBodyLinkSet = true; }
     void SetBodyVLinkSet() { m_bBodyVLinkSet = true; }
 
-    SvxBrushItem makePageDescBackground() const;
+    std::shared_ptr<SvxBrushItem> makePageDescBackground() const;
 
     inline void SetTHTagStyles();
     inline void SetTDTagStyles();

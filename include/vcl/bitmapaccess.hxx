@@ -21,12 +21,14 @@
 #define INCLUDED_VCL_BMPACC_HXX
 
 #include <vcl/dllapi.h>
-#include <vcl/salbtype.hxx>
 #include <vcl/bitmap.hxx>
+#include <vcl/Scanline.hxx>
+#include <vcl/BitmapBuffer.hxx>
+#include <vcl/BitmapColor.hxx>
+#include <vcl/BitmapAccessMode.hxx>
 
 typedef BitmapColor (*FncGetPixel)(ConstScanline pScanline, long nX, const ColorMask& rMask);
 typedef void (*FncSetPixel)(Scanline pScanline, long nX, const BitmapColor& rBitmapColor, const ColorMask& rMask);
-
 
 class VCL_DLLPUBLIC BitmapInfoAccess
 {
@@ -212,7 +214,7 @@ public:
 
     sal_uInt8 GetPixelIndex(long nY, long nX) const
     {
-        return GetPixel(nY, nX).GetBlueOrIndex();
+        return GetPixel(nY, nX).GetIndex();
     }
 
     /** Get the interpolated color at coordinates fY, fX; if outside, return rFallback */

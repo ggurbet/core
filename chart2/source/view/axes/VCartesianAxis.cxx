@@ -28,8 +28,10 @@
 #include <AxisHelper.hxx>
 #include "Tickmarks_Equidistant.hxx"
 #include <ExplicitCategoriesProvider.hxx>
+#include <com/sun/star/chart2/AxisType.hpp>
 
 #include <rtl/math.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/color.hxx>
 #include <svx/unoshape.hxx>
 #include <svx/unoshtxt.hxx>
@@ -369,7 +371,7 @@ static bool lcl_hasWordBreak( const Reference<drawing::XShape>& xShape )
     if (!xShape.is())
         return false;
 
-    SvxShape* pShape = SvxShape::getImplementation(xShape);
+    SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>(xShape);
     SvxShapeText* pShapeText = dynamic_cast<SvxShapeText*>(pShape);
     if (!pShapeText)
         return false;
@@ -510,7 +512,7 @@ TickInfo* MaxLabelTickIter::nextInfo()
 }
 
 bool VCartesianAxis::isBreakOfLabelsAllowed(
-    const AxisLabelProperties& rAxisLabelProperties, bool bIsHorizontalAxis ) const
+    const AxisLabelProperties& rAxisLabelProperties, bool bIsHorizontalAxis, bool bIsVerticalAxis) const
 {
     if( m_aTextLabels.getLength() > 100 )
         return false;
@@ -525,8 +527,10 @@ bool VCartesianAxis::isBreakOfLabelsAllowed(
            rAxisLabelProperties.fRotationAngleDegree == 90.0 ||
            rAxisLabelProperties.fRotationAngleDegree == 270.0 ) )
         return false;
-    //break only for horizontal axis
-    return bIsHorizontalAxis;
+    if ( !m_aAxisProperties.m_bSwapXAndY )
+        return bIsHorizontalAxis;
+    else
+        return bIsVerticalAxis;
 }
 namespace{
 
@@ -702,7 +706,7 @@ bool VCartesianAxis::createTextShapes(
     const bool bIsHorizontalAxis = pTickFactory->isHorizontalAxis();
     const bool bIsVerticalAxis = pTickFactory->isVerticalAxis();
 
-    if (!isBreakOfLabelsAllowed(rAxisLabelProperties, bIsHorizontalAxis) &&
+    if (!isBreakOfLabelsAllowed(rAxisLabelProperties, bIsHorizontalAxis, bIsVerticalAxis) &&
         !isAutoStaggeringOfLabelsAllowed(rAxisLabelProperties, bIsHorizontalAxis, bIsVerticalAxis) &&
         !rAxisLabelProperties.isStaggered())
         return createTextShapesSimple(xTarget, rTickIter, rAxisLabelProperties, pTickFactory);
@@ -714,7 +718,7 @@ bool VCartesianAxis::createTextShapes(
     B2DVector aTextToTickDistance = pTickFactory->getDistanceAxisTickToText(m_aAxisProperties, true);
     sal_Int32 nLimitedSpaceForText = -1;
 
-    if( isBreakOfLabelsAllowed( rAxisLabelProperties, bIsHorizontalAxis ) )
+    if( isBreakOfLabelsAllowed( rAxisLabelProperties, bIsHorizontalAxis, bIsVerticalAxis ) )
     {
         nLimitedSpaceForText = nScreenDistanceBetweenTicks;
         if( bIsStaggered )
@@ -742,6 +746,12 @@ bool VCartesianAxis::createTextShapes(
                 nLimitedSpaceForText = -1;
             }
         }
+
+        // recalculate the nLimitedSpaceForText in case of vertical category axis if the text break is true
+        if ( m_aAxisProperties.m_bSwapXAndY && bIsVerticalAxis && rAxisLabelProperties.fRotationAngleDegree == 0.0 )
+        {
+            nLimitedSpaceForText = rAxisLabelProperties.m_aMaximumSpaceForLabels.X;
+        }
     }
 
      // Stores an array of text label strings in case of a normal
@@ -750,8 +760,11 @@ bool VCartesianAxis::createTextShapes(
     if( m_bUseTextLabels && !m_aAxisProperties.m_bComplexCategories )
         pCategories = &m_aTextLabels;
 
-    bool bLimitedHeight = fabs(aTextToTickDistance.getX()) > fabs(aTextToTickDistance.getY());
-
+    bool bLimitedHeight;
+    if( !m_aAxisProperties.m_bSwapXAndY )
+        bLimitedHeight = fabs(aTextToTickDistance.getX()) > fabs(aTextToTickDistance.getY());
+    else
+        bLimitedHeight = fabs(aTextToTickDistance.getX()) < fabs(aTextToTickDistance.getY());
     //prepare properties for multipropertyset-interface of shape
     tNameSequence aPropNames;
     tAnySequence aPropValues;
@@ -1540,7 +1553,30 @@ sal_Int32 VCartesianAxis::estimateMaximumAutoMainIncrementCount()
 
     sal_Int32 nTotalAvailable = nMaxHeight;
     sal_Int32 nSingleNeeded = m_nMaximumTextHeightSoFar;
+    sal_Int32 nMaxSameLabel = 0;
 
+    // tdf#48041: do not duplicate the value labels because of rounding
+    if (m_aAxisProperties.m_nAxisType != css::chart2::AxisType::DATE)
+    {
+        FixedNumberFormatter aFixedNumberFormatterTest(m_xNumberFormatsSupplier, m_aAxisLabelProperties.nNumberFormatKey);
+        OUString sPreviousValueLabel;
+        sal_Int32 nSameLabel = 0;
+        for (sal_Int32 nLabel = 0; nLabel < static_cast<sal_Int32>(m_aAllTickInfos[0].size()); ++nLabel)
+        {
+            Color nColor = COL_AUTO;
+            bool bHasColor = false;
+            OUString sValueLabel = aFixedNumberFormatterTest.getFormattedString(m_aAllTickInfos[0][nLabel].fScaledTickValue, nColor, bHasColor);
+            if (sValueLabel == sPreviousValueLabel)
+            {
+                nSameLabel++;
+                if (nSameLabel > nMaxSameLabel)
+                    nMaxSameLabel = nSameLabel;
+            }
+            else
+                nSameLabel = 0;
+            sPreviousValueLabel = sValueLabel;
+        }
+    }
     //for horizontal axis:
     if( (m_nDimensionIndex == 0 && !m_aAxisProperties.m_bSwapXAndY)
         || (m_nDimensionIndex == 1 && m_aAxisProperties.m_bSwapXAndY) )
@@ -1551,6 +1587,13 @@ sal_Int32 VCartesianAxis::estimateMaximumAutoMainIncrementCount()
 
     if( nSingleNeeded>0 )
         nRet = nTotalAvailable/nSingleNeeded;
+
+    if ( nMaxSameLabel > 0 )
+    {
+        sal_Int32 nRetNoSameLabel = m_aAllTickInfos[0].size() / (nMaxSameLabel + 1);
+        if ( nRet > nRetNoSameLabel )
+           nRet = nRetNoSameLabel;
+    }
 
     return nRet;
 }
@@ -1736,9 +1779,9 @@ void VCartesianAxis::updatePositions()
                     {
                         xProp->setPropertyValue( "Transformation", aATransformation );
                     }
-                    catch( const uno::Exception& e )
+                    catch( const uno::Exception& )
                     {
-                        SAL_WARN("chart2", "Exception caught. " << e );
+                        TOOLS_WARN_EXCEPTION("chart2", "" );
                     }
                 }
 

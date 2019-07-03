@@ -22,7 +22,6 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/awt/Rectangle.hpp>
 #include <osl/diagnose.h>
-#include <tools/stream.hxx>
 
 #include <svl/poolitem.hxx>
 #include <svl/memberid.h>
@@ -70,21 +69,6 @@ bool SfxRectangleItem::operator==( const SfxPoolItem& rItem ) const
 SfxPoolItem* SfxRectangleItem::Clone(SfxItemPool *) const
 {
     return new SfxRectangleItem( *this );
-}
-
-
-SfxPoolItem* SfxRectangleItem::Create(SvStream &rStream, sal_uInt16 ) const
-{
-    tools::Rectangle aStr;
-    ReadRectangle( rStream, aStr );
-    return new SfxRectangleItem(Which(), aStr);
-}
-
-
-SvStream& SfxRectangleItem::Store(SvStream &rStream, sal_uInt16 ) const
-{
-    WriteRectangle( rStream, aVal );
-    return rStream;
 }
 
 

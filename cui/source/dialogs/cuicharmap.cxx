@@ -29,7 +29,6 @@
 #include <svx/ucsubset.hxx>
 #include <sfx2/objsh.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/fontcharmap.hxx>
 #include <vcl/virdev.hxx>
 #include <svl/stritem.hxx>
@@ -38,7 +37,7 @@
 #include <comphelper/dispatchcommand.hxx>
 
 #include <dialmgr.hxx>
-#include <cuicharmap.hxx>
+#include <cui/cuicharmap.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/app.hxx>
@@ -52,11 +51,12 @@
 
 using namespace css;
 
-SvxCharacterMap::SvxCharacterMap(weld::Window* pParent, const SfxItemSet* pSet, bool bInsert)
+SvxCharacterMap::SvxCharacterMap(weld::Widget* pParent, const SfxItemSet* pSet,
+                                 const css::uno::Reference<css::frame::XFrame>& rFrame)
     : SfxDialogController(pParent, "cui/ui/specialcharacters.ui", "SpecialCharactersDialog")
     , m_xVirDev(VclPtr<VirtualDevice>::Create())
     , isSearchMode(true)
-    , m_bHasInsert(bInsert)
+    , m_xFrame(rFrame)
     , mxContext(comphelper::getProcessComponentContext())
     , m_aRecentCharView{SvxCharView(m_xVirDev),
                         SvxCharView(m_xVirDev),
@@ -91,7 +91,7 @@ SvxCharacterMap::SvxCharacterMap(weld::Window* pParent, const SfxItemSet* pSet, 
                      SvxCharView(m_xVirDev),
                      SvxCharView(m_xVirDev)}
     , m_aShowChar(m_xVirDev)
-    , m_xOKBtn(bInsert ? m_xBuilder->weld_button("insert") : m_xBuilder->weld_button("ok"))
+    , m_xOKBtn(m_xFrame.is() ? m_xBuilder->weld_button("insert") : m_xBuilder->weld_button("ok"))
     , m_xFontText(m_xBuilder->weld_label("fontft"))
     , m_xFontLB(m_xBuilder->weld_combo_box("fontlb"))
     , m_xSubsetText(m_xBuilder->weld_label("subsetft"))
@@ -512,13 +512,15 @@ void SvxCharacterMap::init()
     getFavCharacterList();
     updateFavCharControl();
 
+    bool bHasInsert = m_xFrame.is();
+
     for(int i = 0; i < 16; i++)
     {
-        m_aRecentCharView[i].SetHasInsert(m_bHasInsert);
+        m_aRecentCharView[i].SetHasInsert(bHasInsert);
         m_aRecentCharView[i].setMouseClickHdl(LINK(this,SvxCharacterMap, CharClickHdl));
         m_aRecentCharView[i].setClearClickHdl(LINK(this,SvxCharacterMap, RecentClearClickHdl));
         m_aRecentCharView[i].setClearAllClickHdl(LINK(this,SvxCharacterMap, RecentClearAllClickHdl));
-        m_aFavCharView[i].SetHasInsert(m_bHasInsert);
+        m_aFavCharView[i].SetHasInsert(bHasInsert);
         m_aFavCharView[i].setMouseClickHdl(LINK(this,SvxCharacterMap, CharClickHdl));
         m_aFavCharView[i].setClearClickHdl(LINK(this,SvxCharacterMap, FavClearClickHdl));
         m_aFavCharView[i].setClearAllClickHdl(LINK(this,SvxCharacterMap, FavClearAllClickHdl));
@@ -608,7 +610,7 @@ void SvxCharacterMap::insertCharToDoc(const OUString& sGlyph)
     if(sGlyph.isEmpty())
         return;
 
-    if (m_bHasInsert) {
+    if (m_xFrame.is()) {
         uno::Reference< uno::XComponentContext > xContext( comphelper::getProcessComponentContext() );
 
         uno::Sequence<beans::PropertyValue> aArgs(2);
@@ -617,7 +619,7 @@ void SvxCharacterMap::insertCharToDoc(const OUString& sGlyph)
 
         aArgs[1].Name = "FontName";
         aArgs[1].Value <<= aFont.GetFamilyName();
-        comphelper::dispatchCommand(".uno:InsertSymbol", aArgs);
+        comphelper::dispatchCommand(".uno:InsertSymbol", m_xFrame, aArgs);
 
         updateRecentCharacterList(sGlyph, aFont.GetFamilyName());
 
@@ -919,8 +921,12 @@ IMPL_LINK_NOARG(SvxCharacterMap, SearchCharSelectHdl, SvxShowCharSet*, void)
 
 IMPL_LINK_NOARG(SvxCharacterMap, InsertClickHdl, weld::Button&, void)
 {
-   insertCharToDoc(m_aShowChar.GetText());
-   m_xDialog->response(RET_OK);
+    OUString sChar = m_aShowChar.GetText();
+    insertCharToDoc(sChar);
+    // Need to update recent character list, when OK button does not insert
+    if(!m_xFrame.is())
+        updateRecentCharacterList(sChar, aFont.GetFamilyName());
+    m_xDialog->response(RET_OK);
 }
 
 IMPL_LINK_NOARG(SvxCharacterMap, FavSelectHdl, weld::Button&, void)

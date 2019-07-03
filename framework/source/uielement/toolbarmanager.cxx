@@ -62,6 +62,7 @@
 #include <comphelper/sequence.hxx>
 #include <svtools/miscopt.hxx>
 #include <svtools/imgdef.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/syswin.hxx>
@@ -584,7 +585,7 @@ void ToolBarManager::impl_elementChanged(bool const isRemove,
                     if (( pIter->second.nImageInfo == 0 ) && ( pIter->second.nImageInfo == nImageInfo ))
                     {
                         // Special case: An image from the document image manager has been removed.
-                        // It is possible that we have a image at our module image manager. Before
+                        // It is possible that we have an image at our module image manager. Before
                         // we can remove our image we have to ask our module image manager.
                         Sequence< OUString > aCmdURLSeq( 1 );
                         Sequence< Reference< XGraphic > > aGraphicSeq;
@@ -840,7 +841,7 @@ void ToolBarManager::CreateControllers()
                 }
             }
 
-            // Request a item window from the toolbar controller and set it at the VCL toolbar
+            // Request an item window from the toolbar controller and set it at the VCL toolbar
             Reference< XToolbarController > xTbxController( xController, UNO_QUERY );
             if ( xTbxController.is() && xToolbarWindow.is() )
             {
@@ -1042,16 +1043,15 @@ void ToolBarManager::FillToolbar( const Reference< XIndexAccess >& rItemContaine
                     // Fill command map. It stores all our commands and from what
                     // image manager we got our image. So we can decide if we have to use an
                     // image from a notification message.
-                    CommandToInfoMap::iterator pIter = m_aCommandMap.find( aCommandURL );
-                    if ( pIter == m_aCommandMap.end())
+                    auto pIter = m_aCommandMap.emplace( aCommandURL, aCmdInfo );
+                    if ( pIter.second )
                     {
                         aCmdInfo.nId = nId;
-                        const CommandToInfoMap::value_type aValue( aCommandURL, aCmdInfo );
-                        m_aCommandMap.insert( aValue );
+                        pIter.first->second.nId = nId;
                     }
                     else
                     {
-                        pIter->second.aIds.push_back( nId );
+                        pIter.first->second.aIds.push_back( nId );
                     }
 
                     if ( !bIsVisible )
@@ -1197,16 +1197,15 @@ void ToolBarManager::FillOverflowToolbar( ToolBox const * pParent )
             // Fill command map. It stores all our commands and from what
             // image manager we got our image. So we can decide if we have to use an
             // image from a notification message.
-            CommandToInfoMap::iterator pIter = m_aCommandMap.find( aCommandURL );
-            if ( pIter == m_aCommandMap.end())
+            auto pIter = m_aCommandMap.emplace( aCommandURL, aCmdInfo );
+            if ( pIter.second )
             {
                 aCmdInfo.nId = nId;
-                const CommandToInfoMap::value_type aValue( aCommandURL, aCmdInfo );
-                m_aCommandMap.insert( aValue );
+                pIter.first->second.nId = nId;
             }
             else
             {
-                pIter->second.aIds.push_back( nId );
+                pIter.first->second.aIds.push_back( nId );
             }
         }
         else
@@ -1255,7 +1254,7 @@ void ToolBarManager::RequestImages()
     while ( pIter != pEnd )
     {
         Image aImage;
-        if ( aDocGraphicSeq.getLength() > 0 )
+        if ( aDocGraphicSeq.hasElements() )
             aImage = Image( aDocGraphicSeq[i] );
         if ( !aImage )
         {
@@ -1569,6 +1568,13 @@ IMPL_LINK( ToolBarManager, MenuButton, ToolBox*, pToolBar, void )
     pOverflowToolBar->EnableDocking();
     pOverflowToolBar->AddEventListener( LINK( this, ToolBarManager, OverflowEventListener ) );
     vcl::Window::GetDockingManager()->StartPopupMode( pToolBar, pOverflowToolBar, FloatWinPopupFlags::AllMouseButtonClose );
+
+    // send HOME key to subtoolbar in order to select first item if keyboard activated
+    if(pToolBar->IsKeyEvent() )
+    {
+        ::KeyEvent aEvent( 0, vcl::KeyCode( KEY_HOME ) );
+        pOverflowToolBar->KeyInput(aEvent);
+    }
 }
 
 IMPL_LINK( ToolBarManager, OverflowEventListener, VclWindowEvent&, rWindowEvent, void )

@@ -72,6 +72,7 @@
 #include <unotools/charclass.hxx>
 #include <unotools/configmgr.hxx>
 #include <sfx2/Metadatable.hxx>
+#include <sot/exchange.hxx>
 #include <svl/stritem.hxx>
 #include <svl/itemiter.hxx>
 #include <svx/svdobj.hxx>
@@ -236,7 +237,7 @@ namespace
               ppMark != pSrcMarkAccess->getAllMarksEnd();
               ++ppMark )
         {
-            const ::sw::mark::IMark* const pMark = ppMark->get();
+            const ::sw::mark::IMark* const pMark = *ppMark;
 
             const SwPosition& rMarkStart = pMark->GetMarkStart();
             const SwPosition& rMarkEnd = pMark->GetMarkEnd();
@@ -335,7 +336,7 @@ namespace
             for( ; n < rTable.size(); ++n )
             {
                 const SwRangeRedline* pRedl = rTable[ n ];
-                if( nsRedlineType_t::REDLINE_DELETE == pRedl->GetType() && pRedl->IsVisible() )
+                if( RedlineType::Delete == pRedl->GetType() && pRedl->IsVisible() )
                 {
                     const SwPosition *pRStt = pRedl->Start(), *pREnd = pRedl->End();
 
@@ -822,7 +823,7 @@ namespace
         {
             rSvRedLine.SetPos( nInsPos );
             pDoc->getIDocumentRedlineAccess().AppendRedline( rSvRedLine.pRedl, true );
-            if (rSvRedLine.pRedl->GetType() == nsRedlineType_t::REDLINE_DELETE)
+            if (rSvRedLine.pRedl->GetType() == RedlineType::Delete)
             {
                 UpdateFramesForAddDeleteRedline(*pDoc, *rSvRedLine.pRedl);
             }
@@ -1100,7 +1101,8 @@ namespace //local functions originally from docfmt.cxx
         const SetAttrMode nFlags,
         SwUndoAttr *const pUndo,
         SwRootFrame const*const pLayout,
-        const bool bExpandCharToPara=false)
+        const bool bExpandCharToPara,
+        SwTextAttr **ppNewTextAttr)
     {
         // Divide the Sets (for selections in Nodes)
         const SfxItemSet* pCharSet = nullptr;
@@ -1232,7 +1234,7 @@ namespace //local functions originally from docfmt.cxx
                 {
                     SwRegHistory history( pNode, *pNode, pHistory );
                     bRet = history.InsertItems(
-                        aTextSet, rSt.GetIndex(), rSt.GetIndex(), nFlags ) || bRet;
+                        aTextSet, rSt.GetIndex(), rSt.GetIndex(), nFlags, /*ppNewTextAttr*/nullptr ) || bRet;
 
                     if (bRet && (pDoc->getIDocumentRedlineAccess().IsRedlineOn() || (!pDoc->getIDocumentRedlineAccess().IsIgnoreRedline()
                                     && !pDoc->getIDocumentRedlineAccess().GetRedlineTable().empty())))
@@ -1244,7 +1246,7 @@ namespace //local functions originally from docfmt.cxx
                             pUndo->SaveRedlineData( aPam, true );
 
                         if( pDoc->getIDocumentRedlineAccess().IsRedlineOn() )
-                            pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_INSERT, aPam ), true);
+                            pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Insert, aPam ), true);
                         else
                             pDoc->getIDocumentRedlineAccess().SplitRedline( aPam );
                     }
@@ -1271,7 +1273,7 @@ namespace //local functions originally from docfmt.cxx
                                     ? pEnd->nContent.GetIndex()
                                     : pNode->Len();
                     SwRegHistory history( pNode, *pNode, pHistory );
-                    bRet = history.InsertItems( aTextSet, nInsCnt, nEnd, nFlags )
+                    bRet = history.InsertItems( aTextSet, nInsCnt, nEnd, nFlags, ppNewTextAttr )
                            || bRet;
 
                     if (bRet && (pDoc->getIDocumentRedlineAccess().IsRedlineOn() || (!pDoc->getIDocumentRedlineAccess().IsIgnoreRedline()
@@ -1288,7 +1290,7 @@ namespace //local functions originally from docfmt.cxx
                         if( pDoc->getIDocumentRedlineAccess().IsRedlineOn() )
                             pDoc->getIDocumentRedlineAccess().AppendRedline(
                                 new SwRangeRedline(
-                                    bTextIns ? nsRedlineType_t::REDLINE_INSERT : nsRedlineType_t::REDLINE_FORMAT, aPam ),
+                                    bTextIns ? RedlineType::Insert : RedlineType::Format, aPam ),
                                     true);
                         else if( bTextIns )
                             pDoc->getIDocumentRedlineAccess().SplitRedline( aPam );
@@ -1473,7 +1475,7 @@ namespace //local functions originally from docfmt.cxx
 
                 // the SwRegHistory inserts the attribute into the TextNode!
                 SwRegHistory history( pNode, *pNode, pHistory );
-                bRet = history.InsertItems( *pCharSet, nMkPos, nPtPos, nFlags )
+                bRet = history.InsertItems( *pCharSet, nMkPos, nPtPos, nFlags, /*ppNewTextAttr*/nullptr )
                     || bRet;
 
                 if( pDoc->getIDocumentRedlineAccess().IsRedlineOn() )
@@ -1482,7 +1484,7 @@ namespace //local functions originally from docfmt.cxx
 
                     if( pUndo )
                         pUndo->SaveRedlineData( aPam, false );
-                    pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_FORMAT, aPam ), true);
+                    pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Format, aPam ), true);
                 }
             }
             if( pOtherSet && pOtherSet->Count() )
@@ -1504,7 +1506,7 @@ namespace //local functions originally from docfmt.cxx
         {
             if( pUndo )
                 pUndo->SaveRedlineData( rRg, false );
-            pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_FORMAT, rRg ), true);
+            pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Format, rRg ), true);
         }
 
         /* now if range */
@@ -1527,7 +1529,7 @@ namespace //local functions originally from docfmt.cxx
                 {
                     SwRegHistory history( pNode, *pNode, pHistory );
                     bRet = history.InsertItems(*pCharSet,
-                            pStt->nContent.GetIndex(), aCntEnd.GetIndex(), nFlags)
+                            pStt->nContent.GetIndex(), aCntEnd.GetIndex(), nFlags, /*ppNewTextAttr*/nullptr)
                         || bRet;
                 }
 
@@ -1587,7 +1589,7 @@ namespace //local functions originally from docfmt.cxx
                     {
                         SwRegHistory history( pNode, *pNode, pHistory );
                         (void)history.InsertItems(*pCharSet,
-                                0, aCntEnd.GetIndex(), nFlags);
+                                0, aCntEnd.GetIndex(), nFlags, /*ppNewTextAttr*/nullptr);
                     }
 
                     if( pOtherSet && pOtherSet->Count() )
@@ -1840,7 +1842,7 @@ DocumentContentOperationsManager::CopyRange( SwPaM& rPam, SwPosition& rPos, cons
     if( pRedlineRange )
     {
         if( pDoc->getIDocumentRedlineAccess().IsRedlineOn() )
-            pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_INSERT, *pRedlineRange ), true);
+            pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Insert, *pRedlineRange ), true);
         else
             pDoc->getIDocumentRedlineAccess().SplitRedline( *pRedlineRange );
         delete pRedlineRange;
@@ -1861,7 +1863,7 @@ void DocumentContentOperationsManager::DeleteSection( SwNode *pNode )
 
     // delete all Flys, Bookmarks, ...
     DelFlyInRange( aSttIdx, aEndIdx );
-    m_rDoc.getIDocumentRedlineAccess().DeleteRedline( *pSttNd, true, USHRT_MAX );
+    m_rDoc.getIDocumentRedlineAccess().DeleteRedline( *pSttNd, true, RedlineType::Any );
     DelBookmarks(aSttIdx, aEndIdx);
 
     {
@@ -2339,7 +2341,7 @@ bool DocumentContentOperationsManager::MoveNodeRange( SwNodeRange& rRange, SwNod
 
         // Find all RedLines that end at the InsPos.
         // These have to be moved back to the "old" position after the Move.
-        SwRedlineTable::size_type nRedlPos = m_rDoc.getIDocumentRedlineAccess().GetRedlinePos( rPos.GetNode(), USHRT_MAX );
+        SwRedlineTable::size_type nRedlPos = m_rDoc.getIDocumentRedlineAccess().GetRedlinePos( rPos.GetNode(), RedlineType::Any );
         if( SwRedlineTable::npos != nRedlPos )
         {
             const SwPosition *pRStt, *pREnd;
@@ -2553,14 +2555,14 @@ bool DocumentContentOperationsManager::Overwrite( const SwPaM &rRg, const OUStri
         !m_rDoc.getIDocumentRedlineAccess().IsIgnoreRedline() && !m_rDoc.getIDocumentRedlineAccess().GetRedlineTable().empty())
     {
         SwPaM aPam(rPt.nNode, nActualStart, rPt.nNode, rPt.nContent.GetIndex());
-        m_rDoc.getIDocumentRedlineAccess().DeleteRedline( aPam, true, USHRT_MAX );
+        m_rDoc.getIDocumentRedlineAccess().DeleteRedline( aPam, true, RedlineType::Any );
     }
     else if( m_rDoc.getIDocumentRedlineAccess().IsRedlineOn() )
     {
         // FIXME: this redline is WRONG: there is no DELETE, and the skipped
         // characters are also included in aPam
         SwPaM aPam(rPt.nNode, nActualStart, rPt.nNode, rPt.nContent.GetIndex());
-        m_rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_INSERT, aPam ), true);
+        m_rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Insert, aPam ), true);
     }
 
     m_rDoc.getIDocumentState().SetModified();
@@ -2660,7 +2662,7 @@ bool DocumentContentOperationsManager::InsertString( const SwPaM &rRg, const OUS
         if( m_rDoc.getIDocumentRedlineAccess().IsRedlineOn() )
         {
             m_rDoc.getIDocumentRedlineAccess().AppendRedline(
-                new SwRangeRedline( nsRedlineType_t::REDLINE_INSERT, aPam ), true);
+                new SwRangeRedline( RedlineType::Insert, aPam ), true);
         }
         else
         {
@@ -3078,7 +3080,7 @@ bool DocumentContentOperationsManager::SplitNode( const SwPosition &rPos, bool b
                     if (m_rDoc.getIDocumentRedlineAccess().IsRedlineOn())
                     {
                         m_rDoc.getIDocumentRedlineAccess().AppendRedline(
-                            new SwRangeRedline(nsRedlineType_t::REDLINE_INSERT, aPam), true);
+                            new SwRangeRedline(RedlineType::Insert, aPam), true);
                     }
                     else
                     {
@@ -3122,7 +3124,7 @@ bool DocumentContentOperationsManager::AppendTextNode( SwPosition& rPos )
         aPam.SetMark();
         aPam.Move( fnMoveBackward );
         if( m_rDoc.getIDocumentRedlineAccess().IsRedlineOn() )
-            m_rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_INSERT, aPam ), true);
+            m_rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Insert, aPam ), true);
         else
             m_rDoc.getIDocumentRedlineAccess().SplitRedline( aPam );
     }
@@ -3213,7 +3215,8 @@ bool DocumentContentOperationsManager::InsertPoolItem(
     const SfxPoolItem &rHt,
     const SetAttrMode nFlags,
     SwRootFrame const*const pLayout,
-    const bool bExpandCharToPara)
+    const bool bExpandCharToPara,
+    SwTextAttr **ppNewTextAttr)
 {
     if (utl::ConfigManager::IsFuzzing())
         return false;
@@ -3228,7 +3231,7 @@ bool DocumentContentOperationsManager::InsertPoolItem(
 
     SfxItemSet aSet( m_rDoc.GetAttrPool(), {{rHt.Which(), rHt.Which()}} );
     aSet.Put( rHt );
-    const bool bRet = lcl_InsAttr(&m_rDoc, rRg, aSet, nFlags, pUndoAttr.get(), pLayout, bExpandCharToPara);
+    const bool bRet = lcl_InsAttr(&m_rDoc, rRg, aSet, nFlags, pUndoAttr.get(), pLayout, bExpandCharToPara, ppNewTextAttr);
 
     if (m_rDoc.GetIDocumentUndoRedo().DoesUndo())
     {
@@ -3253,7 +3256,7 @@ void DocumentContentOperationsManager::InsertItemSet ( const SwPaM &rRg, const S
         pUndoAttr.reset(new SwUndoAttr( rRg, rSet, nFlags ));
     }
 
-    bool bRet = lcl_InsAttr(&m_rDoc, rRg, rSet, nFlags, pUndoAttr.get(), pLayout);
+    bool bRet = lcl_InsAttr(&m_rDoc, rRg, rSet, nFlags, pUndoAttr.get(), pLayout, /*bExpandCharToPara*/false, /*ppNewTextAttr*/nullptr );
 
     if (m_rDoc.GetIDocumentUndoRedo().DoesUndo())
     {
@@ -3696,7 +3699,7 @@ bool DocumentContentOperationsManager::DeleteAndJoinWithRedlineImpl( SwPaM & rPa
 
     std::vector<SwRangeRedline*> redlines;
     {
-        auto pRedline(std::make_unique<SwRangeRedline>(nsRedlineType_t::REDLINE_DELETE, rPam));
+        auto pRedline(std::make_unique<SwRangeRedline>(RedlineType::Delete, rPam));
         if (pRedline->HasValidRange())
         {
             redlines.push_back(pRedline.release());
@@ -3711,6 +3714,11 @@ bool DocumentContentOperationsManager::DeleteAndJoinWithRedlineImpl( SwPaM & rPa
     {
         return false;
     }
+
+    // tdf#54819 current redlining needs also modification of paragraph style and
+    // attributes added to the same grouped Undo
+    if (m_rDoc.GetIDocumentUndoRedo().DoesGroupUndo())
+        m_rDoc.GetIDocumentUndoRedo().StartUndo(SwUndoId::DELETE, nullptr);
 
     auto & rDMA(*m_rDoc.getIDocumentMarkAccess());
     std::vector<std::unique_ptr<SwUndo>> MarkUndos;
@@ -3812,6 +3820,10 @@ bool DocumentContentOperationsManager::DeleteAndJoinWithRedlineImpl( SwPaM & rPa
         }
         m_rDoc.getIDocumentRedlineAccess().SetRedlineFlags( eOld );
     }
+
+    if (m_rDoc.GetIDocumentUndoRedo().DoesGroupUndo())
+        m_rDoc.GetIDocumentUndoRedo().EndUndo(SwUndoId::DELETE, nullptr);
+
     return true;
 }
 
@@ -3933,7 +3945,7 @@ bool DocumentContentOperationsManager::DeleteRangeImplImpl(SwPaM & rPam)
     }
 
     if( !m_rDoc.getIDocumentRedlineAccess().IsIgnoreRedline() && !m_rDoc.getIDocumentRedlineAccess().GetRedlineTable().empty() )
-        m_rDoc.getIDocumentRedlineAccess().DeleteRedline( rPam, true, USHRT_MAX );
+        m_rDoc.getIDocumentRedlineAccess().DeleteRedline( rPam, true, RedlineType::Any );
 
     // Delete and move all "Flys at the paragraph", which are within the Selection
     DelFlyInRange(rPam.GetMark()->nNode, rPam.GetPoint()->nNode);
@@ -4165,7 +4177,7 @@ bool DocumentContentOperationsManager::ReplaceRangeImpl( SwPaM& rPam, const OUSt
                 m_rDoc.GetIDocumentUndoRedo().AppendUndo(
                     std::make_unique<SwUndoRedlineDelete>( aDelPam, SwUndoId::REPLACE ));
             }
-            m_rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_DELETE, aDelPam ), true);
+            m_rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Delete, aDelPam ), true);
 
             *rPam.GetMark() = *aDelPam.GetMark();
             if (m_rDoc.GetIDocumentUndoRedo().DoesUndo())
@@ -4202,7 +4214,7 @@ bool DocumentContentOperationsManager::ReplaceRangeImpl( SwPaM& rPam, const OUSt
                     "invalid range: Point and Mark on different nodes" );
 
             if( !m_rDoc.getIDocumentRedlineAccess().IsIgnoreRedline() && !m_rDoc.getIDocumentRedlineAccess().GetRedlineTable().empty() )
-                m_rDoc.getIDocumentRedlineAccess().DeleteRedline( aDelPam, true, USHRT_MAX );
+                m_rDoc.getIDocumentRedlineAccess().DeleteRedline( aDelPam, true, RedlineType::Any );
 
             SwUndoReplace* pUndoRpl = nullptr;
             bool const bDoesUndo = m_rDoc.GetIDocumentUndoRedo().DoesUndo();
@@ -4305,9 +4317,9 @@ SwFlyFrameFormat* DocumentContentOperationsManager::InsNoTextNode( const SwPosit
 
 #define NUMRULE_STATE \
      SfxItemState aNumRuleState = SfxItemState::UNKNOWN; \
-     SwNumRuleItem aNumRuleItem; \
+     std::shared_ptr<SwNumRuleItem> aNumRuleItem; \
      SfxItemState aListIdState = SfxItemState::UNKNOWN; \
-     SfxStringItem aListIdItem( RES_PARATR_LIST_ID, OUString() ); \
+     std::shared_ptr<SfxStringItem> aListIdItem; \
 
 #define PUSH_NUMRULE_STATE \
      lcl_PushNumruleState( aNumRuleState, aNumRuleItem, aListIdState, aListIdItem, pDestTextNd );
@@ -4315,9 +4327,10 @@ SwFlyFrameFormat* DocumentContentOperationsManager::InsNoTextNode( const SwPosit
 #define POP_NUMRULE_STATE \
      lcl_PopNumruleState( aNumRuleState, aNumRuleItem, aListIdState, aListIdItem, pDestTextNd, rPam );
 
-static void lcl_PushNumruleState( SfxItemState &aNumRuleState, SwNumRuleItem &aNumRuleItem,
-                                  SfxItemState &aListIdState, SfxStringItem &aListIdItem,
-                                  const SwTextNode *pDestTextNd )
+static void lcl_PushNumruleState(
+    SfxItemState &aNumRuleState, std::shared_ptr<SwNumRuleItem>& aNumRuleItem,
+    SfxItemState &aListIdState, std::shared_ptr<SfxStringItem>& aListIdItem,
+    const SwTextNode *pDestTextNd )
 {
     // Safe numrule item at destination.
     // #i86492# - Safe also <ListId> item of destination.
@@ -4327,20 +4340,22 @@ static void lcl_PushNumruleState( SfxItemState &aNumRuleState, SwNumRuleItem &aN
         const SfxPoolItem * pItem = nullptr;
         aNumRuleState = pAttrSet->GetItemState(RES_PARATR_NUMRULE, false, &pItem);
         if (SfxItemState::SET == aNumRuleState)
-            aNumRuleItem = *static_cast<const SwNumRuleItem *>( pItem);
+        {
+            aNumRuleItem.reset(static_cast<SwNumRuleItem*>(pItem->Clone()));
+        }
 
-        aListIdState =
-            pAttrSet->GetItemState(RES_PARATR_LIST_ID, false, &pItem);
+        aListIdState = pAttrSet->GetItemState(RES_PARATR_LIST_ID, false, &pItem);
         if (SfxItemState::SET == aListIdState)
         {
-            aListIdItem.SetValue( static_cast<const SfxStringItem*>(pItem)->GetValue() );
+            aListIdItem.reset(static_cast<SfxStringItem*>(pItem->Clone()));
         }
     }
 }
 
-static void lcl_PopNumruleState( SfxItemState aNumRuleState, const SwNumRuleItem &aNumRuleItem,
-                                 SfxItemState aListIdState, const SfxStringItem &aListIdItem,
-                                 SwTextNode *pDestTextNd, const SwPaM& rPam )
+static void lcl_PopNumruleState(
+    SfxItemState aNumRuleState, const std::shared_ptr<SwNumRuleItem>& aNumRuleItem,
+    SfxItemState aListIdState, const std::shared_ptr<SfxStringItem>& aListIdItem,
+    SwTextNode *pDestTextNd, const SwPaM& rPam )
 {
     /* If only a part of one paragraph is copied
        restore the numrule at the destination. */
@@ -4349,7 +4364,7 @@ static void lcl_PopNumruleState( SfxItemState aNumRuleState, const SwNumRuleItem
     {
         if (SfxItemState::SET == aNumRuleState)
         {
-            pDestTextNd->SetAttr(aNumRuleItem);
+            pDestTextNd->SetAttr(*aNumRuleItem);
         }
         else
         {
@@ -4357,7 +4372,7 @@ static void lcl_PopNumruleState( SfxItemState aNumRuleState, const SwNumRuleItem
         }
         if (SfxItemState::SET == aListIdState)
         {
-            pDestTextNd->SetAttr(aListIdItem);
+            pDestTextNd->SetAttr(*aListIdItem);
         }
         else
         {

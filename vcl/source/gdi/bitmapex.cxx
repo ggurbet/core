@@ -29,7 +29,6 @@
 #include <unotools/resmgr.hxx>
 
 #include <vcl/ImageTree.hxx>
-#include <vcl/salbtype.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/alpha.hxx>
 #include <vcl/bitmapex.hxx>
@@ -182,19 +181,23 @@ bool BitmapEx::operator==( const BitmapEx& rBitmapEx ) const
     if (meTransparent != rBitmapEx.meTransparent)
         return false;
 
-    if (!maBitmap.ShallowEquals(rBitmapEx.maBitmap))
-        return false;
-
     if (GetSizePixel() != rBitmapEx.GetSizePixel())
         return false;
 
-    if (meTransparent == TransparentType::NONE)
-        return true;
+    if (meTransparent != rBitmapEx.meTransparent)
+        return false;
 
-    if (meTransparent == TransparentType::Color)
-        return maTransparentColor == rBitmapEx.maTransparentColor;
+    if (meTransparent == TransparentType::Color
+        && maTransparentColor != rBitmapEx.maTransparentColor)
+        return false;
 
-    return maMask.ShallowEquals(rBitmapEx.maMask) && mbAlpha == rBitmapEx.mbAlpha;
+    if (mbAlpha != rBitmapEx.mbAlpha)
+        return false;
+
+    if (maBitmap != rBitmapEx.maBitmap)
+        return false;
+
+    return maMask == rBitmapEx.maMask;
 }
 
 bool BitmapEx::IsEmpty() const
@@ -321,7 +324,7 @@ bool BitmapEx::Invert()
         bRet = maBitmap.Invert();
 
         if (bRet && (meTransparent == TransparentType::Color))
-            maTransparentColor = BitmapColor(maTransparentColor).Invert().GetColor();
+            maTransparentColor.Invert();
     }
 
     return bRet;
@@ -702,10 +705,9 @@ sal_uInt8 BitmapEx::GetTransparency(sal_Int32 nX, sal_Int32 nY) const
                     if(pRead)
                     {
                         const BitmapColor aBmpColor = pRead->GetColor(nY, nX);
-                        const Color aColor = aBmpColor.GetColor();
 
                         // If color is not equal to TransparentColor, we are not transparent
-                        if (aColor != maTransparentColor)
+                        if (aBmpColor != maTransparentColor)
                             nTransparency = 0x00;
 
                     }
@@ -748,17 +750,20 @@ sal_uInt8 BitmapEx::GetTransparency(sal_Int32 nX, sal_Int32 nY) const
 Color BitmapEx::GetPixelColor(sal_Int32 nX, sal_Int32 nY) const
 {
     Bitmap::ScopedReadAccess pReadAccess( const_cast<Bitmap&>(maBitmap) );
-    assert( pReadAccess );
+    assert(pReadAccess);
 
-    Color aColor = pReadAccess->GetColor( nY, nX ).GetColor();
+    BitmapColor aColor = pReadAccess->GetColor(nY, nX);
 
-    if( IsAlpha() )
+    if (IsAlpha())
     {
-        Bitmap::ScopedReadAccess pAlphaReadAccess( const_cast<Bitmap&>(maMask).AcquireReadAccess(), const_cast<Bitmap&>(maMask) );
-        aColor.SetTransparency( pAlphaReadAccess->GetPixel( nY, nX ).GetIndex() );
+        AlphaMask aAlpha = GetAlpha();
+        AlphaMask::ScopedReadAccess pAlphaReadAccess(aAlpha);
+        aColor.SetTransparency(pAlphaReadAccess->GetPixel(nY, nX).GetIndex());
     }
-    else
-        aColor.SetTransparency(255);
+    else if (maBitmap.GetBitCount() != 32)
+    {
+        aColor.SetTransparency(0);
+    }
     return aColor;
 }
 
@@ -867,22 +872,21 @@ namespace
 BitmapEx BitmapEx::TransformBitmapEx(
     double fWidth,
     double fHeight,
-    const basegfx::B2DHomMatrix& rTransformation,
-    bool bSmooth) const
+    const basegfx::B2DHomMatrix& rTransformation) const
 {
     if(fWidth <= 1 || fHeight <= 1)
         return BitmapEx();
 
     // force destination to 24 bit, we want to smooth output
     const Size aDestinationSize(basegfx::fround(fWidth), basegfx::fround(fHeight));
-    const Bitmap aDestination(impTransformBitmap(GetBitmapRef(), aDestinationSize, rTransformation, bSmooth));
+    const Bitmap aDestination(impTransformBitmap(GetBitmapRef(), aDestinationSize, rTransformation, /*bSmooth*/true));
 
     // create mask
     if(IsTransparent())
     {
         if(IsAlpha())
         {
-            const Bitmap aAlpha(impTransformBitmap(GetAlpha().GetBitmap(), aDestinationSize, rTransformation, bSmooth));
+            const Bitmap aAlpha(impTransformBitmap(GetAlpha().GetBitmap(), aDestinationSize, rTransformation, /*bSmooth*/true));
             return BitmapEx(aDestination, AlphaMask(aAlpha));
         }
         else
@@ -971,7 +975,7 @@ BitmapEx BitmapEx::getTransformed(
     aTransform.invert();
 
     // create bitmap using source, destination and linear back-transformation
-    aRetval = TransformBitmapEx(fWidth, fHeight, aTransform, /*bSmooth*/true);
+    aRetval = TransformBitmapEx(fWidth, fHeight, aTransform);
 
     return aRetval;
 }
@@ -1304,7 +1308,7 @@ void BitmapEx::setAlphaFrom( sal_uInt8 cIndexFrom, sal_Int8 nAlphaTo )
             Scanline pScanlineRead = pReadAccess->GetScanline( nY );
             for ( long nX = 0; nX < pReadAccess->Width(); nX++ )
             {
-                const sal_uInt8 cIndex = pReadAccess->GetPixelFromData( pScanlineRead, nX ).GetBlueOrIndex();
+                const sal_uInt8 cIndex = pReadAccess->GetPixelFromData( pScanlineRead, nX ).GetIndex();
                 if ( cIndex == cIndexFrom )
                     pWriteAccess->SetPixelOnData( pScanline, nX, BitmapColor(nAlphaTo) );
             }

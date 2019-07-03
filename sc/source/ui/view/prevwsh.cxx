@@ -34,11 +34,15 @@
 #include <sfx2/request.hxx>
 #include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <tools/urlobj.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/printer.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <sfx2/viewfac.hxx>
 
 #include <drwlayer.hxx>
 #include <prevwsh.hxx>
@@ -884,7 +888,7 @@ void ScPreviewShell::FillFieldData( ScHeaderFieldData& rData )
     const INetURLObject& rURLObj = pDocShell->GetMedium()->GetURLObject();
     rData.aLongDocName  = rURLObj.GetMainURL( INetURLObject::DecodeMechanism::Unambiguous );
     if ( !rData.aLongDocName.isEmpty() )
-        rData.aShortDocName = rURLObj.GetName( INetURLObject::DecodeMechanism::Unambiguous );
+        rData.aShortDocName = rURLObj.GetLastName(INetURLObject::DecodeMechanism::Unambiguous);
     else
         rData.aShortDocName = rData.aLongDocName = rData.aTitle;
     rData.nPageNo       = pPreview->GetPageNo() + 1;

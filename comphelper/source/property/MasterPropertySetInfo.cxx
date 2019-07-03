@@ -22,9 +22,7 @@
 
 using ::comphelper::PropertyInfo;
 using ::comphelper::MasterPropertySetInfo;
-using ::com::sun::star::uno::Type;
 using ::com::sun::star::uno::Sequence;
-using ::com::sun::star::uno::RuntimeException;
 using ::com::sun::star::beans::Property;
 using ::com::sun::star::beans::UnknownPropertyException;
 
@@ -48,7 +46,7 @@ MasterPropertySetInfo::~MasterPropertySetInfo()
 
 void MasterPropertySetInfo::add( PropertyInfoHash &rHash, sal_uInt8 nMapId )
 {
-    if( maProperties.getLength() )
+    if( maProperties.hasElements() )
         maProperties.realloc( 0 );
 
     for( const auto& rObj : rHash )

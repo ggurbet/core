@@ -26,20 +26,18 @@
 #ifdef SAL_UNX
 #include <sal/alloca.h>
 #endif
-#if !(defined(MACOSX) || defined(IOS) || defined(FREEBSD))
-#include <malloc.h>
-#endif
 #include <o3tl/any.hxx>
-#include <rtl/alloc.h>
 #include <typelib/typedescription.hxx>
 #include <uno/data.h>
 
 #include "base.hxx"
 
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
+#include <com/sun/star/reflection/XIdlField2.hpp>
 #include <com/sun/star/uno/RuntimeException.hpp>
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/exc_hlp.hxx>
+#include <cppuhelper/typeprovider.hxx>
 
 using namespace css::lang;
 using namespace css::reflection;
@@ -579,7 +577,7 @@ Any SAL_CALL IdlInterfaceMethodImpl::invoke( const Any & rObj, Sequence< Any > &
         // end of a "short" struct by writing the full contents of a "long"
         // register); so create enough space here (assuming that no ABI requires
         // padding larger than 16 byte boundaries):
-        void * pUnoReturn = alloca( multipleOf16(pReturnType->nSize) );
+        void * pUnoReturn = (pReturnType->nSize == 0) ? nullptr : alloca( multipleOf16(pReturnType->nSize) );
         void ** ppUnoArgs = static_cast<void **>(alloca( sizeof(void *) * nParams *2 ));
         typelib_TypeDescription ** ppParamTypes = reinterpret_cast<typelib_TypeDescription **>(ppUnoArgs + nParams);
 
@@ -739,7 +737,7 @@ InterfaceIdlClassImpl::~InterfaceIdlClassImpl()
 Sequence< Reference< XIdlClass > > InterfaceIdlClassImpl::getSuperclasses()
 {
     ::osl::MutexGuard aGuard(getMutexAccess());
-    if (_xSuperClasses.getLength() == 0) {
+    if (!_xSuperClasses.hasElements()) {
         typelib_InterfaceTypeDescription * pType = getTypeDescr();
         _xSuperClasses.realloc(pType->nBaseTypes);
         for (sal_Int32 i = 0; i < pType->nBaseTypes; ++i) {

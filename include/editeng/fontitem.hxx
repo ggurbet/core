@@ -21,10 +21,8 @@
 
 #include <editeng/editengdllapi.h>
 #include <rtl/ustring.hxx>
+#include <tools/fontenum.hxx>
 #include <svl/poolitem.hxx>
-#include <vcl/font.hxx>
-
-class SvXMLUnitConverter;
 
 /** This item describes a Font.
 */
@@ -49,8 +47,6 @@ public:
     // "pure virtual Methods" from SfxPoolItem
     virtual bool operator==(const SfxPoolItem& rItem) const override;
     virtual SfxPoolItem* Clone(SfxItemPool *pPool = nullptr) const override;
-    virtual SfxPoolItem* Create(SvStream& rStream, sal_uInt16) const override;
-    virtual SvStream& Store(SvStream& rStream, sal_uInt16 nItemVersion) const override;
     virtual bool QueryValue(css::uno::Any& rVal, sal_uInt8 nMemberId = 0) const override;
     virtual bool PutValue(const css::uno::Any& rVal, sal_uInt8 nMemberId) override;
 
@@ -103,9 +99,6 @@ public:
     {
         return eTextEncoding;
     }
-
-    SvxFontItem& operator=(const SvxFontItem& rFont);
-    SvxFontItem(SvxFontItem const &) = default; // SfxPoolItem copy function dichotomy
 
     void dumpAsXml(xmlTextWriterPtr pWriter) const override;
 };

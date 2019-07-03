@@ -27,6 +27,7 @@
 #include <svx/unoapi.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdoole2.hxx>
+#include <svx/xfillit0.hxx>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/office/XAnnotation.hpp>
@@ -836,7 +837,7 @@ bool PPTWriter::ImplCreateDocument()
                     if ( aXCont.is() )
                     {
                         css::uno::Sequence< OUString> aNameSeq( aXCont->getElementNames() );
-                        if ( aNameSeq.getLength() )
+                        if ( aNameSeq.hasElements() )
                         {
                             mpPptEscherEx->OpenContainer( EPP_NamedShows );
                             sal_uInt32 nCustomShowIndex = 0;

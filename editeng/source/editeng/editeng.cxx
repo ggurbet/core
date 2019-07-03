@@ -26,6 +26,7 @@
 #include <vcl/svapp.hxx>
 
 #include <svtools/ctrltool.hxx>
+#include <tools/stream.hxx>
 
 #include <editeng/svxfont.hxx>
 #include "impedit.hxx"
@@ -310,8 +311,7 @@ void EditEngine::InsertView(EditView* pEditView, size_t nIndex)
     ImpEditEngine::ViewsType& rViews = pImpEditEngine->GetEditViews();
     rViews.insert(rViews.begin()+nIndex, pEditView);
 
-    EditSelection aStartSel;
-    aStartSel = pImpEditEngine->GetEditDoc().GetStartPaM();
+    EditSelection aStartSel = pImpEditEngine->GetEditDoc().GetStartPaM();
     pEditView->pImpEditView->SetEditSelection( aStartSel );
     if ( !pImpEditEngine->GetActiveView() )
         pImpEditEngine->SetActiveView( pEditView );
@@ -1105,8 +1105,10 @@ bool EditEngine::PostKeyEvent( const KeyEvent& rKeyEvent, EditView* pEditView, v
                     aCurSel = pImpEditEngine->MoveCursor( rKeyEvent, pEditView );
 
                     if ( aCurSel.HasRange() ) {
-                        Reference<css::datatransfer::clipboard::XClipboard> aSelection(pEditView->GetWindow()->GetPrimarySelection());
-                        pEditView->pImpEditView->CutCopy( aSelection, false );
+                        if (vcl::Window* pWindow = pEditView->GetWindow()) {
+                            Reference<css::datatransfer::clipboard::XClipboard> aSelection(pWindow->GetPrimarySelection());
+                            pEditView->pImpEditView->CutCopy( aSelection, false );
+                        }
                     }
 
                     bMoved = true;

@@ -11,10 +11,9 @@
 #define INCLUDED_VCL_INC_OPENGL_WATCHDOG_H
 
 #include <sal/config.h>
-#include <sal/types.h>
-#include <rtl/ref.hxx>
 #include <salhelper/thread.hxx>
 #include <atomic>
+#include <vector>
 
 struct WatchdogTimingsValues
 {
@@ -45,8 +44,7 @@ public:
 
     WatchdogTimingsValues const & getWatchdogTimingsValues(WatchdogTimingMode eMode)
     {
-        size_t index = 0;
-        index = (eMode == WatchdogTimingMode::SHADER_COMPILE) ? 1 : 0;
+        size_t index = (eMode == WatchdogTimingMode::SHADER_COMPILE) ? 1 : 0;
         index = mbRelaxed ? index + 2 : index;
 
         return maTimingValues[index];

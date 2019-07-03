@@ -140,7 +140,7 @@ void Desktop::constructorInit()
     @descr      This constructor initialize a new instance of this class by valid factory,
                 and will be set valid values on his member and baseclasses.
 
-    @attention  a)  Don't use your own reference during an UNO-Service-ctor! There is no guarantee, that you
+    @attention  a)  Don't use your own reference during a UNO-Service-ctor! There is no guarantee, that you
                     will get over this. (e.g. using of your reference as parameter to initialize some member)
                     Do such things in DEFINE_INIT_SERVICE() method, which is called automatically after your ctor!!!
                 b)  Baseclass OBroadcastHelper is a typedef in namespace cppu!
@@ -182,7 +182,7 @@ Desktop::Desktop( const css::uno::Reference< css::uno::XComponentContext >& xCon
 
 /*-************************************************************************************************************
     @short      standard destructor
-    @descr      This one do NOTHING! Use dispose() instaed of this.
+    @descr      This one do NOTHING! Use dispose() instead of this.
 
     @seealso    method dispose()
 *//*-*************************************************************************************************************/
@@ -243,7 +243,11 @@ sal_Bool SAL_CALL Desktop::terminate()
 
     if (bRestartableMainLoop)
     {
+#ifndef IOS // or ANDROID?
+        // In the iOS app, posting the ImplQuitMsg user event will be too late, it will not be handled during the
+        // lifetime of the current document, but handled for the next document opened, which thus will break horribly.
         Application::Quit();
+#endif
         return true;
     }
     if ( ! bFramesClosed )
@@ -598,7 +602,7 @@ css::uno::Reference< css::frame::XFrame > SAL_CALL Desktop::getCurrentFrame()
     @param      "sTargetFrameName"  , name of target frame or special value like "_self", "_blank" ...
     @param      "nSearchFlags"      , optional arguments for frame search, if target isn't a special one
     @param      "lArguments"        , optional arguments for loading
-    @return     A valid component reference, if loading was successfully.
+    @return     A valid component reference, if loading was successful.
                 A null reference otherwise.
 
     @onerror    We return a null reference.
@@ -1062,24 +1066,24 @@ css::uno::Reference< css::frame::XFrame > SAL_CALL Desktop::findFrame( const OUS
 void SAL_CALL Desktop::disposing()
 {
     // Safe impossible cases
-    // It's an programming error if dispose is called before terminate!
+    // It's a programming error if dispose is called before terminate!
 
     // But if you just ignore the assertion (which happens in unit
     // tests for instance in sc/qa/unit) nothing bad happens.
     SAL_WARN_IF( !m_bIsTerminated, "fwk.desktop", "Desktop disposed before terminating it" );
 
-    SolarMutexClearableGuard aWriteLock;
-
     {
-        TransactionGuard aTransaction( m_aTransactionManager, E_HARDEXCEPTIONS );
+        SolarMutexGuard aWriteLock;
+
+        {
+            TransactionGuard aTransaction(m_aTransactionManager, E_HARDEXCEPTIONS);
+        }
+
+        // Disable this instance for further work.
+        // This will wait for all current running transactions ...
+        // and reject all new incoming requests!
+        m_aTransactionManager.setWorkingMode(E_BEFORECLOSE);
     }
-
-    // Disable this instance for further work.
-    // This will wait for all current running transactions ...
-    // and reject all new incoming requests!
-    m_aTransactionManager.setWorkingMode( E_BEFORECLOSE );
-
-    aWriteLock.clear();
 
     // Following lines of code can be called outside a synchronized block ...
     // Because our transaction manager will block all new requests to this object.
@@ -1709,7 +1713,7 @@ bool Desktop::impl_closeFrames(bool bAllowUI)
         {
             css::uno::Reference< css::frame::XFrame > xFrame = lFrames[i];
 
-            // XController.suspend() will show an UI ...
+            // XController.suspend() will show a UI ...
             // Use it in case it was allowed from outside only.
             bool                                       bSuspended = false;
             css::uno::Reference< css::frame::XController > xController( xFrame->getController(), css::uno::UNO_QUERY );

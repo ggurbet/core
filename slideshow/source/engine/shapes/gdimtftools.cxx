@@ -40,7 +40,7 @@
 #include <vcl/metaact.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/gdimtf.hxx>
-#include <vcl/animate.hxx>
+#include <vcl/animate/Animation.hxx>
 #include <vcl/graph.hxx>
 
 #include <unotools/streamwrap.hxx>
@@ -293,14 +293,14 @@ bool getAnimationFromGraphic( VectorOfMtfAnimationFrames&   o_rFrames,
 
     for( sal_uInt16 i=0, nCount=aAnimation.Count(); i<nCount; ++i )
     {
-        const AnimationBitmap& rAnimBmp( aAnimation.Get(i) );
-        switch(rAnimBmp.eDisposal)
+        const AnimationBitmap& rAnimationBitmap( aAnimation.Get(i) );
+        switch(rAnimationBitmap.meDisposal)
         {
             case Disposal::Not:
             {
-                pVDev->DrawBitmapEx(rAnimBmp.aPosPix,
-                                   rAnimBmp.aBmpEx);
-                Bitmap aMask = rAnimBmp.aBmpEx.GetMask();
+                pVDev->DrawBitmapEx(rAnimationBitmap.maPositionPixel,
+                                    rAnimationBitmap.maBitmapEx);
+                Bitmap aMask = rAnimationBitmap.maBitmapEx.GetMask();
 
                 if( aMask.IsEmpty() )
                 {
@@ -312,10 +312,9 @@ bool getAnimationFromGraphic( VectorOfMtfAnimationFrames&   o_rFrames,
                 }
                 else
                 {
-                    BitmapEx aTmpMask = BitmapEx(aMask,
-                                                 aMask);
-                    pVDevMask->DrawBitmapEx(rAnimBmp.aPosPix,
-                                           aTmpMask );
+                    BitmapEx aTmpMask(aMask, aMask);
+                    pVDevMask->DrawBitmapEx(rAnimationBitmap.maPositionPixel,
+                                            aTmpMask );
                 }
                 break;
             }
@@ -323,32 +322,32 @@ bool getAnimationFromGraphic( VectorOfMtfAnimationFrames&   o_rFrames,
             case Disposal::Back:
             {
                 // #i70772# react on no mask
-                const Bitmap aMask(rAnimBmp.aBmpEx.GetMask());
-                const Bitmap aContent(rAnimBmp.aBmpEx.GetBitmap());
+                const Bitmap aMask(rAnimationBitmap.maBitmapEx.GetMask());
+                const Bitmap aContent(rAnimationBitmap.maBitmapEx.GetBitmap());
 
                 pVDevMask->Erase();
-                pVDev->DrawBitmap(rAnimBmp.aPosPix, aContent);
+                pVDev->DrawBitmap(rAnimationBitmap.maPositionPixel, aContent);
 
                 if(aMask.IsEmpty())
                 {
-                    const tools::Rectangle aRect(rAnimBmp.aPosPix, aContent.GetSizePixel());
+                    const tools::Rectangle aRect(rAnimationBitmap.maPositionPixel, aContent.GetSizePixel());
                     pVDevMask->SetFillColor( COL_BLACK);
                     pVDevMask->SetLineColor();
                     pVDevMask->DrawRect(aRect);
                 }
                 else
                 {
-                    pVDevMask->DrawBitmap(rAnimBmp.aPosPix, aMask);
+                    pVDevMask->DrawBitmap(rAnimationBitmap.maPositionPixel, aMask);
                 }
                 break;
             }
 
             case Disposal::Previous :
             {
-                pVDev->DrawBitmapEx(rAnimBmp.aPosPix,
-                                   rAnimBmp.aBmpEx);
-                pVDevMask->DrawBitmap(rAnimBmp.aPosPix,
-                                     rAnimBmp.aBmpEx.GetMask());
+                pVDev->DrawBitmapEx(rAnimationBitmap.maPositionPixel,
+                                    rAnimationBitmap.maBitmapEx);
+                pVDevMask->DrawBitmap(rAnimationBitmap.maPositionPixel,
+                                      rAnimationBitmap.maBitmapEx.GetMask());
                 break;
             }
         }
@@ -374,7 +373,7 @@ bool getAnimationFromGraphic( VectorOfMtfAnimationFrames&   o_rFrames,
 
         // Take care of special value for MultiPage TIFFs. ATM these shall just
         // show their first page for _quite_ some time.
-        sal_Int32 nWaitTime100thSeconds( rAnimBmp.nWait );
+        sal_Int32 nWaitTime100thSeconds(rAnimationBitmap.mnWait);
         if( ANIMATION_TIMEOUT_ON_CLICK == nWaitTime100thSeconds )
         {
             // ATM the huge value would block the timer, so use a long
@@ -414,16 +413,16 @@ bool getRectanglesFromScrollMtf( ::basegfx::B2DRectangle&       o_rScrollRect,
                 if (pAct->GetComment().equalsIgnoreAsciiCase("XTEXT_SCROLLRECT"))
                 {
                     o_rScrollRect = vcl::unotools::b2DRectangleFromRectangle(
-                        *reinterpret_cast<tools::Rectangle const *>(
-                            pAct->GetData() ) );
+                                        *reinterpret_cast<tools::Rectangle const *>(
+                                            pAct->GetData() ));
 
                     bScrollRectSet = true;
                 }
                 else if (pAct->GetComment().equalsIgnoreAsciiCase("XTEXT_PAINTRECT") )
                 {
                     o_rPaintRect = vcl::unotools::b2DRectangleFromRectangle(
-                        *reinterpret_cast<tools::Rectangle const *>(
-                            pAct->GetData() ) );
+                                        *reinterpret_cast<tools::Rectangle const *>(
+                                            pAct->GetData() ));
 
                     bPaintRectSet = true;
                 }

@@ -152,7 +152,7 @@ public:
                 internal operation asynchronous... we send an event
                 to start and return immediately. But we must be sure that
                 our instance live if the event callback reach us.
-                So we hold an uno reference to ourself.
+                So we hold a uno reference to ourself.
      */
     css::uno::Reference< css::uno::XInterface > m_xHoldRefForAsyncOpAlive;
 };
@@ -737,7 +737,7 @@ private:
                 Note further: it patches the info struct
                 more than ones. E.g. the new temp URL is set
                 before the file is saved. And the old URL is removed
-                only if removing of the old file was successfully.
+                only if removing of the old file was successful.
                 If this method returns without an exception - everything
                 was OK. Otherwise the info struct can be analyzed to
                 get more information, e.g. when the problem occurs.
@@ -749,7 +749,7 @@ private:
                 points to an information structure, where
                 e.g. the document, its modified state, the count
                 of autosave-retries etcpp. exists.
-                Its used also to return the new temp file name
+                It's used also to return the new temp file name
                 and some other state values!
 
         @threadsafe
@@ -1605,7 +1605,7 @@ void SAL_CALL AutoRecovery::changesOccurred(const css::util::ChangesEvent& aEven
     sal_Int32 i = 0;
 
     /* SAFE */ {
-    osl::ResettableMutexGuard g(cppu::WeakComponentImplHelperBase::rBHelper.rMutex);
+    osl::MutexGuard g(cppu::WeakComponentImplHelperBase::rBHelper.rMutex);
 
     // Changes of the configuration must be ignored if AutoSave/Recovery was disabled for this
     // office session. That can happen if e.g. the command line arguments "--norestore" or "--headless"
@@ -1878,7 +1878,7 @@ void AutoRecovery::implts_specifyDefaultFilterAndExtension(AutoRecovery::TDocume
             implts_openConfig();
             // open module config on demand and cache the update access
             xCFG.set(officecfg::Setup::Office::Factories::get(m_xContext),
-                    css::uno::UNO_QUERY_THROW);
+                    css::uno::UNO_SET_THROW);
 
             /* SAFE */ {
             osl::MutexGuard g2(cppu::WeakComponentImplHelperBase::rBHelper.rMutex);
@@ -1903,7 +1903,7 @@ void AutoRecovery::implts_specifyDefaultFilterAndExtension(AutoRecovery::TDocume
         OUString                       sTypeRegistration   = lFilterProps.getUnpackedValueOrDefault(FILTER_PROP_TYPE, OUString());
         ::comphelper::SequenceAsHashMap       lTypeProps          (xTypeCFG->getByName(sTypeRegistration));
         css::uno::Sequence< OUString > lExtensions         = lTypeProps.getUnpackedValueOrDefault(TYPE_PROP_EXTENSIONS, css::uno::Sequence< OUString >());
-        if (lExtensions.getLength())
+        if (lExtensions.hasElements())
         {
             rInfo.Extension = "." + lExtensions[0];
         }
@@ -2422,7 +2422,7 @@ void AutoRecovery::implts_registerDocument(const css::uno::Reference< css::frame
     implts_specifyAppModuleAndFactory(aNew);
 
     // Hack! Check for "illegal office documents"... as e.g. the Basic IDE
-    // It's not really a full featured office document. It doesn't provide an URL, any filter, a factory URL etcpp.
+    // It's not really a full featured office document. It doesn't provide a URL, any filter, a factory URL etcpp.
     // TODO file bug to Basic IDE developers. They must remove the office document API from its service.
     if (
         (aNew.OrgURL.isEmpty()) &&
@@ -2446,7 +2446,7 @@ void AutoRecovery::implts_registerDocument(const css::uno::Reference< css::frame
     css::uno::Reference< css::document::XDocumentPropertiesSupplier > xSupplier(aNew.Document, css::uno::UNO_QUERY);
     if (xSupplier.is()) // optional interface!
     {
-        css::uno::Reference< css::document::XDocumentProperties > xDocProps(xSupplier->getDocumentProperties(), css::uno::UNO_QUERY_THROW);
+        css::uno::Reference< css::document::XDocumentProperties > xDocProps(xSupplier->getDocumentProperties(), css::uno::UNO_SET_THROW);
         aNew.TemplateURL = xDocProps->getTemplateURL();
     }
 
@@ -2844,7 +2844,7 @@ AutoRecovery::ETimerType AutoRecovery::implts_saveDocs(       bool        bAllow
 
     // This list will be filled with every document
     // which should be saved as last one. E.g. if it was used
-    // already for an UI save operation => crashed ... and
+    // already for a UI save operation => crashed ... and
     // now we try to save it again ... which can fail again ( of course .-) ).
     ::std::vector< AutoRecovery::TDocumentList::iterator > lDangerousDocs;
 
@@ -2997,7 +2997,7 @@ void AutoRecovery::implts_saveOneDoc(const OUString&                            
     css::uno::Sequence< css::beans::NamedValue > aEncryptionData =
         lOldArgs.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_ENCRYPTIONDATA(),
                 css::uno::Sequence< css::beans::NamedValue >());
-    if (aEncryptionData.getLength() > 0)
+    if (aEncryptionData.hasElements())
         lNewArgs[utl::MediaDescriptor::PROP_ENCRYPTIONDATA()] <<= aEncryptionData;
 
     // Further it must be saved using the default file format of that application.
@@ -3016,7 +3016,7 @@ void AutoRecovery::implts_saveOneDoc(const OUString&                            
 
     // try to save this document as a new temp file every time.
     // Mark AutoSave state as "INCOMPLETE" if it failed.
-    // Because the last temp file is to old and does not include all changes.
+    // Because the last temp file is too old and does not include all changes.
     Reference< XDocumentRecovery > xDocRecover(rInfo.Document, css::uno::UNO_QUERY_THROW);
 
     // safe the state about "trying to save"
@@ -3155,7 +3155,7 @@ AutoRecovery::ETimerType AutoRecovery::implts_openDocs(const DispatchParams& aPa
 
         utl::MediaDescriptor lDescriptor;
 
-        // it's an UI feature - so the "USER" itself must be set as referer
+        // it's a UI feature - so the "USER" itself must be set as referrer
         lDescriptor[utl::MediaDescriptor::PROP_REFERRER()] <<= OUString(REFERRER_USER);
         lDescriptor[utl::MediaDescriptor::PROP_SALVAGEDFILE()] <<= OUString();
 
@@ -3355,7 +3355,7 @@ void AutoRecovery::implts_openOneDoc(const OUString&               sURL       ,
 
         // re-create all the views
         ::std::vector< OUString > aViewsToRestore( rInfo.ViewNames.getLength() );
-        if ( rInfo.ViewNames.getLength() )
+        if ( rInfo.ViewNames.hasElements() )
             ::std::copy( rInfo.ViewNames.begin(), rInfo.ViewNames.end(), aViewsToRestore.begin() );
         // if we don't have views for whatever reason, then create a default-view, at least
         if ( aViewsToRestore.empty() )
@@ -3420,10 +3420,10 @@ void AutoRecovery::implts_generateNewTempURL(const OUString&               sBack
                                                    AutoRecovery::TDocumentInfo&   rInfo           )
 {
     // specify URL for saving (which points to a temp file inside backup directory)
-    // and define an unique name, so we can locate it later.
+    // and define a unique name, so we can locate it later.
     // This unique name must solve an optimization problem too!
     // In case we are asked to save unmodified documents too - and one of them
-    // is an empty one (because it was new created using e.g. an URL private:factory/...)
+    // is an empty one (because it was new created using e.g. a URL private:factory/...)
     // we should not save it really. Then we put the information about such "empty document"
     // into the configuration and don't create any recovery file on disk.
     // We use the title of the document to make it unique.
@@ -4163,7 +4163,7 @@ void AutoRecovery::st_impl_removeFile(const OUString& sURL)
 
     try
     {
-        ::ucbhelper::Content aContent = ::ucbhelper::Content(sURL, css::uno::Reference< css::ucb::XCommandEnvironment >(), m_xContext);
+        ::ucbhelper::Content aContent(sURL, css::uno::Reference< css::ucb::XCommandEnvironment >(), m_xContext);
         aContent.executeCommand("delete", css::uno::makeAny(true));
     }
     catch(const css::uno::Exception&)

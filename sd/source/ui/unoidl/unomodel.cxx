@@ -29,6 +29,7 @@
 #include <com/sun/star/style/XStyle.hpp>
 #include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/document/IndexedPropertyValues.hpp>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 
 #include <com/sun/star/embed/Aspects.hpp>
 
@@ -126,6 +127,7 @@
 #include <drawinglayer/primitive2d/structuretagprimitive2d.hxx>
 
 #include <sfx2/lokcharthelper.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 #define TWIPS_PER_PIXEL 15
@@ -174,14 +176,12 @@ SdUnoForbiddenCharsTable::~SdUnoForbiddenCharsTable()
 
 void SdUnoForbiddenCharsTable::Notify( SfxBroadcaster&, const SfxHint& rHint ) throw()
 {
-    const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>( &rHint );
-
-    if( pSdrHint )
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
+        return;
+    const SdrHint* pSdrHint = static_cast<const SdrHint*>( &rHint );
+    if( SdrHintKind::ModelCleared == pSdrHint->GetKind() )
     {
-        if( SdrHintKind::ModelCleared == pSdrHint->GetKind() )
-        {
-            mpModel = nullptr;
-        }
+        mpModel = nullptr;
     }
 }
 
@@ -348,15 +348,6 @@ const css::uno::Sequence< sal_Int8 > & SdXImpressDocument::getUnoTunnelId() thro
     return theSdXImpressDocumentUnoTunnelId::get().getSeq();
 }
 
-SdXImpressDocument* SdXImpressDocument::getImplementation( const uno::Reference< uno::XInterface >& xInt )
-{
-    css::uno::Reference< css::lang::XUnoTunnel > xUT( xInt, uno::UNO_QUERY );
-    if( xUT.is() )
-        return reinterpret_cast<SdXImpressDocument*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething( SdXImpressDocument::getUnoTunnelId() )));
-    else
-        return nullptr;
-}
-
 sal_Int64 SAL_CALL SdXImpressDocument::getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier )
 {
     if( rIdentifier.getLength() == 16 )
@@ -418,10 +409,9 @@ void SdXImpressDocument::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
 {
     if( mpDoc )
     {
-        const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>( &rHint );
-
-        if( pSdrHint )
+        if (rHint.GetId() == SfxHintId::ThisIsAnSdrHint)
         {
+            const SdrHint* pSdrHint = static_cast<const SdrHint*>( &rHint );
             if( hasEventListeners() )
             {
                 document::EventObject aEvent;
@@ -684,7 +674,7 @@ uno::Reference< drawing::XDrawPage > SAL_CALL SdXImpressDocument::duplicate( con
         throw lang::DisposedException();
 
     // get pPage from xPage and determine the Id (nPos ) afterwards
-    SvxDrawPage* pSvxPage = SvxDrawPage::getImplementation( xPage );
+    SvxDrawPage* pSvxPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>( xPage );
     if( pSvxPage )
     {
         SdPage* pPage = static_cast<SdPage*>( pSvxPage->GetSdrPage() );
@@ -715,7 +705,7 @@ uno::Reference< drawing::XDrawPages > SAL_CALL SdXImpressDocument::getDrawPages(
     if( !xDrawPages.is() )
     {
         initializeDocument();
-        mxDrawPagesAccess = xDrawPages = static_cast<drawing::XDrawPages*>(new SdDrawPagesAccess(*this));
+        mxDrawPagesAccess = xDrawPages = new SdDrawPagesAccess(*this);
     }
 
     return xDrawPages;
@@ -1071,7 +1061,7 @@ css::uno::Reference<css::uno::XInterface> SdXImpressDocument::create(
     }
 
     uno::Reference< drawing::XShape > xShape( xRet, uno::UNO_QUERY );
-    SvxShape* pShape = xShape.is() ? SvxShape::getImplementation(xShape) : nullptr;
+    SvxShape* pShape = xShape.is() ? comphelper::getUnoTunnelImplementation<SvxShape>(xShape) : nullptr;
     if (pShape)
     {
         xRet.clear();
@@ -1370,7 +1360,6 @@ uno::Any SAL_CALL SdXImpressDocument::getPropertyValue( const OUString& Property
                                                EE_CHAR_FONTINFO_CTL };
 
                 const SfxItemPool& rPool = mpDoc->GetPool();
-                const SfxPoolItem* pItem;
 
                 for(sal_uInt16 nWhichId : aWhichIds)
                 {
@@ -1378,18 +1367,15 @@ uno::Any SAL_CALL SdXImpressDocument::getPropertyValue( const OUString& Property
 
                     aSeq.realloc( aSeq.getLength() + nItems*5 + 5 );
 
-                    for( sal_uInt32 j = 0; j < nItems; ++j )
+                    for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(nWhichId))
                     {
-                        if( nullptr != (pItem = rPool.GetItem2( nWhichId, j ) ) )
-                        {
-                            const SvxFontItem *pFont = static_cast<const SvxFontItem *>(pItem);
+                        const SvxFontItem *pFont = static_cast<const SvxFontItem *>(pItem);
 
-                            aSeq[nSeqIndex++] <<= pFont->GetFamilyName();
-                            aSeq[nSeqIndex++] <<= pFont->GetStyleName();
-                            aSeq[nSeqIndex++] <<= sal_Int16(pFont->GetFamily());
-                            aSeq[nSeqIndex++] <<= sal_Int16(pFont->GetPitch());
-                            aSeq[nSeqIndex++] <<= sal_Int16(pFont->GetCharSet());
-                        }
+                        aSeq[nSeqIndex++] <<= pFont->GetFamilyName();
+                        aSeq[nSeqIndex++] <<= pFont->GetStyleName();
+                        aSeq[nSeqIndex++] <<= sal_Int16(pFont->GetFamily());
+                        aSeq[nSeqIndex++] <<= sal_Int16(pFont->GetPitch());
+                        aSeq[nSeqIndex++] <<= sal_Int16(pFont->GetCharSet());
                     }
 
                     const SvxFontItem& rFont = static_cast<const SvxFontItem&>(rPool.GetDefaultItem( nWhichId ));
@@ -1804,14 +1790,15 @@ drawinglayer::primitive2d::Primitive2DContainer ImplRenderPaintProc::createRedir
                         // embed Primitive2DSequence in a structure tag element for
                         // exactly this purpose (StructureTagPrimitive2D)
 
-                        //Z
                         const SdrPage* pSdrPage(pObject->getSdrPageFromSdrObject());
                         const bool bBackground(nullptr != pSdrPage && pSdrPage->IsMasterPage());
+                        const bool bImage(pObject->GetObjIdentifier() == OBJ_GRAF);
 
                         const drawinglayer::primitive2d::Primitive2DReference xReference(
                             new drawinglayer::primitive2d::StructureTagPrimitive2D(
                                 eElement,
                                 bBackground,
+                                bImage,
                                 xRetval));
 
                         xRetval = drawinglayer::primitive2d::Primitive2DContainer { xReference };
@@ -1910,7 +1897,7 @@ void SAL_CALL SdXImpressDocument::render( sal_Int32 nRenderer, const uno::Any& r
     if( !(xRenderDevice.is() && nPageNumber && ( nPageNumber <= mpDoc->GetSdPageCount( ePageKind ) )) )
         return;
 
-    VCLXDevice* pDevice = VCLXDevice::GetImplementation( xRenderDevice );
+    VCLXDevice* pDevice = comphelper::getUnoTunnelImplementation<VCLXDevice>( xRenderDevice );
     VclPtr< OutputDevice> pOut = pDevice ? pDevice->GetOutputDevice() : VclPtr< OutputDevice >();
 
     if( !pOut )
@@ -1923,7 +1910,7 @@ void SAL_CALL SdXImpressDocument::render( sal_Int32 nRenderer, const uno::Any& r
         return;
 
     std::unique_ptr<::sd::ClientView> pView( new ::sd::ClientView( mpDocShell, pOut ) );
-    ::tools::Rectangle                         aVisArea = ::tools::Rectangle( Point(), mpDoc->GetSdPage( static_cast<sal_uInt16>(nPageNumber) - 1, ePageKind )->GetSize() );
+    ::tools::Rectangle aVisArea( Point(), mpDoc->GetSdPage( static_cast<sal_uInt16>(nPageNumber) - 1, ePageKind )->GetSize() );
     vcl::Region                       aRegion( aVisArea );
 
     ::sd::ViewShell* pOldViewSh = mpDocShell->GetViewShell();
@@ -2204,7 +2191,7 @@ void SAL_CALL SdXImpressDocument::render( sal_Int32 nRenderer, const uno::Any& r
 
                 if( xShape.is() )
                 {
-                    SvxShape* pShape = SvxShape::getImplementation( xShape );
+                    SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
 
                     if( pShape )
                     {
@@ -2542,15 +2529,15 @@ void SdXImpressDocument::setTextSelection(int nType, int nX, int nY)
     }
 }
 
-OString SdXImpressDocument::getTextSelection(const char* pMimeType, OString& rUsedMimeType)
+uno::Reference<datatransfer::XTransferable> SdXImpressDocument::getSelection()
 {
     SolarMutexGuard aGuard;
 
     DrawViewShell* pViewShell = GetViewShell();
     if (!pViewShell)
-        return OString();
+        return uno::Reference<datatransfer::XTransferable>();
 
-    return pViewShell->GetTextSelection(pMimeType, rUsedMimeType);
+    return pViewShell->GetSelectionTransferrable();
 }
 
 void SdXImpressDocument::setGraphicSelection(int nType, int nX, int nY)
@@ -2934,7 +2921,7 @@ void SAL_CALL SdDrawPagesAccess::remove( const uno::Reference< drawing::XDrawPag
     if( nPageCount > 1 )
     {
         // get pPage from xPage and determine the Id (nPos ) afterwards
-        SdDrawPage* pSvxPage = SdDrawPage::getImplementation( xPage );
+        SdDrawPage* pSvxPage = comphelper::getUnoTunnelImplementation<SdDrawPage>( xPage );
         if( pSvxPage )
         {
             SdPage* pPage = static_cast<SdPage*>(pSvxPage->GetSdrPage());
@@ -3184,7 +3171,7 @@ void SAL_CALL SdMasterPagesAccess::remove( const uno::Reference< drawing::XDrawP
     if( nullptr == mpModel || mpModel->mpDoc == nullptr )
         throw lang::DisposedException();
 
-    SdMasterPage* pSdPage = SdMasterPage::getImplementation( xPage );
+    SdMasterPage* pSdPage = comphelper::getUnoTunnelImplementation<SdMasterPage>( xPage );
     if(pSdPage == nullptr)
         return;
 

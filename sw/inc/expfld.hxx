@@ -67,11 +67,11 @@ public:
     void Clear() { maData.clear(); }
 };
 
-class SwGetExpFieldType : public SwValueFieldType
+class SAL_DLLPUBLIC_RTTI SwGetExpFieldType : public SwValueFieldType
 {
 public:
     SwGetExpFieldType(SwDoc* pDoc);
-    virtual SwFieldType*    Copy() const override;
+    virtual std::unique_ptr<SwFieldType> Copy() const override;
 
     /** Overlay, because get-field cannot be changed and therefore
      does not need to be updated. Update at changing of set-values! */
@@ -155,7 +155,7 @@ protected:
 public:
     SwSetExpFieldType( SwDoc* pDoc, const OUString& rName,
                         sal_uInt16 nType = nsSwGetSetExpType::GSE_EXPR );
-    virtual SwFieldType*    Copy() const override;
+    virtual std::unique_ptr<SwFieldType> Copy() const override;
     virtual OUString        GetName() const override;
 
     inline void             SetType(sal_uInt16 nTyp);
@@ -268,13 +268,13 @@ inline bool SwSetExpField::GetInputFlag() const
 inline bool SwSetExpField::IsSequenceField() const
     { return 0 != (nsSwGetSetExpType::GSE_SEQ & static_cast<SwSetExpFieldType*>(GetTyp())->GetType()); }
 
-class SwInputFieldType : public SwFieldType
+class SAL_DLLPUBLIC_RTTI SwInputFieldType : public SwFieldType
 {
     SwDoc* const mpDoc;
 public:
     SwInputFieldType( SwDoc* pDoc );
 
-    virtual SwFieldType* Copy() const override;
+    virtual std::unique_ptr<SwFieldType> Copy() const override;
 
     SwDoc* GetDoc() const { return mpDoc; }
 };
@@ -368,7 +368,7 @@ class SwTableFieldType : public SwValueFieldType
 {
 public:
     SwTableFieldType(SwDoc* pDocPtr);
-    virtual SwFieldType* Copy() const override;
+    virtual std::unique_ptr<SwFieldType> Copy() const override;
 };
 
 class SwTableField : public SwValueField, public SwTableFormula

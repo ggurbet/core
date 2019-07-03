@@ -31,12 +31,9 @@
 
 #include <com/sun/star/drawing/TextVerticalAdjust.hpp>
 #include <swtypes.hxx>
-#include <wrtswtbl.hxx>
 #include <fldbas.hxx>
 #include <IDocumentRedlineAccess.hxx>
 #include <unotools/saveopt.hxx>
-
-#include <vector>
 
 class Point;
 class SvxCaseMapItem;
@@ -665,7 +662,7 @@ public:
     virtual void BulletDefinition(int /*nId*/, const Graphic& /*rGraphic*/, Size /*aSize*/) {}
 
     // Returns whether or not the 'SwTextNode' has a paragraph marker inserted \ deleted (using 'track changes')
-    const SwRedlineData* GetParagraphMarkerRedline( const SwTextNode& rNode, RedlineType_t aRedlineType );
+    const SwRedlineData* GetParagraphMarkerRedline( const SwTextNode& rNode, RedlineType aRedlineType );
 };
 
 class WW8Ruby

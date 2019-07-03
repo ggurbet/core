@@ -20,18 +20,22 @@
 #include <Qt5Frame.hxx>
 #include <Qt5Frame.moc>
 
-#include <Qt5Tools.hxx>
-#include <Qt5Instance.hxx>
-#include <Qt5Graphics.hxx>
-#include <Qt5Widget.hxx>
-#include <Qt5MainWindow.hxx>
 #include <Qt5Data.hxx>
-#include <Qt5Menu.hxx>
 #include <Qt5DragAndDrop.hxx>
+#include <Qt5Graphics.hxx>
+#include <Qt5Instance.hxx>
+#include <Qt5MainWindow.hxx>
+#include <Qt5Menu.hxx>
+#include <Qt5SvpGraphics.hxx>
+#include <Qt5System.hxx>
+#include <Qt5Tools.hxx>
+#include <Qt5Transferable.hxx>
+#include <Qt5Widget.hxx>
 
 #include <QtCore/QMimeData>
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
+#include <QtCore/QThread>
 #include <QtGui/QIcon>
 #include <QtGui/QWindow>
 #include <QtGui/QScreen>
@@ -41,6 +45,11 @@
 #include <QtWidgets/QDesktopWidget>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMainWindow>
+
+#if QT5_USING_X11
+#include <QtX11Extras/QX11Info>
+#include <xcb/xproto.h>
+#endif
 
 #include <saldatabasic.hxx>
 #include <window.h>
@@ -59,12 +68,35 @@ static void SvpDamageHandler(void* handle, sal_Int32 nExtentsX, sal_Int32 nExten
     pThis->Damage(nExtentsX, nExtentsY, nExtentsWidth, nExtentsHeight);
 }
 
+namespace
+{
+sal_Int32 screenNumber(const QScreen* pScreen)
+{
+    const QList<QScreen*> screens = QApplication::screens();
+
+    sal_Int32 nScreen = 0;
+    bool bFound = false;
+    for (const QScreen* pCurScreen : screens)
+    {
+        if (pScreen == pCurScreen)
+        {
+            bFound = true;
+            break;
+        }
+        nScreen++;
+    }
+
+    return bFound ? nScreen : -1;
+}
+}
+
 Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     : m_pTopLevel(nullptr)
     , m_bUseCairo(bUseCairo)
     , m_pSvpGraphics(nullptr)
     , m_bNullRegion(true)
     , m_bGraphicsInUse(false)
+    , m_bGraphicsInvalid(false)
     , m_ePointerStyle(PointerStyle::Arrow)
     , m_pDragSource(nullptr)
     , m_pDropTarget(nullptr)
@@ -72,6 +104,7 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     , m_bDefaultSize(true)
     , m_bDefaultPos(true)
     , m_bFullScreen(false)
+    , m_bFullScreenSpanAll(false)
 {
     Qt5Instance* pInst = static_cast<Qt5Instance*>(GetSalData()->m_pInstance);
     pInst->insertFrame(this);
@@ -114,13 +147,7 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
 
     if (aWinFlags == Qt::Window)
     {
-        QWidget* pParentWidget = nullptr;
-        if (m_pParent)
-        {
-            pParentWidget
-                = (m_pParent->m_pTopLevel) ? m_pParent->m_pTopLevel : m_pParent->m_pQWidget;
-        }
-
+        QWidget* pParentWidget = m_pParent ? m_pParent->asChild() : nullptr;
         m_pTopLevel = new Qt5MainWindow(*this, pParentWidget, aWinFlags);
         m_pQWidget = new Qt5Widget(*this, aWinFlags);
         m_pTopLevel->setCentralWidget(m_pQWidget);
@@ -128,39 +155,43 @@ Qt5Frame::Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nStyle, bool bUseCairo)
     else
         m_pQWidget = new Qt5Widget(*this, aWinFlags);
 
-    connect(this, &Qt5Frame::tooltipRequest, static_cast<Qt5Widget*>(m_pQWidget),
-            &Qt5Widget::showTooltip);
-
     if (pParent && !(pParent->m_nStyle & SalFrameStyleFlags::PLUG))
     {
         QWindow* pParentWindow = pParent->GetQWidget()->window()->windowHandle();
-        QWindow* pChildWindow = (m_pTopLevel ? m_pTopLevel->window()->windowHandle()
-                                             : m_pQWidget->window()->windowHandle());
+        QWindow* pChildWindow = asChild()->window()->windowHandle();
         if (pParentWindow && pChildWindow && (pParentWindow != pChildWindow))
             pChildWindow->setTransientParent(pParentWindow);
     }
 
-    // fake an initial geometry, gets updated via configure event or SetPosSize
-    if (m_bDefaultPos || m_bDefaultSize)
+    m_aSystemData.nSize = sizeof(SystemEnvData);
+
+    // Calling 'QWidget::winId()' implicitly enables native windows to be used
+    // rather than "alien widgets" that are unknown to the windowing system,
+    // s. https://doc.qt.io/qt-5/qwidget.html#native-widgets-vs-alien-widgets
+    // Avoid this on Wayland due to problems with missing 'mouseMoveEvent's,
+    // s. tdf#122293/QTBUG-75766
+    const bool bWayland = QGuiApplication::platformName() == "wayland";
+    if (!bWayland)
+        m_aSystemData.aWindow = m_pQWidget->winId();
+    else
     {
-        Size aDefSize = CalcDefaultSize();
-        maGeometry.nX = -1;
-        maGeometry.nY = -1;
-        maGeometry.nWidth = aDefSize.Width();
-        maGeometry.nHeight = aDefSize.Height();
-        maGeometry.nTopDecoration = 0;
-        maGeometry.nBottomDecoration = 0;
-        maGeometry.nLeftDecoration = 0;
-        maGeometry.nRightDecoration = 0;
+        // TODO implement as needed for Wayland,
+        // s.a. commit c0d4f3ad3307c which did this for gtk3
+        // QPlatformNativeInterface* native = QGuiApplication::platformNativeInterface();
+        // m_aSystemData.pDisplay = native->nativeResourceForWindow("display", nullptr);
+        // m_aSystemData.aWindow = reinterpret_cast<unsigned long>(
+        //     native->nativeResourceForWindow("surface", m_pQWidget->windowHandle()));
     }
 
-    m_aSystemData.nSize = sizeof(SystemEnvData);
-    m_aSystemData.aWindow = m_pQWidget->winId();
     m_aSystemData.aShellWindow = reinterpret_cast<sal_IntPtr>(this);
     //m_aSystemData.pSalFrame = this;
-    //m_aSystemData.pWidget = m_pQWidget;
+    m_aSystemData.pWidget = m_pQWidget;
     //m_aSystemData.nScreen = m_nXScreen.getXScreen();
     m_aSystemData.pToolkit = "qt5";
+    if (!bWayland)
+        m_aSystemData.pPlatformName = "xcb";
+    else
+        m_aSystemData.pPlatformName = "wayland";
 
     SetIcon(SV_ICON_ID_OFFICE);
 }
@@ -169,10 +200,7 @@ Qt5Frame::~Qt5Frame()
 {
     Qt5Instance* pInst = static_cast<Qt5Instance*>(GetSalData()->m_pInstance);
     pInst->eraseFrame(this);
-    if (m_pTopLevel)
-        delete m_pTopLevel;
-    else
-        delete m_pQWidget;
+    delete asChild();
     m_aSystemData.aShellWindow = 0;
 }
 
@@ -195,14 +223,14 @@ void Qt5Frame::TriggerPaintEvent(QRect aRect)
     CallCallback(SalEvent::Paint, &aPaintEvt);
 }
 
-void Qt5Frame::InitSvpSalGraphics(SvpSalGraphics* pSvpSalGraphics)
+void Qt5Frame::InitQt5SvpGraphics(Qt5SvpGraphics* pQt5SvpGraphics)
 {
     int width = 640;
     int height = 480;
-    m_pSvpGraphics = pSvpSalGraphics;
+    m_pSvpGraphics = pQt5SvpGraphics;
     m_pSurface.reset(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height));
     m_pSvpGraphics->setSurface(m_pSurface.get(), basegfx::B2IVector(width, height));
-    cairo_surface_set_user_data(m_pSurface.get(), SvpSalGraphics::getDamageKey(), &m_aDamageHandler,
+    cairo_surface_set_user_data(m_pSurface.get(), Qt5SvpGraphics::getDamageKey(), &m_aDamageHandler,
                                 nullptr);
 }
 
@@ -215,21 +243,23 @@ SalGraphics* Qt5Frame::AcquireGraphics()
 
     if (m_bUseCairo)
     {
-        if (!m_pOurSvpGraphics.get())
+        if (!m_pOurSvpGraphics.get() || m_bGraphicsInvalid)
         {
-            m_pOurSvpGraphics.reset(new SvpSalGraphics());
-            InitSvpSalGraphics(m_pOurSvpGraphics.get());
+            m_pOurSvpGraphics.reset(new Qt5SvpGraphics(this));
+            InitQt5SvpGraphics(m_pOurSvpGraphics.get());
+            m_bGraphicsInvalid = false;
         }
         return m_pOurSvpGraphics.get();
     }
     else
     {
-        if (!m_pQt5Graphics.get())
+        if (!m_pQt5Graphics.get() || m_bGraphicsInvalid)
         {
             m_pQt5Graphics.reset(new Qt5Graphics(this));
             m_pQImage.reset(new QImage(m_pQWidget->size(), Qt5_DefaultFormat32));
             m_pQImage->fill(Qt::transparent);
             m_pQt5Graphics->ChangeQImage(m_pQImage.get());
+            m_bGraphicsInvalid = false;
         }
         return m_pQt5Graphics.get();
     }
@@ -252,53 +282,31 @@ bool Qt5Frame::PostEvent(std::unique_ptr<ImplSVEvent> pData)
     return true;
 }
 
-bool Qt5Frame::isWindow() const
-{
-    if (m_pTopLevel)
-        return m_pTopLevel->isWindow();
-    else
-        return m_pQWidget->isWindow();
-}
+QWidget* Qt5Frame::asChild() const { return m_pTopLevel ? m_pTopLevel : m_pQWidget; }
+
+bool Qt5Frame::isWindow() const { return asChild()->isWindow(); }
 
 QWindow* Qt5Frame::windowHandle() const
 {
-    if (m_pTopLevel)
-        return m_pTopLevel->windowHandle();
-    else
-        return m_pQWidget->windowHandle();
+    // set attribute 'Qt::WA_NativeWindow' first to make sure a window handle actually exists
+    QWidget* pChild = asChild();
+    pChild->setAttribute(Qt::WA_NativeWindow);
+    return pChild->windowHandle();
 }
 
 QScreen* Qt5Frame::screen() const
 {
     QWindow* const pWindow = windowHandle();
-    if (pWindow)
-        return pWindow->screen();
-    else
-        return nullptr;
+    return pWindow ? pWindow->screen() : nullptr;
 }
 
-bool Qt5Frame::isMinimized() const
-{
-    if (m_pTopLevel)
-        return m_pTopLevel->isMinimized();
-    else
-        return m_pQWidget->isMinimized();
-}
+bool Qt5Frame::isMinimized() const { return asChild()->isMinimized(); }
 
-bool Qt5Frame::isMaximized() const
-{
-    if (m_pTopLevel)
-        return m_pTopLevel->isMaximized();
-    else
-        return m_pQWidget->isMaximized();
-}
+bool Qt5Frame::isMaximized() const { return asChild()->isMaximized(); }
 
 void Qt5Frame::SetWindowStateImpl(Qt::WindowStates eState)
 {
-    if (m_pTopLevel)
-        m_pTopLevel->setWindowState(eState);
-    else
-        m_pQWidget->setWindowState(eState);
+    return asChild()->setWindowState(eState);
 }
 
 void Qt5Frame::SetTitle(const OUString& rTitle)
@@ -315,7 +323,7 @@ void Qt5Frame::SetIcon(sal_uInt16 nIcon)
         || !isWindow())
         return;
 
-    const char* appicon;
+    QString appicon;
 
     if (nIcon == SV_ICON_ID_TEXT)
         appicon = "libreoffice-writer";
@@ -342,81 +350,83 @@ void Qt5Frame::DrawMenuBar() { /* not needed */}
 
 void Qt5Frame::SetExtendedFrameStyle(SalExtStyle /*nExtStyle*/) { /* not needed */}
 
-void Qt5Frame::setVisible(bool bVisible)
-{
-    if (m_pTopLevel)
-        m_pTopLevel->setVisible(bVisible);
-    else
-        m_pQWidget->setVisible(bVisible);
-}
-
 void Qt5Frame::Show(bool bVisible, bool /*bNoActivate*/)
 {
     assert(m_pQWidget);
 
-    if (m_bDefaultSize)
-        SetDefaultSize();
+    SetDefaultSize();
+    SetDefaultPos();
 
     auto* pSalInst(static_cast<Qt5Instance*>(GetSalData()->m_pInstance));
     assert(pSalInst);
-    pSalInst->RunInMainThread([this, bVisible]() { setVisible(bVisible); });
+    pSalInst->RunInMainThread([this, bVisible]() { asChild()->setVisible(bVisible); });
 }
 
 void Qt5Frame::SetMinClientSize(long nWidth, long nHeight)
 {
     if (!isChild())
-    {
-        if (m_pTopLevel)
-            m_pTopLevel->setMinimumSize(nWidth, nHeight);
-        else
-            m_pQWidget->setMinimumSize(nWidth, nHeight);
-    }
+        asChild()->setMinimumSize(nWidth, nHeight);
 }
 
 void Qt5Frame::SetMaxClientSize(long nWidth, long nHeight)
 {
     if (!isChild())
-    {
-        if (m_pTopLevel)
-            m_pTopLevel->setMaximumSize(nWidth, nHeight);
-        else
-            m_pQWidget->setMaximumSize(nWidth, nHeight);
-    }
+        asChild()->setMaximumSize(nWidth, nHeight);
 }
 
-void Qt5Frame::Center()
+void Qt5Frame::SetDefaultPos()
 {
+    if (!m_bDefaultPos)
+        return;
+
+    // center on parent
     if (m_pParent)
     {
-        QWidget* pWindow = m_pParent->GetQWidget()->window();
-        QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
-        pWidget->move(pWindow->frameGeometry().topLeft() + pWindow->rect().center()
-                      - pWidget->rect().center());
+        QWidget* const pWindow = m_pParent->GetQWidget()->window();
+        QWidget* const pWidget = asChild();
+        QPoint aPos = pWindow->rect().center() - pWidget->rect().center();
+        SetPosSize(aPos.x(), aPos.y(), 0, 0, SAL_FRAME_POSSIZE_X | SAL_FRAME_POSSIZE_Y);
+        assert(!m_bDefaultPos);
     }
+    else
+        m_bDefaultPos = false;
 }
 
 Size Qt5Frame::CalcDefaultSize()
 {
     assert(isWindow());
-    QSize qSize(0, 0);
-    QScreen* pScreen = screen();
-    if (pScreen)
-        qSize = pScreen->size();
-    else
-        qSize = QApplication::desktop()->screenGeometry(0).size();
 
-    Size aSize = toSize(qSize);
+    Size aSize;
     if (!m_bFullScreen)
-        aSize = bestmaxFrameSizeForScreenSize(aSize);
+    {
+        const QScreen* pScreen = screen();
+        aSize = bestmaxFrameSizeForScreenSize(
+            toSize(pScreen ? pScreen->size() : QApplication::desktop()->screenGeometry(0).size()));
+    }
+    else
+    {
+        if (!m_bFullScreenSpanAll)
+            aSize = toSize(
+                QApplication::desktop()->screenGeometry(maGeometry.nDisplayScreenNumber).size());
+        else
+        {
+            int nLeftScreen = QApplication::desktop()->screenNumber(QPoint(0, 0));
+            aSize = toSize(QApplication::screens()[nLeftScreen]->availableVirtualGeometry().size());
+        }
+    }
 
     return aSize;
 }
 
 void Qt5Frame::SetDefaultSize()
 {
+    if (!m_bDefaultSize)
+        return;
+
     Size aDefSize = CalcDefaultSize();
     SetPosSize(0, 0, aDefSize.Width(), aDefSize.Height(),
                SAL_FRAME_POSSIZE_WIDTH | SAL_FRAME_POSSIZE_HEIGHT);
+    assert(!m_bDefaultSize);
 }
 
 void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt16 nFlags)
@@ -424,53 +434,62 @@ void Qt5Frame::SetPosSize(long nX, long nY, long nWidth, long nHeight, sal_uInt1
     if (!isWindow() || isChild(true, false))
         return;
 
-    if ((nFlags & (SAL_FRAME_POSSIZE_WIDTH | SAL_FRAME_POSSIZE_HEIGHT))
-        && (nWidth > 0 && nHeight > 0) // sometimes stupid things happen
-    )
+    if (nFlags & (SAL_FRAME_POSSIZE_WIDTH | SAL_FRAME_POSSIZE_HEIGHT))
     {
-        m_bDefaultSize = false;
         if (isChild(false) || !m_pQWidget->isMaximized())
         {
-            QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
+            if (!(nFlags & SAL_FRAME_POSSIZE_WIDTH))
+                nWidth = maGeometry.nWidth;
+            else if (!(nFlags & SAL_FRAME_POSSIZE_HEIGHT))
+                nHeight = maGeometry.nHeight;
 
-            if (m_nStyle & SalFrameStyleFlags::SIZEABLE)
-                pWidget->resize(nWidth, nHeight);
-            else
-                pWidget->setFixedSize(nWidth, nHeight);
+            if (nWidth > 0 && nHeight > 0)
+            {
+                m_bDefaultSize = false;
+                if (m_nStyle & SalFrameStyleFlags::SIZEABLE)
+                    asChild()->resize(nWidth, nHeight);
+                else
+                    asChild()->setFixedSize(nWidth, nHeight);
+            }
+
+            // assume the resize happened
+            // needed for calculations and will eventually be corrected by events
+            if (nWidth > 0)
+                maGeometry.nWidth = nWidth;
+            if (nHeight > 0)
+                maGeometry.nHeight = nHeight;
         }
     }
-    else if (m_bDefaultSize)
-        SetDefaultSize();
-
-    m_bDefaultSize = false;
 
     if (nFlags & (SAL_FRAME_POSSIZE_X | SAL_FRAME_POSSIZE_Y))
     {
         if (m_pParent)
         {
-            QRect aRect;
-            if (m_pParent->GetTopLevelWindow())
-                aRect = m_pParent->GetTopLevelWindow()->geometry();
+            const SalFrameGeometry& aParentGeometry = m_pParent->maGeometry;
+            if (QGuiApplication::isRightToLeft())
+                nX = aParentGeometry.nX + aParentGeometry.nWidth - nX - maGeometry.nWidth - 1;
             else
-                aRect = m_pParent->GetQWidget()->geometry();
+                nX += aParentGeometry.nX;
+            nY += aParentGeometry.nY;
 
-            nX += aRect.x();
-            nY += aRect.y();
+            Qt5MainWindow* pTopLevel = m_pParent->GetTopLevelWindow();
+            if (pTopLevel && pTopLevel->menuBar() && pTopLevel->menuBar()->isVisible())
+                nY += pTopLevel->menuBar()->geometry().height();
         }
 
+        if (!(nFlags & SAL_FRAME_POSSIZE_X))
+            nX = maGeometry.nX;
+        else if (!(nFlags & SAL_FRAME_POSSIZE_Y))
+            nY = maGeometry.nY;
+
+        // assume the reposition happened
+        // needed for calculations and will eventually be corrected by events later
         maGeometry.nX = nX;
         maGeometry.nY = nY;
 
         m_bDefaultPos = false;
-        if (m_pTopLevel)
-            m_pTopLevel->move(nX, nY);
-        else
-            m_pQWidget->move(nX, nY);
+        asChild()->move(nX, nY);
     }
-    else if (m_bDefaultPos)
-        Center();
-
-    m_bDefaultPos = false;
 }
 
 void Qt5Frame::GetClientSize(long& rWidth, long& rHeight)
@@ -500,21 +519,18 @@ void Qt5Frame::SetModal(bool bModal)
         auto* pSalInst(static_cast<Qt5Instance*>(GetSalData()->m_pInstance));
         assert(pSalInst);
         pSalInst->RunInMainThread([this, bModal]() {
-            bool wasVisible = windowHandle()->isVisible();
+
+            QWidget* const pChild = asChild();
+            const bool bWasVisible = pChild->isVisible();
 
             // modality change is only effective if the window is hidden
-            if (wasVisible)
-            {
-                windowHandle()->hide();
-            }
+            if (bWasVisible)
+                pChild->hide();
 
-            windowHandle()->setModality(bModal ? Qt::WindowModal : Qt::NonModal);
+            pChild->setWindowModality(bModal ? Qt::WindowModal : Qt::NonModal);
 
-            // and shown again if it was visible
-            if (wasVisible)
-            {
-                windowHandle()->show();
-            }
+            if (bWasVisible)
+                pChild->show();
         });
     }
 }
@@ -534,16 +550,9 @@ void Qt5Frame::SetWindowState(const SalFrameState* pState)
     if ((pState->mnMask & WindowStateMask::State) && (pState->mnState & WindowStateState::Maximized)
         && !isMaximized() && (pState->mnMask & nMaxGeometryMask) == nMaxGeometryMask)
     {
-        if (m_pTopLevel)
-        {
-            m_pTopLevel->resize(pState->mnWidth, pState->mnHeight);
-            m_pTopLevel->move(pState->mnX, pState->mnY);
-        }
-        else
-        {
-            m_pQWidget->resize(pState->mnWidth, pState->mnHeight);
-            m_pQWidget->move(pState->mnX, pState->mnY);
-        }
+        QWidget* const pChild = asChild();
+        pChild->resize(pState->mnWidth, pState->mnHeight);
+        pChild->move(pState->mnX, pState->mnY);
         SetWindowStateImpl(Qt::WindowMaximized);
     }
     else if (pState->mnMask
@@ -551,25 +560,15 @@ void Qt5Frame::SetWindowState(const SalFrameState* pState)
                 | WindowStateMask::Height))
     {
         sal_uInt16 nPosSizeFlags = 0;
-        QPoint aPos = m_pQWidget->pos();
-        QPoint aParentPos;
-        if (m_pParent)
-            aParentPos = m_pParent->GetQWidget()->window()->pos();
-        long nX = pState->mnX - aParentPos.x();
-        long nY = pState->mnY - aParentPos.y();
         if (pState->mnMask & WindowStateMask::X)
             nPosSizeFlags |= SAL_FRAME_POSSIZE_X;
-        else
-            nX = aPos.x() - aParentPos.x();
         if (pState->mnMask & WindowStateMask::Y)
             nPosSizeFlags |= SAL_FRAME_POSSIZE_Y;
-        else
-            nY = aPos.y() - aParentPos.y();
         if (pState->mnMask & WindowStateMask::Width)
             nPosSizeFlags |= SAL_FRAME_POSSIZE_WIDTH;
         if (pState->mnMask & WindowStateMask::Height)
             nPosSizeFlags |= SAL_FRAME_POSSIZE_HEIGHT;
-        SetPosSize(nX, nY, pState->mnWidth, pState->mnHeight, nPosSizeFlags);
+        SetPosSize(pState->mnX, pState->mnY, pState->mnWidth, pState->mnHeight, nPosSizeFlags);
     }
     else if (pState->mnMask & WindowStateMask::State && !isChild())
     {
@@ -594,11 +593,18 @@ bool Qt5Frame::GetWindowState(SalFrameState* pState)
     }
     else
     {
-        QRect rect = m_pTopLevel ? m_pTopLevel->geometry() : m_pQWidget->geometry();
+        // geometry() is the drawable area, which is wanted here
+        QRect rect = asChild()->geometry();
         pState->mnX = rect.x();
         pState->mnY = rect.y();
         pState->mnWidth = rect.width();
         pState->mnHeight = rect.height();
+        // the menubar is drawn natively, adjust for that
+        if (maGeometry.nTopDecoration)
+        {
+            pState->mnY += maGeometry.nTopDecoration;
+            pState->mnHeight -= maGeometry.nTopDecoration;
+        }
         pState->mnMask |= WindowStateMask::X | WindowStateMask::Y | WindowStateMask::Width
                           | WindowStateMask::Height;
     }
@@ -611,7 +617,11 @@ void Qt5Frame::ShowFullScreen(bool bFullScreen, sal_Int32 nScreen)
     // only top-level windows can go fullscreen
     assert(m_pTopLevel);
 
+    if (m_bFullScreen == bFullScreen)
+        return;
+
     m_bFullScreen = bFullScreen;
+    m_bFullScreenSpanAll = m_bFullScreen && (nScreen < 0);
 
     // show it if it isn't shown yet
     if (!isWindow())
@@ -620,28 +630,45 @@ void Qt5Frame::ShowFullScreen(bool bFullScreen, sal_Int32 nScreen)
     if (m_bFullScreen)
     {
         m_aRestoreGeometry = m_pTopLevel->geometry();
-        // do that before going fullscreen
-        SetScreenNumber(nScreen);
-        windowHandle()->showFullScreen();
+        m_nRestoreScreen = maGeometry.nDisplayScreenNumber;
+        SetScreenNumber(m_bFullScreenSpanAll ? m_nRestoreScreen : nScreen);
+        if (!m_bFullScreenSpanAll)
+            windowHandle()->showFullScreen();
+        else
+            windowHandle()->showNormal();
     }
     else
     {
+        SetScreenNumber(m_nRestoreScreen);
         windowHandle()->showNormal();
         m_pTopLevel->setGeometry(m_aRestoreGeometry);
-        m_aRestoreGeometry = QRect();
     }
 }
 
-void Qt5Frame::StartPresentation(bool)
+void Qt5Frame::StartPresentation(bool bStart)
 {
-    // meh - so there's no Qt platform independent solution - defer to
-    // KDE5 impl. For everyone else:
-    // https://forum.qt.io/topic/38504/solved-qdialog-in-fullscreen-disable-os-screensaver
+// meh - so there's no Qt platform independent solution
+// https://forum.qt.io/topic/38504/solved-qdialog-in-fullscreen-disable-os-screensaver
+#if QT5_USING_X11
+    boost::optional<unsigned int> aRootWindow;
+    boost::optional<Display*> aDisplay;
+
+    if (QX11Info::isPlatformX11())
+    {
+        aRootWindow = QX11Info::appRootWindow();
+        aDisplay = QX11Info::display();
+    }
+
+    m_ScreenSaverInhibitor.inhibit(bStart, "presentation", QX11Info::isPlatformX11(), aRootWindow,
+                                   aDisplay);
+#else
+    (void)bStart;
+#endif
 }
 
 void Qt5Frame::SetAlwaysOnTop(bool bOnTop)
 {
-    QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
+    QWidget* const pWidget = asChild();
     const Qt::WindowFlags flags = pWidget->windowFlags();
     if (bOnTop)
         pWidget->setWindowFlags(flags | Qt::CustomizeWindowHint | Qt::WindowStaysOnTopHint);
@@ -651,8 +678,7 @@ void Qt5Frame::SetAlwaysOnTop(bool bOnTop)
 
 void Qt5Frame::ToTop(SalFrameToTop nFlags)
 {
-    QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
-
+    QWidget* const pWidget = asChild();
     if (isWindow() && !(nFlags & SalFrameToTop::GrabFocusOnly))
         pWidget->raise();
     if ((nFlags & SalFrameToTop::RestoreWhenMin) || (nFlags & SalFrameToTop::ForegroundTask))
@@ -687,9 +713,9 @@ void Qt5Frame::CaptureMouse(bool bMouse)
 
 void Qt5Frame::SetPointerPos(long nX, long nY)
 {
-    QCursor aCursor = m_pQWidget->cursor();
+    // some cursor already exists (and it has m_ePointerStyle shape)
+    // so here we just reposition it
     QCursor::setPos(m_pQWidget->mapToGlobal(QPoint(nX, nY)));
-    m_pQWidget->setCursor(aCursor);
 }
 
 void Qt5Frame::Flush()
@@ -702,13 +728,14 @@ void Qt5Frame::Flush()
     // destroyed, so that state should be safely flushed.
 }
 
-bool Qt5Frame::ShowTooltip(const OUString& rText, const tools::Rectangle& /*rHelpArea*/)
+bool Qt5Frame::ShowTooltip(const OUString& rText, const tools::Rectangle& rHelpArea)
 {
-    emit tooltipRequest(rText);
+    QRect aHelpArea(toQRect(rHelpArea));
+    if (QGuiApplication::isRightToLeft())
+        aHelpArea.moveLeft(maGeometry.nWidth - aHelpArea.width() - aHelpArea.left() - 1);
+    QToolTip::showText(QCursor::pos(), toQString(rText), m_pQWidget, aHelpArea);
     return true;
 }
-
-// do we even need it? void Qt5Frame::Flush(const tools::Rectangle& /*rRect*/) {}
 
 void Qt5Frame::SetInputContext(SalInputContext* pContext)
 {
@@ -723,7 +750,9 @@ void Qt5Frame::SetInputContext(SalInputContext* pContext)
 
 void Qt5Frame::EndExtTextInput(EndExtTextInputFlags /*nFlags*/)
 {
-    // TODO fwd to IM handler
+    Qt5Widget* pQt5Widget = static_cast<Qt5Widget*>(m_pQWidget);
+    if (pQt5Widget)
+        pQt5Widget->endExtTextInput();
 }
 
 OUString Qt5Frame::GetKeyName(sal_uInt16 nKeyCode)
@@ -912,6 +941,8 @@ void Qt5Frame::UpdateSettings(AllSettings& rSettings)
     Color aMid = toColor(pal.color(QPalette::Active, QPalette::Mid));
     Color aHigh = toColor(pal.color(QPalette::Active, QPalette::Highlight));
     Color aHighText = toColor(pal.color(QPalette::Active, QPalette::HighlightedText));
+    Color aLink = toColor(pal.color(QPalette::Active, QPalette::Link));
+    Color aVisitedLink = toColor(pal.color(QPalette::Active, QPalette::LinkVisited));
 
     style.SetSkipDisabledInMenus(true);
 
@@ -956,6 +987,10 @@ void Qt5Frame::UpdateSettings(AllSettings& rSettings)
     style.SetHighlightColor(aHigh);
     style.SetHighlightTextColor(aHighText);
 
+    // Links
+    style.SetLinkColor(aLink);
+    style.SetVisitedLinkColor(aVisitedLink);
+
     // Tooltip
     style.SetHelpColor(toColor(QToolTip::palette().color(QPalette::Active, QPalette::ToolTipBase)));
     style.SetHelpTextColor(
@@ -965,7 +1000,7 @@ void Qt5Frame::UpdateSettings(AllSettings& rSettings)
     style.SetCursorBlinkTime(flash_time != 0 ? flash_time / 2 : STYLE_CURSOR_NOBLINKTIME);
 
     // Menu
-    std::unique_ptr<QMenuBar> pMenuBar = std::unique_ptr<QMenuBar>(new QMenuBar());
+    std::unique_ptr<QMenuBar> pMenuBar = std::make_unique<QMenuBar>();
     QPalette qMenuCG = pMenuBar->palette();
 
     // Menu text and background color, theme specific
@@ -1007,6 +1042,7 @@ void Qt5Frame::UpdateSettings(AllSettings& rSettings)
     style.SetShadowColor(toColor(pal.color(QPalette::Disabled, QPalette::WindowText)));
     style.SetDarkShadowColor(toColor(pal.color(QPalette::Inactive, QPalette::WindowText)));
 
+    m_bGraphicsInvalid = true;
     rSettings.SetStyleSettings(style);
 }
 
@@ -1059,34 +1095,70 @@ void Qt5Frame::SetScreenNumber(unsigned int nScreen)
         if (pWindow)
         {
             QList<QScreen*> screens = QApplication::screens();
-            if (static_cast<int>(nScreen) < screens.size())
+            if (static_cast<int>(nScreen) < screens.size() || m_bFullScreenSpanAll)
             {
-                QWidget* const pWidget = m_pTopLevel ? m_pTopLevel : m_pQWidget;
-                pWindow->setScreen(QApplication::screens()[nScreen]);
+                QRect screenGeo;
+
+                if (!m_bFullScreenSpanAll)
+                {
+                    screenGeo = QApplication::desktop()->screenGeometry(nScreen);
+                    pWindow->setScreen(QApplication::screens()[nScreen]);
+                }
+                else // special case: fullscreen over all available screens
+                {
+                    assert(m_bFullScreen);
+                    // left-most screen
+                    int nLeftScreen = QApplication::desktop()->screenNumber(QPoint(0, 0));
+                    // entire virtual desktop
+                    screenGeo = QApplication::screens()[nLeftScreen]->availableVirtualGeometry();
+                    pWindow->setScreen(QApplication::screens()[nLeftScreen]);
+                    pWindow->setGeometry(screenGeo);
+                    nScreen = nLeftScreen;
+                }
 
                 // setScreen by itself has no effect, explicitly move the widget to
                 // the new screen
-                QRect screenGeo = QApplication::desktop()->screenGeometry(nScreen);
-                pWidget->move(screenGeo.topLeft());
+                asChild()->move(screenGeo.topLeft());
             }
             else
             {
                 // index outta bounds, use primary screen
                 QScreen* primaryScreen = QApplication::primaryScreen();
                 pWindow->setScreen(primaryScreen);
+                nScreen = static_cast<sal_uInt32>(screenNumber(primaryScreen));
             }
+
+            maGeometry.nDisplayScreenNumber = nScreen;
         }
     }
 }
 
-void Qt5Frame::SetApplicationID(const OUString&)
+void Qt5Frame::SetApplicationID(const OUString& rWMClass)
 {
-    // So the hope is that QGuiApplication deals with this properly..
+#if QT5_USING_X11
+    if (QGuiApplication::platformName() != "xcb" || !m_pTopLevel)
+        return;
+
+    OString aResClass = OUStringToOString(rWMClass, RTL_TEXTENCODING_ASCII_US);
+    const char* pResClass
+        = !aResClass.isEmpty() ? aResClass.getStr() : SalGenericSystem::getFrameClassName();
+    OString aResName = SalGenericSystem::getFrameResName();
+
+    // the WM_CLASS data consists of two concatenated cstrings, including the terminating '\0' chars
+    const uint32_t data_len = aResName.getLength() + 1 + strlen(pResClass) + 1;
+    char* data = new char[data_len];
+    memcpy(data, aResName.getStr(), aResName.getLength() + 1);
+    memcpy(data + aResName.getLength() + 1, pResClass, strlen(pResClass) + 1);
+
+    xcb_change_property(QX11Info::connection(), XCB_PROP_MODE_REPLACE, m_pTopLevel->winId(),
+                        XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8, data_len, data);
+    delete[] data;
+#else
+    (void)rWMClass;
+#endif
 }
 
 // Drag'n'drop foo
-
-Qt5DragSource* Qt5DragSource::m_ActiveDragSource;
 
 void Qt5Frame::registerDragSource(Qt5DragSource* pDragSource)
 {
@@ -1105,6 +1177,7 @@ void Qt5Frame::registerDropTarget(Qt5DropTarget* pDropTarget)
 {
     assert(!m_pDropTarget);
     m_pDropTarget = pDropTarget;
+    m_pQWidget->setAcceptDrops(true);
 }
 
 void Qt5Frame::deregisterDropTarget(Qt5DropTarget const* pDropTarget)
@@ -1115,16 +1188,30 @@ void Qt5Frame::deregisterDropTarget(Qt5DropTarget const* pDropTarget)
 }
 
 void Qt5Frame::draggingStarted(const int x, const int y, Qt::DropActions eActions,
-                               const QMimeData* pQMimeData)
+                               Qt::KeyboardModifiers eKeyMod, const QMimeData* pQMimeData)
 {
     assert(m_pDropTarget);
+
+    sal_Int8 nUserDropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
+    if ((eKeyMod & Qt::ShiftModifier) && !(eKeyMod & Qt::ControlModifier))
+        nUserDropAction = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
+    else if ((eKeyMod & Qt::ControlModifier) && !(eKeyMod & Qt::ShiftModifier))
+        nUserDropAction = css::datatransfer::dnd::DNDConstants::ACTION_COPY;
+    else if ((eKeyMod & Qt::ShiftModifier) && (eKeyMod & Qt::ControlModifier))
+        nUserDropAction = css::datatransfer::dnd::DNDConstants::ACTION_LINK;
 
     css::datatransfer::dnd::DropTargetDragEnterEvent aEvent;
     aEvent.Source = static_cast<css::datatransfer::dnd::XDropTarget*>(m_pDropTarget);
     aEvent.Context = static_cast<css::datatransfer::dnd::XDropTargetDragContext*>(m_pDropTarget);
     aEvent.LocationX = x;
     aEvent.LocationY = y;
-    aEvent.DropAction = getPreferredDropAction(eActions);
+
+    // system drop action if neither Shift nor Control is held
+    if (!(eKeyMod & (Qt::ShiftModifier | Qt::ControlModifier)))
+        aEvent.DropAction = getPreferredDropAction(eActions);
+    // otherwise user-preferred action
+    else
+        aEvent.DropAction = nUserDropAction;
     aEvent.SourceActions = toVclDropActions(eActions);
 
     css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
@@ -1146,7 +1233,8 @@ void Qt5Frame::draggingStarted(const int x, const int y, Qt::DropActions eAction
         m_pDropTarget->fire_dragOver(aEvent);
 }
 
-void Qt5Frame::dropping(const int x, const int y, const QMimeData* pQMimeData)
+void Qt5Frame::dropping(const int x, const int y, Qt::KeyboardModifiers eKeyMod,
+                        const QMimeData* pQMimeData)
 {
     assert(m_pDropTarget);
 
@@ -1155,8 +1243,12 @@ void Qt5Frame::dropping(const int x, const int y, const QMimeData* pQMimeData)
     aEvent.Context = static_cast<css::datatransfer::dnd::XDropTargetDropContext*>(m_pDropTarget);
     aEvent.LocationX = x;
     aEvent.LocationY = y;
-    aEvent.DropAction = m_pDropTarget->proposedDragAction()
-                        | css::datatransfer::dnd::DNDConstants::ACTION_DEFAULT;
+
+    if (!(eKeyMod & (Qt::ShiftModifier | Qt::ControlModifier)))
+        aEvent.DropAction = m_pDropTarget->proposedDragAction()
+                            | css::datatransfer::dnd::DNDConstants::ACTION_DEFAULT;
+    else
+        aEvent.DropAction = m_pDropTarget->proposedDragAction();
     aEvent.SourceActions = css::datatransfer::dnd::DNDConstants::ACTION_MOVE;
 
     css::uno::Reference<css::datatransfer::XTransferable> xTransferable;
@@ -1173,6 +1265,17 @@ void Qt5Frame::dropping(const int x, const int y, const QMimeData* pQMimeData)
     {
         m_pDragSource->fire_dragEnd(m_pDropTarget->proposedDragAction());
     }
+}
+
+cairo_t* Qt5Frame::getCairoContext() const
+{
+    cairo_t* cr = nullptr;
+    if (m_bUseCairo)
+    {
+        cr = cairo_create(m_pSurface.get());
+        assert(cr);
+    }
+    return cr;
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

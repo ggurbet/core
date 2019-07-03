@@ -56,8 +56,9 @@ namespace sw { namespace mark
         SwTextField *const pTextField = pTextNode->GetFieldTextAttrAt(
             GetMarkEnd().nContent.GetIndex()-1, true);
         assert(pTextField != nullptr);
-        const SwPostItField* pPostItField = dynamic_cast< const SwPostItField* >(pTextField->GetFormatField().GetField());
-        assert(pPostItField != nullptr);
+        auto pPostItField
+            = dynamic_cast<const SwPostItField*>(pTextField->GetFormatField().GetField());
+        assert(pPostItField);
         // use the annotation mark's name as the annotation name, if
         // - the annotation field has an empty annotation name or
         // - the annotation mark's name differs (on mark creation a name clash had been detected)

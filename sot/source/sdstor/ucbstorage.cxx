@@ -20,11 +20,9 @@
 #include <com/sun/star/io/NotConnectedException.hpp>
 #include <com/sun/star/io/BufferSizeExceededException.hpp>
 #include <com/sun/star/uno/RuntimeException.hpp>
-#include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <ucbhelper/content.hxx>
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/ucb/NameClash.hpp>
-#include <com/sun/star/ucb/XCommandEnvironment.hpp>
 #include <unotools/tempfile.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <com/sun/star/io/XInputStream.hpp>
@@ -32,7 +30,6 @@
 #include <com/sun/star/ucb/ResultSetException.hpp>
 #include <com/sun/star/uno/Sequence.h>
 #include <com/sun/star/sdbc/XResultSet.hpp>
-#include <com/sun/star/ucb/XContentAccess.hpp>
 #include <com/sun/star/sdbc/XRow.hpp>
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/datatransfer/DataFlavor.hpp>
@@ -45,16 +42,14 @@
 #include <com/sun/star/ucb/ContentCreationException.hpp>
 
 #include <memory>
-#include <rtl/digest.h>
 #include <osl/diagnose.h>
 #include <osl/file.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/ref.hxx>
 #include <tools/debug.hxx>
-#include <unotools/streamhelper.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/ucbhelper.hxx>
-#include <unotools/localfilehelper.hxx>
 #include <tools/urlobj.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -62,12 +57,13 @@
 
 #include <sot/stg.hxx>
 #include <sot/storinfo.hxx>
-#include <sot/storage.hxx>
 #include <sot/exchange.hxx>
 #include <sot/formats.hxx>
 #include <comphelper/classids.hxx>
 
 #include <vector>
+
+namespace com::sun::star::ucb { class XCommandEnvironment; }
 
 using namespace ::com::sun::star::lang;
 using namespace ::com::sun::star::beans;
@@ -761,9 +757,9 @@ void UCBStorageStream_Impl::ReadSourceWriteTemporary()
                 m_pStream->WriteBytes(aData.getArray(), aReaded);
             } while( aReaded == 32000 );
         }
-        catch (const Exception &e)
+        catch (const Exception &)
         {
-            SAL_WARN( "sot", e );
+            TOOLS_WARN_EXCEPTION("sot", "");
         }
     }
 
@@ -796,9 +792,9 @@ sal_uInt64 UCBStorageStream_Impl::ReadSourceWriteTemporary(sal_uInt64 aLength)
             if( aResult < aLength )
                 m_bSourceRead = false;
         }
-        catch( const Exception & e )
+        catch( const Exception & )
         {
-            SAL_WARN( "sot", e );
+            TOOLS_WARN_EXCEPTION("sot", "");
         }
     }
 
@@ -844,9 +840,9 @@ std::size_t UCBStorageStream_Impl::GetData(void* pData, std::size_t const nSize)
             aResult += m_pStream->WriteBytes(static_cast<void*>(aData.getArray()), aReaded);
             memcpy( pData, aData.getArray(), aReaded );
         }
-        catch (const Exception &e)
+        catch (const Exception &)
         {
-            SAL_WARN( "sot", e );
+            TOOLS_WARN_EXCEPTION("sot", "");
         }
 
         if( aResult < nSize )
@@ -1011,7 +1007,7 @@ BaseStorage* UCBStorageStream_Impl::CreateStorage()
     UCBStorageStream* pNewStorageStream = new UCBStorageStream( this );
     Storage *pStorage = new Storage( *pNewStorageStream, m_bDirect );
 
-    // GetError() call cleares error code for OLE storages, must be changed in future
+    // GetError() call clears error code for OLE storages, must be changed in future
     const ErrCode nTmpErr = pStorage->GetError();
     pStorage->SetError( nTmpErr );
 
@@ -1054,7 +1050,7 @@ sal_Int16 UCBStorageStream_Impl::Commit()
                 m_aTempURL.clear();
 
                 INetURLObject aObj( m_aURL );
-                aObj.SetName( m_aName );
+                aObj.setName( m_aName );
                 m_aURL = aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
                 m_bModified = false;
                 m_bSourceRead = true;

@@ -25,7 +25,7 @@
 #include <tools/solar.h>
 #include <rtl/ustring.hxx>
 #include <vcl/bitmapex.hxx>
-#include <vcl/animate.hxx>
+#include <vcl/animate/Animation.hxx>
 #include <vcl/gfxlink.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <vcl/vectorgraphicdata.hxx>
@@ -128,9 +128,8 @@ public:
     Graphic&        operator=( Graphic&& rGraphic );
     bool            operator==( const Graphic& rGraphic ) const;
     bool            operator!=( const Graphic& rGraphic ) const;
-    bool            operator!() const;
 
-    operator bool() const;
+    bool            IsNone() const;
 
     void            Clear();
 
@@ -196,11 +195,6 @@ public:
 
     BitmapChecksum  GetChecksum() const;
 
-    SAL_DLLPRIVATE std::size_t getHash() const
-    {
-        return reinterpret_cast<std::size_t>(ImplGetImpGraphic());
-    }
-
     OUString getOriginURL() const;
     void setOriginURL(OUString const & rOriginURL);
 
@@ -248,7 +242,7 @@ struct hash<Graphic>
 {
     std::size_t operator()(Graphic const & rGraphic) const
     {
-        return rGraphic.getHash();
+        return static_cast<std::size_t>(rGraphic.GetChecksum());
     }
 };
 

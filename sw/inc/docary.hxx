@@ -44,6 +44,7 @@ class SwTable;
 class SwTableLine;
 class SwTableBox;
 struct SwPosition;
+enum class RedlineType : sal_uInt16;
 
 /** provides some methods for generic operations on lists that contain SwFormat* subclasses. */
 class SwFormatsBase
@@ -301,12 +302,12 @@ public:
     void dumpAsXml(xmlTextWriterPtr pWriter) const;
 };
 
-class SwFieldTypes : public SwVectorModifyBase<SwFieldType*> {
+class SwFieldTypes : public std::vector<std::unique_ptr<SwFieldType>> {
 public:
     void dumpAsXml(xmlTextWriterPtr pWriter) const;
 };
 
-class SwTOXTypes : public SwVectorModifyBase<SwTOXType*> {};
+class SwTOXTypes : public std::vector<std::unique_ptr<SwTOXType>> {};
 
 class SW_DLLPUBLIC SwNumRuleTable : public SwVectorModifyBase<SwNumRule*> {
 public:
@@ -321,16 +322,13 @@ struct CompareSwRedlineTable
 // Notification type for notifying about redlines to LOK clients
 enum class RedlineNotification { Add, Remove, Modify };
 
-typedef SwRangeRedline* SwRangeRedlinePtr;
-
 class SwRedlineTable
 {
 public:
     typedef o3tl::sorted_vector<SwRangeRedline*, CompareSwRedlineTable,
                 o3tl::find_partialorder_ptrequals> vector_type;
     typedef vector_type::size_type size_type;
-    static constexpr size_type npos = USHRT_MAX;
-        //TODO: std::numeric_limits<size_type>::max()
+    static constexpr size_type npos = SAL_MAX_INT32;
 private:
     vector_type maVector;
 public:
@@ -338,9 +336,9 @@ public:
     bool Contains(const SwRangeRedline* p) const { return maVector.find(const_cast<SwRangeRedline*>(p)) != maVector.end(); }
     size_type GetPos(const SwRangeRedline* p) const;
 
-    bool Insert(SwRangeRedlinePtr& p);
-    bool Insert(SwRangeRedlinePtr& p, size_type& rInsPos);
-    bool InsertWithValidRanges(SwRangeRedlinePtr& p, size_type* pInsPos = nullptr);
+    bool Insert(SwRangeRedline*& p);
+    bool Insert(SwRangeRedline*& p, size_type& rInsPos);
+    bool InsertWithValidRanges(SwRangeRedline*& p, size_type* pInsPos = nullptr);
 
     void Remove( size_type nPos );
     void Remove( const SwRangeRedline* p );
@@ -396,9 +394,9 @@ public:
     sal_uInt16 GetSize() const                              {     return m_aExtraRedlines.size();                }
     SwExtraRedline* GetRedline( sal_uInt16 uIndex ) const   {     return m_aExtraRedlines.operator[]( uIndex );  }
 
-    SW_DLLPUBLIC bool DeleteAllTableRedlines( SwDoc* pDoc, const SwTable& rTable, bool bSaveInUndo, sal_uInt16 nRedlineTypeToDelete );
-    bool DeleteTableRowRedline ( SwDoc* pDoc, const SwTableLine& rTableLine, bool bSaveInUndo, sal_uInt16 nRedlineTypeToDelete );
-    bool DeleteTableCellRedline( SwDoc* pDoc, const SwTableBox& rTableBox, bool bSaveInUndo, sal_uInt16 nRedlineTypeToDelete );
+    SW_DLLPUBLIC bool DeleteAllTableRedlines( SwDoc* pDoc, const SwTable& rTable, bool bSaveInUndo, RedlineType nRedlineTypeToDelete );
+    bool DeleteTableRowRedline ( SwDoc* pDoc, const SwTableLine& rTableLine, bool bSaveInUndo, RedlineType nRedlineTypeToDelete );
+    bool DeleteTableCellRedline( SwDoc* pDoc, const SwTableBox& rTableBox, bool bSaveInUndo, RedlineType nRedlineTypeToDelete );
 };
 
 typedef std::vector<SwOLENode*> SwOLENodes;

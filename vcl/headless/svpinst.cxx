@@ -17,6 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <mutex>
+
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -29,6 +33,7 @@
 
 #include <vcl/virdev.hxx>
 #include <vcl/inputtypes.hxx>
+#include <vcl/lok.hxx>
 #ifndef LIBO_HEADLESS
 # include <vcl/opengl/OpenGLContext.hxx>
 #endif
@@ -51,6 +56,7 @@
 #include <unx/gendata.hxx>
 // FIXME: remove when we re-work the svp mainloop
 #include <unx/salunxtime.h>
+#include <comphelper/lok.hxx>
 
 SvpSalInstance* SvpSalInstance::s_pDefaultInstance = nullptr;
 
@@ -75,9 +81,7 @@ SvpSalInstance::SvpSalInstance( std::unique_ptr<SalYieldMutex> pMutex )
     m_nTimeoutMS            = 0;
 
     m_MainThread = osl::Thread::getCurrentIdentifier();
-#ifndef IOS
     CreateWakeupPipe(true);
-#endif
     if( s_pDefaultInstance == nullptr )
         s_pDefaultInstance = this;
 #if !defined(ANDROID) && !defined(IOS)
@@ -89,12 +93,8 @@ SvpSalInstance::~SvpSalInstance()
 {
     if( s_pDefaultInstance == this )
         s_pDefaultInstance = nullptr;
-#ifndef IOS
     CloseWakeupPipe(true);
-#endif
 }
-
-#ifndef IOS
 
 void SvpSalInstance::CloseWakeupPipe(bool log)
 {
@@ -151,8 +151,6 @@ void SvpSalInstance::CreateWakeupPipe(bool log)
     }
 }
 
-#endif
-
 void SvpSalInstance::TriggerUserEventProcessing()
 {
     Wakeup();
@@ -172,18 +170,18 @@ void SvpSalInstance::Wakeup(SvpRequest const request)
         g_CheckedMutex = true;
     }
 #endif
-#ifdef IOS
-    (void)request;
-#else
+
+    ImplSVData* pSVData = ImplGetSVData();
+
+    if (pSVData->mpWakeCallback && pSVData->mpPollClosure)
+        pSVData->mpWakeCallback(pSVData->mpPollClosure);
+
     SvpSalYieldMutex *const pMutex(static_cast<SvpSalYieldMutex*>(GetYieldMutex()));
-    std::unique_lock<std::mutex> g(pMutex->m_WakeUpMainMutex);
+    std::scoped_lock<std::mutex> g(pMutex->m_WakeUpMainMutex);
     if (request != SvpRequest::NONE)
-    {
         pMutex->m_Request = request;
-    }
     pMutex->m_wakeUpMain = true;
     pMutex->m_WakeUpMainCond.notify_one();
-#endif
 }
 
 bool SvpSalInstance::CheckTimeout( bool bExecuteTimers )
@@ -341,11 +339,7 @@ void SvpSalYieldMutex::doAcquire(sal_uInt32 const nLockCount)
                 m_bNoYieldLock = true;
                 bool const bEvents = pInst->DoYield(false, request == SvpRequest::MainThreadDispatchAllEvents);
                 m_bNoYieldLock = false;
-#ifdef IOS
-                (void)bEvents;
-#else
                 write(m_FeedbackFDs[1], &bEvents, sizeof(bool));
-#endif
             }
         }
         while (true);
@@ -373,10 +367,20 @@ sal_uInt32 SvpSalYieldMutex::doRelease(bool const bUnlockAll)
         // read m_nCount before doRelease
         bool const isReleased(bUnlockAll || m_nCount == 1);
         nCount = comphelper::SolarMutex::doRelease( bUnlockAll );
-        if (isReleased) {
-            std::unique_lock<std::mutex> g(m_WakeUpMainMutex);
-            m_wakeUpMain = true;
-            m_WakeUpMainCond.notify_one();
+
+        if (isReleased)
+        {
+            if (vcl::lok::isUnipoll())
+            {
+                if (pInst)
+                    pInst->Wakeup(SvpRequest::NONE);
+            }
+            else
+            {
+                std::scoped_lock<std::mutex> g(m_WakeUpMainMutex);
+                m_wakeUpMain = true;
+                m_WakeUpMainCond.notify_one();
+            }
         }
     }
     return nCount;
@@ -420,8 +424,8 @@ bool SvpSalInstance::DoYield(bool bWait, bool bHandleAllCurrentEvents)
 #endif
 
     // first, process current user events
-    bool bEvent = DispatchUserEvents( bHandleAllCurrentEvents );
-    if ( !bHandleAllCurrentEvents && bEvent )
+    bool bEvent = DispatchUserEvents(bHandleAllCurrentEvents);
+    if (!bHandleAllCurrentEvents && bEvent)
         return true;
 
     bEvent = CheckTimeout() || bEvent;
@@ -450,7 +454,21 @@ bool SvpSalInstance::DoYield(bool bWait, bool bHandleAllCurrentEvents)
             else
                 nTimeoutMS = -1; // wait until something happens
 
+            ImplSVData* pSVData = ImplGetSVData();
             sal_uInt32 nAcquireCount = ReleaseYieldMutexAll();
+
+            if (pSVData->mpPollCallback)
+            {
+                // Poll for events from the LOK client.
+                if (nTimeoutMS < 0)
+                    nTimeoutMS = 5000;
+
+                // External poll.
+                if (pSVData->mpPollClosure != nullptr &&
+                    pSVData->mpPollCallback(pSVData->mpPollClosure, nTimeoutMS * 1000 /* us */) < 0)
+                    pSVData->maAppData.mbAppQuit = true;
+            }
+            else
             {
                 std::unique_lock<std::mutex> g(pMutex->m_WakeUpMainMutex);
                 // wait for doRelease() or Wakeup() to set the condition
@@ -481,11 +499,9 @@ bool SvpSalInstance::DoYield(bool bWait, bool bHandleAllCurrentEvents)
                 : SvpRequest::MainThreadDispatchOneEvent);
 
         bool bDidWork(false);
-#ifndef IOS
         // blocking read (for synchronisation)
         auto const nRet = read(pMutex->m_FeedbackFDs[0], &bDidWork, sizeof(bool));
         assert(nRet == 1); (void) nRet;
-#endif
         if (!bDidWork && bWait)
         {
             // block & release YieldMutex until the main thread does something
@@ -535,6 +551,13 @@ void SvpSalInstance::StartTimer( sal_uInt64 nMS )
 
 void SvpSalInstance::AddToRecentDocumentList(const OUString&, const OUString&, const OUString&)
 {
+}
+
+std::shared_ptr<vcl::BackendCapabilities> SvpSalInstance::GetBackendCapabilities()
+{
+    auto pBackendCapabilities = SalInstance::GetBackendCapabilities();
+    pBackendCapabilities->mbSupportsBitmap32 = true;
+    return pBackendCapabilities;
 }
 
 //obviously doesn't actually do anything, it's just a nonfunctional stub

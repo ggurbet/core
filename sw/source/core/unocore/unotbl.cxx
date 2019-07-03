@@ -105,7 +105,6 @@
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
 #include <editeng/frmdiritem.hxx>
-#include <calbck.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <comphelper/string.hxx>
@@ -1000,8 +999,7 @@ void SwXCell::setPropertyValue(const OUString& rPropertyName, const uno::Any& aV
     else if(rPropertyName == "TableRedlineParams")
     {
         // Get the table row properties
-        uno::Sequence<beans::PropertyValue> tableCellProperties;
-        tableCellProperties = aValue.get< uno::Sequence< beans::PropertyValue > >();
+        uno::Sequence<beans::PropertyValue> tableCellProperties = aValue.get< uno::Sequence< beans::PropertyValue > >();
         comphelper::SequenceAsHashMap aPropMap(tableCellProperties);
         OUString sRedlineType;
         if(!(aPropMap.getValue("RedlineType") >>= sRedlineType))
@@ -1092,6 +1090,29 @@ uno::Any SwXCell::getPropertyValue(const OUString& rPropertyName)
         {
             //redline can only be returned if it's a living object
             return SwXText::getPropertyValue(rPropertyName);
+        }
+        break;
+        case FN_UNO_PARENT_TEXT:
+        {
+            if (!m_xParentText.is())
+            {
+                const SwStartNode* pSttNd = pBox->GetSttNd();
+                if (!pSttNd)
+                    return uno::Any();
+
+                const SwTableNode* pTableNode = pSttNd->FindTableNode();
+                if (!pTableNode)
+                    return uno::Any();
+
+                SwPosition aPos(*pTableNode);
+                SwDoc* pDoc = aPos.GetDoc();
+                if (!pDoc)
+                    return uno::Any();
+
+                m_xParentText = sw::CreateParentXText(*pDoc, aPos);
+            }
+
+            return uno::makeAny(m_xParentText);
         }
         break;
         default:
@@ -1298,8 +1319,7 @@ void SwXTextTableRow::setPropertyValue(const OUString& rPropertyName, const uno:
         if  ( rPropertyName == "TableRedlineParams" )
         {
             // Get the table row properties
-            uno::Sequence< beans::PropertyValue > tableRowProperties;
-            tableRowProperties = aValue.get< uno::Sequence< beans::PropertyValue > >();
+            uno::Sequence< beans::PropertyValue > tableRowProperties = aValue.get< uno::Sequence< beans::PropertyValue > >();
             comphelper::SequenceAsHashMap aPropMap( tableRowProperties );
             OUString sRedlineType;
             if( !(aPropMap.getValue("RedlineType") >>= sRedlineType) )
@@ -1677,10 +1697,10 @@ void SwXTextTableCursor::setPropertyValue(const OUString& rPropertyName, const u
     {
         case FN_UNO_TABLE_CELL_BACKGROUND:
         {
-            SvxBrushItem aBrush(RES_BACKGROUND);
+            std::shared_ptr<SfxPoolItem> aBrush(std::make_shared<SvxBrushItem>(RES_BACKGROUND));
             SwDoc::GetBoxAttr(rUnoCursor, aBrush);
-            aBrush.PutValue(aValue, pEntry->nMemberId);
-            pDoc->SetBoxAttr(rUnoCursor, aBrush);
+            aBrush->PutValue(aValue, pEntry->nMemberId);
+            pDoc->SetBoxAttr(rUnoCursor, *aBrush);
 
         }
         break;
@@ -1730,9 +1750,9 @@ uno::Any SwXTextTableCursor::getPropertyValue(const OUString& rPropertyName)
     {
         case FN_UNO_TABLE_CELL_BACKGROUND:
         {
-            SvxBrushItem aBrush(RES_BACKGROUND);
+            std::shared_ptr<SfxPoolItem> aBrush(std::make_shared<SvxBrushItem>(RES_BACKGROUND));
             if (SwDoc::GetBoxAttr(rUnoCursor, aBrush))
-                aBrush.QueryValue(aResult, pEntry->nMemberId);
+                aBrush->QueryValue(aResult, pEntry->nMemberId);
         }
         break;
         case RES_BOXATR_FORMAT:
@@ -1817,8 +1837,8 @@ void SwTableProperties_Impl::AddItemToSet(SfxItemSet& rSet, std::function<Tpooli
     {
         Tpoolitem aItem = aItemFactory();
         for(auto& aMemberAndAny : vMemberAndAny)
-            aItem.PutValue(*aMemberAndAny.second, aMemberAndAny.first | (bAddTwips ? CONVERT_TWIPS : 0) );
-        rSet.Put(aItem);
+            aItem->PutValue(*aMemberAndAny.second, aMemberAndAny.first | (bAddTwips ? CONVERT_TWIPS : 0) );
+        rSet.Put(*aItem);
     }
 }
 void SwTableProperties_Impl::ApplyTableAttr(const SwTable& rTable, SwDoc& rDoc)
@@ -1840,7 +1860,7 @@ void SwTableProperties_Impl::ApplyTableAttr(const SwTable& rTable, SwDoc& rDoc)
         const_cast<SwTable&>(rTable).SetRowsToRepeat( bVal ? 1 : 0 );  // TODO: MULTIHEADER
     }
 
-    AddItemToSet<SvxBrushItem>(aSet, [&rFrameFormat]() { return rFrameFormat.makeBackgroundBrushItem(); }, RES_BACKGROUND, {
+    AddItemToSet<std::shared_ptr<SvxBrushItem>>(aSet, [&rFrameFormat]() { return rFrameFormat.makeBackgroundBrushItem(); }, RES_BACKGROUND, {
         MID_BACK_COLOR,
         MID_GRAPHIC_TRANSPARENT,
         MID_GRAPHIC_POSITION,
@@ -1872,10 +1892,10 @@ void SwTableProperties_Impl::ApplyTableAttr(const SwTable& rTable, SwDoc& rDoc)
     }
 
     if(bPutBreak)
-        AddItemToSet<SvxFormatBreakItem>(aSet, [&rFrameFormat]() { return rFrameFormat.GetBreak(); }, RES_BREAK, {0});
-    AddItemToSet<SvxShadowItem>(aSet, [&rFrameFormat]() { return rFrameFormat.GetShadow(); }, RES_SHADOW, {0}, true);
-    AddItemToSet<SvxFormatKeepItem>(aSet, [&rFrameFormat]() { return rFrameFormat.GetKeep(); }, RES_KEEP, {0});
-    AddItemToSet<SwFormatHoriOrient>(aSet, [&rFrameFormat]() { return rFrameFormat.GetHoriOrient(); }, RES_HORI_ORIENT, {MID_HORIORIENT_ORIENT}, true);
+        AddItemToSet<std::shared_ptr<SvxFormatBreakItem>>(aSet, [&rFrameFormat]() { return std::shared_ptr<SvxFormatBreakItem>(static_cast<SvxFormatBreakItem*>(rFrameFormat.GetBreak().Clone())); }, RES_BREAK, {0});
+    AddItemToSet<std::shared_ptr<SvxShadowItem>>(aSet, [&rFrameFormat]() { return std::shared_ptr<SvxShadowItem>(static_cast<SvxShadowItem*>(rFrameFormat.GetShadow().Clone())); }, RES_SHADOW, {0}, true);
+    AddItemToSet<std::shared_ptr<SvxFormatKeepItem>>(aSet, [&rFrameFormat]() { return std::shared_ptr<SvxFormatKeepItem>(static_cast<SvxFormatKeepItem*>(rFrameFormat.GetKeep().Clone())); }, RES_KEEP, {0});
+    AddItemToSet<std::shared_ptr<SwFormatHoriOrient>>(aSet, [&rFrameFormat]() { return std::shared_ptr<SwFormatHoriOrient>(static_cast<SwFormatHoriOrient*>(rFrameFormat.GetHoriOrient().Clone())); }, RES_HORI_ORIENT, {MID_HORIORIENT_ORIENT}, true);
 
     const uno::Any* pSzRel(nullptr);
     GetProperty(FN_TABLE_IS_RELATIVE_WIDTH, 0xff, pSzRel);
@@ -1902,10 +1922,10 @@ void SwTableProperties_Impl::ApplyTableAttr(const SwTable& rTable, SwDoc& rDoc)
             aSz.SetWidth(MINLAY);
         aSet.Put(aSz);
     }
-    AddItemToSet<SvxLRSpaceItem>(aSet, [&rFrameFormat]() { return rFrameFormat.GetLRSpace(); }, RES_LR_SPACE, {
+    AddItemToSet<std::shared_ptr<SvxLRSpaceItem>>(aSet, [&rFrameFormat]() { return std::shared_ptr<SvxLRSpaceItem>(static_cast<SvxLRSpaceItem*>(rFrameFormat.GetLRSpace().Clone())); }, RES_LR_SPACE, {
         MID_L_MARGIN|CONVERT_TWIPS,
         MID_R_MARGIN|CONVERT_TWIPS });
-    AddItemToSet<SvxULSpaceItem>(aSet, [&rFrameFormat]() { return rFrameFormat.GetULSpace(); }, RES_UL_SPACE, {
+    AddItemToSet<std::shared_ptr<SvxULSpaceItem>>(aSet, [&rFrameFormat]() { return std::shared_ptr<SvxULSpaceItem>(static_cast<SvxULSpaceItem*>(rFrameFormat.GetULSpace().Clone())); }, RES_UL_SPACE, {
         MID_UP_MARGIN|CONVERT_TWIPS,
         MID_LO_MARGIN|CONVERT_TWIPS });
     const::uno::Any* pSplit(nullptr);
@@ -3400,10 +3420,10 @@ SwXCellRange::setPropertyValue(const OUString& rPropertyName, const uno::Any& aV
         {
             case FN_UNO_TABLE_CELL_BACKGROUND:
             {
-                SvxBrushItem aBrush( RES_BACKGROUND );
+                std::shared_ptr<SfxPoolItem> aBrush(std::make_shared<SvxBrushItem>(RES_BACKGROUND));
                 SwDoc::GetBoxAttr(*m_pImpl->m_pTableCursor, aBrush);
-                static_cast<SfxPoolItem&>(aBrush).PutValue(aValue, pEntry->nMemberId);
-                pDoc->SetBoxAttr(*m_pImpl->m_pTableCursor, aBrush);
+                aBrush->PutValue(aValue, pEntry->nMemberId);
+                pDoc->SetBoxAttr(*m_pImpl->m_pTableCursor, *aBrush);
 
             }
             break;
@@ -3510,9 +3530,9 @@ uno::Any SAL_CALL SwXCellRange::getPropertyValue(const OUString& rPropertyName)
         {
             case FN_UNO_TABLE_CELL_BACKGROUND:
             {
-                SvxBrushItem aBrush( RES_BACKGROUND );
+                std::shared_ptr<SfxPoolItem> aBrush(std::make_shared<SvxBrushItem>(RES_BACKGROUND));
                 if (SwDoc::GetBoxAttr(*m_pImpl->m_pTableCursor, aBrush))
-                    aBrush.QueryValue(aRet, pEntry->nMemberId);
+                    aBrush->QueryValue(aRet, pEntry->nMemberId);
 
             }
             break;
@@ -3549,10 +3569,10 @@ uno::Any SAL_CALL SwXCellRange::getPropertyValue(const OUString& rPropertyName)
             break;
             case RES_VERT_ORIENT:
             {
-                SwFormatVertOrient aVertOrient;
+                std::shared_ptr<SfxPoolItem> aVertOrient;
                 if (SwDoc::GetBoxAttr(*m_pImpl->m_pTableCursor, aVertOrient))
                 {
-                    aVertOrient.QueryValue( aRet, pEntry->nMemberId );
+                    aVertOrient->QueryValue( aRet, pEntry->nMemberId );
                 }
             }
             break;
@@ -3710,7 +3730,7 @@ SwXCellRange::setData(const uno::Sequence< uno::Sequence<double> >& rData)
             throw uno::RuntimeException("Column count mismatch. expected: " + OUString::number(nColCount) + " got: " + OUString::number(rRow.getLength()), static_cast<cppu::OWeakObject*>(this));
         for(const auto& rValue : rRow)
         {
-            uno::Reference<table::XCell>(*pCurrentCell, uno::UNO_QUERY)->setValue(rValue);
+            uno::Reference<table::XCell>(*pCurrentCell, uno::UNO_SET_THROW)->setValue(rValue);
             ++pCurrentCell;
         }
     }

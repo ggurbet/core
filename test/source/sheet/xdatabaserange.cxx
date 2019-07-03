@@ -46,8 +46,7 @@ void XDatabaseRange::testDataArea()
     aCellAddress.StartRow = 2;
     aCellAddress.EndRow = 5;
     xDBRange->setDataArea(aCellAddress);
-    table::CellRangeAddress aValue;
-    aValue = xDBRange->getDataArea();
+    table::CellRangeAddress aValue = xDBRange->getDataArea();
     CPPUNIT_ASSERT_EQUAL( aCellAddress.Sheet, aValue.Sheet );
     CPPUNIT_ASSERT_EQUAL( aCellAddress.StartRow, aValue.StartRow );
     CPPUNIT_ASSERT_EQUAL( aCellAddress.EndRow, aValue.EndRow );
@@ -66,9 +65,8 @@ void XDatabaseRange::testGetSortDescriptor()
 {
     uno::Reference< sheet::XDatabaseRange > xDBRange(init("SortDescriptor"), UNO_QUERY_THROW);
     uno::Sequence< beans::PropertyValue > xSortDescr = xDBRange->getSortDescriptor();
-    for (sal_Int32 i = 0; i < xSortDescr.getLength(); ++i)
+    for (const beans::PropertyValue& aProp : xSortDescr)
     {
-        beans::PropertyValue aProp = xSortDescr[i];
         //std::cout << "Prop " << i << " Name: " << OUString(aProp.Name) << std::endl;
 
         if (aProp.Name == "IsSortColumns")

@@ -111,23 +111,26 @@ void WriterXmlEmitter::fillFrameProps( DrawElement&       rElem,
     double rel_x = rElem.x, rel_y = rElem.y;
 
     // find anchor type by recursing though parents
-    Element* pAnchor = rElem.Parent;
-    while( pAnchor &&
-           ! dynamic_cast<ParagraphElement*>(pAnchor) &&
-           ! dynamic_cast<PageElement*>(pAnchor) )
+    Element* pAnchor = &rElem;
+    ParagraphElement* pParaElt = nullptr;
+    PageElement* pPage = nullptr;
+    while ((pAnchor = pAnchor->Parent))
     {
-        pAnchor = pAnchor->Parent;
+        if ((pParaElt = dynamic_cast<ParagraphElement*>(pAnchor)))
+            break;
+        if ((pPage = dynamic_cast<PageElement*>(pAnchor)))
+            break;
     }
     if( pAnchor )
     {
-        if( dynamic_cast<ParagraphElement*>(pAnchor) )
+        if (pParaElt)
         {
             rProps[ "text:anchor-type" ] = rElem.isCharacter
                 ? OUString("character") : OUString("paragraph");
         }
         else
         {
-            PageElement* pPage = dynamic_cast<PageElement*>(pAnchor);
+            assert(pPage); // guaranteed by the while loop above
             rProps[ "text:anchor-type" ] = "page";
             rProps[ "text:anchor-page-number" ] = OUString::number(pPage->PageNumber);
         }
@@ -238,8 +241,7 @@ void WriterXmlEmitter::visit( PolyPolyElement& elem, const std::list< std::uniqu
      */
     for (sal_uInt32 i = 0; i< elem.PolyPoly.count(); i++)
     {
-        basegfx::B2DPolygon b2dPolygon;
-        b2dPolygon =  elem.PolyPoly.getB2DPolygon( i );
+        basegfx::B2DPolygon b2dPolygon =  elem.PolyPoly.getB2DPolygon( i );
 
         for ( sal_uInt32 j = 0; j< b2dPolygon.count(); j++ )
         {
@@ -247,8 +249,7 @@ void WriterXmlEmitter::visit( PolyPolyElement& elem, const std::list< std::uniqu
             basegfx::B2DPoint nextPoint;
             point = b2dPolygon.getB2DPoint( j );
 
-            basegfx::B2DPoint prevPoint;
-            prevPoint = b2dPolygon.getPrevControlPoint( j ) ;
+            basegfx::B2DPoint prevPoint = b2dPolygon.getPrevControlPoint( j ) ;
 
             point.setX( convPx2mmPrec2( point.getX() )*100.0 );
             point.setY( convPx2mmPrec2( point.getY() )*100.0 );

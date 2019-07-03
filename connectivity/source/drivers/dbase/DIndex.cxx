@@ -101,7 +101,7 @@ void ODbaseIndex::refreshColumns()
     if(m_pColumns)
         m_pColumns->reFill(aVector);
     else
-        m_pColumns = new ODbaseIndexColumns(this,m_aMutex,aVector);
+        m_pColumns.reset(new ODbaseIndexColumns(this,m_aMutex,aVector));
 }
 
 Sequence< sal_Int8 > ODbaseIndex::getUnoTunnelImplementationId()
@@ -578,7 +578,7 @@ void ODbaseIndex::CreateImpl()
         nRowsLeft = xSet->getRow();
 
         xSet->beforeFirst();
-        ORowSetValue    atmpValue=ORowSetValue();
+        ORowSetValue atmpValue;
         ONDXKey aKey(atmpValue, nType, 0);
         ONDXKey aInsertKey(atmpValue, nType, 0);
         // Create the index structure

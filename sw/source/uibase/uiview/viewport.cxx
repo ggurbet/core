@@ -21,6 +21,7 @@
 
 #include <hintids.hxx>
 
+#include <vcl/commandevent.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
 
@@ -28,6 +29,8 @@
 #include <editeng/paperinf.hxx>
 #include <editeng/lrspitem.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <svx/svxids.hrc>
 #include <view.hxx>
 #include <wrtsh.hxx>
 #include <swmodule.hxx>
@@ -49,6 +52,7 @@
 #include <basegfx/utils/zoomtools.hxx>
 #include <comphelper/lok.hxx>
 #include <vcl/weld.hxx>
+#include <tools/svborder.hxx>
 
 #include "viewfunc.hxx"
 
@@ -299,8 +303,7 @@ void SwView::SetVisArea( const Point &rPt, bool bUpdateScrollbar )
     // align is not possible (better idea?!?!)
     // (fix: Bild.de, 200%) It does not work completely without alignment
     // Let's see how far we get with half BrushSize.
-    Point aPt( rPt );
-    aPt = GetEditWin().LogicToPixel( aPt );
+    Point aPt = GetEditWin().LogicToPixel( rPt );
 #if HAVE_FEATURE_DESKTOP
     const long nTmp = GetWrtShell().IsFrameView() ? 4 : 8;
     aPt.AdjustX( -(aPt.X() % nTmp) );
@@ -403,17 +406,12 @@ void SwView::Scroll( const tools::Rectangle &rRect, sal_uInt16 nRangeX, sal_uInt
     tools::Rectangle aOldVisArea( m_aVisArea );
     long nDiffY = 0;
 
-    vcl::Window* pCareWn = SwViewShell::GetCareWin();
     weld::Window* pCareDialog = SwViewShell::GetCareDialog(GetWrtShell());
-    if (pCareWn || pCareDialog)
+    if (pCareDialog)
     {
         int x, y, width, height;
         tools::Rectangle aDlgRect;
-        if (pCareWn)
-        {
-            aDlgRect = GetEditWin().PixelToLogic(pCareWn->GetWindowExtentsRelative(&GetEditWin()));
-        }
-        else if (pCareDialog && pCareDialog->get_extents_relative_to(*GetEditWin().GetFrameWeld(), x, y, width, height))
+        if (pCareDialog->get_extents_relative_to(*GetEditWin().GetFrameWeld(), x, y, width, height))
         {
             Point aTopLeft(GetEditWin().GetSystemWindow()->OutputToAbsoluteScreenPixel(Point(x, y)));
             aTopLeft = GetEditWin().AbsoluteScreenToOutputPixel(aTopLeft);
@@ -520,8 +518,9 @@ void SwView::Scroll( const tools::Rectangle &rRect, sal_uInt16 nRangeX, sal_uInt
         aPnt.setX( std::max( (GetLeftMargin( *this ) - lMin) + nLeftOfst, aPnt.X() ) );
     }
     m_aVisArea = aOldVisArea;
-    if (pCareWn || pCareDialog)
-    {   // If we want to avoid only a dialogue, we do
+    if (pCareDialog)
+    {
+        // If we want to avoid only a dialogue, we do
         // not want to go beyond the end of the document.
         aPnt.setY( SetVScrollMax( aPnt.Y() ) );
     }

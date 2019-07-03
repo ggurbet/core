@@ -73,6 +73,7 @@
 #include <FTestDialog.hxx>
 #include <ZTestDialog.hxx>
 #include <ChiSquareTestDialog.hxx>
+#include <FourierAnalysisDialog.hxx>
 
 #include <PivotLayoutDialog.hxx>
 
@@ -88,10 +89,20 @@ void ScTabViewShell::SetCurRefDlgId( sal_uInt16 nNew )
 }
 
 //ugly hack to call Define Name from Manage Names
-void ScTabViewShell::SwitchBetweenRefDialogs(SfxModelessDialog* pDialog)
+void ScTabViewShell::SwitchBetweenRefDialogs(SfxModelessDialogController* pDialog)
 {
    sal_uInt16 nSlotId = SC_MOD()->GetCurRefDlgId();
-   if (nSlotId == FID_DEFINE_NAME)
+   if( nSlotId == FID_ADD_NAME )
+   {
+        static_cast<ScNameDefDlg*>(pDialog)->GetNewData(maName, maScope);
+        static_cast<ScNameDefDlg*>(pDialog)->Close();
+        sal_uInt16 nId  = ScNameDlgWrapper::GetChildWindowId();
+        SfxViewFrame* pViewFrm = GetViewFrame();
+        SfxChildWindow* pWnd = pViewFrm->GetChildWindow( nId );
+
+        SC_MOD()->SetRefDialog( nId, pWnd == nullptr );
+   }
+   else if (nSlotId == FID_DEFINE_NAME)
    {
         mbInSwitch = true;
         static_cast<ScNameDlg*>(pDialog)->GetRangeNames(m_RangeMap);
@@ -102,22 +113,12 @@ void ScTabViewShell::SwitchBetweenRefDialogs(SfxModelessDialog* pDialog)
 
         SC_MOD()->SetRefDialog( nId, pWnd == nullptr );
    }
-   else if( nSlotId == FID_ADD_NAME )
-   {
-        static_cast<ScNameDefDlg*>(pDialog)->GetNewData(maName, maScope);
-        static_cast<ScNameDlg*>(pDialog)->Close();
-        sal_uInt16 nId  = ScNameDlgWrapper::GetChildWindowId();
-        SfxViewFrame* pViewFrm = GetViewFrame();
-        SfxChildWindow* pWnd = pViewFrm->GetChildWindow( nId );
-
-        SC_MOD()->SetRefDialog( nId, pWnd == nullptr );
-   }
 }
 
-VclPtr<SfxModelessDialog> ScTabViewShell::CreateRefDialog(
+std::unique_ptr<SfxModelessDialogController> ScTabViewShell::CreateRefDialogController(
                                 SfxBindings* pB, SfxChildWindow* pCW,
                                 const SfxChildWinInfo* pInfo,
-                                vcl::Window* pParent, sal_uInt16 nSlotId )
+                                weld::Window* pParent, sal_uInt16 nSlotId)
 {
     // only open dialog when called through ScModule::SetRefDialog,
     // so that it does not re appear for instance after a crash (#42341#).
@@ -134,7 +135,7 @@ VclPtr<SfxModelessDialog> ScTabViewShell::CreateRefDialog(
         return nullptr;
     }
 
-    VclPtr<SfxModelessDialog> pResult;
+    std::unique_ptr<SfxModelessDialogController> xResult;
 
     if(pCW)
         pCW->SetHideNotDelete(true);
@@ -143,37 +144,84 @@ VclPtr<SfxModelessDialog> ScTabViewShell::CreateRefDialog(
 
     switch( nSlotId )
     {
+        case SID_CORRELATION_DIALOG:
+            xResult.reset(new ScCorrelationDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_SAMPLING_DIALOG:
+            xResult.reset(new ScSamplingDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_DESCRIPTIVE_STATISTICS_DIALOG:
+            xResult.reset(new ScDescriptiveStatisticsDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_ANALYSIS_OF_VARIANCE_DIALOG:
+            xResult.reset(new ScAnalysisOfVarianceDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_COVARIANCE_DIALOG:
+            xResult.reset(new ScCovarianceDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_EXPONENTIAL_SMOOTHING_DIALOG:
+            xResult.reset(new ScExponentialSmoothingDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_MOVING_AVERAGE_DIALOG:
+            xResult.reset(new ScMovingAverageDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_REGRESSION_DIALOG:
+            xResult.reset(new ScRegressionDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_FTEST_DIALOG:
+            xResult.reset(new ScFTestDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_TTEST_DIALOG:
+            xResult.reset(new ScTTestDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_ZTEST_DIALOG:
+            xResult.reset(new ScZTestDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_CHI_SQUARE_TEST_DIALOG:
+            xResult.reset(new ScChiSquareTestDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_FOURIER_ANALYSIS_DIALOG:
+            xResult.reset(new ScFourierAnalysisDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case WID_SIMPLE_REF:
+        {
+            // dialog checks, what is in the cell
+
+            ScViewData& rViewData = GetViewData();
+            rViewData.SetRefTabNo( rViewData.GetTabNo() );
+            xResult.reset(new ScSimpleRefDlg(pB, pCW, pParent));
+            break;
+        }
         case FID_DEFINE_NAME:
         {
             if (!mbInSwitch)
             {
-                pResult = VclPtr<ScNameDlg>::Create( pB, pCW, pParent, &GetViewData(),
+                xResult.reset(new ScNameDlg(pB, pCW, pParent, &GetViewData(),
                                      ScAddress( GetViewData().GetCurX(),
                                                 GetViewData().GetCurY(),
-                                                GetViewData().GetTabNo() ) );
+                                                GetViewData().GetTabNo() ) ));
             }
             else
             {
-                pResult = VclPtr<ScNameDlg>::Create( pB, pCW, pParent, &GetViewData(),
+                xResult.reset(new ScNameDlg( pB, pCW, pParent, &GetViewData(),
                                      ScAddress( GetViewData().GetCurX(),
                                                 GetViewData().GetCurY(),
-                                                GetViewData().GetTabNo() ), &m_RangeMap);
-                static_cast<ScNameDlg*>(pResult.get())->SetEntry( maName, maScope);
+                                                GetViewData().GetTabNo() ), &m_RangeMap));
+                static_cast<ScNameDlg*>(xResult.get())->SetEntry(maName, maScope);
                 mbInSwitch = false;
             }
+            break;
         }
-        break;
-
         case FID_ADD_NAME:
         {
             if (!mbInSwitch)
             {
                 std::map<OUString, ScRangeName*> aRangeMap;
                 pDoc->GetRangeNameMap(aRangeMap);
-                pResult = VclPtr<ScNameDefDlg>::Create( pB, pCW, pParent, &GetViewData(), aRangeMap,
-                                ScAddress( GetViewData().GetCurX(),
-                                            GetViewData().GetCurY(),
-                                            GetViewData().GetTabNo() ), true );
+                xResult.reset(new ScNameDefDlg(pB, pCW, pParent, &GetViewData(), aRangeMap,
+                                ScAddress(GetViewData().GetCurX(),
+                                          GetViewData().GetCurY(),
+                                          GetViewData().GetTabNo()), true));
             }
             else
             {
@@ -182,20 +230,52 @@ VclPtr<SfxModelessDialog> ScTabViewShell::CreateRefDialog(
                 {
                     aRangeMap.insert(std::pair<OUString, ScRangeName*>(itr.first, itr.second.get()));
                 }
-                pResult = VclPtr<ScNameDefDlg>::Create( pB, pCW, pParent, &GetViewData(), aRangeMap,
-                                ScAddress( GetViewData().GetCurX(),
-                                            GetViewData().GetCurY(),
-                                            GetViewData().GetTabNo() ), false );
+                xResult.reset(new ScNameDefDlg(pB, pCW, pParent, &GetViewData(), aRangeMap,
+                                ScAddress(GetViewData().GetCurX(),
+                                          GetViewData().GetCurY(),
+                                          GetViewData().GetTabNo()), false));
             }
+            break;
         }
-        break;
-
-        case SID_DEFINE_COLROWNAMERANGES:
+        case SID_RANDOM_NUMBER_GENERATOR_DIALOG:
+            xResult.reset(new ScRandomNumberGeneratorDialog(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_DEFINE_DBNAME:
         {
-            pResult = VclPtr<ScColRowNameRangesDlg>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
+            // when called for an existing range, then mark
+            GetDBData( true, SC_DB_OLD );
+            const ScMarkData& rMark = GetViewData().GetMarkData();
+            if ( !rMark.IsMarked() && !rMark.IsMultiMarked() )
+                MarkDataArea( false );
 
+            xResult.reset(new ScDbNameDlg(pB, pCW, pParent, &GetViewData()));
+            break;
+        }
+        case SID_OPENDLG_EDIT_PRINTAREA:
+            xResult.reset(new ScPrintAreasDlg(pB, pCW, pParent));
+            break;
+        case SID_DEFINE_COLROWNAMERANGES:
+            xResult.reset(new ScColRowNameRangesDlg(pB, pCW, pParent, &GetViewData()));
+            break;
+        case SID_OPENDLG_SOLVE:
+        {
+            ScViewData& rViewData = GetViewData();
+            ScAddress   aCurPos( rViewData.GetCurX(),
+                                 rViewData.GetCurY(),
+                                 rViewData.GetTabNo());
+            xResult.reset(new ScSolverDlg(pB, pCW, pParent, rViewData.GetDocument(), aCurPos));
+            break;
+        }
+        case SID_OPENDLG_TABOP:
+        {
+            ScViewData&   rViewData  = GetViewData();
+            ScRefAddress  aCurPos   ( rViewData.GetCurX(),
+                                      rViewData.GetCurY(),
+                                      rViewData.GetTabNo());
+
+            xResult.reset(new ScTabOpDlg(pB, pCW, pParent, rViewData.GetDocument(), aCurPos));
+            break;
+        }
         case SID_OPENDLG_CONSOLIDATE:
         {
             SfxItemSet aArgSet( GetPool(),
@@ -230,22 +310,35 @@ VclPtr<SfxModelessDialog> ScTabViewShell::CreateRefDialog(
             {
                 aArgSet.Put( ScConsolidateItem( SCITEM_CONSOLIDATEDATA, pDlgData ) );
             }
-            pResult = VclPtr<ScConsolidateDlg>::Create( pB, pCW, pParent, aArgSet );
+            xResult.reset(new ScConsolidateDlg(pB, pCW, pParent, aArgSet));
+            break;
         }
-        break;
-
-        case SID_DEFINE_DBNAME:
+        case SID_FILTER:
         {
-            // when called for an existing range, then mark
-            GetDBData( true, SC_DB_OLD );
-            const ScMarkData& rMark = GetViewData().GetMarkData();
-            if ( !rMark.IsMarked() && !rMark.IsMultiMarked() )
-                MarkDataArea( false );
 
-            pResult = VclPtr<ScDbNameDlg>::Create( pB, pCW, pParent, &GetViewData() );
+            ScQueryParam    aQueryParam;
+            SfxItemSet      aArgSet( GetPool(),
+                                     svl::Items<SCITEM_QUERYDATA,
+                                     SCITEM_QUERYDATA>{} );
+
+            ScDBData* pDBData = GetDBData(false, SC_DB_MAKE, ScGetDBSelection::RowDown);
+            pDBData->ExtendDataArea(pDoc);
+            pDBData->GetQueryParam( aQueryParam );
+
+            ScRange aArea;
+            pDBData->GetArea(aArea);
+            MarkRange(aArea, false);
+
+            aArgSet.Put( ScQueryItem( SCITEM_QUERYDATA,
+                                      &GetViewData(),
+                                      &aQueryParam ) );
+
+            // mark current sheet (due to RefInput in dialog)
+            GetViewData().SetRefTabNo( GetViewData().GetTabNo() );
+
+            xResult.reset(new ScFilterDlg(pB, pCW, pParent, aArgSet));
+            break;
         }
-        break;
-
         case SID_SPECIAL_FILTER:
         {
             ScQueryParam    aQueryParam;
@@ -271,144 +364,27 @@ VclPtr<SfxModelessDialog> ScTabViewShell::CreateRefDialog(
             // mark current sheet (due to RefInput in dialog)
             GetViewData().SetRefTabNo( GetViewData().GetTabNo() );
 
-            pResult = VclPtr<ScSpecialFilterDlg>::Create( pB, pCW, pParent, aArgSet );
+            xResult.reset(new ScSpecialFilterDlg(pB, pCW, pParent, aArgSet));
+            break;
         }
-        break;
-
-        case SID_FILTER:
-        {
-
-            ScQueryParam    aQueryParam;
-            SfxItemSet      aArgSet( GetPool(),
-                                     svl::Items<SCITEM_QUERYDATA,
-                                     SCITEM_QUERYDATA>{} );
-
-            ScDBData* pDBData = GetDBData(false, SC_DB_MAKE, ScGetDBSelection::RowDown);
-            pDBData->ExtendDataArea(pDoc);
-            pDBData->GetQueryParam( aQueryParam );
-
-            ScRange aArea;
-            pDBData->GetArea(aArea);
-            MarkRange(aArea, false);
-
-            aArgSet.Put( ScQueryItem( SCITEM_QUERYDATA,
-                                      &GetViewData(),
-                                      &aQueryParam ) );
-
-            // mark current sheet (due to RefInput in dialog)
-            GetViewData().SetRefTabNo( GetViewData().GetTabNo() );
-
-            pResult = VclPtr<ScFilterDlg>::Create( pB, pCW, pParent, aArgSet );
-        }
-        break;
-
-        case SID_OPENDLG_TABOP:
-        {
-            ScViewData&   rViewData  = GetViewData();
-            ScRefAddress  aCurPos   ( rViewData.GetCurX(),
-                                      rViewData.GetCurY(),
-                                      rViewData.GetTabNo());
-
-            pResult = VclPtr<ScTabOpDlg>::Create( pB, pCW, pParent, rViewData.GetDocument(), aCurPos );
-        }
-        break;
-
-        case SID_OPENDLG_SOLVE:
-        {
-            ScViewData& rViewData = GetViewData();
-            ScAddress   aCurPos( rViewData.GetCurX(),
-                                 rViewData.GetCurY(),
-                                 rViewData.GetTabNo());
-            pResult = VclPtr<ScSolverDlg>::Create( pB, pCW, pParent, rViewData.GetDocument(), aCurPos );
-        }
-        break;
-
-        case SID_RANDOM_NUMBER_GENERATOR_DIALOG:
-        {
-            pResult = VclPtr<ScRandomNumberGeneratorDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_SAMPLING_DIALOG:
-        {
-            pResult = VclPtr<ScSamplingDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_DESCRIPTIVE_STATISTICS_DIALOG:
-        {
-            pResult = VclPtr<ScDescriptiveStatisticsDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_ANALYSIS_OF_VARIANCE_DIALOG:
-        {
-            pResult = VclPtr<ScAnalysisOfVarianceDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_CORRELATION_DIALOG:
-        {
-            pResult = VclPtr<ScCorrelationDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_COVARIANCE_DIALOG:
-        {
-            pResult = VclPtr<ScCovarianceDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_EXPONENTIAL_SMOOTHING_DIALOG:
-        {
-            pResult = VclPtr<ScExponentialSmoothingDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_MOVING_AVERAGE_DIALOG:
-        {
-            pResult = VclPtr<ScMovingAverageDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_REGRESSION_DIALOG:
-        {
-            pResult = VclPtr<ScRegressionDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_TTEST_DIALOG:
-        {
-            pResult = VclPtr<ScTTestDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_FTEST_DIALOG:
-        {
-            pResult = VclPtr<ScFTestDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_ZTEST_DIALOG:
-        {
-            pResult = VclPtr<ScZTestDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case SID_CHI_SQUARE_TEST_DIALOG:
-        {
-            pResult = VclPtr<ScChiSquareTestDialog>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
         case SID_OPENDLG_OPTSOLVER:
         {
             ScViewData& rViewData = GetViewData();
             ScAddress aCurPos( rViewData.GetCurX(), rViewData.GetCurY(), rViewData.GetTabNo());
-            pResult = VclPtr<ScOptSolverDlg>::Create( pB, pCW, pParent, rViewData.GetDocShell(), aCurPos );
+            xResult.reset(new ScOptSolverDlg(pB, pCW, pParent, rViewData.GetDocShell(), aCurPos));
+            break;
         }
-        break;
-
+        case FID_CHG_SHOW:
+        {
+            // dialog checks, what is in the cell
+            xResult.reset(new ScHighlightChgDlg(pB, pCW, pParent, &GetViewData()));
+            break;
+        }
+        case SID_MANAGE_XML_SOURCE:
+        {
+            xResult.reset(new ScXMLSourceDlg(pB, pCW, pParent, pDoc));
+            break;
+        }
         case SID_OPENDLG_PIVOTTABLE:
         {
             // all settings must be in pDialogDPObject
@@ -419,90 +395,46 @@ VclPtr<SfxModelessDialog> ScTabViewShell::CreateRefDialog(
                 ScViewData& rViewData = GetViewData();
                 rViewData.SetRefTabNo( rViewData.GetTabNo() );
                 ScDPObject* pObj = pDoc->GetDPAtCursor(rViewData.GetCurX(), rViewData.GetCurY(), rViewData.GetTabNo());
-                pResult = VclPtr<ScPivotLayoutDialog>::Create(pB, pCW, pParent, &rViewData, pDialogDPObject.get(), pObj == nullptr);
+                xResult.reset(new ScPivotLayoutDialog(pB, pCW, pParent, &rViewData, pDialogDPObject.get(), pObj == nullptr));
             }
-        }
-        break;
 
-        case SID_OPENDLG_EDIT_PRINTAREA:
-        {
-            pResult = VclPtr<ScPrintAreasDlg>::Create( pB, pCW, pParent );
+            break;
         }
-        break;
-
         case SID_OPENDLG_FUNCTION:
         {
             // dialog checks, what is in the cell
-
-            pResult = VclPtr<ScFormulaDlg>::Create( pB, pCW, pParent, &GetViewData(),ScGlobal::GetStarCalcFunctionMgr() );
+            xResult.reset(new ScFormulaDlg(pB, pCW, pParent, &GetViewData(),ScGlobal::GetStarCalcFunctionMgr()));
+            break;
         }
-        break;
-
-        case SID_MANAGE_XML_SOURCE:
-        {
-            pResult = VclPtr<ScXMLSourceDlg>::Create(pB, pCW, pParent, pDoc);
-        }
-        break;
-
-        case FID_CHG_SHOW:
-        {
-            // dialog checks, what is in the cell
-
-            pResult = VclPtr<ScHighlightChgDlg>::Create( pB, pCW, pParent, &GetViewData() );
-        }
-        break;
-
-        case WID_SIMPLE_REF:
-        {
-            // dialog checks, what is in the cell
-
-            ScViewData& rViewData = GetViewData();
-            rViewData.SetRefTabNo( rViewData.GetTabNo() );
-            pResult = VclPtr<ScSimpleRefDlg>::Create( pB, pCW, pParent );
-        }
-        break;
-
         case WID_CONDFRMT_REF:
         {
             bool        bFound      = false;
             const ScCondFormatDlgItem* pDlgItem = nullptr;
             // Get the pool item stored by Conditional Format Manager Dialog.
             const SfxPoolItem* pItem = nullptr;
-            sal_uInt32 nItems(GetPool().GetItemCount2( SCITEM_CONDFORMATDLGDATA ));
-            for( sal_uInt32 nIter = 0; nIter < nItems; ++nIter )
+            auto itemsRange = GetPool().GetItemSurrogates(SCITEM_CONDFORMATDLGDATA);
+            if (itemsRange.begin() != itemsRange.end())
             {
-                if( nullptr != (pItem = GetPool().GetItem2( SCITEM_CONDFORMATDLGDATA, nIter ) ) )
-                {
-                    pDlgItem = static_cast<const ScCondFormatDlgItem*>(pItem);
-                    bFound = true;
-                    break;
-                }
+                pItem = *itemsRange.begin();
+                pDlgItem = static_cast<const ScCondFormatDlgItem*>(pItem);
+                bFound = true;
             }
 
             ScViewData& rViewData = GetViewData();
             rViewData.SetRefTabNo( rViewData.GetTabNo() );
 
-            pResult = VclPtr<ScCondFormatDlg>::Create( pB, pCW, pParent, &rViewData, pDlgItem );
+            xResult.reset(new ScCondFormatDlg(pB, pCW, pParent, &rViewData, pDlgItem));
 
             // Remove the pool item stored by Conditional Format Manager Dialog.
             if ( bFound && pItem )
                 GetPool().Remove( *pItem );
+            break;
         }
-        break;
     }
 
-    if (pResult)
-    {
-        // the dialogs are always displayed with the option button collapsed,
-        // the size has to be carried over initialize
-        // (or store the option status !!!)
-
-        Size aSize = pResult->GetSizePixel();
-        pResult->Initialize( pInfo );
-        pResult->SetSizePixel(aSize);
-    }
-
-    return pResult;
+    if (xResult)
+        xResult->Initialize( pInfo );
+    return xResult;
 }
 
 int ScTabViewShell::getPart() const
@@ -675,7 +607,7 @@ bool ScTabViewShell::UseSubTotal(ScRangeList* pRangeList)
     return bSubTotal;
 }
 
-const OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal)
+const OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal, const OpCode eCode)
 {
     OUString aFormula;
     const ScMarkData& rMark = GetViewData().GetMarkData();
@@ -710,7 +642,7 @@ const OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal)
                 ScAddress aAddr = aRangeList.back().aEnd;
                 aAddr.IncRow();
                 const bool bSubTotal( UseSubTotal( &aRangeList ) );
-                EnterAutoSum( aRangeList, bSubTotal, aAddr );
+                EnterAutoSum( aRangeList, bSubTotal, aAddr, eCode );
             }
         }
         else
@@ -721,14 +653,14 @@ const OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal)
                 const ScRange & rRange = aMarkRangeList[i];
                 const bool bSetCursor = ( i == nCount - 1 );
                 const bool bContinue = ( i != 0 );
-                if ( !AutoSum( rRange, bSubTotal, bSetCursor, bContinue ) )
+                if ( !AutoSum( rRange, bSubTotal, bSetCursor, bContinue, eCode ) )
                 {
                     MarkRange( rRange, false );
                     SetCursor( rRange.aEnd.Col(), rRange.aEnd.Row() );
                     const ScRangeList aRangeList;
                     ScAddress aAddr = rRange.aEnd;
                     aAddr.IncRow();
-                    aFormula = GetAutoSumFormula( aRangeList, bSubTotal, aAddr );
+                    aFormula = GetAutoSumFormula( aRangeList, bSubTotal, aAddr , eCode);
                     break;
                 }
             }
@@ -740,7 +672,7 @@ const OUString ScTabViewShell::DoAutoSum(bool& rRangeFinder, bool& rSubTotal)
         rRangeFinder = GetAutoSumArea( aRangeList );
         rSubTotal = UseSubTotal( &aRangeList );
         ScAddress aAddr = GetViewData().GetCurPos();
-        aFormula = GetAutoSumFormula( aRangeList, rSubTotal, aAddr );
+        aFormula = GetAutoSumFormula( aRangeList, rSubTotal, aAddr , eCode);
     }
     return aFormula;
 }

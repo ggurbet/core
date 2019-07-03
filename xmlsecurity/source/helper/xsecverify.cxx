@@ -30,19 +30,18 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/xml/crypto/sax/XKeyCollector.hpp>
 #include <com/sun/star/xml/crypto/sax/ElementMarkPriority.hpp>
-#include <com/sun/star/xml/crypto/sax/XReferenceResolvedBroadcaster.hpp>
 #include <com/sun/star/xml/crypto/sax/XReferenceCollector.hpp>
 #include <com/sun/star/xml/crypto/sax/XSignatureVerifyResultBroadcaster.hpp>
 #include <com/sun/star/xml/crypto/XSEInitializer.hpp>
-#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
-#include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <com/sun/star/embed/StorageFormats.hpp>
 #include <sal/log.hxx>
 #include <unotools/datetime.hxx>
 #include <comphelper/base64.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/seqstream.hxx>
+
+namespace com::sun::star::graphic { class XGraphic; }
 
 using namespace css;
 using namespace css::uno;
@@ -148,7 +147,7 @@ void XSecController::switchGpgSignature()
 #endif
 }
 
-void XSecController::addReference( const OUString& ouUri, sal_Int32 nDigestID )
+void XSecController::addReference( const OUString& ouUri, sal_Int32 nDigestID, const OUString& ouType )
 {
     if (m_vInternalSignatureInformations.empty())
     {
@@ -156,7 +155,7 @@ void XSecController::addReference( const OUString& ouUri, sal_Int32 nDigestID )
         return;
     }
     InternalSignatureInformation &isi = m_vInternalSignatureInformations.back();
-    isi.addReference(SignatureReferenceType::SAMEDOCUMENT, nDigestID, ouUri, -1 );
+    isi.addReference(SignatureReferenceType::SAMEDOCUMENT, nDigestID, ouUri, -1, ouType );
 }
 
 void XSecController::addStreamReference(
@@ -189,7 +188,7 @@ void XSecController::addStreamReference(
         }
     }
 
-    isi.addReference(type, nDigestID, ouUri, -1);
+    isi.addReference(type, nDigestID, ouUri, -1, OUString());
 }
 
 void XSecController::setReferenceCount() const

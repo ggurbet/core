@@ -317,9 +317,7 @@ template< class C >
 SAL_DEPRECATED("use uno_Mapping")
 inline bool mapToCpp( Reference< C > * ppRet, uno_Interface * pUnoI )
 {
-    Mapping aMapping(
-        ::rtl::OUString( UNO_LB_UNO ),
-        ::rtl::OUString( CPPU_CURRENT_LANGUAGE_BINDING_NAME ) );
+    Mapping aMapping( UNO_LB_UNO, CPPU_CURRENT_LANGUAGE_BINDING_NAME );
     OSL_ASSERT( aMapping.is() );
     aMapping.mapInterface(
             reinterpret_cast<void **>(ppRet), pUnoI, ::cppu::getTypeFavourUnsigned( ppRet ) );
@@ -328,7 +326,7 @@ inline bool mapToCpp( Reference< C > * ppRet, uno_Interface * pUnoI )
 /** Deprecated. This function DOES NOT WORK with Purpose Environments
     (http://wiki.openoffice.org/wiki/Uno/Binary/Spec/Purpose Environments)
 
-    Maps an UNO interface of the currently used compiler environment to binary C UNO.
+    Maps a UNO interface of the currently used compiler environment to binary C UNO.
 
     @tparam C interface type
     @param ppRet inout returned interface pointer
@@ -341,9 +339,7 @@ template< class C >
 SAL_DEPRECATED("use uno_Mapping")
 inline bool mapToUno( uno_Interface ** ppRet, const Reference< C > & x )
 {
-    Mapping aMapping(
-        ::rtl::OUString( CPPU_CURRENT_LANGUAGE_BINDING_NAME ),
-        ::rtl::OUString( UNO_LB_UNO ) );
+    Mapping aMapping( CPPU_CURRENT_LANGUAGE_BINDING_NAME, UNO_LB_UNO );
     OSL_ASSERT( aMapping.is() );
     aMapping.mapInterface(
             reinterpret_cast<void **>(ppRet), x.get(), ::cppu::getTypeFavourUnsigned( &x ) );

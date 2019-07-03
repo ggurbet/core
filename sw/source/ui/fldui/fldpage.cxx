@@ -21,6 +21,8 @@
 #include <svl/stritem.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/htmlmode.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <svx/svxids.hrc>
 #include <dbfld.hxx>
 #include <flddat.hxx>
 #include <fmtfld.hxx>
@@ -42,21 +44,6 @@
 using namespace ::com::sun::star;
 
 // note: pAttrSet may be null if the dialog is restored on startup
-SwFieldPage::SwFieldPage(vcl::Window *pParent, const OString& rID,
-    const OUString& rUIXMLDescription, const SfxItemSet *const pAttrSet)
-    : SfxTabPage(pParent, rID, rUIXMLDescription, pAttrSet)
-    , m_pCurField(nullptr)
-    , m_pWrtShell(nullptr)
-    , m_nTypeSel(LISTBOX_ENTRY_NOTFOUND)
-    , m_nSelectionSel(LISTBOX_ENTRY_NOTFOUND)
-    , m_bFieldEdit(false)
-    , m_bInsert(true)
-    , m_bFieldDlgHtmlMode(false)
-    , m_bRefresh(false)
-    , m_bFirstHTMLInit(true)
-{
-}
-
 SwFieldPage::SwFieldPage(TabPageParent pParent, const OUString& rUIXMLDescription,
         const OString& rID, const SfxItemSet *pAttrSet)
     : SfxTabPage(pParent, rUIXMLDescription, rID, pAttrSet)
@@ -82,7 +69,7 @@ void SwFieldPage::Init()
     SwDocShell* pDocSh = static_cast<SwDocShell*>(SfxObjectShell::Current());
     bool bNewMode = 0 != (::GetHtmlMode(pDocSh) & HTMLMODE_ON);
 
-    m_bFieldEdit = nullptr == GetTabDialog();
+    m_bFieldEdit = nullptr == dynamic_cast<SwFieldDlg*>(GetDialogController());
 
     // newly initialise FieldManager. important for
     // Dok-Switch (fldtdlg:ReInitTabPage)
@@ -142,7 +129,7 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
     {
         SwInsertField_Data aData(nTypeId, nSubType, rPar1, rPar2, nFormatId, nullptr, cSeparator, bIsAutomaticLanguage );
         //#i26566# provide parent for SwWrtShell::StartInputFieldDlg
-        aData.m_pParent = &GetTabDialog()->GetOKButton();
+        aData.m_pParent = &GetDialogController()->GetOKButton();
         m_aMgr.InsertField( aData );
 
         uno::Reference< frame::XDispatchRecorder > xRecorder =
@@ -296,16 +283,6 @@ void SwFieldPage::InsertField(sal_uInt16 nTypeId, sal_uInt16 nSubType, const OUS
     }
 }
 
-void SwFieldPage::SavePos( const ListBox* pLst1 )
-{
-    if( pLst1 && pLst1->GetEntryCount() )
-        m_aLstStrArr[ 0 ] = pLst1->GetSelectedEntry();
-    else
-        m_aLstStrArr[ 0 ].clear();
-    m_aLstStrArr[ 1 ].clear();
-    m_aLstStrArr[ 2 ].clear();
-}
-
 void SwFieldPage::SavePos( const weld::TreeView& rLst1 )
 {
     if (rLst1.n_children())
@@ -314,15 +291,6 @@ void SwFieldPage::SavePos( const weld::TreeView& rLst1 )
         m_aLstStrArr[ 0 ].clear();
     m_aLstStrArr[ 1 ].clear();
     m_aLstStrArr[ 2 ].clear();
-}
-
-void SwFieldPage::RestorePos(ListBox* pLst1)
-{
-    sal_Int32 nPos = 0;
-    if( pLst1 && pLst1->GetEntryCount() && !m_aLstStrArr[ 0 ].isEmpty() &&
-         LISTBOX_ENTRY_NOTFOUND !=
-                    ( nPos = pLst1->GetEntryPos(m_aLstStrArr[ 0 ] ) ) )
-        pLst1->SelectEntryPos( nPos );
 }
 
 void SwFieldPage::RestorePos(weld::TreeView& rLst1)
@@ -334,35 +302,23 @@ void SwFieldPage::RestorePos(weld::TreeView& rLst1)
 }
 
 // Insert new fields
-IMPL_LINK( SwFieldPage, TreeListBoxInsertHdl, SvTreeListBox*, pBtn, bool )
-{
-    InsertHdl(pBtn);
-    return false;
-}
-
-IMPL_LINK( SwFieldPage, ListBoxInsertHdl, ListBox&, rBox, void )
-{
-    InsertHdl(&rBox);
-}
-
 IMPL_LINK( SwFieldPage, TreeViewInsertHdl, weld::TreeView&, rBox, void )
 {
     InsertHdl(&rBox);
 }
 
-void SwFieldPage::InsertHdl(void* pBtn)
+void SwFieldPage::InsertHdl(weld::Widget* pBtn)
 {
-    SwFieldDlg *pDlg = static_cast<SwFieldDlg*>(GetTabDialog());
-    if (pDlg)
+    if (SwFieldDlg *pDlg = dynamic_cast<SwFieldDlg*>(GetDialogController()))
     {
         pDlg->InsertHdl();
 
         if (pBtn)
-            static_cast<Button*>(pBtn)->GrabFocus();  // because of InputField-Dlg
+            pBtn->grab_focus();  // because of InputField-Dlg
     }
     else
     {
-        SwFieldEditDlg *pEditDlg = static_cast<SwFieldEditDlg *>(GetParentDialog());
+        SwFieldEditDlg *pEditDlg = static_cast<SwFieldEditDlg*>(GetDialogController());
         pEditDlg->InsertHdl();
     }
 }
@@ -370,22 +326,21 @@ void SwFieldPage::InsertHdl(void* pBtn)
 // enable/disable "Insert"-Button
 void SwFieldPage::EnableInsert(bool bEnable)
 {
-    SwFieldDlg *pDlg = static_cast<SwFieldDlg*>(GetTabDialog());
-    if (pDlg)
+    if (SwFieldDlg *pDlg = dynamic_cast<SwFieldDlg*>(GetDialogController()))
     {
         if (pDlg->GetCurTabPage() == this)
             pDlg->EnableInsert(bEnable);
     }
     else
     {
-        SwFieldEditDlg *pEditDlg = static_cast<SwFieldEditDlg *>(GetParentDialog());
+        SwFieldEditDlg *pEditDlg = static_cast<SwFieldEditDlg*>(GetDialogController());
         pEditDlg->EnableInsert(bEnable);
     }
 
     m_bInsert = bEnable;
 }
 
-IMPL_LINK_NOARG(SwFieldPage, NumFormatHdl, ListBox&, void)
+IMPL_LINK_NOARG(SwFieldPage, NumFormatHdl, weld::TreeView&, void)
 {
     InsertHdl(nullptr);
 }

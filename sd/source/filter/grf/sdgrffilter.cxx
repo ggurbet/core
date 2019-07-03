@@ -24,6 +24,7 @@
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
+#include <sfx2/sfxuno.hxx>
 #include <svx/svdograf.hxx>
 
 #include <strings.hrc>
@@ -32,6 +33,7 @@
 
 #include <comphelper/processfactory.hxx>
 #include <vcl/graphicfilter.hxx>
+#include <vcl/svapp.hxx>
 
 #include <sdpage.hxx>
 #include <drawdoc.hxx>

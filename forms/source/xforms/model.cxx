@@ -55,8 +55,6 @@
 using com::sun::star::lang::XUnoTunnel;
 using com::sun::star::beans::XPropertySet;
 using com::sun::star::beans::PropertyValue;
-using com::sun::star::lang::WrappedTargetException;
-using com::sun::star::ucb::XSimpleFileAccess3;
 using com::sun::star::ucb::SimpleFileAccess;
 using com::sun::star::io::XInputStream;
 
@@ -110,20 +108,6 @@ Model::~Model() throw()
 {
 }
 
-static Model* lcl_getModel( const Reference<XUnoTunnel>& xTunnel )
-{
-    Model* pModel = nullptr;
-    if( xTunnel.is() )
-        pModel = reinterpret_cast<Model*>(
-            xTunnel->getSomething( Model::getUnoTunnelID() ) );
-    return pModel;
-}
-
-Model* Model::getModel( const Reference<XModel>& xModel )
-{
-    return lcl_getModel( Reference<XUnoTunnel>( xModel, UNO_QUERY ) );
-}
-
 EvaluationContext Model::getEvaluationContext()
 {
     // the default context is the top-level element node. A default
@@ -146,7 +130,7 @@ EvaluationContext Model::getEvaluationContext()
 }
 
 
-css::uno::Sequence<sal_Int8> Model::getUnoTunnelID()
+css::uno::Sequence<sal_Int8> Model::getUnoTunnelId()
 {
     static cppu::OImplementationId aImplementationId;
     return aImplementationId.getImplementationId();
@@ -247,7 +231,7 @@ void Model::rebind()
     sal_Int32 nCount = mxBindings->countItems();
     for( sal_Int32 i = 0; i < nCount; i++ )
     {
-        Binding* pBind = Binding::getBinding( mxBindings->Collection<XPropertySet_t>::getItem( i ) );
+        Binding* pBind = comphelper::getUnoTunnelImplementation<Binding>( mxBindings->Collection<XPropertySet_t>::getItem( i ) );
         OSL_ENSURE( pBind != nullptr, "binding?" );
         pBind->update();
     }
@@ -260,7 +244,7 @@ void Model::deferNotifications( bool bDefer )
     sal_Int32 nCount = mxBindings->countItems();
     for( sal_Int32 i = 0; i < nCount; i++ )
     {
-        Binding* pBind = Binding::getBinding( mxBindings->Collection<XPropertySet_t>::getItem( i ) );
+        Binding* pBind = comphelper::getUnoTunnelImplementation<Binding>( mxBindings->Collection<XPropertySet_t>::getItem( i ) );
         OSL_ENSURE( pBind != nullptr, "binding?" );
         pBind->deferNotifications( bDefer );
     }
@@ -383,7 +367,7 @@ bool Model::isValid() const
     sal_Int32 nCount = mxBindings->countItems();
     for( sal_Int32 i = 0; bValid && i < nCount; i++ )
     {
-        Binding* pBind = Binding::getBinding( mxBindings->Collection<XPropertySet_t>::getItem( i ) );
+        Binding* pBind = comphelper::getUnoTunnelImplementation<Binding>( mxBindings->Collection<XPropertySet_t>::getItem( i ) );
         OSL_ENSURE( pBind != nullptr, "binding?" );
         bValid = pBind->isValid();
     }
@@ -451,7 +435,7 @@ void SAL_CALL Model::submitWithInteraction(
     if( mxSubmissions->hasItem( sID ) )
     {
         Submission* pSubmission =
-            Submission::getSubmission( mxSubmissions->getItem( sID ) );
+            comphelper::getUnoTunnelImplementation<Submission>( mxSubmissions->getItem( sID ) );
         OSL_ENSURE( pSubmission != nullptr, "no submission?" );
         OSL_ENSURE( pSubmission->getModel() == Reference<XModel>( this ),
                     "wrong model" );
@@ -606,7 +590,7 @@ void Model::update()
 
 sal_Int64 Model::getSomething( const css::uno::Sequence<sal_Int8>& xId )
 {
-    return reinterpret_cast<sal_Int64>( ( xId == getUnoTunnelID() ) ? this : nullptr );
+    return reinterpret_cast<sal_Int64>( ( xId == getUnoTunnelId() ) ? this : nullptr );
 }
 
 Sequence<sal_Int8> Model::getImplementationId()

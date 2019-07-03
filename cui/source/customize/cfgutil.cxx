@@ -52,19 +52,17 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <svtools/imagemgr.hxx>
-#include <vcl/treelistentry.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <unotools/configmgr.hxx>
 #include <dialmgr.hxx>
 #include <svl/stritem.hxx>
-#include <vcl/builderfactory.hxx>
-#include <vcl/button.hxx>
+#include <tools/diagnose_ex.h>
 #include <vcl/commandinfoprovider.hxx>
-#include <vcl/fixed.hxx>
 #include <vcl/help.hxx>
-#include <vcl/vclmedit.hxx>
+#include <vcl/svapp.hxx>
+#include <uno/current_context.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -270,7 +268,7 @@ OUString CuiConfigFunctionListBox::GetHelpText( bool bConsiderParent )
 OUString CuiConfigFunctionListBox::GetCurCommand()
 {
     SfxGroupInfo_Impl *pData = reinterpret_cast<SfxGroupInfo_Impl*>(get_selected_id().toInt64());
-    if (pData)
+    if (!pData)
         return OUString();
     return pData->sCommand;
 }
@@ -278,7 +276,7 @@ OUString CuiConfigFunctionListBox::GetCurCommand()
 OUString CuiConfigFunctionListBox::GetCurLabel()
 {
     SfxGroupInfo_Impl *pData = reinterpret_cast<SfxGroupInfo_Impl*>(get_selected_id().toInt64());
-    if (pData)
+    if (!pData)
         return OUString();
     if (!pData->sLabel.isEmpty())
         return pData->sLabel;
@@ -652,9 +650,9 @@ void CuiConfigGroupListBox::Init(const css::uno::Reference< css::uno::XComponent
         Reference< browse::XBrowseNodeFactory > xFac = browse::theBrowseNodeFactory::get( m_xContext );
         rootNode.set( xFac->createView( browse::BrowseNodeFactoryViewTypes::MACROSELECTOR ) );
     }
-    catch( Exception& e )
+    catch( const Exception& )
     {
-        SAL_INFO("cui.customize", "Caught some exception whilst retrieving browse nodes from factory... Exception: " << e);
+        TOOLS_WARN_EXCEPTION("cui.customize", "Caught some exception whilst retrieving browse nodes from factory");
         // TODO exception handling
     }
 

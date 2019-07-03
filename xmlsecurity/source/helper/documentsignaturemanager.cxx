@@ -24,6 +24,7 @@
 
 #include <com/sun/star/embed/StorageFormats.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
+#include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/io/TempFile.hpp>
 #include <com/sun/star/io/XTruncate.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
@@ -31,6 +32,8 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/packages/manifest/ManifestReader.hpp>
+#include <com/sun/star/container/XNameAccess.hpp>
+#include <com/sun/star/xml/sax/XDocumentHandler.hpp>
 
 #include <comphelper/base64.hxx>
 #include <comphelper/storagehelper.hxx>
@@ -130,7 +133,7 @@ bool DocumentSignatureManager::IsXAdESRelevant()
 bool DocumentSignatureManager::readManifest()
 {
     // Check if manifest was already read
-    if (m_manifest.getLength() > 0)
+    if (m_manifest.hasElements())
         return true;
 
     if (!mxContext.is())
@@ -150,7 +153,7 @@ bool DocumentSignatureManager::readManifest()
     {
         //Get the manifest.xml
         uno::Reference<embed::XStorage> xSubStore(
-            mxStore->openStorageElement("META-INF", embed::ElementModes::READ), UNO_QUERY_THROW);
+            mxStore->openStorageElement("META-INF", embed::ElementModes::READ), UNO_SET_THROW);
 
         uno::Reference<io::XInputStream> xStream(
             xSubStore->openStreamElement("manifest.xml", css::embed::ElementModes::READ),
@@ -178,15 +181,13 @@ bool DocumentSignatureManager::isXML(const OUString& rURI)
 
     if (readManifest())
     {
-        for (int i = 0; i < m_manifest.getLength(); i++)
+        for (const uno::Sequence<beans::PropertyValue>& entry : m_manifest)
         {
-            const uno::Sequence<beans::PropertyValue>& entry = m_manifest[i];
-            OUString sPath, sMediaType;
+            OUString sPath;
+            OUString sMediaType;
             bool bEncrypted = false;
-            for (int j = 0; j < entry.getLength(); j++)
+            for (const beans::PropertyValue& prop : entry)
             {
-                const beans::PropertyValue& prop = entry[j];
-
                 if (prop.Name == sPropFullPath)
                     prop.Value >>= sPath;
                 else if (prop.Name == sPropMediaType)

@@ -21,9 +21,11 @@
 #include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/sidebar/SidebarToolBox.hxx>
 #include <rtl/ustring.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/toolbox.hxx>
 #include <svx/svxids.hrc>
@@ -32,10 +34,14 @@
 #define TMP_STR_END     "]"
 
 #include <svx/drawitem.hxx>
-#include <svx/xattr.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xtable.hxx>
 #include <svx/fillctrl.hxx>
 #include <svx/itemwin.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xflgrit.hxx>
+#include <svx/xflhtit.hxx>
+#include <svx/xbtmpit.hxx>
 #include <memory>
 
 

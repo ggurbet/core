@@ -40,6 +40,8 @@
 #include <unotextrange.hxx>
 #include <sfx2/docfile.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
+
 #define AUTOTEXT_GALLERY "autoTxt"
 
 using namespace css;
@@ -61,7 +63,7 @@ ErrCode SwDOCXReader::Read(SwDoc& rDoc, const OUString& /* rBaseURL */, SwPaM& r
     rDoc.SetTextFormatColl(rPam, rDoc.getIDocumentStylePoolAccess().GetTextCollFromPool(RES_POOLCOLL_STANDARD, false));
 
     uno::Reference<lang::XMultiServiceFactory> xMultiServiceFactory(comphelper::getProcessServiceFactory());
-    uno::Reference<uno::XInterface> xInterface(xMultiServiceFactory->createInstance("com.sun.star.comp.Writer.WriterFilter"), uno::UNO_QUERY_THROW);
+    uno::Reference<uno::XInterface> xInterface(xMultiServiceFactory->createInstance("com.sun.star.comp.Writer.WriterFilter"), uno::UNO_SET_THROW);
 
     SwDocShell* pDocShell(rDoc.GetDocShell());
     uno::Reference<lang::XComponent> xDstDoc(pDocShell->GetModel(), uno::UNO_QUERY_THROW);
@@ -90,9 +92,9 @@ ErrCode SwDOCXReader::Read(SwDoc& rDoc, const OUString& /* rBaseURL */, SwPaM& r
     {
         xFilter->filter(aDescriptor);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_WARN("sw.docx", "SwDOCXReader::Read(): " << e);
+        TOOLS_WARN_EXCEPTION("sw.docx", "SwDOCXReader::Read()");
         ret = ERR_SWG_READ_ERROR;
     }
     pDocShell->SetLoading(SfxLoadedFlags::ALL);
@@ -118,7 +120,7 @@ bool SwDOCXReader::ReadGlossaries( SwTextBlocks& rBlocks, bool /* bSaveRelFiles 
 
     uno::Reference<uno::XInterface> xInterface(
                 xMultiServiceFactory->createInstance( "com.sun.star.comp.Writer.WriterFilter" ),
-                uno::UNO_QUERY_THROW );
+                uno::UNO_SET_THROW );
 
     uno::Reference<document::XFilter> xFilter( xInterface, uno::UNO_QUERY_THROW );
     uno::Reference<document::XImporter> xImporter( xFilter, uno::UNO_QUERY_THROW );

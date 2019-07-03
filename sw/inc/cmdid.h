@@ -524,6 +524,7 @@
 #define FN_UNO_FOOTER_LEFT                  (FN_EXTRA2 + 39)
 #define FN_UNO_FOOTER_RIGHT                 (FN_EXTRA2 + 40)
 #define FN_UNO_TEXT_PARAGRAPH               (FN_EXTRA2 + 41)
+#define FN_UNO_PARENT_TEXT (FN_EXTRA2 + 42)
 #define FN_UNO_FOLLOW_STYLE                 (FN_EXTRA2 + 59)
 
 #define FN_API_CALL                         (FN_EXTRA2 + 60)
@@ -607,6 +608,8 @@
 #define FN_UNO_TABLE_TEMPLATE_NAME          (FN_EXTRA2 + 124)
 #define FN_UNO_VISIBLE_AREA_WIDTH           (FN_EXTRA2 + 125)
 #define FN_UNO_VISIBLE_AREA_HEIGHT          (FN_EXTRA2 + 126)
+
+#define FN_UNO_TRANSFORMED_GRAPHIC          (FN_EXTRA2 + 125)
 
 // Area: Help
 // Region: Traveling & Selection
@@ -697,6 +700,8 @@
 #define FN_SELECTION_MODE_BLOCK     (FN_SELECTION + 91)   /* switch on block selection */
 #define SID_JUMP_TO_SPECIFIC_PAGE    (FN_SELECTION + 92)
 #define SID_TRACK_CHANGES_BAR       (FN_SELECTION + 93)   /* shows/hides track changes bar */
+
+#define FN_SELECT_SENTENCE          (FN_SELECTION + 94)   /* select paragraph*/
 
 // QUERY-Block
 #define FN_TXTATR_INET              (FN_QUERY +29)      /* INet-Attribut */

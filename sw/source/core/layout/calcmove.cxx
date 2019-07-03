@@ -25,6 +25,7 @@
 #include <frmtool.hxx>
 #include <txtftn.hxx>
 #include <fmtftn.hxx>
+#include <ndtxt.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/keepitem.hxx>
 #include <svx/sdtaitm.hxx>
@@ -307,12 +308,37 @@ void SwFrame::PrepareMake(vcl::RenderContext* pRenderContext)
                          SwFlowFrame::CastFlowFrame(pFrame)->IsAnFollow( pThis ) )
                         break;
 
+                    bool const isLast(pFrame->GetNext() == this);
+                    // note: this seems obvious but does *not* hold, a MakeAll()
+                    // could move more than 1 frame backwards!
+                    // that's why FindNext() is used below
+                    // assert(pFrame->GetUpper() == GetUpper());
                     pFrame->MakeAll(pRenderContext);
                     if( IsSctFrame() && !static_cast<SwSectionFrame*>(this)->GetSection() )
                         break;
+                    if (isLast && pFrame->GetUpper() != GetUpper())
+                    {
+                        assert(GetUpper()->Lower() == this
+                            // empty section frames are created all the time...
+                            || GetUpper()->Lower()->IsSctFrame()
+                            // tab frame/section frame may split multiple times
+                            || (   SwFlowFrame::CastFlowFrame(pFrame)
+                                && SwFlowFrame::CastFlowFrame(GetUpper()->Lower())
+                                && SwFlowFrame::CastFlowFrame(pFrame)->IsAnFollow(
+                                    SwFlowFrame::CastFlowFrame(GetUpper()->Lower()))
+                                && (GetUpper()->Lower()->GetNext() == this
+                                    // if it's more than 10 pages long...
+                                    || (SwFlowFrame::CastFlowFrame(GetUpper()->Lower())->GetFollow()
+                                            == SwFlowFrame::CastFlowFrame(GetUpper()->Lower()->GetNext())
+                                        && GetUpper()->Lower()->GetNext()->GetNext() == this)
+                                    // pre-existing empty section frames may end up between them...
+                                    || GetUpper()->Lower()->GetNext()->IsSctFrame())));
+                        break; // tdf#119109 frame was moved backward, prevent
+                               // FindNext() returning a frame inside this if
+                    }          // this is a table!
                 }
                 // With ContentFrames, the chain may be broken while walking through
-                // it. Therefore we have to figure out the follower in a bit more
+                // it. Therefore we have to figure out the next frame in a bit more
                 // complicated way. However, I'll HAVE to get back to myself
                 // sometime again.
                 pFrame = pFrame->FindNext();
@@ -374,6 +400,29 @@ void SwFrame::PrepareCursor()
     StackHack aHack;
     if( GetUpper() && !GetUpper()->IsSctFrame() )
     {
+        const bool bCnt = IsContentFrame();
+        const bool bTab = IsTabFrame();
+        bool bNoSect = IsInSct();
+
+        boost::optional<FlowFrameJoinLockGuard> tabGuard;
+        boost::optional<SwFrameDeleteGuard> rowGuard;
+        SwFlowFrame* pThis = bCnt ? static_cast<SwContentFrame*>(this) : nullptr;
+
+        if ( bTab )
+        {
+            tabGuard.emplace(static_cast<SwTabFrame*>(this)); // tdf#125741
+            pThis = static_cast<SwTabFrame*>(this);
+        }
+        else if (IsRowFrame())
+        {
+            rowGuard.emplace(this); // tdf#125741 keep this alive
+        }
+        else if( IsSctFrame() )
+        {
+            pThis = static_cast<SwSectionFrame*>(this);
+            bNoSect = false;
+        }
+
         GetUpper()->PrepareCursor();
         GetUpper()->Calc(getRootFrame()->GetCurrShell() ? getRootFrame()->GetCurrShell()->GetOut() : nullptr);
 
@@ -381,25 +430,7 @@ void SwFrame::PrepareCursor()
         if ( !GetUpper() )
             return;
 
-        const bool bCnt = IsContentFrame();
-        const bool bTab = IsTabFrame();
-        bool bNoSect = IsInSct();
-
-        bool bOldTabLock = false, bFoll;
-        SwFlowFrame* pThis = bCnt ? static_cast<SwContentFrame*>(this) : nullptr;
-
-        if ( bTab )
-        {
-            bOldTabLock = static_cast<SwTabFrame*>(this)->IsJoinLocked();
-            ::PrepareLock( static_cast<SwTabFrame*>(this) );
-            pThis = static_cast<SwTabFrame*>(this);
-        }
-        else if( IsSctFrame() )
-        {
-            pThis = static_cast<SwSectionFrame*>(this);
-            bNoSect = false;
-        }
-        bFoll = pThis && pThis->IsFollow();
+        bool const bFoll = pThis && pThis->IsFollow();
 
         SwFrame *pFrame = GetUpper()->Lower();
         while ( pFrame != this )
@@ -418,10 +449,31 @@ void SwFrame::PrepareCursor()
                      SwFlowFrame::CastFlowFrame(pFrame)->IsAnFollow( pThis ) )
                     break;
 
+                bool const isLast(pFrame->GetNext() == this);
                 pFrame->MakeAll(getRootFrame()->GetCurrShell()->GetOut());
+                if (isLast && pFrame->GetUpper() != GetUpper())
+                {
+                    assert(GetUpper()->Lower() == this
+                        // empty section frames are created all the time...
+                        || GetUpper()->Lower()->IsSctFrame()
+                        // tab frame/section frame may split multiple times
+                        || (   SwFlowFrame::CastFlowFrame(pFrame)
+                            && SwFlowFrame::CastFlowFrame(GetUpper()->Lower())
+                            && SwFlowFrame::CastFlowFrame(pFrame)->IsAnFollow(
+                                SwFlowFrame::CastFlowFrame(GetUpper()->Lower()))
+                            && (GetUpper()->Lower()->GetNext() == this
+                                // if it's more than 10 pages long...
+                                || (SwFlowFrame::CastFlowFrame(GetUpper()->Lower())->GetFollow()
+                                        == SwFlowFrame::CastFlowFrame(GetUpper()->Lower()->GetNext())
+                                    && GetUpper()->Lower()->GetNext()->GetNext() == this)
+                                // pre-existing empty section frames may end up between them...
+                                || GetUpper()->Lower()->GetNext()->IsSctFrame())));
+                    break; // tdf#119109 frame was moved backward, prevent
+                           // FindNext() returning a frame inside this if
+                }          // this is a table!
             }
             // With ContentFrames, the chain may be broken while walking through
-            // it. Therefore we have to figure out the follower in a bit more
+            // it. Therefore we have to figure out the next frame in a bit more
             // complicated way. However, I'll HAVE to get back to myself
             // sometime again.
             pFrame = pFrame->FindNext();
@@ -439,9 +491,6 @@ void SwFrame::PrepareCursor()
         GetUpper()->Calc(getRootFrame()->GetCurrShell()->GetOut());
 
         OSL_ENSURE( GetUpper(), "Layout unstable (Upper gone III)." );
-
-        if ( bTab && !bOldTabLock )
-            ::PrepareUnlock( static_cast<SwTabFrame*>(this) );
     }
     Calc(getRootFrame()->GetCurrShell() ? getRootFrame()->GetCurrShell()->GetOut() : nullptr);
 }
@@ -1233,7 +1282,7 @@ void SwContentFrame::MakeAll(vcl::RenderContext* /*pRenderContext*/)
     }
 
     if ( GetUpper()->IsSctFrame() &&
-         HasFollow() &&
+         HasFollow() && !GetFollow()->IsDeleteForbidden() &&
          &GetFollow()->GetFrame() == GetNext() )
     {
         dynamic_cast<SwTextFrame&>(*this).JoinFrame();

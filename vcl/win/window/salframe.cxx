@@ -843,6 +843,7 @@ WinSalFrame::WinSalFrame()
     mbBorder            = false;
     mbFixBorder         = false;
     mbSizeBorder        = false;
+    mbFullScreenCaption = false;
     mbFullScreen        = false;
     mbPresentation      = false;
     mbInShow            = false;
@@ -1793,34 +1794,26 @@ void WinSalFrame::SetApplicationID( const OUString &rApplicationID )
     // http://msdn.microsoft.com/en-us/library/windows/desktop/dd378430(v=vs.85).aspx
     // A window's properties must be removed before the window is closed.
 
-    typedef HRESULT ( WINAPI *SHGETPROPERTYSTOREFORWINDOW )( HWND, REFIID, void ** );
-    SHGETPROPERTYSTOREFORWINDOW pSHGetPropertyStoreForWindow;
-    pSHGetPropertyStoreForWindow = reinterpret_cast<SHGETPROPERTYSTOREFORWINDOW>(GetProcAddress(
-                                   GetModuleHandleW (L"shell32.dll"), "SHGetPropertyStoreForWindow" ));
-
-    if( pSHGetPropertyStoreForWindow )
+    IPropertyStore *pps;
+    HRESULT hr = SHGetPropertyStoreForWindow(mhWnd, IID_PPV_ARGS(&pps));
+    if (SUCCEEDED(hr))
     {
-        IPropertyStore *pps;
-        HRESULT hr = pSHGetPropertyStoreForWindow ( mhWnd, IID_PPV_ARGS(&pps) );
-        if ( SUCCEEDED(hr) )
+        PROPVARIANT pv;
+        if (!rApplicationID.isEmpty())
         {
-            PROPVARIANT pv;
-            if ( !rApplicationID.isEmpty() )
-            {
-                hr = InitPropVariantFromString( o3tl::toW(rApplicationID.getStr()), &pv );
-                mbPropertiesStored = true;
-            }
-            else
-                // if rApplicationID we remove the property from the window, if present
-                PropVariantInit( &pv );
-
-            if ( SUCCEEDED(hr) )
-            {
-                hr = pps->SetValue( PKEY_AppUserModel_ID, pv );
-                PropVariantClear( &pv );
-            }
-            pps->Release();
+            hr = InitPropVariantFromString(o3tl::toW(rApplicationID.getStr()), &pv);
+            mbPropertiesStored = true;
         }
+        else
+            // if rApplicationID we remove the property from the window, if present
+            PropVariantInit(&pv);
+
+        if (SUCCEEDED(hr))
+        {
+            hr = pps->SetValue(PKEY_AppUserModel_ID, pv);
+            PropVariantClear(&pv);
+        }
+        pps->Release();
     }
 }
 
@@ -1850,6 +1843,15 @@ void WinSalFrame::ShowFullScreen( bool bFullScreen, sal_Int32 nDisplay )
         if ( !(GetWindowStyle( mhWnd ) & WS_VISIBLE) )
             mnShowState = SW_SHOW;
 
+        // Save caption state.
+        mbFullScreenCaption = mbCaption;
+        if (mbCaption)
+        {
+            DWORD nStyle = GetWindowStyle(mhWnd);
+            SetWindowStyle(mhWnd, nStyle & ~WS_CAPTION);
+            mbCaption = false;
+        }
+
         // set window to screen size
         ImplSalFrameFullScreenPos( this, true );
     }
@@ -1864,6 +1866,14 @@ void WinSalFrame::ShowFullScreen( bool bFullScreen, sal_Int32 nDisplay )
         if ( mbFullScreenToolWin )
             SetWindowExStyle( mhWnd, GetWindowExStyle( mhWnd ) | WS_EX_TOOLWINDOW );
         mbFullScreenToolWin = false;
+
+        // Restore caption state.
+        if (mbFullScreenCaption)
+        {
+            DWORD nStyle = GetWindowStyle(mhWnd);
+            SetWindowStyle(mhWnd, nStyle | WS_CAPTION);
+        }
+        mbCaption = mbFullScreenCaption;
 
         SetWindowPos( mhWnd, nullptr,
                       maFullScreenRect.left,
@@ -4957,7 +4967,7 @@ static bool ImplHandleIMECompositionInput( WinSalFrame* pFrame,
         LONG nTextLen = ImmGetCompositionStringW( hIMC, GCS_RESULTSTR, nullptr, 0 ) / sizeof( WCHAR );
         if ( nTextLen >= 0 )
         {
-            auto pTextBuf = std::unique_ptr<WCHAR[]>(new WCHAR[nTextLen]);
+            auto pTextBuf = std::make_unique<WCHAR[]>(nTextLen);
             ImmGetCompositionStringW( hIMC, GCS_RESULTSTR, pTextBuf.get(), nTextLen*sizeof( WCHAR ) );
             aEvt.maText = OUString( o3tl::toU(pTextBuf.get()), static_cast<sal_Int32>(nTextLen) );
         }
@@ -4983,7 +4993,7 @@ static bool ImplHandleIMECompositionInput( WinSalFrame* pFrame,
         if ( nTextLen > 0 )
         {
             {
-                auto pTextBuf = std::unique_ptr<WCHAR[]>(new WCHAR[nTextLen]);
+                auto pTextBuf = std::make_unique<WCHAR[]>(nTextLen);
                 ImmGetCompositionStringW( hIMC, GCS_COMPSTR, pTextBuf.get(), nTextLen*sizeof( WCHAR ) );
                 aEvt.maText = OUString( o3tl::toU(pTextBuf.get()), static_cast<sal_Int32>(nTextLen) );
             }

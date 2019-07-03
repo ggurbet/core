@@ -26,11 +26,9 @@
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/configuration/theDefaultProvider.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <comphelper/propertysequence.hxx>
-#include <unotools/configpaths.hxx>
 #include <unotools/syslocale.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/instance.hxx>
@@ -39,7 +37,6 @@
 #include <sal/log.hxx>
 
 #include <string.h>
-#include <list>
 #include <algorithm>
 
 using namespace utl;
@@ -122,14 +119,12 @@ DefaultFontConfiguration::DefaultFontConfiguration()
         {
             Sequence< OUString > aLocales = m_xConfigAccess->getElementNames();
             // fill config hash with empty interfaces
-            int nLocales = aLocales.getLength();
-            const OUString* pLocaleStrings = aLocales.getConstArray();
-            for( int i = 0; i < nLocales; i++ )
+            for( const OUString& rLocaleString : aLocales )
             {
                 // Feed through LanguageTag for casing.
-                OUString aLoc( LanguageTag( pLocaleStrings[i], true).getBcp47( false));
+                OUString aLoc( LanguageTag( rLocaleString, true).getBcp47( false));
                 m_aConfig[ aLoc ] = LocaleAccess();
-                m_aConfig[ aLoc ].aConfigLocaleString = pLocaleStrings[i];
+                m_aConfig[ aLoc ].aConfigLocaleString = rLocaleString;
             }
         }
     }
@@ -250,7 +245,7 @@ OUString DefaultFontConfiguration::getUserInterfaceFont( const LanguageTag& rLan
     #define FALLBACKFONT_UI_SANS_LATIN2 "Andale Sans UI;Albany;Albany AMT;Tahoma;Arial Unicode MS;Arial;Nimbus Sans L;Luxi Sans;Bitstream Vera Sans;Interface User;Geneva;WarpSans;Dialog;Swiss;Lucida;Helvetica;Charcoal;Chicago;MS Sans Serif;Helv;Times;Times New Roman;Interface System"
     #define FALLBACKFONT_UI_SANS_ARABIC "Tahoma;Traditional Arabic;Simplified Arabic;Lucidasans;Lucida Sans;Supplement;Andale Sans UI;clearlyU;Interface User;Arial Unicode MS;Lucida Sans Unicode;WarpSans;Geneva;MS Sans Serif;Helv;Dialog;Albany;Lucida;Helvetica;Charcoal;Chicago;Arial;Helmet;Interface System;Sans Serif"
     #define FALLBACKFONT_UI_SANS_THAI "OONaksit;Tahoma;Lucidasans;Arial Unicode MS"
-    #define FALLBACKFONT_UI_SANS_KOREAN "SunGulim;BaekmukGulim;Gulim;Roundgothic;Arial Unicode MS;Lucida Sans Unicode;gnu-unifont;Andale Sans UI"
+    #define FALLBACKFONT_UI_SANS_KOREAN "Noto Sans CJK KR;Noto Sans KR;Source Han Sans KR;NanumGothic;NanumBarunGothic;NanumBarunGothic YetHangul;KoPubWorld Dotum;Malgun Gothic;Apple SD Gothic Neo;Dotum;Gulim;Apple Gothic;UnDotum;Baekmuk Gulim;Arial Unicode MS;Lucida Sans Unicode;gnu-unifont;Andale Sans UI"
     #define FALLBACKFONT_UI_SANS_CHINSIM "Andale Sans UI;Arial Unicode MS;ZYSong18030;AR PL SungtiL GB;AR PL KaitiM GB;SimSun;Lucida Sans Unicode;Fangsong;Hei;Song;Kai;Ming;gnu-unifont;Interface User;"
     #define FALLBACKFONT_UI_SANS_CHINTRD "Andale Sans UI;Arial Unicode MS;AR PL Mingti2L Big5;AR PL KaitiM Big5;Kai;PMingLiU;MingLiU;Ming;Lucida Sans Unicode;gnu-unifont;Interface User;"
 
@@ -267,18 +262,7 @@ OUString DefaultFontConfiguration::getUserInterfaceFont( const LanguageTag& rLan
     }
     else if ( aLanguage == "ko" )
     {
-        // we need localized names for korean fonts
-        const sal_Unicode aSunGulim[] = { 0xC36C, 0xAD74, 0xB9BC, 0 };
-        const sal_Unicode aBaekmukGulim[] = { 0xBC31, 0xBC35, 0xAD74, 0xB9BC, 0 };
-
-        OUStringBuffer aFallBackKoreanLocalized;
-        aFallBackKoreanLocalized.append(aSunGulim);
-        aFallBackKoreanLocalized.append(';');
-        aFallBackKoreanLocalized.append(aBaekmukGulim);
-        aFallBackKoreanLocalized.append(";");
-        aFallBackKoreanLocalized.append(FALLBACKFONT_UI_SANS_KOREAN);
-
-        return aFallBackKoreanLocalized.makeStringAndClear();
+        return OUString(FALLBACKFONT_UI_SANS_KOREAN);
     }
     else if( aLanguage == "cs" ||
              aLanguage == "hu" ||
@@ -349,14 +333,12 @@ FontSubstConfiguration::FontSubstConfiguration() :
         {
             Sequence< OUString > aLocales = m_xConfigAccess->getElementNames();
             // fill config hash with empty interfaces
-            int nLocales = aLocales.getLength();
-            const OUString* pLocaleStrings = aLocales.getConstArray();
-            for( int i = 0; i < nLocales; i++ )
+            for( const OUString& rLocaleString : aLocales )
             {
                 // Feed through LanguageTag for casing.
-                OUString aLoc( LanguageTag( pLocaleStrings[i], true).getBcp47( false));
+                OUString aLoc( LanguageTag( rLocaleString, true).getBcp47( false));
                 m_aSubst[ aLoc ] = LocaleSubst();
-                m_aSubst[ aLoc ].aConfigLocaleString = pLocaleStrings[i];
+                m_aSubst[ aLoc ].aConfigLocaleString = rLocaleString;
             }
         }
     }
@@ -863,11 +845,9 @@ void FontSubstConfiguration::fillSubstVector( const css::uno::Reference< XNameAc
                     OUString aSubst( pLine->getToken( 0, ';', nIndex ) );
                     if( !aSubst.isEmpty() )
                     {
-                        UniqueSubstHash::iterator aEntry = maSubstHash.find( aSubst );
-                        if (aEntry != maSubstHash.end())
-                            aSubst = *aEntry;
-                        else
-                            maSubstHash.insert( aSubst );
+                        auto itPair = maSubstHash.insert( aSubst );
+                        if (!itPair.second)
+                            aSubst = *itPair.first;
                         rSubstVector.push_back( aSubst );
                     }
                 }
@@ -995,7 +975,6 @@ void FontSubstConfiguration::readLocaleSubst( const OUString& rBcp47 ) const
             {
                 Sequence< OUString > aFonts = xNode->getElementNames();
                 int nFonts = aFonts.getLength();
-                const OUString* pFontNames = aFonts.getConstArray();
                 // improve performance, heap fragmentation
                 it->second.aSubstAttributes.reserve( nFonts );
 
@@ -1005,12 +984,12 @@ void FontSubstConfiguration::readLocaleSubst( const OUString& rBcp47 ) const
                 OUString const aSubstWeightStr    ( "FontWeight" );
                 OUString const aSubstWidthStr     ( "FontWidth" );
                 OUString const aSubstTypeStr      ( "FontType" );
-                for( int i = 0; i < nFonts; i++ )
+                for( const OUString& rFontName : aFonts )
                 {
                     Reference< XNameAccess > xFont;
                     try
                     {
-                        Any aAny = xNode->getByName( pFontNames[i] );
+                        Any aAny = xNode->getByName( rFontName );
                         aAny >>= xFont;
                     }
                     catch (const NoSuchElementException&)
@@ -1021,13 +1000,13 @@ void FontSubstConfiguration::readLocaleSubst( const OUString& rBcp47 ) const
                     }
                     if( ! xFont.is() )
                     {
-                        SAL_WARN("unotools.config", "did not get font attributes for " << pFontNames[i]);
+                        SAL_WARN("unotools.config", "did not get font attributes for " << rFontName);
                         continue;
                     }
 
                     FontNameAttr aAttr;
                     // read subst attributes from config
-                    aAttr.Name = pFontNames[i];
+                    aAttr.Name = rFontName;
                     fillSubstVector( xFont, aSubstFontsStr, aAttr.Substitutions );
                     fillSubstVector( xFont, aSubstFontsMSStr, aAttr.MSSubstitutions );
                     aAttr.Weight = getSubstWeight( xFont, aSubstWeightStr );

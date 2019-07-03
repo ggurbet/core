@@ -19,7 +19,6 @@
 
 #include <DataSeriesHelper.hxx>
 #include <DataSource.hxx>
-#include <ContainerHelper.hxx>
 #include <unonames.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -178,9 +177,9 @@ void lcl_insertOrDeleteDataLabelsToSeriesAndAllPoints( const Reference< chart2::
             }
         }
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 
@@ -335,7 +334,7 @@ OUString getLabelForLabeledDataSequence(
                     chart2::data::LabelOrigin_SHORT_SIDE ) );
                 // no labels returned is interpreted as: auto-generation not
                 // supported by sequence
-                if( aLabels.getLength() )
+                if( aLabels.hasElements() )
                     aResult=aLabels[0];
                 else
                 {
@@ -517,8 +516,8 @@ void deleteSeries(
     try
     {
         Reference< chart2::XDataSeriesContainer > xSeriesCnt( xChartType, uno::UNO_QUERY_THROW );
-        std::vector< Reference< chart2::XDataSeries > > aSeries(
-            ContainerHelper::SequenceToVector( xSeriesCnt->getDataSeries()));
+        auto aSeries(
+            comphelper::sequenceToContainer<std::vector< Reference< chart2::XDataSeries > > >( xSeriesCnt->getDataSeries()));
         std::vector< Reference< chart2::XDataSeries > >::iterator aIt =
               std::find( aSeries.begin(), aSeries.end(), xSeries );
         if( aIt != aSeries.end())
@@ -646,7 +645,7 @@ bool lcl_SequenceHasUnhiddenData( const uno::Reference< chart2::data::XDataSeque
         try
         {
             xProp->getPropertyValue( "HiddenValues" ) >>= aHiddenValues;
-            if( !aHiddenValues.getLength() )
+            if( !aHiddenValues.hasElements() )
                 return true;
         }
         catch( const uno::Exception& )
@@ -654,15 +653,14 @@ bool lcl_SequenceHasUnhiddenData( const uno::Reference< chart2::data::XDataSeque
             return true;
         }
     }
-    return xDataSequence->getData().getLength();
+    return xDataSequence->getData().hasElements();
 }
 
 }
 
 bool hasUnhiddenData( const uno::Reference< chart2::XDataSeries >& xSeries )
 {
-    uno::Reference< chart2::data::XDataSource > xDataSource =
-        uno::Reference< chart2::data::XDataSource >( xSeries, uno::UNO_QUERY );
+    uno::Reference< chart2::data::XDataSource > xDataSource( xSeries, uno::UNO_QUERY );
 
     uno::Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aDataSequences = xDataSource->getDataSequences();
 
@@ -690,9 +688,9 @@ sal_Int32 translateIndexFromHiddenToFullSequence( sal_Int32 nIndex, const Refere
         {
             Sequence<sal_Int32> aHiddenIndicesSeq;
             xProp->getPropertyValue( "HiddenValues" ) >>= aHiddenIndicesSeq;
-            if( aHiddenIndicesSeq.getLength() )
+            if( aHiddenIndicesSeq.hasElements() )
             {
-                std::vector< sal_Int32 > aHiddenIndices( ContainerHelper::SequenceToVector( aHiddenIndicesSeq ) );
+                auto aHiddenIndices( comphelper::sequenceToContainer<std::vector< sal_Int32 >>( aHiddenIndicesSeq ) );
                 std::sort( aHiddenIndices.begin(), aHiddenIndices.end() );
 
                 sal_Int32 nHiddenCount = static_cast<sal_Int32>(aHiddenIndices.size());
@@ -725,9 +723,9 @@ bool hasDataLabelsAtSeries( const Reference< chart2::XDataSeries >& xSeries )
                 bRet = aLabel.ShowNumber || aLabel.ShowNumberInPercent || aLabel.ShowCategoryName;
         }
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return bRet;
 }
@@ -758,9 +756,9 @@ bool hasDataLabelsAtPoints( const Reference< chart2::XDataSeries >& xSeries )
             }
         }
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return bRet;
 }
@@ -777,7 +775,7 @@ bool hasDataLabelAtPoint( const Reference< chart2::XDataSeries >& xSeries, sal_I
             uno::Sequence< sal_Int32 > aAttributedDataPointIndexList;
             if( xSeriesProperties->getPropertyValue( "AttributedDataPoints" ) >>= aAttributedDataPointIndexList )
             {
-                std::vector< sal_Int32 > aIndices( ContainerHelper::SequenceToVector( aAttributedDataPointIndexList ) );
+                auto aIndices( comphelper::sequenceToContainer<std::vector< sal_Int32 >>( aAttributedDataPointIndexList ) );
                 std::vector< sal_Int32 >::iterator aIt = std::find( aIndices.begin(), aIndices.end(), nPointIndex );
                 if( aIt != aIndices.end())
                     xProp = xSeries->getDataPointByIndex(nPointIndex);
@@ -792,9 +790,9 @@ bool hasDataLabelAtPoint( const Reference< chart2::XDataSeries >& xSeries, sal_I
             }
         }
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return bRet;
 }
@@ -821,9 +819,9 @@ void insertDataLabelToPoint( const Reference< beans::XPropertySet >& xPointProp 
             xPointProp->setPropertyValue(CHART_UNONAME_LABEL, uno::Any(aLabel));
         }
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 
@@ -841,9 +839,9 @@ void deleteDataLabelsFromPoint( const Reference< beans::XPropertySet >& xPointPr
             xPointProp->setPropertyValue(CHART_UNONAME_LABEL, uno::Any(aLabel));
         }
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 

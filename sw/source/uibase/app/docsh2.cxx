@@ -37,6 +37,7 @@
 #include <vcl/wrkwin.hxx>
 #include <svl/lckbitem.hxx>
 #include <svl/eitem.hxx>
+#include <svl/macitem.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
 #include <unotools/pathoptions.hxx>
@@ -146,11 +147,9 @@ using namespace ::com::sun::star;
 using namespace ::sfx2;
 
 // create DocInfo (virtual)
-VclPtr<SfxDocumentInfoDialog> SwDocShell::CreateDocumentInfoDialog(const SfxItemSet &rSet)
+std::unique_ptr<SfxDocumentInfoDialog> SwDocShell::CreateDocumentInfoDialog(weld::Window* pParent, const SfxItemSet &rSet)
 {
-    SfxViewShell* pViewShell = GetView() ? GetView() : SfxViewShell::Current();
-    vcl::Window* pWindow = pViewShell ? &pViewShell->GetViewFrame()->GetWindow() : nullptr;
-    VclPtr<SfxDocumentInfoDialog> pDlg = VclPtr<SfxDocumentInfoDialog>::Create(pWindow, rSet);
+    std::unique_ptr<SfxDocumentInfoDialog> xDlg = std::make_unique<SfxDocumentInfoDialog>(pParent, rSet);
     //only with statistics, when this document is being shown, not
     //from within the Doc-Manager
     SwDocShell* pDocSh = static_cast<SwDocShell*>( SfxObjectShell::Current());
@@ -161,11 +160,11 @@ VclPtr<SfxDocumentInfoDialog> SwDocShell::CreateDocumentInfoDialog(const SfxItem
         if ( pVSh && dynamic_cast< const SwSrcView *>( pVSh ) ==  nullptr )
         {
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            pDlg->AddFontTabPage();
-            pDlg->AddTabPage(RID_SW_TP_DOC_STAT, SwResId(STR_DOC_STAT), pFact->GetTabPageCreatorFunc(RID_SW_TP_DOC_STAT));
+            xDlg->AddFontTabPage();
+            xDlg->AddTabPage("writerstats", SwResId(STR_DOC_STAT), pFact->GetTabPageCreatorFunc(RID_SW_TP_DOC_STAT));
         }
     }
-    return pDlg;
+    return xDlg;
 }
 
 void SwDocShell::ToggleLayoutMode(SwView* pView)
@@ -1209,8 +1208,8 @@ void SwDocShell::Execute(SfxRequest& rReq)
                 // Ok.  I did my best.
                 break;
 
-            SfxStringItem aApp(SID_DOC_SERVICE, OUString("com.sun.star.text.TextDocument"));
-            SfxStringItem aTarget(SID_TARGETNAME, OUString("_blank"));
+            SfxStringItem aApp(SID_DOC_SERVICE, "com.sun.star.text.TextDocument");
+            SfxStringItem aTarget(SID_TARGETNAME, "_blank");
             pViewShell->GetDispatcher()->ExecuteList(SID_OPENDOC,
                 SfxCallMode::API|SfxCallMode::SYNCHRON,
                 { &aApp, &aTarget });
@@ -1236,32 +1235,32 @@ void SwDocShell::Execute(SfxRequest& rReq)
         break;
         case SID_CLASSIFICATION_DIALOG:
         {
-            VclPtr<svx::ClassificationDialog> pDialog(VclPtr<svx::ClassificationDialog>::Create(&GetView()->GetViewFrame()->GetWindow(), false));
+            std::shared_ptr<svx::ClassificationDialog> xDialog(new svx::ClassificationDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), false));
 
             SwWrtShell* pShell = GetWrtShell();
             std::vector<svx::ClassificationResult> aInput = pShell->CollectAdvancedClassification();
-            pDialog->setupValues(aInput);
+            xDialog->setupValues(aInput);
 
-            pDialog->StartExecuteAsync([pDialog, pShell](sal_Int32 nResult){
+            weld::DialogController::runAsync(xDialog, [xDialog, pShell](sal_Int32 nResult){
                 if (RET_OK == nResult)
-                    pShell->ApplyAdvancedClassification(pDialog->getResult());
+                    pShell->ApplyAdvancedClassification(xDialog->getResult());
             });
         }
         break;
         case SID_PARAGRAPH_SIGN_CLASSIFY_DLG:
         {
             SwWrtShell* pShell = GetWrtShell();
-            VclPtr<svx::ClassificationDialog> pDialog(VclPtr<svx::ClassificationDialog>::Create(&GetView()->GetViewFrame()->GetWindow(), true, [pShell]()
+            std::shared_ptr<svx::ClassificationDialog> xDialog(new svx::ClassificationDialog(GetView()->GetViewFrame()->GetWindow().GetFrameWeld(), true, [pShell]()
             {
                 pShell->SignParagraph();
             }));
 
             std::vector<svx::ClassificationResult> aInput = pShell->CollectParagraphClassification();
-            pDialog->setupValues(aInput);
+            xDialog->setupValues(aInput);
 
-            pDialog->StartExecuteAsync([pDialog, pShell](sal_Int32 nResult){
+            weld::DialogController::runAsync(xDialog, [xDialog, pShell](sal_Int32 nResult){
                 if (RET_OK == nResult)
-                    pShell->ApplyParagraphClassification(pDialog->getResult());
+                    pShell->ApplyParagraphClassification(xDialog->getResult());
             });
         }
         break;

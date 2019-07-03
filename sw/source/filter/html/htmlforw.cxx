@@ -28,6 +28,7 @@
 #include <com/sun/star/form/XForm.hpp>
 #include <com/sun/star/form/FormComponentType.hpp>
 #include <com/sun/star/awt/XTextLayoutConstrains.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <hintids.hxx>
 #include <o3tl/any.hxx>
 #include <vcl/svapp.hxx>
@@ -1308,13 +1309,11 @@ static void AddControl( HTMLControls& rControls,
     {
         uno::Reference< container::XIndexContainer >  xFormComps( xForm, uno::UNO_QUERY );
         std::unique_ptr<HTMLControl> pHCntrl(new HTMLControl( xFormComps, nNodeIdx ));
-        HTMLControls::const_iterator it = rControls.find( pHCntrl.get() );
-        if( it == rControls.end() )
-            rControls.insert( std::move(pHCntrl) );
-        else
+        auto itPair = rControls.insert( std::move(pHCntrl) );
+        if (!itPair.second )
         {
-            if( (*it)->xFormComps==xFormComps )
-                (*it)->nCount++;
+            if( (*itPair.first)->xFormComps==xFormComps )
+                (*itPair.first)->nCount++;
         }
     }
 }

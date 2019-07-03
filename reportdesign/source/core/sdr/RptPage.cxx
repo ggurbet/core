@@ -92,7 +92,7 @@ SdrObject* OReportPage::RemoveObject(size_t nObjNum)
     }
 
     // this code is evil, but what else shall I do
-    reportdesign::OSection* pSection = reportdesign::OSection::getImplementation(m_xSection);
+    reportdesign::OSection* pSection = comphelper::getUnoTunnelImplementation<reportdesign::OSection>(m_xSection);
     uno::Reference< drawing::XShape> xShape(pObj->getUnoShape(),uno::UNO_QUERY);
     pSection->notifyElementRemoved(xShape);
     if (dynamic_cast< const OUnoObject *>( pObj ) !=  nullptr)
@@ -114,7 +114,7 @@ void OReportPage::insertObject(const uno::Reference< report::XReportComponent >&
     if ( nPos < GetObjCount() )
         return; // Object already in list
 
-    SvxShape* pShape = SvxShape::getImplementation( _xObject );
+    SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( _xObject );
     OObjectBase* pObject = pShape ? dynamic_cast< OObjectBase* >( pShape->GetSdrObject() ) : nullptr;
     OSL_ENSURE( pObject, "OReportPage::insertObject: no implementation object found for the given shape/component!" );
     if ( pObject )
@@ -177,7 +177,7 @@ void OReportPage::NbcInsertObject(SdrObject* pObj, size_t nPos)
     }
 
     // this code is evil, but what else shall I do
-    reportdesign::OSection* pSection = reportdesign::OSection::getImplementation(m_xSection);
+    reportdesign::OSection* pSection = comphelper::getUnoTunnelImplementation<reportdesign::OSection>(m_xSection);
     uno::Reference< drawing::XShape> xShape(pObj->getUnoShape(),uno::UNO_QUERY);
     pSection->notifyElementAdded(xShape);
 

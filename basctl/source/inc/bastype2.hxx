@@ -218,9 +218,6 @@ public:
     void            ScanAllEntries();
     void            UpdateEntries();
 
-    void            SetMode( BrowseMode nM ) { nMode = nM; }
-    BrowseMode      GetMode() const { return nMode; }
-
     SvTreeListEntry*    FindRootEntry( const ScriptDocument& rDocument, LibraryLocation eLocation );
     SvTreeListEntry*    FindEntry( SvTreeListEntry* pParent, const OUString& rText, EntryType eType );
 
@@ -300,15 +297,22 @@ public:
     static ItemType ConvertType (EntryType eType);
     bool            IsValidEntry(weld::TreeIter& rEntry);
     void AddEntry(const OUString& rText, const OUString& rImage,
-                  const weld::TreeIter* pIter, bool bChildrenOnDemand, std::unique_ptr<Entry>&& rUserData);
+                  const weld::TreeIter* pParent, bool bChildrenOnDemand,
+                  std::unique_ptr<Entry>&& rUserData,
+                  weld::TreeIter* pRet = nullptr);
 
     void connect_changed(const Link<weld::TreeView&, void>& rLink) { m_xControl->connect_changed(rLink); }
     std::unique_ptr<weld::TreeIter> make_iterator(const weld::TreeIter* pIter = nullptr) const { return m_xControl->make_iterator(pIter); }
     void copy_iterator(const weld::TreeIter& rSource, weld::TreeIter& rDest) const { m_xControl->copy_iterator(rSource, rDest); }
     bool get_selected(weld::TreeIter* pIter) const { return m_xControl->get_selected(pIter); }
     void select(const weld::TreeIter& rIter) { m_xControl->select(rIter); }
+    void unselect(const weld::TreeIter& rIter) { m_xControl->unselect(rIter); }
+    void remove(const weld::TreeIter& rIter) { m_xControl->remove(rIter); }
     bool get_cursor(weld::TreeIter* pIter) const { return m_xControl->get_cursor(pIter); }
     void set_cursor(const weld::TreeIter& rIter) { m_xControl->set_cursor(rIter); }
+    OUString get_text(const weld::TreeIter& rIter) const { return m_xControl->get_text(rIter); }
+    void set_text(const weld::TreeIter& rIter, const OUString& rText) { m_xControl->set_text(rIter, rText); }
+    OUString get_id(const weld::TreeIter& rIter) const { return m_xControl->get_id(rIter); }
     bool get_iter_first(weld::TreeIter& rIter) const { return m_xControl->get_iter_first(rIter); }
     bool iter_next_sibling(weld::TreeIter& rIter) const { return m_xControl->iter_next_sibling(rIter); }
     bool iter_children(weld::TreeIter& rIter) const { return m_xControl->iter_children(rIter); }
@@ -319,6 +323,15 @@ public:
     void set_size_request(int nWidth, int nHeight) { m_xControl->set_size_request(nWidth, nHeight); }
     float get_approximate_digit_width() const { return m_xControl->get_approximate_digit_width(); }
     int get_height_rows(int nRows) const { return m_xControl->get_height_rows(nRows); }
+    int get_iter_index_in_parent(const weld::TreeIter& rIter) const { return m_xControl->get_iter_index_in_parent(rIter); }
+    void connect_editing_started(const Link<const weld::TreeIter&, bool>& rLink)
+    {
+        m_xControl->connect_editing_started(rLink);
+    }
+    void connect_editing_done(const Link<const std::pair<const weld::TreeIter&, OUString>&, bool>& rLink)
+    {
+        m_xControl->connect_editing_done(rLink);
+    }
 
     void            RemoveEntry(const weld::TreeIter& rIter);
     void            RemoveEntry(const ScriptDocument&);

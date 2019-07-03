@@ -160,11 +160,8 @@ uno::Sequence< beans::PropertyValue > PropertyMap::GetPropertyValues( bool bChar
                 {
                     uno::Sequence< beans::PropertyValue > aSeq;
                     rPropPair.second.getValue() >>= aSeq;
-                    for ( sal_Int32 i = 0; i < aSeq.getLength(); ++i )
-                    {
-                        pCellGrabBagValues[nCellGrabBagValue] = aSeq[i];
-                        ++nCellGrabBagValue;
-                    }
+                    std::copy(aSeq.begin(), aSeq.end(), pCellGrabBagValues + nCellGrabBagValue);
+                    nCellGrabBagValue += aSeq.getLength();
                 }
                 else
                 {
@@ -189,7 +186,7 @@ uno::Sequence< beans::PropertyValue > PropertyMap::GetPropertyValues( bool bChar
     return comphelper::containerToSequence( m_aValues );
 }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
 static void lcl_AnyToTag( const uno::Any& rAny )
 {
     try {
@@ -229,7 +226,7 @@ static void lcl_AnyToTag( const uno::Any& rAny )
 
 void PropertyMap::Insert( PropertyIds eId, const uno::Any& rAny, bool bOverwrite, GrabBagType i_GrabBagType )
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     const OUString& rInsert = getPropertyName(eId);
 
     TagLogger::getInstance().startElement("propertyMap.insert");
@@ -268,7 +265,7 @@ bool PropertyMap::isSet( PropertyIds eId) const
     return m_vMap.find( eId ) != m_vMap.end();
 }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
 void PropertyMap::dumpXml() const
 {
     TagLogger::getInstance().startElement( "PropertyMap" );
@@ -335,14 +332,14 @@ void PropertyMap::InsertProps( const PropertyMapPtr& rMap, const bool bOverwrite
 
 void PropertyMap::insertTableProperties( const PropertyMap*, const bool )
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().element( "PropertyMap.insertTableProperties" );
 #endif
 }
 
 void PropertyMap::printProperties()
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement( "properties" );
 
     for ( const auto& rPropPair : m_vMap )
@@ -406,7 +403,7 @@ SectionPropertyMap::SectionPropertyMap( bool bIsFirstSection )
     , m_bEvenPageFooterLinkToPrevious( true )
     , m_bFirstPageFooterLinkToPrevious( true )
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     static sal_Int32 nNumber = 0;
     m_nDebugSectionNumber = nNumber++;
 #endif
@@ -452,12 +449,11 @@ static OUString lcl_FindUnusedPageStyleName( const uno::Sequence< OUString >& rP
     // find the highest number x in each style with the name "DEFAULT_STYLE+x" and
     // return an incremented name
 
-    const OUString* pStyleNames = rPageStyleNames.getConstArray();
-    for ( sal_Int32 nStyle = 0; nStyle < rPageStyleNames.getLength(); ++nStyle )
+    for ( const auto& rStyleName : rPageStyleNames )
     {
-        if ( pStyleNames[nStyle].startsWith( DEFAULT_STYLE ) )
+        if ( rStyleName.startsWith( DEFAULT_STYLE ) )
         {
-            sal_Int32 nIndex = pStyleNames[nStyle].copy( strlen( DEFAULT_STYLE ) ).toInt32();
+            sal_Int32 nIndex = rStyleName.copy( strlen( DEFAULT_STYLE ) ).toInt32();
             if ( nIndex > nMaxIndex )
                 nMaxIndex = nIndex;
         }
@@ -682,27 +678,12 @@ void SectionPropertyMap::DontBalanceTextColumns()
     }
 }
 
-void SectionPropertyMap::ApplySectionProperties( const uno::Reference< beans::XPropertySet >& xSection, DomainMapper_Impl& rDM_Impl )
+void SectionPropertyMap::ApplySectionProperties( const uno::Reference< beans::XPropertySet >& xSection, DomainMapper_Impl& /*rDM_Impl*/ )
 {
     try
     {
         if ( xSection.is() )
         {
-            // Margins only valid if page style is already determined.
-            // Take some care not to create an automatic page style (with GetPageStyle) if it isn't already created.
-            if ( !m_aFollowPageStyle.is() && !m_sFollowPageStyleName.isEmpty() )
-                GetPageStyle( rDM_Impl.GetPageStyles(), rDM_Impl.GetTextFactory(), false );
-            if ( m_aFollowPageStyle.is()  )
-            {
-                sal_Int32 nPageMargin = 0;
-                m_aFollowPageStyle->getPropertyValue( getPropertyName( PROP_LEFT_MARGIN ) ) >>= nPageMargin;
-                xSection->setPropertyValue( "SectionLeftMargin",  uno::makeAny(m_nLeftMargin - nPageMargin) );
-
-                nPageMargin = 0;
-                m_aFollowPageStyle->getPropertyValue( getPropertyName( PROP_RIGHT_MARGIN ) ) >>= nPageMargin;
-                xSection->setPropertyValue( "SectionRightMargin", uno::makeAny(m_nRightMargin - nPageMargin) );
-            }
-
             boost::optional< PropertyMap::Property > pProp = getProperty( PROP_WRITING_MODE );
             if ( pProp )
                 xSection->setPropertyValue( "WritingMode", pProp->second );
@@ -860,9 +841,9 @@ void SectionPropertyMap::CopyHeaderFooterTextProperty( const uno::Reference< bea
 
         xTxt->copyText( xPrevTxt );
     }
-    catch ( const uno::Exception& e )
+    catch ( const uno::Exception& )
     {
-        SAL_INFO( "writerfilter", "An exception occurred in SectionPropertyMap::CopyHeaderFooterTextProperty( ) - " << e );
+        TOOLS_INFO_EXCEPTION( "writerfilter", "An exception occurred in SectionPropertyMap::CopyHeaderFooterTextProperty( )" );
     }
 }
 
@@ -1236,6 +1217,7 @@ void SectionPropertyMap::InheritOrFinalizePageStyles( DomainMapper_Impl& rDM_Imp
     // otherwise apply this section's settings to the new style.
     // Ensure that FollowPage is inherited first - otherwise GetPageStyle may auto-create a follow when checking FirstPage.
     SectionPropertyMap* pLastContext = rDM_Impl.GetLastSectionContext();
+    //tdf124637 TODO: identify and skip special sections (like footnotes/endnotes)
     if ( pLastContext && m_sFollowPageStyleName.isEmpty() )
         m_sFollowPageStyleName = pLastContext->GetPageStyleName();
     else
@@ -1618,14 +1600,14 @@ void SectionPropertyMap::CloseSectionGroup( DomainMapper_Impl& rDM_Impl )
                 // Ignore write-only properties.
                 static const std::set<OUString> aBlacklist
                     = { "FooterBackGraphicURL", "BackGraphicURL", "HeaderBackGraphicURL" };
-                for ( int i = 0; i < propertyList.getLength(); ++i )
+                for ( const auto& rProperty : propertyList )
                 {
-                    if ( (propertyList[i].Attributes & beans::PropertyAttribute::READONLY) == 0 )
+                    if ( (rProperty.Attributes & beans::PropertyAttribute::READONLY) == 0 )
                     {
-                        if (aBlacklist.find(propertyList[i].Name) == aBlacklist.end())
+                        if (aBlacklist.find(rProperty.Name) == aBlacklist.end())
                             evenOddStyle->setPropertyValue(
-                                propertyList[i].Name,
-                                pageProperties->getPropertyValue(propertyList[i].Name));
+                                rProperty.Name,
+                                pageProperties->getPropertyValue(rProperty.Name));
                     }
                 }
                 evenOddStyle->setPropertyValue( "FollowStyle", uno::makeAny( *pageStyle ) );
@@ -1920,7 +1902,7 @@ void TablePropertyMap::setValue( TablePropertyMapTarget eWhich, sal_Int32 nSet )
 
 void TablePropertyMap::insertTableProperties( const PropertyMap* pMap, const bool bOverwrite )
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement( "TablePropertyMap.insertTableProperties" );
     pMap->dumpXml();
 #endif
@@ -1939,7 +1921,7 @@ void TablePropertyMap::insertTableProperties( const PropertyMap* pMap, const boo
         }
     }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     dumpXml();
     TagLogger::getInstance().endElement();
 #endif

@@ -330,7 +330,7 @@ void SelectionManager::initialize( const Sequence< Any >& arguments )
          *  needs to be added. The display used whould be that of the normal event loop
          *  and synchronization should be done via the SolarMutex.
          */
-        if( arguments.getLength() > 0 )
+        if( arguments.hasElements() )
             arguments.getConstArray()[0] >>= m_xDisplayConnection;
         if( ! m_xDisplayConnection.is() )
         {
@@ -344,8 +344,7 @@ void SelectionManager::initialize( const Sequence< Any >& arguments )
         OUString aUDisplay;
         if( m_xDisplayConnection.is() )
         {
-            Any aIdentifier;
-            aIdentifier = m_xDisplayConnection->getIdentifier();
+            Any aIdentifier = m_xDisplayConnection->getIdentifier();
             aIdentifier >>= aUDisplay;
         }
 
@@ -798,15 +797,13 @@ void SelectionManager::getNativeTypeList( const Sequence< DataFlavor >& rTypes, 
     rOutTypeList.clear();
 
     int nFormat;
-    int nFlavors = rTypes.getLength();
-    const DataFlavor* pFlavors = rTypes.getConstArray();
     bool bHaveText = false;
-    for( int i = 0; i < nFlavors; i++ )
+    for( const auto& rFlavor : rTypes )
     {
-        if( pFlavors[i].MimeType.startsWith("text/plain"))
+        if( rFlavor.MimeType.startsWith("text/plain"))
             bHaveText = true;
         else
-            convertTypeToNative( pFlavors[i].MimeType, targetselection, nFormat, rOutTypeList );
+            convertTypeToNative( rFlavor.MimeType, targetselection, nFormat, rOutTypeList );
     }
     if( bHaveText )
     {
@@ -1282,7 +1279,7 @@ bool SelectionManager::getPasteDataTypes( Atom selection, Sequence< DataFlavor >
         aAtoms = Sequence< sal_Int8 >();
 
     std::vector< Atom > aNativeTypes;
-    if( aAtoms.getLength() )
+    if( aAtoms.hasElements() )
     {
         sal_Int32 nAtoms = aAtoms.getLength() / sizeof(Atom);
         Atom* pAtoms = reinterpret_cast<Atom*>(aAtoms.getArray());
@@ -1888,8 +1885,7 @@ bool SelectionManager::handleSendPropertyNotify( XPropertyEvent const & rNotify 
     // feed incrementals
     if( rNotify.state == PropertyDelete )
     {
-        std::unordered_map< ::Window, std::unordered_map< Atom, IncrementalTransfer > >::iterator it;
-        it = m_aIncrementals.find( rNotify.window );
+        auto it = m_aIncrementals.find( rNotify.window );
         if( it != m_aIncrementals.end() )
         {
             bHandled = true;
@@ -3962,7 +3958,7 @@ void SelectionManagerHolder::initialize( const Sequence< Any >& arguments )
 {
     OUString aDisplayName;
 
-    if( arguments.getLength() > 0 )
+    if( arguments.hasElements() )
     {
         css::uno::Reference< XDisplayConnection > xConn;
         arguments.getConstArray()[0] >>= xConn;

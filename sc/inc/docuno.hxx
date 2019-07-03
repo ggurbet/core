@@ -260,7 +260,6 @@ public:
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
 
     static const css::uno::Sequence<sal_Int8>& getUnoTunnelId();
-    static ScModelObj* getImplementation(const css::uno::Reference<css::uno::XInterface>& rObj);
 
                             /// XTypeProvider
     virtual css::uno::Sequence< css::uno::Type > SAL_CALL getTypes() override;
@@ -343,8 +342,8 @@ public:
     /// @see vcl::ITiledRenderable::setTextSelection().
     virtual void setTextSelection(int nType, int nX, int nY) override;
 
-    /// @see vcl::ITiledRenderable::getTextSelection().
-    virtual OString getTextSelection(const char* pMimeType, OString& rUsedMimeType) override;
+    /// @see vcl::ITiledRenderable::getSelection().
+    virtual css::uno::Reference<css::datatransfer::XTransferable> getSelection() override;
 
     /// @see vcl::ITiledRenderable::setGraphicSelection().
     virtual void setGraphicSelection(int nType, int nX, int nY) override;

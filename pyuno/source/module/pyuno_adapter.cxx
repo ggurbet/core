@@ -20,11 +20,11 @@
 
 #include <o3tl/any.hxx>
 
-#include <rtl/ustrbuf.hxx>
-#include <rtl/strbuf.hxx>
-
 #include <com/sun/star/beans/MethodConcept.hpp>
 #include <com/sun/star/beans/UnknownPropertyException.hpp>
+#include <com/sun/star/script/CannotConvertException.hpp>
+#include <com/sun/star/script/XInvocationAdapterFactory2.hpp>
+#include <com/sun/star/beans/XIntrospection.hpp>
 
 #include <cppuhelper/exc_hlp.hxx>
 #include <cppuhelper/typeprovider.hxx>
@@ -266,7 +266,7 @@ Any Adapter::invoke( const OUString &aFunctionName,
                 // I can only decide for one solution by checking the method signature,
                 // so I need the reflection of the adapter !
                 aOutParamIndex = getOutIndexes( aFunctionName );
-                if( aOutParamIndex.getLength() )
+                if( aOutParamIndex.hasElements() )
                 {
                     // out parameters exist, extract the sequence
                     Sequence< Any  > seq;

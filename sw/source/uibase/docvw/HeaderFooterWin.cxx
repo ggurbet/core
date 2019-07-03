@@ -43,9 +43,12 @@
 #include <editeng/boxitem.hxx>
 #include <editeng/brushitem.hxx>
 #include <svx/hdft.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <drawinglayer/processor2d/processorfromoutputdevice.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/metric.hxx>
@@ -118,7 +121,7 @@ namespace
 
         if ( !bOnTop )
         {
-            B2DRectangle aBRect( rRect.Left(), rRect.Top(), rRect.Right(), rRect.Bottom() );
+            B2DRectangle aBRect = vcl::unotools::b2DRectangleFromRectangle(rRect);
             B2DHomMatrix aRotation = createRotateAroundPoint(
                    aBRect.getCenterX(), aBRect.getCenterY(), M_PI );
             aPolygon.transform( aRotation );
@@ -150,7 +153,7 @@ void SwFrameButtonPainter::PaintButton(drawinglayer::primitive2d::Primitive2DCon
     }
     else
     {
-        B2DRectangle aGradientRect(rRect.Left(), rRect.Top(), rRect.Right(), rRect.Bottom());
+        B2DRectangle aGradientRect = vcl::unotools::b2DRectangleFromRectangle(rRect);
         double nAngle = M_PI;
         if (bOnTop)
             nAngle = 0;

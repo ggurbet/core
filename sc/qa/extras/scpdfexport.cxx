@@ -15,6 +15,7 @@
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
 #include <com/sun/star/table/XCellRange.hpp>
 #include <com/sun/star/util/URL.hpp>
+#include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <test/bootstrapfixture.hxx>
 #include <unotools/tempfile.hxx>
 #include <unotest/macros_test.hxx>
@@ -83,8 +84,7 @@ void ScPDFExportTest::setUp()
         xTargetFrame = xDesktop->findFrame("_blank", 0);
         CPPUNIT_ASSERT(xTargetFrame.is());
 
-        uno::Reference<frame::XModel> xModel
-            = uno::Reference<frame::XModel>(mxComponent, uno::UNO_QUERY);
+        uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
         uno::Reference<frame::XModel2> xModel2(xModel, UNO_QUERY);
         CPPUNIT_ASSERT(xModel2.is());
 
@@ -155,7 +155,7 @@ std::shared_ptr<utl::TempFile> ScPDFExportTest::exportToPdf(uno::Reference<frame
 
     // get XSpreadsheet
     uno::Reference<sheet::XSpreadsheetDocument> xDoc(xModel, uno::UNO_QUERY_THROW);
-    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_SET_THROW);
     uno::Reference<container::XIndexAccess> xIndex(xSheets, uno::UNO_QUERY_THROW);
     uno::Reference<sheet::XSpreadsheet> rSheet(xIndex->getByIndex(0), UNO_QUERY_THROW);
 
@@ -194,7 +194,7 @@ std::shared_ptr<utl::TempFile> ScPDFExportTest::exportToPdf(uno::Reference<frame
     seqArguments[2].Value <<= sFileURL;
 
     // call storeToURL()
-    uno::Reference<lang::XComponent> xComponent(mxComponent, UNO_QUERY_THROW);
+    uno::Reference<lang::XComponent> xComponent(mxComponent, UNO_SET_THROW);
     uno::Reference<css::frame::XStorable> xStorable(xComponent, UNO_QUERY);
     xStorable->storeToURL(sFileURL, seqArguments);
 
@@ -221,10 +221,9 @@ void ScPDFExportTest::setFont(ScFieldEditEngine& rEE, sal_Int32 nStart, sal_Int3
 void ScPDFExportTest::testExportRange_Tdf120161()
 {
     // create test document
-    uno::Reference<frame::XModel> xModel
-        = uno::Reference<frame::XModel>(mxComponent, uno::UNO_QUERY);
+    uno::Reference<frame::XModel> xModel(mxComponent, uno::UNO_QUERY);
     uno::Reference<sheet::XSpreadsheetDocument> xDoc(xModel, uno::UNO_QUERY_THROW);
-    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_SET_THROW);
     uno::Reference<container::XIndexAccess> xIndex(xSheets, uno::UNO_QUERY_THROW);
     xSheets->insertNewByName("First Sheet", 0);
     uno::Reference<sheet::XSpreadsheet> rSheet(xIndex->getByIndex(0), UNO_QUERY_THROW);

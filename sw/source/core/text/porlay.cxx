@@ -52,6 +52,8 @@
 #include <section.hxx>
 #include <calbck.hxx>
 #include <doc.hxx>
+#include <swscanner.hxx>
+#include <txatbase.hxx>
 #include <IDocumentRedlineAccess.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <IDocumentContentOperations.hxx>
@@ -946,7 +948,7 @@ void SwScriptInfo::InitScriptInfo(const SwTextNode& rNode,
         // all of the characters in this group are weak. We have to assign
         // the scripts to these characters depending on the fonts which are
         // set for these characters to display them.
-        TextFrameIndex nEnd = TextFrameIndex(
+        TextFrameIndex nEnd(
             g_pBreakIt->GetBreakIter()->endOfScript(rText, sal_Int32(nChg), WEAK));
 
         if (nEnd > TextFrameIndex(rText.getLength()) || nEnd < TextFrameIndex(0))
@@ -2304,7 +2306,7 @@ void SwScriptInfo::selectRedLineDeleted(const SwTextNode& rNode, MultiSelection 
     const IDocumentRedlineAccess& rIDRA = rNode.getIDocumentRedlineAccess();
     if ( IDocumentRedlineAccess::IsShowChanges( rIDRA.GetRedlineFlags() ) )
     {
-        SwRedlineTable::size_type nAct = rIDRA.GetRedlinePos( rNode, USHRT_MAX );
+        SwRedlineTable::size_type nAct = rIDRA.GetRedlinePos( rNode, RedlineType::Any );
 
         for ( ; nAct < rIDRA.GetRedlineTable().size(); nAct++ )
         {
@@ -2313,7 +2315,7 @@ void SwScriptInfo::selectRedLineDeleted(const SwTextNode& rNode, MultiSelection 
             if (pRed->Start()->nNode > rNode.GetIndex())
                 break;
 
-            if (pRed->GetType() != nsRedlineType_t::REDLINE_DELETE)
+            if (pRed->GetType() != RedlineType::Delete)
                 continue;
 
             sal_Int32 nRedlStart;

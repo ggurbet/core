@@ -52,7 +52,6 @@ using osl::MutexGuard;
 
 
 using com::sun::star::uno::Any;
-using com::sun::star::uno::RuntimeException;
 using com::sun::star::uno::Exception;
 using com::sun::star::uno::Reference;
 using com::sun::star::uno::UNO_QUERY;
@@ -203,8 +202,7 @@ void ResultSetMetaData::checkTable()
             if( ! tables.is() )
             {
 
-                Reference< XTablesSupplier > supplier =
-                    Reference< XTablesSupplier > (
+                Reference< XTablesSupplier > supplier(
                         extractConnectionFromStatement( m_origin->getStatement() ), UNO_QUERY);
                 if( supplier.is() )
                     tables = supplier->getTables();

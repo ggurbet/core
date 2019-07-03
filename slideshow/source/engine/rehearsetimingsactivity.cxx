@@ -30,6 +30,7 @@
 #include <basegfx/range/b2drange.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
+#include <tools/diagnose_ex.h>
 
 #include <cppuhelper/exc_hlp.hxx>
 
@@ -180,9 +181,9 @@ RehearseTimingsActivity::~RehearseTimingsActivity()
     {
         stop();
     }
-    catch (const uno::Exception& e)
+    catch (const uno::Exception&)
     {
-        SAL_WARN("slideshow", e);
+        TOOLS_WARN_EXCEPTION("slideshow", "");
     }
 }
 
@@ -440,9 +441,9 @@ void RehearseTimingsActivity::paint( cppcanvas::CanvasSharedPtr const & canvas )
     blackHole->EnableOutput(false);
     blackHole->SetMapMode(MapMode(MapUnit::MapPixel));
     blackHole->SetFont( maFont );
-    tools::Rectangle rect = tools::Rectangle( 0,0,
-                                maSpriteSizePixel.getX(),
-                                maSpriteSizePixel.getY());
+    tools::Rectangle rect( 0,0,
+                           maSpriteSizePixel.getX(),
+                           maSpriteSizePixel.getY());
     if (mbDrawPressed)
     {
         blackHole->SetTextColor( COL_BLACK );

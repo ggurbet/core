@@ -217,10 +217,10 @@ static int handleFile( const char* pInFile, const char* pOutFile, const char* pP
 
     PDFReader aParser;
     int nRet = 0;
-    PDFEntry* pEntry = pdfparse::PDFReader::read( pInFile );
+    std::unique_ptr<PDFEntry> pEntry = pdfparse::PDFReader::read( pInFile );
     if( pEntry )
     {
-        PDFFile* pPDFFile = dynamic_cast<PDFFile*>(pEntry);
+        PDFFile* pPDFFile = dynamic_cast<PDFFile*>(pEntry.get());
         if( pPDFFile )
         {
             fprintf( stdout, "have a %s PDF file\n", pPDFFile->isEncrypted() ? "encrypted" : "unencrypted" );
@@ -231,7 +231,6 @@ static int handleFile( const char* pInFile, const char* pOutFile, const char* pP
         }
         else
             nRet = 20;
-        delete pEntry;
     }
     return nRet;
 }
@@ -296,8 +295,7 @@ static int write_addStreams( const char* pInFile, const char* pOutFile, PDFFile*
         if( pTrailer && pTrailer->m_pDict )
         {
             // search for AdditionalStreams entry
-            std::unordered_map<OString,PDFEntry*>::iterator add_stream;
-            add_stream = pTrailer->m_pDict->m_aMap.find( "AdditionalStreams" );
+            auto add_stream = pTrailer->m_pDict->m_aMap.find( "AdditionalStreams" );
             if( add_stream != pTrailer->m_pDict->m_aMap.end() )
             {
                 PDFArray* pStreams = dynamic_cast<PDFArray*>(add_stream->second);

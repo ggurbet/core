@@ -30,9 +30,7 @@
 #include <unotools/compatibilityviewoptions.hxx>
 #include <unotools/defaultoptions.hxx>
 #include <unotools/dynamicmenuoptions.hxx>
-#include <unotools/eventcfg.hxx>
 #include <unotools/extendedsecurityoptions.hxx>
-#include <unotools/fltrcfg.hxx>
 #include <unotools/fontoptions.hxx>
 #include <unotools/historyoptions.hxx>
 #include <unotools/lingucfg.hxx>
@@ -40,7 +38,6 @@
 #include <unotools/pathoptions.hxx>
 #include <unotools/printwarningoptions.hxx>
 #include <unotools/optionsdlg.hxx>
-#include <unotools/searchopt.hxx>
 #include <unotools/securityoptions.hxx>
 #include <unotools/viewoptions.hxx>
 #include <unotools/options.hxx>
@@ -95,7 +92,7 @@ void SAL_CALL ItemHolder1::disposing(const css::lang::EventObject&)
 
 void ItemHolder1::impl_addItem(EItem eItem)
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     for ( auto const & rInfo : m_lItems )
     {

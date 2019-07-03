@@ -18,19 +18,18 @@
  */
 
 #include <fuoaprms.hxx>
+#include <sdattr.hrc>
 
-#include <sdattr.hxx>
-#include <svx/svdpagv.hxx>
 #include <editeng/colritem.hxx>
 #include <svx/svdundo.hxx>
-#include <vcl/fixed.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/sfxdlg.hxx>
 #include <svl/aeitem.hxx>
-#include <svx/xtable.hxx>
+#include <svl/stritem.hxx>
 #include <svx/svdopath.hxx>
+#include <tools/debug.hxx>
 
 #include <strings.hrc>
 #include <drawdoc.hxx>
@@ -40,7 +39,6 @@
 #include <unoaprms.hxx>
 #include <sdundogr.hxx>
 #include <View.hxx>
-#include <Window.hxx>
 #include <sdabstdlg.hxx>
 #include <sdresid.hxx>
 #include <tools/helpers.hxx>

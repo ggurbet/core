@@ -33,13 +33,13 @@ class SwRowFrame: public SwLayoutFrame
     virtual SwTwips GrowFrame  ( SwTwips, bool bTst = false, bool bInfo = false ) override;
 
     const SwTableLine * m_pTabLine;
-    SwRowFrame * m_pFollowRow;
+    SwRowFrame * m_pFollowRow; ///< note: this is *only* set on old-style tables!
     // #i29550#
     sal_uInt16 mnTopMarginForLowers;
     sal_uInt16 mnBottomMarginForLowers;
     sal_uInt16 mnBottomLineSize;
     // <-- collapsing
-    bool m_bIsFollowFlowRow;
+    bool m_bIsFollowFlowRow; ///< note: this is *only* set on old-style tables!
     bool m_bIsRepeatedHeadline;
     bool m_bIsRowSpanLine;
 

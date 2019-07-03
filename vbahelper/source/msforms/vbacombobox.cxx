@@ -21,6 +21,7 @@
 #include <filter/msfilter/msvbahelper.hxx>
 #include <basic/sbstar.hxx>
 #include <basic/sbmod.hxx>
+#include <comphelper/sequence.hxx>
 #include "vbanewfont.hxx"
 #include <ooo/vba/msforms/fmStyle.hpp>
 #include <ooo/vba/msforms/fmDropButtonStyle.hpp>
@@ -93,20 +94,19 @@ ScVbaComboBox::getListIndex()
     m_xProps->getPropertyValue( "StringItemList" ) >>= sItems;
     // should really return the item that has focus regardless of
     // it been selected
-    if ( sItems.getLength() > 0 )
+    if ( sItems.hasElements() )
     {
         OUString sText = getText();
-        sal_Int32 nLen = sItems.getLength();
-        for ( sal_Int32 index = 0; !sText.isEmpty() && index < nLen; ++index )
+        if (!sText.isEmpty())
         {
-            if ( sItems[ index ] == sText )
+            sal_Int32 index = comphelper::findValue(sItems, sText);
+            if (index != -1)
             {
                 SAL_INFO("vbahelper", "getListIndex returning " << index );
                 return uno::makeAny( index );
             }
-
         }
-     }
+    }
     SAL_INFO("vbahelper", "getListIndex returning -1" );
     return uno::makeAny( sal_Int32( -1 ) );
 }

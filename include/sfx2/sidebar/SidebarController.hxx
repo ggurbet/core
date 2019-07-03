@@ -24,23 +24,24 @@
 
 #include <sfx2/sidebar/AsynchronousCall.hxx>
 #include <sfx2/sidebar/Context.hxx>
+#include <sfx2/sidebar/Deck.hxx>
 #include <sfx2/sidebar/FocusManager.hxx>
-#include <sfx2/sidebar/Panel.hxx>
 #include <sfx2/sidebar/ResourceManager.hxx>
 #include <sfx2/sidebar/TabBar.hxx>
 
-#include <vcl/menu.hxx>
-
-#include <com/sun/star/awt/XWindowPeer.hpp>
 #include <com/sun/star/beans/XPropertyChangeListener.hpp>
-#include <com/sun/star/frame/XDispatch.hpp>
+#include <com/sun/star/frame/XStatusListener.hpp>
+#include <com/sun/star/frame/XFrameActionListener.hpp>
 #include <com/sun/star/ui/XContextChangeEventListener.hpp>
-#include <com/sun/star/ui/XUIElement.hpp>
 #include <com/sun/star/ui/XSidebar.hpp>
 
 #include <boost/optional.hpp>
 #include <cppuhelper/compbase.hxx>
 #include <cppuhelper/basemutex.hxx>
+
+namespace com::sun::star::awt { class XWindowPeer; }
+namespace com::sun::star::frame { class XDispatch; }
+namespace com::sun::star::ui { class XUIElement; }
 
 typedef cppu::WeakComponentImplHelper <
     css::ui::XContextChangeEventListener,
@@ -51,16 +52,11 @@ typedef cppu::WeakComponentImplHelper <
     > SidebarControllerInterfaceBase;
 
 class SfxSplitWindow;
-class FixedBitmap;
 
 namespace sfx2 { namespace sidebar {
 
-class ContentPanelDescriptor;
-class Deck;
 class DeckDescriptor;
 class SidebarDockingWindow;
-class TabBar;
-class TabBarConfiguration;
 
 class SFX2_DLLPUBLIC SidebarController
     : private ::cppu::BaseMutex,
@@ -118,8 +114,6 @@ public:
     const static sal_Int32 SwitchFlag_ForceNewDeck = 0x02;
     const static sal_Int32 SwitchFlag_ForceNewPanels = 0x02;
 
-    const static sal_Int32 gnMaximumSidebarWidth = 400;
-
     void OpenThenSwitchToDeck(const OUString& rsDeckId);
     void OpenThenToggleDeck(const OUString& rsDeckId);
 
@@ -168,7 +162,10 @@ public:
 
     tools::Rectangle GetDeckDragArea() const;
 
-    css::uno::Reference<css::frame::XFrame> getXFrame() {return mxFrame;}
+    css::uno::Reference<css::frame::XFrame> const & getXFrame() const {return mxFrame;}
+
+    sal_Int32 getMaximumWidth() { return mnMaximumSidebarWidth; }
+    void setMaximumWidth(sal_Int32 nMaximumWidth) { mnMaximumSidebarWidth = nMaximumWidth; }
 
 private:
     SidebarController(
@@ -184,6 +181,7 @@ private:
     css::uno::Reference<css::frame::XController> mxCurrentController;
     /// Use a combination of SwitchFlag_* as value.
     sal_Int32 mnRequestedForceFlags;
+    sal_Int32 mnMaximumSidebarWidth;
     OUString msCurrentDeckId;
     AsynchronousCall maPropertyChangeForwarder;
     AsynchronousCall maContextChangeUpdate;

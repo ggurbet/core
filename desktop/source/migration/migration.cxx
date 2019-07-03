@@ -36,6 +36,7 @@
 #include <rtl/bootstrap.hxx>
 #include <rtl/uri.hxx>
 #include <i18nlangtag/lang.h>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include <osl/file.hxx>
 #include <osl/security.hxx>
@@ -205,8 +206,8 @@ void Migration::migrateSettingsIfNecessary()
     bool bResult = false;
     try {
         bResult = aImpl.doMigration();
-    } catch (const Exception& e) {
-        SAL_WARN( "desktop", "doMigration(): " << e);
+    } catch (const Exception&) {
+        TOOLS_WARN_EXCEPTION( "desktop", "doMigration()");
     }
     OSL_ENSURE(bResult, "Migration has not been successful");
 }
@@ -290,11 +291,10 @@ bool MigrationImpl::doMigration()
             uno::UNO_QUERY_THROW)->refresh();
 
         result = true;
-    } catch (css::uno::Exception & e) {
-        SAL_WARN(
+    } catch (const css::uno::Exception &) {
+        TOOLS_WARN_EXCEPTION(
             "desktop.migration",
-            "ignored Exception \"" << e
-            << "\" while migrating from version \"" << m_aInfo.productname
+            "ignored Exception while migrating from version \"" << m_aInfo.productname
             << "\" data \"" << m_aInfo.userdata << "\"");
     }
 
@@ -348,7 +348,7 @@ static void insertSorted(migrations_available& rAvailableMigrations, supported_m
 void MigrationImpl::readAvailableMigrations(migrations_available& rAvailableMigrations)
 {
     // get supported version names
-    uno::Reference< XNameAccess > aMigrationAccess(getConfigAccess("org.openoffice.Setup/Migration/SupportedVersions"), uno::UNO_QUERY_THROW);
+    uno::Reference< XNameAccess > aMigrationAccess(getConfigAccess("org.openoffice.Setup/Migration/SupportedVersions"), uno::UNO_SET_THROW);
     uno::Sequence< OUString > seqSupportedVersions = aMigrationAccess->getElementNames();
 
     const OUString aVersionIdentifiers( "VersionIdentifiers" );
@@ -374,7 +374,7 @@ void MigrationImpl::readAvailableMigrations(migrations_available& rAvailableMigr
 migrations_vr MigrationImpl::readMigrationSteps(const OUString& rMigrationName)
 {
     // get migration access
-    uno::Reference< XNameAccess > aMigrationAccess(getConfigAccess("org.openoffice.Setup/Migration/SupportedVersions"), uno::UNO_QUERY_THROW);
+    uno::Reference< XNameAccess > aMigrationAccess(getConfigAccess("org.openoffice.Setup/Migration/SupportedVersions"), uno::UNO_SET_THROW);
     uno::Reference< XNameAccess > xMigrationData( aMigrationAccess->getByName(rMigrationName), uno::UNO_QUERY_THROW );
 
     // get migration description from org.openoffice.Setup/Migration
@@ -757,9 +757,8 @@ uno::Reference< XNameAccess > MigrationImpl::getConfigAccess(const sal_Char* pPa
         xNameAccess.set(
             theConfigProvider->createInstanceWithArguments(
                 sAccessSrvc, theArgs ), uno::UNO_QUERY_THROW );
-    } catch (const css::uno::Exception& e) {
-        SAL_WARN(
-            "desktop.migration", "ignoring Exception \"" << e << "\"");
+    } catch (const css::uno::Exception&) {
+        TOOLS_WARN_EXCEPTION("desktop.migration", "ignoring");
     }
     return xNameAccess;
 }
@@ -823,7 +822,7 @@ void MigrationImpl::runServices()
                 sal_uInt32 nSize = rMigration.excludeExtensions.size();
                 if ( nSize > 0 )
                     seqExtBlackList = comphelper::arrayToSequence< OUString >(
-                                          &rMigration.excludeExtensions[0], nSize );
+                                          rMigration.excludeExtensions.data(), nSize );
                 seqArguments[2] <<= NamedValue("ExtensionBlackList",
                                                uno::makeAny( seqExtBlackList ));
 
@@ -834,10 +833,9 @@ void MigrationImpl::runServices()
                 xMigrationJob->execute(uno::Sequence< NamedValue >());
 
 
-            } catch (const Exception& e) {
-                SAL_WARN( "desktop", "Execution of migration service failed (Exception caught).\nService: "
-                            << rMigration.service
-                            << "\nMessage: " << e);
+            } catch (const Exception&) {
+                TOOLS_WARN_EXCEPTION( "desktop", "Execution of migration service failed. Service: "
+                            << rMigration.service);
             } catch (...) {
                 SAL_WARN( "desktop", "Execution of migration service failed (Exception caught).\nService: "
                             << rMigration.service << "\nNo message available");
@@ -876,7 +874,7 @@ std::vector< MigrationModuleInfo > MigrationImpl::dectectUIChangesForAllModules(
             uno::Reference< embed::XStorage > xMenubar = xModule->openStorageElement(MENUBAR, embed::ElementModes::READ);
             if (xMenubar.is()) {
                 uno::Reference< container::XNameAccess > xNameAccess(xMenubar, uno::UNO_QUERY);
-                if (xNameAccess->getElementNames().getLength() > 0) {
+                if (xNameAccess->getElementNames().hasElements()) {
                     aModuleInfo.sModuleShortName = sModuleShortName;
                     aModuleInfo.bHasMenubar = true;
                 }

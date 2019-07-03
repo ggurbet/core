@@ -19,7 +19,6 @@
 
 #include <svl/listener.hxx>
 #include <svl/broadcast.hxx>
-#include <cassert>
 
 SvtListener::QueryBase::QueryBase( sal_uInt16 nId ) : mnId(nId) {}
 SvtListener::QueryBase::~QueryBase() {}
@@ -43,7 +42,7 @@ SvtListener::~SvtListener() COVERITY_NOEXCEPT_FALSE
 
 bool SvtListener::StartListening( SvtBroadcaster& rBroadcaster )
 {
-    std::pair<BroadcastersType::iterator, bool> r =
+    std::pair<BroadcastersType::const_iterator, bool> r =
         maBroadcasters.insert(&rBroadcaster);
     if (r.second)
     {
@@ -55,7 +54,7 @@ bool SvtListener::StartListening( SvtBroadcaster& rBroadcaster )
 
 bool SvtListener::EndListening( SvtBroadcaster& rBroadcaster )
 {
-    BroadcastersType::iterator it = maBroadcasters.find(&rBroadcaster);
+    BroadcastersType::const_iterator it = maBroadcasters.find(&rBroadcaster);
     if (it == maBroadcasters.end())
         // Not listening to this broadcaster.
         return false;
@@ -69,7 +68,7 @@ bool SvtListener::EndListening( SvtBroadcaster& rBroadcaster )
 // back into the broadcaster again
 void SvtListener::BroadcasterDying( SvtBroadcaster& rBroadcaster )
 {
-    BroadcastersType::iterator it = maBroadcasters.find(&rBroadcaster);
+    BroadcastersType::const_iterator it = maBroadcasters.find(&rBroadcaster);
     if (it != maBroadcasters.end())
         maBroadcasters.erase(it);
 }

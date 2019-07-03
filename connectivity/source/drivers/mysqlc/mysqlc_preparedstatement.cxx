@@ -219,8 +219,7 @@ Reference<XResultSet> SAL_CALL OPreparedStatement::executeQuery()
                                                      *this, m_xConnection->getConnectionEncoding());
     }
 
-    Reference<XResultSet> xResultSet;
-    xResultSet = new OPreparedResultSet(*m_xConnection, this, m_pStmt);
+    Reference<XResultSet> xResultSet = new OPreparedResultSet(*m_xConnection, this, m_pStmt);
     return xResultSet;
 }
 
@@ -547,11 +546,7 @@ void SAL_CALL OPreparedStatement::addBatch()
     mysqlc_sdbc_driver::throwFeatureNotImplementedException("OPreparedStatement::addBatch", *this);
 }
 
-Sequence<sal_Int32> SAL_CALL OPreparedStatement::executeBatch()
-{
-    Sequence<sal_Int32> aRet = Sequence<sal_Int32>();
-    return aRet;
-}
+Sequence<sal_Int32> SAL_CALL OPreparedStatement::executeBatch() { return Sequence<sal_Int32>(); }
 
 void OPreparedStatement::setFastPropertyValue_NoBroadcast(sal_Int32 nHandle, const Any& rValue)
 {

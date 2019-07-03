@@ -96,11 +96,13 @@
 #include <svx/numinf.hxx>
 #include <svx/svxdlg.hxx>
 #include <svx/svxids.hrc>
+#include <vcl/graph.hxx>
 #include <vcl/unohelp.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/stdtext.hxx>
 #include <vcl/wrkwin.hxx>
 #include <sal/macros.h>
+#include <sal/log.hxx>
 
 #include <limits>
 #include <memory>
@@ -224,7 +226,7 @@ namespace pcr
                 {
                     xStringResourceResolver.set( _xComponent->getPropertyValue( "ResourceResolver" ),UNO_QUERY);
                     if( xStringResourceResolver.is() &&
-                        xStringResourceResolver->getLocales().getLength() > 0 )
+                        xStringResourceResolver->getLocales().hasElements() )
                     {
                         xRet = xStringResourceResolver;
                     }
@@ -325,7 +327,9 @@ namespace pcr
         {
             // special handling, the value is a faked value we generated ourself in impl_executeFontDialog_nothrow
             Sequence< NamedValue > aFontPropertyValues;
-            OSL_VERIFY( _rValue >>= aFontPropertyValues );
+            if( ! (_rValue >>= aFontPropertyValues) )
+                SAL_WARN("extensions.propctrlr", "setPropertyValue: unable to get property " << PROPERTY_ID_FONT);
+
             for ( const NamedValue& fontPropertyValue : aFontPropertyValues )
                 m_xComponent->setPropertyValue( fontPropertyValue.Name, fontPropertyValue.Value );
         }
@@ -496,7 +500,8 @@ namespace pcr
         case PROPERTY_ID_DATASOURCE:
         {
             OUString sControlValue;
-            OSL_VERIFY( _rControlValue >>= sControlValue );
+            if( ! (_rControlValue >>= sControlValue) )
+                SAL_WARN("extensions.propctrlr", "convertToPropertyValue: unable to get property " << PROPERTY_ID_DATASOURCE);
 
             if ( !sControlValue.isEmpty() )
             {
@@ -516,7 +521,8 @@ namespace pcr
         case PROPERTY_ID_SHOW_FILTERSORT:
         {
             OUString sControlValue;
-            OSL_VERIFY( _rControlValue >>= sControlValue );
+            if( ! (_rControlValue >>= sControlValue) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property for Show/Hide");
 
             assert(SAL_N_ELEMENTS(RID_RSC_ENUM_SHOWHIDE) == 2 && "FormComponentPropertyHandler::convertToPropertyValue: broken resource for Show/Hide!");
             bool bShow = sControlValue == PcrRes(RID_RSC_ENUM_SHOWHIDE[1]);
@@ -529,7 +535,8 @@ namespace pcr
         case PROPERTY_ID_IMAGE_URL:
         {
             OUString sControlValue;
-            OSL_VERIFY( _rControlValue >>= sControlValue );
+            if( ! (_rControlValue >>= sControlValue) )
+                SAL_WARN("extensions.propctrlr", "convertToPropertyValue: unable to get property for URLs");
             // Don't convert a placeholder
             if ( nPropId == PROPERTY_ID_IMAGE_URL && sControlValue == PcrRes(RID_EMBED_IMAGE_PLACEHOLDER) )
                 aPropertyValue <<= sControlValue;
@@ -547,7 +554,8 @@ namespace pcr
         case PROPERTY_ID_DATE:
         {
             util::Date aDate;
-            OSL_VERIFY( _rControlValue >>= aDate );
+            if( ! (_rControlValue >>= aDate) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property for date");
             aPropertyValue <<= aDate;
         }
         break;
@@ -558,7 +566,8 @@ namespace pcr
         case PROPERTY_ID_TIME:
         {
             util::Time aTime;
-            OSL_VERIFY( _rControlValue >>= aTime );
+            if( ! (_rControlValue >>= aTime) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property for time");
             aPropertyValue <<= aTime;
         }
         break;
@@ -568,7 +577,9 @@ namespace pcr
             aPropertyValue = FormComponentPropertyHandler_Base::convertToPropertyValue( _rPropertyName, _rControlValue );
 
             sal_Int16 nNormalizedValue( 2 );
-            OSL_VERIFY( aPropertyValue >>= nNormalizedValue );
+            if( ! (aPropertyValue >>= nNormalizedValue) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property for " << PROPERTY_ID_WRITING_MODE);
+
             sal_Int16 nWritingMode = WritingMode2::CONTEXT;
             switch ( nNormalizedValue )
             {
@@ -661,7 +672,8 @@ namespace pcr
                 OUStringBuffer aValue;
                 aValue.append( '<' );
                 OUString sLabel;
-                OSL_VERIFY( xSet->getPropertyValue( PROPERTY_LABEL ) >>= sLabel );
+                if( ! (xSet->getPropertyValue( PROPERTY_LABEL) >>= sLabel) )
+                    SAL_WARN("extensions.propctrlr", "convertToPropertyValue: unable to get property " PROPERTY_LABEL);
                 aValue.append( sLabel );
                 aValue.append( '>' );
                 sControlValue = aValue.makeStringAndClear();
@@ -678,7 +690,8 @@ namespace pcr
         case PROPERTY_ID_DATE:
         {
             sal_Int32 nDate = 0;
-            OSL_VERIFY( _rPropertyValue >>= nDate );
+            if( ! (_rPropertyValue >>= nDate) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property for dates");
             aControlValue <<= DBTypeConversion::toDate( nDate );
         }
         break;
@@ -689,7 +702,8 @@ namespace pcr
         case PROPERTY_ID_TIME:
         {
             sal_Int64 nTime = 0;
-            OSL_VERIFY( _rPropertyValue >>= nTime );
+            if( ! (_rPropertyValue >>= nTime) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property for times");
             aControlValue <<= DBTypeConversion::toTime( nTime );
         }
         break;
@@ -697,7 +711,9 @@ namespace pcr
         case PROPERTY_ID_WRITING_MODE:
         {
             sal_Int16 nWritingMode( WritingMode2::CONTEXT );
-            OSL_VERIFY( _rPropertyValue >>= nWritingMode );
+            if( ! (_rPropertyValue >>= nWritingMode) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property " << PROPERTY_ID_WRITING_MODE);
+
             sal_Int16 nNormalized = 2;
             switch ( nWritingMode )
             {
@@ -717,7 +733,8 @@ namespace pcr
         case PROPERTY_ID_FONT:
         {
             FontDescriptor aFont;
-            OSL_VERIFY( _rPropertyValue >>= aFont );
+            if( ! (_rPropertyValue >>= aFont) )
+                SAL_WARN("extensions.propctrlr", "convertToControlValue: unable to get property " << PROPERTY_ID_FONT);
 
             OUStringBuffer displayName;
             if ( aFont.Name.isEmpty() )
@@ -1571,7 +1588,8 @@ namespace pcr
         case PROPERTY_ID_SUBMIT_ENCODING:
         {
             FormSubmitEncoding eEncoding = FormSubmitEncoding_URL;
-            OSL_VERIFY( _rNewValue >>= eEncoding );
+            if( ! (_rNewValue >>= eEncoding) )
+                SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_SUBMIT_ENCODING);
             _rxInspectorUI->enablePropertyUI( PROPERTY_SUBMIT_METHOD, eEncoding == FormSubmitEncoding_URL );
         }
         break;
@@ -1580,7 +1598,8 @@ namespace pcr
         case PROPERTY_ID_REPEAT:
         {
             bool bIsRepeating = false;
-            OSL_VERIFY( _rNewValue >>= bIsRepeating );
+            if( ! (_rNewValue >>= bIsRepeating) )
+                SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_REPEAT);
             _rxInspectorUI->enablePropertyUI( PROPERTY_REPEAT_DELAY, bIsRepeating );
         }
         break;
@@ -1600,7 +1619,8 @@ namespace pcr
         case PROPERTY_ID_BORDER:
         {
             sal_Int16 nBordeType = VisualEffect::NONE;
-            OSL_VERIFY( _rNewValue >>= nBordeType );
+            if( ! (_rNewValue >>= nBordeType) )
+                SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_BORDER);
             _rxInspectorUI->enablePropertyUI( PROPERTY_BORDERCOLOR, nBordeType == VisualEffect::FLAT );
         }
         break;
@@ -1623,7 +1643,8 @@ namespace pcr
             if ( impl_isSupportedProperty_nothrow( PROPERTY_ID_IMAGEPOSITION ) )
             {
                 OUString sImageURL;
-                OSL_VERIFY( _rNewValue >>= sImageURL );
+                if( ! (_rNewValue >>= sImageURL) )
+                    SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_IMAGE_URL);
                 _rxInspectorUI->enablePropertyUI( PROPERTY_IMAGEPOSITION, !sImageURL.isEmpty() );
             }
 
@@ -1636,7 +1657,8 @@ namespace pcr
         case PROPERTY_ID_BUTTONTYPE:
         {
             FormButtonType eButtonType( FormButtonType_PUSH );
-            OSL_VERIFY( _rNewValue >>= eButtonType );
+            if( ! (_rNewValue >>= eButtonType) )
+                SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_BUTTONTYPE);
             _rxInspectorUI->enablePropertyUI( PROPERTY_TARGET_URL, FormButtonType_URL == eButtonType );
             [[fallthrough]];
         }
@@ -1661,9 +1683,15 @@ namespace pcr
             sal_uInt16  nNewDigits = 0;
             bool        bUseSep = false;
             if ( bAccuracy )
-                OSL_VERIFY( _rNewValue >>= nNewDigits );
+            {
+                if( ! (_rNewValue >>= nNewDigits) )
+                    SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_DECIMAL_ACCURACY);
+            }
             else
-                OSL_VERIFY( _rNewValue >>= bUseSep );
+            {
+                if( ! (_rNewValue >>= bUseSep) )
+                    SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_SHOWTHOUSANDSEP);
+            }
 
             // propagate the changes to the min/max/default fields
             OUString aAffectedProps[] = { OUString(PROPERTY_VALUE), OUString(PROPERTY_DEFAULT_VALUE), OUString(PROPERTY_VALUEMIN), OUString(PROPERTY_VALUEMAX) };
@@ -1697,7 +1725,8 @@ namespace pcr
             FormatDescription aNewDesc;
 
             Reference< XNumberFormatsSupplier >  xSupplier;
-            OSL_VERIFY( m_xComponent->getPropertyValue( PROPERTY_FORMATSSUPPLIER ) >>= xSupplier );
+            if( ! (m_xComponent->getPropertyValue( PROPERTY_FORMATSSUPPLIER ) >>= xSupplier) )
+                SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_FORMATKEY);
 
             Reference< XUnoTunnel > xTunnel( xSupplier, UNO_QUERY );
             DBG_ASSERT(xTunnel.is(), "FormComponentPropertyHandler::actuatingPropertyChanged: xTunnel is invalid!");
@@ -1737,7 +1766,8 @@ namespace pcr
         case PROPERTY_ID_TOGGLE:
         {
             bool bIsToggleButton = false;
-            OSL_VERIFY( _rNewValue >>= bIsToggleButton );
+            if( ! (_rNewValue >>= bIsToggleButton) )
+                SAL_WARN("extensions.propctrlr", "actuatingPropertyChanged: unable to get property " << PROPERTY_ID_TOGGLE);
             _rxInspectorUI->enablePropertyUI( PROPERTY_DEFAULT_STATE, bIsToggleButton );
         }
         break;
@@ -1767,7 +1797,8 @@ namespace pcr
             case PROPERTY_ID_STRINGITEMLIST:
             {
                 ListSourceType eLSType = ListSourceType_VALUELIST;
-                OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_LISTSOURCETYPE ) >>= eLSType );
+                if( ! (impl_getPropertyValue_throw( PROPERTY_LISTSOURCETYPE ) >>= eLSType) )
+                    SAL_WARN("extensions.propctrlr", "impl_updateDependentProperty_nothrow: unable to get property " PROPERTY_LISTSOURCETYPE);
 
                 OUString sListSource;
                 {
@@ -1775,11 +1806,12 @@ namespace pcr
                     Any aListSourceValue( impl_getPropertyValue_throw( PROPERTY_LISTSOURCE ) );
                     if ( aListSourceValue >>= aListSource )
                     {
-                        if ( aListSource.getLength() )
+                        if ( aListSource.hasElements() )
                             sListSource = aListSource[0];
                     }
                     else
-                        OSL_VERIFY( aListSourceValue >>= sListSource );
+                        if( ! (aListSourceValue >>= sListSource) )
+                            SAL_WARN("extensions.propctrlr", "impl_updateDependentProperty_nothrow: unable to get property " PROPERTY_LISTSOURCE);
                 }
 
                 bool bIsEnabled =   (  ( eLSType == ListSourceType_VALUELIST )
@@ -1800,7 +1832,8 @@ namespace pcr
             case PROPERTY_ID_BOUNDCOLUMN:
             {
                 ListSourceType eLSType = ListSourceType_VALUELIST;
-                OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_LISTSOURCETYPE ) >>= eLSType );
+                if( ! (impl_getPropertyValue_throw( PROPERTY_LISTSOURCETYPE ) >>= eLSType) )
+                    SAL_WARN("extensions.propctrlr", "impl_updateDependentProperty_nothrow: unable to get property " PROPERTY_LISTSOURCETYPE);
 
                 _rxInspectorUI->enablePropertyUI( PROPERTY_BOUNDCOLUMN,
                         ( eLSType != ListSourceType_VALUELIST )
@@ -1829,12 +1862,14 @@ namespace pcr
             case PROPERTY_ID_INPUT_REQUIRED:
             {
                 OUString sControlSource;
-                OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_CONTROLSOURCE ) >>= sControlSource );
+                if( ! (impl_getPropertyValue_throw( PROPERTY_CONTROLSOURCE ) >>= sControlSource) )
+                    SAL_WARN("extensions.propctrlr", "impl_updateDependentProperty_nothrow: unable to get property " PROPERTY_CONTROLSOURCE);
 
                 bool bEmptyIsNULL = false;
                 bool bHasEmptyIsNULL = impl_componentHasProperty_throw( PROPERTY_EMPTY_IS_NULL );
                 if ( bHasEmptyIsNULL )
-                    OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_EMPTY_IS_NULL ) >>= bEmptyIsNULL );
+                    if( ! (impl_getPropertyValue_throw( PROPERTY_EMPTY_IS_NULL ) >>= bEmptyIsNULL) )
+                        SAL_WARN("extensions.propctrlr", "impl_updateDependentProperty_nothrow: unable to get property " PROPERTY_EMPTY_IS_NULL);
 
                 // if the control is not bound to a DB field, there is no sense in having the "Input required"
                 // property
@@ -1853,7 +1888,7 @@ namespace pcr
             {
                 Sequence< OUString > aEntries;
                 impl_getPropertyValue_throw( PROPERTY_STRINGITEMLIST ) >>= aEntries;
-                bool isEnabled = aEntries.getLength() != 0;
+                bool isEnabled = aEntries.hasElements();
 
                 if ( ( m_nClassId == FormComponentType::LISTBOX ) && ( m_eComponentClass == eFormControl ) )
                 {
@@ -1874,7 +1909,8 @@ namespace pcr
                 FormButtonType eButtonType( FormButtonType_URL );
                 if ( 0 != m_nClassId )
                 {
-                    OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_BUTTONTYPE ) >>= eButtonType );
+                    if( ! (impl_getPropertyValue_throw( PROPERTY_BUTTONTYPE ) >>= eButtonType) )
+                        SAL_WARN("extensions.propctrlr", "impl_updateDependentProperty_nothrow: unable to get property " PROPERTY_BUTTONTYPE);
                 }
                 // if m_nClassId is 0, then we're inspecting a form. In this case, eButtonType is always
                 // FormButtonType_URL here
@@ -1915,7 +1951,8 @@ namespace pcr
             case PROPERTY_ID_COMMAND:
             {
                 sal_Int32   nCommandType( CommandType::COMMAND );
-                OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_COMMANDTYPE ) >>= nCommandType );
+                if( ! (impl_getPropertyValue_throw( PROPERTY_COMMANDTYPE ) >>= nCommandType) )
+                    SAL_WARN("extensions.propctrlr", "impl_updateDependentProperty_nothrow: unable to get property " PROPERTY_COMMANDTYPE);
 
                 impl_ensureRowsetConnection_nothrow();
                 Reference< XConnection > xConnection = m_xRowSetConnection.getTyped();
@@ -2050,7 +2087,8 @@ namespace pcr
     {
         if ( impl_componentHasProperty_throw( PROPERTY_CLASSID ) )
         {
-            OSL_VERIFY( m_xComponent->getPropertyValue( PROPERTY_CLASSID ) >>= m_nClassId );
+            if( ! (m_xComponent->getPropertyValue( PROPERTY_CLASSID ) >>= m_nClassId) )
+                SAL_WARN("extensions.propctrlr", "impl_classifyControlModel_throw: unable to get property " PROPERTY_CLASSID);
         }
         else if ( eDialogControl == m_eComponentClass )
         {
@@ -2315,14 +2353,17 @@ namespace pcr
                 return;
 
             OUString sObjectName;
-            OSL_VERIFY( xFormSet->getPropertyValue( PROPERTY_COMMAND ) >>= sObjectName );
+            if( ! (xFormSet->getPropertyValue( PROPERTY_COMMAND ) >>= sObjectName) )
+                SAL_WARN("extensions.propctrlr", "impl_initFieldList_nothrow: unable to get property " PROPERTY_COMMAND);
             // when there is no command we don't need to ask for columns
             if ( !sObjectName.isEmpty() && impl_ensureRowsetConnection_nothrow() )
             {
                 OUString aDatabaseName;
-                OSL_VERIFY( xFormSet->getPropertyValue( PROPERTY_DATASOURCE ) >>= aDatabaseName );
+                if( ! (xFormSet->getPropertyValue( PROPERTY_DATASOURCE ) >>= aDatabaseName) )
+                    SAL_WARN("extensions.propctrlr", "impl_initFieldList_nothrow: unable to get property " PROPERTY_DATASOURCE);
                 sal_Int32 nObjectType = CommandType::COMMAND;
-                OSL_VERIFY( xFormSet->getPropertyValue( PROPERTY_COMMANDTYPE ) >>= nObjectType );
+                if( ! (xFormSet->getPropertyValue( PROPERTY_COMMANDTYPE ) >>= nObjectType) )
+                    SAL_WARN("extensions.propctrlr", "impl_initFieldList_nothrow: unable to get property " PROPERTY_COMMANDTYPE);
 
                 for ( const OUString& rField : ::dbtools::getFieldNamesByCommandDescriptor( m_xRowSetConnection, nObjectType, sObjectName ) )
                     _rFieldNames.push_back( rField );
@@ -2632,12 +2673,10 @@ namespace pcr
         if ( !xDetailForm.is() || !xMasterForm.is() )
             return false;
 
-
-        ScopedVclPtrInstance< FormLinkDialog > aDialog( impl_getDefaultDialogParent_nothrow(), m_xComponent, xMasterProp, m_xContext );
+        FormLinkDialog aDialog(impl_getDefaultDialogFrame_nothrow(), m_xComponent, xMasterProp, m_xContext);
         _rClearBeforeDialog.clear();
-        return ( RET_OK == aDialog->Execute() );
+        return ( RET_OK == aDialog.run() );
     }
-
 
     bool FormComponentPropertyHandler::impl_dialogFormatting_nothrow( Any& _out_rNewValue, ::osl::ClearableMutexGuard& _rClearBeforeDialog ) const
     {
@@ -2671,7 +2710,7 @@ namespace pcr
             aCoreSet.Put( aFormatter );
 
             // a tab dialog with a single page
-            SfxSingleTabDialogController aDialog(impl_getDefaultDialogFrame_nothrow(), aCoreSet,
+            SfxSingleTabDialogController aDialog(impl_getDefaultDialogFrame_nothrow(), &aCoreSet,
                 "cui/ui/formatnumberdialog.ui", "FormatNumberDialog");
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
             ::CreateTabPage fnCreatePage = pFact->GetTabPageCreatorFunc( RID_SVXPAGE_NUMBERFORMAT );
@@ -2749,7 +2788,8 @@ namespace pcr
         }
 
         OUString sCurValue;
-        OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_IMAGE_URL ) >>= sCurValue );
+        if( ! (impl_getPropertyValue_throw( PROPERTY_IMAGE_URL ) >>= sCurValue) )
+            SAL_WARN("extensions.propctrlr", "impl_browseForImage_nothrow: unable to get property " PROPERTY_IMAGE_URL);
         if (!sCurValue.isEmpty())
         {
             aFileDlg.SetDisplayDirectory( sCurValue );
@@ -2789,7 +2829,8 @@ namespace pcr
                 FileDialogFlags::NONE, pWin);
 
         OUString sURL;
-        OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_TARGET_URL ) >>= sURL );
+        if( ! (impl_getPropertyValue_throw( PROPERTY_TARGET_URL ) >>= sURL) )
+            SAL_WARN("extensions.propctrlr", "impl_browseForTargetURL_nothrow: unable to get property " PROPERTY_TARGET_URL);
         INetURLObject aParser( sURL );
         if ( INetProtocol::File == aParser.GetProtocol() )
             // set the initial directory only for file-URLs. Everything else
@@ -2844,7 +2885,8 @@ namespace pcr
                 "sdatabase", SfxFilterFlags::NONE, SfxFilterFlags::NONE, pWin);
 
         OUString sDataSource;
-        OSL_VERIFY( impl_getPropertyValue_throw( PROPERTY_DATASOURCE ) >>= sDataSource );
+        if( ! (impl_getPropertyValue_throw( PROPERTY_DATASOURCE ) >>= sDataSource) )
+            SAL_WARN("extensions.propctrlr", "impl_browseForDatabaseDocument_throw: unable to get property " PROPERTY_DATASOURCE);
         INetURLObject aParser( sDataSource );
         if ( INetProtocol::File == aParser.GetProtocol() )
             // set the initial directory only for file-URLs. Everything else
@@ -2869,7 +2911,8 @@ namespace pcr
     bool FormComponentPropertyHandler::impl_dialogColorChooser_throw( sal_Int32 _nColorPropertyId, Any& _out_rNewValue, ::osl::ClearableMutexGuard& _rClearBeforeDialog ) const
     {
         ::Color aColor;
-        OSL_VERIFY( impl_getPropertyValue_throw( impl_getPropertyNameFromId_nothrow( _nColorPropertyId ) ) >>= aColor );
+        if( ! (impl_getPropertyValue_throw( impl_getPropertyNameFromId_nothrow( _nColorPropertyId )) >>= aColor) )
+            SAL_WARN("extensions.propctrlr", "impl_dialogColorChooser_throw: unable to get property " << _nColorPropertyId);
         SvColorDialog aColorDlg;
         aColorDlg.SetColor( aColor );
 
@@ -2908,16 +2951,11 @@ namespace pcr
         OSL_PRECOND( impl_getContextControlContainer_nothrow().is(), "FormComponentPropertyHandler::impl_dialogChangeTabOrder_nothrow: invalid control context!" );
 
         Reference< XTabControllerModel > xTabControllerModel( impl_getRowSet_nothrow(), UNO_QUERY );
-        ScopedVclPtrInstance<TabOrderDialog> aDialog(
-            impl_getDefaultDialogParent_nothrow(),
-            xTabControllerModel,
-            impl_getContextControlContainer_nothrow(),
-            m_xContext
-        );
+        TabOrderDialog aDialog(impl_getDefaultDialogFrame_nothrow(), xTabControllerModel,
+                               impl_getContextControlContainer_nothrow(), m_xContext);
         _rClearBeforeDialog.clear();
-        return ( RET_OK == aDialog->Execute() );
+        return RET_OK == aDialog.run();
     }
-
 
     namespace
     {
@@ -2982,7 +3020,8 @@ namespace pcr
         OUString FormSQLCommandUI::getSQLCommand() const
         {
             OUString sCommand;
-            OSL_VERIFY( m_xObject->getPropertyValue( PROPERTY_COMMAND ) >>= sCommand );
+            if( ! (m_xObject->getPropertyValue( PROPERTY_COMMAND ) >>= sCommand) )
+                SAL_WARN("extensions.propctrlr", "getSQLCommand: unable to get property " PROPERTY_COMMAND);
             return sCommand;
         }
 
@@ -2990,7 +3029,8 @@ namespace pcr
         bool FormSQLCommandUI::getEscapeProcessing() const
         {
             bool bEscapeProcessing( false );
-            OSL_VERIFY( m_xObject->getPropertyValue( PROPERTY_ESCAPE_PROCESSING ) >>= bEscapeProcessing );
+            if( ! (m_xObject->getPropertyValue( PROPERTY_ESCAPE_PROCESSING ) >>= bEscapeProcessing) )
+                SAL_WARN("extensions.propctrlr", "getSQLCommand: unable to get property " PROPERTY_ESCAPE_PROCESSING);
             return bEscapeProcessing;
         }
 
@@ -3063,7 +3103,7 @@ namespace pcr
             if ( aValue >>= aValueList )
             {
                 m_bPropertyValueIsList = true;
-                if ( aValueList.getLength() )
+                if ( aValueList.hasElements() )
                     sValue = aValueList[0];
                 return sValue;
             }
@@ -3076,7 +3116,8 @@ namespace pcr
         bool ValueListCommandUI::getEscapeProcessing() const
         {
             ListSourceType eType = ListSourceType_SQL;
-            OSL_VERIFY( m_xObject->getPropertyValue( PROPERTY_LISTSOURCETYPE ) >>= eType );
+            if( ! (m_xObject->getPropertyValue( PROPERTY_LISTSOURCETYPE ) >>= eType) )
+                SAL_WARN("extensions.propctrlr", "getEscapeProcessing: unable to get property " PROPERTY_LISTSOURCETYPE);
             OSL_ENSURE( ( eType == ListSourceType_SQL ) || ( eType == ListSourceType_SQLPASSTHROUGH ),
                 "ValueListCommandUI::getEscapeProcessing: unexpected list source type!" );
             return ( eType == ListSourceType_SQL );
@@ -3131,7 +3172,7 @@ namespace pcr
             if ( !impl_ensureRowsetConnection_nothrow() )
                 return false;
 
-            Reference< XPropertySet > xComponentProperties( m_xComponent, UNO_QUERY_THROW );
+            Reference< XPropertySet > xComponentProperties( m_xComponent, UNO_SET_THROW );
 
             ::rtl::Reference< ISQLCommandPropertyUI > xCommandUI;
             switch ( _nDesignForProperty )

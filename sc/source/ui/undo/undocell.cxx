@@ -20,14 +20,9 @@
 #include <undocell.hxx>
 
 #include <scitems.hxx>
-#include <editeng/eeitem.hxx>
 #include <editeng/editobj.hxx>
-#include <editeng/justifyitem.hxx>
-#include <svl/zforlist.hxx>
-#include <svl/sharedstringpool.hxx>
 #include <sfx2/app.hxx>
 
-#include <attrib.hxx>
 #include <document.hxx>
 #include <docpool.hxx>
 #include <patattr.hxx>
@@ -44,8 +39,6 @@
 #include <printfun.hxx>
 #include <rangenam.hxx>
 #include <chgtrack.hxx>
-#include <sc.hrc>
-#include <docuno.hxx>
 #include <stringutil.hxx>
 
 using std::shared_ptr;
@@ -82,9 +75,9 @@ ScUndoCursorAttr::ScUndoCursorAttr( ScDocShell* pNewDocShell,
     pNewEditData( static_cast<EditTextObject*>(nullptr) )
 {
     ScDocumentPool* pPool = pDocShell->GetDocument().GetPool();
-    pNewPattern = const_cast<ScPatternAttr*>(static_cast<const ScPatternAttr*>( &pPool->Put( *pNewPat ) ));
-    pOldPattern = const_cast<ScPatternAttr*>(static_cast<const ScPatternAttr*>( &pPool->Put( *pOldPat ) ));
-    pApplyPattern = const_cast<ScPatternAttr*>(static_cast<const ScPatternAttr*>( &pPool->Put( *pApplyPat ) ));
+    pNewPattern = const_cast<ScPatternAttr*>( &pPool->Put( *pNewPat ) );
+    pOldPattern = const_cast<ScPatternAttr*>( &pPool->Put( *pOldPat ) );
+    pApplyPattern = const_cast<ScPatternAttr*>( &pPool->Put( *pApplyPat ) );
 }
 
 ScUndoCursorAttr::~ScUndoCursorAttr()
@@ -239,9 +232,9 @@ void ScUndoEnterData::Undo()
                             SfxUInt32Item(ATTR_VALUE_FORMAT, rVal.mnFormat));
         else
         {
-            ScPatternAttr aPattern(*rDoc.GetPattern(maPos.Col(), maPos.Row(), rVal.mnTab));
-            aPattern.GetItemSet().ClearItem( ATTR_VALUE_FORMAT );
-            rDoc.SetPattern(maPos.Col(), maPos.Row(), rVal.mnTab, aPattern);
+            auto pPattern = std::make_unique<ScPatternAttr>(*rDoc.GetPattern(maPos.Col(), maPos.Row(), rVal.mnTab));
+            pPattern->GetItemSet().ClearItem( ATTR_VALUE_FORMAT );
+            rDoc.SetPattern(maPos.Col(), maPos.Row(), rVal.mnTab, std::move(pPattern));
         }
         pDocShell->PostPaintCell(maPos.Col(), maPos.Row(), rVal.mnTab);
     }
@@ -997,7 +990,7 @@ void ScUndoRangeNames::DoChange( bool bUndo )
 
     if ( bUndo )
     {
-        auto p = std::unique_ptr<ScRangeName>(new ScRangeName( *pOldRanges ));
+        auto p = std::make_unique<ScRangeName>(*pOldRanges);
         if (mnTab >= 0)
             rDoc.SetRangeName( mnTab, std::move(p) );
         else
@@ -1005,7 +998,7 @@ void ScUndoRangeNames::DoChange( bool bUndo )
     }
     else
     {
-        auto p = std::unique_ptr<ScRangeName>(new ScRangeName( *pNewRanges ));
+        auto p = std::make_unique<ScRangeName>(*pNewRanges);
         if (mnTab >= 0)
             rDoc.SetRangeName( mnTab, std::move(p) );
         else

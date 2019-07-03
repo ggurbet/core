@@ -64,9 +64,10 @@ static void printType(
 
     if (defaultvalue && referenceType == 16) {
         if (sort == codemaker::UnoType::Sort::Enum) {
+            auto pEnumTypeEntity(dynamic_cast<unoidl::EnumTypeEntity *>(entity.get()));
+            assert(pEnumTypeEntity);
             o << nucleus.copy(nucleus.lastIndexOf('.') + 1) << "_"
-              << dynamic_cast< unoidl::EnumTypeEntity * >(entity.get())->
-                getMembers()[0].name;
+              << pEnumTypeEntity->getMembers()[0].name;
         }
         return;
     }
@@ -928,8 +929,8 @@ void generateDocumentation(std::ostream & o,
             }
             generateDocumentation(
                 o, options, manager,
-                u2b(dynamic_cast< unoidl::SingleInterfaceBasedServiceEntity * >(
-                        entity.get())->getBase()),
+                u2b(dynamic_cast<unoidl::SingleInterfaceBasedServiceEntity&>(*entity.get())
+                    .getBase()),
                 delegate);
             break;
 

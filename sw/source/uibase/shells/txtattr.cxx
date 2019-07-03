@@ -23,9 +23,11 @@
 #include <svl/stritem.hxx>
 #include <svl/itemiter.hxx>
 #include <svl/ctloptions.hxx>
+#include <svx/svxids.hrc>
 #include <swmodule.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/adjustitem.hxx>
 #include <editeng/lspcitem.hxx>
@@ -250,7 +252,9 @@ void SwTextShell::ExecCharAttrArgs(SfxRequest &rReq)
             const SvxFontHeightItem* pSize( static_cast<const SvxFontHeightItem*>(
                                         aSetItem.GetItemOfScript( nScriptTypes ) ) );
             std::vector<std::pair< const SfxPoolItem*, std::unique_ptr<SwPaM> >> vItems;
-            if ( pSize ) // selected text has one size
+            // simple case where selected text has one size and
+            // (tdf#124919) selection is not multiple table cells
+            if (pSize && !rWrtSh.IsTableMode())
             {
                 // must create new one, otherwise document is without pam
                 SwPaM* pPaM = rWrtSh.GetCursor();
@@ -264,6 +268,7 @@ void SwTextShell::ExecCharAttrArgs(SfxRequest &rReq)
             {
                 std::unique_ptr<SwPaM> pPaM = std::move(iPair.second);
                 const SfxPoolItem* pItem = iPair.first;
+                aSetItem.GetItemSet().ClearItem();
                 rWrtSh.GetPaMAttr( pPaM.get(), aSetItem.GetItemSet() );
                 aAttrSet.SetRanges( aSetItem.GetItemSet().GetRanges() );
 

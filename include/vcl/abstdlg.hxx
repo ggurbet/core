@@ -62,7 +62,7 @@ public:
         // for the case where the dialog is welded, and is running async without a DialogController
         std::shared_ptr<weld::Dialog> mxOwnerSelf;
         std::function<void(sal_Int32)> maEndDialogFn;
-        bool isSet() { return !!maEndDialogFn; }
+        bool isSet() const { return !!maEndDialogFn; }
     };
 
     bool StartExecuteAsync(const std::function<void(sal_Int32)> &rEndDialogFn)
@@ -119,6 +119,12 @@ protected:
     virtual ~AbstractSignSignatureLineDialog() override = default;
 };
 
+class VCL_DLLPUBLIC AbstractTipOfTheDayDialog : public VclAbstractDialog
+{
+protected:
+    virtual ~AbstractTipOfTheDayDialog() override = default;
+};
+
 class VCL_DLLPUBLIC VclAbstractDialogFactory
 {
 public:
@@ -147,6 +153,10 @@ public:
     virtual VclPtr<AbstractScreenshotAnnotationDlg> CreateScreenshotAnnotationDlg(
         vcl::Window* pParent,
         Dialog& rParentDialog) = 0;
+
+    // create info dialog to show tip-of-the-day
+    virtual VclPtr<AbstractTipOfTheDayDialog>
+    CreateTipOfTheDayDialog(weld::Window* pParent) = 0;
 };
 
 #endif

@@ -27,15 +27,13 @@
 #include <osl/mutex.hxx>
 #include <osl/file.hxx>
 #include <fwkutil.hxx>
-#include "fwkbase.hxx"
+#include <fwkbase.hxx>
 #include "framework.hxx"
-#include "libxmlutil.hxx"
-#include <osl/thread.hxx>
+#include <libxmlutil.hxx>
 #include <algorithm>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
-#include <rtl/bootstrap.hxx>
 #include <boost/optional.hpp>
 #include <string.h>
 
@@ -66,8 +64,7 @@ static OString getElement(OString const & docPath,
             JFW_E_ERROR,
             "[Java framework] Error in function getElement (elements.cxx)");
 
-    CXPathObjectPtr pathObj;
-    pathObj = xmlXPathEvalExpression(pathExpression, context);
+    CXPathObjectPtr pathObj = xmlXPathEvalExpression(pathExpression, context);
     OString sValue;
     if (xmlXPathNodeSetIsEmpty(pathObj->nodesetval))
     {
@@ -288,8 +285,7 @@ void NodeJava::load()
                 {
                     if (xmlStrcmp(pOpt->name, reinterpret_cast<xmlChar const *>("param")) == 0)
                     {
-                        CXmlCharPtr sOpt;
-                        sOpt = xmlNodeListGetString(
+                        CXmlCharPtr sOpt = xmlNodeListGetString(
                             docUser, pOpt->children, 1);
                         m_vmParameters->push_back(sOpt);
                     }
@@ -314,8 +310,7 @@ void NodeJava::load()
                 {
                     if (xmlStrcmp(pLoc->name, reinterpret_cast<xmlChar const *>("location")) == 0)
                     {
-                        CXmlCharPtr sLoc;
-                        sLoc = xmlNodeListGetString(
+                        CXmlCharPtr sLoc = xmlNodeListGetString(
                             docUser, pLoc->children, 1);
                         m_JRELocations->push_back(sLoc);
                     }
@@ -412,8 +407,7 @@ void NodeJava::write() const
     //The element must exist
     if (m_enabled)
     {
-        OString sExpression= OString(
-            "/jf:java/jf:enabled");
+        OString sExpression("/jf:java/jf:enabled");
         pathObj = xmlXPathEvalExpression(reinterpret_cast<xmlChar const *>(sExpression.getStr()),
                                          contextUser);
         if ( ! pathObj || xmlXPathNodeSetIsEmpty(pathObj->nodesetval))
@@ -435,8 +429,7 @@ void NodeJava::write() const
     //The element must exist
     if (m_userClassPath)
     {
-        OString sExpression= OString(
-            "/jf:java/jf:userClassPath");
+        OString sExpression("/jf:java/jf:userClassPath");
         pathObj = xmlXPathEvalExpression(reinterpret_cast<xmlChar const *>(sExpression.getStr()),
                                          contextUser);
         if ( ! pathObj || xmlXPathNodeSetIsEmpty(pathObj->nodesetval))
@@ -450,8 +443,7 @@ void NodeJava::write() const
     //set <javaInfo> element
     if (m_javaInfo)
     {
-        OString sExpression= OString(
-            "/jf:java/jf:javaInfo");
+        OString sExpression("/jf:java/jf:javaInfo");
         pathObj = xmlXPathEvalExpression(reinterpret_cast<xmlChar const *>(sExpression.getStr()),
                                                 contextUser);
         if ( ! pathObj || xmlXPathNodeSetIsEmpty(pathObj->nodesetval))
@@ -463,8 +455,7 @@ void NodeJava::write() const
     //set <vmParameters> element
     if (m_vmParameters)
     {
-        OString sExpression= OString(
-            "/jf:java/jf:vmParameters");
+        OString sExpression("/jf:java/jf:vmParameters");
         pathObj = xmlXPathEvalExpression(reinterpret_cast<xmlChar const *>(sExpression.getStr()),
                                          contextUser);
         if ( ! pathObj || xmlXPathNodeSetIsEmpty(pathObj->nodesetval))
@@ -503,8 +494,7 @@ void NodeJava::write() const
     //set <jreLocations> element
     if (m_JRELocations)
     {
-        OString sExpression= OString(
-            "/jf:java/jf:jreLocations");
+        OString sExpression("/jf:java/jf:jreLocations");
         pathObj = xmlXPathEvalExpression(reinterpret_cast<xmlChar const *>(sExpression.getStr()),
                                          contextUser);
         if ( ! pathObj || xmlXPathNodeSetIsEmpty(pathObj->nodesetval))
@@ -704,8 +694,7 @@ void CNodeJavaInfo::loadFromNode(xmlDoc * pDoc, xmlNode * pJavaInfo)
     if (pJavaInfo->children == nullptr)
         return;
     //Get the xsi:nil attribute;
-    CXmlCharPtr sNil;
-    sNil = xmlGetNsProp(
+    CXmlCharPtr sNil = xmlGetNsProp(
         pJavaInfo, reinterpret_cast<xmlChar const *>("nil"), reinterpret_cast<xmlChar const *>(NS_SCHEMA_INSTANCE));
     if ( ! sNil)
         throw FrameworkException(JFW_E_ERROR, sExcMsg);
@@ -720,8 +709,7 @@ void CNodeJavaInfo::loadFromNode(xmlDoc * pDoc, xmlNode * pJavaInfo)
         return;
 
     //Get javaInfo@manuallySelected attribute
-    CXmlCharPtr sAutoSelect;
-    sAutoSelect = xmlGetProp(
+    CXmlCharPtr sAutoSelect = xmlGetProp(
         pJavaInfo, reinterpret_cast<xmlChar const *>("autoSelect"));
     if ( ! sAutoSelect)
         throw FrameworkException(JFW_E_ERROR, sExcMsg);
@@ -739,8 +727,7 @@ void CNodeJavaInfo::loadFromNode(xmlDoc * pDoc, xmlNode * pJavaInfo)
     {
         if (xmlStrcmp(cur->name, reinterpret_cast<xmlChar const *>("vendor")) == 0)
         {
-            CXmlCharPtr xmlVendor;
-            xmlVendor = xmlNodeListGetString(
+            CXmlCharPtr xmlVendor = xmlNodeListGetString(
                 pDoc, cur->children, 1);
             if (! xmlVendor)
                 return;
@@ -748,30 +735,26 @@ void CNodeJavaInfo::loadFromNode(xmlDoc * pDoc, xmlNode * pJavaInfo)
         }
         else if (xmlStrcmp(cur->name, reinterpret_cast<xmlChar const *>("location")) == 0)
         {
-            CXmlCharPtr xmlLocation;
-            xmlLocation = xmlNodeListGetString(
+            CXmlCharPtr xmlLocation = xmlNodeListGetString(
                 pDoc, cur->children, 1);
             sLocation = xmlLocation;
         }
         else if (xmlStrcmp(cur->name, reinterpret_cast<xmlChar const *>("version")) == 0)
         {
-            CXmlCharPtr xmlVersion;
-            xmlVersion = xmlNodeListGetString(
+            CXmlCharPtr xmlVersion = xmlNodeListGetString(
                 pDoc, cur->children, 1);
             sVersion = xmlVersion;
         }
         else if (xmlStrcmp(cur->name, reinterpret_cast<xmlChar const *>("features"))== 0)
         {
-            CXmlCharPtr xmlFeatures;
-            xmlFeatures = xmlNodeListGetString(
+            CXmlCharPtr xmlFeatures = xmlNodeListGetString(
                     pDoc, cur->children, 1);
             OUString sFeatures = xmlFeatures;
             nFeatures = sFeatures.toInt64(16);
         }
         else if (xmlStrcmp(cur->name, reinterpret_cast<xmlChar const *>("requirements")) == 0)
         {
-            CXmlCharPtr xmlRequire;
-            xmlRequire = xmlNodeListGetString(
+            CXmlCharPtr xmlRequire = xmlNodeListGetString(
                 pDoc, cur->children, 1);
             OUString sRequire = xmlRequire;
             nRequirements = sRequire.toInt64(16);
@@ -788,8 +771,7 @@ void CNodeJavaInfo::loadFromNode(xmlDoc * pDoc, xmlNode * pJavaInfo)
         }
         else if (xmlStrcmp(cur->name, reinterpret_cast<xmlChar const *>("vendorData")) == 0)
         {
-            CXmlCharPtr xmlData;
-            xmlData = xmlNodeListGetString(
+            CXmlCharPtr xmlData = xmlNodeListGetString(
                 pDoc, cur->children, 1);
             xmlChar* _data = static_cast<xmlChar*>(xmlData);
             if (_data)
@@ -804,8 +786,7 @@ void CNodeJavaInfo::loadFromNode(xmlDoc * pDoc, xmlNode * pJavaInfo)
     if (sVendor.isEmpty())
         m_bEmptyNode = true;
     //Get the javainfo attributes
-    CXmlCharPtr sVendorUpdate;
-    sVendorUpdate = xmlGetProp(pJavaInfo,
+    CXmlCharPtr sVendorUpdate = xmlGetProp(pJavaInfo,
                                reinterpret_cast<xmlChar const *>("vendorUpdate"));
     if ( ! sVendorUpdate)
         throw FrameworkException(JFW_E_ERROR, sExcMsg);

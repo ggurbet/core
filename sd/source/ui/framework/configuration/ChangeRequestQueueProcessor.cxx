@@ -21,14 +21,13 @@
 #include "ChangeRequestQueueProcessor.hxx"
 #include "ConfigurationTracer.hxx"
 
-#include <framework/ConfigurationController.hxx>
 #include "ConfigurationUpdater.hxx"
 
 #include <vcl/svapp.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <com/sun/star/container/XNamed.hpp>
-#include <com/sun/star/drawing/framework/XConfiguration.hpp>
-#include <com/sun/star/drawing/framework/ConfigurationChangeEvent.hpp>
+#include <com/sun/star/drawing/framework/XConfigurationChangeRequest.hpp>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -92,7 +91,7 @@ void ChangeRequestQueueProcessor::AddRequest (
     TraceRequest(rxRequest);
 #endif
 
-    maQueue.push_back(rxRequest);
+    maQueue.push(rxRequest);
     StartProcessing();
 }
 
@@ -136,7 +135,7 @@ void ChangeRequestQueueProcessor::ProcessOneEvent()
 
     // Get and remove the first entry from the queue.
     Reference<XConfigurationChangeRequest> xRequest (maQueue.front());
-    maQueue.pop_front();
+    maQueue.pop();
 
     // Execute the change request.
     if (xRequest.is())
@@ -177,7 +176,8 @@ void ChangeRequestQueueProcessor::ProcessUntilEmpty()
 void ChangeRequestQueueProcessor::Clear()
 {
     ::osl::MutexGuard aGuard (maMutex);
-    maQueue.clear();
+    ChangeRequestQueue aEmpty;
+    maQueue.swap(aEmpty);
 }
 
 } } // end of namespace sd::framework::configuration

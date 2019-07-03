@@ -23,6 +23,7 @@
 #include <cppuhelper/factory.hxx>
 #include <formula/funcvarargs.h>
 
+#include <vcl/svapp.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/sfxmodelfactory.hxx>
 #include <afmtuno.hxx>
@@ -39,6 +40,7 @@
 #include <unonames.hxx>
 #include <funcdesc.hxx>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/sheet/FunctionArgument.hpp>
 #include <memory>
 

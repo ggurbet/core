@@ -26,6 +26,7 @@
 #include <unotools/pathoptions.hxx>
 #include <editeng/editdata.hxx>
 #include <svl/urlbmk.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xlnclit.hxx>
 #include <svx/svdpagv.hxx>
@@ -244,8 +245,7 @@ bool View::InsertMetaFile( TransferableDataHelper& rDataHelper, const Point& rPo
 
     // restrict movement to WorkArea
     Point aInsertPos( rPos );
-    Size aImageSize;
-    aImageSize = bVector ? aMtf.GetPrefSize() : aGraphic.GetSizePixel();
+    Size aImageSize = bVector ? aMtf.GetPrefSize() : aGraphic.GetSizePixel();
     ImpCheckInsertPos(aInsertPos, aImageSize, GetWorkArea());
 
     if( bVector )

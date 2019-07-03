@@ -19,6 +19,7 @@
 
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/EmbedMisc.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 
 #include <cmdid.h>
 #include <hintids.hxx>
@@ -63,13 +64,13 @@
 #include <strings.hrc>
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/filedlghelper.hxx>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 #include <com/sun/star/ui/dialogs/XFilePicker3.hpp>
 #include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
 #include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
 #include <vcl/graphicfilter.hxx>
-#include <vcl/builderfactory.hxx>
 #include <svtools/embedhlp.hxx>
 #include <memory>
 
@@ -1416,11 +1417,9 @@ void SwFramePage::FillRelLB(const FrameMap* _pMap,
                     {
                         if (nLBRelations & rCharMap.nLBRelation)
                         {
-                            SvxSwFramePosString::StringId sStrId1 = rCharMap.eStrId;
-
                             // --> OD 2009-08-31 #mongolianlayout#
-                            sStrId1 =
-                                lcl_ChangeResIdToVerticalOrRTL( sStrId1,
+                            SvxSwFramePosString::StringId sStrId1 =
+                                lcl_ChangeResIdToVerticalOrRTL( rCharMap.eStrId,
                                                                 m_bIsVerticalFrame,
                                                                 m_bIsVerticalL2R,
                                                                 m_bIsInRightToLeft);
@@ -2803,6 +2802,7 @@ SwFrameAddPage::SwFrameAddPage(TabPageParent pParent, const SfxItemSet &rSet)
     m_xTextFlowLB->append(SvxFrameDirection::Horizontal_RL_TB, SvxResId(RID_SVXSTR_FRAMEDIR_RTL));
     m_xTextFlowLB->append(SvxFrameDirection::Vertical_RL_TB, SvxResId(RID_SVXSTR_PAGEDIR_RTL_VERT));
     m_xTextFlowLB->append(SvxFrameDirection::Vertical_LR_TB, SvxResId(RID_SVXSTR_PAGEDIR_LTR_VERT));
+    m_xTextFlowLB->append(SvxFrameDirection::Vertical_LR_BT, SvxResId(RID_SVXSTR_PAGEDIR_LTR_BTT_VERT));
     m_xTextFlowLB->append(SvxFrameDirection::Environment, SvxResId(RID_SVXSTR_FRAMEDIR_SUPER));
     m_xDescriptionED->set_size_request(-1, m_xDescriptionED->get_preferred_size().Height());
 }

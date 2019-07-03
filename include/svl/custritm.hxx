@@ -21,8 +21,8 @@
 #define INCLUDED_SVL_CUSTRITM_HXX
 
 #include <svl/svldllapi.h>
-#include <tools/debug.hxx>
 #include <svl/poolitem.hxx>
+#include <cassert>
 
 class SVL_DLLPUBLIC CntUnencodedStringItem: public SfxPoolItem
 {
@@ -38,6 +38,8 @@ public:
     {}
 
     virtual bool operator ==(const SfxPoolItem & rItem) const override;
+    virtual bool operator <(const SfxPoolItem & rItem) const override;
+    virtual bool IsSortable() const override { return true; }
 
     virtual bool GetPresentation(SfxItemPresentation,
                                  MapUnit, MapUnit,
@@ -58,8 +60,7 @@ public:
 
 inline void CntUnencodedStringItem::SetValue(const OUString & rTheValue)
 {
-    DBG_ASSERT(GetRefCount() == 0,
-               "CntUnencodedStringItem::SetValue(): Pooled item");
+    assert(GetRefCount() == 0 && "cannot modify name of pooled item");
     m_aValue = rTheValue;
 }
 

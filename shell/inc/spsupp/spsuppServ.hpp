@@ -13,7 +13,7 @@
 #include <objbase.h>
 
 ITypeLib* GetTypeLib();
-const wchar_t* GetLOPath();
+const wchar_t* GetHelperExe();
 
 #endif
 

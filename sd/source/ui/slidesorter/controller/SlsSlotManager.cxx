@@ -234,6 +234,7 @@ void SlotManager::FuTemporary (SfxRequest& rRequest)
             // (DEL -> accelerator -> SID_CUT).
             if (mrSlideSorter.GetModel().GetPageCount() > 1)
             {
+                mrSlideSorter.GetView().EndTextEditAllViews();
                 mrSlideSorter.GetController().GetSelectionManager()->DeleteSelectedPages();
             }
 
@@ -371,6 +372,7 @@ void SlotManager::FuSupport (SfxRequest& rRequest)
         case SID_CUT:
         case SID_COPY:
         case SID_DELETE:
+            mrSlideSorter.GetView().EndTextEditAllViews();
             mrSlideSorter.GetController().GetClipboard().HandleSlotCall(rRequest);
             break;
 
@@ -665,15 +667,10 @@ void SlotManager::GetMenuState (SfxItemSet& rSet)
 
     if (eEditMode == EditMode::MasterPage)
     {
+        // Disable some slots when in master page mode.
         rSet.DisableItem(SID_ASSIGN_LAYOUT);
         rSet.DisableItem(SID_INSERTPAGE);
-    }
 
-    // Disable some slots when in master page mode.
-    if (eEditMode == EditMode::MasterPage)
-    {
-        if (rSet.GetItemState(SID_INSERTPAGE) == SfxItemState::DEFAULT)
-            rSet.DisableItem(SID_INSERTPAGE);
         if (rSet.GetItemState(SID_DUPLICATE_PAGE) == SfxItemState::DEFAULT)
             rSet.DisableItem(SID_DUPLICATE_PAGE);
     }
@@ -876,8 +873,7 @@ void SlotManager::RenameSlide(const SfxRequest& rRequest)
 
     if(rRequest.GetArgs())
     {
-       OUString aName;
-       aName = rRequest.GetArgs()->GetItem<const SfxStringItem>(SID_RENAMEPAGE)->GetValue();
+       OUString aName = rRequest.GetArgs()->GetItem<const SfxStringItem>(SID_RENAMEPAGE)->GetValue();
 
        bool bResult =  RenameSlideFromDrawViewShell(pSelectedPage->GetPageNum()/2, aName );
        DBG_ASSERT( bResult, "Couldn't rename slide" );

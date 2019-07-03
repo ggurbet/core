@@ -326,6 +326,7 @@ $(eval $(call gb_Library_add_exception_objects,sw,\
     sw/source/core/layout/layact \
     sw/source/core/layout/laycache \
     sw/source/core/layout/layouter \
+    sw/source/core/layout/legacyitem \
     sw/source/core/layout/movedfwdfrmsbyobjpos \
     sw/source/core/layout/newfrm \
     sw/source/core/layout/objectformatter \
@@ -489,6 +490,7 @@ $(eval $(call gb_Library_add_exception_objects,sw,\
     sw/source/core/unocore/unotbl  \
     sw/source/core/unocore/unotext \
     sw/source/core/unocore/unotextmarkup \
+    sw/source/core/view/dialoghelp \
     sw/source/core/view/pagepreviewlayout \
     sw/source/core/view/printdata \
     sw/source/core/view/vdraw \

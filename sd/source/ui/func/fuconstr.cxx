@@ -20,12 +20,12 @@
 #include <fuconstr.hxx>
 
 #include <svx/svxids.hrc>
-#include <svl/aeitem.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/xdef.hxx>
 #include <svx/xfillit0.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <tools/debug.hxx>
 
 #include <app.hrc>
 #include <strings.hrc>
@@ -38,8 +38,6 @@
 #include <FrameView.hxx>
 #include <sdpage.hxx>
 #include <sdresid.hxx>
-#include <stlpool.hxx>
-#include <svx/globl3d.hxx>
 #include <glob.hxx>
 
 using namespace com::sun::star;

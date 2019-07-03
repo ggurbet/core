@@ -117,13 +117,14 @@ private:
     // the VCL window corresponding to this frame
     VclPtr<vcl::Window>     m_pWindow;
     SALFRAMEPROC            m_pProc;
+    Link<bool, void>        m_aModalHierarchyHdl;
 protected:
     mutable std::unique_ptr<weld::Window> m_xFrameWeld;
 public:
                             SalFrame();
     virtual                 ~SalFrame() override;
 
-    SalFrameGeometry        maGeometry;
+    SalFrameGeometry        maGeometry; ///< absolute, unmirrored values
 
     // SalGeometryProvider
     virtual long GetWidth() const override { return maGeometry.nWidth; }
@@ -164,6 +165,7 @@ public:
     const SalFrameGeometry& GetUnmirroredGeometry() const { return maGeometry; }
 
     virtual void            SetWindowState( const SalFrameState* pState ) = 0;
+    // return the absolute, unmirrored system frame state
     // if this returns false the structure is uninitialised
     [[nodiscard]]
     virtual bool            GetWindowState( SalFrameState* pState ) = 0;
@@ -286,6 +288,9 @@ public:
 
     // returns the instance set
     vcl::Window*            GetWindow() const { return m_pWindow; }
+
+    void SetModalHierarchyHdl(const Link<bool, void>& rLink) { m_aModalHierarchyHdl = rLink; }
+    void NotifyModalHierarchy(bool bModal) { m_aModalHierarchyHdl.Call(bModal); }
 
     // Call the callback set; this sometimes necessary for implementation classes
     // that should not know more than necessary about the SalFrame implementation

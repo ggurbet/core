@@ -561,7 +561,7 @@ SvUnoImageMapObject* SvUnoImageMap::getObject( const Any& aElement )
     Reference< XInterface > xObject;
     aElement >>= xObject;
 
-    SvUnoImageMapObject* pObject = SvUnoImageMapObject::getImplementation( xObject );
+    SvUnoImageMapObject* pObject = comphelper::getUnoTunnelImplementation<SvUnoImageMapObject>( xObject );
     if( nullptr == pObject )
         throw IllegalArgumentException();
 
@@ -660,8 +660,7 @@ sal_Bool SAL_CALL SvUnoImageMap::supportsService( const OUString& ServiceName )
 
 Sequence< OUString > SAL_CALL SvUnoImageMap::getSupportedServiceNames(  )
 {
-    const OUString aSN( "com.sun.star.image.ImageMap" );
-    return Sequence< OUString >( &aSN, 1 );
+    return { "com.sun.star.image.ImageMap" };
 }
 
 void SvUnoImageMap::fillImageMap( ImageMap& rMap ) const
@@ -708,7 +707,7 @@ Reference< XInterface > SvUnoImageMap_createInstance( const ImageMap& rMap, cons
 
 bool SvUnoImageMap_fillImageMap( const Reference< XInterface >& xImageMap, ImageMap& rMap )
 {
-    SvUnoImageMap* pUnoImageMap = SvUnoImageMap::getImplementation( xImageMap );
+    SvUnoImageMap* pUnoImageMap = comphelper::getUnoTunnelImplementation<SvUnoImageMap>( xImageMap );
     if( nullptr == pUnoImageMap )
         return false;
 

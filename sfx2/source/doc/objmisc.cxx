@@ -37,6 +37,7 @@
 #include <com/sun/star/document/XScriptInvocationContext.hpp>
 #include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/XEmbedPersist.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/script/provider/theMasterScriptProviderFactory.hpp>
 #include <com/sun/star/script/provider/XScript.hpp>
 #include <com/sun/star/script/provider/XScriptProvider.hpp>
@@ -99,10 +100,12 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/ctrlitem.hxx>
+#include <sfx2/sfxuno.hxx>
 #include <arrdecl.hxx>
 #include <sfx2/module.hxx>
 #include <sfx2/docfac.hxx>
 #include <helper.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/strings.hrc>
 #include <workwin.hxx>
 #include <sfx2/sfxdlg.hxx>
@@ -1057,7 +1060,7 @@ void SfxObjectShell::FinishedLoading( SfxLoadedFlags nFlags )
         pImpl->nFlagsInProgress |= SfxLoadedFlags::MAINDOCUMENT;
         static_cast<SfxHeaderAttributes_Impl*>(GetHeaderAttributes())->SetAttributes();
 
-        if ( ( GetModifyPasswordHash() || GetModifyPasswordInfo().getLength() ) && !IsModifyPasswordEntered() )
+        if ( ( GetModifyPasswordHash() || GetModifyPasswordInfo().hasElements() ) && !IsModifyPasswordEntered() )
             SetReadOnly();
 
         // Salvage
@@ -1341,6 +1344,16 @@ namespace
     }
 }
 
+namespace {
+
+// don't allow LibreLogo to be used with our mouseover/etc dom-alike events
+bool UnTrustedScript(const OUString& rScriptURL)
+{
+    return rScriptURL.startsWithIgnoreAsciiCase("vnd.sun.star.script:LibreLogo");
+}
+
+}
+
 ErrCode SfxObjectShell::CallXScript( const Reference< XInterface >& _rxScriptContext, const OUString& _rScriptURL,
     const Sequence< Any >& aParams, Any& aRet, Sequence< sal_Int16 >& aOutParamIndex, Sequence< Any >& aOutParam, bool bRaiseError, const css::uno::Any* pCaller )
 {
@@ -1351,6 +1364,9 @@ ErrCode SfxObjectShell::CallXScript( const Reference< XInterface >& _rxScriptCon
         // TODO: we should parse the URL, and check whether there is a parameter with this name.
         // Otherwise, we might find too much.
     if ( bIsDocumentScript && !lcl_isScriptAccessAllowed_nothrow( _rxScriptContext ) )
+        return ERRCODE_IO_ACCESSDENIED;
+
+    if ( UnTrustedScript(_rScriptURL) )
         return ERRCODE_IO_ACCESSDENIED;
 
     bool bCaughtException = false;
@@ -1374,7 +1390,7 @@ ErrCode SfxObjectShell::CallXScript( const Reference< XInterface >& _rxScriptCon
         ::framework::DocumentUndoGuard aUndoGuard( _rxScriptContext.get() );
 
         // obtain the script, and execute it
-        Reference< provider::XScript > xScript( xScriptProvider->getScript( _rScriptURL ), UNO_QUERY_THROW );
+        Reference< provider::XScript > xScript( xScriptProvider->getScript( _rScriptURL ), UNO_SET_THROW );
         if ( pCaller && pCaller->hasValue() )
         {
             Reference< beans::XPropertySet > xProps( xScript, uno::UNO_QUERY );
@@ -1755,7 +1771,7 @@ bool SfxObjectShell_Impl::hasTrustedScriptingSignature( bool bAllowUIToAddAuthor
         {
             uno::Sequence< security::DocumentSignatureInformation > aInfo = rDocShell.GetDocumentSignatureInformation( true, xSigner );
 
-            if ( aInfo.getLength() )
+            if ( aInfo.hasElements() )
             {
                 if ( nScriptingSignatureState == SignatureState::UNKNOWN )
                     nScriptingSignatureState = SfxObjectShell::ImplCheckSignaturesInformation( aInfo );

@@ -54,7 +54,6 @@
 #include <charfmt.hxx>
 #include <strings.hrc>
 #include <bookmrk.hxx>
-#include <crossrefbookmark.hxx>
 #include <memory>
 
 OUString SwHistoryHint::GetDescription() const
@@ -195,7 +194,7 @@ SwHistorySetText::SwHistorySetText( SwTextAttr* pTextHt, sal_uLong nNodePos )
     : SwHistoryHint( HSTRY_SETTXTHNT )
     , m_nNodeIndex( nNodePos )
     , m_nStart( pTextHt->GetStart() )
-    , m_nEnd( *pTextHt->GetAnyEnd() )
+    , m_nEnd( pTextHt->GetAnyEnd() )
     , m_bFormatIgnoreStart(pTextHt->IsFormatIgnoreStart())
     , m_bFormatIgnoreEnd  (pTextHt->IsFormatIgnoreEnd  ())
 {
@@ -266,7 +265,7 @@ SwHistorySetTextField::SwHistorySetTextField( SwTextField* pTextField, sal_uLong
         m_nFieldWhich == SwFieldIds::Dde ||
         !pDoc->getIDocumentFieldsAccess().GetSysFieldType( m_nFieldWhich ))
     {
-        m_pFieldType.reset( m_pField->GetField()->GetTyp()->Copy() );
+        m_pFieldType = m_pField->GetField()->GetTyp()->Copy();
         m_pField->GetField()->ChgTyp( m_pFieldType.get() ); // change field type
     }
     m_nNodeIndex = nNodePos;
@@ -315,7 +314,7 @@ SwHistorySetRefMark::SwHistorySetRefMark( SwTextRefMark* pTextHt, sal_uLong nNod
     , m_RefName( pTextHt->GetRefMark().GetRefName() )
     , m_nNodeIndex( nNodePos )
     , m_nStart( pTextHt->GetStart() )
-    , m_nEnd( *pTextHt->GetAnyEnd() )
+    , m_nEnd( pTextHt->GetAnyEnd() )
 {
 }
 
@@ -344,7 +343,7 @@ SwHistorySetTOXMark::SwHistorySetTOXMark( SwTextTOXMark* pTextHt, sal_uLong nNod
     , m_eTOXTypes( m_TOXMark.GetTOXType()->GetType() )
     , m_nNodeIndex( nNodePos )
     , m_nStart( pTextHt->GetStart() )
-    , m_nEnd( *pTextHt->GetAnyEnd() )
+    , m_nEnd( pTextHt->GetAnyEnd() )
 {
     m_TOXMark.EndListeningAll();
 }
@@ -467,7 +466,7 @@ void SwHistorySetFootnote::SetInDoc( SwDoc* pDoc, bool )
         // set the footnote in the TextNode
         SwFormatFootnote aTemp( m_bEndNote );
         SwFormatFootnote& rNew = const_cast<SwFormatFootnote&>(
-                static_cast<const SwFormatFootnote&>(pDoc->GetAttrPool().Put(aTemp)) );
+                pDoc->GetAttrPool().Put(aTemp) );
         if ( !m_FootnoteNumber.isEmpty() )
         {
             rNew.SetNumStr( m_FootnoteNumber );
@@ -612,7 +611,7 @@ void SwHistoryBookmark::SetInDoc( SwDoc* pDoc, bool )
     }
     else
     {
-        pMark = pMarkAccess->findMark(m_aName)->get();
+        pMark = *pMarkAccess->findMark(m_aName);
         pPam.reset(new SwPaM(pMark->GetMarkPos()));
     }
 
@@ -633,7 +632,7 @@ void SwHistoryBookmark::SetInDoc( SwDoc* pDoc, bool )
     else if(m_bHadOtherPos)
     {
         if(!pMark)
-            pMark = pMarkAccess->findMark(m_aName)->get();
+            pMark = *pMarkAccess->findMark(m_aName);
         OSL_ENSURE(pMark->IsExpanded(),
             "<SwHistoryBookmark::SetInDoc(..)>"
             " - missing pos on old mark");
@@ -670,11 +669,9 @@ void SwHistoryBookmark::SetInDoc( SwDoc* pDoc, bool )
 
 bool SwHistoryBookmark::IsEqualBookmark(const ::sw::mark::IMark& rBkmk)
 {
-    return m_aName == rBkmk.GetName()
-        && (   (   m_nNode == rBkmk.GetMarkPos().nNode.GetIndex()
-                && m_nContent == rBkmk.GetMarkPos().nContent.GetIndex())
-            // tdf#123313 these are created in middle of ToX update
-            || dynamic_cast<sw::mark::CrossRefHeadingBookmark const*>(&rBkmk));
+    return m_nNode == rBkmk.GetMarkPos().nNode.GetIndex()
+        && m_nContent == rBkmk.GetMarkPos().nContent.GetIndex()
+        && m_aName == rBkmk.GetName();
 }
 
 SwHistoryNoTextFieldmark::SwHistoryNoTextFieldmark(const ::sw::mark::IFieldmark& rFieldMark)
@@ -1048,7 +1045,7 @@ void SwHistory::Add( SwTextAttr* pHint, sal_uLong nNodeIdx, bool bNewAttr )
     else
     {
         pHt.reset( new SwHistoryResetText( pHint->Which(), pHint->GetStart(),
-                                    *pHint->GetAnyEnd(), nNodeIdx ) );
+                                    pHint->GetAnyEnd(), nNodeIdx ) );
     }
     m_SwpHstry.push_back( std::move(pHt) );
 }
@@ -1353,7 +1350,8 @@ void SwRegHistory::AddHint( SwTextAttr* pHt, const bool bNew )
 }
 
 bool SwRegHistory::InsertItems( const SfxItemSet& rSet,
-    sal_Int32 const nStart, sal_Int32 const nEnd, SetAttrMode const nFlags )
+    sal_Int32 const nStart, sal_Int32 const nEnd, SetAttrMode const nFlags,
+    SwTextAttr **ppNewTextAttr )
 {
     if( !rSet.Count() )
         return false;
@@ -1370,7 +1368,7 @@ bool SwRegHistory::InsertItems( const SfxItemSet& rSet,
         pTextNode->GetOrCreateSwpHints().Register(this);
     }
 
-    const bool bInserted = pTextNode->SetAttr( rSet, nStart, nEnd, nFlags );
+    const bool bInserted = pTextNode->SetAttr( rSet, nStart, nEnd, nFlags, ppNewTextAttr );
 
     // Caution: The array can be deleted when inserting an attribute!
     // This can happen when the value that should be added first deletes

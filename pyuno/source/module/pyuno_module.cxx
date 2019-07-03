@@ -17,14 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
 #include <config_folders.h>
 
 #include "pyuno_impl.hxx"
 
 #include <cassert>
 #include <unordered_map>
-#include <utility>
 
 #include <osl/module.hxx>
 #include <osl/thread.h>
@@ -46,6 +44,11 @@
 #include <com/sun/star/reflection/XConstantTypeDescription.hpp>
 #include <com/sun/star/reflection/XIdlClass.hpp>
 #include <com/sun/star/registry/InvalidRegistryException.hpp>
+#include <com/sun/star/script/CannotConvertException.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
+#include <com/sun/star/script/XInvocation2.hpp>
+#include <com/sun/star/reflection/XIdlReflection.hpp>
+#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 
 using osl::Module;
 
@@ -344,11 +347,12 @@ static PyObject* initTestEnvironment(
             css::uno::UNO_QUERY_THROW);
         char *const testlib = getenv("TEST_LIB");
         if (!testlib) { abort(); }
-        OString const libname = OString(testlib, strlen(testlib))
 #ifdef _WIN32
-            .replaceAll(OString('/'), OString('\\'))
+        OString const libname = OString(testlib, strlen(testlib))
+            .replaceAll(OString('/'), OString('\\'));
+#else
+        OString const libname(testlib, strlen(testlib));
 #endif
-            ;
 
         osl::Module &mod = runtime.getImpl()->cargo->testModule;
         mod.load(OStringToOUString(libname, osl_getThreadTextEncoding()),

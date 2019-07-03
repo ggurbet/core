@@ -93,9 +93,12 @@
 #include <drawinglayer/primitive2d/maskprimitive2d.hxx>
 #include <drawinglayer/primitive2d/textprimitive2d.hxx>
 #include <drawinglayer/primitive2d/textlayoutdevice.hxx>
+#include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <drawinglayer/processor2d/processorfromoutputdevice.hxx>
 #include <svx/unoapi.hxx>
 #include <svx/framelinkarray.hxx>
+#include <svx/svdpagv.hxx>
+#include <svx/xfillit0.hxx>
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
 #include <basegfx/color/bcolortools.hxx>
 #include <basegfx/utils/b2dclipstate.hxx>
@@ -112,6 +115,7 @@
 #include <o3tl/typed_flags_set.hxx>
 
 #include <vcl/BitmapTools.hxx>
+#include <comphelper/lok.hxx>
 
 #define COL_NOTES_SIDEPANE                  Color(230,230,230)
 #define COL_NOTES_SIDEPANE_BORDER           Color(200,200,200)
@@ -3318,6 +3322,7 @@ void SwLayoutFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect cons
     if ( !pFrame )
         return;
 
+    SwFrameDeleteGuard g(const_cast<SwLayoutFrame*>(this)); // lock because Calc() and recursion
     SwShortCut aShortCut( *pFrame, rRect );
     bool bCnt = pFrame->IsContentFrame();
     if ( bCnt )
@@ -3330,7 +3335,11 @@ void SwLayoutFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect cons
     }
 
     const SwPageFrame *pPage = nullptr;
-    const bool bWin   = gProp.pSGlobalShell->GetWin() != nullptr;
+    bool bWin = gProp.pSGlobalShell->GetWin() != nullptr;
+    if (comphelper::LibreOfficeKit::isTiledPainting())
+        // Tiled rendering is similar to printing in this case: painting transparently multiple
+        // times will result in darker colors: avoid that.
+        bWin = false;
 
     while ( IsAnLower( pFrame ) )
     {
@@ -3920,13 +3929,14 @@ void SwFlyFrame::PaintSwFrame(vcl::RenderContext& rRenderContext, SwRect const& 
             }
             else
             {
-                SvxBrushItem aBack = GetFormat()->makeBackgroundBrushItem();
+                std::shared_ptr<SvxBrushItem> aBack = GetFormat()->makeBackgroundBrushItem();
                 // OD 07.08.2002 #99657# #GetTransChg#
                 //     to determine, if background has to be painted, by checking, if
                 //     background color is not COL_TRANSPARENT ("no fill"/"auto fill")
                 //     or a background graphic exists.
-                bPaintCompleteBack = (aBack.GetColor() != COL_TRANSPARENT) ||
-                                     aBack.GetGraphicPos() != GPOS_NONE;
+                bPaintCompleteBack = aBack &&
+                    ((aBack->GetColor() != COL_TRANSPARENT) ||
+                    aBack->GetGraphicPos() != GPOS_NONE);
             }
         }
         // paint of margin needed.
@@ -5685,12 +5695,15 @@ static void lcl_paintBitmapExToRect(vcl::RenderContext *pOut, const Point& aPoin
     // this, always paint the background color before doing the real paint.
     tools::Rectangle aRect(aPoint, aSize);
 
-    switch (eArea)
+    if (!aRect.IsEmpty())
     {
+        switch (eArea)
+        {
         case LEFT: aRect.SetLeft( aRect.Right() - 1 ); break;
         case RIGHT: aRect.SetRight( aRect.Left() + 1 ); break;
         case TOP: aRect.SetTop( aRect.Bottom() - 1 ); break;
         case BOTTOM: aRect.SetBottom( aRect.Top() + 1 ); break;
+        }
     }
 
     pOut->SetFillColor(SwViewOption::GetAppBackgroundColor());
@@ -5704,7 +5717,7 @@ static void lcl_paintBitmapExToRect(vcl::RenderContext *pOut, const Point& aPoin
     long iterX = eArea != RIGHT && eArea != LEFT ? BORDER_TILE_SIZE : 0;
     long iterY = eArea == RIGHT || eArea == LEFT ? BORDER_TILE_SIZE : 0;
 
-    for (tools::Rectangle aTile = tools::Rectangle(aPoint, aTileSize); true; aTile.Move(iterX, iterY))
+    for (tools::Rectangle aTile(aPoint, aTileSize); true; aTile.Move(iterX, iterY))
     {
         tools::Rectangle aRender = aComplete.GetIntersection(aTile);
         if (aRender.IsEmpty())

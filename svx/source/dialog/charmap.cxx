@@ -17,9 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <vcl/event.hxx>
+#include <vcl/fontcharmap.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/virdev.hxx>
 #include <svtools/colorcfg.hxx>
 
@@ -239,9 +240,9 @@ void SvxShowCharSet::createContextMenu()
     sal_UCS4 cChar = GetSelectCharacter();
     OUString aOUStr( &cChar, 1 );
     if (isFavChar(aOUStr, mxVirDev->GetFont().GetFamilyName()) || maFavCharList.size() >= 16)
-        xItemMenu->show("add", false);
+        xItemMenu->set_visible("add", false);
     else
-        xItemMenu->show("remove", false);
+        xItemMenu->set_visible("remove", false);
 
     ContextMenuSelect(xItemMenu->popup_at_rect(GetDrawingArea(), tools::Rectangle(maPosition, Size(1,1))));
     GrabFocus();
@@ -850,7 +851,7 @@ sal_Int32 SvxShowCharSet::getMaxCharCount() const
     return mxFontCharMap->GetCharCount();
 }
 
-FontCharMapRef SvxShowCharSet::GetFontCharMap()
+FontCharMapRef const & SvxShowCharSet::GetFontCharMap()
 {
     RecalculateFont(*mxVirDev);
     return mxFontCharMap;

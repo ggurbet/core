@@ -45,6 +45,7 @@
 #include <svx/dialogs.hrc>
 #include <svl/inethist.hxx>
 #include <vcl/waitobj.hxx>
+#include <vcl/svapp.hxx>
 #include <svx/svxerr.hxx>
 #include <tools/diagnose_ex.h>
 
@@ -1049,7 +1050,8 @@ void ScModule::ModifyOptions( const SfxItemSet& rOptSet )
                 aNewViewOpt.SetGridOptions( aNewGridOpt );
                 rViewData.SetOptions( aNewViewOpt );
                 rViewData.GetDocument()->SetViewOptions( aNewViewOpt );
-                pDocSh->SetDocumentModified();
+                if (pDocSh)
+                    pDocSh->SetDocumentModified();
                 bRepaint = true;
             }
         }
@@ -1239,7 +1241,7 @@ void ScModule::ModifyOptions( const SfxItemSet& rOptSet )
 
     if ( pDoc && bCalcAll )
     {
-        WaitObject aWait( ScDocShell::GetActiveDialogParent() );
+        weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );
         pDoc->CalcAll();
         if ( pViewSh )
             pViewSh->UpdateCharts( true );
@@ -1566,10 +1568,13 @@ bool ScModule::IsModalMode(SfxObjectShell* pDocSh)
         SfxChildWindow* pChildWnd = lcl_GetChildWinFromCurrentView( m_nCurRefDlgId );
         if ( pChildWnd )
         {
-            IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow());
-            assert(pRefDlg);
-            bIsModal = pChildWnd->IsVisible() && pRefDlg &&
-                !( pRefDlg->IsRefInputMode() && pRefDlg->IsDocAllowed(pDocSh) );
+            if (pChildWnd->GetController())
+            {
+                IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetController().get());
+                assert(pRefDlg);
+                bIsModal = pChildWnd->IsVisible() && pRefDlg &&
+                    !( pRefDlg->IsRefInputMode() && pRefDlg->IsDocAllowed(pDocSh) );
+            }
         }
     }
     else if (pDocSh)
@@ -1594,16 +1599,20 @@ bool ScModule::IsTableLocked()
         SfxChildWindow* pChildWnd = lcl_GetChildWinFromAnyView( m_nCurRefDlgId );
         if ( pChildWnd )
         {
-            IAnyRefDialog* pRefDlg(dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow()));
-            assert(pRefDlg);
-            if(pRefDlg)
+            if (pChildWnd->GetController())
             {
-                bLocked = pRefDlg->IsTableLocked();
+                IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetController().get());
+                assert(pRefDlg);
+                if (pRefDlg)
+                    bLocked = pRefDlg->IsTableLocked();
             }
         }
-        else
+        else if (!comphelper::LibreOfficeKit::isActive())
             bLocked = true;     // for other views, see IsModalMode
     }
+
+    // We can't stop LOK clients from switching part, and getting out of sync.
+    assert(!bLocked || !comphelper::LibreOfficeKit::isActive());
 
     return bLocked;
 }
@@ -1641,9 +1650,12 @@ bool ScModule::IsFormulaMode()
         SfxChildWindow* pChildWnd = lcl_GetChildWinFromCurrentView( m_nCurRefDlgId );
         if ( pChildWnd )
         {
-            IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow());
-            assert(pRefDlg);
-            bIsFormula = pChildWnd->IsVisible() && pRefDlg && pRefDlg->IsRefInputMode();
+            if (pChildWnd->GetController())
+            {
+                IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetController().get());
+                assert(pRefDlg);
+                bIsFormula = pChildWnd->IsVisible() && pRefDlg && pRefDlg->IsRefInputMode();
+            }
         }
     }
     else
@@ -1693,14 +1705,17 @@ void ScModule::SetReference( const ScRange& rRef, ScDocument* pDoc,
                 aNew.aEnd.SetTab(nEndTab);
             }
 
-            IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow());
-            assert(pRefDlg);
-            if(pRefDlg)
+            if (pChildWnd->GetController())
             {
-                // hide the (color) selection now instead of later from LoseFocus,
-                // don't abort the ref input that causes this call (bDoneRefMode = sal_False)
-                pRefDlg->HideReference( false );
-                pRefDlg->SetReference( aNew, pDoc );
+                IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetController().get());
+                assert(pRefDlg);
+                if(pRefDlg)
+                {
+                    // hide the (color) selection now instead of later from LoseFocus,
+                    // don't abort the ref input that causes this call (bDoneRefMode = sal_False)
+                    pRefDlg->HideReference( false );
+                    pRefDlg->SetReference( aNew, pDoc );
+                }
             }
         }
     }
@@ -1729,11 +1744,14 @@ void ScModule::AddRefEntry()
         OSL_ENSURE( pChildWnd, "NoChildWin" );
         if ( pChildWnd )
         {
-            IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow());
-            assert(pRefDlg);
-            if(pRefDlg)
+            if (pChildWnd->GetController())
             {
-                pRefDlg->AddRefEntry();
+                IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetController().get());
+                assert(pRefDlg);
+                if (pRefDlg)
+                {
+                    pRefDlg->AddRefEntry();
+                }
             }
         }
     }
@@ -1759,11 +1777,14 @@ void ScModule::EndReference()
         OSL_ENSURE( pChildWnd, "NoChildWin" );
         if ( pChildWnd )
         {
-            IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow());
-            assert(pRefDlg);
-            if(pRefDlg)
+            if (pChildWnd->GetController())
             {
-                pRefDlg->SetActive();
+                IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetController().get());
+                assert(pRefDlg);
+                if(pRefDlg)
+                {
+                    pRefDlg->SetActive();
+                }
             }
         }
     }
@@ -2129,27 +2150,34 @@ IMPL_LINK( ScModule, CalcFieldValueHdl, EditFieldInfo*, pInfo, void )
     }
 }
 
-void ScModule::RegisterRefWindow( sal_uInt16 nSlotId, vcl::Window *pWnd )
+void ScModule::RegisterRefController(sal_uInt16 nSlotId, std::shared_ptr<SfxDialogController>& rWnd, weld::Window* pWndAncestor)
 {
-    std::vector<VclPtr<vcl::Window> > & rlRefWindow = m_mapRefWindow[nSlotId];
+    std::vector<std::pair<std::shared_ptr<SfxDialogController>, weld::Window*>> & rlRefWindow = m_mapRefController[nSlotId];
 
-    if( std::find( rlRefWindow.begin(), rlRefWindow.end(), pWnd ) == rlRefWindow.end() )
+    if (std::find_if(rlRefWindow.begin(), rlRefWindow.end(),
+                         [rWnd](const std::pair<std::shared_ptr<SfxDialogController>, weld::Window*>& rCandidate)
+                         {
+                             return rCandidate.first.get() == rWnd.get();
+                         }) == rlRefWindow.end())
     {
-        rlRefWindow.emplace_back(pWnd );
+        rlRefWindow.emplace_back(rWnd, pWndAncestor);
     }
-
 }
 
-void  ScModule::UnregisterRefWindow( sal_uInt16 nSlotId, vcl::Window *pWnd )
+void  ScModule::UnregisterRefController(sal_uInt16 nSlotId, std::shared_ptr<SfxDialogController>& rWnd)
 {
-    auto iSlot = m_mapRefWindow.find( nSlotId );
+    auto iSlot = m_mapRefController.find( nSlotId );
 
-    if( iSlot == m_mapRefWindow.end() )
+    if( iSlot == m_mapRefController.end() )
         return;
 
-    std::vector<VclPtr<vcl::Window> > & rlRefWindow = iSlot->second;
+    std::vector<std::pair<std::shared_ptr<SfxDialogController>, weld::Window*>> & rlRefWindow = iSlot->second;
 
-    auto i = std::find( rlRefWindow.begin(), rlRefWindow.end(), pWnd );
+    auto i = std::find_if(rlRefWindow.begin(), rlRefWindow.end(),
+                            [rWnd](const std::pair<std::shared_ptr<SfxDialogController>, weld::Window*>& rCandidate)
+                            {
+                                return rCandidate.first.get() == rWnd.get();
+                            });
 
     if( i == rlRefWindow.end() )
         return;
@@ -2157,26 +2185,24 @@ void  ScModule::UnregisterRefWindow( sal_uInt16 nSlotId, vcl::Window *pWnd )
     rlRefWindow.erase( i );
 
     if( rlRefWindow.empty() )
-        m_mapRefWindow.erase( nSlotId );
+        m_mapRefController.erase( nSlotId );
 }
 
-vcl::Window *  ScModule::Find1RefWindow( sal_uInt16 nSlotId, vcl::Window *pWndAncestor )
+std::shared_ptr<SfxDialogController> ScModule::Find1RefWindow(sal_uInt16 nSlotId, weld::Window *pWndAncestor)
 {
     if (!pWndAncestor)
         return nullptr;
 
-    auto iSlot = m_mapRefWindow.find( nSlotId );
+    auto iSlot = m_mapRefController.find( nSlotId );
 
-    if( iSlot == m_mapRefWindow.end() )
+    if( iSlot == m_mapRefController.end() )
         return nullptr;
 
-    std::vector<VclPtr<vcl::Window> > & rlRefWindow = iSlot->second;
-
-    while( vcl::Window *pParent = pWndAncestor->GetParent() ) pWndAncestor = pParent;
+    std::vector<std::pair<std::shared_ptr<SfxDialogController>, weld::Window*>> & rlRefWindow = iSlot->second;
 
     for (auto const& refWindow : rlRefWindow)
-        if ( pWndAncestor->IsWindowOrChild( refWindow, refWindow->IsSystemWindow() ) )
-            return refWindow;
+        if ( refWindow.second == pWndAncestor )
+            return refWindow.first;
 
     return nullptr;
 }
@@ -2207,7 +2233,7 @@ void ScModule::SetAutoSpellProperty( bool bSet )
     // loading the linguistic component
     SvtLinguConfig aConfig;
 
-    aConfig.SetProperty( OUString( LINGUPROP_AUTOSPELL ), uno::Any(bSet) );
+    aConfig.SetProperty( LINGUPROP_AUTOSPELL, uno::Any(bSet) );
 }
 
 bool ScModule::HasThesaurusLanguage( LanguageType nLang )

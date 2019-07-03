@@ -100,6 +100,7 @@
 #include <sal/log.hxx>
 
 #include <tools/diagnose_ex.h>
+#include <tools/stream.hxx>
 
 #include <memory>
 namespace com { namespace sun { namespace star { namespace chart2 { class XChartDocument; } } } }
@@ -441,6 +442,7 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
     bool bConnectBars = false;
     bool bGroupBarsPerAxis = true;
     bool bIncludeHiddenCells = true;
+    bool bSecondaryYaxisVisible = true;
     sal_Int32 nStartingAngle = 90;
     sal_Int32 n3DRelativeHeight = 100;
     try
@@ -479,7 +481,19 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
     {
         uno::Reference< XCoordinateSystem > xCooSys( aCooSysList[nCS] );
         VCoordinateSystem* pVCooSys = addCooSysToList(m_rVCooSysList,xCooSys,rChartModel);
-
+        // Let's check whether the secondary Y axis is visible
+        try
+        {
+            Reference< beans::XPropertySet > xAxisProp(xCooSys->getAxisByDimension(1, 1), uno::UNO_QUERY);
+            if (xAxisProp.is())
+            {
+                xAxisProp->getPropertyValue("Show") >>= bSecondaryYaxisVisible;
+            }
+        }
+        catch (const lang::IndexOutOfBoundsException&)
+        {
+            TOOLS_WARN_EXCEPTION("chart2", "" );
+        }
         //iterate through all chart types in the current coordinate system
         uno::Reference< XChartTypeContainer > xChartTypeContainer( xCooSys, uno::UNO_QUERY );
         OSL_ASSERT( xChartTypeContainer.is());
@@ -563,7 +577,8 @@ void SeriesPlotterContainer::initializeCooSysAndSeriesPlotter(
 
                 //ignore secondary axis for charttypes that do not support them
                 if( pSeries->getAttachedAxisIndex() != MAIN_AXIS_INDEX &&
-                    !ChartTypeHelper::isSupportingSecondaryAxis( xChartType, nDimensionCount ) )
+                  ( !ChartTypeHelper::isSupportingSecondaryAxis( xChartType, nDimensionCount ) ||
+                    !bSecondaryYaxisVisible ) )
                 {
                     pSeries->setAttachedAxisIndex(MAIN_AXIS_INDEX);
                 }
@@ -749,9 +764,9 @@ void SeriesPlotterContainer::setNumberFormatsFromAxes()
                             }
                         }
                     }
-                    catch( const lang::IndexOutOfBoundsException& e )
+                    catch( const lang::IndexOutOfBoundsException& )
                     {
-                        SAL_WARN("chart2", "Exception caught. " << e );
+                        TOOLS_WARN_EXCEPTION("chart2", "" );
                     }
                 }
             }
@@ -891,7 +906,7 @@ void SeriesPlotterContainer::AdaptScaleOfYAxisWithoutAttachedSeries( ChartModel&
                     aExplicitIncrementDest.Distance = aExplicitIncrementSource.Distance;
 
                 bool bAutoMinorInterval = true;
-                if( aScale.IncrementData.SubIncrements.getLength() )
+                if( aScale.IncrementData.SubIncrements.hasElements() )
                     bAutoMinorInterval = !( aScale.IncrementData.SubIncrements[0].IntervalCount.hasValue() );
                 if( bAutoMinorInterval )
                 {
@@ -1030,20 +1045,6 @@ struct CreateShapeParam2D
 const uno::Sequence<sal_Int8>& ExplicitValueProvider::getUnoTunnelId()
 {
     return theExplicitValueProviderUnoTunnelId::get().getSeq();
-}
-
-ExplicitValueProvider* ExplicitValueProvider::getExplicitValueProvider(
-        const Reference< uno::XInterface >& xChartView )
-{
-    ExplicitValueProvider* pExplicitValueProvider=nullptr;
-
-    Reference< lang::XUnoTunnel > xTunnel( xChartView, uno::UNO_QUERY );
-    if( xTunnel.is() )
-    {
-        pExplicitValueProvider = reinterpret_cast<ExplicitValueProvider*>(xTunnel->getSomething(
-            ExplicitValueProvider::getUnoTunnelId() ));
-    }
-    return pExplicitValueProvider;
 }
 
 ChartView::ChartView(
@@ -1477,7 +1478,6 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
     uno::Reference< drawing::XShapes > xSeriesTargetInFrontOfAxis;
     uno::Reference< drawing::XShapes > xSeriesTargetBehindAxis;
     VDiagram aVDiagram(xDiagram, aPreferredAspectRatio, nDimensionCount);
-    bool bIsPieOrDonut = lcl_IsPieOrDonut(xDiagram);
     {//create diagram
         aVDiagram.init(rParam.mxDiagramWithAxesShapes, m_xShapeFactory);
         aVDiagram.createShapes(
@@ -1486,7 +1486,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
 
         xSeriesTargetInFrontOfAxis = aVDiagram.getCoordinateRegion();
         // It is preferable to use full size than minimum for pie charts
-        if (!bIsPieOrDonut && !rParam.mbUseFixedInnerSize)
+        if (!rParam.mbUseFixedInnerSize)
             aVDiagram.reduceToMimimumSize();
     }
 
@@ -1514,6 +1514,7 @@ awt::Rectangle ChartView::impl_createDiagramAndContent( const CreateShapeParam2D
 
     //use first coosys only so far; todo: calculate for more than one coosys if we have more in future
     //todo: this is just a workaround at the moment for pie and donut labels
+    bool bIsPieOrDonut = lcl_IsPieOrDonut(xDiagram);
     if( !bIsPieOrDonut && (!rVCooSysList.empty()) )
     {
         VCoordinateSystem* pVCooSys = rVCooSysList[0].get();
@@ -1790,7 +1791,7 @@ awt::Rectangle ChartView::getRectangleOfObject( const OUString& rObjectCID, bool
         if( eObjectType == OBJECTTYPE_AXIS || eObjectType == OBJECTTYPE_DIAGRAM )
         {
             SolarMutexGuard aSolarGuard;
-            SvxShape* pRoot = SvxShape::getImplementation( xShape );
+            SvxShape* pRoot = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
             if( pRoot )
             {
                 SdrObject* pRootSdrObject = pRoot->GetSdrObject();
@@ -1816,7 +1817,7 @@ awt::Rectangle ChartView::getRectangleOfObject( const OUString& rObjectCID, bool
         if( bSnapRect )
         {
             //for rotated objects the shape size and position differs from the visible rectangle
-            SvxShape* pShape = SvxShape::getImplementation( xShape );
+            SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
             if( pShape )
             {
                 SdrObject* pSdrObject = pShape->GetSdrObject();
@@ -1850,16 +1851,16 @@ bool lcl_getPropertySwapXAndYAxis( const uno::Reference< XDiagram >& xDiagram )
     if( xCooSysContainer.is() )
     {
         uno::Sequence< uno::Reference< XCoordinateSystem > > aCooSysList( xCooSysContainer->getCoordinateSystems() );
-        if( aCooSysList.getLength() )
+        if( aCooSysList.hasElements() )
         {
             uno::Reference<beans::XPropertySet> xProp(aCooSysList[0], uno::UNO_QUERY );
             if( xProp.is()) try
             {
                 xProp->getPropertyValue( "SwapXAndYAxis" ) >>= bSwapXAndY;
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
     }
@@ -1962,7 +1963,7 @@ awt::Rectangle ExplicitValueProvider::AddSubtractAxisTitleSizes(
     uno::Reference< chart2::XTitle > xSecondTitle_Width( TitleHelper::getTitle( TitleHelper::SECONDARY_Y_AXIS_TITLE, rModel ) );
     if( xTitle_Height.is() || xTitle_Width.is() || xSecondTitle_Height.is() || xSecondTitle_Width.is() )
     {
-        ExplicitValueProvider* pExplicitValueProvider = ExplicitValueProvider::getExplicitValueProvider(xChartView);
+        ExplicitValueProvider* pExplicitValueProvider = comphelper::getUnoTunnelImplementation<ExplicitValueProvider>(xChartView);
         if( pExplicitValueProvider )
         {
             //detect whether x axis points into x direction or not
@@ -2307,7 +2308,7 @@ void lcl_createButtons(const uno::Reference<drawing::XShapes>& xPageShapes,
         {
             std::unique_ptr<VButton> pButton(new VButton);
             pButton->init(xPageShapes, xShapeFactory);
-            awt::Point aNewPosition = awt::Point(rRemainingSpace.X + x + 100, rRemainingSpace.Y + 100);
+            awt::Point aNewPosition(rRemainingSpace.X + x + 100, rRemainingSpace.Y + 100);
             sal_Int32 nDimensionIndex = rPageFieldEntry.DimensionIndex;
             OUString aFieldOutputDescription = xPivotTableDataProvider->getFieldOutputDescription(nDimensionIndex);
             pButton->setLabel(rPageFieldEntry.Name + " | " + aFieldOutputDescription);
@@ -2334,8 +2335,8 @@ void lcl_createButtons(const uno::Reference<drawing::XShapes>& xPageShapes,
 
             std::unique_ptr<VButton> pButton(new VButton);
             pButton->init(xPageShapes, xShapeFactory);
-            awt::Point aNewPosition = awt::Point(rRemainingSpace.X + x + 100,
-                                                 rRemainingSpace.Y + rRemainingSpace.Height - aSize.Height - 100);
+            awt::Point aNewPosition(rRemainingSpace.X + x + 100,
+                                    rRemainingSpace.Y + rRemainingSpace.Height - aSize.Height - 100);
             pButton->setLabel(rRowFieldEntry.Name);
             pButton->setCID("FieldButton.Row." + OUString::number(rRowFieldEntry.DimensionIndex));
             pButton->setPosition(aNewPosition);
@@ -2441,9 +2442,9 @@ void ChartView::impl_refreshAddIn()
                 xAddIn->refresh();
         }
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 
@@ -2453,7 +2454,7 @@ void ChartView::createShapes()
 {
     SolarMutexGuard aSolarGuard;
 
-    osl::ResettableMutexGuard aTimedGuard(maTimeMutex);
+    osl::MutexGuard aTimedGuard(maTimeMutex);
     if(mrChartModel.isTimeBased())
     {
         maTimeBased.bTimeBased = true;
@@ -2610,9 +2611,9 @@ void ChartView::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
         }
     }
 
-    const SdrHint* pSdrHint = dynamic_cast< const SdrHint* >(&rHint);
-    if( !pSdrHint )
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
         return;
+    const SdrHint* pSdrHint = static_cast< const SdrHint* >(&rHint);
 
     bool bShapeChanged = false;
     switch( pSdrHint->GetKind() )
@@ -2871,7 +2872,7 @@ Reference< uno::XInterface > ChartView::createInstance( const OUString& aService
 
 Reference< uno::XInterface > ChartView::createInstanceWithArguments( const OUString& ServiceSpecifier, const uno::Sequence< uno::Any >& Arguments )
 {
-    OSL_ENSURE( Arguments.getLength(), "ChartView::createInstanceWithArguments: arguments are ignored" );
+    OSL_ENSURE( Arguments.hasElements(), "ChartView::createInstanceWithArguments: arguments are ignored" );
     return createInstance( ServiceSpecifier );
 }
 
@@ -2927,7 +2928,7 @@ OUString ChartView::dump()
 
 void ChartView::setViewDirty()
 {
-    osl::ResettableMutexGuard aGuard(maTimeMutex);
+    osl::MutexGuard aGuard(maTimeMutex);
     m_bViewDirty = true;
 }
 

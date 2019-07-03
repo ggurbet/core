@@ -20,20 +20,18 @@
 #define INCLUDED_CHART2_SOURCE_INC_MUTEXCONTAINER_HXX
 
 #include <osl/mutex.hxx>
-#include "charttoolsdllapi.hxx"
 
 namespace chart
 {
 
-class OOO_DLLPUBLIC_CHARTTOOLS MutexContainer
+class MutexContainer
 {
-public:
-    virtual ~MutexContainer();
-
 protected:
-    mutable ::osl::Mutex m_aMutex;
+    MutexContainer() = default;
 
-    ::osl::Mutex & GetMutex() const;
+    ~MutexContainer() = default;
+
+    mutable ::osl::Mutex m_aMutex;
 };
 
 } //  namespace chart

@@ -36,6 +36,7 @@
 #include <vcl/bitmapex.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/graph.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/extendapplicationenvironment.hxx>
 #include <tools/stream.hxx>
 
@@ -79,7 +80,7 @@ SAL_IMPLEMENT_MAIN()
     }
     catch (const Exception& e)
     {
-        SAL_WARN("vcl", "Fatal: " << e);
+        TOOLS_WARN_EXCEPTION("vcl", "Fatal");
         return 1;
     }
     catch (const std::exception& e)
@@ -208,8 +209,7 @@ OString MyWin::processCommand( const OString& rCommand )
         else
         {
             ssize_t nBytes = 0;
-            ssize_t fd = 0;
-            fd = write( nSocket, rCommand.getStr(), rCommand.getLength() );
+            ssize_t fd = write( nSocket, rCommand.getStr(), rCommand.getLength() );
 
             if (fd == 0)
                 SAL_WARN("vcl", "Connection closed on other end");

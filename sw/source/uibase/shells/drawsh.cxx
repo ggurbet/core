@@ -25,6 +25,7 @@
 #include <sfx2/request.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/objface.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/itemiter.hxx>
 #include <svl/srchitem.hxx>
 #include <svx/extrusionbar.hxx>
@@ -42,6 +43,7 @@
 #include <tools/diagnose_ex.h>
 
 #include <svx/svdoashp.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xtable.hxx>
 #include <vcl/EnumContext.hxx>
 #include <svx/svdoole2.hxx>
@@ -49,6 +51,8 @@
 #include <svx/svdograf.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/xbtmpit.hxx>
+#include <svx/sdasitm.hxx>
+#include <svx/svxids.hrc>
 
 #include <swundo.hxx>
 #include <wrtsh.hxx>

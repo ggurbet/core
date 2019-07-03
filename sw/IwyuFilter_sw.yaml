@@ -250,6 +250,20 @@ blacklist:
     - com/sun/star/text/XRedline.hpp
     # sw::UnoImplPtr typedef
     - unobaseclass.hxx
+    sw/source/core/access/acccontext.hxx:
+    # Base class needs complete type
+    - com/sun/star/accessibility/XAccessibleComponent.hpp
+    - com/sun/star/accessibility/XAccessibleEventBroadcaster.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    sw/source/core/access/acchyperlink.hxx:
+    # Base class needs complete type
+    - com/sun/star/accessibility/XAccessibleHyperlink.hpp
+    sw/source/core/access/accnotexthyperlink.hxx:
+    # Base class needs complete type
+    - com/sun/star/accessibility/XAccessibleHyperlink.hpp
+    sw/source/core/docnode/cancellablejob.hxx:
+    # Base class needs complete type
+    - com/sun/star/util/XCancellable.hpp
     sw/source/core/inc/acorrect.hxx:
     # Needed for implicit dtor
     - svl/itemset.hxx
@@ -262,3 +276,171 @@ blacklist:
     sw/source/core/inc/frame.hxx:
     # Needed for direct member access
     - com/sun/star/style/TabStop.hpp
+    sw/source/core/inc/SwXTextDefaults.hxx:
+    # Base class needs complete type
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/beans/XPropertyState.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    sw/source/core/inc/swthreadjoiner.hxx:
+    # Needed for css shortcut
+    - sal/types.h
+    sw/source/core/inc/unobookmark.hxx:
+    # Base class needs complete type
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/container/XNamed.hpp
+    - com/sun/star/text/XTextContent.hpp
+    - com/sun/star/text/XFormField.hpp
+    # Needed for UnoImplPtr template
+    - unobaseclass.hxx
+    sw/source/core/inc/unofield.hxx:
+    # Base class needs complete type
+    - com/sun/star/container/XEnumeration.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/text/XDependentTextField.hpp
+    - com/sun/star/util/XUpdatable.hpp
+    # Needed for UnoImplPtr template
+    - unobaseclass.hxx
+    include/svtools/unoevent.hxx:
+    # Don't give false positives checking sw/source/core/inc/unoevent.hxx
+    - com/sun/star/container/XNameReplace.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    sw/source/core/inc/unoflatpara.hxx:
+    # Base class needs complete type
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/text/XFlatParagraph.hpp
+    - com/sun/star/text/XFlatParagraphIterator.hpp
+    sw/source/core/inc/unofootnote.hxx:
+    # Base class needs complete type
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/container/XEnumerationAccess.hpp
+    - com/sun/star/text/XFootnote.hpp
+    sw/source/core/inc/unoidx.hxx:
+    # Base class needs complete type
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/container/XNamed.hpp
+    - com/sun/star/util/XRefreshable.hpp
+    - com/sun/star/text/XDocumentIndexMark.hpp
+    - com/sun/star/text/XDocumentIndex.hpp
+    # Needed for UnoImplPtr template
+    - unobaseclass.hxx
+    sw/source/core/inc/unometa.hxx:
+    # Base class needs complete type
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/container/XChild.hpp
+    - com/sun/star/container/XEnumerationAccess.hpp
+    - com/sun/star/text/XTextContent.hpp
+    - com/sun/star/text/XTextField.hpp
+    # Needed for UnoImplPtr template
+    - unobaseclass.hxx
+    sw/source/core/inc/unorefmark.hxx:
+    # Base class needs complete type
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/container/XNamed.hpp
+    - com/sun/star/text/XTextContent.hpp
+    # Needed for UnoImplPtr template
+    - unobaseclass.hxx
+    sw/source/core/inc/unoport.hxx:
+    # Base class needs complete type
+    - com/sun/star/text/XTextRange.hpp
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/container/XEnumeration.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/container/XContentEnumerationAccess.hpp
+    - com/sun/star/beans/XMultiPropertySet.hpp
+    - com/sun/star/beans/XPropertyState.hpp
+    - com/sun/star/beans/XTolerantMultiPropertySet.hpp
+    sw/source/core/inc/unotextmarkup.hxx:
+    # Base class needs complete type
+    - com/sun/star/text/XTextMarkup.hpp
+    - com/sun/star/text/XMultiTextMarkup.hpp
+    # Needed for UnoImplPtr template
+    - unobaseclass.hxx
+    sw/source/core/inc/unosection.hxx:
+    # Base class needs complete type
+    - com/sun/star/lang/XUnoTunnel.hpp
+    - com/sun/star/lang/XServiceInfo.hpp
+    - com/sun/star/beans/XPropertySet.hpp
+    - com/sun/star/beans/XPropertyState.hpp
+    - com/sun/star/beans/XMultiPropertySet.hpp
+    - com/sun/star/container/XNamed.hpp
+    - com/sun/star/text/XTextSection.hpp
+    # Needed for UnoImplPtr template
+    - unobaseclass.hxx
+    sw/qa/extras/odfexport/odfexport.cxx:
+    # Needed for getProperty template
+    - com/sun/star/graphic/XGraphic.hpp
+    sw/qa/extras/odfimport/odfimport.cxx:
+    # Needed for direct member access
+    - com/sun/star/text/XTextSection.hpp
+    sw/qa/extras/ooxmlexport/ooxmlexport.cxx:
+    # Needed for direct member access
+    - com/sun/star/graphic/XGraphic.hpp
+    - com/sun/star/text/TableColumnSeparator.hpp
+    sw/qa/extras/ooxmlexport/ooxmlexport2.cxx:
+    # Needed for direct member access
+    - com/sun/star/awt/XBitmap.hpp
+    sw/qa/extras/ooxmlexport/ooxmlexport3.cxx:
+    # Needed for direct member access
+    - com/sun/star/xml/dom/XDocument.hpp
+    sw/qa/extras/ooxmlexport/ooxmlexport4.cxx:
+    # Needed for direct member access
+    - com/sun/star/awt/XBitmap.hpp
+    sw/qa/extras/ooxmlexport/ooxmlexport8.cxx:
+    # Needed for direct member access
+    - com/sun/star/graphic/XGraphic.hpp
+    sw/qa/extras/ooxmlexport/ooxmlexport9.cxx:
+    # Needed for direct member access
+    - com/sun/star/graphic/XGraphic.hpp
+    sw/qa/extras/ooxmlexport/ooxmlexport10.cxx:
+    # Needed for direct member access
+    - com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp
+    - com/sun/star/graphic/XGraphic.hpp
+    - com/sun/star/text/TableColumnSeparator.hpp
+    - com/sun/star/text/XTextColumns.hpp
+    sw/qa/extras/ooxmlimport/ooxmlimport2.cxx:
+    # Needed for direct member access
+    - com/sun/star/document/XEmbeddedObjectSupplier2.hpp
+    - com/sun/star/embed/Aspects.hpp
+    sw/qa/extras/rtfimport/rtfimport.cxx:
+    # Needed for direct member access
+    - com/sun/star/graphic/XGraphic.hpp
+    - com/sun/star/text/XDocumentIndexMark.hpp
+    sw/qa/extras/uiwriter/uiwriter.cxx:
+    # Needed for for-loop range
+    - PostItMgr.hxx
+    # Needed for TypedWhichId macro
+    - editeng/rsiditem.hxx
+    sw/qa/extras/unowriter/unowriter.cxx:
+    # Needed for direct member access
+    - com/sun/star/awt/XDevice.hpp
+    # Needed for for-loop range
+    - com/sun/star/graphic/XGraphic.hpp
+    sw/qa/extras/ww8export/ww8export.cxx:
+    # Needed for direct member access
+    - com/sun/star/graphic/XGraphic.hpp
+    sw/qa/extras/ww8import/ww8import.cxx:
+    # Needed for for-loop range
+    - com/sun/star/graphic/XGraphic.hpp
+    include/sal/types.h:
+    # Ignore warning during checking source/filter/ww8/types.hxx
+    - sal/typesizes.h
+    sw/source/filter/ww8/ww8scan.hxx:
+    # OSL_BIGENDIAN is being checked
+    - osl/endian.h
+    sw/qa/extras/layout/layout.cxx:
+    - comphelper/scopeguard.hxx
+    sw/source/filter/html/htmlreqifreader.cxx:
+    - comphelper/scopeguard.hxx

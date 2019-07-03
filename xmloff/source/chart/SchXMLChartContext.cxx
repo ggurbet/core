@@ -27,6 +27,7 @@
 #include "SchXMLTools.hxx"
 #include <osl/diagnose.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/mediadescriptor.hxx>
 #include <xmloff/xmlnmspe.hxx>
 #include <xmloff/xmlement.hxx>
@@ -93,7 +94,7 @@ void lcl_MoveDataToCandleStickSeries(
     {
         uno::Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aLabeledSeq(
             xDataSource->getDataSequences());
-        if( aLabeledSeq.getLength())
+        if( aLabeledSeq.hasElements())
         {
             lcl_setRoleAtLabeledSequence( aLabeledSeq[0], rRole );
 
@@ -121,7 +122,7 @@ void lcl_setRoleAtFirstSequence(
     if( xSource.is())
     {
         uno::Sequence< uno::Reference< chart2::data::XLabeledDataSequence > > aSeq( xSource->getDataSequences());
-        if( aSeq.getLength())
+        if( aSeq.hasElements())
             lcl_setRoleAtLabeledSequence( aSeq[0], rRole );
     }
 }
@@ -156,7 +157,7 @@ void lcl_removeEmptyChartTypeGroups( const uno::Reference< chart2::XChartDocumen
             for( sal_Int32 nJ=aCTSeq.getLength(); nJ-- && (nRemainingGroups > 1); )
             {
                 uno::Reference< chart2::XDataSeriesContainer > xDSCnt( aCTSeq[nJ], uno::UNO_QUERY_THROW );
-                if( xDSCnt->getDataSeries().getLength() == 0 )
+                if( !xDSCnt->getDataSeries().hasElements() )
                 {
                     // note: iterator stays valid as we have a local sequence
                     xCTCnt->removeChartType( aCTSeq[nJ] );
@@ -165,9 +166,9 @@ void lcl_removeEmptyChartTypeGroups( const uno::Reference< chart2::XChartDocumen
             }
         }
     }
-    catch(const uno::Exception& ex)
+    catch(const uno::Exception&)
     {
-        SAL_INFO("xmloff.chart", "Exception caught while removing empty chart types: " << ex);
+        TOOLS_INFO_EXCEPTION("xmloff.chart", "Exception caught while removing empty chart types");
     }
 }
 
@@ -301,9 +302,9 @@ static void lcl_setDataProvider(uno::Reference<chart2::XChartDocument> const & x
                 xChartDoc->createInternalDataProvider(false);
         }
     }
-    catch (const uno::Exception & rEx)
+    catch (const uno::Exception &)
     {
-        SAL_INFO("xmloff.chart", "SchXMLChartContext::StartElement(): Exception caught: " << rEx);
+        TOOLS_INFO_EXCEPTION("xmloff.chart", "SchXMLChartContext::StartElement()");
     }
 }
 
@@ -963,19 +964,17 @@ void SchXMLChartContext::MergeSeriesForStockChart()
         uno::Reference< chart2::XDataSeriesContainer > xDSContainer;
         uno::Reference< chart2::XCoordinateSystemContainer > xCooSysCnt( xDiagram, uno::UNO_QUERY_THROW );
         uno::Sequence< uno::Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems());
-        for( sal_Int32 nCooSysIdx=0; nCooSysIdx<aCooSysSeq.getLength(); ++nCooSysIdx )
+        for( const auto& rCooSys : aCooSysSeq )
         {
-            uno::Reference< chart2::XChartTypeContainer > xCTCnt( aCooSysSeq[nCooSysIdx], uno::UNO_QUERY_THROW );
+            uno::Reference< chart2::XChartTypeContainer > xCTCnt( rCooSys, uno::UNO_QUERY_THROW );
             uno::Sequence< uno::Reference< chart2::XChartType > > aChartTypes( xCTCnt->getChartTypes());
-            for( sal_Int32 nCTIdx=0; nCTIdx<aChartTypes.getLength(); ++nCTIdx )
+            auto pChartType = std::find_if(aChartTypes.begin(), aChartTypes.end(),
+                [](const auto& rChartType) { return rChartType->getChartType() == "com.sun.star.chart2.CandleStickChartType"; });
+            if (pChartType != aChartTypes.end())
             {
-                if( aChartTypes[nCTIdx]->getChartType() == "com.sun.star.chart2.CandleStickChartType" )
-                {
-                    xDSContainer.set( aChartTypes[nCTIdx], uno::UNO_QUERY_THROW );
-                    uno::Reference< beans::XPropertySet > xCTProp( aChartTypes[nCTIdx], uno::UNO_QUERY_THROW );
-                    xCTProp->getPropertyValue("Japanese") >>= bHasJapaneseCandlestick;
-                    break;
-                }
+                xDSContainer.set( *pChartType, uno::UNO_QUERY_THROW );
+                uno::Reference< beans::XPropertySet > xCTProp( *pChartType, uno::UNO_QUERY_THROW );
+                xCTProp->getPropertyValue("Japanese") >>= bHasJapaneseCandlestick;
             }
         }
 

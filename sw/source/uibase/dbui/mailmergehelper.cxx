@@ -37,6 +37,7 @@
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>
+#include <vcl/svapp.hxx>
 
 #include <sfx2/passwd.hxx>
 
@@ -471,9 +472,8 @@ OUString SwAddressPreview::FillData(
 
             //find the appropriate assignment
             OUString sConvertedColumn = aItem.sText;
-            for(sal_uInt32 nColumn = 0;
-                    nColumn < rDefHeaders.size() && nColumn < sal_uInt32(aAssignment.getLength());
-                                                                                ++nColumn)
+            auto nSize = std::min(sal_uInt32(rDefHeaders.size()), sal_uInt32(aAssignment.getLength()));
+            for(sal_uInt32 nColumn = 0; nColumn < nSize; ++nColumn)
             {
                 if (rDefHeaders[nColumn].first == aItem.sText &&
                     !pAssignment[nColumn].isEmpty())
@@ -622,6 +622,9 @@ void AddressPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rect
     rRenderContext.DrawRect(tools::Rectangle(Point(0, 0), GetOutputSizePixel()));
     Color aPaintColor(IsEnabled() ? rSettings.GetWindowTextColor() : rSettings.GetDisableColor());
     rRenderContext.SetLineColor(aPaintColor);
+
+    if (vcl::Window* pDefaultDevice = dynamic_cast<vcl::Window*>(Application::GetDefaultDevice()))
+        pDefaultDevice->SetPointFont(rRenderContext, GetDrawingArea()->get_font());
     vcl::Font aFont(rRenderContext.GetFont());
     aFont.SetColor(aPaintColor);
     rRenderContext.SetFont(aFont);

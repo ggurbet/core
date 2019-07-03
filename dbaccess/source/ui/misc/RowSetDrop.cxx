@@ -61,7 +61,7 @@ void ORowSetImportExport::initialize()
     Reference<XColumnLocate> xColumnLocate(m_xResultSet,UNO_QUERY);
     OSL_ENSURE(xColumnLocate.is(),"The rowset normally should support this");
 
-    m_xTargetResultSetMetaData = Reference<XResultSetMetaDataSupplier>(m_xTargetResultSetUpdate,UNO_QUERY)->getMetaData();
+    m_xTargetResultSetMetaData = Reference<XResultSetMetaDataSupplier>(m_xTargetResultSetUpdate,UNO_QUERY_THROW)->getMetaData();
     if(!m_xTargetResultSetMetaData.is() || !xColumnLocate.is() || !m_xResultSetMetaData.is() )
         throw SQLException(DBA_RES(STR_UNEXPECTED_ERROR),*this,"S1000",0,Any());
 
@@ -105,7 +105,7 @@ bool ORowSetImportExport::Read()
                         [](sal_Int32 n) { return n > 0; }))
         return false;
     bool bContinue = true;
-    if(m_aSelection.getLength())
+    if(m_aSelection.hasElements())
     {
         const Any* pBegin = m_aSelection.getConstArray();
         const Any* pEnd   = pBegin + m_aSelection.getLength();

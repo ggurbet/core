@@ -17,8 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <assert.h>
 #include <com/sun/star/lang/NoSupportException.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <textconversionImpl.hxx>
 #include <localedata.hxx>
@@ -80,9 +80,7 @@ TextConversionImpl::getLocaleSpecificTextConversion(const Locale& rLocale)
         aLocale = rLocale;
 
         OUString aPrefix("com.sun.star.i18n.TextConversion_");
-        Reference < XInterface > xI;
-
-        xI = m_xContext->getServiceManager()->createInstanceWithContext(
+        Reference < XInterface > xI = m_xContext->getServiceManager()->createInstanceWithContext(
                 aPrefix + LocaleDataImpl::getFirstLocaleServiceName( aLocale), m_xContext);
         if (!xI.is())
         {

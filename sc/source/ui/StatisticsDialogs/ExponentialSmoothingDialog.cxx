@@ -9,18 +9,8 @@
  */
 
 #include <memory>
-#include <sfx2/dispatch.hxx>
-#include <svl/zforlist.hxx>
-#include <svl/undo.hxx>
 
-#include <formulacell.hxx>
-#include <rangelst.hxx>
-#include <scitems.hxx>
-#include <docsh.hxx>
-#include <document.hxx>
-#include <uiitems.hxx>
 #include <reffact.hxx>
-#include <docfunc.hxx>
 #include <TableFillingAndNavigationTools.hxx>
 #include <ExponentialSmoothingDialog.hxx>
 #include <scresid.hxx>
@@ -28,28 +18,22 @@
 
 ScExponentialSmoothingDialog::ScExponentialSmoothingDialog(
                     SfxBindings* pSfxBindings, SfxChildWindow* pChildWindow,
-                    vcl::Window* pParent, ScViewData* pViewData ) :
-    ScStatisticsInputOutputDialog(
+                    weld::Window* pParent, ScViewData* pViewData )
+    : ScStatisticsInputOutputDialog(
             pSfxBindings, pChildWindow, pParent, pViewData,
-            "ExponentialSmoothingDialog", "modules/scalc/ui/exponentialsmoothingdialog.ui" )
+            "modules/scalc/ui/exponentialsmoothingdialog.ui",
+            "ExponentialSmoothingDialog")
+    , mxSmoothingFactor(m_xBuilder->weld_spin_button("smoothing-factor-spin"))
 {
-    get(mpSmoothingFactor, "smoothing-factor-spin");
 }
 
 ScExponentialSmoothingDialog::~ScExponentialSmoothingDialog()
 {
-    disposeOnce();
 }
 
-void ScExponentialSmoothingDialog::dispose()
+void ScExponentialSmoothingDialog::Close()
 {
-    mpSmoothingFactor.clear();
-    ScStatisticsInputOutputDialog::dispose();
-}
-
-bool ScExponentialSmoothingDialog::Close()
-{
-    return DoClose( ScExponentialSmoothingDialogWrapper::GetChildWindowId() );
+    DoClose( ScExponentialSmoothingDialogWrapper::GetChildWindowId() );
 }
 
 const char* ScExponentialSmoothingDialog::GetUndoNameId()
@@ -64,7 +48,7 @@ ScRange ScExponentialSmoothingDialog::ApplyOutput(ScDocShell* pDocShell)
     FormulaTemplate aTemplate(mDocument);
 
     // Smoothing factor
-    double aSmoothingFactor = mpSmoothingFactor->GetValue() / 100.0;
+    double aSmoothingFactor = mxSmoothingFactor->get_value() / 100.0;
 
     // Alpha
     output.writeBoldString(ScResId(STR_LABEL_ALPHA));

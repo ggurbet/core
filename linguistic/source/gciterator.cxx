@@ -611,57 +611,63 @@ void GrammarCheckingIterator::DequeueAndCheck()
                     const bool bModified = xFlatPara->isModified();
                     if (!bModified)
                     {
-                        // ---- THREAD SAFE START ----
-                        ::osl::ClearableGuard< ::osl::Mutex > aGuard( MyMutex::get() );
-
-                        sal_Int32 nStartPos = aFPEntryItem.m_nStartIndex;
-                        sal_Int32 nSuggestedEnd = GetSuggestedEndOfSentence( aCurTxt, nStartPos, aCurLocale );
-                        DBG_ASSERT( (nSuggestedEnd == 0 && aCurTxt.isEmpty()) || nSuggestedEnd > nStartPos,
-                                    "nSuggestedEndOfSentencePos calculation failed?" );
-
                         linguistic2::ProofreadingResult aRes;
 
-                        uno::Reference< linguistic2::XProofreader > xGC( GetGrammarChecker( aCurLocale ), uno::UNO_QUERY );
-                        if (xGC.is())
+                        // ---- THREAD SAFE START ----
                         {
-                            aGuard.clear();
-                            uno::Sequence<beans::PropertyValue> const aProps(
-                                lcl_makeProperties(xFlatPara));
-                            aRes = xGC->doProofreading( aCurDocId, aCurTxt,
-                                                        aCurLocale, nStartPos, nSuggestedEnd, aProps );
+                            osl::ClearableMutexGuard aGuard(MyMutex::get());
 
-                            //!! work-around to prevent looping if the grammar checker
-                            //!! failed to properly identify the sentence end
-                            if (
-                                aRes.nBehindEndOfSentencePosition <= nStartPos &&
-                                aRes.nBehindEndOfSentencePosition != nSuggestedEnd
-                            )
+                            sal_Int32 nStartPos = aFPEntryItem.m_nStartIndex;
+                            sal_Int32 nSuggestedEnd
+                                = GetSuggestedEndOfSentence(aCurTxt, nStartPos, aCurLocale);
+                            DBG_ASSERT((nSuggestedEnd == 0 && aCurTxt.isEmpty())
+                                           || nSuggestedEnd > nStartPos,
+                                       "nSuggestedEndOfSentencePos calculation failed?");
+
+                            uno::Reference<linguistic2::XProofreader> xGC(
+                                GetGrammarChecker(aCurLocale), uno::UNO_QUERY);
+                            if (xGC.is())
                             {
-                                SAL_WARN( "linguistic", "!! Grammarchecker failed to provide end of sentence !!" );
+                                aGuard.clear();
+                                uno::Sequence<beans::PropertyValue> const aProps(
+                                    lcl_makeProperties(xFlatPara));
+                                aRes = xGC->doProofreading(aCurDocId, aCurTxt, aCurLocale,
+                                                           nStartPos, nSuggestedEnd, aProps);
+
+                                //!! work-around to prevent looping if the grammar checker
+                                //!! failed to properly identify the sentence end
+                                if (aRes.nBehindEndOfSentencePosition <= nStartPos
+                                    && aRes.nBehindEndOfSentencePosition != nSuggestedEnd)
+                                {
+                                    SAL_WARN(
+                                        "linguistic",
+                                        "!! Grammarchecker failed to provide end of sentence !!");
+                                    aRes.nBehindEndOfSentencePosition = nSuggestedEnd;
+                                }
+
+                                aRes.xFlatParagraph = xFlatPara;
+                                aRes.nStartOfSentencePosition = nStartPos;
+                            }
+                            else
+                            {
+                                // no grammar checker -> no error
+                                // but we need to provide the data below in order to continue with the next sentence
+                                aRes.aDocumentIdentifier = aCurDocId;
+                                aRes.xFlatParagraph = xFlatPara;
+                                aRes.aText = aCurTxt;
+                                aRes.aLocale = aCurLocale;
+                                aRes.nStartOfSentencePosition = nStartPos;
                                 aRes.nBehindEndOfSentencePosition = nSuggestedEnd;
                             }
+                            aRes.nStartOfNextSentencePosition
+                                = lcl_SkipWhiteSpaces(aCurTxt, aRes.nBehindEndOfSentencePosition);
+                            aRes.nBehindEndOfSentencePosition = lcl_BacktraceWhiteSpaces(
+                                aCurTxt, aRes.nStartOfNextSentencePosition);
 
-                            aRes.xFlatParagraph      = xFlatPara;
-                            aRes.nStartOfSentencePosition = nStartPos;
+                            //guard has to be cleared as ProcessResult calls out of this class
                         }
-                        else
-                        {
-                            // no grammar checker -> no error
-                            // but we need to provide the data below in order to continue with the next sentence
-                            aRes.aDocumentIdentifier = aCurDocId;
-                            aRes.xFlatParagraph      = xFlatPara;
-                            aRes.aText               = aCurTxt;
-                            aRes.aLocale             = aCurLocale;
-                            aRes.nStartOfSentencePosition       = nStartPos;
-                            aRes.nBehindEndOfSentencePosition   = nSuggestedEnd;
-                        }
-                        aRes.nStartOfNextSentencePosition = lcl_SkipWhiteSpaces( aCurTxt, aRes.nBehindEndOfSentencePosition );
-                        aRes.nBehindEndOfSentencePosition = lcl_BacktraceWhiteSpaces( aCurTxt, aRes.nStartOfNextSentencePosition );
-
-                        //guard has to be cleared as ProcessResult calls out of this class
-                        aGuard.clear();
-                        ProcessResult( aRes, xFPIterator, aFPEntryItem.m_bAutomatic );
                         // ---- THREAD SAFE END ----
+                        ProcessResult( aRes, xFPIterator, aFPEntryItem.m_bAutomatic );
                     }
                     else
                     {
@@ -671,11 +677,9 @@ void GrammarCheckingIterator::DequeueAndCheck()
                         AddEntry( xFPIterator, xFlatParaNext, aCurDocId, 0, aFPEntryItem.m_bAutomatic );
                     }
                 }
-                catch (css::uno::Exception & e)
+                catch (css::uno::Exception &)
                 {
-                    SAL_WARN(
-                        "linguistic",
-                        "GrammarCheckingIterator::DequeueAndCheck ignoring " << e);
+                    TOOLS_WARN_EXCEPTION("linguistic", "GrammarCheckingIterator::DequeueAndCheck ignoring");
                 }
             }
 
@@ -1087,7 +1091,7 @@ void GrammarCheckingIterator::GetConfiguredGCSvcs_Impl()
             uno::Any aTmp( xNA->getByName( pElementNames[i] ) );
             if (aTmp >>= aImplNames)
             {
-                if (aImplNames.getLength() > 0)
+                if (aImplNames.hasElements())
                 {
                     // only the first entry is used, there should be only one grammar checker per language
                     const OUString aImplName( aImplNames[0] );
@@ -1143,7 +1147,7 @@ void GrammarCheckingIterator::SetServiceList(
 
     LanguageType nLanguage = LinguLocaleToLanguage( rLocale );
     OUString aImplName;
-    if (rSvcImplNames.getLength() > 0)
+    if (rSvcImplNames.hasElements())
         aImplName = rSvcImplNames[0];   // there is only one grammar checker per language
 
     if (!LinguIsUnspecified(nLanguage) && nLanguage != LANGUAGE_DONTKNOW)

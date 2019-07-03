@@ -22,20 +22,19 @@
 
 #include <cassert>
 
-#include <vcl/salbtype.hxx>
 #include <vcl/dibtools.hxx>
 #include <comphelper/fileformat.h>
 #include <tools/zcodec.hxx>
 #include <tools/stream.hxx>
 #include <tools/fract.hxx>
 #include <tools/helpers.hxx>
+#include <tools/GenericTypeSerializer.hxx>
 #include <unotools/configmgr.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/outdev.hxx>
 #include <bitmapwriteaccess.hxx>
 #include <memory>
-
 
 #define DIBCOREHEADERSIZE       ( 12UL )
 #define DIBINFOHEADERSIZE       ( sizeof(DIBInfoHeader) )
@@ -268,7 +267,7 @@ bool ImplReadDIBInfoHeader(SvStream& rIStm, DIBV5Header& rHeader, bool& bTopDown
         bTopDown = false;
     }
 
-    if ( rHeader.nWidth < 0 )
+    if ( rHeader.nWidth < 0 || rHeader.nXPelsPerMeter < 0 || rHeader.nYPelsPerMeter < 0 )
     {
         rIStm.SetError( SVSTREAM_FILEFORMAT_ERROR );
     }
@@ -1066,7 +1065,7 @@ bool ImplReadDIBFileHeader( SvStream& rIStm, sal_uLong& rOffset )
 {
     bool bRet = false;
 
-    const sal_uInt64 nStreamLength = rIStm.remainingSize();
+    const sal_uInt64 nStreamLength = rIStm.TellEnd();
 
     sal_uInt16 nTmp16 = 0;
     rIStm.ReadUInt16( nTmp16 );
@@ -1801,14 +1800,16 @@ bool ReadDIBBitmapEx(
                     }
                 case TransparentType::Color:
                     {
-                        Color maTransparentColor;
+                        Color aTransparentColor;
 
-                        ReadColor( rIStm, maTransparentColor );
+                        tools::GenericTypeSerializer aSerializer(rIStm);
+                        aSerializer.readColor(aTransparentColor);
+
                         bRetval = !rIStm.GetError();
 
                         if(bRetval)
                         {
-                            rTarget = BitmapEx(aBmp, maTransparentColor);
+                            rTarget = BitmapEx(aBmp, aTransparentColor);
                         }
                         break;
                     }
@@ -1886,7 +1887,8 @@ bool WriteDIBBitmapEx(
         }
         else if(TransparentType::Color == rSource.meTransparent)
         {
-            WriteColor( rOStm, rSource.maTransparentColor );
+            tools::GenericTypeSerializer aSerializer(rOStm);
+            aSerializer.writeColor(rSource.maTransparentColor);
             return true;
         }
     }

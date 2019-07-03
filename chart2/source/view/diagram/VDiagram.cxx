@@ -189,9 +189,9 @@ void VDiagram::createShapes_2d()
                     xProp->setPropertyValue( UNO_NAME_MISC_OBJ_NAME, uno::Any( aWallCID ) );
                 }
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
 
@@ -433,9 +433,9 @@ void VDiagram::adjustAspectRatio3d( const awt::Size& rAvailableSize )
             m_xAspectRatio3D->setPropertyValue( UNO_NAME_3D_TRANSFORM_MATRIX
                 , uno::Any(BaseGFXHelper::B3DHomMatrixToHomogenMatrix( aResult )) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
 }
@@ -466,8 +466,7 @@ void VDiagram::createShapes_3d()
     //create shape
     m_xOuterGroupShape.set( m_pShapeFactory->createGroup3D( m_xTarget, "PlotAreaExcludingAxes" ), uno::UNO_QUERY);
 
-    uno::Reference< drawing::XShapes > xOuterGroup_Shapes =
-            uno::Reference<drawing::XShapes>( m_xOuterGroupShape, uno::UNO_QUERY );
+    uno::Reference< drawing::XShapes > xOuterGroup_Shapes( m_xOuterGroupShape, uno::UNO_QUERY );
 
     //create additional group to manipulate the aspect ratio of the whole diagram:
     xOuterGroup_Shapes = m_pShapeFactory->createGroup3D( xOuterGroup_Shapes );
@@ -654,9 +653,9 @@ void VDiagram::createShapes_3d()
                 xShapeProp->setPropertyValue( UNO_NAME_3D_TRANSFORM_MATRIX
                     , uno::Any(BaseGFXHelper::B3DHomMatrixToHomogenMatrix(aM)) );
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
     }

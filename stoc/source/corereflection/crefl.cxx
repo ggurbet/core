@@ -18,14 +18,14 @@
  */
 
 #include <cppuhelper/queryinterface.hxx>
-#include <cppuhelper/implementationentry.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <cppuhelper/typeprovider.hxx>
 #include <sal/log.hxx>
 
-#include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/reflection/XConstantTypeDescription.hpp>
 #include <com/sun/star/reflection/XTypeDescription.hpp>
 #include <com/sun/star/uno/RuntimeException.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <o3tl/any.hxx>
 #include <uno/lbnames.h>
 
@@ -33,7 +33,6 @@ using namespace css;
 using namespace css::uno;
 using namespace css::lang;
 using namespace css::reflection;
-using namespace css::registry;
 using namespace cppu;
 using namespace osl;
 
@@ -318,9 +317,7 @@ const Mapping & IdlReflectionServiceImpl::getCpp2Uno()
         MutexGuard aGuard( getMutexAccess() );
         if (! _aCpp2Uno.is())
         {
-            _aCpp2Uno = Mapping(
-                OUString( CPPU_CURRENT_LANGUAGE_BINDING_NAME ),
-                OUString( UNO_LB_UNO ) );
+            _aCpp2Uno = Mapping( CPPU_CURRENT_LANGUAGE_BINDING_NAME, UNO_LB_UNO );
             OSL_ENSURE( _aCpp2Uno.is(), "### cannot get c++ to uno mapping!" );
             if (! _aCpp2Uno.is())
             {
@@ -340,9 +337,7 @@ const Mapping & IdlReflectionServiceImpl::getUno2Cpp()
         MutexGuard aGuard( getMutexAccess() );
         if (! _aUno2Cpp.is())
         {
-            _aUno2Cpp = Mapping(
-                OUString( UNO_LB_UNO ),
-                OUString( CPPU_CURRENT_LANGUAGE_BINDING_NAME ) );
+            _aUno2Cpp = Mapping( UNO_LB_UNO, CPPU_CURRENT_LANGUAGE_BINDING_NAME );
             OSL_ENSURE( _aUno2Cpp.is(), "### cannot get uno to c++ mapping!" );
             if (! _aUno2Cpp.is())
             {

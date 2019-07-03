@@ -23,8 +23,10 @@ class LOKClipboard : public cppu::WeakImplHelper<css::datatransfer::clipboard::X
 public:
     css::uno::Reference<css::datatransfer::XTransferable> SAL_CALL getContents() override;
 
-    void SAL_CALL setContents(const css::uno::Reference<css::datatransfer::XTransferable>& xTransferable,
-                              const css::uno::Reference<css::datatransfer::clipboard::XClipboardOwner>& xClipboardOwner) override;
+    void SAL_CALL setContents(
+        const css::uno::Reference<css::datatransfer::XTransferable>& xTransferable,
+        const css::uno::Reference<css::datatransfer::clipboard::XClipboardOwner>& xClipboardOwner)
+        override;
 
     OUString SAL_CALL getName() override;
 };
@@ -32,7 +34,7 @@ public:
 /// Represents the contents of LOKClipboard.
 class LOKTransferable : public cppu::WeakImplHelper<css::datatransfer::XTransferable>
 {
-    OString m_aMimeType;
+    OUString m_aMimeType;
     css::uno::Sequence<sal_Int8> m_aSequence;
 
     /// Provides a list of flavors, used by getTransferDataFlavors() and isDataFlavorSupported().
@@ -40,6 +42,7 @@ class LOKTransferable : public cppu::WeakImplHelper<css::datatransfer::XTransfer
 
 public:
     LOKTransferable(const char* pMimeType, const char* pData, std::size_t nSize);
+    LOKTransferable(OUString sMimeType, const css::uno::Sequence<sal_Int8>& aSequence);
 
     css::uno::Any SAL_CALL getTransferData(const css::datatransfer::DataFlavor& rFlavor) override;
 

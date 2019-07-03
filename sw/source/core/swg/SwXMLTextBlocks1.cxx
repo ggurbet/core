@@ -26,6 +26,7 @@
 #include <unotools/streamwrap.hxx>
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/xml/sax/InputSource.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/io/XActiveDataSource.hpp>
@@ -67,7 +68,7 @@ ErrCode SwXMLTextBlocks::GetDoc( sal_uInt16 nIdx )
         try
         {
             xRoot = xBlkRoot->openStorageElement( aFolderName, embed::ElementModes::READ );
-            xMedium = new SfxMedium( xRoot, GetBaseURL(), OUString( "writer8" ) );
+            xMedium = new SfxMedium( xRoot, GetBaseURL(), "writer8" );
             SwReader aReader( *xMedium, aFolderName, m_xDoc.get() );
             ReadXML->SetBlockMode( true );
             aReader.Read( *ReadXML );

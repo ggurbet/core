@@ -66,13 +66,13 @@ namespace
         SwCursorSaveState const m_aSaveState;
     };
 
-    bool lcl_ReverseMarkOrderingByEnd(const IDocumentMarkAccess::pMark_t& rpFirst,
-        const IDocumentMarkAccess::pMark_t& rpSecond)
+    bool lcl_ReverseMarkOrderingByEnd(const ::sw::mark::IMark* pFirst,
+                                      const ::sw::mark::IMark* pSecond)
     {
-        return rpFirst->GetMarkEnd() > rpSecond->GetMarkEnd();
+        return pFirst->GetMarkEnd() > pSecond->GetMarkEnd();
     }
 
-    bool lcl_IsInvisibleBookmark(const IDocumentMarkAccess::pMark_t& pMark)
+    bool lcl_IsInvisibleBookmark(const ::sw::mark::IMark* pMark)
     {
         return IDocumentMarkAccess::GetType(*pMark) != IDocumentMarkAccess::MarkType::BOOKMARK;
     }
@@ -202,27 +202,23 @@ bool SwCursorShell::GotoMark(const ::sw::mark::IMark* const pMark)
 bool SwCursorShell::GoNextBookmark()
 {
     IDocumentMarkAccess* pMarkAccess = getIDocumentMarkAccess();
-    IDocumentMarkAccess::container_t vCandidates;
+    std::vector<::sw::mark::IMark*> vCandidates;
     remove_copy_if(
-        upper_bound( // finds the first that is starting after
-            pMarkAccess->getBookmarksBegin(),
-            pMarkAccess->getBookmarksEnd(),
-            *GetCursor()->GetPoint(),
-            sw::mark::CompareIMarkStartsAfter()),
+        pMarkAccess->findFirstBookmarkStartsAfter(*GetCursor()->GetPoint()),
         pMarkAccess->getBookmarksEnd(),
         back_inserter(vCandidates),
         &lcl_IsInvisibleBookmark);
 
     // watch Cursor-Moves
     CursorStateHelper aCursorSt(*this);
-    IDocumentMarkAccess::const_iterator_t ppMark = vCandidates.begin();
+    auto ppMark = vCandidates.begin();
     for(; ppMark!=vCandidates.end(); ++ppMark)
     {
         if (sw::IsMarkHidden(*GetLayout(), **ppMark))
         {
             continue;
         }
-        aCursorSt.SetCursorToMark(ppMark->get());
+        aCursorSt.SetCursorToMark(*ppMark);
         if(!aCursorSt.RollbackIfIllegal())
             break; // found legal move
     }
@@ -241,14 +237,10 @@ bool SwCursorShell::GoPrevBookmark()
     IDocumentMarkAccess* pMarkAccess = getIDocumentMarkAccess();
     // candidates from which to choose the mark before
     // no need to consider marks starting after rPos
-    IDocumentMarkAccess::container_t vCandidates;
+    std::vector<::sw::mark::IMark*> vCandidates;
     remove_copy_if(
         pMarkAccess->getBookmarksBegin(),
-        upper_bound(
-            pMarkAccess->getBookmarksBegin(),
-            pMarkAccess->getBookmarksEnd(),
-            *GetCursor()->GetPoint(),
-            sw::mark::CompareIMarkStartsAfter()),
+        pMarkAccess->findFirstBookmarkStartsAfter(*GetCursor()->GetPoint()),
         back_inserter(vCandidates),
         &lcl_IsInvisibleBookmark);
     sort(
@@ -258,20 +250,20 @@ bool SwCursorShell::GoPrevBookmark()
 
     // watch Cursor-Moves
     CursorStateHelper aCursorSt(*this);
-    IDocumentMarkAccess::const_iterator_t ppMark = vCandidates.begin();
+    auto ppMark = vCandidates.begin();
     for(; ppMark!=vCandidates.end(); ++ppMark)
     {
         // ignoring those not ending before the Cursor
         // (we were only able to eliminate those starting
         // behind the Cursor by the upper_bound(..)
         // above)
-        if(!(**ppMark).EndsBefore(*GetCursor()->GetPoint()))
+        if(!((**ppMark).GetMarkEnd() < *GetCursor()->GetPoint()))
             continue;
         if (sw::IsMarkHidden(*GetLayout(), **ppMark))
         {
             continue;
         }
-        aCursorSt.SetCursorToMark(ppMark->get());
+        aCursorSt.SetCursorToMark(*ppMark);
         if(!aCursorSt.RollbackIfIllegal())
             break; // found legal move
     }

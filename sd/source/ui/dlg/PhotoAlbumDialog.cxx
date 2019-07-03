@@ -13,6 +13,7 @@
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <sfx2/filedlghelper.hxx>
 #include <tools/urlobj.hxx>
@@ -24,6 +25,7 @@
 #include <vcl/graphicfilter.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xfltrit.hxx>
 #include <svx/xflclit.hxx>
 #include <tools/diagnose_ex.h>
@@ -41,6 +43,7 @@ namespace sd
 SdPhotoAlbumDialog::SdPhotoAlbumDialog(weld::Window* pWindow, SdDrawDocument* pActDoc)
     : GenericDialogController(pWindow, "modules/simpress/ui/photoalbum.ui", "PhotoAlbumCreatorDialog")
     , m_pDoc(pActDoc)
+    , m_aImg(m_xDialog.get())
     , m_xCancelBtn(m_xBuilder->weld_button("cancel"))
     , m_xCreateBtn(m_xBuilder->weld_button("ok"))
     , m_xAddBtn(m_xBuilder->weld_button("add_btn"))
@@ -517,7 +520,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, FileHdl, weld::Button&, void)
     if ( aDlg.Execute() == ERRCODE_NONE )
     {
         Sequence< OUString > aFilesArr = aDlg.GetSelectedFiles();
-        if( aFilesArr.getLength() )
+        if( aFilesArr.hasElements() )
         {
             sUrl = aDlg.GetDisplayDirectory();
             // Write out configuration
@@ -531,7 +534,7 @@ IMPL_LINK_NOARG(SdPhotoAlbumDialog, FileHdl, weld::Button&, void)
             for ( sal_Int32 i = 0; i < aFilesArr.getLength(); i++ )
             {
                 // Store full path, show filename only. Use INetURLObject to display spaces in filename correctly
-                INetURLObject aUrl = INetURLObject(aFilesArr[i]);
+                INetURLObject aUrl(aFilesArr[i]);
                 m_xImagesLst->append(aUrl.GetMainURL(INetURLObject::DecodeMechanism::NONE), aUrl.GetLastName(INetURLObject::DecodeMechanism::WithCharset), "");
             }
         }

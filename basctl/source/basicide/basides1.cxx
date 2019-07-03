@@ -37,6 +37,7 @@
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <svl/srchdefs.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <sfx2/childwin.hxx>
 #include <sfx2/docfac.hxx>
 #include <sfx2/dinfdlg.hxx>
@@ -44,12 +45,14 @@
 #include <sfx2/minfitem.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/svxids.hrc>
 #include <svl/aeitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/visitem.hxx>
 #include <svl/whiter.hxx>
 #include <vcl/xtextedt.hxx>
+#include <vcl/tabctrl.hxx>
 #include <vcl/textview.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
@@ -170,9 +173,9 @@ void Shell::ExecuteSearch( SfxRequest& rReq )
                         {
                             SfxViewFrame* pViewFrame = GetViewFrame();
                             SfxChildWindow* pChildWin = pViewFrame ? pViewFrame->GetChildWindow( SID_SEARCH_DLG ) : nullptr;
-                            vcl::Window* pParent = pChildWin ? pChildWin->GetWindow() : nullptr;
+                            auto xParent = pChildWin ? pChildWin->GetController() : nullptr;
 
-                            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pParent ? pParent->GetFrameWeld() : nullptr,
+                            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(xParent ? xParent->getDialog() : nullptr,
                                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                                            IDEResId(RID_STR_SEARCHFROMSTART)));
                             xQueryBox->set_default_response(RET_YES);
@@ -325,10 +328,10 @@ void Shell::ExecuteGlobal( SfxRequest& rReq )
             if ( rReq.GetArgs() )
             {
                 const SfxUInt16Item &rTabId = rReq.GetArgs()->Get(SID_BASICIDE_ARG_TABID );
-                Organize( rTabId.GetValue() );
+                Organize(rReq.GetFrameWeld(), rTabId.GetValue());
             }
             else
-                Organize( 0 );
+                Organize(rReq.GetFrameWeld(), 0);
         }
         break;
         case SID_BASICIDE_CHOOSEMACRO:

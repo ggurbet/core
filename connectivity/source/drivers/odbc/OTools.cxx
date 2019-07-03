@@ -258,8 +258,7 @@ void OTools::bindValue( OConnection const * _pConnection,
                     /* see https://msdn.microsoft.com/en-us/library/ms716238%28v=vs.85%29.aspx
                      * for an explanation of that apparently weird cast */
                     _pData = reinterpret_cast<void*>(static_cast<uintptr_t>(columnIndex));
-                    sal_Int32 nLen = 0;
-                    nLen = static_cast<const css::uno::Sequence< sal_Int8 > *>(_pValue)->getLength();
+                    sal_Int32 nLen = static_cast<const css::uno::Sequence< sal_Int8 > *>(_pValue)->getLength();
                     *pLen = static_cast<SQLLEN>(SQL_LEN_DATA_AT_EXEC(nLen));
                 }
                     break;
@@ -268,8 +267,7 @@ void OTools::bindValue( OConnection const * _pConnection,
                     /* see https://msdn.microsoft.com/en-us/library/ms716238%28v=vs.85%29.aspx
                      * for an explanation of that apparently weird cast */
                     _pData = reinterpret_cast<void*>(static_cast<uintptr_t>(columnIndex));
-                    sal_Int32 nLen = 0;
-                    nLen = static_cast<OUString const *>(_pValue)->getLength();
+                    sal_Int32 nLen = static_cast<OUString const *>(_pValue)->getLength();
                     *pLen = static_cast<SQLLEN>(SQL_LEN_DATA_AT_EXEC(nLen));
                 }   break;
                 case SQL_DATE:
@@ -319,7 +317,7 @@ void OTools::ThrowException(const OConnection* _pConnection,
                         return;
         case SQL_NO_DATA_FOUND:
                                 if(_bNoFound)
-                                    return; // no need to throw a exception
+                                    return; // no need to throw an exception
                                 break;
         case SQL_ERROR:             break;
 

@@ -73,6 +73,8 @@
 #include <toolkit/helper/convert.hxx>
 #include <framework/titlehelper.hxx>
 #include <comphelper/processfactory.hxx>
+#include <vcl/svapp.hxx>
+#include <tools/svborder.hxx>
 
 #include <sfx2/event.hxx>
 #include <sfx2/viewfac.hxx>
@@ -181,12 +183,12 @@ public:
                                 , pWorkWindow( pWork )
                                 , _nStartTime(0)
                             {
-                                ++m_refCount;
+                                osl_atomic_increment(&m_refCount);
                                 Reference< lang::XComponent > xComponent(
                                     static_cast< ::cppu::OWeakObject* >(pController), uno::UNO_QUERY );
                                 if (xComponent.is())
                                     xComponent->addEventListener(this);
-                                --m_refCount;
+                                osl_atomic_decrement(&m_refCount);
                             }
 
     virtual void SAL_CALL   start(const OUString& aText, sal_Int32 nRange) override;
@@ -1340,7 +1342,7 @@ void SfxBaseController::ConnectSfxFrame_Impl( const ConnectSfxFrame i_eConnect )
                     {
                         Sequence< PropertyValue > aViewData;
                         OSL_VERIFY( xViewData->getByIndex( nViewDataIndex ) >>= aViewData );
-                        if ( aViewData.getLength() > 0 )
+                        if ( aViewData.hasElements() )
                             m_pData->m_pViewShell->ReadUserDataSequence( aViewData );
                     }
                 }

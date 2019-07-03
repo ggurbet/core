@@ -21,12 +21,14 @@
 #include <svx/AccessibleShapeInfo.hxx>
 #include <svx/DescriptionGenerator.hxx>
 #include <com/sun/star/awt/XWindow.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/accessibility/AccessibleRelationType.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/form/FormComponentType.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/reflection/ProxyFactory.hpp>
 #include <com/sun/star/util/XModeChangeBroadcaster.hpp>
 #include <com/sun/star/container/XContainer.hpp>
@@ -47,6 +49,7 @@
 #include <svx/strings.hrc>
 #include <vcl/svapp.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 #include <algorithm>
 
 using namespace ::accessibility;
@@ -143,7 +146,7 @@ AccessibleControlShape::~AccessibleControlShape()
 }
 
 namespace {
-    Reference< XContainer > lcl_getControlContainer( const vcl::Window* _pWin, const SdrView* _pView )
+    Reference< XContainer > lcl_getControlContainer( const OutputDevice* _pWin, const SdrView* _pView )
     {
         Reference< XContainer > xReturn;
         DBG_ASSERT( _pView, "lcl_getControlContainer: invalid view!" );
@@ -186,7 +189,7 @@ void AccessibleControlShape::Init()
         // I'm aware of at the moment .....
 
         // get the control which belongs to our model (relative to our view)
-        const vcl::Window* pViewWindow = maShapeTreeInfo.GetWindow();
+        const OutputDevice* pViewWindow = maShapeTreeInfo.GetDevice();
         SdrUnoObj* pUnoObjectImpl = dynamic_cast<SdrUnoObj*>( GetSdrObjectFromXShape(mxShape)  );
         SdrView* pView = maShapeTreeInfo.GetSdrView();
         OSL_ENSURE( pView && pViewWindow && pUnoObjectImpl, "AccessibleControlShape::Init: no view, or no view window, no SdrUnoObj!" );
@@ -634,7 +637,7 @@ void SAL_CALL AccessibleControlShape::disposing()
     if ( m_bWaitingForControl )
     {
         OSL_FAIL( "AccessibleControlShape::disposing: this should never happen!" );
-        Reference< XContainer > xContainer = lcl_getControlContainer( maShapeTreeInfo.GetWindow(), maShapeTreeInfo.GetSdrView() );
+        Reference< XContainer > xContainer = lcl_getControlContainer( maShapeTreeInfo.GetDevice(), maShapeTreeInfo.GetSdrView() );
         if ( xContainer.is() )
         {
             m_bWaitingForControl = false;

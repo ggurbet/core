@@ -22,12 +22,12 @@
 #include <memory>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
+#include <tools/diagnose_ex.h>
 #include <tools/helpers.hxx>
 #include <tools/stream.hxx>
 #include <tools/vcompat.hxx>
 #include <tools/fract.hxx>
 #include <vcl/metaact.hxx>
-#include <vcl/salbtype.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/window.hxx>
 #include <vcl/virdev.hxx>
@@ -427,10 +427,10 @@ bool GDIMetaFile::ImplPlayWithRenderer( OutputDevice* pOut, const Point& rPos, S
     {
         throw; // runtime errors are fatal
     }
-    catch (const uno::Exception& e)
+    catch (const uno::Exception&)
     {
         // ignore errors, no way of reporting them here
-        SAL_WARN("vcl.gdi", "GDIMetaFile::ImplPlayWithRenderer: " << e);
+        TOOLS_WARN_EXCEPTION("vcl.gdi", "GDIMetaFile::ImplPlayWithRenderer");
     }
 
     return false;
@@ -815,7 +815,7 @@ void GDIMetaFile::Rotate( long nAngle10 )
     const double    fAngle = F_PI1800 * nAngle10;
     const double    fSin = sin( fAngle );
     const double    fCos = cos( fAngle );
-    tools::Rectangle       aRect=tools::Rectangle( Point(), GetPrefSize() );
+    tools::Rectangle aRect( Point(), GetPrefSize() );
     tools::Polygon aPoly( aRect );
 
     aPoly.Rotate( Point(), fSin, fCos );

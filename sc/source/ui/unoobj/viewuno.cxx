@@ -40,7 +40,6 @@
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <comphelper/profilezone.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <toolkit/helper/convert.hxx>
@@ -682,10 +681,10 @@ sal_Bool SAL_CALL ScTabViewObj::select( const uno::Any& aSelection )
     if (bRet)
         return bRet;
 
-    ScCellRangesBase* pRangesImp = ScCellRangesBase::getImplementation( xInterface );
+    ScCellRangesBase* pRangesImp = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( xInterface );
     uno::Reference<drawing::XShapes> xShapeColl( xInterface, uno::UNO_QUERY );
     uno::Reference<drawing::XShape> xShapeSel( xInterface, uno::UNO_QUERY );
-    SvxShape* pShapeImp = SvxShape::getImplementation( xShapeSel );
+    SvxShape* pShapeImp = comphelper::getUnoTunnelImplementation<SvxShape>( xShapeSel );
 
     if (pRangesImp)                                     // Cell ranges
     {
@@ -780,7 +779,7 @@ sal_Bool SAL_CALL ScTabViewObj::select( const uno::Any& aSelection )
                         uno::Reference<drawing::XShape> xShapeInt(xShapeColl->getByIndex(i), uno::UNO_QUERY);
                         if (xShapeInt.is())
                         {
-                            SvxShape* pShape = SvxShape::getImplementation( xShapeInt );
+                            SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShapeInt );
                             if (pShape)
                             {
                                 SdrObject *pObj = pShape->GetSdrObject();
@@ -1058,7 +1057,7 @@ void SAL_CALL ScTabViewObj::setActiveSheet( const uno::Reference<sheet::XSpreads
     {
         //  XSpreadsheet and ScCellRangesBase -> has to be the same sheet
 
-        ScCellRangesBase* pRangesImp = ScCellRangesBase::getImplementation( xActiveSheet );
+        ScCellRangesBase* pRangesImp = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( xActiveSheet );
         if ( pRangesImp && pViewSh->GetViewData().GetDocShell() == pRangesImp->GetDocShell() )
         {
             const ScRangeList& rRanges = pRangesImp->GetRangeList();
@@ -2063,36 +2062,7 @@ uno::Sequence<OUString> SAL_CALL ScTabViewObj::getSupportedServiceNames()
 
 // XUnoTunnel
 
-sal_Int64 SAL_CALL ScTabViewObj::getSomething(
-                const uno::Sequence<sal_Int8 >& rId )
-{
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-    }
-    return 0;
-}
-
-namespace
-{
-    class theScTabViewObjUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theScTabViewObjUnoTunnelId> {};
-}
-
-const uno::Sequence<sal_Int8>& ScTabViewObj::getUnoTunnelId()
-{
-    return theScTabViewObjUnoTunnelId::get().getSeq();
-}
-
-ScTabViewObj* ScTabViewObj::getImplementation(const uno::Reference<uno::XInterface>& rObj)
-{
-    ScTabViewObj* pRet = nullptr;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScTabViewObj*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
-}
+UNO3_GETIMPLEMENTATION_IMPL(ScTabViewObj);
 
 css::uno::Reference< css::datatransfer::XTransferable > SAL_CALL ScTabViewObj::getTransferable()
 {

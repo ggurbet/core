@@ -28,7 +28,10 @@
 #include <unicode/udata.h>
 #include <rtl/strbuf.hxx>
 #include <rtl/ustring.hxx>
-#include <string.h>
+
+#include <com/sun/star/i18n/BreakType.hpp>
+#include <com/sun/star/i18n/CharacterIteratorMode.hpp>
+#include <com/sun/star/i18n/WordType.hpp>
 
 U_CDECL_BEGIN
 extern const char OpenOffice_dat[];
@@ -516,8 +519,7 @@ LineBreakResults SAL_CALL BreakIterator_Unicode::getLineBreak(
             if (hOptions.hyphenIndex - wBoundary.startPos < nStartPosWordEnd) nStartPosWordEnd = hOptions.hyphenIndex - wBoundary.startPos;
 #define SPACE 0x0020
             while (boundary_with_punctuation > wBoundary.endPos && Text[--boundary_with_punctuation] == SPACE);
-            uno::Reference< linguistic2::XHyphenatedWord > aHyphenatedWord;
-            aHyphenatedWord = hOptions.rHyphenator->hyphenate(Text.copy(wBoundary.startPos,
+            uno::Reference< linguistic2::XHyphenatedWord > aHyphenatedWord = hOptions.rHyphenator->hyphenate(Text.copy(wBoundary.startPos,
                         wBoundary.endPos - wBoundary.startPos), rLocale,
                     static_cast<sal_Int16>(hOptions.hyphenIndex - wBoundary.startPos - ((hOptions.hyphenIndex == wBoundary.endPos)? nStartPosWordEnd : 0)), hOptions.aHyphenationOptions);
             if (aHyphenatedWord.is()) {

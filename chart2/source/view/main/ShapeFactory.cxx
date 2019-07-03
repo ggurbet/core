@@ -377,9 +377,9 @@ uno::Reference<drawing::XShape>
                     bRounded = false;
             }
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     uno::Reference<drawing::XShape> xShape = impl_createCube( xTarget, rPosition, rSize, nRotateZAngleHundredthDegree, bRounded );
@@ -443,9 +443,9 @@ uno::Reference<drawing::XShape>
 
             xMultiPropertySet->setPropertyValues(aPropertyNames, aPropertyValues);
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -691,9 +691,9 @@ uno::Reference<drawing::XShape>
 
             xMultiPropertySet->setPropertyValues(aPropertyNames, aPropertyValues);
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -701,7 +701,7 @@ uno::Reference<drawing::XShape>
 
 static void appendAndCloseBezierCoords( drawing::PolyPolygonBezierCoords& rReturn, const drawing::PolyPolygonBezierCoords& rAdd, bool bAppendInverse )
 {
-    if(!rAdd.Coordinates.getLength())
+    if(!rAdd.Coordinates.hasElements())
         return;
     sal_Int32 nAddCount = rAdd.Coordinates[0].getLength();
     if(!nAddCount)
@@ -732,7 +732,7 @@ static drawing::PolyPolygonBezierCoords getCircularArcBezierCoords(
     //at least one polygon is created using two normal and two control points
     //if the angle is larger it is separated into multiple sub angles
 
-    drawing::PolyPolygonBezierCoords aReturn = drawing::PolyPolygonBezierCoords();
+    drawing::PolyPolygonBezierCoords aReturn;
     sal_Int32 nSegmentCount = static_cast< sal_Int32 >( fWidthAngleRadian/fAngleSubdivisionRadian );
     if( fWidthAngleRadian > fAngleSubdivisionRadian*nSegmentCount )
         nSegmentCount++;
@@ -842,7 +842,7 @@ static drawing::PolyPolygonBezierCoords getRingBezierCoords(
             , const ::basegfx::B2DHomMatrix& aTransformationFromUnitCircle
             , const double fAngleSubdivisionRadian )
 {
-    drawing::PolyPolygonBezierCoords aReturn = drawing::PolyPolygonBezierCoords();
+    drawing::PolyPolygonBezierCoords aReturn;
 
     aReturn.Coordinates = drawing::PointSequenceSequence(1);
     aReturn.Flags       = drawing::FlagSequenceSequence(1);
@@ -870,7 +870,11 @@ uno::Reference< drawing::XShape >
     if( !xTarget.is() )
         return nullptr;
 
-    fUnitCircleWidthAngleDegree = NormAngle360(fUnitCircleWidthAngleDegree);
+    // tdf#123504: both 0 and 360 are valid and different values here!
+    while (fUnitCircleWidthAngleDegree > 360)
+        fUnitCircleWidthAngleDegree -= 360.0;
+    while (fUnitCircleWidthAngleDegree < 0)
+        fUnitCircleWidthAngleDegree += 360.0;
 
     //create shape
     uno::Reference< drawing::XShape > xShape(
@@ -898,9 +902,9 @@ uno::Reference< drawing::XShape >
 
             xProp->setPropertyValue( "PolyPolygonBezier", uno::Any( aCoords ) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
 
@@ -919,9 +923,10 @@ uno::Reference< drawing::XShape >
     if( !xTarget.is() )
         return nullptr;
 
-    while(fUnitCircleWidthAngleDegree>360)
+    // tdf#123504: both 0 and 360 are valid and different values here!
+    while (fUnitCircleWidthAngleDegree > 360)
         fUnitCircleWidthAngleDegree -= 360.0;
-    while(fUnitCircleWidthAngleDegree<0)
+    while (fUnitCircleWidthAngleDegree < 0)
         fUnitCircleWidthAngleDegree += 360.0;
 
     //create shape
@@ -980,9 +985,9 @@ uno::Reference< drawing::XShape >
             xProp->setPropertyValue( UNO_NAME_3D_TEXTURE_PROJ_Y
                 , uno::Any( drawing::TextureProjectionMode_OBJECTSPECIFIC ) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1042,9 +1047,9 @@ uno::Reference< drawing::XShape >
                 PropertyMapper::setMappedProperties(xPropertySet, xSourceProp, rPropertyNameMap);
             }
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1058,7 +1063,7 @@ uno::Reference< drawing::XShape >
     if( !xTarget.is() )
         return nullptr;
 
-    if( !rPolyPolygon.SequenceX.getLength())
+    if( !rPolyPolygon.SequenceX.hasElements())
         return nullptr;
 
     //create shape
@@ -1092,7 +1097,7 @@ uno::Reference< drawing::XShape >
             //so we need to translate the object via transformation matrix
 
             //Matrix for position
-            if (rPolyPolygon.SequenceZ.getLength()&& rPolyPolygon.SequenceZ[0].getLength())
+            if (rPolyPolygon.SequenceZ.hasElements()&& rPolyPolygon.SequenceZ[0].hasElements())
             {
                 basegfx::B3DHomMatrix aM;
                 aM.translate(0, 0, rPolyPolygon.SequenceZ[0][0]);
@@ -1101,9 +1106,9 @@ uno::Reference< drawing::XShape >
             }
             xMultiPropertySet->setPropertyValues(aPropertyNames, aPropertyValues);
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1141,9 +1146,9 @@ uno::Reference< drawing::XShape >
             xProp->setPropertyValue( UNO_NAME_MISC_OBJ_ZORDER
                 , uno::Any( sal_Int32(0) ) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1690,9 +1695,9 @@ uno::Reference< drawing::XShape >
             xProp->setPropertyValue( UNO_NAME_FILLCOLOR
                 , uno::Any( nFillColor ) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1727,9 +1732,9 @@ uno::Reference< drawing::XShape >
         xShape->setPosition( Position3DToAWTPoint( aCenterPosition ));
         xShape->setSize( Direction3DToAWTSize( rSize ));
     }
-    catch( const uno::Exception & e )
+    catch( const uno::Exception & )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     uno::Reference< beans::XPropertySet > xProp( xShape, uno::UNO_QUERY );
     OSL_ENSURE(xProp.is(), "created shape offers no XPropertySet");
@@ -1739,9 +1744,9 @@ uno::Reference< drawing::XShape >
         {
             xProp->setPropertyValue( "Graphic", uno::Any( xGraphic ));
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1771,13 +1776,12 @@ uno::Reference< drawing::XShapes >
         }
 
         //return
-        uno::Reference< drawing::XShapes > xShapes =
-            uno::Reference<drawing::XShapes>( xShape, uno::UNO_QUERY );
+        uno::Reference< drawing::XShapes > xShapes( xShape, uno::UNO_QUERY );
         return xShapes;
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return nullptr;
 }
@@ -1799,7 +1803,7 @@ uno::Reference< drawing::XShapes >
 
         //it is necessary to set the transform matrix to initialize the scene properly
         //otherwise all objects which are placed into this Group will not be visible
-        //the following should be unnecessary after a the bug is fixed
+        //the following should be unnecessary after the bug is fixed
         {
             //set properties
             uno::Reference< beans::XPropertySet > xProp( xShape, uno::UNO_QUERY );
@@ -1812,9 +1816,9 @@ uno::Reference< drawing::XShapes >
                     xProp->setPropertyValue( UNO_NAME_3D_TRANSFORM_MATRIX
                         , uno::Any(B3DHomMatrixToHomogenMatrix(aM)) );
                 }
-                catch( const uno::Exception& e )
+                catch( const uno::Exception& )
                 {
-                    SAL_WARN("chart2", "Exception caught. " << e );
+                    TOOLS_WARN_EXCEPTION("chart2", "" );
                 }
             }
         }
@@ -1824,13 +1828,12 @@ uno::Reference< drawing::XShapes >
             setShapeName( xShape , aName );
 
         //return
-        uno::Reference< drawing::XShapes > xShapes =
-                uno::Reference<drawing::XShapes>( xShape, uno::UNO_QUERY );
+        uno::Reference< drawing::XShapes > xShapes( xShape, uno::UNO_QUERY );
         return xShapes;
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return nullptr;
 }
@@ -1858,9 +1861,9 @@ uno::Reference< drawing::XShape >
         xShape->setPosition( Position3DToAWTPoint( aCenterPosition ));
         xShape->setSize( Direction3DToAWTSize( rSize ));
     }
-    catch( const uno::Exception & e )
+    catch( const uno::Exception & )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 
     //set properties
@@ -1872,9 +1875,9 @@ uno::Reference< drawing::XShape >
         {
             xProp->setPropertyValue( UNO_NAME_CIRCKIND, uno::Any( drawing::CircleKind_FULL ) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1903,7 +1906,7 @@ uno::Reference< drawing::XShape >
     if( !xTarget.is() )
         return nullptr;
 
-    if(!rPoints.SequenceX.getLength())
+    if(!rPoints.SequenceX.hasElements())
         return nullptr;
 
     //create shape
@@ -1962,9 +1965,9 @@ uno::Reference< drawing::XShape >
             }
             xMultiPropertySet->setPropertyValues(aPropertyNames, aPropertyValues);
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -1978,7 +1981,7 @@ uno::Reference< drawing::XShape >
     if( !xTarget.is() )
         return nullptr;
 
-    if(!rPoints.getLength())
+    if(!rPoints.hasElements())
         return nullptr;
 
     //create shape
@@ -2026,9 +2029,9 @@ uno::Reference< drawing::XShape >
                         , pLineProperties->DashName );
             }
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -2153,9 +2156,9 @@ uno::Reference< drawing::XShape >
         {
             xProp->setPropertyValue( "Transformation", rATransformation );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xShape;
@@ -2256,9 +2259,9 @@ uno::Reference< drawing::XShape >
             {
                 xProp->setPropertyValue( "Transformation", rATransformation );
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
     }
@@ -2350,9 +2353,9 @@ uno::Reference< drawing::XShape >
             {
                 xProp->setPropertyValue( "Transformation", rATransformation );
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
     }
@@ -2420,15 +2423,15 @@ uno::Reference< drawing::XShape >
         {
             xTextProperties->getPropertyValue( "StackCharacters" ) >>= bStackCharacters;
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
 
         if(bStackCharacters)
         {
             //if the characters should be stacked we use only the first character properties for code simplicity
-            if( xFormattedString.getLength()>0 )
+            if( xFormattedString.hasElements() )
             {
                 OUString aLabel;
                 for( sal_Int32 nN=0; nN<xFormattedString.getLength();nN++ )
@@ -2465,7 +2468,7 @@ uno::Reference< drawing::XShape >
             bool bHasRefPageSize =
                 ( xTextProperties->getPropertyValue( "ReferencePageSize") >>= aOldRefSize );
 
-            if( xFormattedString.getLength()>0 )
+            if( xFormattedString.hasElements() )
             {
                 uno::Reference< beans::XPropertySet > xTargetProps( xShape, uno::UNO_QUERY );
                 uno::Reference< beans::XPropertySet > xSourceProps( xFormattedString[0], uno::UNO_QUERY );
@@ -2501,9 +2504,9 @@ uno::Reference< drawing::XShape >
         aM.translate( nXPos, nYPos );
         xShapeProp->setPropertyValue( "Transformation", uno::Any( B2DHomMatrixToHomogenMatrix3(aM) ) );
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return xShape;
 }
@@ -2549,9 +2552,9 @@ void ShapeFactory::makeShapeInvisible( const uno::Reference< drawing::XShape >& 
             xShapeProp->setPropertyValue( "LineStyle", uno::Any( drawing::LineStyle_NONE ));
             xShapeProp->setPropertyValue( "FillStyle", uno::Any( drawing::FillStyle_NONE ));
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
 }
@@ -2572,9 +2575,9 @@ void ShapeFactory::setShapeName( const uno::Reference< drawing::XShape >& xShape
             xProp->setPropertyValue( UNO_NAME_MISC_OBJ_NAME
                 , uno::Any( rName ) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
 }
@@ -2591,9 +2594,9 @@ OUString ShapeFactory::getShapeName( const uno::Reference< drawing::XShape >& xS
         {
             xProp->getPropertyValue( UNO_NAME_MISC_OBJ_NAME ) >>= aRet;
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
 
@@ -2643,7 +2646,7 @@ bool ShapeFactory::hasPolygonAnyLines( drawing::PolyPolygonShape3D& rPoly)
 bool ShapeFactory::isPolygonEmptyOrSinglePoint( drawing::PolyPolygonShape3D& rPoly)
 {
     // true, if empty polypolygon or one polygon with one point
-    return (rPoly.SequenceX.getLength() == 0) ||
+    return !rPoly.SequenceX.hasElements() ||
         ((rPoly.SequenceX.getLength() == 1) && (rPoly.SequenceX[0].getLength() <= 1));
 }
 

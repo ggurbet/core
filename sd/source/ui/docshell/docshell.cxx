@@ -24,6 +24,7 @@
 
 #include <sfx2/docfac.hxx>
 #include <sfx2/objface.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/svxids.hrc>
 #include <svl/srchitem.hxx>
 #include <svx/srchdlg.hxx>
@@ -38,6 +39,7 @@
 #include <sfx2/dispatch.hxx>
 #include <svl/whiter.hxx>
 #include <svl/itempool.hxx>
+#include <svl/stritem.hxx>
 #include <svtools/ctrltool.hxx>
 #include <svtools/langtab.hxx>
 #include <comphelper/classids.hxx>

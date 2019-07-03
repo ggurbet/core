@@ -80,8 +80,7 @@ struct OWriteStream_Impl;
 
 struct SotElement_Impl
 {
-    OUString             m_aName;
-    OUString             m_aOriginalName;
+    OUString                m_aOriginalName;
     bool                    m_bIsRemoved;
     bool                    m_bIsInserted;
     bool const              m_bIsStorage;
@@ -139,7 +138,7 @@ struct OStorage_Impl
         return m_nModifiedListenerCount > 0 && m_pAntiImpl != nullptr;
     }
 
-    SotElementVector_Impl                         m_aChildrenVector;
+    std::unordered_map<OUString, std::vector<SotElement_Impl*>> m_aChildrenMap;
     SotElementVector_Impl                         m_aDeletedVector;
 
     css::uno::Reference< css::container::XNameContainer > m_xPackageFolder;
@@ -205,7 +204,7 @@ struct OStorage_Impl
     void ReadContents();
     void ReadRelInfoIfNecessary();
 
-    SotElementVector_Impl& GetChildrenVector();
+    bool HasChildren();
     void GetStorageProperties();
 
     css::uno::Sequence< css::uno::Sequence< css::beans::StringPair > > GetAllRelationshipsIfAny();
@@ -233,7 +232,7 @@ struct OStorage_Impl
     SotElement_Impl* InsertStream( const OUString& aName, bool bEncr );
     void InsertRawStream( const OUString& aName, const css::uno::Reference< css::io::XInputStream >& xInStream );
 
-    OStorage_Impl* CreateNewStorageImpl( sal_Int32 nStorageMode );
+    std::unique_ptr<OStorage_Impl> CreateNewStorageImpl( sal_Int32 nStorageMode );
     SotElement_Impl* InsertStorage( const OUString& aName, sal_Int32 nStorageMode );
     SotElement_Impl* InsertElement( const OUString& aName, bool bIsStorage );
 
@@ -242,7 +241,7 @@ struct OStorage_Impl
 
     css::uno::Sequence< OUString > GetElementNames();
 
-    void RemoveElement( SotElement_Impl* pElement );
+    void RemoveElement( OUString const & rName, SotElement_Impl* pElement );
     static void ClearElement( SotElement_Impl* pElement );
 
     /// @throws css::embed::InvalidStorageException
@@ -261,7 +260,7 @@ struct OStorage_Impl
 
     void RemoveStreamRelInfo( const OUString& aOriginalName );
     void CreateRelStorage();
-    void CommitStreamRelInfo( SotElement_Impl const * pStreamElement );
+    void CommitStreamRelInfo( const OUString& rName, SotElement_Impl const * pStreamElement );
     css::uno::Reference< css::io::XInputStream > GetRelInfoStreamForName( const OUString& aName );
     void CommitRelInfo( const css::uno::Reference< css::container::XNameContainer >& xNewPackageFolder );
 

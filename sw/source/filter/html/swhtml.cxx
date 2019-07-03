@@ -42,6 +42,7 @@
 #include <svtools/htmltokn.h>
 #include <svtools/htmlkywd.hxx>
 #include <svtools/ctrltool.hxx>
+#include <unotools/configmgr.hxx>
 #include <unotools/pathoptions.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
@@ -82,6 +83,7 @@
 #include <fchrfmt.hxx>
 #include <fmtinfmt.hxx>
 #include <fmtfollowtextflow.hxx>
+#include <fmtornt.hxx>
 #include <docary.hxx>
 #include <docstat.hxx>
 #include <doc.hxx>
@@ -116,6 +118,7 @@
 
 #include <sfx2/viewfrm.hxx>
 #include <svx/svdobj.hxx>
+#include <officecfg/Office/Writer.hxx>
 
 #include <swerror.h>
 #include <hints.hxx>
@@ -312,6 +315,10 @@ SwHTMLParser::SwHTMLParser( SwDoc* pD, SwPaM& rCursor, SvStream& rIn,
     m_nTableDepth( 0 ),
     m_pTempViewFrame(nullptr)
 {
+    // If requested explicitly, then force ignoring of comments (don't create postits for them).
+    if (!utl::ConfigManager::IsFuzzing() && officecfg::Office::Writer::Filter::Import::HTML::IgnoreComments::get())
+        m_bIgnoreHTMLComments = true;
+
     m_nEventId = nullptr;
     m_bUpperSpace = m_bViewCreated = m_bChkJumpMark = false;
 
@@ -2852,7 +2859,7 @@ void SwHTMLParser::SetAttr_( bool bChkEnd, bool bBeforeTable,
                         IDocumentMarkAccess* const pMarkAccess = m_xDoc->getIDocumentMarkAccess();
                         IDocumentMarkAccess::const_iterator_t ppBkmk = pMarkAccess->findMark( sName );
                         if( ppBkmk != pMarkAccess->getAllMarksEnd() &&
-                            ppBkmk->get()->GetMarkStart() == *pAttrPam->GetPoint() )
+                            (*ppBkmk)->GetMarkStart() == *pAttrPam->GetPoint() )
                             break; // do not generate duplicates on this position
                         pAttrPam->DeleteMark();
                         const ::sw::mark::IMark* const pNewMark = pMarkAccess->makeMark(
@@ -5150,7 +5157,7 @@ void SwHTMLParser::InsertLineBreak()
     }
 
     // parse styles
-    SvxFormatBreakItem aBreakItem( SvxBreak::NONE, RES_BREAK );
+    std::shared_ptr<SvxFormatBreakItem> aBreakItem(std::make_shared<SvxFormatBreakItem>(SvxBreak::NONE, RES_BREAK));
     bool bBreakItem = false;
     if( HasStyleOptions( aStyle, aId, aClass ) )
     {
@@ -5161,7 +5168,7 @@ void SwHTMLParser::InsertLineBreak()
         {
             if( m_pCSS1Parser->SetFormatBreak( aItemSet, aPropInfo ) )
             {
-                aBreakItem = aItemSet.Get( RES_BREAK );
+                aBreakItem.reset(static_cast<SvxFormatBreakItem*>(aItemSet.Get(RES_BREAK).Clone()));
                 bBreakItem = true;
             }
             if( !aPropInfo.m_aId.isEmpty() )
@@ -5169,9 +5176,9 @@ void SwHTMLParser::InsertLineBreak()
         }
     }
 
-    if( bBreakItem && SvxBreak::PageAfter==aBreakItem.GetBreak() )
+    if( bBreakItem && SvxBreak::PageAfter == aBreakItem->GetBreak() )
     {
-        NewAttr(m_xAttrTab, &m_xAttrTab->pBreak, aBreakItem);
+        NewAttr(m_xAttrTab, &m_xAttrTab->pBreak, *aBreakItem);
         EndAttr( m_xAttrTab->pBreak, false );
     }
 
@@ -5190,9 +5197,9 @@ void SwHTMLParser::InsertLineBreak()
         // (>Netscape). That's why we don't do it.
         AppendTextNode( AM_NOSPACE );
     }
-    if( bBreakItem && SvxBreak::PageBefore==aBreakItem.GetBreak() )
+    if( bBreakItem && SvxBreak::PageBefore == aBreakItem->GetBreak() )
     {
-        NewAttr(m_xAttrTab, &m_xAttrTab->pBreak, aBreakItem);
+        NewAttr(m_xAttrTab, &m_xAttrTab->pBreak, *aBreakItem);
         EndAttr( m_xAttrTab->pBreak, false );
     }
 }

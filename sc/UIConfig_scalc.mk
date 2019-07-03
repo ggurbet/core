@@ -88,6 +88,7 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/scalc,\
 	sc/uiconfig/scalc/ui/allheaderfooterdialog \
 	sc/uiconfig/scalc/ui/analysisofvariancedialog \
 	sc/uiconfig/scalc/ui/autoformattable \
+	sc/uiconfig/scalc/ui/autosum \
 	sc/uiconfig/scalc/ui/cellprotectionpage \
 	sc/uiconfig/scalc/ui/changesourcedialog \
 	sc/uiconfig/scalc/ui/chardialog \
@@ -109,8 +110,8 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/scalc,\
 	sc/uiconfig/scalc/ui/datafielddialog \
 	sc/uiconfig/scalc/ui/datafieldoptionsdialog \
 	sc/uiconfig/scalc/ui/dataform \
+	sc/uiconfig/scalc/ui/dataformfragment \
 	sc/uiconfig/scalc/ui/datastreams \
-	sc/uiconfig/scalc/ui/dataprovider \
 	sc/uiconfig/scalc/ui/dataproviderdlg \
 	sc/uiconfig/scalc/ui/dataproviderentry \
 	sc/uiconfig/scalc/ui/definedatabaserangedialog \
@@ -128,6 +129,7 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/scalc,\
 	sc/uiconfig/scalc/ui/footerdialog \
 	sc/uiconfig/scalc/ui/formatcellsdialog \
 	sc/uiconfig/scalc/ui/formulacalculationoptions \
+	sc/uiconfig/scalc/ui/fourieranalysisdialog \
 	sc/uiconfig/scalc/ui/floatingborderstyle \
 	sc/uiconfig/scalc/ui/floatinglinestyle \
 	sc/uiconfig/scalc/ui/functionpanel \

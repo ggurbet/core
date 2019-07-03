@@ -85,15 +85,15 @@ size_t GlyphCache::IFSD_Hash::operator()(const rtl::Reference<LogicalFontInstanc
         nFontId ^= aFeatName.hashCode();
     }
 
-    size_t nHash = nFontId << 8;
-    nHash   += rFontSelData.mnHeight;
-    nHash   += rFontSelData.mnOrientation;
-    nHash   += size_t(rFontSelData.mbVertical);
-    nHash   += rFontSelData.GetItalic();
-    nHash   += rFontSelData.GetWeight();
-    nHash   += static_cast<sal_uInt16>(rFontSelData.meLanguage);
-
-    return nHash;
+    std::size_t seed = 0;
+    boost::hash_combine(seed, nFontId);
+    boost::hash_combine(seed, rFontSelData.mnHeight);
+    boost::hash_combine(seed, rFontSelData.mnOrientation);
+    boost::hash_combine(seed, size_t(rFontSelData.mbVertical));
+    boost::hash_combine(seed, rFontSelData.GetItalic());
+    boost::hash_combine(seed, rFontSelData.GetWeight());
+    boost::hash_combine(seed, static_cast<sal_uInt16>(rFontSelData.meLanguage));
+    return seed;
 }
 
 bool GlyphCache::IFSD_Equal::operator()(const rtl::Reference<LogicalFontInstance>& rAFontInstance,
@@ -298,7 +298,10 @@ static hb_blob_t* getFontTable(hb_face_t* /*face*/, hb_tag_t nTableTag, void* pU
 
 hb_font_t* FreetypeFontInstance::ImplInitHbFont()
 {
-    return InitHbFont(hb_face_create_for_tables(getFontTable, this, nullptr));
+    hb_font_t* pRet = InitHbFont(hb_face_create_for_tables(getFontTable, this, nullptr));
+    assert(mpFreetypeFont);
+    mpFreetypeFont->SetFontVariationsOnHBFont(pRet);
+    return pRet;
 }
 
 bool FreetypeFontInstance::ImplGetGlyphBoundRect(sal_GlyphId nId, tools::Rectangle& rRect, bool bVertical) const

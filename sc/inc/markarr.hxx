@@ -23,6 +23,8 @@
 #include "address.hxx"
 #include <memory>
 
+class ScRangeList;
+
 #define SC_MARKARRAY_DELTA    4
 
 struct ScMarkEntry
@@ -31,6 +33,11 @@ struct ScMarkEntry
     bool            bMarked;
 };
 
+/**
+  This is a rather odd datastructure. We store alternating marked/not-marked entries,
+  and for each entry the range is defined as :
+      [previousEntry.nRow+1, currentEntry.nRow]
+*/
 class ScMarkArray
 {
     SCSIZE                            nCount;
@@ -43,17 +50,20 @@ friend class ScDocument;                // for FillInfo
 public:
             ScMarkArray();
             ScMarkArray( ScMarkArray&& rArray );
+            ScMarkArray( const ScMarkArray& rArray );
             ~ScMarkArray();
     void    Reset( bool bMarked = false, SCSIZE nNeeded = 1 );
     bool    GetMark( SCROW nRow ) const;
     void    SetMarkArea( SCROW nStartRow, SCROW nEndRow, bool bMarked );
+    void    Set( std::vector<ScMarkEntry> const & );
     bool    IsAllMarked( SCROW nStartRow, SCROW nEndRow ) const;
     bool    HasOneMark( SCROW& rStartRow, SCROW& rEndRow ) const;
-    bool    HasEqualRowsMarked( const ScMarkArray& rOther ) const;
 
     bool    HasMarks() const    { return ( nCount > 1 || ( nCount == 1 && pData[0].bMarked ) ); }
 
-    void    CopyMarksTo( ScMarkArray& rDestMarkArray ) const;
+    ScMarkArray& operator=( ScMarkArray const & rSource );
+    ScMarkArray& operator=( ScMarkArray&& rSource );
+    bool operator==(ScMarkArray const & rOther ) const;
 
     bool    Search( SCROW nRow, SCSIZE& nIndex ) const;
 

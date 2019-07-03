@@ -18,7 +18,6 @@
  */
 
 #include <unotools/optionsdlg.hxx>
-#include <unotools/configmgr.hxx>
 #include <unotools/configitem.hxx>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
@@ -86,10 +85,9 @@ SvtOptionsDlgOptions_Impl::SvtOptionsDlgOptions_Impl()
     OUString sRootNode( ROOT_NODE );
     Sequence< OUString > aNodeSeq = GetNodeNames( sRootNode );
     OUString sNode( sRootNode + g_sPathDelimiter );
-    sal_uInt32 nCount = aNodeSeq.getLength();
-    for ( sal_uInt32 n = 0; n < nCount; n++ )
+    for ( const auto& rNode : aNodeSeq )
     {
-        OUString sSubNode( sNode + aNodeSeq[n] );
+        OUString sSubNode( sNode + rNode );
         ReadNode( sSubNode, NT_Group );
     }
 }
@@ -137,8 +135,7 @@ void SvtOptionsDlgOptions_Impl::ReadNode( const OUString& _rNode, NodeType _eTyp
     if ( _eType != NT_Option )
         lResult[1] = sNode + sSet;
 
-    Sequence< Any > aValues;
-    aValues = GetProperties( lResult );
+    Sequence< Any > aValues = GetProperties( lResult );
     bool bHide = false;
     if ( aValues[0] >>= bHide )
         m_aOptionNodeList.emplace( sNode, bHide );
@@ -147,13 +144,10 @@ void SvtOptionsDlgOptions_Impl::ReadNode( const OUString& _rNode, NodeType _eTyp
     {
         OUString sNodes( sNode + sSet );
         Sequence< OUString > aNodes = GetNodeNames( sNodes );
-        if ( aNodes.getLength() > 0 )
+        for ( const auto& rNode : aNodes )
         {
-            for ( sal_uInt32 n = 0; n < static_cast<sal_uInt32>(aNodes.getLength()); ++n )
-            {
-                OUString sSubNodeName( sNodes + g_sPathDelimiter + aNodes[n] );
-                ReadNode( sSubNodeName, _eType == NT_Group ? NT_Page : NT_Option );
-            }
+            OUString sSubNodeName( sNodes + g_sPathDelimiter + rNode );
+            ReadNode( sSubNodeName, _eType == NT_Group ? NT_Page : NT_Option );
         }
     }
 }

@@ -21,17 +21,6 @@ $(eval $(call gb_Library_add_libs,avmediagst,\
     $(GSTREAMER_1_0_LIBS) \
 ))
 
-ifneq ($(ENABLE_GTK3),)
-$(eval $(call gb_Library_add_cxxflags,avmediagst,\
-    $$(GTK3_CFLAGS) \
-    -DENABLE_GTKSINK \
-))
-
-$(eval $(call gb_Library_add_libs,avmediagst,\
-    $(GTK3_LIBS) \
-))
-endif
-
 $(eval $(call gb_Library_use_external,avmediagst,boost_headers))
 
 $(eval $(call gb_Library_use_sdk_api,avmediagst))

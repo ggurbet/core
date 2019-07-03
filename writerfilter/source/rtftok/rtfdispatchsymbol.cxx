@@ -98,14 +98,14 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
         break;
         case RTF_PAR:
         {
-            if (m_aStates.top().eDestination == Destination::FOOTNOTESEPARATOR)
+            if (m_aStates.top().getDestination() == Destination::FOOTNOTESEPARATOR)
                 break; // just ignore it - only thing we read in here is CHFTNSEP
             checkFirstRun();
             bool bNeedPap = m_bNeedPap;
             checkNeedPap();
             if (bNeedPap)
                 runProps();
-            if (!m_aStates.top().pCurrentBuffer)
+            if (!m_aStates.top().getCurrentBuffer())
             {
                 parBreak();
                 // Not in table? Reset max width.
@@ -121,14 +121,14 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
                 }
                 m_nCellxMax = 0;
             }
-            else if (m_aStates.top().eDestination != Destination::SHAPETEXT)
+            else if (m_aStates.top().getDestination() != Destination::SHAPETEXT)
             {
                 RTFValue::Pointer_t pValue;
-                m_aStates.top().pCurrentBuffer->push_back(Buf_t(BUFFER_PAR, pValue, nullptr));
+                m_aStates.top().getCurrentBuffer()->push_back(Buf_t(BUFFER_PAR, pValue, nullptr));
             }
             // but don't emit properties yet, since they may change till the first text token arrives
             m_bNeedPap = true;
-            if (!m_aStates.top().aFrame.inFrame())
+            if (!m_aStates.top().getFrame().inFrame())
                 m_bNeedPar = false;
             m_bNeedFinalPar = false;
         }
@@ -170,7 +170,7 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
         }
         break;
         case RTF_HEXCHAR:
-            m_aStates.top().nInternalState = RTFInternalState::HEX;
+            m_aStates.top().setInternalState(RTFInternalState::HEX);
             break;
         case RTF_CELL:
         case RTF_NESTCELL:
@@ -182,11 +182,11 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
             if (m_bNeedPap)
             {
                 // There were no runs in the cell, so we need to send paragraph and character properties here.
-                auto pPValue = new RTFValue(m_aStates.top().aParagraphAttributes,
-                                            m_aStates.top().aParagraphSprms);
+                auto pPValue = new RTFValue(m_aStates.top().getParagraphAttributes(),
+                                            m_aStates.top().getParagraphSprms());
                 bufferProperties(m_aTableBufferStack.back(), pPValue, nullptr);
-                auto pCValue = new RTFValue(m_aStates.top().aCharacterAttributes,
-                                            m_aStates.top().aCharacterSprms);
+                auto pCValue = new RTFValue(m_aStates.top().getCharacterAttributes(),
+                                            m_aStates.top().getCharacterSprms());
                 bufferProperties(m_aTableBufferStack.back(), pCValue, nullptr);
             }
 
@@ -204,19 +204,19 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
                               pBuffer->GetFrameProperties(), pBuffer->GetRowProperties(),
                               m_nNestedCells, m_nNestedCurrentCellX - m_nNestedTRLeft);
 
-            if (m_aTableBufferStack.size() == 1 || !m_aStates.top().pCurrentBuffer)
+            if (m_aTableBufferStack.size() == 1 || !m_aStates.top().getCurrentBuffer())
             {
                 throw io::WrongFormatException("mismatch between \\itap and number of \\nestrow",
                                                nullptr);
             }
-            assert(m_aStates.top().pCurrentBuffer == &m_aTableBufferStack.back());
+            assert(m_aStates.top().getCurrentBuffer() == &m_aTableBufferStack.back());
             // note: there may be several states pointing to table buffer!
             for (std::size_t i = 0; i < m_aStates.size(); ++i)
             {
-                if (m_aStates[i].pCurrentBuffer == &m_aTableBufferStack.back())
+                if (m_aStates[i].getCurrentBuffer() == &m_aTableBufferStack.back())
                 {
-                    m_aStates[i].pCurrentBuffer
-                        = &m_aTableBufferStack[m_aTableBufferStack.size() - 2];
+                    m_aStates[i].setCurrentBuffer(
+                        &m_aTableBufferStack[m_aTableBufferStack.size() - 2]);
                 }
             }
             m_aTableBufferStack.pop_back();
@@ -232,19 +232,19 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
         case RTF_ROW:
         {
             m_bAfterCellBeforeRow = false;
-            if (m_aStates.top().nTableRowWidthAfter > 0)
+            if (m_aStates.top().getTableRowWidthAfter() > 0)
             {
                 // Add fake cellx / cell, RTF equivalent of
                 // OOXMLFastContextHandlerTextTableRow::handleGridAfter().
-                auto pXValue = new RTFValue(m_aStates.top().nTableRowWidthAfter);
-                m_aStates.top().aTableRowSprms.set(NS_ooxml::LN_CT_TblGridBase_gridCol, pXValue,
-                                                   RTFOverwrite::NO_APPEND);
+                auto pXValue = new RTFValue(m_aStates.top().getTableRowWidthAfter());
+                m_aStates.top().getTableRowSprms().set(NS_ooxml::LN_CT_TblGridBase_gridCol, pXValue,
+                                                       RTFOverwrite::NO_APPEND);
                 dispatchSymbol(RTF_CELL);
 
                 // Adjust total width, which is done in the \cellx handler for normal cells.
-                m_nTopLevelCurrentCellX += m_aStates.top().nTableRowWidthAfter;
+                m_nTopLevelCurrentCellX += m_aStates.top().getTableRowWidthAfter();
 
-                m_aStates.top().nTableRowWidthAfter = 0;
+                m_aStates.top().setTableRowWidthAfter(0);
             }
 
             bool bRestored = false;
@@ -260,13 +260,13 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
             const int MINLAY = 23; // sw/inc/swtypes.hxx, minimal possible size of frames.
             if ((m_nCellxMax - m_nTopLevelCurrentCellX) >= MINLAY)
             {
-                auto pXValueLast = m_aStates.top().aTableRowSprms.find(
+                auto pXValueLast = m_aStates.top().getTableRowSprms().find(
                     NS_ooxml::LN_CT_TblGridBase_gridCol, false);
                 const int nXValueLast = pXValueLast ? pXValueLast->getInt() : 0;
                 auto pXValue = new RTFValue(nXValueLast + m_nCellxMax - m_nTopLevelCurrentCellX);
-                m_aStates.top().aTableRowSprms.eraseLast(NS_ooxml::LN_CT_TblGridBase_gridCol);
-                m_aStates.top().aTableRowSprms.set(NS_ooxml::LN_CT_TblGridBase_gridCol, pXValue,
-                                                   RTFOverwrite::NO_APPEND);
+                m_aStates.top().getTableRowSprms().eraseLast(NS_ooxml::LN_CT_TblGridBase_gridCol);
+                m_aStates.top().getTableRowSprms().set(NS_ooxml::LN_CT_TblGridBase_gridCol, pXValue,
+                                                       RTFOverwrite::NO_APPEND);
                 m_nTopLevelCurrentCellX = m_nCellxMax;
             }
 
@@ -291,9 +291,9 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
                 // note: there may be several states pointing to table buffer!
                 for (std::size_t i = 0; i < m_aStates.size(); ++i)
                 {
-                    if (m_aStates[i].pCurrentBuffer == &m_aTableBufferStack.back())
+                    if (m_aStates[i].getCurrentBuffer() == &m_aTableBufferStack.back())
                     {
-                        m_aStates[i].pCurrentBuffer = &m_aTableBufferStack.front();
+                        m_aStates[i].setCurrentBuffer(&m_aTableBufferStack.front());
                     }
                 }
                 m_aTableBufferStack.pop_back();
@@ -303,9 +303,9 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
                             m_aTopLevelTableCellsAttributes, m_nTopLevelCells);
 
             // The scope of the table cell defaults is one row.
-            m_aDefaultState.aTableCellSprms.clear();
-            m_aStates.top().aTableCellSprms = m_aDefaultState.aTableCellSprms;
-            m_aStates.top().aTableCellAttributes = m_aDefaultState.aTableCellAttributes;
+            m_aDefaultState.getTableCellSprms().clear();
+            m_aStates.top().getTableCellSprms() = m_aDefaultState.getTableCellSprms();
+            m_aStates.top().getTableCellAttributes() = m_aDefaultState.getTableCellAttributes();
 
             writerfilter::Reference<Properties>::Pointer_t paraProperties;
             writerfilter::Reference<Properties>::Pointer_t frameProperties;
@@ -329,7 +329,7 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
         {
             bool bColumns = false; // If we have multiple columns
             RTFValue::Pointer_t pCols
-                = m_aStates.top().aSectionSprms.find(NS_ooxml::LN_EG_SectPrContents_cols);
+                = m_aStates.top().getSectionSprms().find(NS_ooxml::LN_EG_SectPrContents_cols);
             if (pCols)
             {
                 RTFValue::Pointer_t pNum = pCols->getAttributes().find(NS_ooxml::LN_CT_Columns_num);
@@ -350,23 +350,23 @@ RTFError RTFDocumentImpl::dispatchSymbol(RTFKeyword nKeyword)
         break;
         case RTF_CHFTN:
         {
-            if (m_aStates.top().pCurrentBuffer == &m_aSuperBuffer)
+            if (m_aStates.top().getCurrentBuffer() == &m_aSuperBuffer)
                 // Stop buffering, there will be no custom mark for this footnote or endnote.
-                m_aStates.top().pCurrentBuffer = nullptr;
+                m_aStates.top().setCurrentBuffer(nullptr);
             break;
         }
         case RTF_PAGE:
         {
             // Ignore page breaks inside tables.
-            if (m_aStates.top().pCurrentBuffer == &m_aTableBufferStack.back())
+            if (m_aStates.top().getCurrentBuffer() == &m_aTableBufferStack.back())
                 break;
 
             // If we're inside a continuous section, we should send a section break, not a page one.
             RTFValue::Pointer_t pBreak
-                = m_aStates.top().aSectionSprms.find(NS_ooxml::LN_EG_SectPrContents_type);
+                = m_aStates.top().getSectionSprms().find(NS_ooxml::LN_EG_SectPrContents_type);
             // Unless we're on a title page.
             RTFValue::Pointer_t pTitlePg
-                = m_aStates.top().aSectionSprms.find(NS_ooxml::LN_EG_SectPrContents_titlePg);
+                = m_aStates.top().getSectionSprms().find(NS_ooxml::LN_EG_SectPrContents_titlePg);
             if (((pBreak.get()
                   && pBreak->getInt()
                          == static_cast<sal_Int32>(NS_ooxml::LN_Value_ST_SectionMark_continuous))

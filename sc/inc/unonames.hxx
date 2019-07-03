@@ -192,9 +192,9 @@
 //  drawing objects
 #define SC_UNONAME_IMAGEMAP         "ImageMap"
 #define SC_UNONAME_ANCHOR           "Anchor"
+#define SC_UNONAME_RESIZE_WITH_CELL "ResizeWithCell"
 #define SC_UNONAME_HORIPOS          "HoriOrientPosition"
 #define SC_UNONAME_VERTPOS          "VertOrientPosition"
-//     #i66550 HLINK_FOR_SHAPES
 #define SC_UNONAME_HYPERLINK        "Hyperlink"
 #define SC_UNONAME_MOVEPROTECT      "MoveProtect"
 

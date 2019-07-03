@@ -32,6 +32,7 @@
 #include <com/sun/star/embed/StorageFormats.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
+#include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/ucb/XContent.hpp>
 #include <com/sun/star/ucb/XContentIdentifierFactory.hpp>
@@ -49,6 +50,7 @@
 #include <comphelper/documentconstants.hxx>
 #include <comphelper/propertyvalue.hxx>
 #include <comphelper/sequence.hxx>
+#include <cppuhelper/implbase.hxx>
 #include <comphelper/xmlsechelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <sal/log.hxx>
@@ -205,7 +207,7 @@ void DocumentDigitalSignatures::initialize( const Sequence< Any >& aArguments)
 
     m_nArgumentsCount = aArguments.getLength();
 
-    if (aArguments.getLength() > 0)
+    if (aArguments.hasElements())
     {
         if (!(aArguments[0] >>= m_sODFVersion))
             throw css::lang::IllegalArgumentException(
@@ -269,9 +271,9 @@ sal_Bool DocumentDigitalSignatures::signSignatureLine(
     if (!aSignatureManager.init())
         return false;
 
-    aSignatureManager.mxStore = rxStorage;
-    aSignatureManager.maSignatureHelper.SetStorage(rxStorage, m_sODFVersion);
-    aSignatureManager.mxSignatureStream = xSignStream;
+    aSignatureManager.setStore(rxStorage);
+    aSignatureManager.getSignatureHelper().SetStorage(rxStorage, m_sODFVersion);
+    aSignatureManager.setSignatureStream(xSignStream);
 
     Reference<XXMLSecurityContext> xSecurityContext;
     Reference<XServiceInfo> xServiceInfo(xCertificate, UNO_QUERY);
@@ -478,10 +480,10 @@ DocumentDigitalSignatures::ImplVerifySignatures(
         return Sequence< css::security::DocumentSignatureInformation >(0);
 
 
-    XMLSignatureHelper& rSignatureHelper = aSignatureManager.maSignatureHelper;
+    XMLSignatureHelper& rSignatureHelper = aSignatureManager.getSignatureHelper();
     rSignatureHelper.SetStorage(rxStorage, m_sODFVersion);
 
-    rSignatureHelper.StartMission(aSignatureManager.mxSecurityContext);
+    rSignatureHelper.StartMission(aSignatureManager.getSecurityContext());
 
     if (xInputStream.is())
         rSignatureHelper.ReadAndVerifySignature(xInputStream);
@@ -617,24 +619,15 @@ void DocumentDigitalSignatures::showCertificate(
 sal_Bool DocumentDigitalSignatures::isAuthorTrusted(
     const Reference< css::security::XCertificate >& Author )
 {
-    bool bFound = false;
-
     OUString sSerialNum = xmlsecurity::bigIntegerToNumericString( Author->getSerialNumber() );
 
     Sequence< SvtSecurityOptions::Certificate > aTrustedAuthors = SvtSecurityOptions().GetTrustedAuthors();
-    const SvtSecurityOptions::Certificate* pAuthors = aTrustedAuthors.getConstArray();
-    const SvtSecurityOptions::Certificate* pAuthorsEnd = pAuthors + aTrustedAuthors.getLength();
-    for ( ; pAuthors != pAuthorsEnd; ++pAuthors )
-    {
-        SvtSecurityOptions::Certificate aAuthor = *pAuthors;
-        if ( ( aAuthor[0] == Author->getIssuerName() ) && ( aAuthor[1] == sSerialNum ) )
-        {
-            bFound = true;
-            break;
-        }
-    }
 
-    return bFound;
+    return std::any_of(aTrustedAuthors.begin(), aTrustedAuthors.end(),
+        [&Author, &sSerialNum](const SvtSecurityOptions::Certificate& rAuthor) {
+            return ( rAuthor[0] == Author->getIssuerName() )
+                && ( rAuthor[1] == sSerialNum );
+        });
 }
 
 uno::Sequence<Reference<css::security::XCertificate>>
@@ -776,9 +769,9 @@ sal_Bool DocumentDigitalSignatures::signDocumentWithCertificate(
     if (!aSignatureManager.init())
         return false;
 
-    aSignatureManager.mxStore = xStorage;
-    aSignatureManager.maSignatureHelper.SetStorage(xStorage, m_sODFVersion);
-    aSignatureManager.mxSignatureStream = xStream;
+    aSignatureManager.setStore(xStorage);
+    aSignatureManager.getSignatureHelper().SetStorage(xStorage, m_sODFVersion);
+    aSignatureManager.setSignatureStream(xStream);
 
     Reference<XXMLSecurityContext> xSecurityContext;
     Reference<XServiceInfo> xServiceInfo(xCertificate, UNO_QUERY);

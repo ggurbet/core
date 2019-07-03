@@ -32,7 +32,6 @@
 #include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/awt/FontSlant.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/lang/DisposedException.hpp>
 
 #include <cppuhelper/implbase3.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -69,12 +68,10 @@ void SAL_CALL FontIdentificator::initialize( const Sequence<Any>& i_rArgs )
     if( !ImplGetSVData() )
         return; // VCL not initialized
 
-    sal_uInt32 nArgs = i_rArgs.getLength();
-    const Any* pArgs = i_rArgs.getConstArray();
     Sequence< sal_Int8 > aFontBuf;
-    for( sal_uInt32 i = 0; i < nArgs; i++ )
+    for( const auto& rArg : i_rArgs )
     {
-        if( pArgs[i] >>= aFontBuf )
+        if( rArg >>= aFontBuf )
         {
             m_aFont = Font::identifyFont( aFontBuf.getConstArray(), aFontBuf.getLength() );
             break;

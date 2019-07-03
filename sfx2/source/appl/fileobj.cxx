@@ -33,14 +33,18 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <sfx2/docfac.hxx>
 #include <com/sun/star/document/XTypeDetection.hpp>
+#include <com/sun/star/container/XNameAccess.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <unotools/mediadescriptor.hxx>
 #include <comphelper/processfactory.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/opengrf.hxx>
 #include <sfx2/sfxresid.hxx>
+#include <sfx2/objsh.hxx>
 #include "fileobj.hxx"
 #include <sfx2/strings.hrc>
 #include <vcl/dibtools.hxx>
+#include <vcl/svapp.hxx>
 
 #define FILETYPE_TEXT       1
 #define FILETYPE_GRF        2

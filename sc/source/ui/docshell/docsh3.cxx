@@ -30,8 +30,11 @@
 #include <sfx2/app.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/printer.hxx>
+#include <svx/pageitem.hxx>
 #include <svx/postattr.hxx>
+#include <svx/svxids.hrc>
 #include <unotools/misccfg.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 
@@ -1198,11 +1201,11 @@ bool ScDocShell::MergeSharedDocument( ScDocShell* pSharedDocShell )
                 while ( bLoop )
                 {
                     bLoop = false;
-                    ScopedVclPtrInstance< ScConflictsDlg > aDlg( GetActiveDialogParent(), GetViewData(), &rSharedDoc, aConflictsList );
-                    if ( aDlg->Execute() == RET_CANCEL )
+                    weld::Window* pWin = GetActiveDialogParent();
+                    ScConflictsDlg aDlg(pWin, GetViewData(), &rSharedDoc, aConflictsList);
+                    if (aDlg.run() == RET_CANCEL)
                     {
-                        vcl::Window* pWin = GetActiveDialogParent();
-                        std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                        std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin,
                                                                        VclMessageType::Question, VclButtonsType::YesNo,
                                                                        ScResId(STR_DOC_WILLNOTBESAVED)));
                         xQueryBox->set_default_response(RET_YES);
@@ -1318,8 +1321,7 @@ bool ScDocShell::MergeSharedDocument( ScDocShell* pSharedDocShell )
         PostPaintExtras();
         PostPaintGridAll();
 
-        vcl::Window* pWin = GetActiveDialogParent();
-        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(GetActiveDialogParent(),
                                                       VclMessageType::Info, VclButtonsType::Ok,
                                                       ScResId(STR_DOC_UPDATED)));
         xInfoBox->run();

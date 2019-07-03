@@ -47,6 +47,7 @@
 #include <fldbas.hxx>
 #include <frmatr.hxx>
 #include <frmtool.hxx>
+#include <ndtxt.hxx>
 
 #include <cfloat>
 #include <swselectionlist.hxx>
@@ -1818,14 +1819,12 @@ sal_uInt16 SwFrame::GetVirtPageNum() const
     const SwPageFrame *pVirtPage = nullptr;
     const SwFrame *pFrame = nullptr;
     const SfxItemPool &rPool = pPage->GetFormat()->GetDoc()->GetAttrPool();
-    sal_uInt32 nMaxItems = rPool.GetItemCount2( RES_PAGEDESC );
-    for( sal_uInt32 n = 0; n < nMaxItems; ++n )
+    for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_PAGEDESC))
     {
-        const SfxPoolItem* pItem = rPool.GetItem2( RES_PAGEDESC, n );
-        if ( nullptr == pItem )
+        const SwFormatPageDesc *pDesc = dynamic_cast<const SwFormatPageDesc*>(pItem);
+        if ( !pDesc )
             continue;
 
-        const SwFormatPageDesc *pDesc = static_cast<const SwFormatPageDesc*>(pItem);
         if ( pDesc->GetNumOffset() && pDesc->GetDefinedIn() )
         {
             const SwModify *pMod = pDesc->GetDefinedIn();
@@ -2389,7 +2388,7 @@ void SwRootFrame::CalcFrameRects(SwShellCursor &rCursor)
                 }
             }
 
-            SwRect aTmp = SwRect( aTmpSt, aTmpEnd );
+            SwRect aTmp( aTmpSt, aTmpEnd );
             // Bug 34888: If content is selected which doesn't take space
             //            away (i.e. PostIts, RefMarks, TOXMarks), then at
             //            least set the width of the Cursor.

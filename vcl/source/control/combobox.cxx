@@ -22,16 +22,13 @@
 #include <set>
 
 #include <comphelper/string.hxx>
-#include <vcl/decoview.hxx>
 #include <vcl/lstbox.hxx>
-#include <vcl/button.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/uitest/uiobject.hxx>
 #include <sal/log.hxx>
 
-#include <svdata.hxx>
 #include <listbox.hxx>
 #include <controldata.hxx>
 #include <comphelper/lok.hxx>
@@ -194,6 +191,8 @@ void ComboBox::ImplInit( vcl::Window* pParent, WinBits nStyle )
     if( nStyle & WB_DROPDOWN )
     {
         m_pImpl->m_pFloatWin = VclPtr<ImplListBoxFloatingWindow>::Create( this );
+        if (!IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Focus))
+            m_pImpl->m_pFloatWin->RequestDoubleBuffering(true);
         m_pImpl->m_pFloatWin->SetAutoWidth( true );
         m_pImpl->m_pFloatWin->SetPopupModeEndHdl( LINK(m_pImpl.get(), ComboBox::Impl, ImplPopupModeEndHdl) );
 
@@ -515,11 +514,6 @@ void ComboBox::EnableAutoSize( bool bAuto )
 void ComboBox::EnableSelectAll()
 {
     m_pImpl->m_pSubEdit->SetSelectAllSingleClick(true);
-}
-void ComboBox::EnableDDAutoWidth( bool b )
-{
-    if (m_pImpl->m_pFloatWin)
-        m_pImpl->m_pFloatWin->SetAutoWidth( b );
 }
 
 void ComboBox::SetDropDownLineCount( sal_uInt16 nLines )
@@ -983,7 +977,9 @@ bool ComboBox::IsTravelSelect() const
 
 bool ComboBox::IsInDropDown() const
 {
-    return m_pImpl->m_pFloatWin && m_pImpl->m_pFloatWin->IsInPopupMode();
+    // when the dropdown is dismissed, first mbInPopupMode is set to false, and on the next event iteration then
+    // mbPopupMode is set to false
+    return m_pImpl->m_pFloatWin && m_pImpl->m_pFloatWin->IsInPopupMode() && m_pImpl->m_pFloatWin->ImplIsInPrivatePopupMode();
 }
 
 void ComboBox::EnableMultiSelection( bool bMulti )
@@ -1370,7 +1366,7 @@ const Wallpaper& ComboBox::GetDisplayBackground() const
     const Wallpaper& rBack = m_pImpl->m_pSubEdit->GetBackground();
     if( ! rBack.IsBitmap() &&
         ! rBack.IsGradient() &&
-        rBack.GetColor() == COL_TRANSPARENT
+        rBack == COL_TRANSPARENT
         )
         return Control::GetDisplayBackground();
     return rBack;

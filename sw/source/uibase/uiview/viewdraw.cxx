@@ -20,6 +20,7 @@
 #include <hintids.hxx>
 #include <svl/aeitem.hxx>
 #include <svl/itempool.hxx>
+#include <svl/stritem.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdpage.hxx>
@@ -28,6 +29,7 @@
 #include <editeng/outliner.hxx>
 #include <svx/fmview.hxx>
 #include <svx/dataaccessdescriptor.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/viewfrm.hxx>
 #include <doc.hxx>
 #include <IDocumentDeviceAccess.hxx>
@@ -346,6 +348,10 @@ void SwView::ExecDraw(SfxRequest& rReq)
             if(SID_OBJECT_SELECT == m_nDrawSfxId )
             {
                 m_pWrtShell->GotoObj(true);
+            }
+            else if (dynamic_cast<ConstCustomShape*>(pTempFuncPtr))
+            {
+                pTempFuncPtr->CreateDefaultObject();
             }
             else
             {

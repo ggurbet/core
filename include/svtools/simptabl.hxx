@@ -55,8 +55,6 @@ class SVT_DLLPUBLIC SvSimpleTable : public SvHeaderTabListBox
 private:
     SvSimpleTableContainer& m_rParentTableContainer;
 
-    Link<SvSimpleTable*, void> aCommandLink;
-    CommandEvent        aCEvt;
     VclPtr<HeaderBar>   aHeaderBar;
     long                nOldPos;
     sal_uInt16          nHeaderItemId;
@@ -83,9 +81,7 @@ protected:
     void                    HBarDrag();
     void                    HBarEndDrag();
 
-    virtual void            Command( const CommandEvent& rCEvt ) override;
-
-    virtual sal_Int32       ColCompare(SvTreeListEntry*,SvTreeListEntry*);
+    sal_Int32               ColCompare(SvTreeListEntry*,SvTreeListEntry*);
 public:
 
     SvSimpleTable(SvSimpleTableContainer& rParent, WinBits nBits = WB_BORDER);
@@ -100,22 +96,15 @@ public:
 
     using SvHeaderTabListBox::SetTabs;
 
-    void            ClearHeader();
-
-    void            ShowTable();
-
     void            EnableTable();
     void            DisableTable();
     bool            IsEnabled() const;
 
     void            SortByCol(sal_uInt16, bool bDir=true);
-    bool            GetSortDirection(){ return bSortDirection;}
     sal_uInt16      GetSortedCol(){ return nSortCol;}
     SvLBoxItem*     GetEntryAtPos( SvTreeListEntry* pEntry, sal_uInt16 nPos ) const;
 
-    const CommandEvent& GetCommandEvent() const { return aCEvt; }
     bool     IsFocusOnCellEnabled() const { return IsCellFocusEnabled(); }
-    void            SetCommandHdl( const Link<SvSimpleTable*,void>& rLink ) { aCommandLink = rLink; }
 
     HeaderBar&      GetTheHeaderBar() { return *aHeaderBar; }
 };

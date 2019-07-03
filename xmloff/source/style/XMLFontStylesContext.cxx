@@ -277,7 +277,7 @@ const char EOT_FORMAT[]      = "embedded-opentype";
 
 void XMLFontStyleContextFontFaceUri::EndElement()
 {
-    if( ( linkPath.getLength() == 0 ) && ( maFontData.getLength() == 0 ) )
+    if( ( linkPath.getLength() == 0 ) && ( !maFontData.hasElements() ) )
     {
         SAL_WARN( "xmloff", "svg:font-face-uri tag with no link or base64 data; ignoring." );
         return;
@@ -299,7 +299,7 @@ void XMLFontStyleContextFontFaceUri::EndElement()
         SAL_WARN( "xmloff", "Unknown format of embedded font; assuming TTF." );
         eot = false;
     }
-    if ( maFontData.getLength() == 0 )
+    if ( !maFontData.hasElements() )
         handleEmbeddedFont( linkPath, eot );
     else
         handleEmbeddedFont( maFontData, eot );
@@ -317,10 +317,10 @@ void XMLFontStyleContextFontFaceUri::handleEmbeddedFont( const OUString& url, bo
     if( GetImport().IsPackageURL( url ))
     {
         uno::Reference< embed::XStorage > storage;
-        storage.set( GetImport().GetSourceStorage(), UNO_QUERY_THROW );
+        storage.set( GetImport().GetSourceStorage(), UNO_SET_THROW );
         if( url.indexOf( '/' ) > -1 ) // TODO what if more levels?
             storage.set( storage->openStorageElement( url.copy( 0, url.indexOf( '/' )),
-                ::embed::ElementModes::READ ), uno::UNO_QUERY_THROW );
+                ::embed::ElementModes::READ ), uno::UNO_SET_THROW );
         uno::Reference< io::XInputStream > inputStream;
         inputStream.set( storage->openStreamElement( url.copy( url.indexOf( '/' ) + 1 ), ::embed::ElementModes::READ ),
             UNO_QUERY_THROW );

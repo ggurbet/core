@@ -22,11 +22,16 @@
 #include <editeng/editids.hrc>
 #include <editeng/kernitem.hxx>
 #include <editeng/fhgtitem.hxx>
+#include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <sfx2/sidebar/Theme.hxx>
+#include <vcl/button.hxx>
 #include <vcl/settings.hxx>
 #include <svl/itempool.hxx>
 #include <helpids.h>
+
+#include <com/sun/star/beans/NamedValue.hpp>
 
 #define SPACING_VERY_TIGHT  -30
 #define SPACING_TIGHT       -15
@@ -108,7 +113,7 @@ void TextCharacterSpacingControl::Initialize()
     {
         css::uno::Sequence<css::beans::NamedValue> aSeq = aWinOpt.GetUserData();
         OUString aTmp;
-        if(aSeq.getLength())
+        if(aSeq.hasElements())
             aSeq[0].Value >>= aTmp;
 
         OUString aWinData(aTmp);

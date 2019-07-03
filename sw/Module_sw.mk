@@ -94,7 +94,9 @@ $(eval $(call gb_Module_add_slowcheck_targets,sw,\
     CppunitTest_sw_odfexport \
     CppunitTest_sw_odfimport \
     CppunitTest_sw_txtexport \
-    CppunitTest_sw_uiwriter \
+    $(if $(filter-out MACOSX,$(OS)), \
+        CppunitTest_sw_uiwriter \
+    ) \
     CppunitTest_sw_layoutwriter \
     CppunitTest_sw_mailmerge \
     CppunitTest_sw_globalfilter \
@@ -145,8 +147,10 @@ $(eval $(call gb_Module_add_uicheck_targets,sw,\
 	UITest_writer_tests3 \
 	UITest_writer_tests4 \
 	UITest_writer_tests5 \
+	UITest_writer_tests6 \
 	UITest_table \
-	UITest_findReplace \
+	UITest_sw_findReplace \
+	UITest_sw_findSimilarity \
 	UITest_chapterNumbering \
 	UITest_librelogo \
 	UITest_options \

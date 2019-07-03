@@ -63,6 +63,7 @@
 #include <com/sun/star/io/WrongFormatException.hpp>
 #include <com/sun/star/io/XTruncate.hpp>
 #include <com/sun/star/util/XModifiable.hpp>
+#include <com/sun/star/util/RevisionTag.hpp>
 #include <com/sun/star/security/DocumentDigitalSignatures.hpp>
 #include <com/sun/star/text/XTextRange.hpp>
 #include <com/sun/star/xml/crypto/CipherID.hpp>
@@ -122,6 +123,7 @@
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/module.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/sfxuno.hxx>
 #include <openflag.hxx>
 #include <helper.hxx>
 #include <sfx2/event.hxx>
@@ -677,7 +679,7 @@ bool SfxObjectShell::DoLoad( SfxMedium *pMed )
                     bWarnMediaTypeFallback = false;
                 }
 
-                if ( bWarnMediaTypeFallback || !xStorage->getElementNames().getLength() )
+                if ( bWarnMediaTypeFallback || !xStorage->getElementNames().hasElements() )
                     SetError(ERRCODE_IO_BROKENPACKAGE);
             }
             catch( uno::Exception& )
@@ -1181,6 +1183,10 @@ bool SfxObjectShell::SaveTo_Impl
       && !rMedium.GetName().equalsIgnoreAsciiCase("private:stream")
       && ::utl::UCBContentHelper::EqualURLs( pMedium->GetName(), rMedium.GetName() ) )
     {
+        // Do not unlock the file during saving.
+        // need to modify this for WebDAV if this method is called outside of
+        // the process of saving a file
+        pMedium->DisableUnlockWebDAV();
         bStoreToSameLocation = true;
 
         if ( pMedium->DocNeedsFileDateCheck() )
@@ -1273,6 +1279,7 @@ bool SfxObjectShell::SaveTo_Impl
                 rMedium.GetOutStream();
             }
         }
+        pMedium->DisableUnlockWebDAV(false);
     }
     else
     {
@@ -1427,7 +1434,7 @@ bool SfxObjectShell::SaveTo_Impl
                 try
                 {
                     Sequence < util::RevisionTag > aVersions = rMedium.GetVersionList();
-                    if ( aVersions.getLength() )
+                    if ( aVersions.hasElements() )
                     {
                         // copy the version streams
                         const OUString aVersionsName( "Versions"  );
@@ -1701,10 +1708,6 @@ bool SfxObjectShell::SaveTo_Impl
     return bOk;
 }
 
-
-// This method contains a call to disable the UNLOCK of a WebDAV resource, that work while saving a file.
-// If the method is called from another process (e.g. not when saving a file),
-// that disabling needs tweaking
 bool SfxObjectShell::DisconnectStorage_Impl( SfxMedium& rSrcMedium, SfxMedium& rTargetMedium )
 {
     // this method disconnects the storage from source medium, and attaches it to the backup created by the target medium
@@ -1725,12 +1728,7 @@ bool SfxObjectShell::DisconnectStorage_Impl( SfxMedium& rSrcMedium, SfxMedium& r
                 rTargetMedium.ResetError();
                 xOptStorage->writeAndAttachToStream( uno::Reference< io::XStream >() );
                 rSrcMedium.CanDisposeStorage_Impl( false );
-                // need to modify this for WebDAV if this method is called outside
-                // the process of saving a file
-                rSrcMedium.DisableUnlockWebDAV();
                 rSrcMedium.Close();
-                // see comment on the previous third row
-                rSrcMedium.DisableUnlockWebDAV( false );
 
                 // now try to create the backup
                 rTargetMedium.GetBackup_Impl();
@@ -2083,7 +2081,7 @@ bool SfxObjectShell::ConvertFrom
 
     Files which are to be opened here should be opened through 'rMedium'
     to guarantee the right open modes. Especially if the format is retained
-    (only possible with SfxFilterFlags::SIMULATE or SfxFilterFlags::ONW) file which must
+    (only possible with SfxFilterFlags::SIMULATE or SfxFilterFlags::OWN) file which must
     be opened STREAM_SHARE_DENYWRITE.
 
     [Return value]
@@ -2446,7 +2444,7 @@ bool SfxObjectShell::ConvertTo
 
     Files which are to be opened here should be opened through 'rMedium'
     to guarantee the right open modes. Especially if the format is retained
-    (only possible with SfxFilterFlags::SIMULATE or SfxFilterFlags::ONW) file which must
+    (only possible with SfxFilterFlags::SIMULATE or SfxFilterFlags::OWN) file which must
     be opened STREAM_SHARE_DENYWRITE.
 
     [Return value]
@@ -2549,8 +2547,7 @@ bool SfxObjectShell::DoSave_Impl( const SfxItemSet* pArgs )
 
         SetError(pMediumTmp->GetErrorCode());
 
-        bool bOpen( false );
-        bOpen = DoSaveCompleted( pMediumTmp );
+        bool bOpen = DoSaveCompleted( pMediumTmp );
 
         DBG_ASSERT(bOpen,"Error handling for DoSaveCompleted not implemented");
     }
@@ -2857,8 +2854,7 @@ bool SfxObjectShell::PreDoSaveAs_Impl(const OUString& rFileName, const OUString&
             if ( !bCopyTo )
             {
                 // reconnect to the old medium
-                bool bRet( false );
-                bRet = DoSaveCompleted( pMedium );
+                bool bRet = DoSaveCompleted( pMedium );
                 DBG_ASSERT( bRet, "Error in DoSaveCompleted, can't be handled!");
             }
 
@@ -2912,7 +2908,7 @@ HiddenInformation SfxObjectShell::GetHiddenInformationState( HiddenInformation n
     HiddenInformation nState = HiddenInformation::NONE;
     if ( nStates & HiddenInformation::DOCUMENTVERSIONS )
     {
-        if ( GetMedium()->GetVersionList().getLength() )
+        if ( GetMedium()->GetVersionList().hasElements() )
             nState |= HiddenInformation::DOCUMENTVERSIONS;
     }
 

@@ -17,6 +17,7 @@ $(eval $(call gb_UnpackedTarball_update_autoconf_configs,libwps))
 
 $(eval $(call gb_UnpackedTarball_add_patches,libwps,\
 	$(if $(SYSTEM_REVENGE),,external/libwps/rpath.patch.0) \
+	external/libwps/libtool.patch.0 \
 ))
 
 ifneq ($(OS),MACOSX)
@@ -27,12 +28,10 @@ $(eval $(call gb_UnpackedTarball_add_patches,libwps,\
 endif
 endif
 
-ifeq ($(COM_IS_CLANG),TRUE)
-ifneq ($(filter -fsanitize=%,$(CC)),)
+ifeq ($(NEED_CLANG_LINUX_UBSAN_RTTI_VISIBILITY),TRUE)
 $(eval $(call gb_UnpackedTarball_add_patches,libwps, \
     external/libwps/ubsan-visibility.patch.0 \
 ))
-endif
 endif
 
 # vim: set noet sw=4 ts=4:

@@ -18,9 +18,6 @@
 #include <i18nlangtag/languagetag.hxx>
 
 #include <rtl/ustring.hxx>
-#include <rtl/ustrbuf.hxx>
-#include <sal/log.hxx>
-#include <osl/file.hxx>
 
 #include <com/sun/star/lang/Locale.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
@@ -745,6 +742,8 @@ bool checkMapping( const OUString& rStr1, const OUString& rStr2 )
     if (rStr1 == "en-GB-oed"   ) return rStr2 == "en-GB-oxendict";
     if (rStr1 == "es-ES_tradnl") return rStr2 == "es-ES-u-co-trad";
     if (rStr1 == "sd-IN"       ) return rStr2 == "sd-Deva-IN";
+    if (rStr1 == "cmn-CN"      ) return rStr2 == "zh-CN";
+    if (rStr1 == "cmn-TW"      ) return rStr2 == "zh-TW";
     return rStr1 == rStr2;
 }
 

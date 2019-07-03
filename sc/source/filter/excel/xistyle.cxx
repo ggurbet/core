@@ -33,6 +33,7 @@
 #include <editeng/shdditem.hxx>
 #include <editeng/escapementitem.hxx>
 #include <svx/algitem.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/lineitem.hxx>
 #include <svx/rotmodit.hxx>
@@ -46,6 +47,7 @@
 #include <sal/macros.h>
 #include <sal/log.hxx>
 #include <vcl/fontcharmap.hxx>
+#include <vcl/outdev.hxx>
 #include <document.hxx>
 #include <documentimport.hxx>
 #include <docpool.hxx>
@@ -1392,7 +1394,7 @@ void XclImpXF::ApplyPatternToAttrVector(
 
         ScAttrEntry aEntry;
         aEntry.nEndRow = nRow2;
-        aEntry.pPattern = static_cast<const ScPatternAttr*>(&rDoc.GetPool()->Put(rPat));
+        aEntry.pPattern = &rDoc.GetPool()->Put(rPat);
         rAttrs.push_back(aEntry);
     }
 }

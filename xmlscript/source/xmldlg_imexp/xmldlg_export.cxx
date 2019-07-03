@@ -1152,11 +1152,10 @@ void ElementDescriptor::readEvents()
         if (xEvents.is())
         {
             Sequence< OUString > aNames( xEvents->getElementNames() );
-            OUString const * pNames = aNames.getConstArray();
-            for ( sal_Int32 nPos = 0; nPos < aNames.getLength(); ++nPos )
+            for ( const auto& rName : aNames )
             {
                 script::ScriptEventDescriptor descr;
-                if (xEvents->getByName( pNames[ nPos ] ) >>= descr)
+                if (xEvents->getByName( rName ) >>= descr)
                 {
                     SAL_WARN_IF( descr.ListenerType.isEmpty() ||
                                 descr.EventMethod.isEmpty() ||
@@ -1397,7 +1396,7 @@ void exportDialogModel(
     // dump out stylebag
     all_styles.dump( xOut );
 
-    if ( xDialogModel->getElementNames().getLength() )
+    if ( xDialogModel->getElementNames().hasElements() )
     {
         // open up bulletinboard
         OUString aBBoardName( XMLNS_DIALOGS_PREFIX ":bulletinboard" );

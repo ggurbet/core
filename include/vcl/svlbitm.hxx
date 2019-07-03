@@ -104,6 +104,8 @@ public:
 
 class VCL_DLLPUBLIC SvLBoxString : public SvLBoxItem
 {
+private:
+    bool mbEmphasized;
 protected:
     OUString maText;
 
@@ -116,6 +118,11 @@ public:
     virtual void InitViewData(SvTreeListBox* pView,
                               SvTreeListEntry* pEntry,
                               SvViewDataItem* pViewData = nullptr) override;
+
+    virtual int CalcWidth(const SvTreeListBox* pView) const override;
+
+    void Emphasize(bool bEmphasize) { mbEmphasized = bEmphasize; }
+    bool IsEmphasized() const { return mbEmphasized; }
 
     const OUString& GetText() const
     {
@@ -190,7 +197,6 @@ public:
     void SetStateUnchecked();
     void SetStateTristate();
     void SetStateHilighted(bool bHilight);
-    void SetStateInvisible();
 
     SvLBoxButtonKind GetKind() const { return eKind; }
 

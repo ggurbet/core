@@ -20,6 +20,7 @@
 #include <sal/log.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/resmgr.hxx>
+#include <vcl/aboutdialog.hxx>
 #include <vcl/builder.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/button.hxx>
@@ -32,6 +33,7 @@
 #include <vcl/fixedhyper.hxx>
 #include <vcl/headbar.hxx>
 #include <vcl/IPrioritable.hxx>
+#include <vcl/ivctrl.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/lstbox.hxx>
 #include <vcl/menubtn.hxx>
@@ -184,7 +186,9 @@ namespace weld
 
     IMPL_LINK(MetricSpinButton, spin_button_output, SpinButton&, rSpinButton, void)
     {
-        rSpinButton.set_text(format_number(rSpinButton.get_value()));
+        OUString sNewText(format_number(rSpinButton.get_value()));
+        if (sNewText != rSpinButton.get_text())
+            rSpinButton.set_text(sNewText);
     }
 
     void MetricSpinButton::update_width_chars()
@@ -284,7 +288,13 @@ namespace weld
         double fResult(0.0);
         bool bRet = MetricFormatter::TextToValue(get_text(), fResult, 0, m_xSpinButton->get_digits(), rLocaleData, m_eSrcUnit);
         if (bRet)
+        {
+            if (fResult > SAL_MAX_INT32)
+                fResult = SAL_MAX_INT32;
+            else if (fResult < SAL_MIN_INT32)
+                fResult = SAL_MIN_INT32;
             *result = fResult;
+        }
         return bRet;
     }
 
@@ -690,7 +700,7 @@ VclBuilder::VclBuilder(vcl::Window *pParent, const OUString& sUIDir, const OUStr
     for (auto const& elem : m_pParserState->m_aStockMap)
     {
         FixedImage *pImage = get<FixedImage>(elem.first);
-        SAL_WARN_IF(!pImage, "vcl", "missing elements of image/stock");
+        SAL_WARN_IF(!pImage, "vcl", "missing elements of image/stock: " << elem.first);
         if (!pImage)
             continue;
 
@@ -800,7 +810,7 @@ namespace
     bool extractDrawValue(VclBuilder::stringmap& rMap)
     {
         bool bDrawValue = true;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("draw_value"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("draw_value");
         if (aFind != rMap.end())
         {
             bDrawValue = toBool(aFind->second);
@@ -812,7 +822,7 @@ namespace
     OUString extractPopupMenu(VclBuilder::stringmap& rMap)
     {
         OUString sRet;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("popup"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("popup");
         if (aFind != rMap.end())
         {
             sRet = aFind->second;
@@ -824,7 +834,7 @@ namespace
     OUString extractValuePos(VclBuilder::stringmap& rMap)
     {
         OUString sRet("top");
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("value_pos"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("value_pos");
         if (aFind != rMap.end())
         {
             sRet = aFind->second;
@@ -836,7 +846,7 @@ namespace
     OUString extractTypeHint(VclBuilder::stringmap &rMap)
     {
         OUString sRet("normal");
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("type-hint"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("type-hint");
         if (aFind != rMap.end())
         {
             sRet = aFind->second;
@@ -848,7 +858,7 @@ namespace
     bool extractResizable(VclBuilder::stringmap &rMap)
     {
         bool bResizable = true;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("resizable"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("resizable");
         if (aFind != rMap.end())
         {
             bResizable = toBool(aFind->second);
@@ -861,7 +871,7 @@ namespace
     bool extractModal(VclBuilder::stringmap &rMap)
     {
         bool bModal = false;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("modal"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("modal");
         if (aFind != rMap.end())
         {
             bModal = toBool(aFind->second);
@@ -874,7 +884,7 @@ namespace
     bool extractDecorated(VclBuilder::stringmap &rMap)
     {
         bool bDecorated = true;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("decorated"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("decorated");
         if (aFind != rMap.end())
         {
             bDecorated = toBool(aFind->second);
@@ -886,7 +896,7 @@ namespace
     bool extractCloseable(VclBuilder::stringmap &rMap)
     {
         bool bCloseable = true;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("deletable"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("deletable");
         if (aFind != rMap.end())
         {
             bCloseable = toBool(aFind->second);
@@ -898,7 +908,7 @@ namespace
     bool extractEntry(VclBuilder::stringmap &rMap)
     {
         bool bHasEntry = false;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("has-entry"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("has-entry");
         if (aFind != rMap.end())
         {
             bHasEntry = toBool(aFind->second);
@@ -910,7 +920,7 @@ namespace
     bool extractOrientation(VclBuilder::stringmap &rMap)
     {
         bool bVertical = false;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("orientation"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("orientation");
         if (aFind != rMap.end())
         {
             bVertical = aFind->second.equalsIgnoreAsciiCase("vertical");
@@ -919,10 +929,23 @@ namespace
         return bVertical;
     }
 
+    bool extractVerticalTabPos(VclBuilder::stringmap &rMap)
+    {
+        bool bVertical = false;
+        VclBuilder::stringmap::iterator aFind = rMap.find("tab-pos");
+        if (aFind != rMap.end())
+        {
+            bVertical = aFind->second.equalsIgnoreAsciiCase("left") ||
+                        aFind->second.equalsIgnoreAsciiCase("right");
+            rMap.erase(aFind);
+        }
+        return bVertical;
+    }
+
     bool extractInconsistent(VclBuilder::stringmap &rMap)
     {
         bool bInconsistent = false;
-        VclBuilder::stringmap::iterator aFind = rMap.find(OString("inconsistent"));
+        VclBuilder::stringmap::iterator aFind = rMap.find("inconsistent");
         if (aFind != rMap.end())
         {
             bInconsistent = toBool(aFind->second);
@@ -1072,7 +1095,7 @@ namespace
             sWidthRequest = aFind->second;
             rMap.erase(aFind);
         }
-        aFind = rMap.find(OString("height-request"));
+        aFind = rMap.find("height-request");
         if (aFind != rMap.end())
         {
             sHeightRequest = aFind->second;
@@ -1602,35 +1625,46 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     bool bIsPlaceHolder = name.isEmpty();
     bool bVertical = false;
 
-    if (pParent && pParent->GetType() == WindowType::TABCONTROL)
+    if (pParent && (pParent->GetType() == WindowType::TABCONTROL ||
+                    pParent->GetType() == WindowType::VERTICALTABCONTROL))
     {
         bool bTopLevel(name == "GtkDialog" || name == "GtkMessageDialog" ||
                        name == "GtkWindow" || name == "GtkPopover");
         if (!bTopLevel)
         {
-            //We have to add a page
-            //make default pageid == position
-            TabControl *pTabControl = static_cast<TabControl*>(pParent);
-            sal_uInt16 nNewPageCount = pTabControl->GetPageCount()+1;
-            sal_uInt16 nNewPageId = nNewPageCount;
-            pTabControl->InsertPage(nNewPageId, OUString());
-            pTabControl->SetCurPageId(nNewPageId);
-            SAL_WARN_IF(bIsPlaceHolder, "vcl.layout", "we should have no placeholders for tabpages");
-            if (!bIsPlaceHolder)
+            if (pParent->GetType() == WindowType::TABCONTROL)
             {
-                VclPtrInstance<TabPage> pPage(pTabControl);
-                pPage->Show();
+                //We have to add a page
+                //make default pageid == position
+                TabControl *pTabControl = static_cast<TabControl*>(pParent);
+                sal_uInt16 nNewPageCount = pTabControl->GetPageCount()+1;
+                sal_uInt16 nNewPageId = nNewPageCount;
+                pTabControl->InsertPage(nNewPageId, OUString());
+                pTabControl->SetCurPageId(nNewPageId);
+                SAL_WARN_IF(bIsPlaceHolder, "vcl.layout", "we should have no placeholders for tabpages");
+                if (!bIsPlaceHolder)
+                {
+                    VclPtrInstance<TabPage> pPage(pTabControl);
+                    pPage->Show();
 
-                //Make up a name for it
-                OString sTabPageId = get_by_window(pParent) +
-                    OString("-page") +
-                    OString::number(nNewPageCount);
-                m_aChildren.emplace_back(sTabPageId, pPage, false);
-                pPage->SetHelpId(m_sHelpRoot + sTabPageId);
+                    //Make up a name for it
+                    OString sTabPageId = get_by_window(pParent) +
+                        OString("-page") +
+                        OString::number(nNewPageCount);
+                    m_aChildren.emplace_back(sTabPageId, pPage, false);
+                    pPage->SetHelpId(m_sHelpRoot + sTabPageId);
 
-                pParent = pPage;
+                    pParent = pPage;
 
-                pTabControl->SetTabPage(nNewPageId, pPage);
+                    pTabControl->SetTabPage(nNewPageId, pPage);
+                }
+            }
+            else
+            {
+                VerticalTabControl *pTabControl = static_cast<VerticalTabControl*>(pParent);
+                SAL_WARN_IF(bIsPlaceHolder, "vcl.layout", "we should have no placeholders for tabpages");
+                if (!bIsPlaceHolder)
+                    pParent = pTabControl->GetPageParent();
             }
         }
     }
@@ -1641,12 +1675,15 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     extractButtonImage(id, rMap, name == "GtkRadioButton");
 
     VclPtr<vcl::Window> xWindow;
-    if (name == "GtkDialog")
+    if (name == "GtkDialog" || name == "GtkAboutDialog")
     {
         WinBits nBits = WB_MOVEABLE|WB_3DLOOK|WB_CLOSEABLE;
         if (extractResizable(rMap))
             nBits |= WB_SIZEABLE;
-        xWindow = VclPtr<Dialog>::Create(pParent, nBits, !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default);
+        if (name == "GtkAboutDialog")
+            xWindow = VclPtr<vcl::AboutDialog>::Create(pParent, nBits, !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default);
+        else
+            xWindow = VclPtr<Dialog>::Create(pParent, nBits, !pParent ? Dialog::InitFlag::NoParent : Dialog::InitFlag::Default);
 #if HAVE_FEATURE_DESKTOP
         if (!m_bLegacy && !extractModal(rMap))
             xWindow->SetType(WindowType::MODELESSDIALOG);
@@ -1666,7 +1703,7 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
         xWindow->set_border_width(12);
 #endif
     }
-    else if (name == "GtkBox")
+    else if (name == "GtkBox" || name == "GtkStatusbar")
     {
         bVertical = extractOrientation(rMap);
         if (bVertical)
@@ -2079,7 +2116,10 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
     }
     else if (name == "GtkNotebook")
     {
-        xWindow = VclPtr<TabControl>::Create(pParent, WB_STDTABCONTROL|WB_3DLOOK);
+        if (!extractVerticalTabPos(rMap))
+            xWindow = VclPtr<TabControl>::Create(pParent, WB_STDTABCONTROL|WB_3DLOOK);
+        else
+            xWindow = VclPtr<VerticalTabControl>::Create(pParent);
     }
     else if (name == "GtkDrawingArea")
     {
@@ -2155,6 +2195,8 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                 nItemId = pToolBox->GetItemCount() + 1;
                     //TODO: ImplToolItems::size_type -> sal_uInt16!
                 pToolBox->InsertItem(nItemId, extractLabel(rMap), nBits);
+                if (aCommand.isEmpty() && !m_bLegacy)
+                    aCommand = OUString::fromUtf8(id);
                 pToolBox->SetItemCommand(nItemId, aCommand);
             }
 
@@ -2613,7 +2655,7 @@ VclPtr<vcl::Window> VclBuilder::insertObject(vcl::Window *pParent, const OString
 
 void VclBuilder::handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &reader)
 {
-    OString sID;
+    std::vector<OString> sIDs;
 
     int nLevel = 1;
     stringmap aProperties;
@@ -2637,7 +2679,7 @@ void VclBuilder::handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &read
                     if (name.equals("id"))
                     {
                         name = reader.getAttributeValue(false);
-                        sID = OString(name.begin, name.length);
+                        OString sID(name.begin, name.length);
                         sal_Int32 nDelim = sID.indexOf(':');
                         if (nDelim != -1)
                         {
@@ -2645,6 +2687,7 @@ void VclBuilder::handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &read
                             aProperties[OString("customproperty")] = OUString::fromUtf8(sPattern);
                             sID = sID.copy(0, nDelim);
                         }
+                        sIDs.push_back(sID);
                     }
                 }
             }
@@ -2671,21 +2714,39 @@ void VclBuilder::handleTabChild(vcl::Window *pParent, xmlreader::XmlReader &read
     if (!pParent)
         return;
 
-    TabControl *pTabControl = static_cast<TabControl*>(pParent);
+    TabControl *pTabControl = pParent->GetType() == WindowType::TABCONTROL ?
+        static_cast<TabControl*>(pParent) : nullptr;
+    VerticalTabControl *pVerticalTabControl = pParent->GetType() == WindowType::VERTICALTABCONTROL ?
+        static_cast<VerticalTabControl*>(pParent) : nullptr;
+    assert(pTabControl || pVerticalTabControl);
     VclBuilder::stringmap::iterator aFind = aProperties.find(OString("label"));
     if (aFind != aProperties.end())
     {
-        sal_uInt16 nPageId = pTabControl->GetCurPageId();
-        pTabControl->SetPageText(nPageId, aFind->second);
-        pTabControl->SetPageName(nPageId, sID);
-        if (!context.empty())
+        if (pTabControl)
         {
-            TabPage* pPage = pTabControl->GetTabPage(nPageId);
-            pPage->SetContext(context);
+            sal_uInt16 nPageId = pTabControl->GetCurPageId();
+            pTabControl->SetPageText(nPageId, aFind->second);
+            pTabControl->SetPageName(nPageId, sIDs.back());
+            if (!context.empty())
+            {
+                TabPage* pPage = pTabControl->GetTabPage(nPageId);
+                pPage->SetContext(context);
+            }
+        }
+        else
+        {
+            OUString sLabel(aFind->second);
+            OUString sIconName(extractIconName(aProperties));
+            OUString sTooltip(extractTooltipText(aProperties));
+            pVerticalTabControl->InsertPage(sIDs.front(), sLabel, FixedImage::loadThemeImage(sIconName), sTooltip,
+                                            pVerticalTabControl->GetPageParent()->GetWindow(GetWindowType::LastChild));
         }
     }
     else
-        pTabControl->RemovePage(pTabControl->GetCurPageId());
+    {
+        if (pTabControl)
+            pTabControl->RemovePage(pTabControl->GetCurPageId());
+    }
 }
 
 //so that tabbing between controls goes in a visually sensible sequence
@@ -3014,7 +3075,7 @@ void VclBuilder::handleRow(xmlreader::XmlReader &reader, const OString &rID)
                 reader.nextItem(
                     xmlreader::XmlReader::Text::Raw, &name, &nsId);
 
-                OString sValue = OString(name.begin, name.length);
+                OString sValue(name.begin, name.length);
                 OUString sFinalValue;
                 if (bTranslated)
                 {
@@ -3175,7 +3236,7 @@ std::vector<ComboBoxTextItem> VclBuilder::handleItems(xmlreader::XmlReader &read
                 reader.nextItem(
                     xmlreader::XmlReader::Text::Raw, &name, &nsId);
 
-                OString sValue = OString(name.begin, name.length);
+                OString sValue(name.begin, name.length);
                 OUString sFinalValue;
                 if (bTranslated)
                 {
@@ -3387,7 +3448,7 @@ void VclBuilder::handleSizeGroup(xmlreader::XmlReader &reader)
                     if (name.equals("name"))
                     {
                         name = reader.getAttributeValue(false);
-                        OString sWidget = OString(name.begin, name.length);
+                        OString sWidget(name.begin, name.length);
                         sal_Int32 nDelim = sWidget.indexOf(':');
                         if (nDelim != -1)
                             sWidget = sWidget.copy(0, nDelim);
@@ -3853,13 +3914,13 @@ std::vector<vcl::EnumContext::Context> VclBuilder::handleStyle(xmlreader::XmlRea
                 if (classStyle.startsWith("context-"))
                 {
                     OString sContext = classStyle.copy(classStyle.indexOf('-') + 1);
-                    OUString sContext2 = OUString(sContext.getStr(), sContext.getLength(), RTL_TEXTENCODING_UTF8);
+                    OUString sContext2(sContext.getStr(), sContext.getLength(), RTL_TEXTENCODING_UTF8);
                     aContext.push_back(vcl::EnumContext::GetContextEnum(sContext2));
                 }
                 else if (classStyle.startsWith("priority-"))
                 {
                     OString aPriority = classStyle.copy(classStyle.indexOf('-') + 1);
-                    OUString aPriority2 = OUString(aPriority.getStr(), aPriority.getLength(), RTL_TEXTENCODING_UTF8);
+                    OUString aPriority2(aPriority.getStr(), aPriority.getLength(), RTL_TEXTENCODING_UTF8);
                     nPriority = aPriority2.toInt32();
                 }
                 else
@@ -3927,7 +3988,7 @@ void VclBuilder::collectProperty(xmlreader::XmlReader &reader, stringmap &rMap) 
     }
 
     reader.nextItem(xmlreader::XmlReader::Text::Raw, &name, &nsId);
-    OString sValue = OString(name.begin, name.length);
+    OString sValue(name.begin, name.length);
     OUString sFinalValue;
     if (bTranslated)
     {
@@ -3964,7 +4025,7 @@ void VclBuilder::handleActionWidget(xmlreader::XmlReader &reader)
     }
 
     reader.nextItem(xmlreader::XmlReader::Text::Raw, &name, &nsId);
-    OString sID = OString(name.begin, name.length);
+    OString sID(name.begin, name.length);
     sal_Int32 nDelim = sID.indexOf(':');
     if (nDelim != -1)
         sID = sID.copy(0, nDelim);
@@ -4054,9 +4115,10 @@ void VclBuilder::set_response(const OString& sID, short nResponse)
         case -11:
             nResponse = RET_HELP;
             break;
+        default:
+            assert(nResponse >= 100 && "keep non-canned responses in range 100+ to avoid collision with vcl RET_*");
+            break;
     };
-
-    assert(nResponse >= 0);
 
     for (auto & child : m_aChildren)
     {

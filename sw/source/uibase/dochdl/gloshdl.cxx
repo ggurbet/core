@@ -25,6 +25,7 @@
 #include <svl/macitem.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <svl/urihelper.hxx>
 #include <unotools/transliterationwrapper.hxx>
 #include <poolfmt.hxx>
@@ -199,28 +200,6 @@ void SwGlossaryHdl::RenameGroup(const OUString& rOld, OUString& rNew, const OUSt
         rStatGlossaries.RenameGroupDoc(sOldGroup, sNewGroup, rNewTitle);
         rNew = sNewGroup;
     }
-}
-
-bool SwGlossaryHdl::CopyOrMove( const OUString& rSourceGroupName, OUString& rSourceShortName,
-                                const OUString& rDestGroupName, const OUString& rLongName, bool bMove )
-{
-    std::unique_ptr<SwTextBlocks> pSourceGroup = rStatGlossaries.GetGroupDoc(rSourceGroupName);
-    std::unique_ptr<SwTextBlocks> pDestGroup = rStatGlossaries.GetGroupDoc(rDestGroupName);
-    if (pDestGroup->IsReadOnly() || (bMove && pSourceGroup->IsReadOnly()) )
-    {
-        return false;
-    }
-
-    //The index must be determined here because rSourceShortName maybe changed in CopyBlock
-    sal_uInt16 nDeleteIdx = pSourceGroup->GetIndex( rSourceShortName );
-    OSL_ENSURE(USHRT_MAX != nDeleteIdx, "entry not found");
-    ErrCode nRet = pSourceGroup->CopyBlock( *pDestGroup, rSourceShortName, rLongName );
-    if(!nRet && bMove)
-    {
-        // the index must be existing
-        nRet = pSourceGroup->Delete( nDeleteIdx ) ? ERRCODE_NONE : ErrCode(1);
-    }
-    return !nRet;
 }
 
 // delete a autotext-file-group

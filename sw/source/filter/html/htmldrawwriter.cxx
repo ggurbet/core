@@ -24,9 +24,13 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdotext.hxx>
+#include <svx/sdtacitm.hxx>
+#include <svx/sdtayitm.hxx>
+#include <svx/sdtaaitm.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/outliner.hxx>
-#include <svx/xfillit.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflclit.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/lrspitem.hxx>
@@ -114,9 +118,7 @@ void SwHTMLWriter::GetEEAttrsFromDrwObj( SfxItemSet& rItemSet,
                 pEEItem = &rObjItemSet.GetPool()->GetDefaultItem(nEEWhich);
 
             // now we clone the item with the which id of the writer
-            std::unique_ptr<SfxPoolItem> pSwItem(pEEItem->Clone());
-            pSwItem->SetWhich( nSwWhich );
-            rItemSet.Put( *pSwItem );
+            rItemSet.Put( pEEItem->CloneSetWhich(nSwWhich) );
         }
 
         nEEWhich = aIter.NextWhich();

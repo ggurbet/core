@@ -28,6 +28,7 @@
 #include <osl/process.h>
 #include <osl/time.h>
 #include <svtools/filechangedchecker.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/ucbstreamhelper.hxx>
 #include <comphelper/processfactory.hxx>
 
@@ -95,9 +96,9 @@ void ExternalToolEditThread::execute()
         xSystemShellExecute->execute(m_aFileName, OUString(),
                 SystemShellExecuteFlags::URIS_ONLY);
     }
-    catch (Exception const& e)
+    catch (Exception const&)
     {
-        SAL_WARN("svx", "ExternalToolEditThread: " << e);
+        TOOLS_WARN_EXCEPTION("svx", "ExternalToolEditThread");
     }
 }
 
@@ -167,11 +168,12 @@ SdrExternalToolEdit::SdrExternalToolEdit(
 
 void SdrExternalToolEdit::Notify(SfxBroadcaster & rBC, SfxHint const& rHint)
 {
-    SdrHint const*const pSdrHint(dynamic_cast<SdrHint const*>(&rHint));
-    if (pSdrHint
-        && (SdrHintKind::ModelCleared == pSdrHint->GetKind()
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
+        return;
+    SdrHint const*const pSdrHint(static_cast<SdrHint const*>(&rHint));
+    if (SdrHintKind::ModelCleared == pSdrHint->GetKind()
             || (pSdrHint->GetObject() == m_pObj
-                && SdrHintKind::ObjectRemoved == pSdrHint->GetKind())))
+                && SdrHintKind::ObjectRemoved == pSdrHint->GetKind()))
     {
         m_pView = nullptr;
         m_pObj = nullptr;

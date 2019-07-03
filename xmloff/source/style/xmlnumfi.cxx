@@ -1083,16 +1083,10 @@ void SvXMLNumFmtElementContext::AddEmbeddedElement( sal_Int32 nFormatPos, const 
     if (rContent.isEmpty())
         return;
 
-    auto const iter(aNumInfo.m_EmbeddedElements.find(nFormatPos));
-    if (iter == aNumInfo.m_EmbeddedElements.end())
-    {
-        aNumInfo.m_EmbeddedElements.insert(std::make_pair(nFormatPos, rContent));
-    }
-    else
-    {
+    auto iterPair = aNumInfo.m_EmbeddedElements.emplace(nFormatPos, rContent);
+    if (!iterPair.second)
         // there's already an element at this position - append text to existing element
-        iter->second += rContent;
-    }
+        iterPair.first->second += rContent;
 }
 
 void SvXMLNumFmtElementContext::EndElement()
@@ -1303,9 +1297,9 @@ void SvXMLNumFmtElementContext::EndElement()
                 rParent.AddNumber( aNumInfo );      // simple number
 
                 if ( aNumInfo.bExpSign )
-                    rParent.AddToCode( OUString("E+") );
+                    rParent.AddToCode( "E+" );
                 else
-                    rParent.AddToCode( OUString("E") );
+                    rParent.AddToCode( "E" );
                 for (sal_Int32 i=0; i<aNumInfo.nExpDigits; i++)
                 {
                     rParent.AddToCode( '0' );
@@ -1621,7 +1615,7 @@ sal_Int32 SvXMLNumFormatContext::CreateAndInsert( css::uno::Reference< css::util
     {
         SvNumberFormatter* pFormatter = nullptr;
         SvNumberFormatsSupplierObj* pObj =
-                        SvNumberFormatsSupplierObj::getImplementation( xFormatsSupplier );
+                        comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>( xFormatsSupplier );
         if (pObj)
             pFormatter = pObj->GetNumberFormatter();
 
@@ -2263,7 +2257,7 @@ SvXMLNumFmtHelper::SvXMLNumFmtHelper(
 
     SvNumberFormatter* pFormatter = nullptr;
     SvNumberFormatsSupplierObj* pObj =
-                    SvNumberFormatsSupplierObj::getImplementation( rSupp );
+                    comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>( rSupp );
     if (pObj)
         pFormatter = pObj->GetNumberFormatter();
 

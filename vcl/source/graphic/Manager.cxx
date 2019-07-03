@@ -20,7 +20,11 @@
 #include <graphic/Manager.hxx>
 #include <impgraph.hxx>
 #include <vcl/lazydelete.hxx>
+#include <vcl/svapp.hxx>
 #include <sal/log.hxx>
+
+#include <officecfg/Office/Common.hxx>
+#include <unotools/configmgr.hxx>
 
 using namespace css;
 
@@ -72,6 +76,8 @@ Manager::Manager()
 
 void Manager::reduceGraphicMemory()
 {
+    std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
+
     for (ImpGraphic* pEachImpGraphic : m_pImpGraphicList)
     {
         if (mnUsedSize < mnMemoryLimit * 0.7)
@@ -102,6 +108,8 @@ sal_Int64 Manager::getGraphicSizeBytes(const ImpGraphic* pImpGraphic)
 
 IMPL_LINK(Manager, SwapOutTimerHandler, Timer*, pTimer, void)
 {
+    std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
+
     pTimer->Stop();
     reduceGraphicMemory();
     pTimer->Start();
@@ -110,6 +118,8 @@ IMPL_LINK(Manager, SwapOutTimerHandler, Timer*, pTimer, void)
 void Manager::registerGraphic(const std::shared_ptr<ImpGraphic>& pImpGraphic,
                               OUString const& /*rsContext*/)
 {
+    std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
+
     // make some space first
     if (mnUsedSize > mnMemoryLimit)
         reduceGraphicMemory();
@@ -130,7 +140,7 @@ void Manager::registerGraphic(const std::shared_ptr<ImpGraphic>& pImpGraphic,
 
     if (calculatedSize != mnUsedSize)
     {
-        SAL_WARN_IF(calculatedSize != mnUsedSize, "vcl.gdi",
+        SAL_INFO_IF(calculatedSize != mnUsedSize, "vcl.gdi",
                     "Calculated size mismatch. Variable size is '"
                         << mnUsedSize << "' but calculated size is '" << calculatedSize << "'");
         mnUsedSize = calculatedSize;
@@ -139,6 +149,8 @@ void Manager::registerGraphic(const std::shared_ptr<ImpGraphic>& pImpGraphic,
 
 void Manager::unregisterGraphic(ImpGraphic* pImpGraphic)
 {
+    std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
+
     mnUsedSize -= getGraphicSizeBytes(pImpGraphic);
     m_pImpGraphicList.erase(pImpGraphic);
 }
@@ -201,16 +213,22 @@ std::shared_ptr<ImpGraphic> Manager::newInstance(const GraphicExternalLink& rGra
 
 void Manager::swappedIn(const ImpGraphic* pImpGraphic)
 {
+    std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
+
     mnUsedSize += getGraphicSizeBytes(pImpGraphic);
 }
 
 void Manager::swappedOut(const ImpGraphic* pImpGraphic)
 {
+    std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
+
     mnUsedSize -= getGraphicSizeBytes(pImpGraphic);
 }
 
 void Manager::changeExisting(const ImpGraphic* pImpGraphic, sal_Int64 nOldSizeBytes)
 {
+    std::scoped_lock<std::recursive_mutex> aGuard(maMutex);
+
     mnUsedSize -= nOldSizeBytes;
     mnUsedSize += getGraphicSizeBytes(pImpGraphic);
 }

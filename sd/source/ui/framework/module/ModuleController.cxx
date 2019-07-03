@@ -29,8 +29,6 @@
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 
-#include <facreg.hxx>
-
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::drawing::framework;
@@ -242,7 +240,7 @@ void SAL_CALL ModuleController::requestResource (const OUString& rsResourceURL)
 
 void SAL_CALL ModuleController::initialize (const Sequence<Any>& aArguments)
 {
-    if (aArguments.getLength() > 0)
+    if (aArguments.hasElements())
     {
         try
         {

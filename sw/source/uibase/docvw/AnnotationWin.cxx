@@ -25,13 +25,16 @@
 #include <strings.hrc>
 #include <cmdid.h>
 
+#include <vcl/edit.hxx>
 #include <vcl/menu.hxx>
+#include <vcl/scrbar.hxx>
 
 #include <svl/undo.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/syslocale.hxx>
 #include <svl/languageoptions.hxx>
 
+#include <editeng/eeitem.hxx>
 #include <editeng/postitem.hxx>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/langitem.hxx>

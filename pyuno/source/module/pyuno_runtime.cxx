@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <config_features.h>
 #include <config_folders.h>
 
 #include "pyuno_impl.hxx"
@@ -27,7 +26,6 @@
 #include <osl/thread.h>
 #include <osl/module.h>
 #include <osl/process.h>
-#include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <rtl/bootstrap.hxx>
 
@@ -36,9 +34,11 @@
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/beans/XMaterialHolder.hpp>
 #include <com/sun/star/beans/theIntrospection.hpp>
+#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <com/sun/star/script/Converter.hpp>
 #include <com/sun/star/script/InvocationAdapterFactory.hpp>
 #include <com/sun/star/reflection/theCoreReflection.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 
@@ -75,7 +75,11 @@ static PyTypeObject RuntimeImpl_Type =
     sizeof (RuntimeImpl),
     0,
     RuntimeImpl::del,
-    nullptr,
+#if PY_VERSION_HEX >= 0x03080000
+    0, // Py_ssize_t tp_vectorcall_offset
+#else
+    nullptr, // printfunc tp_print
+#endif
     nullptr,
     nullptr,
     nullptr,
@@ -119,6 +123,9 @@ static PyTypeObject RuntimeImpl_Type =
     , 0
 #if PY_VERSION_HEX >= 0x03040000
     , nullptr
+#if PY_VERSION_HEX >= 0x03080000
+    , nullptr // vectorcallfunc tp_vectorcall
+#endif
 #endif
 };
 
@@ -512,8 +519,7 @@ PyRef Runtime::any2PyObject (const Any &a ) const
             {
                 for ( i = 0; i < s.getLength (); i++)
                 {
-                    PyRef element;
-                    element = any2PyObject (tc->convertTo (s[i], s[i].getValueType() ));
+                    PyRef element = any2PyObject (tc->convertTo (s[i], s[i].getValueType() ));
                     OSL_ASSERT( element.is() );
                     PyTuple_SetItem( tuple.get(), i, element.getAcquired() );
                 }

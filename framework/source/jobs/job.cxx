@@ -33,6 +33,7 @@
 #include <comphelper/sequence.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <vcl/svapp.hxx>
 
 namespace framework{
@@ -214,9 +215,9 @@ void Job::execute( /*IN*/ const css::uno::Sequence< css::beans::NamedValue >& lD
         }
     }
     #if OSL_DEBUG_LEVEL > 0
-    catch(const css::uno::Exception& ex)
+    catch(const css::uno::Exception&)
     {
-        SAL_INFO("fwk", "Job::execute(): Got exception during job execution. Original Message was: \"" << ex << "\"");
+        TOOLS_INFO_EXCEPTION("fwk", "Job::execute(): Got exception during job execution");
     }
     #else
     catch(const css::uno::Exception&)
@@ -336,7 +337,7 @@ css::uno::Sequence< css::beans::NamedValue > Job::impl_generateJobArgs( /*IN*/ c
     JobData::EMode eMode = m_aJobCfg.getMode();
 
     // Create list of environment variables. This list must be part of the
-    // returned structure every time... but some of its members are opetional!
+    // returned structure every time... but some of its members are optional!
     css::uno::Sequence< css::beans::NamedValue > lEnvArgs(1);
     lEnvArgs[0].Name = "EnvType";
     lEnvArgs[0].Value <<= m_aJobCfg.getEnvironmentDescriptor();
@@ -378,7 +379,7 @@ css::uno::Sequence< css::beans::NamedValue > Job::impl_generateJobArgs( /*IN*/ c
     /* } SAFE */
 
     // Add all valid (not empty) lists to the return list
-    if (lConfigArgs.getLength()>0)
+    if (lConfigArgs.hasElements())
     {
         sal_Int32 nLength = lAllArgs.getLength();
         lAllArgs.realloc(nLength+1);
@@ -392,14 +393,14 @@ css::uno::Sequence< css::beans::NamedValue > Job::impl_generateJobArgs( /*IN*/ c
         lAllArgs[nLength].Name = "JobConfig";
         lAllArgs[nLength].Value <<= comphelper::containerToSequence(lJobConfigArgs);
     }
-    if (lEnvArgs.getLength()>0)
+    if (lEnvArgs.hasElements())
     {
         sal_Int32 nLength = lAllArgs.getLength();
         lAllArgs.realloc(nLength+1);
         lAllArgs[nLength].Name = "Environment";
         lAllArgs[nLength].Value <<= lEnvArgs;
     }
-    if (lDynamicArgs.getLength()>0)
+    if (lDynamicArgs.hasElements())
     {
         sal_Int32 nLength = lAllArgs.getLength();
         lAllArgs.realloc(nLength+1);
@@ -804,25 +805,25 @@ void SAL_CALL Job::notifyClosing( const css::lang::EventObject& )
 void SAL_CALL Job::disposing( const css::lang::EventObject& aEvent )
 {
     /* SAFE { */
-    SolarMutexClearableGuard aWriteLock;
+    {
+        SolarMutexGuard aWriteLock;
 
-    if (m_xDesktop.is() && aEvent.Source == m_xDesktop)
-    {
-        m_xDesktop.clear();
-        m_bListenOnDesktop = false;
+        if (m_xDesktop.is() && aEvent.Source == m_xDesktop)
+        {
+            m_xDesktop.clear();
+            m_bListenOnDesktop = false;
+        }
+        else if (m_xFrame.is() && aEvent.Source == m_xFrame)
+        {
+            m_xFrame.clear();
+            m_bListenOnFrame = false;
+        }
+        else if (m_xModel.is() && aEvent.Source == m_xModel)
+        {
+            m_xModel.clear();
+            m_bListenOnModel = false;
+        }
     }
-    else if (m_xFrame.is() && aEvent.Source == m_xFrame)
-    {
-        m_xFrame.clear();
-        m_bListenOnFrame = false;
-    }
-    else if (m_xModel.is() && aEvent.Source == m_xModel)
-    {
-        m_xModel.clear();
-        m_bListenOnModel = false;
-    }
-
-    aWriteLock.clear();
     /* } SAFE */
 
     die();

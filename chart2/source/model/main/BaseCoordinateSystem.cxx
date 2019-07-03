@@ -20,7 +20,6 @@
 #include <BaseCoordinateSystem.hxx>
 #include <PropertyHelper.hxx>
 #include <UserDefinedProperties.hxx>
-#include <ContainerHelper.hxx>
 #include <CloneHelper.hxx>
 #include <ModifyListenerHelper.hxx>
 #include "Axis.hxx"
@@ -151,7 +150,6 @@ BaseCoordinateSystem::BaseCoordinateSystem(
 BaseCoordinateSystem::BaseCoordinateSystem(
     const BaseCoordinateSystem & rSource ) :
         impl::BaseCoordinateSystem_Base(rSource),
-        MutexContainer(),
         ::property::OPropertySet( rSource, m_aMutex ),
     m_xModifyEventForwarder( ModifyListenerHelper::createModifyEventForwarder()),
     m_nDimensionCount( rSource.m_nDimensionCount )
@@ -275,7 +273,7 @@ Sequence< Reference< chart2::XChartType > > SAL_CALL BaseCoordinateSystem::getCh
 void SAL_CALL BaseCoordinateSystem::setChartTypes( const Sequence< Reference< chart2::XChartType > >& aChartTypes )
 {
     ModifyListenerHelper::removeListenerFromAllElements( m_aChartTypes, m_xModifyEventForwarder );
-    m_aChartTypes = ContainerHelper::SequenceToVector( aChartTypes );
+    m_aChartTypes = comphelper::sequenceToContainer<std::vector< css::uno::Reference< css::chart2::XChartType > >>( aChartTypes );
     ModifyListenerHelper::addListenerToAllElements( m_aChartTypes, m_xModifyEventForwarder );
     fireModifyEvent();
 }

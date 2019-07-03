@@ -25,6 +25,7 @@
 
 #include <editeng/numitem.hxx>
 
+#include <tools/debug.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/svdmark.hxx>
 #include <View.hxx>
@@ -96,8 +97,7 @@ OutlineBulletDlg::OutlineBulletDlg(weld::Window* pParent, const SfxItemSet* pAtt
 
         DBG_ASSERT( pItem, "No EE_PARA_NUMBULLET in Pool! [CL]" );
 
-        std::unique_ptr<SfxPoolItem> pNewItem(pItem->CloneSetWhich(EE_PARA_NUMBULLET));
-        m_aInputSet.Put(*pNewItem);
+        m_aInputSet.Put(pItem->CloneSetWhich(EE_PARA_NUMBULLET));
     }
 
     if (m_bTitle && m_aInputSet.GetItemState(EE_PARA_NUMBULLET) == SfxItemState::SET )
@@ -116,13 +116,9 @@ OutlineBulletDlg::OutlineBulletDlg(weld::Window* pParent, const SfxItemSet* pAtt
 
     SetInputSet(&m_aInputSet);
 
-    if (!m_bTitle)
-        AddTabPage("singlenum", RID_SVXPAGE_PICK_SINGLE_NUM);
-    else
+    if (m_bTitle)
         RemoveTabPage("singlenum");
 
-    AddTabPage("bullets", RID_SVXPAGE_PICK_BULLET);
-    AddTabPage("graphics", RID_SVXPAGE_PICK_BMP);
     AddTabPage("customize", RID_SVXPAGE_NUM_OPTIONS);
     AddTabPage("position", RID_SVXPAGE_NUM_POSITION);
 }

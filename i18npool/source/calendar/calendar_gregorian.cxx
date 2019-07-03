@@ -21,11 +21,11 @@
 
 #include <calendar_gregorian.hxx>
 #include <localedata.hxx>
-#include <com/sun/star/i18n/AmPmValue.hpp>
-#include <com/sun/star/i18n/Months.hpp>
-#include <com/sun/star/i18n/Weekdays.hpp>
+#include <nativenumbersupplier.hxx>
+#include <com/sun/star/i18n/CalendarDisplayCode.hpp>
+#include <com/sun/star/i18n/CalendarDisplayIndex.hpp>
+#include <com/sun/star/i18n/NativeNumberMode.hpp>
 #include <com/sun/star/i18n/reservedWords.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
@@ -167,6 +167,11 @@ Calendar_gregorian::init(const Era *_eraArray)
      * */
     icu::Locale aIcuLocale( "", nullptr, nullptr, "calendar=gregorian");
 
+    /* XXX: not specifying a timezone when creating a calendar assigns the
+     * system's timezone with all DST quirks, invalid times when switching
+     * to/from DST and so on. The XCalendar* interfaces are defined to support
+     * local time and UTC time so we can not override that here.
+     */
     UErrorCode status = U_ZERO_ERROR;
     body.reset( icu::Calendar::createInstance( aIcuLocale, status) );
     if (!body || !U_SUCCESS(status)) throw ERROR;
@@ -209,7 +214,7 @@ static const Era gengou_eraArray[] = {
     {1912,  7, 30, 0},  // Taisho
     {1926, 12, 25, 0},  // Showa
     {1989,  1,  8, 0},  // Heisei
-    {2019,  5,  1, 0},  //(Naruhito) (TODO: real era name not known yet (2018-07-26))
+    {2019,  5,  1, 0},  // Reiwa
     {0, 0, 0, 0}
 };
 Calendar_gengou::Calendar_gengou() : Calendar_gregorian(gengou_eraArray)
@@ -224,6 +229,19 @@ static const Era ROC_eraArray[] = {
 Calendar_ROC::Calendar_ROC() : Calendar_gregorian(ROC_eraArray)
 {
     cCalendar = "com.sun.star.i18n.Calendar_ROC";
+}
+
+/**
+* The start year of the Korean traditional calendar (Dan-gi) is the inaugural
+* year of Dan-gun (BC 2333).
+*/
+static const Era dangi_eraArray[] = {
+    {-2332, 1, 1, 0},
+    {0, 0, 0, 0}
+};
+Calendar_dangi::Calendar_dangi() : Calendar_gregorian(dangi_eraArray)
+{
+    cCalendar = "com.sun.star.i18n.Calendar_dangi";
 }
 
 static const Era buddhist_eraArray[] = {
@@ -354,6 +372,22 @@ Calendar_gregorian::getLocalDateTime()
     int32_t nDSTOffset = body->get( UCAL_DST_OFFSET, status );
     if ( !U_SUCCESS(status) ) throw ERROR;
     return (fTime + (nZoneOffset + nDSTOffset)) / U_MILLIS_PER_DAY;
+}
+
+bool Calendar_gregorian::setTimeZone( const OUString& rTimeZone )
+{
+    if (fieldSet)
+    {
+        setValue();
+        getValue();
+    }
+    const icu::UnicodeString aID( reinterpret_cast<const UChar*>(rTimeZone.getStr()), rTimeZone.getLength());
+    const std::unique_ptr<const icu::TimeZone> pTZ( icu::TimeZone::createTimeZone(aID));
+    if (!pTZ)
+        return false;
+
+    body->setTimeZone(*pTZ);
+    return true;
 }
 
 // map field value from gregorian calendar to other calendar, it can be overwritten by derived class.

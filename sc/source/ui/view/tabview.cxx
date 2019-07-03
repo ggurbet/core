@@ -22,9 +22,11 @@
 #include <scitems.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/help.hxx>
 #include <vcl/settings.hxx>
 #include <sal/log.hxx>
+#include <tools/svborder.hxx>
 
 #include <pagedata.hxx>
 #include <tabview.hxx>
@@ -60,7 +62,7 @@
 
 #define SPLIT_MARGIN      30
 #define SPLIT_HANDLE_SIZE 5
-#define WIDTH_MARGIN      5
+constexpr sal_Int32 TAB_HEIGHT_MARGIN = 10;
 
 #define SC_ICONSIZE     36
 
@@ -356,7 +358,7 @@ void ScTabView::DoResize( const Point& rOffset, const Size& rSize, bool bInner )
     Size aFontSize = rStyleSettings.GetTabFont().GetFontSize();
     MapMode aPtMapMode(MapUnit::MapPoint);
     aFontSize = pFrameWin->LogicToPixel(aFontSize, aPtMapMode);
-    sal_Int32 nTabWidth = aFontSize.Height() + WIDTH_MARGIN;
+    sal_Int32 nTabHeight = aFontSize.Height() + TAB_HEIGHT_MARGIN;
 
     if ( aViewData.GetHSplitMode() != SC_SPLIT_NONE )
     {
@@ -391,7 +393,7 @@ void ScTabView::DoResize( const Point& rOffset, const Size& rSize, bool bInner )
         }
         if (bHScroll)
         {
-            nBarY = nTabWidth;
+            nBarY = nTabHeight;
 
             if (!mbInlineWithScrollbar)
                 nBarY += nScrollBarSize;
@@ -482,7 +484,7 @@ void ScTabView::DoResize( const Point& rOffset, const Size& rSize, bool bInner )
             else
             {
                 Point aTabPoint(nPosX, nPosY + nSizeY + nScrollBarSize);
-                Size aTabSize(nSizeX, nTabWidth);
+                Size aTabSize(nSizeX, nTabHeight);
                 lcl_SetPosSize(*pTabControl, aTabPoint, aTabSize, nTotalWidth, bLayoutRTL);
                 pTabControl->SetSheetLayoutRTL(bLayoutRTL);
 
@@ -620,7 +622,7 @@ void ScTabView::DoResize( const Point& rOffset, const Size& rSize, bool bInner )
         nSplitPosX = aViewData.GetHSplitPos();
         lcl_SetPosSize( *pHSplitter,
                         Point(nSplitPosX, nOutPosY),
-                        Size( nSplitSizeX, nSplitHeight - nTabWidth ), nTotalWidth, bLayoutRTL );
+                        Size(nSplitSizeX, nSplitHeight - nTabHeight), nTotalWidth, bLayoutRTL);
         nLeftSize = nSplitPosX - nPosX;
         nSplitPosX += nSplitSizeX;
         nRightSize = nSizeX - nLeftSize - nSplitSizeX;
@@ -2176,7 +2178,7 @@ void ScTabView::SetNewVisArea()
         css::uno::Reference<css::frame::XController> xController = rFrame.GetController();
         if (xController.is())
         {
-            ScTabViewObj* pImp = ScTabViewObj::getImplementation( xController );
+            ScTabViewObj* pImp = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
             if (pImp)
                 pImp->VisAreaChanged();
         }
@@ -2544,7 +2546,7 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
     if (nEndRow > aViewData.GetMaxTiledRow() - nVisibleRows)
     {
         ScDocShell* pDocSh = aViewData.GetDocShell();
-        ScModelObj* pModelObj = pDocSh ? ScModelObj::getImplementation( pDocSh->GetModel() ) : nullptr;
+        ScModelObj* pModelObj = pDocSh ? comphelper::getUnoTunnelImplementation<ScModelObj>( pDocSh->GetModel() ) : nullptr;
         Size aOldSize(0, 0);
         if (pModelObj)
             aOldSize = pModelObj->getDocumentSize();
@@ -2686,7 +2688,7 @@ OUString ScTabView::getRowColumnHeaders(const tools::Rectangle& rRectangle)
     if (nEndCol > aViewData.GetMaxTiledCol() - nVisibleCols)
     {
         ScDocShell* pDocSh = aViewData.GetDocShell();
-        ScModelObj* pModelObj = pDocSh ? ScModelObj::getImplementation( pDocSh->GetModel() ) : nullptr;
+        ScModelObj* pModelObj = pDocSh ? comphelper::getUnoTunnelImplementation<ScModelObj>( pDocSh->GetModel() ) : nullptr;
         Size aOldSize(0, 0);
         if (pModelObj)
             aOldSize = pModelObj->getDocumentSize();

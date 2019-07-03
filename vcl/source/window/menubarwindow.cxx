@@ -24,6 +24,7 @@
 #include <vcl/dockingarea.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/taskpanelist.hxx>
+#include <vcl/virdev.hxx>
 #include <sal/log.hxx>
 
 #include <salframe.hxx>
@@ -32,6 +33,7 @@
 #include <strings.hrc>
 #include <bitmaps.hlst>
 #include <window.h>
+#include "bufferdevice.hxx"
 
 // document closing button
 #define IID_DOCUMENTCLOSE 1
@@ -628,7 +630,7 @@ void MenuBarWindow::HighlightItem(vcl::RenderContext& rRenderContext, sal_uInt16
             if (pData->eType != MenuItemType::SEPARATOR)
             {
                 // #107747# give menuitems the height of the menubar
-                tools::Rectangle aRect = tools::Rectangle(Point(nX, 1), Size(pData->aSz.Width(), aOutputSize.Height() - 2));
+                tools::Rectangle aRect(Point(nX, 1), Size(pData->aSz.Width(), aOutputSize.Height() - 2));
                 rRenderContext.Push(PushFlags::CLIPREGION);
                 rRenderContext.IntersectClipRegion(aRect);
                 bool bRollover, bHighlight;
@@ -912,46 +914,49 @@ void MenuBarWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Recta
         return;
     }
 
+    // Make sure that all actual rendering happens in one go to avoid flicker.
+    vcl::BufferDevice pBuffer(this, rRenderContext);
+
     if (rRenderContext.IsNativeControlSupported(ControlType::Menubar, ControlPart::Entire))
     {
         MenubarValue aMenubarValue;
         aMenubarValue.maTopDockingAreaHeight = ImplGetTopDockingAreaHeight(this);
 
         if (!rStyleSettings.GetPersonaHeader().IsEmpty())
-            Erase(rRenderContext);
+            Erase(*pBuffer);
         else
         {
             tools::Rectangle aCtrlRegion( Point(), aOutputSize );
 
-            rRenderContext.DrawNativeControl(ControlType::Menubar, ControlPart::Entire, aCtrlRegion,
-                                             ControlState::ENABLED, aMenubarValue, OUString());
+            pBuffer->DrawNativeControl(ControlType::Menubar, ControlPart::Entire, aCtrlRegion,
+                                       ControlState::ENABLED, aMenubarValue, OUString());
         }
 
-        ImplAddNWFSeparator(rRenderContext, aOutputSize, aMenubarValue);
+        ImplAddNWFSeparator(*pBuffer, aOutputSize, aMenubarValue);
     }
 
     // shrink the area of the buttons
     aOutputSize.AdjustWidth( -(aCloseBtn->GetSizePixel().Width()) );
 
-    rRenderContext.SetFillColor(rStyleSettings.GetMenuColor());
-    pMenu->ImplPaint(rRenderContext, aOutputSize, 0);
+    pBuffer->SetFillColor(rStyleSettings.GetMenuColor());
+    pMenu->ImplPaint(*pBuffer, aOutputSize, 0);
 
     if (nHighlightedItem != ITEMPOS_INVALID && pMenu && !pMenu->GetItemList()->GetDataFromPos(nHighlightedItem)->bHiddenOnGUI)
-        HighlightItem(rRenderContext, nHighlightedItem);
-    else if (ImplGetSVData()->maNWFData.mbRolloverMenubar && nRolloveredItem != ITEMPOS_INVALID)
-        HighlightItem(rRenderContext, nRolloveredItem);
+        HighlightItem(*pBuffer, nHighlightedItem);
+    else if (nRolloveredItem != ITEMPOS_INVALID)
+        HighlightItem(*pBuffer, nRolloveredItem);
 
     // in high contrast mode draw a separating line on the lower edge
     if (!rRenderContext.IsNativeControlSupported( ControlType::Menubar, ControlPart::Entire) &&
         rStyleSettings.GetHighContrastMode())
     {
-        rRenderContext.Push(PushFlags::LINECOLOR | PushFlags::MAPMODE);
-        rRenderContext.SetLineColor(COL_WHITE);
-        rRenderContext.SetMapMode(MapMode(MapUnit::MapPixel));
+        pBuffer->Push(PushFlags::LINECOLOR | PushFlags::MAPMODE);
+        pBuffer->SetLineColor(COL_WHITE);
+        pBuffer->SetMapMode(MapMode(MapUnit::MapPixel));
         Size aSize = GetSizePixel();
-        rRenderContext.DrawLine(Point(0, aSize.Height() - 1),
-                                Point(aSize.Width() - 1, aSize.Height() - 1));
-        rRenderContext.Pop();
+        pBuffer->DrawLine(Point(0, aSize.Height() - 1),
+                          Point(aSize.Width() - 1, aSize.Height() - 1));
+        pBuffer->Pop();
     }
 }
 

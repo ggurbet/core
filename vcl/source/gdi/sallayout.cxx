@@ -590,47 +590,6 @@ Point SalLayout::GetDrawPosition( const Point& rRelative ) const
     return aPos;
 }
 
-// returns asian kerning values in quarter of character width units
-// to enable automatic halfwidth substitution for fullwidth punctuation
-// return value is negative for l, positive for r, zero for neutral
-
-// If the range doesn't match in 0x3000 and 0x30FB, please change
-// also ImplCalcKerning.
-
-static int lcl_CalcAsianKerning( sal_UCS4 c, bool bLeft, bool /*TODO:? bVertical*/ )
-{
-    // http://www.asahi-net.or.jp/~sd5a-ucd/freetexts/jis/x4051/1995/appendix.html
-    static const signed char nTable[0x30] =
-    {
-         0, -2, -2,  0,   0,  0,  0,  0,  +2, -2, +2, -2,  +2, -2, +2, -2,
-        +2, -2,  0,  0,  +2, -2, +2, -2,   0,  0,  0,  0,   0, +2, -2, -2,
-         0,  0,  0,  0,   0,  0,  0,  0,   0,  0, -2, -2,  +2, +2, -2, -2
-    };
-
-    int nResult = 0;
-    if( (c >= 0x3000) && (c < 0x3030) )
-        nResult = nTable[ c - 0x3000 ];
-    else switch( c )
-    {
-        case 0x30FB:
-            nResult = bLeft ? -1 : +1;      // 25% left/right/top/bottom
-            break;
-        case 0x2019: case 0x201D:
-        case 0xFF01: case 0xFF09: case 0xFF0C:
-        case 0xFF1A: case 0xFF1B:
-            nResult = -2;
-            break;
-        case 0x2018: case 0x201C:
-        case 0xFF08:
-            nResult = +2;
-            break;
-        default:
-            break;
-    }
-
-    return nResult;
-}
-
 bool SalLayout::GetOutline(basegfx::B2DPolyPolygonVector& rVector) const
 {
     bool bAllOk = true;
@@ -712,7 +671,7 @@ DeviceCoordinate GenericSalLayout::GetTextWidth() const
     for (auto const& aGlyphItem : *m_GlyphItems.Impl())
     {
         // update the text extent with the glyph extent
-        DeviceCoordinate nXPos = aGlyphItem.m_aLinearPos.X();
+        DeviceCoordinate nXPos = aGlyphItem.m_aLinearPos.getX();
         if( nMinPos > nXPos )
             nMinPos = nXPos;
         nXPos += aGlyphItem.m_nNewWidth - aGlyphItem.m_nXOffset;
@@ -789,15 +748,58 @@ void GenericSalLayout::Justify( DeviceCoordinate nNewWidth )
         {
             for( pGlyphIter = m_GlyphItems.Impl()->begin(); ++pGlyphIter != pGlyphIterRight;)
             {
-                int nX = pGlyphIter->m_aLinearPos.X();
+                int nX = pGlyphIter->m_aLinearPos.getX();
                 nX = static_cast<int>(nX * fSqueeze);
                 pGlyphIter->m_aLinearPos.setX( nX );
             }
         }
         // adjust glyph widths to new positions
         for( pGlyphIter = m_GlyphItems.Impl()->begin(); pGlyphIter != pGlyphIterRight; ++pGlyphIter )
-            pGlyphIter->m_nNewWidth = pGlyphIter[1].m_aLinearPos.X() - pGlyphIter[0].m_aLinearPos.X();
+            pGlyphIter->m_nNewWidth = pGlyphIter[1].m_aLinearPos.getX() - pGlyphIter[0].m_aLinearPos.getX();
     }
+}
+
+// returns asian kerning values in quarter of character width units
+// to enable automatic halfwidth substitution for fullwidth punctuation
+// return value is negative for l, positive for r, zero for neutral
+// TODO: handle vertical layout as proposed in commit 43bf2ad49c2b3989bbbe893e4fee2e032a3920f5?
+static int lcl_CalcAsianKerning(sal_UCS4 c, bool bLeft)
+{
+    // http://www.asahi-net.or.jp/~sd5a-ucd/freetexts/jis/x4051/1995/appendix.html
+    static const signed char nTable[0x30] =
+    {
+         0, -2, -2,  0,   0,  0,  0,  0,  +2, -2, +2, -2,  +2, -2, +2, -2,
+        +2, -2,  0,  0,  +2, -2, +2, -2,   0,  0,  0,  0,   0, +2, -2, -2,
+         0,  0,  0,  0,   0,  0,  0,  0,   0,  0, -2, -2,  +2, +2, -2, -2
+    };
+
+    int nResult = 0;
+    if( (c >= 0x3000) && (c < 0x3030) )
+        nResult = nTable[ c - 0x3000 ];
+    else switch( c )
+    {
+        case 0x30FB:
+            nResult = bLeft ? -1 : +1;      // 25% left/right/top/bottom
+            break;
+        case 0x2019: case 0x201D:
+        case 0xFF01: case 0xFF09: case 0xFF0C:
+        case 0xFF1A: case 0xFF1B:
+            nResult = -2;
+            break;
+        case 0x2018: case 0x201C:
+        case 0xFF08:
+            nResult = +2;
+            break;
+        default:
+            break;
+    }
+
+    return nResult;
+}
+
+static bool lcl_CanApplyAsianKerning(sal_Unicode cp)
+{
+    return (0x3000 == (cp & 0xFF00)) || (0xFF00 == (cp & 0xFF00)) || (0x2010 == (cp & 0xFFF0));
 }
 
 void GenericSalLayout::ApplyAsianKerning(const OUString& rStr)
@@ -805,30 +807,34 @@ void GenericSalLayout::ApplyAsianKerning(const OUString& rStr)
     const int nLength = rStr.getLength();
     long nOffset = 0;
 
-    for( std::vector<GlyphItem>::iterator pGlyphIter = m_GlyphItems.Impl()->begin(), pGlyphIterEnd = m_GlyphItems.Impl()->end(); pGlyphIter != pGlyphIterEnd; ++pGlyphIter )
+    for (std::vector<GlyphItem>::iterator pGlyphIter = m_GlyphItems.Impl()->begin(),
+                                          pGlyphIterEnd = m_GlyphItems.Impl()->end();
+         pGlyphIter != pGlyphIterEnd; ++pGlyphIter)
     {
         const int n = pGlyphIter->m_nCharPos;
-        if( n < nLength - 1)
+        if (n < nLength - 1)
         {
             // ignore code ranges that are not affected by asian punctuation compression
-            const sal_Unicode cHere = rStr[n];
-            if( ((0x3000 != (cHere & 0xFF00)) && (0x2010 != (cHere & 0xFFF0))) || (0xFF00 != (cHere & 0xFF00)) )
+            const sal_Unicode cCurrent = rStr[n];
+            if (!lcl_CanApplyAsianKerning(cCurrent))
                 continue;
-            const sal_Unicode cNext = rStr[n+1];
-            if( ((0x3000 != (cNext & 0xFF00)) && (0x2010 != (cNext & 0xFFF0))) || (0xFF00 != (cNext & 0xFF00)) )
+            const sal_Unicode cNext = rStr[n + 1];
+            if (!lcl_CanApplyAsianKerning(cNext))
                 continue;
 
             // calculate compression values
-            const bool bVertical = false;
-            long nKernFirst = +lcl_CalcAsianKerning( cHere, true, bVertical );
-            long nKernNext  = -lcl_CalcAsianKerning( cNext, false, bVertical );
+            const int nKernCurrent = +lcl_CalcAsianKerning(cCurrent, true);
+            if (nKernCurrent == 0)
+                continue;
+            const int nKernNext = -lcl_CalcAsianKerning(cNext, false);
+            if (nKernNext == 0)
+                continue;
 
             // apply punctuation compression to logical glyph widths
-            long nDelta = (nKernFirst < nKernNext) ? nKernFirst : nKernNext;
-            if( nDelta<0 && nKernFirst!=0 && nKernNext!=0 )
+            int nDelta = (nKernCurrent < nKernNext) ? nKernCurrent : nKernNext;
+            if (nDelta < 0)
             {
-                int nGlyphWidth = pGlyphIter->m_nOrigWidth;
-                nDelta = (nDelta * nGlyphWidth + 2) / 4;
+                nDelta = (nDelta * pGlyphIter->m_nOrigWidth + 2) / 4;
                 if( pGlyphIter+1 == pGlyphIterEnd )
                     pGlyphIter->m_nNewWidth += nDelta;
                 nOffset += nDelta;
@@ -837,7 +843,7 @@ void GenericSalLayout::ApplyAsianKerning(const OUString& rStr)
 
         // adjust the glyph positions to the new glyph widths
         if( pGlyphIter+1 != pGlyphIterEnd )
-            pGlyphIter->m_aLinearPos.AdjustX(nOffset );
+            pGlyphIter->m_aLinearPos.AdjustX(nOffset);
     }
 }
 
@@ -850,7 +856,7 @@ void GenericSalLayout::GetCaretPositions( int nMaxIndex, long* pCaretXArray ) co
     // calculate caret positions using glyph array
     for (auto const& aGlyphItem : *m_GlyphItems.Impl())
     {
-        long nXPos = aGlyphItem.m_aLinearPos.X();
+        long nXPos = aGlyphItem.m_aLinearPos.getX();
         long nXRight = nXPos + aGlyphItem.m_nOrigWidth;
         int n = aGlyphItem.m_nCharPos;
         int nCurrIdx = 2 * (n - mnMinCharPos);
@@ -943,7 +949,7 @@ void GenericSalLayout::MoveGlyph( int nStart, long nNewXPos )
     if( pGlyphIter->IsRTLGlyph() )
         nNewXPos += pGlyphIter->m_nNewWidth - pGlyphIter->m_nOrigWidth;
     // calculate the x-offset to the old position
-    long nXDelta = nNewXPos - pGlyphIter->m_aLinearPos.X();
+    long nXDelta = nNewXPos - pGlyphIter->m_aLinearPos.getX();
     // adjust all following glyph positions if needed
     if( nXDelta != 0 )
     {

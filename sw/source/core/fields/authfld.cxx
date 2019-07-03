@@ -45,6 +45,8 @@
 #include <calbck.hxx>
 #include <unomid.h>
 
+#include <com/sun/star/beans/PropertyValues.hpp>
+
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::beans;
 using namespace ::com::sun::star::lang;
@@ -79,9 +81,9 @@ SwAuthorityFieldType::~SwAuthorityFieldType()
 {
 }
 
-SwFieldType*    SwAuthorityFieldType::Copy()  const
+std::unique_ptr<SwFieldType> SwAuthorityFieldType::Copy()  const
 {
-    return new SwAuthorityFieldType(m_pDoc);
+    return std::make_unique<SwAuthorityFieldType>(m_pDoc);
 }
 
 void SwAuthorityFieldType::RemoveField(const SwAuthEntry* nHandle)
@@ -540,7 +542,7 @@ std::unique_ptr<SwField> SwAuthorityField::Copy() const
     return std::make_unique<SwAuthorityField>(pAuthType, m_xAuthEntry.get());
 }
 
-OUString SwAuthorityField::GetFieldText(ToxAuthorityField eField) const
+const OUString & SwAuthorityField::GetFieldText(ToxAuthorityField eField) const
 {
     return m_xAuthEntry->GetAuthorField( eField );
 }

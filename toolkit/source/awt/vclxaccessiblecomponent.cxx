@@ -375,6 +375,9 @@ void VCLXAccessibleComponent::FillAccessibleRelationSet( utl::AccessibleRelation
             uno::Sequence< uno::Reference< uno::XInterface > > aSequence { pMemberOf->GetAccessible() };
             rRelationSet.AddRelation( accessibility::AccessibleRelation( accessibility::AccessibleRelationType::MEMBER_OF, aSequence ) );
         }
+
+        for (const auto& rExtraRelation : pWindow->GetExtraAccessibleRelations())
+            rRelationSet.AddRelation(rExtraRelation);
     }
 }
 
@@ -530,9 +533,8 @@ uno::Reference< accessibility::XAccessible > VCLXAccessibleComponent::getAccessi
 {
     OExternalLockGuard aGuard( this );
 
-    uno::Reference< accessibility::XAccessible > xAcc;
     // we do _not_ have a foreign-controlled parent -> default to our VCL parent
-    xAcc = getVclParent();
+    uno::Reference< accessibility::XAccessible > xAcc = getVclParent();
 
     return xAcc;
 }
@@ -616,6 +618,19 @@ OUString VCLXAccessibleComponent::getAccessibleName(  )
 #endif
     }
     return aName;
+}
+
+OUString VCLXAccessibleComponent::getAccessibleId(  )
+{
+    OExternalLockGuard aGuard( this );
+
+    OUString aId;
+    if ( GetWindow() )
+    {
+        const OUString &aWindowId = GetWindow()->get_id();
+        aId = aWindowId;
+    }
+    return aId;
 }
 
 uno::Reference< accessibility::XAccessibleRelationSet > VCLXAccessibleComponent::getAccessibleRelationSet(  )

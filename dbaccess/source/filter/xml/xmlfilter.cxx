@@ -115,12 +115,10 @@ static ErrCode ReadThroughComponent(
     {
         xParser->parseStream( aParserInput );
     }
-    catch (const SAXParseException& r)
+    catch (const SAXParseException&)
     {
 #if OSL_DEBUG_LEVEL > 0
-        SAL_WARN("dbaccess", "SAX parse exception caught while importing: " << r << r.LineNumber << "," << r.ColumnNumber);
-#else
-        (void)r;
+        TOOLS_WARN_EXCEPTION("dbaccess", "SAX parse exception caught while importing");
 #endif
         return ErrCode(1);
     }
@@ -346,7 +344,7 @@ bool ODBFilter::implImport( const Sequence< PropertyValue >& rDescriptor )
             pMedium = new SfxMedium(sFileName, (StreamMode::READ | StreamMode::NOCREATE));
             try
             {
-                xStorage.set(pMedium->GetStorage(false), UNO_QUERY_THROW);
+                xStorage.set(pMedium->GetStorage(false), UNO_SET_THROW);
 
                 if (!sStreamRelPath.isEmpty())
                     xStorage = xStorage->openStorageElement(sStreamRelPath, embed::ElementModes::READ);
@@ -946,7 +944,7 @@ void ODBFilter::setPropertyInfo()
     aDataSourceSettings.merge( ::comphelper::NamedValueCollection( aInfo ), true );
 
     aDataSourceSettings >>= aInfo;
-    if ( aInfo.getLength() )
+    if ( aInfo.hasElements() )
     {
         try
         {

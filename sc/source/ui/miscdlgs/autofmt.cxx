@@ -30,11 +30,13 @@
 #include <editeng/wghtitem.hxx>
 #include <svl/zforlist.hxx>
 #include <svtools/scriptedtext.hxx>
+#include <svx/framelink.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <comphelper/processfactory.hxx>
 #include <drawinglayer/processor2d/processor2dtools.hxx>
+#include <drawinglayer/processor2d/baseprocessor2d.hxx>
 
 #include <strings.hrc>
 #include <zforauto.hxx>
@@ -241,7 +243,7 @@ void ScAutoFmtPreview::DrawString(vcl::RenderContext& rRenderContext, size_t nCo
         Size aStrSize;
         sal_uInt16 nFmtIndex = GetFormatIndex( nCol, nRow );
         const basegfx::B2DRange cellRange(maArray.GetCellRange( nCol, nRow, true ));
-        Point aPos = Point(basegfx::fround(cellRange.getMinX()), basegfx::fround(cellRange.getMinY()));
+        Point aPos(basegfx::fround(cellRange.getMinX()), basegfx::fround(cellRange.getMinY()));
         sal_uInt16 nRightX = 0;
         bool bJustify = pCurData->GetIncludeJustify();
         SvxCellHorJustify eJustification;

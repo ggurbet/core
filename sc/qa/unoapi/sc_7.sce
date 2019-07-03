@@ -16,13 +16,9 @@
 #   the License at http://www.apache.org/licenses/LICENSE-2.0 .
 #
 # -o sc.ScStyleObj
--o sc.ScSubTotalDescriptorBase
 # # i84656 -o sc.ScTabViewObj
-# -o sc.ScTableColumnObj
-# -o sc.ScTableRowObj
 # -o sc.ScTableSheetObj
 # -o sc.ScTableSheetsObj
-#-o sc.ScViewPaneObj
 # #i89411 -o sc.XMLContentExporter
 # #i89411 -o sc.XMLContentImporter
 # #i89411 -o sc.XMLExporter

@@ -583,9 +583,7 @@ static int hash_store(struct hash* hash, const char* key, int key_len)
 
 static int file_stat(const char* name, struct stat* buffer_stat, int* rc)
 {
-    int rc_local = 0;
-
-    rc_local = stat(name, buffer_stat);
+    int rc_local = stat(name, buffer_stat);
     if (rc_local  < 0)
     {
         *rc = errno;
@@ -1146,6 +1144,7 @@ int main(int argc, char** argv)
         return 1;
     work_dir_len = strlen(work_dir);
     phony_content_buffer = malloc(PHONY_TARGET_BUFFER);
+    assert(phony_content_buffer); // Don't handle OOM conditions
     strcpy(phony_content_buffer, work_dir);
     phony_content_buffer[work_dir_len] = '/';
 

@@ -9,19 +9,15 @@
 
 #include <swmodeltestbase.hxx>
 
-#include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
-#include <com/sun/star/text/XTextFrame.hpp>
-#include <com/sun/star/text/XTextFramesSupplier.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
-
-#include <sfx2/docfile.hxx>
-#include <sfx2/docfilt.hxx>
-#include <svx/xfillit0.hxx>
+#include <editeng/frmdiritem.hxx>
+#include <IDocumentSettingAccess.hxx>
 
 #include <editsh.hxx>
+#include <frmatr.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -67,7 +63,97 @@ DECLARE_OOXMLEXPORT_TEST(testendingSectionProps, "endingSectionProps.docx")
 
     CPPUNIT_ASSERT_EQUAL_MESSAGE("# of paragraphs", 2, getParagraphs());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Section is RightToLeft", text::WritingMode2::RL_TB, getProperty<sal_Int16>(xSect, "WritingMode"));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Section Left Margin", sal_Int32(2540), getProperty<sal_Int32>(xSect, "SectionLeftMargin"));
+    //regression: tdf124637
+    //CPPUNIT_ASSERT_EQUAL_MESSAGE("Section Left Margin", sal_Int32(2540), getProperty<sal_Int32>(xSect, "SectionLeftMargin"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTbrlTextbox, "tbrl-textbox.docx")
+{
+    uno::Reference<beans::XPropertySet> xPropertySet(getShape(1), uno::UNO_QUERY);
+    comphelper::SequenceAsHashMap aGeometry(xPropertySet->getPropertyValue("CustomShapeGeometry"));
+    // Without the accompanying fix in place, this test would have failed with 'Expected: -90;
+    // Actual: 0', i.e. tbRl writing direction was imported as lrTb.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(-90),
+                         aGeometry["TextPreRotateAngle"].get<sal_Int32>());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testBtlrShape, "btlr-textbox.docx")
+{
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    const SwFrameFormats& rFormats = *pDoc->GetSpzFrameFormats();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), rFormats.size());
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt16>(RES_DRAWFRMFMT), rFormats[0]->Which());
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt16>(RES_FLYFRMFMT), rFormats[1]->Which());
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 5, Actual:
+    // 4', i.e. the textbox inherited its writing direction instead of having an explicit btlr
+    // value.
+    CPPUNIT_ASSERT_EQUAL(SvxFrameDirection::Vertical_LR_BT,
+                         rFormats[1]->GetAttrSet().GetFrameDir().GetValue());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf124637_sectionMargin, "tdf124637_sectionMargin.docx")
+{
+    uno::Reference<text::XTextSectionsSupplier> xTextSectionsSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xSections(xTextSectionsSupplier->getTextSections(), uno::UNO_QUERY);
+    // sections 0 and 1 must be related to footnotes...
+    uno::Reference<beans::XPropertySet> xSect(xSections->getByIndex(2), uno::UNO_QUERY);
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Section Left Margin", sal_Int32(0), getProperty<sal_Int32>(xSect, "SectionLeftMargin"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf123636_newlinePageBreak, "tdf123636_newlinePageBreak.docx")
+{
+    //MS Compatibility flag: SplitPgBreakAndParaMark
+    //special case: split first empty paragraph in a section.
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Paragraphs", 2, getParagraphs() );
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Pages", 2, getPages() );
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf123636_newlinePageBreak2, "tdf123636_newlinePageBreak2.docx")
+{
+    //WITHOUT SplitPgBreakAndParaMark: a following anchored shape should force a page break
+    //CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Paragraphs", 2, getParagraphs() );
+    CPPUNIT_ASSERT_EQUAL(OUString(), getProperty<OUString>(getParagraph(2, ""), "NumberingStyleName"));
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Pages", 2, getPages() );
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf123636_newlinePageBreak3, "tdf123636_newlinePageBreak3.docx")
+{
+    //MS Compatibility flag: SplitPgBreakAndParaMark
+    //proof case: split any non-empty paragraphs, not just the first paragraph of a section.
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Paragraphs", 5, getParagraphs() );
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Pages", 2, getPages() );
+
+    xmlDocPtr pDump = parseLayoutDump();
+    assertXPath(pDump, "/root/page[1]/body/txt[3]/Text[1]", "Portion", "Last line on page 1");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf123636_newlinePageBreak4, "tdf123636_newlinePageBreak4.docx")
+{
+    //MS Compatibility flag: SplitPgBreakAndParaMark
+    //special case: an empty paragraph doesn't split (except if first paragraph).
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Paragraphs", 3, getParagraphs() );
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of Pages", 2, getPages() );
+
+    xmlDocPtr pDump = parseLayoutDump();
+    assertXPath(pDump, "/root/page[2]/body/txt[1]/Text", 0);
+}
+
+DECLARE_OOXMLEXPORT_TEST(tdf123912_protectedForm, "tdf123912_protectedForm.odt")
+{
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Compatibility: Protect form", true,
+                                 pDoc->getIDocumentSettingAccess().get( DocumentSettingId::PROTECT_FORM ) );
+
+    uno::Reference<text::XTextSectionsSupplier> xTextSectionsSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xSections(xTextSectionsSupplier->getTextSections(), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xSect(xSections->getByIndex(0), uno::UNO_QUERY);
+    if ( xSect.is() )
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Section1 is protected", false, getProperty<bool>(xSect, "IsProtected"));
 }
 
 DECLARE_OOXMLEXPORT_TEST(testDateControl, "empty-date-control.odt")
@@ -159,6 +245,208 @@ DECLARE_OOXMLEXPORT_TEST(testTdf119201, "tdf119201.docx")
     xShape = getShape(3);
     CPPUNIT_ASSERT_MESSAGE("Third shape should be visible.", getProperty<bool>(xShape, "Visible"));
     CPPUNIT_ASSERT_MESSAGE("Third shape should be printable.", getProperty<bool>(xShape, "Printable"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf124594, "tdf124594.docx")
+{
+    xmlDocPtr pDump = parseLayoutDump();
+    // Without the accompanying fix in place, this test would have failed, as the portion text was
+    // only "Er horte leise Schritte hinter", which means the 1st line of the 2nd paragraph was
+    // split into two by a Special portion, i.e. the top margin of the shape was too large.
+    assertXPath(pDump, "/root/page/body/txt[2]/Text[1]", "Portion",
+                "Er horte leise Schritte hinter sich. Das bedeutete nichts Gutes. Wer wurde ihm ");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTextInput, "textinput.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    // Ensure we have a formfield
+    assertXPathContent(pXmlDoc, "/w:document/w:body/w:p/w:r[3]/w:instrText", " FILLIN \"\"");
+    // and it's content is not gone
+    assertXPathContent(pXmlDoc, "/w:document/w:body/w:p/w:r[5]/w:t", "SomeText");
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf123460, "tdf123460.docx")
+{
+    // check paragraph mark deletion at terminating moveFrom
+    CPPUNIT_ASSERT_EQUAL(true,getParagraph( 2 )->getString().startsWith("Nunc"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 1 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(2), 1), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Delete"),getProperty<OUString>(getRun(getParagraph(2), 1), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(true, getRun( getParagraph( 2 ), 2 )->getString().endsWith("tellus."));
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 3 )->getString());
+    bool bCaught = false;
+    try
+    {
+        getRun( getParagraph( 2 ), 4 );
+    }
+    catch (container::NoSuchElementException&)
+    {
+        bCaught = true;
+    }
+    CPPUNIT_ASSERT_EQUAL(true, bCaught);
+}
+
+//tdf#113483: fix handling of non-ascii characters in bookmark names and instrText xml tags
+DECLARE_OOXMLEXPORT_TEST(testTdf113483, "tdf113483_crossreflink_nonascii_bookmarkname.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    // check whether test file keeps non-ascii values or not
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:bookmarkStart[1]", "name", OUString::fromUtf8("Els\u0151"));
+    assertXPathContent(pXmlDoc, "/w:document/w:body/w:p[5]/w:r[2]/w:instrText[1]", OUString::fromUtf8(" REF Els\u0151 \\h "));
+}
+
+//tdf#125298: fix charlimit restrictions in bookmarknames and field references if they contain non-ascii characters
+DECLARE_OOXMLEXPORT_TEST(testTdf125298, "tdf125298_crossreflink_nonascii_charlimit.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    // check whether test file keeps non-ascii values or not
+    OUString bookmarkName1 = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:bookmarkStart[1]", "name");
+    CPPUNIT_ASSERT_EQUAL(OUString::fromUtf8("\u00e1rv\u00edzt\u0171r\u0151_t\u00fck\u00f6rf\u00far\u00f3g\u00e9p"), bookmarkName1);
+
+    OUString bookmarkName2 = getXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:bookmarkStart[1]", "name");
+    CPPUNIT_ASSERT_EQUAL(OUString::fromUtf8("\u00e91\u00e12\u01713\u01514\u00fa5\u00f66\u00fc7\u00f38\u00ed9"), bookmarkName2);
+    OUString fieldName1 = getXPathContent(pXmlDoc, "/w:document/w:body/w:p[5]/w:r[2]/w:instrText[1]");
+    OUString expectedFieldName1(" REF ");
+    expectedFieldName1 += bookmarkName1;
+    expectedFieldName1 += " \\h ";
+    CPPUNIT_ASSERT_EQUAL(expectedFieldName1, fieldName1);
+    OUString fieldName2 = getXPathContent(pXmlDoc, "/w:document/w:body/w:p[7]/w:r[2]/w:instrText[1]");
+    OUString expectedFieldName2(" REF ");
+    expectedFieldName2 += bookmarkName2;
+    expectedFieldName2 += " \\h ";
+    CPPUNIT_ASSERT_EQUAL(expectedFieldName2, fieldName2);
+}
+
+DECLARE_OOXMLIMPORT_TEST(testTdf121784, "tdf121784.docx")
+{
+    // check tracked insertion of footnotes
+    CPPUNIT_ASSERT_EQUAL( OUString( "Text1" ), getParagraph( 1 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 1 ), 2 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(1), 2), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Insert"),getProperty<OUString>(getRun(getParagraph(1), 2), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "1" ), getRun( getParagraph( 1 ), 3 )->getString());
+
+    // check tracked insertion of endnotes
+    CPPUNIT_ASSERT_EQUAL( OUString( "texti" ), getParagraph( 2 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 2 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(2), 2), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Insert"),getProperty<OUString>(getRun(getParagraph(2), 2), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "i" ), getRun( getParagraph( 2 ), 3 )->getString());
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTbrlFrameVml, "tbrl-frame-vml.docx")
+{
+    uno::Reference<beans::XPropertySet> xTextFrame(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xTextFrame.is());
+
+    if (mbExported)
+    {
+        // DML import: creates a TextBox.
+
+        comphelper::SequenceAsHashMap aGeometry(xTextFrame->getPropertyValue("CustomShapeGeometry"));
+        // Without the accompanying fix in place, this test would have failed with 'Expected: -90;
+        // Actual: 0', i.e. the tblr writing mode was lost during DML export of a TextFrame.
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(-90), aGeometry["TextPreRotateAngle"].get<sal_Int32>());
+    }
+    else
+    {
+        // VML import: creates a TextFrame.
+
+        auto nActual = getProperty<sal_Int16>(xTextFrame, "WritingMode");
+        // Without the accompanying fix in place, this test would have failed with 'Expected: 2; Actual:
+        // 4', i.e. writing direction was inherited from page, instead of explicit tbrl.
+        CPPUNIT_ASSERT_EQUAL(text::WritingMode2::TB_RL, nActual);
+    }
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf125657, "tdf125657.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    CPPUNIT_ASSERT(pXmlDoc);
+    auto checkAttrIsInt = [&](const OString& sAttrName) {
+        OUString sAttr = getXPath(pXmlDoc,
+                                  "/w:document/w:body/w:p[1]/w:r[1]/w:drawing/wp:inline/a:graphic/"
+                                  "a:graphicData/pic:pic/pic:blipFill/a:srcRect",
+                                  sAttrName);
+        OString sAssertMsg("Attribute " + sAttrName + " value " + sAttr.toUtf8()
+                           + " is not a valid integer");
+        CPPUNIT_ASSERT_MESSAGE(sAssertMsg.getStr(), !sAttr.isEmpty());
+        // Only decimal characters allowed, optionally prepended with '-'; no '.'
+        CPPUNIT_ASSERT_MESSAGE(sAssertMsg.getStr(),
+                               sAttr[0] == '-' || (sAttr[0] >= '0' && sAttr[0] <= '9'));
+        for (sal_Int32 i = 1; i < sAttr.getLength(); ++i)
+            CPPUNIT_ASSERT_MESSAGE(sAssertMsg.getStr(), sAttr[i] >= '0' && sAttr[i] <= '9');
+    };
+    // check that we export all coordinates of srcRect as integers
+    checkAttrIsInt("l");
+    checkAttrIsInt("t");
+    checkAttrIsInt("r");
+    checkAttrIsInt("b");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf125324, "tdf125324.docx")
+{
+    discardDumpedLayout();
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    assertXPath(pXmlDoc, "/root/page/body/txt[2]/anchored/fly/tab/infos/bounds", "top", "4193");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf78657, "tdf78657_picture_hyperlink.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    xmlDocPtr pXmlRels = parseExport("word/_rels/document.xml.rels");
+    if (!pXmlDoc || !pXmlRels)
+        return;
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/w:drawing/wp:inline/wp:docPr/a:hlinkClick", 1);
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/w:drawing/wp:inline/a:graphic/a:graphicData/pic:pic/pic:nvPicPr/pic:cNvPr/a:hlinkClick", 1);
+    assertXPath(pXmlRels, "/rels:Relationships/rels:Relationship[@Target='http://www.google.com']", "TargetMode", "External");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf125518, "tdf125518.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    // First diagram is anchored
+    OUString anchorName = getXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:r[2]/w:drawing/wp:anchor/wp:docPr", "name");
+    CPPUNIT_ASSERT_EQUAL(OUString("Object1"), anchorName);
+
+    // Second diagram has anchor
+    anchorName = getXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:r[1]/w:drawing/wp:anchor/wp:docPr", "name");
+    CPPUNIT_ASSERT_EQUAL(OUString("Objekt1"), anchorName);
+
+    // Third diagram has no anchor
+    anchorName = getXPath(pXmlDoc, "/w:document/w:body/w:p[12]/w:r[2]/w:drawing/wp:inline/wp:docPr", "name");
+    CPPUNIT_ASSERT_EQUAL(OUString("Object2"), anchorName);
+
+    // 4th diagram has anchor too
+    anchorName = getXPath(pXmlDoc, "/w:document/w:body/w:p[14]/w:r[3]/w:drawing/wp:anchor/wp:docPr", "name");
+    CPPUNIT_ASSERT_EQUAL(OUString("Object3"), anchorName);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testImageCommentAtChar, "image-comment-at-char.docx")
+{
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 1), "TextPortionType"));
+    // Without the accompanying fix in place, this test would have failed with 'Expected:
+    // Annotation; Actual: Frame', i.e. the comment start before the image was lost.
+    CPPUNIT_ASSERT_EQUAL(OUString("Annotation"),
+                         getProperty<OUString>(getRun(xPara, 2), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Frame"),
+                         getProperty<OUString>(getRun(xPara, 3), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("AnnotationEnd"),
+                         getProperty<OUString>(getRun(xPara, 4), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 5), "TextPortionType"));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

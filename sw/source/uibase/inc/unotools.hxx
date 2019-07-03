@@ -24,24 +24,13 @@
 #include <vcl/fixed.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/idle.hxx>
+#include <vcl/weld.hxx>
+#include <vcl/customweld.hxx>
 #include "actctrl.hxx"
 #include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/text/XTextCursor.hpp>
 #include <com/sun/star/awt/XControl.hpp>
 #include <swdllapi.h>
-
-class SwOneExampleFrame;
-
-class SwFrameCtrlWindow : public VclEventBox
-{
-    SwOneExampleFrame* pExampleFrame;
-public:
-    SwFrameCtrlWindow(vcl::Window* pParent, SwOneExampleFrame* pFrame);
-
-    virtual void Command( const CommandEvent& rCEvt ) override;
-    virtual Size GetOptimalSize() const override;
-    virtual void Resize() override;
-};
 
 #define EX_SHOW_ONLINE_LAYOUT   0x001
 
@@ -52,14 +41,13 @@ public:
 
 class SwView;
 
-class SW_DLLPUBLIC SwOneExampleFrame
+class SW_DLLPUBLIC SwOneExampleFrame : public weld::CustomWidgetController
 {
-    css::uno::Reference< css::awt::XControl >         m_xControl;
+    ScopedVclPtr<VirtualDevice> m_xVirDev;
     css::uno::Reference< css::frame::XModel >         m_xModel;
     css::uno::Reference< css::frame::XController >    m_xController;
     css::uno::Reference< css::text::XTextCursor >     m_xCursor;
 
-    VclPtr<SwFrameCtrlWindow> m_aTopWindow;
     Idle            m_aLoadedIdle;
     Link<SwOneExampleFrame&,void> m_aInitializedLink;
 
@@ -70,22 +58,21 @@ class SW_DLLPUBLIC SwOneExampleFrame
     sal_uInt32 const m_nStyleFlags;
 
     bool            m_bIsInitialized;
-    bool            m_bServiceAvailable;
-
-    static  bool    bShowServiceNotAvailableMessage;
 
     DECL_DLLPRIVATE_LINK( TimeoutHdl, Timer*, void );
-    DECL_DLLPRIVATE_LINK( PopupHdl, Menu*, bool );
+    void PopupHdl(const OString& rId);
 
     SAL_DLLPRIVATE void  CreateControl();
     SAL_DLLPRIVATE void  DisposeControl();
 
 public:
-    SwOneExampleFrame(vcl::Window& rWin,
-                    sal_uInt32 nStyleFlags,
+    SwOneExampleFrame(sal_uInt32 nStyleFlags,
                     const Link<SwOneExampleFrame&,void>* pInitalizedLink,
                     const OUString* pURL = nullptr);
-    ~SwOneExampleFrame();
+    virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
+    virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
+    virtual bool ContextMenu(const CommandEvent& rCEvt) override;
+    virtual ~SwOneExampleFrame() override;
 
     css::uno::Reference< css::frame::XModel > &       GetModel()      {return m_xModel;}
     css::uno::Reference< css::frame::XController > &  GetController() {return m_xController;}
@@ -94,11 +81,8 @@ public:
     void ClearDocument();
 
     bool IsInitialized() const {return m_bIsInitialized;}
-    bool IsServiceAvailable() const {return m_bServiceAvailable;}
 
-    void CreatePopup(const Point& rPt);
-
-    static void     CreateErrorMessage();
+    bool CreatePopup(const Point& rPt);
 };
 
 #endif

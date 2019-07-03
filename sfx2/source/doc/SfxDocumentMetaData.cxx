@@ -67,6 +67,7 @@
 #include <rtl/ref.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <tools/datetime.hxx>
+#include <tools/diagnose_ex.h>
 #include <osl/mutex.hxx>
 #include <comphelper/fileformat.h>
 #include <cppuhelper/basemutex.hxx>
@@ -791,7 +792,7 @@ SfxDocumentMetaData::setMetaList(const char* i_name,
         for (sal_Int32 i = 0; i < i_rValue.getLength(); ++i) {
             css::uno::Reference<css::xml::dom::XElement> xElem(
                 m_xDoc->createElementNS(getNameSpace(i_name), name),
-                css::uno::UNO_QUERY_THROW);
+                css::uno::UNO_SET_THROW);
             css::uno::Reference<css::xml::dom::XNode> xNode(xElem,
                 css::uno::UNO_QUERY_THROW);
             css::uno::Reference<css::xml::dom::XNode> xTextNode(
@@ -939,7 +940,7 @@ SfxDocumentMetaData::updateElement(const char *i_name,
         if (nullptr != i_pAttrs) {
             css::uno::Reference<css::xml::dom::XElement> xElem(
                 m_xDoc->createElementNS(getNameSpace(i_name), name),
-                    css::uno::UNO_QUERY_THROW);
+                    css::uno::UNO_SET_THROW);
             xNode.set(xElem, css::uno::UNO_QUERY_THROW);
             // set attributes
             for (auto const& elem : *i_pAttrs)
@@ -1616,28 +1617,30 @@ void SAL_CALL
 SfxDocumentMetaData::setDocumentStatistics(
         const css::uno::Sequence< css::beans::NamedValue > & the_value)
 {
-    ::osl::ClearableMutexGuard g(m_aMutex);
-    checkInit();
-    std::vector<std::pair<const char *, OUString> > attributes;
-    for (sal_Int32 i = 0; i < the_value.getLength(); ++i) {
-        const OUString name = the_value[i].Name;
-        // inefficiently search for matching attribute
-        for (size_t j = 0; s_stdStats[j] != nullptr; ++j) {
-            if (name.equalsAscii(s_stdStats[j])) {
-                const css::uno::Any any = the_value[i].Value;
-                sal_Int32 val = 0;
-                if (any >>= val) {
-                    attributes.emplace_back(s_stdStatAttrs[j],
-                                OUString::number(val));
-                } else {
-                    SAL_WARN("sfx.doc", "Invalid statistic: " << name);
+    {
+        osl::MutexGuard g(m_aMutex);
+        checkInit();
+        std::vector<std::pair<const char *, OUString> > attributes;
+        for (sal_Int32 i = 0; i < the_value.getLength(); ++i) {
+            const OUString name = the_value[i].Name;
+            // inefficiently search for matching attribute
+            for (size_t j = 0; s_stdStats[j] != nullptr; ++j) {
+                if (name.equalsAscii(s_stdStats[j])) {
+                    const css::uno::Any any = the_value[i].Value;
+                    sal_Int32 val = 0;
+                    if (any >>= val) {
+                        attributes.emplace_back(s_stdStatAttrs[j],
+                            OUString::number(val));
+                    }
+                    else {
+                        SAL_WARN("sfx.doc", "Invalid statistic: " << name);
+                    }
+                    break;
                 }
-                break;
             }
         }
+        updateElement("meta:document-statistic", &attributes);
     }
-    updateElement("meta:document-statistic", &attributes);
-    g.clear();
     setModified(true);
 }
 
@@ -1866,7 +1869,7 @@ SfxDocumentMetaData::loadFromMedium(const OUString & URL,
 {
     css::uno::Reference<css::io::XInputStream> xIn;
     utl::MediaDescriptor md(Medium);
-    // if we have an URL parameter, it replaces the one in the media descriptor
+    // if we have a URL parameter, it replaces the one in the media descriptor
     if (!URL.isEmpty()) {
         md[ utl::MediaDescriptor::PROP_URL() ] <<= URL;
         md[ utl::MediaDescriptor::PROP_READONLY() ] <<= true;
@@ -2044,9 +2047,9 @@ void SAL_CALL SfxDocumentMetaData::setModified( sal_Bool bModified )
                 event);
         } catch (const css::uno::RuntimeException &) {
             throw;
-        } catch (const css::uno::Exception & e) {
+        } catch (const css::uno::Exception &) {
             // ignore
-            SAL_WARN("sfx.doc", "setModified: " << e);
+            TOOLS_WARN_EXCEPTION("sfx.doc", "setModified");
         }
     } else {
         if (xMB.is()) {

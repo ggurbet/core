@@ -109,9 +109,9 @@ std::vector<OUString> SfxContentHelper::GetResultSet( const OUString& rURL )
             }
         }
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN( "sfx.bastyp", "GetResultSet: " << e );
+        TOOLS_WARN_EXCEPTION( "sfx.bastyp", "GetResultSet");
     }
 
     return aList;
@@ -136,8 +136,7 @@ std::vector< OUString > SfxContentHelper::GetHelpTreeViewContents( const OUStrin
 
         try
         {
-            uno::Reference< ucb::XDynamicResultSet > xDynResultSet;
-            xDynResultSet = aCnt.createDynamicCursor( aProps );
+            uno::Reference< ucb::XDynamicResultSet > xDynResultSet = aCnt.createDynamicCursor( aProps );
             if ( xDynResultSet.is() )
                 xResultSet = xDynResultSet->getStaticResultSet();
         }

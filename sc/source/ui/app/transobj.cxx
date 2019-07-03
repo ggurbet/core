@@ -23,6 +23,7 @@
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 
+#include <osl/diagnose.h>
 #include <unotools/tempfile.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <comphelper/fileformat.h>
@@ -30,6 +31,7 @@
 #include <comphelper/servicehelper.hxx>
 #include <sot/storage.hxx>
 #include <vcl/gdimtf.hxx>
+#include <vcl/jobset.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <sfx2/docfile.hxx>
@@ -618,7 +620,7 @@ ScDocument* ScTransferObj::GetSourceDocument()
 
 ScDocShell* ScTransferObj::GetSourceDocShell()
 {
-    ScCellRangesBase* pRangesObj = ScCellRangesBase::getImplementation( m_xDragSourceRanges );
+    ScCellRangesBase* pRangesObj = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( m_xDragSourceRanges );
     if (pRangesObj)
         return pRangesObj->GetDocShell();
 
@@ -628,7 +630,7 @@ ScDocShell* ScTransferObj::GetSourceDocShell()
 ScMarkData ScTransferObj::GetSourceMarkData()
 {
     ScMarkData aMarkData;
-    ScCellRangesBase* pRangesObj = ScCellRangesBase::getImplementation( m_xDragSourceRanges );
+    ScCellRangesBase* pRangesObj = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( m_xDragSourceRanges );
     if (pRangesObj)
     {
         const ScRangeList& rRanges = pRangesObj->GetRangeList();

@@ -8,7 +8,6 @@
  */
 
 #include <cppunit/TestAssert.h>
-#include <cppunit/TestFixture.h>
 #include <cppunit/extensions/HelperMacros.h>
 #include <cppunit/plugin/TestPlugIn.h>
 #include <unotest/bootstrapfixturebase.hxx>
@@ -58,14 +57,15 @@ void WidgetDefinitionReaderTest::testRead()
         std::vector<std::shared_ptr<vcl::WidgetDefinitionState>> aStates
             = aDefinition.getDefinition(ControlType::Pushbutton, ControlPart::Entire)
                   ->getStates(ControlType::Pushbutton, ControlPart::Entire, eState,
-                              ImplControlValue());
+                              PushButtonValue());
 
         CPPUNIT_ASSERT_EQUAL(size_t(2), aStates.size());
 
-        CPPUNIT_ASSERT_EQUAL(size_t(2), aStates[0]->mpDrawCommands.size());
-        CPPUNIT_ASSERT_EQUAL(vcl::DrawCommandType::RECTANGLE,
-                             aStates[0]->mpDrawCommands[0]->maType);
-        CPPUNIT_ASSERT_EQUAL(vcl::DrawCommandType::CIRCLE, aStates[0]->mpDrawCommands[1]->maType);
+        CPPUNIT_ASSERT_EQUAL(size_t(2), aStates[0]->mpWidgetDrawActions.size());
+        CPPUNIT_ASSERT_EQUAL(vcl::WidgetDrawActionType::RECTANGLE,
+                             aStates[0]->mpWidgetDrawActions[0]->maType);
+        CPPUNIT_ASSERT_EQUAL(vcl::WidgetDrawActionType::LINE,
+                             aStates[0]->mpWidgetDrawActions[1]->maType);
     }
 
     // Radiobutton
@@ -75,7 +75,7 @@ void WidgetDefinitionReaderTest::testRead()
                   ->getStates(ControlType::Radiobutton, ControlPart::Entire, ControlState::NONE,
                               ImplControlValue(ButtonValue::On));
         CPPUNIT_ASSERT_EQUAL(size_t(1), aStates.size());
-        CPPUNIT_ASSERT_EQUAL(size_t(2), aStates[0]->mpDrawCommands.size());
+        CPPUNIT_ASSERT_EQUAL(size_t(2), aStates[0]->mpWidgetDrawActions.size());
     }
 
     {
@@ -84,7 +84,7 @@ void WidgetDefinitionReaderTest::testRead()
                   ->getStates(ControlType::Radiobutton, ControlPart::Entire, ControlState::NONE,
                               ImplControlValue(ButtonValue::Off));
         CPPUNIT_ASSERT_EQUAL(size_t(1), aStates.size());
-        CPPUNIT_ASSERT_EQUAL(size_t(1), aStates[0]->mpDrawCommands.size());
+        CPPUNIT_ASSERT_EQUAL(size_t(1), aStates[0]->mpWidgetDrawActions.size());
     }
 }
 

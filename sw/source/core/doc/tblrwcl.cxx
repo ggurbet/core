@@ -718,7 +718,7 @@ void DeleteBox_( SwTable& rTable, SwTableBox* pBox, SwUndo* pUndo,
 
         // Before deleting the 'Table Box' from memory - delete any redlines attached to it
         if ( rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().HasExtraRedlineTable() )
-            rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().GetExtraRedlineTable().DeleteTableCellRedline( rTable.GetFrameFormat()->GetDoc(), *(rTableBoxes[nDelPos]), true, USHRT_MAX );
+            rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().GetExtraRedlineTable().DeleteTableCellRedline( rTable.GetFrameFormat()->GetDoc(), *(rTableBoxes[nDelPos]), true, RedlineType::Any );
         delete rTableBoxes[nDelPos];
         rTableBoxes.erase( rTableBoxes.begin() + nDelPos );
 
@@ -771,7 +771,7 @@ void DeleteBox_( SwTable& rTable, SwTableBox* pBox, SwUndo* pUndo,
             SwTableLine* pTabLineToDelete = rTable.GetTabLines()[ nDelPos ];
             // Before deleting the 'Table Line' from memory - delete any redlines attached to it
             if ( rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().HasExtraRedlineTable() )
-                rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().GetExtraRedlineTable().DeleteTableRowRedline( rTable.GetFrameFormat()->GetDoc(), *pTabLineToDelete, true, USHRT_MAX );
+                rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().GetExtraRedlineTable().DeleteTableRowRedline( rTable.GetFrameFormat()->GetDoc(), *pTabLineToDelete, true, RedlineType::Any );
             delete pTabLineToDelete;
             rTable.GetTabLines().erase( rTable.GetTabLines().begin() + nDelPos );
             break;      // we cannot delete more
@@ -786,7 +786,7 @@ void DeleteBox_( SwTable& rTable, SwTableBox* pBox, SwUndo* pUndo,
         SwTableLine* pTabLineToDelete = pBox->GetTabLines()[ nDelPos ];
         // Before deleting the 'Table Line' from memory - delete any redlines attached to it
         if ( rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().HasExtraRedlineTable() )
-            rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().GetExtraRedlineTable().DeleteTableRowRedline( rTable.GetFrameFormat()->GetDoc(), *pTabLineToDelete, true, USHRT_MAX );
+            rTable.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess().GetExtraRedlineTable().DeleteTableRowRedline( rTable.GetFrameFormat()->GetDoc(), *pTabLineToDelete, true, RedlineType::Any );
         delete pTabLineToDelete;
         pBox->GetTabLines().erase( pBox->GetTabLines().begin() + nDelPos );
     } while( pBox->GetTabLines().empty() );
@@ -1803,20 +1803,43 @@ static void lcl_CopyBoxToDoc(FndBox_ const& rFndBox, CpyPara *const pCpyPara)
         // Find the Frame Format in the list of all Frame Formats
         CpyTabFrame aFindFrame(static_cast<SwTableBoxFormat*>(rFndBox.GetBox()->GetFrameFormat()));
 
-        SwFormatFrameSize aFrameSz;
+        std::shared_ptr<SwFormatFrameSize> aFrameSz(std::make_shared<SwFormatFrameSize>());
         CpyTabFrames::const_iterator itFind = pCpyPara->rTabFrameArr.lower_bound( aFindFrame );
         const CpyTabFrames::size_type nFndPos = itFind - pCpyPara->rTabFrameArr.begin();
-        if( itFind == pCpyPara->rTabFrameArr.end() || !(*itFind == aFindFrame) ||
-            ( aFrameSz = ( aFindFrame = pCpyPara->rTabFrameArr[ nFndPos ]).pNewFrameFormat->
-                GetFrameSize()).GetWidth() != static_cast<SwTwips>(nSize) )
+
+        // It *is* sometimes cool to have multiple tests/if's and assignments
+        // in a single statement, and it is technically possible. But it is definitely
+        // not simply readable - where from my POV reading code is done 1000 times
+        // more often than writing it. Thus I dismantled the expression in smaller
+        // chunks to keep it handy/understandable/changeable (hopefully without error)
+        // The original for reference:
+        // if( itFind == pCpyPara->rTabFrameArr.end() || !(*itFind == aFindFrame) ||
+        //     ( aFrameSz = ( aFindFrame = pCpyPara->rTabFrameArr[ nFndPos ]).pNewFrameFormat->
+        //         GetFrameSize()).GetWidth() != static_cast<SwTwips>(nSize) )
+
+        bool DoCopyIt(itFind == pCpyPara->rTabFrameArr.end());
+
+        if(!DoCopyIt)
+        {
+            DoCopyIt = !(*itFind == aFindFrame);
+        }
+
+        if(!DoCopyIt)
+        {
+            aFindFrame = pCpyPara->rTabFrameArr[ nFndPos ];
+            aFrameSz.reset(static_cast<SwFormatFrameSize*>(aFindFrame.pNewFrameFormat->GetFrameSize().Clone()));
+            DoCopyIt = aFrameSz->GetWidth() != static_cast<SwTwips>(nSize);
+        }
+
+        if(DoCopyIt)
         {
             // It doesn't exist yet, so copy it
             aFindFrame.pNewFrameFormat = pCpyPara->pDoc->MakeTableBoxFormat();
             aFindFrame.pNewFrameFormat->CopyAttrs( *rFndBox.GetBox()->GetFrameFormat() );
             if( !pCpyPara->bCpyContent )
                 aFindFrame.pNewFrameFormat->ResetFormatAttr(  RES_BOXATR_FORMULA, RES_BOXATR_VALUE );
-            aFrameSz.SetWidth( nSize );
-            aFindFrame.pNewFrameFormat->SetFormatAttr( aFrameSz );
+            aFrameSz->SetWidth( nSize );
+            aFindFrame.pNewFrameFormat->SetFormatAttr( *aFrameSz );
             pCpyPara->rTabFrameArr.insert( aFindFrame );
         }
 

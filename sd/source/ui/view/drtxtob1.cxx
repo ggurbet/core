@@ -21,6 +21,7 @@
 
 #include <svx/svxids.hrc>
 
+#include <editeng/eeitem.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/unolingu.hxx>
@@ -28,10 +29,12 @@
 #include <editeng/ulspitem.hxx>
 #include <editeng/lspcitem.hxx>
 #include <editeng/adjustitem.hxx>
+#include <editeng/numitem.hxx>
 #include <vcl/vclenum.hxx>
 #include <sfx2/app.hxx>
 #include <svl/whiter.hxx>
 #include <svl/itempool.hxx>
+#include <svl/stritem.hxx>
 #include <svl/style.hxx>
 #include <sfx2/tplpitem.hxx>
 #include <sfx2/request.hxx>
@@ -44,6 +47,7 @@
 #include <editeng/crossedoutitem.hxx>
 #include <editeng/contouritem.hxx>
 #include <editeng/shdditem.hxx>
+#include <svx/svdpagv.hxx>
 #include <svx/xtable.hxx>
 #include <svx/svdobj.hxx>
 #include <editeng/outlobj.hxx>
@@ -90,6 +94,8 @@ void TextObjectBar::Execute( SfxRequest &rReq )
 
     std::unique_ptr<OutlineViewModelChangeGuard, o3tl::default_delete<OutlineViewModelChangeGuard>> aGuard;
 
+    assert(mpViewShell);
+
     if( dynamic_cast< const OutlineView *>( mpView ) !=  nullptr)
     {
         pOLV = static_cast<OutlineView*>(mpView)
@@ -122,11 +128,64 @@ void TextObjectBar::Execute( SfxRequest &rReq )
             }
             else
             {
-                if( mpViewShell && mpViewShell->GetViewFrame() )
+                if (mpViewShell->GetViewFrame())
                     mpViewShell->GetViewFrame()->GetDispatcher()->Execute( SID_STYLE_DESIGNER, SfxCallMode::ASYNCHRON );
             }
 
             rReq.Done();
+        }
+        break;
+
+        case SID_INC_INDENT:
+        case SID_DEC_INDENT:
+        {
+            if( pOLV )
+            {
+                ESelection aSel = pOLV->GetSelection();
+                aSel.Adjust();
+                sal_Int32 nStartPara = aSel.nStartPara;
+                sal_Int32 nEndPara = aSel.nEndPara;
+                if( !aSel.HasRange() )
+                {
+                    nStartPara = 0;
+                    nEndPara = pOLV->GetOutliner()->GetParagraphCount() - 1;
+                }
+                for( sal_Int32 nPara = nStartPara; nPara <= nEndPara; nPara++ )
+                {
+                    SfxStyleSheet* pStyleSheet = nullptr;
+                    if (pOLV->GetOutliner() != nullptr)
+                        pStyleSheet = pOLV->GetOutliner()->GetStyleSheet(nPara);
+                    if (pStyleSheet != nullptr)
+                    {
+                        SfxItemSet aAttr( pStyleSheet->GetItemSet() );
+                        SfxItemSet aTmpSet( pOLV->GetOutliner()->GetParaAttribs( nPara ) );
+                        aAttr.Put( aTmpSet, false );
+                        const SvxLRSpaceItem& rItem = aAttr.Get( EE_PARA_LRSPACE );
+                        std::unique_ptr<SvxLRSpaceItem> pNewItem(static_cast<SvxLRSpaceItem*>(rItem.Clone()));
+
+                        long nLeft = pNewItem->GetLeft();
+                        if( nSlot == SID_INC_INDENT )
+                            nLeft += 1000;
+                        else
+                        {
+                            nLeft -= 1000;
+                            nLeft = std::max<long>( nLeft, 0 );
+                        }
+                        pNewItem->SetLeftValue( static_cast<sal_uInt16>(nLeft) );
+
+                        SfxItemSet aNewAttrs( aAttr );
+                        aNewAttrs.Put( *pNewItem );
+                        pNewItem.reset();
+                        pOLV->GetOutliner()->SetParaAttribs( nPara, aNewAttrs );
+                    }
+                }
+            }
+            rReq.Done();
+
+            Invalidate();
+            // to refresh preview (in outline mode), slot has to be invalidated:
+            mpViewShell->GetViewFrame()->GetBindings().Invalidate( SID_PREVIEW_STATE, true );
+
         }
         break;
 
@@ -697,6 +756,12 @@ void TextObjectBar::Execute( SfxRequest &rReq )
 
             // to refresh preview (in outline mode), slot has to be invalidated:
             mpViewShell->GetViewFrame()->GetBindings().Invalidate( SID_PREVIEW_STATE, true );
+
+            if ( pOLV )
+            {
+                pOLV->ShowCursor();
+                pOLV->GetWindow()->GrabFocus();
+            }
         }
         break;
     }

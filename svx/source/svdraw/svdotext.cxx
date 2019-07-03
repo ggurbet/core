@@ -49,6 +49,13 @@
 #include <svx/svdpool.hxx>
 #include <svx/xflclit.hxx>
 #include <svl/style.hxx>
+#include <svx/sderitm.hxx>
+#include <svx/sdooitm.hxx>
+#include <svx/sdshitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtfsitm.hxx>
+#include <svx/sdtmfitm.hxx>
+#include <svx/xtextit0.hxx>
 #include <editeng/editeng.hxx>
 #include <svl/itemiter.hxx>
 #include <sdr/properties/textproperties.hxx>
@@ -826,7 +833,7 @@ void SdrTextObj::ImpSetCharStretching(SdrOutliner& rOutliner, const Size& rTextS
         if(pMtf)
             pMtf->Pause(true);
 
-        vcl::Font aFontMerk(pOut->GetFont());
+        vcl::Font aOriginalFont(pOut->GetFont());
         vcl::Font aTmpFont( OutputDevice::GetDefaultFont( DefaultFontType::SERIF, LANGUAGE_SYSTEM, GetDefaultFontFlags::OnlyOne ) );
 
         aTmpFont.SetFontSize(Size(0,100));
@@ -835,7 +842,7 @@ void SdrTextObj::ImpSetCharStretching(SdrOutliner& rOutliner, const Size& rTextS
         aTmpFont.SetFontSize(Size(800,100));
         pOut->SetFont(aTmpFont);
         Size aSize2(pOut->GetTextWidth(aTestString), pOut->GetTextHeight());
-        pOut->SetFont(aFontMerk);
+        pOut->SetFont(aOriginalFont);
 
         if(pMtf)
             pMtf->Pause(false);
@@ -1043,7 +1050,7 @@ SdrTextObj& SdrTextObj::operator=(const SdrTextObj& rObj)
         {
             pNewOutlinerParaObject = pEO->CreateParaObject();
         }
-        else
+        else if (nullptr != rObj.getActiveText()->GetOutlinerParaObject())
         {
             pNewOutlinerParaObject.reset( new OutlinerParaObject(*rObj.getActiveText()->GetOutlinerParaObject()) );
         }
@@ -1201,7 +1208,7 @@ double SdrTextObj::GetFontScaleY() const
 
     SdrOutliner& rOutliner = ImpGetDrawOutliner();
     const Size aShapeSize = GetSnapRect().GetSize();
-    const Size aSize = Size(aShapeSize.Width() - GetTextLeftDistance() - GetTextRightDistance(),
+    const Size aSize(aShapeSize.Width() - GetTextLeftDistance() - GetTextRightDistance(),
         aShapeSize.Height() - GetTextUpperDistance() - GetTextLowerDistance());
 
     rOutliner.SetPaperSize(aSize);

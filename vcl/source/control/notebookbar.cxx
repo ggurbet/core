@@ -8,15 +8,34 @@
  */
 
 #include <vcl/layout.hxx>
-#include <vcl/tabctrl.hxx>
 #include <vcl/notebookbar.hxx>
+#include <vcl/syswin.hxx>
 #include <vcl/taskpanelist.hxx>
-#include <cppuhelper/queryinterface.hxx>
+#include <vcl/NotebookbarContextControl.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/processfactory.hxx>
-#include <vcl/vclevent.hxx>
+#include <rtl/bootstrap.hxx>
+#include <osl/file.hxx>
+#include <config_folders.h>
 #include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/ui/ContextChangeEventMultiplexer.hpp>
+
+static OUString getCustomizedUIRootDir()
+{
+    OUString sShareLayer("${$BRAND_BASE_DIR/" LIBO_ETC_FOLDER "/" SAL_CONFIGFILE(
+        "bootstrap") ":UserInstallation}/user/config/soffice.cfg/");
+    rtl::Bootstrap::expandMacros(sShareLayer);
+    return sShareLayer;
+}
+
+static bool doesFileExist(const OUString& sUIDir, const OUString& sUIFile)
+{
+    OUString sUri = sUIDir + sUIFile;
+    osl::File file(sUri);
+    sal_uInt32 flag = 0;
+    return( file.open(flag) == osl::FileBase::E_None );
+}
+
 /**
  * split from the main class since it needs different ref-counting mana
  */
@@ -38,7 +57,11 @@ NotebookBar::NotebookBar(Window* pParent, const OString& rID, const OUString& rU
     : Control(pParent), m_pEventListener(new NotebookBarContextChangeEventListener(this))
 {
     SetStyle(GetStyle() | WB_DIALOGCONTROL);
-    m_pUIBuilder.reset( new VclBuilder(this, getUIRootDir(), rUIXMLDescription, rID, rFrame) );
+    OUString sUIDir = getUIRootDir();
+    bool doesCustomizedUIExist = doesFileExist(getCustomizedUIRootDir(), rUIXMLDescription);
+    if ( doesCustomizedUIExist )
+        sUIDir = getCustomizedUIRootDir();
+    m_pUIBuilder.reset( new VclBuilder(this, sUIDir, rUIXMLDescription, rID, rFrame));
     mxFrame = rFrame;
     // In the Notebookbar's .ui file must exist control handling context
     // - implementing NotebookbarContextControl interface with id "ContextContainer"
@@ -251,4 +274,5 @@ void NotebookBar::UpdatePersonaSettings()
     aAllSettings.SetStyleSettings(aStyleSet);
     PersonaSettings = aAllSettings;
 }
+
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

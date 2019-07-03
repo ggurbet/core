@@ -18,7 +18,6 @@
  */
 
 #include <com/sun/star/uno/Any.hxx>
-#include <tools/stream.hxx>
 #include <svl/cenumitm.hxx>
 #include <svl/eitem.hxx>
 
@@ -89,14 +88,6 @@ SfxPoolItem* SfxBoolItem::CreateDefault()
     return new SfxBoolItem();
 }
 
-SfxBoolItem::SfxBoolItem(sal_uInt16 const nWhich, SvStream & rStream)
-    : SfxPoolItem(nWhich)
-{
-    bool tmp = false;
-    rStream.ReadCharAsBool( tmp );
-    m_bValue = tmp;
-}
-
 // virtual
 bool SfxBoolItem::operator ==(const SfxPoolItem & rItem) const
 {
@@ -140,19 +131,6 @@ bool SfxBoolItem::PutValue(const css::uno::Any& rVal, sal_uInt8)
     }
     SAL_WARN("svl.items", "SfxBoolItem::PutValue(): Wrong type");
     return false;
-}
-
-// virtual
-SfxPoolItem * SfxBoolItem::Create(SvStream & rStream, sal_uInt16) const
-{
-    return new SfxBoolItem(Which(), rStream);
-}
-
-// virtual
-SvStream & SfxBoolItem::Store(SvStream & rStream, sal_uInt16) const
-{
-    rStream.WriteBool( m_bValue ); // not bool for serialization!
-    return rStream;
 }
 
 // virtual

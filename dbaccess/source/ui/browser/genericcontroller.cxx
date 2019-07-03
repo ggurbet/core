@@ -60,6 +60,7 @@
 #include <o3tl/functional.hxx>
 #include <limits>
 #include <unordered_map>
+#include <set>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -250,7 +251,7 @@ void SAL_CALL OGenericUnoController::initialize( const Sequence< Any >& aArgumen
             throw IllegalArgumentException("need a frame", *this, 1 );
 
         xParent = xFrame->getContainerWindow();
-        VCLXWindow* pParentComponent = VCLXWindow::GetImplementation(xParent);
+        VCLXWindow* pParentComponent = comphelper::getUnoTunnelImplementation<VCLXWindow>(xParent);
         VclPtr< vcl::Window > pParentWin = pParentComponent ? pParentComponent->GetWindow() : VclPtr< vcl::Window >();
         if (!pParentWin)
         {

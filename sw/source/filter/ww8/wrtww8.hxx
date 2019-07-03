@@ -26,7 +26,6 @@
 #include <editeng/editdata.hxx>
 
 #include <shellio.hxx>
-#include <wrt_fn.hxx>
 
 #include "ww8struc.hxx"
 #include "ww8scan.hxx"
@@ -49,6 +48,7 @@
 
 
 class SvxBrushItem;
+class EditTextObject;
 
 // some forward declarations
 class SwWW8AttrIter;
@@ -479,6 +479,7 @@ public:
     unsigned int m_nHdFtIndex;
 
     RedlineFlags m_nOrigRedlineFlags;   ///< Remember the original redline mode
+    bool m_bOrigShowChanges;            ///< Remember the original Show Changes mode
 
 public:
     /* implicit bookmark vector containing pairs of node indexes and bookmark names */
@@ -687,7 +688,7 @@ public:
 
     virtual void AppendBookmark( const OUString& rName ) = 0;
 
-    virtual void AppendAnnotationMarks( const SwTextNode& rNd, sal_Int32 nCurrentPos, sal_Int32 nLen ) = 0;
+    virtual void AppendAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int32 nCurrentPos, sal_Int32 nLen ) = 0;
 
     virtual void AppendSmartTags(SwTextNode& /*rTextNode*/) { }
 
@@ -867,9 +868,9 @@ protected:
     ///
     void NearestAnnotationMark( sal_Int32& rNearest, const sal_Int32 nCurrentPos, bool bNextPositionOnly );
 
-    void GetSortedAnnotationMarks( const SwTextNode& rNd, sal_Int32 nCurrentPos, sal_Int32 nLen );
+    void GetSortedAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int32 nCurrentPos, sal_Int32 nLen );
 
-    bool GetAnnotationMarks( const SwTextNode& rNd, sal_Int32 nStt, sal_Int32 nEnd,
+    bool GetAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int32 nStt, sal_Int32 nEnd,
             IMarkVector& rArr );
 
     const NfKeywordTable & GetNfKeywordTable();
@@ -877,7 +878,7 @@ protected:
     void SetCurPam(sal_uLong nStt, sal_uLong nEnd);
 
     /// Get background color of the document, if there is one.
-    boost::optional<SvxBrushItem> getBackground();
+    std::shared_ptr<SvxBrushItem> getBackground();
     /// Populates m_vecBulletPic with all the bullet graphics used by numberings.
     int CollectGrfsOfBullets();
     /// Write the numbering picture bullets.
@@ -1032,7 +1033,7 @@ public:
     void WriteFootnoteBegin( const SwFormatFootnote& rFootnote, ww::bytes* pO = nullptr );
     void WritePostItBegin( ww::bytes* pO = nullptr );
     const SvxBrushItem* GetCurrentPageBgBrush() const;
-    SvxBrushItem TrueFrameBgBrush(const SwFrameFormat &rFlyFormat) const;
+    std::shared_ptr<SvxBrushItem> TrueFrameBgBrush(const SwFrameFormat &rFlyFormat) const;
 
     void AppendFlyInFlys(const ww8::Frame& rFrameFormat, const Point& rNdTopLeft);
     void WriteOutliner(const OutlinerParaObject& rOutliner, sal_uInt8 nTyp);
@@ -1057,7 +1058,7 @@ public:
     virtual void AppendBookmark( const OUString& rName ) override;
     void AppendBookmarkEndWithCorrection( const OUString& rName );
 
-    virtual void AppendAnnotationMarks( const SwTextNode& rNd, sal_Int32 nCurrentPos, sal_Int32 nLen ) override;
+    virtual void AppendAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int32 nCurrentPos, sal_Int32 nLen ) override;
 
     virtual void AppendSmartTags(SwTextNode& rTextNode) override;
 
@@ -1229,8 +1230,11 @@ struct WW8_Annotation
     OUString m_sInitials;
     DateTime maDateTime;
     WW8_CP m_nRangeStart, m_nRangeEnd;
+    bool m_bIgnoreEmpty = true;
     WW8_Annotation(const SwPostItField* pPostIt, WW8_CP nRangeStart, WW8_CP nRangeEnd);
     explicit WW8_Annotation(const SwRedlineData* pRedline);
+    /// An annotation has a range if start != end or the m_bIgnoreEmpty flag is cleared.
+    bool HasRange() const;
 };
 
 class WW8_WrPlcAnnotations : public WW8_WrPlcSubDoc  // double Plc for Postits
@@ -1240,12 +1244,12 @@ private:
     WW8_WrPlcAnnotations& operator=(WW8_WrPlcAnnotations const &) = delete;
     std::set<const SwRedlineData*> maProcessedRedlines;
 
-    std::map<const OUString, WW8_CP> m_aRangeStartPositions;
+    std::map<const OUString, std::pair<WW8_CP, bool>> m_aRangeStartPositions;
 public:
     WW8_WrPlcAnnotations() {}
     virtual ~WW8_WrPlcAnnotations() override;
 
-    void AddRangeStartPosition(const OUString& rName, WW8_CP nStartCp);
+    void AddRangeStartPosition(const OUString& rName, WW8_CP nStartCp, bool bIgnoreEmpty);
     void Append( WW8_CP nCp, const SwPostItField* pPostIt );
     void Append( WW8_CP nCp, const SwRedlineData* pRedLine );
     bool IsNewRedlineComment( const SwRedlineData* pRedLine );
@@ -1517,6 +1521,7 @@ public:
     const SwRedlineData* GetParagraphLevelRedline( );
     const SwRedlineData* GetRunLevelRedline( sal_Int32 nPos );
     FlyProcessingState OutFlys(sal_Int32 nSwPos);
+    bool HasFlysAt(sal_Int32 nSwPos) const;
 
     sal_Int32 WhereNext() const { return nCurrentSwPos; }
     sal_uInt16 GetScript() const { return mnScript; }
@@ -1530,6 +1535,8 @@ public:
     bool IsAnchorLinkedToThisNode( sal_uLong nNodePos );
 
     void SplitRun( sal_Int32 nSplitEndPos );
+
+    const SwTextNode& GetNode() const { return rNd; }
 };
 
 /// Class to collect and output the styles table.

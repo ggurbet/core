@@ -35,6 +35,9 @@ else
 gb_AR := $(shell $(CC) -print-prog-name=ar)
 endif
 
+# shell setup (env.vars) for the compiler
+gb_COMPILER_SETUP :=
+
 ifneq ($(USE_LD),)
 gb_LinkTarget_LDFLAGS += -fuse-ld=$(USE_LD)
 endif
@@ -79,17 +82,13 @@ gb_CXXFLAGS_COMMON := \
 	-fno-common \
 	-pipe \
 
+gb_Helper_disable_warnings = $(1) -w
+
 ifeq ($(HAVE_BROKEN_GCC_WMAYBE_UNINITIALIZED),TRUE)
 gb_CXXFLAGS_COMMON += -Wno-maybe-uninitialized
 endif
 
 gb_CXXFLAGS_Wundef = -Wno-undef
-
-ifeq ($(ENABLE_GDB_INDEX),TRUE)
-gb_LinkTarget_LDFLAGS += -Wl,--gdb-index
-gb_CFLAGS_COMMON += -ggnu-pubnames
-gb_CXXFLAGS_COMMON += -ggnu-pubnames
-endif
 
 ifeq ($(strip $(gb_GCOV)),YES)
 gb_CFLAGS_COMMON += -fprofile-arcs -ftest-coverage
@@ -127,11 +126,10 @@ endif
 
 # If CC or CXX already include -fvisibility=hidden, don't duplicate it
 ifeq (,$(filter -fvisibility=hidden,$(CC)))
-gb_VISIBILITY_FLAGS := -fvisibility=hidden
-ifeq ($(COM_IS_CLANG),TRUE)
-ifneq ($(filter -fsanitize=%,$(CC)),)
+ifeq ($(NEED_CLANG_LINUX_UBSAN_RTTI_VISIBILITY),TRUE)
 gb_VISIBILITY_FLAGS := -fvisibility-ms-compat
-endif
+else
+gb_VISIBILITY_FLAGS := -fvisibility=hidden
 endif
 endif
 gb_VISIBILITY_FLAGS_CXX := -fvisibility-inlines-hidden
@@ -143,10 +141,19 @@ gb_CXXFLAGS_COMMON += -fstack-protector-strong
 gb_LinkTarget_LDFLAGS += -fstack-protector-strong
 endif
 
-ifeq ($(ENABLE_PCH),TRUE)
-ifneq ($(COM_IS_CLANG),TRUE)
+ifneq ($(ENABLE_PCH),)
+ifeq ($(COM_IS_CLANG),TRUE)
+# Clang by default includes in the PCH timestamps of the files it was
+# generated from, which would make the PCH be a "new" file for ccache
+# even if the file has not actually changed. Disabling the timestamp
+# prevents this at the cost of risking using an outdated PCH (which
+# should be unlikely, given that gbuild has dependencies set up
+# for our includes and system includes are unlikely to change).
+gb_NO_PCH_TIMESTAMP := -Xclang -fno-pch-timestamp
+else
 gb_CFLAGS_COMMON += -fpch-preprocess -Winvalid-pch
 gb_CXXFLAGS_COMMON += -fpch-preprocess -Winvalid-pch
+gb_NO_PCH_TIMESTAMP :=
 endif
 endif
 
@@ -199,9 +206,15 @@ gb_DEBUGINFO_FLAGS=-ggdb2
 else
 gb_DEBUGINFO_FLAGS=-g2
 endif
+gb_LINKER_DEBUGINFO_FLAGS=
 
 ifeq ($(HAVE_GCC_SPLIT_DWARF),TRUE)
 gb_DEBUGINFO_FLAGS+=-gsplit-dwarf
+endif
+
+ifeq ($(ENABLE_GDB_INDEX),TRUE)
+gb_LINKER_DEBUGINFO_FLAGS += -Wl,--gdb-index
+gb_DEBUGINFO_FLAGS += -ggnu-pubnames
 endif
 
 gb_LinkTarget_INCLUDE :=\
@@ -226,7 +239,7 @@ ifeq ($(COMPILER_PLUGINS_DEBUG),TRUE)
 gb_COMPILER_PLUGINS += -Xclang -plugin-arg-loplugin -Xclang --debug
 endif
 # set CCACHE_CPP2=1 to prevent clang generating spurious warnings
-gb_COMPILER_SETUP := CCACHE_CPP2=1
+gb_COMPILER_SETUP += CCACHE_CPP2=1
 gb_COMPILER_PLUGINS_SETUP := ICECC_EXTRAFILES=$(SRCDIR)/include/sal/log-areas.dox CCACHE_EXTRAFILES=$(SRCDIR)/include/sal/log-areas.dox
 gb_COMPILER_PLUGINS_WARNINGS_AS_ERRORS := \
     -Xclang -plugin-arg-loplugin -Xclang --warnings-as-errors
@@ -234,9 +247,7 @@ else
 # Set CCACHE_CPP2 to prevent GCC -Werror=implicit-fallthrough= when ccache strips comments from C
 # code (which still needs /*fallthrough*/-style comments to silence that warning):
 ifeq ($(ENABLE_WERROR),TRUE)
-gb_COMPILER_SETUP := CCACHE_CPP2=1
-else
-gb_COMPILER_SETUP :=
+gb_COMPILER_SETUP += CCACHE_CPP2=1
 endif
 gb_COMPILER_TEST_FLAGS :=
 gb_COMPILER_PLUGINS :=
@@ -277,5 +288,24 @@ file://$(strip $(1))
 endef
 
 gb_Helper_get_rcfile = $(1)rc
+
+ifneq ($(ENABLE_PCH),)
+# Enable use of .sum files for PCHs.
+gb_COMPILER_SETUP += CCACHE_PCH_EXTSUM=1
+# CCACHE_SLOPPINESS should contain pch_defines,time_macros for PCHs.
+gb_CCACHE_SLOPPINESS :=
+ifeq ($(shell test -z "$$CCACHE_SLOPPINESS" && echo 1),1)
+gb_CCACHE_SLOPPINESS := CCACHE_SLOPPINESS=pch_defines,time_macros
+else
+ifeq ($(shell echo "$$CCACHE_SLOPPINESS" | grep -q pch_defines | grep -q time_macros && echo 1),1)
+gb_CCACHE_SLOPPINESS := CCACHE_SLOPPINESS=$CCACHE_SLOPPINESS:pch_defines,time_macros
+endif
+endif
+gb_COMPILER_SETUP += $(gb_CCACHE_SLOPPINESS)
+endif
+
+ifneq ($(CCACHE_DEPEND_MODE),)
+gb_COMPILER_SETUP += CCACHE_DEPEND=1
+endif
 
 # vim: set noet sw=4:

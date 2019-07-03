@@ -2490,24 +2490,23 @@ void XMLMacroFieldImportContext::PrepareField(
         Sequence<PropertyValue> aValues;
         pEvents->GetEventSequence( "OnClick", aValues );
 
-        sal_Int32 nLength = aValues.getLength();
-        for( sal_Int32 i = 0; i < nLength; i++ )
+        for( const auto& rValue : aValues )
         {
-            if ( aValues[i].Name == "ScriptType" )
+            if ( rValue.Name == "ScriptType" )
             {
                 // ignore ScriptType
             }
-            else if ( aValues[i].Name == "Library" )
+            else if ( rValue.Name == "Library" )
             {
-                aValues[i].Value >>= sLibraryName;
+                rValue.Value >>= sLibraryName;
             }
-            else if ( aValues[i].Name == "MacroName" )
+            else if ( rValue.Name == "MacroName" )
             {
-                aValues[i].Value >>= sMacroName;
+                rValue.Value >>= sMacroName;
             }
-            if ( aValues[i].Name == "Script" )
+            if ( rValue.Name == "Script" )
             {
-                aValues[i].Value >>= sScriptURL;
+                rValue.Value >>= sScriptURL;
             }
         }
     }
@@ -2694,8 +2693,7 @@ static const SvXMLTokenMapEntry aDdeDeclAttrTokenMap[] =
 
 XMLDdeFieldDeclsImportContext::XMLDdeFieldDeclsImportContext(
     SvXMLImport& rImport, sal_uInt16 nPrfx, const OUString& sLocalName) :
-        SvXMLImportContext(rImport, nPrfx, sLocalName),
-        aTokenMap(aDdeDeclAttrTokenMap)
+        SvXMLImportContext(rImport, nPrfx, sLocalName)
 {
 }
 
@@ -2707,6 +2705,7 @@ SvXMLImportContextRef XMLDdeFieldDeclsImportContext::CreateChildContext(
     if ( (XML_NAMESPACE_TEXT == nPrefix) &&
          (IsXMLToken(rLocalName, XML_DDE_CONNECTION_DECL)) )
     {
+        static const SvXMLTokenMap aTokenMap(aDdeDeclAttrTokenMap);
         return new XMLDdeFieldDeclImportContext(GetImport(), nPrefix,
                                                 rLocalName, aTokenMap);
     }

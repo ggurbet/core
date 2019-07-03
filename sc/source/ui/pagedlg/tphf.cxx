@@ -23,11 +23,11 @@
 #include <sfx2/basedlgs.hxx>
 #include <sfx2/sfxdlg.hxx>
 #include <svl/style.hxx>
+#include <svx/pageitem.hxx>
 #include <vcl/svapp.hxx>
 
 #include <attrib.hxx>
 #include <tphf.hxx>
-#include <sc.hrc>
 #include <scres.hrc>
 #include <scabstdlg.hxx>
 #include <globstr.hrc>
@@ -35,7 +35,6 @@
 #include <tabvwsh.hxx>
 #include <viewdata.hxx>
 #include <document.hxx>
-#include <hfedtdlg.hxx>
 #include <styledlg.hxx>
 #include <scuitphfedit.hxx>
 #include <memory>
@@ -183,7 +182,7 @@ IMPL_LINK_NOARG(ScHFPage, HFEditHdl, void*, void)
         ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
         VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScHFEditDlg(
-            this, aDataSet, aStrPageStyle, nResId));
+            GetDialogFrameWeld(), aDataSet, aStrPageStyle, nResId));
         pDlg->StartExecuteAsync([this, pDlg](sal_Int32 nResult){
             if ( nResult == RET_OK )
             {
@@ -194,37 +193,38 @@ IMPL_LINK_NOARG(ScHFPage, HFEditHdl, void*, void)
     else
     {
         OUString  aText;
-        VclPtrInstance< SfxSingleTabDialog > pDlg(nullptr, aDataSet);
+        SfxSingleTabDialogController aDlg(GetDialogFrameWeld(), &aDataSet);
+        TabPageParent pPageParent(aDlg.get_content_area(), &aDlg);
         bool bRightPage = m_xCntSharedBox->get_active() || (SvxPageUsage::Left != nPageUsage);
 
         if ( nId == SID_ATTR_PAGE_HEADERSET )
         {
             aText = ScResId( STR_PAGEHEADER );
             if ( bRightPage )
-                pDlg->SetTabPage( ScRightHeaderEditPage::Create( pDlg->get_content_area(), &aDataSet ) );
+                aDlg.SetTabPage(ScRightHeaderEditPage::Create(pPageParent, &aDataSet));
             else
-                pDlg->SetTabPage( ScLeftHeaderEditPage::Create( pDlg->get_content_area(), &aDataSet ) );
+                aDlg.SetTabPage(ScLeftHeaderEditPage::Create(pPageParent, &aDataSet));
         }
         else
         {
             aText = ScResId( STR_PAGEFOOTER );
             if ( bRightPage )
-                pDlg->SetTabPage( ScRightFooterEditPage::Create( pDlg->get_content_area(), &aDataSet ) );
+                aDlg.SetTabPage(ScRightFooterEditPage::Create(pPageParent, &aDataSet));
             else
-                pDlg->SetTabPage( ScLeftFooterEditPage::Create( pDlg->get_content_area(), &aDataSet ) );
+                aDlg.SetTabPage(ScLeftFooterEditPage::Create(pPageParent, &aDataSet));
         }
 
         SvxNumType eNumType = aDataSet.Get(ATTR_PAGE).GetNumType();
-        static_cast<ScHFEditPage*>(pDlg->GetTabPage())->SetNumType(eNumType);
+        static_cast<ScHFEditPage*>(aDlg.GetTabPage())->SetNumType(eNumType);
 
         aText += " (" + ScResId( STR_PAGESTYLE );
         aText += ": " + aStrPageStyle + ")";
 
-        pDlg->SetText( aText );
+        aDlg.set_title(aText);
 
-        if ( pDlg->Execute() == RET_OK )
+        if (aDlg.run() == RET_OK)
         {
-            aDataSet.Put( *pDlg->GetOutputItemSet() );
+            aDataSet.Put(*aDlg.GetOutputItemSet());
         }
     }
 }

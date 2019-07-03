@@ -21,6 +21,7 @@
 #include <libxml/xmlwriter.h>
 #include <stdlib.h>
 #include <hintids.hxx>
+#include <sot/exchange.hxx>
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
 #include <sfx2/docfile.hxx>
@@ -1107,7 +1108,9 @@ static void lcl_BreakSectionLinksInSect( const SwSectionNode& rSectNd )
         {
             // break the link of the corresponding section.
             // the link is also removed from the link manager
-            pSectLnk->GetSectNode()->GetSection().BreakLink();
+            SwSectionNode* pSectNode = pSectLnk->GetSectNode();
+            assert(pSectNode);
+            pSectNode->GetSection().BreakLink();
 
             // for robustness, because link is removed from the link manager
             if ( n > rLnks.size() )
@@ -1193,7 +1196,7 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
     bool bWasVisibleLinks = pDoc->getIDocumentLinksAdministration().IsVisibleLinks();
     pDoc->getIDocumentLinksAdministration().SetVisibleLinks( false );
 
-    std::unique_ptr<SwPaM> pPam;
+    SwPaM* pPam;
     SwViewShell* pVSh = pDoc->getIDocumentLayoutAccess().GetCurrentViewShell();
     SwEditShell* pESh = pDoc->GetEditShell();
     pDoc->getIDocumentFieldsAccess().LockExpFields();
@@ -1213,7 +1216,7 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
         --aPos.nNode;
         SwDoc::CorrAbs( aIdx, aEndIdx, aPos, true );
 
-        pPam.reset(new SwPaM( aPos ));
+        pPam = new SwPaM( aPos );
 
         // Delete everything succeeding it
         --aIdx;
@@ -1396,7 +1399,8 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
             pESh->Push();
             SwPaM* pCursor = pESh->GetCursor();
             *pCursor->GetPoint() = *pPam->GetPoint();
-            pPam.reset(pCursor);
+            delete pPam;
+            pPam = pCursor;
         }
 
         SvMemoryStream aStrm( const_cast<sal_Int8 *>(aSeq.getConstArray()), aSeq.getLength(),
@@ -1431,6 +1435,7 @@ static void lcl_UpdateLinksInSect( SwBaseLink& rUpdLnk, SwSectionNode& rSectNd )
         pESh->EndAllAction();
     else if( pVSh )
         pVSh->EndAction();
+    delete pPam; // Was created at the start
 
     return SUCCESS;
 }

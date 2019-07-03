@@ -41,10 +41,13 @@
 #include <svx/hlnkitem.hxx>
 #include <svx/svdotext.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/settings.hxx>
 
 #include <sal/log.hxx>
+#include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
 #include <editeng/editstat.hxx>
 #include <svl/itempool.hxx>
@@ -270,9 +273,9 @@ void OutlineViewShell::ArrangeGUIElements ()
 
     ::tools::Rectangle aVis = pOutlinerView->GetVisArea();
 
-    ::tools::Rectangle aText = ::tools::Rectangle(Point(0,0),
-        Size(pOlView->GetPaperWidth(),
-            pOlView->GetOutliner().GetTextHeight()));
+    ::tools::Rectangle aText(Point(0,0),
+                             Size(pOlView->GetPaperWidth(),
+                                  pOlView->GetOutliner().GetTextHeight()));
     if (aWin.GetHeight() > aText.Bottom())
         aText.SetBottom( aWin.GetHeight() );
 
@@ -1266,7 +1269,7 @@ void OutlineViewShell::GetStatusBarState(SfxItemSet& rSet)
         nZoomValues &= ~SvxZoomEnableFlags::PAGEWIDTH;
 
         pZoomItem->SetValueSet( nZoomValues );
-        rSet.Put( *pZoomItem );
+        rSet.Put( std::move(pZoomItem) );
     }
 
     if( SfxItemState::DEFAULT == rSet.GetItemState( SID_ATTR_ZOOMSLIDER ) )

@@ -35,6 +35,7 @@
 #include <svl/zformat.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svx/svxdlg.hxx>
 #include <sot/formats.hxx>
@@ -46,7 +47,6 @@
 #include <basic/sbxcore.hxx>
 #include <unotools/useroptions.hxx>
 #include <vcl/waitobj.hxx>
-#include <vcl/builderfactory.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <editeng/editview.hxx>
 #include <svtools/cliplistener.hxx>
@@ -102,6 +102,7 @@
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/bootstrap.hxx>
 
 #include <memory>
@@ -1037,7 +1038,16 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
             }
             break;
+        case SID_FOURIER_ANALYSIS_DIALOG:
+            {
+                sal_uInt16 nId  = ScFourierAnalysisDialogWrapper::GetChildWindowId();
+                SfxViewFrame* pViewFrm = pTabViewShell->GetViewFrame();
+                SfxChildWindow* pWnd = pViewFrm->GetChildWindow( nId );
 
+                pScMod->SetRefDialog( nId, pWnd == nullptr );
+
+            }
+            break;
         case SID_SEARCH_RESULTS_DIALOG:
         {
             const SfxPoolItem* pItem = nullptr;
@@ -1253,7 +1263,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
         case SID_COPY:              // for graphs in DrawShell
             {
-                WaitObject aWait( GetViewData()->GetDialogParent() );
+                weld::WaitObject aWait( GetViewData()->GetDialogParent() );
                 pTabViewShell->CopyToClip( nullptr, false, false, true );
                 rReq.Done();
                 GetViewData()->SetPasteMode( ScPasteFlags::Mode | ScPasteFlags::Border );
@@ -1264,7 +1274,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
         case SID_CUT:               // for graphs in DrawShell
             {
-                WaitObject aWait( GetViewData()->GetDialogParent() );
+                weld::WaitObject aWait( GetViewData()->GetDialogParent() );
                 pTabViewShell->CutToClip();
                 rReq.Done();
                 GetViewData()->SetPasteMode( ScPasteFlags::Mode | ScPasteFlags::Border );
@@ -1282,7 +1292,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
         case SID_CLIPBOARD_FORMAT_ITEMS:
             {
-                WaitObject aWait( GetViewData()->GetDialogParent() );
+                weld::WaitObject aWait( GetViewData()->GetDialogParent() );
 
                 SotClipboardFormatId nFormat = SotClipboardFormatId::NONE;
                 const SfxPoolItem* pItem;
@@ -1445,7 +1455,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                     if( nFlags != InsertDeleteFlags::NONE )
                     {
                         {
-                            WaitObject aWait( GetViewData()->GetDialogParent() );
+                            weld::WaitObject aWait( GetViewData()->GetDialogParent() );
                             if ( bAsLink && bOtherDoc )
                                 pTabViewShell->PasteFromSystem(SotClipboardFormatId::LINK);  // DDE insert
                             else
@@ -1512,7 +1522,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                     SotClipboardFormatId nFormat = static_cast<SotClipboardFormatId>(static_cast<const SfxUInt32Item*>(pItem)->GetValue());
                     bool bRet=true;
                     {
-                        WaitObject aWait( GetViewData()->GetDialogParent() );
+                        weld::WaitObject aWait( GetViewData()->GetDialogParent() );
                         bool bDraw = ( ScDrawTransferObj::GetOwnClipboard(xTransferable) != nullptr );
                         if ( bDraw && nFormat == SotClipboardFormatId::EMBED_SOURCE )
                             pTabViewShell->PasteDraw();
@@ -1566,7 +1576,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                             if (nFormat != SotClipboardFormatId::NONE)
                             {
                                 {
-                                    WaitObject aWait( GetViewData()->GetDialogParent() );
+                                    weld::WaitObject aWait( GetViewData()->GetDialogParent() );
                                     if ( bDraw && nFormat == SotClipboardFormatId::EMBED_SOURCE )
                                         pTabViewShell->PasteDraw();
                                     else
@@ -1594,7 +1604,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
             // differentiate between own cell data and draw objects/external data
             // this makes FID_INS_CELL_CONTENTS superfluous
             {
-                WaitObject aWait( GetViewData()->GetDialogParent() );
+                weld::WaitObject aWait( GetViewData()->GetDialogParent() );
 
                 // we should differentiate between SotClipboardFormatId::STRING and SotClipboardFormatId::STRING_TSVC,
                 // and paste the SotClipboardFormatId::STRING_TSVC if it is available.
@@ -1913,17 +1923,12 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                 bool        bManaged    = false;
 
                 // Get the pool item stored by Conditional Format Manager Dialog.
-                sal_uInt32 nItems(pTabViewShell->GetPool().GetItemCount2( SCITEM_CONDFORMATDLGDATA ));
-                for( sal_uInt32 nIter = 0; nIter < nItems; ++nIter )
+                auto itemsRange = pTabViewShell->GetPool().GetItemSurrogates(SCITEM_CONDFORMATDLGDATA);
+                if (itemsRange.begin() != itemsRange.end())
                 {
-                    const SfxPoolItem* pItem = pTabViewShell->GetPool().GetItem2( SCITEM_CONDFORMATDLGDATA, nIter );
-                    if( pItem != nullptr )
-                    {
-                        const ScCondFormatDlgItem* pDlgItem = static_cast<const ScCondFormatDlgItem*>(pItem);
-                        nIndex = pDlgItem->GetIndex();
-                        bManaged = true;
-                        break;
-                    }
+                    const ScCondFormatDlgItem* pDlgItem = static_cast<const ScCondFormatDlgItem*>(*itemsRange.begin());
+                    nIndex = pDlgItem->GetIndex();
+                    bManaged = true;
                 }
 
                 // Check if the Conditional Manager Dialog is editing or adding
@@ -1959,7 +1964,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                 const ScConditionalFormat* pCondFormat = nullptr;
                 const ScPatternAttr* pPattern = pDoc->GetPattern(aPos.Col(), aPos.Row(), aPos.Tab());
                 ScConditionalFormatList* pList = pDoc->GetCondFormList(aPos.Tab());
-                const std::vector<sal_uInt32>& rCondFormats = pPattern->GetItem(ATTR_CONDITIONAL).GetCondFormatData();
+                const ScCondFormatIndexes& rCondFormats = pPattern->GetItem(ATTR_CONDITIONAL).GetCondFormatData();
                 bool bContainsCondFormat = !rCondFormats.empty();
                 bool bCondFormatDlg = false;
                 bool bContainsExistingCondFormat = false;
@@ -2018,8 +2023,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                 // or should create a new overlapping conditional format
                 if(bContainsCondFormat && !bCondFormatDlg && bContainsExistingCondFormat)
                 {
-                    vcl::Window* pWin = pTabViewShell->GetDialogParent();
-                    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pTabViewShell->GetFrameWeld(),
                                                                    VclMessageType::Question, VclButtonsType::YesNo,
                                                                    ScResId(STR_EDIT_EXISTING_COND_FORMATS)));
                     xQueryBox->set_default_response(RET_YES);
@@ -2466,8 +2470,9 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
                 SfxAllItemSet aSet( GetPool() );
                 aSet.Put( SfxBoolItem( FN_PARAM_1, false ) );
                 aSet.Put( SvxFontItem( aCurFont.GetFamilyType(), aCurFont.GetFamilyName(), aCurFont.GetStyleName(), aCurFont.GetPitch(), aCurFont.GetCharSet(), GetPool().GetWhich(SID_ATTR_CHAR_FONT) ) );
-
-                ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(pTabViewShell->GetFrameWeld(), aSet, true));
+                SfxViewFrame* pViewFrame = pTabViewShell->GetViewFrame();
+                auto xFrame = pViewFrame->GetFrame().GetFrameInterface();
+                ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(pTabViewShell->GetFrameWeld(), aSet, xFrame));
                 pDlg->Execute();
             }
             break;
@@ -2526,24 +2531,19 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
                 ScConditionalFormatList* pList = nullptr;
 
-                sal_uInt32 nItems(pTabViewShell->GetPool().GetItemCount2( SCITEM_CONDFORMATDLGDATA ));
                 const ScCondFormatDlgItem* pDlgItem = nullptr;
-                for( sal_uInt32 nIter = 0; nIter < nItems; ++nIter )
+                auto itemsRange = pTabViewShell->GetPool().GetItemSurrogates(SCITEM_CONDFORMATDLGDATA);
+                if (itemsRange.begin() != itemsRange.end())
                 {
-                    const SfxPoolItem* pItem = pTabViewShell->GetPool().GetItem2( SCITEM_CONDFORMATDLGDATA, nIter );
-                    if( pItem != nullptr )
-                    {
-                        pDlgItem= static_cast<const ScCondFormatDlgItem*>(pItem);
-                        pList = const_cast<ScCondFormatDlgItem*>(pDlgItem)->GetConditionalFormatList();
-                        break;
-                    }
+                    pDlgItem= static_cast<const ScCondFormatDlgItem*>(*itemsRange.begin());
+                    pList = const_cast<ScCondFormatDlgItem*>(pDlgItem)->GetConditionalFormatList();
                 }
 
                 if (!pList)
                     pList = pDoc->GetCondFormList( aPos.Tab() );
 
                 VclPtr<AbstractScCondFormatManagerDlg> pDlg(pFact->CreateScCondFormatMgrDlg(
-                    pTabViewShell->GetDialogParent(), pDoc, pList));
+                    pTabViewShell->GetFrameWeld(), pDoc, pList));
 
                 if (pDlgItem)
                     pDlg->SetModified();
@@ -2580,6 +2580,8 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
 
                     if (pDlgItem)
                         pTabViewShell->GetPool().Remove(*pDlgItem);
+
+                    pDlg->disposeOnce();
                 });
             }
             break;
@@ -2649,7 +2651,7 @@ void ScCellShell::ExecuteEdit( SfxRequest& rReq )
             {
                 bool bSubTotal = false;
                 bool bRangeFinder = false;
-                const OUString aFormula = pTabViewShell->DoAutoSum( bRangeFinder, bSubTotal );
+                const OUString aFormula = pTabViewShell->DoAutoSum( bRangeFinder, bSubTotal , ocSum );
                 if ( !aFormula.isEmpty() )
                 {
                     const sal_Int32 nPar = aFormula.indexOf( '(' );
@@ -2916,8 +2918,7 @@ void ScCellShell::ExecuteDataPilotDialog()
                     if ( pDoc->HasSubTotalCells( aRange ) )
                     {
                         //  confirm selection if it contains SubTotal cells
-                        vcl::Window* pWin = pTabViewShell->GetDialogParent();
-                        std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                        std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pTabViewShell->GetFrameWeld(),
                                                                        VclMessageType::Question, VclButtonsType::YesNo,
                                                                        ScResId(STR_DATAPILOT_SUBTOTAL)));
                         xQueryBox->set_default_response(RET_YES);
@@ -2948,8 +2949,7 @@ void ScCellShell::ExecuteDataPilotDialog()
         if (pSrcErrorId)
         {
             // Error occurred during data creation.  Launch an error and bail out.
-            vcl::Window* pWin = pTabViewShell->GetDialogParent();
-            std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pTabViewShell->GetFrameWeld(),
                                                           VclMessageType::Info, VclButtonsType::Ok,
                                                           ScResId(pSrcErrorId)));
             xInfoBox->run();

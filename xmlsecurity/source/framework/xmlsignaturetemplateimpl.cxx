@@ -19,12 +19,11 @@
 
 #include <sal/config.h>
 #include <rtl/ustring.hxx>
-#include <rtl/uuid.h>
 #include <framework/xmlsignaturetemplateimpl.hxx>
+#include <comphelper/sequence.hxx>
 
 using namespace ::com::sun::star::uno ;
 using ::com::sun::star::lang::XMultiServiceFactory ;
-using ::com::sun::star::lang::XSingleServiceFactory ;
 
 using ::com::sun::star::xml::wrapper::XXMLElementWrapper ;
 using ::com::sun::star::xml::crypto::XXMLSignatureTemplate ;
@@ -99,12 +98,7 @@ OUString SAL_CALL XMLSignatureTemplateImpl::getImplementationName() {
 /* XServiceInfo */
 sal_Bool SAL_CALL XMLSignatureTemplateImpl::supportsService( const OUString& serviceName) {
     Sequence< OUString > seqServiceNames = getSupportedServiceNames() ;
-    const OUString* pArray = seqServiceNames.getConstArray() ;
-    for( sal_Int32 i = 0 ; i < seqServiceNames.getLength() ; i ++ ) {
-        if( *( pArray + i ) == serviceName )
-            return true ;
-    }
-    return false ;
+    return comphelper::findValue(seqServiceNames, serviceName) != -1;
 }
 
 /* XServiceInfo */

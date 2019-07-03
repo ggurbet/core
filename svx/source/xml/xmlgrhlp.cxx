@@ -43,6 +43,7 @@
 #include <vcl/metaact.hxx>
 #include <tools/zcodec.hxx>
 
+#include <vcl/GraphicObject.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <svx/xmlgrhlp.hxx>
 #include <svx/xmleohlp.hxx>
@@ -490,7 +491,7 @@ Graphic SvXMLGraphicHelper::ImplReadGraphic( const OUString& rPictureStorageName
         GraphicFilter& rGraphicFilter = GraphicFilter::GetGraphicFilter();
         std::unique_ptr<SvStream> pStream(utl::UcbStreamHelper::CreateStream(aStream.xStream));
         Graphic aGraphic = rGraphicFilter.ImportUnloadedGraphic(*pStream);
-        if (aGraphic)
+        if (!aGraphic.IsNone())
             aReturnGraphic = aGraphic;
         else
             rGraphicFilter.ImportGraphic(aReturnGraphic, "", *pStream);
@@ -1030,7 +1031,7 @@ void SAL_CALL SvXMLGraphicImportExportHelper::initialize(
     const Sequence< Any >& aArguments )
 {
     Reference< embed::XStorage > xStorage;
-    if( aArguments.getLength() > 0 )
+    if( aArguments.hasElements() )
         aArguments[0] >>= xStorage;
 
     rtl::Reference<SvXMLGraphicHelper> pHelper( SvXMLGraphicHelper::Create( xStorage, m_eGraphicHelperMode ));

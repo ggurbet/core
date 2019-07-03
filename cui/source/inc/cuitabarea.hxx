@@ -21,9 +21,8 @@
 
 #include <svtools/valueset.hxx>
 #include <svx/dlgctrl.hxx>
-#include <svx/xsetit.hxx>
 #include <svx/xfillit0.hxx>
-#include <svx/xfillit.hxx>
+#include <svx/xflasit.hxx>
 #include <svx/tabarea.hxx>
 #include <svx/hexcolorcontrol.hxx>
 #include <svx/SvxColorValueSet.hxx>
@@ -238,6 +237,8 @@ private:
     XFillAttrSetItem    m_aXFillAttr;
     SfxItemSet&         m_rXFSet;
 
+    bool m_bBtnClicked = false;
+
 protected:
     std::unique_ptr<weld::Container> m_xFillTab;
     std::unique_ptr<weld::ToggleButton> m_xBtnNone;
@@ -251,6 +252,8 @@ protected:
 
     void SelectFillType( weld::ToggleButton& rButton, const SfxItemSet* _pSet = nullptr );
     SfxTabPage* GetFillTabPage() { return m_pFillTabPage; }
+
+    bool IsBtnClicked() { return m_bBtnClicked; }
 
 private:
     DECL_LINK(SelectFillTypeHdl_Impl, weld::ToggleButton&, void);
@@ -374,6 +377,7 @@ private:
     std::unique_ptr<weld::MetricSpinButton> m_xMtrCenterY;
     std::unique_ptr<weld::Label> m_xFtAngle;
     std::unique_ptr<weld::MetricSpinButton> m_xMtrAngle;
+    std::unique_ptr<weld::Scale> m_xSliderAngle;
     std::unique_ptr<weld::MetricSpinButton> m_xMtrBorder;
     std::unique_ptr<weld::Scale> m_xSliderBorder;
     std::unique_ptr<ColorListBox> m_xLbColorFrom;
@@ -383,7 +387,6 @@ private:
     std::unique_ptr<SvxPresetListBox> m_xGradientLB;
     std::unique_ptr<weld::SpinButton> m_xMtrIncrement;
     std::unique_ptr<weld::CheckButton> m_xCbIncrement;
-    std::unique_ptr<weld::Scale> m_xSliderIncrement;
     std::unique_ptr<weld::Button> m_xBtnAdd;
     std::unique_ptr<weld::Button> m_xBtnModify;
     std::unique_ptr<weld::CustomWeld> m_xCtlPreview;

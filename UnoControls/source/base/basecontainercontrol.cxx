@@ -22,6 +22,10 @@
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/typeprovider.hxx>
 
+#include <com/sun/star/container/ContainerEvent.hpp>
+#include <com/sun/star/container/XContainerListener.hpp>
+#include <com/sun/star/awt/XControlContainer.hpp>
+
 //  namespaces
 
 using namespace ::cppu;
@@ -55,13 +59,13 @@ Any SAL_CALL BaseContainerControl::queryInterface( const Type& rType )
     Reference< XInterface > xDel = BaseControl::impl_getDelegator();
     if ( xDel.is() )
     {
-        // If an delegator exist, forward question to his queryInterface.
-        // Delegator will ask his own queryAggregation!
+        // If a delegator exists, forward question to its queryInterface.
+        // Delegator will ask its own queryAggregation!
         aReturn = xDel->queryInterface( rType );
     }
     else
     {
-        // If an delegator unknown, forward question to own queryAggregation.
+        // If a delegator is unknown, forward question to own queryAggregation.
         aReturn = queryAggregation( rType );
     }
 
@@ -117,11 +121,10 @@ void SAL_CALL BaseContainerControl::createPeer( const   Reference< XToolkit >&  
 
         // create peers at all children
         Sequence< Reference< XControl > >   seqControlList  = getControls();
-        sal_uInt32                          nControls       = seqControlList.getLength();
 
-        for ( sal_uInt32 n=0; n<nControls; n++ )
+        for ( auto& rxControl : seqControlList )
         {
-            seqControlList.getArray()[n]->createPeer( xToolkit, getPeer() );
+            rxControl->createPeer( xToolkit, getPeer() );
         }
     }
 }

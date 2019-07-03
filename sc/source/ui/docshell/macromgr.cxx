@@ -26,6 +26,7 @@
 #include <formulacell.hxx>
 #include <vector>
 #include <com/sun/star/container/XContainer.hpp>
+#include <com/sun/star/script/XLibraryContainer.hpp>
 
 using namespace ::com::sun::star;
 using ::com::sun::star::uno::RuntimeException;
@@ -138,7 +139,7 @@ void ScMacroManager::InitUserFuncData()
     }
     try
     {
-        Reference< script::XLibraryContainer > xLibraries( pShell->GetBasicContainer(), uno::UNO_QUERY_THROW );
+        Reference< script::XLibraryContainer > xLibraries( pShell->GetBasicContainer(), uno::UNO_SET_THROW );
         xModuleContainer.set( xLibraries->getByName( sProjectName ), uno::UNO_QUERY_THROW );
 
         // remove old listener ( if there was one )

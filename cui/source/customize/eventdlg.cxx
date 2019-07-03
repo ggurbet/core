@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <svtools/svmedit.hxx>
 #include <tools/diagnose_ex.h>
 #include <com/sun/star/document/XEventsSupplier.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
@@ -39,7 +38,6 @@
 #include <sfx2/docfac.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <unotools/eventcfg.hxx>
-#include <vcl/treelistentry.hxx>
 
 #include <headertablistbox.hxx>
 #include "macropg_impl.hxx"
@@ -69,9 +67,7 @@ SvxEventConfigPage::SvxEventConfigPage(TabPageParent pParent, const SfxItemSet& 
     m_xSaveInListBox->connect_changed( LINK( this, SvxEventConfigPage,
                 SelectHdl_Impl ) );
 
-    uno::Reference< frame::XGlobalEventBroadcaster > xSupplier;
-
-    xSupplier =
+    uno::Reference< frame::XGlobalEventBroadcaster > xSupplier =
         frame::theGlobalEventBroadcaster::get(::comphelper::getProcessComponentContext());
 
     m_xAppEvents = xSupplier->getEvents();

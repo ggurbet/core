@@ -19,11 +19,14 @@
 
 #include <com/sun/star/task/XStatusIndicatorSupplier.hpp>
 #include <com/sun/star/task/XStatusIndicator.hpp>
+#include <com/sun/star/util/thePathSettings.hpp>
 
 #include "vbaapplication.hxx"
 #include "vbadocument.hxx"
+#include "vbafilterpropsfromformat.hxx"
 #include <sal/log.hxx>
 #include <osl/file.hxx>
+#include <vcl/svapp.hxx>
 #include <vbahelper/vbahelper.hxx>
 #include "vbawindow.hxx"
 #include "vbasystem.hxx"
@@ -38,6 +41,7 @@
 #include <ooo/vba/word/WdWindowState.hpp>
 #include <ooo/vba/word/XApplicationOutgoing.hpp>
 #include <ooo/vba/word/XBookmarks.hpp>
+#include <comphelper/processfactory.hxx>
 #include <basic/sbuno.hxx>
 #include <editeng/acorrcfg.hxx>
 #include "wordvbahelper.hxx"
@@ -45,6 +49,7 @@
 #include <swdll.hxx>
 #include <swmodule.hxx>
 #include "vbalistgalleries.hxx"
+#include <tools/urlobj.hxx>
 
 using namespace ::ooo;
 using namespace ::ooo::vba;
@@ -77,6 +82,17 @@ public:
 
     virtual void SAL_CALL FileOpen( const OUString& Name, const uno::Any& ConfirmConversions, const uno::Any& ReadOnly, const uno::Any& AddToMru, const uno::Any& PasswordDoc, const uno::Any& PasswordDot, const uno::Any& Revert, const uno::Any& WritePasswordDoc, const uno::Any& WritePasswordDot ) override;
     virtual void SAL_CALL FileSave() override;
+    virtual void SAL_CALL FileSaveAs( const css::uno::Any& Name,
+                                      const css::uno::Any& Format,
+                                      const css::uno::Any& LockAnnot,
+                                      const css::uno::Any& Password,
+                                      const css::uno::Any& AddToMru,
+                                      const css::uno::Any& WritePassword,
+                                      const css::uno::Any& RecommendReadOnly,
+                                      const css::uno::Any& EmbedFonts,
+                                      const css::uno::Any& NativePictureFormat,
+                                      const css::uno::Any& FormsData,
+                                      const css::uno::Any& SaveAsAOCELetter ) override;
     virtual void SAL_CALL FileClose( const css::uno::Any& Save ) override;
     virtual void SAL_CALL ToolsOptionsView( const css::uno::Any& DraftFont,
                                             const css::uno::Any& WrapToWindow,
@@ -99,8 +115,8 @@ public:
                                             const css::uno::Any& TextBoundaries,
                                             const css::uno::Any& VRuler,
                                             const css::uno::Any& Highlight ) override;
-    virtual OUString SAL_CALL WindowName() override;
-    virtual sal_Bool SAL_CALL ExistingBookmark( const OUString& Name ) override;
+    virtual css::uno::Any SAL_CALL WindowName( const css::uno::Any& Number ) override;
+    virtual css::uno::Any SAL_CALL ExistingBookmark( const OUString& Name ) override;
     virtual void SAL_CALL MailMergeOpenDataSource(const OUString& Name, const css::uno::Any& Format,
                                                   const css::uno::Any& ConfirmConversions, const css::uno::Any& ReadOnly,
                                                   const css::uno::Any& LinkToSource, const css::uno::Any& AddToRecentFiles,
@@ -109,10 +125,10 @@ public:
                                                   const css::uno::Any& WritePasswordTemplate, const css::uno::Any& Connection,
                                                   const css::uno::Any& SQLStatement, const css::uno::Any& SQLStatement1,
                                                   const css::uno::Any& OpenExclusive, const css::uno::Any& SubType) override;
-    virtual sal_Int32 SAL_CALL AppMaximize( const css::uno::Any& WindowName, const css::uno::Any& State ) override;
-    virtual sal_Int32 SAL_CALL DocMaximize( const css::uno::Any& State ) override;
+    virtual css::uno::Any SAL_CALL AppMaximize( const css::uno::Any& WindowName, const css::uno::Any& State ) override;
+    virtual css::uno::Any SAL_CALL DocMaximize( const css::uno::Any& State ) override;
     virtual void SAL_CALL AppShow(  const css::uno::Any& WindowName ) override;
-    virtual sal_Int32 SAL_CALL AppCount() override;
+    virtual css::uno::Any SAL_CALL AppCount() override;
 };
 
 SwVbaApplication::SwVbaApplication( uno::Reference<uno::XComponentContext >& xContext ):
@@ -550,6 +566,79 @@ SwWordBasic::FileSave()
 }
 
 void SAL_CALL
+SwWordBasic::FileSaveAs( const css::uno::Any& Name,
+                         const css::uno::Any& Format,
+                         const css::uno::Any& /*LockAnnot*/,
+                         const css::uno::Any& /*Password*/,
+                         const css::uno::Any& /*AddToMru*/,
+                         const css::uno::Any& /*WritePassword*/,
+                         const css::uno::Any& /*RecommendReadOnly*/,
+                         const css::uno::Any& /*EmbedFonts*/,
+                         const css::uno::Any& /*NativePictureFormat*/,
+                         const css::uno::Any& /*FormsData*/,
+                         const css::uno::Any& /*SaveAsAOCELetter*/ )
+{
+    SAL_INFO("sw.vba", "WordBasic.FileSaveAs(Name:=" << Name << ",Format:=" << Format << ")");
+
+    uno::Reference< frame::XModel > xModel( mpApp->getCurrentDocument(), uno::UNO_SET_THROW );
+
+    // Based on SwVbaDocument::SaveAs2000.
+
+    OUString sFileName;
+    Name >>= sFileName;
+
+    OUString sURL;
+    osl::FileBase::getFileURLFromSystemPath( sFileName, sURL );
+
+    // Detect if there is no path then we need to use the current folder.
+    INetURLObject aURL( sURL );
+    sURL = aURL.GetMainURL( INetURLObject::DecodeMechanism::ToIUri );
+    if( sURL.isEmpty() )
+    {
+        // Need to add cur dir ( of this document ) or else the 'Work' dir
+        sURL = xModel->getURL();
+
+        if ( sURL.isEmpty() )
+        {
+            // Not path available from 'this' document. Need to add the 'document'/work directory then.
+            // Based on SwVbaOptions::getValueEvent()
+            uno::Reference< util::XPathSettings > xPathSettings = util::thePathSettings::get( comphelper::getProcessComponentContext() );
+            OUString sPathUrl;
+            xPathSettings->getPropertyValue( "Work" ) >>= sPathUrl;
+            // Path could be a multipath, Microsoft doesn't support this feature in Word currently.
+            // Only the last path is from interest.
+            // No idea if this crack is relevant for WordBasic or not.
+            sal_Int32 nIndex = sPathUrl.lastIndexOf( ';' );
+            if( nIndex != -1 )
+            {
+                sPathUrl = sPathUrl.copy( nIndex + 1 );
+            }
+
+            aURL.SetURL( sPathUrl );
+        }
+        else
+        {
+            aURL.SetURL( sURL );
+            aURL.Append( sFileName );
+        }
+        sURL = aURL.GetMainURL( INetURLObject::DecodeMechanism::ToIUri );
+
+    }
+    sal_Int32 nFileFormat = word::WdSaveFormat::wdFormatDocument;
+    Format >>= nFileFormat;
+
+    uno::Sequence<  beans::PropertyValue > aProps(2);
+    aProps[0].Name = "FilterName";
+
+    setFilterPropsFromFormat( nFileFormat, aProps );
+
+    aProps[1].Name = "FileName";
+    aProps[1].Value <<= sURL;
+
+    dispatchRequests(xModel,".uno:SaveAs",aProps);
+}
+
+void SAL_CALL
 SwWordBasic::FileClose( const css::uno::Any& Save )
 {
     uno::Reference< frame::XModel > xModel( mpApp->getCurrentDocument(), uno::UNO_SET_THROW );
@@ -616,17 +705,17 @@ SwWordBasic::ToolsOptionsView( const css::uno::Any& DraftFont,
              << ")");
 }
 
-OUString SAL_CALL
-SwWordBasic::WindowName()
+css::uno::Any SAL_CALL
+SwWordBasic::WindowName( const css::uno::Any& /*Number*/ )
 {
-    return mpApp->getActiveSwVbaWindow()->getCaption();
+    return css::uno::makeAny( mpApp->getActiveSwVbaWindow()->getCaption() );
 }
 
-sal_Bool SAL_CALL
+css::uno::Any SAL_CALL
 SwWordBasic::ExistingBookmark( const OUString& Name )
 {
     uno::Reference< word::XBookmarks > xBookmarks( mpApp->getActiveDocument()->Bookmarks( uno::Any() ), uno::UNO_QUERY );
-    return xBookmarks.is() && xBookmarks->Exists( Name );
+    return css::uno::makeAny( xBookmarks.is() && xBookmarks->Exists( Name ) );
 }
 
 void SAL_CALL
@@ -648,22 +737,22 @@ SwWordBasic::MailMergeOpenDataSource( const OUString& Name, const css::uno::Any&
                                                                 OpenExclusive, SubType );
 }
 
-sal_Int32 SAL_CALL
+css::uno::Any SAL_CALL
 SwWordBasic::AppMaximize( const css::uno::Any& WindowName, const css::uno::Any& State )
 {
     SAL_INFO("sw.vba", "WordBasic.AppMaximize( WindowName:=" << WindowName << ", State:=" << State);
 
     // FIXME: Implement if necessary
-    return 0;
+    return css::uno::makeAny( sal_Int32(0) );
 }
 
-sal_Int32 SAL_CALL
+css::uno::Any SAL_CALL
 SwWordBasic::DocMaximize( const css::uno::Any& State )
 {
     SAL_INFO("sw.vba", "WordBasic.DocMaximize(State:=" << State << ")");
 
     // FIXME: Implement if necessary
-    return 0;
+    return css::uno::makeAny( sal_Int32(0) );
 }
 
 void SAL_CALL
@@ -674,13 +763,13 @@ SwWordBasic::AppShow( const css::uno::Any& WindowName )
     // FIXME: Implement if necessary
 }
 
-sal_Int32 SAL_CALL
+css::uno::Any SAL_CALL
 SwWordBasic::AppCount()
 {
     SAL_INFO("sw.vba", "WordBasic.AppCount()");
 
     // FIXME: Implement if necessary. Return a random number for now.
-    return 2;
+    return css::uno::makeAny( sal_Int32(2) );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

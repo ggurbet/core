@@ -58,6 +58,7 @@
 #include <com/sun/star/beans/PropertyState.hpp>
 #include <com/sun/star/form/FormComponentType.hpp>
 #include <vcl/svapp.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/stdtext.hxx>
 #include <svx/fmglob.hxx>
@@ -526,7 +527,7 @@ bool FmFormView::checkUnMarkAll(const Reference< XInterface >& _xSource)
 }
 
 
-bool FmFormView::MouseButtonDown( const MouseEvent& _rMEvt, vcl::Window* _pWin )
+bool FmFormView::MouseButtonDown( const MouseEvent& _rMEvt, OutputDevice* _pWin )
 {
     bool bReturn = E3dView::MouseButtonDown( _rMEvt, _pWin );
 

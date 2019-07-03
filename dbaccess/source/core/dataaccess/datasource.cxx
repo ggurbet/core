@@ -616,7 +616,8 @@ Reference< XConnection > ODatabaseSource::buildLowLevelConnection(const OUString
             Reference<XPropertySet> const xPropSet(xRootStorage, UNO_QUERY_THROW);
             sal_Int32 nOpenMode(0);
             if ((xPropSet->getPropertyValue("OpenMode") >>= nOpenMode)
-                && (nOpenMode & css::embed::ElementModes::WRITE))
+                && (nOpenMode & css::embed::ElementModes::WRITE)
+                && (!Application::IsHeadlessModeEnabled()))
             {
                 MigrationWarnDialog aWarnDlg(GetFrameWeld(m_pImpl->getModel_noCreate()));
                 bNeedMigration = aWarnDlg.run() == RET_OK;
@@ -910,7 +911,7 @@ namespace
         try
         {
             // obtain all properties currently known at the bag
-            Reference< XPropertySetInfo > xPSI( _rxPropertyBag->getPropertySetInfo(), UNO_QUERY_THROW );
+            Reference< XPropertySetInfo > xPSI( _rxPropertyBag->getPropertySetInfo(), UNO_SET_THROW );
             Sequence< Property > aAllExistentProperties( xPSI->getProperties() );
 
             Reference< XPropertyState > xPropertyState( _rxPropertyBag, UNO_QUERY_THROW );
@@ -1016,7 +1017,7 @@ void ODatabaseSource::getFastPropertyValue( Any& rValue, sal_Int32 nHandle ) con
                 {
                     // collect the property attributes of all current settings
                     Reference< XPropertySet > xSettingsAsProps( m_pImpl->m_xSettings, UNO_QUERY_THROW );
-                    Reference< XPropertySetInfo > xPST( xSettingsAsProps->getPropertySetInfo(), UNO_QUERY_THROW );
+                    Reference< XPropertySetInfo > xPST( xSettingsAsProps->getPropertySetInfo(), UNO_SET_THROW );
                     Sequence< Property > aSettings( xPST->getProperties() );
                     std::map< OUString, sal_Int32 > aPropertyAttributes;
                     for ( auto const & setting : aSettings )
@@ -1176,7 +1177,7 @@ Reference< XConnection > ODatabaseSource::connectWithCompletion( const Reference
         {
             m_pImpl->m_sFailedPassword = m_pImpl->m_aPassword;
             // assume that we had an authentication problem. Without this we may, after an unsuccessful connect, while
-            // the user gave us a password an the order to remember it, never allow an password input again (at least
+            // the user gave us a password and the order to remember it, never allow a password input again (at least
             // not without restarting the session)
             m_pImpl->m_aPassword.clear();
         }

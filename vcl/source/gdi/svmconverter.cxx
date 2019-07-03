@@ -24,17 +24,19 @@
 #include <tools/fract.hxx>
 #include <tools/stream.hxx>
 #include <tools/helpers.hxx>
+#include <tools/GenericTypeSerializer.hxx>
 #include <vcl/dibtools.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/lineinfo.hxx>
+#include <vcl/metaact.hxx>
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 
 #include <svmconverter.hxx>
-
 #include <memory>
+#include <stack>
 
 // Inlines
 static void ImplReadRect( SvStream& rIStm, tools::Rectangle& rRect )
@@ -243,7 +245,7 @@ namespace
 
 #define LF_FACESIZE 32
 
-void static lcl_error( SvStream& rIStm, const SvStreamEndian& nOldFormat, const sal_uLong& nPos)
+void static lcl_error( SvStream& rIStm, const SvStreamEndian& nOldFormat, sal_uLong nPos)
 {
     rIStm.SetError(SVSTREAM_FILEFORMAT_ERROR);
     rIStm.SetEndian(nOldFormat);
@@ -1134,7 +1136,8 @@ void SVMConverter::ImplConvertFromSVM1( SvStream& rIStm, GDIMetaFile& rMtf )
                 bool    bSet;
                 sal_Int32 nFollowingActionCount(0);
 
-                ReadColor( rIStm, aColor );
+                tools::GenericTypeSerializer aSerializer(rIStm);
+                aSerializer.readColor(aColor);
                 rIStm.ReadCharAsBool( bSet ).ReadInt32( nFollowingActionCount );
                 ImplSkipActions( rIStm, nFollowingActionCount );
                 rMtf.AddAction( new MetaTextLineColorAction( aColor, bSet ) );

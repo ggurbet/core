@@ -459,7 +459,7 @@ ONDXNode ONDXPage::Split(ONDXPage& rPage)
         aResultNode = (*this)[(nCount + 1) / 2];
         nCount = (nCount + 1) / 2;
 
-        // new page points to page with extraced node
+        // new page points to page with extracted node
         rPage.SetChild(aResultNode.GetChild());
     }
     // node points to new page
@@ -850,15 +850,8 @@ void ONDXPagePtr::Clear()
 
 ONDXPagePtr& ONDXPagePtr::operator=(ONDXPagePtr const & rOther)
 {
-    if (rOther.mpPage != nullptr) {
-        rOther.mpPage->AddNextRef();
-    }
-    ONDXPage * pOldObj = mpPage;
-    mpPage = rOther.mpPage;
-    nPagePos = rOther.nPagePos;
-    if (pOldObj != nullptr) {
-        pOldObj->ReleaseRef();
-    }
+    ONDXPagePtr aTemp(rOther);
+    *this = std::move(aTemp);
     return *this;
 }
 

@@ -25,8 +25,8 @@
 #include <svx/dialmgr.hxx>
 
 #include <app.hrc>
-#include <svl/aeitem.hxx>
 #include <svl/itemset.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnedwit.hxx>
 #include <svx/xlnedit.hxx>
@@ -42,9 +42,12 @@
 #include <svl/intitem.hxx>
 #include <sfx2/request.hxx>
 #include <editeng/adjustitem.hxx>
+#include <editeng/eeitem.hxx>
 #include <svx/xtable.hxx>
 #include <svx/xfltrit.hxx>
-#include <svx/xfillit.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtditm.hxx>
 
 #include <svx/svdocapt.hxx>
 
@@ -60,7 +63,6 @@
 #include <View.hxx>
 #include <sdpage.hxx>
 #include <Window.hxx>
-#include <stlpool.hxx>
 #include <drawdoc.hxx>
 #include <unokywds.hxx>
 
@@ -653,8 +655,7 @@ void FuConstructRectangle::SetLineEnds(SfxItemSet& rAttr, SdrObject const & rObj
     ::basegfx::B2DPolyPolygon aCircle( getPolygon( RID_SVXSTR_CIRCLE, rModel ) );
     if( !aCircle.count() )
     {
-        ::basegfx::B2DPolygon aNewCircle;
-        aNewCircle = ::basegfx::utils::createPolygonFromEllipse(::basegfx::B2DPoint(0.0, 0.0), 250.0, 250.0);
+        ::basegfx::B2DPolygon aNewCircle = ::basegfx::utils::createPolygonFromEllipse(::basegfx::B2DPoint(0.0, 0.0), 250.0, 250.0);
         aNewCircle.setClosed(true);
         aCircle.append(aNewCircle);
     }

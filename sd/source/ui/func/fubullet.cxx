@@ -20,6 +20,7 @@
 #include <fubullet.hxx>
 
 #include <sfx2/bindings.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <editeng/eeitem.hxx>
 #include <svl/poolitem.hxx>
 #include <editeng/fontitem.hxx>
@@ -35,13 +36,11 @@
 #include <sfx2/request.hxx>
 #include <svl/ctloptions.hxx>
 #include <svl/itempool.hxx>
+#include <svl/stritem.hxx>
+#include <tools/debug.hxx>
 
 #include <svx/svxdlg.hxx>
-#include <svx/dialogs.hrc>
-#include <drawview.hxx>
-#include <memory>
-
-#include <app.hrc>
+#include <svx/svxids.hrc>
 
 namespace sd {
 
@@ -192,8 +191,9 @@ void FuBullet::InsertSpecialCharacter( SfxRequest const & rReq )
             aSet.Put( *pFontItem );
 
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
+        auto xFrame = mpViewShell ? mpViewShell->GetFrame()->GetFrame().GetFrameInterface() : nullptr;
         ScopedVclPtr<SfxAbstractDialog> pDlg( pFact->CreateCharMapDialog(mpView->GetViewShell()->GetFrameWeld(), aSet,
-            true ) );
+            xFrame) );
 
         // If a character is selected, it can be shown
         // pDLg->SetFont( );

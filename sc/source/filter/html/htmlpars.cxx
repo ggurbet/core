@@ -33,6 +33,7 @@
 #include <editeng/postitem.hxx>
 #include <editeng/udlnitem.hxx>
 #include <editeng/wghtitem.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/justifyitem.hxx>
 #include <sfx2/objsh.hxx>
@@ -43,6 +44,7 @@
 #include <svtools/htmlkywd.hxx>
 #include <svtools/htmltokn.h>
 
+#include <vcl/outdev.hxx>
 #include <vcl/svapp.hxx>
 #include <tools/urlobj.hxx>
 #include <osl/diagnose.h>
@@ -3004,12 +3006,7 @@ class CSSHandler
 
         MemStr() : mp(nullptr), mn(0) {}
         MemStr(const char* p, size_t n) : mp(p), mn(n) {}
-        MemStr& operator=(const MemStr& r)
-        {
-            mp = r.mp;
-            mn = r.mn;
-            return *this;
-        }
+        MemStr& operator=(const MemStr& r) = default;
     };
 
     MemStr maPropName;  /// current property name.

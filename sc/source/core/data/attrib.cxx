@@ -558,11 +558,6 @@ SfxPoolItem* ScViewObjectModeItem::Clone( SfxItemPool* ) const
     return new ScViewObjectModeItem( *this );
 }
 
-sal_uInt16 ScViewObjectModeItem::GetVersion( sal_uInt16 /* nFileVersion */ ) const
-{
-    return 1;
-}
-
 ScPageScaleToItem::ScPageScaleToItem() :
     SfxPoolItem( ATTR_PAGE_SCALETO ),
     mnWidth( 0 ),
@@ -670,9 +665,21 @@ ScCondFormatItem::ScCondFormatItem():
 {
 }
 
-ScCondFormatItem::ScCondFormatItem( const std::vector<sal_uInt32>& rIndex ):
+ScCondFormatItem::ScCondFormatItem( sal_uInt32 nIndex ):
+    SfxPoolItem( ATTR_CONDITIONAL )
+{
+    maIndex.insert(nIndex);
+}
+
+ScCondFormatItem::ScCondFormatItem( const ScCondFormatIndexes& rIndex ):
     SfxPoolItem( ATTR_CONDITIONAL ),
     maIndex( rIndex )
+{
+}
+
+ScCondFormatItem::ScCondFormatItem( ScCondFormatIndexes&& aIndex ):
+    SfxPoolItem( ATTR_CONDITIONAL ),
+    maIndex( std::move(aIndex) )
 {
 }
 
@@ -682,22 +689,30 @@ ScCondFormatItem::~ScCondFormatItem()
 
 bool ScCondFormatItem::operator==( const SfxPoolItem& rCmp ) const
 {
-    return maIndex == static_cast<const ScCondFormatItem&>(rCmp).maIndex;
+    auto const & other = static_cast<const ScCondFormatItem&>(rCmp);
+    if (maIndex.empty() && other.maIndex.empty())
+        return true;
+    // memcmp is faster than operator< on std::vector
+    return maIndex.size() == other.maIndex.size()
+        && memcmp(&maIndex.front(), &other.maIndex.front(), maIndex.size() * sizeof(sal_uInt32)) == 0;
+}
+
+bool ScCondFormatItem::operator<( const SfxPoolItem& rCmp ) const
+{
+    auto const & other = static_cast<const ScCondFormatItem&>(rCmp);
+    if ( maIndex.size() < other.maIndex.size() )
+        return true;
+    if ( maIndex.size() > other.maIndex.size() )
+        return false;
+    if (maIndex.empty() && other.maIndex.empty())
+        return false;
+    // memcmp is faster than operator< on std::vector
+    return memcmp(&maIndex.front(), &other.maIndex.front(), maIndex.size() * sizeof(sal_uInt32)) < 0;
 }
 
 ScCondFormatItem* ScCondFormatItem::Clone(SfxItemPool*) const
 {
     return new ScCondFormatItem(maIndex);
-}
-
-void ScCondFormatItem::AddCondFormatData( sal_uInt32 nIndex )
-{
-    maIndex.push_back(nIndex);
-}
-
-void ScCondFormatItem::SetCondFormatData( const std::vector<sal_uInt32>& rIndex )
-{
-    maIndex = rIndex;
 }
 
 void ScCondFormatItem::dumpAsXml(xmlTextWriterPtr pWriter) const

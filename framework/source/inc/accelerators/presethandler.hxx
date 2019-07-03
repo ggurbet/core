@@ -119,7 +119,7 @@ class PresetHandler
         /** @short  does nothing real.
 
             @param  xContext
-                    points to an uno service manager, which is used internally
+                    points to a uno service manager, which is used internally
                     to create own needed uno resources.
          */
         PresetHandler(const css::uno::Reference< css::uno::XComponentContext >& xContext);
@@ -297,7 +297,7 @@ class PresetHandler
             @param  bShare
                     force using of the share layer instead of the user layer.
 
-            @return An opened storage in case method was successfully - null otherwise.
+            @return An opened storage in case method was successful - null otherwise.
          */
         css::uno::Reference< css::embed::XStorage > impl_openPathIgnoringErrors(const OUString& sPath ,
                                                                                       sal_Int32        eMode ,
@@ -305,7 +305,7 @@ class PresetHandler
 
         /** @short  try to find the specified locale inside list of possible ones.
 
-            @descr  The lits of possible locale values was e.g. retrieved from the system
+            @descr  The list of possible locale values was e.g. retrieved from the system
                     (configuration, directory listing etcpp). The locale normally represent
                     the current office locale. This method search for a suitable item by using
                     different algorithm.
@@ -354,7 +354,7 @@ class PresetHandler
             @param  bAllowFallback
                     enable/disable fallback handling for locales
 
-            @return An opened storage in case method was successfully - null otherwise.
+            @return An opened storage in case method was successful - null otherwise.
          */
         css::uno::Reference< css::embed::XStorage > impl_openLocalizedPathIgnoringErrors(OUString&      sPath         ,
                                                                                          sal_Int32             eMode         ,

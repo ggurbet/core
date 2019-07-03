@@ -18,8 +18,10 @@
  */
 #include <sfx2/sidebar/SidebarController.hxx>
 #include <sfx2/sidebar/Deck.hxx>
+#include <sfx2/sidebar/DeckDescriptor.hxx>
 #include <sfx2/sidebar/DeckTitleBar.hxx>
 #include <sfx2/sidebar/Panel.hxx>
+#include <sfx2/sidebar/PanelDescriptor.hxx>
 #include <sfx2/sidebar/PanelTitleBar.hxx>
 #include <sfx2/sidebar/TabBar.hxx>
 #include <sfx2/sidebar/Theme.hxx>
@@ -39,13 +41,18 @@
 #include <vcl/fixed.hxx>
 #include <vcl/uitest/logger.hxx>
 #include <vcl/uitest/eventdescription.hxx>
+#include <vcl/svapp.hxx>
 #include <splitwin.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/link.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 #include <sal/log.hxx>
+#include <officecfg/Office/UI/Sidebar.hxx>
 
+#include <com/sun/star/awt/XWindowPeer.hpp>
+#include <com/sun/star/frame/XDispatch.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/ui/ContextChangeEventMultiplexer.hpp>
 #include <com/sun/star/ui/ContextChangeEventObject.hpp>
@@ -100,6 +107,7 @@ SidebarController::SidebarController (
       maCurrentContext(OUString(), OUString()),
       maRequestedContext(),
       mnRequestedForceFlags(SwitchFlag_NoForce),
+      mnMaximumSidebarWidth(officecfg::Office::UI::Sidebar::General::MaximumWidth::get()),
       msCurrentDeckId(gsDefaultDeckId),
       maPropertyChangeForwarder([this](){ return this->BroadcastPropertyChange(); }),
       maContextChangeUpdate([this](){ return this->UpdateConfigurations(); }),
@@ -546,6 +554,13 @@ void SidebarController::OpenThenToggleDeck (
     }
     RequestOpenDeck();
     SwitchToDeck(rsDeckId);
+
+    // Make sure the sidebar is wide enough to fit the requested content
+    sal_Int32 nRequestedWidth = (mpCurrentDeck->GetMinimalWidth() + TabBar::GetDefaultWidth())
+                                * mpTabBar->GetDPIScaleFactor();
+    if (mnSavedSidebarWidth < nRequestedWidth)
+        SetChildWindowWidth(nRequestedWidth);
+
     mpTabBar->Invalidate();
     mpTabBar->HighlightDeck(rsDeckId);
     collectUIInformation(rsDeckId);
@@ -885,13 +900,13 @@ Reference<ui::XUIElement> SidebarController::CreateUIElement (
             xUIElementFactory->createUIElement(
                 rsImplementationURL,
                 aCreationArguments.getPropertyValues()),
-            UNO_QUERY_THROW);
+            UNO_SET_THROW);
 
         return xUIElement;
     }
-    catch(const Exception& rException)
+    catch(const Exception&)
     {
-        SAL_WARN("sfx.sidebar", "Cannot create panel " << rsImplementationURL << ": " << rException);
+        TOOLS_WARN_EXCEPTION("sfx.sidebar", "Cannot create panel " << rsImplementationURL);
         return nullptr;
     }
 }
@@ -1213,10 +1228,13 @@ void SidebarController::RestrictWidth (sal_Int32 nWidth)
     {
         const sal_uInt16 nId (pSplitWindow->GetItemId(mpParentWindow.get()));
         const sal_uInt16 nSetId (pSplitWindow->GetSet(nId));
+        const sal_Int32 nRequestedWidth
+            = (TabBar::GetDefaultWidth() + nWidth) * mpTabBar->GetDPIScaleFactor();
+
         pSplitWindow->SetItemSizeRange(
             nSetId,
-            Range(TabBar::GetDefaultWidth() * mpTabBar->GetDPIScaleFactor() + nWidth,
-                  gnMaximumSidebarWidth * mpTabBar->GetDPIScaleFactor()));
+            Range(nRequestedWidth,
+                  getMaximumWidth() * mpTabBar->GetDPIScaleFactor()));
     }
 }
 

@@ -18,7 +18,7 @@
  */
 
 #include <fuinsfil.hxx>
-#include <vcl/wrkwin.hxx>
+#include <vcl/svapp.hxx>
 #include <sfx2/progress.hxx>
 #include <editeng/outliner.hxx>
 #include <editeng/outlobj.hxx>
@@ -27,22 +27,19 @@
 #include <sfx2/request.hxx>
 #include <sfx2/app.hxx>
 #include <vcl/weld.hxx>
-#include <sfx2/printer.hxx>
 #include <svx/svdorect.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/svdoutl.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <sot/formats.hxx>
-#include <svl/urihelper.hxx>
-#include <editeng/forbiddencharacterstable.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <svx/svdpagv.hxx>
-#include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
+#include <tools/debug.hxx>
 #include <com/sun/star/ui/dialogs/XFilterManager.hpp>
 #include <com/sun/star/ui/dialogs/XFilePicker.hpp>
-#include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
 #include <sdresid.hxx>
@@ -50,18 +47,14 @@
 #include <Window.hxx>
 #include <View.hxx>
 #include <strings.hrc>
-#include <stlpool.hxx>
 #include <sdmod.hxx>
 #include <sdpage.hxx>
-#include <strmname.h>
 #include <ViewShellBase.hxx>
 #include <DrawViewShell.hxx>
 #include <OutlineView.hxx>
-#include <OutlineViewShell.hxx>
 #include <DrawDocShell.hxx>
 #include <GraphicDocShell.hxx>
 #include <app.hrc>
-#include <unmovss.hxx>
 #include <Outliner.hxx>
 #include <sdabstdlg.hxx>
 #include <memory>

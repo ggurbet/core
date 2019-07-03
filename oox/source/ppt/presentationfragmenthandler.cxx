@@ -111,7 +111,7 @@ static void ResolveTextFields( XmlFilterBase const & rFilter )
         {
             const OUString sURL = "URL";
             Reference< drawing::XDrawPagesSupplier > xDPS( xModel, uno::UNO_QUERY_THROW );
-            Reference< drawing::XDrawPages > xDrawPages( xDPS->getDrawPages(), uno::UNO_QUERY_THROW );
+            Reference< drawing::XDrawPages > xDrawPages( xDPS->getDrawPages(), uno::UNO_SET_THROW );
 
             const oox::core::TextField& rTextField( textField );
             Reference< XPropertySet > xPropSet( rTextField.xTextField, UNO_QUERY );
@@ -161,7 +161,7 @@ static void ResolveTextFields( XmlFilterBase const & rFilter )
 }
 
 void PresentationFragmentHandler::saveThemeToGrabBag(const oox::drawingml::ThemePtr& pThemePtr,
-                                                     const OUString& sTheme)
+                                                     sal_Int32 nThemeIdx)
 {
     if (!pThemePtr)
         return;
@@ -179,7 +179,7 @@ void PresentationFragmentHandler::saveThemeToGrabBag(const oox::drawingml::Theme
                 // get existing grab bag
                 comphelper::SequenceAsHashMap aGrabBag(xDocProps->getPropertyValue(aGrabBagPropName));
 
-                uno::Sequence<beans::PropertyValue> aTheme(1);
+                uno::Sequence<beans::PropertyValue> aTheme(2);
                 comphelper::SequenceAsHashMap aThemesHashMap;
 
                 // create current theme
@@ -199,10 +199,18 @@ void PresentationFragmentHandler::saveThemeToGrabBag(const oox::drawingml::Theme
                     aCurrentTheme[nId].Value = rColor;
                 }
 
+
                 // add new theme to the sequence
-                aTheme[0].Name = sTheme;
+                // Export code uses the master slide's index to find the right theme
+                // so use the same index in the grabbag.
+                aTheme[0].Name = "ppt/theme/theme" + OUString::number(nThemeIdx) + ".xml";
                 const uno::Any& rCurrentTheme = makeAny(aCurrentTheme);
                 aTheme[0].Value = rCurrentTheme;
+
+                // store DOM fragment for SmartArt re-generation
+                aTheme[1].Name = "OOXTheme";
+                const uno::Any& rOOXTheme = makeAny(pThemePtr->getFragment());
+                aTheme[1].Value = rOOXTheme;
 
                 aThemesHashMap << aTheme;
 
@@ -229,7 +237,7 @@ void PresentationFragmentHandler::importSlide(sal_uInt32 nSlide, bool bFirstPage
 
     // importing slide pages and its corresponding notes page
     Reference< drawing::XDrawPagesSupplier > xDPS( xModel, uno::UNO_QUERY_THROW );
-    Reference< drawing::XDrawPages > xDrawPages( xDPS->getDrawPages(), uno::UNO_QUERY_THROW );
+    Reference< drawing::XDrawPages > xDrawPages( xDPS->getDrawPages(), uno::UNO_SET_THROW );
 
     try {
 
@@ -272,12 +280,19 @@ void PresentationFragmentHandler::importSlide(sal_uInt32 nSlide, bool bFirstPage
                     {   // masterpersist not found, we have to load it
                         Reference< drawing::XDrawPage > xMasterPage;
                         Reference< drawing::XMasterPagesSupplier > xMPS( xModel, uno::UNO_QUERY_THROW );
-                        Reference< drawing::XDrawPages > xMasterPages( xMPS->getMasterPages(), uno::UNO_QUERY_THROW );
+                        Reference< drawing::XDrawPages > xMasterPages( xMPS->getMasterPages(), uno::UNO_SET_THROW );
 
+                        sal_Int32 nIndex;
                         if( rFilter.getMasterPages().empty() )
-                            xMasterPages->getByIndex( 0 ) >>= xMasterPage;
+                        {
+                            nIndex = 0;
+                            xMasterPages->getByIndex( nIndex ) >>= xMasterPage;
+                        }
                         else
-                            xMasterPage = xMasterPages->insertNewByIndex( xMasterPages->getCount() );
+                        {
+                            nIndex = xMasterPages->getCount();
+                            xMasterPage = xMasterPages->insertNewByIndex( nIndex );
+                        }
 
                         pMasterPersistPtr = std::make_shared<SlidePersist>( rFilter, true, false, xMasterPage,
                             ShapePtr( new PPTShape( Master, "com.sun.star.drawing.GroupShape" ) ), mpTextListStyle );
@@ -307,7 +322,7 @@ void PresentationFragmentHandler::importSlide(sal_uInt32 nSlide, bool bFirstPage
                                         UNO_QUERY_THROW));
                                 rThemes[ aThemeFragmentPath ] = pThemePtr;
                                 pThemePtr->setFragment(xDoc);
-                                saveThemeToGrabBag(pThemePtr, aThemeFragmentPath);
+                                saveThemeToGrabBag(pThemePtr, nIndex + 1);
                             }
                             else
                             {
@@ -409,6 +424,7 @@ void PresentationFragmentHandler::importSlide(sal_uInt32 nSlide, bool bFirstPage
                     //set comment chars for last comment on slide
                     SlideFragmentHandler* comment_handler =
                         dynamic_cast<SlideFragmentHandler*>(xCommentsFragmentHandler.get());
+                    assert(comment_handler);
                     // some comments have no text -> set empty string as text to avoid
                     // crash (back() on empty vector is undefined) and losing other
                     // comment data that might be there (author, position, timestamp etc.)

@@ -32,9 +32,11 @@
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/NoSupportException.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
+#include <com/sun/star/lang/NotInitializedException.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/IllegalArgumentIOException.hpp>
 #include <com/sun/star/frame/XUntitledNumbers.hpp>
+#include <com/sun/star/frame/DoubleInitializationException.hpp>
 #include <com/sun/star/embed/XTransactionBroadcaster.hpp>
 #include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/embed/EmbedMapUnits.hpp>
@@ -56,6 +58,7 @@
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
 #include <com/sun/star/util/InvalidStateException.hpp>
+#include <com/sun/star/util/CloseVetoException.hpp>
 #include <comphelper/enumhelper.hxx>
 
 #include <cppuhelper/implbase.hxx>
@@ -73,6 +76,7 @@
 #include <basic/sbuno.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/svborder.hxx>
 #include <unotools/tempfile.hxx>
 #include <osl/mutex.hxx>
 #include <vcl/errcode.hxx>
@@ -93,6 +97,7 @@
 #include <framework/titlehelper.hxx>
 #include <comphelper/numberedcollection.hxx>
 #include <unotools/ucbhelper.hxx>
+#include <ucbhelper/content.hxx>
 
 #include <sfx2/sfxbasecontroller.hxx>
 #include <sfx2/viewfac.hxx>
@@ -103,13 +108,16 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/module.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/printer.hxx>
 #include <basic/basmgr.hxx>
 #include <sfx2/event.hxx>
 #include <eventsupplier.hxx>
 #include <sfx2/evntconf.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/strings.hrc>
 #include <sfx2/app.hxx>
 #include <appdata.hxx>
@@ -791,7 +799,7 @@ void
 IMPL_SfxBaseModel_DataContainer::impl_setDocumentProperties(
         const Reference< document::XDocumentProperties >& rxNewDocProps)
 {
-    m_xDocumentProperties.set(rxNewDocProps, UNO_QUERY_THROW);
+    m_xDocumentProperties.set(rxNewDocProps, UNO_SET_THROW);
     if (m_pObjectShell.is())
     {
         Reference<util::XModifyBroadcaster> const xMB(
@@ -974,8 +982,8 @@ Sequence< beans::PropertyValue > SAL_CALL SfxBaseModel::getArgs()
         Sequence< sal_Int32 > aRectSeq(4);
         aRectSeq[0] = aTmpRect.Left();
         aRectSeq[1] = aTmpRect.Top();
-        aRectSeq[2] = aTmpRect.Right();
-        aRectSeq[3] = aTmpRect.Bottom();
+        aRectSeq[2] = aTmpRect.IsWidthEmpty() ? aTmpRect.Left() : aTmpRect.Right();
+        aRectSeq[3] = aTmpRect.IsHeightEmpty() ? aTmpRect.Top() : aTmpRect.Bottom();
 
         seqArgsNew.realloc( ++nNewLength );
         seqArgsNew[ nNewLength - 1 ].Name = "WinExtent";
@@ -1971,7 +1979,7 @@ Any SAL_CALL SfxBaseModel::getTransferData( const datatransfer::DataFlavor& aFla
                 const sal_uInt32 nLen = pStream->TellEnd();
                 Sequence< sal_Int8 > aSeq( nLen );
                 pStream->ReadBytes(aSeq.getArray(), nLen);
-                if( aSeq.getLength() )
+                if( aSeq.hasElements() )
                     aAny <<= aSeq;
             }
             catch ( Exception& )
@@ -2936,7 +2944,7 @@ void SfxBaseModel::impl_store(  const   OUString&                   sURL        
                             if ( m_pData->m_pObjectShell->IsDocShared() )
                             {
                                 uno::Sequence< beans::NamedValue > aNewEncryptionData = aArgHash.getUnpackedValueOrDefault("EncryptionData", uno::Sequence< beans::NamedValue >() );
-                                if ( !aNewEncryptionData.getLength() )
+                                if ( !aNewEncryptionData.hasElements() )
                                 {
                                     aNewEncryptionData = ::comphelper::OStorageHelper::CreatePackageEncryptionData( aArgHash.getUnpackedValueOrDefault("Password", OUString()) );
                                 }
@@ -2944,7 +2952,7 @@ void SfxBaseModel::impl_store(  const   OUString&                   sURL        
                                 uno::Sequence< beans::NamedValue > aOldEncryptionData;
                                 (void)GetEncryptionData_Impl( pMedium->GetItemSet(), aOldEncryptionData );
 
-                                if ( !aOldEncryptionData.getLength() && !aNewEncryptionData.getLength() )
+                                if ( !aOldEncryptionData.hasElements() && !aNewEncryptionData.hasElements() )
                                     throw;
                                 else
                                 {
@@ -3494,10 +3502,9 @@ Reference< ui::XUIConfigurationManager2 > SfxBaseModel::getUIConfigurationManage
         if ( m_pData->m_pObjectShell->GetCreateMode() != SfxObjectCreateMode::EMBEDDED )
         {
             // Import old UI configuration from OOo 1.x
-            Reference< embed::XStorage > xOOo1ConfigStorage;
 
             // Try to open with READ
-            xOOo1ConfigStorage = getDocumentSubStorage( "Configurations", embed::ElementModes::READ );
+            Reference< embed::XStorage > xOOo1ConfigStorage = getDocumentSubStorage( "Configurations", embed::ElementModes::READ );
             if ( xOOo1ConfigStorage.is() )
             {
                 Reference< XComponentContext > xContext( ::comphelper::getProcessComponentContext() );
@@ -4438,11 +4445,6 @@ SfxBaseModel::storeMetadataToMedium(
 
 SfxModelSubComponent::~SfxModelSubComponent()
 {
-}
-
-void SfxModelSubComponent::disposing()
-{
-    // nothing to do here
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

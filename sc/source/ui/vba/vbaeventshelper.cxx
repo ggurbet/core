@@ -36,6 +36,7 @@
 #include <cppuhelper/implbase.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <unotools/eventcfg.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <vbahelper/vbaaccesshelper.hxx>
@@ -92,7 +93,7 @@ SCTAB lclGetTabFromArgs( const uno::Sequence< uno::Any >& rArgs, sal_Int32 nInde
     if( xRanges.is() )
     {
         uno::Sequence< table::CellRangeAddress > aRangeAddresses = xRanges->getRangeAddresses();
-        if( aRangeAddresses.getLength() > 0 )
+        if( aRangeAddresses.hasElements() )
             return aRangeAddresses[ 0 ].Sheet;
     }
 
@@ -199,7 +200,7 @@ ScVbaEventListener::ScVbaEventListener( ScVbaEventsHelper& rVbaEvents, const uno
     startModelListening();
     try
     {
-        uno::Reference< frame::XController > xController( mxModel->getCurrentController(), uno::UNO_QUERY_THROW );
+        uno::Reference< frame::XController > xController( mxModel->getCurrentController(), uno::UNO_SET_THROW );
         startControllerListening( xController );
     }
     catch( uno::Exception& )
@@ -845,8 +846,8 @@ bool ScVbaEventsHelper::isSelectionChanged( const uno::Sequence< uno::Any >& rAr
 {
     uno::Reference< uno::XInterface > xOldSelection( maOldSelection, uno::UNO_QUERY );
     uno::Reference< uno::XInterface > xNewSelection = getXSomethingFromArgs< uno::XInterface >( rArgs, nIndex, false );
-    ScCellRangesBase* pOldCellRanges = ScCellRangesBase::getImplementation( xOldSelection );
-    ScCellRangesBase* pNewCellRanges = ScCellRangesBase::getImplementation( xNewSelection );
+    ScCellRangesBase* pOldCellRanges = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( xOldSelection );
+    ScCellRangesBase* pNewCellRanges = comphelper::getUnoTunnelImplementation<ScCellRangesBase>( xNewSelection );
     bool bChanged = !pOldCellRanges || !pNewCellRanges || lclSelectionChanged( pOldCellRanges->GetRangeList(), pNewCellRanges->GetRangeList() );
     maOldSelection <<= xNewSelection;
     return bChanged;

@@ -19,12 +19,13 @@
 
 #include <hyphen.hxx>
 
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
+
 #include <editeng/splwrap.hxx>
 #include <editeng/svxenum.hxx>
 #include <editeng/unolingu.hxx>
 #include <svtools/langtab.hxx>
 #include <svx/dlgutil.hxx>
-#include <vcl/builderfactory.hxx>
 #include <sal/log.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <tools/debug.hxx>

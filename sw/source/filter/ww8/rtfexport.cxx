@@ -24,6 +24,8 @@
 #include "rtfattributeoutput.hxx"
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <docsh.hxx>
 #include <viewsh.hxx>
 #include <viewopt.hxx>
@@ -41,6 +43,8 @@
 #include <editeng/boxitem.hxx>
 #include <editeng/shaditem.hxx>
 #include <lineinfo.hxx>
+#include <poolfmt.hxx>
+#include <redline.hxx>
 #include <swmodule.hxx>
 #include <IDocumentLayoutAccess.hxx>
 #include <IDocumentStylePoolAccess.hxx>
@@ -48,6 +52,7 @@
 #include <svtools/rtfkeywd.hxx>
 #include <filter/msfilter/rtfutil.hxx>
 #include <unotools/docinfohelper.hxx>
+#include <osl/diagnose.h>
 #include <rtl/tencinfo.h>
 #include <sal/log.hxx>
 #if OSL_DEBUG_LEVEL > 1
@@ -145,14 +150,14 @@ void RtfExport::AppendBookmark(const OUString& rName)
     m_pAttrOutput->WriteBookmarks_Impl(aStarts, aEnds);
 }
 
-void RtfExport::AppendAnnotationMarks(const SwTextNode& rNode, sal_Int32 nCurrentPos,
+void RtfExport::AppendAnnotationMarks(const SwWW8AttrIter& rAttrs, sal_Int32 nCurrentPos,
                                       sal_Int32 nLen)
 {
     std::vector<OUString> aStarts;
     std::vector<OUString> aEnds;
 
     IMarkVector aMarks;
-    if (GetAnnotationMarks(rNode, nCurrentPos, nCurrentPos + nLen, aMarks))
+    if (GetAnnotationMarks(rAttrs, nCurrentPos, nCurrentPos + nLen, aMarks))
     {
         for (const auto& pMark : aMarks)
         {
@@ -257,7 +262,7 @@ void RtfExport::WriteRevTab()
         return;
 
     // RTF always seems to use Unknown as the default first entry
-    GetRedline(OUString("Unknown"));
+    GetRedline("Unknown");
 
     for (SwRangeRedline* pRedl : m_pDoc->getIDocumentRedlineAccess().GetRedlineTable())
     {
@@ -417,7 +422,7 @@ void RtfExport::WriteMainText()
 {
     SAL_INFO("sw.rtf", OSL_THIS_FUNC << " start");
 
-    if (boost::optional<SvxBrushItem> oBrush = getBackground())
+    if (std::shared_ptr<SvxBrushItem> oBrush = getBackground(); oBrush)
     {
         Strm().WriteCharPtr(LO_STRING_SVTOOLS_RTF_VIEWBKSP).WriteChar('1');
         Strm().WriteCharPtr("{" OOO_STRING_SVTOOLS_RTF_IGNORE OOO_STRING_SVTOOLS_RTF_BACKGROUND);
@@ -745,10 +750,9 @@ ErrCode RtfExport::ExportDocument_Impl()
     // protected section in the document.
     {
         const SfxItemPool& rPool = m_pDoc->GetAttrPool();
-        sal_uInt32 const nMaxItem = rPool.GetItemCount2(RES_PROTECT);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem2 : rPool.GetItemSurrogates(RES_PROTECT))
         {
-            auto pProtect = rPool.GetItem2(RES_PROTECT, n);
+            auto pProtect = dynamic_cast<const SvxProtectItem*>(pItem2);
             if (pProtect && pProtect->IsContentProtected())
             {
                 Strm().WriteCharPtr(OOO_STRING_SVTOOLS_RTF_FORMPROT);
@@ -1180,7 +1184,6 @@ void RtfExport::OutColorTable()
 {
     // Build the table from rPool since the colors provided to
     // RtfAttributeOutput callbacks are too late.
-    sal_uInt32 nMaxItem;
     const SfxItemPool& rPool = m_pDoc->GetAttrPool();
 
     // MSO Word uses a default color table with 16 colors (which is used e.g. for highlighting)
@@ -1207,28 +1210,25 @@ void RtfExport::OutColorTable()
         InsColor(pCol->GetValue());
         if ((pCol = rPool.GetPoolDefaultItem(RES_CHRATR_COLOR)))
             InsColor(pCol->GetValue());
-        nMaxItem = rPool.GetItemCount2(RES_CHRATR_COLOR);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_CHRATR_COLOR))
         {
-            if ((pCol = rPool.GetItem2(RES_CHRATR_COLOR, n)))
+            if ((pCol = dynamic_cast<const SvxColorItem*>(pItem)))
                 InsColor(pCol->GetValue());
         }
 
         auto pUnder = GetDfltAttr(RES_CHRATR_UNDERLINE);
         InsColor(pUnder->GetColor());
-        nMaxItem = rPool.GetItemCount2(RES_CHRATR_UNDERLINE);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_CHRATR_UNDERLINE))
         {
-            if ((pUnder = rPool.GetItem2(RES_CHRATR_UNDERLINE, n)))
+            if ((pUnder = dynamic_cast<const SvxUnderlineItem*>(pItem)))
                 InsColor(pUnder->GetColor());
         }
 
         auto pOver = GetDfltAttr(RES_CHRATR_OVERLINE);
         InsColor(pOver->GetColor());
-        nMaxItem = rPool.GetItemCount2(RES_CHRATR_OVERLINE);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_CHRATR_OVERLINE))
         {
-            if ((pOver = rPool.GetItem2(RES_CHRATR_OVERLINE, n)))
+            if ((pOver = dynamic_cast<const SvxOverlineItem*>(pItem)))
                 InsColor(pOver->GetColor());
         }
     }
@@ -1244,10 +1244,9 @@ void RtfExport::OutColorTable()
         {
             InsColor(pBackground->GetColor());
         }
-        nMaxItem = rPool.GetItemCount2(*pIds);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(*pIds))
         {
-            if ((pBackground = static_cast<const SvxBrushItem*>(rPool.GetItem2(*pIds, n))))
+            if ((pBackground = static_cast<const SvxBrushItem*>(pItem)))
             {
                 InsColor(pBackground->GetColor());
             }
@@ -1262,10 +1261,9 @@ void RtfExport::OutColorTable()
         {
             InsColor(pShadow->GetColor());
         }
-        nMaxItem = rPool.GetItemCount2(RES_SHADOW);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_SHADOW))
         {
-            if (nullptr != (pShadow = rPool.GetItem2(RES_SHADOW, n)))
+            if ((pShadow = dynamic_cast<const SvxShadowItem*>(pItem)))
             {
                 InsColor(pShadow->GetColor());
             }
@@ -1277,10 +1275,9 @@ void RtfExport::OutColorTable()
         const SvxBoxItem* pBox;
         if (nullptr != (pBox = rPool.GetPoolDefaultItem(RES_BOX)))
             InsColorLine(*pBox);
-        nMaxItem = rPool.GetItemCount2(RES_BOX);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_BOX))
         {
-            if (nullptr != (pBox = rPool.GetItem2(RES_BOX, n)))
+            if ((pBox = dynamic_cast<const SvxBoxItem*>(pItem)))
                 InsColorLine(*pBox);
         }
     }
@@ -1289,20 +1286,18 @@ void RtfExport::OutColorTable()
         const SvxBoxItem* pCharBox;
         if ((pCharBox = rPool.GetPoolDefaultItem(RES_CHRATR_BOX)))
             InsColorLine(*pCharBox);
-        nMaxItem = rPool.GetItemCount2(RES_CHRATR_BOX);
-        for (sal_uInt32 n = 0; n < nMaxItem; ++n)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_CHRATR_BOX))
         {
-            if ((pCharBox = rPool.GetItem2(RES_CHRATR_BOX, n)))
+            if ((pCharBox = dynamic_cast<const SvxBoxItem*>(pItem)))
                 InsColorLine(*pCharBox);
         }
     }
 
     // TextFrame or paragraph background solid fill.
-    nMaxItem = rPool.GetItemCount2(XATTR_FILLCOLOR);
-    for (sal_uInt32 i = 0; i < nMaxItem; ++i)
+    for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(XATTR_FILLCOLOR))
     {
-        if (auto pItem = rPool.GetItem2(XATTR_FILLCOLOR, i))
-            InsColor(pItem->GetColorValue());
+        if (auto pColorItem = dynamic_cast<const XFillColorItem*>(pItem))
+            InsColor(pColorItem->GetColorValue());
     }
 
     for (std::size_t n = 0; n < m_aColTable.size(); ++n)

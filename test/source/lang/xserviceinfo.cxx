@@ -18,7 +18,6 @@
 #include <cppunit/extensions/HelperMacros.h>
 
 using namespace css;
-using namespace css::uno;
 
 namespace apitest
 {
@@ -34,14 +33,15 @@ void XServiceInfo::testGetSupportedServiceNames()
     uno::Reference<lang::XServiceInfo> xSI(init(), uno::UNO_QUERY_THROW);
 
     uno::Sequence<OUString> aServiceNames = xSI->getSupportedServiceNames();
-    CPPUNIT_ASSERT(aServiceNames.getLength());
+    CPPUNIT_ASSERT(aServiceNames.hasElements());
 }
 
 void XServiceInfo::testSupportsService()
 {
     uno::Reference<lang::XServiceInfo> xSI(init(), uno::UNO_QUERY_THROW);
 
-    CPPUNIT_ASSERT(xSI->supportsService(m_aServiceName));
+    for (const auto& aServiceName : m_aServiceNames)
+        CPPUNIT_ASSERT(xSI->supportsService(aServiceName));
 }
 
 } // namespace apitest

@@ -32,6 +32,7 @@
 #include <sfx2/docfilt.hxx>
 #include <svl/itemset.hxx>
 
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/packages/zip/ZipFileAccess.hpp>
 #include <drawinglayer/XShapeDumper.hxx>
@@ -396,7 +397,7 @@ protected:
     // Nth paragraph of text in given text shape
     uno::Reference< text::XTextRange > getParagraphFromShape( int nPara, uno::Reference< beans::XPropertySet > const & xShape )
     {
-        uno::Reference< text::XText > xText = uno::Reference< text::XTextRange>( xShape, uno::UNO_QUERY )->getText();
+        uno::Reference< text::XText > xText = uno::Reference< text::XTextRange>( xShape, uno::UNO_QUERY_THROW )->getText();
         CPPUNIT_ASSERT_MESSAGE( "Not a text shape", xText.is() );
 
         uno::Reference< container::XEnumerationAccess > paraEnumAccess( xText, uno::UNO_QUERY );

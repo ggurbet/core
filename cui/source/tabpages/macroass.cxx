@@ -25,15 +25,14 @@
 #include <comphelper/processfactory.hxx>
 #include <svl/macitem.hxx>
 #include <svx/dialogs.hrc>
-#include <svtools/svmedit.hxx>
+#include <svx/svxids.hrc>
+#include <tools/debug.hxx>
 #include <vcl/idle.hxx>
 #include <cfgutil.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/evntconf.hxx>
 #include <sfx2/objsh.hxx>
 #include <headertablistbox.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistentry.hxx>
 
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::frame::XFrame;
@@ -385,9 +384,9 @@ VclPtr<SfxTabPage> SfxMacroTabPage::Create(TabPageParent pParent, const SfxItemS
     return CreateSfxMacroTabPage(pParent, *rAttrSet);
 }
 
-SfxMacroAssignDlg::SfxMacroAssignDlg(weld::Window* pParent,
+SfxMacroAssignDlg::SfxMacroAssignDlg(weld::Widget* pParent,
     const Reference< XFrame >& rxDocumentFrame, const SfxItemSet& rSet)
-    : SfxSingleTabDialogController(pParent, rSet,"cui/ui/eventassigndialog.ui",
+    : SfxSingleTabDialogController(pParent, &rSet,"cui/ui/eventassigndialog.ui",
                                    "EventAssignDialog")
 {
     TabPageParent pPageParent(get_content_area(), this);

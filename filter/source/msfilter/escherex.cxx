@@ -29,12 +29,14 @@
 #include <svx/svdoashp.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdmodel.hxx>
+#include <svx/sdtfsitm.hxx>
 #include <editeng/outlobj.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/cvtgrf.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
+#include <tools/debug.hxx>
 #include <tools/stream.hxx>
 #include <tools/zcodec.hxx>
 #include <tools/urlobj.hxx>
@@ -46,6 +48,7 @@
 #include <svx/EnhancedCustomShapeFunctionParser.hxx>
 #include <svx/EnhancedCustomShape2d.hxx>
 #include <com/sun/star/beans/PropertyValues.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/awt/GradientStyle.hpp>
 #include <com/sun/star/awt/RasterOperation.hpp>
@@ -342,7 +345,7 @@ void EscherPropertyContainer::Commit( SvStream& rSt, sal_uInt16 nVersion, sal_uI
             {
                 if ( !pSortStruct[ i ].nProp.empty() )
                     rSt.WriteBytes(
-                        &pSortStruct[i].nProp[0],
+                        pSortStruct[i].nProp.data(),
                         pSortStruct[i].nProp.size());
             }
         }
@@ -1371,7 +1374,7 @@ void EscherPropertyContainer::CreateEmbeddedBitmapProperties(
     if (!xGraphic.is())
         return;
     const Graphic aGraphic(xGraphic);
-    if (!aGraphic)
+    if (aGraphic.IsNone())
         return;
     const GraphicObject aGraphicObject(aGraphic);
     if (aGraphicObject.GetType() == GraphicType::NONE)
@@ -3067,7 +3070,7 @@ void EscherPropertyContainer::CreateCustomShapeProperties( const MSO_SPT eShapeT
                                     if ( rrProp.Value >>= aSegments )
                                     {
                                         // creating seginfo
-                                        if ( static_cast<sal_uInt16>(aSegments.getLength()) )
+                                        if ( aSegments.hasElements() )
                                         {
                                             sal_uInt16 j, nElements = static_cast<sal_uInt16>(aSegments.getLength());
                                             sal_uInt16 nElementSize = 2;
@@ -3204,7 +3207,7 @@ void EscherPropertyContainer::CreateCustomShapeProperties( const MSO_SPT eShapeT
                                     uno::Sequence<drawing::EnhancedCustomShapeTextFrame> aPathTextFrames;
                                     if ( rrProp.Value >>= aPathTextFrames )
                                     {
-                                        if ( static_cast<sal_uInt16>(aPathTextFrames.getLength()) )
+                                        if ( aPathTextFrames.hasElements() )
                                         {
                                             sal_uInt16 j, nElements = static_cast<sal_uInt16>(aPathTextFrames.getLength());
                                             sal_uInt16 nElementSize = 16;
@@ -3656,7 +3659,7 @@ void EscherPropertyContainer::CreateCustomShapeProperties( const MSO_SPT eShapeT
                 if ( aPathCoordinatesProp >>= aCoordinates )
                 {
                     // creating the vertices
-                    if (aCoordinates.getLength() > 0)
+                    if (aCoordinates.hasElements())
                     {
                         sal_uInt16 j, nElements = static_cast<sal_uInt16>(aCoordinates.getLength());
                         sal_uInt16 nElementSize = 8;
@@ -4190,7 +4193,7 @@ sal_uInt32 EscherGraphicProvider::GetBlibID( SvStream& rPicOutStrm, GraphicObjec
                 if ( !aGraphic.IsAnimated() )
                     nErrCode = GraphicConverter::Export( aStream, aGraphic, ( eGraphicType == GraphicType::Bitmap ) ? ConvertDataFormat::PNG  : ConvertDataFormat::EMF );
                 else
-                {   // to store a animation, a gif has to be included into the msOG chunk of a png  #I5583#
+                {   // to store an animation, a gif has to be included into the msOG chunk of a png  #I5583#
                     GraphicFilter &rFilter = GraphicFilter::GetGraphicFilter();
                     SvMemoryStream  aGIFStream;
                     const char* const pString = "MSOFFICE9.0";
@@ -5173,8 +5176,8 @@ sal_uInt32 EscherEx::EnterGroup( const OUString& rShapeName, const tools::Rectan
                         mpOutStrm->Tell() );
     mpOutStrm ->WriteInt32( aRect.Left() )  // Bounding box for the grouped shapes to which they will be attached
                .WriteInt32( aRect.Top() )
-               .WriteInt32( aRect.Right() )
-               .WriteInt32( aRect.Bottom() );
+               .WriteInt32( aRect.IsWidthEmpty() ? aRect.Left() : aRect.Right() )
+               .WriteInt32( aRect.IsHeightEmpty() ? aRect.Top() : aRect.Bottom() );
 
     sal_uInt32 nShapeId = GenerateShapeId();
     if ( !mnGroupLevel )

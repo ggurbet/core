@@ -31,6 +31,7 @@
 #include <svl/languageoptions.hxx>
 #include <svtools/ctrltool.hxx>
 #include <svtools/langtab.hxx>
+#include <tools/stream.hxx>
 #include <vcl/graphicfilter.hxx>
 
 #include <svl/srchitem.hxx>
@@ -59,8 +60,11 @@
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/beans/PropertyValues.hpp>
 #include <com/sun/star/lang/Locale.hpp>
+#include <com/sun/star/linguistic2/XDictionary.hpp>
+#include <com/sun/star/linguistic2/XSearchableDictionaryList.hpp>
 #include <linguistic/lngprops.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
 #include <sfx2/viewsh.hxx>
@@ -171,9 +175,9 @@ void EditView::setEditViewCallbacks(const EditViewCallbacks* pEditViewCallbacks)
     pImpEditView->setEditViewCallbacks(pEditViewCallbacks);
 }
 
-bool EditView::hasEditViewCallbacks() const
+const EditViewCallbacks* EditView::getEditViewCallbacks() const
 {
-    return pImpEditView->hasEditViewCallbacks();
+    return pImpEditView->getEditViewCallbacks();
 }
 
 ImpEditEngine* EditView::GetImpEditEngine() const
@@ -204,12 +208,12 @@ tools::Rectangle EditView::GetInvalidateRect() const
 
 void EditView::InvalidateWindow(const tools::Rectangle& rClipRect)
 {
-    if (pImpEditView->hasEditViewCallbacks())
+    if (const EditViewCallbacks* pEditViewCallbacks = pImpEditView->getEditViewCallbacks())
     {
         // do not invalidate and trigger a global repaint, but forward
         // the need for change to the applied EditViewCallback, can e.g.
         // be used to visualize the active edit text in an OverlayObject
-        pImpEditView->mpEditViewCallbacks->EditViewInvalidate();
+        pEditViewCallbacks->EditViewInvalidate(rClipRect);
     }
     else
     {
@@ -234,8 +238,8 @@ void EditView::InvalidateOtherViewWindows( const tools::Rectangle& rInvRect )
 void EditView::Invalidate()
 {
     const tools::Rectangle& rInvRect = GetInvalidateRect();
-    pImpEditView->GetWindow()->Invalidate( rInvRect );
-    InvalidateOtherViewWindows( rInvRect );
+    pImpEditView->InvalidateAtWindow(rInvRect);
+    InvalidateOtherViewWindows(rInvRect);
 }
 
 void EditView::SetReadOnly( bool bReadOnly )
@@ -329,8 +333,7 @@ void EditView::Paint( const tools::Rectangle& rRect, OutputDevice* pTargetDevice
 void EditView::SetEditEngine( EditEngine* pEditEng )
 {
     pImpEditView->pEditEngine = pEditEng;
-    EditSelection aStartSel;
-    aStartSel = pImpEditView->pEditEngine->GetEditDoc().GetStartPaM();
+    EditSelection aStartSel = pImpEditView->pEditEngine->GetEditDoc().GetStartPaM();
     pImpEditView->SetEditSelection( aStartSel );
 }
 
@@ -589,7 +592,7 @@ ErrCode EditView::Read( SvStream& rInput, EETextFormat eFormat, SvKeyValueIterat
 
 void EditView::Cut()
 {
-    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetWindow()->GetClipboard());
+    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(pImpEditView->GetClipboard());
     pImpEditView->CutCopy( aClipBoard, true );
 }
 
@@ -602,19 +605,19 @@ css::uno::Reference< css::datatransfer::XTransferable > EditView::GetTransferabl
 
 void EditView::Copy()
 {
-    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetWindow()->GetClipboard());
+    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(pImpEditView->GetClipboard());
     pImpEditView->CutCopy( aClipBoard, false );
 }
 
 void EditView::Paste()
 {
-    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetWindow()->GetClipboard());
+    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(pImpEditView->GetClipboard());
     pImpEditView->Paste( aClipBoard );
 }
 
 void EditView::PasteSpecial()
 {
-    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(GetWindow()->GetClipboard());
+    Reference<css::datatransfer::clipboard::XClipboard> aClipBoard(pImpEditView->GetClipboard());
     pImpEditView->Paste(aClipBoard, true );
 }
 
@@ -1376,8 +1379,7 @@ bool EditView::ChangeFontSize( bool bGrow, SfxItemSet& rSet, const FontList* pFo
             if( nHeight != static_cast<long>(aFontHeightItem.GetHeight()) )
             {
                 aFontHeightItem.SetHeight( nHeight );
-                std::unique_ptr<SfxPoolItem> pNewItem(aFontHeightItem.CloneSetWhich(*pWhich));
-                rSet.Put( *pNewItem );
+                rSet.Put( aFontHeightItem.CloneSetWhich(*pWhich) );
                 bRet = true;
             }
         }

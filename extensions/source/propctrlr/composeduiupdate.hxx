@@ -34,7 +34,7 @@ namespace pcr
 
     struct MapHandlerToUI;
 
-    /** callback for an ComposedPropertyUIUpdate checking a given property for existence
+    /** callback for a ComposedPropertyUIUpdate checking a given property for existence
     */
     class SAL_NO_VTABLE IPropertyExistenceCheck
     {
@@ -112,7 +112,7 @@ namespace pcr
             firing is suspended, only explicit ->fire calls trigger the notification to the
             delegator UI.
 
-            Note that calls to ->suspendAutoFire are culmulative, that is, if you make multiple calls
+            Note that calls to ->suspendAutoFire are cumulative, that is, if you make multiple calls
             they must be accompanied by an equal number of calls to ->resumeAutoFire, to enable
             auto-firing again.
 
@@ -157,7 +157,7 @@ namespace pcr
                 <li>If an element should have been rebuilt (->XObjectInspectorUI::rebuiltPropertyUI)
                     at least once, it's rebuilt at the delegator UI, too.<br/>
                     After that, the request to rebuild the UI for this property is cleared, so subsequent
-                    calls to ->fire will not trigger an new rebuilt request.
+                    calls to ->fire will not trigger a new rebuilt request.
             </ul>
 
             @precond

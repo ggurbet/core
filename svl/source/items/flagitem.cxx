@@ -20,7 +20,6 @@
 
 #include <svl/flagitem.hxx>
 #include <svl/poolitem.hxx>
-#include <tools/stream.hxx>
 #include <sal/log.hxx>
 
 
@@ -28,13 +27,6 @@ SfxFlagItem::SfxFlagItem( sal_uInt16 nW, sal_uInt16 nV ) :
     SfxPoolItem( nW ),
     nVal(nV)
 {
-}
-
-
-SvStream& SfxFlagItem::Store(SvStream &rStream, sal_uInt16) const
-{
-    rStream.WriteUInt16( nVal );
-    return rStream;
 }
 
 
@@ -58,13 +50,6 @@ sal_uInt8 SfxFlagItem::GetFlagCount() const
 {
     SAL_INFO("svl", "calling GetValueText(sal_uInt16) on SfxFlagItem -- override!");
     return 0;
-}
-
-
-SfxPoolItem* SfxFlagItem::Create(SvStream &, sal_uInt16) const
-{
-    SAL_INFO("svl", "calling Create() on SfxFlagItem -- override!");
-    return nullptr;
 }
 
 

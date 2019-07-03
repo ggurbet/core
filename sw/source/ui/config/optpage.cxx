@@ -60,15 +60,18 @@
 #include <sfx2/request.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/slstitm.hxx>
 #include <svl/ctloptions.hxx>
 #include <svl/eitem.hxx>
 #include <svl/cjkoptions.hxx>
 #include <svtools/ctrltool.hxx>
+#include <svtools/unitconv.hxx>
 #include <sfx2/htmlmode.hxx>
 #include <svx/xtable.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/strarray.hxx>
+#include <svx/svxids.hrc>
 
 #include <vcl/settings.hxx>
 #include <vcl/builderfactory.hxx>

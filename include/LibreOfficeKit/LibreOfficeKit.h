@@ -104,6 +104,12 @@ struct _LibreOfficeKitClass
                            const int nCertificateBinarySize,
                            const unsigned char* pPrivateKeyBinary,
                            const int nPrivateKeyBinarySize);
+
+    /// @see lok::Office::runLoop()
+    void (*runLoop) (LibreOfficeKit* pThis,
+                     LibreOfficeKitPollCallback pPollCallback,
+                     LibreOfficeKitWakeCallback pWakeCallback,
+                     void* pData);
 };
 
 #define LIBREOFFICEKIT_DOCUMENT_HAS(pDoc,member) LIBREOFFICEKIT_HAS_MEMBER(LibreOfficeKitDocumentClass,member,(pDoc)->pClass->nSize)
@@ -288,7 +294,7 @@ struct _LibreOfficeKitDocumentClass
                          const int width, const int height);
 
     /// @see lok::Document::postWindow().
-    void (*postWindow) (LibreOfficeKitDocument* pThis, unsigned nWindowId, int nAction);
+    void (*postWindow) (LibreOfficeKitDocument* pThis, unsigned nWindowId, int nAction, const char* pData);
 
     /// @see lok::Document::postWindowKeyEvent().
     void (*postWindowKeyEvent) (LibreOfficeKitDocument* pThis,
@@ -356,9 +362,21 @@ struct _LibreOfficeKitDocumentClass
 
     /// @see lok::Document::getSignatureState().
     int (*getSignatureState) (LibreOfficeKitDocument* pThis);
+// END CERTIFICATE AND SIGNING
 
     /// @see lok::Document::renderShapeSelection
     size_t (*renderShapeSelection)(LibreOfficeKitDocument* pThis, char** pOutput);
+
+    /// @see lok::Document::postWindowGestureEvent().
+    void (*postWindowGestureEvent) (LibreOfficeKitDocument* pThis,
+                                  unsigned nWindowId,
+                                  const char* pType,
+                                  int nX,
+                                  int nY,
+                                  int nOffset);
+
+    /// @see lok::Document::createViewWithOptions().
+    int (*createViewWithOptions) (LibreOfficeKitDocument* pThis, const char* pOptions);
 
 #endif // defined LOK_USE_UNSTABLE_API || defined LIBO_INTERNAL_ONLY
 };

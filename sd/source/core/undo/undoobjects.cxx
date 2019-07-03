@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <tools/debug.hxx>
 #include <undo/undoobjects.hxx>
 #include <sdpage.hxx>
 #include <CustomAnimationEffect.hxx>
@@ -91,8 +92,8 @@ void UndoRemovePresObjectImpl::Redo()
         mpUndoUsercall->Redo();
 }
 
-UndoRemoveObject::UndoRemoveObject( SdrObject& rObject, bool bOrdNumDirect )
-: SdrUndoRemoveObj( rObject, bOrdNumDirect ), UndoRemovePresObjectImpl( rObject )
+UndoRemoveObject::UndoRemoveObject( SdrObject& rObject )
+: SdrUndoRemoveObj( rObject ), UndoRemovePresObjectImpl( rObject )
 , mxSdrObject(&rObject)
 {
 }
@@ -144,8 +145,8 @@ void UndoDeleteObject::Redo()
     }
 }
 
-UndoReplaceObject::UndoReplaceObject( SdrObject& rOldObject, SdrObject& rNewObject, bool bOrdNumDirect )
-: SdrUndoReplaceObj( rOldObject, rNewObject, bOrdNumDirect )
+UndoReplaceObject::UndoReplaceObject( SdrObject& rOldObject, SdrObject& rNewObject )
+: SdrUndoReplaceObj( rOldObject, rNewObject )
 , UndoRemovePresObjectImpl( rOldObject )
 , mxSdrObject( &rOldObject )
 {

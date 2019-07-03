@@ -42,7 +42,9 @@
 #include <com/sun/star/sdb/RowChangeAction.hpp>
 #include <com/sun/star/sdb/XQueriesSupplier.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbc/XPreparedStatement.hpp>
+#include <com/sun/star/sdbc/XResultSetUpdate.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
 #include <com/sun/star/sdbcx/XDeleteRows.hpp>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
@@ -60,7 +62,9 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/eitem.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/fmtfield.hxx>
+#include <vcl/svapp.hxx>
 #include <svl/numuno.hxx>
 #include <tools/debug.hxx>
 #include <tools/multisel.hxx>
@@ -71,7 +75,7 @@
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
 #include <sal/log.hxx>
-
+#include <i18nlangtag/languagetag.hxx>
 #include <math.h>
 #include <memory>
 
@@ -1883,8 +1887,8 @@ namespace
                 {
                     try {
                         xProp->getPropertyValue( _sPropName ) >>= sRetText;
-                    } catch (UnknownPropertyException const& e) {
-                        SAL_WARN("svx.fmcomp", e);
+                    } catch (UnknownPropertyException const&) {
+                        TOOLS_WARN_EXCEPTION("svx.fmcomp", "");
                     }
                 }
             }

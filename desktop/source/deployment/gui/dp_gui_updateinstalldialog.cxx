@@ -24,7 +24,6 @@
 #include <osl/file.hxx>
 #include <osl/conditn.hxx>
 #include <cppuhelper/exc_hlp.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/svapp.hxx>
 #include <cppuhelper/implbase.hxx>
 
@@ -66,8 +65,6 @@
 #include <comphelper/anytostring.hxx>
 
 #include <vector>
-
-namespace vcl { class Window; }
 
 namespace cssu = ::com::sun::star::uno;
 
@@ -355,7 +352,7 @@ void UpdateInstallDialog::Thread::downloadExtensions()
             //remember occurring exceptions in case we need to print out error information
             std::vector< std::pair<OUString, cssu::Exception> > vecExceptions;
             cssu::Sequence<OUString> seqDownloadURLs = info.getUpdateDownloadUrls();
-            OSL_ENSURE(seqDownloadURLs.getLength() > 0, "No download URL provided!");
+            OSL_ENSURE(seqDownloadURLs.hasElements(), "No download URL provided!");
             for (sal_Int32 j = 0; j < seqDownloadURLs.getLength(); j++)
             {
                 try

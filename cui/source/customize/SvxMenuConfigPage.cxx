@@ -29,10 +29,9 @@
 #include <vcl/help.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/decoview.hxx>
-#include <vcl/toolbox.hxx>
-#include <vcl/scrbar.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 
 #include <sfx2/app.hxx>
 #include <sfx2/sfxdlg.hxx>
@@ -46,9 +45,6 @@
 #include <sfx2/filedlghelper.hxx>
 #include <svl/stritem.hxx>
 #include <svtools/miscopt.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistentry.hxx>
-#include <vcl/viewdataentry.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <algorithm>
@@ -170,9 +166,23 @@ IMPL_LINK(SvxMenuConfigPage, MenuEntriesSizeAllocHdl, const Size&, rSize, void)
 {
     weld::TreeView& rTreeView = m_xContentsListBox->get_widget();
     std::vector<int> aWidths;
-    int nImageColWidth = rTreeView.get_checkbox_column_width();
+
+    int nExpectedSize = 16;
+
+    int nStandardImageColWidth = rTreeView.get_checkbox_column_width();
+    int nMargin = nStandardImageColWidth - nExpectedSize;
+    if (nMargin < 16)
+        nMargin = 16;
+
+    if (SvxConfigPageHelper::GetImageType() & css::ui::ImageType::SIZE_LARGE)
+        nExpectedSize = 24;
+    else if (SvxConfigPageHelper::GetImageType() & css::ui::ImageType::SIZE_32)
+        nExpectedSize = 32;
+
+    int nImageColWidth = nExpectedSize + nMargin;
+
     aWidths.push_back(nImageColWidth);
-    aWidths.push_back(rSize.Width() - 2 * nImageColWidth);
+    aWidths.push_back(rSize.Width() - (nImageColWidth + nStandardImageColWidth));
     rTreeView.set_column_fixed_widths(aWidths);
 }
 
@@ -233,10 +243,18 @@ void SvxMenuConfigPage::UpdateButtonStates()
 
     m_xModifyBtn->set_sensitive( bIsValidSelection && !bIsSeparator);
 
+    // If there is no top level selection (menu), then everything working on the right box
+    // which contains the functions of the selected menu/toolbar needs to be disabled
+    SvxConfigEntry* pMenuData = GetTopLevelSelection();
+
+    m_xInsertBtn->set_sensitive(pMenuData != nullptr);
+
+    m_xAddCommandButton->set_sensitive(pMenuData != nullptr);
+    m_xRemoveCommandButton->set_sensitive(pMenuData != nullptr);
+
     //Handle the gear button
-    if (m_bIsMenuBar)
+    if (pMenuData && m_bIsMenuBar)
     {
-        SvxConfigEntry* pMenuData = GetTopLevelSelection();
         // Add option (gear_add) will always be enabled
         m_xGearBtn->set_item_sensitive( "menu_gear_delete", pMenuData->IsDeletable() );
         m_xGearBtn->set_item_sensitive( "menu_gear_rename", pMenuData->IsRenamable() );
@@ -543,7 +561,7 @@ IMPL_LINK_NOARG(SvxMenuConfigPage, ResetMenuHdl, weld::Button&, void)
 
         ReloadTopLevelListBox();
 
-        // Reselect the resetted menu
+        // Reselect the reset menu
         m_xTopLevelListBox->set_active(nPos);
         SelectElement();
     }

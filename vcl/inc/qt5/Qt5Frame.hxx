@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <config_vclplug.h>
+
 #include <salframe.hxx>
 #include <vclpluginapi.h>
 
@@ -30,18 +32,35 @@
 
 #include <QtCore/QObject>
 
-class Qt5Graphics;
-class Qt5Instance;
-class Qt5Menu;
-class QWidget;
-class Qt5MainWindow;
+#if QT5_USING_X11
+#include <unx/screensaverinhibitor.hxx>
+// any better way to get rid of the X11 / Qt type clashes?
+#undef Bool
+#undef CursorShape
+#undef Expose
+#undef KeyPress
+#undef KeyRelease
+#undef FocusIn
+#undef FocusOut
+#undef FontChange
+#undef None
+#undef Status
+#undef Unsorted
+#endif
+
 class Qt5DragSource;
 class Qt5DropTarget;
+class Qt5Graphics;
+class Qt5Instance;
+class Qt5MainWindow;
+class Qt5Menu;
+class Qt5SvpGraphics;
+
+class QImage;
 class QMimeData;
 class QPaintDevice;
 class QScreen;
-class QImage;
-class SvpSalGraphics;
+class QWidget;
 
 class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
 {
@@ -56,16 +75,17 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
     std::unique_ptr<QImage> m_pQImage;
     std::unique_ptr<Qt5Graphics> m_pQt5Graphics;
     UniqueCairoSurface m_pSurface;
-    std::unique_ptr<SvpSalGraphics> m_pOurSvpGraphics;
+    std::unique_ptr<Qt5SvpGraphics> m_pOurSvpGraphics;
     // in base class, this ptr is the same as m_pOurSvpGraphic
     // in derived class, it can point to a derivative
-    // of SvpSalGraphics (which the derived class then owns)
-    SvpSalGraphics* m_pSvpGraphics;
+    // of Qt5SvpGraphics (which the derived class then owns)
+    Qt5SvpGraphics* m_pSvpGraphics;
     DamageHandler m_aDamageHandler;
     QRegion m_aRegion;
     bool m_bNullRegion;
 
     bool m_bGraphicsInUse;
+    bool m_bGraphicsInvalid;
     SalFrameStyleFlags m_nStyle;
     Qt5Frame* m_pParent;
     PointerStyle m_ePointerStyle;
@@ -81,9 +101,15 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
     bool m_bDefaultSize;
     bool m_bDefaultPos;
     bool m_bFullScreen;
+    bool m_bFullScreenSpanAll;
+    sal_uInt32 m_nRestoreScreen;
     QRect m_aRestoreGeometry;
 
-    void Center();
+#if QT5_USING_X11
+    ScreenSaverInhibitor m_ScreenSaverInhibitor;
+#endif
+
+    void SetDefaultPos();
     Size CalcDefaultSize();
     void SetDefaultSize();
 
@@ -107,23 +133,18 @@ class VCLPLUG_QT5_PUBLIC Qt5Frame : public QObject, public SalFrame
     void TriggerPaintEvent();
     void TriggerPaintEvent(QRect aRect);
 
-private:
-    void setVisible(bool);
-
-Q_SIGNALS:
-    void tooltipRequest(const OUString& rTooltip);
-
 public:
     Qt5Frame(Qt5Frame* pParent, SalFrameStyleFlags nSalFrameStyle, bool bUseCairo);
     virtual ~Qt5Frame() override;
 
     QWidget* GetQWidget() const { return m_pQWidget; }
     Qt5MainWindow* GetTopLevelWindow() const { return m_pTopLevel; }
+    QWidget* asChild() const;
 
     void Damage(sal_Int32 nExtentsX, sal_Int32 nExtentsY, sal_Int32 nExtentsWidth,
                 sal_Int32 nExtentsHeight) const;
 
-    virtual void InitSvpSalGraphics(SvpSalGraphics* pSvpSalGraphics);
+    void InitQt5SvpGraphics(Qt5SvpGraphics* pQt5SvpGraphics);
     virtual SalGraphics* AcquireGraphics() override;
     virtual void ReleaseGraphics(SalGraphics* pGraphics) override;
 
@@ -139,8 +160,9 @@ public:
     virtual void registerDropTarget(Qt5DropTarget* pDropTarget);
     virtual void deregisterDropTarget(Qt5DropTarget const* pDropTarget);
     void draggingStarted(const int x, const int y, Qt::DropActions eActions,
-                         const QMimeData* pQMimeData);
-    void dropping(const int x, const int y, const QMimeData* pQMimeData);
+                         Qt::KeyboardModifiers eKeyMod, const QMimeData* pQMimeData);
+    void dropping(const int x, const int y, Qt::KeyboardModifiers eKeyMod,
+                  const QMimeData* pQMimeData);
 
     virtual void SetExtendedFrameStyle(SalExtStyle nExtStyle) override;
     virtual void Show(bool bVisible, bool bNoActivate = false) override;
@@ -188,6 +210,8 @@ public:
     virtual void SetApplicationID(const OUString&) override;
 
     inline bool CallCallback(SalEvent nEvent, const void* pEvent) const;
+
+    cairo_t* getCairoContext() const;
 };
 
 inline bool Qt5Frame::CallCallback(SalEvent nEvent, const void* pEvent) const

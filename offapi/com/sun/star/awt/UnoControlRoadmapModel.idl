@@ -29,7 +29,7 @@
  module com {  module sun {  module star {  module awt {
 
 
-/** specifies the standard model of an UnoControlContainer.
+/** specifies the standard model of a UnoControlContainer.
  */
 service UnoControlRoadmapModel
 {
@@ -68,7 +68,7 @@ service UnoControlRoadmapModel
 
 
 
-    /** specifies an URL to an image to use for the control.
+    /** specifies a URL to an image to use for the control.
         The image is placed in the lower right corner of the control
         @see Graphic
      */

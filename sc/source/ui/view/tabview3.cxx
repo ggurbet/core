@@ -64,6 +64,7 @@
 #include <AccessibilityHints.hxx>
 #include <rangeutl.hxx>
 #include <client.hxx>
+#include <simpref.hxx>
 #include <tabprotection.hxx>
 #include <markdata.hxx>
 #include <formula/FormulaCompiler.hxx>
@@ -388,7 +389,7 @@ void ScTabView::SetCursor( SCCOL nPosX, SCROW nPosY, bool bNew )
             if (nPosX > aViewData.GetMaxTiledCol() - 10 || nPosY > aViewData.GetMaxTiledRow() - 25)
             {
                 ScDocShell* pDocSh = aViewData.GetDocShell();
-                ScModelObj* pModelObj = pDocSh ? ScModelObj::getImplementation( pDocSh->GetModel() ) : nullptr;
+                ScModelObj* pModelObj = pDocSh ? comphelper::getUnoTunnelImplementation<ScModelObj>( pDocSh->GetModel() ) : nullptr;
                 Size aOldSize(0, 0);
                 if (pModelObj)
                     aOldSize = pModelObj->getDocumentSize();
@@ -436,6 +437,22 @@ void ScTabView::SetCursor( SCCOL nPosX, SCROW nPosY, bool bNew )
     }
 }
 
+static bool lcl_IsScSimpleRefDlgOpen(SfxViewFrame* pViewFrm)
+{
+    if (pViewFrm->HasChildWindow(WID_SIMPLE_REF))
+    {
+        SfxChildWindow* pChild = pViewFrm->GetChildWindow(WID_SIMPLE_REF);
+        if (pChild)
+        {
+            auto xDlgController = pChild->GetController();
+            if (xDlgController && xDlgController->getDialog()->get_visible())
+                return true;
+        }
+    }
+
+    return false;
+}
+
 void ScTabView::CheckSelectionTransfer()
 {
     if ( aViewData.IsActive() )     // only for active view
@@ -451,7 +468,12 @@ void ScTabView::CheckSelectionTransfer()
                 pOld->ForgetView();
 
             pScMod->SetSelectionTransfer( pNew.get() );
-            pNew->CopyToSelection( GetActiveWin() );                    // may delete pOld
+
+            // tdf#124975 changing the calc selection can trigger removal of the
+            // selection of an open ScSimpleRefDlg dialog, so don't inform the
+            // desktop clipboard of the changed selection if that dialog is open
+            if (!lcl_IsScSimpleRefDlgOpen(aViewData.GetViewShell()->GetViewFrame()))
+                pNew->CopyToSelection( GetActiveWin() );                    // may delete pOld
 
             // Log the selection change
             ScMarkData& rMark = aViewData.GetMarkData();
@@ -507,7 +529,7 @@ void ScTabView::SelectionChanged()
         uno::Reference<frame::XController> xController = pViewFrame->GetFrame().GetController();
         if (xController.is())
         {
-            ScTabViewObj* pImp = ScTabViewObj::getImplementation( xController );
+            ScTabViewObj* pImp = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
             if (pImp)
                 pImp->SelectionChanged();
         }
@@ -848,19 +870,19 @@ void ScTabView::RemoveHintWindow()
 }
 
 // find window that should not be over the cursor
-static vcl::Window* lcl_GetCareWin(SfxViewFrame* pViewFrm)
+static weld::Window* lcl_GetCareWin(SfxViewFrame* pViewFrm)
 {
     //! also spelling ??? (then set the member variables when calling)
 
     // search & replace
-    if ( pViewFrm->HasChildWindow(SID_SEARCH_DLG) )
+    if (pViewFrm->HasChildWindow(SID_SEARCH_DLG))
     {
         SfxChildWindow* pChild = pViewFrm->GetChildWindow(SID_SEARCH_DLG);
         if (pChild)
         {
-            vcl::Window* pWin = pChild->GetWindow();
-            if (pWin && pWin->IsVisible())
-                return pWin;
+            auto xDlgController = pChild->GetController();
+            if (xDlgController && xDlgController->getDialog()->get_visible())
+                return xDlgController->getDialog();
         }
     }
 
@@ -870,9 +892,9 @@ static vcl::Window* lcl_GetCareWin(SfxViewFrame* pViewFrm)
         SfxChildWindow* pChild = pViewFrm->GetChildWindow(FID_CHG_ACCEPT);
         if (pChild)
         {
-            vcl::Window* pWin = pChild->GetWindow();
-            if (pWin && pWin->IsVisible())
-                return pWin;
+            auto xDlgController = pChild->GetController();
+            if (xDlgController && xDlgController->getDialog()->get_visible())
+                return xDlgController->getDialog();
         }
     }
 
@@ -940,16 +962,18 @@ void ScTabView::AlignToCursor( SCCOL nCurX, SCROW nCurY, ScFollowMode eMode,
 
         if ( eMode == SC_FOLLOW_JUMP )
         {
-            vcl::Window* pCare = lcl_GetCareWin( aViewData.GetViewShell()->GetViewFrame() );
+            weld::Window* pCare = lcl_GetCareWin( aViewData.GetViewShell()->GetViewFrame() );
             if (pCare)
             {
                 bool bLimit = false;
                 tools::Rectangle aDlgPixel;
                 Size aWinSize;
                 vcl::Window* pWin = GetActiveWin();
-                if (pWin)
+                weld::Window* pFrame = pWin ? pWin->GetFrameWeld() : nullptr;
+                int x, y, width, height;
+                if (pFrame && pCare->get_extents_relative_to(*pFrame, x, y, width, height))
                 {
-                    aDlgPixel = pCare->GetWindowExtentsRelative( pWin );
+                    aDlgPixel = tools::Rectangle(Point(x, y), Size(width, height));
                     aWinSize = pWin->GetOutputSizePixel();
                     // dos the dialog cover the GridWin?
                     if ( aDlgPixel.Right() >= 0 && aDlgPixel.Left() < aWinSize.Width() )
@@ -1989,10 +2013,14 @@ void ScTabView::SetTabNo( SCTAB nTab, bool bNew, bool bExtendSelection, bool bSa
             sal_uInt16 nCurRefDlgId=pScMod->GetCurRefDlgId();
             SfxViewFrame* pViewFrm = aViewData.GetViewShell()->GetViewFrame();
             SfxChildWindow* pChildWnd = pViewFrm->GetChildWindow( nCurRefDlgId );
-            IAnyRefDialog* pRefDlg = pChildWnd ? dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow()) : nullptr;
-            if (pRefDlg)
+            if (pChildWnd)
             {
-                pRefDlg->ViewShellChanged();
+                if (pChildWnd->GetController())
+                {
+                    IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetController().get());
+                    if (pRefDlg)
+                        pRefDlg->ViewShellChanged();
+                }
             }
         }
 

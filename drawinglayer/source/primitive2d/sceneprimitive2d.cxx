@@ -24,6 +24,7 @@
 #include <basegfx/polygon/b2dpolygonclipper.hxx>
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
+#include <drawinglayer/attribute/sdrlightattribute3d.hxx>
 #include <drawinglayer/primitive2d/bitmapprimitive2d.hxx>
 #include <drawinglayer/processor3d/zbufferprocessor3d.hxx>
 #include <drawinglayer/processor3d/shadow3dextractor.hxx>
@@ -262,20 +263,23 @@ namespace drawinglayer
                     // only needed for dragging), reduce resolution extra
                     // to speed up dragging interactions
                     const double fArea(fViewSizeX * fViewSizeY);
-                    double fReducedVisualisationFactor(1.0 / (sqrt(fArea) * (1.0 / 170.0)));
+                    if (fArea != 0.0)
+                    {
+                        double fReducedVisualisationFactor(1.0 / (sqrt(fArea) * (1.0 / 170.0)));
 
-                    if(fReducedVisualisationFactor > 1.0)
-                    {
-                        fReducedVisualisationFactor = 1.0;
-                    }
-                    else if(fReducedVisualisationFactor < 0.20)
-                    {
-                        fReducedVisualisationFactor = 0.20;
-                    }
+                        if(fReducedVisualisationFactor > 1.0)
+                        {
+                            fReducedVisualisationFactor = 1.0;
+                        }
+                        else if(fReducedVisualisationFactor < 0.20)
+                        {
+                            fReducedVisualisationFactor = 0.20;
+                        }
 
-                    if(fReducedVisualisationFactor != 1.0)
-                    {
-                        fReduceFactor *= fReducedVisualisationFactor;
+                        if(fReducedVisualisationFactor != 1.0)
+                        {
+                            fReduceFactor *= fReducedVisualisationFactor;
+                        }
                     }
                 }
 
@@ -291,7 +295,10 @@ namespace drawinglayer
 
                     // bring to unit coordinates by applying inverse DiscreteRange
                     aObjToUnit.translate(-aDiscreteRange.getMinX(), -aDiscreteRange.getMinY());
-                    aObjToUnit.scale(1.0 / aDiscreteRange.getWidth(), 1.0 / aDiscreteRange.getHeight());
+                    if (aDiscreteRange.getWidth() != 0.0 && aDiscreteRange.getHeight() != 0.0)
+                    {
+                        aObjToUnit.scale(1.0 / aDiscreteRange.getWidth(), 1.0 / aDiscreteRange.getHeight());
+                    }
 
                     // calculate transformed user coordinate system
                     const basegfx::B2DPoint aStandardNull(0.0, 0.0);
@@ -365,7 +372,7 @@ namespace drawinglayer
                         nOversampleValue ? nRasterHeight * nOversampleValue : nRasterHeight);
 
                     // check for parallel execution possibilities
-                    static bool bMultithreadAllowed = true; // loplugin:constvars:ignore
+                    static bool bMultithreadAllowed = false; // loplugin:constvars:ignore
                     sal_Int32 nThreadCount(0);
                     comphelper::ThreadPool& rThreadPool(comphelper::ThreadPool::getSharedOptimalPool());
 

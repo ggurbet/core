@@ -23,7 +23,6 @@
 #include <vcl/builder.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/event.hxx>
-#include <vcl/svapp.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/vclmedit.hxx>
 #include <vcl/xtextedt.hxx>
@@ -34,7 +33,6 @@
 #include <svl/lstner.hxx>
 #include <vcl/uitest/uiobject.hxx>
 
-#include <strings.hrc>
 #include <vcl/scrbar.hxx>
 #include <vcl/settings.hxx>
 #include <osl/diagnose.h>
@@ -625,9 +623,11 @@ void ImpVclMEdit::Enable( bool bEnable )
 bool ImpVclMEdit::HandleCommand( const CommandEvent& rCEvt )
 {
     bool bDone = false;
-    if ( ( rCEvt.GetCommand() == CommandEventId::Wheel ) ||
-         ( rCEvt.GetCommand() == CommandEventId::StartAutoScroll ) ||
-         ( rCEvt.GetCommand() == CommandEventId::AutoScroll ) )
+    CommandEventId nCommand = rCEvt.GetCommand();
+    if (nCommand == CommandEventId::Wheel ||
+        nCommand == CommandEventId::StartAutoScroll ||
+        nCommand == CommandEventId::AutoScroll ||
+        nCommand == CommandEventId::Gesture)
     {
         ScrollBar* pHScrollBar = mpHScrollBar->IsVisible() ? mpHScrollBar.get() : nullptr;
         ScrollBar* pVScrollBar = mpVScrollBar->IsVisible() ? mpVScrollBar.get() : nullptr;
@@ -713,7 +713,7 @@ void TextWindow::KeyInput( const KeyEvent& rKEvent )
         {
             // to maintain the selection
             mbActivePopup = true;
-            OUString aChars = Edit::GetGetSpecialCharsFunction()( this, GetFont() );
+            OUString aChars = Edit::GetGetSpecialCharsFunction()(GetFrameWeld(), GetFont());
             if (!aChars.isEmpty())
             {
                 mpExtTextView->InsertText( aChars );
@@ -827,7 +827,7 @@ void TextWindow::Command( const CommandEvent& rCEvt )
         }
         else if (sCommand == "specialchar")
         {
-            OUString aChars = Edit::GetGetSpecialCharsFunction()( this, GetFont() );
+            OUString aChars = Edit::GetGetSpecialCharsFunction()(GetFrameWeld(), GetFont());
             if (!aChars.isEmpty())
             {
                 mpExtTextView->InsertText( aChars );
@@ -913,36 +913,8 @@ WinBits VclMultiLineEdit::ImplInitStyle( WinBits nStyle )
     return nStyle;
 }
 
-void VclMultiLineEdit::ApplySettings(vcl::RenderContext& rRenderContext)
+void VclMultiLineEdit::ApplyBackgroundSettings(vcl::RenderContext& rRenderContext, const StyleSettings& rStyleSettings)
 {
-    const StyleSettings& rStyleSettings = rRenderContext.GetSettings().GetStyleSettings();
-
-    // The Font has to be adjusted, as the TextEngine does not take care of
-    // TextColor/Background
-
-    Color aTextColor = rStyleSettings.GetFieldTextColor();
-    if (IsControlForeground())
-        aTextColor = GetControlForeground();
-
-    if (!IsEnabled())
-        aTextColor = rStyleSettings.GetDisableColor();
-
-    vcl::Font aFont = rStyleSettings.GetFieldFont();
-    aFont.SetTransparent(IsPaintTransparent());
-    ApplyControlFont(rRenderContext, aFont);
-
-    vcl::Font theFont = rRenderContext.GetFont();
-    theFont.SetColor(aTextColor);
-    if (IsPaintTransparent())
-        theFont.SetFillColor(COL_TRANSPARENT);
-    else
-        theFont.SetFillColor(IsControlBackground() ? GetControlBackground() : rStyleSettings.GetFieldColor());
-
-    pImpVclMEdit->GetTextWindow()->SetFont(theFont);
-    // FIXME: next call causes infinite invalidation loop, rethink how to properly fix this situation
-    // pImpVclMEdit->GetTextWindow()->GetTextEngine()->SetFont(theFont);
-    pImpVclMEdit->GetTextWindow()->SetTextColor(aTextColor);
-
     if (IsPaintTransparent())
     {
         pImpVclMEdit->GetTextWindow()->SetPaintTransparent(true);
@@ -962,10 +934,8 @@ void VclMultiLineEdit::ApplySettings(vcl::RenderContext& rRenderContext)
     }
 }
 
-void VclMultiLineEdit::ImplInitSettings(bool bBackground)
+void VclMultiLineEdit::ApplyFontSettings(vcl::RenderContext& rRenderContext, const StyleSettings& rStyleSettings)
 {
-    const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
-
     // The Font has to be adjusted, as the TextEngine does not take care of
     // TextColor/Background
 
@@ -977,38 +947,36 @@ void VclMultiLineEdit::ImplInitSettings(bool bBackground)
 
     vcl::Font aFont = rStyleSettings.GetFieldFont();
     aFont.SetTransparent(IsPaintTransparent());
-    ApplyControlFont(*this, aFont);
+    ApplyControlFont(rRenderContext, aFont);
 
-    vcl::Font TheFont = GetFont();
+    vcl::Font TheFont = rRenderContext.GetFont();
     TheFont.SetColor(aTextColor);
     if (IsPaintTransparent())
         TheFont.SetFillColor(COL_TRANSPARENT);
     else
         TheFont.SetFillColor(IsControlBackground() ? GetControlBackground() : rStyleSettings.GetFieldColor());
+
     pImpVclMEdit->GetTextWindow()->SetFont(TheFont);
     pImpVclMEdit->GetTextWindow()->GetTextEngine()->SetFont(TheFont);
     pImpVclMEdit->GetTextWindow()->SetTextColor(aTextColor);
+}
+
+void VclMultiLineEdit::ApplySettings(vcl::RenderContext& rRenderContext)
+{
+    const StyleSettings& rStyleSettings = rRenderContext.GetSettings().GetStyleSettings();
+
+    ApplyFontSettings(rRenderContext, rStyleSettings);
+    ApplyBackgroundSettings(rRenderContext, rStyleSettings);
+}
+
+void VclMultiLineEdit::ImplInitSettings(bool bBackground)
+{
+    const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
+
+    ApplyFontSettings(*this, rStyleSettings);
 
     if (bBackground)
-    {
-        if (IsPaintTransparent())
-        {
-            pImpVclMEdit->GetTextWindow()->SetPaintTransparent(true);
-            pImpVclMEdit->GetTextWindow()->SetBackground();
-            pImpVclMEdit->GetTextWindow()->SetControlBackground();
-            SetBackground();
-            SetControlBackground();
-        }
-        else
-        {
-            if (IsControlBackground())
-                pImpVclMEdit->GetTextWindow()->SetBackground(GetControlBackground());
-            else
-                pImpVclMEdit->GetTextWindow()->SetBackground(rStyleSettings.GetFieldColor());
-            // also adjust for VclMultiLineEdit as the TextComponent might hide Scrollbars
-            SetBackground(pImpVclMEdit->GetTextWindow()->GetBackground());
-        }
-    }
+        ApplyBackgroundSettings(*this, rStyleSettings);
 }
 
 void VclMultiLineEdit::Modify()

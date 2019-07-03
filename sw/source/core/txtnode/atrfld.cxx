@@ -47,7 +47,6 @@
 // constructor for default item in attribute-pool
 SwFormatField::SwFormatField( sal_uInt16 nWhich )
     : SfxPoolItem( nWhich )
-    , SwModify(nullptr)
     , SfxBroadcaster()
     , mpTextField( nullptr )
 {
@@ -55,11 +54,11 @@ SwFormatField::SwFormatField( sal_uInt16 nWhich )
 
 SwFormatField::SwFormatField( const SwField &rField )
     : SfxPoolItem( RES_TXTATR_FIELD )
-    , SwModify( rField.GetTyp() )
     , SfxBroadcaster()
     , mpField( rField.CopyField() )
     , mpTextField( nullptr )
 {
+    rField.GetTyp()->Add(this);
     if ( mpField->GetTyp()->Which() == SwFieldIds::Input )
     {
         // input field in-place editing
@@ -69,7 +68,16 @@ SwFormatField::SwFormatField( const SwField &rField )
     else if (mpField->GetTyp()->Which() == SwFieldIds::SetExp)
     {
         // see SwWrtShell::StartInputFieldDlg
-        static_cast<SwSetExpField *>(mpField.get())->SetFormatField(*this);
+        SwSetExpField *const pSetField(static_cast<SwSetExpField *>(mpField.get()));
+        if (pSetField->GetInputFlag()
+            // only for string fields for now - inline editing of number fields
+            // tends to produce error messages...
+            && (static_cast<SwSetExpFieldType*>(pSetField->GetTyp())->GetType()
+                & nsSwGetSetExpType::GSE_STRING))
+        {
+            SetWhich( RES_TXTATR_INPUTFIELD );
+        }
+        pSetField->SetFormatField(*this);
     }
     else if ( mpField->GetTyp()->Which() == SwFieldIds::Postit )
     {
@@ -84,7 +92,6 @@ SwFormatField::SwFormatField( const SwField &rField )
 // corrected
 SwFormatField::SwFormatField( const SwFormatField& rAttr )
     : SfxPoolItem( rAttr )
-    , SwModify(nullptr)
     , SfxBroadcaster()
     , mpTextField( nullptr )
 {
@@ -103,8 +110,15 @@ SwFormatField::SwFormatField( const SwFormatField& rAttr )
         }
         else if (mpField->GetTyp()->Which() == SwFieldIds::SetExp)
         {
+            SwSetExpField *const pSetField(static_cast<SwSetExpField *>(mpField.get()));
+            if (pSetField->GetInputFlag()
+                && (static_cast<SwSetExpFieldType*>(pSetField->GetTyp())->GetType()
+                    & nsSwGetSetExpType::GSE_STRING))
+            {
+                SetWhich( RES_TXTATR_INPUTFIELD );
+            }
             // see SwWrtShell::StartInputFieldDlg
-            static_cast<SwSetExpField *>(mpField.get())->SetFormatField(*this);
+            pSetField->SetFormatField(*this);
         }
         else if ( mpField->GetTyp()->Which() == SwFieldIds::Postit )
         {
@@ -541,9 +555,14 @@ SwTextInputField::~SwTextInputField()
 {
 }
 
-void SwTextInputField::LockNotifyContentChange()
+bool SwTextInputField::LockNotifyContentChange()
 {
+    if (m_bLockNotifyContentChange)
+    {
+        return false;
+    }
     m_bLockNotifyContentChange = true;
+    return true;
 }
 
 void SwTextInputField::UnlockNotifyContentChange()
@@ -582,9 +601,19 @@ void SwTextInputField::UpdateFieldContent()
         const sal_Int32 nLen = static_cast<sal_Int32>(std::max<sal_Int32>( 0, ( (*End()) - 1 - nIdx ) ));
         const OUString aNewFieldContent = GetTextNode().GetExpandText(nullptr, nIdx, nLen);
 
-        const SwInputField* pInputField = dynamic_cast<const SwInputField*>(GetFormatField().GetField());
-        assert(pInputField != nullptr);
-        const_cast<SwInputField*>(pInputField)->applyFieldContent( aNewFieldContent );
+        const SwField* pField = GetFormatField().GetField();
+        const SwInputField* pInputField = dynamic_cast<const SwInputField*>(pField);
+        if (pInputField)
+            const_cast<SwInputField*>(pInputField)->applyFieldContent( aNewFieldContent );
+
+        const SwSetExpField* pExpField = dynamic_cast<const SwSetExpField*>(pField);
+        if (pExpField)
+        {
+            assert(pExpField->GetInputFlag());
+            const_cast<SwSetExpField*>(pExpField)->SetPar2(aNewFieldContent);
+        }
+        assert(pInputField || pExpField);
+
         // trigger update of fields for scenarios in which the Input Field's content is part of e.g. a table formula
         GetTextNode().GetDoc()->getIDocumentFieldsAccess().GetUpdateFields().SetFieldsDirty(true);
     }
@@ -623,8 +652,8 @@ SwTextAnnotationField::~SwTextAnnotationField()
 
 ::sw::mark::IMark* SwTextAnnotationField::GetAnnotationMark() const
 {
-    const SwPostItField* pPostItField = dynamic_cast<const SwPostItField*>(GetFormatField().GetField());
-    assert(pPostItField != nullptr);
+    auto pPostItField = dynamic_cast<const SwPostItField*>(GetFormatField().GetField());
+    assert(pPostItField);
 
     SwDoc* pDoc = static_cast<const SwPostItFieldType*>(pPostItField->GetTyp())->GetDoc();
     assert(pDoc != nullptr);
@@ -632,7 +661,7 @@ SwTextAnnotationField::~SwTextAnnotationField()
     IDocumentMarkAccess* pMarksAccess = pDoc->getIDocumentMarkAccess();
     IDocumentMarkAccess::const_iterator_t pMark = pMarksAccess->findAnnotationMark( pPostItField->GetName() );
     return pMark != pMarksAccess->getAnnotationMarksEnd()
-           ? pMark->get()
+           ? *pMark
            : nullptr;
 }
 

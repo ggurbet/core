@@ -47,6 +47,7 @@ fuzzer_core_libraries = \
     canvastools \
     configmgr \
     cppcanvas \
+    ctl \
     dbtools \
     deployment \
     deploymentmisc \
@@ -98,6 +99,7 @@ fuzzer_core_libraries = \
     sm \
     gie \
     oox \
+    proxyfac \
     reflection \
     odfflatxml \
     invocadapt \

@@ -95,7 +95,7 @@ class BackendImpl : public ImplBaseT
     class PackageImpl : public ::dp_registry::backend::Package
     {
         BackendImpl * getMyBackend() const;
-        /** constains the old tooltip description for the Extension Manager GUI in OOo v.2.x
+        /** contains the old tooltip description for the Extension Manager GUI in OOo v.2.x
             We keep it for backward compatibility.
         */
         OUString m_oldDescription;
@@ -603,7 +603,7 @@ bool BackendImpl::PackageImpl::checkDependencies(
     css::uno::Sequence< css::uno::Reference< css::xml::dom::XElement > >
         unsatisfied(dp_misc::Dependencies::check(description));
 
-    if (unsatisfied.getLength() == 0) {
+    if (!unsatisfied.hasElements()) {
         return true;
     } else {
         OUString msg(
@@ -1135,10 +1135,9 @@ void BackendImpl::PackageImpl::exportTo(
                   OUString(), ucb::NameClash::OVERWRITE );
             bSuccess = true;
         }
-        catch (const css::ucb::ContentCreationException &e)
+        catch (const css::ucb::ContentCreationException &)
         {
-            SAL_WARN(
-                "desktop.deployment", "exception on overwriting manifest: " << e);
+            TOOLS_WARN_EXCEPTION("desktop.deployment", "exception on overwriting manifest");
         }
 
         if (!bSuccess)

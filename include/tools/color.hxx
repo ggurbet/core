@@ -24,31 +24,54 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <basegfx/color/bcolor.hxx>
 
-class SvStream;
+namespace color
+{
 
-constexpr sal_uInt8  COLORDATA_RED( sal_uInt32 n )          { return static_cast<sal_uInt8>(n>>16); }
-constexpr sal_uInt8  COLORDATA_GREEN( sal_uInt32 n )        { return static_cast<sal_uInt8>(static_cast<sal_uInt16>(n) >> 8); }
-constexpr sal_uInt8  COLORDATA_BLUE( sal_uInt32 n )         { return static_cast<sal_uInt8>(n); }
-constexpr sal_uInt8  COLORDATA_TRANSPARENCY( sal_uInt32 n ) { return static_cast<sal_uInt8>(n>>24); }
-constexpr sal_uInt32 COLORDATA_RGB( sal_uInt32 n )          { return static_cast<sal_uInt32>(n & 0x00FFFFFF); }
+constexpr sal_uInt32 extractRGB(sal_uInt32 nColorNumber)
+{
+    return nColorNumber & 0x00FFFFFF;
+}
+
+}
 
 // Color
 
-class SAL_WARN_UNUSED TOOLS_DLLPUBLIC Color final
+class SAL_WARN_UNUSED TOOLS_DLLPUBLIC Color
 {
-    sal_uInt32 mnColor;
+    // data intentionally public; read the commit log!
+public:
+    union
+    {
+        sal_uInt32 mValue;
+        struct
+        {
+#ifdef OSL_BIGENDIAN
+                sal_uInt8 A;
+                sal_uInt8 R;
+                sal_uInt8 G;
+                sal_uInt8 B;
+#else
+                sal_uInt8 B;
+                sal_uInt8 G;
+                sal_uInt8 R;
+                sal_uInt8 A;
+#endif
+        };
+    };
 
 public:
     constexpr Color()
-        : mnColor(0) // black
+        : mValue(0) // black
     {}
+
     constexpr Color(sal_uInt32 nColor)
-        : mnColor(nColor)
+        : mValue(nColor)
     {}
+
     constexpr Color(sal_uInt8 nTransparency, sal_uInt8 nRed, sal_uInt8 nGreen, sal_uInt8 nBlue)
-        : mnColor( sal_uInt32(nBlue) | (sal_uInt32(nGreen) << 8) | (sal_uInt32(nRed) << 16)
-                   | (sal_uInt32(nTransparency) << 24) )
+        : mValue(sal_uInt32(nBlue) | (sal_uInt32(nGreen) << 8) | (sal_uInt32(nRed) << 16) | (sal_uInt32(nTransparency) << 24))
     {}
+
     constexpr Color(sal_uInt8 nRed, sal_uInt8 nGreen, sal_uInt8 nBlue)
         : Color(0, nRed, nGreen, nBlue)
     {}
@@ -56,54 +79,54 @@ public:
     // constructor to create a tools-Color from ::basegfx::BColor
     explicit Color(const basegfx::BColor& rBColor)
         : Color(0,
-                sal_uInt8((rBColor.getRed() * 255.0) + 0.5),
-                sal_uInt8((rBColor.getGreen() * 255.0) + 0.5),
-                sal_uInt8((rBColor.getBlue() * 255.0) + 0.5))
+                sal_uInt8(std::lround(rBColor.getRed() * 255.0)),
+                sal_uInt8(std::lround(rBColor.getGreen() * 255.0)),
+                sal_uInt8(std::lround(rBColor.getBlue() * 255.0)))
     {}
 
     /** Primarily used when passing Color objects to UNO API */
     constexpr explicit operator sal_uInt32() const
     {
-        return mnColor;
+        return mValue;
     }
 
     constexpr explicit operator sal_Int32() const
     {
-        return sal_Int32(mnColor);
+        return sal_Int32(mValue);
     }
 
-    bool operator<(const Color& b) const
+    bool operator<(const Color& aCompareColor) const
     {
-        return mnColor < b.mnColor;
+        return mValue < aCompareColor.mValue;
     }
 
     void SetRed(sal_uInt8 nRed);
     sal_uInt8 GetRed() const
     {
-        return COLORDATA_RED(mnColor);
+        return R;
     }
     void SetGreen(sal_uInt8 nGreen);
     sal_uInt8 GetGreen() const
     {
-        return COLORDATA_GREEN(mnColor);
+        return G;
     }
     void SetBlue(sal_uInt8 nBlue);
     sal_uInt8 GetBlue() const
     {
-        return COLORDATA_BLUE(mnColor);
+        return B;
     }
     void SetTransparency(sal_uInt8 nTransparency);
     sal_uInt8 GetTransparency() const
     {
-        return COLORDATA_TRANSPARENCY(mnColor);
+        return A;
     }
 
     Color GetRGBColor() const
     {
-        return COLORDATA_RGB(mnColor);
+        return color::extractRGB(mValue);
     }
 
-    sal_uInt8 GetColorError(const Color& rCompareColor) const;
+    sal_uInt16 GetColorError(const Color& rCompareColor) const;
 
     sal_uInt8 GetLuminance() const;
     void IncreaseLuminance(sal_uInt8 cLumInc);
@@ -141,18 +164,12 @@ public:
 
     bool operator==(const Color& rColor) const
     {
-        return mnColor == rColor.mnColor;
+        return mValue == rColor.mValue;
     }
     bool operator!=(const Color& rColor) const
     {
         return !(Color::operator==(rColor));
     }
-
-    SvStream& Read(SvStream& rIStream);
-    SvStream& Write(SvStream& rOStream) const;
-
-    TOOLS_DLLPUBLIC friend SvStream& ReadColor(SvStream& rIStream, Color& rColor);
-    TOOLS_DLLPUBLIC friend SvStream& WriteColor(SvStream& rOStream, const Color& rColor);
 
     // Return color as RGB hex string
     // for example "00ff00" for green color
@@ -167,50 +184,59 @@ public:
 
 inline void Color::SetRed( sal_uInt8 nRed )
 {
-    mnColor &= 0xFF00FFFF;
-    mnColor |= static_cast<sal_uInt32>(nRed)<<16;
+    R = nRed;
 }
 
 inline void Color::SetGreen( sal_uInt8 nGreen )
 {
-    mnColor &= 0xFFFF00FF;
-    mnColor |= static_cast<sal_uInt16>(nGreen)<<8;
+    G = nGreen;
 }
 
 inline void Color::SetBlue( sal_uInt8 nBlue )
 {
-    mnColor &= 0xFFFFFF00;
-    mnColor |= nBlue;
+    B = nBlue;
 }
 
 inline void Color::SetTransparency( sal_uInt8 nTransparency )
 {
-    mnColor &= 0x00FFFFFF;
-    mnColor |= static_cast<sal_uInt32>(nTransparency)<<24;
+    A = nTransparency;
 }
 
 inline bool Color::IsRGBEqual( const Color& rColor ) const
 {
-    return COLORDATA_RGB( mnColor ) == COLORDATA_RGB(rColor.mnColor);
+    return color::extractRGB(mValue) == color::extractRGB(rColor.mValue);
 }
 
 inline sal_uInt8 Color::GetLuminance() const
 {
-    return static_cast<sal_uInt8>((COLORDATA_BLUE(mnColor) * 29UL +
-                                   COLORDATA_GREEN(mnColor) * 151UL +
-                                   COLORDATA_RED(mnColor) * 76UL) >> 8);
+    return sal_uInt8((B * 29UL + G * 151UL + R * 76UL) >> 8);
 }
 
 constexpr sal_uInt8 ColorChannelMerge(sal_uInt8 nDst, sal_uInt8 nSrc, sal_uInt8 nSrcTrans)
 {
-    return static_cast<sal_uInt8>(((static_cast<sal_Int32>(nDst)-nSrc)*nSrcTrans+((nSrc<<8)|nDst))>>8);
-};
+    return sal_uInt8(((sal_Int32(nDst) - nSrc) * nSrcTrans + ((nSrc << 8) | nDst)) >> 8);
+}
+
+inline void Color::Invert()
+{
+    R = ~R;
+    G = ~G;
+    B = ~B;
+}
+
+inline sal_uInt16 Color::GetColorError( const Color& rColor ) const
+{
+    return static_cast<sal_uInt16>(
+        abs(static_cast<int>(GetBlue()) - rColor.GetBlue()) +
+        abs(static_cast<int>(GetGreen()) - rColor.GetGreen()) +
+        abs(static_cast<int>(GetRed()) - rColor.GetRed()));
+}
 
 inline void Color::Merge( const Color& rMergeColor, sal_uInt8 cTransparency )
 {
-    SetRed(ColorChannelMerge(COLORDATA_RED(mnColor), COLORDATA_RED(rMergeColor.mnColor), cTransparency));
-    SetGreen(ColorChannelMerge(COLORDATA_GREEN(mnColor), COLORDATA_GREEN(rMergeColor.mnColor), cTransparency));
-    SetBlue(ColorChannelMerge(COLORDATA_BLUE(mnColor), COLORDATA_BLUE(rMergeColor.mnColor), cTransparency));
+    R = ColorChannelMerge(R, rMergeColor.R, cTransparency);
+    G = ColorChannelMerge(G, rMergeColor.G, cTransparency);
+    B = ColorChannelMerge(B, rMergeColor.B, cTransparency);
 }
 
 // to reduce the noise when moving these into and out of Any
@@ -222,6 +248,7 @@ inline bool operator >>=( const css::uno::Any & rAny, Color & value )
   value = Color(nTmp);
   return true;
 }
+
 inline void operator <<=( css::uno::Any & rAny, Color value )
 {
     rAny <<= sal_Int32(value);
@@ -233,6 +260,11 @@ namespace com { namespace sun { namespace star { namespace uno {
         return Any(sal_Int32(value));
     }
 } } } }
+
+// Test compile time conversion of Color to sal_uInt32
+
+static_assert (sal_uInt32(Color(0x00, 0x12, 0x34, 0x56)) == 0x00123456);
+static_assert (sal_uInt32(Color(0x12, 0x34, 0x56)) == 0x00123456);
 
 // Color types
 
@@ -284,6 +316,16 @@ constexpr ::Color COL_AUTHOR8_LIGHT           ( 226,  234, 241 );
 constexpr ::Color COL_AUTHOR9_DARK            ( 209,  118,   0 );
 constexpr ::Color COL_AUTHOR9_NORMAL          ( 255,  226, 185 );
 constexpr ::Color COL_AUTHOR9_LIGHT           ( 255,  231, 199 );
+
+template<typename charT, typename traits>
+inline std::basic_ostream<charT, traits>& operator <<(std::basic_ostream<charT, traits>& rStream, const Color& rColor)
+{
+    return rStream << "c[" << std::hex << std::setfill ('0')
+                   << std::setw(2) << static_cast<int>(rColor.GetRed())
+                   << std::setw(2) << static_cast<int>(rColor.GetGreen())
+                   << std::setw(2) << static_cast<int>(rColor.GetBlue())
+                   << std::setw(2) << static_cast<int>(rColor.GetTransparency()) << "]";
+}
 
 #endif
 

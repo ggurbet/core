@@ -40,27 +40,31 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
 
     # Avoid debug STL.
     debugStl = {
-        "array": "debug/array",
-        "bitset": "debug/bitset",
-        "deque": "debug/deque",
-        "list": "debug/list",
-        "map": "debug/map.h",
-        "set": "debug/set.h",
-        "set": "debug/multiset.h",
-        "unordered_map": "debug/unordered_map",
-        "unordered_set": "debug/unordered_set",
-        "vector": "debug/vector",
+        "array": ("debug/array", ),
+        "bitset": ("debug/bitset", ),
+        "deque": ("debug/deque", ),
+        "forward_list": ("debug/forward_list", ),
+        "list": ("debug/list", ),
+        "map": ("debug/map.h", "debug/multimap.h"),
+        "set": ("debug/set.h", "debug/multiset.h"),
+        "unordered_map": ("debug/unordered_map", ),
+        "unordered_set": ("debug/unordered_set", ),
+        "vector": ("debug/vector", ),
     }
-    for k, v in debugStl.items():
-        if include == k and v in toAdd:
-            return True
+    for k, values in debugStl.items():
+        if include == k:
+            for value in values:
+                if value in toAdd:
+                    return True
 
     # Avoid proposing to use libstdc++ internal headers.
     bits = {
         "exception": "bits/exception.h",
         "memory": "bits/shared_ptr.h",
         "functional": "bits/std_function.h",
-        "cmath": "bits/std_abs.h"
+        "cmath": "bits/std_abs.h",
+        "ctime": "bits/types/clock_t.h",
+        "cstdint": "bits/stdint-uintn.h"
     }
     for k, v in bits.items():
         if include == k and v in toAdd:
@@ -70,6 +74,7 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
     o3tl = {
         "o3tl/typed_flags_set.hxx" : "namespace o3tl { template <typename T> struct typed_flags; }",
         "o3tl/deleter.hxx" : "namespace o3tl { template <typename T> struct default_delete; }",
+        "o3tl/span.hxx" : "namespace o3tl { template <typename T> class span; }",
     }
     for k, v, in o3tl.items():
         if include == k and v in toAdd:
@@ -79,6 +84,12 @@ def ignoreRemoval(include, toAdd, absFileName, moduleRules):
     if include == "boost/optional.hpp" and "boost/optional/optional.hpp" in toAdd:
         return True
     if include == "boost/intrusive_ptr.hpp" and "boost/smart_ptr/intrusive_ptr.hpp" in toAdd:
+        return True
+    if include == "boost/variant.hpp" and "boost/variant/variant.hpp" in toAdd:
+        return True
+    if include == "boost/unordered_map.hpp" and "boost/unordered/unordered_map.hpp" in toAdd:
+        return True
+    if include == "boost/functional/hash.hpp" and "boost/container_hash/extensions.hpp" in toAdd:
         return True
 
     # Avoid .hxx to .h proposals in basic css/uno/* API
@@ -142,8 +153,13 @@ def processIWYUOutput(iwyuOutput, moduleRules):
     inRemove = False
     toRemove = []
     currentFileName = None
+
     for line in iwyuOutput:
         line = line.strip()
+
+        # Bail out if IWYU gave an error due to non self-containedness
+        if re.match ("(.*): error: (.*)", line):
+            return -1
 
         if len(line) == 0:
             if inRemove:
@@ -177,24 +193,16 @@ def processIWYUOutput(iwyuOutput, moduleRules):
         if inRemove:
             match = re.match("- #include (.*)  // lines (.*)-.*", line)
             if match:
+                # Only suggest removals for now. Removing fwd decls is more complex: they may be
+                # indeed unused or they may removed to be replaced with an include. And we want to
+                # avoid the later.
                 include = unwrapInclude(match.group(1))
                 lineno = match.group(2)
                 if not ignoreRemoval(include, toAdd, currentFileName, moduleRules):
                     toRemove.append("%s:%s: %s" % (currentFileName, lineno, include))
-                continue
-
-            match = re.match("- (.*;(?: })*)*  // lines (.*)-.*", line)
-            if match:
-                fwdDecl = match.group(1)
-                if fwdDecl.endswith(";"):
-                    # Remove trailing semicolon.
-                    fwdDecl = fwdDecl[:-1]
-                lineno = match.group(2)
-                if not ignoreRemoval(fwdDecl, toAdd, currentFileName, moduleRules):
-                    toRemove.append("%s:%s: %s" % (currentFileName, lineno, fwdDecl))
 
     for remove in sorted(toRemove):
-        print("ERROR: %s: remove not needed include / forward declaration" % remove)
+        print("ERROR: %s: remove not needed include" % remove)
     return len(toRemove)
 
 
@@ -205,7 +213,9 @@ def run_tool(task_queue, failed_files):
             print("[IWYU] " + invocation.split(' ')[-1])
             p = subprocess.Popen(invocation, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             retcode = processIWYUOutput(p.communicate()[0].decode('utf-8').splitlines(), moduleRules)
-            if retcode != 0:
+            if retcode == -1:
+                print("ERROR: A file is probably not self contained, check this commands output:\n" + invocation)
+            elif retcode > 0:
                 print("ERROR: The following command found unused includes:\n" + invocation)
                 failed_files.append(invocation)
         task_queue.task_done()
@@ -267,7 +277,7 @@ def tidy(compileCommands, paths):
             if assume:
                 args = args.replace(assumeAbs, "-x c++ " + pathAbs)
 
-            invocation = "include-what-you-use " + args
+            invocation = "include-what-you-use -Xiwyu --no_fwd_decls " + args
             task_queue.put((invocation, moduleRules))
 
         task_queue.join()

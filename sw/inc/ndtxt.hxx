@@ -28,6 +28,7 @@
 #include "ndhints.hxx"
 #include "SwNumberTreeTypes.hxx"
 #include "IDocumentContentOperations.hxx"
+#include "modeltoviewhelper.hxx"
 
 #include <sfx2/Metadatable.hxx>
 
@@ -294,7 +295,8 @@ public:
        set them only in AutoAttrSet (SwContentNode::SetAttr). */
     bool SetAttr( const SfxItemSet& rSet,
                   sal_Int32 nStt, sal_Int32 nEnd,
-                  const SetAttrMode nMode = SetAttrMode::DEFAULT );
+                  const SetAttrMode nMode = SetAttrMode::DEFAULT,
+                  SwTextAttr **ppNewTextAttr = nullptr);
     /** Query the attributes of textnode over the range.
        Introduce 4th optional parameter <bMergeIndentValuesOfNumRule>.
        If <bMergeIndentValuesOfNumRule> == true, the indent attributes of
@@ -485,7 +487,7 @@ public:
 
     SwTwips GetAdditionalIndentForStartingNewList() const;
 
-    void ClearLRSpaceItemDueToListLevelIndents( SvxLRSpaceItem& o_rLRSpaceItem ) const;
+    void ClearLRSpaceItemDueToListLevelIndents( std::shared_ptr<SvxLRSpaceItem>& o_rLRSpaceItem ) const;
 
     /** return left margin for tab stop position calculation
 
@@ -680,7 +682,7 @@ public:
                             const bool bWithNum = false,
                             const bool bAddSpaceAfterListLabelStr = false,
                             const bool bWithSpacesForLevel = false,
-                            const ExpandMode eAdditionalMode = ExpandMode(0)) const;
+                            const ExpandMode eAdditionalMode = ExpandMode::ExpandFootnote) const;
     bool CopyExpandText( SwTextNode& rDestNd, const SwIndex* pDestIdx,
                            sal_Int32 nIdx, sal_Int32 nLen,
                            SwRootFrame const* pLayout,

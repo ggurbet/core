@@ -1733,11 +1733,12 @@ void ScInterpreter::ScPi()
 
 void ScInterpreter::ScRandom()
 {
-    if (bMatrixFormula && pMyFormulaCell)
+    if (bMatrixFormula)
     {
-        SCCOL nCols;
-        SCROW nRows;
-        pMyFormulaCell->GetMatColsRows( nCols, nRows);
+        SCCOL nCols = 0;
+        SCROW nRows = 0;
+        if(pMyFormulaCell)
+            pMyFormulaCell->GetMatColsRows( nCols, nRows);
         // ScViewFunc::EnterMatrix() might be asking for
         // ScFormulaCell::GetResultDimensions(), which here are none so create
         // a 1x1 matrix at least which exactly is the case when EnterMatrix()
@@ -4380,9 +4381,10 @@ void ScInterpreter::ScColumn()
             nVal = aPos.Col() + 1;
             if (bMatrixFormula)
             {
-                SCCOL nCols;
-                SCROW nRows;
-                pMyFormulaCell->GetMatColsRows( nCols, nRows);
+                SCCOL nCols = 0;
+                SCROW nRows = 0;
+                if (pMyFormulaCell)
+                    pMyFormulaCell->GetMatColsRows( nCols, nRows);
                 if (nCols == 0)
                 {
                     // Happens if called via ScViewFunc::EnterMatrix()
@@ -4483,9 +4485,10 @@ void ScInterpreter::ScRow()
             nVal = aPos.Row() + 1;
             if (bMatrixFormula)
             {
-                SCCOL nCols;
-                SCROW nRows;
-                pMyFormulaCell->GetMatColsRows( nCols, nRows);
+                SCCOL nCols = 0;
+                SCROW nRows = 0;
+                if (pMyFormulaCell)
+                    pMyFormulaCell->GetMatColsRows( nCols, nRows);
                 if (nRows == 0)
                 {
                     // Happens if called via ScViewFunc::EnterMatrix()
@@ -9408,7 +9411,12 @@ void ScInterpreter::ScRegex()
     {
         // Find n-th occurrence.
         sal_Int32 nCount = 0;
-        while (aRegexMatcher.find( status) && U_SUCCESS(status) && ++nCount < nOccurrence)
+#if (U_ICU_VERSION_MAJOR_NUM < 55)
+        int32_t nStartPos = 0;
+        while (aRegexMatcher.find(nStartPos, status) && U_SUCCESS(status) && ++nCount < nOccurrence)
+#else
+        while (aRegexMatcher.find(status) && U_SUCCESS(status) && ++nCount < nOccurrence)
+#endif
             ;
         if (U_FAILURE(status))
         {
@@ -9448,7 +9456,12 @@ void ScInterpreter::ScRegex()
     {
         // Replace n-th occurrence of match with replacement.
         sal_Int32 nCount = 0;
-        while (aRegexMatcher.find( status) && U_SUCCESS(status))
+#if (U_ICU_VERSION_MAJOR_NUM < 55)
+        int32_t nStartPos = 0;
+        while (aRegexMatcher.find(nStartPos, status) && U_SUCCESS(status))
+#else
+        while (aRegexMatcher.find(status) && U_SUCCESS(status))
+#endif
         {
             // XXX NOTE: After several RegexMatcher::find() the
             // RegexMatcher::appendReplacement() still starts at the

@@ -43,6 +43,7 @@
 #include <sfx2/docfilt.hxx>
 #include <svx/xtable.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/fhgtitem.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/flstitem.hxx>
@@ -126,16 +127,12 @@ bool SwDocShell::InitNew( const uno::Reference < embed::XStorage >& xStor )
         {
             SvxAsianConfig aAsian;
             Sequence<lang::Locale> aLocales =  aAsian.GetStartEndCharLocales();
-            if (aLocales.getLength())
+            for(const lang::Locale& rLocale : aLocales)
             {
-                const lang::Locale* pLocales = aLocales.getConstArray();
-                for(sal_Int32 i = 0; i < aLocales.getLength(); i++)
-                {
-                    ForbiddenCharacters aForbidden;
-                    aAsian.GetStartEndChars( pLocales[i], aForbidden.beginLine, aForbidden.endLine);
-                    LanguageType  eLang = LanguageTag::convertToLanguageType(pLocales[i]);
-                    m_xDoc->getIDocumentSettingAccess().setForbiddenCharacters( eLang, aForbidden);
-                }
+                ForbiddenCharacters aForbidden;
+                aAsian.GetStartEndChars( rLocale, aForbidden.beginLine, aForbidden.endLine);
+                LanguageType  eLang = LanguageTag::convertToLanguageType(rLocale);
+                m_xDoc->getIDocumentSettingAccess().setForbiddenCharacters( eLang, aForbidden);
             }
             m_xDoc->getIDocumentSettingAccess().set(DocumentSettingId::KERN_ASIAN_PUNCTUATION,
                   !aAsian.IsKerningWesternTextOnly());

@@ -13,6 +13,7 @@
 #include <osl/file.hxx>
 #include <sal/log.hxx>
 
+#include <vcl/svapp.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/docfile.hxx>
@@ -334,7 +335,10 @@ void ScMacrosTest::testVba()
         OUString aStringRes;
         aRet >>= aStringRes;
         CPPUNIT_ASSERT_EQUAL_MESSAGE(
-            "script reported failure", OUString("OK"), aStringRes);
+            OUString("script reported failure in file " + testInfo[i].sFileBaseName + "xls")
+                .toUtf8()
+                .getStr(),
+            OUString("OK"), aStringRes);
         pFoundShell->DoClose();
         if ( bWorkbooksHandling )
         {

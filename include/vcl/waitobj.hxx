@@ -26,6 +26,8 @@
 #include <stack>
 #include <vector>
 
+namespace weld { class Window; }
+
 class VCL_DLLPUBLIC WaitObject
 {
 private:
@@ -46,7 +48,7 @@ private:
     std::stack<std::vector<VclPtr<vcl::Window>>> m_aBusyStack;
 public:
     // lock all toplevels, except the argument
-    void incBusy(const vcl::Window* pIgnore);
+    void incBusy(const weld::Window* pIgnore);
     // unlock previous lock
     void decBusy();
     bool isBusy() const { return !m_aBusyStack.empty(); }

@@ -138,7 +138,7 @@ namespace dbtools
                     {
                         // ask the connection for the query
                         Reference< XQueriesSupplier > xSupplyQueries( _rData.xConnection, UNO_QUERY_THROW );
-                        Reference< XNameAccess >      xQueries( xSupplyQueries->getQueries(), UNO_QUERY_THROW );
+                        Reference< XNameAccess >      xQueries( xSupplyQueries->getQueries(), css::uno::UNO_SET_THROW );
 
                         if ( !xQueries->hasByName( _rData.sCommand ) )
                             break;
@@ -203,7 +203,7 @@ namespace dbtools
 
                 if ( !sStatement.isEmpty() )
                 {
-                    // create an composer
+                    // create a composer
                     Reference< XMultiServiceFactory > xFactory( _rData.xConnection, UNO_QUERY_THROW );
                     Reference< XSingleSelectQueryComposer > xComposer( xFactory->createInstance("com.sun.star.sdb.SingleSelectQueryComposer"),
                         UNO_QUERY_THROW );

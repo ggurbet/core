@@ -23,9 +23,8 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <osl/diagnose.h>
-#include <tools/stream.hxx>
-#include <stringio.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <tools/lineend.hxx>
 
 SfxPoolItem* SfxStringListItem::CreateDefault() { return new SfxStringListItem; }
 
@@ -46,24 +45,6 @@ SfxStringListItem::SfxStringListItem( sal_uInt16 which, const std::vector<OUStri
     }
 }
 
-
-SfxStringListItem::SfxStringListItem( sal_uInt16 which, SvStream& rStream ) :
-    SfxPoolItem( which )
-{
-    sal_Int32 nEntryCount;
-    rStream.ReadInt32( nEntryCount );
-
-    if( nEntryCount )
-        mpList.reset(new std::vector<OUString>);
-
-    if (mpList)
-    {
-        for( sal_Int32 i=0; i < nEntryCount; i++ )
-        {
-            mpList->push_back( readByteString(rStream) );
-        }
-    }
-}
 
 SfxStringListItem::~SfxStringListItem()
 {
@@ -110,30 +91,6 @@ bool SfxStringListItem::GetPresentation
 SfxPoolItem* SfxStringListItem::Clone( SfxItemPool *) const
 {
     return new SfxStringListItem( *this );
-}
-
-
-SfxPoolItem* SfxStringListItem::Create( SvStream & rStream, sal_uInt16 ) const
-{
-    return new SfxStringListItem( Which(), rStream );
-}
-
-
-SvStream& SfxStringListItem::Store( SvStream & rStream, sal_uInt16 ) const
-{
-    if( !mpList )
-    {
-        rStream.WriteInt32( 0 );
-        return rStream;
-    }
-
-    sal_uInt32 nCount = mpList->size();
-    rStream.WriteUInt32( nCount );
-
-    for( sal_uInt32 i=0; i < nCount; i++ )
-        writeByteString(rStream, (*mpList)[i]);
-
-    return rStream;
 }
 
 

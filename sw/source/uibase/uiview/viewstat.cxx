@@ -30,6 +30,7 @@
 #include <sfx2/objitem.hxx>
 #include <svl/imageitm.hxx>
 #include <svl/languageoptions.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/protitem.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <editeng/langitem.hxx>
@@ -255,23 +256,19 @@ void SwView::GetState(SfxItemSet &rSet)
             break;
             case SID_ATTR_LANGUAGE:
             {
-                std::unique_ptr<SfxPoolItem> pNewItem(
-                    m_pWrtShell->GetDefault(RES_CHRATR_LANGUAGE).CloneSetWhich(SID_ATTR_LANGUAGE));
-                rSet.Put(*pNewItem);
+                rSet.Put(m_pWrtShell->GetDefault(RES_CHRATR_LANGUAGE).CloneSetWhich(SID_ATTR_LANGUAGE));
             }
             break;
             case RES_CHRATR_CJK_LANGUAGE:
             {
-                std::unique_ptr<SfxPoolItem> pNewItem(
-                    m_pWrtShell->GetDefault(RES_CHRATR_CJK_LANGUAGE).CloneSetWhich(RES_CHRATR_CJK_LANGUAGE));
-                rSet.Put(*pNewItem);
+                rSet.Put(m_pWrtShell->GetDefault(RES_CHRATR_CJK_LANGUAGE)
+                            .CloneSetWhich(RES_CHRATR_CJK_LANGUAGE));
             }
             break;
             case RES_CHRATR_CTL_LANGUAGE:
             {
-                std::unique_ptr<SfxPoolItem> pNewItem(
-                    m_pWrtShell->GetDefault(RES_CHRATR_CTL_LANGUAGE).CloneSetWhich(RES_CHRATR_CTL_LANGUAGE));
-                rSet.Put(*pNewItem);
+                rSet.Put(m_pWrtShell->GetDefault(RES_CHRATR_CTL_LANGUAGE)
+                            .CloneSetWhich(RES_CHRATR_CTL_LANGUAGE));
             }
             break;
             case FN_REDLINE_ON:
@@ -404,7 +401,7 @@ void SwView::GetState(SfxItemSet &rSet)
             case SID_DOCUMENT_COMPARE:
             case SID_DOCUMENT_MERGE:
                 if( dynamic_cast<const SwGlobalDocShell* >(GetDocShell()) != nullptr||
-                    (SID_DOCUMENT_MERGE == nWhich && m_pWrtShell->getIDocumentRedlineAccess().GetRedlinePassword().getLength()))
+                    (SID_DOCUMENT_MERGE == nWhich && m_pWrtShell->getIDocumentRedlineAccess().GetRedlinePassword().hasElements()))
                     rSet.DisableItem(nWhich);
             break;
             case  SID_VIEW_DATA_SOURCE_BROWSER:
@@ -479,8 +476,7 @@ void SwView::GetState(SfxItemSet &rSet)
                 {
                     if (!(m_nSelectionType & SelectionType::DrawObject))
                     {
-                        std::unique_ptr<SfxPoolItem> pNewItem(pState->CloneSetWhich(nWhich));
-                        rSet.Put(*pNewItem);
+                        rSet.Put(pState->CloneSetWhich(nWhich));
                     }
                 }
                 else

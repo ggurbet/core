@@ -98,68 +98,6 @@
             <value>Opened</value>
           </prop>
         </node>
-        <node oor:name="ContextualGroups" oor:op="replace">
-          <prop oor:name="Label">
-            <value xml:lang="en-US">Contextual groups</value>
-          </prop>
-          <prop oor:name="HasNotebookbar">
-            <value>true</value>
-          </prop>
-          <prop oor:name="IsExperimental">
-            <value>true</value>
-          </prop>
-          <prop oor:name="MenuPosition">
-            <value>3</value>
-          </prop>
-          <prop oor:name="CommandArg">
-            <value>notebookbar_groups.ui</value>
-          </prop>
-          <prop oor:name="Toolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="UserToolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="Sidebar">
-            <value>Arrow</value>
-          </prop>
-          <prop oor:name="HasMenubar">
-            <value>true</value>
-          </prop>
-        </node>
-        <node oor:name="ContextualSingle" oor:op="replace">
-          <prop oor:name="Label">
-            <value xml:lang="en-US">Contextual Single</value>
-          </prop>
-          <prop oor:name="HasNotebookbar">
-            <value>true</value>
-          </prop>
-          <prop oor:name="IsExperimental">
-            <value>true</value>
-          </prop>
-          <prop oor:name="MenuPosition">
-            <value>4</value>
-          </prop>
-          <prop oor:name="CommandArg">
-            <value>notebookbar_single.ui</value>
-          </prop>
-          <prop oor:name="Toolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="UserToolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="Sidebar">
-            <value>Arrow</value>
-          </prop>
-          <prop oor:name="HasMenubar">
-            <value>true</value>
-          </prop>
-        </node>
         <node oor:name="Tabbed" oor:op="replace">
           <prop oor:name="Label">
             <value xml:lang="en-US">Tabbed</value>
@@ -171,7 +109,7 @@
             <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>5</value>
+            <value>3</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar.ui</value>
@@ -196,10 +134,10 @@
             <value>true</value>
           </prop>
           <prop oor:name="IsExperimental">
-            <value>true</value>
+            <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>6</value>
+            <value>4</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_compact.ui</value>
@@ -227,7 +165,7 @@
             <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>8</value>
+            <value>5</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_groupedbar_compact.ui</value>
@@ -238,6 +176,11 @@
           </prop>
           <prop oor:name="UserToolbars">
             <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
             </value>
           </prop>
           <prop oor:name="Sidebar">
@@ -268,8 +211,85 @@
             <value>
             </value>
           </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
           <prop oor:name="Sidebar">
             <value>Arrow</value>
+          </prop>
+        </node>
+        <node oor:name="ContextualSingle" oor:op="replace">
+          <prop oor:name="Label">
+            <value xml:lang="en-US">Contextual Single</value>
+          </prop>
+          <prop oor:name="HasNotebookbar">
+            <value>true</value>
+          </prop>
+          <prop oor:name="IsExperimental">
+            <value>false</value>
+          </prop>
+          <prop oor:name="MenuPosition">
+            <value>6</value>
+          </prop>
+          <prop oor:name="CommandArg">
+            <value>notebookbar_single.ui</value>
+          </prop>
+          <prop oor:name="Toolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UserToolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
+          <prop oor:name="Sidebar">
+            <value>Arrow</value>
+          </prop>
+          <prop oor:name="HasMenubar">
+            <value>true</value>
+          </prop>
+        </node>
+        <node oor:name="ContextualGroups" oor:op="replace">
+          <prop oor:name="Label">
+            <value xml:lang="en-US">Contextual groups</value>
+          </prop>
+          <prop oor:name="HasNotebookbar">
+            <value>true</value>
+          </prop>
+          <prop oor:name="IsExperimental">
+            <value>true</value>
+          </prop>
+          <prop oor:name="MenuPosition">
+            <value>8</value>
+          </prop>
+          <prop oor:name="CommandArg">
+            <value>notebookbar_groups.ui</value>
+          </prop>
+          <prop oor:name="Toolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UserToolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
+          <prop oor:name="Sidebar">
+            <value>Arrow</value>
+          </prop>
+          <prop oor:name="HasMenubar">
+            <value>true</value>
           </prop>
         </node>
       </node>
@@ -358,37 +378,6 @@
             <value>Opened</value>
           </prop>
         </node>
-        <node oor:name="ContextualGroups" oor:op="replace">
-          <prop oor:name="Label">
-            <value xml:lang="en-US">Contextual groups</value>
-          </prop>
-          <prop oor:name="HasNotebookbar">
-            <value>true</value>
-          </prop>
-          <prop oor:name="IsExperimental">
-            <value>true</value>
-          </prop>
-          <prop oor:name="MenuPosition">
-            <value>3</value>
-          </prop>
-          <prop oor:name="CommandArg">
-            <value>notebookbar_groups.ui</value>
-          </prop>
-          <prop oor:name="Toolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="UserToolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="Sidebar">
-            <value>Arrow</value>
-          </prop>
-          <prop oor:name="HasMenubar">
-            <value>true</value>
-          </prop>
-        </node>
         <node oor:name="Tabbed" oor:op="replace">
           <prop oor:name="Label">
             <value xml:lang="en-US">Tabbed</value>
@@ -400,7 +389,7 @@
             <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>4</value>
+            <value>3</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar.ui</value>
@@ -425,10 +414,10 @@
             <value>true</value>
           </prop>
           <prop oor:name="IsExperimental">
-            <value>true</value>
+            <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>6</value>
+            <value>4</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_compact.ui</value>
@@ -439,6 +428,11 @@
           </prop>
           <prop oor:name="UserToolbars">
             <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
             </value>
           </prop>
           <prop oor:name="Sidebar">
@@ -456,7 +450,7 @@
             <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>6</value>
+            <value>5</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_groupedbar_compact.ui</value>
@@ -467,6 +461,11 @@
           </prop>
           <prop oor:name="UserToolbars">
             <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
             </value>
           </prop>
           <prop oor:name="Sidebar">
@@ -484,7 +483,7 @@
             <value>true</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>5</value>
+            <value>7</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_groupedbar_full.ui</value>
@@ -497,8 +496,49 @@
             <value>
             </value>
           </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
           <prop oor:name="Sidebar">
             <value>Arrow</value>
+          </prop>
+        </node>
+        <node oor:name="ContextualGroups" oor:op="replace">
+          <prop oor:name="Label">
+            <value xml:lang="en-US">Contextual groups</value>
+          </prop>
+          <prop oor:name="HasNotebookbar">
+            <value>true</value>
+          </prop>
+          <prop oor:name="IsExperimental">
+            <value>true</value>
+          </prop>
+          <prop oor:name="MenuPosition">
+            <value>8</value>
+          </prop>
+          <prop oor:name="CommandArg">
+            <value>notebookbar_groups.ui</value>
+          </prop>
+          <prop oor:name="Toolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UserToolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
+          <prop oor:name="Sidebar">
+            <value>Arrow</value>
+          </prop>
+          <prop oor:name="HasMenubar">
+            <value>true</value>
           </prop>
         </node>
       </node>
@@ -562,37 +602,6 @@
             <value>Arrow</value>
           </prop>
         </node>
-        <node oor:name="ContextualGroups" oor:op="replace">
-          <prop oor:name="Label">
-            <value xml:lang="en-US">Contextual groups</value>
-          </prop>
-          <prop oor:name="HasNotebookbar">
-            <value>true</value>
-          </prop>
-          <prop oor:name="IsExperimental">
-            <value>true</value>
-          </prop>
-          <prop oor:name="MenuPosition">
-            <value>2</value>
-          </prop>
-          <prop oor:name="CommandArg">
-            <value>notebookbar_groups.ui</value>
-          </prop>
-          <prop oor:name="Toolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="UserToolbars">
-            <value>
-            </value>
-          </prop>
-          <prop oor:name="Sidebar">
-            <value>Arrow</value>
-          </prop>
-          <prop oor:name="HasMenubar">
-            <value>true</value>
-          </prop>
-        </node>
         <node oor:name="Tabbed" oor:op="replace">
           <prop oor:name="Label">
             <value xml:lang="en-US">Tabbed</value>
@@ -608,6 +617,34 @@
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar.ui</value>
+          </prop>
+          <prop oor:name="Toolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UserToolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="Sidebar">
+            <value>Arrow</value>
+          </prop>
+        </node>
+        <node oor:name="TabbedCompact" oor:op="replace">
+          <prop oor:name="Label">
+            <value xml:lang="en-US">Tabbed Compact</value>
+          </prop>
+          <prop oor:name="HasNotebookbar">
+            <value>true</value>
+          </prop>
+          <prop oor:name="IsExperimental">
+            <value>false</value>
+          </prop>
+          <prop oor:name="MenuPosition">
+            <value>4</value>
+          </prop>
+          <prop oor:name="CommandArg">
+            <value>notebookbar_compact.ui</value>
           </prop>
           <prop oor:name="Toolbars">
             <value>
@@ -645,6 +682,11 @@
             <value>
             </value>
           </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
           <prop oor:name="Sidebar">
             <value>Arrow</value>
           </prop>
@@ -660,7 +702,7 @@
             <value>true</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>4</value>
+            <value>7</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_groupedbar_full.ui</value>
@@ -673,8 +715,49 @@
             <value>
             </value>
           </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
           <prop oor:name="Sidebar">
             <value>Arrow</value>
+          </prop>
+        </node>
+        <node oor:name="ContextualGroups" oor:op="replace">
+          <prop oor:name="Label">
+            <value xml:lang="en-US">Contextual groups</value>
+          </prop>
+          <prop oor:name="HasNotebookbar">
+            <value>true</value>
+          </prop>
+          <prop oor:name="IsExperimental">
+            <value>true</value>
+          </prop>
+          <prop oor:name="MenuPosition">
+            <value>8</value>
+          </prop>
+          <prop oor:name="CommandArg">
+            <value>notebookbar_groups.ui</value>
+          </prop>
+          <prop oor:name="Toolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UserToolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
+          <prop oor:name="Sidebar">
+            <value>Arrow</value>
+          </prop>
+          <prop oor:name="HasMenubar">
+            <value>true</value>
           </prop>
         </node>
       </node>
@@ -721,7 +804,7 @@
             <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>1</value>
+            <value>3</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar.ui</value>
@@ -734,11 +817,44 @@
             <value>
             </value>
           </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
           <prop oor:name="Sidebar">
             <value>Arrow</value>
           </prop>
           <prop oor:name="HasMenubar">
             <value>true</value>
+          </prop>
+        </node>
+        <node oor:name="TabbedCompact" oor:op="replace">
+          <prop oor:name="Label">
+            <value xml:lang="en-US">Tabbed Compact</value>
+          </prop>
+          <prop oor:name="HasNotebookbar">
+            <value>true</value>
+          </prop>
+          <prop oor:name="IsExperimental">
+            <value>false</value>
+          </prop>
+          <prop oor:name="MenuPosition">
+            <value>4</value>
+          </prop>
+          <prop oor:name="CommandArg">
+            <value>notebookbar_compact.ui</value>
+          </prop>
+          <prop oor:name="Toolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UserToolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="Sidebar">
+            <value>Arrow</value>
           </prop>
         </node>
         <node oor:name="GroupedbarCompact" oor:op="replace">
@@ -752,7 +868,7 @@
             <value>false</value>
           </prop>
           <prop oor:name="MenuPosition">
-            <value>8</value>
+            <value>5</value>
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_groupedbar_compact.ui</value>
@@ -763,6 +879,11 @@
           </prop>
           <prop oor:name="UserToolbars">
             <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
             </value>
           </prop>
           <prop oor:name="Sidebar">
@@ -787,6 +908,42 @@
           </prop>
           <prop oor:name="CommandArg">
             <value>notebookbar_groupedbar_full.ui</value>
+          </prop>
+          <prop oor:name="Toolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UserToolbars">
+            <value>
+            </value>
+          </prop>
+          <prop oor:name="UIItemProperties">
+            <value>
+              <it>UIItemID,propertyName,propertyValue</it>
+            </value>
+          </prop>
+          <prop oor:name="Sidebar">
+            <value>Arrow</value>
+          </prop>
+          <prop oor:name="HasMenubar">
+            <value>true</value>
+          </prop>
+        </node>
+        <node oor:name="ContextualSingle" oor:op="replace">
+          <prop oor:name="Label">
+            <value xml:lang="en-US">Contextual Single</value>
+          </prop>
+          <prop oor:name="HasNotebookbar">
+            <value>true</value>
+          </prop>
+          <prop oor:name="IsExperimental">
+            <value>false</value>
+          </prop>
+          <prop oor:name="MenuPosition">
+            <value>6</value>
+          </prop>
+          <prop oor:name="CommandArg">
+            <value>notebookbar_single.ui</value>
           </prop>
           <prop oor:name="Toolbars">
             <value>

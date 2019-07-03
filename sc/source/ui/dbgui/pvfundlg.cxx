@@ -94,7 +94,7 @@ bool lclFillListBox(weld::TreeView& rLBox, const vector<ScDPLabelData::Member>& 
     {
         rLBox.append();
         int pos = rLBox.n_children() - 1;
-        rLBox.set_toggle(pos, false, 0);
+        rLBox.set_toggle(pos, TRISTATE_FALSE, 0);
         OUString aName = rMember.getDisplayName();
         if (!aName.isEmpty())
             rLBox.set_text(pos, aName, 1);
@@ -234,7 +234,7 @@ namespace
 }
 
 ScDPFunctionDlg::ScDPFunctionDlg(
-        weld::Window* pParent, const ScDPLabelDataVector& rLabelVec,
+        weld::Widget* pParent, const ScDPLabelDataVector& rLabelVec,
         const ScDPLabelData& rLabelData, const ScPivotFuncData& rFuncData)
     : GenericDialogController(pParent, "modules/scalc/ui/datafielddialog.ui", "DataFieldDialog")
     , mxLbFunc(new ScDPFunctionListBox(m_xBuilder->weld_tree_view("functions")))
@@ -443,7 +443,7 @@ IMPL_LINK_NOARG(ScDPFunctionDlg, DblClickHdl, weld::TreeView&, void)
     m_xDialog->response(RET_OK);
 }
 
-ScDPSubtotalDlg::ScDPSubtotalDlg(weld::Window* pParent, ScDPObject& rDPObj,
+ScDPSubtotalDlg::ScDPSubtotalDlg(weld::Widget* pParent, ScDPObject& rDPObj,
         const ScDPLabelData& rLabelData, const ScPivotFuncData& rFuncData,
         const ScDPNameVec& rDataFields, bool bEnableLayout)
     : GenericDialogController(pParent, "modules/scalc/ui/pivotfielddialog.ui", "PivotFieldDialog")
@@ -681,7 +681,7 @@ void ScDPSubtotalOptDlg::FillLabelData( ScDPLabelData& rLabelData ) const
     rLabelData.maMembers = maLabelData.maMembers;
     int nVisCount = m_xLbHide->n_children();
     for (int nPos = 0; nPos < nVisCount; ++nPos)
-        rLabelData.maMembers[nPos].mbVisible = !m_xLbHide->get_toggle(nPos, 0);
+        rLabelData.maMembers[nPos].mbVisible = m_xLbHide->get_toggle(nPos, 0) == TRISTATE_FALSE;
 
     // *** HIERARCHY ***
 
@@ -789,7 +789,7 @@ void ScDPSubtotalOptDlg::InitHideListBox()
     lclFillListBox(*m_xLbHide, maLabelData.maMembers);
     size_t n = maLabelData.maMembers.size();
     for (size_t i = 0; i < n; ++i)
-        m_xLbHide->set_toggle(i, !maLabelData.maMembers[i].mbVisible, 0);
+        m_xLbHide->set_toggle(i, maLabelData.maMembers[i].mbVisible ? TRISTATE_FALSE : TRISTATE_TRUE, 0);
     bool bEnable = m_xLbHide->n_children() > 0;
     m_xHideFrame->set_sensitive(bEnable);
 }

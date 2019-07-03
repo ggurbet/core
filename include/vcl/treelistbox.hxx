@@ -105,12 +105,6 @@ namespace o3tl
     template<> struct typed_flags<SvTreeFlags> : is_typed_flags<SvTreeFlags, 0x1f> {};
 }
 
-enum class SvTreeAccRoleType
-{
-    NONE   = 0x00,
-    TREE   = 0x02
-};
-
 enum class SvLBoxItemType {String, Button, ContextBmp};
 
 class VCL_DLLPUBLIC SvLBoxTab
@@ -140,8 +134,11 @@ public:
                         SvLBoxItem();
     virtual             ~SvLBoxItem();
     virtual SvLBoxItemType GetType() const = 0;
-    const Size&         GetSize(const SvTreeListBox* pView, const SvTreeListEntry* pEntry) const;
-    static const Size&  GetSize(const SvViewDataEntry* pData, sal_uInt16 nItemPos);
+    virtual int CalcWidth(const SvTreeListBox* pView) const;
+    int GetWidth(const SvTreeListBox* pView, const SvTreeListEntry* pEntry) const;
+    int GetWidth(const SvTreeListBox* pView, const SvViewDataEntry* pData, sal_uInt16 nItemPos);
+    int GetHeight(const SvTreeListBox* pView, const SvTreeListEntry* pEntry) const;
+    static int GetHeight(const SvViewDataEntry* pData, sal_uInt16 nItemPos);
     void Enable(bool bEnabled) { mbDisabled = !bEnabled; }
 
     virtual void Paint(const Point& rPos, SvTreeListBox& rOutDev, vcl::RenderContext& rRenderContext, const SvViewDataEntry* pView, const SvTreeListEntry& rEntry) = 0;
@@ -208,6 +205,7 @@ class VCL_DLLPUBLIC SvTreeListBox
     Link<SvTreeListBox*,bool>  aExpandingHdl;
     Link<SvTreeListBox*,void>  aSelectHdl;
     Link<SvTreeListBox*,void>  aDeselectHdl;
+    Link<const CommandEvent&, bool> aPopupMenuHdl;
 
     Image           aPrevInsertedExpBmp;
     Image           aPrevInsertedColBmp;
@@ -218,7 +216,6 @@ class VCL_DLLPUBLIC SvTreeListBox
     short           nEntryHeightOffs;
     short           nIndent;
     short           nFocusWidth;
-    SvTreeAccRoleType nAllItemAccRoleType;
     sal_uInt16      nFirstSelTab;
     sal_uInt16      nLastSelTab;
     long mnCheckboxItemWidth;
@@ -269,6 +266,10 @@ private:
     VCL_DLLPRIVATE static void AddBoxToDDList_Impl( const SvTreeListBox& rB );
     VCL_DLLPRIVATE static void RemoveBoxFromDDList_Impl( const SvTreeListBox& rB );
     DECL_DLLPRIVATE_LINK( DragFinishHdl_Impl, sal_Int8, void );
+
+    // after a checkbox entry is inserted, use this to get its width to support
+    // autowidth for the 1st checkbox column
+    VCL_DLLPRIVATE void CheckBoxInserted(SvTreeListEntry* pEntry);
 
 protected:
 
@@ -432,11 +433,10 @@ public:
     void            SetSelectHdl( const Link<SvTreeListBox*,void>& rNewHdl ) {aSelectHdl=rNewHdl; }
     void            SetDeselectHdl( const Link<SvTreeListBox*,void>& rNewHdl ) {aDeselectHdl=rNewHdl; }
     void            SetDoubleClickHdl(const Link<SvTreeListBox*,bool>& rNewHdl) {aDoubleClickHdl=rNewHdl;}
-    const Link<SvTreeListBox*,void>&   GetSelectHdl() const { return aSelectHdl; }
-    const Link<SvTreeListBox*,void>&   GetDeselectHdl() const { return aDeselectHdl; }
     const Link<SvTreeListBox*,bool>&   GetDoubleClickHdl() const { return aDoubleClickHdl; }
     void            SetExpandingHdl(const Link<SvTreeListBox*,bool>& rNewHdl){aExpandingHdl=rNewHdl;}
     void            SetExpandedHdl(const Link<SvTreeListBox*,void>& rNewHdl){aExpandedHdl=rNewHdl;}
+    void SetPopupMenuHdl(const Link<const CommandEvent&, bool>& rLink) { aPopupMenuHdl = rLink; }
 
     virtual void    ExpandedHdl();
     virtual bool    ExpandingHdl();
@@ -459,10 +459,7 @@ public:
     virtual void             DragFinished( sal_Int8 nDropAction );
     virtual bool             NotifyAcceptDrop( SvTreeListEntry* );
 
-    void                     SetDragOptions( sal_Int8 nOptions ) { nDragOptions = nOptions; }
-
     virtual SvTreeListEntry* CloneEntry( SvTreeListEntry* pSource );
-    virtual SvTreeListEntry* CreateEntry() const; // To create new Entries
 
     // Return value: TRISTATE_TRUE == Ok, TRISTATE_FALSE == Cancel, TRISTATE_INDET == Ok and Make visible moved entry
     virtual TriState NotifyMoving(
@@ -494,10 +491,6 @@ public:
 
     /** Enables, that one cell of a tablistbox entry can be focused */
     void                EnableCellFocus();
-
-                        // For overwriting accessible role for all entries - normally 0, so each entry can be different
-    void                SetAllEntriesAccessibleRoleType( SvTreeAccRoleType n ) { nAllItemAccRoleType = n; }
-    SvTreeAccRoleType   GetAllEntriesAccessibleRoleType() const { return nAllItemAccRoleType; }
 
     SvTreeFlags         GetTreeFlags() const {return nTreeFlags;}
 

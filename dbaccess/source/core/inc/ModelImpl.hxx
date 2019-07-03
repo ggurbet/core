@@ -39,6 +39,7 @@
 #include <com/sun/star/lang/NotInitializedException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
+#include <com/sun/star/script/XStorageBasedLibraryContainer.hpp>
 #include <com/sun/star/sdb/XBookmarksSupplier.hpp>
 #include <com/sun/star/sdb/XCompletedConnection.hpp>
 #include <com/sun/star/sdb/XFormDocumentsSupplier.hpp>
@@ -343,7 +344,7 @@ public:
 
     void release();
 
-    /// returns a all known data source settings, including their default values
+    /// returns all known data source settings, including their default values
     static const AsciiPropertyValue* getDefaultDataSourceSettings();
 
     /** retrieves the requested container of objects (forms/reports/tables/queries)
@@ -460,7 +461,7 @@ private:
 
 };
 
-/** a small base class for UNO components whose functionality depends on a ODatabaseModelImpl
+/** a small base class for UNO components whose functionality depends on an ODatabaseModelImpl
 */
 class ModelDependentComponent
 {
@@ -518,7 +519,7 @@ private:
     ModelDependentComponent&    m_rComponent;
 };
 
-/** a guard for public methods of objects dependent on a ODatabaseModelImpl instance
+/** a guard for public methods of objects dependent on an ODatabaseModelImpl instance
 
     Just put this guard onto the stack at the beginning of your method. Don't bother yourself
     with a MutexGuard, checks for being disposed, and the like.
@@ -533,7 +534,7 @@ public:
     /** constructs the guard
 
         @param _component
-            the component whose functionality depends on a ODatabaseModelImpl instance
+            the component whose functionality depends on an ODatabaseModelImpl instance
 
         @throws css::lang::DisposedException
             If the given component is already disposed

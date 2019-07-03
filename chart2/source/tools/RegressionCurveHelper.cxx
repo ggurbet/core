@@ -43,7 +43,6 @@ using namespace ::com::sun::star::chart2;
 
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::uno::Sequence;
-using ::com::sun::star::uno::XComponentContext;
 using ::com::sun::star::lang::XServiceName;
 using ::com::sun::star::beans::XPropertySet;
 using ::com::sun::star::uno::Exception;
@@ -218,8 +217,8 @@ void RegressionCurveHelper::initializeCurveCalculator(
     }
 
     if( bXValuesFound && bYValuesFound &&
-        aXValues.getLength() > 0 &&
-        aYValues.getLength() > 0 )
+        aXValues.hasElements() &&
+        aYValues.hasElements() )
         xOutCurveCalculator->recalculateRegression( aXValues, aYValues );
 }
 

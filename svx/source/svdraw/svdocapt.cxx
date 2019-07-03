@@ -37,6 +37,7 @@
 #include <sdr/contact/viewcontactofsdrcaptionobj.hxx>
 #include <sdr/properties/captionproperties.hxx>
 #include <svx/sdrhittesthelper.hxx>
+#include <svx/sdooitm.hxx>
 #include <svx/svddrag.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdhdl.hxx>
@@ -58,6 +59,7 @@
 #include <svx/xlnwtit.hxx>
 #include <svx/xpoly.hxx>
 #include <svx/xpool.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/ptrstyle.hxx>
 
 
@@ -581,7 +583,7 @@ void SdrCaptionObj::BrkCreate(SdrDragStat& /*rStat*/)
 basegfx::B2DPolyPolygon SdrCaptionObj::TakeCreatePoly(const SdrDragStat& /*rDrag*/) const
 {
     basegfx::B2DPolyPolygon aRetval;
-    const basegfx::B2DRange aRange(maRect.Left(), maRect.Top(), maRect.Right(), maRect.Bottom());
+    const basegfx::B2DRange aRange =vcl::unotools::b2DRectangleFromRectangle(maRect);
     aRetval.append(basegfx::utils::createPolygonFromRect(aRange));
     aRetval.append(aTailPoly.getB2DPolygon());
     return aRetval;

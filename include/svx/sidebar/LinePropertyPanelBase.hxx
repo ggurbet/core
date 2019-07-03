@@ -19,14 +19,11 @@
 #ifndef INCLUDED_SVX_SOURCE_SIDEBAR_LINE_LINEPROPERTYPANELBASE_HXX
 #define INCLUDED_SVX_SOURCE_SIDEBAR_LINE_LINEPROPERTYPANELBASE_HXX
 
-#include <svx/xdash.hxx>
-#include <vcl/ctrl.hxx>
-#include <sfx2/sidebar/SidebarPanelBase.hxx>
-#include <sfx2/sidebar/ControllerItem.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/field.hxx>
 #include <vcl/layout.hxx>
 #include <memory>
+#include <svl/poolitem.hxx>
 #include <svx/sidebar/PanelLayout.hxx>
 #include <svx/xtable.hxx>
 #include <svx/sidebar/LineWidthPopup.hxx>

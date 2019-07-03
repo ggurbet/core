@@ -18,6 +18,7 @@
  */
 
 #include <sfx2/bindings.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <wrtsh.hxx>
 #include <view.hxx>
 #include <viewopt.hxx>
@@ -628,13 +629,14 @@ bool SwWrtShell::GotoRegion( const OUString& rName )
     return bRet;
  }
 
-void SwWrtShell::GotoRefMark( const OUString& rRefMark, sal_uInt16 nSubType,
+bool SwWrtShell::GotoRefMark( const OUString& rRefMark, sal_uInt16 nSubType,
                                     sal_uInt16 nSeqNo )
 {
     SwPosition aPos = *GetCursor()->GetPoint();
     bool bRet = SwCursorShell::GotoRefMark(rRefMark, nSubType, nSeqNo);
     if (bRet)
         m_aNavigationMgr.addEntry(aPos);
+    return bRet;
 }
 
 bool SwWrtShell::GotoNextTOXBase( const OUString* pName )

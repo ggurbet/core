@@ -136,7 +136,10 @@ class SdrTransformRef2XItem;
 class SdrTransformRef2YItem;
 class SdrVertShearAllItem;
 class SdrVertShearOneItem;
+class SdrYesNoItem;
 class SfxBoolItem;
+class SfxUInt16Item;
+class SfxUInt32Item;
 class SfxStringItem;
 class SfxVoidItem;
 class Svx3DCharacterModeItem;
@@ -158,6 +161,9 @@ class SvxLineItem;
 class SvxTextRotateItem;
 class SvxWritingModeItem;
 class XColorItem;
+class SdrTextAniDirectionItem;
+class SdrTextAniKindItem;
+class SdrTextHorzAdjustItem;
 
 #define SDRATTR_START               XATTR_START                    /* 1000   */
                                                                                                          /* Pool V4*/ /* Pool V3*/ /* Pool V2*/

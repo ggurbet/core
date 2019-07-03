@@ -18,6 +18,7 @@
 class MenuItemList;
 class QAction;
 class QActionGroup;
+class QPushButton;
 class QMenu;
 class QMenuBar;
 class Qt5MenuItem;
@@ -34,6 +35,8 @@ private:
     bool mbMenuBar;
     QMenuBar* mpQMenuBar;
     QMenu* mpQMenu;
+    QPushButton* mpCloseButton;
+    QMetaObject::Connection maCloseButtonConnection;
 
     void DoFullMenuUpdate(Menu* pMenuBar);
     static void NativeItemText(OUString& rItemText);
@@ -54,6 +57,7 @@ public:
     virtual void SetSubMenu(SalMenuItem* pSalMenuItem, SalMenu* pSubMenu, unsigned nPos) override;
     virtual void SetFrame(const SalFrame* pFrame) override;
     const Qt5Frame* GetFrame() const;
+    virtual void ShowMenuBar(bool bVisible) override;
     Qt5Menu* GetTopLevel();
     virtual void SetItemBits(unsigned nPos, MenuItemBits nBits) override;
     virtual void CheckItem(unsigned nPos, bool bCheck) override;
@@ -66,19 +70,18 @@ public:
     virtual void SetAccelerator(unsigned nPos, SalMenuItem* pSalMenuItem,
                                 const vcl::KeyCode& rKeyCode, const OUString& rKeyName) override;
     virtual void GetSystemMenuData(SystemMenuData* pData) override;
+    virtual void ShowCloseButton(bool bShow) override;
 
     void SetMenu(Menu* pMenu) { mpVCLMenu = pMenu; }
     Menu* GetMenu() { return mpVCLMenu; }
     unsigned GetItemCount() { return maItems.size(); }
     Qt5MenuItem* GetItemAtPos(unsigned nPos) { return maItems[nPos]; }
 
-Q_SIGNALS:
-    void setFrameSignal(const SalFrame* pFrame);
-
 private slots:
     static void slotMenuTriggered(Qt5MenuItem* pQItem);
     static void slotMenuAboutToShow(Qt5MenuItem* pQItem);
     static void slotMenuAboutToHide(Qt5MenuItem* pQItem);
+    void slotCloseDocument();
 };
 
 class Qt5MenuItem : public SalMenuItem

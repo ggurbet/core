@@ -19,14 +19,8 @@
 
 
 #include <vcl/commandevent.hxx>
-#include <vcl/decoview.hxx>
-#include <vcl/dialog.hxx>
 #include <vcl/event.hxx>
-#include <vcl/scrbar.hxx>
-#include <vcl/button.hxx>
-#include <vcl/edit.hxx>
 #include <vcl/lstbox.hxx>
-#include <vcl/combobox.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/uitest/uiobject.hxx>
 #include <sal/log.hxx>
@@ -120,6 +114,8 @@ void ListBox::ImplInit( vcl::Window* pParent, WinBits nStyle )
         }
 
         mpFloatWin = VclPtr<ImplListBoxFloatingWindow>::Create( this );
+        if (!IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Focus))
+            mpFloatWin->RequestDoubleBuffering(true);
         mpFloatWin->SetAutoWidth( true );
         mpFloatWin->SetPopupModeEndHdl( LINK( this, ListBox, ImplPopupModeEndHdl ) );
         mpFloatWin->GetDropTarget()->addDropTargetListener(xDrop);
@@ -591,14 +587,13 @@ void ListBox::Resize()
         if ( GetNativeControlRegion( ControlType::Listbox, ControlPart::ButtonDown,
                     aArea, ControlState::NONE, aControlValue, aBound, aContent) )
         {
-            long nTop = 0;
             // Convert back from border space to local coordinates
             aPoint = pBorder->ScreenToOutputPixel( OutputToScreenPixel( aPoint ) );
             aContent.Move( -aPoint.X(), -aPoint.Y() );
 
             // Use the themes drop down size for the button
             aOutSz.setWidth( aContent.Left() );
-            mpBtn->setPosSizePixel( aContent.Left(), nTop, aContent.Right(), (nBottom-nTop) );
+            mpBtn->setPosSizePixel( aContent.Left(), 0, aContent.GetWidth(), nBottom );
 
             // Adjust the size of the edit field
             if ( GetNativeControlRegion( ControlType::Listbox, ControlPart::SubEdit,
@@ -1121,7 +1116,9 @@ bool ListBox::IsTravelSelect() const
 
 bool ListBox::IsInDropDown() const
 {
-    return mpFloatWin && mpFloatWin->IsInPopupMode();
+    // when the dropdown is dismissed, first mbInPopupMode is set to false, and on the next event iteration then
+    // mbPopupMode is set to false
+    return mpFloatWin && mpFloatWin->IsInPopupMode() && mpFloatWin->ImplIsInPrivatePopupMode();
 }
 
 tools::Rectangle ListBox::GetBoundingRectangle( sal_Int32 nItem ) const
@@ -1224,7 +1221,7 @@ Size ListBox::CalcSubEditSize() const
         aSz = mpImplLB->CalcSize (mnLineCount ? mnLineCount : mpImplLB->GetEntryList()->GetEntryCount());
     else
     {
-        aSz.setHeight( mpImplLB->CalcSize( 1 ).Height() );
+        aSz.setHeight( mpImplLB->GetEntryHeight() );
         // Size to maxmimum entry width
         aSz.setWidth( mpImplLB->GetMaxEntryWidth() );
 
@@ -1318,7 +1315,7 @@ void ListBox::GetMaxVisColumnsAndLines( sal_uInt16& rnCols, sal_uInt16& rnLines 
     {
         Size aOutSz = mpImplLB->GetMainWindow()->GetOutputSizePixel();
         rnCols = static_cast<sal_uInt16>(aOutSz.Width()/nCharWidth);
-        rnLines = static_cast<sal_uInt16>(aOutSz.Height()/mpImplLB->GetEntryHeight());
+        rnLines = static_cast<sal_uInt16>(aOutSz.Height()/mpImplLB->GetEntryHeightWithMargin());
     }
     else
     {

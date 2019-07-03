@@ -229,7 +229,7 @@ namespace canvas
                 }
                 virtual uno::Sequence< rendering::ARGBColor > SAL_CALL convertToARGB( const uno::Sequence< double >& deviceColor ) override
                 {
-                    SAL_WARN_IF(deviceColor.getLength() == 0, "canvas", "empty deviceColor argument");
+                    SAL_WARN_IF(!deviceColor.hasElements(), "canvas", "empty deviceColor argument");
                     const double*  pIn( deviceColor.getConstArray() );
                     const std::size_t nLen( deviceColor.getLength() );
                     ENSURE_ARG_OR_THROW2(nLen%4==0,
@@ -1100,7 +1100,7 @@ namespace canvas
                 try
                 {
                     uno::Reference< rendering::XGraphicDevice > xDevice( i_rxCanvas->getDevice(),
-                                                                         uno::UNO_QUERY_THROW );
+                                                                         uno::UNO_SET_THROW );
 
                     uno::Reference< lang::XServiceInfo >  xServiceInfo( xDevice,
                                                                         uno::UNO_QUERY_THROW );

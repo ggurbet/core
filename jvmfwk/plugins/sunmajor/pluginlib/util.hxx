@@ -20,14 +20,14 @@
 #define INCLUDED_JVMFWK_PLUGINS_SUNMAJOR_PLUGINLIB_UTIL_HXX
 
 #include <rtl/ustring.hxx>
-#include <rtl/bootstrap.hxx>
 #include <vector>
 #include <vendorbase.hxx>
+
+namespace rtl { class Bootstrap; }
 
 namespace jfw_plugin
 {
 
-class VendorBase;
 std::vector<OUString> getVectorFromCharArray(char const * const * ar, int size);
 
 /*   The function uses the relative paths, such as "bin/java.exe" and the provided
@@ -83,8 +83,7 @@ struct SameOrSubDirJREMap
     {
         if (s1 == s2.first)
             return true;
-        OUString sSub;
-        sSub = s2.first + "/";
+        OUString sSub = s2.first + "/";
         if (s1.match(sSub))
             return true;
         return false;

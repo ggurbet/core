@@ -18,10 +18,7 @@
  */
 
 
-#include <cppuhelper/interfacecontainer.hxx>
 #include <comphelper/interfacecontainer2.hxx>
-#include <cppuhelper/queryinterface.hxx>
-#include <cppuhelper/propshlp.hxx>
 
 #include <osl/diagnose.h>
 #include <osl/mutex.hxx>
@@ -159,7 +156,7 @@ void OInterfaceContainerHelper2::copyAndResetInUse()
     OSL_ENSURE( bInUse, "OInterfaceContainerHelper2 not in use" );
     if( bInUse )
     {
-        // this should be the worst case. If a iterator is active
+        // this should be the worst case. If an iterator is active
         // and a new Listener is added.
         if( bIsList )
             aData.pAsVector = new std::vector< Reference< XInterface > >( *aData.pAsVector );

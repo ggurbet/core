@@ -43,6 +43,7 @@
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnwtit.hxx>
 #include <svx/xtable.hxx>
+#include <svx/sdtagitm.hxx>
 #include <editeng/outliner.hxx>
 #include <editeng/editobj.hxx>
 #include <svx/sxcecitm.hxx>
@@ -549,7 +550,7 @@ void ScDetectiveFunc::InsertToOtherTab( SCCOL nStartCol, SCROW nStartRow,
     long nPageSign = bNegativePage ? -1 : 1;
 
     Point aStartPos = GetDrawPos( nStartCol, nStartRow, DrawPosMode::DetectiveArrow );
-    Point aEndPos   = Point( aStartPos.X() + 1000 * nPageSign, aStartPos.Y() - 1000 );
+    Point aEndPos( aStartPos.X() + 1000 * nPageSign, aStartPos.Y() - 1000 );
     if (aEndPos.Y() < 0)
         aEndPos.AdjustY(2000 );
 

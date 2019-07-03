@@ -75,6 +75,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <osl/file.hxx>
+#include <osl/module.hxx>
 #include <vcl/EnumContext.hxx>
 
 #include <unotools/pathoptions.hxx>
@@ -127,6 +128,7 @@
 #include <sfx2/notebookbar/SfxNotebookBar.hxx>
 #include <sfx2/sidebar/SidebarController.hxx>
 #include <sfx2/safemode.hxx>
+#include <sfx2/sfxuno.hxx>
 
 #include <comphelper/types.hxx>
 #include <officecfg/Office/Common.hxx>
@@ -188,9 +190,9 @@ namespace
             // and the bibliography is assumed to work
             return css::sdbc::DriverManager::create(comphelper::getProcessComponentContext()).is();
         }
-        catch (Exception & e)
+        catch (const Exception &)
         {
-            SAL_INFO("sfx.appl", "assuming Base to be missing; caught " << e);
+            TOOLS_INFO_EXCEPTION("sfx.appl", "assuming Base to be missing");
             return false;
         }
     }
@@ -211,31 +213,28 @@ namespace
                 SolarMutexGuard aGuard;
                 executeRestartDialog(comphelper::getProcessComponentContext(), nullptr, RESTART_REASON_BIBLIOGRAPHY_INSTALL);
             }
-            catch (const Exception & e)
+            catch (const Exception &)
             {
-                SAL_INFO(
-                    "sfx.appl",
-                    "trying to install LibreOffice Base, caught " << e);
+                TOOLS_INFO_EXCEPTION("sfx.appl", "trying to install LibreOffice Base");
             }
             return;
         }
 
         try // fdo#48775
         {
-            SfxStringItem aURL(SID_FILE_NAME, OUString(".component:Bibliography/View1"));
-            SfxStringItem aRef(SID_REFERER, OUString("private:user"));
-            SfxStringItem aTarget(SID_TARGETNAME, OUString("_blank"));
+            SfxStringItem aURL(SID_FILE_NAME, ".component:Bibliography/View1");
+            SfxStringItem aRef(SID_REFERER, "private:user");
+            SfxStringItem aTarget(SID_TARGETNAME, "_blank");
             SfxViewFrame::Current()->GetDispatcher()->ExecuteList(SID_OPENDOC,
                 SfxCallMode::ASYNCHRON, { &aURL, &aRef, &aTarget });
         }
-        catch (const Exception & e)
+        catch (const Exception &)
         {
-            SAL_INFO( "sfx.appl",
-                      "trying to load bibliography database, caught " << e);
+            TOOLS_INFO_EXCEPTION( "sfx.appl", "trying to load bibliography database");
         }
     }
 }
-/// Find the correct location of the document (LICENSE.fodt, etc.), and return
+/// Find the correct location of the document (CREDITS.fodt, etc.), and return
 /// it in rURL if found.
 static bool checkURL( const char *pName, const char *pExt, OUString &rURL )
 {
@@ -359,6 +358,17 @@ vcl::Window* SfxRequest::GetFrameWindow() const
 
 weld::Window* SfxRequest::GetFrameWeld() const
 {
+    const SfxItemSet* pIntArgs = GetInternalArgs_Impl();
+    const SfxPoolItem* pItem = nullptr;
+    if (pIntArgs && pIntArgs->GetItemState(SID_DIALOG_PARENT, false, &pItem) == SfxItemState::SET)
+    {
+        assert(dynamic_cast<const SfxUnoAnyItem*>(pItem));
+        auto aAny = static_cast<const SfxUnoAnyItem*>(pItem)->GetValue();
+        Reference<awt::XWindow> xWindow;
+        aAny >>= xWindow;
+        return Application::GetFrameWeld(xWindow);
+    }
+
     vcl::Window* pWin = GetFrameWindow();
     return pWin ? pWin->GetFrameWeld() : nullptr;
 }
@@ -400,7 +410,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
                         return;
                 }
 
-                SfxStringItem aNameItem( SID_FILE_NAME, OUString("vnd.sun.star.cmd:logout") );
+                SfxStringItem aNameItem( SID_FILE_NAME, "vnd.sun.star.cmd:logout" );
                 SfxStringItem aReferer( SID_REFERER, "private/user" );
                 pImpl->pAppDispat->ExecuteList(SID_OPENDOC,
                         SfxCallMode::SLOT, { &aNameItem, &aReferer });
@@ -572,6 +582,15 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
             sfx2::openUriExternally(sURL, false);
             break;
         }
+        case SID_WHATSNEW:
+        {
+            // Open release notes depending on version and locale
+            OUString sURL(officecfg::Office::Common::Menus::ReleaseNotesURL::get() + //https://hub.libreoffice.org/ReleaseNotes/
+                "?LOvers=" + utl::ConfigManager::getProductVersion() +
+                "&LOlocale=" + LanguageTag(utl::ConfigManager::getUILocale()).getLanguage() );
+            sfx2::openUriExternally(sURL, false);
+            break;
+        }
         case SID_SHOW_LICENSE:
         {
             LicenseDialog aDialog(rReq.GetFrameWeld());
@@ -591,7 +610,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
             Help* pHelp = Application::GetHelp();
             if ( pHelp )
             {
-                pHelp->Start(".uno:HelpIndex", static_cast<vcl::Window*>(nullptr)); // show start page
+                pHelp->Start(".uno:HelpIndex", Application::GetDefDialogParent()); // show start page
                 bDone = true;
             }
             break;
@@ -651,7 +670,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
         case SID_ABOUT:
         {
             SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateVclDialog( nullptr, SID_ABOUT ));
+            ScopedVclPtr<VclAbstractDialog> pDlg(pFact->CreateAboutDialog(rReq.GetFrameWeld()));
             pDlg->Execute();
             bDone = true;
             break;
@@ -659,8 +678,8 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
 
         case SID_TEMPLATE_MANAGER:
         {
-            ScopedVclPtrInstance< SfxTemplateManagerDlg > dlg;
-            dlg->Execute();
+            SfxTemplateManagerDlg aDialog(rReq.GetFrameWeld());
+            aDialog.run();
             bDone = true;
             break;
         }
@@ -840,7 +859,7 @@ void SfxApplication::MiscExec_Impl( SfxRequest& rReq )
                     std::vector<OUString> aBackupList;
                     OUString aSidebarMode;
 
-                    OUStringBuffer aPath = OUStringBuffer( "org.openoffice.Office.UI.ToolbarMode/Applications/" );
+                    OUStringBuffer aPath( "org.openoffice.Office.UI.ToolbarMode/Applications/" );
                     aPath.append( lcl_getAppName( eApp ) );
                     aPath.append( "/Modes" );
 
@@ -1498,7 +1517,7 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
                 nTabId = static_cast<const SfxUInt16Item*>(pItem)->GetValue();
             }
 
-            SfxApplication::MacroOrganizer( nTabId );
+            SfxApplication::MacroOrganizer(rReq.GetFrameWeld(), nTabId);
             rReq.Done();
         }
         break;
@@ -1665,8 +1684,7 @@ void SfxApplication::OfaExec_Impl( SfxRequest& rReq )
             try
             {
                 Reference< uno::XComponentContext > xORB = ::comphelper::getProcessComponentContext();
-                Reference< ui::dialogs::XExecutableDialog > xDialog;
-                xDialog = ui::dialogs::AddressBookSourcePilot::createWithParent(xORB, nullptr);
+                Reference< ui::dialogs::XExecutableDialog > xDialog = ui::dialogs::AddressBookSourcePilot::createWithParent(xORB, nullptr);
                 xDialog->execute();
             }
             catch(const css::uno::Exception&)

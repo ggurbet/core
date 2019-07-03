@@ -10,7 +10,7 @@
 #ifndef INCLUDED_FILTER_SOURCE_XSLTFILTER_LIBXSLTTRANSFORMER_HXX
 #define INCLUDED_FILTER_SOURCE_XSLTFILTER_LIBXSLTTRANSFORMER_HXX
 
-#include <list>
+#include <deque>
 #include <map>
 #include <mutex>
 
@@ -80,7 +80,7 @@ namespace XSLT
     };
 
     /*
-     * LibXSLTTransformer provides an transforming pipe service to XSLTFilter.
+     * LibXSLTTransformer provides a transforming pipe service to XSLTFilter.
      *
      * It implements XActiveDataSource, XActiveDataSink and XActiveDataControl
      * to consume data. It also notifies upstream of important events such as
@@ -109,7 +109,7 @@ namespace XSLT
 
         css::uno::Reference<XOutputStream> m_rOutputStream;
 
-        typedef ::std::list<css::uno::Reference<XStreamListener> > ListenerList;
+        typedef ::std::deque<css::uno::Reference<XStreamListener> > ListenerList;
 
         ListenerList m_listeners;
 

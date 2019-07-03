@@ -26,13 +26,13 @@
 #include <typeinfo>
 
 #include <vcl/commandinfoprovider.hxx>
+#include <vcl/event.hxx>
 #include <vcl/help.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/decoview.hxx>
-#include <vcl/toolbox.hxx>
-#include <vcl/scrbar.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 
 #include <sfx2/app.hxx>
 #include <sfx2/sfxdlg.hxx>
@@ -44,11 +44,9 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/filedlghelper.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <svl/stritem.hxx>
 #include <svtools/miscopt.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistentry.hxx>
-#include <vcl/viewdataentry.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <algorithm>
@@ -108,9 +106,25 @@ SvxToolbarConfigPage::SvxToolbarConfigPage(TabPageParent pParent, const SfxItemS
     weld::TreeView& rTreeView = m_xContentsListBox->get_widget();
     Size aSize(m_xFunctions->get_size_request());
     rTreeView.set_size_request(aSize.Width(), aSize.Height());
-    aWidths.push_back(rTreeView.get_checkbox_column_width());
-    aWidths.push_back(rTreeView.get_checkbox_column_width());
+
+    int nExpectedSize = 16;
+
+    int nStandardImageColWidth = rTreeView.get_checkbox_column_width();
+    int nMargin = nStandardImageColWidth - nExpectedSize;
+    if (nMargin < 16)
+        nMargin = 16;
+
+    if (SvxConfigPageHelper::GetImageType() & css::ui::ImageType::SIZE_LARGE)
+        nExpectedSize = 24;
+    else if (SvxConfigPageHelper::GetImageType() & css::ui::ImageType::SIZE_32)
+        nExpectedSize = 32;
+
+    int nImageColWidth = nExpectedSize + nMargin;
+
+    aWidths.push_back(nStandardImageColWidth);
+    aWidths.push_back(nImageColWidth);
     rTreeView.set_column_fixed_widths(aWidths);
+
     rTreeView.set_hexpand(true);
     rTreeView.set_vexpand(true);
     rTreeView.set_help_id( HID_SVX_CONFIG_TOOLBAR_CONTENTS );
@@ -605,7 +619,7 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
 
                     OUString sId(OUString::number(reinterpret_cast<sal_Int64>(pEntry)));
                     m_xContentsListBox->insert(nActEntry, sId);
-                    m_xContentsListBox->set_toggle(nActEntry, pEntry->IsVisible(), 0);
+                    m_xContentsListBox->set_toggle(nActEntry, pEntry->IsVisible() ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
                     InsertEntryIntoUI(pEntry, nActEntry, 1);
 
                     m_xContentsListBox->select(nActEntry);
@@ -614,9 +628,9 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
                     GetSaveInData()->PersistChanges(
                         GetSaveInData()->GetImageManager() );
                 }
-                catch ( css::uno::Exception& e)
+                catch ( const css::uno::Exception&)
                 {
-                    SAL_WARN("cui.customize", "Error replacing image: " << e);
+                    TOOLS_WARN_EXCEPTION("cui.customize", "Error replacing image");
                 }
             }
         }
@@ -645,7 +659,7 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
 
             OUString sId(OUString::number(reinterpret_cast<sal_Int64>(pEntry)));
             m_xContentsListBox->insert(nActEntry, sId);
-            m_xContentsListBox->set_toggle(nActEntry, pEntry->IsVisible(), 0);
+            m_xContentsListBox->set_toggle(nActEntry, pEntry->IsVisible() ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
             InsertEntryIntoUI(pEntry, nActEntry, 1);
 
             m_xContentsListBox->select(nActEntry);
@@ -658,9 +672,9 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
             GetSaveInData()->PersistChanges(
                 GetSaveInData()->GetImageManager() );
         }
-        catch ( css::uno::Exception& e )
+        catch ( const css::uno::Exception& )
         {
-            SAL_WARN("cui.customize", "Error resetting image: " << e);
+            TOOLS_WARN_EXCEPTION("cui.customize", "Error resetting image");
         }
     }
     else if (rIdent == "restoreItem")
@@ -702,7 +716,7 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
             OUString sId(OUString::number(reinterpret_cast<sal_Int64>(pEntry)));
             m_xContentsListBox->insert(nActEntry, sId);
             m_xContentsListBox->set_toggle(nActEntry,
-                pEntry->IsVisible(), 0);
+                pEntry->IsVisible() ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
             InsertEntryIntoUI(pEntry, nActEntry, 1);
 
             m_xContentsListBox->select(nActEntry);
@@ -710,9 +724,9 @@ IMPL_LINK(SvxToolbarConfigPage, ModifyItemHdl, const OString&, rIdent, void)
 
             bNeedsApply = true;
         }
-        catch ( css::uno::Exception& e )
+        catch ( const css::uno::Exception& )
         {
-            SAL_WARN("cui.customize", "Error restoring image: " << e);
+            TOOLS_WARN_EXCEPTION("cui.customize", "Error restoring image");
         }
     }
     else
@@ -834,7 +848,7 @@ void SvxToolbarConfigPage::SelectElement()
         OUString sId(OUString::number(reinterpret_cast<sal_Int64>(entry)));
         m_xContentsListBox->insert(i, sId);
         if (entry->IsBinding() && !entry->IsSeparator())
-            m_xContentsListBox->set_toggle(i,  entry->IsVisible(), 0);
+            m_xContentsListBox->set_toggle(i,  entry->IsVisible() ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
         InsertEntryIntoUI(entry, i, 1);
         ++i;
     }
@@ -842,7 +856,7 @@ void SvxToolbarConfigPage::SelectElement()
     UpdateButtonStates();
 }
 
-void SvxToolbarConfigPage::AddFunction(int nTarget, bool bFront)
+void SvxToolbarConfigPage::AddFunction(int nTarget)
 {
     SvxConfigEntry* pToolbar = GetTopLevelSelection();
 
@@ -851,7 +865,7 @@ void SvxToolbarConfigPage::AddFunction(int nTarget, bool bFront)
 
     // Add the command to the contents listbox of the selected toolbar
     int nNewLBEntry =
-        SvxConfigPage::AddFunction(nTarget, bFront, true/*bAllowDuplicates*/);
+        SvxConfigPage::AddFunction(nTarget, /*bFront*/false, true/*bAllowDuplicates*/);
 
     if (nNewLBEntry == -1)
         return;
@@ -861,7 +875,7 @@ void SvxToolbarConfigPage::AddFunction(int nTarget, bool bFront)
     if ( pEntry->IsBinding() ) //TODO sep ?
     {
         pEntry->SetVisible(true);
-        m_xContentsListBox->set_toggle(nNewLBEntry, true, 0);
+        m_xContentsListBox->set_toggle(nNewLBEntry, TRISTATE_TRUE, 0);
     }
 
     InsertEntryIntoUI(pEntry, nNewLBEntry, 1);
@@ -895,7 +909,7 @@ void SvxToolbarEntriesListBox::ChangedVisibility(int nRow)
 
     if (pEntryData->IsBinding())
     {
-        pEntryData->SetVisible(m_xControl->get_toggle(nRow, 0));
+        pEntryData->SetVisible(m_xControl->get_toggle(nRow, 0) == TRISTATE_TRUE);
 
         SvxConfigEntry* pToolbar = pPage->GetTopLevelSelection();
 
@@ -920,7 +934,7 @@ IMPL_LINK(SvxToolbarEntriesListBox, KeyInputHdl, const KeyEvent&, rKeyEvent, boo
         SvxConfigEntry* pEntryData = reinterpret_cast<SvxConfigEntry*>(m_xControl->get_id(nRow).toInt64());
         if (pEntryData->IsBinding() && !pEntryData->IsSeparator())
         {
-            m_xControl->set_toggle(nRow, !m_xControl->get_toggle(nRow, 0), 0);
+            m_xControl->set_toggle(nRow, m_xControl->get_toggle(nRow, 0) == TRISTATE_TRUE ? TRISTATE_FALSE : TRISTATE_TRUE, 0);
             ChangedVisibility(nRow);
         }
         return true;

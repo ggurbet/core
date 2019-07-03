@@ -19,12 +19,9 @@
 #ifndef INCLUDED_EDITENG_CROSSEDOUTITEM_HXX
 #define INCLUDED_EDITENG_CROSSEDOUTITEM_HXX
 
-#include <vcl/vclenum.hxx>
 #include <tools/fontenum.hxx>
 #include <svl/eitem.hxx>
 #include <editeng/editengdllapi.h>
-
-class SvXMLUnitConverter;
 
 // class SvxCrossedOutItem -----------------------------------------------
 
@@ -47,8 +44,6 @@ public:
                                   OUString &rText, const IntlWrapper& ) const override;
 
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
-    virtual SfxPoolItem*    Create(SvStream &, sal_uInt16) const override;
-    virtual SvStream&       Store(SvStream &, sal_uInt16 nItemVersion) const override;
     static OUString         GetValueTextByPos( sal_uInt16 nPos );
     virtual sal_uInt16      GetValueCount() const override;
     virtual bool            QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;
@@ -60,11 +55,6 @@ public:
     virtual bool            GetBoolValue() const override;
     virtual void            SetBoolValue( bool bVal ) override;
 
-    SvxCrossedOutItem& operator=(const SvxCrossedOutItem& rCross)
-        {
-            SetValue( rCross.GetValue() );
-            return *this;
-        }
     SvxCrossedOutItem(SvxCrossedOutItem const &) = default; // SfxPoolItem copy function dichotomy
 
     // enum cast

@@ -41,7 +41,6 @@ namespace dbaccess
     using ::com::sun::star::xml::sax::XWriter;
     using ::com::sun::star::xml::sax::Writer;
     using ::com::sun::star::xml::sax::Parser;
-    using ::com::sun::star::xml::sax::XParser;
     using ::com::sun::star::xml::sax::InputSource;
 
     // StorageXMLOutputStream_Data
@@ -126,7 +125,7 @@ namespace dbaccess
         ENSURE_OR_THROW( i_rParentStorage.is(), "illegal stream" );
 
         const Reference< css::io::XStream > xStream(
-            i_rParentStorage->openStreamElement( i_rStreamName, css::embed::ElementModes::READ ), UNO_QUERY_THROW );
+            i_rParentStorage->openStreamElement( i_rStreamName, css::embed::ElementModes::READ ), css::uno::UNO_SET_THROW );
         m_xInputStream.set( xStream->getInputStream(), css::uno::UNO_SET_THROW );
 
         m_xParser.set( Parser::create(i_rContext) );

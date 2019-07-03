@@ -19,8 +19,8 @@
 
 
 #include <cppuhelper/supportsservice.hxx>
+#include <comphelper/interfacecontainer2.hxx>
 
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/util/CloseVetoException.hpp>
 #include <com/sun/star/util/XCloseBroadcaster.hpp>
 #include <com/sun/star/util/XCloseable.hpp>
@@ -29,9 +29,12 @@
 #include <com/sun/star/frame/XDesktop.hpp>
 #include <com/sun/star/frame/TerminationVetoException.hpp>
 #include <com/sun/star/frame/DoubleInitializationException.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/embed/Actions.hpp>
+#include <com/sun/star/embed/XActionsApproval.hpp>
 
 #include "instancelocker.hxx"
+
+namespace com::sun::star::uno { class XComponentContext; }
 
 using namespace ::com::sun::star;
 
@@ -50,7 +53,7 @@ OInstanceLocker::~OInstanceLocker()
 {
     if ( !m_bDisposed )
     {
-        m_refCount++; // to call dispose
+        osl_atomic_increment(&m_refCount); // to call dispose
         try {
             dispose();
         }
@@ -211,7 +214,7 @@ OLockListener::~OLockListener()
 
 void OLockListener::Dispose()
 {
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
+    osl::MutexGuard aGuard( m_aMutex );
 
     if ( m_bDisposed )
         return;
@@ -251,7 +254,7 @@ void OLockListener::Dispose()
 
 void SAL_CALL OLockListener::disposing( const lang::EventObject& aEvent )
 {
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
+    osl::ClearableMutexGuard aGuard( m_aMutex );
 
     // object is disposed
     if ( aEvent.Source == m_xInstance )
@@ -276,7 +279,7 @@ void SAL_CALL OLockListener::disposing( const lang::EventObject& aEvent )
 void SAL_CALL OLockListener::queryClosing( const lang::EventObject& aEvent, sal_Bool )
 {
     // GetsOwnership parameter is always ignored, the user of the service must close the object always
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
+    osl::ClearableMutexGuard aGuard( m_aMutex );
     if ( !m_bDisposed && aEvent.Source == m_xInstance && ( m_nMode & embed::Actions::PREVENT_CLOSE ) )
     {
         try
@@ -304,7 +307,7 @@ void SAL_CALL OLockListener::queryClosing( const lang::EventObject& aEvent, sal_
 
 void SAL_CALL OLockListener::notifyClosing( const lang::EventObject& aEvent )
 {
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
+    osl::ClearableMutexGuard aGuard( m_aMutex );
 
     // object is closed, no reason to listen
     if ( aEvent.Source == m_xInstance )
@@ -334,7 +337,7 @@ void SAL_CALL OLockListener::notifyClosing( const lang::EventObject& aEvent )
 
 void SAL_CALL OLockListener::queryTermination( const lang::EventObject& aEvent )
 {
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
+    osl::ClearableMutexGuard aGuard( m_aMutex );
     if ( aEvent.Source == m_xInstance && ( m_nMode & embed::Actions::PREVENT_TERMINATION ) )
     {
         try
@@ -362,7 +365,7 @@ void SAL_CALL OLockListener::queryTermination( const lang::EventObject& aEvent )
 
 void SAL_CALL OLockListener::notifyTermination( const lang::EventObject& aEvent )
 {
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
+    osl::ClearableMutexGuard aGuard( m_aMutex );
 
     // object is terminated, no reason to listen
     if ( aEvent.Source == m_xInstance )
@@ -397,7 +400,7 @@ void SAL_CALL OLockListener::notifyTermination( const lang::EventObject& aEvent 
 
 void OLockListener::Init()
 {
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
+    osl::ClearableMutexGuard aGuard( m_aMutex );
 
     if ( m_bDisposed || m_bInitialized )
         return;

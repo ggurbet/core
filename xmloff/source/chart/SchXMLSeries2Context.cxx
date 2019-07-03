@@ -185,11 +185,11 @@ void lcl_insertErrorBarLSequencesToMap(
     {
         Sequence< Reference< chart2::data::XLabeledDataSequence > > aLSequences(
             xErrorBarSource->getDataSequences());
-        for( sal_Int32 nIndex = 0; nIndex < aLSequences.getLength(); ++nIndex )
+        for( const auto& rLSequence : aLSequences )
         {
             // use "0" as data index. This is ok, as it is not used for error bars
             rInOutMap.emplace(
-                    tSchXMLIndexWithPart( 0, SCH_XML_PART_ERROR_BARS ), aLSequences[ nIndex ] );
+                    tSchXMLIndexWithPart( 0, SCH_XML_PART_ERROR_BARS ), rLSequence );
         }
     }
 }
@@ -222,8 +222,7 @@ Reference< chart2::data::XLabeledDataSequence2 > lcl_createAndAddSequenceToSerie
     sal_Int32 nOldCount = aOldSeq.getLength();
     Sequence< Reference< chart2::data::XLabeledDataSequence > > aNewSeq( nOldCount + 1 );
     aNewSeq[0].set(xLabeledSeq, uno::UNO_QUERY_THROW);
-    for( sal_Int32 nN=0; nN<nOldCount; nN++ )
-        aNewSeq[nN+1] = aOldSeq[nN];
+    std::copy(aOldSeq.begin(), aOldSeq.end(), std::next(aNewSeq.begin()));
     xSeriesSink->setData( aNewSeq );
 
     return xLabeledSeq;
@@ -861,9 +860,9 @@ void SchXMLSeries2Context::setStylesToSeries( SeriesDefaultsAndStyles& rSeriesDe
                     }
                 }
             }
-            catch( const uno::Exception & rEx )
+            catch( const uno::Exception & )
             {
-                SAL_INFO("xmloff.chart", "Exception caught during setting styles to series: " << rEx );
+                TOOLS_INFO_EXCEPTION("xmloff.chart", "Exception caught during setting styles to series" );
             }
         }
     }
@@ -927,9 +926,9 @@ void SchXMLSeries2Context::setStylesToRegressionCurves(
                 xRegCurveCont->addRegressionCurve( xRegCurve );
             }
         }
-        catch( const uno::Exception& rEx )
+        catch( const uno::Exception& )
         {
-            SAL_INFO("xmloff.chart", "Exception caught during setting styles to series: " << rEx );
+            TOOLS_INFO_EXCEPTION("xmloff.chart", "Exception caught during setting styles to series" );
         }
 
     }
@@ -996,9 +995,9 @@ void SchXMLSeries2Context::setStylesToStatisticsObjects( SeriesDefaultsAndStyles
                     }
                 }
             }
-            catch( const uno::Exception & rEx )
+            catch( const uno::Exception & )
             {
-                SAL_INFO("xmloff.chart", "Exception caught during setting styles to series: " << rEx );
+                TOOLS_INFO_EXCEPTION("xmloff.chart", "Exception caught during setting styles to series" );
             }
         }
     }
@@ -1091,9 +1090,9 @@ void SchXMLSeries2Context::setStylesToDataPoints( SeriesDefaultsAndStyles& rSeri
                         lcl_resetSymbolSizeForPointsIfNecessary( xPointProp, rImport, pPropStyleContext, pStylesCtxt );
                 }
             }
-            catch( const uno::Exception & rEx )
+            catch( const uno::Exception & )
             {
-                SAL_INFO("xmloff.chart", "Exception caught during setting styles to data points: " << rEx );
+                TOOLS_INFO_EXCEPTION("xmloff.chart", "Exception caught during setting styles to data points" );
             }
         }
     }   // styles iterator

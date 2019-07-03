@@ -108,7 +108,7 @@ static char const ID_DBG_METHODS[] = "Dbg_Methods";
 
 static char const aSeqLevelStr[] = "[]";
 
-// Gets the default property for an uno object. Note: There is some
+// Gets the default property for a uno object. Note: There is some
 // redirection built in. The property name specifies the name
 // of the default property.
 
@@ -565,7 +565,7 @@ static void implSequenceToMultiDimArray( SbxDimArray*& pArray, Sequence< sal_Int
     }
     else
     {
-        if ( indices.getLength() < 1 )
+        if ( !indices.hasElements() )
         {
             // Should never ever get here ( indices.getLength()
             // should equal number of dimensions in the array )
@@ -2556,7 +2556,7 @@ SbUnoProperty::SbUnoProperty
     , mRealType( eRealSbxType )
     , mbUnoStruct( bUnoStruct )
 {
-    // as needed establish an dummy array so that SbiRuntime::CheckArray() works
+    // as needed establish a dummy array so that SbiRuntime::CheckArray() works
     static SbxArrayRef xDummyArray = new SbxArray( SbxVARIANT );
     if( eSbxType & SbxARRAY )
         PutObject( xDummyArray.get() );
@@ -2824,7 +2824,7 @@ Any SbUnoObject::getUnoAny()
     return aRetAny;
 }
 
-// help method to create an Uno-Struct per CoreReflection
+// help method to create a Uno-Struct per CoreReflection
 static SbUnoObject* Impl_CreateUnoStruct( const OUString& aClassName )
 {
     // get CoreReflection
@@ -2869,7 +2869,7 @@ SbxObject* SbUnoFactory::CreateObject( const OUString& rClassName )
 
 
 // Provisional interface for the UNO-Connection
-// Deliver a SbxObject, that wrap an Uno-Interface
+// Deliver a SbxObject, that wrap a Uno-Interface
 SbxObjectRef GetSbUnoObject( const OUString& aName, const Any& aUnoObj_ )
 {
     return new SbUnoObject( aName, aUnoObj_ );
@@ -3328,8 +3328,7 @@ SbxVariable* SbUnoClass::Find( const OUString& rName, SbxClassType )
             {
                 try
                 {
-                    Any aAny;
-                    aAny = xField->get( aAny );
+                    Any aAny = xField->get( {} ); //TODO: does this make sense?
 
                     // Convert to Sbx
                     pRes = new SbxVariable( SbxVARIANT );
@@ -3396,7 +3395,7 @@ SbxVariable* SbUnoClass::Find( const OUString& rName, SbxClassType )
                     }
                 }
 
-                // An UNO service?
+                // A UNO service?
                 if( !pRes )
                 {
                     SbUnoService* pUnoService = findUnoService( aNewName );
@@ -3408,7 +3407,7 @@ SbxVariable* SbUnoClass::Find( const OUString& rName, SbxClassType )
                     }
                 }
 
-                // An UNO singleton?
+                // A UNO singleton?
                 if( !pRes )
                 {
                     SbUnoSingleton* pUnoSingleton = findUnoSingleton( aNewName );
@@ -3757,7 +3756,7 @@ void SbUnoSingleton::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
 
 
 // Implementation of an EventAttacher-drawn AllListener, which
-// solely transmits several events to an general AllListener
+// solely transmits several events to a general AllListener
 class BasicAllListener_Impl : public WeakImplHelper< XAllListener >
 {
     void firing_impl(const AllEventObject& Event, Any* pRet);
@@ -3788,8 +3787,7 @@ void BasicAllListener_Impl::firing_impl( const AllEventObject& Event, Any* pRet 
 
     if( xSbxObj.is() )
     {
-        OUString aMethodName = aPrefixName;
-        aMethodName = aMethodName + Event.MethodName;
+        OUString aMethodName = aPrefixName + Event.MethodName;
 
         SbxVariable * pP = xSbxObj.get();
         while( pP->GetParent() )
@@ -3892,7 +3890,7 @@ static Reference< XInterface > createAllListenerAdapter
     if( xInvocationAdapterFactory.is() && xListenerType.is() && xListener.is() )
     {
         Reference< XInvocation > xInvocationToAllListenerMapper =
-            static_cast<XInvocation*>(new InvocationToAllListenerMapper( xListenerType, xListener, Helper ));
+            new InvocationToAllListenerMapper(xListenerType, xListener, Helper);
         Type aListenerType( xListenerType->getTypeClass(), xListenerType->getName() );
         Sequence<Type> arg2(1);
         arg2[0] = aListenerType;
@@ -3931,7 +3929,7 @@ Any SAL_CALL InvocationToAllListenerMapper::invoke(const OUString& FunctionName,
     Reference< XIdlClass > xReturnType = xMethod->getReturnType();
     Sequence< Reference< XIdlClass > > aExceptionSeq = xMethod->getExceptionTypes();
     if( ( xReturnType.is() && xReturnType->getTypeClass() != TypeClass_VOID ) ||
-        aExceptionSeq.getLength() > 0 )
+        aExceptionSeq.hasElements() )
     {
         bApproveFiring = true;
     }

@@ -1082,7 +1082,7 @@ void ScTable::StartListening( const ScAddress& rAddress, SvtListener* pListener 
     if (!ValidCol(rAddress.Col()))
         return;
 
-    aCol[rAddress.Col()].StartListening( *pListener, rAddress.Row() );
+    CreateColumnIfNotExists(rAddress.Col()).StartListening( *pListener, rAddress.Row() );
 }
 
 void ScTable::EndListening( const ScAddress& rAddress, SvtListener* pListener )
@@ -1090,7 +1090,8 @@ void ScTable::EndListening( const ScAddress& rAddress, SvtListener* pListener )
     if (!ValidCol(rAddress.Col()))
         return;
 
-    aCol[rAddress.Col()].EndListening( *pListener, rAddress.Row() );
+    if (rAddress.Col() < aCol.size())
+        aCol[rAddress.Col()].EndListening( *pListener, rAddress.Row() );
 }
 
 void ScTable::StartListening( sc::StartListeningContext& rCxt, const ScAddress& rAddress, SvtListener& rListener )
@@ -1098,7 +1099,7 @@ void ScTable::StartListening( sc::StartListeningContext& rCxt, const ScAddress& 
     if (!ValidCol(rAddress.Col()))
         return;
 
-    aCol[rAddress.Col()].StartListening(rCxt, rAddress, rListener);
+    CreateColumnIfNotExists(rAddress.Col()).StartListening(rCxt, rAddress, rListener);
 }
 
 void ScTable::EndListening( sc::EndListeningContext& rCxt, const ScAddress& rAddress, SvtListener& rListener )
@@ -1204,12 +1205,14 @@ void ScTable::InvalidateTextWidth( const ScAddress* pAdrFrom, const ScAddress* p
     for (SCCOL nCol = nCol1; nCol <= nCol2; ++nCol)
     {
         ScColumnTextWidthIterator aIter(aCol[nCol], nRow1, nRow2);
+        sc::ColumnBlockPosition blockPos; // cache mdds position
+        InitColumnBlockPosition( blockPos, nCol );
 
         for (; aIter.hasCell(); aIter.next())
         {
             SCROW nRow = aIter.getPos();
             aIter.setValue(TEXTWIDTH_DIRTY);
-            ScRefCellValue aCell = aCol[nCol].GetCellValue(nRow);
+            ScRefCellValue aCell = aCol[nCol].GetCellValue(blockPos, nRow);
             if (aCell.isEmpty())
                 continue;
 

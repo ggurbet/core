@@ -58,6 +58,7 @@
 #include <docsh.hxx>
 #include <strings.hrc>
 #include <fntcap.hxx>
+#include <vcl/outdev/ScopedStates.hxx>
 
 using namespace ::com::sun::star;
 
@@ -784,7 +785,30 @@ static void lcl_DrawLineForWrongListData(
             SwWrongArea const*const wrongArea = pWList->GetWrongElement(nNextStart + rInf.GetIdx());
             if (wrongArea != nullptr)
             {
-                if (WRONGAREA_DASHED == wrongArea->mLineType)
+                if (WRONGAREA_WAVE == wrongArea->mLineType)
+                {
+                    vcl::ScopedAntialiasing a(rInf.GetOut(), true);
+                    rInf.GetOut().SetLineColor( wrongArea->mColor );
+                    rInf.GetOut().DrawWaveLine( aStart, aEnd, 1 );
+                }
+                else if (WRONGAREA_BOLDWAVE == wrongArea->mLineType)
+                {
+                    vcl::ScopedAntialiasing a(rInf.GetOut(), true);
+                    rInf.GetOut().SetLineColor( wrongArea->mColor );
+                    rInf.GetOut().DrawWaveLine( aStart, aEnd, 2 );
+                }
+                else if (WRONGAREA_BOLD == wrongArea->mLineType)
+                {
+                    rInf.GetOut().SetLineColor( wrongArea->mColor );
+
+                    aStart.AdjustY(30 );
+                    aEnd.AdjustY(30 );
+
+                    LineInfo aLineInfo( LineStyle::Solid, 26 );
+
+                    rInf.GetOut().DrawLine( aStart, aEnd, aLineInfo );
+                }
+                else if (WRONGAREA_DASHED == wrongArea->mLineType)
                 {
                     rInf.GetOut().SetLineColor( wrongArea->mColor );
 
@@ -797,12 +821,6 @@ static void lcl_DrawLineForWrongListData(
                     aLineInfo.SetDashCount(1);
 
                     rInf.GetOut().DrawLine( aStart, aEnd, aLineInfo );
-                }
-                else if (WRONGAREA_WAVE == wrongArea->mLineType)
-                {
-                    rInf.GetOut().SetLineColor( wrongArea->mColor );
-
-                    rInf.GetOut().DrawWaveLine( aStart, aEnd );
                 }
             }
         }
@@ -1319,8 +1337,7 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
                 // Kashida Justification
                 if ( SwFontScript::CTL == nActual && nSpaceAdd )
                 {
-                    if ( SwScriptInfo::IsArabicText( rInf.GetText(), rInf.GetIdx(), rInf.GetLen() )
-                        && rInf.GetOut().GetMinKashida() )
+                    if ( SwScriptInfo::IsArabicText( rInf.GetText(), rInf.GetIdx(), rInf.GetLen() ) )
                     {
                         if ( pSI && pSI->CountKashida() &&
                             pSI->KashidaJustify( pKernArray.get(), nullptr, rInf.GetIdx(),
@@ -1530,8 +1547,7 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
             // Kashida Justification
             if ( SwFontScript::CTL == nActual && nSpaceAdd )
             {
-                if ( SwScriptInfo::IsArabicText( rInf.GetText(), rInf.GetIdx(), rInf.GetLen() )
-                    && rInf.GetOut().GetMinKashida() )
+                if ( SwScriptInfo::IsArabicText( rInf.GetText(), rInf.GetIdx(), rInf.GetLen() ) )
                 {
                     if ( pSI && pSI->CountKashida() &&
                          pSI->KashidaJustify( pKernArray.get(), pScrArray.get(), rInf.GetIdx(),
@@ -1766,8 +1782,10 @@ void SwFntObj::DrawText( SwDrawTextInfo &rInf )
                             rInf.GetFrame()->SwitchHorizontalToVertical( aCurrPos );
                             rInf.GetFrame()->SwitchHorizontalToVertical( aEnd );
                         }
-                        rInf.GetOut().DrawWaveLine( aCurrPos, aEnd );
-
+                        {
+                            vcl::ScopedAntialiasing a(rInf.GetOut(), true);
+                            rInf.GetOut().DrawWaveLine( aCurrPos, aEnd );
+                        }
                         if ( bColSave )
                             rInf.GetOut().SetLineColor( aCol );
 
@@ -2131,8 +2149,7 @@ TextFrameIndex SwFntObj::GetCursorOfst(SwDrawTextInfo &rInf)
         // Kashida Justification
         if ( SwFontScript::CTL == nActual && rInf.GetSpace() )
         {
-            if ( SwScriptInfo::IsArabicText( rInf.GetText(), rInf.GetIdx(), rInf.GetLen() )
-                && rInf.GetOut().GetMinKashida() )
+            if ( SwScriptInfo::IsArabicText( rInf.GetText(), rInf.GetIdx(), rInf.GetLen() ) )
             {
                 if ( pSI && pSI->CountKashida() &&
                     pSI->KashidaJustify( pKernArray.get(), nullptr, rInf.GetIdx(), rInf.GetLen(),
@@ -2200,7 +2217,7 @@ TextFrameIndex SwFntObj::GetCursorOfst(SwDrawTextInfo &rInf)
 
             const long nGridWidthAdd = EvalGridWidthAdd( pGrid, rInf );
 
-            for (TextFrameIndex j = TextFrameIndex(0); j < rInf.GetLen(); j++)
+            for (TextFrameIndex j(0); j < rInf.GetLen(); j++)
             {
                 long nScr = pKernArray[sal_Int32(j)] + (nSpaceAdd + nGridWidthAdd) * (sal_Int32(j) + 1);
                 if( nScr >= rInf.GetOfst())

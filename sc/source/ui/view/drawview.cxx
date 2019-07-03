@@ -18,6 +18,7 @@
  */
 
 #include <com/sun/star/embed/EmbedStates.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 
 #include <svx/svditer.hxx>
 #include <svx/svdograf.hxx>
@@ -26,6 +27,7 @@
 #include <svx/svdoole2.hxx>
 #include <svx/svdouno.hxx>
 #include <svx/svdpage.hxx>
+#include <svx/svdpagv.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/svdocapt.hxx>
 #include <editeng/outlobj.hxx>
@@ -34,6 +36,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svx/sdrundomanager.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xbtmpit.hxx>
 #include <comphelper/lok.hxx>
 #include <sfx2/lokhelper.hxx>
@@ -528,7 +531,7 @@ void ScDrawView::MarkListHasChanged()
         uno::Reference<frame::XController> xController = rFrame.GetController();
         if (xController.is())
         {
-            ScTabViewObj* pImp = ScTabViewObj::getImplementation( xController );
+            ScTabViewObj* pImp = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
             if (pImp)
                 pImp->SelectionChanged();
         }
@@ -576,7 +579,7 @@ bool ScDrawView::SdrBeginTextEdit(
         uno::Reference< frame::XController > xController = rFrame.GetController();
         if (xController.is())
         {
-            ScTabViewObj* pImp = ScTabViewObj::getImplementation( xController );
+            ScTabViewObj* pImp = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
             if (pImp)
                 pImp->SelectionChanged();
         }
@@ -600,7 +603,7 @@ SdrEndTextEditKind ScDrawView::SdrEndTextEdit( bool bDontDeleteReally )
         uno::Reference< frame::XController > xController = rFrame.GetController();
         if (xController.is())
         {
-            ScTabViewObj* pImp = ScTabViewObj::getImplementation( xController );
+            ScTabViewObj* pImp = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
             if (pImp)
                 pImp->SelectionChanged();
         }

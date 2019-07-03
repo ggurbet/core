@@ -64,6 +64,7 @@
 #include <sortedobjs.hxx>
 #include <objectformatter.hxx>
 #include <calbck.hxx>
+#include <ndtxt.hxx>
 #include <DocumentSettingManager.hxx>
 #include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentTimerAccess.hxx>
@@ -1430,7 +1431,8 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
                 // no notification, if <SwViewShell> is in construction
                 if ( pViewShell && !pViewShell->IsInConstructor() &&
                      pViewShell->GetLayout() &&
-                     pViewShell->GetLayout()->IsAnyShellAccessible() )
+                     pViewShell->GetLayout()->IsAnyShellAccessible() &&
+                     pFrame->FindPageFrame() != nullptr)
                 {
                     pViewShell->InvalidateAccessibleParaFlowRelation(
                         dynamic_cast<SwTextFrame*>(pFrame->FindNextCnt( true )),
@@ -1464,7 +1466,7 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
                 // pathology: redline that starts on a TableNode; cannot
                 // be created in UI but by import filters...
                 if (pRedline
-                    && pRedline->GetType() == nsRedlineType_t::REDLINE_DELETE
+                    && pRedline->GetType() == RedlineType::Delete
                     && &pRedline->Start()->nNode.GetNode() == pNd)
                 {
                     SAL_WARN("sw.pageframe", "skipping table frame creation on bizarre redline");
@@ -1511,7 +1513,8 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
                 // no notification, if <SwViewShell> is in construction
                 if ( pViewShell && !pViewShell->IsInConstructor() &&
                      pViewShell->GetLayout() &&
-                     pViewShell->GetLayout()->IsAnyShellAccessible() )
+                     pViewShell->GetLayout()->IsAnyShellAccessible() &&
+                     pFrame->FindPageFrame() != nullptr)
                 {
                     pViewShell->InvalidateAccessibleParaFlowRelation(
                             dynamic_cast<SwTextFrame*>(pFrame->FindNextCnt( true )),
@@ -1591,7 +1594,8 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
                     // no notification, if <SwViewShell> is in construction
                     if ( pViewShell && !pViewShell->IsInConstructor() &&
                          pViewShell->GetLayout() &&
-                         pViewShell->GetLayout()->IsAnyShellAccessible() )
+                         pViewShell->GetLayout()->IsAnyShellAccessible() &&
+                         pFrame->FindPageFrame() != nullptr)
                     {
                         pViewShell->InvalidateAccessibleParaFlowRelation(
                             dynamic_cast<SwTextFrame*>(pFrame->FindNextCnt( true )),
@@ -1640,8 +1644,7 @@ void InsertCnt_( SwLayoutFrame *pLay, SwDoc *pDoc,
 
             //Close the section, where appropriate activate the surrounding
             //section again.
-            SwActualSection *pActualSectionUpper1 = pActualSection ? pActualSection->GetUpper() : nullptr;
-            pActualSection.reset(pActualSectionUpper1);
+            pActualSection.reset(pActualSection->GetUpper());
             pLay = pLay->FindSctFrame();
             if ( pActualSection )
             {
@@ -1977,7 +1980,7 @@ SwBorderAttrs::SwBorderAttrs(const SwModify *pMod, const SwFrame *pConstructor)
     , m_rUL(m_rAttrSet.GetULSpace())
     // #i96772#
     // LRSpaceItem is copied due to the possibility that it is adjusted - see below
-    , m_rLR(m_rAttrSet.GetLRSpace())
+    , m_rLR(static_cast<SvxLRSpaceItem*>(m_rAttrSet.GetLRSpace().Clone()))
     , m_rBox(m_rAttrSet.GetBox())
     , m_rShadow(m_rAttrSet.GetShadow())
     , m_aFrameSize(m_rAttrSet.GetFrameSize().GetSize())
@@ -2001,7 +2004,7 @@ SwBorderAttrs::SwBorderAttrs(const SwModify *pMod, const SwFrame *pConstructor)
     }
     else if ( pConstructor->IsNoTextFrame() )
     {
-        m_rLR = SvxLRSpaceItem ( RES_LR_SPACE );
+        m_rLR = std::make_shared<SvxLRSpaceItem>(RES_LR_SPACE);
     }
 
     // Caution: The USHORTs for the cached values are not initialized by intention!
@@ -2054,9 +2057,9 @@ long SwBorderAttrs::CalcRight( const SwFrame* pCaller ) const
     }
     // for paragraphs, "left" is "before text" and "right" is "after text"
     if ( pCaller->IsTextFrame() && pCaller->IsRightToLeft() )
-        nRight += m_rLR.GetLeft();
+        nRight += m_rLR->GetLeft();
     else
-        nRight += m_rLR.GetRight();
+        nRight += m_rLR->GetRight();
 
     // correction: retrieve left margin for numbering in R2L-layout
     if ( pCaller->IsTextFrame() && pCaller->IsRightToLeft() )
@@ -2103,7 +2106,7 @@ long SwBorderAttrs::CalcLeft( const SwFrame *pCaller ) const
 
     // for paragraphs, "left" is "before text" and "right" is "after text"
     if ( pCaller->IsTextFrame() && pCaller->IsRightToLeft() )
-        nLeft += m_rLR.GetRight();
+        nLeft += m_rLR->GetRight();
     else
     {
         bool bIgnoreMargin = false;
@@ -2121,7 +2124,7 @@ long SwBorderAttrs::CalcLeft( const SwFrame *pCaller ) const
             }
         }
         if (!bIgnoreMargin)
-            nLeft += m_rLR.GetLeft();
+            nLeft += m_rLR->GetLeft();
     }
 
     // correction: do not retrieve left margin for numbering in R2L-layout

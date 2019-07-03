@@ -22,10 +22,8 @@
 #include <swtypes.hxx>
 #include <swfont.hxx>
 #include "porexp.hxx"
-#include <fmtornt.hxx>
 #include <o3tl/enumarray.hxx>
 
-class SwFont;
 class SvxBrushItem;
 class SwFormatVertOrient;
 
@@ -164,6 +162,7 @@ class SwGrfNumPortion : public SwNumberPortion
 public:
     SwGrfNumPortion( const OUString& rGraphicFollowedBy,
                      const SvxBrushItem* pGrfBrush,
+                     OUString const & referer,
                      const SwFormatVertOrient* pGrfOrient,
                      const Size& rGrfSize,
                      const bool bLeft,

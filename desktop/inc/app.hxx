@@ -141,7 +141,7 @@ class Desktop : public Application
 
         static void             HandleBootstrapPathErrors( ::utl::Bootstrap::Status, const OUString& aMsg );
 
-        // Create a error message depending on bootstrap failure code and an optional file url
+        // Create an error message depending on bootstrap failure code and an optional file url
         static OUString         CreateErrorMsgString( utl::Bootstrap::FailureCode nFailureCode,
                                                       const OUString& aFileURL );
 
@@ -180,11 +180,6 @@ OUString GetURL_Impl(
 OUString ReplaceStringHookProc(const OUString& rStr);
 
 }
-
-#if defined( UNX ) && !defined MACOSX && !defined IOS && !defined ANDROID && !defined LIBO_HEADLESS
-bool fire_glxtest_process();
-void reap_glxtest_process();
-#endif
 
 #endif // INCLUDED_DESKTOP_INC_APP_HXX
 

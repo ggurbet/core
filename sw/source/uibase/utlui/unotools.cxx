@@ -24,9 +24,13 @@
 #include <unotools.hxx>
 #include <unoprnms.hxx>
 #include <i18nutil/unicode.hxx>
-#include <vcl/weld.hxx>
-#include <vcl/svapp.hxx>
+#include <svtools/colorcfg.hxx>
+#include <vcl/jobset.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/virdev.hxx>
+#include <vcl/weld.hxx>
+#include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
 #include <com/sun/star/view/XScreenCursor.hpp>
 #include <com/sun/star/view/DocumentZoomType.hpp>
@@ -38,6 +42,7 @@
 #include <com/sun/star/view/XViewSettingsSupplier.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <sfx2/dispatch.hxx>
@@ -56,115 +61,6 @@
 using namespace ::com::sun::star;
 
 const sal_Char cFactory[] = "private:factory/swriter";
-
-bool SwOneExampleFrame::bShowServiceNotAvailableMessage = true;
-
-SwOneExampleFrame::SwOneExampleFrame( vcl::Window& rWin,
-                                        sal_uInt32 nFlags,
-                                        const Link<SwOneExampleFrame&,void>* pInitializedLink,
-                                        const OUString* pURL ) :
-    m_aTopWindow(VclPtr<SwFrameCtrlWindow>::Create(&rWin, this)),
-    m_aLoadedIdle("sw uibase SwOneExampleFrame Loaded"),
-    m_pModuleView(SW_MOD()->GetView()),
-    m_nStyleFlags(nFlags),
-    m_bIsInitialized(false),
-    m_bServiceAvailable(false)
-{
-    if (pURL && !pURL->isEmpty())
-        m_sArgumentURL = *pURL;
-
-    m_aTopWindow->SetPosSizePixel(Point(0, 0), rWin.GetSizePixel());
-
-    if( pInitializedLink )
-        m_aInitializedLink = *pInitializedLink;
-
-    // the controller is asynchronously set
-    m_aLoadedIdle.SetInvokeHandler(LINK(this, SwOneExampleFrame, TimeoutHdl));
-    m_aLoadedIdle.SetPriority(TaskPriority::HIGH_IDLE);
-
-    CreateControl();
-
-    m_aTopWindow->Show();
-}
-
-void SwOneExampleFrame::CreateErrorMessage()
-{
-    if(SwOneExampleFrame::bShowServiceNotAvailableMessage)
-    {
-        OUString sInfo(SwResId(STR_SERVICE_UNAVAILABLE));
-        sInfo += "com.sun.star.frame.FrameControl";
-        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(nullptr,
-                                                      VclMessageType::Info, VclButtonsType::Ok,
-                                                      sInfo));
-        xInfoBox->run();
-        SwOneExampleFrame::bShowServiceNotAvailableMessage = false;
-    }
-}
-
-SwOneExampleFrame::~SwOneExampleFrame()
-{
-    DisposeControl();
-}
-
-void SwOneExampleFrame::CreateControl()
-{
-    if(m_xControl.is())
-        return ;
-    uno::Reference< lang::XMultiServiceFactory >
-                                    xMgr = comphelper::getProcessServiceFactory();
-    uno::Reference< uno::XComponentContext > xContext = comphelper::getProcessComponentContext();
-    uno::Reference< uno::XInterface >  xInst = xMgr->createInstance( "com.sun.star.frame.FrameControl" );
-    m_xControl.set(xInst, uno::UNO_QUERY);
-    if(!m_xControl.is())
-        return;
-
-    uno::Reference< awt::XWindowPeer >  xParent( m_aTopWindow->GetComponentInterface() );
-
-    uno::Reference< awt::XToolkit >  xToolkit( awt::Toolkit::create(xContext), uno::UNO_QUERY_THROW );
-
-    m_xControl->createPeer( xToolkit, xParent );
-
-    uno::Reference< awt::XWindow >  xWin( m_xControl, uno::UNO_QUERY );
-    xWin->setVisible(false);
-    Size aWinSize(m_aTopWindow->GetOutputSizePixel());
-    xWin->setPosSize( 0, 0, aWinSize.Width(), aWinSize.Height(), awt::PosSize::SIZE );
-
-    uno::Reference< beans::XPropertySet >  xPrSet(xInst, uno::UNO_QUERY);
-    uno::Any aURL;
-    // create new doc
-    OUString sTempURL(cFactory);
-    if(!m_sArgumentURL.isEmpty())
-        sTempURL = m_sArgumentURL;
-    aURL <<= sTempURL;
-
-    uno::Sequence<beans::PropertyValue> aSeq( comphelper::InitPropertySequence({
-            { "OpenFlags", uno::Any(OUString("-RB")) },
-            { "Referer", uno::Any(OUString("private:user")) },
-            { "ReadOnly", uno::Any(true) }
-        }));
-    uno::Any aArgs(aSeq);
-
-    xPrSet->setPropertyValue( "LoaderArguments", aArgs );
-    //save and set readonly???
-
-    xPrSet->setPropertyValue("ComponentUrl", aURL);
-
-    m_aLoadedIdle.Start();
-    m_bServiceAvailable = true;
-
-}
-
-void    SwOneExampleFrame::DisposeControl()
-{
-    m_aLoadedIdle.Stop();
-    m_aTopWindow.clear();
-    m_xCursor = nullptr;
-    if(m_xControl.is())
-        m_xControl->dispose();
-    m_xControl = nullptr;
-    m_xModel = nullptr;
-    m_xController = nullptr;
-}
 
 static void disableScrollBars(uno::Reference< beans::XPropertySet > const & xViewProps,
     bool bEnableOnlineMode)
@@ -191,37 +87,168 @@ static void disableScrollBars(uno::Reference< beans::XPropertySet > const & xVie
     }
 }
 
-IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
+static const sal_Int16 nZoomValues[] =
 {
-    if(!m_xControl.is())
-        return;
+    20,
+    40,
+    50,
+    75,
+    100
+};
 
-    // now get the model
-    uno::Reference< beans::XPropertySet >  xPrSet(m_xControl, uno::UNO_QUERY);
-    uno::Any aFrame = xPrSet->getPropertyValue("Frame");
-    uno::Reference< frame::XFrame >  xFrame;
-    aFrame >>= xFrame;
+SwOneExampleFrame::SwOneExampleFrame(sal_uInt32 nFlags,
+                                 const Link<SwOneExampleFrame&,void>* pInitializedLink,
+                                 const OUString* pURL)
+    : m_aLoadedIdle("sw uibase SwOneExampleFrame Loaded")
+    , m_pModuleView(SW_MOD()->GetView())
+    , m_nStyleFlags(nFlags)
+    , m_bIsInitialized(false)
+{
+    if (pURL && !pURL->isEmpty())
+        m_sArgumentURL = *pURL;
 
-    uno::Reference< beans::XPropertySet > xPropSet( xFrame, uno::UNO_QUERY );
-    if ( xPropSet.is() )
+    if( pInitializedLink )
+        m_aInitializedLink = *pInitializedLink;
+
+    // the controller is asynchronously set
+    m_aLoadedIdle.SetInvokeHandler(LINK(this, SwOneExampleFrame, TimeoutHdl));
+    m_aLoadedIdle.SetPriority(TaskPriority::HIGH_IDLE);
+}
+
+void SwOneExampleFrame::SetDrawingArea(weld::DrawingArea* pDrawingArea)
+{
+    CustomWidgetController::SetDrawingArea(pDrawingArea);
+    m_xVirDev = VclPtr<VirtualDevice>::Create();
+    Size aSize(m_xVirDev->LogicToPixel(Size(150, 188), MapMode(MapUnit::MapAppFont)));
+    pDrawingArea->set_size_request(aSize.Width(), aSize.Height());
+    SetOutputSizePixel(aSize);
+    CreateControl();
+}
+
+bool SwOneExampleFrame::ContextMenu(const CommandEvent& rCEvt)
+{
+    switch (rCEvt.GetCommand())
     {
-        try
+        case CommandEventId::ContextMenu:
         {
-            uno::Reference< frame::XLayoutManager > xLayoutManager;
-            uno::Any aValue = xPropSet->getPropertyValue("LayoutManager");
-            aValue >>= xLayoutManager;
-            if ( xLayoutManager.is() )
-                xLayoutManager->setVisible( false );
+            //#125881# quickly clicking crashes because the control is not fully initialized
+            if (GetController().is())
+                return CreatePopup(rCEvt.GetMousePosPixel());
         }
-        catch (const uno::Exception&)
-        {
-        }
+        break;
+        default:;
+        break;
+    }
+    return false;
+}
+
+void SwOneExampleFrame::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
+{
+    Size aSize(GetOutputSizePixel());
+    // m_xVirDev instead of rRenderContext just to avoid overlays in writer re-triggering
+    // invalidate on rRenderContext if it is a vcl::Window, which is the "classic" gen mode
+    m_xVirDev->SetOutputSizePixel(aSize);
+
+    Color aBgColor = SW_MOD()->GetColorConfig().GetColorValue(::svtools::DOCCOLOR).nColor;
+    m_xVirDev->DrawWallpaper(tools::Rectangle(Point(), aSize), aBgColor);
+
+    OTextCursorHelper* pCursor = nullptr;
+    uno::Reference<lang::XUnoTunnel> xTunnel(m_xCursor, uno::UNO_QUERY);
+    if (xTunnel.is())
+    {
+        pCursor = reinterpret_cast<OTextCursorHelper*>(xTunnel->getSomething(
+                                    OTextCursorHelper::getUnoTunnelId()));
     }
 
-    m_xController = xFrame->getController();
-    if(m_xController.is())
+    if (pCursor)
     {
-        m_xModel = m_xController->getModel();
+        uno::Reference<view::XViewSettingsSupplier> xSettings(m_xController, uno::UNO_QUERY);
+        uno::Reference<beans::XPropertySet>  xViewProps = xSettings->getViewSettings();
+        uno::Any aZoom = xViewProps->getPropertyValue(UNO_NAME_ZOOM_VALUE);
+        sal_Int16 nZoom = 100;
+        aZoom >>= nZoom;
+
+        double fZoom = 100.0 / nZoom;
+
+        m_xVirDev->Push(PushFlags::ALL);
+        m_xVirDev->SetMapMode(MapMode(MapUnit::MapTwip));
+        SwDoc *pDoc = pCursor->GetDoc();
+        SwDocShell* pShell = pDoc->GetDocShell();
+        tools::Rectangle aRect(Point(), m_xVirDev->PixelToLogic(aSize));
+        pShell->SetVisArea(tools::Rectangle(Point(), Size(aRect.GetWidth() * fZoom,
+                                                          aRect.GetHeight() * fZoom)));
+        pShell->DoDraw(m_xVirDev.get(), aRect.TopLeft(), aRect.GetSize(), JobSetup(), ASPECT_CONTENT);
+        m_xVirDev->Pop();
+    }
+
+    rRenderContext.DrawOutDev(Point(), aSize, Point(), aSize, *m_xVirDev);
+}
+
+SwOneExampleFrame::~SwOneExampleFrame()
+{
+    DisposeControl();
+}
+
+void SwOneExampleFrame::CreateControl()
+{
+    // create new doc
+    OUString sTempURL(cFactory);
+    if(!m_sArgumentURL.isEmpty())
+        sTempURL = m_sArgumentURL;
+
+    uno::Reference<frame::XDesktop2> xDesktop = frame::Desktop::create(::comphelper::getProcessComponentContext());
+    uno::Reference<frame::XComponentLoader> xLoader(xDesktop, uno::UNO_QUERY);
+    uno::Sequence<beans::PropertyValue> args( comphelper::InitPropertySequence({
+            { "DocumentService", uno::Any(OUString("com.sun.star.text.TextDocument")) },
+            { "OpenFlags", uno::Any(OUString("-RB")) },
+            { "Referer", uno::Any(OUString("private:user")) },
+            { "ReadOnly", uno::Any(true) },
+            { "Hidden", uno::Any(true) }
+        }));
+
+    m_xModel.set(xLoader->loadComponentFromURL(sTempURL, "_blank", 0, args), uno::UNO_QUERY);
+
+    m_aLoadedIdle.Start();
+}
+
+void SwOneExampleFrame::DisposeControl()
+{
+    m_aLoadedIdle.Stop();
+    m_xCursor = nullptr;
+    if (m_xModel)
+    {
+        m_xModel->dispose();
+        m_xModel = nullptr;
+    }
+    m_xController = nullptr;
+}
+
+IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
+{
+    if (!m_xModel.is())
+        return;
+
+    m_xController = m_xModel->getCurrentController();
+
+    if (m_xController.is())
+    {
+        uno::Reference<frame::XFrame> xFrame(m_xController->getFrame(), uno::UNO_QUERY);
+        uno::Reference< beans::XPropertySet > xPropSet( xFrame, uno::UNO_QUERY );
+        if ( xPropSet.is() )
+        {
+            try
+            {
+                uno::Reference< frame::XLayoutManager > xLayoutManager;
+                uno::Any aValue = xPropSet->getPropertyValue("LayoutManager");
+                aValue >>= xLayoutManager;
+                if ( xLayoutManager.is() )
+                    xLayoutManager->setVisible( false );
+            }
+            catch (const uno::Exception&)
+            {
+            }
+        }
+
         //now the ViewOptions should be set properly
         uno::Reference< view::XViewSettingsSupplier >  xSettings(m_xController, uno::UNO_QUERY);
         uno::Reference< beans::XPropertySet >  xViewProps = xSettings->getViewSettings();
@@ -259,7 +286,7 @@ IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
                 aZoom <<= sal_Int16(view::DocumentZoomType::BY_VALUE);
                 xViewProps->setPropertyValue(UNO_NAME_ZOOM_TYPE, aZoom);
 
-                sal_Int16 nZoomValue = 50;
+                sal_Int16 nZoomValue = 75;
                 if(EX_SHOW_BUSINESS_CARDS == m_nStyleFlags)
                 {
                     nZoomValue = 80;
@@ -280,52 +307,55 @@ IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
         //From here, a cursor is defined, which goes through the template,
         //and overwrites the template words where it is necessary.
 
+        OTextCursorHelper* pCursor = nullptr;
         uno::Reference< lang::XUnoTunnel> xTunnel( m_xCursor, uno::UNO_QUERY);
-        if( xTunnel.is() )
+        if (xTunnel.is())
         {
-            OTextCursorHelper* pCursor = reinterpret_cast<OTextCursorHelper*>( xTunnel->getSomething(
-                                        OTextCursorHelper::getUnoTunnelId() ));
-            if( pCursor )
-            {
-                SwEditShell* pSh = pCursor->GetDoc()->GetEditShell();
+            pCursor = reinterpret_cast<OTextCursorHelper*>(xTunnel->getSomething(
+                                        OTextCursorHelper::getUnoTunnelId()));
+        }
 
-                do
-                {
-                  if (pSh->GetCurWord() == "HEADING1")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_HEADING1));
-                  }
-                  else if (pSh->GetCurWord() == "ENTRY1")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_ENTRY1));
-                  }
-                  else if (pSh->GetCurWord() == "HEADING11")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_HEADING11));
-                  }
-                  else if (pSh->GetCurWord() == "ENTRY11")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_ENTRY11));
-                  }
-                  else if (pSh->GetCurWord() == "HEADING12")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_HEADING12));
-                  }
-                  else if (pSh->GetCurWord() == "ENTRY12")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_ENTRY12));
-                  }
-                  else if (pSh->GetCurWord() == "TABLE1")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_TABLE1));
-                  }
-                  else if (pSh->GetCurWord() == "IMAGE1")
-                  {
-                    pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_IMAGE1));
-                  }
-                }
-                while(pSh->Right(sal_uInt16(1), sal_uInt16(1), true));
+        SwDoc *pDoc = pCursor ? pCursor->GetDoc() : nullptr;
+        if (pDoc)
+        {
+            SwEditShell* pSh = pDoc->GetEditShell();
+
+            do
+            {
+              if (pSh->GetCurWord() == "HEADING1")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_HEADING1));
+              }
+              else if (pSh->GetCurWord() == "ENTRY1")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_ENTRY1));
+              }
+              else if (pSh->GetCurWord() == "HEADING11")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_HEADING11));
+              }
+              else if (pSh->GetCurWord() == "ENTRY11")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_ENTRY11));
+              }
+              else if (pSh->GetCurWord() == "HEADING12")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_HEADING12));
+              }
+              else if (pSh->GetCurWord() == "ENTRY12")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_ENTRY12));
+              }
+              else if (pSh->GetCurWord() == "TABLE1")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_TABLE1));
+              }
+              else if (pSh->GetCurWord() == "IMAGE1")
+              {
+                pSh->Overwrite(SwResId(STR_IDXEXAMPLE_IDXTXT_IMAGE1));
+              }
             }
+            while(pSh->Right(sal_uInt16(1), sal_uInt16(1), true));
         }
 
         uno::Reference< beans::XPropertySet >  xCursorProp(m_xCursor, uno::UNO_QUERY);
@@ -358,9 +388,9 @@ IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
             xPProp->setPropertyValue(UNO_NAME_RIGHT_MARGIN, aZero);
         }
 
-        uno::Reference< awt::XWindow >  xWin( m_xControl, uno::UNO_QUERY );
-        Size aWinSize(m_aTopWindow->GetOutputSizePixel());
-        xWin->setPosSize( 0, 0, aWinSize.Width(), aWinSize.Height(), awt::PosSize::SIZE );
+        uno::Reference<awt::XWindow> xWin = xFrame->getContainerWindow();
+        Size aWinSize(GetOutputSizePixel());
+        xWin->setPosSize(0, 0, aWinSize.Width(), aWinSize.Height(), awt::PosSize::SIZE);
 
         // can only be done here - the SFX changes the ScrollBar values
         disableScrollBars(xViewProps, (m_nStyleFlags&EX_SHOW_ONLINE_LAYOUT) != 0);
@@ -372,25 +402,19 @@ IMPL_LINK( SwOneExampleFrame, TimeoutHdl, Timer*, pTimer, void )
         if(xScrCursor.is())
             xScrCursor->screenUp();
 
-        xWin->setVisible( true );
-        m_aTopWindow->Show();
-
-        if( xTunnel.is() )
+        if (pDoc)
         {
-            OTextCursorHelper* pCursor = reinterpret_cast<OTextCursorHelper*>( xTunnel->getSomething(
-                                        OTextCursorHelper::getUnoTunnelId() ));
-            if( pCursor )
+            SwEditShell* pSh = pDoc->GetEditShell();
+            if( pSh->ActionCount() )
             {
-                SwEditShell* pSh = pCursor->GetDoc()->GetEditShell();
-                if( pSh->ActionCount() )
-                {
-                    pSh->EndAllAction();
-                    pSh->UnlockPaint();
-                }
+                pSh->EndAllAction();
+                pSh->UnlockPaint();
             }
         }
 
         SW_MOD()->SetView(m_pModuleView);
+
+        Invalidate();
     }
     else
         pTimer->Start();
@@ -430,61 +454,42 @@ void SwOneExampleFrame::ClearDocument()
     }
 }
 
-static const sal_Int16 nZoomValues[] =
+bool SwOneExampleFrame::CreatePopup(const Point& rPt)
 {
-    20,
-    40,
-    50,
-    75,
-    100
-};
+    if (EX_SHOW_ONLINE_LAYOUT != m_nStyleFlags)
+        return false;
 
-#define ITEM_UP     100
-#define ITEM_DOWN   200
-#define ITEM_ZOOM   300
+    std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(nullptr, "modules/swriter/ui/previewmenu.ui"));
+    std::unique_ptr<weld::Menu> xPop(xBuilder->weld_menu("previewmenu"));
 
-void SwOneExampleFrame::CreatePopup(const Point& rPt)
-{
-    ScopedVclPtrInstance<PopupMenu> aPop;
+    uno::Reference< view::XViewSettingsSupplier >  xSettings(m_xController, uno::UNO_QUERY);
+    uno::Reference< beans::XPropertySet >  xViewProps = xSettings->getViewSettings();
 
-    aPop->InsertItem(ITEM_UP,   SwResId(STR_MENU_UP));
-    aPop->InsertItem(ITEM_DOWN, SwResId(STR_MENU_DOWN));
+    uno::Any aZoom = xViewProps->getPropertyValue(UNO_NAME_ZOOM_VALUE);
+    sal_Int16 nZoom = 0;
+    aZoom >>= nZoom;
 
-    Link<Menu*,bool> aSelLk = LINK(this, SwOneExampleFrame, PopupHdl );
-    aPop->SetSelectHdl(aSelLk);
-    if(EX_SHOW_ONLINE_LAYOUT == m_nStyleFlags)
+    for (size_t i = 0; i < SAL_N_ELEMENTS(nZoomValues); ++i)
     {
-        aPop->InsertItem(ITEM_ZOOM, SwResId(STR_MENU_ZOOM));
-
-        uno::Reference< view::XViewSettingsSupplier >  xSettings(m_xController, uno::UNO_QUERY);
-        uno::Reference< beans::XPropertySet >  xViewProps = xSettings->getViewSettings();
-
-        uno::Any aZoom = xViewProps->getPropertyValue(UNO_NAME_ZOOM_VALUE);
-        sal_Int16 nZoom = 0;
-        aZoom >>= nZoom;
-
-        VclPtrInstance<PopupMenu> aSubPop1;
-        for (size_t i = 0; i < SAL_N_ELEMENTS(nZoomValues); ++i)
-        {
-            OUString sTemp = unicode::formatPercent(nZoomValues[i],
-                Application::GetSettings().GetUILanguageTag());
-            aSubPop1->InsertItem( ITEM_ZOOM + i + 1, sTemp);
-            if(nZoom == nZoomValues[i])
-                aSubPop1->CheckItem(ITEM_ZOOM + i + 1);
-        }
-        aPop->SetPopupMenu( ITEM_ZOOM, aSubPop1.get() );
-        aSubPop1->SetSelectHdl(aSelLk);
+        OUString sTemp = unicode::formatPercent(nZoomValues[i],
+            Application::GetSettings().GetUILanguageTag());
+        OString sIdent = "zoom" + OString::number(nZoomValues[i]);
+        xPop->set_label(sIdent, sTemp);
+        if (nZoom == nZoomValues[i])
+            xPop->set_active(sIdent, true);
     }
-    aPop->Execute( m_aTopWindow.get(), rPt );
+
+    PopupHdl(xPop->popup_at_rect(GetDrawingArea(), tools::Rectangle(rPt, Size(1, 1))));
+
+    return true;
 }
 
-IMPL_LINK(SwOneExampleFrame, PopupHdl, Menu*, pMenu, bool )
+void SwOneExampleFrame::PopupHdl(const OString& rId)
 {
-    sal_uInt16 nId = pMenu->GetCurItemId();
-    if ((nId > ITEM_ZOOM) &&
-        (nId <= (ITEM_ZOOM + SAL_N_ELEMENTS(nZoomValues))))
+    OString sZoomValue;
+    if (rId.startsWith("zoom", &sZoomValue))
     {
-        sal_Int16 nZoom = nZoomValues[nId - ITEM_ZOOM - 1];
+        sal_Int16 nZoom = sZoomValue.toInt32();
         uno::Reference< view::XViewSettingsSupplier >  xSettings(m_xController, uno::UNO_QUERY);
         uno::Reference< beans::XPropertySet >  xViewProps = xSettings->getViewSettings();
 
@@ -494,54 +499,7 @@ IMPL_LINK(SwOneExampleFrame, PopupHdl, Menu*, pMenu, bool )
         aZoom <<= sal_Int16(view::DocumentZoomType::BY_VALUE);
         xViewProps->setPropertyValue(UNO_NAME_ZOOM_TYPE, aZoom);
     }
-    else if(ITEM_UP == nId || ITEM_DOWN == nId)
-    {
-        uno::Reference< text::XTextViewCursorSupplier >  xCursorSupp(m_xController, uno::UNO_QUERY);
-        uno::Reference< view::XScreenCursor >  xScrCursor(xCursorSupp->getViewCursor(), uno::UNO_QUERY);
-        if(ITEM_UP == nId)
-            xScrCursor->screenUp();
-        else
-            xScrCursor->screenDown();
-    }
-    return false;
-};
-
-SwFrameCtrlWindow::SwFrameCtrlWindow(vcl::Window* pParent, SwOneExampleFrame* pFrame)
-    : VclEventBox(pParent)
-    , pExampleFrame(pFrame)
-{
-    set_expand(true);
-    set_fill(true);
-}
-
-void SwFrameCtrlWindow::Command( const CommandEvent& rCEvt )
-{
-    switch ( rCEvt.GetCommand() )
-    {
-        case CommandEventId::ContextMenu:
-        {
-            //#125881# quickly clicking crashes because the control is not fully initialized
-            if(pExampleFrame->GetController().is())
-                pExampleFrame->CreatePopup(rCEvt.GetMousePosPixel());
-        }
-        break;
-        case CommandEventId::Wheel:
-        case CommandEventId::StartAutoScroll:
-        case CommandEventId::AutoScroll:
-        break;
-        default:;
-    }
-}
-
-Size SwFrameCtrlWindow::GetOptimalSize() const
-{
-    return LogicToPixel(Size(82, 124), MapMode(MapUnit::MapAppFont));
-}
-
-void SwFrameCtrlWindow::Resize()
-{
-    VclEventBox::Resize();
-    pExampleFrame->ClearDocument();
+    Invalidate();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

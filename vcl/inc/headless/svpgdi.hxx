@@ -26,7 +26,6 @@
 
 #include <osl/endian.h>
 #include <vcl/sysdata.hxx>
-#include <vcl/metric.hxx>
 #include <config_cairo_canvas.h>
 
 #include <salgdi.hxx>
@@ -70,6 +69,9 @@ class FreetypeFont;
 typedef struct _cairo cairo_t;
 typedef struct _cairo_surface cairo_surface_t;
 typedef struct _cairo_user_data_key cairo_user_data_key_t;
+
+VCL_DLLPUBLIC void dl_cairo_surface_set_device_scale(cairo_surface_t *surface, double x_scale, double y_scale);
+VCL_DLLPUBLIC void dl_cairo_surface_get_device_scale(cairo_surface_t *surface, double *x_scale, double *y_scale);
 
 enum class PaintMode { Over, Xor };
 
@@ -123,7 +125,7 @@ public:
 
 private:
     void invert(const basegfx::B2DPolygon &rPoly, SalInvert nFlags);
-    void applyColor(cairo_t *cr, Color rColor);
+    void applyColor(cairo_t *cr, Color rColor, double fTransparency = 0.0);
 
 protected:
     vcl::Region                         m_aClipRegion;
@@ -259,27 +261,6 @@ public:
 
     virtual SystemGraphicsData GetGraphicsData() const override;
 
-    // Native Widget Drawing interface
-    bool IsNativeControlSupported(ControlType eType, ControlPart ePart) override;
-
-    bool hitTestNativeControl(ControlType eType, ControlPart ePart,
-                               const tools::Rectangle& rBoundingControlRegion,
-                               const Point& rPosition, bool& rIsInside) override;
-
-    bool drawNativeControl(ControlType eType, ControlPart ePart,
-                           const tools::Rectangle& rBoundingControlRegion,
-                           ControlState eState, const ImplControlValue& aValue,
-                           const OUString& aCaptions) override;
-
-    bool getNativeControlRegion(ControlType eType, ControlPart ePart,
-                                 const tools::Rectangle& rBoundingControlRegion,
-                                 ControlState eState,
-                                 const ImplControlValue& aValue,
-                                 const OUString& aCaption,
-                                 tools::Rectangle& rNativeBoundingRegion,
-                                 tools::Rectangle& rNativeContentRegion) override;
-
-    virtual void updateSettings(AllSettings& rSettings);
 
 #if ENABLE_CAIRO_CANVAS
     virtual bool            SupportsCairo() const override;

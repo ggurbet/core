@@ -603,7 +603,7 @@ static void osl_encodeURL_( rtl_uString *strURL, rtl_String **pstrEncodedURL )
     rtl_uString2String( &strUTF8, rtl_uString_getStr( strURL ), rtl_uString_getLength( strURL ), RTL_TEXTENCODING_UTF8, OUSTRING_TO_OSTRING_CVTFLAGS );
 
     pszEncodedURL = static_cast<sal_Char*>(malloc( (rtl_string_getLength( strUTF8 ) * 3 + 1)  * sizeof(sal_Char) ));
-
+    assert(pszEncodedURL); // Don't handle OOM conditions
     pURLDest = pszEncodedURL;
     pURLScan = rtl_string_getStr( strUTF8 );
     nURLScanLen = rtl_string_getLength( strUTF8 );
@@ -914,7 +914,7 @@ oslFileError SAL_CALL osl_searchFileURL(
     rtl_uString     *ustrSysPath = nullptr;
     oslFileError    error;
 
-    /* First try to interpret the file name as an URL even a relative one */
+    /* First try to interpret the file name as a URL even a relative one */
     error = osl_getSystemPathFromFileURL_( ustrFileName, &ustrUNCPath, true );
 
     /* So far we either have an UNC path or something invalid

@@ -15,7 +15,9 @@ $(eval $(call gb_Library_use_externals,mwaw,\
     revenge \
 ))
 
-$(eval $(call gb_Library_set_warnings_not_errors,mwaw))
+$(eval $(call gb_Library_set_warnings_disabled,mwaw))
+
+$(eval $(call gb_Library_set_precompiled_header,mwaw,$(SRCDIR)/external/libmwaw/inc/pch/precompiled_mwaw))
 
 $(eval $(call gb_Library_set_include,mwaw,\
     -I$(call gb_UnpackedTarball_get_dir,libmwaw)/inc \
@@ -57,6 +59,7 @@ $(eval $(call gb_Library_add_generated_exception_objects,mwaw,\
 	UnpackedTarball/libmwaw/src/lib/ClarisWksStyleManager \
 	UnpackedTarball/libmwaw/src/lib/ClarisWksTable \
 	UnpackedTarball/libmwaw/src/lib/ClarisWksText \
+	UnpackedTarball/libmwaw/src/lib/CorelPainterParser \
 	UnpackedTarball/libmwaw/src/lib/CricketDrawParser \
 	UnpackedTarball/libmwaw/src/lib/DocMkrParser \
 	UnpackedTarball/libmwaw/src/lib/DocMkrText \

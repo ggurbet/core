@@ -31,6 +31,7 @@
 #include "rangelst.hxx"
 #include <osl/mutex.hxx>
 #include <formula/types.hxx>
+#include <tools/solar.h>
 
 #include <memory>
 #include <unordered_map>
@@ -304,7 +305,14 @@ private:
         {
             const ScAddress& s = rRange.aStart;
             const ScAddress& e = rRange.aEnd;
-            return s.Tab() + s.Col() + s.Row() + e.Tab() + e.Col() + e.Row();
+            size_t hash = 17;
+            hash = hash * 37 + s.Tab();
+            hash = hash * 37 + s.Col();
+            hash = hash * 37 + s.Row();
+            hash = hash * 37 + e.Tab();
+            hash = hash * 37 + e.Col();
+            hash = hash * 37 + e.Row();
+            return hash;
         }
     };
 

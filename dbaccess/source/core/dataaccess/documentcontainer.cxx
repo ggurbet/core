@@ -37,6 +37,7 @@
 #include <strings.hrc>
 #include <comphelper/namedvaluecollection.hxx>
 #include <comphelper/propertysequence.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 
 #include <vcl/svapp.hxx>
@@ -213,7 +214,7 @@ Reference< XInterface > SAL_CALL ODocumentContainer::createInstanceWithArguments
             if ( xElements.is() )
                 sPersistentName = ::dbtools::createUniqueName(xElements,sPersistentName);
 
-            const bool bNeedClassID = (0 == aClassID.getLength()) && sURL.isEmpty() ;
+            const bool bNeedClassID = !aClassID.hasElements() && sURL.isEmpty() ;
             if ( xCopyFrom.is() )
             {
                 Sequence<Any> aIni(2);
@@ -265,13 +266,13 @@ Reference< XInterface > SAL_CALL ODocumentContainer::createInstanceWithArguments
             pElementImpl = aFind->second;
 
         ::rtl::Reference< ODocumentDefinition > pDocDef = new ODocumentDefinition( *this, m_aContext, pElementImpl, m_bFormsContainer );
-        if ( aClassID.getLength() )
+        if ( aClassID.hasElements() )
         {
             pDocDef->initialLoad( aClassID, aCreationArgs, xConnection );
         }
         else
         {
-            OSL_ENSURE( aCreationArgs.getLength() == 0, "ODocumentContainer::createInstance: additional creation args are lost, if you do not provide a class ID." );
+            OSL_ENSURE( !aCreationArgs.hasElements(), "ODocumentContainer::createInstance: additional creation args are lost, if you do not provide a class ID." );
         }
         xContent = pDocDef.get();
 
@@ -565,7 +566,7 @@ void SAL_CALL ODocumentContainer::insertByHierarchicalName( const OUString& _sNa
     if ( !xContent.is() )
         throw IllegalArgumentException();
 
-    ClearableMutexGuard aGuard(m_aMutex);
+    MutexGuard aGuard(m_aMutex);
     Any aContent;
     Reference< XNameContainer > xNameContainer(this);
     OUString sName;
@@ -589,7 +590,7 @@ void SAL_CALL ODocumentContainer::removeByHierarchicalName( const OUString& _sNa
     if ( _sName.isEmpty() )
         throw NoSuchElementException(_sName,*this);
 
-    ClearableMutexGuard aGuard(m_aMutex);
+    MutexGuard aGuard(m_aMutex);
     Any aContent;
     OUString sName;
     Reference< XNameContainer > xNameContainer(this);
@@ -606,7 +607,7 @@ void SAL_CALL ODocumentContainer::replaceByHierarchicalName( const OUString& _sN
     if ( !xContent.is() )
         throw IllegalArgumentException();
 
-    ClearableMutexGuard aGuard(m_aMutex);
+    MutexGuard aGuard(m_aMutex);
     Any aContent;
     OUString sName;
     Reference< XNameContainer > xNameContainer(this);
@@ -633,9 +634,7 @@ OUString SAL_CALL ODocumentContainer::composeHierarchicalName( const OUString& i
     ::rtl::Reference<OContentHelper> pContent;
     try
     {
-        Reference<XUnoTunnel> xUnoTunnel(const_cast<ODocumentContainer*>(this)->implGetByName( _sName, true ), UNO_QUERY );
-        if ( xUnoTunnel.is() )
-            pContent = reinterpret_cast<OContentHelper*>(xUnoTunnel->getSomething(OContentHelper::getUnoTunnelImplementationId()));
+        pContent = comphelper::getUnoTunnelImplementation<OContentHelper>(const_cast<ODocumentContainer*>(this)->implGetByName( _sName, true ));
     }
     catch(const Exception&)
     {

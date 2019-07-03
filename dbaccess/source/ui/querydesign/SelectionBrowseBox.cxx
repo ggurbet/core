@@ -41,6 +41,7 @@
 #include <sqlmessage.hxx>
 #include <UITools.hxx>
 #include <osl/diagnose.h>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/commandevent.hxx>
 #include <vcl/svapp.hxx>
@@ -786,7 +787,7 @@ bool OSelectionBrowseBox::saveField(OUString& _sFieldName ,OTableFieldDescRef co
                 // and the function is different to count
                 clearEntryFunctionField(_sFieldName,aSelEntry,_bListAction,nColumnId);
             }
-            // do we have a aggregate function and only a function?
+            // do we have an aggregate function and only a function?
             else if ( SQL_ISRULE(pColumnRef,general_set_fct) )
             {
                 OUString sLocalizedFunctionName;
@@ -1481,7 +1482,7 @@ void OSelectionBrowseBox::InsertColumn(const OTableFieldDescRef& pEntry, sal_uIn
 
     // remember the column id of the current position
     sal_uInt16 nColumnId = GetColumnId(_nColumnPosition);
-    // put at the end of the list if to small or to big,
+    // put at the end of the list if too small or too big,
     if ((_nColumnPosition == BROWSER_INVALIDID) || (_nColumnPosition >= getFields().size()))   // append the field
     {
         if (FindFirstFreeCol(_nColumnPosition) == nullptr)  // no more free columns

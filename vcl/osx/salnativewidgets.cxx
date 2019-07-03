@@ -116,7 +116,7 @@ static bool AquaGetScrollRect( /* TODO: int nScreen, */  ControlPart nPart,
     return bRetVal;
 }
 
-bool AquaSalGraphics::IsNativeControlSupported( ControlType nType, ControlPart nPart )
+bool AquaSalGraphics::isNativeControlSupported( ControlType nType, ControlPart nPart )
 {
     // Native controls are now defaults
     // If you want to disable experimental native controls code,
@@ -214,6 +214,8 @@ bool AquaSalGraphics::IsNativeControlSupported( ControlType nType, ControlPart n
             break;
 
         case ControlType::Tooltip: // ** TO DO
+            if (nPart == ControlPart::Entire)
+                return true;
             break;
 
         case ControlType::MenuPopup:
@@ -301,7 +303,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
     if( ! CheckContext() )
         return false;
 
-    CGContextSaveGState( mrContext );
+    maContextHolder.saveState();
 
     tools::Rectangle buttonRect = rControlRegion;
     HIRect rc = ImplGetHIRectFromRectangle(buttonRect);
@@ -323,7 +325,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             if( nState & ControlState::FOCUSED )
                 aComboInfo.adornment |= kThemeAdornmentFocus;
 
-            HIThemeDrawButton(&rc, &aComboInfo, mrContext, kHIThemeOrientationNormal,&rc);
+            HIThemeDrawButton(&rc, &aComboInfo, maContextHolder.get(), kHIThemeOrientationNormal,&rc);
             bOK = true;
         }
         break;
@@ -335,14 +337,14 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             aMenuItemDrawInfo.version = 0;
             aMenuItemDrawInfo.state = kThemeMenuActive;
             aMenuItemDrawInfo.itemType = kThemeMenuItemHierBackground;
-            HIThemeDrawMenuItem(&rc,&rc,&aMenuItemDrawInfo,mrContext,kHIThemeOrientationNormal,NULL);
+            HIThemeDrawMenuItem(&rc,&rc,&aMenuItemDrawInfo,maContextHolder.get(),kHIThemeOrientationNormal,NULL);
 #else
             if (rControlRegion.Top() == 0 && nPart == ControlPart::DrawBackgroundHorz)
             {
                 const bool bDrawActive = mpFrame == nullptr || [mpFrame->getNSWindow() isKeyWindow];
                 CGFloat unifiedHeight = rControlRegion.GetHeight();
                 CGRect drawRect = CGRectMake(rControlRegion.Left(), rControlRegion.Top(), rControlRegion.GetWidth(), rControlRegion.GetHeight());
-                CUIDraw([NSWindow coreUIRenderer], drawRect, mrContext,
+                CUIDraw([NSWindow coreUIRenderer], drawRect, maContextHolder.get(),
                         reinterpret_cast<CFDictionaryRef>([NSDictionary dictionaryWithObjectsAndKeys:
                         @"kCUIWidgetWindowFrame", @"widget",
                         @"regularwin", @"windowtype",
@@ -359,7 +361,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 aMenuItemDrawInfo.version = 0;
                 aMenuItemDrawInfo.state = kThemeMenuActive;
                 aMenuItemDrawInfo.itemType = kThemeMenuItemHierBackground;
-                HIThemeDrawMenuItem(&rc, &rc, &aMenuItemDrawInfo, mrContext, kHIThemeOrientationNormal, nullptr);
+                HIThemeDrawMenuItem(&rc, &rc, &aMenuItemDrawInfo, maContextHolder.get(), kHIThemeOrientationNormal, nullptr);
             }
 #endif
             bOK = true;
@@ -376,8 +378,23 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             rc.size.width += 2;
             rc.size.height += 2;
 
-            HIThemeApplyBackground( &rc, &aThemeBackgroundInfo, mrContext, kHIThemeOrientationNormal);
-            CGContextFillRect( mrContext, rc );
+            HIThemeApplyBackground( &rc, &aThemeBackgroundInfo, maContextHolder.get(), kHIThemeOrientationNormal);
+            CGContextFillRect( maContextHolder.get(), rc );
+            bOK = true;
+        }
+        break;
+
+        case ControlType::Tooltip:
+        {
+            HIThemeBackgroundDrawInfo aThemeBackgroundInfo;
+            aThemeBackgroundInfo.version = 0;
+            aThemeBackgroundInfo.state = getState( nState );
+            aThemeBackgroundInfo.kind = kThemeBrushAlertBackgroundActive;
+            rc.size.width += 2;
+            rc.size.height += 2;
+
+            HIThemeApplyBackground( &rc, &aThemeBackgroundInfo, maContextHolder.get(), kHIThemeOrientationNormal);
+            CGContextFillRect( maContextHolder.get(), rc );
             bOK = true;
         }
         break;
@@ -410,10 +427,10 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 }
 
                 // repaints the background of the pull down menu
-                HIThemeDrawMenuBackground(&rc,&aMenuInfo,mrContext,kHIThemeOrientationNormal);
+                HIThemeDrawMenuBackground(&rc,&aMenuInfo,maContextHolder.get(),kHIThemeOrientationNormal);
 
                 // repaints the item either blue (selected) and/or Aqua grey (active only)
-                HIThemeDrawMenuItem(&rc,&rc,&aMenuItemDrawInfo,mrContext,kHIThemeOrientationNormal,&rc);
+                HIThemeDrawMenuItem(&rc,&rc,&aMenuItemDrawInfo,maContextHolder.get(),kHIThemeOrientationNormal,&rc);
 
                 bOK = true;
             }
@@ -433,7 +450,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
 
                     UniChar mark=( nPart == ControlPart::MenuItemCheckMark ) ? kCheckUnicode: kBulletUnicode;//0x2713;
                     CFStringRef cfString = CFStringCreateWithCharactersNoCopy(kCFAllocatorDefault, &mark, 1, kCFAllocatorNull);
-                    HIThemeDrawTextBox(cfString, &rc, &aTextInfo, mrContext, kHIThemeOrientationNormal);
+                    HIThemeDrawTextBox(cfString, &rc, &aTextInfo, maContextHolder.get(), kHIThemeOrientationNormal);
                     if (cfString)
                         CFRelease(cfString);
 
@@ -493,7 +510,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             if( nState & ControlState::FOCUSED )
                 aPushInfo.adornment |= kThemeAdornmentFocus;
 
-            HIThemeDrawButton( &rc, &aPushInfo, mrContext, kHIThemeOrientationNormal, nullptr );
+            HIThemeDrawButton( &rc, &aPushInfo, maContextHolder.get(), kHIThemeOrientationNormal, nullptr );
             bOK = true;
         }
         break;
@@ -524,7 +541,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
               kThemeAdornmentNone;
             if( nState & ControlState::FOCUSED )
                 aInfo.adornment |= kThemeAdornmentFocus;
-            HIThemeDrawButton( &rc, &aInfo, mrContext, kHIThemeOrientationNormal, nullptr );
+            HIThemeDrawButton( &rc, &aInfo, maContextHolder.get(), kHIThemeOrientationNormal, nullptr );
             bOK = true;
         }
         break;
@@ -541,19 +558,19 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 // grey equilateral triangle here ourselves.
                 // Perhaps some other HIThemeButtonDrawInfo setting would do the trick ?
 
-                CGContextSetShouldAntialias( mrContext, true );
+                CGContextSetShouldAntialias( maContextHolder.get(), true );
                 CGFloat const aGrey[] = { 0.45, 0.45, 0.45, 1.0 };
-                CGContextSetFillColor( mrContext, aGrey );
-                CGContextBeginPath( mrContext );
+                CGContextSetFillColor( maContextHolder.get(), aGrey );
+                CGContextBeginPath( maContextHolder.get() );
                 float x = rc.origin.x + rc.size.width;
                 float y = rc.origin.y;
-                CGContextMoveToPoint( mrContext, x, y );
+                CGContextMoveToPoint( maContextHolder.get(), x, y );
                 y += rc.size.height;
-                CGContextAddLineToPoint( mrContext, x, y );
+                CGContextAddLineToPoint( maContextHolder.get(), x, y );
                 x -= rc.size.height * 0.866; // cos( 30 degree ) is approx. 0.866
                 y -= rc.size.height/2;
-                CGContextAddLineToPoint( mrContext, x, y );
-                CGContextDrawPath( mrContext, kCGPathEOFill );
+                CGContextAddLineToPoint( maContextHolder.get(), x, y );
+                CGContextDrawPath( maContextHolder.get(), kCGPathEOFill );
             }
             else
             {
@@ -581,7 +598,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                         break;
                 }
 
-                HIThemeDrawButton( &rc, &aInfo, mrContext, kHIThemeOrientationNormal, nullptr );
+                HIThemeDrawButton( &rc, &aInfo, maContextHolder.get(), kHIThemeOrientationNormal, nullptr );
             }
             bOK = true;
         }
@@ -611,7 +628,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             aTrackInfo.filler1              = 0;
             aTrackInfo.trackInfo.progress.phase   = static_cast<long long>(CFAbsoluteTimeGetCurrent()*10.0);
 
-            HIThemeDrawTrack( &aTrackInfo, nullptr, mrContext, kHIThemeOrientationNormal );
+            HIThemeDrawTrack( &aTrackInfo, nullptr, maContextHolder.get(), kHIThemeOrientationNormal );
             bOK = true;
         }
         break;
@@ -640,7 +657,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 aSlideInfo.pressState = 0;
                 aTrackDraw.trackInfo.slider = aSlideInfo;
 
-                HIThemeDrawTrack( &aTrackDraw, nullptr, mrContext, kHIThemeOrientationNormal );
+                HIThemeDrawTrack( &aTrackDraw, nullptr, maContextHolder.get(), kHIThemeOrientationNormal );
                 bOK = true;
             }
         }
@@ -695,7 +712,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
 
                 aTrackDraw.trackInfo.scrollbar = aScrollInfo;
 
-                HIThemeDrawTrack( &aTrackDraw, nullptr, mrContext, kHIThemeOrientationNormal );
+                HIThemeDrawTrack( &aTrackDraw, nullptr, maContextHolder.get(), kHIThemeOrientationNormal );
                 bOK = true;
             }
         }
@@ -717,7 +734,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             rc.size.height+=TAB_HEIGHT_NORMAL/2;
             rc.size.width-=2;
 
-            HIThemeDrawTabPane(&rc, &aTabPaneDrawInfo, mrContext, kHIThemeOrientationNormal);
+            HIThemeDrawTabPane(&rc, &aTabPaneDrawInfo, maContextHolder.get(), kHIThemeOrientationNormal);
 
             bOK = true;
         }
@@ -769,7 +786,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             rc.size.width+=2;//because VCL has 2 empty pixels between 2 tabs
             rc.origin.x-=1;
 
-            HIThemeDrawTab(&rc, &aTabItemDrawInfo, mrContext, kHIThemeOrientationNormal, &rc );
+            HIThemeDrawTab(&rc, &aTabItemDrawInfo, maContextHolder.get(), kHIThemeOrientationNormal, &rc );
 
             bOK=true;
         }
@@ -791,7 +808,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 if( nState & ControlState::FOCUSED )
                     aListInfo.adornment |= kThemeAdornmentFocus;
 
-                HIThemeDrawButton(&rc, &aListInfo, mrContext, kHIThemeOrientationNormal,&rc);
+                HIThemeDrawButton(&rc, &aListInfo, maContextHolder.get(), kHIThemeOrientationNormal,&rc);
                 bOK = true;
                 break;
             }
@@ -805,9 +822,9 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
 
                 rc.size.width+=1; // else there's a white space because a macOS theme has no 3D border
                 rc.size.height+=1;
-                HIThemeDrawFrame(&rc, &aTextDrawInfo, mrContext, kHIThemeOrientationNormal);
+                HIThemeDrawFrame(&rc, &aTextDrawInfo, maContextHolder.get(), kHIThemeOrientationNormal);
 
-                if(nState & ControlState::FOCUSED) HIThemeDrawFocusRect(&rc, true, mrContext, kHIThemeOrientationNormal);
+                if(nState & ControlState::FOCUSED) HIThemeDrawFocusRect(&rc, true, maContextHolder.get(), kHIThemeOrientationNormal);
 
                 bOK=true;
                 break;
@@ -832,12 +849,12 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
             rc.size.height += 2;
 
             //CGContextSetFillColorWithColor
-            CGContextFillRect (mrContext, CGRectMake(rc.origin.x, rc.origin.y, rc.size.width, rc.size.height));
+            CGContextFillRect (maContextHolder.get(), CGRectMake(rc.origin.x, rc.origin.y, rc.size.width, rc.size.height));
             //fill a white background, because drawFrame only draws the border
 
-            HIThemeDrawFrame(&rc, &aTextDrawInfo, mrContext, kHIThemeOrientationNormal);
+            HIThemeDrawFrame(&rc, &aTextDrawInfo, maContextHolder.get(), kHIThemeOrientationNormal);
 
-            if(nState & ControlState::FOCUSED) HIThemeDrawFocusRect(&rc, true, mrContext, kHIThemeOrientationNormal);
+            if(nState & ControlState::FOCUSED) HIThemeDrawFocusRect(&rc, true, maContextHolder.get(), kHIThemeOrientationNormal);
 
             bOK=true;
         }
@@ -861,12 +878,12 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                 rc.origin.y += FOCUS_RING_WIDTH;
 
                 //CGContextSetFillColorWithColor
-                CGContextFillRect (mrContext, CGRectMake(rc.origin.x, rc.origin.y, rc.size.width, rc.size.height));
+                CGContextFillRect (maContextHolder.get(), CGRectMake(rc.origin.x, rc.origin.y, rc.size.width, rc.size.height));
                 //fill a white background, because drawFrame only draws the border
 
-                HIThemeDrawFrame(&rc, &aTextDrawInfo, mrContext, kHIThemeOrientationNormal);
+                HIThemeDrawFrame(&rc, &aTextDrawInfo, maContextHolder.get(), kHIThemeOrientationNormal);
 
-                if(nState & ControlState::FOCUSED) HIThemeDrawFocusRect(&rc, true, mrContext, kHIThemeOrientationNormal);
+                if(nState & ControlState::FOCUSED) HIThemeDrawFocusRect(&rc, true, maContextHolder.get(), kHIThemeOrientationNormal);
 
                 //buttons:
                 const SpinbuttonValue* pSpinButtonVal = (aValue.getType() == ControlType::SpinButtons) ? static_cast<const SpinbuttonValue*>(&aValue) : nullptr;
@@ -917,7 +934,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                     if( (nUpperState & ControlState::FOCUSED) || (nLowerState & ControlState::FOCUSED))
                         aSpinInfo.adornment |= kThemeAdornmentFocus;
 
-                    HIThemeDrawButton( &buttonRc, &aSpinInfo, mrContext, kHIThemeOrientationNormal, nullptr );
+                    HIThemeDrawButton( &buttonRc, &aSpinInfo, maContextHolder.get(), kHIThemeOrientationNormal, nullptr );
                 }
 
                 bOK=true;
@@ -940,9 +957,9 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                         CGMutablePathRef rPath = CGPathCreateMutable();
                         CGPathAddRect( rPath, nullptr, CGRectMake( 0, 0, mpFrame->maGeometry.nWidth-1, mpFrame->maGeometry.nHeight-1 ) );
 
-                        CGContextBeginPath( mrContext );
-                        CGContextAddPath( mrContext, rPath );
-                        CGContextClip( mrContext );
+                        CGContextBeginPath( maContextHolder.get() );
+                        CGContextAddPath( maContextHolder.get(), rPath );
+                        CGContextClip( maContextHolder.get() );
                         CGPathRelease( rPath );
                     }
 
@@ -952,7 +969,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
                     aTextDrawInfo.state=kThemeStateActive;
                     aTextDrawInfo.isFocused=false;
 
-                    HIThemeDrawFrame(&rc, &aTextDrawInfo, mrContext, kHIThemeOrientationNormal);
+                    HIThemeDrawFrame(&rc, &aTextDrawInfo, maContextHolder.get(), kHIThemeOrientationNormal);
 
                     bOK=true;
                 }
@@ -969,7 +986,7 @@ bool AquaSalGraphics::drawNativeControl(ControlType nType,
     default: break;
     }
 
-    CGContextRestoreGState( mrContext );
+    maContextHolder.restoreState();
 
     /* #i90291# in most cases invalidating the whole control region instead
        of just the unclipped part of it is sufficient (and probably faster).

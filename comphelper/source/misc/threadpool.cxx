@@ -10,15 +10,27 @@
 #include <comphelper/threadpool.hxx>
 
 #include <com/sun/star/uno/Exception.hpp>
+#include <config_options.h>
 #include <sal/config.h>
 #include <sal/log.hxx>
 #include <rtl/instance.hxx>
-#include <rtl/string.hxx>
 #include <salhelper/thread.hxx>
 #include <algorithm>
 #include <memory>
 #include <thread>
 #include <chrono>
+
+#if defined HAVE_VALGRIND_HEADERS
+#include <valgrind/memcheck.h>
+#endif
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#elif defined UNX
+#include <unistd.h>
+#include <fcntl.h>
+#endif
 
 namespace comphelper {
 
@@ -177,7 +189,7 @@ void ThreadPool::shutdownLocked(std::unique_lock<std::mutex>& aGuard)
 
 void ThreadPool::pushTask( std::unique_ptr<ThreadTask> pTask )
 {
-    std::unique_lock< std::mutex > aGuard( maMutex );
+    std::scoped_lock< std::mutex > aGuard( maMutex );
 
     mbTerminate = false;
 
@@ -213,7 +225,7 @@ std::unique_ptr<ThreadTask> ThreadPool::popWorkLocked( std::unique_lock< std::mu
     return nullptr;
 }
 
-void ThreadPool::waitUntilDone(const std::shared_ptr<ThreadTaskTag>& rTag)
+void ThreadPool::waitUntilDone(const std::shared_ptr<ThreadTaskTag>& rTag, bool bJoinAll)
 {
 #if defined DBG_UTIL && (defined LINUX || defined _WIN32)
     assert(!gbIsWorkerThread && "cannot wait for tasks from inside a task");
@@ -232,12 +244,16 @@ void ThreadPool::waitUntilDone(const std::shared_ptr<ThreadTaskTag>& rTag)
 
     rTag->waitUntilDone();
 
+    if (bJoinAll)
+        joinAll();
+}
+
+void ThreadPool::joinAll()
+{
+    std::unique_lock< std::mutex > aGuard( maMutex );
+    if (maTasks.empty()) // check if there are still tasks from another tag
     {
-        std::unique_lock< std::mutex > aGuard( maMutex );
-        if (maTasks.empty()) // check if there are still tasks from another tag
-        {
-            shutdownLocked(aGuard);
-        }
+        shutdownLocked(aGuard);
     }
 }
 
@@ -280,14 +296,14 @@ ThreadTaskTag::ThreadTaskTag() : mnTasksWorking(0)
 
 void ThreadTaskTag::onTaskPushed()
 {
-    std::unique_lock< std::mutex > aGuard( maMutex );
+    std::scoped_lock< std::mutex > aGuard( maMutex );
     mnTasksWorking++;
     assert( mnTasksWorking < 65536 ); // sanity checking
 }
 
 void ThreadTaskTag::onTaskWorkerDone()
 {
-    std::unique_lock< std::mutex > aGuard( maMutex );
+    std::scoped_lock< std::mutex > aGuard( maMutex );
     mnTasksWorking--;
     assert(mnTasksWorking >= 0);
     if (mnTasksWorking == 0)
@@ -296,9 +312,39 @@ void ThreadTaskTag::onTaskWorkerDone()
 
 bool ThreadTaskTag::isDone()
 {
-    std::unique_lock< std::mutex > aGuard( maMutex );
+    std::scoped_lock< std::mutex > aGuard( maMutex );
     return mnTasksWorking == 0;
 }
+
+#if defined DBG_UTIL && !defined NDEBUG
+static bool isDebuggerAttached()
+{
+#if defined(_WIN32)
+    return IsDebuggerPresent();
+#elif defined LINUX
+    char buf[ 4096 ];
+    int fd = open( "/proc/self/status", O_RDONLY );
+    if( fd < 0 )
+        return false;
+    int size = read( fd, buf, sizeof( buf ) - 1 );
+    close( fd );
+    if( size < 0 )
+        return false;
+    assert( size < int( sizeof( buf )) - 1 );
+    buf[ sizeof( buf ) - 1 ] = '\0';
+    // "TracerPid: <pid>" for pid != 0 means something is attached
+    const char* pos = strstr( buf, "TracerPid:" );
+    if( pos == nullptr )
+        return false;
+    pos += strlen( "TracerPid:" );
+    while( *pos != '\n' && isspace( *pos ))
+        ++pos;
+    return *pos != '\n' && *pos != '0';
+#else
+    return false; // feel free to add your platform
+#endif
+}
+#endif
 
 void ThreadTaskTag::waitUntilDone()
 {
@@ -306,9 +352,21 @@ void ThreadTaskTag::waitUntilDone()
     while( mnTasksWorking > 0 )
     {
 #if defined DBG_UTIL && !defined NDEBUG
-        // 3 minute timeout in debug mode so our tests fail sooner rather than later
+        // 10 minute timeout in debug mode, unless the code is built with
+        // sanitizers or debugged in valgrind or gdb, in which case the threads
+        // should not time out in the middle of a debugging session
+        int maxTimeout = 10 * 60;
+#if !ENABLE_RUNTIME_OPTIMIZATIONS
+        maxTimeout = 30 * 60;
+#endif
+#if defined HAVE_VALGRIND_HEADERS
+        if( RUNNING_ON_VALGRIND )
+            maxTimeout = 30 * 60;
+#endif
+        if( isDebuggerAttached())
+            maxTimeout = 300 * 60;
         std::cv_status result = maTasksComplete.wait_for(
-            aGuard, std::chrono::seconds( 3 * 60 ));
+            aGuard, std::chrono::seconds( maxTimeout ));
         assert(result != std::cv_status::timeout);
 #else
         // 10 minute timeout in production so the app eventually throws some kind of error

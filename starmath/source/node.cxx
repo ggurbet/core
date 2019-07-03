@@ -2402,7 +2402,9 @@ void SmMathSymbolNode::AdaptToY(OutputDevice &rDev, sal_uLong nHeight)
 
     // get denominator of error factor for height
     long nTmpBorderWidth = GetFont().GetBorderWidth();
-    long nDenom = SmRect(aTmpDev, nullptr, GetText(), nTmpBorderWidth).GetHeight();
+    long nDenom = 0;
+    if (!GetText().isEmpty())
+        nDenom = SmRect(aTmpDev, nullptr, GetText(), nTmpBorderWidth).GetHeight();
 
     // scale fontwidth with this error factor
     aFntSize.setHeight( aFntSize.Height() * nHeight );
@@ -2532,6 +2534,9 @@ void SmAttributNode::CreateTextFromNode(OUStringBuffer &rText)
             case MS_RIGHTARROW: // RIGHTWARDS ARROW
             case MS_VEC: // COMBINING RIGHT ARROW ABOVE
                 rText.append("vec ");
+                break;
+            case MS_HARPOON: // COMBINING RIGHT HARPOON ABOVE
+                rText.append("harpoon ");
                 break;
             case MS_TILDE: // TILDE
             case MS_COMBTILDE: // COMBINING TILDE

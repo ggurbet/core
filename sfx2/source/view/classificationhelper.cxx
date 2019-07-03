@@ -14,6 +14,8 @@
 #include <iterator>
 
 #include <com/sun/star/beans/XPropertyContainer.hpp>
+#include <com/sun/star/beans/Property.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
@@ -33,7 +35,10 @@
 #include <sfx2/sfxresid.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <tools/datetime.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/datetime.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/settings.hxx>
 #include <vcl/weld.hxx>
 #include <svl/fstathelper.hxx>
 #include <config_folders.h>
@@ -404,9 +409,9 @@ void SfxClassificationHelper::Impl::parsePolicy()
     {
         xParser->parseStream(aParserInput);
     }
-    catch (const xml::sax::SAXParseException& rException)
+    catch (const xml::sax::SAXParseException&)
     {
-        SAL_WARN("sfx.view", "parsePolicy() failed: " << rException);
+        TOOLS_WARN_EXCEPTION("sfx.view", "parsePolicy() failed");
     }
     m_aCategories = xClassificationParser->m_aCategories;
     m_aMarkings = xClassificationParser->m_aMarkings;
@@ -462,9 +467,9 @@ void SfxClassificationHelper::Impl::pushToDocumentProperties()
                 else
                     xPropertyContainer->addProperty(rLabel.first, beans::PropertyAttribute::REMOVABLE, uno::makeAny(rLabel.second));
             }
-            catch (const uno::Exception& rException)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("sfx.view", "pushDocumentProperties() failed for property " << rLabel.first << ": " << rException);
+                TOOLS_WARN_EXCEPTION("sfx.view", "pushDocumentProperties() failed for property " << rLabel.first);
             }
         }
     }

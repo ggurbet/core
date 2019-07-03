@@ -30,23 +30,16 @@
 #include <svx/svxdllapi.h>
 #include <tools/gen.hxx>
 #include <tools/link.hxx>
-#include <vcl/ctrl.hxx>
-#include <vcl/event.hxx>
-#include <vcl/fontcharmap.hxx>
-#include <vcl/outdev.hxx>
 #include <vcl/metric.hxx>
 #include <vcl/vclptr.hxx>
 #include <vcl/customweld.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/window.hxx>
-#include <vcl/textview.hxx>
-#include <com/sun/star/uno/XComponentContext.hpp>
 
 namespace com { namespace sun { namespace star {
     namespace accessibility { class XAccessible; }
 } } }
 
-namespace vcl { class Font; }
+namespace com::sun::star::uno { class XComponentContext; }
 
 using namespace ::com::sun::star;
 
@@ -83,7 +76,7 @@ public:
     static sal_uInt32& getSelectedChar();
     void            SetFont( const vcl::Font& rFont );
     vcl::Font const & GetFont() const { return maFont; }
-    FontCharMapRef  GetFontCharMap();
+    FontCharMapRef const & GetFontCharMap();
     bool            isFavChar(const OUString& sTitle, const OUString& rFont);
     void            getFavCharacterList(); //gets both Fav char and Fav char font list
     void            updateFavCharacterList(const OUString& rChar, const OUString& rFont);
@@ -103,8 +96,8 @@ public:
 
     virtual sal_Int32                   getMaxCharCount() const;
 
-    void Show() { mxScrollArea->show(); }
-    void Hide() { mxScrollArea->hide(); }
+    virtual void Show() override { mxScrollArea->show(); }
+    virtual void Hide() override { mxScrollArea->hide(); }
 
     uno::Reference<css::accessibility::XAccessible> getAccessibleParent() { return GetDrawingArea()->get_accessible_parent(); }
 

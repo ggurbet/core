@@ -22,10 +22,8 @@
 #include <vcl/scrbar.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/vclevent.hxx>
 
-#include <svdata.hxx>
-
-#include <rtl/string.hxx>
 #include <sal/log.hxx>
 
 /*  #i77549#
@@ -243,6 +241,11 @@ void ScrollBar::ImplCalc( bool bUpdate )
         const tools::Rectangle aControlRegion( Point(0,0), aSize );
         tools::Rectangle aBtn1Region, aBtn2Region, aTrackRegion, aBoundingRegion;
 
+        // reset rectangles to empty *and* (0,0) position
+        maThumbRect = tools::Rectangle();
+        maPage1Rect = tools::Rectangle();
+        maPage2Rect = tools::Rectangle();
+
         if ( GetStyle() & WB_HORZ )
         {
             if ( GetNativeControlRegion( ControlType::Scrollbar, IsRTLEnabled()? ControlPart::ButtonRight: ControlPart::ButtonLeft,
@@ -278,13 +281,9 @@ void ScrollBar::ImplCalc( bool bUpdate )
                 maThumbRect.SetBottom( maTrackRect.Bottom() );
             }
             else
-            {
                 mnThumbPixRange = 0;
-                maPage1Rect.SetEmpty();
-                maPage2Rect.SetEmpty();
-            }
         }
-        else
+        else // WB_VERT
         {
             if ( GetNativeControlRegion( ControlType::Scrollbar, ControlPart::ButtonUp,
                         aControlRegion, ControlState::NONE, ImplControlValue(), aBoundingRegion, aBtn1Region ) &&
@@ -319,15 +318,8 @@ void ScrollBar::ImplCalc( bool bUpdate )
                 maThumbRect.SetRight( maTrackRect.Right() );
             }
             else
-            {
                 mnThumbPixRange = 0;
-                maPage1Rect.SetEmpty();
-                maPage2Rect.SetEmpty();
-            }
         }
-
-        if ( !mnThumbPixRange )
-            maThumbRect.SetEmpty();
 
         mbCalcSize = false;
 
@@ -822,7 +814,13 @@ void ScrollBar::ImplDragThumb( const Point& rMousePos )
             // When dragging in windows the repaint request gets starved so dragging
             // the scrollbar feels slower than it actually is. Let's force an immediate
             // repaint of the scrollbar.
-            ImplDraw(*this);
+            if (SupportsDoubleBuffering())
+            {
+                Invalidate();
+                Update();
+            }
+            else
+                ImplDraw(*this);
 
             mnDelta = mnThumbPos-nOldPos;
             Scroll();
@@ -1090,6 +1088,15 @@ void ScrollBar::ApplySettings(vcl::RenderContext& rRenderContext)
 void ScrollBar::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
     ImplDraw(rRenderContext);
+}
+
+void ScrollBar::Move()
+{
+    Control::Move();
+    mbCalcSize = true;
+    if (IsReallyVisible())
+        ImplCalc(false);
+    Invalidate();
 }
 
 void ScrollBar::Resize()

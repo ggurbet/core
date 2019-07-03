@@ -10,6 +10,7 @@
 #include "../sdmodeltestbase.hxx"
 #include <app.hrc>
 #include <test/bootstrapfixture.hxx>
+#include <test/helper/transferable.hxx>
 #include <unotest/macros_test.hxx>
 #include <test/xmltesttools.hxx>
 #include <boost/property_tree/json_parser.hpp>
@@ -20,6 +21,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/string.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/editids.hrc>
 #include <editeng/editobj.hxx>
 #include <editeng/editview.hxx>
@@ -32,6 +34,8 @@
 #include <sfx2/viewfrm.hxx>
 #include <svl/srchitem.hxx>
 #include <svl/slstitm.hxx>
+#include <svl/stritem.hxx>
+#include <svl/intitem.hxx>
 #include <comphelper/lok.hxx>
 #include <svx/svdotable.hxx>
 #include <svx/svdoutl.hxx>
@@ -49,10 +53,12 @@
 #include <DrawViewShell.hxx>
 #include <pres.hxx>
 #include <navigatr.hxx>
+#include <vcl/cursor.hxx>
 #include <vcl/scheduler.hxx>
 #include <vcl/vclevent.hxx>
 
 #include <chrono>
+#include <cstdlib>
 
 using namespace css;
 
@@ -115,6 +121,8 @@ public:
     void testTdf115873();
     void testTdf115873Group();
     void testCutSelectionChange();
+    void testRegenerateDiagram();
+    void testLanguageAllText();
 
     CPPUNIT_TEST_SUITE(SdTiledRenderingTest);
     CPPUNIT_TEST(testRegisterCallback);
@@ -161,6 +169,8 @@ public:
     CPPUNIT_TEST(testTdf115873);
     CPPUNIT_TEST(testTdf115873Group);
     CPPUNIT_TEST(testCutSelectionChange);
+    CPPUNIT_TEST(testRegenerateDiagram);
+    CPPUNIT_TEST(testLanguageAllText);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -197,6 +207,9 @@ SdTiledRenderingTest::SdTiledRenderingTest()
 void SdTiledRenderingTest::setUp()
 {
     test::BootstrapFixture::setUp();
+
+    // prevent showing warning message box
+    setenv("OOX_NO_SMARTART_WARNING", "1", 1);
 
     mxDesktop.set(css::frame::Desktop::create(comphelper::getComponentContext(getMultiServiceFactory())));
 }
@@ -471,11 +484,10 @@ void SdTiledRenderingTest::testGetTextSelection()
     ESelection aWordSelection(0, 0, 0, 5);
     rEditView.SetSelection(aWordSelection);
     // Did we indeed manage to copy the selected text?
-    OString aUsedFormat;
-    CPPUNIT_ASSERT_EQUAL(OString("Shape"), pXImpressDocument->getTextSelection("text/plain;charset=utf-8", aUsedFormat));
+    CPPUNIT_ASSERT_EQUAL(OString("Shape"), apitest::helper::transferable::getTextSelection(pXImpressDocument->getSelection(), "text/plain;charset=utf-8"));
 
     // Make sure returned RTF is not empty.
-    CPPUNIT_ASSERT(!pXImpressDocument->getTextSelection("text/rtf", aUsedFormat).isEmpty());
+    CPPUNIT_ASSERT(!apitest::helper::transferable::getTextSelection(pXImpressDocument->getSelection(), "text/rtf").isEmpty());
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -621,9 +633,8 @@ void SdTiledRenderingTest::testSearchAll()
 
     lcl_search("match", /*bFindAll=*/true);
 
-    OString aUsedFormat;
     // This was empty: find-all did not highlight the first match.
-    CPPUNIT_ASSERT_EQUAL(OString("match"), pXImpressDocument->getTextSelection("text/plain;charset=utf-8", aUsedFormat));
+    CPPUNIT_ASSERT_EQUAL(OString("match"), apitest::helper::transferable::getTextSelection(pXImpressDocument->getSelection(), "text/plain;charset=utf-8"));
 
     // We're on the first slide, search for something on the second slide and make sure we get a SET_PART.
     m_nPart = 0;
@@ -673,10 +684,9 @@ void SdTiledRenderingTest::testSearchAllFollowedBySearch()
     lcl_search("third", /*bFindAll=*/true);
     lcl_search("match" /*,bFindAll=false*/);
 
-    OString aUsedFormat;
     // This used to give wrong result: 'search' after 'search all' still
     // returned 'third'
-    CPPUNIT_ASSERT_EQUAL(OString("match"), pXImpressDocument->getTextSelection("text/plain;charset=utf-8", aUsedFormat));
+    CPPUNIT_ASSERT_EQUAL(OString("match"), apitest::helper::transferable::getTextSelection(pXImpressDocument->getSelection(), "text/plain;charset=utf-8"));
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -867,11 +877,11 @@ void SdTiledRenderingTest::testResizeTable()
     auto pTableObject = dynamic_cast<sdr::table::SdrTableObj*>(pObject);
     CPPUNIT_ASSERT(pTableObject);
 
-    SdrHdlList handleList(nullptr);
-    pObject->AddToHdlList(handleList);
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(14), handleList.GetHdlCount());
-    // Take the top left handle
-    SdrHdl* pHdl = handleList.GetHdl(0);
+    // Select the table by marking it + starting and ending text edit.
+    SdrView* pView = pViewShell->GetView();
+    pView->MarkObj(pObject, pView->GetSdrPageView());
+    pView->SdrBeginTextEdit(pObject);
+    pView->SdrEndTextEdit();
 
     // Remember the original row heights.
     uno::Reference<table::XColumnRowRange> xTable(pTableObject->getTable(), uno::UNO_QUERY);
@@ -882,14 +892,15 @@ void SdTiledRenderingTest::testResizeTable()
     sal_Int32 nExpectedRow2 = xRow2->getPropertyValue("Size").get<sal_Int32>();
 
     // Resize the upper row, decrease its height by 1 cm.
-    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_START, convertMm100ToTwip(pHdl->GetPos().getX()), convertMm100ToTwip(pHdl->GetPos().getY()));
-    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_END, convertMm100ToTwip(pHdl->GetPos().getX()), convertMm100ToTwip(pHdl->GetPos().getY() + 1000));
+    Point aInnerRowEdge = pObject->GetSnapRect().Center();
+    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_START, convertMm100ToTwip(aInnerRowEdge.getX()), convertMm100ToTwip(aInnerRowEdge.getY()));
+    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_END, convertMm100ToTwip(aInnerRowEdge.getX()), convertMm100ToTwip(aInnerRowEdge.getY() - 1000));
 
     // Remember the resized row heights.
     sal_Int32 nResizedRow1 = xRow1->getPropertyValue("Size").get<sal_Int32>();
     CPPUNIT_ASSERT(nResizedRow1 < nExpectedRow1);
     sal_Int32 nResizedRow2 = xRow2->getPropertyValue("Size").get<sal_Int32>();
-    CPPUNIT_ASSERT(nResizedRow2 < nExpectedRow2);
+    CPPUNIT_ASSERT_EQUAL(nExpectedRow2, nResizedRow2);
 
     // Now undo the resize.
     pXImpressDocument->GetDocShell()->GetUndoManager()->Undo();
@@ -899,7 +910,7 @@ void SdTiledRenderingTest::testResizeTable()
     CPPUNIT_ASSERT_EQUAL(nExpectedRow1, nActualRow1);
     sal_Int32 nActualRow2 = xRow2->getPropertyValue("Size").get<sal_Int32>();
     // Expected was 4000, actual was 4572, i.e. the second row after undo was larger than expected.
-    CPPUNIT_ASSERT_DOUBLES_EQUAL(nExpectedRow2, nActualRow2, 1.0);
+    CPPUNIT_ASSERT_EQUAL(nExpectedRow2, nActualRow2);
     comphelper::LibreOfficeKit::setActive(false);
 }
 
@@ -914,11 +925,11 @@ void SdTiledRenderingTest::testResizeTableColumn()
     auto pTableObject = dynamic_cast<sdr::table::SdrTableObj*>(pObject);
     CPPUNIT_ASSERT(pTableObject);
 
-    SdrHdlList handleList(nullptr);
-    pObject->AddToHdlList(handleList);
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(14), handleList.GetHdlCount());
-    // Take the top left handle
-    SdrHdl* pHdl = handleList.GetHdl(0);
+    // Select the table by marking it + starting and ending text edit.
+    SdrView* pView = pViewShell->GetView();
+    pView->MarkObj(pObject, pView->GetSdrPageView());
+    pView->SdrBeginTextEdit(pObject);
+    pView->SdrEndTextEdit();
 
     // Remember the original cell widths.
     xmlDocPtr pXmlDoc = parseXmlDump();
@@ -929,15 +940,16 @@ void SdTiledRenderingTest::testResizeTableColumn()
     pXmlDoc = nullptr;
 
     // Resize the left column, decrease its width by 1 cm.
-    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_START, convertMm100ToTwip(pHdl->GetPos().getX()), convertMm100ToTwip(pHdl->GetPos().getY()));
-    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_END, convertMm100ToTwip(pHdl->GetPos().getX() + 1000), convertMm100ToTwip(pHdl->GetPos().getY()));
+    Point aInnerRowEdge = pObject->GetSnapRect().Center();
+    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_START, convertMm100ToTwip(aInnerRowEdge.getX()), convertMm100ToTwip(aInnerRowEdge.getY()));
+    pXImpressDocument->setGraphicSelection(LOK_SETGRAPHICSELECTION_END, convertMm100ToTwip(aInnerRowEdge.getX() - 1000), convertMm100ToTwip(aInnerRowEdge.getY()));
 
     // Remember the resized column widths.
     pXmlDoc = parseXmlDump();
     sal_Int32 nResizedColumn1 = getXPath(pXmlDoc, aPrefix + "TableLayouter_Layout[1]", "size").toInt32();
     CPPUNIT_ASSERT(nResizedColumn1 < nExpectedColumn1);
     sal_Int32 nResizedColumn2 = getXPath(pXmlDoc, aPrefix + "TableLayouter_Layout[2]", "size").toInt32();
-    CPPUNIT_ASSERT(nResizedColumn2 < nExpectedColumn2);
+    CPPUNIT_ASSERT(nResizedColumn2 > nExpectedColumn2);
     xmlFreeDoc(pXmlDoc);
     pXmlDoc = nullptr;
 
@@ -1954,6 +1966,35 @@ void SdTiledRenderingTest::testLanguageStatus()
     comphelper::LibreOfficeKit::setActive(false);
 }
 
+void SdTiledRenderingTest::testLanguageAllText()
+{
+    // Load the document, which has a single shape, with Hungarian text.
+    comphelper::LibreOfficeKit::setActive();
+    createDoc("language-all-text.odp");
+
+    // Set the language to English for all text.
+    uno::Sequence<beans::PropertyValue> aArgs = comphelper::InitPropertySequence({
+        { "Language", uno::makeAny(OUString("Default_English (USA)")) },
+    });
+    comphelper::dispatchCommand(".uno:LanguageStatus", aArgs);
+    Scheduler::ProcessEventsToIdle();
+
+    // Assert that the shape text language was changed.
+    uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<drawing::XDrawPage> xPage(xDrawPagesSupplier->getDrawPages()->getByIndex(0),
+                                             uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xShape(xPage->getByIndex(0), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xRun(
+        getRunFromParagraph(0, getParagraphFromShape(0, xShape)), uno::UNO_QUERY);
+    lang::Locale aLocale;
+    xRun->getPropertyValue("CharLocale") >>= aLocale;
+    // Without the accompanying fix in place, this test would have failed with 'Expected: en;
+    // Actual: hu', as the shape text language was not set.
+    CPPUNIT_ASSERT_EQUAL(OUString("en"), aLocale.Language);
+
+    comphelper::LibreOfficeKit::setActive(false);
+}
+
 void SdTiledRenderingTest::testDefaultView()
 {
     // Load the document with notes view.
@@ -2242,6 +2283,59 @@ void SdTiledRenderingTest::testCutSelectionChange()
 
     // Selection is removed
     CPPUNIT_ASSERT_EQUAL(static_cast<std::size_t>(0), m_aSelection.size());
+    comphelper::LibreOfficeKit::setActive(false);
+}
+
+void SdTiledRenderingTest::testRegenerateDiagram()
+{
+    // Load the document.
+    comphelper::LibreOfficeKit::setActive();
+    SdXImpressDocument* pXImpressDocument = createDoc("regenerate-diagram.pptx");
+    CPPUNIT_ASSERT(pXImpressDocument);
+
+    SdPage* pActualPage = pXImpressDocument->GetDocShell()->GetViewShell()->GetActualPage();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(4), pActualPage->GetObj(0)->GetSubList()->GetObjCount());
+
+    // select diagram
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, awt::Key::TAB);
+    Scheduler::ProcessEventsToIdle();
+
+    // enter group
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, awt::Key::F3);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, awt::Key::F3);
+    Scheduler::ProcessEventsToIdle();
+
+    // select shape and delete
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, awt::Key::DELETE);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, awt::Key::DELETE);
+    Scheduler::ProcessEventsToIdle();
+
+    // exit group
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, KEY_MOD1 | awt::Key::F3);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, KEY_MOD1 | awt::Key::F3);
+    Scheduler::ProcessEventsToIdle();
+
+    // select diagram
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYINPUT, 0, awt::Key::TAB);
+    pXImpressDocument->postKeyEvent(LOK_KEYEVENT_KEYUP, 0, awt::Key::TAB);
+    Scheduler::ProcessEventsToIdle();
+
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(3), pActualPage->GetObj(0)->GetSubList()->GetObjCount());
+
+    // regenerate diagram
+    comphelper::dispatchCommand(".uno:RegenerateDiagram", uno::Sequence<beans::PropertyValue>());
+    Scheduler::ProcessEventsToIdle();
+
+    // diagram content (child shape count) should be the same as in the beginning
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(4), pActualPage->GetObj(0)->GetSubList()->GetObjCount());
+
     comphelper::LibreOfficeKit::setActive(false);
 }
 

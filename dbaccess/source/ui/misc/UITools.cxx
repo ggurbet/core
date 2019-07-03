@@ -54,6 +54,7 @@
 #include <toolkit/awt/vclxwindow.hxx>
 #include <vcl/stdtext.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XNameAccess.hpp>
@@ -430,7 +431,7 @@ void fillTypeInfo(  const Reference< css::sdbc::XConnection>& _rxConnection,
     // Information for a single SQL type
     if(xRs.is())
     {
-        Reference<XResultSetMetaData> xResultSetMetaData = Reference<XResultSetMetaDataSupplier>(xRs,UNO_QUERY)->getMetaData();
+        Reference<XResultSetMetaData> xResultSetMetaData = Reference<XResultSetMetaDataSupplier>(xRs,UNO_QUERY_THROW)->getMetaData();
         ::connectivity::ORowSetValue aValue;
         std::vector<sal_Int32> aTypes;
         std::vector<bool> aNullable;

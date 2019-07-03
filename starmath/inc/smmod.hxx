@@ -21,6 +21,7 @@
 #define INCLUDED_STARMATH_INC_SMMOD_HXX
 
 #include <sfx2/module.hxx>
+#include <sfx2/app.hxx>
 
 #include <unotools/options.hxx>
 #include <memory>
@@ -68,8 +69,6 @@ class SmModule : public SfxModule, public utl::ConfigurationListener
     std::unique_ptr<SmLocalizedSymbolData> mpLocSymbolData;
     std::unique_ptr<SvtSysLocale> mpSysLocale;
     VclPtr<VirtualDevice>    mpVirtualDev;
-
-    static void ApplyColorConfigValues( const svtools::ColorConfig &rColorCfg );
 
 public:
     SFX_DECL_INTERFACE(SFX_INTERFACE_SMA_START + SfxInterfaceId(0))

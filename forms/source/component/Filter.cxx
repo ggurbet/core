@@ -352,7 +352,7 @@ namespace frm
             case FormComponentType::RADIOBUTTON:
             {
                 if ( rEvent.Selected == TRISTATE_TRUE )
-                    aText.append( ::comphelper::getString( Reference< XPropertySet >( getModel(), UNO_QUERY )->getPropertyValue( PROPERTY_REFVALUE ) ) );
+                    aText.append( ::comphelper::getString( Reference< XPropertySet >( getModel(), UNO_QUERY_THROW )->getPropertyValue( PROPERTY_REFVALUE ) ) );
             }
             break;
         }
@@ -519,8 +519,7 @@ namespace frm
         if ( m_aText != aText )
         {
             // check the text with the SQL-Parser
-            OUString aNewText(aText);
-            aNewText = aNewText.trim();
+            OUString aNewText = aText.trim();
             if ( !aNewText.isEmpty() )
             {
                 ::dbtools::OPredicateInputController aPredicateInput( m_xContext, m_xConnection, getParseContext() );
@@ -598,7 +597,7 @@ namespace frm
                 Reference< XVclWindowPeer >  xVclWindow( getPeer(), UNO_QUERY );
                 if (xVclWindow.is())
                 {
-                    OUString aRefText = ::comphelper::getString(css::uno::Reference< XPropertySet > (getModel(), UNO_QUERY)->getPropertyValue(PROPERTY_REFVALUE));
+                    OUString aRefText = ::comphelper::getString(css::uno::Reference< XPropertySet > (getModel(), UNO_QUERY_THROW)->getPropertyValue(PROPERTY_REFVALUE));
                     Any aValue;
                     if (aText == aRefText)
                         aValue <<= sal_Int32(TRISTATE_TRUE);

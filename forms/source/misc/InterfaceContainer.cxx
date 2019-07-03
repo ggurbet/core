@@ -388,7 +388,7 @@ void OInterfaceContainer::transformEvents()
             // get the script events for this object
             aChildEvents = m_xEventAttacher->getScriptEvents( i );
 
-            if ( aChildEvents.getLength() )
+            if ( aChildEvents.hasElements() )
             {
                 // do the transformation
                 ::std::for_each( aChildEvents.begin(), aChildEvents.end(), TransformEventTo52Format() );
@@ -525,7 +525,7 @@ void SAL_CALL OInterfaceContainer::read( const Reference< XObjectInputStream >& 
             catch(const WrongFormatException&)
             {
                 // the object could not be read
-                // create a object (so the readEvents below will assign the events to the right controls)
+                // create an object (so the readEvents below will assign the events to the right controls)
                 xObj = lcl_createPlaceHolder( m_xContext );
                 if ( !xObj.is() )
                     // couldn't handle it
@@ -855,7 +855,6 @@ void OInterfaceContainer::implInsert(sal_Int32 _nIndex, const Reference< XProper
         aEvt.Accessor <<= _nIndex;
         aEvt.Element  = pElementMetaData->aElementTypeInterface;
 
-        aGuard.clear();
         m_aContainerListeners.notifyEach( &XContainerListener::elementInserted, aEvt );
     }
 }

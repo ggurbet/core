@@ -27,15 +27,13 @@
 #include <editeng/editdata.hxx>
 #include <editeng/lrspitem.hxx>
 #include <svx/svdoutl.hxx>
+#include <svl/intitem.hxx>
 
-#include <app.hrc>
 #include <View.hxx>
 #include <ViewShell.hxx>
-#include <Window.hxx>
 #include <drawdoc.hxx>
 #include <sdabstdlg.hxx>
 #include <sdattr.hrc>
-#include <memory>
 
 namespace sd {
 
@@ -141,6 +139,8 @@ void FuParagraph::DoExecute( SfxRequest& rReq )
         SID_ATTR_PARA_LINESPACE_20,
         SID_ATTR_PARA_ULSPACE,
         SID_ATTR_PARA_LRSPACE,
+        SID_DEC_INDENT,
+        SID_INC_INDENT,
         SID_ATTR_PARA_LEFT_TO_RIGHT,
         SID_ATTR_PARA_RIGHT_TO_LEFT,
         SID_RULER_TEXT_RIGHT_TO_LEFT,

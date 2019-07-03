@@ -42,6 +42,7 @@
 #include <listenercontext.hxx>
 #include <formulagroup.hxx>
 #include <drwlayer.hxx>
+#include <mtvelements.hxx>
 
 #include <svl/poolcach.hxx>
 #include <svl/zforlist.hxx>
@@ -553,7 +554,7 @@ void ScColumn::ApplyStyle( SCROW nRow, const ScStyleSheet* rStyle )
     const ScPatternAttr* pPattern = pAttrArray->GetPattern(nRow);
     std::unique_ptr<ScPatternAttr> pNewPattern(new ScPatternAttr(*pPattern));
     pNewPattern->SetStyleSheet(const_cast<ScStyleSheet*>(rStyle));
-    pAttrArray->SetPattern(nRow, pNewPattern.get(), true);
+    pAttrArray->SetPattern(nRow, std::move(pNewPattern), true);
 }
 
 void ScColumn::ApplyStyleArea( SCROW nStartRow, SCROW nEndRow, const ScStyleSheet& rStyle )
@@ -683,6 +684,11 @@ void ScColumn::ClearItems( SCROW nStartRow, SCROW nEndRow, const sal_uInt16* pWh
     pAttrArray->ClearItems( nStartRow, nEndRow, pWhich );
 }
 
+const ScPatternAttr* ScColumn::SetPattern( SCROW nRow, std::unique_ptr<ScPatternAttr> pPatAttr )
+{
+    return pAttrArray->SetPattern( nRow, std::move(pPatAttr), true/*bPutToPool*/ );
+}
+
 void ScColumn::SetPattern( SCROW nRow, const ScPatternAttr& rPatAttr )
 {
     pAttrArray->SetPattern( nRow, &rPatAttr, true/*bPutToPool*/ );
@@ -704,7 +710,7 @@ void ScColumn::ApplyAttr( SCROW nRow, const SfxPoolItem& rAttr )
     const ScPatternAttr* pOldPattern = pAttrArray->GetPattern( nRow );
     std::unique_ptr<ScPatternAttr> pTemp(new ScPatternAttr(*pOldPattern));
     pTemp->GetItemSet().Put(rAttr);
-    const ScPatternAttr* pNewPattern = static_cast<const ScPatternAttr*>( &pDocPool->Put( *pTemp ) );
+    const ScPatternAttr* pNewPattern = &pDocPool->Put( *pTemp );
 
     if ( pNewPattern != pOldPattern )
         pAttrArray->SetPattern( nRow, pNewPattern );
@@ -718,6 +724,16 @@ ScRefCellValue ScColumn::GetCellValue( SCROW nRow ) const
     if (aPos.first == maCells.end())
         return ScRefCellValue();
 
+    return GetCellValue(aPos.first, aPos.second);
+}
+
+ScRefCellValue ScColumn::GetCellValue( sc::ColumnBlockPosition& rBlockPos, SCROW nRow )
+{
+    std::pair<sc::CellStoreType::iterator,size_t> aPos = maCells.position(rBlockPos.miCellPos, nRow);
+    if (aPos.first == maCells.end())
+        return ScRefCellValue();
+
+    rBlockPos.miCellPos = aPos.first; // Store this for next call.
     return GetCellValue(aPos.first, aPos.second);
 }
 
@@ -1692,7 +1708,7 @@ void ScColumn::CopyToColumn(
                 const ScPatternAttr* pPattern = pAttrArray->GetPattern( nRow );
                 std::unique_ptr<ScPatternAttr> pNewPattern(new ScPatternAttr( *pPattern ));
                 pNewPattern->SetStyleSheet( const_cast<ScStyleSheet*>(pStyle) );
-                rColumn.pAttrArray->SetPattern( nRow, pNewPattern.get(), true );
+                rColumn.pAttrArray->SetPattern( nRow, std::move(pNewPattern), true );
             }
         }
         else
@@ -1909,7 +1925,7 @@ void ScColumn::UpdateDrawObjectsForRow( std::vector<SdrObject*>& pObjects, SCCOL
 {
     for (auto &pObject : pObjects)
     {
-        ScAddress aNewAddress = ScAddress(nTargetCol, nTargetRow, nTab);
+        ScAddress aNewAddress(nTargetCol, nTargetRow, nTab);
 
         // Update draw object according to new anchor
         ScDrawLayer* pDrawLayer = GetDoc()->GetDrawLayer();
@@ -2409,14 +2425,17 @@ public:
 
 }
 
-bool ScColumn::UpdateReferenceOnCopy( const sc::RefUpdateContext& rCxt, ScDocument* pUndoDoc )
+bool ScColumn::UpdateReferenceOnCopy( sc::RefUpdateContext& rCxt, ScDocument* pUndoDoc )
 {
     // When copying, the range equals the destination range where cells
     // are pasted, and the dx, dy, dz refer to the distance from the
     // source range.
 
     UpdateRefOnCopy aHandler(rCxt, pUndoDoc);
-    sc::CellStoreType::position_type aPos = maCells.position(rCxt.maRange.aStart.Row());
+    sc::ColumnBlockPosition* blockPos = rCxt.getBlockPosition(nTab, nCol);
+    sc::CellStoreType::position_type aPos = blockPos
+        ? maCells.position(blockPos->miCellPos, rCxt.maRange.aStart.Row())
+        : maCells.position(rCxt.maRange.aStart.Row());
     sc::ProcessBlock(aPos.first, maCells, aHandler, rCxt.maRange.aStart.Row(), rCxt.maRange.aEnd.Row());
 
     // The formula groups at the top and bottom boundaries are expected to
@@ -3337,132 +3356,6 @@ void ScColumn::BroadcastRecalcOnRefMove()
     RecalcOnRefMoveCollector aFunc;
     sc::ProcessFormula(maCells, aFunc);
     BroadcastCells(aFunc.getDirtyRows(), SfxHintId::ScDataChanged);
-}
-
-namespace {
-
-class TransferListenersHandler
-{
-public:
-    struct Entry
-    {
-        size_t mnRow;
-        std::vector<SvtListener*> maListeners;
-    };
-    typedef std::vector<Entry> ListenerListType;
-
-    void swapListeners( std::vector<Entry>& rListenerList )
-    {
-        maListenerList.swap(rListenerList);
-    }
-
-    void operator() ( size_t nRow, SvtBroadcaster* pBroadcaster )
-    {
-        assert(pBroadcaster);
-
-        // It's important to make a copy of the broadcasters listener list here
-        Entry aEntry { nRow, pBroadcaster->GetAllListeners() };
-        if (aEntry.maListeners.empty())
-            // No listeners to transfer.
-            return;
-
-        for (SvtListener* pLis : aEntry.maListeners)
-            pLis->EndListening(*pBroadcaster);
-
-        maListenerList.push_back(aEntry);
-
-        // At this point, the source broadcaster should have no more listeners.
-        assert(!pBroadcaster->HasListeners());
-    }
-
-private:
-    ListenerListType maListenerList;
-};
-
-class RemoveEmptyBroadcasterHandler
-{
-    sc::ColumnSpanSet maSet;
-    ScDocument& mrDoc;
-    SCCOL const mnCol;
-    SCTAB const mnTab;
-
-public:
-    RemoveEmptyBroadcasterHandler( ScDocument& rDoc, SCCOL nCol, SCTAB nTab ) :
-        maSet(false), mrDoc(rDoc), mnCol(nCol), mnTab(nTab) {}
-
-    void operator() ( size_t nRow, const SvtBroadcaster* pBroadcaster )
-    {
-        if (!pBroadcaster->HasListeners())
-            maSet.set(mnTab, mnCol, nRow, true);
-    }
-
-    void purge()
-    {
-        sc::PurgeListenerAction aAction(mrDoc);
-        maSet.executeAction(aAction);
-    }
-};
-
-}
-
-void ScColumn::TransferListeners(
-    ScColumn& rDestCol, SCROW nRow1, SCROW nRow2, SCROW nRowDelta )
-{
-    if (nRow2 < nRow1)
-        return;
-
-    if (!ValidRow(nRow1) || !ValidRow(nRow2))
-        return;
-
-    if (nRowDelta <= 0 && !ValidRow(nRow1+nRowDelta))
-        return;
-
-    if (nRowDelta >= 0 && !ValidRow(nRow2+nRowDelta))
-        return;
-
-    // Collect all listeners from the source broadcasters. The listeners will
-    // be removed from their broadcasters as they are collected.
-    TransferListenersHandler aFunc;
-    sc::ProcessBroadcaster(maBroadcasters.begin(), maBroadcasters, nRow1, nRow2, aFunc);
-
-    TransferListenersHandler::ListenerListType aListenerList;
-    aFunc.swapListeners(aListenerList);
-
-    // Re-register listeners with their destination broadcasters.
-    sc::BroadcasterStoreType::iterator itDestPos = rDestCol.maBroadcasters.begin();
-    for (TransferListenersHandler::Entry& rEntry : aListenerList)
-    {
-        SCROW nDestRow = rEntry.mnRow + nRowDelta;
-
-        sc::BroadcasterStoreType::position_type aPos =
-            rDestCol.maBroadcasters.position(itDestPos, nDestRow);
-
-        itDestPos = aPos.first;
-        SvtBroadcaster* pDestBrd = nullptr;
-        if (aPos.first->type == sc::element_type_broadcaster)
-        {
-            // Existing broadcaster.
-            pDestBrd = sc::broadcaster_block::at(*aPos.first->data, aPos.second);
-        }
-        else
-        {
-            // No existing broadcaster. Create a new one.
-            assert(aPos.first->type == sc::element_type_empty);
-            pDestBrd = new SvtBroadcaster;
-            itDestPos = rDestCol.maBroadcasters.set(itDestPos, nDestRow, pDestBrd);
-        }
-
-        // Transfer all listeners from the source to the destination.
-        for (SvtListener* pLis : rEntry.maListeners)
-        {
-            pLis->StartListening(*pDestBrd);
-        }
-    }
-
-    // Remove any broadcasters that have no listeners.
-    RemoveEmptyBroadcasterHandler aFuncRemoveEmpty(*GetDoc(), nCol, nTab);
-    sc::ProcessBroadcaster(maBroadcasters.begin(), maBroadcasters, nRow1, nRow2, aFuncRemoveEmpty);
-    aFuncRemoveEmpty.purge();
 }
 
 void ScColumn::CalcAll()

@@ -186,8 +186,9 @@ void lcl_CalDate(sal_Int32 _nJulianDate,sal_Int32 _nJulianTime,css::util::DateTi
         double d_m = d_s / 60.0;
         double d_h  = d_m / 60.0;
         _rDateTime.Hours = static_cast<sal_uInt16>(d_h);
-        _rDateTime.Minutes = static_cast<sal_uInt16>(d_m);
-        _rDateTime.Seconds = static_cast<sal_uInt16>(( d_m - static_cast<double>(_rDateTime.Minutes) ) * 60.0);
+        _rDateTime.Minutes = static_cast<sal_uInt16>((d_h - static_cast<double>(_rDateTime.Hours)) * 60.0);
+        _rDateTime.Seconds = static_cast<sal_uInt16>(((d_m - static_cast<double>(_rDateTime.Minutes)) * 60.0)
+                - (static_cast<double>(_rDateTime.Hours) * 3600.0));
     }
 }
 
@@ -641,7 +642,7 @@ void ODbaseTable::refreshColumns()
     aVector.reserve(m_aColumns->get().size());
 
     for (auto const& column : m_aColumns->get())
-        aVector.push_back(Reference< XNamed>(column,UNO_QUERY)->getName());
+        aVector.push_back(Reference< XNamed>(column,UNO_QUERY_THROW)->getName());
 
     if(m_xColumns)
         m_xColumns->reFill(aVector);
@@ -1605,7 +1606,7 @@ Reference<XPropertySet> ODbaseTable::isUniqueByColumnName(sal_Int32 _nColumnPos)
             xIndex.set(m_xIndexes->getByIndex(i), css::uno::UNO_QUERY);
             if(xIndex.is() && getBOOL(xIndex->getPropertyValue(OMetaConnection::getPropMap().getNameByIndex(PROPERTY_ID_ISUNIQUE))))
             {
-                Reference<XNameAccess> xCols(Reference<XColumnsSupplier>(xIndex,UNO_QUERY)->getColumns());
+                Reference<XNameAccess> xCols(Reference<XColumnsSupplier>(xIndex,UNO_QUERY_THROW)->getColumns());
                 if(xCols->hasByName(sColName))
                     return xIndex;
 
@@ -2302,7 +2303,7 @@ namespace
             aProps[0].Value     <<= sNewName;
             Sequence< Any > aValues;
             aContent.executeCommand( "setPropertyValues",makeAny(aProps) ) >>= aValues;
-            if(aValues.getLength() && aValues[0].hasValue())
+            if(aValues.hasElements() && aValues[0].hasValue())
                 throw Exception("setPropertyValues returned non-zero", nullptr);
         }
         catch(const Exception&)

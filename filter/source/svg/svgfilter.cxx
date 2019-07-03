@@ -49,6 +49,8 @@
 #include <unotools/mediadescriptor.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <unotools/streamwrap.hxx>
+#include <tools/debug.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/zcodec.hxx>
 
 #include <drawinglayer/primitive2d/baseprimitive2d.hxx>
@@ -211,7 +213,7 @@ bool SVGFilter::filterImpressOrDraw( const Sequence< PropertyValue >& rDescripto
             }
 
             // get that DrawPage's UNO API implementation
-            SvxDrawPage* pSvxDrawPage(SvxDrawPage::getImplementation(xDrawPage));
+            SvxDrawPage* pSvxDrawPage(comphelper::getUnoTunnelImplementation<SvxDrawPage>(xDrawPage));
 
             if(nullptr == pSvxDrawPage || nullptr == pSvxDrawPage->GetSdrPage())
             {
@@ -398,8 +400,8 @@ bool SVGFilter::filterImpressOrDraw( const Sequence< PropertyValue >& rDescripto
         uno::Reference<frame::XController > xController;
         if (xDesktop->getCurrentFrame().is() && !bPageProvided) // Manage headless case
         {
-            uno::Reference<frame::XFrame> xFrame(xDesktop->getCurrentFrame(), uno::UNO_QUERY_THROW);
-            xController.set(xFrame->getController(), uno::UNO_QUERY_THROW);
+            uno::Reference<frame::XFrame> xFrame(xDesktop->getCurrentFrame(), uno::UNO_SET_THROW);
+            xController.set(xFrame->getController(), uno::UNO_SET_THROW);
             uno::Reference<drawing::XDrawView> xDrawView(xController, uno::UNO_QUERY_THROW);
             uno::Reference<drawing::framework::XControllerManager> xManager(xController, uno::UNO_QUERY_THROW);
             uno::Reference<drawing::framework::XConfigurationController> xConfigController(xManager->getConfigurationController());
@@ -442,7 +444,7 @@ bool SVGFilter::filterImpressOrDraw( const Sequence< PropertyValue >& rDescripto
                                 mSelectedPages[j] = xDrawPage;
                             }
 
-                            // and stop looping. it is likely not getting better
+                            // and stop looping. It is likely not getting better
                             break;
                         }
                     }
@@ -528,7 +530,7 @@ bool SVGFilter::filterImpressOrDraw( const Sequence< PropertyValue >& rDescripto
                     aMasterPageTargetSet.insert( xMasterPageTarget->getMasterPage() );
                 }
             }
-            // Later we move them to a uno::Sequence so we can get them by index
+            // Later we move them to an uno::Sequence so we can get them by index
             mMasterPageTargets.resize( aMasterPageTargetSet.size() );
             sal_Int32 i = 0;
             for (auto const& masterPageTarget : aMasterPageTargetSet)
@@ -569,8 +571,8 @@ bool SVGFilter::filterWriterOrCalc( const Sequence< PropertyValue >& rDescriptor
     uno::Reference<frame::XController > xController;
     if (xDesktop->getCurrentFrame().is())
     {
-        uno::Reference<frame::XFrame> xFrame(xDesktop->getCurrentFrame(), uno::UNO_QUERY_THROW);
-        xController.set(xFrame->getController(), uno::UNO_QUERY_THROW);
+        uno::Reference<frame::XFrame> xFrame(xDesktop->getCurrentFrame(), uno::UNO_SET_THROW);
+        xController.set(xFrame->getController(), uno::UNO_SET_THROW);
     }
 
     Reference< view::XSelectionSupplier > xSelection (xController, UNO_QUERY);
@@ -821,9 +823,9 @@ OUString SAL_CALL SVGFilter::detect(Sequence<PropertyValue>& rDescriptor)
             }
         }
     }
-    catch (css::io::IOException & e)
+    catch (css::io::IOException &)
     {
-        SAL_WARN("filter.svg", "caught " << e);
+        TOOLS_WARN_EXCEPTION("filter.svg", "");
     }
 
     return aRetval;

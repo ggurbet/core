@@ -47,6 +47,7 @@
 #include <com/sun/star/frame/FrameActionEvent.hpp>
 #include <com/sun/star/frame/FrameAction.hpp>
 #include <sfx2/viewfrm.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star::accessibility;
@@ -267,9 +268,9 @@ void Listener::Notify (
     SfxBroadcaster& rBroadcaster,
     const SfxHint& rHint)
 {
-    const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>(&rHint);
-    if (pSdrHint)
+    if (rHint.GetId() == SfxHintId::ThisIsAnSdrHint)
     {
+        const SdrHint* pSdrHint = static_cast<const SdrHint*>(&rHint);
         switch (pSdrHint->GetKind())
         {
             case SdrHintKind::ModelCleared:
@@ -287,6 +288,11 @@ void Listener::Notify (
             default:
                 break;
         }
+    }
+    else if (rHint.GetId() == SfxHintId::DocChanged)
+    {
+        mrController.CheckForMasterPageAssignment();
+        mrController.CheckForSlideTransitionAssignment();
     }
     else if (dynamic_cast<const ViewShellHint*>(&rHint))
     {
@@ -321,11 +327,6 @@ void Listener::Notify (
                 mpModelChangeLock.reset();
                 break;
         }
-    }
-    else if (rHint.GetId() == SfxHintId::DocChanged)
-    {
-        mrController.CheckForMasterPageAssignment();
-        mrController.CheckForSlideTransitionAssignment();
     }
 }
 

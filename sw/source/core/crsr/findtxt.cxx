@@ -151,7 +151,11 @@ public:
     {
         if (pFrame)
         {
+#if BOOST_VERSION < 105600
+            m_oMergedIter.reset(*pFrame);
+#else
             m_oMergedIter.emplace(*pFrame);
+#endif
         }
     }
 
@@ -1065,7 +1069,7 @@ bool ReplaceImpl(
                 ++tmp;
                 continue;
             }
-            if (pRedline->GetType() == nsRedlineType_t::REDLINE_DELETE)
+            if (pRedline->GetType() == RedlineType::Delete)
             {
                 assert(*pRedline->Start() != *pRedline->End());
                 // search in hidden layout can't overlap redlines

@@ -19,8 +19,10 @@
 
 #include <Qt5Data.hxx>
 
-#include <QtGui/QCursor>
 #include <QtGui/QBitmap>
+#include <QtGui/QCursor>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QStyle>
 
 #include <sal/log.hxx>
 
@@ -156,8 +158,17 @@ Qt5Data::Qt5Data(SalInstance* pInstance)
 {
     ImplSVData* pSVData = ImplGetSVData();
 
-    // draw toolbars on separate lines
     pSVData->maNWFData.mbDockingAreaSeparateTB = true;
+    pSVData->maNWFData.mbFlatMenu = true;
+    pSVData->maNWFData.mbRolloverMenubar = true;
+    pSVData->maNWFData.mbNoFocusRects = true;
+    pSVData->maNWFData.mbNoFocusRectsForFlatButtons = true;
+
+    QStyle* style = QApplication::style();
+    pSVData->maNWFData.mnMenuFormatBorderX = style->pixelMetric(QStyle::PM_MenuPanelWidth)
+                                             + style->pixelMetric(QStyle::PM_MenuHMargin);
+    pSVData->maNWFData.mnMenuFormatBorderY = style->pixelMetric(QStyle::PM_MenuPanelWidth)
+                                             + style->pixelMetric(QStyle::PM_MenuVMargin);
 }
 
 // outline dtor b/c of GlyphCache incomplete type
@@ -204,12 +215,10 @@ QCursor& Qt5Data::getCursor(PointerStyle ePointerStyle)
             MAP_BUILTIN(PointerStyle::NESize, Qt::SizeBDiagCursor);
             MAP_BUILTIN(PointerStyle::SWSize, Qt::SizeBDiagCursor);
             MAP_BUILTIN(PointerStyle::SESize, Qt::SizeFDiagCursor);
-#if 0
-            MAP_BUILTIN( PointerStyle::WindowNSize, GDK_TOP_SIDE );
-            MAP_BUILTIN( PointerStyle::WindowSSize, GDK_BOTTOM_SIDE );
-            MAP_BUILTIN( PointerStyle::WindowWSize, GDK_LEFT_SIDE );
-            MAP_BUILTIN( PointerStyle::WindowESize, GDK_RIGHT_SIDE );
-#endif
+            MAP_BUILTIN(PointerStyle::WindowNSize, Qt::SizeVerCursor);
+            MAP_BUILTIN(PointerStyle::WindowSSize, Qt::SizeVerCursor);
+            MAP_BUILTIN(PointerStyle::WindowWSize, Qt::SizeHorCursor);
+            MAP_BUILTIN(PointerStyle::WindowESize, Qt::SizeHorCursor);
             MAP_BUILTIN(PointerStyle::WindowNWSize, Qt::SizeFDiagCursor);
             MAP_BUILTIN(PointerStyle::WindowNESize, Qt::SizeBDiagCursor);
             MAP_BUILTIN(PointerStyle::WindowSWSize, Qt::SizeBDiagCursor);
@@ -299,7 +308,8 @@ QCursor& Qt5Data::getCursor(PointerStyle ePointerStyle)
         if (!pCursor)
         {
             pCursor = new QCursor(Qt::ArrowCursor);
-            SAL_WARN("vcl.qt5", "pointer " << static_cast<int>(ePointerStyle) << "not implemented");
+            SAL_WARN("vcl.qt5",
+                     "pointer " << static_cast<int>(ePointerStyle) << " not implemented");
         }
 
         m_aCursors[ePointerStyle].reset(pCursor);

@@ -692,10 +692,6 @@ void OutputDevice::SetMapMode( const MapMode& rNewMapMode )
     if ( mpMetaFile )
     {
         mpMetaFile->AddAction( new MetaMapModeAction( rNewMapMode ) );
-#ifdef DBG_UTIL
-        if ( GetOutDevType() != OUTDEV_PRINTER )
-            SAL_WARN_IF( !bRelMap, "vcl.gdi", "Please record only relative MapModes!" );
-#endif
     }
 
     // do nothing if MapMode was not changed
@@ -1867,31 +1863,39 @@ tools::Rectangle OutputDevice::LogicToLogic( const tools::Rectangle& rRectSource
     {
         ENTER3( eUnitSource, eUnitDest );
 
-        return tools::Rectangle( fn3( rRectSource.Left(), nNumerator, nDenominator ),
-                          fn3( rRectSource.Top(), nNumerator, nDenominator ),
-                          fn3( rRectSource.Right(), nNumerator, nDenominator ),
-                          fn3( rRectSource.Bottom(), nNumerator, nDenominator ) );
+        auto left = fn3( rRectSource.Left(), nNumerator, nDenominator );
+        auto top = fn3( rRectSource.Top(), nNumerator, nDenominator );
+        if (rRectSource.IsEmpty())
+            return tools::Rectangle( left, top );
+
+        auto right = fn3( rRectSource.Right(), nNumerator, nDenominator );
+        auto bottom = fn3( rRectSource.Bottom(), nNumerator, nDenominator );
+        return tools::Rectangle(left, top, right, bottom);
     }
     else
     {
         ENTER4( rMapModeSource, rMapModeDest );
 
-        return tools::Rectangle( fn5( rRectSource.Left() + aMapResSource.mnMapOfsX,
+        auto left = fn5( rRectSource.Left() + aMapResSource.mnMapOfsX,
                                aMapResSource.mnMapScNumX, aMapResDest.mnMapScDenomX,
                                aMapResSource.mnMapScDenomX, aMapResDest.mnMapScNumX ) -
-                          aMapResDest.mnMapOfsX,
-                          fn5( rRectSource.Top() + aMapResSource.mnMapOfsY,
+                          aMapResDest.mnMapOfsX;
+        auto top = fn5( rRectSource.Top() + aMapResSource.mnMapOfsY,
                                aMapResSource.mnMapScNumY, aMapResDest.mnMapScDenomY,
                                aMapResSource.mnMapScDenomY, aMapResDest.mnMapScNumY ) -
-                          aMapResDest.mnMapOfsY,
-                          fn5( rRectSource.Right() + aMapResSource.mnMapOfsX,
+                          aMapResDest.mnMapOfsY;
+        if (rRectSource.IsEmpty())
+            return tools::Rectangle(left, top);
+
+        auto right = fn5( rRectSource.Right() + aMapResSource.mnMapOfsX,
                                aMapResSource.mnMapScNumX, aMapResDest.mnMapScDenomX,
                                aMapResSource.mnMapScDenomX, aMapResDest.mnMapScNumX ) -
-                          aMapResDest.mnMapOfsX,
-                          fn5( rRectSource.Bottom() + aMapResSource.mnMapOfsY,
+                          aMapResDest.mnMapOfsX;
+        auto bottom = fn5( rRectSource.Bottom() + aMapResSource.mnMapOfsY,
                                aMapResSource.mnMapScNumY, aMapResDest.mnMapScDenomY,
                                aMapResSource.mnMapScDenomY, aMapResDest.mnMapScNumY ) -
-                          aMapResDest.mnMapOfsY );
+                          aMapResDest.mnMapOfsY;
+        return tools::Rectangle(left, top, right, bottom);
     }
 }
 

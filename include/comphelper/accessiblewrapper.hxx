@@ -36,7 +36,6 @@
 #include <comphelper/uno3.hxx>
 #include <cppuhelper/interfacecontainer.h>
 #include <comphelper/accessibleeventnotifier.hxx>
-#include <comphelper/stl_types.hxx>
 #include <comphelper/comphelperdllapi.h>
 #include <rtl/ref.hxx>
 
@@ -136,7 +135,7 @@ namespace comphelper
 
         <p>AccessibleEvents fired by the inner context are multiplexed, especially, any references to
         children in such events are translated. This means that even in such events, no un-wrapped object
-        will ever leave this class - if the aggregated context notifies an child event, the child passed
+        will ever leave this class - if the aggregated context notifies a child event, the child passed
         to the event is wrapped</p>
 
         @seealso OAccessibleContextWrapper
@@ -317,7 +316,6 @@ namespace comphelper
 
     typedef ::std::map  <   css::uno::Reference< css::accessibility::XAccessible >
                         ,   css::uno::Reference< css::accessibility::XAccessible >
-                        ,   OInterfaceCompare< css::accessibility::XAccessible >
                         >   AccessibleMap;
                         // TODO: think about if we should hold these objects weak
 
@@ -363,7 +361,7 @@ namespace comphelper
         /// invalidates (i.e. empties) the map
         void    invalidateAll( );
 
-        /** disposes (i.e. cleares) the manager
+        /** disposes (i.e. clears) the manager
 
             <p>Note that the XAccessibleContext's of the mapped XAccessible objects are disposed, too.</p>
         */

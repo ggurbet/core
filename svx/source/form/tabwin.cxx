@@ -50,8 +50,10 @@
 #include <comphelper/property.hxx>
 #include <sfx2/frame.hxx>
 #include <svx/dataaccessdescriptor.hxx>
+#include <vcl/event.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <tabwin.hrc>
 
 const long STD_WIN_SIZE_X = 120;

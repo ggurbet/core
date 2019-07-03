@@ -34,6 +34,7 @@
 #include <fmobj.hxx>
 #include <fmprop.hxx>
 #include <sal/log.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/dispatch.hxx>
@@ -47,12 +48,14 @@
 #include <com/sun/star/script/XEventAttacherManager.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
 #include <com/sun/star/datatransfer/XTransferable.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <svx/sdrpaintwindow.hxx>
 
 #include <svx/svxdlg.hxx>
 #include <svx/strings.hrc>
 #include <bitmaps.hlst>
 #include <vcl/treelistentry.hxx>
+#include <vcl/commandevent.hxx>
 
 namespace svxform
 {
@@ -83,8 +86,7 @@ namespace svxform
     // helper
 
 
-    typedef ::std::map< Reference< XInterface >, SdrObject*, ::comphelper::OInterfaceCompare< XInterface > >
-            MapModelToShape;
+    typedef ::std::map< Reference< XInterface >, SdrObject* > MapModelToShape;
 
 
     static void    collectShapeModelMapping( SdrPage const * _pPage, MapModelToShape& _rMapping )
@@ -410,7 +412,7 @@ namespace svxform
                     const sal_Int16 nChangeId = aContextMenu->GetItemId("change");
                     if (!m_bRootSelected && !m_nFormsSelected && (m_nControlsSelected == 1))
                     {
-                        xBuilder.reset(FmXFormShell::GetConversionMenu_Lock());
+                        xBuilder = FmXFormShell::GetConversionMenu_Lock();
                         xConversionMenu = xBuilder->get_menu("menu");
                         aContextMenu->SetPopupMenu(nChangeId, xConversionMenu);
 #if OSL_DEBUG_LEVEL > 0
@@ -1102,7 +1104,7 @@ namespace svxform
                     makeAny( Reference< XForm >( xCurrentChild, UNO_QUERY ) ) );
             }
 
-            if (aEvts.getLength())
+            if (aEvts.hasElements())
             {
                 xManager.set(xContainer, UNO_QUERY);
                 if (xManager.is())

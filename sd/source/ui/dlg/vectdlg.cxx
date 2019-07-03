@@ -21,6 +21,7 @@
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/BitmapSimpleColorQuantizationFilter.hxx>
+#include <vcl/svapp.hxx>
 
 #include <DrawDocShell.hxx>
 #include <sdmod.hxx>
@@ -33,6 +34,8 @@ SdVectorizeDlg::SdVectorizeDlg(weld::Window* pParent, const Bitmap& rBmp, ::sd::
     : GenericDialogController(pParent, "modules/sdraw/ui/vectorize.ui", "VectorizeDialog")
     , m_pDocSh(pDocShell)
     , aBmp(rBmp)
+    , m_aBmpWin(m_xDialog.get())
+    , m_aMtfWin(m_xDialog.get())
     , m_xNmLayers(m_xBuilder->weld_spin_button("colors"))
     , m_xMtReduce(m_xBuilder->weld_metric_spin_button("points", FieldUnit::PIXEL))
     , m_xFtFillHoles(m_xBuilder->weld_label("tilesft"))

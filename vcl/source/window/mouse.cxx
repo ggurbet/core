@@ -31,6 +31,7 @@
 #include <vcl/floatwin.hxx>
 #include <vcl/cursor.hxx>
 #include <vcl/sysdata.hxx>
+#include <vcl/event.hxx>
 
 #include <sal/types.h>
 
@@ -591,9 +592,7 @@ Window::PointerState Window::GetPointerState()
 
     if (mpWindowImpl->mpFrame)
     {
-        SalFrame::SalPointerState aSalPointerState;
-
-        aSalPointerState = mpWindowImpl->mpFrame->GetPointerState();
+        SalFrame::SalPointerState aSalPointerState = mpWindowImpl->mpFrame->GetPointerState();
         if( ImplIsAntiparallel() )
         {
             const OutputDevice *pOutDev = GetOutDev();
@@ -688,8 +687,8 @@ Reference< css::datatransfer::dnd::XDropTarget > Window::GetDropTarget()
                         mpWindowImpl->mpFrameData->mxDropTarget->addDropTargetListener( mpWindowImpl->mpFrameData->mxDropTargetListener );
 
                         // register also as drag gesture listener if directly supported by drag source
-                        Reference< css::datatransfer::dnd::XDragGestureRecognizer > xDragGestureRecognizer =
-                            Reference< css::datatransfer::dnd::XDragGestureRecognizer > (mpWindowImpl->mpFrameData->mxDragSource, UNO_QUERY);
+                        Reference< css::datatransfer::dnd::XDragGestureRecognizer > xDragGestureRecognizer(
+                            mpWindowImpl->mpFrameData->mxDragSource, UNO_QUERY);
 
                         if( xDragGestureRecognizer.is() )
                         {

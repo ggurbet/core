@@ -44,6 +44,7 @@
 #include <com/sun/star/sheet/XMembersSupplier.hpp>
 
 #include <com/sun/star/chart/ChartDataChangeEvent.hpp>
+#include <com/sun/star/container/XNamed.hpp>
 
 #include <unordered_map>
 
@@ -338,7 +339,7 @@ void PivotTableDataProvider::collectPivotTableData()
 
     for (sal_Int32 nDim = 0; nDim < xDims->getCount(); nDim++)
     {
-        uno::Reference<uno::XInterface> xDim = ScUnoHelpFunctions::AnyToInterface(xDims->getByIndex(nDim));
+        uno::Reference<uno::XInterface> xDim(xDims->getByIndex(nDim), uno::UNO_QUERY);
         uno::Reference<beans::XPropertySet> xDimProp(xDim, uno::UNO_QUERY);
         uno::Reference<sheet::XHierarchiesSupplier> xDimSupp(xDim, uno::UNO_QUERY);
 
@@ -357,9 +358,8 @@ void PivotTableDataProvider::collectPivotTableData()
         if (nHierarchy >= xHierarchies->getCount())
             nHierarchy = 0;
 
-        uno::Reference<uno::XInterface> xHierarchy = ScUnoHelpFunctions::AnyToInterface(xHierarchies->getByIndex(nHierarchy));
-
-        uno::Reference<sheet::XLevelsSupplier> xLevelsSupplier(xHierarchy, uno::UNO_QUERY);
+        uno::Reference<sheet::XLevelsSupplier> xLevelsSupplier(xHierarchies->getByIndex(nHierarchy),
+                                                               uno::UNO_QUERY);
 
         if (!xLevelsSupplier.is())
             continue;
@@ -368,7 +368,7 @@ void PivotTableDataProvider::collectPivotTableData()
 
         for (long nLevel = 0; nLevel < xLevels->getCount(); nLevel++)
         {
-            uno::Reference<uno::XInterface> xLevel = ScUnoHelpFunctions::AnyToInterface(xLevels->getByIndex(nLevel));
+            uno::Reference<uno::XInterface> xLevel(xLevels->getByIndex(nLevel), uno::UNO_QUERY);
             uno::Reference<container::XNamed> xLevelName(xLevel, uno::UNO_QUERY);
             uno::Reference<sheet::XDataPilotMemberResults> xLevelResult(xLevel, uno::UNO_QUERY );
 

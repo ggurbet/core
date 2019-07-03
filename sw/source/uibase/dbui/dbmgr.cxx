@@ -60,6 +60,7 @@
 #include <svl/eitem.hxx>
 #include <vcl/oldprintadaptor.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/progress.hxx>
 #include <sfx2/dispatch.hxx>
 #include <cmdid.h>
@@ -357,7 +358,7 @@ static bool lcl_MoveAbsolute(SwDSParam* pParam, long nAbsPos)
     bool bRet = false;
     try
     {
-        if(pParam->aSelection.getLength())
+        if(pParam->aSelection.hasElements())
         {
             if(pParam->aSelection.getLength() <= nAbsPos)
             {
@@ -729,18 +730,16 @@ bool SwDBManager::GetTableNames(weld::ComboBox& rBox, const OUString& rDBName)
         {
             uno::Reference<container::XNameAccess> xTables = xTSupplier->getTables();
             uno::Sequence<OUString> aTables = xTables->getElementNames();
-            const OUString* pTables = aTables.getConstArray();
-            for (sal_Int32 i = 0; i < aTables.getLength(); ++i)
-                rBox.append("0", pTables[i]);
+            for (const OUString& rTable : aTables)
+                rBox.append("0", rTable);
         }
         uno::Reference<sdb::XQueriesSupplier> xQSupplier(xConnection, uno::UNO_QUERY);
         if(xQSupplier.is())
         {
             uno::Reference<container::XNameAccess> xQueries = xQSupplier->getQueries();
             uno::Sequence<OUString> aQueries = xQueries->getElementNames();
-            const OUString* pQueries = aQueries.getConstArray();
-            for (sal_Int32 i = 0; i < aQueries.getLength(); i++)
-                rBox.append("1", pQueries[i]);
+            for (const OUString& rQuery : aQueries)
+                rBox.append("1", rQuery);
         }
         if (!sOldTableName.isEmpty())
             rBox.set_active_text(sOldTableName);
@@ -796,10 +795,9 @@ void SwDBManager::GetColumnNames(ListBox* pListBox,
     {
         uno::Reference<container::XNameAccess> xCols = xColsSupp->getColumns();
         const uno::Sequence<OUString> aColNames = xCols->getElementNames();
-        const OUString* pColNames = aColNames.getConstArray();
-        for(int nCol = 0; nCol < aColNames.getLength(); nCol++)
+        for (const OUString& rColName : aColNames)
         {
-            pListBox->InsertEntry(pColNames[nCol]);
+            pListBox->InsertEntry(rColName);
         }
         ::comphelper::disposeComponent( xColsSupp );
     }
@@ -815,10 +813,9 @@ void SwDBManager::GetColumnNames(weld::ComboBox& rBox,
     {
         uno::Reference<container::XNameAccess> xCols = xColsSupp->getColumns();
         const uno::Sequence<OUString> aColNames = xCols->getElementNames();
-        const OUString* pColNames = aColNames.getConstArray();
-        for (sal_Int32 nCol = 0; nCol < aColNames.getLength(); ++nCol)
+        for (const OUString& rColName : aColNames)
         {
-            rBox.append_text(pColNames[nCol]);
+            rBox.append_text(rColName);
         }
         ::comphelper::disposeComponent( xColsSupp );
     }
@@ -938,7 +935,7 @@ static bool lcl_SaveDoc(
         if( pStoreToFilterOptions )
             pDstMed->GetItemSet()->Put( SfxStringItem(SID_FILE_FILTEROPTIONS,
                                         *pStoreToFilterOptions));
-        if( pSaveToFilterData->getLength() )
+        if( pSaveToFilterData->hasElements() )
             pDstMed->GetItemSet()->Put( SfxUnoAnyItem(SID_FILTER_DATA,
                                         uno::makeAny(*pSaveToFilterData)));
     }
@@ -975,17 +972,17 @@ static void lcl_PreparePrinterOptions(
     rOutPrintOptions[ 0 ].Value <<= true;
 
     // copy print options
-    const beans::PropertyValue* pOptions = rInPrintOptions.getConstArray();
-    for( sal_Int32 n = 0, nIndex = nOffset ; n < rInPrintOptions.getLength(); ++n)
+    sal_Int32 nIndex = nOffset;
+    for( const beans::PropertyValue& rOption : rInPrintOptions)
     {
-        if( pOptions[n].Name == "CopyCount" || pOptions[n].Name == "FileName"
-            || pOptions[n].Name == "Collate" || pOptions[n].Name == "Pages"
-            || pOptions[n].Name == "Wait" || pOptions[n].Name == "PrinterName" )
+        if( rOption.Name == "CopyCount" || rOption.Name == "FileName"
+            || rOption.Name == "Collate" || rOption.Name == "Pages"
+            || rOption.Name == "Wait" || rOption.Name == "PrinterName" )
         {
             // add an option
             rOutPrintOptions.realloc( nIndex + 1 );
-            rOutPrintOptions[ nIndex ].Name = pOptions[n].Name;
-            rOutPrintOptions[ nIndex++ ].Value = pOptions[n].Value ;
+            rOutPrintOptions[ nIndex ].Name = rOption.Name;
+            rOutPrintOptions[ nIndex++ ].Value = rOption.Value ;
         }
     }
 }
@@ -1793,9 +1790,9 @@ sal_uLong SwDBManager::GetColumnFormat( const OUString& rDBName,
             {
                 xCols = xColsSupp->getColumns();
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("sw.mailmerge", "Exception in getColumns(): " << e);
+                TOOLS_WARN_EXCEPTION("sw.mailmerge", "Exception in getColumns()");
             }
             if(!xCols.is() || !xCols->hasByName(rColNm))
                 return nRet;
@@ -1885,9 +1882,9 @@ sal_uLong SwDBManager::GetColumnFormat( uno::Reference< sdbc::XDataSource> const
                         nRet = nFormat;
                         bUseDefault = false;
                     }
-                    catch (const uno::Exception& e)
+                    catch (const uno::Exception&)
                     {
-                        SAL_WARN("sw.mailmerge", "illegal number format key: " << e);
+                        TOOLS_WARN_EXCEPTION("sw.mailmerge", "illegal number format key");
                     }
                 }
             }
@@ -2009,9 +2006,9 @@ uno::Reference< sdbcx::XColumnsSupplier> SwDBManager::GetColumnSupplier(uno::Ref
         xRowSet->execute();
         xRet.set( xRowSet, uno::UNO_QUERY );
     }
-    catch (const uno::Exception& e)
+    catch (const uno::Exception&)
     {
-        SAL_WARN("sw.mailmerge", "Exception in SwDBManager::GetColumnSupplier: " << e);
+        TOOLS_WARN_EXCEPTION("sw.mailmerge", "Exception in SwDBManager::GetColumnSupplier");
     }
 
     return xRet;
@@ -2138,18 +2135,15 @@ bool SwDBManager::GetColumnCnt(const OUString& rSourceName, const OUString& rTab
     if (!pFound)
         return false;
     //check validity of supplied record Id
-    if(pFound->aSelection.getLength())
+    if(pFound->aSelection.hasElements())
     {
         //the destination has to be an element of the selection
-        const uno::Any* pSelection = pFound->aSelection.getConstArray();
-        bool bFound = false;
-        for(sal_Int32 nPos = 0; !bFound && nPos < pFound->aSelection.getLength(); nPos++)
-        {
-            sal_Int32 nSelection = 0;
-            pSelection[nPos] >>= nSelection;
-            if(nSelection == static_cast<sal_Int32>(nAbsRecordId))
-                bFound = true;
-        }
+        bool bFound = std::any_of(pFound->aSelection.begin(), pFound->aSelection.end(),
+            [nAbsRecordId](const uno::Any& rSelection) {
+                sal_Int32 nSelection = 0;
+                rSelection >>= nSelection;
+                return nSelection == static_cast<sal_Int32>(nAbsRecordId);
+            });
         if(!bFound)
             return false;
     }
@@ -2209,18 +2203,17 @@ bool SwDBManager::FillCalcWithMergeData( SvNumberFormatter *pDocFormatter,
     {
         uno::Reference<container::XNameAccess> xCols = xColsSupp->getColumns();
         const uno::Sequence<OUString> aColNames = xCols->getElementNames();
-        const OUString* pColNames = aColNames.getConstArray();
         OUString aString;
 
         // add the "record number" variable, as SwCalc::VarLook would.
         rCalc.VarChange( GetAppCharClass().lowercase(
             SwFieldType::GetTypeStr(TYP_DBSETNUMBERFLD) ), GetSelectedRecordId() );
 
-        for( int nCol = 0; nCol < aColNames.getLength(); nCol++ )
+        for( const OUString& rColName : aColNames )
         {
             // get the column type
             sal_Int32 nColumnType = sdbc::DataType::SQLNULL;
-            uno::Any aCol = xCols->getByName( pColNames[nCol] );
+            uno::Any aCol = xCols->getByName( rColName );
             uno::Reference<beans::XPropertySet> xColumnProps;
             aCol >>= xColumnProps;
             uno::Any aType = xColumnProps->getPropertyValue( "Type" );
@@ -2231,7 +2224,7 @@ bool SwDBManager::FillCalcWithMergeData( SvNumberFormatter *pDocFormatter,
 
             sal_uInt32 nFormat = GetColumnFormat( m_pImpl->pMergeData->sDataSource,
                                             m_pImpl->pMergeData->sCommand,
-                                            pColNames[nCol], pDocFormatter, nLanguage );
+                                            rColName, pDocFormatter, nLanguage );
             // aNumber is overwritten by SwDBField::FormatValue, so store initial status
             bool colIsNumber = aNumber != DBL_MAX;
             bool bValidValue = SwDBField::FormatValue( pDocFormatter, aString, nFormat,
@@ -2243,8 +2236,8 @@ bool SwDBManager::FillCalcWithMergeData( SvNumberFormatter *pDocFormatter,
                     SwSbxValue aValue;
                     aValue.PutDouble( aNumber );
                     aValue.SetDBvalue( true );
-                    SAL_INFO( "sw.ui", "'" << pColNames[nCol] << "': " << aNumber << " / " << aString );
-                    rCalc.VarChange( pColNames[nCol], aValue );
+                    SAL_INFO( "sw.ui", "'" << rColName << "': " << aNumber << " / " << aString );
+                    rCalc.VarChange( rColName, aValue );
                 }
             }
             else
@@ -2252,8 +2245,8 @@ bool SwDBManager::FillCalcWithMergeData( SvNumberFormatter *pDocFormatter,
                 SwSbxValue aValue;
                 aValue.PutString( aString );
                 aValue.SetDBvalue( true );
-                SAL_INFO( "sw.ui", "'" << pColNames[nCol] << "': " << aString );
-                rCalc.VarChange( pColNames[nCol], aValue );
+                SAL_INFO( "sw.ui", "'" << rColName << "': " << aString );
+                rCalc.VarChange( rColName, aValue );
             }
         }
     }
@@ -2302,7 +2295,7 @@ static bool lcl_ToNextRecord( SwDSParam* pParam, const SwDBNextRecord action )
 
     try
     {
-        if( pParam->aSelection.getLength() )
+        if( pParam->aSelection.hasElements() )
         {
             if( pParam->nSelectionIndex >= pParam->aSelection.getLength() )
                 pParam->bEndOfDB = true;
@@ -2331,13 +2324,13 @@ static bool lcl_ToNextRecord( SwDSParam* pParam, const SwDBNextRecord action )
         ++pParam->nSelectionIndex;
         bRet = !pParam->bEndOfDB;
     }
-    catch( const uno::Exception &e )
+    catch( const uno::Exception & )
     {
+        // we allow merging with empty databases, so don't warn on init
+        TOOLS_WARN_EXCEPTION_IF(action == SwDBNextRecord::NEXT,
+                    "sw.mailmerge", "exception in ToNextRecord()");
         pParam->bEndOfDB = true;
         bRet = false;
-        // we allow merging with empty databases, so don't warn on init
-        SAL_WARN_IF(action == SwDBNextRecord::NEXT,
-                    "sw.mailmerge", "exception in ToNextRecord(): " << e);
     }
     return bRet;
 }
@@ -2478,7 +2471,7 @@ sal_uInt32      SwDBManager::GetSelectedRecordId(
         {
             try
             {   //if a selection array is set the current row at the result set may not be set yet
-                if(pFound->aSelection.getLength())
+                if(pFound->aSelection.hasElements())
                 {
                     sal_Int32 nSelIndex = pFound->nSelectionIndex;
                     if(nSelIndex >= pFound->aSelection.getLength())
@@ -2621,7 +2614,7 @@ namespace  sw
 {
 DBConnURIType GetDBunoType(const INetURLObject &rURL)
 {
-    OUString sExt(rURL.GetExtension());
+    OUString sExt(rURL.GetFileExtension());
     DBConnURIType type = DBConnURIType::UNKNOWN;
 
     if (sExt == "odb")
@@ -2753,7 +2746,7 @@ Optionally add a prefix to the registered DB name.
 OUString LoadAndRegisterDataSource_Impl(DBConnURIType type, const uno::Reference< beans::XPropertySet > *pSettings,
     const INetURLObject &rURL, const OUString *pDestDir, SfxObjectShell* pDocShell)
 {
-    OUString sExt(rURL.GetExtension());
+    OUString sExt(rURL.GetFileExtension());
     uno::Any aTableFilterAny;
     uno::Any aSuppressVersionsAny;
     uno::Any aInfoAny;
@@ -3125,22 +3118,21 @@ void SwDBManager::InsertText(SwWrtShell& rSh,
     uno::Reference<sdbc::XResultSet>  xResSet;
     uno::Sequence<uno::Any> aSelection;
     sal_Int16 nCmdType = sdb::CommandType::TABLE;
-    const beans::PropertyValue* pValues = rProperties.getConstArray();
     uno::Reference< sdbc::XConnection> xConnection;
-    for(sal_Int32 nPos = 0; nPos < rProperties.getLength(); nPos++)
+    for(const beans::PropertyValue& rValue : rProperties)
     {
-        if ( pValues[nPos].Name == "DataSourceName" )
-            pValues[nPos].Value >>= sDataSource;
-        else if ( pValues[nPos].Name == "Command" )
-            pValues[nPos].Value >>= sDataTableOrQuery;
-        else if ( pValues[nPos].Name == "Cursor" )
-            pValues[nPos].Value >>= xResSet;
-        else if ( pValues[nPos].Name == "Selection" )
-            pValues[nPos].Value >>= aSelection;
-        else if ( pValues[nPos].Name == "CommandType" )
-            pValues[nPos].Value >>= nCmdType;
-        else if ( pValues[nPos].Name == "ActiveConnection" )
-            pValues[nPos].Value >>= xConnection;
+        if ( rValue.Name == "DataSourceName" )
+            rValue.Value >>= sDataSource;
+        else if ( rValue.Name == "Command" )
+            rValue.Value >>= sDataTableOrQuery;
+        else if ( rValue.Name == "Cursor" )
+            rValue.Value >>= xResSet;
+        else if ( rValue.Name == "Selection" )
+            rValue.Value >>= aSelection;
+        else if ( rValue.Name == "CommandType" )
+            rValue.Value >>= nCmdType;
+        else if ( rValue.Name == "ActiveConnection" )
+            rValue.Value >>= xConnection;
     }
     if(sDataSource.isEmpty() || sDataTableOrQuery.isEmpty() || !xResSet.is())
     {

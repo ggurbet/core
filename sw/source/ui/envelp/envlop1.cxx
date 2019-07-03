@@ -19,7 +19,7 @@
 
 #include <dbmgr.hxx>
 #include <sfx2/app.hxx>
-#include <vcl/builderfactory.hxx>
+#include <tools/lineend.hxx>
 #include <vcl/print.hxx>
 #include <vcl/settings.hxx>
 
@@ -75,9 +75,9 @@ void SwEnvPreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rectan
 
     Color aBack = rSettings.GetWindowColor();
     Color aFront = SwViewOption::GetFontColor();
-    Color aMedium = Color((aBack.GetRed() + aFront.GetRed()) / 2,
-                          (aBack.GetGreen() + aFront.GetGreen()) / 2,
-                          (aBack.GetBlue() + aFront.GetBlue()) / 2);
+    Color aMedium((aBack.GetRed() + aFront.GetRed()) / 2,
+                  (aBack.GetGreen() + aFront.GetGreen()) / 2,
+                  (aBack.GetBlue() + aFront.GetBlue()) / 2);
 
     rRenderContext.SetLineColor(aFront);
 
@@ -280,10 +280,9 @@ void SwEnvPage::InitDatabaseBox()
     {
         m_xDatabaseLB->clear();
         Sequence<OUString> aDataNames = SwDBManager::GetExistingDatabaseNames();
-        const OUString* pDataNames = aDataNames.getConstArray();
 
-        for (sal_Int32 i = 0; i < aDataNames.getLength(); ++i)
-            m_xDatabaseLB->append_text(pDataNames[i]);
+        for (const OUString& rDataName : aDataNames)
+            m_xDatabaseLB->append_text(rDataName);
 
         sal_Int32 nIdx{ 0 };
         OUString sDBName = m_sActDBName.getToken( 0, DB_DELIM, nIdx );

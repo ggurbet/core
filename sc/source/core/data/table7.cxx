@@ -18,10 +18,13 @@
 #include <tabprotection.hxx>
 #include <columniterator.hxx>
 #include <drwlayer.hxx>
+#include <compressedarray.hxx>
+
+#include <tools/stream.hxx>
 
 bool ScTable::IsMerged( SCCOL nCol, SCROW nRow ) const
 {
-    if (!ValidCol(nCol))
+    if (!ValidCol(nCol) || nCol >= GetAllocatedColumnsCount() )
         return false;
 
     return aCol[nCol].IsMerged(nRow);
@@ -128,7 +131,7 @@ void ScTable::CopyOneCellFromClip(
         SCCOL nColOffset = nCol - nCol1;
         nColOffset = nColOffset % nSrcColSize;
         assert(nColOffset >= 0);
-        aCol[nCol].CopyOneCellFromClip(rCxt, nRow1, nRow2, nColOffset);
+        CreateColumnIfNotExists(nCol).CopyOneCellFromClip(rCxt, nRow1, nRow2, nColOffset);
 
         if (rCxt.getInsertFlag() & InsertDeleteFlags::ATTRIB)
         {
@@ -139,7 +142,16 @@ void ScTable::CopyOneCellFromClip(
     }
 
     if (nCol1 == 0 && nCol2 == MAXCOL && mpRowHeights)
+    {
         mpRowHeights->setValue(nRow1, nRow2, pSrcTab->GetOriginalHeight(nSrcRow));
+
+        if (pRowFlags && pSrcTab->pRowFlags) {
+           if (pSrcTab->pRowFlags->GetValue(nSrcRow) & CRFlags::ManualSize)
+               pRowFlags->OrValue(nRow1, CRFlags::ManualSize);
+           else
+               pRowFlags->AndValue(nRow1, ~CRFlags::ManualSize);
+        }
+    }
 
     // Copy graphics over too
     bool bCopyGraphics
@@ -276,18 +288,6 @@ void ScTable::RegroupFormulaCells( SCCOL nCol )
     aCol[nCol].RegroupFormulaCells();
 }
 
-void ScTable::CollectListeners(
-    std::vector<SvtListener*>& rListeners, const SCCOL nCol1, SCROW nRow1, const SCCOL nCol2, SCROW nRow2 )
-{
-    if (nCol2 < nCol1 || !IsColValid(nCol1) || !ValidCol(nCol2))
-        return;
-
-    const SCCOL nMaxCol2 = std::min<SCCOL>( nCol2, aCol.size() - 1 );
-
-    for (SCCOL nCol = nCol1; nCol <= nMaxCol2; ++nCol)
-        aCol[nCol].CollectListeners(rListeners, nRow1, nRow2);
-}
-
 bool ScTable::HasFormulaCell( const SCCOL nCol1, SCROW nRow1, const SCCOL nCol2, SCROW nRow2 ) const
 {
     if (nCol2 < nCol1 || !IsColValid(nCol1) || !ValidCol(nCol2))
@@ -318,9 +318,7 @@ void ScTable::EndListeningIntersectedGroups(
     if (nCol2 < nCol1 || !IsColValid(nCol1) || !ValidCol(nCol2))
         return;
 
-    const SCCOL nMaxCol2 = std::min<SCCOL>( nCol2, aCol.size() - 1 );
-
-    for (SCCOL nCol = nCol1; nCol <= nMaxCol2; ++nCol)
+    for (SCCOL nCol : GetColumnsRange(nCol1, nCol2))
         aCol[nCol].EndListeningIntersectedGroups(rCxt, nRow1, nRow2, pGroupPos);
 }
 
@@ -345,7 +343,7 @@ bool ScTable::IsEditActionAllowed(
 {
     if (!IsProtected())
     {
-        SCCOL nCol1 = 0, nCol2 = MAXCOL;
+        SCCOL nCol1 = 0, nCol2 = aCol.size() - 1;
         SCROW nRow1 = 0, nRow2 = MAXROW;
 
         switch (eAction)
@@ -423,10 +421,10 @@ bool ScTable::IsEditActionAllowed(
 
 std::unique_ptr<sc::ColumnIterator> ScTable::GetColumnIterator( SCCOL nCol, SCROW nRow1, SCROW nRow2 ) const
 {
-    if (!ValidCol(nCol) || nCol >= aCol.size())
+    if (!ValidCol(nCol))
         return std::unique_ptr<sc::ColumnIterator>();
 
-    return aCol[nCol].GetColumnIterator(nRow1, nRow2);
+    return CreateColumnIfNotExists(nCol).GetColumnIterator(nRow1, nRow2);
 }
 
 bool ScTable::EnsureFormulaCellResults( const SCCOL nCol1, SCROW nRow1, const SCCOL nCol2, SCROW nRow2, bool bSkipRunning )

@@ -414,11 +414,11 @@ void SbaTableQueryBrowser::impl_sanitizeRowSetClauses_nothrow()
 
         // the tables participating in the statement
         const Reference< XTablesSupplier > xSuppTables( xComposer, UNO_QUERY_THROW );
-        const Reference< XNameAccess > xTableNames( xSuppTables->getTables(), UNO_QUERY_THROW );
+        const Reference< XNameAccess > xTableNames( xSuppTables->getTables(), UNO_SET_THROW );
 
         // the columns participating in the statement
         const Reference< XColumnsSupplier > xSuppColumns( xComposer, UNO_QUERY_THROW );
-        const Reference< XNameAccess > xColumnNames( xSuppColumns->getColumns(), UNO_QUERY_THROW );
+        const Reference< XNameAccess > xColumnNames( xSuppColumns->getColumns(), UNO_SET_THROW );
 
         // check if the order columns apply to tables which really exist in the statement
         const Reference< XIndexAccess > xOrderColumns( xComposer->getOrderColumns(), UNO_SET_THROW );
@@ -449,7 +449,7 @@ void SbaTableQueryBrowser::impl_sanitizeRowSetClauses_nothrow()
                 }
 
                 const Reference< XColumnsSupplier > xSuppTableColumns( xTableNames->getByName( sTableName ), UNO_QUERY_THROW );
-                const Reference< XNameAccess > xTableColumnNames( xSuppTableColumns->getColumns(), UNO_QUERY_THROW );
+                const Reference< XNameAccess > xTableColumnNames( xSuppTableColumns->getColumns(), UNO_SET_THROW );
                 if ( !xTableColumnNames->hasByName( sColumnName ) )
                 {
                     invalidColumn = true;
@@ -1077,12 +1077,12 @@ namespace
 
         virtual ~FilterByEntryDataId() {}
 
-        virtual bool    includeEntry( SvTreeListEntry* _pEntry ) const override;
+        virtual bool    includeEntry(const void* pEntry) const override;
     };
 
-    bool FilterByEntryDataId::includeEntry( SvTreeListEntry* _pEntry ) const
+    bool FilterByEntryDataId::includeEntry(const void* pUserData) const
     {
-        DBTreeListUserData* pData = static_cast< DBTreeListUserData* >( _pEntry->GetUserData() );
+        const DBTreeListUserData* pData = static_cast<const DBTreeListUserData*>(pUserData);
         return ( !pData || ( pData->sAccessor == sId ) );
     }
 }
@@ -1129,7 +1129,7 @@ SvTreeListEntry* SbaTableQueryBrowser::getObjectEntry(const OUString& _rDataSour
             }
         }
         if (_ppDataSourceEntry)
-            // (caller wants to have it ...)
+            // (caller wants to have it...)
             *_ppDataSourceEntry = pDataSource;
 
         if (pDataSource)
@@ -1630,7 +1630,7 @@ FeatureState SbaTableQueryBrowser::GetState(sal_uInt16 nId) const
             aReturn.bEnabled = !m_bEnableBrowser;
             return aReturn;
 
-            // "toggle explorer" is always enabled (if we have a explorer)
+            // "toggle explorer" is always enabled (if we have an explorer)
         case ID_BROWSER_EXPLORER:
             aReturn.bEnabled = m_bEnableBrowser;
             aReturn.bChecked = haveExplorer();
@@ -1951,7 +1951,7 @@ void SbaTableQueryBrowser::Execute(sal_uInt16 nId, const Sequence< PropertyValue
                         aDescriptor[DataAccessDescriptorProperty::CommandType]  =   xProp->getPropertyValue(PROPERTY_COMMAND_TYPE);
                         aDescriptor[DataAccessDescriptorProperty::Connection]   =   xProp->getPropertyValue(PROPERTY_ACTIVE_CONNECTION);
                         aDescriptor[DataAccessDescriptorProperty::Cursor]       <<= xCursorClone;
-                        if ( aSelection.getLength() )
+                        if ( aSelection.hasElements() )
                         {
                             aDescriptor[DataAccessDescriptorProperty::Selection]            <<= aSelection;
                             aDescriptor[DataAccessDescriptorProperty::BookmarkSelection]    <<= false;
@@ -1972,7 +1972,7 @@ void SbaTableQueryBrowser::Execute(sal_uInt16 nId, const Sequence< PropertyValue
 
         case ID_BROWSER_CLOSE:
             closeTask();
-            // if it's not 0, such a async close is already pending
+            // if it's not 0, such an async close is already pending
             break;
 
         case ID_BROWSER_COPY:
@@ -2387,7 +2387,9 @@ bool SbaTableQueryBrowser::implLoadAnything(const OUString& _rDataSourceName, co
         if  ( e.TargetException.isExtractableTo( ::cppu::UnoType< SQLException >::get() ) )
             showError( SQLExceptionInfo( e.TargetException ) );
         else
-            SAL_WARN("dbaccess", e);
+        {
+            TOOLS_WARN_EXCEPTION("dbaccess", "");
+        }
     }
     catch(const Exception&)
     {
@@ -2617,10 +2619,8 @@ bool SbaTableQueryBrowser::implSelect( SvTreeListEntry* _pEntry )
                                             Reference<XParametersSupplier> xParSup(xAnalyzer,UNO_QUERY);
                                             if ( xParSup->getParameters()->getCount() > 0 )
                                             {
-                                                OUString sFilter = " WHERE ";
-                                                sFilter = sFilter + xAnalyzer->getFilter();
-                                                OUString sReplace(sSql);
-                                                sReplace = sReplace.replaceFirst(sFilter, "");
+                                                OUString sFilter = " WHERE " + xAnalyzer->getFilter();
+                                                OUString sReplace = sSql.replaceFirst(sFilter, "");
                                                 xAnalyzer->setQuery(sReplace);
                                                 Reference<XSingleSelectQueryComposer> xComposer(xAnalyzer,UNO_QUERY);
                                                 xComposer->setFilter("0=1");
@@ -3123,7 +3123,7 @@ void SbaTableQueryBrowser::impl_initialize()
     }
 
     // if we have a connection at this point, it was either passed from outside, our
-    // determined from a outer DB document. In both cases, do not dispose it later on.
+    // determined from an outer DB document. In both cases, do not dispose it later on.
     SharedConnection xConnection( xForeignConnection, SharedConnection::NoTakeOwnership );
 
     // should we display all registered databases in the left hand side tree?

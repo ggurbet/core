@@ -31,12 +31,14 @@
 #include <svx/e3ditem.hxx>
 #include <editeng/colritem.hxx>
 #include <svx/lathe3d.hxx>
+#include <svx/scene3d.hxx>
 #include <svx/sphere3d.hxx>
 #include <svx/extrud3d.hxx>
 #include <svx/e3dundo.hxx>
 #include <svx/view3d.hxx>
 #include <svx/cube3d.hxx>
 #include <svx/xflclit.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/e3dsceneupdater.hxx>
 #include <com/sun/star/drawing/LineStyle.hpp>

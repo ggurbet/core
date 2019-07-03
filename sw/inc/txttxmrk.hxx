@@ -25,7 +25,7 @@ class SwTextNode;
 class SwDoc;
 
 // Attribute for indices/tables of contents.
-class SwTextTOXMark : public SwTextAttrEnd
+class SAL_DLLPUBLIC_RTTI SwTextTOXMark : public SwTextAttrEnd
 {
     SwTextNode * m_pTextNode;
     sal_Int32 * m_pEnd;   // 0 if SwTOXMark without AlternativeText
@@ -35,7 +35,8 @@ public:
             sal_Int32 const nStart, sal_Int32 const*const pEnd);
     virtual ~SwTextTOXMark() override;
 
-    virtual sal_Int32 *GetEnd() override;     // SwTextAttr
+    virtual const sal_Int32 *GetEnd() const override;     // SwTextAttr
+    virtual void SetEnd(sal_Int32) override;     // SwTextAttr
 
     void CopyTOXMark( SwDoc* pDestDoc );
 

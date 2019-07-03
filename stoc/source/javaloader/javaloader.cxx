@@ -17,12 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <cstdarg>
-
-#include <osl/process.h>
-
 #include <rtl/process.h>
-#include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 
 #include <uno/environment.h>
@@ -31,6 +26,7 @@
 #include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <cppuhelper/exc_hlp.hxx>
+#include <tools/diagnose_ex.h>
 
 #ifdef LINUX
 #undef minor
@@ -38,8 +34,6 @@
 #endif
 
 #include <com/sun/star/java/XJavaVM.hpp>
-
-#include <com/sun/star/lang/XMultiComponentFactory.hpp>
 
 #include <jni.h>
 
@@ -50,13 +44,14 @@
 #include <cppuhelper/supportsservice.hxx>
 
 #include <com/sun/star/loader/XImplementationLoader.hpp>
-#include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/registry/XRegistryKey.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <jvmaccess/unovirtualmachine.hxx>
 #include <jvmaccess/virtualmachine.hxx>
+
+namespace com::sun::star::registry { class XRegistryKey; }
 
 using namespace css::java;
 using namespace css::lang;
@@ -349,10 +344,8 @@ static css::uno::Reference<XInterface> JavaComponentLoader_CreateInstance(const 
         static css::uno::Reference< XInterface > xStaticRef = *new JavaComponentLoader(xCtx);
         xRet = xStaticRef;
     }
-    catch(const RuntimeException & runtimeException) {
-        SAL_INFO(
-            "stoc",
-            "could not init javaloader due to " << runtimeException);
+    catch(const RuntimeException &) {
+        TOOLS_INFO_EXCEPTION("stoc", "could not init javaloader");
         throw;
     }
 

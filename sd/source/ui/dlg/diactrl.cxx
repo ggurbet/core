@@ -18,6 +18,7 @@
  */
 
 #include <svl/intitem.hxx>
+#include <vcl/toolbox.hxx>
 
 #include <strings.hrc>
 
@@ -25,6 +26,9 @@
 
 #include <sdresid.hxx>
 #include <app.hrc>
+
+#include <com/sun/star/frame/XDispatchProvider.hpp>
+#include <com/sun/star/frame/XFrame.hpp>
 
 using namespace ::com::sun::star;
 

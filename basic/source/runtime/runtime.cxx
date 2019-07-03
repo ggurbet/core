@@ -1597,8 +1597,8 @@ static bool checkUnoStructCopy( bool bVBA, SbxVariableRef const & refVal, SbxVar
     SbUnoObject* pUnoVal =  dynamic_cast<SbUnoObject*>( xValObj.get() );
     SbUnoStructRefObject* pUnoStructVal = dynamic_cast<SbUnoStructRefObject*>( xValObj.get() );
     Any aAny;
-    // make doubly sure value is either an Uno object or
-    // an uno struct
+    // make doubly sure value is either a Uno object or
+    // a uno struct
     if ( pUnoVal || pUnoStructVal )
         aAny = pUnoVal ? pUnoVal->getUnoAny() : pUnoStructVal->getUnoAny();
     else
@@ -3397,7 +3397,7 @@ SbxVariable* SbiRuntime::FindElement( SbxObject* pObj, sal_uInt32 nOp1, sal_uInt
                     }
                 }
 
-                // #62939 If an uno-class has been found, the wrapper
+                // #62939 If a uno-class has been found, the wrapper
                 // object has to be held, because the uno-class, e. g.
                 // "stardiv", has to be read out of the registry
                 // every time again otherwise
@@ -3782,7 +3782,7 @@ SbxVariable* SbiRuntime::CheckArray( SbxVariable* pElem )
         pPar = pElem->GetParameters();
         if ( pPar )
         {
-            // is it an uno-object?
+            // is it a uno-object?
             SbxBaseRef pObj = pElem->GetObject();
             if( pObj.is() )
             {
@@ -4130,7 +4130,7 @@ void SbiRuntime::StepCALLC( sal_uInt32 nOp1, sal_uInt32 nOp2 )
 
 void SbiRuntime::StepSTMNT( sal_uInt32 nOp1, sal_uInt32 nOp2 )
 {
-    // If the Expr-Stack at the beginning of a statement constains a variable,
+    // If the Expr-Stack at the beginning of a statement contains a variable,
     // some fool has called X as a function, although it's a variable!
     bool bFatalExpr = false;
     OUString sUnknownMethodName;

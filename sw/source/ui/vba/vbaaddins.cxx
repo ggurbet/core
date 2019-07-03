@@ -31,7 +31,7 @@ static uno::Reference< container::XIndexAccess > lcl_getAddinCollection( const u
     XNamedObjectCollectionHelper< word::XAddin >::XNamedVec aAddins;
 
     // first get the autoload addins in the directory STARTUP
-    uno::Reference< lang::XMultiComponentFactory > xMCF( xContext->getServiceManager(), uno::UNO_QUERY_THROW );
+    uno::Reference< lang::XMultiComponentFactory > xMCF( xContext->getServiceManager(), uno::UNO_SET_THROW );
     uno::Reference<ucb::XSimpleFileAccess3> xSFA(ucb::SimpleFileAccess::create(xContext));
     SvtPathOptions aPathOpt;
     // FIXME: temporary the STARTUP path is located in $OO/basic3.1/program/addin
@@ -40,10 +40,8 @@ static uno::Reference< container::XIndexAccess > lcl_getAddinCollection( const u
     if( xSFA->isFolder( aAddinPath ) )
     {
         uno::Sequence< OUString > sEntries = xSFA->getFolderContents( aAddinPath, false );
-        sal_Int32 nEntry = sEntries.getLength();
-        for( sal_Int32 index = 0; index < nEntry; ++index )
+        for( const OUString& sUrl : sEntries )
         {
-            OUString sUrl = sEntries[ index ];
             if( !xSFA->isFolder( sUrl ) && sUrl.endsWithIgnoreAsciiCase( ".dot" ) )
             {
                 aAddins.push_back( uno::Reference< word::XAddin >( new SwVbaAddin( xParent, xContext, sUrl ) ) );

@@ -15,20 +15,14 @@
 #include <sfx2/app.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/docfile.hxx>
-#include <sfx2/sfxmodelfactory.hxx>
 #include <sfx2/sfxsids.hrc>
 #include <sfx2/fcontnr.hxx>
 
 #include <svl/stritem.hxx>
 #include <unotools/tempfile.hxx>
 
-#include <init.hxx>
 #include <iodetect.hxx>
-#include <swtypes.hxx>
-#include <doc.hxx>
 #include <docsh.hxx>
-#include <shellres.hxx>
-#include <docufld.hxx>
 
 typedef tools::SvRef<SwDocShell> SwDocShellRef;
 
@@ -105,7 +99,7 @@ bool SwFiltersTest::filter(const OUString &rFilter, const OUString &rURL,
     if (rUserData == FILTER_TEXT_DLG)
     {
         pSrcMed->GetItemSet()->Put(
-            SfxStringItem(SID_FILE_FILTEROPTIONS, OUString("UTF8,LF,Liberation Mono,en-US")));
+            SfxStringItem(SID_FILE_FILTEROPTIONS, "UTF8,LF,Liberation Mono,en-US"));
     }
 
     bool bLoaded = xDocShRef->DoLoad(pSrcMed);

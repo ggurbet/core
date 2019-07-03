@@ -1097,58 +1097,60 @@ void ToolBox::ImplInitToolBoxData()
     // initialize variables
     ImplGetWindowImpl()->mbToolBox  = true;
     mpData.reset(new ImplToolBoxPrivateData);
-    mpFloatWin        = nullptr;
-    mnDX              = 0;
-    mnDY              = 0;
-    mnMaxItemWidth    = 0;
-    mnMaxItemHeight   = 0;
-    mnWinHeight       = 0;
-    mnLeftBorder      = 0;
-    mnTopBorder       = 0;
-    mnRightBorder     = 0;
-    mnBottomBorder    = 0;
-    mnLastResizeDY    = 0;
-    mnOutStyle        = TOOLBOX_STYLE_FLAT; // force flat buttons since NWF
-    mnHighItemId      = 0;
-    mnCurItemId       = 0;
-    mnDownItemId      = 0;
-    mnCurPos          = ITEM_NOTFOUND;
-    mnLines           = 1;
-    mnCurLine         = 1;
-    mnCurLines        = 1;
-    mnVisLines        = 1;
-    mnFloatLines      = 0;
-    mnDockLines       = 0;
-    mnMouseModifier   = 0;
-    mbDrag            = false;
-    mbSelection       = false;
-    mbUpper           = false;
-    mbLower           = false;
-    mbIn              = false;
-    mbCalc            = true;
-    mbFormat          = false;
-    mbFullPaint       = false;
-    mbHorz            = true;
-    mbScroll          = false;
-    mbLastFloatMode   = false;
-    mbCustomize       = false;
-    mbDragging        = false;
-    mbIsKeyEvent = false;
-    mbChangingHighlight = false;
-    mbImagesMirrored  = false;
-    mbLineSpacing     = false;
-    meButtonType      = ButtonType::SYMBOLONLY;
-    meAlign           = WindowAlign::Top;
-    meDockAlign       = WindowAlign::Top;
-    meLastStyle       = PointerStyle::Arrow;
-    mnWinStyle        = 0;
-    meLayoutMode      = ToolBoxLayoutMode::Normal;
-    meTextPosition    = ToolBoxTextPosition::Right;
-    mnLastFocusItemId = 0;
-    mnKeyModifier     = 0;
-    mnActivateCount   = 0;
+
+    mpFloatWin            = nullptr;
+    mnDX                  = 0;
+    mnDY                  = 0;
+    mnMaxItemWidth        = 0;
+    mnMaxItemHeight       = 0;
+    mnWinHeight           = 0;
+    mnLeftBorder          = 0;
+    mnTopBorder           = 0;
+    mnRightBorder         = 0;
+    mnBottomBorder        = 0;
+    mnLastResizeDY        = 0;
+    mnOutStyle            = TOOLBOX_STYLE_FLAT; // force flat buttons since NWF
+    mnHighItemId          = 0;
+    mnCurItemId           = 0;
+    mnDownItemId          = 0;
+    mnCurPos              = ITEM_NOTFOUND;
+    mnLines               = 1;
+    mnCurLine             = 1;
+    mnCurLines            = 1;
+    mnVisLines            = 1;
+    mnFloatLines          = 0;
+    mnDockLines           = 0;
+    mnMouseModifier       = 0;
+    mbDrag                = false;
+    mbSelection           = false;
+    mbUpper               = false;
+    mbLower               = false;
+    mbIn                  = false;
+    mbCalc                = true;
+    mbFormat              = false;
+    mbFullPaint           = false;
+    mbHorz                = true;
+    mbScroll              = false;
+    mbLastFloatMode       = false;
+    mbCustomize           = false;
+    mbDragging            = false;
+    mbIsKeyEvent          = false;
+    mbChangingHighlight   = false;
+    mbImagesMirrored      = false;
+    mbLineSpacing         = false;
+    mbIsArranged          = false;
+    meButtonType          = ButtonType::SYMBOLONLY;
+    meAlign               = WindowAlign::Top;
+    meDockAlign           = WindowAlign::Top;
+    meLastStyle           = PointerStyle::Arrow;
+    mnWinStyle            = 0;
+    meLayoutMode          = ToolBoxLayoutMode::Normal;
+    meTextPosition        = ToolBoxTextPosition::Right;
+    mnLastFocusItemId     = 0;
+    mnActivateCount       = 0;
     mnImagesRotationAngle = 0;
-    mpStatusListener  = new VclStatusListener<ToolBox>(this, ".uno:ImageOrientation");
+
+    mpStatusListener = new VclStatusListener<ToolBox>(this, ".uno:ImageOrientation");
     mpStatusListener->startListening();
 
     mpIdle.reset(new Idle("vcl::ToolBox maIdle update"));
@@ -1176,19 +1178,8 @@ void ToolBox::ImplInit( vcl::Window* pParent, WinBits nStyle )
     ImplInitSettings(true, true, true);
 }
 
-void ToolBox::ApplySettings(vcl::RenderContext& rRenderContext)
+void ToolBox::ApplyForegroundSettings(vcl::RenderContext& rRenderContext, const StyleSettings& rStyleSettings)
 {
-    mpData->mbNativeButtons = rRenderContext.IsNativeControlSupported(ControlType::Toolbar, ControlPart::Button);
-
-    const StyleSettings& rStyleSettings = rRenderContext.GetSettings().GetStyleSettings();
-
-    // Font
-    vcl::Font aFont = rStyleSettings.GetToolFont();
-    if (IsControlFont())
-        aFont.Merge(GetControlFont());
-    SetZoomedPointFont(rRenderContext, aFont);
-
-    // ControlForeground
     Color aColor;
     if (IsControlForeground())
         aColor = GetControlForeground();
@@ -1198,11 +1189,13 @@ void ToolBox::ApplySettings(vcl::RenderContext& rRenderContext)
         aColor = rStyleSettings.GetWindowTextColor();
     rRenderContext.SetTextColor(aColor);
     rRenderContext.SetTextFillColor();
+}
 
+void ToolBox::ApplyBackgroundSettings(vcl::RenderContext& rRenderContext, const StyleSettings& rStyleSettings)
+{
     if (IsControlBackground())
     {
-        aColor = GetControlBackground();
-        SetBackground( aColor );
+        rRenderContext.SetBackground(GetControlBackground());
         SetPaintTransparent(false);
         SetParentClipMode();
     }
@@ -1220,16 +1213,27 @@ void ToolBox::ApplySettings(vcl::RenderContext& rRenderContext)
         }
         else
         {
+            Color aColor;
             if (Window::GetStyle() & WB_3DLOOK)
                 aColor = rStyleSettings.GetFaceColor();
             else
                 aColor = rStyleSettings.GetWindowColor();
-
             rRenderContext.SetBackground(aColor);
             SetPaintTransparent(false);
             SetParentClipMode();
         }
     }
+}
+
+void ToolBox::ApplySettings(vcl::RenderContext& rRenderContext)
+{
+    mpData->mbNativeButtons = rRenderContext.IsNativeControlSupported(ControlType::Toolbar, ControlPart::Button);
+
+    const StyleSettings& rStyleSettings = rRenderContext.GetSettings().GetStyleSettings();
+
+    ApplyControlFont(rRenderContext, rStyleSettings.GetToolFont());
+    ApplyForegroundSettings(rRenderContext, rStyleSettings);
+    ApplyBackgroundSettings(rRenderContext, rStyleSettings);
 }
 
 void ToolBox::ImplInitSettings(bool bFont, bool bForeground, bool bBackground)
@@ -1239,61 +1243,12 @@ void ToolBox::ImplInitSettings(bool bFont, bool bForeground, bool bBackground)
     const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
 
     if (bFont)
-    {
-        vcl::Font aFont = rStyleSettings.GetToolFont();
-        if (IsControlFont())
-            aFont.Merge(GetControlFont());
-        SetZoomedPointFont(*this, aFont);
-    }
-
+        ApplyControlFont(*this, rStyleSettings.GetToolFont());
     if (bForeground || bFont)
-    {
-        Color aColor;
-        if (IsControlForeground())
-            aColor = GetControlForeground();
-        else if (Window::GetStyle() & WB_3DLOOK)
-            aColor = rStyleSettings.GetButtonTextColor();
-        else
-            aColor = rStyleSettings.GetWindowTextColor();
-        SetTextColor(aColor);
-        SetTextFillColor();
-    }
-
+        ApplyForegroundSettings(*this, rStyleSettings);
     if (bBackground)
     {
-        Color aColor;
-        if (IsControlBackground())
-        {
-            aColor = GetControlBackground();
-            SetBackground( aColor );
-            SetPaintTransparent(false);
-            SetParentClipMode();
-        }
-        else
-        {
-            if (IsNativeControlSupported(ControlType::Toolbar, ControlPart::Entire)
-                || (GetAlign() == WindowAlign::Top && !Application::GetSettings().GetStyleSettings().GetPersonaHeader().IsEmpty())
-                || (GetAlign() == WindowAlign::Bottom && !Application::GetSettings().GetStyleSettings().GetPersonaFooter().IsEmpty()))
-            {
-                SetBackground();
-                SetTextColor(rStyleSettings.GetMenuBarTextColor());
-                SetPaintTransparent( true );
-                SetParentClipMode( ParentClipMode::NoClip );
-                mpData->maDisplayBackground = Wallpaper( rStyleSettings.GetFaceColor() );
-            }
-            else
-            {
-                if (Window::GetStyle() & WB_3DLOOK)
-                    aColor = rStyleSettings.GetFaceColor();
-                else
-                    aColor = rStyleSettings.GetWindowColor();
-
-                SetBackground(aColor);
-                SetPaintTransparent(false);
-                SetParentClipMode();
-            }
-        }
-
+        ApplyBackgroundSettings(*this, rStyleSettings);
         EnableChildTransparentMode(IsPaintTransparent());
     }
 }
@@ -2188,6 +2143,7 @@ void ToolBox::ImplFormat( bool bResize )
             else if ( mnCurLine+mnVisLines-1 > mnCurLines )
                 mnCurLine = mnCurLines - (mnVisLines-1);
 
+            long firstItemCenter = 0;
             for (auto & item : mpData->m_aItems)
             {
                 item.mbShowWindow = false;
@@ -2231,35 +2187,32 @@ void ToolBox::ImplFormat( bool bResize )
                     Size aCurrentItemSize( item.GetSize( mbHorz, mbScroll, nMax, Size(mnMaxItemWidth, mnMaxItemHeight) ) );
 
                     // 2. position item rect and use size from step 1
-                    //  items will be centered horizontally (if mbHorz) or vertically
-                    //  advance nX and nY accordingly
+                    // items will be centered horizontally (if mbHorz) or vertically
+                    // advance nX and nY accordingly
+
                     if ( mbHorz )
                     {
+                        // In special mode Locked horizontal positions of all items remain unchanged.
+
+                        if ( mbIsArranged && meLayoutMode == ToolBoxLayoutMode::Locked && mnLines == 1 && item.maRect.Left() > 0 )
+                            nX = item.maRect.Left();
                         item.maCalcRect.SetLeft( nX );
-                        // if special ToolBoxLayoutMode::LockVert lock vertical position
-                        // don't recalculate the vertical position of the item
-                        if ( meLayoutMode == ToolBoxLayoutMode::LockVert && mnLines == 1 )
-                        {
-                            // Somewhat of a hack here, calc deletes and re-adds
-                            // the sum/assign & ok/cancel items dynamically.
-                            // Because ToolBoxLayoutMode::LockVert effectively prevents
-                            // recalculation of the vertical pos of an item the
-                            // item.maRect.Top() for those newly added items is
-                            // 0. The hack here is that we want to effectively
-                            // recalculate the vertical pos for those added
-                            // items here. ( Note: assume mnMaxItemHeight is
-                            // equal to the LineSize when multibar has a single
-                            // line size )
-                            if ( item.maRect.Top() ||
-                                 (item.mpWindow && item.mpWindow->GetType() == WindowType::CALCINPUTLINE) ) // tdf#83099
-                            {
-                                item.maCalcRect.SetTop( item.maRect.Top() );
-                            }
+
+                        // In special mode Locked first item's vertical position remains unchanged. Consecutive items vertical
+                        // positions are centered around first item's vertical position. If an item's height exceeds available
+                        // space, item's vertical position remains unchanged too.
+
+                        if ( mbIsArranged && meLayoutMode == ToolBoxLayoutMode::Locked && mnLines == 1 )
+                            if ( firstItemCenter > 0 )
+                                if ( firstItemCenter-aCurrentItemSize.Height()/2 > nY  )
+                                    item.maCalcRect.SetTop( firstItemCenter-aCurrentItemSize.Height()/2 );
+                                else
+                                    item.maCalcRect.SetTop( item.maRect.Top() );
                             else
                             {
-                                item.maCalcRect.SetTop( nY+(mnMaxItemHeight-aCurrentItemSize.Height())/2 );
+                                item.maCalcRect.SetTop( item.maRect.Top() );
+                                firstItemCenter = item.maRect.Top()+aCurrentItemSize.Height()/2;
                             }
-                        }
                         else
                             item.maCalcRect.SetTop( nY+(nLineSize-aCurrentItemSize.Height())/2 );
                         item.maCalcRect.SetRight( nX+aCurrentItemSize.Width()-1 );
@@ -2292,6 +2245,7 @@ void ToolBox::ImplFormat( bool bResize )
                         item.mpWindow->Hide();
                 }
             } // end of loop over all items
+            mbIsArranged = true;
         }
         else
             // we have no toolbox items
@@ -2988,33 +2942,12 @@ void ToolBox::ImplFloatControl( bool bStart, FloatingWindow* pFloatWindow )
 
 void ToolBox::ShowLine( bool bNext )
 {
-
     mbFormat = true;
 
-    if ( mpData->mbPageScroll )
-    {
-        ImplToolItems::size_type delta = mnVisLines;
-        if ( bNext )
-        {
-            mnCurLine = mnCurLine + delta;
-            if ( mnCurLine+mnVisLines-1 > mnCurLines )
-                mnCurLine = mnCurLines - mnVisLines+1;
-        }
-        else
-        {
-            if( mnCurLine >= delta+1 )
-                mnCurLine = mnCurLine - delta;
-            else
-                mnCurLine = 1;
-        }
-    }
+    if ( bNext )
+        mnCurLine++;
     else
-    {
-        if ( bNext )
-            mnCurLine++;
-        else
-            mnCurLine--;
-    }
+        mnCurLine--;
 
     ImplFormat();
 }
@@ -3917,11 +3850,20 @@ bool ToolBox::EventNotify( NotifyEvent& rNEvt )
         if( rNEvt.GetWindow() == this )
         {
             // the toolbar itself got the focus
-            if( mnLastFocusItemId != 0 )
+            if( mnLastFocusItemId != 0 || mpData->mbMenubuttonWasLastSelected )
             {
                 // restore last item
-                ImplChangeHighlight( ImplGetItem( mnLastFocusItemId ) );
-                mnLastFocusItemId = 0;
+                if( mpData->mbMenubuttonWasLastSelected )
+                {
+                    ImplChangeHighlight( nullptr );
+                    mpData->mbMenubuttonSelected = true;
+                    InvalidateMenuButton();
+                }
+                else
+                {
+                    ImplChangeHighlight( ImplGetItem( mnLastFocusItemId ) );
+                    mnLastFocusItemId = 0;
+                }
             }
             else if( (GetGetFocusFlags() & (GetFocusFlags::Backward|GetFocusFlags::Tab) ) == (GetFocusFlags::Backward|GetFocusFlags::Tab))
                 // Shift-TAB was pressed in the parent
@@ -3955,6 +3897,7 @@ bool ToolBox::EventNotify( NotifyEvent& rNEvt )
     {
         // deselect
         ImplHideFocus();
+        mpData->mbMenubuttonWasLastSelected = false;
         mnHighItemId = 0;
         mnCurPos = ITEM_NOTFOUND;
     }
@@ -4479,18 +4422,17 @@ bool ToolBox::ImplOpenItem( vcl::KeyCode aKeyCode )
     {
         if( ImplCloseLastPopup( GetParent() ) )
             return bRet;
-
+        mbIsKeyEvent = true;
         if ( maMenuButtonHdl.IsSet() )
             maMenuButtonHdl.Call( this );
         else
             ExecuteCustomMenu( mpData->maMenubuttonItem.maRect );
+        mpData->mbMenubuttonWasLastSelected = true;
+        mbIsKeyEvent = false;
     }
     else if( mnHighItemId &&  ImplGetItem( mnHighItemId ) &&
         (ImplGetItem( mnHighItemId )->mnBits & ToolBoxItemBits::DROPDOWN) )
     {
-        if( ImplCloseLastPopup( GetParent() ) )
-            return bRet;
-
         mnDownItemId = mnCurItemId = mnHighItemId;
         mnCurPos = GetItemPos( mnCurItemId );
         mnLastFocusItemId = mnCurItemId; // save item id for possible later focus restore
@@ -4513,7 +4455,6 @@ bool ToolBox::ImplOpenItem( vcl::KeyCode aKeyCode )
 void ToolBox::KeyInput( const KeyEvent& rKEvt )
 {
     vcl::KeyCode aKeyCode = rKEvt.GetKeyCode();
-    mnKeyModifier = aKeyCode.GetModifier();
     sal_uInt16 nCode = aKeyCode.GetCode();
 
     vcl::Window *pParent = ImplGetParent();
@@ -4686,8 +4627,6 @@ void ToolBox::KeyInput( const KeyEvent& rKEvt )
         if ( pFocusControl && pFocusControl != this )
             pFocusControl->ImplControlFocus( GetFocusFlags::Init );
     }
-
-    mnKeyModifier = 0;
 
     // #107712#, leave toolbox
     if( bGrabFocusToDocument )
@@ -4865,6 +4804,7 @@ bool ToolBox::ImplChangeHighlightUpDn( bool bUp, bool bNoCycle )
         // menubutton highlighted ?
         if( mpData->mbMenubuttonSelected )
         {
+            mpData->mbMenubuttonSelected = false;
             if( bUp )
             {
                 // select last valid non-clipped item
@@ -4901,6 +4841,7 @@ bool ToolBox::ImplChangeHighlightUpDn( bool bUp, bool bNoCycle )
             if( (it != mpData->m_aItems.end() && &(*it) == ImplGetFirstClippedItem()) && IsMenuEnabled() )
             {
                 ImplChangeHighlight( nullptr );
+                mpData->mbMenubuttonSelected = true;
                 InvalidateMenuButton();
             }
             else
@@ -4912,9 +4853,10 @@ bool ToolBox::ImplChangeHighlightUpDn( bool bUp, bool bNoCycle )
             // Select last valid item
 
             // docked toolbars have the menubutton as last item - if this button is enabled
-            if( IsMenuEnabled() && !ImplIsFloatingMode() )
+            if( ImplHasClippedItems() && IsMenuEnabled() && !ImplIsFloatingMode() )
             {
                 ImplChangeHighlight( nullptr );
+                mpData->mbMenubuttonSelected = true;
                 InvalidateMenuButton();
             }
             else
@@ -4947,9 +4889,10 @@ bool ToolBox::ImplChangeHighlightUpDn( bool bUp, bool bNoCycle )
                     return false;
 
                 // highlight the menu button if it is the last item
-                if( IsMenuEnabled() && !ImplIsFloatingMode() )
+                if( ImplHasClippedItems() && IsMenuEnabled() && !ImplIsFloatingMode() )
                 {
                     ImplChangeHighlight( nullptr );
+                    mpData->mbMenubuttonSelected = true;
                     InvalidateMenuButton();
                     return true;
                 }
@@ -4965,9 +4908,10 @@ bool ToolBox::ImplChangeHighlightUpDn( bool bUp, bool bNoCycle )
                     return false;
 
                 // highlight the menu button if it is the last item
-                if( IsMenuEnabled() && !ImplIsFloatingMode() )
+                if( ImplHasClippedItems() && IsMenuEnabled() && !ImplIsFloatingMode() )
                 {
                     ImplChangeHighlight( nullptr );
+                    mpData->mbMenubuttonSelected = true;
                     InvalidateMenuButton();
                     return true;
                 }
@@ -4987,6 +4931,7 @@ bool ToolBox::ImplChangeHighlightUpDn( bool bUp, bool bNoCycle )
     {
         // select the menu button if a clipped item would be selected
         ImplChangeHighlight( nullptr );
+        mpData->mbMenubuttonSelected = true;
         InvalidateMenuButton();
     }
     else if( i != nCount )
@@ -5015,6 +4960,7 @@ void ToolBox::ImplHideFocus()
 {
     if( mnHighItemId )
     {
+        mpData->mbMenubuttonWasLastSelected = false;
         ImplToolItem* pItem = ImplGetItem( mnHighItemId );
         if( pItem && pItem->mpWindow )
         {
@@ -5026,7 +4972,9 @@ void ToolBox::ImplHideFocus()
 
     if ( mpData && mpData->mbMenubuttonSelected )
     {
+        mpData->mbMenubuttonWasLastSelected = true;
         // remove highlight from menubutton
+        mpData->mbMenubuttonSelected = false;
         InvalidateMenuButton();
     }
 }

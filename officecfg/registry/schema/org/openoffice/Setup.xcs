@@ -260,6 +260,12 @@
         <!-- JB: Empty default inserted into empty property node. Remove if NIL
              was intended -->
       </prop>
+      <prop oor:name="ooSetupLastVersion" oor:type="xs:string" oor:nillable="true">
+        <info>
+          <desc>Specifies the version number of the previously used product for
+          whats-new comparison.</desc>
+        </info>
+      </prop>
       <prop oor:name="ooSetupVersionAboutBox" oor:type="xs:string" oor:nillable="false">
         <info>
           <desc>Specifies the complete (major.minor.micro) version number of the
@@ -326,7 +332,7 @@
         <!-- OldPath: Common-->
         <!-- OldLocation: soffice.ini -->
         <info>
-          <desc>Specifies the URL for an UNO connection that can be used to
+          <desc>Specifies the URL for a UNO connection that can be used to
           script the office from outside.</desc>
         </info>
         <value/>

@@ -22,6 +22,7 @@
 
 #include <drawinglayer/primitive2d/baseprimitive2d.hxx>
 #include <editeng/borderline.hxx>
+#include <svl/poolitem.hxx>
 #include <swtypes.hxx>
 #include <swrect.hxx>
 #include <calbck.hxx>
@@ -1236,19 +1237,8 @@ public:
     //Flag pFrame for SwFrameDeleteGuard lifetime that we shouldn't delete
     //it in e.g. SwSectionFrame::MergeNext etc because we will need it
     //again after the SwFrameDeleteGuard dtor
-    explicit SwFrameDeleteGuard(SwFrame* pFrame)
-        : m_pForbidFrame((pFrame && !pFrame->IsDeleteForbidden()) ?
-            pFrame : nullptr)
-    {
-        if (m_pForbidFrame)
-            m_pForbidFrame->ForbidDelete();
-    }
-
-    ~SwFrameDeleteGuard()
-    {
-        if (m_pForbidFrame)
-            m_pForbidFrame->AllowDelete();
-    }
+    explicit SwFrameDeleteGuard(SwFrame* pFrame);
+    ~SwFrameDeleteGuard();
 };
 
 typedef long (SwFrame:: *SwFrameGet)() const;

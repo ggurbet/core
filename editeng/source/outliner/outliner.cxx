@@ -18,6 +18,7 @@
  */
 
 #include <comphelper/string.hxx>
+#include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
@@ -406,11 +407,18 @@ void Outliner::SetText( const OUString& rText, Paragraph* pPara )
 {
     DBG_ASSERT(pPara,"SetText:No Para");
 
+    sal_Int32 nPara = pParaList->GetAbsPos( pPara );
+
+    if (pEditEngine->GetText( nPara ) == rText)
+    {
+        // short-circuit logic to improve performance
+        bFirstParaIsEmpty = false;
+        return;
+    }
+
     bool bUpdate = pEditEngine->GetUpdateMode();
     pEditEngine->SetUpdateMode( false );
     ImplBlockInsertionCallbacks( true );
-
-    sal_Int32 nPara = pParaList->GetAbsPos( pPara );
 
     if (rText.isEmpty())
     {
@@ -1474,7 +1482,7 @@ void Outliner::StyleSheetChanged( SfxStyleSheet const * pStyle )
 
     // The EditEngine calls StyleSheetChanged also for derived styles.
     // Here all the paragraphs, which had the said template, used to be
-    // hunted by a ImpRecalcParaAttribs, why?
+    // hunted by an ImpRecalcParaAttribs, why?
     // => only the Bullet-representation can really change...
     sal_Int32 nParas = pParaList->GetParagraphCount();
     for( sal_Int32 nPara = 0; nPara < nParas; nPara++ )

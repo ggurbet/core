@@ -19,7 +19,8 @@
 
 #include <comphelper/enumhelper.hxx>
 #include <com/sun/star/lang/XComponent.hpp>
-
+#include <com/sun/star/container/XIndexAccess.hpp>
+#include <com/sun/star/container/XNameAccess.hpp>
 
 namespace comphelper
 {
@@ -53,7 +54,7 @@ OEnumerationByName::~OEnumerationByName()
 
 sal_Bool SAL_CALL OEnumerationByName::hasMoreElements(  )
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (m_xAccess.is() && m_aNames.getLength() > m_nPos)
         return true;
@@ -70,7 +71,7 @@ sal_Bool SAL_CALL OEnumerationByName::hasMoreElements(  )
 
 css::uno::Any SAL_CALL OEnumerationByName::nextElement(  )
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     css::uno::Any aRes;
     if (m_xAccess.is() && m_nPos < m_aNames.getLength())
@@ -91,7 +92,7 @@ css::uno::Any SAL_CALL OEnumerationByName::nextElement(  )
 
 void SAL_CALL OEnumerationByName::disposing(const css::lang::EventObject& aEvent)
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (aEvent.Source == m_xAccess)
         m_xAccess.clear();
@@ -100,37 +101,37 @@ void SAL_CALL OEnumerationByName::disposing(const css::lang::EventObject& aEvent
 
 void OEnumerationByName::impl_startDisposeListening()
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (m_bListening)
         return;
 
-    ++m_refCount;
+    osl_atomic_increment(&m_refCount);
     css::uno::Reference< css::lang::XComponent > xDisposable(m_xAccess, css::uno::UNO_QUERY);
     if (xDisposable.is())
     {
         xDisposable->addEventListener(this);
         m_bListening = true;
     }
-    --m_refCount;
+    osl_atomic_decrement(&m_refCount);
 }
 
 
 void OEnumerationByName::impl_stopDisposeListening()
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (!m_bListening)
         return;
 
-    ++m_refCount;
+    osl_atomic_increment(&m_refCount);
     css::uno::Reference< css::lang::XComponent > xDisposable(m_xAccess, css::uno::UNO_QUERY);
     if (xDisposable.is())
     {
         xDisposable->removeEventListener(this);
         m_bListening = false;
     }
-    --m_refCount;
+    osl_atomic_decrement(&m_refCount);
 }
 
 OEnumerationByIndex::OEnumerationByIndex(const css::uno::Reference< css::container::XIndexAccess >& _rxAccess)
@@ -150,7 +151,7 @@ OEnumerationByIndex::~OEnumerationByIndex()
 
 sal_Bool SAL_CALL OEnumerationByIndex::hasMoreElements(  )
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (m_xAccess.is() && m_xAccess->getCount() > m_nPos)
         return true;
@@ -167,7 +168,7 @@ sal_Bool SAL_CALL OEnumerationByIndex::hasMoreElements(  )
 
 css::uno::Any SAL_CALL OEnumerationByIndex::nextElement(  )
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     css::uno::Any aRes;
     if (m_xAccess.is() && m_nPos < m_xAccess->getCount())
@@ -187,7 +188,7 @@ css::uno::Any SAL_CALL OEnumerationByIndex::nextElement(  )
 
 void SAL_CALL OEnumerationByIndex::disposing(const css::lang::EventObject& aEvent)
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (aEvent.Source == m_xAccess)
         m_xAccess.clear();
@@ -196,37 +197,37 @@ void SAL_CALL OEnumerationByIndex::disposing(const css::lang::EventObject& aEven
 
 void OEnumerationByIndex::impl_startDisposeListening()
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (m_bListening)
         return;
 
-    ++m_refCount;
+    osl_atomic_increment(&m_refCount);
     css::uno::Reference< css::lang::XComponent > xDisposable(m_xAccess, css::uno::UNO_QUERY);
     if (xDisposable.is())
     {
         xDisposable->addEventListener(this);
         m_bListening = true;
     }
-    --m_refCount;
+    osl_atomic_decrement(&m_refCount);
 }
 
 
 void OEnumerationByIndex::impl_stopDisposeListening()
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     if (!m_bListening)
         return;
 
-    ++m_refCount;
+    osl_atomic_increment(&m_refCount);
     css::uno::Reference< css::lang::XComponent > xDisposable(m_xAccess, css::uno::UNO_QUERY);
     if (xDisposable.is())
     {
         xDisposable->removeEventListener(this);
         m_bListening = false;
     }
-    --m_refCount;
+    osl_atomic_decrement(&m_refCount);
 }
 
 OAnyEnumeration::OAnyEnumeration(const css::uno::Sequence< css::uno::Any >& lItems)
@@ -243,7 +244,7 @@ OAnyEnumeration::~OAnyEnumeration()
 
 sal_Bool SAL_CALL OAnyEnumeration::hasMoreElements(  )
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     return (m_lItems.getLength() > m_nPos);
 }
@@ -254,7 +255,7 @@ css::uno::Any SAL_CALL OAnyEnumeration::nextElement(  )
     if ( ! hasMoreElements())
         throw css::container::NoSuchElementException();
 
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
     sal_Int32 nPos = m_nPos;
     ++m_nPos;
     return m_lItems[nPos];

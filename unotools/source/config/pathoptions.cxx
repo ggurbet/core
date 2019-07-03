@@ -21,24 +21,18 @@
 
 #include <sal/log.hxx>
 #include <unotools/pathoptions.hxx>
-#include <unotools/configitem.hxx>
-#include <unotools/configmgr.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
-#include <tools/solar.h>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <osl/mutex.hxx>
 #include <osl/file.hxx>
-#include <unotools/bootstrap.hxx>
 
 #include <unotools/ucbhelper.hxx>
 #include <comphelper/getexpandeduri.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/beans/XFastPropertySet.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/util/thePathSettings.hpp>
 #include <com/sun/star/util/PathSubstitution.hpp>
 #include <com/sun/star/util/XStringSubstitution.hpp>
@@ -301,9 +295,9 @@ void SvtPathOptions_Impl::SetPath( SvtPathOptions::Paths ePath, const OUString& 
         {
             m_xPathSettings->setFastPropertyValue( m_aMapEnumToPropHandle[ static_cast<sal_Int32>(ePath)], a );
         }
-        catch (const Exception& e)
+        catch (const Exception&)
         {
-            SAL_WARN("unotools.config", "SetPath: " << e);
+            TOOLS_WARN_EXCEPTION("unotools.config", "SetPath");
         }
     }
 }
@@ -413,9 +407,8 @@ SvtPathOptions_Impl::SvtPathOptions_Impl() :
     Sequence< Property > aPathPropSeq = xPropSetInfo->getProperties();
 
     NameToHandleMap aTempHashMap;
-    for ( sal_Int32 n = 0; n < aPathPropSeq.getLength(); n++ )
+    for ( const css::beans::Property& aProperty : aPathPropSeq )
     {
-        const css::beans::Property& aProperty = aPathPropSeq[n];
         aTempHashMap.emplace(aProperty.Name, aProperty.Handle);
     }
 

@@ -141,7 +141,7 @@ void ToolbarModeMenuController::fillPopupMenu( Reference< css::awt::XPopupMenu >
         // Allow Notebookbar only in experimental mode
         if ( isExperimental && !aMiscOptions.IsExperimentalMode() )
             continue;
-        if ( !isExperimental )
+        if(aLabel == "Sidebar" || aLabel == "Standard Toolbar" || aLabel == "Single Toolbar")
             nCountToolbar++;
 
         m_xPopupMenu->insertItem( nReadIndex+1, aLabel, css::awt::MenuItemStyle::RADIOCHECK, nPosition );
@@ -177,7 +177,7 @@ void SAL_CALL ToolbarModeMenuController::statusChanged( const FeatureStateEvent&
     if ( xPopupMenu.is() )
     {
         SolarMutexGuard aGuard;
-        VCLXPopupMenu* pXPopupMenu = static_cast<VCLXPopupMenu *>(VCLXMenu::GetImplementation( xPopupMenu ));
+        VCLXPopupMenu* pXPopupMenu = static_cast<VCLXPopupMenu *>(comphelper::getUnoTunnelImplementation<VCLXMenu>( xPopupMenu ));
         PopupMenu*     pVCLPopupMenu = pXPopupMenu ? static_cast<PopupMenu *>(pXPopupMenu->GetMenu()) : nullptr;
 
         SAL_WARN_IF(!pVCLPopupMenu, "fwk.uielement", "worrying lack of popup menu");
@@ -223,15 +223,16 @@ void SAL_CALL ToolbarModeMenuController::itemSelected( const css::awt::MenuEvent
     Reference< XURLTransformer >        xURLTransformer;
     Reference< XFrame >                 xFrame;
 
-    osl::ClearableMutexGuard aLock( m_aMutex );
-    xPopupMenu             = m_xPopupMenu;
-    xURLTransformer        = m_xURLTransformer;
-    xFrame                 = m_xFrame;
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aMutex);
+        xPopupMenu = m_xPopupMenu;
+        xURLTransformer = m_xURLTransformer;
+        xFrame = m_xFrame;
+    }
 
     if ( xPopupMenu.is() )
     {
-        VCLXPopupMenu* pPopupMenu = static_cast<VCLXPopupMenu *>(VCLXPopupMenu::GetImplementation( xPopupMenu ));
+        VCLXPopupMenu* pPopupMenu = static_cast<VCLXPopupMenu *>(comphelper::getUnoTunnelImplementation<VCLXMenu>( xPopupMenu ));
         if ( pPopupMenu )
         {
             SolarMutexGuard aSolarMutexGuard;

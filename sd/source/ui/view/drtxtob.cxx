@@ -22,7 +22,10 @@
 
 #include <svx/svxids.hrc>
 
+#include <com/sun/star/linguistic2/XThesaurus.hpp>
+
 #include <i18nlangtag/mslangid.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/lspcitem.hxx>
 #include <editeng/adjustitem.hxx>
@@ -187,6 +190,8 @@ void TextObjectBar::GetAttrState( SfxItemSet& rSet )
                     OutlinerView* pOLV = mpView->GetTextEditOutlinerView();
                     SdrOutliner *pOutliner = mpView->GetTextEditOutliner();
 
+                    assert(mpViewShell);
+
                     if( dynamic_cast< const OutlineView *>( mpView ) !=  nullptr)
                     {
                         pOLV = static_cast<OutlineView*>(mpView)->GetViewByWindow(
@@ -198,7 +203,7 @@ void TextObjectBar::GetAttrState( SfxItemSet& rSet )
 
                     if(pOLV && !pOLV->GetSelection().HasRange())
                     {
-                        if( mpViewShell && mpViewShell->GetViewShell() && mpViewShell->GetViewShell()->GetWindow() )
+                        if (mpViewShell->GetViewShell() && mpViewShell->GetViewShell()->GetWindow())
                         {
                             LanguageType nInputLang = mpViewShell->GetViewShell()->GetWindow()->GetInputLanguage();
                             if(nInputLang != LANGUAGE_DONTKNOW && nInputLang != LANGUAGE_SYSTEM)
@@ -219,8 +224,7 @@ void TextObjectBar::GetAttrState( SfxItemSet& rSet )
                     }
                     else
                     {
-                        std::unique_ptr<SfxPoolItem> pNewItem(pI->CloneSetWhich(nWhich));
-                        aAttrSet.Put( *pNewItem );
+                        aAttrSet.Put( pI->CloneSetWhich(nWhich) );
                     }
                 }
                 else
@@ -434,6 +438,8 @@ void TextObjectBar::GetAttrState( SfxItemSet& rSet )
         rSet.DisableItem( SID_ATTR_PARA_LINESPACE_10 );
         rSet.DisableItem( SID_ATTR_PARA_LINESPACE_15 );
         rSet.DisableItem( SID_ATTR_PARA_LINESPACE_20 );
+        rSet.DisableItem( SID_DEC_INDENT );
+        rSet.DisableItem( SID_INC_INDENT );
         rSet.DisableItem( SID_PARASPACE_INCREASE );
         rSet.DisableItem( SID_PARASPACE_DECREASE );
         rSet.DisableItem( SID_TEXTDIRECTION_TOP_TO_BOTTOM );

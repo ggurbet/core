@@ -20,6 +20,7 @@
 #include "atkwrapper.hxx"
 
 #include <com/sun/star/accessibility/XAccessibleTable.hpp>
+#include <comphelper/sequence.hxx>
 
 using namespace ::com::sun::star;
 
@@ -350,12 +351,11 @@ table_wrapper_get_summary( AtkTable *table )
 static gint
 convertToGIntArray( const uno::Sequence< ::sal_Int32 >& aSequence, gint **pSelected )
 {
-    if( aSequence.getLength() )
+    if( aSequence.hasElements() )
     {
         *pSelected = g_new( gint, aSequence.getLength() );
 
-        for( sal_Int32 i = 0; i < aSequence.getLength(); i++ )
-            (*pSelected) [i] = aSequence[i];
+        *pSelected = comphelper::sequenceToArray(*pSelected, aSequence);
     }
 
     return aSequence.getLength();

@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include "libxmlutil.hxx"
+#include <libxmlutil.hxx>
 
 namespace jfw
 {
@@ -25,7 +25,9 @@ namespace jfw
 CXPathObjectPtr::CXPathObjectPtr():_object(nullptr)
 {
 }
-
+CXPathObjectPtr::CXPathObjectPtr(xmlXPathObject* pObj):_object(pObj)
+{
+}
 CXPathObjectPtr::~CXPathObjectPtr()
 {
     xmlXPathFreeObject(_object);

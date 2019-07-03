@@ -28,6 +28,7 @@
 #include <com/sun/star/ui/dialogs/ListboxControlActions.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 #include <com/sun/star/linguistic2/XProofreadingIterator.hpp>
+#include <com/sun/star/linguistic2/XDictionary.hpp>
 #include <officecfg/Office/Common.hxx>
 #include <svl/aeitem.hxx>
 #include <SwStyleNameMapper.hxx>
@@ -572,7 +573,7 @@ void SwView::Execute(SfxRequest &rReq)
             {
                 IDocumentRedlineAccess& rIDRA = m_pWrtShell->getIDocumentRedlineAccess();
                 Sequence <sal_Int8> aPasswd = rIDRA.GetRedlinePassword();
-                if( aPasswd.getLength() )
+                if( aPasswd.hasElements() )
                 {
                     OSL_ENSURE( !static_cast<const SfxBoolItem*>(pItem)->GetValue(), "SwView::Execute(): password set an redlining off doesn't match!" );
                     // xmlsec05:    new password dialog
@@ -611,14 +612,14 @@ void SwView::Execute(SfxRequest &rReq)
             IDocumentRedlineAccess& rIDRA = m_pWrtShell->getIDocumentRedlineAccess();
             Sequence <sal_Int8> aPasswd = rIDRA.GetRedlinePassword();
             if( pArgs && SfxItemState::SET == pArgs->GetItemState(nSlot, false, &pItem )
-                && static_cast<const SfxBoolItem*>(pItem)->GetValue() == ( aPasswd.getLength() != 0 ) )
+                && static_cast<const SfxBoolItem*>(pItem)->GetValue() == aPasswd.hasElements() )
                 break;
 
             // xmlsec05:    new password dialog
             //              message box for wrong password
             SfxPasswordDialog aPasswdDlg(GetFrameWeld());
             aPasswdDlg.SetMinLen(1);
-            if (!aPasswd.getLength())
+            if (!aPasswd.hasElements())
                 aPasswdDlg.ShowExtras(SfxShowExtras::CONFIRM);
             if (aPasswdDlg.run())
             {
@@ -627,7 +628,7 @@ void SwView::Execute(SfxRequest &rReq)
                 Sequence <sal_Int8> aNewPasswd =
                         rIDRA.GetRedlinePassword();
                 SvPasswordHelper::GetHashPassword( aNewPasswd, sNewPasswd );
-                if(!aPasswd.getLength())
+                if(!aPasswd.hasElements())
                 {
                     rIDRA.SetRedlinePassword(aNewPasswd);
                 }
@@ -649,13 +650,12 @@ void SwView::Execute(SfxRequest &rReq)
             if( pArgs &&
                 SfxItemState::SET == pArgs->GetItemState(nSlot, false, &pItem))
             {
-                RedlineFlags nMode = ( ~RedlineFlags(RedlineFlags::ShowInsert | RedlineFlags::ShowDelete)
-                        & m_pWrtShell->GetRedlineFlags() ) | RedlineFlags::ShowInsert;
-                if( static_cast<const SfxBoolItem*>(pItem)->GetValue() )
-                    nMode |= RedlineFlags::ShowDelete;
-
+                // tdf#125754 avoid recursive layout
+                // because all views share the layout, have to use AllAction
+                m_pWrtShell->StartAllAction();
                 m_pWrtShell->GetLayout()->SetHideRedlines(
                     !static_cast<const SfxBoolItem*>(pItem)->GetValue());
+                m_pWrtShell->EndAllAction();
                 if (m_pWrtShell->IsRedlineOn())
                     m_pWrtShell->SetInsMode();
             }
@@ -1096,8 +1096,7 @@ void SwView::Execute(SfxRequest &rReq)
                 SwDBManager* pDBManager = rSh.GetDBManager();
                 if (pDBManager)
                 {
-                    SwDBData aData;
-                    aData = rSh.GetDBData();
+                    SwDBData aData = rSh.GetDBData();
                     rSh.EnterStdMode(); // force change in text shell; necessary for mixing DB fields
                     AttrChangedNotify( &rSh );
 
@@ -1317,8 +1316,14 @@ void SwView::StateStatusLine(SfxItemSet &rSet)
                 sal_uInt16 nPage, nLogPage;
                 OUString sDisplay;
                 rShell.GetPageNumber( -1, rShell.IsCursorVisible(), nPage, nLogPage, sDisplay );
-                rSet.Put( SfxStringItem( FN_STAT_PAGE,
-                            GetPageStr( nPage, nLogPage, sDisplay) ));
+                OUString sTemp( GetPageStr( nPage, nLogPage, sDisplay ) );
+                const SfxStringItem aTmp( FN_STAT_PAGE, sTemp );
+                GetViewFrame()->GetBindings().SetState( aTmp );
+                // Used to distinguish which tooltip to show
+                const SfxBoolItem bExtendedTooltip( FN_STAT_PAGE, !sDisplay.isEmpty() &&
+                                                    OUString::number( nPage ) != sDisplay &&
+                                                    nPage != nLogPage );
+                GetViewFrame()->GetBindings().SetState( bExtendedTooltip );
                 //if existing page number is not equal to old page number, send out this event.
                 if (m_nOldPageNum != nLogPage )
                 {
@@ -1660,7 +1665,7 @@ void SwView::ExecuteStatusLine(SfxRequest &rReq)
                 {
                     const IDocumentMarkAccess::const_iterator_t ppBookmark = rSh.getIDocumentMarkAccess()->getBookmarksBegin() + nIdx;
                     rSh.EnterStdMode();
-                    rSh.GotoMark( ppBookmark->get() );
+                    rSh.GotoMark( *ppBookmark );
                 }
                 else
                     OSL_FAIL("SwView::ExecuteStatusLine(..)"
@@ -1975,7 +1980,7 @@ bool SwView::JumpToSwMark( const OUString& rMark )
                 {
                     sal_uInt16 nSeqNo = sName.copy( nNoPos + 1 ).toInt32();
                     sName = sName.copy( 0, nNoPos );
-                    m_pWrtShell->GotoRefMark( sName, REF_SEQUENCEFLD, nSeqNo );
+                    bRet = m_pWrtShell->GotoRefMark(sName, REF_SEQUENCEFLD, nSeqNo);
                 }
             }
             else if( sCmp == "text" )
@@ -2001,7 +2006,7 @@ bool SwView::JumpToSwMark( const OUString& rMark )
             }
             else if( pMarkAccess->getAllMarksEnd() != (ppMark = pMarkAccess->findMark(sMark)) )
             {
-                bRet = m_pWrtShell->GotoMark( ppMark->get(), false );
+                bRet = m_pWrtShell->GotoMark( *ppMark, false );
             }
             else if( nullptr != ( pINet = m_pWrtShell->FindINetAttr( sMark ) )) {
                 m_pWrtShell->addCurrentPosition();
@@ -2027,7 +2032,7 @@ bool SwView::JumpToSwMark( const OUString& rMark )
         }
         else if( pMarkAccess->getAllMarksEnd() != (ppMark = pMarkAccess->findMark(sMark)))
         {
-            bRet = m_pWrtShell->GotoMark( ppMark->get(), false );
+            bRet = m_pWrtShell->GotoMark( *ppMark, false );
         }
         else if( nullptr != ( pINet = m_pWrtShell->FindINetAttr( sMark ) ))
             bRet = m_pWrtShell->GotoINetAttr( *pINet->GetTextINetFormat() );
@@ -2291,7 +2296,7 @@ namespace
     {
         Sequence < OUString > aNames = _rDatasourceContext->getElementNames();
 
-        return  (   !aNames.getLength()
+        return  (   !aNames.hasElements()
                 ||  (   ( 1 == aNames.getLength() )
                     &&  aNames.getConstArray()[0] == SW_MOD()->GetDBConfig()->GetBibliographySource().sDataSource
                     )
@@ -2414,8 +2419,8 @@ void SwView::GenerateFormLetter(bool bUseCurrentDocument)
         SfxApplication* pSfxApp = SfxGetpApp();
         vcl::Window* pTopWin = pSfxApp->GetTopWindow();
 
-        ScopedVclPtrInstance< SfxTemplateManagerDlg > aDocTemplDlg;
-        int nRet = aDocTemplDlg->Execute();
+        SfxTemplateManagerDlg aDocTemplDlg(GetFrameWeld());
+        int nRet = aDocTemplDlg.run();
         bool bNewWin = false;
         if ( nRet == RET_OK )
         {

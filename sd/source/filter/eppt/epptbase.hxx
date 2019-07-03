@@ -69,7 +69,7 @@ enum class EppLayout
     TOPROW2COLUMN         = 13, /* Body contains 2 rows, top row has 2 columns                                            */
     FOUROBJECTS           = 14, /* 4 objects                                                                              */
     BIGOBJECT             = 15, /* Big object                                                                             */
-    BLANCSLIDE            = 16, /* Blank slide                                                                            */
+    BLANKSLIDE            = 16, /* Blank slide                                                                            */
     TITLERIGHTBODYLEFT    = 17, /* Vertical title on the right, body on the left                                          */
     TITLERIGHT2BODIESLEFT = 18  /* Vertical title on the right, body on the left split into 2 rows                        */
 };
@@ -200,7 +200,7 @@ private:
     std::vector<FontCollectionEntry> maFonts;
 };
 
-#define PPTEX_STYLESHEETENTRYS  9
+#define PPTEX_STYLESHEETENTRIES  9
 
 enum PPTExTextAttr
 {
@@ -302,8 +302,8 @@ class PPTExStyleSheet
 
     public:
 
-                std::unique_ptr<PPTExCharSheet>  mpCharSheet[ PPTEX_STYLESHEETENTRYS ];
-                std::unique_ptr<PPTExParaSheet>  mpParaSheet[ PPTEX_STYLESHEETENTRYS ];
+                std::unique_ptr<PPTExCharSheet>  mpCharSheet[ PPTEX_STYLESHEETENTRIES ];
+                std::unique_ptr<PPTExParaSheet>  mpParaSheet[ PPTEX_STYLESHEETENTRIES ];
 
                 PPTExStyleSheet( sal_uInt16 nDefaultTab, PPTExBulletProvider* pBuProv );
                 ~PPTExStyleSheet();

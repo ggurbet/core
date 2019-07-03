@@ -196,14 +196,6 @@ bool lcl_tableOfRangeMatches(
              (rRange.indexOf( rTableName ) != -1 ));
 }
 
-template< typename T >
-::std::vector< T > lcl_SequenceToVector( const uno::Sequence< T > & rSequence )
-{
-    ::std::vector< T > aResult( rSequence.getLength());
-    ::std::copy( rSequence.begin(), rSequence.end(), aResult.begin());
-    return aResult;
-}
-
 } // anonymous namespace
 
 // class SchXMLTableContext
@@ -298,7 +290,7 @@ void SchXMLTableContext::EndElement()
     if( mbHasColumnPermutation )
     {
         SAL_WARN_IF( mbHasRowPermutation, "xmloff.chart", "mbHasColumnPermutation is true" );
-        ::std::vector< sal_Int32 > aPermutation( lcl_SequenceToVector( maColumnPermutation ));
+        auto aPermutation( comphelper::sequenceToContainer<std::vector< sal_Int32 >>( maColumnPermutation ));
         SAL_WARN_IF( aPermutation.empty(), "xmloff.chart", "aPermutation is NULL");
         if( aPermutation.empty())
             return;
@@ -338,7 +330,7 @@ void SchXMLTableContext::EndElement()
     }
     else if( mbHasRowPermutation )
     {
-        ::std::vector< sal_Int32 > aPermutation( lcl_SequenceToVector( maRowPermutation ));
+        auto aPermutation( comphelper::sequenceToContainer<std::vector< sal_Int32 >>( maRowPermutation ));
         SAL_WARN_IF( aPermutation.empty(), "xmloff.chart", "aPermutation is NULL");
         if( aPermutation.empty())
             return;
@@ -379,7 +371,7 @@ void SchXMLTableContext::EndElement()
 void SchXMLTableContext::setRowPermutation( const uno::Sequence< sal_Int32 > & rPermutation )
 {
     maRowPermutation = rPermutation;
-    mbHasRowPermutation = ( rPermutation.getLength() > 0 );
+    mbHasRowPermutation = rPermutation.hasElements();
 
     if( mbHasRowPermutation && mbHasColumnPermutation )
     {
@@ -391,7 +383,7 @@ void SchXMLTableContext::setRowPermutation( const uno::Sequence< sal_Int32 > & r
 void SchXMLTableContext::setColumnPermutation( const uno::Sequence< sal_Int32 > & rPermutation )
 {
     maColumnPermutation = rPermutation;
-    mbHasColumnPermutation = ( rPermutation.getLength() > 0 );
+    mbHasColumnPermutation = rPermutation.hasElements();
 
     if( mbHasColumnPermutation && mbHasRowPermutation )
     {
@@ -716,7 +708,7 @@ static void lcl_ApplyCellToComplexLabel( const SchXMLCell& rCell, Sequence< uno:
         rComplexLabel.realloc(1);
         rComplexLabel[0] <<= rCell.aString;
     }
-    else if( rCell.aComplexString.getLength() && rCell.eType == SCH_CELL_TYPE_COMPLEX_STRING )
+    else if( rCell.aComplexString.hasElements() && rCell.eType == SCH_CELL_TYPE_COMPLEX_STRING )
     {
         sal_Int32 nCount = rCell.aComplexString.getLength();
         rComplexLabel.realloc( nCount );
@@ -959,29 +951,28 @@ void SchXMLTableHelper::switchRangesFromOuterToInternalIfNecessary(
         {
             Reference< chart2::XCoordinateSystemContainer > xCooSysCnt( xChartDoc->getFirstDiagram(), uno::UNO_QUERY_THROW );
             Sequence< Reference< chart2::XCoordinateSystem > > aCooSysSeq( xCooSysCnt->getCoordinateSystems() );
-            for( sal_Int32 nC=0; nC<aCooSysSeq.getLength(); ++nC )
+            for( const auto& rCooSys : aCooSysSeq )
             {
-                Reference< chart2::XChartTypeContainer > xCooSysContainer( aCooSysSeq[nC], uno::UNO_QUERY_THROW );
+                Reference< chart2::XChartTypeContainer > xCooSysContainer( rCooSys, uno::UNO_QUERY_THROW );
                 Sequence< Reference< chart2::XChartType > > aChartTypeSeq( xCooSysContainer->getChartTypes());
-                for( sal_Int32 nT=0; nT<aChartTypeSeq.getLength(); ++nT )
+                for( const auto& rChartType : aChartTypeSeq )
                 {
-                    Reference< chart2::XDataSeriesContainer > xSeriesContainer( aChartTypeSeq[nT], uno::UNO_QUERY );
+                    Reference< chart2::XDataSeriesContainer > xSeriesContainer( rChartType, uno::UNO_QUERY );
                     if(!xSeriesContainer.is())
                         continue;
                     Sequence< Reference< chart2::XDataSeries > > aSeriesSeq( xSeriesContainer->getDataSeries() );
                     std::vector< Reference< chart2::XDataSeries > > aRemainingSeries;
 
-                    for( sal_Int32 nS = 0; nS < aSeriesSeq.getLength(); nS++ )
+                    for( const auto& rSeries : aSeriesSeq )
                     {
-                        Reference< chart2::data::XDataSource > xDataSource( aSeriesSeq[nS], uno::UNO_QUERY );
+                        Reference< chart2::data::XDataSource > xDataSource( rSeries, uno::UNO_QUERY );
                         if( xDataSource.is() )
                         {
                             bool bHasUnhiddenColumns = false;
                             OUString aRange;
                             uno::Sequence< Reference< chart2::data::XLabeledDataSequence > > aSequences( xDataSource->getDataSequences() );
-                            for( sal_Int32 nN=0; nN< aSequences.getLength(); ++nN )
+                            for( const auto& xLabeledSequence : aSequences )
                             {
-                                Reference< chart2::data::XLabeledDataSequence > xLabeledSequence( aSequences[nN] );
                                 if(!xLabeledSequence.is())
                                     continue;
                                 Reference< chart2::data::XDataSequence > xValues( xLabeledSequence->getValues() );
@@ -1004,7 +995,7 @@ void SchXMLTableHelper::switchRangesFromOuterToInternalIfNecessary(
                                 }
                             }
                             if( bHasUnhiddenColumns )
-                                aRemainingSeries.push_back( aSeriesSeq[nS] );
+                                aRemainingSeries.push_back( rSeries );
                         }
                     }
 
@@ -1021,9 +1012,8 @@ void SchXMLTableHelper::switchRangesFromOuterToInternalIfNecessary(
                             std::map< sal_Int32, bool > aUsageMap;
                             OUString aRange;
                             Sequence< Reference< chart2::data::XLabeledDataSequence > > aUsedSequences( xDataSource->getDataSequences() );
-                            for( sal_Int32 nN=0; nN< aUsedSequences.getLength(); ++nN )
+                            for( const auto& xLabeledSequence : aUsedSequences )
                             {
-                                Reference< chart2::data::XLabeledDataSequence > xLabeledSequence( aUsedSequences[nN] );
                                 if(!xLabeledSequence.is())
                                     continue;
                                 Reference< chart2::data::XDataSequence > xValues( xLabeledSequence->getValues() );

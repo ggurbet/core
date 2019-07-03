@@ -20,7 +20,6 @@
 #include <curledit.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <osl/diagnose.h>
 
 namespace dbaui
@@ -79,7 +78,7 @@ void OConnectionURLEdit::SetText(const OUString& _rStr, const Selection& /*_rNew
 
 OUString OConnectionURLEdit::GetText() const
 {
-    return m_xForcedPrefix->get_label() + m_xEntry->get_text();
+    return m_xForcedPrefix->strip_mnemonic(m_xForcedPrefix->get_label()) + m_xEntry->get_text();
 }
 
 void OConnectionURLEdit::ShowPrefix(bool _bShowPrefix)

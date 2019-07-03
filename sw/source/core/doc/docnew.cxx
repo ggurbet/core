@@ -33,6 +33,7 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <sfx2/XmlIdRegistry.hxx>
 #include <sal/log.hxx>
 
 #include <svl/macitem.hxx>
@@ -464,7 +465,7 @@ SwDoc::~SwDoc()
         for( auto n = mpTOXTypes->size(); n; )
         {
             (*mpTOXTypes)[ --n ]->SetInDocDTOR();
-            delete (*mpTOXTypes)[ n ];
+            (*mpTOXTypes)[ n ].reset();
         }
         mpTOXTypes->clear();
     }
@@ -816,21 +817,21 @@ void SwDoc::InitTOXTypes()
 {
     ShellResource* pShellRes = SwViewShell::GetShellRes();
     SwTOXType * pNew = new SwTOXType(TOX_CONTENT,   pShellRes->aTOXContentName        );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
     pNew = new SwTOXType(TOX_INDEX,                 pShellRes->aTOXIndexName  );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
     pNew = new SwTOXType(TOX_USER,                  pShellRes->aTOXUserName  );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
     pNew = new SwTOXType(TOX_ILLUSTRATIONS,         pShellRes->aTOXIllustrationsName );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
     pNew = new SwTOXType(TOX_OBJECTS,               pShellRes->aTOXObjectsName       );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
     pNew = new SwTOXType(TOX_TABLES,                pShellRes->aTOXTablesName        );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
     pNew = new SwTOXType(TOX_AUTHORITIES,           pShellRes->aTOXAuthoritiesName   );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
     pNew = new SwTOXType(TOX_CITATION,           pShellRes->aTOXCitationName   );
-    mpTOXTypes->push_back( pNew );
+    mpTOXTypes->emplace_back( pNew );
 }
 
 void SwDoc::ReplaceDefaults(const SwDoc& rSource)
@@ -1083,16 +1084,15 @@ SwNodeIndex SwDoc::AppendDoc(const SwDoc& rSource, sal_uInt16 const nStartPageNu
                 --aNodeIndex;
                 SwPaM aPaM(aNodeIndex);
                 // Collect the marks starting or ending at this text node.
-                std::set<sw::mark::IMark*> aSeenMarks;
+                o3tl::sorted_vector<sw::mark::IMark*> aSeenMarks;
                 IDocumentMarkAccess* pMarkAccess = getIDocumentMarkAccess();
                 for (const SwIndex* pIndex = pTextNode->GetFirstIndex(); pIndex; pIndex = pIndex->GetNext())
                 {
                     sw::mark::IMark* pMark = const_cast<sw::mark::IMark*>(pIndex->GetMark());
                     if (!pMark)
                         continue;
-                    if (aSeenMarks.find(pMark) != aSeenMarks.end())
+                    if (!aSeenMarks.insert(pMark).second)
                         continue;
-                    aSeenMarks.insert(pMark);
                 }
                 // And move them back.
                 for (sw::mark::IMark* pMark : aSeenMarks)

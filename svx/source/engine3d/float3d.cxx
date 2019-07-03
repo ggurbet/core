@@ -23,10 +23,14 @@
 #include <sfx2/module.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/eitem.hxx>
+#include <svl/itempool.hxx>
 #include <svtools/colrdlg.hxx>
 #include <sfx2/viewsh.hxx>
 #include <svx/colorbox.hxx>
+#include <svx/f3dchild.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/globl3d.hxx>
 #include <svx/view3d.hxx>
@@ -39,6 +43,7 @@
 #include <editeng/eeitem.hxx>
 #include <svl/style.hxx>
 #include <svx/dlgutil.hxx>
+#include <svx/sdshitm.hxx>
 
 #include <svx/dialmgr.hxx>
 #include <svx/viewpt3d.hxx>
@@ -50,6 +55,7 @@
 #include <svx/e3ditem.hxx>
 #include <svx/gallery.hxx>
 #include <svl/whiter.hxx>
+#include <svtools/unitconv.hxx>
 
 #include <svx/float3d.hxx>
 #include <bitmaps.hlst>

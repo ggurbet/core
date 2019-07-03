@@ -59,6 +59,7 @@ namespace sax_fastparser {
         , mbMarkStackEmpty(true)
         , mpDoubleStr(nullptr)
         , mnDoubleStrCapacity(RTL_STR_MAX_VALUEOFDOUBLE)
+        , mbXescape(true)
     {
         rtl_string_new_WithLength(&mpDoubleStr, mnDoubleStrCapacity);
         mxFastTokenHandler = css::xml::sax::FastTokenHandler::create(
@@ -135,6 +136,7 @@ namespace sax_fastparser {
             return;
         }
 
+        bool bGood = true;
         const sal_Int32 kXescapeLen = 7;
         char bufXescape[kXescapeLen+1];
         sal_Int32 nNextXescape = 0;
@@ -195,7 +197,9 @@ namespace sax_fastparser {
                             }
                 break;
                 default:
+                            if (mbXescape)
                             {
+                                char c1, c2, c3, c4;
                                 // Escape characters not valid in XML 1.0 as
                                 // _xHHHH_. A literal "_xHHHH_" has to be
                                 // escaped as _x005F_xHHHH_ (effectively
@@ -206,22 +210,44 @@ namespace sax_fastparser {
                                 if (c == '_' && i >= nNextXescape && i <= nLen - kXescapeLen &&
                                         pStr[i+6] == '_' &&
                                         ((pStr[i+1] | 0x20) == 'x') &&
-                                        isHexDigit( pStr[i+2] ) &&
-                                        isHexDigit( pStr[i+3] ) &&
-                                        isHexDigit( pStr[i+4] ) &&
-                                        isHexDigit( pStr[i+5] ))
+                                        isHexDigit( c1 = pStr[i+2] ) &&
+                                        isHexDigit( c2 = pStr[i+3] ) &&
+                                        isHexDigit( c3 = pStr[i+4] ) &&
+                                        isHexDigit( c4 = pStr[i+5] ))
                                 {
                                     // OOXML has the odd habit to write some
                                     // names using this that when re-saving
                                     // should *not* be escaped, specifically
                                     // _x0020_ for blanks in w:xpath values.
-                                    if (strncmp( pStr+i+2, "0020", 4) != 0)
+                                    if (!(c1 == '0' && c2 == '0' && c3 == '2' && c4 == '0'))
                                     {
-                                        writeBytes( "_x005F_", kXescapeLen);
-                                        // Remember this escapement so in
-                                        // _xHHHH_xHHHH_ only the first '_' is
-                                        // escaped.
-                                        nNextXescape = i + kXescapeLen;
+                                        // When encountering "_x005F_xHHHH_"
+                                        // assume that is an already escaped
+                                        // sequence that was not unescaped and
+                                        // shall be written as is, to not end
+                                        // up with "_x005F_x005F_xHHHH_" and
+                                        // repeated..
+                                        if (c1 == '0' && c2 == '0' && c3 == '5' && (c4 | 0x20) == 'f' &&
+                                                i + kXescapeLen <= nLen - 6 &&
+                                                pStr[i+kXescapeLen+5] == '_' &&
+                                                ((pStr[i+kXescapeLen+0] | 0x20) == 'x') &&
+                                                isHexDigit( pStr[i+kXescapeLen+1] ) &&
+                                                isHexDigit( pStr[i+kXescapeLen+2] ) &&
+                                                isHexDigit( pStr[i+kXescapeLen+3] ) &&
+                                                isHexDigit( pStr[i+kXescapeLen+4] ))
+                                        {
+                                            writeBytes( &c, 1 );
+                                            // Remember this fake escapement.
+                                            nNextXescape = i + kXescapeLen + 6;
+                                        }
+                                        else
+                                        {
+                                            writeBytes( "_x005F_", kXescapeLen);
+                                            // Remember this escapement so in
+                                            // _xHHHH_xHHHH_ only the first '_'
+                                            // is escaped.
+                                            nNextXescape = i + kXescapeLen;
+                                        }
                                         break;
                                     }
                                 }
@@ -239,10 +265,23 @@ namespace sax_fastparser {
                                  * scanning for both encoded sequences and
                                  * write as _xHHHH_? */
                             }
+#if OSL_DEBUG_LEVEL > 0
+                            else
+                            {
+                                if (bGood && invalidChar(pStr[i]))
+                                {
+                                    bGood = false;
+                                    // The SAL_WARN() for the single character is
+                                    // issued in writeBytes(), just gather for the
+                                    // SAL_WARN_IF() below.
+                                }
+                            }
+#endif
                             writeBytes( &c, 1 );
                 break;
             }
         }
+        SAL_WARN_IF( !bGood && nLen > 1, "sax", "in '" << OString(pStr,std::min<sal_Int32>(nLen,42)) << "'");
     }
 
     void FastSaxSerializer::endDocument()
@@ -255,15 +294,15 @@ namespace sax_fastparser {
     {
         if( HAS_NAMESPACE( nElement ) ) {
             auto const Namespace(mxFastTokenHandler->getUTF8Identifier(NAMESPACE(nElement)));
-            assert(Namespace.getLength() != 0);
+            assert(Namespace.hasElements());
             writeBytes(Namespace);
             writeBytes(sColon, N_CHARS(sColon));
             auto const Element(mxFastTokenHandler->getUTF8Identifier(TOKEN(nElement)));
-            assert(Element.getLength() != 0);
+            assert(Element.hasElements());
             writeBytes(Element);
         } else {
             auto const Element(mxFastTokenHandler->getUTF8Identifier(nElement));
-            assert(Element.getLength() != 0);
+            assert(Element.hasElements());
             writeBytes(Element);
         }
     }

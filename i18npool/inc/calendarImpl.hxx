@@ -20,14 +20,11 @@
 #define INCLUDED_I18NPOOL_INC_CALENDARIMPL_HXX
 
 #include <com/sun/star/i18n/XCalendar4.hpp>
-#include <com/sun/star/i18n/CalendarDisplayCode.hpp>
-#include <com/sun/star/i18n/CalendarFieldIndex.hpp>
-#include <com/sun/star/i18n/CalendarDisplayIndex.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <vector>
 
+namespace com::sun::star::uno { class XComponentContext; }
 
 //  class CalendarImpl
 
@@ -87,6 +84,8 @@ public:
     // XCalendar4
     virtual void SAL_CALL setLocalDateTime(double TimeInDays) override;
     virtual double SAL_CALL getLocalDateTime() override;
+    virtual void SAL_CALL loadDefaultCalendarTZ(const css::lang::Locale& rLocale, const OUString& rTimeZone) override;
+    virtual void SAL_CALL loadCalendarTZ(const OUString& uniqueID, const css::lang::Locale& rLocale, const OUString& rTimeZone) override;
 
     //XServiceInfo
     virtual OUString SAL_CALL getImplementationName() override;
@@ -95,9 +94,9 @@ public:
 
 private:
     struct lookupTableItem {
-        lookupTableItem(const OUString& _uniqueID, css::uno::Reference < css::i18n::XCalendar4 > const & _xCalendar)
-            : uniqueID(_uniqueID), xCalendar(_xCalendar) {}
-        OUString                                      uniqueID;
+        lookupTableItem(const OUString& rCacheID, css::uno::Reference < css::i18n::XCalendar4 > const & _xCalendar)
+            : m_aCacheID(rCacheID), xCalendar(_xCalendar) {}
+        OUString                                      m_aCacheID;
         css::uno::Reference < css::i18n::XCalendar4 > xCalendar;
     };
     std::vector<lookupTableItem>                        lookupTable;

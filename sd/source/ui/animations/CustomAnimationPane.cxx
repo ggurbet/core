@@ -37,6 +37,8 @@
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <comphelper/processfactory.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <tools/debug.hxx>
 #include "STLPropertySet.hxx"
 #include "CustomAnimationPane.hxx"
 #include "CustomAnimationDialog.hxx"
@@ -127,23 +129,6 @@ CustomAnimationPane::CustomAnimationPane( Window* pParent, ViewShellBase& rBase,
     mnCurvePathPos( LISTBOX_ENTRY_NOTFOUND ),
     mnPolygonPathPos( LISTBOX_ENTRY_NOTFOUND ),
     mnFreeformPathPos( LISTBOX_ENTRY_NOTFOUND ),
-    mbHorizontal( false ),
-    maLateInitTimer()
-{
-    initialize();
-}
-
-CustomAnimationPane::CustomAnimationPane( Window* pParent, ViewShellBase& rBase,
-                                          const css::uno::Reference<css::frame::XFrame>& rxFrame,
-                                          bool )
-:   PanelLayout( pParent, "CustomAnimationsPanel", "modules/simpress/ui/customanimationspanelhorizontal.ui", rxFrame ),
-    mrBase( rBase ),
-    mpCustomAnimationPresets(nullptr),
-    mnPropertyType( nPropertyTypeNone ),
-    mnCurvePathPos( LISTBOX_ENTRY_NOTFOUND ),
-    mnPolygonPathPos( LISTBOX_ENTRY_NOTFOUND ),
-    mnFreeformPathPos( LISTBOX_ENTRY_NOTFOUND ),
-    mbHorizontal( true ),
     maLateInitTimer()
 {
     initialize();
@@ -155,8 +140,7 @@ void CustomAnimationPane::initialize()
     get(mpPBAddEffect, "add_effect");
     get(mpPBRemoveEffect, "remove_effect");
 
-    if(!mbHorizontal)
-      get(mpFTEffect, "effect_label");
+    get(mpFTEffect, "effect_label");
 
     get(mpFTStart, "start_effect");
     get(mpLBStart, "start_effect_list");
@@ -213,8 +197,7 @@ void CustomAnimationPane::initialize()
     mpMFStartDelay->SetLoseFocusHdl(LINK( this, CustomAnimationPane, DelayLoseFocusHdl));
 
 
-    if(!mbHorizontal)
-      maStrModify = mpFTEffect->GetText();
+    maStrModify = mpFTEffect->GetText();
 
     // get current controller and initialize listeners
     try
@@ -256,8 +239,7 @@ void CustomAnimationPane::dispose()
 
     mpPBAddEffect.clear();
     mpPBRemoveEffect.clear();
-    if(!mbHorizontal)
-      mpFTEffect.clear();
+    mpFTEffect.clear();
     mpFTStart.clear();
     mpLBStart.clear();
     mpFTProperty.clear();
@@ -554,7 +536,7 @@ void CustomAnimationPane::updateControls()
 
         OUString aTemp( maStrModify );
 
-        if( !mbHorizontal && !aUIName.isEmpty() )
+        if( !aUIName.isEmpty() )
         {
             aTemp += " " + aUIName;
             mpFTEffect->SetText( aTemp );
@@ -687,8 +669,7 @@ void CustomAnimationPane::updateControls()
         mpFTDuration->Enable(false);
         mpCBXDuration->Enable(false);
         mpCBXDuration->SetNoSelection();
-        if(!mbHorizontal)
-            mpFTEffect->SetText( maStrModify );
+        mpFTEffect->SetText( maStrModify );
     }
 
     bool bEnableUp = true;
@@ -884,9 +865,6 @@ void CustomAnimationPane::DataChanged (const DataChangedEvent&)
 
 void CustomAnimationPane::UpdateLook()
 {
-    if( mbHorizontal )
-        return;
-
     Wallpaper aBackground (
         ::sfx2::sidebar::Theme::GetWallpaper(
             ::sfx2::sidebar::Theme::Paint_PanelBackground));
@@ -929,7 +907,7 @@ static sal_Int32 calcMaxParaDepth( const Reference< XShape >& xTargetShape )
         {
             Reference< XPropertySet > xParaSet;
 
-            Reference< XEnumeration > xEnumeration( xText->createEnumeration(), UNO_QUERY_THROW );
+            Reference< XEnumeration > xEnumeration( xText->createEnumeration(), UNO_SET_THROW );
             while( xEnumeration->hasMoreElements() )
             {
                 xEnumeration->nextElement() >>= xParaSet;
@@ -1686,7 +1664,7 @@ static bool getTextSelection( const Any& rSelection, Reference< XShape >& xShape
 
         Reference< XTextRangeCompare > xTextRangeCompare( xShape, UNO_QUERY_THROW );
         Reference< XEnumerationAccess > xParaEnumAccess( xShape, UNO_QUERY_THROW );
-        Reference< XEnumeration > xParaEnum( xParaEnumAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xParaEnum( xParaEnumAccess->createEnumeration(), UNO_SET_THROW );
         Reference< XTextRange > xRange;
         Reference< XTextRange > xStart( xSelectedText->getStart() );
         Reference< XTextRange > xEnd( xSelectedText->getEnd() );

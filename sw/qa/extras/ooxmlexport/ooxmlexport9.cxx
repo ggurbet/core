@@ -11,13 +11,10 @@
 
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
 #include <com/sun/star/text/XFootnote.hpp>
 #include <com/sun/star/text/XPageCursor.hpp>
 #include <com/sun/star/text/XTextColumns.hpp>
-#include <com/sun/star/text/XTextFrame.hpp>
 #include <com/sun/star/text/XTextFramesSupplier.hpp>
-#include <com/sun/star/text/XTextEmbeddedObjectsSupplier.hpp>
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/style/BreakType.hpp>
@@ -83,6 +80,32 @@ DECLARE_OOXMLEXPORT_TEST(testDocm, "hello.docm")
                     "/ContentType:Types/ContentType:Override[@PartName='/word/document.xml']",
                     "ContentType",
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml");
+}
+
+DECLARE_OOXMLEXPORT_TEST(testDefaultContentTypes, "fdo55381.docx")
+{
+    if (xmlDocPtr pXmlDoc = parseExport("[Content_Types].xml"))
+    {
+        assertXPath(pXmlDoc,
+                    "/ContentType:Types/ContentType:Default[@Extension='xml']",
+                    "ContentType",
+                    "application/xml");
+
+        assertXPath(pXmlDoc,
+                    "/ContentType:Types/ContentType:Default[@Extension='rels']",
+                    "ContentType",
+                    "application/vnd.openxmlformats-package.relationships+xml");
+
+        assertXPath(pXmlDoc,
+                    "/ContentType:Types/ContentType:Default[@Extension='png']",
+                    "ContentType",
+                    "image/png");
+
+        assertXPath(pXmlDoc,
+                    "/ContentType:Types/ContentType:Default[@Extension='jpeg']",
+                    "ContentType",
+                    "image/jpeg");
+    }
 }
 
 DECLARE_SW_ROUNDTRIP_TEST(testDocmSave, "hello.docm", nullptr, DocmTest)
@@ -488,7 +511,9 @@ DECLARE_OOXMLEXPORT_TEST(testTdf109310_endnoteStyleForMSO, "tdf109310_endnoteSty
     xmlDocPtr pXmlDoc = parseExport("word/endnotes.xml");
     if (!pXmlDoc)
         return;
-    assertXPath(pXmlDoc, "/w:endnotes/w:endnote[@w:id='2']/w:p/w:r[1]/w:rPr/w:rStyle", "w:val");
+    // Check w:rStyle element has w:val attribute - note that w: is not specified for attribute
+    assertXPath(pXmlDoc, "/w:endnotes/w:endnote[@w:id='2']/w:p/w:r[1]/w:rPr/w:rStyle", "val",
+                "EndnoteCharacters");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf103389, "tdf103389.docx")
@@ -1239,7 +1264,7 @@ DECLARE_OOXMLEXPORT_TEST(testTdf90789, "tdf90789.docx")
     xCtrl->select(uno::makeAny(xShape->getAnchor()));
 
     uno::Reference<text::XTextViewCursorSupplier> xTextViewCursorSupplier(xCtrl, uno::UNO_QUERY_THROW);
-    uno::Reference<text::XTextViewCursor> xTextCursor(xTextViewCursorSupplier->getViewCursor(), uno::UNO_QUERY_THROW);
+    uno::Reference<text::XTextViewCursor> xTextCursor(xTextViewCursorSupplier->getViewCursor(), uno::UNO_SET_THROW);
     uno::Reference<text::XPageCursor> xPageCursor(xTextCursor.get(), uno::UNO_QUERY_THROW);
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(1), xPageCursor->getPage());
 }
@@ -1298,6 +1323,15 @@ DECLARE_OOXMLEXPORT_TEST(testTdf104354_2, "tdf104354-2.docx")
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), getProperty<sal_Int32>(getParagraphOfText(1, xCell5->getText()), "ParaBottomMargin"));
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf115557, "tdf115557.docx")
+{
+    // A chart anchored to a footnote multiplied during import
+    xmlDocPtr pXmlDoc = parseExport("word/footnotes.xml");
+    if (!pXmlDoc)
+        return;
+
+    assertXPath(pXmlDoc, "//w:footnote/w:p/w:r/w:drawing", 1);
+}
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

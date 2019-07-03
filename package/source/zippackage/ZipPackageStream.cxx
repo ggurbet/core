@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <memory>
 #include <ZipPackageStream.hxx>
 
 #include <com/sun/star/beans/PropertyValue.hpp>
@@ -36,6 +35,7 @@
 #include <string.h>
 
 #include <CRC32.hxx>
+#include <ThreadedDeflater.hxx>
 #include <ZipOutputEntry.hxx>
 #include <ZipOutputStream.hxx>
 #include <ZipPackage.hxx>
@@ -54,6 +54,7 @@
 #include <rtl/instance.hxx>
 #include <rtl/random.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <PackageConstants.hxx>
 
@@ -220,7 +221,7 @@ uno::Sequence<sal_Int8> ZipPackageStream::GetEncryptionKey(Bugs const bugs)
     sal_Int32 nKeyGenID = GetStartKeyGenID();
     bool const bUseWinEncoding = (bugs == Bugs::WinEncodingWrongSHA1 || m_bUseWinEncoding);
 
-    if ( m_bHaveOwnKey && m_aStorageEncryptionKeys.getLength() )
+    if ( m_bHaveOwnKey && m_aStorageEncryptionKeys.hasElements() )
     {
         OUString aNameToFind;
         if ( nKeyGenID == xml::crypto::DigestID::SHA256 )
@@ -242,13 +243,13 @@ uno::Sequence<sal_Int8> ZipPackageStream::GetEncryptionKey(Bugs const bugs)
 
         // empty keys are not allowed here
         // so it is not important whether there is no key, or the key is empty, it is an error
-        if ( !aResult.getLength() )
+        if ( !aResult.hasElements() )
             throw uno::RuntimeException(THROW_WHERE "No expected key is provided!" );
     }
     else
         aResult = m_aEncryptionKey;
 
-    if ( !aResult.getLength() || !m_bHaveOwnKey )
+    if ( !aResult.hasElements() || !m_bHaveOwnKey )
         aResult = m_rZipPackage.GetEncryptionKey();
 
     return aResult;
@@ -271,7 +272,7 @@ uno::Reference< io::XInputStream > ZipPackageStream::TryToGetRawFromDataStream( 
     if ( m_bToBeEncrypted )
     {
         aKey = GetEncryptionKey();
-        if ( !aKey.getLength() )
+        if ( !aKey.hasElements() )
             throw packages::NoEncryptionException(THROW_WHERE );
     }
 
@@ -294,8 +295,8 @@ uno::Reference< io::XInputStream > ZipPackageStream::TryToGetRawFromDataStream( 
 
         // create a new package stream
         uno::Reference< XDataSinkEncrSupport > xNewPackStream( xPackageAsFactory->createInstance(), UNO_QUERY_THROW );
-        xNewPackStream->setDataStream( static_cast< io::XInputStream* >(
-                                                    new WrapStreamForShare( GetOwnSeekStream(), m_rZipPackage.GetSharedMutexRef() ) ) );
+        xNewPackStream->setDataStream(
+            new WrapStreamForShare(GetOwnSeekStream(), m_rZipPackage.GetSharedMutexRef()));
 
         uno::Reference< XPropertySet > xNewPSProps( xNewPackStream, UNO_QUERY_THROW );
 
@@ -431,65 +432,6 @@ bool ZipPackageStream::ParsePackageRawStream()
     return true;
 }
 
-static void deflateZipEntry(ZipOutputEntry *pZipEntry,
-        const uno::Reference< io::XInputStream >& xInStream)
-{
-    sal_Int32 nLength = 0;
-    uno::Sequence< sal_Int8 > aSeq(n_ConstBufferSize);
-    do
-    {
-        nLength = xInStream->readBytes(aSeq, n_ConstBufferSize);
-        if (nLength != n_ConstBufferSize)
-            aSeq.realloc(nLength);
-
-        pZipEntry->write(aSeq);
-    }
-    while (nLength == n_ConstBufferSize);
-    pZipEntry->closeEntry();
-}
-
-class DeflateThread: public comphelper::ThreadTask
-{
-    ZipOutputEntry *mpEntry;
-    uno::Reference< io::XInputStream > mxInStream;
-
-public:
-    DeflateThread( const std::shared_ptr<comphelper::ThreadTaskTag>& pTag, ZipOutputEntry *pEntry,
-                   const uno::Reference< io::XInputStream >& xInStream )
-        : comphelper::ThreadTask(pTag)
-        , mpEntry(pEntry)
-        , mxInStream(xInStream)
-    {}
-
-private:
-    virtual void doWork() override
-    {
-        try
-        {
-            mpEntry->createBufferFile();
-            deflateZipEntry(mpEntry, mxInStream);
-            mxInStream.clear();
-            mpEntry->closeBufferFile();
-            mpEntry->setFinished();
-        }
-        catch (...)
-        {
-            mpEntry->setParallelDeflateException(std::current_exception());
-            try
-            {
-                if (mpEntry->m_xOutStream.is())
-                    mpEntry->closeBufferFile();
-                if (!mpEntry->m_aTempURL.isEmpty())
-                    mpEntry->deleteBufferFile();
-            }
-            catch (uno::Exception const&)
-            {
-            }
-            mpEntry->setFinished();
-        }
-    }
-};
-
 static void ImplSetStoredData( ZipEntry & rEntry, uno::Reference< io::XInputStream> const & rStream )
 {
     // It's very annoying that we have to do this, but lots of zip packages
@@ -538,7 +480,7 @@ bool ZipPackageStream::saveChild(
     pTempEntry->sPath = rPath;
     pTempEntry->nPathLen = static_cast<sal_Int16>( OUStringToOString( pTempEntry->sPath, RTL_TEXTENCODING_UTF8 ).getLength() );
 
-    const bool bToBeEncrypted = m_bToBeEncrypted && (rEncryptionKey.getLength() || m_bHaveOwnKey);
+    const bool bToBeEncrypted = m_bToBeEncrypted && (rEncryptionKey.hasElements() || m_bHaveOwnKey);
     const bool bToBeCompressed = bToBeEncrypted || m_bToBeCompressed;
 
     aPropSet[PKG_MNFST_MEDIATYPE].Name = sMediaTypeProperty;
@@ -556,7 +498,7 @@ bool ZipPackageStream::saveChild(
     else if ( m_nStreamMode == PACKAGE_STREAM_RAW )
         m_bRawStream = true;
 
-    bool bParallelDeflate = false;
+    bool bBackgroundThreadDeflate = false;
     bool bTransportOwnEncrStreamAsRaw = false;
     // During the storing the original size of the stream can be changed
     // TODO/LATER: get rid of this hack
@@ -818,31 +760,46 @@ bool ZipPackageStream::saveChild(
             }
             else
             {
-                // tdf#89236 Encrypting in parallel does not work
-                bParallelDeflate = !bToBeEncrypted;
-                // Do not deflate small streams in a thread
-                if (xSeek.is() && xSeek->getLength() < 100000)
-                    bParallelDeflate = false;
+                // tdf#89236 Encrypting in a background thread does not work
+                bBackgroundThreadDeflate = !bToBeEncrypted;
+                // Do not deflate small streams using threads. XSeekable's getLength()
+                // gives the full size, XInputStream's available() may not be
+                // the full size, but it appears that at this point it usually is.
+                sal_Int64 estimatedSize = xSeek.is() ? xSeek->getLength() : xStream->available();
 
-                if (bParallelDeflate)
+                if (estimatedSize > 1000000)
                 {
-                    // tdf#93553 limit to a useful amount of threads. Taking number of available
+                    // Use ThreadDeflater which will split the stream into blocks and compress
+                    // them in threads, but not in background (i.e. writeStream() will block).
+                    // This is suitable for large data.
+                    bBackgroundThreadDeflate = false;
+                    rZipOut.writeLOC(pTempEntry, bToBeEncrypted);
+                    ZipOutputEntryParallel aZipEntry(rZipOut.getStream(), m_xContext, *pTempEntry, this, bToBeEncrypted);
+                    aZipEntry.writeStream(xStream);
+                    rZipOut.rawCloseEntry(bToBeEncrypted);
+                }
+                else if (bBackgroundThreadDeflate && estimatedSize > 100000)
+                {
+                    // tdf#93553 limit to a useful amount of pending tasks. Having way too many
+                    // tasks pending may use a lot of memory. Take number of available
                     // cores and allow 4-times the amount for having the queue well filled. The
                     // 2nd parameter is the time to wait between cleanups in 10th of a second.
                     // Both values may be added to the configuration settings if needed.
-                    static sal_Int32 nAllowedThreads(comphelper::ThreadPool::getPreferredConcurrency() * 4);
-                    rZipOut.reduceScheduledThreadsToGivenNumberOrLess(nAllowedThreads);
+                    static sal_Int32 nAllowedTasks(comphelper::ThreadPool::getPreferredConcurrency() * 4);
+                    rZipOut.reduceScheduledThreadTasksToGivenNumberOrLess(nAllowedTasks);
 
-                    // Start a new thread deflating this zip entry
-                    ZipOutputEntry *pZipEntry = new ZipOutputEntry(
+                    // Start a new thread task deflating this zip entry
+                    ZipOutputEntryInThread *pZipEntry = new ZipOutputEntryInThread(
                             m_xContext, *pTempEntry, this, bToBeEncrypted);
-                    rZipOut.addDeflatingThread( pZipEntry, std::make_unique<DeflateThread>(rZipOut.getThreadTaskTag(), pZipEntry, xStream) );
+                    rZipOut.addDeflatingThreadTask( pZipEntry,
+                            pZipEntry->createTask( rZipOut.getThreadTaskTag(), xStream) );
                 }
                 else
                 {
+                    bBackgroundThreadDeflate = false;
                     rZipOut.writeLOC(pTempEntry, bToBeEncrypted);
                     ZipOutputEntry aZipEntry(rZipOut.getStream(), m_xContext, *pTempEntry, this, bToBeEncrypted);
-                    deflateZipEntry(&aZipEntry, xStream);
+                    aZipEntry.writeStream(xStream);
                     rZipOut.rawCloseEntry(bToBeEncrypted);
                 }
             }
@@ -877,10 +834,10 @@ bool ZipPackageStream::saveChild(
         }
     }
 
-    if (bSuccess && !bParallelDeflate)
+    if (bSuccess && !bBackgroundThreadDeflate)
         successfullyWritten(pTempEntry);
 
-    if ( aPropSet.getLength()
+    if ( aPropSet.hasElements()
       && ( m_nFormat == embed::StorageFormats::PACKAGE || m_nFormat == embed::StorageFormats::OFOPXML ) )
         rManList.push_back( aPropSet );
 
@@ -988,9 +945,9 @@ uno::Reference< io::XInputStream > SAL_CALL ZipPackageStream::getInputStream()
         OSL_FAIL( "ZipException thrown" );//rException.Message);
         return uno::Reference < io::XInputStream > ();
     }
-    catch ( Exception &ex )
+    catch ( const Exception & )
     {
-        SAL_WARN( "package", "Exception is thrown during stream wrapping!" << ex);
+        TOOLS_WARN_EXCEPTION( "package", "Exception is thrown during stream wrapping!");
         return uno::Reference < io::XInputStream > ();
     }
 }
@@ -1243,7 +1200,7 @@ void SAL_CALL ZipPackageStream::setPropertyValue( const OUString& aPropertyName,
             aNewKey = aSequence;
         }
 
-        if ( aNewKey.getLength() )
+        if ( aNewKey.hasElements() )
         {
             if ( !m_xBaseEncryptionData.is() )
                 m_xBaseEncryptionData = new BaseEncryptionData;
@@ -1275,7 +1232,7 @@ void SAL_CALL ZipPackageStream::setPropertyValue( const OUString& aPropertyName,
                                                 2 );
         }
 
-        if ( aKeys.getLength() )
+        if ( aKeys.hasElements() )
         {
             if ( !m_xBaseEncryptionData.is() )
                 m_xBaseEncryptionData = new BaseEncryptionData;

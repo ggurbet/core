@@ -890,8 +890,7 @@ SlideSharedPtr SlideShowImpl::makeSlide(
         return SlideSharedPtr();
 
     //Retrieve polygons for the current slide
-    PolygonMap::iterator aIter;
-    aIter = findPolygons(xDrawPage);
+    PolygonMap::iterator aIter = findPolygons(xDrawPage);
 
     const SlideSharedPtr pSlide( createSlide(xDrawPage,
                                              xDrawPages,
@@ -2066,7 +2065,7 @@ sal_Bool SlideShowImpl::update( double & nNextTimeout )
                 try
                 {
                     uno::Reference< presentation::XSlideShowView > xView( pView->getUnoView(),
-                                                                          uno::UNO_QUERY_THROW );
+                                                                          uno::UNO_SET_THROW );
                     uno::Reference<util::XUpdatable> const xUpdatable(
                             xView->getCanvas(), uno::UNO_QUERY);
                     if (xUpdatable.is()) // not supported in PresenterCanvas

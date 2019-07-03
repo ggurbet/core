@@ -111,10 +111,6 @@ protected:
     virtual OUString
         CreateAccessibleName() override;
 
-    /// Create a description string that contains the accessible description.
-    virtual OUString
-        CreateAccessibleDescription() override;
-
 private:
     css::uno::Reference<css::drawing::XDrawPage> mxPage;
 

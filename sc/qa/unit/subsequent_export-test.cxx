@@ -60,6 +60,8 @@
 #include <editeng/colritem.hxx>
 #include <formula/grammar.hxx>
 #include <unotools/useroptions.hxx>
+#include <comphelper/scopeguard.hxx>
+#include <unotools/syslocaleoptions.hxx>
 #include <tools/datetime.hxx>
 #include <svl/zformat.hxx>
 
@@ -89,6 +91,7 @@ public:
     void testPasswordExportODS();
     void testConditionalFormatExportODS();
     void testConditionalFormatExportXLSX();
+    void testCondFormatExportCellIs();
     void testTdf99856_dataValidationTest();
     void testProtectionKeyODS_UTF16LErtlSHA1();
     void testProtectionKeyODS_UTF8SHA1();
@@ -101,6 +104,8 @@ public:
     void testDataBarExportXLSX();
     void testConditionalFormatRangeListXLSX();
     void testConditionalFormatContainsTextXLSX();
+    void testConditionalFormatPriorityCheckXLSX();
+    void testConditionalFormatOriginXLSX();
     void testMiscRowHeightExport();
     void testNamedRangeBugfdo62729();
     void testBuiltinRangesXLSX();
@@ -210,6 +215,17 @@ public:
     void testTdf118990();
     void testTdf121612();
     void testPivotCacheAfterExportXLSX();
+    void testTdf114969XLSX();
+    void testTdf115192XLSX();
+    void testTdf91634XLSX();
+    void testTdf115159();
+    void testTdf112567();
+    void testTdf112567b();
+    void testTdf123645XLSX();
+    void testTdf125173XLSX();
+    void testTdf79972XLSX();
+    void testTdf126024XLSX();
+    void testTdf126177XLSX();
 
     void testXltxExport();
 
@@ -218,6 +234,7 @@ public:
     CPPUNIT_TEST(testTdf111876);
     CPPUNIT_TEST(testPasswordExportODS);
     CPPUNIT_TEST(testConditionalFormatExportODS);
+    CPPUNIT_TEST(testCondFormatExportCellIs);
     CPPUNIT_TEST(testConditionalFormatExportXLSX);
     CPPUNIT_TEST(testTdf99856_dataValidationTest);
     CPPUNIT_TEST(testProtectionKeyODS_UTF16LErtlSHA1);
@@ -231,6 +248,8 @@ public:
     CPPUNIT_TEST(testDataBarExportXLSX);
     CPPUNIT_TEST(testConditionalFormatRangeListXLSX);
     CPPUNIT_TEST(testConditionalFormatContainsTextXLSX);
+    CPPUNIT_TEST(testConditionalFormatPriorityCheckXLSX);
+    CPPUNIT_TEST(testConditionalFormatOriginXLSX);
     CPPUNIT_TEST(testMiscRowHeightExport);
     CPPUNIT_TEST(testNamedRangeBugfdo62729);
     CPPUNIT_TEST(testBuiltinRangesXLSX);
@@ -327,6 +346,17 @@ public:
     CPPUNIT_TEST(testTdf118990);
     CPPUNIT_TEST(testTdf121612);
     CPPUNIT_TEST(testPivotCacheAfterExportXLSX);
+    CPPUNIT_TEST(testTdf114969XLSX);
+    CPPUNIT_TEST(testTdf115192XLSX);
+    CPPUNIT_TEST(testTdf91634XLSX);
+    CPPUNIT_TEST(testTdf115159);
+    CPPUNIT_TEST(testTdf112567);
+    CPPUNIT_TEST(testTdf112567b);
+    CPPUNIT_TEST(testTdf123645XLSX);
+    CPPUNIT_TEST(testTdf125173XLSX);
+    CPPUNIT_TEST(testTdf79972XLSX);
+    CPPUNIT_TEST(testTdf126024XLSX);
+    CPPUNIT_TEST(testTdf126177XLSX);
 
     CPPUNIT_TEST(testXltxExport);
 
@@ -364,6 +394,8 @@ void ScExportTest::registerNamespaces(xmlXPathContextPtr& pXmlXPathCtx)
         { BAD_CAST("number"), BAD_CAST("urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0") },
         { BAD_CAST("loext"), BAD_CAST("urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0") },
         { BAD_CAST("ContentType"), BAD_CAST("http://schemas.openxmlformats.org/package/2006/content-types") },
+        { BAD_CAST("x14"), BAD_CAST("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main") },
+        { BAD_CAST("xm"), BAD_CAST("http://schemas.microsoft.com/office/excel/2006/main") },
     };
     for(size_t i = 0; i < SAL_N_ELEMENTS(aNamespaces); ++i)
     {
@@ -483,6 +515,42 @@ void ScExportTest::testConditionalFormatExportODS()
     OUString aCSVPath;
     createCSVPath( "new_cond_format_test_export.", aCSVPath );
     testCondFile(aCSVPath, &rDoc, 0);
+
+    xDocSh->DoClose();
+}
+
+void ScExportTest::testCondFormatExportCellIs()
+{
+    ScDocShellRef xShell = loadDoc("condFormat_cellis.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xShell.is());
+    ScDocShellRef xDocSh = saveAndReload(&(*xShell), FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    ScDocument& rDoc = xDocSh->GetDocument();
+    CPPUNIT_ASSERT_EQUAL(size_t(1), rDoc.GetCondFormList(0)->size());
+
+    ScConditionalFormat* pFormat = rDoc.GetCondFormat(0, 0, 0);
+    CPPUNIT_ASSERT(pFormat);
+
+    const ScFormatEntry* pEntry = pFormat->GetEntry(0);
+    CPPUNIT_ASSERT(pEntry);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::ExtCondition, pEntry->GetType());
+
+    const ScCondFormatEntry* pCondition = static_cast<const ScCondFormatEntry*>(pEntry);
+    CPPUNIT_ASSERT_EQUAL( ScConditionMode::Equal,  pCondition->GetOperation());
+
+    OUString aStr = pCondition->GetExpression(ScAddress(0, 0, 0), 0);
+    CPPUNIT_ASSERT_EQUAL( OUString("$Sheet2.$A$1"), aStr );
+
+    pEntry = pFormat->GetEntry(1);
+    CPPUNIT_ASSERT(pEntry);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::ExtCondition, pEntry->GetType());
+
+    pCondition = static_cast<const ScCondFormatEntry*>(pEntry);
+    CPPUNIT_ASSERT_EQUAL( ScConditionMode::Equal,  pCondition->GetOperation());
+
+    aStr = pCondition->GetExpression(ScAddress(0, 0, 0), 0);
+    CPPUNIT_ASSERT_EQUAL( OUString("$Sheet2.$A$2"), aStr );
 
     xDocSh->DoClose();
 }
@@ -709,10 +777,11 @@ void ScExportTest::testCommentExportXLSX()
         = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/comments1.xml");
     CPPUNIT_ASSERT(pComments);
 
-    assertXPath(pComments, "/x:comments/x:authors/x:author[1]", "BAKO");
+    assertXPathContent(pComments, "/x:comments/x:authors/x:author[1]", "BAKO");
     assertXPath(pComments, "/x:comments/x:authors/x:author", 1);
 
-    assertXPath(pComments, "/x:comments/x:commentList/x:comment/x:text/x:r/x:t", "Komentarz");
+    assertXPathContent(pComments, "/x:comments/x:commentList/x:comment/x:text/x:r/x:t",
+                       "Komentarz");
 
     const xmlDocPtr pVmlDrawing
         = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/vmlDrawing1.vml");
@@ -750,7 +819,8 @@ void ScExportTest::testCommentExportXLSX_2_XLSX()
         = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/comments1.xml");
     CPPUNIT_ASSERT(pComments);
 
-    assertXPath(pComments, "/x:comments/x:commentList/x:comment/x:text/x:r/x:t", "visible comment");
+    assertXPathContent(pComments, "/x:comments/x:commentList/x:comment/x:text/x:r/x:t",
+                       "visible comment");
 
     const xmlDocPtr pVmlDrawing
         = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/vmlDrawing1.vml");
@@ -770,80 +840,60 @@ void ScExportTest::testCustomColumnWidthExportXLSX()
     xmlDocPtr pSheet = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/worksheets/sheet1.xml");
     CPPUNIT_ASSERT(pSheet);
 
-    // First column, has everything default (width in Calc: 1280)
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "hidden", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "customWidth", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "min", "1");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "max", "1");
+    // tdf#124741: check that we export default width, otherwise the skipped columns would have
+    // wrong width. Previously defaultColWidth attribute was missing
+    double nDefWidth
+        = getXPath(pSheet, "/x:worksheet/x:sheetFormatPr", "defaultColWidth").toDouble();
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(11.53515625, nDefWidth, 0.01);
+
+    // First column, has everything default (width in Calc: 1280), skipped
 
     // Second column, has custom width (width in Calc: 1225)
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "hidden", "false");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "hidden", "false");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "outlineLevel", "0");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "customWidth", "true");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "collapsed", "false");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "min", "2");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[1]", "max", "2");
+
+    // Third column, has everything default (width in Calc: 1280), skipped
+
+    // Fourth column has custom width. Columns from 4 to 7 are hidden
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "hidden", "true");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "outlineLevel", "0");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "customWidth", "true");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "min", "2");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "max", "2");
-
-    // Third column, has everything default (width in Calc: 1280)
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "hidden", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "customWidth", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "min", "3");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "max", "3");
-
-    // Fourth column has custom width. Columns from 4 to 7 are hidden
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "hidden", "true");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "customWidth", "true");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "min", "4");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "max", "4");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "min", "4");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[2]", "max", "4");
 
     // 5th column has custom width. Columns from 4 to 7 are hidden
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "hidden", "true");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "hidden", "true");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "outlineLevel", "0");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "customWidth", "true");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "collapsed", "false");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "min", "5");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[3]", "max", "5");
+
+    // 6th and 7th columns have default width and they are hidden
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "hidden", "true");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "outlineLevel", "0");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "customWidth", "false");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "collapsed", "false");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "min", "6");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[4]", "max", "7");
+
+    // 8th column has everything default - skipped
+
+    // 9th column has custom width
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "hidden", "false");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "outlineLevel", "0");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "customWidth", "true");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "min", "5");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "max", "5");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "min", "9");
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "max", "9");
 
-    // 6th and 7th columns has default width and it are hidden
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[6]", "hidden", "true");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[6]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[6]", "customWidth", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[6]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[6]", "min", "6");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[6]", "max", "7");
-
-    // 8th column has everything default
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[7]", "hidden", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[7]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[7]", "customWidth", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[7]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[7]", "min", "8");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[7]", "max", "8");
-
-    // 9th column has custom width
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[8]", "hidden", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[8]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[8]", "customWidth", "true");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[8]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[8]", "min", "9");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[8]", "max", "9");
-
-    // Rest of columns are default
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[9]", "hidden", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[9]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[9]", "customWidth", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[9]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[9]", "min", "10");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[9]", "max", "1025");
-
-    // We expected that exactly 9 unique Nodes will be produced
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col", 9);
+    // We expected that exactly 5 unique Nodes will be produced
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col", 5);
 
     assertXPath(pSheet, "/x:worksheet/x:sheetData/x:row[1]", "hidden", "false");
     assertXPath(pSheet, "/x:worksheet/x:sheetData/x:row[1]", "outlineLevel", "0");
@@ -908,10 +958,7 @@ void ScExportTest::testColumnWidthResaveXLSX()
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "width", "250");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[5]", "customWidth", "true");
 
-    // The last column [6] is not existing in Excel sheet, and it is added only by LibreOffice.
-    // This column width is default and it is depended on operating system.
-
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col", 6);
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col", 5);
 }
 
 #if HAVE_MORE_FONTS
@@ -1071,13 +1118,8 @@ void ScExportTest::testOutlineExportXLSX()
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[12]", "min", "25");
     assertXPath(pSheet, "/x:worksheet/x:cols/x:col[12]", "max", "26");
 
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[13]", "hidden", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[13]", "outlineLevel", "0");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[13]", "collapsed", "false");
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col[13]", "min", "27");
-
-    // We expected that exactly 13 unique Nodes will be produced
-    assertXPath(pSheet, "/x:worksheet/x:cols/x:col", 13);
+    // We expected that exactly 12 unique Nodes will be produced
+    assertXPath(pSheet, "/x:worksheet/x:cols/x:col", 12);
 
     // First row is empty and default so it is not written into XML file
     // so we need to save 29 rows, as it provides information about outLineLevel
@@ -1450,7 +1492,7 @@ void ScExportTest::testRichTextExportODS()
                 return false;
 
             // Check the first bold section.
-            const editeng::Section* pAttr = &aSecAttrs[0];
+            const editeng::Section* pAttr = aSecAttrs.data();
             if (pAttr->mnParagraph != 0 ||pAttr->mnStart != 0 || pAttr->mnEnd != 4)
                 return false;
 
@@ -1542,7 +1584,7 @@ void ScExportTest::testRichTextExportODS()
                 return false;
 
             // Check the first strike-out section.
-            const editeng::Section* pAttr = &aSecAttrs[0];
+            const editeng::Section* pAttr = aSecAttrs.data();
             if (pAttr->mnParagraph != 0 ||pAttr->mnStart != 0 || pAttr->mnEnd != 6)
                 return false;
 
@@ -1571,7 +1613,7 @@ void ScExportTest::testRichTextExportODS()
                 return false;
 
             // First section should have "Courier" font applied.
-            const editeng::Section* pAttr = &aSecAttrs[0];
+            const editeng::Section* pAttr = aSecAttrs.data();
             if (pAttr->mnParagraph != 0 ||pAttr->mnStart != 0 || pAttr->mnEnd != 5)
                 return false;
 
@@ -1606,7 +1648,7 @@ void ScExportTest::testRichTextExportODS()
                 return false;
 
             // First section shoul have overline applied.
-            const editeng::Section* pAttr = &aSecAttrs[0];
+            const editeng::Section* pAttr = aSecAttrs.data();
             if (pAttr->mnParagraph != 0 ||pAttr->mnStart != 0 || pAttr->mnEnd != 4)
                 return false;
 
@@ -1641,7 +1683,7 @@ void ScExportTest::testRichTextExportODS()
                 return false;
 
             // superscript
-            const editeng::Section* pAttr = &aSecAttrs[0];
+            const editeng::Section* pAttr = aSecAttrs.data();
             if (pAttr->mnParagraph != 0 ||pAttr->mnStart != 0 || pAttr->mnEnd != 3)
                 return false;
 
@@ -3902,6 +3944,63 @@ void ScExportTest::testConditionalFormatContainsTextXLSX()
     assertXPathContent(pDoc, "//x:conditionalFormatting/x:cfRule/x:formula", "NOT(ISERROR(SEARCH(\"test\",A1)))");
 }
 
+void ScExportTest::testConditionalFormatPriorityCheckXLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("conditional_fmt_checkpriority.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/worksheets/sheet1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+
+    constexpr bool bHighPriorityExtensionA1 = true;  // Should A1's extension cfRule has higher priority than normal cfRule ?
+    constexpr bool bHighPriorityExtensionA3 = false; // Should A3's extension cfRule has higher priority than normal cfRule ?
+
+    size_t nA1NormalPriority = 0;
+    size_t nA1ExtPriority = 0;
+    size_t nA3NormalPriority = 0;
+    size_t nA3ExtPriority = 0;
+
+    for (size_t nIdx = 1; nIdx <= 2; ++nIdx)
+    {
+        OString aIdx = OString::number(nIdx);
+        OUString aCellAddr = getXPath(pDoc, "//x:conditionalFormatting[" + aIdx + "]", "sqref");
+        OUString aPriority = getXPath(pDoc, "//x:conditionalFormatting[" + aIdx + "]/x:cfRule", "priority");;
+
+        CPPUNIT_ASSERT_MESSAGE("conditionalFormatting sqref must be either A1 or A3", aCellAddr == "A1" || aCellAddr == "A3");
+
+        if (aCellAddr == "A1")
+            nA1NormalPriority = aPriority.toUInt32();
+        else
+            nA3NormalPriority = aPriority.toUInt32();
+
+        aCellAddr = getXPathContent(pDoc, "//x:extLst/x:ext[1]/x14:conditionalFormattings/x14:conditionalFormatting[" + aIdx + "]/xm:sqref");
+        aPriority = getXPath(pDoc, "//x:extLst/x:ext[1]/x14:conditionalFormattings/x14:conditionalFormatting[" + aIdx + "]/x14:cfRule", "priority");
+
+        CPPUNIT_ASSERT_MESSAGE("x14:conditionalFormatting sqref must be either A1 or A3", aCellAddr == "A1" || aCellAddr == "A3");
+
+        if (aCellAddr == "A1")
+            nA1ExtPriority = aPriority.toUInt32();
+        else
+            nA3ExtPriority = aPriority.toUInt32();
+    }
+
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong priorities for A1", bHighPriorityExtensionA1, nA1ExtPriority < nA1NormalPriority);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong priorities for A3", bHighPriorityExtensionA3, nA3ExtPriority < nA3NormalPriority);
+}
+
+void ScExportTest::testConditionalFormatOriginXLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("conditional_fmt_origin.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/worksheets/sheet1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+
+    // tdf#124953 : The range-list is B3:C6 F1:G2, origin address in the formula should be B1, not B3.
+    OUString aFormula = getXPathContent(pDoc, "//x:conditionalFormatting/x:cfRule/x:formula");
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong origin address in formula", OUString("NOT(ISERROR(SEARCH(\"BAC\",B1)))"), aFormula);
+}
+
 void ScExportTest::testEscapeCharInNumberFormatXLSX()
 {
     ScDocShellRef xDocSh = loadDoc("tdf81939.", FORMAT_XLSX);
@@ -4157,6 +4256,204 @@ void ScExportTest::testPivotCacheAfterExportXLSX()
     CPPUNIT_ASSERT_MESSAGE("No number group info :(", pInfo);
 
     xDocSh->DoClose();
+}
+
+void ScExportTest::testTdf114969XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("sheet_name_with_dots.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/worksheets/sheet1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/x:worksheet/x:hyperlinks/x:hyperlink[1]", "location", "'1.1.1.1'!C1");
+    assertXPath(pDoc, "/x:worksheet/x:hyperlinks/x:hyperlink[2]", "location", "'1.1.1.1'!C2");
+}
+
+void ScExportTest::testTdf115192XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("test_115192.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/drawings/_rels/drawing1.xml.rels", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/r:Relationships/r:Relationship[@Id='rId1']", "TargetMode", "External");
+    assertXPathNoAttribute(pDoc, "/r:Relationships/r:Relationship[@Id='rId2']", "TargetMode");
+    assertXPath(pDoc, "/r:Relationships/r:Relationship[@Id='rId3']", "TargetMode", "External");
+}
+
+void ScExportTest::testTdf91634XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("image_hyperlink.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(&(*xDocSh), FORMAT_XLSX);
+
+    xmlDocPtr pDoc = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/drawing1.xml");
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor/xdr:pic/xdr:nvPicPr/xdr:cNvPr/a:hlinkClick", 1);
+
+    xmlDocPtr pXmlRels = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/_rels/drawing1.xml.rels");
+    CPPUNIT_ASSERT(pXmlRels);
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId1']", "Target", "https://www.google.com/");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId1']", "TargetMode", "External");
+}
+
+void ScExportTest::testTdf115159()
+{
+    ScDocShellRef xShell = loadDoc("tdf115159.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xShell.is());
+    ScDocShellRef xDocSh = saveAndReload(xShell.get(), FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    xShell->DoClose();
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/workbook.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+
+    //assert the existing OOXML built-in name is not duplicated
+    assertXPath(pDoc, "/x:workbook/x:definedNames/x:definedName", 1);
+
+    xDocSh->DoClose();
+}
+
+void ScExportTest::testTdf112567()
+{
+    // Set the system locale to Hungarian (a language with different range separator)
+    SvtSysLocaleOptions aOptions;
+    aOptions.SetLocaleConfigString("hu-HU");
+    aOptions.Commit();
+    comphelper::ScopeGuard g([&aOptions] {
+        aOptions.SetLocaleConfigString(OUString());
+        aOptions.Commit();
+    });
+
+    ScDocShellRef xShell = loadDoc("tdf112567.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xShell.is());
+    ScDocShellRef xDocSh = saveAndReload(xShell.get(), FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    xShell->DoClose();
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/workbook.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+
+    //assert the existing OOXML built-in name is not duplicated
+    assertXPath(pDoc, "/x:workbook/x:definedNames/x:definedName", 1);
+
+    xDocSh->DoClose();
+}
+
+void ScExportTest::testTdf112567b()
+{
+    // Set the system locale to Hungarian (a language with different range separator)
+    SvtSysLocaleOptions aOptions;
+    aOptions.SetLocaleConfigString("hu-HU");
+    aOptions.Commit();
+    comphelper::ScopeGuard g([&aOptions] {
+        aOptions.SetLocaleConfigString(OUString());
+        aOptions.Commit();
+    });
+
+    ScDocShellRef xShell = loadDoc("tdf112567.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+    ScDocShellRef xDocSh = saveAndReload(xShell.get(), FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    xShell->DoClose();
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory, "xl/workbook.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+
+    //assert the existing OOXML built-in name is not duplicated
+    assertXPath(pDoc, "/x:workbook/x:definedNames/x:definedName", 1);
+
+    //and it contains "," instead of ";"
+    assertXPathContent(pDoc, "/x:workbook/x:definedNames/x:definedName[1]", "Sheet1!$A:$A,Sheet1!$1:$1");
+
+    xDocSh->DoClose();
+}
+
+void ScExportTest::testTdf123645XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("chart_hyperlink.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(&(*xDocSh), FORMAT_XLSX);
+
+    xmlDocPtr pDoc = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/drawing1.xml");
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor[1]/xdr:graphicFrame/xdr:nvGraphicFramePr/xdr:cNvPr/a:hlinkClick", 1);
+    assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor[2]/xdr:graphicFrame/xdr:nvGraphicFramePr/xdr:cNvPr/a:hlinkClick", 1);
+    assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor[3]/xdr:graphicFrame/xdr:nvGraphicFramePr/xdr:cNvPr/a:hlinkClick", 1);
+
+    xmlDocPtr pXmlRels = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/_rels/drawing1.xml.rels");
+    CPPUNIT_ASSERT(pXmlRels);
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId1']", "TargetMode", "External");
+    assertXPathNoAttribute(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId3']", "TargetMode");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId5']", "TargetMode", "External");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId1']", "Target", "file:///C:/TEMP/test.xlsx");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId3']", "Target", "#Sheet2!A1");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId5']", "Target", "https://bugs.documentfoundation.org/show_bug.cgi?id=123645");
+}
+
+void ScExportTest::testTdf125173XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("text_box_hyperlink.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xDocSh.is());
+    std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(&(*xDocSh), FORMAT_XLSX);
+
+    xmlDocPtr pDoc = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/drawing1.xml");
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/xdr:wsDr/xdr:twoCellAnchor/xdr:sp/xdr:nvSpPr/xdr:cNvPr/a:hlinkClick", 1);
+
+    xmlDocPtr pXmlRels = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/_rels/drawing1.xml.rels");
+    CPPUNIT_ASSERT(pXmlRels);
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId1']", "Target", "http://www.google.com/");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship[@Id='rId1']", "TargetMode", "External");
+}
+
+void ScExportTest::testTdf79972XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("tdf79972.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(&(*xDocSh), FORMAT_XLSX);
+
+    xmlDocPtr pDoc = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/worksheets/sheet1.xml");
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/x:worksheet/x:hyperlinks/x:hyperlink", "ref", "A1");
+
+    xmlDocPtr pXmlRels = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/worksheets/_rels/sheet1.xml.rels");
+    CPPUNIT_ASSERT(pXmlRels);
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship", "Target", "https://bugs.documentfoundation.org/show_bug.cgi?id=79972");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship", "TargetMode", "External");
+}
+
+void ScExportTest::testTdf126024XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("hyperlink_formula.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(&(*xDocSh), FORMAT_XLSX);
+
+    xmlDocPtr pDoc = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/worksheets/sheet1.xml");
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/x:worksheet/x:hyperlinks/x:hyperlink", "ref", "A2");
+
+    xmlDocPtr pXmlRels = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/worksheets/_rels/sheet1.xml.rels");
+    CPPUNIT_ASSERT(pXmlRels);
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship", "Target", "https://bugs.documentfoundation.org/");
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship", "TargetMode", "External");
+}
+
+void ScExportTest::testTdf126177XLSX()
+{
+    ScDocShellRef xDocSh = loadDoc("hyperlink_export.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+    std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(&(*xDocSh), FORMAT_XLSX);
+
+    xmlDocPtr pDoc = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/worksheets/sheet1.xml");
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/x:worksheet/x:hyperlinks/x:hyperlink", "location", "Munka1!A5");
+
+    xmlDocPtr pXmlRels = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/worksheets/_rels/sheet1.xml.rels");
+    CPPUNIT_ASSERT(pXmlRels);
+    OUString aTarget = getXPath(pXmlRels, "/r:Relationships/r:Relationship", "Target");
+    CPPUNIT_ASSERT(aTarget.endsWith("test.xlsx"));
+    assertXPath(pXmlRels, "/r:Relationships/r:Relationship", "TargetMode", "External");
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScExportTest);

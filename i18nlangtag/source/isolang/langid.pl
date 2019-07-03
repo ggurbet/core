@@ -85,6 +85,10 @@ sub makeLangID($$)
 }
 
 
+# Note that a regex needs a duplicated pair of backslashes to produce a literal
+# \\ like in \\\\* to search for zero or more \ backslashes.
+# @addregex can be an optional "block to grep" definition
+# (regex-to-start-block, regex-to-end-block, regex-to-find-in-block)
 sub grepFile($$$$$@)
 {
     my( $regex, $path, $module, $name, $printmsg, @addregex) = @_;
@@ -417,9 +421,10 @@ sub main()
             }
         }
 
-        #         case LANGUAGE_ARABIC_SAUDI_ARABIA & LANGUAGE_MASK_PRIMARY :
+        # Find any special treatment, may need inspection then.
+        # $grepdef already has \b word delimiters.
         grepFile(
-            $modifier . '^\s*case\s*.*' . $grepdef . '.*(\s*&\s*\w+)?\s*:',
+            $modifier . $grepdef,
             "$SRC_ROOT", "i18nlangtag", "source/isolang/mslangid.cxx", 1, ());
 
         my $module = "svtools";
@@ -446,7 +451,7 @@ sub main()
             grepFile(
                 '^\s*completelangiso\s*=\s*(\s*([a-z]{2,3})(-[A-Z][A-Z])?)*' . $langtag . '',
                 "$SRC_ROOT", "solenv", "inc/langlist.mk", 1,
-                # needs a duplicated pair of backslashes to produce a literal \\
+                # Also grep the list of tags, one per line, \ backslash continued.
                 ('^\s*completelangiso\s*=', '^\s*$', '^\s*' . $langtag . '\s*\\\\*$'));
 
             # af    1252  1078   # Afrikaans

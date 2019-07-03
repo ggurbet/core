@@ -31,6 +31,7 @@
 #include "porfld.hxx"
 #include "inftxt.hxx"
 #include <blink.hxx>
+#include <fmtornt.hxx>
 #include <frmatr.hxx>
 #include <frmtool.hxx>
 #include <viewsh.hxx>
@@ -752,7 +753,7 @@ SwBulletPortion::SwBulletPortion( const sal_Unicode cBullet,
 
 SwGrfNumPortion::SwGrfNumPortion(
         const OUString& rGraphicFollowedBy,
-        const SvxBrushItem* pGrfBrush,
+        const SvxBrushItem* pGrfBrush, OUString const & referer,
         const SwFormatVertOrient* pGrfOrient, const Size& rGrfSize,
         const bool bLft, const bool bCntr, const sal_uInt16 nMinDst,
         const bool bLabelAlignmentPosAndSpaceModeActive ) :
@@ -765,8 +766,8 @@ SwGrfNumPortion::SwGrfNumPortion(
     m_bReplace = false;
     if( pGrfBrush )
     {
-        *pBrush = *pGrfBrush;
-        const Graphic* pGraph = pGrfBrush->GetGraphic();
+        pBrush.reset(static_cast<SvxBrushItem*>(pGrfBrush->Clone()));
+        const Graphic* pGraph = pGrfBrush->GetGraphic(referer);
         if( pGraph )
             SetAnimated( pGraph->IsAnimated() );
         else

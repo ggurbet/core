@@ -60,7 +60,7 @@ enum REFERENCEMARK
 
 /// Get reference.
 
-class SwGetRefFieldType : public SwFieldType
+class SAL_DLLPUBLIC_RTTI SwGetRefFieldType : public SwFieldType
 {
     SwDoc* m_pDoc;
 protected:
@@ -68,7 +68,7 @@ protected:
     virtual void Modify( const SfxPoolItem*, const SfxPoolItem* ) override;
 public:
     SwGetRefFieldType(SwDoc* pDoc );
-    virtual SwFieldType*    Copy() const override;
+    virtual std::unique_ptr<SwFieldType> Copy() const override;
 
     SwDoc*                  GetDoc() const { return m_pDoc; }
 

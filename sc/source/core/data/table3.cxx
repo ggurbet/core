@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <rtl/math.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/random.hxx>
 #include <unotools/textsearch.hxx>
@@ -1825,7 +1824,7 @@ bool ScTable::TestRemoveSubTotals( const ScSubTotalParam& rParam )
 {
     SCCOL nStartCol = rParam.nCol1;
     SCROW nStartRow = rParam.nRow1 + 1;     // Header
-    SCCOL nEndCol   = rParam.nCol2;
+    SCCOL nEndCol   = ClampToAllocatedColumns(rParam.nCol2);
     SCROW nEndRow    = rParam.nRow2;
 
     for (SCCOL nCol = nStartCol; nCol <= nEndCol; ++nCol)
@@ -1859,7 +1858,7 @@ void ScTable::RemoveSubTotals( ScSubTotalParam& rParam )
 {
     SCCOL nStartCol = rParam.nCol1;
     SCROW nStartRow = rParam.nRow1 + 1;     // Header
-    SCCOL nEndCol   = rParam.nCol2;
+    SCCOL nEndCol   = ClampToAllocatedColumns(rParam.nCol2);
     SCROW nEndRow    = rParam.nRow2;        // will change
 
     RemoveSubTotalsHandler aFunc;
@@ -1887,11 +1886,11 @@ static void lcl_RemoveNumberFormat( ScTable* pTab, SCCOL nCol, SCROW nRow )
     if ( pPattern->GetItemSet().GetItemState( ATTR_VALUE_FORMAT, false )
             == SfxItemState::SET )
     {
-        ScPatternAttr aNewPattern( *pPattern );
-        SfxItemSet& rSet = aNewPattern.GetItemSet();
+        auto pNewPattern = std::make_unique<ScPatternAttr>( *pPattern );
+        SfxItemSet& rSet = pNewPattern->GetItemSet();
         rSet.ClearItem( ATTR_VALUE_FORMAT );
         rSet.ClearItem( ATTR_LANGUAGE_FORMAT );
-        pTab->SetPattern( nCol, nRow, aNewPattern );
+        pTab->SetPattern( nCol, nRow, std::move(pNewPattern) );
     }
 }
 
@@ -2730,7 +2729,7 @@ public:
 
 bool ScTable::ValidQuery(
     SCROW nRow, const ScQueryParam& rParam, const ScRefCellValue* pCell, bool* pbTestEqualCondition,
-    const ScInterpreterContext* pContext)
+    const ScInterpreterContext* pContext, sc::TableColumnBlockPositionSet* pBlockPos)
 {
     if (!rParam.GetEntry(0).bDoQuery)
         return true;
@@ -2754,19 +2753,36 @@ bool ScTable::ValidQuery(
 
         // We can only handle one single direct query passed as a known pCell,
         // subsequent queries have to obtain the cell.
-        ScRefCellValue aCell( (pCell && it == itBeg) ? *pCell : GetCellValue(nCol, nRow));
+        ScRefCellValue aCell;
+        if(pCell && it == itBeg)
+            aCell = *pCell;
+        else if( pBlockPos )
+        {   // hinted mdds access
+            ScColumn* column = FetchColumn(nCol);
+            aCell = column->GetCellValue(*pBlockPos->getBlockPosition( nCol ), nRow);
+        }
+        else
+            aCell = GetCellValue(nCol, nRow);
 
         std::pair<bool,bool> aRes(false, false);
 
         const ScQueryEntry::QueryItemsType& rItems = rEntry.GetQueryItems();
         if (rItems.size() == 1 && rItems.front().meType == ScQueryEntry::ByEmpty)
         {
+            bool hasData;
+            if( pBlockPos )
+            {
+                ScColumn* column = FetchColumn(rEntry.nField);
+                hasData = column->HasDataAt(*pBlockPos->getBlockPosition(rEntry.nField), nRow);
+            }
+            else
+                hasData = aCol[rEntry.nField].HasDataAt(nRow);
             if (rEntry.IsQueryByEmpty())
-                aRes.first = !aCol[rEntry.nField].HasDataAt(nRow);
+                aRes.first = !hasData;
             else
             {
                 assert(rEntry.IsQueryByNonEmpty());
-                aRes.first = aCol[rEntry.nField].HasDataAt(nRow);
+                aRes.first = hasData;
             }
         }
         else
@@ -3057,11 +3073,13 @@ SCSIZE ScTable::Query(const ScQueryParam& rParamOrg, bool bKeepSub)
                             aParam.nDestCol, aParam.nDestRow, aParam.nDestTab );
     }
 
+    sc::TableColumnBlockPositionSet blockPos( GetDoc(), nTab ); // cache mdds access
+
     SCROW nRealRow2 = aParam.nRow2;
     for (SCROW j = aParam.nRow1 + nHeader; j <= nRealRow2; ++j)
     {
         bool bResult;                                   // Filter result
-        bool bValid = ValidQuery(j, aParam);
+        bool bValid = ValidQuery(j, aParam, nullptr, nullptr, nullptr, &blockPos);
         if (!bValid && bKeepSub)                        // Keep subtotals
         {
             for (SCCOL nCol=aParam.nCol1; nCol<=aParam.nCol2 && !bValid; nCol++)
@@ -3541,7 +3559,7 @@ void ScTable::UpdateSelectionFunction( ScFunctionData& rData, const ScMarkData& 
         aMarkArea.aEnd.SetCol(MAXCOL);
     }
     const SCCOL nStartCol = aMarkArea.aStart.Col();
-    const SCCOL nEndCol = aMarkArea.aEnd.Col();
+    const SCCOL nEndCol = ClampToAllocatedColumns(aMarkArea.aEnd.Col());
     for (SCCOL nCol = nStartCol; nCol <= nEndCol && !rData.getError(); ++nCol)
     {
         if (mpColFlags && ColHidden(nCol))

@@ -22,12 +22,14 @@
 #include <sal/config.h>
 
 #include <vcl/inputtypes.hxx>
+#include <tools/color.hxx>
 
 #include <ctime>
+#include <memory>
 
-#include <swtypes.hxx>
 #include <swrect.hxx>
 
+class OutputDevice;
 class SwRootFrame;
 class SwLayoutFrame;
 class SwPageFrame;
@@ -94,6 +96,11 @@ class SwLayAction
 
     // OD 14.04.2003 #106346# - new flag for content formatting on interrupt.
     bool    mbFormatContentOnInterrupt;
+
+    // for loop control by disabling in-row splitting within embedded tables
+    const SwPageFrame  *m_pCurPage;
+    sal_uInt16 m_nTabLevel;  // embedding level
+    sal_uInt32 m_nCallCount; // calling FormatLayoutTab on the same page
 
     void PaintContent( const SwContentFrame *, const SwPageFrame *,
                      const SwRect &rOldRect, long nOldBottom );

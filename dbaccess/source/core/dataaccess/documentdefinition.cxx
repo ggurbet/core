@@ -354,7 +354,7 @@ OUString ODocumentDefinition::GetDocumentServiceFromMediaType( const OUString& _
         ::comphelper::MimeConfigurationHelper aConfigHelper( _rContext );
         sResult = aConfigHelper.GetDocServiceNameFromMediaType( _rMediaType );
         _rClassId = comphelper::MimeConfigurationHelper::GetSequenceClassIDRepresentation(aConfigHelper.GetExplicitlyRegisteredObjClassID( _rMediaType ));
-        if ( !_rClassId.getLength() && !sResult.isEmpty() )
+        if ( !_rClassId.hasElements() && !sResult.isEmpty() )
         {
             Reference< XNameAccess > xObjConfig = aConfigHelper.GetObjConfiguration();
             if ( xObjConfig.is() )
@@ -409,8 +409,8 @@ ODocumentDefinition::ODocumentDefinition( const Reference< XInterface >& _rxCont
 void ODocumentDefinition::initialLoad( const Sequence< sal_Int8 >& i_rClassID, const Sequence< PropertyValue >& i_rCreationArgs,
                                        const Reference< XConnection >& i_rConnection )
 {
-    OSL_ENSURE( i_rClassID.getLength(), "ODocumentDefinition::initialLoad: illegal class ID!" );
-    if ( !i_rClassID.getLength() )
+    OSL_ENSURE( i_rClassID.hasElements(), "ODocumentDefinition::initialLoad: illegal class ID!" );
+    if ( !i_rClassID.hasElements() )
         return;
 
     loadEmbeddedObject( i_rConnection, i_rClassID, i_rCreationArgs, false, false );
@@ -563,7 +563,7 @@ namespace
 void ODocumentDefinition::impl_removeFrameFromDesktop_throw( const Reference<XComponentContext> & _rxContext, const Reference< XFrame >& _rxFrame )
 {
     Reference< XDesktop2 > xDesktop = Desktop::create( _rxContext );
-    Reference< XFrames > xFrames( xDesktop->getFrames(), UNO_QUERY_THROW );
+    Reference< XFrames > xFrames( xDesktop->getFrames(), UNO_SET_THROW );
     xFrames->remove( _rxFrame );
 }
 
@@ -696,7 +696,7 @@ void ODocumentDefinition::impl_initFormEditView( const Reference< XController >&
     try
     {
         Reference< XViewSettingsSupplier > xSettingsSupplier( _rxController, UNO_QUERY_THROW );
-        Reference< XPropertySet > xViewSettings( xSettingsSupplier->getViewSettings(), UNO_QUERY_THROW );
+        Reference< XPropertySet > xViewSettings( xSettingsSupplier->getViewSettings(), UNO_SET_THROW );
 
         // the below code could indirectly tamper with the "modified" flag of the model, temporarily disable this
         LockModifiable aLockModify( _rxController->getModel() );
@@ -959,7 +959,7 @@ Any SAL_CALL ODocumentDefinition::execute( const Command& aCommand, sal_Int32 Co
         // making it release the own mutex before calling SolarMutex-code is ... difficult, at least.
         // So, to be on the same side, we lock the SolarMutex here. Yes, it sucks.
         ::SolarMutexGuard aSolarGuard;
-        ::osl::ClearableMutexGuard aGuard(m_aMutex);
+        osl::MutexGuard aGuard(m_aMutex);
         if ( m_bInExecute )
             return aRet;
 
@@ -994,7 +994,7 @@ Any SAL_CALL ODocumentDefinition::execute( const Command& aCommand, sal_Int32 Co
         return onCommandOpenSomething( aCommand.Argument, bActivateObject, Environment );
     }
 
-    ::osl::ClearableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
     if ( m_bInExecute )
         return aRet;
 
@@ -1028,7 +1028,7 @@ Any SAL_CALL ODocumentDefinition::execute( const Command& aCommand, sal_Int32 Co
     {
         Sequence<Any> aIni;
         aCommand.Argument >>= aIni;
-        if ( !aIni.getLength() )
+        if ( !aIni.hasElements() )
         {
             OSL_FAIL( "Wrong argument count!" );
             ucbhelper::cancelCommandExecution(
@@ -1543,7 +1543,7 @@ void ODocumentDefinition::loadEmbeddedObject( const Reference< XConnection >& i_
             bool bSetSize = false;
             sal_Int32 nEntryConnectionMode = EntryInitModes::DEFAULT_INIT;
             Sequence< sal_Int8 > aClassID = _aClassID;
-            if ( aClassID.getLength() )
+            if ( aClassID.hasElements() )
             {
                 nEntryConnectionMode = EntryInitModes::TRUNCATE_INIT;
                 bSetSize = true;
@@ -1566,7 +1566,7 @@ void ODocumentDefinition::loadEmbeddedObject( const Reference< XConnection >& i_
                         throw aWFE;
                     }
                 }
-                if ( !aClassID.getLength() )
+                if ( !aClassID.hasElements() )
                 {
                     if ( m_bForm )
                         aClassID = MimeConfigurationHelper::GetSequenceClassID(SO3_SW_CLASSID);
@@ -1577,7 +1577,7 @@ void ODocumentDefinition::loadEmbeddedObject( const Reference< XConnection >& i_
                 }
             }
 
-            OSL_ENSURE( aClassID.getLength(),"No Class ID" );
+            OSL_ENSURE( aClassID.hasElements(),"No Class ID" );
 
             Sequence< PropertyValue > aEmbeddedObjectDescriptor;
             Sequence< PropertyValue > aLoadArgs( fillLoadArgs(

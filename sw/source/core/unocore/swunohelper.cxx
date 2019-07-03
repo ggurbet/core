@@ -37,6 +37,7 @@
 #include <ucbhelper/contentidentifier.hxx>
 #include <ucbhelper/content.hxx>
 #include <swunohelper.hxx>
+#include <svx/xdef.hxx>
 #include <svx/xfillit0.hxx>
 #include <editeng/memberids.h>
 #include <svl/itemset.hxx>
@@ -80,7 +81,7 @@ bool UCB_MoveFile( const OUString& rURL, const OUString& rNewURL )
     try
     {
         INetURLObject aURL( rNewURL );
-        const OUString sName( aURL.GetName() );
+        const OUString sName(aURL.GetLastName());
         aURL.removeSegment();
         const OUString sMainURL( aURL.GetMainURL(INetURLObject::DecodeMechanism::NONE) );
 

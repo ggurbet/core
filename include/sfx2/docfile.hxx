@@ -21,41 +21,33 @@
 #define INCLUDED_SFX2_DOCFILE_HXX
 
 #include <memory>
-#include <com/sun/star/io/XSeekable.hpp>
 #include <sal/config.h>
 #include <sfx2/dllapi.h>
 #include <sfx2/signaturestate.hxx>
 #include <svl/lockfilecommon.hxx>
 #include <sal/types.h>
-#include <com/sun/star/graphic/XGraphic.hpp>
-#include <com/sun/star/util/RevisionTag.hpp>
-#include <com/sun/star/util/DateTime.hpp>
-#include <com/sun/star/io/XOutputStream.hpp>
-#include <com/sun/star/io/XInputStream.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/ucb/XContent.hpp>
-#include <com/sun/star/ucb/XCommandEnvironment.hpp>
-#include <com/sun/star/security/XCertificate.hpp>
-#include <com/sun/star/task/XInteractionHandler.hpp>
-#include <com/sun/star/embed/XStorage.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
-#include <cppuhelper/weak.hxx>
 #include <rtl/ustring.hxx>
-#include <svl/lstner.hxx>
 #include <svl/itemset.hxx>
 #include <tools/link.hxx>
 #include <tools/stream.hxx>
-#include <ucbhelper/content.hxx>
+
+namespace com::sun::star::beans { struct PropertyValue; }
+namespace com::sun::star::embed { class XStorage; }
+namespace com::sun::star::graphic { class XGraphic; }
+namespace com::sun::star::io { class XInputStream; }
+namespace com::sun::star::security { class XCertificate; }
+namespace com::sun::star::task { class XInteractionHandler; }
+namespace com::sun::star::ucb { class XCommandEnvironment; }
+namespace com::sun::star::ucb { class XContent; }
+namespace com::sun::star::util { struct DateTime; }
+namespace com::sun::star::util { struct RevisionTag; }
+namespace ucbhelper { class Content; }
 
 class SvKeyValueIterator;
-class SfxObjectFactory;
 class SfxFilter;
 class SfxMedium_Impl;
 class INetURLObject;
-class SfxObjectShell;
 class SfxFrame;
-class Timer;
 class DateTime;
 
 namespace weld
@@ -68,9 +60,9 @@ class SFX2_DLLPUBLIC SfxMedium : public SvRefBase
     std::unique_ptr< SfxMedium_Impl > pImpl;
 
     SAL_DLLPRIVATE void SetIsRemote_Impl();
-    SAL_DLLPRIVATE void CloseInStream_Impl();
+    SAL_DLLPRIVATE void CloseInStream_Impl(bool bInDestruction = false);
     SAL_DLLPRIVATE void CloseOutStream_Impl();
-    SAL_DLLPRIVATE void CloseStreams_Impl();
+    SAL_DLLPRIVATE void CloseStreams_Impl(bool bInDestruction = false);
 
     SAL_DLLPRIVATE void SetEncryptionDataToStorage_Impl();
 
@@ -129,7 +121,7 @@ public:
     const OUString&     GetOrigURL() const;
 
     SfxItemSet  *       GetItemSet() const;
-    void                Close();
+    void                Close(bool bInDestruction = false);
     void                CloseAndRelease();
     void                ReOpen();
     void                CompleteReOpen();

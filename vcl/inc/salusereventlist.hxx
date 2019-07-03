@@ -25,8 +25,6 @@
 #include <osl/mutex.hxx>
 #include <osl/thread.hxx>
 
-#include <assert.h>
-
 #include <list>
 #include <unordered_set>
 
@@ -74,7 +72,7 @@ protected:
 
     virtual void ProcessEvent( SalUserEvent aEvent ) = 0;
     virtual void TriggerUserEventProcessing() = 0;
-    virtual void TriggerAllUserEventsProcessed() {};
+    virtual void TriggerAllUserEventsProcessed() {}
 
 public:
     SalUserEventList();

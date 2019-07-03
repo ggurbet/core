@@ -37,6 +37,9 @@
 #include <algorithm>
 #include "rtfexport.hxx"
 
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
+
 using namespace css;
 
 RtfSdrExport::RtfSdrExport(RtfExport& rExport)
@@ -278,9 +281,9 @@ void RtfSdrExport::Commit(EscherPropertyContainer& rProps, const tools::Rectangl
                     && rProps.GetOpt(ESCHER_Prop_pSegmentInfo, aSegments)
                     && aVertices.nProp.size() >= 6 && aSegments.nProp.size() >= 6)
                 {
-                    const sal_uInt8* pVerticesIt = &aVertices.nProp[0] + 6;
+                    const sal_uInt8* pVerticesIt = aVertices.nProp.data() + 6;
                     std::size_t nVerticesPos = 6;
-                    const sal_uInt8* pSegmentIt = &aSegments.nProp[0];
+                    const sal_uInt8* pSegmentIt = aSegments.nProp.data();
 
                     OStringBuffer aSegmentInfo(512);
                     OStringBuffer aVerticies(512);
@@ -438,7 +441,7 @@ void RtfSdrExport::Commit(EscherPropertyContainer& rProps, const tools::Rectangl
                     .append(SAL_NEWLINE_STRING);
                 int nHeaderSize
                     = 25; // The first bytes are WW8-specific, we're only interested in the PNG
-                aBuf.append(msfilter::rtfutil::WriteHex(&rOpt.nProp[0] + nHeaderSize,
+                aBuf.append(msfilter::rtfutil::WriteHex(rOpt.nProp.data() + nHeaderSize,
                                                         rOpt.nProp.size() - nHeaderSize));
                 aBuf.append('}');
                 m_aShapeProps.insert(
@@ -703,8 +706,7 @@ void RtfSdrExport::WriteOutliner(const OutlinerParaObject& rParaObj, TextTypes e
         const sal_Int32 nEnd = aStr.getLength();
 
         aAttrIter.OutParaAttr(false);
-        m_rAttrOutput.RunText().append(m_rAttrOutput.Styles().makeStringAndClear());
-        m_rAttrOutput.RunText().append(m_rAttrOutput.StylesEnd().makeStringAndClear());
+        m_rAttrOutput.RunText().append(m_rAttrOutput.MoveCharacterProperties(true));
 
         do
         {
@@ -713,8 +715,7 @@ void RtfSdrExport::WriteOutliner(const OutlinerParaObject& rParaObj, TextTypes e
 
             aAttrIter.OutAttr(nCurrentPos);
             m_rAttrOutput.RunText().append('{');
-            m_rAttrOutput.RunText().append(m_rAttrOutput.Styles().makeStringAndClear());
-            m_rAttrOutput.RunText().append(m_rAttrOutput.StylesEnd().makeStringAndClear());
+            m_rAttrOutput.RunText().append(m_rAttrOutput.MoveCharacterProperties(true));
             m_rAttrOutput.RunText().append(SAL_NEWLINE_STRING);
             bool bTextAtr = aAttrIter.IsTextAttr(nCurrentPos);
             if (!bTextAtr)

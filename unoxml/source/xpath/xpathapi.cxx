@@ -36,6 +36,7 @@
 #include <node.hxx>
 #include "../dom/document.hxx"
 
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
 using namespace css::io;
@@ -49,7 +50,7 @@ namespace XPath
     // factory
     Reference< XInterface > CXPathAPI::_getInstance(const Reference< XMultiServiceFactory >& rSMgr)
     {
-        return Reference< XInterface >(static_cast<XXPathAPI*>(new CXPathAPI(rSMgr)));
+        return static_cast<XXPathAPI*>(new CXPathAPI(rSMgr));
     }
 
     // ctor
@@ -135,7 +136,7 @@ namespace XPath
     static void lcl_collectNamespaces(
             nsmap_t & rNamespaces, Reference< XNode > const& xNamespaceNode)
     {
-        DOM::CNode *const pCNode(DOM::CNode::GetImplementation(xNamespaceNode));
+        DOM::CNode *const pCNode(comphelper::getUnoTunnelImplementation<DOM::CNode>(xNamespaceNode));
         if (!pCNode) { throw RuntimeException(); }
 
         ::osl::MutexGuard const g(pCNode->GetOwnerDocument().GetMutex());
@@ -149,10 +150,7 @@ namespace XPath
                 const xmlChar* pPre = curDef->prefix;
                 OUString aPrefix(reinterpret_cast<char const *>(pPre), strlen(reinterpret_cast<char const *>(pPre)), RTL_TEXTENCODING_UTF8);
                 // we could already have this prefix from a child node
-                if (rNamespaces.find(aPrefix) == rNamespaces.end())
-                {
-                    rNamespaces.insert(::std::make_pair(aPrefix, aURI));
-                }
+                rNamespaces.emplace(aPrefix, aURI);
                 curDef = curDef->next;
             }
             pNode = pNode->parent;
@@ -317,11 +315,11 @@ namespace XPath
 
         // get the node and document
         ::rtl::Reference<DOM::CDocument> const pCDoc(
-                dynamic_cast<DOM::CDocument*>( DOM::CNode::GetImplementation(
+                dynamic_cast<DOM::CDocument*>( comphelper::getUnoTunnelImplementation<DOM::CNode>(
                         xContextNode->getOwnerDocument())));
         if (!pCDoc.is()) { throw RuntimeException(); }
 
-        DOM::CNode *const pCNode = DOM::CNode::GetImplementation(xContextNode);
+        DOM::CNode *const pCNode = comphelper::getUnoTunnelImplementation<DOM::CNode>(xContextNode);
         if (!pCNode) { throw RuntimeException(); }
 
         ::osl::MutexGuard const g(pCDoc->GetMutex()); // lock the document!

@@ -23,7 +23,9 @@
 #include <sfx2/request.hxx>
 #include <sfx2/progress.hxx>
 #include <sfx2/app.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/button.hxx>
 #include <vcl/oldprintadaptor.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/prnmon.hxx>
@@ -33,6 +35,7 @@
 #include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 #include <svx/svdview.hxx>
+#include <svx/svxids.hrc>
 #include <svl/eitem.hxx>
 #include <svl/stritem.hxx>
 #include <svl/intitem.hxx>

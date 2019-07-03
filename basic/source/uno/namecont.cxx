@@ -419,9 +419,9 @@ BasicManager* SfxLibraryContainer::getBasicManager()
             mpBasMgr = BasicManagerRepository::getDocumentBasicManager( xDocument );
         }
     }
-    catch (const css::ucb::ContentCreationException& e)
+    catch (const css::ucb::ContentCreationException&)
     {
-        SAL_WARN( "basic", "SfxLibraryContainer::getBasicManager: " << e );
+        TOOLS_WARN_EXCEPTION( "basic", "SfxLibraryContainer::getBasicManager:" );
     }
     return mpBasMgr;
 }
@@ -592,7 +592,7 @@ static void createVariableURL( OUString& rStr, const OUString& rLibName,
 void SfxLibraryContainer::init( const OUString& rInitialDocumentURL, const uno::Reference< embed::XStorage >& rxInitialStorage )
 {
     // this might be called from within the ctor, and the impl_init might (indirectly) create
-    // an UNO reference to ourself.
+    // a UNO reference to ourself.
     // Ensure that we're not destroyed while we're in here
     osl_atomic_increment( &m_refCount );
     init_Impl( rInitialDocumentURL, rxInitialStorage );
@@ -806,14 +806,14 @@ void SfxLibraryContainer::init_Impl( const OUString& rInitialDocumentURL,
                 xParser->setDocumentHandler( ::xmlscript::importLibraryContainer( pLibArray.get() ) );
                 xParser->parseStream( source );
             }
-            catch ( const xml::sax::SAXException& e )
+            catch ( const xml::sax::SAXException& )
             {
-                SAL_WARN("basic", e);
+                TOOLS_WARN_EXCEPTION( "basic", "" );
                 return;
             }
-            catch ( const io::IOException& e )
+            catch ( const io::IOException& )
             {
-                SAL_WARN("basic", e);
+                TOOLS_WARN_EXCEPTION( "basic", "" );
                 return;
             }
 
@@ -1174,10 +1174,10 @@ void SfxLibraryContainer::init_Impl( const OUString& rInitialDocumentURL,
                 mxSFI->kill( aPrevFolder );
             }
         }
-        catch(const Exception& e)
+        catch(const Exception&)
         {
+            TOOLS_WARN_EXCEPTION("basic", "Upgrade of Basic installation failed somehow" );
             bCleanUp = true;
-            SAL_WARN("basic", "Upgrade of Basic installation failed somehow: " << e);
         }
 
         // #i93163
@@ -1823,7 +1823,7 @@ void SfxLibraryContainer::storeLibraries_Impl( const uno::Reference< embed::XSto
                 }
             }
 
-            xTargetLibrariesStor.set( i_rStorage->openStorageElement( sTargetLibrariesStoreName, embed::ElementModes::READWRITE ), UNO_QUERY_THROW );
+            xTargetLibrariesStor.set( i_rStorage->openStorageElement( sTargetLibrariesStoreName, embed::ElementModes::READWRITE ), UNO_SET_THROW );
         }
         catch( const uno::Exception& )
         {
@@ -2654,7 +2654,7 @@ void SfxLibraryContainer::initializeFromDocument( const Reference< XStorageBased
         Reference< XServiceInfo > xSI( _rxDocument, UNO_QUERY_THROW );
         if ( xSI->supportsService("com.sun.star.document.OfficeDocument"))
         {
-            xDocStorage.set( _rxDocument->getDocumentStorage(), UNO_QUERY_THROW );
+            xDocStorage.set( _rxDocument->getDocumentStorage(), UNO_SET_THROW );
         }
         Reference< XModel > xDocument( _rxDocument, UNO_QUERY_THROW );
         Reference< XComponent > xDocComponent( _rxDocument, UNO_QUERY_THROW );
@@ -2967,9 +2967,7 @@ void SfxLibrary::implSetModified( bool _bIsModified )
 // Methods XInterface
 Any SAL_CALL SfxLibrary::queryInterface( const Type& rType )
 {
-    Any aRet;
-
-    aRet =
+    Any aRet =
         ::cppu::queryInterface(
             rType,
             static_cast< XContainer * >( this ),

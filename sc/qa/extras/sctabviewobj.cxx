@@ -8,7 +8,9 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/container/xelementaccess.hxx>
 #include <test/container/xenumerationaccess.hxx>
+#include <test/container/xindexaccess.hxx>
 #include <test/sheet/spreadsheetviewsettings.hxx>
 #include <test/sheet/xactivationbroadcaster.hxx>
 #include <test/sheet/xcellrangereferrer.hxx>
@@ -17,13 +19,16 @@
 #include <test/sheet/xviewsplitable.hxx>
 
 #include <com/sun/star/container/XIndexAccess.hpp>
-#include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/frame/XModel.hpp>
-#include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
+#include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/sheet/XSpreadsheet.hpp>
-
+#include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
+#include <com/sun/star/sheet/XViewPane.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
+
 #include <com/sun/star/uno/Reference.hxx>
+
+#include <cppu/unotype.hxx>
 
 using namespace css;
 using namespace css::uno;
@@ -34,7 +39,9 @@ class ScTabViewObj : public CalcUnoApiTest,
                      public apitest::SpreadsheetViewSettings,
                      public apitest::XActivationBroadcaster,
                      public apitest::XCellRangeReferrer,
+                     public apitest::XElementAccess,
                      public apitest::XEnumerationAccess,
+                     public apitest::XIndexAccess,
                      public apitest::XSpreadsheetView,
                      public apitest::XViewFreezable,
                      public apitest::XViewSplitable
@@ -60,8 +67,16 @@ public:
     //Disabled till it's clear why it fails on some machines.
     //CPPUNIT_TEST(testGetReferredCells);
 
+    // XElementAccess
+    CPPUNIT_TEST(testGetElementType);
+    CPPUNIT_TEST(testHasElements);
+
     // XEnumerationAccess
     CPPUNIT_TEST(testCreateEnumeration);
+
+    // XIndexAccess
+    CPPUNIT_TEST(testGetByIndex);
+    CPPUNIT_TEST(testGetCount);
 
     // XSpreadsheetView
     CPPUNIT_TEST(testGetSetActiveSheet);
@@ -80,6 +95,8 @@ private:
 
 ScTabViewObj::ScTabViewObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XElementAccess(cppu::UnoType<sheet::XViewPane>::get())
+    , XIndexAccess(1)
 {
 }
 
@@ -97,7 +114,7 @@ uno::Reference<uno::XInterface> ScTabViewObj::getXSpreadsheet(const sal_Int16 nN
 {
     uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, UNO_QUERY_THROW);
 
-    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_SET_THROW);
     xSheets->insertNewByName("Sheet2", 2);
     uno::Reference<container::XIndexAccess> xIndex(xDoc->getSheets(), UNO_QUERY_THROW);
     uno::Reference<sheet::XSpreadsheet> xSheet(xIndex->getByIndex(nNumber), UNO_QUERY_THROW);

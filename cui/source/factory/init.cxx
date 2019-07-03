@@ -17,16 +17,16 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <cuicharmap.hxx>
+#include <cui/cuicharmap.hxx>
 
 // hook to call special character dialog for edits
 // caution: needs C-Linkage since dynamically loaded via symbol name
 extern "C"
 {
-SAL_DLLPUBLIC_EXPORT bool GetSpecialCharsForEdit(vcl::Window const * i_pParent, const vcl::Font& i_rFont, OUString& o_rResult)
+SAL_DLLPUBLIC_EXPORT bool GetSpecialCharsForEdit(weld::Widget* i_pParent, const vcl::Font& i_rFont, OUString& o_rResult)
 {
     bool bRet = false;
-    SvxCharacterMap aDlg(i_pParent ? i_pParent->GetFrameWeld() : nullptr, nullptr, false);
+    SvxCharacterMap aDlg(i_pParent, nullptr, nullptr);
     aDlg.DisableFontSelection();
     aDlg.SetCharFont(i_rFont);
     if (aDlg.run() == RET_OK)

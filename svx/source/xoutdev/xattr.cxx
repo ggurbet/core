@@ -45,15 +45,42 @@
 #include <tools/bigint.hxx>
 #include <svl/itemset.hxx>
 #include <svx/strings.hrc>
-#include <svx/xattr.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflasit.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlnasit.hxx>
+#include <svx/xtextit0.hxx>
 #include <svx/xtable.hxx>
 #include <svx/dialmgr.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xflgrit.hxx>
+#include <svx/xflftrit.hxx>
+#include <svx/xsflclit.hxx>
+#include <svx/xflhtit.hxx>
+#include <svx/xbtmpit.hxx>
+#include <svx/xlndsit.hxx>
+#include <svx/xlnwtit.hxx>
+#include <svx/xlnclit.hxx>
+#include <svx/xlnstit.hxx>
+#include <svx/xlnedit.hxx>
+#include <svx/xlnstwit.hxx>
+#include <svx/xlnedwit.hxx>
+#include <svx/xlnstcit.hxx>
+#include <svx/xlnedcit.hxx>
 #include <editeng/itemtype.hxx>
 #include <editeng/editrids.hrc>
 #include <editeng/eerdll.hxx>
 #include <svx/xdef.hxx>
 #include <svx/unomid.hxx>
 #include <svx/svdmodel.hxx>
+#include <svx/xftdiit.hxx>
+#include <svx/xftstit.hxx>
+#include <svx/xftmrit.hxx>
+#include <svx/xftouit.hxx>
+#include <svx/xftshit.hxx>
+#include <svx/xftshcit.hxx>
+#include <svx/xftshxy.hxx>
+#include <svx/xftadit.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/vector/b2dvector.hxx>
@@ -128,17 +155,15 @@ OUString NameOrIndex::CheckNamedItem( const NameOrIndex* pCheckItem, const sal_u
 
     if (!aUniqueName.isEmpty() && pPool1)
     {
-        const sal_uInt32 nCount = pPool1->GetItemCount2( nWhich );
-
-        for( sal_uInt32 nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+        for (const SfxPoolItem* pItem : pPool1->GetItemSurrogates(nWhich))
         {
-            const NameOrIndex *pItem = static_cast<const NameOrIndex*>(pPool1->GetItem2( nWhich, nSurrogate ));
+            const NameOrIndex *pNameOrIndex = static_cast<const NameOrIndex*>(pItem);
 
-            if( pItem && ( pItem->GetName() == pCheckItem->GetName() ) )
+            if( pNameOrIndex->GetName() == pCheckItem->GetName() )
             {
                 // if there is already an item with the same name and the same
                 // value it's ok to set it
-                if( !pCompareValueFunc( pItem, pCheckItem ) )
+                if( !pCompareValueFunc( pNameOrIndex, pCheckItem ) )
                 {
                     // same name but different value, we need a new name for this item
                     aUniqueName.clear();
@@ -215,20 +240,18 @@ OUString NameOrIndex::CheckNamedItem( const NameOrIndex* pCheckItem, const sal_u
 
         if (aUniqueName.isEmpty() && pPool1)
         {
-            const sal_uInt32 nCount = pPool1->GetItemCount2( nWhich );
-            const NameOrIndex *pItem;
-            for( sal_uInt32 nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+            for (const SfxPoolItem* pItem : pPool1->GetItemSurrogates(nWhich))
             {
-                pItem = static_cast<const NameOrIndex*>(pPool1->GetItem2( nWhich, nSurrogate ));
+                const NameOrIndex *pNameOrIndex = static_cast<const NameOrIndex*>(pItem);
 
-                if( pItem && !pItem->GetName().isEmpty() )
+                if( !pNameOrIndex->GetName().isEmpty() )
                 {
-                    if( !bForceNew && pCompareValueFunc( pItem, pCheckItem ) )
-                        return pItem->GetName();
+                    if( !bForceNew && pCompareValueFunc( pNameOrIndex, pCheckItem ) )
+                        return pNameOrIndex->GetName();
 
-                    if( pItem->GetName().startsWith( aUser ) )
+                    if( pNameOrIndex->GetName().startsWith( aUser ) )
                     {
-                        sal_Int32 nThisIndex = pItem->GetName().copy( aUser.getLength() ).toInt32();
+                        sal_Int32 nThisIndex = pNameOrIndex->GetName().copy( aUser.getLength() ).toInt32();
                         if( nThisIndex >= nUserIndex )
                             nUserIndex = nThisIndex + 1;
                     }
@@ -1098,16 +1121,12 @@ std::unique_ptr<XLineStartItem> XLineStartItem::checkForUniqueItem( SdrModel* pM
         // 2. if we have a name check if there is already an item with the
         // same name in the documents pool with a different line end or start
 
-        sal_uInt32 nCount, nSurrogate;
-
         const SfxItemPool& rPool1 = pModel->GetItemPool();
         if (!aUniqueName.isEmpty())
         {
-            nCount = rPool1.GetItemCount2(XATTR_LINESTART);
-
-            for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+            for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINESTART))
             {
-                const XLineStartItem* pItem = rPool1.GetItem2(XATTR_LINESTART, nSurrogate);
+                auto pItem = dynamic_cast<const XLineStartItem*>(p);
 
                 if( pItem && ( pItem->GetName() == pLineStartItem->GetName() ) )
                 {
@@ -1125,11 +1144,9 @@ std::unique_ptr<XLineStartItem> XLineStartItem::checkForUniqueItem( SdrModel* pM
 
             if( !bForceNew )
             {
-                nCount = rPool1.GetItemCount2(XATTR_LINEEND);
-
-                for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+                for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINEEND))
                 {
-                    const XLineEndItem* pItem = rPool1.GetItem2(XATTR_LINEEND, nSurrogate);
+                    auto pItem = dynamic_cast<const XLineEndItem*>(p);
 
                     if( pItem && ( pItem->GetName() == pLineStartItem->GetName() ) )
                     {
@@ -1150,10 +1167,9 @@ std::unique_ptr<XLineStartItem> XLineStartItem::checkForUniqueItem( SdrModel* pM
         const SfxItemPool* pPool2 = pModel->GetStyleSheetPool() ? &pModel->GetStyleSheetPool()->GetPool() : nullptr;
         if( !aUniqueName.isEmpty() && pPool2)
         {
-            nCount = pPool2->GetItemCount2( XATTR_LINESTART );
-            for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+            for (const SfxPoolItem* p : pPool2->GetItemSurrogates(XATTR_LINESTART))
             {
-                const XLineStartItem* pItem = pPool2->GetItem2( XATTR_LINESTART, nSurrogate );
+                auto pItem = dynamic_cast<const XLineStartItem*>(p);
 
                 if( pItem && ( pItem->GetName() == pLineStartItem->GetName() ) )
                 {
@@ -1171,10 +1187,9 @@ std::unique_ptr<XLineStartItem> XLineStartItem::checkForUniqueItem( SdrModel* pM
 
             if( !bForceNew )
             {
-                nCount = pPool2->GetItemCount2( XATTR_LINEEND );
-                for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+                for (const SfxPoolItem* p : pPool2->GetItemSurrogates(XATTR_LINEEND))
                 {
-                    const XLineEndItem* pItem = pPool2->GetItem2( XATTR_LINEEND, nSurrogate );
+                    auto pItem = dynamic_cast<const XLineEndItem*>(p);
 
                     if( pItem && ( pItem->GetName() == pLineStartItem->GetName() ) )
                     {
@@ -1201,12 +1216,9 @@ std::unique_ptr<XLineStartItem> XLineStartItem::checkForUniqueItem( SdrModel* pM
             sal_Int32 nUserIndex = 1;
             const OUString aUser(SvxResId(RID_SVXSTR_LINEEND));
 
-            nCount = rPool1.GetItemCount2(XATTR_LINESTART);
-            sal_uInt32 nSurrogate2;
-
-            for (nSurrogate2 = 0; nSurrogate2 < nCount; nSurrogate2++)
+            for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINESTART))
             {
-                const XLineStartItem* pItem = rPool1.GetItem2(XATTR_LINESTART, nSurrogate2);
+                auto pItem = dynamic_cast<const XLineStartItem*>(p);
 
                 if (pItem && !pItem->GetName().isEmpty())
                 {
@@ -1226,10 +1238,9 @@ std::unique_ptr<XLineStartItem> XLineStartItem::checkForUniqueItem( SdrModel* pM
                 }
             }
 
-            nCount = rPool1.GetItemCount2(XATTR_LINEEND);
-            for (nSurrogate2 = 0; nSurrogate2 < nCount; nSurrogate2++)
+            for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINEEND))
             {
-                const XLineEndItem* pItem = rPool1.GetItem2(XATTR_LINEEND, nSurrogate2);
+                auto pItem = dynamic_cast<const XLineEndItem*>(p);
 
                 if (pItem && !pItem->GetName().isEmpty())
                 {
@@ -1349,16 +1360,12 @@ std::unique_ptr<XLineEndItem> XLineEndItem::checkForUniqueItem( SdrModel* pModel
         // 2. if we have a name check if there is already an item with the
         // same name in the documents pool with a different line end or start
 
-        sal_uInt16 nCount, nSurrogate;
-
         const SfxItemPool& rPool1 = pModel->GetItemPool();
         if (!aUniqueName.isEmpty())
         {
-            nCount = rPool1.GetItemCount2(XATTR_LINESTART);
-
-            for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+            for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINESTART))
             {
-                const XLineStartItem* pItem = rPool1.GetItem2(XATTR_LINESTART, nSurrogate);
+                auto pItem = dynamic_cast<const XLineStartItem*>(p);
 
                 if( pItem && ( pItem->GetName() == pLineEndItem->GetName() ) )
                 {
@@ -1376,11 +1383,9 @@ std::unique_ptr<XLineEndItem> XLineEndItem::checkForUniqueItem( SdrModel* pModel
 
             if( !bForceNew )
             {
-                nCount = rPool1.GetItemCount2(XATTR_LINEEND);
-
-                for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+                for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINEEND))
                 {
-                    const XLineEndItem* pItem = rPool1.GetItem2(XATTR_LINEEND, nSurrogate);
+                    auto pItem = dynamic_cast<const XLineEndItem*>(p);
 
                     if( pItem && ( pItem->GetName() == pLineEndItem->GetName() ) )
                     {
@@ -1401,10 +1406,9 @@ std::unique_ptr<XLineEndItem> XLineEndItem::checkForUniqueItem( SdrModel* pModel
         const SfxItemPool* pPool2 = pModel->GetStyleSheetPool() ? &pModel->GetStyleSheetPool()->GetPool() : nullptr;
         if( !aUniqueName.isEmpty() && pPool2)
         {
-            nCount = pPool2->GetItemCount2( XATTR_LINESTART );
-            for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+            for (const SfxPoolItem* p : pPool2->GetItemSurrogates(XATTR_LINESTART))
             {
-                const XLineStartItem* pItem = pPool2->GetItem2( XATTR_LINESTART, nSurrogate );
+                auto pItem = dynamic_cast<const XLineStartItem*>(p);
 
                 if( pItem && ( pItem->GetName() == pLineEndItem->GetName() ) )
                 {
@@ -1422,10 +1426,9 @@ std::unique_ptr<XLineEndItem> XLineEndItem::checkForUniqueItem( SdrModel* pModel
 
             if( !bForceNew )
             {
-                nCount = pPool2->GetItemCount2( XATTR_LINEEND );
-                for( nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+                for (const SfxPoolItem* p : pPool2->GetItemSurrogates(XATTR_LINEEND))
                 {
-                    const XLineEndItem* pItem = pPool2->GetItem2( XATTR_LINEEND, nSurrogate );
+                    auto pItem = dynamic_cast<const XLineEndItem*>(p);
 
                     if( pItem && ( pItem->GetName() == pLineEndItem->GetName() ) )
                     {
@@ -1452,12 +1455,9 @@ std::unique_ptr<XLineEndItem> XLineEndItem::checkForUniqueItem( SdrModel* pModel
             sal_Int32 nUserIndex = 1;
             const OUString aUser(SvxResId(RID_SVXSTR_LINEEND));
 
-            nCount = rPool1.GetItemCount2(XATTR_LINESTART);
-            sal_uInt32 nSurrogate2;
-
-            for (nSurrogate2 = 0; nSurrogate2 < nCount; nSurrogate2++)
+            for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINESTART))
             {
-                const XLineStartItem* pItem = rPool1.GetItem2(XATTR_LINESTART, nSurrogate2);
+                auto pItem = dynamic_cast<const XLineStartItem*>(p);
 
                 if (pItem && !pItem->GetName().isEmpty())
                 {
@@ -1477,10 +1477,9 @@ std::unique_ptr<XLineEndItem> XLineEndItem::checkForUniqueItem( SdrModel* pModel
                 }
             }
 
-            nCount = rPool1.GetItemCount2(XATTR_LINEEND);
-            for (nSurrogate2 = 0; nSurrogate2 < nCount; nSurrogate2++)
+            for (const SfxPoolItem* p : rPool1.GetItemSurrogates(XATTR_LINEEND))
             {
-                const XLineEndItem* pItem = rPool1.GetItem2(XATTR_LINEEND, nSurrogate2);
+                auto pItem = dynamic_cast<const XLineEndItem*>(p);
 
                 if (pItem && !pItem->GetName().isEmpty())
                 {
@@ -1898,11 +1897,6 @@ SfxPoolItem* XSecondaryFillColorItem::Clone(SfxItemPool* /*pPool*/) const
     return new XSecondaryFillColorItem(*this);
 }
 
-sal_uInt16 XSecondaryFillColorItem::GetVersion( sal_uInt16 /*nFileFormatVersion*/ ) const
-{
-    return 2;
-}
-
 bool XSecondaryFillColorItem::GetPresentation
 (
     SfxItemPresentation /*ePres*/,
@@ -2008,14 +2002,6 @@ const XGradient& XFillGradientItem::GetGradientValue() const // GetValue -> GetG
     // ToDo: This should fail. We never called this code with a table so this should always
     // have failed. Thus, I'm thinking that XFillGradientItem can't be an Index.
     return aGradient;
-}
-
-sal_uInt16 XFillGradientItem::GetVersion( sal_uInt16 /*nFileFormatVersion*/) const
-{
-    // !!! this version number also represents the version number of superclasses
-    // !!! (e.g. XFillFloatTransparenceItem); if you make any changes here,
-    // !!! the superclass is also affected
-    return 1;
 }
 
 bool XFillGradientItem::GetPresentation
@@ -2309,13 +2295,6 @@ bool XFillFloatTransparenceItem::operator==( const SfxPoolItem& rItem ) const
 SfxPoolItem* XFillFloatTransparenceItem::Clone( SfxItemPool* /*pPool*/) const
 {
     return new XFillFloatTransparenceItem( *this );
-}
-
-sal_uInt16 XFillFloatTransparenceItem::GetVersion( sal_uInt16 nFileFormatVersion ) const
-{
-    // !!! if version number of this object must be increased, please   !!!
-    // !!! increase version number of base class XFillGradientItem      !!!
-    return XFillGradientItem::GetVersion( nFileFormatVersion );
 }
 
 bool XFillFloatTransparenceItem::QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId ) const

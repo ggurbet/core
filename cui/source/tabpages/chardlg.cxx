@@ -28,6 +28,8 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
+#include <svx/ucsubset.hxx>
 #include <svtools/unitconv.hxx>
 #include <svl/languageoptions.hxx>
 #include <svx/xtable.hxx>
@@ -54,7 +56,7 @@
 #include <svx/dlgutil.hxx>
 #include <dialmgr.hxx>
 #include <sfx2/htmlmode.hxx>
-#include <cuicharmap.hxx>
+#include <cui/cuicharmap.hxx>
 #include "chardlg.h"
 #include <editeng/emphasismarkitem.hxx>
 #include <editeng/charreliefitem.hxx>
@@ -72,6 +74,7 @@
 #include <svx/flagsdef.hxx>
 #include <FontFeaturesDialog.hxx>
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 
 using namespace ::com::sun::star;
 
@@ -2701,6 +2704,9 @@ void SvxCharPositionPage::Reset( const SfxItemSet* rSet )
         m_nSuperProp = static_cast<sal_uInt8>(sUser.getToken( 0, ';', nIdx ).toInt32());
         m_nSubProp = static_cast<sal_uInt8>(sUser.getToken( 0, ';', nIdx ).toInt32());
 
+        // tdf#120412 up to 14400% (eg. 1584 pt with 11 pt letters)
+        m_xHighLowMF->set_max(MAX_ESC_POS, FieldUnit::PERCENT);
+
         //fdo#75307 validate all the entries and discard all of them if any are
         //out of range
         bool bValid = true;
@@ -3113,7 +3119,7 @@ void SvxCharTwoLinesPage::Initialize()
 void SvxCharTwoLinesPage::SelectCharacter(weld::TreeView* pBox)
 {
     bool bStart = pBox == m_xStartBracketLB.get();
-    SvxCharacterMap aDlg(GetFrameWeld(), nullptr, false);
+    SvxCharacterMap aDlg(GetFrameWeld(), nullptr, nullptr);
     aDlg.DisableFontSelection();
 
     if (aDlg.run() == RET_OK)

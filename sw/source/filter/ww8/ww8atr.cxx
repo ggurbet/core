@@ -25,7 +25,6 @@
 #include <hintids.hxx>
 
 #include <vcl/svapp.hxx>
-#include <vcl/salbtype.hxx>
 #include <vcl/settings.hxx>
 #include <sal/log.hxx>
 
@@ -105,6 +104,7 @@
 #include <flddat.hxx>
 #include <ndtxt.hxx>
 #include <swrect.hxx>
+#include <redline.hxx>
 #include <reffld.hxx>
 #include <ftninfo.hxx>
 #include <charfmt.hxx>
@@ -311,7 +311,8 @@ void MSWordExportBase::OutputItemSet( const SfxItemSet& rSet, bool bPapFormat, b
             if (pXFillStyleItem && pXFillStyleItem->GetValue() == drawing::FillStyle_SOLID && !rSet.HasItem(RES_BACKGROUND))
             {
                 // Construct an SvxBrushItem, as expected by the exporters.
-                AttrOutput().OutputItem(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND));
+                std::shared_ptr<SvxBrushItem> aBrush(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND));
+                AttrOutput().OutputItem(*aBrush);
             }
         }
         m_pISet = nullptr;                      // for double attributes
@@ -854,7 +855,8 @@ void MSWordExportBase::OutputFormat( const SwFormat& rFormat, bool bPapFormat, b
                     case drawing::FillStyle_SOLID:
                     {
                         // Construct an SvxBrushItem, as expected by the exporters.
-                        aSet.Put(getSvxBrushItemFromSourceSet(rFrameFormat.GetAttrSet(), RES_BACKGROUND));
+                        std::shared_ptr<SvxBrushItem> aBrush(getSvxBrushItemFromSourceSet(rFrameFormat.GetAttrSet(), RES_BACKGROUND));
+                        aSet.Put(*aBrush);
                         break;
                     }
                     default:
@@ -2008,7 +2010,7 @@ void AttributeOutputBase::GenerateBookmarksForSequenceField(const SwTextNode& rN
                     bool bHaveCaptionOnlyBkm = false;
                     bool bHaveNumberOnlyBkm = false;
                     bool bRunSplittedAtSep = false;
-                    for( auto pFieldType : *pFieldTypes )
+                    for( auto const & pFieldType : *pFieldTypes )
                     {
                         if( SwFieldIds::GetRef == pFieldType->Which() )
                         {
@@ -3226,8 +3228,8 @@ void AttributeOutputBase::TextFlyContent( const SwFormatFlyCnt& rFlyContent )
 {
     if ( auto pTextNd = dynamic_cast< const SwContentNode *>( GetExport().m_pOutFormatNode )  )
     {
-        Point aLayPos;
-        aLayPos = pTextNd->FindLayoutRect( false, &aLayPos ).Pos();
+        Point const origin;
+        Point aLayPos = pTextNd->FindLayoutRect( false, &origin ).Pos();
 
         SwPosition aPos( *pTextNd );
         ww8::Frame aFrame( *rFlyContent.GetFrameFormat(), aPos );
@@ -5462,7 +5464,7 @@ void AttributeOutputBase::FormatCharBorder( const SvxBoxItem& rBox )
  * - Start = the last character of the current paragraph
  * - End = the first character of the next paragraph
  */
-const SwRedlineData* AttributeOutputBase::GetParagraphMarkerRedline( const SwTextNode& rNode, RedlineType_t aRedlineType)
+const SwRedlineData* AttributeOutputBase::GetParagraphMarkerRedline( const SwTextNode& rNode, RedlineType aRedlineType)
 {
     // ToDo : this is not the most ideal ... should start maybe from 'nCurRedlinePos'
     for(SwRangeRedline* pRedl : GetExport().m_pDoc->getIDocumentRedlineAccess().GetRedlineTable())

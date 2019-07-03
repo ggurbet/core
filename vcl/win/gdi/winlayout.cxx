@@ -57,7 +57,8 @@ GlobalOpenGLGlyphCache * GlobalOpenGLGlyphCache::get()
     return data->m_pGlobalOpenGLGlyphCache.get();
 }
 
-bool WinFontInstance::CacheGlyphToAtlas(HDC hDC, HFONT hFont, int nGlyphIndex, SalGraphics& rGraphics)
+bool WinFontInstance::CacheGlyphToAtlas(HDC hDC, HFONT hFont, int nGlyphIndex,
+                                        SalGraphics& rGraphics, const GenericSalLayout& rLayout)
 {
     OpenGLGlyphDrawElement aElement;
 
@@ -116,10 +117,11 @@ bool WinFontInstance::CacheGlyphToAtlas(HDC hDC, HFONT hFont, int nGlyphIndex, S
     std::vector<float> aGlyphAdv(1);   // offsets between glyphs
     std::vector<DWRITE_GLYPH_OFFSET> aGlyphOffset(1, {0.0f, 0.0f});
     std::vector<int> aEnds(1); // end of each glyph box
+    float fHScale = getHScale();
     float totWidth = 0;
     {
         int overhang = aInkBoxes[0].Left();
-        int blackWidth = aInkBoxes[0].getWidth(); // width of non-AA pixels
+        int blackWidth = aInkBoxes[0].getWidth() * fHScale; // width of non-AA pixels
         aElement.maLeftOverhangs = overhang;
 
         aGlyphAdv[0] = blackWidth + aElement.getExtraSpace();
@@ -170,6 +172,7 @@ bool WinFontInstance::CacheGlyphToAtlas(HDC hDC, HFONT hFont, int nGlyphIndex, S
         0
     };
 
+    WinFontTransformGuard aTransformGuard(pRT, fHScale, rLayout, baseline);
     pRT->BeginDraw();
     pRT->DrawGlyphRun(baseline, &glyphs, pBrush);
     HRESULT hResult = pRT->EndDraw();
@@ -210,16 +213,11 @@ TextOutRenderer & TextOutRenderer::get(bool bUseDWrite)
 
     if (bUseDWrite)
     {
-        static bool const bSuccess(D2DWriteTextOutRenderer::InitModules());
-        if (bSuccess && !pSalData->m_pD2DWriteTextOutRenderer)
+        if (!pSalData->m_pD2DWriteTextOutRenderer)
         {
             pSalData->m_pD2DWriteTextOutRenderer.reset(new D2DWriteTextOutRenderer());
         }
-        if (pSalData->m_pD2DWriteTextOutRenderer)
-        {
-            return *pSalData->m_pD2DWriteTextOutRenderer;
-        }
-        // else: fall back to GDI
+        return *pSalData->m_pD2DWriteTextOutRenderer;
     }
     if (!pSalData->m_pExTextOutRenderer)
     {
@@ -319,6 +317,16 @@ bool WinFontInstance::hasHScale() const
     return nWidth != nHeight;
 }
 
+float WinFontInstance::getHScale() const
+{
+    const FontSelectPattern& rPattern = GetFontSelectPattern();
+    int nHeight(rPattern.mnHeight);
+    if (!nHeight)
+        return 1.0;
+    float nWidth(rPattern.mnWidth ? rPattern.mnWidth * GetAverageWidthFactor() : nHeight);
+    return nWidth / nHeight;
+}
+
 static hb_blob_t* getFontTable(hb_face_t* /*face*/, hb_tag_t nTableTag, void* pUserData)
 {
     sal_uLong nLength = 0;
@@ -393,6 +401,10 @@ bool WinSalGraphics::CacheGlyphs(const GenericSalLayout& rLayout)
     if (!bDoGlyphCaching)
         return false;
 
+    if (rLayout.GetOrientation())
+        // Our caching is incomplete, skip it for non-horizontal text.
+        return false;
+
     HDC hDC = getHDC();
     WinFontInstance& rFont = *static_cast<WinFontInstance*>(&rLayout.GetFont());
     HFONT hFONT = rFont.GetHFONT();
@@ -404,7 +416,7 @@ bool WinSalGraphics::CacheGlyphs(const GenericSalLayout& rLayout)
     {
         if (!rFont.GetOpenGLGlyphCache().IsGlyphCached(pGlyph->m_aGlyphId))
         {
-            if (!rFont.CacheGlyphToAtlas(hDC, hFONT, pGlyph->m_aGlyphId, *this))
+            if (!rFont.CacheGlyphToAtlas(hDC, hFONT, pGlyph->m_aGlyphId, *this, rLayout))
                 return false;
         }
     }
@@ -463,12 +475,12 @@ void WinSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
 
     const WinFontInstance* pWinFont = static_cast<const WinFontInstance*>(&rLayout.GetFont());
     const HFONT hLayoutFont = pWinFont->GetHFONT();
-
-    // Our DirectWrite renderer is incomplete, skip it for non-horizontal or
-    // stretched text.
-    bool bForceGDI = rLayout.GetOrientation() || pWinFont->hasHScale();
-
     bool bUseOpenGL = OpenGLHelper::isVCLOpenGLEnabled() && !mbPrinter;
+
+    // Our DirectWrite renderer is incomplete, skip it for vertical text where glyphs are not
+    // rotated.
+    bool bForceGDI = rLayout.GetFont().GetFontSelectPattern().mbVertical;
+
     if (!bUseOpenGL)
     {
         // no OpenGL, just classic rendering

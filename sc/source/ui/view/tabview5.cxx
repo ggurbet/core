@@ -28,6 +28,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/lokhelper.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/viewfrm.hxx>
 
 #include <tabview.hxx>
 #include <tabvwsh.hxx>
@@ -313,7 +314,7 @@ void ScTabView::TabChanged( bool bSameTabButMoved )
         uno::Reference<frame::XController> xController = pViewFrame->GetFrame().GetController();
         if (xController.is())
         {
-            ScTabViewObj* pImp = ScTabViewObj::getImplementation( xController );
+            ScTabViewObj* pImp = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
             if (pImp)
                 pImp->SheetChanged( bSameTabButMoved );
         }
@@ -322,7 +323,7 @@ void ScTabView::TabChanged( bool bSameTabButMoved )
     if (comphelper::LibreOfficeKit::isActive())
     {
         ScDocShell* pDocSh = GetViewData().GetDocShell();
-        ScModelObj* pModelObj = pDocSh ? ScModelObj::getImplementation( pDocSh->GetModel()) : nullptr;
+        ScModelObj* pModelObj = pDocSh ? comphelper::getUnoTunnelImplementation<ScModelObj>( pDocSh->GetModel()) : nullptr;
 
         if (pModelObj)
         {

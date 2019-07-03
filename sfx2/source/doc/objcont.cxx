@@ -25,9 +25,9 @@
 #include <com/sun/star/document/UpdateDocMode.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <comphelper/fileurl.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svl/style.hxx>
-#include <vcl/wrkwin.hxx>
 
 #include <svl/stritem.hxx>
 #include <svl/intitem.hxx>
@@ -40,6 +40,7 @@
 #include <svtools/sfxecode.hxx>
 #include <svtools/ehdl.hxx>
 #include <tools/datetime.hxx>
+#include <tools/diagnose_ex.h>
 #include <rtl/uri.hxx>
 #include <math.h>
 #include <sal/log.hxx>
@@ -67,9 +68,11 @@
 #include <basic/basmgr.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/doctempl.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/strings.hrc>
 #include <sfx2/sfxbasemodel.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/request.hxx>
 #include <openflag.hxx>
 #include <memory>
@@ -280,15 +283,11 @@ void SfxObjectShell::UpdateTime_Impl(
     }
 }
 
-
-VclPtr<SfxDocumentInfoDialog> SfxObjectShell::CreateDocumentInfoDialog
-(
-    const SfxItemSet&   rSet
-)
+std::unique_ptr<SfxDocumentInfoDialog> SfxObjectShell::CreateDocumentInfoDialog(weld::Window* pParent,
+                                                                                const SfxItemSet& rSet)
 {
-    return VclPtr<SfxDocumentInfoDialog>::Create(nullptr, rSet);
+    return std::make_unique<SfxDocumentInfoDialog>(pParent, rSet);
 }
-
 
 std::set<Color> SfxObjectShell::GetDocColors()
 {
@@ -468,9 +467,9 @@ void SfxObjectShell::UpdateFromTemplate_Impl(  )
         aTemplDate = xTemplateDocProps->getModificationDate();
         bOK = true;
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_INFO("sfx.doc", e);
+        TOOLS_INFO_EXCEPTION("sfx.doc", "");
     }
 
     // if modify date was read successfully

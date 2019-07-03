@@ -65,7 +65,7 @@ public class FunctionHelper
 
 
     /**
-     * This convert an URL (formatted as a string) to a struct com.sun.star.util.URL.
+     * This convert a URL (formatted as a string) to a struct com.sun.star.util.URL.
      * It use a special service to do that: the URLTransformer.
      * Because some API calls need it and it's not allowed to set "Complete"
      * part of the util struct only. The URL must be parsed.
@@ -177,7 +177,7 @@ public class FunctionHelper
      *
      * Note: First mode (creation of a child window) can be reached by two different
      *       ways.
-     *   - pack the required window handle of our java window inside an UNO object
+     *   - pack the required window handle of our java window inside a UNO object
      *     to transport it to the remote office toolkit and get a child office
      *     window.
      *     This is the old way. It's better to use the second one - but to be
@@ -425,7 +425,7 @@ public class FunctionHelper
 
 
     /**
-     * Dispatch an URL to given frame.
+     * Dispatch a URL to given frame.
      * Caller can register himself for following status events for dispatched
      * URL too. But nobody guarantee that such notifications will occur.
      * (see dispatchWithNotification() if you interest on that)
@@ -494,7 +494,7 @@ public class FunctionHelper
 
 
     /**
-     * Load document specified by an URL into given frame synchronously.
+     * Load document specified by a URL into given frame synchronously.
      * The result of this operation will be the loaded document for success
      * or null if loading failed.
      *
@@ -806,12 +806,12 @@ public class FunctionHelper
 
 
     /**
-     * Try to find an unique frame name, which isn't currently used inside
+     * Try to find a unique frame name, which isn't currently used inside
      * remote office instance. Because we create top level frames
      * only, it's enough to check the names of existing child frames on the
      * desktop only.
      *
-     *          should represent an unique frame name, which currently isn't
+     *          should represent a unique frame name, which currently isn't
      *          used inside the remote office frame tree
      *          (Couldn't guaranteed for a real multithreaded environment.
      *           But we try it ...)

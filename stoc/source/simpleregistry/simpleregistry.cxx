@@ -31,7 +31,6 @@
 #include <com/sun/star/registry/XSimpleRegistry.hpp>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/RuntimeException.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/uno/XInterface.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -48,6 +47,8 @@
 #include <rtl/ustring.h>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
+
+namespace com::sun::star::uno { class XComponentContext; }
 
 namespace {
 
@@ -361,7 +362,7 @@ OUString Key::getAsciiValue()
             static_cast< OWeakObject * >(this));
     }
     std::vector< char > list(size);
-    err = key_.getValue(OUString(), &list[0]);
+    err = key_.getValue(OUString(), list.data());
     if (err != RegError::NO_ERROR) {
         throw css::registry::InvalidRegistryException(
             "com.sun.star.registry.SimpleRegistry key getAsciiValue:"
@@ -377,7 +378,7 @@ OUString Key::getAsciiValue()
     }
     OUString value;
     if (!rtl_convertStringToUString(
-            &value.pData, &list[0],
+            &value.pData, list.data(),
             static_cast< sal_Int32 >(size - 1), RTL_TEXTENCODING_UTF8,
             (RTL_TEXTTOUNICODE_FLAGS_UNDEFINED_ERROR |
              RTL_TEXTTOUNICODE_FLAGS_MBUNDEFINED_ERROR |
@@ -538,7 +539,7 @@ OUString Key::getStringValue()
             static_cast< OWeakObject * >(this));
     }
     std::vector< sal_Unicode > list(size);
-    err = key_.getValue(OUString(), &list[0]);
+    err = key_.getValue(OUString(), list.data());
     if (err != RegError::NO_ERROR) {
         throw css::registry::InvalidRegistryException(
             "com.sun.star.registry.SimpleRegistry key getStringValue:"
@@ -552,7 +553,7 @@ OUString Key::getStringValue()
             " to design error",
             static_cast< OWeakObject * >(this));
     }
-    return OUString(&list[0], static_cast< sal_Int32 >(size/2 - 1));
+    return OUString(list.data(), static_cast< sal_Int32 >(size/2 - 1));
 }
 
 void Key::setStringValue(OUString const & value)

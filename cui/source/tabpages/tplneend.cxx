@@ -19,6 +19,7 @@
 
 #include <tools/urlobj.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/pathoptions.hxx>
 #include <sfx2/app.hxx>
@@ -27,11 +28,19 @@
 
 #include <strings.hrc>
 #include <svx/dialmgr.hxx>
+#include <svx/dlgctrl.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdopath.hxx>
 #include <svx/drawitem.hxx>
 #include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlnwtit.hxx>
+#include <svx/xlnclit.hxx>
+#include <svx/xlnstwit.hxx>
+#include <svx/xlnedwit.hxx>
+#include <svx/xlnstit.hxx>
+#include <svx/xlnedit.hxx>
 #include <cuitabline.hxx>
 #include <cuitabarea.hxx>
 #include <svx/svxdlg.hxx>

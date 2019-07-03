@@ -219,7 +219,7 @@ bool UnoInterfaceProxy::CanCastTo(System::Type^ fromType,
         if (nullptr != findInfo( fromType )) // proxy supports demanded interface
             return true;
 
-        //query an uno interface for the required type
+        //query a uno interface for the required type
 
         // we use the first interface in the list (m_listIfaces) to make
         // the queryInterface call
@@ -421,7 +421,7 @@ srrm::IMessage^ UnoInterfaceProxy::Invoke(srrm::IMessage^ callmsg)
         UnoInterfaceInfo^ info = findInfo( typeBeingCalled );
         OSL_ASSERT( nullptr != info );
 
-        // ToDo do without string conversion, a OUString is not needed here
+        // ToDo do without string conversion, an OUString is not needed here
         // get the type description of the call
         OUString usMethodName(mapCliString(static_cast<System::String^>(
                  props[m_methodNameString])));

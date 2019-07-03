@@ -34,11 +34,13 @@
 #include <com/sun/star/frame/status/ItemStatus.hpp>
 #include <com/sun/star/frame/status/ItemState.hpp>
 #include <com/sun/star/frame/status/Visibility.hpp>
+#include <com/sun/star/frame/XDispatchProvider.hpp>
 
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/unoctitm.hxx>
 #include <sfx2/msgpool.hxx>
+#include <sfx2/msg.hxx>
 
 using namespace ::cppu;
 using namespace ::com::sun::star::uno;

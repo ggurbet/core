@@ -58,6 +58,8 @@ namespace com { namespace sun { namespace star {
 
 namespace accessibility {
     class XAccessible;
+    class XAccessibleContext;
+    class XAccessibleEditableText;
 }
 
 namespace rendering {
@@ -162,6 +164,7 @@ struct ImplFrameData
     bool                mbInSysObjFocusHdl;     //< within a SysChildren's GetFocus handler
     bool                mbInSysObjToTopHdl;     //< within a SysChildren's ToTop handler
     bool                mbSysObjFocus;          //< does a SysChild have focus
+    sal_Int32           mnTouchPanPosition;
 
     css::uno::Reference< css::datatransfer::dnd::XDragSource > mxDragSource;
     css::uno::Reference< css::datatransfer::dnd::XDropTarget > mxDropTarget;
@@ -243,6 +246,7 @@ public:
     int mnChildEventListenersIteratingCount;
     std::set<Link<VclWindowEvent&,void>> maChildEventListenersDeleted;
     Link<vcl::Window&, bool> maHelpRequestHdl;
+    Link<vcl::Window&, bool> maMnemonicActivateHdl;
 
     // The canvas interface for this VCL window. Is persistent after the first GetCanvas() call
     css::uno::WeakReference< css::rendering::XCanvas >    mxCanvas;
@@ -275,7 +279,8 @@ public:
     css::uno::Reference< css::awt::XWindowPeer > mxWindowPeer;
     css::uno::Reference< css::accessibility::XAccessible > mxAccessible;
     std::shared_ptr< VclSizeGroup > m_xSizeGroup;
-    std::vector< VclPtr<FixedText> > m_aMnemonicLabels;
+    std::vector<VclPtr<FixedText>> m_aMnemonicLabels;
+    std::vector<css::accessibility::AccessibleRelation> m_aExtraAccessibleRelations;
     std::unique_ptr<ImplAccessibleInfos> mpAccessibleInfos;
     VCLXWindow*         mpVCLXWindow;
     vcl::Region              maWinRegion;            //< region to 'shape' the VCL window (frame coordinates)
@@ -420,6 +425,9 @@ void ImplHandleResize( vcl::Window* pWindow, long nNewWidth, long nNewHeight );
 
 VCL_DLLPUBLIC void ImplWindowStateFromStr(WindowStateData& rData, const OString& rStr);
 VCL_DLLPUBLIC OString ImplWindowStateToStr(const WindowStateData& rData);
+
+VCL_DLLPUBLIC css::uno::Reference<css::accessibility::XAccessibleEditableText>
+FindFocusedEditableText(css::uno::Reference<css::accessibility::XAccessibleContext> const&);
 
 #endif // INCLUDED_VCL_INC_WINDOW_H
 

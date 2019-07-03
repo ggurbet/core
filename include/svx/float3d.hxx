@@ -26,12 +26,10 @@
 #include <vcl/field.hxx>
 #include <sfx2/dockwin.hxx>
 #include <vcl/button.hxx>
+#include <vcl/layout.hxx>
 #include <svx/svxdllapi.h>
 
-#include <svx/f3dchild.hxx>
 #include <svx/dlgctl3d.hxx>
-#include <svx/dlgctrl.hxx>
-#include <svx/svdmodel.hxx>
 
 
 enum class ViewType3D
@@ -44,9 +42,6 @@ enum class ViewType3D
 };
 
 class FmFormModel;
-class VirtualDevice;
-class E3dView;
-class SdrPageView;
 class Svx3DCtrlItem;
 class SvxConvertTo3DItem;
 class SvxColorListBox;

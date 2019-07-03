@@ -29,16 +29,11 @@
 #include <com/sun/star/rendering/XBitmapPalette.hpp>
 
 #include <cppuhelper/implbase.hxx>
-#include <tools/diagnose_ex.h>
 #include <rtl/ref.hxx>
 #include <sal/log.hxx>
 
-#include <vcl/svapp.hxx>
 #include <vcl/canvastools.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/outdev.hxx>
 #include <vcl/bitmapaccess.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/bitmapex.hxx>
 
 #include <canvasbitmap.hxx>
@@ -482,15 +477,13 @@ private:
     virtual uno::Sequence< rendering::RGBColor > SAL_CALL convertIntegerToRGB( const uno::Sequence< ::sal_Int8 >& deviceColor ) override
     {
         const uno::Sequence< rendering::ARGBColor > aTemp( convertIntegerToARGB(deviceColor) );
-        const std::size_t nLen(aTemp.getLength());
-        uno::Sequence< rendering::RGBColor > aRes( nLen );
-        rendering::RGBColor* pOut = aRes.getArray();
-        for( std::size_t i=0; i<nLen; ++i )
-        {
-            *pOut++ = rendering::RGBColor(aTemp[i].Red,
-                                          aTemp[i].Green,
-                                          aTemp[i].Blue);
-        }
+        uno::Sequence< rendering::RGBColor > aRes( aTemp.getLength() );
+        std::transform(aTemp.begin(), aTemp.end(), aRes.begin(),
+            [](const rendering::ARGBColor& rColor) {
+                return rendering::RGBColor(rColor.Red,
+                                           rColor.Green,
+                                           rColor.Blue);
+        });
 
         return aRes;
     }
@@ -503,21 +496,18 @@ private:
                                0, static_cast<int>(nLen%nBytesPerPixel));
 
         uno::Sequence< rendering::ARGBColor > aRes( nLen / nBytesPerPixel );
-        rendering::ARGBColor* pOut( aRes.getArray() );
 
         if( getPalette().is() )
         {
-            for( std::size_t i=0; i<nLen; ++i )
-            {
-                *pOut++ = rendering::ARGBColor(
-                    1.0,
-                    vcl::unotools::toDoubleColor(deviceColor[i]),
-                    vcl::unotools::toDoubleColor(deviceColor[i]),
-                    vcl::unotools::toDoubleColor(deviceColor[i]));
-            }
+            std::transform(deviceColor.begin(), deviceColor.end(), aRes.begin(),
+                [](sal_Int8 nIn) {
+                    auto fColor = vcl::unotools::toDoubleColor(nIn);
+                    return rendering::ARGBColor(1.0, fColor, fColor, fColor);
+                });
         }
         else
         {
+            rendering::ARGBColor* pOut( aRes.getArray() );
             for( std::size_t i=0; i<nLen; i+=4 )
             {
                 *pOut++ = rendering::ARGBColor(
@@ -540,21 +530,18 @@ private:
                                0, static_cast<int>(nLen%nBytesPerPixel));
 
         uno::Sequence< rendering::ARGBColor > aRes( nLen / nBytesPerPixel );
-        rendering::ARGBColor* pOut( aRes.getArray() );
 
         if( getPalette().is() )
         {
-            for( std::size_t i=0; i<nLen; ++i )
-            {
-                *pOut++ = rendering::ARGBColor(
-                    1.0,
-                    vcl::unotools::toDoubleColor(deviceColor[i]),
-                    vcl::unotools::toDoubleColor(deviceColor[i]),
-                    vcl::unotools::toDoubleColor(deviceColor[i]));
-            }
+            std::transform(deviceColor.begin(), deviceColor.end(), aRes.begin(),
+                [](sal_Int8 nIn) {
+                    auto fColor = vcl::unotools::toDoubleColor(nIn);
+                    return rendering::ARGBColor(1.0, fColor, fColor, fColor);
+                });
         }
         else
         {
+            rendering::ARGBColor* pOut( aRes.getArray() );
             for( std::size_t i=0; i<nLen; i+=4 )
             {
                 const double fAlpha=vcl::unotools::toDoubleColor(deviceColor[i+3]);

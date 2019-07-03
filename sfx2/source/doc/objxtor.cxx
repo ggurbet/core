@@ -23,6 +23,7 @@
 #include <map>
 
 #include <cppuhelper/implbase.hxx>
+#include <cppuhelper/weakref.hxx>
 
 #include <com/sun/star/util/XCloseable.hpp>
 #include <com/sun/star/frame/XComponentLoader.hpp>
@@ -63,6 +64,7 @@
 #include <com/sun/star/document/XEmbeddedScripts.hpp>
 #include <com/sun/star/document/XScriptInvocationContext.hpp>
 #include <com/sun/star/ucb/ContentCreationException.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 #include <svl/urihelper.hxx>
 #include <unotools/pathoptions.hxx>
@@ -71,6 +73,7 @@
 #include <svtools/asynclink.hxx>
 #include <tools/diagnose_ex.h>
 #include <tools/globname.hxx>
+#include <tools/debug.hxx>
 #include <comphelper/classids.hxx>
 
 #include <sfx2/app.hxx>
@@ -93,6 +96,7 @@
 #include <sfx2/msg.hxx>
 #include <appbaslib.hxx>
 #include <sfx2/sfxbasemodel.hxx>
+#include <sfx2/sfxuno.hxx>
 #include <shellimpl.hxx>
 #include <sfx2/notebookbar/SfxNotebookBar.hxx>
 
@@ -316,7 +320,7 @@ SfxObjectShell::~SfxObjectShell()
         pSfxApp->ReleaseIndex(pImpl->nVisualDocumentNumber);
 
     // Destroy Basic-Manager
-    pImpl->aBasicManager.reset( nullptr );
+    pImpl->aBasicManager.reset(nullptr);
 
     if ( pSfxApp && pSfxApp->GetDdeService() )
         pSfxApp->RemoveDdeTopic( this );
@@ -658,9 +662,9 @@ BasicManager* SfxObjectShell::GetBasicManager() const
         if ( !pBasMgr )
             pBasMgr = SfxApplication::GetBasicManager();
     }
-    catch (const css::ucb::ContentCreationException& e)
+    catch (const css::ucb::ContentCreationException&)
     {
-        SAL_WARN("sfx.doc", "caught " << e);
+        TOOLS_WARN_EXCEPTION("sfx.doc", "");
     }
 #endif
     return pBasMgr;
@@ -725,9 +729,9 @@ Reference< XLibraryContainer > SfxObjectShell::GetDialogContainer()
         if ( pBasMgr )
             return pBasMgr->GetDialogLibraryContainer().get();
     }
-    catch (const css::ucb::ContentCreationException& e)
+    catch (const css::ucb::ContentCreationException&)
     {
-        SAL_WARN("sfx.doc", "caught " << e);
+        TOOLS_WARN_EXCEPTION("sfx.doc", "");
     }
 
     SAL_WARN("sfx.doc", "SfxObjectShell::GetDialogContainer: falling back to the application - is this really expected here?");
@@ -749,9 +753,9 @@ Reference< XLibraryContainer > SfxObjectShell::GetBasicContainer()
             if ( pBasMgr )
                 return pBasMgr->GetScriptLibraryContainer().get();
         }
-        catch (const css::ucb::ContentCreationException& e)
+        catch (const css::ucb::ContentCreationException&)
         {
-            SAL_WARN("sfx.doc", "caught " << e);
+            TOOLS_WARN_EXCEPTION("sfx.doc", "");
         }
     }
     SAL_WARN("sfx.doc", "SfxObjectShell::GetBasicContainer: falling back to the application - is this really expected here?");
@@ -812,9 +816,9 @@ void SfxObjectShell::InitBasicManager_Impl()
     {
         pImpl->aBasicManager.reset( BasicManagerRepository::getDocumentBasicManager( GetModel() ) );
     }
-    catch (const css::ucb::ContentCreationException& e)
+    catch (const css::ucb::ContentCreationException&)
     {
-        SAL_WARN("sfx.doc", "caught " << e);
+        TOOLS_WARN_EXCEPTION("sfx.doc", "");
     }
     DBG_ASSERT( pImpl->aBasicManager.isValid(), "SfxObjectShell::InitBasicManager_Impl: did not get a BasicManager!" );
     pImpl->bBasicInitialized = true;

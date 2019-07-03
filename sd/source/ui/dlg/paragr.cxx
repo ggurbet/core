@@ -22,8 +22,10 @@
 #include <svl/cjkoptions.hxx>
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
+#include <vcl/button.hxx>
 
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <svx/flagsdef.hxx>
 
 #include <paragr.hxx>

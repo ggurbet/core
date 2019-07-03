@@ -36,6 +36,8 @@
 #include <com/sun/star/ui/dialogs/XFilePicker3.hpp>
 #include <com/sun/star/ui/dialogs/XAsynchronousExecutableDialog.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
@@ -44,6 +46,7 @@
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <com/sun/star/task/XInteractionRequest.hpp>
 #include <com/sun/star/ucb/InteractiveAugmentedIOException.hpp>
+#include <com/sun/star/util/RevisionTag.hpp>
 #include <comphelper/fileurl.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequenceashashmap.hxx>
@@ -59,6 +62,8 @@
 #include <osl/thread.hxx>
 #include <vcl/cvtgrf.hxx>
 #include <vcl/mnemonic.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/window.hxx>
 #include <unotools/pathoptions.hxx>
 #include <unotools/saveopt.hxx>
 #include <unotools/securityoptions.hxx>
@@ -81,6 +86,8 @@
 #include <sfx2/frame.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfac.hxx>
+#include <sfx2/docfilt.hxx>
+#include <sfx2/objsh.hxx>
 #include <openflag.hxx>
 #include <sfx2/passwd.hxx>
 #include <sfx2/sfxresid.hxx>
@@ -1263,7 +1270,8 @@ void FileDialogHelper_Impl::implInitializeFileName( )
             if ( bAutoExtChecked )
             {   // cut the extension
                 aObj.removeExtension( );
-                mxFileDlg->setDefaultName( aObj.GetName( INetURLObject::DecodeMechanism::WithCharset ) );
+                mxFileDlg->setDefaultName(
+                    aObj.GetLastName(INetURLObject::DecodeMechanism::WithCharset));
             }
         }
     }
@@ -1890,11 +1898,23 @@ void FileDialogHelper_Impl::addGraphicFilter()
 
     try
     {
-        OUString aAllFilterName = SfxResId( STR_SFX_IMPORT_ALL );
-        aAllFilterName = ::sfx2::addExtension( aAllFilterName, aExtensions, bIsInOpenMode, *this );
+        // if the extension is not "All files", insert "All images"
+        if (aExtensions != FILEDIALOG_FILTER_ALL)
+        {
+            OUString aAllFilterName = SfxResId(STR_SFX_IMPORT_ALL_IMAGES);
+            aAllFilterName = ::sfx2::addExtension( aAllFilterName, aExtensions, bIsInOpenMode, *this );
+            xFltMgr->appendFilter( aAllFilterName, aExtensions );
+            maSelectFilter = aAllFilterName; // and make it the default
+        }
 
-        xFltMgr->appendFilter( aAllFilterName, aExtensions );
-        maSelectFilter = aAllFilterName;
+        // rhbz#1715109 always include All files *.* or *
+        OUString aAllFilesName = SfxResId( STR_SFX_FILTERNAME_ALL );
+        aAllFilesName = ::sfx2::addExtension( aAllFilesName, FILEDIALOG_FILTER_ALL, bIsInOpenMode, *this );
+        xFltMgr->appendFilter( aAllFilesName, FILEDIALOG_FILTER_ALL );
+
+        // if the extension is "All files", make that the default
+        if (aExtensions == FILEDIALOG_FILTER_ALL)
+            maSelectFilter = aAllFilesName;
     }
     catch( const IllegalArgumentException& )
     {
@@ -2545,7 +2565,7 @@ void FileDialogHelper::SetDisplayDirectory( const OUString& _rPath )
 
     INetURLObject aObj( _rPath );
 
-    OUString sFileName = aObj.GetName( INetURLObject::DecodeMechanism::WithCharset );
+    OUString sFileName = aObj.GetLastName(INetURLObject::DecodeMechanism::WithCharset);
     aObj.removeSegment();
     OUString sPath = aObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
 
@@ -2763,15 +2783,13 @@ ErrCode RequestPassword(const std::shared_ptr<const SfxFilter>& pCurrentFilter, 
 
 OUString EncodeSpaces_Impl( const OUString& rSource )
 {
-    OUString sRet( rSource );
-    sRet = sRet.replaceAll( " ", "%20" );
+    OUString sRet = rSource.replaceAll( " ", "%20" );
     return sRet;
 }
 
 OUString DecodeSpaces_Impl( const OUString& rSource )
 {
-    OUString sRet( rSource );
-    sRet = sRet.replaceAll( "%20", " " );
+    OUString sRet = rSource.replaceAll( "%20", " " );
     return sRet;
 }
 

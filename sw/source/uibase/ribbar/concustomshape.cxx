@@ -27,6 +27,7 @@
 #include <svx/sdtaaitm.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdocapt.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/outlobj.hxx>
 #include <cmdid.h>
 #include <view.hxx>
@@ -39,8 +40,10 @@
 #include <sfx2/request.hxx>
 #include <svx/fmmodel.hxx>
 #include <svl/itempool.hxx>
+#include <svl/stritem.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdoashp.hxx>
+#include <svx/xfillit0.hxx>
 #include <editeng/adjustitem.hxx>
 
 #include <math.h>

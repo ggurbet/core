@@ -358,9 +358,9 @@ DECLARE_RTFEXPORT_TEST(testMathVerticalstacks, "math-vertical-stacks.rtf")
 
 DECLARE_RTFEXPORT_TEST(testTdf49073, "tdf49073.rtf")
 {
-    // test case for Asisan phontic guide ( ruby text.)
+    // test case for Asian phontic guide (ruby text.)
     sal_Unicode aRuby[3] = { 0x304D, 0x3082, 0x3093 };
-    OUString sRuby = OUString(aRuby, SAL_N_ELEMENTS(aRuby));
+    OUString sRuby(aRuby, SAL_N_ELEMENTS(aRuby));
     CPPUNIT_ASSERT_EQUAL(sRuby, getProperty<OUString>(getParagraph(1)->getStart(), "RubyText"));
     OUString sStyle = getProperty<OUString>(getParagraph(1)->getStart(), "RubyCharStyleName");
     uno::Reference<beans::XPropertySet> xPropertySet(
@@ -483,7 +483,7 @@ DECLARE_RTFEXPORT_TEST(testFdo61507, "fdo61507.rtf")
         mxComponent, uno::UNO_QUERY);
     uno::Reference<document::XDocumentProperties> xDocumentProperties(
         xDocumentPropertiesSupplier->getDocumentProperties());
-    OUString aExpected = OUString(u"\u00C9\u00C1\u0150\u0170\u222D");
+    OUString aExpected(u"\u00C9\u00C1\u0150\u0170\u222D");
     CPPUNIT_ASSERT_EQUAL(aExpected, xDocumentProperties->getTitle());
 
     // Only "Hello.", no additional characters.
@@ -642,12 +642,12 @@ DECLARE_RTFEXPORT_TEST(testTextframeTable, "textframe-table.rtf")
     uno::Reference<text::XText> xText = xTextRange->getText();
     CPPUNIT_ASSERT_EQUAL(OUString("First para."), getParagraphOfText(1, xText)->getString());
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(2, xText), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(
-        OUString("A"),
-        uno::Reference<text::XTextRange>(xTable->getCellByName("A1"), uno::UNO_QUERY)->getString());
-    CPPUNIT_ASSERT_EQUAL(
-        OUString("B"),
-        uno::Reference<text::XTextRange>(xTable->getCellByName("B1"), uno::UNO_QUERY)->getString());
+    CPPUNIT_ASSERT_EQUAL(OUString("A"), uno::Reference<text::XTextRange>(
+                                            xTable->getCellByName("A1"), uno::UNO_QUERY_THROW)
+                                            ->getString());
+    CPPUNIT_ASSERT_EQUAL(OUString("B"), uno::Reference<text::XTextRange>(
+                                            xTable->getCellByName("B1"), uno::UNO_QUERY_THROW)
+                                            ->getString());
     CPPUNIT_ASSERT_EQUAL(OUString("Last para."), getParagraphOfText(3, xText)->getString());
 }
 

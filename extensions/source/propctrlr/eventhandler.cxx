@@ -112,9 +112,6 @@ namespace pcr
     using ::com::sun::star::container::NoSuchElementException;
     using ::com::sun::star::beans::XPropertySetInfo;
     using ::com::sun::star::container::XNameReplace;
-    using ::com::sun::star::lang::IllegalArgumentException;
-    using ::com::sun::star::lang::WrappedTargetException;
-    using ::com::sun::star::uno::RuntimeException;
     using ::com::sun::star::beans::PropertyValue;
     using ::com::sun::star::inspection::LineDescriptor;
     using ::com::sun::star::inspection::XPropertyControlFactory;
@@ -290,7 +287,7 @@ namespace pcr
             OSL_PRECOND( _rxIntrospection.is(), "lcl_addListenerTypesFor_throw: this will crash!" );
 
             Reference< XIntrospectionAccess > xIntrospectionAccess(
-                _rxIntrospection->inspect( makeAny( _rxComponent ) ), UNO_QUERY_THROW );
+                _rxIntrospection->inspect( makeAny( _rxComponent ) ), UNO_SET_THROW );
 
             Sequence< Type > aListeners( xIntrospectionAccess->getSupportedListeners() );
 
@@ -301,7 +298,7 @@ namespace pcr
 
     typedef ::cppu::WeakImplHelper <   css::container::XNameReplace
                                     >   EventHolder_Base;
-    /* An UNO component holding assigned event descriptions, for use with a SvxMacroAssignDlg */
+    /* A UNO component holding assigned event descriptions, for use with a SvxMacroAssignDlg */
     class EventHolder : public EventHolder_Base
     {
     private:
@@ -955,7 +952,7 @@ namespace pcr
         try
         {
             Reference< XScriptEventsSupplier > xEventsSupplier( m_xComponent, UNO_QUERY_THROW );
-            Reference< XNameContainer > xEvents( xEventsSupplier->getEvents(), UNO_QUERY_THROW );
+            Reference< XNameContainer > xEvents( xEventsSupplier->getEvents(), UNO_SET_THROW );
             Sequence< OUString > aEventNames( xEvents->getElementNames() );
 
             sal_Int32 nEventCount = aEventNames.getLength();
@@ -1080,7 +1077,7 @@ namespace pcr
             bool bResetScript =  sScriptCode.isEmpty();
 
             Reference< XScriptEventsSupplier > xEventsSupplier( m_xComponent, UNO_QUERY_THROW );
-            Reference< XNameContainer > xEvents( xEventsSupplier->getEvents(), UNO_QUERY_THROW );
+            Reference< XNameContainer > xEvents( xEventsSupplier->getEvents(), UNO_SET_THROW );
 
             OUStringBuffer aCompleteName;
             aCompleteName.append( _rScriptEvent.ListenerType );

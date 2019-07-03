@@ -15,6 +15,8 @@
 #include <osl/time.h>
 #include <salhelper/thread.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <tools/stream.hxx>
+#include <vcl/svapp.hxx>
 #include <docsh.hxx>
 #include <tabvwsh.hxx>
 #include <viewdata.hxx>

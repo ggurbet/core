@@ -22,7 +22,6 @@
 #include <cassert>
 #include <vector>
 
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/task/XInteractionHandler.hpp>
 #include <com/sun/star/task/InteractionHandler.hpp>
@@ -35,22 +34,16 @@
 #include <com/sun/star/ucb/UniversalContentBroker.hpp>
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
 #include <com/sun/star/ucb/XContentAccess.hpp>
-#include <com/sun/star/ucb/XContentIdentifier.hpp>
-#include <com/sun/star/ucb/XProgressHandler.hpp>
 #include <com/sun/star/ucb/XUniversalContentBroker.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Exception.hpp>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
-#include <com/sun/star/uno/XComponentContext.hpp>
-#include <com/sun/star/util/DateTime.hpp>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <comphelper/simplefileaccessinteraction.hxx>
 #include <osl/file.hxx>
-#include <rtl/string.h>
-#include <rtl/ustring.h>
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
 #include <sal/types.h>
@@ -60,6 +53,10 @@
 #include <ucbhelper/commandenvironment.hxx>
 #include <ucbhelper/content.hxx>
 #include <unotools/ucbhelper.hxx>
+
+namespace com::sun::star::ucb { class XProgressHandler; }
+namespace com::sun::star::uno { class XComponentContext; }
+namespace com::sun::star::util { struct DateTime; }
 
 namespace {
 
@@ -244,21 +241,21 @@ bool utl::UCBContentHelper::MakeFolder(
     try {
         css::uno::Sequence<css::ucb::ContentInfo> info(
             parent.queryCreatableContentsInfo());
-        for (sal_Int32 i = 0; i < info.getLength(); ++i) {
+        for (const auto& rInfo : info) {
             // Simply look for the first KIND_FOLDER:
-            if ((info[i].Attributes
+            if ((rInfo.Attributes
                  & css::ucb::ContentInfoAttribute::KIND_FOLDER)
                 != 0)
             {
                 // Make sure the only required bootstrap property is "Title":
-                if ( info[i].Properties.getLength() != 1 || info[i].Properties[0].Name != "Title" )
+                if ( rInfo.Properties.getLength() != 1 || rInfo.Properties[0].Name != "Title" )
                 {
                     continue;
                 }
                 css::uno::Sequence<OUString> keys { "Title" };
                 css::uno::Sequence<css::uno::Any> values(1);
                 values[0] <<= title;
-                if (parent.insertNewContent(info[i].Type, keys, values, result))
+                if (parent.insertNewContent(rInfo.Type, keys, values, result))
                 {
                     return true;
                 }
@@ -268,11 +265,9 @@ bool utl::UCBContentHelper::MakeFolder(
         if (e.Code == css::ucb::IOErrorCode_ALREADY_EXISTING) {
             exists = true;
         } else {
-            SAL_INFO(
+            TOOLS_INFO_EXCEPTION(
                 "unotools.ucbhelper",
-                "UCBContentHelper::MakeFolder(" << title
-                    << ") InteractiveIOException \"" << e
-                    << "\", code " << + static_cast<sal_Int32>(e.Code));
+                "UCBContentHelper::MakeFolder(" << title << ")");
         }
     } catch (css::ucb::NameClashException const &) {
         exists = true;
@@ -282,11 +277,9 @@ bool utl::UCBContentHelper::MakeFolder(
         assert(false && "this cannot happen");
         throw;
     } catch (css::uno::Exception const &) {
-        css::uno::Any e(cppu::getCaughtException());
-        SAL_INFO(
+        TOOLS_INFO_EXCEPTION(
             "unotools.ucbhelper",
-            "UCBContentHelper::MakeFolder(" << title << ") "
-                << exceptionToString(e));
+            "UCBContentHelper::MakeFolder(" << title << ") ");
     }
     if (exists) {
         INetURLObject o(parent.getURL());

@@ -107,7 +107,7 @@ void SmartTagMenuController::FillMenu()
     sal_uInt16 nMenuId = 1;
     sal_uInt16 nSubMenuId = MN_ST_INSERT_START;
 
-    VCLXMenu* pAwtMenu = VCLXMenu::GetImplementation( m_xPopupMenu );
+    VCLXMenu* pAwtMenu = comphelper::getUnoTunnelImplementation<VCLXMenu>( m_xPopupMenu );
     PopupMenu* pVCLMenu = static_cast< PopupMenu* >( pAwtMenu->GetMenu() );
 
     const css::uno::Sequence< css::uno::Sequence< css::uno::Reference< css::smarttags::XSmartTagAction > > >& rActionComponentsSequence = m_pSmartTagItem->GetActionComponentsSequence();
@@ -127,7 +127,7 @@ void SmartTagMenuController::FillMenu()
         const css::uno::Sequence< css::uno::Reference< css::smarttags::XSmartTagAction > >& rActionComponents = rActionComponentsSequence[i];
         const css::uno::Sequence< sal_Int32 >& rActionIndices = rActionIndicesSequence[i];
 
-        if ( 0 == rActionComponents.getLength() || 0 == rActionIndices.getLength() )
+        if ( !rActionComponents.hasElements() || !rActionIndices.hasElements() )
             continue;
 
         // Ask first entry for the smart tag type caption

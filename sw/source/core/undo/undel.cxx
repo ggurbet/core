@@ -80,7 +80,7 @@ static SwTextNode * FindFirstAndNextNode(SwDoc & rDoc, SwUndRng const& rRange,
         if (rRedline.nSttNode <= rRange.nSttNode
             && rRedline.nSttNode < rRange.nEndNode
             && rRange.nEndNode <= rRedline.nEndNode
-            && rRedline.GetType() == nsRedlineType_t::REDLINE_DELETE)
+            && rRedline.GetType() == RedlineType::Delete)
         {
             nEndOfRedline = rRedline.nEndNode;
             o_rpFirstMergedDeletedTextNode = rDoc.GetNodes()[rRedline.nSttNode]->GetTextNode();
@@ -573,7 +573,7 @@ bool SwUndoDelete::CanGrouping( SwDoc* pDoc, const SwPaM& rDelPam )
         if( !bOk )
             return false;
 
-        pDoc->getIDocumentRedlineAccess().DeleteRedline( rDelPam, false, USHRT_MAX );
+        pDoc->getIDocumentRedlineAccess().DeleteRedline( rDelPam, false, RedlineType::Any );
     }
 
     // Both 'deletes' can be consolidated, so 'move' the related character
@@ -903,7 +903,7 @@ void SwUndoDelete::UndoImpl(::sw::UndoRedoContext & rContext)
                 pTextNd->RestoreMetadata(m_pMetadataUndoEnd);
             }
         }
-        else if( m_aSttStr && bNodeMove )
+        else if (m_aSttStr && bNodeMove && pInsNd == nullptr)
         {
             SwTextNode * pNd = aPos.nNode.GetNode().GetTextNode();
             if( pNd )
@@ -1114,8 +1114,10 @@ void SwUndoDelete::UndoImpl(::sw::UndoRedoContext & rContext)
     {
         // tdf#121031 if the start node is a text node, it already has a frame;
         // if it's a table, it does not
+        // tdf#109376 exception: end on non-text-node -> start node was inserted
         SwNodeIndex const start(rDoc.GetNodes(), nSttNode +
-            ((m_bDelFullPara || !rDoc.GetNodes()[nSttNode]->IsTextNode()) ? 0 : 1));
+            ((m_bDelFullPara || !rDoc.GetNodes()[nSttNode]->IsTextNode() || pInsNd)
+                 ? 0 : 1));
         // don't include end node in the range: it may have been merged already
         // by the start node, or it may be merged by one of the moved nodes,
         // but if it isn't merged, its current frame(s) should be good...

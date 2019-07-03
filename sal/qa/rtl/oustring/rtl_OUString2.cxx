@@ -125,8 +125,7 @@ private:
 
     void number_double_test_impl(double _nValue)
         {
-            OUString suValue;
-            suValue = OUString::number( _nValue );
+            OUString suValue = OUString::number( _nValue );
             OString sValue;
             sValue <<= suValue;
             printf("nDouble := %.20f  sValue := %s\n", _nValue, sValue.getStr());
@@ -646,7 +645,7 @@ public:
     void lastIndexOf_test_oustring_008()
         {
             // search for earth, not found (-1)
-            OUString aStr = OUString();
+            OUString aStr;
             OUString aSearchStr("earth");
             lastIndexOf_oustring(aStr, aSearchStr, -1);
         }
@@ -654,8 +653,8 @@ public:
     void lastIndexOf_test_oustring_009()
         {
             // search for earth, not found (-1)
-            OUString aStr = OUString();
-            OUString aSearchStr = OUString();
+            OUString aStr;
+            OUString aSearchStr;
             lastIndexOf_oustring(aStr, aSearchStr, -1);
 
         }

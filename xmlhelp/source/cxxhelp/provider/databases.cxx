@@ -400,37 +400,29 @@ OUString Databases::processLang( const OUString& Language )
 
     if( it == m_aLangSet.end() )
     {
-        sal_Int32 idx;
-        osl::DirectoryItem aDirItem;
+        // XXX the old code looked for '-' and '_' as separator between
+        // language and country, no idea if '_' actually still can happen
+        // (probably not), but play safe and keep that and transform to proper
+        // BCP47.
+        const OUString aBcp47( Language.replaceAll( "_", "-"));
 
-        if( osl::FileBase::E_None == osl::DirectoryItem::get( getInstallPathAsURL() + Language,aDirItem ) )
+        // Try if language tag or fallbacks are installed.
+        osl::DirectoryItem aDirItem;
+        std::vector<OUString> aFallbacks( LanguageTag( aBcp47).getFallbackStrings(true));
+        for (auto const & rFB : aFallbacks)
         {
-            ret = Language;
-            m_aLangSet[ Language ] = ret;
-        }
-        else if( ( ( idx = Language.indexOf( '-' ) ) != -1 ||
-                   ( idx = Language.indexOf( '_' ) ) != -1 ) &&
-                    osl::FileBase::E_None == osl::DirectoryItem::get( getInstallPathAsURL() + Language.copy( 0,idx ),
-                                                                   aDirItem ) )
-        {
-            ret = Language.copy( 0,idx );
-            m_aLangSet[ Language ] = ret;
+            if (osl::FileBase::E_None == osl::DirectoryItem::get( getInstallPathAsURL() + rFB, aDirItem))
+            {
+                ret = rFB;
+                m_aLangSet[ Language ] = ret;
+                break;  // for
+            }
         }
     }
     else
         ret = it->second;
 
     return ret;
-}
-
-OUString Databases::country( const OUString& Language )
-{
-    sal_Int32 idx;
-    if( ( idx = Language.indexOf( '-' ) ) != -1 ||
-        ( idx = Language.indexOf( '_' ) ) != -1 )
-        return Language.copy( 1+idx );
-
-    return OUString();
 }
 
 helpdatafileproxy::Hdf* Databases::getHelpDataFile( const OUString& Database,
@@ -495,10 +487,11 @@ Databases::getCollator( const OUString& Language )
     if( ! it->second.is() )
     {
         it->second = Collator::create(m_xContext);
-        OUString langStr = processLang(Language);
-        OUString countryStr = country(Language);
+        LanguageTag aLanguageTag( Language);
+        OUString countryStr = aLanguageTag.getCountry();
         if( countryStr.isEmpty() )
         {
+            const OUString langStr = aLanguageTag.getLanguage();
             if( langStr == "de" )
                 countryStr = "DE";
             else if( langStr == "en" )
@@ -515,13 +508,14 @@ Databases::getCollator( const OUString& Language )
                 countryStr = "JP";
             else if( langStr == "ko" )
                 countryStr = "KR";
+
+            // XXX NOTE: there are no complex language tags involved in those
+            // "add country" cases, only because of this we can use this
+            // simplified construction.
+            if (!countryStr.isEmpty())
+                aLanguageTag.reset( langStr + "-" + countryStr);
         }
-        /* FIXME-BCP47: all this does not look right for language tag context,
-         * also check processLang() and country() methods */
-        it->second->loadDefaultCollator(  Locale( langStr,
-                                                  countryStr,
-                                                  OUString() ),
-                                          0 );
+        it->second->loadDefaultCollator( aLanguageTag.getLocale(), 0);
     }
 
     return it->second;
@@ -1057,7 +1051,7 @@ void Databases::setActiveText( const OUString& Module,
             if( pData[i] == '%' || pData[i] == '$' )
             {
                 // need of replacement
-                OUString temp = OUString( pData, nSize, RTL_TEXTENCODING_UTF8 );
+                OUString temp( pData, nSize, RTL_TEXTENCODING_UTF8 );
                 replaceName( temp );
                 tmp = OString( temp.getStr(),
                                     temp.getLength(),
@@ -1160,19 +1154,16 @@ Reference< deployment::XPackage > ExtensionIteratorBase::implGetHelpPackageFromP
         {
             Sequence< Reference< deployment::XPackage > > aPkgSeq = xPackage->getBundle
                 ( Reference<task::XAbortChannel>(), Reference<ucb::XCommandEnvironment>() );
-            sal_Int32 nPkgCount = aPkgSeq.getLength();
-            const Reference< deployment::XPackage >* pSeq = aPkgSeq.getConstArray();
-            for( sal_Int32 iPkg = 0 ; iPkg < nPkgCount ; ++iPkg )
+            auto pSubPkg = std::find_if(aPkgSeq.begin(), aPkgSeq.end(),
+                [&aHelpMediaType](const Reference< deployment::XPackage >& xSubPkg) {
+                    const Reference< deployment::XPackageTypeInfo > xPackageTypeInfo = xSubPkg->getPackageType();
+                    OUString aMediaType = xPackageTypeInfo->getMediaType();
+                    return aMediaType == aHelpMediaType;
+                });
+            if (pSubPkg != aPkgSeq.end())
             {
-                const Reference< deployment::XPackage > xSubPkg = pSeq[ iPkg ];
-                const Reference< deployment::XPackageTypeInfo > xPackageTypeInfo = xSubPkg->getPackageType();
-                OUString aMediaType = xPackageTypeInfo->getMediaType();
-                if( aMediaType == aHelpMediaType )
-                {
-                    xHelpPackage = xSubPkg;
-                    o_xParentPackageBundle = xPackage;
-                    break;
-                }
+                xHelpPackage = *pSubPkg;
+                o_xParentPackageBundle = xPackage;
             }
         }
         else
@@ -1319,11 +1310,8 @@ void ExtensionIteratorBase::implGetLanguageVectorFromPackage( ::std::vector< OUS
     OUString aExtensionPath = xPackage->getURL();
     Sequence< OUString > aEntrySeq = m_xSFA->getFolderContents( aExtensionPath, true );
 
-    const OUString* pSeq = aEntrySeq.getConstArray();
-    sal_Int32 nCount = aEntrySeq.getLength();
-    for( sal_Int32 i = 0 ; i < nCount ; ++i )
+    for( const OUString& aEntry : aEntrySeq )
     {
-        OUString aEntry = pSeq[i];
         if( m_xSFA->isFolder( aEntry ) )
         {
             sal_Int32 nLastSlash = aEntry.lastIndexOf( '/' );

@@ -32,7 +32,6 @@
 #include <vcl/window.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/dockwin.hxx>
-#include <vcl/tabctrl.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/builder.hxx>
 
@@ -45,6 +44,7 @@
 #include <salframe.hxx>
 #include <scrwnd.hxx>
 
+#include <com/sun/star/accessibility/AccessibleRelation.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 
 using namespace com::sun::star;
@@ -665,10 +665,9 @@ bool Window::HandleScrollCommand( const CommandEvent& rCmd,
                             nLines = pData->GetNotchDelta() * nScrollLines;
                         if ( nLines )
                         {
-                            ImplHandleScroll( nullptr,
-                                          0L,
-                                          pData->IsHorz() ? pHScrl : pVScrl,
-                                          nLines );
+                            ImplHandleScroll(nullptr, 0L, pData->IsHorz() ? pHScrl : pVScrl,
+                                pData->IsHorz() && pHScrl && (AllSettings::GetLayoutRTL() == pHScrl->IsRTLEnabled())
+                                    ? -nLines : nLines);
                             bRet = true;
                         }
                     }
@@ -746,6 +745,26 @@ bool Window::HandleScrollCommand( const CommandEvent& rCmd,
                         }
                     }
                 }
+            }
+            break;
+
+            case CommandEventId::Gesture:
+            {
+                const CommandGestureData* pData = rCmd.GetGestureData();
+                if (pData->meEventType == GestureEventType::PanningBegin)
+                {
+                    mpWindowImpl->mpFrameData->mnTouchPanPosition = pVScrl->GetThumbPos();
+                }
+                else if(pData->meEventType == GestureEventType::PanningUpdate)
+                {
+                    long nOriginalPosition = mpWindowImpl->mpFrameData->mnTouchPanPosition;
+                    pVScrl->DoScroll(nOriginalPosition + (pData->mfOffset / pVScrl->GetVisibleSize()));
+                }
+                if (pData->meEventType == GestureEventType::PanningEnd)
+                {
+                    mpWindowImpl->mpFrameData->mnTouchPanPosition = -1;
+                }
+                bRet = true;
             }
             break;
 
@@ -1944,6 +1963,21 @@ void Window::remove_mnemonic_label(FixedText *pLabel)
 const std::vector<VclPtr<FixedText> >& Window::list_mnemonic_labels() const
 {
     return mpWindowImpl->m_aMnemonicLabels;
+}
+
+void Window::AddExtraAccessibleRelation(const css::accessibility::AccessibleRelation &rRelation)
+{
+    mpWindowImpl->m_aExtraAccessibleRelations.push_back(rRelation);
+}
+
+const std::vector<css::accessibility::AccessibleRelation>& Window::GetExtraAccessibleRelations() const
+{
+    return mpWindowImpl->m_aExtraAccessibleRelations;
+}
+
+void Window::ClearExtraAccessibleRelations()
+{
+    mpWindowImpl->m_aExtraAccessibleRelations.clear();
 }
 
 } /* namespace vcl */

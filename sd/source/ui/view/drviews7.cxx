@@ -29,6 +29,7 @@
 #include <com/sun/star/linguistic2/XThesaurus.hpp>
 #include <svx/fmglob.hxx>
 #include <svx/globl3d.hxx>
+#include <svx/pageitem.hxx>
 #include <svx/rulritem.hxx>
 #include <svx/svdouno.hxx>
 #include <editeng/eeitem.hxx>
@@ -45,12 +46,15 @@
 #include <svx/fmshell.hxx>
 #include <svl/eitem.hxx>
 #include <svl/aeitem.hxx>
+#include <svl/intitem.hxx>
+#include <svl/itempool.hxx>
 #include <svl/itemset.hxx>
 #include <svl/stritem.hxx>
 #include <svl/visitem.hxx>
 #include <svl/whiter.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svx/svdograf.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xflgrit.hxx>
 #include <svx/xflhtit.hxx>
@@ -740,6 +744,7 @@ void DrawViewShell::GetMenuState( SfxItemSet &rSet )
         rSet.ClearItem(SID_ANIMATION_OBJECTS);
         rSet.DisableItem(SID_ANIMATION_OBJECTS);
         rSet.DisableItem(SID_ANIMATION_EFFECTS);
+        rSet.DisableItem(SID_EXECUTE_ANIMATION_EFFECT);
 
         if (meEditMode == EditMode::MasterPage)
             rSet.DisableItem(SID_MODIFYPAGE);
@@ -757,6 +762,7 @@ void DrawViewShell::GetMenuState( SfxItemSet &rSet )
         rSet.ClearItem(SID_ANIMATION_OBJECTS);
         rSet.DisableItem(SID_ANIMATION_OBJECTS);
         rSet.DisableItem(SID_ANIMATION_EFFECTS);
+        rSet.DisableItem(SID_EXECUTE_ANIMATION_EFFECT);
         rSet.DisableItem(SID_RENAMEPAGE);
         rSet.DisableItem(SID_RENAMEPAGE_QUICK);
         rSet.DisableItem(SID_INSERTLAYER);
@@ -1285,6 +1291,7 @@ void DrawViewShell::GetMenuState( SfxItemSet &rSet )
             rSet.ClearItem(SID_OBJECT_ROTATE);
             rSet.ClearItem(SID_FM_CONFIG);
             rSet.ClearItem(SID_ANIMATION_EFFECTS);
+            rSet.ClearItem(SID_EXECUTE_ANIMATION_EFFECT);
             rSet.ClearItem(SID_ANIMATION_OBJECTS);
             rSet.ClearItem(SID_3D_WIN);
 
@@ -1305,6 +1312,7 @@ void DrawViewShell::GetMenuState( SfxItemSet &rSet )
             rSet.DisableItem(SID_POSITION);
             rSet.DisableItem(SID_FM_CONFIG);
             rSet.DisableItem(SID_ANIMATION_EFFECTS);
+            rSet.DisableItem(SID_EXECUTE_ANIMATION_EFFECT);
             rSet.DisableItem(SID_ANIMATION_OBJECTS);
             rSet.DisableItem(SID_3D_WIN);
         }

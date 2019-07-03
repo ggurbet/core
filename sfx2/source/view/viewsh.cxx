@@ -24,6 +24,7 @@
 #include <svl/eitem.hxx>
 #include <svl/whiter.hxx>
 #include <vcl/toolbox.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svl/intitem.hxx>
 #include <svtools/langhelp.hxx>
@@ -35,18 +36,25 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/EmbedMisc.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/container/XContainerQuery.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/datatransfer/clipboard/XClipboard.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/datatransfer/clipboard/XClipboardListener.hpp>
+#include <com/sun/star/datatransfer/clipboard/XClipboardNotifier.hpp>
+#include <com/sun/star/view/XRenderable.hpp>
 #include <cppuhelper/implbase.hxx>
 
 #include <osl/file.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include <unotools/tempfile.hxx>
 #include <unotools/pathoptions.hxx>
 #include <svtools/miscopt.hxx>
 #include <svtools/soerr.hxx>
 #include <svtools/embedhlp.hxx>
+#include <tools/svborder.hxx>
 
 #include <basic/basmgr.hxx>
 #include <basic/sbuno.hxx>
@@ -61,6 +69,7 @@
 
 #include <officecfg/Setup.hxx>
 #include <sfx2/app.hxx>
+#include <sfx2/flatpak.hxx>
 #include <sfx2/viewsh.hxx>
 #include "viewimp.hxx"
 #include <sfx2/sfxresid.hxx>
@@ -79,6 +88,7 @@
 #include <sfx2/event.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/ipclient.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <workwin.hxx>
 #include <sfx2/objface.hxx>
 #include <sfx2/docfilt.hxx>
@@ -528,8 +538,8 @@ void SfxViewShell::ExecMisc_Impl( SfxRequest &rReq )
         {
             const sal_Int32   FILTERFLAG_EXPORT    = 0x00000002;
 
-            css::uno::Reference< lang::XMultiServiceFactory > xSMGR(::comphelper::getProcessServiceFactory(), css::uno::UNO_QUERY_THROW);
-            css::uno::Reference< uno::XComponentContext >     xContext(::comphelper::getProcessComponentContext(), css::uno::UNO_QUERY_THROW);
+            css::uno::Reference< lang::XMultiServiceFactory > xSMGR(::comphelper::getProcessServiceFactory(), css::uno::UNO_SET_THROW);
+            css::uno::Reference< uno::XComponentContext >     xContext(::comphelper::getProcessComponentContext(), css::uno::UNO_SET_THROW);
             css::uno::Reference< css::frame::XFrame >         xFrame( pFrame->GetFrame().GetFrameInterface() );
             css::uno::Reference< css::frame::XModel >         xModel;
 
@@ -608,8 +618,15 @@ void SfxViewShell::ExecMisc_Impl( SfxRequest &rReq )
                 OSL_ASSERT( !aFilterName.isEmpty() );
                 OSL_ASSERT( !aFileName.isEmpty() );
 
-                // Creates a temporary directory to store our predefined file into it.
-                ::utl::TempFile aTempDir( nullptr, true );
+                // Creates a temporary directory to store our predefined file into it (for the
+                // flatpak case, create it in XDG_CACHE_HOME instead of /tmp for technical reasons,
+                // so that it can be accessed by the browser running outside the sandbox):
+                OUString * parent = nullptr;
+                if (flatpak::isFlatpak() && !flatpak::createTemporaryHtmlDirectory(&parent))
+                {
+                    SAL_WARN("sfx.view", "cannot create Flatpak html temp dir");
+                }
+                ::utl::TempFile aTempDir( parent, true );
 
                 INetURLObject aFilePathObj( aTempDir.GetURL() );
                 aFilePathObj.insertName( aFileName );
@@ -1182,7 +1199,7 @@ OUString SfxViewShell::GetSelectionText
     sending emails.
 
     When called with "CompleteWords == TRUE", it is for example sufficient
-    with having the Cursor positioned somewhere within an URL in-order
+    with having the Cursor positioned somewhere within a URL in-order
     to have the entire URL returned.
 */
 
@@ -1442,6 +1459,9 @@ void SfxViewShell::registerLibreOfficeKitViewCallback(LibreOfficeKitCallback pCa
 
     afterCallbackRegistered();
 
+    if (!pCallback)
+        return;
+
     // Ask other views to tell us about their cursors.
     SfxViewShell* pViewShell = SfxViewShell::GetFirst();
     while (pViewShell)
@@ -1453,7 +1473,7 @@ void SfxViewShell::registerLibreOfficeKitViewCallback(LibreOfficeKitCallback pCa
 
 void SfxViewShell::libreOfficeKitViewCallback(int nType, const char* pPayload) const
 {
-    if (comphelper::LibreOfficeKit::isTiledPainting())
+    if (!comphelper::LibreOfficeKit::isActive() || comphelper::LibreOfficeKit::isTiledPainting())
         return;
 
     if (pImpl->m_bTiledSearching)
@@ -1472,6 +1492,11 @@ void SfxViewShell::libreOfficeKitViewCallback(int nType, const char* pPayload) c
 
     if (pImpl->m_pLibreOfficeKitViewCallback)
         pImpl->m_pLibreOfficeKitViewCallback(nType, pPayload, pImpl->m_pLibreOfficeKitViewData);
+    else
+        SAL_WARN(
+            "sfx.view",
+            "SfxViewShell::libreOfficeKitViewCallback no callback set! Dropped payload of type "
+                << nType << ": [" << pPayload << ']');
 }
 
 void SfxViewShell::afterCallbackRegistered()
@@ -1491,7 +1516,7 @@ vcl::Window* SfxViewShell::GetEditWindowForActiveOLEObj() const
 
 void SfxViewShell::SetLOKLanguageTag(const OUString& rBcp47LanguageTag)
 {
-    LanguageTag aTag = LanguageTag(rBcp47LanguageTag, true);
+    LanguageTag aTag(rBcp47LanguageTag, true);
 
     css::uno::Sequence<OUString> inst(officecfg::Setup::Office::InstalledLocales::get()->getElementNames());
     LanguageTag aFallbackTag = LanguageTag(getInstalledLocaleForSystemUILanguage(inst, /* bRequestInstallIfMissing */ false, rBcp47LanguageTag), true).makeFallback();
@@ -1660,9 +1685,9 @@ void SfxViewShell::CheckIPClient_Impl(
         {
             pIPClient->GetObject()->changeState( embed::EmbedStates::INPLACE_ACTIVE );
         }
-        catch (const uno::Exception& e)
+        catch (const uno::Exception&)
         {
-            SAL_WARN("sfx.view", "SfxViewShell::CheckIPClient_Impl: " << e);
+            TOOLS_WARN_EXCEPTION("sfx.view", "SfxViewShell::CheckIPClient_Impl");
         }
     }
 }
@@ -1740,7 +1765,7 @@ void SfxViewShell::SetController( SfxBaseController* pController )
     pImpl->xClipboardListener = new SfxClipboardChangeListener( this, GetClipboardNotifier() );
 }
 
-Reference < XController > SfxViewShell::GetController()
+Reference < XController > SfxViewShell::GetController() const
 {
     return pImpl->m_pController.get();
 }

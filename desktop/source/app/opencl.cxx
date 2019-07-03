@@ -25,6 +25,7 @@
 #include <officecfg/Office/Common.hxx>
 
 #include <svl/documentlockfile.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <com/sun/star/table/XCell2.hpp>
 #include <com/sun/star/sheet/XCalculatable.hpp>
@@ -38,6 +39,7 @@
 #include <opencl/OpenCLZone.hxx>
 
 #include <osl/file.hxx>
+#include <osl/process.h>
 
 using namespace ::osl;
 using namespace ::com::sun::star::uno;
@@ -46,6 +48,61 @@ using namespace ::com::sun::star::frame;
 namespace desktop {
 
 #if HAVE_FEATURE_OPENCL
+
+static bool testOpenCLDriver()
+{
+    // A simple OpenCL test run in a separate process in order to test
+    // whether the driver crashes (asserts,etc.) when trying to use OpenCL.
+    SAL_INFO("opencl", "Starting CL driver test");
+
+    OUString testerURL("$BRAND_BASE_DIR/" LIBO_BIN_FOLDER "/opencltest");
+    rtl::Bootstrap::expandMacros(testerURL); //TODO: detect failure
+
+    OUString deviceName, platformName;
+    openclwrapper::getOpenCLDeviceName( deviceName, platformName );
+    rtl_uString* args[] = { deviceName.pData, platformName.pData };
+    sal_Int32 numArgs = 2;
+
+    oslProcess process;
+    oslSecurity security = osl_getCurrentSecurity();
+    oslProcessError error = osl_executeProcess(testerURL.pData, args, numArgs,
+        osl_Process_SEARCHPATH | osl_Process_HIDDEN, security,
+        nullptr, nullptr, 0, &process );
+    osl_freeSecurityHandle( security );
+    if( error != osl_Process_E_None )
+    {
+        SAL_WARN( "opencl", "failed to start CL driver test: " << error );
+        return false;
+    }
+    // If the driver takes more than 10 seconds, it's probably broken/useless.
+    TimeValue timeout( 10, 0 );
+    error = osl_joinProcessWithTimeout( process, &timeout );
+    if( error == osl_Process_E_None )
+    {
+        oslProcessInfo info;
+        info.Size = sizeof( info );
+        error = osl_getProcessInfo( process, osl_Process_EXITCODE, &info );
+        if( error == osl_Process_E_None )
+        {
+            if( info.Code == 0 )
+            {
+                SAL_INFO( "opencl", "CL driver test passed" );
+                osl_freeProcessHandle( process );
+                return true;
+            }
+            else
+            {
+                SAL_WARN( "opencl", "CL driver test failed - disabling: " << info.Code );
+                osl_freeProcessHandle( process );
+                return false;
+            }
+        }
+    }
+    SAL_WARN( "opencl", "CL driver test did not finish - disabling: " << error );
+    osl_terminateProcess( process );
+    osl_freeProcessHandle( process );
+    return false;
+}
 
 static bool testOpenCLCompute(const Reference< XDesktop2 > &xDesktop, const OUString &rURL)
 {
@@ -77,7 +134,7 @@ static bool testOpenCLCompute(const Reference< XDesktop2 > &xDesktop, const OUSt
         // What an unpleasant API to use.
         css::uno::Reference< css::sheet::XCalculatable > xCalculatable( xComponent, css::uno::UNO_QUERY_THROW);
         css::uno::Reference< css::sheet::XSpreadsheetDocument > xSpreadDoc( xComponent, css::uno::UNO_QUERY_THROW );
-        css::uno::Reference< css::sheet::XSpreadsheets > xSheets( xSpreadDoc->getSheets(), css::uno::UNO_QUERY_THROW );
+        css::uno::Reference< css::sheet::XSpreadsheets > xSheets( xSpreadDoc->getSheets(), css::uno::UNO_SET_THROW );
         css::uno::Reference< css::container::XIndexAccess > xIndex( xSheets, css::uno::UNO_QUERY_THROW );
         css::uno::Reference< css::sheet::XSpreadsheet > xSheet( xIndex->getByIndex(0), css::uno::UNO_QUERY_THROW);
 
@@ -106,9 +163,9 @@ static bool testOpenCLCompute(const Reference< XDesktop2 > &xDesktop, const OUSt
             bSuccess = true;
         }
     }
-    catch (const css::uno::Exception &e)
+    catch (const css::uno::Exception &)
     {
-        SAL_WARN("opencl", "OpenCL testing failed - disabling: " << e);
+        TOOLS_WARN_EXCEPTION("opencl", "OpenCL testing failed - disabling");
     }
 
     if (nKernelFailures != openclwrapper::kernelFailures)
@@ -178,7 +235,10 @@ void Desktop::CheckOpenCLCompute(const Reference< XDesktop2 > &xDesktop)
             xBatch->commit();
         }
 
-        bool bSucceeded = testOpenCLCompute(xDesktop, aURL);
+        // Hopefully at least basic functionality always works and broken OpenCL implementations break
+        // only when they are used to compute something. If this assumptions turns out to be not true,
+        // the driver check needs to be moved sooner.
+        bool bSucceeded = testOpenCLDriver() && testOpenCLCompute(xDesktop, aURL);
 
         { // restore the minimum group size
             std::shared_ptr<comphelper::ConfigurationChanges> xBatch(comphelper::ConfigurationChanges::create());

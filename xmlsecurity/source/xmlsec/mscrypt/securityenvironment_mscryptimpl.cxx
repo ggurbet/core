@@ -176,34 +176,7 @@ uno::Sequence< OUString > SAL_CALL SecurityEnvironment_MSCryptImpl::getSupported
 }
 
 /* XUnoTunnel */
-sal_Int64 SAL_CALL SecurityEnvironment_MSCryptImpl::getSomething( const uno::Sequence< sal_Int8 >& aIdentifier )
-{
-    if( aIdentifier.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(), aIdentifier.getConstArray(), 16 ) ) {
-        return reinterpret_cast<sal_Int64>(this);
-    }
-    return 0 ;
-}
-
-/* XUnoTunnel extension */
-
-
-namespace
-{
-    class theSecurityEnvironment_MSCryptImplUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theSecurityEnvironment_MSCryptImplUnoTunnelId > {};
-}
-
-const uno::Sequence< sal_Int8>& SecurityEnvironment_MSCryptImpl::getUnoTunnelId() {
-    return theSecurityEnvironment_MSCryptImplUnoTunnelId::get().getSeq();
-}
-
-/* XUnoTunnel extension */
-SecurityEnvironment_MSCryptImpl* SecurityEnvironment_MSCryptImpl::getImplementation( const uno::Reference< XInterface >& rObj ) {
-    uno::Reference< XUnoTunnel > xUT( rObj , uno::UNO_QUERY ) ;
-    if( xUT.is() ) {
-        return reinterpret_cast<SecurityEnvironment_MSCryptImpl*>(xUT->getSomething( getUnoTunnelId() ));
-    } else
-        return nullptr ;
-}
+UNO3_GETIMPLEMENTATION_IMPL(SecurityEnvironment_MSCryptImpl);
 
 HCRYPTPROV SecurityEnvironment_MSCryptImpl::getCryptoProvider() {
     return m_hProv ;
@@ -330,7 +303,7 @@ uno::Sequence< uno::Reference < XCertificate > > SecurityEnvironment_MSCryptImpl
 {
     sal_Int32 length ;
     X509Certificate_MSCryptImpl* xcert ;
-    std::list< X509Certificate_MSCryptImpl* > certsList ;
+    std::vector< X509Certificate_MSCryptImpl* > certsList ;
     PCCERT_CONTEXT pCertContext = nullptr;
 
     //firstly, we try to find private keys in given key store.

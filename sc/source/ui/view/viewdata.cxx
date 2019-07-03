@@ -566,7 +566,6 @@ void ScViewDataTable::ReadUserDataSequence(const uno::Sequence <beans::PropertyV
     sal_Int32 nTempPosHTw(0);
     bool bHasVSplitInTwips = false;
     bool bHasHSplitInTwips = false;
-    bool bIsTiledRendering = comphelper::LibreOfficeKit::isActive();
     for (sal_Int32 i = 0; i < nCount; i++)
     {
         OUString sName(aSettings[i].Name);
@@ -618,26 +617,22 @@ void ScViewDataTable::ReadUserDataSequence(const uno::Sequence <beans::PropertyV
         else if (sName == SC_POSITIONLEFT)
         {
             aSettings[i].Value >>= nTemp32;
-            nPosX[SC_SPLIT_LEFT] = bIsTiledRendering ? 0 :
-                                   SanitizeCol( static_cast<SCCOL>(nTemp32));
+            nPosX[SC_SPLIT_LEFT] = SanitizeCol( static_cast<SCCOL>(nTemp32));
         }
         else if (sName == SC_POSITIONRIGHT)
         {
             aSettings[i].Value >>= nTemp32;
-            nPosX[SC_SPLIT_RIGHT] = bIsTiledRendering ? 0 :
-                                    SanitizeCol( static_cast<SCCOL>(nTemp32));
+            nPosX[SC_SPLIT_RIGHT] = SanitizeCol( static_cast<SCCOL>(nTemp32));
         }
         else if (sName == SC_POSITIONTOP)
         {
             aSettings[i].Value >>= nTemp32;
-            nPosY[SC_SPLIT_TOP] = bIsTiledRendering ? 0 :
-                                  SanitizeRow( static_cast<SCROW>(nTemp32));
+            nPosY[SC_SPLIT_TOP] = SanitizeRow( static_cast<SCROW>(nTemp32));
         }
         else if (sName == SC_POSITIONBOTTOM)
         {
             aSettings[i].Value >>= nTemp32;
-            nPosY[SC_SPLIT_BOTTOM] = bIsTiledRendering ? 0 :
-                                     SanitizeRow( static_cast<SCROW>(nTemp32));
+            nPosY[SC_SPLIT_BOTTOM] = SanitizeRow( static_cast<SCROW>(nTemp32));
         }
         else if (sName == SC_ZOOMTYPE)
         {
@@ -1289,6 +1284,16 @@ void ScViewData::SetOldCursor( SCCOL nNewX, SCROW nNewY )
 void ScViewData::ResetOldCursor()
 {
     pThisTab->mbOldCursorValid = false;
+}
+
+SCCOL ScViewData::GetPosX( ScHSplitPos eWhich ) const
+{
+    return comphelper::LibreOfficeKit::isActive() ? 0 : pThisTab->nPosX[eWhich];
+}
+
+SCROW ScViewData::GetPosY( ScVSplitPos eWhich ) const
+{
+    return comphelper::LibreOfficeKit::isActive() ? 0 : pThisTab->nPosY[eWhich];
 }
 
 SCCOL ScViewData::GetCurXForTab( SCTAB nTabIndex ) const
@@ -2664,16 +2669,10 @@ const ScMarkData& ScViewData::GetMarkData() const
     return *mpMarkData;
 }
 
-vcl::Window* ScViewData::GetDialogParent()
+weld::Window* ScViewData::GetDialogParent()
 {
     assert(pViewShell && "GetDialogParent() without ViewShell");
     return pViewShell->GetDialogParent();
-}
-
-weld::Window* ScViewData::GetFrameWeld()
-{
-    assert(pViewShell && "GetDialogParent() without ViewShell");
-    return pViewShell->GetFrameWeld();
 }
 
 ScGridWindow* ScViewData::GetActiveWin()
@@ -2797,7 +2796,7 @@ void ScViewData::WriteUserData(OUString& rData)
         rData += ";";                   // Numbering must not get mixed up under any circumstances
         if (i < static_cast<SCTAB>(maTabData.size()) && maTabData[i])
         {
-            OUString cTabSep = OUString(SC_OLD_TABSEP);                // like 3.1
+            OUString cTabSep(SC_OLD_TABSEP);                // like 3.1
             if ( maTabData[i]->nCurY > MAXROW_30 ||
                  maTabData[i]->nPosY[0] > MAXROW_30 || maTabData[i]->nPosY[1] > MAXROW_30 ||
                  ( maTabData[i]->eVSplitMode == SC_SPLIT_FIX &&

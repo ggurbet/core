@@ -35,6 +35,8 @@ $(eval $(call gb_Library_set_include,vclplug_gtk3_kde5,\
 $(eval $(call gb_Library_add_cxxflags,vclplug_gtk3_kde5,\
     $$(INCLUDE) \
     $$(GTK3_CFLAGS) \
+    $(KF5_CFLAGS) \
+    $$(GSTREAMER_1_0_CFLAGS) \
 ))
 
 $(eval $(call gb_Library_add_defs,vclplug_gtk3_kde5,\
@@ -58,7 +60,6 @@ $(eval $(call gb_Library_add_libs,vclplug_gtk3_kde5,\
 
 $(eval $(call gb_Library_use_libraries,vclplug_gtk3_kde5,\
     svl \
-    vclplug_gen \
     vcl \
     tl \
     utl \
@@ -124,7 +125,7 @@ ifeq ($(OS),LINUX)
 $(eval $(call gb_Library_add_libs,vclplug_gtk3_kde5,\
 	-lm \
 	-ldl \
-	-lpthread \
+	$(KF5_LIBS) \
 ))
 endif
 

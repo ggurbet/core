@@ -57,6 +57,7 @@
 #include <xmloff/DocumentSettingsContext.hxx>
 #include <xmloff/xmluconv.hxx>
 #include <xmloff/xmlmetai.hxx>
+#include <tools/diagnose_ex.h>
 #include <com/sun/star/util/XModifiable.hpp>
 #include <svtools/sfxecode.hxx>
 #include "xmlEnums.hxx"
@@ -150,11 +151,9 @@ static ErrCode ReadThroughComponent(
     {
         xParser->parseStream( aParserInput );
     }
-    catch (const SAXParseException& r)
+    catch (const SAXParseException&)
     {
-        SAL_WARN( "reportdesign", "SAX parse exception caught while importing: "
-                    << r << " "
-                    << r.LineNumber << ',' << r.ColumnNumber );
+        TOOLS_WARN_EXCEPTION( "reportdesign", "SAX parse exception caught while importing");
         return ErrCode(1);
     }
     catch (const SAXException&)
@@ -810,14 +809,14 @@ const SvXMLTokenMap& ORptFilter::GetDocContentElemTokenMap() const
 const SvXMLTokenMap& ORptFilter::GetReportElemTokenMap() const
 {
     if (!m_pReportElemTokenMap)
-        m_pReportElemTokenMap.reset(OXMLHelper::GetReportElemTokenMap());
+        m_pReportElemTokenMap = OXMLHelper::GetReportElemTokenMap();
     return *m_pReportElemTokenMap;
 }
 
 const SvXMLTokenMap& ORptFilter::GetSubDocumentElemTokenMap() const
 {
     if (!m_pSubDocumentElemTokenMap)
-        m_pSubDocumentElemTokenMap.reset(OXMLHelper::GetSubDocumentElemTokenMap());
+        m_pSubDocumentElemTokenMap = OXMLHelper::GetSubDocumentElemTokenMap();
     return *m_pSubDocumentElemTokenMap;
 }
 

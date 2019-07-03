@@ -250,8 +250,8 @@ void SAL_CALL SplashScreen::setValue(sal_Int32 nValue)
 void SAL_CALL
 SplashScreen::initialize( const css::uno::Sequence< css::uno::Any>& aArguments )
 {
-    ::osl::ClearableMutexGuard  aGuard( _aMutex );
-    if (aArguments.getLength() > 0)
+    osl::MutexGuard  aGuard( _aMutex );
+    if (aArguments.hasElements())
     {
         aArguments[0] >>= _bVisible;
         if (aArguments.getLength() > 1 )
@@ -646,7 +646,7 @@ OUString desktop::splash::getImplementationName() {
 
 css::uno::Sequence< OUString > desktop::splash::getSupportedServiceNames()
 {
-    return Sequence< OUString > { "com.sun.star.office.SplashScreen" };
+    return { "com.sun.star.office.SplashScreen" };
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

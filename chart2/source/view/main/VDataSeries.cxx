@@ -36,6 +36,7 @@
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
 #include <tools/color.hxx>
+#include <tools/diagnose_ex.h>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/chart2/data/XDataSource.hpp>
@@ -173,8 +174,7 @@ VDataSeries::VDataSeries( const uno::Reference< XDataSeries >& xDataSeries )
     ::rtl::math::setNan( & m_fXMeanValue );
     ::rtl::math::setNan( & m_fYMeanValue );
 
-    uno::Reference<data::XDataSource> xDataSource =
-            uno::Reference<data::XDataSource>( xDataSeries, uno::UNO_QUERY );
+    uno::Reference<data::XDataSource> xDataSource( xDataSeries, uno::UNO_QUERY );
 
     uno::Sequence< uno::Reference<
         chart2::data::XLabeledDataSequence > > aDataSequences =
@@ -218,9 +218,9 @@ VDataSeries::VDataSeries( const uno::Reference< XDataSeries >& xDataSeries )
                     m_PropertyMap.insert(std::make_pair(aRole, aSequence));
                 }
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
     }
@@ -254,9 +254,9 @@ VDataSeries::VDataSeries( const uno::Reference< XDataSeries >& xDataSeries )
             if(m_nAxisIndex<0)
                 m_nAxisIndex=0;
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
 }
@@ -267,7 +267,7 @@ VDataSeries::~VDataSeries()
 
 void VDataSeries::doSortByXValues()
 {
-    if( m_aValues_X.is() && m_aValues_X.Doubles.getLength() )
+    if( m_aValues_X.is() && m_aValues_X.Doubles.hasElements() )
     {
         //prepare a vector for sorting
         std::vector< std::vector< double > > aTmp;//outer vector are points, inner vector are the different values of the point
@@ -374,16 +374,12 @@ OUString VDataSeries::getLabelsCID() const
 }
 OUString VDataSeries::getDataCurveCID( sal_Int32 nCurveIndex, bool bAverageLine ) const
 {
-    OUString aRet;
-    aRet = ObjectIdentifier::createDataCurveCID( m_aSeriesParticle, nCurveIndex, bAverageLine );
-    return aRet;
+    return ObjectIdentifier::createDataCurveCID( m_aSeriesParticle, nCurveIndex, bAverageLine );
 }
 
 OUString VDataSeries::getDataCurveEquationCID( sal_Int32 nCurveIndex ) const
 {
-    OUString aRet;
-    aRet = ObjectIdentifier::createDataCurveEquationCID( m_aSeriesParticle, nCurveIndex );
-    return aRet;
+    return ObjectIdentifier::createDataCurveEquationCID( m_aSeriesParticle, nCurveIndex );
 }
 void VDataSeries::setPageReferenceSize( const awt::Size & rPageRefSize )
 {
@@ -502,7 +498,7 @@ void VDataSeries::getMinMaxXValue(double& fMin, double& fMax) const
 
     uno::Sequence< double > aValuesX = getAllX();
 
-    if(aValuesX.getLength() > 0)
+    if(aValuesX.hasElements())
     {
         sal_Int32 i = 0;
         while ( i < aValuesX.getLength() && ::rtl::math::isNan(aValuesX[i]) )
@@ -623,7 +619,7 @@ sal_Int32 VDataSeries::getLabelPlacement( sal_Int32 nPointIndex, const uno::Refe
                 return nLabelPlacement; //ok
 
         //otherwise use the first supported one
-        if( aAvailablePlacements.getLength() )
+        if( aAvailablePlacements.hasElements() )
         {
             nLabelPlacement = aAvailablePlacements[0];
             return nLabelPlacement;
@@ -631,9 +627,9 @@ sal_Int32 VDataSeries::getLabelPlacement( sal_Int32 nPointIndex, const uno::Refe
 
         OSL_FAIL("no label placement supported");
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return nLabelPlacement;
 }
@@ -776,9 +772,9 @@ static std::unique_ptr<Symbol> getSymbolPropertiesFromPropertySet( const uno::Re
         else
             apSymbolProps.reset();
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return apSymbolProps;
 }
@@ -807,7 +803,7 @@ Symbol* VDataSeries::getSymbolProperties( sal_Int32 index ) const
                     m_apSymbolProperties_InvisibleSymbolForSelection.reset(new Symbol);
                     m_apSymbolProperties_InvisibleSymbolForSelection->Style = SymbolStyle_STANDARD;
                     m_apSymbolProperties_InvisibleSymbolForSelection->StandardSymbol = 0;//square
-                    m_apSymbolProperties_InvisibleSymbolForSelection->Size = m_apSymbolProperties_Series->Size;
+                    m_apSymbolProperties_InvisibleSymbolForSelection->Size = com::sun::star::awt::Size(0, 0);//tdf#126033
                     m_apSymbolProperties_InvisibleSymbolForSelection->BorderColor = 0xff000000;//invisible
                     m_apSymbolProperties_InvisibleSymbolForSelection->FillColor = 0xff000000;//invisible
                 }
@@ -866,9 +862,9 @@ bool VDataSeries::hasPointOwnColor( sal_Int32 index ) const
         uno::Reference< beans::XPropertyState > xPointState( getPropertiesOfPoint(index), uno::UNO_QUERY_THROW );
         return (xPointState->getPropertyState("Color") != beans::PropertyState_DEFAULT_VALUE );
     }
-    catch(const uno::Exception& e)
+    catch(const uno::Exception&)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return false;
 }
@@ -915,9 +911,9 @@ static std::unique_ptr<DataPointLabel> getDataPointLabelFromPropertySet( const u
         if( !(xProp->getPropertyValue(CHART_UNONAME_LABEL) >>= *apLabel) )
             apLabel.reset();
     }
-    catch(const uno::Exception &e)
+    catch(const uno::Exception &)
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return apLabel;
 }

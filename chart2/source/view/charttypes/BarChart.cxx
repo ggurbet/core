@@ -37,6 +37,7 @@
 #include <com/sun/star/chart2/DataPointGeometry3D.hpp>
 #include <rtl/math.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <unordered_set>
 
 namespace chart
@@ -44,27 +45,6 @@ namespace chart
 using namespace ::com::sun::star;
 using namespace ::rtl::math;
 using namespace ::com::sun::star::chart2;
-
-namespace
-{
-
-struct XShapeCompare
-{
-    bool operator() (uno::Reference<drawing::XShape> const & lhs, uno::Reference<drawing::XShape> const & rhs) const
-    {
-        return lhs.get() < rhs.get();
-    }
-};
-
-struct XShapeHash
-{
-    bool operator()(uno::Reference<drawing::XShape> const & rXShape) const
-    {
-        return rXShape->getShapeType().hashCode();
-    }
-};
-
-} // end anonymous namespace
 
 BarChart::BarChart( const uno::Reference<XChartType>& xChartTypeModel
                     , sal_Int32 nDimensionCount )
@@ -82,9 +62,9 @@ BarChart::BarChart( const uno::Reference<XChartType>& xChartTypeModel
             m_xChartTypeModelProps->getPropertyValue( "GapwidthSequence" ) >>= m_aGapwidthSequence;
         }
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 
@@ -334,9 +314,9 @@ uno::Reference< drawing::XShape > BarChart::createDataPoint3D_Bar(
                 bRoundedEdges = false;
         }
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 
     uno::Reference< drawing::XShape > xShape;
@@ -459,7 +439,7 @@ static E3dScene* lcl_getE3dScene(uno::Reference<uno::XInterface> const & xInterf
 {
     E3dScene* pScene = nullptr;
 
-    SvxShape* pSvxShape = SvxShape::getImplementation(xInterface);
+    SvxShape* pSvxShape = comphelper::getUnoTunnelImplementation<SvxShape>(xInterface);
     if (pSvxShape)
     {
         SdrObject* pObject = pSvxShape->GetSdrObject();
@@ -501,7 +481,7 @@ void BarChart::createShapes()
     bool bDrawConnectionLinesInited = false;
     bool bOnlyConnectionLinesForThisPoint = false;
 
-    std::unordered_set<uno::Reference<drawing::XShape>, XShapeHash, XShapeCompare> aShapeSet;
+    std::unordered_set<uno::Reference<drawing::XShape>> aShapeSet;
 
     const comphelper::ScopeGuard aGuard([aShapeSet]() {
 
@@ -662,6 +642,8 @@ void BarChart::createShapes()
                     //collect data point information (logic coordinates, style ):
                     double fUnscaledLogicX = pSeries->getXValue( nPointIndex );
                     fUnscaledLogicX = DateHelper::RasterizeDateValue( fUnscaledLogicX, m_aNullDate, m_nTimeResolution );
+                    if(rtl::math::isNan(fUnscaledLogicX))
+                        continue;//point not visible
                     if(fUnscaledLogicX<pPosHelper->getLogicMinX())
                         continue;//point not visible
                     if(fUnscaledLogicX>pPosHelper->getLogicMaxX())
@@ -717,9 +699,9 @@ void BarChart::createShapes()
                     {
                         xDataPointProperties->getPropertyValue( "Geometry3D") >>= nGeometry3D;
                     }
-                    catch( const uno::Exception& e )
+                    catch( const uno::Exception& )
                     {
-                        SAL_WARN("chart2", "Exception caught. " << e );
+                        TOOLS_WARN_EXCEPTION("chart2", "" );
                     }
 
                     //@todo iterate through all subsystems to create partial points

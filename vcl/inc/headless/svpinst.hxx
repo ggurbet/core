@@ -20,21 +20,17 @@
 #ifndef INCLUDED_VCL_INC_HEADLESS_SVPINST_HXX
 #define INCLUDED_VCL_INC_HEADLESS_SVPINST_HXX
 
-#include <osl/mutex.hxx>
 #include <osl/thread.hxx>
 #include <osl/conditn.hxx>
 #include <salinst.hxx>
-#include <salwtype.hxx>
 #include <saltimer.hxx>
 #include <salusereventlist.hxx>
 #include <unx/geninst.h>
 #include <unx/genprn.h>
 
-#include <list>
 #include <condition_variable>
 
 #include <sys/time.h>
-#include <time.h>
 
 #define VIRTUAL_DESKTOP_WIDTH 1024
 #define VIRTUAL_DESKTOP_HEIGHT 768
@@ -73,9 +69,7 @@ private:
     // at least one subclass of SvpSalInstance (GTK3) that doesn't use them.
     friend class SvpSalInstance;
     // members for communication from main thread to non-main thread
-#ifndef IOS
     int                     m_FeedbackFDs[2];
-#endif
     osl::Condition          m_NonMainWaitingYieldCond;
     // members for communication from non-main thread to main thread
     bool                    m_bNoYieldLock = false; // accessed only on main thread
@@ -93,7 +87,6 @@ public:
     virtual ~SvpSalYieldMutex() override;
 
     virtual bool IsCurrentThread() const override;
-
 };
 
 SalInstance* svp_create_SalInstance();
@@ -109,7 +102,6 @@ class VCL_DLLPUBLIC SvpSalInstance : public SalGenericInstance, public SalUserEv
 
     virtual void            TriggerUserEventProcessing() override;
     virtual void            ProcessEvent( SalUserEvent aEvent ) override;
-    void                    Wakeup(SvpRequest request = SvpRequest::NONE);
 
 public:
     static SvpSalInstance*  s_pDefaultInstance;
@@ -119,6 +111,7 @@ public:
 
     void                    CloseWakeupPipe(bool log);
     void                    CreateWakeupPipe(bool log);
+    void                    Wakeup(SvpRequest request = SvpRequest::NONE);
 
     void                    StartTimer( sal_uInt64 nMS );
     void                    StopTimer();
@@ -166,6 +159,8 @@ public:
     virtual SalSystem*      CreateSalSystem() override;
     // SalBitmap
     virtual std::shared_ptr<SalBitmap> CreateSalBitmap() override;
+
+    std::shared_ptr<vcl::BackendCapabilities> GetBackendCapabilities() override;
 
     // wait next event and dispatch
     // must returned by UserEvent (SalFrame::PostEvent)

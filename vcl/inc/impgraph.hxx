@@ -21,6 +21,7 @@
 #define INCLUDED_VCL_INC_IMPGRAPH_HXX
 
 #include <vcl/GraphicExternalLink.hxx>
+#include <vcl/gdimtf.hxx>
 #include <vcl/graph.hxx>
 #include "graphic/Manager.hxx"
 
@@ -84,6 +85,8 @@ private:
     bool                         mbSwapOut;
     bool                         mbDummyContext;
     VectorGraphicDataPtr         maVectorGraphicData;
+    // cache checksum computation
+    mutable BitmapChecksum       mnChecksum = 0;
 
     /// The PDF stream from which this Graphic is rendered,
     /// as converted (version downgraded) from the original,
@@ -112,7 +115,7 @@ public:
     ImpGraphic( const GDIMetaFile& rMtf );
     ~ImpGraphic();
 
-    void ImplSetPrepared(bool bAnimated);
+    void ImplSetPrepared(bool bAnimated, Size* pSizeHint);
 
 private:
 

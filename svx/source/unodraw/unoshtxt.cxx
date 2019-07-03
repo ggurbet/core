@@ -27,6 +27,7 @@
 #include <editeng/unoedhlp.hxx>
 #include <svl/lstner.hxx>
 #include <rtl/ref.hxx>
+#include <tools/debug.hxx>
 #include <svl/hint.hxx>
 #include <svl/style.hxx>
 #include <svx/svdmodel.hxx>
@@ -265,12 +266,9 @@ void SvxTextEditSourceImpl::Notify(SfxBroadcaster& rBC, const SfxHint& rHint)
             mpViewForwarder.reset();
         }
     }
-    else if (const SvxViewChangedHint* pViewHint = dynamic_cast<const SvxViewChangedHint*>(&rHint))
+    else if (rHint.GetId() == SfxHintId::ThisIsAnSdrHint)
     {
-        Broadcast( *pViewHint );
-    }
-    else if (const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>(&rHint))
-    {
+        const SdrHint* pSdrHint = static_cast<const SdrHint*>(&rHint);
         switch( pSdrHint->GetKind() )
         {
             case SdrHintKind::ObjectChange:
@@ -375,6 +373,10 @@ void SvxTextEditSourceImpl::Notify(SfxBroadcaster& rBC, const SfxHint& rHint)
             default:
                 break;
         }
+    }
+    else if (const SvxViewChangedHint* pViewHint = dynamic_cast<const SvxViewChangedHint*>(&rHint))
+    {
+        Broadcast( *pViewHint );
     }
 }
 

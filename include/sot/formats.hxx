@@ -174,15 +174,16 @@ enum class SotClipboardFormatId : sal_uInt32
     JPEG                   = 144,
     RICHTEXT               = 145,
     STRING_TSVC            = 146,
+    PDF                    = 147,
     // the point at which we start allocating "runtime" format IDs
-    USER_END  = STRING_TSVC
+    USER_END  = PDF
 };
 
 /** Make it easier to iterate over format IDs */
-inline SotClipboardFormatId& operator++(SotClipboardFormatId& v)
+inline SotClipboardFormatId& operator++(SotClipboardFormatId& eFormat)
 {
-    v = static_cast<SotClipboardFormatId>(static_cast<sal_uInt32>(v) + 1);
-    return v;
+    eFormat = static_cast<SotClipboardFormatId>(static_cast<sal_uInt32>(eFormat) + 1);
+    return eFormat;
 }
 
 #define SOT_FORMAT_SYSTEM_START   SotClipboardFormatId::NONE

@@ -23,6 +23,7 @@
 #include <comphelper/uno3.hxx>
 #include <comphelper/proparrhlp.hxx>
 #include <comphelper/propertycontainer.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <ooo/vba/XVBAToOOEventDescGen.hpp>
 
@@ -69,6 +70,7 @@
 
 #include <com/sun/star/script/XScriptListener.hpp>
 #include <cppuhelper/implbase.hxx>
+#include <cppuhelper/supportsservice.hxx>
 #include <comphelper/evtmethodhelper.hxx>
 
 #include <list>
@@ -85,12 +87,12 @@ static const sal_Int32 DELIMLEN = strlen(DELIM);
 
 static bool isKeyEventOk( awt::KeyEvent& evt, const Sequence< Any >& params )
 {
-    return ( params.getLength() > 0 ) && ( params[ 0 ] >>= evt );
+    return params.hasElements() && ( params[ 0 ] >>= evt );
 }
 
 static bool isMouseEventOk( awt::MouseEvent& evt, const Sequence< Any >& params )
 {
-    return ( params.getLength() > 0 ) && ( params[ 0 ] >>= evt );
+    return params.hasElements() && ( params[ 0 ] >>= evt );
 }
 
 static Sequence< Any > ooMouseEvtToVBADblClick( const Sequence< Any >& params )
@@ -889,7 +891,7 @@ EventListener::firing_Impl(const ScriptEvent& evt, Any* pRet )
                 {
                     aArguments = evt.Arguments;
                 }
-                if ( aArguments.getLength() )
+                if ( aArguments.hasElements() )
                 {
                     // call basic event handlers for event
 
@@ -908,9 +910,9 @@ EventListener::firing_Impl(const ScriptEvent& evt, Any* pRet )
                             ooo::vba::executeMacro( mpShell, url, aArguments, aRet, aDummyCaller );
                         }
                     }
-                    catch ( uno::Exception& e )
+                    catch ( const uno::Exception& )
                     {
-                        SAL_WARN("scripting", "event script raised " << e );
+                        TOOLS_WARN_EXCEPTION("scripting", "event script raised" );
                     }
                }
            }

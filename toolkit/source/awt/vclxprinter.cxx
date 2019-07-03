@@ -328,7 +328,7 @@ css::uno::Reference< css::awt::XDevice > VCLXInfoPrinter::createDevice(  )
 //    class VCLXPrinterServer
 //    ----------------------------------------------------
 
-// css::awt::XPrinterServer
+// css::awt::XPrinterServer2
 css::uno::Sequence< OUString > VCLXPrinterServer::getPrinterNames(  )
 {
     const std::vector<OUString>& rQueues = Printer::GetPrinterQueues();
@@ -341,17 +341,20 @@ css::uno::Sequence< OUString > VCLXPrinterServer::getPrinterNames(  )
     return aNames;
 }
 
+OUString VCLXPrinterServer::getDefaultPrinterName()
+{
+    return Printer::GetDefaultPrinterName();
+}
+
 css::uno::Reference< css::awt::XPrinter > VCLXPrinterServer::createPrinter( const OUString& rPrinterName )
 {
-    css::uno::Reference< css::awt::XPrinter > xP;
-    xP = new VCLXPrinter( rPrinterName );
+    css::uno::Reference< css::awt::XPrinter > xP = new VCLXPrinter( rPrinterName );
     return xP;
 }
 
 css::uno::Reference< css::awt::XInfoPrinter > VCLXPrinterServer::createInfoPrinter( const OUString& rPrinterName )
 {
-    css::uno::Reference< css::awt::XInfoPrinter > xP;
-    xP = new VCLXInfoPrinter( rPrinterName );
+    css::uno::Reference< css::awt::XInfoPrinter > xP = new VCLXInfoPrinter( rPrinterName );
     return xP;
 }
 

@@ -67,6 +67,7 @@ enum class PointerStyle;
 
 namespace com { namespace sun { namespace star {
 namespace accessibility {
+    struct AccessibleRelation;
     class XAccessible;
 }
 
@@ -740,6 +741,8 @@ protected:
 
     virtual void                        InitClipRegion() override;
 
+    void ImplClearFontData(bool bNewFontLists) override;
+
     // FIXME: this is a hack to workaround missing layout functionality
     SAL_DLLPRIVATE void                 ImplAdjustNWFSizes();
 
@@ -1252,6 +1255,9 @@ public:
     void                                SetAccessibleRelationMemberOf( vcl::Window* pMemberOf );
     vcl::Window*                        GetAccessibleRelationMemberOf() const;
 
+    void                                AddExtraAccessibleRelation(const css::accessibility::AccessibleRelation &rRelation);
+    const std::vector<css::accessibility::AccessibleRelation>& GetExtraAccessibleRelations() const;
+    void                                ClearExtraAccessibleRelations();
 
     // to avoid sending accessibility events in cases like closing dialogs
     // by default checks complete parent path
@@ -1573,6 +1579,8 @@ public:
     virtual bool IsChart() const { return false; }
 
     void SetHelpHdl(const Link<vcl::Window&, bool>& rLink);
+    void SetMnemonicActivateHdl(const Link<vcl::Window&, bool>& rLink);
+    void SetModalHierarchyHdl(const Link<bool, void>& rLink);
 };
 
 }

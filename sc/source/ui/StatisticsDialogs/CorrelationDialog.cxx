@@ -8,7 +8,6 @@
  *
  */
 
-#include <docsh.hxx>
 #include <reffact.hxx>
 #include <CorrelationDialog.hxx>
 #include <scresid.hxx>
@@ -16,15 +15,15 @@
 
 ScCorrelationDialog::ScCorrelationDialog(
                         SfxBindings* pSfxBindings, SfxChildWindow* pChildWindow,
-                        vcl::Window* pParent, ScViewData* pViewData ) :
+                        weld::Window* pParent, ScViewData* pViewData ) :
     ScMatrixComparisonGenerator(
             pSfxBindings, pChildWindow, pParent, pViewData,
-            "CorrelationDialog", "modules/scalc/ui/correlationdialog.ui" )
+            "modules/scalc/ui/correlationdialog.ui", "CorrelationDialog")
 {}
 
-bool ScCorrelationDialog::Close()
+void ScCorrelationDialog::Close()
 {
-    return DoClose( ScCorrelationDialogWrapper::GetChildWindowId() );
+    DoClose(ScCorrelationDialogWrapper::GetChildWindowId());
 }
 
 const OUString ScCorrelationDialog::getLabel()

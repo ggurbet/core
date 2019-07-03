@@ -1434,9 +1434,9 @@ void ScInterpreter::ConvertMatrixJumpConditionToMatrix()
         PushIllegalParameter();
 }
 
-ScTokenMatrixMap* ScInterpreter::CreateTokenMatrixMap()
+std::unique_ptr<ScTokenMatrixMap> ScInterpreter::CreateTokenMatrixMap()
 {
-    return new ScTokenMatrixMap;
+    return std::make_unique<ScTokenMatrixMap>();
 }
 
 bool ScInterpreter::ConvertMatrixParameters()
@@ -3023,12 +3023,21 @@ void ScInterpreter::ScExternal()
                 rArr.AddRecalcMode( ScRecalcMode::ONLOAD_LENIENT );
                 uno::Reference<sheet::XVolatileResult> xRes = aCall.GetVarRes();
                 ScAddInListener* pLis = ScAddInListener::Get( xRes );
+                // In case there is no pMyFormulaCell, i.e. while interpreting
+                // temporarily from within the Function Wizard, try to obtain a
+                // valid result from an existing listener for that volatile, or
+                // create a new and hope for an immediate result. If none
+                // available that should lead to a void result and thus #N/A.
+                bool bTemporaryListener = false;
                 if ( !pLis )
                 {
                     pLis = ScAddInListener::CreateListener( xRes, pDok );
-                    pMyFormulaCell->StartListening( *pLis );
+                    if (pMyFormulaCell)
+                        pMyFormulaCell->StartListening( *pLis );
+                    else
+                        bTemporaryListener = true;
                 }
-                else
+                else if (pMyFormulaCell)
                 {
                     pMyFormulaCell->StartListening( *pLis );
                     if ( !pLis->HasDocument( pDok ) )
@@ -3038,6 +3047,20 @@ void ScInterpreter::ScExternal()
                 }
 
                 aCall.SetResult( pLis->GetResult() );       // use result from async
+
+                if (bTemporaryListener)
+                {
+                    try
+                    {
+                        // EventObject can be any, not evaluated by
+                        // ScAddInListener::disposing()
+                        css::lang::EventObject aEvent;
+                        pLis->disposing(aEvent);    // pLis is dead hereafter
+                    }
+                    catch (const uno::Exception&)
+                    {
+                    }
+                }
             }
 
             if ( aCall.GetErrCode() != FormulaError::NONE )
@@ -4423,6 +4446,7 @@ StackVar ScInterpreter::Interpret()
                     case SvNumFormatType::DATE:
                     case SvNumFormatType::TIME:
                     case SvNumFormatType::DATETIME:
+                    case SvNumFormatType::DURATION:
                         nRetIndexExpr = nFuncFmtIndex;
                     break;
                     default:
@@ -4537,12 +4561,25 @@ StackVar ScInterpreter::Interpret()
                         // unnecessarily duplicate the information.
                         if (pCur->GetDoubleType() != 0)
                         {
-                            const double fVal = PopDouble();
+                            double fVal = PopDouble();
                             if (!bForcedResultType)
                             {
                                 if (nCurFmtType != nFuncFmtType)
                                     nRetIndexExpr = 0;  // carry format index only for matching type
                                 nRetTypeExpr = nFuncFmtType = nCurFmtType;
+                            }
+                            if (nRetTypeExpr == SvNumFormatType::DURATION)
+                            {
+                                // Round the duration in case a wall clock time
+                                // display format is used instead of a duration
+                                // format. To micro seconds which then catches
+                                // the converted hh:mm:ss.9999997 cases.
+                                if (fVal != 0.0)
+                                {
+                                    fVal *= 86400.0;
+                                    fVal = rtl::math::round( fVal, 6);
+                                    fVal /= 86400.0;
+                                }
                             }
                             PushTempToken( CreateFormulaDoubleToken( fVal));
                         }

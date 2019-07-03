@@ -89,7 +89,7 @@ static Sequence< Any > make_seq_out_of_struct(
     vec.reserve( reinterpret_cast<typelib_CompoundTypeDescription *>(pTD)->nMembers ); // good guess
     flatten_struct_members( &vec, val.getValue(), reinterpret_cast<typelib_CompoundTypeDescription *>(pTD) );
     TYPELIB_DANGER_RELEASE( pTD );
-    return Sequence< Any >( &vec[ 0 ], vec.size() );
+    return Sequence< Any >( vec.data(), vec.size() );
 }
 
 DispatchRecorder::DispatchRecorder( const css::uno::Reference< css::uno::XComponentContext >& xContext )
@@ -288,9 +288,8 @@ void DispatchRecorder::implts_recordMacro( const OUString& aURL,
                                                           bool bAsComment, OUStringBuffer& aScriptBuffer )
 {
     OUStringBuffer aArgumentBuffer(1000);
-    OUString       sArrayName;
     // this value is used to name the arrays of aArgumentBuffer
-    sArrayName = "args" + OUString::number(m_nRecordingID);
+    OUString sArrayName = "args" + OUString::number(m_nRecordingID);
 
     aScriptBuffer.append("rem ----------------------------------------------------------------------\n");
 

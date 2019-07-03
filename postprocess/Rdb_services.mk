@@ -128,10 +128,15 @@ $(eval $(call gb_Rdb_add_components,services,\
 	writerperfect/source/calc/wpftcalc \
 	$(if $(filter MACOSX,$(OS)), \
 		$(call gb_Helper_optional,AVMEDIA,avmedia/source/macavf/avmediaMacAVF) \
-		lingucomponent/source/spellcheck/macosxspell/MacOSXSpell \
 		fpicker/source/aqua/fps_aqua \
 		shell/source/backends/macbe/macbe1 \
 		vcl/vcl.macosx \
+	) \
+	$(if $(filter iOS MACOSX,$(OS)), \
+		lingucomponent/source/spellcheck/macosxspell/MacOSXSpell \
+	) \
+	$(if $(filter iOS,$(OS)), \
+		vcl/vcl.ios \
 	) \
 	$(if $(filter WNT,$(OS)), \
 		avmedia/source/win/avmediawin \
@@ -198,9 +203,6 @@ $(eval $(call gb_Rdb_add_components,services,\
 	) \
 	$(if $(ENABLE_GSTREAMER_1_0), \
 		avmedia/source/gstreamer/avmediagstreamer \
-	) \
-	$(if $(ENABLE_GSTREAMER_0_10), \
-		avmedia/source/gstreamer/avmediagstreamer_0_10 \
 	) \
 	$(if $(ENABLE_VLC), \
 		avmedia/source/vlc/avmediavlc \

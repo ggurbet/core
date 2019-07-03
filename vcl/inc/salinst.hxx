@@ -22,11 +22,11 @@
 
 #include <sal/types.h>
 #include <rtl/ref.hxx>
-#include <tools/solar.h>
 #include <vcl/dllapi.h>
 #include <vcl/salgtype.hxx>
-#include <osl/thread.hxx>
 #include <vcl/vclenum.hxx>
+
+#include "backend/BackendCapabilities.hxx"
 
 #include "displayconnectiondispatch.hxx"
 
@@ -50,6 +50,7 @@ namespace weld {
     class Widget;
     class Window;
 }
+class SystemChildWindow;
 struct SystemParentData;
 struct SalPrinterQueueInfo;
 class ImplJobSetup;
@@ -134,6 +135,11 @@ public:
     virtual SalSystem*      CreateSalSystem() = 0;
     // SalBitmap
     virtual std::shared_ptr<SalBitmap> CreateSalBitmap() = 0;
+    // BackendCapabilities
+    virtual std::shared_ptr<vcl::BackendCapabilities> GetBackendCapabilities()
+    {
+        return std::make_shared<vcl::BackendCapabilities>();
+    }
 
     // YieldMutex
     comphelper::SolarMutex* GetYieldMutex();
@@ -201,6 +207,8 @@ public:
     virtual OUString        getOSVersion() { return OUString("-"); }
 
     virtual const cairo_font_options_t* GetCairoFontOptions() { return nullptr; }
+
+    virtual void* CreateGStreamerSink(const SystemChildWindow*) { return nullptr; }
 };
 
 // called from SVMain

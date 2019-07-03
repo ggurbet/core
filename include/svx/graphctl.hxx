@@ -19,10 +19,8 @@
 #ifndef INCLUDED_SVX_GRAPHCTL_HXX
 #define INCLUDED_SVX_GRAPHCTL_HXX
 
-#include <vcl/ctrl.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/customweld.hxx>
-#include <vcl/weld.hxx>
 #include <svx/svxdllapi.h>
 
 #include <svx/svdview.hxx>
@@ -45,12 +43,13 @@ public:
 
 class SvxGraphCtrlAccessibleContext;
 
-class SVX_DLLPUBLIC GraphCtrl : public Control
+class SVX_DLLPUBLIC GraphCtrl : public weld::CustomWidgetController
 {
     friend class GraphCtrlView;
     friend class GraphCtrlUserCall;
 
     Graphic             aGraphic;
+    ScopedVclPtrInstance<VirtualDevice> xVD;
     Idle                aUpdateIdle;
     Link<GraphCtrl*,void>  aMousePosLink;
     Link<GraphCtrl*,void>  aGraphSizeLink;
@@ -64,6 +63,7 @@ class SVX_DLLPUBLIC GraphCtrl : public Control
     bool                bEditMode;
     bool                mbSdrMode;
     bool                mbInIdleUpdate;
+    weld::Dialog*       mpDialog;
 
                         DECL_LINK( UpdateHdl, Timer*, void );
 
@@ -76,10 +76,10 @@ protected:
 
     virtual void        Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect ) override;
     virtual void        Resize() override;
-    virtual void        KeyInput(const KeyEvent& rKEvt) override;
-    virtual void        MouseButtonDown(const MouseEvent& rMEvt) override;
-    virtual void        MouseButtonUp(const MouseEvent& rMEvt) override;
-    virtual void        MouseMove(const MouseEvent& rMEvt) override;
+    virtual bool        KeyInput(const KeyEvent& rKEvt) override;
+    virtual bool        MouseButtonDown(const MouseEvent& rMEvt) override;
+    virtual bool        MouseButtonUp(const MouseEvent& rMEvt) override;
+    virtual bool        MouseMove(const MouseEvent& rMEvt) override;
 
     virtual void        InitSdrModel();
 
@@ -87,13 +87,15 @@ protected:
     virtual void        SdrObjChanged( const SdrObject& rObj );
     virtual void        MarkListHasChanged();
 
+    void GraphicToVD();
+
     SdrObjUserCall* GetSdrUserCall() { return pUserCall.get(); }
 
 public:
 
-    GraphCtrl( vcl::Window* pParent, WinBits nStyle );
+    GraphCtrl(weld::Dialog* pDialog);
+    virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
     virtual ~GraphCtrl() override;
-    virtual void dispose() override;
 
     void                SetGraphic( const Graphic& rGraphic, bool bNewModel = true );
     const Graphic&      GetGraphic() const { return aGraphic; }
@@ -122,22 +124,8 @@ public:
 
     void                SetSdrMode(bool b);
 
+    Point               GetPositionInDialog() const;
     virtual css::uno::Reference< css::accessibility::XAccessible > CreateAccessible() override;
-};
-
-class SVX_DLLPUBLIC SvxGraphCtrl : public weld::CustomWidgetController
-{
-    MapMode const       aMap100;
-    Graphic             aGraphic;
-    Size                aGraphSize;
-
-    virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
-
-public:
-
-    SvxGraphCtrl();
-    virtual ~SvxGraphCtrl() override;
-    void                SetGraphic( const Graphic& rGraphic );
 };
 
 class GraphCtrlView : public SdrView
@@ -153,13 +141,19 @@ protected:
     }
 
 public:
-    GraphCtrlView(
-        SdrModel& rSdrModel,
-        GraphCtrl* pWindow)
-        :   SdrView(rSdrModel, pWindow)
-        ,rGraphCtrl(*pWindow)
+    GraphCtrlView(SdrModel& rSdrModel, GraphCtrl* pWindow)
+        : SdrView(rSdrModel, &pWindow->GetDrawingArea()->get_ref_device())
+        , rGraphCtrl(*pWindow)
     {
     }
+
+    virtual ~GraphCtrlView() override;
+
+    // override these so we can get the occasions SdrPaintView would call Window::Invalidate on its vcl::Window
+    // if it had one, and route to WidgetController::Invalidate instead
+    virtual rtl::Reference<sdr::overlay::OverlayManager> CreateOverlayManager(OutputDevice& rDevice) const override;
+    virtual void InvalidateOneWin(OutputDevice& rWin) override;
+    virtual void InvalidateOneWin(OutputDevice& rWin, const tools::Rectangle& rRect) override;
 };
 
 #endif // INCLUDED_SVX_GRAPHCTL_HXX

@@ -29,6 +29,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.Dimension;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,6 +42,7 @@ import java.util.Map;
 
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -264,9 +266,20 @@ public class ScriptEditorForBeanShell implements ScriptEditor, ActionListener {
         frame.setVisible(true);
     }
 
+    // Wraps long error messages
+    class NarrowOptionPane extends JOptionPane {
+        private static final long serialVersionUID = 1L;
+        public int getMaxCharactersPerLineCount() {
+            return 100;
+        }
+    }
+
     private void showErrorMessage(String message) {
-        JOptionPane.showMessageDialog(frame, message,
-                                      "Error", JOptionPane.ERROR_MESSAGE);
+        JOptionPane optionPane = new NarrowOptionPane();
+        optionPane.setMessage(message);
+        optionPane.setMessageType(JOptionPane.ERROR_MESSAGE);
+        JDialog dialog = optionPane.createDialog(null, "Error");
+        dialog.setVisible(true);
     }
 
     private void initUI() {
@@ -304,6 +317,7 @@ public class ScriptEditorForBeanShell implements ScriptEditor, ActionListener {
         frame.pack();
         frame.setSize(590, 480);
         frame.setLocation(300, 200);
+        frame.setMinimumSize(new Dimension(500, 300));
     }
 
     private void doClose() {
@@ -384,7 +398,7 @@ public class ScriptEditorForBeanShell implements ScriptEditor, ActionListener {
             try {
                 execute();
             } catch (Exception invokeException) {
-                showErrorMessage(invokeException.getMessage());
+                showErrorMessage(invokeException.toString());
             }
         } else if (actionCommand.equals("Save")) {
             saveTextArea();

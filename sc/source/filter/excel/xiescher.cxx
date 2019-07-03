@@ -39,11 +39,14 @@
 #include <com/sun/star/script/ScriptEventDescriptor.hpp>
 #include <com/sun/star/script/XEventAttacherManager.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 
 #include <sfx2/objsh.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <unotools/fltrcfg.hxx>
 #include <vcl/dibtools.hxx>
+#include <vcl/gdimtf.hxx>
+#include <vcl/window.hxx>
 #include <vcl/wmf.hxx>
 #include <comphelper/classids.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -74,11 +77,19 @@
 #include <svx/xlnstit.hxx>
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnwtit.hxx>
+#include <svx/sdasitm.hxx>
+#include <svx/sdshcitm.hxx>
+#include <svx/sdshitm.hxx>
+#include <svx/sdsxyitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtditm.hxx>
 
 #include <editeng/eeitem.hxx>
 #include <svx/xflclit.hxx>
 #include <sal/macros.h>
 #include <editeng/adjustitem.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlinjoit.hxx>
 #include <svx/xlntrit.hxx>
 #include <svx/xbtmpit.hxx>

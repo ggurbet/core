@@ -22,12 +22,10 @@
 
 #include <vcl/opengl/OpenGLContext.hxx>
 
-#include <vcl/salbtype.hxx>
 #include <opengl/texture.hxx>
 
 #include <salbmp.hxx>
 
-#include <deque>
 #include <memory>
 
 struct  BitmapBuffer;
@@ -93,6 +91,7 @@ private:
 
     GLuint          CreateTexture();
     bool            AllocateUserData();
+    void            DeallocateUserData();
     bool            ReadTexture();
 
 private:

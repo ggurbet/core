@@ -8,12 +8,15 @@
  */
 
 #include <swmodeltestbase.hxx>
+#include <unotest/bootstrapfixturebase.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <com/sun/star/linguistic2/LinguServiceManager.hpp>
 #include <com/sun/star/frame/DispatchHelper.hpp>
 #include <officecfg/Office/Common.hxx>
 #include <comphelper/scopeguard.hxx>
 #include <unotools/syslocaleoptions.hxx>
+#include <i18nlangtag/languagetag.hxx>
+#include <vcl/event.hxx>
 #include <vcl/scheduler.hxx>
 #include <fmtanchr.hxx>
 #include <fmtfsize.hxx>
@@ -21,108 +24,27 @@
 #include <wrtsh.hxx>
 #include <edtwin.hxx>
 #include <view.hxx>
+#include <txtfrm.hxx>
 
 static char const DATA_DIRECTORY[] = "/sw/qa/extras/layout/data/";
 
 /// Test to assert layout / rendering result of Writer.
 class SwLayoutWriter : public SwModelTestBase
 {
+protected:
     void CheckRedlineFootnotesHidden();
     void CheckRedlineSectionsHidden();
     void CheckRedlineCharAttributesHidden();
 
-public:
-    void testRedlineFootnotes();
-    void testRedlineFlysInBody();
-    void testRedlineFlysInHeader();
-    void testRedlineFlysInFootnote();
-    void testRedlineFlysInFlys();
-    void testRedlineFlysAtFlys();
-    void testRedlineSections();
-    void testRedlineTables();
-    void testRedlineCharAttributes();
-    void testTdf116830();
-    void testTdf114163();
-    void testTdf108021();
-    void testTdf122800();
-    void testTdf116925();
-    void testTdf117028();
-    void testTdf106390();
-    void testTableExtrusion1();
-    void testTableExtrusion2();
-    void testTdf116848();
-    void testTdf117245();
-    void testTdf118672();
-    void testTdf117923();
-    void testTdf109077();
-    void testUserFieldTypeLanguage();
-    void testTdf109137();
-    void testForcepoint72();
-    void testForcepoint75();
-    void testForcepoint76();
-    void testTdf118058();
-    void testTdf117188();
-    void testTdf117187();
-    void testTdf119875();
-    void testTdf120287();
-    void testTdf120287b();
-    void testTdf120287c();
-    void testTdf122878();
-    void testTdf115094();
-    void testTdf122607();
-    void testBtlrCell();
-    void testTdf123898();
-
-    CPPUNIT_TEST_SUITE(SwLayoutWriter);
-    CPPUNIT_TEST(testRedlineFootnotes);
-    CPPUNIT_TEST(testRedlineFlysInBody);
-    CPPUNIT_TEST(testRedlineFlysInHeader);
-    CPPUNIT_TEST(testRedlineFlysInFootnote);
-    CPPUNIT_TEST(testRedlineFlysInFlys);
-    CPPUNIT_TEST(testRedlineFlysAtFlys);
-    CPPUNIT_TEST(testRedlineSections);
-    CPPUNIT_TEST(testRedlineTables);
-    CPPUNIT_TEST(testRedlineCharAttributes);
-    CPPUNIT_TEST(testTdf116830);
-    CPPUNIT_TEST(testTdf114163);
-    CPPUNIT_TEST(testTdf108021);
-    CPPUNIT_TEST(testTdf122800);
-    CPPUNIT_TEST(testTdf116925);
-    CPPUNIT_TEST(testTdf117028);
-    CPPUNIT_TEST(testTdf106390);
-    CPPUNIT_TEST(testTableExtrusion1);
-    CPPUNIT_TEST(testTableExtrusion2);
-    CPPUNIT_TEST(testTdf116848);
-    CPPUNIT_TEST(testTdf117245);
-    CPPUNIT_TEST(testTdf118672);
-    CPPUNIT_TEST(testTdf117923);
-    CPPUNIT_TEST(testTdf109077);
-    CPPUNIT_TEST(testUserFieldTypeLanguage);
-    CPPUNIT_TEST(testTdf109137);
-    CPPUNIT_TEST(testForcepoint72);
-    CPPUNIT_TEST(testForcepoint75);
-    CPPUNIT_TEST(testForcepoint76);
-    CPPUNIT_TEST(testTdf118058);
-    CPPUNIT_TEST(testTdf117188);
-    CPPUNIT_TEST(testTdf117187);
-    CPPUNIT_TEST(testTdf119875);
-    CPPUNIT_TEST(testTdf120287);
-    CPPUNIT_TEST(testTdf120287b);
-    CPPUNIT_TEST(testTdf120287c);
-    CPPUNIT_TEST(testTdf122878);
-    CPPUNIT_TEST(testTdf115094);
-    CPPUNIT_TEST(testTdf122607);
-    CPPUNIT_TEST(testBtlrCell);
-    CPPUNIT_TEST(testTdf123898);
-    CPPUNIT_TEST_SUITE_END();
-
-private:
     SwDoc* createDoc(const char* pName = nullptr);
 };
 
 SwDoc* SwLayoutWriter::createDoc(const char* pName)
 {
-    load(DATA_DIRECTORY, pName);
+    if (!pName)
+        loadURL("private:factory/swriter", nullptr);
+    else
+        load(DATA_DIRECTORY, pName);
 
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     CPPUNIT_ASSERT(pTextDoc);
@@ -134,7 +56,7 @@ static void lcl_dispatchCommand(const uno::Reference<lang::XComponent>& xCompone
                                 const uno::Sequence<beans::PropertyValue>& rPropertyValues)
 {
     uno::Reference<frame::XController> xController
-        = uno::Reference<frame::XModel>(xComponent, uno::UNO_QUERY)->getCurrentController();
+        = uno::Reference<frame::XModel>(xComponent, uno::UNO_QUERY_THROW)->getCurrentController();
     CPPUNIT_ASSERT(xController.is());
     uno::Reference<frame::XDispatchProvider> xFrame(xController->getFrame(), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xFrame.is());
@@ -174,7 +96,7 @@ void SwLayoutWriter::CheckRedlineFootnotesHidden()
     assertXPath(pXmlDoc, "/root/page[1]/ftncont/ftn[2]/txt[1]/Text[1]", "Portion", "mo");
 }
 
-void SwLayoutWriter::testRedlineFootnotes()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFootnotes)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -282,7 +204,7 @@ void SwLayoutWriter::testRedlineFootnotes()
     CheckRedlineFootnotesHidden();
 }
 
-void SwLayoutWriter::testRedlineFlysInBody()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInBody)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -560,7 +482,7 @@ void SwLayoutWriter::testRedlineFlysInBody()
     }
 }
 
-void SwLayoutWriter::testRedlineFlysInHeader()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInHeader)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -855,7 +777,7 @@ void SwLayoutWriter::testRedlineFlysInHeader()
     }
 }
 
-void SwLayoutWriter::testRedlineFlysInFootnote()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInFootnote)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -1245,7 +1167,7 @@ void SwLayoutWriter::testRedlineFlysInFootnote()
     }
 }
 
-void SwLayoutWriter::testRedlineFlysInFlys()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysInFlys)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -1721,7 +1643,7 @@ void SwLayoutWriter::testRedlineFlysInFlys()
     }
 }
 
-void SwLayoutWriter::testRedlineFlysAtFlys()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineFlysAtFlys)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -2009,7 +1931,7 @@ void SwLayoutWriter::CheckRedlineSectionsHidden()
     assertXPath(pXmlDoc, "/root/page[1]/body/section[1]/txt[1]/Text[1]", "Portion", "folah");
 }
 
-void SwLayoutWriter::testRedlineSections()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineSections)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -2089,7 +2011,7 @@ void SwLayoutWriter::testRedlineSections()
     CheckRedlineSectionsHidden();
 }
 
-void SwLayoutWriter::testRedlineTables()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineTables)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -2221,7 +2143,7 @@ void SwLayoutWriter::CheckRedlineCharAttributesHidden()
     assertXPath(pXmlDoc, "/root/page[1]/body/txt[11]/Text[1]", "Portion", "foobaz");
 }
 
-void SwLayoutWriter::testRedlineCharAttributes()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testRedlineCharAttributes)
 {
     // currently need experimental mode
     Resetter _([]() {
@@ -2342,7 +2264,7 @@ void SwLayoutWriter::testRedlineCharAttributes()
     CheckRedlineCharAttributesHidden();
 }
 
-void SwLayoutWriter::testTdf116830()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf116830)
 {
     SwDoc* pDoc = createDoc("tdf116830.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2369,7 +2291,7 @@ void SwLayoutWriter::testTdf116830()
     assertXPath(pXmlDoc, "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/rect", 1);
 }
 
-void SwLayoutWriter::testTdf114163()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf114163)
 {
     SwDoc* pDoc = createDoc("tdf114163.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2384,10 +2306,53 @@ void SwLayoutWriter::testTdf114163()
         pXmlDoc,
         "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[12]/text",
         "Data3");
-    // This failed, if the legend first label is not "Data3".
+    // This failed, if the legend first label is not "Data3". The legend position is right.
 }
 
-void SwLayoutWriter::testTdf108021()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf125335)
+{
+    SwDoc* pDoc = createDoc("tdf125335.odt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPathContent(
+        pXmlDoc,
+        "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[12]/text",
+        "Data3");
+    // This failed, if the legend first label is not "Data3". The legend position is bottom.
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf75659)
+{
+    SwDoc* pDoc = createDoc("tdf75659.docx");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPathContent(pXmlDoc,
+                       "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[17]/text",
+                       "Unnamed Series 1");
+
+    assertXPathContent(pXmlDoc,
+                       "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[18]/text",
+                       "Unnamed Series 2");
+
+    assertXPathContent(pXmlDoc,
+                       "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/textarray[19]/text",
+                       "Unnamed Series 3");
+    // These failed, if the legend names are empty strings.
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf108021)
 {
     SwDoc* pDoc = createDoc("tdf108021.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2402,10 +2367,28 @@ void SwLayoutWriter::testTdf108021()
         pXmlDoc,
         "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[@length='22']",
         8);
-    // This failed, if the textarray length of the first axis label not 17.
+    // This failed, if the textarray length of the first axis label not 22.
 }
 
-void SwLayoutWriter::testTdf122800()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf125334)
+{
+    SwDoc* pDoc = createDoc("tdf125334.odt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(
+        pXmlDoc,
+        "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[@length='17']",
+        4);
+    // This failed, if the textarray length of the category axis label not 17.
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf122800)
 {
     SwDoc* pDoc = createDoc("tdf122800.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2423,7 +2406,31 @@ void SwLayoutWriter::testTdf122800()
     // This failed, if the textarray length of the first axis label not 22.
 }
 
-void SwLayoutWriter::testTdf116925()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf124796)
+{
+    SwDoc* pDoc = createDoc("tdf124796.odt");
+    SwDocShell* pShell = pDoc->GetDocShell();
+
+    // Dump the rendering of the first page as an XML file.
+    std::shared_ptr<GDIMetaFile> xMetaFile = pShell->GetPreviewMetaFile();
+    MetafileXmlDump dumper;
+    xmlDocPtr pXmlDoc = dumpAndParse(dumper, *xMetaFile);
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    // This failed, if the minimum value of Y axis is not -10.
+    assertXPathContent(
+        pXmlDoc,
+        "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[5]/text",
+        "-10");
+
+    // This failed, if the maximum value of Y axis is not 15.
+    assertXPathContent(
+        pXmlDoc,
+        "/metafile/push[1]/push[1]/push[1]/push[3]/push[1]/push[1]/push[1]/textarray[10]/text",
+        "15");
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf116925)
 {
     SwDoc* pDoc = createDoc("tdf116925.docx");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2443,7 +2450,7 @@ void SwLayoutWriter::testTdf116925()
         "/metafile/push[1]/push[1]/push[1]/push[4]/push[1]/push[3]/textcolor[@color='#ffffff']", 1);
 }
 
-void SwLayoutWriter::testTdf117028()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf117028)
 {
     SwDoc* pDoc = createDoc("tdf117028.docx");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2465,7 +2472,7 @@ void SwLayoutWriter::testTdf117028()
     assertXPathContent(pXmlDoc, "//textarray/text", "Hello");
 }
 
-void SwLayoutWriter::testTdf106390()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf106390)
 {
     SwDoc* pDoc = createDoc("tdf106390.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2483,7 +2490,7 @@ void SwLayoutWriter::testTdf106390()
     assertXPath(pXmlDoc, sXPath, 0);
 }
 
-void SwLayoutWriter::testTableExtrusion1()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTableExtrusion1)
 {
     SwDoc* pDoc = createDoc("table-extrusion1.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2503,7 +2510,7 @@ void SwLayoutWriter::testTableExtrusion1()
     assertXPath(pXmlDoc, sXPath, 4);
 }
 
-void SwLayoutWriter::testTableExtrusion2()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTableExtrusion2)
 {
     SwDoc* pDoc = createDoc("table-extrusion2.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2522,14 +2529,14 @@ void SwLayoutWriter::testTableExtrusion2()
     assertXPath(pXmlDoc, sXPath, 0);
 }
 
-void SwLayoutWriter::testTdf116848()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf116848)
 {
     SwDoc* pDoc = createDoc("tdf116848.odt");
     // This resulted in a layout loop.
     pDoc->getIDocumentLayoutAccess().GetCurrentViewShell()->CalcLayout();
 }
 
-void SwLayoutWriter::testTdf117245()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf117245)
 {
     createDoc("tdf117245.odt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2541,7 +2548,7 @@ void SwLayoutWriter::testTdf117245()
     assertXPath(pXmlDoc, "/root/page/body/txt[2]/LineBreak", 1);
 }
 
-void SwLayoutWriter::testTdf118672()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf118672)
 {
     createDoc("tdf118672.odt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2565,7 +2572,7 @@ void SwLayoutWriter::testTdf118672()
     assertXPath(pXmlDoc, "/root/page/body/txt[1]/LineBreak[2]", "Line", aLine2);
 }
 
-void SwLayoutWriter::testTdf117923()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf117923)
 {
     createDoc("tdf117923.doc");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2579,7 +2586,7 @@ void SwLayoutWriter::testTdf117923()
     assertXPath(pXmlDoc, "/root/page/body/tab/row/cell/txt[3]/Special", "nHeight", "220");
 }
 
-void SwLayoutWriter::testTdf109077()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf109077)
 {
     createDoc("tdf109077.docx");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2591,14 +2598,15 @@ void SwLayoutWriter::testTdf109077()
     CPPUNIT_ASSERT_LESS(static_cast<sal_Int32>(15), nTextBoxTop - nShapeTop);
 }
 
-void SwLayoutWriter::testUserFieldTypeLanguage()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testUserFieldTypeLanguage)
 {
     // Set the system locale to German, the document will be English.
     SvtSysLocaleOptions aOptions;
+    OUString sLocaleConfigString = aOptions.GetLanguageTag().getBcp47();
     aOptions.SetLocaleConfigString("de-DE");
     aOptions.Commit();
-    comphelper::ScopeGuard g([&aOptions] {
-        aOptions.SetLocaleConfigString(OUString());
+    comphelper::ScopeGuard g([&aOptions, &sLocaleConfigString] {
+        aOptions.SetLocaleConfigString(sLocaleConfigString);
         aOptions.Commit();
     });
 
@@ -2612,7 +2620,7 @@ void SwLayoutWriter::testUserFieldTypeLanguage()
                 "1,234.56");
 }
 
-void SwLayoutWriter::testTdf109137()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf109137)
 {
     createDoc("tdf109137.docx");
     uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
@@ -2630,10 +2638,10 @@ void SwLayoutWriter::testTdf109137()
 }
 
 //just care it doesn't crash/assert
-void SwLayoutWriter::testForcepoint72() { createDoc("forcepoint72-1.rtf"); }
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepoint72) { createDoc("forcepoint72-1.rtf"); }
 
 //just care it doesn't crash/assert
-void SwLayoutWriter::testForcepoint75()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepoint75)
 {
     try
     {
@@ -2645,16 +2653,16 @@ void SwLayoutWriter::testForcepoint75()
 }
 
 //just care it doesn't crash/assert
-void SwLayoutWriter::testForcepoint76() { createDoc("forcepoint76-1.rtf"); }
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepoint76) { createDoc("forcepoint76-1.rtf"); }
 
-void SwLayoutWriter::testTdf118058()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf118058)
 {
     SwDoc* pDoc = createDoc("tdf118058.fodt");
     // This resulted in a layout loop.
     pDoc->getIDocumentLayoutAccess().GetCurrentViewShell()->CalcLayout();
 }
 
-void SwLayoutWriter::testTdf117188()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf117188)
 {
     createDoc("tdf117188.docx");
     uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
@@ -2675,7 +2683,7 @@ void SwLayoutWriter::testTdf117188()
     assertXPath(pXmlDoc, "/root/page/body/txt/anchored/fly/infos/prtBounds", "height", sHeight);
 }
 
-void SwLayoutWriter::testTdf117187()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf117187)
 {
     createDoc("tdf117187.odt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2684,7 +2692,7 @@ void SwLayoutWriter::testTdf117187()
     assertXPath(pXmlDoc, "/root/page/body/txt/Special[@nType='PortionType::Fly']", 0);
 }
 
-void SwLayoutWriter::testTdf119875()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf119875)
 {
     createDoc("tdf119875.odt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2697,7 +2705,7 @@ void SwLayoutWriter::testTdf119875()
     CPPUNIT_ASSERT_LESS(nSecondTop, nFirstTop);
 }
 
-void SwLayoutWriter::testTdf120287()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf120287)
 {
     createDoc("tdf120287.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2707,7 +2715,7 @@ void SwLayoutWriter::testTdf120287()
     assertXPath(pXmlDoc, "/root/page/body/txt[1]/LineBreak", 1);
 }
 
-void SwLayoutWriter::testTdf120287b()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf120287b)
 {
     createDoc("tdf120287b.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2718,7 +2726,7 @@ void SwLayoutWriter::testTdf120287b()
                 "17");
 }
 
-void SwLayoutWriter::testTdf120287c()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf120287c)
 {
     createDoc("tdf120287c.fodt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2727,7 +2735,7 @@ void SwLayoutWriter::testTdf120287c()
     assertXPath(pXmlDoc, "/root/page/body/txt[1]/LineBreak", 3);
 }
 
-void SwLayoutWriter::testTdf122878()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf122878)
 {
     createDoc("tdf122878.docx");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2749,7 +2757,7 @@ void SwLayoutWriter::testTdf122878()
     }
 }
 
-void SwLayoutWriter::testTdf115094()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf115094)
 {
     createDoc("tdf115094.docx");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2776,7 +2784,7 @@ void SwLayoutWriter::testTdf115094()
     CPPUNIT_ASSERT_LESS(nTopOfB2Anchored, nTopOfB2);
 }
 
-void SwLayoutWriter::testTdf122607()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf122607)
 {
     createDoc("tdf122607.odt");
     xmlDocPtr pXmlDoc = parseLayoutDump();
@@ -2794,7 +2802,54 @@ void SwLayoutWriter::testTdf122607()
                 "Portion", "Fax:");
 }
 
-void SwLayoutWriter::testBtlrCell()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf122607_regression)
+{
+    discardDumpedLayout();
+    if (mxComponent.is())
+        mxComponent->dispose();
+
+    OUString const pName("tdf122607_leerzeile.odt");
+
+    OUString const url(m_directories.getURLFromSrc(DATA_DIRECTORY) + pName);
+
+    // note: must set Hidden property, so that SfxFrameViewWindow_Impl::Resize()
+    // does *not* forward initial VCL Window Resize and thereby triggers a
+    // layout which does not happen on soffice --convert-to pdf.
+    std::vector<beans::PropertyValue> aFilterOptions = {
+        { beans::PropertyValue("Hidden", -1, uno::Any(true), beans::PropertyState_DIRECT_VALUE) },
+    };
+
+    std::cout << pName << ":\n";
+
+    // inline the loading because currently properties can't be passed...
+    mxComponent = loadFromDesktop(url, "com.sun.star.text.TextDocument",
+                                  comphelper::containerToSequence(aFilterOptions));
+
+    CPPUNIT_ASSERT(mxComponent.is());
+
+    uno::Sequence<beans::PropertyValue> props(comphelper::InitPropertySequence({
+        { "FilterName", uno::Any(OUString("writer_pdf_Export")) },
+    }));
+    utl::TempFile aTempFile;
+    uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+    xStorable->storeToURL(aTempFile.GetURL(), props);
+
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    // somehow these 2 rows overlapped in the PDF unless CalcLayout() runs
+    assertXPath(pXmlDoc, "/root/page[1]/anchored/fly/tab[1]/row[1]/infos/bounds", "mbFixSize",
+                "false");
+    assertXPath(pXmlDoc, "/root/page[1]/anchored/fly/tab[1]/row[1]/infos/bounds", "top", "2977");
+    assertXPath(pXmlDoc, "/root/page[1]/anchored/fly/tab[1]/row[1]/infos/bounds", "height", "241");
+    assertXPath(pXmlDoc, "/root/page[1]/anchored/fly/tab[1]/row[2]/infos/bounds", "mbFixSize",
+                "true");
+    // this was 3034, causing the overlap
+    assertXPath(pXmlDoc, "/root/page[1]/anchored/fly/tab[1]/row[2]/infos/bounds", "top", "3218");
+    assertXPath(pXmlDoc, "/root/page[1]/anchored/fly/tab[1]/row[2]/infos/bounds", "height", "164");
+
+    aTempFile.EnableKillingFile();
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testBtlrCell)
 {
     SwDoc* pDoc = createDoc("btlr-cell.odt");
     SwDocShell* pShell = pDoc->GetDocShell();
@@ -2816,6 +2871,11 @@ void SwLayoutWriter::testBtlrCell()
     // descent mismatch when calculating the baseline offset of the text portion.
     assertXPath(pXmlDoc, "//textarray[1]", "x", "1915");
     assertXPath(pXmlDoc, "//textarray[1]", "y", "2707");
+
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 1979;
+    // Actual  : 2129', i.e. the gray background of the "AAA2." text was too close to the right edge
+    // of the text portion. Now it's exactly behind the text portion.
+    assertXPath(pXmlDoc, "//rect[@top='2159']", "left", "1979");
 
     // Without the accompanying fix in place, this test would have failed with 'Expected: 269;
     // Actual  : 0', i.e. the AAA2 frame was not visible due to 0 width.
@@ -2918,10 +2978,40 @@ void SwLayoutWriter::testBtlrCell()
         ss << "selection rectangle " << rRect << " is not inside cell rectangle " << aCellRect;
         CPPUNIT_ASSERT_MESSAGE(ss.str(), aCellRect.IsInside(rRect));
     }
+
+    // Make sure that the correct rectangle gets repainted on scroll.
+    SwFrame* pPageFrame = pLayout->GetLower();
+    CPPUNIT_ASSERT(pPageFrame->IsPageFrame());
+
+    SwFrame* pBodyFrame = pPageFrame->GetLower();
+    CPPUNIT_ASSERT(pBodyFrame->IsBodyFrame());
+
+    SwFrame* pTabFrame = pBodyFrame->GetLower();
+    CPPUNIT_ASSERT(pTabFrame->IsTabFrame());
+
+    SwFrame* pRowFrame = pTabFrame->GetLower();
+    CPPUNIT_ASSERT(pRowFrame->IsRowFrame());
+
+    SwFrame* pCellFrame = pRowFrame->GetLower();
+    CPPUNIT_ASSERT(pCellFrame->IsCellFrame());
+
+    SwFrame* pFrame = pCellFrame->GetLower();
+    CPPUNIT_ASSERT(pFrame->IsTextFrame());
+
+    SwTextFrame* pTextFrame = static_cast<SwTextFrame*>(pFrame);
+    pTextFrame->SwapWidthAndHeight();
+    // Mimic what normally SwTextFrame::PaintSwFrame() does:
+    SwRect aRect(4207, 2273, 269, 572);
+    pTextFrame->SwitchVerticalToHorizontal(aRect);
+    // Without the accompanying fix in place, this test would have failed with:
+    // Expected: 572x269@(1691,4217)
+    // Actual  : 572x269@(2263,4217)
+    // i.e. the paint rectangle position was incorrect, text was not painted on scrolling up.
+    CPPUNIT_ASSERT_EQUAL(SwRect(1691, 4217, 572, 269), aRect);
 #endif
 }
 
-void SwLayoutWriter::testTdf123898()
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf123898)
 {
     createDoc("tdf123898.odt");
 
@@ -2933,7 +3023,54 @@ void SwLayoutWriter::testTdf123898()
     assertXPathChildren(pXmlDoc, "/root/page/body/txt/anchored/fly/txt", 42);
 }
 
-CPPUNIT_TEST_SUITE_REGISTRATION(SwLayoutWriter);
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf123651)
+{
+    createDoc("tdf123651.docx");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 7639;
+    // Actual: 12926'. The shape was below the second "Lorem ipsum" text, not above it.
+    assertXPath(pXmlDoc, "//SwAnchoredDrawObject/bounds", "top", "7639");
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf116501)
+{
+    //just care it doesn't freeze
+    createDoc("tdf116501.odt");
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf118719)
+{
+    // Insert a page break.
+    SwDoc* pDoc = createDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+
+    // Enable hide whitespace mode.
+    SwViewOption aViewOptions(*pWrtShell->GetViewOptions());
+    aViewOptions.SetHideWhitespaceMode(true);
+    pWrtShell->ApplyViewOptions(aViewOptions);
+
+    pWrtShell->Insert("first");
+    pWrtShell->InsertPageBreak();
+    pWrtShell->Insert("second");
+
+    // Without the accompanying fix in place, this test would have failed, as the height of the
+    // first page was 15840 twips, instead of the much smaller 276.
+    sal_Int32 nOther = parseDump("/root/page[1]/infos/bounds", "height").toInt32();
+    sal_Int32 nLast = parseDump("/root/page[2]/infos/bounds", "height").toInt32();
+    CPPUNIT_ASSERT_GREATER(nOther, nLast);
+}
+
+CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTabOverMargin)
+{
+    createDoc("tab-over-margin.odt");
+    xmlDocPtr pXmlDoc = parseLayoutDump();
+
+    // 2nd paragraph has a tab over the right margin, and with the TabOverMargin compat option,
+    // there is enough space to have all content in a single line.
+    // Without the accompanying fix in place, this test would have failed, there were 2 lines.
+    assertXPath(pXmlDoc, "/root/page/body/txt[2]/LineBreak", 1);
+}
+
 CPPUNIT_PLUGIN_IMPLEMENT();
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

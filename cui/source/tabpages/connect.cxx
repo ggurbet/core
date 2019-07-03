@@ -25,14 +25,16 @@
 
 #include <svx/connctrl.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <svx/dlgutil.hxx>
 #include <svx/ofaitem.hxx>
-#include <svx/svdattr.hxx>
+
 #include <svx/svdoedge.hxx>
 #include <svx/svdview.hxx>
 #include <svx/sxekitm.hxx>
 #include <svx/sxelditm.hxx>
 #include <svx/sxenditm.hxx>
+#include <svtools/unitconv.hxx>
 
 #include <connect.hxx>
 
@@ -50,7 +52,7 @@ const sal_uInt16 SvxConnectionPage::pRanges[] =
 \************************************************************************/
 
 SvxConnectionDialog::SvxConnectionDialog(weld::Window* pParent, const SfxItemSet& rInAttrs, const SdrView* pSdrView)
-    : SfxSingleTabDialogController(pParent, rInAttrs)
+    : SfxSingleTabDialogController(pParent, &rInAttrs)
 {
     TabPageParent pPageParent(get_content_area(), this);
     VclPtrInstance<SvxConnectionPage> pPage(pPageParent, rInAttrs);

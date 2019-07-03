@@ -23,6 +23,7 @@
 #include <svx/AccessibleShapeInfo.hxx>
 #include <com/sun/star/drawing/XShapeDescriptor.hpp>
 #include <vcl/svapp.hxx>
+#include <svx/AccessibleShape.hxx>
 #include <svx/dialmgr.hxx>
 
 #include <svx/unoshape.hxx>
@@ -271,7 +272,7 @@ OUString ShapeTypeHandler::CreateAccessibleBaseName (const uno::Reference<drawin
         case DRAWING_CUSTOM:
             pResourceId = STR_ObjNameSingulCUSTOMSHAPE;
 
-            if (SvxShape* pShape = SvxShape::getImplementation(rxShape))
+            if (SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>(rxShape))
             {
                 if (auto pCustomShape = dynamic_cast<SdrObjCustomShape*>(pShape->GetSdrObject()))
                 {

@@ -32,6 +32,7 @@ $(eval $(call gb_UIConfig_add_uifiles,cui,\
 	cui/uiconfig/ui/borderareatransparencydialog \
 	cui/uiconfig/ui/borderbackgrounddialog \
 	cui/uiconfig/ui/borderpage \
+	cui/uiconfig/ui/bulletandposition \
 	cui/uiconfig/ui/breaknumberoption \
 	cui/uiconfig/ui/calloutdialog \
 	cui/uiconfig/ui/calloutpage \
@@ -87,6 +88,7 @@ $(eval $(call gb_UIConfig_add_uifiles,cui,\
 	cui/uiconfig/ui/hyphenate \
 	cui/uiconfig/ui/iconchangedialog \
 	cui/uiconfig/ui/iconselectordialog \
+	cui/uiconfig/ui/tipofthedaydialog \
 	cui/uiconfig/ui/insertfloatingframe \
 	cui/uiconfig/ui/insertoleobject \
 	cui/uiconfig/ui/insertrowcolumn \
@@ -177,7 +179,6 @@ $(eval $(call gb_UIConfig_add_uifiles,cui,\
 	cui/uiconfig/ui/searchattrdialog \
 	cui/uiconfig/ui/searchformatdialog \
 	cui/uiconfig/ui/securityoptionsdialog \
-	cui/uiconfig/ui/select_persona_dialog \
 	cui/uiconfig/ui/selectpathdialog \
 	cui/uiconfig/ui/shadowtabpage \
 	cui/uiconfig/ui/showcoldialog \

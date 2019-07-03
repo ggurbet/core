@@ -155,7 +155,7 @@ ErrCode ScXMLImportWrapper::ImportFromComponent(const uno::Reference<uno::XCompo
 
     // set Base URL
     uno::Reference< beans::XPropertySet > xInfoSet;
-    if( aArgs.getLength() > 0 )
+    if( aArgs.hasElements() )
         aArgs.getConstArray()[0] >>= xInfoSet;
     OSL_ENSURE( xInfoSet.is(), "missing property set" );
     if( xInfoSet.is() )
@@ -650,7 +650,7 @@ bool ScXMLImportWrapper::ExportToComponent(const uno::Reference<uno::XComponentC
 
     // set Base URL
     uno::Reference< beans::XPropertySet > xInfoSet;
-    if( aArgs.getLength() > 0 )
+    if( aArgs.hasElements() )
         aArgs.getConstArray()[0] >>= xInfoSet;
     OSL_ENSURE( xInfoSet.is(), "missing property set" );
     if( xInfoSet.is() )
@@ -672,7 +672,7 @@ bool ScXMLImportWrapper::ExportToComponent(const uno::Reference<uno::XComponentC
 
     if ( xFilter.is() )
     {
-        ScXMLExport* pExport = static_cast<ScXMLExport*>(SvXMLExport::getImplementation(xFilter));
+        ScXMLExport* pExport = static_cast<ScXMLExport*>(comphelper::getUnoTunnelImplementation<SvXMLExport>(xFilter));
         pExport->SetSharedData(std::move(pSharedData));
 
         // if there are sheets to copy, get the source stream
@@ -687,7 +687,7 @@ bool ScXMLImportWrapper::ExportToComponent(const uno::Reference<uno::XComponentC
 
             // #i108978# If an embedded object is saved and no events are notified, don't use the stream
             // because without the ...DONE events, stream positions aren't updated.
-            ScSheetSaveData* pSheetData = ScModelObj::getImplementation(xModel)->GetSheetSaveData();
+            ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(xModel)->GetSheetSaveData();
             if (pSheetData && pSheetData->IsInSupportedSave())
             {
                 try

@@ -52,7 +52,7 @@ class SvxHpLinkDlg;
 class SvxHlinkCtrl : public SfxControllerItem
 {
 private:
-    VclPtr<SvxHpLinkDlg> pParent;
+    SvxHpLinkDlg* pParent;
 
     SfxStatusForwarder aRdOnlyForwarder;
 
@@ -71,37 +71,86 @@ public:
 |*
 \************************************************************************/
 
-class SvxHpLinkDlg : public IconChoiceDialog
+class SvxHpLinkDlg : public SfxModelessDialogController
 {
 private:
+    friend class IconChoicePage;
+
+    std::vector< std::unique_ptr<IconChoicePageData> > maPageList;
+
+    OString msCurrentPageId;
+
+    const SfxItemSet*       pSet;
+    std::unique_ptr<SfxItemSet>     pOutSet;
+    SfxItemSet*             pExampleSet;
+    std::unique_ptr<sal_uInt16[]>   pRanges;
+
     SvxHlinkCtrl        maCtrl;         ///< Controller
-    SfxBindings*        mpBindings;
     std::unique_ptr<SfxItemSet> mpItemSet;
 
     bool            mbGrabFocus : 1;
     bool            mbIsHTMLDoc : 1;
 
-    DECL_LINK (ClickOkHdl_Impl, Button *, void );
-    DECL_LINK (ClickApplyHdl_Impl, Button *, void );
-    DECL_LINK (ClickCloseHdl_Impl, Button *, void );
+    std::unique_ptr<weld::Notebook> m_xIconCtrl;
+    std::unique_ptr<weld::Button> m_xOKBtn;
+    std::unique_ptr<weld::Button> m_xApplyBtn;
+    std::unique_ptr<weld::Button> m_xCancelBtn;
+    std::unique_ptr<weld::Button> m_xHelpBtn;
+    std::unique_ptr<weld::Button> m_xResetBtn;
 
-protected:
-    virtual bool            Close() override;
-    virtual void            Move() override;
+    DECL_LINK( ChosePageHdl_Impl, const OString&, void );
+
+    IconChoicePageData*     GetPageData ( const OString& rId );
+    void                    Start_Impl();
+    bool                    OK_Impl();
+
+    void                    SwitchPage( const OString& rId );
+
+    DECL_LINK( ResetHdl, weld::Button&, void) ;
+    DECL_LINK (ClickOkHdl_Impl, weld::Button&, void );
+    DECL_LINK (ClickApplyHdl_Impl, weld::Button&, void );
+
+    IconChoicePage*         GetTabPage( const OString& rPageId )
+                                { return GetPageData(rPageId)->xPage.get(); }
+
+    void                    ActivatePageImpl ();
+    void                    DeActivatePageImpl ();
+    void                    ResetPageImpl ();
+
+    void                    Ok();
+
+    virtual void Close() override;
     void Apply();
 
 public:
-    SvxHpLinkDlg (vcl::Window* pParent, SfxBindings* pBindings );
+    SvxHpLinkDlg(SfxBindings* pBindings, SfxChildWindow* pChild, weld::Window* pParent);
     virtual ~SvxHpLinkDlg () override;
-    virtual void dispose() override;
 
-    virtual void            PageCreated( HyperLinkPageType nId, IconChoicePage& rPage ) override;
+    // interface
+    void AddTabPage(const OString &rId, CreatePage pCreateFunc /* != NULL */);
 
-    void                    SetPage( SvxHyperlinkItem const * pItem );
-    void                    SetReadOnlyMode( bool bReadOnly );
-    bool             IsHTMLDoc() const { return mbIsHTMLDoc; }
+    void                SetCurPageId( const OString& rId ) { msCurrentPageId = rId; SwitchPage(rId ); }
+    OString             GetCurPageId() const       { return msCurrentPageId; }
+    void                ShowPage( const OString& rId );
 
-    SfxDispatcher*   GetDispatcher() const { return mpBindings->GetDispatcher(); }
+    /// gives via map converted local slots if applicable
+    const sal_uInt16*   GetInputRanges( const SfxItemPool& );
+    void                SetInputSet( const SfxItemSet* pInSet );
+
+    weld::Button&       GetOKButton() { return *m_xOKBtn; }
+    weld::Button&       GetApplyButton() { return *m_xApplyBtn; }
+    weld::Button&       GetCancelButton() { return *m_xCancelBtn; }
+
+    void                Start();
+    bool                QueryClose();
+
+    void                PageCreated(const OString& rId, IconChoicePage& rPage);
+
+    void                SetPage( SvxHyperlinkItem const * pItem );
+    void                SetReadOnlyMode( bool bReadOnly );
+    bool                IsHTMLDoc() const { return mbIsHTMLDoc; }
+
+    SfxDispatcher*   GetDispatcher() const { return GetBindings().GetDispatcher(); }
 };
 
 

@@ -569,17 +569,23 @@ public:
                       rtl_TextEncoding eCharset = RTL_TEXTENCODING_UTF8)
         const;
 
-    /** Set the name of a segment (preserving any parameters and any query or
+    /** Set the name of the last segment (preserving any parameters and any query or
         fragment part).
 
         @param rTheName  The new name.
 
+        @param eMechanism  See the general discussion for get-methods.
+
+        @param eCharset  See the general discussion for get-methods.
+
         @return  True if the name has successfully been modified (and the
         resulting URI is still valid).  If the path is not hierarchical, or
-        the specified segment does not exist, false is returned.  If false is
+        a last segment does not exist, false is returned.  If false is
         returned, the object is not modified.
      */
-    bool setName(OUString const & rTheName);
+    bool setName(OUString const& rTheName,
+                 EncodeMechanism eMechanism = EncodeMechanism::WasEncoded,
+                 rtl_TextEncoding eCharset = RTL_TEXTENCODING_UTF8);
 
     /** Get the base of the name of a segment.
 
@@ -751,7 +757,7 @@ public:
 
     /** Create an INetURLObject from a file system path.
 
-        @param rFSysPath  A file system path.  An URL is not allowed here!
+        @param rFSysPath  A file system path.  A URL is not allowed here!
 
         @param eStyle  The notation of rFSysPath.
      */
@@ -760,7 +766,7 @@ public:
     /** Set this INetURLObject to a file URL constructed from a file system
         path.
 
-        @param rFSysPath  A file system path.  An URL is not allowed here!
+        @param rFSysPath  A file system path.  A URL is not allowed here!
 
         @param eStyle  The notation of rFSysPath.
 
@@ -926,19 +932,7 @@ public:
 
     OUString GetBase() const;
 
-    void SetName(OUString const & rTheName,
-                 EncodeMechanism eMechanism = EncodeMechanism::WasEncoded,
-                 rtl_TextEncoding eCharset = RTL_TEXTENCODING_UTF8);
-
-    OUString GetName(DecodeMechanism eMechanism = DecodeMechanism::ToIUri,
-                             rtl_TextEncoding eCharset
-                                 = RTL_TEXTENCODING_UTF8) const
-    { return GetLastName(eMechanism, eCharset); }
-
     void SetExtension(OUString const & rTheExtension);
-
-    OUString GetExtension() const
-    { return GetFileExtension(); }
 
     OUString CutExtension();
 

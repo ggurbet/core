@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/UnreachableStateException.hpp>
 #include <com/sun/star/embed/XVisualObject.hpp>
@@ -28,6 +29,7 @@
 #include <com/sun/star/embed/XEmbedPersist.hpp>
 #include <com/sun/star/embed/EmbedVerbs.hpp>
 #include <com/sun/star/embed/XEmbeddedOleObject.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
@@ -60,6 +62,7 @@
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <toolkit/helper/convert.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/fract.hxx>
 #include <tools/gen.hxx>
 #include <svl/rectitem.hxx>
@@ -957,9 +960,9 @@ ErrCode SfxInPlaceClient::DoVerb( long nVerb )
                                 m_xImp->m_aScaleHeight = Fraction( aScaledArea.GetHeight(), aNewSize.Height() );
                             }
                         }
-                        catch (uno::Exception const& e)
+                        catch (uno::Exception const&)
                         {
-                            SAL_WARN("embeddedobj", "SfxInPlaceClient::DoVerb: -9 fallback path: " << e);
+                            TOOLS_WARN_EXCEPTION("embeddedobj", "SfxInPlaceClient::DoVerb: -9 fallback path");
                             nError = ERRCODE_SO_GENERALERROR;
                         }
                     }
@@ -969,10 +972,9 @@ ErrCode SfxInPlaceClient::DoVerb( long nVerb )
                     // TODO/LATER: it would be nice to be able to provide the current target state outside
                     nError = ERRCODE_SO_CANNOT_DOVERB_NOW;
                 }
-                catch (uno::Exception const& e)
+                catch (uno::Exception const&)
                 {
-                    SAL_WARN("embeddedobj", "SfxInPlaceClient::DoVerb:"
-                            " exception caught: " << e);
+                    TOOLS_WARN_EXCEPTION("embeddedobj", "SfxInPlaceClient::DoVerb");
                     nError = ERRCODE_SO_GENERALERROR;
                     //TODO/LATER: better error handling
 

@@ -23,6 +23,7 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <vcl/svapp.hxx>
 #include <tools/debug.hxx>
+#include <svl/itemprop.hxx>
 
 #include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
@@ -576,7 +577,7 @@ uno::Any SAL_CALL SvxUnoTextField::queryAggregation( const uno::Type & rType )
 
 uno::Sequence< uno::Type > SAL_CALL SvxUnoTextField::getTypes()
 {
-    if( maTypeSequence.getLength() == 0 )
+    if( !maTypeSequence.hasElements() )
     {
         maTypeSequence = comphelper::concatSequences(
             OComponentHelper::getTypes(),
@@ -662,7 +663,7 @@ OUString SAL_CALL SvxUnoTextField::getPresentation( sal_Bool bShowCommand )
 // Interface text::XTextContent
 void SAL_CALL SvxUnoTextField::attach( const uno::Reference< text::XTextRange >& xTextRange )
 {
-    SvxUnoTextRangeBase* pRange = SvxUnoTextRange::getImplementation( xTextRange );
+    SvxUnoTextRangeBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextRange>( xTextRange );
     if(pRange == nullptr)
         throw lang::IllegalArgumentException();
 

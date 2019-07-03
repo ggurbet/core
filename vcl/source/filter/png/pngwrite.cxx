@@ -34,6 +34,7 @@
 #include <vcl/alpha.hxx>
 #include <osl/endian.h>
 #include <memory>
+#include <vcl/BitmapTools.hxx>
 
 #define PNG_DEF_COMPRESSION 6
 
@@ -100,7 +101,7 @@ private:
     void ImplWriteChunk(unsigned char const * pSource, sal_uInt32 nDatSize);
 };
 
-PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBmpEx,
+PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBitmapEx,
     const css::uno::Sequence<css::beans::PropertyValue>* pFilterData )
     : mnCompLevel(PNG_DEF_COMPRESSION)
     , mnInterlaced(0)
@@ -116,34 +117,45 @@ PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBmpEx,
     , mbTrueAlpha(false)
     , mnCRC(0)
 {
-    if (!rBmpEx.IsEmpty())
+    if (!rBitmapEx.IsEmpty())
     {
-        Bitmap aBmp(rBmpEx.GetBitmap());
+        BitmapEx aBitmapEx;
+
+        if (rBitmapEx.GetBitmap().GetBitCount() == 32)
+        {
+            if (!vcl::bitmap::convertBitmap32To24Plus8(rBitmapEx, aBitmapEx))
+                return;
+        }
+        else
+        {
+            aBitmapEx = rBitmapEx;
+        }
+
+        Bitmap aBmp(aBitmapEx.GetBitmap());
 
         mnMaxChunkSize = std::numeric_limits<sal_uInt32>::max();
 
         if (pFilterData)
         {
-            sal_Int32 i = 0;
-            for (i = 0; i < pFilterData->getLength(); i++)
+            for (const auto& rPropVal : *pFilterData)
             {
-                if ((*pFilterData)[i].Name == "Compression")
-                    (*pFilterData)[i].Value >>= mnCompLevel;
-                else if ((*pFilterData)[i].Name == "Interlaced")
-                    (*pFilterData)[i].Value >>= mnInterlaced;
-                else if ((*pFilterData)[i].Name == "MaxChunkSize")
+                if (rPropVal.Name == "Compression")
+                    rPropVal.Value >>= mnCompLevel;
+                else if (rPropVal.Name == "Interlaced")
+                    rPropVal.Value >>= mnInterlaced;
+                else if (rPropVal.Name == "MaxChunkSize")
                 {
                     sal_Int32 nVal = 0;
-                    if ((*pFilterData)[i].Value >>= nVal)
+                    if (rPropVal.Value >>= nVal)
                         mnMaxChunkSize = static_cast<sal_uInt32>(nVal);
                 }
             }
         }
         mnBitsPerPixel = static_cast<sal_uInt8>(aBmp.GetBitCount());
 
-        if (rBmpEx.IsTransparent())
+        if (aBitmapEx.IsTransparent())
         {
-            if (mnBitsPerPixel <= 8 && rBmpEx.IsAlpha())
+            if (mnBitsPerPixel <= 8 && aBitmapEx.IsAlpha())
             {
                 aBmp.Convert( BmpConversion::N24Bit );
                 mnBitsPerPixel = 24;
@@ -152,14 +164,14 @@ PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBmpEx,
             if (mnBitsPerPixel <= 8) // transparent palette
             {
                 aBmp.Convert(BmpConversion::N8BitTrans);
-                aBmp.Replace(rBmpEx.GetMask(), BMP_COL_TRANS);
+                aBmp.Replace(aBitmapEx.GetMask(), BMP_COL_TRANS);
                 mnBitsPerPixel = 8;
                 mpAccess = Bitmap::ScopedReadAccess(aBmp);
                 if (mpAccess)
                 {
                     if (ImplWriteHeader())
                     {
-                        ImplWritepHYs(rBmpEx);
+                        ImplWritepHYs(aBitmapEx);
                         ImplWritePalette();
                         ImplWriteTransparent();
                         ImplWriteIDAT();
@@ -176,16 +188,16 @@ PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBmpEx,
                 mpAccess = Bitmap::ScopedReadAccess(aBmp); // true RGB with alphachannel
                 if (mpAccess)
                 {
-                    mbTrueAlpha = rBmpEx.IsAlpha();
+                    mbTrueAlpha = aBitmapEx.IsAlpha();
                     if (mbTrueAlpha)
                     {
-                        AlphaMask aMask(rBmpEx.GetAlpha());
+                        AlphaMask aMask(aBitmapEx.GetAlpha());
                         mpMaskAccess = aMask.AcquireReadAccess();
                         if (mpMaskAccess)
                         {
                             if (ImplWriteHeader())
                             {
-                                ImplWritepHYs(rBmpEx);
+                                ImplWritepHYs(aBitmapEx);
                                 ImplWriteIDAT();
                             }
                             aMask.ReleaseAccess(mpMaskAccess);
@@ -198,13 +210,13 @@ PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBmpEx,
                     }
                     else
                     {
-                        Bitmap aMask(rBmpEx.GetMask());
+                        Bitmap aMask(aBitmapEx.GetMask());
                         mpMaskAccess = aMask.AcquireReadAccess();
                         if (mpMaskAccess)
                         {
                             if (ImplWriteHeader())
                             {
-                                ImplWritepHYs(rBmpEx);
+                                ImplWritepHYs(aBitmapEx);
                                 ImplWriteIDAT();
                             }
                             Bitmap::ReleaseAccess(mpMaskAccess);
@@ -230,7 +242,7 @@ PNGWriterImpl::PNGWriterImpl( const BitmapEx& rBmpEx,
             {
                 if (ImplWriteHeader())
                 {
-                    ImplWritepHYs(rBmpEx);
+                    ImplWritepHYs(aBitmapEx);
                     if (mpAccess->HasPalette())
                         ImplWritePalette();
 
@@ -268,11 +280,11 @@ bool PNGWriterImpl::Write(SvStream& rOStm)
         sal_uInt32 nCRC = rtl_crc32(0, &nType, 4);
         sal_uInt32 nDataSize = chunk.aData.size();
         if (nDataSize)
-            nCRC = rtl_crc32(nCRC, &chunk.aData[0], nDataSize);
+            nCRC = rtl_crc32(nCRC, chunk.aData.data(), nDataSize);
         rOStm.WriteUInt32(nDataSize);
         rOStm.WriteUInt32(chunk.nType);
         if (nDataSize)
-            rOStm.WriteBytes(&chunk.aData[0], nDataSize);
+            rOStm.WriteBytes(chunk.aData.data(), nDataSize);
         rOStm.WriteUInt32(nCRC);
     }
     rOStm.SetEndian(nOldMode);

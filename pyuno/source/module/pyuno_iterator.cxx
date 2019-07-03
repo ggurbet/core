@@ -19,14 +19,13 @@
 
 #include <sal/config.h>
 
-#include <cassert>
-
 #include "pyuno_impl.hxx"
 
 #include <com/sun/star/container/XEnumeration.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/WrappedTargetException.hpp>
+#include <com/sun/star/script/CannotConvertException.hpp>
 
 using com::sun::star::container::XEnumeration;
 using com::sun::star::container::XIndexAccess;
@@ -119,7 +118,11 @@ static PyTypeObject PyUNO_iterator_Type =
     sizeof (PyUNO_iterator),
     0,
     PyUNO_iterator_del,
-    nullptr,
+#if PY_VERSION_HEX >= 0x03080000
+    0, // Py_ssize_t tp_vectorcall_offset
+#else
+    nullptr, // printfunc tp_print
+#endif
     nullptr,
     nullptr,
     nullptr,
@@ -163,6 +166,9 @@ static PyTypeObject PyUNO_iterator_Type =
     0
 #if PY_VERSION_HEX >= 0x03040000
     , nullptr
+#if PY_VERSION_HEX >= 0x03080000
+    , nullptr // vectorcallfunc tp_vectorcall
+#endif
 #endif
 };
 
@@ -249,7 +255,11 @@ static PyTypeObject PyUNO_list_iterator_Type =
     sizeof (PyUNO_list_iterator),
      0,
     PyUNO_list_iterator_del,
-    nullptr,
+#if PY_VERSION_HEX >= 0x03080000
+    0, // Py_ssize_t tp_vectorcall_offset
+#else
+    nullptr, // printfunc tp_print
+#endif
     nullptr,
     nullptr,
     nullptr,
@@ -293,6 +303,9 @@ static PyTypeObject PyUNO_list_iterator_Type =
     0
 #if PY_VERSION_HEX >= 0x03040000
     , nullptr
+#if PY_VERSION_HEX >= 0x03080000
+    , nullptr // vectorcallfunc tp_vectorcall
+#endif
 #endif
 };
 

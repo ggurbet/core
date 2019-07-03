@@ -184,8 +184,7 @@ ScriptingFrameworkURIHelper::getLanguagePart(const OUString& rStorageURI)
 OUString
 ScriptingFrameworkURIHelper::getLanguagePath(const OUString& rLanguagePart)
 {
-    OUString result;
-    result = rLanguagePart.replace('|', '/');
+    OUString result = rLanguagePart.replace('|', '/');
     return result;
 }
 
@@ -253,14 +252,7 @@ ScriptingFrameworkURIHelper::supportsService( const OUString& serviceName )
 uno::Sequence< OUString > SAL_CALL
 ScriptingFrameworkURIHelper::getSupportedServiceNames()
 {
-    OUString serviceNameList[] = {
-        OUString(
-            "com.sun.star.script.provider.ScriptURIHelper" ) };
-
-    uno::Sequence< OUString > serviceNames = uno::Sequence <
-        OUString > ( serviceNameList, 1 );
-
-    return serviceNames;
+    return { "com.sun.star.script.provider.ScriptURIHelper" };
 }
 }
 

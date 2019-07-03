@@ -22,10 +22,10 @@
 
 #include <tools/bigint.hxx>
 #include <o3tl/numeric.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/ptrstyle.hxx>
-#include <svx/xattr.hxx>
 #include <svx/xpoly.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdtrans.hxx>
@@ -38,6 +38,8 @@
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 #include <svx/sdgcpitm.hxx>
+#include <svx/sdooitm.hxx>
+#include <svx/sdtagitm.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
 #include <svx/sdr/overlay/overlaypolypolygon.hxx>
@@ -469,7 +471,7 @@ void SdrDragMethod::createSdrDragEntries_PolygonDrag()
     if(bNoPolygons)
     {
         const tools::Rectangle aR(getSdrDragView().GetSdrPageView()->MarkSnap());
-        const basegfx::B2DRange aNewRectangle(aR.Left(), aR.Top(), aR.Right(), aR.Bottom());
+        const basegfx::B2DRange aNewRectangle = vcl::unotools::b2DRectangleFromRectangle(aR);
         basegfx::B2DPolygon aNewPolygon(basegfx::utils::createPolygonFromRect(aNewRectangle));
 
         aResult = basegfx::B2DPolyPolygon(basegfx::utils::expandToCurve(aNewPolygon));
@@ -1368,6 +1370,7 @@ bool SdrDragObjOwn::EndSdrDrag(bool /*bCopy*/)
 
         if( bUndo )
         {
+            getSdrDragView().EndTextEditAllViews();
             if(!getSdrDragView().IsInsObjPoint() && pObj->IsInserted() )
             {
                 if (DragStat().IsEndDragChangesAttributes())
@@ -3467,7 +3470,7 @@ void SdrDragDistort::MovAllPoints(basegfx::B2DPolyPolygon& rTarget)
         if(pPV && pPV->HasMarkedObjPageView())
         {
             basegfx::B2DPolyPolygon aDragPolygon(rTarget);
-            const basegfx::B2DRange aOriginalRange(aMarkRect.Left(), aMarkRect.Top(), aMarkRect.Right(), aMarkRect.Bottom());
+            const basegfx::B2DRange aOriginalRange = vcl::unotools::b2DRectangleFromRectangle(aMarkRect);
             const basegfx::B2DPoint aTopLeft(aDistortedRect[0].X(), aDistortedRect[0].Y());
             const basegfx::B2DPoint aTopRight(aDistortedRect[1].X(), aDistortedRect[1].Y());
             const basegfx::B2DPoint aBottomLeft(aDistortedRect[3].X(), aDistortedRect[3].Y());

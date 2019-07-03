@@ -70,7 +70,10 @@ void SAL_CALL PolynomialRegressionCurveCalculator::recalculateRegression(
         yVector[i] = yValue;
         yAverage += yValue;
     }
-    yAverage /= aNoValues;
+    if (aNoValues != 0)
+    {
+        yAverage /= aNoValues;
+    }
 
     for(sal_Int32 j = 0; j < aNoPowers; j++)
     {
@@ -183,9 +186,12 @@ void SAL_CALL PolynomialRegressionCurveCalculator::recalculateRegression(
     double aRSquared = 0.0;
     if(mForceIntercept)
     {
-        aRSquared = aSumYpred2 / (aSumError + aSumYpred2);
+        if (auto const div = aSumError + aSumYpred2)
+        {
+            aRSquared = aSumYpred2 / div;
+        }
     }
-    else
+    else if (aSumTotal != 0.0)
     {
         aRSquared = 1.0 - (aSumError / aSumTotal);
     }

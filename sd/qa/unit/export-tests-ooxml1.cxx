@@ -10,6 +10,7 @@
 #include "sdmodeltestbase.hxx"
 #include <Outliner.hxx>
 #include <svl/stritem.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/editobj.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/ulspitem.hxx>
@@ -34,7 +35,11 @@
 #include <svx/svdogrp.hxx>
 #include <svx/svdomedia.hxx>
 #include <svx/svdoole2.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/sdooitm.hxx>
+#include <svx/sdmetitm.hxx>
 #include <animations/animationnodehelper.hxx>
 #include <unotools/mediadescriptor.hxx>
 #include <rtl/ustring.hxx>
@@ -52,6 +57,7 @@
 #include <com/sun/star/chart2/data/XLabeledDataSequence.hpp>
 #include <com/sun/star/chart2/data/XDataSequence.hpp>
 #include <com/sun/star/chart2/data/XNumericalDataSequence.hpp>
+#include <com/sun/star/awt/Gradient.hpp>
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/awt/FontDescriptor.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
@@ -102,6 +108,8 @@ public:
     void testTdf112633();
     void testCustomXml();
     void testTdf94238();
+    void testPictureTransparency();
+    void testTdf125554();
 
     CPPUNIT_TEST_SUITE(SdOOXMLExportTest1);
 
@@ -133,6 +141,8 @@ public:
     CPPUNIT_TEST(testTdf112633);
     CPPUNIT_TEST(testCustomXml);
     CPPUNIT_TEST(testTdf94238);
+    CPPUNIT_TEST(testTdf125554);
+    CPPUNIT_TEST(testPictureTransparency);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -296,9 +306,8 @@ void SdOOXMLExportTest1::testN828390_5()
         SdrTextObj *pTxtObj = dynamic_cast<SdrTextObj *>( pObj );
         CPPUNIT_ASSERT( pTxtObj );
         const EditTextObject& aEdit = pTxtObj->GetOutlinerParaObject()->GetTextObject();
-        const SvxNumBulletItem *pNumFmt = aEdit.GetPool()->GetItem2(EE_PARA_NUMBULLET, 5);
-        CPPUNIT_ASSERT( pNumFmt );
-        CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's relative size is wrong!", sal_uInt16(75), pNumFmt->GetNumRule()->GetLevel(1).GetBulletRelSize() ); // != 25
+        const SvxNumBulletItem& rNumFmt = aEdit.GetParaAttribs(3).Get(EE_PARA_NUMBULLET);
+        CPPUNIT_ASSERT_EQUAL_MESSAGE( "Bullet's relative size is wrong!", sal_uInt16(75), rNumFmt.GetNumRule()->GetLevel(1).GetBulletRelSize() ); // != 25
     }
 
     xDocShRef->DoClose();
@@ -369,7 +378,7 @@ void SdOOXMLExportTest1::testBnc880763()
     // First object in the background has blue background color
     const SdrObjGroup *pObjGroup = dynamic_cast<SdrObjGroup *>(pPage->GetObj(0));
     CPPUNIT_ASSERT(pObjGroup);
-    const SdrObject *pObj = pObjGroup->GetSubList()->GetObj(0);
+    const SdrObject *pObj = pObjGroup->GetSubList()->GetObj(1);
     CPPUNIT_ASSERT_MESSAGE( "no object", pObj != nullptr);
     CPPUNIT_ASSERT_EQUAL( Color(0x0000ff),(static_cast< const XColorItem& >(pObj->GetMergedItem(XATTR_FILLCOLOR))).GetColorValue());
 
@@ -391,7 +400,7 @@ void SdOOXMLExportTest1::testBnc862510_5()
     // Same as testBnc870237, but here we check the horizontal spacing
     const SdrObjGroup *pObjGroup = dynamic_cast<SdrObjGroup *>(pPage->GetObj(0));
     CPPUNIT_ASSERT(pObjGroup);
-    const SdrObject* pObj = pObjGroup->GetSubList()->GetObj(1);
+    const SdrObject* pObj = pObjGroup->GetSubList()->GetObj(2);
     CPPUNIT_ASSERT_MESSAGE( "no object", pObj != nullptr);
     CPPUNIT_ASSERT_EQUAL( sal_Int32(0), pObj->GetMergedItem(SDRATTR_TEXT_UPPERDIST).GetValue());
     CPPUNIT_ASSERT_EQUAL( sal_Int32(0), pObj->GetMergedItem(SDRATTR_TEXT_LOWERDIST).GetValue());
@@ -697,7 +706,7 @@ void SdOOXMLExportTest1::testCellLeftAndRightMargin()
     sdr::table::SdrTableObj *pTableObj = dynamic_cast<sdr::table::SdrTableObj*>(pPage->GetObj(0));
     CPPUNIT_ASSERT( pTableObj );
 
-    uno::Reference< css::table::XTable > xTable (pTableObj->getTable(), uno::UNO_QUERY_THROW);
+    uno::Reference< css::table::XTable > xTable (pTableObj->getTable(), uno::UNO_SET_THROW);
     uno::Reference< css::table::XMergeableCell > xCell( xTable->getCellByPosition(0, 0), uno::UNO_QUERY_THROW );
     uno::Reference< beans::XPropertySet > xCellPropSet(xCell, uno::UNO_QUERY_THROW);
 
@@ -726,7 +735,7 @@ void SdOOXMLExportTest1::testMergedCells()
     sdr::table::SdrTableObj *pTableObj = dynamic_cast<sdr::table::SdrTableObj*>(pPage->GetObj(0));
 
     CPPUNIT_ASSERT( pTableObj );
-    uno::Reference< table::XTable > xTable(pTableObj->getTable(), uno::UNO_QUERY_THROW);
+    uno::Reference< table::XTable > xTable(pTableObj->getTable(), uno::UNO_SET_THROW);
     uno::Reference< text::XTextRange > xText1(xTable->getCellByPosition(3, 0), uno::UNO_QUERY_THROW);
     CPPUNIT_ASSERT_EQUAL( OUString("0,3"), xText1->getString() );
 
@@ -746,37 +755,33 @@ void SdOOXMLExportTest1::testTableCellBorder()
 
     table::BorderLine2 aBorderLine;
 
-    uno::Reference< table::XTable > xTable(pTableObj->getTable(), uno::UNO_QUERY_THROW);
+    uno::Reference< table::XTable > xTable(pTableObj->getTable(), uno::UNO_SET_THROW);
     uno::Reference< css::table::XMergeableCell > xCell(xTable->getCellByPosition(0, 0), uno::UNO_QUERY_THROW);
     uno::Reference< beans::XPropertySet > xCellPropSet (xCell, uno::UNO_QUERY_THROW);
 
     xCellPropSet->getPropertyValue("LeftBorder") >>= aBorderLine;
-    sal_Int32 nLeftBorder = aBorderLine.LineWidth ;
 // While importing the table cell border line width, it converts EMU->Hmm then divided result by 2.
 // To get original value of LineWidth need to multiple by 2.
-    nLeftBorder = nLeftBorder * 2 ;
+    sal_Int32 nLeftBorder = aBorderLine.LineWidth * 2;
     nLeftBorder = oox::drawingml::convertHmmToEmu( nLeftBorder );
     CPPUNIT_ASSERT(nLeftBorder);
     CPPUNIT_ASSERT_EQUAL(util::Color(45296), aBorderLine.Color);
 
     xCellPropSet->getPropertyValue("RightBorder") >>= aBorderLine;
-    sal_Int32 nRightBorder = aBorderLine.LineWidth ;
-    nRightBorder = nRightBorder * 2 ;
+    sal_Int32 nRightBorder = aBorderLine.LineWidth * 2;
     nRightBorder = oox::drawingml::convertHmmToEmu( nRightBorder );
     CPPUNIT_ASSERT(nRightBorder);
     CPPUNIT_ASSERT_EQUAL(util::Color(16777215), aBorderLine.Color);
 
     xCellPropSet->getPropertyValue("TopBorder") >>= aBorderLine;
-    sal_Int32 nTopBorder = aBorderLine.LineWidth ;
-    nTopBorder = nTopBorder * 2 ;
+    sal_Int32 nTopBorder = aBorderLine.LineWidth * 2;
     nTopBorder = oox::drawingml::convertHmmToEmu( nTopBorder );
     CPPUNIT_ASSERT(nTopBorder);
     CPPUNIT_ASSERT_EQUAL(util::Color(45296), aBorderLine.Color);
 
 
     xCellPropSet->getPropertyValue("BottomBorder") >>= aBorderLine;
-    sal_Int32 nBottomBorder = aBorderLine.LineWidth ;
-    nBottomBorder = nBottomBorder * 2 ;
+    sal_Int32 nBottomBorder = aBorderLine.LineWidth * 2;
     nBottomBorder = oox::drawingml::convertHmmToEmu( nBottomBorder );
     CPPUNIT_ASSERT(nBottomBorder);
     CPPUNIT_ASSERT_EQUAL(util::Color(45296), aBorderLine.Color);
@@ -882,6 +887,47 @@ void SdOOXMLExportTest1::testTdf94238()
     // was incorrect.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0), aGradient.StartColor);
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0x8B8B8B), aGradient.EndColor);
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest1::testPictureTransparency()
+{
+    // Load document and export it to a temporary file.
+    ::sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/odp/image_transparency.odp"), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+    uno::Reference<drawing::XDrawPagesSupplier> xDoc(xDocShRef->GetDoc()->getUnoModel(),
+                                                     uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xDoc.is());
+
+    uno::Reference<drawing::XDrawPage> xPage(xDoc->getDrawPages()->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xPage.is());
+
+    uno::Reference<beans::XPropertySet> xGraphicShape(getShape(0, xPage));
+    CPPUNIT_ASSERT(xGraphicShape.is());
+
+    sal_Int16 nTransparency = 0;
+    CPPUNIT_ASSERT(xGraphicShape->getPropertyValue("Transparency") >>= nTransparency);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int16>(51), nTransparency);
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest1::testTdf125554()
+{
+    ::sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf125554.pptx"), PPTX);
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX);
+
+    uno::Reference<beans::XPropertySet> xShape = getShapeFromPage(0, 0, xDocShRef);
+    uno::Any aFillTransparenceGradientName
+        = xShape->getPropertyValue("FillTransparenceGradientName");
+    CPPUNIT_ASSERT(aFillTransparenceGradientName.has<OUString>());
+    // Without the accompanying fix in place, this test would have failed, i.e. the transparency of
+    // the shape has no gradient, so it looked like a solid fill instead of a gradient fill.
+    CPPUNIT_ASSERT(!aFillTransparenceGradientName.get<OUString>().isEmpty());
 
     xDocShRef->DoClose();
 }

@@ -25,6 +25,7 @@
 #include <com/sun/star/document/XUndoManager.hpp>
 
 #include <cppuhelper/implbase.hxx>
+#include <vcl/svapp.hxx>
 
 #include <memory>
 
@@ -39,9 +40,6 @@ public:
     {
         m_rModel.MethodEntryCheck( true );
     }
-
-    // called when the SfxBaseModel which the component is superordinate of is being disposed
-    virtual void disposing();
 
 protected:
     SfxModelSubComponent( SfxBaseModel& i_model )
@@ -89,7 +87,7 @@ public:
     }
 
 private:
-    SolarMutexResettableGuard  m_aGuard;
+    SolarMutexClearableGuard  m_aGuard;
 };
 
 namespace sfx2
@@ -108,8 +106,7 @@ namespace sfx2
         DocumentUndoManager(const DocumentUndoManager&) = delete;
         DocumentUndoManager& operator=(const DocumentUndoManager&) = delete;
 
-        // SfxModelSubComponent overridables
-        virtual void    disposing() override;
+        void    disposing();
 
         // non-UNO API for our owner
         /** determines whether we have an open Undo context. No mutex locking within this method, no disposal check - this

@@ -24,7 +24,6 @@
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 
-#include <rtl/digest.h>
 #include <osl/file.hxx>
 #include <sot/stg.hxx>
 #include <sot/storinfo.hxx>
@@ -32,13 +31,12 @@
 #include <sot/formats.hxx>
 #include <sot/exchange.hxx>
 #include <unotools/ucbstreamhelper.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <unotools/ucbhelper.hxx>
 #include <comphelper/fileformat.h>
 #include <com/sun/star/uno/Reference.h>
-#include <com/sun/star/ucb/XCommandEnvironment.hpp>
-#include <ucbhelper/content.hxx>
 
 #include <memory>
 
@@ -763,9 +761,9 @@ SotClipboardFormatId SotStorage::GetFormatID( const css::uno::Reference < css::e
     {
         xProps->getPropertyValue("MediaType") >>= aMediaType;
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_INFO("sot", "SotStorage::GetFormatID: exception: " << e);
+        TOOLS_INFO_EXCEPTION("sot", "SotStorage::GetFormatID");
     }
 
     if ( !aMediaType.isEmpty() )

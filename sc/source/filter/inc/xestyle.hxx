@@ -284,13 +284,13 @@ public:
     virtual void        Save( XclExpStream& rStrm ) override;
     virtual void        SaveXml( XclExpXmlStream& rStrm ) override;
 
+    OUString            GetFormatCode ( sal_uInt32 nScNumFmt );
+
 private:
     /** Writes the FORMAT record with index nXclIx and format string rFormatStr. */
     void                WriteFormatRecord( XclExpStream& rStrm, sal_uInt16 nXclNumFmt, const OUString& rFormatStr );
     /** Writes the FORMAT record represented by rFormat. */
     void                WriteFormatRecord( XclExpStream& rStrm, const XclExpNumFmt& rFormat );
-
-    OUString            GetFormatCode ( sal_uInt32 nScNumFmt );
 
 private:
     typedef ::std::vector< XclExpNumFmt >           XclExpNumFmtVec;
@@ -467,6 +467,8 @@ public:
     void                SetXmlIds( sal_uInt32 nBorderId, sal_uInt32 nFillId );
 
     virtual void        SaveXml( XclExpXmlStream& rStrm ) override;
+
+    const SfxItemSet*   GetItemSet() const { return mpItemSet; }
 
 protected:
     explicit            XclExpXF( const XclExpRoot& rRoot, bool bCellXF );
@@ -680,6 +682,8 @@ private:
     typedef ::std::vector< XclExpCellArea >             XclExpFillList;
 
     XclExpXFList        maXFList;           /// List of all XF records.
+    std::unordered_map<const SfxItemSet*, std::vector<sal_uInt32>>
+                        maXFFindMap;        /// map of itemset to vector of positions, to speed up find
     XclExpStyleList     maStyleList;        /// List of all STYLE records.
     XclExpBuiltInMap    maBuiltInMap;       /// Contained elements describe built-in XFs.
     ScfUInt16Vec        maXFIndexVec;       /// Maps XF IDs to XF indexes.
@@ -700,6 +704,7 @@ public:
     virtual ~XclExpDxf() override;
 
     virtual void SaveXml( XclExpXmlStream& rStrm ) override;
+    void SaveXmlExt( XclExpXmlStream& rStrm);
 
 private:
     std::unique_ptr<XclExpCellAlign> mpAlign;

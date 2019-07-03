@@ -31,6 +31,7 @@
 #include <com/sun/star/accessibility/XAccessibleValue.hpp>
 #include <com/sun/star/accessibility/XAccessibleAction.hpp>
 #include <com/sun/star/accessibility/XAccessibleContext.hpp>
+#include <com/sun/star/accessibility/XAccessibleContext2.hpp>
 #include <com/sun/star/accessibility/XAccessibleComponent.hpp>
 #include <com/sun/star/accessibility/XAccessibleEventBroadcaster.hpp>
 #include <com/sun/star/accessibility/XAccessibleMultiLineText.hpp>
@@ -496,6 +497,28 @@ wrapper_get_index_in_parent( AtkObject *atk_obj )
 
 /*****************************************************************************/
 
+AtkRelation*
+atk_object_wrapper_relation_new(const accessibility::AccessibleRelation& rRelation)
+{
+    sal_uInt32 nTargetCount = rRelation.TargetSet.getLength();
+
+    std::vector<AtkObject*> aTargets;
+
+    for (const auto& rTarget : rRelation.TargetSet)
+    {
+        uno::Reference< accessibility::XAccessible > xAccessible( rTarget, uno::UNO_QUERY );
+        aTargets.push_back(atk_object_wrapper_ref(xAccessible));
+    }
+
+    AtkRelation *pRel =
+        atk_relation_new(
+            aTargets.data(), nTargetCount,
+            mapRelationType( rRelation.RelationType )
+        );
+
+    return pRel;
+}
+
 static AtkRelationSet *
 wrapper_ref_relation_set( AtkObject *atk_obj )
 {
@@ -517,25 +540,9 @@ wrapper_ref_relation_set( AtkObject *atk_obj )
             sal_Int32 nRelations = xRelationSet.is() ? xRelationSet->getRelationCount() : 0;
             for( sal_Int32 n = 0; n < nRelations; n++ )
             {
-                accessibility::AccessibleRelation aRelation = xRelationSet->getRelation( n );
-                sal_uInt32 nTargetCount = aRelation.TargetSet.getLength();
-
-                std::vector<AtkObject*> aTargets;
-
-                for (sal_uInt32 i = 0; i < nTargetCount; ++i)
-                {
-                    uno::Reference< accessibility::XAccessible > xAccessible(
-                            aRelation.TargetSet[i], uno::UNO_QUERY );
-                    aTargets.push_back(atk_object_wrapper_ref(xAccessible));
-                }
-
-                AtkRelation *pRel =
-                    atk_relation_new(
-                        aTargets.data(), nTargetCount,
-                        mapRelationType( aRelation.RelationType )
-                    );
-                atk_relation_set_add( pSet, pRel );
-                g_object_unref( G_OBJECT( pRel ) );
+                AtkRelation *pRel = atk_object_wrapper_relation_new(xRelationSet->getRelation(n));
+                atk_relation_set_add(pSet, pRel);
+                g_object_unref(pRel);
             }
         }
         catch(const uno::Exception &) {
@@ -563,12 +570,12 @@ wrapper_ref_state_set( AtkObject *atk_obj )
             {
                 uno::Sequence< sal_Int16 > aStates = xStateSet->getStates();
 
-                for( sal_Int32 n = 0; n < aStates.getLength(); n++ )
+                for( const auto nState : aStates )
                 {
                     // ATK_STATE_LAST_DEFINED is used to check if the state
                     // is unmapped, do not report it to Atk
-                    if ( mapAtkState( aStates[n] ) != ATK_STATE_LAST_DEFINED )
-                        atk_state_set_add_state( pSet, mapAtkState( aStates[n] ) );
+                    if ( mapAtkState( nState ) != ATK_STATE_LAST_DEFINED )
+                        atk_state_set_add_state( pSet, mapAtkState( nState ) );
                 }
 
                 // We need to emulate FOCUS state for menus, menu-items etc.
@@ -872,6 +879,17 @@ atk_object_wrapper_new( const css::uno::Reference< css::accessibility::XAccessib
             else
                 OSL_ASSERT( false );
         }
+
+#if ATK_CHECK_VERSION(2,33,1)
+        {
+            css::uno::Reference<css::accessibility::XAccessibleContext2> xContext2(xContext, css::uno::UNO_QUERY);
+            if( xContext2.is() )
+            {
+                OString aId = OUStringToOString( xContext2->getAccessibleId(), RTL_TEXTENCODING_UTF8);
+                atk_object_set_accessible_id(atk_obj, aId.getStr());
+            }
+        }
+#endif
 
         return ATK_OBJECT( pWrap );
     }

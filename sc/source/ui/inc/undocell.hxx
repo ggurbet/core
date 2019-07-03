@@ -25,7 +25,6 @@
 #include <postit.hxx>
 #include <cellvalue.hxx>
 #include <cellvalues.hxx>
-#include <svx/svdundo.hxx>
 #include <editeng/editobj.hxx>
 
 #include <memory>
@@ -33,6 +32,7 @@
 class ScDocShell;
 class ScPatternAttr;
 class ScRangeName;
+class ScFormulaCell;
 
 class ScUndoCursorAttr: public ScSimpleUndo
 {
@@ -362,6 +362,7 @@ public:
 
     CellValues& GetOldValues() { return maOldValues;}
     void SetNewValues( const std::vector<double>& rVals );
+    void SetNewValues( const std::vector<ScFormulaCell*>& rVals );
 };
 
 } // namespace sc

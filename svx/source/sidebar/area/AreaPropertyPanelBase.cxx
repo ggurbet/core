@@ -20,6 +20,7 @@
 #include <sfx2/sidebar/SidebarController.hxx>
 #include <sfx2/sidebar/ControlFactory.hxx>
 #include <svx/sidebar/AreaPropertyPanelBase.hxx>
+#include <svx/drawitem.hxx>
 #include <svx/svxids.hrc>
 #include <sfx2/objsh.hxx>
 #include <svx/xfltrit.hxx>
@@ -31,10 +32,10 @@
 #include <unotools/pathoptions.hxx>
 #include <svx/svxitems.hrc>
 #include <vcl/toolbox.hxx>
-#include <vcl/salbtype.hxx>
 #include <svtools/toolbarmenu.hxx>
 #include <svx/tbcontrl.hxx>
 #include <sfx2/opengrf.hxx>
+#include <tools/urlobj.hxx>
 #include <bitmaps.hlst>
 
 using namespace css;
@@ -206,7 +207,7 @@ IMPL_LINK_NOARG(AreaPropertyPanelBase, ClickImportBitmapHdl, Button*, void)
         {
             XBitmapListRef pList = SfxObjectShell::Current()->GetItem(SID_BITMAP_LIST)->GetBitmapList();
             INetURLObject   aURL( aDlg.GetPath() );
-            OUString aFileName =  aURL.GetName().getToken( 0, '.' );
+            OUString aFileName = aURL.GetLastName().getToken(0, '.');
             OUString aName = aFileName;
             long j = 1;
             bool bValidBitmapName = false;

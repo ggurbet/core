@@ -33,7 +33,6 @@
 #include <format.hxx>
 #include <fmtpdsc.hxx>
 #include <pagedesc.hxx>
-#include <unostyle.hxx>
 #include <cellatr.hxx>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 #include "xmlexp.hxx"

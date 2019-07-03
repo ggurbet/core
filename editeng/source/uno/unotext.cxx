@@ -22,6 +22,9 @@
 #include <com/sun/star/text/ControlCharacter.hpp>
 #include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/text/TextRangeSelection.hpp>
+#include <com/sun/star/lang/Locale.hpp>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
+#include <com/sun/star/container/XNameContainer.hpp>
 
 #include <svl/itemset.hxx>
 #include <svl/itempool.hxx>
@@ -312,7 +315,7 @@ uno::Reference< text::XTextRange > SAL_CALL SvxUnoTextRangeBase::getStart()
     {
         CheckSelection( maSelection, pForwarder );
 
-        SvxUnoTextBase* pText = SvxUnoTextBase::getImplementation( getText() );
+        SvxUnoTextBase* pText = comphelper::getUnoTunnelImplementation<SvxUnoTextBase>( getText() );
 
         if(pText == nullptr)
             throw uno::RuntimeException();
@@ -340,7 +343,7 @@ uno::Reference< text::XTextRange > SAL_CALL SvxUnoTextRangeBase::getEnd()
     {
         CheckSelection( maSelection, pForwarder );
 
-        SvxUnoTextBase* pText = SvxUnoTextBase::getImplementation( getText() );
+        SvxUnoTextBase* pText = comphelper::getUnoTunnelImplementation<SvxUnoTextBase>( getText() );
 
         if(pText == nullptr)
             throw uno::RuntimeException();
@@ -1449,8 +1452,8 @@ uno::Sequence< OUString > SvxUnoTextRangeBase::getSupportedServiceNames_Static()
 // XTextRangeCompare
 sal_Int16 SAL_CALL SvxUnoTextRangeBase::compareRegionStarts( const uno::Reference< text::XTextRange >& xR1, const uno::Reference< text::XTextRange >& xR2 )
 {
-    SvxUnoTextRangeBase* pR1 = SvxUnoTextRangeBase::getImplementation( xR1 );
-    SvxUnoTextRangeBase* pR2 = SvxUnoTextRangeBase::getImplementation( xR2 );
+    SvxUnoTextRangeBase* pR1 = comphelper::getUnoTunnelImplementation<SvxUnoTextRangeBase>( xR1 );
+    SvxUnoTextRangeBase* pR2 = comphelper::getUnoTunnelImplementation<SvxUnoTextRangeBase>( xR2 );
 
     if( (pR1 == nullptr) || (pR2 == nullptr) )
         throw lang::IllegalArgumentException();
@@ -1473,8 +1476,8 @@ sal_Int16 SAL_CALL SvxUnoTextRangeBase::compareRegionStarts( const uno::Referenc
 
 sal_Int16 SAL_CALL SvxUnoTextRangeBase::compareRegionEnds( const uno::Reference< text::XTextRange >& xR1, const uno::Reference< text::XTextRange >& xR2 )
 {
-    SvxUnoTextRangeBase* pR1 = SvxUnoTextRangeBase::getImplementation( xR1 );
-    SvxUnoTextRangeBase* pR2 = SvxUnoTextRangeBase::getImplementation( xR2 );
+    SvxUnoTextRangeBase* pR1 = comphelper::getUnoTunnelImplementation<SvxUnoTextRangeBase>( xR1 );
+    SvxUnoTextRangeBase* pR2 = comphelper::getUnoTunnelImplementation<SvxUnoTextRangeBase>( xR2 );
 
     if( (pR1 == nullptr) || (pR2 == nullptr) )
         throw lang::IllegalArgumentException();
@@ -1720,7 +1723,7 @@ uno::Reference< text::XTextCursor > SAL_CALL SvxUnoTextBase::createTextCursorByR
 
     if( aTextPosition.is() )
     {
-        SvxUnoTextRangeBase* pRange = SvxUnoTextRangeBase::getImplementation( aTextPosition );
+        SvxUnoTextRangeBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextRangeBase>( aTextPosition );
         if(pRange)
             xCursor = createTextCursorBySelection( pRange->GetSelection() );
     }
@@ -1742,7 +1745,7 @@ void SAL_CALL SvxUnoTextBase::insertString( const uno::Reference< text::XTextRan
         SetSelection( aSelection );
     }
 
-    SvxUnoTextRangeBase* pRange = SvxUnoTextRange::getImplementation( xRange );
+    SvxUnoTextRangeBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextRange>( xRange );
     if(pRange)
     {
         // setString on SvxUnoTextRangeBase instead of itself QuickInsertText
@@ -1782,7 +1785,7 @@ void SAL_CALL SvxUnoTextBase::insertControlCharacter( const uno::Reference< text
         }
         case text::ControlCharacter::LINE_BREAK:
         {
-            SvxUnoTextRangeBase* pRange = SvxUnoTextRange::getImplementation( xRange );
+            SvxUnoTextRangeBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextRange>( xRange );
             if(pRange)
             {
                 ESelection aRange = pRange->GetSelection();
@@ -1813,7 +1816,7 @@ void SAL_CALL SvxUnoTextBase::insertControlCharacter( const uno::Reference< text
         }
         case text::ControlCharacter::APPEND_PARAGRAPH:
         {
-            SvxUnoTextRangeBase* pRange = SvxUnoTextRange::getImplementation( xRange );
+            SvxUnoTextRangeBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextRange>( xRange );
             if(pRange)
             {
                 ESelection aRange = pRange->GetSelection();
@@ -1931,13 +1934,11 @@ uno::Reference< container::XEnumeration > SAL_CALL SvxUnoTextBase::createEnumera
     {
         ESelection aSelection;
         ::GetSelection( aSelection, GetEditSource()->GetTextForwarder() );
-        uno::Reference< container::XEnumeration > xEnum( static_cast<container::XEnumeration*>( new SvxUnoTextContentEnumeration( *this, aSelection ) ) );
-        return xEnum;
+        return new SvxUnoTextContentEnumeration(*this, aSelection);
     }
     else
     {
-        uno::Reference< container::XEnumeration > xEnum( static_cast<container::XEnumeration*>( new SvxUnoTextContentEnumeration( *this, maSelection ) ) );
-        return xEnum;
+        return new SvxUnoTextContentEnumeration(*this, maSelection);
     }
 }
 
@@ -2177,15 +2178,6 @@ namespace
 const uno::Sequence< sal_Int8 > & SvxUnoTextBase::getUnoTunnelId() throw()
 {
     return theSvxUnoTextBaseUnoTunnelId::get().getSeq();
-}
-
-SvxUnoTextBase* SvxUnoTextBase::getImplementation( const uno::Reference< uno::XInterface >& xInt )
-{
-    uno::Reference< lang::XUnoTunnel > xUT( xInt, uno::UNO_QUERY );
-    if( xUT.is() )
-        return reinterpret_cast<SvxUnoTextBase*>(sal::static_int_cast<sal_uIntPtr>(xUT->getSomething( SvxUnoTextBase::getUnoTunnelId())));
-    else
-        return nullptr;
 }
 
 sal_Int64 SAL_CALL SvxUnoTextBase::getSomething( const uno::Sequence< sal_Int8 >& rId )

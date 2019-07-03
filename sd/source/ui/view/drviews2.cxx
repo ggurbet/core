@@ -33,6 +33,7 @@
 #include <com/sun/star/util/XURLTransformer.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/scanner/XScannerManager2.hpp>
+#include <com/sun/star/document/XDocumentProperties.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/scopeguard.hxx>
@@ -51,6 +52,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/msgpool.hxx>
+#include <sfx2/msg.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/zoomitem.hxx>
@@ -61,6 +63,7 @@
 #include <svx/compressgraphicdialog.hxx>
 #include <svx/ClassificationDialog.hxx>
 #include <svx/ClassificationCommon.hxx>
+#include <svx/ClassificationEditView.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/bmpmask.hxx>
 #include <svx/colrctrl.hxx>
@@ -88,6 +91,7 @@
 #include <svx/xlnedwit.hxx>
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnwtit.hxx>
+#include <svx/sdtfsitm.hxx>
 
 #include <tools/diagnose_ex.h>
 
@@ -107,6 +111,7 @@
 #include <editeng/crossedoutitem.hxx>
 #include <editeng/contouritem.hxx>
 #include <editeng/shdditem.hxx>
+#include <editeng/numitem.hxx>
 #include <svx/xtable.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/SvxColorChildWindow.hxx>
@@ -143,6 +148,7 @@
 #include <fuconnct.hxx>
 #include <fucopy.hxx>
 #include <fudspord.hxx>
+#include <fuexecuteinteraction.hxx>
 #include <fuexpand.hxx>
 #include <fuinsert.hxx>
 #include <fuinsfil.hxx>
@@ -789,8 +795,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
 
                 if(rReq.GetArgs())
                 {
-                    OUString aName;
-                    aName = rReq.GetArgs()->GetItem<const SfxStringItem>(SID_RENAMEPAGE)->GetValue();
+                    OUString aName = rReq.GetArgs()->GetItem<const SfxStringItem>(SID_RENAMEPAGE)->GetValue();
 
                     bool bResult = RenameSlide( maTabControl->GetPageId(nPage), aName );
                     DBG_ASSERT( bResult, "Couldn't rename slide" );
@@ -1141,18 +1146,24 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         rReq.Done ();
         break;
 
+        case SID_REMOVE_HYPERLINK:
+        {
+            if (mpDrawView->IsTextEdit())
+            {
+                Outliner* pOutl = mpDrawView->GetTextEditOutliner();
+                if (pOutl)
+                {
+                    pOutl->RemoveFields(checkSvxFieldData<SvxURLField>);
+                }
+            }
+        }
+        break;
         case SID_SET_DEFAULT:
         {
             std::unique_ptr<SfxItemSet> pSet;
 
             if (mpDrawView->IsTextEdit())
             {
-                ::Outliner* pOutl = mpDrawView->GetTextEditOutliner();
-                if (pOutl)
-                {
-                    pOutl->RemoveFields(checkSvxFieldData<SvxURLField>);
-                }
-
                 pSet.reset(new SfxItemSet( GetPool(), svl::Items<EE_ITEMS_START, EE_ITEMS_END>{} ));
                 mpDrawView->SetAttributes( *pSet, true );
             }
@@ -1209,7 +1220,6 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                                 if( nLevel == 1 )
                                     // text frame listens on StyleSheet of level1
                                     pObj->NbcSetStyleSheet(pSheet, false);
-
                             }
                         }
                     }
@@ -1440,7 +1450,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         case FN_SVX_SET_BULLET:
         case FN_SVX_SET_NUMBER:
         {
-            SetCurrentFunction( FuOutlineBullet::Create( this, GetActiveWindow(), mpDrawView.get(), GetDoc(), rReq ) );
+            SetCurrentFunction( FuBulletAndPosition::Create( this, GetActiveWindow(), mpDrawView.get(), GetDoc(), rReq ) );
             Cancel();
         }
         break;
@@ -1542,18 +1552,18 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
 
         case SID_CLASSIFICATION_DIALOG:
         {
-            ScopedVclPtr<svx::ClassificationDialog> pDialog(VclPtr<svx::ClassificationDialog>::Create(nullptr, false, [](){} ));
+            std::shared_ptr<svx::ClassificationDialog> xDialog(new svx::ClassificationDialog(GetFrameWeld(), false, [](){} ));
             ClassificationCollector aCollector(*this);
             aCollector.collect();
 
-            pDialog->setupValues(aCollector.getResults());
+            xDialog->setupValues(aCollector.getResults());
 
-            if (RET_OK == pDialog->Execute())
+            if (RET_OK == xDialog->run())
             {
                 ClassificationInserter aInserter(*this);
-                aInserter.insert(pDialog->getResult());
+                aInserter.insert(xDialog->getResult());
             }
-            pDialog.disposeAndClear();
+            xDialog.reset();
 
             Cancel();
             rReq.Ignore();
@@ -1625,6 +1635,14 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
         case SID_ANIMATION_EFFECTS:
         {
             SetCurrentFunction( FuObjectAnimationParameters::Create( this, GetActiveWindow(), mpDrawView.get(), GetDoc(), rReq) );
+            Cancel();
+        }
+        break;
+
+        case SID_EXECUTE_ANIMATION_EFFECT:
+        {
+            SetCurrentFunction(FuExecuteInteraction::Create(this, GetActiveWindow(),
+                                                            mpDrawView.get(), GetDoc(), rReq));
             Cancel();
         }
         break;
@@ -1708,7 +1726,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                     const css::uno::Sequence< css::scanner::ScannerContext >
                         aContexts( mxScannerManager->getAvailableScanners() );
 
-                    if( aContexts.getLength() )
+                    if( aContexts.hasElements() )
                     {
                         css::scanner::ScannerContext aContext( aContexts.getConstArray()[ 0 ] );
                         mxScannerManager->configureScannerAndScan( aContext, mxScannerListener );
@@ -1734,7 +1752,7 @@ void DrawViewShell::FuTemporary(SfxRequest& rReq)
                 {
                     const css::uno::Sequence< css::scanner::ScannerContext > aContexts( mxScannerManager->getAvailableScanners() );
 
-                    if( aContexts.getLength() )
+                    if( aContexts.hasElements() )
                     {
                         mxScannerManager->startScan( aContexts.getConstArray()[ 0 ], mxScannerListener );
                         bDone = true;

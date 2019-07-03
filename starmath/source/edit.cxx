@@ -20,15 +20,19 @@
 #include <starmath.hrc>
 #include <helpids.h>
 
+#include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 
 #include <editeng/editview.hxx>
 #include <editeng/editeng.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <svl/stritem.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svx/AccessibleTextHelper.hxx>
 #include <svtools/colorcfg.hxx>
+#include <osl/diagnose.h>
 
 #include <edit.hxx>
 #include <smmod.hxx>
@@ -69,7 +73,7 @@ bool SmEditWindow::IsInlineEditEnabled()
 
 
 SmEditWindow::SmEditWindow( SmCmdBoxWindow &rMyCmdBoxWin ) :
-    Window              (&rMyCmdBoxWin),
+    Window              (&rMyCmdBoxWin, WB_BORDER),
     DropTargetHelper    ( this ),
     rCmdBox             (rMyCmdBoxWin),
     aModifyIdle         ("SmEditWindow ModifyIdle"),
@@ -81,8 +85,6 @@ SmEditWindow::SmEditWindow( SmCmdBoxWindow &rMyCmdBoxWin ) :
 
     // Even RTL languages don't use RTL for math
     EnableRTL( false );
-
-    ApplyColorConfigValues( SM_MOD()->GetColorConfig() );
 
     // compare DataChanged
     SetBackground( GetSettings().GetStyleSettings().GetWindowColor() );
@@ -186,25 +188,21 @@ EditEngine * SmEditWindow::GetEditEngine()
     return pEditEng;
 }
 
-void SmEditWindow::ApplyColorConfigValues( const svtools::ColorConfig &rColorCfg )
+void SmEditWindow::ApplySettings(vcl::RenderContext& rRenderContext)
 {
-    // Note: SetBackground still done in SmEditWindow::DataChanged
-    SetTextColor( rColorCfg.GetColorValue(svtools::FONTCOLOR).nColor );
-    Invalidate();
+    const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
+    rRenderContext.SetBackground(rStyleSettings.GetWindowColor());
 }
 
-void SmEditWindow::DataChanged( const DataChangedEvent& )
+void SmEditWindow::DataChanged( const DataChangedEvent& rDCEvt )
 {
-    const StyleSettings aSettings( GetSettings().GetStyleSettings() );
+    Window::DataChanged( rDCEvt );
 
-    // FIXME RenderContext
-
-    ApplyColorConfigValues( SM_MOD()->GetColorConfig() );
-    SetBackground( aSettings.GetWindowColor() );
-
-    // edit fields in other Applications use this font instead of
-    // the application font thus we use this one too
-    SetPointFont(*this, aSettings.GetFieldFont() /*aSettings.GetAppFont()*/);
+    if (!((rDCEvt.GetType() == DataChangedEventType::FONTS) ||
+          (rDCEvt.GetType() == DataChangedEventType::FONTSUBSTITUTION) ||
+          ((rDCEvt.GetType() == DataChangedEventType::SETTINGS) &&
+           (rDCEvt.GetFlags() & AllSettingsFlags::STYLE))))
+        return;
 
     EditEngine *pEditEngine = GetEditEngine();
     SmDocShell *pDoc = GetDoc();
@@ -214,10 +212,11 @@ void SmEditWindow::DataChanged( const DataChangedEvent& )
         //!
         //! see also SmDocShell::GetEditEngine() !
         //!
+        const StyleSettings& rStyleSettings = GetSettings().GetStyleSettings();
 
+        pDoc->UpdateEditEngineDefaultFonts(rStyleSettings.GetFieldTextColor());
+        pEditEngine->SetBackgroundColor(rStyleSettings.GetFieldColor());
         pEditEngine->SetDefTab(sal_uInt16(GetTextWidth("XXXX")));
-
-        SetEditEngineDefaultFonts(pDoc->GetEditEngineItemPool(), pDoc->GetLinguOptions());
 
         // forces new settings to be used
         // unfortunately this resets the whole edit engine
@@ -225,10 +224,12 @@ void SmEditWindow::DataChanged( const DataChangedEvent& )
         OUString aTxt( pEditEngine->GetText() );
         pEditEngine->Clear();   //incorrect font size
         pEditEngine->SetText( aTxt );
+
+        AdjustScrollBars();
+        Resize();
     }
 
-    AdjustScrollBars();
-    Resize();
+    Invalidate();
 }
 
 IMPL_LINK_NOARG( SmEditWindow, ModifyTimerHdl, Timer *, void )
@@ -344,7 +345,6 @@ void SmEditWindow::Command(const CommandEvent& rCEvt)
             Window::Command (rCEvt);
     }
 }
-
 
 bool SmEditWindow::HandleWheelCommands( const CommandEvent &rCEvt )
 {

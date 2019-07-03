@@ -17,6 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <QUrl>
+#include <KFileWidget>
+
 #include "gtk3_kde5_filepicker.hxx"
 
 #include <com/sun/star/lang/DisposedException.hpp>
@@ -71,6 +74,11 @@ Gtk3KDE5FilePicker::Gtk3KDE5FilePicker(const uno::Reference<uno::XComponentConte
     : Gtk3KDE5FilePicker_Base(_helperMutex)
 {
     setMultiSelectionMode(false);
+
+    // tdf#124598 dummy KWidget use to make gtk3_kde5 VCL plugin link against KIO libraries
+    QString sDummyStr;
+    QUrl aUrl = KFileWidget::getStartUrl(QUrl(), sDummyStr);
+    aUrl.setPath("/dev/null");
 }
 
 Gtk3KDE5FilePicker::~Gtk3KDE5FilePicker() = default;
@@ -177,7 +185,7 @@ void SAL_CALL Gtk3KDE5FilePicker::setValue(sal_Int16 controlId, sal_Int16 nContr
     }
     else
     {
-        OSL_TRACE("set value of unhandled type %d", controlId);
+        SAL_INFO("vcl.gtkkde5", "set value of unhandled type " << controlId);
     }
 }
 
@@ -403,7 +411,7 @@ void SAL_CALL Gtk3KDE5FilePicker::initialize(const uno::Sequence<uno::Any>& args
             break;
 
         default:
-            OSL_TRACE("Unknown templates %d", templateId);
+            SAL_INFO("vcl.gtkkde5", "unknown templates " << templateId);
             return;
     }
 
@@ -446,7 +454,7 @@ void Gtk3KDE5FilePicker::filterChanged()
 {
     FilePickerEvent aEvent;
     aEvent.ElementId = LISTBOX_FILTER;
-    OSL_TRACE("filter changed");
+    SAL_INFO("vcl.gtkkde5", "filter changed");
     if (m_xListener.is())
         m_xListener->controlStateChanged(aEvent);
 }
@@ -454,7 +462,7 @@ void Gtk3KDE5FilePicker::filterChanged()
 void Gtk3KDE5FilePicker::selectionChanged()
 {
     FilePickerEvent aEvent;
-    OSL_TRACE("file selection changed");
+    SAL_INFO("vcl.gtkkde5", "file selection changed");
     if (m_xListener.is())
         m_xListener->fileSelectionChanged(aEvent);
 }

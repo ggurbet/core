@@ -35,6 +35,7 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/supportsservice.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <string.h>
 #include <errno.h>
@@ -167,8 +168,7 @@ void SAL_CALL CmdMailSuppl::sendSimpleMailMessage( const Reference< XSimpleMailM
         Sequence< Any > aArgumentList( 1 );
         aArgumentList[0] <<= aProperty;
 
-        Reference< XNameAccess > xNameAccess =
-            Reference< XNameAccess > (
+        Reference< XNameAccess > xNameAccess(
                 m_xConfigurationProvider->createInstanceWithArguments(
                     "com.sun.star.configuration.ConfigurationAccess",
                     aArgumentList ),
@@ -198,10 +198,10 @@ void SAL_CALL CmdMailSuppl::sendSimpleMailMessage( const Reference< XSimpleMailM
 
     }
 
-    catch(const RuntimeException &e )
+    catch(const RuntimeException & )
     {
+        TOOLS_WARN_EXCEPTION("shell", "RuntimeException caught accessing configuration provider" );
         m_xConfigurationProvider.clear();
-        SAL_WARN("shell", "RuntimeException caught accessing configuration provider. " << e );
         throw;
     }
 

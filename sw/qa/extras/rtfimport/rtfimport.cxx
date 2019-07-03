@@ -15,9 +15,12 @@
 #include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeSegment.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/style/BreakType.hpp>
+#include <com/sun/star/style/LineSpacing.hpp>
+#include <com/sun/star/style/LineSpacingMode.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/style/TabStop.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
@@ -42,20 +45,6 @@
 #include <vcl/settings.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/configuration.hxx>
-
-namespace com
-{
-namespace sun
-{
-namespace star
-{
-namespace graphic
-{
-class XGraphic;
-}
-}
-}
-}
 
 class Test : public SwModelTestBase
 {
@@ -767,42 +756,27 @@ DECLARE_RTFIMPORT_TEST(testFdo68291, "fdo68291.odt")
 
     // This was "Standard", causing an unwanted page break on next paste.
     CPPUNIT_ASSERT_EQUAL(uno::Any(),
-                         uno::Reference<beans::XPropertySet>(getParagraph(1), uno::UNO_QUERY)
+                         uno::Reference<beans::XPropertySet>(getParagraph(1), uno::UNO_QUERY_THROW)
                              ->getPropertyValue("PageDescName"));
 }
 
-class testTdf105511 : public Test
+CPPUNIT_TEST_FIXTURE(Test, testTdf105511)
 {
-protected:
-    virtual OUString getTestName() override { return OUString("testTdf105511"); }
-
-public:
-    CPPUNIT_TEST_SUITE(testTdf105511);
-    CPPUNIT_TEST(Import);
-    CPPUNIT_TEST_SUITE_END();
-
-    void Import()
+    struct DefaultLocale : public comphelper::ConfigurationProperty<DefaultLocale, OUString>
     {
-        struct DefaultLocale : public comphelper::ConfigurationProperty<DefaultLocale, OUString>
+        static OUString path()
         {
-            static OUString path()
-            {
-                return OUString("/org.openoffice.Office.Linguistic/General/DefaultLocale");
-            }
-            ~DefaultLocale() = delete;
-        };
-        auto batch = comphelper::ConfigurationChanges::create();
-        DefaultLocale::set("ru-RU", batch);
-        batch->commit();
-        executeImportTest("tdf105511.rtf", nullptr);
-    }
-    virtual void verify() override
-    {
-        OUString aExpected(u"\u0418\u043C\u044F");
-        getParagraph(1, aExpected);
-    }
-};
-CPPUNIT_TEST_SUITE_REGISTRATION(testTdf105511);
+            return OUString("/org.openoffice.Office.Linguistic/General/DefaultLocale");
+        }
+        ~DefaultLocale() = delete;
+    };
+    auto batch = comphelper::ConfigurationChanges::create();
+    DefaultLocale::set("ru-RU", batch);
+    batch->commit();
+    load(mpTestDocumentPath, "tdf105511.rtf");
+    OUString aExpected(u"\u0418\u043C\u044F");
+    getParagraph(1, aExpected);
+}
 
 DECLARE_RTFIMPORT_TEST(testContSectionPageBreak, "cont-section-pagebreak.rtf")
 {
@@ -811,7 +785,7 @@ DECLARE_RTFIMPORT_TEST(testContSectionPageBreak, "cont-section-pagebreak.rtf")
     CPPUNIT_ASSERT_EQUAL(style::BreakType_NONE,
                          getProperty<style::BreakType>(xParaSecond, "BreakType"));
     CPPUNIT_ASSERT_EQUAL(uno::Any(),
-                         uno::Reference<beans::XPropertySet>(xParaSecond, uno::UNO_QUERY)
+                         uno::Reference<beans::XPropertySet>(xParaSecond, uno::UNO_QUERY_THROW)
                              ->getPropertyValue("PageDescName"));
     // actually not sure how many paragraph there should be between
     // SECOND and THIRD - important is that the page break is on there
@@ -823,8 +797,9 @@ DECLARE_RTFIMPORT_TEST(testContSectionPageBreak, "cont-section-pagebreak.rtf")
     CPPUNIT_ASSERT_EQUAL(OUString("THIRD"), xParaThird->getString());
     CPPUNIT_ASSERT_EQUAL(style::BreakType_NONE,
                          getProperty<style::BreakType>(xParaThird, "BreakType"));
-    CPPUNIT_ASSERT_EQUAL(uno::Any(), uno::Reference<beans::XPropertySet>(xParaThird, uno::UNO_QUERY)
-                                         ->getPropertyValue("PageDescName"));
+    CPPUNIT_ASSERT_EQUAL(uno::Any(),
+                         uno::Reference<beans::XPropertySet>(xParaThird, uno::UNO_QUERY_THROW)
+                             ->getPropertyValue("PageDescName"));
 
     CPPUNIT_ASSERT_EQUAL(2, getPages());
 }
@@ -1573,6 +1548,35 @@ DECLARE_RTFIMPORT_TEST(testDefaultValues, "default-values.rtf")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(100), getProperty<sal_Int32>(run, "CharEscapementHeight"));
     CPPUNIT_ASSERT_EQUAL(sal_Int16(0), getProperty<sal_Int16>(run, "CharKerning"));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(COL_AUTO), getProperty<sal_Int32>(run, "CharColor"));
+}
+
+DECLARE_RTFIMPORT_TEST(testParaStyleBottomMargin, "para-style-bottom-margin.rtf")
+{
+    uno::Reference<beans::XPropertySet> xPropertySet(
+        getStyles("ParagraphStyles")->getByName("Standard"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(353), getProperty<sal_Int32>(xPropertySet, "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(style::LineSpacingMode::PROP,
+                         getProperty<style::LineSpacing>(xPropertySet, "ParaLineSpacing").Mode);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(115),
+                         getProperty<style::LineSpacing>(xPropertySet, "ParaLineSpacing").Height);
+
+    // The reason why this is 0 despite the default style containing \sa200
+    // is that Word will actually interpret \basedonN
+    // as "set style N and for every attribute of that style,
+    // set an attribute with default value on the style"
+    uno::Reference<beans::XPropertySet> xPropertySet1(
+        getStyles("ParagraphStyles")->getByName("Contents 1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(xPropertySet1, "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(style::LineSpacingMode::PROP,
+                         getProperty<style::LineSpacing>(xPropertySet1, "ParaLineSpacing").Mode);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(100),
+                         getProperty<style::LineSpacing>(xPropertySet1, "ParaLineSpacing").Height);
+    auto const xPara(getParagraph(1));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(xPara, "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(style::LineSpacingMode::PROP, // 0 or 3 ???
+                         getProperty<style::LineSpacing>(xPara, "ParaLineSpacing").Mode);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(100),
+                         getProperty<style::LineSpacing>(xPara, "ParaLineSpacing").Height);
 }
 
 // tests should only be added to rtfIMPORT *if* they fail round-tripping in rtfEXPORT

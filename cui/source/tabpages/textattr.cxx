@@ -20,6 +20,7 @@
 #include <sfx2/app.hxx>
 #include <sfx2/module.hxx>
 #include <svx/svddef.hxx>
+#include <svx/sdasitm.hxx>
 #include <svx/sdtditm.hxx>
 #include <svx/sdtagitm.hxx>
 #include <svx/sdtaitm.hxx>
@@ -30,12 +31,14 @@
 #include <svx/svdview.hxx>
 #include <svx/svdotext.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 
 #include <textattr.hxx>
 #include <svx/dlgutil.hxx>
 #include <sfx2/request.hxx>
 #include <svx/ofaitem.hxx>
 #include <editeng/writingmodeitem.hxx>
+#include <svtools/unitconv.hxx>
 
 using namespace ::com::sun::star;
 

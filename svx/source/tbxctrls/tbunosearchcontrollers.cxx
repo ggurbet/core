@@ -59,6 +59,7 @@
 #include <svx/srchdlg.hxx>
 #include <vcl/button.hxx>
 #include <vcl/combobox.hxx>
+#include <vcl/event.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/window.hxx>
 
@@ -120,9 +121,8 @@ void impl_executeSearch( const css::uno::Reference< css::uno::XComponentContext 
     if (!aMatchCase)
         nFlags |= TransliterationFlags::IGNORE_CASE;
     if (aCTLOptions.IsCTLFontEnabled())
-        nFlags |= TransliterationFlags::IGNORE_DIACRITICS_CTL;
-    if (aCTLOptions.IsCTLFontEnabled())
-        nFlags |= TransliterationFlags::IGNORE_KASHIDA_CTL;
+        nFlags |= TransliterationFlags::IGNORE_DIACRITICS_CTL
+                  | TransliterationFlags::IGNORE_KASHIDA_CTL;
 
     auto aArgs( comphelper::InitPropertySequence( {
         { "SearchItem.SearchString", css::uno::makeAny( sFindText ) },
@@ -198,8 +198,8 @@ void FindTextFieldControl::SetTextToSelected_Impl()
 
     try
     {
-        css::uno::Reference<css::frame::XController> xController(m_xFrame->getController(), css::uno::UNO_QUERY_THROW);
-        css::uno::Reference<css::frame::XModel> xModel(xController->getModel(), css::uno::UNO_QUERY_THROW);
+        css::uno::Reference<css::frame::XController> xController(m_xFrame->getController(), css::uno::UNO_SET_THROW);
+        css::uno::Reference<css::frame::XModel> xModel(xController->getModel(), css::uno::UNO_SET_THROW);
         css::uno::Reference<css::container::XIndexAccess> xIndexAccess(xModel->getCurrentSelection(), css::uno::UNO_QUERY_THROW);
         if (xIndexAccess->getCount() > 0)
         {
@@ -1381,7 +1381,7 @@ css::uno::Sequence< OUString > SAL_CALL FindbarDispatcher::getSupportedServiceNa
 // XInitialization
 void SAL_CALL FindbarDispatcher::initialize( const css::uno::Sequence< css::uno::Any >& aArguments )
 {
-    if ( aArguments.getLength() )
+    if ( aArguments.hasElements() )
         aArguments[0] >>= m_xFrame;
 }
 

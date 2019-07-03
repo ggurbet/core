@@ -65,6 +65,7 @@
 #include <comphelper/profilezone.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <svx/scene3d.hxx>
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/drawing/XDrawPageSupplier.hpp>
 #include <fmtwrapinfluenceonobjpos.hxx>
 #include <com/sun/star/text/TextContentAnchorType.hpp>
@@ -904,10 +905,10 @@ SwXShape::SwXShape(uno::Reference<uno::XInterface> & xShape,
         }
     }
     xShape = nullptr;
-    m_refCount++;
+    osl_atomic_increment(&m_refCount);
     if( xShapeAgg.is() )
         xShapeAgg->setDelegator( static_cast<cppu::OWeakObject*>(this) );
-    m_refCount--;
+    osl_atomic_decrement(&m_refCount);
 
     uno::Reference< lang::XUnoTunnel > xShapeTunnel(xShapeAgg, uno::UNO_QUERY);
     SvxShape* pShape = nullptr;
@@ -2192,9 +2193,7 @@ awt::Point SAL_CALL SwXShape::getPosition()
         {
             // #i34750# - get attribute position of top group
             // shape and add offset between top group object and group member
-            uno::Reference< drawing::XShape > xGroupShape =
-                    uno::Reference< drawing::XShape >( pTopGroupObj->getUnoShape(),
-                                                       uno::UNO_QUERY );
+            uno::Reference< drawing::XShape > xGroupShape( pTopGroupObj->getUnoShape(), uno::UNO_QUERY );
             aPos = xGroupShape->getPosition();
             // add offset between top group object and group member
             // to the determined attribute position
@@ -2274,9 +2273,7 @@ void SAL_CALL SwXShape::setPosition( const awt::Point& aPosition )
         }
         // Convert given absolute position in horizontal left-to-right
         // layout into relative position in horizontal left-to-right layout.
-        uno::Reference< drawing::XShape > xGroupShape =
-                uno::Reference< drawing::XShape >( pTopGroupObj->getUnoShape(),
-                                                   uno::UNO_QUERY );
+        uno::Reference< drawing::XShape > xGroupShape( pTopGroupObj->getUnoShape(), uno::UNO_QUERY );
         {
             // #i34750#
             // use method <xGroupShape->getPosition()> to get the correct

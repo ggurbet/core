@@ -35,6 +35,7 @@
 
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 
 #include <unotools/accessiblestatesethelper.hxx>
 #include <tools/gen.hxx>
@@ -43,6 +44,7 @@
 #include <svx/svdobj.hxx>
 #include <svx/AccessibleTextHelper.hxx>
 #include <svx/AccessibleShape.hxx>
+#include <svx/AccessibleShapeInfo.hxx>
 #include <svx/IAccessibleParent.hxx>
 #include <svx/IAccessibleViewForwarder.hxx>
 #include <svx/ShapeTypeHandler.hxx>
@@ -589,16 +591,10 @@ struct ScShapeRange
 
 typedef std::vector<ScShapeRange> ScShapeRangeVec;
 
-class ScShapeChildren : public SfxListener,
-        public ::accessibility::IAccessibleParent
+class ScShapeChildren : public ::accessibility::IAccessibleParent
 {
 public:
     ScShapeChildren(ScPreviewShell* pViewShell, ScAccessibleDocumentPagePreview* pAccDoc);
-    virtual ~ScShapeChildren() override;
-
-    ///=====  SfxListener  =====================================================
-
-    virtual void Notify( SfxBroadcaster& rBC, const SfxHint& rHint ) override;
 
     ///=====  IAccessibleParent  ==============================================
 
@@ -625,7 +621,6 @@ public:
     void DataChanged();
     void VisAreaChanged() const;
 
-    void SetDrawBroadcaster();
 private:
     ScAccessibleDocumentPagePreview* const mpAccDoc;
     ScPreviewShell* mpViewShell;
@@ -648,56 +643,6 @@ ScShapeChildren::ScShapeChildren(ScPreviewShell* pViewShell, ScAccessibleDocumen
     mpViewShell(pViewShell),
     maShapeRanges(SC_PREVIEW_MAXRANGES)
 {
-    if (pViewShell)
-    {
-        SfxBroadcaster* pDrawBC = pViewShell->GetDocument().GetDrawBroadcaster();
-        if (pDrawBC)
-            StartListening(*pDrawBC);
-    }
-}
-
-ScShapeChildren::~ScShapeChildren()
-{
-    if (mpViewShell)
-    {
-        SfxBroadcaster* pDrawBC = mpViewShell->GetDocument().GetDrawBroadcaster();
-        if (pDrawBC)
-            EndListening(*pDrawBC);
-    }
-}
-
-void ScShapeChildren::SetDrawBroadcaster()
-{
-    if (mpViewShell)
-    {
-        SfxBroadcaster* pDrawBC = mpViewShell->GetDocument().GetDrawBroadcaster();
-        if (pDrawBC)
-            StartListening(*pDrawBC, DuplicateHandling::Prevent);
-    }
-}
-
-void ScShapeChildren::Notify(SfxBroadcaster&, const SfxHint& rHint)
-{
-    const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>( &rHint );
-    if (pSdrHint)
-    {
-        SdrObject* pObj = const_cast<SdrObject*>(pSdrHint->GetObject());
-        if (pObj && (pObj->getSdrPageFromSdrObject() == GetDrawPage()))
-        {
-            switch (pSdrHint->GetKind())
-            {
-                case SdrHintKind::ObjectChange :
-                {
-                }
-                break;
-                default :
-                {
-                    // other events are not interesting
-                }
-                break;
-            }
-        }
-    }
 }
 
 void ScShapeChildren::FindChanged(ScShapeChildVec& rOld, ScShapeChildVec& rNew) const
@@ -975,7 +920,7 @@ uno::Reference<XAccessible> ScShapeChildren::GetBackgroundShapeAt(const awt::Poi
             ::accessibility::AccessibleShapeTreeInfo aShapeTreeInfo;
             aShapeTreeInfo.SetSdrView(mpViewShell->GetPreview()->GetDrawView());
             aShapeTreeInfo.SetController(nullptr);
-            aShapeTreeInfo.SetWindow(mpViewShell->GetWindow());
+            aShapeTreeInfo.SetDevice(mpViewShell->GetWindow());
             aShapeTreeInfo.SetViewForwarder(&(maShapeRanges[rShape.mnRangeId].maViewForwarder));
             rShape.mpAccShape = rShapeHandler.CreateAccessibleObject(aShapeInfo, aShapeTreeInfo);
             if (rShape.mpAccShape.is())
@@ -1236,10 +1181,6 @@ void ScAccessibleDocumentPagePreview::Notify( SfxBroadcaster& rBC, const SfxHint
                     CommitChange(aEvent);
                 }
             }
-        }
-        else if (rHint.GetId() == SfxHintId::ScAccMakeDrawLayer)
-        {
-            GetShapeChildren()->SetDrawBroadcaster();
         }
         else if (rHint.GetId() == SfxHintId::ScAccVisAreaChanged)
         {

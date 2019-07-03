@@ -30,7 +30,6 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <ucbhelper/contenthelper.hxx>
-#include <ucbhelper/contentidentifier.hxx>
 #include <ucbhelper/providerhelper.hxx>
 #include <ucbhelper/macros.hxx>
 
@@ -281,50 +280,43 @@ bool ContentProviderImplHelper::renameAdditionalPropertySet(
         // Get propertyset registry.
         getAdditionalPropertySetRegistry();
 
-        if ( m_pImpl->m_xPropertySetRegistry.is() )
-        {
-            uno::Reference< container::XNameAccess > xNameAccess(
-                m_pImpl->m_xPropertySetRegistry, uno::UNO_QUERY );
-            if ( xNameAccess.is() )
-            {
-                uno::Sequence< OUString > aKeys
-                    = xNameAccess->getElementNames();
-                sal_Int32 nCount = aKeys.getLength();
-                if ( nCount > 0 )
-                {
-                    OUString aOldKeyWithSlash = rOldKey;
-                    OUString aOldKeyWithoutSlash;
-                    if ( !aOldKeyWithSlash.endsWith("/") )
-                    {
-                        aOldKeyWithSlash += "/";
-                        aOldKeyWithoutSlash = rOldKey;
-                    }
-                    else if ( !rOldKey.isEmpty() )
-                        aOldKeyWithoutSlash
-                            = rOldKey.copy( 0, rOldKey.getLength() - 1 );
+        if ( !m_pImpl->m_xPropertySetRegistry.is() )
+            return false;
 
-                    const OUString* pKeys = aKeys.getConstArray();
-                    for ( sal_Int32 n = 0; n < nCount; ++n )
-                    {
-                        const OUString& rKey = pKeys[ n ];
-                        if ( rKey.startsWith( aOldKeyWithSlash )
-                             || rKey == aOldKeyWithoutSlash )
-                        {
-                            OUString aNewKey
-                                = rKey.replaceAt(
-                                    0, rOldKey.getLength(), rNewKey );
-                            if ( !renameAdditionalPropertySet(
-                                    rKey, aNewKey, false ) )
-                                return false;
-                        }
-                    }
+        uno::Reference< container::XNameAccess > xNameAccess(
+            m_pImpl->m_xPropertySetRegistry, uno::UNO_QUERY );
+        if ( !xNameAccess.is() )
+            return false;
+
+        uno::Sequence< OUString > aKeys
+            = xNameAccess->getElementNames();
+        if ( aKeys.hasElements() )
+        {
+            OUString aOldKeyWithSlash = rOldKey;
+            OUString aOldKeyWithoutSlash;
+            if ( !aOldKeyWithSlash.endsWith("/") )
+            {
+                aOldKeyWithSlash += "/";
+                aOldKeyWithoutSlash = rOldKey;
+            }
+            else if ( !rOldKey.isEmpty() )
+                aOldKeyWithoutSlash
+                    = rOldKey.copy( 0, rOldKey.getLength() - 1 );
+
+            for ( const OUString& rKey : aKeys )
+            {
+                if ( rKey.startsWith( aOldKeyWithSlash )
+                     || rKey == aOldKeyWithoutSlash )
+                {
+                    OUString aNewKey
+                        = rKey.replaceAt(
+                            0, rOldKey.getLength(), rNewKey );
+                    if ( !renameAdditionalPropertySet(
+                            rKey, aNewKey, false ) )
+                        return false;
                 }
             }
-            else
-                return false;
         }
-        else
-            return false;
     }
     else
     {
@@ -336,13 +328,11 @@ bool ContentProviderImplHelper::renameAdditionalPropertySet(
             // Rename property set.
             uno::Reference< container::XNamed > xNamed(
                 xOldSet, uno::UNO_QUERY );
-            if ( xNamed.is() )
-            {
-                // ??? throws no exceptions and has no return value ???
-                xNamed->setName( rNewKey );
-            }
-            else
+            if ( !xNamed.is() )
                 return false;
+
+            // ??? throws no exceptions and has no return value ???
+            xNamed->setName( rNewKey );
         }
     }
     return true;
@@ -363,50 +353,43 @@ bool ContentProviderImplHelper::copyAdditionalPropertySet(
         // Get propertyset registry.
         getAdditionalPropertySetRegistry();
 
-        if ( m_pImpl->m_xPropertySetRegistry.is() )
-        {
-            uno::Reference< container::XNameAccess > xNameAccess(
-                m_pImpl->m_xPropertySetRegistry, uno::UNO_QUERY );
-            if ( xNameAccess.is() )
-            {
-                uno::Sequence< OUString > aKeys
-                    = xNameAccess->getElementNames();
-                sal_Int32 nCount = aKeys.getLength();
-                if ( nCount > 0 )
-                {
-                    OUString aSrcKeyWithSlash = rSourceKey;
-                    OUString aSrcKeyWithoutSlash;
-                    if ( !aSrcKeyWithSlash.endsWith("/") )
-                    {
-                        aSrcKeyWithSlash += "/";
-                        aSrcKeyWithoutSlash = rSourceKey;
-                    }
-                    else if ( !rSourceKey.isEmpty() )
-                        aSrcKeyWithoutSlash = rSourceKey.copy(
-                            0, rSourceKey.getLength() - 1 );
+        if ( !m_pImpl->m_xPropertySetRegistry.is() )
+            return false;
 
-                    const OUString* pKeys = aKeys.getConstArray();
-                    for ( sal_Int32 n = 0; n < nCount; ++n )
-                    {
-                        const OUString& rKey = pKeys[ n ];
-                        if ( rKey.startsWith(aSrcKeyWithSlash )
-                             || rKey == aSrcKeyWithoutSlash )
-                        {
-                            OUString aNewKey
-                                = rKey.replaceAt(
-                                    0, rSourceKey.getLength(), rTargetKey );
-                            if ( !copyAdditionalPropertySet(
-                                    rKey, aNewKey, false ) )
-                                return false;
-                        }
-                    }
+        uno::Reference< container::XNameAccess > xNameAccess(
+            m_pImpl->m_xPropertySetRegistry, uno::UNO_QUERY );
+        if ( !xNameAccess.is() )
+            return false;
+
+        uno::Sequence< OUString > aKeys
+            = xNameAccess->getElementNames();
+        if ( aKeys.hasElements() )
+        {
+            OUString aSrcKeyWithSlash = rSourceKey;
+            OUString aSrcKeyWithoutSlash;
+            if ( !aSrcKeyWithSlash.endsWith("/") )
+            {
+                aSrcKeyWithSlash += "/";
+                aSrcKeyWithoutSlash = rSourceKey;
+            }
+            else if ( !rSourceKey.isEmpty() )
+                aSrcKeyWithoutSlash = rSourceKey.copy(
+                    0, rSourceKey.getLength() - 1 );
+
+            for ( const OUString& rKey : aKeys )
+            {
+                if ( rKey.startsWith(aSrcKeyWithSlash )
+                     || rKey == aSrcKeyWithoutSlash )
+                {
+                    OUString aNewKey
+                        = rKey.replaceAt(
+                            0, rSourceKey.getLength(), rTargetKey );
+                    if ( !copyAdditionalPropertySet(
+                            rKey, aNewKey, false ) )
+                        return false;
                 }
             }
-            else
-                return false;
         }
-        else
-            return false;
     }
     else
     {
@@ -429,12 +412,11 @@ bool ContentProviderImplHelper::copyAdditionalPropertySet(
         // Obtain all values from old set.
         uno::Sequence< beans::PropertyValue > aValues
             = xOldPropAccess->getPropertyValues();
-        sal_Int32 nCount = aValues.getLength();
 
         uno::Sequence< beans::Property > aProps
             = xPropSetInfo->getProperties();
 
-        if ( nCount )
+        if ( aValues.hasElements() )
         {
             // Fail, if property set with new key already exists.
             uno::Reference< css::ucb::XPersistentPropertySet >
@@ -453,19 +435,13 @@ bool ContentProviderImplHelper::copyAdditionalPropertySet(
             if ( !xNewPropContainer.is() )
                 return false;
 
-            for ( sal_Int32 n = 0; n < nCount; ++n )
+            for ( const beans::PropertyValue& rValue : aValues )
             {
-                const beans::PropertyValue& rValue = aValues[ n ];
-
                 sal_Int16 nAttribs = 0;
-                for ( sal_Int32 m = 0; m < aProps.getLength(); ++m )
-                {
-                    if ( aProps[ m ].Name == rValue.Name )
-                    {
-                        nAttribs = aProps[ m ].Attributes;
-                        break;
-                    }
-                }
+                auto pProp = std::find_if(aProps.begin(), aProps.end(),
+                    [&rValue](const beans::Property& rProp) { return rProp.Name == rValue.Name; });
+                if (pProp != aProps.end())
+                    nAttribs = pProp->Attributes;
 
                 try
                 {
@@ -497,57 +473,50 @@ bool ContentProviderImplHelper::removeAdditionalPropertySet(
         // Get propertyset registry.
         getAdditionalPropertySetRegistry();
 
-        if ( m_pImpl->m_xPropertySetRegistry.is() )
-        {
-            uno::Reference< container::XNameAccess > xNameAccess(
-                m_pImpl->m_xPropertySetRegistry, uno::UNO_QUERY );
-            if ( xNameAccess.is() )
-            {
-                uno::Sequence< OUString > aKeys
-                    = xNameAccess->getElementNames();
-                sal_Int32 nCount = aKeys.getLength();
-                if ( nCount > 0 )
-                {
-                    OUString aKeyWithSlash = rKey;
-                    OUString aKeyWithoutSlash;
-                    if ( !aKeyWithSlash.endsWith("/") )
-                    {
-                        aKeyWithSlash += "/";
-                        aKeyWithoutSlash = rKey;
-                    }
-                    else if ( !rKey.isEmpty() )
-                        aKeyWithoutSlash
-                            = rKey.copy( 0, rKey.getLength() - 1 );
+        if ( !m_pImpl->m_xPropertySetRegistry.is() )
+            return false;
 
-                    const OUString* pKeys = aKeys.getConstArray();
-                    for ( sal_Int32 n = 0; n < nCount; ++n )
-                    {
-                        const OUString& rCurrKey = pKeys[ n ];
-                        if ( rCurrKey.startsWith(aKeyWithSlash )
-                             || rCurrKey == aKeyWithoutSlash )
-                        {
-                            if ( !removeAdditionalPropertySet(
-                                     rCurrKey, false ) )
-                                return false;
-                        }
-                    }
+        uno::Reference< container::XNameAccess > xNameAccess(
+            m_pImpl->m_xPropertySetRegistry, uno::UNO_QUERY );
+        if ( !xNameAccess.is() )
+            return false;
+
+        uno::Sequence< OUString > aKeys
+            = xNameAccess->getElementNames();
+        if ( aKeys.hasElements() )
+        {
+            OUString aKeyWithSlash = rKey;
+            OUString aKeyWithoutSlash;
+            if ( !aKeyWithSlash.endsWith("/") )
+            {
+                aKeyWithSlash += "/";
+                aKeyWithoutSlash = rKey;
+            }
+            else if ( !rKey.isEmpty() )
+                aKeyWithoutSlash
+                    = rKey.copy( 0, rKey.getLength() - 1 );
+
+            for ( const OUString& rCurrKey : aKeys )
+            {
+                if ( rCurrKey.startsWith(aKeyWithSlash )
+                     || rCurrKey == aKeyWithoutSlash )
+                {
+                    if ( !removeAdditionalPropertySet(
+                             rCurrKey, false ) )
+                        return false;
                 }
             }
-            else
-                return false;
         }
-        else
-            return false;
     }
     else
     {
         // Get propertyset registry.
         getAdditionalPropertySetRegistry();
 
-        if ( m_pImpl->m_xPropertySetRegistry.is() )
-            m_pImpl->m_xPropertySetRegistry->removePropertySet( rKey );
-        else
+        if ( !m_pImpl->m_xPropertySetRegistry.is() )
             return false;
+
+        m_pImpl->m_xPropertySetRegistry->removePropertySet( rKey );
     }
     return true;
 }

@@ -28,7 +28,9 @@
 #include <tools/stream.hxx>
 #include <tools/debug.hxx>
 #include <unotools/resmgr.hxx>
+#include <svtools/htmlout.hxx>
 
+#include <sfx2/frmdescr.hxx>
 #include <sfx2/frmhtmlw.hxx>
 #include <sfx2/evntconf.hxx>
 #include <sfx2/frame.hxx>
@@ -43,6 +45,7 @@
 
 #include <com/sun/star/script/Converter.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 
 #include <rtl/bootstrap.hxx>
 #include <rtl/strbuf.hxx>

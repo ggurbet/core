@@ -18,6 +18,7 @@
  */
 
 #include "EnhancedCustomShape3d.hxx"
+#include <svx/deflt3d.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdmodel.hxx>
 #include <tools/poly.hxx>
@@ -27,6 +28,7 @@
 #include <svl/poolitem.hxx>
 #include <svl/itemset.hxx>
 #include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xsflclit.hxx>
 #include <svx/xit.hxx>
 #include <svx/xbtmpit.hxx>

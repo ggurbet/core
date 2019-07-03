@@ -50,6 +50,7 @@
 
 #include "vbacommandbars.hxx"
 
+#include <boost/functional/hash.hpp>
 #include <unordered_map>
 
 using namespace ::com::sun::star;
@@ -139,9 +140,11 @@ struct VbaTimerInfoHash
 {
     size_t operator()( const VbaTimerInfo& rTimerInfo ) const
     {
-        return static_cast<size_t>(rTimerInfo.first.hashCode())
-             + static_cast<size_t>(rtl_str_hashCode_WithLength( reinterpret_cast<char const *>(&rTimerInfo.second.first), sizeof( double ) ))
-             + static_cast<size_t>(rtl_str_hashCode_WithLength( reinterpret_cast<char const *>(&rTimerInfo.second.second), sizeof( double ) ));
+        std::size_t seed = 0;
+        boost::hash_combine(seed, rTimerInfo.first.hashCode());
+        boost::hash_combine(seed, rTimerInfo.second.first);
+        boost::hash_combine(seed, rTimerInfo.second.second);
+        return seed;
     }
 };
 
@@ -178,7 +181,7 @@ VbaApplicationBase::getScreenUpdating()
 void SAL_CALL
 VbaApplicationBase::setScreenUpdating(sal_Bool bUpdate)
 {
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_SET_THROW );
     // #163808# use helper from module "basic" to lock all documents of this application
     ::basic::vba::lockControllersOfAllDocuments( xModel, !bUpdate );
 }
@@ -186,8 +189,8 @@ VbaApplicationBase::setScreenUpdating(sal_Bool bUpdate)
 sal_Bool SAL_CALL
 VbaApplicationBase::getDisplayStatusBar()
 {
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
-    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_SET_THROW );
+    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
     uno::Reference< beans::XPropertySet > xProps( xFrame, uno::UNO_QUERY_THROW );
 
     uno::Reference< frame::XLayoutManager > xLayoutManager( xProps->getPropertyValue( "LayoutManager"), uno::UNO_QUERY_THROW );
@@ -200,8 +203,8 @@ VbaApplicationBase::getDisplayStatusBar()
 void SAL_CALL
 VbaApplicationBase::setDisplayStatusBar(sal_Bool bDisplayStatusBar)
 {
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
-    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_SET_THROW );
+    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
     uno::Reference< beans::XPropertySet > xProps( xFrame, uno::UNO_QUERY_THROW );
 
     uno::Reference< frame::XLayoutManager > xLayoutManager( xProps->getPropertyValue( "LayoutManager" ), uno::UNO_QUERY_THROW );
@@ -222,7 +225,7 @@ sal_Bool SAL_CALL VbaApplicationBase::getInteractive()
     uno::Reference< frame::XModel > xModel = getCurrentDocument();
     if (!xModel.is())
         return true;
-    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
     uno::Reference< awt::XWindow2 > xWindow( xFrame->getContainerWindow(), uno::UNO_QUERY_THROW );
 
     return xWindow->isEnabled();
@@ -230,7 +233,7 @@ sal_Bool SAL_CALL VbaApplicationBase::getInteractive()
 
 void SAL_CALL VbaApplicationBase::setInteractive( sal_Bool bInteractive )
 {
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_SET_THROW );
     // #163808# use helper from module "basic" to enable/disable all container windows of all documents of this application
     ::basic::vba::enableContainerWindowsOfAllDocuments( xModel, bInteractive );
 }
@@ -258,8 +261,8 @@ OUString SAL_CALL VbaApplicationBase::getCaption()
 
     // No idea if this code, which uses APIs that apparently are related to StarBasic (check
     // getCurrentDoc() in vbahelper.cxx), actually works any better.
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
-    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_SET_THROW );
+    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
     return xFrame->getName();
 }
 
@@ -274,8 +277,8 @@ void SAL_CALL VbaApplicationBase::setCaption( const OUString& sCaption )
         return;
     }
 
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
-    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_SET_THROW );
+    uno::Reference< frame::XFrame > xFrame( xModel->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
     xFrame->setName( sCaption );
 }
 
@@ -437,7 +440,7 @@ VbaApplicationBase::getServiceNames()
 
 void SAL_CALL VbaApplicationBase::Undo()
 {
-    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XModel > xModel( getCurrentDocument(), uno::UNO_SET_THROW );
     dispatchRequests( xModel, ".uno:Undo" );
 }
 

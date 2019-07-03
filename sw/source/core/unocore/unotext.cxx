@@ -1444,7 +1444,7 @@ SwXText::insertTextContentWithProperties(
     // now attach the text content here
     insertTextContent( xInsertPosition, xTextContent, false );
     // now apply the properties to the anchor
-    if (rCharacterAndParagraphProperties.getLength())
+    if (rCharacterAndParagraphProperties.hasElements())
     {
         try
         {
@@ -1640,7 +1640,7 @@ SwXText::convertToTextFrame(
     }
     aStartPam.SetMark();
     *aStartPam.End() = *pEndPam->End();
-    pEndPam.reset(nullptr);
+    pEndPam.reset();
 
     // see if there are frames already anchored to this node
     // we have to work with the SdrObjects, as unique name is not guaranteed in their frame format
@@ -2251,13 +2251,6 @@ SwXBodyText::getImplementationName()
     return OUString("SwXBodyText");
 }
 
-static char const*const g_ServicesBodyText[] =
-{
-    "com.sun.star.text.Text",
-};
-
-static const size_t g_nServicesBodyText(SAL_N_ELEMENTS(g_ServicesBodyText));
-
 sal_Bool SAL_CALL SwXBodyText::supportsService(const OUString& rServiceName)
 {
     return cppu::supportsService(this, rServiceName);
@@ -2266,8 +2259,7 @@ sal_Bool SAL_CALL SwXBodyText::supportsService(const OUString& rServiceName)
 uno::Sequence< OUString > SAL_CALL
 SwXBodyText::getSupportedServiceNames()
 {
-    return ::sw::GetSupportedServiceNamesImpl(
-            g_nServicesBodyText, g_ServicesBodyText);
+    return { "com.sun.star.text.Text" };
 }
 
 uno::Any SAL_CALL

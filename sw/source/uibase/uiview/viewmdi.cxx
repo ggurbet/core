@@ -22,6 +22,7 @@
 #include <hintids.hxx>
 #include <vcl/svapp.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/ruler.hxx>
 #include <editeng/lrspitem.hxx>
 #include <svl/srchitem.hxx>
@@ -52,6 +53,8 @@
 #include <AnnotationWin.hxx>
 
 #include <svx/srchdlg.hxx>
+#include <svx/svdview.hxx>
+#include <svx/svxids.hrc>
 
 #include <vcl/uitest/logger.hxx>
 #include <vcl/uitest/eventdescription.hxx>
@@ -347,7 +350,32 @@ IMPL_LINK( SwView, MoveNavigationHdl, void*, p, void )
     switch( m_nMoveType )
     {
         case NID_PGE:
-            bNext ? PhyPageDown() : PhyPageUp();
+            if ( bNext )
+            {
+                if ( USHRT_MAX == rSh.GetNextPrevPageNum( true ) )
+                {
+                    rSh.GotoPage( 1, true );
+                    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::EndWrapped );
+                }
+                else
+                {
+                    PhyPageDown();
+                    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+                }
+            }
+            else
+            {
+                if ( USHRT_MAX == rSh.GetNextPrevPageNum( false ) )
+                {
+                    rSh.GotoPage( rSh.GetPageCnt(), true );
+                    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::StartWrapped );
+                }
+                else
+                {
+                    PhyPageUp();
+                    SvxSearchDialogWrapper::SetSearchLabel( SearchLabel::Empty );
+                }
+            }
         break;
         case NID_TBL :
             rSh.EnterStdMode();
@@ -375,8 +403,11 @@ IMPL_LINK( SwView, MoveNavigationHdl, void*, p, void )
             }
         }
         break;
-        case NID_DRW :
         case NID_CTRL:
+            if (!rSh.GetView().IsDesignMode())
+                rSh.GetView().GetFormShell()->SetDesignMode(true);
+            [[fallthrough]];
+        case NID_DRW:
         {
             bool bSuccess = rSh.GotoObj(bNext,
                     m_nMoveType == NID_DRW ?
@@ -446,7 +477,7 @@ IMPL_LINK( SwView, MoveNavigationHdl, void*, p, void )
                 ++ppMark)
             {
                 if( IDocumentMarkAccess::GetType(**ppMark) == IDocumentMarkAccess::MarkType::NAVIGATOR_REMINDER )
-                    vNavMarks.push_back(ppMark->get());
+                    vNavMarks.push_back(*ppMark);
             }
 
             // move
@@ -504,15 +535,15 @@ IMPL_LINK( SwView, MoveNavigationHdl, void*, p, void )
         break;
 
         case NID_SRCH_REP:
-        if(m_pSrchItem)
+        if(s_pSrchItem)
         {
-            bool bBackward = m_pSrchItem->GetBackward();
+            bool bBackward = s_pSrchItem->GetBackward();
             if (rSh.HasSelection() && bNext != rSh.IsCursorPtAtEnd())
                 rSh.SwapPam();
-            m_pSrchItem->SetBackward(!bNext);
+            s_pSrchItem->SetBackward(!bNext);
             SfxRequest aReq(FN_REPEAT_SEARCH, SfxCallMode::SLOT, GetPool());
             ExecSearch(aReq);
-            m_pSrchItem->SetBackward(bBackward);
+            s_pSrchItem->SetBackward(bBackward);
         }
         break;
         case NID_INDEX_ENTRY:

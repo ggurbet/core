@@ -29,7 +29,6 @@
 #include <svx/svdocirc.hxx>
 #include <svx/svdopath.hxx>
 #include <svx/sxciaitm.hxx>
-#include <svx/xfillit.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/xlnwtit.hxx>
 #include <svx/xlnstwit.hxx>
@@ -37,6 +36,9 @@
 #include <svx/xlnedit.hxx>
 #include <svx/xlnstit.hxx>
 #include <svx/svdomeas.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtacitm.hxx>
+#include <svx/sdtaaitm.hxx>
 #include <sfx2/app.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/opaqitem.hxx>
@@ -45,6 +47,7 @@
 #include <svx/svdpagv.hxx>
 #include <svx/dialmgr.hxx>
 #include <tools/globname.hxx>
+#include <sot/exchange.hxx>
 #include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <DocumentSettingManager.hxx>
@@ -101,6 +104,7 @@
 
 #include <com/sun/star/embed/EmbedMisc.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 
 #include <svx/srchdlg.hxx>
 
@@ -944,8 +948,7 @@ void SwFEShell::SetLineEnds(SfxItemSet& rAttr, SdrObject const & rObj, sal_uInt1
     ::basegfx::B2DPolyPolygon aCircle( getPolygon( RID_SVXSTR_CIRCLE, rModel ) );
     if( !aCircle.count() )
     {
-        ::basegfx::B2DPolygon aNewCircle;
-        aNewCircle = ::basegfx::utils::createPolygonFromEllipse(::basegfx::B2DPoint(0.0, 0.0), 250.0, 250.0);
+        ::basegfx::B2DPolygon aNewCircle = ::basegfx::utils::createPolygonFromEllipse(::basegfx::B2DPoint(0.0, 0.0), 250.0, 250.0);
         aNewCircle.setClosed(true);
         aCircle.append(aNewCircle);
     }

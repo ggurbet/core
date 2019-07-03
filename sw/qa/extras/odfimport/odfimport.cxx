@@ -15,10 +15,7 @@
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/style/PageStyleLayout.hpp>
 #include <com/sun/star/style/FootnoteLineStyle.hpp>
-#include <com/sun/star/table/XCell.hpp>
-#include <com/sun/star/table/XCellRange.hpp>
 #include <com/sun/star/table/BorderLine.hpp>
-#include <com/sun/star/table/BorderLine2.hpp>
 #include <com/sun/star/text/XTextSection.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/text/PageNumberType.hpp>
@@ -31,7 +28,7 @@
 #include <view.hxx>
 #include <edtwin.hxx>
 #include <olmenu.hxx>
-#include <cmdid.h>
+#include <hintids.hxx>
 
 typedef std::map<OUString, css::uno::Sequence< css::table::BorderLine> > AllBordersMap;
 typedef std::pair<OUString, css::uno::Sequence< css::table::BorderLine> > StringSequencePair;
@@ -56,7 +53,7 @@ DECLARE_ODFIMPORT_TEST(testHideAllSections, "fdo53210.odt")
     uno::Reference<beans::XPropertySet> xMaster(xMasters->getByName("com.sun.star.text.fieldmaster.User._CS_Allgemein"), uno::UNO_QUERY);
     xMaster->setPropertyValue("Content", uno::makeAny(OUString("0")));
     // This used to crash
-    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY)->refresh();
+    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY_THROW)->refresh();
 }
 
 DECLARE_ODFIMPORT_TEST(testOdtBorders, "borders_ooo33.odt")
@@ -165,8 +162,7 @@ DECLARE_ODFIMPORT_TEST(testOdtBorders, "borders_ooo33.odt")
                 uno::Sequence<OUString> const cells = xTextTable->getCellNames();
                 sal_Int32 nLength = cells.getLength();
 
-                AllBordersMap::iterator it;
-                it = map.begin();
+                AllBordersMap::iterator it = map.begin();
 
                 for (sal_Int32 i = 0; i < nLength; ++i)
                 {
@@ -482,7 +478,7 @@ DECLARE_ODFIMPORT_TEST(testFdo55814, "fdo55814.odt")
     uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
     uno::Reference<beans::XPropertySet> xField(xFields->nextElement(), uno::UNO_QUERY);
     xField->setPropertyValue("Content", uno::makeAny(OUString("Yes")));
-    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY)->refresh();
+    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY_THROW)->refresh();
     uno::Reference<text::XTextSectionsSupplier> xTextSectionsSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xSections(xTextSectionsSupplier->getTextSections(), uno::UNO_QUERY);
     // This was "0".
@@ -935,6 +931,22 @@ DECLARE_ODFIMPORT_TEST(testTdf113289, "tdf113289.odt")
                          getProperty<sal_Int8>(aPageStyle, "FootnoteLineStyle"));
 }
 
+DECLARE_ODFIMPORT_TEST(testTdf123968, "tdf123968.odt")
+{
+    // The test doc is special in that it starts with a table and it also has a header.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    SwShellCursor* pShellCursor = pWrtShell->getShellCursor(false);
+
+    pWrtShell->SelAll();
+    SwTextNode& rStart = dynamic_cast<SwTextNode&>(pShellCursor->Start()->nNode.GetNode());
+
+    // The field is now editable like any text, thus the field content "New value" shows up for the cursor.
+    CPPUNIT_ASSERT_EQUAL(OUString("inputfield: " + OUStringLiteral1(CH_TXT_ATR_INPUTFIELDSTART)
+                                  + "New value" + OUStringLiteral1(CH_TXT_ATR_INPUTFIELDEND)),
+                         rStart.GetText());
+}
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

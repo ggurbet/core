@@ -20,6 +20,7 @@
 #include <memory>
 #include <tools/urlobj.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/pathoptions.hxx>
 #include <sfx2/app.hxx>
@@ -29,11 +30,13 @@
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 
 #include <strings.hrc>
+#include <svx/xflhtit.hxx>
+#include <svx/xflclit.hxx>
 #include <svx/colorbox.hxx>
-#include <svx/xattr.hxx>
 #include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/xflbckit.hxx>
 #include <cuitabarea.hxx>
 #include <defdlgname.hxx>
 #include <dlgname.hxx>
@@ -43,7 +46,9 @@
 #include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
+#include <svx/svxids.hrc>
 #include <sal/log.hxx>
+#include <svtools/unitconv.hxx>
 
 using namespace com::sun::star;
 
@@ -389,9 +394,9 @@ void SvxHatchTabPage::ChangeHatchHdl_Impl()
         m_xLbLineColor->SetNoSelection();
         m_xLbLineColor->SelectEntry( pHatch->GetColor() );
         SetMetricValue( *m_xMtrDistance, pHatch->GetDistance(), m_ePoolUnit );
-        long mHatchAngle = pHatch->GetAngle() / 10;
-        m_xMtrAngle->set_value(mHatchAngle, FieldUnit::NONE);
-        m_xSliderAngle->set_value(mHatchAngle);
+        long nHatchAngle = pHatch->GetAngle() / 10;
+        m_xMtrAngle->set_value(nHatchAngle, FieldUnit::NONE);
+        m_xSliderAngle->set_value(nHatchAngle);
 
         // fill ItemSet and pass it on to m_aCtlPreview
         m_rXFSet.Put( XFillHatchItem( OUString(), *pHatch ) );

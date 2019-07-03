@@ -244,8 +244,12 @@ bool XPropertySet::isPropertyValueChangeable(const OUString& rName)
         }
         else
         {
-            std::cout << type.getTypeName() << std::endl;
-            std::cout << rName << std::endl;
+            std::cout << "Unknown type:\n"
+                         "Type: "
+                      << type.getTypeName()
+                      << "\n"
+                         "Name: "
+                      << rName << "\n";
             CPPUNIT_ASSERT_MESSAGE(
                 "XPropertySet::isPropertyValueChangeable: unknown type in Any tested.", false);
         }
@@ -255,6 +259,7 @@ bool XPropertySet::isPropertyValueChangeable(const OUString& rName)
     }
     catch (const uno::Exception&)
     {
+        std::cout << "Exception thrown while retrieving with property: " << rName << "\n";
         CPPUNIT_ASSERT_MESSAGE("XPropertySet::isPropertyValueChangeable: exception thrown while "
                                "retrieving the property value.",
                                false);
@@ -278,9 +283,8 @@ void XPropertySet::fillPropsToTest(const uno::Reference<beans::XPropertySetInfo>
     aSkip.insert("CharRelief");
     aSkip.insert("IsLayerMode");
 
-    for (sal_Int32 i = 0; i < aProps.getLength(); ++i)
+    for (const beans::Property& aProp : aProps)
     {
-        beans::Property aProp = aProps[i];
         if (aSkip.count(aProp.Name) > 0)
             continue;
 

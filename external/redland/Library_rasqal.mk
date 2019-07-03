@@ -11,7 +11,7 @@ $(eval $(call gb_Library_Library,rasqal))
 
 $(eval $(call gb_Library_use_unpacked,rasqal,rasqal))
 
-$(eval $(call gb_Library_set_warnings_not_errors,rasqal))
+$(eval $(call gb_Library_set_warnings_disabled,rasqal))
 
 $(eval $(call gb_Library_use_external,rasqal,raptor_headers))
 
@@ -26,6 +26,12 @@ $(eval $(call gb_Library_add_defs,rasqal,\
 	-D_USRDLL \
 	-DWIN32_EXPORTS \
 	-D_MT \
+	-DHAVE_STDLIB_H \
+	-DHAVE_STDINT_H \
+	-DHAVE_TIME_H \
+	-DHAVE_MATH_H \
+	-DHAVE_FLOAT_H \
+	-DHAVE___FUNCTION__ \
 ))
 
 $(eval $(call gb_Library_set_include,rasqal,\

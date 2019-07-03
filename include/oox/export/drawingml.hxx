@@ -96,6 +96,16 @@ namespace core {
 
 namespace drawingml {
 
+class OOX_DLLPUBLIC URLTransformer
+{
+public:
+    virtual ~URLTransformer();
+
+    virtual OUString getTransformedString(const OUString& rURL) const;
+
+    virtual bool isExternalURL(const OUString& rURL) const;
+};
+
 // Our rotation is counter-clockwise and is in 100ths of a degree.
 // drawingML rotation is clockwise and is in 60000ths of a degree.
 template <typename T> T ExportRotateClockwisify(T input)
@@ -171,17 +181,22 @@ public:
     OUString WriteImage( const Graphic &rGraphic , bool bRelPathToMedia = false);
 
     void WriteColor( ::Color nColor, sal_Int32 nAlpha = MAX_PERCENT );
-    void WriteColor( const OUString& sColorSchemeName, const css::uno::Sequence< css::beans::PropertyValue >& aTransformations );
-    void WriteColorTransformations( const css::uno::Sequence< css::beans::PropertyValue >& aTransformations );
-    void WriteGradientStop( sal_uInt16 nStop, ::Color nColor );
+    void WriteColor( const OUString& sColorSchemeName, const css::uno::Sequence< css::beans::PropertyValue >& aTransformations, sal_Int32 nAlpha = MAX_PERCENT );
+    void WriteColorTransformations( const css::uno::Sequence< css::beans::PropertyValue >& aTransformations, sal_Int32 nAlpha = MAX_PERCENT );
+    void WriteGradientStop(sal_uInt16 nStop, ::Color nColor, sal_Int32 nAlpha = MAX_PERCENT);
     void WriteLineArrow( const css::uno::Reference< css::beans::XPropertySet >& rXPropSet, bool bLineStart );
     void WriteConnectorConnections( EscherConnectorListEntry& rConnectorEntry, sal_Int32 nStartID, sal_Int32 nEndID );
 
     void WriteSolidFill( ::Color nColor, sal_Int32 nAlpha = MAX_PERCENT );
-    void WriteSolidFill( const OUString& sSchemeName, const css::uno::Sequence< css::beans::PropertyValue >& aTransformations );
+    void WriteSolidFill( const OUString& sSchemeName, const css::uno::Sequence< css::beans::PropertyValue >& aTransformations, sal_Int32 nAlpha = MAX_PERCENT );
     void WriteSolidFill( const css::uno::Reference< css::beans::XPropertySet >& rXPropSet );
     void WriteGradientFill( const css::uno::Reference< css::beans::XPropertySet >& rXPropSet );
-    void WriteGradientFill( css::awt::Gradient rGradient );
+
+    /// In case rXPropSet is set, it may serve as a source of gradient transparency information.
+    void WriteGradientFill(css::awt::Gradient rGradient,
+                           const css::uno::Reference<css::beans::XPropertySet>& rXPropSet
+                           = css::uno::Reference<css::beans::XPropertySet>());
+
     void WriteGrabBagGradientFill( const css::uno::Sequence< css::beans::PropertyValue >& aGradientStops, css::awt::Gradient rGradient);
 
     void WriteBlipOrNormalFill( const css::uno::Reference< css::beans::XPropertySet >& rXPropSet,
@@ -258,7 +273,12 @@ public:
     void WriteShape3DEffects( const css::uno::Reference< css::beans::XPropertySet >& rXPropSet );
     void WriteArtisticEffect( const css::uno::Reference< css::beans::XPropertySet >& rXPropSet );
     OString WriteWdpPicture( const OUString& rFileId, const css::uno::Sequence< sal_Int8 >& rPictureData );
+    void WriteDiagram(const css::uno::Reference<css::drawing::XShape>& rXShape, int nDiagramId);
+    void writeDiagramRels(const css::uno::Sequence<css::uno::Sequence<css::uno::Any>>& xRelSeq,
+                          const css::uno::Reference<css::io::XOutputStream>& xOutStream,
+                          const OUString& sGrabBagProperyName, int nDiagramId);
     static bool IsGroupShape( const css::uno::Reference< css::drawing::XShape >& rXShape );
+    static bool IsDiagram(const css::uno::Reference<css::drawing::XShape>& rXShape);
     sal_Int32 getBulletMarginIndentation (const css::uno::Reference< css::beans::XPropertySet >& rXPropSet,sal_Int16 nLevel, const OUString& propName);
 
     static void ResetCounters();

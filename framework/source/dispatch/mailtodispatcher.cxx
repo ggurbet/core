@@ -69,7 +69,7 @@ MailToDispatcher::~MailToDispatcher()
 
 /**
     @short      decide if this dispatch implementation can be used for requested URL or not
-    @descr      A protocol handler is registered for an URL pattern inside configuration and will
+    @descr      A protocol handler is registered for a URL pattern inside configuration and will
                 be asked by the generic dispatch mechanism inside framework, if he can handle this
                 special URL which match his registration. He can agree by returning of a valid dispatch
                 instance or disagree by returning <NULL/>.
@@ -170,7 +170,7 @@ void SAL_CALL MailToDispatcher::dispatchWithNotification( const css::util::URL& 
 
     @return     <TRUE/> if dispatch could be started successfully
                 Note: Our internal used shell executor doesn't return any state value - so we must
-                believe that call was successfully.
+                believe that call was successful.
                 <FALSE/> if necessary resource couldn't be created or an exception was thrown.
 */
 bool MailToDispatcher::implts_dispatch( const css::util::URL& aURL )

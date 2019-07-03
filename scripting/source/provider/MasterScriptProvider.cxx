@@ -26,6 +26,7 @@
 #include <cppuhelper/factory.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <tools/diagnose_ex.h>
+#include <uno/current_context.hxx>
 
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/lang/EventObject.hpp>
@@ -205,13 +206,13 @@ void MasterScriptProvider::createPkgProvider()
             provider::theMasterScriptProviderFactory::get( m_xContext );
 
         m_xMSPPkg.set(
-            xFac->createScriptProvider( location ), UNO_QUERY_THROW );
+            xFac->createScriptProvider( location ), UNO_SET_THROW );
 
     }
-    catch ( const Exception& e )
+    catch ( const Exception& )
     {
-        SAL_WARN("scripting.provider", "Exception creating MasterScriptProvider for uno_packages in context "
-                << m_sCtxString << ": " << e );
+        TOOLS_WARN_EXCEPTION("scripting.provider", "Exception creating MasterScriptProvider for uno_packages in context "
+                << m_sCtxString );
     }
 }
 
@@ -272,7 +273,7 @@ MasterScriptProvider::getScript( const OUString& scriptURI )
     // we need to extract the value of location part from the
     // location attribute of the script, if the script is located in an
     // uno package then that is the location part up to and including
-    // ":uno_packages", if the script is not in an uno package then the
+    // ":uno_packages", if the script is not in a uno package then the
     // normal value is used e.g. user or share.
     // The value extracted will be used to determine if the script is
     // located in the same location context as this MSP.
@@ -315,7 +316,7 @@ MasterScriptProvider::getScript( const OUString& scriptURI )
         {
             xScriptProvider.set(
                 providerCache()->getProvider( serviceName ),
-                UNO_QUERY_THROW );
+                UNO_SET_THROW );
         }
         catch( const Exception& e )
         {
@@ -333,7 +334,7 @@ MasterScriptProvider::getScript( const OUString& scriptURI )
             provider::theMasterScriptProviderFactory::get( m_xContext );
 
         Reference< provider::XScriptProvider > xSP(
-            xFac_->createScriptProvider( makeAny( location ) ), UNO_QUERY_THROW );
+            xFac_->createScriptProvider( makeAny( location ) ), UNO_SET_THROW );
         xScript = xSP->getScript( scriptURI );
     }
 
@@ -469,9 +470,9 @@ template <typename Proc> bool FindProviderAndApply(ProviderCache& rCache, Proc p
                 if (bResult)
                     break;
             }
-            catch (Exception& e)
+            catch (const Exception&)
             {
-                SAL_INFO("scripting.provider", "ignoring " << e);
+                TOOLS_INFO_EXCEPTION("scripting.provider", "ignoring");
             }
         }
         return bResult;
@@ -667,13 +668,10 @@ sal_Bool SAL_CALL MasterScriptProvider::supportsService( const OUString& service
 
 Sequence< OUString > SAL_CALL MasterScriptProvider::getSupportedServiceNames( )
 {
-    OUString names[3];
-
-    names[0] = "com.sun.star.script.provider.MasterScriptProvider";
-    names[1] = "com.sun.star.script.browse.BrowseNode";
-    names[2] = "com.sun.star.script.provider.ScriptProvider";
-
-    return Sequence< OUString >( names, 3 );
+    return {
+        "com.sun.star.script.provider.MasterScriptProvider",
+        "com.sun.star.script.browse.BrowseNode",
+        "com.sun.star.script.provider.ScriptProvider" };
 }
 
 } // namespace func_provider
@@ -716,14 +714,7 @@ static Reference< XInterface > urihelper_create(
 
 static Sequence< OUString > urihelper_getSupportedServiceNames( )
 {
-    OUString serviceNameList[] = {
-        OUString(
-            "com.sun.star.script.provider.ScriptURIHelper" ) };
-
-    Sequence< OUString > serviceNames = Sequence <
-        OUString > ( serviceNameList, 1 );
-
-    return serviceNames;
+    return { "com.sun.star.script.provider.ScriptURIHelper" };
 }
 
 static OUString urihelper_getImplementationName( )

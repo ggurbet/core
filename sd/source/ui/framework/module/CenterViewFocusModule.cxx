@@ -19,7 +19,6 @@
 
 #include "CenterViewFocusModule.hxx"
 
-#include <framework/ConfigurationController.hxx>
 #include <framework/FrameworkHelper.hxx>
 #include <framework/ViewShellWrapper.hxx>
 
@@ -28,9 +27,6 @@
 #include <ViewShellManager.hxx>
 #include <com/sun/star/drawing/framework/XControllerManager.hpp>
 #include <com/sun/star/drawing/framework/XConfigurationController.hpp>
-
-#include <toolkit/awt/vclxdevice.hxx>
-#include <sfx2/viewfrm.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -130,7 +126,7 @@ void CenterViewFocusModule::HandleNewView (
         FrameworkHelper::msViewURLPrefix,
         AnchorBindingMode_DIRECT));
     Reference<XView> xView;
-    if (xViewIds.getLength() > 0)
+    if (xViewIds.hasElements())
         xView.set( mxConfigurationController->getResource(xViewIds[0]),UNO_QUERY);
     Reference<lang::XUnoTunnel> xTunnel (xView, UNO_QUERY);
     if (xTunnel.is() && mpBase!=nullptr)

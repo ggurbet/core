@@ -31,6 +31,7 @@
 
 #include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include <unotools/securityoptions.hxx>
 #include <vcl/svapp.hxx>
@@ -195,11 +196,6 @@ uno::Reference<media::XPlayer> MediaWindowImpl::createPlayer(const OUString& rUR
         {
             AVMEDIA_MANAGER_SERVICE_PREFERRED,
             AVMEDIA_MANAGER_SERVICE_NAME,
-// a fallback path just for gstreamer which has
-// two significant versions deployed at once ...
-#ifdef AVMEDIA_MANAGER_SERVICE_NAME_OLD
-            AVMEDIA_MANAGER_SERVICE_NAME_OLD
-#endif
         };
 
         for (sal_uInt32 i = 0; !xPlayer.is() && i < SAL_N_ELEMENTS( aServiceManagers ); ++i)
@@ -229,9 +225,9 @@ uno::Reference< media::XPlayer > MediaWindowImpl::createPlayer(
             xPlayer.set( xManager->createPlayer( rURL ), uno::UNO_QUERY );
         else
             SAL_INFO( "avmedia", "failed to create media player service " << rManagerServName );
-    } catch ( const uno::Exception &e )
+    } catch ( const uno::Exception & )
     {
-        SAL_WARN( "avmedia", "couldn't create media player " << rManagerServName << ", " << e);
+        TOOLS_WARN_EXCEPTION( "avmedia", "couldn't create media player " << rManagerServName);
     }
     return xPlayer;
 }

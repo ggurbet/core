@@ -97,9 +97,6 @@ void Qt5Graphics::GetDevFontList(PhysicalFontCollection* pPFC)
         return;
 
     QFontDatabase aFDB;
-    QStringList aFontFamilyList;
-    if (bUseFontconfig)
-        aFontFamilyList = aFDB.families();
     GlyphCache& rGC = GlyphCache::GetInstance();
     psp::PrintFontManager& rMgr = psp::PrintFontManager::get();
     ::std::vector<psp::fontID> aList;
@@ -113,24 +110,13 @@ void Qt5Graphics::GetDevFontList(PhysicalFontCollection* pPFC)
 
         // normalize face number to the GlyphCache
         int nFaceNum = rMgr.getFontFaceNumber(aInfo.m_nID);
+        int nVariantNum = rMgr.getFontFaceVariation(aInfo.m_nID);
 
         // inform GlyphCache about this font provided by the PsPrint subsystem
         FontAttributes aDFA = GenPspGraphics::Info2FontAttributes(aInfo);
         aDFA.IncreaseQualityBy(4096);
         const OString& rFileName = rMgr.getFontFileSysPath(aInfo.m_nID);
-        rGC.AddFontFile(rFileName, nFaceNum, aInfo.m_nID, aDFA);
-
-        // register font files unknown to Qt
-        if (bUseFontconfig)
-        {
-            QString aFilename = toQString(
-                OStringToOUString(rMgr.getFontFileSysPath(aInfo.m_nID), RTL_TEXTENCODING_UTF8));
-            QRawFont aRawFont(aFilename, 0.0);
-            QString aFamilyName = aRawFont.familyName();
-            if (!aFontFamilyList.contains(aFamilyName)
-                || !aFDB.styles(aFamilyName).contains(aRawFont.styleName()))
-                QFontDatabase::addApplicationFont(aFilename);
-        }
+        rGC.AddFontFile(rFileName, nFaceNum, nVariantNum, aInfo.m_nID, aDFA);
     }
 
     if (bUseFontconfig)
@@ -138,11 +124,7 @@ void Qt5Graphics::GetDevFontList(PhysicalFontCollection* pPFC)
 
     for (auto& family : aFDB.families())
         for (auto& style : aFDB.styles(family))
-        {
-            // Just get any size - we don't care
-            QList<int> sizes = aFDB.smoothSizes(family, style);
-            pPFC->Add(Qt5FontFace::fromQFont(aFDB.font(family, style, *sizes.begin())));
-        }
+            pPFC->Add(Qt5FontFace::fromQFontDatabase(family, style));
 }
 
 void Qt5Graphics::ClearDevFontCache() {}

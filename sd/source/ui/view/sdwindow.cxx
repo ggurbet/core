@@ -43,6 +43,8 @@
 #include <uiobject.hxx>
 
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -263,6 +265,16 @@ void Window::Command(const CommandEvent& rCEvt)
     //pass at least alt press/release to parent impl
     if (rCEvt.GetCommand() == CommandEventId::ModKeyChange)
         vcl::Window::Command(rCEvt);
+    //show the text edit outliner view cursor
+    else if (!HasFocus() && rCEvt.GetCommand() == CommandEventId::CursorPos)
+    {
+        OutlinerView* pOLV = mpViewShell->GetView()->GetTextEditOutlinerView();
+        if (pOLV && this == pOLV->GetWindow())
+        {
+            GrabFocus();
+            pOLV->ShowCursor();
+        }
+    }
 }
 
 bool Window::EventNotify( NotifyEvent& rNEvt )
@@ -673,8 +685,7 @@ double Window::GetVisibleHeight()
 
 Point Window::GetVisibleCenter()
 {
-    Point aPos;
-    aPos = ::tools::Rectangle(aPos, GetOutputSizePixel()).Center();
+    Point aPos = ::tools::Rectangle(Point(), GetOutputSizePixel()).Center();
 
     // For LOK
     bool bMapModeWasEnabled(IsMapModeEnabled());

@@ -25,6 +25,7 @@ using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::beans;
 using namespace ::com::sun::star::lang;
 
+#include <comphelper/sequence.hxx>
 #include <cppuhelper/implbase3.hxx>
 
 class PropertySetMergerImpl : public ::cppu::WeakAggImplHelper3< XPropertySet, XPropertyState, XPropertySetInfo >
@@ -151,12 +152,9 @@ Sequence< PropertyState > SAL_CALL PropertySetMergerImpl::getPropertyStates( con
 {
     const sal_Int32 nCount = aPropertyName.getLength();
     Sequence< PropertyState > aPropStates( nCount );
-    PropertyState* pPropStates = aPropStates.getArray();
-    const OUString* pPropNames = aPropertyName.getConstArray();
 
-    sal_Int32 nIndex;
-    for( nIndex = 0; nIndex < nCount; nIndex++ )
-        *pPropStates++ = getPropertyState( *pPropNames++ );
+    std::transform(aPropertyName.begin(), aPropertyName.end(), aPropStates.begin(),
+        [this](const OUString& rPropName) -> PropertyState { return getPropertyState(rPropName); });
 
     return aPropStates;
 }
@@ -200,26 +198,9 @@ Any SAL_CALL PropertySetMergerImpl::getPropertyDefault( const OUString& aPropert
 Sequence< Property > SAL_CALL PropertySetMergerImpl::getProperties()
 {
     Sequence< Property > aProps1( mxPropSet1Info->getProperties() );
-    const Property* pProps1 = aProps1.getArray();
-    const sal_Int32 nCount1 = aProps1.getLength();
+    Sequence< Property > aProps2( mxPropSet2Info->getProperties() );
 
-    Sequence< Property > aProps2( mxPropSet1Info->getProperties() );
-    const Property* pProps2 = aProps2.getArray();
-    const sal_Int32 nCount2 = aProps2.getLength();
-
-    Sequence< Property > aProperties( nCount1 + nCount2 );
-
-    sal_Int32 nIndex;
-
-    Property* pProperties = aProperties.getArray();
-
-    for( nIndex = 0; nIndex < nCount1; nIndex++ )
-        *pProperties++ = *pProps1++;
-
-    for( nIndex = 0; nIndex < nCount2; nIndex++ )
-        *pProperties++ = *pProps2++;
-
-    return aProperties;
+    return comphelper::concatSequences(aProps1, aProps2);
 }
 
 Property SAL_CALL PropertySetMergerImpl::getPropertyByName( const OUString& aName )

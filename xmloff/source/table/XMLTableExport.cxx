@@ -155,17 +155,14 @@ XMLTableExport::XMLTableExport(SvXMLExport& rExp, const rtl::Reference< SvXMLExp
     if( xFac.is() ) try
     {
         Sequence< OUString > sSNS( xFac->getAvailableServiceNames() );
-        sal_Int32 n = sSNS.getLength();
-        const OUString* pSNS( sSNS.getConstArray() );
-        while( --n > 0 )
+        const OUString* pSNS = std::find_if(sSNS.begin(), sSNS.end(),
+            [](const OUString& rSNS) {
+                return rSNS == "com.sun.star.drawing.TableShape"
+                    || rSNS == "com.sun.star.style.TableStyle"; });
+        if (pSNS != sSNS.end())
         {
-            if( *pSNS == "com.sun.star.drawing.TableShape" || *pSNS == "com.sun.star.style.TableStyle" )
-            {
-                mbExportTables = true;
-                mbWriter = (*pSNS == "com.sun.star.style.TableStyle");
-                break;
-            }
-            pSNS++;
+            mbExportTables = true;
+            mbWriter = (*pSNS == "com.sun.star.style.TableStyle");
         }
     }
     catch(const Exception&)
@@ -362,7 +359,7 @@ static bool has_states( const std::vector< XMLPropertyState >& xPropStates )
             for ( sal_Int32 columnIndex = 0; columnIndex < columnCount; columnIndex++ )
             {
                 // get current cell, remarks row index is 0, because we get the range for each row separate
-                Reference< XCell > xCell( xCellRange->getCellByPosition(columnIndex, 0), UNO_QUERY_THROW );
+                Reference< XCell > xCell( xCellRange->getCellByPosition(columnIndex, 0), UNO_SET_THROW );
 
                 // use XMergeableCell interface from offapi
                 Reference< XMergeableCell > xMergeableCell( xCell, UNO_QUERY_THROW );

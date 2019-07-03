@@ -51,135 +51,140 @@ DECL_WRAPPER_WITHID(ScHighlightChgDlgWrapper)
 DECL_WRAPPER_WITHID(ScCondFormatDlgWrapper)
 
 class ScDescriptiveStatisticsDialogWrapper :
-    public ChildWindowWrapper<SID_DESCRIPTIVE_STATISTICS_DIALOG>
+    public ChildControllerWrapper<SID_DESCRIPTIVE_STATISTICS_DIALOG>
 {
 private:
     ScDescriptiveStatisticsDialogWrapper() = delete;
 };
 
 class ScSamplingDialogWrapper :
-    public ChildWindowWrapper<SID_SAMPLING_DIALOG>
+    public ChildControllerWrapper<SID_SAMPLING_DIALOG>
 {
 private:
     ScSamplingDialogWrapper() = delete;
 };
 
 class ScRandomNumberGeneratorDialogWrapper :
-    public ChildWindowWrapper<SID_RANDOM_NUMBER_GENERATOR_DIALOG>
+    public ChildControllerWrapper<SID_RANDOM_NUMBER_GENERATOR_DIALOG>
 {
 private:
     ScRandomNumberGeneratorDialogWrapper() = delete;
 };
 
 class ScAnalysisOfVarianceDialogWrapper :
-    public ChildWindowWrapper<SID_ANALYSIS_OF_VARIANCE_DIALOG>
+    public ChildControllerWrapper<SID_ANALYSIS_OF_VARIANCE_DIALOG>
 {
 private:
     ScAnalysisOfVarianceDialogWrapper() = delete;
 };
 
 class ScCorrelationDialogWrapper :
-    public ChildWindowWrapper<SID_CORRELATION_DIALOG>
+    public ChildControllerWrapper<SID_CORRELATION_DIALOG>
 {
 private:
     ScCorrelationDialogWrapper() = delete;
 };
 
 class ScCovarianceDialogWrapper :
-    public ChildWindowWrapper<SID_COVARIANCE_DIALOG>
+    public ChildControllerWrapper<SID_COVARIANCE_DIALOG>
 {
 private:
     ScCovarianceDialogWrapper() = delete;
 };
 
 class ScExponentialSmoothingDialogWrapper :
-    public ChildWindowWrapper<SID_EXPONENTIAL_SMOOTHING_DIALOG>
+    public ChildControllerWrapper<SID_EXPONENTIAL_SMOOTHING_DIALOG>
 {
 private:
     ScExponentialSmoothingDialogWrapper() = delete;
 };
 
 class ScMovingAverageDialogWrapper :
-    public ChildWindowWrapper<SID_MOVING_AVERAGE_DIALOG>
+    public ChildControllerWrapper<SID_MOVING_AVERAGE_DIALOG>
 {
 private:
     ScMovingAverageDialogWrapper() = delete;
 };
 
 class ScRegressionDialogWrapper :
-    public ChildWindowWrapper<SID_REGRESSION_DIALOG>
+    public ChildControllerWrapper<SID_REGRESSION_DIALOG>
 {
 private:
     ScRegressionDialogWrapper() = delete;
 };
 
 class ScTTestDialogWrapper :
-    public ChildWindowWrapper<SID_TTEST_DIALOG>
+    public ChildControllerWrapper<SID_TTEST_DIALOG>
 {
 private:
     ScTTestDialogWrapper() = delete;
 };
 
 class ScFTestDialogWrapper :
-    public ChildWindowWrapper<SID_FTEST_DIALOG>
+    public ChildControllerWrapper<SID_FTEST_DIALOG>
 {
 private:
     ScFTestDialogWrapper() = delete;
 };
 
 class ScZTestDialogWrapper :
-    public ChildWindowWrapper<SID_ZTEST_DIALOG>
+    public ChildControllerWrapper<SID_ZTEST_DIALOG>
 {
 private:
     ScZTestDialogWrapper() = delete;
 };
 
 class ScChiSquareTestDialogWrapper :
-    public ChildWindowWrapper<SID_CHI_SQUARE_TEST_DIALOG>
+    public ChildControllerWrapper<SID_CHI_SQUARE_TEST_DIALOG>
 {
 private:
     ScChiSquareTestDialogWrapper() = delete;
 };
 
-class ScAcceptChgDlgWrapper: public SfxChildWindow
+class ScFourierAnalysisDialogWrapper :
+    public ChildControllerWrapper<SID_FOURIER_ANALYSIS_DIALOG>
 {
-    public:
-        ScAcceptChgDlgWrapper(  vcl::Window*,
-                                sal_uInt16,
-                                SfxBindings*,
-                                SfxChildWinInfo* );
+private:
+    ScFourierAnalysisDialogWrapper() = delete;
+};
 
-        SFX_DECL_CHILDWINDOW_WITHID(Class);
+class ScAcceptChgDlgWrapper : public SfxChildWindow
+{
+public:
+    ScAcceptChgDlgWrapper( vcl::Window*,
+                           sal_uInt16,
+                           SfxBindings*,
+                           SfxChildWinInfo* );
 
-        void ReInitDlg();
+    SFX_DECL_CHILDWINDOW_WITHID(Class);
+
+    void ReInitDlg();
 };
 
 class ScSimpleRefDlgWrapper: public SfxChildWindow
 {
-    public:
-        ScSimpleRefDlgWrapper(  vcl::Window*,
-                                sal_uInt16,
-                                SfxBindings*,
-                                SfxChildWinInfo* );
+public:
+    ScSimpleRefDlgWrapper(vcl::Window*,
+                          sal_uInt16,
+                          SfxBindings*,
+                          SfxChildWinInfo*);
 
-        SFX_DECL_CHILDWINDOW_WITHID(Class);
+    SFX_DECL_CHILDWINDOW_WITHID(Class);
 
-        static void     SetDefaultPosSize(Point aPos, Size aSize);
-        void            SetRefString(const OUString& rStr);
-        void            SetCloseHdl( const Link<const OUString*,void>& rLink );
-        void            SetUnoLinks( const Link<const OUString&,void>& rDone, const Link<const OUString&,void>& rAbort,
-                                        const Link<const OUString&,void>& rChange );
-        void            SetFlags( bool bCloseOnButtonUp, bool bSingleCell, bool bMultiSelection );
-        static void     SetAutoReOpen(bool bFlag);
+    void            SetRefString(const OUString& rStr);
+    void            SetCloseHdl( const Link<const OUString*,void>& rLink );
+    void            SetUnoLinks( const Link<const OUString&,void>& rDone, const Link<const OUString&,void>& rAbort,
+                                    const Link<const OUString&,void>& rChange );
+    void            SetFlags( bool bCloseOnButtonUp, bool bSingleCell, bool bMultiSelection );
+    static void     SetAutoReOpen(bool bFlag);
 
-        void            StartRefInput();
+    void            StartRefInput();
 };
 
 class SC_DLLPUBLIC ScValidityRefChildWin : public SfxChildWindow
 {
     bool    m_bVisibleLock:1;
     bool    m_bFreeWindowLock:1;
-    VclPtr<vcl::Window> m_pSavedWndParent;
 public:
     ScValidityRefChildWin( vcl::Window*, sal_uInt16, const SfxBindings*, SfxChildWinInfo* );
     SFX_DECL_CHILDWINDOW_WITHID(ScValidityRefChildWin);

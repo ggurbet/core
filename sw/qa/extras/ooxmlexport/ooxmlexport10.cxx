@@ -8,20 +8,18 @@
  */
 
 #include <memory>
-#include <sstream>
 
 #include <swmodeltestbase.hxx>
 
 #include <com/sun/star/awt/XBitmap.hpp>
+#include <com/sun/star/awt/FontSlant.hpp>
 #include <com/sun/star/awt/FontUnderline.hpp>
 #include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/document/XEmbeddedObjectSupplier2.hpp>
-#include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
 #include <com/sun/star/drawing/TextVerticalAdjust.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
 #include <com/sun/star/text/TableColumnSeparator.hpp>
@@ -34,25 +32,17 @@
 #include <com/sun/star/text/XPageCursor.hpp>
 #include <com/sun/star/text/XTextColumns.hpp>
 #include <com/sun/star/text/XTextFrame.hpp>
-#include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/text/XTextFramesSupplier.hpp>
 #include <com/sun/star/text/XTextEmbeddedObjectsSupplier.hpp>
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
-#include <com/sun/star/style/BreakType.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
-#include <com/sun/star/table/ShadowFormat.hpp>
-#include <com/sun/star/view/XFormLayerAccess.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
-#include <com/sun/star/table/TableBorder2.hpp>
 #include <com/sun/star/text/SizeType.hpp>
-#include <com/sun/star/xml/dom/XDocument.hpp>
 #include <com/sun/star/text/XDocumentIndex.hpp>
 #include <com/sun/star/style/CaseMap.hpp>
 #include <com/sun/star/document/XFilter.hpp>
 #include <com/sun/star/document/XImporter.hpp>
-#include <vcl/bitmapaccess.hxx>
-#include <unotest/assertion_traits.hxx>
 #include <unotools/fltrcfg.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <swtypes.hxx>
@@ -62,9 +52,6 @@
 #include <unotools/streamwrap.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <svx/svdpage.hxx>
-#include <editeng/unoprnms.hxx>
-
-#include <bordertest.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -122,14 +109,14 @@ DECLARE_OOXMLEXPORT_TEST(testSmartart, "smartart.docx")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), xDraws->getCount()); // One groupshape in the doc
 
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(sal_Int32(4), xGroup->getCount()); // 3 rectangles and an arrow in the group
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(5), xGroup->getCount()); // background, 3 rectangles and an arrow in the group
 
-    uno::Reference<beans::XPropertySet> xPropertySet(xGroup->getByIndex(1), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xPropertySet(xGroup->getByIndex(2), uno::UNO_QUERY);
     sal_Int32 nValue(0);
     xPropertySet->getPropertyValue("FillColor") >>= nValue;
     CPPUNIT_ASSERT_EQUAL(sal_Int32(0x4f81bd), nValue); // If fill color is right, theme import is OK
 
-    uno::Reference<text::XTextRange> xTextRange(xGroup->getByIndex(1), uno::UNO_QUERY);
+    uno::Reference<text::XTextRange> xTextRange(xGroup->getByIndex(2), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("Sample"), xTextRange->getString()); // Shape has text
 
     uno::Reference<container::XEnumerationAccess> xParaEnumAccess(xTextRange->getText(), uno::UNO_QUERY);
@@ -212,15 +199,26 @@ DECLARE_OOXMLEXPORT_TEST(textboxWpgOnly, "textbox-wpg-only.docx")
 
     // Character escapement was enabled by default, this was 58.
     uno::Reference<container::XIndexAccess> xGroup(xShape, uno::UNO_QUERY);
-    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(0), uno::UNO_QUERY)->getText();
+    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(0), uno::UNO_QUERY_THROW)->getText();
     CPPUNIT_ASSERT_EQUAL(sal_Int32(100), getProperty<sal_Int32>(getRun(getParagraphOfText(1, xText), 1), "CharEscapementHeight"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testFontEsc, "test_tdf120412.docx")
+{
+    xmlDocPtr pXmlDoc =parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+    // don't lose the run with superscript formatting
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r", 2);
+    // raising is greater than 100%
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r[2]/w:rPr/w:position","val", "24");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testMceWpg, "mce-wpg.docx")
 {
     // Make sure that we read the primary branch, if wpg is requested as a feature.
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(0), uno::UNO_QUERY)->getText();
+    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(0), uno::UNO_QUERY_THROW)->getText();
     // This was VML1.
     getParagraphOfText(1, xText, "DML1");
 }
@@ -240,7 +238,7 @@ DECLARE_OOXMLEXPORT_TEST(testMceNested, "mce-nested.docx")
 
     // Now check the top right textbox.
     uno::Reference<container::XIndexAccess> xGroup(getShape(2), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY)->getText();
+    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY_THROW)->getText();
     uno::Reference<text::XTextRange> xParagraph = getParagraphOfText(1, xText, "[Year]");
     CPPUNIT_ASSERT_EQUAL(48.f, getProperty<float>(getRun(xParagraph, 1), "CharHeight"));
     CPPUNIT_ASSERT_EQUAL(sal_Int32(0xffffff), getProperty<sal_Int32>(getRun(xParagraph, 1), "CharColor"));
@@ -372,7 +370,7 @@ DECLARE_OOXMLEXPORT_TEST(testDMLGroupshapeSdt, "dml-groupshape-sdt.docx")
 {
     uno::Reference<drawing::XShapes> xGroupShape(getShape(1), uno::UNO_QUERY);
     // The text in the groupshape was missing due to the w:sdt and w:sdtContent wrapper around it.
-    CPPUNIT_ASSERT_EQUAL(OUString("sdt and sdtContent inside groupshape"), uno::Reference<text::XTextRange>(xGroupShape->getByIndex(1), uno::UNO_QUERY)->getString());
+    CPPUNIT_ASSERT_EQUAL(OUString("sdt and sdtContent inside groupshape"), uno::Reference<text::XTextRange>(xGroupShape->getByIndex(1), uno::UNO_QUERY_THROW)->getString());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testDmlCharheightDefault, "dml-charheight-default.docx")
@@ -387,7 +385,7 @@ DECLARE_OOXMLEXPORT_TEST(testDMLGroupShapeCapitalization, "dml-groupshape-capita
 {
     // Capitalization inside a group shape was not imported
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY)->getText();
+    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY_THROW)->getText();
     // 2nd line is written with uppercase letters
     CPPUNIT_ASSERT_EQUAL(style::CaseMap::UPPERCASE, getProperty<sal_Int16>(getRun(getParagraphOfText(2, xText), 1), "CharCaseMap"));
     // 3rd line has no capitalization
@@ -450,7 +448,7 @@ DECLARE_OOXMLEXPORT_TEST(testDMLGroupShapeRunFonts, "dml-groupshape-runfonts.doc
 {
     // Fonts defined by w:rFonts was not imported and so the font specified by a:fontRef was used.
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText    = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY)->getText();
+    uno::Reference<text::XText> xText    = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY_THROW)->getText();
     uno::Reference<text::XTextRange> xRun = getRun(getParagraphOfText(1, xText),1);
     CPPUNIT_ASSERT_EQUAL(OUString("Arial"), getProperty<OUString>(xRun, "CharFontName"));
     CPPUNIT_ASSERT_EQUAL(OUString("Arial Unicode MS"), getProperty<OUString>(xRun, "CharFontNameComplex"));
@@ -492,7 +490,7 @@ DECLARE_OOXMLEXPORT_TEST(testSmartartStrict, "strict-smartart.docx")
 {
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
     // This was 0, SmartArt was visually missing.
-    CPPUNIT_ASSERT_EQUAL(sal_Int32(6), xGroup->getCount()); // 3 ellipses + 3 arrows
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(7), xGroup->getCount()); // background, 3 ellipses + 3 arrows
 }
 
 DECLARE_OOXMLEXPORT_TEST(testLibreOfficeHang, "frame-wrap-auto.docx")
@@ -585,7 +583,7 @@ DECLARE_OOXMLEXPORT_TEST(testMsoBrightnessContrast, "msobrightnesscontrast.docx"
     CPPUNIT_ASSERT_EQUAL(58L, aBitmap.GetSizePixel().Width());
     CPPUNIT_ASSERT_EQUAL(320L, aBitmap.GetSizePixel().Height());
     Color aColor(aBitmap.GetPixelColor(20, 30));
-    CPPUNIT_ASSERT_EQUAL(Color( 255, 0xce, 0xce, 0xce ), aColor);
+    CPPUNIT_ASSERT_EQUAL(Color( 0xce, 0xce, 0xce ), aColor);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testChartSize, "chart-size.docx")
@@ -694,11 +692,19 @@ DECLARE_OOXMLEXPORT_TEST(testFootnote, "footnote.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testTableBtlrCenter, "table-btlr-center.docx")
 {
+    // Note that this is btLr text, so layout and doc model horizontal/vertical is the opposite of
+    // each other.
     uno::Reference<text::XTextTablesSupplier> xTablesSupplier(mxComponent, uno::UNO_QUERY);
     uno::Reference<container::XIndexAccess> xTables(xTablesSupplier->getTextTables(), uno::UNO_QUERY);
     uno::Reference<text::XTextTable> xTable(xTables->getByIndex(0), uno::UNO_QUERY);
-    // Cell vertical alignment was NONE, should be CENTER.
-    CPPUNIT_ASSERT_EQUAL(text::VertOrientation::CENTER, getProperty<sal_Int16>(xTable->getCellByName("A2"), "VertOrient"));
+    uno::Reference<table::XCell> xCell = xTable->getCellByName("A2");
+    // Cell vertical alignment was CENTER, should be NONE.
+    CPPUNIT_ASSERT_EQUAL(text::VertOrientation::NONE, getProperty<sal_Int16>(xCell, "VertOrient"));
+
+    // Cell horizontal alignment should be CENTER.
+    uno::Reference<text::XText> xCellText(xCell, uno::UNO_QUERY);
+    auto nActual = getProperty<sal_Int32>(getParagraphOfText(1, xCellText), "ParaAdjust");
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(style::ParagraphAdjust_CENTER), nActual);
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFdo80555, "fdo80555.docx")

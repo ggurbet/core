@@ -44,38 +44,14 @@ class ColorPrinter(object):
         self.val = val
 
     def to_string(self):
-        color = self.val['mnColor']
-        b = color & 0xff
-        g = (color >> 8) & 0xff
-        r = (color >> 16) & 0xff
-        a = (color >> 24) & 0xff
+        r = self.val['R']
+        g = self.val['G']
+        b = self.val['B']
+        a = self.val['A']
         if a:
             return "rgba(%d, %d, %d, %d)" % (r, g, b, a)
         else:
             return "rgb(%d, %d, %d)" % (r, g, b)
-
-class FractionPrinter(object):
-    '''Prints fraction'''
-
-    def __init__(self, typename, val):
-        self.typename = typename
-        self.val = val
-
-    def to_string(self):
-        # Workaround gdb bug <https://sourceware.org/bugzilla/show_bug.cgi?id=22968> "ptype does not
-        #     find inner C++ class type without -readnow"
-        gdb.lookup_type('Fraction')
-        # This would be simpler and more reliable if we could call the operator* on mpImpl to get the internal Impl.
-        # Different libc have different structures. Some have one _M_t, some have two nested.
-        tmp = self.val['mpImpl']['_M_t']
-        if tmp.type.fields()[0].name == '_M_t': tmp = tmp['_M_t']
-        impl = tmp['_M_head_impl'].dereference().cast(gdb.lookup_type('Fraction::Impl'))
-        numerator = impl['value']['num']
-        denominator = impl['value']['den']
-        if impl['valid']:
-            return "%d/%d" % (numerator, denominator)
-        else:
-            return "invalid %s %d/%d" % (self.typename, numerator, denominator)
 
 class DateTimeImpl(object):
 
@@ -229,7 +205,6 @@ def build_pretty_printers():
     # various types
     printer.add('BigInt', BigIntPrinter)
     printer.add('Color', ColorPrinter)
-    printer.add('Fraction', FractionPrinter)
     printer.add('DateTime', DateTimePrinter)
     printer.add('Date', DatePrinter)
     printer.add('Time', TimePrinter)

@@ -32,18 +32,16 @@ writerfilter::Reference<Properties>::Pointer_t RTFSprm::getProps()
     return m_pValue->getProperties();
 }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
 std::string RTFSprm::getName() const { return "RTFSprm"; }
 #endif
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
 std::string RTFSprm::toString() const
 {
     OStringBuffer aBuf("RTFSprm");
 
-    std::string sResult;
-
-    sResult = (*QNameToString::Instance())(m_nKeyword);
+    std::string sResult = (*QNameToString::Instance())(m_nKeyword);
 
     aBuf.append(" ('");
     if (sResult.length() == 0)
@@ -160,6 +158,12 @@ static RTFValue::Pointer_t getDefaultSPRM(Id const id, Id nStyleType)
             case NS_ooxml::LN_CT_Ind_firstLine:
                 return new RTFValue(0);
 
+            case NS_ooxml::LN_CT_Spacing_lineRule:
+                return new RTFValue(NS_ooxml::LN_Value_doc_ST_LineSpacingRule_auto);
+            case NS_ooxml::LN_CT_Spacing_line:
+                // presumably this means 100%, cf. static const int nSingleLineSpacing = 240;
+                return new RTFValue(240);
+
             default:
                 break;
         }
@@ -199,10 +203,8 @@ static bool isSPRMChildrenExpected(Id nId)
         case NS_ooxml::LN_CT_PBdr_bottom:
         case NS_ooxml::LN_CT_PBdr_right:
             // Expected children are NS_ooxml::LN_CT_Border_*.
-            [[fallthrough]];
         case NS_ooxml::LN_CT_PrBase_shd:
             // Expected children are NS_ooxml::LN_CT_Shd_*.
-            [[fallthrough]];
         case NS_ooxml::LN_CT_PPrBase_ind:
             // Expected children are NS_ooxml::LN_CT_Ind_*.
             return true;
@@ -338,7 +340,8 @@ void RTFSprms::duplicateList(const RTFValue::Pointer_t& pAbstract)
     }
 }
 
-RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference, Id nStyleType) const
+RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference, Id const nStyleType,
+                                       bool const bImplicitPPr) const
 {
     RTFSprms ret(*this);
     ret.ensureCopyBeforeWrite();
@@ -351,7 +354,7 @@ RTFSprms RTFSprms::cloneAndDeduplicate(RTFSprms& rReference, Id nStyleType) cons
         // paragraphs, but they are below NS_ooxml::LN_CT_Style_pPr in case of
         // styles. So handle those children directly, to avoid unexpected
         // addition of direct formatting sprms at the paragraph level.
-        if (rSprm.first == NS_ooxml::LN_CT_Style_pPr)
+        if (bImplicitPPr && rSprm.first == NS_ooxml::LN_CT_Style_pPr)
         {
             for (auto& i : rSprm.second->getSprms())
                 cloneAndDeduplicateSprm(i, ret, nStyleType);

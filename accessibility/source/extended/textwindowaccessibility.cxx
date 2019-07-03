@@ -29,6 +29,7 @@
 #include <unotools/accessiblerelationsethelper.hxx>
 #include <unotools/accessiblestatesethelper.hxx>
 #include <vcl/window.hxx>
+#include <tools/diagnose_ex.h>
 #include <toolkit/helper/convert.hxx>
 #include <comphelper/sequence.hxx>
 
@@ -267,11 +268,9 @@ void SAL_CALL Paragraph::grabFocus()
     {
         m_xDocument->changeParagraphSelection(this, 0, 0);
     }
-    catch (const css::lang::IndexOutOfBoundsException & rEx)
+    catch (const css::lang::IndexOutOfBoundsException &)
     {
-        SAL_INFO("accessibility",
-                 "textwindowaccessibility.cxx: Paragraph::grabFocus: caught unexpected "
-                 << rEx);
+        TOOLS_INFO_EXCEPTION("accessibility", "Paragraph::grabFocus: caught unexpected");
     }
 }
 
@@ -589,7 +588,7 @@ void SAL_CALL Paragraph::removeAccessibleEventListener(
 {
     comphelper::AccessibleEventNotifier::TClientId nId = 0;
     {
-        ::osl::ClearableMutexGuard aGuard(rBHelper.rMutex);
+        osl::MutexGuard aGuard(rBHelper.rMutex);
         if (rListener.is() && m_nClientId != 0
             && comphelper::AccessibleEventNotifier::removeEventListener( m_nClientId, rListener ) == 0)
         {
@@ -612,7 +611,7 @@ void SAL_CALL Paragraph::disposing()
 {
     comphelper::AccessibleEventNotifier::TClientId nId = 0;
     {
-        ::osl::ClearableMutexGuard aGuard(rBHelper.rMutex);
+        osl::MutexGuard aGuard(rBHelper.rMutex);
         nId = m_nClientId;
         m_nClientId = 0;
     }
@@ -1080,7 +1079,7 @@ void Document::retrieveRunAttributesImpl(
         aPropVal.State = css::beans::PropertyState_DIRECT_VALUE;
         aRunAttrSeq[ aPropVal.Name ] = aPropVal;
     }
-    if ( RequestedAttributes.getLength() == 0 )
+    if ( !RequestedAttributes.hasElements() )
     {
         rRunAttrSeq = aRunAttrSeq;
     }

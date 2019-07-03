@@ -465,8 +465,8 @@ sal_uInt16 SwAutoFormat::CalcLevel(const SwTextFrame & rFrame,
         ++nLvl;
     }
 
-    for (TextFrameIndex n = TextFrameIndex(0),
-                     nEnd = TextFrameIndex(rText.getLength()); n < nEnd; ++n)
+    for (TextFrameIndex n(0),
+                     nEnd(rText.getLength()); n < nEnd; ++n)
     {
         switch (rText[sal_Int32(n)])
         {
@@ -514,8 +514,8 @@ bool SwAutoFormat::IsNoAlphaLine(const SwTextFrame & rFrame) const
     // or better: determine via number of AlphaNum and !AlphaNum characters
     sal_Int32 nANChar = 0, nBlnk = 0;
 
-    for (TextFrameIndex n = TextFrameIndex(0),
-                     nEnd = TextFrameIndex(rStr.getLength()); n < nEnd; ++n)
+    for (TextFrameIndex n(0),
+                     nEnd(rStr.getLength()); n < nEnd; ++n)
         if (IsSpace(rStr[sal_Int32(n)]))
             ++nBlnk;
         else
@@ -741,8 +741,8 @@ sal_Int32 SwAutoFormat::GetTrailingBlanks( const OUString& rStr )
 bool SwAutoFormat::IsFirstCharCapital(const SwTextFrame& rFrame) const
 {
     const OUString& rText = rFrame.GetText();
-    for (TextFrameIndex n = TextFrameIndex(0),
-                     nEnd = TextFrameIndex(rText.getLength()); n < nEnd; ++n)
+    for (TextFrameIndex n(0),
+                     nEnd(rText.getLength()); n < nEnd; ++n)
         if (!IsSpace(rText[sal_Int32(n)]))
         {
             auto const pair = rFrame.MapViewToModel(n);
@@ -1147,7 +1147,7 @@ bool GetRanges(std::vector<std::shared_ptr<SwUnoCursor>> & rRanges,
         {
             continue;
         }
-        if (pRedline->GetType() == nsRedlineType_t::REDLINE_DELETE)
+        if (pRedline->GetType() == RedlineType::Delete)
         {
             assert(*pRedline->Start() != *pRedline->End());
             isNoRedline = false;
@@ -1308,8 +1308,10 @@ void SwAutoFormat::DelMoreLinesBlanks( bool bWithLineBreaks )
         std::vector<std::pair<TextFrameIndex, TextFrameIndex>> spaces;
         aFInfo.GetSpaces(spaces, !m_aFlags.bAFormatByInput || bWithLineBreaks);
 
-        for (auto & rSpaceRange : spaces)
+        // tdf#123285 iterate backwards - delete invalidates following indexes
+        for (auto iter = spaces.rbegin(); iter != spaces.rend(); ++iter)
         {
+            auto & rSpaceRange(*iter);
             assert(rSpaceRange.first != rSpaceRange.second);
             bool const bHasBlanks = HasSelBlanks(
                     m_pCurTextFrame, rSpaceRange.first,
@@ -2143,7 +2145,7 @@ void SwAutoFormat::AutoCorrect(TextFrameIndex nPos)
             if( m_aFlags.bAutoCorrect &&
                 aACorrDoc.ChgAutoCorrWord(reinterpret_cast<sal_Int32&>(nSttPos), sal_Int32(nPos), *pATst, nullptr))
             {
-                nPos = m_pCurTextFrame->MapModelToViewPos(*m_aDelPam.GetPoint()) - TextFrameIndex(1);
+                nPos = m_pCurTextFrame->MapModelToViewPos(*m_aDelPam.GetPoint());
 
                 if( m_aFlags.bWithRedlining )
                 {
@@ -2179,7 +2181,7 @@ void SwAutoFormat::AutoCorrect(TextFrameIndex nPos)
                     SetRedlineText( STR_AUTOFMTREDL_DETECT_URL ) &&
                     pATst->FnSetINetAttr(aACorrDoc, *pText, sal_Int32(nLastBlank), sal_Int32(nPos), eLang)))
             {
-                nPos = m_pCurTextFrame->MapModelToViewPos(*m_aDelPam.GetPoint()) - TextFrameIndex(1);
+                nPos = m_pCurTextFrame->MapModelToViewPos(*m_aDelPam.GetPoint());
             }
             else
             {

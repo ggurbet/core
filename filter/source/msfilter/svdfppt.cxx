@@ -39,6 +39,8 @@
 #include <com/sun/star/drawing/BitmapMode.hpp>
 #include <unotools/streamwrap.hxx>
 #include <filter/msfilter/svdfppt.hxx>
+#include <svx/xflgrit.hxx>
+#include <svx/xbtmpit.hxx>
 #include <svx/xpoly.hxx>
 #include <svx/svdtrans.hxx>
 #include <svx/svdmodel.hxx>
@@ -52,10 +54,22 @@
 #include <svx/svdocirc.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/svdotable.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflbstit.hxx>
+#include <svx/xflbmtit.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xfltrit.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/numdef.hxx>
-#include <svx/svdattr.hxx>
-#include <svx/xattr.hxx>
+#include <svx/sdasitm.hxx>
+#include <svx/sdmetitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtditm.hxx>
+#include <svx/sdtfsitm.hxx>
+#include <svx/sdtmfitm.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlnclit.hxx>
+#include <svx/xlnwtit.hxx>
 #include <svx/svdetc.hxx>
 #include <editeng/bulletitem.hxx>
 #include <editeng/hngpnctitem.hxx>
@@ -82,6 +96,8 @@
 #include <editeng/lspcitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/lrspitem.hxx>
+#include <editeng/numitem.hxx>
+#include <vcl/gdimtf.hxx>
 #include <vcl/metric.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <svx/svditer.hxx>
@@ -118,6 +134,7 @@
 #include <com/sun/star/table/XMergeableCellRange.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
 #include <com/sun/star/table/BorderLineStyle.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <vcl/virdev.hxx>
 #include <svtools/embedhlp.hxx>
 #include <o3tl/enumrange.hxx>
@@ -459,10 +476,6 @@ SvStream& ReadPptFontEntityAtom( SvStream& rIn, PptFontEntityAtom& rAtom )
     aHd.SeekToEndOfRecord( rIn );
     return rIn;
 }
-
-class PptFontCollection : public std::vector<std::unique_ptr<PptFontEntityAtom>>
-{
-};
 
 SvStream& ReadPptUserEditAtom( SvStream& rIn, PptUserEditAtom& rAtom )
 {
@@ -1012,8 +1025,8 @@ SdrObject* SdrEscherImport::ProcessObj( SvStream& rSt, DffObjData& rObjData, Svx
                 {
                     if ( !rPersistEntry.pPresentationObjects )
                     {
-                        rPersistEntry.pPresentationObjects.reset( new sal_uInt32[ PPT_STYLESHEETENTRYS ] );
-                        memset( rPersistEntry.pPresentationObjects.get(), 0, PPT_STYLESHEETENTRYS * 4 );
+                        rPersistEntry.pPresentationObjects.reset( new sal_uInt32[ PPT_STYLESHEETENTRIES ] );
+                        memset( rPersistEntry.pPresentationObjects.get(), 0, PPT_STYLESHEETENTRIES * 4 );
                     }
                     if ( !rPersistEntry.pPresentationObjects[ static_cast<int>(nDestinationInstance) ] )
                         rPersistEntry.pPresentationObjects[ static_cast<int>(nDestinationInstance) ] = rObjData.rSpHd.GetRecBegFilePos();
@@ -2162,7 +2175,7 @@ bool SdrPowerPointImport::ReadFontCollection()
             {
                 bRet = true;
                 if (!m_pFonts)
-                    m_pFonts.reset( new PptFontCollection );
+                    m_pFonts.reset( new std::vector<std::unique_ptr<PptFontEntityAtom>> );
                 std::unique_ptr<PptFontEntityAtom> pFont(new PptFontEntityAtom);
                 ReadPptFontEntityAtom( rStCtrl, *pFont );
 
@@ -2444,8 +2457,7 @@ bool SdrPowerPointImport::SeekToCurrentPage( DffRecordHeader* pRecHd ) const
         sal_uLong nPersist = (*pList)[ nCurrentPageNum ].aPersistAtom.nPsrReference;
         if ( nPersist > 0 && nPersist < nPersistPtrCnt )
         {
-            sal_uLong nFPos = 0;
-            nFPos = pPersistPtr[ nPersist ];
+            sal_uLong nFPos = pPersistPtr[ nPersist ];
             if ( nFPos < nStreamLen )
             {
                 rStCtrl.Seek( nFPos );
@@ -3334,7 +3346,7 @@ PPTExtParaProv::PPTExtParaProv( SdrPowerPointImport& rMan, SvStream& rSt, const 
             {
                 case PPT_PST_ExtendedParagraphMasterAtom :
                 {
-                    if ( aHd.nRecInstance < PPT_STYLESHEETENTRYS )
+                    if ( aHd.nRecInstance < PPT_STYLESHEETENTRIES )
                     {
                         sal_uInt16 nDepth = 0, i = 0;
                         rSt.ReadUInt16(nDepth);
@@ -4606,7 +4618,7 @@ PPTTextRulerInterpreter::PPTTextRulerInterpreter( sal_uInt32 nFileOfs, DffRecord
                         // *    first line text
                         // second line text
 
-                        // we add to bullet para indent 0xffff - bullet offset. it looks like
+                        // we add to bullet para indent 0xffff - bullet offset. It looks like
                         // best we can do for now
                         mxImplRuler->nTextOfs[ i ] += 0xffff - mxImplRuler->nBulletOfs[ i ];
                         mxImplRuler->nBulletOfs[ i ] = 0;
@@ -6686,7 +6698,7 @@ PPTTextObj::PPTTextObj( SvStream& rIn, SdrPowerPointImport& rSdrPowerPointImport
                                     {
                                         sal_uInt32 nCharIdx = rSpecInfo.nCharIdx;
 
-                                        // portions and text have to been splitted in some cases
+                                        // portions and text have to been split in some cases
                                         for ( ; nI < aStyleTextPropReader.aCharPropList.size(); ++nI)
                                         {
                                             PPTCharPropSet* pSet = aStyleTextPropReader.aCharPropList[nI].get();
@@ -6695,7 +6707,7 @@ PPTTextObj::PPTTextObj( SvStream& rIn, SdrPowerPointImport& rSdrPowerPointImport
                                             pSet->mnLanguage[0] = rSpecInfo.nLanguage[0];
                                             pSet->mnLanguage[1] = rSpecInfo.nLanguage[1];
                                             pSet->mnLanguage[2] = rSpecInfo.nLanguage[2];
-                                            // test if the current portion needs to be splitted
+                                            // test if the current portion needs to be split
                                             if (pSet->maString.getLength() <= 1)
                                                 continue;
                                             sal_Int32 nIndexOfNextPortion = pSet->maString.getLength() + pSet->mnOriginalTextPos;

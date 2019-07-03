@@ -19,8 +19,11 @@
 
 #include <com/sun/star/linguistic2/ProofreadingResult.hpp>
 #include <com/sun/star/linguistic2/XProofreadingIterator.hpp>
+#include <com/sun/star/linguistic2/XHyphenatedWord.hpp>
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <com/sun/star/text/XFlatParagraph.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <o3tl/any.hxx>
 
 #include <unoflatpara.hxx>
@@ -1013,7 +1016,7 @@ bool SwEditShell::GetGrammarCorrection(
                 }
             }
 
-            if (rResult.aErrors.getLength() > 0)    // error found?
+            if (rResult.aErrors.hasElements())    // error found?
             {
                 HandleCorrectionError( aText, aPos, nBegin, nLen, pPt, rSelectRect );
             }
@@ -1225,7 +1228,7 @@ static SpellContentPositions lcl_CollectDeletedRedlines(SwEditShell const * pSh)
         const SwPosition* pStartPos = pCursor->Start();
         const SwTextNode* pTextNode = pCursor->GetNode().GetTextNode();
 
-        SwRedlineTable::size_type nAct = pDoc->getIDocumentRedlineAccess().GetRedlinePos( *pTextNode, USHRT_MAX );
+        SwRedlineTable::size_type nAct = pDoc->getIDocumentRedlineAccess().GetRedlinePos( *pTextNode, RedlineType::Any );
         const sal_Int32 nStartIndex = pStartPos->nContent.GetIndex();
         for ( ; nAct < pDoc->getIDocumentRedlineAccess().GetRedlineTable().size(); nAct++ )
         {
@@ -1234,7 +1237,7 @@ static SpellContentPositions lcl_CollectDeletedRedlines(SwEditShell const * pSh)
             if ( pRed->Start()->nNode > pTextNode->GetIndex() )
                 break;
 
-            if( nsRedlineType_t::REDLINE_DELETE == pRed->GetType() )
+            if( RedlineType::Delete == pRed->GetType() )
             {
                 sal_Int32 nStart_, nEnd_;
                 pRed->CalcStartEnd( pTextNode->GetIndex(), nStart_, nEnd_ );
@@ -1320,7 +1323,7 @@ bool SwSpellIter::SpellSentence(svx::SpellPortions& rPortions, bool bIsGrammarCh
         aSpellRet >>= xSpellRet;
         aSpellRet >>= aGrammarResult;
         bGoOn = GetCursorCnt() > 1;
-        bGrammarErrorFound = aGrammarResult.aErrors.getLength() > 0;
+        bGrammarErrorFound = aGrammarResult.aErrors.hasElements();
         if( xSpellRet.is() || bGrammarErrorFound )
         {
             bGoOn = false;
@@ -1525,7 +1528,7 @@ void SwSpellIter::CreatePortion(uno::Reference< XSpellAlternatives > const & xAl
     else if(pGrammarResult)
     {
         aPortion.bIsGrammarError = true;
-        if(pGrammarResult->aErrors.getLength())
+        if(pGrammarResult->aErrors.hasElements())
         {
             aPortion.aGrammarError = pGrammarResult->aErrors[0];
             aPortion.sText = pGrammarResult->aText.copy( aPortion.aGrammarError.nErrorStart, aPortion.aGrammarError.nErrorLength );

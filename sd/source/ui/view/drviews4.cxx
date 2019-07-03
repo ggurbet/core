@@ -20,7 +20,11 @@
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 
 #include <DrawViewShell.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
+
+#include <svl/intitem.hxx>
+#include <svl/stritem.hxx>
 #include <svl/urlbmk.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdundo.hxx>
@@ -38,6 +42,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <editeng/editview.hxx>
 #include <vcl/cursor.hxx>
+#include <vcl/commandevent.hxx>
 
 #include <app.hrc>
 #include <strings.hrc>
@@ -80,7 +85,7 @@ void DrawViewShell::DeleteActualPage()
     try
     {
         Reference<XDrawPagesSupplier> xDrawPagesSupplier( GetDoc()->getUnoModel(), UNO_QUERY_THROW );
-        Reference<XDrawPages> xPages( xDrawPagesSupplier->getDrawPages(), UNO_QUERY_THROW );
+        Reference<XDrawPages> xPages( xDrawPagesSupplier->getDrawPages(), UNO_SET_THROW );
         Reference< XDrawPage > xPage( xPages->getByIndex( nPage ), UNO_QUERY_THROW );
         xPages->remove( xPage );
     }
@@ -642,7 +647,7 @@ void DrawViewShell::Command(const CommandEvent& rCEvt, ::sd::Window* pWin)
                             {
                                 if( (pObj->GetObjInventor() == SdrInventor::Default) && (pObj->GetObjIdentifier() == OBJ_TABLE) )
                                 {
-                                    aPopupId = "tabletext";
+                                    aPopupId = "table";
                                 }
                                 else
                                 {

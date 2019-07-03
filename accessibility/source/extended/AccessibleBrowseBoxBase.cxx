@@ -301,8 +301,7 @@ sal_Bool SAL_CALL AccessibleBrowseBoxBase::supportsService(
 
 Sequence< OUString > SAL_CALL AccessibleBrowseBoxBase::getSupportedServiceNames()
 {
-    const OUString aServiceName( "com.sun.star.accessibility.AccessibleContext" );
-    return Sequence< OUString >( &aServiceName, 1 );
+    return { "com.sun.star.accessibility.AccessibleContext" };
 }
 
 // other public methods
@@ -414,7 +413,7 @@ tools::Rectangle AccessibleBrowseBoxBase::getBoundingBoxOnScreen()
 void AccessibleBrowseBoxBase::commitEvent(
         sal_Int16 _nEventId, const Any& _rNewValue, const Any& _rOldValue )
 {
-    ::osl::ClearableMutexGuard aGuard( getMutex() );
+    osl::MutexGuard aGuard( getMutex() );
     if ( !getClientId( ) )
             // if we don't have a client id for the notifier, then we don't have listeners, then
             // we don't need to notify anything

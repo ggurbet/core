@@ -28,6 +28,11 @@ OUString convert(xmlChar const * string) {
     return s;
 }
 
+OString oconvert(xmlChar const * string)
+{
+    return reinterpret_cast<char const *>(string);
+}
+
 }
 
 XmlTestTools::XmlTestTools()
@@ -83,6 +88,9 @@ OUString XmlTestTools::getXPath(xmlDocPtr pXmlDoc, const OString& rXPath, const 
         return OUString();
     xmlNodePtr pXmlNode = pXmlNodes->nodeTab[0];
     xmlChar * prop = xmlGetProp(pXmlNode, BAD_CAST(rAttribute.getStr()));
+    OString sAttAbsent = "In <" + OString(pXmlDoc->name) + ">, XPath '" + rXPath
+                         + "' no attribute '" + rAttribute + "' exist";
+    CPPUNIT_ASSERT_MESSAGE(sAttAbsent.getStr(), prop);
     OUString s(convert(prop));
     xmlFree(prop);
     xmlXPathFreeObject(pXmlObj);
@@ -130,6 +138,11 @@ OUString XmlTestTools::getXPathContent(xmlDocPtr pXmlDoc, const OString& rXPath)
     }
 
     CPPUNIT_FAIL("Invalid XPath type");
+}
+
+void XmlTestTools::assertXPath(xmlDocPtr pXmlDoc, const OString& rXPath)
+{
+    getXPath(pXmlDoc, rXPath, ""); // it asserts that rXPath exists, and returns exactly one node
 }
 
 void XmlTestTools::assertXPath(xmlDocPtr pXmlDoc, const OString& rXPath, const OString& rAttribute, const OUString& rExpectedValue)
@@ -219,7 +232,7 @@ void XmlTestTools::assertXPathNoAttribute(xmlDocPtr pXmlDoc, const OString& rXPa
     xmlXPathFreeObject(pXmlObj);
 }
 
-int XmlTestTools::getXPathPosition(xmlDocPtr pXmlDoc, const OString& rXPath, const OUString& rChildName)
+int XmlTestTools::getXPathPosition(xmlDocPtr pXmlDoc, const OString& rXPath, const OString& rChildName)
 {
     xmlXPathObjectPtr pXmlObj = getXPathNode(pXmlDoc, rXPath);
     xmlNodeSetPtr pXmlNodes = pXmlObj->nodesetval;
@@ -228,13 +241,21 @@ int XmlTestTools::getXPathPosition(xmlDocPtr pXmlDoc, const OString& rXPath, con
                                  xmlXPathNodeSetGetLength(pXmlNodes));
     xmlNodePtr pXmlNode = pXmlNodes->nodeTab[0];
     int nRet = 0;
+    bool bFound = false;
     for (xmlNodePtr pChild = pXmlNode->children; pChild; pChild = pChild->next)
     {
-        if (convert(pChild->name) == rChildName)
+        if (oconvert(pChild->name) == rChildName)
+        {
+            bFound = true;
             break;
+        }
         ++nRet;
     }
     xmlXPathFreeObject(pXmlObj);
+    CPPUNIT_ASSERT_MESSAGE(OString("In <" + OString(pXmlDoc->name) + ">, XPath '" + rXPath
+                                   + "' child '" + rChildName + "' not found")
+                               .getStr(),
+        bFound);
     return nRet;
 }
 

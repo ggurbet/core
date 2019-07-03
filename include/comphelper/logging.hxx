@@ -26,10 +26,9 @@
 #include <boost/optional.hpp>
 #include <memory>
 
-#include <com/sun/star/logging/XLogger.hpp>
-
-namespace com { namespace sun { namespace star { namespace uno { template <class interface_type> class Reference; } } } }
-namespace com { namespace sun { namespace star { namespace uno { class XComponentContext; } } } }
+namespace com::sun::star::uno { template <class interface_type> class Reference; }
+namespace com::sun::star::uno { class XComponentContext; }
+namespace com::sun::star::logging { class XLogger; }
 
 namespace comphelper
 {
@@ -68,7 +67,7 @@ namespace comphelper
     class EventLogger_Impl;
     typedef ::boost::optional< OUString >    OptionalString;
 
-    /** encapsulates an css::logging::XLogger
+    /** encapsulates a css::logging::XLogger
 
         The class silences several (unlikely) errors which could potentially happen
         when working with a logger. Additionally, it provides some convenience methods
@@ -125,7 +124,7 @@ namespace comphelper
                 impl_log(_nLogLevel, nullptr, nullptr, rMessage);
         }
 
-        const css::uno::Reference<css::logging::XLogger> getLogger();
+        const css::uno::Reference<css::logging::XLogger> & getLogger();
 
         /** logs a given message, replacing a placeholder in the message with an argument
 

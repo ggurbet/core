@@ -134,7 +134,7 @@ void DlgOrderCrit::impl_initializeOrderList_nothrow()
         const OUString sNameProperty = "Name";
         const OUString sAscendingProperty = "IsAscending";
 
-        Reference< XIndexAccess > xOrderColumns( m_xQueryComposer->getOrderColumns(), UNO_QUERY_THROW );
+        Reference< XIndexAccess > xOrderColumns( m_xQueryComposer->getOrderColumns(), UNO_SET_THROW );
         sal_Int32 nColumns = xOrderColumns->getCount();
         if ( nColumns > DOG_ROWS )
             nColumns = DOG_ROWS;
@@ -196,7 +196,7 @@ OUString DlgOrderCrit::GetOrderList( ) const
     Reference<XDatabaseMetaData> xMetaData = m_xConnection->getMetaData();
     OUString sQuote  = xMetaData.is() ? xMetaData->getIdentifierQuoteString() : OUString();
 
-    Reference< XNameAccess> xColumns = Reference< XColumnsSupplier >(m_xQueryComposer,UNO_QUERY)->getColumns();
+    Reference< XNameAccess> xColumns = Reference< XColumnsSupplier >(m_xQueryComposer,UNO_QUERY_THROW)->getColumns();
 
     OUStringBuffer sOrder;
     for( sal_uInt16 i=0 ; i<DOG_ROWS; i++ )

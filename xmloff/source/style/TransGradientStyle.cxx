@@ -106,7 +106,7 @@ void XMLTransGradientStyleImport::importXML(
         XML_TOKEN_MAP_END
     };
 
-    SvXMLTokenMap aTokenMap( aTrGradientAttrTokenMap );
+    static const SvXMLTokenMap aTokenMap( aTrGradientAttrTokenMap );
     SvXMLNamespaceMap& rNamespaceMap = rImport.GetNamespaceMap();
 
     sal_Int16 nAttrCount = xAttrList.is() ? xAttrList->getLength() : 0;
@@ -247,10 +247,8 @@ void XMLTransGradientStyleExport::exportXML(
                     rExport.AddAttribute( XML_NAMESPACE_DRAW, XML_CY, aStrValue );
                 }
 
-                Color aColor;
-
                 // Transparency start
-                aColor = Color(aGradient.StartColor);
+                Color aColor(aGradient.StartColor);
                 sal_Int32 aStartValue = 100 - static_cast<sal_Int32>(((aColor.GetRed() + 1) * 100) / 255);
                 ::sax::Converter::convertPercent( aOut, aStartValue );
                 aStrValue = aOut.makeStringAndClear();

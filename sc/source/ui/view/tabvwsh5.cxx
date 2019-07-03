@@ -26,6 +26,7 @@
 #include <svx/svxids.hrc>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/viewfrm.hxx>
 
 #include <tabvwsh.hxx>
 #include <sc.hrc>
@@ -313,7 +314,7 @@ void ScTabViewShell::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
     SfxViewShell::Notify( rBC, rHint );
 }
 
-SvxNumberInfoItem* ScTabViewShell::MakeNumberInfoItem( ScDocument* pDoc, const ScViewData* pViewData )
+std::unique_ptr<SvxNumberInfoItem> ScTabViewShell::MakeNumberInfoItem( ScDocument* pDoc, const ScViewData* pViewData )
 {
 
     // construct NumberInfo item
@@ -363,13 +364,13 @@ SvxNumberInfoItem* ScTabViewShell::MakeNumberInfoItem( ScDocument* pDoc, const S
     switch ( eValType )
     {
         case SvxNumberValueType::String:
-            return new SvxNumberInfoItem(
+            return std::make_unique<SvxNumberInfoItem>(
                                 pDoc->GetFormatTable(),
                                 aCellString,
                                 SID_ATTR_NUMBERFORMAT_INFO );
 
         case SvxNumberValueType::Number:
-            return new SvxNumberInfoItem(
+            return std::make_unique<SvxNumberInfoItem>(
                                 pDoc->GetFormatTable(),
                                 nCellValue,
                                 SID_ATTR_NUMBERFORMAT_INFO );
@@ -379,7 +380,7 @@ SvxNumberInfoItem* ScTabViewShell::MakeNumberInfoItem( ScDocument* pDoc, const S
             ;
     }
 
-    return new SvxNumberInfoItem(
+    return std::make_unique<SvxNumberInfoItem>(
         pDoc->GetFormatTable(), static_cast<sal_uInt16>(SID_ATTR_NUMBERFORMAT_INFO));
 }
 

@@ -73,12 +73,12 @@ void Receiver::executeCommand( const std::vector<OString> &aCommand )
     uno::Reference<presentation::XSlideShow> xSlideShow;
     try {
         uno::Reference< frame::XDesktop2 > xFramesSupplier = frame::Desktop::create( ::comphelper::getProcessComponentContext() );
-        uno::Reference< frame::XFrame > xFrame ( xFramesSupplier->getActiveFrame(), uno::UNO_QUERY_THROW );
+        uno::Reference< frame::XFrame > xFrame ( xFramesSupplier->getActiveFrame(), uno::UNO_SET_THROW );
         uno::Reference<presentation::XPresentationSupplier> xPS ( xFrame->getController()->getModel(), uno::UNO_QUERY_THROW);
         xPresentation.set( xPS->getPresentation(), uno::UNO_QUERY_THROW);
         // Throws an exception if now slideshow running
-        xSlideShowController.set( xPresentation->getController(), uno::UNO_QUERY_THROW );
-        xSlideShow.set( xSlideShowController->getSlideShow(), uno::UNO_QUERY_THROW );
+        xSlideShowController.set( xPresentation->getController(), uno::UNO_SET_THROW );
+        xSlideShow.set( xSlideShowController->getSlideShow(), uno::UNO_SET_THROW );
     }
     catch (uno::RuntimeException &)
     {
@@ -136,33 +136,32 @@ void Receiver::executeCommand( const std::vector<OString> &aCommand )
         const css::geometry::RealPoint2D pos(x,y);
         // std::cerr << "Pointer at ("<<pos.X<<","<<pos.Y<<")" << std::endl;
 
-        if (xSlideShow.is()) try
+        if (xSlideShow.is())
         {
-            // std::cerr << "pointer_coordination in the is" << std::endl;
-            xSlideShow->setProperty(
-                        beans::PropertyValue( "PointerPosition" ,
-                            -1,
-                            makeAny( pos ),
-                            beans::PropertyState_DIRECT_VALUE ) );
-        }
-        catch ( Exception& )
-        {
-            SAL_WARN( "sdremote", "sd::SlideShowImpl::setPointerPosition(), "
-                "exception caught: " << exceptionToString( cppu::getCaughtException() ));
-        }
+            try
+            {
+                // std::cerr << "pointer_coordination in the is" << std::endl;
+                xSlideShow->setProperty(beans::PropertyValue("PointerPosition", -1, makeAny(pos),
+                                                             beans::PropertyState_DIRECT_VALUE));
+            }
+            catch (Exception&)
+            {
+                SAL_WARN("sdremote", "sd::SlideShowImpl::setPointerPosition(), "
+                                     "exception caught: "
+                                         << exceptionToString(cppu::getCaughtException()));
+            }
 
-        if (xSlideShow.is()) try
-        {
-            xSlideShow->setProperty(
-                        beans::PropertyValue( "PointerVisible" ,
-                            -1,
-                            makeAny( true ),
-                            beans::PropertyState_DIRECT_VALUE ) );
-        }
-        catch ( Exception& )
-        {
-            SAL_WARN( "sdremote", "sd::SlideShowImpl::setPointerMode(), "
-                "exception caught: " << exceptionToString( cppu::getCaughtException() ));
+            try
+            {
+                xSlideShow->setProperty(beans::PropertyValue("PointerVisible", -1, makeAny(true),
+                                                             beans::PropertyState_DIRECT_VALUE));
+            }
+            catch (Exception&)
+            {
+                SAL_WARN("sdremote", "sd::SlideShowImpl::setPointerMode(), "
+                                     "exception caught: "
+                                         << exceptionToString(cppu::getCaughtException()));
+            }
         }
 
         SAL_INFO( "sdremote", "Pointer started, we display the pointer on screen" );

@@ -9,6 +9,7 @@
 
 #include <sal/config.h>
 #include <sal/log.hxx>
+#include <osl/module.h>
 
 #include <config_cairo_canvas.h>
 
@@ -21,7 +22,6 @@
 #include <vcl/decoview.hxx>
 #include <vcl/settings.hxx>
 #include <unx/fontmanager.hxx>
-#include <headless/CustomWidgetDraw.hxx>
 
 #include "cairo_gtk3_cairo.hxx"
 #include <boost/optional.hpp>
@@ -731,15 +731,19 @@ void GtkSalGraphics::PaintScrollbar(GtkStyleContext *context,
         {
             tools::Rectangle aBtn1Rect = NWGetScrollButtonRect(ControlPart::ButtonLeft, aTrackRect);
             tools::Rectangle aBtn2Rect = NWGetScrollButtonRect(ControlPart::ButtonRight, aTrackRect);
-            aTrackRect.SetLeft( aBtn1Rect.Right() );
-            aTrackRect.SetRight( aBtn2Rect.Left() );
+            if (!aBtn1Rect.IsWidthEmpty())
+                aTrackRect.SetLeft( aBtn1Rect.Right() );
+            if (!aBtn2Rect.IsWidthEmpty())
+                aTrackRect.SetRight( aBtn2Rect.Left() );
         }
         else
         {
             tools::Rectangle aBtn1Rect = NWGetScrollButtonRect(ControlPart::ButtonUp, aTrackRect);
             tools::Rectangle aBtn2Rect = NWGetScrollButtonRect(ControlPart::ButtonDown, aTrackRect);
-            aTrackRect.SetTop( aBtn1Rect.Bottom() + 1 );
-            aTrackRect.SetBottom( aBtn2Rect.Top() );
+            if (!aBtn1Rect.IsHeightEmpty())
+                aTrackRect.SetTop( aBtn1Rect.Bottom() + 1 );
+            if (!aBtn2Rect.IsHeightEmpty())
+                aTrackRect.SetBottom( aBtn2Rect.Top() );
         }
 
         GtkStyleContext* pScrollbarTroughStyle = scrollbarOrientation == GTK_ORIENTATION_VERTICAL ?
@@ -1189,7 +1193,7 @@ tools::Rectangle GtkSalGraphics::NWGetComboBoxButtonRect(ControlType nType,
     gint nButtonWidth = nArrowWidth + padding.left + padding.right;
     if( nPart == ControlPart::ButtonDown )
     {
-        Point aPos = Point(aAreaRect.Left() + aAreaRect.GetWidth() - nButtonWidth, aAreaRect.Top());
+        Point aPos(aAreaRect.Left() + aAreaRect.GetWidth() - nButtonWidth, aAreaRect.Top());
         if (AllSettings::GetLayoutRTL())
             aPos.setX( aAreaRect.Left() );
         aButtonRect.SetSize( Size( nButtonWidth, aAreaRect.GetHeight() ) );
@@ -2256,21 +2260,17 @@ namespace
     }
 }
 
+void GtkSalGraphics::handleDamage(const tools::Rectangle& rDamagedRegion)
+{
+    assert(m_pWidgetDraw);
+    assert(!rDamagedRegion.IsEmpty());
+    mpFrame->damaged(rDamagedRegion.Left(), rDamagedRegion.Top(), rDamagedRegion.GetWidth(), rDamagedRegion.GetHeight());
+}
+
 bool GtkSalGraphics::drawNativeControl( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion,
                                             ControlState nState, const ImplControlValue& rValue,
-                                            const OUString& aCaptions)
+                                            const OUString&)
 {
-    if (m_pWidgetDraw)
-    {
-        bool bReturn = SvpSalGraphics::drawNativeControl(nType, nPart, rControlRegion,
-                                                         nState, rValue, aCaptions);
-
-        if (bReturn && !rControlRegion.IsEmpty())
-            mpFrame->damaged(rControlRegion.Left(), rControlRegion.Top(), rControlRegion.GetWidth(), rControlRegion.GetHeight());
-
-        return bReturn;
-    }
-
     RenderType renderType = nPart == ControlPart::Focus ? RenderType::Focus : RenderType::BackgroundAndFrame;
     GtkStyleContext *context = nullptr;
     const gchar *styleClass = nullptr;
@@ -2683,17 +2683,10 @@ static tools::Rectangle AdjustRectForTextBordersPadding(GtkStyleContext* pStyle,
     return aEditRect;
 }
 
-bool GtkSalGraphics::getNativeControlRegion( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState eState,
-                                                const ImplControlValue& rValue, const OUString& aCaption,
+bool GtkSalGraphics::getNativeControlRegion( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState,
+                                                const ImplControlValue& rValue, const OUString&,
                                                 tools::Rectangle &rNativeBoundingRegion, tools::Rectangle &rNativeContentRegion )
 {
-    if (hasWidgetDraw())
-    {
-        return m_pWidgetDraw->getNativeControlRegion(nType, nPart, rControlRegion,
-                                                     eState, rValue, aCaption,
-                                                     rNativeBoundingRegion, rNativeContentRegion);
-    }
-
     /* TODO: all this functions needs improvements */
     tools::Rectangle aEditRect = rControlRegion;
     gint indicator_size, indicator_spacing, point;
@@ -2941,14 +2934,8 @@ vcl::Font pango_to_vcl(const PangoFontDescription* font, const css::lang::Locale
     return aFont;
 }
 
-void GtkSalGraphics::updateSettings(AllSettings& rSettings)
+bool GtkSalGraphics::updateSettings(AllSettings& rSettings)
 {
-    if (m_pWidgetDraw)
-    {
-        m_pWidgetDraw->updateSettings(rSettings);
-        return;
-    }
-
     GtkStyleContext* pStyle = gtk_widget_get_style_context( mpWindow );
     StyleContextSave aContextState;
     aContextState.save(pStyle);
@@ -3289,15 +3276,12 @@ void GtkSalGraphics::updateSettings(AllSettings& rSettings)
     fprintf( stderr, "Theme name is \"%s\"\n", pThemeName );
     g_free(pThemeName);
 #endif
+
+    return true;
 }
 
-bool GtkSalGraphics::IsNativeControlSupported( ControlType nType, ControlPart nPart )
+bool GtkSalGraphics::isNativeControlSupported( ControlType nType, ControlPart nPart )
 {
-    if (m_pWidgetDraw)
-    {
-        return m_pWidgetDraw->isNativeControlSupported(nType, nPart);
-    }
-
     switch(nType)
     {
         case ControlType::Pushbutton:

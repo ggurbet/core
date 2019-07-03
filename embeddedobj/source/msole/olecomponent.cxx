@@ -96,6 +96,9 @@ public:
 
     ComSmart& operator=( const ComSmart<T>& rObj )
     {
+        if(this == &rObj)
+            return *this;
+
         OwnRelease();
 
         m_pInterface = rObj.m_pInterface;
@@ -334,7 +337,13 @@ bool OleComponentNative_Impl::ConvertDataForFlavor( const STGMEDIUM& aMedium,
         else if ( aMedium.tymed == TYMED_GDI ) // Bitmap
         {
             aFormat = "image/x-MS-bmp";
-            nBufSize = GetBitmapBits( aMedium.hBitmap, 0, nullptr );
+
+            // Find out size of buffer: deprecated GetBitmapBits does not have a mode to return
+            // required buffer size
+            BITMAP aBmp;
+            GetObjectW(aMedium.hBitmap, sizeof(aBmp), &aBmp);
+            nBufSize = aBmp.bmWidthBytes * aBmp.bmHeight;
+
             pBuf.reset(new sal_Int8[nBufSize]);
             if ( nBufSize && nBufSize == sal::static_int_cast< ULONG >( GetBitmapBits( aMedium.hBitmap, nBufSize, pBuf.get() ) ) )
             {
@@ -454,9 +463,7 @@ OleComponent::~OleComponent()
 
     if ( m_pOleWrapClientSite || m_pImplAdviseSink || m_pInterfaceContainer || m_bOleInitialized )
     {
-        ::osl::ClearableMutexGuard aGuard( m_aMutex );
-        m_refCount++;
-        aGuard.clear();
+        osl_atomic_increment(&m_refCount);
         try {
             Dispose();
         } catch( const uno::Exception& ) {}
@@ -1412,52 +1419,56 @@ void OleComponent::OnClose_Impl()
 
 void SAL_CALL OleComponent::close( sal_Bool bDeliverOwnership )
 {
-    ::osl::ClearableMutexGuard aGuard( m_aMutex );
-    if ( m_bDisposed )
-        throw lang::DisposedException(); // TODO
-
-    uno::Reference< uno::XInterface > xSelfHold( static_cast< ::cppu::OWeakObject* >( this ) );
-    lang::EventObject aSource( static_cast< ::cppu::OWeakObject* >( this ) );
-
-    if ( m_pInterfaceContainer )
+    uno::Reference< uno::XInterface > xSelfHold;
     {
-        ::cppu::OInterfaceContainerHelper* pContainer =
-            m_pInterfaceContainer->getContainer( cppu::UnoType<util::XCloseListener>::get());
-        if ( pContainer != nullptr )
+        osl::MutexGuard aGuard(m_aMutex);
+        if (m_bDisposed)
+            throw lang::DisposedException(); // TODO
+
+        xSelfHold.set(static_cast<::cppu::OWeakObject*>(this));
+        lang::EventObject aSource(static_cast<::cppu::OWeakObject*>(this));
+
+        if (m_pInterfaceContainer)
         {
-            ::cppu::OInterfaceIteratorHelper pIterator( *pContainer );
-            while ( pIterator.hasMoreElements() )
+            ::cppu::OInterfaceContainerHelper* pContainer
+                = m_pInterfaceContainer->getContainer(cppu::UnoType<util::XCloseListener>::get());
+            if (pContainer != nullptr)
             {
-                try
+                ::cppu::OInterfaceIteratorHelper pIterator(*pContainer);
+                while (pIterator.hasMoreElements())
                 {
-                    static_cast<util::XCloseListener*>( pIterator.next() )->queryClosing( aSource, bDeliverOwnership );
-                }
-                catch( const uno::RuntimeException& )
-                {
-                    pIterator.remove();
+                    try
+                    {
+                        static_cast<util::XCloseListener*>(pIterator.next())
+                            ->queryClosing(aSource, bDeliverOwnership);
+                    }
+                    catch (const uno::RuntimeException&)
+                    {
+                        pIterator.remove();
+                    }
                 }
             }
-        }
 
-        pContainer = m_pInterfaceContainer->getContainer(
-                                    cppu::UnoType<util::XCloseListener>::get());
-        if ( pContainer != nullptr )
-        {
-            ::cppu::OInterfaceIteratorHelper pCloseIterator( *pContainer );
-            while ( pCloseIterator.hasMoreElements() )
+            pContainer
+                = m_pInterfaceContainer->getContainer(cppu::UnoType<util::XCloseListener>::get());
+            if (pContainer != nullptr)
             {
-                try
+                ::cppu::OInterfaceIteratorHelper pCloseIterator(*pContainer);
+                while (pCloseIterator.hasMoreElements())
                 {
-                    static_cast<util::XCloseListener*>( pCloseIterator.next() )->notifyClosing( aSource );
-                }
-                catch( const uno::RuntimeException& )
-                {
-                    pCloseIterator.remove();
+                    try
+                    {
+                        static_cast<util::XCloseListener*>(pCloseIterator.next())
+                            ->notifyClosing(aSource);
+                    }
+                    catch (const uno::RuntimeException&)
+                    {
+                        pCloseIterator.remove();
+                    }
                 }
             }
         }
     }
-    aGuard.clear();
 
     Dispose();
 }
@@ -1513,7 +1524,7 @@ uno::Any SAL_CALL OleComponent::getTransferData( const datatransfer::DataFlavor&
 
         // The following optimization does not make much sense currently just because
         // only one aspect is supported, and only three formats for the aspect are supported
-        // and moreover it is not guarantied that the once returned format will be supported further
+        // and moreover it is not guaranteed that the once returned format will be supported further
         // example - i52106
         // TODO/LATER: bring the optimization back when other aspects are supported
 

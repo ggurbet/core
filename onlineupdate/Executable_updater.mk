@@ -50,7 +50,6 @@ $(eval $(call gb_Executable_add_ldflags,updater,\
 
 $(eval $(call gb_Executable_add_defs,updater,\
 	-DVERIFY_MAR_SIGNATURE \
-	-DUNICODE \
 ))
 
 else
@@ -71,7 +70,6 @@ $(eval $(call gb_Executable_add_libs,updater,\
 	-lXrender \
 	-lSM \
 	-lICE \
-	-lpthread \
 ))
 endif
 

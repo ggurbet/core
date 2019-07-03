@@ -30,10 +30,10 @@
 #include <sfx2/minfitem.hxx>
 #include <sfx2/sfxresid.hxx>
 #include <svl/stritem.hxx>
-#include <vcl/treelistentry.hxx>
 
 #include <sal/macros.h>
-#include <vcl/builderfactory.hxx>
+#include <vcl/edit.hxx>
+#include <vcl/event.hxx>
 
 #include <strings.hrc>
 #include <sfx2/strings.hrc>
@@ -66,7 +66,6 @@
 // include other projects
 #include <comphelper/processfactory.hxx>
 #include <svtools/acceleratorexecute.hxx>
-#include <vcl/svlbitm.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/help.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -779,28 +778,12 @@ static const sal_uInt16 KEYCODE_ARRAY[] =
 
 static const sal_uInt16 KEYCODE_ARRAY_SIZE = SAL_N_ELEMENTS(KEYCODE_ARRAY);
 
-extern "C" SAL_DLLPUBLIC_EXPORT void makeSfxAccCfgTabListBox(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap & rMap)
-{
-    WinBits nWinBits = WB_TABSTOP;
-
-    OUString sBorder = BuilderUtils::extractCustomProperty(rMap);
-    if (!sBorder.isEmpty())
-       nWinBits |= WB_BORDER;
-
-    rRet = VclPtr<SfxAccCfgTabListBox_Impl>::Create(pParent, nWinBits);
-}
-
-SfxAccCfgTabListBox_Impl::~SfxAccCfgTabListBox_Impl()
-{
-    disposeOnce();
-}
-
 /** select the entry, which match the current key input ... excepting
     keys, which are used for the dialog itself.
   */
-void SfxAccCfgTabListBox_Impl::KeyInput(const KeyEvent& aKey)
+IMPL_LINK(SfxAcceleratorConfigPage, KeyInputHdl, const KeyEvent&, rKey, bool)
 {
-    vcl::KeyCode aCode1 = aKey.GetKeyCode();
+    vcl::KeyCode aCode1 = rKey.GetKeyCode();
     sal_uInt16 nCode1 = aCode1.GetCode();
     sal_uInt16 nMod1 = aCode1.GetModifier();
 
@@ -814,29 +797,26 @@ void SfxAccCfgTabListBox_Impl::KeyInput(const KeyEvent& aKey)
         (nCode1 != KEY_PAGEDOWN)
        )
     {
-        SvTreeListEntry* pEntry = First();
-        while (pEntry)
+        for (int i = 0, nCount = m_xEntriesBox->n_children(); i < nCount; ++i)
         {
-            TAccInfo* pUserData = static_cast<TAccInfo*>(pEntry->GetUserData());
+            TAccInfo* pUserData = reinterpret_cast<TAccInfo*>(m_xEntriesBox->get_id(i).toInt64());
             if (pUserData)
             {
                 sal_uInt16 nCode2 = pUserData->m_aKey.GetCode();
                 sal_uInt16 nMod2  = pUserData->m_aKey.GetModifier();
 
-                if ((nCode1 == nCode2) &&
-                    (nMod1  == nMod2 ))
+                if (nCode1 == nCode2 && nMod1  == nMod2)
                 {
-                    Select(pEntry);
-                    MakeVisible(pEntry);
-                    return;
+                    m_xEntriesBox->select(i);
+                    m_xEntriesBox->scroll_to_row(i);
+                    return true;
                 }
             }
-            pEntry = Next(pEntry);
         }
     }
 
     // no - handle it as normal dialog input
-    SvTabListBox::KeyInput(aKey);
+    return false;
 }
 
 SfxAcceleratorConfigPage::SfxAcceleratorConfigPage(TabPageParent pParent, const SfxItemSet& aSet )
@@ -844,6 +824,7 @@ SfxAcceleratorConfigPage::SfxAcceleratorConfigPage(TabPageParent pParent, const 
     , m_pMacroInfoItem()
     , aLoadAccelConfigStr(CuiResId(RID_SVXSTR_LOADACCELCONFIG))
     , aSaveAccelConfigStr(CuiResId(RID_SVXSTR_SAVEACCELCONFIG))
+    , aFilterAllStr(SfxResId(STR_SFX_FILTERNAME_ALL))
     , aFilterCfgStr(CuiResId(RID_SVXSTR_FILTERNAME_CFG))
     , m_bStylesInfoInitialized(false)
     , m_xGlobal()
@@ -872,12 +853,11 @@ SfxAcceleratorConfigPage::SfxAcceleratorConfigPage(TabPageParent pParent, const 
     aSize = LogicToPixel(Size(80, 91), MapMode(MapUnit::MapAppFont));
     m_xKeyBox->set_size_request(aSize.Width(), aSize.Height());
 
-    aFilterAllStr = SfxResId( STR_SFX_FILTERNAME_ALL );
-
     // install handler functions
     m_xChangeButton->connect_clicked( LINK( this, SfxAcceleratorConfigPage, ChangeHdl ));
     m_xRemoveButton->connect_clicked( LINK( this, SfxAcceleratorConfigPage, RemoveHdl ));
     m_xEntriesBox->connect_changed ( LINK( this, SfxAcceleratorConfigPage, SelectHdl ));
+    m_xEntriesBox->connect_key_press( LINK( this, SfxAcceleratorConfigPage, KeyInputHdl ));
     m_xGroupLBox->connect_changed  ( LINK( this, SfxAcceleratorConfigPage, SelectHdl ));
     m_xFunctionBox->connect_changed( LINK( this, SfxAcceleratorConfigPage, SelectHdl ));
     m_xKeyBox->connect_changed     ( LINK( this, SfxAcceleratorConfigPage, SelectHdl ));
@@ -1311,9 +1291,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, TimeOut_Impl, Timer*, void)
 {
     // activating the selection, typically "all commands", can take a long time
     // -> show wait cursor and disable input
-    weld::Window* pDialog = GetDialogFrameWeld();
-    // perhaps the tabpage is part of a SingleTabDialog then pDialog == nullptr
-    std::unique_ptr<weld::WaitObject> xWait(pDialog ? new weld::WaitObject(pDialog) : nullptr);
+    weld::WaitObject aWaitObject(GetDialogFrameWeld());
 
     weld::TreeView& rTreeView = m_xGroupLBox->get_widget();
     SelectHdl(rTreeView);
@@ -1330,7 +1308,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, LoadHdl, sfx2::FileDialogHelper*, void
     if ( sCfgName.isEmpty() )
         return;
 
-    GetTabDialog()->EnterWait();
+    weld::WaitObject aWaitObject(GetDialogFrameWeld());
 
     uno::Reference<ui::XUIConfigurationManager> xCfgMgr;
     uno::Reference<embed::XStorage> xRootStorage; // we must hold the root storage alive, if xCfgMgr is used!
@@ -1355,7 +1333,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, LoadHdl, sfx2::FileDialogHelper*, void
         if (xCfgMgr.is())
         {
             // open the configuration and update our UI
-            uno::Reference<ui::XAcceleratorConfiguration> xTempAccMgr(xCfgMgr->getShortCutManager(), uno::UNO_QUERY_THROW);
+            uno::Reference<ui::XAcceleratorConfiguration> xTempAccMgr(xCfgMgr->getShortCutManager(), uno::UNO_SET_THROW);
 
             m_xEntriesBox->freeze();
             ResetConfig();
@@ -1387,10 +1365,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, LoadHdl, sfx2::FileDialogHelper*, void
     }
     catch(const uno::Exception&)
     {}
-
-    GetTabDialog()->LeaveWait();
 }
-
 
 IMPL_LINK_NOARG(SfxAcceleratorConfigPage, SaveHdl, sfx2::FileDialogHelper*, void)
 {
@@ -1403,7 +1378,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, SaveHdl, sfx2::FileDialogHelper*, void
     if ( sCfgName.isEmpty() )
         return;
 
-    GetTabDialog()->EnterWait();
+    weld::WaitObject aWaitObject(GetDialogFrameWeld());
 
     uno::Reference<embed::XStorage> xRootStorage;
 
@@ -1419,7 +1394,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, SaveHdl, sfx2::FileDialogHelper*, void
 
         uno::Reference<embed::XStorage> xUIConfig(
                             xRootStorage->openStorageElement(FOLDERNAME_UICONFIG, embed::ElementModes::WRITE),
-                            uno::UNO_QUERY_THROW);
+                            uno::UNO_SET_THROW);
         uno::Reference<beans::XPropertySet> xUIConfigProps(
                             xUIConfig,
                             uno::UNO_QUERY_THROW);
@@ -1437,7 +1412,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, SaveHdl, sfx2::FileDialogHelper*, void
         // which are set currently at the UI!
         // Don't copy the m_xAct content to it... because m_xAct will be updated
         // from the UI on pressing the button "OK" only. And inbetween it's not up to date!
-        uno::Reference<ui::XAcceleratorConfiguration> xTargetAccMgr(xCfgMgr->getShortCutManager(), uno::UNO_QUERY_THROW);
+        uno::Reference<ui::XAcceleratorConfiguration> xTargetAccMgr(xCfgMgr->getShortCutManager(), uno::UNO_SET_THROW);
         Apply(xTargetAccMgr);
 
         // commit (order is important!)
@@ -1469,10 +1444,7 @@ IMPL_LINK_NOARG(SfxAcceleratorConfigPage, SaveHdl, sfx2::FileDialogHelper*, void
     }
     catch(const uno::Exception&)
     {}
-
-    GetTabDialog()->LeaveWait();
 }
-
 
 void SfxAcceleratorConfigPage::StartFileDialog( StartFileDialogType nType, const OUString& rTitle )
 {

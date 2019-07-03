@@ -221,47 +221,47 @@ SwUndoInsTable::SwUndoInsTable( const SwPosition& rPos, sal_uInt16 nCl, sal_uInt
                             const std::vector<sal_uInt16> *pColArr,
                             const OUString & rName)
     : SwUndo( SwUndoId::INSTABLE, rPos.GetDoc() ),
-    aInsTableOpts( rInsTableOpts ),
-    nSttNode( rPos.nNode.GetIndex() ), nRows( nRw ), nCols( nCl ), nAdjust( nAdj )
+    m_aInsTableOptions( rInsTableOpts ),
+    m_nStartNode( rPos.nNode.GetIndex() ), m_nRows( nRw ), m_nColumns( nCl ), m_nAdjust( nAdj )
 {
     if( pColArr )
     {
-        pColWidth.reset( new std::vector<sal_uInt16>(*pColArr) );
+        m_pColumnWidth.reset( new std::vector<sal_uInt16>(*pColArr) );
     }
     if( pTAFormat )
-        pAutoFormat.reset( new SwTableAutoFormat( *pTAFormat ) );
+        m_pAutoFormat.reset( new SwTableAutoFormat( *pTAFormat ) );
 
     // consider redline
     SwDoc& rDoc = *rPos.nNode.GetNode().GetDoc();
     if( rDoc.getIDocumentRedlineAccess().IsRedlineOn() )
     {
-        pRedlData.reset( new SwRedlineData( nsRedlineType_t::REDLINE_INSERT, rDoc.getIDocumentRedlineAccess().GetRedlineAuthor() ) );
+        m_pRedlineData.reset( new SwRedlineData( RedlineType::Insert, rDoc.getIDocumentRedlineAccess().GetRedlineAuthor() ) );
         SetRedlineFlags( rDoc.getIDocumentRedlineAccess().GetRedlineFlags() );
     }
 
-    sTableNm = rName;
+    m_sTableName = rName;
 }
 
 SwUndoInsTable::~SwUndoInsTable()
 {
-    pDDEFieldType.reset();
-    pColWidth.reset();
-    pRedlData.reset();
-    pAutoFormat.reset();
+    m_pDDEFieldType.reset();
+    m_pColumnWidth.reset();
+    m_pRedlineData.reset();
+    m_pAutoFormat.reset();
 }
 
 void SwUndoInsTable::UndoImpl(::sw::UndoRedoContext & rContext)
 {
     SwDoc & rDoc = rContext.GetDoc();
-    SwNodeIndex aIdx( rDoc.GetNodes(), nSttNode );
+    SwNodeIndex aIdx( rDoc.GetNodes(), m_nStartNode );
 
     SwTableNode* pTableNd = aIdx.GetNode().GetTableNode();
     OSL_ENSURE( pTableNd, "no TableNode" );
     pTableNd->DelFrames();
 
     if( IDocumentRedlineAccess::IsRedlineOn( GetRedlineFlags() ))
-        rDoc.getIDocumentRedlineAccess().DeleteRedline( *pTableNd, true, USHRT_MAX );
-    RemoveIdxFromSection( rDoc, nSttNode );
+        rDoc.getIDocumentRedlineAccess().DeleteRedline( *pTableNd, true, RedlineType::Any );
+    RemoveIdxFromSection( rDoc, m_nStartNode );
 
     // move hard page breaks into next node
     SwContentNode* pNextNd = rDoc.GetNodes()[ pTableNd->EndOfSectionIndex()+1 ]->GetContentNode();
@@ -279,9 +279,9 @@ void SwUndoInsTable::UndoImpl(::sw::UndoRedoContext & rContext)
             pNextNd->SetAttr( *pItem );
     }
 
-    sTableNm = pTableNd->GetTable().GetFrameFormat()->GetName();
+    m_sTableName = pTableNd->GetTable().GetFrameFormat()->GetName();
     if( auto pDDETable = dynamic_cast<const SwDDETable *>(&pTableNd->GetTable()) )
-        pDDEFieldType.reset( static_cast<SwDDEFieldType*>(pDDETable->GetDDEFieldType()->Copy()) );
+        m_pDDEFieldType.reset(static_cast<SwDDEFieldType*>(pDDETable->GetDDEFieldType()->Copy().release()));
 
     rDoc.GetNodes().Delete( aIdx, pTableNd->EndOfSectionIndex() -
                                 aIdx.GetIndex() + 1 );
@@ -296,24 +296,24 @@ void SwUndoInsTable::RedoImpl(::sw::UndoRedoContext & rContext)
 {
     SwDoc & rDoc = rContext.GetDoc();
 
-    SwPosition const aPos(SwNodeIndex(rDoc.GetNodes(), nSttNode));
-    const SwTable* pTable = rDoc.InsertTable( aInsTableOpts, aPos, nRows, nCols,
-                                            nAdjust,
-                                            pAutoFormat.get(), pColWidth.get() );
+    SwPosition const aPos(SwNodeIndex(rDoc.GetNodes(), m_nStartNode));
+    const SwTable* pTable = rDoc.InsertTable( m_aInsTableOptions, aPos, m_nRows, m_nColumns,
+                                            m_nAdjust,
+                                            m_pAutoFormat.get(), m_pColumnWidth.get() );
     rDoc.GetEditShell()->MoveTable( GotoPrevTable, fnTableStart );
-    static_cast<SwFrameFormat*>(pTable->GetFrameFormat())->SetName( sTableNm );
-    SwTableNode* pTableNode = rDoc.GetNodes()[nSttNode]->GetTableNode();
+    static_cast<SwFrameFormat*>(pTable->GetFrameFormat())->SetName( m_sTableName );
+    SwTableNode* pTableNode = rDoc.GetNodes()[m_nStartNode]->GetTableNode();
 
-    if( pDDEFieldType )
+    if( m_pDDEFieldType )
     {
         SwDDEFieldType* pNewType = static_cast<SwDDEFieldType*>(rDoc.getIDocumentFieldsAccess().InsertFieldType(
-                                                            *pDDEFieldType));
+                                                            *m_pDDEFieldType));
         std::unique_ptr<SwDDETable> pDDETable(new SwDDETable( pTableNode->GetTable(), pNewType ));
         pTableNode->SetNewTable( std::move(pDDETable) );
-        pDDEFieldType.reset();
+        m_pDDEFieldType.reset();
     }
 
-    if( (pRedlData && IDocumentRedlineAccess::IsRedlineOn( GetRedlineFlags() )) ||
+    if( (m_pRedlineData && IDocumentRedlineAccess::IsRedlineOn( GetRedlineFlags() )) ||
         ( !( RedlineFlags::Ignore & GetRedlineFlags() ) &&
             !rDoc.getIDocumentRedlineAccess().GetRedlineTable().empty() ))
     {
@@ -322,12 +322,12 @@ void SwUndoInsTable::RedoImpl(::sw::UndoRedoContext & rContext)
         if( pCNd )
             aPam.GetMark()->nContent.Assign( pCNd, 0 );
 
-        if( pRedlData && IDocumentRedlineAccess::IsRedlineOn( GetRedlineFlags() ) )
+        if( m_pRedlineData && IDocumentRedlineAccess::IsRedlineOn( GetRedlineFlags() ) )
         {
             RedlineFlags eOld = rDoc.getIDocumentRedlineAccess().GetRedlineFlags();
             rDoc.getIDocumentRedlineAccess().SetRedlineFlags_intern(eOld & ~RedlineFlags::Ignore);
 
-            rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( *pRedlData, aPam ), true);
+            rDoc.getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( *m_pRedlineData, aPam ), true);
             rDoc.getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
         }
         else
@@ -338,8 +338,8 @@ void SwUndoInsTable::RedoImpl(::sw::UndoRedoContext & rContext)
 void SwUndoInsTable::RepeatImpl(::sw::RepeatContext & rContext)
 {
     rContext.GetDoc().InsertTable(
-            aInsTableOpts, *rContext.GetRepeatPaM().GetPoint(),
-            nRows, nCols, nAdjust, pAutoFormat.get(), pColWidth.get() );
+            m_aInsTableOptions, *rContext.GetRepeatPaM().GetPoint(),
+            m_nRows, m_nColumns, m_nAdjust, m_pAutoFormat.get(), m_pColumnWidth.get() );
 }
 
 SwRewriter SwUndoInsTable::GetRewriter() const
@@ -347,7 +347,7 @@ SwRewriter SwUndoInsTable::GetRewriter() const
     SwRewriter aRewriter;
 
     aRewriter.AddRule(UndoArg1, SwResId(STR_START_QUOTE));
-    aRewriter.AddRule(UndoArg2, sTableNm);
+    aRewriter.AddRule(UndoArg2, m_sTableName);
     aRewriter.AddRule(UndoArg3, SwResId(STR_END_QUOTE));
 
     return aRewriter;
@@ -404,7 +404,7 @@ SwUndoTableToText::SwUndoTableToText( const SwTable& rTable, sal_Unicode cCh )
     m_vBoxSaves.reserve(rTable.GetTabSortBoxes().size());
 
     if( auto pDDETable = dynamic_cast<const SwDDETable *>(&rTable) )
-        pDDEFieldType.reset( static_cast<SwDDEFieldType*>(pDDETable->GetDDEFieldType()->Copy()) );
+        pDDEFieldType.reset(static_cast<SwDDEFieldType*>(pDDETable->GetDDEFieldType()->Copy().release()));
 
     bCheckNumFormat = rTable.GetFrameFormat()->GetDoc()->IsInsTableFormatNum();
 
@@ -641,7 +641,7 @@ void SwUndoTableToText::RedoImpl(::sw::UndoRedoContext & rContext)
     OSL_ENSURE( pTableNd, "Could not find any TableNode" );
 
     if( auto pDDETable = dynamic_cast<const SwDDETable *>(&pTableNd->GetTable()) )
-        pDDEFieldType.reset( static_cast<SwDDEFieldType*>(pDDETable->GetDDEFieldType()->Copy()) );
+        pDDEFieldType.reset(static_cast<SwDDEFieldType*>(pDDETable->GetDDEFieldType()->Copy().release()));
 
     rDoc.TableToText( pTableNd, cSeparator );
 
@@ -1287,7 +1287,7 @@ void SaveBox::SaveContentAttrs( SwDoc* pDoc )
     else
     {
         sal_uLong nEnd = pDoc->GetNodes()[ nSttNode ]->EndOfSectionIndex();
-        Ptrs.pContentAttrs = new SfxItemSets( static_cast<sal_uInt8>(nEnd - nSttNode - 1 ) );
+        Ptrs.pContentAttrs = new SfxItemSets;
         for( sal_uLong n = nSttNode + 1; n < nEnd; ++n )
         {
             SwContentNode* pCNd = pDoc->GetNodes()[ n ]->GetContentNode();
@@ -2153,7 +2153,7 @@ void SwUndoTableNumFormat::UndoImpl(::sw::UndoRedoContext & rContext)
     // the same here.
     if( pTextNd->GetText() != m_aStr )
     {
-        rDoc.getIDocumentRedlineAccess().DeleteRedline( *( pBox->GetSttNd() ), false, USHRT_MAX );
+        rDoc.getIDocumentRedlineAccess().DeleteRedline( *( pBox->GetSttNd() ), false, RedlineType::Any );
 
         SwIndex aIdx( pTextNd, 0 );
         if( !m_aStr.isEmpty() )
@@ -2399,7 +2399,7 @@ void SwUndoTableCpyTable::UndoImpl(::sw::UndoRedoContext & rContext)
                         *aPam.GetPoint() = SwPosition( aTmpIdx );
                 }
             }
-            rDoc.getIDocumentRedlineAccess().DeleteRedline( aPam, true, USHRT_MAX );
+            rDoc.getIDocumentRedlineAccess().DeleteRedline( aPam, true, RedlineType::Any );
 
             if( pEntry->pUndo )
             {
@@ -2675,7 +2675,7 @@ std::unique_ptr<SwUndo> SwUndoTableCpyTable::PrepareRedline( SwDoc* pDoc, const 
     {   // If the old (deleted) part is not empty, here we are...
         SwPaM aDeletePam( aDeleteStart, aCellEnd );
         pUndo = std::make_unique<SwUndoRedlineDelete>( aDeletePam, SwUndoId::DELETE );
-        pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_DELETE, aDeletePam ), true );
+        pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Delete, aDeletePam ), true );
     }
     else if( !rJoin ) // If the old part is empty and joined, we are finished
     {   // if it is not joined, we have to delete this empty paragraph
@@ -2691,7 +2691,7 @@ std::unique_ptr<SwUndo> SwUndoTableCpyTable::PrepareRedline( SwDoc* pDoc, const 
     if( aCellStart != aInsertEnd ) // An empty insertion will not been marked
     {
         SwPaM aTmpPam( aCellStart, aInsertEnd );
-        pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( nsRedlineType_t::REDLINE_INSERT, aTmpPam ), true );
+        pDoc->getIDocumentRedlineAccess().AppendRedline( new SwRangeRedline( RedlineType::Insert, aTmpPam ), true );
     }
 
     pDoc->getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld );
@@ -3080,7 +3080,7 @@ void SwUndoTableStyleMake::RedoImpl(::sw::UndoRedoContext & rContext)
         if (pFormat)
         {
             *pFormat = *m_pAutoFormat;
-            m_pAutoFormat.reset(nullptr);
+            m_pAutoFormat.reset();
         }
     }
 }

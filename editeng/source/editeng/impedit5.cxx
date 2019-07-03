@@ -371,7 +371,7 @@ SfxItemSet ImpEditEngine::GetAttribs( EditSelection aSel, EditEngineAttribs nOnl
                         // wrong in selection  if invalidated....
                         // => better not invalidate, instead CHANGE!
                         // It would be better to fill each paragraph with
-                        // a itemset and compare this in large.
+                        // an itemset and compare this in large.
                         if ( nWhich <= EE_PARA_END )
                             aCurSet.InvalidateItem( nWhich );
                     }
@@ -463,7 +463,7 @@ SfxItemSet ImpEditEngine::GetAttribs( sal_Int32 nPara, sal_Int32 nStart, sal_Int
                         }
                         else
                         {
-                            // OptimizeRagnge() assures that not the same attr can follow for full coverage
+                            // OptimizeRanges() assures that not the same attr can follow for full coverage
                             // only partial, check with current, when using para/style, otherwise invalid.
                             if ( !( nFlags & (GetAttribsFlags::PARAATTRIBS|GetAttribsFlags::STYLESHEET) ) ||
                                 ( *rAttr.GetItem() != aAttribs.Get( rAttr.Which() ) ) )

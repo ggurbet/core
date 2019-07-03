@@ -48,8 +48,10 @@
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/charclass.hxx>
 #include <vcl/help.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/cursor.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <tools/urlobj.hxx>
 #include <formula/formulahelper.hxx>
 #include <formula/funcvarargs.h>
@@ -84,7 +86,7 @@
 #include <gridwin.hxx>
 
 // Maximum Ranges in RangeFinder
-#define RANGEFIND_MAX   64
+#define RANGEFIND_MAX   128
 
 using namespace formula;
 
@@ -3044,15 +3046,16 @@ void ScInputHandler::SetReference( const ScRange& rRef, const ScDocument* pDoc )
 {
     HideTip();
 
-    bool bOtherDoc = ( pRefViewSh &&
-                        pRefViewSh->GetViewData().GetDocument() != pDoc );
-    if (bOtherDoc)
-        if (!pDoc->GetDocumentShell()->HasName())
-        {
-            // References to unnamed document; that doesn't work
-            // SetReference should not be called, then
-            return;
-        }
+    const ScDocument* pThisDoc = nullptr;
+    bool bOtherDoc = (pRefViewSh && ((pThisDoc = pRefViewSh->GetViewData().GetDocument()) != pDoc));
+    if (bOtherDoc && !pDoc->GetDocumentShell()->HasName())
+    {
+        // References to unnamed document; that doesn't work
+        // SetReference should not be called, then
+        return;
+    }
+    if (!pThisDoc)
+        pThisDoc = pDoc;
 
     UpdateActiveView();
     if (!pTableView && !pTopView)
@@ -3087,9 +3090,9 @@ void ScInputHandler::SetReference( const ScRange& rRef, const ScDocument* pDoc )
         }
     }
 
-    // Create string from reference
+    // Create string from reference, in the syntax of the document being edited.
     OUString aRefStr;
-    const ScAddress::Details aAddrDetails( pDoc, aCursorPos );
+    const ScAddress::Details aAddrDetails( pThisDoc, aCursorPos );
     if (bOtherDoc)
     {
         // Reference to other document

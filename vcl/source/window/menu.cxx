@@ -1166,6 +1166,9 @@ OString Menu::GetHelpId( sal_uInt16 nItemId ) const
 
 Menu& Menu::operator=( const Menu& rMenu )
 {
+    if(this == &rMenu)
+        return *this;
+
     // clean up
     Clear();
 
@@ -2964,6 +2967,9 @@ sal_uInt16 PopupMenu::ImplExecute( const VclPtr<vcl::Window>& pW, const tools::R
         sal_uInt16 nEntries = ImplCalcVisEntries( nMaxHeight, nStart );
         aSz.setHeight( ImplCalcHeight( nEntries ) );
     }
+
+    // tdf#126054 hold this until after function completes
+    VclPtr<PopupMenu> m_xThis(this);
 
     pWin->SetFocusId( xFocusId );
     pWin->SetOutputSizePixel( aSz );

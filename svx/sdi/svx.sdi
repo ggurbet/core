@@ -8278,7 +8278,7 @@ SfxBoolItem TestMode SID_DIALOG_TESTMODE
 
 
 SfxBoolItem Text SID_ATTR_CHAR
-
+(SfxBoolItem CreateDirectly FN_PARAM_1)
 [
     AutoUpdate = TRUE,
     FastCall = FALSE,
@@ -12045,5 +12045,22 @@ SfxVoidItem SignSignatureLine SID_SIGN_SIGNATURELINE
     AccelConfig = FALSE,
     MenuConfig = FALSE,
     ToolBoxConfig = FALSE,
+    GroupId = SfxGroupId::Edit;
+]
+
+SfxVoidItem RemoveHyperlink SID_REMOVE_HYPERLINK
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
     GroupId = SfxGroupId::Edit;
 ]

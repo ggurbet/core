@@ -19,6 +19,8 @@
 
 #include <config_features.h>
 
+#include <com/sun/star/view/XSelectionSupplier.hpp>
+
 #include <vcl/svapp.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
@@ -46,14 +48,14 @@ SwXDispatchProviderInterceptor::SwXDispatchProviderInterceptor(SwView& rVw) :
     m_xIntercepted.set(xUnoFrame, uno::UNO_QUERY);
     if(m_xIntercepted.is())
     {
-        m_refCount++;
+        osl_atomic_increment(&m_refCount);
         m_xIntercepted->registerDispatchProviderInterceptor(static_cast<frame::XDispatchProviderInterceptor*>(this));
         // this should make us the top-level dispatch-provider for the component, via a call to our
         // setDispatchProvider we should have got an fallback for requests we (i.e. our master) cannot fulfill
         uno::Reference< lang::XComponent> xInterceptedComponent(m_xIntercepted, uno::UNO_QUERY);
         if (xInterceptedComponent.is())
             xInterceptedComponent->addEventListener(static_cast<lang::XEventListener*>(this));
-        m_refCount--;
+        osl_atomic_decrement(&m_refCount);
     }
 }
 
@@ -102,13 +104,9 @@ uno::Sequence< uno::Reference< frame::XDispatch > > SwXDispatchProviderIntercept
 {
     DispatchMutexLock_Impl aLock;
     uno::Sequence< uno::Reference< frame::XDispatch> > aReturn(aDescripts.getLength());
-    uno::Reference< frame::XDispatch>* pReturn = aReturn.getArray();
-    const frame::DispatchDescriptor* pDescripts = aDescripts.getConstArray();
-    for (sal_Int32 i=0; i<aDescripts.getLength(); ++i, ++pReturn, ++pDescripts)
-    {
-        *pReturn = queryDispatch(pDescripts->FeatureURL,
-                pDescripts->FrameName, pDescripts->SearchFlags);
-    }
+    std::transform(aDescripts.begin(), aDescripts.end(), aReturn.begin(),
+        [this](const frame::DispatchDescriptor& rDescr) -> uno::Reference<frame::XDispatch> {
+            return queryDispatch(rDescr.FeatureURL, rDescr.FrameName, rDescr.SearchFlags); });
     return aReturn;
 }
 

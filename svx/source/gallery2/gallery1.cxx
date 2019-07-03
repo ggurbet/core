@@ -44,6 +44,7 @@
 #include <svx/galmisc.hxx>
 #include <svx/galtheme.hxx>
 #include <svx/gallery1.hxx>
+#include <vcl/weld.hxx>
 #include <com/sun/star/sdbc/XResultSet.hpp>
 #include <com/sun/star/ucb/XContentAccess.hpp>
 #include <memory>
@@ -375,7 +376,7 @@ void Gallery::ImplLoadSubDirs( const INetURLObject& rBaseURL, bool& rbDirIsReadO
                 {
                     INetURLObject aThmURL( xContentAccess->queryContentIdentifierString() );
 
-                    if(aThmURL.GetExtension().equalsIgnoreAsciiCase("thm"))
+                    if (aThmURL.GetFileExtension().equalsIgnoreAsciiCase("thm"))
                     {
                         INetURLObject   aSdgURL( aThmURL); aSdgURL.SetExtension( "sdg" );
                         INetURLObject   aSdvURL( aThmURL ); aSdvURL.SetExtension( "sdv" );

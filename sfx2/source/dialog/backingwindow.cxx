@@ -270,7 +270,7 @@ void BackingWindow::initControls()
     mpHelpButton->SetControlForeground(maButtonsTextColor);
     mpExtensionsButton->SetControlForeground(maButtonsTextColor);
 
-    const Color aButtonsBackground = Color(officecfg::Office::Common::Help::StartCenter::StartCenterBackgroundColor::get());
+    const Color aButtonsBackground(officecfg::Office::Common::Help::StartCenter::StartCenterBackgroundColor::get());
 
     mpAllButtonsBox->SetBackground(aButtonsBackground);
     mpSmallButtonsBox->SetBackground(aButtonsBackground);
@@ -748,7 +748,7 @@ void BackingWindow::dispatchURL( const OUString& i_rURL,
     if( !xProvider.is())
         return;
 
-    // get an URL transformer to clean up the URL
+    // get a URL transformer to clean up the URL
     css::util::URL aDispatchURL;
     aDispatchURL.Complete = i_rURL;
 

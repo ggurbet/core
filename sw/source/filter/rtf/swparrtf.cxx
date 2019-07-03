@@ -31,10 +31,11 @@
 #include <unotools/streamwrap.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
-#include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <com/sun/star/document/XFilter.hpp>
 #include <com/sun/star/document/XImporter.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 
 using namespace ::com::sun::star;
 
@@ -78,7 +79,7 @@ ErrCode SwRTFReader::Read(SwDoc& rDoc, const OUString& /*rBaseURL*/, SwPaM& rPam
         comphelper::getProcessServiceFactory());
     uno::Reference<uno::XInterface> xInterface(
         xMultiServiceFactory->createInstance("com.sun.star.comp.Writer.RtfFilter"),
-        uno::UNO_QUERY_THROW);
+        uno::UNO_SET_THROW);
 
     uno::Reference<document::XImporter> xImporter(xInterface, uno::UNO_QUERY_THROW);
     uno::Reference<lang::XComponent> xDstDoc(pDocShell->GetModel(), uno::UNO_QUERY_THROW);
@@ -98,9 +99,9 @@ ErrCode SwRTFReader::Read(SwDoc& rDoc, const OUString& /*rBaseURL*/, SwPaM& rPam
     {
         xFilter->filter(aDescriptor);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_WARN("sw.rtf", "SwRTFReader::Read(): " << e);
+        TOOLS_WARN_EXCEPTION("sw.rtf", "SwRTFReader::Read()");
         ret = ERR_SWG_READ_ERROR;
     }
 
@@ -174,7 +175,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportRTF(SvStream& rStream)
         comphelper::getProcessServiceFactory());
     uno::Reference<uno::XInterface> xInterface(
         xMultiServiceFactory->createInstance("com.sun.star.comp.Writer.RtfFilter"),
-        uno::UNO_QUERY_THROW);
+        uno::UNO_SET_THROW);
 
     uno::Reference<document::XImporter> xImporter(xInterface, uno::UNO_QUERY_THROW);
     uno::Reference<lang::XComponent> xDstDoc(xDocSh->GetModel(), uno::UNO_QUERY_THROW);

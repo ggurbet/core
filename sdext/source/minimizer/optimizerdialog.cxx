@@ -77,7 +77,7 @@ void OptimizerDialog::InitDialog()
     Sequence< OUString >   aNames( pNames, nCount );
     Sequence< Any >             aValues( pValues, nCount );
 
-    mxDialogModelMultiPropertySet->setPropertyValues( aNames, aValues );
+    setPropertyValues(aNames, aValues);
 }
 
 
@@ -111,7 +111,7 @@ void OptimizerDialog::InitRoadmap()
 
         Reference< XPropertySet > xPropertySet( mxRoadmapControlModel, UNO_QUERY_THROW );
         xPropertySet->setPropertyValue( "Name", Any( OUString("rdmNavi") ) );
-        mxRoadmapControl = mxDialog->getControl( "rdmNavi" );
+        mxRoadmapControl = getControl( "rdmNavi" );
         InsertRoadmapItem( 0, getString( STR_INTRODUCTION ), ITEM_ID_INTRODUCTION );
         InsertRoadmapItem( 1, getString( STR_SLIDES ), ITEM_ID_SLIDES );
         InsertRoadmapItem( 2, getString( STR_IMAGE_OPTIMIZATION ), ITEM_ID_GRAPHIC_OPTIMIZATION );
@@ -138,7 +138,7 @@ void OptimizerDialog::InsertRoadmapItem( const sal_Int32 nIndex, const OUString&
     {
         Reference< XSingleServiceFactory > xSFRoadmap( mxRoadmapControlModel, UNO_QUERY_THROW );
         Reference< XIndexContainer > aIndexContainerRoadmap( mxRoadmapControlModel, UNO_QUERY_THROW );
-        Reference< XInterface > xRoadmapItem( xSFRoadmap->createInstance(), UNO_QUERY_THROW );
+        Reference< XInterface > xRoadmapItem( xSFRoadmap->createInstance(), UNO_SET_THROW );
         Reference< XPropertySet > xPropertySet( xRoadmapItem, UNO_QUERY_THROW );
         xPropertySet->setPropertyValue( "Label", Any( rLabel ) );
         xPropertySet->setPropertyValue( "Enabled", Any( true ) );
@@ -164,7 +164,7 @@ void OptimizerDialog::UpdateConfiguration()
     aAny = getControlProperty( "ListBox0Pg0", "SelectedItems" );
     if ( aAny >>= aSelectedItems )
     {
-        if ( aSelectedItems.getLength() )
+        if ( aSelectedItems.hasElements() )
         {
             sal_Int16 nSelectedItem = aSelectedItems[ 0 ];
             aAny = getControlProperty( "ListBox0Pg0", "StringItemList" );
@@ -184,7 +184,7 @@ void OptimizerDialog::UpdateConfiguration()
     if ( !(aAny >>= aSelectedItems) )
         return;
 
-    if ( aSelectedItems.getLength() )
+    if ( aSelectedItems.hasElements() )
     {
         sal_Int16 nSelectedItem = aSelectedItems[ 0 ];
         aAny = getControlProperty( "ListBox0Pg3", "StringItemList" );
@@ -234,7 +234,7 @@ OptimizerDialog::OptimizerDialog( const Reference< XComponentContext > &rxContex
 OptimizerDialog::~OptimizerDialog()
 {
     // not saving configuration if the dialog has been finished via cancel or close window
-    if ( mbStatus )
+    if ( endStatus() )
         SaveConfiguration();
 }
 
@@ -317,9 +317,6 @@ OUString OptimizerDialog::GetSelectedString( OUString const & token )
 
 void OptimizerDialog::UpdateStatus( const css::uno::Sequence< css::beans::PropertyValue >& rStatus )
 {
-    if ( !mxReschedule.is() )
-        return;
-
     maStats.InitializeStatusValues( rStatus );
     const Any* pVal( maStats.GetStatusValue( TK_Status ) );
     if ( pVal )
@@ -342,7 +339,7 @@ void OptimizerDialog::UpdateStatus( const css::uno::Sequence< css::beans::Proper
     if ( pVal )
         SetConfigProperty( TK_OpenNewDocument, *pVal );
 
-    mxReschedule->reschedule();
+    reschedule();
 }
 
 
@@ -507,7 +504,7 @@ void ActionListener::actionPerformed( const ActionEvent& rEvent )
 
                 // generating default file name
                 OUString aName;
-                Reference< XStorable > xStorable( mrOptimizerDialog.mxController->getModel(), UNO_QUERY );
+                Reference< XStorable > xStorable( mrOptimizerDialog.controller()->getModel(), UNO_QUERY );
                 if ( xStorable.is() && xStorable->hasLocation() )
                 {
                     INetURLObject aURLObj( xStorable->getLocation() );
@@ -547,17 +544,14 @@ void ActionListener::actionPerformed( const ActionEvent& rEvent )
                 }
 
                 // waiting for 500ms
-                if ( mrOptimizerDialog.mxReschedule.is() )
-                {
-                    mrOptimizerDialog.mxReschedule->reschedule();
-                    for ( sal_uInt32 i = osl_getGlobalTimer(); ( i + 500 ) > ( osl_getGlobalTimer() ); )
-                    mrOptimizerDialog.mxReschedule->reschedule();
-                }
+                mrOptimizerDialog.reschedule();
+                for ( sal_uInt32 i = osl_getGlobalTimer(); ( i + 500 ) > ( osl_getGlobalTimer() ); )
+                mrOptimizerDialog.reschedule();
             }
             else
             {
                 // Apply changes to current presentation
-                Reference<XModifiable> xModifiable(mrOptimizerDialog.mxController->getModel(),
+                Reference<XModifiable> xModifiable(mrOptimizerDialog.controller()->getModel(),
                                                    UNO_QUERY_THROW );
                 if ( xModifiable->isModified() )
                 {

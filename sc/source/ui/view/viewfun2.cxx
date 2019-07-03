@@ -2,7 +2,7 @@
 /*
  * This file is part of the LibreOffice project.
  *
- * This Source Code Form is subject to the terms of the Mozilla Public
+ * This Source eCode Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
@@ -21,6 +21,7 @@
 #include <editeng/eeitem.hxx>
 
 #include <sfx2/app.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/scripttypeitem.hxx>
@@ -225,7 +226,11 @@ enum ScAutoSum
 {
     ScAutoSumNone = 0,
     ScAutoSumData,
-    ScAutoSumSum
+    ScAutoSumSum,
+    ScAutoSumAverage,
+    ScAutoSumMax,
+    ScAutoSumMin,
+    ScAutoSumCount
 };
 
 static ScAutoSum lcl_IsAutoSumData( ScDocument* pDoc, SCCOL nCol, SCROW nRow,
@@ -236,12 +241,28 @@ static ScAutoSum lcl_IsAutoSumData( ScDocument* pDoc, SCCOL nCol, SCROW nRow,
     {
         if (aCell.meType == CELLTYPE_FORMULA)
         {
+            ScAutoSum val = ScAutoSumNone;
             ScTokenArray* pCode = aCell.mpFormula->GetCode();
-            if ( pCode && pCode->GetOuterFuncOpCode() == ocSum )
+            if ( pCode )
             {
+                switch( pCode->GetOuterFuncOpCode() )
+                {
+                    case ocSum     : val = ScAutoSumSum;
+                        break;
+                    case ocAverage : val = ScAutoSumAverage;
+                        break;
+                    case ocMax     : val = ScAutoSumMax;
+                        break;
+                    case ocMin     : val = ScAutoSumMin;
+                        break;
+                    case ocCount   : val = ScAutoSumCount;
+                        break;
+                    default        :
+                        break;
+                }
                 if ( pCode->GetAdjacentExtendOfOuterFuncRefs( nExtend,
                         ScAddress( nCol, nRow, nTab ), eDir ) )
-                    return ScAutoSumSum;
+                    return val;
             }
         }
         return ScAutoSumData;
@@ -292,7 +313,7 @@ static bool lcl_FindNextSumEntryInColumn( ScDocument* pDoc, SCCOL nCol, SCROW& n
     {
         --nRow;
     }
-    return eSkip == ScAutoSumSum && nRow < nTmp;
+    return eSkip >= ScAutoSumSum && nRow < nTmp;
 }
 
 static bool lcl_FindNextSumEntryInRow( ScDocument* pDoc, SCCOL& nCol, SCROW nRow,
@@ -305,7 +326,7 @@ static bool lcl_FindNextSumEntryInRow( ScDocument* pDoc, SCCOL& nCol, SCROW nRow
     {
         --nCol;
     }
-    return eSkip == ScAutoSumSum && nCol < nTmp;
+    return eSkip >= ScAutoSumSum && nCol < nTmp;
 }
 
 static ScAutoSum lcl_GetAutoSumForColumnRange( ScDocument* pDoc, ScRangeList& rRangeList, const ScRange& rRange )
@@ -324,7 +345,7 @@ static ScAutoSum lcl_GetAutoSumForColumnRange( ScDocument* pDoc, ScRangeList& rR
     SCCOLROW nExtend = 0;
     ScAutoSum eSum = lcl_IsAutoSumData( pDoc, nCol, nEndRow, nTab, DIR_TOP, nExtend /*out*/ );
 
-    if ( eSum == ScAutoSumSum )
+    if ( eSum >= ScAutoSumSum )
     {
         bool bContinue = false;
         do
@@ -341,7 +362,7 @@ static ScAutoSum lcl_GetAutoSumForColumnRange( ScDocument* pDoc, ScRangeList& rR
     else
     {
         while ( nStartRow > aStart.Row() &&
-                (eSum = lcl_IsAutoSumData( pDoc, nCol, nStartRow-1, nTab, DIR_TOP, nExtend /*out*/ )) != ScAutoSumSum )
+                (eSum = lcl_IsAutoSumData( pDoc, nCol, nStartRow-1, nTab, DIR_TOP, nExtend /*out*/ )) < ScAutoSumSum )
         {
             --nStartRow;
         }
@@ -369,7 +390,7 @@ static ScAutoSum lcl_GetAutoSumForRowRange( ScDocument* pDoc, ScRangeList& rRang
     SCCOLROW nExtend = 0;
     ScAutoSum eSum = lcl_IsAutoSumData( pDoc, nEndCol, nRow, nTab, DIR_LEFT, nExtend /*out*/ );
 
-    if ( eSum == ScAutoSumSum )
+    if ( eSum >= ScAutoSumSum )
     {
         bool bContinue = false;
         do
@@ -386,7 +407,7 @@ static ScAutoSum lcl_GetAutoSumForRowRange( ScDocument* pDoc, ScRangeList& rRang
     else
     {
         while ( nStartCol > aStart.Col() &&
-                (eSum = lcl_IsAutoSumData( pDoc, nStartCol-1, nRow, nTab, DIR_LEFT, nExtend /*out*/ )) != ScAutoSumSum )
+                (eSum = lcl_IsAutoSumData( pDoc, nStartCol-1, nRow, nTab, DIR_LEFT, nExtend /*out*/ )) < ScAutoSumSum )
         {
             --nStartCol;
         }
@@ -396,6 +417,27 @@ static ScAutoSum lcl_GetAutoSumForRowRange( ScDocument* pDoc, ScRangeList& rRang
     }
 
     return eSum;
+}
+
+static sal_Int8 GetSubTotal( const OpCode eCode )
+{
+    sal_Int8 val;
+    switch ( eCode )
+    {
+        case ocSum     : val = 9;
+            break;
+        case ocAverage : val = 1;
+            break;
+        case ocMax     : val = 4;
+            break;
+        case ocMin     : val = 5;
+            break;
+        case ocCount   : val = 2;
+            break;
+        default        : val = 9;
+    }
+
+    return val;
 }
 
 bool ScViewFunc::GetAutoSumArea( ScRangeList& rRangeList )
@@ -444,15 +486,15 @@ bool ScViewFunc::GetAutoSumArea( ScRangeList& rRangeList )
         if ( bRow )
         {
             nStartRow = nSeekRow;       // nSeekRow might be adjusted via reference
-            if ( eSum == ScAutoSumSum )
+            if ( eSum >= ScAutoSumSum  && eSum <= ScAutoSumCount )
                 nEndRow = nStartRow;        // only sum sums
             else
                 nEndRow = nRow - 1;     // maybe extend data area at bottom
         }
         else
         {
-            nStartCol = nSeekCol;       // nSeekCol might be adjusted vie reference
-            if ( eSum == ScAutoSumSum )
+            nStartCol = nSeekCol;       // nSeekCol might be adjusted via reference
+            if ( eSum >= ScAutoSumSum )
                 nEndCol = nStartCol;        // only sum sums
             else
                 nEndCol = nCol - 1;     // maybe extend data area to the right
@@ -477,7 +519,7 @@ bool ScViewFunc::GetAutoSumArea( ScRangeList& rRangeList )
             }
             rRangeList.push_back(
                 ScRange( nStartCol, nStartRow, nTab, nEndCol, nEndRow, nTab ) );
-            if ( eSum == ScAutoSumSum )
+            if ( eSum >= ScAutoSumSum )
             {
                 if ( bRow )
                 {
@@ -504,13 +546,13 @@ bool ScViewFunc::GetAutoSumArea( ScRangeList& rRangeList )
     return false;
 }
 
-void ScViewFunc::EnterAutoSum(const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr)
+void ScViewFunc::EnterAutoSum(const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr, const OpCode eCode)
 {
-    OUString aFormula = GetAutoSumFormula( rRangeList, bSubTotal, rAddr );
+    OUString aFormula = GetAutoSumFormula( rRangeList, bSubTotal, rAddr , eCode);
     EnterBlock( aFormula, nullptr );
 }
 
-bool ScViewFunc::AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor, bool bContinue )
+bool ScViewFunc::AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor, bool bContinue , const OpCode eCode)
 {
     ScDocument* pDoc = GetViewData().GetDocument();
     const SCTAB nTab = rRange.aStart.Tab();
@@ -666,7 +708,7 @@ bool ScViewFunc::AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor
                     if (++nRowSums == 1)
                         nRowSumsStartCol = aRangeList[0].aStart.Col();
                     const OUString aFormula = GetAutoSumFormula(
-                        aRangeList, bSubTotal, ScAddress(nCol, nInsRow, nTab));
+                        aRangeList, bSubTotal, ScAddress(nCol, nInsRow, nTab), eCode);
                     EnterData( nCol, nInsRow, nTab, aFormula );
                 }
             }
@@ -702,7 +744,7 @@ bool ScViewFunc::AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor
                 {
                     if (++nColSums == 1)
                         nColSumsStartRow = aRangeList[0].aStart.Row();
-                    const OUString aFormula = GetAutoSumFormula( aRangeList, bSubTotal, ScAddress(nInsCol, nRow, nTab) );
+                    const OUString aFormula = GetAutoSumFormula( aRangeList, bSubTotal, ScAddress(nInsCol, nRow, nTab), eCode );
                     EnterData( nInsCol, nRow, nTab, aFormula );
                 }
             }
@@ -714,10 +756,10 @@ bool ScViewFunc::AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor
     // there is only one, or the data range if more than one. Otherwise use the
     // original selection. All extended by end column/row where the sum is put.
     const ScRange aMarkRange(
-            (eSum == ScAutoSumSum ?
+            (eSum >= ScAutoSumSum ?
              (nRowSums == 1 ? nRowSumsStartCol : nStartCol) :
              rRange.aStart.Col()),
-            (eSum == ScAutoSumSum ?
+            (eSum >= ScAutoSumSum ?
              (nColSums == 1 ? nColSumsStartRow : nStartRow) :
              rRange.aStart.Row()),
             nTab, nMarkEndCol, nMarkEndRow, nTab );
@@ -730,18 +772,18 @@ bool ScViewFunc::AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor
     return true;
 }
 
-OUString ScViewFunc::GetAutoSumFormula( const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr )
+OUString ScViewFunc::GetAutoSumFormula( const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr , const OpCode eCode)
 {
     ScViewData& rViewData = GetViewData();
     ScDocument* pDoc = rViewData.GetDocument();
     std::unique_ptr<ScTokenArray> pArray(new ScTokenArray);
 
-    pArray->AddOpCode(bSubTotal ? ocSubTotal : ocSum);
+    pArray->AddOpCode(bSubTotal ? ocSubTotal : eCode);
     pArray->AddOpCode(ocOpen);
 
     if (bSubTotal)
     {
-        pArray->AddDouble(9);
+        pArray->AddDouble( GetSubTotal( eCode ) );
         pArray->AddOpCode(ocSep);
     }
 
@@ -1140,8 +1182,7 @@ bool ScViewFunc::MergeCells( bool bApi, bool& rDoContents, bool bCenter )
         bool bShowDialog = officecfg::Office::Calc::Compatibility::MergeCells::ShowDialog::get();
         if (!bApi && bShowDialog)
         {
-            vcl::Window* pWin = GetViewData().GetDialogParent();
-            ScMergeCellsDialog aBox(pWin ? pWin->GetFrameWeld() : nullptr);
+            ScMergeCellsDialog aBox(GetViewData().GetDialogParent());
             sal_uInt16 nRetVal = aBox.run();
 
             if ( nRetVal == RET_OK )
@@ -1617,40 +1658,51 @@ void ScViewFunc::FillCrossDblClick()
 
     if ( nEndY < MAXROW )
     {
-        if ( nStartX > 0 )
+        const bool bDataLeft = (nStartX > 0);
+        if (bDataLeft || nEndX < MAXCOL)
         {
-            SCCOL nMovX = nStartX - 1;
+            // Check that there is
+            // 1) data immediately left (preferred) or right of start (row) of selection
+            // 2) data there below
+            // 3) no data immediately below selection
+
+            SCCOL nMovX = (bDataLeft ? nStartX - 1 : nEndX + 1);
             SCROW nMovY = nStartY;
-
-            if ( pDoc->HasData( nMovX, nStartY, nTab ) &&
-                 pDoc->HasData( nMovX, nStartY + 1, nTab ) )
+            bool bDataFound = (pDoc->HasData( nMovX, nStartY, nTab) && pDoc->HasData( nMovX, nStartY + 1, nTab));
+            if (!bDataFound && bDataLeft && nEndX < MAXCOL)
             {
-                pDoc->FindAreaPos( nMovX, nMovY, nTab, SC_MOVE_DOWN );
-
-                if ( nMovY > nEndY )
-                {
-                    FillAuto( FILL_TO_BOTTOM, nStartX, nStartY, nEndX, nEndY,
-                              nMovY - nEndY );
-                    return;
-                }
+                nMovX = nEndX + 1;  // check right
+                bDataFound = (pDoc->HasData( nMovX, nStartY, nTab) && pDoc->HasData( nMovX, nStartY + 1, nTab));
             }
-        }
 
-        if ( nEndX < MAXCOL )
-        {
-            SCCOL nMovX = nEndX + 1;
-            SCROW nMovY = nStartY;
-
-            if ( pDoc->HasData( nMovX, nStartY, nTab ) &&
-                 pDoc->HasData( nMovX, nStartY + 1, nTab ) )
+            if (bDataFound && pDoc->IsBlockEmpty( nTab, nStartX, nEndY + 1, nEndX, nEndY + 1, true))
             {
-                pDoc->FindAreaPos( nMovX, nMovY, nTab, SC_MOVE_DOWN );
-
-                if ( nMovY > nEndY )
+                // Get end of data left or right.
+                pDoc->FindAreaPos( nMovX, nMovY, nTab, SC_MOVE_DOWN);
+                // Find minimum end row of below empty area and data right.
+                for (SCCOL nX = nStartX; nX <= nEndX; ++nX)
                 {
-                    FillAuto( FILL_TO_BOTTOM, nStartX, nStartY, nEndX, nEndY,
-                              nMovY - nEndY );
-                    return;
+                    SCROW nY = nEndY + 1;
+                    // Get next row with data in this column.
+                    pDoc->FindAreaPos( nX, nY, nTab, SC_MOVE_DOWN);
+                    if (nMovY == MAXROW && nY == MAXROW)
+                    {
+                        // FindAreaPos() returns MAXROW also if there is no
+                        // data at all from the start, so check if that
+                        // contains data if the nearby (left or right) data
+                        // ends there and increment if no data here, pretending
+                        // the next data would be thereafter so nMovY will not
+                        // be decremented.
+                        if (!pDoc->HasData( nX, nY, nTab))
+                            ++nY;
+                    }
+                    if (nMovY > nY - 1)
+                        nMovY = nY - 1;
+                }
+
+                if (nMovY > nEndY)
+                {
+                    FillAuto( FILL_TO_BOTTOM, nStartX, nStartY, nEndX, nEndY, nMovY - nEndY);
                 }
             }
         }
@@ -1834,13 +1886,15 @@ bool ScViewFunc::SearchAndReplace( const SvxSearchItem* pSearchItem,
             if (nCommand == SvxSearchCmd::FIND_ALL || nCommand == SvxSearchCmd::REPLACE_ALL)
             {
                 SfxViewFrame* pViewFrm = SfxViewFrame::Current();
-                if (pViewFrm && !comphelper::LibreOfficeKit::isActive())
+                bool bShow = GetViewData().GetViewShell()->GetViewData().GetOptions().GetOption( VOPT_SUMMARY );
+
+                if (bShow && pViewFrm && !comphelper::LibreOfficeKit::isActive())
                 {
                     pViewFrm->ShowChildWindow(sc::SearchResultsDlgWrapper::GetChildWindowId());
                     SfxChildWindow* pWnd = pViewFrm->GetChildWindow(sc::SearchResultsDlgWrapper::GetChildWindowId());
                     if (pWnd)
                     {
-                        sc::SearchResultsDlg* pDlg = static_cast<sc::SearchResultsDlg*>(pWnd->GetWindow());
+                        sc::SearchResultsDlg* pDlg = static_cast<sc::SearchResultsDlg*>(pWnd->GetController().get());
                         if (pDlg)
                             pDlg->FillResults(&rDoc, aMatchedRanges,
                                     pSearchItem->GetCellType() == SvxSearchCellType::NOTE);
@@ -2080,8 +2134,7 @@ void ScViewFunc::Solve( const ScSolveParam& rParam )
             aMsgStr += ScResId( STR_MSSG_SOLVE_4 );
         }
 
-        vcl::Window* pWin = GetViewData().GetDialogParent();
-        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                   VclMessageType::Question, VclButtonsType::YesNo, aMsgStr));
         xBox->set_title(ScResId(STR_MSSG_DOSUBTOTALS_0));
         xBox->set_default_response(RET_NO);
@@ -2641,7 +2694,7 @@ void ScViewFunc::MoveTable(
         //  execute without SfxCallMode::RECORD, because already contained in move command
 
         SfxStringItem aItem( SID_FILE_NAME, "private:factory/" STRING_SCAPP );
-        SfxStringItem aTarget( SID_TARGETNAME, OUString("_blank") );
+        SfxStringItem aTarget( SID_TARGETNAME, "_blank" );
 
         const SfxPoolItem* pRetItem = GetViewData().GetDispatcher().ExecuteList(
                     SID_OPENDOC, SfxCallMode::API|SfxCallMode::SYNCHRON,

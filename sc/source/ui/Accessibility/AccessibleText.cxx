@@ -105,11 +105,11 @@ void ScViewForwarder::SetInvalid()
 
 class ScEditObjectViewForwarder : public SvxViewForwarder
 {
-    VclPtr<vcl::Window> mpWindow;
+    VclPtr<OutputDevice> mpWindow;
     // #i49561# EditView needed for access to its visible area.
     const EditView*     mpEditView;
 public:
-                        ScEditObjectViewForwarder( vcl::Window* pWindow,
+                        ScEditObjectViewForwarder( OutputDevice* pWindow,
                                                    const EditView* _pEditView);
 
     virtual bool        IsValid() const override;
@@ -119,11 +119,10 @@ public:
     void                SetInvalid();
 };
 
-ScEditObjectViewForwarder::ScEditObjectViewForwarder( vcl::Window* pWindow,
+ScEditObjectViewForwarder::ScEditObjectViewForwarder( OutputDevice* pWindow,
                                                       const EditView* _pEditView )
-    :
-    mpWindow(pWindow),
-    mpEditView( _pEditView )
+    : mpWindow(pWindow)
+    , mpEditView( _pEditView )
 {
 }
 
@@ -301,9 +300,9 @@ ScPreviewNoteViewForwarder::ScPreviewNoteViewForwarder(ScPreviewShell* pViewShel
 class ScEditViewForwarder : public SvxEditViewForwarder
 {
     EditView*           mpEditView;
-    VclPtr<vcl::Window> mpWindow;
+    VclPtr<OutputDevice> mpWindow;
 public:
-                        ScEditViewForwarder(EditView* pEditView, vcl::Window* pWin);
+                        ScEditViewForwarder(EditView* pEditView, OutputDevice* pWin);
 
     virtual bool        IsValid() const override;
     virtual Point       LogicToPixel( const Point& rPoint, const MapMode& rMapMode ) const override;
@@ -317,9 +316,9 @@ public:
     void                SetInvalid();
 };
 
-ScEditViewForwarder::ScEditViewForwarder(EditView* pEditView, vcl::Window* pWin)
-    : mpEditView(pEditView),
-    mpWindow(pWin)
+ScEditViewForwarder::ScEditViewForwarder(EditView* pEditView, OutputDevice* pWin)
+    : mpEditView(pEditView)
+    , mpWindow(pWin)
 {
 }
 
@@ -640,7 +639,7 @@ ScDocShell* ScAccessibleCellTextData::GetDocShell(ScTabViewShell* pViewShell)
     return pDocSh;
 }
 
-ScAccessibleEditObjectTextData::ScAccessibleEditObjectTextData(EditView* pEditView, vcl::Window* pWin, bool isClone)
+ScAccessibleEditObjectTextData::ScAccessibleEditObjectTextData(EditView* pEditView, OutputDevice* pWin, bool isClone)
     :
     mpEditView(pEditView),
     mpEditEngine(pEditView ? pEditView->GetEditEngine() : nullptr),
@@ -731,7 +730,7 @@ IMPL_LINK(ScAccessibleEditObjectTextData, NotifyHdl, EENotify&, rNotify, void)
         GetBroadcaster().Broadcast(*aHint);
 }
 
-ScAccessibleEditLineTextData::ScAccessibleEditLineTextData(EditView* pEditView, vcl::Window* pWin)
+ScAccessibleEditLineTextData::ScAccessibleEditLineTextData(EditView* pEditView, OutputDevice* pWin)
     :
     ScAccessibleEditObjectTextData(pEditView, pWin),
     mbEditEngineCreated(false)
@@ -1012,7 +1011,7 @@ SvxTextForwarder* ScAccessiblePreviewHeaderCellTextData::GetTextForwarder()
         if ( pDocShell )
         {
             ScDocument& rDoc = pDocShell->GetDocument();
-            pEditEngine = rDoc.CreateFieldEditEngine();
+            pEditEngine = rDoc.CreateFieldEditEngine(/*bUpdateMode*/true);
         }
         else
         {
@@ -1133,12 +1132,9 @@ SvxTextForwarder* ScAccessibleHeaderTextData::GetTextForwarder()
         rPattern.FillEditItemSet( &aDefaults );
         //  FillEditItemSet adjusts font height to 1/100th mm,
         //  but for header/footer twips is needed, as in the PatternAttr:
-        std::unique_ptr<SfxPoolItem> pNewItem(rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT));
-        aDefaults.Put( *pNewItem );
-        pNewItem = rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK);
-        aDefaults.Put( *pNewItem );
-        pNewItem = rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL);
-        aDefaults.Put( *pNewItem );
+        aDefaults.Put( rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT) );
+        aDefaults.Put( rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK) );
+        aDefaults.Put( rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL) );
         aDefaults.Put( SvxAdjustItem( meAdjust, EE_PARA_JUST ) );
         pHdrEngine->SetDefaults( aDefaults );
 
@@ -1232,7 +1228,7 @@ SvxTextForwarder* ScAccessibleNoteTextData::GetTextForwarder()
         if ( mpDocSh )
         {
             ScDocument& rDoc = mpDocSh->GetDocument();
-            mpEditEngine = rDoc.CreateFieldEditEngine();
+            mpEditEngine = rDoc.CreateFieldEditEngine(/*bUpdateMode*/true);
         }
         else
         {

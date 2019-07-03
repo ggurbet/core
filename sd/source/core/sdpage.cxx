@@ -45,6 +45,10 @@
 #include <svx/sdr/contact/displayinfo.hxx>
 #include <svx/svditer.hxx>
 #include <svx/svdlayer.hxx>
+#include <svx/sdtmfitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtcfitm.hxx>
+#include <svx/xfillit0.hxx>
 #include <com/sun/star/animations/XAnimationNode.hpp>
 #include <com/sun/star/animations/XTimeContainer.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
@@ -564,10 +568,7 @@ SdrObject* SdPage::CreatePresObj(PresObjKind eObjKind, bool bVertical, const ::t
         if( bUndo )
         {
             pUndoManager->AddUndoAction(getSdrModelFromSdrPage().GetSdrUndoFactory().CreateUndoNewObject(*pSdrObj));
-        }
 
-        if( bUndo )
-        {
             pUndoManager->AddUndoAction( std::make_unique<UndoObjectPresentationKind>( *pSdrObj ) );
             pUndoManager->AddUndoAction( std::make_unique<UndoObjectUserCall>(*pSdrObj) );
         }
@@ -1855,8 +1856,8 @@ void SdPage::ScaleObjects(const Size& rNewPageSize, const ::tools::Rectangle& rN
     long nOldWidth  = GetWidth() - GetLeftBorder() - GetRightBorder();
     long nOldHeight = GetHeight() - GetUpperBorder() - GetLowerBorder();
 
-    Fraction aFractX = Fraction(aNewPageSize.Width(), nOldWidth);
-    Fraction aFractY = Fraction(aNewPageSize.Height(), nOldHeight);
+    Fraction aFractX(aNewPageSize.Width(), nOldWidth);
+    Fraction aFractY(aNewPageSize.Height(), nOldHeight);
 
     const size_t nObjCnt = (mbScaleObjects ? GetObjCount() : 0);
 
@@ -2745,9 +2746,7 @@ void SdPage::setHeaderFooterSettings( const sd::HeaderFooterSettings& rNewSettin
     if(!pMasterPage)
         return;
 
-    SdrObject* pCandidate = nullptr;
-
-    pCandidate = pMasterPage->GetPresObj( PRESOBJ_HEADER );
+    SdrObject* pCandidate = pMasterPage->GetPresObj( PRESOBJ_HEADER );
 
     if(pCandidate)
     {

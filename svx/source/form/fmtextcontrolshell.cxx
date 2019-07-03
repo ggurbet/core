@@ -37,6 +37,7 @@
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/awt/XFocusListener.hpp>
 #include <com/sun/star/awt/XMouseListener.hpp>
+#include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
 
 #include <comphelper/processfactory.hxx>
@@ -45,6 +46,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/msgpool.hxx>
+#include <sfx2/msg.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/sfxuno.hxx>
@@ -59,6 +61,7 @@
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 #include <vcl/outdev.hxx>
+#include <vcl/svapp.hxx>
 
 #include <memory>
 
@@ -381,7 +384,7 @@ namespace svx
                     Sequence< PropertyValue > aComplexState;
                     if ( _rUnoState >>= aComplexState )
                     {
-                        if ( !aComplexState.getLength() )
+                        if ( !aComplexState.hasElements() )
                             _rSet.InvalidateItem( nWhich );
                         else
                         {
@@ -689,7 +692,7 @@ namespace svx
                         {
                             // these are no UNO slots, they need special handling since TransformItems cannot
                             // handle them
-                            DBG_ASSERT( aArgs.getLength() == 0, "FmTextControlShell::executeAttributeDialog: these are no UNO slots - are they?" );
+                            DBG_ASSERT( !aArgs.hasElements(), "FmTextControlShell::executeAttributeDialog: these are no UNO slots - are they?" );
 
                             const SfxBoolItem* pBoolItem = dynamic_cast<const SfxBoolItem*>( pModifiedItem  );
                             DBG_ASSERT( pBoolItem, "FmTextControlShell::executeAttributeDialog: no bool item?!" );

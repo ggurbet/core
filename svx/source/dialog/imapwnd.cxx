@@ -20,9 +20,11 @@
 #include <tools/urlobj.hxx>
 #include <vcl/help.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <vcl/commandevent.hxx>
 #include <vcl/imaprect.hxx>
 #include <vcl/imapcirc.hxx>
 #include <vcl/imappoly.hxx>
+#include <vcl/svapp.hxx>
 #include <svl/urlbmk.hxx>
 
 #include <svx/xoutbmp.hxx>
@@ -35,8 +37,10 @@
 #include <svx/xfltrit.hxx>
 #include <svx/svdpagv.hxx>
 #include <svl/urihelper.hxx>
-#include <svx/xfillit.hxx>
-#include <svx/xlineit.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xlnclit.hxx>
+
 #include <sfx2/evntconf.hxx>
 
 #include <sot/formats.hxx>
@@ -52,13 +56,10 @@ using ::com::sun::star::uno::Reference;
 
 #define TRANSCOL COL_WHITE
 
-IMapWindow::IMapWindow( vcl::Window* pParent, WinBits nBits, const Reference< XFrame >& rxDocumentFrame ) :
-            GraphCtrl( pParent, nBits ),
-            DropTargetHelper( this ),
-            mxDocumentFrame( rxDocumentFrame )
+IMapWindow::IMapWindow(const Reference< XFrame >& rxDocumentFrame, weld::Dialog* pDialog)
+    : GraphCtrl(pDialog)
+    , mxDocumentFrame(rxDocumentFrame)
 {
-    SetSdrMode(true);
-
     memset( maItemInfos, 0, sizeof( SfxItemInfo ) );
     pIMapPool = new SfxItemPool( "IMapItemPool",
                                  SID_ATTR_MACROITEM, SID_ATTR_MACROITEM, maItemInfos );
@@ -67,18 +68,19 @@ IMapWindow::IMapWindow( vcl::Window* pParent, WinBits nBits, const Reference< XF
 
 IMapWindow::~IMapWindow()
 {
-    disposeOnce();
-}
-
-void IMapWindow::dispose()
-{
     SfxItemPool::Free(pIMapPool);
-    GraphCtrl::dispose();
 }
 
-Size IMapWindow::GetOptimalSize() const
+void IMapWindow::SetDrawingArea(weld::DrawingArea* pDrawingArea)
 {
-    return LogicToPixel(Size(270, 170), MapMode(MapUnit::MapAppFont));
+    Size aSize(pDrawingArea->get_ref_device().LogicToPixel(Size(270, 170), MapMode(MapUnit::MapAppFont)));
+    pDrawingArea->set_size_request(aSize.Width(), aSize.Height());
+    SetOutputSizePixel(aSize);
+    weld::CustomWidgetController::SetDrawingArea(pDrawingArea);
+
+    SetSdrMode(true);
+
+    mxDropTargetHelper.reset(new IMapDropTargetHelper(*this));
 }
 
 void IMapWindow::SetImageMap( const ImageMap& rImageMap )
@@ -428,10 +430,11 @@ void IMapWindow::SdrObjChanged( const SdrObject& rObj )
     }
 }
 
-void IMapWindow::MouseButtonUp(const MouseEvent& rMEvt)
+bool IMapWindow::MouseButtonUp(const MouseEvent& rMEvt)
 {
-    GraphCtrl::MouseButtonUp( rMEvt );
+    bool bRet = GraphCtrl::MouseButtonUp( rMEvt );
     UpdateInfo( true );
+    return bRet;
 }
 
 void IMapWindow::MarkListHasChanged()
@@ -442,8 +445,10 @@ void IMapWindow::MarkListHasChanged()
 
 SdrObject* IMapWindow::GetHitSdrObj( const Point& rPosPixel ) const
 {
+    OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+
     SdrObject*  pObj = nullptr;
-    Point       aPt = PixelToLogic( rPosPixel );
+    Point       aPt = rDevice.PixelToLogic( rPosPixel );
 
     if ( tools::Rectangle( Point(), GetGraphicSize() ).IsInside( aPt ) )
     {
@@ -483,26 +488,26 @@ IMapObject* IMapWindow::GetIMapObj( const SdrObject* pSdrObj )
     return pIMapObj;
 }
 
-void IMapWindow::Command(const CommandEvent& rCEvt)
+bool IMapWindow::ContextMenu(const CommandEvent& rCEvt)
 {
     vcl::Region  aRegion;
 
     if ( rCEvt.GetCommand() == CommandEventId::ContextMenu )
     {
-        VclBuilder aBuilder(nullptr, VclBuilderContainer::getUIRootDir(), "svx/ui/imapmenu.ui", "");
-        VclPtr<PopupMenu> aMenu(aBuilder.get_menu("menu"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(GetDrawingArea(), "svx/ui/imapmenu.ui"));
+        mxPopupMenu = xBuilder->weld_menu("menu");
         const SdrMarkList&  rMarkList = pView->GetMarkedObjectList();
         const size_t nMarked = rMarkList.GetMarkCount();
 
-        aMenu->EnableItem(aMenu->GetItemId("url"), false);
-        aMenu->EnableItem(aMenu->GetItemId("active"), false);
-        aMenu->EnableItem(aMenu->GetItemId("macro"), false);
-        aMenu->EnableItem(aMenu->GetItemId("selectall"), pModel->GetPage(0)->GetObjCount() != pView->GetMarkedObjectCount());
+        mxPopupMenu->set_sensitive("url", false);
+        mxPopupMenu->set_sensitive("active", false);
+        mxPopupMenu->set_sensitive("macro", false);
+        mxPopupMenu->set_sensitive("selectall", pModel->GetPage(0)->GetObjCount() != pView->GetMarkedObjectCount());
 
         if ( !nMarked )
         {
-            aMenu->EnableItem(aMenu->GetItemId("arrange"), false);
-            aMenu->EnableItem(aMenu->GetItemId("delete"), false);
+            mxPopupMenu->set_sensitive("arrange", false);
+            mxPopupMenu->set_sensitive("delete", false);
         }
         else
         {
@@ -510,21 +515,40 @@ void IMapWindow::Command(const CommandEvent& rCEvt)
             {
                 SdrObject*  pSdrObj = GetSelectedSdrObject();
 
-                aMenu->EnableItem(aMenu->GetItemId("url"));
-                aMenu->EnableItem(aMenu->GetItemId("active"));
-                aMenu->EnableItem(aMenu->GetItemId("macro"));
-                aMenu->CheckItem("active", GetIMapObj(pSdrObj)->IsActive());
+                mxPopupMenu->set_sensitive("url", true);
+                mxPopupMenu->set_sensitive("active", true);
+                mxPopupMenu->set_sensitive("macro", true);
+                mxPopupMenu->set_active("active", GetIMapObj(pSdrObj)->IsActive());
             }
 
-            aMenu->EnableItem(aMenu->GetItemId("arrange"));
-            aMenu->EnableItem(aMenu->GetItemId("delete"));
+            mxPopupMenu->set_sensitive("arrange", true);
+            mxPopupMenu->set_sensitive("delete", true);
         }
 
-        aMenu->SetSelectHdl( LINK( this, IMapWindow, MenuSelectHdl ) );
-        aMenu->Execute( this, rCEvt.GetMousePosPixel() );
+        MenuSelectHdl(mxPopupMenu->popup_at_rect(GetDrawingArea(), tools::Rectangle(rCEvt.GetMousePosPixel(), Size(1,1))));
+
+        mxPopupMenu.reset();
+
+        return true;
     }
     else
-        Window::Command(rCEvt);
+        return CustomWidgetController::ContextMenu(rCEvt);
+}
+
+IMapDropTargetHelper::IMapDropTargetHelper(IMapWindow& rImapWindow)
+    : DropTargetHelper(rImapWindow.GetDrawingArea()->get_drop_target())
+    , m_rImapWindow(rImapWindow)
+{
+}
+
+sal_Int8 IMapDropTargetHelper::AcceptDrop( const AcceptDropEvent& rEvt )
+{
+    return m_rImapWindow.AcceptDrop(rEvt);
+}
+
+sal_Int8 IMapDropTargetHelper::ExecuteDrop( const ExecuteDropEvent& rEvt )
+{
+    return m_rImapWindow.ExecuteDrop(rEvt);
 }
 
 sal_Int8 IMapWindow::AcceptDrop( const AcceptDropEvent& rEvt )
@@ -536,7 +560,7 @@ sal_Int8 IMapWindow::ExecuteDrop( const ExecuteDropEvent& rEvt )
 {
     sal_Int8 nRet = DND_ACTION_NONE;
 
-    if( IsDropFormatSupported( SotClipboardFormatId::NETSCAPE_BOOKMARK ) )
+    if (mxDropTargetHelper->IsDropFormatSupported(SotClipboardFormatId::NETSCAPE_BOOKMARK))
     {
         const OUString  aString;
         INetBookmark    aBookMark( aString, aString );
@@ -559,34 +583,27 @@ sal_Int8 IMapWindow::ExecuteDrop( const ExecuteDropEvent& rEvt )
     return nRet;
 }
 
-void IMapWindow::RequestHelp( const HelpEvent& rHEvt )
+OUString IMapWindow::RequestHelp(tools::Rectangle& rHelpArea)
 {
-    Point               aPos = PixelToLogic( ScreenToOutputPixel( rHEvt.GetMousePosPixel() ) );
+    OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
 
-    if ( Help::IsBalloonHelpEnabled() || Help::IsQuickHelpEnabled() )
+    Point aPos = rDevice.PixelToLogic(rHelpArea.TopLeft());
+
+    SdrPageView* pPageView = nullptr;
+    SdrObject* pSdrObj = pView->PickObj(aPos, pView->getHitTolLog(), pPageView);
+    if (pSdrObj)
     {
-        SdrPageView* pPageView = nullptr;
-        SdrObject* pSdrObj = pView->PickObj(aPos, pView->getHitTolLog(), pPageView);
-        if (pSdrObj)
+        const IMapObject*   pIMapObj = GetIMapObj( pSdrObj );
+        OUString            aStr;
+
+        if ( pIMapObj && !( aStr = pIMapObj->GetURL() ).isEmpty() )
         {
-            const IMapObject*   pIMapObj = GetIMapObj( pSdrObj );
-            OUString            aStr;
-
-            if ( pIMapObj && !( aStr = pIMapObj->GetURL() ).isEmpty() )
-            {
-                tools::Rectangle   aLogicPix( LogicToPixel( tools::Rectangle( Point(), GetGraphicSize() ) ) );
-                tools::Rectangle   aScreenRect( OutputToScreenPixel( aLogicPix.TopLeft() ),
-                                         OutputToScreenPixel( aLogicPix.BottomRight() ) );
-
-                if ( Help::IsBalloonHelpEnabled() )
-                    Help::ShowBalloon( this, rHEvt.GetMousePosPixel(), aScreenRect, aStr );
-                else if ( Help::IsQuickHelpEnabled() )
-                    Help::ShowQuickHelp( this, aScreenRect, aStr );
-            }
+            rHelpArea = rDevice.LogicToPixel(tools::Rectangle( Point(), GetGraphicSize()));
+            return aStr;
         }
-        else
-            Window::RequestHelp( rHEvt );
     }
+
+    return OUString();
 }
 
 void IMapWindow::SetCurrentObjState( bool bActive )
@@ -667,7 +684,7 @@ void IMapWindow::DoMacroAssign()
     aSet.Put( aMacroItem );
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<SfxAbstractDialog> pMacroDlg(pFact->CreateEventConfigDialog(GetFrameWeld(), aSet, mxDocumentFrame));
+    ScopedVclPtr<SfxAbstractDialog> pMacroDlg(pFact->CreateEventConfigDialog(GetDrawingArea(), aSet, mxDocumentFrame));
 
     if ( pMacroDlg->Execute() == RET_OK )
     {
@@ -686,8 +703,8 @@ void IMapWindow::DoPropertyDialog()
     {
         IMapObject* pIMapObj = GetIMapObj( pSdrObj );
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<AbstractURLDlg> aDlg(pFact->CreateURLDialog( this, pIMapObj->GetURL(), pIMapObj->GetAltText(), pIMapObj->GetDesc(),
-                                        pIMapObj->GetTarget(), pIMapObj->GetName(), aTargetList ));
+        ScopedVclPtr<AbstractURLDlg> aDlg(pFact->CreateURLDialog(GetDrawingArea(), pIMapObj->GetURL(), pIMapObj->GetAltText(), pIMapObj->GetDesc(),
+                                        pIMapObj->GetTarget(), pIMapObj->GetName(), aTargetList));
         if ( aDlg->Execute() == RET_OK )
         {
             const OUString aURLText( aDlg->GetURL() );
@@ -711,122 +728,30 @@ void IMapWindow::DoPropertyDialog()
     }
 }
 
-IMPL_LINK( IMapWindow, MenuSelectHdl, Menu*, pMenu, bool )
+void IMapWindow::MenuSelectHdl(const OString& rId)
 {
-    if (!pMenu)
-        return false;
-
-    OString sId = pMenu->GetCurItemIdent();
-
-    if (sId == "url")
+    if (rId == "url")
         DoPropertyDialog();
-    else if (sId == "macro")
+    else if (rId == "macro")
         DoMacroAssign();
-    else if (sId == "active")
+    else if (rId == "active")
     {
-        const sal_uInt16 nActiveId = pMenu->GetItemId(sId);
-        const bool bNewState = !pMenu->IsItemChecked(nActiveId);
-        pMenu->CheckItem(nActiveId, bNewState);
+        const bool bNewState = !mxPopupMenu->get_active(rId);
         SetCurrentObjState(bNewState);
         UpdateInfo( false );
     }
-    else if (sId == "front")
+    else if (rId == "front")
         pView->PutMarkedToTop();
-    else if (sId == "forward")
+    else if (rId == "forward")
         pView->MovMarkedToTop();
-    else if (sId == "backward")
+    else if (rId == "backward")
         pView->MovMarkedToBtm();
-    else if (sId == "back")
+    else if (rId == "back")
         pView->PutMarkedToBtm();
-    else if (sId == "selectall")
+    else if (rId == "selectall")
         pView->MarkAll();
-    else if (sId == "delete")
+    else if (rId == "delete")
         pView->DeleteMarked();
-
-    return false;
-}
-
-void IMapWindow::CreateDefaultObject()
-{
-    SdrPageView* pPageView = pView->GetSdrPageView();
-
-    if(!pPageView)
-        return;
-
-    // calc position and size
-    Point aPagePos(0, 0); // = pPageView->GetOffset();
-    Size aPageSize = pPageView->GetPage()->GetSize();
-    sal_uInt32 nDefaultObjectSizeWidth = aPageSize.Width() / 4;
-    sal_uInt32 nDefaultObjectSizeHeight = aPageSize.Height() / 4;
-    aPagePos.AdjustX((aPageSize.Width() / 2) - (nDefaultObjectSizeWidth / 2) );
-    aPagePos.AdjustY((aPageSize.Height() / 2) - (nDefaultObjectSizeHeight / 2) );
-    tools::Rectangle aNewObjectRectangle(aPagePos, Size(nDefaultObjectSizeWidth, nDefaultObjectSizeHeight));
-
-    SdrObject* pObj = SdrObjFactory::MakeNewObject(
-        *pModel,
-        pView->GetCurrentObjInventor(),
-        pView->GetCurrentObjIdentifier());
-    pObj->SetLogicRect(aNewObjectRectangle);
-
-    switch( pObj->GetObjIdentifier() )
-    {
-    case OBJ_POLY:
-    case OBJ_PATHPOLY:
-        {
-            basegfx::B2DPolygon aInnerPoly;
-            aInnerPoly.append(basegfx::B2DPoint(aNewObjectRectangle.BottomLeft().X(), aNewObjectRectangle.BottomLeft().Y()));
-            aInnerPoly.append(basegfx::B2DPoint(aNewObjectRectangle.TopLeft().X(), aNewObjectRectangle.TopLeft().Y()));
-            aInnerPoly.append(basegfx::B2DPoint(aNewObjectRectangle.TopCenter().X(), aNewObjectRectangle.TopCenter().Y()));
-            aInnerPoly.append(basegfx::B2DPoint(aNewObjectRectangle.Center().X(), aNewObjectRectangle.Center().Y()));
-            aInnerPoly.append(basegfx::B2DPoint(aNewObjectRectangle.RightCenter().X(), aNewObjectRectangle.RightCenter().Y()));
-            aInnerPoly.append(basegfx::B2DPoint(aNewObjectRectangle.BottomRight().X(), aNewObjectRectangle.BottomRight().Y()));
-            aInnerPoly.setClosed(true);
-            static_cast<SdrPathObj*>(pObj)->SetPathPoly(basegfx::B2DPolyPolygon(aInnerPoly));
-            break;
-        }
-    case OBJ_FREEFILL:
-    case OBJ_PATHFILL:
-        {
-            sal_Int32 nWdt(aNewObjectRectangle.GetWidth() / 2);
-            sal_Int32 nHgt(aNewObjectRectangle.GetHeight() / 2);
-            basegfx::B2DPolygon aInnerPoly(XPolygon(aNewObjectRectangle.Center(), nWdt, nHgt).getB2DPolygon());
-            static_cast<SdrPathObj*>(pObj)->SetPathPoly(basegfx::B2DPolyPolygon(aInnerPoly));
-            break;
-        }
-
-    }
-
-    pView->InsertObjectAtView(pObj, *pPageView);
-    SdrObjCreated( *pObj );
-    SetCurrentObjState( true );
-    pView->MarkObj( pObj, pPageView );
-}
-
-void IMapWindow::SelectFirstObject()
-{
-    SdrPage*    pPage = pModel->GetPage( 0 );
-    if( pPage->GetObjCount() != 0 )
-    {
-        GrabFocus();
-        pView->UnmarkAllObj();
-        pView->MarkNextObj(true);
-    }
-}
-
-void IMapWindow::StartPolyEdit()
-{
-    GrabFocus();
-
-    if( !pView->AreObjectsMarked() )
-        pView->MarkNextObj(true);
-
-    const SdrHdlList& rHdlList = pView->GetHdlList();
-    SdrHdl* pHdl = rHdlList.GetFocusHdl();
-
-    if(!pHdl)
-    {
-        const_cast<SdrHdlList&>(rHdlList).TravelFocusHdl(true);
-    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

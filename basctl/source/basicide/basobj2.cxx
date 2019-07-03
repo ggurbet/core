@@ -31,6 +31,7 @@
 #include <sal/log.hxx>
 #include <tools/diagnose_ex.h>
 #include <unotools/moduleoptions.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 
 #include <memory>
@@ -55,24 +56,19 @@ extern "C" {
 
         return pScriptURL;
     }
-    SAL_DLLPUBLIC_EXPORT void basicide_macro_organizer( sal_Int16 nTabId )
+    SAL_DLLPUBLIC_EXPORT void basicide_macro_organizer(void *pParent, sal_Int16 nTabId)
     {
         SAL_INFO("basctl.basicide","in basicide_macro_organizer");
-        basctl::Organize( nTabId );
+        basctl::Organize(static_cast<weld::Window*>(pParent), nTabId);
     }
 }
 
-void Organize( sal_Int16 tabId )
+void Organize(weld::Window* pParent, sal_Int16 tabId)
 {
     EnsureIde();
 
-    EntryDescriptor aDesc;
-    if (Shell* pShell = GetShell())
-        if (BaseWindow* pCurWin = pShell->GetCurWindow())
-            aDesc = pCurWin->CreateEntryDescriptor();
-
-    vcl::Window* pParent = Application::GetDefDialogParent();
-    VclPtr<OrganizeDialog>::Create(pParent, tabId, aDesc)->StartExecuteAsync(nullptr);
+    auto xDlg(std::make_shared<OrganizeDialog>(pParent, tabId));
+    weld::DialogController::runAsync(xDlg, [](int) {});
 }
 
 bool IsValidSbxName( const OUString& rName )
@@ -247,7 +243,7 @@ OUString ChooseMacro(weld::Window* pParent,
     OUString aScriptURL;
     SbMethod* pMethod = nullptr;
 
-    MacroChooser aChooser(pParent, xDocFrame);
+    MacroChooser aChooser(pParent, xDocFrame, true);
     if ( bChooseOnly || !SvtModuleOptions::IsBasicIDE() )
         aChooser.SetMode(MacroChooser::ChooseOnly);
 

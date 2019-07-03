@@ -60,7 +60,7 @@ using namespace ::com::sun::star;
 #define PROPERTYNAME_CONTEXT                            ADDONSMENUITEM_STRING_CONTEXT
 #define PROPERTYNAME_SUBMENU                            ADDONSMENUITEM_STRING_SUBMENU
 
-#define IMAGES_NODENAME                                 OUString("UserDefinedImages" )
+#define IMAGES_NODENAME                                 "UserDefinedImages"
 
 // The following order is mandatory. Please add properties at the end!
 #define INDEX_URL               0
@@ -430,7 +430,7 @@ void AddonsOptions_Impl::ImplCommit()
 
 bool AddonsOptions_Impl::HasAddonsMenu() const
 {
-    return ( m_aCachedMenuProperties.getLength() > 0 );
+    return m_aCachedMenuProperties.hasElements();
 }
 
 //  public method
@@ -735,7 +735,7 @@ void AddonsOptions_Impl::ReadImages( ImageManager& aImageManager )
 
         Sequence< Any > aAddonImageItemNodeValues = GetProperties( aAddonImageItemNodePropNames );
 
-        // An user-defined image entry must have an URL. As "ImageIdentifier" has a higher priority
+        // An user-defined image entry must have a URL. As "ImageIdentifier" has a higher priority
         // we also check if we already have an images association.
         if (( aAddonImageItemNodeValues[0] >>= aURL ) &&
             !aURL.isEmpty() &&
@@ -760,7 +760,7 @@ void AddonsOptions_Impl::ReadImages( ImageManager& aImageManager )
 
 OUString AddonsOptions_Impl::GeneratePrefixURL()
 {
-    // Create an unique prefixed Add-On popup menu URL so it can be identified later as a runtime popup menu.
+    // Create a unique prefixed Add-On popup menu URL so it can be identified later as a runtime popup menu.
     // They use a different image manager, so they must be identified by the sfx2/framework code.
     OUString aPopupMenuURL;
     OUStringBuffer aBuf( m_aRootAddonPopupMenuURLPrexfix.getLength() + 3 );
@@ -1032,9 +1032,8 @@ bool AddonsOptions_Impl::ReadStatusBarItem(
     bool bResult( false );
     OUString aURL;
     OUString aAddonStatusbarItemTreeNode( aStatusarItemNodeName + m_aPathDelimiter );
-    Sequence< Any > aStatusbarItemNodePropValues;
 
-    aStatusbarItemNodePropValues = GetProperties( GetPropertyNamesStatusbarItem( aAddonStatusbarItemTreeNode ) );
+    Sequence< Any > aStatusbarItemNodePropValues = GetProperties( GetPropertyNamesStatusbarItem( aAddonStatusbarItemTreeNode ) );
 
     // Command URL is required
     if (( aStatusbarItemNodePropValues[ OFFSET_STATUSBARITEM_URL ] >>= aURL ) && aURL.getLength() > 0 )
@@ -1063,16 +1062,15 @@ bool AddonsOptions_Impl::ReadMenuItem( const OUString& aMenuNodeName, Sequence< 
     bool             bResult = false;
     OUString         aStrValue;
     OUString         aAddonMenuItemTreeNode( aMenuNodeName + m_aPathDelimiter );
-    Sequence< Any >     aMenuItemNodePropValues;
 
-    aMenuItemNodePropValues = GetProperties( GetPropertyNamesMenuItem( aAddonMenuItemTreeNode ) );
+    Sequence< Any >  aMenuItemNodePropValues = GetProperties( GetPropertyNamesMenuItem( aAddonMenuItemTreeNode ) );
     if (( aMenuItemNodePropValues[ OFFSET_MENUITEM_TITLE ] >>= aStrValue ) && !aStrValue.isEmpty() )
     {
         aMenuItem[ OFFSET_MENUITEM_TITLE ].Value <<= aStrValue;
 
         OUString aRootSubMenuName( aAddonMenuItemTreeNode + m_aPropNames[ INDEX_SUBMENU ] );
         Sequence< OUString > aRootSubMenuNodeNames = GetNodeNames( aRootSubMenuName );
-        if ( aRootSubMenuNodeNames.getLength() > 0 && !bIgnoreSubMenu )
+        if ( aRootSubMenuNodeNames.hasElements() && !bIgnoreSubMenu )
         {
             // Set a unique prefixed Add-On popup menu URL so it can be identified later
             OUString aPopupMenuURL     = GeneratePrefixURL();
@@ -1134,9 +1132,8 @@ bool AddonsOptions_Impl::ReadPopupMenu( const OUString& aPopupMenuNodeName, Sequ
     bool             bResult = false;
     OUString         aStrValue;
     OUString         aAddonPopupMenuTreeNode( aPopupMenuNodeName + m_aPathDelimiter );
-    Sequence< Any >     aPopupMenuNodePropValues;
 
-    aPopupMenuNodePropValues = GetProperties( GetPropertyNamesPopupMenu( aAddonPopupMenuTreeNode ) );
+    Sequence< Any >  aPopupMenuNodePropValues = GetProperties( GetPropertyNamesPopupMenu( aAddonPopupMenuTreeNode ) );
     if (( aPopupMenuNodePropValues[ OFFSET_POPUPMENU_TITLE ] >>= aStrValue ) &&
          !aStrValue.isEmpty() )
     {
@@ -1144,7 +1141,7 @@ bool AddonsOptions_Impl::ReadPopupMenu( const OUString& aPopupMenuNodeName, Sequ
 
         OUString aRootSubMenuName( aAddonPopupMenuTreeNode + m_aPropNames[ INDEX_SUBMENU ] );
         Sequence< OUString > aRootSubMenuNodeNames = GetNodeNames( aRootSubMenuName );
-        if ( aRootSubMenuNodeNames.getLength() > 0 )
+        if ( aRootSubMenuNodeNames.hasElements() )
         {
             // A top-level popup menu needs a title
             // Set a unique prefixed Add-On popup menu URL so it can be identified later
@@ -1189,9 +1186,8 @@ bool AddonsOptions_Impl::ReadToolBarItem( const OUString& aToolBarItemNodeName, 
     OUString         aTitle;
     OUString         aURL;
     OUString         aAddonToolBarItemTreeNode( aToolBarItemNodeName + m_aPathDelimiter );
-    Sequence< Any >     aToolBarItemNodePropValues;
 
-    aToolBarItemNodePropValues = GetProperties( GetPropertyNamesToolBarItem( aAddonToolBarItemTreeNode ) );
+    Sequence< Any >  aToolBarItemNodePropValues = GetProperties( GetPropertyNamesToolBarItem( aAddonToolBarItemTreeNode ) );
 
     // A toolbar item must have a command URL
     if (( aToolBarItemNodePropValues[ OFFSET_TOOLBARITEM_URL ] >>= aURL ) && !aURL.isEmpty() )
@@ -1348,7 +1344,7 @@ std::unique_ptr<AddonsOptions_Impl::ImageEntry> AddonsOptions_Impl::ReadImageDat
             // Extract image data from the embedded hex binary sequence
             Image aImage;
             if (( aPropertyData[i] >>= aImageDataSeq ) &&
-                aImageDataSeq.getLength() > 0 &&
+                aImageDataSeq.hasElements() &&
                 ( CreateImageFromSequence( aImage, aImageDataSeq ) ) )
             {
                 if ( !pEntry )
@@ -1361,7 +1357,7 @@ std::unique_ptr<AddonsOptions_Impl::ImageEntry> AddonsOptions_Impl::ReadImageDat
             if(!pEntry)
                 pEntry.reset(new ImageEntry());
 
-            // Retrieve image data from a external bitmap file. Make sure that embedded image data
+            // Retrieve image data from an external bitmap file. Make sure that embedded image data
             // has a higher priority.
             aPropertyData[i] >>= aImageURL;
 
@@ -1378,7 +1374,7 @@ bool AddonsOptions_Impl::CreateImageFromSequence( Image& rImage, Sequence< sal_I
 {
     bool bResult = false;
 
-    if ( rBitmapDataSeq.getLength() > 0 )
+    if ( rBitmapDataSeq.hasElements() )
     {
         SvMemoryStream  aMemStream( rBitmapDataSeq.getArray(), rBitmapDataSeq.getLength(), StreamMode::STD_READ );
         BitmapEx        aBitmapEx;

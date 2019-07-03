@@ -20,9 +20,6 @@
 #ifndef INCLUDED_SVX_SVXPRESETLISTBOX_HXX
 #define INCLUDED_SVX_SVXPRESETLISTBOX_HXX
 
-#include <svtools/svtdllapi.h>
-#include <svx/XPropertyTable.hxx>
-#include <vcl/ctrl.hxx>
 #include <svtools/valueset.hxx>
 #include <svx/xtable.hxx>
 #include <tools/gen.hxx>
@@ -44,7 +41,7 @@ public:
     SvxPresetListBox(std::unique_ptr<weld::ScrolledWindow> pWindow);
 
     virtual void Resize() override;
-    virtual bool ContextMenu(const Point& rPos) override;
+    virtual bool ContextMenu(const CommandEvent& rEvent) override;
     static sal_uInt32 getColumnCount() { return nColCount; }
     Size const & GetIconSize() const { return aIconSize; }
 

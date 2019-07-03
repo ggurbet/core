@@ -9,29 +9,17 @@
 
 #include <swmodeltestbase.hxx>
 
-#include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/style/BreakType.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/table/BorderLine.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
 #include <com/sun/star/text/XDependentTextField.hpp>
-#include <com/sun/star/text/XFootnote.hpp>
-#include <com/sun/star/text/XPageCursor.hpp>
-#include <com/sun/star/text/XTextColumns.hpp>
-#include <com/sun/star/text/XTextFrame.hpp>
-#include <com/sun/star/text/XTextFramesSupplier.hpp>
-#include <com/sun/star/text/XTextEmbeddedObjectsSupplier.hpp>
-#include <com/sun/star/text/XTextViewCursorSupplier.hpp>
-#include <com/sun/star/graphic/XGraphic.hpp>
+#include <com/sun/star/text/XFootnotesSupplier.hpp>
 #include <com/sun/star/text/RubyAdjust.hpp>
 #include <com/sun/star/text/RubyPosition.hpp>
 #include <com/sun/star/text/XDocumentIndex.hpp>
-
-
-#include <sfx2/docfile.hxx>
-#include <sfx2/docfilt.hxx>
-#include <svx/xfillit0.hxx>
+#include <com/sun/star/drawing/FillStyle.hpp>
 
 class Test : public SwModelTestBase
 {
@@ -129,6 +117,13 @@ DECLARE_OOXMLEXPORT_TEST(testTdf63561_clearTabs2, "tdf63561_clearTabs2.docx")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(4), getProperty< uno::Sequence<style::TabStop> >(getParagraph(4), "ParaTabStops").getLength());
 }
 
+DECLARE_OOXMLEXPORT_TEST(testTdf124384, "tdf124384.docx")
+{
+    // There should be no crash during loading of the document
+    // so, let's check just how much pages we have
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
+}
+
 DECLARE_OOXMLEXPORT_TEST(testTdf121456_tabsOffset, "tdf121456_tabsOffset.odt")
 {
     for (int i=2; i<8; i++)
@@ -141,23 +136,28 @@ DECLARE_OOXMLEXPORT_TEST(testTdf121456_tabsOffset, "tdf121456_tabsOffset.odt")
 }
 
 // tdf#121561: make sure w:sdt/w:sdtContent around TOC is written during ODT->DOCX conversion
-DECLARE_OOXMLEXPORT_TEST(testTdf121561_tocTitle, "tdf121456_tabsOffset.odt")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf121561_tocTitle, "tdf121456_tabsOffset.odt")
 {
     xmlDocPtr pXmlDoc = parseExport();
-    if (!pXmlDoc)
-        return;
-
     assertXPathContent(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtContent/w:p/w:r/w:t", "Inhaltsverzeichnis");
     assertXPathContent(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtContent/w:p/w:r/w:instrText", " TOC \\f \\o \"1-9\" \\h");
     assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtPr/w:docPartObj/w:docPartGallery", "val", "Table of Contents");
     assertXPath(pXmlDoc, "/w:document/w:body/w:sdt/w:sdtPr/w:docPartObj/w:docPartUnique", 1);
 }
 
-DECLARE_OOXMLEXPORT_TEST(testTdf121561_tocTitleDocx, "tdf121456_tabsOffset.odt")
+// Related issue tdf#121561: w:sdt/w:sdtContent around TOC
+DECLARE_OOXMLEXPORT_TEST(testTdf124106, "tdf121456.docx")
+{
+    uno::Reference<text::XTextDocument> textDocument(mxComponent, uno::UNO_QUERY);
+    uno::Reference<text::XText> text(textDocument->getText(), uno::UNO_QUERY);
+    // -1 if the 'Y' character does not occur
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(-1), text->getString().indexOf('Y'));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(-1), text->getString().indexOf('y'));
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf121561_tocTitleDocx, "tdf121456_tabsOffset.odt")
 {
     xmlDocPtr pXmlDoc = parseExport();
-    if (!pXmlDoc)
-        return;
 
     // get TOC node
     uno::Reference<text::XDocumentIndexesSupplier> xIndexSupplier(mxComponent, uno::UNO_QUERY);
@@ -211,11 +211,9 @@ DECLARE_OOXMLEXPORT_TEST(testTdf82065_Ind_start_strict, "tdf82065_Ind_start_stri
     CPPUNIT_ASSERT_EQUAL_MESSAGE("IndentAt defined", true, bFoundIndentAt);
 }
 
-DECLARE_OOXMLEXPORT_TEST(testTdf76683_negativeTwipsMeasure, "tdf76683_negativeTwipsMeasure.docx")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf76683_negativeTwipsMeasure, "tdf76683_negativeTwipsMeasure.docx")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    if (!pXmlDoc)
-        return;
     assertXPath(pXmlDoc, "/w:document/w:body/w:sectPr/w:cols/w:col", 2);
     sal_uInt32 nColumn1 = getXPath(pXmlDoc, "/w:document/w:body/w:sectPr/w:cols/w:col[1]", "w").toUInt32();
     sal_uInt32 nColumn2 = getXPath(pXmlDoc, "/w:document/w:body/w:sectPr/w:cols/w:col[2]", "w").toUInt32();
@@ -317,12 +315,9 @@ DECLARE_OOXMLEXPORT_TEST(testTdf117988, "tdf117988.docx")
     CPPUNIT_ASSERT_EQUAL(1, getPages());
 }
 
-DECLARE_OOXMLEXPORT_TEST(testParagraphSplitOnSectionBorder, "parasplit-on-section-border.odt")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testParagraphSplitOnSectionBorder, "parasplit-on-section-border.odt")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-
-    if(!pXmlDoc)
-        return;
 
     // Test document has only two paragraphs. After splitting, it should contain
     // three of them.
@@ -330,13 +325,9 @@ DECLARE_OOXMLEXPORT_TEST(testParagraphSplitOnSectionBorder, "parasplit-on-sectio
     assertXPath(pXmlDoc, "//w:p", 3);
 }
 
-DECLARE_OOXMLEXPORT_TEST(testTdf44832_testSectionWithDifferentHeader, "tdf44832_section_new_header.odt")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf44832_testSectionWithDifferentHeader, "tdf44832_section_new_header.odt")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-
-    if(!pXmlDoc)
-        return;
-
     assertXPath(pXmlDoc, "/w:document/w:body/w:sectPr/w:headerReference", 1);
 }
 
@@ -378,11 +369,8 @@ DECLARE_OOXMLEXPORT_TEST(testSignatureLineShape, "signature-line-all-props-set.d
     CPPUNIT_ASSERT_EQUAL(OUString("Check the machines!"), aSigningInstructions);
 }
 
-DECLARE_OOXMLEXPORT_TEST(testTdf117805, "tdf117805.odt")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf117805, "tdf117805.odt")
 {
-    if (!mbExported)
-        return;
-
     uno::Reference<packages::zip::XZipFileAccess2> xNameAccess
         = packages::zip::ZipFileAccess::createWithURL(comphelper::getComponentContext(m_xSFactory),
                                                       maTempFile.GetURL());
@@ -451,9 +439,9 @@ DECLARE_OOXMLEXPORT_TEST(testTdf114882, "tdf114882.docx")
 
 DECLARE_OOXMLEXPORT_TEST(testTdf49073, "tdf49073.docx")
 {
-    // test case for Asisan phontic guide ( ruby text.)
+    // test case for Asian phontic guide (ruby text.)
     sal_Unicode aRuby[3] = {0x304D,0x3082,0x3093};
-    OUString sRuby = OUString(aRuby, SAL_N_ELEMENTS(aRuby));
+    OUString sRuby(aRuby, SAL_N_ELEMENTS(aRuby));
     CPPUNIT_ASSERT_EQUAL(sRuby,getProperty<OUString>(getParagraph(1)->getStart(), "RubyText"));
     OUString sStyle = getProperty<OUString>( getParagraph(1)->getStart(), "RubyCharStyleName");
     uno::Reference<beans::XPropertySet> xPropertySet(getStyles("CharacterStyles")->getByName(sStyle), uno::UNO_QUERY );
@@ -791,13 +779,13 @@ DECLARE_OOXMLIMPORT_TEST(testTdf104797, "tdf104797.docx")
     CPPUNIT_ASSERT_EQUAL(true,getProperty<bool>(getRun(getParagraph(1), 2), "IsStart"));
     CPPUNIT_ASSERT_EQUAL( OUString( "This is a filler sentence. Will this sentence be duplicated ADDED STUFF?" ),
             getParagraph( 2 )->getString());
-    CPPUNIT_ASSERT_EQUAL( OUString( "This is a filler sentence." ), getRun( getParagraph( 2 ), 1 )->getString());
-    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 2 )->getString());
-    CPPUNIT_ASSERT_EQUAL( OUString( " Will this sentence be duplicated ADDED STUFF?" ), getRun( getParagraph( 2 ), 3 )->getString());
-    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 4 )->getString());
-    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(2), 5), "RedlineType"));
-    CPPUNIT_ASSERT_EQUAL(OUString("Insert"),getProperty<OUString>(getRun(getParagraph(2), 5), "RedlineType"));
-    CPPUNIT_ASSERT_EQUAL(false,getProperty<bool>(getRun(getParagraph(2), 5), "IsStart"));
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 1 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "This is a filler sentence." ), getRun( getParagraph( 2 ), 2 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 2 ), 3 )->getString());
+    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(2), 3), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Insert"),getProperty<OUString>(getRun(getParagraph(2), 3), "RedlineType"));
+    CPPUNIT_ASSERT_EQUAL(true,getProperty<bool>(getRun(getParagraph(2), 3), "IsStart"));
+    CPPUNIT_ASSERT_EQUAL( OUString( " Will this sentence be duplicated ADDED STUFF?" ), getRun( getParagraph( 2 ), 4 )->getString());
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf113608_runAwayNumbering, "tdf113608_runAwayNumbering.docx")
@@ -826,50 +814,59 @@ DECLARE_OOXMLEXPORT_TEST(testTdf119188_list_margin_in_cell, "tdf119188_list_marg
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(494), getProperty<sal_Int32>(getParagraphOfText(3, xCell->getText()), "ParaBottomMargin"));
 }
 
-DECLARE_OOXMLEXPORT_TEST(testChart_BorderLine_Style, "Chart_BorderLine_Style.docx")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testChart_BorderLine_Style, "Chart_BorderLine_Style.docx")
 {
     /* DOCX containing Chart with BorderLine Style as Dash Type should get preserved
      * inside an XML tag <a:prstDash> with value "dash", "sysDot, "lgDot", etc.
      */
     xmlDocPtr pXmlDoc = parseExport("word/charts/chart1.xml");
-    if (!pXmlDoc)
-        return;
-
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[1]/c:spPr/a:ln/a:prstDash", "val", "sysDot");
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[2]/c:spPr/a:ln/a:prstDash", "val", "sysDash");
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:ser[3]/c:spPr/a:ln/a:prstDash", "val", "dash");
 }
 
-DECLARE_OOXMLEXPORT_TEST(testChart_Plot_BorderLine_Style, "Chart_Plot_BorderLine_Style.docx")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testChart_Plot_BorderLine_Style, "Chart_Plot_BorderLine_Style.docx")
 {
     /* DOCX containing Chart wall (plot area) and Chart Page with BorderLine Style as Dash Type
      * should get preserved inside an XML tag <a:prstDash> with value "dash", "sysDot, "lgDot", etc.
      */
     xmlDocPtr pXmlDoc = parseExport("word/charts/chart1.xml");
-    if (!pXmlDoc)
-        return;
-
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:spPr/a:ln/a:prstDash", "val", "lgDashDot");
     assertXPath(pXmlDoc, "/c:chartSpace/c:spPr/a:ln/a:prstDash", "val", "sysDash");
 
 }
 
-DECLARE_OOXMLEXPORT_TEST(testTrackChangesDeletedEmptyParagraph, "testTrackChangesDeletedEmptyParagraph.docx")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTrackChangesDeletedEmptyParagraph, "testTrackChangesDeletedEmptyParagraph.docx")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    if (!pXmlDoc)
-        return;
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:pPr/w:rPr/w:del");
 }
 
-DECLARE_OOXMLEXPORT_TEST(testTrackChangesEmptyParagraphsInADeletion, "testTrackChangesEmptyParagraphsInADeletion.docx")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTrackChangesEmptyParagraphsInADeletion, "testTrackChangesEmptyParagraphsInADeletion.docx")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    if (!pXmlDoc)
-        return;
-
     for (int i = 1; i < 12; ++i)
         assertXPath(pXmlDoc, "/w:document/w:body/w:p[" + OString::number(i) + "]/w:pPr/w:rPr/w:del");
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf70234, "tdf70234.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // import field with tracked deletion
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:del/w:r[1]/w:fldChar");
+
+    // export multiple runs of a field with tracked deletion
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:del/w:r", 6);
+
+    // export w:delInstrText
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:del/w:r/w:delInstrText");
+}
+
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf115212, "tdf115212.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    // export field with tracked deletion
+    assertXPath(pXmlDoc, "//w:p[2]/w:del[1]/w:r[1]/w:fldChar");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testTdf118691, "tdf118691.docx")
@@ -901,12 +898,10 @@ DECLARE_OOXMLEXPORT_TEST(testTdf64264, "tdf64264.docx")
                          parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
 }
 
-DECLARE_OOXMLEXPORT_TEST(testLOPresetDashesConvert, "lo_preset_dashes.odt")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testLOPresetDashesConvert, "lo_preset_dashes.odt")
 {
     // File asserting while saving in LO.
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    if (!pXmlDoc)
-        return;
     assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[1]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDot");
     assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[2]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDash");
     assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:r/mc:AlternateContent[3]/mc:Choice/w:drawing/wp:anchor/a:graphic/a:graphicData/wps:wsp/wps:spPr/a:ln/a:prstDash", "val", "sysDot");
@@ -933,11 +928,9 @@ DECLARE_OOXMLEXPORT_TEST(testTdf58944RepeatingTableHeader, "tdf58944-repeating-t
                          parseDump("/root/page[2]/body/tab/row[2]/cell[1]/txt/text()"));
 }
 
-DECLARE_OOXMLEXPORT_TEST(testTdf121597TrackedDeletionOfMultipleParagraphs, "tdf121597.odt")
+DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(testTdf121597TrackedDeletionOfMultipleParagraphs, "tdf121597.odt")
 {
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
-    if (!pXmlDoc)
-        return;
 
     // check paragraphs with removed paragraph mark
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[1]/w:pPr/w:rPr/w:del");
@@ -963,10 +956,7 @@ DECLARE_OOXMLIMPORT_TEST(testTdf116084, "tdf116084.docx")
     // tracked line is not a single text portion: w:del is recognized within w:ins
     CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 1 ), 1 )->getString());
     CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(1), 1), "RedlineType"));
-    CPPUNIT_ASSERT_EQUAL( OUString( "There " ), getRun( getParagraph( 1 ), 2 )->getString());
-    CPPUNIT_ASSERT_EQUAL( OUString( "" ), getRun( getParagraph( 1 ), 4 )->getString());
-    CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(1), 4), "RedlineType"));
-    CPPUNIT_ASSERT_EQUAL( OUString( "must" ), getRun( getParagraph( 1 ), 5 )->getString());
+    CPPUNIT_ASSERT_EQUAL( OUString( "There should be a better start to this. " ), getRun( getParagraph( 1 ), 2 )->getString());
 }
 
 DECLARE_OOXMLIMPORT_TEST(testTdf121176, "tdf121176.docx")
@@ -981,6 +971,38 @@ DECLARE_OOXMLIMPORT_TEST(testTdf123054, "tdf123054.docx")
 {
     CPPUNIT_ASSERT_EQUAL(OUString("No Spacing"),
                          getProperty<OUString>(getParagraph(20), "ParaStyleName"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(testTdf67207_MERGEFIELD_DATABASE, "tdf67207.docx")
+{
+    // database fields use the database "database" and its table "Sheet1"
+    uno::Reference<beans::XPropertySet> xTextField = getProperty< uno::Reference<beans::XPropertySet> >(getRun(getParagraph(2), 2), "TextField");
+    CPPUNIT_ASSERT(xTextField.is());
+    uno::Reference<lang::XServiceInfo> xServiceInfo(xTextField, uno::UNO_QUERY_THROW);
+    uno::Reference<text::XDependentTextField> xDependent(xTextField, uno::UNO_QUERY_THROW);
+
+    CPPUNIT_ASSERT(xServiceInfo->supportsService("com.sun.star.text.TextField.Database"));
+    OUString sValue;
+    xTextField->getPropertyValue("Content") >>= sValue;
+    CPPUNIT_ASSERT_EQUAL(OUString::fromUtf8("<c1>"), sValue);
+
+    uno::Reference<beans::XPropertySet> xFiledMaster = xDependent->getTextFieldMaster();
+    uno::Reference<lang::XServiceInfo> xFiledMasterServiceInfo(xFiledMaster, uno::UNO_QUERY_THROW);
+
+    CPPUNIT_ASSERT(xFiledMasterServiceInfo->supportsService("com.sun.star.text.fieldmaster.Database"));
+
+    // Defined properties: DataBaseName, Name, DataTableName, DataColumnName, DependentTextFields, DataCommandType, InstanceName, DataBaseURL
+    CPPUNIT_ASSERT(xFiledMaster->getPropertyValue("DataBaseName") >>= sValue);
+    CPPUNIT_ASSERT_EQUAL(OUString("database"), sValue);
+    sal_Int32 nCommandType;
+    CPPUNIT_ASSERT(xFiledMaster->getPropertyValue("DataCommandType") >>= nCommandType);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), nCommandType); // css::sdb::CommandType::TABLE
+    CPPUNIT_ASSERT(xFiledMaster->getPropertyValue("DataTableName") >>= sValue);
+    CPPUNIT_ASSERT_EQUAL(OUString("Sheet1"), sValue);
+    CPPUNIT_ASSERT(xFiledMaster->getPropertyValue("DataColumnName") >>= sValue);
+    CPPUNIT_ASSERT_EQUAL(OUString("c1"), sValue);
+    CPPUNIT_ASSERT(xFiledMaster->getPropertyValue("InstanceName") >>= sValue);
+    CPPUNIT_ASSERT_EQUAL(OUString("com.sun.star.text.fieldmaster.DataBase.database.Sheet1.c1"), sValue);
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

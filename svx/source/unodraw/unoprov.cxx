@@ -20,6 +20,7 @@
 #include <sal/macros.h>
 #include <com/sun/star/table/XTable.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
+#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
@@ -37,12 +38,17 @@
 #include <editeng/unotext.hxx>
 #include <svx/unoshprp.hxx>
 #include <svx/svx3ditems.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/editeng.hxx>
 #include <svx/globl3d.hxx>
 #include <svx/strings.hrc>
 #include <strings.hxx>
 #include <svx/svdpool.hxx>
 #include <svx/svdobj.hxx>
+#include <svx/sdtaaitm.hxx>
+#include <svx/sdtacitm.hxx>
+#include <svx/sdtaiitm.hxx>
+#include <svx/sdtayitm.hxx>
 
 #include "shapeimpl.hxx"
 #include <unordered_map>
@@ -1542,16 +1548,33 @@ static bool SvxUnoConvertResourceString(const char **pSourceResIds, const char**
 
     for (int i = 0; i < nCount; ++i)
     {
-        const OUString aCompare = bToApi ? SvxResId(pSourceResIds[i]) : OUString::createFromAscii(pSourceResIds[i]);
-        if( aShortString == aCompare )
+        if (bToApi)
         {
-            rString = rString.replaceAt( 0, aShortString.getLength(), bToApi ? OUString::createFromAscii(pDestResIds[i]) : SvxResId(pDestResIds[i]) );
-            return true;
+            const OUString & aCompare = SvxResId(pSourceResIds[i]);
+            if( aShortString == aCompare )
+            {
+                rString = rString.replaceAt( 0, aShortString.getLength(), OUString::createFromAscii(pDestResIds[i]) );
+                return true;
+            }
+            else if( rString == aCompare )
+            {
+                rString = OUString::createFromAscii(pDestResIds[i]);
+                return true;
+            }
         }
-        else if( rString == aCompare )
+        else
         {
-            rString = bToApi ? OUString::createFromAscii(pDestResIds[i]) : SvxResId(pDestResIds[i]);
-            return true;
+            auto pCompare = pSourceResIds[i];
+            if( aShortString.equalsAscii(pCompare) )
+            {
+                rString = rString.replaceAt( 0, aShortString.getLength(), SvxResId(pDestResIds[i]) );
+                return true;
+            }
+            else if( rString.equalsAscii(pCompare) )
+            {
+                rString = SvxResId(pDestResIds[i]);
+                return true;
+            }
         }
     }
 

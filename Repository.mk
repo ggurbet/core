@@ -208,7 +208,9 @@ $(eval $(call gb_Helper_register_executables_for_install,OOO,ooo, \
 	) \
 	$(if $(filter WNT,$(OS)), \
 		senddoc \
+		spsupp_helper \
 	) \
+	$(if $(filter OPENCL,$(BUILD_TYPE)),opencltest) \
 ))
 
 ifeq ($(OS),WNT)
@@ -484,6 +486,8 @@ $(eval $(call gb_Helper_register_libraries_for_install,OOOLIBS,ooo, \
 		) \
 		fps_aqua \
 		vclplug_osx \
+	) \
+	$(if $(filter iOS MACOSX,$(OS)), \
 		MacOSXSpell \
 	) \
 ))
@@ -596,7 +600,6 @@ $(eval $(call gb_Helper_register_libraries_for_install,PRIVATELIBS_URE,ure, \
 $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooo, \
 	$(if $(ENABLE_VLC),avmediavlc) \
 	$(if $(ENABLE_GSTREAMER_1_0),avmediagst) \
-	$(if $(ENABLE_GSTREAMER_0_10),avmediagst_0_10) \
 	$(if $(filter WNT,$(OS)),avmediawin) \
 	cached1 \
 	collator_data \
@@ -622,7 +625,6 @@ $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooo, \
 	) \
 	emboleobj \
 	package2 \
-	$(if $(USING_X11),recentfile) \
 	$(call gb_Helper_optional,SCRIPTING,scriptframe) \
 	sdbc2 \
 	sofficeapp \
@@ -663,13 +665,23 @@ $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,activexbina
 
 $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,activex, \
 	so_activex \
-	spsupp \
 ))
 
 ifneq ($(BUILD_X64),)
 $(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,activexwin64, \
 	so_activex_x64 \
+))
+endif
+
+ifneq ($(CXX_X64_BINARY),)
+$(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooo, \
 	spsupp_x64 \
+))
+endif
+
+ifneq ($(CXX_X86_BINARY),)
+$(eval $(call gb_Helper_register_libraries_for_install,PLAINLIBS_OOO,ooo, \
+	spsupp_x86 \
 ))
 endif
 
@@ -944,6 +956,7 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo,\
 	wizards_basicusr \
 	wizards_properties \
 	wizards_wizardshare \
+	tipoftheday_images \
 	vcl_opengl_shader \
 	vcl_theme_definitions \
 	$(if $(filter WNT,$(OS)), \
@@ -976,11 +989,11 @@ $(eval $(call gb_Helper_register_packages_for_install,ooo_fonts,\
 		fonts_amiri \
 		fonts_caladea \
 		fonts_carlito \
-		fonts_culmus \
+		$(if $(MPL_SUBSET),,fonts_culmus) \
 		fonts_dejavu \
 		fonts_emojione_color \
 		fonts_gentium \
-		fonts_kacst \
+		$(if $(MPL_SUBSET),,fonts_kacst) \
 		fonts_liberation \
 		fonts_liberation_narrow \
 		fonts_libertineg \
@@ -1030,7 +1043,7 @@ $(eval $(call gb_Helper_register_packages_for_install,brand,\
 		) \
 	) \
 	readlicense_oo_files \
-	$(if $(filter WNT,$(OS)),readlicense_oo_license) \
+	readlicense_oo_license \
 	$(call gb_Helper_optional,DESKTOP,setup_native_packinfo) \
 ))
 
@@ -1117,6 +1130,7 @@ $(eval $(call gb_Helper_register_mos,\
 	scc \
 	sd \
 	sfx \
+	shell \
 	sm \
 	svl \
 	svt \

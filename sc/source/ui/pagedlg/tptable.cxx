@@ -21,13 +21,13 @@
 
 #include <scitems.hxx>
 
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <osl/diagnose.h>
 
 #include <tptable.hxx>
 #include <global.hxx>
 #include <attrib.hxx>
-#include <sc.hrc>
 #include <bitmaps.hlst>
 
 // Static Data
@@ -223,7 +223,7 @@ void ScTablePage::Reset( const SfxItemSet* rCoreSet )
         m_xEdScalePageNum->set_value( (nPages > 0) ? nPages : 1 );
     }
 
-    if (m_xLbScaleMode->get_active() == 0)
+    if (m_xLbScaleMode->get_active() == -1)
     {
         // fall back to 100%
         OSL_FAIL( "ScTablePage::Reset - missing scaling item" );

@@ -35,6 +35,7 @@
 #include <com/sun/star/form/FormComponentType.hpp>
 #include <com/sun/star/form/XFormComponent.hpp>
 #include <com/sun/star/form/XLoadable.hpp>
+#include <com/sun/star/form/XReset.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/NoSupportException.hpp>
@@ -49,7 +50,6 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/typeprovider.hxx>
@@ -133,8 +133,7 @@ FmXModifyMultiplexer::FmXModifyMultiplexer( ::cppu::OWeakObject& rSource, ::osl:
 
 Any SAL_CALL FmXModifyMultiplexer::queryInterface(const Type& _rType)
 {
-    Any aReturn;
-    aReturn = ::cppu::queryInterface(_rType,
+    Any aReturn = ::cppu::queryInterface(_rType,
         static_cast< css::util::XModifyListener*>(this),
         static_cast< XEventListener*>(this)
     );
@@ -167,8 +166,7 @@ FmXUpdateMultiplexer::FmXUpdateMultiplexer( ::cppu::OWeakObject& rSource, ::osl:
 
 Any SAL_CALL FmXUpdateMultiplexer::queryInterface(const Type& _rType)
 {
-    Any aReturn;
-    aReturn = ::cppu::queryInterface(_rType,
+    Any aReturn = ::cppu::queryInterface(_rType,
         static_cast< XUpdateListener*>(this),
         static_cast< XEventListener*>(this)
     );
@@ -218,8 +216,7 @@ FmXSelectionMultiplexer::FmXSelectionMultiplexer( ::cppu::OWeakObject& rSource, 
 
 Any SAL_CALL FmXSelectionMultiplexer::queryInterface(const Type& _rType)
 {
-    Any aReturn;
-    aReturn = ::cppu::queryInterface(_rType,
+    Any aReturn = ::cppu::queryInterface(_rType,
         static_cast< XSelectionChangeListener*>(this),
         static_cast< XEventListener*>(this)
     );
@@ -252,8 +249,7 @@ FmXContainerMultiplexer::FmXContainerMultiplexer( ::cppu::OWeakObject& rSource, 
 
 Any SAL_CALL FmXContainerMultiplexer::queryInterface(const Type& _rType)
 {
-    Any aReturn;
-    aReturn = ::cppu::queryInterface(_rType,
+    Any aReturn = ::cppu::queryInterface(_rType,
         static_cast< XContainerListener*>(this),
         static_cast< XEventListener*>(this)
     );
@@ -301,8 +297,7 @@ FmXGridControlMultiplexer::FmXGridControlMultiplexer( ::cppu::OWeakObject& rSour
 
 Any SAL_CALL FmXGridControlMultiplexer::queryInterface(const Type& _rType)
 {
-    Any aReturn;
-    aReturn = ::cppu::queryInterface( _rType,
+    Any aReturn = ::cppu::queryInterface( _rType,
         static_cast< XGridControlListener*>(this)
     );
 
@@ -478,7 +473,7 @@ void SAL_CALL FmXGridControl::createPeer(const Reference< css::awt::XToolkit >& 
         vcl::Window* pParentWin = nullptr;
         if (rParentPeer.is())
         {
-            VCLXWindow* pParent = VCLXWindow::GetImplementation(rParentPeer);
+            VCLXWindow* pParent = comphelper::getUnoTunnelImplementation<VCLXWindow>(rParentPeer);
             if (pParent)
                 pParentWin = pParent->GetWindow().get();
         }
@@ -501,7 +496,7 @@ void SAL_CALL FmXGridControl::createPeer(const Reference< css::awt::XToolkit >& 
 //      if (--m_nPeerCreationLevel == 0)
         {
             DBG_ASSERT(getPeer().is(), "FmXGridControl::createPeer : something went wrong ... no top level peer !");
-            pPeer = FmXGridPeer::getImplementation(getPeer());
+            pPeer = comphelper::getUnoTunnelImplementation<FmXGridPeer>(getPeer());
 
             setPosSize( maComponentInfos.nX, maComponentInfos.nY, maComponentInfos.nWidth, maComponentInfos.nHeight, css::awt::PosSize::POSSIZE );
 
@@ -559,10 +554,10 @@ void SAL_CALL FmXGridControl::createPeer(const Reference< css::awt::XToolkit >& 
                     Reference< css::sdbcx::XColumnsSupplier >  xColumnsSupplier(xForm, UNO_QUERY);
                     if (xColumnsSupplier.is())
                     {
-                        if (Reference< XIndexAccess > (xColumnsSupplier->getColumns(),UNO_QUERY)->getCount())
+                        if (Reference< XIndexAccess > (xColumnsSupplier->getColumns(),UNO_QUERY_THROW)->getCount())
                         {
                             // we get only a new bookmark if the resultset is not forwardonly
-                            if (::comphelper::getINT32(Reference< XPropertySet > (xForm, UNO_QUERY)->getPropertyValue(FM_PROP_RESULTSET_TYPE)) != ResultSetType::FORWARD_ONLY)
+                            if (::comphelper::getINT32(Reference< XPropertySet > (xForm, UNO_QUERY_THROW)->getPropertyValue(FM_PROP_RESULTSET_TYPE)) != ResultSetType::FORWARD_ONLY)
                             {
                                 // as the FmGridControl touches the data source it is connected to we have to remember the current
                                 // cursor position (and restore afterwards)
@@ -572,7 +567,7 @@ void SAL_CALL FmXGridControl::createPeer(const Reference< css::awt::XToolkit >& 
                                 {
                                     try
                                     {
-                                        aOldCursorBookmark = Reference< css::sdbcx::XRowLocate > (xForm, UNO_QUERY)->getBookmark();
+                                        aOldCursorBookmark = Reference< css::sdbcx::XRowLocate > (xForm, UNO_QUERY_THROW)->getBookmark();
                                     }
                                     catch( const Exception& )
                                     {
@@ -1083,43 +1078,7 @@ FmXGridPeer::~FmXGridPeer()
     setColumns(Reference< XIndexContainer > ());
 }
 
-namespace
-{
-    class theFmXGridPeerImplementationId : public rtl::Static< UnoTunnelIdInit, theFmXGridPeerImplementationId > {};
-}
-
-const Sequence< sal_Int8 >& FmXGridPeer::getUnoTunnelImplementationId() throw()
-{
-    return theFmXGridPeerImplementationId::get().getSeq();
-}
-
-
-FmXGridPeer* FmXGridPeer::getImplementation( const Reference< XInterface >& _rxIFace ) throw()
-{
-    FmXGridPeer* pReturn = nullptr;
-    Reference< XUnoTunnel >  xTunnel(_rxIFace, UNO_QUERY);
-    if (xTunnel.is())
-        pReturn = reinterpret_cast<FmXGridPeer*>(xTunnel->getSomething(getUnoTunnelImplementationId()));
-
-    return pReturn;
-}
-
-
-sal_Int64 SAL_CALL FmXGridPeer::getSomething( const Sequence< sal_Int8 >& _rIdentifier )
-{
-    sal_Int64 nReturn(0);
-
-    if  (   (_rIdentifier.getLength() == 16)
-        &&  (0 == memcmp( getUnoTunnelImplementationId().getConstArray(), _rIdentifier.getConstArray(), 16 ))
-        )
-    {
-        nReturn = reinterpret_cast<sal_Int64>(this);
-    }
-    else
-        nReturn = VCLXWindow::getSomething(_rIdentifier);
-
-    return nReturn;
-}
+UNO3_GETIMPLEMENTATION2_IMPL(FmXGridPeer, VCLXWindow);
 
 // XEventListener
 
@@ -1512,7 +1471,7 @@ void FmXGridPeer::cursorMoved(const EventObject& _rEvent)
     VclPtr< FmGridControl > pGrid = GetAs< FmGridControl >();
     // we are not interested in move to insert row only in the resetted event
     // which is fired after positioning an the insert row
-    if (pGrid && pGrid->IsOpen() && !::comphelper::getBOOL(Reference< XPropertySet > (_rEvent.Source, UNO_QUERY)->getPropertyValue(FM_PROP_ISNEW)))
+    if (pGrid && pGrid->IsOpen() && !::comphelper::getBOOL(Reference< XPropertySet > (_rEvent.Source, UNO_QUERY_THROW)->getPropertyValue(FM_PROP_ISNEW)))
         pGrid->positioned();
 }
 

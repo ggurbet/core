@@ -30,6 +30,7 @@
 #include <Stripe.hxx>
 #include <DateHelper.hxx>
 #include <unonames.hxx>
+#include <ConfigAccess.hxx>
 
 #include <com/sun/star/chart2/Symbol.hpp>
 #include <com/sun/star/chart/DataLabelPlacement.hpp>
@@ -739,7 +740,7 @@ void AreaChart::createShapes()
                             sal_Int32& rIndex = pSeries->m_nPolygonIndex;
                             if( 0<= rIndex && rIndex < rPolygon.SequenceX.getLength() )
                             {
-                                if( rPolygon.SequenceX[ rIndex ].getLength() )
+                                if( rPolygon.SequenceX[ rIndex ].hasElements() )
                                     rIndex++; //start a new polygon for the next point if the current poly is not empty
                             }
                         }
@@ -838,8 +839,7 @@ void AreaChart::createShapes()
                             pSeries->getPointCID_Stub(), nIndex );
                     uno::Reference< drawing::XShapes > xPointGroupShape_Shapes(
                             createGroupShape(xSeriesGroupShape_Shapes,aPointCID) );
-                    uno::Reference<drawing::XShape> xPointGroupShape_Shape =
-                        uno::Reference<drawing::XShape>( xPointGroupShape_Shapes, uno::UNO_QUERY );
+                    uno::Reference<drawing::XShape> xPointGroupShape_Shape( xPointGroupShape_Shapes, uno::UNO_QUERY );
 
                     {
                         nCreatedPoints++;
@@ -873,12 +873,28 @@ void AreaChart::createShapes()
                                 //@todo other symbol styles
                             }
                         }
-                        //create error bars
-                        if (bCreateXErrorBar)
-                            createErrorBar_X( aUnscaledLogicPosition, *pSeries, nIndex, m_xErrorBarTarget );
+                        //create error bars or rectangles, depending on configuration
+                        if ( ConfigAccess::getUseErrorRectangle() )
+                        {
+                            if ( bCreateXErrorBar || bCreateYErrorBar )
+                            {
+                                createErrorRectangle(
+                                      aUnscaledLogicPosition,
+                                      *pSeries,
+                                      nIndex,
+                                      m_xErrorBarTarget,
+                                      bCreateXErrorBar,
+                                      bCreateYErrorBar );
+                            }
+                        }
+                        else
+                        {
+                            if (bCreateXErrorBar)
+                                createErrorBar_X( aUnscaledLogicPosition, *pSeries, nIndex, m_xErrorBarTarget );
 
-                        if (bCreateYErrorBar)
-                            createErrorBar_Y( aUnscaledLogicPosition, *pSeries, nIndex, m_xErrorBarTarget, nullptr );
+                            if (bCreateYErrorBar)
+                                createErrorBar_Y( aUnscaledLogicPosition, *pSeries, nIndex, m_xErrorBarTarget, nullptr );
+                        }
 
                         //create data point label
                         if( pSeries->getDataPointLabelIfLabel(nIndex) )

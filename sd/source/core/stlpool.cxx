@@ -1173,7 +1173,7 @@ void SdStyleSheetPool::PutNumBulletItem( SfxStyleSheetBase* pSheet,
 
 vcl::Font SdStyleSheetPool::GetBulletFont()
 {
-    vcl::Font aBulletFont( OUString( "StarSymbol" ), Size(0, 1000) );
+    vcl::Font aBulletFont( "StarSymbol", Size(0, 1000) );
     aBulletFont.SetCharSet(RTL_TEXTENCODING_UNICODE);
     aBulletFont.SetWeight(WEIGHT_NORMAL);
     aBulletFont.SetUnderline(LINESTYLE_NONE);
@@ -1231,8 +1231,7 @@ sal_Bool SAL_CALL SdStyleSheetPool::supportsService( const OUString& ServiceName
 
 Sequence< OUString > SAL_CALL SdStyleSheetPool::getSupportedServiceNames()
 {
-    OUString aStr("com.sun.star.style.StyleFamilies");
-    return Sequence< OUString >( &aStr, 1 );
+    return { "com.sun.star.style.StyleFamilies" };
 }
 
 // XNameAccess

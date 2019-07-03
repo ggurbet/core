@@ -65,7 +65,21 @@ ImplOpenGLTexture::ImplOpenGLTexture( int nWidth, int nHeight, bool bAllocate ) 
     CHECK_GL_ERROR();
     if( bAllocate )
     {
+#ifdef DBG_UTIL
+        std::vector< sal_uInt8 > buffer;
+        buffer.resize( nWidth * nHeight * 4 );
+        for( size_t i = 0; i < size_t( nWidth * nHeight ); ++i )
+        {   // pre-fill the texture with deterministic garbage
+            bool odd = (i & 0x01);
+            buffer[ i * 4 ] =  odd ? 0x40 : 0xBF;
+            buffer[ i * 4 + 1 ] = 0x80;
+            buffer[ i * 4 + 2 ] = odd ? 0xBF : 0x40;
+            buffer[ i * 4 + 3 ] = 0xFF;
+        }
+        glTexImage2D( GL_TEXTURE_2D, 0, constInternalFormat, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.data());
+#else
         glTexImage2D( GL_TEXTURE_2D, 0, constInternalFormat, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr );
+#endif
         CHECK_GL_ERROR();
     }
 
@@ -498,8 +512,8 @@ void OpenGLTexture::Unbind()
 void OpenGLTexture::SaveToFile(const OUString& rFileName)
 {
     std::vector<sal_uInt8> aBuffer(GetWidth() * GetHeight() * 4);
-    Read(GL_BGRA, GL_UNSIGNED_BYTE, aBuffer.data());
-    BitmapEx aBitmap = OpenGLHelper::ConvertBGRABufferToBitmapEx(aBuffer.data(), GetWidth(), GetHeight());
+    Read(OpenGLHelper::OptimalBufferFormat(), GL_UNSIGNED_BYTE, aBuffer.data());
+    BitmapEx aBitmap = OpenGLHelper::ConvertBufferToBitmapEx(aBuffer.data(), GetWidth(), GetHeight());
     try
     {
         vcl::PNGWriter aWriter(aBitmap);
@@ -561,16 +575,8 @@ OpenGLTexture::operator bool() const
 
 OpenGLTexture& OpenGLTexture::operator=(const OpenGLTexture& rTexture)
 {
-    if (rTexture.mpImpl)
-        rTexture.mpImpl->IncreaseRefCount(rTexture.mnSlotNumber);
-
-    if (mpImpl)
-        mpImpl->DecreaseRefCount(mnSlotNumber);
-
-    maRect = rTexture.maRect;
-    mpImpl = rTexture.mpImpl;
-    mnSlotNumber = rTexture.mnSlotNumber;
-
+    OpenGLTexture aTemp(rTexture);
+    *this = std::move(aTemp);
     return *this;
 }
 

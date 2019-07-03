@@ -57,7 +57,7 @@ SvxUnoTextContentEnumeration::SvxUnoTextContentEnumeration( const SvxUnoTextBase
                 nStartPos = std::max(nStartPos, rSel.nStartPos);
             if( currentPara == rSel.nEndPara )
                 nEndPos = std::min(nEndPos, rSel.nEndPos);
-            ESelection aCurrentParaSel = ESelection( currentPara, nStartPos, currentPara, nEndPos );
+            ESelection aCurrentParaSel( currentPara, nStartPos, currentPara, nEndPos );
             for (auto const& elemRange : rRanges)
             {
                 if (pContent)
@@ -588,7 +588,7 @@ void SAL_CALL SvxUnoTextCursor::gotoRange( const uno::Reference< text::XTextRang
     if( !xRange.is() )
         return;
 
-    SvxUnoTextRangeBase* pRange = SvxUnoTextRangeBase::getImplementation( xRange );
+    SvxUnoTextRangeBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextRangeBase>( xRange );
 
     if( pRange )
     {

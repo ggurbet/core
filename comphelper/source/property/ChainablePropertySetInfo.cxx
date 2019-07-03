@@ -22,9 +22,7 @@
 
 using ::comphelper::PropertyInfo;
 using ::comphelper::ChainablePropertySetInfo;
-using ::com::sun::star::uno::Type;
 using ::com::sun::star::uno::Sequence;
-using ::com::sun::star::uno::RuntimeException;
 using ::com::sun::star::beans::Property;
 using ::com::sun::star::beans::UnknownPropertyException;
 
@@ -47,7 +45,7 @@ ChainablePropertySetInfo::~ChainablePropertySetInfo()
 void ChainablePropertySetInfo::remove( const OUString& aName )
 {
     maMap.erase ( aName );
-    if ( maProperties.getLength() )
+    if ( maProperties.hasElements() )
          maProperties.realloc( 0 );
 }
 

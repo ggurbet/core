@@ -220,7 +220,8 @@ static void ImpCollectGraphicObjects( const Reference< XComponentContext >& rxMS
                 continue;
             }
 
-            if ( sShapeType == "com.sun.star.drawing.GraphicObjectShape" )
+            if ( sShapeType == "com.sun.star.drawing.GraphicObjectShape" ||
+                 sShapeType == "com.sun.star.presentation.GraphicObjectShape" )
                 ImpAddGraphicEntity( rxMSF, xShape, rGraphicSettings, rGraphicEntities );
 
             // now check for a fillstyle
@@ -265,7 +266,7 @@ void GraphicCollector::CollectGraphics( const Reference< XComponentContext >& rx
     {
         sal_Int32 i;
         Reference< XDrawPagesSupplier > xDrawPagesSupplier( rxModel, UNO_QUERY_THROW );
-        Reference< XDrawPages > xDrawPages( xDrawPagesSupplier->getDrawPages(), UNO_QUERY_THROW );
+        Reference< XDrawPages > xDrawPages( xDrawPagesSupplier->getDrawPages(), UNO_SET_THROW );
         for ( i = 0; i < xDrawPages->getCount(); i++ )
         {
             Reference< XDrawPage > xDrawPage( xDrawPages->getByIndex( i ), UNO_QUERY_THROW );
@@ -278,7 +279,7 @@ void GraphicCollector::CollectGraphics( const Reference< XComponentContext >& rx
             ImpCollectGraphicObjects( rxMSF, xNotesPage, rGraphicSettings, rGraphicList );
         }
         Reference< XMasterPagesSupplier > xMasterPagesSupplier( rxModel, UNO_QUERY_THROW );
-        Reference< XDrawPages > xMasterPages( xMasterPagesSupplier->getMasterPages(), UNO_QUERY_THROW );
+        Reference< XDrawPages > xMasterPages( xMasterPagesSupplier->getMasterPages(), UNO_SET_THROW );
         for ( i = 0; i < xMasterPages->getCount(); i++ )
         {
             Reference< XDrawPage > xMasterPage( xMasterPages->getByIndex( i ), UNO_QUERY_THROW );
@@ -337,7 +338,8 @@ static void ImpCountGraphicObjects( const Reference< XComponentContext >& rxMSF,
                 continue;
             }
 
-            if ( sShapeType == "com.sun.star.drawing.GraphicObjectShape" )
+            if ( sShapeType == "com.sun.star.drawing.GraphicObjectShape" ||
+                 sShapeType == "com.sun.star.presentation.GraphicObjectShape" )
             {
                 rnGraphics++;
             }
@@ -394,7 +396,7 @@ void GraphicCollector::CountGraphics( const Reference< XComponentContext >& rxMS
     {
         sal_Int32 i;
         Reference< XDrawPagesSupplier > xDrawPagesSupplier( rxModel, UNO_QUERY_THROW );
-        Reference< XDrawPages > xDrawPages( xDrawPagesSupplier->getDrawPages(), UNO_QUERY_THROW );
+        Reference< XDrawPages > xDrawPages( xDrawPagesSupplier->getDrawPages(), UNO_SET_THROW );
         for ( i = 0; i < xDrawPages->getCount(); i++ )
         {
             Reference< XDrawPage > xDrawPage( xDrawPages->getByIndex( i ), UNO_QUERY_THROW );
@@ -407,7 +409,7 @@ void GraphicCollector::CountGraphics( const Reference< XComponentContext >& rxMS
             ImpCountGraphicObjects( rxMSF, xNotesPage, rGraphicSettings, rnGraphics );
         }
         Reference< XMasterPagesSupplier > xMasterPagesSupplier( rxModel, UNO_QUERY_THROW );
-        Reference< XDrawPages > xMasterPages( xMasterPagesSupplier->getMasterPages(), UNO_QUERY_THROW );
+        Reference< XDrawPages > xMasterPages( xMasterPagesSupplier->getMasterPages(), UNO_SET_THROW );
         for ( i = 0; i < xMasterPages->getCount(); i++ )
         {
             Reference< XDrawPage > xMasterPage( xMasterPages->getByIndex( i ), UNO_QUERY_THROW );

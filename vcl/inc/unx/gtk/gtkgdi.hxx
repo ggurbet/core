@@ -101,13 +101,13 @@ typedef void (*gtk_widget_path_iter_set_object_nameFunc)(GtkWidgetPath *, guint,
 class GtkSalGraphics : public SvpSalGraphics
 {
     GtkSalFrame * const mpFrame;
-public:
-    GtkSalGraphics( GtkSalFrame *pFrame, GtkWidget *pWindow );
+
+protected:
+    bool isNativeControlSupported(ControlType, ControlPart) override;
     virtual bool        drawNativeControl( ControlType nType, ControlPart nPart,
                                                const tools::Rectangle& rControlRegion,
                                                ControlState nState, const ImplControlValue& aValue,
                                                const OUString& rCaption ) override;
-    virtual bool        IsNativeControlSupported( ControlType nType, ControlPart nPart ) override;
     virtual bool        getNativeControlRegion( ControlType nType, ControlPart nPart,
                                                     const tools::Rectangle& rControlRegion,
                                                     ControlState nState,
@@ -115,8 +115,11 @@ public:
                                                     const OUString& rCaption,
                                                     tools::Rectangle &rNativeBoundingRegion,
                                                     tools::Rectangle &rNativeContentRegion ) override;
+    bool updateSettings(AllSettings&) override;
+    void handleDamage(const tools::Rectangle&) override;
 
-    virtual void updateSettings(AllSettings& rSettings) override;
+public:
+    GtkSalGraphics( GtkSalFrame *pFrame, GtkWidget *pWindow );
 
 #if ENABLE_CAIRO_CANVAS
 
@@ -267,8 +270,9 @@ public:
     static  bool        bNeedPixmapPaint;
     static  bool        bNeedTwoPasses;
 
+protected:
     // native widget methods
-    virtual bool        IsNativeControlSupported( ControlType nType, ControlPart nPart ) override;
+    bool isNativeControlSupported(ControlType, ControlPart) override;
     virtual bool        hitTestNativeControl( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion,
                                               const Point& aPos, bool& rIsInside ) override;
     virtual bool        drawNativeControl( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion,
@@ -277,9 +281,10 @@ public:
     virtual bool        getNativeControlRegion( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState nState,
                                                 const ImplControlValue& aValue, const OUString& rCaption,
                                                 tools::Rectangle &rNativeBoundingRegion, tools::Rectangle &rNativeContentRegion ) override;
+    bool updateSettings(AllSettings&) override;
 
+public:
     //helper methods for frame's UpdateSettings
-    void updateSettings( AllSettings& rSettings );
     static void refreshFontconfig( GtkSettings *pSettings );
     static void signalSettingsNotify( GObject*, GParamSpec *pSpec, gpointer );
 
@@ -295,7 +300,7 @@ public:
 
 protected:
 
-    GdkX11Pixmap* NWGetPixmapFromScreen( tools::Rectangle srcRect, int nBgColor = 0 );
+    std::unique_ptr<GdkX11Pixmap> NWGetPixmapFromScreen( tools::Rectangle srcRect, int nBgColor = 0 );
     bool NWRenderPixmapToScreen( GdkX11Pixmap* pPixmap, GdkX11Pixmap* pMask, tools::Rectangle dstRect );
 
     bool DoDrawNativeControl( GdkDrawable* pDrawable,
@@ -381,10 +386,10 @@ protected:
     bool NWPaintGTKProgress(
                             const tools::Rectangle& rControlRectangle,
                             const ImplControlValue& aValue );
-    bool NWPaintGTKSlider( ControlPart nPart,
+    bool NWPaintGTKSlider( GdkDrawable* gdkDrawable, ControlPart nPart,
                            const tools::Rectangle& rControlRectangle,
                            ControlState nState, const ImplControlValue& aValue );
-    bool NWPaintGTKListNode(
+    bool NWPaintGTKListNode( GdkDrawable* gdkDrawable,
                             const tools::Rectangle& rControlRectangle,
                             ControlState nState, const ImplControlValue& aValue );
 };

@@ -20,10 +20,7 @@
 #include <memory>
 #include <sal/config.h>
 
-#include <utility>
-
 #include "BasicPaneFactory.hxx"
-#include <facreg.hxx>
 
 #include "ChildWindowPane.hxx"
 #include "FrameWindowPane.hxx"
@@ -34,7 +31,6 @@
 #include <ViewShellBase.hxx>
 #include <PaneChildWindows.hxx>
 #include <DrawController.hxx>
-#include <DrawDocShell.hxx>
 #include <com/sun/star/drawing/framework/XControllerManager.hpp>
 
 using namespace ::com::sun::star;
@@ -126,7 +122,7 @@ void SAL_CALL BasicPaneFactory::disposing()
 
 void SAL_CALL BasicPaneFactory::initialize (const Sequence<Any>& aArguments)
 {
-    if (aArguments.getLength() <= 0)
+    if (!aArguments.hasElements())
         return;
 
     try

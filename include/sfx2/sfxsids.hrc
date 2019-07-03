@@ -94,6 +94,8 @@ class SvxSearchItem;
 #define SID_DOCUMENTATION                   (SID_SFX_START + 423)
 #define SID_DONATION                        (SID_SFX_START + 424)
 #define SID_GETINVOLVED                     (SID_SFX_START + 425)
+#define SID_WHATSNEW                        (SID_SFX_START + 426)
+
 #define SID_SHOW_LICENSE                    (SID_SFX_START + 1683)
 #define SID_SHOW_CREDITS                    (SID_SFX_START + 1711)
 
@@ -136,6 +138,7 @@ class SvxSearchItem;
 #define SID_EXPORTDOCASEPUB                 (SID_SFX_START + 1677)
 #define SID_DIRECTEXPORTDOCASEPUB           (SID_SFX_START + 1678)
 #define SID_REDACTDOC                       (SID_SFX_START + 1732)
+#define SID_AUTOREDACTDOC                   (SID_SFX_START + 1736)
 #define SID_UPDATEDOCMODE                   (SID_SFX_START + 1668)
 #define SID_CHECKOUT                        (SID_SFX_START + 512)
 #define SID_CANCELCHECKOUT                  (SID_SFX_START + 513)
@@ -259,8 +262,9 @@ class SvxSearchItem;
 #define SID_NO_EMBEDDED_DS                  TypedWhichId<SfxBoolItem>(SID_SFX_START + 1731)
 #define SID_IS_REDACT_MODE                  (SID_SFX_START + 1733)
 #define SID_REDACTION_STYLE                 (SID_SFX_START + 1734)
+#define SID_DIALOG_PARENT                   (SID_SFX_START + 1735)
 
-//      SID_SFX_free_START                  (SID_SFX_START + 1735)
+//      SID_SFX_free_START                  (SID_SFX_START + 1737)
 //      SID_SFX_free_END                    (SID_SFX_START + 3999)
 
 #define SID_OPEN_NEW_VIEW                   (SID_SFX_START + 520)

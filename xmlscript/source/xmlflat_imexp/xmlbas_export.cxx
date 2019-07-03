@@ -32,6 +32,7 @@
 #include <com/sun/star/xml/sax/SAXException.hpp>
 #include <cppuhelper/implementationentry.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang;
@@ -153,17 +154,13 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                 if ( xLibContainer.is() )
                 {
                     Sequence< OUString > aLibNames = xLibContainer->getElementNames();
-                    sal_Int32 nLibCount = aLibNames.getLength();
-                    const OUString* pLibNames = aLibNames.getConstArray();
-                    for ( sal_Int32 i = 0 ; i < nLibCount ; ++i )
+                    for ( const OUString& rLibName : aLibNames )
                     {
-                        OUString aLibName( pLibNames[i] );
-
-                        if ( xLibContainer->hasByName( aLibName ) )
+                        if ( xLibContainer->hasByName( rLibName ) )
                         {
                             OUString aTrueStr( "true" );
 
-                            if ( xLibContainer->isLibraryLink( aLibName ) )
+                            if ( xLibContainer->isLibraryLink( rLibName ) )
                             {
                                 // ooo/script:library-linked element
                                 OUString aLibElementName( aPrefix );
@@ -173,9 +170,9 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                                 xLibAttribs = static_cast< xml::sax::XAttributeList* >( pLibElement );
 
                                 // ooo/script:name attribute
-                                pLibElement->addAttribute( aPrefix + ":name", aLibName );
+                                pLibElement->addAttribute( aPrefix + ":name", rLibName );
 
-                                OUString aLinkURL( xLibContainer->getLibraryLinkURL( aLibName ) );
+                                OUString aLinkURL( xLibContainer->getLibraryLinkURL( rLibName ) );
                                 if ( !aLinkURL.isEmpty() )
                                 {
                                     // xlink:href attribute
@@ -185,7 +182,7 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                                     pLibElement->addAttribute( XMLNS_XLINK_PREFIX ":type", "simple" );
                                 }
 
-                                if ( xLibContainer->isLibraryReadOnly( aLibName ) )
+                                if ( xLibContainer->isLibraryReadOnly( rLibName ) )
                                 {
                                     // ooo/script:readonly attribute
                                     pLibElement->addAttribute( aPrefix + ":readonly", aTrueStr );
@@ -209,9 +206,9 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                                 xLibAttribs = static_cast< xml::sax::XAttributeList* >( pLibElement );
 
                                 // ooo/script:name attribute
-                                pLibElement->addAttribute( aPrefix + ":name", aLibName );
+                                pLibElement->addAttribute( aPrefix + ":name", rLibName );
 
-                                if ( xLibContainer->isLibraryReadOnly( aLibName ) )
+                                if ( xLibContainer->isLibraryReadOnly( rLibName ) )
                                 {
                                     // ooo/script:readonly attribute
                                     pLibElement->addAttribute( aPrefix + ":readonly", aTrueStr );
@@ -219,28 +216,25 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
 
                                 // TODO: password protected libraries
                                 Reference< script::XLibraryContainerPassword > xPasswd( xLibContainer, UNO_QUERY );
-                                if ( xPasswd.is() && xPasswd->isLibraryPasswordProtected( aLibName ) )
+                                if ( xPasswd.is() && xPasswd->isLibraryPasswordProtected( rLibName ) )
                                     continue;
 
                                 // <ooo/script:library-embedded...
                                 m_xHandler->ignorableWhitespace( OUString() );
                                 m_xHandler->startElement( aLibElementName, xLibAttribs );
 
-                                if ( !xLibContainer->isLibraryLoaded( aLibName ) )
-                                    xLibContainer->loadLibrary( aLibName );
+                                if ( !xLibContainer->isLibraryLoaded( rLibName ) )
+                                    xLibContainer->loadLibrary( rLibName );
 
                                 Reference< container::XNameContainer > xLib;
-                                xLibContainer->getByName( aLibName ) >>= xLib;
+                                xLibContainer->getByName( rLibName ) >>= xLib;
 
                                 if ( xLib.is() )
                                 {
                                     Sequence< OUString > aModNames = xLib->getElementNames();
-                                    sal_Int32 nModCount = aModNames.getLength();
-                                    const OUString* pModNames = aModNames.getConstArray();
-                                    for ( sal_Int32 j = 0 ; j < nModCount ; ++j )
+                                    for ( const OUString& rModName : aModNames )
                                     {
-                                        OUString aModName( pModNames[j] );
-                                        if ( xLib->hasByName( aModName ) )
+                                        if ( xLib->hasByName( rModName ) )
                                         {
                                             // ooo/script:module element
                                             OUString aModElementName( aPrefix );
@@ -250,7 +244,7 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                                             xModAttribs = static_cast< xml::sax::XAttributeList* >( pModElement );
 
                                             // ooo/script:name attribute
-                                            pModElement->addAttribute( aPrefix + ":name", aModName );
+                                            pModElement->addAttribute( aPrefix + ":name", rModName );
 
                                             // <ooo/script:module...
                                             m_xHandler->ignorableWhitespace( OUString() );
@@ -270,7 +264,7 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                                             // module data
                                             // TODO: write encrypted data for password protected libraries
                                             OUString aSource;
-                                            xLib->getByName( aModName ) >>= aSource;
+                                            xLib->getByName( rModName ) >>= aSource;
                                             m_xHandler->characters( aSource );
 
                                             // TODO: <ooo/script:byte-code>
@@ -301,24 +295,24 @@ sal_Bool XMLBasicExporterBase::filter( const Sequence< beans::PropertyValue >& /
                 m_xHandler->endDocument();
             }
         }
-        catch ( const container::NoSuchElementException& e )
+        catch ( const container::NoSuchElementException& )
         {
-            SAL_INFO("xmlscript.xmlflat", "XMLBasicExporterBase::filter: caught NoSuchElementException reason " << e );
+            TOOLS_INFO_EXCEPTION("xmlscript.xmlflat", "XMLBasicExporterBase::filter" );
             bReturn = false;
         }
-        catch ( const lang::IllegalArgumentException& e )
+        catch ( const lang::IllegalArgumentException& )
         {
-            SAL_INFO("xmlscript.xmlflat", "XMLBasicExporterBase::filter: caught IllegalArgumentException reason " << e );
+            TOOLS_INFO_EXCEPTION("xmlscript.xmlflat", "XMLBasicExporterBase::filter" );
             bReturn = false;
         }
-        catch ( const lang::WrappedTargetException& e )
+        catch ( const lang::WrappedTargetException& )
         {
-            SAL_INFO("xmlscript.xmlflat", "XMLBasicExporterBase::filter: caught WrappedTargetException reason " << e );
+            TOOLS_INFO_EXCEPTION("xmlscript.xmlflat", "XMLBasicExporterBase::filter:" );
             bReturn = false;
         }
-        catch ( const xml::sax::SAXException& e )
+        catch ( const xml::sax::SAXException& )
         {
-            SAL_INFO("xmlscript.xmlflat", "XMLBasicExporterBase::filter: caught SAXException reason " << e );
+            TOOLS_INFO_EXCEPTION("xmlscript.xmlflat", "XMLBasicExporterBase::filter:" );
             bReturn = false;
         }
 

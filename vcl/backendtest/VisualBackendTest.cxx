@@ -8,40 +8,23 @@
  */
 
 #include <math.h>
-#include <rtl/math.hxx>
 #include <sal/log.hxx>
 
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/bootstrap.hxx>
+#include <com/sun/star/lang/XComponent.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/registry/XSimpleRegistry.hpp>
-#include <com/sun/star/ucb/UniversalContentBroker.hpp>
 
-#include <osl/time.h>
+#include <vcl/event.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/vclmain.hxx>
-#include <vcl/layout.hxx>
-#include <salhelper/thread.hxx>
 
-#include <tools/urlobj.hxx>
-#include <tools/stream.hxx>
-#include <tools/poly.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/pngread.hxx>
 #include <vcl/wrkwin.hxx>
 #include <vcl/virdev.hxx>
-#include <vcl/graphicfilter.hxx>
-#include <vcl/button.hxx>
-#include <vcl/toolbox.hxx>
-#include <vcl/pngwrite.hxx>
-#include <vcl/floatwin.hxx>
-#include <vcl/salbtype.hxx>
-#include <vcl/bitmapaccess.hxx>
-#include <vcl/help.hxx>
 
 #include <basegfx/numeric/ftools.hxx>
-#include <basegfx/matrix/b2dhommatrix.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <chrono>
@@ -186,7 +169,7 @@ public:
         aRectangle = aRegions[index++];
         {
             vcl::test::OutputDeviceTestRect aOutDevTest;
-            Bitmap aBitmap = aOutDevTest.setupRectangle();
+            Bitmap aBitmap = aOutDevTest.setupRectangle(false);
             assertAndSetBackground(vcl::test::OutputDeviceTestCommon::checkRectangle(aBitmap), aRectangle, rRenderContext);
             drawBitmapScaledAndCentered(aRectangle, aBitmap, rRenderContext);
         }
@@ -194,7 +177,7 @@ public:
         aRectangle = aRegions[index++];
         {
             vcl::test::OutputDeviceTestPixel aOutDevTest;
-            Bitmap aBitmap = aOutDevTest.setupRectangle();
+            Bitmap aBitmap = aOutDevTest.setupRectangle(false);
             assertAndSetBackground(vcl::test::OutputDeviceTestCommon::checkRectangle(aBitmap), aRectangle, rRenderContext);
             drawBitmapScaledAndCentered(aRectangle, aBitmap, rRenderContext);
         }
@@ -202,7 +185,7 @@ public:
         aRectangle = aRegions[index++];
         {
             vcl::test::OutputDeviceTestLine aOutDevTest;
-            Bitmap aBitmap = aOutDevTest.setupRectangle();
+            Bitmap aBitmap = aOutDevTest.setupRectangle(false);
             assertAndSetBackground(vcl::test::OutputDeviceTestCommon::checkRectangle(aBitmap), aRectangle, rRenderContext);
             drawBitmapScaledAndCentered(aRectangle, aBitmap, rRenderContext);
         }
@@ -210,7 +193,7 @@ public:
         aRectangle = aRegions[index++];
         {
             vcl::test::OutputDeviceTestPolygon aOutDevTest;
-            Bitmap aBitmap = aOutDevTest.setupRectangle();
+            Bitmap aBitmap = aOutDevTest.setupRectangle(false);
             assertAndSetBackground(vcl::test::OutputDeviceTestCommon::checkRectangle(aBitmap), aRectangle, rRenderContext);
             drawBitmapScaledAndCentered(aRectangle, aBitmap, rRenderContext);
         }
@@ -218,7 +201,7 @@ public:
         aRectangle = aRegions[index++];
         {
             vcl::test::OutputDeviceTestPolyLine aOutDevTest;
-            Bitmap aBitmap = aOutDevTest.setupRectangle();
+            Bitmap aBitmap = aOutDevTest.setupRectangle(false);
             assertAndSetBackground(vcl::test::OutputDeviceTestCommon::checkRectangle(aBitmap), aRectangle, rRenderContext);
             drawBitmapScaledAndCentered(aRectangle, aBitmap, rRenderContext);
         }
@@ -226,7 +209,7 @@ public:
         aRectangle = aRegions[index++];
         {
             vcl::test::OutputDeviceTestPolyPolygon aOutDevTest;
-            Bitmap aBitmap = aOutDevTest.setupRectangle();
+            Bitmap aBitmap = aOutDevTest.setupRectangle(false);
             assertAndSetBackground(vcl::test::OutputDeviceTestCommon::checkRectangle(aBitmap), aRectangle, rRenderContext);
             drawBitmapScaledAndCentered(aRectangle, aBitmap, rRenderContext);
         }
@@ -545,9 +528,7 @@ protected:
         try
         {
             uno::Reference<uno::XComponentContext> xComponentContext = ::cppu::defaultBootstrap_InitialComponentContext();
-            uno::Reference<lang::XMultiServiceFactory> xMSF;
-
-            xMSF = uno::Reference<lang::XMultiServiceFactory>(xComponentContext->getServiceManager(), uno::UNO_QUERY);
+            uno::Reference<lang::XMultiServiceFactory> xMSF(xComponentContext->getServiceManager(), uno::UNO_QUERY);
 
             if (!xMSF.is())
                 Application::Abort("Bootstrap failure - no service manager");

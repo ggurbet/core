@@ -22,6 +22,7 @@
 
 #include <DrawController.hxx>
 #include <com/sun/star/embed/EmbedStates.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 
 #include <comphelper/anytostring.hxx>
 #include <comphelper/scopeguard.hxx>
@@ -44,6 +45,7 @@
 #include <svx/fmglob.hxx>
 #include <editeng/outliner.hxx>
 #include <svx/dialogs.hrc>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <view/viewoverlaymanager.hxx>

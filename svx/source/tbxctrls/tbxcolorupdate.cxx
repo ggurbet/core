@@ -75,11 +75,10 @@ namespace svx
     void ToolboxButtonColorUpdater::Update(const NamedColor &rNamedColor)
     {
         Update(rNamedColor.first);
-        if (!mbWideButton && !rNamedColor.second.isEmpty())
+        if (!mbWideButton)
         {
             // Also show the current color as QuickHelpText
-            OUString colorSuffix = " (%1)";
-            colorSuffix = colorSuffix.replaceFirst("%1", rNamedColor.second);
+            OUString colorSuffix = OUString(" (%1)").replaceFirst("%1", rNamedColor.second);
             OUString colorHelpText = maCommandLabel + colorSuffix;
 
             mpTbx->SetQuickHelpText(mnBtnId, colorHelpText);
@@ -141,6 +140,19 @@ namespace svx
         pVirDev->DrawRect(maUpdRect);
 
         mpTbx->SetItemOverlayImage(mnBtnId, Image(pVirDev->GetBitmapEx(Point(0,0), aItemSize)));
+    }
+
+    OUString ToolboxButtonColorUpdater::GetCurrentColorName()
+    {
+        OUString sColorName = mpTbx->GetQuickHelpText(mnBtnId);
+        // The obtained string is of format: color context (color name)
+        // Generate a substring which contains only the color name
+        sal_Int32 nStart = sColorName.indexOf('(');
+        sColorName = sColorName.copy( nStart + 1 );
+        sal_Int32 nLength = sColorName.getLength();
+        if(nLength > 0)
+            sColorName = sColorName.copy( 0, nLength - 1);
+        return sColorName;
     }
 }
 

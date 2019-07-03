@@ -805,7 +805,7 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getTypeInfo()
     ODatabaseMetaDataResultSet* pResultSet =
             new ODatabaseMetaDataResultSet(ODatabaseMetaDataResultSet::eTypeInfo);
     uno::Reference< XResultSet > xResultSet = pResultSet;
-    static ODatabaseMetaDataResultSet::ORows aResults = [&]()
+    static ODatabaseMetaDataResultSet::ORows aResults = []()
     {
         ODatabaseMetaDataResultSet::ORows tmp;
         ODatabaseMetaDataResultSet::ORow aRow(19);
@@ -976,7 +976,7 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getTypeInfo()
         aRow[12] = new ORowSetValueDecorator(false); // Autoincrement
         aRow[14] = ODatabaseMetaDataResultSet::get0Value(); // Minimum scale
         aRow[15] = ODatabaseMetaDataResultSet::get0Value(); // Max scale
-        aResults.push_back(aRow);
+        tmp.push_back(aRow);
 
         // SQL_TYPE_DATE
         aRow[1] = new ORowSetValueDecorator(OUString("DATE"));
@@ -1319,7 +1319,7 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getTables(
             "WHERE ");
 
     // TODO: GLOBAL TEMPORARY, LOCAL TEMPORARY, ALIAS, SYNONYM
-    if ((types.getLength() == 0) || (types.getLength() == 1 && types[0].match(wld)))
+    if (!types.hasElements() || (types.getLength() == 1 && types[0].match(wld)))
     {
         // All table types? I.e. includes system tables.
         queryBuf.append("(RDB$RELATION_TYPE = 0 OR RDB$RELATION_TYPE = 1) ");
@@ -1469,9 +1469,8 @@ uno::Reference< XResultSet > SAL_CALL ODatabaseMetaData::getImportedKeys(
     uno::Reference< XResultSet > xResultSet = pResultSet;
 
     uno::Reference< XStatement > statement = m_pConnection->createStatement();
-    OUString sSQL;
 
-    sSQL = "SELECT "
+    OUString sSQL = "SELECT "
            "RDB$REF_CONSTRAINTS.RDB$UPDATE_RULE, " // 1 update rule
            "RDB$REF_CONSTRAINTS.RDB$DELETE_RULE, " // 2 delete rule
            "RDB$REF_CONSTRAINTS.RDB$CONST_NAME_UQ, " // 3 primary or unique key name

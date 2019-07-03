@@ -21,7 +21,6 @@
 #define INCLUDED_VCL_INC_SALLAYOUT_HXX
 
 #include <iostream>
-#include <list>
 #include <memory>
 #include <vector>
 
@@ -73,7 +72,7 @@ public:
     bool    PosIsInAnyRun( int nCharPos ) const;
 };
 
-class ImplLayoutArgs
+class VCL_DLLPUBLIC ImplLayoutArgs
 {
 public:
     // string related inputs
@@ -158,7 +157,7 @@ private:
     bool            mbIncomplete;
 };
 
-class VCL_PLUGIN_PUBLIC GenericSalLayout : public SalLayout
+class VCL_DLLPUBLIC GenericSalLayout : public SalLayout
 {
     friend void MultiSalLayout::AdjustLayout(ImplLayoutArgs&);
 

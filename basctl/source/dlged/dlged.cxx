@@ -40,11 +40,14 @@
 #include <com/sun/star/util/NumberFormatsSupplier.hpp>
 #include <comphelper/types.hxx>
 #include <comphelper/processfactory.hxx>
+#include <tools/debug.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svl/itempool.hxx>
 #include <svx/sdrpaintwindow.hxx>
 #include <svx/svxids.hrc>
+#include <svx/svdpagv.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <vcl/print.hxx>
 #include <vcl/svapp.hxx>
 #include <xmlscript/xml_helper.hxx>
 #include <xmlscript/xmldlg_imexp.hxx>
@@ -850,7 +853,7 @@ void DlgEditor::Paste()
             }
             bool bLocalized = false;
             if( xStringResourceManager.is() )
-                bLocalized = ( xStringResourceManager->getLocales().getLength() > 0 );
+                bLocalized = xStringResourceManager->getLocales().hasElements();
 
             if ( xTransf->isDataFlavorSupported( m_ClipboardDataFlavors[0] ) )
             {

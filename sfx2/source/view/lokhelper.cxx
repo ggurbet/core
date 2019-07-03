@@ -12,9 +12,13 @@
 #include <com/sun/star/frame/Desktop.hpp>
 
 #include <comphelper/processfactory.hxx>
+#include <vcl/lok.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/commandevent.hxx>
+#include <sfx2/app.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/viewfrm.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
@@ -310,7 +314,14 @@ namespace
         }
 
         pEvent->mnView = SfxLokHelper::getView(nullptr);
-        Application::PostUserEvent(Link<void*, void>(pEvent, LOKPostAsyncEvent));
+        if (vcl::lok::isUnipoll())
+        {
+            if (!Application::IsMainThread())
+                SAL_WARN("lok", "Posting event directly but not called from main thread!");
+            LOKPostAsyncEvent(pEvent, nullptr);
+        }
+        else
+            Application::PostUserEvent(Link<void*, void>(pEvent, LOKPostAsyncEvent));
     }
 }
 

@@ -210,7 +210,8 @@ SwTwips SwTextFrame::EmptyHeight() const
         SwViewShell *pSh = getRootFrame()->GetCurrShell();
         if ( dynamic_cast<const SwCursorShell*>( pSh ) !=  nullptr ) {
             SwCursorShell *pCrSh = static_cast<SwCursorShell*>(pSh);
-            SwContentFrame *pCurrFrame=pCrSh->GetCurrFrame();
+            // this is called during formatting so avoid recursive layout
+            SwContentFrame const*const pCurrFrame = pCrSh->GetCurrFrame(false);
             if (pCurrFrame==static_cast<SwContentFrame const *>(this)) {
                 // do nothing
             } else {
@@ -252,7 +253,7 @@ SwTwips SwTextFrame::EmptyHeight() const
     if (IDocumentRedlineAccess::IsShowChanges(rIDRA.GetRedlineFlags())
         && !getRootFrame()->IsHideRedlines())
     {
-        const SwRedlineTable::size_type nRedlPos = rIDRA.GetRedlinePos( rTextNode, USHRT_MAX );
+        const SwRedlineTable::size_type nRedlPos = rIDRA.GetRedlinePos( rTextNode, RedlineType::Any );
         if( SwRedlineTable::npos != nRedlPos )
         {
             SwAttrHandler aAttrHandler;
@@ -330,7 +331,7 @@ bool SwTextFrame::FormatEmpty()
         ClearPara();
         ResetBlinkPor();
     }
-    SetCacheIdx( USHRT_MAX );
+    RemoveFromCache();
     if( !IsEmpty() )
     {
         SetEmpty( true );

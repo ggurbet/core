@@ -270,8 +270,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
         case SID_PASTE_SPECIAL:
             {
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                vcl::Window* pWin = pViewData->GetDialogParent();
-                ScopedVclPtr<SfxAbstractPasteDialog> pDlg(pFact->CreatePasteDialog(pWin ? pWin->GetFrameWeld() : nullptr));
+                ScopedVclPtr<SfxAbstractPasteDialog> pDlg(pFact->CreatePasteDialog(pViewData->GetDialogParent()));
                 SotClipboardFormatId nFormat = SotClipboardFormatId::NONE;
                 pDlg->Insert( SotClipboardFormatId::STRING, EMPTY_OUSTRING );
                 pDlg->Insert( SotClipboardFormatId::RTF,    EMPTY_OUSTRING );
@@ -391,7 +390,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
                             pTableView->GetAttribs().Get(nFontWhich));
 
                 OUString aString;
-                SvxFontItem aNewItem( EE_CHAR_FONTINFO );
+                std::shared_ptr<SvxFontItem> aNewItem(std::make_shared<SvxFontItem>(EE_CHAR_FONTINFO));
 
                 const SfxItemSet *pArgs = rReq.GetArgs();
                 const SfxPoolItem* pItem = nullptr;
@@ -408,12 +407,19 @@ void ScEditShell::Execute( SfxRequest& rReq )
                     {
                         const OUString& aFontName(pFontItem->GetValue());
                         vcl::Font aFont(aFontName, Size(1,1)); // Size just because CTOR
-                        aNewItem = SvxFontItem( aFont.GetFamilyType(), aFont.GetFamilyName(),
-                                    aFont.GetStyleName(), aFont.GetPitch(),
-                                    aFont.GetCharSet(), ATTR_FONT  );
+                        // tdf#125054 see comment in drtxob.cxx, same ID
+                        aNewItem = std::make_shared<SvxFontItem>(
+                            aFont.GetFamilyType(), aFont.GetFamilyName(),
+                            aFont.GetStyleName(), aFont.GetPitch(),
+                            aFont.GetCharSet(), ATTR_FONT);
                     }
                     else
-                        aNewItem = rItem;
+                    {
+                        aNewItem.reset(static_cast<SvxFontItem*>(rItem.Clone()));
+                    }
+
+                    // tdf#125054 force Item to correct intended ID
+                    aNewItem->SetWhich(EE_CHAR_FONTINFO);
                 }
                 else
                 {
@@ -436,7 +442,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
 
                     SfxItemSet aSet( pTableView->GetEmptyItemSet() );
                     SvxScriptSetItem aSetItem( SID_ATTR_CHAR_FONT, GetPool() );
-                    aSetItem.PutItemForScriptType( nSetScript, aNewItem );
+                    aSetItem.PutItemForScriptType( nSetScript, *aNewItem );
                     aSet.Put( aSetItem.GetItemSet(), false );
 
                     // SetAttribs on the View selects a word, when nothing is selected
@@ -446,7 +452,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
                         pTopView->InsertText(aString);
 
                     SfxStringItem aStringItem( SID_CHARMAP, aString );
-                    SfxStringItem aFontItem( SID_ATTR_SPECIALCHAR, aNewItem.GetFamilyName() );
+                    SfxStringItem aFontItem( SID_ATTR_SPECIALCHAR, aNewItem->GetFamilyName() );
                     rReq.AppendItem( aFontItem );
                     rReq.AppendItem( aStringItem );
                     rReq.Done();
@@ -462,7 +468,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
             {
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
-                ScopedVclPtr<AbstractScNamePasteDlg> pDlg(pFact->CreateScNamePasteDlg(pViewData->GetFrameWeld(), pViewData->GetDocShell()));
+                ScopedVclPtr<AbstractScNamePasteDlg> pDlg(pFact->CreateScNamePasteDlg(pViewData->GetDialogParent(), pViewData->GetDocShell()));
                 short nRet = pDlg->Execute();
                 // pDlg is needed below
 
@@ -502,7 +508,7 @@ void ScEditShell::Execute( SfxRequest& rReq )
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
                 ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateScCharDlg(
-                    pViewData->GetFrameWeld(), &aAttrs, pObjSh));
+                    pViewData->GetDialogParent(), &aAttrs, pObjSh));
                 if (nSlot == SID_CHAR_DLG_EFFECT)
                 {
                     pDlg->SetCurPageId("fonteffects");

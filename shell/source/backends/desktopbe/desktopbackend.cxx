@@ -51,6 +51,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
+#include <tools/diagnose_ex.h>
 #include <uno/current_context.hxx>
 #include <vcl/svapp.hxx>
 
@@ -127,7 +128,7 @@ void Default::setPropertyValue(OUString const &, css::uno::Any const &)
         static_cast< cppu::OWeakObject * >(this), -1);
 }
 
-OUString xdg_user_dir_lookup (const char *type)
+OUString xdg_user_dir_lookup (const char *type, bool bAllowHomeDir)
 {
     size_t nLenType = strlen(type);
     char *config_home;
@@ -218,16 +219,20 @@ OUString xdg_user_dir_lookup (const char *type)
     if (aUserDirBuf.getLength()>0 && !bError)
     {
         aDocumentsDirURL = aUserDirBuf.makeStringAndClear();
-        osl::Directory aDocumentsDir( aDocumentsDirURL );
-        if( osl::FileBase::E_None == aDocumentsDir.open() )
-            return aDocumentsDirURL;
+        if ( bAllowHomeDir ||
+             (aDocumentsDirURL != aHomeDirURL && aDocumentsDirURL != aHomeDirURL + "/") )
+        {
+            osl::Directory aDocumentsDir( aDocumentsDirURL );
+            if( osl::FileBase::E_None == aDocumentsDir.open() )
+                return aDocumentsDirURL;
+        }
     }
     /* Use fallbacks historical compatibility if nothing else exists */
     return aHomeDirURL + "/" + OUString::createFromAscii(type);
 }
 
-css::uno::Any xdgDirectoryIfExists(char const * type) {
-    auto url = xdg_user_dir_lookup(type);
+css::uno::Any xdgDirectoryIfExists(char const * type, bool bAllowHomeDir) {
+    auto url = xdg_user_dir_lookup(type, bAllowHomeDir);
     return css::uno::Any(
         osl::Directory(url).open() == osl::FileBase::E_None
         ? css::beans::Optional<css::uno::Any>(true, css::uno::Any(url))
@@ -238,12 +243,13 @@ css::uno::Any Default::getPropertyValue(OUString const & PropertyName)
 {
     if (PropertyName == "TemplatePathVariable")
     {
-        return xdgDirectoryIfExists("Templates");
+        // Never pick up the HOME directory as the default location of user's templates
+        return xdgDirectoryIfExists("Templates", false);
     }
 
     if (PropertyName == "WorkPathVariable")
     {
-        return xdgDirectoryIfExists("Documents");
+        return xdgDirectoryIfExists("Documents", true);
     }
 
     if ( PropertyName == "EnableATToolSupport" ||
@@ -279,9 +285,9 @@ css::uno::Reference< css::uno::XInterface > createBackend(
     } catch (css::uno::RuntimeException &) {
         // Assuming these exceptions are real errors:
         throw;
-    } catch (const css::uno::Exception & e) {
+    } catch (const css::uno::Exception &) {
         // Assuming these exceptions indicate that the service is not installed:
-        SAL_WARN("shell", "createInstance(" << name << ") failed with " << e);
+        TOOLS_WARN_EXCEPTION("shell", "createInstance(" << name << ") failed");
         return css::uno::Reference< css::uno::XInterface >();
     }
 }

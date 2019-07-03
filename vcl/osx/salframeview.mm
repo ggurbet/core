@@ -259,7 +259,7 @@ static AquaSalFrame* getMouseContainerFrame()
             mpFrame->mpMenu->setMainMenu();
         else if( ! mpFrame->mpParent &&
                  ( (mpFrame->mnStyle & nGuessDocument) == nGuessDocument || // set default menu for e.g. help
-                    mpFrame->mbFullScreen ) )                               // ser default menu for e.g. presentation
+                    mpFrame->mbFullScreen ) )                               // set default menu for e.g. presentation
         {
             AquaSalMenu::setDefaultMenu();
         }
@@ -1622,7 +1622,7 @@ SAL_WNODEPRECATED_DECLARATIONS_POP
 
         aInputEvent.maText = aInsertString;
         aInputEvent.mnCursorPos = selRange.location;
-        aInputEvent.mpTextAttr = &aInputFlags[0];
+        aInputEvent.mpTextAttr = aInputFlags.data();
         mpFrame->CallCallback( SalEvent::ExtTextInput, static_cast<void *>(&aInputEvent) );
     } else {
         aInputEvent.maText.clear();

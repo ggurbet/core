@@ -21,7 +21,6 @@
 #include <vcl/waitobj.hxx>
 #include <rtl/ustring.hxx>
 #include <sfx2/sfxsids.hrc>
-#include <vcl/treelistentry.hxx>
 #include <tools/lineend.hxx>
 #include <com/sun/star/uno/Sequence.h>
 #include <swtypes.hxx>
@@ -429,9 +428,8 @@ void SwLabPage::InitDatabaseBox()
     {
         m_xDatabaseLB->clear();
         css::uno::Sequence<OUString> aDataNames = SwDBManager::GetExistingDatabaseNames();
-        const OUString* pDataNames = aDataNames.getConstArray();
-        for (long i = 0; i < aDataNames.getLength(); i++)
-            m_xDatabaseLB->append_text(pDataNames[i]);
+        for (const OUString& rDataName : aDataNames)
+            m_xDatabaseLB->append_text(rDataName);
         sal_Int32 nIdx{ 0 };
         OUString sDBName = sActDBName.getToken( 0, DB_DELIM, nIdx );
         OUString sTableName = sActDBName.getToken( 0, DB_DELIM, nIdx );

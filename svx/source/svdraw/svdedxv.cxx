@@ -22,11 +22,13 @@
 #include <svx/svdedxv.hxx>
 #include <svl/solar.hrc>
 #include <svl/itemiter.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/hatch.hxx>
 #include <svl/whiter.hxx>
 #include <svl/style.hxx>
 #include <editeng/editstat.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/cursor.hxx>
 #include <editeng/unotext.hxx>
 #include <editeng/editdata.hxx>
@@ -60,6 +62,7 @@
 #include <svx/sdrundomanager.hxx>
 #include <sdr/overlay/overlaytools.hxx>
 #include <svx/sdr/table/tablecontroller.hxx>
+#include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <drawinglayer/processor2d/processor2dtools.hxx>
 #include <comphelper/lok.hxx>
 #include <sfx2/viewsh.hxx>
@@ -68,6 +71,7 @@
 #include <svx/sdr/overlay/overlaymanager.hxx>
 #include <svx/sdrpagewindow.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 
 #include <memory>
 
@@ -225,8 +229,9 @@ void SdrObjEditView::Notify(SfxBroadcaster& rBC, const SfxHint& rHint)
     SdrGlueEditView::Notify(rBC,rHint);
     if (pTextEditOutliner!=nullptr) {
         // change of printer while editing
-        const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>(&rHint);
-        if (pSdrHint!=nullptr) {
+        if (rHint.GetId() == SfxHintId::ThisIsAnSdrHint)
+        {
+            const SdrHint* pSdrHint = static_cast<const SdrHint*>(&rHint);
             SdrHintKind eKind=pSdrHint->GetKind();
             if (eKind==SdrHintKind::RefDeviceChange) {
                 pTextEditOutliner->SetRefDevice(mpModel->GetRefDevice());
@@ -522,7 +527,7 @@ namespace
 
         // check current range
         const tools::Rectangle aOutArea(mrOutlinerView.GetOutputArea());
-        basegfx::B2DRange aNewRange(aOutArea.Left(), aOutArea.Top(), aOutArea.Right(), aOutArea.Bottom());
+        basegfx::B2DRange aNewRange = vcl::unotools::b2DRectangleFromRectangle(aOutArea);
         aNewRange.expand(rMinTextEditArea);
 
         if (aNewRange != maRange)
@@ -622,14 +627,12 @@ namespace
 // callback from the active EditView, forward to evtl. existing instances of the
 // TextEditOverlayObject(s). This will additionally update the selection which
 // is an integral part of the text visualization
-void SdrObjEditView::EditViewInvalidate() const
+void SdrObjEditView::EditViewInvalidate(const tools::Rectangle&) const
 {
     if (IsTextEdit())
     {
         // MinTextRange may have changed. Forward it, too
-        const basegfx::B2DRange aMinTextRange(
-            aMinTextEditArea.Left(), aMinTextEditArea.Top(),
-            aMinTextEditArea.Right(), aMinTextEditArea.Bottom());
+        const basegfx::B2DRange aMinTextRange = vcl::unotools::b2DRectangleFromRectangle(aMinTextEditArea);
 
         for (sal_uInt32 a(0); a < maTEOverlayGroup.count(); a++)
         {
@@ -662,6 +665,11 @@ void SdrObjEditView::EditViewSelectionChange() const
     }
 }
 
+OutputDevice& SdrObjEditView::EditViewOutputDevice() const
+{
+    return *pTextEditWin;
+}
+
 void SdrObjEditView::TextEditDrawing(SdrPaintWindow& rPaintWindow) const
 {
     if (!comphelper::LibreOfficeKit::isActive())
@@ -669,7 +677,7 @@ void SdrObjEditView::TextEditDrawing(SdrPaintWindow& rPaintWindow) const
         // adapt all TextEditOverlayObject(s), so call EditViewInvalidate()
         // to update accordingly (will update selection, too). Suppress new
         // stuff when LibreOfficeKit is active
-        EditViewInvalidate();
+        EditViewInvalidate(tools::Rectangle());
     }
     else
     {
@@ -745,7 +753,7 @@ void SdrObjEditView::ImpPaintOutlinerView(OutlinerView& rOutlView, const tools::
         if (xProcessor)
         {
             const bool bMapModeEnabled(rTargetDevice.IsMapModeEnabled());
-            const basegfx::B2DRange aRange(aPixRect.Left(), aPixRect.Top(), aPixRect.Right(), aPixRect.Bottom());
+            const basegfx::B2DRange aRange = vcl::unotools::b2DRectangleFromRectangle(aPixRect);
             const SvtOptionsDrawinglayer aSvtOptionsDrawinglayer;
             const Color aHilightColor(aSvtOptionsDrawinglayer.getHilightColor());
             const double fTransparence(aSvtOptionsDrawinglayer.GetTransparentSelectionPercent() * 0.01);
@@ -1470,6 +1478,7 @@ SdrEndTextEditKind SdrObjEditView::SdrEndTextEdit(bool bDontDeleteReally)
             const bool bUndo = IsUndoEnabled();
             if( bUndo )
             {
+                EndTextEditAllViews();
                 OUString aObjName(pTEObj->TakeObjNameSingul());
                 BegUndo(SvxResId(STR_UndoObjSetText),aObjName);
             }
@@ -1782,7 +1791,7 @@ bool SdrObjEditView::KeyInput(const KeyEvent& rKEvt, vcl::Window* pWin)
     return SdrGlueEditView::KeyInput(rKEvt,pWin);
 }
 
-bool SdrObjEditView::MouseButtonDown(const MouseEvent& rMEvt, vcl::Window* pWin)
+bool SdrObjEditView::MouseButtonDown(const MouseEvent& rMEvt, OutputDevice* pWin)
 {
     if (pTextEditOutlinerView!=nullptr) {
         bool bPostIt=pTextEditOutliner->IsInSelectionMode();
@@ -1805,7 +1814,8 @@ bool SdrObjEditView::MouseButtonDown(const MouseEvent& rMEvt, vcl::Window* pWin)
             MouseEvent aMEvt(aPixPos,rMEvt.GetClicks(),rMEvt.GetMode(),
                              rMEvt.GetButtons(),rMEvt.GetModifier());
             if (pTextEditOutlinerView->MouseButtonDown(aMEvt)) {
-                if (pWin!=nullptr && pWin!=pTextEditWin) SetTextEditWin(pWin);
+                if (pWin!=nullptr && pWin!=pTextEditWin && pWin->GetOutDevType() == OUTDEV_WINDOW)
+                    SetTextEditWin(static_cast<vcl::Window*>(pWin));
 #ifdef DBG_UTIL
                 if (mpItemBrowser!=nullptr) mpItemBrowser->SetDirty();
 #endif
@@ -1817,7 +1827,7 @@ bool SdrObjEditView::MouseButtonDown(const MouseEvent& rMEvt, vcl::Window* pWin)
     return SdrGlueEditView::MouseButtonDown(rMEvt,pWin);
 }
 
-bool SdrObjEditView::MouseButtonUp(const MouseEvent& rMEvt, vcl::Window* pWin)
+bool SdrObjEditView::MouseButtonUp(const MouseEvent& rMEvt, OutputDevice* pWin)
 {
     if (pTextEditOutlinerView!=nullptr) {
         bool bPostIt=pTextEditOutliner->IsInSelectionMode();
@@ -1848,7 +1858,7 @@ bool SdrObjEditView::MouseButtonUp(const MouseEvent& rMEvt, vcl::Window* pWin)
     return SdrGlueEditView::MouseButtonUp(rMEvt,pWin);
 }
 
-bool SdrObjEditView::MouseMove(const MouseEvent& rMEvt, vcl::Window* pWin)
+bool SdrObjEditView::MouseMove(const MouseEvent& rMEvt, OutputDevice* pWin)
 {
     if (pTextEditOutlinerView!=nullptr) {
         bool bSelMode=pTextEditOutliner->IsInSelectionMode();
@@ -2173,6 +2183,10 @@ bool SdrObjEditView::SetAttributes(const SfxItemSet& rSet, bool bReplaceAll)
             }
             pTextEditOutlinerView->SetAttribs(rSet);
 
+            Outliner* pTEOutliner = pTextEditOutlinerView->GetOutliner();
+            if (mpModel && pTEOutliner && pTEOutliner->IsModified())
+                mpModel->SetChanged();
+
 #ifdef DBG_UTIL
             if (mpItemBrowser!=nullptr)
                 mpItemBrowser->SetDirty();
@@ -2372,7 +2386,7 @@ void SdrObjEditView::getTextSelection( css::uno::Any& rSelection )
                 css::uno::Reference< css::text::XText > xText( pObj->getUnoShape(), css::uno::UNO_QUERY );
                 if( xText.is() )
                 {
-                    SvxUnoTextBase* pRange = SvxUnoTextBase::getImplementation( xText );
+                    SvxUnoTextBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextBase>( xText );
                     if( pRange )
                     {
                         rSelection <<= pRange->createTextCursorBySelection( pOutlinerView->GetSelection() );

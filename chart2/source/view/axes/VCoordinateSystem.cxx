@@ -26,7 +26,6 @@
 #include <servicenames_coosystems.hxx>
 #include <ObjectIdentifier.hxx>
 #include <ExplicitCategoriesProvider.hxx>
-#include <ContainerHelper.hxx>
 #include "VAxisBase.hxx"
 #include <defines.hxx>
 #include <chartview/ExplicitValueProvider.hxx>
@@ -35,7 +34,7 @@
 #include <com/sun/star/chart2/XCoordinateSystem.hpp>
 #include <comphelper/sequence.hxx>
 #include <sal/log.hxx>
-
+#include <tools/diagnose_ex.h>
 #include <algorithm>
 #include <rtl/math.hxx>
 
@@ -202,7 +201,7 @@ Sequence< Reference< beans::XPropertySet > > VCoordinateSystem::getGridListFromA
     if( xAxis.is() )
     {
         aRet.push_back( xAxis->getGridProperties() );
-        std::vector< Reference< beans::XPropertySet > > aSubGrids( ContainerHelper::SequenceToVector( xAxis->getSubGridProperties() ) );
+        auto aSubGrids( comphelper::sequenceToContainer<std::vector< Reference< beans::XPropertySet > > >( xAxis->getSubGridProperties() ) );
         aRet.insert( aRet.end(), aSubGrids.begin(), aSubGrids.end() );
     }
 
@@ -534,9 +533,9 @@ bool VCoordinateSystem::getPropertySwapXAndYAxis() const
     {
         xProp->getPropertyValue( "SwapXAndYAxis" ) >>= bSwapXAndY;
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
     return bSwapXAndY;
 }

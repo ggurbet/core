@@ -19,6 +19,8 @@
 
 #include <i18nutil/unicode.hxx>
 #include <vcl/builder.hxx>
+#include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/status.hxx>
 #include <vcl/menu.hxx>
@@ -37,6 +39,8 @@
 #include "modctrl_internal.hxx"
 #include <bitmaps.hlst>
 
+#include <com/sun/star/beans/PropertyValue.hpp>
+
 SFX_IMPL_STATUSBAR_CONTROL(SvxZoomStatusBarControl,SvxZoomItem);
 
 class ZoomPopup_Impl
@@ -45,7 +49,7 @@ public:
     ZoomPopup_Impl( sal_uInt16 nZ, SvxZoomEnableFlags nValueSet );
 
     sal_uInt16 GetZoom();
-    OString    GetCurItemIdent() const { return m_xMenu->GetCurItemIdent(); }
+    OString const & GetCurItemIdent() const { return m_xMenu->GetCurItemIdent(); }
 
     sal_uInt16 Execute(vcl::Window* pWindow, const Point& rPopupPos)
     {

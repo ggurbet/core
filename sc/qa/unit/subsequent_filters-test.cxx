@@ -15,6 +15,7 @@
 #include <osl/file.hxx>
 #include <config_features.h>
 
+#include <vcl/svapp.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/docfile.hxx>
 #include <svl/stritem.hxx>
@@ -25,6 +26,7 @@
 #include <drwlayer.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdoole2.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/postitem.hxx>
 #include <editeng/crossedoutitem.hxx>
@@ -142,6 +144,7 @@ public:
     void testNewCondFormatODS();
     void testNewCondFormatXLSX();
     void testCondFormatThemeColorXLSX();
+    void testCondFormatImportCellIs();
     void testCondFormatThemeColor2XLSX(); // negative bar color and axis color
     void testCondFormatThemeColor3XLSX(); // theme index 2 and 3 are switched
     void testComplexIconSetsXLSX();
@@ -245,6 +248,8 @@ public:
     void testCharacterSetXLSXML();
     void testTdf62268();
     void testVBAMacroFunctionODS();
+    void testAutoheight2Rows();
+    void testXLSDefColWidth();
 
     CPPUNIT_TEST_SUITE(ScFiltersTest);
     CPPUNIT_TEST(testBooleanFormatXLSX);
@@ -299,6 +304,7 @@ public:
     CPPUNIT_TEST(testNewCondFormatODS);
     CPPUNIT_TEST(testNewCondFormatXLSX);
     CPPUNIT_TEST(testCondFormatThemeColorXLSX);
+    CPPUNIT_TEST(testCondFormatImportCellIs);
     CPPUNIT_TEST(testCondFormatThemeColor2XLSX);
     CPPUNIT_TEST(testCondFormatThemeColor3XLSX);
     CPPUNIT_TEST(testComplexIconSetsXLSX);
@@ -383,6 +389,8 @@ public:
     CPPUNIT_TEST(testCondFormatFormulaListenerXLSX);
     CPPUNIT_TEST(testTdf62268);
     CPPUNIT_TEST(testVBAMacroFunctionODS);
+    CPPUNIT_TEST(testAutoheight2Rows);
+    CPPUNIT_TEST(testXLSDefColWidth);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -1625,7 +1633,7 @@ void ScFiltersTest::testPassword_Impl(const OUString& aFileNameBase)
     ScDocShellRef xDocSh = new ScDocShell;
     SfxMedium* pMedium = new SfxMedium(aFileName, StreamMode::STD_READWRITE);
     SfxItemSet* pSet = pMedium->GetItemSet();
-    pSet->Put(SfxStringItem(SID_PASSWORD, OUString("test")));
+    pSet->Put(SfxStringItem(SID_PASSWORD, "test"));
     pMedium->SetFilter(pFilter);
     if (!xDocSh->DoLoad(pMedium))
     {
@@ -2250,6 +2258,40 @@ void ScFiltersTest::testNewCondFormatXLSX()
     OUString aCSVPath;
     createCSVPath( "new_cond_format_test.", aCSVPath );
     testCondFile(aCSVPath, &rDoc, 0);
+
+    xDocSh->DoClose();
+}
+
+void ScFiltersTest::testCondFormatImportCellIs()
+{
+    ScDocShellRef xDocSh = ScBootstrapFixture::loadDoc("condFormat_cellis.", FORMAT_XLSX);
+    CPPUNIT_ASSERT_MESSAGE("Failed to load condFormat_cellis.xlsx", xDocSh.is());
+
+    ScDocument& rDoc = xDocSh->GetDocument();
+    CPPUNIT_ASSERT_EQUAL(size_t(1), rDoc.GetCondFormList(0)->size());
+
+    ScConditionalFormat* pFormat = rDoc.GetCondFormat(0, 0, 0);
+    CPPUNIT_ASSERT(pFormat);
+
+    const ScFormatEntry* pEntry = pFormat->GetEntry(0);
+    CPPUNIT_ASSERT(pEntry);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::ExtCondition, pEntry->GetType());
+
+    const ScCondFormatEntry* pCondition = static_cast<const ScCondFormatEntry*>(pEntry);
+    CPPUNIT_ASSERT_EQUAL( ScConditionMode::Equal,  pCondition->GetOperation());
+
+    OUString aStr = pCondition->GetExpression(ScAddress(0, 0, 0), 0);
+    CPPUNIT_ASSERT_EQUAL( OUString("$Sheet2.$A$1"), aStr );
+
+    pEntry = pFormat->GetEntry(1);
+    CPPUNIT_ASSERT(pEntry);
+    CPPUNIT_ASSERT_EQUAL(ScFormatEntry::Type::ExtCondition, pEntry->GetType());
+
+    pCondition = static_cast<const ScCondFormatEntry*>(pEntry);
+    CPPUNIT_ASSERT_EQUAL( ScConditionMode::Equal,  pCondition->GetOperation());
+
+    aStr = pCondition->GetExpression(ScAddress(0, 0, 0), 0);
+    CPPUNIT_ASSERT_EQUAL( OUString("$Sheet2.$A$2"), aStr );
 
     xDocSh->DoClose();
 }
@@ -4245,6 +4287,35 @@ void ScFiltersTest::testVBAMacroFunctionODS()
     rDoc.GetFormula(2, 0, 0, aFunction);
     std::cout << aFunction << std::endl;
     CPPUNIT_ASSERT_DOUBLES_EQUAL(10.0, rDoc.GetValue(2, 0, 0), 1e-6);
+
+    xDocSh->DoClose();
+}
+
+void ScFiltersTest::testAutoheight2Rows()
+{
+    ScDocShellRef xDocSh = loadDoc("autoheight2rows.", FORMAT_ODS);
+    ScDocument& rDoc = xDocSh->GetDocument();
+
+    SCTAB nTab = 0;
+    int nHeight1 = rDoc.GetRowHeight(0, nTab, false);
+    int nHeight3 = rDoc.GetRowHeight(2, nTab, false);
+
+    // We will do relative comparison, because calculated autoheight
+    // can be different on different platforms
+    CPPUNIT_ASSERT_MESSAGE("Row #3 should be thinner than #1", nHeight3 < nHeight1);
+
+    xDocSh->DoClose();
+}
+
+void ScFiltersTest::testXLSDefColWidth()
+{
+    // XLS has only 256 columns; but on import, we need to set default width to all above that limit
+    ScDocShellRef xDocSh = loadDoc("chartx.", FORMAT_XLS); // just some XLS with narrow columns
+    ScDocument& rDoc = xDocSh->GetDocument();
+
+    int nWidth = rDoc.GetColWidth(MAXCOL, 0, false);
+    // This was 1280
+    CPPUNIT_ASSERT_EQUAL(1005, nWidth);
 
     xDocSh->DoClose();
 }

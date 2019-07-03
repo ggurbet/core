@@ -88,7 +88,7 @@ inline void SwTableBox::SetSaveUserColor(const Color* p )
     if (p)
         mpUserColor.reset(new Color(*p));
     else
-        mpUserColor.reset(nullptr);
+        mpUserColor.reset();
 }
 
 inline void SwTableBox::SetSaveNumFormatColor( const Color* p )
@@ -96,7 +96,7 @@ inline void SwTableBox::SetSaveNumFormatColor( const Color* p )
     if (p)
         mpNumFormatColor.reset(new Color(*p));
     else
-        mpNumFormatColor.reset(nullptr);
+        mpNumFormatColor.reset();
 }
 
 long SwTableBox::getRowSpan() const
@@ -1739,36 +1739,40 @@ SwFrameFormat* SwTableBox::ClaimFrameFormat()
     return pRet;
 }
 
-void SwTableBox::ChgFrameFormat( SwTableBoxFormat* pNewFormat )
+void SwTableBox::ChgFrameFormat( SwTableBoxFormat* pNewFormat, bool bNeedToReregister )
 {
     SwFrameFormat *pOld = GetFrameFormat();
     SwIterator<SwCellFrame,SwFormat> aIter( *pOld );
 
-    // First, re-register the Frames.
-    for( SwCellFrame* pCell = aIter.First(); pCell; pCell = aIter.Next() )
-    {
-        if( pCell->GetTabBox() == this )
-        {
-            pCell->RegisterToFormat( *pNewFormat );
-            pCell->InvalidateSize();
-            pCell->InvalidatePrt_();
-            pCell->SetCompletePaint();
-            pCell->SetDerivedVert( false );
-            pCell->CheckDirChange();
+    // tdf#84635 We set bNeedToReregister=false to avoid a quadratic slowdown on loading large tables,
+    // and since we are creating the table for the first time, no re-registration is necessary.
 
-            // #i47489#
-            // make sure that the row will be formatted, in order
-            // to have the correct Get(Top|Bottom)MarginForLowers values
-            // set at the row.
-            const SwTabFrame* pTab = pCell->FindTabFrame();
-            if ( pTab && pTab->IsCollapsingBorders() )
+    // First, re-register the Frames.
+    if (bNeedToReregister)
+        for( SwCellFrame* pCell = aIter.First(); pCell; pCell = aIter.Next() )
+        {
+            if( pCell->GetTabBox() == this )
             {
-                SwFrame* pRow = pCell->GetUpper();
-                pRow->InvalidateSize_();
-                pRow->InvalidatePrt_();
+                pCell->RegisterToFormat( *pNewFormat );
+                pCell->InvalidateSize();
+                pCell->InvalidatePrt_();
+                pCell->SetCompletePaint();
+                pCell->SetDerivedVert( false );
+                pCell->CheckDirChange();
+
+                // #i47489#
+                // make sure that the row will be formatted, in order
+                // to have the correct Get(Top|Bottom)MarginForLowers values
+                // set at the row.
+                const SwTabFrame* pTab = pCell->FindTabFrame();
+                if ( pTab && pTab->IsCollapsingBorders() )
+                {
+                    SwFrame* pRow = pCell->GetUpper();
+                    pRow->InvalidateSize_();
+                    pRow->InvalidatePrt_();
+                }
             }
         }
-    }
 
     // Now, re-register self.
     pNewFormat->Add( this );
@@ -2032,7 +2036,7 @@ void ChgTextToNum( SwTableBox& rBox, const OUString& rText, const Color* pCol,
         if( !pDoc->getIDocumentRedlineAccess().IsIgnoreRedline() && !pDoc->getIDocumentRedlineAccess().GetRedlineTable().empty() )
         {
             SwPaM aTemp(*pTNd, 0, *pTNd, rOrig.getLength());
-            pDoc->getIDocumentRedlineAccess().DeleteRedline(aTemp, true, USHRT_MAX);
+            pDoc->getIDocumentRedlineAccess().DeleteRedline(aTemp, true, RedlineType::Any);
         }
 
         // preserve comments inside of the number by deleting number portions starting from the back
@@ -2057,7 +2061,7 @@ void ChgTextToNum( SwTableBox& rBox, const OUString& rText, const Color* pCol,
         if( pDoc->getIDocumentRedlineAccess().IsRedlineOn() )
         {
             SwPaM aTemp(*pTNd, 0, *pTNd, rText.getLength());
-            pDoc->getIDocumentRedlineAccess().AppendRedline(new SwRangeRedline(nsRedlineType_t::REDLINE_INSERT, aTemp), true);
+            pDoc->getIDocumentRedlineAccess().AppendRedline(new SwRangeRedline(RedlineType::Insert, aTemp), true);
         }
     }
 
@@ -2672,12 +2676,10 @@ const SwCellFrame * SwTableCellInfo::Impl::getNextTableBoxsCellFrame(const SwFra
     {
         const SwCellFrame * pCellFrame = static_cast<const SwCellFrame *>(pFrame);
         const SwTableBox * pTabBox = pCellFrame->GetTabBox();
-        TableBoxes_t::const_iterator aIt = m_HandledTableBoxes.find(pTabBox);
-
-        if (aIt == m_HandledTableBoxes.end())
+        auto aIt = m_HandledTableBoxes.insert(pTabBox);
+        if (aIt.second)
         {
             pResult = pCellFrame;
-            m_HandledTableBoxes.insert(pTabBox);
             break;
         }
     }

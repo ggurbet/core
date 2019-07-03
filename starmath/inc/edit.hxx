@@ -61,6 +61,7 @@ class SmEditWindow : public vcl::Window, public DropTargetHelper
     DECL_LINK(ModifyTimerHdl, Timer *, void);
     DECL_LINK(CursorMoveTimerHdl, Timer *, void);
 
+    virtual void ApplySettings(vcl::RenderContext&) override;
     virtual void DataChanged( const DataChangedEvent& ) override;
     virtual void Resize() override;
     virtual void MouseMove(const MouseEvent &rEvt) override;
@@ -116,8 +117,6 @@ public:
 
     void Flush();
     void DeleteEditView();
-
-    void ApplyColorConfigValues(const svtools::ColorConfig& rColorCfg);
 
     bool HandleWheelCommands(const CommandEvent& rCEvt);
     bool IsInlineEditEnabled();

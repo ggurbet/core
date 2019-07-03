@@ -21,14 +21,9 @@
 #define INCLUDED_SVX_SVDPAGE_HXX
 
 #include <svl/stylesheetuser.hxx>
-#include <vcl/bitmap.hxx>
-#include <vcl/print.hxx>
-#include <vcl/gdimtf.hxx>
-#include <tools/weakbase.hxx>
-#include <tools/contnr.hxx>
-#include <cppuhelper/weakref.hxx>
+#include <vcl/prntypes.hxx>
+#include <tools/weakbase.h>
 #include <svl/itemset.hxx>
-#include <svx/svdtypes.hxx>
 #include <svx/sdrpageuser.hxx>
 #include <svx/sdr/contact/viewobjectcontactredirector.hxx>
 #include <svx/sdrmasterpagedescriptor.hxx>
@@ -364,7 +359,7 @@ public:
 //          SwDPage
 //      OReportPage
 
-class SVX_DLLPUBLIC SdrPage : public SdrObjList, public virtual tools::WeakBase
+class SVX_DLLPUBLIC SdrPage : public SdrObjList, public tools::WeakBase
 {
     // #i9076#
     friend class SdrModel;
@@ -392,7 +387,7 @@ public:
     SdrModel& getSdrModelFromSdrPage() const { return mrSdrModelFromSdrPage; }
 
 protected:
-    sdr::contact::ViewContact* CreateObjectSpecificViewContact();
+    std::unique_ptr<sdr::contact::ViewContact> CreateObjectSpecificViewContact();
 public:
     const sdr::contact::ViewContact& GetViewContact() const;
     sdr::contact::ViewContact& GetViewContact();

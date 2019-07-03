@@ -32,41 +32,31 @@
 #include <scres.hrc>
 #include <validate.hxx>
 
-SFX_IMPL_MODELESSDIALOG_WITHID(ScNameDlgWrapper, FID_DEFINE_NAME )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScNameDefDlgWrapper, FID_ADD_NAME )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScSolverDlgWrapper, SID_OPENDLG_SOLVE )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScOptSolverDlgWrapper, SID_OPENDLG_OPTSOLVER )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScXMLSourceDlgWrapper, SID_MANAGE_XML_SOURCE)
-SFX_IMPL_MODELESSDIALOG_WITHID(ScPivotLayoutWrapper, SID_OPENDLG_PIVOTTABLE )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScTabOpDlgWrapper, SID_OPENDLG_TABOP )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScFilterDlgWrapper, SID_FILTER )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScSpecialFilterDlgWrapper, SID_SPECIAL_FILTER )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScDbNameDlgWrapper, SID_DEFINE_DBNAME )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScConsolidateDlgWrapper, SID_OPENDLG_CONSOLIDATE )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScPrintAreasDlgWrapper, SID_OPENDLG_EDIT_PRINTAREA )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScColRowNameRangesDlgWrapper, SID_DEFINE_COLROWNAMERANGES )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScFormulaDlgWrapper, SID_OPENDLG_FUNCTION )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScAcceptChgDlgWrapper, FID_CHG_ACCEPT )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScHighlightChgDlgWrapper, FID_CHG_SHOW )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScSimpleRefDlgWrapper, WID_SIMPLE_REF )
-SFX_IMPL_MODELESSDIALOG_WITHID(ScCondFormatDlgWrapper, WID_CONDFRMT_REF )
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScNameDlgWrapper, FID_DEFINE_NAME)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScNameDefDlgWrapper, FID_ADD_NAME)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScSolverDlgWrapper, SID_OPENDLG_SOLVE)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScOptSolverDlgWrapper, SID_OPENDLG_OPTSOLVER)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScXMLSourceDlgWrapper, SID_MANAGE_XML_SOURCE)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScPivotLayoutWrapper, SID_OPENDLG_PIVOTTABLE)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScTabOpDlgWrapper, SID_OPENDLG_TABOP)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScFilterDlgWrapper, SID_FILTER)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScSpecialFilterDlgWrapper, SID_SPECIAL_FILTER)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScDbNameDlgWrapper, SID_DEFINE_DBNAME)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScConsolidateDlgWrapper, SID_OPENDLG_CONSOLIDATE)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScPrintAreasDlgWrapper, SID_OPENDLG_EDIT_PRINTAREA)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScColRowNameRangesDlgWrapper, SID_DEFINE_COLROWNAMERANGES)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScFormulaDlgWrapper, SID_OPENDLG_FUNCTION)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScAcceptChgDlgWrapper, FID_CHG_ACCEPT)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScHighlightChgDlgWrapper, FID_CHG_SHOW)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScSimpleRefDlgWrapper, WID_SIMPLE_REF)
+SFX_IMPL_MODELESSDIALOGCONTOLLER_WITHID(ScCondFormatDlgWrapper, WID_CONDFRMT_REF)
 
 SFX_IMPL_CHILDWINDOW_WITHID(ScValidityRefChildWin, SID_VALIDITY_REFERENCE)
 
 SfxChildWinInfo ScValidityRefChildWin::GetInfo() const
 {
-    SfxChildWinInfo anInfo = SfxChildWindow::GetInfo();
-
-    if( vcl::Window *pWnd = GetWindow() )
-    {
-        anInfo.aSize  = pWnd->GetSizePixel();
-
-        if( pWnd->IsDialog() )
-            if ( static_cast<Dialog*>(pWnd)->IsRollUp() )
-                anInfo.nFlags |= SfxChildWindowFlags::ZOOMIN;
-    }
-
-    return anInfo;
+    SfxChildWinInfo aInfo = SfxChildWindow::GetInfo();
+    return aInfo;
 }
 
 namespace
@@ -74,7 +64,7 @@ namespace
     ScTabViewShell* lcl_GetTabViewShell( const SfxBindings* pBindings );
 }
 
-#define IMPL_CHILD_CTOR(Class,sid) \
+#define IMPL_CONTROLLER_CHILD_CTOR(Class,sid) \
     Class::Class( vcl::Window*               pParentP,                   \
                     sal_uInt16              nId,                        \
                     SfxBindings*        p,                          \
@@ -91,39 +81,40 @@ namespace
         if (!pViewShell)                                            \
             pViewShell = dynamic_cast<ScTabViewShell*>( SfxViewShell::Current()  ); \
         OSL_ENSURE( pViewShell, "missing view shell :-(" );         \
-        SetWindow( pViewShell ?                                      \
-            pViewShell->CreateRefDialog( p, this, pInfo, pParentP, sid ) : nullptr );    \
-        if (pViewShell && !GetWindow())                                             \
+        SetController( pViewShell ?                                      \
+            pViewShell->CreateRefDialogController( p, this, pInfo, pParentP->GetFrameWeld(), sid ) : nullptr );    \
+        if (pViewShell && !GetController())                                     \
             pViewShell->GetViewFrame()->SetChildWindow( nId, false );           \
     }
 
-IMPL_CHILD_CTOR( ScNameDlgWrapper, FID_DEFINE_NAME )
 
-IMPL_CHILD_CTOR( ScNameDefDlgWrapper, FID_ADD_NAME )
+IMPL_CONTROLLER_CHILD_CTOR( ScNameDlgWrapper, FID_DEFINE_NAME )
 
-IMPL_CHILD_CTOR( ScSolverDlgWrapper, SID_OPENDLG_SOLVE )
+IMPL_CONTROLLER_CHILD_CTOR( ScNameDefDlgWrapper, FID_ADD_NAME )
 
-IMPL_CHILD_CTOR( ScOptSolverDlgWrapper, SID_OPENDLG_OPTSOLVER )
+IMPL_CONTROLLER_CHILD_CTOR( ScSolverDlgWrapper, SID_OPENDLG_SOLVE )
 
-IMPL_CHILD_CTOR( ScXMLSourceDlgWrapper, SID_MANAGE_XML_SOURCE)
+IMPL_CONTROLLER_CHILD_CTOR( ScOptSolverDlgWrapper, SID_OPENDLG_OPTSOLVER )
 
-IMPL_CHILD_CTOR( ScPivotLayoutWrapper, SID_OPENDLG_PIVOTTABLE )
+IMPL_CONTROLLER_CHILD_CTOR( ScXMLSourceDlgWrapper, SID_MANAGE_XML_SOURCE)
 
-IMPL_CHILD_CTOR( ScTabOpDlgWrapper, SID_OPENDLG_TABOP )
+IMPL_CONTROLLER_CHILD_CTOR( ScPivotLayoutWrapper, SID_OPENDLG_PIVOTTABLE )
 
-IMPL_CHILD_CTOR( ScFilterDlgWrapper, SID_FILTER )
+IMPL_CONTROLLER_CHILD_CTOR( ScTabOpDlgWrapper, SID_OPENDLG_TABOP )
 
-IMPL_CHILD_CTOR( ScSpecialFilterDlgWrapper, SID_SPECIAL_FILTER )
+IMPL_CONTROLLER_CHILD_CTOR( ScFilterDlgWrapper, SID_FILTER )
 
-IMPL_CHILD_CTOR( ScDbNameDlgWrapper, SID_DEFINE_DBNAME )
+IMPL_CONTROLLER_CHILD_CTOR( ScSpecialFilterDlgWrapper, SID_SPECIAL_FILTER )
 
-IMPL_CHILD_CTOR( ScColRowNameRangesDlgWrapper, SID_DEFINE_COLROWNAMERANGES )
+IMPL_CONTROLLER_CHILD_CTOR( ScDbNameDlgWrapper, SID_DEFINE_DBNAME )
 
-IMPL_CHILD_CTOR( ScConsolidateDlgWrapper, SID_OPENDLG_CONSOLIDATE )
+IMPL_CONTROLLER_CHILD_CTOR( ScColRowNameRangesDlgWrapper, SID_DEFINE_COLROWNAMERANGES )
 
-IMPL_CHILD_CTOR( ScPrintAreasDlgWrapper, SID_OPENDLG_EDIT_PRINTAREA )
+IMPL_CONTROLLER_CHILD_CTOR( ScConsolidateDlgWrapper, SID_OPENDLG_CONSOLIDATE )
 
-IMPL_CHILD_CTOR( ScFormulaDlgWrapper, SID_OPENDLG_FUNCTION )
+IMPL_CONTROLLER_CHILD_CTOR( ScPrintAreasDlgWrapper, SID_OPENDLG_EDIT_PRINTAREA )
+
+IMPL_CONTROLLER_CHILD_CTOR( ScFormulaDlgWrapper, SID_OPENDLG_FUNCTION )
 
 // ScSimpleRefDlgWrapper
 
@@ -159,24 +150,15 @@ ScSimpleRefDlgWrapper::ScSimpleRefDlgWrapper( vcl::Window* pParentP,
         pInfo->aSize.setHeight(nScSimpleRefHeight );
         pInfo->aSize.setWidth(nScSimpleRefWidth );
     }
-    SetWindow(nullptr);
+    SetController(nullptr);
 
-    if(bAutoReOpen && pViewShell)
-        SetWindow( pViewShell->CreateRefDialog( p, this, pInfo, pParentP, WID_SIMPLE_REF) );
+    if (bAutoReOpen && pViewShell)
+        SetController(pViewShell->CreateRefDialogController(p, this, pInfo, pParentP->GetFrameWeld(), WID_SIMPLE_REF));
 
-    if (!GetWindow())
+    if (!GetController())
     {
         SC_MOD()->SetRefDialog( nId, false );
     }
-}
-
-void ScSimpleRefDlgWrapper::SetDefaultPosSize(Point aPos, Size aSize)
-{
-    bScSimpleRefFlag=true;
-    nScSimpleRefX=aPos.X();
-    nScSimpleRefY=aPos.Y();
-    nScSimpleRefHeight=aSize.Height();
-    nScSimpleRefWidth=aSize.Width();
 }
 
 void ScSimpleRefDlgWrapper::SetAutoReOpen(bool bFlag)
@@ -186,65 +168,70 @@ void ScSimpleRefDlgWrapper::SetAutoReOpen(bool bFlag)
 
 void ScSimpleRefDlgWrapper::SetRefString(const OUString& rStr)
 {
-    if(GetWindow())
+    auto xDlgController = GetController();
+    if (xDlgController)
     {
-        static_cast<ScSimpleRefDlg*>(GetWindow())->SetRefString(rStr);
+        static_cast<ScSimpleRefDlg*>(xDlgController.get())->SetRefString(rStr);
     }
 }
 
 void ScSimpleRefDlgWrapper::SetCloseHdl( const Link<const OUString*,void>& rLink )
 {
-    if(GetWindow())
+    auto xDlgController = GetController();
+    if (xDlgController)
     {
-        static_cast<ScSimpleRefDlg*>(GetWindow())->SetCloseHdl( rLink );
+        static_cast<ScSimpleRefDlg*>(xDlgController.get())->SetCloseHdl(rLink);
     }
 }
 
 void ScSimpleRefDlgWrapper::SetUnoLinks( const Link<const OUString&,void>& rDone,
                     const Link<const OUString&,void>& rAbort, const Link<const OUString&,void>& rChange )
 {
-    if(GetWindow())
+    auto xDlgController = GetController();
+    if (xDlgController)
     {
-        static_cast<ScSimpleRefDlg*>(GetWindow())->SetUnoLinks( rDone, rAbort, rChange );
+        static_cast<ScSimpleRefDlg*>(xDlgController.get())->SetUnoLinks( rDone, rAbort, rChange );
     }
 }
 
 void ScSimpleRefDlgWrapper::SetFlags( bool bCloseOnButtonUp, bool bSingleCell, bool bMultiSelection )
 {
-    if(GetWindow())
+    auto xDlgController = GetController();
+    if (xDlgController)
     {
-        static_cast<ScSimpleRefDlg*>(GetWindow())->SetFlags( bCloseOnButtonUp, bSingleCell, bMultiSelection );
+        static_cast<ScSimpleRefDlg*>(xDlgController.get())->SetFlags( bCloseOnButtonUp, bSingleCell, bMultiSelection );
     }
 }
 
 void ScSimpleRefDlgWrapper::StartRefInput()
 {
-    if(GetWindow())
+    auto xDlgController = GetController();
+    if (xDlgController)
     {
-        static_cast<ScSimpleRefDlg*>(GetWindow())->StartRefInput();
+        static_cast<ScSimpleRefDlg*>(xDlgController.get())->StartRefInput();
     }
 }
 
 // ScAcceptChgDlgWrapper //FIXME: should be moved into ViewShell
 
-ScAcceptChgDlgWrapper::ScAcceptChgDlgWrapper(   vcl::Window* pParentP,
+ScAcceptChgDlgWrapper::ScAcceptChgDlgWrapper(vcl::Window* pParentP,
                                             sal_uInt16 nId,
                                             SfxBindings* pBindings,
                                             SfxChildWinInfo* pInfo ) :
                                             SfxChildWindow( pParentP, nId )
 {
-        ScTabViewShell* pViewShell =
-            dynamic_cast<ScTabViewShell*>( SfxViewShell::Current()  );
-        OSL_ENSURE( pViewShell, "missing view shell :-(" );
-        if (pViewShell)
-        {
-            SetWindow( VclPtr<ScAcceptChgDlg>::Create( pBindings, this, pParentP, &pViewShell->GetViewData() ) );
-            static_cast<ScAcceptChgDlg*>(GetWindow())->Initialize( pInfo );
-        }
-        else
-            SetWindow( nullptr );
-        if (pViewShell && !GetWindow())
-            pViewShell->GetViewFrame()->SetChildWindow( nId, false );
+    ScTabViewShell* pViewShell =
+        dynamic_cast<ScTabViewShell*>( SfxViewShell::Current()  );
+    OSL_ENSURE( pViewShell, "missing view shell :-(" );
+    if (pViewShell)
+    {
+        SetController(std::make_shared<ScAcceptChgDlg>(pBindings, this, pParentP->GetFrameWeld(), &pViewShell->GetViewData()));
+        static_cast<ScAcceptChgDlg*>(GetController().get())->Initialize( pInfo );
+    }
+    else
+        SetController( nullptr );
+    if (pViewShell && !GetController())
+        pViewShell->GetViewFrame()->SetChildWindow( nId, false );
 }
 
 void ScAcceptChgDlgWrapper::ReInitDlg()
@@ -253,15 +240,15 @@ void ScAcceptChgDlgWrapper::ReInitDlg()
         dynamic_cast<ScTabViewShell*>( SfxViewShell::Current()  );
     OSL_ENSURE( pViewShell, "missing view shell :-(" );
 
-    if(GetWindow() && pViewShell)
+    if (GetController() && pViewShell)
     {
-        static_cast<ScAcceptChgDlg*>(GetWindow())->ReInit(&pViewShell->GetViewData());
+        static_cast<ScAcceptChgDlg*>(GetController().get())->ReInit(&pViewShell->GetViewData());
     }
 }
 
 // ScHighlightChgDlgWrapper
 
-IMPL_CHILD_CTOR( ScHighlightChgDlgWrapper, FID_CHG_SHOW )
+IMPL_CONTROLLER_CHILD_CTOR(ScHighlightChgDlgWrapper, FID_CHG_SHOW)
 
 namespace
 {
@@ -277,40 +264,35 @@ namespace
     }
 }
 
-ScValidityRefChildWin::ScValidityRefChildWin( vcl::Window*               pParentP,
-                                             sal_uInt16             nId,
-                                             const SfxBindings*     p,
+ScValidityRefChildWin::ScValidityRefChildWin(vcl::Window* pParentP,
+                                             sal_uInt16 nId,
+                                             const SfxBindings* p,
                                              SAL_UNUSED_PARAMETER SfxChildWinInfo* /*pInfo*/ )
-                                             : SfxChildWindow(pParentP, nId),
-                                             m_bVisibleLock( false ),
-                                             m_bFreeWindowLock( false ),
-                                             m_pSavedWndParent( nullptr )
+                                             : SfxChildWindow(pParentP, nId)
+                                             , m_bVisibleLock(false)
+                                             , m_bFreeWindowLock(false)
 {
     SetWantsFocus( false );
-    VclPtr<ScValidationDlg> pDlg = ScValidationDlg::Find1AliveObject( pParentP );
-    SetWindow(pDlg);
+    std::shared_ptr<SfxDialogController> xDlg(ScValidationDlg::Find1AliveObject(pParentP->GetFrameWeld()));
+    SetController(xDlg);
     ScTabViewShell* pViewShell;
-    if (pDlg)
-        pViewShell = static_cast<ScValidationDlg*>(GetWindow())->GetTabViewShell();
+    if (xDlg)
+        pViewShell = static_cast<ScValidationDlg*>(xDlg.get())->GetTabViewShell();
     else
         pViewShell = lcl_GetTabViewShell( p );
     if (!pViewShell)
         pViewShell = dynamic_cast<ScTabViewShell*>( SfxViewShell::Current()  );
     OSL_ENSURE( pViewShell, "missing view shell :-(" );
-    if (pViewShell && !GetWindow())
+    if (pViewShell && !xDlg)
         pViewShell->GetViewFrame()->SetChildWindow( nId, false );
-
-    if( GetWindow() ) m_pSavedWndParent = GetWindow()->GetParent();
 }
 
 ScValidityRefChildWin::~ScValidityRefChildWin()
 {
-    if( GetWindow() ) GetWindow()->SetParent( m_pSavedWndParent );
-
-    if( m_bFreeWindowLock )
-        SetWindow(nullptr);
+    if (m_bFreeWindowLock)
+        SetController(nullptr);
 }
 
-IMPL_CHILD_CTOR( ScCondFormatDlgWrapper, WID_CONDFRMT_REF )
+IMPL_CONTROLLER_CHILD_CTOR( ScCondFormatDlgWrapper, WID_CONDFRMT_REF )
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

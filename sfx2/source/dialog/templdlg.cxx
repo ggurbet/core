@@ -20,6 +20,7 @@
 #include <memory>
 
 #include <vcl/commandinfoprovider.hxx>
+#include <vcl/event.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
 #include <svl/intitem.hxx>
@@ -37,6 +38,7 @@
 #include <officecfg/Office/Common.hxx>
 
 #include <sal/log.hxx>
+#include <osl/diagnose.h>
 #include <sfx2/sfxhelp.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
@@ -52,6 +54,7 @@
 #include <sfx2/tplpitem.hxx>
 #include <sfx2/sfxresid.hxx>
 
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/strings.hrc>
 #include <arrdecl.hxx>
 #include <sfx2/docfilt.hxx>
@@ -140,7 +143,9 @@ void StyleLBoxString::Paint(
             {
                 if (pStylePreviewRenderer->recalculate())
                 {
-                    mpViewData->maSize = pStylePreviewRenderer->getRenderSize();
+                    Size aSize(pStylePreviewRenderer->getRenderSize());
+                    mpViewData->mnWidth = aSize.Width();
+                    mpViewData->mnHeight = aSize.Height();
                 }
                 else
                 {
@@ -1484,7 +1489,8 @@ void SfxCommonTemplateDialog_Impl::Notify(SfxBroadcaster& /*rBC*/, const SfxHint
     if(!bDontUpdate && nId != SfxHintId::Dying &&
        (dynamic_cast<const SfxStyleSheetPoolHint*>(&rHint) ||
         dynamic_cast<const SfxStyleSheetHint*>(&rHint) ||
-        dynamic_cast<const SfxStyleSheetModifiedHint*>(&rHint)))
+        dynamic_cast<const SfxStyleSheetModifiedHint*>(&rHint) ||
+        nId == SfxHintId::StyleSheetModified))
     {
         if(!pIdle)
         {
@@ -1567,7 +1573,7 @@ bool SfxCommonTemplateDialog_Impl::Execute_Impl(
     if ( (nId == SID_STYLE_NEW || SID_STYLE_EDIT == nId) && (pTreeBox->IsVisible() || aFmtLb->GetSelectionCount() <= 1) )
     {
         const SfxUInt16Item *pFilterItem = dynamic_cast< const SfxUInt16Item* >(pItem);
-        OSL_ENSURE(pFilterItem, "SfxUINT16Item expected");
+        assert(pFilterItem);
         SfxStyleSearchBits nFilterFlags = static_cast<SfxStyleSearchBits>(pFilterItem->GetValue()) & ~SfxStyleSearchBits::UserDefined;
         if(nFilterFlags == SfxStyleSearchBits::Auto)       // User Template?
             nFilterFlags = static_cast<SfxStyleSearchBits>(pFilterItem->GetValue());
@@ -2307,7 +2313,7 @@ Size SfxTemplateDialog_Impl::GetMinOutputSizePixel()
     {
         Size aSizeATL=m_pFloat->PixelToLogic(m_aActionTbL->CalcWindowSizePixel());
         Size aSizeATR=m_pFloat->PixelToLogic(m_aActionTbR->CalcWindowSizePixel());
-        Size aMinSize=Size(
+        Size aMinSize(
             aSizeATL.Width()+aSizeATR.Width()+
                 2*SFX_TEMPLDLG_HFRAME + SFX_TEMPLDLG_MIDHSPACE,
             4*aSizeATL.Height()+2*SFX_TEMPLDLG_MIDVSPACE);

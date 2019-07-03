@@ -20,6 +20,7 @@
 #ifndef INCLUDED_SC_INC_TABLE_HXX
 #define INCLUDED_SC_INC_TABLE_HXX
 
+#include <algorithm>
 #include <vector>
 #include <tools/gen.hxx>
 #include <tools/color.hxx>
@@ -63,6 +64,7 @@ class ColumnSpanSet;
 class RangeColumnSpanSet;
 class ColumnSet;
 struct ColumnBlockPosition;
+class TableColumnBlockPositionSet;
 struct RefUpdateContext;
 struct RefUpdateInsertTabContext;
 struct RefUpdateDeleteTabContext;
@@ -151,7 +153,7 @@ class ScTable
 private:
     typedef ::std::vector< ScRange > ScRangeVec;
 
-    ScColContainer  aCol;
+    mutable ScColContainer aCol;
 
     OUString aName;
     OUString aCodeName;
@@ -273,14 +275,14 @@ public:
 
     ScOutlineTable* GetOutlineTable()               { return pOutlineTable.get(); }
 
-    ScColumn& CreateColumnIfNotExists( const SCCOL nScCol )
+    ScColumn& CreateColumnIfNotExists( const SCCOL nScCol ) const
     {
         if ( nScCol >= aCol.size() )
             CreateColumnIfNotExistsImpl(nScCol);
         return aCol[nScCol];
     }
     // out-of-line the cold part of the function
-    void CreateColumnIfNotExistsImpl( const SCCOL nScCol );
+    void CreateColumnIfNotExistsImpl( const SCCOL nScCol ) const;
     sal_uLong       GetCellCount() const;
     sal_uLong       GetWeightedCount() const;
     sal_uLong       GetWeightedCount(SCROW nStartRow, SCROW nEndRow) const;
@@ -443,9 +445,11 @@ public:
 
     CellType    GetCellType( const ScAddress& rPos ) const
                     {
-                        return ValidColRow(rPos.Col(),rPos.Row()) ?
-                            aCol[rPos.Col()].GetCellType( rPos.Row() ) :
-                            CELLTYPE_NONE;
+                        if (!ValidColRow(rPos.Col(),rPos.Row()))
+                            return CELLTYPE_NONE;
+                        if (rPos.Col() >= aCol.size())
+                            return CELLTYPE_NONE;
+                        return aCol[rPos.Col()].GetCellType( rPos.Row() );
                     }
     CellType    GetCellType( SCCOL nCol, SCROW nRow ) const;
     ScRefCellValue GetCellValue( SCCOL nCol, SCROW nRow ) const;
@@ -704,11 +708,8 @@ public:
                                   const ScPatternAttr& rAttr, ScEditDataArray* pDataArray = nullptr,
                                   bool* const pIsChanged = nullptr );
 
-    void        SetPattern( const ScAddress& rPos, const ScPatternAttr& rAttr )
-                    {
-                        if (ValidColRow(rPos.Col(),rPos.Row()))
-                            aCol[rPos.Col()].SetPattern( rPos.Row(), rAttr );
-                    }
+    void        SetPattern( const ScAddress& rPos, const ScPatternAttr& rAttr );
+    const ScPatternAttr* SetPattern( SCCOL nCol, SCROW nRow, std::unique_ptr<ScPatternAttr> );
     void        SetPattern( SCCOL nCol, SCROW nRow, const ScPatternAttr& rAttr );
     void        ApplyPatternIfNumberformatIncompatible( const ScRange& rRange,
                             const ScPatternAttr& rPattern, SvNumFormatType nNewType );
@@ -930,7 +931,8 @@ public:
 
     bool ValidQuery(
         SCROW nRow, const ScQueryParam& rQueryParam, const ScRefCellValue* pCell = nullptr,
-        bool* pbTestEqualCondition = nullptr, const ScInterpreterContext* pContext = nullptr);
+        bool* pbTestEqualCondition = nullptr, const ScInterpreterContext* pContext = nullptr,
+        sc::TableColumnBlockPositionSet* pBlockPos = nullptr );
     void        TopTenQuery( ScQueryParam& );
     SCSIZE      Query(const ScQueryParam& rQueryParam, bool bKeepSub);
     bool        CreateQueryParam(SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2, ScQueryParam& rQueryParam);
@@ -996,6 +998,7 @@ public:
     void RegroupFormulaCells( SCCOL nCol );
 
     ScRefCellValue GetRefCellValue( SCCOL nCol, SCROW nRow );
+    ScRefCellValue GetRefCellValue( SCCOL nCol, SCROW nRow, sc::ColumnBlockPosition& rBlockPos );
 
     SvtBroadcaster* GetBroadcaster( SCCOL nCol, SCROW nRow );
     const SvtBroadcaster* GetBroadcaster( SCCOL nCol, SCROW nRow ) const;
@@ -1032,12 +1035,6 @@ public:
      */
     void BroadcastRecalcOnRefMove();
 
-    void CollectListeners( std::vector<SvtListener*>& rListeners, const SCCOL nCol1, SCROW nRow1, const SCCOL nCol2, SCROW nRow2 );
-
-    void TransferListeners(
-        ScTable& rDestTab, SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
-        SCCOL nColDelta, SCROW nRowDelta );
-
     void TransferCellValuesTo( const SCCOL nCol, SCROW nRow, size_t nLen, sc::CellValues& rDest );
     void CopyCellValuesFrom( const SCCOL nCol, SCROW nRow, const sc::CellValues& rSrc );
 
@@ -1072,6 +1069,8 @@ public:
     static void UpdateSearchItemAddressForReplace( const SvxSearchItem& rSearchItem, SCCOL& rCol, SCROW& rRow );
 
     ScColumnsRange GetColumnsRange(SCCOL begin, SCCOL end) const;
+    SCCOL ClampToAllocatedColumns(SCCOL nCol) const { return std::min(nCol, static_cast<SCCOL>(aCol.size() - 1)); }
+    SCCOL GetAllocatedColumnsCount() const { return aCol.size(); }
 
 private:
 
@@ -1110,7 +1109,7 @@ private:
                                 const ScPatternAttr& rAttr, sal_uInt16 nFormatNo);
     void        GetAutoFormatAttr(SCCOL nCol, SCROW nRow, sal_uInt16 nIndex, ScAutoFormatData& rData);
     void        GetAutoFormatFrame(SCCOL nCol, SCROW nRow, sal_uInt16 nFlags, sal_uInt16 nIndex, ScAutoFormatData& rData);
-    bool        SearchCell(const SvxSearchItem& rSearchItem, SCCOL nCol, SCROW nRow,
+    bool        SearchCell(const SvxSearchItem& rSearchItem, SCCOL nCol, sc::ColumnBlockConstPosition& rBlockPos, SCROW nRow,
                            const ScMarkData& rMark, OUString& rUndoStr, ScDocument* pUndoDoc);
     bool        Search(const SvxSearchItem& rSearchItem, SCCOL& rCol, SCROW& rRow,
                        const ScMarkData& rMark, OUString& rUndoStr, ScDocument* pUndoDoc);

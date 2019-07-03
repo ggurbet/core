@@ -23,13 +23,15 @@
 #include "segmenttree.hxx"
 #include "markarr.hxx"
 
-#include <map>
+#include <vector>
+
+class ScRangeList;
 
 class ScMultiSel
 {
 
 private:
-    typedef std::map<SCCOL, ScMarkArray> MapType;
+    typedef std::vector<ScMarkArray> MapType;
     MapType aMultiSelContainer;
     ScMarkArray aRowSel;
 
@@ -43,11 +45,7 @@ public:
     ScMultiSel& operator=(const ScMultiSel& rMultiSel);
     ScMultiSel& operator=(const ScMultiSel&& rMultiSel) = delete;
 
-    SCCOL size() const
-    {
-        return static_cast<SCCOL>( aMultiSelContainer.size() );
-    }
-
+    SCCOL GetMultiSelectionCount() const;
     bool HasMarks( SCCOL nCol ) const;
     bool HasOneMark( SCCOL nCol, SCROW& rStartRow, SCROW& rEndRow ) const;
     bool GetMark( SCCOL nCol, SCROW nRow ) const;
@@ -55,6 +53,7 @@ public:
     bool HasEqualRowsMarked( SCCOL nCol1, SCCOL nCol2 ) const;
     SCROW GetNextMarked( SCCOL nCol, SCROW nRow, bool bUp ) const;
     void SetMarkArea( SCCOL nStartCol, SCCOL nEndCol, SCROW nStartRow, SCROW nEndRow, bool bMark );
+    void Set( ScRangeList const & );
     bool IsRowMarked( SCROW nRow ) const;
     bool IsRowRangeMarked( SCROW nStartRow, SCROW nEndRow ) const;
     bool IsEmpty() const { return ( aMultiSelContainer.empty() && !aRowSel.HasMarks() ); }

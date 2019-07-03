@@ -23,6 +23,7 @@
 #include <PropertyHelper.hxx>
 #include <CommonConverters.hxx>
 #include <editeng/memberids.h>
+#include <svx/unomid.hxx>
 #include <svx/xflbmtit.hxx>
 #include <svx/xflbstit.hxx>
 #include <svx/xbtmpit.hxx>
@@ -295,7 +296,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
             std::unique_ptr<XLineDashItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
             if(pItemToPut)
-                 rOutItemSet.Put( *pItemToPut );
+                 rOutItemSet.Put( std::move(pItemToPut) );
             else
                 rOutItemSet.Put(aItem);
         }
@@ -321,7 +322,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
                 std::unique_ptr<XFillGradientItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
                 if(pItemToPut)
-                    rOutItemSet.Put( *pItemToPut );
+                    rOutItemSet.Put(std::move(pItemToPut) );
                 else
                     rOutItemSet.Put(aItem);
             }
@@ -347,7 +348,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
                 std::unique_ptr<XFillHatchItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
                 if(pItemToPut)
-                    rOutItemSet.Put( *pItemToPut );
+                    rOutItemSet.Put( std::move(pItemToPut) );
                 else
                     rOutItemSet.Put(aItem);
             }
@@ -368,7 +369,7 @@ void GraphicPropertyItemConverter::FillSpecialItem(
                 std::unique_ptr<XFillBitmapItem> pItemToPut = aItem.checkForUniqueItem( & m_rDrawModel );
 
                 if(pItemToPut)
-                    rOutItemSet.Put( *pItemToPut );
+                    rOutItemSet.Put( std::move(pItemToPut) );
                 else
                     rOutItemSet.Put(aItem);
             }

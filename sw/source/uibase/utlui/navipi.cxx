@@ -31,6 +31,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/dockwin.hxx>
 #include <sfx2/navigat.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/toolbox.hxx>
 #include <vcl/settings.hxx>
 #include <swtypes.hxx>
@@ -506,7 +507,7 @@ void SwNavigationPI::MakeMark()
         ppMark != pMarkAccess->getAllMarksEnd();
         ++ppMark)
         if( IDocumentMarkAccess::GetType(**ppMark) == IDocumentMarkAccess::MarkType::NAVIGATOR_REMINDER )
-            vNavMarkNames.push_back(ppMark->get()->GetName());
+            vNavMarkNames.push_back((*ppMark)->GetName());
     std::sort(vNavMarkNames.begin(), vNavMarkNames.end());
 
     // we are maxed out and delete one
@@ -1057,7 +1058,7 @@ OUString SwNavigationPI::CreateDropFileName( TransferableDataHelper& rData )
                 rData.HasFormat( nFormat = SotClipboardFormatId::FILEGRPDESCRIPTOR ) ||
                 rData.HasFormat( nFormat = SotClipboardFormatId::UNIFORMRESOURCELOCATOR ))
     {
-        INetBookmark aBkmk = INetBookmark(OUString(), OUString());
+        INetBookmark aBkmk { OUString(), OUString() };
         if (rData.GetINetBookmark(nFormat, aBkmk))
             sFileName = aBkmk.GetURL();
     }
@@ -1114,7 +1115,7 @@ sal_Int8 SwNavigationPI::ExecuteDrop( const ExecuteDropEvent& rEvt )
             m_pxObjectShell.reset();
         }
         SfxStringItem aFileItem(SID_FILE_NAME, sFileName );
-        SfxStringItem aOptionsItem( SID_OPTIONS, OUString("HRC") );
+        SfxStringItem aOptionsItem( SID_OPTIONS, "HRC" );
         SfxLinkItem aLink( SID_DONELINK,
                             LINK( this, SwNavigationPI, DoneLink ) );
         GetActiveView()->GetViewFrame()->GetDispatcher()->ExecuteList(

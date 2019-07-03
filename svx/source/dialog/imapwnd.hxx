@@ -19,10 +19,6 @@
 #ifndef INCLUDED_SVX_SOURCE_DIALOG_IMAPWND_HXX
 #define INCLUDED_SVX_SOURCE_DIALOG_IMAPWND_HXX
 
-#include <vcl/dialog.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/button.hxx>
-#include <vcl/menu.hxx>
 #include <vcl/imapobj.hxx>
 #include <vcl/transfer.hxx>
 #include <vcl/imap.hxx>
@@ -68,7 +64,20 @@ public:
     void                    ReplaceObject( const IMapObjectPtr& pNewIMapObject ) { mpObj = pNewIMapObject; }
 };
 
-class IMapWindow final : public GraphCtrl, public DropTargetHelper
+class IMapWindow;
+
+class IMapDropTargetHelper final : public DropTargetHelper
+{
+    IMapWindow& m_rImapWindow;
+public:
+    IMapDropTargetHelper(IMapWindow& rImapWindow);
+
+    // DropTargetHelper
+    virtual sal_Int8 AcceptDrop( const AcceptDropEvent& rEvt ) override;
+    virtual sal_Int8 ExecuteDrop( const ExecuteDropEvent& rEvt ) override;
+};
+
+class IMapWindow final : public GraphCtrl
 {
     NotifyInfo          aInfo;
     ImageMap            aIMap;
@@ -78,22 +87,20 @@ class IMapWindow final : public GraphCtrl, public DropTargetHelper
     SfxItemInfo         maItemInfos[1];
     css::uno::Reference< css::frame::XFrame >
                         mxDocumentFrame;
+    std::unique_ptr<IMapDropTargetHelper> mxDropTargetHelper;
+    std::unique_ptr<weld::Menu> mxPopupMenu;
 
-                        DECL_LINK( MenuSelectHdl, Menu*, bool );
+    void                MenuSelectHdl(const OString& rId);
 
     // GraphCtrl
-    virtual void        MouseButtonUp(const MouseEvent& rMEvt) override;
-    virtual Size        GetOptimalSize() const override;
-    virtual void        Command(const CommandEvent& rCEvt) override;
-    virtual void        RequestHelp( const HelpEvent& rHEvt ) override;
+    virtual bool        MouseButtonUp(const MouseEvent& rMEvt) override;
+    virtual void        SetDrawingArea(weld::DrawingArea* pDrawingArea) override;
+    virtual bool        ContextMenu(const CommandEvent& rCEvt) override;
+    virtual OUString    RequestHelp(tools::Rectangle& rHelpArea) override;
     virtual void        SdrObjCreated( const SdrObject& rObj ) override;
     virtual void        SdrObjChanged( const SdrObject& rObj ) override;
     virtual void        MarkListHasChanged() override;
     virtual void        InitSdrModel() override;
-
-    // DropTargetHelper
-    virtual sal_Int8    AcceptDrop( const AcceptDropEvent& rEvt ) override;
-    virtual sal_Int8    ExecuteDrop( const ExecuteDropEvent& rEvt ) override;
 
     void                ReplaceImageMap( const ImageMap& rNewImageMap );
 
@@ -105,9 +112,12 @@ class IMapWindow final : public GraphCtrl, public DropTargetHelper
 
 public:
 
-                        IMapWindow( vcl::Window* pParent, WinBits nBits, const css::uno::Reference< css::frame::XFrame >& rxDocumentFrame );
-                        virtual ~IMapWindow() override;
-    virtual void        dispose() override;
+    IMapWindow(const css::uno::Reference< css::frame::XFrame >& rxDocumentFrame,
+               weld::Dialog* pDialog);
+    virtual ~IMapWindow() override;
+
+    sal_Int8            AcceptDrop( const AcceptDropEvent& rEvt );
+    sal_Int8            ExecuteDrop( const ExecuteDropEvent& rEvt );
 
     void                ReplaceActualIMapInfo( const NotifyInfo& rNewInfo );
 
@@ -123,10 +133,6 @@ public:
     void                SetTargetList( TargetList& rTargetList );
 
     const NotifyInfo&   GetInfo() const { return aInfo; }
-
-    void                CreateDefaultObject();
-    void                SelectFirstObject();
-    void                StartPolyEdit();
 };
 
 

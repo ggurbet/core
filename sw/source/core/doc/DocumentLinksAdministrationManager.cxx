@@ -29,6 +29,7 @@
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/frame.hxx>
+#include <dialoghelp.hxx>
 #include <linkenum.hxx>
 #include <com/sun/star/document/UpdateDocMode.hpp>
 #include <swtypes.hxx>
@@ -94,7 +95,7 @@ namespace
             ppMark != rMarkAccess.getAllMarksEnd();
             ++ppMark)
         {
-            if (::sw::mark::DdeBookmark* const pBkmk = dynamic_cast< ::sw::mark::DdeBookmark*>(ppMark->get()))
+            if (::sw::mark::DdeBookmark* const pBkmk = dynamic_cast< ::sw::mark::DdeBookmark*>(*ppMark))
             {
                 if (
                     (bCaseSensitive && (pBkmk->GetName() == sNameLc)) ||
@@ -237,11 +238,8 @@ void DocumentLinksAdministrationManager::UpdateLinks()
     {
         rEmbeddedObjectContainer.setUserAllowsLinkUpdate(true);
 
-        SfxMedium* pMedium = m_rDoc.GetDocShell()->GetMedium();
-        SfxFrame* pFrame = pMedium ? pMedium->GetLoadTargetFrame() : nullptr;
-        weld::Window* pDlgParent = pFrame ? pFrame->GetWindow().GetFrameWeld() : nullptr;
-
-        GetLinkManager().UpdateAllLinks( bAskUpdate, false, pDlgParent );
+        weld::Window* pDlgParent = GetFrameWeld(m_rDoc.GetDocShell());
+        GetLinkManager().UpdateAllLinks(bAskUpdate, false, pDlgParent);
     }
     else
     {

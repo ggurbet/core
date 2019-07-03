@@ -34,7 +34,6 @@
 #include <drawdoc.hxx>
 
 #include <unotools/fltrcfg.hxx>
-#include <vcl/salbtype.hxx>
 #include <sot/storage.hxx>
 #include <svl/zformat.hxx>
 #include <sfx2/docinf.hxx>
@@ -72,6 +71,7 @@
 #include <shellio.hxx>
 #include <docstat.hxx>
 #include <pagedesc.hxx>
+#include <poolfmt.hxx>
 #include <IMark.hxx>
 #include <swtable.hxx>
 #include "wrtww8.hxx"
@@ -700,14 +700,14 @@ void WW8Export::ExportDopTypography(WW8DopTypography &rTypo)
     */
 
     /*Our default Japanese Level is 2, this is a special MS hack to set this*/
-    rTypo.reserved2 = 1;
+    rTypo.m_reserved2 = 1;
 
-    for (rTypo.reserved1=8;rTypo.reserved1>0;rTypo.reserved1-=2)
+    for (rTypo.m_reserved1=8;rTypo.m_reserved1>0;rTypo.m_reserved1-=2)
     {
         if (nullptr != (pForbidden = m_pDoc->getIDocumentSettingAccess().getForbiddenCharacters(rTypo.GetConvertedLang(),
             false)))
         {
-            int nIdx = (rTypo.reserved1-2)/2;
+            int nIdx = (rTypo.m_reserved1-2)/2;
             if( lcl_CmpBeginEndChars( pForbidden->endLine,
                     aLangNotEnd[ nIdx ], sizeof(aLangNotEnd[ nIdx ]) ) ||
                 lcl_CmpBeginEndChars( pForbidden->beginLine,
@@ -733,7 +733,7 @@ void WW8Export::ExportDopTypography(WW8DopTypography &rTypo)
                             )
                         )
                     {
-                        rTypo.reserved2 = 0;
+                        rTypo.m_reserved2 = 0;
                         continue;
                     }
                 }
@@ -741,8 +741,8 @@ void WW8Export::ExportDopTypography(WW8DopTypography &rTypo)
                 if (!pUseMe)
                 {
                     pUseMe = pForbidden;
-                    nUseReserved = rTypo.reserved1;
-                    rTypo.iLevelOfKinsoku = 2;
+                    nUseReserved = rTypo.m_reserved1;
+                    rTypo.m_iLevelOfKinsoku = 2;
                 }
                 nNoNeeded++;
             }
@@ -750,30 +750,30 @@ void WW8Export::ExportDopTypography(WW8DopTypography &rTypo)
     }
 
     OSL_ENSURE( nNoNeeded<=1, "Example of unexportable forbidden chars" );
-    rTypo.reserved1=nUseReserved;
-    if (rTypo.iLevelOfKinsoku && pUseMe)
+    rTypo.m_reserved1=nUseReserved;
+    if (rTypo.m_iLevelOfKinsoku && pUseMe)
     {
-        rTypo.cchFollowingPunct = msword_cast<sal_Int16>
+        rTypo.m_cchFollowingPunct = msword_cast<sal_Int16>
             (pUseMe->beginLine.getLength());
-        if (rTypo.cchFollowingPunct > WW8DopTypography::nMaxFollowing - 1)
-            rTypo.cchFollowingPunct = WW8DopTypography::nMaxFollowing - 1;
+        if (rTypo.m_cchFollowingPunct > WW8DopTypography::nMaxFollowing - 1)
+            rTypo.m_cchFollowingPunct = WW8DopTypography::nMaxFollowing - 1;
 
-        rTypo.cchLeadingPunct = msword_cast<sal_Int16>
+        rTypo.m_cchLeadingPunct = msword_cast<sal_Int16>
             (pUseMe->endLine.getLength());
-        if (rTypo.cchLeadingPunct > WW8DopTypography::nMaxLeading - 1)
-            rTypo.cchLeadingPunct = WW8DopTypography::nMaxLeading -1;
+        if (rTypo.m_cchLeadingPunct > WW8DopTypography::nMaxLeading - 1)
+            rTypo.m_cchLeadingPunct = WW8DopTypography::nMaxLeading -1;
 
-        memcpy(rTypo.rgxchFPunct,pUseMe->beginLine.getStr(),
-            (rTypo.cchFollowingPunct+1)*2);
+        memcpy(rTypo.m_rgxchFPunct,pUseMe->beginLine.getStr(),
+            (rTypo.m_cchFollowingPunct+1)*2);
 
-        memcpy(rTypo.rgxchLPunct,pUseMe->endLine.getStr(),
-            (rTypo.cchLeadingPunct+1)*2);
+        memcpy(rTypo.m_rgxchLPunct,pUseMe->endLine.getStr(),
+            (rTypo.m_cchLeadingPunct+1)*2);
     }
 
     const IDocumentSettingAccess& rIDocumentSettingAccess = GetWriter().getIDocumentSettingAccess();
 
-    rTypo.fKerningPunct = sal_uInt16(rIDocumentSettingAccess.get(DocumentSettingId::KERN_ASIAN_PUNCTUATION));
-    rTypo.iJustification = sal_uInt16(m_pDoc->getIDocumentSettingAccess().getCharacterCompressionType());
+    rTypo.m_fKerningPunct = sal_uInt16(rIDocumentSettingAccess.get(DocumentSettingId::KERN_ASIAN_PUNCTUATION));
+    rTypo.m_iJustification = sal_uInt16(m_pDoc->getIDocumentSettingAccess().getCharacterCompressionType());
 }
 
 // It can only be found something with this method, if it is used within
@@ -919,7 +919,7 @@ void WW8_WrPlcField::Write( WW8Export& rWrt )
 
     if( pfc && plc )
     {
-        sal_uLong nFcStart = rWrt.pTableStrm->Tell();
+        sal_uInt64 nFcStart = rWrt.pTableStrm->Tell();
         WW8_WrPlc1::Write( *rWrt.pTableStrm );
         *pfc = nFcStart;
         *plc = rWrt.pTableStrm->Tell() - nFcStart;
@@ -968,7 +968,7 @@ void SwWW8Writer::FillCount( SvStream& rStrm, sal_uLong nCount )
 
 sal_uLong SwWW8Writer::FillUntil( SvStream& rStrm, sal_uLong nEndPos )
 {
-    sal_uLong nCurPos = rStrm.Tell();
+    sal_uInt64 nCurPos = rStrm.Tell();
     if( !nEndPos )                          // nEndPos == 0 -> next Page
         nEndPos = (nCurPos + 0x1ff) & ~0x1ffUL;
 
@@ -1073,7 +1073,7 @@ void WW8_WrPlcPn::WriteFkps()
 
 void WW8_WrPlcPn::WritePlc()
 {
-    sal_uLong nFcStart = rWrt.pTableStrm->Tell();
+    sal_uInt64 nFcStart = rWrt.pTableStrm->Tell();
     decltype(m_Fkps)::size_type i;
 
     for (i = 0; i < m_Fkps.size(); ++i)
@@ -1383,7 +1383,7 @@ void WW8_WrPct::AppendPc(WW8_FC nStartFc)
 
 void WW8_WrPct::WritePc( WW8Export& rWrt )
 {
-    sal_uLong nPctStart;
+    sal_uInt64 nPctStart;
     sal_uLong nOldPos, nEndPos;
 
     nPctStart = rWrt.pTableStrm->Tell();                    // Start piece table
@@ -1480,17 +1480,18 @@ void WW8Export::AppendBookmarks( const SwTextNode& rNd, sal_Int32 nCurrentPos, s
     }
 }
 
-void WW8Export::AppendAnnotationMarks(const SwTextNode& rNode, sal_Int32 nCurrentPos, sal_Int32 nLen)
+void WW8Export::AppendAnnotationMarks(const SwWW8AttrIter& rAttrs, sal_Int32 nCurrentPos, sal_Int32 nLen)
 {
     IMarkVector aMarks;
-    if (GetAnnotationMarks(rNode, nCurrentPos, nCurrentPos + nLen, aMarks))
+    if (GetAnnotationMarks(rAttrs, nCurrentPos, nCurrentPos + nLen, aMarks))
     {
         for (const sw::mark::IMark* pMark : aMarks)
         {
             const sal_Int32 nStart = pMark->GetMarkStart().nContent.GetIndex();
             if (nStart == nCurrentPos)
             {
-                m_pAtn->AddRangeStartPosition(pMark->GetName(), Fc2Cp(Strm().Tell()));
+                m_pAtn->AddRangeStartPosition(pMark->GetName(), Fc2Cp(Strm().Tell()),
+                                              !rAttrs.HasFlysAt(nCurrentPos));
             }
         }
     }
@@ -1523,17 +1524,17 @@ void WW8Export::AppendBookmarkEndWithCorrection( const OUString& rName )
     m_pBkmks->Append( nEndCP - 1, rName );
 }
 
-boost::optional<SvxBrushItem> MSWordExportBase::getBackground()
+std::shared_ptr<SvxBrushItem> MSWordExportBase::getBackground()
 {
-    boost::optional<SvxBrushItem> oRet;
+    std::shared_ptr<SvxBrushItem> oRet;
     const SwFrameFormat &rFormat = m_pDoc->GetPageDesc(0).GetMaster();
-    SvxBrushItem aBrush(RES_BACKGROUND);
+    std::shared_ptr<SvxBrushItem> aBrush(std::make_shared<SvxBrushItem>(RES_BACKGROUND));
     SfxItemState eState = rFormat.GetBackgroundState(aBrush);
 
     if (SfxItemState::SET == eState)
     {
         // The 'color' is set for the first page style - take it and use it as the background color of the entire DOCX
-        if (aBrush.GetColor() != COL_AUTO)
+        if (aBrush->GetColor() != COL_AUTO)
             oRet = aBrush;
     }
     return oRet;
@@ -1714,7 +1715,7 @@ void WW8Export::WriteAsStringTable(const std::vector<OUString>& rStrings,
 // FilePos. Used to insert lengths after the fact.
 void SwWW8Writer::WriteShort( SvStream& rStrm, sal_uLong nPos, sal_Int16 nVal )
 {
-    sal_uLong nOldPos = rStrm.Tell();       // remember Pos
+    sal_uInt64 nOldPos = rStrm.Tell();       // remember Pos
     rStrm.Seek( nPos );
     SwWW8Writer::WriteShort( rStrm, nVal );
     rStrm.Seek( nOldPos );
@@ -1722,7 +1723,7 @@ void SwWW8Writer::WriteShort( SvStream& rStrm, sal_uLong nPos, sal_Int16 nVal )
 
 void SwWW8Writer::WriteLong( SvStream& rStrm, sal_uLong nPos, sal_Int32 nVal )
 {
-    sal_uLong nOldPos = rStrm.Tell();       // remember Pos
+    sal_uInt64 nOldPos = rStrm.Tell();       // remember Pos
     rStrm.Seek( nPos );
     SwWW8Writer::WriteLong( rStrm, nVal );
     rStrm.Seek( nOldPos );
@@ -1774,7 +1775,7 @@ void SwWW8Writer::WriteString16(SvStream& rStrm, const OUString& rStr,
     //vectors are guaranteed to have contiguous memory, so we can do
     //this while migrating away from WW8Bytes. Meyers Effective STL, item 16
     if (!aBytes.empty())
-        rStrm.WriteBytes(&aBytes[0], aBytes.size());
+        rStrm.WriteBytes(aBytes.data(), aBytes.size());
 }
 
 void SwWW8Writer::WriteString_xstz(SvStream& rStrm, const OUString& rStr, bool bAddZero)
@@ -1784,7 +1785,7 @@ void SwWW8Writer::WriteString_xstz(SvStream& rStrm, const OUString& rStr, bool b
     SwWW8Writer::InsAsString16(aBytes, rStr);
     if (bAddZero)
         SwWW8Writer::InsUInt16(aBytes, 0);
-    rStrm.WriteBytes(&aBytes[0], aBytes.size());
+    rStrm.WriteBytes(aBytes.data(), aBytes.size());
 }
 
 void SwWW8Writer::WriteString8(SvStream& rStrm, const OUString& rStr,
@@ -1797,7 +1798,7 @@ void SwWW8Writer::WriteString8(SvStream& rStrm, const OUString& rStr,
     //vectors are guaranteed to have contiguous memory, so we can do
     ////this while migrating away from WW8Bytes. Meyers Effective STL, item 16
     if (!aBytes.empty())
-        rStrm.WriteBytes(&aBytes[0], aBytes.size());
+        rStrm.WriteBytes(aBytes.data(), aBytes.size());
 }
 
 void WW8Export::WriteStringAsPara( const OUString& rText )
@@ -1815,7 +1816,7 @@ void WW8Export::WriteStringAsPara( const OUString& rText )
         aArr.push_back( 1 );
     }
 
-    sal_uLong nPos = Strm().Tell();
+    sal_uInt64 nPos = Strm().Tell();
     m_pPapPlc->AppendFkpEntry( nPos, aArr.size(), aArr.data() );
     m_pChpPlc->AppendFkpEntry( nPos );
 }
@@ -2133,12 +2134,26 @@ void WW8AttributeOutput::TableVerticalCell( ww8::WW8TableNodeInfoInner::Pointer_
         const SwTableBox * pTabBox1 = rTableBoxes[n];
         const SwFrameFormat * pFrameFormat = pTabBox1->GetFrameFormat();
 
-        if ( SvxFrameDirection::Vertical_RL_TB == m_rWW8Export.TrueFrameDirection( *pFrameFormat ) )
+        // Map from our SvxFrameDirection to WW8 TextFlow.
+        sal_uInt16 nTextFlow = 0;
+        switch (m_rWW8Export.TrueFrameDirection(*pFrameFormat))
+        {
+            case SvxFrameDirection::Vertical_RL_TB:
+                nTextFlow = 5;
+                break;
+            case SvxFrameDirection::Vertical_LR_BT:
+                nTextFlow = 3;
+                break;
+            default:
+                break;
+        }
+
+        if (nTextFlow != 0)
         {
             m_rWW8Export.InsUInt16( NS_sprm::sprmTTextFlow );
             m_rWW8Export.pO->push_back( n );                   //start range
             m_rWW8Export.pO->push_back( sal_uInt8(n + 1) );    //end range
-            m_rWW8Export.InsUInt16( 5 ); //Equals vertical writing
+            m_rWW8Export.InsUInt16(nTextFlow);
         }
     }
 }
@@ -3073,10 +3088,9 @@ void MSWordExportBase::AddLinkTarget(const OUString& rURL)
 
 void MSWordExportBase::CollectOutlineBookmarks(const SwDoc &rDoc)
 {
-    sal_uInt32 nMaxItems = rDoc.GetAttrPool().GetItemCount2(RES_TXTATR_INETFMT);
-    for (sal_uInt32 n = 0; n < nMaxItems; ++n)
+    for (const SfxPoolItem* pItem : rDoc.GetAttrPool().GetItemSurrogates(RES_TXTATR_INETFMT))
     {
-        const SwFormatINetFormat* pINetFormat = rDoc.GetAttrPool().GetItem2(RES_TXTATR_INETFMT, n);
+        auto pINetFormat = dynamic_cast<const SwFormatINetFormat*>(pItem);
         if (!pINetFormat)
             continue;
 
@@ -3094,10 +3108,9 @@ void MSWordExportBase::CollectOutlineBookmarks(const SwDoc &rDoc)
         AddLinkTarget( pINetFormat->GetValue() );
     }
 
-    nMaxItems = rDoc.GetAttrPool().GetItemCount2( RES_URL );
-    for (sal_uInt32 n = 0; n < nMaxItems; ++n)
+    for (const SfxPoolItem* pItem : rDoc.GetAttrPool().GetItemSurrogates(RES_URL))
     {
-        const SwFormatURL *pURL = rDoc.GetAttrPool().GetItem2(RES_URL, n);
+        auto pURL = dynamic_cast<const SwFormatURL*>(pItem);
         if (!pURL)
             continue;
 
@@ -3187,6 +3200,10 @@ ErrCode MSWordExportBase::ExportDocument( bool bWriteAll )
     m_aFrames = GetFrames( *m_pDoc, bWriteAll? nullptr : m_pOrigPam );
 
     m_nOrigRedlineFlags = m_pDoc->getIDocumentRedlineAccess().GetRedlineFlags();
+
+    SwRootFrame const*const pLayout(m_pDoc->getIDocumentLayoutAccess().GetCurrentLayout());
+    m_bOrigShowChanges = pLayout == nullptr || !pLayout->IsHideRedlines();
+
     if ( !m_pDoc->getIDocumentRedlineAccess().GetRedlineTable().empty() )
     {
         //restored to original state by SwWriter::Write
@@ -3237,7 +3254,7 @@ bool SwWW8Writer::InitStd97CodecUpdateMedium( ::msfilter::MSCodec_Std97& rCodec 
             aEncryptionData.realloc( 0 );
         }
 
-        if ( !aEncryptionData.getLength() )
+        if ( !aEncryptionData.hasElements() )
         {
             // try to generate the encryption data based on password
             const SfxStringItem* pPasswordItem = SfxItemSet::GetItem<SfxStringItem>(mpMedium->GetItemSet(), SID_PASSWORD, false);
@@ -3264,12 +3281,12 @@ bool SwWW8Writer::InitStd97CodecUpdateMedium( ::msfilter::MSCodec_Std97& rCodec 
             }
         }
 
-        if ( aEncryptionData.getLength() )
+        if ( aEncryptionData.hasElements() )
             mpMedium->GetItemSet()->ClearItem( SID_PASSWORD );
     }
 
     // nonempty encryption data means here that the codec was successfully initialized
-    return ( aEncryptionData.getLength() != 0 );
+    return aEncryptionData.hasElements();
 }
 
 ErrCode WW8Export::ExportDocument_Impl()
@@ -3584,6 +3601,7 @@ MSWordExportBase::MSWordExportBase( SwDoc *pDocument, SwPaM *pCurrentPam, SwPaM 
     , m_nUniqueList(0)
     , m_nHdFtIndex(0)
     , m_nOrigRedlineFlags(RedlineFlags::NONE)
+    , m_bOrigShowChanges(true)
     , m_pCurrentPageDesc(nullptr)
     , m_bPrevTextNodeIsEmpty(false)
     , m_bFirstTOCNodeWithSection(false)
@@ -3834,7 +3852,7 @@ void WW8Export::WriteFormData( const ::sw::mark::IFieldmark& rFieldmark )
         ffname = aName.copy(0, nLen);
     }
 
-    sal_uLong nDataStt = pDataStrm->Tell();
+    sal_uInt64 nDataStt = pDataStrm->Tell();
     m_pChpPlc->AppendFkpEntry(Strm().Tell());
 
     WriteChar(0x01);

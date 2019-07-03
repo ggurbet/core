@@ -23,36 +23,34 @@
 
 #include <futempl.hxx>
 
-#include <editeng/editdata.hxx>
-#include <editeng/bulletitem.hxx>
 #include <svx/svxids.hrc>
 #include <sfx2/bindings.hxx>
-#include <svl/aeitem.hxx>
 #include <sfx2/dispatch.hxx>
 #include <editeng/eeitem.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/sfxdlg.hxx>
 #include <editeng/numitem.hxx>
-#include <editeng/editeng.hxx>
-#include <editeng/lrspitem.hxx>
 #include <svx/svdopage.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/brushitem.hxx>
 #include <svx/svditer.hxx>
 #include <svx/sdr/properties/properties.hxx>
+#include <svl/intitem.hxx>
 
 #include <sfx2/viewfrm.hxx>
 #include <svx/xlndsit.hxx>
 #include <svx/xlnstit.hxx>
 #include <svx/xlnedit.hxx>
+#include <svx/xbtmpit.hxx>
+#include <svx/xflgrit.hxx>
+#include <svx/xflftrit.hxx>
+#include <svx/xflhtit.hxx>
 #include <app.hrc>
 #include <stlsheet.hxx>
 #include <sdpage.hxx>
 #include <stlpool.hxx>
 #include <sdmod.hxx>
 #include <View.hxx>
-#include <Window.hxx>
-#include <drawview.hxx>
 #include <drawdoc.hxx>
 #include <DrawDocShell.hxx>
 #include <DrawViewShell.hxx>
@@ -60,11 +58,8 @@
 
 #include <strings.hrc>
 #include <prlayout.hxx>
-#include <svx/xfillit.hxx>
 #include <sdresid.hxx>
 #include <OutlineView.hxx>
-#include <OutlineViewShell.hxx>
-#include <helpids.h>
 #include <sdabstdlg.hxx>
 #include <memory>
 
@@ -442,7 +437,7 @@ void FuTemplate::DoExecute( SfxRequest& rReq )
                             std::unique_ptr<SfxPoolItem> pNewItem = static_cast<const XFillBitmapItem*>(pOldItem)->checkForUniqueItem( mpDoc );
                             if( pNewItem )
                             {
-                                rAttr.Put( *pNewItem );
+                                rAttr.Put( std::move(pNewItem) );
                             }
                         }
                         if( rAttr.GetItemState( XATTR_LINEDASH ) == SfxItemState::SET )
@@ -451,7 +446,7 @@ void FuTemplate::DoExecute( SfxRequest& rReq )
                             std::unique_ptr<SfxPoolItem> pNewItem = static_cast<const XLineDashItem*>(pOldItem)->checkForUniqueItem( mpDoc );
                             if( pNewItem )
                             {
-                                rAttr.Put( *pNewItem );
+                                rAttr.Put( std::move(pNewItem) );
                             }
                         }
                         if( rAttr.GetItemState( XATTR_LINESTART ) == SfxItemState::SET )
@@ -460,7 +455,7 @@ void FuTemplate::DoExecute( SfxRequest& rReq )
                             std::unique_ptr<SfxPoolItem> pNewItem = static_cast<const XLineStartItem*>(pOldItem)->checkForUniqueItem( mpDoc );
                             if( pNewItem )
                             {
-                                rAttr.Put( *pNewItem );
+                                rAttr.Put( std::move(pNewItem) );
                             }
                         }
                         if( rAttr.GetItemState( XATTR_LINEEND ) == SfxItemState::SET )
@@ -469,7 +464,7 @@ void FuTemplate::DoExecute( SfxRequest& rReq )
                             std::unique_ptr<SfxPoolItem> pNewItem = static_cast<const XLineEndItem*>(pOldItem)->checkForUniqueItem( mpDoc );
                             if( pNewItem )
                             {
-                                rAttr.Put( *pNewItem );
+                                rAttr.Put( std::move(pNewItem) );
                             }
                         }
                         if( rAttr.GetItemState( XATTR_FILLGRADIENT ) == SfxItemState::SET )
@@ -478,7 +473,7 @@ void FuTemplate::DoExecute( SfxRequest& rReq )
                             std::unique_ptr<SfxPoolItem> pNewItem = static_cast<const XFillGradientItem*>(pOldItem)->checkForUniqueItem( mpDoc );
                             if( pNewItem )
                             {
-                                rAttr.Put( *pNewItem );
+                                rAttr.Put( std::move(pNewItem) );
                             }
                         }
                         if( rAttr.GetItemState( XATTR_FILLFLOATTRANSPARENCE ) == SfxItemState::SET )
@@ -487,7 +482,7 @@ void FuTemplate::DoExecute( SfxRequest& rReq )
                             std::unique_ptr<SfxPoolItem> pNewItem = static_cast<const XFillFloatTransparenceItem*>(pOldItem)->checkForUniqueItem( mpDoc );
                             if( pNewItem )
                             {
-                                rAttr.Put( *pNewItem );
+                                rAttr.Put( std::move(pNewItem) );
                             }
                         }
                         if( rAttr.GetItemState( XATTR_FILLHATCH ) == SfxItemState::SET )
@@ -496,7 +491,7 @@ void FuTemplate::DoExecute( SfxRequest& rReq )
                             std::unique_ptr<SfxPoolItem> pNewItem = static_cast<const XFillHatchItem*>(pOldItem)->checkForUniqueItem( mpDoc );
                             if( pNewItem )
                             {
-                                rAttr.Put( *pNewItem );
+                                rAttr.Put( std::move(pNewItem) );
                             }
                         }
 

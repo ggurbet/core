@@ -25,11 +25,17 @@
 #include <svx/svdmodel.hxx>
 #include <svx/textchain.hxx>
 #include <svx/textchainflow.hxx>
+#include <svx/sdtacitm.hxx>
+#include <svx/sdtayitm.hxx>
+#include <svx/sdtaiitm.hxx>
+#include <svx/sdtaaitm.hxx>
+#include <svx/xfillit0.hxx>
 #include <basegfx/vector/b2dvector.hxx>
 #include <sdr/primitive2d/sdrtextprimitive2d.hxx>
 #include <drawinglayer/primitive2d/textprimitive2d.hxx>
 #include <drawinglayer/primitive2d/textdecoratedprimitive2d.hxx>
 #include <basegfx/range/b2drange.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/editstat.hxx>
 #include <tools/helpers.hxx>
 #include <svx/sdtfchim.hxx>

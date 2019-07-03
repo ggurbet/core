@@ -118,7 +118,7 @@ RecentFilesMenuController::RecentFilesMenuController( const uno::Reference< uno:
 // private function
 void RecentFilesMenuController::fillPopupMenu( Reference< css::awt::XPopupMenu > const & rPopupMenu )
 {
-    VCLXPopupMenu* pPopupMenu    = static_cast<VCLXPopupMenu *>(VCLXMenu::GetImplementation( rPopupMenu ));
+    VCLXPopupMenu* pPopupMenu    = static_cast<VCLXPopupMenu *>(comphelper::getUnoTunnelImplementation<VCLXMenu>( rPopupMenu ));
     PopupMenu*     pVCLPopupMenu = nullptr;
 
     SolarMutexGuard aSolarMutexGuard;
@@ -283,9 +283,10 @@ void SAL_CALL RecentFilesMenuController::itemSelected( const css::awt::MenuEvent
 {
     Reference< css::awt::XPopupMenu > xPopupMenu;
 
-    osl::ClearableMutexGuard aLock( m_aMutex );
-    xPopupMenu = m_xPopupMenu;
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aMutex);
+        xPopupMenu = m_xPopupMenu;
+    }
 
     if ( xPopupMenu.is() )
     {

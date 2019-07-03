@@ -31,6 +31,7 @@
 #include <treevisitor.hxx>
 
 #include <com/sun/star/sdb/CommandType.hpp>
+#include <com/sun/star/sdbc/XRowSet.hpp>
 #include <com/sun/star/container/EnumerableMap.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
 #include <com/sun/star/form/Forms.hpp>
@@ -40,6 +41,7 @@
 #include <svx/fmglob.hxx>
 #include <svx/fmpage.hxx>
 #include <svx/fmmodel.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/stdtext.hxx>
 #include <svx/dialmgr.hxx>
@@ -118,7 +120,7 @@ namespace
         }
     };
 
-    typedef ::std::map< Reference< XControlModel >, Reference< XControlModel >, ::comphelper::OInterfaceCompare< XControlModel > > MapControlModels;
+    typedef ::std::map< Reference< XControlModel >, Reference< XControlModel > > MapControlModels;
 
     class FormComponentAssignment
     {
@@ -161,7 +163,7 @@ void FmFormPageImpl::initFrom( FmFormPageImpl& i_foreignImpl )
         MapControlModels aModelAssignment;
 
         typedef TreeVisitor< FormComponentPair, FormHierarchyComparator, FormComponentAssignment >   FormComponentVisitor;
-        FormComponentVisitor aVisitor = FormComponentVisitor( FormHierarchyComparator() );
+        FormComponentVisitor aVisitor{ FormHierarchyComparator() };
 
         FormComponentAssignment aAssignmentProcessor( aModelAssignment );
         aVisitor.process( FormComponentPair( xForeignForms, m_xForms ), aAssignmentProcessor );

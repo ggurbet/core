@@ -44,12 +44,16 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/sfxsids.hrc>
+#include <sfx2/viewfrm.hxx>
 #include <sfx2/sidebar/Sidebar.hxx>
 #include <svl/aeitem.hxx>
+#include <svl/intitem.hxx>
 #include <svx/imapdlg.hxx>
 #include <basic/sbstar.hxx>
 #include <basic/sberrors.hxx>
 #include <xmloff/autolayout.hxx>
+#include <vcl/svapp.hxx>
 
 #include <undo/undoobjects.hxx>
 
@@ -315,7 +319,7 @@ SvxIMapDlg* ViewShell::Implementation::GetImageMapDialog()
     SfxChildWindow* pChildWindow = SfxViewFrame::Current()->GetChildWindow(
         SvxIMapDlgChildWindow::GetChildWindowId());
     if (pChildWindow != nullptr)
-        pDialog = dynamic_cast<SvxIMapDlg*>(pChildWindow->GetWindow());
+        pDialog = dynamic_cast<SvxIMapDlg*>(pChildWindow->GetController().get());
     return pDialog;
 }
 

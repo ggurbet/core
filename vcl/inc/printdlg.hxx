@@ -20,19 +20,15 @@
 #ifndef VCL_INC_NEWPRINTDLG_HXX
 #define VCL_INC_NEWPRINTDLG_HXX
 
-#include <vcl/dllapi.h>
-
 #include <vcl/print.hxx>
 #include <vcl/dialog.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/button.hxx>
-#include <vcl/prgsbar.hxx>
 #include <vcl/field.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/tabctrl.hxx>
-#include <vcl/tabpage.hxx>
-#include <vcl/virdev.hxx>
 #include <vcl/gdimtf.hxx>
+#include <vcl/weld.hxx>
 
 namespace vcl {
     class PrintDialog;
@@ -250,28 +246,28 @@ namespace vcl
 
     };
 
-    class PrintProgressDialog : public ModelessDialog
+    class PrintProgressDialog : public weld::GenericDialogController
     {
         OUString            maStr;
-        VclPtr<FixedText>   mpText;
-        VclPtr<ProgressBar> mpProgress;
-        VclPtr<CancelButton> mpButton;
-
         bool                mbCanceled;
         sal_Int32           mnCur;
         sal_Int32           mnMax;
 
-        DECL_LINK( ClickHdl, Button*, void );
+        std::unique_ptr<weld::Label> mxText;
+        std::unique_ptr<weld::ProgressBar> mxProgress;
+        std::unique_ptr<weld::Button> mxButton;
+
+        DECL_LINK( ClickHdl, weld::Button&, void );
 
     public:
-        PrintProgressDialog(vcl::Window* i_pParent, int i_nMax);
+        PrintProgressDialog(weld::Window* i_pParent, int i_nMax);
         virtual ~PrintProgressDialog() override;
-        virtual void dispose() override;
         bool isCanceled() const { return mbCanceled; }
         void setProgress( int i_nCurrent );
         void tick();
-        void reset();
     };
 }
 
 #endif // VCL_INC_NEWPRINTDLG_HXX
+
+/* vim:set shiftwidth=4 softtabstop=4 expandtab: */

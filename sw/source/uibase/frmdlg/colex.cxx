@@ -29,10 +29,9 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/frmdiritem.hxx>
 #include <vcl/bitmap.hxx>
-#include <vcl/builder.hxx>
 #include <vcl/graph.hxx>
+#include <vcl/outdev.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <tgrditem.hxx>
 #include <viewopt.hxx>
 #include <colex.hxx>

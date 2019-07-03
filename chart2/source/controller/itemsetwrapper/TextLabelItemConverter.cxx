@@ -30,10 +30,13 @@
 #include <sal/log.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/sizeitem.hxx>
+#include <svl/eitem.hxx>
 #include <svl/ilstitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/stritem.hxx>
 #include <svx/tabline.hxx>
+#include <tools/diagnose_ex.h>
+#include <vcl/graph.hxx>
 
 #include <com/sun/star/chart2/AxisType.hpp>
 #include <com/sun/star/chart2/DataPointLabel.hpp>
@@ -325,9 +328,9 @@ bool TextLabelItemConverter::ApplySpecialItem( sal_uInt16 nWhichId, const SfxIte
                     bChanged = true;
                 }
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("chart2", "Exception caught. " << e);
+                TOOLS_WARN_EXCEPTION("chart2", "");
             }
         }
         break;
@@ -355,9 +358,9 @@ bool TextLabelItemConverter::ApplySpecialItem( sal_uInt16 nWhichId, const SfxIte
                     bChanged = true;
                 }
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
         break;
@@ -369,7 +372,7 @@ bool TextLabelItemConverter::ApplySpecialItem( sal_uInt16 nWhichId, const SfxIte
                 sal_Int32 nOld = 0;
                 if (!(GetPropertySet()->getPropertyValue("LabelPlacement") >>= nOld))
                 {
-                    if (maAvailableLabelPlacements.getLength())
+                    if (maAvailableLabelPlacements.hasElements())
                         nOld = maAvailableLabelPlacements[0];
                 }
                 if (mbDataSeries)
@@ -388,9 +391,9 @@ bool TextLabelItemConverter::ApplySpecialItem( sal_uInt16 nWhichId, const SfxIte
                     bChanged = true;
                 }
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("chart2", "Exception caught. " << e);
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
         break;
@@ -563,9 +566,9 @@ void TextLabelItemConverter::FillSpecialItem( sal_uInt16 nWhichId, SfxItemSet& r
                 GetPropertySet()->getPropertyValue("LabelSeparator") >>= aValue;
                 rOutItemSet.Put(SfxStringItem(nWhichId, aValue));
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("chart2", "Exception caught. " << e);
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
         break;
@@ -577,9 +580,9 @@ void TextLabelItemConverter::FillSpecialItem( sal_uInt16 nWhichId, SfxItemSet& r
                 GetPropertySet()->getPropertyValue( "TextWordWrap" ) >>= bValue;
                 rOutItemSet.Put( SfxBoolItem( nWhichId, bValue ));
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
         break;
@@ -590,12 +593,12 @@ void TextLabelItemConverter::FillSpecialItem( sal_uInt16 nWhichId, SfxItemSet& r
                 sal_Int32 nPlacement = 0;
                 if (GetPropertySet()->getPropertyValue("LabelPlacement") >>= nPlacement)
                     rOutItemSet.Put(SfxInt32Item(nWhichId, nPlacement));
-                else if (maAvailableLabelPlacements.getLength())
+                else if (maAvailableLabelPlacements.hasElements())
                     rOutItemSet.Put(SfxInt32Item(nWhichId, maAvailableLabelPlacements[0]));
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("chart2", "Exception caught. " << e);
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
         break;

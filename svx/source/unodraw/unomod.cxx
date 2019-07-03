@@ -29,6 +29,7 @@
 #include <svtools/unoevent.hxx>
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <tools/debug.hxx>
 
 #include <cppuhelper/implbase.hxx>
 #include <svx/unofill.hxx>
@@ -299,7 +300,7 @@ void SAL_CALL SvxUnoDrawingModel::release() throw ( )
 // XTypeProvider
 uno::Sequence< uno::Type > SAL_CALL SvxUnoDrawingModel::getTypes(  )
 {
-    if( maTypeSequence.getLength() == 0 )
+    if( !maTypeSequence.hasElements() )
     {
         maTypeSequence = comphelper::concatSequences( SfxBaseModel::getTypes(),
             uno::Sequence {
@@ -343,7 +344,7 @@ uno::Reference< drawing::XDrawPages > SAL_CALL SvxUnoDrawingModel::getDrawPages(
     uno::Reference< drawing::XDrawPages >  xDrawPages( mxDrawPagesAccess );
 
     if( !xDrawPages.is() )
-        mxDrawPagesAccess = xDrawPages = static_cast<drawing::XDrawPages*>(new SvxUnoDrawPagesAccess(*this));
+        mxDrawPagesAccess = xDrawPages = new SvxUnoDrawPagesAccess(*this);
 
     return xDrawPages;
 }
@@ -661,7 +662,7 @@ void SAL_CALL SvxUnoDrawPagesAccess::remove( const uno::Reference< drawing::XDra
     if( nPageCount > 1 )
     {
         // get pPage from xPage and get Id (nPos)
-        SvxDrawPage* pSvxPage = SvxDrawPage::getImplementation( xPage );
+        SvxDrawPage* pSvxPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>( xPage );
         if( pSvxPage )
         {
             SdrPage* pPage = pSvxPage->GetSdrPage();

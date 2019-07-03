@@ -1344,7 +1344,7 @@ void OBoundControlModel::disposing()
 {
     OControlModel::disposing();
 
-    ::osl::ClearableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
 
     if ( m_pAggPropMultiplexer )
         m_pAggPropMultiplexer->dispose();
@@ -1847,7 +1847,7 @@ void SAL_CALL OBoundControlModel::removeUpdateListener(const Reference< XUpdateL
 sal_Bool SAL_CALL OBoundControlModel::commit()
 {
     ControlModelLock aLock( *this );
-    OSL_PRECOND( m_bCommitable, "OBoundControlModel::commit: invalid call (I'm not commitable !) " );
+    OSL_PRECOND( m_bCommitable, "OBoundControlModel::commit: invalid call (I'm not committable!) " );
     if ( hasExternalValueBinding() )
     {
         // in most cases, no action is required: For most derivees, we know the value property of
@@ -2697,7 +2697,7 @@ void OBoundControlModel::disconnectValidator( )
 
 void SAL_CALL OBoundControlModel::setValidator( const Reference< XValidator >& _rxValidator )
 {
-    ::osl::ClearableMutexGuard aGuard( m_aMutex );
+    osl::MutexGuard aGuard( m_aMutex );
     OSL_PRECOND( m_bSupportsValidation, "OBoundControlModel::setValidator: How did you reach this method?" );
     // the interface for this method should not have been exposed if we do not
     // support validation
@@ -2733,7 +2733,7 @@ Reference< XValidator > SAL_CALL OBoundControlModel::getValidator(  )
 
 void SAL_CALL OBoundControlModel::validityConstraintChanged( const EventObject& /*Source*/ )
 {
-    ::osl::ClearableMutexGuard aGuard( m_aMutex );
+    osl::MutexGuard aGuard( m_aMutex );
     OSL_PRECOND( m_bSupportsValidation, "OBoundControlModel::validityConstraintChanged: How did you reach this method?" );
     // the interface for this method should not have been exposed if we do not
     // support validation

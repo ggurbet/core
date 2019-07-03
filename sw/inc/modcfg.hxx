@@ -57,7 +57,7 @@ public:
     void Insert(InsCaptionOpt* pObj);
 };
 
-class SwRevisionConfig : public utl::ConfigItem
+class SAL_DLLPUBLIC_RTTI SwRevisionConfig : public utl::ConfigItem
 {
     friend class SwModuleOptions;
 
@@ -90,7 +90,7 @@ enum class SwCompareMode
     ByChar
 };
 
-class SwCompareConfig : public utl::ConfigItem
+class SAL_DLLPUBLIC_RTTI SwCompareConfig : public utl::ConfigItem
 {
     friend class SwModuleOptions;
 
@@ -114,7 +114,7 @@ public:
     using ConfigItem::SetModified;
 };
 
-class SwInsertConfig : public utl::ConfigItem
+class SAL_DLLPUBLIC_RTTI SwInsertConfig : public utl::ConfigItem
 {
     friend class SwModuleOptions;
 
@@ -142,7 +142,7 @@ public:
     using ConfigItem::SetModified;
 };
 
-class SwTableConfig : public utl::ConfigItem
+class SAL_DLLPUBLIC_RTTI SwTableConfig : public utl::ConfigItem
 {
     friend class SwModuleOptions;
 
@@ -155,6 +155,7 @@ class SwTableConfig : public utl::ConfigItem
     bool    m_bInsTableFormatNum;       // Table/Input/NumberRecognition        // Automatic recognition of numbers.
     bool    m_bInsTableChangeNumFormat; // Table/Input/NumberFormatRecognition  // Automatic recognition of number formats.
     bool    m_bInsTableAlignNum;        // Table/Input/Alignment                // Align numbers.
+    bool    m_bSplitVerticalByDefault;  // Table/Input/SplitVerticalByDefault   // Split vertical by default.
 
     static const css::uno::Sequence<OUString>& GetPropertyNames();
 
@@ -169,7 +170,7 @@ public:
     using ConfigItem::SetModified;
 };
 
-class SwMiscConfig : public utl::ConfigItem
+class SAL_DLLPUBLIC_RTTI SwMiscConfig : public utl::ConfigItem
 {
     friend class SwModuleOptions;
 
@@ -302,6 +303,13 @@ public:
                     auto & config = bHTML ? m_aWebInsertConfig : m_aInsertConfig;
                     config.m_aInsTableOpts = rOpts;
                     config.SetModified();}
+
+    bool        IsSplitVerticalByDefault(bool bHTML) const
+                    { return bHTML ? m_aWebTableConfig.m_bSplitVerticalByDefault : m_aTableConfig.m_bSplitVerticalByDefault; }
+    void        SetSplitVerticalByDefault(bool bHTML, bool b)
+                    { auto & config = bHTML ? m_aWebTableConfig : m_aTableConfig;
+                      config.m_bSplitVerticalByDefault = b;
+                      config.SetModified();}
 
     const InsCaptionOpt* GetCapOption(bool bHTML, const SwCapObjType eType, const SvGlobalName *pOleId);
     bool        SetCapOption(bool bHTML, const InsCaptionOpt* pOpt);

@@ -46,6 +46,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <osl/diagnose.h>
+#include <tools/diagnose_ex.h>
 #include <unotools/configmgr.hxx>
 #include "xmlenums.hxx"
 
@@ -504,10 +505,7 @@ void XMLConfigItemContext::Characters( const OUString& rChars )
             sal_uInt32 nStartPos(maDecoded.getLength());
             sal_uInt32 nCount(aBuffer.getLength());
             maDecoded.realloc(nStartPos + nCount);
-            sal_Int8* pDecoded = maDecoded.getArray();
-            sal_Int8* pBuffer = aBuffer.getArray();
-            for (sal_uInt32 i = 0; i < nCount; i++, pBuffer++)
-                pDecoded[nStartPos + i] = *pBuffer;
+            std::copy(aBuffer.begin(), aBuffer.end(), std::next(maDecoded.begin(), nStartPos));
             if( nCharsDecoded != sChars.getLength() )
                 msValue = sChars.copy( nCharsDecoded );
         }
@@ -749,10 +747,10 @@ void XMLConfigItemMapIndexedContext::EndElement()
                             {
                                 xForbChars->setForbiddenCharacters( aLocale, aForbid );
                             }
-                            catch (uno::Exception const& e)
+                            catch (uno::Exception const&)
                             {
-                                SAL_WARN("xmloff.core",
-                                    "Exception while importing forbidden characters: " << e);
+                                TOOLS_WARN_EXCEPTION("xmloff.core",
+                                    "Exception while importing forbidden characters");
                             }
                         }
                     }

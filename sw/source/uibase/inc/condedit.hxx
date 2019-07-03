@@ -24,49 +24,28 @@
 #include <vcl/weld.hxx>
 #include <swdllapi.h>
 
-class SW_DLLPUBLIC ConditionEdit : public Edit, public DropTargetHelper
-{
-    bool bBrackets, bEnableDrop;
+class ConditionEdit;
 
-    SAL_DLLPRIVATE virtual sal_Int8  AcceptDrop( const AcceptDropEvent& rEvt ) override;
-    SAL_DLLPRIVATE virtual sal_Int8  ExecuteDrop( const ExecuteDropEvent& rEvt ) override;
-
-public:
-    ConditionEdit(vcl::Window* pParent, WinBits nStyle);
-
-    void ShowBrackets(bool bShow)
-    {
-        bBrackets = bShow;
-    }
-
-    void SetDropEnable(bool bFlag)
-    {
-        bEnableDrop = bFlag;
-    }
-};
-
-class SwConditionEdit;
-
-class SW_DLLPUBLIC SwConditionEditDropTarget : public DropTargetHelper
+class SW_DLLPUBLIC ConditionEditDropTarget : public DropTargetHelper
 {
 private:
-    SwConditionEdit& m_rEdit;
+    ConditionEdit& m_rEdit;
 
     SAL_DLLPRIVATE virtual sal_Int8 AcceptDrop( const AcceptDropEvent& rEvt ) override;
     SAL_DLLPRIVATE virtual sal_Int8 ExecuteDrop( const ExecuteDropEvent& rEvt ) override;
 
 public:
-    SwConditionEditDropTarget(SwConditionEdit& rEdit);
+    ConditionEditDropTarget(ConditionEdit& rEdit);
 };
 
-class SW_DLLPUBLIC SwConditionEdit
+class SW_DLLPUBLIC ConditionEdit
 {
     std::unique_ptr<weld::Entry> m_xControl;
-    SwConditionEditDropTarget m_aDropTargetHelper;
+    ConditionEditDropTarget m_aDropTargetHelper;
     bool bBrackets, bEnableDrop;
 
 public:
-    SwConditionEdit(std::unique_ptr<weld::Entry> xControl);
+    ConditionEdit(std::unique_ptr<weld::Entry> xControl);
 
     OUString get_text() const { return m_xControl->get_text(); }
     void set_text(const OUString& rText) { m_xControl->set_text(rText); }
@@ -77,6 +56,7 @@ public:
     bool get_value_changed_from_saved() const { return m_xControl->get_value_changed_from_saved(); }
     void set_sensitive(bool bSensitive) { m_xControl->set_sensitive(bSensitive); }
     void connect_changed(const Link<weld::Entry&, void>& rLink) { m_xControl->connect_changed(rLink); }
+    void replace_selection(const OUString& rText) { m_xControl->replace_selection(rText); }
     void hide() { m_xControl->hide(); }
     weld::Entry& get_widget() { return *m_xControl; }
 

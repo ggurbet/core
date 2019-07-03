@@ -81,7 +81,6 @@
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/extract.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <PropertySetMerger.hxx>
 
 #include <svl/urihelper.hxx>
@@ -652,13 +651,10 @@ void SAL_CALL SvXMLExport::initialize( const uno::Sequence< uno::Any >& aArgumen
 {
     // #93186# we need to queryInterface every single Any with any expected outcome. This variable hold the queryInterface results.
 
-    const sal_Int32 nAnyCount = aArguments.getLength();
-    const uno::Any* pAny = aArguments.getConstArray();
-
-    for( sal_Int32 nIndex = 0; nIndex < nAnyCount; nIndex++, pAny++ )
+    for( const auto& rAny : aArguments )
     {
         Reference<XInterface> xValue;
-        *pAny >>= xValue;
+        rAny >>= xValue;
 
         // status indicator
         uno::Reference<task::XStatusIndicator> xTmpStatus( xValue, UNO_QUERY );
@@ -682,7 +678,7 @@ void SAL_CALL SvXMLExport::initialize( const uno::Sequence< uno::Any >& aArgumen
         if( xTmpDocHandler.is() )
         {
             mxHandler = xTmpDocHandler;
-            *pAny >>= mxExtHandler;
+            rAny >>= mxExtHandler;
 
             if (mxNumberFormatsSupplier.is() && mpNumExport == nullptr)
                 mpNumExport.reset( new SvXMLNumFmtExport(*this, mxNumberFormatsSupplier) );
@@ -753,8 +749,6 @@ void SAL_CALL SvXMLExport::initialize( const uno::Sequence< uno::Any >& aArgumen
         uno::Any aAny = mxExportInfo->getPropertyValue( sExportTextNumberElement );
         aAny >>= mpImpl->mbExportTextNumberElement;
     }
-
-
 }
 
 // XFilter
@@ -766,8 +760,6 @@ sal_Bool SAL_CALL SvXMLExport::filter( const uno::Sequence< beans::PropertyValue
 
     try
     {
-        const sal_Int32 nPropCount = aDescriptor.getLength();
-
         const SvXMLExportFlags nTest =
             SvXMLExportFlags::META|SvXMLExportFlags::STYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SETTINGS;
         if( (mnExportFlags & nTest) == nTest && msOrigFileName.isEmpty() )
@@ -775,11 +767,10 @@ sal_Bool SAL_CALL SvXMLExport::filter( const uno::Sequence< beans::PropertyValue
             // evaluate descriptor only for flat files and if a base URI
             // has not been provided already
 
-            const beans::PropertyValue* pProps = aDescriptor.getConstArray();
-            for( sal_Int32 nIndex = 0; nIndex < nPropCount; nIndex++, pProps++ )
+            for( const auto& rProp : aDescriptor )
             {
-                const OUString& rPropName = pProps->Name;
-                const Any& rValue = pProps->Value;
+                const OUString& rPropName = rProp.Name;
+                const Any& rValue = rProp.Value;
 
                 if ( rPropName == "FileName" )
                 {
@@ -794,11 +785,10 @@ sal_Bool SAL_CALL SvXMLExport::filter( const uno::Sequence< beans::PropertyValue
             }
         }
 
-        const beans::PropertyValue* pProps = aDescriptor.getConstArray();
-        for (sal_Int32 nIndex = 0; nIndex < nPropCount; ++nIndex, ++pProps)
+        for( const auto& rProp : aDescriptor )
         {
-            const OUString& rPropName = pProps->Name;
-            const Any& rValue = pProps->Value;
+            const OUString& rPropName = rProp.Name;
+            const Any& rValue = rProp.Value;
 
             if (rPropName == "SourceShellID")
             {
@@ -1100,7 +1090,7 @@ void SvXMLExport::ImplExportSettings()
 
         for (auto const& settings : aSettings)
         {
-            if ( !settings.aSettings.getLength() )
+            if ( !settings.aSettings.hasElements() )
                 continue;
 
             const OUString& sSettingsName( GetXMLToken( settings.eGroupName ) );
@@ -1542,11 +1532,8 @@ void SvXMLExport::ExportStyles_( bool )
                 if( xGradient->hasElements() )
                 {
                     uno::Sequence< OUString > aNamesSeq ( xGradient->getElementNames() );
-                    sal_Int32 nCount = aNamesSeq.getLength();
-                    for( sal_Int32 i=0; i<nCount; i++ )
+                    for( const OUString& rStrName : aNamesSeq )
                     {
-                        const OUString& rStrName = aNamesSeq[ i ];
-
                         try
                         {
                             uno::Any aValue = xGradient->getByName( rStrName );
@@ -1575,11 +1562,8 @@ void SvXMLExport::ExportStyles_( bool )
                 if( xHatch->hasElements() )
                 {
                     uno::Sequence< OUString > aNamesSeq ( xHatch->getElementNames() );
-                    sal_Int32 nCount = aNamesSeq.getLength();
-                    for( sal_Int32 i=0; i<nCount; i++ )
+                    for( const OUString& rStrName : aNamesSeq )
                     {
-                        const OUString& rStrName = aNamesSeq[ i ];
-
                         try
                         {
                             uno::Any aValue = xHatch->getByName( rStrName );
@@ -1605,11 +1589,8 @@ void SvXMLExport::ExportStyles_( bool )
                 if( xBitmap->hasElements() )
                 {
                     uno::Sequence< OUString > aNamesSeq ( xBitmap->getElementNames() );
-                    sal_Int32 nCount = aNamesSeq.getLength();
-                    for( sal_Int32 i=0; i<nCount; i++ )
+                    for( const OUString& rStrName : aNamesSeq )
                     {
-                        const OUString& rStrName = aNamesSeq[ i ];
-
                         try
                         {
                             uno::Any aValue = xBitmap->getByName( rStrName );
@@ -1638,11 +1619,8 @@ void SvXMLExport::ExportStyles_( bool )
                 if( xTransGradient->hasElements() )
                 {
                     uno::Sequence< OUString > aNamesSeq ( xTransGradient->getElementNames() );
-                    sal_Int32 nCount = aNamesSeq.getLength();
-                    for( sal_Int32 i=0; i<nCount; i++ )
+                    for( const OUString& rStrName : aNamesSeq )
                     {
-                        const OUString& rStrName = aNamesSeq[ i ];
-
                         try
                         {
                             uno::Any aValue = xTransGradient->getByName( rStrName );
@@ -1671,11 +1649,8 @@ void SvXMLExport::ExportStyles_( bool )
                 if( xMarker->hasElements() )
                 {
                     uno::Sequence< OUString > aNamesSeq ( xMarker->getElementNames() );
-                    sal_Int32 nCount = aNamesSeq.getLength();
-                    for( sal_Int32 i=0; i<nCount; i++ )
+                    for( const OUString& rStrName : aNamesSeq )
                     {
-                        const OUString& rStrName = aNamesSeq[ i ];
-
                         try
                         {
                             uno::Any aValue = xMarker->getByName( rStrName );
@@ -1704,11 +1679,8 @@ void SvXMLExport::ExportStyles_( bool )
                 if( xDashes->hasElements() )
                 {
                     uno::Sequence< OUString > aNamesSeq ( xDashes->getElementNames() );
-                    sal_Int32 nCount = aNamesSeq.getLength();
-                    for( sal_Int32 i=0; i<nCount; i++ )
+                    for( const OUString& rStrName : aNamesSeq )
                     {
-                        const OUString& rStrName = aNamesSeq[ i ];
-
                         try
                         {
                             uno::Any aValue = xDashes->getByName( rStrName );
@@ -1787,7 +1759,7 @@ void SvXMLExport::GetViewSettingsAndViews(uno::Sequence<beans::PropertyValue>& r
                 uno::Sequence<beans::PropertyValue> aProps;
                 if( aAny >>= aProps )
                 {
-                    if( aProps.getLength() > 0 )
+                    if( aProps.hasElements() )
                     {
                         bAdd = true;
                         break;
@@ -2038,41 +2010,8 @@ XMLImageMapExport& SvXMLExport::GetImageMapExport()
     return *mpImageMapExport;
 }
 
-namespace
-{
-    class theSvXMLExportUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theSvXMLExportUnoTunnelId> {};
-}
-
 // XUnoTunnel & co
-const uno::Sequence< sal_Int8 > & SvXMLExport::getUnoTunnelId() throw()
-{
-    return theSvXMLExportUnoTunnelId::get().getSeq();
-}
-
-SvXMLExport* SvXMLExport::getImplementation( const uno::Reference< uno::XInterface >& xInt ) throw()
-{
-    uno::Reference< lang::XUnoTunnel > xUT( xInt, uno::UNO_QUERY );
-    if( xUT.is() )
-    {
-        return
-            reinterpret_cast<SvXMLExport*>(
-                sal::static_int_cast<sal_IntPtr>(
-                    xUT->getSomething( SvXMLExport::getUnoTunnelId())));
-    }
-    else
-        return nullptr;
-}
-
-// XUnoTunnel
-sal_Int64 SAL_CALL SvXMLExport::getSomething( const uno::Sequence< sal_Int8 >& rId )
-{
-    if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(),
-                                                         rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_uIntPtr>(this));
-    }
-    return 0;
-}
+UNO3_GETIMPLEMENTATION_IMPL(SvXMLExport);
 
 void SvXMLExport::ExportEmbeddedOwnObject( Reference< XComponent > const & rComp )
 {

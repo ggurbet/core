@@ -241,6 +241,9 @@ bool Bitmap::operator==( const Bitmap& rBmp ) const
     BitmapChecksum aChecksum1, aChecksum2;
     rBmp.mxSalBmp->GetChecksum(aChecksum1);
     mxSalBmp->GetChecksum(aChecksum2);
+    // If the bitmaps can't calculate a checksum, best to regard them as different.
+    if (aChecksum1 == 0 || aChecksum2 == 0)
+        return false;
     return aChecksum1 == aChecksum2;
 }
 
@@ -260,9 +263,19 @@ sal_uInt16 Bitmap::GetBitCount() const
 {
     if (!mxSalBmp)
         return 0;
+
     sal_uInt16 nBitCount = mxSalBmp->GetBitCount();
-    return ( nBitCount <= 4 ) ? ( ( nBitCount <= 1 ) ? 1 : 4 ):
-                                ( ( nBitCount <= 8 ) ? 8 : 24);
+    if (nBitCount <= 1)
+        return 1;
+    if (nBitCount <= 4)
+        return 4;
+    if (nBitCount <= 8)
+        return 8;
+    if (nBitCount <= 24)
+        return 24;
+    if (nBitCount <= 32)
+        return 32;
+    return 0;
 }
 
 bool Bitmap::HasGreyPalette() const

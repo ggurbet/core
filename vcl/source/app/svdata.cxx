@@ -21,16 +21,12 @@
 
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
-#include <rtl/process.h>
-#include <tools/gen.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/resmgr.hxx>
-#include <uno/current_context.hxx>
 #include <sal/log.hxx>
 
-#include <vcl/button.hxx>
 #include <vcl/configsettings.hxx>
 #include <vcl/dockwin.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/print.hxx>
 #include <vcl/settings.hxx>
@@ -42,21 +38,15 @@
 #include <helpwin.hxx>
 #include <vcl/dialog.hxx>
 #include <salinst.hxx>
-#include <salframe.hxx>
 #include <salgdi.hxx>
 #include <svdata.hxx>
-#include <window.h>
 #include <salimestatus.hxx>
 #include <salsys.hxx>
-#include <strings.hrc>
 #include <units.hrc>
 #include <print.h>
 
 #include <com/sun/star/accessibility/MSAAService.hpp>
 
-#include <officecfg/Office/Common.hxx>
-
-#include <config_folders.h>
 #include <config_features.h>
 #if HAVE_FEATURE_OPENGL
 #include <vcl/opengl/OpenGLContext.hxx>
@@ -107,16 +97,15 @@ namespace
     class SystemDependentDataBuffer : public basegfx::SystemDependentDataManager, protected cppu::BaseMutex
     {
     private:
-        std::unique_ptr<Timer>  maTimer;
-        EntryMap                maEntries;
+        std::unique_ptr<AutoTimer> maTimer;
+        EntryMap maEntries;
 
         DECL_LINK(implTimeoutHdl, Timer *, void);
 
     public:
         SystemDependentDataBuffer(const sal_Char* pDebugName)
         :   basegfx::SystemDependentDataManager(),
-            maTimer(std::make_unique<Timer>(pDebugName)),
-            maEntries()
+            maTimer(std::make_unique<AutoTimer>(pDebugName))
         {
             maTimer->SetTimeout(1000);
             maTimer->SetInvokeHandler(LINK(this, SystemDependentDataBuffer, implTimeoutHdl));
@@ -134,7 +123,7 @@ namespace
 
             if(aFound == maEntries.end())
             {
-                if(maEntries.empty() && maTimer)
+                if(maTimer && !maTimer->IsActive())
                 {
                     maTimer->Start();
                 }
@@ -151,11 +140,6 @@ namespace
             if(aFound != maEntries.end())
             {
                 maEntries.erase(aFound);
-
-                if(maEntries.empty() && maTimer)
-                {
-                    maTimer->Stop();
-                }
             }
         }
 
@@ -173,7 +157,6 @@ namespace
         void flushAll() override
         {
             ::osl::MutexGuard aGuard(m_aMutex);
-            EntryMap::iterator aIter(maEntries.begin());
 
             if(maTimer)
             {
@@ -181,12 +164,7 @@ namespace
                 maTimer.reset();
             }
 
-            while(aIter != maEntries.end())
-            {
-                EntryMap::iterator aDelete(aIter);
-                ++aIter;
-                maEntries.erase(aDelete);
-            }
+            maEntries.clear();
         }
     };
 
@@ -204,21 +182,12 @@ namespace
             }
             else
             {
-                EntryMap::iterator aDelete(aIter);
-                ++aIter;
-                maEntries.erase(aDelete);
-
-                if(maEntries.empty() && maTimer)
-                {
-                    maTimer->Stop();
-                }
+                aIter = maEntries.erase(aIter);
             }
         }
 
-        if(!maEntries.empty() && maTimer)
-        {
-            maTimer->Start();
-        }
+        if (maEntries.empty())
+            maTimer->Stop();
     }
 }
 
@@ -265,9 +234,9 @@ vcl::Window *ImplGetDefaultContextWindow()
                     pContext->acquire();
 #endif
             }
-            catch (const css::uno::Exception& e)
+            catch (const css::uno::Exception&)
             {
-                 SAL_WARN("vcl", "unable to create Default Window: " << e);
+                TOOLS_WARN_EXCEPTION("vcl", "unable to create Default Window");
             }
         }
     }

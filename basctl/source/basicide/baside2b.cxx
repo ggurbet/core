@@ -37,14 +37,18 @@
 #include <comphelper/string.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/weld.hxx>
 #include <svl/urihelper.hxx>
 #include <svx/svxids.hrc>
+#include <vcl/commandevent.hxx>
 #include <vcl/xtextedt.hxx>
 #include <vcl/textview.hxx>
 #include <vcl/txtattr.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/ptrstyle.hxx>
+#include <vcl/event.hxx>
+#include <vcl/svapp.hxx>
 #include <svtools/textwindowpeer.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/taskpanelist.hxx>
@@ -88,7 +92,7 @@ int const nScrollLine = 12;
 int const nScrollPage = 60;
 int const DWBORDER = 3;
 
-char const cSuffixes[] = "%&!#@$";
+OUString const cSuffixes {"%&!#@$"};
 
 } // namespace
 
@@ -162,13 +166,13 @@ void lcl_SeparateNameAndIndex( const OUString& rVName, OUString& rVar, OUString&
     if ( !rVar.isEmpty() )
     {
         sal_uInt16 nLastChar = rVar.getLength()-1;
-        if ( strchr( cSuffixes, rVar[ nLastChar ] ) )
+        if ( cSuffixes.indexOf(rVar[ nLastChar ] ) >= 0 )
             rVar = rVar.replaceAt( nLastChar, 1, "" );
     }
     if ( !rIndex.isEmpty() )
     {
         sal_uInt16 nLastChar = rIndex.getLength()-1;
-        if ( strchr( cSuffixes, rIndex[ nLastChar ] ) )
+        if ( cSuffixes.indexOf(rIndex[ nLastChar ] ) >=0 )
             rIndex = rIndex.replaceAt( nLastChar, 1, "" );
     }
 }
@@ -339,7 +343,7 @@ void EditorWindow::RequestHelp( const HelpEvent& rHEvt )
         else if ( rHEvt.GetMode() & HelpEventMode::QUICK )
         {
             OUString aHelpText;
-            Point aTopLeft;
+            tools::Rectangle aHelpRect;
             if ( StarBASIC::IsRunning() )
             {
                 Point aWindowPos = rHEvt.GetMousePosPixel();
@@ -351,7 +355,7 @@ void EditorWindow::RequestHelp( const HelpEvent& rHEvt )
                 if ( !aWord.isEmpty() && !comphelper::string::isdigitAsciiString(aWord) )
                 {
                     sal_uInt16 nLastChar = aWord.getLength() - 1;
-                    if ( strchr( cSuffixes, aWord[ nLastChar ] ) )
+                    if ( cSuffixes.indexOf(aWord[ nLastChar ] ) >= 0 )
                         aWord = aWord.replaceAt( nLastChar, 1, "" );
                     SbxBase* pSBX = StarBASIC::FindSBXInCurrentScope( aWord );
                     if (SbxVariable const* pVar = IsSbxVariable(pSBX))
@@ -373,15 +377,20 @@ void EditorWindow::RequestHelp( const HelpEvent& rHEvt )
                     }
                     if ( !aHelpText.isEmpty() )
                     {
-                        aTopLeft = GetEditView()->GetTextEngine()->PaMtoEditCursor( aStartOfWord ).BottomLeft();
-                        aTopLeft = GetEditView()->GetWindowPos( aTopLeft );
-                        aTopLeft.AdjustX(5 );
-                        aTopLeft.AdjustY(5 );
-                        aTopLeft = OutputToScreenPixel( aTopLeft );
+                        tools::Rectangle aStartWordRect(GetEditView()->GetTextEngine()->PaMtoEditCursor(aStartOfWord));
+                        TextPaM aEndOfWord(aStartOfWord.GetPara(), aStartOfWord.GetIndex() + aWord.getLength());
+                        tools::Rectangle aEndWordRect(GetEditView()->GetTextEngine()->PaMtoEditCursor(aEndOfWord));
+                        aHelpRect = aStartWordRect.GetUnion(aEndWordRect);
+
+                        Point aTopLeft = GetEditView()->GetWindowPos(aHelpRect.TopLeft());
+                        aTopLeft = GetEditView()->GetWindow()->OutputToScreenPixel(aTopLeft);
+
+                        aHelpRect.setX(aTopLeft.X());
+                        aHelpRect.setY(aTopLeft.Y());
                     }
                 }
             }
-            Help::ShowQuickHelp( this, tools::Rectangle( aTopLeft, Size( 1, 1 ) ), aHelpText, QuickHelpFlags::Top|QuickHelpFlags::Left);
+            Help::ShowQuickHelp( this, aHelpRect, aHelpText, QuickHelpFlags::NONE);
             bDone = true;
         }
     }
@@ -2888,7 +2897,7 @@ std::vector< OUString > UnoTypeCodeCompletetor::GetXIdlClassMethods() const
     if( bCanComplete && ( xClass != nullptr ) )
     {
         Sequence< Reference< reflection::XIdlMethod > > aMethods = xClass->getMethods();
-        if( aMethods.getLength() != 0 )
+        if( aMethods.hasElements() )
         {
             for(sal_Int32 l = 0; l < aMethods.getLength(); ++l)
             {
@@ -2905,7 +2914,7 @@ std::vector< OUString > UnoTypeCodeCompletetor::GetXIdlClassFields() const
     if( bCanComplete && ( xClass != nullptr ) )
     {
         Sequence< Reference< reflection::XIdlField > > aFields = xClass->getFields();
-        if( aFields.getLength() != 0 )
+        if( aFields.hasElements() )
         {
             for(sal_Int32 l = 0; l < aFields.getLength(); ++l)
             {

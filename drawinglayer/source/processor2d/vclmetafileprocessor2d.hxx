@@ -20,6 +20,8 @@
 #ifndef INCLUDED_DRAWINGLAYER_SOURCE_PROCESSOR2D_VCLMETAFILEPROCESSOR2D_HXX
 #define INCLUDED_DRAWINGLAYER_SOURCE_PROCESSOR2D_VCLMETAFILEPROCESSOR2D_HXX
 
+#include <stack>
+
 #include <drawinglayer/drawinglayerdllapi.h>
 
 #include "vclprocessor2d.hxx"
@@ -81,7 +83,7 @@ namespace drawinglayer
         /** VclMetafileProcessor2D class
 
             This processor derived from VclProcessor2D is the base class for rendering
-            all feeded primitives to a classical VCL-Metafile, including all over the
+            all fed primitives to a classical VCL-Metafile, including all over the
             time grown extra data in comments and PDF exception data creations. Also
             printing needs some exception stuff.
 
@@ -112,6 +114,9 @@ namespace drawinglayer
                 const attribute::LineStartEndAttribute* pEnd);
             void impStartSvtGraphicStroke(SvtGraphicStroke const * pSvtGraphicStroke);
             void impEndSvtGraphicStroke(SvtGraphicStroke const * pSvtGraphicStroke);
+            void popStructureElement(vcl::PDFWriter::StructElement eElem);
+            void popListItem();
+            void popList();
 
             void processGraphicPrimitive2D(const primitive2d::GraphicPrimitive2D& rGraphicPrimitive);
             void processControlPrimitive2D(const primitive2d::ControlPrimitive2D& rControlPrimitive);
@@ -170,12 +175,14 @@ namespace drawinglayer
             vcl::PDFExtOutDevData*              mpPDFExtOutDevData;
 
             // Remember the current OutlineLevel. This is used when tagged PDF export
-            // is used to create/write valid structued list entries using PDF statements
+            // is used to create/write valid structured list entries using PDF statements
             // like '/L', '/LI', 'LBody' instead of simple '/P' (Paragraph).
             // The value -1 means 'no OutlineLevel' and values >= 0 express the level.
             sal_Int16                           mnCurrentOutlineLevel;
             bool mbInListItem;
             bool mbBulletPresent;
+
+            std::stack<vcl::PDFWriter::StructElement> maListElements;
 
         protected:
             /*  the local processor for BasePrimitive2D-Implementation based primitives,

@@ -457,7 +457,7 @@ ErrCode XMLFilter::impl_ImportStream(
                     uno::UNO_QUERY_THROW );
 
                 Reference< document::XImporter > xImporter( xDocHandler, uno::UNO_QUERY_THROW );
-                xImporter->setTargetDocument( Reference< lang::XComponent >( m_xTargetDoc, uno::UNO_QUERY_THROW ));
+                xImporter->setTargetDocument( Reference< lang::XComponent >( m_xTargetDoc, uno::UNO_SET_THROW ));
 
                 if ( !m_sDocumentHandler.isEmpty() )
                 {
@@ -699,7 +699,7 @@ ErrCode XMLFilter::impl_ExportStream(
         // set Base URL
         {
             uno::Reference< beans::XPropertySet > xInfoSet;
-            if( rFilterProperties.getLength() > 0 )
+            if( rFilterProperties.hasElements() )
                 rFilterProperties.getConstArray()[0] >>= xInfoSet;
             OSL_ENSURE( xInfoSet.is(), "missing infoset for export" );
             if( xInfoSet.is() )

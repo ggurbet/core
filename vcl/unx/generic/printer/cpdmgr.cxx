@@ -22,6 +22,7 @@
 #include <unx/cpdmgr.hxx>
 
 #include <osl/diagnose.h>
+#include <osl/file.hxx>
 #include <osl/thread.h>
 
 #include <rtl/ustrbuf.hxx>
@@ -193,14 +194,7 @@ std::vector<std::pair<std::string, gchar*>> const & CPDManager::getTempBackends(
 }
 
 void CPDManager::addNewPrinter(const OUString& aPrinterName, const OUString& aUniqueName, CPDPrinter *pDest) {
-    std::pair<OUString, CPDPrinter *> newPrinter (aUniqueName, pDest);
-    std::unordered_map<OUString, CPDPrinter *>::iterator it = m_aCPDDestMap.find( aUniqueName );
-    if (it == m_aCPDDestMap.end()) {
-        m_aCPDDestMap.insert(newPrinter);
-    } else {
-        m_aCPDDestMap.erase(it);
-        m_aCPDDestMap.insert(newPrinter);
-    }
+    m_aCPDDestMap[aUniqueName] = pDest;
     bool bSetToGlobalDefaults = m_aPrinters.find( aUniqueName ) == m_aPrinters.end();
     Printer aPrinter = m_aPrinters[ aUniqueName ];
     if( bSetToGlobalDefaults )

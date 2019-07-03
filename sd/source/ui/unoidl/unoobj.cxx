@@ -58,6 +58,8 @@
 #include <comphelper/serviceinfohelper.hxx>
 #include <svx/svdogrp.hxx>
 #include <o3tl/typed_flags_set.hxx>
+#include <vcl/svapp.hxx>
+#include <tools/debug.hxx>
 
 #include <anminfo.hxx>
 #include "unoobj.hxx"

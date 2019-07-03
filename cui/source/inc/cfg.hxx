@@ -19,16 +19,9 @@
 #ifndef INCLUDED_CUI_SOURCE_INC_CFG_HXX
 #define INCLUDED_CUI_SOURCE_INC_CFG_HXX
 
-#include <vcl/fixed.hxx>
-#include <vcl/layout.hxx>
-#include <vcl/menubtn.hxx>
-#include <vcl/toolbox.hxx>
 #include <vcl/weld.hxx>
 #include <svtools/imgdef.hxx>
 #include <svtools/miscopt.hxx>
-#include <vcl/treelistbox.hxx>
-#include <svtools/svmedit2.hxx>
-#include <svtools/svmedit.hxx>
 #include <svtools/valueset.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -51,6 +44,8 @@
 
 #include "cfgutil.hxx"
 #include "CommandCategoryListBox.hxx"
+
+#define notebookbarTabScope "notebookbarTabScope"
 
 static const char ITEM_DESCRIPTOR_COMMANDURL[]  = "CommandURL";
 static const char ITEM_DESCRIPTOR_CONTAINER[]   = "ItemDescriptorContainer";
@@ -346,7 +341,7 @@ public:
     void set_dropdown(int row, int col) { m_xControl->set_image(row, *m_xDropDown, col); }
     void set_id(int row, const OUString& rId) { m_xControl->set_id(row, rId); }
     void clear() { m_xControl->clear(); } //need frees ?
-    void set_toggle(int row, bool bOn, int col) { m_xControl->set_toggle(row, bOn, col); }
+    void set_toggle(int row, TriState eState, int col) { m_xControl->set_toggle(row, eState, col); }
     void scroll_to_row(int pos) { m_xControl->scroll_to_row(pos); }
     void select(int pos) { m_xControl->select(pos); }
 
@@ -387,15 +382,21 @@ protected:
 
     // Left side of the dialog where command categories and the available
     // commands in them are displayed as a searchable list
-    std::unique_ptr<weld::Entry>               m_xSearchEdit;
     std::unique_ptr<CommandCategoryListBox>    m_xCommandCategoryListBox;
     std::unique_ptr<CuiConfigFunctionListBox>  m_xFunctions;
 
+    std::unique_ptr<weld::Label>               m_xCategoryLabel;
+    std::unique_ptr<weld::ComboBox>            m_xCategoryListBox;
     std::unique_ptr<weld::Label>               m_xDescriptionFieldLb;
     std::unique_ptr<weld::TextView>            m_xDescriptionField;
+    std::unique_ptr<weld::Label>               m_xLeftFunctionLabel;
+    std::unique_ptr<weld::Entry>               m_xSearchEdit;
+    std::unique_ptr<weld::Label>               m_xSearchLabel;
+
 
     // Right side of the dialog where the contents of the selected
     // menu or toolbar are displayed
+    std::unique_ptr<weld::Label>               m_xCustomizeLabel;
     std::unique_ptr<weld::ComboBox>            m_xTopLevelListBox;
     // Used to add and remove toolbars/menus
     std::unique_ptr<weld::MenuButton>          m_xGearBtn;
@@ -447,6 +448,8 @@ protected:
 
     void                InsertEntryIntoUI(SvxConfigEntry* pNewEntryData,
                                           int nPos, int nStartCol);
+    void InsertEntryIntoNotebookbarTabUI(OUString& sClassId ,OUString& sUIItemId, OUString& sUIItemCommand, int nPos,
+                                         int nStartCol);
 
     SvxEntries*     FindParentForChild( SvxEntries* pParentEntries,
                                         SvxConfigEntry* pChildData );
@@ -487,7 +490,7 @@ public:
         frame of the desktop, then the current frame. If both are <NULL/>,
         the SfxViewFrame::Current's XFrame is used. If this is <NULL/>, too, an empty string is returned.
 
-        If the given frame is not <NULL/>, or an default frame could be successfully determined, then
+        If the given frame is not <NULL/>, or a default frame could be successfully determined, then
         the ModuleManager is asked for the module ID of the component in the frame.
     */
     static OUString

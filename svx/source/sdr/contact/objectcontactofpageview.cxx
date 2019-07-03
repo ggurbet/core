@@ -33,9 +33,11 @@
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <drawinglayer/primitive2d/transformprimitive2d.hxx>
 #include <com/sun/star/rendering/XSpriteCanvas.hpp>
+#include <drawinglayer/processor2d/baseprocessor2d.hxx>
 #include <drawinglayer/processor2d/processor2dtools.hxx>
 #include <svx/unoapi.hxx>
 #include <unotools/configmgr.hxx>
+#include <vcl/canvastools.hxx>
 #include <comphelper/lok.hxx>
 
 #include <eventhandler.hxx>
@@ -178,9 +180,7 @@ namespace sdr
                     //           export, so why not do it always
                     const tools::Rectangle aLogicClipRectangle(rDisplayInfo.GetRedrawArea().GetBoundRect());
 
-                    aViewRange = basegfx::B2DRange(
-                        aLogicClipRectangle.Left(), aLogicClipRectangle.Top(),
-                        aLogicClipRectangle.Right(), aLogicClipRectangle.Bottom());
+                    aViewRange = vcl::unotools::b2DRectangleFromRectangle(aLogicClipRectangle);
                 }
             }
             else
@@ -192,9 +192,7 @@ namespace sdr
                 {
                     // get logic clip range and create discrete one
                     const tools::Rectangle aLogicClipRectangle(rDisplayInfo.GetRedrawArea().GetBoundRect());
-                    basegfx::B2DRange aLogicClipRange(
-                        aLogicClipRectangle.Left(), aLogicClipRectangle.Top(),
-                        aLogicClipRectangle.Right(), aLogicClipRectangle.Bottom());
+                    basegfx::B2DRange aLogicClipRange = vcl::unotools::b2DRectangleFromRectangle(aLogicClipRectangle);
                     basegfx::B2DRange aDiscreteClipRange(aLogicClipRange);
                     aDiscreteClipRange.transform(rTargetOutDev.GetViewTransformation());
 

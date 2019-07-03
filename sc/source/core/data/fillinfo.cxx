@@ -23,6 +23,7 @@
 #include <editeng/lineitem.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/brushitem.hxx>
+#include <svx/framelink.hxx>
 
 #include <fillinfo.hxx>
 #include <document.hxx>
@@ -39,6 +40,8 @@
 #include <cellvalue.hxx>
 #include <mtvcellfunc.hxx>
 
+#include <algorithm>
+#include <limits>
 #include <vector>
 #include <memory>
 
@@ -181,16 +184,7 @@ public:
 
 bool isRotateItemUsed(const ScDocumentPool *pPool)
 {
-    sal_uInt32 nRotCount = pPool->GetItemCount2( ATTR_ROTATE_VALUE );
-    for (sal_uInt32 nItem=0; nItem<nRotCount; nItem++)
-    {
-        if (pPool->GetItem2( ATTR_ROTATE_VALUE, nItem ))
-        {
-            return true;
-        }
-    }
-
-    return false;
+    return pPool->GetItemCount2( ATTR_ROTATE_VALUE ) > 0;
 }
 
 void initRowInfo(const ScDocument* pDoc, RowInfo* pRowInfo, const SCSIZE nMaxRow,
@@ -219,9 +213,9 @@ void initRowInfo(const ScDocument* pDoc, RowInfo* pRowInfo, const SCSIZE nMaxRow
             RowInfo* pThisRowInfo = &pRowInfo[rArrRow];
             pThisRowInfo->pCellInfo = nullptr;                 // is loaded below
 
-            sal_uInt16 nHeight = static_cast<sal_uInt16>( nDocHeight * fRowScale );
-            if (!nHeight)
-                nHeight = 1;
+            sal_uInt16 nHeight = static_cast<sal_uInt16>(
+                std::clamp(
+                    nDocHeight * fRowScale, 1.0, double(std::numeric_limits<sal_uInt16>::max())));
 
             pThisRowInfo->nRowNo        = nY;               //TODO: case < 0 ?
             pThisRowInfo->nHeight       = nHeight;
@@ -281,7 +275,7 @@ void initColWidths(RowInfo* pRowInfo, const ScDocument* pDoc, double fColScale, 
     }
 }
 
-bool handleConditionalFormat(ScConditionalFormatList& rCondFormList, const std::vector<sal_uInt32>& rCondFormats,
+bool handleConditionalFormat(ScConditionalFormatList& rCondFormList, const ScCondFormatIndexes& rCondFormats,
         CellInfo* pInfo, ScStyleSheetPool* pStlPool,
         const ScAddress& rAddr, bool& bHidden, bool& bHideFormula, bool bTabProtect)
 {
@@ -442,7 +436,7 @@ void ScDocument::FillInfo(
     {
         SCCOL nX = (nArrCol>0) ? nArrCol-1 : MAXCOL+1;                    // negative -> invalid
 
-        if ( ValidCol(nX) )
+        if (ValidCol(nX))
         {
             // #i58049#, #i57939# Hidden columns must be skipped here, or their attributes
             // will disturb the output
@@ -450,24 +444,29 @@ void ScDocument::FillInfo(
             // TODO: Optimize this loop.
             if (!ColHidden(nX, nTab))
             {
-                sal_uInt16 nThisWidth = static_cast<sal_uInt16>(GetColWidth( nX, nTab ) * fColScale);
-                if (!nThisWidth)
-                    nThisWidth = 1;
+                sal_uInt16 nThisWidth = static_cast<sal_uInt16>(std::clamp(GetColWidth( nX, nTab ) * fColScale, 1.0, double(std::numeric_limits<sal_uInt16>::max())));
 
                 pRowInfo[0].pCellInfo[nArrCol].nWidth = nThisWidth;           //TODO: this should be enough
 
-                ScColumn* pThisCol = &maTabs[nTab]->aCol[nX];                   // Column data
+                const ScAttrArray* pThisAttrArr; // Attribute
+                if (nX < maTabs[nTab]->GetAllocatedColumnsCount())
+                {
+                    ScColumn* pThisCol = &maTabs[nTab]->aCol[nX]; // Column data
 
-                nArrRow = 1;
-                // Iterate between rows nY1 and nY2 and pick up non-empty
-                // cells that are not hidden.
-                RowInfoFiller aFunc(*this, nTab, pRowInfo, nArrCol, nArrRow);
-                sc::ParseAllNonEmpty(
-                    pThisCol->maCells.begin(), pThisCol->maCells, nRow1, nRow2, aFunc);
+                    nArrRow = 1;
+                    // Iterate between rows nY1 and nY2 and pick up non-empty
+                    // cells that are not hidden.
+                    RowInfoFiller aFunc(*this, nTab, pRowInfo, nArrCol, nArrRow);
+                    sc::ParseAllNonEmpty(pThisCol->maCells.begin(), pThisCol->maCells, nRow1, nRow2,
+                                         aFunc);
+
+                    pThisAttrArr = pThisCol->pAttrArray.get();
+                }
+                else
+                    pThisAttrArr = &maTabs[nTab]->aDefaultColAttrArray;
 
                 if (nX+1 >= nCol1)                                // Attribute/Blockmark from nX1-1
                 {
-                    ScAttrArray* pThisAttrArr = pThisCol->pAttrArray.get();       // Attribute
                     nArrRow = 0;
 
                     SCROW nCurRow=nRow1;                  // single rows
@@ -531,7 +530,7 @@ void ScDocument::FillInfo(
                         else
                             bHidden = bHideFormula = false;
 
-                        const std::vector<sal_uInt32>& rCondFormats = pPattern->GetItem(ATTR_CONDITIONAL).GetCondFormatData();
+                        const ScCondFormatIndexes& rCondFormats = pPattern->GetItem(ATTR_CONDITIONAL).GetCondFormatData();
                         bool bContainsCondFormat = !rCondFormats.empty();
 
                         do

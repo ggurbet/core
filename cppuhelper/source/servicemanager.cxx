@@ -1437,10 +1437,10 @@ OUString cppuhelper::ServiceManager::readLegacyRdbString(
     }
     OUString val;
     std::vector< char > v(s); // assuming sal_uInt32 fits into vector::size_type
-    if (subkey.getValue(OUString(), &v[0]) != RegError::NO_ERROR
+    if (subkey.getValue(OUString(), v.data()) != RegError::NO_ERROR
         || v.back() != '\0'
         || !rtl_convertStringToUString(
-            &val.pData, &v[0], static_cast< sal_Int32 >(s - 1),
+            &val.pData, v.data(), static_cast< sal_Int32 >(s - 1),
             RTL_TEXTENCODING_UTF8,
             (RTL_TEXTTOUNICODE_FLAGS_UNDEFINED_ERROR
              | RTL_TEXTTOUNICODE_FLAGS_MBUNDEFINED_ERROR
@@ -1789,10 +1789,30 @@ void cppuhelper::ServiceManager::preloadImplementations() {
 
     std::cerr << "preload:";
     std::vector<OUString> aReported;
+    std::vector<OUString> aDisabled;
+    OUStringBuffer aDisabledMsg;
+
+    /// Allow external callers & testers to disable certain components
+    const char *pDisable = getenv("UNODISABLELIBRARY");
+    if (pDisable)
+    {
+        OUString aDisable(pDisable, strlen(pDisable), RTL_TEXTENCODING_UTF8);
+        for (sal_Int32 i = 0; i >= 0; )
+        {
+            OUString tok = aDisable.getToken(0, ' ', i);
+            tok = tok.trim();
+            if (!tok.isEmpty())
+                aDisabled.push_back(tok);
+        }
+    }
 
     // loop all implementations
     for (const auto& rEntry : data_.namedImplementations)
     {
+        if (rEntry.second->info->loader != "com.sun.star.loader.SharedLibrary" ||
+            rEntry.second->status == Data::Implementation::STATUS_LOADED)
+            continue;
+
         try
         {
             const OUString &aLibrary = rEntry.second->info->uri;
@@ -1800,12 +1820,27 @@ void cppuhelper::ServiceManager::preloadImplementations() {
             if (aLibrary.isEmpty())
                 continue;
 
+            OUString simplified = simplifyModule(aLibrary);
+            bool bDisabled =
+                std::find(aDisabled.begin(), aDisabled.end(), simplified) != aDisabled.end();
+
             if (std::find(aReported.begin(), aReported.end(), aLibrary) == aReported.end())
             {
-                std::cerr << " " << simplifyModule(aLibrary);
-                std::cerr.flush();
+                if (bDisabled)
+                {
+                    aDisabledMsg.append(simplified);
+                    aDisabledMsg.append(" ");
+                }
+                else
+                {
+                    std::cerr << " " << simplified;
+                    std::cerr.flush();
+                }
                 aReported.push_back(aLibrary);
             }
+
+            if (bDisabled)
+                continue;
 
             // expand absolute URI implementation component library
             aUri = cppu::bootstrap_expandUri(aLibrary);
@@ -1817,116 +1852,111 @@ void cppuhelper::ServiceManager::preloadImplementations() {
                 static_cast< cppu::OWeakObject * >(this));
         }
 
-        if (rEntry.second->info->loader == "com.sun.star.loader.SharedLibrary" &&
-            rEntry.second->status != Data::Implementation::STATUS_LOADED)
+        // load component library
+        osl::Module aModule(aUri, SAL_LOADMODULE_NOW | SAL_LOADMODULE_GLOBAL);
+
+        if (!aModule.is())
         {
-            // load component library
-            osl::Module aModule(aUri, SAL_LOADMODULE_NOW | SAL_LOADMODULE_GLOBAL);
-
-            if (!aModule.is())
-            {
-                std::cerr << ":failed" << std::endl;
-                std::cerr.flush();
-            }
-
-            if (aModule.is() &&
-                !rEntry.second->info->environment.isEmpty())
-            {
-                OUString aSymFactory;
-                oslGenericFunction fpFactory;
-                css::uno::Environment aTargetEnv;
-                css::uno::Reference<css::uno::XInterface> xFactory;
-
-                if(rEntry.second->info->constructor.isEmpty())
-                {
-                    // expand full name component factory symbol
-                    if (rEntry.second->info->prefix == "direct")
-                        aSymFactory = rEntry.second->info->name.replace('.', '_') + "_" COMPONENT_GETFACTORY;
-                    else if (!rEntry.second->info->prefix.isEmpty())
-                        aSymFactory = rEntry.second->info->prefix + "_" COMPONENT_GETFACTORY;
-                    else
-                        aSymFactory = COMPONENT_GETFACTORY;
-
-                    // get function symbol component factory
-                    fpFactory = aModule.getFunctionSymbol(aSymFactory);
-                    if (fpFactory == nullptr)
-                    {
-                        throw css::loader::CannotActivateFactoryException(
-                            ("no factory symbol \"" + aSymFactory + "\" in component library :" + aUri),
-                            css::uno::Reference<css::uno::XInterface>());
-                    }
-
-                    aTargetEnv = cppuhelper::detail::getEnvironment(rEntry.second->info->environment, rEntry.second->info->name);
-                    component_getFactoryFunc fpComponentFactory = reinterpret_cast<component_getFactoryFunc>(fpFactory);
-
-                    if (aSourceEnv.get() == aTargetEnv.get())
-                    {
-                        // invoke function component factory
-                        OString aImpl(OUStringToOString(rEntry.second->info->name, RTL_TEXTENCODING_ASCII_US));
-                        xFactory.set(css::uno::Reference<css::uno::XInterface>(static_cast<css::uno::XInterface *>(
-                            (*fpComponentFactory)(aImpl.getStr(), this, nullptr)), SAL_NO_ACQUIRE));
-                    }
-                }
-                else
-                {
-                    // get function symbol component factory
-                    aTargetEnv = cppuhelper::detail::getEnvironment(rEntry.second->info->environment, rEntry.second->info->name);
-                    if (aSourceEnv.get() == aTargetEnv.get())
-                    {
-                        fpFactory = aModule.getFunctionSymbol(rEntry.second->info->constructor);
-                    }
-                    else
-                    {
-                        fpFactory = nullptr;
-                    }
-                }
-
-                css::uno::Reference<css::lang::XSingleComponentFactory> xSCFactory;
-                css::uno::Reference<css::lang::XSingleServiceFactory> xSSFactory;
-
-                // query interface XSingleComponentFactory or XSingleServiceFactory
-                if (xFactory.is())
-                {
-                    xSCFactory.set(xFactory, css::uno::UNO_QUERY);
-                    if (!xSCFactory.is())
-                    {
-                        xSSFactory.set(xFactory, css::uno::UNO_QUERY);
-                        if (!xSSFactory.is())
-                        {
-                            throw css::uno::DeploymentException(
-                                ("Implementation " + rEntry.second->info->name
-                                  + " does not provide a constructor or factory"),
-                                static_cast< cppu::OWeakObject * >(this));
-                        }
-                    }
-                }
-
-                if (!rEntry.second->info->constructor.isEmpty() && fpFactory)
-                    rEntry.second->constructor = WrapperConstructorFn(reinterpret_cast<ImplementationConstructorFn *>(fpFactory));
-
-                rEntry.second->factory1 = xSCFactory;
-                rEntry.second->factory2 = xSSFactory;
-                rEntry.second->status = Data::Implementation::STATUS_LOADED;
-
-            }
-
-            // Some libraries use other (non-UNO) libraries requiring preinit
-            oslGenericFunction fpPreload = aModule.getFunctionSymbol( "lok_preload_hook" );
-            if (fpPreload)
-            {
-                static std::vector<oslGenericFunction> aPreloaded;
-                if (std::find(aPreloaded.begin(), aPreloaded.end(), fpPreload) == aPreloaded.end())
-                {
-                    aPreloaded.push_back(fpPreload);
-                    fpPreload();
-                }
-            }
-
-            // leak aModule
-            aModule.release();
+            std::cerr << ":failed" << std::endl;
+            std::cerr.flush();
         }
+
+        if (aModule.is() &&
+            !rEntry.second->info->environment.isEmpty())
+        {
+            OUString aSymFactory;
+            oslGenericFunction fpFactory;
+            css::uno::Environment aTargetEnv;
+            css::uno::Reference<css::uno::XInterface> xFactory;
+
+            if(rEntry.second->info->constructor.isEmpty())
+            {
+                // expand full name component factory symbol
+                if (rEntry.second->info->prefix == "direct")
+                    aSymFactory = rEntry.second->info->name.replace('.', '_') + "_" COMPONENT_GETFACTORY;
+                else if (!rEntry.second->info->prefix.isEmpty())
+                    aSymFactory = rEntry.second->info->prefix + "_" COMPONENT_GETFACTORY;
+                else
+                    aSymFactory = COMPONENT_GETFACTORY;
+
+                // get function symbol component factory
+                fpFactory = aModule.getFunctionSymbol(aSymFactory);
+                if (fpFactory == nullptr)
+                {
+                    throw css::loader::CannotActivateFactoryException(
+                        ("no factory symbol \"" + aSymFactory + "\" in component library :" + aUri),
+                        css::uno::Reference<css::uno::XInterface>());
+                }
+
+                aTargetEnv = cppuhelper::detail::getEnvironment(rEntry.second->info->environment, rEntry.second->info->name);
+                component_getFactoryFunc fpComponentFactory = reinterpret_cast<component_getFactoryFunc>(fpFactory);
+
+                if (aSourceEnv.get() == aTargetEnv.get())
+                {
+                    // invoke function component factory
+                    OString aImpl(OUStringToOString(rEntry.second->info->name, RTL_TEXTENCODING_ASCII_US));
+                    xFactory.set(css::uno::Reference<css::uno::XInterface>(static_cast<css::uno::XInterface *>(
+                        (*fpComponentFactory)(aImpl.getStr(), this, nullptr)), SAL_NO_ACQUIRE));
+                }
+            }
+            else
+            {
+                // get function symbol component factory
+                aTargetEnv = cppuhelper::detail::getEnvironment(rEntry.second->info->environment, rEntry.second->info->name);
+                fpFactory = (aSourceEnv.get() == aTargetEnv.get()) ?
+                    aModule.getFunctionSymbol(rEntry.second->info->constructor) : nullptr;
+            }
+
+            css::uno::Reference<css::lang::XSingleComponentFactory> xSCFactory;
+            css::uno::Reference<css::lang::XSingleServiceFactory> xSSFactory;
+
+            // query interface XSingleComponentFactory or XSingleServiceFactory
+            if (xFactory.is())
+            {
+                xSCFactory.set(xFactory, css::uno::UNO_QUERY);
+                if (!xSCFactory.is())
+                {
+                    xSSFactory.set(xFactory, css::uno::UNO_QUERY);
+                    if (!xSSFactory.is())
+                        throw css::uno::DeploymentException(
+                            ("Implementation " + rEntry.second->info->name
+                             + " does not provide a constructor or factory"),
+                            static_cast< cppu::OWeakObject * >(this));
+                }
+            }
+
+            if (!rEntry.second->info->constructor.isEmpty() && fpFactory)
+                rEntry.second->constructor = WrapperConstructorFn(reinterpret_cast<ImplementationConstructorFn *>(fpFactory));
+
+            rEntry.second->factory1 = xSCFactory;
+            rEntry.second->factory2 = xSSFactory;
+            rEntry.second->status = Data::Implementation::STATUS_LOADED;
+
+        }
+
+        // Some libraries use other (non-UNO) libraries requiring preinit
+        oslGenericFunction fpPreload = aModule.getFunctionSymbol( "lok_preload_hook" );
+        if (fpPreload)
+        {
+            static std::vector<oslGenericFunction> aPreloaded;
+            if (std::find(aPreloaded.begin(), aPreloaded.end(), fpPreload) == aPreloaded.end())
+            {
+                aPreloaded.push_back(fpPreload);
+                fpPreload();
+            }
+        }
+
+        // leak aModule
+        aModule.release();
     }
     std::cerr << std::endl;
+
+    if (aDisabledMsg.getLength() > 0)
+    {
+        OUString aMsg = aDisabledMsg.makeStringAndClear();
+        std::cerr << "Disabled: " << aMsg << "\n";
+    }
+    std::cerr.flush();
 
     // Various rather important uno mappings.
     static struct {

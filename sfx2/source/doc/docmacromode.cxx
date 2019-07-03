@@ -28,6 +28,8 @@
 #include <com/sun/star/task/DocumentMacroConfirmationRequest.hpp>
 #include <com/sun/star/task/InteractionClassification.hpp>
 #include <com/sun/star/security/DocumentDigitalSignatures.hpp>
+#include <com/sun/star/script/XLibraryContainer.hpp>
+#include <com/sun/star/document/XEmbeddedScripts.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <framework/interaction.hxx>
@@ -309,7 +311,7 @@ namespace sfx2
                     const OUString aStdLibName( "Standard" );
                     const OUString aVBAProject( "VBAProject" );
                     Sequence< OUString > aElements = xContainer->getElementNames();
-                    if ( aElements.getLength() )
+                    if ( aElements.hasElements() )
                     {
                         sal_Int32 nElements = aElements.getLength();
                         for( sal_Int32 i = 0; i < nElements; ++i )

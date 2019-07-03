@@ -21,6 +21,7 @@
 #include <i18nlangtag/lang.h>
 
 #include <unotools/configmgr.hxx>
+#include <vcl/metric.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/print.hxx>
 #include <vcl/sysdata.hxx>
@@ -89,6 +90,7 @@ int OutputDevice::GetDevFontCount() const
 
 bool OutputDevice::IsFontAvailable( const OUString& rFontName ) const
 {
+    ImplInitFontList();
     PhysicalFontFamily* pFound = mxFontCollection->FindFontFamily( rFontName );
     return (pFound != nullptr);
 }
@@ -511,23 +513,6 @@ void OutputDevice::ImplClearFontData( const bool bNewFontLists )
     {
         if (mxFontCollection && mxFontCollection != pSVData->maGDIData.mxScreenFontList)
             mxFontCollection->Clear();
-
-        if (GetOutDevType() == OUTDEV_PDF)
-        {
-            mxFontCollection.reset();
-            mxFontCache.reset();
-        }
-    }
-
-    // also update child windows if needed
-    if ( GetOutDevType() == OUTDEV_WINDOW )
-    {
-        vcl::Window* pChild = static_cast<vcl::Window*>(this)->mpWindowImpl->mpFirstChild;
-        while ( pChild )
-        {
-            pChild->ImplClearFontData( true );
-            pChild = pChild->mpWindowImpl->mpNext;
-        }
     }
 }
 
@@ -1266,7 +1251,7 @@ void OutputDevice::ImplDrawEmphasisMarks( SalLayout& rSalLayout )
         SetFillColor( GetTextColor() );
     }
 
-    Point aOffset = Point(0,0);
+    Point aOffset(0,0);
 
     if ( nEmphasisMark & FontEmphasisMark::PosBelow )
         aOffset.AdjustY(mpFontInstance->mxFontMetric->GetDescent() + nEmphasisYOff );
@@ -1331,8 +1316,6 @@ std::unique_ptr<SalLayout> OutputDevice::getFallbackLayout(
         // there is no need for a font that couldn't resolve anything
         return nullptr;
     }
-
-    pFallback->AdjustLayout( rLayoutArgs );
 
     return pFallback;
 }

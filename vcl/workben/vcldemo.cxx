@@ -31,6 +31,7 @@
 #include <vcl/ptrstyle.hxx>
 #include <salhelper/thread.hxx>
 
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include <tools/stream.hxx>
 #include <vcl/svapp.hxx>
@@ -863,9 +864,9 @@ public:
             aRight.Crop(tools::Rectangle(Point((nSlice * 3) + 3, (nSlice * 2) + 1),
                                   Size(nSlice, 1)));
             AlphaMask aAlphaMask(aRight.GetBitmap());
-            Bitmap aBlockColor = Bitmap(aAlphaMask.GetSizePixel(), 24);
+            Bitmap aBlockColor(aAlphaMask.GetSizePixel(), 24);
             aBlockColor.Erase(COL_RED);
-            BitmapEx aShadowStretch = BitmapEx(aBlockColor, aAlphaMask);
+            BitmapEx aShadowStretch(aBlockColor, aAlphaMask);
 
             Point aRenderPt(r.TopLeft());
 
@@ -1222,12 +1223,12 @@ public:
             css::uno::Reference<css::container::XNameAccess> xRef(ImageTree::get().getNameAccess());
             css::uno::Sequence< OUString > aAllIcons = xRef->getElementNames();
 
-            for (sal_Int32 i = 0; i < aAllIcons.getLength(); i++)
+            for (const auto& rIcon : aAllIcons)
             {
-                if (aAllIcons[i].endsWithIgnoreAsciiCase("svg"))
+                if (rIcon.endsWithIgnoreAsciiCase("svg"))
                     continue; // too slow to load.
-                maIconNames.push_back(aAllIcons[i]);
-                maIcons.emplace_back(aAllIcons[i]);
+                maIconNames.push_back(rIcon);
+                maIcons.emplace_back(rIcon);
             }
         }
 
@@ -2177,9 +2178,13 @@ public:
 
         // get some other guys to leach off this context
         VclPtrInstance<VirtualDevice> xVDev;
-        rtl::Reference<OpenGLContext> pContext = getImpl(xVDev)->GetOpenGLContext();
+        OpenGLSalGraphicsImpl* pImpl = getImpl(xVDev);
+        assert(pImpl);
+        rtl::Reference<OpenGLContext> pContext = pImpl->GetOpenGLContext();
         VclPtrInstance<VirtualDevice> xVDev2;
-        rtl::Reference<OpenGLContext> pContext2 = getImpl(xVDev)->GetOpenGLContext();
+        OpenGLSalGraphicsImpl* pImpl2 = getImpl(xVDev2);
+        assert(pImpl2);
+        rtl::Reference<OpenGLContext> pContext2 = pImpl2->GetOpenGLContext();
 
         // sharing the same off-screen context.
         assert(pContext == pContext2);
@@ -2372,9 +2377,9 @@ public:
             xWidgets.disposeAndClear();
             xPopup.disposeAndClear();
         }
-        catch (const css::uno::Exception& e)
+        catch (const css::uno::Exception&)
         {
-            SAL_WARN("vcl.app", "Fatal: " << e);
+            TOOLS_WARN_EXCEPTION("vcl.app", "Fatal");
             return 1;
         }
         catch (const std::exception& e)

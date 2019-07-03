@@ -31,6 +31,8 @@
 #include <svx/fmglob.hxx>
 #include <svx/svdouno.hxx>
 #include <com/sun/star/form/FormButtonType.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/beans/XPropertySetInfo.hpp>
 #include <sfx2/htmlmode.hxx>
 #include <tools/urlobj.hxx>
 
@@ -109,7 +111,7 @@ void SwDrawFormShell::Execute(SfxRequest const &rReq)
 
                         uno::Reference< beans::XPropertySet >  xPropSet(xControlModel, uno::UNO_QUERY);
 
-                        // Can we set an URL to the object?
+                        // Can we set a URL to the object?
                         OUString sTargetURL( "TargetURL" );
                         uno::Reference< beans::XPropertySetInfo >  xPropInfoSet = xPropSet->getPropertySetInfo();
                         if( xPropInfoSet->hasPropertyByName( sTargetURL ))

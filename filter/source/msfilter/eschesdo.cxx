@@ -30,6 +30,7 @@
 #include <vcl/bitmapex.hxx>
 #include <vcl/graph.hxx>
 #include <tools/debug.hxx>
+#include <tools/diagnose_ex.h>
 #include <svx/fmdpage.hxx>
 #include <com/sun/star/style/VerticalAlignment.hpp>
 #include <com/sun/star/awt/Gradient.hpp>
@@ -219,7 +220,7 @@ sal_uInt32 ImplEESdrWriter::ImplWriteShape( ImplEESdrObject& rObj,
             }
             break;
         }
-        rObj.SetAngle( rObj.ImplGetInt32PropertyValue( OUString( "RotateAngle" ) ));
+        rObj.SetAngle( rObj.ImplGetInt32PropertyValue( "RotateAngle" ));
 
         if( ( rObj.ImplGetPropertyValue( "IsFontwork" ) &&
             ::cppu::any2bool( rObj.GetUsrAny() ) ) ||
@@ -722,7 +723,7 @@ void ImplEESdrWriter::ImplWriteAdditionalText( ImplEESdrObject& rObj )
         if ( !mpPicStrm )
             mpPicStrm = mpEscherEx->QueryPictureStream();
         EscherPropertyContainer aPropOpt( mpEscherEx->GetGraphicProvider(), mpPicStrm, aRect100thmm );
-        rObj.SetAngle( rObj.ImplGetInt32PropertyValue( OUString( "RotateAngle" )));
+        rObj.SetAngle( rObj.ImplGetInt32PropertyValue( "RotateAngle" ));
         sal_Int32 nAngle = rObj.GetAngle();
         if( rObj.GetType() == "drawing.Line" )
         {
@@ -876,7 +877,7 @@ bool ImplEESdrWriter::ImplInitPage( const SdrPage& rPage )
         mpSolverContainer.reset( new EscherSolverContainer );
     }
     else
-        pSvxDrawPage = SvxDrawPage::getImplementation(mXDrawPage);
+        pSvxDrawPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>(mXDrawPage);
 
     return pSvxDrawPage != nullptr;
 }
@@ -972,7 +973,7 @@ sal_uInt32 EscherEx::QueryTextID( const Reference< XShape >&, sal_uInt32 )
     return 0;
 }
 
-// add an dummy rectangle shape into the escher stream
+// add a dummy rectangle shape into the escher stream
 sal_uInt32 EscherEx::AddDummyShape()
 {
     OpenContainer( ESCHER_SpContainer );
@@ -987,7 +988,7 @@ sal_uInt32 EscherEx::AddDummyShape()
 const SdrObject* EscherEx::GetSdrObject( const Reference< XShape >& rShape )
 {
     const SdrObject* pRet = nullptr;
-    const SvxShape* pSvxShape = SvxShape::getImplementation( rShape );
+    const SvxShape* pSvxShape = comphelper::getUnoTunnelImplementation<SvxShape>( rShape );
     DBG_ASSERT( pSvxShape, "EscherEx::GetSdrObject: no SvxShape" );
     if( pSvxShape )
     {
@@ -1219,9 +1220,9 @@ sal_uInt32 ImplEESdrObject::ImplGetText()
         {
             mnTextSize = xXText->getString().getLength();
         }
-        catch (const uno::RuntimeException& e)
+        catch (const uno::RuntimeException&)
         {
-            SAL_WARN("filter.ms", "ImplGetText: " << e);
+            TOOLS_WARN_EXCEPTION("filter.ms", "ImplGetText");
         }
     }
     return mnTextSize;

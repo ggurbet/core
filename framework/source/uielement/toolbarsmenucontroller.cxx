@@ -170,7 +170,7 @@ void ToolbarsMenuController::addCommand(
     if ( rSettings.GetUseImagesInMenus() )
         aImage = vcl::CommandInfoProvider::GetImageForCommand(rCommandURL, m_xFrame);
 
-    VCLXPopupMenu* pPopupMenu = static_cast<VCLXPopupMenu *>(VCLXPopupMenu::GetImplementation( rPopupMenu ));
+    VCLXPopupMenu* pPopupMenu = static_cast<VCLXPopupMenu *>(comphelper::getUnoTunnelImplementation<VCLXMenu>( rPopupMenu ));
     if ( pPopupMenu )
     {
         PopupMenu* pVCLPopupMenu = static_cast<PopupMenu *>(pPopupMenu->GetMenu());
@@ -385,7 +385,7 @@ void ToolbarsMenuController::fillPopupMenu( Reference< css::awt::XPopupMenu > co
 
             {
                 SolarMutexGuard aGuard;
-                VCLXPopupMenu* pXPopupMenu = static_cast<VCLXPopupMenu *>(VCLXMenu::GetImplementation( m_xPopupMenu ));
+                VCLXPopupMenu* pXPopupMenu = static_cast<VCLXPopupMenu *>(comphelper::getUnoTunnelImplementation<VCLXMenu>( m_xPopupMenu ));
                 PopupMenu* pVCLPopupMenu = pXPopupMenu ? static_cast<PopupMenu *>(pXPopupMenu->GetMenu()) : nullptr;
                 assert(pVCLPopupMenu);
                 if (pVCLPopupMenu)
@@ -408,21 +408,8 @@ void ToolbarsMenuController::fillPopupMenu( Reference< css::awt::XPopupMenu > co
         }
 
         // Create commands for non-toolbars
-        if ( m_aModuleIdentifier == "com.sun.star.text.TextDocument" ||
-             m_aModuleIdentifier == "com.sun.star.text.WebDocument" ||
-             m_aModuleIdentifier == "com.sun.star.text.GlobalDocument" ||
-             m_aModuleIdentifier == "com.sun.star.drawing.DrawingDocument" ||
-             m_aModuleIdentifier == "com.sun.star.presentation.PresentationDocument" ||
-             m_aModuleIdentifier == "com.sun.star.sheet.SpreadsheetDocument" )
-        {
-            if ( m_aModuleIdentifier == "com.sun.star.drawing.DrawingDocument" ||
-                 m_aModuleIdentifier == "com.sun.star.presentation.PresentationDocument" )
-                addCommand( m_xPopupMenu, ".uno:ColorControl", "" );
-            else if ( m_aModuleIdentifier == "com.sun.star.sheet.SpreadsheetDocument" )
-                addCommand( m_xPopupMenu, ".uno:InputLineVisible", "" );
-            else
-                addCommand( m_xPopupMenu, ".uno:InsertFormula", "" );
-        }
+        if ( m_aModuleIdentifier == "com.sun.star.sheet.SpreadsheetDocument" )
+             addCommand( m_xPopupMenu, ".uno:InputLineVisible", "" );
 
         bool          bAddCommand( true );
         SvtCommandOptions aCmdOptions;
@@ -493,7 +480,7 @@ void SAL_CALL ToolbarsMenuController::statusChanged( const FeatureStateEvent& Ev
     if ( xPopupMenu.is() )
     {
         SolarMutexGuard aGuard;
-        VCLXPopupMenu* pXPopupMenu = static_cast<VCLXPopupMenu *>(VCLXMenu::GetImplementation( xPopupMenu ));
+        VCLXPopupMenu* pXPopupMenu = static_cast<VCLXPopupMenu *>(comphelper::getUnoTunnelImplementation<VCLXMenu>( xPopupMenu ));
         PopupMenu*     pVCLPopupMenu = pXPopupMenu ? static_cast<PopupMenu *>(pXPopupMenu->GetMenu()) : nullptr;
 
         SAL_WARN_IF(!pVCLPopupMenu, "fwk.uielement", "worrying lack of popup menu");
@@ -541,17 +528,18 @@ void SAL_CALL ToolbarsMenuController::itemSelected( const css::awt::MenuEvent& r
     Reference< XFrame >                 xFrame;
     Reference< XNameAccess >            xPersistentWindowState;
 
-    osl::ClearableMutexGuard aLock( m_aMutex );
-    xPopupMenu             = m_xPopupMenu;
-    xContext               = m_xContext;
-    xURLTransformer        = m_xURLTransformer;
-    xFrame                 = m_xFrame;
-    xPersistentWindowState = m_xPersistentWindowState;
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aMutex);
+        xPopupMenu = m_xPopupMenu;
+        xContext = m_xContext;
+        xURLTransformer = m_xURLTransformer;
+        xFrame = m_xFrame;
+        xPersistentWindowState = m_xPersistentWindowState;
+    }
 
     if ( xPopupMenu.is() )
     {
-        VCLXPopupMenu* pPopupMenu = static_cast<VCLXPopupMenu *>(VCLXPopupMenu::GetImplementation( xPopupMenu ));
+        VCLXPopupMenu* pPopupMenu = static_cast<VCLXPopupMenu *>(comphelper::getUnoTunnelImplementation<VCLXMenu>( xPopupMenu ));
         if ( pPopupMenu )
         {
             SolarMutexGuard aSolarMutexGuard;

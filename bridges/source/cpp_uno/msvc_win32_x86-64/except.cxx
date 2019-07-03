@@ -324,7 +324,7 @@ class type_info_
 {
     friend type_info * RTTInfos::getRTTI( OUString const & ) throw ();
     friend int mscx_filterCppException(
-        LPEXCEPTION_POINTERS, uno_Any *, uno_Mapping * );
+        EXCEPTION_POINTERS *, uno_Any *, uno_Mapping * );
 
 public:
     virtual ~type_info_() throw ();
@@ -593,7 +593,7 @@ RaiseInfo::RaiseInfo(typelib_TypeDescription * pTD)throw ()
     // 2.Pass: Get the total needed memory for class ExceptionType
     // (with embedded type_info) and keep the sizes for each instance
     // is stored in allocated int array
-    auto exceptionTypeSizeArray = std::unique_ptr<int[]>(new int[nLen]);
+    auto exceptionTypeSizeArray = std::make_unique<int[]>(nLen);
 
     nLen = 0;
     for (pCompTD = reinterpret_cast<typelib_CompoundTypeDescription*>(pTD);

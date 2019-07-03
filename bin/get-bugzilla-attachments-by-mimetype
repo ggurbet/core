@@ -71,6 +71,11 @@ def get_from_bug_url_via_xml(url, mimetype, prefix, suffix):
         print(" mimetype is", end=' ')
         for node in attachment.childNodes:
             if node.nodeName == 'type':
+                # check if attachment is deleted
+                if not node.firstChild:
+                    print('deleted attachment, skipping')
+                    continue
+
                 print(node.firstChild.nodeValue, end=' ')
                 if node.firstChild.nodeValue.lower() != mimetype.lower():
                     print('skipping')
@@ -255,8 +260,8 @@ def get_through_rss_query(queryurl, mimetype, prefix, suffix):
     if files != []:
         print('looking for updated bugs having %s attachment(s)' % mimetype)
         query_changed = query.copy()
-        query_changed['field0-1-0'] = 'changed'
-        query_changed['type0-1-0'] = 'changedbefore'
+        query_changed['field0-1-0'] = 'delta_ts'
+        query_changed['type0-1-0'] = 'greaterthaneq'
         query_changed['value0-1-0'] = get_changed_date(files).isoformat()
         process(query_changed, False)
 
@@ -350,7 +355,9 @@ rss_bugzillas = (
     # NOTE: I am leaving it in the list, commented out, just so someone
     # does not add it back immediately .-)
     # 'novell': 'https://bugzilla.novell.com/buglist.cgi',
-    ( 'ooo', 'https://bz.apache.org/ooo/buglist.cgi' ),
+# note: running this script against bz.apache.org apparently causes one's IP
+# to be blacklisted or something; you won't get new files in any case...
+#    ( 'ooo', 'https://bz.apache.org/ooo/buglist.cgi' ),
     ( 'tdf', 'http://bugs.documentfoundation.org/buglist.cgi' ),
 )
 

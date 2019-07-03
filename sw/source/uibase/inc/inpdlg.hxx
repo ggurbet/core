@@ -19,11 +19,6 @@
 #ifndef INCLUDED_SW_SOURCE_UIBASE_INC_INPDLG_HXX
 #define INCLUDED_SW_SOURCE_UIBASE_INC_INPDLG_HXX
 
-#include <svx/stddlg.hxx>
-
-#include <vcl/button.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/vclmedit.hxx>
 #include <vcl/weld.hxx>
 
 class SwInputField;
@@ -54,7 +49,7 @@ class SwFieldInputDlg : public weld::GenericDialogController
     DECL_LINK(PrevHdl, weld::Button&, void);
 
 public:
-    SwFieldInputDlg(weld::Window *pParent, SwWrtShell &rSh,
+    SwFieldInputDlg(weld::Widget *pParent, SwWrtShell &rSh,
                     SwField* pField, bool bPrevButton, bool bNextButton);
     virtual short run() override
     {

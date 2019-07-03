@@ -611,7 +611,7 @@ void SwGetRefField::UpdateField( const SwTextField* pFieldTextAttr )
 
             if( nStart != nEnd ) // a section?
             {
-                m_sText = pTextNd->GetExpandText(pLayout, nStart, nEnd - nStart, false, false, false);
+                m_sText = pTextNd->GetExpandText(pLayout, nStart, nEnd - nStart, false, false, false, ExpandMode(0));
                 if (m_nSubType == REF_OUTLINE
                     || (m_nSubType == REF_SEQUENCEFLD && REF_CONTENT == GetFormat()))
                 {
@@ -1068,9 +1068,9 @@ SwGetRefFieldType::SwGetRefFieldType( SwDoc* pDc )
     : SwFieldType( SwFieldIds::GetRef ), m_pDoc( pDc )
 {}
 
-SwFieldType* SwGetRefFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwGetRefFieldType::Copy() const
 {
-    return new SwGetRefFieldType( m_pDoc );
+    return std::make_unique<SwGetRefFieldType>( m_pDoc );
 }
 
 void SwGetRefFieldType::Modify( const SfxPoolItem* pOld, const SfxPoolItem* pNew )
@@ -1116,7 +1116,7 @@ bool IsMarkHintHidden(SwRootFrame const& rLayout,
     {
         return true;
     }
-    sal_Int32 const*const pEnd(const_cast<SwTextAttrEnd &>(rHint).GetEnd());
+    sal_Int32 const*const pEnd(rHint.GetEnd());
     if (pEnd)
     {
         return pFrame->MapModelToView(&rNode, rHint.GetStart())
@@ -1153,7 +1153,7 @@ SwTextNode* SwGetRefFieldType::FindAnchor( SwDoc* pDoc, const OUString& rRefMark
                 pTextNd = const_cast<SwTextNode*>(&pRef->GetTextRefMark()->GetTextNode());
                 *pStt = pRef->GetTextRefMark()->GetStart();
                 if( pEnd )
-                    *pEnd = *pRef->GetTextRefMark()->GetAnyEnd();
+                    *pEnd = pRef->GetTextRefMark()->GetAnyEnd();
             }
         }
         break;
@@ -1191,7 +1191,7 @@ SwTextNode* SwGetRefFieldType::FindAnchor( SwDoc* pDoc, const OUString& rRefMark
                 && (!pLayout || !pLayout->IsHideRedlines()
                     || !sw::IsMarkHidden(*pLayout, **ppMark)))
             {
-                const ::sw::mark::IMark* pBkmk = ppMark->get();
+                const ::sw::mark::IMark* pBkmk = *ppMark;
                 const SwPosition* pPos = &pBkmk->GetMarkStart();
 
                 pTextNd = pPos->nNode.GetNode().GetTextNode();
@@ -1427,7 +1427,7 @@ void SwGetRefFieldType::MergeWithOtherDoc( SwDoc& rDestDoc )
 
         // then there are RefFields in the DescDox - so all RefFields in the SourceDoc
         // need to be converted to have unique IDs for both documents
-        RefIdsMap aFntMap = RefIdsMap(OUString());
+        RefIdsMap aFntMap { OUString() };
         std::vector<std::unique_ptr<RefIdsMap>> aFieldMap;
 
         SwIterator<SwFormatField,SwFieldType> aIter( *this );

@@ -50,14 +50,16 @@ public:
     void testPivotTableSharedCacheGroupODS();
     void testGetPivotDataXLS();
     void testPivotTableSharedGroupXLSX();
-    void testPivotTableSharedDateGroupXLSX();
-    void testPivotTableSharedNestedDateGroupXLSX();
+    void testPivotTableSharedDateGroupXLSX(); // + export
+    void testPivotTableSharedNestedDateGroupXLSX(); // + export
     void testPivotTableSharedNumGroupXLSX();
     void testPivotTableNoColumnsLayout();
     void testTdf112501();
 
     // Export
     void testPivotTableExportXLSX();
+    void testPivotTableExportXLSXSingleDataField();
+    void testPivotTableExportXLSXMultipleDataFields();
     void testPivotCacheExportXLSX();
     void testPivotTableXLSX();
     void testPivotTableTwoDataFieldsXLSX();
@@ -80,9 +82,18 @@ public:
     void testPivotTableOutlineModeXLSX();
     void testPivotTableDuplicatedMemberFilterXLSX();
     void testPivotTableTabularModeXLSX();
+    void testPivotTableDuplicateFields();
     void testTdf112106();
     void testTdf123923();
     void testTdf123939();
+    void testTdf124651();
+    void testTdf124736();
+    void tesTtdf124772NumFmt();
+    void testTdf124810();
+    void testTdf124883();
+    void testTdf125046();
+    void testTdf125055();
+    void testTdf125086();
 
     CPPUNIT_TEST_SUITE(ScPivotTableFiltersTest);
 
@@ -98,6 +109,8 @@ public:
     CPPUNIT_TEST(testTdf112501);
 
     CPPUNIT_TEST(testPivotTableExportXLSX);
+    CPPUNIT_TEST(testPivotTableExportXLSXSingleDataField);
+    CPPUNIT_TEST(testPivotTableExportXLSXMultipleDataFields);
     CPPUNIT_TEST(testPivotCacheExportXLSX);
     CPPUNIT_TEST(testPivotTableXLSX);
     CPPUNIT_TEST(testPivotTableTwoDataFieldsXLSX);
@@ -120,9 +133,18 @@ public:
     CPPUNIT_TEST(testPivotTableOutlineModeXLSX);
     CPPUNIT_TEST(testPivotTableDuplicatedMemberFilterXLSX);
     CPPUNIT_TEST(testPivotTableTabularModeXLSX);
+    CPPUNIT_TEST(testPivotTableDuplicateFields);
     CPPUNIT_TEST(testTdf112106);
     CPPUNIT_TEST(testTdf123923);
     CPPUNIT_TEST(testTdf123939);
+    CPPUNIT_TEST(testTdf124651);
+    CPPUNIT_TEST(testTdf124736);
+    CPPUNIT_TEST(tesTtdf124772NumFmt);
+    CPPUNIT_TEST(testTdf124810);
+    CPPUNIT_TEST(testTdf124883);
+    CPPUNIT_TEST(testTdf125046);
+    CPPUNIT_TEST(testTdf125055);
+    CPPUNIT_TEST(testTdf125086);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -519,86 +541,99 @@ void ScPivotTableFiltersTest::testPivotTableSharedGroupXLSX()
 
 void ScPivotTableFiltersTest::testPivotTableSharedDateGroupXLSX()
 {
-    ScDocShellRef xDocSh = loadDoc("pivot-table/shared-dategroup.", FORMAT_XLSX);
-    CPPUNIT_ASSERT_MESSAGE("Failed to load file", xDocSh.is());
-    ScDocument& rDoc = xDocSh->GetDocument();
+    auto testThis = [](ScDocShellRef& xDocSh) {
+        CPPUNIT_ASSERT_MESSAGE("Failed to load file", xDocSh.is());
+        ScDocument& rDoc = xDocSh->GetDocument();
 
-    // Check whether right date labels are imported for both tables
-    // First table
-    CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(0, 3, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(0, 4, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(0, 5, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(0, 6, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(0, 7, 1)));
-    // TODO: check why this fails with 2005
-    // CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(0,8,1)));
+        // Check whether right date labels are imported for both tables
+        // First table
+        CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(0, 3, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(0, 4, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(0, 5, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(0, 6, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(0, 7, 1)));
+        // TODO: check why this fails with 2005
+        // CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(0,8,1)));
 
-    // Second table
-    CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(5, 3, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(5, 4, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(5, 5, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(5, 6, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(5, 7, 1)));
-    // TODO: check why this fails with 2005
-    // CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(5,8,1)));
+        // Second table
+        CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(5, 3, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(5, 4, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(5, 5, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(5, 6, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(5, 7, 1)));
+        // TODO: check why this fails with 2005
+        // CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(5,8,1)));
 
-    // There should be exactly 2 pivot tables and 1 cache.
-    ScDPCollection* pDPs = rDoc.GetDPCollection();
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), pDPs->GetCount());
+        // There should be exactly 2 pivot tables and 1 cache.
+        ScDPCollection* pDPs = rDoc.GetDPCollection();
+        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), pDPs->GetCount());
 
-    ScDPCollection::SheetCaches& rSheetCaches = pDPs->GetSheetCaches();
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rSheetCaches.size());
+        ScDPCollection::SheetCaches& rSheetCaches = pDPs->GetSheetCaches();
+        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rSheetCaches.size());
 
-    const ScDPCache* pCache = rSheetCaches.getExistingCache(ScRange(0, 0, 0, 9, 24, 0));
-    CPPUNIT_ASSERT_MESSAGE("Pivot cache is expected for A1:J25 on the first sheet.", pCache);
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(10), pCache->GetFieldCount());
-
-    xDocSh->DoClose();
+        const ScDPCache* pCache = rSheetCaches.getExistingCache(ScRange(0, 0, 0, 9, 24, 0));
+        CPPUNIT_ASSERT_MESSAGE("Pivot cache is expected for A1:J25 on the first sheet.", pCache);
+        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(10), pCache->GetFieldCount());
+    };
+    ScDocShellRef xDocSh1 = loadDoc("pivot-table/shared-dategroup.", FORMAT_XLSX);
+    testThis(xDocSh1);
+    // Now test round-trip of group fields
+    ScDocShellRef xDocSh2 = saveAndReload(xDocSh1.get(), FORMAT_XLSX);
+    testThis(xDocSh2);
+    xDocSh2->DoClose();
+    xDocSh1->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotTableSharedNestedDateGroupXLSX()
 {
-    ScDocShellRef xDocSh = loadDoc("pivot-table/shared-nested-dategroup.", FORMAT_XLSX);
-    CPPUNIT_ASSERT_MESSAGE("Failed to load file", xDocSh.is());
-    ScDocument& rDoc = xDocSh->GetDocument();
+    auto testThis = [](ScDocShellRef& xDocSh) {
+        CPPUNIT_ASSERT_MESSAGE("Failed to load file", xDocSh.is());
+        ScDocument& rDoc = xDocSh->GetDocument();
 
-    // Check whether right date groups are imported for both tables
-    // First table
-    CPPUNIT_ASSERT_EQUAL(OUString("Years"), rDoc.GetString(ScAddress(0, 3, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(0, 4, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(0, 11, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(0, 18, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(0, 21, 1)));
-    // TODO: check why this fails with the empty string
-    //CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(0,32,1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("Quarters"), rDoc.GetString(ScAddress(1, 3, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(2, 3, 1)));
+        // Check whether right date groups are imported for both tables
+        // First table
+        CPPUNIT_ASSERT_EQUAL(OUString("Years"), rDoc.GetString(ScAddress(0, 3, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(0, 4, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(0, 11, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(0, 18, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(0, 21, 1)));
+        // TODO: check why this fails with the empty string
+        //CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(0,32,1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("Quarters"), rDoc.GetString(ScAddress(1, 3, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(2, 3, 1)));
 
-    // Second table
-    CPPUNIT_ASSERT_EQUAL(OUString("Years"), rDoc.GetString(ScAddress(6, 3, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(6, 4, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(6, 11, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(6, 18, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(6, 21, 1)));
-    // TODO: check why this fails with the empty string
-    //CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(6,31,1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("Quarters"), rDoc.GetString(ScAddress(7, 3, 1)));
-    CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(8, 3, 1)));
+        // Second table
+        CPPUNIT_ASSERT_EQUAL(OUString("Years"), rDoc.GetString(ScAddress(6, 3, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1965"), rDoc.GetString(ScAddress(6, 4, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("1989"), rDoc.GetString(ScAddress(6, 11, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2000"), rDoc.GetString(ScAddress(6, 18, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("2004"), rDoc.GetString(ScAddress(6, 21, 1)));
+        // TODO: check why this fails with the empty string
+        //CPPUNIT_ASSERT_EQUAL(OUString("2007"), rDoc.GetString(ScAddress(6,31,1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("Quarters"), rDoc.GetString(ScAddress(7, 3, 1)));
+        CPPUNIT_ASSERT_EQUAL(OUString("a"), rDoc.GetString(ScAddress(8, 3, 1)));
 
-    // There should be exactly 2 pivot tables and 1 cache.
-    ScDPCollection* pDPs = rDoc.GetDPCollection();
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), pDPs->GetCount());
+        // There should be exactly 2 pivot tables and 1 cache.
+        ScDPCollection* pDPs = rDoc.GetDPCollection();
+        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), pDPs->GetCount());
 
-    ScDPCollection::SheetCaches& rSheetCaches = pDPs->GetSheetCaches();
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rSheetCaches.size());
+        ScDPCollection::SheetCaches& rSheetCaches = pDPs->GetSheetCaches();
+        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rSheetCaches.size());
 
-    const ScDPCache* pCache = rSheetCaches.getExistingCache(ScRange(0, 0, 0, 9, 24, 0));
-    CPPUNIT_ASSERT_MESSAGE("Pivot cache is expected for A1:J25 on the first sheet.", pCache);
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(10), pCache->GetFieldCount());
-    // Two new group field is created
-    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), pCache->GetGroupFieldCount());
+        const ScDPCache* pCache = rSheetCaches.getExistingCache(ScRange(0, 0, 0, 9, 24, 0));
+        CPPUNIT_ASSERT_MESSAGE("Pivot cache is expected for A1:J25 on the first sheet.", pCache);
+        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(10), pCache->GetFieldCount());
+        // Two new group field is created
+        CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), pCache->GetGroupFieldCount());
+    };
 
-    xDocSh->DoClose();
+    ScDocShellRef xDocSh1 = loadDoc("pivot-table/shared-nested-dategroup.", FORMAT_XLSX);
+    testThis(xDocSh1);
+    // Now test round-trip of group fields
+    ScDocShellRef xDocSh2 = saveAndReload(xDocSh1.get(), FORMAT_XLSX);
+    testThis(xDocSh2);
+    xDocSh2->DoClose();
+    xDocSh1->DoClose();
 }
 
 void ScPivotTableFiltersTest::testPivotTableSharedNumGroupXLSX()
@@ -754,6 +789,58 @@ void ScPivotTableFiltersTest::testPivotTableExportXLSX()
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[3]/x:items/x:item", 4);
     assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[3]/x:items/x:item[3]",
                 "h", "1");
+
+    xShell->DoClose();
+}
+
+void ScPivotTableFiltersTest::testPivotTableExportXLSXSingleDataField()
+{
+    ScDocShellRef xShell = loadDoc("tdf123421_1datafield.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+    xmlDocPtr pTable
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/pivotTables/pivotTable1.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "ref", "A3:B6");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "firstHeaderRow", "1");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "firstDataRow", "1");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "firstDataCol", "1");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:dataFields", "count", "1");
+
+    // There should not be any colFields tag, before the fix there used to be a singleton with
+    // <field x="-2"/> as child node.
+    assertXPath(pTable, "/x:pivotTableDefinition/x:colFields", 0);
+
+    xShell->DoClose();
+}
+
+void ScPivotTableFiltersTest::testPivotTableExportXLSXMultipleDataFields()
+{
+    ScDocShellRef xShell = loadDoc("tdf123421_2datafields.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+    xmlDocPtr pTable
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/pivotTables/pivotTable1.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "ref", "A1:C6");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "firstHeaderRow", "1");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "firstDataRow", "2");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:location", "firstDataCol", "1");
+
+    assertXPath(pTable, "/x:pivotTableDefinition/x:dataFields", "count", "2");
+
+    // There should be a single colFields tag with sole child node
+    // <field x="-2"/>.
+    assertXPath(pTable, "/x:pivotTableDefinition/x:colFields", 1);
+    assertXPath(pTable, "/x:pivotTableDefinition/x:colFields", "count", "1");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:colFields/x:field", 1);
+    assertXPath(pTable, "/x:pivotTableDefinition/x:colFields/x:field", "x", "-2");
 
     xShell->DoClose();
 }
@@ -2301,6 +2388,28 @@ void ScPivotTableFiltersTest::testPivotTableTabularModeXLSX()
     xShell->DoClose();
 }
 
+void ScPivotTableFiltersTest::testPivotTableDuplicateFields()
+{
+    ScDocShellRef xShell = loadDoc("caseinsensitive-duplicate-fields.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xShell.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(&(*xShell), FORMAT_XLSX);
+    xmlDocPtr pCacheDef
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/pivotCache/pivotCacheDefinition1.xml");
+    CPPUNIT_ASSERT(pCacheDef);
+
+    assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields", "count", "6");
+    assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]", "name", "ID");
+    assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]", "name", "Name");
+    assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[3]", "name", "Score");
+    assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[4]", "name", "Method");
+    assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[5]", "name", "method2");
+    assertXPath(pCacheDef, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[6]", "name", "Method3");
+
+    xShell->DoClose();
+}
+
 void ScPivotTableFiltersTest::testTdf112106()
 {
     ScDocShellRef xDocSh = loadDoc("tdf112106.", FORMAT_XLSX);
@@ -2372,6 +2481,222 @@ void ScPivotTableFiltersTest::testTdf123939()
 
     assertXPath(pTable, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:sharedItems",
                 "containsMixedTypes", "1");
+}
+
+void ScPivotTableFiltersTest::testTdf124651()
+{
+    ScDocShellRef xDocSh = loadDoc("tdf124651_simplePivotTable.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory,
+        "xl/pivotTables/pivotTable1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+    // We have to export name attribute, even though it's optional according to ECMA-376 standard,
+    // because Excel (at least 2016) seems to require it.
+    // tdf#124881: this shouldn't be an empty string
+    assertXPath(pDoc, "/x:pivotTableDefinition/x:dataFields/x:dataField", "name", "Sum - num");
+}
+
+void ScPivotTableFiltersTest::testTdf124736()
+{
+    ScDocShellRef xDocSh = loadDoc("pivot-table/shared-dategroup.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(xDocSh.get(), FORMAT_XLSX);
+    xDocSh->DoClose();
+
+    xmlDocPtr pTable = XPathHelper::parseExport(pXPathFile, m_xSFactory,
+                                                "xl/pivotCache/pivotCacheDefinition1.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    assertXPath(pTable,
+                "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:fieldGroup/x:groupItems",
+                "count", "45");
+    // Group items must start with "<05/16/1958", then years sorted ascending, then ">06/11/2009"
+    // They used to have years in the beginning, then "<05/16/1958", then ">06/11/2009".
+    // The "<" and ">" date strings are locale-dependent, so test depends on en_US locale
+    assertXPath(
+        pTable,
+        "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:fieldGroup/x:groupItems/x:s[1]",
+        "v", "<05/16/1958");
+    for (int i = 2; i <= 44; ++i)
+        assertXPath(
+            pTable,
+            "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:fieldGroup/x:groupItems/x:s["
+                + OString::number(i) + "]",
+            "v", OUString::number(1963 + i));
+    assertXPath(
+        pTable,
+        "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[1]/x:fieldGroup/x:groupItems/x:s[45]",
+        "v", ">06/11/2009");
+
+    // Now check that table references these in correct order (document-dependent, so this is how
+    // it should be in this specific testdoc which shows "<" and ">" values in the end)
+    pTable = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/pivotTables/pivotTable1.xml");
+    CPPUNIT_ASSERT(pTable);
+    assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[1]/x:items", "count",
+                "46");
+    const int vals[] = { 1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
+                         16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                         31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 0,  44 };
+    for (size_t i = 0; i < SAL_N_ELEMENTS(vals); ++i)
+    {
+        assertXPath(pTable,
+                    "/x:pivotTableDefinition/x:pivotFields/x:pivotField[1]/x:items/x:item["
+                        + OString::number(i + 1) + "]",
+                    "x", OUString::number(vals[i]));
+    }
+    assertXPath(pTable, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[1]/x:items/x:item[46]",
+                "t", "default");
+}
+
+void ScPivotTableFiltersTest::tesTtdf124772NumFmt()
+{
+    ScDocShellRef xDocSh = loadDoc("pivot-table-num-fmt.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    std::shared_ptr<utl::TempFile> pXPathFile
+        = ScBootstrapFixture::exportTo(xDocSh.get(), FORMAT_XLSX);
+    xDocSh->DoClose();
+
+    xmlDocPtr pTable
+        = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/pivotTables/pivotTable1.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    // This asserts that numFmtId attribute is present
+    const OUString sXclNumFmt
+        = getXPath(pTable, "/x:pivotTableDefinition/x:dataFields/x:dataField", "numFmtId");
+
+    pTable = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/styles.xml");
+    CPPUNIT_ASSERT(pTable);
+
+    // Check that we refer to correct format
+    assertXPath(pTable, "/x:styleSheet/x:numFmts/x:numFmt[@numFmtId='" + sXclNumFmt.toUtf8() + "']",
+                "formatCode", "\\$#,##0");
+}
+
+void ScPivotTableFiltersTest::testTdf124810()
+{
+    {
+        // First, test that we roundtrip existing pivot table style information from XLSX.
+        ScDocShellRef xDocSh = loadDoc("pivot_dark1.", FORMAT_XLSX);
+        CPPUNIT_ASSERT(xDocSh.is());
+
+        xmlDocPtr pTable = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory,
+            "xl/pivotTables/pivotTable1.xml", FORMAT_XLSX);
+        xDocSh->DoClose();
+        CPPUNIT_ASSERT(pTable);
+
+        // All attributes must have been roundtripped correctly (testdoc uses some non-default values)
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "name",
+                    "PivotStyleDark1");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showRowHeaders", "1");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showColHeaders", "1");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showRowStripes", "1");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showColStripes", "0");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showLastColumn", "0");
+    }
+
+    {
+        // Now check that we export default style information when there's no such information in
+        // original document. Just use some ODS as source. This might be changed when we start
+        // exporting better pivot table style information.
+        ScDocShellRef xDocSh = loadDoc("tdf124651_simplePivotTable.", FORMAT_ODS);
+        CPPUNIT_ASSERT(xDocSh.is());
+
+        xmlDocPtr pTable = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory,
+            "xl/pivotTables/pivotTable1.xml", FORMAT_XLSX);
+        xDocSh->DoClose();
+        CPPUNIT_ASSERT(pTable);
+
+        // The default style for pivot tables in Excel 2007 through 2016 is PivotStyleLight16
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "name",
+                    "PivotStyleLight16");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showRowHeaders", "1");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showColHeaders", "1");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showRowStripes", "0");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showColStripes", "0");
+        assertXPath(pTable, "/x:pivotTableDefinition/x:pivotTableStyleInfo", "showLastColumn", "1");
+    }
+}
+
+void ScPivotTableFiltersTest::testTdf124883()
+{
+    ScDocShellRef xDocSh = loadDoc("pivot-table/two-data-fields.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pTable = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory,
+        "xl/pivotTables/pivotTable1.xml", FORMAT_XLSX);
+    xDocSh->DoClose();
+    CPPUNIT_ASSERT(pTable);
+
+    // The field names must be kept just as they appear in original XLSX
+    assertXPath(pTable, "/x:pivotTableDefinition/x:dataFields/x:dataField[1]", "name",
+                "Sum of Value");
+    assertXPath(pTable, "/x:pivotTableDefinition/x:dataFields/x:dataField[2]", "name",
+                "Count of Value2");
+}
+
+void ScPivotTableFiltersTest::testTdf125046()
+{
+    ScDocShellRef xDocSh = loadDoc("pivottable_long_text.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(
+        *this, *xDocSh, m_xSFactory, "xl/pivotCache/pivotCacheDefinition1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems",
+                "longText", "1");
+}
+
+void ScPivotTableFiltersTest::testTdf125055()
+{
+    ScDocShellRef xDocSh = loadDoc("pivottable_1s_difference.", FORMAT_XLSX);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(
+        *this, *xDocSh, m_xSFactory, "xl/pivotCache/pivotCacheDefinition1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+
+    // 1-second precision should not result in duplicated entries for values different by ~1 s.
+    // Previously truncating nanoseconds in GetExcelFormattedDate converted
+    // "2017-07-10T09:11:02.99999..." into "2017-07-10T09:11:02", creating two identical strings
+    // Only compare times here: see comment to ScPivotTableFiltersTest::testPivotCacheExportXLSX
+    // "TODO Date generator in tests are one day higher, than during standard xlsx export"
+    OUString sISODateTime = getXPath(
+        pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems", "minDate");
+    CPPUNIT_ASSERT_EQUAL(OUString("T09:11:02"), sISODateTime.copy(10));
+    sISODateTime = getXPath(
+        pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems", "maxDate");
+    CPPUNIT_ASSERT_EQUAL(OUString("T09:11:03"), sISODateTime.copy(10));
+    assertXPath(pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems",
+                "count", "3");
+    assertXPathChildren(pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems",
+                        3); // 2 different values + empty
+    sISODateTime = getXPath(
+        pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems/x:d[1]", "v");
+    CPPUNIT_ASSERT_EQUAL(OUString("T09:11:02"), sISODateTime.copy(10));
+    sISODateTime = getXPath(
+        pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems/x:d[2]", "v");
+    CPPUNIT_ASSERT_EQUAL(OUString("T09:11:03"), sISODateTime.copy(10));
+    // Trailing empty
+    CPPUNIT_ASSERT_EQUAL(
+        2, getXPathPosition(
+               pDoc, "/x:pivotCacheDefinition/x:cacheFields/x:cacheField[2]/x:sharedItems", "m"));
+}
+
+void ScPivotTableFiltersTest::testTdf125086()
+{
+    ScDocShellRef xDocSh = loadDoc("pivottable_fieldInRowsAndData.", FORMAT_ODS);
+    CPPUNIT_ASSERT(xDocSh.is());
+
+    xmlDocPtr pDoc = XPathHelper::parseExport2(*this, *xDocSh, m_xSFactory,
+                                               "xl/pivotTables/pivotTable1.xml", FORMAT_XLSX);
+    CPPUNIT_ASSERT(pDoc);
+    assertXPath(pDoc, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[2]", "axis", "axisRow");
+    // "dataField" attribute was not written for this "axisRow" field
+    assertXPath(pDoc, "/x:pivotTableDefinition/x:pivotFields/x:pivotField[2]", "dataField", "1");
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScPivotTableFiltersTest);

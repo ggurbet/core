@@ -49,6 +49,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <rtl/math.hxx>
+#include <tools/diagnose_ex.h>
 #include <comphelper/string.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <comphelper/sequence.hxx>
@@ -377,9 +378,9 @@ public:
             xGraphicObjectProperties->setPropertyValue(getPropertyName( PROP_TITLE ),
                 uno::makeAny( title ));
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("writerfilter", "failed. Message :" << e);
+            TOOLS_WARN_EXCEPTION("writerfilter", "failed");
         }
     }
 
@@ -532,19 +533,15 @@ void GraphicImport::lcl_attribute(Id nName, Value& rValue)
         break;
         case NS_ooxml::LN_CT_EffectExtent_l:
             m_pImpl->m_oEffectExtentLeft = nIntValue;
-            m_pImpl->nLeftMargin += oox::drawingml::convertEmuToHmm(nIntValue);
             break;
         case NS_ooxml::LN_CT_EffectExtent_t:
             m_pImpl->m_oEffectExtentTop = nIntValue;
-            m_pImpl->nTopMargin += oox::drawingml::convertEmuToHmm(nIntValue);
             break;
         case NS_ooxml::LN_CT_EffectExtent_r:
             m_pImpl->m_oEffectExtentRight = nIntValue;
-            m_pImpl->nRightMargin += oox::drawingml::convertEmuToHmm(nIntValue);
             break;
         case NS_ooxml::LN_CT_EffectExtent_b:
             m_pImpl->m_oEffectExtentBottom = nIntValue;
-            m_pImpl->nBottomMargin += oox::drawingml::convertEmuToHmm(nIntValue);
             break;
         case NS_ooxml::LN_CT_NonVisualDrawingProps_id:// 90650;
             //id of the object - ignored
@@ -660,16 +657,14 @@ void GraphicImport::lcl_attribute(Id nName, Value& rValue)
                         xShapeProps->getPropertyValue("RotateAngle") >>= nRotation;
 
                         css::beans::PropertyValues aGrabBag;
-                        bool bContainsEffects = false;
                         xShapeProps->getPropertyValue("InteropGrabBag") >>= aGrabBag;
-                        for( sal_Int32 i = 0; i < aGrabBag.getLength(); ++i )
-                        {
-                            // if the shape contains effects in the grab bag, we should not transform it
-                            // in a XTextContent so those effects can be preserved
-                            if( aGrabBag[i].Name == "EffectProperties" || aGrabBag[i].Name == "3DEffectProperties" ||
-                                    aGrabBag[i].Name == "ArtisticEffectProperties" )
-                                bContainsEffects = true;
-                        }
+                        // if the shape contains effects in the grab bag, we should not transform it
+                        // in a XTextContent so those effects can be preserved
+                        bool bContainsEffects = std::any_of(aGrabBag.begin(), aGrabBag.end(), [](const auto& rProp) {
+                            return rProp.Name == "EffectProperties"
+                                || rProp.Name == "3DEffectProperties"
+                                || rProp.Name == "ArtisticEffectProperties";
+                        });
 
                         xShapeProps->getPropertyValue("Shadow") >>= m_pImpl->bShadow;
                         if (m_pImpl->bShadow)
@@ -770,7 +765,35 @@ void GraphicImport::lcl_attribute(Id nName, Value& rValue)
                         }
                         m_xShape->setSize(aSize);
                         if (bKeepRotation)
+                        {
                             xShapeProps->setPropertyValue("RotateAngle", uno::makeAny(nRotation));
+                            if (nRotation == 0)
+                            {
+                                // Include effect extent in the margin to bring Writer layout closer
+                                // to Word. But do this for non-rotated shapes only, where effect
+                                // extents map to increased margins as-is.
+                                if (m_pImpl->m_oEffectExtentLeft)
+                                {
+                                    m_pImpl->nLeftMargin += oox::drawingml::convertEmuToHmm(
+                                        *m_pImpl->m_oEffectExtentLeft);
+                                }
+                                if (m_pImpl->m_oEffectExtentTop)
+                                {
+                                    m_pImpl->nTopMargin += oox::drawingml::convertEmuToHmm(
+                                        *m_pImpl->m_oEffectExtentTop);
+                                }
+                                if (m_pImpl->m_oEffectExtentRight)
+                                {
+                                    m_pImpl->nRightMargin += oox::drawingml::convertEmuToHmm(
+                                        *m_pImpl->m_oEffectExtentRight);
+                                }
+                                if (m_pImpl->m_oEffectExtentBottom)
+                                {
+                                    m_pImpl->nBottomMargin += oox::drawingml::convertEmuToHmm(
+                                        *m_pImpl->m_oEffectExtentBottom);
+                                }
+                            }
+                        }
 
                         m_pImpl->bIsGraphic = true;
 
@@ -924,7 +947,7 @@ void GraphicImport::lcl_attribute(Id nName, Value& rValue)
             }
             break;
         default:
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
             TagLogger::getInstance().element("unhandled");
 #endif
             break;
@@ -1365,9 +1388,9 @@ uno::Reference<text::XTextContent> GraphicImport::createGraphicObject(uno::Refer
             }
         }
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("writerfilter", "failed. Message :" << e);
+        TOOLS_WARN_EXCEPTION("writerfilter", "");
     }
     return xGraphicObject;
 }

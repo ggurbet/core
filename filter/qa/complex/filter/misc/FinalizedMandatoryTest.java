@@ -42,7 +42,7 @@ import com.sun.star.util.XFlushable;
  * the services <CODE>com.sun.star.document.FilterFactory</CODE> and
  * <CODE>com.sun.star.document.TypeDetection</CODE>.
  *
- * Each of theses services represent a container of <CODE>PropertyValue[]</CODE>.
+ * Each of these services represent a container of <CODE>PropertyValue[]</CODE>.
  * The <CODE>PropertyValue[]</CODE> contains among others the properties called
  * <CODE>Finalized</CODE> and <CODE>Mandatory</CODE>. If the property
  * <CODE>Finalized</CODE> is set to <CODE>true</CODE>, a filter can be removed
@@ -57,7 +57,7 @@ import com.sun.star.util.XFlushable;
  * will be changed and the service will be flushed. The test checks for expected exceptions:
  * If the property <CODE>Finalized</CODE> equals
  * <CODE>true</CODE> the tests check if an <CODE>Exception</CODE> must be thrown.
- * The next step of the test is the removal of the filter was removed, than the service
+ * The next step of the test is the removal of the filter was removed, then the service
  * will be flushed. The test checks for expected exceptions: If the property
  * <CODE>Mandatory</CODE> equals <CODE>true</CODE>, an <CODE>Exception</CODE> must
  * be thrown.
@@ -156,7 +156,7 @@ public class FinalizedMandatoryTest
             // We change in a loop the container and try to flush this changes.
             // If we get an expected exception this container is corrupt. It's
             // similar to a document which could not be saved because of invalid
-            // contend. While you don't remove the invalid conted you will never
+            // content. While you don't remove the invalid content you will never
             // be able to save the document. Same here.
             oObj = getTestObject(serviceName);
 
@@ -187,7 +187,7 @@ public class FinalizedMandatoryTest
             xNR.replaceByName(filterName, instance);
 
             // 1b.) try to write the changed filter to the configuration.
-            // This must result in a exception if the filter is finalized.
+            // This must result in an exception if the filter is finalized.
             boolean flushError = false;
             try
             {
@@ -206,7 +206,7 @@ public class FinalizedMandatoryTest
             // 2a.) try to remove the filter from the container
             xNC.removeByName(filterName);
             // 1b.) try to write the changed filter to the configuration.
-            // This must result in a exception if the filter is mandatory
+            // This must result in an exception if the filter is mandatory
             flushError = false;
             try
             {
@@ -232,7 +232,7 @@ public class FinalizedMandatoryTest
      * print all properties with its values to <CODE>logger</CODE>. For debug purposes.
      * @see stats.SimpleLogWriter
      * @see com.sun.star.beans.PropertyValue
-     * @param props Sequenze of PropertyValue
+     * @param props Sequence of PropertyValue
      */
     protected void printPropertyValues(PropertyValue[] props)
     {
@@ -249,8 +249,8 @@ public class FinalizedMandatoryTest
     }
 
     /**
-     * returns the value of the specified (<CODE>pName</CODE>) property from a sequenze of <CODE>PropertyValue</CODE>
-     * @param props a sequenze of <CODE>PropertyVlaue</CODE>
+     * returns the value of the specified (<CODE>pName</CODE>) property from a sequence of <CODE>PropertyValue</CODE>
+     * @param props a sequence of <CODE>PropertyValue</CODE>
      * @param pName the name of the property the value should be returned
      * @return the value of the property
      */
@@ -265,8 +265,8 @@ public class FinalizedMandatoryTest
     }
 
     /**
-     * set a value of the specified (<CODE>pName</CODE>) property inside a sequenze of <CODE>PropertyValue</CODE>
-     * @param props sequenze of <CODE>PropertyValue</CODE>
+     * set a value of the specified (<CODE>pName</CODE>) property inside a sequence of <CODE>PropertyValue</CODE>
+     * @param props sequence of <CODE>PropertyValue</CODE>
      * @param pName name of the property which should be changed
      * @param pValue the value the property should be assigned
      */

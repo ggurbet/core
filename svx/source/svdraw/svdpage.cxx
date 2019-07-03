@@ -28,6 +28,7 @@
 #include <string.h>
 #include <vcl/svapp.hxx>
 
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <tools/helpers.hxx>
 
@@ -44,7 +45,7 @@
 #include <svx/svdpagv.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/fmglob.hxx>
-
+#include <svx/xfillit0.hxx>
 #include <svx/fmdpage.hxx>
 
 #include <sfx2/objsh.hxx>
@@ -320,8 +321,7 @@ void SdrObjList::NbcInsertObject(SdrObject* pObj, size_t nPos)
     impChildInserted(*pObj);
 
     if (!mbRectsDirty) {
-        maSdrObjListOutRect.Union(pObj->GetCurrentBoundRect());
-        maSdrObjListSnapRect.Union(pObj->GetSnapRect());
+        mbRectsDirty = true;
     }
     pObj->InsertedStateChange(); // calls the UserCall (among others)
 }
@@ -981,16 +981,16 @@ void SdrPage::RemovePageUser(sdr::PageUser& rOldUser)
 
 // DrawContact section
 
-sdr::contact::ViewContact* SdrPage::CreateObjectSpecificViewContact()
+std::unique_ptr<sdr::contact::ViewContact> SdrPage::CreateObjectSpecificViewContact()
 {
-    return new sdr::contact::ViewContactOfSdrPage(*this);
+    return std::make_unique<sdr::contact::ViewContactOfSdrPage>(*this);
 }
 
 const sdr::contact::ViewContact& SdrPage::GetViewContact() const
 {
     if (!mpViewContact)
-        const_cast<SdrPage*>(this)->mpViewContact.reset(
-            const_cast<SdrPage*>(this)->CreateObjectSpecificViewContact());
+        const_cast<SdrPage*>(this)->mpViewContact =
+            const_cast<SdrPage*>(this)->CreateObjectSpecificViewContact();
 
     return *mpViewContact;
 }
@@ -998,7 +998,7 @@ const sdr::contact::ViewContact& SdrPage::GetViewContact() const
 sdr::contact::ViewContact& SdrPage::GetViewContact()
 {
     if (!mpViewContact)
-        mpViewContact.reset(CreateObjectSpecificViewContact());
+        mpViewContact = CreateObjectSpecificViewContact();
 
     return *mpViewContact;
 }
@@ -1114,8 +1114,8 @@ void SdrPageProperties::SetStyleSheet(SfxStyleSheet* pStyleSheet)
 
 
 SdrPage::SdrPage(SdrModel& rModel, bool bMasterPage)
-:   tools::WeakBase(),
-    SdrObjList(),
+:   SdrObjList(),
+    tools::WeakBase(),
     maPageUsers(),
     mrSdrModelFromSdrPage(rModel),
     mnWidth(10),

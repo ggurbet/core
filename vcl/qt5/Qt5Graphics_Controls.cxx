@@ -67,7 +67,7 @@ static QStyle::State vclStateValue2StateFlag(ControlState nControlState,
 
 Qt5Graphics_Controls::Qt5Graphics_Controls() { initStyles(); }
 
-bool Qt5Graphics_Controls::IsNativeControlSupported(ControlType type, ControlPart part)
+bool Qt5Graphics_Controls::isNativeControlSupported(ControlType type, ControlPart part)
 {
     switch (type)
     {
@@ -105,6 +105,10 @@ bool Qt5Graphics_Controls::IsNativeControlSupported(ControlType type, ControlPar
         case ControlType::Slider:
             return (part == ControlPart::TrackHorzArea || part == ControlPart::TrackVertArea);
 
+        case ControlType::TabItem:
+        case ControlType::TabPane:
+            return ((part == ControlPart::Entire) || part == ControlPart::TabPaneWithHeader);
+
         default:
             break;
     }
@@ -112,7 +116,6 @@ bool Qt5Graphics_Controls::IsNativeControlSupported(ControlType type, ControlPar
     return false;
 }
 
-/// helper drawing methods
 namespace
 {
 void draw(QStyle::ControlElement element, QStyleOption* option, QImage* image,
@@ -146,13 +149,43 @@ void draw(QStyle::ComplexControl element, QStyleOptionComplex* option, QImage* i
 }
 
 void lcl_drawFrame(QStyle::PrimitiveElement element, QImage* image, QStyle::State const& state,
+                   bool bClip = true,
                    QStyle::PixelMetric eLineMetric = QStyle::PM_DefaultFrameWidth)
 {
+    const int fw = QApplication::style()->pixelMetric(eLineMetric);
     QStyleOptionFrame option;
     option.frameShape = QFrame::StyledPanel;
-    option.state = QStyle::State_Sunken;
-    option.lineWidth = QApplication::style()->pixelMetric(eLineMetric);
-    draw(element, &option, image, state);
+    option.state = QStyle::State_Sunken | state;
+    option.lineWidth = fw;
+
+    QRect aRect(image->rect());
+    option.rect = aRect;
+
+    QPainter painter(image);
+    if (bClip)
+        painter.setClipRegion(QRegion(aRect).subtracted(aRect.adjusted(fw, fw, -fw, -fw)));
+    QApplication::style()->drawPrimitive(element, &option, &painter);
+}
+
+void lcl_fillQStyleOptionTab(const ImplControlValue& value, QStyleOptionTab& sot)
+{
+    const TabitemValue& rValue = static_cast<const TabitemValue&>(value);
+    if (rValue.isFirst())
+        sot.position = rValue.isLast() ? QStyleOptionTab::OnlyOneTab : QStyleOptionTab::Beginning;
+    else if (rValue.isLast())
+        sot.position = rValue.isFirst() ? QStyleOptionTab::OnlyOneTab : QStyleOptionTab::End;
+    else
+        sot.position = QStyleOptionTab::Middle;
+}
+
+void lcl_fullQStyleOptionTabWidgetFrame(QStyleOptionTabWidgetFrame& option)
+{
+    option.state = QStyle::State_Enabled;
+    option.rightCornerWidgetSize = QSize(0, 0);
+    option.leftCornerWidgetSize = QSize(0, 0);
+    option.lineWidth = QApplication::style()->pixelMetric(QStyle::PM_DefaultFrameWidth);
+    option.midLineWidth = 0;
+    option.shape = QTabBar::RoundedNorth;
 }
 }
 
@@ -161,7 +194,7 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
                                              ControlState nControlState,
                                              const ImplControlValue& value, const OUString&)
 {
-    bool nativeSupport = IsNativeControlSupported(type, part);
+    bool nativeSupport = isNativeControlSupported(type, part);
     if (!nativeSupport)
     {
         assert(!nativeSupport && "drawNativeControl called without native support!");
@@ -214,8 +247,6 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
             m_image->fill(Qt::transparent);
             break;
     }
-
-    QRegion* localClipRegion = nullptr;
 
     if (type == ControlType::Pushbutton)
     {
@@ -296,12 +327,14 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
             QPoint center = rect.center();
             rect.setHeight(size.height());
             rect.moveCenter(center);
+            option.state |= vclStateValue2StateFlag(nControlState, value);
+            option.rect = rect;
+
+            QPainter painter(m_image.get());
             // don't paint over popup frame border (like the hack above, but here it can be simpler)
-            int fw = QApplication::style()->pixelMetric(QStyle::PM_MenuPanelWidth);
-            localClipRegion
-                = new QRegion(rect.translated(widgetRect.topLeft()).adjusted(fw, 0, -fw, 0));
-            draw(QStyle::CE_MenuItem, &option, m_image.get(),
-                 vclStateValue2StateFlag(nControlState, value), rect);
+            const int fw = QApplication::style()->pixelMetric(QStyle::PM_MenuPanelWidth);
+            painter.setClipRect(rect.adjusted(fw, 0, -fw, 0));
+            QApplication::style()->drawControl(QStyle::CE_MenuItem, &option, &painter);
         }
         else if (part == ControlPart::MenuItemCheckMark || part == ControlPart::MenuItemRadioMark)
         {
@@ -368,30 +401,27 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
              && (part == ControlPart::ThumbVert || part == ControlPart::ThumbHorz))
     { // reduce paint area only to the handle area
         const int handleExtend = QApplication::style()->pixelMetric(QStyle::PM_ToolBarHandleExtent);
-        QRect rect;
         QStyleOption option;
+        option.state = vclStateValue2StateFlag(nControlState, value);
 
+        QPainter painter(m_image.get());
         if (part == ControlPart::ThumbVert)
         {
-            rect = QRect(0, 0, handleExtend, widgetRect.height());
-            localClipRegion
-                = new QRegion(widgetRect.x(), widgetRect.y(), handleExtend, widgetRect.height());
-            option.state = QStyle::State_Horizontal;
+            option.rect = QRect(0, 0, handleExtend, widgetRect.height());
+            painter.setClipRect(widgetRect.x(), widgetRect.y(), handleExtend, widgetRect.height());
+            option.state |= QStyle::State_Horizontal;
         }
         else
         {
-            rect = QRect(0, 0, widgetRect.width(), handleExtend);
-            localClipRegion
-                = new QRegion(widgetRect.x(), widgetRect.y(), widgetRect.width(), handleExtend);
+            option.rect = QRect(0, 0, widgetRect.width(), handleExtend);
+            painter.setClipRect(widgetRect.x(), widgetRect.y(), widgetRect.width(), handleExtend);
         }
-
-        draw(QStyle::PE_IndicatorToolBarHandle, &option, m_image.get(),
-             vclStateValue2StateFlag(nControlState, value), rect);
+        QApplication::style()->drawPrimitive(QStyle::PE_IndicatorToolBarHandle, &option, &painter);
     }
     else if (type == ControlType::Editbox || type == ControlType::MultilineEditbox)
     {
         lcl_drawFrame(QStyle::PE_FrameLineEdit, m_image.get(),
-                      vclStateValue2StateFlag(nControlState, value));
+                      vclStateValue2StateFlag(nControlState, value), false);
     }
     else if (type == ControlType::Combobox)
     {
@@ -408,7 +438,7 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
         {
             case ControlPart::ListboxWindow:
                 lcl_drawFrame(QStyle::PE_Frame, m_image.get(),
-                              vclStateValue2StateFlag(nControlState, value),
+                              vclStateValue2StateFlag(nControlState, value), true,
                               QStyle::PM_ComboBoxFrameWidth);
                 break;
             case ControlPart::SubEdit:
@@ -488,7 +518,11 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
             option.sliderPosition = sbVal->mnCur;
             option.pageStep = sbVal->mnVisibleSize;
             if (part == ControlPart::DrawBackgroundHorz)
-                option.upsideDown = sbVal->maButton1Rect.Left() > sbVal->maButton2Rect.Left();
+                option.upsideDown
+                    = (QGuiApplication::isRightToLeft()
+                       && sbVal->maButton1Rect.Left() < sbVal->maButton2Rect.Left())
+                      || (QGuiApplication::isLeftToRight()
+                          && sbVal->maButton1Rect.Left() > sbVal->maButton2Rect.Left());
 
             //setup the active control... always the slider
             if (sbVal->mnThumbState & ControlState::ROLLOVER)
@@ -555,10 +589,6 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
     {
         lcl_drawFrame(QStyle::PE_Frame, m_image.get(),
                       vclStateValue2StateFlag(nControlState, value));
-        // draw just the border, see http://qa.openoffice.org/issues/show_bug.cgi?id=107945
-        int fw = QApplication::style()->pixelMetric(QStyle::PM_DefaultFrameWidth);
-        localClipRegion
-            = new QRegion(QRegion(widgetRect).subtracted(widgetRect.adjusted(fw, fw, -fw, -fw)));
     }
     else if (type == ControlType::WindowBackground)
     {
@@ -607,12 +637,39 @@ bool Qt5Graphics_Controls::drawNativeControl(ControlType type, ControlPart part,
         draw(QStyle::CE_ProgressBar, &option, m_image.get(),
              vclStateValue2StateFlag(nControlState, value));
     }
+    else if (type == ControlType::TabItem && part == ControlPart::Entire)
+    {
+        QStyleOptionTab sot;
+        lcl_fillQStyleOptionTab(value, sot);
+        draw(QStyle::CE_TabBarTabShape, &sot, m_image.get(),
+             vclStateValue2StateFlag(nControlState, value));
+    }
+    else if (type == ControlType::TabPane && part == ControlPart::Entire)
+    {
+        const TabPaneValue& rValue = static_cast<const TabPaneValue&>(value);
+
+        // get the overlap size for the tabs, so they will overlap the frame
+        QStyleOptionTab tabOverlap;
+        tabOverlap.shape = QTabBar::RoundedNorth;
+        TabPaneValue::m_nOverlap
+            = QApplication::style()->pixelMetric(QStyle::PM_TabBarBaseOverlap, &tabOverlap);
+
+        QStyleOptionTabWidgetFrame option;
+        lcl_fullQStyleOptionTabWidgetFrame(option);
+        option.tabBarRect = toQRect(rValue.m_aTabHeaderRect);
+        option.selectedTabRect
+            = rValue.m_aSelectedTabRect.IsEmpty() ? QRect() : toQRect(rValue.m_aSelectedTabRect);
+        option.tabBarSize = toQSize(rValue.m_aTabHeaderRect.GetSize());
+        option.rect = m_image->rect();
+        QRect aRect = QApplication::style()->subElementRect(QStyle::SE_TabWidgetTabPane, &option);
+        draw(QStyle::PE_FrameTabWidget, &option, m_image.get(),
+             vclStateValue2StateFlag(nControlState, value), aRect);
+    }
     else
     {
         returnVal = false;
     }
 
-    delete localClipRegion;
     return returnVal;
 }
 
@@ -817,7 +874,7 @@ bool Qt5Graphics_Controls::getNativeControlRegion(ControlType type, ControlPart 
                 auto nStyle = static_cast<DrawFrameFlags>(val.getNumericVal() & 0xFFF0);
                 if (nStyle & DrawFrameFlags::NoDraw)
                 {
-                    int nFrameWidth
+                    const int nFrameWidth
                         = QApplication::style()->pixelMetric(QStyle::PM_DefaultFrameWidth);
                     contentRect.adjust(nFrameWidth, nFrameWidth, -nFrameWidth, -nFrameWidth);
                 }
@@ -911,20 +968,38 @@ bool Qt5Graphics_Controls::getNativeControlRegion(ControlType type, ControlPart 
             }
             break;
         }
+        case ControlType::TabItem:
+        {
+            QStyleOptionTab sot;
+            lcl_fillQStyleOptionTab(val, sot);
+            QSize aMinSize = QApplication::style()->sizeFromContents(QStyle::CT_TabBarTab, &sot,
+                                                                     contentRect.size());
+            contentRect.setSize(aMinSize);
+            boundingRect = contentRect;
+            retVal = true;
+            break;
+        }
+        case ControlType::TabPane:
+        {
+            const TabPaneValue& rValue = static_cast<const TabPaneValue&>(val);
+            QStyleOptionTabWidgetFrame sotwf;
+            lcl_fullQStyleOptionTabWidgetFrame(sotwf);
+            QSize aMinSize = QApplication::style()->sizeFromContents(
+                QStyle::CT_TabWidget, &sotwf,
+                QSize(std::max(rValue.m_aTabHeaderRect.GetWidth(), controlRegion.GetWidth()),
+                      rValue.m_aTabHeaderRect.GetHeight() + controlRegion.GetHeight()));
+            contentRect.setSize(aMinSize);
+            boundingRect = contentRect;
+            retVal = true;
+            break;
+        }
         default:
             break;
     }
     if (retVal)
     {
-        // Bounding region
-        Point aBPoint(boundingRect.x(), boundingRect.y());
-        Size aBSize(boundingRect.width(), boundingRect.height());
-        nativeBoundingRegion = tools::Rectangle(aBPoint, aBSize);
-
-        // vcl::Region of the content
-        Point aPoint(contentRect.x(), contentRect.y());
-        Size aSize(contentRect.width(), contentRect.height());
-        nativeContentRegion = tools::Rectangle(aPoint, aSize);
+        nativeBoundingRegion = toRectangle(boundingRect);
+        nativeContentRegion = toRectangle(contentRect);
     }
 
     return retVal;

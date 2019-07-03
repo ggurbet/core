@@ -24,42 +24,22 @@
 #include <sfx2/dllapi.h>
 #include <sal/types.h>
 #include <svl/lstner.hxx>
-#include <sfx2/module.hxx>
 #include <sfx2/frame.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/shell.hxx>
-#include <sfx2/sfxsids.hrc>
 #include <svl/poolitem.hxx>
-#include <vcl/button.hxx>
 
-#include <tools/svborder.hxx>
-
+class Button;
 class SvBorder;
 class SfxDispatcher;
 class SfxBindings;
 class SfxProgress;
-class SvData;
 class SfxViewShell;
-class SystemWindow;
-class Fraction;
 class Point;
 class Size;
 class SfxChildWindow;
 class SfxInfoBarWindow;
 enum class InfoBarType;
-
-namespace sfx2
-{
-class SvLinkSource;
-}
-namespace svtools
-{
-    class AsynchronLink;
-}
-namespace basegfx
-{
-    class BColor;
-}
 
 class SFX2_DLLPUBLIC SfxViewFrame: public SfxShell, public SfxListener
 {
@@ -77,7 +57,8 @@ protected:
     virtual void            Notify( SfxBroadcaster& rBC, const SfxHint& rHint ) override;
 
     DECL_LINK(GetInvolvedHandler, Button*, void);
-    DECL_LINK(GetDonateHandler, Button*, void);
+    DECL_LINK(DonationHandler, Button*, void);
+    DECL_LINK(WhatsNewHandler, Button*, void);
     DECL_LINK(SwitchReadOnlyHandler, Button*, void);
     DECL_LINK(SignDocumentHandler, Button*, void);
     SAL_DLLPRIVATE void KillDispatcher_Impl();

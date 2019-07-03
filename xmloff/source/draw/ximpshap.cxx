@@ -378,7 +378,7 @@ void SdXMLShapeContext::EndElement()
 
         if( xEventsSupplier.is() )
         {
-            Reference< XNameReplace > xEvents( xEventsSupplier->getEvents(), UNO_QUERY_THROW );
+            Reference< XNameReplace > xEvents( xEventsSupplier->getEvents(), UNO_SET_THROW );
 
             uno::Sequence< beans::PropertyValue > aProperties( 3 );
             aProperties[0].Name = "EventType";
@@ -605,8 +605,6 @@ void SdXMLShapeContext::SetStyle( bool bSupportsStyle /* = true */)
 
         do
         {
-            XMLPropStyleContext* pDocStyle = nullptr;
-
             // set style on shape
             if(maDrawStyleName.isEmpty())
                 break;
@@ -626,10 +624,10 @@ void SdXMLShapeContext::SetStyle( bool bSupportsStyle /* = true */)
             OUString aStyleName = maDrawStyleName;
             uno::Reference< style::XStyle > xStyle;
 
-            if( dynamic_cast<const XMLShapeStyleContext*>( pStyle ) )
+            XMLPropStyleContext* pDocStyle
+                = dynamic_cast<XMLShapeStyleContext*>(const_cast<SvXMLStyleContext*>(pStyle));
+            if (pDocStyle)
             {
-                pDocStyle = const_cast<XMLShapeStyleContext*>(dynamic_cast<const XMLShapeStyleContext*>( pStyle ) );
-
                 if( pDocStyle->GetStyle().is() )
                 {
                     xStyle = pDocStyle->GetStyle();
@@ -2869,7 +2867,7 @@ void SdXMLAppletShapeContext::EndElement()
             xProps->setPropertyValue("VisibleArea", Any(aRect) );
         }
 
-        if( maParams.getLength() )
+        if( maParams.hasElements() )
         {
             xProps->setPropertyValue("AppletCommands", Any(maParams) );
         }
@@ -3085,7 +3083,7 @@ void SdXMLPluginShapeContext::EndElement()
         if( !mbMedia )
         {
             // in case we have a plugin object
-            if( maParams.getLength() )
+            if( maParams.hasElements() )
             {
                 xProps->setPropertyValue("PluginCommands", Any(maParams) );
             }
@@ -3107,28 +3105,28 @@ void SdXMLPluginShapeContext::EndElement()
 
             xProps->setPropertyValue("MediaMimeType", uno::makeAny(maMimeType) );
 
-            for( sal_Int32 nParam = 0; nParam < maParams.getLength(); ++nParam )
+            for( const auto& rParam : maParams )
             {
-                const OUString& rName = maParams[ nParam ].Name;
+                const OUString& rName = rParam.Name;
 
                 if( rName == "Loop" )
                 {
                     OUString aValueStr;
-                    maParams[ nParam ].Value >>= aValueStr;
+                    rParam.Value >>= aValueStr;
                     xProps->setPropertyValue("Loop",
                         uno::makeAny( aValueStr == "true" ) );
                 }
                 else if( rName == "Mute" )
                 {
                     OUString aValueStr;
-                    maParams[ nParam ].Value >>= aValueStr;
+                    rParam.Value >>= aValueStr;
                     xProps->setPropertyValue("Mute",
                         uno::makeAny( aValueStr == "true" ) );
                 }
                 else if( rName == "VolumeDB" )
                 {
                     OUString aValueStr;
-                    maParams[ nParam ].Value >>= aValueStr;
+                    rParam.Value >>= aValueStr;
                     xProps->setPropertyValue("VolumeDB",
                                                 uno::makeAny( static_cast< sal_Int16 >( aValueStr.toInt32() ) ) );
                 }
@@ -3137,7 +3135,7 @@ void SdXMLPluginShapeContext::EndElement()
                     OUString            aZoomStr;
                     media::ZoomLevel    eZoomLevel;
 
-                    maParams[ nParam ].Value >>= aZoomStr;
+                    rParam.Value >>= aZoomStr;
 
                     if( aZoomStr == "25%" )
                         eZoomLevel = media::ZoomLevel_ZOOM_1_TO_4;

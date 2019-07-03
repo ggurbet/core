@@ -282,9 +282,9 @@ std::vector< Reference< browse::XBrowseNode > > getAllBrowseNodes( const Referen
         locnBNs[ mspIndex++ ].set( xFac->createScriptProvider( makeAny( OUString("share") ) ), UNO_QUERY_THROW );
     }
     // TODO proper exception handling, should throw
-    catch( const Exception& e )
+    catch( const Exception& )
     {
-        SAL_WARN("scripting", "Caught " << e );
+        TOOLS_WARN_EXCEPTION("scripting", "Caught" );
         locnBNs.resize( mspIndex );
         return locnBNs;
     }
@@ -293,7 +293,7 @@ std::vector< Reference< browse::XBrowseNode > > getAllBrowseNodes( const Referen
     {
         try
         {
-            Reference< frame::XModel > model( MiscUtils::tDocUrlToModel( openDocs[ i ] ), UNO_QUERY_THROW );
+            Reference< frame::XModel > model( MiscUtils::tDocUrlToModel( openDocs[ i ] ), UNO_SET_THROW );
 
             // #i44599 Check if it's a real document or something special like Hidden/Preview
             css::uno::Reference< css::frame::XController > xCurrentController = model->getCurrentController();

@@ -92,9 +92,7 @@ uno::Reference< embed::XExtendedStorageStream > OHierarchyElement_Impl::GetStrea
 
     uno::Reference< embed::XExtendedStorageStream > xResult;
 
-    uno::Reference< embed::XStorage > xOwnStor;
-
-    xOwnStor = m_xOwnStorage.is() ? m_xOwnStorage
+    uno::Reference< embed::XStorage > xOwnStor = m_xOwnStorage.is() ? m_xOwnStorage
                 : uno::Reference< embed::XStorage >( m_xWeakOwnStorage.get(), uno::UNO_QUERY_THROW );
 
     if ( aListPath.empty() )
@@ -171,9 +169,7 @@ void OHierarchyElement_Impl::RemoveStreamHierarchically( std::vector<OUString>& 
     OUString aNextName = *(aListPath.begin());
     aListPath.erase( aListPath.begin() );
 
-    uno::Reference< embed::XStorage > xOwnStor;
-
-    xOwnStor = m_xOwnStorage.is() ? m_xOwnStorage
+    uno::Reference< embed::XStorage > xOwnStor = m_xOwnStorage.is() ? m_xOwnStorage
                 : uno::Reference< embed::XStorage >( m_xWeakOwnStorage.get(), uno::UNO_QUERY_THROW );
 
     if ( aListPath.empty() )
@@ -261,15 +257,15 @@ void SAL_CALL OHierarchyElement_Impl::disposing( const lang::EventObject& Source
 {
     try
     {
-        ::osl::ClearableMutexGuard aGuard( m_aMutex );
-        uno::Reference< embed::XExtendedStorageStream > xStream( Source.Source, uno::UNO_QUERY );
+        {
+            osl::MutexGuard aGuard(m_aMutex);
+            uno::Reference< embed::XExtendedStorageStream > xStream(Source.Source, uno::UNO_QUERY);
 
-        m_aOpenStreams.erase(std::remove_if(m_aOpenStreams.begin(), m_aOpenStreams.end(),
-            [&xStream](const OWeakStorRefList_Impl::value_type& rxStorage) {
+            m_aOpenStreams.erase(std::remove_if(m_aOpenStreams.begin(), m_aOpenStreams.end(),
+                [&xStream](const OWeakStorRefList_Impl::value_type& rxStorage) {
                 return !rxStorage.get().is() || rxStorage.get() == xStream; }),
-            m_aOpenStreams.end());
-
-        aGuard.clear();
+                m_aOpenStreams.end());
+        }
 
         TestForClosing();
     }

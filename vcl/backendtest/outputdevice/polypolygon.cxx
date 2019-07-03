@@ -30,9 +30,9 @@ tools::Polygon createPolygonOffset(tools::Rectangle const & rRect, int nOffset)
 
 } // end anonymous namespace
 
-Bitmap OutputDeviceTestPolyPolygon::setupRectangle()
+Bitmap OutputDeviceTestPolyPolygon::setupRectangle(bool bEnableAA)
 {
-    initialSetup(13, 13, constBackgroundColor);
+    initialSetup(13, 13, constBackgroundColor, bEnableAA);
 
     mpVirtualDevice->SetLineColor(constLineColor);
     mpVirtualDevice->SetFillColor();
@@ -50,13 +50,11 @@ Bitmap OutputDeviceTestPolyPolygon::setupFilledRectangle()
 {
     initialSetup(13, 13, constBackgroundColor);
 
-    mpVirtualDevice->SetLineColor(constFillColor);
+    mpVirtualDevice->SetLineColor();
     mpVirtualDevice->SetFillColor(constFillColor);
 
-    tools::PolyPolygon aPolyPolygon(3);
+    tools::PolyPolygon aPolyPolygon(1);
     aPolyPolygon.Insert(createPolygonOffset(maVDRectangle, 2));
-    aPolyPolygon.Insert(createPolygonOffset(maVDRectangle, 4));
-    aPolyPolygon.Insert(createPolygonOffset(maVDRectangle, 4));
 
     mpVirtualDevice->DrawPolyPolygon(aPolyPolygon);
 

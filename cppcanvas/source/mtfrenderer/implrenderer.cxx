@@ -52,12 +52,12 @@
 #include <basegfx/polygon/b2dpolypolygoncutter.hxx>
 #include <canvas/canvastools.hxx>
 #include <vcl/canvastools.hxx>
-#include <vcl/salbtype.hxx>
 #include <vcl/gdimtf.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/metric.hxx>
 #include <vcl/graphictools.hxx>
+#include <vcl/BitmapPalette.hxx>
 #include <tools/poly.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <implrenderer.hxx>
@@ -392,8 +392,8 @@ namespace cppcanvas
             const OutDevState& rState( rParms.mrStates.getState() );
             if( (!rState.isLineColorSet &&
                  !rState.isFillColorSet) ||
-                (rState.lineColor.getLength() == 0 &&
-                 rState.fillColor.getLength() == 0) )
+                (!rState.lineColor.hasElements() &&
+                 !rState.fillColor.hasElements()) )
             {
                 return false;
             }
@@ -932,7 +932,7 @@ namespace cppcanvas
 
                 aReliefColor = COL_LIGHTGRAY;
 
-                // we don't have a automatic color, so black is always
+                // we don't have an automatic color, so black is always
                 // drawn on white (literally copied from
                 // vcl/source/gdi/outdev3.cxx)
                 if( aTextColor == COL_BLACK )
@@ -1080,15 +1080,15 @@ namespace cppcanvas
 
                     // convert rect to polygon beforehand, must revert
                     // to general polygon clipping here.
+                    ::tools::Rectangle aRect = rState.clipRect;
+                    // #121100# VCL rectangular clips always
+                    // include one more pixel to the right
+                    // and the bottom
+                    aRect.AdjustRight(1);
+                    aRect.AdjustBottom(1);
                     rState.clip = ::basegfx::B2DPolyPolygon(
                         ::basegfx::utils::createPolygonFromRect(
-                            // #121100# VCL rectangular clips always
-                            // include one more pixel to the right
-                            // and the bottom
-                            ::basegfx::B2DRectangle( rState.clipRect.Left(),
-                                                     rState.clipRect.Top(),
-                                                     rState.clipRect.Right()+1,
-                                                     rState.clipRect.Bottom()+1 ) ) );
+                            vcl::unotools::b2DRectangleFromRectangle(aRect) ) );
                 }
 
                 // AW: Simplified
@@ -1108,17 +1108,17 @@ namespace cppcanvas
                 }
                 else
                 {
+                    ::tools::Rectangle aRect = rState.clipRect;
+                    // #121100# VCL rectangular clips
+                    // always include one more pixel to
+                    // the right and the bottom
+                    aRect.AdjustRight(1);
+                    aRect.AdjustBottom(1);
                     rState.xClipPoly = ::basegfx::unotools::xPolyPolygonFromB2DPolyPolygon(
                         rParms.mrCanvas->getUNOCanvas()->getDevice(),
                         ::basegfx::B2DPolyPolygon(
                             ::basegfx::utils::createPolygonFromRect(
-                                // #121100# VCL rectangular clips
-                                // always include one more pixel to
-                                // the right and the bottom
-                                ::basegfx::B2DRectangle( rState.clipRect.Left(),
-                                                         rState.clipRect.Top(),
-                                                         rState.clipRect.Right()+1,
-                                                         rState.clipRect.Bottom()+1 ) ) ) );
+                                vcl::unotools::b2DRectangleFromRectangle(aRect) ) ) );
                 }
             }
             else
@@ -1165,10 +1165,7 @@ namespace cppcanvas
                 // to general polygon clipping here.
                 ::basegfx::B2DPolyPolygon aClipPoly(
                     ::basegfx::utils::createPolygonFromRect(
-                        ::basegfx::B2DRectangle( rClipRect.Left(),
-                                                 rClipRect.Top(),
-                                                 rClipRect.Right(),
-                                                 rClipRect.Bottom() ) ) );
+                        vcl::unotools::b2DRectangleFromRectangle(rClipRect) ) );
 
                 rState.clipRect.SetEmpty();
 
@@ -1185,17 +1182,17 @@ namespace cppcanvas
                 }
                 else
                 {
+                    // #121100# VCL rectangular clips
+                    // always include one more pixel to
+                    // the right and the bottom
+                    ::tools::Rectangle aRect = rState.clipRect;
+                    aRect.AdjustRight(1);
+                    aRect.AdjustBottom(1);
                     rState.xClipPoly = ::basegfx::unotools::xPolyPolygonFromB2DPolyPolygon(
                         rParms.mrCanvas->getUNOCanvas()->getDevice(),
                         ::basegfx::B2DPolyPolygon(
                             ::basegfx::utils::createPolygonFromRect(
-                                // #121100# VCL rectangular clips
-                                // always include one more pixel to
-                                // the right and the bottom
-                                ::basegfx::B2DRectangle( rState.clipRect.Left(),
-                                                         rState.clipRect.Top(),
-                                                         rState.clipRect.Right()+1,
-                                                         rState.clipRect.Bottom()+1 ) ) ) );
+                                vcl::unotools::b2DRectangleFromRectangle(aRect) ) ) );
                 }
             }
             else
@@ -1400,7 +1397,7 @@ namespace cppcanvas
                         }
                         else
                         {
-                            // #120994# Do switch on/off LineColor, even when a overriding one is set
+                            // #120994# Do switch on/off LineColor, even when an overriding one is set
                             bool bSetting(static_cast<MetaLineColorAction*>(pCurrAct)->IsSetting());
 
                             rStates.getState().isLineColorSet = bSetting;
@@ -1417,7 +1414,7 @@ namespace cppcanvas
                         }
                         else
                         {
-                            // #120994# Do switch on/off FillColor, even when a overriding one is set
+                            // #120994# Do switch on/off FillColor, even when an overriding one is set
                             bool bSetting(static_cast<MetaFillColorAction*>(pCurrAct)->IsSetting());
 
                             rStates.getState().isFillColorSet = bSetting;
@@ -1455,7 +1452,7 @@ namespace cppcanvas
                         }
                         else
                         {
-                            // #120994# Do switch on/off TextFillColor, even when a overriding one is set
+                            // #120994# Do switch on/off TextFillColor, even when an overriding one is set
                             bool bSetting(static_cast<MetaTextFillColorAction*>(pCurrAct)->IsSetting());
 
                             rStates.getState().isTextFillColorSet = bSetting;
@@ -1472,7 +1469,7 @@ namespace cppcanvas
                         }
                         else
                         {
-                            // #120994# Do switch on/off TextLineColor, even when a overriding one is set
+                            // #120994# Do switch on/off TextLineColor, even when an overriding one is set
                             bool bSetting(static_cast<MetaTextLineColorAction*>(pCurrAct)->IsSetting());
 
                             rStates.getState().isTextLineColorSet = bSetting;
@@ -1816,7 +1813,7 @@ namespace cppcanvas
                     case MetaActionType::POINT:
                     {
                         const OutDevState& rState( rStates.getState() );
-                        if( rState.lineColor.getLength() )
+                        if( rState.lineColor.hasElements() )
                         {
                             std::shared_ptr<Action> pPointAction(
                                 internal::PointActionFactory::createPointAction(
@@ -1840,7 +1837,7 @@ namespace cppcanvas
                     case MetaActionType::PIXEL:
                     {
                         const OutDevState& rState( rStates.getState() );
-                        if( rState.lineColor.getLength() )
+                        if( rState.lineColor.hasElements() )
                         {
                             std::shared_ptr<Action> pPointAction(
                                 internal::PointActionFactory::createPointAction(
@@ -1865,7 +1862,7 @@ namespace cppcanvas
                     case MetaActionType::LINE:
                     {
                         const OutDevState& rState( rStates.getState() );
-                        if( rState.lineColor.getLength() )
+                        if( rState.lineColor.hasElements() )
                         {
                             MetaLineAction* pLineAct = static_cast<MetaLineAction*>(pCurrAct);
 
@@ -2051,8 +2048,8 @@ namespace cppcanvas
                     case MetaActionType::POLYLINE:
                     {
                         const OutDevState& rState( rStates.getState() );
-                        if( rState.lineColor.getLength() ||
-                            rState.fillColor.getLength() )
+                        if( rState.lineColor.hasElements() ||
+                            rState.fillColor.hasElements() )
                         {
                             MetaPolyLineAction* pPolyLineAct = static_cast<MetaPolyLineAction*>(pCurrAct);
 
@@ -2398,8 +2395,8 @@ namespace cppcanvas
                     case MetaActionType::Transparent:
                     {
                         const OutDevState& rState( rStates.getState() );
-                        if( rState.lineColor.getLength() ||
-                            rState.fillColor.getLength() )
+                        if( rState.lineColor.hasElements() ||
+                            rState.fillColor.hasElements() )
                         {
                             MetaTransparentAction* pAct = static_cast<MetaTransparentAction*>(pCurrAct);
                             ::basegfx::B2DPolyPolygon aPoly( pAct->GetPolyPolygon().getB2DPolyPolygon() );
@@ -2910,7 +2907,7 @@ namespace cppcanvas
             aStateStack.clearStateStack();
 
             // Setup local state, such that the metafile renders
-            // itself into a one-by-one square at the origin for
+            // itself into an one-by-one square at the origin for
             // identity view and render transformations
             aStateStack.getState().transform.scale( 1.0 / aMtfSizePix.Width(),
                                                      1.0 / aMtfSizePix.Height() );

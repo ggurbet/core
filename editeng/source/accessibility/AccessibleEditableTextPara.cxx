@@ -33,6 +33,7 @@
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/awt/Rectangle.hpp>
+#include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/i18n/Boundary.hpp>
@@ -50,10 +51,13 @@
 #include <vcl/settings.hxx>
 #include <i18nlangtag/languagetag.hxx>
 
+#include <editeng/AccessibleImageBullet.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/unoprnms.hxx>
 #include <editeng/unoipset.hxx>
 #include <editeng/outliner.hxx>
+#include <editeng/unoedprx.hxx>
+#include <editeng/unoedsrc.hxx>
 #include <svl/intitem.hxx>
 #include <svl/eitem.hxx>
 
@@ -1204,7 +1208,7 @@ namespace accessibility
 
         bool bSupplementalMode = false;
         uno::Sequence< OUString > aPropertyNames = rRequestedAttributes;
-        if (aPropertyNames.getLength() == 0)
+        if (!aPropertyNames.hasElements())
         {
             bSupplementalMode = true;
             aPropertyNames = getAttributeNames();

@@ -656,7 +656,8 @@ void ViewTabListBox_Impl::DeleteEntries()
         if ( eResult != svtools::QUERYDELETE_ALL )
         {
             INetURLObject aObj( aURL );
-            svtools::QueryDeleteDlg_Impl aDlg(GetFrameWeld(), aObj.GetName(INetURLObject::DecodeMechanism::WithCharset));
+            svtools::QueryDeleteDlg_Impl aDlg(
+                GetFrameWeld(), aObj.GetLastName(INetURLObject::DecodeMechanism::WithCharset));
 
             if ( GetSelectionCount() > 1 )
                 aDlg.EnableAllButton();
@@ -1845,7 +1846,7 @@ void SvtFileView_Impl::EntryRenamed( OUString& rURL,
             (*aFoundElem)->maDisplayText = aDisplayText.replaceAt( 0, nIndex, rTitle );
 
         INetURLObject aURLObj( rURL );
-        aURLObj.SetName( rTitle, INetURLObject::EncodeMechanism::All );
+        aURLObj.setName( rTitle, INetURLObject::EncodeMechanism::All );
 
         rURL = aURLObj.GetMainURL( INetURLObject::DecodeMechanism::NONE );
 

@@ -25,18 +25,14 @@
 #include <framework/ResourceId.hxx>
 #include <framework/ViewShellWrapper.hxx>
 #include <ViewShellBase.hxx>
-#include <FrameView.hxx>
 #include <DrawViewShell.hxx>
 #include <ViewShellHint.hxx>
-#include <DrawController.hxx>
 #include <app.hrc>
 #include <com/sun/star/drawing/framework/XControllerManager.hpp>
-#include <com/sun/star/drawing/framework/XPane.hpp>
 #include <cppuhelper/compbase.hxx>
 #include <svl/lstner.hxx>
 
 #include <sfx2/request.hxx>
-#include <sfx2/dispatch.hxx>
 
 #include <MutexOwner.hxx>
 #include <vcl/svapp.hxx>
@@ -88,7 +84,7 @@ public:
             callback is destroyed.
     */
     CallbackCaller (
-        ::sd::ViewShellBase& rBase,
+        const ::sd::ViewShellBase& rBase,
         const OUString& rsEventType,
         const ::sd::framework::FrameworkHelper::ConfigurationChangeEventFilter& rFilter,
         const ::sd::framework::FrameworkHelper::Callback& rCallback);
@@ -253,7 +249,7 @@ namespace
             Reference< XConfiguration > xConfiguration( i_rConfigController->getRequestedConfiguration(), UNO_SET_THROW );
             Sequence< Reference< XResourceId > > aViewIds( xConfiguration->getResources(
                 i_rPaneId, FrameworkHelper::msViewURLPrefix, AnchorBindingMode_DIRECT ) );
-            if ( aViewIds.getLength() > 0 )
+            if ( aViewIds.hasElements() )
                 return i_rConfigController->getResource( aViewIds[0] );
         }
         catch( const Exception& )
@@ -347,7 +343,7 @@ FrameworkHelper::InstanceMap FrameworkHelper::maInstanceMap;
     return pHelper;
 }
 
-void FrameworkHelper::DisposeInstance (ViewShellBase& rBase)
+void FrameworkHelper::DisposeInstance (const ViewShellBase& rBase)
 {
     InstanceMap::iterator iHelper (maInstanceMap.find(&rBase));
     if (iHelper != maInstanceMap.end())
@@ -356,7 +352,7 @@ void FrameworkHelper::DisposeInstance (ViewShellBase& rBase)
     }
 }
 
-void FrameworkHelper::ReleaseInstance (ViewShellBase& rBase)
+void FrameworkHelper::ReleaseInstance (const ViewShellBase& rBase)
 {
     InstanceMap::iterator iHelper (maInstanceMap.find(&rBase));
     if (iHelper != maInstanceMap.end())
@@ -834,7 +830,7 @@ namespace {
 //===== CallbackCaller ========================================================
 
 CallbackCaller::CallbackCaller (
-    ::sd::ViewShellBase& rBase,
+    const ::sd::ViewShellBase& rBase,
     const OUString& rsEventType,
     const ::sd::framework::FrameworkHelper::ConfigurationChangeEventFilter& rFilter,
     const ::sd::framework::FrameworkHelper::Callback& rCallback)

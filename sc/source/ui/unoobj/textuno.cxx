@@ -219,12 +219,9 @@ SvxTextForwarder* ScHeaderFooterTextData::GetTextForwarder()
         rPattern.FillEditItemSet( &aDefaults );
         //  FillEditItemSet adjusts font height to 1/100th mm,
         //  but for header/footer twips is needed, as in the PatternAttr:
-        std::unique_ptr<SfxPoolItem> pNewItem( rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT) );
-        aDefaults.Put( *pNewItem );
-        pNewItem = rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK);
-        aDefaults.Put( *pNewItem );
-        pNewItem = rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL);
-        aDefaults.Put( *pNewItem );
+        aDefaults.Put( rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT) );
+        aDefaults.Put( rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK) ) ;
+        aDefaults.Put( rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL) );
         pHdrEngine->SetDefaults( aDefaults );
 
         ScHeaderFieldData aData;
@@ -401,10 +398,10 @@ void SAL_CALL ScHeaderFooterTextObj::insertTextContent(
     SolarMutexGuard aGuard;
     if ( xContent.is() && xRange.is() )
     {
-        ScEditFieldObj* pHeaderField = ScEditFieldObj::getImplementation( xContent );
+        ScEditFieldObj* pHeaderField = comphelper::getUnoTunnelImplementation<ScEditFieldObj>( xContent );
 
         SvxUnoTextRangeBase* pTextRange =
-            ScHeaderFooterTextCursor::getImplementation( xRange );
+            comphelper::getUnoTunnelImplementation<ScHeaderFooterTextCursor>( xRange );
 
         if ( pHeaderField && !pHeaderField->IsInserted() && pTextRange )
         {
@@ -471,7 +468,7 @@ void SAL_CALL ScHeaderFooterTextObj::removeTextContent(
     SolarMutexGuard aGuard;
     if ( xContent.is() )
     {
-        ScEditFieldObj* pHeaderField = ScEditFieldObj::getImplementation(xContent);
+        ScEditFieldObj* pHeaderField = comphelper::getUnoTunnelImplementation<ScEditFieldObj>(xContent);
         if ( pHeaderField && pHeaderField->IsInserted() )
         {
             //! check if the field is in this cell
@@ -616,36 +613,7 @@ uno::Reference<text::XTextRange> SAL_CALL ScCellTextCursor::getEnd()
 
 // XUnoTunnel
 
-sal_Int64 SAL_CALL ScCellTextCursor::getSomething(
-                const uno::Sequence<sal_Int8 >& rId )
-{
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-    }
-    return SvxUnoTextCursor::getSomething( rId );
-}
-
-namespace
-{
-    class theScCellTextCursorUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theScCellTextCursorUnoTunnelId> {};
-}
-
-const uno::Sequence<sal_Int8>& ScCellTextCursor::getUnoTunnelId()
-{
-    return theScCellTextCursorUnoTunnelId::get().getSeq();
-}
-
-ScCellTextCursor* ScCellTextCursor::getImplementation(const uno::Reference<uno::XInterface>& rObj)
-{
-    ScCellTextCursor* pRet = nullptr;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScCellTextCursor*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
-}
+UNO3_GETIMPLEMENTATION2_IMPL(ScCellTextCursor, SvxUnoTextCursor);
 
 ScHeaderFooterTextCursor::ScHeaderFooterTextCursor(rtl::Reference<ScHeaderFooterTextObj> const & rText) :
     SvxUnoTextCursor( rText->GetUnoText() ),
@@ -698,37 +666,7 @@ uno::Reference<text::XTextRange> SAL_CALL ScHeaderFooterTextCursor::getEnd()
 
 // XUnoTunnel
 
-sal_Int64 SAL_CALL ScHeaderFooterTextCursor::getSomething(
-                const uno::Sequence<sal_Int8 >& rId )
-{
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-    }
-    return SvxUnoTextCursor::getSomething( rId );
-}
-
-namespace
-{
-    class theScHeaderFooterTextCursorUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theScHeaderFooterTextCursorUnoTunnelId> {};
-}
-
-const uno::Sequence<sal_Int8>& ScHeaderFooterTextCursor::getUnoTunnelId()
-{
-    return theScHeaderFooterTextCursorUnoTunnelId::get().getSeq();
-}
-
-ScHeaderFooterTextCursor* ScHeaderFooterTextCursor::getImplementation(
-                                const uno::Reference<uno::XInterface>& rObj)
-{
-    ScHeaderFooterTextCursor* pRet = nullptr;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScHeaderFooterTextCursor*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
-}
+UNO3_GETIMPLEMENTATION2_IMPL(ScHeaderFooterTextCursor, SvxUnoTextCursor);
 
 ScDrawTextCursor::ScDrawTextCursor( const uno::Reference<text::XText>& xParent,
                                     const SvxUnoTextBase& rText ) :
@@ -786,36 +724,7 @@ uno::Reference<text::XTextRange> SAL_CALL ScDrawTextCursor::getEnd()
 
 // XUnoTunnel
 
-sal_Int64 SAL_CALL ScDrawTextCursor::getSomething(
-                const uno::Sequence<sal_Int8 >& rId )
-{
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-    }
-    return SvxUnoTextCursor::getSomething( rId );
-}
-
-namespace
-{
-    class theScDrawTextCursorUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theScDrawTextCursorUnoTunnelId> {};
-}
-
-const uno::Sequence<sal_Int8>& ScDrawTextCursor::getUnoTunnelId()
-{
-    return theScDrawTextCursorUnoTunnelId::get().getSeq();
-}
-
-ScDrawTextCursor* ScDrawTextCursor::getImplementation(const uno::Reference<uno::XInterface>& rObj)
-{
-    ScDrawTextCursor* pRet = nullptr;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScDrawTextCursor*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
-}
+UNO3_GETIMPLEMENTATION2_IMPL(ScDrawTextCursor, SvxUnoTextCursor);
 
 ScSimpleEditSourceHelper::ScSimpleEditSourceHelper()
 {
@@ -903,7 +812,7 @@ SvxTextForwarder* ScCellTextData::GetTextForwarder()
         if ( pDocShell )
         {
             ScDocument& rDoc = pDocShell->GetDocument();
-            pEditEngine = rDoc.CreateFieldEditEngine();
+            pEditEngine = rDoc.CreateFieldEditEngine(/*bUpdateMode*/true);
         }
         else
         {

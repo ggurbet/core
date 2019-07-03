@@ -681,9 +681,7 @@ bool SdXMLExport::ImpPrepAutoLayoutInfo(const Reference<XDrawPage>& xPage, OUStr
     if(xPropSet.is())
     {
         sal_uInt16 nType = sal_uInt16();
-        Any aAny;
-
-        aAny = xPropSet->getPropertyValue("Layout");
+        Any aAny = xPropSet->getPropertyValue("Layout");
         if(aAny >>= nType)
         {
             if(ImpXMLAutoLayoutInfo::IsCreateNecessary(nType))
@@ -1966,8 +1964,7 @@ void SdXMLExport::exportPresentationSettings()
 
         Reference< container::XNameContainer > xShows;
         Sequence< OUString > aShowNames;
-        const OUString* pShowNames = nullptr;
-        sal_Int32 nShowCount = 0;
+        bool bHasNames = false;
 
         Reference< XCustomPresentationSupplier > xSup( GetModel(), UNO_QUERY );
         if( xSup.is() )
@@ -1976,16 +1973,15 @@ void SdXMLExport::exportPresentationSettings()
             if( xShows.is() )
             {
                 aShowNames = xShows->getElementNames();
-                pShowNames = aShowNames.getArray();
-                nShowCount = aShowNames.getLength();
+                bHasNames = aShowNames.hasElements();
             }
         }
 
-        if( bHasAttr || nShowCount != 0 )
+        if( bHasAttr || bHasNames )
         {
             SvXMLElementExport aSettings(*this, XML_NAMESPACE_PRESENTATION, XML_SETTINGS, true, true);
 
-            if( nShowCount == 0 )
+            if( !bHasNames )
                 return;
 
             Reference< XIndexContainer > xShow;
@@ -1993,11 +1989,11 @@ void SdXMLExport::exportPresentationSettings()
 
             OUStringBuffer sTmp;
 
-            for( sal_Int32 nIndex = 0; nIndex < nShowCount; nIndex++, pShowNames++ )
+            for( const auto& rShowName : aShowNames )
             {
-                AddAttribute(XML_NAMESPACE_PRESENTATION, XML_NAME, *pShowNames );
+                AddAttribute(XML_NAMESPACE_PRESENTATION, XML_NAME, rShowName );
 
-                xShows->getByName( *pShowNames ) >>= xShow;
+                xShows->getByName( rShowName ) >>= xShow;
                 SAL_WARN_IF( !xShow.is(), "xmloff", "invalid custom show!" );
                 if( !xShow.is() )
                     continue;
@@ -2542,7 +2538,7 @@ void SdXMLExport::collectAnnotationAutoStyles( const Reference<XDrawPage>& xDraw
         {
             while( xAnnotationEnumeration->hasMoreElements() )
             {
-                Reference< XAnnotation > xAnnotation( xAnnotationEnumeration->nextElement(), UNO_QUERY_THROW );
+                Reference< XAnnotation > xAnnotation( xAnnotationEnumeration->nextElement(), UNO_SET_THROW );
                 Reference< XText > xText( xAnnotation->getTextRange() );
                 if(xText.is() && !xText->getString().isEmpty())
                     GetTextParagraphExport()->collectTextAutoStyles( xText );
@@ -2570,7 +2566,7 @@ void SdXMLExport::exportAnnotations( const Reference<XDrawPage>& xDrawPage )
             OUStringBuffer sStringBuffer;
             do
             {
-                Reference< XAnnotation > xAnnotation( xAnnotationEnumeration->nextElement(), UNO_QUERY_THROW );
+                Reference< XAnnotation > xAnnotation( xAnnotationEnumeration->nextElement(), UNO_SET_THROW );
 
                 RealPoint2D aPosition( xAnnotation->getPosition() );
 
@@ -2682,8 +2678,21 @@ com_sun_star_comp_Impress_XMLOasisContentExporter_get_implementation(
                                              | SvXMLExportFlags::FONTDECLS));
 }
 
-SERVICE( XMLImpressMetaExportOasis, "com.sun.star.comp.Impress.XMLOasisMetaExporter", "XMLImpressMetaExportOasis", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::META );
-SERVICE( XMLImpressSettingsExportOasis, "com.sun.star.comp.Impress.XMLOasisSettingsExporter", "XMLImpressSettingsExportOasis", false, SvXMLExportFlags::OASIS|SvXMLExportFlags::SETTINGS );
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisMetaExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLImpressMetaExportOasis", false,
+                                         SvXMLExportFlags::OASIS | SvXMLExportFlags::META));
+}
+
+extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*
+com_sun_star_comp_Impress_XMLOasisSettingsExporter_get_implementation(
+    uno::XComponentContext* pCtx, uno::Sequence<uno::Any> const& /*rSeq*/)
+{
+    return cppu::acquire(new SdXMLExport(pCtx, "XMLImpressSettingsExportOasis", false,
+                                         SvXMLExportFlags::OASIS | SvXMLExportFlags::SETTINGS));
+}
 
 SERVICE( XMLImpressExportOOO, "com.sun.star.comp.Impress.XMLExporter", "XMLImpressExportOOO", false, SvXMLExportFlags::META|SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::CONTENT|SvXMLExportFlags::SCRIPTS|SvXMLExportFlags::SETTINGS|SvXMLExportFlags::FONTDECLS|SvXMLExportFlags::EMBEDDED );
 SERVICE( XMLImpressStylesExportOOO, "com.sun.star.comp.Impress.XMLStylesExporter", "XMLImpressStylesExportOOO", false, SvXMLExportFlags::STYLES|SvXMLExportFlags::MASTERSTYLES|SvXMLExportFlags::AUTOSTYLES|SvXMLExportFlags::FONTDECLS );

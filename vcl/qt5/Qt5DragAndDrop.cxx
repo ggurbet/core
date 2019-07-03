@@ -14,91 +14,17 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <sal/log.hxx>
 
-#include <QtCore/QMimeData>
-#include <QtCore/QUrl>
-
 #include <Qt5DragAndDrop.hxx>
 #include <Qt5Frame.hxx>
 #include <Qt5Widget.hxx>
 
 using namespace com::sun::star;
-using namespace com::sun::star::uno;
-using namespace com::sun::star::lang;
 
-Qt5DnDTransferable::Qt5DnDTransferable(const QMimeData* pMimeData)
-    : Qt5Transferable(QClipboard::Clipboard)
-    , m_pMimeData(pMimeData)
-{
-}
+bool Qt5DragSource::m_bDropSuccessSet = false;
+bool Qt5DragSource::m_bDropSuccess = false;
+Qt5DragSource* Qt5DragSource::m_ActiveDragSource = nullptr;
 
-css::uno::Any Qt5DnDTransferable::getTransferData(const css::datatransfer::DataFlavor&)
-{
-    uno::Any aAny;
-    assert(m_pMimeData);
-
-    // FIXME: not sure if we should support more mimetypes here
-    // (how to carry out external DnD with anything else than [file] URL?)
-    if (m_pMimeData->hasUrls())
-    {
-        QList<QUrl> urlList = m_pMimeData->urls();
-
-        if (urlList.size() > 0)
-        {
-            std::string aStr;
-
-            // transfer data is list of URLs
-            for (int i = 0; i < urlList.size(); ++i)
-            {
-                QString url = urlList.at(i).path();
-                aStr += url.toStdString();
-                // separated by newline if more than 1
-                if (i < urlList.size() - 1)
-                    aStr += "\n";
-            }
-
-            Sequence<sal_Int8> aSeq(reinterpret_cast<const sal_Int8*>(aStr.c_str()), aStr.length());
-            aAny <<= aSeq;
-        }
-    }
-    return aAny;
-}
-
-std::vector<css::datatransfer::DataFlavor> Qt5DnDTransferable::getTransferDataFlavorsAsVector()
-{
-    std::vector<css::datatransfer::DataFlavor> aVector;
-    css::datatransfer::DataFlavor aFlavor;
-
-    if (m_pMimeData)
-    {
-        for (QString& rMimeType : m_pMimeData->formats())
-        {
-            // filter out non-MIME types such as TARGETS, MULTIPLE, TIMESTAMP
-            if (rMimeType.indexOf('/') == -1)
-                continue;
-
-            if (rMimeType.startsWith("text/plain"))
-            {
-                aFlavor.MimeType = "text/plain;charset=utf-16";
-                aFlavor.DataType = cppu::UnoType<OUString>::get();
-                aVector.push_back(aFlavor);
-            }
-            else
-            {
-                aFlavor.MimeType = toOUString(rMimeType);
-                aFlavor.DataType = cppu::UnoType<Sequence<sal_Int8>>::get();
-                aVector.push_back(aFlavor);
-            }
-        }
-    }
-
-    return aVector;
-}
-
-Qt5DragSource::~Qt5DragSource()
-{
-    //if (m_pFrame)
-    //    m_pFrame->deregisterDragSource(this);
-}
+Qt5DragSource::~Qt5DragSource() {}
 
 void Qt5DragSource::deinitialize() { m_pFrame = nullptr; }
 
@@ -110,8 +36,8 @@ void Qt5DragSource::initialize(const css::uno::Sequence<css::uno::Any>& rArgumen
 {
     if (rArguments.getLength() < 2)
     {
-        throw RuntimeException("DragSource::initialize: Cannot install window event handler",
-                               static_cast<OWeakObject*>(this));
+        throw uno::RuntimeException("DragSource::initialize: Cannot install window event handler",
+                                    static_cast<OWeakObject*>(this));
     }
 
     sal_IntPtr nFrame = 0;
@@ -119,8 +45,8 @@ void Qt5DragSource::initialize(const css::uno::Sequence<css::uno::Any>& rArgumen
 
     if (!nFrame)
     {
-        throw RuntimeException("DragSource::initialize: missing SalFrame",
-                               static_cast<OWeakObject*>(this));
+        throw uno::RuntimeException("DragSource::initialize: missing SalFrame",
+                                    static_cast<OWeakObject*>(this));
     }
 
     m_pFrame = reinterpret_cast<Qt5Frame*>(nFrame);
@@ -140,6 +66,8 @@ void Qt5DragSource::startDrag(
     {
         Qt5Widget* qw = static_cast<Qt5Widget*>(m_pFrame->GetQWidget());
         m_ActiveDragSource = this;
+        m_bDropSuccessSet = false;
+        m_bDropSuccess = false;
         qw->startDrag(sourceActions);
     }
     else
@@ -165,7 +93,14 @@ void Qt5DragSource::fire_dragEnd(sal_Int8 nAction)
     {
         datatransfer::dnd::DragSourceDropEvent aEv;
         aEv.DropAction = nAction;
-        aEv.DropSuccess = true; // FIXME: what if drop didn't work out?
+
+        // internal DnD can accept the drop
+        // but still fail in Qt5DropTarget::dropComplete
+        if (m_bDropSuccessSet)
+            aEv.DropSuccess = m_bDropSuccess;
+        else
+            aEv.DropSuccess = true;
+
         auto xListener = m_xListener;
         m_xListener.clear();
         xListener->dragDropEnd(aEv);
@@ -185,7 +120,7 @@ sal_Bool SAL_CALL Qt5DragSource::supportsService(OUString const& ServiceName)
 
 css::uno::Sequence<OUString> SAL_CALL Qt5DragSource::getSupportedServiceNames()
 {
-    Sequence<OUString> aRet{ "com.sun.star.datatransfer.dnd.Qt5DragSource" };
+    uno::Sequence<OUString> aRet{ "com.sun.star.datatransfer.dnd.Qt5DragSource" };
     return aRet;
 }
 
@@ -209,7 +144,7 @@ sal_Bool SAL_CALL Qt5DropTarget::supportsService(OUString const& ServiceName)
 
 css::uno::Sequence<OUString> SAL_CALL Qt5DropTarget::getSupportedServiceNames()
 {
-    Sequence<OUString> aRet{ "com.sun.star.datatransfer.dnd.Qt5DropTarget" };
+    uno::Sequence<OUString> aRet{ "com.sun.star.datatransfer.dnd.Qt5DropTarget" };
     return aRet;
 }
 
@@ -225,12 +160,12 @@ void Qt5DropTarget::deinitialize()
     m_bActive = false;
 }
 
-void Qt5DropTarget::initialize(const Sequence<Any>& rArguments)
+void Qt5DropTarget::initialize(const uno::Sequence<uno::Any>& rArguments)
 {
     if (rArguments.getLength() < 2)
     {
-        throw RuntimeException("DropTarget::initialize: Cannot install window event handler",
-                               static_cast<OWeakObject*>(this));
+        throw uno::RuntimeException("DropTarget::initialize: Cannot install window event handler",
+                                    static_cast<OWeakObject*>(this));
     }
 
     sal_IntPtr nFrame = 0;
@@ -238,8 +173,8 @@ void Qt5DropTarget::initialize(const Sequence<Any>& rArguments)
 
     if (!nFrame)
     {
-        throw RuntimeException("DropTarget::initialize: missing SalFrame",
-                               static_cast<OWeakObject*>(this));
+        throw uno::RuntimeException("DropTarget::initialize: missing SalFrame",
+                                    static_cast<OWeakObject*>(this));
     }
 
     mnDragAction = datatransfer::dnd::DNDConstants::ACTION_NONE;
@@ -251,7 +186,7 @@ void Qt5DropTarget::initialize(const Sequence<Any>& rArguments)
 }
 
 void Qt5DropTarget::addDropTargetListener(
-    const Reference<css::datatransfer::dnd::XDropTargetListener>& xListener)
+    const uno::Reference<css::datatransfer::dnd::XDropTargetListener>& xListener)
 {
     ::osl::Guard<::osl::Mutex> aGuard(m_aMutex);
 
@@ -259,7 +194,7 @@ void Qt5DropTarget::addDropTargetListener(
 }
 
 void Qt5DropTarget::removeDropTargetListener(
-    const Reference<css::datatransfer::dnd::XDropTargetListener>& xListener)
+    const uno::Reference<css::datatransfer::dnd::XDropTargetListener>& xListener)
 {
     ::osl::Guard<::osl::Mutex> aGuard(m_aMutex);
 
@@ -341,6 +276,16 @@ void Qt5DropTarget::rejectDrop()
     return;
 }
 
-void Qt5DropTarget::dropComplete(sal_Bool /*success*/) { return; }
+void Qt5DropTarget::dropComplete(sal_Bool success)
+{
+    // internal DnD
+    if (Qt5DragSource::m_ActiveDragSource)
+    {
+        Qt5DragSource::m_bDropSuccessSet = true;
+        Qt5DragSource::m_bDropSuccess = success;
+    }
+
+    return;
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

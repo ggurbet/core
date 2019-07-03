@@ -19,7 +19,8 @@
 #ifndef INCLUDED_SVX_SDTFCHIM_HXX
 #define INCLUDED_SVX_SDTFCHIM_HXX
 
-#include <svx/svddef.hxx>
+#include <svl/eitem.hxx>
+#include <svx/svxdllapi.h>
 
 class SVX_DLLPUBLIC SdrTextFixedCellHeightItem : public SfxBoolItem
 {
@@ -32,7 +33,6 @@ public:
                                                 OUString &rText, const IntlWrapper&) const override;
 
     SVX_DLLPRIVATE virtual SfxPoolItem*     Clone( SfxItemPool* pPool = nullptr ) const override;
-    SVX_DLLPRIVATE virtual  sal_uInt16          GetVersion( sal_uInt16 nFileFormatVersion ) const override;
 
     SVX_DLLPRIVATE virtual  bool QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;
     SVX_DLLPRIVATE virtual  bool PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId ) override;

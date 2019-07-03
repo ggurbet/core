@@ -38,7 +38,10 @@
 #include <com/sun/star/beans/XPropertyChangeListener.hpp>
 #include <com/sun/star/beans/PropertyChangeEvent.hpp>
 #include <com/sun/star/form/runtime/FeatureState.hpp>
+#include <vcl/builder.hxx>
+#include <vcl/menu.hxx>
 #include <vcl/timer.hxx>
+#include <vcl/window.hxx>
 #include <sfx2/app.hxx>
 #include <svx/svdmark.hxx>
 #include <svx/fmsearch.hxx>
@@ -411,7 +414,7 @@ public:
     SAL_DLLPRIVATE void stopFiltering_Lock(bool bSave);
 
         // a menu that contains all ControlConversion entries
-    SAL_DLLPRIVATE static VclBuilder* GetConversionMenu_Lock();
+    SAL_DLLPRIVATE static std::unique_ptr<VclBuilder> GetConversionMenu_Lock();
 
     /// checks whether a given control conversion slot can be applied to the current selection
     SAL_DLLPRIVATE bool canConvertCurrentSelectionToControl_Lock(const OString& rIdent);

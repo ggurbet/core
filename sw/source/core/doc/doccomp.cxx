@@ -1296,28 +1296,28 @@ bool SwCompareLine::ChangesInLine( const SwCompareLine& rLine,
 
             LgstCommonSubseq aSeq( aCmp );
 
-            nLcsLen = aSeq.Find( &aTmpLcsDst[0], &aTmpLcsSrc[0] );
+            nLcsLen = aSeq.Find( aTmpLcsDst.data(), aTmpLcsSrc.data() );
 
             if( CmpOptions.nIgnoreLen )
             {
-                nLcsLen = CommonSubseq::IgnoreIsolatedPieces( &aTmpLcsDst[0], &aTmpLcsSrc[0],
+                nLcsLen = CommonSubseq::IgnoreIsolatedPieces( aTmpLcsDst.data(), aTmpLcsSrc.data(),
                                                 aCmp.GetLen1(), aCmp.GetLen2(),
                                                 nLcsLen, CmpOptions.nIgnoreLen );
             }
 
-            nLcsLen = aCmp.GetCharSequence( &aTmpLcsDst[0], &aTmpLcsSrc[0],
-                                            &aLcsDst[0], &aLcsSrc[0], nLcsLen );
+            nLcsLen = aCmp.GetCharSequence( aTmpLcsDst.data(), aTmpLcsSrc.data(),
+                                            aLcsDst.data(), aLcsSrc.data(), nLcsLen );
         }
         else
         {
             CharArrayComparator aCmp( &rDstNd, &rSrcNd );
             LgstCommonSubseq aSeq( aCmp );
 
-            nLcsLen = aSeq.Find( &aLcsDst[0], &aLcsSrc[0] );
+            nLcsLen = aSeq.Find( aLcsDst.data(), aLcsSrc.data() );
 
             if( CmpOptions.nIgnoreLen )
             {
-                nLcsLen = CommonSubseq::IgnoreIsolatedPieces( &aLcsDst[0], &aLcsSrc[0], nDstLen,
+                nLcsLen = CommonSubseq::IgnoreIsolatedPieces( aLcsDst.data(), aLcsSrc.data(), nDstLen,
                                                     nSrcLen, nLcsLen,
                                                     CmpOptions.nIgnoreLen );
             }
@@ -1643,7 +1643,7 @@ void CompareData::SetRedlinesToDoc( bool bUseDocInfo )
 
     if( pTmp )
     {
-        SwRedlineData aRedlnData( nsRedlineType_t::REDLINE_DELETE, nAuthor, aTimeStamp,
+        SwRedlineData aRedlnData( RedlineType::Delete, nAuthor, aTimeStamp,
                                     OUString(), nullptr );
         do {
             // #i65201#: Expand again, see comment above.
@@ -1674,7 +1674,7 @@ void CompareData::SetRedlinesToDoc( bool bUseDocInfo )
                 }
             }
 
-            rDoc.getIDocumentRedlineAccess().DeleteRedline( *pTmp, false, USHRT_MAX );
+            rDoc.getIDocumentRedlineAccess().DeleteRedline( *pTmp, false, RedlineType::Any );
 
             if (rDoc.GetIDocumentUndoRedo().DoesUndo())
             {
@@ -1717,7 +1717,7 @@ void CompareData::SetRedlinesToDoc( bool bUseDocInfo )
                 }
             }
         } while( pInsRing.get() != ( pTmp = pTmp->GetNext()) );
-        SwRedlineData aRedlnData( nsRedlineType_t::REDLINE_INSERT, nAuthor, aTimeStamp,
+        SwRedlineData aRedlnData( RedlineType::Insert, nAuthor, aTimeStamp,
                                     OUString(), nullptr );
 
         // combine consecutive
@@ -1799,6 +1799,11 @@ namespace
                     continue;
                 if (!pSrcNode || !pDestNode)
                     break;
+                if (pSrcIdx->GetNodes()[pSrcIdx->GetIndex() + 1]->IsNoTextNode()
+                    || pDestIdx->GetNodes()[pDestIdx->GetIndex() + 1]->IsNoTextNode())
+                {
+                    continue; // tdf#125660 don't redline GrfNode/OLENode
+                }
                 aComparisons.emplace_back(CompareDataPtr(new CompareFrameFormatText(rSrcDoc, *pSrcIdx)),
                                           CompareDataPtr(new CompareFrameFormatText(rDestDoc, *pDestIdx)));
             }
@@ -1903,7 +1908,7 @@ SaveMergeRedline::SaveMergeRedline( const SwNode& rDstNd,
         aPos.nContent.Assign( const_cast<SwContentNode*>(static_cast<const SwContentNode*>(&rDstNd)), pStt->nContent.GetIndex() );
     pDestRedl = new SwRangeRedline( rSrcRedl.GetRedlineData(), aPos );
 
-    if( nsRedlineType_t::REDLINE_DELETE == pDestRedl->GetType() )
+    if( RedlineType::Delete == pDestRedl->GetType() )
     {
         // mark the area as deleted
         const SwPosition* pEnd = pStt == rSrcRedl.GetPoint()
@@ -1923,7 +1928,7 @@ sal_uInt16 SaveMergeRedline::InsertRedline(SwPaM* pLastDestRedline)
     sal_uInt16 nIns = 0;
     SwDoc* pDoc = pDestRedl->GetDoc();
 
-    if( nsRedlineType_t::REDLINE_INSERT == pDestRedl->GetType() )
+    if( RedlineType::Insert == pDestRedl->GetType() )
     {
         // the part was inserted so copy it from the SourceDoc
         ::sw::UndoGuard const undoGuard(pDoc->GetIDocumentUndoRedo());
@@ -1968,8 +1973,8 @@ sal_uInt16 SaveMergeRedline::InsertRedline(SwPaM* pLastDestRedline)
             SwPosition* pRStt = pRedl->Start(),
                       * pREnd = pRStt == pRedl->GetPoint() ? pRedl->GetMark()
                                                            : pRedl->GetPoint();
-            if( nsRedlineType_t::REDLINE_DELETE == pRedl->GetType() ||
-                nsRedlineType_t::REDLINE_INSERT == pRedl->GetType() )
+            if( RedlineType::Delete == pRedl->GetType() ||
+                RedlineType::Insert == pRedl->GetType() )
             {
                 SwComparePosition eCmpPos = ComparePosition( *pDStt, *pDEnd, *pRStt, *pREnd );
                 switch( eCmpPos )
@@ -2087,9 +2092,9 @@ long SwDoc::MergeDoc( const SwDoc& rDoc )
         for(const SwRangeRedline* pRedl : rSrcRedlTable)
         {
             sal_uLong nNd = pRedl->GetPoint()->nNode.GetIndex();
-            RedlineType_t eType = pRedl->GetType();
+            RedlineType eType = pRedl->GetType();
             if( nEndOfExtra < nNd &&
-                ( nsRedlineType_t::REDLINE_INSERT == eType || nsRedlineType_t::REDLINE_DELETE == eType ))
+                ( RedlineType::Insert == eType || RedlineType::Delete == eType ))
             {
                 const SwNode* pDstNd = GetNodes()[
                                         nMyEndOfExtra + nNd - nEndOfExtra ];

@@ -24,7 +24,6 @@
 #include <UserDefinedProperties.hxx>
 #include "DataPoint.hxx"
 #include <DataSeriesHelper.hxx>
-#include <ContainerHelper.hxx>
 #include <CloneHelper.hxx>
 #include <ModifyListenerHelper.hxx>
 #include <EventListenerHelper.hxx>
@@ -133,7 +132,6 @@ DataSeries::DataSeries() :
 }
 
 DataSeries::DataSeries( const DataSeries & rOther ) :
-        MutexContainer(),
         impl::DataSeries_Base(rOther),
         ::property::OPropertySet( rOther, m_aMutex ),
     m_xModifyEventForwarder( ModifyListenerHelper::createModifyEventForwarder())
@@ -304,7 +302,7 @@ Reference< beans::XPropertySet >
 
     Sequence< Reference< chart2::data::XLabeledDataSequence > > aSequences;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         aSequences = comphelper::containerToSequence( m_aDataSequences );
     }
 
@@ -318,7 +316,7 @@ Reference< beans::XPropertySet >
     if( 0 <= nIndex && nIndex < xSeq->getData().getLength() )
     {
         {
-            MutexGuard aGuard( GetMutex() );
+            MutexGuard aGuard( m_aMutex );
             tDataPointAttributeContainer::iterator aIt( m_aAttributedDataPoints.find( nIndex ) );
             if( aIt != m_aAttributedDataPoints.end() )
                 xResult = (*aIt).second;
@@ -328,7 +326,7 @@ Reference< beans::XPropertySet >
             Reference< beans::XPropertySet > xParentProperties;
             Reference< util::XModifyListener > xModifyEventForwarder;
             {
-                MutexGuard aGuard( GetMutex() );
+                MutexGuard aGuard( m_aMutex );
                 xParentProperties = this;
                 xModifyEventForwarder = m_xModifyEventForwarder;
             }
@@ -336,7 +334,7 @@ Reference< beans::XPropertySet >
             // create a new XPropertySet for this data point
             xResult.set( new DataPoint( xParentProperties ) );
             {
-                MutexGuard aGuard( GetMutex() );
+                MutexGuard aGuard( m_aMutex );
                 m_aAttributedDataPoints[ nIndex ] = xResult;
             }
             ModifyListenerHelper::addListener( xResult, xModifyEventForwarder );
@@ -351,7 +349,7 @@ void SAL_CALL DataSeries::resetDataPoint( sal_Int32 nIndex )
     Reference< beans::XPropertySet > xDataPointProp;
     Reference< util::XModifyListener > xModifyEventForwarder;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         xModifyEventForwarder = m_xModifyEventForwarder;
         tDataPointAttributeContainer::iterator aIt( m_aAttributedDataPoints.find( nIndex ));
         if( aIt != m_aAttributedDataPoints.end())
@@ -375,7 +373,7 @@ void SAL_CALL DataSeries::resetAllDataPoints()
     tDataPointAttributeContainer  aOldAttributedDataPoints;
     Reference< util::XModifyListener > xModifyEventForwarder;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         xModifyEventForwarder = m_xModifyEventForwarder;
         std::swap( aOldAttributedDataPoints, m_aAttributedDataPoints );
     }
@@ -392,11 +390,11 @@ void SAL_CALL DataSeries::setData( const uno::Sequence< Reference< chart2::data:
     Reference< util::XModifyListener > xModifyEventForwarder;
     Reference< lang::XEventListener > xListener;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         xModifyEventForwarder = m_xModifyEventForwarder;
         xListener = this;
         std::swap( aOldDataSequences, m_aDataSequences );
-        aNewDataSequences = ContainerHelper::SequenceToVector( aData );
+        aNewDataSequences = comphelper::sequenceToContainer<tDataSequenceContainer>( aData );
         m_aDataSequences = aNewDataSequences;
     }
     ModifyListenerHelper::removeListenerFromAllElements( aOldDataSequences, xModifyEventForwarder );
@@ -409,7 +407,7 @@ void SAL_CALL DataSeries::setData( const uno::Sequence< Reference< chart2::data:
 // ____ XDataSource ____
 Sequence< Reference< chart2::data::XLabeledDataSequence > > SAL_CALL DataSeries::getDataSequences()
 {
-    MutexGuard aGuard( GetMutex() );
+    MutexGuard aGuard( m_aMutex );
     return comphelper::containerToSequence( m_aDataSequences );
 }
 
@@ -419,7 +417,7 @@ void SAL_CALL DataSeries::addRegressionCurve(
 {
     Reference< util::XModifyListener > xModifyEventForwarder;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         xModifyEventForwarder = m_xModifyEventForwarder;
         if( std::find( m_aRegressionCurves.begin(), m_aRegressionCurves.end(), xRegressionCurve )
             != m_aRegressionCurves.end())
@@ -438,7 +436,7 @@ void SAL_CALL DataSeries::removeRegressionCurve(
 
     Reference< util::XModifyListener > xModifyEventForwarder;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         xModifyEventForwarder = m_xModifyEventForwarder;
         tRegressionCurveContainerType::iterator aIt(
             std::find( m_aRegressionCurves.begin(), m_aRegressionCurves.end(), xRegressionCurve ) );
@@ -455,7 +453,7 @@ void SAL_CALL DataSeries::removeRegressionCurve(
 
 uno::Sequence< uno::Reference< chart2::XRegressionCurve > > SAL_CALL DataSeries::getRegressionCurves()
 {
-    MutexGuard aGuard( GetMutex() );
+    MutexGuard aGuard( m_aMutex );
     return comphelper::containerToSequence( m_aRegressionCurves );
 }
 
@@ -463,10 +461,10 @@ void SAL_CALL DataSeries::setRegressionCurves(
     const Sequence< Reference< chart2::XRegressionCurve > >& aRegressionCurves )
 {
     tRegressionCurveContainerType aOldCurves;
-    tRegressionCurveContainerType aNewCurves( ContainerHelper::SequenceToVector( aRegressionCurves ) );
+    auto aNewCurves( comphelper::sequenceToContainer<tRegressionCurveContainerType>( aRegressionCurves ) );
     Reference< util::XModifyListener > xModifyEventForwarder;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         xModifyEventForwarder = m_xModifyEventForwarder;
         std::swap( aOldCurves, m_aRegressionCurves );
         m_aRegressionCurves = aNewCurves;

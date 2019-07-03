@@ -31,16 +31,18 @@
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/BitmapTools.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
 
 #include <strings.hrc>
-#include <svx/xattr.hxx>
+#include <svx/xbtmpit.hxx>
 #include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
 #include <svx/xoutbmp.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/xflbmtit.hxx>
 #include <cuitabarea.hxx>
 #include <defdlgname.hxx>
 #include <dlgname.hxx>
@@ -295,9 +297,9 @@ IMPL_LINK_NOARG(SvxPatternTabPage, ChangePatternHdl_Impl, SvtValueSet*, void)
 
     if(pGraphicObject)
     {
-        BitmapColor aBack;
-        BitmapColor aFront;
-        bool bIs8x8(vcl::bitmap::isHistorical8x8(pGraphicObject->GetGraphic().GetBitmapEx(), aBack, aFront));
+        Color aBackColor;
+        Color aPixelColor;
+        bool bIs8x8(vcl::bitmap::isHistorical8x8(pGraphicObject->GetGraphic().GetBitmapEx(), aBackColor, aPixelColor));
 
         m_xLbColor->SetNoSelection();
         m_xLbBackgroundColor->SetNoSelection();
@@ -311,9 +313,6 @@ IMPL_LINK_NOARG(SvxPatternTabPage, ChangePatternHdl_Impl, SvtValueSet*, void)
             // setting the pixel control
 
             m_xCtlPixel->SetXBitmap(pGraphicObject->GetGraphic().GetBitmapEx());
-
-            Color aPixelColor = aFront.GetColor();
-            Color aBackColor = aBack.GetColor();
 
             m_xLbColor->SelectEntry( aPixelColor );
             m_xLbBackgroundColor->SelectEntry( aBackColor );
@@ -394,7 +393,9 @@ IMPL_LINK_NOARG(SvxPatternTabPage, ClickAddHdl_Impl, weld::Button&, void)
 
             if(SfxItemState::SET == m_rOutAttrs.GetItemState(XATTR_FILLBITMAP, true, &pPoolItem))
             {
-                pEntry.reset(new XBitmapEntry(dynamic_cast<const XFillBitmapItem*>(pPoolItem)->GetGraphicObject(), aName));
+                auto pFillBmpItem = dynamic_cast<const XFillBitmapItem*>(pPoolItem);
+                assert(pFillBmpItem);
+                pEntry.reset(new XBitmapEntry(pFillBmpItem->GetGraphicObject(), aName));
             }
             else
                 assert(!"SvxPatternTabPage::ClickAddHdl_Impl(), XBitmapEntry* pEntry == nullptr ?");

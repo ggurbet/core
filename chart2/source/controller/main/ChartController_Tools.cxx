@@ -69,7 +69,9 @@
 #include <svx/unoapi.hxx>
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
+#include <sal/log.hxx>
 
 #include <memory>
 
@@ -255,8 +257,7 @@ void ChartController::executeDispatch_Paste()
     {
         Graphic aGraphic;
         // paste location: center of window
-        Point aPos;
-        aPos = pChartWindow->PixelToLogic( tools::Rectangle( aPos, pChartWindow->GetSizePixel()).Center());
+        Point aPos = pChartWindow->PixelToLogic( tools::Rectangle( {}, pChartWindow->GetSizePixel()).Center());
 
         // handle different formats
         TransferableDataHelper aDataHelper( TransferableDataHelper::CreateFromSystemClipboard( pChartWindow ));
@@ -563,6 +564,23 @@ bool ChartController::isObjectDeleteable( const uno::Any& rSelection )
     }
 
     return false;
+}
+
+bool ChartController::isSelectedObjectDraggable() const
+{
+    return m_aSelection.isDragableObjectSelected();
+}
+
+bool ChartController::isSelectedObjectResizable() const
+{
+    return m_aSelection.isResizeableObjectSelected();
+}
+
+bool ChartController::isSelectedObjectRotatable() const
+{
+    const ChartController* pThis = this;
+    const uno::Reference< frame::XModel >& xChartModel = const_cast<ChartController*>(pThis)->getModel();
+    return m_aSelection.isRotateableObjectSelected(xChartModel);
 }
 
 bool ChartController::isShapeContext() const
@@ -942,6 +960,26 @@ void ChartController::executeDispatch_LOKSetTextSelection(int nType, int nX, int
                 }
             }
         }
+    }
+}
+
+void ChartController::executeDispatch_LOKPieSegmentDragging( int nOffset )
+{
+    try
+    {
+        OUString aCID( m_aSelection.getSelectedCID() );
+        const uno::Reference< frame::XModel >& xChartModel = getModel();
+        if( xChartModel.is() )
+        {
+            Reference< beans::XPropertySet > xPointProperties(
+                ObjectIdentifier::getObjectPropertySet( aCID, xChartModel ) );
+            if( xPointProperties.is() )
+                xPointProperties->setPropertyValue( "Offset", uno::Any( nOffset / 100.0 ) );
+        }
+    }
+    catch( const uno::Exception & )
+    {
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 

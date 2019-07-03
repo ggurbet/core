@@ -20,7 +20,6 @@
 #ifndef INCLUDED_VCL_SOURCE_GRAPHIC_GRAPHIC_HXX
 #define INCLUDED_VCL_SOURCE_GRAPHIC_GRAPHIC_HXX
 
-#include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <com/sun/star/awt/XBitmap.hpp>
@@ -44,8 +43,6 @@ public:
 
     using ::unographic::GraphicDescriptor::init;
     void init( const ::Graphic& rGraphic ) throw();
-
-    static const ::Graphic* getImplementation( const css::uno::Reference< css::uno::XInterface >& rxIFace ) throw();
 
 protected:
 

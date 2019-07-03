@@ -645,7 +645,7 @@
       </info>
       <prop oor:name="URL" oor:type="xs:string">
         <info>
-          <desc>Specifies an URL that should be recovered after the next Office
+          <desc>Specifies a URL that should be recovered after the next Office
           start.</desc>
         </info>
       </prop>
@@ -1051,20 +1051,20 @@
       <prop oor:name="MaximumPaperWidth" oor:type="xs:int" oor:nillable="false">
         <info>
           <desc>Specifies the maximum allowed Paper Width for page definitions
-          in cm. Default is 3m, i.e. 300 cm. When this is changed to higher
+          in cm. Default is 6m, i.e. 600 cm. When this is changed to higher
           values, it is done on own risk.</desc>
           <label>Maximum allowed Paper Width for page definitions</label>
         </info>
-        <value>300</value>
+        <value>600</value>
       </prop>
       <prop oor:name="MaximumPaperHeight" oor:type="xs:int" oor:nillable="false">
         <info>
           <desc>Specifies the maximum allowed Paper Height for page definitions
-          in cm. Default is 3m, i.e. 300 cm. When this is changed to higher
+          in cm. Default is 6m, i.e. 600 cm. When this is changed to higher
           values, it is done on own risk.</desc>
           <label>Maximum allowed Paper Height for page definitions</label>
         </info>
-        <value>300</value>
+        <value>600</value>
       </prop>
       <prop oor:name="MaximumPaperLeftMargin" oor:type="xs:int" oor:nillable="false">
         <info>
@@ -1283,7 +1283,7 @@
         <!-- UIHints: Tools  AutoCorrect/AutoFormat  Options - URL
              recognition -->
         <info>
-          <desc>Specifies if character strings which could represent an URL
+          <desc>Specifies if character strings which could represent a URL
           should be converted to a hyperlink.</desc>
           <label>Detect URL</label>
         </info>
@@ -2073,6 +2073,11 @@
       <prop oor:name="DonationURL" oor:type="xs:string" oor:nillable="false">
         <info>
           <desc>Specifies the URL used with the UNO command Donation (SID_DONATION).</desc>
+        </info>
+      </prop>
+      <prop oor:name="ReleaseNotesURL" oor:type="xs:string" oor:nillable="false">
+        <info>
+          <desc>Specifies the URL used with the UNO command WhatsNew (SID_WHATSNEW).</desc>
         </info>
       </prop>
     </group>
@@ -3827,6 +3832,14 @@
             </info>
             <value>true</value>
           </prop>
+          <prop oor:name="CreateMSOLockFiles" oor:type="xs:boolean" oor:nillable="false">
+            <info>
+              <desc>Specifies if LO should create MSO lock files next to the LO lock files
+              when opening a file. This makes MSO to be able to read the user name from
+              the lock file and show it for the user.</desc>
+            </info>
+            <value>false</value>
+          </prop>
         </group>
         <group oor:name="Export">
           <info>
@@ -5449,6 +5462,19 @@
           examination.</desc>
         </info>
         <value>false</value>
+      </prop>
+      <prop oor:name="ShowTipOfTheDay" oor:type="xs:boolean" oor:nillable="false">
+        <!-- UIHints: Tools - Options - General -->
+        <info>
+          <desc>Determines whether the Tip-Of-The-Day dialog is shown on startup.</desc>
+        </info>
+        <value>true</value>
+      </prop>
+      <prop oor:name="LastTipOfTheDayShown" oor:type="xs:int" oor:nillable="false">
+          <info>
+              <desc>The last time when the Tip-of-the-day dialog was shown.</desc>
+          </info>
+          <value>0</value>
       </prop>
       <prop oor:name="UseOpenCL" oor:type="xs:boolean" oor:nillable="false">
         <info>

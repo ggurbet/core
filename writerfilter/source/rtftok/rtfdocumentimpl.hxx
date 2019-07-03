@@ -389,7 +389,7 @@ public:
     RTFSprms getSprms();
     /// Store a property
     void setSprm(Id nId, Id nValue);
-    bool hasProperties();
+    bool hasProperties() const;
     /// If we got tokens indicating we're in a frame.
     bool inFrame();
 };
@@ -398,120 +398,233 @@ public:
 class RTFParserState
 {
 public:
-    explicit RTFParserState(RTFDocumentImpl* pDocumentImpl);
-
-    RTFDocumentImpl* m_pDocumentImpl;
-    RTFInternalState nInternalState;
-    Destination eDestination;
-    RTFFieldStatus eFieldStatus;
-    RTFBorderState nBorderState;
-    // font table, stylesheet table
-    RTFSprms aTableSprms;
-    RTFSprms aTableAttributes;
-    // reset by plain
-    RTFSprms aCharacterSprms;
-    RTFSprms aCharacterAttributes;
-    // reset by pard
-    RTFSprms aParagraphSprms;
-    RTFSprms aParagraphAttributes;
-    // reset by sectd
-    RTFSprms aSectionSprms;
-    RTFSprms aSectionAttributes;
-    // reset by trowd
-    RTFSprms aTableRowSprms;
-    RTFSprms aTableRowAttributes;
-    // reset by cellx
-    RTFSprms aTableCellSprms;
-    RTFSprms aTableCellAttributes;
-    // reset by tx
-    RTFSprms aTabAttributes;
-
-    RTFColorTableEntry aCurrentColor;
-
-    rtl_TextEncoding nCurrentEncoding;
-
-    /// Current \uc value.
-    int nUc;
-    /// Characters to skip, set to nUc by \u.
-    int nCharsToSkip;
-    /// Characters to read, once in binary mode.
-    int nBinaryToRead;
-
-    /// Next list level index to use when parsing list table.
-    int nListLevelNum;
-    /// List level entries, which will form a list entry later.
-    RTFSprms aListLevelEntries;
-
-    /// List of character positions in leveltext to replace.
-    std::vector<sal_Int32> aLevelNumbers;
-    /// If aLevelNumbers should be read at all.
-    bool bLevelNumbersValid;
-
-    RTFPicture aPicture;
-    RTFShape aShape;
-    RTFDrawingObject aDrawingObject;
-    RTFFrame aFrame;
-
     /// Maps to OOXML's ascii, cs or eastAsia.
     enum class RunType
     {
+        NONE,
         LOCH,
         HICH,
-        DBCH
+        DBCH,
+        LTRCH_RTLCH_1,
+        LTRCH_RTLCH_2,
+        RTLCH_LTRCH_1,
+        RTLCH_LTRCH_2
     };
-    RunType eRunType;
-    /// ltrch or rtlch
-    bool isRightToLeft;
 
-    // Info group.
-    sal_Int16 nYear;
-    sal_uInt16 nMonth;
-    sal_uInt16 nDay;
-    sal_uInt16 nHour;
-    sal_uInt16 nMinute;
-
-    /// Text from special destinations.
-    OUStringBuffer aDestinationText;
-    /// point to the buffer of the current destination
-    OUStringBuffer* pDestinationText;
+    explicit RTFParserState(RTFDocumentImpl* pDocumentImpl);
 
     void appendDestinationText(const OUString& rString)
     {
-        if (pDestinationText)
-            pDestinationText->append(rString);
+        if (m_pCurrentDestinationText)
+            m_pCurrentDestinationText->append(rString);
     }
 
+    void setPropName(const OUString& rPropName) { m_aPropName = rPropName; }
+    OUString const& getPropName() const { return m_aPropName; }
+    void setPropType(const css::uno::Type& rPropType) { m_aPropType = rPropType; }
+    css::uno::Type const& getPropType() const { return m_aPropType; }
+    void setTableRowWidthAfter(int nTableRowWidthAfter)
+    {
+        m_nTableRowWidthAfter = nTableRowWidthAfter;
+    }
+    int getTableRowWidthAfter() const { return m_nTableRowWidthAfter; }
+    void setStartedTrackchange(bool bStartedTrackchange)
+    {
+        m_bStartedTrackchange = bStartedTrackchange;
+    }
+    bool getStartedTrackchange() const { return m_bStartedTrackchange; }
+    void setCreatedShapeGroup(bool bCreatedShapeGroup)
+    {
+        m_bCreatedShapeGroup = bCreatedShapeGroup;
+    }
+    bool getCreatedShapeGroup() const { return m_bCreatedShapeGroup; }
+    void setInShape(bool bInShape) { m_bInShape = bInShape; }
+    bool getInShape() const { return m_bInShape; }
+    void setInShapeGroup(bool bInShapeGroup) { m_bInShapeGroup = bInShapeGroup; }
+    bool getInShapeGroup() const { return m_bInShapeGroup; }
+    void setHadShapeText(bool bHadShapeText) { m_bHadShapeText = bHadShapeText; }
+    bool getHadShapeText() const { return m_bHadShapeText; }
+    void setInBackground(bool bInBackground) { m_bInBackground = bInBackground; }
+    bool getInBackground() const { return m_bInBackground; }
+    void setInListpicture(bool bInListpicture) { m_bInListpicture = bInListpicture; }
+    bool getInListpicture() const { return m_bInListpicture; }
+    void setCurrentBuffer(RTFBuffer_t* pCurrentBuffer) { m_pCurrentBuffer = pCurrentBuffer; }
+    RTFBuffer_t* getCurrentBuffer() const { return m_pCurrentBuffer; }
+    void setCurrentListOverrideIndex(int nCurrentListOverrideIndex)
+    {
+        m_nCurrentListOverrideIndex = nCurrentListOverrideIndex;
+    }
+    int getCurrentListOverrideIndex() const { return m_nCurrentListOverrideIndex; }
+    void setCurrentListIndex(int nCurrentListIndex) { m_nCurrentListIndex = nCurrentListIndex; }
+    int getCurrentListIndex() const { return m_nCurrentListIndex; }
+    void setCurrentCharacterStyleIndex(int nCurrentCharacterStyleIndex)
+    {
+        m_nCurrentCharacterStyleIndex = nCurrentCharacterStyleIndex;
+    }
+    int getCurrentCharacterStyleIndex() const { return m_nCurrentCharacterStyleIndex; }
+    void setCurrentStyleIndex(int nCurrentStyleIndex) { m_nCurrentStyleIndex = nCurrentStyleIndex; }
+    int getCurrentStyleIndex() const { return m_nCurrentStyleIndex; }
+    void setCurrentDestinationText(OUStringBuffer* pDestinationText)
+    {
+        m_pCurrentDestinationText = pDestinationText;
+    }
+    OUStringBuffer* getCurrentDestinationText() const { return m_pCurrentDestinationText; }
+    OUStringBuffer& getDestinationText() { return m_aDestinationText; }
+    void setMinute(sal_uInt16 nMinute) { m_nMinute = nMinute; }
+    sal_uInt16 getMinute() const { return m_nMinute; }
+    void setHour(sal_uInt16 nHour) { m_nHour = nHour; }
+    sal_uInt16 getHour() const { return m_nHour; }
+    void setDay(sal_uInt16 nDay) { m_nDay = nDay; }
+    sal_uInt16 getDay() const { return m_nDay; }
+    void setMonth(sal_uInt16 nMonth) { m_nMonth = nMonth; }
+    sal_uInt16 getMonth() const { return m_nMonth; }
+    void setYear(sal_uInt16 nYear) { m_nYear = nYear; }
+    sal_uInt16 getYear() const { return m_nYear; }
+    void setRunType(RunType eRunType) { m_eRunType = eRunType; }
+    RunType getRunType() const { return m_eRunType; }
+    RTFFrame& getFrame() { return m_aFrame; }
+    RTFDrawingObject& getDrawingObject() { return m_aDrawingObject; }
+    RTFShape& getShape() { return m_aShape; }
+    RTFPicture& getPicture() { return m_aPicture; }
+    void setLevelNumbersValid(bool bLevelNumbersValid)
+    {
+        m_bLevelNumbersValid = bLevelNumbersValid;
+    }
+    bool getLevelNumbersValid() const { return m_bLevelNumbersValid; }
+    std::vector<sal_Int32>& getLevelNumbers() { return m_aLevelNumbers; }
+    RTFSprms& getListLevelEntries() { return m_aListLevelEntries; }
+    int& getListLevelNum() { return m_nListLevelNum; }
+    void setBinaryToRead(int nBinaryToRead) { m_nBinaryToRead = nBinaryToRead; }
+    int getBinaryToRead() const { return m_nBinaryToRead; }
+    int& getCharsToSkip() { return m_nCharsToSkip; }
+    void setUc(int nUc) { m_nUc = nUc; }
+    int getUc() const { return m_nUc; }
+    void setCurrentEncoding(rtl_TextEncoding nCurrentEncoding)
+    {
+        m_nCurrentEncoding = nCurrentEncoding;
+    }
+    rtl_TextEncoding getCurrentEncoding() const { return m_nCurrentEncoding; }
+    RTFColorTableEntry& getCurrentColor() { return m_aCurrentColor; }
+    RTFSprms& getTabAttributes() { return m_aTabAttributes; }
+    RTFSprms& getTableCellAttributes() { return m_aTableCellAttributes; }
+    RTFSprms& getTableCellSprms() { return m_aTableCellSprms; }
+    RTFSprms& getTableRowAttributes() { return m_aTableRowAttributes; }
+    RTFSprms& getTableRowSprms() { return m_aTableRowSprms; }
+    RTFSprms& getSectionAttributes() { return m_aSectionAttributes; }
+    RTFSprms& getSectionSprms() { return m_aSectionSprms; }
+    RTFSprms& getParagraphAttributes() { return m_aParagraphAttributes; }
+    RTFSprms& getParagraphSprms() { return m_aParagraphSprms; }
+    RTFSprms& getCharacterAttributes() { return m_aCharacterAttributes; }
+    RTFSprms& getCharacterSprms() { return m_aCharacterSprms; }
+    RTFSprms& getTableAttributes() { return m_aTableAttributes; }
+    RTFSprms& getTableSprms() { return m_aTableSprms; }
+    void setBorderState(RTFBorderState nBorderState) { m_nBorderState = nBorderState; }
+    RTFBorderState getBorderState() const { return m_nBorderState; }
+    void setFieldStatus(RTFFieldStatus eFieldStatus) { m_eFieldStatus = eFieldStatus; }
+    RTFFieldStatus getFieldStatus() const { return m_eFieldStatus; }
+    void setDestination(Destination eDestination) { m_eDestination = eDestination; }
+    Destination getDestination() const { return m_eDestination; }
+    void setInternalState(RTFInternalState nInternalState) { m_nInternalState = nInternalState; }
+    RTFInternalState getInternalState() const { return m_nInternalState; }
+    RTFDocumentImpl* getDocumentImpl() { return m_pDocumentImpl; }
+
+private:
+    RTFDocumentImpl* m_pDocumentImpl;
+    RTFInternalState m_nInternalState;
+    Destination m_eDestination;
+    RTFFieldStatus m_eFieldStatus;
+    RTFBorderState m_nBorderState;
+    // font table, stylesheet table
+    RTFSprms m_aTableSprms;
+    RTFSprms m_aTableAttributes;
+    // reset by plain
+    RTFSprms m_aCharacterSprms;
+    RTFSprms m_aCharacterAttributes;
+    // reset by pard
+    RTFSprms m_aParagraphSprms;
+    RTFSprms m_aParagraphAttributes;
+    // reset by sectd
+    RTFSprms m_aSectionSprms;
+    RTFSprms m_aSectionAttributes;
+    // reset by trowd
+    RTFSprms m_aTableRowSprms;
+    RTFSprms m_aTableRowAttributes;
+    // reset by cellx
+    RTFSprms m_aTableCellSprms;
+    RTFSprms m_aTableCellAttributes;
+    // reset by tx
+    RTFSprms m_aTabAttributes;
+
+    RTFColorTableEntry m_aCurrentColor;
+
+    rtl_TextEncoding m_nCurrentEncoding;
+
+    /// Current \uc value.
+    int m_nUc;
+    /// Characters to skip, set to nUc by \u.
+    int m_nCharsToSkip;
+    /// Characters to read, once in binary mode.
+    int m_nBinaryToRead;
+
+    /// Next list level index to use when parsing list table.
+    int m_nListLevelNum;
+    /// List level entries, which will form a list entry later.
+    RTFSprms m_aListLevelEntries;
+    /// List of character positions in leveltext to replace.
+    std::vector<sal_Int32> m_aLevelNumbers;
+    /// If aLevelNumbers should be read at all.
+    bool m_bLevelNumbersValid;
+
+    RTFPicture m_aPicture;
+    RTFShape m_aShape;
+    RTFDrawingObject m_aDrawingObject;
+    RTFFrame m_aFrame;
+
+    RunType m_eRunType;
+
+    // Info group.
+    sal_Int16 m_nYear;
+    sal_uInt16 m_nMonth;
+    sal_uInt16 m_nDay;
+    sal_uInt16 m_nHour;
+    sal_uInt16 m_nMinute;
+
+    /// Text from special destinations.
+    OUStringBuffer m_aDestinationText;
+    /// point to the buffer of the current destination
+    OUStringBuffer* m_pCurrentDestinationText;
+
     /// Index of the current style.
-    int nCurrentStyleIndex;
+    int m_nCurrentStyleIndex;
     /// Index of the current character style.
-    int nCurrentCharacterStyleIndex;
+    int m_nCurrentCharacterStyleIndex;
     /// Current listid, points to a listtable entry.
-    int nCurrentListIndex = -1;
+    int m_nCurrentListIndex = -1;
     /// Current ls, points to a listoverridetable entry.
-    int nCurrentListOverrideIndex = -1;
+    int m_nCurrentListOverrideIndex = -1;
 
     /// Points to the active buffer, if there is one.
-    RTFBuffer_t* pCurrentBuffer;
+    RTFBuffer_t* m_pCurrentBuffer;
 
     /// If we're inside a \listpicture group.
-    bool bInListpicture;
+    bool m_bInListpicture;
 
     /// If we're inside a \background group.
-    bool bInBackground;
+    bool m_bInBackground;
 
-    bool bHadShapeText;
-    bool bInShapeGroup; ///< If we're inside a \shpgrp group.
-    bool bInShape; ///< If we're inside a \shp group.
-    bool bCreatedShapeGroup; ///< A GroupShape was created and pushed to the parent stack.
-    bool bStartedTrackchange; ///< Track change is started, need to end it before popping.
+    bool m_bHadShapeText;
+    bool m_bInShapeGroup; ///< If we're inside a \shpgrp group.
+    bool m_bInShape; ///< If we're inside a \shp group.
+    bool m_bCreatedShapeGroup; ///< A GroupShape was created and pushed to the parent stack.
+    bool m_bStartedTrackchange; ///< Track change is started, need to end it before popping.
 
     /// User-defined property: key name.
-    OUString aPropName;
+    OUString m_aPropName;
     /// User-defined property: value type.
-    css::uno::Type aPropType;
+    css::uno::Type m_aPropType;
 
     /// Width of invisible cell at the end of the row.
-    int nTableRowWidthAfter;
+    int m_nTableRowWidthAfter;
 };
 
 /// An RTF stack is similar to std::stack, except that it has an operator[].
@@ -633,6 +746,8 @@ public:
     /// Buffers properties to be sent later.
     void bufferProperties(RTFBuffer_t& rBuffer, const RTFValue::Pointer_t& pValue,
                           const tools::SvRef<TableRowBuffer>& pTableProperties);
+    /// implement non-obvious RTF specific style inheritance
+    RTFReferenceTable::Entries_t deduplicateStyleTable();
 
 private:
     SvStream& Strm();

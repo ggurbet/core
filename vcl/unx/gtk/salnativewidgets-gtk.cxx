@@ -438,8 +438,7 @@ void NWPixmapCacheList::AddCache( NWPixmapCache* pCache )
 }
 void NWPixmapCacheList::RemoveCache( NWPixmapCache* pCache )
 {
-    ::std::vector< NWPixmapCache* >::iterator p;
-    p = ::std::find( mCaches.begin(), mCaches.end(), pCache );
+    auto p = ::std::find( mCaches.begin(), mCaches.end(), pCache );
     if( p != mCaches.end() )
         mCaches.erase( p );
 }
@@ -613,7 +612,7 @@ void GtkSalGraphics::copyBits( const SalTwoRect& rPosAry,
     X11SalGraphics::copyBits( rPosAry, pSrcGraphics );
 }
 
-bool GtkSalGraphics::IsNativeControlSupported( ControlType nType, ControlPart nPart )
+bool GtkSalGraphics::isNativeControlSupported( ControlType nType, ControlPart nPart )
 {
     switch(nType)
     {
@@ -807,7 +806,7 @@ bool GtkSalGraphics::hitTestNativeControl( ControlType        nType,
         return true;
     }
 
-    if( IsNativeControlSupported(nType, nPart) )
+    if( isNativeControlSupported(nType, nPart) )
     {
         rIsInside = rControlRegion.IsInside( aPos );
         return true;
@@ -840,11 +839,9 @@ bool GtkSalGraphics::drawNativeControl(ControlType nType, ControlPart nPart,
     if( aClipRegion.IsNull() )
         aClipRegion = aCtrlRect;
 
-    tools::Rectangle aPixmapRect;
-
     // make pixmap a little larger since some themes draw decoration
     // outside the rectangle, see e.g. checkbox
-    aPixmapRect = tools::Rectangle(Point( aCtrlRect.Left()-1, aCtrlRect.Top()-1 ),
+    tools::Rectangle aPixmapRect(Point( aCtrlRect.Left()-1, aCtrlRect.Top()-1 ),
                             Size( aCtrlRect.GetWidth()+2, aCtrlRect.GetHeight()+2) );
 
     ControlCacheKey aControlCacheKey(nType, nPart, nState, aPixmapRect.GetSize());
@@ -871,8 +868,8 @@ bool GtkSalGraphics::drawNativeControl(ControlType nType, ControlPart nPart,
     {
         if( bNeedTwoPasses )
         {
-            xPixmap.reset( NWGetPixmapFromScreen( aPixmapRect, BG_WHITE ) );
-            xMask.reset( NWGetPixmapFromScreen( aPixmapRect, BG_BLACK ) );
+            xPixmap = NWGetPixmapFromScreen( aPixmapRect, BG_WHITE );
+            xMask = NWGetPixmapFromScreen( aPixmapRect, BG_BLACK );
             if( !xPixmap || !xMask )
                 return false;
             nPasses = 2;
@@ -881,7 +878,7 @@ bool GtkSalGraphics::drawNativeControl(ControlType nType, ControlPart nPart,
         }
         else
         {
-            xPixmap.reset( NWGetPixmapFromScreen( aPixmapRect, BG_FILL ) );
+            xPixmap = NWGetPixmapFromScreen( aPixmapRect, BG_FILL );
             if( !xPixmap )
                 return false;
             nPasses = 1;
@@ -1020,7 +1017,7 @@ bool GtkSalGraphics::DoDrawNativeControl(
     }
     else if( (nType == ControlType::ListNode) && (nPart == ControlPart::Entire) )
     {
-        return NWPaintGTKListNode( aCtrlRect, nState, aValue );
+        return NWPaintGTKListNode( pDrawable, aCtrlRect, nState, aValue );
     }
     else if( (nType == ControlType::ListNet) && (nPart == ControlPart::Entire) )
     {
@@ -1029,7 +1026,7 @@ bool GtkSalGraphics::DoDrawNativeControl(
     }
     else if( nType == ControlType::Slider )
     {
-        return NWPaintGTKSlider( nPart, aCtrlRect, nState, aValue );
+        return NWPaintGTKSlider(pDrawable, nPart, aCtrlRect, nState, aValue);
     }
     else if( nType == ControlType::WindowBackground )
     {
@@ -1131,10 +1128,8 @@ bool GtkSalGraphics::getNativeControlRegion(  ControlType nType,
         NWEnsureGTKMenubar( m_nXScreen );
         GtkRequisition aReq;
         gtk_widget_size_request( gWidgetData[m_nXScreen].gMenubarWidget, &aReq );
-        tools::Rectangle aMenuBarRect = rControlRegion;
-        aMenuBarRect = tools::Rectangle( aMenuBarRect.TopLeft(),
-                                  Size( aMenuBarRect.GetWidth(), aReq.height+1 ) );
-        rNativeBoundingRegion = aMenuBarRect;
+        rNativeBoundingRegion = tools::Rectangle( rControlRegion.TopLeft(),
+                                       Size( rControlRegion.GetWidth(), aReq.height+1 ) );
         rNativeContentRegion = rNativeBoundingRegion;
         returnVal = true;
     }
@@ -1298,13 +1293,13 @@ bool GtkSalGraphics::getNativeControlRegion(  ControlType nType,
     if( bNeedTwoPasses ) \
     { \
         _nPasses = 2; \
-        _pixmap.reset( NWGetPixmapFromScreen( aRect, BG_WHITE ) ); \
-        _mask.reset( NWGetPixmapFromScreen( aRect, BG_BLACK ) ); \
+        _pixmap = NWGetPixmapFromScreen( aRect, BG_WHITE ); \
+        _mask = NWGetPixmapFromScreen( aRect, BG_BLACK ); \
     } \
     else \
     { \
         _nPasses = 1; \
-        _pixmap.reset( NWGetPixmapFromScreen( aRect, BG_FILL ) ); \
+        _pixmap = NWGetPixmapFromScreen( aRect, BG_FILL ); \
     } \
     if( !_pixmap || ( bNeedTwoPasses && !_mask ) ) \
         return false; \
@@ -1329,13 +1324,13 @@ bool GtkSalGraphics::getNativeControlRegion(  ControlType nType,
     if( bNeedTwoPasses ) \
     { \
         _nPasses = 2; \
-        pixmap = NWGetPixmapFromScreen( aRect, BG_WHITE ); \
-        mask = NWGetPixmapFromScreen( aRect, BG_BLACK ); \
+        pixmap = NWGetPixmapFromScreen( aRect, BG_WHITE ).release(); \
+        mask = NWGetPixmapFromScreen( aRect, BG_BLACK ).release(); \
     } \
     else \
     { \
         _nPasses = 1; \
-        pixmap = NWGetPixmapFromScreen( aRect, BG_FILL ); \
+        pixmap = NWGetPixmapFromScreen( aRect, BG_FILL ).release(); \
         mask = nullptr; \
     } \
     if( !pixmap || ( bNeedTwoPasses && !mask ) ) \
@@ -2031,7 +2026,7 @@ bool GtkSalGraphics::NWPaintGTKScrollbar( ControlPart nPart,
 
     // as multiple paints are required for the scrollbar
     // painting them directly to the window flickers
-    pixmap.reset( NWGetPixmapFromScreen( pixmapRect ) );
+    pixmap = NWGetPixmapFromScreen( pixmapRect );
     if( ! pixmap )
         return false;
     x = y = 0;
@@ -3347,7 +3342,18 @@ bool GtkSalGraphics::NWPaintGTKTooltip(
     return true;
 }
 
+namespace
+{
+void NWPaintGTKListNodeReal(SalX11Screen nXScreen, GdkDrawable* gdkDrawable, GtkStateType stateType,
+                            gint w, int h, GtkExpanderStyle eStyle)
+{
+    gtk_paint_expander(gWidgetData[nXScreen].gTreeView->style, gdkDrawable, stateType, nullptr,
+                       gWidgetData[nXScreen].gTreeView, "treeview", w / 2, h / 2, eStyle);
+}
+}
+
 bool GtkSalGraphics::NWPaintGTKListNode(
+            GdkDrawable* gdkDrawable,
             const tools::Rectangle& rControlRectangle,
             ControlState nState, const ImplControlValue& rValue )
 {
@@ -3377,16 +3383,15 @@ bool GtkSalGraphics::NWPaintGTKListNode(
             break;
     }
 
+    if (GtkSalGraphics::bNeedPixmapPaint)
+    {
+        NWPaintGTKListNodeReal(m_nXScreen, gdkDrawable, stateType, w, h, eStyle);
+        return true;
+    }
+
     BEGIN_PIXMAP_RENDER( aRect, pixDrawable )
     {
-        gtk_paint_expander( gWidgetData[m_nXScreen].gTreeView->style,
-                            pixDrawable,
-                            stateType,
-                            nullptr,
-                            gWidgetData[m_nXScreen].gTreeView,
-                            "treeview",
-                            w/2, h/2,
-                            eStyle );
+        NWPaintGTKListNodeReal(m_nXScreen, pixDrawable, stateType, w, h, eStyle);
     }
     END_PIXMAP_RENDER( aRect )
 
@@ -3454,7 +3459,57 @@ bool GtkSalGraphics::NWPaintGTKProgress(
     return true;
 }
 
+namespace
+{
+void NWPaintGTKSliderReal(SalX11Screen nXScreen, GdkDrawable* gdkDrawable, ControlPart nPart,
+                          const tools::Rectangle& rControlRectangle, ControlState nState,
+                          const ImplControlValue& rValue)
+{
+    gint w, h;
+    w = rControlRectangle.GetWidth();
+    h = rControlRectangle.GetHeight();
+
+    const SliderValue* pVal = static_cast<const SliderValue*>(&rValue);
+
+    GtkWidget* pWidget = (nPart == ControlPart::TrackHorzArea)
+                             ? GTK_WIDGET(gWidgetData[nXScreen].gHScale)
+                             : GTK_WIDGET(gWidgetData[nXScreen].gVScale);
+    const gchar* pDetail = (nPart == ControlPart::TrackHorzArea) ? "hscale" : "vscale";
+    GtkOrientation eOri = (nPart == ControlPart::TrackHorzArea) ? GTK_ORIENTATION_HORIZONTAL
+                                                                : GTK_ORIENTATION_VERTICAL;
+    gint slider_width = 10;
+    gint slider_length = 10;
+    gint trough_border = 0;
+    gtk_widget_style_get(pWidget, "slider-width", &slider_width, "slider-length", &slider_length,
+                         "trough-border", &trough_border, nullptr);
+
+    GtkStateType eState
+        = (nState & ControlState::ENABLED) ? GTK_STATE_NORMAL : GTK_STATE_INSENSITIVE;
+    if (nPart == ControlPart::TrackHorzArea)
+    {
+        gtk_paint_box(pWidget->style, gdkDrawable, eState, GTK_SHADOW_IN, nullptr, pWidget,
+                      "trough", 0, (h - slider_width - 2 * trough_border) / 2, w,
+                      slider_width + 2 * trough_border);
+        gint x
+            = (w - slider_length + 1) * (pVal->mnCur - pVal->mnMin) / (pVal->mnMax - pVal->mnMin);
+        gtk_paint_slider(pWidget->style, gdkDrawable, eState, GTK_SHADOW_OUT, nullptr, pWidget,
+                         pDetail, x, (h - slider_width) / 2, slider_length, slider_width, eOri);
+    }
+    else
+    {
+        gtk_paint_box(pWidget->style, gdkDrawable, eState, GTK_SHADOW_IN, nullptr, pWidget,
+                      "trough", (w - slider_width - 2 * trough_border) / 2, 0,
+                      slider_width + 2 * trough_border, h);
+        gint y
+            = (h - slider_length + 1) * (pVal->mnCur - pVal->mnMin) / (pVal->mnMax - pVal->mnMin);
+        gtk_paint_slider(pWidget->style, gdkDrawable, eState, GTK_SHADOW_OUT, nullptr, pWidget,
+                         pDetail, (w - slider_width) / 2, y, slider_width, slider_length, eOri);
+    }
+}
+}
+
 bool GtkSalGraphics::NWPaintGTKSlider(
+            GdkDrawable* gdkDrawable,
             ControlPart nPart,
             const tools::Rectangle& rControlRectangle,
             ControlState nState, const ImplControlValue& rValue )
@@ -3462,73 +3517,15 @@ bool GtkSalGraphics::NWPaintGTKSlider(
     OSL_ASSERT( rValue.getType() == ControlType::Slider );
     NWEnsureGTKSlider( m_nXScreen );
 
-    gint            w, h;
-    w = rControlRectangle.GetWidth();
-    h = rControlRectangle.GetHeight();
-
-    const SliderValue* pVal = static_cast<const SliderValue*>(&rValue);
+    if (GtkSalGraphics::bNeedPixmapPaint)
+    {
+        NWPaintGTKSliderReal(m_nXScreen, gdkDrawable, nPart, rControlRectangle, nState, rValue);
+        return true;
+    }
 
     BEGIN_PIXMAP_RENDER( rControlRectangle, pixDrawable )
     {
-        GtkWidget* pWidget = (nPart == ControlPart::TrackHorzArea)
-                             ? GTK_WIDGET(gWidgetData[m_nXScreen].gHScale)
-                             : GTK_WIDGET(gWidgetData[m_nXScreen].gVScale);
-        const gchar* pDetail = (nPart == ControlPart::TrackHorzArea) ? "hscale" : "vscale";
-        GtkOrientation eOri = (nPart == ControlPart::TrackHorzArea) ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL;
-        gint slider_width = 10;
-        gint slider_length = 10;
-        gint trough_border = 0;
-        gtk_widget_style_get( pWidget,
-                              "slider-width", &slider_width,
-                              "slider-length", &slider_length,
-                              "trough-border", &trough_border,
-                              nullptr);
-
-        GtkStateType eState = (nState & ControlState::ENABLED) ? GTK_STATE_NORMAL : GTK_STATE_INSENSITIVE;
-        if( nPart == ControlPart::TrackHorzArea )
-        {
-            gtk_paint_box( pWidget->style,
-                           pixDrawable,
-                           eState,
-                           GTK_SHADOW_IN,
-                           nullptr,
-                           pWidget,
-                           "trough",
-                           0, (h-slider_width-2*trough_border)/2, w, slider_width + 2*trough_border);
-            gint x = (w - slider_length + 1) * (pVal->mnCur - pVal->mnMin) / (pVal->mnMax - pVal->mnMin);
-            gtk_paint_slider( pWidget->style,
-                              pixDrawable,
-                              eState,
-                              GTK_SHADOW_OUT,
-                              nullptr,
-                              pWidget,
-                              pDetail,
-                              x, (h-slider_width)/2,
-                              slider_length, slider_width,
-                              eOri );
-        }
-        else
-        {
-            gtk_paint_box( pWidget->style,
-                           pixDrawable,
-                           eState,
-                           GTK_SHADOW_IN,
-                           nullptr,
-                           pWidget,
-                           "trough",
-                           (w-slider_width-2*trough_border)/2, 0, slider_width + 2*trough_border, h);
-            gint y = (h - slider_length + 1) * (pVal->mnCur - pVal->mnMin) / (pVal->mnMax - pVal->mnMin);
-            gtk_paint_slider( pWidget->style,
-                              pixDrawable,
-                              eState,
-                              GTK_SHADOW_OUT,
-                              nullptr,
-                              pWidget,
-                              pDetail,
-                              (w-slider_width)/2, y,
-                              slider_width, slider_length,
-                              eOri );
-        }
+        NWPaintGTKSliderReal(m_nXScreen, pixDrawable, nPart, rControlRectangle, nState, rValue);
     }
     END_PIXMAP_RENDER( rControlRectangle )
 
@@ -3742,7 +3739,7 @@ void GtkSalGraphics::refreshFontconfig( GtkSettings *pSettings )
     }
 }
 
-void GtkSalGraphics::updateSettings( AllSettings& rSettings )
+bool GtkSalGraphics::updateSettings( AllSettings& rSettings )
 {
     gtk_widget_ensure_style( m_pWindow );
     GtkStyle* pStyle = gtk_widget_get_style( m_pWindow );
@@ -4060,22 +4057,23 @@ void GtkSalGraphics::updateSettings( AllSettings& rSettings )
 
     // finally update the collected settings
     rSettings.SetStyleSettings( aStyleSet );
+
+    return true;
 }
 
 /************************************************************************
  * Create a GdkPixmap filled with the contents of an area of an Xlib window
  ************************************************************************/
 
-GdkX11Pixmap* GtkSalGraphics::NWGetPixmapFromScreen( tools::Rectangle srcRect, int nBgColor )
+std::unique_ptr<GdkX11Pixmap> GtkSalGraphics::NWGetPixmapFromScreen( tools::Rectangle srcRect, int nBgColor )
 {
-    GdkX11Pixmap* pPixmap;
     int nDepth = vcl_sal::getSalDisplay(GetGenericUnixSalData())->GetVisual( m_nXScreen ).GetDepth();
 
-    pPixmap = new GdkX11Pixmap( srcRect.GetWidth(), srcRect.GetHeight(), nDepth );
+    std::unique_ptr<GdkX11Pixmap> pPixmap(new GdkX11Pixmap( srcRect.GetWidth(), srcRect.GetHeight(), nDepth ));
 
     if( nBgColor == BG_FILL )
     {
-        FillPixmapFromScreen( pPixmap, srcRect.Left(), srcRect.Top() );
+        FillPixmapFromScreen( pPixmap.get(), srcRect.Left(), srcRect.Top() );
     }
     else if( nBgColor != BG_NONE )
     {

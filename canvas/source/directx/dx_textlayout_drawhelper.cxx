@@ -59,7 +59,7 @@ namespace dxcanvas
     }
 
     void TextLayoutDrawHelper::drawText(
-        const GraphicsSharedPtr&               rGraphics,
+        const std::shared_ptr<Gdiplus::Graphics>& rGraphics,
         const css::rendering::ViewState&       rViewState,
         const css::rendering::RenderState&     rRenderState,
         const ::basegfx::B2ISize&              rOutputOffset,
@@ -195,7 +195,7 @@ namespace dxcanvas
             SetTextAlign(hdc, TA_BASELINE);
             SetWorldTransform(hdc, &aXForm);
 
-            // use a empty StartPosition for text rendering
+            // use an empty StartPosition for text rendering
             const Point aEmptyPoint(0, 0);
 
             // create the String

@@ -11,7 +11,7 @@ $(eval $(call gb_StaticLibrary_StaticLibrary,graphite))
 
 $(eval $(call gb_StaticLibrary_use_unpacked,graphite,graphite))
 
-$(eval $(call gb_StaticLibrary_set_warnings_not_errors,graphite))
+$(eval $(call gb_StaticLibrary_set_warnings_disabled,graphite))
 
 $(eval $(call gb_StaticLibrary_set_include,graphite,\
 	-I$(call gb_UnpackedTarball_get_dir,graphite/include) \
@@ -30,6 +30,15 @@ $(eval $(call gb_StaticLibrary_add_cxxflags,graphite,\
 	 -fpermissive \
 ))
 endif
+endif
+
+ifeq ($(OS),ANDROID)
+# Force optimizations on Android, because otherwise Pass.cpp triggers an
+# infinite loop in clang, at least in this version:
+# Android (5058415 based on r339409) clang version 8.0.2 (https://android.googlesource.com/toolchain/clang 40173bab62ec746213857d083c0e8b0abb568790) (https://android.googlesource.com/toolchain/llvm 7a6618d69e7e8111e1d49dc9e7813767c5ca756a) (based on LLVM 8.0.2svn)
+$(eval $(call gb_StaticLibrary_add_cxxflags,graphite,\
+     -Os \
+))
 endif
 
 $(eval $(call gb_StaticLibrary_set_generated_cxx_suffix,graphite,cpp))

@@ -36,6 +36,7 @@
 #include <com/sun/star/inspection/PropertyControlType.hpp>
 #include <com/sun/star/ucb/AlreadyInitializedException.hpp>
 #include <com/sun/star/lang/XSingleComponentFactory.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/util/VetoException.hpp>
 #include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
@@ -358,7 +359,7 @@ namespace pcr
         // Maybe it is intended to only announce the frame to the controller, and the instance doing this
         // announcement is responsible for calling setComponent, too.
         Reference< XWindow > xContainerWindow = m_xFrame->getContainerWindow();
-        VCLXWindow* pContainerWindow = VCLXWindow::GetImplementation(xContainerWindow);
+        VCLXWindow* pContainerWindow = comphelper::getUnoTunnelImplementation<VCLXWindow>(xContainerWindow);
         VclPtr<vcl::Window> pParentWin = pContainerWindow ? pContainerWindow->GetWindow() : VclPtr<vcl::Window>();
         if (!pParentWin)
             throw RuntimeException("The frame is invalid. Unable to extract the container window.",*this);
@@ -720,7 +721,7 @@ namespace pcr
             getPropertyBox().SetPropertyValue( _rEvent.PropertyName, aNewValue, bAmbiguousValue );
         }
 
-        // if it's a actuating property, then update the UI for any dependent
+        // if it's an actuating property, then update the UI for any dependent
         // properties
         if ( impl_isActuatingProperty_nothrow( _rEvent.PropertyName ) )
             impl_broadcastPropertyChange_nothrow( _rEvent.PropertyName, aNewValue, _rEvent.OldValue, false );
@@ -1148,7 +1149,7 @@ namespace pcr
             std::set< sal_uInt16 > aUsedPages;
 
             // when building the UI below, remember which properties are actuating,
-            // to allow for a initial actuatingPropertyChanged call
+            // to allow for an initial actuatingPropertyChanged call
             std::vector< OUString > aActuatingProperties;
             std::vector< Any > aActuatingPropertyValues;
 
@@ -1217,7 +1218,7 @@ namespace pcr
             if ( !m_aPageIds.empty() )
             {
                 Sequence< PropertyCategoryDescriptor > aCategories( m_xModel->describeCategories() );
-                if ( aCategories.getLength() )
+                if ( aCategories.hasElements() )
                     m_pView->activatePage( m_aPageIds[ aCategories[0].ProgrammaticName ] );
                 else
                     // allowed: if we default-created the pages ...

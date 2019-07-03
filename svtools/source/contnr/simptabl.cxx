@@ -242,16 +242,6 @@ void SvSimpleTable::InsertHeaderEntry(const OUString& rText,
     SetTabs();
 }
 
-void SvSimpleTable::ClearHeader()
-{
-    aHeaderBar->Clear();
-}
-
-void SvSimpleTable::ShowTable()
-{
-    m_rParentTableContainer.Show();
-}
-
 void SvSimpleTable::EnableTable()
 {
     m_rParentTableContainer.Enable();
@@ -359,13 +349,6 @@ void SvSimpleTable::HBarEndDrag()
     Update();
 }
 
-
-void SvSimpleTable::Command( const CommandEvent& rCEvt )
-{
-    aCEvt=rCEvt;
-    aCommandLink.Call(this);
-    SvHeaderTabListBox::Command(rCEvt);
-}
 
 IMPL_LINK( SvSimpleTable, StartDragHdl, HeaderBar*, pCtr, void)
 {

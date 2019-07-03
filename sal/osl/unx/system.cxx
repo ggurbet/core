@@ -26,122 +26,12 @@
 
 #ifdef NO_PTHREAD_RTL
 
-/* struct passwd differs on some platforms */
-
-#if defined(MACOSX) || defined(IOS) || defined(OPENBSD) || defined(NETBSD) || defined(HAIKU)
-
-//No mutex needed on macOS, gethostbyname is thread safe
-
 #if defined(MACOSX)
-
-#define RTL_MUTEX_LOCK
-#define RTL_MUTEX_UNLOCK
 
 #include <premac.h>
 #include <Foundation/Foundation.h>
 #include <postmac.h>
 
-#else //defined(MACOSX)
-
-static pthread_mutex_t getrtl_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-#define RTL_MUTEX_LOCK pthread_mutex_lock(&getrtl_mutex);
-#define RTL_MUTEX_UNLOCK pthread_mutex_unlock(&getrtl_mutex);
-
-#endif //defined(MACOSX)
-
-extern int h_errno;
-
-struct hostent *gethostbyname_r(const char *name, struct hostent *result,
-                                char *buffer, size_t buflen, int *h_errnop)
-{
-    /* buffer layout:   name\0
-     *                  array_of_pointer_to_aliases
-     *                  NULL
-     *                  alias1\0...aliasn\0
-     *                  array_of_pointer_to_addresses
-     *                  NULL
-     *                  addr1addr2addr3...addrn
-     */
-    struct hostent* res;
-
-    RTL_MUTEX_LOCK
-
-    if ( (res = gethostbyname(name)) )
-    {
-        int nname, naliases, naddr_list, naliasesdata;
-        char **p, **parray, *data;
-
-        /* Check buffer size before copying, we want to leave the
-         * buffers unmodified in case something goes wrong.
-         *
-         * Is this required?
-         */
-
-        nname= strlen(res->h_name)+1;
-
-        naliases = naddr_list = naliasesdata = 0;
-
-        for ( p = res->h_aliases; *p != nullptr; p++) {
-            naliases++;
-            naliasesdata += strlen(*p)+1;
-        }
-
-        for ( p = res->h_addr_list; *p != nullptr; p++)
-            naddr_list++;
-
-        if ( nname
-             + (naliases+1)*sizeof(char*) + naliasesdata
-             + (naddr_list+1)*sizeof(char*) + naddr_list*res->h_length
-             <= buflen )
-        {
-            memcpy(result, res, sizeof(struct hostent));
-
-            strcpy(buffer, res->h_name);
-            result->h_name = buffer;
-            buffer += nname;
-
-            parray = reinterpret_cast<char**>(buffer);
-            result->h_aliases = parray;
-            data = buffer + (naliases+1)*sizeof(char*);
-            for ( p = res->h_aliases; *p != nullptr; p++) {
-                int n = strlen(*p)+1;
-                *parray++ = data;
-                memcpy(data, *p, n);
-                data += n;
-            }
-            *parray = nullptr;
-            buffer = data;
-            parray = reinterpret_cast<char**>(buffer);
-            result->h_addr_list = parray;
-            data = buffer + (naddr_list+1)*sizeof(char*);
-            for ( p = res->h_addr_list; *p != nullptr; p++) {
-                *parray++ = data;
-                memcpy(data, *p, res->h_length);
-                data += res->h_length;
-            }
-            *parray = nullptr;
-
-            res = result;
-        }
-        else
-        {
-            errno = ERANGE;
-            res = nullptr;
-        }
-    }
-    else
-    {
-        *h_errnop = h_errno;
-    }
-
-    RTL_MUTEX_UNLOCK
-
-    return res;
-}
-#endif // OSX || IOS || OPENBSD || NETBSD
-
-#if defined(MACOSX)
 /*
  * Add support for resolving Mac native alias files (not the same as unix alias files)
  * (what are "unix alias files"?)

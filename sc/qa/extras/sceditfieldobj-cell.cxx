@@ -9,23 +9,37 @@
 
 #include <test/calc_unoapi_test.hxx>
 #include <test/beans/xpropertyset.hxx>
+#include <test/text/textcontent.hxx>
 #include <test/text/xtextfield.hxx>
 #include <test/text/xtextcontent.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
+#include <com/sun/star/container/XIndexAccess.hpp>
+#include <com/sun/star/sheet/XSpreadsheet.hpp>
+#include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
+#include <com/sun/star/table/XCell.hpp>
+#include <com/sun/star/text/TextContentAnchorType.hpp>
+#include <com/sun/star/text/WrapTextMode.hpp>
 #include <com/sun/star/text/XText.hpp>
+#include <com/sun/star/text/XTextContent.hpp>
+#include <com/sun/star/text/XTextCursor.hpp>
 #include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
-#include <com/sun/star/sheet/XSpreadsheetDocument.hpp>
-#include <com/sun/star/sheet/XSpreadsheet.hpp>
+#include <com/sun/star/text/XTextRange.hpp>
+#include <com/sun/star/uno/XInterface.hpp>
+
+#include <com/sun/star/uno/Reference.hxx>
 
 using namespace css;
-using namespace css::uno;
 
-namespace sc_apitest {
-
-class ScEditFieldObj_Cell : public CalcUnoApiTest, public apitest::XTextField, public apitest::XTextContent, public apitest::XPropertySet
+namespace sc_apitest
+{
+class ScEditFieldObj_Cell : public CalcUnoApiTest,
+                            public apitest::TextContent,
+                            public apitest::XPropertySet,
+                            public apitest::XTextContent,
+                            public apitest::XTextField
 {
 public:
     ScEditFieldObj_Cell();
@@ -41,10 +55,15 @@ public:
 
     CPPUNIT_TEST_SUITE(ScEditFieldObj_Cell);
 
+    // TextContent
+    CPPUNIT_TEST(testTextContentProperties);
+
     // XPropertySet
     CPPUNIT_TEST(testGetPropertySetInfo);
     CPPUNIT_TEST(testGetPropertyValue);
     CPPUNIT_TEST(testSetPropertyValue);
+    CPPUNIT_TEST(testPropertyChangeListener);
+    CPPUNIT_TEST(testVetoableChangeListener);
 
     // XTextField
     CPPUNIT_TEST(testGetPresentation);
@@ -66,7 +85,10 @@ private:
 uno::Reference<text::XTextField> ScEditFieldObj_Cell::mxField;
 
 ScEditFieldObj_Cell::ScEditFieldObj_Cell()
-     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , TextContent(text::TextContentAnchorType_AS_CHARACTER,
+                  text::TextContentAnchorType_AS_CHARACTER, text::WrapTextMode_NONE,
+                  text::WrapTextMode_NONE)
 {
 }
 
@@ -84,41 +106,41 @@ void ScEditFieldObj_Cell::tearDown()
     CalcUnoApiTest::tearDown();
 }
 
-namespace {
-
+namespace
+{
 uno::Reference<text::XTextField> getNewField(const uno::Reference<lang::XMultiServiceFactory>& xSM)
 {
-    uno::Reference<text::XTextField> xField(
-        xSM->createInstance("com.sun.star.text.TextField.URL"), UNO_QUERY_THROW);
-    uno::Reference<beans::XPropertySet> xPropSet(xField, UNO_QUERY_THROW);
+    uno::Reference<text::XTextField> xField(xSM->createInstance("com.sun.star.text.TextField.URL"),
+                                            uno::UNO_QUERY_THROW);
+    uno::Reference<beans::XPropertySet> xPropSet(xField, uno::UNO_QUERY_THROW);
     xPropSet->setPropertyValue("Representation", uno::makeAny(OUString("LibreOffice")));
     xPropSet->setPropertyValue("URL", uno::makeAny(OUString("http://www.libreoffice.org/")));
     return xField;
 }
 
-}
+} // namespace
 
 uno::Reference<uno::XInterface> ScEditFieldObj_Cell::init()
 {
     // Return a field that's already in the cell.
     if (!mxField.is())
     {
-        uno::Reference<lang::XMultiServiceFactory> xSM(mxComponent, UNO_QUERY_THROW);
+        uno::Reference<lang::XMultiServiceFactory> xSM(mxComponent, uno::UNO_QUERY_THROW);
 
         // Create a new URL field object, and populate it with name and URL.
         mxField = getNewField(xSM);
 
         // Insert this field into a cell.
-        uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, UNO_QUERY_THROW);
-        uno::Reference<container::XIndexAccess> xIA(xDoc->getSheets(), UNO_QUERY_THROW);
-        uno::Reference<sheet::XSpreadsheet> xSheet(xIA->getByIndex(0), UNO_QUERY_THROW);
+        uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, uno::UNO_QUERY_THROW);
+        uno::Reference<container::XIndexAccess> xIA(xDoc->getSheets(), uno::UNO_QUERY_THROW);
+        uno::Reference<sheet::XSpreadsheet> xSheet(xIA->getByIndex(0), uno::UNO_QUERY_THROW);
         // Use cell A1 for this.
         uno::Reference<table::XCell> xCell = xSheet->getCellByPosition(0, 0);
-        uno::Reference<text::XText> xText(xCell, UNO_QUERY_THROW);
+        uno::Reference<text::XText> xText(xCell, uno::UNO_QUERY_THROW);
 
         uno::Reference<text::XTextCursor> xCursor = xText->createTextCursor();
-        uno::Reference<text::XTextRange> xRange(xCursor, UNO_QUERY_THROW);
-        uno::Reference<text::XTextContent> xContent(mxField, UNO_QUERY_THROW);
+        uno::Reference<text::XTextRange> xRange(xCursor, uno::UNO_QUERY_THROW);
+        uno::Reference<text::XTextContent> xContent(mxField, uno::UNO_QUERY_THROW);
         xText->insertTextContent(xRange, xContent, false);
     }
     return mxField;
@@ -127,33 +149,33 @@ uno::Reference<uno::XInterface> ScEditFieldObj_Cell::init()
 uno::Reference<text::XTextContent> ScEditFieldObj_Cell::getTextContent()
 {
     // Return a field object that's not yet inserted.
-    uno::Reference<lang::XMultiServiceFactory> xSM(mxComponent, UNO_QUERY_THROW);
-    return uno::Reference<text::XTextContent>(getNewField(xSM), UNO_QUERY_THROW);
+    uno::Reference<lang::XMultiServiceFactory> xSM(mxComponent, uno::UNO_QUERY_THROW);
+    return uno::Reference<text::XTextContent>(getNewField(xSM), uno::UNO_QUERY_THROW);
 }
 
 uno::Reference<text::XTextRange> ScEditFieldObj_Cell::getTextRange()
 {
     // Use cell A2 for this.
-    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, UNO_QUERY_THROW);
-    uno::Reference<container::XIndexAccess> xIA(xDoc->getSheets(), UNO_QUERY_THROW);
-    uno::Reference<sheet::XSpreadsheet> xSheet(xIA->getByIndex(0), UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, uno::UNO_QUERY_THROW);
+    uno::Reference<container::XIndexAccess> xIA(xDoc->getSheets(), uno::UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheet> xSheet(xIA->getByIndex(0), uno::UNO_QUERY_THROW);
     uno::Reference<table::XCell> xCell = xSheet->getCellByPosition(0, 1);
-    uno::Reference<text::XText> xText(xCell, UNO_QUERY_THROW);
+    uno::Reference<text::XText> xText(xCell, uno::UNO_QUERY_THROW);
 
     uno::Reference<text::XTextCursor> xCursor = xText->createTextCursor();
-    uno::Reference<text::XTextRange> xRange(xCursor, UNO_QUERY_THROW);
+    uno::Reference<text::XTextRange> xRange(xCursor, uno::UNO_QUERY_THROW);
     return xRange;
 }
 
 void ScEditFieldObj_Cell::testEditFieldProperties()
 {
-    uno::Reference<lang::XMultiServiceFactory> xSM(mxComponent, UNO_QUERY_THROW);
+    uno::Reference<lang::XMultiServiceFactory> xSM(mxComponent, uno::UNO_QUERY_THROW);
 
     {
         // Test properties of date time field.
         uno::Reference<text::XTextField> xField(
-            xSM->createInstance("com.sun.star.text.textfield.DateTime"), UNO_QUERY_THROW);
-        uno::Reference<beans::XPropertySet> xPropSet(xField, UNO_QUERY_THROW);
+            xSM->createInstance("com.sun.star.text.textfield.DateTime"), uno::UNO_QUERY_THROW);
+        uno::Reference<beans::XPropertySet> xPropSet(xField, uno::UNO_QUERY_THROW);
 
         uno::Reference<beans::XPropertySetInfo> xInfo = xPropSet->getPropertySetInfo();
         CPPUNIT_ASSERT_MESSAGE("failed to retrieve property set info.", xInfo.is());
@@ -165,8 +187,8 @@ void ScEditFieldObj_Cell::testEditFieldProperties()
     {
         // Test properties of document title field.
         uno::Reference<text::XTextField> xField(
-            xSM->createInstance("com.sun.star.text.textfield.docinfo.Title"), UNO_QUERY_THROW);
-        uno::Reference<beans::XPropertySet> xPropSet(xField, UNO_QUERY_THROW);
+            xSM->createInstance("com.sun.star.text.textfield.docinfo.Title"), uno::UNO_QUERY_THROW);
+        uno::Reference<beans::XPropertySet> xPropSet(xField, uno::UNO_QUERY_THROW);
 
         uno::Reference<beans::XPropertySetInfo> xInfo = xPropSet->getPropertySetInfo();
         CPPUNIT_ASSERT_MESSAGE("failed to retrieve property set info.", xInfo.is());
@@ -178,7 +200,7 @@ void ScEditFieldObj_Cell::testEditFieldProperties()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScEditFieldObj_Cell);
 
-}
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

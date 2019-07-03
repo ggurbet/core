@@ -24,8 +24,6 @@
 #include <editeng/editengdllapi.h>
 #include <memory>
 
-class SvXMLNamespaceMap;
-
 
 class SvXMLAttrContainerData;
 
@@ -46,8 +44,6 @@ public:
                                  MapUnit ePresentationMetric,
                                  OUString &rText,
                                  const IntlWrapper& rIntlWrapper) const override;
-
-    virtual sal_uInt16 GetVersion( sal_uInt16 nFileFormatVersion ) const override;
 
     virtual bool            QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;
     virtual bool            PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId ) override;

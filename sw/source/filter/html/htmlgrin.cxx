@@ -644,7 +644,9 @@ IMAGE_SETEVENT:
     bool bSetScaleImageMap = false;
     sal_uInt8 nPrcWidth = 0, nPrcHeight = 0;
 
-    if ((!nWidth || !nHeight) && allowAccessLink(*m_xDoc))
+    // bPrcWidth / bPrcHeight means we have a percent size.  If that's not the case and we have no
+    // size from nWidth / nHeight either, then inspect the image header.
+    if ((!bPrcWidth && !nWidth) && (!bPrcHeight && !nHeight) && allowAccessLink(*m_xDoc))
     {
         GraphicDescriptor aDescriptor(aGraphicURL);
         if (aDescriptor.Detect(/*bExtendedInfo=*/true))
@@ -1003,23 +1005,23 @@ void SwHTMLParser::InsertBodyOptions()
 
     // Prepare the items for the page style (background, frame)
     // If BrushItem already set values must remain!
-    SvxBrushItem aBrushItem( m_pCSS1Parser->makePageDescBackground() );
+    std::shared_ptr<SvxBrushItem> aBrushItem( m_pCSS1Parser->makePageDescBackground() );
     bool bSetBrush = false;
 
     if( bBGColor && !m_pCSS1Parser->IsBodyBGColorSet() )
     {
         // background colour from "BGCOLOR"
         OUString aLink;
-        if( !aBrushItem.GetGraphicLink().isEmpty() )
-            aLink = aBrushItem.GetGraphicLink();
-        SvxGraphicPosition ePos = aBrushItem.GetGraphicPos();
+        if( !aBrushItem->GetGraphicLink().isEmpty() )
+            aLink = aBrushItem->GetGraphicLink();
+        SvxGraphicPosition ePos = aBrushItem->GetGraphicPos();
 
-        aBrushItem.SetColor( aBGColor );
+        aBrushItem->SetColor( aBGColor );
 
         if( !aLink.isEmpty() )
         {
-            aBrushItem.SetGraphicLink( aLink );
-            aBrushItem.SetGraphicPos( ePos );
+            aBrushItem->SetGraphicLink( aLink );
+            aBrushItem->SetGraphicPos( ePos );
         }
         bSetBrush = true;
         m_pCSS1Parser->SetBodyBGColorSet();
@@ -1028,8 +1030,8 @@ void SwHTMLParser::InsertBodyOptions()
     if( !aBackGround.isEmpty() && !m_pCSS1Parser->IsBodyBackgroundSet() )
     {
         // background graphic from "BACKGROUND"
-        aBrushItem.SetGraphicLink( INetURLObject::GetAbsURL( m_sBaseURL, aBackGround ) );
-        aBrushItem.SetGraphicPos( GPOS_TILED );
+        aBrushItem->SetGraphicLink( INetURLObject::GetAbsURL( m_sBaseURL, aBackGround ) );
+        aBrushItem->SetGraphicPos( GPOS_TILED );
         bSetBrush = true;
         m_pCSS1Parser->SetBodyBackgroundSet();
     }
@@ -1043,7 +1045,7 @@ void SwHTMLParser::InsertBodyOptions()
 
         // Some attributes have to set on the page style, in fact the ones
         // which aren't inherited
-        m_pCSS1Parser->SetPageDescAttrs( bSetBrush ? &aBrushItem : nullptr,
+        m_pCSS1Parser->SetPageDescAttrs( bSetBrush ? aBrushItem.get() : nullptr,
                                        &aItemSet );
 
         const SfxPoolItem *pItem;
@@ -1070,7 +1072,7 @@ void SwHTMLParser::InsertBodyOptions()
     }
     else if( bSetBrush )
     {
-        m_pCSS1Parser->SetPageDescAttrs( &aBrushItem );
+        m_pCSS1Parser->SetPageDescAttrs( aBrushItem.get() );
     }
 
     if( bLinkColor && !m_pCSS1Parser->IsBodyLinkSet() )
@@ -1380,7 +1382,7 @@ bool SwHTMLParser::HasCurrentParaBookmarks( bool bIgnoreStack ) const
             ppMark != pMarkAccess->getAllMarksEnd();
             ++ppMark)
         {
-            const ::sw::mark::IMark* pBookmark = ppMark->get();
+            const ::sw::mark::IMark* pBookmark = *ppMark;
 
             const sal_uLong nBookNdIdx = pBookmark->GetMarkPos().nNode.GetIndex();
             if( nBookNdIdx==nNodeIdx )
@@ -1445,7 +1447,7 @@ void SwHTMLParser::StripTrailingPara()
                 ppMark != pMarkAccess->getAllMarksEnd();
                 ++ppMark)
             {
-                ::sw::mark::IMark* pMark = ppMark->get();
+                ::sw::mark::IMark* pMark = *ppMark;
 
                 sal_uLong nBookNdIdx = pMark->GetMarkPos().nNode.GetIndex();
                 if(nBookNdIdx==nNodeIdx)
@@ -1463,7 +1465,7 @@ void SwHTMLParser::StripTrailingPara()
                         SwPosition aNewPos(*pNd);
                         aNewPos.nContent.Assign(pNd, pNd->Len());
                         const SwPaM aPaM(aNewPos);
-                        pMarkAccess->repositionMark(ppMark->get(), aPaM);
+                        pMarkAccess->repositionMark(*ppMark, aPaM);
                     }
                 }
                 else if( nBookNdIdx > nNodeIdx )

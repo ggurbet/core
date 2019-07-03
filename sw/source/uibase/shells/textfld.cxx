@@ -27,7 +27,9 @@
 #include <editeng/outliner.hxx>
 #include <sfx2/lnkbase.hxx>
 #include <fmtfld.hxx>
+#include <txtfld.hxx>
 #include <svl/itempool.hxx>
+#include <tools/lineend.hxx>
 #include <unotools/useroptions.hxx>
 #include <svl/whiter.hxx>
 #include <svl/eitem.hxx>
@@ -37,6 +39,7 @@
 #include <svx/postattr.hxx>
 #include <svx/hlnkitem.hxx>
 #include <svx/svxdlg.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/linkmgr.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <sfx2/dispatch.hxx>
@@ -85,20 +88,20 @@ static OUString lcl_BuildTitleWithRedline( const SwRangeRedline *pRedline )
     const char* pResId = nullptr;
     switch( pRedline->GetType() )
     {
-        case nsRedlineType_t::REDLINE_INSERT:
+        case RedlineType::Insert:
             pResId = STR_REDLINE_INSERTED;
             break;
-        case nsRedlineType_t::REDLINE_DELETE:
+        case RedlineType::Delete:
             pResId = STR_REDLINE_DELETED;
             break;
-        case nsRedlineType_t::REDLINE_FORMAT:
-        case nsRedlineType_t::REDLINE_PARAGRAPH_FORMAT:
+        case RedlineType::Format:
+        case RedlineType::ParagraphFormat:
             pResId = STR_REDLINE_FORMATTED;
             break;
-        case nsRedlineType_t::REDLINE_TABLE:
+        case RedlineType::Table:
             pResId = STR_REDLINE_TABLECHG;
             break;
-        case nsRedlineType_t::REDLINE_FMTCOLL:
+        case RedlineType::FmtColl:
             pResId = STR_REDLINE_FMTCOLLSET;
             break;
         default:
@@ -186,7 +189,9 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                             bAddSetExpressionFields ) )
                 {
                     rSh.ClearMark();
-                    if ( dynamic_cast<SwInputField*>(rSh.GetCurField( true )) != nullptr )
+                    if (!rSh.IsMultiSelection()
+                        && (nullptr != dynamic_cast<const SwTextInputField*>(
+                               SwCursorShell::GetTextFieldAtCursor(rSh.GetCursor(), true))))
                     {
                         rSh.SttSelect();
                         rSh.SelectText(
@@ -293,15 +298,17 @@ void SwTextShell::ExecField(SfxRequest &rReq)
                     bRes = aFieldMgr.InsertField( aData );
                 }
                 else
-                        //#i5788# prevent closing of the field dialog while a modal dialog ( Input field dialog ) is active
-                        if(!GetView().GetViewFrame()->IsInModalMode())
                 {
-                    SfxViewFrame* pVFrame = GetView().GetViewFrame();
-                    pVFrame->ToggleChildWindow(FN_INSERT_FIELD);
-                    bRes = pVFrame->GetChildWindow( nSlot ) != nullptr;
-                    Invalidate(rReq.GetSlot());
-                    Invalidate(FN_INSERT_FIELD_CTRL);
-                    rReq.Ignore();
+                    //#i5788# prevent closing of the field dialog while a modal dialog ( Input field dialog ) is active
+                    if(!GetView().GetViewFrame()->IsInModalMode())
+                    {
+                        SfxViewFrame* pVFrame = GetView().GetViewFrame();
+                        pVFrame->ToggleChildWindow(FN_INSERT_FIELD);
+                        bRes = pVFrame->GetChildWindow( nSlot ) != nullptr;
+                        Invalidate(rReq.GetSlot());
+                        Invalidate(FN_INSERT_FIELD_CTRL);
+                        rReq.Ignore();
+                    }
                 }
                 rReq.SetReturnValue(SfxBoolItem( nSlot, bRes ));
             }
@@ -404,70 +411,7 @@ void SwTextShell::ExecField(SfxRequest &rReq)
             break;
             case FN_POSTIT:
             {
-                SwPostItField* pPostIt = dynamic_cast<SwPostItField*>(aFieldMgr.GetCurField());
-                bool bNew = !(pPostIt && pPostIt->GetTyp()->Which() == SwFieldIds::Postit);
-                if (bNew || GetView().GetPostItMgr()->IsAnswer())
-                {
-                    const SvxPostItAuthorItem* pAuthorItem = rReq.GetArg<SvxPostItAuthorItem>(SID_ATTR_POSTIT_AUTHOR);
-                    OUString sAuthor;
-                    if ( pAuthorItem )
-                        sAuthor = pAuthorItem->GetValue();
-                    else
-                    {
-                        std::size_t nAuthor = SW_MOD()->GetRedlineAuthor();
-                        sAuthor = SW_MOD()->GetRedlineAuthor(nAuthor);
-                    }
-
-                    const SvxPostItTextItem* pTextItem = rReq.GetArg<SvxPostItTextItem>(SID_ATTR_POSTIT_TEXT);
-                    OUString sText;
-                    if ( pTextItem )
-                        sText = pTextItem->GetValue();
-
-                    // If we have a text already registered for answer, use that
-                    if (GetView().GetPostItMgr()->IsAnswer() && !GetView().GetPostItMgr()->GetAnswerText().isEmpty())
-                    {
-                        sText = GetView().GetPostItMgr()->GetAnswerText();
-                        GetView().GetPostItMgr()->RegisterAnswerText(OUString());
-                    }
-
-                    if ( rSh.HasSelection() && !rSh.IsTableMode() )
-                    {
-                        rSh.KillPams();
-                    }
-
-                    // #i120513# Inserting a comment into an autocompletion crashes
-                    // --> suggestion has to be removed before
-                    GetView().GetEditWin().StopQuickHelp();
-
-                    SwInsertField_Data aData(TYP_POSTITFLD, 0, sAuthor, sText, 0);
-                    aFieldMgr.InsertField( aData );
-
-                    rSh.Push();
-                    rSh.SwCursorShell::Left(1, CRSR_SKIP_CHARS);
-                    pPostIt = static_cast<SwPostItField*>(aFieldMgr.GetCurField());
-                    rSh.Pop(SwCursorShell::PopMode::DeleteCurrent); // Restore cursor position
-                }
-
-                // Client has disabled annotations rendering, no need to
-                // focus the postit field
-                if (comphelper::LibreOfficeKit::isActive() && !comphelper::LibreOfficeKit::isTiledAnnotations())
-                    break;
-
-                if (pPostIt)
-                {
-                    SwFieldType* pType = rSh.GetDoc()->getIDocumentFieldsAccess().GetFieldType(SwFieldIds::Postit, OUString(), false);
-                    SwIterator<SwFormatField,SwFieldType> aIter( *pType );
-                    SwFormatField* pSwFormatField = aIter.First();
-                    while( pSwFormatField )
-                    {
-                        if ( pSwFormatField->GetField() == pPostIt )
-                        {
-                            pSwFormatField->Broadcast( SwFormatFieldHint( nullptr, SwFormatFieldHintWhich::FOCUS, &GetView() ) );
-                            break;
-                        }
-                        pSwFormatField = aIter.Next();
-                    }
-                }
+                rSh.InsertPostIt(aFieldMgr, rReq);
             }
             break;
             case SID_EDIT_POSTIT:
@@ -893,12 +837,16 @@ void SwTextShell::StateField( SfxItemSet &rSet )
             break;
 
         case FN_REPLY:
+            if (!comphelper::LibreOfficeKit::isActive())
+                rSet.DisableItem(nWhich);
+            break;
+
         case FN_POSTIT :
         case FN_JAVAEDIT :
             {
                 bool bCurField = false;
                 pField = rSh.GetCurField();
-                if(nWhich == FN_POSTIT || nWhich == FN_REPLY)
+                if(nWhich == FN_POSTIT)
                     bCurField = pField && pField->GetTyp()->Which() == SwFieldIds::Postit;
                 else
                     bCurField = pField && pField->GetTyp()->Which() == SwFieldIds::Script;

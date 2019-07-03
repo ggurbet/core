@@ -27,10 +27,6 @@
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
 #include <com/sun/star/table/XCell.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
-#include <com/sun/star/task/XJob.hpp>
-#include <com/sun/star/sdb/CommandType.hpp>
-#include <com/sun/star/sdb/DatabaseContext.hpp>
-#include <com/sun/star/sdb/XDocumentDataSource.hpp>
 #include <com/sun/star/xml/AttributeData.hpp>
 
 #include <test/bootstrapfixture.hxx>
@@ -39,17 +35,12 @@
 #include <unotest/macros_test.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/ucbstreamhelper.hxx>
-#include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
-#include <rtl/byteseq.hxx>
 #include <sfx2/app.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/sequence.hxx>
 #include <unotools/tempfile.hxx>
-#include <unotools/localfilehelper.hxx>
 #include <unotools/mediadescriptor.hxx>
-#include <dbmgr.hxx>
-#include <unoprnms.hxx>
 
 #include <unotxdoc.hxx>
 #include <docsh.hxx>
@@ -92,8 +83,26 @@ using namespace css;
     CPPUNIT_TEST_SUITE_REGISTRATION(TestName); \
     void TestName::verify()
 
+#define DECLARE_SW_EXPORTONLY_TEST(TestName, filename, password, BaseClass) \
+    class TestName : public BaseClass { \
+        protected:\
+    virtual OUString getTestName() override { return OUString(#TestName); } \
+        public:\
+    CPPUNIT_TEST_SUITE(TestName); \
+    CPPUNIT_TEST(Import_Export_Import); \
+    CPPUNIT_TEST_SUITE_END(); \
+    \
+    void Import_Export_Import() {\
+        executeImportExportImportTest(filename, password);\
+    }\
+    void verify() override;\
+    }; \
+    CPPUNIT_TEST_SUITE_REGISTRATION(TestName); \
+    void TestName::verify()
+
 #define DECLARE_OOXMLIMPORT_TEST(TestName, filename) DECLARE_SW_IMPORT_TEST(TestName, filename, nullptr, Test)
 #define DECLARE_OOXMLEXPORT_TEST(TestName, filename) DECLARE_SW_ROUNDTRIP_TEST(TestName, filename, nullptr, Test)
+#define DECLARE_OOXMLEXPORT_EXPORTONLY_TEST(TestName, filename) DECLARE_SW_EXPORTONLY_TEST(TestName, filename, nullptr, Test)
 #define DECLARE_RTFIMPORT_TEST(TestName, filename) DECLARE_SW_IMPORT_TEST(TestName, filename, nullptr, Test)
 #define DECLARE_RTFEXPORT_TEST(TestName, filename) DECLARE_SW_ROUNDTRIP_TEST(TestName, filename, nullptr, Test)
 #define DECLARE_ODFIMPORT_TEST(TestName, filename) DECLARE_SW_IMPORT_TEST(TestName, filename, nullptr, Test)
@@ -468,8 +477,8 @@ protected:
                 pXpathStrResult);
         }
 
-        OUString aRet = OUString(reinterpret_cast<char*>(pXpathStrResult),
-            xmlStrlen(pXpathStrResult), RTL_TEXTENCODING_UTF8);
+        OUString aRet(reinterpret_cast<char*>(pXpathStrResult),
+                      xmlStrlen(pXpathStrResult), RTL_TEXTENCODING_UTF8);
         xmlFree(pXpathStrResult);
         xmlFree(pXmlXpathObj);
         xmlFree(pXmlXpathCtx);

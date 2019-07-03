@@ -51,6 +51,23 @@ SfxVoidItem AnimationEffects SID_ANIMATION_EFFECTS
     GroupId = SfxGroupId::Options;
 ]
 
+SfxVoidItem ExecuteAnimationEffect SID_EXECUTE_ANIMATION_EFFECT
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Options;
+]
+
 SfxBoolItem AnimationObjects SID_ANIMATION_OBJECTS
 
 [
@@ -4025,7 +4042,7 @@ SfxVoidItem CloseMasterView SID_CLOSE_MASTER_VIEW()
 ]
 
 SfxVoidItem SelectBackground SID_SELECT_BACKGROUND
-()
+(SfxStringItem FileName SID_SELECT_BACKGROUND,SfxStringItem FilterName FN_PARAM_FILTER,SfxBoolItem AsLink FN_PARAM_1,SfxStringItem Style FN_PARAM_2)
 [
     AutoUpdate = FALSE,
     FastCall = FALSE,
@@ -4616,6 +4633,23 @@ SfxVoidItem MovePageFirst SID_MOVE_PAGE_FIRST
 ]
 
 SfxVoidItem MovePageLast SID_MOVE_PAGE_LAST
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = FALSE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Modify;
+]
+
+SfxVoidItem RegenerateDiagram SID_REGENERATE_DIAGRAM
 ()
 [
     AutoUpdate = FALSE,

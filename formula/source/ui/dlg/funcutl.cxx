@@ -17,16 +17,13 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/builder.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/scrbar.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/event.hxx>
-#include <vcl/fixed.hxx>
 
 #include <formula/funcutl.hxx>
 #include <formula/IControlReferenceHandler.hxx>
 #include "ControlHelper.hxx"
+#include "parawin.hxx"
 #include <strings.hrc>
 #include <bitmaps.hlst>
 #include <core_resource.hxx>
@@ -36,41 +33,29 @@ namespace formula
 {
 
 // class ArgEdit
-ArgEdit::ArgEdit( vcl::Window* pParent, WinBits nBits )
-    :   RefEdit( pParent, nullptr, nBits ),
-        pEdPrev ( nullptr ),
-        pEdNext ( nullptr ),
-        pSlider ( nullptr ),
-        nArgs   ( 0 )
+ArgEdit::ArgEdit(std::unique_ptr<weld::Entry> xControl)
+    : RefEdit(std::move(xControl))
+    , pEdPrev(nullptr)
+    , pEdNext(nullptr)
+    , pSlider(nullptr)
+    , pParaWin(nullptr)
+    , nArgs(0)
 {
 }
 
-ArgEdit::~ArgEdit()
-{
-    disposeOnce();
-}
-
-void ArgEdit::dispose()
-{
-    pEdPrev.clear();
-    pEdNext.clear();
-    pSlider.clear();
-    RefEdit::dispose();
-}
-
-VCL_BUILDER_FACTORY_ARGS(ArgEdit, WB_BORDER)
-
-void ArgEdit::Init( ArgEdit* pPrevEdit, ArgEdit* pNextEdit,
-                    ScrollBar& rArgSlider, sal_uInt16 nArgCount )
+void ArgEdit::Init(ArgEdit* pPrevEdit, ArgEdit* pNextEdit,
+                   weld::ScrolledWindow& rArgSlider,
+                   ParaWin& rParaWin, sal_uInt16 nArgCount)
 {
     pEdPrev = pPrevEdit;
     pEdNext = pNextEdit;
     pSlider = &rArgSlider;
+    pParaWin = &rParaWin;
     nArgs   = nArgCount;
 }
 
 // Cursor control for Edit Fields in Argument Dialog
-void ArgEdit::KeyInput( const KeyEvent& rKEvt )
+IMPL_LINK(ArgEdit, KeyInputHdl, const KeyEvent&, rKEvt, bool)
 {
     vcl::KeyCode aCode = rKEvt.GetKeyCode();
     bool bUp = (aCode.GetCode() == KEY_UP);
@@ -83,7 +68,7 @@ void ArgEdit::KeyInput( const KeyEvent& rKEvt )
         if ( nArgs > 1 )
         {
             ArgEdit* pEd = nullptr;
-            long nThumb = pSlider->GetThumbPos();
+            int nThumb = pSlider->vadjustment_get_value();
             bool bDoScroll = false;
             bool bChangeFocus = false;
 
@@ -132,17 +117,17 @@ void ArgEdit::KeyInput( const KeyEvent& rKEvt )
 
             if ( bDoScroll )
             {
-                pSlider->SetThumbPos( nThumb );
-                pSlider->GetEndScrollHdl().Call( pSlider );
+                pSlider->vadjustment_set_value( nThumb );
+                pParaWin->SliderMoved();
             }
             else if ( bChangeFocus )
             {
                 pEd->GrabFocus();
             }
         }
+        return true;
     }
-    else
-        RefEdit::KeyInput( rKEvt );
+    return false;
 }
 
 // class ArgInput
@@ -154,8 +139,8 @@ ArgInput::ArgInput()
     pRefBtn=nullptr;
 }
 
-void ArgInput::InitArgInput( FixedText* pftArg, PushButton* pbtnFx,
-                             ArgEdit* pedArg, RefButton* prefBtn)
+void ArgInput::InitArgInput(weld::Label* pftArg, weld::Button* pbtnFx,
+                            ArgEdit* pedArg, RefButton* prefBtn)
 {
     pFtArg =pftArg;
     pBtnFx =pbtnFx;
@@ -164,300 +149,159 @@ void ArgInput::InitArgInput( FixedText* pftArg, PushButton* pbtnFx,
 
     if(pBtnFx!=nullptr)
     {
-        pBtnFx->SetClickHdl   ( LINK( this, ArgInput, FxBtnClickHdl ) );
-        pBtnFx->SetGetFocusHdl( LINK( this, ArgInput, FxBtnFocusHdl ) );
+        pBtnFx->connect_clicked( LINK( this, ArgInput, FxBtnClickHdl ) );
+        pBtnFx->connect_focus_in( LINK( this, ArgInput, FxBtnFocusHdl ) );
     }
     if(pEdArg!=nullptr)
     {
         pEdArg->SetGetFocusHdl ( LINK( this, ArgInput, EdFocusHdl ) );
         pEdArg->SetModifyHdl   ( LINK( this, ArgInput, EdModifyHdl ) );
     }
-
 }
 
 // Sets the Name for the Argument
 void ArgInput::SetArgName(const OUString &aArg)
 {
-    if(pFtArg !=nullptr) pFtArg->SetText(aArg );
+    if (pFtArg)
+        pFtArg->set_label(aArg );
 }
 
 // Returns the Name for the Argument
 OUString ArgInput::GetArgName()
 {
     OUString aPrivArgName;
-    if(pFtArg !=nullptr)
-        aPrivArgName=pFtArg->GetText();
-
+    if (pFtArg)
+        aPrivArgName = pFtArg->get_label();
     return aPrivArgName;
 }
 
 //Sets the Name for the Argument
-void ArgInput::SetArgNameFont   (const vcl::Font &aFont)
+void ArgInput::SetArgNameFont(const vcl::Font &aFont)
 {
-    if(pFtArg !=nullptr) pFtArg->SetFont(aFont);
+    if (pFtArg)
+        pFtArg->set_font(aFont);
 }
 
 //Sets up the Selection for the EditBox.
-void ArgInput::SetArgSelection  (const Selection& rSel )
+void ArgInput::SelectAll()
 {
-    if(pEdArg !=nullptr) pEdArg ->SetSelection(rSel );
+    if (pEdArg)
+        pEdArg->SelectAll();
 }
 
 //Sets the Value for the Argument
 void ArgInput::SetArgVal(const OUString &rVal)
 {
-    if(pEdArg != nullptr)
-    {
-        pEdArg ->SetRefString(rVal);
-    }
+    if (pEdArg)
+        pEdArg->SetRefString(rVal);
 }
 
 //Returns the Value for the Argument
 OUString ArgInput::GetArgVal()
 {
     OUString aResult;
-    if(pEdArg!=nullptr)
-    {
+    if (pEdArg)
         aResult=pEdArg->GetText();
-    }
     return aResult;
 }
 
 //Hides the Controls
 void ArgInput::Hide()
 {
-    if ( pFtArg && pBtnFx && pEdArg && pRefBtn)
+    if (pFtArg && pBtnFx && pEdArg && pRefBtn)
     {
-        pFtArg->Hide();
-        pBtnFx->Hide();
-        pEdArg->Hide();
-        pRefBtn->Hide();
+        pFtArg->hide();
+        pBtnFx->hide();
+        pEdArg->GetWidget()->hide();
+        pRefBtn->GetWidget()->hide();
     }
 }
 
 //Casts the Controls again.
 void ArgInput::Show()
 {
-    if ( pFtArg && pBtnFx && pEdArg && pRefBtn)
+    if (pFtArg && pBtnFx && pEdArg && pRefBtn)
     {
-        pFtArg->Show();
-        pBtnFx->Show();
-        pEdArg->Show();
-        pRefBtn->Show();
+        pFtArg->show();
+        pBtnFx->show();
+        pEdArg->GetWidget()->show();
+        pRefBtn->GetWidget()->show();
     }
 }
 
 void ArgInput::UpdateAccessibleNames()
 {
     OUString aArgName(":");
-    aArgName += pFtArg->GetText();
+    aArgName += pFtArg->get_label();
 
-    OUString aName = pBtnFx->GetQuickHelpText();
+    OUString aName = pBtnFx->get_tooltip_text();
     aName += aArgName;
-    pBtnFx->SetAccessibleName(aName);
+    pBtnFx->set_accessible_name(aName);
 
-    aName = pRefBtn->GetQuickHelpText();
+    aName = pRefBtn->GetWidget()->get_tooltip_text();
     aName += aArgName;
-    pRefBtn->SetAccessibleName(aName);
+    pRefBtn->GetWidget()->set_accessible_name(aName);
 }
 
-IMPL_LINK( ArgInput, FxBtnClickHdl, Button*, pBtn, void )
+IMPL_LINK(ArgInput, FxBtnClickHdl, weld::Button&, rBtn, void)
 {
-    if(pBtn == pBtnFx)
+    if (&rBtn == pBtnFx)
         aFxClickLink.Call(*this);
 }
 
-IMPL_LINK( ArgInput, FxBtnFocusHdl, Control&, rControl, void )
+IMPL_LINK( ArgInput, FxBtnFocusHdl, weld::Widget&, rControl, void )
 {
-    if(&rControl == pBtnFx)
+    if (&rControl == pBtnFx)
         aFxFocusLink.Call(*this);
 }
 
-IMPL_LINK( ArgInput, EdFocusHdl, Control&, rControl, void )
+IMPL_LINK( ArgInput, EdFocusHdl, RefEdit&, rControl, void )
 {
-    if(&rControl == pEdArg)
+    if (&rControl == pEdArg)
         aEdFocusLink.Call(*this);
 }
 
-IMPL_LINK( ArgInput, EdModifyHdl, Edit&, rEdit, void )
+IMPL_LINK( ArgInput, EdModifyHdl, RefEdit&, rEdit, void )
 {
-    if(&rEdit == pEdArg)
+    if (&rEdit == pEdArg)
         aEdModifyLink.Call(*this);
 }
 
-// class EditBox
-
-EditBox::EditBox( vcl::Window* pParent, WinBits nBits )
-        :Control(pParent,nBits)
-{
-    WinBits nStyle=GetStyle();
-    SetStyle( nStyle| WB_DIALOGCONTROL);
-
-    pMEdit=VclPtr<MultiLineEdit>::Create(this,WB_LEFT | WB_VSCROLL | (nStyle & WB_TABSTOP) |
-                    WB_NOBORDER | WB_NOHIDESELECTION | WB_IGNORETAB);
-    pMEdit->Show();
-    aOldSel=pMEdit->GetSelection();
-    Resize();
-    WinBits nWinStyle=GetStyle() | WB_DIALOGCONTROL;
-    SetStyle(nWinStyle);
-
-    //  #105582# the HelpId from the resource must be set for the MultiLineEdit,
-    //  not for the control that contains it.
-    pMEdit->SetHelpId( GetHelpId() );
-    SetHelpId( "" );
-}
-
-VCL_BUILDER_FACTORY_ARGS(EditBox, WB_BORDER)
-
-EditBox::~EditBox()
-{
-    disposeOnce();
-}
-
-void EditBox::dispose()
-{
-    pMEdit->Disable();
-    pMEdit.disposeAndClear();
-    Control::dispose();
-}
-
-// When the size is changed, MultiLineEdit must be adapted..
-void EditBox::Resize()
-{
-    Size aSize=GetOutputSizePixel();
-    if(pMEdit!=nullptr) pMEdit->SetOutputSizePixel(aSize);
-}
-
-// When the Control is activated, the Selection is repealed
-// and the Cursor set at the end.
-void EditBox::GetFocus()
-{
-    if(pMEdit!=nullptr)
-    {
-        pMEdit->GrabFocus();
-    }
-}
-
-// When an event is being triggered, this routine is called first and
-// a PostUserEvent is sent.
-bool EditBox::PreNotify( NotifyEvent& rNEvt )
-{
-    bool bResult = true;
-
-    if(pMEdit==nullptr) return bResult;
-
-    MouseNotifyEvent nSwitch=rNEvt.GetType();
-    if(nSwitch==MouseNotifyEvent::KEYINPUT)// || nSwitch==MouseNotifyEvent::KEYUP)
-    {
-        const vcl::KeyCode& aKeyCode=rNEvt.GetKeyEvent()->GetKeyCode();
-        sal_uInt16 nKey=aKeyCode.GetCode();
-        if( (nKey==KEY_RETURN && !aKeyCode.IsShift()) || nKey==KEY_TAB )
-        {
-            bResult = GetParent()->EventNotify(rNEvt);
-        }
-        else
-        {
-            bResult=Control::PreNotify(rNEvt);
-            Application::PostUserEvent( LINK( this, EditBox, ChangedHdl ), nullptr, true );
-        }
-
-    }
-    else
-    {
-        bResult=Control::PreNotify(rNEvt);
-
-        if(nSwitch==MouseNotifyEvent::MOUSEBUTTONDOWN || nSwitch==MouseNotifyEvent::MOUSEBUTTONUP)
-        {
-            Application::PostUserEvent( LINK( this, EditBox, ChangedHdl ), nullptr, true );
-        }
-    }
-    return bResult;
-}
-
-// When an event was triggered, this routine is called first.
-IMPL_LINK_NOARG(EditBox, ChangedHdl, void*, void)
-{
-    if(pMEdit!=nullptr)
-    {
-        Selection aNewSel=pMEdit->GetSelection();
-
-        if(aNewSel.Min()!=aOldSel.Min() || aNewSel.Max()!=aOldSel.Max())
-        {
-            aSelChangedLink.Call(*this);
-            aOldSel=aNewSel;
-        }
-    }
-}
-
-void EditBox::UpdateOldSel()
-{
-    //  if selection is set for editing a function, store it as aOldSel,
-    //  so SelectionChanged isn't called in the next ChangedHdl call
-
-    if (pMEdit)
-        aOldSel = pMEdit->GetSelection();
-}
-
-// class RefEdit
-
-RefEdit::RefEdit( vcl::Window* _pParent, vcl::Window* pShrinkModeLabel, WinBits nStyle )
-    : Edit( _pParent, nStyle )
+RefEdit::RefEdit(std::unique_ptr<weld::Entry> xControl)
+    : xEntry(std::move(xControl))
     , aIdle("formula RefEdit Idle")
-    , pAnyRefDlg( nullptr )
-    , pLabelWidget(pShrinkModeLabel)
+    , pAnyRefDlg(nullptr)
+    , pLabelWidget(nullptr)
 {
+    xEntry->connect_focus_in(LINK(this, RefEdit, GetFocus));
+    xEntry->connect_focus_out(LINK(this, RefEdit, LoseFocus));
+    xEntry->connect_key_press(LINK(this, RefEdit, KeyInput));
+    xEntry->connect_changed(LINK(this, RefEdit, Modify));
     aIdle.SetInvokeHandler( LINK( this, RefEdit, UpdateHdl ) );
-}
-
-extern "C" SAL_DLLPUBLIC_EXPORT void makeRefEdit(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap &)
-{
-    rRet = VclPtr<RefEdit>::Create(pParent, nullptr, WB_BORDER);
 }
 
 RefEdit::~RefEdit()
 {
-    disposeOnce();
-}
-
-void RefEdit::dispose()
-{
     aIdle.ClearInvokeHandler();
     aIdle.Stop();
-    pLabelWidget.clear();
-    Edit::dispose();
 }
 
 void RefEdit::SetRefString( const OUString& rStr )
 {
     // Prevent unwanted side effects by setting only a differing string.
     // See commit message for reasons.
-    if (Edit::GetText() != rStr)
-        Edit::SetText( rStr );
+    if (xEntry->get_text() != rStr)
+        xEntry->set_text(rStr);
 }
 
 void RefEdit::SetRefValid(bool bValid)
 {
-    if (bValid)
-    {
-        SetControlForeground();
-        SetControlBackground();
-    }
-    else
-    {
-#if 0
-        // Setting background color has no effect here so we'd end up with
-        // white on white!
-        SetControlForeground(COL_WHITE);
-        SetControlBackground(0xff6563);
-#else
-        SetControlForeground( ::Color( 0xf0, 0, 0 ) );
-#endif
-    }
+    xEntry->set_message_type(bValid ? weld::EntryMessageType::Normal : weld::EntryMessageType::Error);
 }
 
 void RefEdit::SetText(const OUString& rStr)
 {
-    Edit::SetText( rStr );
+    xEntry->set_text(rStr);
     UpdateHdl( &aIdle );
 }
 
@@ -466,14 +310,14 @@ void RefEdit::StartUpdateData()
     aIdle.Start();
 }
 
-void RefEdit::SetReferences( IControlReferenceHandler* pDlg, vcl::Window* pLabel )
+void RefEdit::SetReferences(IControlReferenceHandler* pDlg, weld::Label* pLabel)
 {
     pAnyRefDlg = pDlg;
     pLabelWidget = pLabel;
 
     if( pDlg )
     {
-        aIdle.SetInvokeHandler( LINK( this, RefEdit, UpdateHdl ) );
+        aIdle.SetInvokeHandler(LINK(this, RefEdit, UpdateHdl));
     }
     else
     {
@@ -482,31 +326,41 @@ void RefEdit::SetReferences( IControlReferenceHandler* pDlg, vcl::Window* pLabel
     }
 }
 
-void RefEdit::Modify()
+IMPL_LINK_NOARG(RefEdit, Modify, weld::Entry&, void)
 {
-    Edit::Modify();
-    if( pAnyRefDlg )
+    maModifyHdl.Call(*this);
+    if (pAnyRefDlg)
         pAnyRefDlg->HideReference();
 }
 
-void RefEdit::KeyInput( const KeyEvent& rKEvt )
+IMPL_LINK(RefEdit, KeyInput, const KeyEvent&, rKEvt, bool)
 {
     const vcl::KeyCode& rKeyCode = rKEvt.GetKeyCode();
-    if( pAnyRefDlg && !rKeyCode.GetModifier() && (rKeyCode.GetCode() == KEY_F2) )
+    if (pAnyRefDlg && !rKeyCode.GetModifier() && rKeyCode.GetCode() == KEY_F2)
+    {
         pAnyRefDlg->ReleaseFocus( this );
-    else
-        Edit::KeyInput( rKEvt );
+        return true;
+    }
+
+    switch (rKeyCode.GetCode())
+    {
+        case KEY_RETURN:
+        case KEY_ESCAPE:
+            return maActivateHdl.Call(*GetWidget());
+    }
+
+    return false;
 }
 
-void RefEdit::GetFocus()
+IMPL_LINK_NOARG(RefEdit, GetFocus, weld::Widget&, void)
 {
-    Edit::GetFocus();
+    maGetFocusHdl.Call(*this);
     StartUpdateData();
 }
 
-void RefEdit::LoseFocus()
+IMPL_LINK_NOARG(RefEdit, LoseFocus, weld::Widget&, void)
 {
-    Edit::LoseFocus();
+    maLoseFocusHdl.Call(*this);
     if( pAnyRefDlg )
         pAnyRefDlg->HideReference();
 }
@@ -514,45 +368,36 @@ void RefEdit::LoseFocus()
 IMPL_LINK_NOARG(RefEdit, UpdateHdl, Timer *, void)
 {
     if( pAnyRefDlg )
-        pAnyRefDlg->ShowReference( GetText() );
+        pAnyRefDlg->ShowReference(xEntry->get_text());
 }
 
 //class RefButton
-RefButton::RefButton( vcl::Window* _pParent, WinBits nStyle ) :
-    ImageButton(_pParent, nStyle),
-    aImgRefStart(BitmapEx(RID_BMP_REFBTN1)),
-    aImgRefDone(BitmapEx(RID_BMP_REFBTN2)),
-    aShrinkQuickHelp( ForResId( RID_STR_SHRINK ) ),
-    aExpandQuickHelp( ForResId( RID_STR_EXPAND ) ),
-    pAnyRefDlg( nullptr ),
-    pRefEdit( nullptr )
+RefButton::RefButton(std::unique_ptr<weld::Button> xControl)
+    : xButton(std::move(xControl))
+    , pAnyRefDlg( nullptr )
+    , pRefEdit( nullptr )
 {
+    xButton->connect_focus_in(LINK(this, RefButton, GetFocus));
+    xButton->connect_focus_out(LINK(this, RefButton, LoseFocus));
+    xButton->connect_key_press(LINK(this, RefButton, KeyInput));
+    xButton->connect_clicked(LINK(this, RefButton, Click));
     SetStartImage();
 }
 
 RefButton::~RefButton()
 {
-    disposeOnce();
 }
-
-void RefButton::dispose()
-{
-    pRefEdit.clear();
-    ImageButton::dispose();
-}
-
-VCL_BUILDER_FACTORY_ARGS(RefButton, 0)
 
 void RefButton::SetStartImage()
 {
-    SetModeImage( aImgRefStart );
-    SetQuickHelpText( aShrinkQuickHelp );
+    xButton->set_from_icon_name(RID_BMP_REFBTN1);
+    xButton->set_tooltip_text(ForResId(RID_STR_SHRINK));
 }
 
 void RefButton::SetEndImage()
 {
-    SetModeImage( aImgRefDone );
-    SetQuickHelpText( aExpandQuickHelp );
+    xButton->set_from_icon_name(RID_BMP_REFBTN2);
+    xButton->set_tooltip_text(ForResId(RID_STR_EXPAND));
 }
 
 void RefButton::SetReferences( IControlReferenceHandler* pDlg, RefEdit* pEdit )
@@ -561,33 +406,44 @@ void RefButton::SetReferences( IControlReferenceHandler* pDlg, RefEdit* pEdit )
     pRefEdit = pEdit;
 }
 
-void RefButton::Click()
+IMPL_LINK_NOARG(RefButton, Click, weld::Button&, void)
 {
+    maClickHdl.Call(*this);
     if( pAnyRefDlg )
         pAnyRefDlg->ToggleCollapsed( pRefEdit, this );
 }
 
-void RefButton::KeyInput( const KeyEvent& rKEvt )
+IMPL_LINK(RefButton, KeyInput, const KeyEvent&, rKEvt, bool)
 {
     const vcl::KeyCode& rKeyCode = rKEvt.GetKeyCode();
-    if( pAnyRefDlg && !rKeyCode.GetModifier() && (rKeyCode.GetCode() == KEY_F2) )
+    if (pAnyRefDlg && !rKeyCode.GetModifier() && rKeyCode.GetCode() == KEY_F2)
+    {
         pAnyRefDlg->ReleaseFocus( pRefEdit );
-    else
-        ImageButton::KeyInput( rKEvt );
+        return true;
+    }
+
+    switch (rKeyCode.GetCode())
+    {
+        case KEY_RETURN:
+        case KEY_ESCAPE:
+            return maActivateHdl.Call(*GetWidget());
+    }
+
+    return false;
 }
 
-void RefButton::GetFocus()
+IMPL_LINK_NOARG(RefButton, GetFocus, weld::Widget&, void)
 {
-    ImageButton::GetFocus();
-    if( pRefEdit )
+    maGetFocusHdl.Call(*this);
+    if (pRefEdit)
         pRefEdit->StartUpdateData();
 }
 
-void RefButton::LoseFocus()
+IMPL_LINK_NOARG(RefButton, LoseFocus, weld::Widget&, void)
 {
-    ImageButton::LoseFocus();
-    if( pRefEdit )
-        pRefEdit->Modify();
+    maLoseFocusHdl.Call(*this);
+    if (pRefEdit)
+        pRefEdit->DoModify();
 }
 
 } // formula

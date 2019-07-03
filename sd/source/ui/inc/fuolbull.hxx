@@ -35,7 +35,8 @@ class ViewShell;
 /**
  * bullet functions in outline mode
  */
-class FuOutlineBullet
+
+class FuBulletAndPosition
     : public FuPoor
 {
 public:
@@ -44,7 +45,7 @@ public:
     virtual void DoExecute( SfxRequest& rReq ) override;
 
 private:
-    FuOutlineBullet (
+    FuBulletAndPosition (
         ViewShell* pViewShell,
         ::sd::Window* pWin,
         ::sd::View* pView,

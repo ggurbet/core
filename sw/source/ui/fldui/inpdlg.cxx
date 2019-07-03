@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <tools/lineend.hxx>
 #include <unotools/charclass.hxx>
 #include <editeng/unolingu.hxx>
 #include <wrtsh.hxx>
@@ -27,7 +28,7 @@
 #include <fldmgr.hxx>
 
 // edit field-insert
-SwFieldInputDlg::SwFieldInputDlg(weld::Window *pParent, SwWrtShell &rS,
+SwFieldInputDlg::SwFieldInputDlg(weld::Widget *pParent, SwWrtShell &rS,
                                  SwField* pField, bool bPrevButton, bool bNextButton)
     : GenericDialogController(pParent, "modules/swriter/ui/inputfielddialog.ui", "InputFieldDialog")
     , rSh( rS )

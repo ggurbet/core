@@ -26,6 +26,7 @@
 #include <sfx2/request.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objface.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/svxids.hrc>
 #include <svx/ruler.hxx>
 #include <FrameView.hxx>
@@ -126,10 +127,10 @@ void PresentationViewShell::Activate( bool bIsMDIActivate )
 
         if( HasCurrentFunction() )
             GetCurrentFunction()->Activate();
+
+        ReadFrameViewData(mpFrameView);
     }
 
-    if( bIsMDIActivate )
-        ReadFrameViewData( mpFrameView );
     GetDocSh()->Connect( this );
 }
 

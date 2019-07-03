@@ -73,6 +73,7 @@ $(eval $(call gb_Library_add_exception_objects,tl,\
     tools/source/ref/ref \
     tools/source/stream/stream \
     tools/source/stream/vcompat \
+    tools/source/stream/GenericTypeSerializer \
     tools/source/string/tenccvt \
     tools/source/zcodec/zcodec \
     tools/source/xml/XmlWriter \
@@ -109,6 +110,7 @@ ifeq ($(OS),WNT)
 
 $(eval $(call gb_Library_use_system_win32_libs,tl,\
 	mpr \
+	netapi32 \
 	ole32 \
 	shell32 \
 	uuid \

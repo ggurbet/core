@@ -752,7 +752,7 @@ const SfxPoolItem* ScDocument::GetEffItem(
         const SfxPoolItem* pItem;
         if ( rSet.GetItemState( ATTR_CONDITIONAL, true, &pItem ) == SfxItemState::SET )
         {
-            const std::vector<sal_uInt32>& rIndex = pPattern->GetItem(ATTR_CONDITIONAL).GetCondFormatData();
+            const ScCondFormatIndexes& rIndex = pPattern->GetItem(ATTR_CONDITIONAL).GetCondFormatData();
             ScConditionalFormatList* pCondFormList = GetCondFormList( nTab );
             if (!rIndex.empty() && pCondFormList)
             {
@@ -782,24 +782,29 @@ const SfxPoolItem* ScDocument::GetEffItem(
     return nullptr;
 }
 
-const SfxItemSet* ScDocument::GetCondResult( SCCOL nCol, SCROW nRow, SCTAB nTab ) const
+const SfxItemSet* ScDocument::GetCondResult( SCCOL nCol, SCROW nRow, SCTAB nTab, ScRefCellValue* pCell ) const
 {
     ScConditionalFormatList* pFormatList = GetCondFormList(nTab);
     if (!pFormatList)
         return nullptr;
 
     ScAddress aPos(nCol, nRow, nTab);
-    ScRefCellValue aCell(const_cast<ScDocument&>(*this), aPos);
+    ScRefCellValue aCell;
+    if( pCell == nullptr )
+    {
+        aCell.assign(const_cast<ScDocument&>(*this), aPos);
+        pCell = &aCell;
+    }
     const ScPatternAttr* pPattern = GetPattern( nCol, nRow, nTab );
-    const std::vector<sal_uInt32>& rIndex =
+    const ScCondFormatIndexes& rIndex =
         pPattern->GetItem(ATTR_CONDITIONAL).GetCondFormatData();
 
-    return GetCondResult(aCell, aPos, *pFormatList, rIndex);
+    return GetCondResult(*pCell, aPos, *pFormatList, rIndex);
 }
 
 const SfxItemSet* ScDocument::GetCondResult(
     ScRefCellValue& rCell, const ScAddress& rPos, const ScConditionalFormatList& rList,
-    const std::vector<sal_uInt32>& rIndex ) const
+    const ScCondFormatIndexes& rIndex ) const
 {
     for (const auto& rItem : rIndex)
     {
@@ -827,7 +832,7 @@ ScConditionalFormat* ScDocument::GetCondFormat(
                             SCCOL nCol, SCROW nRow, SCTAB nTab ) const
 {
     sal_uInt32 nIndex = 0;
-    const std::vector<sal_uInt32>& rCondFormats = GetAttr(nCol, nRow, nTab, ATTR_CONDITIONAL)->GetCondFormatData();
+    const ScCondFormatIndexes& rCondFormats = GetAttr(nCol, nRow, nTab, ATTR_CONDITIONAL)->GetCondFormatData();
 
     if(!rCondFormats.empty())
         nIndex = rCondFormats[0];

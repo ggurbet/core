@@ -96,7 +96,7 @@ protected:
 protected:
     friend class VclBuilder;
     void set_action_area(VclButtonBox* pBox);
-    void set_content_area(VclBox* pBox);
+    virtual void set_content_area(VclBox* pBox);
 
 public:
     explicit        Dialog( vcl::Window* pParent, WinBits nStyle = WB_STDDIALOG, InitFlag eFlag = InitFlag::Default );
@@ -181,15 +181,6 @@ public:
     void            set_default_response(int nResponse);
     int             get_default_response();
     vcl::Window*    get_widget_for_response(int nResponse);
-};
-
-class VCL_DLLPUBLIC ModelessDialog : public Dialog
-{
-                    ModelessDialog (const ModelessDialog &) = delete;
-                    ModelessDialog & operator= (const ModelessDialog &) = delete;
-
-public:
-    explicit        ModelessDialog( vcl::Window* pParent, const OUString& rID, const OUString& rUIXMLDescription, Dialog::InitFlag eFlag = Dialog::InitFlag::Default );
 };
 
 class VCL_DLLPUBLIC ModalDialog : public Dialog

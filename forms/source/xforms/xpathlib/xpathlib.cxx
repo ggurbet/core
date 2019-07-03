@@ -234,22 +234,22 @@ static OString makeDateTimeString (const DateTime& aDateTime)
 {
     OStringBuffer aDateTimeString;
     aDateTimeString.append(static_cast<sal_Int32>(aDateTime.GetYear()));
-    aDateTimeString.append("-");
-    if (aDateTime.GetMonth()<10) aDateTimeString.append("0");
+    aDateTimeString.append('-');
+    if (aDateTime.GetMonth()<10) aDateTimeString.append('0');
     aDateTimeString.append(static_cast<sal_Int32>(aDateTime.GetMonth()));
-    aDateTimeString.append("-");
-    if (aDateTime.GetDay()<10) aDateTimeString.append("0");
+    aDateTimeString.append('-');
+    if (aDateTime.GetDay()<10) aDateTimeString.append('0');
     aDateTimeString.append(static_cast<sal_Int32>(aDateTime.GetDay()));
-    aDateTimeString.append("T");
-    if (aDateTime.GetHour()<10) aDateTimeString.append("0");
+    aDateTimeString.append('T');
+    if (aDateTime.GetHour()<10) aDateTimeString.append('0');
     aDateTimeString.append(static_cast<sal_Int32>(aDateTime.GetHour()));
-    aDateTimeString.append(":");
-    if (aDateTime.GetMin()<10) aDateTimeString.append("0");
+    aDateTimeString.append(':');
+    if (aDateTime.GetMin()<10) aDateTimeString.append('0');
     aDateTimeString.append(static_cast<sal_Int32>(aDateTime.GetMin()));
-    aDateTimeString.append(":");
-    if (aDateTime.GetSec()<10) aDateTimeString.append("0");
+    aDateTimeString.append(':');
+    if (aDateTime.GetSec()<10) aDateTimeString.append('0');
     aDateTimeString.append(static_cast<sal_Int32>(aDateTime.GetSec()));
-    aDateTimeString.append("Z");
+    aDateTimeString.append('Z');
 
     return aDateTimeString.makeStringAndClear();
 }
@@ -294,25 +294,18 @@ static bool parseDateTime(const OUString& aString, DateTime& aDateTime)
     if (aDateTimeString.getLength() < 19 || aDateTimeString.getLength() > 20)
         return false;
 
-    sal_Int32 nDateLength = 10;
-    sal_Int32 const nTimeLength = 8;
-
-    OUString aDateString = aDateTimeString.copy(0, nDateLength);
-    OUString aTimeString = aDateTimeString.copy(nDateLength+1, nTimeLength);
-
     sal_Int32 nIndex = 0;
-    sal_Int32 nYear = aDateString.getToken(0, '-', nIndex).toInt32();
-    sal_Int32 nMonth = aDateString.getToken(0, '-', nIndex).toInt32();
-    sal_Int32 nDay = aDateString.getToken(0, '-', nIndex).toInt32();
-    nIndex = 0;
-    sal_Int32 nHour = aTimeString.getToken(0, ':', nIndex).toInt32();
-    sal_Int32 nMinute = aTimeString.getToken(0, ':', nIndex).toInt32();
-    sal_Int32 nSecond = aTimeString.getToken(0, ':', nIndex).toInt32();
+    sal_Int32 nYear = aDateTimeString.getToken(0, '-', nIndex).toInt32();
+    sal_Int32 nMonth = aDateTimeString.getToken(0, '-', nIndex).toInt32();
+    sal_Int32 nDay = aDateTimeString.getToken(0, 'T', nIndex).toInt32();
+    sal_Int32 nHour = aDateTimeString.getToken(0, ':', nIndex).toInt32();
+    sal_Int32 nMinute = aDateTimeString.getToken(0, ':', nIndex).toInt32();
+    sal_Int32 nSecond = aDateTimeString.getToken(0, 'Z', nIndex).toInt32();
 
     Date tmpDate(static_cast<sal_uInt16>(nDay), static_cast<sal_uInt16>(nMonth), static_cast<sal_uInt16>(nYear));
     tools::Time tmpTime(nHour, nMinute, nSecond);
     DateTime tmpDateTime(tmpDate, tmpTime);
-    if (aString.indexOf("Z") < 0)
+    if (aString.lastIndexOf('Z') < 0)
         tmpDateTime.ConvertToUTC();
 
     aDateTime = tmpDateTime;

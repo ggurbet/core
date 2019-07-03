@@ -32,8 +32,10 @@
 #include <vcl/help.hxx>
 #include <vcl/layout.hxx>
 #include <vcl/svapp.hxx>
+#include <vcl/tabpage.hxx>
 #include <vcl/unohelp.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/virdev.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/lstbox.hxx>
 #include <jobset.h>
@@ -804,10 +806,9 @@ void PrintDialog::storeToSettings()
 void PrintDialog::readFromSettings()
 {
     SettingsConfigItem* pItem = SettingsConfigItem::get();
-    OUString aValue;
 
     // read last selected tab page; if it exists, activate it
-    aValue = pItem->getValue( "PrintDialog",
+    OUString aValue = pItem->getValue( "PrintDialog",
                               "LastPage" );
     sal_uInt16 nCount = mpTabCtrl->GetPageCount();
     for( sal_uInt16 i = 0; i < nCount; i++ )
@@ -1331,12 +1332,12 @@ namespace
 void PrintDialog::setupOptionalUI()
 {
     const Sequence< PropertyValue >& rOptions( maPController->getUIOptions() );
-    for( int i = 0; i < rOptions.getLength(); i++ )
+    for( const auto& rOption : rOptions )
     {
-        if (rOptions[i].Name == "OptionsUIFile")
+        if (rOption.Name == "OptionsUIFile")
         {
             OUString sOptionsUIFile;
-            rOptions[i].Value >>= sOptionsUIFile;
+            rOption.Value >>= sOptionsUIFile;
 
             vcl::Window *pCustom = get<vcl::Window>("customcontents");
 
@@ -1347,7 +1348,7 @@ void PrintDialog::setupOptionalUI()
         }
 
         Sequence< beans::PropertyValue > aOptProp;
-        rOptions[i].Value >>= aOptProp;
+        rOption.Value >>= aOptProp;
 
         // extract ui element
         OUString aCtrlType;
@@ -1362,9 +1363,8 @@ void PrintDialog::setupOptionalUI()
         sal_Int64 nMinValue = 0, nMaxValue = 0;
         OUString aGroupingHint;
 
-        for( int n = 0; n < aOptProp.getLength(); n++ )
+        for( const beans::PropertyValue& rEntry : aOptProp )
         {
-            const beans::PropertyValue& rEntry( aOptProp[ n ] );
             if ( rEntry.Name == "ID" )
             {
                 rEntry.Value >>= aIDs;
@@ -1462,11 +1462,11 @@ void PrintDialog::setupOptionalUI()
             mpTabCtrl->SetPageText(nPageId, aText);
 
             // set help id
-            if (aHelpIds.getLength() > 0)
+            if (aHelpIds.hasElements())
                 mpTabCtrl->SetHelpId(nPageId, OUStringToOString(aHelpIds.getConstArray()[0], RTL_TEXTENCODING_UTF8));
 
             // set help text
-            if (aHelpTexts.getLength() > 0)
+            if (aHelpTexts.hasElements())
                 mpTabCtrl->SetHelpText(nPageId, aHelpTexts.getConstArray()[0]);
 
             pPage->Show();
@@ -1585,9 +1585,9 @@ void PrintDialog::setupOptionalUI()
                 continue;
 
             // iterate options
-            for( sal_Int32 m = 0; m < aChoices.getLength(); m++ )
+            for( const auto& rChoice : aChoices )
             {
-                pList->InsertEntry( aChoices[m] );
+                pList->InsertEntry( rChoice );
             }
             sal_Int32 nSelectVal = 0;
             PropertyValue* pVal = maPController->getValue( aPropertyName );
@@ -1984,7 +1984,7 @@ IMPL_LINK( PrintDialog, SelectHdl, ListBox&, rBox, void )
         else
             aPrt->SetPaper( mePaper );
 
-        Size aPaperSize = Size( aInfo.getWidth(), aInfo.getHeight() );
+        Size aPaperSize( aInfo.getWidth(), aInfo.getHeight() );
         checkPaperSize( aPaperSize );
         maPController->setPaperSizeFromUser( aPaperSize );
 
@@ -2129,55 +2129,41 @@ void PrintDialog::previewBackward()
     mpPageEdit->Down();
 }
 
-
 // PrintProgressDialog
-
-PrintProgressDialog::PrintProgressDialog(vcl::Window* i_pParent, int i_nMax)
-    : ModelessDialog(i_pParent, "PrintProgressDialog", "vcl/ui/printprogressdialog.ui")
+PrintProgressDialog::PrintProgressDialog(weld::Window* i_pParent, int i_nMax)
+    : GenericDialogController(i_pParent, "vcl/ui/printprogressdialog.ui", "PrintProgressDialog")
     , mbCanceled(false)
     , mnCur(0)
     , mnMax(i_nMax)
+    , mxText(m_xBuilder->weld_label("label"))
+    , mxProgress(m_xBuilder->weld_progress_bar("progressbar"))
+    , mxButton(m_xBuilder->weld_button("cancel"))
 {
-    get(mpButton, "cancel");
-    get(mpProgress, "progressbar");
-    get(mpText, "label");
-
     if( mnMax < 1 )
         mnMax = 1;
 
-    maStr = mpText->GetText();
+    maStr = mxText->get_label();
 
     //just multiply largest value by 10 and take the width of that string as
     //the max size we will want
     OUString aNewText( maStr.replaceFirst( "%p", OUString::number( mnMax * 10 ) ) );
     aNewText = aNewText.replaceFirst( "%n", OUString::number( mnMax * 10 ) );
-    mpText->SetText( aNewText );
-    mpText->set_width_request(mpText->get_preferred_size().Width());
+    mxText->set_label( aNewText );
+    mxText->set_size_request(mxText->get_preferred_size().Width(), -1);
 
     //Pick a useful max width
-    mpProgress->set_width_request(mpProgress->LogicToPixel(Size(100, 0), MapMode(MapUnit::MapAppFont)).Width());
+    mxProgress->set_size_request(mxProgress->get_approximate_digit_width() * 25, -1);
 
-    mpButton->SetClickHdl( LINK( this, PrintProgressDialog, ClickHdl ) );
-
+    mxButton->connect_clicked( LINK( this, PrintProgressDialog, ClickHdl ) );
 }
 
 PrintProgressDialog::~PrintProgressDialog()
 {
-    disposeOnce();
 }
 
-void PrintProgressDialog::dispose()
+IMPL_LINK_NOARG(PrintProgressDialog, ClickHdl, weld::Button&, void)
 {
-    mpText.clear();
-    mpProgress.clear();
-    mpButton.clear();
-    ModelessDialog::dispose();
-}
-
-IMPL_LINK( PrintProgressDialog, ClickHdl, Button*, pButton, void )
-{
-    if( pButton == mpButton )
-        mbCanceled = true;
+    mbCanceled = true;
 }
 
 void PrintProgressDialog::setProgress( int i_nCurrent )
@@ -2187,21 +2173,15 @@ void PrintProgressDialog::setProgress( int i_nCurrent )
     if( mnMax < 1 )
         mnMax = 1;
 
-    mpProgress->SetValue(mnCur*100/mnMax);
+    mxProgress->set_percentage(mnCur*100/mnMax);
 
     OUString aNewText( maStr.replaceFirst( "%p", OUString::number( mnCur ) ) );
     aNewText = aNewText.replaceFirst( "%n", OUString::number( mnMax ) );
-    mpText->SetText( aNewText );
+    mxText->set_label( aNewText );
 }
 
 void PrintProgressDialog::tick()
 {
     if( mnCur < mnMax )
         setProgress( ++mnCur );
-}
-
-void PrintProgressDialog::reset()
-{
-    mbCanceled = false;
-    setProgress( 0 );
 }

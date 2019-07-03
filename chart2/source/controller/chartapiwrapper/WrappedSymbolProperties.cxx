@@ -37,7 +37,6 @@
 using namespace ::com::sun::star;
 using ::com::sun::star::uno::Any;
 using ::com::sun::star::uno::Reference;
-using ::com::sun::star::uno::Sequence;
 using ::com::sun::star::beans::Property;
 
 namespace chart
@@ -399,9 +398,9 @@ void lcl_correctSymbolSizeForBitmaps( chart2::Symbol& rSymbol )
                         bFoundSize = true;
                 }
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
 
             if(!bFoundSize)
@@ -420,9 +419,9 @@ void lcl_correctSymbolSizeForBitmaps( chart2::Symbol& rSymbol )
         }
         rSymbol.Size = aSize;
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 

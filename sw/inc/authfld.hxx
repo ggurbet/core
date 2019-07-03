@@ -75,7 +75,7 @@ public:
     SwAuthorityFieldType(SwDoc* pDoc);
     virtual ~SwAuthorityFieldType() override;
 
-    virtual SwFieldType* Copy()    const override;
+    virtual std::unique_ptr<SwFieldType> Copy() const override;
 
     virtual void        QueryValue( css::uno::Any& rVal, sal_uInt16 nWhichId ) const override;
     virtual void        PutValue( const css::uno::Any& rVal, sal_uInt16 nWhichId ) override;
@@ -145,7 +145,7 @@ public:
     one of the instances with the same m_nHandle is actually in the document,
     they're all cloned via CopyField()...
  */
-class SwAuthorityField : public SwField
+class SAL_DLLPUBLIC_RTTI SwAuthorityField : public SwField
 {
     rtl::Reference<SwAuthEntry>  m_xAuthEntry;
     mutable sal_IntPtr  m_nTempSequencePos;
@@ -165,7 +165,7 @@ public:
     SwAuthorityField(SwAuthorityFieldType* pType, SwAuthEntry* pAuthEntry);
     virtual ~SwAuthorityField() override;
 
-    OUString            GetFieldText(ToxAuthorityField eField) const;
+    const OUString &    GetFieldText(ToxAuthorityField eField) const;
 
     virtual void        SetPar1(const OUString& rStr) override;
     virtual SwFieldType* ChgTyp( SwFieldType* ) override;

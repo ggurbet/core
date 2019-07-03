@@ -20,6 +20,7 @@
 #include "dbfindex.hxx"
 #include <comphelper/processfactory.hxx>
 #include <osl/file.hxx>
+#include <osl/thread.hxx>
 #include <tools/config.hxx>
 #include <sfx2/app.hxx>
 #include <dbu_dlg.hxx>
@@ -106,8 +107,7 @@ OTableIndex ODbaseIndexDialog::implRemoveIndex(const OUString& _rName, TableInde
         else
             _rDisplay.select(static_cast<sal_uInt16>(nPos));
     }
-
-    OSL_ENSURE(!_bMustExist || (aSearch != _rList.end()), "ODbaseIndexDialog::implRemoveIndex : did not find the index!");
+    OSL_ENSURE(!_bMustExist || !aReturn.GetIndexFileName().isEmpty(), "ODbaseIndexDialog::implRemoveIndex : did not find the index!");
     return aReturn;
 }
 

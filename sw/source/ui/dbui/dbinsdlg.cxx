@@ -40,11 +40,13 @@
 #include <com/sun/star/util/XNumberFormatTypes.hpp>
 #include <com/sun/star/sdbc/XRowSet.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/sequence.hxx>
 #include <comphelper/types.hxx>
 #include <sal/log.hxx>
 #include <editeng/langitem.hxx>
 #include <svl/numuno.hxx>
 #include <svl/stritem.hxx>
+#include <tools/diagnose_ex.h>
 #include <vcl/svapp.hxx>
 #include <vcl/mnemonic.hxx>
 #include <svl/style.hxx>
@@ -56,6 +58,7 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/boxitem.hxx>
 #include <svx/rulritem.hxx>
+#include <svx/svxids.hrc>
 #include <unotools/collatorwrapper.hxx>
 #include <tabledlg.hxx>
 #include <fmtclds.hxx>
@@ -244,12 +247,10 @@ SwInsertDBColAutoPilot::SwInsertDBColAutoPilot( SwView& rView,
         }
         Reference <XNameAccess> xCols = xColSupp->getColumns();
         Sequence<OUString> aColNames = xCols->getElementNames();
-        const OUString* pColNames = aColNames.getConstArray();
-        sal_Int32 nCount = aColNames.getLength();
-        for (sal_Int32 n = 0; n < nCount; ++n)
+        for (const OUString& rColName : aColNames)
         {
-            std::unique_ptr<SwInsDBColumn> pNew(new SwInsDBColumn( pColNames[n] ));
-            Any aCol = xCols->getByName(pColNames[n]);
+            std::unique_ptr<SwInsDBColumn> pNew(new SwInsDBColumn( rColName ));
+            Any aCol = xCols->getByName(rColName);
             Reference <XPropertySet> xCol;
             aCol >>= xCol;
             Any aType = xCol->getPropertyValue("Type");
@@ -740,7 +741,7 @@ IMPL_LINK_NOARG(SwInsertDBColAutoPilot, AutoFormatHdl, weld::Button&, void)
 
     ScopedVclPtr<AbstractSwAutoFormatDlg> pDlg(rFact.CreateSwAutoFormatDlg(m_xDialog.get(), pView->GetWrtShellPtr(), false, m_xTAutoFormat.get()));
     if( RET_OK == pDlg->Execute())
-        m_xTAutoFormat.reset(pDlg->FillAutoFormatOfIndex());
+        m_xTAutoFormat = pDlg->FillAutoFormatOfIndex();
 }
 
 IMPL_LINK(SwInsertDBColAutoPilot, TVSelectHdl, weld::TreeView&, rBox, void)
@@ -921,7 +922,7 @@ void SwInsertDBColAutoPilot::DataToDoc( const Sequence<Any>& rSelection,
 {
     auto xResultSet = xResultSet_in;
 
-    const Any* pSelection = rSelection.getLength() ? rSelection.getConstArray() : nullptr;
+    const Any* pSelection = rSelection.hasElements() ? rSelection.getConstArray() : nullptr;
     SwWrtShell& rSh = pView->GetWrtShell();
 
     //with the drag and drop interface no result set is initially available
@@ -1117,9 +1118,9 @@ void SwInsertDBColAutoPilot::DataToDoc( const Sequence<Any>& rSelection,
                         }
                     }
                 }
-                catch (const Exception& rExcept)
+                catch (const Exception&)
                 {
-                    SAL_WARN("sw", rExcept);
+                    TOOLS_WARN_EXCEPTION("sw", "");
                 }
             }
 
@@ -1465,18 +1466,11 @@ static Sequence<OUString> lcl_CreateSubNames(const OUString& rSubNodeName)
 
 static OUString lcl_CreateUniqueName(const Sequence<OUString>& aNames)
 {
-    const sal_Int32 nNames = aNames.getLength();
-    sal_Int32 nIdx = nNames;
-    const OUString* pNames = aNames.getConstArray();
+    sal_Int32 nIdx = aNames.getLength();
     while(true)
     {
         const OUString sRet = "_" + OUString::number(nIdx++);
-        sal_Int32 i = 0;
-        while ( i < nNames && pNames[i] != sRet )
-        {
-            ++i;
-        }
-        if ( i >= nNames )
+        if ( comphelper::findValue(aNames, sRet) == -1 )
             return sRet;    // No match found, return unique name
     }
 }
@@ -1560,11 +1554,10 @@ void SwInsertDBColAutoPilot::ImplCommit()
         Sequence <OUString> aSubNodeNames = lcl_CreateSubNames(sColumnInsertNode);
         Sequence<PropertyValue> aSubValues(aSubNodeNames.getLength());
         PropertyValue* pSubValues = aSubValues.getArray();
-        const OUString* pSubNodeNames = aSubNodeNames.getConstArray();
-        sal_Int32 i;
+        sal_Int32 i = 0;
 
-        for( i = 0; i < aSubNodeNames.getLength(); i++)
-            pSubValues[i].Name = pSubNodeNames[i];
+        for( const OUString& rSubNodeName : aSubNodeNames)
+            pSubValues[i++].Name = rSubNodeName;
         pSubValues[0].Value <<= pColumn->sColumn;
         pSubValues[1].Value <<= i;
         pSubValues[2].Value <<= pColumn->bHasFormat;
@@ -1631,11 +1624,10 @@ void SwInsertDBColAutoPilot::Load()
 
             const OUString sSubNodeName(nodeName + "/ColumnSet/");
             Sequence <OUString> aSubNames = GetNodeNames(sSubNodeName);
-            const OUString* pSubNames = aSubNames.getConstArray();
-            for(sal_Int32 nSub = 0; nSub < aSubNames.getLength(); nSub++)
+            for(const OUString& rSubName : aSubNames)
             {
                 Sequence <OUString> aSubNodeNames =
-                    lcl_CreateSubNames(sSubNodeName + pSubNames[nSub]);
+                    lcl_CreateSubNames(sSubNodeName + rSubName);
                 Sequence< Any> aSubProps = GetProperties(aSubNodeNames);
                 const Any* pSubProps = aSubProps.getConstArray();
 

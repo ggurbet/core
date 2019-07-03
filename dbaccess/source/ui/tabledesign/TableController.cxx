@@ -366,7 +366,7 @@ bool OTableController::doSaveDoc(bool _bSaveAs)
                 assignTable();
             }
             // now check if our datasource has set a tablefilter and if append the new table name to it
-            ::dbaui::appendToFilter(getConnection(), m_sName, getORB(), getFrameWeld()); // we are not interessted in the return value
+            ::dbaui::appendToFilter(getConnection(), m_sName, getORB(), getFrameWeld()); // we are not interested in the return value
             Reference< frame::XTitleChangeListener> xEventListener(impl_getTitleHelper_throw(),UNO_QUERY);
             if ( xEventListener.is() )
             {
@@ -1030,8 +1030,7 @@ void OTableController::alterColumns()
                 bAutoIncrement != pField->IsAutoIncrement())&&
                 xColumnFactory.is())
             {
-                Reference<XPropertySet> xNewColumn;
-                xNewColumn = xColumnFactory->createDataDescriptor();
+                Reference<XPropertySet> xNewColumn = xColumnFactory->createDataDescriptor();
                 ::dbaui::setColumnProperties(xNewColumn,pField);
                 // first try to alter the column
                 bool bNotOk = false;
@@ -1082,8 +1081,7 @@ void OTableController::alterColumns()
         { // we can't find the column so we could try it with the index before we drop and append a new column
             try
             {
-                Reference<XPropertySet> xNewColumn;
-                xNewColumn = xColumnFactory->createDataDescriptor();
+                Reference<XPropertySet> xNewColumn = xColumnFactory->createDataDescriptor();
                 ::dbaui::setColumnProperties(xNewColumn,pField);
                 xAlter->alterColumnByIndex(nPos,xNewColumn);
                 if(xColumns->hasByName(pField->GetName()))
@@ -1266,7 +1264,7 @@ void OTableController::alterColumns()
         bNeedAppendKey = true;
     }
 
-    if ( bNeedDropKey && xKeyColumns.is() && xKeyColumns->getElementNames().getLength() )
+    if ( bNeedDropKey && xKeyColumns.is() && xKeyColumns->getElementNames().hasElements() )
         dropPrimaryKey();
 
     if ( bNeedAppendKey )

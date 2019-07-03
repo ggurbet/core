@@ -29,6 +29,10 @@
 #include <svl/intitem.hxx>
 #include <comphelper/processfactory.hxx>
 
+#include <com/sun/star/frame/XFrame.hpp>
+#include <com/sun/star/ui/ContextChangeEventMultiplexer.hpp>
+#include <com/sun/star/ui/XContextChangeEventMultiplexer.hpp>
+
 using namespace svx;
 
 SFX_IMPL_TOOLBOX_CONTROL(ParaAboveSpacingControl, SvxULSpaceItem);
@@ -174,7 +178,7 @@ void SAL_CALL ParaLRSpacingControl::notifyContextChangeEvent(const css::ui::Cont
 
     if(pWindow)
     {
-        vcl::EnumContext eContext = vcl::EnumContext(
+        vcl::EnumContext eContext(
                 vcl::EnumContext::GetApplicationEnum(rEvent.ApplicationName),
                 vcl::EnumContext::GetContextEnum(rEvent.ContextName));
         pWindow->SetContext(eContext);

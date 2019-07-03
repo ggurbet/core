@@ -82,7 +82,7 @@ private:
 
     // local variables, internal functions
     SvxTabStop      aCurrentTab;
-    SvxTabStopItem  aNewTabs;
+    std::unique_ptr<SvxTabStopItem>  aNewTabs;
     long            nDefDist;
 
     TabWin_Impl    m_aLeftWin;
@@ -133,8 +133,8 @@ private:
     DECL_LINK(DelHdl_Impl, weld::Button&, void);
     DECL_LINK(DelAllHdl_Impl, weld::Button&, void);
 
-    DECL_LINK(FillTypeCheckHdl_Impl, weld::Button&, void);
-    DECL_LINK(TabTypeCheckHdl_Impl, weld::Button&, void);
+    DECL_LINK(FillTypeCheckHdl_Impl, weld::ToggleButton&, void);
+    DECL_LINK(TabTypeCheckHdl_Impl, weld::ToggleButton&, void);
 
     DECL_LINK(SelectHdl_Impl, weld::TreeView&, void);
     DECL_LINK(ModifyHdl_Impl, weld::ComboBox&, void);

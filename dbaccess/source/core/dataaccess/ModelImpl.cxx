@@ -296,7 +296,7 @@ Sequence< OUString > SAL_CALL DocumentStorageAccess::getDocumentSubStoragesNames
     }
     return aNames.empty()
         ?  Sequence< OUString >()
-        :  Sequence< OUString >( &aNames[0], aNames.size() );
+        :  Sequence< OUString >( aNames.data(), aNames.size() );
 }
 
 void SAL_CALL DocumentStorageAccess::preCommit( const css::lang::EventObject& /*aEvent*/ )
@@ -758,8 +758,7 @@ Reference< XStorage > const & ODatabaseModelImpl::getOrCreateRootStorage()
     if ( !m_xDocumentStorage.is() )
     {
         Reference< XSingleServiceFactory> xStorageFactory = StorageFactory::create( m_aContext );
-        Any aSource;
-        aSource = m_aMediaDescriptor.get( "Stream" );
+        Any aSource = m_aMediaDescriptor.get( "Stream" );
         if ( !aSource.hasValue() )
             aSource = m_aMediaDescriptor.get( "InputStream" );
         if ( !aSource.hasValue() && !m_sDocFileLocation.isEmpty() )
@@ -1072,7 +1071,7 @@ Reference< XStorageBasedLibraryContainer > ODatabaseModelImpl::getLibraryContain
 
         rxContainer.set(
             (*Factory)( m_aContext, xDocument ),
-            UNO_QUERY_THROW
+            UNO_SET_THROW
         );
     }
     catch( const RuntimeException& )

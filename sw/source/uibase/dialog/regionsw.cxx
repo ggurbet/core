@@ -30,6 +30,7 @@
 #include <sfx2/request.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/linkmgr.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/sizeitem.hxx>
 #include <svtools/htmlcfg.hxx>
 #include <section.hxx>
@@ -48,6 +49,7 @@
 #include <globals.hrc>
 #include <sfx2/bindings.hxx>
 #include <sfx2/htmlmode.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/dlgutil.hxx>
 #include <swabstdlg.hxx>
 #include <memory>
@@ -191,7 +193,9 @@ void SwWrtShell::StartInsertRegionDialog(const SwSectionData& rSectionData)
     VclPtr<AbstractInsertSectionTabDialog> aTabDlg(pFact->CreateInsertSectionTabDialog(
         GetView().GetViewFrame()->GetWindow().GetFrameWeld(), aSet, *this));
     aTabDlg->SetSectionData(rSectionData);
-    aTabDlg->StartExecuteAsync(nullptr);
+    aTabDlg->StartExecuteAsync([aTabDlg](sal_Int32 /*nResult*/){
+        aTabDlg->disposeOnce();
+    });
 }
 
 void SwBaseShell::EditRegionDialog(SfxRequest const & rReq)

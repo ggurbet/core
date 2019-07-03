@@ -12,7 +12,7 @@
 #include <osl/security.hxx>
 #include <osl/thread.h>
 #include <sal/log.hxx>
-#include <vcl/treelistentry.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/securityoptions.hxx>
 #include "certpath.hxx"
 
@@ -71,7 +71,7 @@ CertPathDialog::CertPathDialog(weld::Window* pParent)
             {
                 m_xCertPathList->append();
                 const int nRow = m_xCertPathList->n_children() - 1;
-                m_xCertPathList->set_toggle(nRow, false, 0);
+                m_xCertPathList->set_toggle(nRow, TRISTATE_FALSE, 0);
                 OUString sEntry = OUString::createFromAscii(productNames[i]) + ":" + profile;
                 m_xCertPathList->set_text(nRow, sEntry, 1);
                 OUString sProfilePath = xMozillaBootstrap->getProfilePath( productTypes[i], profile );
@@ -90,11 +90,27 @@ CertPathDialog::CertPathDialog(weld::Window* pParent)
             officecfg::Office::Common::Security::Scripting::CertDir::get().get_value_or(OUString());
 
         if (!sUserSetCertPath.isEmpty())
-            AddCertPath(m_sManual, sUserSetCertPath);
+        {
+            // check existence
+            ::osl::DirectoryItem aUserPathItem;
+            OUString sUserSetCertURLPath;
+            osl::FileBase::getFileURLFromSystemPath(sUserSetCertPath, sUserSetCertURLPath);
+            ::osl::FileBase::RC result = ::osl::DirectoryItem::get( sUserSetCertURLPath, aUserPathItem );
+            if ( result == ::osl::FileBase::E_None  )
+            {
+                ::osl::FileStatus aStatus( osl_FileStatus_Mask_Validate );
+                result = aUserPathItem.getFileStatus( aStatus );
+                if ( result == ::osl::FileBase::E_None  )
+                {
+                    // the cert path exists
+                    AddCertPath(m_sManual, sUserSetCertPath);
+                }
+            }
+        }
     }
-    catch (const uno::Exception &e)
+    catch (const uno::Exception &)
     {
-        SAL_WARN("cui.options", "CertPathDialog::CertPathDialog(): " << e);
+        TOOLS_WARN_EXCEPTION("cui.options", "CertPathDialog::CertPathDialog()");
     }
 
     const char* pEnv = getenv("MOZILLA_CERTIFICATE_FOLDER");
@@ -103,7 +119,7 @@ CertPathDialog::CertPathDialog(weld::Window* pParent)
 
     if (m_xCertPathList->n_children())
     {
-        m_xCertPathList->set_toggle(0, true, 0);
+        m_xCertPathList->set_toggle(0, TRISTATE_TRUE, 0);
         HandleEntryChecked(0);
     }
 }
@@ -118,9 +134,9 @@ IMPL_LINK_NOARG(CertPathDialog, OKHdl_Impl, weld::Button&, void)
             getDirectory(), batch);
         batch->commit();
     }
-    catch (const uno::Exception &e)
+    catch (const uno::Exception &)
     {
-        SAL_WARN("cui.options", "CertPathDialog::OKHdl_Impl(): " << e);
+        TOOLS_WARN_EXCEPTION("cui.options", "CertPathDialog::OKHdl_Impl()");
     }
 
     m_xDialog->response(RET_OK);
@@ -146,7 +162,7 @@ IMPL_LINK(CertPathDialog, CheckHdl_Impl, const row_col&, rRowCol, void)
 void CertPathDialog::HandleEntryChecked(int nRow)
 {
     m_xCertPathList->select(nRow);
-    bool bChecked = m_xCertPathList->get_toggle(nRow, 0);
+    bool bChecked = m_xCertPathList->get_toggle(nRow, 0) == TRISTATE_TRUE;
     if (bChecked)
     {
         // we have radio button behavior -> so uncheck the other entries
@@ -154,7 +170,7 @@ void CertPathDialog::HandleEntryChecked(int nRow)
         for (int i = 0; i < nCount; ++i)
         {
             if (i != nRow)
-                m_xCertPathList->set_toggle(i, false, 0);
+                m_xCertPathList->set_toggle(i, TRISTATE_FALSE, 0);
         }
     }
 }
@@ -167,7 +183,7 @@ void CertPathDialog::AddCertPath(const OUString &rProfile, const OUString &rPath
         //already exists, just select the original one
         if (sCertPath == rPath)
         {
-            m_xCertPathList->set_toggle(i, true, 0);
+            m_xCertPathList->set_toggle(i, TRISTATE_TRUE, 0);
             HandleEntryChecked(i);
             return;
         }
@@ -175,7 +191,7 @@ void CertPathDialog::AddCertPath(const OUString &rProfile, const OUString &rPath
 
     m_xCertPathList->append();
     const int nRow = m_xCertPathList->n_children() - 1;
-    m_xCertPathList->set_toggle(nRow, true, 0);
+    m_xCertPathList->set_toggle(nRow, TRISTATE_TRUE, 0);
     m_xCertPathList->set_text(nRow, rProfile, 1);
     m_xCertPathList->set_text(nRow, rPath, 2);
     m_xCertPathList->set_id(nRow, rPath);
@@ -201,9 +217,9 @@ IMPL_LINK_NOARG(CertPathDialog, AddHdl_Impl, weld::Button&, void)
                 AddCertPath(m_sManual, aPath);
         }
     }
-    catch (uno::Exception & e)
+    catch (const uno::Exception &)
     {
-        SAL_WARN("cui.options", e);
+        TOOLS_WARN_EXCEPTION("cui.options", "");
     }
 }
 

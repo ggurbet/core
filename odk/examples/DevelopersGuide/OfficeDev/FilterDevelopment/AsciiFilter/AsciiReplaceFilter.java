@@ -316,12 +316,12 @@ public class AsciiReplaceFilter
         /**
         * Implements the real filter method. We detect if it must be an import or an export.
         * Depends on that we use an existing stream (given inside the MediaDescriptor)
-        * or open it by using an URL (must be a part of the descriptor too).
+        * or open it by using a URL (must be a part of the descriptor too).
         *
         * @param lDescriptor
         *          the MediaDescriptor which describes the document
         *
-        * @return a bool value which describes if method was successfully or not.
+        * @return a bool value which describes if method was successful.
         */
 
         public boolean filter( com.sun.star.beans.PropertyValue[] lDescriptor )
@@ -406,7 +406,7 @@ public class AsciiReplaceFilter
          *          capsulate all other necessary information for this filter request
          *          (streams, replace values ...)
          *
-         * @return a bool value which describes if method was successfully or not.
+         * @return a bool value which describes if method was successful.
          */
         private boolean implts_import( com.sun.star.text.XTextDocument xTarget  ,
                                        FilterOptions                   aOptions )
@@ -538,7 +538,7 @@ public class AsciiReplaceFilter
          *          capsulate all other necessary information for this filter request
          *          (streams, replace values ...)
          *
-         * @return a bool value which describes if method was successfully or not.
+         * @return a bool value which describes if method was successful.
          */
         private boolean implts_export( com.sun.star.text.XTextDocument xSource ,
                                        FilterOptions                   aOptions)

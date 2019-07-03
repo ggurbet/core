@@ -17,17 +17,19 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <vcl/builderfactory.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/virdev.hxx>
+#include <vcl/event.hxx>
 #include <sfx2/dialoghelper.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xtable.hxx>
 #include <svx/xpool.hxx>
 #include <svx/strings.hrc>
 #include <bitmaps.hlst>
 #include <svx/dlgctrl.hxx>
 #include <svx/dialmgr.hxx>
+#include <tools/debug.hxx>
 #include <tools/poly.hxx>
 #include <vcl/region.hxx>
 #include <vcl/gradient.hxx>
@@ -872,25 +874,12 @@ void SvxPixelCtl::LoseFocus()
 
 void SvxPixelCtl::SetXBitmap(const BitmapEx& rBitmapEx)
 {
-    BitmapColor aBack;
-    BitmapColor aFront;
-
-    if (vcl::bitmap::isHistorical8x8(rBitmapEx, aBack, aFront))
+    if (vcl::bitmap::isHistorical8x8(rBitmapEx, aBackgroundColor, aPixelColor))
     {
-        Bitmap aBitmap(rBitmapEx.GetBitmap());
-        Bitmap::ScopedReadAccess pRead(aBitmap);
-
-        aBackgroundColor = aBack.GetColor();
-        aPixelColor = aFront.GetColor();
-
-        for(sal_uInt16 i(0); i < nSquares; i++)
+        for (sal_uInt16 i = 0; i < nSquares; i++)
         {
-            const BitmapColor aColor(pRead->GetColor(i/8, i%8));
-
-            if (aColor == aBack)
-                maPixelData[i] = 0;
-            else
-                maPixelData[i] = 1;
+            Color aColor = rBitmapEx.GetPixelColor(i%8, i/8);
+            maPixelData[i] = (aColor == aBackgroundColor) ? 0 : 1;
         }
     }
 }
@@ -1212,7 +1201,7 @@ void SvxXLinePreview::Paint(vcl::RenderContext& rRenderContext, const tools::Rec
     if ( mbWithSymbol && mpGraphic )
     {
         const Size aOutputSize(GetOutputSize());
-        Point aPos = Point( aOutputSize.Width() / 3, aOutputSize.Height() / 2 );
+        Point aPos( aOutputSize.Width() / 3, aOutputSize.Height() / 2 );
         aPos.AdjustX( -(maSymbolSize.Width() / 2) );
         aPos.AdjustY( -(maSymbolSize.Height() / 2) );
         mpGraphic->Draw(&getBufferDevice(), aPos, maSymbolSize);

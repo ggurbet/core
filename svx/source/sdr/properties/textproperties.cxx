@@ -27,14 +27,19 @@
 #include <svx/svddef.hxx>
 #include <svx/svdotext.hxx>
 #include <svx/svdoutl.hxx>
+#include <svx/sdmetitm.hxx>
+#include <svx/sdtditm.hxx>
 #include <editeng/writingmodeitem.hxx>
 #include <svx/svdmodel.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/outlobj.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <editeng/adjustitem.hxx>
 #include <svx/svdetc.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/flditem.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnwtit.hxx>
 #include <svx/svdpool.hxx>
 

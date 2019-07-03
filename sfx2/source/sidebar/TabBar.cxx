@@ -35,8 +35,10 @@
 #include <vcl/event.hxx>
 #include <vcl/gradient.hxx>
 #include <vcl/image.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
 #include <tools/svborder.hxx>
+#include <svtools/acceleratorexecute.hxx>
 
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
 

@@ -32,7 +32,6 @@
 #include <com/sun/star/drawing/XShapes.hpp>
 
 #include <rtl/math.hxx>
-#include <tools/helpers.hxx>
 
 namespace chart
 {
@@ -107,10 +106,10 @@ uno::Reference< XTransformation > PlottingPositionHelper::getTransformationScale
 {
     //this is a standard transformation for a cartesian coordinate system
 
-    //transformation from 2) to 4) //@todo 2) and 4) need a ink to a document
+    //transformation from 2) to 4) //@todo 2) and 4) need an ink to a document
 
     //we need to apply this transformation to each geometric object because of a bug/problem
-    //of the old drawing layer (the UNO_NAME_3D_EXTRUDE_DEPTH is an integer value instead of an double )
+    //of the old drawing layer (the UNO_NAME_3D_EXTRUDE_DEPTH is an integer value instead of a double )
     if(!m_xTransformationLogicToScene.is())
     {
         ::basegfx::B3DHomMatrix aMatrix;
@@ -417,10 +416,11 @@ double PolarPlottingPositionHelper::getWidthAngleDegree( double& fStartLogicValu
         && !::rtl::math::approxEqual( fStartLogicValueOnAngleAxis, fEndLogicValueOnAngleAxis ) )
         fWidthAngleDegree = 360.0;
 
-    while(fWidthAngleDegree<0.0)
-        fWidthAngleDegree+=360.0;
-    while(fWidthAngleDegree>360.0)
-        fWidthAngleDegree-=360.0;
+    // tdf#123504: both 0 and 360 are valid and different values here!
+    while (fWidthAngleDegree < 0.0)
+        fWidthAngleDegree += 360.0;
+    while (fWidthAngleDegree > 360.0)
+        fWidthAngleDegree -= 360.0;
 
     return fWidthAngleDegree;
 }
@@ -473,7 +473,12 @@ double PolarPlottingPositionHelper::transformToAngleDegree( double fLogicValueOn
     fRet = m_fAngleDegreeOffset
                   + fAxisAngleScaleDirection*(fScaledLogicAngleValue-MinAngleValue)*360.0
                     /fabs(MaxAngleValue-MinAngleValue);
-    return NormAngle360(fRet);
+    // tdf#123504: both 0 and 360 are valid and different values here!
+    while (fRet > 360.0)
+        fRet -= 360.0;
+    while (fRet < 0)
+        fRet += 360.0;
+    return fRet;
 }
 
 /**

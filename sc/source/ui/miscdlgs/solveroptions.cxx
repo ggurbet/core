@@ -101,7 +101,7 @@ ScSolverOptionsDialog::ScSolverOptionsDialog(weld::Window* pParent,
     if ( nSelect >= 0 )                 // select in list box
         m_xLbEngine->set_active(nSelect);
 
-    if ( !maProperties.getLength() )
+    if ( !maProperties.hasElements() )
         ReadFromComponent();            // fill maProperties from component (using maEngine)
     FillListBox();                      // using maProperties
 }
@@ -128,7 +128,7 @@ const uno::Sequence<beans::PropertyValue>& ScSolverOptionsDialog::GetProperties(
                     rValue <<= pStringItem->GetIntValue();
             }
             else
-                rValue <<= m_xLbSettings->get_toggle(nEntryPos, 0);
+                rValue <<= m_xLbSettings->get_toggle(nEntryPos, 0) == TRISTATE_TRUE;
         }
     }
     else
@@ -184,7 +184,7 @@ void ScSolverOptionsDialog::FillListBox()
         if ( eClass == uno::TypeClass_BOOLEAN )
         {
             // check box entry
-            m_xLbSettings->set_toggle(nPos, ScUnoHelpFunctions::GetBoolFromAny(aValue), 0);
+            m_xLbSettings->set_toggle(nPos, ScUnoHelpFunctions::GetBoolFromAny(aValue) ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
             m_xLbSettings->set_text(nPos, aVisName, 1);
         }
         else

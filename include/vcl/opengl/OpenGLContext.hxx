@@ -10,13 +10,10 @@
 #ifndef INCLUDED_VCL_OPENGL_OPENGLCONTEXT_HXX
 #define INCLUDED_VCL_OPENGL_OPENGLCONTEXT_HXX
 
-#include <string.h>
-
 #include <epoxy/gl.h>
 
 #include <vcl/dllapi.h>
 #include <vcl/syschild.hxx>
-#include <rtl/crc.h>
 #include <rtl/ref.hxx>
 
 #include <memory>
@@ -172,15 +169,7 @@ protected:
     OpenGLCapabilitySwitch maOpenGLCapabilitySwitch;
 
 private:
-    struct ProgramHash
-    {
-        size_t operator()( const OString& aDigest ) const
-        {
-            return static_cast<size_t>( rtl_crc32( 0, aDigest.getStr(), aDigest.getLength() ) );
-        }
-    };
-
-    typedef std::unordered_map< OString, std::shared_ptr<OpenGLProgram>, ProgramHash > ProgramCollection;
+    typedef std::unordered_map< OString, std::shared_ptr<OpenGLProgram> > ProgramCollection;
     ProgramCollection maPrograms;
     OpenGLProgram* mpCurrentProgram;
 

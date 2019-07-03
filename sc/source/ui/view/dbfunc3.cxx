@@ -418,14 +418,13 @@ void ScDBFunc::DoSubTotals( const ScSubTotalParam& rParam, bool bRecord,
         return;
     }
 
-    WaitObject aWait( GetViewData().GetDialogParent() );
+    weld::WaitObject aWait(GetViewData().GetDialogParent());
     bool bOk = true;
     if (rParam.bReplace)
     {
         if (rDoc.TestRemoveSubTotals( nTab, rParam ))
         {
-            vcl::Window* pWin = GetViewData().GetDialogParent();
-            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                       VclMessageType::Question, VclButtonsType::YesNo,
                                                       ScResId(STR_MSSG_DOSUBTOTALS_1))); // "delete data?"
             xBox->set_title(ScResId(STR_MSSG_DOSUBTOTALS_0)); // "StarCalc"
@@ -1793,9 +1792,8 @@ bool ScDBFunc::DataPilotMove( const ScRange& rSource, const ScAddress& rDest )
                 pDPObj->GetHeaderPositionData( ScAddress( nCol, nRow, rSource.aStart.Tab() ), aSourceData );
                 if ( aSourceData.Dimension == aDestData.Dimension && !aSourceData.MemberName.isEmpty() )
                 {
-                    if ( aMembersSet.find( aSourceData.MemberName ) == aMembersSet.end() )
+                    if ( aMembersSet.insert( aSourceData.MemberName ).second )
                     {
-                        aMembersSet.insert( aSourceData.MemberName );
                         aMembersVector.push_back( aSourceData.MemberName );
                     }
                     // duplicates are ignored

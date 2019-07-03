@@ -45,13 +45,9 @@ void DocumentListItemsManager::addListItem( const SwNodeNum& rNodeNum )
     }
 
     const bool bAlreadyInserted(
-            mpListItemsList->find( &rNodeNum ) != mpListItemsList->end() );
+            mpListItemsList->insert( &rNodeNum ).second );
     OSL_ENSURE( !bAlreadyInserted,
             "<DocumentListItemsManager::addListItem(..)> - <SwNodeNum> instance already registered as numbered item!" );
-    if ( !bAlreadyInserted )
-    {
-        mpListItemsList->insert( &rNodeNum );
-    }
 }
 
 void DocumentListItemsManager::removeListItem( const SwNodeNum& rNodeNum )
@@ -73,7 +69,7 @@ OUString DocumentListItemsManager::getListItemText(const SwNodeNum& rNodeNum,
 {
     SwTextNode const*const pNode(rNodeNum.GetTextNode());
     assert(pNode);
-    return sw::GetExpandTextMerged(&rLayout, *pNode, true, true, ExpandMode(0));
+    return sw::GetExpandTextMerged(&rLayout, *pNode, true, true, ExpandMode::ExpandFootnote);
 }
 
 bool DocumentListItemsManager::isNumberedInLayout(

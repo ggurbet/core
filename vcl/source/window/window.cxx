@@ -70,6 +70,7 @@
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <unotools/configmgr.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/debug.hxx>
 
 #include <cassert>
@@ -199,8 +200,7 @@ void Window::dispose()
             // deregister drop target listener
             if( mpWindowImpl->mpFrameData->mxDropTargetListener.is() )
             {
-                Reference< XDragGestureRecognizer > xDragGestureRecognizer =
-                    Reference< XDragGestureRecognizer > (mpWindowImpl->mpFrameData->mxDragSource, UNO_QUERY);
+                Reference< XDragGestureRecognizer > xDragGestureRecognizer(mpWindowImpl->mpFrameData->mxDragSource, UNO_QUERY);
                 if( xDragGestureRecognizer.is() )
                 {
                     xDragGestureRecognizer->removeDragGestureListener(
@@ -807,6 +807,7 @@ ImplFrameData::ImplFrameData( vcl::Window *pWindow )
     mbInBufferedPaint = false;
     mnDPIX = 96;
     mnDPIY = 96;
+    mnTouchPanPosition = -1;
 }
 
 namespace vcl {
@@ -858,19 +859,16 @@ bool Window::AcquireGraphics() const
         }
     }
 
-    // update global LRU list of wingraphics
     if ( mpGraphics )
     {
+        // update global LRU list of wingraphics
         mpNextGraphics = pSVData->maGDIData.mpFirstWinGraphics;
         pSVData->maGDIData.mpFirstWinGraphics = const_cast<vcl::Window*>(this);
         if ( mpNextGraphics )
             mpNextGraphics->mpPrevGraphics = const_cast<vcl::Window*>(this);
         if ( !pSVData->maGDIData.mpLastWinGraphics )
             pSVData->maGDIData.mpLastWinGraphics = const_cast<vcl::Window*>(this);
-    }
 
-    if ( mpGraphics )
-    {
         mpGraphics->SetXORMode( (RasterOp::Invert == meRasterOp) || (RasterOp::Xor == meRasterOp), RasterOp::Invert == meRasterOp );
         mpGraphics->setAntiAliasB2DDraw(bool(mnAntialiasing & AntialiasingFlags::EnableB2dDraw));
     }
@@ -1747,6 +1745,11 @@ void Window::ImplNewInputContext()
     pFocusWin->ImplGetFrame()->SetInputContext( &aNewContext );
 }
 
+void Window::SetModalHierarchyHdl(const Link<bool, void>& rLink)
+{
+    ImplGetFrame()->SetModalHierarchyHdl(rLink);
+}
+
 void Window::SetParentToDefaultWindow()
 {
     Show(false);
@@ -2301,7 +2304,9 @@ void Window::Show(bool bVisible, ShowFlags nFlags)
             if ( !pSVData->mpIntroWindow )
             {
                 // The right way would be just to call this (not even in the 'if')
-                GetpApp()->InitFinished();
+                auto pApp = GetpApp();
+                if ( pApp )
+                    pApp->InitFinished();
             }
             else if ( !ImplIsWindowOrChild( pSVData->mpIntroWindow ) )
             {
@@ -2738,22 +2743,18 @@ void Window::setPosSizePixel( long nX, long nY,
                 OutputDevice *pParentOutDev = pWinParent->GetOutDev();
                 if( pParentOutDev->HasMirroredGraphics() )
                 {
+                    const SalFrameGeometry& aSysGeometry = mpWindowImpl->mpFrame->GetUnmirroredGeometry();
+                    const SalFrameGeometry& aParentSysGeometry =
+                        pWinParent->mpWindowImpl->mpFrame->GetUnmirroredGeometry();
                     long myWidth = nOldWidth;
                     if( !myWidth )
-                        myWidth = mpWindowImpl->mpFrame->GetUnmirroredGeometry().nWidth;
+                        myWidth = aSysGeometry.nWidth;
                     if( !myWidth )
                         myWidth = nWidth;
                     nFlags |= PosSizeFlags::X;
                     nSysFlags |= SAL_FRAME_POSSIZE_X;
-                    nX = pWinParent->mpWindowImpl->mpFrame->GetUnmirroredGeometry().nX - mpWindowImpl->mpFrame->GetUnmirroredGeometry().nLeftDecoration +
-                        pWinParent->mpWindowImpl->mpFrame->GetUnmirroredGeometry().nWidth - myWidth - 1 - mpWindowImpl->mpFrame->GetUnmirroredGeometry().nX;
-                    if(!(nFlags & PosSizeFlags::Y))
-                    {
-                        nFlags |= PosSizeFlags::Y;
-                        nSysFlags |= SAL_FRAME_POSSIZE_Y;
-                        nY = mpWindowImpl->mpFrame->GetUnmirroredGeometry().nY - pWinParent->mpWindowImpl->mpFrame->GetUnmirroredGeometry().nY -
-                            mpWindowImpl->mpFrame->GetUnmirroredGeometry().nTopDecoration;
-                    }
+                    nX = aParentSysGeometry.nX - aSysGeometry.nLeftDecoration + aParentSysGeometry.nWidth
+                        - myWidth - 1 - aSysGeometry.nX;
                 }
             }
         }
@@ -3283,9 +3284,9 @@ Reference< XClipboard > Window::GetClipboard()
                     = css::datatransfer::clipboard::SystemClipboard::create(
                         comphelper::getProcessComponentContext());
             }
-            catch (DeploymentException & e)
+            catch (DeploymentException const &)
             {
-                SAL_WARN("vcl.window", "ignoring " << e);
+                TOOLS_WARN_EXCEPTION("vcl.window", "ignoring");
             }
         }
 
@@ -3324,9 +3325,9 @@ Reference< XClipboard > Window::GetPrimarySelection()
                 mpWindowImpl->mpFrameData->mxSelection = s_xSelection;
 #endif
             }
-            catch (RuntimeException & e)
+            catch (RuntimeException const &)
             {
-                SAL_WARN("vcl.window", "ignoring " << e);
+                TOOLS_WARN_EXCEPTION("vcl.window", "ignoring");
             }
         }
 

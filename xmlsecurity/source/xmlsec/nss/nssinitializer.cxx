@@ -28,28 +28,26 @@
 #include <rtl/instance.hxx>
 #include <rtl/bootstrap.hxx>
 #include <rtl/string.hxx>
-#include <rtl/strbuf.hxx>
 #include <osl/file.hxx>
 #include <osl/thread.h>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/tempfile.hxx>
 #include <salhelper/singletonref.hxx>
 
-#include "seinitializer_nssimpl.hxx"
+#include <nss/nssinitializer.hxx>
 
-#include "securityenvironment_nssimpl.hxx"
 #include "digestcontext.hxx"
 #include "ciphercontext.hxx"
 
 #include <memory>
 #include <vector>
 
-#include <nspr.h>
-#include <cert.h>
 #include <nss.h>
 #include <pk11pub.h>
 #include <secmod.h>
-#include <nssckbi.h>
+#include <prerror.h>
+#include <prinit.h>
 
 namespace cssu = css::uno;
 namespace cssl = css::lang;
@@ -263,9 +261,9 @@ OString getMozillaCurrentProfile( const css::uno::Reference< css::uno::XComponen
             return OUStringToOString(sUserSetCertPath, osl_getThreadTextEncoding());
         }
     }
-    catch (const uno::Exception &e)
+    catch (const uno::Exception &)
     {
-        SAL_WARN("xmlsecurity.xmlsec", "getMozillaCurrentProfile: caught " << e);
+        TOOLS_WARN_EXCEPTION("xmlsecurity.xmlsec", "getMozillaCurrentProfile:");
     }
 
     // third, dig around to see if there's one available
@@ -539,7 +537,7 @@ css::uno::Reference< css::xml::crypto::XDigestContext > SAL_CALL ONSSInitializer
     else
         throw css::lang::IllegalArgumentException("Unexpected digest requested.", css::uno::Reference< css::uno::XInterface >(), 1 );
 
-    if ( aParams.getLength() )
+    if ( aParams.hasElements() )
         throw css::lang::IllegalArgumentException("Unexpected arguments provided for digest creation.", css::uno::Reference< css::uno::XInterface >(), 2 );
 
     css::uno::Reference< css::xml::crypto::XDigestContext > xResult;
@@ -566,7 +564,7 @@ css::uno::Reference< css::xml::crypto::XCipherContext > SAL_CALL ONSSInitializer
     if ( aKey.getLength() != 16 && aKey.getLength() != 24 && aKey.getLength() != 32 )
         throw css::lang::IllegalArgumentException("Unexpected key length.", css::uno::Reference< css::uno::XInterface >(), 2 );
 
-    if ( aParams.getLength() )
+    if ( aParams.hasElements() )
         throw css::lang::IllegalArgumentException("Unexpected arguments provided for cipher creation.", css::uno::Reference< css::uno::XInterface >(), 5 );
 
     css::uno::Reference< css::xml::crypto::XCipherContext > xResult;

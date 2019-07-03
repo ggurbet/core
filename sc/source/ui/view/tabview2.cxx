@@ -20,6 +20,7 @@
 #include <scitems.hxx>
 #include <editeng/eeitem.hxx>
 #include <vcl/timer.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/viewfrm.hxx>
@@ -1422,9 +1423,9 @@ void ScTabView::ErrorMessage(const char* pGlobStrId)
 
     StopMarking();      // if called by Focus from MouseButtonDown
 
-    vcl::Window* pParent = aViewData.GetDialogParent();
-    ScWaitCursorOff aWaitOff( pParent );
-    bool bFocus = pParent && pParent->HasFocus();
+    weld::Window* pParent = aViewData.GetDialogParent();
+    weld::WaitObject aWaitOff( pParent );
+    bool bFocus = pParent && pParent->has_focus();
 
     if (pGlobStrId && strcmp(pGlobStrId, STR_PROTECTIONERR) == 0)
     {
@@ -1434,13 +1435,13 @@ void ScTabView::ErrorMessage(const char* pGlobStrId)
         }
     }
 
-    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pParent ? pParent->GetFrameWeld() : nullptr,
+    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pParent,
                                                   VclMessageType::Info, VclButtonsType::Ok,
                                                   ScResId(pGlobStrId)));
     xInfoBox->run();
 
     if (bFocus)
-        pParent->GrabFocus();
+        pParent->grab_focus();
 }
 
 void ScTabView::UpdatePageBreakData( bool bForcePaint )

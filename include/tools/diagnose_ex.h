@@ -25,6 +25,7 @@
 #include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 
+#include <sal/log.hxx>
 #include <tools/toolsdllapi.h>
 #include <cppuhelper/exc_hlp.hxx>
 
@@ -132,6 +133,36 @@ inline css::uno::Any DbgGetCaughtException()
 /** Convert a caught exception to a string suitable for logging.
 */
 TOOLS_DLLPUBLIC OString exceptionToString(css::uno::Any const & caughtEx);
+
+/**
+   Logs an message along with a nicely formatted version of the current exception.
+   This must be called as the FIRST thing in a catch block.
+*/
+#define TOOLS_WARN_EXCEPTION(area, stream) \
+    do { \
+        css::uno::Any tools_warn_exception( cppu::getCaughtException() ); \
+        SAL_WARN(area, stream << " " << exceptionToString(tools_warn_exception)); \
+    } while (false)
+
+/**
+   Logs an message along with a nicely formatted version of the current exception.
+   This must be called as the FIRST thing in a catch block.
+*/
+#define TOOLS_WARN_EXCEPTION_IF(cond, area, stream) \
+    do { \
+        css::uno::Any tools_warn_exception( cppu::getCaughtException() ); \
+        SAL_WARN_IF(cond, area, stream << " " << exceptionToString(tools_warn_exception)); \
+    } while (false)
+
+/**
+   Logs an message along with a nicely formatted version of the current exception.
+   This must be called as the FIRST thing in a catch block.
+*/
+#define TOOLS_INFO_EXCEPTION(area, stream) \
+    do { \
+        css::uno::Any tools_warn_exception( cppu::getCaughtException() ); \
+        SAL_INFO(area, stream << " " << exceptionToString(tools_warn_exception)); \
+    } while (false)
 
 #endif
 

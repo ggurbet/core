@@ -19,9 +19,7 @@
 #include <com/sun/star/lang/ServiceNotRegisteredException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
-#include <com/sun/star/registry/XRegistryKey.hpp>
 #include <com/sun/star/beans/IntrospectionException.hpp>
 #include <com/sun/star/beans/theIntrospection.hpp>
 #include <com/sun/star/beans/MethodConcept.hpp>
@@ -42,6 +40,8 @@
 #include <cppuhelper/factory.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
+
+namespace com::sun::star::lang { class XMultiServiceFactory; }
 
 using namespace com::sun::star::uno;
 using namespace com::sun::star::registry;
@@ -135,7 +135,7 @@ Any SAL_CALL InvocationToAllListenerMapper::invoke(const OUString& FunctionName,
     Reference< XIdlClass > xReturnType = xMethod->getReturnType();
     Sequence< Reference< XIdlClass > > aExceptionSeq = xMethod->getExceptionTypes();
     if( ( xReturnType.is() && xReturnType->getTypeClass() != TypeClass_VOID ) ||
-        aExceptionSeq.getLength() > 0 )
+        aExceptionSeq.hasElements() )
     {
         bApproveFiring = true;
     }
@@ -304,8 +304,7 @@ Sequence<OUString> SAL_CALL EventAttacherImpl::getSupportedServiceNames(  )
 
 Sequence<OUString> EventAttacherImpl::getSupportedServiceNames_Static(  )
 {
-    OUString aStr(  SERVICENAME  );
-    return Sequence< OUString >( &aStr, 1 );
+    return { SERVICENAME };
 }
 
 void SAL_CALL EventAttacherImpl::initialize(const Sequence< Any >& Arguments)

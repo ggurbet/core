@@ -19,33 +19,31 @@
 
 #include <futext.hxx>
 #include <editeng/eeitem.hxx>
-#include <editeng/editerr.hxx>
-#include <svx/dlgutil.hxx>
 #include <svx/sdrpagewindow.hxx>
 #include <svx/sdrpaintwindow.hxx>
-#include <svx/svxerr.hxx>
+#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <vcl/help.hxx>
-#include <editeng/editstat.hxx>
 #include <editeng/fhgtitem.hxx>
-#include <svl/aeitem.hxx>
 #include <svl/intitem.hxx>
+#include <svl/stritem.hxx>
 #include <svx/svdotext.hxx>
-#include <svx/svdogrp.hxx>
 #include <editeng/flditem.hxx>
 #include <svl/style.hxx>
 #include <svx/svdpagv.hxx>
+#include <svx/sdtmfitm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtfsitm.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/request.hxx>
 #include <editeng/editeng.hxx>
 #include <svx/svdoutl.hxx>
-#include <svx/svdotable.hxx>
 #include <svx/svxids.hrc>
+#include <svx/sdr/overlay/overlaymanager.hxx>
 #include <sfx2/docfile.hxx>
 #include <editeng/outlobj.hxx>
-#include <svtools/langtab.hxx>
 
 #include <editeng/frmdiritem.hxx>
 
@@ -58,17 +56,14 @@
 #include <ViewShell.hxx>
 #include <ViewShellBase.hxx>
 #include <View.hxx>
-#include <Outliner.hxx>
 #include <Window.hxx>
 #include <drawdoc.hxx>
 #include <sdpage.hxx>
-#include <sdmod.hxx>
 #include <FrameView.hxx>
 #include <ToolBarManager.hxx>
 #include <DrawDocShell.hxx>
 #include <strings.hrc>
 #include <pres.hxx>
-#include <optsitem.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -123,6 +118,8 @@ static const sal_uInt16 SidArray[] = {
     SID_ATTR_TRANSFORM_AUTOWIDTH,     //   10310
     SID_ATTR_TRANSFORM_AUTOHEIGHT,    //   10311 //Added
     SID_HYPERLINK_GETLINK,            //   10361
+    SID_DEC_INDENT,                   //   10461
+    SID_INC_INDENT,                   //   10462
     SID_CHARMAP,                      //   10503
     SID_TEXTDIRECTION_LEFT_TO_RIGHT,  //   10907
     SID_TEXTDIRECTION_TOP_TO_BOTTOM,  //   10908
@@ -156,7 +153,7 @@ void FuText::disposing()
     if(mpView)
     {
         if(mpView->SdrEndTextEdit() == SdrEndTextEditKind::Deleted)
-            mxTextObj.reset( nullptr );
+            mxTextObj.reset(nullptr);
 
         // reset the RequestHandler of the used Outliner to the handler of the document
         ::Outliner* pOutliner = mpView->GetTextEditOutliner();
@@ -278,7 +275,7 @@ bool FuText::MouseButtonDown(const MouseEvent& rMEvt)
                    list. The call MarkObj further below accesses then the dead
                    object. As a simple fix, we determine eHit after
                    SdrEndTextEdit again, this returns then SdrHitKind::NONE. */
-                mxTextObj.reset( nullptr );
+                mxTextObj.reset(nullptr);
                 eHit = mpView->PickAnything(rMEvt, SdrMouseEventKind::BUTTONDOWN, aVEvt);
             }
 
@@ -630,7 +627,7 @@ bool FuText::MouseButtonUp(const MouseEvent& rMEvt)
 
         if (bReset)
         {
-            mxTextObj.reset( nullptr );
+            mxTextObj.reset(nullptr);
         }
     }
 

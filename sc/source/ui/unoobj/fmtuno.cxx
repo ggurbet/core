@@ -21,7 +21,6 @@
 
 #include <osl/diagnose.h>
 #include <vcl/svapp.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/sheet/ConditionOperator2.hpp>
 #include <com/sun/star/sheet/ValidationAlertStyle.hpp>
@@ -162,7 +161,8 @@ ScTableConditionalFormat::ScTableConditionalFormat(
                 {
                     ScCondFormatEntryItem aItem;
                     const ScFormatEntry* pFrmtEntry = pFormat->GetEntry(i);
-                    if(pFrmtEntry->GetType() != ScFormatEntry::Type::Condition)
+                    if(pFrmtEntry->GetType() != ScFormatEntry::Type::Condition ||
+                       pFrmtEntry->GetType() != ScFormatEntry::Type::ExtCondition)
                         continue;
 
                     const ScCondFormatEntry* pFormatEntry = static_cast<const ScCondFormatEntry*>(pFrmtEntry);
@@ -213,14 +213,14 @@ void ScTableConditionalFormat::FillFormat( ScConditionalFormat& rFormat,
         if ( !aData.maPosStr.isEmpty() )
             pCoreEntry->SetSrcString( aData.maPosStr );
 
-        if ( aData.maTokens1.getLength() )
+        if ( aData.maTokens1.hasElements() )
         {
             ScTokenArray aTokenArray;
             if ( ScTokenConversion::ConvertToTokenArray(*pDoc, aTokenArray, aData.maTokens1) )
                 pCoreEntry->SetFormula1(aTokenArray);
         }
 
-        if ( aData.maTokens2.getLength() )
+        if ( aData.maTokens2.hasElements() )
         {
             ScTokenArray aTokenArray;
             if ( ScTokenConversion::ConvertToTokenArray(*pDoc, aTokenArray, aData.maTokens2) )
@@ -452,36 +452,7 @@ sal_Bool SAL_CALL ScTableConditionalFormat::hasByName( const OUString& aName )
 
 // XUnoTunnel
 
-sal_Int64 SAL_CALL ScTableConditionalFormat::getSomething(
-                const uno::Sequence<sal_Int8 >& rId )
-{
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-    }
-    return 0;
-}
-
-namespace
-{
-    class theScTableConditionalFormatUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theScTableConditionalFormatUnoTunnelId> {};
-}
-
-const uno::Sequence<sal_Int8>& ScTableConditionalFormat::getUnoTunnelId()
-{
-    return theScTableConditionalFormatUnoTunnelId::get().getSeq();
-}
-
-ScTableConditionalFormat* ScTableConditionalFormat::getImplementation(const uno::Reference<sheet::XSheetConditionalEntries>& rObj)
-{
-    ScTableConditionalFormat* pRet = nullptr;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScTableConditionalFormat*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
-}
+UNO3_GETIMPLEMENTATION_IMPL(ScTableConditionalFormat);
 
 ScTableConditionalEntry::ScTableConditionalEntry(const ScCondFormatEntryItem& aItem) :
     aData( aItem )
@@ -633,14 +604,14 @@ ScValidationData* ScTableValidationObj::CreateValidationData( ScDocument* pDoc,
     pRet->SetIgnoreBlank(bIgnoreBlank);
     pRet->SetListType(nShowList);
 
-    if ( aTokens1.getLength() )
+    if ( aTokens1.hasElements() )
     {
         ScTokenArray aTokenArray;
         if ( ScTokenConversion::ConvertToTokenArray(*pDoc, aTokenArray, aTokens1) )
             pRet->SetFormula1(aTokenArray);
     }
 
-    if ( aTokens2.getLength() )
+    if ( aTokens2.hasElements() )
     {
         ScTokenArray aTokenArray;
         if ( ScTokenConversion::ConvertToTokenArray(*pDoc, aTokenArray, aTokens2) )
@@ -950,35 +921,6 @@ SC_IMPL_DUMMY_PROPERTY_LISTENER( ScTableValidationObj )
 
 // XUnoTunnel
 
-sal_Int64 SAL_CALL ScTableValidationObj::getSomething(
-                const uno::Sequence<sal_Int8 >& rId )
-{
-    if ( rId.getLength() == 16 &&
-          0 == memcmp( getUnoTunnelId().getConstArray(),
-                                    rId.getConstArray(), 16 ) )
-    {
-        return sal::static_int_cast<sal_Int64>(reinterpret_cast<sal_IntPtr>(this));
-    }
-    return 0;
-}
-
-namespace
-{
-    class theScTableValidationObjUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theScTableValidationObjUnoTunnelId> {};
-}
-
-const uno::Sequence<sal_Int8>& ScTableValidationObj::getUnoTunnelId()
-{
-    return theScTableValidationObjUnoTunnelId::get().getSeq();
-}
-
-ScTableValidationObj* ScTableValidationObj::getImplementation(const uno::Reference<beans::XPropertySet>& rObj)
-{
-    ScTableValidationObj* pRet = nullptr;
-    uno::Reference<lang::XUnoTunnel> xUT(rObj, uno::UNO_QUERY);
-    if (xUT.is())
-        pRet = reinterpret_cast<ScTableValidationObj*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething(getUnoTunnelId())));
-    return pRet;
-}
+UNO3_GETIMPLEMENTATION_IMPL(ScTableValidationObj);
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

@@ -170,7 +170,7 @@ public:
 
 class HTMLTableCnts
 {
-    HTMLTableCnts *m_pNext;               // next content
+    std::unique_ptr<HTMLTableCnts> m_pNext;               // next content
 
     // Only one of the next two pointers must be set!
     const SwStartNode *m_pStartNode;      // a paragraph
@@ -195,11 +195,11 @@ public:
     std::shared_ptr<HTMLTable>& GetTable() { return m_xTable; }
 
     // Add a new node at the end of the list
-    void Add( HTMLTableCnts* pNewCnts );
+    void Add( std::unique_ptr<HTMLTableCnts> pNewCnts );
 
     // Determine next node
-    const HTMLTableCnts *Next() const { return m_pNext; }
-    HTMLTableCnts *Next() { return m_pNext; }
+    const HTMLTableCnts *Next() const { return m_pNext.get(); }
+    HTMLTableCnts *Next() { return m_pNext.get(); }
 
     inline void SetTableBox( SwTableBox *pBox );
 
@@ -215,17 +215,17 @@ class HTMLTableCell
     std::shared_ptr<SvxBrushItem> m_xBGBrush;         // cell background
     std::shared_ptr<SvxBoxItem> m_xBoxItem;
 
-    double nValue;
-    sal_uInt32 nNumFormat;
-    sal_uInt16 nRowSpan;           // cell ROWSPAN
-    sal_uInt16 nColSpan;           // cell COLSPAN
-    sal_uInt16 nWidth;             // cell WIDTH
-    sal_Int16 eVertOri;             // vertical alignment of the cell
-    bool bProtected : 1;           // cell must not filled
-    bool bRelWidth : 1;            // nWidth is given in %
-    bool bHasNumFormat : 1;
-    bool bHasValue : 1;
-    bool bNoWrap : 1;
+    double m_nValue;
+    sal_uInt32 m_nNumFormat;
+    sal_uInt16 m_nRowSpan;           // cell ROWSPAN
+    sal_uInt16 m_nColSpan;           // cell COLSPAN
+    sal_uInt16 m_nWidth;             // cell WIDTH
+    sal_Int16 m_eVertOrient;             // vertical alignment of the cell
+    bool m_bProtected : 1;           // cell must not filled
+    bool m_bRelWidth : 1;            // nWidth is given in %
+    bool m_bHasNumFormat : 1;
+    bool m_bHasValue : 1;
+    bool m_bNoWrap : 1;
     bool mbCovered : 1;
 
 public:
@@ -247,11 +247,11 @@ public:
     const std::shared_ptr<HTMLTableCnts>& GetContents() const { return m_xContents; }
 
     // Set/Get cell ROWSPAN/COLSPAN
-    void SetRowSpan( sal_uInt16 nRSpan ) { nRowSpan = nRSpan; }
-    sal_uInt16 GetRowSpan() const { return nRowSpan; }
+    void SetRowSpan( sal_uInt16 nRSpan ) { m_nRowSpan = nRSpan; }
+    sal_uInt16 GetRowSpan() const { return m_nRowSpan; }
 
-    void SetColSpan( sal_uInt16 nCSpan ) { nColSpan = nCSpan; }
-    sal_uInt16 GetColSpan() const { return nColSpan; }
+    void SetColSpan( sal_uInt16 nCSpan ) { m_nColSpan = nCSpan; }
+    sal_uInt16 GetColSpan() const { return m_nColSpan; }
 
     inline void SetWidth( sal_uInt16 nWidth, bool bRelWidth );
 
@@ -261,10 +261,10 @@ public:
     inline bool GetNumFormat( sal_uInt32& rNumFormat ) const;
     inline bool GetValue( double& rValue ) const;
 
-    sal_Int16 GetVertOri() const { return eVertOri; }
+    sal_Int16 GetVertOri() const { return m_eVertOrient; }
 
     // Is the cell filled or protected ?
-    bool IsUsed() const { return m_xContents || bProtected; }
+    bool IsUsed() const { return m_xContents || m_bProtected; }
 
     std::unique_ptr<SwHTMLTableLayoutCell> CreateLayoutInfo();
 
@@ -591,7 +591,7 @@ public:
     void SetHasParentSection( bool bSet ) { m_bHasParentSection = bSet; }
     bool HasParentSection() const { return m_bHasParentSection; }
 
-    void SetParentContents(HTMLTableCnts *pCnts) { m_xParentContents.reset(pCnts); }
+    void SetParentContents(std::unique_ptr<HTMLTableCnts> pCnts) { m_xParentContents = std::move(pCnts); }
     std::unique_ptr<HTMLTableCnts>& GetParentContents() { return m_xParentContents; }
 
     void MakeParentContents();
@@ -652,17 +652,17 @@ HTMLTableCnts::HTMLTableCnts(const std::shared_ptr<HTMLTable>& rTab)
 HTMLTableCnts::~HTMLTableCnts()
 {
     m_xTable.reset();    // we don't need the tables anymore
-    delete m_pNext;
+    m_pNext.reset();
 }
 
-void HTMLTableCnts::Add( HTMLTableCnts* pNewCnts )
+void HTMLTableCnts::Add( std::unique_ptr<HTMLTableCnts> pNewCnts )
 {
     HTMLTableCnts *pCnts = this;
 
     while( pCnts->m_pNext )
-        pCnts = pCnts->m_pNext;
+        pCnts = pCnts->m_pNext.get();
 
-    pCnts->m_pNext = pNewCnts;
+    pCnts->m_pNext = std::move(pNewCnts);
 }
 
 inline void HTMLTableCnts::SetTableBox( SwTableBox *pBox )
@@ -689,17 +689,17 @@ const std::shared_ptr<SwHTMLTableLayoutCnts>& HTMLTableCnts::CreateLayoutInfo()
 }
 
 HTMLTableCell::HTMLTableCell():
-    nValue(0),
-    nNumFormat(0),
-    nRowSpan(1),
-    nColSpan(1),
-    nWidth( 0 ),
-    eVertOri( text::VertOrientation::NONE ),
-    bProtected(false),
-    bRelWidth( false ),
-    bHasNumFormat(false),
-    bHasValue(false),
-    bNoWrap(false),
+    m_nValue(0),
+    m_nNumFormat(0),
+    m_nRowSpan(1),
+    m_nColSpan(1),
+    m_nWidth( 0 ),
+    m_eVertOrient( text::VertOrientation::NONE ),
+    m_bProtected(false),
+    m_bRelWidth( false ),
+    m_bHasNumFormat(false),
+    m_bHasValue(false),
+    m_bNoWrap(false),
     mbCovered(false)
 {}
 
@@ -710,26 +710,26 @@ void HTMLTableCell::Set( std::shared_ptr<HTMLTableCnts> const& rCnts, sal_uInt16
                          bool bNWrap, bool bCovered )
 {
     m_xContents = rCnts;
-    nRowSpan = nRSpan;
-    nColSpan = nCSpan;
-    bProtected = false;
-    eVertOri = eVert;
+    m_nRowSpan = nRSpan;
+    m_nColSpan = nCSpan;
+    m_bProtected = false;
+    m_eVertOrient = eVert;
     m_xBGBrush = rBrush;
     m_xBoxItem = rBoxItem;
 
-    bHasNumFormat = bHasNF;
-    bHasValue = bHasV;
-    nNumFormat = nNF;
-    nValue = nVal;
+    m_bHasNumFormat = bHasNF;
+    m_bHasValue = bHasV;
+    m_nNumFormat = nNF;
+    m_nValue = nVal;
 
-    bNoWrap = bNWrap;
+    m_bNoWrap = bNWrap;
     mbCovered = bCovered;
 }
 
 inline void HTMLTableCell::SetWidth( sal_uInt16 nWdth, bool bRelWdth )
 {
-    nWidth = nWdth;
-    bRelWidth = bRelWdth;
+    m_nWidth = nWdth;
+    m_bRelWidth = bRelWdth;
 }
 
 void HTMLTableCell::SetProtected()
@@ -743,21 +743,21 @@ void HTMLTableCell::SetProtected()
     if (m_xBGBrush)
         m_xBGBrush.reset(new SvxBrushItem(*m_xBGBrush));
 
-    nRowSpan = 1;
-    nColSpan = 1;
-    bProtected = true;
+    m_nRowSpan = 1;
+    m_nColSpan = 1;
+    m_bProtected = true;
 }
 
 inline bool HTMLTableCell::GetNumFormat( sal_uInt32& rNumFormat ) const
 {
-    rNumFormat = nNumFormat;
-    return bHasNumFormat;
+    rNumFormat = m_nNumFormat;
+    return m_bHasNumFormat;
 }
 
 inline bool HTMLTableCell::GetValue( double& rValue ) const
 {
-    rValue = nValue;
-    return bHasValue;
+    rValue = m_nValue;
+    return m_bHasValue;
 }
 
 std::unique_ptr<SwHTMLTableLayoutCell> HTMLTableCell::CreateLayoutInfo()
@@ -765,8 +765,8 @@ std::unique_ptr<SwHTMLTableLayoutCell> HTMLTableCell::CreateLayoutInfo()
     std::shared_ptr<SwHTMLTableLayoutCnts> xCntInfo;
     if (m_xContents)
         xCntInfo = m_xContents->CreateLayoutInfo();
-    return std::unique_ptr<SwHTMLTableLayoutCell>(new SwHTMLTableLayoutCell(xCntInfo, nRowSpan, nColSpan, nWidth,
-                                      bRelWidth, bNoWrap));
+    return std::unique_ptr<SwHTMLTableLayoutCell>(new SwHTMLTableLayoutCell(xCntInfo, m_nRowSpan, m_nColSpan, m_nWidth,
+                                      m_bRelWidth, m_bNoWrap));
 }
 
 HTMLTableRow::HTMLTableRow(sal_uInt16 const nCells)
@@ -2850,7 +2850,7 @@ public:
     CellSaveStruct( SwHTMLParser& rParser, HTMLTable const *pCurTable, bool bHd,
                      bool bReadOpt );
 
-    void AddContents( HTMLTableCnts *pNewCnts );
+    void AddContents( std::unique_ptr<HTMLTableCnts> pNewCnts );
     bool HasFirstContents() const { return m_xCnts.get(); }
 
     void ClearIsInSection() { m_pCurrCnts = nullptr; }
@@ -3026,14 +3026,14 @@ CellSaveStruct::CellSaveStruct( SwHTMLParser& rParser, HTMLTable const *pCurTabl
     rParser.PushContext(xCntxt);
 }
 
-void CellSaveStruct::AddContents( HTMLTableCnts *pNewCnts )
+void CellSaveStruct::AddContents( std::unique_ptr<HTMLTableCnts> pNewCnts )
 {
-    if (m_xCnts)
-        m_xCnts->Add( pNewCnts );
-    else
-        m_xCnts.reset(pNewCnts);
+    m_pCurrCnts = pNewCnts.get();
 
-    m_pCurrCnts = pNewCnts;
+    if (m_xCnts)
+        m_xCnts->Add( std::move(pNewCnts) );
+    else
+        m_xCnts = std::move(pNewCnts);
 }
 
 void CellSaveStruct::InsertCell( SwHTMLParser& rParser,
@@ -3133,7 +3133,7 @@ void CellSaveStruct::CheckNoBreak( const SwPosition& rPos )
     }
 }
 
-HTMLTableCnts *SwHTMLParser::InsertTableContents(
+std::unique_ptr<HTMLTableCnts> SwHTMLParser::InsertTableContents(
                                         bool bHead )
 {
     // create a new section, the PaM is gonna be there
@@ -3169,7 +3169,7 @@ HTMLTableCnts *SwHTMLParser::InsertTableContents(
         }
     }
 
-    return new HTMLTableCnts( pStNd );
+    return std::make_unique<HTMLTableCnts>( pStNd );
 }
 
 sal_uInt16 SwHTMLParser::IncGrfsThatResizeTable()
@@ -3675,7 +3675,7 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
                                     "Where is the section" );
 
                             // If there's no table coming, we have a section
-                            xSaveStruct->AddContents(rParentContents.release());
+                            xSaveStruct->AddContents(std::move(rParentContents));
                         }
 
                         const SwStartNode *pCapStNd =
@@ -3689,16 +3689,16 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
                             if( pCapStNd && xSubTable->IsTopCaption() )
                             {
                                 xSaveStruct->AddContents(
-                                    new HTMLTableCnts(pCapStNd) );
+                                    std::make_unique<HTMLTableCnts>(pCapStNd) );
                             }
 
                             xSaveStruct->AddContents(
-                                new HTMLTableCnts(xSubTable) );
+                                std::make_unique<HTMLTableCnts>(xSubTable) );
 
                             if( pCapStNd && !xSubTable->IsTopCaption() )
                             {
                                 xSaveStruct->AddContents(
-                                    new HTMLTableCnts(pCapStNd) );
+                                    std::make_unique<HTMLTableCnts>(pCapStNd) );
                             }
 
                             // We don't have a section anymore
@@ -3709,7 +3709,7 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
                             // Since we can't delete this section (it might
                             // belong to the first box), we'll add it
                             xSaveStruct->AddContents(
-                                new HTMLTableCnts(pCapStNd) );
+                                std::make_unique<HTMLTableCnts>(pCapStNd) );
 
                             // We don't have a section anymore
                             xSaveStruct->ClearIsInSection();
@@ -3820,7 +3820,7 @@ void SwHTMLParser::BuildTableCell( HTMLTable *pCurTable, bool bReadOptions,
             }
         }
 
-        xSaveStruct->AddContents( new HTMLTableCnts(pStNd) );
+        xSaveStruct->AddContents( std::make_unique<HTMLTableCnts>(pStNd) );
         xSaveStruct->ClearIsInSection();
     }
 

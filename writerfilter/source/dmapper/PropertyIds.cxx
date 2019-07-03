@@ -333,7 +333,6 @@ OUString getPropertyName( PropertyIds eId )
         case PROP_CELL_INTEROP_GRAB_BAG          :   sName = "CellInteropGrabBag"; break;
         case PROP_TABLE_INTEROP_GRAB_BAG         :   sName = "TableInteropGrabBag"; break;
         case PROP_APPLY_PARAGRAPH_MARK_FORMAT_TO_NUMBERING : sName = "ApplyParagraphMarkFormatToNumbering"; break;
-        case PROP_CELL_DIRECTION: sName = "CellDirection"; break;
         case PROP_SDT_END_BEFORE: sName = "SdtEndBefore"; break;
         case PROP_PARA_SDT_END_BEFORE: sName = "ParaSdtEndBefore"; break;
         case META_PROP_TABLE_LOOK: sName = "TableStyleLook"; break;
@@ -351,6 +350,10 @@ OUString getPropertyName( PropertyIds eId )
         case PROP_RUBY_ADJUST: sName = "RubyAdjust"; break;
         case PROP_RUBY_POSITION: sName = "RubyPosition"; break;
         case PROP_LAYOUT_IN_CELL: sName = "IsLayoutInCell"; break;
+        case PROP_DATABASE_NAME: sName = "DataBaseName"; break;
+        case PROP_COMMAND_TYPE: sName = "DataCommandType"; break;
+        case PROP_DATATABLE_NAME: sName = "DataTableName"; break;
+        case PROP_DATACOLUMN_NAME: sName = "DataColumnName"; break;
     }
     assert(sName.getLength()>0);
     return sName;

@@ -798,7 +798,7 @@ std::vector<std::shared_ptr<VButton>> lcl_createButtons(
         std::shared_ptr<VButton> pButton(new VButton);
         aButtons.push_back(pButton);
         pButton->init(xLegendContainer, xShapeFactory);
-        awt::Point aNewPosition = awt::Point(x, y);
+        awt::Point aNewPosition(x, y);
         pButton->setLabel(sColumnFieldEntry.Name);
         pButton->setCID("FieldButton.Column." + OUString::number(sColumnFieldEntry.DimensionIndex));
         pButton->setPosition(aNewPosition);
@@ -967,8 +967,7 @@ void VLegend::createShapes(
                                                 eLegendPosition != LegendPosition_PAGE_END &&
                                                 eExpansion != css::chart::ChartLegendExpansion_WIDE);
 
-                std::vector<std::shared_ptr<VButton>> aButtons;
-                aButtons = lcl_createButtons(xLegendContainer, m_xShapeFactory, mrModel, bPlaceButtonsVertically, nUsedButtonHeight);
+                std::vector<std::shared_ptr<VButton>> aButtons = lcl_createButtons(xLegendContainer, m_xShapeFactory, mrModel, bPlaceButtonsVertically, nUsedButtonHeight);
 
                 // A custom size includes the size we used for buttons already, so we need to
                 // subtract that from the size that is available for the legend

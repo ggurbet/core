@@ -58,6 +58,7 @@
 #include <sdxfer.hxx>
 #include <unomodel.hxx>
 #include <vcl/virdev.hxx>
+#include <vcl/svapp.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang;
@@ -212,7 +213,7 @@ void SdTransferable::CreateObjectReplacement( SdrObject* pObj )
 
                     if( auto pURL = dynamic_cast< const SvxURLField *>( pData ) )
                     {
-                        // #i63399# This special code identifies TextFrames which have just an URL
+                        // #i63399# This special code identifies TextFrames which have just a URL
                         // as content and directly add this to the clipboard, probably to avoid adding
                         // an unnecessary DrawObject to the target where paste may take place. This is
                         // wanted only for SdrObjects with no fill and no line, else it is necessary to
@@ -762,9 +763,9 @@ SdTransferable* SdTransferable::getImplementation( const Reference< XInterface >
 
 void SdTransferable::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
 {
-    const SdrHint* pSdrHint = dynamic_cast< const SdrHint* >( &rHint );
-    if( pSdrHint )
+    if (rHint.GetId() == SfxHintId::ThisIsAnSdrHint)
     {
+        const SdrHint* pSdrHint = static_cast< const SdrHint* >( &rHint );
         if( SdrHintKind::ModelCleared == pSdrHint->GetKind() )
         {
             EndListening(*mpSourceDoc);

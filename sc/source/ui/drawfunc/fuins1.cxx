@@ -27,6 +27,7 @@
 #include <svx/svdpagv.hxx>
 #include <svx/svdview.hxx>
 #include <svx/linkwarn.hxx>
+#include <svx/svxids.hrc>
 #include <vcl/graphicfilter.hxx>
 #include <svl/stritem.hxx>
 #include <svtools/miscopt.hxx>
@@ -44,6 +45,7 @@
 #include <strings.hrc>
 #include <globstr.hrc>
 
+#include <com/sun/star/ui/dialogs/XFilePickerControlAccess.hpp>
 #include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
 #include <com/sun/star/ui/dialogs/ListboxControlActions.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>

@@ -20,13 +20,6 @@
 #define INCLUDED_SW_SOURCE_UIBASE_INC_REGIONSW_HXX
 
 #include <hintids.hxx>
-#include <vcl/field.hxx>
-#include <vcl/edit.hxx>
-#include <vcl/button.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/combobox.hxx>
-#include <vcl/layout.hxx>
-#include <vcl/treelistbox.hxx>
 #include <sfx2/basedlgs.hxx>
 #include <sfx2/tabdlg.hxx>
 #include <editeng/brushitem.hxx>
@@ -84,7 +77,7 @@ class SwEditRegionDlg : public SfxDialogController
     std::unique_ptr<weld::Button> m_xPasswdPB;
     std::unique_ptr<weld::CheckButton> m_xHideCB;
     std::unique_ptr<weld::Label> m_xConditionFT;
-    std::unique_ptr<SwConditionEdit>  m_xConditionED;
+    std::unique_ptr<ConditionEdit>  m_xConditionED;
     // #114856# edit in readonly sections
     std::unique_ptr<weld::CheckButton> m_xEditInReadonlyCB;
     std::unique_ptr<weld::Button> m_xOK;
@@ -154,7 +147,7 @@ class SwInsertSectionTabPage : public SfxTabPage
     std::unique_ptr<weld::Button> m_xPasswdPB;
     std::unique_ptr<weld::CheckButton> m_xHideCB;
     std::unique_ptr<weld::Label> m_xConditionFT;
-    std::unique_ptr<SwConditionEdit> m_xConditionED;
+    std::unique_ptr<ConditionEdit> m_xConditionED;
     // #114856# edit in readonly sections
     std::unique_ptr<weld::CheckButton> m_xEditInReadonlyCB;
 

@@ -1406,7 +1406,7 @@ void Test::testSharedFormulaMoveBlock()
     aRows.push_back(0);
     aRows.push_back(1);
     aRows.push_back(2);
-    bool bRes = checkFormulaPositions(*m_pDoc, 0, 1, &aRows[0], aRows.size());
+    bool bRes = checkFormulaPositions(*m_pDoc, 0, 1, aRows.data(), aRows.size());
     CPPUNIT_ASSERT(bRes);
 
     SfxUndoManager* pUndoMgr = m_pDoc->GetUndoManager();
@@ -2422,5 +2422,266 @@ void Test::testSharedFormulaDeleteTopCell()
     m_pDoc->DeleteTab(0);
 }
 
+void Test::testSharedFormulaCutCopyMoveIntoRef()
+{
+    sc::AutoCalcSwitch aACSwitch(*m_pDoc, true); // turn on auto calc.
+
+    // tdf#123714 case 1
+    {
+        m_pDoc->InsertTab(0, "Test");
+
+        // Data in A1:C3
+        std::vector<std::vector<const char*>> aData = {
+            { "=B1", "", "1" },
+            { "=B2", "", "1" },
+            { "=B3", "", ""  }
+        };
+        const ScAddress aOrgPos(0,0,0);
+        insertRangeData( m_pDoc, aOrgPos, aData);
+
+        ScMarkData aMark;
+        aMark.SelectOneTable(0);
+
+        // Set up clip document.
+        ScDocument aClipDoc(SCDOCMODE_CLIP);
+        aClipDoc.ResetClip(m_pDoc, &aMark);
+        // Cut C1:C2 to clipboard.
+        cutToClip( getDocShell(), ScRange(2,0,0, 2,1,0), &aClipDoc, false);
+
+        // Paste to B1:B2
+        ScRange aPasteRange(1,0,0, 1,1,0);
+        aMark.SetMarkArea(aPasteRange);
+        m_pDoc->CopyFromClip( aPasteRange, aMark, InsertDeleteFlags::CONTENTS, nullptr, &aClipDoc);
+
+        // Check data in A1:A2 after Paste.
+        ScAddress aPos(aOrgPos);
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("A1", 1.0, m_pDoc->GetValue(aPos));
+        aPos.IncRow();
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("A2", 1.0, m_pDoc->GetValue(aPos));
+
+        m_pDoc->DeleteTab(0);
+    }
+
+    // tdf#123714 case 2
+    {
+        m_pDoc->InsertTab(0, "Test");
+
+        // Data in A1:C3
+        std::vector<std::vector<const char*>> aData = {
+            {  "1",   "2", "=SUM(A1:B1)" },
+            {  "4",   "8", "=SUM(A2:B2)" },
+            { "16",  "32", "=SUM(A3:B3)" },
+            { "64", "128", "=SUM(A4:B4)" },
+        };
+        const ScAddress aOrgPos(0,0,0);
+        insertRangeData( m_pDoc, aOrgPos, aData);
+
+        ScAddress aPos;
+        // Check results in C1:C4
+        const double fVec0[] = { 3.0, 12.0, 48.0, 192.0 };
+        aPos = ScAddress(2,0,0);
+        for (SCROW i=0; i < 4; ++i)
+        {
+            CPPUNIT_ASSERT_EQUAL( fVec0[i], m_pDoc->GetValue(aPos));
+            aPos.IncRow();
+        }
+
+        ScMarkData aMark;
+        aMark.SelectOneTable(0);
+
+        // Set up clip document.
+        ScDocument aClipDoc(SCDOCMODE_CLIP);
+        aClipDoc.ResetClip(m_pDoc, &aMark);
+        // Cut B1:B2 to clipboard.
+        cutToClip( getDocShell(), ScRange(1,0,0, 1,1,0), &aClipDoc, false);
+
+        // Check results in C1:C4 after Cut.
+        const double fVec1[] = { 1.0, 4.0, 48.0, 192.0 };
+        aPos = ScAddress(2,0,0);
+        for (SCROW i=0; i < 4; ++i)
+        {
+            CPPUNIT_ASSERT_EQUAL( fVec1[i], m_pDoc->GetValue(aPos));
+            aPos.IncRow();
+        }
+
+        // Paste to B3:B4
+        ScRange aPasteRange(1,2,0, 1,3,0);
+        aMark.SetMarkArea(aPasteRange);
+        m_pDoc->CopyFromClip( aPasteRange, aMark, InsertDeleteFlags::CONTENTS, nullptr, &aClipDoc);
+
+        // Check results in C1:C4 after Paste.
+        const double fVec2[] = { 1.0, 4.0, 18.0, 72.0 };
+        aPos = ScAddress(2,0,0);
+        for (SCROW i=0; i < 4; ++i)
+        {
+            CPPUNIT_ASSERT_EQUAL( fVec2[i], m_pDoc->GetValue(aPos));
+            aPos.IncRow();
+        }
+
+        // Paste to B1:B2
+        aPasteRange = ScRange(1,0,0, 1,1,0);
+        aMark.SetMarkArea(aPasteRange);
+        m_pDoc->CopyFromClip( aPasteRange, aMark, InsertDeleteFlags::CONTENTS, nullptr, &aClipDoc);
+
+        // Check results in C1:C4 after Paste.
+        const double fVec3[] = { 3.0, 12.0, 18.0, 72.0 };
+        aPos = ScAddress(2,0,0);
+        for (SCROW i=0; i < 4; ++i)
+        {
+            CPPUNIT_ASSERT_EQUAL( fVec3[i], m_pDoc->GetValue(aPos));
+            aPos.IncRow();
+        }
+
+        m_pDoc->DeleteTab(0);
+    }
+}
+
+// tdf#121002
+void Test::testSharedFormulaCutCopyMoveWithRef()
+{
+    sc::AutoCalcSwitch aACSwitch(*m_pDoc, true); // turn on auto calc.
+
+    m_pDoc->InsertTab(0, "Test");
+
+    // Data in A1:C4
+    std::vector<std::vector<const char*>> aData = {
+        {  "",  "", "=SUM(A1:B1)" },
+        {  "",  "", "=SUM(A2:B2)" },
+        { "1", "2", "=SUM(A3:B3)" },
+        { "4", "8", "=SUM(A4:B4)" }
+    };
+    const ScAddress aOrgPos(0,0,0);
+    insertRangeData( m_pDoc, aOrgPos, aData);
+
+    ScMarkData aMark;
+    aMark.SelectOneTable(0);
+
+    ScAddress aPos( ScAddress::UNINITIALIZED);
+
+    // Check results in C1:C4
+    const double fVec0[] = { 0.0, 0.0, 3.0, 12.0 };
+    aPos = ScAddress(2,0,0);
+    for (SCROW i=0; i < 4; ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL( fVec0[i], m_pDoc->GetValue(aPos));
+        aPos.IncRow();
+    }
+
+    // Set up clip document.
+    ScDocument aClipDoc(SCDOCMODE_CLIP);
+    aClipDoc.ResetClip(m_pDoc, &aMark);
+    // Cut A3:B3 to clipboard.
+    cutToClip( getDocShell(), ScRange(0,2,0, 1,2,0), &aClipDoc, false);
+
+    // Check results in C1:C4 after Cut.
+    const double fVec1[] = { 0.0, 0.0, 0.0, 12.0 };
+    aPos = ScAddress(2,0,0);
+    for (SCROW i=0; i < 4; ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL( fVec1[i], m_pDoc->GetValue(aPos));
+        aPos.IncRow();
+    }
+
+    // Paste to A1:B1
+    ScRange aPasteRange(0,0,0, 1,0,0);
+    aMark.SetMarkArea(aPasteRange);
+    m_pDoc->CopyFromClip( aPasteRange, aMark, InsertDeleteFlags::CONTENTS, nullptr, &aClipDoc);
+
+    // Check results in C1:C4 after Paste.
+    const double fVec2[] = { 3.0, 0.0, 3.0, 12.0 };
+    aPos = ScAddress(2,0,0);
+    for (SCROW i=0; i < 4; ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL( fVec2[i], m_pDoc->GetValue(aPos));
+        aPos.IncRow();
+    }
+
+    // Check formulas in C1:C4 after Paste.
+    const OUStringLiteral sForm[] = { "=SUM(A1:B1)", "=SUM(A2:B2)", "=SUM(A1:B1)", "=SUM(A4:B4)" };
+    for (SCROW i=0; i < 4; ++i)
+    {
+        OUString aFormula;
+        m_pDoc->GetFormula( 2,i,0, aFormula);
+        CPPUNIT_ASSERT_EQUAL( OUString(sForm[i]), aFormula);
+    }
+
+    m_pDoc->DeleteTab(0);
+}
+
+// tdf#120013
+void Test::testSharedFormulaCutCopyMoveWithinRun()
+{
+    sc::AutoCalcSwitch aACSwitch(*m_pDoc, true); // turn on auto calc.
+
+    m_pDoc->InsertTab(0, "Test");
+
+    // Data in C3:E9
+    const std::vector<std::vector<const char*>> aData = {
+        { "2200",     "", "=SUM(C$3:C3)-SUM(D$3:D3)" },
+        {     "",     "", "=SUM(C$3:C4)-SUM(D$3:D4)" },
+        {     "", "1900", "=SUM(C$3:C5)-SUM(D$3:D5)" },
+        {     "",     "", "=SUM(C$3:C6)-SUM(D$3:D6)" },
+        { "1600",     "", "=SUM(C$3:C7)-SUM(D$3:D7)" },
+        {     "", "1000", "=SUM(C$3:C8)-SUM(D$3:D8)" },
+        {     "",     "", "=SUM(C$3:C9)-SUM(D$3:D9)" }
+    };
+    const ScAddress aOrgPos(2,2,0);
+    insertRangeData( m_pDoc, aOrgPos, aData);
+
+    // Check that E3:E9 is a formula group.
+    const ScAddress aFormulaPos(4,2,0);
+    const ScFormulaCell* pFC = m_pDoc->GetFormulaCell( aFormulaPos);
+    CPPUNIT_ASSERT(pFC);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Shared formula top row.", aFormulaPos.Row(), pFC->GetSharedTopRow());
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Shared formula length.", static_cast<SCROW>(7), pFC->GetSharedLength());
+
+    ScAddress aPos( ScAddress::UNINITIALIZED);
+
+    // Check results in E3:E9
+    const double fVec0[] = { 2200.0, 2200.0, 300.0, 300.0, 1900.0, 900.0, 900.0 };
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of checks mismatch.", SAL_N_ELEMENTS(fVec0), aData.size());
+    aPos = aFormulaPos;
+    for (size_t i=0; i < SAL_N_ELEMENTS(fVec0); ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL_MESSAGE( "E3:E9", fVec0[i], m_pDoc->GetValue(aPos));
+        aPos.IncRow();
+    }
+
+    ScMarkData aMark;
+    aMark.SelectOneTable(0);
+
+    // Set up clip document.
+    ScDocument aClipDoc(SCDOCMODE_CLIP);
+    aClipDoc.ResetClip(m_pDoc, &aMark);
+    // Cut A8:D8 to clipboard.
+    cutToClip( getDocShell(), ScRange(0,7,0, 3,7,0), &aClipDoc, false);
+
+    // Check results in E3:E9 after Cut.
+    const double fVec1[] = { 2200.0, 2200.0, 300.0, 300.0, 1900.0, 1900.0, 1900.0 };
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of checks mismatch.", SAL_N_ELEMENTS(fVec1), aData.size());
+    aPos = aFormulaPos;
+    for (size_t i=0; i < SAL_N_ELEMENTS(fVec1); ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL_MESSAGE( "E3:E9 after Cut.", fVec1[i], m_pDoc->GetValue(aPos));
+        aPos.IncRow();
+    }
+
+    // Paste to A4:D4
+    ScRange aPasteRange(0,3,0, 3,3,0);
+    aMark.SetMarkArea(aPasteRange);
+    m_pDoc->CopyFromClip( aPasteRange, aMark, InsertDeleteFlags::CONTENTS, nullptr, &aClipDoc);
+
+    // Check results in E3:E9 after Paste.
+    const double fVec2[] = { 2200.0, 1200.0, -700.0, -700.0, 900.0, 900.0, 900.0 };
+    CPPUNIT_ASSERT_EQUAL_MESSAGE( "Number of checks mismatch.", SAL_N_ELEMENTS(fVec2), aData.size());
+    aPos = aFormulaPos;
+    for (size_t i=0; i < SAL_N_ELEMENTS(fVec2); ++i)
+    {
+        CPPUNIT_ASSERT_EQUAL_MESSAGE( "E3:E9 after Paste.", fVec2[i], m_pDoc->GetValue(aPos));
+        aPos.IncRow();
+    }
+
+    m_pDoc->DeleteTab(0);
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

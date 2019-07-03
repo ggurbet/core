@@ -21,12 +21,15 @@
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/urihelper.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <vcl/help.hxx>
 #include <sot/filelist.hxx>
 #include <svl/eitem.hxx>
 #include <svl/urlbmk.hxx>
+#include <svx/svxids.hrc>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/settings.hxx>
 
@@ -502,7 +505,7 @@ void     SwGlobalTree::RequestHelp( const HelpEvent& rHEvt )
                 Point aEntryPos = GetEntryPosition( pEntry );
 
                 aEntryPos.setX( GetTabPos( pEntry, pTab ) );
-                Size aSize( pItem->GetSize( this, pEntry ) );
+                Size aSize(pItem->GetWidth(this, pEntry), pItem->GetHeight(this, pEntry));
 
                 if((aEntryPos.X() + aSize.Width()) > GetSizePixel().Width())
                     aSize.setWidth( GetSizePixel().Width() - aEntryPos.X() );
@@ -903,7 +906,7 @@ void    SwGlobalTree::ExecuteContextMenuAction( sal_uInt16 nSelectedPopupEntry )
 
                 SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
                 ScopedVclPtr<AbstractMultiTOXTabDialog> pDlg(pFact->CreateMultiTOXTabDialog(
-                                                        this, aSet,
+                                                        GetFrameWeld(), aSet,
                                                         *m_pActiveShell,
                                                         nullptr,
                                                         true));

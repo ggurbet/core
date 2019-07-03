@@ -23,14 +23,13 @@
 // HACK to avoid too deep includes and to have some
 // levels free in svdmark itself (MS compiler include depth limit)
 #include <svx/svdhdl.hxx>
-#include <tools/weakbase.hxx>
+#include <tools/weakbase.h>
 #include <svtools/accessibilityoptions.hxx>
 #include <svx/svxdllapi.h>
 #include <svx/svdcrtv.hxx>
 #include <vcl/event.hxx>
 #include <unotools/options.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
-#include <basegfx/polygon/b2dpolygon.hxx>
 
 //  class hierarchy of View:
 //         SfxListener
@@ -146,7 +145,7 @@ public:
 };
 
 
-class SVX_DLLPUBLIC SdrView : public SdrCreateView, public virtual tools::WeakBase
+class SVX_DLLPUBLIC SdrView : public SdrCreateView, public tools::WeakBase
 {
     friend class                SdrPageView;
 
@@ -183,9 +182,9 @@ public:
     bool IsMasterPagePaintCaching() const { return mbMasterPagePaintCaching; }
 
     bool KeyInput(const KeyEvent& rKEvt, vcl::Window* pWin) override;
-    virtual bool MouseButtonDown(const MouseEvent& rMEvt, vcl::Window* pWin) override;
-    virtual bool MouseButtonUp(const MouseEvent& rMEvt, vcl::Window* pWin) override;
-    virtual bool MouseMove(const MouseEvent& rMEvt, vcl::Window* pWin) override;
+    virtual bool MouseButtonDown(const MouseEvent& rMEvt, OutputDevice* pWin) override;
+    virtual bool MouseButtonUp(const MouseEvent& rMEvt, OutputDevice* pWin) override;
+    virtual bool MouseMove(const MouseEvent& rMEvt, OutputDevice* pWin) override;
     using SdrCreateView::RequestHelp;
     virtual bool Command(const CommandEvent& rCEvt, vcl::Window* pWin) override;
 

@@ -132,7 +132,7 @@ const FontCharMapRef CoreTextFontFace::GetFontCharMap() const
 
     // get the CMAP raw data
     std::vector<unsigned char> aBuffer( nBufSize );
-    const int nRawLength = GetFontTable( "cmap", &aBuffer[0] );
+    const int nRawLength = GetFontTable( "cmap", aBuffer.data() );
     SAL_WARN_IF( (nRawLength <= 0), "vcl", "CoreTextFontFace::GetFontCharMap : GetFontTable2 failed!");
     if( nRawLength <= 0 )
         return mxCharMap;
@@ -141,7 +141,7 @@ const FontCharMapRef CoreTextFontFace::GetFontCharMap() const
 
     // parse the CMAP
     CmapResult aCmapResult;
-    if( ParseCMAP( &aBuffer[0], nRawLength, aCmapResult ) )
+    if( ParseCMAP( aBuffer.data(), nRawLength, aCmapResult ) )
     {
         FontCharMapRef xDefFontCharMap( new FontCharMap(aCmapResult) );
         // create the matching charmap
@@ -167,10 +167,10 @@ bool CoreTextFontFace::GetFontCapabilities(vcl::FontCapabilities &rFontCapabilit
         // allocate a buffer for the OS/2 raw data
         std::vector<unsigned char> aBuffer( nBufSize );
         // get the OS/2 raw data
-        const int nRawLength = GetFontTable( "OS/2", &aBuffer[0] );
+        const int nRawLength = GetFontTable( "OS/2", aBuffer.data() );
         if( nRawLength > 0 )
         {
-            const unsigned char* pOS2Table = &aBuffer[0];
+            const unsigned char* pOS2Table = aBuffer.data();
             vcl::getTTCoverage( maFontCapabilities.oUnicodeRange,
                                 maFontCapabilities.oCodePageRange,
                                 pOS2Table, nRawLength);
@@ -181,15 +181,7 @@ bool CoreTextFontFace::GetFontCapabilities(vcl::FontCapabilities &rFontCapabilit
 }
 
 AquaSalGraphics::AquaSalGraphics()
-    : mxLayer( nullptr )
-    , mrContext( nullptr )
-#ifdef MACOSX
-    , mpFrame( nullptr )
-#endif
-#if OSL_DEBUG_LEVEL > 0
-    , mnContextStackDepth( 0 )
-#endif
-    , mpXorEmulation( nullptr )
+    : mpXorEmulation( nullptr )
     , mnXorMode( 0 )
     , mnWidth( 0 )
     , mnHeight( 0 )
@@ -201,6 +193,9 @@ AquaSalGraphics::AquaSalGraphics()
     , maFillColor( COL_BLACK )
     , maTextColor( COL_BLACK )
     , mbNonAntialiasedText( false )
+#ifdef MACOSX
+    , mpFrame( nullptr )
+#endif
     , mbPrinter( false )
     , mbVirDev( false )
 #ifdef MACOSX
@@ -224,7 +219,6 @@ AquaSalGraphics::~AquaSalGraphics()
 
     if( mxClipPath )
     {
-        SAL_INFO("vcl.cg", "CGPathRelease(" << mxClipPath << ")" );
         CGPathRelease( mxClipPath );
     }
 
@@ -242,21 +236,19 @@ AquaSalGraphics::~AquaSalGraphics()
     if (mbForeignContext)
         return;
 #endif
-    if( mxLayer )
+    if (maLayer.isSet())
     {
-        SAL_INFO("vcl.cg", "CGLayerRelease(" << mxLayer << ")" );
-        CGLayerRelease( mxLayer );
+        CGLayerRelease(maLayer.get());
     }
-    else if( mrContext
+    else if (maContextHolder.isSet()
 #ifdef MACOSX
              && mbWindow
 #endif
              )
     {
         // destroy backbuffer bitmap context that we created ourself
-        SAL_INFO("vcl.cg", "CGContextRelease(" << mrContext << ")" );
-        CGContextRelease( mrContext );
-        mrContext = nullptr;
+        CGContextRelease(maContextHolder.get());
+        maContextHolder.set(nullptr);
     }
 }
 
@@ -450,15 +442,21 @@ void AquaSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
     std::cerr << "]\n";
 #endif
 
-    SAL_INFO("vcl.cg", "CGContextSaveGState(" << mrContext << ") " << ++mnContextStackDepth );
-    CGContextSaveGState(mrContext);
+    maContextHolder.saveState();
 
     // The view is vertically flipped (no idea why), flip it back.
-    SAL_INFO("vcl.cg", "CGContextScaleCTM(" << mrContext << ",1,-1)");
-    CGContextScaleCTM(mrContext, 1.0, -1.0);
-    CGContextSetShouldAntialias(mrContext, !mbNonAntialiasedText);
-    SAL_INFO("vcl.cg", "CGContextSetFillColor(" << mrContext << "," << maTextColor << ")");
-    CGContextSetFillColor(mrContext, maTextColor.AsArray());
+    CGContextScaleCTM(maContextHolder.get(), 1.0, -1.0);
+    CGContextSetShouldAntialias(maContextHolder.get(), !mbNonAntialiasedText);
+    CGContextSetFillColor(maContextHolder.get(), maTextColor.AsArray());
+
+    if (rStyle.mbFauxBold)
+    {
+
+        float fSize = rFontSelect.mnHeight / 23.0f;
+        CGContextSetStrokeColor(maContextHolder.get(), maTextColor.AsArray());
+        CGContextSetLineWidth(maContextHolder.get(), fSize);
+        CGContextSetTextDrawingMode(maContextHolder.get(), kCGTextFillStroke);
+    }
 
     auto aIt = aGlyphOrientation.cbegin();
     while (aIt != aGlyphOrientation.cend())
@@ -470,23 +468,18 @@ void AquaSalGraphics::DrawTextLayout(const GenericSalLayout& rLayout)
         size_t nStartIndex = std::distance(aGlyphOrientation.cbegin(), aIt);
         size_t nLen = std::distance(aIt, aNext);
 
-        SAL_INFO("vcl.cg", "CGContextSaveGState(" << mrContext << ") " << ++mnContextStackDepth );
-        CGContextSaveGState(mrContext);
+        maContextHolder.saveState();
         if (rStyle.mfFontRotation && !bUprightGlyph)
         {
-            SAL_INFO("vcl.cg", "CGContextRotateCTM(" << mrContext << "," << rStyle.mfFontRotation << ")");
-            CGContextRotateCTM(mrContext, rStyle.mfFontRotation);
+            CGContextRotateCTM(maContextHolder.get(), rStyle.mfFontRotation);
         }
-        SAL_INFO("vcl.cg", "CTFontDrawGlyphs() @" << nStartIndex << ":" << nLen << "," << mrContext);
-        CTFontDrawGlyphs(pFont, &aGlyphIds[nStartIndex], &aGlyphPos[nStartIndex], nLen, mrContext);
-        SAL_INFO("vcl.cg", "CGContextRestoreGState(" << mrContext << ") " << mnContextStackDepth-- );
-        CGContextRestoreGState(mrContext);
+        CTFontDrawGlyphs(pFont, &aGlyphIds[nStartIndex], &aGlyphPos[nStartIndex], nLen, maContextHolder.get());
+        maContextHolder.restoreState();
 
         aIt = aNext;
     }
 
-    SAL_INFO( "vcl.cg", "CGContextRestoreGState(" << mrContext << ") " << mnContextStackDepth-- );
-    CGContextRestoreGState(mrContext);
+    maContextHolder.restoreState();
 }
 
 void AquaSalGraphics::SetFont(LogicalFontInstance* pReqFont, int nFallbackLevel)
@@ -575,7 +568,7 @@ bool AquaSalGraphics::GetRawFontData( const PhysicalFontFace* pFontData,
         if( *pJustCFF)
         {
             rBuffer.resize( nCffSize);
-            const int nCffRead = pMacFont->GetFontTable( "CFF ", &rBuffer[0]);
+            const int nCffRead = pMacFont->GetFontTable( "CFF ", rBuffer.data());
             if( nCffRead != nCffSize)
             {
                 return false;
@@ -668,14 +661,14 @@ bool AquaSalGraphics::GetRawFontData( const PhysicalFontFace* pFontData,
     if( nCmapSize != pMacFont->GetFontTable( "cmap", &rBuffer[nOfs]))
         return false;
 
-    FakeDirEntry( "cmap", nOfs, nCmapSize, &rBuffer[0], pFakeEntry );
+    FakeDirEntry( "cmap", nOfs, nCmapSize, rBuffer.data(), pFakeEntry );
     nOfs += nCmapSize;
     if( nCvtSize )
     {
         if( nCvtSize != pMacFont->GetFontTable( "cvt ", &rBuffer[nOfs]))
             return false;
 
-        FakeDirEntry( "cvt ", nOfs, nCvtSize, &rBuffer[0], pFakeEntry );
+        FakeDirEntry( "cvt ", nOfs, nCvtSize, rBuffer.data(), pFakeEntry );
         nOfs += nCvtSize;
     }
     if( nFpgmSize )
@@ -683,7 +676,7 @@ bool AquaSalGraphics::GetRawFontData( const PhysicalFontFace* pFontData,
         if( nFpgmSize != pMacFont->GetFontTable( "fpgm", &rBuffer[nOfs]))
             return false;
 
-        FakeDirEntry( "fpgm", nOfs, nFpgmSize, &rBuffer[0], pFakeEntry );
+        FakeDirEntry( "fpgm", nOfs, nFpgmSize, rBuffer.data(), pFakeEntry );
         nOfs += nFpgmSize;
     }
     if( nCffSize )
@@ -691,7 +684,7 @@ bool AquaSalGraphics::GetRawFontData( const PhysicalFontFace* pFontData,
         if( nCffSize != pMacFont->GetFontTable( "CFF ", &rBuffer[nOfs]))
             return false;
 
-        FakeDirEntry( "CFF ", nOfs, nCffSize, &rBuffer[0], pFakeEntry );
+        FakeDirEntry( "CFF ", nOfs, nCffSize, rBuffer.data(), pFakeEntry );
         nOfs += nGlyfSize;
     }
     else
@@ -699,47 +692,47 @@ bool AquaSalGraphics::GetRawFontData( const PhysicalFontFace* pFontData,
         if( nGlyfSize != pMacFont->GetFontTable( "glyf", &rBuffer[nOfs]))
             return false;
 
-        FakeDirEntry( "glyf", nOfs, nGlyfSize, &rBuffer[0], pFakeEntry );
+        FakeDirEntry( "glyf", nOfs, nGlyfSize, rBuffer.data(), pFakeEntry );
         nOfs += nGlyfSize;
 
         if( nLocaSize != pMacFont->GetFontTable( "loca", &rBuffer[nOfs]))
             return false;
 
-        FakeDirEntry( "loca", nOfs, nLocaSize, &rBuffer[0], pFakeEntry );
+        FakeDirEntry( "loca", nOfs, nLocaSize, rBuffer.data(), pFakeEntry );
         nOfs += nLocaSize;
     }
     if( nHeadSize != pMacFont->GetFontTable( "head", &rBuffer[nOfs]))
         return false;
 
-    FakeDirEntry( "head", nOfs, nHeadSize, &rBuffer[0], pFakeEntry );
+    FakeDirEntry( "head", nOfs, nHeadSize, rBuffer.data(), pFakeEntry );
     nOfs += nHeadSize;
 
     if( nHheaSize != pMacFont->GetFontTable( "hhea", &rBuffer[nOfs]))
         return false;
 
-    FakeDirEntry( "hhea", nOfs, nHheaSize, &rBuffer[0], pFakeEntry );
+    FakeDirEntry( "hhea", nOfs, nHheaSize, rBuffer.data(), pFakeEntry );
     nOfs += nHheaSize;
     if( nHmtxSize != pMacFont->GetFontTable( "hmtx", &rBuffer[nOfs]))
         return false;
 
-    FakeDirEntry( "hmtx", nOfs, nHmtxSize, &rBuffer[0], pFakeEntry );
+    FakeDirEntry( "hmtx", nOfs, nHmtxSize, rBuffer.data(), pFakeEntry );
     nOfs += nHmtxSize;
     if( nMaxpSize != pMacFont->GetFontTable( "maxp", &rBuffer[nOfs]))
         return false;
 
-    FakeDirEntry( "maxp", nOfs, nMaxpSize, &rBuffer[0], pFakeEntry );
+    FakeDirEntry( "maxp", nOfs, nMaxpSize, rBuffer.data(), pFakeEntry );
     nOfs += nMaxpSize;
     if( nNameSize != pMacFont->GetFontTable( "name", &rBuffer[nOfs]))
         return false;
 
-    FakeDirEntry( "name", nOfs, nNameSize, &rBuffer[0], pFakeEntry );
+    FakeDirEntry( "name", nOfs, nNameSize, rBuffer.data(), pFakeEntry );
     nOfs += nNameSize;
     if( nPrepSize )
     {
         if( nPrepSize != pMacFont->GetFontTable( "prep", &rBuffer[nOfs]))
             return false;
 
-        FakeDirEntry( "prep", nOfs, nPrepSize, &rBuffer[0], pFakeEntry );
+        FakeDirEntry( "prep", nOfs, nPrepSize, rBuffer.data(), pFakeEntry );
         nOfs += nPrepSize;
     }
 
@@ -764,7 +757,7 @@ void AquaSalGraphics::GetGlyphWidths( const PhysicalFontFace* pFontData, bool bV
 
     // use the font subsetter to get the widths
     TrueTypeFont* pSftFont = nullptr;
-    SFErrCodes nRC = ::OpenTTFontBuffer( static_cast<void*>(&aBuffer[0]), aBuffer.size(), 0, &pSftFont);
+    SFErrCodes nRC = ::OpenTTFontBuffer( static_cast<void*>(aBuffer.data()), aBuffer.size(), 0, &pSftFont);
     if( nRC != SFErrCodes::Ok )
         return;
 
@@ -779,7 +772,7 @@ void AquaSalGraphics::GetGlyphWidths( const PhysicalFontFace* pFontData, bool bV
             aGlyphIds[i] = static_cast<sal_uInt16>(i);
         }
 
-        std::unique_ptr<sal_uInt16[]> pGlyphMetrics = ::GetTTSimpleGlyphMetrics( pSftFont, &aGlyphIds[0],
+        std::unique_ptr<sal_uInt16[]> pGlyphMetrics = ::GetTTSimpleGlyphMetrics( pSftFont, aGlyphIds.data(),
                                                                                nGlyphCount, bVertical );
         if( pGlyphMetrics )
         {
@@ -882,10 +875,10 @@ bool AquaSalGraphics::CheckContext()
 
 CGContextRef AquaSalGraphics::GetContext()
 {
-    if ( !mrContext )
+    if (!maContextHolder.isSet())
         CheckContext();
 
-    return mrContext;
+    return maContextHolder.get();
 }
 
 #endif

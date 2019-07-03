@@ -26,9 +26,13 @@
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/view/XSelectionSupplier.hpp>
+#include <cppuhelper/queryinterface.hxx>
 #include <comphelper/processfactory.hxx>
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 
 #include <svx/AccessibleShape.hxx>
 #include <svx/ChildrenManager.hxx>
@@ -429,7 +433,7 @@ uno::Sequence< sal_Int32 > SAL_CALL
     {
         return aRet;
     }
-    AccessibleShape* pAcc = AccessibleShape::getImplementation( xAccContent );
+    AccessibleShape* pAcc = comphelper::getUnoTunnelImplementation<AccessibleShape>( xAccContent );
     if ( !pAcc )
     {
         return aRet;
@@ -493,7 +497,7 @@ OUString AccessibleDrawDocumentView::getObjectLink( const uno::Any& rAny )
     {
         return aRet;
     }
-    AccessibleShape* pAcc = AccessibleShape::getImplementation( xAccContent );
+    AccessibleShape* pAcc = comphelper::getUnoTunnelImplementation<AccessibleShape>( xAccContent );
     if ( !pAcc )
     {
         return aRet;
@@ -582,7 +586,7 @@ bool
 
         if( xShapes.is() )
         {
-            AccessibleShape* pAcc = AccessibleShape::getImplementation( getAccessibleChild( nAccessibleChildIndex ) );
+            AccessibleShape* pAcc = comphelper::getUnoTunnelImplementation<AccessibleShape>( getAccessibleChild( nAccessibleChildIndex ) );
 
             if( pAcc )
             {
@@ -629,7 +633,7 @@ void
 
             for(sal_Int32 i = 0, nCount = getAccessibleChildCount(); i < nCount; ++i )
             {
-                AccessibleShape* pAcc = AccessibleShape::getImplementation( getAccessibleChild( i ) );
+                AccessibleShape* pAcc = comphelper::getUnoTunnelImplementation<AccessibleShape>( getAccessibleChild( i ) );
 
                 if( pAcc && pAcc->GetXShape().is() )
                     xShapes->add( pAcc->GetXShape() );
@@ -646,7 +650,7 @@ void
         // Select or deselect only the child with index
         // nAccessibleChildIndex.
 
-        AccessibleShape* pAcc = AccessibleShape::getImplementation(
+        AccessibleShape* pAcc = comphelper::getUnoTunnelImplementation<AccessibleShape>(
             getAccessibleChild( nAccessibleChildIndex ));
 
         // Add or remove the shape that is made accessible from the

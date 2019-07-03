@@ -39,7 +39,6 @@
 #include <RegressionCurveHelper.hxx>
 #include <StatisticsHelper.hxx>
 #include <DataSeriesHelper.hxx>
-#include <ContainerHelper.hxx>
 #include <AxisHelper.hxx>
 #include <LegendHelper.hxx>
 #include <servicenames_charttypes.hxx>
@@ -63,6 +62,7 @@
 #include <comphelper/lok.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <comphelper/propertyvalue.hxx>
+#include <comphelper/sequence.hxx>
 
 #include <toolkit/awt/vclxmenu.hxx>
 
@@ -72,6 +72,8 @@
 #include <svx/obj3d.hxx>
 #include <svx/scene3d.hxx>
 #include <svx/svddrgmt.hxx>
+#include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/weld.hxx>
@@ -853,6 +855,7 @@ void ChartController::execute_MouseButtonUp( const MouseEvent& rMEvt )
 
                         bool bChanged = false;
                         ChartModel* pModel = dynamic_cast<ChartModel*>(getModel().get());
+                        assert(pModel);
                         if ( eObjectType == OBJECTTYPE_LEGEND )
                             bChanged = DiagramHelper::switchDiagramPositioningToExcludingPositioning( *pModel, false , true );
 
@@ -1051,7 +1054,7 @@ void ChartController::execute_Command( const CommandEvent& rCEvt )
                             {
                                 if( bIsPoint )
                                 {
-                                    std::vector< sal_Int32 > aIndices( ContainerHelper::SequenceToVector( aAttributedDataPointIndexList ) );
+                                    auto aIndices( comphelper::sequenceToContainer<std::vector< sal_Int32 >>( aAttributedDataPointIndexList ) );
                                     std::vector< sal_Int32 >::iterator aIt = std::find( aIndices.begin(), aIndices.end(), nPointIndex );
                                     if( aIt != aIndices.end())
                                         bSelectedPointIsFormatted = true;
@@ -1266,7 +1269,7 @@ void ChartController::execute_Command( const CommandEvent& rCEvt )
 
         if (comphelper::LibreOfficeKit::isActive())
         {
-            PopupMenu* pPopupMenu = static_cast<PopupMenu*>(VCLXMenu::GetImplementation(xPopupMenu)->GetMenu());
+            PopupMenu* pPopupMenu = static_cast<PopupMenu*>(comphelper::getUnoTunnelImplementation<VCLXMenu>(xPopupMenu)->GetMenu());
             pPopupMenu->SetLOKNotifier(SfxViewShell::Current());
 
             // the context menu expects a position related to the document window,
@@ -1352,7 +1355,7 @@ bool ChartController::execute_KeyInput( const KeyEvent& rKEvt )
     {
         // Navigation (Tab/F3/Home/End)
         uno::Reference< XChartDocument > xChartDoc( getModel(), uno::UNO_QUERY );
-        ObjectKeyNavigation aObjNav( m_aSelection.getSelectedOID(), xChartDoc, ExplicitValueProvider::getExplicitValueProvider( m_xChartView ));
+        ObjectKeyNavigation aObjNav( m_aSelection.getSelectedOID(), xChartDoc, comphelper::getUnoTunnelImplementation<ExplicitValueProvider>( m_xChartView ));
         awt::KeyEvent aKeyEvent( ::svt::AcceleratorExecute::st_VCLKey2AWTKey( aKeyCode ));
         bReturn = aObjNav.handleKeyEvent( aKeyEvent );
         if( bReturn )
@@ -1598,7 +1601,7 @@ bool ChartController::requestQuickHelp(
 
         // set rectangle
         ExplicitValueProvider * pValueProvider(
-            ExplicitValueProvider::getExplicitValueProvider( m_xChartView ));
+            comphelper::getUnoTunnelImplementation<ExplicitValueProvider>( m_xChartView ));
         if( pValueProvider )
             rOutEqualRect = pValueProvider->getRectangleOfObject( aCID, true );
     }
@@ -1667,6 +1670,17 @@ uno::Any SAL_CALL ChartController::getSelection()
         OUString aCID( m_aSelection.getSelectedCID() );
         if ( !aCID.isEmpty() )
         {
+            if ( comphelper::LibreOfficeKit::isActive() )
+            {
+                sal_Int32 nPos = aCID.lastIndexOf('/');
+                OUString sFirst = aCID.copy(0, nPos);
+                OUString sSecond = aCID.copy(nPos);
+                aCID = sFirst;
+                aCID += "/Draggable=" + OUString::number(static_cast<int>(isSelectedObjectDraggable()));
+                aCID += ":Resizable=" + OUString::number(static_cast<int>(isSelectedObjectResizable()));
+                aCID += ":Rotatable=" + OUString::number(static_cast<int>(isSelectedObjectRotatable()));
+                aCID += sSecond;
+            }
             aReturn <<= aCID;
         }
         else
@@ -1755,7 +1769,7 @@ bool ChartController::impl_moveOrResizeObject(
             ( aRefSize.Width > 0 && aRefSize.Height > 0 ) )
         {
             ExplicitValueProvider * pValueProvider(
-                ExplicitValueProvider::getExplicitValueProvider( m_xChartView ));
+                comphelper::getUnoTunnelImplementation<ExplicitValueProvider>( m_xChartView ));
             if( pValueProvider )
             {
                 awt::Rectangle aRect( pValueProvider->getRectangleOfObject( rCID ));

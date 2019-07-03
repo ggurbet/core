@@ -24,7 +24,6 @@
 #include <sfx2/objsh.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
-#include <vcl/builderfactory.hxx>
 
 #include <strings.hrc>
 #include <bitmaps.hlst>
@@ -53,7 +52,6 @@
 
 #include <basic/sbx.hxx>
 #include <svtools/imagemgr.hxx>
-#include <vcl/treelistentry.hxx>
 #include <tools/urlobj.hxx>
 #include <tools/diagnose_ex.h>
 #include <vector>
@@ -152,9 +150,9 @@ void SvxScriptOrgDialog::Init( const OUString& language  )
             children = rootNode->getChildNodes();
         }
     }
-    catch( Exception& e )
+    catch( const Exception& )
     {
-        SAL_WARN("cui.dialogs", "Exception getting root browse node from factory: " << e );
+        TOOLS_WARN_EXCEPTION("cui.dialogs", "Exception getting root browse node from factory");
         // TODO exception handling
     }
 
@@ -437,9 +435,7 @@ short SvxScriptOrgDialog::run()
     // force load of MSPs for all documents
     while ( pDoc )
     {
-        Reference< provider::XScriptProviderSupplier > xSPS =
-            Reference< provider::XScriptProviderSupplier >
-                                        ( pDoc->GetModel(), UNO_QUERY );
+        Reference< provider::XScriptProviderSupplier > xSPS( pDoc->GetModel(), UNO_QUERY );
         if ( xSPS.is() )
         {
             xSPS->getScriptProvider();
@@ -618,7 +614,7 @@ IMPL_LINK(SvxScriptOrgDialog, ButtonHdl, weld::Button&, rButton, void)
                 try
                 {
                     Reference< provider::XScript > xScript(
-                    mspNode->getScript( scriptURL ), UNO_QUERY_THROW );
+                        mspNode->getScript( scriptURL ), UNO_SET_THROW );
 
                     const Sequence< Any > args(0);
                     Sequence< sal_Int16 > outIndex;
@@ -754,7 +750,7 @@ void SvxScriptOrgDialog::createEntry(weld::TreeIter& rEntry)
         {
             aNewName = aNewStdName + OUString::number(i);
             bool bFound = false;
-            if(childNodes.getLength() > 0 )
+            if(childNodes.hasElements() )
             {
                 OUString nodeName = childNodes[0]->getName();
                 sal_Int32 extnPos = nodeName.lastIndexOf( '.' );
@@ -824,8 +820,7 @@ void SvxScriptOrgDialog::createEntry(weld::TreeIter& rEntry)
         Sequence< sal_Int16 > outIndex;
         try
         {
-            Any aResult;
-            aResult = xInv->invoke( "Creatable", args, outIndex, outArgs );
+            Any aResult = xInv->invoke( "Creatable", args, outIndex, outArgs );
             Reference< browse::XBrowseNode > newNode( aResult, UNO_QUERY );
             aChildNode = newNode;
 
@@ -909,8 +904,7 @@ void SvxScriptOrgDialog::renameEntry(weld::TreeIter& rEntry)
         Sequence< sal_Int16 > outIndex;
         try
         {
-            Any aResult;
-            aResult = xInv->invoke( "Renamable", args, outIndex, outArgs );
+            Any aResult = xInv->invoke( "Renamable", args, outIndex, outArgs );
             Reference< browse::XBrowseNode > newNode( aResult, UNO_QUERY );
             aChildNode = newNode;
 
@@ -961,8 +955,7 @@ void SvxScriptOrgDialog::deleteEntry(weld::TreeIter& rEntry)
         Sequence< sal_Int16 > outIndex;
         try
         {
-            Any aResult;
-            aResult = xInv->invoke( "Deletable", args, outIndex, outArgs );
+            Any aResult = xInv->invoke( "Deletable", args, outIndex, outArgs );
             aResult >>= result; // or do we just assume true if no exception ?
         }
         catch( Exception const & )

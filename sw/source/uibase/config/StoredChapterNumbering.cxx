@@ -34,6 +34,7 @@
 
 #include <vcl/svapp.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <unosett.hxx>
 
@@ -130,7 +131,7 @@ public:
         OUString dummy; // pass in empty HeadingStyleName - can't import anyway
         uno::Sequence<beans::PropertyValue> const ret(
             SwXNumberingRules::GetPropertiesForNumFormat(
-                *pNumFormat, *pCharStyleName, &dummy));
+                *pNumFormat, *pCharStyleName, &dummy, ""));
         return uno::makeAny(ret);
     }
 
@@ -443,9 +444,9 @@ void ExportStoredChapterNumberingRules(SwChapterNumRules & rRules,
     {
         exp->ExportRules(charStyles, numRules);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_WARN("sw.ui", "ExportStoredChapterNumberingRules: " << e);
+        TOOLS_WARN_EXCEPTION("sw.ui", "ExportStoredChapterNumberingRules");
     }
 }
 
@@ -472,9 +473,9 @@ void ImportStoredChapterNumberingRules(SwChapterNumRules & rRules,
     {
         xParser->parseStream(source);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_WARN("sw.ui", "ImportStoredChapterNumberingRules: " << e);
+        TOOLS_WARN_EXCEPTION("sw.ui", "ImportStoredChapterNumberingRules");
     }
 }
 

@@ -21,12 +21,16 @@
 #include <vcl/builderfactory.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/event.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/syswin.hxx>
 #include <sfx2/charwin.hxx>
 #include <comphelper/dispatchcommand.hxx>
 #include <comphelper/processfactory.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/sfxresid.hxx>
 #include <sfx2/strings.hrc>
+
+#include <com/sun/star/beans/PropertyValue.hpp>
 
 using namespace com::sun::star;
 

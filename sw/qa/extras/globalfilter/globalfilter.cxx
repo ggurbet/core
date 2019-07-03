@@ -21,14 +21,12 @@
 #include <IDocumentContentOperations.hxx>
 #include <doc.hxx>
 #include <ndgrf.hxx>
-#include <drawdoc.hxx>
 #include <ndindex.hxx>
 #include <pam.hxx>
 #include <unotools/fltrcfg.hxx>
 #include <xmloff/odffields.hxx>
 #include <IDocumentMarkAccess.hxx>
 #include <IMark.hxx>
-#include <bookmrk.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -1072,7 +1070,7 @@ void Test::testTextFormField()
         // Check whether all fieldmarks are text form fields
         for(auto aIter = pMarkAccess->getAllMarksBegin(); aIter != pMarkAccess->getAllMarksEnd(); ++aIter)
         {
-            ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+            ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
             CPPUNIT_ASSERT_MESSAGE(sFailedMessage.getStr(), pFieldmark);
             CPPUNIT_ASSERT_EQUAL_MESSAGE(sFailedMessage.getStr(), OUString(ODF_FORMTEXT), pFieldmark->GetFieldname());
         }
@@ -1130,7 +1128,7 @@ void Test::testCheckBoxFormField()
         int nIndex = 0;
         for(auto aIter = pMarkAccess->getAllMarksBegin(); aIter != pMarkAccess->getAllMarksEnd(); ++aIter)
         {
-            ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+            ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
 
             if(rFilterName == "Office Open XML Text") // OOXML import also generates bookmarks
             {
@@ -1192,7 +1190,7 @@ void Test::testDropDownFormField()
         int nIndex = 0;
         for(auto aIter = pMarkAccess->getAllMarksBegin(); aIter != pMarkAccess->getAllMarksEnd(); ++aIter)
         {
-            ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+            ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
 
             if(!pFieldmark)
                 continue;

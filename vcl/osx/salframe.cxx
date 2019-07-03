@@ -224,10 +224,7 @@ SAL_WNODEPRECATED_DECLARATIONS_POP
 
     [mpNSWindow setDelegate: static_cast<id<NSWindowDelegate> >(mpNSWindow)];
 
-    if( [mpNSWindow respondsToSelector: @selector(setRestorable:)])
-    {
-        objc_msgSend(mpNSWindow, @selector(setRestorable:), NO);
-    }
+    [mpNSWindow setRestorable:NO];
     const NSRect aRect = { NSZeroPoint, NSMakeSize( maGeometry.nWidth, maGeometry.nHeight )};
     mnTrackingRectTag = [mpNSView addTrackingRect: aRect owner: mpNSView userData: nil assumeInside: NO];
 
@@ -1257,6 +1254,8 @@ SAL_WNODEPRECATED_DECLARATIONS_POP
     aStyleSettings.SetTitleFont( aTitleFont );
     aStyleSettings.SetFloatTitleFont( aTitleFont );
 
+    vcl::Font aTooltipFont(getFont([NSFont toolTipsFontOfSize: 0], nDPIY, aAppFont));
+    aStyleSettings.SetHelpFont(aTooltipFont);
 
     Color aHighlightColor( getColor( [NSColor selectedTextBackgroundColor],
                                       aStyleSettings.GetHighlightColor(), mpNSWindow ) );
@@ -1768,7 +1767,7 @@ void AquaSalFrame::EndSetClipRegion()
     if( ! maClippingRects.empty() )
     {
         mrClippingPath = CGPathCreateMutable();
-        CGPathAddRects( mrClippingPath, nullptr, &maClippingRects[0], maClippingRects.size() );
+        CGPathAddRects( mrClippingPath, nullptr, maClippingRects.data(), maClippingRects.size() );
     }
     if( mpNSView && mbShown )
         [mpNSView setNeedsDisplay: YES];

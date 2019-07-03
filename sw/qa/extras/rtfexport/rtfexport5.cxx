@@ -12,9 +12,6 @@
 
 #include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/graphic/GraphicType.hpp>
-#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
-#include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/style/CaseMap.hpp>
 #include <com/sun/star/style/LineSpacing.hpp>
 #include <com/sun/star/style/LineSpacingMode.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
@@ -26,28 +23,18 @@
 #include <com/sun/star/text/TextContentAnchorType.hpp>
 #include <com/sun/star/text/XFootnotesSupplier.hpp>
 #include <com/sun/star/text/XPageCursor.hpp>
-#include <com/sun/star/text/XTextGraphicObjectsSupplier.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
-#include <com/sun/star/text/XTextFramesSupplier.hpp>
-#include <com/sun/star/text/XTextRangeCompare.hpp>
 #include <com/sun/star/text/XTextTablesSupplier.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
-#include <com/sun/star/text/WrapTextMode.hpp>
-#include <com/sun/star/text/HoriOrientation.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
-#include <com/sun/star/util/XNumberFormatsSupplier.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 
 #include <rtl/ustring.hxx>
-#include <vcl/outdev.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <unotools/ucbstreamhelper.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <i18nlangtag/languagetag.hxx>
-
-#include <bordertest.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -194,6 +181,33 @@ DECLARE_RTFEXPORT_TEST(testParaBottomMargin, "para-bottom-margin.rtf")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(2), getProperty<sal_Int32>(getParagraph(1), "ParaTopMargin"));
 }
 
+DECLARE_RTFIMPORT_TEST(testParaStyleBottomMargin2, "para-style-bottom-margin-2.rtf")
+{
+    uno::Reference<beans::XPropertySet> xPropertySet(
+        getStyles("ParagraphStyles")->getByName("Standard"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(353), getProperty<sal_Int32>(xPropertySet, "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(style::LineSpacingMode::PROP,
+                         getProperty<style::LineSpacing>(xPropertySet, "ParaLineSpacing").Mode);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(115),
+                         getProperty<style::LineSpacing>(xPropertySet, "ParaLineSpacing").Height);
+
+    // the derived style contains \sa200, as does its parent
+    uno::Reference<beans::XPropertySet> xPropertySet1(
+        getStyles("ParagraphStyles")->getByName("List Paragraph"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(353), getProperty<sal_Int32>(xPropertySet1, "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(style::LineSpacingMode::PROP,
+                         getProperty<style::LineSpacing>(xPropertySet1, "ParaLineSpacing").Mode);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(115),
+                         getProperty<style::LineSpacing>(xPropertySet1, "ParaLineSpacing").Height);
+    // for the paragraph there is no \saN, so it should default to 0
+    auto const xPara(getParagraph(1));
+    CPPUNIT_ASSERT_EQUAL(sal_Int32(0), getProperty<sal_Int32>(xPara, "ParaBottomMargin"));
+    CPPUNIT_ASSERT_EQUAL(style::LineSpacingMode::PROP,
+                         getProperty<style::LineSpacing>(xPara, "ParaLineSpacing").Mode);
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(115),
+                         getProperty<style::LineSpacing>(xPara, "ParaLineSpacing").Height);
+}
+
 DECLARE_RTFEXPORT_TEST(testFdo66040, "fdo66040.rtf")
 {
     uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
@@ -206,9 +220,9 @@ DECLARE_RTFEXPORT_TEST(testFdo66040, "fdo66040.rtf")
     uno::Reference<text::XTextRange> xTextRange(xDraws->getByIndex(0), uno::UNO_QUERY);
     uno::Reference<text::XText> xText = xTextRange->getText();
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(2, xText), uno::UNO_QUERY);
-    CPPUNIT_ASSERT_EQUAL(
-        OUString("A"),
-        uno::Reference<text::XTextRange>(xTable->getCellByName("A1"), uno::UNO_QUERY)->getString());
+    CPPUNIT_ASSERT_EQUAL(OUString("A"), uno::Reference<text::XTextRange>(
+                                            xTable->getCellByName("A1"), uno::UNO_QUERY_THROW)
+                                            ->getString());
 
     // Make sure the second shape has the correct position and size.
     uno::Reference<drawing::XShape> xShape(xDraws->getByIndex(1), uno::UNO_QUERY);
@@ -401,8 +415,9 @@ DECLARE_RTFEXPORT_TEST(testFooterPara, "footer-para.rtf")
     uno::Reference<text::XText> xFooterText = getProperty<uno::Reference<text::XText>>(
         getStyles("PageStyles")->getByName("First Page"), "FooterText");
     uno::Reference<text::XTextContent> xParagraph = getParagraphOrTable(1, xFooterText);
-    CPPUNIT_ASSERT_EQUAL(OUString("All Rights Reserved."),
-                         uno::Reference<text::XTextRange>(xParagraph, uno::UNO_QUERY)->getString());
+    CPPUNIT_ASSERT_EQUAL(
+        OUString("All Rights Reserved."),
+        uno::Reference<text::XTextRange>(xParagraph, uno::UNO_QUERY_THROW)->getString());
     CPPUNIT_ASSERT_EQUAL(
         sal_Int16(style::ParagraphAdjust_CENTER),
         getProperty</*style::ParagraphAdjust*/ sal_Int16>(xParagraph, "ParaAdjust"));
@@ -961,8 +976,8 @@ DECLARE_RTFEXPORT_TEST(testClassificatonPasteLevels, "classification-confidentia
 DECLARE_RTFEXPORT_TEST(testTdf95707, "tdf95707.rtf")
 {
     // Graphic was replaced with a "Read-Error" placeholder.
-    uno::Reference<graphic::XGraphic> xGraphic;
-    xGraphic = getProperty<uno::Reference<graphic::XGraphic>>(getShape(1), "Graphic");
+    uno::Reference<graphic::XGraphic> xGraphic
+        = getProperty<uno::Reference<graphic::XGraphic>>(getShape(1), "Graphic");
     CPPUNIT_ASSERT(xGraphic.is());
     CPPUNIT_ASSERT(xGraphic->getType() != graphic::GraphicType::EMPTY);
 }

@@ -30,16 +30,11 @@ namespace pcr
 {
 
 
-    using ::com::sun::star::inspection::XObjectInspectorModel;
-    using ::com::sun::star::lang::XInitialization;
-    using ::com::sun::star::lang::XServiceInfo;
     using ::com::sun::star::uno::Reference;
     using ::com::sun::star::uno::XComponentContext;
-    using ::com::sun::star::uno::RuntimeException;
     using ::com::sun::star::uno::Sequence;
     using ::com::sun::star::uno::Any;
     using ::com::sun::star::inspection::PropertyCategoryDescriptor;
-    using ::com::sun::star::uno::Exception;
     using ::com::sun::star::uno::XInterface;
     using ::com::sun::star::lang::IllegalArgumentException;
     using ::com::sun::star::ucb::AlreadyInitializedException;
@@ -118,7 +113,7 @@ namespace pcr
     void SAL_CALL ObjectInspectorModel::initialize( const Sequence< Any >& _arguments )
     {
         ::osl::MutexGuard aGuard( m_aMutex );
-        if ( m_aFactories.getLength() )
+        if ( m_aFactories.hasElements() )
             throw AlreadyInitializedException();
 
         StlSyntaxSequence< Any > arguments( _arguments );
@@ -170,8 +165,7 @@ namespace pcr
 
     Sequence< OUString > ObjectInspectorModel::getSupportedServiceNames_static(  )
     {
-        OUString sService( "com.sun.star.inspection.ObjectInspectorModel" );
-        return Sequence< OUString >( &sService, 1 );
+        return { "com.sun.star.inspection.ObjectInspectorModel" };
     }
 
 
@@ -190,14 +184,14 @@ namespace pcr
 
     void ObjectInspectorModel::createWithHandlerFactories( const Sequence< Any >& _rFactories )
     {
-        impl_verifyArgument_throw( _rFactories.getLength() > 0, 1 );
+        impl_verifyArgument_throw( _rFactories.hasElements(), 1 );
         m_aFactories = _rFactories;
     }
 
 
     void ObjectInspectorModel::createWithHandlerFactoriesAndHelpSection( const Sequence< Any >& _rFactories, sal_Int32 _nMinHelpTextLines, sal_Int32 _nMaxHelpTextLines )
     {
-        impl_verifyArgument_throw( _rFactories.getLength() > 0, 1 );
+        impl_verifyArgument_throw( _rFactories.hasElements(), 1 );
         impl_verifyArgument_throw( _nMinHelpTextLines >= 1, 2 );
         impl_verifyArgument_throw( _nMaxHelpTextLines >= 1, 3 );
         impl_verifyArgument_throw( _nMinHelpTextLines <= _nMaxHelpTextLines, 2 );

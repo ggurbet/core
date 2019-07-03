@@ -24,6 +24,7 @@
 
 #include <svx/svxids.hrc>
 #include <editeng/adjustitem.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/brushitem.hxx>
 #include <svtools/colorcfg.hxx>
@@ -385,7 +386,7 @@ void ScPrintFunc::FillPageData()
         }
         else
         {
-            rData.SetPagesX( m_aRanges.m_nPagesX, &m_aRanges.m_aPageEndX[0]);
+            rData.SetPagesX( m_aRanges.m_nPagesX, m_aRanges.m_aPageEndX.data());
         }
 
         // #i123672#
@@ -395,7 +396,7 @@ void ScPrintFunc::FillPageData()
         }
         else
         {
-            rData.SetPagesY( m_aRanges.m_nTotalY, &m_aRanges.m_aPageEndY[0]);
+            rData.SetPagesY( m_aRanges.m_nTotalY, m_aRanges.m_aPageEndY.data());
         }
 
         //  Settings
@@ -515,8 +516,6 @@ void ScPrintFunc::DrawToDev( ScDocument* pDoc, OutputDevice* pDev, double /* nPr
     long nDevSizeX = aRect.Right()-aRect.Left()+1;
     long nDevSizeY = aRect.Bottom()-aRect.Top()+1;
 
-    tools::Rectangle aLines;
-
     long nTwipsSizeX = 0;
     for (SCCOL i=nX1; i<=nX2; i++)
         nTwipsSizeX += pDoc->GetColWidth( i, nTab );
@@ -524,8 +523,8 @@ void ScPrintFunc::DrawToDev( ScDocument* pDoc, OutputDevice* pDev, double /* nPr
 
     //  if no lines, still space for the outline frame (20 Twips = 1pt)
     //  (HasLines initializes aLines to 0,0,0,0)
-    nTwipsSizeX += aLines.Left() + std::max( aLines.Right(), 20L );
-    nTwipsSizeY += aLines.Top() +  std::max( aLines.Bottom(), 20L );
+    nTwipsSizeX += 20;
+    nTwipsSizeY += 20;
 
     double nScaleX = static_cast<double>(nDevSizeX) / nTwipsSizeX;
     double nScaleY = static_cast<double>(nDevSizeY) / nTwipsSizeY;
@@ -554,10 +553,8 @@ void ScPrintFunc::DrawToDev( ScDocument* pDoc, OutputDevice* pDev, double /* nPr
 
     //  If no lines, still leave space for grid lines
     //  (would be elseways cut away)
-    long nAddX = static_cast<long>( aLines.Left() * nScaleX );
-    nScrX += ( nAddX ? nAddX : 1 );
-    long nAddY = static_cast<long>( aLines.Top() * nScaleY );
-    nScrY += ( nAddY ? nAddY : 1 );
+    nScrX += 1;
+    nScrY += 1;
 
     ScOutputData aOutputData( pDev, OUTTYPE_PRINTER, aTabInfo, pDoc, nTab,
                                 nScrX, nScrY, nX1, nY1, nX2, nY2, nScaleX, nScaleY );
@@ -1091,7 +1088,7 @@ void ScPrintFunc::InitParam( const ScPrintOptions* pOptions )
     const INetURLObject& rURLObj = pDocShell->GetMedium()->GetURLObject();
     aFieldData.aLongDocName = rURLObj.GetMainURL( INetURLObject::DecodeMechanism::Unambiguous );
     if ( !aFieldData.aLongDocName.isEmpty() )
-        aFieldData.aShortDocName = rURLObj.GetName( INetURLObject::DecodeMechanism::Unambiguous );
+        aFieldData.aShortDocName = rURLObj.GetLastName(INetURLObject::DecodeMechanism::Unambiguous);
     else
         aFieldData.aShortDocName = aFieldData.aLongDocName = aFieldData.aTitle;
 
@@ -1729,12 +1726,9 @@ void ScPrintFunc::MakeEditEngine()
         rPattern.FillEditItemSet( pEditDefaults.get() );
         //  FillEditItemSet adjusts font height to 1/100th mm,
         //  but for header/footer twips is needed, as in the PatternAttr:
-        std::unique_ptr<SfxPoolItem> pNewItem(rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT));
-        pEditDefaults->Put( *pNewItem );
-        pNewItem = rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK);
-        pEditDefaults->Put( *pNewItem );
-        pNewItem = rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL);
-        pEditDefaults->Put( *pNewItem );
+        pEditDefaults->Put( rPattern.GetItem(ATTR_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT) );
+        pEditDefaults->Put( rPattern.GetItem(ATTR_CJK_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK) );
+        pEditDefaults->Put( rPattern.GetItem(ATTR_CTL_FONT_HEIGHT).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL) );
         //  don't use font color, because background color is not used
         //! there's no way to set the background for note pages
         pEditDefaults->ClearItem( EE_CHAR_COLOR );
@@ -1981,7 +1975,7 @@ long ScPrintFunc::PrintNotes( long nPageNo, long nNoteStart, bool bDoPrint, ScPr
 
     //      adjust aPageRect for left/right page
 
-    tools::Rectangle aTempRect = tools::Rectangle( Point(), aPageSize );
+    tools::Rectangle aTempRect( Point(), aPageSize );
     if (IsMirror(nPageNo))
     {
         aPageRect.SetLeft( ( aTempRect.Left()  + nRightMargin ) * 100 / nZoom );
@@ -2050,7 +2044,7 @@ void ScPrintFunc::PrintPage( long nPageNo, SCCOL nX1, SCROW nY1, SCCOL nX2, SCRO
 
     //      adjust aPageRect for left/right page
 
-    tools::Rectangle aTempRect = tools::Rectangle( Point(), aPageSize );
+    tools::Rectangle aTempRect( Point(), aPageSize );
     if (IsMirror(nPageNo))
     {
         aPageRect.SetLeft( ( aTempRect.Left()  + nRightMargin ) * 100 / nZoom );

@@ -63,6 +63,7 @@ class WorkWindow;
 class NotifyEvent;
 class KeyEvent;
 class MouseEvent;
+class GestureEvent;
 struct ImplSVEvent;
 struct ConvertData;
 
@@ -746,6 +747,8 @@ public:
      @param     pMouseEvent     Mouse event to send
     */
     static ImplSVEvent *        PostMouseEvent( VclEventId nEvent, vcl::Window *pWin, MouseEvent const * pMouseEvent );
+
+    static ImplSVEvent* PostGestureEvent(VclEventId nEvent, vcl::Window* pWin, GestureEvent const * pGestureEvent);
 
     /** Remove mouse and keypress events from a window... any also zoom and scroll events
      if the platform supports it.
@@ -1479,6 +1482,9 @@ public:
 
 VCL_DLLPUBLIC Application* GetpApp();
 
+// returns true if vcl is already initialized
+VCL_DLLPUBLIC bool IsVCLInit();
+// returns true if vcl successfully initializes or was already initialized
 VCL_DLLPUBLIC bool InitVCL();
 VCL_DLLPUBLIC void DeInitVCL();
 

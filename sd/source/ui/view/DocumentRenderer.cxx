@@ -51,6 +51,8 @@
 #include <svx/svditer.hxx>
 #include <svx/svdopage.hxx>
 #include <svx/svdopath.hxx>
+#include <svx/svdpagv.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnclit.hxx>
 #include <toolkit/awt/vclxdevice.hxx>
 #include <unotools/localedatawrapper.hxx>
@@ -1188,7 +1190,7 @@ public:
 
         if (aDev >>= xRenderDevice)
         {
-            VCLXDevice* pDevice = VCLXDevice::GetImplementation(xRenderDevice);
+            VCLXDevice* pDevice = comphelper::getUnoTunnelImplementation<VCLXDevice>(xRenderDevice);
             VclPtr< OutputDevice > pOut = pDevice ? pDevice->GetOutputDevice()
                                                   : VclPtr< OutputDevice >();
             mpPrinter = dynamic_cast<Printer*>(pOut.get());

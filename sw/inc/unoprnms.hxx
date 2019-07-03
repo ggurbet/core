@@ -161,6 +161,7 @@
 #define UNO_NAME_DROP_CAP_CHAR_STYLE_NAME "DropCapCharStyleName"
 #define UNO_NAME_FILE_LINK "FileLink"
 #define UNO_NAME_GRAPHIC "Graphic"
+#define UNO_NAME_TRANSFORMED_GRAPHIC "TransformedGraphic"
 #define UNO_NAME_IS_PROTECTED "IsProtected"
 #define UNO_NAME_PARA_KEEP_TOGETHER "ParaKeepTogether"
 #define UNO_NAME_KEEP_TOGETHER "KeepTogether"
@@ -399,6 +400,7 @@
 #define UNO_NAME_FOOTER_IS_DYNAMIC_HEIGHT "FooterIsDynamicHeight"
 #define UNO_NAME_FOOTER_IS_SHARED "FooterIsShared"
 #define UNO_NAME_TEXT_PARAGRAPH "TextParagraph"
+#define UNO_NAME_PARENT_TEXT "ParentText"
 
 #define UNO_NAME_FOOTER_HEIGHT "FooterHeight"
 #define UNO_NAME_FOOTER_IS_ON "FooterIsOn"

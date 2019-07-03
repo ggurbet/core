@@ -26,7 +26,10 @@
 #include <strings.hrc>
 
 #include <editeng/sizeitem.hxx>
+#include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/module.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/svxids.hrc>
 #include <svx/pageitem.hxx>
 #include <svl/itempool.hxx>
@@ -36,6 +39,8 @@
 #include <cmdid.h>
 
 #include <com/sun/star/document/XUndoManagerSupplier.hpp>
+#include <com/sun/star/beans/NamedValue.hpp>
+#include <com/sun/star/frame/XFrame.hpp>
 
 #include <vcl/settings.hxx>
 
@@ -80,7 +85,7 @@ namespace
             if ( xModel.is() )
             {
                 const css::uno::Reference< css::document::XUndoManagerSupplier > xSuppUndo( xModel, css::uno::UNO_QUERY_THROW );
-                const css::uno::Reference< css::document::XUndoManager > xUndoManager( xSuppUndo->getUndoManager(), css::uno::UNO_QUERY_THROW );
+                const css::uno::Reference< css::document::XUndoManager > xUndoManager( xSuppUndo->getUndoManager(), css::uno::UNO_SET_THROW );
                 return xUndoManager;
             }
         }
@@ -508,7 +513,7 @@ bool PageMarginControl::GetUserCustomValues()
     {
         css::uno::Sequence < css::beans::NamedValue > aSeq = aWinOpt.GetUserData();
         OUString aTmp;
-        if ( aSeq.getLength())
+        if ( aSeq.hasElements())
             aSeq[0].Value >>= aTmp;
         OUString aWinData( aTmp );
         m_nUserCustomPageLeftMargin = aWinData.toInt32();
@@ -520,7 +525,7 @@ bool PageMarginControl::GetUserCustomValues()
     {
         css::uno::Sequence < css::beans::NamedValue > aSeq = aWinOpt2.GetUserData();
         OUString aTmp;
-        if ( aSeq.getLength())
+        if ( aSeq.hasElements())
             aSeq[0].Value >>= aTmp;
         OUString aWinData( aTmp );
         m_nUserCustomPageRightMargin = aWinData.toInt32();
@@ -532,7 +537,7 @@ bool PageMarginControl::GetUserCustomValues()
     {
         css::uno::Sequence < css::beans::NamedValue > aSeq = aWinOpt3.GetUserData();
         OUString aTmp;
-        if ( aSeq.getLength() )
+        if ( aSeq.hasElements() )
             aSeq[0].Value >>= aTmp;
         OUString aWinData( aTmp );
         m_nUserCustomPageTopMargin = aWinData.toInt32();
@@ -544,7 +549,7 @@ bool PageMarginControl::GetUserCustomValues()
     {
         css::uno::Sequence < css::beans::NamedValue > aSeq = aWinOpt4.GetUserData();
         OUString aTmp;
-        if ( aSeq.getLength())
+        if ( aSeq.hasElements())
             aSeq[0].Value >>= aTmp;
         OUString aWinData( aTmp );
         m_nUserCustomPageBottomMargin = aWinData.toInt32();
@@ -556,7 +561,7 @@ bool PageMarginControl::GetUserCustomValues()
     {
         css::uno::Sequence < css::beans::NamedValue > aSeq = aWinOpt5.GetUserData();
         OUString aTmp;
-        if ( aSeq.getLength())
+        if ( aSeq.hasElements())
             aSeq[0].Value >>= aTmp;
         OUString aWinData( aTmp );
         m_bUserCustomMirrored = aWinData.toInt32() != 0;

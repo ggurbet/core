@@ -17,8 +17,12 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <oox/drawingml/diagram/diagram.hxx>
+#include "diagram.hxx"
 #include <com/sun/star/awt/Point.hpp>
 #include <com/sun/star/awt/Size.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/xml/dom/XDocument.hpp>
 #include <com/sun/star/xml/sax/XFastSAXSerializable.hpp>
 #include <rtl/ustrbuf.hxx>
@@ -27,11 +31,12 @@
 #include <drawingml/textbody.hxx>
 #include <drawingml/textparagraph.hxx>
 #include <drawingml/textrun.hxx>
-#include <drawingml/diagram/diagram.hxx>
 #include <drawingml/fillproperties.hxx>
+#include <drawingml/customshapeproperties.hxx>
 #include <oox/ppt/pptshapegroupcontext.hxx>
 #include <oox/ppt/pptshape.hxx>
 #include <oox/token/namespaces.hxx>
+#include <basegfx/matrix/b2dhommatrix.hxx>
 
 #include "diagramlayoutatoms.hxx"
 #include "layoutatomvisitors.hxx"
@@ -67,8 +72,7 @@ void Point::dump() const
 } // dgm namespace
 
 DiagramData::DiagramData() :
-    mpFillProperties( new FillProperties ),
-    mnMaxDepth(0)
+    mpFillProperties( new FillProperties )
 {
 }
 
@@ -133,11 +137,51 @@ static sal_Int32 calcDepth( const OUString& rNodeName,
     return 0;
 }
 
+static void sortChildrenByZOrder(const ShapePtr& pShape)
+{
+    std::vector<ShapePtr>& rChildren = pShape->getChildren();
+
+    // Offset the children from their default z-order stacking, if necessary.
+    for (size_t i = 0; i < rChildren.size(); ++i)
+        rChildren[i]->setZOrder(i);
+
+    for (size_t i = 0; i < rChildren.size(); ++i)
+    {
+        const ShapePtr& pChild = rChildren[i];
+        sal_Int32 nZOrderOff = pChild->getZOrderOff();
+        if (nZOrderOff <= 0)
+            continue;
+
+        // Increase my ZOrder by nZOrderOff.
+        pChild->setZOrder(pChild->getZOrder() + nZOrderOff);
+        pChild->setZOrderOff(0);
+
+        for (sal_Int32 j = 0; j < nZOrderOff; ++j)
+        {
+            size_t nIndex = i + j + 1;
+            if (nIndex >= rChildren.size())
+                break;
+
+            // Decrease the ZOrder of the next nZOrderOff elements by one.
+            const ShapePtr& pNext = rChildren[nIndex];
+            pNext->setZOrder(pNext->getZOrder() - 1);
+        }
+    }
+
+    // Now that the ZOrders are adjusted, sort the children.
+    std::sort(rChildren.begin(), rChildren.end(),
+              [](const ShapePtr& a, const ShapePtr& b) { return a->getZOrder() < b->getZOrder(); });
+
+    // Apply also for children.
+    for (auto& rChild : rChildren)
+        sortChildrenByZOrder(rChild);
+}
+
 void Diagram::build(  )
 {
     // build name-object maps
 #ifdef DEBUG_OOX_DIAGRAM
-    std::ofstream output("/tmp/tree.dot");
+    std::ofstream output("tree.dot");
 
     output << "digraph datatree {" << std::endl;
 #endif
@@ -283,8 +327,6 @@ void Diagram::build(  )
         {
             const sal_Int32 nDepth = calcDepth(elem.second.msSourceId, getData()->getConnections());
             elem.second.mnDepth = nDepth != 0 ? nDepth : -1;
-            if (nDepth > getData()->getMaxDepth())
-                getData()->setMaxDepth(nDepth);
         }
     }
 #ifdef DEBUG_OOX_DIAGRAM
@@ -303,17 +345,30 @@ void Diagram::addTo( const ShapePtr & pParentShape )
 
     pParentShape->setChildSize(pParentShape->getSize());
 
-    if( mpLayout->getNode() )
+    const dgm::Point* pRootPoint = mpData->getRootPoint();
+    if (mpLayout->getNode() && pRootPoint)
     {
         // create Shape hierarchy
-        ShapeCreationVisitor aCreationVisitor(pParentShape, *this);
+        ShapeCreationVisitor aCreationVisitor(*this, pRootPoint, pParentShape);
         mpLayout->getNode()->setExistingShape(pParentShape);
         mpLayout->getNode()->accept(aCreationVisitor);
 
         // layout shapes - now all shapes are created
-        ShapeLayoutingVisitor aLayoutingVisitor;
+        ShapeLayoutingVisitor aLayoutingVisitor(*this, pRootPoint);
         mpLayout->getNode()->accept(aLayoutingVisitor);
+
+        sortChildrenByZOrder(pParentShape);
     }
+
+    ShapePtr pBackground(new Shape("com.sun.star.drawing.CustomShape"));
+    pBackground->setSubType(XML_rect);
+    pBackground->getCustomShapeProperties()->setShapePresetType(XML_rect);
+    pBackground->setSize(pParentShape->getSize());
+    pBackground->getFillProperties() = *mpData->getFillProperties();
+    pBackground->setLocked(true);
+    auto& aChildren = pParentShape->getChildren();
+    aChildren.insert(aChildren.begin(), pBackground);
+
     pParentShape->setDiagramDoms( getDomsAsPropertyValues() );
 }
 
@@ -531,6 +586,103 @@ void loadDiagram( ShapePtr const & pShape,
 
     // diagram loaded. now lump together & attach to shape
     pDiagram->addTo(pShape);
+}
+
+void loadDiagram(ShapePtr const& pShape,
+                 const uno::Reference<xml::dom::XDocument>& dataDom,
+                 const uno::Reference<xml::dom::XDocument>& layoutDom,
+                 const uno::Reference<xml::dom::XDocument>& styleDom,
+                 const uno::Reference<xml::dom::XDocument>& colorDom,
+                 core::XmlFilterBase& rFilter)
+{
+    DiagramPtr pDiagram(new Diagram);
+
+    DiagramDataPtr pData(new DiagramData());
+    pDiagram->setData(pData);
+
+    DiagramLayoutPtr pLayout(new DiagramLayout(*pDiagram));
+    pDiagram->setLayout(pLayout);
+
+
+    // data
+    if (dataDom.is())
+    {
+        rtl::Reference<core::FragmentHandler> xRefDataModel(
+            new DiagramDataFragmentHandler(rFilter, OUString(), pData));
+
+        importFragment(rFilter, dataDom, "OOXData", pDiagram, xRefDataModel);
+    }
+
+    // layout
+    if (layoutDom.is())
+    {
+        rtl::Reference<core::FragmentHandler> xRefLayout(
+            new DiagramLayoutFragmentHandler(rFilter, OUString(), pLayout));
+
+        importFragment(rFilter, layoutDom, "OOXLayout", pDiagram, xRefLayout);
+    }
+
+    // style
+    if (styleDom.is())
+    {
+        rtl::Reference<core::FragmentHandler> xRefQStyle(
+            new DiagramQStylesFragmentHandler(rFilter, OUString(), pDiagram->getStyles()));
+
+        importFragment(rFilter, styleDom, "OOXStyle", pDiagram, xRefQStyle);
+    }
+
+    // colors
+    if (colorDom.is())
+    {
+        rtl::Reference<core::FragmentHandler> xRefColorStyle(
+            new ColorFragmentHandler(rFilter, OUString(), pDiagram->getColors()));
+
+        importFragment(rFilter, colorDom, "OOXColor", pDiagram, xRefColorStyle);
+    }
+
+    // diagram loaded. now lump together & attach to shape
+    pDiagram->addTo(pShape);
+}
+
+void reloadDiagram(css::uno::Reference<css::drawing::XShape>& rXShape,
+                   core::XmlFilterBase& rFilter)
+{
+    uno::Reference<beans::XPropertySet> xPropSet(rXShape, uno::UNO_QUERY_THROW);
+
+    uno::Reference<xml::dom::XDocument> dataDom;
+    uno::Reference<xml::dom::XDocument> layoutDom;
+    uno::Reference<xml::dom::XDocument> styleDom;
+    uno::Reference<xml::dom::XDocument> colorDom;
+
+    // retrieve the doms from the GrabBag
+    uno::Sequence<beans::PropertyValue> propList;
+    xPropSet->getPropertyValue(UNO_NAME_MISC_OBJ_INTEROPGRABBAG) >>= propList;
+    for (sal_Int32 nProp = 0; nProp < propList.getLength(); ++nProp)
+    {
+        OUString propName = propList[nProp].Name;
+        if (propName == "OOXData")
+            propList[nProp].Value >>= dataDom;
+        else if (propName == "OOXLayout")
+            propList[nProp].Value >>= layoutDom;
+        else if (propName == "OOXStyle")
+            propList[nProp].Value >>= styleDom;
+        else if (propName == "OOXColor")
+            propList[nProp].Value >>= colorDom;
+    }
+
+    ShapePtr pShape(new Shape());
+    pShape->setDiagramType();
+    pShape->setSize(awt::Size(rXShape->getSize().Width * EMU_PER_HMM,
+                              rXShape->getSize().Height * EMU_PER_HMM));
+
+    loadDiagram(pShape, dataDom, layoutDom, styleDom, colorDom, rFilter);
+
+    uno::Reference<drawing::XShapes> xShapes(rXShape, uno::UNO_QUERY_THROW);
+    basegfx::B2DHomMatrix aTransformation;
+    aTransformation.translate(rXShape->getPosition().X * EMU_PER_HMM,
+                              rXShape->getPosition().Y * EMU_PER_HMM);
+    for (auto const& child : pShape->getChildren())
+        child->addShape(rFilter, rFilter.getCurrentTheme(), xShapes, aTransformation, pShape->getFillProperties());
 }
 
 } }

@@ -21,19 +21,17 @@
 #include <vcl/waitobj.hxx>
 
 #include <svx/svxids.hrc>
-#include <svl/aeitem.hxx>
-#include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <tools/poly.hxx>
 
-#include <math.h>
-#include <svx/globl3d.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/scene3d.hxx>
 #include <svx/sphere3d.hxx>
 #include <svx/cube3d.hxx>
 #include <svx/lathe3d.hxx>
 #include <svx/camera3d.hxx>
+#include <svx/def3d.hxx>
 
 #include <app.hrc>
 

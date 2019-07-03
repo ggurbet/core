@@ -42,6 +42,11 @@
 #include <svx/unoshprp.hxx>
 #include <svx/unoshape.hxx>
 #include <svx/svdpool.hxx>
+#include <svx/sdtaaitm.hxx>
+#include <svx/sdtacitm.hxx>
+#include <svx/sdtayitm.hxx>
+#include <svx/sdtaiitm.hxx>
+#include <svx/xit.hxx>
 #include <tools/diagnose_ex.h>
 #include <stlsheet.hxx>
 #include <sdresid.hxx>
@@ -714,12 +719,13 @@ void SAL_CALL SdStyleSheet::release(  ) throw ()
 
 void SAL_CALL SdStyleSheet::dispose(  )
 {
-    ClearableMutexGuard aGuard( mrBHelper.rMutex );
-    if (mrBHelper.bDisposed || mrBHelper.bInDispose)
-        return;
+    {
+        MutexGuard aGuard(mrBHelper.rMutex);
+        if (mrBHelper.bDisposed || mrBHelper.bInDispose)
+            return;
 
-    mrBHelper.bInDispose = true;
-    aGuard.clear();
+        mrBHelper.bInDispose = true;
+    }
     try
     {
         // side effect: keeping a reference to this

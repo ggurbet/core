@@ -18,6 +18,7 @@
  */
 
 #include <com/sun/star/i18n/WordType.hpp>
+#include <com/sun/star/linguistic2/XThesaurus.hpp>
 
 #include <hintids.hxx>
 #include <cmdid.h>
@@ -117,6 +118,7 @@
 #include <SwRewriter.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/svxids.hrc>
 #include <numrule.hxx>
 #include <memory>
 #include <xmloff/odffields.hxx>
@@ -719,13 +721,13 @@ void SwTextShell::Execute(SfxRequest &rReq)
                 pVFrame->ToggleChildWindow(FN_REDLINE_ACCEPT);
 
             SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-            ScopedVclPtr<AbstractSwModalRedlineAcceptDlg> pDlg(pFact->CreateSwModalRedlineAcceptDlg(&GetView().GetEditWin()));
+            ScopedVclPtr<AbstractSwModalRedlineAcceptDlg> xDlg(pFact->CreateSwModalRedlineAcceptDlg(GetView().GetEditWin().GetFrameWeld()));
 
             switch (lcl_AskRedlineFlags(GetView().GetFrameWeld()))
             {
                 case RET_OK:
                 {
-                    pDlg->AcceptAll(true);
+                    xDlg->AcceptAll(true);
                     SfxRequest aReq( pVFrame, FN_AUTOFORMAT_APPLY );
                     aReq.Done();
                     rReq.Ignore();
@@ -733,12 +735,12 @@ void SwTextShell::Execute(SfxRequest &rReq)
                 }
 
                 case RET_CANCEL:
-                    pDlg->AcceptAll(false);
+                    xDlg->AcceptAll(false);
                     rReq.Ignore();
                     break;
 
                 case 2:
-                    pDlg->Execute();
+                    xDlg->Execute();
                     rReq.Done();
                     break;
             }
@@ -1206,11 +1208,9 @@ void SwTextShell::Execute(SfxRequest &rReq)
             {
                 if (nSlot != SID_ATTR_CHAR_COLOR_EXT)
                 {
-                    rWrtSh.StartUndo( SwUndoId::INSATTR );
-
                     SfxItemSet aCoreSet( rWrtSh.GetView().GetPool(), svl::Items<
-                                         RES_CHRATR_BACKGROUND, RES_CHRATR_BACKGROUND,
-                                         RES_CHRATR_GRABBAG, RES_CHRATR_GRABBAG>{} );
+                                         RES_CHRATR_BACKGROUND, RES_CHRATR_BACKGROUND>{} );
+
                     rWrtSh.GetCurAttr( aCoreSet );
 
                     // Remove highlight if already set of the same color
@@ -1218,25 +1218,7 @@ void SwTextShell::Execute(SfxRequest &rReq)
                     if ( aSet == rBrushItem.GetColor() )
                         aSet = COL_TRANSPARENT;
 
-                    rWrtSh.SetAttrItem( SvxBrushItem(aSet, RES_CHRATR_BACKGROUND) );
-
-                    // Remove MS specific highlight when background is set
-                    rWrtSh.SetAttrItem( SvxBrushItem(RES_CHRATR_HIGHLIGHT) );
-
-                    // Remove shading marker
-                    const SfxPoolItem *pTmpItem;
-                    if( SfxItemState::SET == aCoreSet.GetItemState( RES_CHRATR_GRABBAG, false, &pTmpItem ) )
-                    {
-                        SfxGrabBagItem aGrabBag(*static_cast<const SfxGrabBagItem*>(pTmpItem));
-                        std::map<OUString, css::uno::Any>& rMap = aGrabBag.GetGrabBag();
-                        auto aIterator = rMap.find("CharShadingMarker");
-                        if( aIterator != rMap.end() )
-                        {
-                            aIterator->second <<= false;
-                        }
-                        rWrtSh.SetAttrItem( aGrabBag );
-                    }
-                    rWrtSh.EndUndo( SwUndoId::INSATTR );
+                    ApplyCharBackground(aSet, rWrtSh);
                 }
                 else
                     rWrtSh.SetAttrItem(
@@ -1608,8 +1590,7 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                 SfxItemSet aSet( GetPool() );
                 rSh.GetCurAttr( aSet );
                 const SvxColorItem& aColorItem = aSet.Get(RES_CHRATR_COLOR);
-                std::unique_ptr<SfxPoolItem> pNewItem(aColorItem.CloneSetWhich(SID_ATTR_CHAR_COLOR2));
-                rSet.Put( *pNewItem );
+                rSet.Put( aColorItem.CloneSetWhich(SID_ATTR_CHAR_COLOR2) );
             }
             break;
         case SID_ATTR_CHAR_COLOR_BACKGROUND:
@@ -1685,9 +1666,9 @@ void SwTextShell::GetState( SfxItemSet &rSet )
                     if (xFamilies->getByName("PageStyles") >>= xContainer)
                     {
                         uno::Sequence< OUString > aSeqNames = xContainer->getElementNames();
-                        for (sal_Int32 itName = 0; itName < aSeqNames.getLength(); itName++)
+                        for (const auto& rName : aSeqNames)
                         {
-                            aStyleName = aSeqNames[itName];
+                            aStyleName = rName;
                             uno::Reference<XPropertySet> xPropSet(xContainer->getByName(aStyleName), uno::UNO_QUERY);
                             if (xPropSet.is() && (xPropSet->getPropertyValue(sPhysical) >>= bIsPhysical) && bIsPhysical)
                             {

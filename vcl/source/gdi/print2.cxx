@@ -62,7 +62,7 @@ struct ConnectedComponents
     bool            bIsFullyTransparent;
 };
 
-typedef ::std::list< ConnectedComponents > ConnectedComponentsList;
+typedef ::std::vector< ConnectedComponents > ConnectedComponentsList;
 
 namespace {
 
@@ -221,7 +221,7 @@ void ImplConvertTransparentAction( GDIMetaFile&        o_rMtf,
             Color aActualColor(aBgColor);
 
             if (pRA->HasPalette())
-                aActualColor = pRA->GetBestPaletteColor(aBgColor).GetColor();
+                aActualColor = pRA->GetBestPaletteColor(aBgColor);
 
             pRA.reset();
 
@@ -744,8 +744,8 @@ bool OutputDevice::RemoveTransparenciesFromMetaFile( const GDIMetaFile& rInMtf, 
             if( meOutDevType == OUTDEV_PRINTER )
             {
                 Printer* pThis = dynamic_cast<Printer*>(this);
-                Point aPageOffset = pThis->GetPageOffsetPixel();
-                aPageOffset = Point( 0, 0 ) - aPageOffset;
+                assert(pThis);
+                Point aPageOffset = Point( 0, 0 ) - pThis->GetPageOffsetPixel();
                 Size aSize  = pThis->GetPaperSizePixel();
                 aBackgroundComponent.aBounds = tools::Rectangle( aPageOffset, aSize );
             }
@@ -917,8 +917,6 @@ bool OutputDevice::RemoveTransparenciesFromMetaFile( const GDIMetaFile& rInMtf, 
                         bTreatSpecial = true;
                 }
 
-                ConnectedComponentsList::iterator       aCurrCC;
-                const ConnectedComponentsList::iterator aLastCC( aCCList.end() );
                 bool                                    bSomeComponentsChanged;
 
                 // now, this is unfortunate: since changing anyone of
@@ -934,7 +932,7 @@ bool OutputDevice::RemoveTransparenciesFromMetaFile( const GDIMetaFile& rInMtf, 
                     bSomeComponentsChanged = false;
 
                     // iterate over all current members of aCCList
-                    for( aCurrCC=aCCList.begin(); aCurrCC != aLastCC; )
+                    for( auto aCurrCC=aCCList.begin(); aCurrCC != aCCList.end(); )
                     {
                         // first check if current element's bounds are
                         // empty. This ensures that empty actions are not
@@ -1107,6 +1105,7 @@ bool OutputDevice::RemoveTransparenciesFromMetaFile( const GDIMetaFile& rInMtf, 
         else if( meOutDevType == OUTDEV_PRINTER )
         {
             Printer* pThis = dynamic_cast<Printer*>(this);
+            assert(pThis);
             aPageOffset = pThis->GetPageOffsetPixel();
             aPageOffset = Point( 0, 0 ) - aPageOffset;
             aTmpSize  = pThis->GetPaperSizePixel();

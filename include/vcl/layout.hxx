@@ -620,7 +620,7 @@ private:
     Link<const KeyEvent&, bool> m_aKeyPressHdl;
     Link<const KeyEvent&, bool> m_aKeyReleaseHdl;
     Link<VclDrawingArea&, void> m_aStyleUpdatedHdl;
-    Link<const Point&, bool> m_aPopupMenuHdl;
+    Link<const CommandEvent&, bool> m_aPopupMenuHdl;
     Link<tools::Rectangle&, OUString> m_aQueryTooltipHdl;
 
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override
@@ -677,7 +677,7 @@ private:
     }
     virtual void Command(const CommandEvent& rEvent) override
     {
-        if (rEvent.GetCommand() == CommandEventId::ContextMenu && m_aPopupMenuHdl.Call(rEvent.GetMousePosPixel()))
+        if (rEvent.GetCommand() == CommandEventId::ContextMenu && m_aPopupMenuHdl.Call(rEvent))
             return;
         Control::Command(rEvent);
     }
@@ -696,7 +696,9 @@ private:
             aPt = OutputToScreenPixel(aHelpArea.BottomRight());
             aHelpArea.SetRight(aPt.X());
             aHelpArea.SetBottom(aPt.Y());
-            Help::ShowQuickHelp(this, aHelpArea, sHelpTip);
+            // tdf#125369 recover newline support of tdf#101779
+            QuickHelpFlags eHelpWinStyle = sHelpTip.indexOf('\n') != -1 ? QuickHelpFlags::TipStyleBalloon : QuickHelpFlags::NONE;
+            Help::ShowQuickHelp(this, aHelpArea, sHelpTip, eHelpWinStyle);
         }
     }
     virtual FactoryFunction GetUITestFactory() const override
@@ -755,7 +757,7 @@ public:
     {
         m_aStyleUpdatedHdl = rLink;
     }
-    void SetPopupMenuHdl(const Link<const Point&, bool>& rLink)
+    void SetPopupMenuHdl(const Link<const CommandEvent&, bool>& rLink)
     {
         m_aPopupMenuHdl = rLink;
     }
@@ -807,10 +809,6 @@ inline bool isContainerWindow(const vcl::Window *pWindow)
 {
     return pWindow && isContainerWindow(*pWindow);
 }
-
-//Returns true if the containing dialog is doing its initial
-//layout and isn't visible yet
-VCL_DLLPUBLIC bool isInitialLayout(const vcl::Window *pWindow);
 
 // retro-fitting utilities
 

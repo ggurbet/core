@@ -9,18 +9,14 @@
 
 #include <test/bootstrapfixture.hxx>
 
-#include <com/sun/star/uno/Sequence.h>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/graphic/GraphicType.hpp>
 #include <com/sun/star/graphic/GraphicProvider.hpp>
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/awt/Size.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
-
-#include <rtl/uri.hxx>
 
 namespace
 {
@@ -122,7 +118,7 @@ void XGraphicTest::testGraphicProvider()
     { // Load lazy
         uno::Reference<uno::XComponentContext> xContext(comphelper::getProcessComponentContext());
         uno::Reference<graphic::XGraphicProvider> xGraphicProvider;
-        xGraphicProvider.set(graphic::GraphicProvider::create(xContext), uno::UNO_QUERY_THROW);
+        xGraphicProvider.set(graphic::GraphicProvider::create(xContext), uno::UNO_SET_THROW);
 
         auto aMediaProperties(comphelper::InitPropertySequence({
             { "URL", uno::makeAny(aGraphicURL) },
@@ -161,7 +157,7 @@ void XGraphicTest::testGraphicProvider()
     { // Load as link
         uno::Reference<uno::XComponentContext> xContext(comphelper::getProcessComponentContext());
         uno::Reference<graphic::XGraphicProvider> xGraphicProvider;
-        xGraphicProvider.set(graphic::GraphicProvider::create(xContext), uno::UNO_QUERY_THROW);
+        xGraphicProvider.set(graphic::GraphicProvider::create(xContext), uno::UNO_SET_THROW);
 
         auto aMediaProperties(comphelper::InitPropertySequence({
             { "URL", uno::makeAny(aGraphicURL) },
@@ -198,7 +194,7 @@ void XGraphicTest::testGraphicProvider()
     { // Load lazy and as link
         uno::Reference<uno::XComponentContext> xContext(comphelper::getProcessComponentContext());
         uno::Reference<graphic::XGraphicProvider> xGraphicProvider;
-        xGraphicProvider.set(graphic::GraphicProvider::create(xContext), uno::UNO_QUERY_THROW);
+        xGraphicProvider.set(graphic::GraphicProvider::create(xContext), uno::UNO_SET_THROW);
 
         auto aMediaProperties(comphelper::InitPropertySequence({
             { "URL", uno::makeAny(aGraphicURL) },

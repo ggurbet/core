@@ -33,11 +33,12 @@ public:
     virtual void GetFocus() {}
     virtual void LoseFocus() {}
     virtual void StyleUpdated() { Invalidate(); }
-    virtual bool ContextMenu(const Point&) { return false; }
+    virtual bool ContextMenu(const CommandEvent&) { return false; }
     virtual bool KeyInput(const KeyEvent&) { return false; }
     virtual tools::Rectangle GetFocusRect() { return tools::Rectangle(); }
     virtual FactoryFunction GetUITestFactory() const { return nullptr; }
     virtual OUString RequestHelp(tools::Rectangle&) { return OUString(); }
+    virtual OUString GetHelpText() const { return m_pDrawingArea->get_tooltip_text(); }
     Size const& GetOutputSizePixel() const { return m_aSize; }
     void SetOutputSizePixel(const Size& rSize) { m_aSize = rSize; }
     virtual void SetDrawingArea(weld::DrawingArea* pDrawingArea) { m_pDrawingArea = pDrawingArea; }
@@ -49,8 +50,8 @@ public:
         m_pDrawingArea->queue_draw_area(rRect.Left(), rRect.Top(), rRect.GetWidth(),
                                         rRect.GetHeight());
     }
-    void Show() { m_pDrawingArea->show(); }
-    void Hide() { m_pDrawingArea->hide(); }
+    virtual void Show() { m_pDrawingArea->show(); }
+    virtual void Hide() { m_pDrawingArea->hide(); }
     void GrabFocus() { m_pDrawingArea->grab_focus(); }
     bool HasFocus() const { return m_pDrawingArea->has_focus(); }
     bool IsVisible() const { return m_pDrawingArea->get_visible(); }
@@ -67,6 +68,7 @@ public:
     void EnableRTL(bool bEnable) { m_pDrawingArea->set_direction(bEnable); }
     bool IsRTLEnabled() const { return m_pDrawingArea->get_direction(); }
     void ReleaseMouse() { m_pDrawingArea->grab_remove(); }
+    void SetPointer(PointerStyle ePointerStyle) { m_pDrawingArea->set_cursor(ePointerStyle); }
     void SetHelpId(const OString& rHelpId) { m_pDrawingArea->set_help_id(rHelpId); }
     void SetAccessibleName(const OUString& rName) { m_pDrawingArea->set_accessible_name(rName); }
     void set_size_request(int nWidth, int nHeight)
@@ -101,7 +103,7 @@ private:
     DECL_LINK(DoLoseFocus, weld::Widget&, void);
     DECL_LINK(DoKeyPress, const KeyEvent&, bool);
     DECL_LINK(DoFocusRect, weld::Widget&, tools::Rectangle);
-    DECL_LINK(DoPopupMenu, const Point&, bool);
+    DECL_LINK(DoPopupMenu, const CommandEvent&, bool);
     DECL_LINK(DoStyleUpdated, weld::Widget&, void);
     DECL_LINK(DoRequestHelp, tools::Rectangle&, OUString);
 
@@ -124,6 +126,9 @@ public:
     void set_sensitive(bool bSensitive) { m_xDrawingArea->set_sensitive(bSensitive); }
     bool get_sensitive() const { return m_xDrawingArea->get_sensitive(); }
     bool get_visible() const { return m_xDrawingArea->get_visible(); }
+    void set_grid_left_attach(int nAttach) { m_xDrawingArea->set_grid_left_attach(nAttach); }
+    int get_grid_left_attach() const { return m_xDrawingArea->get_grid_left_attach(); }
+    void set_help_id(const OString& rHelpId) { m_xDrawingArea->set_help_id(rHelpId); }
 };
 }
 #endif

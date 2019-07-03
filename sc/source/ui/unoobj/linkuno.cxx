@@ -637,8 +637,7 @@ void ScAreaLinkObj::Modify_Impl( const OUString* pNewFile, const OUString* pNewF
         bool bFitBlock = true;          // move, if the size changes with update
         if (pNewFile)
         {
-            aFile = *pNewFile;
-            aFile = ScGlobal::GetAbsDocName( aFile, pDocShell );    //! in InsertAreaLink?
+            aFile = ScGlobal::GetAbsDocName( *pNewFile, pDocShell );    //! in InsertAreaLink?
         }
         if (pNewFilter)
             aFilter = *pNewFilter;
@@ -1593,7 +1592,7 @@ sal_Bool SAL_CALL ScExternalDocLinkObj::hasElements()
     SolarMutexGuard aGuard;
 
     // #i116940# be consistent with getByName: count only table names which have a cache already
-    return ( getElementNames().getLength() > 0 );
+    return getElementNames().hasElements();
 }
 
 sal_Int32 SAL_CALL ScExternalDocLinkObj::getTokenIndex()

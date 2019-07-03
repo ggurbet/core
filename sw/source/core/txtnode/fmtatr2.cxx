@@ -40,6 +40,7 @@
 #include <com/sun/star/text/RubyPosition.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 
 #include <cmdid.h>
 #include <com/sun/star/uno/Any.h>
@@ -412,6 +413,9 @@ SwFormatRuby::~SwFormatRuby()
 
 SwFormatRuby& SwFormatRuby::operator=( const SwFormatRuby& rAttr )
 {
+    if(this == &rAttr)
+        return *this;
+
     m_sRubyText = rAttr.m_sRubyText;
     m_sCharFormatName = rAttr.m_sCharFormatName;
     m_nCharFormatId = rAttr.m_nCharFormatId;

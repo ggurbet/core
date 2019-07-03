@@ -10,10 +10,18 @@
 
 #include <test/bootstrapfixture.hxx>
 #include <test/xmltesttools.hxx>
-#include <vcl/metaact.hxx>
+#include <vcl/gdimtf.hxx>
+#include <vcl/gradient.hxx>
+#include <vcl/hatch.hxx>
+#include <vcl/lineinfo.hxx>
 #include <vcl/virdev.hxx>
-#include <vcl/bitmapaccess.hxx>
 #include <bitmapwriteaccess.hxx>
+#include <vcl/pngwrite.hxx>
+
+#include <config_features.h>
+#if HAVE_FEATURE_OPENGL
+#include <vcl/opengl/OpenGLHelper.hxx>
+#endif
 
 using namespace css;
 
@@ -25,6 +33,8 @@ class SvmTest : public test::BootstrapFixture, public XmlTestTools
     {
         return m_directories.getURLFromSrc(maDataUrl) + sFileName;
     }*/
+
+    void checkRendering(ScopedVclPtrInstance<VirtualDevice> const & pVirtualDev, const GDIMetaFile& rMetaFile);
 
     xmlDocPtr dumpMeta(const GDIMetaFile& rMetaFile);
 
@@ -91,8 +101,35 @@ class SvmTest : public test::BootstrapFixture, public XmlTestTools
     void checkMasks(const GDIMetaFile& rMetaFile);
     void testMasks();
 
-    void checkPushPop(const GDIMetaFile& rMetaFile);
-    void testPushPop();
+    void checkGradient(const GDIMetaFile& rMetaFile);
+    void testGradient();
+
+    //void checkGradientEx(const GDIMetaFile& rMetaFile);
+    void testGradientEx();
+
+    void checkHatch(const GDIMetaFile& rMetaFile);
+    void testHatch();
+
+    void checkWallpaper(const GDIMetaFile& rMetaFile);
+    void testWallpaper();
+
+    void checkClipRegion(const GDIMetaFile& rMetaFile);
+    void testClipRegion();
+
+    //void checkIntersectRectClipRegion(const GDIMetaFile& rMetaFile);
+    void testIntersectRectClipRegion();
+
+    //void checkIntersectRegionClipRegion(const GDIMetaFile& rMetaFile);
+    void testIntersectRegionClipRegion();
+
+    //void checkMoveClipRegion(const GDIMetaFile& rMetaFile);
+    void testMoveClipRegion();
+
+    void checkLineColor(const GDIMetaFile& rMetaFile);
+    void testLineColor();
+
+    void checkFillColor(const GDIMetaFile& rMetaFile);
+    void testFillColor();
 
     void checkTextColor(const GDIMetaFile& rMetaFile);
     void testTextColor();
@@ -103,8 +140,44 @@ class SvmTest : public test::BootstrapFixture, public XmlTestTools
     void checkTextLineColor(const GDIMetaFile& rMetaFile);
     void testTextLineColor();
 
-    void checkGradient(const GDIMetaFile& rMetaFile);
-    void testGradient();
+    void checkOverLineColor(const GDIMetaFile& rMetaFile);
+    void testOverLineColor();
+
+    void checkTextAlign(const GDIMetaFile& rMetaFile);
+    void testTextAlign();
+
+    //void checkMapMode(const GDIMetaFile& rMetaFile);
+    void testMapMode();
+
+    //void checkFont(const GDIMetaFile& rMetaFile);
+    void testFont();
+
+    void checkPushPop(const GDIMetaFile& rMetaFile);
+    void testPushPop();
+
+    void checkRasterOp(const GDIMetaFile& rMetaFile);
+    void testRasterOp();
+
+    void checkTransparent(const GDIMetaFile& rMetaFile);
+    void testTransparent();
+
+    //void checkFloatTransparent(const GDIMetaFile& rMetaFile);
+    void testFloatTransparent();
+
+    //void checkEPS(const GDIMetaFile& rMetaFile);
+    void testEPS();
+
+    //void checkRefPoint(const GDIMetaFile& rMetaFile);
+    void testRefPoint();
+
+    //void checkComment(const GDIMetaFile& rMetaFile);
+    void testComment();
+
+    //void checkLayoutMode(const GDIMetaFile& rMetaFile);
+    void testLayoutMode();
+
+    //void checkTextLanguage(const GDIMetaFile& rMetaFile);
+    void testTextLanguage();
 
 public:
     SvmTest()
@@ -113,8 +186,8 @@ public:
     {}
 
     CPPUNIT_TEST_SUITE(SvmTest);
-    CPPUNIT_TEST(testPoint);
     CPPUNIT_TEST(testPixel);
+    CPPUNIT_TEST(testPoint);
     CPPUNIT_TEST(testLine);
     CPPUNIT_TEST(testRect);
     CPPUNIT_TEST(testRoundRect);
@@ -131,13 +204,35 @@ public:
     CPPUNIT_TEST(testTextRect);
     CPPUNIT_TEST(testTextLine);
     CPPUNIT_TEST(testBitmaps); // BMP, BMPSCALE, BMPSCALEPART
-    CPPUNIT_TEST(testBitmapExs);
-    CPPUNIT_TEST(testMasks);
-    CPPUNIT_TEST(testPushPop);
+    CPPUNIT_TEST(testBitmapExs); // BMPEX, BMPEXSCALE, BMPEXSCALEPART
+    CPPUNIT_TEST(testMasks); // MASK, MASKSCALE, MASKSCALEPART
+    CPPUNIT_TEST(testGradient);
+    CPPUNIT_TEST(testGradientEx);
+    CPPUNIT_TEST(testHatch);
+    CPPUNIT_TEST(testWallpaper);
+    CPPUNIT_TEST(testClipRegion);
+    CPPUNIT_TEST(testIntersectRectClipRegion);
+    CPPUNIT_TEST(testIntersectRegionClipRegion);
+    CPPUNIT_TEST(testMoveClipRegion);
+    CPPUNIT_TEST(testLineColor);
+    CPPUNIT_TEST(testFillColor);
     CPPUNIT_TEST(testTextColor);
     CPPUNIT_TEST(testTextFillColor);
     CPPUNIT_TEST(testTextLineColor);
-    CPPUNIT_TEST(testGradient);
+    CPPUNIT_TEST(testOverLineColor);
+    CPPUNIT_TEST(testTextAlign);
+    CPPUNIT_TEST(testMapMode);
+    CPPUNIT_TEST(testFont);
+    CPPUNIT_TEST(testPushPop);
+    CPPUNIT_TEST(testRasterOp);
+    CPPUNIT_TEST(testTransparent);
+    CPPUNIT_TEST(testFloatTransparent);
+    CPPUNIT_TEST(testEPS);
+    CPPUNIT_TEST(testRefPoint);
+    CPPUNIT_TEST(testComment);
+    CPPUNIT_TEST(testLayoutMode);
+    CPPUNIT_TEST(testTextLanguage);
+
     CPPUNIT_TEST_SUITE_END();
 };
 
@@ -148,6 +243,34 @@ static void setupBaseVirtualDevice(VirtualDevice& rDevice, GDIMetaFile& rMeta)
     rDevice.SetOutputSizePixel(aVDSize);
     rDevice.SetBackground(Wallpaper(COL_LIGHTRED));
     rDevice.Erase();
+}
+
+void SvmTest::checkRendering(ScopedVclPtrInstance<VirtualDevice> const & pVirtualDev, const GDIMetaFile& rMetaFile)
+{
+    BitmapEx aSourceBitmapEx = pVirtualDev->GetBitmapEx(Point(), Size(10, 10));
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDevResult;
+    const_cast<GDIMetaFile&>(rMetaFile).Play(pVirtualDevResult.get());
+    BitmapEx aResultBitmapEx = pVirtualDev->GetBitmapEx(Point(), Size(10, 10));
+
+    const bool bWriteCompareBitmap = false;
+
+    if (bWriteCompareBitmap)
+    {
+        utl::TempFile aTempFile;
+        aTempFile.EnableKillingFile();
+
+        {
+            SvFileStream aStream(aTempFile.GetURL() + ".source.png", StreamMode::WRITE | StreamMode::TRUNC);
+            vcl::PNGWriter aPNGWriter(aSourceBitmapEx);
+            aPNGWriter.Write(aStream);
+        }
+        {
+            SvFileStream aStream(aTempFile.GetURL() + ".result.png", StreamMode::WRITE | StreamMode::TRUNC);
+            vcl::PNGWriter aPNGWriter(aResultBitmapEx);
+            aPNGWriter.Write(aStream);
+        }
+    }
+    CPPUNIT_ASSERT_EQUAL(aSourceBitmapEx.GetChecksum(), aResultBitmapEx.GetChecksum());
 }
 
 static GDIMetaFile readMetafile(const OUString& rUrl)
@@ -762,27 +885,28 @@ void SvmTest::checkBitmaps(const GDIMetaFile& rMetaFile)
 {
     xmlDocPtr pDoc = dumpMeta(rMetaFile);
 
-#ifdef LINUX
-    assertXPathAttrs(pDoc, "/metafile/bmp[1]", {{"x", "1"}, {"y", "2"}, {"crc", "b8dee5da"}});
-    assertXPathAttrs(pDoc, "/metafile/bmpscale[1]", {
-        {"x", "1"}, {"y", "2"}, {"width", "3"}, {"height", "4"}, {"crc", "281fc589"}
-    });
-    assertXPathAttrs(pDoc, "/metafile/bmpscalepart[1]", {
-        {"destx", "1"}, {"desty", "2"}, {"destwidth", "3"}, {"destheight", "4"},
-        {"srcx", "2"},  {"srcy", "1"},  {"srcwidth", "4"},  {"srcheight", "3"},
-        {"crc", "5e01ddcc"}
-    });
-#else
-    assertXPathAttrs(pDoc, "/metafile/bmp[1]", {{"x", "1"}, {"y", "2"}, {"crc", "b8dee5da"}});
-    assertXPathAttrs(pDoc, "/metafile/bmpscale[1]", {
-        {"x", "1"}, {"y", "2"}, {"width", "3"}, {"height", "4"}, {"crc", "281fc589"}
-    });
-    assertXPathAttrs(pDoc, "/metafile/bmpscalepart[1]", {
-        {"destx", "1"}, {"desty", "2"}, {"destwidth", "3"}, {"destheight", "4"},
-        {"srcx", "2"},  {"srcy", "1"},  {"srcwidth", "4"},  {"srcheight", "3"},
-        {"crc", "5e01ddcc"}
-    });
+    OUString crc1 = "b8dee5da";
+    OUString crc2 = "281fc589";
+    OUString crc3 = "5e01ddcc";
+#if HAVE_FEATURE_OPENGL
+    if (OpenGLHelper::isVCLOpenGLEnabled())
+    {
+        // OpenGL uses a different scaling algorithm and also a different RGB order.
+        crc1 = "5e01ddcc";
+        crc2 = "281fc589";
+        crc3 = "b8dee5da";
+    }
 #endif
+
+    assertXPathAttrs(pDoc, "/metafile/bmp[1]", {{"x", "1"}, {"y", "2"}, {"crc", crc1}});
+    assertXPathAttrs(pDoc, "/metafile/bmpscale[1]", {
+        {"x", "1"}, {"y", "2"}, {"width", "3"}, {"height", "4"}, {"crc", crc2}
+    });
+    assertXPathAttrs(pDoc, "/metafile/bmpscalepart[1]", {
+        {"destx", "1"}, {"desty", "2"}, {"destwidth", "3"}, {"destheight", "4"},
+        {"srcx", "2"},  {"srcy", "1"},  {"srcwidth", "4"},  {"srcheight", "3"},
+        {"crc", crc3}
+    });
 }
 
 void SvmTest::testBitmaps()
@@ -817,31 +941,67 @@ void SvmTest::checkBitmapExs(const GDIMetaFile& rMetaFile)
 {
     xmlDocPtr pDoc = dumpMeta(rMetaFile);
 
-#ifdef LINUX
+    std::vector<OUString> aExpectedCRC;
+
+#if HAVE_FEATURE_OPENGL
+    if (OpenGLHelper::isVCLOpenGLEnabled())
+    {
+        aExpectedCRC.insert(aExpectedCRC.end(),
+        {
+            "08feb5d3",
+            "281fc589",
+            "b8dee5da",
+            "4df0e464",
+            "7d3a8da3",
+            "1426653b",
+            "4fd547df",
+            "71efc447",
+        });
+    }
+    else
+#endif
+    {
+        aExpectedCRC.insert(aExpectedCRC.end(),
+        {
+            "d8377d4f",
+            "281fc589",
+            "5e01ddcc",
+            "4df0e464",
+            "34434a50",
+            "d1736327",
+            "b37875c2",
+            "a85d44b8",
+        });
+    }
+
     assertXPathAttrs(pDoc, "/metafile/bmpex[1]", {
-        {"x", "1"}, {"y", "2"}, {"crc", "b8dee5da"}, {"transparenttype", "bitmap"}
+        {"x", "1"}, {"y", "1"}, {"crc", aExpectedCRC[0]}, {"transparenttype", "bitmap"}
     });
     assertXPathAttrs(pDoc, "/metafile/bmpexscale[1]", {
-        {"x", "1"}, {"y", "2"}, {"width", "3"}, {"height", "4"},
-        {"crc", "281fc589"}, {"transparenttype", "bitmap"}
+        {"x", "5"}, {"y", "0"}, {"width", "2"}, {"height", "3"},
+        {"crc", aExpectedCRC[1]}, {"transparenttype", "bitmap"}
     });
     assertXPathAttrs(pDoc, "/metafile/bmpexscalepart[1]", {
-        {"destx", "1"}, {"desty", "2"}, {"destwidth", "3"}, {"destheight", "4"},
-        {"srcx", "2"},  {"srcy", "1"},  {"srcwidth", "4"},  {"srcheight", "3"},
-        {"crc", "5e01ddcc"}, {"transparenttype", "bitmap"}
+        {"destx", "7"}, {"desty", "1"}, {"destwidth", "2"}, {"destheight", "2"},
+        {"srcx", "0"},  {"srcy", "0"},  {"srcwidth", "3"},  {"srcheight", "4"},
+        {"crc", aExpectedCRC[2]}, {"transparenttype", "bitmap"}
     });
-#else
-    assertXPathAttrs(pDoc, "/metafile/bmpex[1]", {
-        {"x", "1"}, {"y", "2"}, {"crc", "b8dee5da"}, {"transparenttype", "bitmap"}
+
+#ifndef MACOSX
+    assertXPathAttrs(pDoc, "/metafile/bmpex[2]", {
+        {"x", "6"}, {"y", "6"}, {"crc", aExpectedCRC[3]}, {"transparenttype", "bitmap"}
     });
-    assertXPathAttrs(pDoc, "/metafile/bmpexscale[1]", {
-        {"x", "1"}, {"y", "2"}, {"width", "3"}, {"height", "4"},
-        {"crc", "281fc589"}, {"transparenttype", "bitmap"}
+    assertXPathAttrs(pDoc, "/metafile/bmpex[3]", {
+        {"x", "0"}, {"y", "6"}, {"crc", aExpectedCRC[4]}, {"transparenttype", "bitmap"}
     });
-    assertXPathAttrs(pDoc, "/metafile/bmpexscalepart[1]", {
-        {"destx", "1"}, {"desty", "2"}, {"destwidth", "3"}, {"destheight", "4"},
-        {"srcx", "2"},  {"srcy", "1"},  {"srcwidth", "4"},  {"srcheight", "3"},
-        {"crc", "5e01ddcc"}, {"transparenttype", "bitmap"}
+    assertXPathAttrs(pDoc, "/metafile/bmpex[4]", {
+        {"x", "2"}, {"y", "6"}, {"crc", aExpectedCRC[5]}, {"transparenttype", "bitmap"}
+    });
+    assertXPathAttrs(pDoc, "/metafile/bmpex[5]", {
+        {"x", "0"}, {"y", "8"}, {"crc", aExpectedCRC[6]}, {"transparenttype", "bitmap"}
+    });
+    assertXPathAttrs(pDoc, "/metafile/bmpex[6]", {
+        {"x", "2"}, {"y", "8"}, {"crc", aExpectedCRC[7]}, {"transparenttype", "bitmap"}
     });
 #endif
 }
@@ -852,32 +1012,98 @@ void SvmTest::testBitmapExs()
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
     setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
-    Bitmap aBitmap1(Size(4,4), 24);
+    // DrawBitmapEx
     {
-        BitmapScopedWriteAccess pAccess(aBitmap1);
-        pAccess->Erase(COL_RED);
-    }
-    BitmapEx aBitmapEx1(aBitmap1, COL_YELLOW);
+        Bitmap aBitmap(Size(4,4), 24);
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_YELLOW);
+        }
 
-    Bitmap aBitmap2(Size(4,4), 24);
+        pVirtualDev->DrawBitmapEx(Point(1, 1), BitmapEx(aBitmap, COL_WHITE));
+    }
+
+    // DrawBitmapEx - Scale
     {
-        BitmapScopedWriteAccess pAccess(aBitmap2);
-        pAccess->Erase(COL_GREEN);
+        Bitmap aBitmap(Size(4,4), 24);
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_GREEN);
+        }
+        pVirtualDev->DrawBitmapEx(Point(5, 0), Size(2, 3), BitmapEx(aBitmap, COL_WHITE));
     }
-    BitmapEx aBitmapEx2(aBitmap2, COL_YELLOW);
 
-    Bitmap aBitmap3(Size(4,4), 24);
+    // DrawBitmapEx - Scale - Part
     {
-        BitmapScopedWriteAccess pAccess(aBitmap3);
-        pAccess->Erase(COL_BLUE);
+        Bitmap aBitmap(Size(4,4), 24);
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_BLUE);
+        }
+        pVirtualDev->DrawBitmapEx(Point(7, 1), Size(2, 2), Point(0, 0), Size(3, 4), BitmapEx(aBitmap, COL_WHITE));
     }
-    BitmapEx aBitmapEx3(aBitmap3, COL_YELLOW);
 
-    pVirtualDev->DrawBitmapEx(Point(1, 2), aBitmapEx1);
-    pVirtualDev->DrawBitmapEx(Point(1, 2), Size(3, 4), aBitmapEx2);
-    pVirtualDev->DrawBitmapEx(Point(1, 2), Size(3, 4), Point(2, 1), Size(4, 3), aBitmapEx3);
+    // DrawBitmapEx - 50% transparent
+    {
+        Bitmap aBitmap(Size(4, 4), 24);
+        AlphaMask aAlpha(Size(4, 4));
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_MAGENTA);
 
-    checkBitmapExs(writeAndRead(aGDIMetaFile, "bitmapexs.svm"));
+            AlphaScopedWriteAccess pAlphaAccess(aAlpha);
+            pAlphaAccess->Erase(Color(128, 128, 128));
+        }
+        pVirtualDev->DrawBitmapEx(Point(6, 6), BitmapEx(aBitmap, aAlpha));
+    }
+
+    // DrawBitmapEx - 1-bit
+    {
+        Bitmap aBitmap(Size(2, 2), 24);
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_MAGENTA);
+        }
+        aBitmap.Convert(BmpConversion::N1BitThreshold);
+        pVirtualDev->DrawBitmapEx(Point(0, 6), BitmapEx(aBitmap, COL_WHITE));
+    }
+
+    // DrawBitmapEx - 4-bit
+    {
+        Bitmap aBitmap(Size(2, 2), 24);
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_MAGENTA);
+        }
+        aBitmap.Convert(BmpConversion::N4BitColors);
+        pVirtualDev->DrawBitmapEx(Point(2, 6), BitmapEx(aBitmap, COL_WHITE));
+    }
+
+    // DrawBitmapEx - 8-bit Color
+    {
+        Bitmap aBitmap(Size(2, 2), 24);
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_MAGENTA);
+        }
+        aBitmap.Convert(BmpConversion::N8BitColors);
+        pVirtualDev->DrawBitmapEx(Point(0, 8), BitmapEx(aBitmap, COL_WHITE));
+    }
+
+    // DrawBitmapEx - 8-bit Grey
+    {
+        Bitmap aBitmap(Size(2, 2), 24);
+        {
+            BitmapScopedWriteAccess pAccess(aBitmap);
+            pAccess->Erase(COL_MAGENTA);
+        }
+        aBitmap.Convert(BmpConversion::N8BitGreys);
+        pVirtualDev->DrawBitmapEx(Point(2, 8), BitmapEx(aBitmap, COL_WHITE));
+    }
+
+    GDIMetaFile aReloadedGDIMetaFile = writeAndRead(aGDIMetaFile, "bitmapexs.svm");
+    checkBitmapExs(aReloadedGDIMetaFile);
+    checkRendering(pVirtualDev, aReloadedGDIMetaFile);
 }
 
 void SvmTest::checkMasks(const GDIMetaFile& rMetaFile)
@@ -931,41 +1157,202 @@ void SvmTest::testMasks()
     checkMasks(writeAndRead(aGDIMetaFile, "masks.svm"));
 }
 
-void SvmTest::checkPushPop(const GDIMetaFile& rMetaFile)
+void SvmTest::checkGradient(const GDIMetaFile& rMetaFile)
 {
     xmlDocPtr pDoc = dumpMeta(rMetaFile);
 
-    assertXPathAttrs(pDoc, "/metafile/push[1]", {{"flags", "PushAll"}});
-    assertXPathAttrs(pDoc, "/metafile/push[1]/linecolor[1]", {{"color", "#800000"}});
-    assertXPathAttrs(pDoc, "/metafile/push[1]/line[1]", {
-        {"startx", "4"}, {"starty", "4"},
-        {"endx", "6"},   {"endy", "6"},
+    assertXPathAttrs(pDoc, "/metafile/gradient[1]", {
+        {"style", "Linear"},
+        {"startcolor", "#ffffff"},
+        {"endcolor", "#000000"},
+        {"angle", "0"},
+        {"border", "0"},
+        {"offsetx", "50"},
+        {"offsety", "50"},
+        {"startintensity", "100"},
+        {"endintensity", "100"},
+        {"steps", "0"},
     });
-    assertXPathAttrs(pDoc, "/metafile/push[1]/push[1]", {{"flags", "PushLineColor, PushFillColor"}});
-    assertXPathAttrs(pDoc, "/metafile/push[1]/push[1]/line[1]", {
-        {"startx", "5"}, {"starty", "5"},
-        {"endx", "7"},   {"endy", "7"},
+    assertXPathAttrs(pDoc, "/metafile/gradient[1]/rectangle", {
+        {"left", "1"},
+        {"top", "2"},
+        {"right", "4"},
+        {"bottom", "6"},
     });
 }
 
-void SvmTest::testPushPop()
+void SvmTest::testGradient()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+
+    tools::Rectangle aRectangle(Point(1, 2), Size(4,5));
+
+    Gradient aGradient(GradientStyle::Linear, COL_WHITE, COL_BLACK);
+    pVirtualDev->DrawGradient(aRectangle, aGradient);
+
+    checkGradient(writeAndRead(aGDIMetaFile, "gradient.svm"));
+}
+
+void SvmTest::testGradientEx()
+{}
+
+void SvmTest::checkHatch(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/hatch[1]/polygon/point[1]", {
+        {"x", "1"}, {"y", "8"},
+    });
+    assertXPathAttrs(pDoc, "/metafile/hatch[1]/polygon/point[2]", {
+        {"x", "2"}, {"y", "7"},
+    });
+    assertXPathAttrs(pDoc, "/metafile/hatch[1]/polygon/point[3]", {
+        {"x", "3"}, {"y", "6"},
+    });
+
+    assertXPathAttrs(pDoc, "/metafile/hatch[1]/hatch", {
+        {"style", "Single"},
+        {"color", "#ffff00"},
+        {"distance", "15"},
+        {"angle", "900"},
+    });
+}
+
+void SvmTest::testHatch()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
     setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
-    pVirtualDev->SetLineColor(COL_YELLOW);
-    pVirtualDev->Push();
-    pVirtualDev->SetLineColor(COL_RED);
-    pVirtualDev->DrawLine(Point(4,4), Point(6,6));
-    pVirtualDev->Push(PushFlags::FILLCOLOR | PushFlags::LINECOLOR);
-    pVirtualDev->SetLineColor(COL_LIGHTRED);
-    pVirtualDev->DrawLine(Point(5,5), Point(7,7));
-    pVirtualDev->Pop();
-    pVirtualDev->Pop();
-    pVirtualDev->DrawLine(Point(1,1), Point(8,8));
+    tools::Polygon aPolygon(3);
+    aPolygon.SetPoint(Point(1, 8), 0);
+    aPolygon.SetPoint(Point(2, 7), 1);
+    aPolygon.SetPoint(Point(3, 6), 2);
 
-    checkPushPop(writeAndRead(aGDIMetaFile, "pushpop.svm"));
+    tools::PolyPolygon aPolyPolygon(1);
+    aPolyPolygon.Insert(aPolygon);
+
+    Hatch aHatch(HatchStyle::Single, COL_YELLOW, 15, 900);
+
+    pVirtualDev->DrawHatch(aPolyPolygon, aHatch);
+
+    checkHatch(writeAndRead(aGDIMetaFile, "hatch.svm"));
+}
+
+void SvmTest::checkWallpaper(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    // Funny enough - we don't serialize the rectangle of the wallpaper so it's always EMPTY
+    assertXPathAttrs(pDoc, "/metafile/wallpaper[1]",
+    {
+        {"left", "0"},
+        {"top", "0"},
+        {"right", "-32767"},
+        {"bottom", "-32767"},
+    });
+
+    assertXPathAttrs(pDoc, "/metafile/wallpaper[1]/wallpaper",
+    {
+        {"color", "#00ff00"},
+        {"style", "Tile"},
+        {"fixed", "true"},
+        {"scrollable", "true"},
+    });
+}
+
+void SvmTest::testWallpaper()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    Wallpaper aWallpaper(COL_LIGHTGREEN);
+    pVirtualDev->DrawWallpaper(tools::Rectangle(Point(1, 1), Size(3, 3)), aWallpaper);
+
+    checkWallpaper(writeAndRead(aGDIMetaFile, "wallpaper.svm"));
+}
+
+void SvmTest::checkClipRegion(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/clipregion[1]", {
+        {"left", "2"},
+        {"top", "2"},
+        {"right", "5"},
+        {"bottom", "5"},
+    });
+}
+
+void SvmTest::testClipRegion()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    vcl::Region aRegion(tools::Rectangle(Point(2, 2), Size(4, 4)));
+
+    // TODO
+    // explicit Region(const tools::Polygon& rPolygon);
+    // explicit Region(const tools::PolyPolygon& rPolyPoly);
+    // explicit Region(const basegfx::B2DPolyPolygon&);
+    pVirtualDev->SetClipRegion(aRegion);
+
+    checkClipRegion(writeAndRead(aGDIMetaFile, "clipregion.svm"));
+}
+
+void SvmTest::testIntersectRectClipRegion()
+{}
+void SvmTest::testIntersectRegionClipRegion()
+{}
+void SvmTest::testMoveClipRegion()
+{}
+
+void SvmTest::checkLineColor(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/push/linecolor[1]", {
+        {"color", "#654321"},
+    });
+}
+
+void SvmTest::testLineColor()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    pVirtualDev->Push();
+    pVirtualDev->SetLineColor(Color(0x654321));
+    pVirtualDev->Pop();
+
+    checkLineColor(writeAndRead(aGDIMetaFile, "linecolor.svm"));
+}
+
+void SvmTest::checkFillColor(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/push/fillcolor[1]", {
+        {"color", "#456789"},
+    });
+}
+
+void SvmTest::testFillColor()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    pVirtualDev->Push();
+    pVirtualDev->SetFillColor(Color(0x456789));
+    pVirtualDev->Pop();
+
+    checkFillColor(writeAndRead(aGDIMetaFile, "fillcolor.svm"));
 }
 
 void SvmTest::checkTextColor(const GDIMetaFile& rMetaFile)
@@ -1028,43 +1415,165 @@ void SvmTest::testTextLineColor()
     checkTextLineColor(writeAndRead(aGDIMetaFile, "textlinecolor.svm"));
 }
 
-void SvmTest::checkGradient(const GDIMetaFile& rMetaFile)
+void SvmTest::checkOverLineColor(const GDIMetaFile& rMetaFile)
 {
     xmlDocPtr pDoc = dumpMeta(rMetaFile);
 
-    assertXPathAttrs(pDoc, "/metafile/gradient[1]", {
-        {"style", "Linear"},
-        {"startcolor", "#ffffff"},
-        {"endcolor", "#000000"},
-        {"angle", "0"},
-        {"border", "0"},
-        {"offsetx", "50"},
-        {"offsety", "50"},
-        {"startintensity", "100"},
-        {"endintensity", "100"},
-        {"steps", "0"},
-    });
-    assertXPathAttrs(pDoc, "/metafile/gradient[1]/rectangle", {
-        {"left", "1"},
-        {"top", "2"},
-        {"right", "4"},
-        {"bottom", "6"},
+    assertXPathAttrs(pDoc, "/metafile/push/overlinecolor[1]", {
+        {"color", "#345678"},
     });
 }
 
-void SvmTest::testGradient()
+void SvmTest::testOverLineColor()
 {
     GDIMetaFile aGDIMetaFile;
     ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
-    setupBaseVirtualDevice(*pVirtualDev.get(), aGDIMetaFile);
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
 
-    tools::Rectangle aRectangle(Point(1, 2), Size(4,5));
+    pVirtualDev->Push();
+    pVirtualDev->SetOverlineColor(Color(0x345678));
+    pVirtualDev->Pop();
 
-    Gradient aGradient(GradientStyle::Linear, COL_WHITE, COL_BLACK);
-    pVirtualDev->DrawGradient(aRectangle, aGradient);
-
-    checkGradient(writeAndRead(aGDIMetaFile, "gradient.svm"));
+    checkOverLineColor(writeAndRead(aGDIMetaFile, "overlinecolor.svm"));
 }
+
+void SvmTest::checkTextAlign(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/textalign[1]", {
+        {"align", "bottom"},
+    });
+}
+
+void SvmTest::testTextAlign()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    pVirtualDev->SetTextAlign(TextAlign::ALIGN_BOTTOM);
+
+    checkTextAlign(writeAndRead(aGDIMetaFile, "textalign.svm"));
+}
+
+void SvmTest::testMapMode()
+{}
+void SvmTest::testFont()
+{}
+
+void SvmTest::checkPushPop(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/push[1]", {{"flags", "PushAll"}});
+    assertXPathAttrs(pDoc, "/metafile/push[1]/linecolor[1]", {{"color", "#800000"}});
+    assertXPathAttrs(pDoc, "/metafile/push[1]/line[1]", {
+        {"startx", "4"}, {"starty", "4"},
+        {"endx", "6"},   {"endy", "6"},
+    });
+    assertXPathAttrs(pDoc, "/metafile/push[1]/push[1]", {{"flags", "PushLineColor, PushFillColor"}});
+    assertXPathAttrs(pDoc, "/metafile/push[1]/push[1]/line[1]", {
+        {"startx", "5"}, {"starty", "5"},
+        {"endx", "7"},   {"endy", "7"},
+    });
+}
+
+void SvmTest::testPushPop()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    pVirtualDev->SetLineColor(COL_YELLOW);
+    pVirtualDev->Push();
+    pVirtualDev->SetLineColor(COL_RED);
+    pVirtualDev->DrawLine(Point(4,4), Point(6,6));
+    pVirtualDev->Push(PushFlags::FILLCOLOR | PushFlags::LINECOLOR);
+    pVirtualDev->SetLineColor(COL_LIGHTRED);
+    pVirtualDev->DrawLine(Point(5,5), Point(7,7));
+    pVirtualDev->Pop();
+    pVirtualDev->Pop();
+    pVirtualDev->DrawLine(Point(1,1), Point(8,8));
+
+    checkPushPop(writeAndRead(aGDIMetaFile, "pushpop.svm"));
+}
+
+void SvmTest::checkRasterOp(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/rasterop[1]", {
+        {"operation", "xor"},
+    });
+}
+
+void SvmTest::testRasterOp()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    pVirtualDev->SetRasterOp(RasterOp::Xor);
+
+    checkRasterOp(writeAndRead(aGDIMetaFile, "rasterop.svm"));
+}
+
+void SvmTest::checkTransparent(const GDIMetaFile& rMetaFile)
+{
+    xmlDocPtr pDoc = dumpMeta(rMetaFile);
+
+    assertXPathAttrs(pDoc, "/metafile/transparent[1]", {
+        {"transparence", "50"},
+    });
+
+    assertXPathAttrs(pDoc, "/metafile/transparent[1]/polygon/point[1]", {
+        {"x", "1"}, {"y", "8"},
+    });
+    assertXPathAttrs(pDoc, "/metafile/transparent[1]/polygon/point[2]", {
+        {"x", "2"}, {"y", "7"},
+    });
+    assertXPathAttrs(pDoc, "/metafile/transparent[1]/polygon/point[3]", {
+        {"x", "3"}, {"y", "6"},
+    });
+}
+
+void SvmTest::testTransparent()
+{
+    GDIMetaFile aGDIMetaFile;
+    ScopedVclPtrInstance<VirtualDevice> pVirtualDev;
+    setupBaseVirtualDevice(*pVirtualDev, aGDIMetaFile);
+
+    tools::Polygon aPolygon(3);
+    aPolygon.SetPoint(Point(1, 8), 0);
+    aPolygon.SetPoint(Point(2, 7), 1);
+    aPolygon.SetPoint(Point(3, 6), 2);
+
+    tools::PolyPolygon aPolyPolygon(1);
+    aPolyPolygon.Insert(aPolygon);
+
+    pVirtualDev->DrawTransparent(aPolygon, 50);
+
+    checkTransparent(writeAndRead(aGDIMetaFile, "transparent.svm"));
+}
+
+void SvmTest::testFloatTransparent()
+{}
+
+void SvmTest::testEPS()
+{}
+
+void SvmTest::testRefPoint()
+{}
+
+void SvmTest::testComment()
+{}
+
+void SvmTest::testLayoutMode()
+{}
+
+void SvmTest::testTextLanguage()
+{}
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SvmTest);
 

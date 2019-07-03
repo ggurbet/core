@@ -22,7 +22,6 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/awt/Point.hpp>
 #include <osl/diagnose.h>
-#include <tools/stream.hxx>
 #include <tools/mapunit.hxx>
 
 #include <svl/poolitem.hxx>
@@ -70,21 +69,6 @@ bool SfxPointItem::operator==( const SfxPoolItem& rItem ) const
 SfxPoolItem* SfxPointItem::Clone(SfxItemPool *) const
 {
     return new SfxPointItem( *this );
-}
-
-
-SfxPoolItem* SfxPointItem::Create(SvStream &rStream, sal_uInt16 ) const
-{
-    Point aStr;
-    ReadPair( rStream, aStr );
-    return new SfxPointItem(Which(), aStr);
-}
-
-
-SvStream& SfxPointItem::Store(SvStream &rStream, sal_uInt16 ) const
-{
-    WritePair( rStream, aVal );
-    return rStream;
 }
 
 

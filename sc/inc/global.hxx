@@ -509,7 +509,7 @@ class ScGlobal
     static ScUserList*      pUserList;
     static std::map<const char*, OUString>* pRscString;
     static OUString*        pStrScDoc;
-    static OUString*        pEmptyOUString;
+    static SC_DLLPUBLIC const OUString aEmptyOUString;
     static OUString*        pStrClipDocName;
     static SvxBrushItem*    pEmptyBrushItem;
     static SvxBrushItem*    pButtonBrushItem;
@@ -574,7 +574,9 @@ public:
     SC_DLLPUBLIC static sal_uInt32 GetStandardFormat( SvNumberFormatter&, sal_uInt32 nFormat, SvNumFormatType nType );
 
     SC_DLLPUBLIC static sal_uInt16 GetStandardRowHeight();
+    /// Horizontal pixel per twips factor.
     SC_DLLPUBLIC static double              nScreenPPTX;
+    /// Vertical pixel per twips factor.
     SC_DLLPUBLIC static double              nScreenPPTY;
 
     static tools::SvRef<ScDocShell>   xDrawClipDocShellRef;
@@ -592,7 +594,7 @@ public:
     static void             InitTextHeight(const SfxItemPool* pPool);
     static SvxBrushItem*    GetEmptyBrushItem() { return pEmptyBrushItem; }
     static SvxBrushItem*    GetButtonBrushItem();
-    SC_DLLPUBLIC    static const OUString&    GetEmptyOUString();
+    static const OUString&  GetEmptyOUString() { return aEmptyOUString; }
 
     static bool             HasStarCalcFunctionList();
     static ScFunctionList*  GetStarCalcFunctionList();

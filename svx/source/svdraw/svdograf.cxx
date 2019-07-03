@@ -22,6 +22,7 @@
 #include <sfx2/lnkbase.hxx>
 #include <math.h>
 #include <tools/helpers.hxx>
+#include <sot/exchange.hxx>
 #include <sot/formats.hxx>
 #include <sot/storage.hxx>
 #include <unotools/ucbstreamhelper.hxx>
@@ -47,10 +48,17 @@
 #include <svx/svdograf.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/xbtmpit.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflbmtit.hxx>
 #include <svx/svdundo.hxx>
 #include "svdfmtf.hxx"
+#include <svx/sdgcoitm.hxx>
 #include <svx/sdgcpitm.hxx>
+#include <svx/sdggaitm.hxx>
+#include <svx/sdginitm.hxx>
+#include <svx/sdgluitm.hxx>
+#include <svx/sdgmoitm.hxx>
+#include <svx/sdgtritm.hxx>
 #include <editeng/eeitem.hxx>
 #include <sdr/properties/graphicproperties.hxx>
 #include <sdr/contact/viewcontactofgraphic.hxx>
@@ -102,7 +110,7 @@ SdrGraphicLink::SdrGraphicLink(SdrGrafObj& rObj)
         sfx2::LinkManager::GetDisplayNames( this, nullptr, &rGrafObj.aFileName, nullptr, &rGrafObj.aFilterName );
 
         Graphic aGraphic;
-        if (sfx2::LinkManager::GetGraphicFromAny(rMimeType, rValue, getReferer(), aGraphic))
+        if (sfx2::LinkManager::GetGraphicFromAny(rMimeType, rValue, getReferer(), aGraphic, nullptr))
         {
             rGrafObj.ImpSetLinkedGraphic(aGraphic);
         }

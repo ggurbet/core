@@ -33,6 +33,7 @@
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/frame/XPopupMenuController.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
+#include <com/sun/star/ui/ContextMenuExecuteEvent.hpp>
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <comphelper/lok.hxx>
@@ -54,6 +55,7 @@
 #include <sfx2/objface.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/sfxhelp.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/sfxuno.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
@@ -1834,7 +1836,7 @@ void SfxDispatcher::ExecutePopup( const OUString& rResName, vcl::Window* pWin, c
     aEvent.ExecutePosition.Y = aPos.Y();
 
     xPopupController->setPopupMenu( xPopupMenu );
-    VCLXMenu* pAwtMenu = VCLXMenu::GetImplementation( xPopupMenu );
+    VCLXMenu* pAwtMenu = comphelper::getUnoTunnelImplementation<VCLXMenu>( xPopupMenu );
     PopupMenu* pVCLMenu = static_cast< PopupMenu* >( pAwtMenu->GetMenu() );
     if (comphelper::LibreOfficeKit::isActive())
     {
@@ -1962,9 +1964,7 @@ SfxItemState SfxDispatcher::QueryState( sal_uInt16 nSID, css::uno::Any& rAny )
     const SfxSlot *pSlot = nullptr;
     if ( GetShellAndSlot_Impl( nSID, &pShell, &pSlot, false, true ) )
     {
-        const SfxPoolItem* pItem( nullptr );
-
-        pItem = pShell->GetSlotState( nSID );
+        const SfxPoolItem* pItem = pShell->GetSlotState( nSID );
         if ( !pItem )
             return SfxItemState::DISABLED;
         else

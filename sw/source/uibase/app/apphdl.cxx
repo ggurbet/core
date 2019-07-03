@@ -26,15 +26,21 @@
 #include <sfx2/objitem.hxx>
 #include <svx/dataaccessdescriptor.hxx>
 #include <svtools/restartdialog.hxx>
+#include <svl/eitem.hxx>
 #include <svl/whiter.hxx>
 #include <svl/isethint.hxx>
+#include <svl/stritem.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <svl/ctloptions.hxx>
+#include <svtools/colorcfg.hxx>
+#include <svtools/accessibilityoptions.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/useroptions.hxx>
 #include <com/sun/star/document/UpdateDocMode.hpp>
 #include <sfx2/docfile.hxx>
 #include <sfx2/objface.hxx>
+#include <vcl/settings.hxx>
 
 #include <view.hxx>
 #include <pview.hxx>
@@ -309,7 +315,7 @@ SwView* lcl_LoadDoc(SwView* pView, const OUString& rURL)
     if(!rURL.isEmpty())
     {
         SfxStringItem aURL(SID_FILE_NAME, rURL);
-        SfxStringItem aTargetFrameName( SID_TARGETNAME, OUString("_blank") );
+        SfxStringItem aTargetFrameName( SID_TARGETNAME, "_blank" );
         SfxBoolItem aHidden( SID_HIDDEN, true );
         SfxStringItem aReferer(SID_REFERER, pView->GetDocShell()->GetTitle());
         const SfxObjectItem* pItem = static_cast<const SfxObjectItem*>(
@@ -323,9 +329,8 @@ SwView* lcl_LoadDoc(SwView* pView, const OUString& rURL)
             SfxViewShell* pViewShell = pShell->GetViewShell();
             if(pViewShell)
             {
-                if( nullptr!= dynamic_cast<SwView*>(pViewShell) )
+                if ((pNewView = dynamic_cast<SwView*>(pViewShell)))
                 {
-                    pNewView = dynamic_cast< SwView* >(pViewShell);
                     pNewView->GetViewFrame()->GetFrame().Appear();
                 }
                 else
@@ -390,11 +395,10 @@ bool lcl_hasAllComponentsAvailable()
     {
         return css::sdb::TextConnectionSettings::create(comphelper::getProcessComponentContext()).is();
     }
-    catch (css::uno::Exception & e)
+    catch (const css::uno::Exception &)
     {
-        SAL_INFO(
-            "sw.core",
-            "assuming Base to be missing; caught " << e);
+        TOOLS_INFO_EXCEPTION(
+            "sw.core", "assuming Base to be missing; caught ");
         return false;
     }
 }
@@ -413,11 +417,11 @@ void SwMailMergeWizardExecutor::ExecuteMailMergeWizard( const SfxItemSet * pArgs
             SolarMutexGuard aGuard;
             executeRestartDialog(comphelper::getProcessComponentContext(), nullptr, RESTART_REASON_MAILMERGE_INSTALL);
         }
-        catch (const css::uno::Exception & e)
+        catch (const css::uno::Exception &)
         {
-            SAL_INFO(
+            TOOLS_INFO_EXCEPTION(
                 "sw.core",
-                "trying to install LibreOffice Base, caught " << e);
+                "trying to install LibreOffice Base, caught");
             auto xRestartManager
                 = css::task::OfficeRestartManager::get(comphelper::getProcessComponentContext());
             if (!xRestartManager->isRestartRequested(false))

@@ -68,6 +68,7 @@
 #include <comphelper/types.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/sequence.hxx>
+#include <editeng/escapementitem.hxx>
 #include <filter/msfilter/util.hxx>
 #include <sfx2/DocumentMetadataAccess.hxx>
 #include <unotools/mediadescriptor.hxx>
@@ -235,7 +236,7 @@ DomainMapper::~DomainMapper()
     }
     catch( const uno::Exception& ) {}
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endDocument();
 #endif
 }
@@ -1965,6 +1966,22 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
         PropertyMapPtr pContext = m_pImpl->GetTopContextOfType(CONTEXT_PARAGRAPH);
         if( pContext.get() )
         {
+            // If there is a deferred page break applied to this framed paragraph,
+            // create a dummy paragraph without extra properties,
+            // so that the anchored frame will be on the correct page (similar to shapes).
+            if (pContext->isSet(PROP_BREAK_TYPE))
+            {
+                pContext->Erase(PROP_BREAK_TYPE);
+
+                lcl_startParagraphGroup();
+                m_pImpl->GetTopContext()->Insert(PROP_BREAK_TYPE, uno::makeAny(style::BreakType_PAGE_BEFORE));
+                lcl_startCharacterGroup();
+                sal_uInt8 const sBreak[] = { 0xd };
+                lcl_text(sBreak, 1);
+                lcl_endCharacterGroup();
+                lcl_endParagraphGroup();
+            }
+
             ParagraphPropertyMap* pParaContext = dynamic_cast< ParagraphPropertyMap* >( pContext.get() );
             if (pParaContext)
                 pParaContext->SetFrameMode();
@@ -2190,9 +2207,9 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
         sal_Int16 nEscapement = 0;
         sal_Int8 nProp  = 58;
         if ( sStringValue == "superscript" )
-                nEscapement = 101;
+                nEscapement = DFLT_ESC_AUTO_SUPER;
         else if ( sStringValue == "subscript" )
-                nEscapement = -101;
+                nEscapement = DFLT_ESC_AUTO_SUB;
         else
             nProp = 100;
 
@@ -2756,7 +2773,7 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
     break;
     default:
         {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
             TagLogger::getInstance().startElement("unhandled");
             TagLogger::getInstance().attribute("id", nSprmId);
             TagLogger::getInstance().attribute("name", rSprm.getName());
@@ -2789,7 +2806,7 @@ void DomainMapper::processDeferredCharacterProperties( const std::map< sal_Int32
         break; // only for use by other properties, ignore here
         case NS_ooxml::LN_EG_RPrBase_position:
         {
-            sal_Int16 nEscapement = 0;
+            double nEscapement = 0;
             sal_Int8 nProp  = 100;
             if(nIntValue == 0)
                 nProp = 0;
@@ -2823,7 +2840,18 @@ void DomainMapper::processDeferredCharacterProperties( const std::map< sal_Int32
                     nEscapement = ( nIntValue > 0 ) ? 58: -58;
                 }
             }
-            rContext->Insert(PROP_CHAR_ESCAPEMENT,         uno::makeAny( nEscapement ) );
+
+            // tdf#120412 up to 14400% (eg. 1584 pt with 11 pt letters)
+            if ( nEscapement > MAX_ESC_POS )
+            {
+                nEscapement = MAX_ESC_POS;
+            }
+            else if ( nEscapement < -MAX_ESC_POS )
+            {
+                nEscapement = -MAX_ESC_POS;
+            }
+
+            rContext->Insert(PROP_CHAR_ESCAPEMENT,         uno::makeAny( sal_Int16(nEscapement) ) );
             rContext->Insert(PROP_CHAR_ESCAPEMENT_HEIGHT,  uno::makeAny( nProp ) );
         }
         break;
@@ -3048,7 +3076,7 @@ void DomainMapper::lcl_text(const sal_uInt8 * data_, size_t len)
 {
     //TODO: Determine the right text encoding (FIB?)
     OUString sText( reinterpret_cast<const char*>(data_), len, RTL_TEXTENCODING_MS_1252 );
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("text");
     TagLogger::getInstance().chars(sText);
     TagLogger::getInstance().endElement();
@@ -3134,9 +3162,9 @@ void DomainMapper::lcl_text(const sal_uInt8 * data_, size_t len)
             m_pImpl->appendTextPortion( sText, pContext );
         }
     }
-    catch( const uno::RuntimeException& e )
+    catch( const uno::RuntimeException& )
     {
-        SAL_WARN("writerfilter", "failed. Message :" << e);
+        TOOLS_WARN_EXCEPTION("writerfilter", "");
     }
 }
 
@@ -3294,6 +3322,13 @@ void DomainMapper::lcl_utext(const sal_uInt8 * data_, size_t len)
                 {
                     if (m_pImpl->GetSettingsTable()->GetSplitPgBreakAndParaMark())
                     {
+                        if ( m_pImpl->GetIsFirstParagraphInSection() || !m_pImpl->IsFirstRun() )
+                        {
+                            m_pImpl->m_bIsSplitPara = true;
+                            m_pImpl->finishParagraph( m_pImpl->GetTopContextOfType(CONTEXT_PARAGRAPH) );
+                            lcl_startParagraphGroup();
+                        }
+
                         pContext->Insert(PROP_BREAK_TYPE, uno::makeAny(style::BreakType_PAGE_BEFORE));
                         m_pImpl->clearDeferredBreaks();
                     }

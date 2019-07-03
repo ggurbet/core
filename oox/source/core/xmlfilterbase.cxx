@@ -342,7 +342,7 @@ bool XmlFilterBase::importFragment( const rtl::Reference<FragmentHandler>& rxHan
         return false;
 
     // fragment handler must contain path to fragment stream
-    const OUString aFragmentPath = rxHandler->getFragmentPath();
+    OUString aFragmentPath = rxHandler->getFragmentPath();
     OSL_ENSURE( !aFragmentPath.isEmpty(), "XmlFilterBase::importFragment - missing fragment path" );
     if( aFragmentPath.isEmpty() )
         return false;
@@ -385,6 +385,19 @@ bool XmlFilterBase::importFragment( const rtl::Reference<FragmentHandler>& rxHan
             handler to create specialized input streams, e.g. VML streams that
             have to preprocess the raw input data. */
         Reference< XInputStream > xInStrm = rxHandler->openFragmentStream();
+        /*  tdf#100084 Check again the aFragmentPath route with lowercase file name
+            TODO: complete handling of case-insensitive file paths */
+        if ( !xInStrm.is() )
+        {
+            sal_Int32 nPathLen = aFragmentPath.lastIndexOf('/') + 1;
+            OUString fileName = aFragmentPath.copy(nPathLen);
+            OUString sLowerCaseFileName = fileName.toAsciiLowerCase();
+            if ( fileName != sLowerCaseFileName )
+            {
+                aFragmentPath = aFragmentPath.copy(0, nPathLen) + sLowerCaseFileName;
+                xInStrm = openInputStream(aFragmentPath);
+            }
+        }
 
         // own try/catch block for showing parser failure assertion with fragment path
         if( xInStrm.is() ) try
@@ -545,7 +558,7 @@ OUString XmlFilterBase::addRelation( const Reference< XOutputStream >& rOutputSt
 static void
 writeElement( const FSHelperPtr& pDoc, sal_Int32 nXmlElement, const OUString& sValue )
 {
-    pDoc->startElement( nXmlElement, FSEND );
+    pDoc->startElement(nXmlElement);
     pDoc->writeEscaped( sValue );
     pDoc->endElement( nXmlElement );
 }
@@ -553,7 +566,7 @@ writeElement( const FSHelperPtr& pDoc, sal_Int32 nXmlElement, const OUString& sV
 static void
 writeElement( const FSHelperPtr& pDoc, sal_Int32 nXmlElement, const sal_Int32 nValue )
 {
-    pDoc->startElement( nXmlElement, FSEND );
+    pDoc->startElement(nXmlElement);
     pDoc->write( nValue );
     pDoc->endElement( nXmlElement );
 }
@@ -565,11 +578,9 @@ writeElement( const FSHelperPtr& pDoc, sal_Int32 nXmlElement, const util::DateTi
         return;
 
     if ( ( nXmlElement >> 16 ) != XML_dcterms )
-        pDoc->startElement( nXmlElement, FSEND );
+        pDoc->startElement(nXmlElement);
     else
-        pDoc->startElement( nXmlElement,
-                FSNS( XML_xsi, XML_type ), "dcterms:W3CDTF",
-                FSEND );
+        pDoc->startElement(nXmlElement, FSNS(XML_xsi, XML_type), "dcterms:W3CDTF");
 
     char pStr[200];
     snprintf( pStr, sizeof( pStr ), "%d-%02d-%02dT%02d:%02d:%02dZ",
@@ -584,7 +595,7 @@ writeElement( const FSHelperPtr& pDoc, sal_Int32 nXmlElement, const util::DateTi
 static void
 writeElement( const FSHelperPtr& pDoc, sal_Int32 nXmlElement, const Sequence< OUString >& aItems )
 {
-    if( aItems.getLength() == 0 )
+    if( !aItems.hasElements() )
         return;
 
     OUStringBuffer sRep;
@@ -622,12 +633,11 @@ writeCoreProperties( XmlFilterBase& rSelf, const Reference< XDocumentProperties 
             "docProps/core.xml",
             "application/vnd.openxmlformats-package.core-properties+xml" );
     pCoreProps->startElementNS( XML_cp, XML_coreProperties,
-            FSNS( XML_xmlns, XML_cp ),          OUStringToOString(rSelf.getNamespaceURL(OOX_NS(packageMetaCorePr)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_xmlns, XML_dc ),          OUStringToOString(rSelf.getNamespaceURL(OOX_NS(dc)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_xmlns, XML_dcterms ),     OUStringToOString(rSelf.getNamespaceURL(OOX_NS(dcTerms)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_xmlns, XML_dcmitype ),    OUStringToOString(rSelf.getNamespaceURL(OOX_NS(dcmiType)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_xmlns, XML_xsi ),         OUStringToOString(rSelf.getNamespaceURL(OOX_NS(xsi)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSEND );
+        FSNS(XML_xmlns, XML_cp),       rSelf.getNamespaceURL(OOX_NS(packageMetaCorePr)).toUtf8(),
+        FSNS(XML_xmlns, XML_dc),       rSelf.getNamespaceURL(OOX_NS(dc)).toUtf8(),
+        FSNS(XML_xmlns, XML_dcterms),  rSelf.getNamespaceURL(OOX_NS(dcTerms)).toUtf8(),
+        FSNS(XML_xmlns, XML_dcmitype), rSelf.getNamespaceURL(OOX_NS(dcmiType)).toUtf8(),
+        FSNS(XML_xmlns, XML_xsi),      rSelf.getNamespaceURL(OOX_NS(xsi)).toUtf8());
 
 #ifdef OOXTODO
     writeElement( pCoreProps, FSNS( XML_cp, XML_category ),         "category" );
@@ -665,9 +675,8 @@ writeAppProperties( XmlFilterBase& rSelf, const Reference< XDocumentProperties >
             "docProps/app.xml",
             "application/vnd.openxmlformats-officedocument.extended-properties+xml" );
     pAppProps->startElement( XML_Properties,
-            XML_xmlns,                  OUStringToOString(rSelf.getNamespaceURL(OOX_NS(officeExtPr)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_xmlns, XML_vt ),  OUStringToOString(rSelf.getNamespaceURL(OOX_NS(officeDocPropsVT)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSEND );
+            XML_xmlns,               rSelf.getNamespaceURL(OOX_NS(officeExtPr)).toUtf8(),
+            FSNS(XML_xmlns, XML_vt), rSelf.getNamespaceURL(OOX_NS(officeDocPropsVT)).toUtf8());
 
     writeElement( pAppProps, XML_Template,              xProperties->getTemplateName() );
 #ifdef OOXTODO
@@ -778,9 +787,8 @@ writeCustomProperties( XmlFilterBase& rSelf, const Reference< XDocumentPropertie
             "docProps/custom.xml",
             "application/vnd.openxmlformats-officedocument.custom-properties+xml" );
     pAppProps->startElement( XML_Properties,
-            XML_xmlns,                  OUStringToOString(rSelf.getNamespaceURL(OOX_NS(officeCustomPr)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSNS( XML_xmlns, XML_vt ),  OUStringToOString(rSelf.getNamespaceURL(OOX_NS(officeDocPropsVT)), RTL_TEXTENCODING_UTF8).getStr(),
-            FSEND );
+            XML_xmlns,               rSelf.getNamespaceURL(OOX_NS(officeCustomPr)).toUtf8(),
+            FSNS(XML_xmlns, XML_vt), rSelf.getNamespaceURL(OOX_NS(officeDocPropsVT)).toUtf8());
 
     size_t nIndex = 0;
     for (const auto& rProp : aprop)
@@ -792,8 +800,7 @@ writeCustomProperties( XmlFilterBase& rSelf, const Reference< XDocumentPropertie
             pAppProps->startElement( XML_property ,
                 XML_fmtid,  "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}",
                 XML_pid,    OString::number(nIndex + 2),
-                XML_name,   aName,
-                FSEND);
+                XML_name,   aName);
 
             switch ( rProp.Value.getValueTypeClass() )
             {
@@ -870,8 +877,7 @@ Reference< XInputStream > XmlFilterBase::implGetInputStream( MediaDescriptor& rM
 
 Reference<XStream> XmlFilterBase::implGetOutputStream( MediaDescriptor& rMediaDescriptor ) const
 {
-    Sequence< NamedValue > aMediaEncData;
-    aMediaEncData = rMediaDescriptor.getUnpackedValueOrDefault(
+    Sequence< NamedValue > aMediaEncData = rMediaDescriptor.getUnpackedValueOrDefault(
                                         MediaDescriptor::PROP_ENCRYPTIONDATA(),
                                         Sequence< NamedValue >() );
 
@@ -902,8 +908,7 @@ bool XmlFilterBase::implFinalizeExport( MediaDescriptor& rMediaDescriptor )
 {
     bool bRet = true;
 
-    Sequence< NamedValue > aMediaEncData;
-    aMediaEncData = rMediaDescriptor.getUnpackedValueOrDefault(
+    Sequence< NamedValue > aMediaEncData = rMediaDescriptor.getUnpackedValueOrDefault(
                                         MediaDescriptor::PROP_ENCRYPTIONDATA(),
                                         Sequence< NamedValue >() );
 

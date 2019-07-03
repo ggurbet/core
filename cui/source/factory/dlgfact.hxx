@@ -26,10 +26,7 @@
 #include <tools/link.hxx>
 #include <com/sun/star/frame/XFrame.hpp>
 
-class SfxTabDialog;
-class SfxModalDialog;
 class SfxSingleTabDialogController;
-class Dialog;
 class SfxItemPool;
 class FmShowColsDialog;
 class SvxZoomDialog;
@@ -94,15 +91,6 @@ public:
     {
     }
     virtual short Execute() override;
-};
-
-class CuiAbstractSfxDialog_Impl : public SfxAbstractDialog
-{
-    DECL_ABSTDLG_BASE(CuiAbstractSfxDialog_Impl,SfxModalDialog)
-    virtual const SfxItemSet*   GetOutputItemSet() const override;
-
-        //From class Window.
-    virtual void          SetText( const OUString& rStr ) override;
 };
 
 class CuiAbstractSingleTabController_Impl : public SfxAbstractDialog
@@ -193,7 +181,14 @@ public:
 
 class AbstractThesaurusDialog_Impl : public AbstractThesaurusDialog
 {
-    DECL_ABSTDLG_BASE(AbstractThesaurusDialog_Impl,SvxThesaurusDialog)
+    std::shared_ptr<SvxThesaurusDialog> m_xDlg;
+public:
+    explicit AbstractThesaurusDialog_Impl(std::unique_ptr<SvxThesaurusDialog> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+    virtual bool StartExecuteAsync(AsyncContext &rCtx) override;
     virtual OUString    GetWord() override;
 };
 
@@ -239,10 +234,16 @@ public:
 namespace svx{ class SpellDialog;}
 class AbstractSpellDialog_Impl : public AbstractSpellDialog
 {
- public:
-    DECL_ABSTDLG_BASE(AbstractSpellDialog_Impl, svx::SpellDialog)
-    virtual void        Invalidate() override;
-    virtual vcl::Window*     GetWindow() override;
+    std::shared_ptr<svx::SpellDialog> m_xDlg;
+public:
+    explicit AbstractSpellDialog_Impl(std::unique_ptr<svx::SpellDialog> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+    virtual bool StartExecuteAsync(AsyncContext &rCtx) override;
+    virtual void InvalidateDialog() override;
+    virtual std::shared_ptr<SfxDialogController> GetController() override;
     virtual SfxBindings& GetBindings() override;
 };
 
@@ -292,7 +293,14 @@ public:
 class URLDlg;
 class AbstractURLDlg_Impl :public AbstractURLDlg
 {
-    DECL_ABSTDLG_BASE(AbstractURLDlg_Impl,URLDlg)
+protected:
+    std::unique_ptr<URLDlg> m_xDlg;
+public:
+    explicit AbstractURLDlg_Impl(std::unique_ptr<URLDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
     virtual OUString      GetURL() const override;
     virtual OUString      GetAltText() const override;
     virtual OUString      GetDesc() const override;
@@ -477,10 +485,17 @@ public:
 };
 
 class SvxHpLinkDlg;
-class AbstractSvxHpLinkDlg_Impl :public AbstractSvxHpLinkDlg
+class AbstractSvxHpLinkDlg_Impl : public AbstractSvxHpLinkDlg
 {
-    DECL_ABSTDLG_BASE(AbstractSvxHpLinkDlg_Impl,SvxHpLinkDlg)
-    virtual vcl::Window*     GetWindow() override;
+protected:
+    std::shared_ptr<SvxHpLinkDlg> m_xDlg;
+public:
+    explicit AbstractSvxHpLinkDlg_Impl(std::unique_ptr<SvxHpLinkDlg> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+    virtual std::shared_ptr<SfxDialogController> GetController() override;
     virtual bool        QueryClose() override;
 };
 
@@ -661,11 +676,27 @@ public:
     virtual short Execute() override;
 };
 
+class TipOfTheDayDialog;
+class AbstractTipOfTheDayDialog_Impl : public AbstractTipOfTheDayDialog
+{
+protected:
+    std::unique_ptr<TipOfTheDayDialog> m_xDlg;
+
+public:
+    explicit AbstractTipOfTheDayDialog_Impl(std::unique_ptr<TipOfTheDayDialog> p)
+        : m_xDlg(std::move(p))
+    {
+    }
+    virtual short Execute() override;
+};
+
 //AbstractDialogFactory_Impl implementations
 class AbstractDialogFactory_Impl : public SvxAbstractDialogFactory
 {
 public:
     virtual VclPtr<VclAbstractDialog>    CreateVclDialog( vcl::Window* pParent, sal_uInt32 nResId ) override;
+
+    virtual VclPtr<VclAbstractDialog>    CreateAboutDialog(weld::Window* pParent) override;
 
     virtual VclPtr<SfxAbstractDialog>    CreateSfxDialog( weld::Window* pParent,
                                             const SfxItemSet& rAttr,
@@ -673,10 +704,10 @@ public:
                                             sal_uInt32 nResId ) override;
     virtual VclPtr<SfxAbstractDialog>    CreateCharMapDialog(weld::Window* pParent,
                                                              const SfxItemSet& rAttr,
-                                                             bool bInsert) override;
-    virtual VclPtr<SfxAbstractDialog>    CreateEventConfigDialog(weld::Window* pParent,
+                                                             const css::uno::Reference< css::frame::XFrame >& rFrame) override;
+    virtual VclPtr<SfxAbstractDialog>    CreateEventConfigDialog(weld::Widget* pParent,
                                                                  const SfxItemSet& rAttr,
-                                                                 const css::uno::Reference< css::frame::XFrame >& _rxFrame) override;
+                                                                 const css::uno::Reference< css::frame::XFrame >& rFrame) override;
     virtual VclPtr<VclAbstractDialog>    CreateFrameDialog(vcl::Window* pParent, const css::uno::Reference< css::frame::XFrame >& rxFrame,
                                                            sal_uInt32 nResId,
                                                            const OUString& rParameter ) override;
@@ -704,8 +735,9 @@ public:
     virtual VclPtr<SfxAbstractLinksDialog> CreateLinksDialog(weld::Window* pParent, sfx2::LinkManager* pMgr, bool bHTML = false, sfx2::SvBaseLink* p=nullptr) override;
 
     virtual VclPtr<AbstractHangulHanjaConversionDialog> CreateHangulHanjaConversionDialog(weld::Window* pParent) override;
-    virtual VclPtr<AbstractThesaurusDialog>  CreateThesaurusDialog( vcl::Window*, css::uno::Reference< css::linguistic2::XThesaurus >  xThesaurus,
-                                                const OUString &rWord, LanguageType nLanguage ) override;
+    virtual VclPtr<AbstractThesaurusDialog>  CreateThesaurusDialog(weld::Window*,
+                                                css::uno::Reference<css::linguistic2::XThesaurus> xThesaurus,
+                                                const OUString &rWord, LanguageType nLanguage) override;
 
     virtual VclPtr<AbstractHyphenWordDialog> CreateHyphenWordDialog(weld::Window*,
                                                 const OUString &rWord, LanguageType nLang,
@@ -729,7 +761,7 @@ public:
                                                                      const SdrView* pSdrView,
                                                                      bool bSizeTabPage) override;
     virtual VclPtr<AbstractSpellDialog>  CreateSvxSpellDialog(
-                            vcl::Window* pParent,
+                            weld::Window* pParent,
                             SfxBindings* pBindings,
                             svx::SpellDialogChildWindow* pSpellChildWindow ) override;
 
@@ -740,7 +772,7 @@ public:
     virtual VclPtr<VclAbstractDialog> CreateGalleryThemePropertiesDialog(weld::Window* pParent,
                                             ExchangeData* pData,
                                             SfxItemSet* pItemSet) override;
-    virtual VclPtr<AbstractURLDlg> CreateURLDialog( vcl::Window* pParent,
+    virtual VclPtr<AbstractURLDlg> CreateURLDialog(weld::Widget* pParent,
                                             const OUString& rURL, const OUString& rAltText, const OUString& rDescription,
                                             const OUString& rTarget, const OUString& rName,
                                             TargetList& rTargetList ) override;
@@ -764,11 +796,10 @@ public:
     // #i68101#
     virtual VclPtr<AbstractSvxObjectNameDialog> CreateSvxObjectNameDialog(weld::Window* pParent, const OUString& rName) override;
     virtual VclPtr<AbstractSvxObjectTitleDescDialog> CreateSvxObjectTitleDescDialog(weld::Window* pParent, const OUString& rTitle, const OUString& rDescription) override;
-
     virtual VclPtr<AbstractSvxMultiPathDialog>    CreateSvxMultiPathDialog(weld::Window* pParent) override;
     virtual VclPtr<AbstractSvxMultiPathDialog>    CreateSvxPathSelectDialog(weld::Window* pParent) override;
-    virtual VclPtr<AbstractSvxHpLinkDlg>          CreateSvxHpLinkDlg(vcl::Window* pParent, SfxBindings* pBindings) override;
-    virtual VclPtr<AbstractFmSearchDialog>         CreateFmSearchDialog(weld::Window* pParent,
+    virtual VclPtr<AbstractSvxHpLinkDlg>          CreateSvxHpLinkDlg(SfxChildWindow* pChild, SfxBindings* pBindings, weld::Window* pParent) override;
+    virtual VclPtr<AbstractFmSearchDialog>        CreateFmSearchDialog(weld::Window* pParent,
                                                         const OUString& strInitialText,
                                                         const std::vector< OUString >& _rContexts,
                                                         sal_Int16 nInitialContext,
@@ -793,9 +824,9 @@ public:
                                                                  SdrModel* pModel,
                                                                  const SdrObject* pObj,
                                                                  bool bHasObj ) override;
-    virtual VclPtr<AbstractSvxPostItDialog>        CreateSvxPostItDialog( weld::Window* pParent,
-                                                                        const SfxItemSet& rCoreSet,
-                                                                        bool bPrevNext = false ) override;
+    virtual VclPtr<AbstractSvxPostItDialog>        CreateSvxPostItDialog(weld::Widget* pParent,
+                                                                         const SfxItemSet& rCoreSet,
+                                                                         bool bPrevNext = false) override;
 
     // For TabPage
     virtual CreateTabPage               GetTabPageCreatorFunc( sal_uInt16 nId ) override;
@@ -824,7 +855,7 @@ public:
     virtual VclPtr<SvxAbstractNewTableDialog> CreateSvxNewTableDialog(weld::Window* pParent) override ;
 
     virtual VclPtr<VclAbstractDialog>          CreateOptionsDialog(
-        vcl::Window* pParent, const OUString& rExtensionId ) override;
+        weld::Window* pParent, const OUString& rExtensionId ) override;
 
     virtual VclPtr<SvxAbstractInsRowColDlg> CreateSvxInsRowColDlg(weld::Window* pParent, bool bCol, const OString& rHelpId) override;
 
@@ -839,6 +870,8 @@ public:
     virtual VclPtr<AbstractSignSignatureLineDialog>
     CreateSignSignatureLineDialog(weld::Window* pParent,
                                   const css::uno::Reference<css::frame::XModel> xModel) override;
+
+    virtual VclPtr<AbstractTipOfTheDayDialog> CreateTipOfTheDayDialog(weld::Window* pParent) override;
 };
 
 #endif

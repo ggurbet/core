@@ -22,6 +22,7 @@
 #include <com/sun/star/embed/NeedsRunningStateException.hpp>
 #include <com/sun/star/embed/VerbDescriptor.hpp>
 #include <com/sun/star/embed/EmbedStates.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <comphelper/string.hxx>
 #include <com/sun/star/embed/VerbAttributes.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
@@ -30,11 +31,13 @@
 #include <sfx2/sfxresid.hxx>
 #include <sfx2/strings.hrc>
 
+#include <tools/debug.hxx>
 #include <vcl/waitobj.hxx>
 #include <sfx2/app.hxx>
 #include <unotools/pathoptions.hxx>
 #include <svx/svdograf.hxx>
 #include <svl/aeitem.hxx>
+#include <svl/stritem.hxx>
 #include <svx/svdoole2.hxx>
 #include <sfx2/docfile.hxx>
 #include <svx/xtable.hxx>
@@ -66,7 +69,7 @@ using namespace com::sun::star::lang;
  * Constructor of the Tab dialog: appends the pages to the dialog
  */
 SdActionDlg::SdActionDlg(weld::Window* pParent, const SfxItemSet* pAttr, ::sd::View const * pView)
-    : SfxSingleTabDialogController(pParent, *pAttr, "modules/simpress/ui/interactiondialog.ui",
+    : SfxSingleTabDialogController(pParent, pAttr, "modules/simpress/ui/interactiondialog.ui",
                                    "InteractionDialog")
     , rOutAttrs(*pAttr)
 {
@@ -352,7 +355,7 @@ void SdTPAction::UpdateTree()
 {
     if( !bTreeUpdated && mpDoc && mpDoc->GetDocSh() && mpDoc->GetDocSh()->GetMedium() )
     {
-        m_xLbTree->Fill( mpDoc, true, mpDoc->GetDocSh()->GetMedium()->GetName() );
+        m_xLbTree->Fill( mpDoc, mpDoc->GetDocSh()->GetMedium()->GetName() );
         bTreeUpdated = true;
     }
 }
@@ -646,7 +649,7 @@ IMPL_LINK_NOARG(SdTPAction, CheckFileHdl, weld::Widget&, void)
                         aLastFile = aFile;
 
                         m_xLbTreeDocument->clear();
-                        m_xLbTreeDocument->Fill(pBookmarkDoc, true, aFile);
+                        m_xLbTreeDocument->Fill(pBookmarkDoc, aFile);
                         mpDoc->CloseBookmarkDoc();
                         m_xLbTreeDocument->show();
                         bHideTreeDocument = false;

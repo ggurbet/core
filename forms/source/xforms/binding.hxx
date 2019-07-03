@@ -65,7 +65,7 @@ namespace xforms
 /** An XForms Binding. Contains:
  *  # a connection to its model
  *  # an ID
- *  # an binding expression
+ *  # a binding expression
  *  # model item properties
  *  # (NOT YET IMPLEMENTED) child bindings (sequence of)
  *
@@ -257,8 +257,7 @@ public:
 
 
     // the ID for XUnoTunnel calls
-    static css::uno::Sequence<sal_Int8> getUnoTunnelID();
-    static Binding* getBinding( const css::uno::Reference<css::beans::XPropertySet>& );
+    static css::uno::Sequence<sal_Int8> getUnoTunnelId();
 
 
 private:
@@ -274,7 +273,6 @@ private:
 
     /// get the model implementation
     xforms::Model* getModelImpl() const;
-    static xforms::Model* getModelImpl( const css::uno::Reference<css::xforms::XModel>& xModel );
 
     /// get MIP evaluation contexts
     /// (only valid if control has already been bound)

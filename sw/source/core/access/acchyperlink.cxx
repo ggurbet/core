@@ -22,7 +22,9 @@
 #include <com/sun/star/frame/XDesktop.hpp>
 #include <com/sun/star/document/XLinkTargetSupplier.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <swurl.hxx>
+#include <vcl/keycodes.hxx>
 #include <vcl/svapp.hxx>
 #include <ndtxt.hxx>
 #include <txtinet.hxx>
@@ -199,8 +201,7 @@ sal_Bool SAL_CALL SwAccessibleHyperlink::isValid(  )
                     uno::UNO_QUERY );
                 if( !xDesktop.is() )
                     return false;
-                uno::Reference< lang::XComponent > xComp;
-                xComp = xDesktop->getCurrentComponent();
+                uno::Reference< lang::XComponent > xComp = xDesktop->getCurrentComponent();
                 if( !xComp.is() )
                     return false;
                 uno::Reference< css::document::XLinkTargetSupplier >  xLTS(xComp, uno::UNO_QUERY);

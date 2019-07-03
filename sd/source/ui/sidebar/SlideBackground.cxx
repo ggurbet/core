@@ -43,19 +43,21 @@
 #include <svx/colorbox.hxx>
 #include <svx/gallery.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/pageitem.hxx>
 #include <unotools/pathoptions.hxx>
 #include <tools/urlobj.hxx>
 #include <sfx2/sidebar/Theme.hxx>
 #include <app.hrc>
 #include <editeng/paperinf.hxx>
+#include <svx/xflgrit.hxx>
 #include <svx/rulritem.hxx>
 #include <svx/svxids.hrc>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xgrad.hxx>
 #include <svx/xbitmap.hxx>
 #include <svx/xflbckit.hxx>
 #include <svx/xbtmpit.hxx>
-#include <svx/xattr.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/svdpage.hxx>
 #include <sfx2/bindings.hxx>
@@ -66,7 +68,6 @@
 #include <sfx2/sidebar/Panel.hxx>
 #include <algorithm>
 #include <EventMultiplexer.hxx>
-#include <vcl/salbtype.hxx>
 #include <vcl/EnumContext.hxx>
 
 #include <editeng/ulspitem.hxx>
@@ -298,6 +299,14 @@ void SlideBackground::HandleContextChange(
             mpBackgroundLabel->Show();
             mpInsertImage->Show();
         }
+
+        // The Insert Image button in the sidebar issues .uno:SelectBackground,
+        // which when invoked without arguments will open the file-open-dialog
+        // to prompt the user to select a file. This is useless in LOOL.
+        // Hide for now so the user will only be able to use the menu to insert
+        // background image, which prompts the user for file selection in the browser.
+        if (comphelper::LibreOfficeKit::isActive())
+            mpInsertImage->Hide();
 
         // Need to do a relayouting, otherwise the panel size is not updated after show / hide controls
         sfx2::sidebar::Panel* pPanel = dynamic_cast<sfx2::sidebar::Panel*>(GetParent());
@@ -865,7 +874,7 @@ void SlideBackground::NotifyItemUpdate(
             if (pSizeItem)
             {
                 Size aPaperSize = pSizeItem->GetSize();
-                if(mpPaperOrientation->GetSelectedEntryPos() == 0)
+                if (mpPaperOrientation->GetSelectedEntryPos() == 0)
                    Swap(aPaperSize);
 
                 Paper ePaper = SvxPaperInfo::GetSvxPaper(aPaperSize, meUnit);

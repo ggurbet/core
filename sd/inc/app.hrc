@@ -140,6 +140,7 @@
 #define SID_NOTES_MODE                      (SID_SD_START+69)
 #define SID_HANDOUT_MASTER_MODE             (SID_SD_START+70)
 #define SID_LINEEND_POLYGON                 (SID_SD_START+71)
+#define SID_EXECUTE_ANIMATION_EFFECT        (SID_SD_START+72)
     // FREE
 #define SID_SWITCH_POINTEDIT                (SID_SD_START+74)
     // FREE
@@ -460,6 +461,7 @@
 #define SID_HIDE_LAST_LEVEL                 (SID_SD_START+448)
 #define SID_SHOW_NEXT_LEVEL                 (SID_SD_START+449)
 #define SID_PRESENTATION_MINIMIZER          (SID_SD_START+450)
+#define SID_REGENERATE_DIAGRAM              (SID_SD_START+451)
 #endif
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

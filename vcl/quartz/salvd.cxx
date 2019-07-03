@@ -65,9 +65,9 @@ std::unique_ptr<SalVirtualDevice> AquaSalInstance::CreateVirtualDevice( SalGraph
 AquaSalVirtualDevice::AquaSalVirtualDevice( AquaSalGraphics* pGraphic, long &nDX, long &nDY,
                                             DeviceFormat eFormat, const SystemGraphicsData *pData )
   : mbGraphicsUsed( false )
-  , mxBitmapContext( nullptr )
   , mnBitmapDepth( 0 )
-  , mxLayer( nullptr )
+  , mnWidth(0)
+  , mnHeight(0)
 {
     SAL_INFO( "vcl.virdev", "AquaSalVirtualDevice::AquaSalVirtualDevice() this=" << this
               << " size=(" << nDX << "x" << nDY << ") bitcount=" << static_cast<int>(eFormat) <<
@@ -88,11 +88,11 @@ AquaSalVirtualDevice::AquaSalVirtualDevice( AquaSalGraphics* pGraphic, long &nDX
         {
             nDY = 1;
         }
-        mxLayer = CGLayerCreateWithContext( pData->rCGContext, CGSizeMake( nDX, nDY), nullptr );
+        maLayer.set(CGLayerCreateWithContext(pData->rCGContext, CGSizeMake(nDX, nDY), nullptr));
         // Interrogate the context as to its real size
-        if (mxLayer)
+        if (maLayer.isSet())
         {
-            const CGSize aSize = CGLayerGetSize( mxLayer );
+            const CGSize aSize = CGLayerGetSize(maLayer.get());
             nDX = static_cast<long>(aSize.width);
             nDY = static_cast<long>(aSize.height);
         }
@@ -101,9 +101,8 @@ AquaSalVirtualDevice::AquaSalVirtualDevice( AquaSalGraphics* pGraphic, long &nDX
             nDX = 0;
             nDY = 0;
         }
-        SAL_INFO( "vcl.cg",  "CGLayerCreateWithContext(" << pData->rCGContext <<
-                  "," << CGSizeMake( nDX, nDY) << ",NULL) = " << mxLayer );
-        mpGraphics->SetVirDevGraphics( mxLayer, pData->rCGContext );
+
+        mpGraphics->SetVirDevGraphics(maLayer, pData->rCGContext);
     }
     else
     {
@@ -164,28 +163,26 @@ void AquaSalVirtualDevice::Destroy()
     if( mbForeignContext )
     {
         // Do not delete mxContext that we have received from outside VCL
-        mxLayer = nullptr;
+        maLayer.set(nullptr);
         return;
     }
 
-    if( mxLayer )
+    if (maLayer.isSet())
     {
         if( mpGraphics )
         {
-            mpGraphics->SetVirDevGraphics( nullptr, nullptr );
+            mpGraphics->SetVirDevGraphics(nullptr, nullptr);
         }
-        SAL_INFO( "vcl.cg",  "CGLayerRelease(" << mxLayer << ")" );
-        CGLayerRelease( mxLayer );
-        mxLayer = nullptr;
+        CGLayerRelease(maLayer.get());
+        maLayer.set(nullptr);
     }
 
-    if( mxBitmapContext )
+    if (maBitmapContext.isSet())
     {
-        void* pRawData = CGBitmapContextGetData( mxBitmapContext );
-        std::free( pRawData );
-        SAL_INFO( "vcl.cg",  "CGContextRelease(" << mxBitmapContext << ")" );
-        CGContextRelease( mxBitmapContext );
-        mxBitmapContext = nullptr;
+        void* pRawData = CGBitmapContextGetData(maBitmapContext.get());
+        std::free(pRawData);
+        CGContextRelease(maBitmapContext.get());
+        maBitmapContext.set(nullptr);
     }
 }
 
@@ -215,10 +212,9 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
         return true;
     }
 
-    if( mxLayer )
+    if (maLayer.isSet())
     {
-        const CGSize aSize = CGLayerGetSize( mxLayer );
-        SAL_INFO( "vcl.cg",  "CGlayerGetSize(" << mxLayer << ") = " << aSize );
+        const CGSize aSize = CGLayerGetSize(maLayer.get());
         if( (nDX == aSize.width) && (nDY == aSize.height) )
         {
             // Yay, we do not have to do anything :)
@@ -228,19 +224,21 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
 
     Destroy();
 
+    mnWidth = nDX;
+    mnHeight = nDY;
+
     // create a Quartz layer matching to the intended virdev usage
-    CGContextRef xCGContext = nullptr;
+    CGContextHolder xCGContextHolder;
     if( mnBitmapDepth && (mnBitmapDepth < 16) )
     {
         mnBitmapDepth = 8;  // TODO: are 1bit vdevs worth it?
         const int nBytesPerRow = (mnBitmapDepth * nDX + 7) / 8;
 
         void* pRawData = std::malloc( nBytesPerRow * nDY );
-        mxBitmapContext = CGBitmapContextCreate( pRawData, nDX, nDY,
+        maBitmapContext.set(CGBitmapContextCreate( pRawData, nDX, nDY,
                                                  mnBitmapDepth, nBytesPerRow,
-                                                 GetSalData()->mxGraySpace, kCGImageAlphaNone );
-        SAL_INFO( "vcl.cg",  "CGBitmapContextCreate(" << nDX << "x" << nDY << "x" << mnBitmapDepth << ") = " << mxBitmapContext );
-        xCGContext = mxBitmapContext;
+                                                 GetSalData()->mxGraySpace, kCGImageAlphaNone));
+        xCGContextHolder = maBitmapContext;
     }
     else
     {
@@ -263,13 +261,13 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
                 NSGraphicsContext* pNSContext = [NSGraphicsContext graphicsContextWithWindow: pNSWindow];
                 if( pNSContext )
                 {
-                    xCGContext = [pNSContext CGContext];
+                    xCGContextHolder.set([pNSContext CGContext]);
                 }
             }
         }
 #endif
 
-        if (!xCGContext)
+        if (!xCGContextHolder.isSet())
         {
             // assert(Application::IsBitmapRendering());
             mnBitmapDepth = 32;
@@ -281,40 +279,25 @@ bool AquaSalVirtualDevice::SetSize( long nDX, long nDY )
 #else
             const int nFlags = kCGImageAlphaNoneSkipFirst | kCGImageByteOrder32Little;
 #endif
-            mxBitmapContext = CGBitmapContextCreate(pRawData, nDX, nDY, 8, nBytesPerRow,
-                                                    GetSalData()->mxRGBSpace, nFlags);
-            SAL_INFO( "vcl.cg", "CGBitmapContextCreate(" << nDX << "x" << nDY << "x32) = " << mxBitmapContext );
-            xCGContext = mxBitmapContext;
+            maBitmapContext.set(CGBitmapContextCreate(pRawData, nDX, nDY, 8, nBytesPerRow,
+                                                      GetSalData()->mxRGBSpace, nFlags));
+            xCGContextHolder = maBitmapContext;
         }
     }
 
-    SAL_WARN_IF( !xCGContext, "vcl.quartz", "No context" );
+    SAL_WARN_IF(!xCGContextHolder.isSet(), "vcl.quartz", "No context");
 
     const CGSize aNewSize = { static_cast<CGFloat>(nDX), static_cast<CGFloat>(nDY) };
-    mxLayer = CGLayerCreateWithContext( xCGContext, aNewSize, nullptr );
-    SAL_INFO( "vcl.cg",  "CGLayerCreateWithContext(" << xCGContext << "," << aNewSize << ",NULL) = " << mxLayer );
+    maLayer.set(CGLayerCreateWithContext(xCGContextHolder.get(), aNewSize, nullptr));
 
-    if( mxLayer && mpGraphics )
+    if (maLayer.isSet() && mpGraphics)
     {
         // get the matching Quartz context
-        CGContextRef xDrawContext = CGLayerGetContext( mxLayer );
-        SAL_INFO( "vcl.cg",  "CGLayerGetContext(" << mxLayer << ") = " << xDrawContext );
-        mpGraphics->SetVirDevGraphics( mxLayer, xDrawContext, mnBitmapDepth );
+        CGContextRef xDrawContext = CGLayerGetContext( maLayer.get() );
+        mpGraphics->SetVirDevGraphics(maLayer.get(), xDrawContext, mnBitmapDepth);
     }
 
-    return (mxLayer != nullptr);
-}
-
-long AquaSalVirtualDevice::GetWidth() const
-{
-    const CGSize aSize = CGLayerGetSize( mxLayer );
-    return aSize.width;
-}
-
-long AquaSalVirtualDevice::GetHeight() const
-{
-    const CGSize aSize = CGLayerGetSize( mxLayer );
-    return aSize.height;
+    return maLayer.isSet();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

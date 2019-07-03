@@ -143,7 +143,7 @@ PropBrw::PropBrw(const Reference< XComponentContext >& _xORB, vcl::Window* pPare
                 OSL_ENSURE(m_xBrowserComponentWindow.is(), "PropBrw::PropBrw: attached the controller, but have no component window!");
                 if ( bEnableHelpSection )
                 {
-                    uno::Reference< inspection::XObjectInspector > xInspector( m_xBrowserController, uno::UNO_QUERY_THROW );
+                    uno::Reference< inspection::XObjectInspector > xInspector( m_xBrowserController, uno::UNO_SET_THROW );
                     uno::Reference< inspection::XObjectInspectorUI > xInspectorUI( xInspector->getInspectorUI() );
                     uno::Reference< uno::XInterface > xDefaultHelpProvider( inspection::DefaultHelpProvider::create( m_xInspectorContext, xInspectorUI ) );
                 }
@@ -328,7 +328,7 @@ void PropBrw::implSetNewObject( const uno::Sequence< Reference<uno::XInterface> 
 OUString PropBrw::GetHeadlineName( const uno::Sequence< Reference<uno::XInterface> >& _aObjects )
 {
     OUString aName;
-    if ( !_aObjects.getLength() )
+    if ( !_aObjects.hasElements() )
     {
         aName = RptResId(RID_STR_BRWTITLE_NO_PROPERTIES);
     }
@@ -510,7 +510,7 @@ void PropBrw::Update( OSectionView* pNewView )
             }
         }
 
-        if ( aMarkedObjects.getLength() ) // multiple selection
+        if ( aMarkedObjects.hasElements() ) // multiple selection
         {
             m_xLastSection.clear();
             implSetNewObject( aMarkedObjects );

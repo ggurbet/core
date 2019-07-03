@@ -306,7 +306,7 @@ sal_Int32 CustomAnimationEffect::getNumberOfSubitems( const Any& aTarget, sal_In
             Reference < i18n::XBreakIterator > xBI = i18n::BreakIterator::create(xContext);
 
             Reference< XEnumerationAccess > xEA( xShape, UNO_QUERY_THROW );
-            Reference< XEnumeration > xEnumeration( xEA->createEnumeration(), UNO_QUERY_THROW );
+            Reference< XEnumeration > xEnumeration( xEA->createEnumeration(), UNO_SET_THROW );
             css::lang::Locale aLocale;
             const OUString aStrLocaleName( "CharLocale" );
             Reference< XTextRange > xParagraph;
@@ -999,7 +999,7 @@ void CustomAnimationEffect::setIterateType( sal_Int16 nIterateType )
 
             Reference< XTimeContainer > xOldContainer( mxNode, UNO_QUERY_THROW );
             Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY_THROW );
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
             while( xEnumeration->hasMoreElements() )
             {
                 Reference< XAnimationNode > xChildNode( xEnumeration->nextElement(), UNO_QUERY_THROW );
@@ -1039,7 +1039,7 @@ void CustomAnimationEffect::setIterateType( sal_Int16 nIterateType )
             }
 
             Reference< XEnumerationAccess > xEA( mxNode, UNO_QUERY_THROW );
-            Reference< XEnumeration > xE( xEA->createEnumeration(), UNO_QUERY_THROW );
+            Reference< XEnumeration > xE( xEA->createEnumeration(), UNO_SET_THROW );
             while( xE->hasMoreElements() )
             {
                 Reference< XAnimate > xAnimate( xE->nextElement(), UNO_QUERY );
@@ -1092,7 +1092,7 @@ OUString CustomAnimationEffect::getPath() const
     if( mxNode.is() ) try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( xEnumeration->hasMoreElements() )
         {
             Reference< XAnimateMotion > xMotion( xEnumeration->nextElement(), UNO_QUERY );
@@ -1119,7 +1119,7 @@ void CustomAnimationEffect::setPath( const OUString& rPath )
     try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( mxNode, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( xEnumeration->hasMoreElements() )
         {
             Reference< XAnimateMotion > xMotion( xEnumeration->nextElement(), UNO_QUERY );
@@ -1452,7 +1452,7 @@ static Reference< XCommand > findCommandNode( const Reference< XAnimationNode >&
     if( xRootNode.is() ) try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( xRootNode, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( !xCommand.is() && xEnumeration->hasMoreElements() )
         {
             Reference< XAnimationNode > xNode( xEnumeration->nextElement(), UNO_QUERY );
@@ -1836,14 +1836,14 @@ void EffectSequenceHelper::implRebuild()
     {
         // first we delete all time containers on the first two levels
         Reference< XEnumerationAccess > xEnumerationAccess( mxSequenceRoot, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( xEnumeration->hasMoreElements() )
         {
             Reference< XAnimationNode > xChildNode( xEnumeration->nextElement(), UNO_QUERY_THROW );
             Reference< XTimeContainer > xChildContainer( xChildNode, UNO_QUERY_THROW );
 
             Reference< XEnumerationAccess > xChildEnumerationAccess( xChildNode, UNO_QUERY_THROW );
-            Reference< XEnumeration > xChildEnumeration( xChildEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+            Reference< XEnumeration > xChildEnumeration( xChildEnumerationAccess->createEnumeration(), UNO_SET_THROW );
             while( xChildEnumeration->hasMoreElements() )
             {
                 Reference< XAnimationNode > xNode( xChildEnumeration->nextElement(), UNO_QUERY_THROW );
@@ -1991,7 +1991,7 @@ void stl_process_after_effect_node_func(AfterEffectNode const & rNode)
         if( rNode.mxNode.is() && rNode.mxMaster.is() )
         {
             // set master node
-            Reference< XAnimationNode > xMasterNode( rNode.mxMaster, UNO_QUERY_THROW );
+            Reference< XAnimationNode > xMasterNode( rNode.mxMaster, UNO_SET_THROW );
             Sequence< NamedValue > aUserData( rNode.mxNode->getUserData() );
             sal_Int32 nSize = aUserData.getLength();
             aUserData.realloc(nSize+1);
@@ -2025,7 +2025,7 @@ void stl_process_after_effect_node_func(AfterEffectNode const & rNode)
                     if( implFindNextContainer( xSequenceContainer, xClickContainer, xNextClickContainer ) )
                     {
                         Reference< XEnumerationAccess > xEnumerationAccess( xNextClickContainer, UNO_QUERY_THROW );
-                        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+                        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
                         if( xEnumeration->hasMoreElements() )
                         {
                             // the next container is the first child container
@@ -2065,7 +2065,7 @@ void stl_process_after_effect_node_func(AfterEffectNode const & rNode)
                 {
                     // find begin time of first element
                     Reference< XEnumerationAccess > xEnumerationAccess( xNextContainer, UNO_QUERY_THROW );
-                    Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+                    Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
                     if( xEnumeration->hasMoreElements() )
                     {
                         Reference< XAnimationNode > xChild;
@@ -2176,6 +2176,39 @@ void EffectSequenceHelper::insertTextRange( const css::uno::Any& aTarget )
         rebuild();
 }
 
+static bool isParagraphTargetTextEmpty( ParagraphTarget aParaTarget )
+{
+    // get paragraph
+    Reference< XText > xText ( aParaTarget.Shape, UNO_QUERY );
+    if( xText.is() )
+    {
+        Reference< XEnumerationAccess > xEA( xText, UNO_QUERY );
+        if( xEA.is() )
+        {
+            Reference< XEnumeration > xEnumeration( xEA->createEnumeration(), UNO_QUERY );
+            if( xEnumeration.is() )
+            {
+                // advance to the Nth paragraph
+                sal_Int32 nPara = aParaTarget.Paragraph;
+                while( xEnumeration->hasMoreElements() && nPara-- )
+                    xEnumeration->nextElement();
+
+                // get Nth paragraph's text and check if it's empty
+                if( xEnumeration->hasMoreElements() )
+                {
+                    Reference< XTextRange > xRange( xEnumeration->nextElement(), UNO_QUERY );
+                    if( xRange.is() )
+                    {
+                        OUString text = xRange->getString();
+                        return text.isEmpty();
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 void EffectSequenceHelper::disposeTextRange( const css::uno::Any& aTarget )
 {
     ParagraphTarget aParaTarget;
@@ -2183,49 +2216,67 @@ void EffectSequenceHelper::disposeTextRange( const css::uno::Any& aTarget )
         return;
 
     bool bChanges = false;
-    bool bErased = false;
 
-    EffectSequence::iterator aIter( maEffects.begin() );
-    while( aIter != maEffects.end() )
+    // building list of effects for target shape; process effects not on target shape
+    EffectSequence aTargetParagraphEffects;
+    for( const auto &pEffect : maEffects )
     {
-        Any aIterTarget( (*aIter)->getTarget() );
+        Any aIterTarget( pEffect->getTarget() );
         if( aIterTarget.getValueType() == ::cppu::UnoType<ParagraphTarget>::get() )
         {
             ParagraphTarget aIterParaTarget;
             if( (aIterTarget >>= aIterParaTarget) && (aIterParaTarget.Shape == aParaTarget.Shape) )
             {
-                if( aIterParaTarget.Paragraph == aParaTarget.Paragraph )
-                {
-                    // delete this effect if it targets the disposed paragraph directly
-                    (*aIter)->setEffectSequence( nullptr );
-                    aIter = maEffects.erase( aIter );
-                    bChanges = true;
-                    bErased = true;
-                }
-                else
-                {
-                    if( aIterParaTarget.Paragraph > aParaTarget.Paragraph )
-                    {
-                        // shift all paragraphs after disposed paragraph
-                        aIterParaTarget.Paragraph--;
-                        (*aIter)->setTarget( makeAny( aIterParaTarget ) );
-                    }
-                }
+                aTargetParagraphEffects.push_back(pEffect);
             }
         }
-        else if( (*aIter)->getTargetShape() == aParaTarget.Shape )
+        else if( pEffect->getTargetShape() == aParaTarget.Shape )
         {
-            bChanges |= (*aIter)->checkForText();
+            bChanges |= pEffect->checkForText();
+        }
+    }
+
+    // select effect to delete:
+    // if paragraph before target is blank, then delete its animation effect (if any) instead
+    ParagraphTarget aPreviousParagraph = aParaTarget;
+    --aPreviousParagraph.Paragraph;
+    bool bIsPreviousParagraphEmpty = isParagraphTargetTextEmpty( aPreviousParagraph );
+    sal_Int16 anParaNumToDelete = bIsPreviousParagraphEmpty ? aPreviousParagraph.Paragraph : aParaTarget.Paragraph;
+
+    // update effects
+    for( const auto &pEffect : aTargetParagraphEffects )
+    {
+        Any aIterTarget( pEffect->getTarget() );
+
+        ParagraphTarget aIterParaTarget;
+        aIterTarget >>= aIterParaTarget;
+
+        // delete effect for target paragraph (may have effects in more than one text group)
+        if( aIterParaTarget.Paragraph == anParaNumToDelete )
+        {
+            auto aItr = find( pEffect );
+            DBG_ASSERT( aItr != maEffects.end(), "sd::EffectSequenceHelper::disposeTextRange(), Expected effect missing.");
+            if( aItr != maEffects.end() )
+            {
+                (*aItr)->setEffectSequence( nullptr );
+                maEffects.erase(aItr);
+                bChanges = true;
+            }
         }
 
-        if( bErased )
-            bErased = false;
-        else
-            ++aIter;
+        // shift all paragraphs after disposed paragraph
+        if( aIterParaTarget.Paragraph > anParaNumToDelete )
+        {
+            --aIterParaTarget.Paragraph;
+            pEffect->setTarget( makeAny( aIterParaTarget ) );
+            bChanges = true;
+        }
     }
 
     if( bChanges )
+    {
         rebuild();
+    }
 }
 
 CustomAnimationTextGroup::CustomAnimationTextGroup( const Reference< XShape >& rTarget, sal_Int32 nGroupId )
@@ -2420,7 +2471,7 @@ void EffectSequenceHelper::createTextGroupParagraphEffects( const CustomAnimatio
         EffectSequence::iterator aInsertIter( find( pEffect ) );
 
         Reference< XEnumerationAccess > xText( xTarget, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xText->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xText->createEnumeration(), UNO_SET_THROW );
 
         std::deque< sal_Int16 > aParaList;
         sal_Int16 nPara;
@@ -2781,7 +2832,7 @@ void EffectSequenceHelper::create( const css::uno::Reference< css::animations::X
     try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( xNode, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( xEnumeration->hasMoreElements() )
         {
             Reference< XAnimationNode > xChildNode( xEnumeration->nextElement(), UNO_QUERY_THROW );
@@ -2804,7 +2855,7 @@ void EffectSequenceHelper::createEffectsequence( const Reference< XAnimationNode
     try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( xNode, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( xEnumeration->hasMoreElements() )
         {
             Reference< XAnimationNode > xChildNode( xEnumeration->nextElement(), UNO_QUERY_THROW );
@@ -2828,7 +2879,7 @@ void EffectSequenceHelper::createEffects( const Reference< XAnimationNode >& xNo
     try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( xNode, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( xEnumeration->hasMoreElements() )
         {
             Reference< XAnimationNode > xChildNode( xEnumeration->nextElement(), UNO_QUERY_THROW );
@@ -3016,7 +3067,7 @@ void MainSequence::createMainSequence()
     if( mxTimingRootNode.is() ) try
     {
         Reference< XEnumerationAccess > xEnumerationAccess( mxTimingRootNode, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
         while( xEnumeration->hasMoreElements() )
         {
             Reference< XAnimationNode > xChildNode( xEnumeration->nextElement(), UNO_QUERY_THROW );
@@ -3246,7 +3297,7 @@ void EffectSequenceHelper::onTextChanged( const Reference< XShape >& xShape )
         });
 
     if( bChanges )
-        EffectSequenceHelper::implRebuild();
+        rebuild();
 }
 
 void MainSequence::rebuild()
@@ -3397,7 +3448,7 @@ InteractiveSequence::InteractiveSequence( const Reference< XTimeContainer >& xSe
         if( mxSequenceRoot.is() )
         {
             Reference< XEnumerationAccess > xEnumerationAccess( mxSequenceRoot, UNO_QUERY_THROW );
-            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+            Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
             while( !mxEventSource.is() && xEnumeration->hasMoreElements() )
             {
                 Reference< XAnimationNode > xChildNode( xEnumeration->nextElement(), UNO_QUERY_THROW );

@@ -86,6 +86,7 @@
 #include <scriptinfo.hxx>
 #include <tools/datetime.hxx>
 #include <tools/urlobj.hxx>
+#include <svl/itemprop.hxx>
 #include <svl/listener.hxx>
 #include <svx/dataaccessdescriptor.hxx>
 #include <o3tl/any.hxx>
@@ -988,7 +989,7 @@ void SAL_CALL SwXFieldMaster::dispose()
     const SwFieldTypes* pTypes = m_pImpl->m_pDoc->getIDocumentFieldsAccess().GetFieldTypes();
     for( size_t i = 0; i < pTypes->size(); i++ )
     {
-        if((*pTypes)[i] == pFieldType)
+        if((*pTypes)[i].get()== pFieldType)
             nTypeIdx = i;
     }
 
@@ -1046,7 +1047,7 @@ OUString SwXFieldMaster::GetProgrammaticName(const SwFieldType& rType, SwDoc& rD
         const SwFieldTypes* pTypes = rDoc.getIDocumentFieldsAccess().GetFieldTypes();
         for( size_t i = 0; i <= size_t(INIT_FLDTYPES); i++ )
         {
-            if((*pTypes)[i] == &rType)
+            if((*pTypes)[i].get() == &rType)
             {
                 return SwStyleNameMapper::GetProgName( sName, SwGetPoolIdFromName::TxtColl );
             }
@@ -1117,32 +1118,28 @@ struct SwFieldProperties_Impl
 };
 
 class SwXTextField::Impl
-    : public SwClient
+    : public SvtListener
 {
 private:
     ::osl::Mutex m_Mutex; // just for OInterfaceContainerHelper2
+    SwFieldType* m_pFieldType;
+    SwFormatField* m_pFormatField;
 
 public:
     uno::WeakReference<uno::XInterface> m_wThis;
     ::comphelper::OInterfaceContainerHelper2 m_EventListeners;
 
-    SwFormatField const*            m_pFormatField;
-    SwDoc *                         m_pDoc;
+    SwDoc* m_pDoc;
     rtl::Reference<SwTextAPIObject> m_xTextObject;
-
-    bool                m_bIsDescriptor;
-    // required to access field master of not yet inserted fields
-    SwClient            m_FieldTypeClient;
-    bool                m_bCallUpdate;
-    SwServiceType const       m_nServiceId;
-    OUString            m_sTypeName;
+    bool m_bIsDescriptor;
+    bool m_bCallUpdate;
+    SwServiceType const m_nServiceId;
+    OUString m_sTypeName;
     std::unique_ptr<SwFieldProperties_Impl> m_pProps;
 
-    Impl(SwDoc *const pDoc, SwFormatField *const pFormat,
-            SwServiceType nServiceId)
-        : SwClient(pFormat)
+    Impl(SwDoc *const pDoc, SwFormatField *const pFormat, SwServiceType nServiceId)
+        : m_pFormatField(pFormat)
         , m_EventListeners(m_Mutex)
-        , m_pFormatField(pFormat)
         , m_pDoc(pDoc)
         , m_bIsDescriptor(pFormat == nullptr)
         , m_bCallUpdate(false)
@@ -1150,7 +1147,10 @@ public:
                 ? lcl_GetServiceForField(*pFormat->GetField())
                 : nServiceId)
         , m_pProps(pFormat ? nullptr : new SwFieldProperties_Impl)
-    { }
+    {
+        if(m_pFormatField)
+            StartListening(m_pFormatField->GetNotifier());
+    }
 
     virtual ~Impl() override
     {
@@ -1160,13 +1160,51 @@ public:
         }
     }
 
+    void SetFormatField(SwFormatField* pFormatField, SwDoc* pDoc)
+    {
+        m_pFormatField = pFormatField;
+        m_pDoc = pDoc;
+        if(m_pFormatField)
+        {
+            EndListeningAll();
+            StartListening(m_pFormatField->GetNotifier());
+        }
+    }
+    SwFormatField* GetFormatField()
+    {
+        return m_pFormatField;
+    }
+    bool IsDescriptor() const
+    {
+        // ideally should be: !m_pFormatField && m_pDoc
+        // but: SwXServiceProvider::MakeInstance() passes nullptr SwDoc, see comment there
+        return m_bIsDescriptor;
+    }
     void Invalidate();
 
-    const SwField*      GetField() const;
+    const SwField* GetField() const;
 
-protected:
-    // SwClient
-    virtual void Modify(SfxPoolItem const* pOld, SfxPoolItem const* pNew) override;
+    SwFieldType* GetFieldType() const
+    {
+        if(!m_pDoc)
+            throw uno::RuntimeException();
+
+        if (IsDescriptor())
+            return m_pFieldType;
+        return m_pFormatField->GetField()->GetTyp();
+    }
+    void SetFieldType(SwFieldType& rType)
+    {
+        EndListeningAll();
+        m_pFieldType = &rType;
+        StartListening(m_pFieldType->GetNotifier());
+    }
+    void ClearFieldType()
+    {
+        SvtListener::EndListeningAll();
+        m_pFieldType = nullptr;
+    }
+    virtual void Notify(const SfxHint&) override;
 };
 
 namespace
@@ -1250,12 +1288,67 @@ SwServiceType SwXTextField::GetServiceId() const
     return m_pImpl->m_nServiceId;
 }
 
+/** Convert between SwSetExpField with InputFlag false and InputFlag true.
+    Unfortunately the InputFlag is exposed in the API as "Input" property
+    and is mutable; in the UI and in ODF these are 2 different types of
+    fields, so the API design is very questionable.
+    In order to keep the mutable property, the whole thing has to be
+    reconstructed from scratch, to replace the SwTextField hint with
+    SwTextInputField or vice versa.
+    The SwFormatField will be replaced - it must be, because the Which
+    changes - but the SwXTextField *must not* be disposed in the operation,
+    it has to be disconnected first and at the end connected to the
+    new instance!
+ */
+void SwXTextField::TransmuteLeadToInputField(SwSetExpField & rField)
+{
+    assert(rField.GetFormatField()->Which() == (rField.GetInputFlag() ? RES_TXTATR_INPUTFIELD : RES_TXTATR_FIELD));
+    uno::Reference<text::XTextField> const xField(
+        rField.GetFormatField()->GetXTextField());
+    SwXTextField *const pXField = xField.is()
+        ? reinterpret_cast<SwXTextField*>(
+            sal::static_int_cast<sal_IntPtr>(
+                uno::Reference<lang::XUnoTunnel>(xField, uno::UNO_QUERY_THROW)
+                    ->getSomething(getUnoTunnelId())))
+        : nullptr;
+    if (pXField)
+        pXField->m_pImpl->SetFormatField(nullptr, nullptr);
+    SwTextField *const pOldAttr(rField.GetFormatField()->GetTextField());
+    SwSetExpField tempField(rField);
+    tempField.SetInputFlag(!rField.GetInputFlag());
+    SwFormatField tempFormat(tempField);
+    assert(tempFormat.GetField() != &rField);
+    assert(tempFormat.GetField() != &tempField); // this copies it again?
+    assert(tempFormat.Which() == (static_cast<SwSetExpField const*>(tempFormat.GetField())->GetInputFlag() ? RES_TXTATR_INPUTFIELD : RES_TXTATR_FIELD));
+    SwTextNode & rNode(pOldAttr->GetTextNode());
+    std::shared_ptr<SwPaM> pPamForTextField;
+    IDocumentContentOperations & rIDCO(rNode.GetDoc()->getIDocumentContentOperations());
+    SwTextField::GetPamForTextField(*pOldAttr, pPamForTextField);
+    assert(pPamForTextField);
+    sal_Int32 const nStart(pPamForTextField->Start()->nContent.GetIndex());
+    rIDCO.DeleteAndJoin(*pPamForTextField);
+    // ATTENTION: rField is dead now! hope nobody accesses it...
+    bool bSuccess = rIDCO.InsertPoolItem(*pPamForTextField, tempFormat);
+    assert(bSuccess);
+    (void) bSuccess;
+    SwTextField const* pNewAttr(rNode.GetFieldTextAttrAt(nStart, true));
+    assert(pNewAttr);
+    SwFormatField const& rNewFormat(pNewAttr->GetFormatField());
+    assert(rNewFormat.Which() == (static_cast<SwSetExpField const*>(rNewFormat.GetField())->GetInputFlag() ? RES_TXTATR_INPUTFIELD : RES_TXTATR_FIELD));
+    assert(static_cast<SwSetExpField const*>(rNewFormat.GetField())->GetInputFlag() == (dynamic_cast<SwTextInputField const*>(pNewAttr) != nullptr));
+    if (xField.is())
+    {
+        pXField->m_pImpl->SetFormatField(const_cast<SwFormatField*>(&rNewFormat), rNode.GetDoc());
+        const_cast<SwFormatField&>(rNewFormat).SetXTextField(xField);
+    }
+}
+
 void SAL_CALL SwXTextField::attachTextFieldMaster(
         const uno::Reference< beans::XPropertySet > & xFieldMaster)
 {
     SolarMutexGuard aGuard;
 
-    if (!m_pImpl->m_bIsDescriptor)
+    if (!m_pImpl->IsDescriptor())
         throw uno::RuntimeException();
     uno::Reference< lang::XUnoTunnel > xMasterTunnel(xFieldMaster, uno::UNO_QUERY);
     if (!xMasterTunnel.is())
@@ -1270,26 +1363,15 @@ void SAL_CALL SwXTextField::attachTextFieldMaster(
         throw lang::IllegalArgumentException();
     }
     m_pImpl->m_sTypeName = pFieldType->GetName();
-    pFieldType->Add( &m_pImpl->m_FieldTypeClient );
+    m_pImpl->SetFieldType(*pFieldType);
 }
 
 uno::Reference< beans::XPropertySet > SAL_CALL
 SwXTextField::getTextFieldMaster()
 {
     SolarMutexGuard aGuard;
-    SwFieldType* pType = nullptr;
-    if (m_pImpl->m_bIsDescriptor && m_pImpl->m_FieldTypeClient.GetRegisteredIn())
-    {
-        pType = static_cast<SwFieldType*>(
-                    m_pImpl->m_FieldTypeClient.GetRegisteredIn());
-    }
-    else
-    {
-        if (!m_pImpl->GetRegisteredIn())
-            throw uno::RuntimeException();
-        pType = m_pImpl->m_pFormatField->GetField()->GetTyp();
-    }
 
+    SwFieldType* pType = m_pImpl->GetFieldType();
     uno::Reference<beans::XPropertySet> const xRet(
             SwXFieldMaster::CreateXFieldMaster(m_pImpl->m_pDoc, pType));
     return xRet;
@@ -1311,7 +1393,7 @@ void SAL_CALL SwXTextField::attach(
         const uno::Reference< text::XTextRange > & xTextRange)
 {
     SolarMutexGuard aGuard;
-    if (m_pImpl->m_bIsDescriptor)
+    if (m_pImpl->IsDescriptor())
     {
     uno::Reference<lang::XUnoTunnel> xRangeTunnel( xTextRange, uno::UNO_QUERY);
     SwXTextRange* pRange = nullptr;
@@ -1849,7 +1931,7 @@ void SAL_CALL SwXTextField::attach(
             xField.reset(new SwAuthorityField(static_cast<SwAuthorityFieldType*>(
                         pDoc->getIDocumentFieldsAccess().InsertFieldType(type)),
                     OUString()));
-            if (m_pImpl->m_pProps->aPropSeq.getLength())
+            if (m_pImpl->m_pProps->aPropSeq.hasElements())
             {
                 uno::Any aVal;
                 aVal <<= m_pImpl->m_pProps->aPropSeq;
@@ -1938,7 +2020,7 @@ void SAL_CALL SwXTextField::attach(
         throw uno::RuntimeException("no SwTextAttr inserted?");  // could theoretically happen, if paragraph is full
 
     const SwFormatField& rField = pTextAttr->GetFormatField();
-    m_pImpl->m_pFormatField = &rField;
+    m_pImpl->SetFormatField(const_cast<SwFormatField*>(&rField), pDoc);
 
     if ( pTextAttr->Which() == RES_TXTATR_ANNOTATION
          && *aPam.GetPoint() != *aPam.GetMark() )
@@ -1955,20 +2037,17 @@ void SAL_CALL SwXTextField::attach(
 
     xField.reset();
 
-    assert(m_pImpl->m_pFormatField);
+    assert(m_pImpl->GetFormatField());
     m_pImpl->m_pDoc = pDoc;
-    const_cast<SwFormatField *>(m_pImpl->m_pFormatField)->Add(m_pImpl.get());
+    m_pImpl->GetFormatField()->SetXTextField(this);
+    m_pImpl->m_wThis = *this;
     m_pImpl->m_bIsDescriptor = false;
-    if (m_pImpl->m_FieldTypeClient.GetRegisteredIn())
-    {
-        m_pImpl->m_FieldTypeClient.GetRegisteredIn()
-            ->Remove(&m_pImpl->m_FieldTypeClient);
-    }
+    m_pImpl->ClearFieldType();
     m_pImpl->m_pProps.reset();
     if (m_pImpl->m_bCallUpdate)
         update();
     }
-    else if ( m_pImpl->m_pFormatField != nullptr
+    else if ( !m_pImpl->IsDescriptor()
               && m_pImpl->m_pDoc != nullptr
               && m_pImpl->m_nServiceId == SwServiceType::FieldTypeAnnotation )
     {
@@ -1976,20 +2055,20 @@ void SAL_CALL SwXTextField::attach(
         if ( !::sw::XTextRangeToSwPaM( aIntPam, xTextRange ) )
             throw lang::IllegalArgumentException();
 
-        // nothing to do, if the text range only covers the former annotation field
-        if ( aIntPam.Start()->nNode != aIntPam.End()->nNode
-             || aIntPam.Start()->nContent.GetIndex() != aIntPam.End()->nContent.GetIndex()-1 )
+        // Nothing to do, if the text range has a separate start and end, but they have the same
+        // value.
+        if (!aIntPam.HasMark() || *aIntPam.Start() != *aIntPam.End())
         {
             UnoActionContext aCont( m_pImpl->m_pDoc );
             // insert copy of annotation at new text range
-            std::unique_ptr<SwPostItField> pPostItField(static_cast< SwPostItField* >(m_pImpl->m_pFormatField->GetField()->CopyField().release()));
+            std::unique_ptr<SwPostItField> pPostItField(static_cast< SwPostItField* >(m_pImpl->GetFormatField()->GetField()->CopyField().release()));
             SwFormatField aFormatField( *pPostItField );
             pPostItField.reset();
             SwPaM aEnd( *aIntPam.End(), *aIntPam.End() );
             m_pImpl->m_pDoc->getIDocumentContentOperations().InsertPoolItem( aEnd, aFormatField );
             // delete former annotation
             {
-                const SwTextField* pTextField = m_pImpl->m_pFormatField->GetTextField();
+                const SwTextField* pTextField = m_pImpl->GetFormatField()->GetTextField();
                 SwTextNode& rTextNode = *pTextField->GetpTextNode();
                 SwPaM aPam( rTextNode, pTextField->GetStart() );
                 aPam.SetMark();
@@ -2001,7 +2080,7 @@ void SAL_CALL SwXTextField::attach(
                 SwTextField* pTextAttr = aEnd.GetNode().GetTextNode()->GetFieldTextAttrAt( aEnd.End()->nContent.GetIndex()-1, true );
                 if ( pTextAttr != nullptr )
                 {
-                    m_pImpl->m_pFormatField = &pTextAttr->GetFormatField();
+                    m_pImpl->SetFormatField(const_cast<SwFormatField*>(&pTextAttr->GetFormatField()), m_pImpl->m_pDoc);
 
                     if ( *aIntPam.GetPoint() != *aIntPam.GetMark() )
                     {
@@ -2032,7 +2111,7 @@ SwXTextField::getAnchor()
     if (!pField)
         return nullptr;
 
-    const SwTextField* pTextField = m_pImpl->m_pFormatField->GetTextField();
+    const SwTextField* pTextField = m_pImpl->GetFormatField()->GetTextField();
     if (!pTextField)
         throw uno::RuntimeException();
 
@@ -2048,9 +2127,9 @@ SwXTextField::getAnchor()
         IDocumentMarkAccess* pMarkAccess = m_pImpl->m_pDoc->getIDocumentMarkAccess();
         for (IDocumentMarkAccess::const_iterator_t ppMark = pMarkAccess->getAnnotationMarksBegin(); ppMark != pMarkAccess->getAnnotationMarksEnd(); ++ppMark)
         {
-            if (ppMark->get()->GetName() == pPostItField->GetName())
+            if ((*ppMark)->GetName() == pPostItField->GetName())
             {
-                pPamForTextField.reset(new SwPaM(ppMark->get()->GetMarkStart(), ppMark->get()->GetMarkEnd()));
+                pPamForTextField.reset(new SwPaM((*ppMark)->GetMarkStart(), (*ppMark)->GetMarkEnd()));
                 break;
             }
         }
@@ -2065,12 +2144,11 @@ void SAL_CALL SwXTextField::dispose()
 {
     SolarMutexGuard aGuard;
     SwField const*const pField = m_pImpl->GetField();
-    if(pField)
+    if(pField && m_pImpl->m_pDoc)
     {
         UnoActionContext aContext(m_pImpl->m_pDoc);
-
-        assert(m_pImpl->m_pFormatField->GetTextField() && "<SwXTextField::dispose()> - missing <SwTextField> --> crash");
-        SwTextField::DeleteTextField(*(m_pImpl->m_pFormatField->GetTextField()));
+        assert(m_pImpl->GetFormatField()->GetTextField() && "<SwXTextField::dispose()> - missing <SwTextField> --> crash");
+        SwTextField::DeleteTextField(*(m_pImpl->GetFormatField()->GetTextField()));
     }
 
     if (m_pImpl->m_xTextObject.is())
@@ -2078,6 +2156,7 @@ void SAL_CALL SwXTextField::dispose()
         m_pImpl->m_xTextObject->DisposeEditSource();
         m_pImpl->m_xTextObject.clear();
     }
+    m_pImpl->Invalidate();
 }
 
 void SAL_CALL SwXTextField::addEventListener(
@@ -2148,7 +2227,7 @@ SwXTextField::setPropertyValue(
         {
             SwDoc * pDoc = m_pImpl->m_pDoc;
             assert(pDoc);
-            const SwTextField* pTextField = m_pImpl->m_pFormatField->GetTextField();
+            const SwTextField* pTextField = m_pImpl->GetFormatField()->GetTextField();
             if(!pTextField)
                 throw uno::RuntimeException();
             SwPosition aPosition( pTextField->GetTextNode() );
@@ -2157,16 +2236,17 @@ SwXTextField::setPropertyValue(
         }
 
         //#i100374# notify SwPostIt about new field content
-        if (SwFieldIds::Postit == nWhich && m_pImpl->m_pFormatField)
+        assert(m_pImpl->GetFormatField());
+        if (SwFieldIds::Postit == nWhich)
         {
-            const_cast<SwFormatField*>(m_pImpl->m_pFormatField)->Broadcast(
+            m_pImpl->GetFormatField()->Broadcast(
                     SwFormatFieldHint( nullptr, SwFormatFieldHintWhich::CHANGED ));
         }
 
         // fdo#42073 notify SwTextField about changes of the expanded string
-        if (m_pImpl->m_pFormatField->GetTextField())
+        if (m_pImpl->GetFormatField()->GetTextField())
         {
-            m_pImpl->m_pFormatField->GetTextField()->ExpandTextField();
+            m_pImpl->GetFormatField()->GetTextField()->ExpandTextField();
         }
 
         //#i100374# changing a document field should set the modify flag
@@ -2331,9 +2411,9 @@ uno::Any SAL_CALL SwXTextField::getPropertyValue(const OUString& rPropertyName)
 
                 // get text node for the text field
                 const SwFormatField *pFieldFormat =
-                    (m_pImpl->GetField()) ? m_pImpl->m_pFormatField : nullptr;
+                    (m_pImpl->GetField()) ? m_pImpl->GetFormatField() : nullptr;
                 const SwTextField* pTextField = pFieldFormat
-                    ? m_pImpl->m_pFormatField->GetTextField() : nullptr;
+                    ? m_pImpl->GetFormatField()->GetTextField() : nullptr;
                 if(!pTextField)
                     throw uno::RuntimeException();
                 const SwTextNode& rTextNode = pTextField->GetTextNode();
@@ -2521,7 +2601,7 @@ void SAL_CALL SwXTextField::update()
             default: break;
         }
         // Text formatting has to be triggered.
-        const_cast<SwFormatField*>(m_pImpl->m_pFormatField)->ModifyNotification(nullptr, nullptr);
+        m_pImpl->GetFormatField()->ModifyNotification(nullptr, nullptr);
     }
     else
         m_pImpl->m_bCallUpdate = true;
@@ -2572,48 +2652,38 @@ uno::Sequence< OUString > SAL_CALL SwXTextField::getSupportedServiceNames()
 
 void SwXTextField::Impl::Invalidate()
 {
-    if (GetRegisteredIn())
+    EndListeningAll();
+    m_pFormatField = nullptr;
+    m_pDoc = nullptr;
+    uno::Reference<uno::XInterface> const xThis(m_wThis);
+    if (!xThis.is())
+    {   // fdo#72695: if UNO object is already dead, don't revive it with event
+        return;
+    }
+    lang::EventObject const ev(xThis);
+    m_EventListeners.disposeAndClear(ev);
+}
+
+void SwXTextField::Impl::Notify(const SfxHint& rHint)
+{
+
+    if(rHint.GetId() == SfxHintId::Dying)
+        Invalidate();
+    else if (auto pLegacyHint = dynamic_cast<const sw::LegacyModifyHint*>(&rHint))
     {
-        EndListeningAll();
-        m_pFormatField = nullptr;
-        m_pDoc = nullptr;
-        uno::Reference<uno::XInterface> const xThis(m_wThis);
-        if (!xThis.is())
-        {   // fdo#72695: if UNO object is already dead, don't revive it with event
-            return;
+        switch(pLegacyHint->m_pOld ? pLegacyHint->m_pOld->Which() : 0)
+        {
+            case RES_REMOVE_UNO_OBJECT:
+            case RES_OBJECTDYING:
+                Invalidate();
+                break;
         }
-        lang::EventObject const ev(xThis);
-        m_EventListeners.disposeAndClear(ev);
     }
 }
 
-void SwXTextField::Impl::Modify(
-        SfxPoolItem const*const pOld, SfxPoolItem const*const pNew)
+const SwField* SwXTextField::Impl::GetField() const
 {
-    switch( pOld ? pOld->Which() : 0 )
-    {
-    case RES_REMOVE_UNO_OBJECT:
-    case RES_OBJECTDYING:
-        if( static_cast<void*>(GetRegisteredIn()) == static_cast<const SwPtrMsgPoolItem *>(pOld)->pObject )
-            Invalidate();
-        break;
-
-    case RES_FMT_CHG:
-        // Am I re-attached to a new one and will the old one be deleted?
-        if( static_cast<const SwFormatChg*>(pNew)->pChangedFormat == GetRegisteredIn() &&
-            static_cast<const SwFormatChg*>(pOld)->pChangedFormat->IsFormatInDTOR() )
-            Invalidate();
-        break;
-    }
-}
-
-const SwField*  SwXTextField::Impl::GetField() const
-{
-    if (GetRegisteredIn() && m_pFormatField)
-    {
-        return m_pFormatField->GetField();
-    }
-    return nullptr;
+    return m_pFormatField ? m_pFormatField->GetField() : nullptr;
 }
 
 OUString SwXTextFieldMasters::getImplementationName()
@@ -2948,7 +3018,7 @@ SwXFieldEnumeration::SwXFieldEnumeration(SwDoc & rDoc)
     const size_t nCount = pFieldTypes->size();
     for(size_t nType = 0;  nType < nCount;  ++nType)
     {
-        const SwFieldType *pCurType = (*pFieldTypes)[nType];
+        const SwFieldType *pCurType = (*pFieldTypes)[nType].get();
         SwIterator<SwFormatField,SwFieldType> aIter( *pCurType );
         const SwFormatField* pCurFieldFormat = aIter.First();
         while (pCurFieldFormat)

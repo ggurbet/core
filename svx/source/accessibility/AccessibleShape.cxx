@@ -25,10 +25,12 @@
 #include <com/sun/star/accessibility/AccessibleTextType.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleRelationType.hpp>
+#include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
 #include <com/sun/star/drawing/XShapeDescriptor.hpp>
+#include <com/sun/star/document/XEventBroadcaster.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/text/XText.hpp>
@@ -55,7 +57,6 @@
 #include <svx/svdview.hxx>
 #include <tools/diagnose_ex.h>
 #include <cppuhelper/queryinterface.hxx>
-#include <comphelper/servicehelper.hxx>
 #include "AccessibleEmptyEditSource.hxx"
 
 #include <algorithm>
@@ -1000,43 +1001,7 @@ void SAL_CALL
 }
 
 // lang::XUnoTunnel
-namespace
-{
-    class theAccessibleShapeImplementationId : public rtl::Static< UnoTunnelIdInit, theAccessibleShapeImplementationId > {};
-}
-
-const uno::Sequence< sal_Int8 >&
-    AccessibleShape::getUnoTunnelImplementationId()
-    throw()
-{
-    return theAccessibleShapeImplementationId::get().getSeq();
-}
-
-
-AccessibleShape*
-    AccessibleShape::getImplementation( const uno::Reference< uno::XInterface >& rxIFace )
-    throw()
-{
-    uno::Reference< lang::XUnoTunnel >  xTunnel( rxIFace, uno::UNO_QUERY );
-    AccessibleShape*                    pReturn = nullptr;
-
-    if( xTunnel.is() )
-        pReturn = reinterpret_cast< AccessibleShape* >( xTunnel->getSomething( getUnoTunnelImplementationId() ) );
-
-    return pReturn;
-}
-
-
-sal_Int64 SAL_CALL
-    AccessibleShape::getSomething( const uno::Sequence< sal_Int8 >& rIdentifier )
-{
-    sal_Int64 nReturn( 0 );
-
-    if( ( rIdentifier.getLength() == 16 ) && ( 0 == memcmp( getUnoTunnelImplementationId().getConstArray(), rIdentifier.getConstArray(), 16 ) ) )
-        nReturn = reinterpret_cast< sal_Int64 >( this );
-
-    return nReturn;
-}
+UNO3_GETIMPLEMENTATION_IMPL(AccessibleShape)
 
 // IAccessibleViewForwarderListener
 void AccessibleShape::ViewForwarderChanged()
@@ -1104,70 +1069,6 @@ OUString AccessibleShape::GetFullAccessibleName (AccessibleShape *shape)
     return sName;
 }
 
-OUString
-    AccessibleShape::CreateAccessibleDescription()
-{
-    DescriptionGenerator aDG (mxShape);
-    aDG.Initialize (CreateAccessibleBaseName());
-    switch (ShapeTypeHandler::Instance().GetTypeId (mxShape))
-    {
-        case DRAWING_3D_CUBE:
-        case DRAWING_3D_EXTRUDE:
-        case DRAWING_3D_LATHE:
-        case DRAWING_3D_SPHERE:
-            aDG.Add3DProperties ();
-            break;
-
-        case DRAWING_3D_SCENE:
-        case DRAWING_GROUP:
-        case DRAWING_PAGE:
-            // No further information is appended.
-            break;
-
-        case DRAWING_CAPTION:
-        case DRAWING_CLOSED_BEZIER:
-        case DRAWING_CLOSED_FREEHAND:
-        case DRAWING_ELLIPSE:
-        case DRAWING_POLY_POLYGON:
-        case DRAWING_POLY_POLYGON_PATH:
-        case DRAWING_RECTANGLE:
-            aDG.AddLineProperties ();
-            aDG.AddFillProperties ();
-            break;
-
-        case DRAWING_CONNECTOR:
-        case DRAWING_LINE:
-        case DRAWING_MEASURE:
-        case DRAWING_OPEN_BEZIER:
-        case DRAWING_OPEN_FREEHAND:
-        case DRAWING_POLY_LINE:
-        case DRAWING_POLY_LINE_PATH:
-            aDG.AddLineProperties ();
-            break;
-
-        case DRAWING_CONTROL:
-            aDG.AddProperty ("ControlBackground", DescriptionGenerator::PropertyType::Color, "");
-            aDG.AddProperty ("ControlBorder", DescriptionGenerator::PropertyType::Integer, "");
-            break;
-
-        case DRAWING_TEXT:
-            aDG.AddTextProperties ();
-            break;
-
-        default:
-            aDG.Initialize ("Unknown accessible shape");
-            uno::Reference<drawing::XShapeDescriptor> xDescriptor (mxShape, uno::UNO_QUERY);
-            if (xDescriptor.is())
-            {
-                aDG.AppendString ("service name=");
-                aDG.AppendString (xDescriptor->getShapeType());
-            }
-    }
-
-    return aDG();
-}
-
-
 // protected
 void AccessibleShape::disposing()
 {
@@ -1231,10 +1132,9 @@ void AccessibleShape::UpdateNameAndDescription()
     try
     {
         Reference<beans::XPropertySet> xSet (mxShape, uno::UNO_QUERY_THROW);
-        OUString sString;
 
         // Get the accessible name.
-        sString = GetOptionalProperty(xSet, "Title");
+        OUString sString = GetOptionalProperty(xSet, "Title");
         if (!sString.isEmpty())
         {
             SetAccessibleName(sString, AccessibleContextBase::FromShape);

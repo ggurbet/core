@@ -23,6 +23,7 @@
 #include <editeng/adjustitem.hxx>
 #include <sot/storage.hxx>
 #include <svx/algitem.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/editstat.hxx>
 #include <editeng/flditem.hxx>
@@ -37,9 +38,10 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/ipclient.hxx>
 #include <svl/stritem.hxx>
-#include <vcl/svtabbx.hxx>
 #include <svl/urlbmk.hxx>
 #include <svl/sharedstringpool.hxx>
+#include <vcl/canvastools.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/cursor.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/hatch.hxx>
@@ -643,6 +645,12 @@ void ScGridWindow::LaunchAutoFilterMenu(SCCOL nCol, SCROW nRow)
 
     mpAutoFilterPopup.disposeAndClear();
     mpAutoFilterPopup.reset(VclPtr<ScCheckListMenuWindow>::Create(this, pDoc));
+
+    // Avoid flicker when hovering over the menu items.
+    if (!IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Focus))
+        // If NWF renders the focus rects itself, that breaks double-buffering.
+        mpAutoFilterPopup->RequestDoubleBuffering(true);
+
     if (comphelper::LibreOfficeKit::isActive())
         mpAutoFilterPopup->SetLOKNotifier(SfxViewShell::Current());
     mpAutoFilterPopup->setOKAction(new AutoFilterAction(this, AutoFilterMode::Normal));
@@ -720,6 +728,9 @@ void ScGridWindow::LaunchAutoFilterMenu(SCCOL nCol, SCROW nRow)
     mpAutoFilterPopup->setConfig(aConfig);
     mpAutoFilterPopup->launch(aCellRect);
 
+    // remember filter rules before modification
+    mpAutoFilterPopup->getResult(aSaveAutoFilterResult);
+
     collectUIInformation(OUString::number(nRow), OUString::number(nCol));
 }
 
@@ -793,6 +804,18 @@ void ScGridWindow::UpdateAutoFilterFromMenu(AutoFilterMode eMode)
         pViewData->GetView()->SetCursor(rPos.Col(), rPos.Row());
         pViewData->GetDispatcher().Execute(SID_FILTER, SfxCallMode::SLOT|SfxCallMode::RECORD);
         return;
+    }
+
+    // do not recreate auto-filter rules if there is no any changes from the user
+    {
+        ScCheckListMenuWindow::ResultType aResult;
+        mpAutoFilterPopup->getResult(aResult);
+
+        if (aResult == aSaveAutoFilterResult)
+        {
+            SAL_INFO("sc.ui", "nothing to do when autofilter entries are the same");
+            return;
+        }
     }
 
     ScQueryParam aParam;
@@ -2168,7 +2191,7 @@ void ScGridWindow::MouseButtonUp( const MouseEvent& rMEvt )
     bool bAlt = rMEvt.IsMod2();
     if ( !bAlt && !bRefMode && !bDouble && nMouseStatus == SC_GM_URLDOWN )
     {
-        //  Only execute on ButtonUp, if ButtonDown also was done on an URL
+        //  Only execute on ButtonUp, if ButtonDown also was done on a URL
 
         OUString aName, aUrl, aTarget;
         if ( GetEditUrl( rMEvt.GetPosPixel(), &aName, &aUrl, &aTarget ) )
@@ -2561,7 +2584,7 @@ bool ScGridWindow::PreNotify( NotifyEvent& rNEvt )
                 css::uno::Reference<css::frame::XController> xController = pViewFrame->GetFrame().GetController();
                 if (xController.is())
                 {
-                    ScTabViewObj* pImp = ScTabViewObj::getImplementation( xController );
+                    ScTabViewObj* pImp = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
                     if (pImp && pImp->IsMouseListening())
                     {
                         css::awt::MouseEvent aEvent;
@@ -3689,10 +3712,9 @@ sal_Int8 ScGridWindow::AcceptDrop( const AcceptDropEvent& rEvt )
                 }
             }
             if (!nRet)
-                DrawMarkDropObj( nullptr );
-
-            if (!nRet)
             {
+                DrawMarkDropObj(nullptr);
+
                 switch ( nMyAction )
                 {
                     case DND_ACTION_COPY:
@@ -4156,7 +4178,7 @@ sal_Int8 ScGridWindow::DropTransferObj( ScTransferObj* pTransObj, SCCOL nDestPos
                     }
                 }
 
-                pView->ImportTables( pSrcShell,static_cast<SCTAB>(nTabs.size()), &nTabs[0], bIsLink, nThisTab );
+                pView->ImportTables( pSrcShell,static_cast<SCTAB>(nTabs.size()), nTabs.data(), bIsLink, nThisTab );
                 bDone = true;
             }
         }
@@ -5230,7 +5252,17 @@ bool ScGridWindow::GetEditUrl( const Point& rPos,
         if (sURL.isEmpty())
             pTextObj = aCell.mpFormula->CreateURLObject();
         else
-            pTextObj = ScEditUtil::CreateURLObjectFromURL(rDoc, sURL, sURL);
+        {
+            OUString aRepres = sURL;
+
+            // TODO: text content of formatted numbers can be different
+            if (aCell.hasNumeric())
+                aRepres = OUString::number(aCell.getValue());
+            else if (aCell.meType == CELLTYPE_FORMULA)
+                aRepres = aCell.mpFormula->GetString().getString();
+
+            pTextObj = ScEditUtil::CreateURLObjectFromURL(rDoc, sURL, aRepres);
+        }
 
         if (pTextObj)
             pEngine->SetText(*pTextObj);
@@ -5255,8 +5287,7 @@ bool ScGridWindow::GetEditUrl( const Point& rPos,
     // There is one glitch when dealing with a hyperlink cell and
     // the cell content is NUMERIC. This defaults to right aligned and
     // we need to adjust accordingly.
-    if (aCell.meType == CELLTYPE_FORMULA && aCell.mpFormula->IsValue() &&
-        eHorJust == SvxCellHorJustify::Standard)
+    if (aCell.hasNumeric() && eHorJust == SvxCellHorJustify::Standard)
     {
         aLogicEdit.SetRight( aLogicEdit.Left() + nThisColLogic - 1 );
         aLogicEdit.SetLeft(  aLogicEdit.Right() - nTextWidth );
@@ -5643,8 +5674,8 @@ bool ScGridWindow::InsideVisibleRange( SCCOL nPosX, SCROW nPosY )
 OString ScGridWindow::getCellCursor( int nOutputWidth, int nOutputHeight,
                                      long nTileWidth, long nTileHeight )
 {
-    Fraction zoomX = Fraction(long(nOutputWidth * TWIPS_PER_PIXEL), nTileWidth);
-    Fraction zoomY = Fraction(long(nOutputHeight * TWIPS_PER_PIXEL), nTileHeight);
+    Fraction zoomX(long(nOutputWidth * TWIPS_PER_PIXEL), nTileWidth);
+    Fraction zoomY(long(nOutputHeight * TWIPS_PER_PIXEL), nTileHeight);
     return getCellCursor(zoomX, zoomY);
 }
 
@@ -5831,7 +5862,7 @@ void ScGridWindow::UpdateCopySourceOverlay()
         Color aHighlight = GetSettings().GetStyleSettings().GetHighlightColor();
 
         tools::Rectangle aLogic = PixelToLogic(aRect, aDrawMode);
-        ::basegfx::B2DRange aRange(aLogic.Left(), aLogic.Top(), aLogic.Right(), aLogic.Bottom());
+        ::basegfx::B2DRange aRange = vcl::unotools::b2DRectangleFromRectangle(aLogic);
         std::unique_ptr<ScOverlayDashedBorder> pDashedBorder(new ScOverlayDashedBorder(aRange, aHighlight));
         xOverlayManager->add(*pDashedBorder);
         mpOOSelectionBorder->append(std::move(pDashedBorder));
@@ -6210,7 +6241,7 @@ void ScGridWindow::UpdateAutoFillOverlay()
                 aHandleColor = SC_MOD()->GetColorConfig().GetColorValue(svtools::CALCPAGEBREAKAUTOMATIC).nColor;
             std::vector< basegfx::B2DRange > aRanges;
             const basegfx::B2DHomMatrix aTransform(GetInverseViewTransformation());
-            basegfx::B2DRange aRB(aFillRect.Left(), aFillRect.Top(), aFillRect.Right(), aFillRect.Bottom());
+            basegfx::B2DRange aRB = vcl::unotools::b2DRectangleFromRectangle(aFillRect);
 
             aRB.transform(aTransform);
             aRanges.push_back(aRB);

@@ -24,13 +24,14 @@
 #include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/lang/XTypeProvider.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
+#include <comphelper/servicehelper.hxx>
 #include <cppuhelper/weak.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/vclptr.hxx>
 
 #include <com/sun/star/awt/XUnitConversion.hpp>
 
-/// An UNO wrapper for the VCL OutputDevice
+/// A UNO wrapper for the VCL OutputDevice
 class TOOLKIT_DLLPUBLIC VCLXDevice :
                     public css::awt::XDevice,
                     public css::lang::XTypeProvider,
@@ -57,9 +58,7 @@ public:
     void                                        SAL_CALL release() throw() override  { OWeakObject::release(); }
 
     // css::lang::XUnoTunnel
-    static const css::uno::Sequence< sal_Int8 >&   GetUnoTunnelId() throw();
-    static VCLXDevice*                                          GetImplementation( const css::uno::Reference< css::uno::XInterface >& rxIFace );
-    sal_Int64                                                   SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier ) override;
+    UNO3_GETIMPLEMENTATION_DECL(VCLXDevice)
 
     // css::lang::XTypeProvider
     css::uno::Sequence< css::uno::Type >  SAL_CALL getTypes() override;

@@ -13,16 +13,13 @@
 #include <sal/types.h>
 #include <rtl/ustring.hxx>
 #include <vcl/bitmapex.hxx>
-#include <vcl/animate.hxx>
+#include <vcl/animate/Animation.hxx>
 #include <vcl/vectorgraphicdata.hxx>
-#include <vcl/metaact.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/GraphicExternalLink.hxx>
 
-#include <officecfg/Office/Common.hxx>
-#include <unotools/configmgr.hxx>
-
 #include <memory>
+#include <mutex>
 #include <chrono>
 #include <unordered_set>
 
@@ -35,6 +32,7 @@ namespace graphic
 class Manager final
 {
 private:
+    std::recursive_mutex maMutex; // instead of SolarMutex because graphics can live past vcl main
     std::unordered_set<ImpGraphic*> m_pImpGraphicList;
     std::chrono::seconds mnAllowedIdleTime;
     sal_Int64 mnMemoryLimit;

@@ -360,9 +360,14 @@ void ScMenuFloatingWindow::drawMenuItem(vcl::RenderContext& rRenderContext, size
     DecorationView aDecoView(&rRenderContext);
     long const nXOffset = 5;
     long nYOffset = (aSize.Height() - maLabelFont.GetFontHeight())/2;
+
+    // Make sure the label font is used for the menu item text.
+    rRenderContext.Push(PushFlags::FONT);
+    rRenderContext.SetFont(maLabelFont);
     rRenderContext. DrawCtrlText(Point(aPos.X()+nXOffset, aPos.Y() + nYOffset), maMenuItems[nPos].maText, 0,
                                  maMenuItems[nPos].maText.getLength(),
                                  maMenuItems[nPos].mbEnabled ? DrawTextFlags::Mnemonic : DrawTextFlags::Disable);
+    rRenderContext.Pop();
 
     if (maMenuItems[nPos].mpSubMenuWin)
     {
@@ -1164,6 +1169,9 @@ void ScCheckListMenuWindow::selectCurrentMemberOnly(bool bSet)
     if (!pEntry)
         return;
     maChecks->CheckEntry(pEntry, bSet );
+
+    // Make sure all checkboxes are invalidated.
+    Invalidate();
 }
 
 IMPL_LINK( ScCheckListMenuWindow, ButtonHdl, Button*, pBtn, void )

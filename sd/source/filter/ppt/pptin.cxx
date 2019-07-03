@@ -28,10 +28,16 @@
 #include <sfx2/docfile.hxx>
 #include <svx/svdograf.hxx>
 #include <svx/svdlayer.hxx>
+#include <svx/sdmetitm.hxx>
+#include <svx/sdtmfitm.hxx>
+#include <svx/sdtagitm.hxx>
 #include <svl/style.hxx>
+#include <svl/intitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/editeng.hxx>
 #include <svx/svdoutl.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
 
 #include <sfx2/docinf.hxx>
 
@@ -45,6 +51,7 @@
 #include <stlpool.hxx>
 #include <anminfo.hxx>
 #include <svx/gallery.hxx>
+#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <svx/svdopage.hxx>
 #include <svx/svdomedia.hxx>
@@ -373,9 +380,9 @@ bool ImplSdPPTImport::Import()
 
                                     nPropCount /= 6;    // 6 properties per hyperlink
 
-                                    SdHyperlinkEntry aHyperlink;
                                     for ( i = 0; i < nPropCount; i++ )
                                     {
+                                        SdHyperlinkEntry aHyperlink;
                                         aHyperlink.nIndex = 0;
                                         aPropItem.ReadUInt32( nType );
                                         if ( nType != VT_I4 )
@@ -1167,7 +1174,7 @@ bool ImplSdPPTImport::Import()
                     break;
 
                     case PptSlideLayout::BOTTOMROW2COLUMNS :
-                    case PptSlideLayout::BLANCSLIDE :
+                    case PptSlideLayout::BLANKSLIDE :
                     case PptSlideLayout::MASTERSLIDE :           // layout of the standard and title master page
                     case PptSlideLayout::TITLEMASTERSLIDE :
                     case PptSlideLayout::MASTERNOTES :           // layout of the note master page
@@ -1906,7 +1913,7 @@ OUString ImplSdPPTImport::ReadSound(sal_uInt32 nSoundRef) const
                     {
                         INetURLObject   aURL( aSoundList[ n ] );
 
-                        if( aURL.GetName() == aRetval )
+                        if (aURL.GetLastName() == aRetval)
                         {
                             aRetval = aSoundList[ n ];
                             bSoundExists = true;
@@ -2745,7 +2752,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportPPT(SvStream &rStream)
     bool bRet = false;
     try
     {
-        tools::SvRef<SotStorage> xStorage = tools::SvRef<SotStorage>(new SotStorage(rStream));
+        tools::SvRef<SotStorage> xStorage(new SotStorage(rStream));
         if (xStorage->GetError())
             return false;
 

@@ -28,6 +28,7 @@
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/util/MeasureUnit.hpp>
+#include <com/sun/star/task/XStatusIndicator.hpp>
 #include <com/sun/star/uno/Any.h>
 
 #include <rtl/math.hxx>
@@ -1127,6 +1128,7 @@ void SmXMLExport::ExportAttributes(const SmNode *pNode, int nLevel)
         case TWIDETILDE:
         case TWIDEHAT:
         case TWIDEVEC:
+        case TWIDEHARPOON:
             {
             // make these wide accents stretchy
             AddAttribute(XML_NAMESPACE_MATH, XML_STRETCHY, XML_TRUE);

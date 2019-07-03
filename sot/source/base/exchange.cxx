@@ -20,15 +20,12 @@
 #include <sal/config.h>
 
 #include <tools/debug.hxx>
-#include <tools/solar.h>
 #include <tools/globname.hxx>
 #include <sot/exchange.hxx>
 #include <sot/formats.hxx>
-#include <sysformats.hxx>
 #include <comphelper/classids.hxx>
 #include <rtl/instance.hxx>
 #include <com/sun/star/datatransfer/DataFlavor.hpp>
-#include <com/sun/star/uno/Sequence.hxx>
 #include <comphelper/documentconstants.hxx>
 
 #include <memory>
@@ -204,7 +201,8 @@ namespace
             /*143 SotClipboardFormatId::MATHML*/   { "application/mathml+xml", "MathML", &::cppu::UnoType<const Sequence< sal_Int8 >>::get() },
             /*144 SotClipboardFormatId::JPEG*/ { "image/jpeg", "JPEG Bitmap", &cppu::UnoType<Sequence<sal_Int8>>::get() },
             /*145 SotClipboardFormatId::RICHTEXT*/ { "text/richtext", "Richtext Format", &cppu::UnoType<Sequence<sal_Int8>>::get() },
-            /*146 SotClipboardFormatId::STRING_TSVC*/            { "application/x-libreoffice-tsvc", "Text TSV-Calc", &cppu::UnoType<OUString>::get() }
+            /*146 SotClipboardFormatId::STRING_TSVC*/            { "application/x-libreoffice-tsvc", "Text TSV-Calc", &cppu::UnoType<OUString>::get() },
+            /*147 SotClipboardFormatId::PDF*/            { "application/pdf", "PDF Document", &cppu::UnoType<Sequence<sal_Int8>>::get() },
             };
             return &aInstance[0];
         }

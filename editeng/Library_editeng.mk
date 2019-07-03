@@ -77,6 +77,7 @@ $(eval $(call gb_Library_add_exception_objects,editeng,\
     editeng/source/items/itemtype \
     editeng/source/items/justifyitem \
     editeng/source/items/numitem \
+    editeng/source/items/legacyitem \
     editeng/source/items/optitems \
     editeng/source/items/paperinf \
     editeng/source/items/paraitem \
@@ -97,6 +98,7 @@ $(eval $(call gb_Library_add_exception_objects,editeng,\
     editeng/source/misc/swafopt \
     editeng/source/misc/txtrange \
     editeng/source/misc/unolingu \
+    editeng/source/misc/weldeditview \
     editeng/source/outliner/outleeng \
     editeng/source/outliner/outlin2 \
     editeng/source/outliner/outliner \

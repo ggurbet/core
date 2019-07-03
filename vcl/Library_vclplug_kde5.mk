@@ -62,7 +62,7 @@ $(eval $(call gb_Library_use_externals,vclplug_kde5,\
 ))
 
 ifneq ($(QT5_HAVE_GLIB),)
-$(eval $(call gb_Library_add_defs,vclplug_kde5,\
+$(eval $(call gb_Library_add_cxxflags,vclplug_kde5,\
     $(QT5_GLIB_CFLAGS) \
 ))
 
@@ -71,7 +71,7 @@ $(eval $(call gb_Library_add_libs,vclplug_kde5,\
 ))
 endif
 
-$(eval $(call gb_Library_add_defs,vclplug_kde5,\
+$(eval $(call gb_Library_add_cxxflags,vclplug_kde5,\
     $(KF5_CFLAGS) \
 ))
 $(eval $(call gb_Library_add_libs,vclplug_kde5,\
@@ -80,9 +80,7 @@ $(eval $(call gb_Library_add_libs,vclplug_kde5,\
 
 $(eval $(call gb_Library_add_exception_objects,vclplug_kde5,\
     vcl/unx/kde5/KDE5FilePicker2 \
-    vcl/unx/kde5/KDE5SalData \
     vcl/unx/kde5/KDE5SalFrame \
-    vcl/unx/kde5/KDE5SalGraphics \
     vcl/unx/kde5/KDE5SalInstance \
 ))
 
@@ -90,14 +88,13 @@ ifeq ($(OS),LINUX)
 $(eval $(call gb_Library_add_libs,vclplug_kde5,\
 	-lm \
 	-ldl \
-	-lpthread \
 ))
 endif
 
 # Workaround for clang+icecream (clang's -frewrite-includes
 # doesn't handle Qt5's QT_HAS_INCLUDE that Qt5 uses for <chrono>).
 ifeq ($(COM_IS_CLANG),TRUE)
-$(eval $(call gb_Library_add_defs,vclplug_kde5, \
+$(eval $(call gb_Library_add_cxxflags,vclplug_kde5, \
     -include chrono \
 ))
 endif

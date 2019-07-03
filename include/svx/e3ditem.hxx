@@ -24,8 +24,6 @@
 #include <basegfx/vector/b3dvector.hxx>
 #include <svx/svxdllapi.h>
 
-class SvStream;
-
 class SAL_WARN_UNUSED SVX_DLLPUBLIC SvxB3DVectorItem : public SfxPoolItem
 {
     basegfx::B3DVector  aVal;
@@ -42,8 +40,6 @@ public:
     virtual bool            PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId ) override;
 
     const basegfx::B3DVector&           GetValue() const { return aVal; }
-
-    virtual sal_uInt16 GetVersion (sal_uInt16 nFileFormatVersion) const override;
 
     void dumpAsXml(xmlTextWriterPtr pWriter) const override;
 };

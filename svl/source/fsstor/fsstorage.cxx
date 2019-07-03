@@ -17,26 +17,18 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/InvalidStorageException.hpp>
 #include <com/sun/star/embed/StorageWrappedTargetException.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
+#include <com/sun/star/packages/NoEncryptionException.hpp>
 #include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/ucb/NameClash.hpp>
-#include <com/sun/star/ucb/XProgressHandler.hpp>
-#include <com/sun/star/ucb/XContentAccess.hpp>
 #include <com/sun/star/ucb/SimpleFileAccess.hpp>
 
 #include <com/sun/star/ucb/InteractiveIOException.hpp>
 #include <com/sun/star/ucb/IOErrorCode.hpp>
 #include <com/sun/star/container/ElementExistException.hpp>
-#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
-#include <com/sun/star/container/XEnumerationAccess.hpp>
-#include <com/sun/star/container/XNamed.hpp>
-#include <com/sun/star/util/XChangesBatch.hpp>
-#include <com/sun/star/util/XCloneable.hpp>
-#include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
@@ -47,12 +39,13 @@
 #include <com/sun/star/sdbc/XRow.hpp>
 
 #include <comphelper/fileurl.hxx>
+#include <comphelper/interfacecontainer2.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/storagehelper.hxx>
 #include <cppuhelper/queryinterface.hxx>
-#include <cppuhelper/typeprovider.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 
+#include <osl/diagnose.h>
 #include <tools/urlobj.hxx>
 #include <unotools/ucbhelper.hxx>
 #include <unotools/ucbstreamhelper.hxx>
@@ -102,7 +95,7 @@ FSStorage::FSStorage( const ::ucbhelper::Content& aContent,
 FSStorage::~FSStorage()
 {
     ::osl::MutexGuard aGuard( m_aMutex );
-    m_refCount++; // to call dispose
+    osl_atomic_increment(&m_refCount); // to call dispose
     try {
         dispose();
     }
@@ -223,8 +216,7 @@ void FSStorage::CopyContentToStorage_Impl(ucbhelper::Content& rContent,
 
 uno::Any SAL_CALL FSStorage::queryInterface( const uno::Type& rType )
 {
-    uno::Any aReturn;
-    aReturn = ::cppu::queryInterface
+    uno::Any aReturn = ::cppu::queryInterface
                 (   rType
                 ,   static_cast<lang::XTypeProvider*> ( this )
                 ,   static_cast<embed::XStorage*> ( this )
@@ -583,7 +575,7 @@ void SAL_CALL FSStorage::copyStorageElementLastCommitTo(
         throw lang::DisposedException();
 
     uno::Reference< embed::XStorage > xSourceStor( openStorageElement( aStorName, embed::ElementModes::READ ),
-                                                    uno::UNO_QUERY_THROW );
+                                                    uno::UNO_SET_THROW );
     xSourceStor->copyToStorage( xTargetStorage );
 }
 
@@ -722,7 +714,7 @@ void SAL_CALL FSStorage::copyElementTo( const OUString& aElementName,
             ::ucbhelper::Content aSourceContent( aOwnURL.GetMainURL( INetURLObject::DecodeMechanism::NONE ), xDummyEnv, comphelper::getProcessComponentContext() );
             uno::Reference< embed::XStorage > xDestSubStor(
                                     xDest->openStorageElement( aNewName, embed::ElementModes::READWRITE ),
-                                    uno::UNO_QUERY_THROW );
+                                    uno::UNO_SET_THROW );
 
             CopyContentToStorage_Impl( aSourceContent, xDestSubStor );
         }
@@ -1133,8 +1125,7 @@ uno::Reference< embed::XExtendedStorageStream > SAL_CALL FSStorage::openStreamEl
                                                                           StreamMode::STD_WRITE );
                 if ( pStream && !pStream->GetError() )
                 {
-                    uno::Reference< io::XStream > xStream =
-                        uno::Reference < io::XStream >( new ::utl::OStreamWrapper( std::move(pStream) ) );
+                    uno::Reference< io::XStream > xStream( new ::utl::OStreamWrapper( std::move(pStream) ) );
                     xResult = new OFSStreamContainer(xStream);
                 }
             }

@@ -29,7 +29,10 @@
 #include <com/sun/star/resource/MissingResourceException.hpp>
 #include <com/sun/star/resource/XStringResourceSupplier.hpp>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/sfxsids.hrc>
+#include <sfx2/viewfrm.hxx>
 #include <tools/debug.hxx>
+#include <osl/diagnose.h>
 
 namespace basctl
 {
@@ -64,7 +67,7 @@ LocalizationMgr::LocalizationMgr(
 bool LocalizationMgr::isLibraryLocalized ()
 {
     if (m_xStringResourceManager.is())
-        return m_xStringResourceManager->getLocales().getLength() > 0;
+        return m_xStringResourceManager->getLocales().hasElements();
     return false;
 }
 
@@ -805,7 +808,7 @@ void LocalizationMgr::setControlResourceIDsForNewEditorObject( DlgEditor const *
         LocalizationMgr::getStringResourceFromDialogLibrary( xDialogLib );
 
     // Set resource property
-    if( !xStringResourceManager.is() || xStringResourceManager->getLocales().getLength() == 0 )
+    if( !xStringResourceManager.is() || !xStringResourceManager->getLocales().hasElements() )
         return;
 
     OUString aDialogName = pDlgWin->GetName();
@@ -835,7 +838,7 @@ void LocalizationMgr::renameControlResourceIDsForEditorObject( DlgEditor const *
         LocalizationMgr::getStringResourceFromDialogLibrary( xDialogLib );
 
     // Set resource property
-    if( !xStringResourceManager.is() || xStringResourceManager->getLocales().getLength() == 0 )
+    if( !xStringResourceManager.is() || !xStringResourceManager->getLocales().hasElements() )
         return;
 
     OUString aDialogName = pDlgWin->GetName();
@@ -885,7 +888,7 @@ void LocalizationMgr::setStringResourceAtDialog( const ScriptDocument& rDocument
     {
         // Not very elegant as dialog may or may not be localized yet
         // TODO: Find better place, where dialog is created
-        if( xStringResourceManager->getLocales().getLength() > 0 )
+        if( xStringResourceManager->getLocales().hasElements() )
         {
             Any aDialogCtrl;
             aDialogCtrl <<= xDialogModel;
@@ -1034,7 +1037,7 @@ void LocalizationMgr::copyResourcesForPastedEditorObject( DlgEditor const * pEdi
         LocalizationMgr::getStringResourceFromDialogLibrary( xDialogLib );
 
     // Set resource property
-    if( !xStringResourceManager.is() || xStringResourceManager->getLocales().getLength() == 0 )
+    if( !xStringResourceManager.is() || !xStringResourceManager->getLocales().hasElements() )
         return;
 
     OUString aDialogName = pDlgWin->GetName();

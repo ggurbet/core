@@ -28,6 +28,7 @@
 #include <editeng/scripttypeitem.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/printer.hxx>
+#include <vcl/cursor.hxx>
 #include <vcl/settings.hxx>
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -665,7 +666,7 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
         MapMode aCurrentMapMode(pContentDev->GetMapMode());
         pContentDev->SetMapMode(MapMode(MapUnit::MapPixel));
 
-        tools::Rectangle aPixRect = tools::Rectangle( Point(), GetOutputSizePixel() );
+        tools::Rectangle aPixRect( Point(), GetOutputSizePixel() );
         pContentDev->SetFillColor( rColorCfg.GetColorValue(svtools::APPBACKGROUND).nColor );
         pContentDev->SetLineColor();
         if ( nX2==MAXCOL )
@@ -1384,10 +1385,10 @@ void ScGridWindow::DrawPagePreview( SCCOL nX1, SCROW nY1, SCCOL nX2, SCROW nY2, 
             //  use EditEngine to draw mixed-script string
             pEditEng.reset(new ScEditEngineDefaulter( EditEngine::CreatePool(), true ));
             pEditEng->SetRefMapMode(rRenderContext.GetMapMode());
-            SfxItemSet* pEditDefaults = new SfxItemSet( pEditEng->GetEmptyItemSet() );
-            rDefPattern.FillEditItemSet( pEditDefaults );
+            auto pEditDefaults = std::make_unique<SfxItemSet>( pEditEng->GetEmptyItemSet() );
+            rDefPattern.FillEditItemSet( pEditDefaults.get() );
             pEditDefaults->Put( SvxColorItem( COL_LIGHTGRAY, EE_CHAR_COLOR ) );
-            pEditEng->SetDefaults( pEditDefaults );
+            pEditEng->SetDefaults( std::move(pEditDefaults) );
         }
 
         sal_uInt16 nCount = sal::static_int_cast<sal_uInt16>( pPageData->GetCount() );

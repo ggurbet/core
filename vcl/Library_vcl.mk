@@ -115,6 +115,9 @@ $(eval $(call gb_Library_use_externals,vcl,\
 endif
 
 $(eval $(call gb_Library_add_exception_objects,vcl,\
+    vcl/source/animate/Animation \
+    vcl/source/animate/AnimationBitmap \
+    vcl/source/window/aboutdialog \
     vcl/source/window/errinf \
     vcl/source/window/settings \
     vcl/source/window/paint \
@@ -122,6 +125,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/window/accel \
     vcl/source/window/accmgr \
     vcl/source/window/brdwin \
+    vcl/source/window/bufferdevice \
     vcl/source/window/accessibility \
     vcl/source/window/legacyaccessibility \
     vcl/source/window/clipping \
@@ -186,6 +190,9 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/control/fixedhyper \
     vcl/source/control/fmtfield \
     vcl/source/control/imgctrl \
+    vcl/source/control/imivctl1 \
+    vcl/source/control/imivctl2 \
+    vcl/source/control/ivctrl \
     vcl/source/control/listctrl \
     vcl/source/control/longcurr \
     vcl/source/control/imp_listbox \
@@ -248,7 +255,6 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/treelist/svlbitm \
     vcl/source/treelist/uiobject \
     vcl/source/gdi/alpha \
-    vcl/source/gdi/animate \
     vcl/source/gdi/bitmap3 \
     vcl/source/gdi/bitmapex \
     vcl/source/gdi/bmpacc2 \
@@ -280,7 +286,6 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/lineinfo \
     vcl/source/gdi/mapmod \
     vcl/source/gdi/metaact \
-    vcl/source/gdi/octree \
     vcl/source/gdi/oldprintadaptor \
     vcl/source/gdi/pdfbuildin_fonts \
     vcl/source/gdi/pdfextoutdevdata \
@@ -298,7 +303,6 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/gdi/salgdiimpl \
     vcl/source/gdi/sallayout \
     vcl/source/gdi/salmisc \
-    vcl/source/gdi/salnativewidgets-none \
     vcl/source/gdi/vectorgraphicdata \
     vcl/source/gdi/textlayout \
     vcl/source/gdi/virdev \
@@ -344,6 +348,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/bitmap/BitmapSimpleColorQuantizationFilter \
     vcl/source/bitmap/BitmapTools \
     vcl/source/bitmap/checksum \
+    vcl/source/bitmap/Octree \
     vcl/source/image/Image \
     vcl/source/image/ImageTree \
     vcl/source/image/ImageRepository \
@@ -394,6 +399,7 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/filter/graphicfilter2 \
     vcl/source/filter/GraphicNativeTransform \
     vcl/source/filter/GraphicNativeMetadata \
+    vcl/source/filter/GraphicFormatDetector \
     vcl/source/filter/igif/decode \
     vcl/source/filter/igif/gifread \
     vcl/source/filter/ipdf/pdfread \
@@ -446,7 +452,9 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/backendtest/outputdevice/pixel \
     vcl/backendtest/outputdevice/polygon \
     vcl/backendtest/outputdevice/polypolygon \
+    vcl/backendtest/outputdevice/polypolygon_b2d \
     vcl/backendtest/outputdevice/polyline \
+    vcl/backendtest/outputdevice/polyline_b2d \
     vcl/backendtest/outputdevice/rectangle \
 ))
 
@@ -543,11 +551,6 @@ $(eval $(call gb_Library_use_externals,vcl,\
     freetype \
     fontconfig \
 ))
-ifeq ($(OS), $(filter LINUX %BSD SOLARIS, $(OS)))
-$(eval $(call gb_Library_add_libs,vcl,\
-    -lpthread \
-))
-endif
 
 else # ! DISABLE_GUI
 
@@ -566,10 +569,16 @@ $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/source/opengl/OpenGLContext \
     vcl/source/opengl/OpenGLHelper \
  ))
+
+# runtime dependency
+$(eval $(call gb_Library_use_package,vcl,vcl_opengl_shader))
+ifeq ($(OS),WNT)
+$(eval $(call gb_Library_use_package,vcl,vcl_opengl_blacklist))
+endif
+
 ifeq ($(OS), $(filter LINUX %BSD SOLARIS, $(OS)))
 $(eval $(call gb_Library_add_libs,vcl,\
     -lm $(DLOPEN_LIBS) \
-    -lpthread \
     -lX11 \
     -lXext \
 ))
@@ -637,6 +646,10 @@ $(eval $(call gb_Library_add_cxxflags,vcl,\
 $(eval $(call gb_Library_add_exception_objects,vcl,\
     vcl/ios/iosinst \
     vcl/ios/dummies \
+    vcl/ios/clipboard \
+    vcl/ios/iOSTransferable \
+    vcl/ios/DataFlavorMapping \
+    vcl/ios/HtmlFmtFlt \
     $(vcl_coretext_code) \
     $(vcl_quartz_code) \
     $(vcl_headless_code) \

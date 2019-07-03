@@ -9,50 +9,16 @@
 
 #include <swmodeltestbase.hxx>
 
-#include <com/sun/star/awt/XBitmap.hpp>
-#include <com/sun/star/graphic/XGraphic.hpp>
-#include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/drawing/LineJoint.hpp>
-#include <com/sun/star/drawing/LineStyle.hpp>
-#include <com/sun/star/awt/Gradient.hpp>
-#include <com/sun/star/style/TabStop.hpp>
-#include <com/sun/star/view/XViewSettingsSupplier.hpp>
-#include <com/sun/star/text/RelOrientation.hpp>
 #include <com/sun/star/text/XFootnote.hpp>
-#include <com/sun/star/text/XTextFrame.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
-#include <com/sun/star/text/XTextFramesSupplier.hpp>
-#include <com/sun/star/text/XTextViewCursorSupplier.hpp>
-#include <com/sun/star/text/XTextSection.hpp>
-#include <com/sun/star/style/CaseMap.hpp>
-#include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/style/LineSpacing.hpp>
 #include <com/sun/star/style/LineSpacingMode.hpp>
-#include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
-#include <com/sun/star/table/ShadowFormat.hpp>
-#include <com/sun/star/text/XPageCursor.hpp>
-#include <com/sun/star/awt/FontWeight.hpp>
-#include <com/sun/star/awt/FontUnderline.hpp>
-#include <com/sun/star/awt/FontSlant.hpp>
-#include <com/sun/star/text/WritingMode2.hpp>
-#include <com/sun/star/text/WrapTextMode.hpp>
-#include <com/sun/star/xml/dom/XDocument.hpp>
-#include <com/sun/star/style/BreakType.hpp>
-#include <unotools/tempfile.hxx>
-#include <com/sun/star/text/XDocumentIndex.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeSegment.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeSegmentCommand.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
-#include <com/sun/star/drawing/TextVerticalAdjust.hpp>
-#include <com/sun/star/drawing/Hatch.hpp>
 #include <com/sun/star/rdf/URI.hpp>
 #include <com/sun/star/rdf/Statement.hpp>
 
-#include <string>
-#include <config_features.h>
-#include <unocrsr.hxx>
-#include <ndtxt.hxx>
+#include <ndindex.hxx>
+#include <pam.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -460,6 +426,18 @@ DECLARE_OOXMLEXPORT_TEST(testFDO78887, "fdo78887.docx")
     assertXPath(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[1]/w:br[1]", 1);
     assertXPathContent(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[1]/w:t[1]", "Lyrics: ");
     assertXPath(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[1]/w:br[2]", 1);
+}
+
+DECLARE_OOXMLEXPORT_TEST(testFDO78887b, "missing_newline.odt")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    assertXPath(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[2]/w:br[1]", 1);
+    assertXPathContent(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[1]/w:t[1]", "Tab and line break");
+    assertXPath(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[5]/w:br[1]", 1);
+    assertXPathContent(pXmlDoc, "/w:document[1]/w:body[1]/w:p[1]/w:r[6]/w:t[1]", "New line");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testFdo78651, "fdo78651.docx")
@@ -918,7 +896,8 @@ DECLARE_OOXMLEXPORT_TEST(testfdo83048, "fdo83048.docx")
 
     // Make sure Date is inside SDT tag.
     // This will happen only if right SDT properties are exported.
-    assertXPath(pXmlDoc, "/w:ftr/w:sdt/w:sdtContent/w:p[1]/w:sdt/w:sdtContent/w:r[1]/w:t", "1/2/2013");
+    assertXPathContent(pXmlDoc, "/w:ftr/w:sdt/w:sdtContent/w:p[1]/w:sdt/w:sdtContent/w:r[1]/w:t",
+                       "1/2/2013");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testSdt2Run, "sdt-2-run.docx")
@@ -1031,6 +1010,16 @@ DECLARE_OOXMLEXPORT_TEST(tdf66398_permissions, "tdf66398_permissions.docx")
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), xBookmarksByIdx->getCount());
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("_GoBack"));
     CPPUNIT_ASSERT(xBookmarksByName->hasByName("permission-for-group:267014232:everyone"));
+}
+
+DECLARE_OOXMLEXPORT_TEST(tdf89991_revisionView, "tdf89991.docx")
+{
+    // check revisionView (Show Changes) import and export
+    if (xmlDocPtr pXmlSettings = parseExport("word/settings.xml"))
+    {
+        assertXPath(pXmlSettings, "/w:settings/w:revisionView", "insDel",     "0");
+        assertXPath(pXmlSettings, "/w:settings/w:revisionView", "formatting", "0");
+    }
 }
 
 DECLARE_OOXMLEXPORT_TEST(tdf122201_editUnprotectedText, "tdf122201_editUnprotectedText.odt")

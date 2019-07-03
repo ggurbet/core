@@ -296,9 +296,7 @@ void AddonsToolBarManager::FillToolbar( const Sequence< Sequence< PropertyValue 
                 }
                 else
                 {
-                    ::cppu::OWeakObject* pController = nullptr;
-
-                    pController = ToolBarMerger::CreateController( m_xContext, m_xFrame, m_pToolBar, aURL, nId, nWidth, aControlType );
+                    ::cppu::OWeakObject* pController = ToolBarMerger::CreateController( m_xContext, m_xFrame, m_pToolBar, aURL, nId, nWidth, aControlType );
                     xController.set( pController, UNO_QUERY );
                 }
 
@@ -328,7 +326,7 @@ void AddonsToolBarManager::FillToolbar( const Sequence< Sequence< PropertyValue 
                     }
                 }
 
-                // Request a item window from the toolbar controller and set it at the VCL toolbar
+                // Request an item window from the toolbar controller and set it at the VCL toolbar
                 Reference< XToolbarController > xTbxController( xController, UNO_QUERY );
                 if ( xTbxController.is() && xToolbarWindow.is() )
                 {

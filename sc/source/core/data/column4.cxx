@@ -32,6 +32,7 @@
 
 #include <svl/sharedstringpool.hxx>
 #include <sal/log.hxx>
+#include <tools/stream.hxx>
 
 #include <numeric>
 #include <vector>
@@ -214,12 +215,12 @@ void ScColumn::CopyOneCellFromClip( sc::CopyFromClipContext& rCxt, SCROW nRow1, 
             const ScPatternAttr* pAttr = (bSameDocPool ? rCxt.getSingleCellPattern(nColOffset) :
                     rCxt.getSingleCellPattern(nColOffset)->PutInPool( pDocument, rCxt.getClipDoc()));
 
-            ScPatternAttr aNewPattern(*pAttr);
+            auto pNewPattern = std::make_unique<ScPatternAttr>(*pAttr);
             sal_uInt16 pItems[2];
             pItems[0] = ATTR_CONDITIONAL;
             pItems[1] = 0;
-            aNewPattern.ClearItems(pItems);
-            pAttrArray->SetPatternArea(nRow1, nRow2, &aNewPattern, true);
+            pNewPattern->ClearItems(pItems);
+            pAttrArray->SetPatternArea(nRow1, nRow2, std::move(pNewPattern), true);
         }
     }
 
@@ -1009,7 +1010,7 @@ private:
         {
             maPos.SetRow(nRow);
             const ScCondFormatItem& rItem = pPat->GetItem(ATTR_CONDITIONAL);
-            const std::vector<sal_uInt32>& rData = rItem.GetCondFormatData();
+            const ScCondFormatIndexes& rData = rItem.GetCondFormatData();
             pCondSet = mrCol.GetDoc()->GetCondResult(rCell, maPos, *mpCFList, rData);
         }
 

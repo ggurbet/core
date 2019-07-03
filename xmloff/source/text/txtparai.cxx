@@ -25,6 +25,7 @@
 #include <rtl/ustring.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/text/XTextFrame.hpp>
@@ -70,7 +71,9 @@ using ::com::sun::star::container::XEnumeration;
 class XMLHints_Impl
 {
 private:
+
     std::vector<std::unique_ptr<XMLHint_Impl>> m_Hints;
+    std::unordered_map<OUString, XMLIndexMarkHint_Impl*> m_IndexHintsById;
     uno::Reference<uno::XInterface> m_xCrossRefHeadingBookmark;
 
 public:
@@ -79,9 +82,21 @@ public:
         m_Hints.push_back(std::move(pHint));
     }
 
+    void push_back(std::unique_ptr<XMLIndexMarkHint_Impl> pHint)
+    {
+        m_IndexHintsById.emplace(pHint->GetID(), pHint.get());
+        m_Hints.push_back(std::move(pHint));
+    }
+
     std::vector<std::unique_ptr<XMLHint_Impl>> const& GetHints()
     {
         return m_Hints;
+    }
+
+    XMLIndexMarkHint_Impl* GetIndexHintById(const OUString& sID)
+    {
+        auto it = m_IndexHintsById.find(sID);
+        return it == m_IndexHintsById.end() ? nullptr : it->second;
     }
 
     uno::Reference<uno::XInterface> & GetCrossRefHeadingBookmark()
@@ -413,7 +428,7 @@ XMLImpHyperlinkContext_Impl::XMLImpHyperlinkContext_Impl(
 
     if ( mpHint->GetHRef().isEmpty() )
     {
-        // hyperlink without an URL is not imported.
+        // hyperlink without a URL is not imported.
         delete mpHint;
         mpHint = nullptr;
     }
@@ -1101,17 +1116,10 @@ void XMLIndexMarkImportContext_Impl::StartElement(
             if (!sID.isEmpty())
             {
                 // if we have an ID, find the hint and set the end position
-                for (const auto& rHintPtr : m_rHints.GetHints())
-                {
-                    XMLHint_Impl *const pHint = rHintPtr.get();
-                    if ( pHint->IsIndexMark() &&
-                         sID == static_cast<XMLIndexMarkHint_Impl *>(pHint)->GetID() )
-                    {
-                        // set end and stop searching
-                        pHint->SetEnd(xPos);
-                        break;
-                    }
-                }
+                XMLIndexMarkHint_Impl *const pHint = m_rHints.GetIndexHintById(sID);
+                if (pHint)
+                    // set end and stop searching
+                    pHint->SetEnd(xPos);
             }
             // else: no ID -> ignore
             break;
@@ -1922,7 +1930,7 @@ void XMLParaContext::EndElement()
             const uno::Reference<container::XEnumerationAccess> xEA
                 (xAttrCursor, uno::UNO_QUERY_THROW);
             const uno::Reference<container::XEnumeration> xEnum(
-                xEA->createEnumeration(), uno::UNO_QUERY_THROW);
+                xEA->createEnumeration(), uno::UNO_SET_THROW);
             SAL_WARN_IF(!xEnum->hasMoreElements(), "xmloff.text", "xml:id: no paragraph?");
             if (xEnum->hasMoreElements()) {
                 uno::Reference<rdf::XMetadatable> xMeta;
@@ -2070,9 +2078,9 @@ void XMLParaContext::EndElement()
                         xTxtImport->GetText()->insertTextContent(
                             xAttrCursor, xContent, true );
                     }
-                    catch (uno::RuntimeException const& e)
+                    catch (uno::RuntimeException const&)
                     {
-                        SAL_INFO("xmloff.text", "could not insert index mark, presumably in editengine text " << e);
+                        TOOLS_INFO_EXCEPTION("xmloff.text", "could not insert index mark, presumably in editengine text");
                     }
                 }
                 break;

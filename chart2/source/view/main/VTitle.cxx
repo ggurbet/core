@@ -24,6 +24,7 @@
 #include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 namespace chart
 {
@@ -91,9 +92,9 @@ void VTitle::changePosition( const awt::Point& rPos )
         aM.translate( m_nXPos, m_nYPos);
         xShapeProp->setPropertyValue( "Transformation", uno::Any( B2DHomMatrixToHomogenMatrix3(aM) ) );
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 }
 
@@ -105,7 +106,7 @@ void VTitle::createShapes(
         return;
 
     uno::Sequence< uno::Reference< XFormattedString > > aStringList = m_xTitle->getText();
-    if(aStringList.getLength()<=0)
+    if(!aStringList.hasElements())
         return;
 
     m_nXPos = rPos.X;
@@ -119,9 +120,9 @@ void VTitle::createShapes(
         xTitleProperties->getPropertyValue( "TextRotation" ) >>= fAngleDegree;
         m_fRotationAngleDegree += fAngleDegree;
     }
-    catch( const uno::Exception& e )
+    catch( const uno::Exception& )
     {
-        SAL_WARN("chart2", "Exception caught. " << e );
+        TOOLS_WARN_EXCEPTION("chart2", "" );
     }
 
     ShapeFactory* pShapeFactory = ShapeFactory::getOrCreateShapeFactory(m_xShapeFactory);

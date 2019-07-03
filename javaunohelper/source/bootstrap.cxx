@@ -22,7 +22,6 @@
 
 #include <osl/diagnose.h>
 
-#include <rtl/alloc.h>
 #include <rtl/bootstrap.hxx>
 #include <rtl/string.hxx>
 
@@ -33,10 +32,9 @@
 #include <cppuhelper/bootstrap.hxx>
 
 #include <com/sun/star/lang/XComponent.hpp>
-#include <com/sun/star/lang/XSingleComponentFactory.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <jni.h>
-#include <jvmaccess/virtualmachine.hxx>
 #include <jvmaccess/unovirtualmachine.hxx>
 #include <tools/diagnose_ex.h>
 
@@ -55,6 +53,7 @@ static OUString jstring_to_oustring( jstring jstr, JNIEnv * jni_env )
     jsize len = jni_env->GetStringLength( jstr );
     rtl_uString * ustr =
         static_cast<rtl_uString *>(std::malloc( sizeof (rtl_uString) + (len * sizeof (sal_Unicode)) ));
+    assert(ustr);
     jni_env->GetStringRegion( jstr, 0, len, reinterpret_cast<jchar *>(ustr->buffer) );
     OSL_ASSERT( !jni_env->ExceptionCheck() );
     ustr->refCount = 1;

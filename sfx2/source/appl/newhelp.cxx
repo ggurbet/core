@@ -91,7 +91,6 @@
 #include <svtools/imagemgr.hxx>
 #include <svtools/miscopt.hxx>
 #include <svtools/imgdef.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/unohelp.hxx>
 #include <vcl/i18nhelp.hxx>
 #include <vcl/layout.hxx>
@@ -208,7 +207,7 @@ namespace sfx2
         Boundary aBoundary = xBreak->getWordBoundary(
             rSearchString, nStartPos, aLocale, WordType::ANYWORD_IGNOREWHITESPACES, true );
 
-        while ( aBoundary.startPos != aBoundary.endPos )
+        while ( aBoundary.startPos < aBoundary.endPos )
         {
             nStartPos = aBoundary.endPos;
             OUString sSearchToken( rSearchString.copy(
@@ -1275,8 +1274,7 @@ BookmarksTabPage_Impl::BookmarksTabPage_Impl(vcl::Window* pParent, SfxHelpIndexW
     m_pBookmarksPB->SetClickHdl( LINK( this, BookmarksTabPage_Impl, OpenHdl ) );
 
     // load bookmarks from configuration
-    Sequence< Sequence< PropertyValue > > aBookmarkSeq;
-    aBookmarkSeq = SvtHistoryOptions().GetList( eHELPBOOKMARKS );
+    Sequence< Sequence< PropertyValue > > aBookmarkSeq = SvtHistoryOptions().GetList( eHELPBOOKMARKS );
 
     OUString aTitle;
     OUString aURL;
@@ -2795,7 +2793,7 @@ IMPL_LINK_NOARG(SfxHelpWindow_Impl, OpenHdl, Control*, bool)
     else
     {
         OUString aId;
-        OUString aAnchor = OUString('#');
+        OUString aAnchor('#');
         if ( comphelper::string::getTokenCount(aEntry, '#') == 2 )
         {
             sal_Int32 nIdx{ 0 };

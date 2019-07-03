@@ -21,8 +21,8 @@ class ScMatrixComparisonGenerator : public ScStatisticsInputOutputDialog
 public:
     ScMatrixComparisonGenerator(
         SfxBindings* pSfxBindings, SfxChildWindow* pChildWindow,
-        vcl::Window* pParent, ScViewData* pViewData,
-        const OUString& rID, const OUString& rUiXmlDescription );
+        weld::Window* pParent, ScViewData* pViewData,
+        const OUString& rUiXmlDescription, const OString& rID);
 
     virtual ~ScMatrixComparisonGenerator() override;
 

@@ -487,6 +487,12 @@ static int GetSimpleTTOutline(TrueTypeFont const *ttf, sal_uInt32 glyphID, Contr
     return lastPoint + 1;
 }
 
+static F16Dot16 fromF2Dot14(sal_Int16 n)
+{
+    // Avoid undefined shift of negative values prior to C++2a:
+    return sal_uInt32(n) << 2;
+}
+
 static int GetCompoundTTOutline(TrueTypeFont *ttf, sal_uInt32 glyphID, ControlPoint **pointArray, TTGlyphMetrics *metrics, std::vector< sal_uInt32 >& glyphlist)
 {
     sal_uInt16 flags, index;
@@ -577,18 +583,18 @@ static int GetCompoundTTOutline(TrueTypeFont *ttf, sal_uInt32 glyphID, ControlPo
         b = c = 0;
 
         if (flags & WE_HAVE_A_SCALE) {
-            a = GetInt16(ptr, 0) << 2;
+            a = fromF2Dot14(GetInt16(ptr, 0));
             d = a;
             ptr += 2;
         } else if (flags & WE_HAVE_AN_X_AND_Y_SCALE) {
-            a = GetInt16(ptr, 0) << 2;
-            d = GetInt16(ptr, 2) << 2;
+            a = fromF2Dot14(GetInt16(ptr, 0));
+            d = fromF2Dot14(GetInt16(ptr, 2));
             ptr += 4;
         } else if (flags & WE_HAVE_A_TWO_BY_TWO) {
-            a = GetInt16(ptr, 0) << 2;
-            b = GetInt16(ptr, 2) << 2;
-            c = GetInt16(ptr, 4) << 2;
-            d = GetInt16(ptr, 6) << 2;
+            a = fromF2Dot14(GetInt16(ptr, 0));
+            b = fromF2Dot14(GetInt16(ptr, 2));
+            c = fromF2Dot14(GetInt16(ptr, 4));
+            d = fromF2Dot14(GetInt16(ptr, 6));
             ptr += 8;
         }
 
@@ -635,14 +641,15 @@ static int GetCompoundTTOutline(TrueTypeFont *ttf, sal_uInt32 glyphID, ControlPo
         return 0;
 
     np = myPoints.size();
-
-    pa = static_cast<ControlPoint*>(calloc(np, sizeof(ControlPoint)));
-    assert(pa != nullptr);
-
     if (np > 0)
-        memcpy( pa, &myPoints[0], np*sizeof(ControlPoint) );
+    {
+        pa = static_cast<ControlPoint*>(calloc(np, sizeof(ControlPoint)));
+        assert(pa != nullptr);
 
-    *pointArray = pa;
+        memcpy(pa, myPoints.data(), np * sizeof(ControlPoint));
+
+        *pointArray = pa;
+    }
     return np;
 }
 
@@ -812,7 +819,7 @@ static int BSplineToPSPath(ControlPoint const *srcA, int srcCount, PSPathElement
     {
         *path = static_cast<PSPathElement*>(calloc(nPathCount, sizeof(PSPathElement)));
         assert(*path != nullptr);
-        memcpy( *path, &aPathList[0], nPathCount * sizeof(PSPathElement) );
+        memcpy( *path, aPathList.data(), nPathCount * sizeof(PSPathElement) );
     }
 
     return nPathCount;
@@ -1516,11 +1523,6 @@ static SFErrCodes doOpenTTFont( sal_uInt32 facenum, TrueTypeFont* t )
         return SFErrCodes::TtFormat;
     }
 
-    t->tables = static_cast<const sal_uInt8**>(calloc(NUM_TAGS, sizeof(sal_uInt8 *)));
-    assert(t->tables != nullptr);
-    t->tlens = static_cast<sal_uInt32*>(calloc(NUM_TAGS, sizeof(sal_uInt32)));
-    assert(t->tlens != nullptr);
-
     /* parse the tables */
     for (i=0; i<static_cast<int>(t->ntables); i++) {
         int nIndex;
@@ -1695,8 +1697,6 @@ void CloseTTFont(TrueTypeFont *ttf)
     free(ttf->subfamily);
     if( ttf->usubfamily )
         free( ttf->usubfamily );
-    free(ttf->tables);
-    free(ttf->tlens);
 
     free(ttf);
 }
@@ -2537,6 +2537,7 @@ int GetTTNameRecords(TrueTypeFont const *ttf, NameRecord **nr)
     }
 
     NameRecord* rec = static_cast<NameRecord*>(calloc(n, sizeof(NameRecord)));
+    assert(rec);
 
     for (i = 0; i < n; i++) {
         int nLargestFixedOffsetPos = 6 + 10 + 12 * i;

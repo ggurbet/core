@@ -32,6 +32,7 @@
 #include <dsitems.hxx>
 #include <osl/process.h>
 #include <osl/diagnose.h>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <sfx2/filedlghelper.hxx>
 #include <dbadmin.hxx>
@@ -426,8 +427,7 @@ namespace dbaui
             if ( m_pCollection->isFileSystemBased( m_eType ) )
             {
                 // get the two parts: prefix and file URL
-                OUString sFileURLDecoded;
-                sFileURLDecoded = sURL;
+                OUString sFileURLDecoded = sURL;
 
                 sURL = OUString();
                 if ( !sFileURLDecoded.isEmpty() )
@@ -581,7 +581,7 @@ namespace dbaui
 
     bool OConnectionHelper::createDirectoryDeep(const OUString& _rPathURL)
     {
-        // get an URL object analyzing the URL for us ...
+        // get a URL object analyzing the URL for us ...
         INetURLObject aParser;
         aParser.SetURL(_rPathURL);
 
@@ -660,10 +660,8 @@ namespace dbaui
 
     bool OConnectionHelper::commitURL()
     {
-        OUString sURL;
-        OUString sOldPath;
-        sOldPath = m_xConnectionURL->GetSavedValueNoPrefix();
-        sURL = m_xConnectionURL->GetTextNoPrefix();
+        OUString sOldPath = m_xConnectionURL->GetSavedValueNoPrefix();
+        OUString sURL = m_xConnectionURL->GetTextNoPrefix();
 
         if ( m_pCollection->isFileSystemBased(m_eType) )
         {

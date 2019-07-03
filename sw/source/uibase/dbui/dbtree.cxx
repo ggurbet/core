@@ -36,9 +36,8 @@
 #include <view.hxx>
 #include <wrtsh.hxx>
 #include <dbtree.hxx>
-#include <vcl/builderfactory.hxx>
+#include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/treelistentry.hxx>
 
 #include <bitmaps.hlst>
 
@@ -83,13 +82,13 @@ SwDBTreeList_Impl::~SwDBTreeList_Impl()
 {
     if(m_xDatabaseContext.is())
     {
-        m_refCount++;
+        osl_atomic_increment(&m_refCount);
         //block necessary due to solaris' compiler behaviour to
         //remove temporaries at the block's end
         {
             m_xDatabaseContext->removeContainerListener( this );
         }
-        m_refCount--;
+        osl_atomic_decrement(&m_refCount);
     }
 }
 
@@ -159,17 +158,14 @@ void SwDBTreeList::InitTreeList()
         aDBNames.begin(), aDBNames.end(),
         [&sort](OUString const & x, OUString const & y)
         { return sort.compare(x, y) < 0; });
-    const OUString* pDBNames = aDBNames.getConstArray();
-    sal_Int32 nCount = aDBNames.getLength();
 
     OUString aImg(RID_BMP_DB);
-    for (sal_Int32 i = 0; i < nCount; ++i)
+    for (const OUString& rDBName : aDBNames)
     {
-        OUString sDBName(pDBNames[i]);
-        Reference<XConnection> xConnection = pImpl->GetConnection(sDBName);
+        Reference<XConnection> xConnection = pImpl->GetConnection(rDBName);
         if (xConnection.is())
         {
-            m_xTreeView->insert(nullptr, -1, &sDBName, nullptr, nullptr, nullptr, &aImg, true, nullptr);
+            m_xTreeView->insert(nullptr, -1, &rDBName, nullptr, nullptr, nullptr, &aImg, true, nullptr);
         }
     }
     Select(OUString(), OUString(), OUString());
@@ -246,12 +242,9 @@ IMPL_LINK(SwDBTreeList, RequestingChildrenHdl, const weld::TreeIter&, rParent, b
                 {
                     Reference <XNameAccess> xCols = xColsSupplier->getColumns();
                     Sequence< OUString> aColNames = xCols->getElementNames();
-                    const OUString* pColNames = aColNames.getConstArray();
-                    long nCount = aColNames.getLength();
-                    for (long i = 0; i < nCount; i++)
+                    for (const OUString& rColName : aColNames)
                     {
-                        OUString sName = pColNames[i];
-                        m_xTreeView->append(&rParent, sName);
+                        m_xTreeView->append(&rParent, rColName);
                     }
                 }
             }
@@ -274,14 +267,10 @@ IMPL_LINK(SwDBTreeList, RequestingChildrenHdl, const weld::TreeIter&, rParent, b
                     {
                         Reference<XNameAccess> xTables = xTSupplier->getTables();
                         Sequence< OUString> aTableNames = xTables->getElementNames();
-                        OUString sTableName;
-                        long nCount = aTableNames.getLength();
-                        const OUString* pTableNames = aTableNames.getConstArray();
                         OUString aImg(RID_BMP_DBTABLE);
-                        for (long i = 0; i < nCount; i++)
+                        for (const OUString& rTableName : aTableNames)
                         {
-                            sTableName = pTableNames[i];
-                            m_xTreeView->insert(&rParent, -1, &sTableName, nullptr,
+                            m_xTreeView->insert(&rParent, -1, &rTableName, nullptr,
                                                 nullptr, nullptr, &aImg, bShowColumns, nullptr);
                         }
                     }
@@ -291,16 +280,12 @@ IMPL_LINK(SwDBTreeList, RequestingChildrenHdl, const weld::TreeIter&, rParent, b
                     {
                         Reference<XNameAccess> xQueries = xQSupplier->getQueries();
                         Sequence< OUString> aQueryNames = xQueries->getElementNames();
-                        OUString sQueryName;
-                        long nCount = aQueryNames.getLength();
-                        const OUString* pQueryNames = aQueryNames.getConstArray();
                         OUString aImg(RID_BMP_DBQUERY);
-                        for (long i = 0; i < nCount; i++)
+                        for (const OUString& rQueryName : aQueryNames)
                         {
-                            sQueryName = pQueryNames[i];
                             //to discriminate between queries and tables the user data of query entries is set
                             OUString sId(OUString::number(1));
-                            m_xTreeView->insert(&rParent, -1, &sQueryName, &sId,
+                            m_xTreeView->insert(&rParent, -1, &rQueryName, &sId,
                                                 nullptr, nullptr, &aImg, bShowColumns, nullptr);
                         }
                     }
@@ -318,19 +303,20 @@ OUString SwDBTreeList::GetDBName(OUString& rTableName, OUString& rColumnName, sa
 {
     OUString sDBName;
     std::unique_ptr<weld::TreeIter> xIter(m_xTreeView->make_iterator());
-    if (m_xTreeView->get_selected(xIter.get()) && m_xTreeView->get_iter_depth(*xIter))
+    if (m_xTreeView->get_selected(xIter.get()))
     {
-        if (m_xTreeView->get_iter_depth(*xIter) > 1)
+        if (m_xTreeView->get_iter_depth(*xIter) == 2)
         {
             rColumnName = m_xTreeView->get_text(*xIter);
             m_xTreeView->iter_parent(*xIter); // column name was selected
         }
-        if (pbIsTable)
+        if (m_xTreeView->get_iter_depth(*xIter) == 1)
         {
-            *pbIsTable = m_xTreeView->get_id(*xIter).isEmpty();
+            if (pbIsTable)
+                *pbIsTable = m_xTreeView->get_id(*xIter).isEmpty();
+            rTableName = m_xTreeView->get_text(*xIter);
+            m_xTreeView->iter_parent(*xIter);
         }
-        rTableName = m_xTreeView->get_text(*xIter);
-        m_xTreeView->iter_parent(*xIter);
         sDBName = m_xTreeView->get_text(*xIter);
     }
     return sDBName;
@@ -348,7 +334,10 @@ void SwDBTreeList::Select(const OUString& rDBName, const OUString& rTableName, c
         if (rDBName == m_xTreeView->get_text(*xParent))
         {
             if (!m_xTreeView->iter_has_child(*xParent))
+            {
+                RequestingChildrenHdl(*xParent);
                 m_xTreeView->expand_row(*xParent);
+            }
             std::unique_ptr<weld::TreeIter> xChild(m_xTreeView->make_iterator(xParent.get()));
             if (!m_xTreeView->iter_children(*xChild))
                 continue;
@@ -362,7 +351,10 @@ void SwDBTreeList::Select(const OUString& rDBName, const OUString& rTableName, c
                     if (bShowColumns && !rColumnName.isEmpty())
                     {
                         if (!m_xTreeView->iter_has_child(*xParent))
+                        {
+                            RequestingChildrenHdl(*xParent);
                             m_xTreeView->expand_row(*xParent);
+                        }
 
                         bNoChild = true;
                         if (m_xTreeView->iter_children(*xChild))

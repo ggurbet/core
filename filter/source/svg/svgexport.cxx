@@ -22,6 +22,7 @@
 #include "svgfilter.hxx"
 #include <svgscript.hxx>
 
+#include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/animations/XAnimationNodeSupplier.hpp>
 #include <com/sun/star/drawing/XMasterPageTarget.hpp>
 #include <com/sun/star/graphic/PrimitiveFactory2D.hpp>
@@ -40,6 +41,7 @@
 #include <svx/unoshape.hxx>
 #include <svx/svdpage.hxx>
 #include <svx/svdoutl.hxx>
+#include <svx/xfillit0.hxx>
 #include <editeng/outliner.hxx>
 #include <editeng/flditem.hxx>
 #include <editeng/numitem.hxx>
@@ -47,6 +49,7 @@
 #include <comphelper/sequenceashashmap.hxx>
 #include <i18nlangtag/lang.h>
 #include <svl/zforlist.hxx>
+#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <unotools/ucbstreamhelper.hxx>
 #include <xmloff/unointerfacetouniqueidentifiermapper.hxx>
@@ -580,7 +583,7 @@ bool SVGFilter::implExportImpressOrDraw( const Reference< XOutputStream >& rxOSt
 
                     if( mxDefaultPage.is() )
                     {
-                        SvxDrawPage* pSvxDrawPage = SvxDrawPage::getImplementation( mxDefaultPage );
+                        SvxDrawPage* pSvxDrawPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>( mxDefaultPage );
 
                         if( pSvxDrawPage )
                         {
@@ -686,7 +689,7 @@ bool SVGFilter::implExportWriterTextGraphic( const Reference< view::XSelectionSu
     {
         uno::Reference<beans::XPropertySet> xPropertySet(xSelection, uno::UNO_QUERY);
         uno::Reference<graphic::XGraphic> xGraphic;
-        xPropertySet->getPropertyValue("Graphic") >>= xGraphic;
+        xPropertySet->getPropertyValue("TransformedGraphic") >>= xGraphic;
 
         if (!xGraphic.is())
             return false;
@@ -698,7 +701,7 @@ bool SVGFilter::implExportWriterTextGraphic( const Reference< view::XSelectionSu
         Size  aSize( OutputDevice::LogicToLogic(aGraphic.GetPrefSize(), aGraphic.GetPrefMapMode(), MapMode(MapUnit::Map100thMM)) );
 
         assert(mSelectedPages.size() == 1);
-        SvxDrawPage* pSvxDrawPage(SvxDrawPage::getImplementation(mSelectedPages[0]));
+        SvxDrawPage* pSvxDrawPage(comphelper::getUnoTunnelImplementation<SvxDrawPage>(mSelectedPages[0]));
         if(pSvxDrawPage == nullptr || pSvxDrawPage->GetSdrPage() == nullptr)
             return false;
 
@@ -1051,7 +1054,7 @@ void SVGFilter::implGenerateMetaData()
         // NOTE: at present pSdrModel->GetPageNumType() returns always css::style::NumberingType::ARABIC
         // so the following code fragment is pretty useless
         sal_Int32 nPageNumberingType = css::style::NumberingType::ARABIC;
-        SvxDrawPage* pSvxDrawPage = SvxDrawPage::getImplementation( mSelectedPages[0] );
+        SvxDrawPage* pSvxDrawPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>( mSelectedPages[0] );
         if( pSvxDrawPage )
         {
             SdrPage* pSdrPage = pSvxDrawPage->GetSdrPage();
@@ -1274,13 +1277,13 @@ void SVGFilter::implExportAnimations()
                     {
                         // first check if there are no animations
                         Reference< XEnumerationAccess > xEnumerationAccess( xRootNode, UNO_QUERY_THROW );
-                        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+                        Reference< XEnumeration > xEnumeration( xEnumerationAccess->createEnumeration(), UNO_SET_THROW );
                         if( xEnumeration->hasMoreElements() )
                         {
                             // first child node may be an empty main sequence, check this
                             Reference< XAnimationNode > xMainNode( xEnumeration->nextElement(), UNO_QUERY_THROW );
                             Reference< XEnumerationAccess > xMainEnumerationAccess( xMainNode, UNO_QUERY_THROW );
-                            Reference< XEnumeration > xMainEnumeration( xMainEnumerationAccess->createEnumeration(), UNO_QUERY_THROW );
+                            Reference< XEnumeration > xMainEnumeration( xMainEnumerationAccess->createEnumeration(), UNO_SET_THROW );
 
                             // only export if the main sequence is not empty or if there are additional
                             // trigger sequences
@@ -1296,8 +1299,7 @@ void SVGFilter::implExportAnimations()
                         mpSVGExport->AddAttribute( XML_NAMESPACE_NONE, "class", "Animations" );
                         SvXMLElementExport aDefsElem( *mpSVGExport, XML_NAMESPACE_NONE, "defs", true, true );
 
-                        rtl::Reference< xmloff::AnimationsExporter > xAnimationsExporter;
-                        xAnimationsExporter = new xmloff::AnimationsExporter( *mpSVGExport, xProps );
+                        rtl::Reference< xmloff::AnimationsExporter > xAnimationsExporter = new xmloff::AnimationsExporter( *mpSVGExport, xProps );
                         xAnimationsExporter->prepare( xRootNode );
                         xAnimationsExporter->exportAnimations( xRootNode );
                     }
@@ -1517,7 +1519,7 @@ void SVGFilter::implGetPagePropSet( const Reference< css::drawing::XDrawPage > &
 
             if( mVisiblePagePropSet.bIsPageNumberFieldVisible )
             {
-                SvxDrawPage* pSvxDrawPage = SvxDrawPage::getImplementation( rxPage );
+                SvxDrawPage* pSvxDrawPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>( rxPage );
                 if( pSvxDrawPage )
                 {
                     SdrPage* pSdrPage = pSvxDrawPage->GetSdrPage();

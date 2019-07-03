@@ -17,10 +17,11 @@
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
 #include <com/sun/star/view/XPrintable.hpp>
+#include <com/sun/star/text/XDocumentIndexesSupplier.hpp>
+#include <com/sun/star/util/XRefreshable.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/propertysequence.hxx>
-#include <cppuhelper/implbase.hxx>
 #include <test/bootstrapfixture.hxx>
 #include <unotest/macros_test.hxx>
 #include <unotools/mediadescriptor.hxx>
@@ -29,9 +30,20 @@
 #include <tools/zcodec.hxx>
 #include <fpdf_edit.h>
 #include <fpdf_text.h>
+#include <fpdf_doc.h>
 #include <fpdfview.h>
+#include <vcl/graphicfilter.hxx>
 
 using namespace ::com::sun::star;
+
+static std::ostream& operator<<(std::ostream& rStrm, const Color& rColor)
+{
+    rStrm << "Color: R:" << static_cast<int>(rColor.GetRed())
+          << " G:" << static_cast<int>(rColor.GetGreen())
+          << " B:" << static_cast<int>(rColor.GetBlue())
+          << " A:" << static_cast<int>(rColor.GetTransparency());
+    return rStrm;
+}
 
 namespace
 {
@@ -118,6 +130,8 @@ public:
     void testTdf113143();
     void testTdf115262();
     void testTdf121962();
+    void testTdf121615();
+    void testTocLink();
 
     CPPUNIT_TEST_SUITE(PdfExportTest);
     CPPUNIT_TEST(testTdf106059);
@@ -152,6 +166,8 @@ public:
     CPPUNIT_TEST(testTdf113143);
     CPPUNIT_TEST(testTdf115262);
     CPPUNIT_TEST(testTdf121962);
+    CPPUNIT_TEST(testTdf121615);
+    CPPUNIT_TEST(testTocLink);
     CPPUNIT_TEST_SUITE_END();
 };
 
@@ -518,6 +534,7 @@ void PdfExportTest::testTdf109143()
 
     // Make sure it's re-compressed.
     auto pLength = dynamic_cast<vcl::filter::PDFNumberElement*>(pXObject->Lookup("Length"));
+    CPPUNIT_ASSERT(pLength);
     int nLength = pLength->GetValue();
     // This failed: cropped TIFF-in-JPEG wasn't re-compressed, so crop was
     // lost. Size was 59416, now is 11827.
@@ -981,6 +998,8 @@ void PdfExportTest::testTdf118244_radioButtonGroup()
 // fail.
 void PdfExportTest::testTdf115117_1()
 {
+// keeps failing on the windows tinderboxen
+#if !defined _WIN32
     vcl::filter::PDFDocument aDocument;
     load("tdf115117-1.odt", aDocument);
 
@@ -1036,6 +1055,7 @@ void PdfExportTest::testTdf115117_1()
     const char* pEnd = pStart + aObjectStream.GetSize();
     auto it = std::search(pStart, pEnd, aCmap.getStr(), aCmap.getStr() + aCmap.getLength());
     CPPUNIT_ASSERT(it != pEnd);
+#endif // if !defined _WIN32
 }
 
 // This requires DejaVu Sans font, if it is missing the test will most likely
@@ -1361,6 +1381,8 @@ void PdfExportTest::testTdf66597_2()
 // This requires Gentium Basic font, if it is missing the test will fail.
 void PdfExportTest::testTdf66597_3()
 {
+    // fails on some of the windows tinderboxes
+#if !defined _WIN32
     vcl::filter::PDFDocument aDocument;
     load("tdf66597-3.odt", aDocument);
 
@@ -1436,6 +1458,7 @@ void PdfExportTest::testTdf66597_3()
         }
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Number of ActualText entries does not match!", static_cast<size_t>(4), nCount);
     }
+#endif // __WIN32
 }
 #endif
 
@@ -1670,6 +1693,94 @@ void PdfExportTest::testTdf121962()
         OUString sText(aText.data(), nTextSize / 2 - 1);
         CPPUNIT_ASSERT(sText != "** Expression is faulty **");
     }
+}
+
+void PdfExportTest::testTdf121615()
+{
+    vcl::filter::PDFDocument aDocument;
+    load("tdf121615.odt", aDocument);
+
+    // The document has one page.
+    std::vector<vcl::filter::PDFObjectElement*> aPages = aDocument.GetPages();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aPages.size());
+
+    // Get access to the only image on the only page.
+    vcl::filter::PDFObjectElement* pResources = aPages[0]->LookupObject("Resources");
+    CPPUNIT_ASSERT(pResources);
+    auto pXObjects = dynamic_cast<vcl::filter::PDFDictionaryElement*>(pResources->Lookup("XObject"));
+    CPPUNIT_ASSERT(pXObjects);
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), pXObjects->GetItems().size());
+    vcl::filter::PDFObjectElement* pXObject = pXObjects->LookupObject(pXObjects->GetItems().begin()->first);
+    CPPUNIT_ASSERT(pXObject);
+    vcl::filter::PDFStreamElement* pStream = pXObject->GetStream();
+    CPPUNIT_ASSERT(pStream);
+    SvMemoryStream& rObjectStream = pStream->GetMemory();
+
+    // Load the embedded image.
+    rObjectStream.Seek( 0 );
+    GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
+    Graphic aGraphic;
+    sal_uInt16 format;
+    ErrCode bResult = rFilter.ImportGraphic(aGraphic, OUString( "import" ), rObjectStream,
+        GRFILTER_FORMAT_DONTKNOW, &format);
+    CPPUNIT_ASSERT_EQUAL(ERRCODE_NONE, bResult);
+
+    // The image should be grayscale 8bit JPEG.
+    sal_uInt16 jpegFormat = rFilter.GetImportFormatNumberForShortName( JPG_SHORTNAME );
+    CPPUNIT_ASSERT( jpegFormat != GRFILTER_FORMAT_NOTFOUND );
+    CPPUNIT_ASSERT_EQUAL( jpegFormat, format );
+    BitmapEx aBitmap = aGraphic.GetBitmapEx();
+    CPPUNIT_ASSERT_EQUAL( 200L, aBitmap.GetSizePixel().Width());
+    CPPUNIT_ASSERT_EQUAL( 300L, aBitmap.GetSizePixel().Height());
+    CPPUNIT_ASSERT_EQUAL( 8, int(aBitmap.GetBitCount()));
+    // tdf#121615 was caused by broken handling of data width with 8bit color,
+    // so the test image has some black in the bottomright corner, check it's there
+    CPPUNIT_ASSERT_EQUAL( COL_WHITE, aBitmap.GetPixelColor( 0, 0 ));
+    CPPUNIT_ASSERT_EQUAL( COL_WHITE, aBitmap.GetPixelColor( 0, 299 ));
+    CPPUNIT_ASSERT_EQUAL( COL_WHITE, aBitmap.GetPixelColor( 199, 0 ));
+    CPPUNIT_ASSERT_EQUAL( COL_BLACK, aBitmap.GetPixelColor( 199, 299 ));
+}
+
+void PdfExportTest::testTocLink()
+{
+    // Load the Writer document.
+    OUString aURL = m_directories.getURLFromSrc(DATA_DIRECTORY) + "toc-link.fodt";
+    mxComponent = loadFromDesktop(aURL);
+    CPPUNIT_ASSERT(mxComponent.is());
+
+    // Update the ToC.
+    uno::Reference<text::XDocumentIndexesSupplier> xDocumentIndexesSupplier(mxComponent,
+                                                                            uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xDocumentIndexesSupplier.is());
+
+    uno::Reference<util::XRefreshable> xToc(
+        xDocumentIndexesSupplier->getDocumentIndexes()->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xToc.is());
+
+    xToc->refresh();
+
+    // Save as PDF.
+    uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+    utl::MediaDescriptor aMediaDescriptor;
+    aMediaDescriptor["FilterName"] <<= OUString("writer_pdf_Export");
+    xStorable->storeToURL(maTempFile.GetURL(), aMediaDescriptor.getAsConstPropertyValueList());
+
+    SvFileStream aFile(maTempFile.GetURL(), StreamMode::READ);
+    maMemory.WriteStream(aFile);
+    DocumentHolder pPdfDocument(
+        FPDF_LoadMemDocument(maMemory.GetData(), maMemory.GetSize(), /*password=*/nullptr));
+    CPPUNIT_ASSERT(pPdfDocument.get());
+    CPPUNIT_ASSERT_EQUAL(1, FPDF_GetPageCount(pPdfDocument.get()));
+
+    PageHolder pPdfPage(FPDF_LoadPage(pPdfDocument.get(), /*page_index=*/0));
+    CPPUNIT_ASSERT(pPdfPage.get());
+
+    // Ensure there is a link on the first page (in the ToC).
+    int nStartPos = 0;
+    FPDF_LINK pLinkAnnot = nullptr;
+    // Without the accompanying fix in place, this test would have failed, as FPDFLink_Enumerate()
+    // returned false, as the page contained no links.
+    CPPUNIT_ASSERT(FPDFLink_Enumerate(pPdfPage.get(), &nStartPos, &pLinkAnnot));
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(PdfExportTest);

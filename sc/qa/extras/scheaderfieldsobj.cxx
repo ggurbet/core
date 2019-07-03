@@ -30,22 +30,21 @@
 #include <cppu/unotype.hxx>
 
 using namespace css;
-using namespace css::uno;
 
 namespace sc_apitest
 {
-class ScCellFieldsObj : public CalcUnoApiTest,
-                        public apitest::XEnumerationAccess,
-                        public apitest::XRefreshable
+class ScHeaderFieldsObj : public CalcUnoApiTest,
+                          public apitest::XEnumerationAccess,
+                          public apitest::XRefreshable
 {
 public:
-    ScCellFieldsObj();
+    ScHeaderFieldsObj();
 
     virtual uno::Reference<uno::XInterface> init() override;
     virtual void setUp() override;
     virtual void tearDown() override;
 
-    CPPUNIT_TEST_SUITE(ScCellFieldsObj);
+    CPPUNIT_TEST_SUITE(ScHeaderFieldsObj);
 
     // XEnumerationAccess
     CPPUNIT_TEST(testCreateEnumeration);
@@ -59,25 +58,24 @@ private:
     uno::Reference<lang::XComponent> m_xComponent;
 };
 
-ScCellFieldsObj::ScCellFieldsObj()
+ScHeaderFieldsObj::ScHeaderFieldsObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
 {
 }
 
-uno::Reference<uno::XInterface> ScCellFieldsObj::init()
+uno::Reference<uno::XInterface> ScHeaderFieldsObj::init()
 {
     uno::Reference<sheet::XSpreadsheetDocument> xDoc(m_xComponent, uno::UNO_QUERY_THROW);
-    CPPUNIT_ASSERT_MESSAGE("no calc document", xDoc.is());
 
     uno::Reference<style::XStyleFamiliesSupplier> xSFS(xDoc, uno::UNO_QUERY_THROW);
-    uno::Reference<container::XNameAccess> xNA(xSFS->getStyleFamilies(), uno::UNO_QUERY_THROW);
+    uno::Reference<container::XNameAccess> xNA(xSFS->getStyleFamilies(), uno::UNO_SET_THROW);
     uno::Reference<container::XNameAccess> xNA1(xNA->getByName("PageStyles"), uno::UNO_QUERY_THROW);
     uno::Reference<style::XStyle> xStyle(xNA1->getByName("Default"), uno::UNO_QUERY_THROW);
 
     uno::Reference<beans::XPropertySet> xPropertySet(xStyle, uno::UNO_QUERY_THROW);
     uno::Reference<sheet::XHeaderFooterContent> xHFC(
         xPropertySet->getPropertyValue("RightPageHeaderContent"), uno::UNO_QUERY_THROW);
-    uno::Reference<text::XText> xText(xHFC->getLeftText(), uno::UNO_QUERY_THROW);
+    uno::Reference<text::XText> xText(xHFC->getLeftText(), uno::UNO_SET_THROW);
 
     uno::Reference<lang::XMultiServiceFactory> xMSF(xDoc, uno::UNO_QUERY_THROW);
     uno::Reference<text::XTextContent> xTC(xMSF->createInstance("com.sun.star.text.TextField.Time"),
@@ -89,20 +87,21 @@ uno::Reference<uno::XInterface> ScCellFieldsObj::init()
     return xTFS->getTextFields();
 }
 
-void ScCellFieldsObj::setUp()
+void ScHeaderFieldsObj::setUp()
 {
     CalcUnoApiTest::setUp();
+    // create calc document
     m_xComponent = loadFromDesktop("private:factory/scalc");
-    CPPUNIT_ASSERT_MESSAGE("no component", m_xComponent.is());
 }
 
-void ScCellFieldsObj::tearDown()
+void ScHeaderFieldsObj::tearDown()
 {
     closeDocument(m_xComponent);
     CalcUnoApiTest::tearDown();
 }
 
-CPPUNIT_TEST_SUITE_REGISTRATION(ScCellFieldsObj);
+CPPUNIT_TEST_SUITE_REGISTRATION(ScHeaderFieldsObj);
+
 } // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();

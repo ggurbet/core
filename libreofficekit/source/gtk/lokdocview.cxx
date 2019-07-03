@@ -85,6 +85,7 @@ struct LOKDocViewPrivateImpl
     gboolean m_bInit; // initializeForRendering() has been called
     gboolean m_bCanZoomIn;
     gboolean m_bCanZoomOut;
+    gboolean m_bUnipoll;
     LibreOfficeKit* m_pOffice;
     LibreOfficeKitDocument* m_pDocument;
 
@@ -198,6 +199,7 @@ struct LOKDocViewPrivateImpl
         m_bInit(false),
         m_bCanZoomIn(true),
         m_bCanZoomOut(true),
+        m_bUnipoll(false),
         m_pOffice(nullptr),
         m_pDocument(nullptr),
         lokThreadPool(nullptr),
@@ -287,6 +289,7 @@ enum
     PROP_0,
 
     PROP_LO_PATH,
+    PROP_LO_UNIPOLL,
     PROP_LO_POINTER,
     PROP_USER_PROFILE_URL,
     PROP_DOC_PATH,
@@ -448,6 +451,8 @@ callbackTypeToString (int nType)
         return "LOK_CALLBACK_CONTEXT_CHANGED";
     case LOK_CALLBACK_SIGNATURE_STATUS:
         return "LOK_CALLBACK_SIGNATURE_STATUS";
+    case LOK_CALLBACK_PROFILE_FRAME:
+        return "LOK_CALLBACK_PROFILE_FRAME";
     }
     g_assert(false);
     return nullptr;
@@ -679,7 +684,7 @@ postKeyEventInThread(gpointer data)
     LOKDocViewPrivate& priv = getPrivate(pDocView);
     LOEvent* pLOEvent = static_cast<LOEvent*>(g_task_get_task_data(task));
 
-    std::unique_lock<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());
@@ -973,7 +978,7 @@ static gboolean postDocumentLoad(gpointer pData)
     // Total number of columns in this document.
     guint nColumns = ceil(static_cast<double>(nDocumentWidthPixels) / nTileSizePixels);
 
-    priv->m_pTileBuffer = std::unique_ptr<TileBuffer>(new TileBuffer(nColumns));
+    priv->m_pTileBuffer = std::make_unique<TileBuffer>(nColumns);
     gtk_widget_set_size_request(GTK_WIDGET(pLOKDocView),
                                 nDocumentWidthPixels,
                                 nDocumentHeightPixels);
@@ -1447,6 +1452,9 @@ callback (gpointer pData)
     case LOK_CALLBACK_INVALIDATE_HEADER:
         g_signal_emit(pCallback->m_pDocView, doc_view_signals[INVALIDATE_HEADER], 0, pCallback->m_aPayload.c_str());
         break;
+    case LOK_CALLBACK_CLIPBOARD_CHANGED:
+    case LOK_CALLBACK_CONTEXT_CHANGED:
+        break; // TODO
     default:
         g_assert(false);
         break;
@@ -2178,7 +2186,7 @@ setGraphicSelectionInThread(gpointer data)
     LOKDocViewPrivate& priv = getPrivate(pDocView);
     LOEvent* pLOEvent = static_cast<LOEvent*>(g_task_get_task_data(task));
 
-    std::lock_guard<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());
@@ -2202,7 +2210,7 @@ setClientZoomInThread(gpointer data)
     LOKDocViewPrivate& priv = getPrivate(pDocView);
     LOEvent* pLOEvent = static_cast<LOEvent*>(g_task_get_task_data(task));
 
-    std::lock_guard<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     priv->m_pDocument->pClass->setClientZoom(priv->m_pDocument,
                                              pLOEvent->m_nTilePixelWidth,
                                              pLOEvent->m_nTilePixelHeight,
@@ -2218,7 +2226,7 @@ postMouseEventInThread(gpointer data)
     LOKDocViewPrivate& priv = getPrivate(pDocView);
     LOEvent* pLOEvent = static_cast<LOEvent*>(g_task_get_task_data(task));
 
-    std::lock_guard<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());
@@ -2247,7 +2255,7 @@ openDocumentInThread (gpointer data)
     LOKDocView* pDocView = LOK_DOC_VIEW(g_task_get_source_object(task));
     LOKDocViewPrivate& priv = getPrivate(pDocView);
 
-    std::lock_guard<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     if ( priv->m_pDocument )
     {
         priv->m_pDocument->pClass->destroy( priv->m_pDocument );
@@ -2298,7 +2306,7 @@ setPartmodeInThread(gpointer data)
     LOEvent* pLOEvent = static_cast<LOEvent*>(g_task_get_task_data(task));
     int nPartMode = pLOEvent->m_nPartMode;
 
-    std::lock_guard<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());
@@ -2321,7 +2329,7 @@ setEditInThread(gpointer data)
     else if (priv->m_bEdit && !bEdit)
     {
         g_info("lok_doc_view_set_edit: leaving edit mode");
-        std::lock_guard<std::mutex> aGuard(g_aLOKMutex);
+        std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
         std::stringstream ss;
         ss << "lok::Document::setView(" << priv->m_nViewId << ")";
         g_info("%s", ss.str().c_str());
@@ -2341,7 +2349,7 @@ postCommandInThread (gpointer data)
     LOEvent* pLOEvent = static_cast<LOEvent*>(g_task_get_task_data(task));
     LOKDocViewPrivate& priv = getPrivate(pDocView);
 
-    std::lock_guard<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());
@@ -2520,6 +2528,9 @@ static void lok_doc_view_set_property (GObject* object, guint propId, const GVal
     case PROP_LO_PATH:
         priv->m_aLOPath = g_value_get_string (value);
         break;
+    case PROP_LO_UNIPOLL:
+        priv->m_bUnipoll = g_value_get_boolean (value);
+        break;
     case PROP_LO_POINTER:
         priv->m_pOffice = static_cast<LibreOfficeKit*>(g_value_get_pointer(value));
         break;
@@ -2581,6 +2592,9 @@ static void lok_doc_view_get_property (GObject* object, guint propId, GValue *va
     {
     case PROP_LO_PATH:
         g_value_set_string (value, priv->m_aLOPath.c_str());
+        break;
+    case PROP_LO_UNIPOLL:
+        g_value_set_boolean (value, priv->m_bUnipoll);
         break;
     case PROP_LO_POINTER:
         g_value_set_pointer(value, priv->m_pOffice);
@@ -2707,6 +2721,41 @@ static void lok_doc_view_finalize (GObject* object)
     G_OBJECT_CLASS (lok_doc_view_parent_class)->finalize (object);
 }
 
+// kicks the mainloop awake
+static gboolean timeout_wakeup(void *)
+{
+    return FALSE;
+}
+
+// integrate our mainloop with LOK's
+static int lok_poll_callback(void*, int timeoutUs)
+{
+    if (timeoutUs)
+    {
+        guint timeout = g_timeout_add(timeoutUs / 1000, timeout_wakeup, nullptr);
+        g_main_context_iteration(nullptr, TRUE);
+        g_source_remove(timeout);
+    }
+    else
+        g_main_context_iteration(nullptr, FALSE);
+
+    return 0;
+}
+
+// thread-safe wakeup of our mainloop
+static void lok_wake_callback(void *)
+{
+    g_main_context_wakeup(nullptr);
+}
+
+static gboolean spin_lok_loop(void *pData)
+{
+    LOKDocView *pDocView = LOK_DOC_VIEW (pData);
+    LOKDocViewPrivate& priv = getPrivate(pDocView);
+    priv->m_pOffice->pClass->runLoop(priv->m_pOffice, lok_poll_callback, lok_wake_callback, nullptr);
+    return FALSE;
+}
+
 static gboolean lok_doc_view_initable_init (GInitable *initable, GCancellable* /*cancellable*/, GError **error)
 {
     LOKDocView *pDocView = LOK_DOC_VIEW (initable);
@@ -2714,6 +2763,9 @@ static gboolean lok_doc_view_initable_init (GInitable *initable, GCancellable* /
 
     if (priv->m_pOffice != nullptr)
         return TRUE;
+
+    if (priv->m_bUnipoll)
+        g_setenv("SAL_LOK_OPTIONS", "unipoll", FALSE);
 
     priv->m_pOffice = lok_init_2(priv->m_aLOPath.c_str(), priv->m_aUserProfileURL.empty() ? nullptr : priv->m_aUserProfileURL.c_str());
 
@@ -2728,6 +2780,9 @@ static gboolean lok_doc_view_initable_init (GInitable *initable, GCancellable* /
     priv->m_nLOKFeatures |= LOK_FEATURE_PART_IN_INVALIDATION_CALLBACK;
     priv->m_nLOKFeatures |= LOK_FEATURE_VIEWID_IN_VISCURSOR_INVALIDATION_CALLBACK;
     priv->m_pOffice->pClass->setOptionalFeatures(priv->m_pOffice, priv->m_nLOKFeatures);
+
+    if (priv->m_bUnipoll)
+        g_idle_add(spin_lok_loop, pDocView);
 
     return TRUE;
 }
@@ -2768,6 +2823,19 @@ static void lok_doc_view_class_init (LOKDocViewClass* pClass)
                                                      G_PARAM_CONSTRUCT_ONLY |
                                                      G_PARAM_STATIC_STRINGS));
 
+    /**
+     * LOKDocView:unipoll:
+     *
+     * Whether we use our own unified polling mainloop in place of glib's
+     */
+    properties[PROP_LO_UNIPOLL] =
+        g_param_spec_boolean("unipoll",
+                             "Unified Polling",
+                             "Whether we use a custom unified polling loop",
+                             FALSE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY |
+                                                      G_PARAM_STATIC_STRINGS));
     /**
      * LOKDocView:lopointer:
      *
@@ -3485,7 +3553,7 @@ lok_doc_view_set_zoom (LOKDocView* pDocView, float fZoom)
     // Total number of columns in this document.
     guint nColumns = ceil(static_cast<double>(nDocumentWidthPixels) / nTileSizePixels);
 
-    priv->m_pTileBuffer = std::unique_ptr<TileBuffer>(new TileBuffer(nColumns));
+    priv->m_pTileBuffer = std::make_unique<TileBuffer>(nColumns);
     gtk_widget_set_size_request(GTK_WIDGET(pDocView),
                                 nDocumentWidthPixels,
                                 nDocumentHeightPixels);
@@ -3540,7 +3608,7 @@ lok_doc_view_get_parts (LOKDocView* pDocView)
     if (!priv->m_pDocument)
         return -1;
 
-    std::unique_lock<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());
@@ -3555,7 +3623,7 @@ lok_doc_view_get_part (LOKDocView* pDocView)
     if (!priv->m_pDocument)
         return -1;
 
-    std::unique_lock<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());
@@ -3600,7 +3668,7 @@ lok_doc_view_get_part_name (LOKDocView* pDocView, int nPart)
     if (!priv->m_pDocument)
         return nullptr;
 
-    std::unique_lock<std::mutex> aGuard(g_aLOKMutex);
+    std::scoped_lock<std::mutex> aGuard(g_aLOKMutex);
     std::stringstream ss;
     ss << "lok::Document::setView(" << priv->m_nViewId << ")";
     g_info("%s", ss.str().c_str());

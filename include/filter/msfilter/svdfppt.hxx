@@ -281,7 +281,6 @@ struct PptFontEntityAtom
     friend SvStream& ReadPptFontEntityAtom(SvStream& rIn, PptFontEntityAtom& rAtom);
 };
 
-class PptFontCollection;
 enum class PptViewTypeEnum : sal_uInt16
 {
     NONE = 0,
@@ -463,7 +462,7 @@ protected:
 
     ::std::vector< PPTOleEntry > aOleObjectList;
 
-    std::unique_ptr<PptFontCollection> m_pFonts;
+    std::unique_ptr<std::vector<std::unique_ptr<PptFontEntityAtom>>> m_pFonts;
 
     sal_uInt32          nStreamLen;
 
@@ -689,7 +688,7 @@ struct  PPTTextSpecInfoAtomInterpreter
 
 };
 
-#define PPT_STYLESHEETENTRYS    9
+#define PPT_STYLESHEETENTRIES    9
 
 struct PPTExtParaLevel
 {
@@ -1444,7 +1443,7 @@ enum class PptSlideLayout
     TOPROW2COLUMN          =  13,  // Body contains 2 rows, top row has 2 columns
     FOUROBJECTS            =  14,  // 4 objects
     BIGOBJECT              =  15,  // Big object
-    BLANCSLIDE             =  16,  // Blank slide
+    BLANKSLIDE             =  16,  // Blank slide
     TITLERIGHTBODYLEFT     =  17,  // Vertical title on the right, body on the left
     TITLERIGHT2BODIESLEFT  =  18   // Vertical title on the right, body on the left split into 2 rows
 };

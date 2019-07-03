@@ -21,10 +21,9 @@
 #include <comphelper/string.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/viewsh.hxx>
-#include <vcl/accel.hxx>
-#include <vcl/mnemonic.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 
 #include <anyrefdg.hxx>
 #include <sc.hrc>
@@ -45,16 +44,10 @@ ScFormulaReferenceHelper::ScFormulaReferenceHelper(IAnyRefDialog* _pDlg,SfxBindi
  : m_pDlg(_pDlg)
  , m_pRefEdit (nullptr)
  , m_pRefBtn (nullptr)
- , m_pWindow(nullptr)
+ , m_pDialog(nullptr)
  , m_pBindings(_pBindings)
- , m_nOldBorderWidth (0)
  , m_nRefTab(0)
- , m_nOldEditWidthReq(-1)
- , m_pOldEditParent(nullptr)
- , m_bOldDlgLayoutEnabled(false)
- , m_bOldEditParentLayoutEnabled(false)
  , m_bHighlightRef(false)
- , m_bAccInserted(false)
 {
     ScInputOptions aInputOption=SC_MOD()->GetInputOptions();
     m_bEnableColorRef=aInputOption.GetRangeFinder();
@@ -67,10 +60,6 @@ ScFormulaReferenceHelper::~ScFormulaReferenceHelper()
 
 void ScFormulaReferenceHelper::dispose()
 {
-    if (m_bAccInserted)
-        Application::RemoveAccel( m_pAccel.get() );
-    m_bAccInserted = false;
-
     // common cleanup for ScAnyRefDlg and ScFormulaDlg is done here
     HideReference();
     enableInput( true );
@@ -79,12 +68,7 @@ void ScFormulaReferenceHelper::dispose()
     if ( pInputHdl )
         pInputHdl->ResetDelayTimer();   // stop the timer for disabling the input line
 
-    m_pAccel.reset();
-
-    m_pOldEditParent.clear();
-    m_pWindow.clear();
-    m_pRefBtn.clear();
-    m_pRefEdit.clear();
+    m_pDialog = nullptr;
 }
 
 void ScFormulaReferenceHelper::enableInput( bool bEnable )
@@ -338,109 +322,37 @@ void ScFormulaReferenceHelper::Init()
     }
 }
 
-IMPL_LINK( ScFormulaReferenceHelper, AccelSelectHdl, Accelerator&, rSelAccel, void )
+IMPL_LINK_NOARG(ScFormulaReferenceHelper, ActivateHdl, weld::Widget&, bool)
 {
-    switch ( rSelAccel.GetCurKeyCode().GetCode() )
-    {
-        case KEY_RETURN:
-        case KEY_ESCAPE:
-            if( m_pRefEdit )
-                m_pRefEdit->GrabFocus();
-            m_pDlg->RefInputDone( true );
-        break;
-    }
+    if (m_pRefEdit)
+        m_pRefEdit->GrabFocus();
+    m_pDlg->RefInputDone(true);
+    return true;
 }
 
 void ScFormulaReferenceHelper::RefInputDone( bool bForced )
 {
     if ( CanInputDone( bForced ) )
     {
-        if (m_bAccInserted)           // disable accelerator
+        if (m_pDialog)
         {
-            Application::RemoveAccel( m_pAccel.get() );
-            m_bAccInserted = false;
-        }
+            // Adjust window title
+            m_pDialog->set_title(m_sOldDialogText);
 
-        //get rid of all this junk when we can
-        if (!m_bOldDlgLayoutEnabled)
-        {
-            m_pWindow->SetOutputSizePixel(m_aOldDialogSize);
+            if (m_pRefEdit)
+                m_pRefEdit->SetActivateHdl(Link<weld::Widget&, bool>());
 
-            // restore the parent of the edit field
-            m_pRefEdit->SetParent(m_pOldEditParent);
-
-            // the window is at the old size again
-            m_pWindow->SetOutputSizePixel(m_aOldDialogSize);
-
-            // set button parent
-            if( m_pRefBtn )
+            // set button image
+            if (m_pRefBtn)
             {
-                m_pRefBtn->SetParent(m_pWindow);
+                m_pRefBtn->SetActivateHdl(Link<weld::Widget&, bool>());
+                m_pRefBtn->SetStartImage();
             }
-        }
 
-        if (!m_bOldEditParentLayoutEnabled)
-        {
-            // set pEditCell to old position
-            m_pRefEdit->SetPosSizePixel(m_aOldEditPos, m_aOldEditSize);
+            m_pDialog->undo_collapse();
 
-            // set button position
-            if( m_pRefBtn )
-            {
-                m_pRefBtn->SetPosPixel( m_aOldButtonPos );
-            }
-        }
-
-        // Adjust window title
-        m_pWindow->SetText(m_sOldDialogText);
-
-        // set button image
-        if( m_pRefBtn )
-            m_pRefBtn->SetStartImage();
-
-        // All others: Show();
-        for (VclPtr<vcl::Window> const & pWindow : m_aHiddenWidgets)
-        {
-            pWindow->Show();
-        }
-        m_aHiddenWidgets.clear();
-
-        if (m_bOldDlgLayoutEnabled)
-        {
-            m_pRefEdit->set_width_request(m_nOldEditWidthReq);
-            Dialog* pResizeDialog = m_pRefEdit->GetParentDialog();
-            pResizeDialog->set_border_width(m_nOldBorderWidth);
-            if (vcl::Window *pActionArea = pResizeDialog->get_action_area())
-                pActionArea->Show();
-            pResizeDialog->setOptimalLayoutSize();
-        }
-
-        m_pRefEdit = nullptr;
-        m_pRefBtn = nullptr;
-    }
-}
-
-typedef std::set<VclPtr<vcl::Window> > winset;
-
-namespace
-{
-    void hideUnless(const vcl::Window *pTop, const winset& rVisibleWidgets,
-        std::vector<VclPtr<vcl::Window> > &rWasVisibleWidgets)
-    {
-        for (vcl::Window* pChild = pTop->GetWindow(GetWindowType::FirstChild); pChild;
-            pChild = pChild->GetWindow(GetWindowType::Next))
-        {
-            if (!pChild->IsVisible())
-                continue;
-            if (rVisibleWidgets.find(pChild) == rVisibleWidgets.end())
-            {
-                rWasVisibleWidgets.emplace_back(pChild);
-                pChild->Hide();
-            }
-            else if (isContainerWindow(pChild))
-            {
-                hideUnless(pChild, rVisibleWidgets, rWasVisibleWidgets);
-            }
+            m_pRefEdit = nullptr;
+            m_pRefBtn = nullptr;
         }
     }
 }
@@ -452,140 +364,27 @@ void ScFormulaReferenceHelper::RefInputStart( formula::RefEdit* pEdit, formula::
         m_pRefEdit = pEdit;
         m_pRefBtn  = pButton;
 
-        m_bOldDlgLayoutEnabled = isLayoutEnabled(m_pWindow);
-        m_aOldEditSize = m_pRefEdit->GetSizePixel();
-        m_nOldEditWidthReq = m_pRefEdit->get_width_request();
-        m_pOldEditParent = m_pRefEdit->GetParent();
-        m_bOldEditParentLayoutEnabled = isContainerWindow(m_pOldEditParent);
-
-        //get rid of all the !mbOldDlgLayoutEnabled and
-        //mbOldEditParentLayoutEnabled junk when we can after the last user of
-        //this is widget-layout-ified
-        if (!m_bOldEditParentLayoutEnabled)
-        {
-            // Save current state
-            m_aOldDialogSize = m_pWindow->GetOutputSizePixel();
-            m_aOldEditPos = m_pRefEdit->GetPosPixel();
-            if (m_pRefBtn)
-                m_aOldButtonPos = m_pRefBtn->GetPosPixel();
-        }
-
-        if (!m_bOldDlgLayoutEnabled)
-        {
-            m_pRefEdit->SetParent(m_pWindow);
-            if(m_pRefBtn)
-                m_pRefBtn->SetParent(m_pWindow);
-        }
-
         // Save and adjust window title
-        m_sOldDialogText = m_pWindow->GetText();
-        if (vcl::Window *pLabel = m_pRefEdit->GetLabelWidgetForShrinkMode())
+        m_sOldDialogText = m_pDialog->get_title();
+        if (weld::Label *pLabel = m_pRefEdit->GetLabelWidgetForShrinkMode())
         {
-            const OUString sLabel = pLabel->GetText();
+            const OUString sLabel = pLabel->get_label();
             if (!sLabel.isEmpty())
             {
                 const OUString sNewDialogText = m_sOldDialogText + ": " + comphelper::string::stripEnd(sLabel, ':');
-                m_pWindow->SetText( MnemonicGenerator::EraseAllMnemonicChars( sNewDialogText ) );
+                m_pDialog->set_title(pLabel->strip_mnemonic(sNewDialogText));
             }
         }
 
-        Dialog* pResizeDialog = nullptr;
-
-        if (!m_bOldDlgLayoutEnabled)
-        {
-            for (vcl::Window* pChild = m_pWindow->GetWindow(GetWindowType::FirstChild); pChild;
-                pChild = pChild->GetWindow(GetWindowType::Next))
-            {
-                vcl::Window *pWin = pChild->GetWindow(GetWindowType::Client);
-                if (pWin == static_cast<vcl::Window*>(m_pRefEdit) || pWin == static_cast<vcl::Window*>(m_pRefBtn))
-                    continue; // do nothing
-                else if (pWin->IsVisible())
-                {
-                    m_aHiddenWidgets.emplace_back(pChild);
-                    pChild->Hide();
-                }
-            }
-        }
-        else
-        {
-            //We want just pRefBtn and pRefEdit to be shown
-            //mark widgets we want to be visible, starting with pRefEdit
-            //and all its direct parents.
-            winset aVisibleWidgets;
-            pResizeDialog = m_pRefEdit->GetParentDialog();
-            vcl::Window *pContentArea = pResizeDialog->get_content_area();
-            for (vcl::Window *pCandidate = m_pRefEdit;
-                pCandidate && (pCandidate != pContentArea && pCandidate->IsVisible());
-                pCandidate = pCandidate->GetWindow(GetWindowType::RealParent))
-            {
-                aVisibleWidgets.insert(pCandidate);
-            }
-            //same again with pRefBtn, except stop if there's a
-            //shared parent in the existing widgets
-            for (vcl::Window *pCandidate = m_pRefBtn;
-                pCandidate && (pCandidate != pContentArea && pCandidate->IsVisible());
-                pCandidate = pCandidate->GetWindow(GetWindowType::RealParent))
-            {
-                if (aVisibleWidgets.insert(pCandidate).second)
-                    break;
-            }
-
-            //hide everything except the aVisibleWidgets
-            hideUnless(pContentArea, aVisibleWidgets, m_aHiddenWidgets);
-        }
-
-        if (!m_bOldDlgLayoutEnabled)
-        {
-            // move and adapt edit field
-            Size aNewDlgSize(m_aOldDialogSize.Width(), m_aOldEditSize.Height());
-            Size aNewEditSize(aNewDlgSize);
-            long nOffset = 0;
-            if (m_pRefBtn)
-            {
-                aNewEditSize.AdjustWidth( -(m_pRefBtn->GetSizePixel().Width()) );
-                aNewEditSize.AdjustWidth( -(m_aOldButtonPos.X() - (m_aOldEditPos.X()+m_aOldEditSize.Width())) );
-
-                long nHeight = m_pRefBtn->GetSizePixel().Height();
-                if ( nHeight > m_aOldEditSize.Height() )
-                {
-                    aNewDlgSize.setHeight( nHeight );
-                    nOffset = (nHeight-m_aOldEditSize.Height()) / 2;
-                }
-                aNewEditSize.AdjustWidth( -nOffset );
-            }
-            m_pRefEdit->SetPosSizePixel(Point(nOffset, nOffset), aNewEditSize);
-
-            // set button position
-            if( m_pRefBtn )
-                m_pRefBtn->SetPosPixel( Point( m_aOldDialogSize.Width() - m_pRefBtn->GetSizePixel().Width(), 0 ) );
-
-            // shrink window
-            m_pWindow->SetOutputSizePixel(aNewDlgSize);
-        }
+        m_pDialog->collapse(pEdit->GetWidget(), pButton ? pButton->GetWidget() : nullptr);
 
         // set button image
-        if( m_pRefBtn )
-            m_pRefBtn->SetEndImage();
+        if (pButton)
+            pButton->SetEndImage();
 
-        if (!m_pAccel)
-        {
-            m_pAccel.reset( new Accelerator );
-            m_pAccel->InsertItem( 1, vcl::KeyCode( KEY_RETURN ) );
-            m_pAccel->InsertItem( 2, vcl::KeyCode( KEY_ESCAPE ) );
-            m_pAccel->SetSelectHdl( LINK( this, ScFormulaReferenceHelper, AccelSelectHdl ) );
-        }
-        Application::InsertAccel( m_pAccel.get() );
-        m_bAccInserted = true;
-
-        if (m_bOldDlgLayoutEnabled)
-        {
-            m_pRefEdit->set_width_request(m_aOldEditSize.Width());
-            m_nOldBorderWidth = pResizeDialog->get_border_width();
-            pResizeDialog->set_border_width(0);
-            if (vcl::Window *pActionArea = pResizeDialog->get_action_area())
-                pActionArea->Hide();
-            pResizeDialog->setOptimalLayoutSize();
-        }
+        m_pRefEdit->SetActivateHdl(LINK(this, ScFormulaReferenceHelper, ActivateHdl));
+        if (m_pRefBtn)
+            m_pRefBtn->SetActivateHdl(LINK(this, ScFormulaReferenceHelper, ActivateHdl));
     }
 }
 
@@ -745,16 +544,13 @@ static void lcl_HideAllReferences()
     }
 }
 
-//The class of ScAnyRefDlg is rewritten by PengYunQuan for Validity Cell Range Picker
-//  class ScRefHandler
-
-ScRefHandler::ScRefHandler( vcl::Window &rWindow, SfxBindings* pB, bool bBindRef ):
-        m_rWindow( &rWindow ),
-        m_bInRefMode( false ),
-        m_aHelper(this,pB),
-        m_pMyBindings( pB )
+ScRefHandler::ScRefHandler(SfxDialogController& rController, SfxBindings* pB, bool bBindRef)
+    : m_pController(&rController)
+    , m_bInRefMode(false)
+    , m_aHelper(this, pB)
+    , m_pMyBindings(pB)
 {
-    m_aHelper.SetWindow(m_rWindow.get());
+    m_aHelper.SetDialog(rController.getDialog());
 
     if( bBindRef ) EnterRefMode();
 }
@@ -816,7 +612,7 @@ ScRefHandler::~ScRefHandler()
 
 void ScRefHandler::disposeRefHandler()
 {
-    m_rWindow.clear();
+    m_pController = nullptr;
     LeaveRefMode();
     m_aHelper.dispose();
 }
@@ -827,8 +623,6 @@ bool ScRefHandler::LeaveRefMode()
 
     lcl_HideAllReferences();
 
-    if( Dialog *pDlg = dynamic_cast<Dialog*>( m_rWindow.get() ) )
-        pDlg->SetModalInputMode(false);
     SetDispatcherLock( false );         //! here and in DoClose ?
 
     ScTabViewShell* pScViewShell = ScTabViewShell::GetActiveViewShell();
@@ -883,7 +677,7 @@ bool ScRefHandler::IsDocAllowed(SfxObjectShell* pDocSh) const   // pDocSh may be
 
 bool ScRefHandler::IsRefInputMode() const
 {
-    return m_rWindow->IsVisible(); // references can only be input to visible windows
+    return m_pController->getDialog()->get_visible();
 }
 
 bool ScRefHandler::DoClose( sal_uInt16 nId )

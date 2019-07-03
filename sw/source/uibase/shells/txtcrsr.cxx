@@ -42,6 +42,7 @@
 #include <svx/svdouno.hxx>
 #include <svx/fmshell.hxx>
 #include <svx/sdrobjectfilter.hxx>
+#include <svx/svxids.hrc>
 #include <outline.hxx>
 
 using namespace ::com::sun::star;
@@ -153,6 +154,10 @@ void SwTextShell::ExecMove(SfxRequest &rReq)
             break;
         case FN_SELECT_WORD:
             bRet = rSh.SelNearestWrd();
+            break;
+        case FN_SELECT_SENTENCE:
+            rSh.SelSentence( nullptr );
+            bRet = true;
             break;
         case SID_SELECTALL:
             rSh.SelAll();

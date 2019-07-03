@@ -48,6 +48,7 @@
 #include "ww8par.hxx"
 #include "ww8par2.hxx"
 #include "ww8graf.hxx"
+#include <vcl/gdimtf.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/wmf.hxx>
 
@@ -259,9 +260,8 @@ bool SwWW8ImplReader::ReadGrafFile(OUString& rFileName, std::unique_ptr<Graphic>
     //skip duplicate graphics when fuzzing
     if (utl::ConfigManager::IsFuzzing())
     {
-        if (m_aGrafPosSet.find(nPosFc) != m_aGrafPosSet.end())
+        if (!m_aGrafPosSet.insert(nPosFc).second)
             return false;
-        m_aGrafPosSet.insert(nPosFc);
     }
 
     if (m_xWwFib->m_envr != 1) // !MAC as creator

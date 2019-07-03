@@ -128,6 +128,8 @@ SwUndoFormatAttr::SwUndoFormatAttr( const SfxPoolItem& rItem, SwFormat& rChgForm
 
 void SwUndoFormatAttr::Init()
 {
+    // tdf#126017 never save SwNodeIndex, it will go stale
+    m_pOldSet->ClearItem(RES_CNTNT);
     // treat change of anchor specially
     if ( SfxItemState::SET == m_pOldSet->GetItemState( RES_ANCHOR, false )) {
         SaveFlyAnchor( m_bSaveDrawPt );
@@ -353,6 +355,10 @@ SwRewriter SwUndoFormatAttr::GetRewriter() const
 
 void SwUndoFormatAttr::PutAttr( const SfxPoolItem& rItem )
 {
+    if (RES_CNTNT == rItem.Which())
+    {
+        return; // tdf#126017 never save SwNodeIndex, it will go stale
+    }
     m_pOldSet->Put( rItem );
     if ( RES_ANCHOR == rItem.Which() ) {
         SaveFlyAnchor( m_bSaveDrawPt );
@@ -693,15 +699,14 @@ void SwUndoAttr::SaveRedlineData( const SwPaM& rPam, bool bIsContent )
     SwDoc* pDoc = rPam.GetDoc();
     if ( pDoc->getIDocumentRedlineAccess().IsRedlineOn() ) {
         m_pRedlineData.reset( new SwRedlineData( bIsContent
-                              ? nsRedlineType_t::REDLINE_INSERT
-                              : nsRedlineType_t::REDLINE_FORMAT,
+                              ? RedlineType::Insert
+                              : RedlineType::Format,
                               pDoc->getIDocumentRedlineAccess().GetRedlineAuthor() ) );
     }
 
     m_pRedlineSaveData.reset( new SwRedlineSaveDatas );
-    if ( !FillSaveDataForFormat( rPam, *m_pRedlineSaveData )) {
-        m_pRedlineSaveData.reset(nullptr);
-    }
+    if ( !FillSaveDataForFormat( rPam, *m_pRedlineSaveData ))
+        m_pRedlineSaveData.reset();
 
     SetRedlineFlags( pDoc->getIDocumentRedlineAccess().GetRedlineFlags() );
     if ( bIsContent ) {
@@ -723,11 +728,11 @@ void SwUndoAttr::UndoImpl(::sw::UndoRedoContext & rContext)
             aPam.GetPoint()->nContent.Assign( aPam.GetContentNode(), nSttContent );
             aPam.SetMark();
             ++aPam.GetPoint()->nContent;
-            pDoc->getIDocumentRedlineAccess().DeleteRedline(aPam, false, USHRT_MAX);
+            pDoc->getIDocumentRedlineAccess().DeleteRedline(aPam, false, RedlineType::Any);
         } else {
             // remove all format redlines, will be recreated if needed
             SetPaM(aPam);
-            pDoc->getIDocumentRedlineAccess().DeleteRedline(aPam, false, nsRedlineType_t::REDLINE_FORMAT);
+            pDoc->getIDocumentRedlineAccess().DeleteRedline(aPam, false, RedlineType::Format);
             if (m_pRedlineSaveData)
             {
                 SetSaveData( *pDoc, *m_pRedlineSaveData );
@@ -857,7 +862,7 @@ void SwUndoDefaultAttr::UndoImpl(::sw::UndoRedoContext & rContext)
         SwUndoFormatAttrHelper aTmp(
             *rDoc.GetDfltTextFormatColl() );
         rDoc.SetDefault( *m_pOldSet );
-        m_pOldSet.reset( nullptr );
+        m_pOldSet.reset();
         if ( aTmp.GetUndo() ) {
             // transfer ownership of helper object's old set
             m_pOldSet = std::move(aTmp.GetUndo()->m_pOldSet);

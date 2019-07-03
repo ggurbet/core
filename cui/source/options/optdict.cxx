@@ -23,12 +23,16 @@
 #include <sfx2/sfxuno.hxx>
 #include <svl/eitem.hxx>
 #include <com/sun/star/frame/XStorable.hpp>
+#include <com/sun/star/linguistic2/XDictionary.hpp>
+#include <com/sun/star/linguistic2/XSearchableDictionaryList.hpp>
 #include <comphelper/string.hxx>
+#include <tools/debug.hxx>
+#include <unotools/collatorwrapper.hxx>
 #include <unotools/intlwrapper.hxx>
+#include <unotools/syslocale.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/event.hxx>
 #include <svx/dialogs.hrc>
 
@@ -96,6 +100,9 @@ SvxNewDictionaryDialog::SvxNewDictionaryDialog(weld::Window* pParent)
     , m_xExceptBtn(m_xBuilder->weld_check_button("except"))
     , m_xOKBtn(m_xBuilder->weld_button("ok"))
 {
+    // Prevent creation of dictionary without a name.
+    m_xOKBtn->set_sensitive(false);
+
     // install handler
     m_xNameEdit->connect_changed(LINK(this, SvxNewDictionaryDialog, ModifyHdl_Impl));
     m_xOKBtn->connect_clicked(LINK(this, SvxNewDictionaryDialog, OKHdl_Impl));

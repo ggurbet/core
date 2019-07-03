@@ -73,6 +73,7 @@ public:
     void testFdo78290LineChartMarkerX();
     void testFdo78290ScatterChartMarkerX();
     void testFdo78290CombinationChartMarkerX();
+    void testTdf126115IndividualMarker();
     void testAxisNumberFormatODS();
     void testAxisNumberFormatXLS();
     void testDataLabelBordersDOCX();
@@ -112,6 +113,10 @@ public:
     void testPlotVisOnlyXLSX();
     void testBarChartVaryColorsXLSX();
     void testMultipleAxisXLSX();
+    void testSecondaryAxisXLSX();
+    void testSetSeriesToSecondaryAxisXLSX();
+    void testCombinedChartSecondaryAxisXLSX();
+    void testCombinedChartSecondaryAxisODS();
     void testAxisTitleRotationXLSX();
     void testAxisCrossBetweenXSLX();
     void testPieChartDataPointExplosionXLSX();
@@ -124,6 +129,7 @@ public:
     void testChartTitlePropertiesBitmapFillPPTX();
     void testxAxisLabelsRotation();
     void testTdf116163();
+    void testTdf111824();
     void testTdf119029();
     void testTdf108022();
     void testTdf121744();
@@ -165,6 +171,7 @@ public:
     CPPUNIT_TEST(testFdo78290LineChartMarkerX);
     CPPUNIT_TEST(testFdo78290ScatterChartMarkerX);
     CPPUNIT_TEST(testFdo78290CombinationChartMarkerX);
+    CPPUNIT_TEST(testTdf126115IndividualMarker);
     CPPUNIT_TEST(testAxisNumberFormatODS);
     CPPUNIT_TEST(testAxisNumberFormatXLS);
     CPPUNIT_TEST(testDataLabelBordersDOCX);
@@ -204,6 +211,10 @@ public:
     CPPUNIT_TEST(testPlotVisOnlyXLSX);
     CPPUNIT_TEST(testBarChartVaryColorsXLSX);
     CPPUNIT_TEST(testMultipleAxisXLSX);
+    CPPUNIT_TEST(testSecondaryAxisXLSX);
+    CPPUNIT_TEST(testSetSeriesToSecondaryAxisXLSX);
+    CPPUNIT_TEST(testCombinedChartSecondaryAxisXLSX);
+    CPPUNIT_TEST(testCombinedChartSecondaryAxisODS);
     CPPUNIT_TEST(testAxisTitleRotationXLSX);
     CPPUNIT_TEST(testAxisCrossBetweenXSLX);
     CPPUNIT_TEST(testPieChartDataPointExplosionXLSX);
@@ -216,6 +227,7 @@ public:
     CPPUNIT_TEST(testChartTitlePropertiesBitmapFillPPTX);
     CPPUNIT_TEST(testxAxisLabelsRotation);
     CPPUNIT_TEST(testTdf116163);
+    CPPUNIT_TEST(testTdf111824);
     CPPUNIT_TEST(testTdf119029);
     CPPUNIT_TEST(testTdf108022);
     CPPUNIT_TEST(testTdf121744);
@@ -561,7 +573,10 @@ void Chart2ExportTest::testStockChart()
 
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:stockChart/c:ser[1]/c:idx", "val", "1");
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:stockChart/c:ser[1]/c:order", "val", "1");
-    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:stockChart/c:ser[1]/c:tx/c:strRef/c:strCache/c:pt/c:v", "Open");
+    assertXPathContent(
+        pXmlDoc,
+        "/c:chartSpace/c:chart/c:plotArea/c:stockChart/c:ser[1]/c:tx/c:strRef/c:strCache/c:pt/c:v",
+        "Open");
 }
 
 void Chart2ExportTest::testBarChart()
@@ -717,7 +732,7 @@ void Chart2ExportTest::testDoughnutChart()
     xmlDocPtr pXmlDoc = parseExport("word/charts/chart", "Office Open XML Text");
     CPPUNIT_ASSERT(pXmlDoc);
 
-    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:doughnutChart", "1");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:doughnutChart");
 }
 
 void Chart2ExportTest::testDisplayUnits()
@@ -786,6 +801,22 @@ void Chart2ExportTest::testFdo78290CombinationChartMarkerX()
     CPPUNIT_ASSERT(pXmlDoc);
     assertXPath(pXmlDoc, "/c:chartSpace[1]/c:chart[1]/c:plotArea[1]/c:lineChart[1]/c:ser[1]/c:marker[1]/c:symbol[1]","val","x");
     assertXPath(pXmlDoc, "/c:chartSpace[1]/c:chart[1]/c:plotArea[1]/c:lineChart[1]/c:ser[1]/c:marker[1]/c:size[1]","val","7");
+}
+
+void Chart2ExportTest::testTdf126115IndividualMarker()
+{
+    // Check individual marker properties.
+    load("/chart2/qa/extras/data/xlsx/", "tdf126115.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // 1. series
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:scatterChart/c:ser[1]/c:dPt/c:marker/c:symbol", "val", "square");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:scatterChart/c:ser[1]/c:dPt/c:marker/c:size", "val", "8");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:scatterChart/c:ser[1]/c:dPt/c:marker/c:spPr/a:solidFill/a:srgbClr", "val", "ff0000");
+    // 2. series
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:scatterChart/c:ser[2]/c:dPt/c:marker/c:symbol", "val", "x");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:scatterChart/c:ser[2]/c:dPt/c:marker/c:size", "val", "15");
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:scatterChart/c:ser[2]/c:dPt/c:marker/c:spPr/a:solidFill/a:srgbClr", "val", "7030a0");
 }
 
 void Chart2ExportTest::testAxisNumberFormatODS()
@@ -1198,9 +1229,7 @@ void Chart2ExportTest::testShapeFollowedByChart()
     CPPUNIT_ASSERT(pXmlDoc);
 
     OUString aValueOfFirstDocPR = getXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:r[1]/w:drawing[1]/wp:inline[1]/wp:docPr[1]", "id");
-    OUString aValueOfSecondDocPR;
-
-    aValueOfSecondDocPR = getXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:r[1]/mc:AlternateContent[1]/mc:Choice[1]/w:drawing[1]/wp:anchor[1]/wp:docPr[1]", "id");
+    OUString aValueOfSecondDocPR = getXPath(pXmlDoc, "/w:document/w:body/w:p[3]/w:r[1]/mc:AlternateContent[1]/mc:Choice[1]/w:drawing[1]/wp:anchor[1]/wp:docPr[1]", "id");
 
     CPPUNIT_ASSERT( aValueOfFirstDocPR != aValueOfSecondDocPR );
 }
@@ -1344,7 +1373,7 @@ void checkGapWidth(Reference<beans::XPropertySet> const & xPropSet, sal_Int32 nV
     CPPUNIT_ASSERT(aAny.hasValue());
     uno::Sequence< sal_Int32 > aSequence;
     aAny >>= aSequence;
-    CPPUNIT_ASSERT(aSequence.getLength());
+    CPPUNIT_ASSERT(aSequence.hasElements());
     CPPUNIT_ASSERT_EQUAL(nValue, aSequence[0]);
 }
 
@@ -1354,7 +1383,7 @@ void checkOverlap(Reference<beans::XPropertySet> const & xPropSet, sal_Int32 nVa
     CPPUNIT_ASSERT(aAny.hasValue());
     uno::Sequence< sal_Int32 > aSequence;
     aAny >>= aSequence;
-    CPPUNIT_ASSERT(aSequence.getLength());
+    CPPUNIT_ASSERT(aSequence.hasElements());
     CPPUNIT_ASSERT_EQUAL(nValue, aSequence[0]);
 }
 
@@ -1742,6 +1771,81 @@ void Chart2ExportTest::testMultipleAxisXLSX()
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx/c:axPos[@val='r']", 1);
 }
 
+void Chart2ExportTest::testSecondaryAxisXLSX()
+{
+    load("/chart2/qa/extras/data/ods/", "secondary_axis.ods");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart", 2);
+    // test there is just those series in the first <lineChart> tag which are attached to the primary axis
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart[1]/c:ser", 2);
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart[1]/c:ser[1]/c:tx/c:strRef/c:strCache/c:pt/c:v", "b");
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart[1]/c:ser[2]/c:tx/c:strRef/c:strCache/c:pt/c:v", "c");
+    // test there is just those series in the second <lineChart> tag which are attached to the secondary axis
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart[2]/c:ser", 1);
+    assertXPathContent(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart[2]/c:ser[1]/c:tx/c:strRef/c:strCache/c:pt/c:v", "a");
+}
+
+void Chart2ExportTest::testSetSeriesToSecondaryAxisXLSX()
+{
+    load("/chart2/qa/extras/data/xlsx/", "add_series_secondary_axis.xlsx");
+    Reference< chart2::XChartDocument> xChartDoc = getChartDocFromSheet(0, mxComponent);
+    // Second series
+    Reference<chart2::XDataSeries> xSeries = getDataSeriesFromDoc(xChartDoc, 1);
+    CPPUNIT_ASSERT(xSeries.is());
+
+    Reference<beans::XPropertySet> xPropSet(xSeries, uno::UNO_QUERY_THROW);
+    sal_Int32 AxisIndex = 1;
+    // Attach the second series to the secondary axis. (The third series is already attached.)
+    xPropSet->setPropertyValue("AttachedAxisIndex", uno::Any(AxisIndex));
+
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // Check there are only two <lineChart> tag in the XML, one for the primary and one for the secondary axis.
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart", 2);
+}
+
+void Chart2ExportTest::testCombinedChartSecondaryAxisXLSX()
+{
+    // Original file was created with MS Office
+    load("/chart2/qa/extras/data/xlsx/", "combined_chart_secondary_axis.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // Collect barchart axID on secondary Axis
+    OUString XValueIdOfBarchart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:axId[1]", "val");
+    OUString YValueIdOfBarchart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:axId[2]", "val");
+    // Collect linechart axID on primary Axis
+    OUString XValueIdOfLinechart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart/c:axId[1]", "val");
+    OUString YValueIdOfLinechart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart/c:axId[2]", "val");
+    // Check which c:catAx and c:valAx contain the AxisId of charttypes
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx[1]/c:axId", "val", XValueIdOfLinechart);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx[1]/c:axId", "val", YValueIdOfLinechart);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx[2]/c:axId", "val", XValueIdOfBarchart);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx[2]/c:axId", "val", YValueIdOfBarchart);
+}
+
+void Chart2ExportTest::testCombinedChartSecondaryAxisODS()
+{
+    // Original file was created with LibreOffice
+    load("/chart2/qa/extras/data/ods/", "combined_chart_secondary_axis.ods");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+    // Collect barchart axID on secondary Axis
+    OUString XValueIdOfBarchart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:axId[1]", "val");
+    OUString YValueIdOfBarchart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:barChart/c:axId[2]", "val");
+    // Collect linechart axID on primary Axis
+    OUString XValueIdOfLinechart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart/c:axId[1]", "val");
+    OUString YValueIdOfLinechart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:lineChart/c:axId[2]", "val");
+    // Check which c:catAx and c:valAx contain the AxisId of charttypes
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx[1]/c:axId", "val", XValueIdOfLinechart);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx[1]/c:axId", "val", YValueIdOfLinechart);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx[2]/c:axId", "val", XValueIdOfBarchart);
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:valAx[2]/c:axId", "val", YValueIdOfBarchart);
+    // do not need CT_crosses tag if the actual axis is deleted, so we need to make sure it is not saved
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx[2]/c:crosses", 0);
+}
+
 void Chart2ExportTest::testAxisTitleRotationXLSX()
 {
     load("/chart2/qa/extras/data/xlsx/", "axis_title_rotation.xlsx");
@@ -1787,7 +1891,7 @@ void Chart2ExportTest::testCustomDataLabel()
     uno::Sequence<uno::Reference<chart2::XDataPointCustomLabelField>> aFields;
 
     // 1
-    xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_SET_THROW);
     xPropertySet->getPropertyValue("CustomLabelFields") >>= aFields;
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), aFields.getLength());
 
@@ -1803,7 +1907,7 @@ void Chart2ExportTest::testCustomDataLabel()
     CPPUNIT_ASSERT_EQUAL(OUString("{0C576297-5A9F-4B4E-A675-B6BA406B7D87}"), aFields[1]->getGuid());
 
     // 2
-    xPropertySet.set(xDataSeries->getDataPointByIndex(1), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xDataSeries->getDataPointByIndex(1), uno::UNO_SET_THROW);
     xPropertySet->getPropertyValue("CustomLabelFields") >>= aFields;
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(8), aFields.getLength());
 
@@ -1845,7 +1949,7 @@ void Chart2ExportTest::testCustomDataLabel()
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), nCharUnderline);
 
     // 3
-    xPropertySet.set(xDataSeries->getDataPointByIndex(2), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xDataSeries->getDataPointByIndex(2), uno::UNO_SET_THROW);
     xPropertySet->getPropertyValue("CustomLabelFields") >>= aFields;
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1), aFields.getLength());
 
@@ -1854,7 +1958,7 @@ void Chart2ExportTest::testCustomDataLabel()
     CPPUNIT_ASSERT_EQUAL(OUString("{C8F3EB90-8960-4F9A-A3AD-B4FAC4FE4566}"), aFields[0]->getGuid());
 
     // 4
-    xPropertySet.set(xDataSeries->getDataPointByIndex(3), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xDataSeries->getDataPointByIndex(3), uno::UNO_SET_THROW);
     xPropertySet->getPropertyValue("CustomLabelFields") >>= aFields;
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(2), aFields.getLength());
 
@@ -1882,7 +1986,7 @@ void Chart2ExportTest::testCustomDataLabelMultipleSeries()
     uno::Sequence<uno::Reference<chart2::XDataPointCustomLabelField>> aFields;
 
     // First series
-    xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_SET_THROW);
     xPropertySet->getPropertyValue("CustomLabelFields") >>= aFields;
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(3), aFields.getLength());
 
@@ -1903,7 +2007,7 @@ void Chart2ExportTest::testCustomDataLabelMultipleSeries()
     xDataSeries = getDataSeriesFromDoc(xChartDoc, 0, 1);
     CPPUNIT_ASSERT(xDataSeries.is());
 
-    xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_QUERY_THROW);
+    xPropertySet.set(xDataSeries->getDataPointByIndex(0), uno::UNO_SET_THROW);
     xPropertySet->getPropertyValue("CustomLabelFields") >>= aFields;
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(3), aFields.getLength());
 
@@ -1995,6 +2099,18 @@ void Chart2ExportTest::testTdf116163()
     CPPUNIT_ASSERT(pXmlDoc);
 
     assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:catAx/c:txPr/a:bodyPr", "rot", "-5400000");
+}
+
+void Chart2ExportTest::testTdf111824()
+{
+    load("/chart2/qa/extras/data/xlsx/", "tdf111824.xlsx");
+    xmlDocPtr pXmlDoc = parseExport("xl/charts/chart", "Calc Office Open XML");
+    CPPUNIT_ASSERT(pXmlDoc);
+
+    // Collect 3D barchart Z axID
+    OUString zAxisIdOf3DBarchart = getXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:bar3DChart/c:axId[3]", "val");
+    // 3D barchart Z axis properties should be in a serAx OOXML tag instead of catAx
+    assertXPath(pXmlDoc, "/c:chartSpace/c:chart/c:plotArea/c:serAx/c:axId", "val", zAxisIdOf3DBarchart);
 }
 
 void Chart2ExportTest::testTdf119029()

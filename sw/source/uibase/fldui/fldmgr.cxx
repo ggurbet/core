@@ -40,6 +40,7 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/linkmgr.hxx>
 #include <sfx2/app.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/strarray.hxx>
 #include <basic/basmgr.hxx>
@@ -138,21 +139,21 @@ static const sal_uInt16 VF_DB_COUNT = 1; // { nsSwExtendedSubType::SUB_OWN_FMT }
 
 static const char* FLD_EU_ARY[] =
 {
-    FLD_EU_FIRMA,
-    FLD_EU_VORNAME,
-    FLD_EU_NAME,
-    FLD_EU_ABK,
-    FLD_EU_STRASSE,
-    FLD_EU_LAND,
-    FLD_EU_PLZ,
-    FLD_EU_ORT,
-    FLD_EU_TITEL,
+    FLD_EU_COMPANY,
+    FLD_EU_GIVENNAME,
+    FLD_EU_SURNAME,
+    FLD_EU_INITIALS,
+    FLD_EU_STREET,
+    FLD_EU_COUNTRY,
+    FLD_EU_POSTCODE,
+    FLD_EU_TOWN,
+    FLD_EU_TITLE,
     FLD_EU_POS,
-    FLD_EU_TELPRIV,
-    FLD_EU_TELFIRMA,
+    FLD_EU_TELPERSONAL,
+    FLD_EU_TELWORK,
     FLD_EU_FAX,
     FLD_EU_EMAIL,
-    FLD_EU_STATE
+    FLD_EU_REGION
 };
 
 static const char* FMT_AUTHOR_ARY[] =
@@ -703,17 +704,10 @@ sal_uInt16 SwFieldMgr::GetFormatCount(sal_uInt16 nTypeId, bool bHtmlMode) const
             if(m_xNumberingInfo.is())
             {
                 Sequence<sal_Int16> aTypes = m_xNumberingInfo->getSupportedNumberingTypes();
-                const sal_Int16* pTypes = aTypes.getConstArray();
-                for(sal_Int32 nType = 0; nType < aTypes.getLength(); nType++)
-                {
-                    sal_Int16 nCurrent = pTypes[nType];
-                    //skip all values below or equal to CHARS_LOWER_LETTER_N
-                    if(nCurrent > NumberingType::CHARS_LOWER_LETTER_N)
-                    {
-                        // #i28073# it's not necessarily a sorted sequence
-                        ++nCount;
-                    }
-                }
+                // #i28073# it's not necessarily a sorted sequence
+                //skip all values below or equal to CHARS_LOWER_LETTER_N
+                nCount += std::count_if(aTypes.begin(), aTypes.end(),
+                    [](sal_Int16 nCurrent) { return nCurrent > NumberingType::CHARS_LOWER_LETTER_N; });
             }
             return nCount;
         }
@@ -747,25 +741,23 @@ OUString SwFieldMgr::GetFormatStr(sal_uInt16 nTypeId, sal_uInt32 nFormatId) cons
         if (m_xNumberingInfo.is())
         {
             Sequence<sal_Int16> aTypes = m_xNumberingInfo->getSupportedNumberingTypes();
-            const sal_Int16* pTypes = aTypes.getConstArray();
             sal_Int32 nOffset = aSwFields[nPos].nFormatLength;
             sal_uInt32 nValidEntry = 0;
-            for (sal_Int32 nType = 0; nType < aTypes.getLength(); nType++)
+            for (const sal_Int16 nCurrent : aTypes)
             {
-                sal_Int16 nCurrent = pTypes[nType];
                 if(nCurrent > NumberingType::CHARS_LOWER_LETTER_N &&
                         (nCurrent != (NumberingType::BITMAP | LINK_TOKEN)))
                 {
                     if (nValidEntry == nFormatId - nOffset)
                     {
-                        sal_uInt32 n = SvxNumberingTypeTable::FindIndex(pTypes[nType]);
+                        sal_uInt32 n = SvxNumberingTypeTable::FindIndex(nCurrent);
                         if (n != RESARRAY_INDEX_NOTFOUND)
                         {
                             aRet = SvxNumberingTypeTable::GetString(n);
                         }
                         else
                         {
-                            aRet = m_xNumberingInfo->getNumberingIdentifier( pTypes[nType] );
+                            aRet = m_xNumberingInfo->getNumberingIdentifier( nCurrent );
                         }
                         break;
                     }
@@ -829,17 +821,15 @@ sal_uInt16 SwFieldMgr::GetFormatId(sal_uInt16 nTypeId, sal_uInt32 nFormatId) con
             else if (m_xNumberingInfo.is())
             {
                 Sequence<sal_Int16> aTypes = m_xNumberingInfo->getSupportedNumberingTypes();
-                const sal_Int16* pTypes = aTypes.getConstArray();
                 sal_Int32 nOffset = aSwFields[nPos].nFormatLength;
                 sal_Int32 nValidEntry = 0;
-                for (sal_Int32 nType = 0; nType < aTypes.getLength(); nType++)
+                for (const sal_Int16 nCurrent : aTypes)
                 {
-                    sal_Int16 nCurrent = pTypes[nType];
                     if (nCurrent > NumberingType::CHARS_LOWER_LETTER_N)
                     {
                         if (nValidEntry == static_cast<sal_Int32>(nFormatId) - nOffset)
                         {
-                            nId = pTypes[nType];
+                            nId = nCurrent;
                             break;
                         }
                         ++nValidEntry;
@@ -1499,7 +1489,7 @@ bool SwFieldMgr::InsertField(
     // insert
     pCurShell->StartAllAction();
 
-    pCurShell->Insert( *pField );
+    pCurShell->Insert(*pField, rData.m_pAnnotationRange.get());
 
     if (TYP_INPUTFLD == rData.m_nTypeId)
     {
@@ -1508,7 +1498,7 @@ bool SwFieldMgr::InsertField(
         // start dialog, not before the field is inserted tdf#99529
         pCurShell->Left(CRSR_SKIP_CHARS,
                 false, (INP_VAR == (nSubType & 0xff)) ? 1 : 2, false );
-        pCurShell->StartInputFieldDlg(pField.get(), false, true, rData.m_pParent ? rData.m_pParent->GetFrameWeld() : nullptr);
+        pCurShell->StartInputFieldDlg(pField.get(), false, true, rData.m_pParent);
 
         pCurShell->Pop(SwCursorShell::PopMode::DeleteCurrent);
     }

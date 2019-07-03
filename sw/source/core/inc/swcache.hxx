@@ -46,7 +46,7 @@
 #include <memory>
 #include <vector>
 
-#include <rtl/ustring.hxx>
+#include <rtl/string.hxx>
 
 class SwCacheObj;
 
@@ -101,7 +101,8 @@ public:
                      const bool bToTop = true );
     void ToTop( SwCacheObj *pObj );
 
-    bool Insert( SwCacheObj *pNew );
+    bool Insert(SwCacheObj *pNew, bool isDuplicateOwnerAllowed);
+    void Delete(const void * pOwner, sal_uInt16 nIndex);
     void Delete( const void *pOwner );
 
     void SetLRUOfst( const sal_uInt16 nOfst );  /// nOfst determines how many are not to be touched
@@ -116,15 +117,12 @@ public:
     sal_uInt16 size() { return m_aCacheObjects.size(); }
 };
 
-/// Safely manipulate the cache
+/// Try to prevent visible SwParaPortions from being deleted.
 class SwSaveSetLRUOfst
 {
-    SwCache &rCache;
 public:
-    SwSaveSetLRUOfst( SwCache &rC, const sal_uInt16 nOfst )
-        : rCache( rC )          { rCache.SetLRUOfst( nOfst );  }
-
-    ~SwSaveSetLRUOfst()         { rCache.ResetLRUOfst(); }
+    SwSaveSetLRUOfst();
+    ~SwSaveSetLRUOfst();
 };
 
 /**
@@ -148,7 +146,15 @@ class SwCacheObj
     void SetNext( SwCacheObj *pNew )  { m_pNext = pNew; }
     void SetPrev( SwCacheObj *pNew )  { m_pPrev = pNew; }
 
-    void   SetCachePos( const sal_uInt16 nNew ) { m_nCachePos = nNew; }
+    void SetCachePos(const sal_uInt16 nNew)
+    {
+        if (m_nCachePos != nNew)
+        {
+            m_nCachePos = nNew;
+            UpdateCachePos();
+        }
+    }
+    virtual void UpdateCachePos() { }
 
 protected:
     const void *m_pOwner;
@@ -189,7 +195,7 @@ class SwCacheAccess
 {
     SwCache &m_rCache;
 
-    void Get_();
+    void Get_(bool isDuplicateOwnerAllowed);
 
 protected:
     SwCacheObj *m_pObj;
@@ -197,7 +203,7 @@ protected:
 
     virtual SwCacheObj *NewObj() = 0;
 
-    inline SwCacheObj *Get();
+    inline SwCacheObj *Get(bool isDuplicateOwnerAllowed);
 
     inline SwCacheAccess( SwCache &rCache, const void *pOwner, bool bSeek );
     inline SwCacheAccess( SwCache &rCache, const void* nCacheId, const sal_uInt16 nIndex );
@@ -243,10 +249,10 @@ inline SwCacheAccess::SwCacheAccess( SwCache &rC, const void* nCacheId,
         m_pObj->Lock();
 }
 
-inline SwCacheObj *SwCacheAccess::Get()
+inline SwCacheObj *SwCacheAccess::Get(bool const isDuplicateOwnerAllowed = true)
 {
     if ( !m_pObj )
-        Get_();
+        Get_(isDuplicateOwnerAllowed);
     return m_pObj;
 }
 

@@ -18,7 +18,6 @@
  */
 
 #include <CommandCategoryListBox.hxx>
-#include <vcl/treelistentry.hxx>
 
 #include <com/sun/star/uno/XInterface.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -29,8 +28,9 @@
 #include <com/sun/star/script/browse/BrowseNodeTypes.hpp>
 #include <com/sun/star/script/browse/theBrowseNodeFactory.hpp>
 #include <com/sun/star/script/browse/BrowseNodeFactoryViewTypes.hpp>
-#include <vcl/builderfactory.hxx>
 #include <vcl/commandinfoprovider.hxx>
+#include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 
 // include search util
 #include <com/sun/star/util/SearchFlags.hpp>

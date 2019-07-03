@@ -26,6 +26,9 @@
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/queryinterface.hxx>
 
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
+#include <com/sun/star/drawing/XShapeDescriptor.hpp>
+
 using namespace ::accessibility;
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -171,12 +174,6 @@ OUString
     }
 
     return sName;
-}
-
-OUString
-    AccessibleOLEShape::CreateAccessibleDescription()
-{
-    return CreateAccessibleName ();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

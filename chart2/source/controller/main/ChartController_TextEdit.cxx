@@ -168,15 +168,15 @@ void ChartController::executeDispatch_InsertSpecialCharacter()
     aSet.Put( SvxFontItem( aCurFont.GetFamilyType(), aCurFont.GetFamilyName(), aCurFont.GetStyleName(), aCurFont.GetPitch(), aCurFont.GetCharSet(), SID_ATTR_CHAR_FONT ) );
 
     vcl::Window* pWin = GetChartWindow();
-    ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(pWin ? pWin->GetFrameWeld() : nullptr, aSet, false));
+    ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(pWin ? pWin->GetFrameWeld() : nullptr, aSet, nullptr));
     if( pDlg->Execute() == RET_OK )
     {
         const SfxItemSet* pSet = pDlg->GetOutputItemSet();
         const SfxPoolItem* pItem=nullptr;
         OUString aString;
-        if ( pSet && pSet->GetItemState( SID_CHARMAP, true, &pItem) == SfxItemState::SET &&
-             dynamic_cast< const SfxStringItem* >(pItem) !=  nullptr )
-                aString = dynamic_cast<const SfxStringItem*>(pItem)->GetValue();
+        if (pSet && pSet->GetItemState(SID_CHARMAP, true, &pItem) == SfxItemState::SET)
+            if (auto pStringItem = dynamic_cast<const SfxStringItem*>(pItem))
+                aString = pStringItem->GetValue();
 
         OutlinerView* pOutlinerView = m_pDrawViewWrapper->GetTextEditOutlinerView();
         SdrOutliner*  pOutliner = m_pDrawViewWrapper->getOutliner();

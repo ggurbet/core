@@ -33,6 +33,7 @@
 #include <sortedobjs.hxx>
 #include <hints.hxx>
 #include <frmtool.hxx>
+#include <ndtxt.hxx>
 
     // No inline cause we need the function pointers
 long SwFrame::GetTopMargin() const
@@ -450,7 +451,7 @@ void SwTextFrame::RegisterToNode(SwTextNode & rNode, bool const isForceNodeAsFir
     {   // nothing registered here, in particular no redlines
         assert(m_pMergedPara->pFirstNode->GetIndex() + 1 == rNode.GetIndex());
         assert(rNode.GetDoc()->getIDocumentRedlineAccess().GetRedlinePos(
-                *m_pMergedPara->pFirstNode, USHRT_MAX) == SwRedlineTable::npos);
+                *m_pMergedPara->pFirstNode, RedlineType::Any) == SwRedlineTable::npos);
     }
     assert(&rNode != GetDep());
     assert(!m_pMergedPara
@@ -468,6 +469,33 @@ void SwTextFrame::RegisterToNode(SwTextNode & rNode, bool const isForceNodeAsFir
     }
 }
 
+//Flag pFrame for SwFrameDeleteGuard lifetime that we shouldn't delete
+//it in e.g. SwSectionFrame::MergeNext etc because we will need it
+//again after the SwFrameDeleteGuard dtor
+SwFrameDeleteGuard::SwFrameDeleteGuard(SwFrame* pFrame)
+    : m_pForbidFrame((pFrame && !pFrame->IsDeleteForbidden()) ? pFrame : nullptr)
+{
+    if (m_pForbidFrame)
+    {
+        m_pForbidFrame->ForbidDelete();
+    }
+}
+
+SwFrameDeleteGuard::~SwFrameDeleteGuard()
+{
+    if (m_pForbidFrame)
+    {
+        const bool bLogicErrorThrown = !m_pForbidFrame->IsDeleteForbidden();
+        if (bLogicErrorThrown)
+        {
+            // see testForcepoint80
+            SwFrame::DestroyFrame(m_pForbidFrame);
+            return;
+        }
+        m_pForbidFrame->AllowDelete();
+    }
+}
+
 void SwLayoutFrame::DestroyImpl()
 {
     while (!m_VertPosOrientFramesFor.empty())
@@ -482,6 +510,7 @@ void SwLayoutFrame::DestroyImpl()
 
     if( GetFormat() && !GetFormat()->GetDoc()->IsInDtor() )
     {
+        bool bFatalError = false;
         while ( pFrame )
         {
             //First delete the Objs of the Frame because they can't unregister
@@ -520,12 +549,20 @@ void SwLayoutFrame::DestroyImpl()
                 }
             }
             pFrame->RemoveFromLayout();
-            //forcepoint#74, testcase swanchoredobject_considerobjwrapinfluenceonobjpos
+            // see testForcepoint80
             if (pFrame->IsDeleteForbidden())
-                throw std::logic_error("DeleteForbidden");
-            SwFrame::DestroyFrame(pFrame);
+            {
+                pFrame->AllowDelete();
+                bFatalError = true;
+            }
+            else
+                SwFrame::DestroyFrame(pFrame);
             pFrame = m_pLower;
         }
+
+        if (bFatalError)
+            throw std::logic_error("DeleteForbidden");
+
         //Delete the Flys, the last one also deletes the array.
         while ( GetDrawObjs() && GetDrawObjs()->size() )
         {

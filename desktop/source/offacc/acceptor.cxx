@@ -28,6 +28,7 @@
 #include <cppuhelper/factory.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace css::bridge;
 using namespace css::connection;
@@ -106,7 +107,7 @@ void Acceptor::run()
 
             // accept connection
             Reference< XConnection > rConnection = m_rAcceptor->accept( m_aConnectString );
-            // if we return without a valid connection we mus assume that the acceptor
+            // if we return without a valid connection we must assume that the acceptor
             // is destructed so we break out of the run method terminating the thread
             if (! rConnection.is()) break;
             OUString aDescription = rConnection->getDescription();
@@ -121,8 +122,8 @@ void Acceptor::run()
                 "", m_aProtocol, rConnection, rInstanceProvider);
             osl::MutexGuard g(m_aMutex);
             m_bridges.add(rBridge);
-        } catch (const Exception& e) {
-            SAL_WARN("desktop.offacc", "caught " << e);
+        } catch (const Exception&) {
+            TOOLS_WARN_EXCEPTION("desktop.offacc", "");
             // connection failed...
             // something went wrong during connection setup.
             // just wait for a new connection to accept
@@ -134,7 +135,7 @@ void Acceptor::run()
 void Acceptor::initialize( const Sequence<Any>& aArguments )
 {
     // prevent multiple initialization
-    osl::ClearableMutexGuard aGuard( m_aMutex );
+    osl::MutexGuard aGuard( m_aMutex );
     SAL_INFO( "desktop.offacc", "Acceptor::initialize()" );
 
     bool bOk = false;

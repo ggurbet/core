@@ -19,12 +19,53 @@
 
 #include <sal/config.h>
 
+#include <svx/xflbckit.hxx>
+#include <svx/xftshtit.hxx>
+#include <svx/xflboxy.hxx>
+#include <svx/xflbstit.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xflgrit.hxx>
+#include <svx/xflhtit.hxx>
+#include <svx/xbtmpit.hxx>
+#include <svx/xflftrit.hxx>
+#include <svx/xsflclit.hxx>
 #include <svx/xtable.hxx>
-#include <svx/xattr.hxx>
+#include <svx/xlntrit.hxx>
+#include <svx/xfltrit.hxx>
+#include <svx/xgrscit.hxx>
+#include <svx/xflasit.hxx>
+#include <svx/xflbmtit.hxx>
+#include <svx/xflbmpit.hxx>
+#include <svx/xflbmsxy.hxx>
+#include <svx/xflbmsli.hxx>
+#include <svx/xflbtoxy.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlinjoit.hxx>
+#include <svx/xlncapit.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xtextit0.hxx>
+#include <svx/xlnasit.hxx>
+#include <svx/xlndsit.hxx>
+#include <svx/xlnwtit.hxx>
+#include <svx/xlnclit.hxx>
+#include <svx/xlnstit.hxx>
+#include <svx/xlnedit.hxx>
+#include <svx/xlnstwit.hxx>
+#include <svx/xlnedwit.hxx>
+#include <svx/xlnstcit.hxx>
+#include <svx/xlnedcit.hxx>
 #include <svx/xpool.hxx>
-#include <svx/svdattr.hxx>
+#include <svx/svddef.hxx>
 #include <svx/svxids.hrc>
 #include <svl/itemset.hxx>
+#include <svx/xftadit.hxx>
+#include <svx/xftdiit.hxx>
+#include <svx/xftstit.hxx>
+#include <svx/xftmrit.hxx>
+#include <svx/xftouit.hxx>
+#include <svx/xftshit.hxx>
+#include <svx/xftshcit.hxx>
+#include <svx/xftshxy.hxx>
 
 XOutdevItemPool::XOutdevItemPool(SfxItemPool* _pMaster)
     : SfxItemPool("XOutdevItemPool", SDRATTR_START, SDRATTR_END, nullptr, nullptr)

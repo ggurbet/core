@@ -16,6 +16,7 @@
 #include <sfx2/docfac.hxx>
 #include <sfx2/doctempl.hxx>
 #include <sfx2/docfilt.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <sot/storage.hxx>
 
@@ -120,8 +121,7 @@ void SfxSaveAsTemplateDialog::SetCategoryLBEntries(const std::vector<OUString>& 
 
 bool SfxSaveAsTemplateDialog::IsTemplateNameUnique()
 {
-    std::vector<OUString>::iterator it;
-    it=find(msCategories.begin(), msCategories.end(), msSelectedCategory);
+    std::vector<OUString>::iterator it=find(msCategories.begin(), msCategories.end(), msSelectedCategory);
     mnRegionPos = std::distance(msCategories.begin(), it);
 
     sal_uInt16 nEntries = maDocTemplates.GetCount(mnRegionPos);

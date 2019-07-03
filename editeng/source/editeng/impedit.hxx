@@ -264,15 +264,15 @@ private:
     /// mechanism to change from the classic refresh mode that simply
     // invalidates the area where text was changed. When set, the invalidate
     // and the direct repaint of the Window-plugged EditView will be suppressed.
-    // Instead, a consumer that has registered using a EditViewCallbacks
+    // Instead, a consumer that has registered using an EditViewCallbacks
     // incarnation has to handle that. Used e.g. to represent the edited text
     // in Draw/Impress in an OverlayObject which avoids evtl. expensive full
     // repaints of the EditView(s)
     const EditViewCallbacks* mpEditViewCallbacks;
 
-    bool hasEditViewCallbacks() const
+    const EditViewCallbacks* getEditViewCallbacks() const
     {
-        return nullptr != mpEditViewCallbacks;
+        return mpEditViewCallbacks;
     }
 
     void setEditViewCallbacks(const EditViewCallbacks* pEditViewCallbacks)
@@ -281,6 +281,8 @@ private:
     }
 
     void InvalidateAtWindow(const tools::Rectangle& rRect);
+
+    css::uno::Reference<css::datatransfer::clipboard::XClipboard> GetClipboard();
 
 protected:
 
@@ -658,9 +660,9 @@ private:
     void                WriteXML(SvStream& rOutput, const EditSelection& rSel);
 
     void                WriteItemAsRTF( const SfxPoolItem& rItem, SvStream& rOutput, sal_Int32 nPara, sal_Int32 nPos,
-                            std::vector<SvxFontItem*>& rFontTable, SvxColorList& rColorList );
+                            std::vector<std::unique_ptr<SvxFontItem>>& rFontTable, SvxColorList& rColorList );
     bool                WriteItemListAsRTF( ItemList& rLst, SvStream& rOutput, sal_Int32 nPara, sal_Int32 nPos,
-                            std::vector<SvxFontItem*>& rFontTable, SvxColorList& rColorList );
+                            std::vector<std::unique_ptr<SvxFontItem>>& rFontTable, SvxColorList& rColorList );
     sal_Int32           LogicToTwips( sal_Int32 n );
 
     inline short        GetXValue( short nXValue ) const;
@@ -1225,7 +1227,7 @@ inline vcl::Cursor* ImpEditView::GetCursor()
     return pCursor.get();
 }
 
-void ConvertItem( SfxPoolItem& rPoolItem, MapUnit eSourceUnit, MapUnit eDestUnit );
+void ConvertItem( std::unique_ptr<SfxPoolItem>& rPoolItem, MapUnit eSourceUnit, MapUnit eDestUnit );
 void ConvertAndPutItems( SfxItemSet& rDest, const SfxItemSet& rSource, const MapUnit* pSourceUnit = nullptr, const MapUnit* pDestUnit = nullptr );
 AsianCompressionFlags GetCharTypeForCompression( sal_Unicode cChar );
 Point Rotate( const Point& rPoint, short nOrientation, const Point& rOrigin );

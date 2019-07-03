@@ -30,9 +30,11 @@
 #include <unotools/useroptions.hxx>
 #include <cppuhelper/weak.hxx>
 #include <com/sun/star/frame/FrameSearchFlag.hpp>
+#include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <svx/colorwindow.hxx>
 #include <svx/dataaccessdescriptor.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/wghtitem.hxx>
 #include <editeng/postitem.hxx>
 #include <editeng/udlnitem.hxx>
@@ -570,6 +572,16 @@ bool SwModule::IsInsTableChangeNumFormat(bool bHTML) const
 bool SwModule::IsInsTableAlignNum(bool bHTML) const
 {
     return m_pModuleConfig->IsInsTableAlignNum(bHTML);
+}
+
+bool SwModule::IsSplitVerticalByDefault(bool bHTML) const
+{
+    return m_pModuleConfig->IsSplitVerticalByDefault(bHTML);
+}
+
+void SwModule::SetSplitVerticalByDefault(bool bHTML, bool value)
+{
+    m_pModuleConfig->SetSplitVerticalByDefault(bHTML, value);
 }
 
 const Color &SwModule::GetRedlineMarkColor()

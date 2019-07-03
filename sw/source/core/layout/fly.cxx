@@ -75,6 +75,7 @@
 #include <edtwin.hxx>
 #include <bodyfrm.hxx>
 #include <FrameControlsManager.hxx>
+#include <ndtxt.hxx>
 
 using namespace ::com::sun::star;
 
@@ -129,6 +130,11 @@ SwFlyFrame::SwFlyFrame( SwFlyFrameFormat *pFormat, SwFrame* pSib, SwFrame *pAnch
 
                 if ( SvxFrameDirection::Vertical_LR_TB == nDir )
                     mbVertLR = true;
+                else if (nDir == SvxFrameDirection::Vertical_LR_BT)
+                {
+                    mbVertLR = true;
+                    mbVertLRBT = true;
+                }
                 else
                     mbVertLR = false;
             }
@@ -1484,6 +1490,7 @@ void CalcContent( SwLayoutFrame *pLay, bool bNoColl )
                 {
                     // #i28701#
                     SwAnchoredObject* pAnchoredObj = (*pFrame->GetDrawObjs())[i];
+                    assert(pAnchoredObj);
 
                     // determine if anchored object has to be
                     // formatted and, in case, format it
@@ -1724,8 +1731,7 @@ void SwFlyFrame::MakeContentPos( const SwBorderAttrs &rAttrs )
     if( IsMinHeight() )
         nMinHeight = aRectFnSet.IsVert() ? aRelSize.Width() : aRelSize.Height();
 
-    Point aNewContentPos;
-    aNewContentPos = getFramePrintArea().Pos();
+    Point aNewContentPos = getFramePrintArea().Pos();
     const SdrTextVertAdjust nAdjust = GetFormat()->GetTextVertAdjust().GetValue();
 
     if( nAdjust != SDRTEXTVERTADJUST_TOP )
@@ -1869,8 +1875,8 @@ void SwFlyFrame::UpdateUnfloatButton(SwWrtShell* pWrtSh, bool bShow) const
 
     SwEditWin& rEditWin = pWrtSh->GetView().GetEditWin();
     SwFrameControlsManager& rMngr = rEditWin.GetFrameControlsManager();
-    Point aBottomRightPixel = rEditWin.LogicToPixel( getFrameArea().BottomRight() );
-    rMngr.SetUnfloatTableButton(this, bShow,  aBottomRightPixel);
+    Point aTopRightPixel = rEditWin.LogicToPixel( getFrameArea().TopRight() );
+    rMngr.SetUnfloatTableButton(this, bShow,  aTopRightPixel);
 }
 
 SwTwips SwFlyFrame::Grow_( SwTwips nDist, bool bTst )

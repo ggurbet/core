@@ -39,6 +39,7 @@
 #include <editeng/sizeitem.hxx>
 #include <editeng/brushitem.hxx>
 #include <svx/pageitem.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/lrspitem.hxx>
 #include <svl/style.hxx>
 #include <vcl/lstbox.hxx>
@@ -74,6 +75,7 @@
 #include <docary.hxx>
 #include <charfmt.hxx>
 #include <SwStyleNameMapper.hxx>
+#include <editsh.hxx>
 // 50 cm 28350
 
 #define MAXHEIGHT 28350
@@ -100,25 +102,27 @@ void SetMetric(MetricFormatter& rCtrl, FieldUnit eUnit)
 
 void PrepareBoxInfo(SfxItemSet& rSet, const SwWrtShell& rSh)
 {
-    SvxBoxInfoItem aBoxInfo( SID_ATTR_BORDER_INNER );
+    std::shared_ptr<SvxBoxInfoItem> aBoxInfo(std::make_shared<SvxBoxInfoItem>(SID_ATTR_BORDER_INNER));
     const SfxPoolItem *pBoxInfo;
-    if ( SfxItemState::SET == rSet.GetItemState( SID_ATTR_BORDER_INNER,
-                                        true, &pBoxInfo))
-        aBoxInfo = *static_cast<const SvxBoxInfoItem*>(pBoxInfo);
+
+    if ( SfxItemState::SET == rSet.GetItemState( SID_ATTR_BORDER_INNER, true, &pBoxInfo))
+    {
+        aBoxInfo.reset(static_cast<SvxBoxInfoItem*>(pBoxInfo->Clone()));
+    }
 
         // Table variant: If more than one table cells are selected
     rSh.GetCursor();                  //So that GetCursorCnt() returns the right thing
-    aBoxInfo.SetTable          (rSh.IsTableMode() && rSh.GetCursorCnt() > 1);
+    aBoxInfo->SetTable          (rSh.IsTableMode() && rSh.GetCursorCnt() > 1);
         // Always show the distance field
-    aBoxInfo.SetDist           (true);
+    aBoxInfo->SetDist           (true);
         // Set minimal size in tables and paragraphs
-    aBoxInfo.SetMinDist        (rSh.IsTableMode() || rSh.GetSelectionType() & (SelectionType::Text | SelectionType::Table));
+    aBoxInfo->SetMinDist        (rSh.IsTableMode() || rSh.GetSelectionType() & (SelectionType::Text | SelectionType::Table));
         // Set always the default distance
-    aBoxInfo.SetDefDist        (MIN_BORDER_DIST);
+    aBoxInfo->SetDefDist        (MIN_BORDER_DIST);
         // Single lines can have only in tables DontCare-Status
-    aBoxInfo.SetValid(SvxBoxInfoItemValidFlags::DISABLE, !rSh.IsTableMode());
+    aBoxInfo->SetValid(SvxBoxInfoItemValidFlags::DISABLE, !rSh.IsTableMode());
 
-    rSet.Put(aBoxInfo);
+    rSet.Put(*aBoxInfo);
 }
 
 void ConvertAttrCharToGen(SfxItemSet& rSet)
@@ -146,7 +150,7 @@ void ConvertAttrCharToGen(SfxItemSet& rSet)
     else
         pGrabBag.reset(new SfxGrabBagItem(RES_CHRATR_GRABBAG));
     pGrabBag->GetGrabBag()["DialogUseCharAttr"] <<= true;
-    rSet.Put(*pGrabBag);
+    rSet.Put(std::move(pGrabBag));
 }
 
 void ConvertAttrGenToChar(SfxItemSet& rSet, const SfxItemSet& rOrigSet)
@@ -175,6 +179,39 @@ void ConvertAttrGenToChar(SfxItemSet& rSet, const SfxItemSet& rOrigSet)
         }
     }
     rSet.ClearItem( RES_BACKGROUND );
+}
+
+void ApplyCharBackground(const Color& rBackgroundColor, SwWrtShell& rShell)
+{
+    rShell.StartUndo(SwUndoId::INSATTR);
+
+    SfxItemSet aCoreSet(rShell.GetView().GetPool(), svl::Items<
+        RES_CHRATR_GRABBAG, RES_CHRATR_GRABBAG>{});
+
+    rShell.GetCurAttr(aCoreSet);
+
+    // Set char background
+    rShell.SetAttrItem(SvxBrushItem(rBackgroundColor, RES_CHRATR_BACKGROUND));
+
+    // Highlight is an MS specific thing, so remove it at the first time when LO modifies
+    // this part of the imported document.
+    rShell.SetAttrItem(SvxBrushItem(RES_CHRATR_HIGHLIGHT));
+
+    // Remove shading marker
+    const SfxPoolItem *pTmpItem;
+    if (SfxItemState::SET == aCoreSet.GetItemState(RES_CHRATR_GRABBAG, false, &pTmpItem))
+    {
+        SfxGrabBagItem aGrabBag(*static_cast<const SfxGrabBagItem*>(pTmpItem));
+        std::map<OUString, css::uno::Any>& rMap = aGrabBag.GetGrabBag();
+        auto aIterator = rMap.find("CharShadingMarker");
+        if (aIterator != rMap.end())
+        {
+            aIterator->second <<= false;
+        }
+        rShell.SetAttrItem(aGrabBag);
+    }
+
+    rShell.EndUndo(SwUndoId::INSATTR);
 }
 
 // Fill header footer
@@ -393,22 +430,24 @@ void PageDescToItemSet( const SwPageDesc& rPageDesc, SfxItemSet& rSet)
     // Margins, border and the other stuff.
     rSet.Put(rMaster.GetAttrSet());
 
-    SvxBoxInfoItem aBoxInfo( SID_ATTR_BORDER_INNER );
+    std::shared_ptr<SvxBoxInfoItem> aBoxInfo(std::make_shared<SvxBoxInfoItem>(SID_ATTR_BORDER_INNER));
     const SfxPoolItem *pBoxInfo;
-    if ( SfxItemState::SET == rSet.GetItemState( SID_ATTR_BORDER_INNER,
-                                            true, &pBoxInfo) )
-        aBoxInfo = *static_cast<const SvxBoxInfoItem*>(pBoxInfo);
 
-    aBoxInfo.SetTable( false );
+    if ( SfxItemState::SET == rSet.GetItemState( SID_ATTR_BORDER_INNER, true, &pBoxInfo) )
+    {
+        aBoxInfo.reset(static_cast<SvxBoxInfoItem*>(pBoxInfo->Clone()));
+    }
+
+    aBoxInfo->SetTable( false );
         // Show always the distance field
-    aBoxInfo.SetDist( true);
+    aBoxInfo->SetDist( true);
         // Set minimal size in tables and paragraphs
-    aBoxInfo.SetMinDist( false );
+    aBoxInfo->SetMinDist( false );
         // Set always the default distance
-    aBoxInfo.SetDefDist( MIN_BORDER_DIST );
+    aBoxInfo->SetDefDist( MIN_BORDER_DIST );
         // Single lines can have only in tables DontCare-Status
-    aBoxInfo.SetValid( SvxBoxInfoItemValidFlags::DISABLE );
-    rSet.Put( aBoxInfo );
+    aBoxInfo->SetValid( SvxBoxInfoItemValidFlags::DISABLE );
+    rSet.Put( *aBoxInfo );
 
     SfxStringItem aFollow(SID_ATTR_PAGE_EXT1, OUString());
     if(rPageDesc.GetFollow())
@@ -458,7 +497,7 @@ void PageDescToItemSet( const SwPageDesc& rPageDesc, SfxItemSet& rSet)
 
         // Shifting frame attributes
         aHeaderSet.Put(pHeaderFormat->GetAttrSet());
-        aHeaderSet.Put( aBoxInfo );
+        aHeaderSet.Put( *aBoxInfo );
 
         // Create SetItem
         SvxSetItem aSetItem(SID_ATTR_PAGE_HEADERSET, aHeaderSet);
@@ -508,7 +547,7 @@ void PageDescToItemSet( const SwPageDesc& rPageDesc, SfxItemSet& rSet)
 
         // Shifting Frame attributes
         aFooterSet.Put(pFooterFormat->GetAttrSet());
-        aFooterSet.Put( aBoxInfo );
+        aFooterSet.Put( *aBoxInfo );
 
         // Create SetItem
         SvxSetItem aSetItem(SID_ATTR_PAGE_FOOTERSET, aFooterSet);

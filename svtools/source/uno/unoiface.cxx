@@ -1312,7 +1312,7 @@ void SVTXFormattedField::setFormatsSupplier(const css::uno::Reference< css::util
     }
     else
     {
-        pNew = SvNumberFormatsSupplierObj::getImplementation(xSupplier);
+        pNew = comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>(xSupplier);
         bIsStandardSupplier = false;
     }
 
@@ -1442,8 +1442,7 @@ void SVTXRoadmap::propertyChange( const css::beans::PropertyChangeEvent& evt )
     if ( !pField )
         return;
 
-    css::uno::Reference< css::uno::XInterface > xRoadmapItem;
-    xRoadmapItem = evt.Source;
+    css::uno::Reference< css::uno::XInterface > xRoadmapItem = evt.Source;
     sal_Int32 nID = 0;
     css::uno::Reference< css::beans::XPropertySet > xPropertySet( xRoadmapItem, css::uno::UNO_QUERY );
     css::uno::Any aValue = xPropertySet->getPropertyValue("ID");
@@ -2168,7 +2167,7 @@ void VCLXProgressBar::setBackgroundColor( sal_Int32 nColor )
     VclPtr<vcl::Window> pWindow = GetWindow();
     if ( pWindow )
     {
-        Color aColor = Color( nColor );
+        Color aColor( nColor );
         pWindow->SetBackground( aColor );
         pWindow->SetControlBackground( aColor );
         pWindow->Invalidate();
@@ -2256,7 +2255,7 @@ void VCLXProgressBar::setProperty( const OUString& PropertyName, const css::uno:
                     sal_Int32 nColor = 0;
                     if ( Value >>= nColor )
                     {
-                        Color aColor = Color( nColor );
+                        Color aColor( nColor );
                         pWindow->SetControlForeground( aColor );
                     }
                 }

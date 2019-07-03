@@ -29,6 +29,7 @@
 #include <svtools/toolboxcontroller.hxx>
 #include <toolkit/awt/vclxmenu.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include <unotools/moduleoptions.hxx>
 #include <vcl/commandinfoprovider.hxx>
@@ -138,9 +139,9 @@ void SAL_CALL PopupMenuToolbarController::initialize(
         m_bHasController = m_xPopupMenuFactory->hasController(
             m_aPopupCommand, getModuleName() );
     }
-    catch (const css::uno::Exception& e)
+    catch (const css::uno::Exception&)
     {
-        SAL_INFO( "fwk.uielement", e );
+        TOOLS_INFO_EXCEPTION( "fwk.uielement", "" );
     }
 
     SolarMutexGuard aSolarLock;
@@ -245,10 +246,10 @@ void PopupMenuToolbarController::createPopupMenuController()
 
             m_xPopupMenuController->setPopupMenu( m_xPopupMenu );
         }
-        catch ( const css::uno::Exception &e )
+        catch ( const css::uno::Exception & )
         {
+            TOOLS_INFO_EXCEPTION( "fwk.uielement", "" );
             m_xPopupMenu.clear();
-            SAL_INFO( "fwk.uielement", e );
         }
     }
 }
@@ -329,7 +330,7 @@ void GenericPopupToolbarController::statusChanged( const css::frame::FeatureStat
 
     if ( m_bReplaceWithLast && !rEvent.IsEnabled && m_xPopupMenu.is() )
     {
-        Menu* pVclMenu = VCLXMenu::GetImplementation( m_xPopupMenu )->GetMenu();
+        Menu* pVclMenu = comphelper::getUnoTunnelImplementation<VCLXMenu>( m_xPopupMenu )->GetMenu();
 
         ToolBox* pToolBox = nullptr;
         sal_uInt16 nId = 0;
@@ -663,7 +664,7 @@ void SAL_CALL NewToolbarController::execute( sal_Int16 /*KeyModifier*/ )
         // TODO investigate how to wrap Get/SetUserValue in css::awt::XMenu
         MenuAttributes* pMenuAttributes( nullptr );
         VCLXPopupMenu*  pTkPopupMenu =
-            static_cast<VCLXPopupMenu *>( VCLXMenu::GetImplementation( m_xPopupMenu ) );
+            static_cast<VCLXPopupMenu *>( comphelper::getUnoTunnelImplementation<VCLXMenu>( m_xPopupMenu ) );
 
         SolarMutexGuard aSolarMutexGuard;
         PopupMenu* pVCLPopupMenu = pTkPopupMenu ?
@@ -785,25 +786,17 @@ void NewToolbarController::setItemImage( const OUString &rCommand )
     bool bBig = SvtMiscOptions().AreCurrentSymbolsLarge();
 
     INetURLObject aURLObj( aURL );
-    Image aImage = SvFileInformationManager::GetImageNoDefault( aURLObj, bBig );
-    if ( !aImage )
-        aImage = !!aMenuImage ?
-            aMenuImage :
-            SvFileInformationManager::GetImage( aURLObj, bBig );
-
+    Size aPreferredSize(bBig ? pToolBox->GetDefaultImageSize() : Size());
+    Image aImage = SvFileInformationManager::GetImageNoDefault(aURLObj, bBig, aPreferredSize);
+    if (!aImage)
+    {
+        aImage = !!aMenuImage ? aMenuImage : SvFileInformationManager::GetImage(aURLObj, bBig, aPreferredSize);
+    }
     // if everything failed, just use the image associated with the toolbar item command
     if ( !aImage )
         return;
 
-    Size aBigSize( pToolBox->GetDefaultImageSize() );
-    if ( bBig && aImage.GetSizePixel() != aBigSize )
-    {
-        BitmapEx aScaleBmpEx( aImage.GetBitmapEx() );
-        aScaleBmpEx.Scale( aBigSize, BmpScaleFlag::Interpolate );
-        pToolBox->SetItemImage( m_nToolBoxId, Image( aScaleBmpEx ) );
-    }
-    else
-        pToolBox->SetItemImage( m_nToolBoxId, aImage );
+    pToolBox->SetItemImage( m_nToolBoxId, aImage );
 
     m_aLastURL = aURL;
 }

@@ -25,6 +25,8 @@
 #include <osl/diagnose.h>
 #include <tools/fract.hxx>
 
+#include <com/sun/star/drawing/EnhancedCustomShapeParameterType.hpp>
+
 // Makes parser a static resource,
 // we're synchronized externally.
 // But watch out, the parser might have
@@ -864,7 +866,7 @@ public:
         rNodeStack.pop();
 
         // create combined ExpressionNode
-        std::shared_ptr<ExpressionNode> pNode = std::shared_ptr<ExpressionNode>( new BinaryFunctionExpression( meFunct, pFirstArg, pSecondArg ) );
+        std::shared_ptr<ExpressionNode> pNode( new BinaryFunctionExpression( meFunct, pFirstArg, pSecondArg ) );
         // check for constness
         if( pFirstArg->isConstant() && pSecondArg->isConstant() )   // call the operator() at pNode, store result in constant value ExpressionNode.
             rNodeStack.push( std::shared_ptr<ExpressionNode>( new ConstantValueExpression( (*pNode)() ) ) );
@@ -1129,11 +1131,9 @@ std::shared_ptr<ExpressionNode> const & FunctionParser::parseFunction( const OUS
     StringIteratorT aStart( rAsciiFunction.getStr() );
     StringIteratorT aEnd( rAsciiFunction.getStr()+rAsciiFunction.getLength() );
 
-    ParserContextSharedPtr pContext;
-
     // static parser context, because the actual
     // Spirit parser is also a static object
-    pContext = getParserContext();
+    ParserContextSharedPtr pContext = getParserContext();
     pContext->mpCustoShape = &rCustoShape;
 
     ExpressionGrammar aExpressionGrammer( pContext );

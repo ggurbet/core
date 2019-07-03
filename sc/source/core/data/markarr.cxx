@@ -19,6 +19,7 @@
 
 #include <markarr.hxx>
 #include <address.hxx>
+#include <rangelst.hxx>
 #include <vector>
 
 #include <osl/diagnose.h>
@@ -31,13 +32,15 @@ ScMarkArray::ScMarkArray() :
 }
 
 // Move constructor
-ScMarkArray::ScMarkArray( ScMarkArray&& rArray ) :
-    nCount( rArray.nCount ),
-    nLimit( rArray.nLimit ),
-    pData( rArray.pData.release() )
+ScMarkArray::ScMarkArray( ScMarkArray&& rOther )
 {
-    rArray.nCount = 0;
-    rArray.nLimit = 0;
+    operator=(std::move(rOther));
+}
+
+// Copy constructor
+ScMarkArray::ScMarkArray( const ScMarkArray & rOther )
+{
+    operator=(rOther);
 }
 
 ScMarkArray::~ScMarkArray()
@@ -241,6 +244,19 @@ void ScMarkArray::SetMarkArea( SCROW nStartRow, SCROW nEndRow, bool bMarked )
     }
 }
 
+/**
+  optimised init-from-range-list. Specifically this is optimised for cases
+  where we have very large data columns with lots and lots of ranges.
+*/
+void ScMarkArray::Set( const std::vector<ScMarkEntry> & rMarkEntries )
+{
+    nCount = rMarkEntries.size()+1;
+    nLimit = nCount;
+    pData.reset( new ScMarkEntry[nLimit] );
+    memcpy(pData.get(), rMarkEntries.data(), sizeof(ScMarkEntry) * rMarkEntries.size());
+    pData[nCount-1] = ScMarkEntry{MAXROW, false};
+}
+
 bool ScMarkArray::IsAllMarked( SCROW nStartRow, SCROW nEndRow ) const
 {
     SCSIZE nStartIndex;
@@ -293,7 +309,7 @@ bool ScMarkArray::HasOneMark( SCROW& rStartRow, SCROW& rEndRow ) const
     return bRet;
 }
 
-bool ScMarkArray::HasEqualRowsMarked( const ScMarkArray& rOther ) const
+bool ScMarkArray::operator==( const ScMarkArray& rOther ) const
 {
     if (nCount != rOther.nCount)
         return false;
@@ -308,17 +324,28 @@ bool ScMarkArray::HasEqualRowsMarked( const ScMarkArray& rOther ) const
     return true;
 }
 
-void ScMarkArray::CopyMarksTo( ScMarkArray& rDestMarkArray ) const
+ScMarkArray& ScMarkArray::operator=( const ScMarkArray& rOther )
 {
-    if (pData)
+    if (rOther.pData)
     {
-        rDestMarkArray.pData.reset( new ScMarkEntry[nCount] );
-        memcpy( rDestMarkArray.pData.get(), pData.get(), nCount * sizeof(ScMarkEntry) );
+        pData.reset( new ScMarkEntry[rOther.nCount] );
+        memcpy( pData.get(), rOther.pData.get(), rOther.nCount * sizeof(ScMarkEntry) );
     }
     else
-        rDestMarkArray.pData.reset();
+        pData.reset();
 
-    rDestMarkArray.nCount = rDestMarkArray.nLimit = nCount;
+    nCount = nLimit = rOther.nCount;
+    return *this;
+}
+
+ScMarkArray& ScMarkArray::operator=( ScMarkArray&& rOther )
+{
+    nCount = rOther.nCount;
+    nLimit = rOther.nLimit;
+    pData = std::move( rOther.pData );
+    rOther.nCount = 0;
+    rOther.nLimit = 0;
+    return *this;
 }
 
 SCROW ScMarkArray::GetNextMarked( SCROW nRow, bool bUp ) const
@@ -477,7 +504,7 @@ void ScMarkArray::Intersect(const ScMarkArray& rOther)
     OSL_ENSURE(nSize > 0, "Unexpected case.");
 
     pData.reset(new ScMarkEntry[nSize]);
-    memcpy(pData.get(), &(aEntryArray[0]), nSize * sizeof(ScMarkEntry));
+    memcpy(pData.get(), aEntryArray.data(), nSize * sizeof(ScMarkEntry));
     nCount = nLimit = nSize;
 }
 

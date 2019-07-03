@@ -25,6 +25,8 @@
 #include <cppunit/AdditionalMessage.h>
 #include <sal/log.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <svl/stritem.hxx>
+#include <svl/intitem.hxx>
 #include <svl/gridprinter.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/docfile.hxx>
@@ -359,7 +361,7 @@ std::vector<OUString> getChartRangeRepresentations(const SdrOle2Obj& rChartObj)
     }
 
     Sequence<Reference<chart2::data::XLabeledDataSequence> > xDataSeqs = xDataSource->getDataSequences();
-    if (!xDataSeqs.getLength())
+    if (!xDataSeqs.hasElements())
     {
         cout << "There should be at least one data sequences." << endl;
         return aRangeReps;

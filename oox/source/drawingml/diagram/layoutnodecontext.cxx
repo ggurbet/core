@@ -20,7 +20,6 @@
 #include "layoutnodecontext.hxx"
 
 #include <oox/helper/attributelist.hxx>
-#include <drawingml/diagram/diagram.hxx>
 #include <oox/drawingml/shapecontext.hxx>
 #include <drawingml/customshapeproperties.hxx>
 #include "diagramdefinitioncontext.hxx"
@@ -142,8 +141,11 @@ public:
     ForEachContext( ContextHandler2Helper const & rParent, const AttributeList& rAttribs, const ForEachAtomPtr& pAtom )
         : LayoutNodeContext( rParent, rAttribs, pAtom )
         {
-            rAttribs.getString( XML_ref );
+            pAtom->setRef(rAttribs.getString(XML_ref).get());
             pAtom->iterator().loadFromXAttr( rAttribs.getFastAttributeList() );
+
+            LayoutAtomMap& rLayoutAtomMap = pAtom->getLayoutNode().getDiagram().getLayout()->getLayoutAtomMap();
+            rLayoutAtomMap[pAtom->getName()] = pAtom;
         }
 };
 
@@ -231,7 +233,6 @@ LayoutNodeContext::onCreateContext( ::sal_Int32 aElement,
         // CT_Algorithm
         AlgAtomPtr pAtom( new AlgAtom(mpNode->getLayoutNode()) );
         LayoutAtom::connect(mpNode, pAtom);
-        mpNode->getLayoutNode().setAlgAtom(pAtom);
         return new AlgorithmContext( *this, rAttribs, pAtom );
     }
     case DGM_TOKEN( choose ):

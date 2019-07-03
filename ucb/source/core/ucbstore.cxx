@@ -163,9 +163,8 @@ XSERVICEINFO_COMMOM_IMPL( UcbStore,
 static css::uno::Reference< css::uno::XInterface >
 UcbStore_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new UcbStore( ucbhelper::getComponentContext(rSMgr) ));
-    return css::uno::Reference< css::uno::XInterface >::query( pX );
+    return static_cast<css::lang::XServiceInfo*>(
+        new UcbStore(ucbhelper::getComponentContext(rSMgr)));
 }
 
 css::uno::Sequence< OUString >
@@ -704,8 +703,7 @@ void PropertySetRegistry::renamePropertySet( const OUString& rOldKey,
                     // Obtain property names.
                     Sequence< OUString > aElems
                                     = xOldNameAccess->getElementNames();
-                    sal_Int32 nCount = aElems.getLength();
-                    if ( nCount )
+                    if ( aElems.hasElements() )
                     {
                         OUString aNewValuesKey
                             = makeHierarchalNameSegment( rNewKey );
@@ -738,10 +736,8 @@ void PropertySetRegistry::renamePropertySet( const OUString& rOldKey,
                         OUString const aStateKey("/State");
                         OUString const aAttrKey("/Attributes");
 
-                        for ( sal_Int32 n = 0; n < nCount; ++n )
+                        for ( const OUString& rPropName : aElems )
                         {
-                            const OUString& rPropName = aElems[ n ];
-
                             // Create new item.
                             Reference< XNameReplace > xNewPropNameReplace(
                                 xNewFac->createInstance(), UNO_QUERY );
@@ -890,7 +886,7 @@ Reference< XMultiServiceFactory > PropertySetRegistry::getConfigProvider()
         {
             const Sequence< Any >& rInitArgs = m_pImpl->m_aInitArgs;
 
-            if ( rInitArgs.getLength() > 0 )
+            if ( rInitArgs.hasElements() )
             {
                 // Extract config provider from service init args.
                 rInitArgs[ 0 ] >>= m_pImpl->m_xConfigProvider;
@@ -1874,8 +1870,7 @@ Sequence< PropertyValue > SAL_CALL PersistentPropertySet::getPropertyValues()
 void SAL_CALL PersistentPropertySet::setPropertyValues(
                                  const Sequence< PropertyValue >& aProps )
 {
-    sal_Int32 nCount = aProps.getLength();
-    if ( !nCount )
+    if ( !aProps.hasElements() )
         return;
 
     osl::ClearableGuard< osl::Mutex > aCGuard( m_pImpl->m_aMutex );
@@ -1884,17 +1879,14 @@ void SAL_CALL PersistentPropertySet::setPropertyValues(
                 m_pImpl->m_pCreator->getRootConfigReadAccess(), UNO_QUERY );
     if ( xRootHierNameAccess.is() )
     {
-        const PropertyValue* pNewValues = aProps.getConstArray();
-
         std::vector< PropertyChangeEvent > aEvents;
 
         OUString aFullPropNamePrefix( getFullKey() );
         aFullPropNamePrefix += "/";
 
         // Iterate over given property value sequence.
-        for ( sal_Int32 n = 0; n < nCount; ++n )
+        for ( const PropertyValue& rNewValue : aProps )
         {
-            const PropertyValue& rNewValue = pNewValues[ n ];
             const OUString& rName = rNewValue.Name;
 
             OUString aFullPropName = aFullPropNamePrefix;

@@ -226,10 +226,9 @@ void SdrPaintView::Notify(SfxBroadcaster& rBC, const SfxHint& rHint)
         return;
     }
 
-    const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>(&rHint);
-    if (!pSdrHint)
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
         return;
-
+    const SdrHint* pSdrHint = static_cast<const SdrHint*>(&rHint);
     SdrHintKind eKind = pSdrHint->GetKind();
     if (eKind==SdrHintKind::ObjectChange || eKind==SdrHintKind::ObjectInserted || eKind==SdrHintKind::ObjectRemoved)
     {
@@ -860,7 +859,7 @@ void SdrPaintView::InvalidateAllWin()
 
         if(pPaintWindow->OutputToWindow())
         {
-            InvalidateOneWin(static_cast<vcl::Window&>(pPaintWindow->GetOutputDevice()));
+            InvalidateOneWin(pPaintWindow->GetOutputDevice());
         }
     }
 }
@@ -885,20 +884,22 @@ void SdrPaintView::InvalidateAllWin(const tools::Rectangle& rRect)
             // In case of tiled rendering we want to get all invalidations, so visual area is not interesting.
             if (aRect.IsOver(aOutRect) || comphelper::LibreOfficeKit::isActive())
             {
-                InvalidateOneWin(static_cast<vcl::Window&>(rOutDev), aRect);
+                InvalidateOneWin(rOutDev, aRect);
             }
         }
     }
 }
 
-void SdrPaintView::InvalidateOneWin(vcl::Window& rWin)
+void SdrPaintView::InvalidateOneWin(OutputDevice& rDevice)
 {
+    vcl::Window& rWin(static_cast<vcl::Window&>(rDevice));
     // do not erase background, that causes flicker (!)
     rWin.Invalidate(InvalidateFlags::NoErase);
 }
 
-void SdrPaintView::InvalidateOneWin(vcl::Window& rWin, const tools::Rectangle& rRect)
+void SdrPaintView::InvalidateOneWin(OutputDevice& rDevice, const tools::Rectangle& rRect)
 {
+    vcl::Window& rWin(static_cast<vcl::Window&>(rDevice));
     // do not erase background, that causes flicker (!)
     rWin.Invalidate(rRect, InvalidateFlags::NoErase);
 }

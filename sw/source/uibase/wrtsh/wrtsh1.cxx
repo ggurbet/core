@@ -27,6 +27,7 @@
 #include <com/sun/star/util/XModifiable.hpp>
 
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 
 #include <math.h>
 #include <hintids.hxx>
@@ -89,6 +90,8 @@
 #include <editeng/acorrcfg.hxx>
 #include <IMark.hxx>
 #include <sfx2/bindings.hxx>
+#include <fchrfmt.hxx>
+#include <flyfrm.hxx>
 
 // -> #111827#
 #include <SwRewriter.hxx>
@@ -100,9 +103,16 @@
 
 #include <PostItMgr.hxx>
 #include <FrameControlsManager.hxx>
+#include <fldmgr.hxx>
+#include <docufld.hxx>
+#include <IDocumentFieldsAccess.hxx>
+#include <fmtfld.hxx>
 
 #include <sfx2/msgpool.hxx>
+#include <sfx2/msg.hxx>
 #include <svtools/embedhlp.hxx>
+#include <svx/postattr.hxx>
+#include <comphelper/lok.hxx>
 #include <memory>
 
 using namespace sw::mark;
@@ -188,7 +198,8 @@ void SwWrtShell::Insert( const OUString &rStr )
 
     SfxItemSet aCharAttrSet(
         GetAttrPool(),
-        svl::Items<RES_CHRATR_BEGIN, RES_CHRATR_END - 1>{});
+        svl::Items<RES_CHRATR_BEGIN, RES_CHRATR_END - 1,
+                   RES_TXTATR_CHARFMT, RES_TXTATR_CHARFMT>{});
 
     if( bHasSel || ( !m_bIns && SelectHiddenRange() ) )
     {
@@ -235,6 +246,7 @@ void SwWrtShell::Insert( const OUString &rStr )
         for (sal_uInt16 i = RES_CHRATR_BEGIN; i < RES_CHRATR_END; ++i)
             if (i != sal_uInt16(RES_CHRATR_RSID))
                 aAttribs.insert(aAttribs.end(), i);
+        aAttribs.insert(aAttribs.end(), RES_TXTATR_CHARFMT);
         ResetAttr(aAttribs, &aPaM);
 
         SetAttrSet(aCharAttrSet, SetAttrMode::DEFAULT, &aPaM);
@@ -591,9 +603,8 @@ void SwWrtShell::LaunchOLEObj( long nVerb )
     {
         svt::EmbeddedObjectRef& xRef = GetOLEObject();
         OSL_ENSURE( xRef.is(), "OLE not found" );
-        SfxInPlaceClient* pCli=nullptr;
 
-        pCli = GetView().FindIPClient( xRef.GetObject(), &GetView().GetEditWin() );
+        SfxInPlaceClient* pCli = GetView().FindIPClient( xRef.GetObject(), &GetView().GetEditWin() );
         if ( !pCli )
             pCli = new SwOleClient( &GetView(), &GetView().GetEditWin(), xRef );
 
@@ -1856,6 +1867,113 @@ void SwWrtShell::SetShowHeaderFooterSeparator( FrameControlType eControl, bool b
     SwViewShell::SetShowHeaderFooterSeparator( eControl, bShow );
     if ( !bShow )
         GetView().GetEditWin().GetFrameControlsManager().HideControls( eControl );
+}
+
+void SwWrtShell::InsertPostIt(SwFieldMgr& rFieldMgr, SfxRequest& rReq)
+{
+    SwPostItField* pPostIt = dynamic_cast<SwPostItField*>(rFieldMgr.GetCurField());
+    bool bNew = !(pPostIt && pPostIt->GetTyp()->Which() == SwFieldIds::Postit);
+    if (bNew || GetView().GetPostItMgr()->IsAnswer())
+    {
+        const SvxPostItAuthorItem* pAuthorItem = rReq.GetArg<SvxPostItAuthorItem>(SID_ATTR_POSTIT_AUTHOR);
+        OUString sAuthor;
+        if ( pAuthorItem )
+            sAuthor = pAuthorItem->GetValue();
+        else
+        {
+            std::size_t nAuthor = SW_MOD()->GetRedlineAuthor();
+            sAuthor = SW_MOD()->GetRedlineAuthor(nAuthor);
+        }
+
+        const SvxPostItTextItem* pTextItem = rReq.GetArg<SvxPostItTextItem>(SID_ATTR_POSTIT_TEXT);
+        OUString sText;
+        if ( pTextItem )
+            sText = pTextItem->GetValue();
+
+        // If we have a text already registered for answer, use that
+        if (GetView().GetPostItMgr()->IsAnswer() && !GetView().GetPostItMgr()->GetAnswerText().isEmpty())
+        {
+            sText = GetView().GetPostItMgr()->GetAnswerText();
+            GetView().GetPostItMgr()->RegisterAnswerText(OUString());
+        }
+
+        if ( HasSelection() && !IsTableMode() )
+        {
+            KillPams();
+        }
+
+        // #i120513# Inserting a comment into an autocompletion crashes
+        // --> suggestion has to be removed before
+        GetView().GetEditWin().StopQuickHelp();
+
+        SwInsertField_Data aData(TYP_POSTITFLD, 0, sAuthor, sText, 0);
+
+        if (IsSelFrameMode())
+        {
+            SwFlyFrame* pFly = GetSelectedFlyFrame();
+
+            // A frame is selected, end frame selection.
+            EnterStdMode();
+            GetView().AttrChangedNotify(this);
+
+            // Set up text selection, so the anchor of the frame will be the anchor of the
+            // comment.
+            if (pFly)
+            {
+                SwFrameFormat* pFormat = pFly->GetFormat();
+                if (pFormat && pFormat->GetAnchor().GetAnchorId() == RndStdIds::FLY_AS_CHAR)
+                {
+                    Right(CRSR_SKIP_CELLS, /*bSelect=*/true, 1, /*bBasicCall=*/false, /*bVisual=*/true);
+                }
+                else if (pFormat && pFormat->GetAnchor().GetAnchorId() == RndStdIds::FLY_AT_CHAR)
+                {
+                    // Ending the frame selection positions the cursor at the end of the paragraph,
+                    // move it to the anchor position.
+                    sal_Int32 nCursor = GetCurrentShellCursor().GetPoint()->nContent.GetIndex();
+                    const SwPosition* pAnchor = pFormat->GetAnchor().GetContentAnchor();
+                    if (pAnchor)
+                    {
+                        sal_Int32 nDiff = nCursor - pAnchor->nContent.GetIndex();
+                        if (nDiff > 0)
+                        {
+                            Left(CRSR_SKIP_CELLS, /*bSelect=*/false, nDiff, /*bBasicCall=*/false,
+                                 /*bVisual=*/true);
+                            aData.m_pAnnotationRange.reset(new SwPaM(
+                                *GetCurrentShellCursor().Start(), *GetCurrentShellCursor().End()));
+                        }
+                    }
+                }
+            }
+        }
+
+        rFieldMgr.InsertField( aData );
+
+        Push();
+        SwCursorShell::Left(1, CRSR_SKIP_CHARS);
+        pPostIt = static_cast<SwPostItField*>(rFieldMgr.GetCurField());
+        Pop(SwCursorShell::PopMode::DeleteCurrent); // Restore cursor position
+    }
+
+    // Client has disabled annotations rendering, no need to
+    // focus the postit field
+    if (comphelper::LibreOfficeKit::isActive() && !comphelper::LibreOfficeKit::isTiledAnnotations())
+        return;
+
+    if (pPostIt)
+    {
+        SwFieldType* pType = GetDoc()->getIDocumentFieldsAccess().GetFieldType(SwFieldIds::Postit, OUString(), false);
+        SwIterator<SwFormatField,SwFieldType> aIter( *pType );
+        SwFormatField* pSwFormatField = aIter.First();
+        while( pSwFormatField )
+        {
+            if ( pSwFormatField->GetField() == pPostIt )
+            {
+                pSwFormatField->Broadcast( SwFormatFieldHint( nullptr, SwFormatFieldHintWhich::FOCUS, &GetView() ) );
+                break;
+            }
+            pSwFormatField = aIter.Next();
+        }
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

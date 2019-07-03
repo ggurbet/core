@@ -19,9 +19,7 @@
 
 #include <progressmonitor.hxx>
 
-#include <com/sun/star/awt/GradientStyle.hpp>
-#include <com/sun/star/awt/RasterOperation.hpp>
-#include <com/sun/star/awt/Gradient.hpp>
+#include <com/sun/star/awt/XFixedText.hpp>
 #include <com/sun/star/awt/XGraphics.hpp>
 #include <com/sun/star/awt/PosSize.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
@@ -48,7 +46,7 @@ ProgressMonitor::ProgressMonitor( const css::uno::Reference< XComponentContext >
 {
     // It's not allowed to work with member in this method (refcounter !!!)
     // But with a HACK (++refcount) its "OK" :-(
-    ++m_refCount;
+    osl_atomic_increment(&m_refCount);
 
     // Create instances for fixedtext, button and progress ...
 
@@ -94,7 +92,7 @@ ProgressMonitor::ProgressMonitor( const css::uno::Reference< XComponentContext >
     m_xTopic_Bottom->setText ( PROGRESSMONITOR_DEFAULT_TOPIC );
     m_xText_Bottom->setText  ( PROGRESSMONITOR_DEFAULT_TEXT );
 
-    --m_refCount;
+    osl_atomic_decrement(&m_refCount);
 }
 
 ProgressMonitor::~ProgressMonitor()
@@ -111,13 +109,13 @@ Any SAL_CALL ProgressMonitor::queryInterface( const Type& rType )
     css::uno::Reference< XInterface > xDel = BaseContainerControl::impl_getDelegator();
     if ( xDel.is() )
     {
-        // If an delegator exist, forward question to his queryInterface.
-        // Delegator will ask his own queryAggregation!
+        // If a delegator exists, forward question to its queryInterface.
+        // Delegator will ask its own queryAggregation!
         aReturn = xDel->queryInterface( rType );
     }
     else
     {
-        // If an delegator unknown, forward question to own queryAggregation.
+        // If a delegator is unknown, forward question to own queryAggregation.
         aReturn = queryAggregation( rType );
     }
 
@@ -799,19 +797,19 @@ IMPL_TextlistItem* ProgressMonitor::impl_searchTopic ( const OUString& rTopic, b
     ::std::vector< std::unique_ptr<IMPL_TextlistItem> >* pTextList;
 
     // Ready for multithreading
-    ClearableMutexGuard aGuard ( m_aMutex );
-
-    if ( bbeforeProgress )
     {
-        pTextList = &maTextlist_Top;
-    }
-    else
-    {
-        pTextList = &maTextlist_Bottom;
-    }
+        MutexGuard aGuard(m_aMutex);
 
+        if (bbeforeProgress)
+        {
+            pTextList = &maTextlist_Top;
+        }
+        else
+        {
+            pTextList = &maTextlist_Bottom;
+        }
+    }
     // Switch off guard.
-    aGuard.clear ();
 
     // Search the topic in textlist.
     size_t nPosition    = 0;

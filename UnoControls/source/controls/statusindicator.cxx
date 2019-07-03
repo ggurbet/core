@@ -19,7 +19,8 @@
 
 #include <statusindicator.hxx>
 
-#include <com/sun/star/awt/WindowAttribute.hpp>
+#include <com/sun/star/awt/PosSize.hpp>
+#include <com/sun/star/awt/XFixedText.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/typeprovider.hxx>
@@ -42,7 +43,7 @@ StatusIndicator::StatusIndicator( const css::uno::Reference< XComponentContext >
 {
     // It's not allowed to work with member in this method (refcounter !!!)
     // But with a HACK (++refcount) its "OK" :-(
-    ++m_refCount;
+    osl_atomic_increment(&m_refCount);
 
     // Create instances for fixedtext and progress ...
     m_xText.set( rxContext->getServiceManager()->createInstanceWithContext( FIXEDTEXT_SERVICENAME, rxContext ), UNO_QUERY );
@@ -61,7 +62,7 @@ StatusIndicator::StatusIndicator( const css::uno::Reference< XComponentContext >
     // (progressbar take automatically its own defaults)
     m_xText->setText( "" );
 
-    --m_refCount;
+    osl_atomic_decrement(&m_refCount);
 }
 
 StatusIndicator::~StatusIndicator() {}
@@ -76,13 +77,13 @@ Any SAL_CALL StatusIndicator::queryInterface( const Type& rType )
     css::uno::Reference< XInterface > xDel = BaseContainerControl::impl_getDelegator();
     if ( xDel.is() )
     {
-        // If an delegator exist, forward question to his queryInterface.
-        // Delegator will ask his own queryAggregation!
+        // If a delegator exists, forward question to its queryInterface.
+        // Delegator will ask its own queryAggregation!
         aReturn = xDel->queryInterface( rType );
     }
     else
     {
-        // If an delegator unknown, forward question to own queryAggregation.
+        // If a delegator is unknown, forward question to own queryAggregation.
         aReturn = queryAggregation( rType );
     }
 

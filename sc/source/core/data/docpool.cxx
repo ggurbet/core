@@ -327,17 +327,17 @@ ScDocumentPool::~ScDocumentPool()
     }
 }
 
-const SfxPoolItem& ScDocumentPool::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich )
+const SfxPoolItem& ScDocumentPool::PutImpl( const SfxPoolItem& rItem, sal_uInt16 nWhich, bool bPassingOwnership )
 {
     if ( rItem.Which() != ATTR_PATTERN ) // Only Pattern is special
-        return SfxItemPool::Put( rItem, nWhich );
+        return SfxItemPool::PutImpl( rItem, nWhich, bPassingOwnership );
 
     // Don't copy the default pattern of this Pool
     if (&rItem == mvPoolDefaults[ ATTR_PATTERN - ATTR_STARTINDEX ])
         return rItem;
 
     // Else Put must always happen, because it could be another Pool
-    const SfxPoolItem& rNew = SfxItemPool::Put( rItem, nWhich );
+    const SfxPoolItem& rNew = SfxItemPool::PutImpl( rItem, nWhich, bPassingOwnership );
     sal_uInt32 nRef = rNew.GetRefCount();
     if (nRef == 1)
     {
@@ -349,10 +349,9 @@ const SfxPoolItem& ScDocumentPool::Put( const SfxPoolItem& rItem, sal_uInt16 nWh
 
 void ScDocumentPool::StyleDeleted( const ScStyleSheet* pStyle )
 {
-    sal_uInt32 nCount = GetItemCount2(ATTR_PATTERN);
-    for (sal_uInt32 i=0; i<nCount; i++)
+    for (const SfxPoolItem* pItem : GetItemSurrogates( ATTR_PATTERN ))
     {
-        ScPatternAttr* pPattern = const_cast<ScPatternAttr*>(GetItem2(ATTR_PATTERN, i));
+        ScPatternAttr* pPattern = const_cast<ScPatternAttr*>(dynamic_cast<const ScPatternAttr*>(pItem));
         if ( pPattern && pPattern->GetStyleSheet() == pStyle )
             pPattern->StyleToName();
     }
@@ -365,11 +364,9 @@ void ScDocumentPool::CellStyleCreated( const OUString& rName, const ScDocument* 
     // Calling StyleSheetChanged isn't enough because the pool may still contain items
     // for undo or clipboard content.
 
-    sal_uInt32 nCount = GetItemCount2(ATTR_PATTERN);
-    for (sal_uInt32 i=0; i<nCount; i++)
+    for (const SfxPoolItem* pItem : GetItemSurrogates( ATTR_PATTERN ))
     {
-        ScPatternAttr *const pPattern =
-            const_cast<ScPatternAttr*>(GetItem2(ATTR_PATTERN, i));
+        auto pPattern = const_cast<ScPatternAttr*>(dynamic_cast<const ScPatternAttr*>(pItem));
         if ( pPattern && pPattern->GetStyleSheet() == nullptr )
         {
             const OUString* pStyleName = pPattern->GetStyleName();

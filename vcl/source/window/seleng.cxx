@@ -115,7 +115,7 @@ void SelectionEngine::CursorPosChanging( bool bShift, bool bMod1 )
 bool SelectionEngine::SelMouseButtonDown( const MouseEvent& rMEvt )
 {
     nFlags &= ~SelectionEngineFlags::CMDEVT;
-    if ( !pFunctionSet || !pWin || rMEvt.GetClicks() > 1 || rMEvt.IsRight() )
+    if ( !pFunctionSet || rMEvt.GetClicks() > 1 || rMEvt.IsRight() )
         return false;
 
     sal_uInt16 nModifier = rMEvt.GetModifier() | nLockedMods;
@@ -131,7 +131,7 @@ bool SelectionEngine::SelMouseButtonDown( const MouseEvent& rMEvt )
 
     if( !rMEvt.IsRight() )
     {
-        pWin->CaptureMouse();
+        CaptureMouse();
         nFlags |= SelectionEngineFlags::IN_SEL;
     }
     else
@@ -149,7 +149,7 @@ bool SelectionEngine::SelMouseButtonDown( const MouseEvent& rMEvt )
             {
                 nFlags |= SelectionEngineFlags::WAIT_UPEVT;
                 nFlags &= ~SelectionEngineFlags::IN_SEL;
-                pWin->ReleaseMouse();
+                ReleaseMouse();
                 return true;  // wait for STARTDRAG-Command-Event
             }
             if ( eSelMode != SelectionMode::Single )
@@ -170,7 +170,7 @@ bool SelectionEngine::SelMouseButtonDown( const MouseEvent& rMEvt )
         case KEY_SHIFT:
             if ( eSelMode == SelectionMode::Single )
             {
-                pWin->ReleaseMouse();
+                ReleaseMouse();
                 nFlags &= ~SelectionEngineFlags::IN_SEL;
                 return false;
             }
@@ -194,7 +194,7 @@ bool SelectionEngine::SelMouseButtonDown( const MouseEvent& rMEvt )
             if ( eSelMode != SelectionMode::Multiple )
             {
                 nFlags &= ~SelectionEngineFlags::IN_SEL;
-                pWin->ReleaseMouse();
+                ReleaseMouse();
                 return true;  // skip Mouse-Click
             }
             if ( nFlags & SelectionEngineFlags::HAS_ANCH )
@@ -217,7 +217,7 @@ bool SelectionEngine::SelMouseButtonDown( const MouseEvent& rMEvt )
         case KEY_SHIFT + KEY_MOD1:
             if ( eSelMode != SelectionMode::Multiple )
             {
-                pWin->ReleaseMouse();
+                ReleaseMouse();
                 nFlags &= ~SelectionEngineFlags::IN_SEL;
                 return false;
             }
@@ -237,17 +237,15 @@ bool SelectionEngine::SelMouseButtonDown( const MouseEvent& rMEvt )
 bool SelectionEngine::SelMouseButtonUp( const MouseEvent& rMEvt )
 {
     aWTimer.Stop();
-    if( !pFunctionSet || !pWin )
+    if (!pFunctionSet)
     {
         const SelectionEngineFlags nMask = SelectionEngineFlags::CMDEVT | SelectionEngineFlags::WAIT_UPEVT | SelectionEngineFlags::IN_SEL;
         nFlags &= ~nMask;
         return false;
     }
 
-    if( !rMEvt.IsRight() )
-    {
-       ReleaseMouse();
-    }
+    if (!rMEvt.IsRight())
+        ReleaseMouse();
 
     if( (nFlags & SelectionEngineFlags::WAIT_UPEVT) && !(nFlags & SelectionEngineFlags::CMDEVT) &&
         eSelMode != SelectionMode::Single)
@@ -284,6 +282,13 @@ void SelectionEngine::ReleaseMouse()
     if (!pWin || !pWin->IsMouseCaptured())
         return;
     pWin->ReleaseMouse();
+}
+
+void SelectionEngine::CaptureMouse()
+{
+    if (!pWin || pWin->IsMouseCaptured())
+        return;
+    pWin->CaptureMouse();
 }
 
 bool SelectionEngine::SelMouseMove( const MouseEvent& rMEvt )
@@ -324,19 +329,19 @@ void SelectionEngine::SetWindow( vcl::Window* pNewWin )
 {
     if( pNewWin != pWin )
     {
-        if ( pWin && (nFlags & SelectionEngineFlags::IN_SEL) )
-            pWin->ReleaseMouse();
+        if (nFlags & SelectionEngineFlags::IN_SEL)
+            ReleaseMouse();
         pWin = pNewWin;
-        if ( pWin && ( nFlags & SelectionEngineFlags::IN_SEL ) )
-            pWin->CaptureMouse();
+        if (nFlags & SelectionEngineFlags::IN_SEL)
+            CaptureMouse();
     }
 }
 
 void SelectionEngine::Reset()
 {
     aWTimer.Stop();
-    if ( nFlags & SelectionEngineFlags::IN_SEL )
-        pWin->ReleaseMouse();
+    if (nFlags & SelectionEngineFlags::IN_SEL)
+        ReleaseMouse();
     nFlags &= ~SelectionEngineFlags(SelectionEngineFlags::HAS_ANCH | SelectionEngineFlags::IN_SEL);
     nLockedMods = 0;
 }
@@ -344,7 +349,7 @@ void SelectionEngine::Reset()
 void SelectionEngine::Command( const CommandEvent& rCEvt )
 {
     // Timer aWTimer is active during enlarging a selection
-    if ( !pFunctionSet || !pWin || aWTimer.IsActive() )
+    if ( !pFunctionSet || aWTimer.IsActive() )
         return;
     aWTimer.Stop();
     if ( rCEvt.GetCommand() == CommandEventId::StartDrag )

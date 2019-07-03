@@ -21,11 +21,9 @@
 #include <comphelper/property.hxx>
 #include <osl/diagnose.h>
 #include <uno/data.h>
-#include <com/sun/star/uno/genfunc.h>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/beans/UnknownPropertyException.hpp>
-#include <rtl/ustrbuf.hxx>
 
 #include <algorithm>
 
@@ -78,7 +76,7 @@ void OPropertyContainerHelper::registerProperty(const OUString& _rName, sal_Int3
     OSL_ENSURE((_nAttributes & PropertyAttribute::MAYBEVOID) == 0,
         "OPropertyContainerHelper::registerProperty: don't use this for properties which may be void ! There is a method called \"registerMayBeVoidProperty\" for this !");
     OSL_ENSURE(!_rMemberType.equals(cppu::UnoType<Any>::get()),
-        "OPropertyContainerHelper::registerProperty: don't give my the type of an uno::Any ! Really can't handle this !");
+        "OPropertyContainerHelper::registerProperty: don't give my the type of a uno::Any ! Really can't handle this !");
     OSL_ENSURE(_pPointerToMember,
         "OPropertyContainerHelper::registerProperty: you gave me nonsense : the pointer must be non-NULL");
 
@@ -106,7 +104,7 @@ void OPropertyContainerHelper::registerMayBeVoidProperty(const OUString& _rName,
     OSL_ENSURE((_nAttributes & PropertyAttribute::MAYBEVOID) != 0,
         "OPropertyContainerHelper::registerMayBeVoidProperty: why calling this when the attributes say nothing about may-be-void ?");
     OSL_ENSURE(!_rExpectedType.equals(cppu::UnoType<Any>::get()),
-        "OPropertyContainerHelper::registerMayBeVoidProperty: don't give my the type of an uno::Any ! Really can't handle this !");
+        "OPropertyContainerHelper::registerMayBeVoidProperty: don't give my the type of a uno::Any ! Really can't handle this !");
     OSL_ENSURE(_pPointerToMember,
         "OPropertyContainerHelper::registerMayBeVoidProperty: you gave me nonsense : the pointer must be non-NULL");
 
@@ -125,7 +123,7 @@ void OPropertyContainerHelper::registerPropertyNoMember(const OUString& _rName, 
         const Type& _rType, css::uno::Any const & _pInitialValue)
 {
     OSL_ENSURE(!_rType.equals(cppu::UnoType<Any>::get()),
-        "OPropertyContainerHelper::registerPropertyNoMember : don't give my the type of an uno::Any ! Really can't handle this !");
+        "OPropertyContainerHelper::registerPropertyNoMember : don't give my the type of a uno::Any ! Really can't handle this !");
     OSL_ENSURE(
         (_pInitialValue.isExtractableTo(_rType)
          || (!_pInitialValue.hasValue()

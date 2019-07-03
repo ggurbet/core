@@ -24,6 +24,7 @@
 
 #include <sfx2/viewsh.hxx>
 #include <vcl/prntypes.hxx>
+#include <vcl/scrbar.hxx>
 #include <o3tl/deleter.hxx>
 #include <pres.hxx>
 #include "View.hxx"
@@ -85,7 +86,7 @@ static const DrawModeFlags OUTPUT_DRAWMODE_CONTRAST
 
     <p>This class replaces the former ViewShell class.</p>
 */
-class ViewShell
+class SAL_DLLPUBLIC_RTTI ViewShell
     : public SfxShell
 {
 public:
@@ -411,8 +412,8 @@ public:
 
     /// Allows adjusting the point or mark of the selection to a document coordinate.
     void SetCursorMm100Position(const Point& rPosition, bool bPoint, bool bClearMark);
-    /// Gets the currently selected text.
-    OString GetTextSelection(const OString& aMimeType, OString& rUsedMimeType);
+    /// Gets the current selection
+    css::uno::Reference<css::datatransfer::XTransferable> GetSelectionTransferrable();
     /// Allows starting or ending a graphic move or resize action.
     void SetGraphicMm100Position(bool bStart, const Point& rPosition);
 

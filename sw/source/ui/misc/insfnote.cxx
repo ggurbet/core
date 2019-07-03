@@ -20,6 +20,7 @@
 #include <hintids.hxx>
 #include <svl/eitem.hxx>
 #include <svl/stritem.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/request.hxx>
 #include <editeng/fontitem.hxx>
 #include <fmtftn.hxx>
@@ -33,7 +34,6 @@
 #include <svx/svxdlg.hxx>
 #include <svx/dialogs.hrc>
 #include <sfx2/viewfrm.hxx>
-#include <vcl/layout.hxx>
 
 #include <memory>
 
@@ -105,7 +105,7 @@ IMPL_LINK_NOARG(SwInsFootNoteDlg, NumberExtCharHdl, weld::Button&, void)
     aAllSet.Put( rFont );
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(m_xDialog.get(), aAllSet, false));
+    ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(m_xDialog.get(), aAllSet, nullptr));
     if (RET_OK == pDlg->Execute())
     {
         const SfxStringItem* pItem = SfxItemSet::GetItem<SfxStringItem>(pDlg->GetOutputItemSet(), SID_CHARMAP, false);

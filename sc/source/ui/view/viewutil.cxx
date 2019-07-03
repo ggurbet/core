@@ -33,8 +33,10 @@
 #include <vcl/settings.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/stritem.hxx>
 #include <svl/eitem.hxx>
+#include <osl/diagnose.h>
 
 #include <viewutil.hxx>
 #include <global.hxx>
@@ -45,6 +47,7 @@
 
 #include <svx/svxdlg.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <memory>
 
 void ScViewUtil::PutItemScript( SfxItemSet& rShellSet, const SfxItemSet& rCoreSet,
@@ -61,8 +64,7 @@ void ScViewUtil::PutItemScript( SfxItemSet& rShellSet, const SfxItemSet& rCoreSe
     const SfxPoolItem* pI = aSetItem.GetItemOfScript( nScript );
     if (pI)
     {
-        std::unique_ptr<SfxPoolItem> pNewItem(pI->CloneSetWhich(nWhichId));
-        rShellSet.Put( *pNewItem );
+        rShellSet.Put( pI->CloneSetWhich(nWhichId) );
     }
     else
         rShellSet.InvalidateItem( nWhichId );
@@ -330,7 +332,8 @@ void ScViewUtil::ExecuteCharMap( const SvxFontItem& rOldFont,
     SfxAllItemSet aSet( rFrame.GetObjectShell()->GetPool() );
     aSet.Put( SfxBoolItem( FN_PARAM_1, false ) );
     aSet.Put( SvxFontItem( rOldFont.GetFamily(), rOldFont.GetFamilyName(), rOldFont.GetStyleName(), rOldFont.GetPitch(), rOldFont.GetCharSet(), aSet.GetPool()->GetWhich( SID_ATTR_CHAR_FONT ) ) );
-    ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(rFrame.GetWindow().GetFrameWeld(), aSet, true));
+    auto xFrame = rFrame.GetFrame().GetFrameInterface();
+    ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(rFrame.GetWindow().GetFrameWeld(), aSet, xFrame));
     pDlg->Execute();
 }
 

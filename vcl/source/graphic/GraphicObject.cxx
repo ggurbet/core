@@ -71,7 +71,7 @@ void SearchForGraphics(uno::Reference<uno::XInterface> const & xInterface,
             if (!sURL.isEmpty() && !GraphicObject::isGraphicObjectUniqueIdURL(sURL))
             {
                 Graphic aGraphic = vcl::graphic::loadFromURL(sURL);
-                if (aGraphic)
+                if (!aGraphic.IsNone())
                 {
                     raGraphicList.push_back(aGraphic.GetXGraphic());
                 }
@@ -778,21 +778,21 @@ Graphic GraphicObject::GetTransformedGraphic( const Size& rDestSize, const MapMo
 
             for( size_t nFrame=0; nFrame<aAnim.Count(); ++nFrame )
             {
-                AnimationBitmap aAnimBmp( aAnim.Get( nFrame ) );
+                AnimationBitmap aAnimationBitmap( aAnim.Get( nFrame ) );
 
-                if( !aCropRect.IsInside( tools::Rectangle(aAnimBmp.aPosPix, aAnimBmp.aSizePix) ) )
+                if( !aCropRect.IsInside( tools::Rectangle(aAnimationBitmap.maPositionPixel, aAnimationBitmap.maSizePixel) ) )
                 {
                     // setup actual cropping (relative to frame position)
                     tools::Rectangle aCropRectRel( aCropRect );
-                    aCropRectRel.Move( -aAnimBmp.aPosPix.X(),
-                                       -aAnimBmp.aPosPix.Y() );
+                    aCropRectRel.Move( -aAnimationBitmap.maPositionPixel.X(),
+                                       -aAnimationBitmap.maPositionPixel.Y() );
 
                     // cropping affects this frame, apply it then
                     // do _not_ apply enlargement, this is done below
-                    ImplTransformBitmap( aAnimBmp.aBmpEx, rAttr, Size(), Size(),
+                    ImplTransformBitmap( aAnimationBitmap.maBitmapEx, rAttr, Size(), Size(),
                                          aCropRectRel, rDestSize, false );
 
-                    aAnim.Replace( aAnimBmp, nFrame );
+                    aAnim.Replace( aAnimationBitmap, nFrame );
                 }
                 // else: bitmap completely within crop area,
                 // i.e. nothing is cropped away
@@ -822,11 +822,11 @@ Graphic GraphicObject::GetTransformedGraphic( const Size& rDestSize, const MapMo
 
                 for( size_t nFrame=0; nFrame<aAnim.Count(); ++nFrame )
                 {
-                    AnimationBitmap aAnimBmp( aAnim.Get( nFrame ) );
+                    AnimationBitmap aAnimationBitmap( aAnim.Get( nFrame ) );
 
-                    aAnimBmp.aPosPix += aPosOffset;
+                    aAnimationBitmap.maPositionPixel += aPosOffset;
 
-                    aAnim.Replace( aAnimBmp, nFrame );
+                    aAnim.Replace( aAnimationBitmap, nFrame );
                 }
             }
 

@@ -6109,8 +6109,8 @@ static const mso_CustomShape msoWave =
 
 static const SvxMSDffVertPair mso_sptDoubleWaveVert[] = // adjustment1 : 0 - 2230
 {                                                       // adjustment2 : 8640 - 12960
-    { 7 MSO_I, 0 MSO_I }, { 15 MSO_I, 9 MSO_I }, { 0x1e MSO_I, 10 MSO_I }, { 0x12 MSO_I, 0 MSO_I }, { 0x1f MSO_I, 9 MSO_I }, { 16 MSO_I, 10 MSO_I }, { 12 MSO_I, 0 MSO_I },
-    { 24 MSO_I, 1 MSO_I }, { 25 MSO_I, 26 MSO_I }, { 0x21 MSO_I, 28 MSO_I }, { 0x13 MSO_I, 1 MSO_I }, { 0x20 MSO_I, 26 MSO_I }, { 27 MSO_I, 28 MSO_I }, { 29 MSO_I, 1 MSO_I }
+    { 7 MSO_I, 0 MSO_I }, { 15 MSO_I, 9 MSO_I }, { 0x1f MSO_I, 10 MSO_I }, { 0x12 MSO_I, 0 MSO_I }, { 0x1e MSO_I, 9 MSO_I }, { 16 MSO_I, 10 MSO_I }, { 12 MSO_I, 0 MSO_I },
+    { 24 MSO_I, 1 MSO_I }, { 25 MSO_I, 26 MSO_I }, { 0x20 MSO_I, 28 MSO_I }, { 0x13 MSO_I, 1 MSO_I }, { 0x21 MSO_I, 26 MSO_I }, { 27 MSO_I, 28 MSO_I }, { 29 MSO_I, 1 MSO_I }
 };
 static const SvxMSDffCalculationData mso_sptDoubleWaveCalc[] =
 {
@@ -6148,10 +6148,10 @@ static const SvxMSDffCalculationData mso_sptDoubleWaveCalc[] =
     { 0xa000, { 0x401, 0, 0x408 } },            //41c
 
     { 0x8000, { 21600, 0, 0x40c } },            //41d p3
-    { 0xa000, { 0x412, 0, 0x40e } },            //41e
-    { 0x6000, { 0x412, 0x40e, 0 } },            //41f
-    { 0xa000, { 0x413, 0, 0x40e } },            //420
-    { 0x6000, { 0x413, 0x40e, 0 } }             //421
+    { 0xa000, { 0x412, 3600, 0x40e } },         //41e
+    { 0x6000, { 0x412, 0x40e, 3600 } },         //41f
+    { 0xa000, { 0x413, 3600, 0x40e } },         //420
+    { 0x6000, { 0x413, 0x40e, 3600 } }          //421
 };
 static const SvxMSDffVertPair mso_sptDoubleWaveGluePoints[] =
 {
@@ -6499,20 +6499,17 @@ static const mso_CustomShape msoTextRingInside =
     const_cast<SvxMSDffHandle*>(mso_sptTextRingInsideHandle), SAL_N_ELEMENTS( mso_sptTextRingInsideHandle )
 };
 //mso_sptTextRingOutside
-//path = U 10800 ?f0 21600 ?f2 180 539 N U 10800 ?f1 21600 ?f2 180 539 N
+//path = U 10800 ?f0 10800 ?f2 180 539 N U 10800 ?f1 10800 ?f2 180 539 N
+// MSO binary format has swing angle, not end angle, therefore 359 instead of 539.
 static const SvxMSDffVertPair mso_sptTextRingOutsideVert[] =
 {
-    { 10800, 0 MSO_I }, { 21600, 2 MSO_I }, { 180, 539},//U
-    { 10800, 1 MSO_I }, { 21600, 2 MSO_I }, { 180, 539 }//U
-    //{ 10800, 0 MSO_I }, { 10800, 0 MSO_I }, { 180, 359 },
-    //{ 10800, 1 MSO_I }, { 10800, 0 MSO_I }, { 180, 359 }
+    { 10800, 0 MSO_I }, { 10800, 0 MSO_I }, { 180, 359 },
+    { 10800, 1 MSO_I }, { 10800, 0 MSO_I }, { 180, 359 }
 };
 static const SvxMSDffCalculationData mso_sptTextRingOutsideCalc[] = // adjustment1 : 6629 - 14971
 {
     { 0x2001, { DFF_Prop_adjustValue, 1, 2 } },
-    { 0x8000, { 21600, 0, 0x400 } },
-    { 0x2000, { DFF_Prop_adjustValue, 0, 0 } }, //$0
-    { 0x8000, { 21600, 0, DFF_Prop_adjustValue } }//21600-$0
+    { 0x8000, { 21600, 0, 0x400 } }
 };
 static const sal_uInt16 mso_sptTextRingOutsideSegm[] =
 {
@@ -6521,7 +6518,7 @@ static const sal_uInt16 mso_sptTextRingOutsideSegm[] =
 };
 static const SvxMSDffHandle mso_sptTextRingOutsideHandle[] =
 {
-    {   SvxMSDffHandleFlags::RANGE | SvxMSDffHandleFlags::RANGE_Y_MAX_IS_SPECIAL | SvxMSDffHandleFlags::RANGE_Y_MIN_IS_SPECIAL,
+    {   SvxMSDffHandleFlags::RANGE,
         10800, 0x100, 10800, 10800, MIN_INT32, 0x7fffffff, 10800, 21600 }
 };
 static const mso_CustomShape msoTextRingOutside =
@@ -7563,8 +7560,8 @@ static const mso_CustomShape msoTextWave2 =
 
 static const SvxMSDffVertPair mso_sptTextWave3Vert[] =  // adjustment1 : 0 - 2230
 {                                                       // adjustment2 : 8640 - 12960
-    { 7 MSO_I, 0 MSO_I }, { 15 MSO_I, 9 MSO_I }, { 0x1e MSO_I, 10 MSO_I }, { 0x12 MSO_I, 0 MSO_I }, { 0x1f MSO_I, 9 MSO_I }, { 16 MSO_I, 10 MSO_I }, { 12 MSO_I, 0 MSO_I },
-    { 29 MSO_I, 1 MSO_I }, { 27 MSO_I, 28 MSO_I }, { 0x20 MSO_I, 26 MSO_I }, { 0x13 MSO_I, 1 MSO_I }, { 0x21 MSO_I, 28 MSO_I }, { 25 MSO_I, 26 MSO_I }, { 24 MSO_I, 1 MSO_I }
+    { 7 MSO_I, 0 MSO_I }, { 15 MSO_I, 9 MSO_I }, { 0x1f MSO_I, 10 MSO_I }, { 0x12 MSO_I, 0 MSO_I }, { 0x1e MSO_I, 9 MSO_I }, { 16 MSO_I, 10 MSO_I }, { 12 MSO_I, 0 MSO_I },
+    { 29 MSO_I, 1 MSO_I }, { 27 MSO_I, 28 MSO_I }, { 0x21 MSO_I, 26 MSO_I }, { 0x13 MSO_I, 1 MSO_I }, { 0x20 MSO_I, 28 MSO_I }, { 25 MSO_I, 26 MSO_I }, { 24 MSO_I, 1 MSO_I }
 };
 static const sal_uInt16 mso_sptTextWave3Segm[] =
 {
@@ -7586,8 +7583,8 @@ static const mso_CustomShape msoTextWave3 =
 
 static const SvxMSDffVertPair mso_sptTextWave4Vert[] =  // adjustment1 : 0 - 2230
 {                                                       // adjustment2 : 8640 - 12960
-    { 7 MSO_I, 0 MSO_I }, { 15 MSO_I, 10 MSO_I }, { 0x1e MSO_I, 9 MSO_I }, { 0x12 MSO_I, 0 MSO_I }, { 0x1f MSO_I, 10 MSO_I }, { 16 MSO_I, 9 MSO_I }, { 12 MSO_I, 0 MSO_I },
-    { 29 MSO_I, 1 MSO_I }, { 27 MSO_I, 26 MSO_I }, { 0x20 MSO_I, 28 MSO_I }, { 0x13 MSO_I, 1 MSO_I }, { 0x21 MSO_I, 26 MSO_I }, { 25 MSO_I, 28 MSO_I }, { 24 MSO_I, 1 MSO_I }
+    { 7 MSO_I, 0 MSO_I }, { 15 MSO_I, 10 MSO_I }, { 0x1f MSO_I, 9 MSO_I }, { 0x12 MSO_I, 0 MSO_I }, { 0x1e MSO_I, 10 MSO_I }, { 16 MSO_I, 9 MSO_I }, { 12 MSO_I, 0 MSO_I },
+    { 29 MSO_I, 1 MSO_I }, { 27 MSO_I, 26 MSO_I }, { 0x21 MSO_I, 28 MSO_I }, { 0x13 MSO_I, 1 MSO_I }, { 0x20 MSO_I, 26 MSO_I }, { 25 MSO_I, 28 MSO_I }, { 24 MSO_I, 1 MSO_I }
 };
 static const mso_CustomShape msoTextWave4 =
 {

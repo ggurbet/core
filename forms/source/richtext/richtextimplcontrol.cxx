@@ -228,9 +228,7 @@ namespace frm
         WhichId nNormalizedWhichId = _rScriptSetItem.GetItemSet().GetPool()->GetWhich( _rScriptSetItem.Which() );
         if ( pNormalizedItem )
         {
-            std::unique_ptr<SfxPoolItem> pProperWhich(pNormalizedItem->Clone());
-            pProperWhich->SetWhich( nNormalizedWhichId );
-            _rScriptSetItem.GetItemSet().Put( *pProperWhich );
+            _rScriptSetItem.GetItemSet().Put( pNormalizedItem->CloneSetWhich(nNormalizedWhichId) );
         }
         else
             _rScriptSetItem.GetItemSet().InvalidateItem( nNormalizedWhichId );
@@ -291,7 +289,7 @@ namespace frm
         bool bVScroll = bool( nStatusWord & EditStatusFlags::VSCROLL );
 
         // In case of *no* automatic line breaks, we also need to check for the *range* here.
-        // Normally, we would do this only after a EditStatusFlags::TEXTWIDTHCHANGED. However, due to a bug
+        // Normally, we would do this only after an EditStatusFlags::TEXTWIDTHCHANGED. However, due to a bug
         // in the EditEngine (I believe so) this is not fired when the engine does not have
         // the AutoPaperSize bits set.
         // So in order to be properly notified, we would need the AutoPaperSize. But, with

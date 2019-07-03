@@ -75,7 +75,6 @@ public:
     OutputDevice* GetRefDev()  { return pRefDev.get(); }
 };
 
-void SetEditEngineDefaultFonts(SfxItemPool &rEditEngineItemPool, const SvtLinguOptions &rOpt);
 
 class SM_DLLPUBLIC SmDocShell : public SfxObjectShell, public SfxListener
 {
@@ -183,8 +182,6 @@ public:
     OUString const & GetAccessibleText();
 
     EditEngine &    GetEditEngine();
-    SfxItemPool &   GetEditEngineItemPool();
-    const SvtLinguOptions & GetLinguOptions() const { return maLinguOptions; }
 
     void        DrawFormula(OutputDevice &rDev, Point &rPosition, bool bDrawSelection = false);
     Size        GetSize();
@@ -215,6 +212,8 @@ public:
             oox::drawingml::DocumentType documentType);
     void writeFormulaRtf(OStringBuffer& rBuffer, rtl_TextEncoding nEncoding);
     void readFormulaOoxml( oox::formulaimport::XmlStream& stream );
+
+    void UpdateEditEngineDefaultFonts(const Color& aTextColor);
 };
 
 #endif

@@ -31,6 +31,7 @@
 #include <sot/formats.hxx>
 #include <sot/storage.hxx>
 #include <vcl/graph.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/weld.hxx>
 #include <tools/urlobj.hxx>
@@ -1061,8 +1062,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
             ScWaitCursorOff aWaitOff( GetFrameWin() );
             OUString aMessage = ScResId( STR_PASTE_BIGGER );
 
-            vcl::Window* pWin = GetViewData().GetDialogParent();
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            aMessage));
             xQueryBox->set_default_response(RET_NO);
@@ -1150,8 +1150,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
         if ( bAskIfNotEmpty )
         {
             ScRangeList aTestRanges(aUserRange);
-            vcl::Window* pWin = GetViewData().GetDialogParent();
-            if (!checkDestRangeForOverwrite(aTestRanges, pDoc, aFilteredMark, pWin ? pWin->GetFrameWeld() : nullptr))
+            if (!checkDestRangeForOverwrite(aTestRanges, pDoc, aFilteredMark, GetViewData().GetDialogParent()))
                 return false;
         }
     }
@@ -1442,7 +1441,7 @@ bool ScViewFunc::PasteFromClip( InsertDeleteFlags nFlags, ScDocument* pClipDoc,
 
     if ( nFlags & InsertDeleteFlags::OBJECTS )
     {
-        ScModelObj* pModelObj = ScModelObj::getImplementation( pDocSh->GetModel() );
+        ScModelObj* pModelObj = comphelper::getUnoTunnelImplementation<ScModelObj>( pDocSh->GetModel() );
         if ( pPage && pModelObj )
         {
             bool bSameDoc = ( rClipParam.getSourceDocID() == pDoc->GetDocumentID() );
@@ -1518,8 +1517,7 @@ bool ScViewFunc::PasteMultiRangesFromClip(
     if (bAskIfNotEmpty)
     {
         ScRangeList aTestRanges(aMarkedRange);
-        vcl::Window* pWin = GetViewData().GetDialogParent();
-        if (!checkDestRangeForOverwrite(aTestRanges, pDoc, aMark, pWin ? pWin->GetFrameWeld() : nullptr))
+        if (!checkDestRangeForOverwrite(aTestRanges, pDoc, aMark, GetViewData().GetDialogParent()))
             return false;
     }
 
@@ -1681,8 +1679,7 @@ bool ScViewFunc::PasteFromClipToMultiRanges(
 
     if (bAskIfNotEmpty)
     {
-        vcl::Window* pWin = GetViewData().GetDialogParent();
-        if (!checkDestRangeForOverwrite(aRanges, pDoc, aMark, pWin ? pWin->GetFrameWeld() : nullptr))
+        if (!checkDestRangeForOverwrite(aRanges, pDoc, aMark, GetViewData().GetDialogParent()))
             return false;
     }
 
@@ -1937,7 +1934,7 @@ bool ScViewFunc::LinkBlock( const ScRange& rSource, const ScAddress& rDestPos )
 void ScViewFunc::DataFormPutData( SCROW nCurrentRow ,
                                   SCROW nStartRow , SCCOL nStartCol ,
                                   SCROW nEndRow , SCCOL nEndCol ,
-                                  std::vector<VclPtr<Edit> >& aEdits,
+                                  std::vector<std::unique_ptr<ScDataFormFragment>>& rEdits,
                                   sal_uInt16 aColLength )
 {
     ScDocument* pDoc = GetViewData().GetDocument();
@@ -1978,9 +1975,9 @@ void ScViewFunc::DataFormPutData( SCROW nCurrentRow ,
 
         for(sal_uInt16 i = 0; i < aColLength; i++)
         {
-            if (aEdits[i] != nullptr)
+            if (rEdits[i] != nullptr)
             {
-                OUString  aFieldName=aEdits[i]->GetText();
+                OUString aFieldName = rEdits[i]->m_xEdit->get_text();
                 pDoc->SetString( nStartCol + i, nCurrentRow, nTab, aFieldName );
             }
         }

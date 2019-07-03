@@ -116,8 +116,6 @@ public:
     inline bool             operator!() const;
     bool                    operator==( const Bitmap& rBitmap ) const;
     bool                    operator!=( const Bitmap& rBitmap ) const { return !operator==(rBitmap); }
-    // only compares if we are using the same internal copy-on-write SalBitmap class
-    bool                    ShallowEquals( const Bitmap& rBitmap ) const { return mxSalBmp == rBitmap.mxSalBmp; }
 
     inline bool             IsEmpty() const;
     void                    SetEmpty();
@@ -131,7 +129,7 @@ public:
     Size                    GetSizePixel() const;
 
     sal_uInt16              GetBitCount() const;
-    inline sal_uLong        GetColorCount() const;
+    inline sal_Int64        GetColorCount() const;
     inline sal_uLong        GetSizeBytes() const;
     bool                    HasGreyPalette() const;
     /** get system dependent bitmap data
@@ -574,9 +572,9 @@ inline void Bitmap::SetPrefSize( const Size& rSize )
     maPrefSize = rSize;
 }
 
-inline sal_uLong Bitmap::GetColorCount() const
+inline sal_Int64 Bitmap::GetColorCount() const
 {
-    return( sal_uLong(1) << static_cast<sal_uLong>(GetBitCount()) );
+    return sal_Int64(1) << sal_Int64(GetBitCount());
 }
 
 inline sal_uLong Bitmap::GetSizeBytes() const

@@ -269,9 +269,9 @@ SwGetExpFieldType::SwGetExpFieldType(SwDoc* pDc)
 {
 }
 
-SwFieldType* SwGetExpFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwGetExpFieldType::Copy() const
 {
-    return new SwGetExpFieldType(GetDoc());
+    return std::make_unique<SwGetExpFieldType>(GetDoc());
 }
 
 void SwGetExpFieldType::Modify( const SfxPoolItem*, const SfxPoolItem* pNew )
@@ -517,9 +517,9 @@ SwSetExpFieldType::SwSetExpFieldType( SwDoc* pDc, const OUString& rName, sal_uIn
         EnableFormat(false);    // do not use Numberformatter
 }
 
-SwFieldType* SwSetExpFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwSetExpFieldType::Copy() const
 {
-    SwSetExpFieldType* pNew = new SwSetExpFieldType(GetDoc(), m_sName, m_nType);
+    std::unique_ptr<SwSetExpFieldType> pNew(new SwSetExpFieldType(GetDoc(), m_sName, m_nType));
     pNew->m_bDeleted = m_bDeleted;
     pNew->m_sDelim = m_sDelim;
     pNew->m_nLevel = m_nLevel;
@@ -1128,7 +1128,21 @@ bool SwSetExpField::PutValue( const uno::Any& rAny, sal_uInt16 nWhichId )
             mnSubType &= (~nsSwExtendedSubType::SUB_CMD);
         break;
     case FIELD_PROP_BOOL1:
-        SetInputFlag(*o3tl::doAccess<bool>(rAny));
+        {
+            bool newInput(*o3tl::doAccess<bool>(rAny));
+            if (newInput != GetInputFlag())
+            {
+                if (static_cast<SwSetExpFieldType*>(GetTyp())->GetType()
+                        & nsSwGetSetExpType::GSE_STRING)
+                {
+                    SwXTextField::TransmuteLeadToInputField(*this);
+                }
+                else
+                {
+                    SetInputFlag(newInput);
+                }
+            }
+        }
         break;
     case FIELD_PROP_PAR4:
         {
@@ -1176,8 +1190,7 @@ bool SwSetExpField::QueryValue( uno::Any& rAny, sal_uInt16 nWhichId ) const
         break;
     case FIELD_PROP_SUBTYPE:
         {
-            sal_Int16 nRet = 0;
-            nRet = lcl_SubTypeToAPI(GetSubType() & 0xff);
+            sal_Int16 nRet = lcl_SubTypeToAPI(GetSubType() & 0xff);
             rAny <<= nRet;
         }
         break;
@@ -1205,10 +1218,9 @@ SwInputFieldType::SwInputFieldType( SwDoc* pD )
 {
 }
 
-SwFieldType* SwInputFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwInputFieldType::Copy() const
 {
-    SwInputFieldType* pType = new SwInputFieldType( mpDoc );
-    return pType;
+    return std::make_unique<SwInputFieldType>( mpDoc );
 }
 
 SwInputField::SwInputField( SwInputFieldType* pFieldType,
@@ -1249,23 +1261,29 @@ void SwInputField::applyFieldContent( const OUString& rNewFieldContent )
         if( pUserTyp )
         {
             pUserTyp->SetContent( rNewFieldContent );
-
-            // trigger update of the corresponding User Fields and other related Input Fields
-            if ( GetFormatField() != nullptr )
+            if (!pUserTyp->IsModifyLocked())
             {
-                SwTextInputField* pTextInputField = dynamic_cast< SwTextInputField* >(GetFormatField()->GetTextField());
-                if ( pTextInputField != nullptr )
+                // trigger update of the corresponding User Fields and other
+                // related Input Fields
+                bool bUnlock(false);
+                if (GetFormatField() != nullptr)
                 {
-                    pTextInputField->LockNotifyContentChange();
+                    SwTextInputField *const pTextInputField =
+                        dynamic_cast<SwTextInputField*>(GetFormatField()->GetTextField());
+                    if (pTextInputField != nullptr)
+                    {
+                        bUnlock = pTextInputField->LockNotifyContentChange();
+                    }
                 }
-            }
-            pUserTyp->UpdateFields();
-            if ( GetFormatField() != nullptr )
-            {
-                SwTextInputField* pTextInputField = dynamic_cast< SwTextInputField* >(GetFormatField()->GetTextField());
-                if ( pTextInputField != nullptr )
+                pUserTyp->UpdateFields();
+                if (bUnlock)
                 {
-                    pTextInputField->UnlockNotifyContentChange();
+                    SwTextInputField *const pTextInputField =
+                        dynamic_cast<SwTextInputField*>(GetFormatField()->GetTextField());
+                    if (pTextInputField != nullptr)
+                    {
+                        pTextInputField->UnlockNotifyContentChange();
+                    }
                 }
             }
         }

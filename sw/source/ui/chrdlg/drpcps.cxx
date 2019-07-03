@@ -37,7 +37,6 @@
 #include <sfx2/objsh.hxx>
 #include <svtools/unitconv.hxx>
 #include <vcl/print.hxx>
-#include <vcl/builderfactory.hxx>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <editeng/scripttypeitem.hxx>
 #include <comphelper/processfactory.hxx>
@@ -449,7 +448,7 @@ void SwDropCapsPict::InitPrinter_()
 }
 
 SwDropCapsDlg::SwDropCapsDlg(weld::Window *pParent, const SfxItemSet &rSet)
-    : SfxSingleTabDialogController(pParent, rSet)
+    : SfxSingleTabDialogController(pParent, &rSet)
 {
     TabPageParent pPageParent(get_content_area(), this);
     VclPtr<SwDropCapsPage> xNewPage(static_cast<SwDropCapsPage*>(SwDropCapsPage::Create(pPageParent, &rSet).get()));

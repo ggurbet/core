@@ -55,6 +55,7 @@
 #include <pam.hxx>
 #include <o3tl/deleter.hxx>
 #include <unotools/transliterationwrapper.hxx>
+#include <comphelper/scopeguard.hxx>
 #include <com/sun/star/uno/Any.hxx>
 
 using namespace ::com::sun::star::uno;
@@ -69,7 +70,7 @@ namespace sw
                 rTextField.GetStart());
         SwRangeRedline const*const pRedline(rIDRA.GetRedline(pos, &tmp));
         return (pRedline
-            && pRedline->GetType() == nsRedlineType_t::REDLINE_DELETE
+            && pRedline->GetType() == RedlineType::Delete
             && *pRedline->GetPoint() != *pRedline->GetMark());
     }
 }
@@ -228,52 +229,52 @@ SwFieldType* DocumentFieldsManager::InsertFieldType(const SwFieldType &rFieldTyp
             for( ; i < nSize; ++i )
                 if( nFieldWhich == (*mpFieldTypes)[i]->Which() &&
                     rSCmp.isEqual( sFieldNm, (*mpFieldTypes)[i]->GetName() ))
-                        return (*mpFieldTypes)[i];
+                        return (*mpFieldTypes)[i].get();
         }
         break;
 
     case SwFieldIds::TableOfAuthorities:
         for( ; i < nSize; ++i )
             if( nFieldWhich == (*mpFieldTypes)[i]->Which() )
-                return (*mpFieldTypes)[i];
+                return (*mpFieldTypes)[i].get();
         break;
 
     default:
         for( i = 0; i < nSize; ++i )
             if( nFieldWhich == (*mpFieldTypes)[i]->Which() )
-                return (*mpFieldTypes)[i];
+                return (*mpFieldTypes)[i].get();
     }
 
-    SwFieldType* pNew = rFieldTyp.Copy();
+    std::unique_ptr<SwFieldType> pNew = rFieldTyp.Copy();
     switch( nFieldWhich )
     {
     case SwFieldIds::Dde:
-        static_cast<SwDDEFieldType*>(pNew)->SetDoc( &m_rDoc );
+        static_cast<SwDDEFieldType*>(pNew.get())->SetDoc( &m_rDoc );
         break;
 
     case SwFieldIds::Database:
     case SwFieldIds::Table:
     case SwFieldIds::DateTime:
     case SwFieldIds::GetExp:
-        static_cast<SwValueFieldType*>(pNew)->SetDoc( &m_rDoc );
+        static_cast<SwValueFieldType*>(pNew.get())->SetDoc( &m_rDoc );
         break;
 
     case SwFieldIds::User:
     case SwFieldIds::SetExp:
-        static_cast<SwValueFieldType*>(pNew)->SetDoc( &m_rDoc );
+        static_cast<SwValueFieldType*>(pNew.get())->SetDoc( &m_rDoc );
         // JP 29.07.96: Optionally prepare FieldList for Calculator:
         mpUpdateFields->InsertFieldType( *pNew );
         break;
     case SwFieldIds::TableOfAuthorities :
-        static_cast<SwAuthorityFieldType*>(pNew)->SetDoc( &m_rDoc );
+        static_cast<SwAuthorityFieldType*>(pNew.get())->SetDoc( &m_rDoc );
         break;
     default: break;
     }
 
-    mpFieldTypes->insert( mpFieldTypes->begin() + nSize, pNew );
+    mpFieldTypes->insert( mpFieldTypes->begin() + nSize, std::move(pNew) );
     m_rDoc.getIDocumentState().SetModified();
 
-    return (*mpFieldTypes)[ nSize ];
+    return (*mpFieldTypes)[ nSize ].get();
 }
 
 /// @returns the field type of the Doc
@@ -281,7 +282,7 @@ SwFieldType *DocumentFieldsManager::GetSysFieldType( const SwFieldIds eWhich ) c
 {
     for( SwFieldTypes::size_type i = 0; i < INIT_FLDTYPES; ++i )
         if( eWhich == (*mpFieldTypes)[i]->Which() )
-            return (*mpFieldTypes)[i];
+            return (*mpFieldTypes)[i].get();
     return nullptr;
 }
 
@@ -318,7 +319,7 @@ SwFieldType* DocumentFieldsManager::GetFieldType(
     SwFieldType* pRet = nullptr;
     for( ; i < nSize; ++i )
     {
-        SwFieldType* pFieldType = (*mpFieldTypes)[i];
+        SwFieldType* pFieldType = (*mpFieldTypes)[i].get();
 
         if (nResId == pFieldType->Which())
         {
@@ -345,7 +346,7 @@ void DocumentFieldsManager::RemoveFieldType(size_t nField)
      */
     if(nField < mpFieldTypes->size())
     {
-        SwFieldType* pTmp = (*mpFieldTypes)[nField];
+        SwFieldType* pTmp = (*mpFieldTypes)[nField].get();
 
         // JP 29.07.96: Optionally prepare FieldList for Calculator
         SwFieldIds nWhich = pTmp->Which();
@@ -376,6 +377,8 @@ void DocumentFieldsManager::RemoveFieldType(size_t nField)
             // delete field type
             delete pTmp;
         }
+        else
+            (*mpFieldTypes)[nField].release(); // DB fields are ref-counted and delete themselves
         mpFieldTypes->erase( mpFieldTypes->begin() + nField );
         m_rDoc.getIDocumentState().SetModified();
     }
@@ -387,7 +390,7 @@ void DocumentFieldsManager::UpdateFields( bool bCloseDB )
     // Call Modify() for every field type,
     // dependent SwTextField get notified ...
 
-    for( auto pFieldType : *mpFieldTypes )
+    for( auto const & pFieldType : *mpFieldTypes )
     {
         switch( pFieldType->Which() )
         {
@@ -454,8 +457,8 @@ void DocumentFieldsManager::InsDeletedFieldType( SwFieldType& rFieldTyp )
 
     for( SwFieldTypes::size_type i = INIT_FLDTYPES; i < nSize; ++i )
     {
-        SwFieldType* pFnd;
-        if( nFieldWhich == (pFnd = (*mpFieldTypes)[i])->Which() &&
+        SwFieldType* pFnd = (*mpFieldTypes)[i].get();
+        if( nFieldWhich == pFnd->Which() &&
             rSCmp.isEqual( rFieldNm, pFnd->GetName() ) )
         {
             // find new name
@@ -463,10 +466,12 @@ void DocumentFieldsManager::InsDeletedFieldType( SwFieldType& rFieldTyp )
             do {
                 OUString sSrch = rFieldNm + OUString::number( nNum );
                 for( i = INIT_FLDTYPES; i < nSize; ++i )
-                    if( nFieldWhich == (pFnd = (*mpFieldTypes)[i])->Which() &&
+                {
+                    pFnd = (*mpFieldTypes)[i].get();
+                    if( nFieldWhich == pFnd->Which() &&
                         rSCmp.isEqual( sSrch, pFnd->GetName() ) )
                         break;
-
+                }
                 if( i >= nSize )        // not found
                 {
                     const_cast<OUString&>(rFieldNm) = sSrch;
@@ -478,8 +483,8 @@ void DocumentFieldsManager::InsDeletedFieldType( SwFieldType& rFieldTyp )
         }
     }
 
-    // not found, so insert and delete flag
-    mpFieldTypes->insert( mpFieldTypes->begin() + nSize, &rFieldTyp );
+    // not found, so insert, and updated deleted flag
+    mpFieldTypes->insert( mpFieldTypes->begin() + nSize, std::unique_ptr<SwFieldType>(&rFieldTyp) );
     switch( nFieldWhich )
     {
     case SwFieldIds::SetExp:
@@ -613,7 +618,7 @@ bool DocumentFieldsManager::UpdateField(SwTextField * pDstTextField, SwField & r
 /// Update reference and table fields
 void DocumentFieldsManager::UpdateRefFields()
 {
-    for( auto pFieldType : *mpFieldTypes )
+    for( auto const & pFieldType : *mpFieldTypes )
         if( SwFieldIds::GetRef == pFieldType->Which() )
             pFieldType->ModifyNotification( nullptr, nullptr );
 }
@@ -625,7 +630,7 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
 
     SwFieldType* pFieldType(nullptr);
 
-    for (auto pFieldTypeTmp : *mpFieldTypes)
+    for (auto const & pFieldTypeTmp : *mpFieldTypes)
     {
         if( SwFieldIds::Table == pFieldTypeTmp->Which() )
         {
@@ -689,20 +694,18 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
                         pField->ChgValid( false );
                 }
             }
-            pFieldType = pFieldTypeTmp;
+            pFieldType = pFieldTypeTmp.get();
             break;
         }
     }
 
     // process all table box formulas
-    const SfxPoolItem* pItem;
-    sal_uInt32 nMaxItems = m_rDoc.GetAttrPool().GetItemCount2( RES_BOXATR_FORMULA );
-    for (sal_uInt32 i = 0; i < nMaxItems; ++i)
+    for (const SfxPoolItem* pItem : m_rDoc.GetAttrPool().GetItemSurrogates(RES_BOXATR_FORMULA))
     {
-        if( nullptr != (pItem = m_rDoc.GetAttrPool().GetItem2( RES_BOXATR_FORMULA, i ) ) &&
-            static_cast<const SwTableBoxFormula*>(pItem)->GetDefinedIn() )
+        auto pBoxFormula = dynamic_cast<const SwTableBoxFormula*>(pItem);
+        if( pBoxFormula && pBoxFormula->GetDefinedIn() )
         {
-            const_cast<SwTableBoxFormula*>(static_cast<const SwTableBoxFormula*>(pItem))->ChangeState( pHt );
+            const_cast<SwTableBoxFormula*>(pBoxFormula)->ChangeState( pHt );
         }
     }
 
@@ -802,13 +805,11 @@ void DocumentFieldsManager::UpdateTableFields( SfxPoolItem* pHt )
     }
 
     // calculate the formula at the boxes
-    for (sal_uInt32 i = 0; i < nMaxItems; ++i )
+    for (const SfxPoolItem* pItem : m_rDoc.GetAttrPool().GetItemSurrogates(RES_BOXATR_FORMULA))
     {
-        if( nullptr != (pItem = m_rDoc.GetAttrPool().GetItem2( RES_BOXATR_FORMULA, i ) ) &&
-            static_cast<const SwTableBoxFormula*>(pItem)->GetDefinedIn() &&
-            !static_cast<const SwTableBoxFormula*>(pItem)->IsValid() )
+        auto pFormula = const_cast<SwTableBoxFormula*>(dynamic_cast<const SwTableBoxFormula*>(pItem));
+        if( pFormula && pFormula->GetDefinedIn() && !pFormula->IsValid() )
         {
-            SwTableBoxFormula* pFormula = const_cast<SwTableBoxFormula*>(static_cast<const SwTableBoxFormula*>(pItem));
             SwTableBox* pBox = pFormula->GetTableBox();
             if( pBox && pBox->GetSttNd() &&
                 pBox->GetSttNd()->GetNodes().IsDocNodes() )
@@ -952,7 +953,7 @@ void DocumentFieldsManager::UpdateExpFieldsImpl(
         // process separately:
         for( auto n = mpFieldTypes->size(); n; )
         {
-            pFieldType = (*mpFieldTypes)[ --n ];
+            pFieldType = (*mpFieldTypes)[ --n ].get();
             switch( pFieldType->Which() )
             {
             case SwFieldIds::User:
@@ -1261,7 +1262,28 @@ void DocumentFieldsManager::UpdateExpFieldsImpl(
         default: break;
         } // switch
 
-        pFormatField->ModifyNotification( nullptr, nullptr );        // trigger formatting
+        {
+            // avoid calling ReplaceText() for input fields, it is pointless
+            // here and moves the cursor if it's inside the field ...
+            SwTextInputField *const pInputField(
+                pUpdateField == pTextField // ... except once, when the dialog
+                    ? nullptr // is used to change content via UpdateOneField()
+                    : dynamic_cast<SwTextInputField *>(pTextField));
+            if (pInputField)
+            {
+                bool const tmp = pInputField->LockNotifyContentChange();
+                (void) tmp;
+                assert(tmp && "should not be locked here?");
+            }
+            ::comphelper::ScopeGuard g([pInputField]()
+                {
+                    if (pInputField)
+                    {
+                        pInputField->UnlockNotifyContentChange();
+                    }
+                });
+            pFormatField->ModifyNotification(nullptr, nullptr); // trigger formatting
+        }
 
         if (pUpdateField == pTextField) // if only this one is updated
         {
@@ -1284,8 +1306,8 @@ void DocumentFieldsManager::UpdateUsrFields()
     SwCalc* pCalc = nullptr;
     for( SwFieldTypes::size_type i = INIT_FLDTYPES; i < mpFieldTypes->size(); ++i )
     {
-        const SwFieldType* pFieldType;
-        if( SwFieldIds::User == ( pFieldType = (*mpFieldTypes)[i] )->Which() )
+        const SwFieldType* pFieldType = (*mpFieldTypes)[i].get();
+        if( SwFieldIds::User == pFieldType->Which() )
         {
             if( !pCalc )
                 pCalc = new SwCalc( m_rDoc );
@@ -1335,7 +1357,7 @@ void DocumentFieldsManager::UpdatePageFields( SfxPoolItem* pMsgHint )
 {
     for( SwFieldTypes::size_type i = 0; i < INIT_FLDTYPES; ++i )
     {
-        SwFieldType* pFieldType = (*mpFieldTypes)[ i ];
+        SwFieldType* pFieldType = (*mpFieldTypes)[ i ].get();
         switch( pFieldType->Which() )
         {
         case SwFieldIds::PageNumber:
@@ -1403,7 +1425,8 @@ bool DocumentFieldsManager::SetFieldsDirty( bool b, const SwNode* pChk, sal_uLon
                     for( size_t n = 0 ; n < nEnd; ++n )
                     {
                         const SwTextAttr* pAttr = pTNd->GetSwpHints().Get(n);
-                        if ( pAttr->Which() == RES_TXTATR_FIELD )
+                        if (   pAttr->Which() == RES_TXTATR_FIELD
+                            || pAttr->Which() == RES_TXTATR_INPUTFIELD)
                         {
                             b = true;
                             break;
@@ -1728,7 +1751,7 @@ SwTextField * DocumentFieldsManager::GetTextFieldAtPos(const SwPosition & rPos)
 ///       optimization currently only available when no fields exist.
 bool DocumentFieldsManager::containsUpdatableFields()
 {
-    for (auto pFieldType : *mpFieldTypes)
+    for (auto const & pFieldType : *mpFieldTypes)
     {
         SwIterator<SwFormatField,SwFieldType> aIter(*pFieldType);
         if (aIter.First())
@@ -1748,48 +1771,48 @@ void DocumentFieldsManager::GCFieldTypes()
 void DocumentFieldsManager::InitFieldTypes()       // is being called by the CTOR
 {
     // Field types
-    mpFieldTypes->push_back( new SwDateTimeFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwChapterFieldType );
-    mpFieldTypes->push_back( new SwPageNumberFieldType );
-    mpFieldTypes->push_back( new SwAuthorFieldType );
-    mpFieldTypes->push_back( new SwFileNameFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwDBNameFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwGetExpFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwGetRefFieldType( &m_rDoc ) );
-    mpFieldTypes->push_back( new SwHiddenTextFieldType );
-    mpFieldTypes->push_back( new SwPostItFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwDocStatFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwDocInfoFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwInputFieldType( &m_rDoc ) );
-    mpFieldTypes->push_back( new SwTableFieldType( &m_rDoc ) );
-    mpFieldTypes->push_back( new SwMacroFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwHiddenParaFieldType );
-    mpFieldTypes->push_back( new SwDBNextSetFieldType );
-    mpFieldTypes->push_back( new SwDBNumSetFieldType );
-    mpFieldTypes->push_back( new SwDBSetNumberFieldType );
-    mpFieldTypes->push_back( new SwTemplNameFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwTemplNameFieldType(&m_rDoc) );
-    mpFieldTypes->push_back( new SwExtUserFieldType );
-    mpFieldTypes->push_back( new SwRefPageSetFieldType );
-    mpFieldTypes->push_back( new SwRefPageGetFieldType( &m_rDoc ) );
-    mpFieldTypes->push_back( new SwJumpEditFieldType( &m_rDoc ) );
-    mpFieldTypes->push_back( new SwScriptFieldType( &m_rDoc ) );
-    mpFieldTypes->push_back( new SwCombinedCharFieldType );
-    mpFieldTypes->push_back( new SwDropDownFieldType );
+    mpFieldTypes->emplace_back( new SwDateTimeFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwChapterFieldType );
+    mpFieldTypes->emplace_back( new SwPageNumberFieldType );
+    mpFieldTypes->emplace_back( new SwAuthorFieldType );
+    mpFieldTypes->emplace_back( new SwFileNameFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwDBNameFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwGetExpFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwGetRefFieldType( &m_rDoc ) );
+    mpFieldTypes->emplace_back( new SwHiddenTextFieldType );
+    mpFieldTypes->emplace_back( new SwPostItFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwDocStatFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwDocInfoFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwInputFieldType( &m_rDoc ) );
+    mpFieldTypes->emplace_back( new SwTableFieldType( &m_rDoc ) );
+    mpFieldTypes->emplace_back( new SwMacroFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwHiddenParaFieldType );
+    mpFieldTypes->emplace_back( new SwDBNextSetFieldType );
+    mpFieldTypes->emplace_back( new SwDBNumSetFieldType );
+    mpFieldTypes->emplace_back( new SwDBSetNumberFieldType );
+    mpFieldTypes->emplace_back( new SwTemplNameFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwTemplNameFieldType(&m_rDoc) );
+    mpFieldTypes->emplace_back( new SwExtUserFieldType );
+    mpFieldTypes->emplace_back( new SwRefPageSetFieldType );
+    mpFieldTypes->emplace_back( new SwRefPageGetFieldType( &m_rDoc ) );
+    mpFieldTypes->emplace_back( new SwJumpEditFieldType( &m_rDoc ) );
+    mpFieldTypes->emplace_back( new SwScriptFieldType( &m_rDoc ) );
+    mpFieldTypes->emplace_back( new SwCombinedCharFieldType );
+    mpFieldTypes->emplace_back( new SwDropDownFieldType );
 
     // Types have to be at the end!
     // We expect this in the InsertFieldType!
     // MIB 14.04.95: In Sw3StringPool::Setup (sw3imp.cxx) and
     //               lcl_sw3io_InSetExpField (sw3field.cxx) now also
-    mpFieldTypes->push_back( new SwSetExpFieldType(&m_rDoc,
+    mpFieldTypes->emplace_back( new SwSetExpFieldType(&m_rDoc,
                 SwResId(STR_POOLCOLL_LABEL_ABB), nsSwGetSetExpType::GSE_SEQ) );
-    mpFieldTypes->push_back( new SwSetExpFieldType(&m_rDoc,
+    mpFieldTypes->emplace_back( new SwSetExpFieldType(&m_rDoc,
                 SwResId(STR_POOLCOLL_LABEL_TABLE), nsSwGetSetExpType::GSE_SEQ) );
-    mpFieldTypes->push_back( new SwSetExpFieldType(&m_rDoc,
+    mpFieldTypes->emplace_back( new SwSetExpFieldType(&m_rDoc,
                 SwResId(STR_POOLCOLL_LABEL_FRAME), nsSwGetSetExpType::GSE_SEQ) );
-    mpFieldTypes->push_back( new SwSetExpFieldType(&m_rDoc,
+    mpFieldTypes->emplace_back( new SwSetExpFieldType(&m_rDoc,
                 SwResId(STR_POOLCOLL_LABEL_DRAWING), nsSwGetSetExpType::GSE_SEQ) );
-    mpFieldTypes->push_back( new SwSetExpFieldType(&m_rDoc,
+    mpFieldTypes->emplace_back( new SwSetExpFieldType(&m_rDoc,
                 SwResId(STR_POOLCOLL_LABEL_FIGURE), nsSwGetSetExpType::GSE_SEQ) );
 
     assert( mpFieldTypes->size() == INIT_FLDTYPES );
@@ -1797,9 +1820,6 @@ void DocumentFieldsManager::InitFieldTypes()       // is being called by the CTO
 
 void DocumentFieldsManager::ClearFieldTypes()
 {
-    for(SwFieldTypes::const_iterator it = mpFieldTypes->begin() + INIT_FLDTYPES;
-        it != mpFieldTypes->end(); ++it)
-        delete *it;
     mpFieldTypes->erase( mpFieldTypes->begin() + INIT_FLDTYPES, mpFieldTypes->end() );
 }
 

@@ -101,7 +101,7 @@ namespace comphelper {
             if ( xDPS.is() )
             {
                 Reference< XDocumentProperties > xDocProps (
-                    xDPS->getDocumentProperties(), UNO_QUERY_THROW );
+                    xDPS->getDocumentProperties(), css::uno::UNO_SET_THROW );
                 sTitle = xDocProps->getTitle();
                 if ( !sTitle.isEmpty() )
                     return sTitle;
@@ -116,7 +116,7 @@ namespace comphelper {
             // 5. try the last segment of the document URL
             // this formerly was an INetURLObject::getName( LAST_SEGMENT, true, DecodeMechanism::WithCharset ),
             // but since we moved this code to comphelper, we do not have access to an INetURLObject anymore
-            // This heuristics here should be sufficient - finally, we will get an UNO title API in a not
+            // This heuristics here should be sufficient - finally, we will get a UNO title API in a not
             // too distant future (hopefully), then  this complete class is superfluous)
             if ( sDocURL.isEmpty() )
             {

@@ -200,9 +200,9 @@ static void lcl_setModelReadOnly(const uno::Reference< embed::XStorage >& _xStor
 }
 static void lcl_stripLoadArguments( utl::MediaDescriptor& _rDescriptor, uno::Sequence< beans::PropertyValue >& _rArgs )
 {
-    _rDescriptor.erase( OUString( "StatusIndicator" ) );
-    _rDescriptor.erase( OUString( "InteractionHandler" ) );
-    _rDescriptor.erase( OUString( "Model" ) );
+    _rDescriptor.erase( "StatusIndicator" );
+    _rDescriptor.erase( "InteractionHandler" );
+    _rDescriptor.erase( "Model" );
     _rDescriptor >> _rArgs;
 }
 
@@ -639,7 +639,7 @@ void SAL_CALL OReportDefinition::disposing()
     // SYNCHRONIZED --->
     {
     SolarMutexGuard aSolarGuard;
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
 
     m_pImpl->m_aControllers.clear();
 
@@ -1133,7 +1133,7 @@ void OReportDefinition::fillArgs(utl::MediaDescriptor& _aDescriptor)
 {
     uno::Sequence<beans::PropertyValue> aComponentData;
     aComponentData = _aDescriptor.getUnpackedValueOrDefault("ComponentData",aComponentData);
-    if ( aComponentData.getLength() && (!m_pImpl->m_xActiveConnection.is() || !m_pImpl->m_xNumberFormatsSupplier.is()) )
+    if ( aComponentData.hasElements() && (!m_pImpl->m_xActiveConnection.is() || !m_pImpl->m_xNumberFormatsSupplier.is()) )
     {
         ::comphelper::SequenceAsHashMap aComponentDataMap( aComponentData );
         m_pImpl->m_xActiveConnection = aComponentDataMap.getUnpackedValueOrDefault("ActiveConnection",m_pImpl->m_xActiveConnection);
@@ -1552,7 +1552,7 @@ void SAL_CALL OReportDefinition::load( const uno::Sequence< beans::PropertyValue
 
     ::comphelper::NamedValueCollection aArguments( _rArguments );
 
-    // the source for the to-be-created storage: either an URL, or a stream
+    // the source for the to-be-created storage: either a URL, or a stream
     uno::Reference< io::XInputStream > xStream;
     OUString sURL;
 
@@ -1732,7 +1732,7 @@ sal_Bool SAL_CALL OReportDefinition::isModified(  )
 
 void SAL_CALL OReportDefinition::setModified( sal_Bool _bModified )
 {
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::ClearableMutexGuard aGuard(m_aMutex);
     ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
 
     if ( !m_pImpl->m_bSetModifiedEnabled )
@@ -1773,7 +1773,7 @@ void OReportDefinition::notifyEvent(const OUString& _sEventName)
 {
     try
     {
-        ::osl::ResettableMutexGuard aGuard(m_aMutex);
+        osl::ClearableMutexGuard aGuard(m_aMutex);
         ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
         document::EventObject aEvt(*this, _sEventName);
         aGuard.clear();
@@ -1791,7 +1791,7 @@ void SAL_CALL OReportDefinition::notifyDocumentEvent( const OUString& rEventName
 {
     try
     {
-        ::osl::ResettableMutexGuard aGuard(m_aMutex);
+        osl::ClearableMutexGuard aGuard(m_aMutex);
         ::connectivity::checkDisposed(ReportDefinitionBase::rBHelper.bDisposed);
         document::DocumentEvent aEvt(*this, rEventName, rViewController, rSupplement);
         aGuard.clear();

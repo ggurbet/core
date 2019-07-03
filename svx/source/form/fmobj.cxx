@@ -30,6 +30,7 @@
 
 #include <com/sun/star/awt/XDevice.hpp>
 #include <com/sun/star/awt/XControlContainer.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/form/Forms.hpp>
 #include <com/sun/star/io/XPersistObject.hpp>
 #include <com/sun/star/script/XEventAttacherManager.hpp>
@@ -40,6 +41,7 @@
 #include <comphelper/processfactory.hxx>
 #include <toolkit/awt/vclxdevice.hxx>
 #include <vcl/svapp.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 using namespace ::com::sun::star::io;
@@ -284,7 +286,7 @@ void FmFormObj::handlePageChange(SdrPage* pOldPage, SdrPage* pNewPage)
             xNewParent->insertByIndex(xNewParent->getCount(), makeAny(xMeAsFormComp));
 
             // transfer the events
-            if (aNewEvents.getLength())
+            if (aNewEvents.hasElements())
             {
                 try
                 {

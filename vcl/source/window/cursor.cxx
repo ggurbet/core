@@ -43,14 +43,8 @@ struct ImplCursorData
     VclPtr<vcl::Window> mpWindow;           // assigned window
 };
 
-static void ImplCursorInvert( ImplCursorData const * pData )
+static tools::Rectangle ImplCursorInvert(vcl::RenderContext* pRenderContext, ImplCursorData const * pData)
 {
-    vcl::Window* pWindow  = pData->mpWindow;
-    std::unique_ptr<PaintBufferGuard> pGuard;
-    const bool bDoubleBuffering = pWindow->SupportsDoubleBuffering();
-    if (bDoubleBuffering)
-        pGuard.reset(new PaintBufferGuard(pWindow->ImplGetWindowImpl()->mpFrameData, pWindow));
-    vcl::RenderContext* pRenderContext = bDoubleBuffering ? pGuard->GetRenderContext() : pWindow;
     tools::Rectangle aPaintRect;
     bool    bMapMode = pRenderContext->IsMapModeEnabled();
     pRenderContext->EnableMapMode( false );
@@ -106,41 +100,76 @@ static void ImplCursorInvert( ImplCursorData const * pData )
             if ( pData->mnOrientation )
                 aPoly.Rotate( pData->maPixRotOff, pData->mnOrientation );
             pRenderContext->Invert( aPoly, nInvertStyle );
-            if (bDoubleBuffering)
-                aPaintRect = aPoly.GetBoundRect();
+            aPaintRect = aPoly.GetBoundRect();
         }
     }
     else
     {
         pRenderContext->Invert( aRect, nInvertStyle );
-        if (bDoubleBuffering)
-            aPaintRect = aRect;
+        aPaintRect = aRect;
     }
     pRenderContext->EnableMapMode( bMapMode );
+    return aPaintRect;
+}
+
+static void ImplCursorInvert(vcl::Window* pWindow, ImplCursorData const * pData)
+{
+    std::unique_ptr<PaintBufferGuard> pGuard;
+    const bool bDoubleBuffering = pWindow->SupportsDoubleBuffering();
+    if (bDoubleBuffering)
+        pGuard.reset(new PaintBufferGuard(pWindow->ImplGetWindowImpl()->mpFrameData, pWindow));
+
+    vcl::RenderContext* pRenderContext = bDoubleBuffering ? pGuard->GetRenderContext() : pWindow;
+
+    tools::Rectangle aPaintRect = ImplCursorInvert(pRenderContext, pData);
     if (bDoubleBuffering)
         pGuard->SetPaintRect(pRenderContext->PixelToLogic(aPaintRect));
 }
 
-void vcl::Cursor::ImplDraw()
+bool vcl::Cursor::ImplPrepForDraw(OutputDevice* pDevice, ImplCursorData& rData)
 {
-    if ( mpData && mpData->mpWindow && !mpData->mbCurVisible )
+    if (pDevice && !rData.mbCurVisible)
     {
-        vcl::Window* pWindow         = mpData->mpWindow;
-        mpData->maPixPos        = pWindow->LogicToPixel( maPos );
-        mpData->maPixSize       = pWindow->LogicToPixel( maSize );
-        mpData->mnOrientation   = mnOrientation;
-        mpData->mnDirection     = mnDirection;
+        rData.maPixPos        = pDevice->LogicToPixel( maPos );
+        rData.maPixSize       = pDevice->LogicToPixel( maSize );
+        rData.mnOrientation   = mnOrientation;
+        rData.mnDirection     = mnDirection;
 
         // correct the position with the offset
-        mpData->maPixRotOff = mpData->maPixPos;
+        rData.maPixRotOff = rData.maPixPos;
 
         // use width (as set in Settings) if size is 0,
-        if ( !mpData->maPixSize.Width() )
-            mpData->maPixSize.setWidth( pWindow->GetSettings().GetStyleSettings().GetCursorSize() );
+        if (!rData.maPixSize.Width())
+            rData.maPixSize.setWidth(pDevice->GetSettings().GetStyleSettings().GetCursorSize());
+        return true;
+    }
+    return false;
+}
 
-        // calculate output area and display
-        ImplCursorInvert( mpData.get() );
-        mpData->mbCurVisible = true;
+void vcl::Cursor::ImplDraw()
+{
+    if (mpData && mpData->mpWindow)
+    {
+        // calculate output area
+        if (ImplPrepForDraw(mpData->mpWindow, *mpData))
+        {
+            // display
+            ImplCursorInvert(mpData->mpWindow, mpData.get());
+            mpData->mbCurVisible = true;
+        }
+    }
+}
+
+void vcl::Cursor::DrawToDevice(OutputDevice& rRenderContext)
+{
+    ImplCursorData aData;
+    aData.mnStyle = 0;
+    aData.mbCurVisible = false;
+    // calculate output area
+    if (ImplPrepForDraw(&rRenderContext, aData))
+    {
+        // display
+        ImplCursorInvert(&rRenderContext, &aData);
     }
 }
 
@@ -148,7 +177,7 @@ void vcl::Cursor::ImplRestore()
 {
     assert( mpData && mpData->mbCurVisible );
 
-    ImplCursorInvert( mpData.get() );
+    ImplCursorInvert(mpData->mpWindow, mpData.get());
     mpData->mbCurVisible = false;
 }
 

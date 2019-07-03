@@ -48,7 +48,6 @@
 #include <core_resource.hxx>
 #include <strings.hrc>
 #include <strings.hxx>
-#include <vcl/treelistentry.hxx>
 
 using namespace dbaui;
 using namespace ::com::sun::star::uno;
@@ -95,7 +94,7 @@ namespace
 
         return bOk;
     }
-    /** connectionModified adds an undo action for the modified connection and forces an redraw
+    /** connectionModified adds an undo action for the modified connection and forces a redraw
         @param  _pView              the view which we use
         @param  _pConnection    the connection which was modified
         @param  _bAddUndo       true when an undo action should be appended
@@ -450,7 +449,7 @@ void OQueryTableView::AddTabWin(const OUString& _rComposedName, const OUString& 
 
         try
         {
-            // find relations between the table an the tables already inserted
+            // find relations between the table and the tables already inserted
             Reference< XIndexAccess> xKeyIndex = pNewTabWin->GetData()->getKeys();
             if ( !xKeyIndex.is() )
                 break;
@@ -464,7 +463,7 @@ void OQueryTableView::AddTabWin(const OUString& _rComposedName, const OUString& 
             {
                 Reference< XPropertySet > xProp( xKeyIndex->getByIndex(i), UNO_QUERY_THROW );
                 xColumnsSupplier.set( xProp, UNO_QUERY_THROW );
-                xFKeyColumns.set( xColumnsSupplier->getColumns(), UNO_QUERY_THROW );
+                xFKeyColumns.set( xColumnsSupplier->getColumns(), UNO_SET_THROW );
 
                 sal_Int32 nKeyType = 0;
                 xProp->getPropertyValue(PROPERTY_TYPE) >>= nKeyType;
@@ -512,7 +511,7 @@ void OQueryTableView::AddTabWin(const OUString& _rComposedName, const OUString& 
                             continue;
 
                         Reference<XColumnsSupplier> xFKColumnsSupplier( xFKKey, UNO_QUERY_THROW );
-                        Reference< XNameAccess > xTColumns( xFKColumnsSupplier->getColumns(), UNO_QUERY_THROW );
+                        Reference< XNameAccess > xTColumns( xFKColumnsSupplier->getColumns(), UNO_SET_THROW );
                         addConnections( this, *pTabWinTmp, *pNewTabWin, xTColumns );
                     }
                 }
@@ -772,7 +771,7 @@ void OQueryTableView::HideTabWin( OQueryTableWindow* pTabWin, OQueryTabWinUndoAc
             pUndoAction->InsertConnection(xTmpEntry);
 
             // call base class because we append an undo action
-            // but this time we are in a undo action list
+            // but this time we are in an undo action list
             OJoinTableView::RemoveConnection(xTmpEntry, false);
             aIter2 = rTabConList.begin();
             ++nCnt;

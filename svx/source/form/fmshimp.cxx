@@ -39,6 +39,7 @@
 #include <svx/fmmodel.hxx>
 #include <svx/fmpage.hxx>
 #include <svx/fmshell.hxx>
+#include <svx/fmview.hxx>
 #include <svx/obj3d.hxx>
 #include <svx/sdrpagewindow.hxx>
 #include <svx/svdpagv.hxx>
@@ -71,6 +72,7 @@
 #include <com/sun/star/form/binding/XListEntrySink.hpp>
 #include <com/sun/star/frame/FrameSearchFlag.hpp>
 #include <com/sun/star/script/XEventAttacherManager.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
 #include <com/sun/star/util/XCancellable.hpp>
 #include <com/sun/star/util/XModeSelector.hpp>
@@ -92,10 +94,13 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
+#include <vcl/image.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 
 #include <algorithm>
 #include <functional>
@@ -357,7 +362,7 @@ namespace
         if (!xEventManager.is())
             return; // nothing to do
 
-        if (!rTransferIfAvailable.getLength())
+        if (!rTransferIfAvailable.hasElements())
             return; // nothing to do
 
         // check for the index of the model within its parent
@@ -837,7 +842,7 @@ void FmXFormShell::invalidateFeatures( const ::std::vector< sal_Int32 >& _rFeatu
         // and, last but not least, SFX wants the ids to be sorted
         ::std::sort( aSlotIds.begin(), aSlotIds.end() - 1 );
 
-        sal_uInt16 *pSlotIds = &(aSlotIds[0]);
+        sal_uInt16 *pSlotIds = aSlotIds.data();
         m_pShell->GetViewShell()->GetViewFrame()->GetBindings().Invalidate( pSlotIds );
     }
 }
@@ -1030,9 +1035,9 @@ void FmXFormShell::ForceUpdateSelection_Lock()
     }
 }
 
-VclBuilder* FmXFormShell::GetConversionMenu_Lock()
+std::unique_ptr<VclBuilder> FmXFormShell::GetConversionMenu_Lock()
 {
-    VclBuilder* pBuilder = new VclBuilder(nullptr, VclBuilderContainer::getUIRootDir(), "svx/ui/convertmenu.ui", "");
+    std::unique_ptr<VclBuilder> pBuilder(new VclBuilder(nullptr, VclBuilderContainer::getUIRootDir(), "svx/ui/convertmenu.ui", ""));
     VclPtr<PopupMenu> pNewMenu(pBuilder->get_menu("menu"));
     for (size_t i = 0; i < SAL_N_ELEMENTS(aConvertSlots); ++i)
     {
@@ -1202,7 +1207,7 @@ bool FmXFormShell::executeControlConversionSlot_Lock(const Reference<XFormCompon
 
             // transfer script events
             // (do this _after_ SetUnoControlModel as we need the new (implicitly created) control)
-            if (aOldScripts.getLength())
+            if (aOldScripts.hasElements())
             {
                 // find the control for the model
                 Reference<XControlContainer> xControlContainer(getControlContainerForView_Lock());
@@ -2859,7 +2864,7 @@ Reference< XControl> FmXFormShell::impl_getControl_Lock(const Reference<XControl
             const SdrView* pSdrView = m_pShell ? m_pShell->GetFormView() : nullptr;
             ENSURE_OR_THROW( pSdrView, "no current view" );
 
-            xControl.set( i_rKnownFormObj.GetUnoControl( *pSdrView, *pContainerWindow ), UNO_QUERY_THROW );
+            xControl.set( i_rKnownFormObj.GetUnoControl( *pSdrView, *pContainerWindow ), UNO_SET_THROW );
         }
     }
     catch( const Exception& )
@@ -3561,8 +3566,7 @@ void FmXFormShell::viewDeactivated_Lock(FmFormView& _rCurrentView, bool _bDeacti
 
     // if we have an async load operation pending for the 0-th page for this view,
     // we need to cancel this
-    FmFormPage* pPage = _rCurrentView.GetCurPage();
-    if ( pPage )
+    if (FmFormPage* pPage = _rCurrentView.GetCurPage())
     {
         // move all events from our queue to a new one, omit the events for the deactivated
         // page
@@ -3581,11 +3585,8 @@ void FmXFormShell::viewDeactivated_Lock(FmFormView& _rCurrentView, bool _bDeacti
             }
         }
         m_aLoadingPages = aNewEvents;
-    }
 
-    // remove callbacks at the page
-    if ( pPage )
-    {
+        // remove callbacks at the page
         pPage->GetImpl().SetFormsCreationHdl( Link<FmFormPageImpl&,void>() );
     }
     UpdateForms_Lock(true);

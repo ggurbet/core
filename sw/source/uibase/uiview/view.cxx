@@ -44,6 +44,8 @@
 #include <svx/fmshell.hxx>
 #include <svx/extrusionbar.hxx>
 #include <svx/fontworkbar.hxx>
+#include <svx/fmview.hxx>
+#include <svx/svxids.hrc>
 #include <unotxvw.hxx>
 #include <cmdid.h>
 #include <svl/hint.hxx>
@@ -130,14 +132,14 @@ using namespace ::com::sun::star::scanner;
 
 bool bDocSzUpdated = true;
 
-SvxSearchItem*  SwView::m_pSrchItem   = nullptr;
+SvxSearchItem*  SwView::s_pSrchItem   = nullptr;
 
-bool            SwView::m_bExtra      = false;
-bool            SwView::m_bFound      = false;
-bool            SwView::m_bJustOpened = false;
+bool            SwView::s_bExtra      = false;
+bool            SwView::s_bFound      = false;
+bool            SwView::s_bJustOpened = false;
 
-SearchAttrItemList*     SwView::m_pSrchList   = nullptr;
-SearchAttrItemList*     SwView::m_pReplList   = nullptr;
+SearchAttrItemList*     SwView::s_pSearchList   = nullptr;
+SearchAttrItemList*     SwView::s_pReplaceList   = nullptr;
 
 SfxDispatcher &SwView::GetDispatcher()
 {
@@ -1287,12 +1289,10 @@ void SwView::ReadUserDataSequence ( const uno::Sequence < beans::PropertyValue >
     if(GetDocShell()->IsPreview()||m_bIsPreviewDoubleClick)
         return;
     bool bIsOwnDocument = lcl_IsOwnDocument( *this );
-    sal_Int32 nLength = rSequence.getLength();
-    if (!nLength)
+    if (!rSequence.hasElements())
         return;
 
     SET_CURR_SHELL(m_pWrtShell.get());
-    const beans::PropertyValue *pValue = rSequence.getConstArray();
     const SwRect& rRect = m_pWrtShell->GetCharRect();
     const tools::Rectangle &rVis = GetVisArea();
     const SwViewOption* pVOpt = m_pWrtShell->GetViewOptions();
@@ -1313,75 +1313,75 @@ void SwView::ReadUserDataSequence ( const uno::Sequence < beans::PropertyValue >
              bGotViewLayoutColumns = false, bGotViewLayoutBookMode = false,
              bBrowseMode = false, bGotBrowseMode = false;
 
-    for (sal_Int32 i = 0 ; i < nLength; i++)
+    for (const beans::PropertyValue& rValue : rSequence)
     {
-        if ( pValue->Name == "ViewLeft" )
+        if ( rValue.Name == "ViewLeft" )
         {
-           pValue->Value >>= nX;
+           rValue.Value >>= nX;
            nX = convertMm100ToTwip( nX );
         }
-        else if ( pValue->Name == "ViewTop" )
+        else if ( rValue.Name == "ViewTop" )
         {
-           pValue->Value >>= nY;
+           rValue.Value >>= nY;
            nY = convertMm100ToTwip( nY );
         }
-        else if ( pValue->Name == "VisibleLeft" )
+        else if ( rValue.Name == "VisibleLeft" )
         {
-           pValue->Value >>= nLeft;
+           rValue.Value >>= nLeft;
            nLeft = convertMm100ToTwip( nLeft );
            bGotVisibleLeft = true;
         }
-        else if ( pValue->Name == "VisibleTop" )
+        else if ( rValue.Name == "VisibleTop" )
         {
-           pValue->Value >>= nTop;
+           rValue.Value >>= nTop;
            nTop = convertMm100ToTwip( nTop );
            bGotVisibleTop = true;
         }
-        else if ( pValue->Name == "VisibleRight" )
+        else if ( rValue.Name == "VisibleRight" )
         {
-           pValue->Value >>= nRight;
+           rValue.Value >>= nRight;
            nRight = convertMm100ToTwip( nRight );
            bGotVisibleRight = true;
         }
-        else if ( pValue->Name == "VisibleBottom" )
+        else if ( rValue.Name == "VisibleBottom" )
         {
-           pValue->Value >>= nBottom;
+           rValue.Value >>= nBottom;
            nBottom = convertMm100ToTwip( nBottom );
            bGotVisibleBottom = true;
         }
-        else if ( pValue->Name == "ZoomType" )
+        else if ( rValue.Name == "ZoomType" )
         {
-           pValue->Value >>= nZoomType;
+           rValue.Value >>= nZoomType;
            bGotZoomType = true;
         }
-        else if ( pValue->Name == "ZoomFactor" )
+        else if ( rValue.Name == "ZoomFactor" )
         {
-           pValue->Value >>= nZoomFactor;
+           rValue.Value >>= nZoomFactor;
            bGotZoomFactor = true;
         }
-        else if ( pValue->Name == "ViewLayoutColumns" )
+        else if ( rValue.Name == "ViewLayoutColumns" )
         {
-           pValue->Value >>= nViewLayoutColumns;
+           rValue.Value >>= nViewLayoutColumns;
            bGotViewLayoutColumns = true;
         }
-        else if ( pValue->Name == "ViewLayoutBookMode" )
+        else if ( rValue.Name == "ViewLayoutBookMode" )
         {
-           bViewLayoutBookMode = *o3tl::doAccess<bool>(pValue->Value);
+           bViewLayoutBookMode = *o3tl::doAccess<bool>(rValue.Value);
            bGotViewLayoutBookMode = true;
         }
-        else if ( pValue->Name == "IsSelectedFrame" )
+        else if ( rValue.Name == "IsSelectedFrame" )
         {
-           pValue->Value >>= bSelectedFrame;
+           rValue.Value >>= bSelectedFrame;
            bGotIsSelectedFrame = true;
         }
-        else if (pValue->Name == "ShowOnlineLayout")
+        else if (rValue.Name == "ShowOnlineLayout")
         {
-           pValue->Value >>= bBrowseMode;
+           rValue.Value >>= bBrowseMode;
            bGotBrowseMode = true;
         }
         // Fallback to common SdrModel processing
-        else GetDocShell()->GetDoc()->getIDocumentDrawModelAccess().GetDrawModel()->ReadUserDataSequenceValue(pValue);
-        pValue++;
+        else
+           GetDocShell()->GetDoc()->getIDocumentDrawModelAccess().GetDrawModel()->ReadUserDataSequenceValue(&rValue);
     }
     if (bGotBrowseMode)
     {
@@ -1527,13 +1527,17 @@ void SwView::WriteUserDataSequence ( uno::Sequence < beans::PropertyValue >& rSe
 
     aVector.push_back(comphelper::makePropertyValue("ViewTop", convertTwipToMm100 ( rRect.Top() )));
 
-    aVector.push_back(comphelper::makePropertyValue("VisibleLeft", convertTwipToMm100 ( rVis.Left() )));
+    auto visibleLeft = convertTwipToMm100 ( rVis.Left() );
+    aVector.push_back(comphelper::makePropertyValue("VisibleLeft", visibleLeft));
 
-    aVector.push_back(comphelper::makePropertyValue("VisibleTop", convertTwipToMm100 ( rVis.Top() )));
+    auto visibleTop = convertTwipToMm100 ( rVis.Top() );
+    aVector.push_back(comphelper::makePropertyValue("VisibleTop", visibleTop));
 
-    aVector.push_back(comphelper::makePropertyValue("VisibleRight", convertTwipToMm100 ( rVis.Right() )));
+    auto visibleRight = rVis.IsWidthEmpty() ? visibleLeft : convertTwipToMm100 ( rVis.Right() );
+    aVector.push_back(comphelper::makePropertyValue("VisibleRight", visibleRight));
 
-    aVector.push_back(comphelper::makePropertyValue("VisibleBottom", convertTwipToMm100 ( rVis.Bottom() )));
+    auto visibleBottom = rVis.IsHeightEmpty() ? visibleTop : convertTwipToMm100 ( rVis.Bottom() );
+    aVector.push_back(comphelper::makePropertyValue("VisibleBottom", visibleBottom));
 
     const sal_Int16 nZoomType = static_cast< sal_Int16 >(m_pWrtShell->GetViewOptions()->GetZoomType());
     aVector.push_back(comphelper::makePropertyValue("ZoomType", nZoomType));
@@ -1698,10 +1702,10 @@ void SwView::Notify( SfxBroadcaster& rBC, const SfxHint& rHint )
             case SfxHintId::RedlineChanged:
                 {
                     static sal_uInt16 const aSlotRedLine[] = {
-                        FN_REDLINE_NEXT_CHANGE,
-                        FN_REDLINE_PREV_CHANGE,
                         FN_REDLINE_ACCEPT_DIRECT,
                         FN_REDLINE_REJECT_DIRECT,
+                        FN_REDLINE_NEXT_CHANGE,
+                        FN_REDLINE_PREV_CHANGE,
                         FN_REDLINE_ACCEPT_ALL,
                         FN_REDLINE_REJECT_ALL,
                         0

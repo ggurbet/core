@@ -34,19 +34,19 @@ endef
 
 # CObject class
 
-# $(call gb_CObject__command_pattern,object,flags,source,dep-file,compiler-plugins)
+# $(call gb_CObject__command_pattern,object,flags,source,dep-file,compiler-plugins,symbols)
 define gb_CObject__command_pattern
 $(call gb_Helper_abbreviate_dirs,\
 	mkdir -p $(dir $(1)) $(dir $(4)) && \
 	unset INCLUDE && \
-	$(if $(filter YES,$(CXXOBJECT_X64)), $(CXX_X64_BINARY), \
+	$(if $(filter YES,$(LIBRARY_X64)), $(CXX_X64_BINARY), \
 		$(if $(filter YES,$(PE_X86)), $(CXX_X86_BINARY), \
 			$(if $(filter %.c,$(3)), $(gb_CC), \
 				$(if $(filter -clr,$(2)), \
 					$(MSVC_CXX) -I$(SRCDIR)/solenv/clang-cl,$(gb_CXX))))) \
 		$(DEFS) \
 		$(gb_LTOFLAGS) \
-		$(2) \
+		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(2)),$(2)) \
 		$(if $(EXTERNAL_CODE), \
 			$(if $(filter -clr,$(2)),,$(if $(COM_IS_CLANG),-Wno-undef)), \
 			$(gb_DEFS_INTERNAL)) \
@@ -57,10 +57,10 @@ $(call gb_Helper_abbreviate_dirs,\
 		$(PCHFLAGS) \
 		$(if $(COMPILER_TEST),,$(gb_COMPILERDEPFLAGS)) \
 		$(INCLUDE) \
-		$(if $(filter YES,$(CXXOBJECT_X64)), -U_X86_ -D_AMD64_,) \
+		$(if $(filter YES,$(LIBRARY_X64)), -U_X86_ -D_AMD64_,) \
 		$(if $(filter YES,$(PE_X86)), -D_X86_ -U_AMD64_,) \
 		-c $(3) \
-		-Fo$(1)) $(if $(filter $(true),$(gb_SYMBOL)),/link /DEBUG:FASTLINK) \
+		-Fo$(1)) $(if $(filter $(true),$(6)),/link /DEBUG:FASTLINK) \
 		$(if $(COMPILER_TEST),,$(call gb_create_deps,$(4),$(1),$(3)))
 endef
 
@@ -68,8 +68,10 @@ endef
 
 gb_PrecompiledHeader_get_enableflags = -Yu$(1).hxx \
 	-FI$(1).hxx \
-	-Fp$(call gb_PrecompiledHeader_get_target,$(1)) \
+	-Fp$(call gb_PrecompiledHeader_get_target,$(1),$(2)) \
 	$(gb_PCHWARNINGS)
+
+gb_PrecompiledHeader_EXT := .pch
 
 # MSVC PCH needs extra .obj created during the creation of the PCH file
 gb_PrecompiledHeader_get_objectfile = $(1).obj
@@ -77,16 +79,21 @@ gb_PrecompiledHeader_get_objectfile = $(1).obj
 define gb_PrecompiledHeader__command
 $(call gb_Output_announce,$(2),$(true),PCH,1)
 $(call gb_Helper_abbreviate_dirs,\
-	mkdir -p $(dir $(1)) $(dir $(call gb_PrecompiledHeader_get_dep_target,$(2))) && \
+	mkdir -p $(dir $(1)) $(dir $(call gb_PrecompiledHeader_get_dep_target,$(2),$(7))) && \
 	unset INCLUDE && \
 	$(gb_CXX) \
-		$(4) $(5) -Fd$(PDBFILE) \
+		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(4) $(5)),$(4) $(5)) \
+		-Fd$(PDBFILE) \
 		$(if $(EXTERNAL_CODE),$(if $(COM_IS_CLANG),-Wno-undef),$(gb_DEFS_INTERNAL)) \
 		$(gb_LTOFLAGS) \
 		$(gb_COMPILERDEPFLAGS) \
 		$(6) \
 		-c $(3) \
-		-Yc$(notdir $(patsubst %.cxx,%.hxx,$(3))) -Fp$(1) -Fo$(1).obj) $(call gb_create_deps,$(call gb_PrecompiledHeader_get_dep_target_tmp,$(2)),$(1),$(3))
+		-Yc$(notdir $(patsubst %.cxx,%.hxx,$(3))) -Fp$(1) -Fo$(1).obj) $(call gb_create_deps,$(call gb_PrecompiledHeader_get_dep_target_tmp,$(2),$(7)),$(1),$(3))
+endef
+
+# No ccache with MSVC, no need to create a checksum for it.
+define gb_PrecompiledHeader__sum_command
 endef
 
 # AsmObject class
@@ -144,11 +151,7 @@ cat $${RESPONSEFILE} | sed 's/ /\n/g' | grep -v '^$$' > $${RESPONSEFILE}.1 && \
 mv $${RESPONSEFILE}.1 $${RESPONSEFILE} &&
 endef
 
-ifeq ($(CPUNAME),X86_64)
-MSC_SUBSYSTEM_VERSION=$(COMMA)5.02
-else
-MSC_SUBSYSTEM_VERSION=$(COMMA)5.01
-endif
+MSC_SUBSYSTEM_VERSION=$(COMMA)6.01
 
 # the sort on the libraries is used to filter out duplicates to keep commandline
 # length in check - otherwise the dupes easily hit the limit when linking mergedlib
@@ -168,11 +171,12 @@ $(call gb_Helper_abbreviate_dirs,\
 		$(PCHOBJS) $(NATIVERES)) && \
 		$(if $(filter $(call gb_Library__get_workdir_linktargetname,merged),$(2)),$(call gb_LinkTarget_MergedResponseFile)) \
 	unset INCLUDE && \
-	$(if $(filter YES,$(LIBRARY_X64)), $(LINK_X64_BINARY), $(gb_LINK)) \
+	$(gb_LINK) \
 		$(if $(filter Library CppunitTest,$(TARGETTYPE)),$(gb_Library_TARGETTYPEFLAGS)) \
 		$(if $(filter StaticLibrary,$(TARGETTYPE)),-LIB) \
 		$(if $(filter Executable,$(TARGETTYPE)),$(gb_Executable_TARGETTYPEFLAGS)) \
-		$(if $(filter YES,$(LIBRARY_X64)),,$(if $(filter YES,$(TARGETGUI)), -SUBSYSTEM:WINDOWS$(MSC_SUBSYSTEM_VERSION), -SUBSYSTEM:CONSOLE$(MSC_SUBSYSTEM_VERSION))) \
+		$(if $(T_SYMBOLS),$(if $(filter Executable Library CppunitTest,$(TARGETTYPE)),$(gb_Windows_PE_TARGETTYPEFLAGS_DEBUGINFO)),) \
+		$(if $(filter YES,$(TARGETGUI)), -SUBSYSTEM:WINDOWS$(MSC_SUBSYSTEM_VERSION), -SUBSYSTEM:CONSOLE$(MSC_SUBSYSTEM_VERSION)) \
 		$(if $(filter YES,$(LIBRARY_X64)), -MACHINE:X64) \
 		$(if $(filter YES,$(PE_X86)), -MACHINE:X86) \
 		$(if $(filter YES,$(LIBRARY_X64)), \
@@ -201,7 +205,7 @@ $(call gb_Helper_abbreviate_dirs,\
 	$(if $(filter Executable,$(TARGETTYPE)),&& mt.exe $(MTFLAGS) -nologo -manifest $(SRCDIR)/solenv/gbuild/platform/DeclareDPIAware.manifest -updateresource:$(1)\;1 ) \
 	$(if $(filter Library,$(TARGETTYPE)),&& \
 		echo $(notdir $(1)) > $(WORKDIR)/LinkTarget/$(2).exports.tmp && \
-		$(if $(filter YES,$(LIBRARY_X64)),$(LINK_X64_BINARY),$(gb_LINK)) \
+		$(gb_LINK) \
 			-dump -exports $(ILIBTARGET) \
 			>> $(WORKDIR)/LinkTarget/$(2).exports.tmp && \
 		$(call gb_Helper_replace_if_different_and_touch,$(WORKDIR)/LinkTarget/$(2).exports.tmp,$(WORKDIR)/LinkTarget/$(2).exports,$(1))) \
@@ -222,11 +226,13 @@ endef
 gb_Windows_PE_TARGETTYPEFLAGS := \
 	-release \
 	-opt:noref \
-	$(if $(filter $(true),$(gb_SYMBOL)),-debug) \
 	$(if $(filter NO,$(LIBRARY_X64)), -safeseh) \
 	-nxcompat \
 	-dynamicbase \
 	-manifest
+
+# link.exe in -LIB mode doesn't understand -debug, use it only for EXEs and DLLs
+gb_Windows_PE_TARGETTYPEFLAGS_DEBUGINFO := -debug
 
 ifeq ($(ENABLE_LTO),TRUE)
 gb_Windows_PE_TARGETTYPEFLAGS += -LTCG

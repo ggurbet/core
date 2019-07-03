@@ -41,6 +41,7 @@
 #include <rtl/bootstrap.hxx>
 #include <rtl/uri.hxx>
 
+#include <tools/diagnose_ex.h>
 #include <tools/stream.hxx>
 #include <tools/urlobj.hxx>
 #include <implimagetree.hxx>
@@ -256,9 +257,9 @@ OUString ImplImageTree::getImageUrl(OUString const & rName, OUString const & rSt
                 }
             }
         }
-        catch (const uno::Exception & e)
+        catch (const uno::Exception &)
         {
-            SAL_INFO("vcl", e);
+            TOOLS_INFO_EXCEPTION("vcl", "");
         }
 
         aStyle = fallbackStyle(aStyle);
@@ -296,9 +297,9 @@ std::shared_ptr<SvMemoryStream> ImplImageTree::getImageStream(OUString const & r
                 }
             }
         }
-        catch (const uno::Exception & e)
+        catch (const uno::Exception &)
         {
-            SAL_INFO("vcl", e);
+            TOOLS_INFO_EXCEPTION("vcl", "");
         }
 
         aStyle = fallbackStyle(aStyle);
@@ -413,9 +414,9 @@ bool ImplImageTree::doLoadImage(ImageRequestParameters& rParameters)
     {
         throw;
     }
-    catch (const uno::Exception& e)
+    catch (const uno::Exception&)
     {
-        SAL_INFO("vcl", "ImplImageTree::doLoadImage exception: " << e);
+        TOOLS_INFO_EXCEPTION("vcl", "ImplImageTree::doLoadImage");
     }
 
     if (bFound)
@@ -520,7 +521,7 @@ ImplImageTree::IconCache &ImplImageTree::getIconCache(const ImageRequestParamete
     auto it = rSet.maScaledIconCaches.find(rParameters.mnScalePercentage);
     if ( it != rSet.maScaledIconCaches.end() )
         return *it->second.get();
-    rSet.maScaledIconCaches[rParameters.mnScalePercentage] = std::unique_ptr<IconCache>(new IconCache);
+    rSet.maScaledIconCaches[rParameters.mnScalePercentage] = std::make_unique<IconCache>();
     return *rSet.maScaledIconCaches[rParameters.mnScalePercentage].get();
 }
 
@@ -622,10 +623,8 @@ OUString const & ImplImageTree::getRealImageName(OUString const & rIconName)
 
     OUString sNameWithNoExtension = getNameNoExtension(rIconName);
 
-    IconLinkHash::iterator it;
-
     // PNG is priority
-    it = rLinkHash.find(sNameWithNoExtension + ".png");
+    auto it = rLinkHash.find(sNameWithNoExtension + ".png");
     if (it != rLinkHash.end())
         return it->second;
 
@@ -683,9 +682,9 @@ bool ImplImageTree::checkPathAccess()
     {
         throw;
     }
-    catch (const uno::Exception & e)
+    catch (const uno::Exception &)
     {
-        SAL_INFO("vcl", "ImplImageTree::zip file location " << e << " for " << rIconSet.maURL);
+        TOOLS_INFO_EXCEPTION("vcl", "ImplImageTree::zip file location " << rIconSet.maURL);
         return false;
     }
     return rNameAccess.is();

@@ -30,6 +30,8 @@
 #include <unotools/streamwrap.hxx>
 #include <sot/storage.hxx>
 #include <tools/urlobj.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/settings.hxx>
 
 #include <docuno.hxx>
 #include <xestream.hxx>
@@ -227,7 +229,7 @@ std::size_t XclExpStream::Write( const void* pData, std::size_t nBytes )
                 {
                     OSL_ENSURE(nWriteLen > 0, "XclExpStream::Write: write length is 0!");
                     vector<sal_uInt8> aBytes(nWriteLen);
-                    memcpy(&aBytes[0], pBuffer, nWriteLen);
+                    memcpy(aBytes.data(), pBuffer, nWriteLen);
                     mxEncrypter->EncryptBytes(mrStrm, aBytes);
                     // TODO: How do I check if all the bytes have been successfully written ?
                 }
@@ -338,7 +340,7 @@ void XclExpStream::WriteByteString( const OString& rString )
 void XclExpStream::WriteCharBuffer( const ScfUInt8Vec& rBuffer )
 {
     SetSliceSize( 0 );
-    Write( &rBuffer[ 0 ], rBuffer.size() );
+    Write( rBuffer.data(), rBuffer.size() );
 }
 
 void XclExpStream::SetEncrypter( XclExpEncrypterRef const & xEncrypter )
@@ -511,14 +513,14 @@ void XclExpBiff8Encrypter::Encrypt( SvStream& rStrm, sal_uInt32 nData )
 void XclExpBiff8Encrypter::Encrypt( SvStream& rStrm, float fValue )
 {
     ::std::vector<sal_uInt8> pnBytes(4);
-    memcpy(&pnBytes[0], &fValue, 4);
+    memcpy(pnBytes.data(), &fValue, 4);
     EncryptBytes(rStrm, pnBytes);
 }
 
 void XclExpBiff8Encrypter::Encrypt( SvStream& rStrm, double fValue )
 {
     ::std::vector<sal_uInt8> pnBytes(8);
-    memcpy(&pnBytes[0], &fValue, 8);
+    memcpy(pnBytes.data(), &fValue, 8);
     EncryptBytes(rStrm, pnBytes);
 }
 
@@ -699,11 +701,6 @@ OString XclXmlUtils::ToOString( const Color& rColor )
     return OString( buf );
 }
 
-OString XclXmlUtils::ToOString( const OUString& s )
-{
-    return OUStringToOString( s, RTL_TEXTENCODING_UTF8  );
-}
-
 OStringBuffer& XclXmlUtils::ToOString( OStringBuffer& s, const ScAddress& rAddress )
 {
     rAddress.Format(s, ScRefFlags::VALID, nullptr, ScAddress::Details( FormulaGrammar::CONV_XL_A1));
@@ -715,7 +712,7 @@ OString XclXmlUtils::ToOString( const ScfUInt16Vec& rBuffer )
     if(rBuffer.empty())
         return OString();
 
-    const sal_uInt16* pBuffer = &rBuffer [0];
+    const sal_uInt16* pBuffer = rBuffer.data();
     return OString(
         reinterpret_cast<sal_Unicode const *>(pBuffer), rBuffer.size(),
         RTL_TEXTENCODING_UTF8);
@@ -726,14 +723,14 @@ OString XclXmlUtils::ToOString( const ScRange& rRange, bool bFullAddressNotation
     OUString sRange(rRange.Format( ScRefFlags::VALID, nullptr,
                                    ScAddress::Details( FormulaGrammar::CONV_XL_A1 ),
                                    bFullAddressNotation ) );
-    return ToOString( sRange );
+    return sRange.toUtf8();
 }
 
 OString XclXmlUtils::ToOString( const ScRangeList& rRangeList )
 {
     OUString s;
     rRangeList.Format(s, ScRefFlags::VALID, nullptr, FormulaGrammar::CONV_XL_OOX, ' ');
-    return ToOString( s );
+    return s.toUtf8();
 }
 
 static ScAddress lcl_ToAddress( const XclAddress& rAddress )
@@ -818,7 +815,7 @@ OUString XclXmlUtils::ToOUString( const XclExpString& s )
 
 sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, sal_Int32 nValue )
 {
-    pStream->startElement( nElement, FSEND );
+    pStream->startElement(nElement);
     pStream->write( nValue );
     pStream->endElement( nElement );
 
@@ -827,7 +824,7 @@ sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperP
 
 sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, sal_Int64 nValue )
 {
-    pStream->startElement( nElement, FSEND );
+    pStream->startElement(nElement);
     pStream->write( nValue );
     pStream->endElement( nElement );
 
@@ -836,7 +833,7 @@ sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperP
 
 sax_fastparser::FSHelperPtr XclXmlUtils::WriteElement( sax_fastparser::FSHelperPtr pStream, sal_Int32 nElement, const char* sValue )
 {
-    pStream->startElement( nElement, FSEND );
+    pStream->startElement(nElement);
     pStream->write( sValue );
     pStream->endElement( nElement );
 
@@ -847,9 +844,7 @@ static void lcl_WriteValue( const sax_fastparser::FSHelperPtr& rStream, sal_Int3
 {
     if( !pValue )
         return;
-    rStream->singleElement( nElement,
-            XML_val, pValue,
-            FSEND );
+    rStream->singleElement(nElement, XML_val, pValue);
 }
 
 static const char* lcl_GetUnderlineStyle( FontLineStyle eUnderline, bool& bHaveUnderline )
@@ -898,11 +893,11 @@ sax_fastparser::FSHelperPtr XclXmlUtils::WriteFontData( sax_fastparser::FSHelper
         pStream->singleElement( XML_color,
                 // OOXTODO: XML_auto,       bool
                 // OOXTODO: XML_indexed,    uint
-                XML_rgb,    XclXmlUtils::ToOString( rFontData.maColor ).getStr(),
+                XML_rgb, XclXmlUtils::ToOString(rFontData.maColor)
                 // OOXTODO: XML_theme,      index into <clrScheme/>
                 // OOXTODO: XML_tint,       double
-                FSEND );
-    lcl_WriteValue( pStream, nFontId,        XclXmlUtils::ToOString( rFontData.maName ).getStr() );
+        );
+    lcl_WriteValue( pStream, nFontId,        rFontData.maName.toUtf8().getStr() );
     lcl_WriteValue( pStream, XML_family,     OString::number(  rFontData.mnFamily ).getStr() );
     lcl_WriteValue( pStream, XML_charset,    rFontData.mnCharSet != 0 ? OString::number(  rFontData.mnCharSet ).getStr() : nullptr );
 
@@ -946,31 +941,11 @@ sax_fastparser::FSHelperPtr XclExpXmlStream::GetStreamForPath( const OUString& s
     return maOpenedStreamMap[ sPath ].second;
 }
 
-sax_fastparser::FSHelperPtr& XclExpXmlStream::WriteAttributesInternal( sal_Int32 nAttribute, ... )
+void XclExpXmlStream::WriteAttribute(sal_Int32 nAttr, const OUString& sVal)
 {
-    sax_fastparser::FSHelperPtr& rStream = GetCurrentStream();
-
-    va_list args;
-    va_start( args, nAttribute );
-    do {
-        const char* pValue = va_arg( args, const char* );
-        if( pValue )
-        {
-            rStream->write( " " )
-                ->writeId( nAttribute )
-                ->write( "=\"" )
-                ->writeEscaped( OUString(pValue, strlen(pValue), RTL_TEXTENCODING_UTF8) )
-                ->write( "\"" );
-        }
-
-        nAttribute = va_arg( args, sal_Int32 );
-        if( nAttribute == FSEND_internal )
-            break;
-    } while( true );
-    va_end( args );
-
-    return rStream;
+    GetCurrentStream()->write(" ")->writeId(nAttr)->write("=\"")->writeEscaped(sVal)->write("\"");
 }
+
 sax_fastparser::FSHelperPtr XclExpXmlStream::CreateOutputStream (
     const OUString& sFullStream,
     const OUString& sRelativeStream,

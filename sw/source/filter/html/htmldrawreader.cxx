@@ -24,9 +24,16 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdotext.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtacitm.hxx>
+#include <svx/sdtayitm.hxx>
+#include <svx/sdtaaitm.hxx>
+#include <svx/sdtaiitm.hxx>
+#include <svx/sdtmfitm.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/outliner.hxx>
-#include <svx/xfillit.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflclit.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/brushitem.hxx>
 #include <editeng/lrspitem.hxx>
@@ -42,6 +49,7 @@
 #include <drawdoc.hxx>
 #include <frmfmt.hxx>
 #include <fmtanchr.hxx>
+#include <fmtornt.hxx>
 #include <fmtsrnd.hxx>
 #include <ndtxt.hxx>
 #include <doc.hxx>
@@ -238,11 +246,7 @@ static void PutEEPoolItem( SfxItemSet &rEEItemSet,
     }
 
     if( nEEWhich )
-    {
-        std::unique_ptr<SfxPoolItem> pEEItem(rSwItem.Clone());
-        pEEItem->SetWhich( nEEWhich );
-        rEEItemSet.Put( *pEEItem );
-    }
+        rEEItemSet.Put( rSwItem.CloneSetWhich(nEEWhich) );
 }
 
 void SwHTMLParser::NewMarquee( HTMLTable *pCurTable )

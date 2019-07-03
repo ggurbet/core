@@ -76,11 +76,11 @@ using com::sun::star::script::Converter;
 using com::sun::star::script::XTypeConverter;
 
 using com::sun::star::uno::RuntimeException;
-using com::sun::star::uno::Exception;
 using com::sun::star::uno::Sequence;
 using com::sun::star::uno::Reference;
 using com::sun::star::uno::XInterface;
 using com::sun::star::uno::UNO_QUERY;
+using com::sun::star::uno::UNO_QUERY_THROW;
 using com::sun::star::uno::XComponentContext;
 using com::sun::star::uno::Any;
 
@@ -424,7 +424,7 @@ public:
     // This const_cast is there for compatibility with PostgreSQL <= 9.1;
     // PostgreSQL >= 9.2 has the right const qualifiers in the headers
     // for a return type of "char const*const*".
-    char const** c_array() const { return const_cast <const char**>(&values[0]); }
+    char const** c_array() const { return const_cast <const char**>(values.data()); }
 };
 
 static void properties2arrays( const Sequence< PropertyValue > & args,
@@ -607,7 +607,7 @@ Reference< XNameAccess > Connection::getTables()
         m_settings.tables = Tables::create( m_xMutex, this, &m_settings , &m_settings.pTablesImpl);
     else
         // TODO: how to overcome the performance problem ?
-        Reference< css::util::XRefreshable > ( m_settings.tables, UNO_QUERY )->refresh();
+        Reference< css::util::XRefreshable > ( m_settings.tables, UNO_QUERY_THROW )->refresh();
     return m_settings.tables;
 }
 
@@ -622,7 +622,7 @@ Reference< XNameAccess > Connection::getViews()
         m_settings.views = Views::create( m_xMutex, this, &m_settings, &(m_settings.pViewsImpl) );
     else
         // TODO: how to overcome the performance problem ?
-        Reference< css::util::XRefreshable > ( m_settings.views, UNO_QUERY )->refresh();
+        Reference< css::util::XRefreshable > ( m_settings.views, UNO_QUERY_THROW )->refresh();
     return m_settings.views;
 }
 

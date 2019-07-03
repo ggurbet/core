@@ -62,6 +62,7 @@
 #include <chpfld.hxx>
 #include <editsh.hxx>
 #include <SwStyleNameMapper.hxx>
+#include <strings.hrc>
 #include <comphelper/servicehelper.hxx>
 #include <comphelper/string.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -311,29 +312,27 @@ lcl_TypeToPropertyMap_Index(const TOXTypes eType)
 }
 
 class SwXDocumentIndex::Impl
-    : public SwClient
+    : public SvtListener
 {
 private:
     ::osl::Mutex m_Mutex; // just for OInterfaceContainerHelper2
+    SwSectionFormat* m_pFormat;
 
 public:
     uno::WeakReference<uno::XInterface> m_wThis;
     ::cppu::OMultiTypeInterfaceContainerHelper m_Listeners;
-    SfxItemPropertySet const&   m_rPropSet;
-    const TOXTypes              m_eTOXType;
-    bool                        m_bIsDescriptor;
-    SwDoc *                     m_pDoc;
+    SfxItemPropertySet const& m_rPropSet;
+    const TOXTypes m_eTOXType;
+    bool m_bIsDescriptor;
+    SwDoc* m_pDoc;
     std::unique_ptr<SwDocIndexDescriptorProperties_Impl> m_pProps;
     uno::WeakReference<container::XIndexReplace> m_wStyleAccess;
     uno::WeakReference<container::XIndexReplace> m_wTokenAccess;
 
-    Impl(   SwDoc & rDoc,
-            const TOXTypes eType,
-            SwTOXBaseSection *const pBaseSection)
-        : SwClient(pBaseSection ? pBaseSection->GetFormat() : nullptr)
+    Impl(SwDoc& rDoc, const TOXTypes eType, SwTOXBaseSection *const pBaseSection)
+        : m_pFormat(pBaseSection ? pBaseSection->GetFormat() : nullptr)
         , m_Listeners(m_Mutex)
-        , m_rPropSet(
-            *aSwMapProvider.GetPropertySet(lcl_TypeToPropertyMap_Index(eType)))
+        , m_rPropSet(*aSwMapProvider.GetPropertySet(lcl_TypeToPropertyMap_Index(eType)))
         , m_eTOXType(eType)
         , m_bIsDescriptor(nullptr == pBaseSection)
         , m_pDoc(&rDoc)
@@ -341,11 +340,19 @@ public:
             ? new SwDocIndexDescriptorProperties_Impl(rDoc.GetTOXType(eType, 0))
             : nullptr)
     {
+        if(m_pFormat)
+            StartListening(m_pFormat->GetNotifier());
     }
 
-    SwSectionFormat * GetSectionFormat() const {
-        return static_cast<SwSectionFormat *>(
-                const_cast<SwModify *>(GetRegisteredIn()));
+    void SetSectionFormat(SwSectionFormat& rFormat)
+    {
+        EndListeningAll();
+        m_pFormat = &rFormat;
+        StartListening(rFormat.GetNotifier());
+    }
+
+    SwSectionFormat* GetSectionFormat() const {
+        return m_pFormat;
     }
 
     SwTOXBase & GetTOXSectionOrThrow() const
@@ -371,27 +378,30 @@ public:
             ? SwForm::GetFormMaxLevel(m_eTOXType)
             : rSection.GetTOXForm().GetFormMax();
     }
-protected:
-    // SwClient
-    virtual void Modify(const SfxPoolItem *pOld, const SfxPoolItem *pNew) override;
+    virtual void Notify(const SfxHint&) override;
 
 };
 
-void SwXDocumentIndex::Impl::Modify(const SfxPoolItem *pOld, const SfxPoolItem *pNew)
+void SwXDocumentIndex::Impl::Notify(const SfxHint& rHint)
 {
-    ClientModify(this, pOld, pNew);
-    if (GetRegisteredIn())
+    if(auto pLegacy = dynamic_cast<const sw::LegacyModifyHint*>(&rHint))
     {
-        return; // core object still alive
+        if(pLegacy->m_pOld && pLegacy->m_pOld->Which() == RES_REMOVE_UNO_OBJECT)
+            m_pFormat = nullptr;
     }
-
-    uno::Reference<uno::XInterface> const xThis(m_wThis);
-    if (!xThis.is())
-    {   // fdo#72695: if UNO object is already dead, don't revive it with event
-        return;
+    else if(rHint.GetId() == SfxHintId::Dying)
+        m_pFormat = nullptr;
+    if(!m_pFormat)
+    {
+        EndListeningAll();
+        uno::Reference<uno::XInterface> const xThis(m_wThis);
+        if (!xThis.is())
+        {   // fdo#72695: if UNO object is already dead, don't revive it with event
+            return;
+        }
+        lang::EventObject const ev(xThis);
+        m_Listeners.disposeAndClear(ev);
     }
-    lang::EventObject const ev(xThis);
-    m_Listeners.disposeAndClear(ev);
 }
 
 SwXDocumentIndex::SwXDocumentIndex(
@@ -1356,7 +1366,7 @@ SwXDocumentIndex::attach(const uno::Reference< text::XTextRange > & xTextRange)
     pDoc->SetTOXBaseName(*pTOX, m_pImpl->m_pProps->GetTOXBase().GetTOXName());
 
     // update page numbers
-    pTOX->GetFormat()->Add(m_pImpl.get());
+    m_pImpl->SetSectionFormat(*pTOX->GetFormat());
     pTOX->GetFormat()->SetXObject(static_cast< ::cppu::OWeakObject*>(this));
     pTOX->UpdatePageNum();
 
@@ -1934,44 +1944,17 @@ void SwXDocumentIndexMark::Impl::InsertTOXMark(
             | SetAttrMode::DONTEXPAND)
         : SetAttrMode::DONTEXPAND;
 
-    std::vector<SwTextAttr *> oldMarks;
-    if (bMark)
-    {
-        oldMarks = rPam.GetNode().GetTextNode()->GetTextAttrsAt(
-            rPam.GetPoint()->nContent.GetIndex(), RES_TXTATR_TOXMARK);
-    }
-
-    pDoc->getIDocumentContentOperations().InsertPoolItem(rPam, rMark, nInsertFlags);
+    // rMark gets copied into the document pool;
+    // pNewTextAttr comes back with the real format
+    SwTextAttr *pNewTextAttr = nullptr;
+    pDoc->getIDocumentContentOperations().InsertPoolItem(rPam, rMark, nInsertFlags,
+            /*pLayout*/nullptr, /*bExpandCharToPara*/false, &pNewTextAttr);
     if (bMark && *rPam.GetPoint() > *rPam.GetMark())
     {
         rPam.Exchange();
     }
 
-    // rMark was copied into the document pool; now retrieve real format...
-    SwTextAttr * pTextAttr(nullptr);
-    if (bMark)
-    {
-        // #i107672#
-        // ensure that we do not retrieve a different mark at the same position
-        std::vector<SwTextAttr *> const newMarks(
-            rPam.GetNode().GetTextNode()->GetTextAttrsAt(
-                rPam.GetPoint()->nContent.GetIndex(), RES_TXTATR_TOXMARK));
-        std::vector<SwTextAttr *>::const_iterator const iter(
-            std::find_if(newMarks.begin(), newMarks.end(),
-                NotContainedIn<SwTextAttr *>(oldMarks)));
-        assert(newMarks.end() != iter);
-        if (newMarks.end() != iter)
-        {
-            pTextAttr = *iter;
-        }
-    }
-    else
-    {
-        pTextAttr = rPam.GetNode().GetTextNode()->GetTextAttrForCharAt(
-            rPam.GetPoint()->nContent.GetIndex()-1, RES_TXTATR_TOXMARK );
-    }
-
-    if (!pTextAttr)
+    if (!pNewTextAttr)
     {
         throw uno::RuntimeException(
             "SwXDocumentIndexMark::InsertTOXMark(): cannot insert attribute",
@@ -1979,7 +1962,7 @@ void SwXDocumentIndexMark::Impl::InsertTOXMark(
     }
 
     m_pDoc = pDoc;
-    m_pTOXMark = &pTextAttr->GetTOXMark();
+    m_pTOXMark = &pNewTextAttr->GetTOXMark();
     m_pTOXType = &rTOXType;
     m_aListener.EndListeningAll();
     m_aListener.StartListening(const_cast<SwTOXMark*>(m_pTOXMark));
@@ -2374,11 +2357,6 @@ SwXDocumentIndexes::getImplementationName()
     return OUString("SwXDocumentIndexes");
 }
 
-static char const*const g_ServicesDocumentIndexes[] =
-{
-    "com.sun.star.text.DocumentIndexes",
-};
-
 sal_Bool SAL_CALL SwXDocumentIndexes::supportsService(const OUString& rServiceName)
 {
     return cppu::supportsService(this, rServiceName);
@@ -2387,8 +2365,7 @@ sal_Bool SAL_CALL SwXDocumentIndexes::supportsService(const OUString& rServiceNa
 uno::Sequence< OUString > SAL_CALL
 SwXDocumentIndexes::getSupportedServiceNames()
 {
-    return ::sw::GetSupportedServiceNamesImpl(
-        SAL_N_ELEMENTS(g_ServicesDocumentIndexes), g_ServicesDocumentIndexes);
+    return { "com.sun.star.text.DocumentIndexes" };
 }
 
 sal_Int32 SAL_CALL
@@ -2559,11 +2536,6 @@ SwXDocumentIndex::StyleAccess_Impl::getImplementationName()
     return OUString("SwXDocumentIndex::StyleAccess_Impl");
 }
 
-static char const*const g_ServicesIndexStyleAccess[] =
-{
-    "com.sun.star.text.DocumentIndexParagraphStyles",
-};
-
 sal_Bool SAL_CALL
 SwXDocumentIndex::StyleAccess_Impl::supportsService(const OUString& rServiceName)
 {
@@ -2573,9 +2545,7 @@ SwXDocumentIndex::StyleAccess_Impl::supportsService(const OUString& rServiceName
 uno::Sequence< OUString > SAL_CALL
 SwXDocumentIndex::StyleAccess_Impl::getSupportedServiceNames()
 {
-    return ::sw::GetSupportedServiceNamesImpl(
-        SAL_N_ELEMENTS(g_ServicesIndexStyleAccess),
-        g_ServicesIndexStyleAccess);
+    return { "com.sun.star.text.DocumentIndexParagraphStyles" };
 }
 
 void SAL_CALL
@@ -2679,11 +2649,6 @@ SwXDocumentIndex::TokenAccess_Impl::getImplementationName()
     return OUString("SwXDocumentIndex::TokenAccess_Impl");
 }
 
-static char const*const g_ServicesIndexTokenAccess[] =
-{
-    "com.sun.star.text.DocumentIndexLevelFormat",
-};
-
 sal_Bool SAL_CALL SwXDocumentIndex::TokenAccess_Impl::supportsService(
         const OUString& rServiceName)
 {
@@ -2693,9 +2658,7 @@ sal_Bool SAL_CALL SwXDocumentIndex::TokenAccess_Impl::supportsService(
 uno::Sequence< OUString > SAL_CALL
 SwXDocumentIndex::TokenAccess_Impl::getSupportedServiceNames()
 {
-    return ::sw::GetSupportedServiceNamesImpl(
-            SAL_N_ELEMENTS(g_ServicesIndexTokenAccess),
-            g_ServicesIndexTokenAccess);
+    return { "com.sun.star.text.DocumentIndexLevelFormat" };
 }
 
 struct TokenType_ {
@@ -2889,6 +2852,15 @@ SwXDocumentIndex::TokenAccess_Impl::replaceByIndex(
                 throw lang::IllegalArgumentException();
             }
         }
+
+        if (rTOXBase.GetType() == TOX_CONTENT)
+        {
+            if (aToken.eTokenType == TOKEN_LINK_START && aToken.sCharStyleName.isEmpty())
+            {
+                aToken.sCharStyleName = SwResId(STR_POOLCHR_TOXJUMP);
+            }
+        }
+
         sPattern.append(aToken.GetString());
     }
     SwForm aForm(rTOXBase.GetTOXForm());

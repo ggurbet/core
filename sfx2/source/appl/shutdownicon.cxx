@@ -49,6 +49,7 @@
 #include <com/sun/star/document/MacroExecMode.hpp>
 #include <com/sun/star/document/UpdateDocMode.hpp>
 #include <sfx2/filedlghelper.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -63,6 +64,7 @@
 #include <rtl/bootstrap.hxx>
 #include <rtl/ref.hxx>
 #include <rtl/ustrbuf.hxx>
+#include <vcl/svapp.hxx>
 #ifdef UNX // need symlink
 #include <unistd.h>
 #include <errno.h>
@@ -74,7 +76,6 @@ using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::frame;
 using namespace ::com::sun::star::container;
-using namespace ::com::sun::star::io;
 using namespace ::com::sun::star::lang;
 using namespace ::com::sun::star::beans;
 using namespace ::com::sun::star::util;
@@ -506,10 +507,8 @@ ShutdownIcon* ShutdownIcon::createInstance()
 
 void ShutdownIcon::init()
 {
-    ::osl::ResettableMutexGuard aGuard( m_aMutex );
-    aGuard.clear();
     css::uno::Reference < XDesktop2 > xDesktop = Desktop::create( m_xContext );
-    aGuard.reset();
+    osl::MutexGuard aGuard(m_aMutex);
     m_xDesktop = xDesktop;
 }
 
@@ -533,7 +532,7 @@ void SAL_CALL ShutdownIcon::disposing( const css::lang::EventObject& )
 void SAL_CALL ShutdownIcon::queryTermination( const css::lang::EventObject& )
 {
     SAL_INFO("sfx.appl", "ShutdownIcon::queryTermination: veto is " << m_bVeto);
-    ::osl::ClearableMutexGuard  aGuard( m_aMutex );
+    osl::MutexGuard  aGuard( m_aMutex );
 
     if ( m_bVeto )
         throw css::frame::TerminationVetoException();

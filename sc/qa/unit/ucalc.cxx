@@ -71,8 +71,10 @@
 #include <formula/IFunctionDescription.hxx>
 
 #include <basegfx/polygon/b2dpolygon.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/brushitem.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/postitem.hxx>
 
@@ -2763,7 +2765,7 @@ void Test::testGraphicsInGroup()
 
     {
         // Add a circle.
-        tools::Rectangle aOrigRect = tools::Rectangle(10,10,210,210); // 200 x 200
+        tools::Rectangle aOrigRect(10,10,210,210); // 200 x 200
         SdrCircObj* pObj = new SdrCircObj(*pDrawLayer, OBJ_CIRC, aOrigRect);
         pPage->InsertObject(pObj);
         const tools::Rectangle& rNewRect = pObj->GetLogicRect();
@@ -3516,14 +3518,14 @@ void Test::testCopyPasteTranspose()
     // transpose clipboard, paste and check on Sheet2
     m_pDoc->InsertTab(1, "Sheet2");
 
-    ScRange aSrcRange = ScRange(0,0,0,2,0,0);
+    ScRange aSrcRange(0,0,0,2,0,0);
     ScDocument aNewClipDoc(SCDOCMODE_CLIP);
     copyToClip(m_pDoc, aSrcRange, &aNewClipDoc);
 
     ScDocumentUniquePtr pTransClip(new ScDocument(SCDOCMODE_CLIP));
     aNewClipDoc.TransposeClip(pTransClip.get(), InsertDeleteFlags::ALL, false);
 
-    ScRange aDestRange = ScRange(3,1,1,3,3,1);//target: Sheet2.D2:D4
+    ScRange aDestRange(3,1,1,3,3,1);//target: Sheet2.D2:D4
     ScMarkData aMark;
     aMark.SetMarkArea(aDestRange);
     m_pDoc->CopyFromClip(aDestRange, aMark, InsertDeleteFlags::ALL, nullptr, pTransClip.get());
@@ -4225,7 +4227,7 @@ void Test::testCopyPasteRepeatOneFormula()
     CPPUNIT_ASSERT(pBASM);
     std::vector<sc::AreaListener> aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
-    const sc::AreaListener* pListener = &aListeners[0];
+    const sc::AreaListener* pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,0,0,1,0,0), pListener->maArea);
     CPPUNIT_ASSERT_MESSAGE("This listener shouldn't be a group listener.", !pListener->mbGroupListening);
 #endif
@@ -4258,7 +4260,7 @@ void Test::testCopyPasteRepeatOneFormula()
     // a group listener listening on A1:B10.
     aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
-    pListener = &aListeners[0];
+    pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,0,0,1,9,0), pListener->maArea);
     CPPUNIT_ASSERT_MESSAGE("This listener should be a group listener.", pListener->mbGroupListening);
 #endif
@@ -4276,7 +4278,7 @@ void Test::testCopyPasteRepeatOneFormula()
     // Make there we only have one group area listener listening on A2:B11.
     aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
-    pListener = &aListeners[0];
+    pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,1,0,1,10,0), pListener->maArea);
     CPPUNIT_ASSERT_MESSAGE("This listener should be a group listener.", pListener->mbGroupListening);
 #endif
@@ -4303,7 +4305,7 @@ void Test::testCopyPasteRepeatOneFormula()
     // Check the group area listener again to make sure it's listening on A1:B10 once again.
     aListeners = pBASM->GetAllListeners(aWholeSheet, sc::AreaInside);
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), aListeners.size());
-    pListener = &aListeners[0];
+    pListener = aListeners.data();
     CPPUNIT_ASSERT_EQUAL(ScRange(0,0,0,1,9,0), pListener->maArea);
     CPPUNIT_ASSERT_MESSAGE("This listener should be a group listener.", pListener->mbGroupListening);
 #endif

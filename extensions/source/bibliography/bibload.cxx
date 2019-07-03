@@ -50,7 +50,6 @@
 #include <vcl/window.hxx>
 #include <vcl/edit.hxx>
 #include <vcl/svapp.hxx>
-#include <svtools/svmedit.hxx>
 
 #include "bibresid.hxx"
 #include <strings.hrc>
@@ -260,14 +259,14 @@ void BibliographyLoader::loadView(const Reference< XFrame > & rFrame,
     {
         DBChangeDialogConfig_Impl aConfig;
         const Sequence<OUString> aSources = aConfig.GetDataSourceNames();
-        if(aSources.getLength())
+        if(aSources.hasElements())
             aBibDesc.sDataSource = aSources.getConstArray()[0];
     }
 
     Reference< XForm > xForm = m_xDatMan->createDatabaseForm( aBibDesc );
 
     Reference< awt::XWindow >  aWindow = rFrame->getContainerWindow();
-    VCLXWindow* pParentComponent = VCLXWindow::GetImplementation(aWindow);
+    VCLXWindow* pParentComponent = comphelper::getUnoTunnelImplementation<VCLXWindow>(aWindow);
     assert(pParentComponent);
 
     VclPtr<vcl::Window> pParent = VCLUnoHelper::GetWindow( aWindow );
@@ -565,7 +564,7 @@ sal_Bool BibliographyLoader::hasElements()
 {
     Reference< XResultSet >  xCursor = GetDataCursor();
     Reference< XNameAccess >  xColumns = GetDataColumns();
-    return xColumns.is() && (xColumns->getElementNames().getLength() != 0);
+    return xColumns.is() && xColumns->getElementNames().hasElements();
 }
 
 Reference< XPropertySetInfo >  BibliographyLoader::getPropertySetInfo()

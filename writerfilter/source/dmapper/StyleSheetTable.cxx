@@ -360,10 +360,8 @@ void StyleSheetTable_Impl::SetPropertiesToDefault(const uno::Reference<style::XS
     uno::Sequence<beans::Property> aProperties = xPropertySetInfo->getProperties();
     std::vector<OUString> aPropertyNames;
     aPropertyNames.reserve(aProperties.getLength());
-    for (sal_Int32 i = 0; i < aProperties.getLength(); ++i)
-    {
-        aPropertyNames.push_back(aProperties[i].Name);
-    }
+    std::transform(aProperties.begin(), aProperties.end(), std::back_inserter(aPropertyNames),
+        [](const beans::Property& rProp) { return rProp.Name; });
 
     uno::Reference<beans::XPropertyState> xPropertyState(xStyle, uno::UNO_QUERY);
     uno::Sequence<beans::PropertyState> aStates = xPropertyState->getPropertyStates(comphelper::containerToSequence(aPropertyNames));
@@ -375,9 +373,9 @@ void StyleSheetTable_Impl::SetPropertiesToDefault(const uno::Reference<style::XS
             {
                 xPropertyState->setPropertyToDefault(aPropertyNames[i]);
             }
-            catch(const uno::Exception& rException)
+            catch(const uno::Exception&)
             {
-                SAL_INFO("writerfilter", "setPropertyToDefault(" << aPropertyNames[i] << ") failed: " << rException);
+                TOOLS_INFO_EXCEPTION("writerfilter", "setPropertyToDefault(" << aPropertyNames[i] << ") failed");
             }
         }
     }
@@ -520,7 +518,7 @@ void StyleSheetTable::lcl_attribute(Id Name, Value & val)
         break;
         default:
         {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
             TagLogger::getInstance().element("unhandled");
 #endif
         }
@@ -1121,7 +1119,7 @@ void StyleSheetTable::ApplyStyleSheets( const FontTablePtr& rFontTable )
                         }
                         catch( const lang::WrappedTargetException& rWrapped)
                         {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                             OUString aMessage("StyleSheetTable::ApplyStyleSheets: Some style properties could not be set");
                             beans::UnknownPropertyException aUnknownPropertyException;
 
@@ -1239,7 +1237,7 @@ const StyleSheetEntryPtr StyleSheetTable::FindDefaultParaStyle()
     return FindStyleSheetByISTD( m_pImpl->m_sDefaultParaStyleName );
 }
 
-const StyleSheetEntryPtr StyleSheetTable::GetCurrentEntry()
+const StyleSheetEntryPtr & StyleSheetTable::GetCurrentEntry()
 {
     return m_pImpl->m_pCurrentEntry;
 }
@@ -1479,11 +1477,11 @@ void StyleSheetTable::applyDefaults(bool bParaProperties)
             xParagraphStyles->getByName("Paragraph style") >>= xDefault;
 
             uno::Sequence< beans::PropertyValue > aPropValues = m_pImpl->m_pDefaultParaProps->GetPropertyValues();
-            for( sal_Int32 i = 0; i < aPropValues.getLength(); ++i )
+            for( const auto& rPropValue : aPropValues )
             {
                 try
                 {
-                    xDefault->setPropertyValue(aPropValues[i].Name, aPropValues[i].Value);
+                    xDefault->setPropertyValue(rPropValue.Name, rPropValue.Value);
                 }
                 catch( const uno::Exception& )
                 {
@@ -1494,11 +1492,11 @@ void StyleSheetTable::applyDefaults(bool bParaProperties)
         if( !bParaProperties && m_pImpl->m_pDefaultCharProps.get())
         {
             uno::Sequence< beans::PropertyValue > aPropValues = m_pImpl->m_pDefaultCharProps->GetPropertyValues();
-            for( sal_Int32 i = 0; i < aPropValues.getLength(); ++i )
+            for( const auto& rPropValue : aPropValues )
             {
                 try
                 {
-                    m_pImpl->m_xTextDefaults->setPropertyValue( aPropValues[i].Name, aPropValues[i].Value );
+                    m_pImpl->m_xTextDefaults->setPropertyValue( rPropValue.Name, rPropValue.Value );
                 }
                 catch( const uno::Exception& )
                 {
@@ -1528,11 +1526,10 @@ OUString StyleSheetTable::getOrCreateCharStyle( PropertyValueVector_t& rCharProp
     //search for all character styles with the name sListLabel + <index>
     sal_Int32 nStyleFound = 0;
     uno::Sequence< OUString > aStyleNames = xCharStyles->getElementNames();
-    const OUString* pStyleNames = aStyleNames.getConstArray();
-    for( sal_Int32 nStyle = 0; nStyle < aStyleNames.getLength(); ++nStyle )
+    for( const auto& rStyleName : aStyleNames )
     {
         OUString sSuffix;
-        if( pStyleNames[nStyle].startsWith( cListLabel, &sSuffix ) )
+        if( rStyleName.startsWith( cListLabel, &sSuffix ) )
         {
             sal_Int32 nSuffix = sSuffix.toInt32();
             if( nSuffix > 0 && nSuffix > nStyleFound )

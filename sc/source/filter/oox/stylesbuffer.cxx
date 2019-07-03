@@ -48,6 +48,7 @@
 #include <editeng/escapementitem.hxx>
 #include <editeng/shdditem.hxx>
 #include <editeng/eeitem.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/lineitem.hxx>
 #include <editeng/brushitem.hxx>
@@ -2078,7 +2079,7 @@ void Xf::applyPatternToAttrList( AttrList& rAttrs, SCROW nRow1, SCROW nRow2, sal
             // Fill this gap with the default pattern.
             ScAttrEntry aEntry;
             aEntry.nEndRow = nRow1 - 1;
-            aEntry.pPattern = static_cast<const ScPatternAttr*>(&rDoc.GetPool()->Put(*rAttrs.mpDefPattern));
+            aEntry.pPattern = &rDoc.GetPool()->Put(*rAttrs.mpDefPattern);
             rAttrs.maAttrs.push_back(aEntry);
 
             // Check if the default pattern is 'General'.
@@ -2088,7 +2089,7 @@ void Xf::applyPatternToAttrList( AttrList& rAttrs, SCROW nRow1, SCROW nRow2, sal
 
         ScAttrEntry aEntry;
         aEntry.nEndRow = nRow2;
-        aEntry.pPattern = static_cast<const ScPatternAttr*>(&rDoc.GetPool()->Put(rPat));
+        aEntry.pPattern = &rDoc.GetPool()->Put(rPat);
         rAttrs.maAttrs.push_back(aEntry);
 
         if (!sc::NumFmtUtil::isLatinScript(*aEntry.pPattern, rDoc))
@@ -2752,6 +2753,13 @@ DxfRef StylesBuffer::createDxf()
     return xDxf;
 }
 
+DxfRef StylesBuffer::createExtDxf()
+{
+    DxfRef xDxf( new Dxf( *this ) );
+    maExtDxfs.push_back( xDxf );
+    return xDxf;
+}
+
 void StylesBuffer::importPaletteColor( const AttributeList& rAttribs )
 {
     maPalette.importPaletteColor( rAttribs );
@@ -2891,6 +2899,34 @@ OUString StylesBuffer::createDxfStyle( sal_Int32 nDxfId ) const
     if (Dxf* pDxf = maDxfs.get(nDxfId).get())
     {
         rStyleName = "ConditionalStyle_" + OUString::number(nDxfId + 1);
+
+        // Create a cell style. This may overwrite an existing style if
+        // one with the same name exists.
+        ScStyleSheet& rStyleSheet = ScfTools::MakeCellStyleSheet(
+                *getScDocument().GetStyleSheetPool(), rStyleName, true);
+
+        rStyleSheet.ResetParent();
+        SfxItemSet& rStyleItemSet =
+            rStyleSheet.GetItemSet();
+
+        pDxf->fillToItemSet(rStyleItemSet);
+
+    }
+
+    // on error: fallback to default style
+    if (rStyleName.isEmpty())
+        rStyleName = maCellStyles.getDefaultStyleName();
+
+    return rStyleName;
+}
+
+OUString StylesBuffer::createExtDxfStyle( sal_Int32 nDxfId ) const
+{
+    OUString rStyleName;
+
+    if (Dxf* pDxf = maExtDxfs.get(nDxfId).get())
+    {
+        rStyleName = "ExtConditionalStyle_" + OUString::number(nDxfId + 1);
 
         // Create a cell style. This may overwrite an existing style if
         // one with the same name exists.

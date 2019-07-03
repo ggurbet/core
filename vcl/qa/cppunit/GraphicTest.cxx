@@ -18,7 +18,6 @@
 #include <vcl/graph.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <tools/stream.hxx>
-#include <vcl/pngwrite.hxx>
 
 using namespace css;
 
@@ -116,13 +115,12 @@ void GraphicTest::testUnloadedGraphicLoading()
                     if (pReadAccess->HasPalette())
                     {
                         Color aColor
-                            = pReadAccess->GetPaletteColor(pReadAccess->GetPixelIndex(y, x))
-                                  .GetColor();
+                            = pReadAccess->GetPaletteColor(pReadAccess->GetPixelIndex(y, x));
                         CPPUNIT_ASSERT_EQUAL(OUString("ff0000"), aColor.AsRGBHexString());
                     }
                     else
                     {
-                        Color aColor = pReadAccess->GetPixel(y, x).GetColor();
+                        Color aColor = pReadAccess->GetPixel(y, x);
                         if (sFormat != "jpg")
                             CPPUNIT_ASSERT_EQUAL(OUString("ff0000"), aColor.AsRGBHexString());
                     }

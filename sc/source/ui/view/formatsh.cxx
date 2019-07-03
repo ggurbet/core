@@ -434,7 +434,10 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
                         aStyleName = static_cast<const SfxStringItem*>(pNameItem)->GetValue();
                     else if ( nSlotId == SID_STYLE_NEW_BY_EXAMPLE )
                     {
-                        SfxNewStyleDlg aDlg(pTabViewShell->GetFrameWeld(), *pStylePool);
+                        weld::Window* pDialogParent = rReq.GetFrameWeld();
+                        if (!pDialogParent)
+                            pDialogParent = pTabViewShell->GetFrameWeld();
+                        SfxNewStyleDlg aDlg(pDialogParent, *pStylePool);
                         if (aDlg.run() != RET_OK)
                             return;
                         aStyleName = aDlg.GetName();
@@ -848,7 +851,10 @@ void ScFormatShell::ExecuteStyle( SfxRequest& rReq )
 
                 ScAbstractDialogFactory* pFact = ScAbstractDialogFactory::Create();
 
-                pDlg.disposeAndReset(pFact->CreateScStyleDlg(pTabViewShell->GetFrameWeld(), *pStyleSheet, bPage));
+                weld::Window* pDialogParent = rReq.GetFrameWeld();
+                if (!pDialogParent)
+                    pDialogParent = pTabViewShell->GetFrameWeld();
+                pDlg.disposeAndReset(pFact->CreateScStyleDlg(pDialogParent, *pStyleSheet, bPage));
                 short nResult = pDlg->Execute();
                 pTabViewShell->SetInFormatDialog(false);
 
@@ -2053,121 +2059,121 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
                 editeng::SvxBorderLine aLine(nullptr,0,SvxBorderLineStyle::SOLID);
                 bool bCol = false;
                 bool bColDisable = false, bStyleDisable = false;
-                SvxBoxItem aBoxItem(ATTR_BORDER);
-                SvxBoxInfoItem aInfoItem(ATTR_BORDER_INNER);
+                std::shared_ptr<SvxBoxItem> aBoxItem(std::make_shared<SvxBoxItem>(ATTR_BORDER));
+                std::shared_ptr<SvxBoxInfoItem> aInfoItem(std::make_shared<SvxBoxInfoItem>(ATTR_BORDER_INNER));
 
                 pTabViewShell->GetSelectionFrame(aBoxItem, aInfoItem);
 
-                if( aBoxItem.GetTop() )
+                if( aBoxItem->GetTop() )
                 {
                     bCol = true;
-                    aCol = aBoxItem.GetTop()->GetColor() ;
+                    aCol = aBoxItem->GetTop()->GetColor() ;
                     aLine.SetColor(aCol);
-                    aLine.SetWidth( aBoxItem.GetTop()->GetWidth());
-                    aLine.SetBorderLineStyle( aBoxItem.GetTop()->GetBorderLineStyle());
+                    aLine.SetWidth( aBoxItem->GetTop()->GetWidth());
+                    aLine.SetBorderLineStyle( aBoxItem->GetTop()->GetBorderLineStyle());
                 }
 
-                if( aBoxItem.GetBottom() )
+                if( aBoxItem->GetBottom() )
                 {
                     if(!bCol)
                     {
                         bCol = true;
-                        aCol = aBoxItem.GetBottom()->GetColor() ;
+                        aCol = aBoxItem->GetBottom()->GetColor() ;
                         aLine.SetColor(aCol);
-                        aLine.SetWidth( aBoxItem.GetBottom()->GetWidth());
-                        aLine.SetBorderLineStyle( aBoxItem.GetBottom()->GetBorderLineStyle());
+                        aLine.SetWidth( aBoxItem->GetBottom()->GetWidth());
+                        aLine.SetBorderLineStyle( aBoxItem->GetBottom()->GetBorderLineStyle());
                     }
                     else
                     {
-                        if(aCol != aBoxItem.GetBottom()->GetColor() )
+                        if(aCol != aBoxItem->GetBottom()->GetColor() )
                             bColDisable = true;
-                        if( aLine != *aBoxItem.GetBottom() )
+                        if( aLine != *aBoxItem->GetBottom() )
                             bStyleDisable = true;
                     }
                 }
 
-                if( aBoxItem.GetLeft() )
+                if( aBoxItem->GetLeft() )
                 {
                     if(!bCol)
                     {
                         bCol = true;
-                        aCol = aBoxItem.GetLeft()->GetColor() ;
+                        aCol = aBoxItem->GetLeft()->GetColor() ;
                         aLine.SetColor(aCol);
-                        aLine.SetWidth( aBoxItem.GetLeft()->GetWidth());
-                        aLine.SetBorderLineStyle( aBoxItem.GetLeft()->GetBorderLineStyle());
+                        aLine.SetWidth( aBoxItem->GetLeft()->GetWidth());
+                        aLine.SetBorderLineStyle( aBoxItem->GetLeft()->GetBorderLineStyle());
                     }
                     else
                     {
-                        if(aCol != aBoxItem.GetLeft()->GetColor() )
+                        if(aCol != aBoxItem->GetLeft()->GetColor() )
                             bColDisable = true;
-                        if( aLine != *aBoxItem.GetLeft() )
+                        if( aLine != *aBoxItem->GetLeft() )
                             bStyleDisable = true;
                     }
                 }
 
-                if( aBoxItem.GetRight() )
+                if( aBoxItem->GetRight() )
                 {
                     if(!bCol)
                     {
                         bCol = true;
-                        aCol = aBoxItem.GetRight()->GetColor() ;
+                        aCol = aBoxItem->GetRight()->GetColor() ;
                         aLine.SetColor(aCol);
-                        aLine.SetWidth( aBoxItem.GetRight()->GetWidth());
-                        aLine.SetBorderLineStyle( aBoxItem.GetRight()->GetBorderLineStyle());
+                        aLine.SetWidth( aBoxItem->GetRight()->GetWidth());
+                        aLine.SetBorderLineStyle( aBoxItem->GetRight()->GetBorderLineStyle());
                     }
                     else
                     {
-                        if(aCol != aBoxItem.GetRight()->GetColor() )
+                        if(aCol != aBoxItem->GetRight()->GetColor() )
                             bColDisable = true;
-                        if( aLine != *aBoxItem.GetRight() )
+                        if( aLine != *aBoxItem->GetRight() )
                             bStyleDisable = true;
                     }
                 }
 
-                if( aInfoItem.GetVert())
+                if( aInfoItem->GetVert())
                 {
                     if(!bCol)
                     {
                         bCol = true;
-                        aCol = aInfoItem.GetVert()->GetColor() ;
+                        aCol = aInfoItem->GetVert()->GetColor() ;
                         aLine.SetColor(aCol);
-                        aLine.SetWidth( aInfoItem.GetVert()->GetWidth());
-                        aLine.SetBorderLineStyle( aInfoItem.GetVert()->GetBorderLineStyle());
+                        aLine.SetWidth( aInfoItem->GetVert()->GetWidth());
+                        aLine.SetBorderLineStyle( aInfoItem->GetVert()->GetBorderLineStyle());
                     }
                     else
                     {
-                        if(aCol != aInfoItem.GetVert()->GetColor() )
+                        if(aCol != aInfoItem->GetVert()->GetColor() )
                             bColDisable = true;
-                        if( aLine != *aInfoItem.GetVert() )
+                        if( aLine != *aInfoItem->GetVert() )
                             bStyleDisable = true;
                     }
                 }
 
-                if( aInfoItem.GetHori())
+                if( aInfoItem->GetHori())
                 {
                     if(!bCol)
                     {
                         bCol = true;
-                        aCol = aInfoItem.GetHori()->GetColor() ;
+                        aCol = aInfoItem->GetHori()->GetColor() ;
                         aLine.SetColor(aCol);
-                        aLine.SetWidth( aInfoItem.GetHori()->GetWidth());
-                        aLine.SetBorderLineStyle( aInfoItem.GetHori()->GetBorderLineStyle());
+                        aLine.SetWidth( aInfoItem->GetHori()->GetWidth());
+                        aLine.SetBorderLineStyle( aInfoItem->GetHori()->GetBorderLineStyle());
                     }
                     else
                     {
-                        if(aCol != aInfoItem.GetHori()->GetColor() )
+                        if(aCol != aInfoItem->GetHori()->GetColor() )
                             bColDisable = true;
-                        if( aLine != *aInfoItem.GetHori() )
+                        if( aLine != *aInfoItem->GetHori() )
                             bStyleDisable = true;
                     }
                 }
 
-                if( !aInfoItem.IsValid( SvxBoxInfoItemValidFlags::VERT )
-                    || !aInfoItem.IsValid( SvxBoxInfoItemValidFlags::HORI )
-                    || !aInfoItem.IsValid( SvxBoxInfoItemValidFlags::LEFT )
-                    || !aInfoItem.IsValid( SvxBoxInfoItemValidFlags::RIGHT )
-                    || !aInfoItem.IsValid( SvxBoxInfoItemValidFlags::TOP )
-                    || !aInfoItem.IsValid( SvxBoxInfoItemValidFlags::BOTTOM ) )
+                if( !aInfoItem->IsValid( SvxBoxInfoItemValidFlags::VERT )
+                    || !aInfoItem->IsValid( SvxBoxInfoItemValidFlags::HORI )
+                    || !aInfoItem->IsValid( SvxBoxInfoItemValidFlags::LEFT )
+                    || !aInfoItem->IsValid( SvxBoxInfoItemValidFlags::RIGHT )
+                    || !aInfoItem->IsValid( SvxBoxInfoItemValidFlags::TOP )
+                    || !aInfoItem->IsValid( SvxBoxInfoItemValidFlags::BOTTOM ) )
                 {
                     bColDisable = true;
                     bStyleDisable = true;
@@ -2210,8 +2216,7 @@ void ScFormatShell::GetAttrState( SfxItemSet& rSet )
             break;
             case SID_ATTR_BRUSH:
             {
-                std::unique_ptr<SfxPoolItem> pNewItem(rBrushItem.CloneSetWhich(GetPool().GetWhich(nWhich)));
-                rSet.Put( *pNewItem );
+                rSet.Put( rBrushItem.CloneSetWhich(GetPool().GetWhich(nWhich)) );
             }
             break;
             case SID_SCATTR_CELLPROTECTION:
@@ -2414,15 +2419,15 @@ void ScFormatShell::GetTextAttrState( SfxItemSet& rSet )
 void ScFormatShell::GetBorderState( SfxItemSet& rSet )
 {
     ScTabViewShell* pTabViewShell   = GetViewData()->GetViewShell();
-    SvxBoxItem      aBoxItem( ATTR_BORDER );
-    SvxBoxInfoItem  aInfoItem( ATTR_BORDER_INNER );
+    std::shared_ptr<SvxBoxItem> aBoxItem(std::make_shared<SvxBoxItem>(ATTR_BORDER));
+    std::shared_ptr<SvxBoxInfoItem> aInfoItem(std::make_shared<SvxBoxInfoItem>(ATTR_BORDER_INNER));
 
     pTabViewShell->GetSelectionFrame( aBoxItem, aInfoItem );
 
     if ( rSet.GetItemState( ATTR_BORDER ) != SfxItemState::UNKNOWN )
-        rSet.Put( aBoxItem );
+        rSet.Put( *aBoxItem );
     if ( rSet.GetItemState( ATTR_BORDER_INNER ) != SfxItemState::UNKNOWN )
-        rSet.Put( aInfoItem );
+        rSet.Put( *aInfoItem );
 }
 
 void ScFormatShell::GetAlignState( SfxItemSet& rSet )

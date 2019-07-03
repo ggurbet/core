@@ -18,6 +18,8 @@
  */
 
 
+#include <com/sun/star/linguistic2/XThesaurus.hpp>
+
 #include <comphelper/string.hxx>
 #include <i18nlangtag/mslangid.hxx>
 #include <sfx2/bindings.hxx>
@@ -47,6 +49,7 @@
 #include <editeng/frmdiritem.hxx>
 #include <svx/svdoutl.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
 #include <svl/cjkoptions.hxx>
 #include <svl/ctloptions.hxx>
@@ -57,6 +60,7 @@
 #include <svx/clipfmtitem.hxx>
 #include <svx/hlnkitem.hxx>
 #include <svx/svxdlg.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/htmlmode.hxx>
 #include <svl/slstitm.hxx>
 #include <editeng/langitem.hxx>
@@ -566,8 +570,7 @@ void SwDrawTextShell::Execute( SfxRequest &rReq )
     }
     if(nEEWhich && pNewAttrs)
     {
-        std::unique_ptr<SfxPoolItem> pNewItem(pNewAttrs->Get(nWhich).CloneSetWhich(nEEWhich));
-        aNewAttr.Put(*pNewItem);
+        aNewAttr.Put(pNewAttrs->Get(nWhich).CloneSetWhich(nEEWhich));
     }
 
     SetAttrToMarked(aNewAttr);
@@ -909,8 +912,7 @@ void SwDrawTextShell::GetDrawTextCtrlState(SfxItemSet& rSet)
                 const SfxPoolItem* pI = aSetItem.GetItemOfScript( nScriptType );
                 if( pI )
                 {
-                    std::unique_ptr<SfxPoolItem> pNewItem(pI->CloneSetWhich(nWhich));
-                    rSet.Put( *pNewItem );
+                    rSet.Put(pI->CloneSetWhich(nWhich));
                 }
                 else
                     rSet.InvalidateItem( nWhich );
@@ -962,8 +964,7 @@ void SwDrawTextShell::GetDrawTextCtrlState(SfxItemSet& rSet)
         }
         if(nEEWhich)
         {
-            std::unique_ptr<SfxPoolItem> pNewItem(aEditAttr.Get(nEEWhich).CloneSetWhich(nWhich));
-            rSet.Put(*pNewItem);
+            rSet.Put(aEditAttr.Get(nEEWhich).CloneSetWhich(nWhich));
         }
 
         nWhich = aIter.NextWhich();

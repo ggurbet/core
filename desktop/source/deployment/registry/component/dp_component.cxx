@@ -35,6 +35,7 @@
 #include <comphelper/sequence.hxx>
 #include <xmlscript/xml_helper.hxx>
 #include <svl/inettype.hxx>
+#include <tools/diagnose_ex.h>
 #include <com/sun/star/deployment/DeploymentException.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
@@ -1110,7 +1111,7 @@ void extractComponentData(
     css::uno::Sequence< css::uno::Reference< css::registry::XRegistryKey > >
         keys(registry->openKeys());
     css::uno::Reference< css::lang::XMultiComponentFactory > smgr(
-        context->getServiceManager(), css::uno::UNO_QUERY_THROW);
+        context->getServiceManager(), css::uno::UNO_SET_THROW);
     for (sal_Int32 i = 0; i < keys.getLength(); ++i) {
         OUString name(keys[i]->getKeyName().copy(prefix));
         data->implementationNames.push_back(name);
@@ -1373,13 +1374,12 @@ void BackendImpl::ComponentPackageImpl::processPackage_(
         if (!startup) {
             try {
                 componentLiveInsertion(data, factories);
-            } catch (css::uno::Exception & e) {
-                SAL_INFO(
-                    "desktop.deployment", "caught " << e);
+            } catch (css::uno::Exception &) {
+                TOOLS_INFO_EXCEPTION("desktop.deployment", "caught");
                 try {
                     impreg->revokeImplementation(url, rdb);
-                } catch (css::uno::RuntimeException & e2) {
-                    SAL_WARN("desktop.deployment", "ignored " << e2);
+                } catch (css::uno::RuntimeException &) {
+                    TOOLS_WARN_EXCEPTION("desktop.deployment", "ignored");
                 }
                 throw;
             }

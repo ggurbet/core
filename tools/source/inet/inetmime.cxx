@@ -18,12 +18,10 @@
  */
 
 #include <algorithm>
-#include <cstddef>
 #include <limits>
 #include <forward_list>
 #include <memory>
 
-#include <osl/diagnose.h>
 #include <sal/log.hxx>
 #include <rtl/ustring.hxx>
 #include <rtl/strbuf.hxx>
@@ -588,9 +586,7 @@ sal_Unicode const * scanParameters(sal_Unicode const * pBegin,
         }
         if (p == pAttributeBegin)
             break;
-        OString aAttribute = OString(
-            pAttributeBegin, p - pAttributeBegin,
-            RTL_TEXTENCODING_ASCII_US);
+        OString aAttribute(pAttributeBegin, p - pAttributeBegin, RTL_TEXTENCODING_ASCII_US);
         if (bDowncaseAttribute)
             aAttribute = aAttribute.toAsciiLowerCase();
 

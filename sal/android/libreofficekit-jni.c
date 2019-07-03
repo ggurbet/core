@@ -37,6 +37,7 @@ extern const char* data_dir;
 extern const char* cache_dir;
 extern void* apk_file;
 extern int apk_file_size;
+extern bool android_lok_from_jni; ///< for the distinction if the LOK is used for the 'old' (JNI-based) or the 'new' (loolwsd-based) app
 AAssetManager* native_asset_manager;
 
 extern void Java_org_libreoffice_android_Bootstrap_putenv(JNIEnv* env, jobject clazz, jstring string);
@@ -74,7 +75,8 @@ jboolean libreofficekit_initialize(JNIEnv* env,
     const char *cacheDirPath;
     const char *apkFilePath;
 
-    const char *fontsConf = "/etc/fonts/fonts.conf";
+    size_t data_dir_len;
+    const char fontsConf[] = "/etc/fonts/fonts.conf";
     char *fontsConfPath;
 
     setenv("OOO_DISABLE_RECOVERY", "1", 1);
@@ -92,9 +94,10 @@ jboolean libreofficekit_initialize(JNIEnv* env,
     // TMPDIR is used by osl_getTempDirURL()
     setenv("TMPDIR", cache_dir, 1);
 
-    fontsConfPath = malloc(strlen(data_dir) + sizeof(fontsConf));
-    strcpy(fontsConfPath, data_dir);
-    strcat(fontsConfPath, fontsConf);
+    data_dir_len = strlen(data_dir);
+    fontsConfPath = malloc(data_dir_len + sizeof(fontsConf));
+    strncpy(fontsConfPath, data_dir, data_dir_len);
+    strncpy(fontsConfPath + data_dir_len, fontsConf, sizeof(fontsConf));
 
     fd = open(fontsConfPath, O_RDONLY);
     if (fd != -1) {
@@ -157,6 +160,11 @@ jboolean Java_org_libreoffice_kit_LibreOfficeKit_initializeNative
     size_t data_dir_len;
 
     (void) clazz;
+
+    // the 'old' app needs to avoid setting the virtual device to transparent
+    // in paintTile(), so indicate we are using the 'old' app
+    android_lok_from_jni = true;
+
     libreofficekit_initialize(env, dataDir, cacheDir, apkFile, assetManager);
 
     // LibreOfficeKit expects a path to the program/ directory

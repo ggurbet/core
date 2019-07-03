@@ -50,13 +50,12 @@ $(eval $(call gb_Library_use_system_win32_libs,sal,\
 	ole32 \
 	shell32 \
 	user32 \
+	userenv \
+	wer \
 	ws2_32 \
 ))
 
 $(eval $(call gb_Library_add_libs,sal,\
-	$(if $(filter-out ANDROID HAIKU WNT,$(OS)), \
-		-lpthread \
-	) \
 	$(if $(filter LINUX,$(OS)), \
 		-ldl \
 		-lrt \

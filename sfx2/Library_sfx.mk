@@ -94,6 +94,7 @@ $(eval $(call gb_Library_add_exception_objects,sfx,\
     sfx2/source/appl/childwin \
     sfx2/source/appl/childwinimpl \
     sfx2/source/appl/fileobj \
+    sfx2/source/appl/flatpak \
     sfx2/source/appl/fwkhelper \
     sfx2/source/appl/helpdispatch \
     sfx2/source/appl/helpinterceptor \
@@ -197,6 +198,7 @@ $(eval $(call gb_Library_add_exception_objects,sfx,\
     sfx2/source/doc/Metadatable \
     sfx2/source/doc/QuerySaveDocument \
     sfx2/source/doc/SfxDocumentMetaData \
+    sfx2/source/doc/autoredactdialog \
     sfx2/source/doc/docfac \
     sfx2/source/doc/docfile \
     sfx2/source/doc/docfilt \
@@ -290,7 +292,6 @@ $(eval $(call gb_Library_add_exception_objects,sfx,\
     sfx2/source/statbar/stbitem \
     sfx2/source/styles/StyleManager \
     sfx2/source/toolbox/tbxitem \
-    sfx2/source/uitest/sfx_uiobject \
     sfx2/source/view/classificationcontroller \
     sfx2/source/view/classificationhelper \
     sfx2/source/view/frame \
@@ -324,6 +325,9 @@ $(eval $(call gb_Library_add_defs,sfx,\
 endif
 
 ifeq ($(OS),MACOSX)
+$(eval $(call gb_Library_add_cxxflags,sfx,\
+    $(gb_OBJCXXFLAGS) \
+))
 $(eval $(call gb_Library_add_objcxxobjects,sfx,\
     sfx2/source/appl/shutdowniconaqua \
 ))

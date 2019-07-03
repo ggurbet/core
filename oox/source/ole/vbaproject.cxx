@@ -193,7 +193,7 @@ void VbaProject::importVbaData(const uno::Reference<io::XInputStream>& xInputStr
         uno::Reference<io::XOutputStream> xDocStream(xDocStorage->openStreamElement("_MS_VBA_Macros_XML", nOpenMode), uno::UNO_QUERY);
         comphelper::OStorageHelper::CopyInputToOutput(xInputStream, xDocStream);
     }
-    uno::Reference<embed::XTransactedObject>(xDocStorage, uno::UNO_QUERY)->commit();
+    uno::Reference<embed::XTransactedObject>(xDocStorage, uno::UNO_QUERY_THROW)->commit();
 }
 
 void VbaProject::registerMacroAttacher( const VbaMacroAttacherRef& rxAttacher )
@@ -533,7 +533,7 @@ void VbaProject::copyStorage( StorageBase& rVbaPrjStrg )
     if( mxContext.is() ) try
     {
         Reference< XStorageBasedDocument > xStorageBasedDoc( mxDocModel, UNO_QUERY_THROW );
-        Reference< XStorage > xDocStorage( xStorageBasedDoc->getDocumentStorage(), UNO_QUERY_THROW );
+        Reference< XStorage > xDocStorage( xStorageBasedDoc->getDocumentStorage(), UNO_SET_THROW );
         {
             const sal_Int32 nOpenMode = ElementModes::SEEKABLE | ElementModes::WRITE | ElementModes::TRUNCATE;
             Reference< XStream > xDocStream( xDocStorage->openStreamElement( "_MS_VBA_Macros", nOpenMode ), UNO_SET_THROW );

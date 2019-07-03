@@ -21,6 +21,8 @@
 #include <string_view>
 #include <sal/config.h>
 
+#include <com/sun/star/linguistic2/XSpellChecker1.hpp>
+#include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/io/XStream.hpp>
 #include <com/sun/star/lang/Locale.hpp>
@@ -73,6 +75,7 @@
 #include <com/sun/star/ucb/XCommandEnvironment.hpp>
 #include <com/sun/star/ucb/TransferInfo.hpp>
 #include <com/sun/star/ucb/NameClash.hpp>
+#include <tools/diagnose_ex.h>
 #include <xmloff/xmltoken.hxx>
 #include <vcl/help.hxx>
 #include <set>
@@ -435,8 +438,7 @@ void SvxAutoCorrect::FnCapitalStartWord( SvxAutoCorrDoc& rDoc, const OUString& r
                     }
                 }
                 sal_Unicode cSave = rTxt[ nSttPos ];
-                OUString sChar( cSave );
-                sChar = rCC.lowercase( sChar );
+                OUString sChar = rCC.lowercase( OUString(cSave) );
                 if( sChar[0] != cSave && rDoc.ReplaceRange( nSttPos, 1, sChar ))
                 {
                     if( ACFlags::SaveWordWrdSttLst & nFlags )
@@ -1091,8 +1093,7 @@ void SvxAutoCorrect::FnCapitalStartSentence( SvxAutoCorrDoc& rDoc,
     // Ok, then replace
     sal_Unicode cSave = *pWordStt;
     nSttPos = pWordStt - rTxt.getStr();
-    OUString sChar( cSave );
-    sChar = rCC.titlecase(sChar); //see fdo#56740
+    OUString sChar = rCC.titlecase(OUString(cSave)); //see fdo#56740
     bool bRet = sChar[0] != cSave && rDoc.ReplaceRange( nSttPos, 1, sChar );
 
     // Perhaps someone wants to have the word
@@ -1180,7 +1181,7 @@ sal_Unicode SvxAutoCorrect::GetQuote( sal_Unicode cInsChar, bool bSttQuote,
 
 void SvxAutoCorrect::InsertQuote( SvxAutoCorrDoc& rDoc, sal_Int32 nInsPos,
                                     sal_Unicode cInsChar, bool bSttQuote,
-                                    bool bIns )
+                                    bool bIns, bool b_iApostrophe )
 {
     const LanguageType eLang = GetDocLanguage( rDoc, nInsPos );
     sal_Unicode cRet = GetQuote( cInsChar, bSttQuote, eLang );
@@ -1212,6 +1213,22 @@ void SvxAutoCorrect::InsertQuote( SvxAutoCorrDoc& rDoc, sal_Int32 nInsPos,
     }
 
     rDoc.Replace( nInsPos, sChg );
+
+    // i' -> I' in English (last step for the undo)
+    if( b_iApostrophe && eLang.anyOf(
+        LANGUAGE_ENGLISH,
+        LANGUAGE_ENGLISH_US,
+        LANGUAGE_ENGLISH_UK,
+        LANGUAGE_ENGLISH_AUS,
+        LANGUAGE_ENGLISH_CAN,
+        LANGUAGE_ENGLISH_NZ,
+        LANGUAGE_ENGLISH_EIRE,
+        LANGUAGE_ENGLISH_SAFRICA,
+        LANGUAGE_ENGLISH_JAMAICA,
+        LANGUAGE_ENGLISH_CARRIBEAN))
+    {
+        rDoc.Replace( nInsPos-1, "I" );
+    }
 }
 
 OUString SvxAutoCorrect::GetQuote( SvxAutoCorrDoc const & rDoc, sal_Int32 nInsPos,
@@ -1220,7 +1237,7 @@ OUString SvxAutoCorrect::GetQuote( SvxAutoCorrDoc const & rDoc, sal_Int32 nInsPo
     const LanguageType eLang = GetDocLanguage( rDoc, nInsPos );
     sal_Unicode cRet = GetQuote( cInsChar, bSttQuote, eLang );
 
-    OUString sRet = OUString(cRet);
+    OUString sRet(cRet);
 
     if( '\"' == cInsChar )
     {
@@ -1267,6 +1284,7 @@ void SvxAutoCorrect::DoAutoCorrect( SvxAutoCorrDoc& rDoc, const OUString& rTxt,
             {
                 sal_Unicode cPrev;
                 bool bSttQuote = !nInsPos;
+                bool b_iApostrophe = false;
                 if (!bSttQuote)
                 {
                     cPrev = rTxt[ nInsPos-1 ];
@@ -1274,8 +1292,10 @@ void SvxAutoCorrect::DoAutoCorrect( SvxAutoCorrDoc& rDoc, const OUString& rTxt,
                         lcl_IsInAsciiArr( "([{", cPrev ) ||
                         ( cEmDash == cPrev ) ||
                         ( cEnDash == cPrev );
+                    b_iApostrophe = bSingle && ( cPrev == 'i' ) &&
+                        (( nInsPos == 1 ) || IsWordDelim( rTxt[ nInsPos-2 ] ));
                 }
-                InsertQuote( rDoc, nInsPos, cChar, bSttQuote, bInsert );
+                InsertQuote( rDoc, nInsPos, cChar, bSttQuote, bInsert, b_iApostrophe );
                 break;
             }
 
@@ -1425,8 +1445,8 @@ void SvxAutoCorrect::DoAutoCorrect( SvxAutoCorrDoc& rDoc, const OUString& rTxt,
                  FnCorrectCapsLock( rDoc, rTxt, nCapLttrPos, nInsPos, eLang ) )
             {
                 // Correct accidental use of cAPS LOCK key (do this only when
-                // the caps or shift lock key is pressed).  Turn off the caps
-                // lock afterwords.
+                // the caps or shift lock key is pressed). Turn off the caps
+                // lock afterwards.
                 pFrameWin->SimulateKeyPress( KEY_CAPSLOCK );
             }
 
@@ -2014,7 +2034,7 @@ void SvxAutoCorrectLanguageLists::LoadXMLExceptList_Imp(
 
                 // connect parser and filter
                 uno::Reference< xml::sax::XFastParser > xParser = xml::sax::FastParser::create( xContext );
-                uno::Reference< xml::sax::XFastTokenHandler > xTokenHandler = static_cast< xml::sax::XFastTokenHandler* >( new SvXMLAutoCorrectTokenHandler );
+                uno::Reference<xml::sax::XFastTokenHandler> xTokenHandler = new SvXMLAutoCorrectTokenHandler;
                 xParser->setFastDocumentHandler( xFilter );
                 xParser->registerNamespace( "http://openoffice.org/2001/block-list", SvXMLAutoCorrectToken::NAMESPACE );
                 xParser->setTokenHandler( xTokenHandler );
@@ -2124,7 +2144,7 @@ SvxAutocorrWordList* SvxAutoCorrectLanguageLists::LoadAutocorrWordList()
         uno::Reference< xml::sax::XFastParser > xParser = xml::sax::FastParser::create(xContext);
         SAL_INFO("editeng", "AutoCorrect Import" );
         uno::Reference< xml::sax::XFastDocumentHandler > xFilter = new SvXMLAutoCorrectImport( xContext, pAutocorr_List.get(), rAutoCorrect, xStg );
-        uno::Reference< xml::sax::XFastTokenHandler > xTokenHandler = static_cast< xml::sax::XFastTokenHandler* >( new SvXMLAutoCorrectTokenHandler );
+        uno::Reference<xml::sax::XFastTokenHandler> xTokenHandler = new SvXMLAutoCorrectTokenHandler;
 
         // connect parser and filter
         xParser->setFastDocumentHandler( xFilter );
@@ -2256,9 +2276,9 @@ SvStringsISortDtor* SvxAutoCorrectLanguageLists::LoadWrdSttExceptList()
         if( xStg.is() && xStg->IsContained( sTemp ) )
             LoadXMLExceptList_Imp( pWrdStt_ExcptLst, pXMLImplWrdStt_ExcptLstStr, xStg );
     }
-    catch (const css::ucb::ContentCreationException &e)
+    catch (const css::ucb::ContentCreationException &)
     {
-        SAL_WARN("editeng", "SvxAutoCorrectLanguageLists::LoadWrdSttExceptList: Caught " << e);
+        TOOLS_WARN_EXCEPTION("editeng", "SvxAutoCorrectLanguageLists::LoadWrdSttExceptList");
     }
     return pWrdStt_ExcptLst.get();
 }
@@ -2346,7 +2366,7 @@ void SvxAutoCorrectLanguageLists::MakeUserStorage_Impl()
             ::ucbhelper::Content aNewContent( sMain, uno::Reference< XCommandEnvironment >(), comphelper::getProcessComponentContext() );
             TransferInfo aInfo;
             aInfo.NameClash = NameClash::OVERWRITE;
-            aInfo.NewTitle  = aDest.GetName();
+            aInfo.NewTitle = aDest.GetLastName();
             aInfo.SourceURL = aSource.GetMainURL( INetURLObject::DecodeMechanism::ToIUri );
             aInfo.MoveData  = false;
             aNewContent.executeCommand( "transfer", Any(aInfo));

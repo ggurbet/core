@@ -375,12 +375,6 @@ namespace basegfx
                                 nY += nLastY;
                             }
 
-                            // calculate the cubic bezier coefficients from the quadratic ones
-                            const double nX1Prime((nX1 * 2.0 + nLastX) / 3.0);
-                            const double nY1Prime((nY1 * 2.0 + nLastY) / 3.0);
-                            const double nX2Prime((nX1 * 2.0 + nX) / 3.0);
-                            const double nY2Prime((nY1 * 2.0 + nY) / 3.0);
-
                             // ensure existence of start point
                             if(!aCurrPoly.count())
                             {
@@ -388,7 +382,7 @@ namespace basegfx
                             }
 
                             // append curved edge
-                            aCurrPoly.appendBezierSegment(B2DPoint(nX1Prime, nY1Prime), B2DPoint(nX2Prime, nY2Prime), B2DPoint(nX, nY));
+                            aCurrPoly.appendQuadraticBezierSegment(B2DPoint(nX1, nY1), B2DPoint(nX, nY));
 
                             // set last position
                             nLastX = nX;
@@ -785,7 +779,7 @@ namespace basegfx
                             // says for interpretation:
 
                             // "(If there is no previous command or if the previous command was
-                            // not an C, c, S or s, assume the first control point is coincident
+                            // not a C, c, S or s, assume the first control point is coincident
                             // with the current point.)"
 
                             // That's what is done from our import, so avoid exporting it as first statement

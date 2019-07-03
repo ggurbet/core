@@ -23,6 +23,7 @@
 #include <svx/fmmodel.hxx>
 
 #include <com/sun/star/awt/XControl.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/TerminationVetoException.hpp>
 #include <com/sun/star/frame/XTerminateListener.hpp>
@@ -36,6 +37,7 @@
 #include <tools/debug.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/compbase.hxx>
+#include <cppuhelper/supportsservice.hxx>
 #include <comphelper/processfactory.hxx>
 #include <vcl/svapp.hxx>
 #include <osl/mutex.hxx>
@@ -963,7 +965,7 @@ namespace svxform
             Sequence< Any > aOutArgs;
             EventObject aEvent;
             Any aCaller;
-            if ( ( _rArguments.getLength() > 0 ) && ( _rArguments[ 0 ] >>= aEvent ) )
+            if ( _rArguments.hasElements() && ( _rArguments[ 0 ] >>= aEvent ) )
             {
                 try
                 {

@@ -28,7 +28,7 @@
 /**
     Field type for dropdown boxes.
 */
-class SwDropDownFieldType : public SwFieldType
+class SAL_DLLPUBLIC_RTTI SwDropDownFieldType : public SwFieldType
 {
 public:
     /**
@@ -46,7 +46,7 @@ public:
 
        @return a copy of this type
     */
-    virtual SwFieldType * Copy () const override;
+    virtual std::unique_ptr<SwFieldType> Copy () const override;
 };
 
 /**

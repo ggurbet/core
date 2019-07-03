@@ -26,6 +26,7 @@
 #include <ucbhelper/content.hxx>
 #include <vcl/button.hxx>
 #include <vcl/fixed.hxx>
+#include <vcl/layout.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
 #include <vcl/weld.hxx>
@@ -97,7 +98,7 @@ private:
     DECL_LINK(        StartFolderPickerHdl, void *, void );
     DECL_LINK(        DialogClosedHdl, css::ui::dialogs::DialogClosedEvent*, void );
 
-    DECL_LINK(        ExpertConfigHdl_Impl, Button*, void);
+    DECL_STATIC_LINK(SvxJavaOptionsPage, ExpertConfigHdl_Impl, Button*, void);
 
     void                    ClearJavaInfo();
     void                    ClearJavaList();

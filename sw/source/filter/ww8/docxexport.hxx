@@ -23,13 +23,10 @@
 #include "wrtww8.hxx"
 
 #include <sax/fshelper.hxx>
-#include <sax/fastattribs.hxx>
 #include <rtl/ustring.hxx>
 
 #include <cstdio>
 #include <memory>
-#include <vector>
-#include <boost/optional.hpp>
 #include <ndole.hxx>
 
 class DocxAttributeOutput;
@@ -60,6 +57,7 @@ struct DocxSettingsData
     bool hasData() const; /// returns true if there are any non-default settings (i.e. something to write)
     bool evenAndOddHeaders;
     int defaultTabStop;
+    bool revisionView;      // don't show tracked changes
     bool trackRevisions;    // Should 'Track Revisions' be set
 };
 
@@ -149,7 +147,7 @@ public:
 
     virtual void AppendBookmark( const OUString& rName ) override;
 
-    virtual void AppendAnnotationMarks( const SwTextNode& rNode, sal_Int32 nCurrentPos, sal_Int32 nLen ) override;
+    virtual void AppendAnnotationMarks( const SwWW8AttrIter& rAttrs, sal_Int32 nCurrentPos, sal_Int32 nLen ) override;
 
     virtual void ExportGrfBullet(const SwTextNode&) override;
 

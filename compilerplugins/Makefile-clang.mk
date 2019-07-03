@@ -8,8 +8,10 @@
 
 # Make sure variables in this Makefile do not conflict with other variables (e.g. from gbuild).
 
-# Compile flags ('make CLANGCXXFLAGS=-g' if you need to debug the plugin); you
-# may occasionally want to override these:
+# Set to 1 if you need to debug the plugin).
+CLANGDEBUG=
+
+# Compile flags, you may occasionally want to override these:
 ifeq ($(OS),WNT)
 # See LLVM's cmake/modules/AddLLVM.cmake and LLVM build's
 # tools/llvm-config/BuildVariables.inc:
@@ -17,14 +19,28 @@ ifeq ($(OS),WNT)
 #   "LLVM_ATTRIBUTE_ALWAYS_INLINE inline" in various LLVM include files.
 # * Ignore "warning C4577: 'noexcept' used with no exception handling mode
 #   specified; termination on exception is not guaranteed. Specify /EHsc".
-CLANGCXXFLAGS=/nologo /D_HAS_EXCEPTIONS=0 /wd4141 /wd4577 /O2 /Oi /EHs-c- /GR-
+CLANGCXXFLAGS=/nologo /D_HAS_EXCEPTIONS=0 /wd4141 /wd4577 /EHs-c- /GR-
+ifeq ($(CLANGDEBUG),)
+CLANGCXXFLAGS+=/O2 /Oi
 else
-CLANGCXXFLAGS=-O2 -Wall -Wextra -Wundef -g
+CLANGCXXFLAGS+=/DEBUG
+endif
+else # WNT
+CLANGCXXFLAGS=-Wall -Wextra -Wundef
+ifeq ($(CLANGDEBUG),)
+CLANGCXXFLAGS+=-O2
+else
+CLANGCXXFLAGS+=-g
+endif
 endif
 
 # Whether to make plugins use one shared ASTRecursiveVisitor (plugins run faster).
 # By default enabled, disable if you work on an affected plugin (re-generating takes time).
 LO_CLANG_SHARED_PLUGINS=1
+#TODO:
+ifeq ($(OS),WNT)
+LO_CLANG_SHARED_PLUGINS=
+endif
 
 # The uninteresting rest.
 
@@ -67,6 +83,12 @@ CLANGOUTDIR=$(BUILDDIR)/compilerplugins/obj
 
 ifdef LO_CLANG_SHARED_PLUGINS
 CLANGCXXFLAGS+=-DLO_CLANG_SHARED_PLUGINS
+endif
+
+ifneq ($(CLANGDEBUG),)
+ifeq ($(HAVE_GCC_SPLIT_DWARF),TRUE)
+CLANGCXXFLAGS+=-gsplit-dwarf
+endif
 endif
 
 QUIET=$(if $(verbose),,@)
@@ -163,8 +185,10 @@ else
 			-Wl$(CLANG_COMMA)-undefined -Wl$(CLANG_COMMA)suppress)
 endif
 
-# Clang most probably doesn't maintain binary compatibility, so rebuild when clang changes.
-$(CLANGOUTDIR)/clang-timestamp: $(CLANGDIR)/bin/clang$(CLANG_EXE_EXT)
+# Clang most probably doesn't maintain binary compatibility, so rebuild when clang changes
+# (either the binary can change if it's a local build, or config_clang.h will change if configure detects
+# a new version of a newly installed system clang).
+$(CLANGOUTDIR)/clang-timestamp: $(CLANGDIR)/bin/clang$(CLANG_EXE_EXT) $(BUILDDIR)/config_host/config_clang.h
 	$(QUIET)touch $@
 
 
@@ -175,20 +199,33 @@ ifdef LO_CLANG_SHARED_PLUGINS
 $(CLANGINDIR)/sharedvisitor/sharedvisitor.cxx: $(shell grep -l "LO_CLANG_SHARED_PLUGINS" $(CLANGINDIR)/*.cxx)
 $(CLANGINDIR)/sharedvisitor/sharedvisitor.cxx: $(CLANGOUTDIR)/sharedvisitor/generator$(CLANG_EXE_EXT)
 	$(call gb_Output_announce,$(subst $(SRCDIR)/,,$@),$(true),GEN,1)
-	$(CLANGOUTDIR)/sharedvisitor/generator$(CLANG_EXE_EXT) $(shell grep -l "LO_CLANG_SHARED_PLUGINS" $(CLANGINDIR)/*.cxx) \
+	$(QUIET)$(CLANGOUTDIR)/sharedvisitor/generator$(CLANG_EXE_EXT) \
+        $(COMPILER_PLUGINS_TOOLING_ARGS:%=-arg=%) \
+        $(shell grep -l "LO_CLANG_SHARED_PLUGINS" $(CLANGINDIR)/*.cxx) \
         > $(CLANGINDIR)/sharedvisitor/sharedvisitor.cxx
 
 CLANGTOOLLIBS = -lclangTooling -lclangDriver -lclangFrontend -lclangParse -lclangSema -lclangEdit -lclangAnalysis \
         -lclangAST -lclangLex -lclangSerialization -lclangBasic $(shell $(LLVMCONFIG) --ldflags --libs --system-libs)
 # Path to the clang system headers (no idea if there's a better way to get it).
 CLANGTOOLDEFS = -DCLANGSYSINCLUDE=$(shell $(LLVMCONFIG) --libdir)/clang/$(shell $(LLVMCONFIG) --version | sed 's/svn//')/include
+ifneq ($(OS),WNT)
+ifneq ($(CLANGDIR),/usr)
+# Help the generator find Clang shared libs, if Clang is built so and installed in a non-standard prefix.
+CLANGTOOLLIBS += -Wl,--rpath,$(shell $(LLVMCONFIG) --libdir)
+endif
+endif
 
 $(CLANGOUTDIR)/sharedvisitor/generator$(CLANG_EXE_EXT): $(CLANGINDIR)/sharedvisitor/generator.cxx \
         | $(CLANGOUTDIR)/sharedvisitor
 	$(call gb_Output_announce,$(subst $(BUILDDIR)/,,$@),$(true),GEN,1)
 	$(QUIET)$(COMPILER_PLUGINS_CXX) $(CLANGCXXFLAGS) $(CLANGWERROR) $(CLANGDEFS) $(CLANGTOOLDEFS) $(CLANGINCLUDES) \
         -DCLANGDIR=$(CLANGDIR) -DBUILDDIR=$(BUILDDIR) -I$(BUILDDIR)/config_host \
-        $< -o $@ -MMD -MT $@ -MP -MF $(CLANGOUTDIR)/sharedvisitor/generator.d $(CLANGTOOLLIBS)
+        -c $< -o $(CLANGOUTDIR)/sharedvisitor/generator.o -MMD -MT $@ -MP \
+        -MF $(CLANGOUTDIR)/sharedvisitor/generator.d
+	$(QUIET)$(COMPILER_PLUGINS_CXX) $(CLANGCXXFLAGS) $(CLANGOUTDIR)/sharedvisitor/generator.o \
+        -o $@ $(CLANGTOOLLIBS)
+
+$(CLANGOUTDIR)/sharedvisitor/generator$(CLANG_EXE_EXT): $(SRCDIR)/compilerplugins/Makefile-clang.mk $(CLANGOUTDIR)/clang-timestamp
 
 $(CLANGOUTDIR)/sharedvisitor:
 	mkdir -p $(CLANGOUTDIR)/sharedvisitor

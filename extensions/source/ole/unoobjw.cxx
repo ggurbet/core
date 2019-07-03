@@ -56,9 +56,13 @@
 #include <osl/diagnose.h>
 #include <salhelper/simplereferenceobject.hxx>
 #include <rtl/ustring.hxx>
+#include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
 #include <com/sun/star/beans/MethodConcept.hpp>
 #include <com/sun/star/beans/PropertyConcept.hpp>
+#include <com/sun/star/frame/Desktop.hpp>
+#include <com/sun/star/frame/TerminationVetoException.hpp>
+#include <com/sun/star/frame/XTerminateListener.hpp>
 #include <com/sun/star/lang/NoSuchMethodException.hpp>
 #include <com/sun/star/script/CannotConvertException.hpp>
 #include <com/sun/star/script/FailReason.hpp>
@@ -110,6 +114,58 @@ static bool writeBackOutParameter(VARIANTARG* pDest, VARIANT* pSource);
 static bool writeBackOutParameter2( VARIANTARG* pDest, VARIANT* pSource);
 static HRESULT mapCannotConvertException(const CannotConvertException &e, unsigned int * puArgErr);
 
+class TerminationVetoer : public WeakImplHelper<css::frame::XTerminateListener>
+{
+public:
+    int mnCount;
+
+private:
+    TerminationVetoer()
+        : mnCount(0)
+    {
+        try
+        {
+            Reference< css::frame::XDesktop > xDesktop =
+                css::frame::Desktop::create( comphelper::getProcessComponentContext() );
+            xDesktop->addTerminateListener( this );
+        }
+        catch ( const Exception& )
+        {
+            DBG_UNHANDLED_EXCEPTION("extensions.ole");
+        }
+    }
+
+public:
+    static Reference< TerminationVetoer > get()
+    {
+        static TerminationVetoer* pInstance = new TerminationVetoer;
+        static Reference< TerminationVetoer > aInstance( pInstance );
+
+        return aInstance;
+    }
+
+    // XTerminateListener
+    void SAL_CALL queryTermination( const EventObject& ) override
+    {
+        // Always veto termination while an OLE object is active
+        if (mnCount > 0)
+        {
+            throw css::frame::TerminationVetoException();
+        }
+    }
+
+    void SAL_CALL notifyTermination( const EventObject& ) override
+    {
+        // ???
+    }
+
+    // XEventListener
+    void SAL_CALL disposing( const css::lang::EventObject& ) override
+    {
+        // ???
+    }
+};
+
 /* Does not throw any exceptions.
    Param pInfo can be NULL.
  */
@@ -128,6 +184,7 @@ InterfaceOleWrapper::InterfaceOleWrapper( Reference<XMultiServiceFactory> const 
         UnoConversionUtilities<InterfaceOleWrapper>( xFactory, unoWrapperClass, comWrapperClass),
         m_defaultValueType( 0)
 {
+    TerminationVetoer::get()->mnCount++;
 }
 
 InterfaceOleWrapper::~InterfaceOleWrapper()
@@ -137,9 +194,11 @@ InterfaceOleWrapper::~InterfaceOleWrapper()
     auto it = UnoObjToWrapperMap.find( reinterpret_cast<sal_uIntPtr>(m_xOrigin.get()));
     if(it != UnoObjToWrapperMap.end())
         UnoObjToWrapperMap.erase(it);
+
+    TerminationVetoer::get()->mnCount--;
 }
 
-STDMETHODIMP InterfaceOleWrapper::QueryInterface(REFIID riid, LPVOID FAR * ppv)
+STDMETHODIMP InterfaceOleWrapper::QueryInterface(REFIID riid, void ** ppv)
 {
     comphelper::Automation::AutomationInvokedZone aAutomationActive;
 
@@ -238,7 +297,7 @@ STDMETHODIMP  InterfaceOleWrapper::getOriginalUnoStruct( Any * pStruct)
     return ret;
 }
 
-STDMETHODIMP InterfaceOleWrapper::GetTypeInfoCount( unsigned int *pctinfo )
+STDMETHODIMP InterfaceOleWrapper::GetTypeInfoCount( UINT *pctinfo )
 {
     SAL_INFO("extensions.olebridge", this << "@InterfaceOleWrapper::GetTypeInfoCount");
 
@@ -892,7 +951,7 @@ HRESULT STDMETHODCALLTYPE CXTypeInfo::GetDocumentation(MEMBERID memid,
         }
         else
         {
-            *pBstrName = SysAllocString(o3tl::toW(OUString(OUString("UnknownNameOfMember#") + OUString::number(memid)).getStr()));
+            *pBstrName = SysAllocString(o3tl::toW(OUString("UnknownNameOfMember#" + OUString::number(memid)).getStr()));
         }
     }
     if (pBstrDocString)
@@ -1027,7 +1086,7 @@ void STDMETHODCALLTYPE CXTypeInfo::ReleaseVarDesc(VARDESC *)
     SAL_WARN("extensions.olebridge", this << "@CXTypeInfo::ReleaseVarDesc: E_NOTIMPL");
 }
 
-STDMETHODIMP InterfaceOleWrapper::GetTypeInfo(unsigned int iTInfo, LCID, ITypeInfo ** ppTInfo)
+STDMETHODIMP InterfaceOleWrapper::GetTypeInfo(UINT iTInfo, LCID, ITypeInfo ** ppTInfo)
 {
     comphelper::Automation::AutomationInvokedZone aAutomationActive;
 
@@ -1070,8 +1129,8 @@ STDMETHODIMP InterfaceOleWrapper::GetTypeInfo(unsigned int iTInfo, LCID, ITypeIn
 }
 
 STDMETHODIMP InterfaceOleWrapper::GetIDsOfNames(REFIID /*riid*/,
-                                                OLECHAR ** rgszNames,
-                                                unsigned int cNames,
+                                                LPOLESTR * rgszNames,
+                                                UINT cNames,
                                                 LCID /*lcid*/,
                                                 DISPID * rgdispid )
 {
@@ -1263,9 +1322,9 @@ STDMETHODIMP InterfaceOleWrapper::GetIDsOfNames(REFIID /*riid*/,
 // A JScriptValue (ValueObject) object is a COM object in that it implements IDispatch and the
 // IJScriptValue object interface. Such objects are provided by all UNO wrapper
 // objects used within a JScript script. To obtain an instance one has to call
-// "_GetValueObject() or Bridge_GetValueObject()" on an UNO wrapper object (class InterfaceOleWrapper).
+// "_GetValueObject() or Bridge_GetValueObject()" on a UNO wrapper object (class InterfaceOleWrapper).
 // A value object is appropriately initialized within the script and passed as
-// parameter to an UNO object method or property. The convertDispparamsArgs function
+// parameter to a UNO object method or property. The convertDispparamsArgs function
 // can easily find out that a param is such an object by querying for the
 // IJScriptValue interface. By this interface one the type and kind ( out, in/out)
 // can be determined and the right conversion can be applied.
@@ -1273,7 +1332,7 @@ STDMETHODIMP InterfaceOleWrapper::GetIDsOfNames(REFIID /*riid*/,
 // in order to figure out what the an IDispatch parameter is meant for.
 
 // Normal JScript object parameter can be mixed with JScriptValue object. If an
-// VARIANT contains an VT_DISPATCH that is no JScriptValue than the type information
+// VARIANT contains a VT_DISPATCH that is no JScriptValue than the type information
 // is used to find out about the required type.
 void InterfaceOleWrapper::convertDispparamsArgs(DISPID id,
     unsigned short /*wFlags*/, DISPPARAMS* pdispparams, Sequence<Any>& rSeq)
@@ -1517,11 +1576,11 @@ void SAL_CALL InterfaceOleWrapper::initialize( const Sequence< Any >& aArguments
 {
     switch( aArguments.getLength() )
     {
-    case 2: // the object wraps an UNO struct
+    case 2: // the object wraps a UNO struct
         aArguments[0] >>= m_xInvocation;
         aArguments[1] >>= m_defaultValueType;
         break;
-    case 3: // the object wraps an UNO interface
+    case 3: // the object wraps a UNO interface
         aArguments[0] >>= m_xInvocation;
         aArguments[1] >>= m_xOrigin;
         aArguments[2] >>= m_defaultValueType;
@@ -1800,11 +1859,11 @@ static bool writeBackOutParameter(VARIANTARG* pDest, VARIANT* pSource)
 STDMETHODIMP InterfaceOleWrapper::Invoke(DISPID dispidMember,
                                          REFIID /*riid*/,
                                          LCID /*lcid*/,
-                                         unsigned short wFlags,
+                                         WORD wFlags,
                                          DISPPARAMS * pdispparams,
                                          VARIANT * pvarResult,
                                          EXCEPINFO * pexcepinfo,
-                                         unsigned int * puArgErr )
+                                         UINT * puArgErr )
 {
     comphelper::Automation::AutomationInvokedZone aAutomationActive;
 
@@ -3063,7 +3122,7 @@ Reference< XInterface > UnoObjectWrapperRemoteOpt::createUnoWrapperInstance()
     return Reference<XInterface>( xWeak, UNO_QUERY);
 }
 
-STDMETHODIMP  UnoObjectWrapperRemoteOpt::GetIDsOfNames ( REFIID /*riid*/, OLECHAR ** rgszNames, unsigned int cNames,
+STDMETHODIMP  UnoObjectWrapperRemoteOpt::GetIDsOfNames ( REFIID /*riid*/, LPOLESTR * rgszNames, UINT cNames,
                                 LCID /*lcid*/, DISPID * rgdispid )
 {
     MutexGuard guard( getBridgeMutex());
@@ -3110,9 +3169,9 @@ STDMETHODIMP  UnoObjectWrapperRemoteOpt::GetIDsOfNames ( REFIID /*riid*/, OLECHA
     return ret;
 }
 
-STDMETHODIMP  UnoObjectWrapperRemoteOpt::Invoke ( DISPID dispidMember, REFIID /*riid*/, LCID /*lcid*/, unsigned short wFlags,
+STDMETHODIMP  UnoObjectWrapperRemoteOpt::Invoke ( DISPID dispidMember, REFIID /*riid*/, LCID /*lcid*/, WORD wFlags,
                          DISPPARAMS * pdispparams, VARIANT * pvarResult, EXCEPINFO * pexcepinfo,
-                         unsigned int * puArgErr )
+                         UINT * puArgErr )
 {
     comphelper::Automation::AutomationInvokedZone aAutomationActive;
 

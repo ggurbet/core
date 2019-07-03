@@ -502,7 +502,8 @@ SotClipboardFormatId LinkManager::RegisterStatusInfoId()
 bool LinkManager::GetGraphicFromAny(const OUString& rMimeType,
                                     const css::uno::Any & rValue,
                                     const OUString& rReferer,
-                                    Graphic& rGraphic )
+                                    Graphic& rGraphic,
+                                    weld::Window* pParentWin)
 {
     bool bRet = false;
 
@@ -513,8 +514,8 @@ bool LinkManager::GetGraphicFromAny(const OUString& rMimeType,
     {
         OUString sURL = rValue.get<OUString>();
         if (!SvtSecurityOptions().isUntrustedReferer(rReferer))
-            rGraphic = vcl::graphic::loadFromURL(sURL);
-        if (!rGraphic)
+            rGraphic = vcl::graphic::loadFromURL(sURL, pParentWin);
+        if (rGraphic.IsNone())
             rGraphic.SetDefaultType();
         rGraphic.setOriginURL(sURL);
         return true;
@@ -660,7 +661,7 @@ bool SvxInternalLink::Connect( sfx2::SvBaseLink* pLink )
             SfxStringItem aName( SID_FILE_NAME, sTopic );
             SfxBoolItem aMinimized(SID_MINIMIZED, true);
             SfxBoolItem aHidden(SID_HIDDEN, true);
-            SfxStringItem aTarget( SID_TARGETNAME, OUString("_blank") );
+            SfxStringItem aTarget( SID_TARGETNAME, "_blank" );
             SfxStringItem aReferer( SID_REFERER, sReferer );
             SfxUInt16Item aUpdate( SID_UPDATEDOCMODE, nUpdateMode );
             SfxBoolItem aReadOnly(SID_DOC_READONLY, false);

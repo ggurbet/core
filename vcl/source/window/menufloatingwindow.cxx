@@ -20,6 +20,7 @@
 #include "menufloatingwindow.hxx"
 #include "menuitemlist.hxx"
 #include "menubarwindow.hxx"
+#include "bufferdevice.hxx"
 
 #include <sal/log.hxx>
 #include <salmenu.hxx>
@@ -27,6 +28,7 @@
 #include <svdata.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/virdev.hxx>
 #include <window.h>
 
 MenuFloatingWindow::MenuFloatingWindow( Menu* pMen, vcl::Window* pParent, WinBits nStyle ) :
@@ -1206,32 +1208,35 @@ void MenuFloatingWindow::Paint(vcl::RenderContext& rRenderContext, const tools::
     if (!pMenu)
         return;
 
-    rRenderContext.Push( PushFlags::CLIPREGION );
-    rRenderContext.SetClipRegion(vcl::Region(rPaintRect));
+    // Make sure that all actual rendering happens in one go to avoid flicker.
+    vcl::BufferDevice pBuffer(this, rRenderContext);
+
+    pBuffer->Push(PushFlags::CLIPREGION);
+    pBuffer->SetClipRegion(vcl::Region(rPaintRect));
 
     if (rRenderContext.IsNativeControlSupported(ControlType::MenuPopup, ControlPart::Entire))
     {
-        rRenderContext.SetClipRegion();
+        pBuffer->SetClipRegion();
         long nX = 0;
         Size aPxSize(GetOutputSizePixel());
         aPxSize.AdjustWidth( -nX );
         ImplControlValue aVal(pMenu->nTextPos - GUTTERBORDER);
-        rRenderContext.DrawNativeControl(ControlType::MenuPopup, ControlPart::Entire,
-                                         tools::Rectangle(Point(nX, 0), aPxSize),
-                                         ControlState::ENABLED, aVal, OUString());
-        InitMenuClipRegion(rRenderContext);
+        pBuffer->DrawNativeControl(ControlType::MenuPopup, ControlPart::Entire,
+                                   tools::Rectangle(Point(nX, 0), aPxSize), ControlState::ENABLED,
+                                   aVal, OUString());
+        InitMenuClipRegion(*pBuffer);
     }
     if (IsScrollMenu())
     {
-        ImplDrawScroller(rRenderContext, true);
-        ImplDrawScroller(rRenderContext, false);
+        ImplDrawScroller(*pBuffer, true);
+        ImplDrawScroller(*pBuffer, false);
     }
-    rRenderContext.SetFillColor(rRenderContext.GetSettings().GetStyleSettings().GetMenuColor());
-    pMenu->ImplPaint(rRenderContext, GetOutputSizePixel(), nScrollerHeight, ImplGetStartY());
+    pBuffer->SetFillColor(rRenderContext.GetSettings().GetStyleSettings().GetMenuColor());
+    pMenu->ImplPaint(*pBuffer, GetOutputSizePixel(), nScrollerHeight, ImplGetStartY());
     if (nHighlightedItem != ITEMPOS_INVALID)
-        RenderHighlightItem(rRenderContext, nHighlightedItem);
+        RenderHighlightItem(*pBuffer, nHighlightedItem);
 
-    rRenderContext.Pop();
+    pBuffer->Pop();
 }
 
 void MenuFloatingWindow::ImplDrawScroller(vcl::RenderContext& rRenderContext, bool bUp)

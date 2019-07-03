@@ -19,17 +19,17 @@
 class ScMovingAverageDialog : public ScStatisticsInputOutputDialog
 {
 private:
-    VclPtr<NumericField> mpIntervalSpin;
+    std::unique_ptr<weld::CheckButton> mxTrimRangeCheck;
+    std::unique_ptr<weld::SpinButton> mxIntervalSpin;
 
 public:
     ScMovingAverageDialog(
         SfxBindings* pB, SfxChildWindow* pCW,
-        vcl::Window* pParent, ScViewData* pViewData );
+        weld::Window* pParent, ScViewData* pViewData );
 
     virtual ~ScMovingAverageDialog() override;
-    virtual void dispose() override;
 
-    virtual bool Close() override;
+    virtual void Close() override;
 
 protected:
     virtual const char* GetUndoNameId() override;

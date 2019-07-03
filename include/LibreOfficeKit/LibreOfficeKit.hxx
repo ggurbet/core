@@ -188,9 +188,9 @@ public:
      *
      * @param nWindowid
      */
-    void postWindow(unsigned nWindowId, int nAction)
+    void postWindow(unsigned nWindowId, int nAction, const char* pData = nullptr)
     {
-        return mpDoc->pClass->postWindow(mpDoc, nWindowId, nAction);
+        return mpDoc->pClass->postWindow(mpDoc, nWindowId, nAction, pData);
     }
 
     /**
@@ -303,7 +303,7 @@ public:
     }
 
     /**
-     * Posts an UNO command to the document.
+     * Posts a UNO command to the document.
      *
      * Example argument string:
      *
@@ -386,7 +386,7 @@ public:
     /**
      * Returns a json mapping of the possible values for the given command
      * e.g. {commandName: ".uno:StyleApply", commandValues: {"familyName1" : ["list of style names in the family1"], etc.}}
-     * @param pCommand a uno command for which the possible values are requested
+     * @param pCommand a UNO command for which the possible values are requested
      * @return {commandName: unoCmd, commandValues: {possible_values}}
      */
     char* getCommandValues(const char* pCommand)
@@ -440,13 +440,17 @@ public:
     }
 
     /**
-     * Create a new view for an existing document.
+     * Create a new view for an existing document with
+     * options similar to documentLoadWithOptions.
      * By default a loaded document has 1 view.
      * @return the ID of the new view.
      */
-    int createView()
+    int createView(const char* pOptions = nullptr)
     {
-        return mpDoc->pClass->createView(mpDoc);
+        if (LIBREOFFICEKIT_DOCUMENT_HAS(mpDoc, createViewWithOptions))
+            return mpDoc->pClass->createViewWithOptions(mpDoc, pOptions);
+        else
+            return mpDoc->pClass->createView(mpDoc);
     }
 
     /**
@@ -622,13 +626,28 @@ public:
     /**
      * Gets an image of the selected shapes.
      * @param pOutput contains the result; use free to deallocate.
-     * @return the size ouf *pOutput in bytes.
+     * @return the size of *pOutput in bytes.
      */
     size_t renderShapeSelection(char** pOutput)
     {
         return mpDoc->pClass->renderShapeSelection(mpDoc, pOutput);
     }
 
+    /**
+     * Posts a gesture event to the window with given id.
+     *
+     * @param nWindowId
+     * @param pType Event type, like panStart, panEnd, panUpdate.
+     * @param nX horizontal position in document coordinates
+     * @param nY vertical position in document coordinates
+     * @param nOffset difference value from when the gesture started to current value
+     */
+    void postWindowGestureEvent(unsigned nWindowId,
+                              const char* pType,
+                              int nX, int nY, int nOffset)
+    {
+        return mpDoc->pClass->postWindowGestureEvent(mpDoc, nWindowId, pType, nX, nY, nOffset);
+    }
 #endif // defined LOK_USE_UNSTABLE_API || defined LIBO_INTERNAL_ONLY
 };
 
@@ -650,7 +669,7 @@ public:
     }
 
     /**
-     * Loads a document from an URL.
+     * Loads a document from a URL.
      *
      * @param pUrl the URL of the document to load
      * @param pFilterOptions options for the import filter, e.g. SkipImages.
@@ -802,6 +821,24 @@ public:
         return mpThis->pClass->signDocument(mpThis, pURL,
                                             pCertificateBinary, nCertificateBinarySize,
                                             pPrivateKeyBinary, nPrivateKeyBinarySize);
+    }
+
+    /**
+     * Runs the main-loop in the current thread. To trigger this
+     * mode you need to putenv a SAL_LOK_OPTIONS containing 'unipoll'.
+     * The @pPollCallback is called to poll for events from the Kit client
+     * and the @pWakeCallback can be called by internal LibreOfficeKit threads
+     * to wake the caller of 'runLoop' ie. the main thread.
+     *
+     * it is expected that runLoop does not return until Kit exit.
+     *
+     * @pData is a context/closure passed to both methods.
+     */
+    void runLoop(LibreOfficeKitPollCallback pPollCallback,
+                 LibreOfficeKitWakeCallback pWakeCallback,
+                 void* pData)
+    {
+        mpThis->pClass->runLoop(mpThis, pPollCallback, pWakeCallback, pData);
     }
 };
 

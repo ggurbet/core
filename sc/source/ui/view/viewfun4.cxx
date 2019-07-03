@@ -34,6 +34,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <svtools/langtab.hxx>
 #include <vcl/graphicfilter.hxx>
@@ -41,6 +42,7 @@
 #include <vcl/transfer.hxx>
 #include <svl/urlbmk.hxx>
 #include <svl/sharedstringpool.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <avmedia/mediawindow.hxx>
 
@@ -396,8 +398,7 @@ void ScViewFunc::DoThesaurus()
         OUString aErr = SvtLanguageTable::GetLanguageString(eLnge);
         aErr += ScResId( STR_SPELLING_NO_LANG );
 
-        vcl::Window* pWin = GetViewData().GetDialogParent();
-        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                       VclMessageType::Info, VclButtonsType::Ok,
                                                       aErr));
         xInfoBox->run();
@@ -617,7 +618,7 @@ bool ScViewFunc::PasteFile( const Point& rPos, const OUString& rFile, bool bLink
             SfxStringItem aFileNameItem( SID_FILE_NAME, aStrURL );
             SfxStringItem aFilterItem( SID_FILTER_NAME, pFlt->GetName() );
             // #i69524# add target, as in SfxApplication when the Open dialog is used
-            SfxStringItem aTargetItem( SID_TARGETNAME, OUString("_default") );
+            SfxStringItem aTargetItem( SID_TARGETNAME, "_default" );
 
             // Open Asynchronously, because it can also happen from D&D
             // and that is not so good for the MAC...

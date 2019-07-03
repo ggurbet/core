@@ -109,9 +109,14 @@ enum class SvNumFormatType : sal_Int16
          @since LibreOffice 5.1
       */
      EMPTY = css::util::NumberFormat::EMPTY, // 4096
+    /** @internal selects a time duration format.
+        8192 + TIME (4)
+        @since LibreOffice 6.2
+     */
+     DURATION = css::util::NumberFormat::DURATION, // 8196
 };
 namespace o3tl {
-    template<> struct typed_flags<SvNumFormatType> : is_typed_flags<SvNumFormatType, 0x1dff> {};
+    template<> struct typed_flags<SvNumFormatType> : is_typed_flags<SvNumFormatType, 0x3dff> {};
 }
 
 /** enum values for <method>SvNumberFormatter::GetFormatIndex</method>
@@ -635,7 +640,7 @@ public:
     bool IsSpecialStandardFormat( sal_uInt32 nFIndex, LanguageType eLnge );
 
     /** Return a time format that best matches fNumber. */
-    sal_uInt32 GetTimeFormat( double fNumber, LanguageType eLnge );
+    sal_uInt32 GetTimeFormat( double fNumber, LanguageType eLnge, bool bForceDuration );
 
     /** Return a format and type that best matches the value of fNumber if
         fNumber is assumed to be a date, time or datetime value, but unknown

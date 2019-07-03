@@ -14,7 +14,7 @@
 #include <unotools/fontcvt.hxx>
 #include <unotools/fontdefs.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/salbtype.hxx>
+#include <vcl/BitmapPalette.hxx>
 #include <filter/msfilter/escherex.hxx>
 #include <filter/msfilter/util.hxx>
 #include <memory>
@@ -116,7 +116,7 @@ sal_Unicode bestFitOpenSymbolToMSFont(sal_Unicode cChar,
     else
     {
         /*
-          Well we don't have an available substition, and we're
+          Well we don't have an available substitution, and we're
           in our private area, so give up and show a standard
           bullet symbol
         */

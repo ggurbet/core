@@ -116,18 +116,8 @@ void ScMyStyleRanges::AddCurrencyRange(const ScRange& rRange, const boost::optio
     ScMyCurrencyStyle aStyle;
     if (pCurrency)
         aStyle.sCurrency = *pCurrency;
-    ScMyCurrencyStylesSet::iterator aItr(pCurrencyList->find(aStyle));
-    if (aItr == pCurrencyList->end())
-    {
-        std::pair<ScMyCurrencyStylesSet::iterator, bool> aPair(pCurrencyList->insert(aStyle));
-        if (aPair.second)
-        {
-            aItr = aPair.first;
-            aItr->mpRanges->addRange(rRange);
-        }
-    }
-    else
-        aItr->mpRanges->addRange(rRange);
+    auto itPair = pCurrencyList->insert(aStyle);
+    itPair.first->mpRanges->addRange(rRange);
 }
 
 void ScMyStyleRanges::InsertCol(const sal_Int32 nCol, const sal_Int32 nTab)
@@ -248,41 +238,25 @@ void ScMyStylesImportHelper::ResetAttributes()
     nCellType = 0;
 }
 
-ScMyStylesSet::iterator ScMyStylesImportHelper::GetIterator(const boost::optional<OUString> & pStyleNameP)
+ScMyStylesMap::iterator ScMyStylesImportHelper::GetIterator(const OUString & rStyleName)
 {
-    ScMyStyle aStyle;
-    if (pStyleNameP)
-        aStyle.sStyleName = *pStyleNameP;
-    else
-    {
-        OSL_FAIL("here is no stylename given");
-    }
-    ScMyStylesSet::iterator aItr(aCellStyles.find(aStyle));
-    if (aItr == aCellStyles.end())
-    {
-        std::pair<ScMyStylesSet::iterator, bool> aPair(aCellStyles.insert(aStyle));
-        if (aPair.second)
-            aItr = aPair.first;
-        else
-        {
-            OSL_FAIL("not possible to insert style");
-            return aCellStyles.end();
-        }
-    }
-    return aItr;
+    auto it = aCellStyles.find(rStyleName);
+    if (it == aCellStyles.end())
+        it = aCellStyles.emplace_hint(it, rStyleName, std::make_unique<ScMyStyleRanges>());
+    return it;
 }
 
 void ScMyStylesImportHelper::AddDefaultRange(const ScRange& rRange)
 {
     OSL_ENSURE(aRowDefaultStyle != aCellStyles.end(), "no row default style");
-    if (aRowDefaultStyle->sStyleName.isEmpty())
+    if (aRowDefaultStyle->first.isEmpty())
     {
         SCCOL nStartCol(rRange.aStart.Col());
         SCCOL nEndCol(rRange.aEnd.Col());
         if (aColDefaultStyles.size() > sal::static_int_cast<sal_uInt32>(nStartCol))
         {
-            ScMyStylesSet::iterator aPrevItr(aColDefaultStyles[nStartCol]);
-            OSL_ENSURE(aColDefaultStyles.size() > sal::static_int_cast<sal_uInt32>(nEndCol), "to much columns");
+            ScMyStylesMap::iterator aPrevItr(aColDefaultStyles[nStartCol]);
+            OSL_ENSURE(aColDefaultStyles.size() > sal::static_int_cast<sal_uInt32>(nEndCol), "too many columns");
             for (SCCOL i = nStartCol + 1; (i <= nEndCol) && (i < sal::static_int_cast<SCCOL>(aColDefaultStyles.size())); ++i)
             {
                 if (aPrevItr != aColDefaultStyles[i])
@@ -291,7 +265,7 @@ void ScMyStylesImportHelper::AddDefaultRange(const ScRange& rRange)
                     ScRange aRange(rRange);
                     aRange.aStart.SetCol(nStartCol);
                     aRange.aEnd.SetCol(i - 1);
-                    pPrevStyleName = aPrevItr->sStyleName;
+                    pPrevStyleName = aPrevItr->first;
                     AddSingleRange(aRange);
                     nStartCol = i;
                     aPrevItr = aColDefaultStyles[i];
@@ -301,7 +275,7 @@ void ScMyStylesImportHelper::AddDefaultRange(const ScRange& rRange)
             {
                 ScRange aRange(rRange);
                 aRange.aStart.SetCol(nStartCol);
-                pPrevStyleName = aPrevItr->sStyleName;
+                pPrevStyleName = aPrevItr->first;
                 AddSingleRange(aRange);
             }
             else
@@ -311,26 +285,23 @@ void ScMyStylesImportHelper::AddDefaultRange(const ScRange& rRange)
         }
         else
         {
-            OSL_FAIL("too much columns");
+            OSL_FAIL("too many columns");
         }
     }
     else
     {
-        pPrevStyleName = aRowDefaultStyle->sStyleName;
+        pPrevStyleName = aRowDefaultStyle->first;
         AddSingleRange(rRange);
     }
 }
 
 void ScMyStylesImportHelper::AddSingleRange(const ScRange& rRange)
 {
-    ScMyStylesSet::iterator aItr(GetIterator(pPrevStyleName));
-    if (aItr != aCellStyles.end())
-    {
-        if (nPrevCellType != util::NumberFormat::CURRENCY)
-            aItr->xRanges->AddRange(rRange, nPrevCellType);
-        else
-            aItr->xRanges->AddCurrencyRange(rRange, pPrevCurrency);
-    }
+    ScMyStylesMap::iterator aItr(GetIterator(*pPrevStyleName));
+    if (nPrevCellType != util::NumberFormat::CURRENCY)
+        aItr->second->AddRange(rRange, nPrevCellType);
+    else
+        aItr->second->AddCurrencyRange(rRange, pPrevCurrency);
 }
 
 void ScMyStylesImportHelper::AddRange()
@@ -345,8 +316,7 @@ void ScMyStylesImportHelper::AddRange()
 void ScMyStylesImportHelper::AddColumnStyle(const OUString& sStyleName, const sal_Int32 nColumn, const sal_Int32 nRepeat)
 {
     OSL_ENSURE(static_cast<sal_uInt32>(nColumn) == aColDefaultStyles.size(), "some columns are absent");
-    ScMyStylesSet::iterator aItr(GetIterator(sStyleName));
-    OSL_ENSURE(aItr != aCellStyles.end(), "no column default style");
+    ScMyStylesMap::iterator aItr(GetIterator(sStyleName));
     aColDefaultStyles.reserve(aColDefaultStyles.size() + nRepeat);
     for (sal_Int32 i = 0; i < nRepeat; ++i)
         aColDefaultStyles.push_back(aItr);
@@ -378,7 +348,7 @@ void ScMyStylesImportHelper::AddRange(const ScRange& rRange)
             {
                 if (rRange.aEnd.Row() == aPrevRange.aEnd.Row())
                 {
-                    OSL_ENSURE(aPrevRange.aEnd.Col() + 1 == rRange.aStart.Col(), "something wents wrong");
+                    OSL_ENSURE(aPrevRange.aEnd.Col() + 1 == rRange.aStart.Col(), "something went wrong");
                     aPrevRange.aEnd.SetCol(rRange.aEnd.Col());
                 }
                 else
@@ -389,7 +359,7 @@ void ScMyStylesImportHelper::AddRange(const ScRange& rRange)
                 if (rRange.aStart.Col() == aPrevRange.aStart.Col() &&
                     rRange.aEnd.Col() == aPrevRange.aEnd.Col())
                 {
-                    OSL_ENSURE(aPrevRange.aEnd.Row() + 1 == rRange.aStart.Row(), "something wents wrong");
+                    OSL_ENSURE(aPrevRange.aEnd.Row() + 1 == rRange.aStart.Row(), "something went wrong");
                     aPrevRange.aEnd.SetRow(rRange.aEnd.Row());
                 }
                 else
@@ -423,7 +393,7 @@ void ScMyStylesImportHelper::InsertCol(const sal_Int32 nCol, const sal_Int32 nTa
     ScXMLImport::MutexGuard aGuard(rImport);
     for (auto& rCellStyle : aCellStyles)
     {
-        rCellStyle.xRanges->InsertCol(nCol, nTab);
+        rCellStyle.second->InsertCol(nCol, nTab);
     }
 }
 
@@ -440,7 +410,7 @@ void ScMyStylesImportHelper::SetStylesToRanges()
 {
     for (auto& rCellStyle : aCellStyles)
     {
-        rCellStyle.xRanges->SetStylesToRanges(&rCellStyle.sStyleName, rImport);
+        rCellStyle.second->SetStylesToRanges(&rCellStyle.first, rImport);
     }
     aColDefaultStyles.clear();
     aCellStyles.clear();

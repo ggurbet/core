@@ -37,6 +37,7 @@
 #include <clonelist.hxx>
 #include <svx/svdogrp.hxx>
 #include <svx/scene3d.hxx>
+#include <svx/xfillit0.hxx>
 
 
 using namespace com::sun::star;
@@ -457,10 +458,9 @@ bool SdrEditView::IsDismantlePossible(bool bMakeLines) const
 void SdrEditView::CheckPossibilities()
 {
     if (mbSomeObjChgdFlag)
-        m_bPossibilitiesDirty=true;
-
-    if (mbSomeObjChgdFlag)
     {
+        m_bPossibilitiesDirty = true;
+
         // This call IS necessary to correct the MarkList, in which
         // no longer to the model belonging objects still can reside.
         // These ones need to be removed.
@@ -973,8 +973,11 @@ bool SdrEditView::InsertObjectAtView(SdrObject* pObj, SdrPageView& rPV, SdrInser
     if (!pObj->IsInserted()) {
         rPV.GetObjList()->InsertObject(pObj, SAL_MAX_SIZE);
     }
-    if( IsUndoEnabled() )
+    if( IsUndoEnabled())
+    {
+        EndTextEditAllViews();
         AddUndo(GetModel()->GetSdrUndoFactory().CreateUndoNewObject(*pObj));
+    }
 
     if (!(nOptions & SdrInsertFlags::DONTMARK)) {
         if (!(nOptions & SdrInsertFlags::ADDMARK)) UnmarkAllObj();
@@ -1027,6 +1030,20 @@ void SdrEditView::ReplaceObjectAtView(SdrObject* pOldObj, SdrPageView& rPV, SdrO
 bool SdrEditView::IsUndoEnabled() const
 {
     return mpModel->IsUndoEnabled();
+}
+
+void SdrEditView::EndTextEditAllViews() const
+{
+    size_t nViews = mpModel->GetListenerCount();
+    for (size_t nView = 0; nView < nViews; ++nView)
+    {
+        SdrObjEditView* pView = dynamic_cast<SdrObjEditView*>(mpModel->GetListener(nView));
+        if (!pView)
+            continue;
+
+        if (pView->IsTextEdit())
+            pView->SdrEndTextEdit();
+    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

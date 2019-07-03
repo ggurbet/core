@@ -42,12 +42,20 @@ gb_CFLAGS := \
 	-Wdeclaration-after-statement \
 	-Wshadow \
 
+# At least libstdc++ (which is approximated here with !HAVE_LIBCXX) needs -pthread when including
+# various C++ headers like <thread>, see <https://gcc.gnu.org/onlinedocs/gcc-8.3.0/libstdc++/manual/
+# manual/using.html#manual.intro.using.flags>:
+ifeq ($(HAVE_LIBCXX),)
+gb_CXX_LINKFLAGS := -pthread
+endif
+
 gb_CXXFLAGS := \
 	$(gb_CXXFLAGS_COMMON) \
 	-fPIC \
 	-Wshadow \
 	-Woverloaded-virtual \
 	$(CXXFLAGS_CXX11) \
+	$(gb_CXX_LINKFLAGS) \
 
 
 # enable debug STL
@@ -76,24 +84,13 @@ endif
 
 ifneq ($(HAVE_LD_BSYMBOLIC_FUNCTIONS),)
 gb_LinkTarget_LDFLAGS += -Wl,-Bsymbolic-functions
-ifeq ($(COM_IS_CLANG),TRUE)
-ifneq ($(filter -fsanitize=%,$(CC)),)
+ifeq ($(NEED_CLANG_LINUX_UBSAN_RTTI_VISIBILITY),TRUE)
 gb_LinkTarget_LDFLAGS += -Wl,--dynamic-list-cpp-typeinfo
 endif
 endif
-endif
 
-ifneq ($(gb_DEBUGLEVEL),0)
-gb_LINKEROPTFLAGS :=
-else
 gb_LINKEROPTFLAGS := -Wl,-O1
-endif
-
-ifeq ($(gb_SYMBOL),$(true))
-gb_LINKERSTRIPDEBUGFLAGS :=
-else
 gb_LINKERSTRIPDEBUGFLAGS := -Wl,-S
-endif
 
 # LinkTarget class
 
@@ -121,7 +118,7 @@ gb_LinkTarget_CXXFLAGS := $(gb_CXXFLAGS)
 # contains .c sources:
 define gb_LinkTarget__command_dynamiclink
 $(call gb_Helper_abbreviate_dirs,\
-	$(if $(CXXOBJECTS)$(GENCXXOBJECTS)$(EXTRAOBJECTLISTS)$(filter-out XTRUE,X$(ENABLE_RUNTIME_OPTIMIZATIONS)),$(gb_CXX),$(gb_CC)) \
+	$(if $(CXXOBJECTS)$(GENCXXOBJECTS)$(EXTRAOBJECTLISTS)$(filter-out XTRUE,X$(ENABLE_RUNTIME_OPTIMIZATIONS)),$(gb_CXX) $(gb_CXX_LINKFLAGS),$(gb_CC)) \
 		$(if $(filter Library CppunitTest,$(TARGETTYPE)),$(gb_Library_TARGETTYPEFLAGS)) \
 		$(gb_LTOFLAGS) \
 		$(if $(SOVERSIONSCRIPT),-Wl$(COMMA)--soname=$(notdir $(1)) \

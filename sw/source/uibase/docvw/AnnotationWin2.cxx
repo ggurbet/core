@@ -52,10 +52,14 @@
 #include <svl/undo.hxx>
 #include <svl/stritem.hxx>
 
+#include <svx/svxids.hrc>
+
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 
+#include <vcl/edit.hxx>
+#include <vcl/event.hxx>
 #include <vcl/scrbar.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/menubtn.hxx>
@@ -1421,7 +1425,7 @@ void SwAnnotationWin::SetViewState(ViewState bViewState)
 
 SwAnnotationWin* SwAnnotationWin::GetTopReplyNote()
 {
-    SwAnnotationWin* pTopNote = nullptr;
+    SwAnnotationWin* pTopNote = this;
     SwAnnotationWin* pSidebarWin = IsFollow() ? mrMgr.GetNextPostIt(KEY_PAGEUP, this) : nullptr;
     while (pSidebarWin)
     {

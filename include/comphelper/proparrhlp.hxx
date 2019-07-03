@@ -26,10 +26,6 @@
 #include <osl/diagnose.h>
 #include <rtl/instance.hxx>
 
-namespace cppu {
-    class IPropertyArrayHelper;
-}
-
 namespace comphelper
 {
 
@@ -57,12 +53,12 @@ protected:
         This method needs to be implemented in derived classes.
         <BR>
         The method gets called with Mutex acquired.
-        @return                         an pointer to the newly created array helper. Must not be NULL.
+        @return                         a pointer to the newly created array helper. Must not be NULL.
     */
     virtual ::cppu::IPropertyArrayHelper* createArrayHelper( ) const = 0;
 };
 
-/** a OPropertyArrayUsageHelper which will create an OPropertyArrayAggregationHelper
+/** an OPropertyArrayUsageHelper which will create an OPropertyArrayAggregationHelper
 */
 template <class TYPE>
 class OAggregationArrayUsageHelper: public OPropertyArrayUsageHelper<TYPE>
@@ -134,7 +130,7 @@ template <class TYPE> inline
     css::uno::Sequence< css::beans::Property > aProps;
     css::uno::Sequence< css::beans::Property > aAggregateProps;
     fillProperties(aProps, aAggregateProps);
-    OSL_ENSURE(aProps.getLength(), "OAggregationArrayUsageHelper::createArrayHelper : fillProperties returned nonsense !");
+    OSL_ENSURE(aProps.hasElements(), "OAggregationArrayUsageHelper::createArrayHelper : fillProperties returned nonsense !");
     return new OPropertyArrayAggregationHelper(aProps, aAggregateProps, nullptr, DEFAULT_AGGREGATE_PROPERTY_ID);
 }
 

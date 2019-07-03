@@ -25,6 +25,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
 #include <svl/stritem.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <sfx2/app.hxx>
 #include <globstr.hrc>
@@ -181,7 +182,7 @@ void ScCellShell::Execute( SfxRequest& rReq )
                                                   GetViewData()->GetTabNo(),
                                                   aStr );
                     }
-                    else
+                    else if (pHdl)
                     {
                         SC_MOD()->SetInputMode(SC_INPUT_TABLE);
 
@@ -422,8 +423,7 @@ void ScCellShell::Execute( SfxRequest& rReq )
                         bool bExtend = rReq.IsAPI();
                         if (!bExtend)
                         {
-                            vcl::Window* pWin = pTabViewShell->GetDialogParent();
-                            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pTabViewShell->GetFrameWeld(),
                                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                                            ScResId(STR_UPDATE_SCENARIO)));
                             xQueryBox->set_default_response(RET_YES);
@@ -438,8 +438,7 @@ void ScCellShell::Execute( SfxRequest& rReq )
                     }
                     else if( ! rReq.IsAPI() )
                     {
-                        vcl::Window* pWin = pTabViewShell->GetDialogParent();
-                        std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                        std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(pTabViewShell->GetFrameWeld(),
                                                                        VclMessageType::Warning, VclButtonsType::Ok,
                                                                        ScResId(STR_NOAREASELECTED)));
                         xErrorBox->run();

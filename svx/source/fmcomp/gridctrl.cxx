@@ -33,6 +33,7 @@
 #include <com/sun/star/sdb/XResultSetAccess.hpp>
 #include <com/sun/star/sdb/RowChangeAction.hpp>
 #include <com/sun/star/sdb/XRowsChangeBroadcaster.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbc/XResultSetUpdate.hpp>
 #include <com/sun/star/sdbcx/Privilege.hpp>
 #include <com/sun/star/container/XChild.hpp>
@@ -41,6 +42,7 @@
 #include <com/sun/star/util/XCloneable.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/beans/PropertyChangeEvent.hpp>
+#include <com/sun/star/container/XIndexAccess.hpp>
 #include <tools/diagnose_ex.h>
 #include <tools/debug.hxx>
 #include <tools/fract.hxx>
@@ -1419,7 +1421,7 @@ void DbGridControl::setDataSource(const Reference< XRowSet >& _xCursor, DbGridCo
     // is the new cursor valid ?
     // the cursor is only valid if it contains some columns
     // if there is no cursor or the cursor is not valid we have to clean up an leave
-    if (!_xCursor.is() || !Reference< XColumnsSupplier > (_xCursor, UNO_QUERY)->getColumns()->hasElements())
+    if (!_xCursor.is() || !Reference< XColumnsSupplier > (_xCursor, UNO_QUERY_THROW)->getColumns()->hasElements())
     {
         RemoveRows();
         return;

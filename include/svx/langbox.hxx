@@ -66,20 +66,14 @@ public:
     sal_Int32       InsertLanguage( const LanguageType eLangType );
     void            InsertDefaultLanguage( sal_Int16 nType );
     void            InsertSystemLanguage();
-    void            InsertLanguage( const LanguageType eLangType,
-                                    bool bCheckEntry );
     void            SelectLanguage( const LanguageType eLangType );
     LanguageType    GetSelectedLanguage() const;
-    bool            IsLanguageSelected( const LanguageType eLangType ) const;
 
 protected:
     Image                   m_aNotCheckedImage;
     Image                   m_aCheckedImage;
-    OUString                m_aAllString;
     std::unique_ptr<css::uno::Sequence< sal_Int16 >>
                             m_pSpellUsedLang;
-    bool                    m_bHasLangNone;
-    bool                    m_bLangNoneIsLangAll;
     bool                    m_bWithCheckmark;
 
     SVX_DLLPRIVATE void                 ImplLanguageBoxBaseInit();
@@ -94,7 +88,6 @@ protected:
     SVX_DLLPRIVATE virtual sal_Int32    ImplGetSelectedEntryPos() const = 0;
     SVX_DLLPRIVATE virtual void*        ImplGetEntryData( sal_Int32 nPos ) const = 0;
     SVX_DLLPRIVATE virtual void         ImplSelectEntryPos( sal_Int32 nPos, bool bSelect ) = 0;
-    SVX_DLLPRIVATE virtual bool         ImplIsEntryPosSelected( sal_Int32 nPos ) const = 0;
     SVX_DLLPRIVATE virtual sal_Int32    ImplGetEntryPos( const void* pData ) const = 0;
 };
 
@@ -113,7 +106,6 @@ private:
     SVX_DLLPRIVATE virtual sal_Int32    ImplGetSelectedEntryPos() const override;
     SVX_DLLPRIVATE virtual void*        ImplGetEntryData( sal_Int32 nPos ) const override;
     SVX_DLLPRIVATE virtual void         ImplSelectEntryPos( sal_Int32 nPos, bool bSelect ) override;
-    SVX_DLLPRIVATE virtual bool         ImplIsEntryPosSelected( sal_Int32 nPos ) const override;
     SVX_DLLPRIVATE virtual sal_Int32    ImplGetEntryPos( const void* pData ) const override;
 };
 
@@ -178,7 +170,7 @@ public:
     int find_text(const OUString& rStr) const { return m_xControl->find_text(rStr); }
     OUString get_text(int nPos) const { return m_xControl->get_text(nPos); }
     int get_count() const { return m_xControl->get_count(); }
-    const weld::ComboBox* get_widget() const { return m_xControl.get(); }
+    weld::ComboBox* get_widget() { return m_xControl.get(); }
 };
 
 class SVX_DLLPUBLIC SvxLanguageComboBox : public ComboBox, public SvxLanguageBoxBase
@@ -204,7 +196,6 @@ private:
     SVX_DLLPRIVATE virtual sal_Int32    ImplGetSelectedEntryPos() const override;
     SVX_DLLPRIVATE virtual void*        ImplGetEntryData( sal_Int32 nPos ) const override;
     SVX_DLLPRIVATE virtual void         ImplSelectEntryPos( sal_Int32 nPos, bool bSelect ) override;
-    SVX_DLLPRIVATE virtual bool         ImplIsEntryPosSelected( sal_Int32 nPos ) const override;
     SVX_DLLPRIVATE virtual sal_Int32    ImplGetEntryPos( const void* pData ) const override;
 
     DECL_LINK( EditModifyHdl, Edit&, void );

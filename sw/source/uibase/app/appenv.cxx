@@ -25,13 +25,13 @@
 #include <sfx2/request.hxx>
 #include <svx/svxids.hrc>
 
-#include <svtools/svmedit.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/docfac.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/lrspitem.hxx>
 #include <editeng/ulspitem.hxx>

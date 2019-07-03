@@ -16,6 +16,7 @@ REM --- CLASS ROOT FIELDS 								        														---
 REM -----------------------------------------------------------------------------------------------------------------------
 
 Private _Type			As String		&apos;	Must be COMMANDBAR
+Private _This			As Object		&apos;	Workaround for absence of This builtin function
 Private _Name			As String
 Private _ResourceURL	As String
 Private _Window			As Object		&apos;	com.sun.star.frame.XFrame
@@ -29,6 +30,7 @@ REM --- CONSTRUCTORS / DESTRUCTORS						        														---
 REM -----------------------------------------------------------------------------------------------------------------------
 Private Sub Class_Initialize()
 	_Type = OBJCOMMANDBAR
+	Set _This = Nothing
 	_Name = &quot;&quot;
 	_ResourceURL = &quot;&quot;
 	Set _Window = Nothing
@@ -82,9 +84,9 @@ Dim vProperty As Variant, vPropertiesList() As Variant, sObject As String
 	vPropertiesList = _PropertiesList()
 	sObject = Utils._PCase(_Type)
 	If IsMissing(pvIndex) Then
-		vProperty = PropertiesGet._Properties(sObject, _Name, vPropertiesList)
+		vProperty = PropertiesGet._Properties(sObject, _This, vPropertiesList)
 	Else
-		vProperty = PropertiesGet._Properties(sObject, _Name, vPropertiesList, pvIndex)
+		vProperty = PropertiesGet._Properties(sObject, _This, vPropertiesList, pvIndex)
 		vProperty._Value = _PropertyGet(vPropertiesList(pvIndex))
 	End If
 	
@@ -149,6 +151,7 @@ Dim oObject As Object
 				If pvIndex = iItemsCount - 1 Then
 					Set oObject = New CommandBarControl
 					With oObject
+						._This = oObject
 						._ParentCommandBarName = _Name
 						._ParentCommandBar = oToolbar
 						._ParentBuiltin = ( _BarBuiltin = 1 )
@@ -169,9 +172,9 @@ Dim oObject As Object
 		Select Case True
 			Case IsMissing(pvIndex)
 				Set oObject = New Collect
+				Set oObject._This = oObject
 				oObject._CollType = COLLCOMMANDBARCONTROLS
-				oObject._ParentType = OBJCOMMANDBAR
-				oObject._ParentName = _Name
+				Set oObject._Parent = _This
 				oObject._Count = iItemsCount
 			Case Else		&apos;	pvIndex is numeric
 				Goto Trace_IndexError

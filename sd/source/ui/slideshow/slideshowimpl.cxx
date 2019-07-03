@@ -38,7 +38,9 @@
 #include <com/sun/star/frame/XDispatch.hpp>
 #include <com/sun/star/frame/XLayoutManager.hpp>
 #include <com/sun/star/presentation/SlideShow.hpp>
+#include <com/sun/star/media/XPlayer.hpp>
 #include <svl/aeitem.hxx>
+#include <svl/stritem.hxx>
 #include <svl/urihelper.hxx>
 #include <unotools/saveopt.hxx>
 #include <basic/sbstar.hxx>
@@ -51,6 +53,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/app.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/unoapi.hxx>
 #include <svx/svdoole2.hxx>
 #include <sfx2/templdlg.hxx>
@@ -71,9 +74,13 @@
 
 #include <bitmaps.hlst>
 #include <vcl/canvastools.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/commandinfoprovider.hxx>
-#include <vcl/settings.hxx>
 
+#include <vcl/settings.hxx>
+#include <vcl/scheduler.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/help.hxx>
 #include <comphelper/anytostring.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -1026,7 +1033,7 @@ bool SlideshowImpl::startShow( PresentationSettingsEx const * pPresSettings )
             }
 
             bRet = startShowImpl( Sequence<beans::PropertyValue>(
-                                      &aProperties[0], aProperties.size() ) );
+                                      aProperties.data(), aProperties.size() ) );
 
         }
 
@@ -1046,7 +1053,7 @@ bool SlideshowImpl::startShowImpl( const Sequence< beans::PropertyValue >& aProp
 {
     try
     {
-        mxShow.set( createSlideShow(), UNO_QUERY_THROW );
+        mxShow.set( createSlideShow(), UNO_SET_THROW );
 
         mxView = new SlideShowView(
                                              *mpShowWindow,
@@ -1470,7 +1477,7 @@ void SlideshowImpl::click( const Reference< XShape >& xShape )
 #if HAVE_FEATURE_AVMEDIA
         try
         {
-            mxPlayer.set(avmedia::MediaWindow::createPlayer(pEvent->maStrBookmark, ""/*TODO?*/), uno::UNO_QUERY_THROW );
+            mxPlayer.set(avmedia::MediaWindow::createPlayer(pEvent->maStrBookmark, ""/*TODO?*/), uno::UNO_SET_THROW );
             mxPlayer->start();
         }
         catch( uno::Exception& )
@@ -1694,7 +1701,12 @@ void SlideshowImpl::updateSlideShow()
 
         if (mxShow.is() && (fUpdate >= 0.0))
         {
-            if (!::basegfx::fTools::equalZero(fUpdate))
+            if (::basegfx::fTools::equalZero(fUpdate))
+            {
+                // Make sure idle tasks don't starve when we don't have to wait.
+                Scheduler::ProcessEventsToIdle();
+            }
+            else
             {
                 // Avoid busy loop when the previous call to update()
                 // returns a small positive number but not 0 (which is
@@ -2222,7 +2234,7 @@ Reference< XSlideShow > SlideshowImpl::createSlideShow()
         Reference< uno::XComponentContext > xContext =
             ::comphelper::getProcessComponentContext();
 
-        xShow.set( presentation::SlideShow::create(xContext), UNO_QUERY_THROW );
+        xShow.set( presentation::SlideShow::create(xContext), UNO_SET_THROW );
     }
     catch( uno::Exception& )
     {

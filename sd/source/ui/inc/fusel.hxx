@@ -50,7 +50,7 @@ public:
     void    SetEditMode(sal_uInt16 nMode);
     sal_uInt16  GetEditMode() { return nEditMode; }
 
-    bool    AnimateObj(SdrObject* pObj, const Point& rPos);
+    bool HandleImageMapClick(SdrObject* pObj, const Point& rPos);
 
     /** is called when the current function should be aborted. <p>
         This is used when a function gets a KEY_ESCAPE but can also

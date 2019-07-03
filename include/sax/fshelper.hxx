@@ -31,37 +31,6 @@ namespace com { namespace sun { namespace star { namespace io { class XOutputStr
 namespace sax_fastparser { class FastAttributeList; }
 
 #define FSNS(namespc, element) ((namespc << 16) | element)
-// Backwards compatibility for code that used FSEND to terminate the vararg.
-// As soon as no supported LO version has the varargs code, this can be removed entirely
-// (otherwise backports might break silently if people didn't add FSEND).
-// Ctor is there to get an error when trying to pass it to a vararg by accident.
-struct FSEND_t { FSEND_t() {}; };
-static const FSEND_t FSEND = FSEND_t();
-const sal_Int32 FSEND_internal = -1; // same as XML_TOKEN_INVALID
-
-#define SAX_ARGS_ARG( arg1, arg2, convert, num ) arg1##num, arg2##num convert
-#define SAX_ARGS_ARG1( arg1, arg2, convert ) SAX_ARGS_ARG( arg1, arg2, convert, 1 )
-#define SAX_ARGS_ARG2( arg1, arg2, convert ) SAX_ARGS_ARG1( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 2 )
-#define SAX_ARGS_ARG3( arg1, arg2, convert ) SAX_ARGS_ARG2( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 3 )
-#define SAX_ARGS_ARG4( arg1, arg2, convert ) SAX_ARGS_ARG3( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 4 )
-#define SAX_ARGS_ARG5( arg1, arg2, convert ) SAX_ARGS_ARG4( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 5 )
-#define SAX_ARGS_ARG6( arg1, arg2, convert ) SAX_ARGS_ARG5( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 6 )
-#define SAX_ARGS_ARG7( arg1, arg2, convert ) SAX_ARGS_ARG6( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 7 )
-#define SAX_ARGS_ARG8( arg1, arg2, convert ) SAX_ARGS_ARG7( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 8 )
-#define SAX_ARGS_ARG9( arg1, arg2, convert ) SAX_ARGS_ARG8( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 9 )
-#define SAX_ARGS_ARG10( arg1, arg2, convert ) SAX_ARGS_ARG9( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 10 )
-#define SAX_ARGS_ARG11( arg1, arg2, convert ) SAX_ARGS_ARG10( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 11 )
-#define SAX_ARGS_ARG12( arg1, arg2, convert ) SAX_ARGS_ARG11( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 12 )
-#define SAX_ARGS_ARG13( arg1, arg2, convert ) SAX_ARGS_ARG12( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 13 )
-#define SAX_ARGS_ARG14( arg1, arg2, convert ) SAX_ARGS_ARG13( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 14 )
-#define SAX_ARGS_ARG15( arg1, arg2, convert ) SAX_ARGS_ARG14( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 15 )
-#define SAX_ARGS_ARG16( arg1, arg2, convert ) SAX_ARGS_ARG15( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 16 )
-#define SAX_ARGS_ARG17( arg1, arg2, convert ) SAX_ARGS_ARG16( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 17 )
-#define SAX_ARGS_ARG18( arg1, arg2, convert ) SAX_ARGS_ARG17( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 18 )
-#define SAX_ARGS_ARG19( arg1, arg2, convert ) SAX_ARGS_ARG18( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 19 )
-#define SAX_ARGS_ARG20( arg1, arg2, convert ) SAX_ARGS_ARG19( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 20 )
-#define SAX_ARGS_ARG21( arg1, arg2, convert ) SAX_ARGS_ARG20( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 21 )
-#define SAX_ARGS_ARG22( arg1, arg2, convert ) SAX_ARGS_ARG21( arg1, arg2, convert ), SAX_ARGS_ARG( arg1, arg2, convert, 22 )
 
 namespace sax_fastparser {
 
@@ -87,24 +56,13 @@ public:
             pushAttributeValue(attribute, value);
         startElement(elementTokenId, std::forward<Args>(args)...);
     }
-    void startElement(sal_Int32 elementTokenId, sal_Int32 attribute, const char* value, FSEND_t)
-    {
-        if (value)
-            pushAttributeValue(attribute, value);
-        startElement(elementTokenId, FSEND);
-    }
     template<typename... Args>
     void startElement(sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, Args &&... args)
     {
         pushAttributeValue(attribute, value);
         startElement(elementTokenId, std::forward<Args>(args)...);
     }
-    void startElement(sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, FSEND_t)
-    {
-        pushAttributeValue(attribute, value);
-        startElement(elementTokenId, FSEND);
-    }
-    void startElement(sal_Int32 elementTokenId, FSEND_t);
+    void startElement(sal_Int32 elementTokenId);
 
     /// Start an element. After the first two arguments there can be a number of (attribute, value) pairs.
     template<typename... Args>
@@ -114,26 +72,15 @@ public:
             pushAttributeValue(attribute, value);
         startElementNS(namespaceTokenId, elementTokenId, std::forward<Args>(args)...);
     }
-    void startElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, sal_Int32 attribute, const char* value, FSEND_t)
-    {
-        if (value)
-            pushAttributeValue(attribute, value);
-        startElementNS(namespaceTokenId, elementTokenId, FSEND);
-    }
     template<typename... Args>
     void startElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, Args &&... args)
     {
         pushAttributeValue(attribute, value);
         startElementNS(namespaceTokenId, elementTokenId, std::forward<Args>(args)...);
     }
-    void startElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, FSEND_t)
+    void startElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId)
     {
-        pushAttributeValue(attribute, value);
-        startElementNS(namespaceTokenId, elementTokenId, FSEND);
-    }
-    void startElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, FSEND_t)
-    {
-        startElement(FSNS(namespaceTokenId, elementTokenId), FSEND);
+        startElement(FSNS(namespaceTokenId, elementTokenId));
     }
 
     /// Create a single element. After the first argument there can be a number of (attribute, value) pairs.
@@ -144,24 +91,13 @@ public:
             pushAttributeValue(attribute, value);
         singleElement(elementTokenId, std::forward<Args>(args)...);
     }
-    void singleElement(sal_Int32 elementTokenId, sal_Int32 attribute, const char* value, FSEND_t)
-    {
-        if (value)
-            pushAttributeValue(attribute, value);
-        singleElement(elementTokenId, FSEND);
-    }
     template<typename... Args>
     void singleElement(sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, Args &&... args)
     {
         pushAttributeValue(attribute, value);
         singleElement(elementTokenId, std::forward<Args>(args)...);
     }
-    void singleElement(sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, FSEND_t)
-    {
-        pushAttributeValue(attribute, value);
-        singleElement(elementTokenId, FSEND);
-    }
-    void singleElement(sal_Int32 elementTokenId, FSEND_t);
+    void singleElement(sal_Int32 elementTokenId);
 
     /// Create a single element. After the first two arguments there can be a number of (attribute, value) pairs.
     template<typename... Args>
@@ -171,26 +107,15 @@ public:
             pushAttributeValue(attribute, value);
         singleElementNS(namespaceTokenId, elementTokenId, std::forward<Args>(args)...);
     }
-    void singleElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, sal_Int32 attribute, const char* value, FSEND_t)
-    {
-        if (value)
-            pushAttributeValue(attribute, value);
-        singleElementNS(namespaceTokenId, elementTokenId, FSEND);
-    }
     template<typename... Args>
     void singleElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, Args &&... args)
     {
         pushAttributeValue(attribute, value);
         singleElementNS(namespaceTokenId, elementTokenId, std::forward<Args>(args)...);
     }
-    void singleElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, sal_Int32 attribute, const OString& value, FSEND_t)
+    void singleElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId)
     {
-        pushAttributeValue(attribute, value);
-        singleElementNS(namespaceTokenId, elementTokenId, FSEND);
-    }
-    void singleElementNS(sal_Int32 namespaceTokenId, sal_Int32 elementTokenId, FSEND_t)
-    {
-        singleElement(FSNS(namespaceTokenId, elementTokenId), FSEND);
+        singleElement(FSNS(namespaceTokenId, elementTokenId));
     }
 
     void endElement(sal_Int32 elementTokenId);

@@ -43,7 +43,6 @@
 #include <ndtxt.hxx>
 #include <ftninfo.hxx>
 #include <fmthdft.hxx>
-#include <frmatr.hxx>
 #include <section.hxx>
 #include <fmtcntnt.hxx>
 #include <fmtftn.hxx>
@@ -58,6 +57,7 @@
 #include <lineinfo.hxx>
 #include <fmtline.hxx>
 #include <swtable.hxx>
+#include <redline.hxx>
 #include <msfilter.hxx>
 #include <swmodule.hxx>
 
@@ -354,18 +354,16 @@ void MSWordStyles::BuildStyleIds()
         OString aLower(aStyleId.toAsciiLowerCase());
 
         // check for uniqueness & construct something unique if we have to
-        if (aUsed.find(aLower) == aUsed.end())
+        if (aUsed.insert(aLower).second)
         {
-            aUsed.insert(aLower);
             m_aStyleIds.push_back(aStyleId);
         }
         else
         {
             int nFree = 1;
-            while (aUsed.find(aLower + OString::number(nFree)) != aUsed.end())
+            while (!aUsed.insert(aLower + OString::number(nFree)).second)
                 ++nFree;
 
-            aUsed.insert(aLower + OString::number(nFree));
             m_aStyleIds.emplace_back(aStyleId + OString::number(nFree));
         }
     }
@@ -469,6 +467,7 @@ void MSWordStyles::SetStyleDefaults( const SwFormat& rFormat, bool bPap )
     {
         aFlags[ static_cast< sal_uInt16 >(RES_PARATR_WIDOWS) - RES_CHRATR_BEGIN ] = true;
         aFlags[ static_cast< sal_uInt16 >(RES_PARATR_HYPHENZONE) - RES_CHRATR_BEGIN ] = true;
+        aFlags[ static_cast< sal_uInt16 >(RES_FRAMEDIR) - RES_CHRATR_BEGIN ] = true;
     }
     else
     {
@@ -598,10 +597,6 @@ void MSWordStyles::OutputStyle( SwFormat* pFormat, sal_uInt16 nPos )
         {
             assert( pFormat->GetPoolFormatId() == RES_POOLCOLL_STANDARD );
             aName = "Normal";
-
-            // force bidi property to be SET, so that it exports an appropriate locale value
-            if ( SfxItemState::SET != pFormat->GetItemState(RES_FRAMEDIR, false) )
-                pFormat->SetFormatAttr(pFormat->GetFrameDir());
         }
         else if (aName.equalsIgnoreAsciiCase("Normal"))
         {
@@ -623,6 +618,11 @@ void MSWordStyles::OutputStyle( SwFormat* pFormat, sal_uInt16 nPos )
                 // TODO: verify if we really need to increment nSuffix in 2 places
                 aName = aBaseName + OUString::number(++nSuffix);
             }
+        }
+        else if (!bFormatColl && m_rExport.m_pStyles->GetStyleId(nPos).startsWith("ListLabel"))
+        {
+            // tdf#92335 don't export redundant DOCX import style "ListLabel"
+            return;
         }
 
         m_rExport.AttrOutput().StartStyle( aName, (bFormatColl ? STYLE_TYPE_PARA : STYLE_TYPE_CHAR),
@@ -873,15 +873,11 @@ void wwFontHelper::InitFontTable(const SwDoc& rDoc)
     const sal_uInt16 aTypes[] = { RES_CHRATR_FONT, RES_CHRATR_CJK_FONT, RES_CHRATR_CTL_FONT, 0 };
     for (const sal_uInt16* pId = aTypes; *pId; ++pId)
     {
-        sal_uInt32 const nMaxItem = rPool.GetItemCount2( *pId );
-        for (sal_uInt32 nGet = 0; nGet < nMaxItem; ++nGet)
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(*pId))
         {
-            pFont = static_cast<const SvxFontItem*>(rPool.GetItem2( *pId, nGet ));
-            if (nullptr != pFont)
-            {
-                GetId(wwFont(pFont->GetFamilyName(), pFont->GetPitch(),
-                            pFont->GetFamily(), pFont->GetCharSet()));
-            }
+            pFont = static_cast<const SvxFontItem*>(pItem);
+            GetId(wwFont(pFont->GetFamilyName(), pFont->GetPitch(),
+                         pFont->GetFamily(), pFont->GetCharSet()));
         }
     }
 }
@@ -1966,9 +1962,20 @@ WW8_Annotation::WW8_Annotation(const SwRedlineData* pRedline)
     maDateTime = pRedline->GetTimeStamp();
 }
 
-void WW8_WrPlcAnnotations::AddRangeStartPosition(const OUString& rName, WW8_CP nStartCp)
+bool WW8_Annotation::HasRange() const
 {
-    m_aRangeStartPositions[rName] = nStartCp;
+    if (m_nRangeStart != m_nRangeEnd)
+    {
+        return true;
+    }
+
+    return !m_bIgnoreEmpty;
+}
+
+void WW8_WrPlcAnnotations::AddRangeStartPosition(const OUString& rName, WW8_CP nStartCp,
+                                                 bool bIgnoreEmpty)
+{
+    m_aRangeStartPositions[rName] = std::make_pair(nStartCp, bIgnoreEmpty);
 }
 
 void WW8_WrPlcAnnotations::Append( WW8_CP nCp, const SwPostItField *pPostIt )
@@ -1977,7 +1984,9 @@ void WW8_WrPlcAnnotations::Append( WW8_CP nCp, const SwPostItField *pPostIt )
     WW8_Annotation* p;
     if( m_aRangeStartPositions.find(pPostIt->GetName()) != m_aRangeStartPositions.end() )
     {
-        p = new WW8_Annotation(pPostIt, m_aRangeStartPositions[pPostIt->GetName()], nCp);
+        auto [nStartCp, bIgnoreEmpty] = m_aRangeStartPositions[pPostIt->GetName()];
+        p = new WW8_Annotation(pPostIt, nStartCp, nCp);
+        p->m_bIgnoreEmpty = bIgnoreEmpty;
         m_aRangeStartPositions.erase(pPostIt->GetName());
     }
     else
@@ -2182,7 +2191,7 @@ void WW8_WrPlcSubDoc::WriteGenericPlc( WW8Export& rWrt, sal_uInt8 nTTyp,
                     const WW8_Annotation& rAtn = *static_cast<const WW8_Annotation*>(aContent[i]);
                     aStrArr.emplace_back(rAtn.msOwner,rAtn.m_sInitials);
                     // record start and end positions for ranges
-                    if( rAtn.m_nRangeStart != rAtn.m_nRangeEnd )
+                    if (rAtn.HasRange())
                     {
                         aRangeStartPos.emplace_back(rAtn.m_nRangeStart, nIdx);
                         aRangeEndPos.emplace_back(rAtn.m_nRangeEnd, nIdx);
@@ -2407,7 +2416,7 @@ void WW8_WrPlcSubDoc::WriteGenericPlc( WW8Export& rWrt, sal_uInt8 nTTyp,
                 SwWW8Writer::WriteShort( *rWrt.pTableStrm, nFndPos );
                 SwWW8Writer::WriteShort( *rWrt.pTableStrm, 0 );
                 SwWW8Writer::WriteShort( *rWrt.pTableStrm, 0 );
-                if( rAtn.m_nRangeStart != rAtn.m_nRangeEnd )
+                if (rAtn.HasRange())
                 {
                     SwWW8Writer::WriteLong( *rWrt.pTableStrm, nlTag );
                     ++nlTag;

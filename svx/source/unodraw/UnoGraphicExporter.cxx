@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <com/sun/star/io/XOutputStream.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
@@ -32,6 +33,7 @@
 #include <com/sun/star/task/XInteractionContinuation.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
 
+#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
 #include <comphelper/interaction.hxx>
 #include <framework/interaction.hxx>
@@ -64,6 +66,7 @@
 #include <svx/pageitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <svx/svdoutl.hxx>
+#include <svx/xlineit0.hxx>
 #include <editeng/flditem.hxx>
 #include "UnoGraphicExporter.hxx"
 #include <memory>
@@ -179,7 +182,7 @@ namespace {
 
     /** creates a bitmap that is optionally transparent from a metafile
     */
-    BitmapEx GetBitmapFromMetaFile( const GDIMetaFile& rMtf, const Size* pSize )
+    BitmapEx GetBitmapFromMetaFile( const GDIMetaFile& rMtf,bool bIsSelection, const Size* pSize )
     {
         // use new primitive conversion tooling
         basegfx::B2DRange aRange(basegfx::B2DPoint(0.0, 0.0));
@@ -212,35 +215,39 @@ namespace {
 
         if(!aRect.IsEmpty())
         {
-            // tdf#105998 Correct the Metafile using information from it's real sizes measured
-            // using rMtf.GetBoundRect above and a copy
-            const Size aOnePixelInMtf(
-                Application::GetDefaultDevice()->PixelToLogic(
-                    Size(1, 1),
-                    rMtf.GetPrefMapMode()));
             GDIMetaFile aMtf(rMtf);
-            const Size aHalfPixelInMtf(
-                (aOnePixelInMtf.getWidth() + 1) / 2,
-                (aOnePixelInMtf.getHeight() + 1) / 2);
-            const bool bHairlineBR(
-                !aHairlineRect.IsEmpty() && (aRect.Right() == aHairlineRect.Right() || aRect.Bottom() == aHairlineRect.Bottom()));
 
-            // Move the content to (0,0), usually TopLeft ist slightly
-            // negative. For better visualization, add a half pixel, too
-            aMtf.Move(
-                aHalfPixelInMtf.getWidth() - aRect.Left(),
-                aHalfPixelInMtf.getHeight() - aRect.Top());
+            if (bIsSelection)
+            {
+                // tdf#105998 Correct the Metafile using information from it's real sizes measured
+                // using rMtf.GetBoundRect above and a copy
+                const Size aOnePixelInMtf(
+                    Application::GetDefaultDevice()->PixelToLogic(
+                        Size(1, 1),
+                        rMtf.GetPrefMapMode()));
+                const Size aHalfPixelInMtf(
+                    (aOnePixelInMtf.getWidth() + 1) / 2,
+                    (aOnePixelInMtf.getHeight() + 1) / 2);
+                const bool bHairlineBR(
+                    !aHairlineRect.IsEmpty() && (aRect.Right() == aHairlineRect.Right() || aRect.Bottom() == aHairlineRect.Bottom()));
 
-            // Do not Scale, but set the PrefSize. Some levels deeper the
-            // MetafilePrimitive will add a mapping to the decomposition
-            // (and possibly a clipping) to map the graphic content to
-            // a unit coordinate system.
-            // Size is the measured size plus one pixel if needed (bHairlineBR)
-            // and the moved half pixwel from above
-            aMtf.SetPrefSize(
-                Size(
-                    aRect.getWidth() + (bHairlineBR ? aOnePixelInMtf.getWidth() : 0) + aHalfPixelInMtf.getWidth(),
-                    aRect.getHeight() + (bHairlineBR ? aOnePixelInMtf.getHeight() : 0) + aHalfPixelInMtf.getHeight()));
+                // Move the content to (0,0), usually TopLeft ist slightly
+                // negative. For better visualization, add a half pixel, too
+                aMtf.Move(
+                    aHalfPixelInMtf.getWidth() - aRect.Left(),
+                    aHalfPixelInMtf.getHeight() - aRect.Top());
+
+                // Do not Scale, but set the PrefSize. Some levels deeper the
+                // MetafilePrimitive will add a mapping to the decomposition
+                // (and possibly a clipping) to map the graphic content to
+                // a unit coordinate system.
+                // Size is the measured size plus one pixel if needed (bHairlineBR)
+                // and the moved half pixwel from above
+                aMtf.SetPrefSize(
+                    Size(
+                        aRect.getWidth() + (bHairlineBR ? aOnePixelInMtf.getWidth() : 0) + aHalfPixelInMtf.getWidth(),
+                        aRect.getHeight() + (bHairlineBR ? aOnePixelInMtf.getHeight() : 0) + aHalfPixelInMtf.getHeight()));
+            }
 
             return convertMetafileToBitmapEx(aMtf, aRange, nMaximumQuadraticPixels);
         }
@@ -548,7 +555,7 @@ void GraphicExporter::ParseSettings( const Sequence< PropertyValue >& aDescripto
                     pDataValues->Value >>= xPage;
                     if( xPage.is() )
                     {
-                        SvxDrawPage* pUnoPage = SvxDrawPage::getImplementation( xPage );
+                        SvxDrawPage* pUnoPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>( xPage );
                         if( pUnoPage && pUnoPage->GetSdrPage() )
                             mpCurrentPage = pUnoPage->GetSdrPage();
                     }
@@ -779,7 +786,7 @@ bool GraphicExporter::GetGraphic( ExportSettings const & rSettings, Graphic& aGr
                 if( rSettings.mbTranslucent )
                 {
                     Size aOutSize;
-                    aGraphic = GetBitmapFromMetaFile( aGraphic.GetGDIMetaFile(), CalcSize( rSettings.mnWidth, rSettings.mnHeight, aNewSize, aOutSize ) );
+                    aGraphic = GetBitmapFromMetaFile( aGraphic.GetGDIMetaFile(), false, CalcSize( rSettings.mnWidth, rSettings.mnHeight, aNewSize, aOutSize ) );
                 }
             }
         }
@@ -965,7 +972,7 @@ bool GraphicExporter::GetGraphic( ExportSettings const & rSettings, Graphic& aGr
             if( !bVectorType )
             {
                 Size aOutSize;
-                aGraphic = GetBitmapFromMetaFile( aMtf, CalcSize( rSettings.mnWidth, rSettings.mnHeight, aBoundSize, aOutSize ) );
+                aGraphic = GetBitmapFromMetaFile( aMtf, true, CalcSize( rSettings.mnWidth, rSettings.mnHeight, aBoundSize, aOutSize ) );
             }
             else
             {
@@ -993,10 +1000,10 @@ sal_Bool SAL_CALL GraphicExporter::filter( const Sequence< PropertyValue >& aDes
 {
     ::SolarMutexGuard aGuard;
 
-    if( !maGraphic && nullptr == mpUnoPage )
+    if( maGraphic.IsNone() && nullptr == mpUnoPage )
         return false;
 
-    if( !maGraphic && ( nullptr == mpUnoPage->GetSdrPage() || nullptr == mpDoc ) )
+    if( maGraphic.IsNone() && ( nullptr == mpUnoPage->GetSdrPage() || nullptr == mpDoc ) )
         return false;
 
     GraphicFilter &rFilter = GraphicFilter::GetGraphicFilter();
@@ -1014,7 +1021,7 @@ sal_Bool SAL_CALL GraphicExporter::filter( const Sequence< PropertyValue >& aDes
     Graphic aGraphic = maGraphic;
 
     ErrCode nStatus = ERRCODE_NONE;
-    if (!maGraphic)
+    if (maGraphic.IsNone())
     {
         SvtOptionsDrawinglayer aOptions;
         bool bAntiAliasing = aOptions.IsAntiAliasing();
@@ -1147,7 +1154,7 @@ void SAL_CALL GraphicExporter::setSourceDocument( const Reference< lang::XCompon
                     break;
 
                 maGraphic = Graphic(xGraphic);
-                if (maGraphic)
+                if (!maGraphic.IsNone())
                     return;
                 else
                     break;
@@ -1176,7 +1183,7 @@ void SAL_CALL GraphicExporter::setSourceDocument( const Reference< lang::XCompon
         if( !mxPage.is() )
             break;
 
-        mpUnoPage = SvxDrawPage::getImplementation( mxPage );
+        mpUnoPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>( mxPage );
 
         if( nullptr == mpUnoPage || nullptr == mpUnoPage->GetSdrPage() )
             break;

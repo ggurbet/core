@@ -10,7 +10,6 @@
 
 #include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
-#include <vcl/bitmapaccess.hxx>
 #include <vcl/BitmapSolarizeFilter.hxx>
 
 #include <bitmapwriteaccess.hxx>
@@ -32,7 +31,8 @@ BitmapEx BitmapSolarizeFilter::execute(BitmapEx const& rBitmapEx) const
                 if (rPal[i].GetLuminance() >= mcSolarGreyThreshold)
                 {
                     BitmapColor aCol(rPal[i]);
-                    pWriteAcc->SetPaletteColor(i, aCol.Invert());
+                    aCol.Invert();
+                    pWriteAcc->SetPaletteColor(i, aCol);
                 }
             }
         }
@@ -50,7 +50,10 @@ BitmapEx BitmapSolarizeFilter::execute(BitmapEx const& rBitmapEx) const
                     aCol = pWriteAcc->GetPixelFromData(pScanline, nX);
 
                     if (aCol.GetLuminance() >= mcSolarGreyThreshold)
-                        pWriteAcc->SetPixelOnData(pScanline, nX, aCol.Invert());
+                    {
+                        aCol.Invert();
+                        pWriteAcc->SetPixelOnData(pScanline, nX, aCol);
+                    }
                 }
             }
         }

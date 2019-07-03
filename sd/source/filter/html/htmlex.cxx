@@ -37,6 +37,7 @@
 #include <vcl/imaprect.hxx>
 #include <vcl/imapcirc.hxx>
 #include <vcl/imappoly.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/editobj.hxx>
 #include <svx/svdopath.hxx>
@@ -59,6 +60,7 @@
 #include <comphelper/anytostring.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <drawdoc.hxx>

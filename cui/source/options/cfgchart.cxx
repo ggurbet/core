@@ -235,7 +235,7 @@ void SvxChartOptions::ImplCommit()
     uno::Sequence< OUString > aNames = GetPropertyNames();
     uno::Sequence< uno::Any > aValues( aNames.getLength());
 
-    if( aValues.getLength() >= 1 )
+    if( aValues.hasElements() )
     {
         // 1. default colors for series
         // convert list to sequence
@@ -283,18 +283,6 @@ bool SvxChartColorTableItem::operator==( const SfxPoolItem& rAttr ) const
     }
 
     return false;
-}
-
-void SvxChartColorTableItem::SetOptions( SvxChartOptions* pOpts ) const
-{
-    if ( pOpts )
-        pOpts->SetDefaultColors( m_aColorTable );
-}
-
-
-void SvxChartColorTableItem::ReplaceColorByIndex( size_t _nIndex, const XColorEntry & _rEntry )
-{
-    m_aColorTable.replace( _nIndex, _rEntry );
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

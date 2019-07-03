@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/container/XChild.hpp>
 #include <com/sun/star/drawing/BitmapMode.hpp>
@@ -28,6 +29,7 @@
 #include <com/sun/star/embed/EmbedStates.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/frame/XTitle.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <com/sun/star/graphic/XGraphicProvider.hpp>
 #include <com/sun/star/drawing/TextVerticalAdjust.hpp>
 #include <o3tl/any.hxx>
@@ -44,6 +46,7 @@
 #include <memory>
 #include <utility>
 #include <hints.hxx>
+#include <cntfrm.hxx>
 #include <doc.hxx>
 #include <drawdoc.hxx>
 #include <IDocumentUndoRedo.hxx>
@@ -354,7 +357,7 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
     if(bXFillStyleItemUsed)
     {
         XFillStyleItem aXFillStyleItem;
-        SvxBrushItem aBrush(RES_BACKGROUND);
+        std::shared_ptr<SvxBrushItem> aBrush(std::make_shared<SvxBrushItem>(RES_BACKGROUND));
 
         if(pXFillStyleItem)
         {
@@ -378,10 +381,10 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
             // Fill style is set to solid, but no fill color is given.
             // On the other hand, we have a BackColor, so use that.
             if (pCol)
-                aBrush.PutValue(*pCol, MID_BACK_COLOR);
+                aBrush->PutValue(*pCol, MID_BACK_COLOR);
             else
-                aBrush.PutValue(*pRGBCol, MID_BACK_COLOR_R_G_B);
-            setSvxBrushItemAsFillAttributesToTargetSet(aBrush, rToSet);
+                aBrush->PutValue(*pRGBCol, MID_BACK_COLOR_R_G_B);
+            setSvxBrushItemAsFillAttributesToTargetSet(*aBrush, rToSet);
         }
 
         if(pXFillGradientItem || pXFillGradientNameItem)
@@ -489,8 +492,8 @@ bool BaseFrameProperties_Impl::FillBaseProperties(SfxItemSet& rToSet, const SfxI
             }
             if (aXFillStyleItem.GetValue() == drawing::FillStyle_SOLID)
             {
-                aBrush.PutValue(*pColTrans, MID_BACK_COLOR_TRANSPARENCY);
-                setSvxBrushItemAsFillAttributesToTargetSet(aBrush, rToSet);
+                aBrush->PutValue(*pColTrans, MID_BACK_COLOR_TRANSPARENCY);
+                setSvxBrushItemAsFillAttributesToTargetSet(*aBrush, rToSet);
             }
         }
 
@@ -1117,7 +1120,7 @@ bool SwGraphicProperties_Impl::AnyToItemSet(
         {
             std::unique_ptr<SfxPoolItem> pItem(::GetDfltAttr( nIDs[nIndex] )->Clone());
             bRet &= pItem->PutValue(*pAny, nMId );
-            rGrSet.Put(*pItem);
+            rGrSet.Put(std::move(pItem));
         }
     }
 
@@ -1609,15 +1612,14 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
             }
             else if (aValue.has<uno::Reference<graphic::XGraphic>>())
             {
-                uno::Reference<graphic::XGraphic> xGraphic;
-                xGraphic = aValue.get<uno::Reference<graphic::XGraphic>>();
+                uno::Reference<graphic::XGraphic> xGraphic = aValue.get<uno::Reference<graphic::XGraphic>>();
                 if (xGraphic.is())
                 {
                     aGraphic = Graphic(xGraphic);
                 }
             }
 
-            if (aGraphic)
+            if (!aGraphic.IsNone())
             {
                 const ::SwNodeIndex* pIdx = pFormat->GetContent().GetContentIdx();
                 if (pIdx)
@@ -1646,15 +1648,14 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
             }
             else if (aValue.has<uno::Reference<graphic::XGraphic>>())
             {
-                uno::Reference<graphic::XGraphic> xGraphic;
-                xGraphic = aValue.get<uno::Reference<graphic::XGraphic>>();
+                uno::Reference<graphic::XGraphic> xGraphic = aValue.get<uno::Reference<graphic::XGraphic>>();
                 if (xGraphic.is())
                 {
                     aGraphic = Graphic(xGraphic);
                 }
             }
 
-            if (aGraphic)
+            if (!aGraphic.IsNone())
             {
                 const ::SwFormatContent* pCnt = &pFormat->GetContent();
                 if ( pCnt->GetContentIdx() && pDoc->GetNodes()[ pCnt->GetContentIdx()->GetIndex() + 1 ] )
@@ -1768,14 +1769,14 @@ void SwXFrame::setPropertyValue(const OUString& rPropertyName, const ::uno::Any&
             if(RES_BACKGROUND == pEntry->nWID)
             {
                 const SwAttrSet& rSet = pFormat->GetAttrSet();
-                const SvxBrushItem aOriginalBrushItem(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND, true, pDoc->IsInXMLImport()));
-                SvxBrushItem aChangedBrushItem(aOriginalBrushItem);
+                const std::shared_ptr<SvxBrushItem> aOriginalBrushItem(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND, true, pDoc->IsInXMLImport()));
+                std::shared_ptr<SvxBrushItem> aChangedBrushItem(static_cast<SvxBrushItem*>(aOriginalBrushItem->Clone()));
 
-                aChangedBrushItem.PutValue(aValue, nMemberId);
+                aChangedBrushItem->PutValue(aValue, nMemberId);
 
-                if(aChangedBrushItem != aOriginalBrushItem)
+                if(*aChangedBrushItem != *aOriginalBrushItem)
                 {
-                    setSvxBrushItemAsFillAttributesToTargetSet(aChangedBrushItem, aSet);
+                    setSvxBrushItemAsFillAttributesToTargetSet(*aChangedBrushItem, aSet);
                     pFormat->GetDoc()->SetFlyFrameAttr( *pFormat, aSet );
                 }
 
@@ -2095,6 +2096,36 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
                 aAny <<= pGrfNode->GetGrf().GetXGraphic();
             }
         }
+        else if( FN_UNO_TRANSFORMED_GRAPHIC == pEntry->nWID )
+        {
+            const SwNodeIndex* pIdx = pFormat->GetContent().GetContentIdx();
+            if(pIdx)
+            {
+                SwNodeIndex aIdx(*pIdx, 1);
+                SwGrfNode* pGrfNode = aIdx.GetNode().GetGrfNode();
+                if(!pGrfNode)
+                    throw uno::RuntimeException();
+
+                SwDoc* pDoc = pFormat->GetDoc();
+                if (pDoc)
+                {
+                    const SwEditShell* pEditShell = pDoc->GetEditShell();
+                    if (pEditShell)
+                    {
+                        SwFrame* pCurrFrame = pEditShell->GetCurrFrame(false);
+                        GraphicAttr aGraphicAttr;
+                        pGrfNode->GetGraphicAttr( aGraphicAttr, pCurrFrame );
+                        const GraphicObject aGraphicObj = pGrfNode->GetGrfObj();
+
+                        awt::Size aFrameSize = getSize();
+                        Size aSize100thmm(aFrameSize.Width, aFrameSize.Height);
+                        Size aSize = OutputDevice::LogicToLogic(aSize100thmm, MapMode(MapUnit::Map100thMM), aGraphicObj.GetPrefMapMode());
+                        Graphic aGraphic = aGraphicObj.GetTransformedGraphic(aSize, aGraphicObj.GetPrefMapMode(), aGraphicAttr);
+                        aAny <<= aGraphic.GetXGraphic();
+                    }
+                }
+            }
+        }
         else if(FN_UNO_FRAME_STYLE_NAME == pEntry->nWID)
         {
             aAny <<= SwStyleNameMapper::GetProgName(pFormat->DerivedFrom()->GetName(), SwGetPoolIdFromName::FrmFmt );
@@ -2209,6 +2240,18 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
                 aAny <<= awt::Size( aMM100Size.Width(), aMM100Size.Height() );
             }
         }
+        else if(pEntry->nWID == FN_UNO_PARENT_TEXT)
+        {
+            if (!m_xParentText.is())
+            {
+                const SwPosition* pContentAnchor = pFormat->GetAnchor().GetContentAnchor();
+                if (pContentAnchor)
+                {
+                    m_xParentText = sw::CreateParentXText(*pFormat->GetDoc(), *pContentAnchor);
+                }
+            }
+            aAny <<= m_xParentText;
+        }
         else
         {
             // standard UNO API read attributes
@@ -2218,9 +2261,9 @@ uno::Any SwXFrame::getPropertyValue(const OUString& rPropertyName)
 
             if(RES_BACKGROUND == pEntry->nWID)
             {
-                const SvxBrushItem aOriginalBrushItem(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND));
+                const std::shared_ptr<SvxBrushItem> aOriginalBrushItem(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND));
 
-                if(!aOriginalBrushItem.QueryValue(aAny, nMemberId))
+                if(!aOriginalBrushItem->QueryValue(aAny, nMemberId))
                 {
                     OSL_ENSURE(false, "Error getting attribute from RES_BACKGROUND (!)");
                 }

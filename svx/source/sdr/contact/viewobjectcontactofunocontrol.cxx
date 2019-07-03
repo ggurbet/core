@@ -45,12 +45,14 @@
 #include <com/sun/star/container/XContainerListener.hpp>
 #include <com/sun/star/container/XContainer.hpp>
 
+#include <vcl/canvastools.hxx>
 #include <vcl/svapp.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/scopeguard.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <drawinglayer/primitive2d/controlprimitive2d.hxx>
 
@@ -298,7 +300,10 @@ namespace sdr { namespace contact {
         ::basegfx::B2DPoint aBottomRight( _rLogicBoundingRect.Right(), _rLogicBoundingRect.Bottom() );
         aBottomRight *= _rViewTransformation;
 
-        const tools::Rectangle aPaintRectPixel( static_cast<long>(aTopLeft.getX()), static_cast<long>(aTopLeft.getY()), static_cast<long>(aBottomRight.getX()), static_cast<long>(aBottomRight.getY()) );
+        const tools::Rectangle aPaintRectPixel(static_cast<long>(std::round(aTopLeft.getX())),
+                                               static_cast<long>(std::round(aTopLeft.getY())),
+                                               static_cast<long>(std::round(aBottomRight.getX())),
+                                               static_cast<long>(std::round(aBottomRight.getY())));
         _rControl.setPosSize( aPaintRectPixel );
 
         // determine the scale from the current view transformation, and the normalization matrix
@@ -1479,12 +1484,7 @@ namespace sdr { namespace contact {
         // use getBoundRect()/getSnapRect() here; these will use the sequence of
         // primitives themselves in the long run.
         const tools::Rectangle aSdrGeoData( _rVOC.GetSdrUnoObj().GetGeoRect() );
-        const basegfx::B2DRange aRange(
-            aSdrGeoData.Left(),
-            aSdrGeoData.Top(),
-            aSdrGeoData.Right(),
-            aSdrGeoData.Bottom()
-        );
+        const basegfx::B2DRange aRange = vcl::unotools::b2DRectangleFromRectangle(aSdrGeoData);
 
         _out_Transformation.identity();
         _out_Transformation.set( 0, 0, aRange.getWidth() );
@@ -1533,9 +1533,6 @@ namespace sdr { namespace contact {
         const ViewContactOfUnoControl& rViewContactOfUnoControl( m_pVOCImpl->getViewContact() );
         Reference< XControlModel > xControlModel( rViewContactOfUnoControl.GetSdrUnoObj().GetUnoControlModel() );
         const ControlHolder& rControl( m_pVOCImpl->getExistentControl() );
-
-        if ( !bHadControl && rControl.is() && rControl.isVisible() )
-            rControl.invalidate();
 
         if ( !bHadControl && rControl.is() && rControl.isVisible() )
             rControl.invalidate();

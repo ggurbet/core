@@ -20,14 +20,12 @@
 #include <swmodeltestbase.hxx>
 
 #include <basegfx/polygon/b2dpolypolygontools.hxx>
-#include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/document/XEmbeddedObjectSupplier2.hpp>
 #include <com/sun/star/drawing/PointSequenceSequence.hpp>
 #include <com/sun/star/drawing/GraphicExportFilter.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeAdjustmentValue.hpp>
 #include <com/sun/star/drawing/PolyPolygonBezierCoords.hpp>
-#include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/style/BreakType.hpp>
 #include <com/sun/star/style/DropCapFormat.hpp>
@@ -41,18 +39,12 @@
 #include <com/sun/star/text/WrapTextMode.hpp>
 #include <com/sun/star/text/XDependentTextField.hpp>
 #include <com/sun/star/text/XFormField.hpp>
-#include <com/sun/star/text/XPageCursor.hpp>
-#include <com/sun/star/text/XTextColumns.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
 #include <com/sun/star/text/XTextFrame.hpp>
 #include <com/sun/star/text/XTextFramesSupplier.hpp>
-#include <com/sun/star/text/XTextViewCursorSupplier.hpp>
 #include <com/sun/star/style/ParagraphAdjust.hpp>
 #include <com/sun/star/text/SizeType.hpp>
 #include <com/sun/star/util/DateTime.hpp>
-#include <com/sun/star/document/XFilter.hpp>
-#include <com/sun/star/document/XImporter.hpp>
-#include <vcl/bitmapaccess.hxx>
 #include <unotools/fltrcfg.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <com/sun/star/text/GraphicCrop.hpp>
@@ -823,7 +815,7 @@ DECLARE_OOXMLIMPORT_TEST(testDMLGroupShapeParaAdjust, "dml-groupshape-paraadjust
 {
     // Paragraph adjustment inside a group shape was not imported
     uno::Reference<container::XIndexAccess> xGroup(getShape(1), uno::UNO_QUERY);
-    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY)->getText();
+    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xGroup->getByIndex(1), uno::UNO_QUERY_THROW)->getText();
     // 2nd line is adjusted to the right
     CPPUNIT_ASSERT_EQUAL(sal_Int16(style::ParagraphAdjust_RIGHT), getProperty<sal_Int16>(getRun(getParagraphOfText(2, xText), 1), "ParaAdjust"));
     // 3rd line has no adjustment
@@ -1049,11 +1041,11 @@ DECLARE_OOXMLIMPORT_TEST(testFdo87488, "fdo87488.docx")
     // StarView MetaFile.
     uno::Reference<container::XIndexAccess> group(getShape(1), uno::UNO_QUERY);
     {
-        uno::Reference<text::XTextRange> text(group->getByIndex(0), uno::UNO_QUERY);
+        uno::Reference<text::XTextRange> text(group->getByIndex(1), uno::UNO_QUERY);
         CPPUNIT_ASSERT_EQUAL(OUString("text2"), text->getString());
     }
     {
-        uno::Reference<beans::XPropertySet> props(group->getByIndex(0), uno::UNO_QUERY);
+        uno::Reference<beans::XPropertySet> props(group->getByIndex(1), uno::UNO_QUERY);
         CPPUNIT_ASSERT_EQUAL(props->getPropertyValue("RotateAngle"),
                              uno::makeAny<sal_Int32>(270 * 100));
         comphelper::SequenceAsHashMap geom(props->getPropertyValue("CustomShapeGeometry"));
@@ -1129,7 +1121,7 @@ DECLARE_OOXMLIMPORT_TEST(testTdf95970, "tdf95970.docx")
     // Proper color order of image on test doc (left->right):
     // top row: green->red
     // bottom row: yellow->blue
-    uno::Reference<drawing::XShape> xShape(getShape(1), uno::UNO_QUERY_THROW);
+    uno::Reference<drawing::XShape> xShape(getShape(1), uno::UNO_SET_THROW);
     uno::Reference<beans::XPropertySet> xPropertySet(getShape(1), uno::UNO_QUERY_THROW);
     sal_Int32 aRotate = 0;
     xPropertySet->getPropertyValue("RotateAngle") >>= aRotate;

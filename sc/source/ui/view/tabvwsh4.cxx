@@ -26,6 +26,7 @@
 #include <svx/dialogs.hrc>
 #include <svx/extrusionbar.hxx>
 #include <svx/fontworkbar.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <svx/fmpage.hxx>
 #include <svx/fmshell.hxx>
@@ -39,6 +40,7 @@
 #include <unotools/moduleoptions.hxx>
 #include <tools/urlobj.hxx>
 #include <sfx2/docfile.hxx>
+#include <tools/svborder.hxx>
 
 #include <tabvwsh.hxx>
 #include <sc.hrc>
@@ -198,11 +200,11 @@ void ScTabViewShell::Activate(bool bMDI)
             SfxChildWindow* pChildWnd = pThisFrame->GetChildWindow( nModRefDlgId );
             if ( pChildWnd )
             {
-                IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pChildWnd->GetWindow());
-                assert(pRefDlg);
-                if(pRefDlg)
+                if (auto pController = pChildWnd->GetController())
                 {
-                    pRefDlg->ViewShellChanged();
+                    IAnyRefDialog* pRefDlg = dynamic_cast<IAnyRefDialog*>(pController.get());
+                    if (pRefDlg)
+                        pRefDlg->ViewShellChanged();
                 }
             }
         }
@@ -1090,7 +1092,7 @@ static ScTabViewObj* lcl_GetViewObj( const ScTabViewShell& rShell )
         SfxFrame& rFrame = pViewFrame->GetFrame();
         uno::Reference<frame::XController> xController = rFrame.GetController();
         if (xController.is())
-            pRet = ScTabViewObj::getImplementation( xController );
+            pRet = comphelper::getUnoTunnelImplementation<ScTabViewObj>( xController );
     }
     return pRet;
 }
@@ -1145,8 +1147,8 @@ void ScTabViewShell::StartSimpleRefDialog(
         pWnd->SetRefString( rInitVal );
         pWnd->SetFlags( bCloseOnButtonUp, bSingleCell, bMultiSelection );
         ScSimpleRefDlgWrapper::SetAutoReOpen( false );
-        vcl::Window* pWin = pWnd->GetWindow();
-        pWin->SetText( rTitle );
+        if (auto xWin = pWnd->GetController())
+            xWin->set_title(rTitle);
         pWnd->StartRefInput();
     }
 }
@@ -1159,9 +1161,8 @@ void ScTabViewShell::StopSimpleRefDialog()
     ScSimpleRefDlgWrapper* pWnd = static_cast<ScSimpleRefDlgWrapper*>(pViewFrm->GetChildWindow( nId ));
     if (pWnd)
     {
-        vcl::Window* pWin = pWnd->GetWindow();
-        if (pWin && pWin->IsSystemWindow())
-            static_cast<SystemWindow*>(pWin)->Close();     // calls abort handler
+        if (auto pWin = pWnd->GetController())
+            pWin->response(RET_CLOSE);
     }
 }
 
@@ -1441,7 +1442,6 @@ void ScTabViewShell::Construct( TriState nForceDesignMode )
     SetWindow( GetActiveWin() );
 
     pCurFrameLine.reset( new ::editeng::SvxBorderLine(&aColBlack, 20, SvxBorderLineStyle::SOLID) );
-    pPivotSource.reset( new ScArea );
     StartListening(*GetViewData().GetDocShell(), DuplicateHandling::Prevent);
     StartListening(*GetViewFrame(), DuplicateHandling::Prevent);
     StartListening(*pSfxApp, DuplicateHandling::Prevent); // #i62045# #i62046# application is needed for Calc's own hints
@@ -1713,6 +1713,7 @@ ScTabViewShell::ScTabViewShell( SfxViewFrame* pViewFrame,
             if (pViewShell2 && pViewShell2 == this)
             {
                 ScTabViewShell* pTabViewShell = dynamic_cast<ScTabViewShell*>(pViewShell);
+                assert(pTabViewShell);
                 ScInputHandler* pInputHdl = pTabViewShell->GetInputHandler();
                 if (pInputHdl && pInputHdl->IsFormulaMode())
                 {
@@ -1769,7 +1770,6 @@ ScTabViewShell::~ScTabViewShell()
     pAuditingShell.reset();
     pCurFrameLine.reset();
     mpInputHandler.reset();
-    pPivotSource.reset();
     pDialogDPObject.reset();
     pNavSettings.reset();
 
@@ -1799,7 +1799,7 @@ void ScTabViewShell::FillFieldData( ScHeaderFieldData& rData )
     const INetURLObject& rURLObj = pDocShell->GetMedium()->GetURLObject();
     rData.aLongDocName  = rURLObj.GetMainURL( INetURLObject::DecodeMechanism::Unambiguous );
     if ( !rData.aLongDocName.isEmpty() )
-        rData.aShortDocName = rURLObj.GetName( INetURLObject::DecodeMechanism::Unambiguous );
+        rData.aShortDocName = rURLObj.GetLastName(INetURLObject::DecodeMechanism::Unambiguous);
     else
         rData.aShortDocName = rData.aLongDocName = rData.aTitle;
     rData.nPageNo       = 1;

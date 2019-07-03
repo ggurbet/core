@@ -19,15 +19,13 @@
 
 
 #include "sunversion.hxx"
-#include <osl/diagnose.h>
 #include <osl/thread.h>
-#include <osl/process.h>
-#include <osl/security.hxx>
 #include <rtl/character.hxx>
 #include <string.h>
+#if OSL_DEBUG_LEVEL >= 2
+#include <osl/diagnose.h>
 #include "diagnostics.h"
-using namespace osl;
-
+#endif
 namespace jfw_plugin  { //stoc_javadetect
 
 

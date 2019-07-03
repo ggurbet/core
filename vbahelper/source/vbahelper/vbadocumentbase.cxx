@@ -35,6 +35,7 @@
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <ooo/vba/XApplicationBase.hpp>
 
+#include <comphelper/automationinvokedzone.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <tools/urlobj.hxx>
 #include <osl/file.hxx>
@@ -55,7 +56,10 @@ VbaDocumentBase::VbaDocumentBase( uno::Sequence< uno::Any> const & args,
 OUString
 VbaDocumentBase::getName()
 {
-    return VbaDocumentBase::getNameFromModel( getModel() );
+    OUString sName = VbaDocumentBase::getNameFromModel( getModel() );
+    SAL_INFO("vbahelper", "VbaDocumentBase::getName: '" << sName << "'");
+
+    return sName;
 }
 
 OUString VbaDocumentBase::getNameFromModel( const uno::Reference< frame::XModel >& xModel )
@@ -86,14 +90,26 @@ VbaDocumentBase::getPath()
        sURL = sURL.copy( 0, sURL.getLength() - aURL.GetLastName().getLength() - 1 );
        ::osl::File::getSystemPathFromFileURL( sURL, sPath );
     }
+    SAL_INFO("vbahelper", "VbaDocumentBase::getPath: '" << sPath << "'");
+
     return sPath;
 }
 
 OUString
 VbaDocumentBase::getFullName()
 {
+    // In the Automation case, follow the specs.
+    if (comphelper::Automation::AutomationInvokedZone::isActive())
+    {
+        // We know that Automation is relevant only on Windows, so hardcode "\\".
+        OUString sPath = getPath() + "\\" + getName();
+        SAL_INFO("vbahelper", "VbaDocumentBase::getFullName: '" << sPath << "'");
+        return sPath;
+    }
+
     OUString sPath = getName();
     //::osl::File::getSystemPathFromFileURL( getModel()->getURL(), sPath );
+    SAL_INFO("vbahelper", "VbaDocumentBase::getFullName: '" << sPath << "'");
     return sPath;
 }
 
@@ -253,7 +269,7 @@ VbaDocumentBase::Save()
 void
 VbaDocumentBase::Activate()
 {
-    uno::Reference< frame::XFrame > xFrame( getModel()->getCurrentController()->getFrame(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XFrame > xFrame( getModel()->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
     xFrame->activate();
 }
 

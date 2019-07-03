@@ -22,7 +22,6 @@
 
 #include <undobj.hxx>
 #include <memory>
-#include <swdllapi.h>
 
 class SfxItemSet;
 class SwTextNode;
@@ -69,6 +68,28 @@ public:
 std::unique_ptr<SwUndo> MakeUndoDelSection(SwSectionFormat const&);
 
 std::unique_ptr<SwUndo> MakeUndoUpdateSection(SwSectionFormat const&, bool const);
+
+
+class SwTOXBaseSection;
+class SwUndoDelSection;
+
+class SwUndoUpdateIndex : public SwUndo
+{
+private:
+    std::unique_ptr<SwUndoDelSection> m_pTitleSectionUpdated;
+    std::unique_ptr<SwUndoSaveSection> const m_pSaveSectionOriginal;
+    std::unique_ptr<SwUndoSaveSection> const m_pSaveSectionUpdated;
+    sal_uLong const m_nStartIndex;
+
+public:
+    SwUndoUpdateIndex(SwTOXBaseSection &);
+    virtual ~SwUndoUpdateIndex() override;
+
+    void TitleSectionInserted(SwSectionFormat & rSectionFormat);
+
+    virtual void UndoImpl(::sw::UndoRedoContext &) override;
+    virtual void RedoImpl(::sw::UndoRedoContext &) override;
+};
 
 #endif // INCLUDED_SW_SOURCE_CORE_INC_UNDOSECTION_HXX
 

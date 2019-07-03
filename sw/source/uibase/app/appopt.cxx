@@ -35,6 +35,7 @@
 #include <svx/optgrid.hxx>
 #include <svx/svxdlg.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <i18nlangtag/mslangid.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <fontcfg.hxx>
@@ -133,15 +134,9 @@ std::unique_ptr<SfxItemSet> SwModule::CreateItemSet( sal_uInt16 nId )
             pRet->Put(SwPtrItem(FN_PARAM_PRINTER, pPrt));
         pRet->Put(SwPtrItem(FN_PARAM_WRTSHELL, &rWrtShell));
 
-        std::unique_ptr<SfxPoolItem> pNewItem(
-            rWrtShell.GetDefault(RES_CHRATR_LANGUAGE).CloneSetWhich(SID_ATTR_LANGUAGE) );
-        pRet->Put(*pNewItem);
-
-        pNewItem = rWrtShell.GetDefault(RES_CHRATR_CJK_LANGUAGE).CloneSetWhich(SID_ATTR_CHAR_CJK_LANGUAGE);
-        pRet->Put(*pNewItem);
-
-        pNewItem = rWrtShell.GetDefault(RES_CHRATR_CTL_LANGUAGE).CloneSetWhich(SID_ATTR_CHAR_CTL_LANGUAGE);
-        pRet->Put(*pNewItem);
+        pRet->Put(rWrtShell.GetDefault(RES_CHRATR_LANGUAGE).CloneSetWhich(SID_ATTR_LANGUAGE));
+        pRet->Put(rWrtShell.GetDefault(RES_CHRATR_CJK_LANGUAGE).CloneSetWhich(SID_ATTR_CHAR_CJK_LANGUAGE));
+        pRet->Put(rWrtShell.GetDefault(RES_CHRATR_CTL_LANGUAGE).CloneSetWhich(SID_ATTR_CHAR_CTL_LANGUAGE));
     }
     else
     {
@@ -151,17 +146,17 @@ std::unique_ptr<SfxItemSet> SwModule::CreateItemSet( sal_uInt16 nId )
 
         using namespace ::com::sun::star::i18n::ScriptType;
 
-        Any aLang = aLinguCfg.GetProperty(OUString("DefaultLocale"));
+        Any aLang = aLinguCfg.GetProperty("DefaultLocale");
         aLang >>= aLocale;
         nLang = MsLangId::resolveSystemLanguageByScriptType(LanguageTag::convertToLanguageType( aLocale, false), LATIN);
         pRet->Put(SvxLanguageItem(nLang, SID_ATTR_LANGUAGE));
 
-        aLang = aLinguCfg.GetProperty(OUString("DefaultLocale_CJK"));
+        aLang = aLinguCfg.GetProperty("DefaultLocale_CJK");
         aLang >>= aLocale;
         nLang = MsLangId::resolveSystemLanguageByScriptType(LanguageTag::convertToLanguageType( aLocale, false), ASIAN);
         pRet->Put(SvxLanguageItem(nLang, SID_ATTR_CHAR_CJK_LANGUAGE));
 
-        aLang = aLinguCfg.GetProperty(OUString("DefaultLocale_CTL"));
+        aLang = aLinguCfg.GetProperty("DefaultLocale_CTL");
         aLang >>= aLocale;
         nLang = MsLangId::resolveSystemLanguageByScriptType(LanguageTag::convertToLanguageType( aLocale, false), COMPLEX);
         pRet->Put(SvxLanguageItem(nLang, SID_ATTR_CHAR_CTL_LANGUAGE));
@@ -224,14 +219,13 @@ std::unique_ptr<SfxItemSet> SwModule::CreateItemSet( sal_uInt16 nId )
     SwAddPrinterItem aAddPrinterItem(*pOpt );
     pRet->Put(aAddPrinterItem);
 
-    // Options for Web background
+    // Options for Web
     if(!bTextDialog)
     {
         pRet->Put(SvxBrushItem(aViewOpt.GetRetoucheColor(), RES_BACKGROUND));
+        pRet->Put(SfxUInt16Item(SID_HTML_MODE, HTMLMODE_ON));
     }
 
-    if(!bTextDialog)
-        pRet->Put(SfxUInt16Item(SID_HTML_MODE, HTMLMODE_ON));
     return pRet;
 }
 

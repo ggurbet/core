@@ -21,6 +21,7 @@
 #include <i18nlangtag/lang.h>
 #include <i18nutil/transliteration.hxx>
 #include <svl/slstitm.hxx>
+#include <svl/stritem.hxx>
 #include <svl/cjkoptions.hxx>
 #include <editeng/fontitem.hxx>
 #include <editeng/langitem.hxx>
@@ -28,6 +29,8 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/objface.hxx>
 #include <svx/svdotext.hxx>
+#include <svx/sdooitm.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/eeitem.hxx>
@@ -43,6 +46,9 @@
 #include <com/sun/star/i18n/TextConversionOption.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/awt/XWindow.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <comphelper/propertysequence.hxx>
 #include <swtypes.hxx>
 #include <view.hxx>
@@ -694,19 +700,19 @@ void SwDrawTextShell::InsertSymbol(SfxRequest& rReq)
 
     SfxItemSet aSet(pOLV->GetAttribs());
     SvtScriptType nScript = pOLV->GetSelectedScriptType();
-    SvxFontItem aSetDlgFont( RES_CHRATR_FONT );
+    std::shared_ptr<SvxFontItem> aSetDlgFont(std::make_shared<SvxFontItem>(RES_CHRATR_FONT));
     {
         SvxScriptSetItem aSetItem( SID_ATTR_CHAR_FONT, *aSet.GetPool() );
         aSetItem.GetItemSet().Put( aSet, false );
         const SfxPoolItem* pI = aSetItem.GetItemOfScript( nScript );
         if( pI )
-            aSetDlgFont = *static_cast<const SvxFontItem*>(pI);
+            aSetDlgFont.reset(static_cast<SvxFontItem*>(pI->Clone()));
         else
-            aSetDlgFont = static_cast<const SvxFontItem&>(aSet.Get( GetWhichOfScript(
+            aSetDlgFont.reset(static_cast<SvxFontItem*>(aSet.Get( GetWhichOfScript(
                         SID_ATTR_CHAR_FONT,
-                        SvtLanguageOptions::GetI18NScriptTypeOfLanguage( GetAppLanguage() ) )));
+                        SvtLanguageOptions::GetI18NScriptTypeOfLanguage( GetAppLanguage() ) )).Clone()));
         if (sFontName.isEmpty())
-            sFontName = aSetDlgFont.GetFamilyName();
+            sFontName = aSetDlgFont->GetFamilyName();
     }
 
     vcl::Font aFont(sFontName, Size(1,1));
@@ -720,17 +726,15 @@ void SwDrawTextShell::InsertSymbol(SfxRequest& rReq)
         if( !sSymbolFont.isEmpty() )
             aAllSet.Put( SfxStringItem( SID_FONT_NAME, sSymbolFont ) );
         else
-            aAllSet.Put( SfxStringItem( SID_FONT_NAME, aSetDlgFont.GetFamilyName() ) );
+            aAllSet.Put( SfxStringItem( SID_FONT_NAME, aSetDlgFont->GetFamilyName() ) );
 
         // If character is selected, it can be shown
         SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-        ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(rView.GetFrameWeld(), aAllSet, true));
+        auto xFrame = rView.GetViewFrame()->GetFrame().GetFrameInterface();
+        ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(rView.GetFrameWeld(), aAllSet, xFrame));
         pDlg->Execute();
         return;
     }
-
-    if( sSym.isEmpty() )
-        return;
 
     // do not flicker
     pOLV->HideCursor();

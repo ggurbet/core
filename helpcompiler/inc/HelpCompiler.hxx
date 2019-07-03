@@ -22,29 +22,20 @@
 
 #include <sal/config.h>
 
+#include <deque>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <list>
-#include <fstream>
-#include <sstream>
-#include <algorithm>
 
-#include <libxml/xmlmemory.h>
-#include <libxml/debugXML.h>
-#include <libxml/HTMLtree.h>
-#include <libxml/xmlIO.h>
-#include <libxml/xinclude.h>
-#include <libxml/catalog.h>
+#include <libxml/parser.h>
 
 #include <rtl/ustring.hxx>
 #include <rtl/character.hxx>
-#include <osl/thread.h>
 #include <osl/process.h>
 #include <osl/file.hxx>
 #include <o3tl/char16_t2wchar_t.hxx>
 
-#include "BasCodeTagger.hxx"
 #include <helpcompiler/compilehelp.hxx>
 
 #if OSL_DEBUG_LEVEL > 2
@@ -126,34 +117,11 @@ namespace fs
     void copy(const fs::path &src, const fs::path &dest);
 }
 
-struct joaat_hash
-{
-    size_t operator()(const std::string &str) const
-    {
-        size_t hash = 0;
-        const char *key = str.data();
-        for (size_t i = 0; i < str.size(); i++)
-        {
-            hash += key[i];
-            hash += (hash << 10);
-            hash ^= (hash >> 6);
-        }
-        hash += (hash << 3);
-        hash ^= (hash >> 11);
-        hash += (hash << 15);
-        return hash;
-    }
-};
 
-#define get16bits(d) ((((sal_uInt32)(((const sal_uInt8 *)(d))[1])) << 8)\
-                       +(sal_uInt32)(((const sal_uInt8 *)(d))[0]) )
-
-#define pref_hash joaat_hash
-
-typedef std::unordered_map<std::string, std::string, pref_hash> Stringtable;
+typedef std::unordered_map<std::string, std::string> Stringtable;
 typedef std::deque<std::string> LinkedList;
 
-typedef std::unordered_map<std::string, LinkedList, pref_hash> Hashtable;
+typedef std::unordered_map<std::string, LinkedList> Hashtable;
 
 class StreamTable
 {

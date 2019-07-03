@@ -40,7 +40,6 @@ $(eval $(call gb_UIConfig_add_popupmenufiles,modules/sdraw,\
 	sd/uiconfig/sdraw/popupmenu/pagepane \
 	sd/uiconfig/sdraw/popupmenu/pagetab \
 	sd/uiconfig/sdraw/popupmenu/page \
-	sd/uiconfig/sdraw/popupmenu/tabletext \
 	sd/uiconfig/sdraw/popupmenu/table \
 	sd/uiconfig/sdraw/popupmenu/textbox \
 ))
@@ -114,6 +113,8 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/sdraw,\
 	sd/uiconfig/sdraw/ui/insertslidesdialog \
 	sd/uiconfig/sdraw/ui/namedesign \
 	sd/uiconfig/sdraw/ui/notebookbar \
+	sd/uiconfig/sdraw/ui/notebookbar_compact \
+	sd/uiconfig/sdraw/ui/notebookbar_single \
 	sd/uiconfig/sdraw/ui/notebookbar_groupedbar_compact \
 	sd/uiconfig/sdraw/ui/notebookbar_groupedbar_full \
 	sd/uiconfig/sdraw/ui/paranumberingtab \

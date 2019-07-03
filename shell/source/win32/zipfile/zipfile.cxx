@@ -130,7 +130,7 @@ std::string readString(StreamInterface *stream, unsigned long size)
 {
     if (!stream || stream->stell() == -1)
         throw IOException(-1);
-    auto tmp = std::unique_ptr<unsigned char[]>(new unsigned char[size]);
+    auto tmp = std::make_unique<unsigned char[]>(size);
     unsigned long numBytesRead = stream->sread(tmp.get(), size);
     if (numBytesRead != size)
     {
@@ -351,7 +351,7 @@ struct stricmp
             IOException if the specified file doesn't exist
             AccessViolationException if read access to the file is denied
 */
-bool ZipFile::IsZipFile(const std::wstring& /*FileName*/)
+bool ZipFile::IsZipFile(const Filepath_t& /*FileName*/)
 {
     return true;
 }
@@ -377,7 +377,7 @@ bool ZipFile::IsZipFile(void* /*stream*/)
             IOException if the specified file doesn't exist or is no zip file
             AccessViolationException if read access to the file is denied
 */
-bool ZipFile::IsValidZipFileVersionNumber(const std::wstring& /*FileName*/)
+bool ZipFile::IsValidZipFileVersionNumber(const Filepath_t& /*FileName*/)
 {
     return true;
 }
@@ -400,7 +400,7 @@ bool ZipFile::IsValidZipFileVersionNumber(void* /* stream*/)
             WrongZipVersionException if the zip file cannot be uncompressed
             with the used zlib version
 */
-ZipFile::ZipFile(const std::wstring &FileName) :
+ZipFile::ZipFile(const Filepath_t &FileName) :
     m_pStream(nullptr),
     m_bShouldFree(true)
 {

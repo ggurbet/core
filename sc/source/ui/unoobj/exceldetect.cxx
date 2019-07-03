@@ -12,6 +12,7 @@
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/ucb/XContent.hpp>
 #include <com/sun/star/ucb/ContentCreationException.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <cppuhelper/supportsservice.hxx>
 
 #include <svl/itemset.hxx>
@@ -22,6 +23,7 @@
 #include <unotools/mediadescriptor.hxx>
 #include <sot/storage.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 using namespace com::sun::star;
 using utl::MediaDescriptor;
@@ -72,9 +74,9 @@ bool hasStream(const uno::Reference<io::XInputStream>& xInStream, const OUString
             return false;
         return xStorage->IsStream(rName);
     }
-    catch (const css::ucb::ContentCreationException &e)
+    catch (const css::ucb::ContentCreationException &)
     {
-        SAL_WARN("sc", "hasStream caught " << e);
+        TOOLS_WARN_EXCEPTION("sc", "hasStream");
     }
 
     return false;

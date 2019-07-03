@@ -79,7 +79,7 @@ PresenterNotesView::PresenterNotesView (
     try
     {
         Reference<XControllerManager> xCM (rxController, UNO_QUERY_THROW);
-        Reference<XConfigurationController> xCC (xCM->getConfigurationController(), UNO_QUERY_THROW);
+        Reference<XConfigurationController> xCC (xCM->getConfigurationController(), UNO_SET_THROW);
         Reference<XPane> xPane (xCC->getResource(rxViewId->getAnchor()), UNO_QUERY_THROW);
 
         mxParentWindow = xPane->getWindow();
@@ -633,7 +633,7 @@ void PresenterNotesView::ChangeFontSize (const sal_Int32 nSizeChange)
         if (pConfiguration == nullptr || !pConfiguration->IsValid())
             return;
 
-        pConfiguration->GoToChild(OUString("Font"));
+        pConfiguration->GoToChild("Font");
         pConfiguration->SetProperty("Size", Any(static_cast<sal_Int32>(nNewSize+0.5)));
         pConfiguration->CommitChanges();
     }

@@ -21,16 +21,13 @@
 #include <sal/log.hxx>
 #include <vcl/svapp.hxx>
 
+#include <tools/diagnose_ex.h>
+#include <tools/debug.hxx>
 #include <tools/urlobj.hxx>
-#include <svtools/svmedit.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/button.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/weld.hxx>
-#include <vcl/timer.hxx>
 #include <vcl/idle.hxx>
-#include <vcl/svtabbx.hxx>
-#include <vcl/treelistentry.hxx>
+#include <vcl/timer.hxx>
+#include <vcl/weld.hxx>
+#include <vcl/window.hxx>
 
 #include <strings.hrc>
 #include <sfx2/linkmgr.hxx>
@@ -306,7 +303,7 @@ IMPL_LINK_NOARG(SvBaseLinksDlg, ChangeSourceClickHdl, weld::Button&, void)
             if(aUrl.GetProtocol() == INetProtocol::File)
             {
                 OUString sOldPath(aUrl.PathToFileName());
-                sal_Int32 nLen = aUrl.GetName().getLength();
+                sal_Int32 nLen = aUrl.GetLastName().getLength();
                 sOldPath = sOldPath.copy(0, sOldPath.getLength() - nLen);
                 xFolderPicker->setDisplayDirectory(sOldPath);
             }
@@ -337,9 +334,9 @@ IMPL_LINK_NOARG(SvBaseLinksDlg, ChangeSourceClickHdl, weld::Button&, void)
                 SetManager( pNewMgr );
             }
         }
-        catch (uno::Exception & e)
+        catch (const uno::Exception &)
         {
-            SAL_WARN("cui.dialogs", "SvBaseLinksDlg: " << e);
+            TOOLS_WARN_EXCEPTION("cui.dialogs", "SvBaseLinksDlg");
         }
     }
     else

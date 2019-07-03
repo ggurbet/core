@@ -35,6 +35,7 @@
 #include <comphelper/types.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/component_context.hxx>
+#include <tools/debug.hxx>
 #include <svx/svditer.hxx>
 #include <svx/svdview.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -132,7 +133,7 @@ void PropBrw::ImplReCreateController()
             ::cppu::createComponentContext( aHandlerContextInfo, SAL_N_ELEMENTS( aHandlerContextInfo ), xOwnContext ) );
 
         // create a property browser controller
-        Reference< XMultiComponentFactory > xFactory( xInspectorContext->getServiceManager(), UNO_QUERY_THROW );
+        Reference< XMultiComponentFactory > xFactory( xInspectorContext->getServiceManager(), UNO_SET_THROW );
         static const char s_sControllerServiceName[] = "com.sun.star.awt.PropertyBrowserController";
         m_xBrowserController.set( xFactory->createInstanceWithContext( s_sControllerServiceName, xInspectorContext ), UNO_QUERY );
         if ( !m_xBrowserController.is() )
@@ -157,7 +158,7 @@ void PropBrw::ImplReCreateController()
             }
         }
 
-        Point aPropWinPos = Point( WIN_BORDER, WIN_BORDER );
+        Point aPropWinPos( WIN_BORDER, WIN_BORDER );
         Size  aPropWinSize(STD_WIN_SIZE_X,STD_WIN_SIZE_Y);
         aPropWinSize.AdjustWidth( -(2*WIN_BORDER) );
         aPropWinSize.AdjustHeight( -(2*WIN_BORDER) );
@@ -514,7 +515,7 @@ void PropBrw::ImplUpdate( const Reference< XModel >& _rxContextDocument, SdrView
             aNewObjects = CreateMultiSelectionSequence( rMarkList );
         }
 
-        if ( aNewObjects.getLength() )
+        if ( aNewObjects.hasElements() )
             implSetNewObjectSequence( aNewObjects );
         else
             implSetNewObject( xNewObject );

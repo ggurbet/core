@@ -341,9 +341,9 @@ void EmbeddedObjectRef::Clear()
                 {
                     // there's still someone who needs the object!
                 }
-                catch (const uno::Exception& e)
+                catch (const uno::Exception&)
                 {
-                    SAL_WARN("svtools.misc", "Error on switching of the object to loaded state and closing: \"" << e << "\"");
+                    TOOLS_WARN_EXCEPTION("svtools.misc", "Error on switching of the object to loaded state and closing");
                 }
             }
         }
@@ -436,7 +436,7 @@ void EmbeddedObjectRef::GetReplacement( bool bUpdate )
 
     // note that UpdateReplacementOnDemand which resets mpImpl->pGraphic to null may have been called
     // e.g. when exporting ooo58458-1.odt to doc
-    if (bUpdate && (!mpImpl->pGraphic || !*mpImpl->pGraphic) && aOldGraphic)
+    if (bUpdate && (!mpImpl->pGraphic || mpImpl->pGraphic->IsNone()) && !aOldGraphic.IsNone())
     {
         // We used to have an old graphic, tried to update and the update
         // failed. Go back to the old graphic instead of having no graphic at
@@ -493,18 +493,18 @@ Size EmbeddedObjectRef::GetSize( MapMode const * pTargetMapMode ) const
             catch(const embed::NoVisualAreaSizeException&)
             {
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("svtools.misc", "Something went wrong on getting of the size of the object: \"" << e << "\"");
+                TOOLS_WARN_EXCEPTION("svtools.misc", "Something went wrong on getting of the size of the object");
             }
 
             try
             {
                 aSourceMapMode = MapMode(VCLUnoHelper::UnoEmbed2VCLMapUnit(mpImpl->mxObj->getMapUnit(mpImpl->nViewAspect)));
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("svtools.misc", "Can not get the map mode: \"" << e << "\"");
+                TOOLS_WARN_EXCEPTION("svtools.misc", "Can not get the map mode");
             }
         }
 

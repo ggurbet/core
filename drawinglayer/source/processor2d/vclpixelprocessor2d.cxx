@@ -44,6 +44,7 @@
 #include <vcl/hatch.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
+#include <com/sun/star/awt/XControl.hpp>
 #include <com/sun/star/awt/PosSize.hpp>
 #include <drawinglayer/primitive2d/invertprimitive2d.hxx>
 #include <cstdio>
@@ -608,7 +609,7 @@ namespace drawinglayer
                                     OSL_ENSURE(pPoHair, "OOps, PrimitiveID and PrimitiveType do not match (!)");
 
                                     // do no tallow by default - problem is that self-overlapping parts of this geometry will
-                                    // not be in a all-same transparency but will already alpha-cover themselves with blending.
+                                    // not be in an all-same transparency but will already alpha-cover themselves with blending.
                                     // This is not what the UnifiedTransparencePrimitive2D defines: It requires all its
                                     // content to be uniformly transparent.
                                     // For hairline the effect is pretty minimal, but still not correct.
@@ -622,7 +623,7 @@ namespace drawinglayer
                                     OSL_ENSURE(pPoStroke, "OOps, PrimitiveID and PrimitiveType do not match (!)");
 
                                     // do no tallow by default - problem is that self-overlapping parts of this geometry will
-                                    // not be in a all-same transparency but will already alpha-cover themselves with blending.
+                                    // not be in an all-same transparency but will already alpha-cover themselves with blending.
                                     // This is not what the UnifiedTransparencePrimitive2D defines: It requires all its
                                     // content to be uniformly transparent.
                                     // To check, activate and draw a wide transparent self-crossing line/curve
@@ -713,7 +714,7 @@ namespace drawinglayer
 
             // polygon stroke primitive
 
-            // Lines with 1 and 2 pixel width without AA need special treatment since their vsiualisation
+            // Lines with 1 and 2 pixel width without AA need special treatment since their visualization
             // as filled polygons is geometrically correct but looks wrong since polygon filling avoids
             // the right and bottom pixels. The used method evaluates that and takes the correct action,
             // including calling recursively with decomposition if line is wide enough
@@ -725,61 +726,70 @@ namespace drawinglayer
 
         void VclPixelProcessor2D::processFillHatchPrimitive2D(const primitive2d::FillHatchPrimitive2D& rFillHatchPrimitive)
         {
-            // without AA, use VCL to draw the hatch. It snaps hatch distances to the next pixel
-            // and forces hatch distance to be >= 3 pixels to make the hatch display look smoother.
-            // This is wrong in principle, but looks nicer. This could also be done here directly
-            // without VCL usage if needed
-            const attribute::FillHatchAttribute& rFillHatchAttributes = rFillHatchPrimitive.getFillHatch();
-
-            // create hatch polygon in range size and discrete coordinates
-            basegfx::B2DRange aHatchRange(rFillHatchPrimitive.getOutputRange());
-            aHatchRange.transform(maCurrentTransformation);
-            const basegfx::B2DPolygon aHatchPolygon(basegfx::utils::createPolygonFromRect(aHatchRange));
-
-            if(rFillHatchAttributes.isFillBackground())
+            if(getOptionsDrawinglayer().IsAntiAliasing())
             {
-                // #i111846# background fill is active; draw fill polygon
-                const basegfx::BColor aPolygonColor(maBColorModifierStack.getModifiedColor(rFillHatchPrimitive.getBColor()));
-
-                mpOutputDevice->SetFillColor(Color(aPolygonColor));
-                mpOutputDevice->SetLineColor();
-                mpOutputDevice->DrawPolygon(aHatchPolygon);
+                // if AA is used (or ignore smoothing is on), there is no need to smooth
+                // hatch painting, use decomposition
+                process(rFillHatchPrimitive);
             }
-
-            // set hatch line color
-            const basegfx::BColor aHatchColor(maBColorModifierStack.getModifiedColor(rFillHatchPrimitive.getBColor()));
-            mpOutputDevice->SetFillColor();
-            mpOutputDevice->SetLineColor(Color(aHatchColor));
-
-            // get hatch style
-            HatchStyle eHatchStyle(HatchStyle::Single);
-
-            switch(rFillHatchAttributes.getStyle())
+            else
             {
-                default : // HatchStyle::Single
+                // without AA, use VCL to draw the hatch. It snaps hatch distances to the next pixel
+                // and forces hatch distance to be >= 3 pixels to make the hatch display look smoother.
+                // This is wrong in principle, but looks nicer. This could also be done here directly
+                // without VCL usage if needed
+                const attribute::FillHatchAttribute& rFillHatchAttributes = rFillHatchPrimitive.getFillHatch();
+
+                // create hatch polygon in range size and discrete coordinates
+                basegfx::B2DRange aHatchRange(rFillHatchPrimitive.getOutputRange());
+                aHatchRange.transform(maCurrentTransformation);
+                const basegfx::B2DPolygon aHatchPolygon(basegfx::utils::createPolygonFromRect(aHatchRange));
+
+                if(rFillHatchAttributes.isFillBackground())
                 {
-                    break;
+                    // #i111846# background fill is active; draw fill polygon
+                    const basegfx::BColor aPolygonColor(maBColorModifierStack.getModifiedColor(rFillHatchPrimitive.getBColor()));
+
+                    mpOutputDevice->SetFillColor(Color(aPolygonColor));
+                    mpOutputDevice->SetLineColor();
+                    mpOutputDevice->DrawPolygon(aHatchPolygon);
                 }
-                case attribute::HatchStyle::Double :
+
+                // set hatch line color
+                const basegfx::BColor aHatchColor(maBColorModifierStack.getModifiedColor(rFillHatchPrimitive.getBColor()));
+                mpOutputDevice->SetFillColor();
+                mpOutputDevice->SetLineColor(Color(aHatchColor));
+
+                // get hatch style
+                HatchStyle eHatchStyle(HatchStyle::Single);
+
+                switch(rFillHatchAttributes.getStyle())
                 {
-                    eHatchStyle = HatchStyle::Double;
-                    break;
+                    default : // HatchStyle::Single
+                    {
+                        break;
+                    }
+                    case attribute::HatchStyle::Double :
+                    {
+                        eHatchStyle = HatchStyle::Double;
+                        break;
+                    }
+                    case attribute::HatchStyle::Triple :
+                    {
+                        eHatchStyle = HatchStyle::Triple;
+                        break;
+                    }
                 }
-                case attribute::HatchStyle::Triple :
-                {
-                    eHatchStyle = HatchStyle::Triple;
-                    break;
-                }
+
+                // create hatch
+                const basegfx::B2DVector aDiscreteDistance(maCurrentTransformation * basegfx::B2DVector(rFillHatchAttributes.getDistance(), 0.0));
+                const sal_uInt32 nDistance(basegfx::fround(aDiscreteDistance.getLength()));
+                const sal_uInt16 nAngle10(static_cast<sal_uInt16>(basegfx::fround(rFillHatchAttributes.getAngle() / F_PI1800)));
+                ::Hatch aVCLHatch(eHatchStyle, Color(rFillHatchAttributes.getColor()), nDistance, nAngle10);
+
+                // draw hatch using VCL
+                mpOutputDevice->DrawHatch(::tools::PolyPolygon(::tools::Polygon(aHatchPolygon)), aVCLHatch);
             }
-
-            // create hatch
-            const basegfx::B2DVector aDiscreteDistance(maCurrentTransformation * basegfx::B2DVector(rFillHatchAttributes.getDistance(), 0.0));
-            const sal_uInt32 nDistance(basegfx::fround(aDiscreteDistance.getLength()));
-            const sal_uInt16 nAngle10(static_cast<sal_uInt16>(basegfx::fround(rFillHatchAttributes.getAngle() / F_PI1800)));
-            ::Hatch aVCLHatch(eHatchStyle, Color(rFillHatchAttributes.getColor()), nDistance, nAngle10);
-
-            // draw hatch using VCL
-            mpOutputDevice->DrawHatch(::tools::PolyPolygon(::tools::Polygon(aHatchPolygon)), aVCLHatch);
         }
 
         void VclPixelProcessor2D::processBackgroundColorPrimitive2D(const primitive2d::BackgroundColorPrimitive2D& rPrimitive)

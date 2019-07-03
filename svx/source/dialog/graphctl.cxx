@@ -18,17 +18,16 @@
  */
 
 #include <svl/itempool.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/wrkwin.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/ptrstyle.hxx>
 #include <unotools/syslocale.hxx>
 #include <rtl/math.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <vcl/svapp.hxx>
+#include <tools/debug.hxx>
 
 #include <svx/graphctl.hxx>
+#include <svx/sdr/overlay/overlaymanager.hxx>
 #include <GraphCtlAccessibleContext.hxx>
 #include <svx/xoutbmp.hxx>
 #include <svx/svxids.hrc>
@@ -54,29 +53,29 @@ void GraphCtrlUserCall::Changed( const SdrObject& rObj, SdrUserCallType eType, c
     rWin.QueueIdleUpdate();
 }
 
-GraphCtrl::GraphCtrl( vcl::Window* pParent, WinBits nStyle ) :
-            Control         ( pParent, nStyle ),
-            aUpdateIdle     ( "svx GraphCtrl Update" ),
-            aMap100         ( MapUnit::Map100thMM ),
-            eObjKind        ( OBJ_NONE ),
-            nPolyEdit       ( 0 ),
-            bEditMode       ( false ),
-            mbSdrMode       ( false ),
-            mbInIdleUpdate  ( false )
+GraphCtrl::GraphCtrl(weld::Dialog* pDialog)
+    : aUpdateIdle("svx GraphCtrl Update")
+    , aMap100(MapUnit::Map100thMM)
+    , eObjKind(OBJ_NONE)
+    , nPolyEdit(0)
+    , bEditMode(false)
+    , mbSdrMode(false)
+    , mbInIdleUpdate(false)
+    , mpDialog(pDialog)
 {
     pUserCall.reset(new GraphCtrlUserCall( *this ));
     aUpdateIdle.SetPriority( TaskPriority::LOWEST );
     aUpdateIdle.SetInvokeHandler( LINK( this, GraphCtrl, UpdateHdl ) );
     aUpdateIdle.Start();
-    EnableRTL( false );
+}
+
+void GraphCtrl::SetDrawingArea(weld::DrawingArea* pDrawingArea)
+{
+    weld::CustomWidgetController::SetDrawingArea(pDrawingArea);
+    EnableRTL(false);
 }
 
 GraphCtrl::~GraphCtrl()
-{
-    disposeOnce();
-}
-
-void GraphCtrl::dispose()
 {
     aUpdateIdle.Stop();
 
@@ -88,7 +87,6 @@ void GraphCtrl::dispose()
     pView.reset();
     pModel.reset();
     pUserCall.reset();
-    Control::dispose();
 }
 
 void GraphCtrl::SetSdrMode(bool bSdrMode)
@@ -96,8 +94,11 @@ void GraphCtrl::SetSdrMode(bool bSdrMode)
     mbSdrMode = bSdrMode;
 
     const StyleSettings& rStyleSettings = Application::GetSettings().GetStyleSettings();
-    SetBackground( Wallpaper( rStyleSettings.GetWindowColor() ) );
-    SetMapMode( aMap100 );
+    OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+    rDevice.SetBackground( Wallpaper( rStyleSettings.GetWindowColor() ) );
+    xVD->SetBackground( Wallpaper( rStyleSettings.GetWindowColor() ) );
+    rDevice.SetMapMode( aMap100 );
+    xVD->SetMapMode( aMap100 );
 
     pView.reset();
     pModel.reset();
@@ -154,6 +155,7 @@ void GraphCtrl::InitSdrModel()
 void GraphCtrl::SetGraphic( const Graphic& rGraphic, bool bNewModel )
 {
     aGraphic = rGraphic;
+    xVD->SetOutputSizePixel(Size(0, 0)); //force redraw
 
     if ( aGraphic.GetPrefMapMode().GetMapUnit() == MapUnit::MapPixel )
         aGraphSize = Application::GetDefaultDevice()->PixelToLogic( aGraphic.GetPrefSize(), aMap100 );
@@ -166,20 +168,33 @@ void GraphCtrl::SetGraphic( const Graphic& rGraphic, bool bNewModel )
     aGraphSizeLink.Call( this );
 
     Resize();
+
     Invalidate();
     QueueIdleUpdate();
 }
 
+void GraphCtrl::GraphicToVD()
+{
+    OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+    xVD->SetOutputSizePixel(GetOutputSizePixel());
+    xVD->SetBackground(rDevice.GetBackground());
+    xVD->Erase();
+    const bool bGraphicValid(GraphicType::NONE != aGraphic.GetType());
+    if (bGraphicValid)
+        aGraphic.Draw(xVD.get(), Point(), aGraphSize);
+}
+
 void GraphCtrl::Resize()
 {
-    Control::Resize();
+    weld::CustomWidgetController::Resize();
 
-    if ( aGraphSize.Width() && aGraphSize.Height() )
+    if (aGraphSize.Width() && aGraphSize.Height())
     {
         MapMode         aDisplayMap( aMap100 );
         Point           aNewPos;
         Size            aNewSize;
-        const Size      aWinSize = PixelToLogic( GetOutputSizePixel(), aDisplayMap );
+        OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+        const Size      aWinSize = rDevice.PixelToLogic( GetOutputSizePixel(), aDisplayMap );
         const long      nWidth = aWinSize.Width();
         const long      nHeight = aWinSize.Height();
         double          fGrfWH = static_cast<double>(aGraphSize.Width()) / aGraphSize.Height();
@@ -204,31 +219,37 @@ void GraphCtrl::Resize()
         aDisplayMap.SetScaleX( Fraction( aNewSize.Width(), aGraphSize.Width() ) );
         aDisplayMap.SetScaleY( Fraction( aNewSize.Height(), aGraphSize.Height() ) );
 
-        aDisplayMap.SetOrigin( LogicToLogic( aNewPos, aMap100, aDisplayMap ) );
-        SetMapMode( aDisplayMap );
+        aDisplayMap.SetOrigin( OutputDevice::LogicToLogic( aNewPos, aMap100, aDisplayMap ) );
+        rDevice.SetMapMode( aDisplayMap );
+        xVD->SetMapMode( aDisplayMap );
     }
 
     Invalidate();
 }
 
-void GraphCtrl::Paint( vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect)
+void GraphCtrl::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect)
 {
     // #i72889# used split repaint to be able to paint an own background
     // even to the buffered view
     const bool bGraphicValid(GraphicType::NONE != aGraphic.GetType());
 
+    if (GetOutputSizePixel() != xVD->GetOutputSizePixel())
+        GraphicToVD();
+
     if (mbSdrMode)
     {
         SdrPaintWindow* pPaintWindow = pView->BeginCompleteRedraw(&rRenderContext);
+        pPaintWindow->SetOutputToWindow(true);
 
         if (bGraphicValid)
         {
             vcl::RenderContext& rTarget = pPaintWindow->GetTargetOutputDevice();
 
-            rTarget.SetBackground(GetBackground());
+            OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+            rTarget.SetBackground(rDevice.GetBackground());
             rTarget.Erase();
 
-            aGraphic.Draw(&rTarget, Point(), aGraphSize);
+            rTarget.DrawOutDev(Point(), xVD->GetOutputSize(), Point(), xVD->GetOutputSize(), *xVD);
         }
 
         const vcl::Region aRepaintRegion(rRect);
@@ -238,10 +259,9 @@ void GraphCtrl::Paint( vcl::RenderContext& rRenderContext, const tools::Rectangl
     else
     {
         // #i73381# in non-SdrMode, paint to local directly
-        if(bGraphicValid)
-        {
-            aGraphic.Draw(&rRenderContext, Point(), aGraphSize);
-        }
+        rRenderContext.DrawOutDev(rRect.TopLeft(), rRect.GetSize(),
+                                  rRect.TopLeft(), rRect.GetSize(),
+                                  *xVD);
     }
 }
 
@@ -260,12 +280,12 @@ void GraphCtrl::MarkListHasChanged()
     QueueIdleUpdate();
 }
 
-void GraphCtrl::KeyInput( const KeyEvent& rKEvt )
+bool GraphCtrl::KeyInput( const KeyEvent& rKEvt )
 {
     vcl::KeyCode aCode( rKEvt.GetKeyCode() );
     bool    bProc = false;
 
-    Dialog* pDialog = GetParentDialog();
+    OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
 
     switch ( aCode.GetCode() )
     {
@@ -276,8 +296,6 @@ void GraphCtrl::KeyInput( const KeyEvent& rKEvt )
             {
                 pView->DeleteMarked();
                 bProc = true;
-                if (!pView->AreObjectsMarked() && pDialog)
-                    pDialog->GrabFocusToFirstControl();
             }
         }
         break;
@@ -286,26 +304,16 @@ void GraphCtrl::KeyInput( const KeyEvent& rKEvt )
         {
             if ( mbSdrMode )
             {
-                bool bGrabFocusToFirstControl = true;
                 if ( pView->IsAction() )
                 {
                     pView->BrkAction();
-                    bGrabFocusToFirstControl = false;
+                    bProc = true;
                 }
                 else if ( pView->AreObjectsMarked() )
                 {
-                    const SdrHdlList& rHdlList = pView->GetHdlList();
-                    SdrHdl* pHdl = rHdlList.GetFocusHdl();
-
-                    if(pHdl)
-                    {
-                        const_cast<SdrHdlList&>(rHdlList).ResetFocusHdl();
-                        bGrabFocusToFirstControl = false;
-                    }
+                    pView->UnmarkAllObj();
+                    bProc = true;
                 }
-                if (bGrabFocusToFirstControl && pDialog)
-                    pDialog->GrabFocusToFirstControl();
-                bProc = true;
             }
         }
         break;
@@ -406,7 +414,7 @@ void GraphCtrl::KeyInput( const KeyEvent& rKEvt )
                 if(aCode.IsMod2())
                 {
                     // move in 1 pixel distance
-                    Size aLogicSizeOnePixel = PixelToLogic(Size(1,1));
+                    Size aLogicSizeOnePixel = rDevice.PixelToLogic(Size(1,1));
                     nX *= aLogicSizeOnePixel.Width();
                     nY *= aLogicSizeOnePixel.Height();
                 }
@@ -566,22 +574,24 @@ void GraphCtrl::KeyInput( const KeyEvent& rKEvt )
         break;
     }
 
-    if ( !bProc )
-        Control::KeyInput( rKEvt );
-    else
+    if (bProc)
         ReleaseMouse();
 
     QueueIdleUpdate();
+
+    return bProc;
 }
 
-void GraphCtrl::MouseButtonDown( const MouseEvent& rMEvt )
+bool GraphCtrl::MouseButtonDown( const MouseEvent& rMEvt )
 {
     if ( mbSdrMode && ( rMEvt.GetClicks() < 2 ) )
     {
-        const Point aLogPt( PixelToLogic( rMEvt.GetPosPixel() ) );
+        OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+
+        const Point aLogPt( rDevice.PixelToLogic( rMEvt.GetPosPixel() ) );
 
         if ( !tools::Rectangle( Point(), aGraphSize ).IsInside( aLogPt ) && !pView->IsEditMode() )
-            Control::MouseButtonDown( rMEvt );
+            weld::CustomWidgetController::MouseButtonDown( rMEvt );
         else
         {
             // Get Focus for key inputs
@@ -595,10 +605,10 @@ void GraphCtrl::MouseButtonDown( const MouseEvent& rMEvt )
                 if ( nPolyEdit == SID_BEZIER_INSERT && eHit == SdrHitKind::MarkedObject )
                     pView->BegInsObjPoint( aLogPt, rMEvt.IsMod1());
                 else
-                    pView->MouseButtonDown( rMEvt, this );
+                    pView->MouseButtonDown( rMEvt, &rDevice );
             }
             else
-                pView->MouseButtonDown( rMEvt, this );
+                pView->MouseButtonDown( rMEvt, &rDevice );
         }
 
         SdrObject* pCreateObj = pView->GetCreateObj();
@@ -607,21 +617,24 @@ void GraphCtrl::MouseButtonDown( const MouseEvent& rMEvt )
         if ( pCreateObj && !pCreateObj->GetUserCall() )
             pCreateObj->SetUserCall( pUserCall.get() );
 
-        SetPointer( pView->GetPreferredPointer( aLogPt, this ) );
+        SetPointer( pView->GetPreferredPointer( aLogPt, &rDevice ) );
     }
     else
-        Control::MouseButtonDown( rMEvt );
+        weld::CustomWidgetController::MouseButtonDown( rMEvt );
 
     QueueIdleUpdate();
+
+    return false;
 }
 
-void GraphCtrl::MouseMove(const MouseEvent& rMEvt)
+bool GraphCtrl::MouseMove(const MouseEvent& rMEvt)
 {
-    const Point aLogPos( PixelToLogic( rMEvt.GetPosPixel() ) );
+    OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+    const Point aLogPos( rDevice.PixelToLogic( rMEvt.GetPosPixel() ) );
 
     if ( mbSdrMode )
     {
-        pView->MouseMove( rMEvt, this );
+        pView->MouseMove( rMEvt, &rDevice );
 
         if( ( SID_BEZIER_INSERT == nPolyEdit ) &&
             !pView->PickHandle( aLogPos ) &&
@@ -630,10 +643,10 @@ void GraphCtrl::MouseMove(const MouseEvent& rMEvt)
             SetPointer( PointerStyle::Cross );
         }
         else
-            SetPointer( pView->GetPreferredPointer( aLogPos, this ) );
+            SetPointer( pView->GetPreferredPointer( aLogPos, &rDevice ) );
     }
     else
-        Control::MouseButtonUp( rMEvt );
+        weld::CustomWidgetController::MouseButtonUp( rMEvt );
 
     if ( aMousePosLink.IsSet() )
     {
@@ -646,24 +659,30 @@ void GraphCtrl::MouseMove(const MouseEvent& rMEvt)
     }
 
     QueueIdleUpdate();
+
+    return false;
 }
 
-void GraphCtrl::MouseButtonUp(const MouseEvent& rMEvt)
+bool GraphCtrl::MouseButtonUp(const MouseEvent& rMEvt)
 {
     if ( mbSdrMode )
     {
+        OutputDevice& rDevice = GetDrawingArea()->get_ref_device();
+
         if ( pView->IsInsObjPoint() )
             pView->EndInsObjPoint( SdrCreateCmd::ForceEnd );
         else
-            pView->MouseButtonUp( rMEvt, this );
+            pView->MouseButtonUp( rMEvt, &rDevice );
 
         ReleaseMouse();
-        SetPointer( pView->GetPreferredPointer( PixelToLogic( rMEvt.GetPosPixel() ), this ) );
+        SetPointer( pView->GetPreferredPointer( rDevice.PixelToLogic( rMEvt.GetPosPixel() ), &rDevice ) );
     }
     else
-        Control::MouseButtonUp( rMEvt );
+        weld::CustomWidgetController::MouseButtonUp( rMEvt );
 
     QueueIdleUpdate();
+
+    return false;
 }
 
 SdrObject* GraphCtrl::GetSelectedSdrObject() const
@@ -724,7 +743,7 @@ void GraphCtrl::SetObjKind( const SdrObjKind _eObjKind )
     QueueIdleUpdate();
 }
 
-IMPL_LINK( GraphCtrl, UpdateHdl, Timer *, , void )
+IMPL_LINK_NOARG(GraphCtrl, UpdateHdl, Timer *, void)
 {
     mbInIdleUpdate = true;
     aUpdateLink.Call( this );
@@ -737,92 +756,91 @@ void GraphCtrl::QueueIdleUpdate()
         aUpdateIdle.Start();
 }
 
+namespace
+{
+    class WeldOverlayManager final : public sdr::overlay::OverlayManager
+    {
+        weld::CustomWidgetController& m_rGraphCtrl;
+
+    public:
+        WeldOverlayManager(weld::CustomWidgetController& rGraphCtrl, OutputDevice& rDevice)
+            : OverlayManager(rDevice)
+            , m_rGraphCtrl(rGraphCtrl)
+        {
+        }
+
+        // invalidate the given range at local OutputDevice
+        virtual void invalidateRange(const basegfx::B2DRange& rRange) override
+        {
+            tools::Rectangle aInvalidateRectangle(RangeToInvalidateRectangle(rRange));
+            m_rGraphCtrl.Invalidate(aInvalidateRectangle);
+        }
+    };
+}
+
+rtl::Reference<sdr::overlay::OverlayManager> GraphCtrlView::CreateOverlayManager(OutputDevice& rDevice) const
+{
+    assert(&rDevice == &rGraphCtrl.GetDrawingArea()->get_ref_device());
+    if (rDevice.GetOutDevType() == OUTDEV_VIRDEV)
+    {
+        rtl::Reference<sdr::overlay::OverlayManager> xOverlayManager(new WeldOverlayManager(rGraphCtrl, rDevice));
+        InitOverlayManager(xOverlayManager);
+        return xOverlayManager;
+    }
+    return SdrView::CreateOverlayManager(rDevice);
+}
+
+void GraphCtrlView::InvalidateOneWin(OutputDevice& rDevice)
+{
+    assert(&rDevice == &rGraphCtrl.GetDrawingArea()->get_ref_device());
+    if (rDevice.GetOutDevType() == OUTDEV_VIRDEV)
+    {
+        rGraphCtrl.Invalidate();
+        return;
+    }
+    SdrView::InvalidateOneWin(rDevice);
+}
+
+void GraphCtrlView::InvalidateOneWin(OutputDevice& rDevice, const tools::Rectangle& rArea)
+{
+    assert(&rDevice == &rGraphCtrl.GetDrawingArea()->get_ref_device());
+    if (rDevice.GetOutDevType() == OUTDEV_VIRDEV)
+    {
+        rGraphCtrl.Invalidate(rArea);
+        return;
+    }
+    SdrView::InvalidateOneWin(rDevice, rArea);
+}
+
+GraphCtrlView::~GraphCtrlView()
+{
+    // turn SetOutputToWindow back off again before
+    // turning back into our baseclass during dtoring
+    const sal_uInt32 nWindowCount(PaintWindowCount());
+    for (sal_uInt32 nWinNum(0); nWinNum < nWindowCount; nWinNum++)
+    {
+        SdrPaintWindow* pPaintWindow = GetPaintWindow(nWinNum);
+        pPaintWindow->SetOutputToWindow(false);
+    }
+}
+
+Point GraphCtrl::GetPositionInDialog() const
+{
+    int x, y, width, height;
+    if (GetDrawingArea()->get_extents_relative_to(*mpDialog, x, y, width, height))
+        return Point(x, y);
+    return Point();
+}
+
 css::uno::Reference< css::accessibility::XAccessible > GraphCtrl::CreateAccessible()
 {
-    if( mpAccContext == nullptr )
+    if(mpAccContext == nullptr )
     {
-        vcl::Window* pParent = GetParent();
-
-        DBG_ASSERT( pParent, "-GraphCtrl::CreateAccessible(): No Parent!" );
-
-        if( pParent )
-        {
-            css::uno::Reference< css::accessibility::XAccessible > xAccParent( pParent->GetAccessible() );
-
-            // Disable accessibility if no model/view data available
-            if( pView &&
-                pModel &&
-                xAccParent.is() )
-            {
-                mpAccContext = new SvxGraphCtrlAccessibleContext( xAccParent, *this );
-            }
-        }
+        // Disable accessibility if no model/view data available
+        if (pView && pModel)
+            mpAccContext = new SvxGraphCtrlAccessibleContext(*this);
     }
-
     return mpAccContext.get();
-}
-
-SvxGraphCtrl::SvxGraphCtrl()
-    : aMap100(MapUnit::Map100thMM)
-{
-}
-
-void SvxGraphCtrl::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
-{
-    rRenderContext.Erase();
-    const bool bGraphicValid(GraphicType::NONE != aGraphic.GetType());
-    // #i73381# in non-SdrMode, paint to local directly
-    if (bGraphicValid && aGraphSize.Width() && aGraphSize.Height())
-    {
-        MapMode         aDisplayMap( aMap100 );
-        Point           aNewPos;
-        Size            aNewSize;
-        const Size      aWinSize = Application::GetDefaultDevice()->PixelToLogic(GetOutputSizePixel(), aMap100);
-        const long      nWidth = aWinSize.Width();
-        const long      nHeight = aWinSize.Height();
-        double          fGrfWH = static_cast<double>(aGraphSize.Width()) / aGraphSize.Height();
-        double          fWinWH = static_cast<double>(nWidth) / nHeight;
-
-        // Adapt Bitmap to Thumb size
-        if ( fGrfWH < fWinWH)
-        {
-            aNewSize.setWidth( static_cast<long>( static_cast<double>(nHeight) * fGrfWH ) );
-            aNewSize.setHeight( nHeight );
-        }
-        else
-        {
-            aNewSize.setWidth( nWidth );
-            aNewSize.setHeight( static_cast<long>( static_cast<double>(nWidth) / fGrfWH ) );
-        }
-
-        aNewPos.setX( ( nWidth - aNewSize.Width() )  >> 1 );
-        aNewPos.setY( ( nHeight - aNewSize.Height() ) >> 1 );
-
-        // Implementing MapMode for Engine
-        aDisplayMap.SetScaleX( Fraction( aNewSize.Width(), aGraphSize.Width() ) );
-        aDisplayMap.SetScaleY( Fraction( aNewSize.Height(), aGraphSize.Height() ) );
-
-        aDisplayMap.SetOrigin(OutputDevice::LogicToLogic(aNewPos, aMap100, aDisplayMap));
-        rRenderContext.SetMapMode(aDisplayMap);
-
-        aGraphic.Draw(&rRenderContext, Point(), aGraphSize);
-    }
-}
-
-SvxGraphCtrl::~SvxGraphCtrl()
-{
-}
-
-void SvxGraphCtrl::SetGraphic(const Graphic& rGraphic)
-{
-    aGraphic = rGraphic;
-
-    if ( aGraphic.GetPrefMapMode().GetMapUnit() == MapUnit::MapPixel )
-        aGraphSize = Application::GetDefaultDevice()->PixelToLogic( aGraphic.GetPrefSize(), aMap100 );
-    else
-        aGraphSize = OutputDevice::LogicToLogic( aGraphic.GetPrefSize(), aGraphic.GetPrefMapMode(), aMap100 );
-
-    Invalidate();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

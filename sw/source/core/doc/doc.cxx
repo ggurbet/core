@@ -21,6 +21,7 @@
 
 #include <doc.hxx>
 #include <com/sun/star/script/vba/XVBAEventProcessor.hpp>
+#include <com/sun/star/frame/XModel.hpp>
 #include <DocumentFieldsManager.hxx>
 #include <DocumentSettingManager.hxx>
 #include <DocumentDrawModelManager.hxx>
@@ -1068,14 +1069,12 @@ void SwDoc::CalculatePagePairsForProspectPrinting(
 /// @return the reference in the doc for the name
 const SwFormatRefMark* SwDoc::GetRefMark( const OUString& rName ) const
 {
-    sal_uInt32 nMaxItems = GetAttrPool().GetItemCount2( RES_TXTATR_REFMARK );
-    for( sal_uInt32 n = 0; n < nMaxItems; ++n )
+    for (const SfxPoolItem* pItem : GetAttrPool().GetItemSurrogates(RES_TXTATR_REFMARK))
     {
-        const SfxPoolItem* pItem;
-        if( nullptr == (pItem = GetAttrPool().GetItem2( RES_TXTATR_REFMARK, n ) ))
+        auto pFormatRef = dynamic_cast<const SwFormatRefMark*>(pItem);
+        if(!pFormatRef)
             continue;
 
-        const SwFormatRefMark* pFormatRef = static_cast<const SwFormatRefMark*>(pItem);
         const SwTextRefMark* pTextRef = pFormatRef->GetTextRefMark();
         if( pTextRef && &pTextRef->GetTextNode().GetNodes() == &GetNodes() &&
             rName == pFormatRef->GetRefName() )
@@ -1090,19 +1089,18 @@ const SwFormatRefMark* SwDoc::GetRefMark( sal_uInt16 nIndex ) const
     const SwTextRefMark* pTextRef;
     const SwFormatRefMark* pRet = nullptr;
 
-    sal_uInt32 nMaxItems = GetAttrPool().GetItemCount2( RES_TXTATR_REFMARK );
     sal_uInt32 nCount = 0;
-    for( sal_uInt32 n = 0; n < nMaxItems; ++n )
+    for (const SfxPoolItem* pItem : GetAttrPool().GetItemSurrogates(RES_TXTATR_REFMARK))
     {
-        const SfxPoolItem* pItem;
+        auto pRefMark = dynamic_cast<const SwFormatRefMark*>(pItem);
 
-        if( nullptr != (pItem = GetAttrPool().GetItem2( RES_TXTATR_REFMARK, n )) &&
-            nullptr != (pTextRef = static_cast<const SwFormatRefMark*>(pItem)->GetTextRefMark()) &&
+        if( pRefMark &&
+            nullptr != (pTextRef = pRefMark->GetTextRefMark()) &&
             &pTextRef->GetTextNode().GetNodes() == &GetNodes() )
         {
             if(nCount == nIndex)
             {
-                pRet = static_cast<const SwFormatRefMark*>(pItem);
+                pRet = pRefMark;
                 break;
             }
             nCount++;
@@ -1118,19 +1116,18 @@ sal_uInt16 SwDoc::GetRefMarks( std::vector<OUString>* pNames ) const
 {
     const SwTextRefMark* pTextRef;
 
-    const sal_uInt32 nMaxItems = GetAttrPool().GetItemCount2( RES_TXTATR_REFMARK );
     sal_uInt16 nCount = 0;
-    for( sal_uInt32 n = 0; n < nMaxItems; ++n )
+    for (const SfxPoolItem* pItem : GetAttrPool().GetItemSurrogates(RES_TXTATR_REFMARK))
     {
-        const SfxPoolItem* pItem;
+        auto pRefMark = dynamic_cast<const SwFormatRefMark*>(pItem);
 
-        if( nullptr != (pItem = GetAttrPool().GetItem2( RES_TXTATR_REFMARK, n )) &&
-            nullptr != (pTextRef = static_cast<const SwFormatRefMark*>(pItem)->GetTextRefMark()) &&
+        if( pRefMark &&
+            nullptr != (pTextRef = pRefMark->GetTextRefMark()) &&
             &pTextRef->GetTextNode().GetNodes() == &GetNodes() )
         {
             if( pNames )
             {
-                OUString aTmp(static_cast<const SwFormatRefMark*>(pItem)->GetRefName());
+                OUString aTmp(pRefMark->GetRefName());
                 pNames->insert(pNames->begin() + nCount, aTmp);
             }
             ++nCount;
@@ -1232,20 +1229,18 @@ void SwDoc::InvalidateAutoCompleteFlag()
 
 const SwFormatINetFormat* SwDoc::FindINetAttr( const OUString& rName ) const
 {
-    const SwFormatINetFormat* pItem;
     const SwTextINetFormat* pTextAttr;
     const SwTextNode* pTextNd;
-    sal_uInt32 n, nMaxItems = GetAttrPool().GetItemCount2( RES_TXTATR_INETFMT );
-    for( n = 0; n < nMaxItems; ++n )
+    for (const SfxPoolItem* pItem : GetAttrPool().GetItemSurrogates(RES_TXTATR_INETFMT))
     {
-        pItem = GetAttrPool().GetItem2( RES_TXTATR_INETFMT, n );
-        if( nullptr != pItem &&
-            pItem->GetName() == rName &&
-            nullptr != ( pTextAttr = pItem->GetTextINetFormat()) &&
+        auto pFormatItem = dynamic_cast<const SwFormatINetFormat*>(pItem);
+        if( pFormatItem &&
+            pFormatItem->GetName() == rName &&
+            nullptr != ( pTextAttr = pFormatItem->GetTextINetFormat()) &&
             nullptr != ( pTextNd = pTextAttr->GetpTextNode() ) &&
             &pTextNd->GetNodes() == &GetNodes() )
         {
-            return pItem;
+            return pFormatItem;
         }
     }
     return nullptr;
@@ -1418,10 +1413,10 @@ bool SwDoc::RemoveInvisibleContent()
         // document's field types, invalidating iterators. So, we need to create own list of
         // matching types prior to processing them.
         std::vector<std::unique_ptr<FieldTypeGuard>> aHidingFieldTypes;
-        for (SwFieldType* pType : *getIDocumentFieldsAccess().GetFieldTypes())
+        for (std::unique_ptr<SwFieldType> const & pType : *getIDocumentFieldsAccess().GetFieldTypes())
         {
             if (FieldCanHideParaWeight(pType->Which()))
-                aHidingFieldTypes.push_back(std::make_unique<FieldTypeGuard>(pType));
+                aHidingFieldTypes.push_back(std::make_unique<FieldTypeGuard>(pType.get()));
         }
         for (const auto& pTypeGuard : aHidingFieldTypes)
         {
@@ -1443,12 +1438,30 @@ bool SwDoc::RemoveInvisibleContent()
         if ( pTextNd )
         {
             bool bRemoved = false;
-            SwPaM aPam(*pTextNd, 0, *pTextNd, pTextNd->GetText().getLength());
             if ( pTextNd->HasHiddenCharAttribute( true ) )
             {
                 bRemoved = true;
                 bRet = true;
-                RemoveOrDeleteContents(pTextNd, getIDocumentContentOperations());
+
+                if (2 == pTextNd->EndOfSectionIndex() - pTextNd->StartOfSectionIndex())
+                {
+                    SwFrameFormat *const pFormat = pTextNd->StartOfSectionNode()->GetFlyFormat();
+                    if (nullptr != pFormat)
+                    {
+                        // remove hidden text frame
+                        getIDocumentLayoutAccess().DelLayoutFormat(pFormat);
+                    }
+                    else
+                    {
+                        // default, remove hidden paragraph
+                        RemoveOrDeleteContents(pTextNd, getIDocumentContentOperations());
+                    }
+                }
+                else
+                {
+                    // default, remove hidden paragraph
+                    RemoveOrDeleteContents(pTextNd, getIDocumentContentOperations());
+                }
             }
             else if ( pTextNd->HasHiddenCharAttribute( false ) )
             {
@@ -1460,13 +1473,17 @@ bool SwDoc::RemoveInvisibleContent()
             // Footnotes/Frames may have been removed, therefore we have
             // to reset n:
             if ( bRemoved )
-                n = aPam.GetPoint()->nNode.GetIndex();
+            {
+                // [n] has to be inside [0 .. GetNodes().Count()] range
+                if (n > GetNodes().Count())
+                    n = GetNodes().Count();
+            }
         }
     }
 
     {
         // Delete/empty all hidden areas
-        SwSectionFormats aSectFormats;
+        o3tl::sorted_vector<SwSectionFormat*> aSectFormats;
         SwSectionFormats& rSectFormats = GetSections();
 
         for( SwSectionFormats::size_type n = rSectFormats.size(); n; )
@@ -1486,10 +1503,7 @@ bool SwDoc::RemoveInvisibleContent()
                     pParent = pTmp;
                 }
 
-                SwSectionFormats::iterator it = std::find(
-                        aSectFormats.begin(), aSectFormats.end(), pSect->GetFormat() );
-                if (it == aSectFormats.end())
-                    aSectFormats.insert( aSectFormats.begin(), pSect->GetFormat() );
+                aSectFormats.insert( pSect->GetFormat() );
             }
             if( !pSect->GetCondition().isEmpty() )
             {
@@ -1500,7 +1514,7 @@ bool SwDoc::RemoveInvisibleContent()
             }
         }
 
-        SwSectionFormats::size_type n = aSectFormats.size();
+        auto n = aSectFormats.size();
 
         if( 0 != n )
         {
@@ -1540,7 +1554,6 @@ bool SwDoc::RemoveInvisibleContent()
 
                 }
             }
-            aSectFormats.clear();
         }
     }
 
@@ -1600,7 +1613,7 @@ bool SwDoc::ConvertFieldsToText(SwRootFrame const& rLayout)
     //go backward, field types are removed
     for(SwFieldTypes::size_type nType = nCount; nType > 0; --nType)
     {
-        const SwFieldType *pCurType = (*pMyFieldTypes)[nType - 1];
+        const SwFieldType *pCurType = (*pMyFieldTypes)[nType - 1].get();
 
         if ( SwFieldIds::Postit == pCurType->Which() )
             continue;
@@ -1706,6 +1719,16 @@ bool SwDoc::IsInsTableAlignNum() const
     return SW_MOD()->IsInsTableAlignNum(GetDocumentSettingManager().get(DocumentSettingId::HTML_MODE));
 }
 
+bool SwDoc::IsSplitVerticalByDefault() const
+{
+    return SW_MOD()->IsSplitVerticalByDefault(GetDocumentSettingManager().get(DocumentSettingId::HTML_MODE));
+}
+
+void SwDoc::SetSplitVerticalByDefault(bool value)
+{
+    SW_MOD()->SetSplitVerticalByDefault(GetDocumentSettingManager().get(DocumentSettingId::HTML_MODE), value);
+}
+
 /// Set up the InsertDB as Undo table
 void SwDoc::AppendUndoForInsertFromDB( const SwPaM& rPam, bool bIsTable )
 {
@@ -1727,24 +1750,20 @@ void SwDoc::AppendUndoForInsertFromDB( const SwPaM& rPam, bool bIsTable )
     }
 }
 
-void SwDoc::ChangeTOX(SwTOXBase & rTOX, const SwTOXBase & rNew,
-        SwRootFrame const& rLayout)
+void SwDoc::ChangeTOX(SwTOXBase & rTOX, const SwTOXBase & rNew)
 {
+    assert(dynamic_cast<const SwTOXBaseSection*>(&rTOX));
+    SwTOXBaseSection& rTOXSect(static_cast<SwTOXBaseSection&>(rTOX));
+
     if (GetIDocumentUndoRedo().DoesUndo())
     {
-        GetIDocumentUndoRedo().DelAllUndoObj();
-
         GetIDocumentUndoRedo().AppendUndo(
-            std::make_unique<SwUndoTOXChange>(this, &rTOX, rNew));
+            std::make_unique<SwUndoTOXChange>(this, rTOXSect, rNew));
     }
 
     rTOX = rNew;
 
-    if (dynamic_cast<const SwTOXBaseSection*>( &rTOX) !=  nullptr)
-    {
-        static_cast<SwTOXBaseSection &>(rTOX).Update(nullptr, &rLayout);
-        static_cast<SwTOXBaseSection &>(rTOX).UpdatePageNum();
-    }
+    // note: do not Update the ToX here - the caller will do it, with a ViewShell!
 }
 
 OUString SwDoc::GetPaMDescr(const SwPaM & rPam)
@@ -1830,10 +1849,10 @@ SwDoc::GetVbaEventProcessor()
 
 void SwDoc::SetMissingDictionaries( bool bIsMissing )
 {
-    if( bIsMissing && meDictionaryMissing == MissingDictionary::Undefined )
-        meDictionaryMissing = MissingDictionary::True;
-    else if( !bIsMissing )
+    if (!bIsMissing)
         meDictionaryMissing = MissingDictionary::False;
+    else if (meDictionaryMissing == MissingDictionary::Undefined)
+        meDictionaryMissing = MissingDictionary::True;
 };
 
 

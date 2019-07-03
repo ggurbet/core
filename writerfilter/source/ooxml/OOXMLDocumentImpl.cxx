@@ -83,10 +83,10 @@ void OOXMLDocumentImpl::resolveFastSubStream(Stream & rStreamHandler,
     {
         pStream = OOXMLDocumentFactory::createStream(mpStream, nType);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_INFO("writerfilter.ooxml", "resolveFastSubStream: exception while "
-                "resolving stream " << nType << " : " << e);
+        TOOLS_INFO_EXCEPTION("writerfilter.ooxml", "resolveFastSubStream: exception while "
+                "resolving stream " << nType);
         return;
     }
     OOXMLStream::Pointer_t savedStream = mpStream;
@@ -137,10 +137,10 @@ uno::Reference<xml::dom::XDocument> OOXMLDocumentImpl::importSubStream(OOXMLStre
     {
         pStream = OOXMLDocumentFactory::createStream(mpStream, nType);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_INFO("writerfilter.ooxml", "importSubStream: exception while "
-                "importing stream " << nType << " : " << e);
+        TOOLS_INFO_EXCEPTION("writerfilter.ooxml", "importSubStream: exception while "
+                "importing stream " << nType);
         return xRet;
     }
 
@@ -153,10 +153,10 @@ uno::Reference<xml::dom::XDocument> OOXMLDocumentImpl::importSubStream(OOXMLStre
             uno::Reference<xml::dom::XDocumentBuilder> xDomBuilder(xml::dom::DocumentBuilder::create(xContext));
             xRet = xDomBuilder->parse(xInputStream);
         }
-        catch (uno::Exception const& e)
+        catch (uno::Exception const&)
         {
-            SAL_INFO("writerfilter.ooxml", "importSubStream: exception while "
-                     "parsing stream " << nType << " : " << e);
+            TOOLS_INFO_EXCEPTION("writerfilter.ooxml", "importSubStream: exception while "
+                     "parsing stream " << nType);
             return xRet;
         }
     }
@@ -560,12 +560,10 @@ void OOXMLDocumentImpl::resolveCustomXmlStream(Stream & rStream)
         uno::Sequence<uno::Sequence< beans::StringPair>> aSeqs = xRelationshipAccess->getAllRelationships();
         std::vector<uno::Reference<xml::dom::XDocument>> aCustomXmlDomList;
         std::vector<uno::Reference<xml::dom::XDocument>> aCustomXmlDomPropsList;
-        for (sal_Int32 j = 0; j < aSeqs.getLength(); j++)
+        for (const uno::Sequence<beans::StringPair>& aSeq : aSeqs)
         {
-            const uno::Sequence<beans::StringPair>& aSeq = aSeqs[j];
-            for (sal_Int32 i = 0; i < aSeq.getLength(); i++)
+            for (const beans::StringPair& aPair : aSeq)
             {
-                const beans::StringPair& aPair = aSeq[i];
                 // Need to resolve only customxml files from document relationships.
                 // Skipping other files.
                 if (aPair.Second == sCustomType ||
@@ -616,10 +614,10 @@ void OOXMLDocumentImpl::resolveGlossaryStream(Stream & /*rStream*/)
     {
         pStream = OOXMLDocumentFactory::createStream(mpStream, OOXMLStream::GLOSSARY);
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_INFO("writerfilter.ooxml", "resolveGlossaryStream: exception while "
-                 "createStream for glossary" << OOXMLStream::GLOSSARY << " : " << e);
+        TOOLS_INFO_EXCEPTION("writerfilter.ooxml", "resolveGlossaryStream: exception while "
+                 "createStream for glossary" << OOXMLStream::GLOSSARY);
         return;
     }
     uno::Reference<embed::XRelationshipAccess> xRelationshipAccess;
@@ -629,10 +627,9 @@ void OOXMLDocumentImpl::resolveGlossaryStream(Stream & /*rStream*/)
 
         uno::Sequence< uno::Sequence< beans::StringPair > >aSeqs = xRelationshipAccess->getAllRelationships();
         std::vector< uno::Sequence<uno::Any> > aGlossaryDomList;
-        for (sal_Int32 j = 0; j < aSeqs.getLength(); j++)
+        for (const uno::Sequence< beans::StringPair >& aSeq : aSeqs)
         {
               OOXMLStream::Pointer_t gStream;
-              uno::Sequence< beans::StringPair > aSeq = aSeqs[j];
               //Follows following aSeq[0] is Id, aSeq[1] is Type, aSeq[2] is Target
               if (aSeq.getLength() < 3)
               {
@@ -688,10 +685,10 @@ void OOXMLDocumentImpl::resolveGlossaryStream(Stream & /*rStream*/)
                       uno::Reference<xml::dom::XDocumentBuilder> xDomBuilder(xml::dom::DocumentBuilder::create(xContext));
                       xDom = xDomBuilder->parse(xInputStream);
                   }
-                  catch (uno::Exception const& e)
+                  catch (uno::Exception const&)
                   {
-                      SAL_INFO("writerfilter.ooxml", "importSubStream: exception while "
-                      "parsing stream of Type" << nType << " : " << e);
+                      TOOLS_INFO_EXCEPTION("writerfilter.ooxml", "importSubStream: exception while "
+                                 "parsing stream of Type" << nType);
                       return;
                   }
 
@@ -728,12 +725,10 @@ void OOXMLDocumentImpl::resolveEmbeddingsStream(const OOXMLStream::Pointer_t& pS
         bool bHeaderFooterFound = false;
         OOXMLStream::StreamType_t streamType = OOXMLStream::UNKNOWN;
         uno::Sequence< uno::Sequence< beans::StringPair > >aSeqs = xRelationshipAccess->getAllRelationships();
-        for (sal_Int32 j = 0; j < aSeqs.getLength(); j++)
+        for (const uno::Sequence< beans::StringPair >& aSeq : aSeqs)
         {
-            uno::Sequence< beans::StringPair > aSeq = aSeqs[j];
-            for (sal_Int32 i = 0; i < aSeq.getLength(); i++)
+            for (const beans::StringPair& aPair : aSeq)
             {
-                beans::StringPair aPair = aSeq[i];
                 if (aPair.Second == sChartType ||
                         aPair.Second == sChartTypeStrict)
                 {
@@ -772,10 +767,10 @@ void OOXMLDocumentImpl::resolveEmbeddingsStream(const OOXMLStream::Pointer_t& pS
                         if (Stream)
                             resolveEmbeddingsStream(Stream);
                     }
-                    catch (uno::Exception const& e)
+                    catch (uno::Exception const&)
                     {
-                        SAL_INFO("writerfilter.ooxml", "resolveEmbeddingsStream: can't find header/footer whilst "
-                               "resolving stream " << streamType << " : " << e);
+                        TOOLS_INFO_EXCEPTION("writerfilter.ooxml", "resolveEmbeddingsStream: can't find header/footer whilst "
+                               "resolving stream " << streamType);
                         return;
                     }
                 }

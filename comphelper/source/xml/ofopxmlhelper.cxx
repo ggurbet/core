@@ -24,8 +24,6 @@
 #include <cppuhelper/implbase.hxx>
 
 #include <com/sun/star/beans/StringPair.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/io/XActiveDataSource.hpp>
 #include <com/sun/star/xml/sax/Parser.hpp>
 #include <com/sun/star/xml/sax/XDocumentHandler.hpp>
 #include <com/sun/star/xml/sax/SAXException.hpp>
@@ -381,7 +379,7 @@ void SAL_CALL OFOPXMLHelper_Impl::startElement( const OUString& aName, const uno
 
             m_aElementsSeq.push_back( aName );
 
-            if ( !m_aResultSeq.getLength() )
+            if ( !m_aResultSeq.hasElements() )
                 m_aResultSeq.realloc( 2 );
 
             return; // nothing to do
@@ -394,7 +392,7 @@ void SAL_CALL OFOPXMLHelper_Impl::startElement( const OUString& aName, const uno
 
             m_aElementsSeq.push_back( aName );
 
-            if ( !m_aResultSeq.getLength() )
+            if ( !m_aResultSeq.hasElements() )
                 m_aResultSeq.realloc( 2 );
 
             if ( m_aResultSeq.getLength() != 2 )
@@ -422,7 +420,7 @@ void SAL_CALL OFOPXMLHelper_Impl::startElement( const OUString& aName, const uno
 
             m_aElementsSeq.push_back( aName );
 
-            if ( !m_aResultSeq.getLength() )
+            if ( !m_aResultSeq.hasElements() )
                 m_aResultSeq.realloc( 2 );
 
             if ( m_aResultSeq.getLength() != 2 )

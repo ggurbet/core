@@ -40,6 +40,7 @@ struct ImplToolItem;
 struct ImplToolBoxPrivateData;
 class  PopupMenu;
 class VclMenuEvent;
+class StyleSettings;
 
 #define TOOLBOX_STYLE_FLAT          (sal_uInt16(0x0004))
 
@@ -67,11 +68,13 @@ enum class ToolBoxButtonSize
     Size32,
 };
 
-// ToolBoxLayoutMode::Normal   - traditional layout, items are centered in the toolbar
-// ToolBoxLayoutMode::LockVert - special mode (currently used for calc input/formula
-//                       bar) where item's vertical position is locked, e.g.
-//                       toolbox is prevented from centering the items
-enum class ToolBoxLayoutMode { Normal, LockVert };
+enum class ToolBoxLayoutMode
+{
+    Normal,  // traditional layout, items are centered in the toolbar
+    Locked   // horizontal positions of all items remain unchanged,
+             // vertical positions of items smaller than first item are aligned to first item's vertical center,
+             // vertical positions of items larger than first item remain unchanged
+};
 
 // Position of the text when icon and text are painted
 enum class ToolBoxTextPosition { Right, Bottom };
@@ -106,7 +109,6 @@ private:
     tools::Rectangle           maLowerRect;
     tools::Rectangle           maPaintRect;
     VclPtr<FloatingWindow> mpFloatWin;
-    sal_uInt16          mnKeyModifier;
     long                mnDX;
     long                mnDY;
     long                mnMaxItemWidth;    // max item width
@@ -148,7 +150,8 @@ private:
                         mbIsKeyEvent:1,
                         mbChangingHighlight:1,
                         mbImagesMirrored:1,
-                        mbLineSpacing:1;
+                        mbLineSpacing:1,
+                        mbIsArranged:1;
     WindowAlign         meAlign;
     WindowAlign         meDockAlign;
     ButtonType          meButtonType;
@@ -251,11 +254,14 @@ public:
     SAL_DLLPRIVATE ImplToolItems::size_type ImplCalcLines( long nToolSize ) const;
     SAL_DLLPRIVATE sal_uInt16 ImplTestLineSize( const Point& rPos ) const;
     SAL_DLLPRIVATE void ImplLineSizing( const Point& rPos, tools::Rectangle& rRect, sal_uInt16 nLineMode );
-    static SAL_DLLPRIVATE ImplToolItems::size_type ImplFindItemPos( const ImplToolItem* pItem, const ImplToolItems& rList );
+    SAL_DLLPRIVATE static ImplToolItems::size_type ImplFindItemPos( const ImplToolItem* pItem, const ImplToolItems& rList );
     SAL_DLLPRIVATE void ImplDrawMenuButton(vcl::RenderContext& rRenderContext, bool bHighlight);
     SAL_DLLPRIVATE void ImplDrawButton(vcl::RenderContext& rRenderContext, const tools::Rectangle &rRect, sal_uInt16 highlight, bool bChecked, bool bEnabled, bool bIsWindow);
     SAL_DLLPRIVATE ImplToolItems::size_type ImplCountLineBreaks() const;
     SAL_DLLPRIVATE ImplToolBoxPrivateData* ImplGetToolBoxPrivateData() const { return mpData.get(); }
+
+    SAL_DLLPRIVATE void ApplyBackgroundSettings(vcl::RenderContext&, const StyleSettings&);
+    SAL_DLLPRIVATE void ApplyForegroundSettings(vcl::RenderContext&, const StyleSettings&);
 
 protected:
     virtual void ApplySettings(vcl::RenderContext& rRenderContext) override;
@@ -361,7 +367,6 @@ public:
     sal_uInt16          GetCurItemId() const { return mnCurItemId; }
     sal_uInt16          GetDownItemId() const { return mnDownItemId; }
     sal_uInt16          GetModifier() const { return mnMouseModifier; }
-    sal_uInt16          GetKeyModifier() const { return mnKeyModifier; }
 
     void                SetItemBits( sal_uInt16 nItemId, ToolBoxItemBits nBits );
     ToolBoxItemBits     GetItemBits( sal_uInt16 nItemId ) const;

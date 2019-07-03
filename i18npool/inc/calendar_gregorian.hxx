@@ -20,13 +20,15 @@
 #define INCLUDED_I18NPOOL_INC_CALENDAR_GREGORIAN_HXX
 
 #include "calendarImpl.hxx"
-#include "nativenumbersupplier.hxx"
+
+#include <com/sun/star/i18n/CalendarFieldIndex.hpp>
 
 #include <unicode/calendar.h>
 #include <rtl/ref.hxx>
 
 #include <memory>
 
+namespace i18npool { class NativeNumberSupplierService; }
 
 //  class Calendar_gregorian
 
@@ -52,6 +54,7 @@ public:
     Calendar_gregorian();
     Calendar_gregorian(const Era *_eraArray);
     void init(const Era *_eraArray);
+    bool setTimeZone( const OUString& rTimeZone );
 
     /**
     * Destructor
@@ -172,6 +175,16 @@ class Calendar_ROC : public Calendar_gregorian
 public:
     // Constructors
     Calendar_ROC();
+};
+
+
+//  class Calendar_dangi
+
+class Calendar_dangi : public Calendar_gregorian
+{
+public:
+    // Constructors
+    Calendar_dangi();
 };
 
 

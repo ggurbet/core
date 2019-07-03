@@ -575,9 +575,7 @@ bool WW8ListManager::ReadLVL(SwNumFormat& rNumFormat, std::unique_ptr<SfxItemSet
         if (aLVL.nLenGrpprlPapx != rSt.ReadBytes(&aGrpprlPapx, aLVL.nLenGrpprlPapx))
             return false;
         // "sprmPDxaLeft"  pap.dxaLeft;dxa;word;
-        SprmResult aSprm;
-
-        aSprm = GrpprlHasSprm(0x840F,aGrpprlPapx[0],aLVL.nLenGrpprlPapx);
+        SprmResult aSprm = GrpprlHasSprm(0x840F,aGrpprlPapx[0],aLVL.nLenGrpprlPapx);
         if (!aSprm.pSprm)
             aSprm = GrpprlHasSprm(0x845E,aGrpprlPapx[0],aLVL.nLenGrpprlPapx);
 
@@ -1759,8 +1757,7 @@ void SwWW8ImplReader::RegisterNumFormatOnStyle(sal_uInt16 nStyle)
     if (rStyleInf.m_bValid && rStyleInf.m_pFormat)
     {
         //Save old pre-list modified indent, which are the word indent values
-        rStyleInf.maWordLR =
-            ItemGet<SvxLRSpaceItem>(*rStyleInf.m_pFormat, RES_LR_SPACE);
+        rStyleInf.maWordLR.reset(static_cast<SvxLRSpaceItem*>(ItemGet<SvxLRSpaceItem>(*rStyleInf.m_pFormat, RES_LR_SPACE).Clone()));
 
         // Phase 2: refresh StyleDef after reading all Lists
         SwNumRule* pNmRule = nullptr;
@@ -1867,7 +1864,7 @@ void SwWW8ImplReader::RegisterNumFormatOnTextNode(sal_uInt16 nCurrentLFO,
                 {
                     std::unique_ptr<SfxItemSet> xOldCurrentItemSet(SetCurrentItemSet(std::move(xListIndent)));
 
-                    sal_uInt8* pSprms1  = &aParaSprms[0];
+                    sal_uInt8* pSprms1  = aParaSprms.data();
                     while (0 < nLen)
                     {
                         sal_uInt16 nL1 = ImportSprm(pSprms1, nLen);
@@ -1993,19 +1990,19 @@ void SwWW8ImplReader::Read_LFOPosition(sal_uInt16, const sal_uInt8* pData,
                 pTextNode->SetAttr( aEmptyRule );
 
                 // create an empty SvxLRSpaceItem
-                SvxLRSpaceItem aLR( RES_LR_SPACE );
+                std::shared_ptr<SvxLRSpaceItem> aLR(std::make_shared<SvxLRSpaceItem>(RES_LR_SPACE));
 
                 // replace it with the one of the current node if it exist
                 const SfxPoolItem* pLR = GetFormatAttr(RES_LR_SPACE);
                 if( pLR )
-                    aLR = *static_cast<const SvxLRSpaceItem*>(pLR);
+                    aLR.reset(static_cast<SvxLRSpaceItem*>(pLR->Clone()));
 
                 // reset/blank the left indent (and only the left)
-                aLR.SetTextLeft(0);
-                aLR.SetTextFirstLineOfst(0);
+                aLR->SetTextLeft(0);
+                aLR->SetTextFirstLineOfst(0);
 
                 // apply the modified SvxLRSpaceItem to the current paragraph
-                pTextNode->SetAttr( aLR );
+                pTextNode->SetAttr( *aLR );
             }
 
             m_nLFOPosition = USHRT_MAX;
@@ -2126,13 +2123,17 @@ void WW8FormulaControl::FormulaRead(SwWw8ControlType nWhich,
     SvStream *pDataStream)
 {
     sal_uInt8 nField;
-    // nHeaderBype == version
-    sal_uInt32 nHeaderByte = 0;
 
     // The following is a FFData structure as described in
     // Microsoft's DOC specification (chapter 2.9.78)
-
-    pDataStream->ReadUInt32( nHeaderByte );
+    sal_uInt32 nVersion = 0;
+    pDataStream->ReadUInt32(nVersion);
+    // An unsigned integer that MUST be 0xFFFFFFFF
+    if (nVersion != 0xFFFFFFFF)
+    {
+        SAL_WARN("sw.ww8", "Parsing error: invalid header for FFData");
+        return; // bail out
+    }
 
     // might be better to read the bits as a 16 bit word
     // ( like it is in the spec. )
@@ -2532,8 +2533,7 @@ bool SwMSConvertControls::InsertControl(
     if( !xCreate.is() )
         return false;
 
-    uno::Reference< drawing::XShape > xShape =
-        uno::Reference< drawing::XShape >(xCreate, uno::UNO_QUERY);
+    uno::Reference< drawing::XShape > xShape(xCreate, uno::UNO_QUERY);
 
     OSL_ENSURE(xShape.is(), "Did not get XShape");
     xShape->setSize(rSize);

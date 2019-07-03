@@ -31,6 +31,7 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <osl/file.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/mediadescriptor.hxx>
 #include <unotools/streamwrap.hxx>
 #include <unotools/ucbstreamhelper.hxx>
@@ -87,7 +88,7 @@ sal_Bool RtfFilter::filter(const uno::Sequence< beans::PropertyValue >& rDescrip
     if (m_xSrcDoc.is())
     {
         uno::Reference< lang::XMultiServiceFactory > xMSF(m_xContext->getServiceManager(), uno::UNO_QUERY_THROW);
-        uno::Reference< uno::XInterface > xIfc(xMSF->createInstance("com.sun.star.comp.Writer.RtfExport"), uno::UNO_QUERY_THROW);
+        uno::Reference< uno::XInterface > xIfc(xMSF->createInstance("com.sun.star.comp.Writer.RtfExport"), uno::UNO_SET_THROW);
         uno::Reference< document::XExporter > xExporter(xIfc, uno::UNO_QUERY_THROW);
         uno::Reference< document::XFilter > xFilter(xIfc, uno::UNO_QUERY_THROW);
         xExporter->setSourceDocument(m_xSrcDoc);
@@ -153,9 +154,9 @@ sal_Bool RtfFilter::filter(const uno::Sequence< beans::PropertyValue >& rDescrip
         throw lang::WrappedTargetRuntimeException("",
                 static_cast<OWeakObject*>(this), anyEx);
     }
-    catch (const uno::Exception& e)
+    catch (const uno::Exception&)
     {
-        SAL_INFO("writerfilter", "Exception caught: " << e);
+        TOOLS_INFO_EXCEPTION("writerfilter", "Exception caught");
     }
 
     if (xStatusIndicator.is())

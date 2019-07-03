@@ -42,6 +42,7 @@
 #include <comphelper/basicio.hxx>
 #include <comphelper/property.hxx>
 #include <comphelper/sequence.hxx>
+#include <comphelper/string.hxx>
 #include <comphelper/types.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/formattedcolumnvalue.hxx>
@@ -637,19 +638,12 @@ namespace frm
             OUString sListSource;
             _rxInStream >> sListSource;
 
-            sal_Int32 nTokens = 1;
-            const sal_Unicode* pStr = sListSource.getStr();
-            while ( *pStr )
-            {
-                if ( *pStr == ';' )
-                    nTokens++;
-                pStr++;
-            }
+            const sal_Int32 nTokens{ comphelper::string::getTokenCount(sListSource, ';') };
             aListSourceSeq.realloc( nTokens );
+            sal_Int32 nIdx{ 0 };
             for (sal_Int32 i=0; i<nTokens; ++i)
             {
-                sal_Int32 nTmp = 0;
-                aListSourceSeq.getArray()[i] = sListSource.getToken(i,';',nTmp);
+                aListSourceSeq.getArray()[i] = sListSource.getToken(0, ';', nIdx);
             }
         }
         else
@@ -1139,7 +1133,7 @@ namespace frm
 
         Sequence< sal_Int16 > aSelectedIndices;
         OSL_VERIFY( m_xAggregateFastSet->getFastPropertyValue( getValuePropertyAggHandle() ) >>= aSelectedIndices );
-        if ( !aSelectedIndices.getLength() )
+        if ( !aSelectedIndices.hasElements() )
             // nothing selected at all
             return s_aEmptyValue;
 
@@ -1282,7 +1276,7 @@ namespace frm
     Any OListBoxModel::getDefaultForReset() const
     {
         Any aValue;
-        if (m_aDefaultSelectSeq.getLength())
+        if (m_aDefaultSelectSeq.hasElements())
             aValue <<= m_aDefaultSelectSeq;
         else if (m_nNULLPos != -1)  // bound Listbox
         {
@@ -1761,7 +1755,7 @@ namespace frm
             }
             else
             {
-                if ( m_aDefaultSelectSeq.getLength() )
+                if ( m_aDefaultSelectSeq.hasElements() )
                     setControlValue( makeAny( m_aDefaultSelectSeq ), eOther );
             }
         }
@@ -1913,7 +1907,7 @@ namespace frm
             m_aItemListeners.notifyEach( &XItemListener::itemStateChanged, _rEvent );
 
         // and do the handling for the ChangeListeners
-        ::osl::ClearableMutexGuard aGuard(m_aMutex);
+        osl::MutexGuard aGuard(m_aMutex);
         if ( m_aChangeIdle.IsActive() )
         {
             Reference<XPropertySet> xSet(getModel(), UNO_QUERY);

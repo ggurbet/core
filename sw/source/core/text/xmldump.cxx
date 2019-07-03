@@ -18,10 +18,12 @@
 #include <hffrm.hxx>
 #include <rootfrm.hxx>
 #include <editsh.hxx>
+#include <ndtxt.hxx>
 #include "porlin.hxx"
 #include "porlay.hxx"
 #include "portxt.hxx"
 #include <sortedobjs.hxx>
+#include <swfont.hxx>
 #include <anchoredobject.hxx>
 #include <libxml/xmlwriter.h>
 #include <SwPortionHandler.hxx>
@@ -467,6 +469,21 @@ void SwFrame::dumpAsXmlAttributes( xmlTextWriterPtr writer ) const
         const SwTextFrame *pTextFrame = static_cast<const SwTextFrame *>(this);
         const SwTextNode *pTextNode = pTextFrame->GetTextNodeFirst();
         xmlTextWriterWriteFormatAttribute( writer, BAD_CAST( "txtNodeIndex" ), TMP_FORMAT, pTextNode->GetIndex() );
+
+        OString aMode = "Horizontal";
+        if (IsVertLRBT())
+        {
+            aMode = "VertBTLR";
+        }
+        else if (IsVertLR())
+        {
+            aMode = "VertLR";
+        }
+        else if (IsVertical())
+        {
+            aMode = "Vertical";
+        }
+        xmlTextWriterWriteAttribute(writer, BAD_CAST("WritingMode"), BAD_CAST(aMode.getStr()));
     }
     if (IsHeaderFrame() || IsFooterFrame())
     {

@@ -17,6 +17,9 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <sal/config.h>
+
+#include <cmath>
 #include <memory>
 #include <stdlib.h>
 
@@ -37,6 +40,7 @@
 #include <editeng/brushitem.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/fhgtitem.hxx>
+#include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/lrspitem.hxx>
@@ -586,25 +590,25 @@ void SvxCSS1PropertyInfo::SetBoxItem( SfxItemSet& rItemSet,
     if( !bChg )
         return;
 
-    SvxBoxItem aBoxItem( aItemIds.nBox );
+    std::shared_ptr<SvxBoxItem> aBoxItem(std::make_shared<SvxBoxItem>(aItemIds.nBox));
     if( pDfltItem )
-        aBoxItem = *pDfltItem;
+        aBoxItem.reset(static_cast<SvxBoxItem*>(pDfltItem->Clone()));
 
     SvxCSS1BorderInfo *pInfo = GetBorderInfo( SvxBoxItemLine::TOP, false );
     if( pInfo )
-        pInfo->SetBorderLine( SvxBoxItemLine::TOP, aBoxItem );
+        pInfo->SetBorderLine( SvxBoxItemLine::TOP, *aBoxItem );
 
     pInfo = GetBorderInfo( SvxBoxItemLine::BOTTOM, false );
     if( pInfo )
-        pInfo->SetBorderLine( SvxBoxItemLine::BOTTOM, aBoxItem );
+        pInfo->SetBorderLine( SvxBoxItemLine::BOTTOM, *aBoxItem );
 
     pInfo = GetBorderInfo( SvxBoxItemLine::LEFT, false );
     if( pInfo )
-        pInfo->SetBorderLine( SvxBoxItemLine::LEFT, aBoxItem );
+        pInfo->SetBorderLine( SvxBoxItemLine::LEFT, *aBoxItem );
 
     pInfo = GetBorderInfo( SvxBoxItemLine::RIGHT, false );
     if( pInfo )
-        pInfo->SetBorderLine( SvxBoxItemLine::RIGHT, aBoxItem );
+        pInfo->SetBorderLine( SvxBoxItemLine::RIGHT, *aBoxItem );
 
     for( size_t i=0; i<m_aBorderInfos.size(); ++i )
     {
@@ -630,10 +634,10 @@ void SvxCSS1PropertyInfo::SetBoxItem( SfxItemSet& rItemSet,
                 break;
         }
 
-        if( aBoxItem.GetLine( nLine ) )
+        if( aBoxItem->GetLine( nLine ) )
         {
             if( UNSET_BORDER_DISTANCE == nDist )
-                nDist = aBoxItem.GetDistance( nLine );
+                nDist = aBoxItem->GetDistance( nLine );
 
             if( nDist < nMinBorderDist )
                 nDist = nMinBorderDist;
@@ -643,10 +647,10 @@ void SvxCSS1PropertyInfo::SetBoxItem( SfxItemSet& rItemSet,
             nDist = 0U;
         }
 
-        aBoxItem.SetDistance( nDist, nLine );
+        aBoxItem->SetDistance( nDist, nLine );
     }
 
-    rItemSet.Put( aBoxItem );
+    rItemSet.Put( *aBoxItem );
 
     DestroyBorderInfos();
 }
@@ -736,7 +740,7 @@ SvxCSS1Parser::SvxCSS1Parser( SfxItemPool& rPool, const OUString& rBaseURL,
     if( pWhichIds && nWhichIds )
         BuildWhichTable( aWhichMap, pWhichIds, nWhichIds );
 
-    pSheetItemSet.reset( new SfxItemSet( rPool, &aWhichMap[0] ) );
+    pSheetItemSet.reset( new SfxItemSet( rPool, aWhichMap.data() ) );
     pSheetPropInfo.reset( new SvxCSS1PropertyInfo );
 }
 
@@ -1420,15 +1424,15 @@ static void ParseCSS1_background( const CSS1Expression *pExpr,
                 // only distinguish between 0 and !0. Therefore pixel
                 // can be handled like all other units.
 
-                sal_uLong nLength = static_cast<sal_uLong>(pExpr->GetNumber());
+                bool nonZero = std::trunc(pExpr->GetNumber()) != 0.0;
                 if( !bHori )
                 {
-                    ePos = nLength ? GPOS_MM : GPOS_LT;
+                    ePos = nonZero ? GPOS_MM : GPOS_LT;
                     bHori = true;
                 }
                 else if( !bVert )
                 {
-                    MergeVert( ePos, (nLength ? GPOS_LM : GPOS_LT) );
+                    MergeVert( ePos, (nonZero ? GPOS_LM : GPOS_LT) );
                     bVert = true;
                 }
             }

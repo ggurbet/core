@@ -27,7 +27,6 @@
 #include <vcl/field.hxx>
 #include <vcl/settings.hxx>
 #include <svtools/colorcfg.hxx>
-#include <vcl/builderfactory.hxx>
 #include <i18nlangtag/languagetag.hxx>
 
 namespace svx {
@@ -213,8 +212,9 @@ void DialControlBmp::DrawBackground()
 
     SetLineColor();
     SetFillColor( GetBackgroundColor() );
-    DrawEllipse( tools::Rectangle( maRect.Left() + DIAL_OUTER_WIDTH, maRect.Top() + DIAL_OUTER_WIDTH,
-        maRect.Right() - DIAL_OUTER_WIDTH, maRect.Bottom() - DIAL_OUTER_WIDTH ) );
+    tools::Rectangle aEllipseRect = maRect;
+    aEllipseRect.shrink(DIAL_OUTER_WIDTH);
+    DrawEllipse( aEllipseRect );
 }
 
 

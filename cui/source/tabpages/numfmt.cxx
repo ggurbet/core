@@ -20,14 +20,13 @@
 #include <svl/eitem.hxx>
 #include <svl/intitem.hxx>
 #include <sfx2/objsh.hxx>
-#include <vcl/builder.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <i18nlangtag/lang.h>
 #include <i18nlangtag/mslangid.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <svtools/colorcfg.hxx>
 
 #include <numcategories.hrc>
@@ -168,17 +167,14 @@ void SvxNumberPreview::Paint(vcl::RenderContext& rRenderContext, const ::tools::
                 aTmpStr = aTmpStr.replaceAt(mnPos, 0, OUString(mnChar));
         }
     }
-    long nX;
-    if (mnPos != -1)
-        nX = 0;
-    else
+
+    long nX = 0;
+    if (mnPos == -1 && nLeadSpace > 0) //tdf#122120 if it won't fit anyway, then left align it
     {
-        //tdf#122120 if it won't fit anyway, then left align it
-        if (nLeadSpace > 0)
-            nX = nLeadSpace;
-        nX = 0;
+        nX = nLeadSpace;
     }
-    Point aPosText = Point(nX, (aSzWnd.Height() - GetTextHeight()) / 2);
+
+    Point aPosText(nX, (aSzWnd.Height() - GetTextHeight()) / 2);
     rRenderContext.DrawText(aPosText, aTmpStr);
     rRenderContext.Pop();
 }
@@ -833,7 +829,7 @@ void SvxNumberFormatTabPage::FillFormatListBox_Impl( std::vector<OUString>& rEnt
                 OUString aPreviewString( GetExpColorString( pPreviewColor, aEntry, aPrivCat ) );
                 m_xLbFormat->append_text(aPreviewString);
                 if (pPreviewColor)
-                    m_xLbFormat->set_font_color(m_xLbFormat->n_children() -1, *pPreviewColor);
+                    m_xLbFormat->set_font_color(m_xLbFormat->n_children() - 1, *pPreviewColor);
             }
             else
             {

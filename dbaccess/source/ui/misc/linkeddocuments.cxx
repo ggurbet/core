@@ -25,6 +25,7 @@
 #include <stringconstants.hxx>
 #include <comphelper/classids.hxx>
 #include <comphelper/namedvaluecollection.hxx>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/frame/XComponentLoader.hpp>
 #include <com/sun/star/util/URL.hpp>
@@ -262,7 +263,7 @@ namespace dbaui
             if ( xORB.is() )
             {
                 ::comphelper::NamedValueCollection aCreationArgs( i_rCreationArgs );
-                if ( aClassId.getLength() )
+                if ( aClassId.hasElements() )
                     aCreationArgs.put( "ClassID", aClassId );
                 aCreationArgs.put( OUString(PROPERTY_ACTIVE_CONNECTION), m_xConnection );
 

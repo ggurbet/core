@@ -25,6 +25,7 @@ $(eval $(call gb_Library_set_include,vclplug_qt5,\
     $$(INCLUDE) \
     -I$(SRCDIR)/vcl/inc \
     -I$(SRCDIR)/vcl/inc/qt5 \
+    $(GSTREAMER_1_0_CFLAGS) \
 ))
 
 $(eval $(call gb_Library_add_defs,vclplug_qt5,\
@@ -63,19 +64,19 @@ $(eval $(call gb_Library_use_externals,vclplug_qt5,\
     qt5 \
 ))
 
-$(eval $(call gb_Library_add_defs,vclplug_qt5,\
+$(eval $(call gb_Library_add_cxxflags,vclplug_qt5,\
     $(QT5_CFLAGS) \
 ))
 $(eval $(call gb_Library_add_libs,vclplug_qt5,\
     $(QT5_LIBS) \
 ))
 
-ifneq ($(QT5_HAVE_GLIB),)
-$(eval $(call gb_Library_add_defs,vclplug_qt5,\
-    $(QT5_GLIB_CFLAGS) \
+ifneq ($(QT5_HAVE_GOBJECT),)
+$(eval $(call gb_Library_add_cxxflags,vclplug_qt5,\
+    $(QT5_GOBJECT_CFLAGS) \
 ))
 $(eval $(call gb_Library_add_libs,vclplug_qt5,\
-    $(QT5_GLIB_LIBS) \
+    $(QT5_GOBJECT_LIBS) \
 ))
 endif
 
@@ -102,9 +103,12 @@ $(eval $(call gb_Library_add_exception_objects,vclplug_qt5,\
     vcl/qt5/Qt5OpenGLContext \
     vcl/qt5/Qt5Painter \
     vcl/qt5/Qt5Printer \
+    vcl/qt5/Qt5SvpGraphics \
+    vcl/qt5/Qt5SvpSurface \
     vcl/qt5/Qt5System \
     vcl/qt5/Qt5Timer \
     vcl/qt5/Qt5Tools \
+    vcl/qt5/Qt5Transferable \
     vcl/qt5/Qt5VirtualDevice \
     vcl/qt5/Qt5Widget \
     vcl/qt5/Qt5XAccessible \
@@ -114,14 +118,13 @@ ifeq ($(OS),LINUX)
 $(eval $(call gb_Library_add_libs,vclplug_qt5,\
 	-lm \
 	-ldl \
-	-lpthread \
 ))
 endif
 
 # Workaround for clang+icecream (clang's -frewrite-includes
 # doesn't handle Qt5's QT_HAS_INCLUDE that Qt5 uses for <chrono>).
 ifeq ($(COM_IS_CLANG),TRUE)
-$(eval $(call gb_Library_add_defs,vclplug_qt5, \
+$(eval $(call gb_Library_add_cxxflags,vclplug_qt5, \
     -include chrono \
 ))
 endif

@@ -21,6 +21,7 @@
 #include <editeng/forbiddencharacterstable.hxx>
 #include <sfx2/progress.hxx>
 #include <vcl/commandinfoprovider.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/wrkwin.hxx>
 #include <svx/svxids.hrc>
 #include <editeng/outliner.hxx>
@@ -31,6 +32,7 @@
 #include <sfx2/printer.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/itempool.hxx>
 #include <svl/style.hxx>
 #include <svx/svdorect.hxx>
@@ -49,6 +51,8 @@
 #include <editeng/editview.hxx>
 #include <editeng/svxfont.hxx>
 #include <editeng/fhgtitem.hxx>
+
+#include <com/sun/star/frame/XFrame.hpp>
 
 #include <DrawDocShell.hxx>
 #include <drawdoc.hxx>
@@ -730,9 +734,9 @@ IMPL_LINK_NOARG(OutlineView, StatusEventHdl, EditStatus&, void)
     ::sd::Window*   pWin = mrOutlineViewShell.GetActiveWindow();
     OutlinerView*   pOutlinerView = GetViewByWindow(pWin);
     ::tools::Rectangle       aVis          = pOutlinerView->GetVisArea();
-    ::tools::Rectangle       aText = ::tools::Rectangle(Point(0,0),
-                                      Size(mnPaperWidth,
-                                      mrOutliner.GetTextHeight()));
+    ::tools::Rectangle       aText(Point(0,0),
+                                   Size(mnPaperWidth,
+                                   mrOutliner.GetTextHeight()));
     ::tools::Rectangle aWin(Point(0,0), pWin->GetOutputSizePixel());
     aWin = pWin->PixelToLogic(aWin);
 
@@ -756,7 +760,7 @@ IMPL_LINK_NOARG(OutlineView, BeginDropHdl, EditView*, void)
 
 IMPL_LINK_NOARG(OutlineView, EndDropHdl, EditView*, void)
 {
-    maDragAndDropModelGuard.reset(nullptr);
+    maDragAndDropModelGuard.reset();
 }
 
 /**
@@ -976,7 +980,7 @@ void OutlineView::PrepareClose()
 /**
  * Set attributes of the selected text
  */
-bool OutlineView::SetAttributes(const SfxItemSet& rSet, bool )
+bool OutlineView::SetAttributes(const SfxItemSet& rSet, bool /*bSlide*/, bool /*bReplaceAll*/, bool /*bMaster*/)
 {
     bool bOk = false;
 

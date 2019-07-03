@@ -8,29 +8,33 @@
  */
 
 #include <swmodeltestbase.hxx>
-#include <com/sun/star/awt/FontSlant.hpp>
+#include <com/sun/star/awt/FontWeight.hpp>
 #include <com/sun/star/frame/DispatchHelper.hpp>
 #include <com/sun/star/style/LineSpacing.hpp>
 #include <comphelper/propertysequence.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
-#include <svx/svdpage.hxx>
-#include <svx/svdview.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <vcl/scheduler.hxx>
-#include <dcontact.hxx>
-#include <drawdoc.hxx>
+#include <vcl/settings.hxx>
 #include <ndtxt.hxx>
 #include <swdtflvr.hxx>
 #include <wrtsh.hxx>
-#include <redline.hxx>
-#include <flyfrms.hxx>
+#include <IDocumentRedlineAccess.hxx>
+#include <flyfrm.hxx>
+#include <fmtanchr.hxx>
 #include <UndoManager.hxx>
-#include <edtwin.hxx>
-#include <view.hxx>
 #include <sortedobjs.hxx>
 #include <anchoredobject.hxx>
-#include <swtypes.hxx>
-#include <fmtornt.hxx>
+#include <itabenum.hxx>
+#include <fmtfsize.hxx>
 #include <xmloff/odffields.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <sfx2/dispatch.hxx>
+#include <svl/stritem.hxx>
+#include <txtfrm.hxx>
+#include <redline.hxx>
+#include <view.hxx>
+#include <cmdid.h>
 
 namespace
 {
@@ -42,61 +46,23 @@ char const FLOATING_TABLE_DATA_DIRECTORY[] = "/sw/qa/extras/uiwriter/data/floati
 class SwUiWriterTest2 : public SwModelTestBase
 {
 public:
-    void testRedlineMoveInsertInDelete();
-    void testRedlineInHiddenSection();
-    void testTdf47471_paraStyleBackground();
-    void testTdf101534();
-    void testTdf54819();
-    void testTdf64242_optimizeTable();
-    void testTdf108687_tabstop();
-    void testTdf119571();
-    void testTdf119019();
-    void testTdf119824();
-    void testTdf105413();
-    void testUnfloatButtonSmallTable();
-    void testUnfloatButton();
-    void testUnfloatButtonReadOnlyMode();
-    void testUnfloating();
-    void testTdf122893();
-    void testTdf122901();
-    void testTdf122942();
-    void testTdf52391();
-    void testTdf101873();
-    void testTableWidth();
-    void testTextFormFieldInsertion();
-    void testCheckboxFormFieldInsertion();
-    void testDropDownFormFieldInsertion();
-    void testMixedFormFieldInsertion();
+    virtual std::unique_ptr<Resetter> preTest(const char* filename) override
+    {
+        m_aSavedSettings = Application::GetSettings();
+        if (OString(filename).indexOf("LocaleArabic") != -1)
+        {
+            std::unique_ptr<Resetter> pResetter(
+                new Resetter([this]() { Application::SetSettings(this->m_aSavedSettings); }));
+            AllSettings aSettings(m_aSavedSettings);
+            aSettings.SetLanguageTag(LanguageTag("ar"));
+            Application::SetSettings(aSettings);
+            return pResetter;
+        }
+        return nullptr;
+    }
 
-    CPPUNIT_TEST_SUITE(SwUiWriterTest2);
-    CPPUNIT_TEST(testRedlineMoveInsertInDelete);
-    CPPUNIT_TEST(testRedlineInHiddenSection);
-    CPPUNIT_TEST(testTdf47471_paraStyleBackground);
-    CPPUNIT_TEST(testTdf101534);
-    CPPUNIT_TEST(testTdf54819);
-    CPPUNIT_TEST(testTdf64242_optimizeTable);
-    CPPUNIT_TEST(testTdf108687_tabstop);
-    CPPUNIT_TEST(testTdf119571);
-    CPPUNIT_TEST(testTdf119019);
-    CPPUNIT_TEST(testTdf119824);
-    CPPUNIT_TEST(testTdf105413);
-    CPPUNIT_TEST(testUnfloatButtonSmallTable);
-    CPPUNIT_TEST(testUnfloatButton);
-    CPPUNIT_TEST(testUnfloatButtonReadOnlyMode);
-    CPPUNIT_TEST(testUnfloating);
-    CPPUNIT_TEST(testTdf122893);
-    CPPUNIT_TEST(testTdf122901);
-    CPPUNIT_TEST(testTdf122942);
-    CPPUNIT_TEST(testTdf52391);
-    CPPUNIT_TEST(testTdf101873);
-    CPPUNIT_TEST(testTableWidth);
-    CPPUNIT_TEST(testTextFormFieldInsertion);
-    CPPUNIT_TEST(testCheckboxFormFieldInsertion);
-    CPPUNIT_TEST(testDropDownFormFieldInsertion);
-    CPPUNIT_TEST(testMixedFormFieldInsertion);
-    CPPUNIT_TEST_SUITE_END();
-
-private:
+protected:
+    AllSettings m_aSavedSettings;
     SwDoc* createDoc(const char* pName = nullptr);
 };
 
@@ -105,7 +71,7 @@ static void lcl_dispatchCommand(const uno::Reference<lang::XComponent>& xCompone
                                 const uno::Sequence<beans::PropertyValue>& rPropertyValues)
 {
     uno::Reference<frame::XController> xController
-        = uno::Reference<frame::XModel>(xComponent, uno::UNO_QUERY)->getCurrentController();
+        = uno::Reference<frame::XModel>(xComponent, uno::UNO_QUERY_THROW)->getCurrentController();
     CPPUNIT_ASSERT(xController.is());
     uno::Reference<frame::XDispatchProvider> xFrame(xController->getFrame(), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xFrame.is());
@@ -129,7 +95,7 @@ SwDoc* SwUiWriterTest2::createDoc(const char* pName)
     return pTextDoc->GetDocShell()->GetDoc();
 }
 
-void SwUiWriterTest2::testTdf47471_paraStyleBackground()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf47471_paraStyleBackground)
 {
     SwDoc* pDoc = createDoc("tdf47471_paraStyleBackground.odt");
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
@@ -162,7 +128,7 @@ void SwUiWriterTest2::testTdf47471_paraStyleBackground()
                          getProperty<OUString>(getParagraph(3), "ParaStyleName"));
 }
 
-void SwUiWriterTest2::testTdf101534()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf101534)
 {
     // Copy the first paragraph of the document.
     load(DATA_DIRECTORY, "tdf101534.fodt");
@@ -190,7 +156,7 @@ void SwUiWriterTest2::testTdf101534()
     CPPUNIT_ASSERT(aSet.HasItem(RES_LR_SPACE));
 }
 
-void SwUiWriterTest2::testRedlineMoveInsertInDelete()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testRedlineMoveInsertInDelete)
 {
     loadURL("private:factory/swriter", nullptr);
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
@@ -226,7 +192,7 @@ void SwUiWriterTest2::testRedlineMoveInsertInDelete()
         pWrtShell->GetCursor()->GetPoint()->nNode.GetNode().GetTextNode()->GetText());
 }
 
-void SwUiWriterTest2::testRedlineInHiddenSection()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testRedlineInHiddenSection)
 {
     loadURL("private:factory/swriter", nullptr);
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
@@ -284,7 +250,7 @@ void SwUiWriterTest2::testRedlineInHiddenSection()
     CPPUNIT_ASSERT(pNode->GetNodes()[pNode->GetIndex() + 4]->IsEndNode());
 }
 
-void SwUiWriterTest2::testTdf54819()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf54819)
 {
     load(DATA_DIRECTORY, "tdf54819.fodt");
 
@@ -317,7 +283,277 @@ void SwUiWriterTest2::testTdf54819()
                          getProperty<OUString>(getParagraph(1), "ParaStyleName"));
 }
 
-void SwUiWriterTest2::testTdf64242_optimizeTable()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf54819_keep_numbering_with_Undo)
+{
+    load(DATA_DIRECTORY, "tdf54819b.odt");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    // heading
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Outline"),
+                         getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
+
+    // next paragraph: bulleted list item
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(3), "ParaStyleName"));
+    OUString sNumName = getProperty<OUString>(getParagraph(3), "NumberingStyleName");
+    CPPUNIT_ASSERT_MESSAGE("Missing numbering style", !sNumName.isEmpty());
+    CPPUNIT_ASSERT_MESSAGE("Not a bulleted list item", sNumName != "Outline");
+
+    //turn on red-lining and show changes
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On | RedlineFlags::ShowDelete
+                                                      | RedlineFlags::ShowInsert);
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On);
+    CPPUNIT_ASSERT_MESSAGE("redlining should be on",
+                           pDoc->getIDocumentRedlineAccess().IsRedlineOn());
+    CPPUNIT_ASSERT_MESSAGE("redlines shouldn't be visible",
+                           !IDocumentRedlineAccess::IsShowChanges(
+                               pDoc->getIDocumentRedlineAccess().GetRedlineFlags()));
+
+    // remove heading with paragraph break
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->EndPara(/*bSelect=*/true);
+    pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/true, 1, /*bBasicCall=*/false);
+    rtl::Reference<SwTransferable> pTransfer = new SwTransferable(*pWrtShell);
+    pTransfer->Cut();
+
+    // solved problem: changing paragraph style after deletion
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+
+    sNumName = getProperty<OUString>(getParagraph(2), "NumberingStyleName");
+    // solved problem: lost numbering
+    CPPUNIT_ASSERT_MESSAGE("Missing numbering style", !sNumName.isEmpty());
+    CPPUNIT_ASSERT_MESSAGE("Not a bulleted list item", sNumName != "Outline");
+
+    // accept deletion, remaining (now second) paragraph: still bulleted list item
+    IDocumentRedlineAccess& rIDRA(pDoc->getIDocumentRedlineAccess());
+    rIDRA.AcceptAllRedline(true);
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    sNumName = getProperty<OUString>(getParagraph(2), "NumberingStyleName");
+    CPPUNIT_ASSERT_MESSAGE("Missing numbering style", !sNumName.isEmpty());
+    CPPUNIT_ASSERT_MESSAGE("Not a bulleted list item", sNumName != "Outline");
+
+    // solved problem: Undo with the workaround
+    sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
+    rUndoManager.Undo();
+    rUndoManager.Undo();
+
+    // heading
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Outline"),
+                         getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
+
+    // next paragraph: bulleted list item
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(3), "ParaStyleName"));
+    sNumName = getProperty<OUString>(getParagraph(3), "NumberingStyleName");
+    CPPUNIT_ASSERT_MESSAGE("Missing numbering style", !sNumName.isEmpty());
+    CPPUNIT_ASSERT_MESSAGE("Not a bulleted list item", sNumName != "Outline");
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf119571_keep_numbering_with_Undo)
+{
+    // as the previous test, but with partial paragraph deletion
+    load(DATA_DIRECTORY, "tdf54819b.odt");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    // heading
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Outline"),
+                         getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
+
+    // next paragraph: bulleted list item
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(3), "ParaStyleName"));
+    OUString sNumName = getProperty<OUString>(getParagraph(3), "NumberingStyleName");
+    CPPUNIT_ASSERT_MESSAGE("Missing numbering style", !sNumName.isEmpty());
+    CPPUNIT_ASSERT_MESSAGE("Not a bulleted list item", sNumName != "Outline");
+
+    //turn on red-lining and show changes
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On | RedlineFlags::ShowDelete
+                                                      | RedlineFlags::ShowInsert);
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On);
+    CPPUNIT_ASSERT_MESSAGE("redlining should be on",
+                           pDoc->getIDocumentRedlineAccess().IsRedlineOn());
+    CPPUNIT_ASSERT_MESSAGE("redlines shouldn't be visible",
+                           !IDocumentRedlineAccess::IsShowChanges(
+                               pDoc->getIDocumentRedlineAccess().GetRedlineFlags()));
+
+    // remove only end part of the heading with paragraph break
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
+    pWrtShell->EndPara(/*bSelect=*/true);
+    pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/true, 1, /*bBasicCall=*/false);
+    rtl::Reference<SwTransferable> pTransfer = new SwTransferable(*pWrtShell);
+    pTransfer->Cut();
+
+    // solved problem: changing paragraph style after deletion
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+
+    // solved problem: apply numbering
+    CPPUNIT_ASSERT_EQUAL(OUString("Outline"),
+                         getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
+
+    // accept deletion, remaining (now second) paragraph: it is still heading
+    IDocumentRedlineAccess& rIDRA(pDoc->getIDocumentRedlineAccess());
+    rIDRA.AcceptAllRedline(true);
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Outline"),
+                         getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
+
+    // solved problem: Undo with the workaround
+    sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
+    rUndoManager.Undo();
+    rUndoManager.Undo();
+
+    // heading
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Outline"),
+                         getProperty<OUString>(getParagraph(2), "NumberingStyleName"));
+
+    // next paragraph: bulleted list item
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(3), "ParaStyleName"));
+    sNumName = getProperty<OUString>(getParagraph(3), "NumberingStyleName");
+    CPPUNIT_ASSERT_MESSAGE("Missing numbering style", !sNumName.isEmpty());
+    CPPUNIT_ASSERT_MESSAGE("Not a bulleted list item", sNumName != "Outline");
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf109376_redline)
+{
+    SwDoc* pDoc = createDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    CPPUNIT_ASSERT(pWrtShell);
+    // need 2 paragraphs to get to the bMoveNds case
+    pWrtShell->Insert("foo");
+    pWrtShell->SplitNode();
+    pWrtShell->Insert("bar");
+    pWrtShell->SplitNode();
+    pWrtShell->StartOfSection(false);
+
+    // add AT_PARA fly at 1st to be deleted node
+    SwFormatAnchor anchor(RndStdIds::FLY_AT_PARA);
+    anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
+    SfxItemSet flySet(pDoc->GetAttrPool(),
+                      svl::Items<RES_FRM_SIZE, RES_FRM_SIZE, RES_ANCHOR, RES_ANCHOR>{});
+    flySet.Put(anchor);
+    SwFormatFrameSize size(ATT_MIN_SIZE, 1000, 1000);
+    flySet.Put(size); // set a size, else we get 1 char per line...
+    SwFrameFormat const* pFly = pWrtShell->NewFlyFrame(flySet, /*bAnchValid=*/true);
+    CPPUNIT_ASSERT(pFly != nullptr);
+
+    pWrtShell->SttEndDoc(false);
+    SwInsertTableOptions tableOpt(SwInsertTableFlags::DefaultBorder, 0);
+    const SwTable& rTable = pWrtShell->InsertTable(tableOpt, 1, 1);
+
+    pWrtShell->StartOfSection(false);
+    SwPaM pam(*pWrtShell->GetCursor()->GetPoint());
+    pam.SetMark();
+    pam.GetPoint()->nNode = *rTable.GetTableNode();
+    pam.GetPoint()->nContent.Assign(nullptr, 0);
+    pam.Exchange(); // same selection direction as in doc compare...
+
+    IDocumentRedlineAccess& rIDRA(pDoc->getIDocumentRedlineAccess());
+    rIDRA.SetRedlineFlags(RedlineFlags::On | RedlineFlags::ShowInsert | RedlineFlags::ShowDelete);
+    rIDRA.AppendRedline(new SwRangeRedline(RedlineType::Delete, pam), true);
+    // this used to assert/crash with m_pAnchoredFlys mismatch because the
+    // fly was not deleted but its anchor was moved to the SwTableNode
+    rIDRA.AcceptAllRedline(true);
+
+    CPPUNIT_ASSERT_EQUAL(size_t(0), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+    sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
+    rUndoManager.Undo();
+    CPPUNIT_ASSERT_EQUAL(size_t(1), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+    rUndoManager.Redo();
+    CPPUNIT_ASSERT_EQUAL(size_t(0), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+    rUndoManager.Undo();
+    CPPUNIT_ASSERT_EQUAL(size_t(1), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf109376)
+{
+    SwDoc* pDoc = createDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    CPPUNIT_ASSERT(pWrtShell);
+    // need 2 paragraphs to get to the bMoveNds case
+    pWrtShell->Insert("foo");
+    pWrtShell->SplitNode();
+    pWrtShell->Insert("bar");
+    pWrtShell->SplitNode();
+    pWrtShell->StartOfSection(false);
+
+    // add AT_PARA fly at 1st to be deleted node
+    SwFormatAnchor anchor(RndStdIds::FLY_AT_PARA);
+    anchor.SetAnchor(pWrtShell->GetCursor()->GetPoint());
+    SfxItemSet flySet(pDoc->GetAttrPool(),
+                      svl::Items<RES_FRM_SIZE, RES_FRM_SIZE, RES_ANCHOR, RES_ANCHOR>{});
+    flySet.Put(anchor);
+    SwFormatFrameSize size(ATT_MIN_SIZE, 1000, 1000);
+    flySet.Put(size); // set a size, else we get 1 char per line...
+    SwFrameFormat const* pFly = pWrtShell->NewFlyFrame(flySet, /*bAnchValid=*/true);
+    CPPUNIT_ASSERT(pFly != nullptr);
+
+    pWrtShell->SttEndDoc(false);
+    SwInsertTableOptions tableOpt(SwInsertTableFlags::DefaultBorder, 0);
+    const SwTable& rTable = pWrtShell->InsertTable(tableOpt, 1, 1);
+
+    pWrtShell->StartOfSection(false);
+    SwPaM pam(*pWrtShell->GetCursor()->GetPoint());
+    pam.SetMark();
+    pam.GetPoint()->nNode = *rTable.GetTableNode();
+    pam.GetPoint()->nContent.Assign(nullptr, 0);
+    pam.Exchange(); // same selection direction as in doc compare...
+
+    // this used to assert/crash with m_pAnchoredFlys mismatch because the
+    // fly was not deleted but its anchor was moved to the SwTableNode
+    pDoc->getIDocumentContentOperations().DeleteRange(pam);
+    CPPUNIT_ASSERT_EQUAL(size_t(0), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+    sw::UndoManager& rUndoManager = pDoc->GetUndoManager();
+    rUndoManager.Undo();
+    CPPUNIT_ASSERT_EQUAL(size_t(1), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+    rUndoManager.Redo();
+    CPPUNIT_ASSERT_EQUAL(size_t(0), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+    rUndoManager.Undo();
+    CPPUNIT_ASSERT_EQUAL(size_t(1), pWrtShell->GetFlyCount(FLYCNTTYPE_FRM));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf64242_optimizeTable)
 {
     SwDoc* pDoc = createDoc("tdf64242_optimizeTable.odt");
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
@@ -359,7 +595,7 @@ void SwUiWriterTest2::testTdf64242_optimizeTable()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("Row set to auto-height", double(0), minimalRowHeight);
 }
 
-void SwUiWriterTest2::testTdf108687_tabstop()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf108687_tabstop)
 {
     SwDoc* pDoc = createDoc("tdf108687_tabstop.odt");
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
@@ -376,7 +612,7 @@ void SwUiWriterTest2::testTdf108687_tabstop()
     //CPPUNIT_ASSERT_EQUAL(sal_Int32(11), nEndIndex);
 }
 
-void SwUiWriterTest2::testTdf119571()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf119571)
 {
     load(DATA_DIRECTORY, "tdf54819.fodt");
 
@@ -413,7 +649,7 @@ void SwUiWriterTest2::testTdf119571()
                          getProperty<OUString>(getParagraph(2), "ParaStyleName"));
 }
 
-void SwUiWriterTest2::testTdf119019()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf119019)
 {
     // check handling of overlapping redlines
     load(DATA_DIRECTORY, "tdf119019.docx");
@@ -447,7 +683,7 @@ void SwUiWriterTest2::testTdf119019()
     CPPUNIT_ASSERT(!hasProperty(getRun(getParagraph(2), 1), "RedlineType"));
 }
 
-void SwUiWriterTest2::testTdf119824()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf119824)
 {
     // check handling of overlapping redlines with Redo
     SwDoc* pDoc = createDoc("tdf119019.docx");
@@ -511,7 +747,7 @@ void SwUiWriterTest2::testTdf119824()
     CPPUNIT_ASSERT(hasProperty(getRun(getParagraph(3), 6), "RedlineType"));
 }
 
-void SwUiWriterTest2::testTdf105413()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf105413)
 {
     load(DATA_DIRECTORY, "tdf105413.fodt");
 
@@ -559,7 +795,7 @@ void SwUiWriterTest2::testTdf105413()
                          getProperty<OUString>(getParagraph(1), "ParaStyleName"));
 }
 
-void SwUiWriterTest2::testUnfloatButtonSmallTable()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testUnfloatButtonSmallTable)
 {
     // The floating table in the test document is too small, so we don't provide an unfloat button
     load(FLOATING_TABLE_DATA_DIRECTORY, "small_floating_table.odt");
@@ -584,7 +820,7 @@ void SwUiWriterTest2::testUnfloatButtonSmallTable()
     CPPUNIT_ASSERT(!pFlyFrame->IsShowUnfloatButton(pWrtShell));
 }
 
-void SwUiWriterTest2::testUnfloatButton()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testUnfloatButton)
 {
     // Different use cases where unfloat button should be visible
     const std::vector<OUString> aTestFiles = {
@@ -633,7 +869,7 @@ void SwUiWriterTest2::testUnfloatButton()
     }
 }
 
-void SwUiWriterTest2::testUnfloatButtonReadOnlyMode()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testUnfloatButtonReadOnlyMode)
 {
     // In read only mode we don't show the unfloat button even if we have a multipage floating table
     load(FLOATING_TABLE_DATA_DIRECTORY, "unfloatable_floating_table.odt");
@@ -659,7 +895,7 @@ void SwUiWriterTest2::testUnfloatButtonReadOnlyMode()
     CPPUNIT_ASSERT(!pFlyFrame->IsShowUnfloatButton(pWrtShell));
 }
 
-void SwUiWriterTest2::testUnfloating()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testUnfloating)
 {
     // Test unfloating with tables imported from different file formats
     const std::vector<OUString> aTestFiles = {
@@ -727,7 +963,25 @@ void SwUiWriterTest2::testUnfloating()
     }
 }
 
-void SwUiWriterTest2::testTdf122893()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testRTLparaStyle_LocaleArabic)
+{
+    // New documents, created in RTL locales, were not round-tripping the paragraph style as RTL.
+    // Set the locale to "ar" for this test - see preTest() at the top of this file.
+    std::unique_ptr<Resetter> const pChanges(preTest("LocaleArabic"));
+
+    createDoc(); // new, empty doc - everything defaults to RTL with Arabic locale
+
+    // Save it and load it back.
+    reload("Office Open XML Text", "tdf116404_paraStyleFrameDir.docx");
+
+    uno::Reference<beans::XPropertySet> xPageStyle(
+        getStyles("ParagraphStyles")->getByName("Default Style"), uno::UNO_QUERY_THROW);
+    // Test the text Direction value for the -none- based paragraph styles
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("RTL Writing Mode", sal_Int32(1),
+                                 getProperty<sal_Int32>(xPageStyle, "WritingMode"));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf122893)
 {
     load(DATA_DIRECTORY, "tdf105413.fodt");
 
@@ -779,7 +1033,7 @@ void SwUiWriterTest2::testTdf122893()
         sal_Int16(200), getProperty<style::LineSpacing>(getParagraph(1), "ParaLineSpacing").Height);
 }
 
-void SwUiWriterTest2::testTdf122901()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf122901)
 {
     load(DATA_DIRECTORY, "tdf105413.fodt");
 
@@ -828,7 +1082,7 @@ void SwUiWriterTest2::testTdf122901()
                          getProperty<sal_Int32>(getParagraph(1), "ParaBottomMargin"));
 }
 
-void SwUiWriterTest2::testTdf122942()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf122942)
 {
     load(DATA_DIRECTORY, "tdf122942.odt");
     SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
@@ -852,12 +1106,6 @@ void SwUiWriterTest2::testTdf122942()
     const SwFrameFormats& rFormats = *pDoc->GetSpzFrameFormats();
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), rFormats.size());
 
-    // Without the accompanying fix in place, this test would have failed with
-    // 'Expected less than: 0; Actual: 1030', i.e. the shape was below the
-    // paragraph mark, not above it.
-    const SwFormatVertOrient& rVert = rFormats[1]->GetVertOrient();
-    CPPUNIT_ASSERT_LESS(static_cast<SwTwips>(0), rVert.GetPos());
-
     reload("writer8", "tdf122942.odt");
     pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
     pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
@@ -865,17 +1113,18 @@ void SwUiWriterTest2::testTdf122942()
     const SwFrameFormats& rFormats2 = *pDoc->GetSpzFrameFormats();
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(2), rFormats2.size());
 
-    SdrObject* pObject = rFormats2[1]->FindSdrObject();
-    CPPUNIT_ASSERT(pObject);
-
-    const tools::Rectangle& rOutRect = pObject->GetLastBoundRect();
-    // Without the accompanying fix in place, this test would have failed with
-    // 'Expected greater than: 5000; Actual: 2817', i.e. the shape moved up
-    // after a reload(), while it's expected to not change its position (5773).
-    CPPUNIT_ASSERT_GREATER(static_cast<SwTwips>(5000), rOutRect.Top());
+    // Make sure the top of the inserted shape does not move outside the existing shape, even after
+    // reload.
+    SdrObject* pObject1 = rFormats2[0]->FindSdrObject();
+    CPPUNIT_ASSERT(pObject1);
+    const tools::Rectangle& rOutRect1 = pObject1->GetLastBoundRect();
+    SdrObject* pObject2 = rFormats2[1]->FindSdrObject();
+    CPPUNIT_ASSERT(pObject2);
+    const tools::Rectangle& rOutRect2 = pObject2->GetLastBoundRect();
+    CPPUNIT_ASSERT(rOutRect2.Top() > rOutRect1.Top() && rOutRect2.Top() < rOutRect1.Bottom());
 }
 
-void SwUiWriterTest2::testTdf52391()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf52391)
 {
     load(DATA_DIRECTORY, "tdf52391.fodt");
 
@@ -891,7 +1140,36 @@ void SwUiWriterTest2::testTdf52391()
     CPPUNIT_ASSERT_EQUAL(OUString("Portion1Portion2"), xRun->getString());
 }
 
-void SwUiWriterTest2::testTdf101873()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf126206)
+{
+    load(DATA_DIRECTORY, "tdf126206.docx");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    // normal text (it was bold)
+    auto xText = getParagraph(1)->getText();
+    CPPUNIT_ASSERT(xText.is());
+    {
+        auto xCursor(xText->createTextCursorByRange(getRun(getParagraph(1), 2)));
+        CPPUNIT_ASSERT(xCursor.is());
+        CPPUNIT_ASSERT_EQUAL(awt::FontWeight::NORMAL, getProperty<float>(xCursor, "CharWeight"));
+    }
+
+    // reject tracked changes
+    lcl_dispatchCommand(mxComponent, ".uno:RejectAllTrackedChanges", {});
+
+    // bold text again
+    xText = getParagraph(1)->getText();
+    CPPUNIT_ASSERT(xText.is());
+    {
+        auto xCursor(xText->createTextCursorByRange(getRun(getParagraph(1), 2)));
+        CPPUNIT_ASSERT(xCursor.is());
+        CPPUNIT_ASSERT_EQUAL(awt::FontWeight::BOLD, getProperty<float>(xCursor, "CharWeight"));
+    }
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf101873)
 {
     SwDoc* pDoc = createDoc();
     CPPUNIT_ASSERT(pDoc);
@@ -925,7 +1203,7 @@ void SwUiWriterTest2::testTdf101873()
     CPPUNIT_ASSERT_EQUAL(OUString("something"), pShellCursor->GetText());
 }
 
-void SwUiWriterTest2::testTableWidth()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTableWidth)
 {
     load(DATA_DIRECTORY, "frame_size_export.docx");
 
@@ -942,9 +1220,8 @@ void SwUiWriterTest2::testTableWidth()
                          getProperty<sal_Int16>(xTables->getByIndex(0), "RelativeWidth"));
 }
 
-void SwUiWriterTest2::testTextFormFieldInsertion()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTextFormFieldInsertion)
 {
-    load(DATA_DIRECTORY, "frame_size_export.docx");
     SwDoc* pDoc = createDoc();
     CPPUNIT_ASSERT(pDoc);
     IDocumentMarkAccess* pMarkAccess = pDoc->getIDocumentMarkAccess();
@@ -958,7 +1235,7 @@ void SwUiWriterTest2::testTextFormFieldInsertion()
     // Check whether the fieldmark is created
     auto aIter = pMarkAccess->getAllMarksBegin();
     CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
-    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
     CPPUNIT_ASSERT(pFieldmark);
     CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMTEXT), pFieldmark->GetFieldname());
 
@@ -980,7 +1257,7 @@ void SwUiWriterTest2::testTextFormFieldInsertion()
     CPPUNIT_ASSERT_EQUAL(OUString(vEnSpaces, 5), xPara->getString());
 }
 
-void SwUiWriterTest2::testCheckboxFormFieldInsertion()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testCheckboxFormFieldInsertion)
 {
     SwDoc* pDoc = createDoc();
     CPPUNIT_ASSERT(pDoc);
@@ -996,7 +1273,7 @@ void SwUiWriterTest2::testCheckboxFormFieldInsertion()
     // Check whether the fieldmark is created
     auto aIter = pMarkAccess->getAllMarksBegin();
     CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
-    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
     CPPUNIT_ASSERT(pFieldmark);
     CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMCHECKBOX), pFieldmark->GetFieldname());
     // The checkbox is not checked by default
@@ -1014,12 +1291,12 @@ void SwUiWriterTest2::testCheckboxFormFieldInsertion()
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
     aIter = pMarkAccess->getAllMarksBegin();
     CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
-    pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
     CPPUNIT_ASSERT(pFieldmark);
     CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMCHECKBOX), pFieldmark->GetFieldname());
 }
 
-void SwUiWriterTest2::testDropDownFormFieldInsertion()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testDropDownFormFieldInsertion)
 {
     SwDoc* pDoc = createDoc();
     CPPUNIT_ASSERT(pDoc);
@@ -1035,7 +1312,7 @@ void SwUiWriterTest2::testDropDownFormFieldInsertion()
     // Check whether the fieldmark is created
     auto aIter = pMarkAccess->getAllMarksBegin();
     CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
-    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    ::sw::mark::IFieldmark* pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
     CPPUNIT_ASSERT(pFieldmark);
     CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDROPDOWN), pFieldmark->GetFieldname());
     // Check drop down field's parameters. By default these params are not set
@@ -1054,12 +1331,12 @@ void SwUiWriterTest2::testDropDownFormFieldInsertion()
     CPPUNIT_ASSERT_EQUAL(sal_Int32(1), pMarkAccess->getAllMarksCount());
     aIter = pMarkAccess->getAllMarksBegin();
     CPPUNIT_ASSERT(aIter != pMarkAccess->getAllMarksEnd());
-    pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(aIter->get());
+    pFieldmark = dynamic_cast<::sw::mark::IFieldmark*>(*aIter);
     CPPUNIT_ASSERT(pFieldmark);
     CPPUNIT_ASSERT_EQUAL(OUString(ODF_FORMDROPDOWN), pFieldmark->GetFieldname());
 }
 
-void SwUiWriterTest2::testMixedFormFieldInsertion()
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testMixedFormFieldInsertion)
 {
     SwDoc* pDoc = createDoc();
     CPPUNIT_ASSERT(pDoc);
@@ -1087,6 +1364,271 @@ void SwUiWriterTest2::testMixedFormFieldInsertion()
     CPPUNIT_ASSERT_EQUAL(sal_Int32(3), pMarkAccess->getAllMarksCount());
 }
 
-CPPUNIT_TEST_SUITE_REGISTRATION(SwUiWriterTest2);
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf124261)
+{
+#if !defined(WNT)
+    // Make sure that pressing a key in a btlr cell frame causes an immediate, correct repaint.
+    SwDoc* pDoc = createDoc("tdf124261.docx");
+    SwRootFrame* pLayout = pDoc->getIDocumentLayoutAccess().GetCurrentLayout();
+    SwFrame* pPageFrame = pLayout->GetLower();
+    CPPUNIT_ASSERT(pPageFrame->IsPageFrame());
+
+    SwFrame* pBodyFrame = pPageFrame->GetLower();
+    CPPUNIT_ASSERT(pBodyFrame->IsBodyFrame());
+
+    SwFrame* pTabFrame = pBodyFrame->GetLower();
+    CPPUNIT_ASSERT(pTabFrame->IsTabFrame());
+
+    SwFrame* pRowFrame = pTabFrame->GetLower();
+    CPPUNIT_ASSERT(pRowFrame->IsRowFrame());
+
+    SwFrame* pCellFrame = pRowFrame->GetLower();
+    CPPUNIT_ASSERT(pCellFrame->IsCellFrame());
+
+    SwFrame* pFrame = pCellFrame->GetLower();
+    CPPUNIT_ASSERT(pFrame->IsTextFrame());
+
+    // Make sure that the text frame's area and the paint rectangle match.
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 1721;
+    // Actual: 1547', i.e. an area other than the text frame was invalidated for a single-line
+    // paragraph.
+    SwTextFrame* pTextFrame = static_cast<SwTextFrame*>(pFrame);
+    SwRect aRect = pTextFrame->GetPaintSwRect();
+    CPPUNIT_ASSERT_EQUAL(pTextFrame->getFrameArea().Top(), aRect.Top());
+#endif
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testDocxAttributeTableExport)
+{
+    createDoc("floating-table-position.docx");
+
+    // get the table frame, set new values and dismiss the references
+    {
+        uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
+        uno::Reference<container::XIndexAccess> xDrawPage(xDrawPageSupplier->getDrawPage(),
+                                                          uno::UNO_QUERY);
+        uno::Reference<beans::XPropertySet> xShape(xDrawPage->getByIndex(0), uno::UNO_QUERY);
+
+        // change the properties
+        // 8133 -> 8000
+        xShape->setPropertyValue("VertOrientPosition", uno::makeAny(static_cast<sal_Int32>(8000)));
+        // 5964 -> 5000
+        xShape->setPropertyValue("HoriOrientPosition", uno::makeAny(static_cast<sal_Int32>(5000)));
+        // 0 (frame) -> 8 (page print area)
+        xShape->setPropertyValue("VertOrientRelation", uno::makeAny(static_cast<sal_Int16>(8)));
+        // 8 (page print area) -> 0 (frame)
+        xShape->setPropertyValue("HoriOrientRelation", uno::makeAny(static_cast<sal_Int16>(0)));
+    }
+    // save it to docx
+    reload("Office Open XML Text", "floating-table-position.docx");
+
+    uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XIndexAccess> xDrawPage(xDrawPageSupplier->getDrawPage(),
+                                                      uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xShape(xDrawPage->getByIndex(0), uno::UNO_QUERY);
+
+    // test the new values
+    sal_Int32 nValue = getProperty<sal_Int32>(xShape, "VertOrientPosition");
+    CPPUNIT_ASSERT(sal_Int32(7999) <= nValue && nValue <= sal_Int32(8001));
+    nValue = getProperty<sal_Int32>(xShape, "HoriOrientPosition");
+    CPPUNIT_ASSERT(sal_Int32(4999) <= nValue && nValue <= sal_Int32(5001));
+
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(8), getProperty<sal_Int16>(xShape, "VertOrientRelation"));
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(0), getProperty<sal_Int16>(xShape, "HoriOrientRelation"));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf118699_redline_numbering)
+{
+    load(DATA_DIRECTORY, "tdf118699.docx");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    IDocumentRedlineAccess& rIDRA(pDoc->getIDocumentRedlineAccess());
+    rIDRA.AcceptAllRedline(true);
+
+    uno::Reference<beans::XPropertySet> xProps(getParagraph(2), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("first paragraph after the first deletion: erroneous numbering",
+                           !xProps->getPropertyValue("NumberingRules").hasValue());
+
+    CPPUNIT_ASSERT_MESSAGE(
+        "first paragraph after the second deletion: missing numbering",
+        getProperty<uno::Reference<container::XIndexAccess>>(getParagraph(5), "NumberingRules")
+            .is());
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf125881_redline_list_level)
+{
+    load(DATA_DIRECTORY, "tdf125881.docx");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    // deleted paragraph gets the numbering of the next paragraph
+    uno::Reference<beans::XPropertySet> xProps(getParagraph(8), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("first paragraph after the first deletion: missing numbering",
+                           xProps->getPropertyValue("NumberingRules").hasValue());
+
+    // check numbering level at deletion (1 instead of 0)
+    CPPUNIT_ASSERT_EQUAL(sal_Int16(1), getProperty<sal_Int16>(getParagraph(8), "NumberingLevel"));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf125916_redline_restart_numbering)
+{
+    load(DATA_DIRECTORY, "tdf125916.docx");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    IDocumentRedlineAccess& rIDRA(pDoc->getIDocumentRedlineAccess());
+    rIDRA.AcceptAllRedline(true);
+
+    // check unnecessary numbering
+    uno::Reference<beans::XPropertySet> xProps(getParagraph(3), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("first paragraph after the first deletion: erroneous numbering",
+                           !xProps->getPropertyValue("NumberingRules").hasValue());
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf125310)
+{
+    load(DATA_DIRECTORY, "tdf125310.fodt");
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(1), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
+
+    // turn on red-lining and show changes
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On | RedlineFlags::ShowDelete
+                                                      | RedlineFlags::ShowInsert);
+    CPPUNIT_ASSERT_MESSAGE("redlining should be on",
+                           pDoc->getIDocumentRedlineAccess().IsRedlineOn());
+    CPPUNIT_ASSERT_MESSAGE(
+        "redlines should be visible",
+        IDocumentRedlineAccess::IsShowChanges(pDoc->getIDocumentRedlineAccess().GetRedlineFlags()));
+
+    // paragraph join
+    SwWrtShell* pWrtShell = pTextDoc->GetDocShell()->GetWrtShell();
+    pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
+    pWrtShell->EndPara(/*bSelect=*/true);
+    pWrtShell->Right(CRSR_SKIP_CHARS, /*bSelect=*/true, 1, /*bBasicCall=*/false);
+    rtl::Reference<SwTransferable> pTransfer = new SwTransferable(*pWrtShell);
+    pTransfer->Cut();
+
+    // copied paragraph style
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+
+    // without copying the page break
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testTdf125310b)
+{
+    SwDoc* pDoc = createDoc("tdf125310b.fodt");
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    CPPUNIT_ASSERT_EQUAL(OUString("Standard"),
+                         getProperty<OUString>(getParagraph(2), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Heading 1"),
+                         getProperty<OUString>(getParagraph(3), "ParaStyleName"));
+    CPPUNIT_ASSERT_EQUAL(2, getPages());
+
+    // turn on red-lining and show changes
+    pDoc->getIDocumentRedlineAccess().SetRedlineFlags(RedlineFlags::On | RedlineFlags::ShowDelete
+                                                      | RedlineFlags::ShowInsert);
+    CPPUNIT_ASSERT_MESSAGE("redlining should be on",
+                           pDoc->getIDocumentRedlineAccess().IsRedlineOn());
+
+    // remove second paragraph with the page break
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Down(/*bSelect=*/false);
+    pWrtShell->Up(/*bSelect=*/true);
+    pWrtShell->DelLeft();
+
+    IDocumentRedlineAccess& rIDRA(pDoc->getIDocumentRedlineAccess());
+    rIDRA.AcceptAllRedline(true);
+
+    // losing the page break, as without redlining
+    CPPUNIT_ASSERT_EQUAL(1, getPages());
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testImageComment)
+{
+    // Load a document with an as-char image in it.
+    SwDoc* pDoc = createDoc("image-comment.odt");
+    SwView* pView = pDoc->GetDocShell()->GetView();
+
+    // Select the image.
+    pView->GetViewFrame()->GetDispatcher()->Execute(FN_CNTNT_TO_NEXT_FRAME, SfxCallMode::SYNCHRON);
+
+    // Insert a comment while the image is selected.
+    pView->GetViewFrame()->GetDispatcher()->Execute(FN_POSTIT, SfxCallMode::SYNCHRON);
+
+    // Verify that the comment is around the image.
+    // Without the accompanying fix in place, this test would have failed, as FN_POSTIT was disabled
+    // in the frame shell.
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 1), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Annotation"),
+                         getProperty<OUString>(getRun(xPara, 2), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Frame"),
+                         getProperty<OUString>(getRun(xPara, 3), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("AnnotationEnd"),
+                         getProperty<OUString>(getRun(xPara, 4), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 5), "TextPortionType"));
+}
+
+CPPUNIT_TEST_FIXTURE(SwUiWriterTest2, testImageCommentAtChar)
+{
+    // Load a document with an at-char image in it.
+    SwDoc* pDoc = createDoc("image-comment-at-char.odt");
+    SwView* pView = pDoc->GetDocShell()->GetView();
+
+    // Select the image.
+    pView->GetViewFrame()->GetDispatcher()->Execute(FN_CNTNT_TO_NEXT_FRAME, SfxCallMode::SYNCHRON);
+
+    // Insert a comment while the image is selected.
+    pView->GetViewFrame()->GetDispatcher()->Execute(FN_POSTIT, SfxCallMode::SYNCHRON);
+
+    // Verify that the comment is around the image.
+    // Without the accompanying fix in place, this test would have failed, as the comment was
+    // anchored at the end of the paragraph, it was not around the image.
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 1), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Annotation"),
+                         getProperty<OUString>(getRun(xPara, 2), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Frame"),
+                         getProperty<OUString>(getRun(xPara, 3), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("AnnotationEnd"),
+                         getProperty<OUString>(getRun(xPara, 4), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 5), "TextPortionType"));
+
+    // Insert content to the comment, and select the image again.
+    SfxStringItem aItem(FN_INSERT_STRING, "x");
+    pView->GetViewFrame()->GetDispatcher()->ExecuteList(FN_INSERT_STRING, SfxCallMode::SYNCHRON,
+                                                        { &aItem });
+    pView->GetViewFrame()->GetDispatcher()->Execute(FN_CNTNT_TO_NEXT_FRAME, SfxCallMode::SYNCHRON);
+    // Now delete the image.
+    pView->GetViewFrame()->GetDispatcher()->Execute(SID_DELETE, SfxCallMode::SYNCHRON);
+    // Without the accompanying fix in place, this test would have failed with 'Expected: 0; Actual:
+    // 1', i.e. the comment of the image was not deleted when the image was deleted.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0),
+                         pDoc->getIDocumentMarkAccess()->getAnnotationMarksCount());
+}
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

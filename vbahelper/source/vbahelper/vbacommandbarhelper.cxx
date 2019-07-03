@@ -114,7 +114,7 @@ void VbaCommandBarHelper::Init( )
     css::uno::Reference< css::ui::XModuleUIConfigurationManagerSupplier > xUICfgMgrSupp(
         css::ui::theModuleUIConfigurationManagerSupplier::get(mxContext) );
 
-    m_xAppCfgMgr.set( xUICfgMgrSupp->getUIConfigurationManager( maModuleId ), uno::UNO_QUERY_THROW );
+    m_xAppCfgMgr.set( xUICfgMgrSupp->getUIConfigurationManager( maModuleId ), uno::UNO_SET_THROW );
 
     css::uno::Reference< css::container::XNameAccess > xNameAccess = css::ui::theWindowStateConfiguration::get( mxContext );
 
@@ -158,7 +158,7 @@ void VbaCommandBarHelper::ApplyTempChange( const OUString& sResourceUrl, const c
 
 uno::Reference< frame::XLayoutManager > VbaCommandBarHelper::getLayoutManager()
 {
-    uno::Reference< frame::XFrame > xFrame( getModel()->getCurrentController()->getFrame(), uno::UNO_QUERY_THROW );
+    uno::Reference< frame::XFrame > xFrame( getModel()->getCurrentController()->getFrame(), uno::UNO_SET_THROW );
     uno::Reference< beans::XPropertySet > xPropertySet( xFrame, uno::UNO_QUERY_THROW );
     uno::Reference< frame::XLayoutManager > xLayoutManager( xPropertySet->getPropertyValue( "LayoutManager" ), uno::UNO_QUERY_THROW );
     return xLayoutManager;
@@ -180,23 +180,19 @@ bool VbaCommandBarHelper::hasToolbar( const OUString& sResourceUrl, const OUStri
 // return the resource url if found
 OUString VbaCommandBarHelper::findToolbarByName( const css::uno::Reference< css::container::XNameAccess >& xNameAccess, const OUString& sName )
 {
-    OUString sResourceUrl;
-
-    // check if it is an buildin toolbar
-    sResourceUrl = MSO2OOCommandbarHelper::getMSO2OOCommandbarHelper()->findBuildinToolbar( sName );
+    // check if it is a buildin toolbar
+    OUString sResourceUrl = MSO2OOCommandbarHelper::getMSO2OOCommandbarHelper()->findBuildinToolbar( sName );
     if( !sResourceUrl.isEmpty() )
         return sResourceUrl;
 
     uno::Sequence< OUString > allNames = xNameAccess->getElementNames();
-    for( sal_Int32 i = 0; i < allNames.getLength(); i++ )
-    {
-        sResourceUrl = allNames[i];
-        if(sResourceUrl.startsWith( ITEM_TOOLBAR_URL ) )
-        {
-            if( hasToolbar( sResourceUrl, sName ) )
-                return sResourceUrl;
-        }
-    }
+    auto pName = std::find_if(allNames.begin(), allNames.end(),
+        [this, &sName](const OUString& rName) {
+            return rName.startsWith( ITEM_TOOLBAR_URL )
+                && hasToolbar( rName, sName );
+        });
+    if (pName != allNames.end())
+        return *pName;
 
     // the customize toolbars creating during importing, should found there.
     sResourceUrl = "private:resource/toolbar/custom_" + sName;

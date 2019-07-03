@@ -20,6 +20,7 @@
 #include <scitems.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/bindings.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/charclass.hxx>
 
@@ -341,8 +342,7 @@ void ScDBFunc::ToggleAutoFilter()
         {
             if (!bHeader)
             {
-                vcl::Window* pWin = GetViewData().GetDialogParent();
-                std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                           VclMessageType::Question,
                                                           VclButtonsType::YesNo, ScResId(STR_MSSG_MAKEAUTOFILTER_0))); // header from first row?
                 xBox->set_title(ScResId(STR_MSSG_DOSUBTOTALS_0)); // "StarCalc"
@@ -371,8 +371,7 @@ void ScDBFunc::ToggleAutoFilter()
         }
         else
         {
-            vcl::Window* pWin = GetViewData().GetDialogParent();
-            std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xErrorBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                            VclMessageType::Warning, VclButtonsType::Ok,
                                                            ScResId(STR_ERR_AUTOFILTER)));
             xErrorBox->run();

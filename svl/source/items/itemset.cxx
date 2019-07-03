@@ -32,12 +32,6 @@
 #include <svl/itemiter.hxx>
 #include <svl/whiter.hxx>
 
-#include <tools/stream.hxx>
-#include <tools/solar.h>
-#include <rtl/string.hxx>
-
-#include <poolio.hxx>
-
 static const sal_uInt16 nInitCount = 10; // Single USHORTs => 5 pairs without '0'
 
 namespace
@@ -222,31 +216,47 @@ SfxItemSet::SfxItemSet( const SfxItemSet& rASet )
     memcpy( m_pWhichRanges, rASet.m_pWhichRanges, sizeof( sal_uInt16 ) * cnt);
 }
 
+SfxItemSet::SfxItemSet( SfxItemSet&& rASet )
+    : m_pPool( rASet.m_pPool )
+    , m_pParent( rASet.m_pParent )
+    , m_pItems( std::move(rASet.m_pItems) )
+    , m_pWhichRanges( rASet.m_pWhichRanges )
+    , m_nCount( rASet.m_nCount )
+{
+    rASet.m_pPool = nullptr;
+    rASet.m_pParent = nullptr;
+    rASet.m_pWhichRanges = nullptr;
+    rASet.m_nCount = 0;
+}
+
 SfxItemSet::~SfxItemSet()
 {
-    sal_uInt16 nCount = TotalCount();
-    if( Count() )
+    if (m_pWhichRanges) // might be nullptr if we have been moved-from
     {
-        SfxPoolItem const** ppFnd = m_pItems.get();
-        for( sal_uInt16 nCnt = nCount; nCnt; --nCnt, ++ppFnd )
-            if( *ppFnd && !IsInvalidItem(*ppFnd) )
-            {
-                if( !(*ppFnd)->Which() )
-                    delete *ppFnd;
-                else {
-                    // Still multiple references present, so just alter the RefCount
-                    if ( 1 < (*ppFnd)->GetRefCount() && !IsDefaultItem(*ppFnd) )
-                        (*ppFnd)->ReleaseRef();
-                    else
-                        if ( !IsDefaultItem(*ppFnd) )
-                            // Delete from Pool
-                            m_pPool->Remove( **ppFnd );
+        sal_uInt16 nCount = TotalCount();
+        if( Count() )
+        {
+            SfxPoolItem const** ppFnd = m_pItems.get();
+            for( sal_uInt16 nCnt = nCount; nCnt; --nCnt, ++ppFnd )
+                if( *ppFnd && !IsInvalidItem(*ppFnd) )
+                {
+                    if( !(*ppFnd)->Which() )
+                        delete *ppFnd;
+                    else {
+                        // Still multiple references present, so just alter the RefCount
+                        if ( 1 < (*ppFnd)->GetRefCount() && !IsDefaultItem(*ppFnd) )
+                            (*ppFnd)->ReleaseRef();
+                        else
+                            if ( !IsDefaultItem(*ppFnd) )
+                                // Delete from Pool
+                                m_pPool->Remove( **ppFnd );
+                    }
                 }
-            }
+        }
     }
 
     m_pItems.reset();
-    if (m_pWhichRanges != m_pPool->GetFrozenIdRanges())
+    if (m_pPool && m_pWhichRanges != m_pPool->GetFrozenIdRanges())
         delete[] m_pWhichRanges;
     m_pWhichRanges = nullptr; // for invariant-testing
 }
@@ -427,10 +437,13 @@ bool SfxItemSet::HasItem(sal_uInt16 nWhich, const SfxPoolItem** ppItem) const
     return bRet;
 }
 
-const SfxPoolItem* SfxItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich )
+const SfxPoolItem* SfxItemSet::PutImpl( const SfxPoolItem& rItem, sal_uInt16 nWhich, bool bPassingOwnership )
 {
     if ( !nWhich )
+    {
+        assert(!bPassingOwnership);
         return nullptr; //FIXME: Only because of Outliner bug
+    }
 
     SfxPoolItem const** ppFnd = m_pItems.get();
     const sal_uInt16* pPtr = m_pWhichRanges;
@@ -444,13 +457,16 @@ const SfxPoolItem* SfxItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich 
             {
                 // Same Item already present?
                 if ( *ppFnd == &rItem )
+                {
+                    assert(!bPassingOwnership);
                     return nullptr;
+                }
 
                 // Will 'dontcare' or 'disabled' be overwritten with some real value?
                 if ( rItem.Which() && ( IsInvalidItem(*ppFnd) || !(*ppFnd)->Which() ) )
                 {
                     auto const old = *ppFnd;
-                    *ppFnd = &m_pPool->Put( rItem, nWhich );
+                    *ppFnd = &m_pPool->PutImpl( rItem, nWhich, bPassingOwnership );
                     if (!IsInvalidItem(old)) {
                         assert(old->Which() == 0);
                         delete old;
@@ -464,16 +480,22 @@ const SfxPoolItem* SfxItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich 
                     if (IsInvalidItem(*ppFnd) || (*ppFnd)->Which() != 0) {
                         *ppFnd = rItem.Clone(m_pPool);
                     }
+                    if (bPassingOwnership)
+                        delete &rItem;
                     return nullptr;
                 }
                 else
                 {
                     // Same value already present?
                     if ( rItem == **ppFnd )
+                    {
+                        if (bPassingOwnership)
+                            delete &rItem;
                         return nullptr;
+                    }
 
                     // Add the new one, remove the old one
-                    const SfxPoolItem& rNew = m_pPool->Put( rItem, nWhich );
+                    const SfxPoolItem& rNew = m_pPool->PutImpl( rItem, nWhich, bPassingOwnership );
                     const SfxPoolItem* pOld = *ppFnd;
                     *ppFnd = &rNew;
                     if (SfxItemPool::IsWhich(nWhich))
@@ -485,9 +507,14 @@ const SfxPoolItem* SfxItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich 
             {
                 ++m_nCount;
                 if( !rItem.Which() )
+                {
                     *ppFnd = rItem.Clone(m_pPool);
-                else {
-                    const SfxPoolItem& rNew = m_pPool->Put( rItem, nWhich );
+                    if (bPassingOwnership)
+                        delete &rItem;
+                }
+                else
+                {
+                    const SfxPoolItem& rNew = m_pPool->PutImpl( rItem, nWhich, bPassingOwnership );
                     *ppFnd = &rNew;
                     if (SfxItemPool::IsWhich(nWhich))
                     {
@@ -498,7 +525,7 @@ const SfxPoolItem* SfxItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich 
                     }
                 }
             }
-            SAL_WARN_IF(m_pPool->IsItemPoolable(nWhich) &&
+            SAL_WARN_IF(!bPassingOwnership && m_pPool->IsItemPoolable(nWhich) &&
                         dynamic_cast<const SfxSetItem*>( &rItem ) == nullptr &&
                         **ppFnd != rItem,
                         "svl.items", "putted Item unequal, with ID/pos " << nWhich );
@@ -507,6 +534,8 @@ const SfxPoolItem* SfxItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich 
         ppFnd += *(pPtr+1) - *pPtr + 1;
         pPtr += 2;
     }
+    if (bPassingOwnership)
+        delete &rItem;
     return nullptr;
 }
 
@@ -1566,7 +1595,7 @@ static void AddItem_Impl(std::unique_ptr<SfxPoolItem const*[]> & rpItems, sal_uI
 /**
  * Putting with automatic extension of the WhichId with the ID of the Item.
  */
-const SfxPoolItem* SfxAllItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhich )
+const SfxPoolItem* SfxAllItemSet::PutImpl( const SfxPoolItem& rItem, sal_uInt16 nWhich, bool bPassingOwnership )
 {
     sal_uInt16 nPos = 0; // Position for 'rItem' in 'm_pItems'
     const sal_uInt16 nItemCount = TotalCount();
@@ -1652,7 +1681,7 @@ const SfxPoolItem* SfxAllItemSet::Put( const SfxPoolItem& rItem, sal_uInt16 nWhi
     }
 
     // Add new Item to Pool
-    const SfxPoolItem& rNew = m_pPool->Put( rItem, nWhich );
+    const SfxPoolItem& rNew = m_pPool->PutImpl( rItem, nWhich, bPassingOwnership );
 
     // Remember old Item
     bool bIncrementCount = false;

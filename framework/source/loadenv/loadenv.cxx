@@ -90,6 +90,7 @@
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/profilezone.hxx>
 #include <classes/taskcreator.hxx>
+#include <tools/fileutil.hxx>
 
 const char PROP_TYPES[] = "Types";
 const char PROP_NAME[] = "Name";
@@ -247,21 +248,25 @@ void LoadEnv::initializeLoading(const OUString& sURL, const uno::Sequence<beans:
     m_bReactivateControllerOnError = false;
     m_bLoaded = false;
 
+    OUString aRealURL;
+    if (!tools::IsMappedWebDAVPath(sURL, &aRealURL))
+        aRealURL = sURL;
+
     // try to find out, if its really a content, which can be loaded or must be "handled"
     // We use a default value for this in-parameter. Then we have to start a complex check method
     // internally. But if this check was already done outside it can be suppressed to perform
     // the load request. We take over the result then!
-    m_eContentType = LoadEnv::classifyContent(sURL, lMediaDescriptor);
+    m_eContentType = LoadEnv::classifyContent(aRealURL, lMediaDescriptor);
     if (m_eContentType == E_UNSUPPORTED_CONTENT)
         throw LoadEnvException(LoadEnvException::ID_UNSUPPORTED_CONTENT, "from LoadEnv::initializeLoading");
 
     // make URL part of the MediaDescriptor
     // It doesn't matter if it is already an item of it.
     // It must be the same value... so we can overwrite it :-)
-    m_lMediaDescriptor[utl::MediaDescriptor::PROP_URL()] <<= sURL;
+    m_lMediaDescriptor[utl::MediaDescriptor::PROP_URL()] <<= aRealURL;
 
     // parse it - because some following code require that
-    m_aURL.Complete = sURL;
+    m_aURL.Complete = aRealURL;
     uno::Reference<util::XURLTransformer> xParser(util::URLTransformer::create(m_xContext));
     xParser->parseStrict(m_aURL);
 
@@ -344,19 +349,20 @@ void LoadEnv::initializeUIDefaults( const css::uno::Reference< css::uno::XCompon
 void LoadEnv::startLoading()
 {
     // SAFE ->
-    osl::ClearableMutexGuard aReadLock(m_mutex);
+    {
+        osl::MutexGuard aReadLock(m_mutex);
 
-    // Handle still running processes!
-    if (m_xAsynchronousJob.is())
-        throw LoadEnvException(LoadEnvException::ID_STILL_RUNNING);
+        // Handle still running processes!
+        if (m_xAsynchronousJob.is())
+            throw LoadEnvException(LoadEnvException::ID_STILL_RUNNING);
 
-    // content can not be loaded or handled
-    // check "classifyContent()" failed before ...
-    if (m_eContentType == E_UNSUPPORTED_CONTENT)
-        throw LoadEnvException(LoadEnvException::ID_UNSUPPORTED_CONTENT, "from LoadEnv::startLoading");
-
+        // content can not be loaded or handled
+        // check "classifyContent()" failed before ...
+        if (m_eContentType == E_UNSUPPORTED_CONTENT)
+            throw LoadEnvException(LoadEnvException::ID_UNSUPPORTED_CONTENT,
+                                   "from LoadEnv::startLoading");
+    }
     // <- SAFE
-    aReadLock.clear();
 
     // detect its type/filter etc.
     // These information will be available by the
@@ -366,10 +372,10 @@ void LoadEnv::startLoading()
     if (m_eContentType != E_CAN_BE_SET)/* Attention: special feature to set existing component on a frame must ignore type detection! */
         impl_detectTypeAndFilter();
 
-    // start loading the content ...
+    // start loading the content...
     // Attention: Don't check m_eContentType deeper then UNSUPPORTED/SUPPORTED!
-    // Because it was made in the easiest way ... may a flat detection was made only.
-    // And such simple detection can fail some times .-)
+    // Because it was made in the easiest way... may a flat detection was made only.
+    // And such simple detection can fail sometimes .-)
     // Use another strategy here. Try it and let it run into the case "loading not possible".
     bool bStarted = false;
     if (
@@ -406,10 +412,11 @@ bool LoadEnv::waitWhileLoading(sal_uInt32 nTimeout)
     while(true)
     {
         // SAFE -> ------------------------------
-        osl::ClearableMutexGuard aReadLock1(m_mutex);
-        if (!m_xAsynchronousJob.is())
-            break;
-        aReadLock1.clear();
+        {
+            osl::MutexGuard aReadLock1(m_mutex);
+            if (!m_xAsynchronousJob.is())
+                break;
+        }
         // <- SAFE ------------------------------
 
         Application::Yield();
@@ -720,7 +727,7 @@ void LoadEnv::impl_detectTypeAndFilter()
     // SAFE ->
     osl::ClearableMutexGuard aReadLock(m_mutex);
 
-    // Attention: Because our stl media descriptor is a copy of an uno sequence
+    // Attention: Because our stl media descriptor is a copy of a uno sequence
     // we can't use as an in/out parameter here. Copy it before and don't forget to
     // update structure afterwards again!
     css::uno::Sequence< css::beans::PropertyValue >        lDescriptor = m_lMediaDescriptor.getAsConstPropertyValueList();
@@ -756,7 +763,7 @@ void LoadEnv::impl_detectTypeAndFilter()
     // SAFE ->
     osl::ResettableMutexGuard aWriteLock(m_mutex);
 
-    // detection was successfully => update the descriptor member of this class
+    // detection was successful => update the descriptor member of this class
     m_lMediaDescriptor << lDescriptor;
     m_lMediaDescriptor[utl::MediaDescriptor::PROP_TYPENAME()] <<= sType;
     // Is there an already detected (may be preselected) filter?
@@ -1074,12 +1081,12 @@ bool LoadEnv::impl_loadContent()
     // if it will be run out of scope.
 
     // Note further: ignore if this internal guard already contains a resource.
-    // Might impl_searchRecylcTarget() set it before. But in case this impl-method wasn't used
+    // Might impl_searchRecycleTarget() set it before. But in case this impl-method wasn't used
     // and the target frame was new created ... this lock here must be set!
     css::uno::Reference< css::document::XActionLockable > xTargetLock(xTargetFrame, css::uno::UNO_QUERY);
     m_aTargetLock.setResource(xTargetLock);
 
-    // Add status indicator to descriptor. Loader can show an progresses then.
+    // Add status indicator to descriptor. Loader can show a progress then.
     // But don't do it, if loading should be hidden or preview is used ...!
     // So we prevent our code against wrong using. Why?
     // It could be, that using of this progress could make trouble. e.g. He make window visible ...
@@ -1209,9 +1216,7 @@ css::uno::Reference< css::uno::XInterface > LoadEnv::impl_searchLoader()
             // Ignore any loader, which makes trouble :-)
             ::comphelper::SequenceAsHashMap             lLoaderProps(xSet->nextElement());
             OUString                             sLoader     = lLoaderProps.getUnpackedValueOrDefault(PROP_NAME, OUString());
-            css::uno::Reference< css::uno::XInterface > xLoader;
-
-            xLoader = xLoaderFactory->createInstance(sLoader);
+            css::uno::Reference< css::uno::XInterface > xLoader = xLoaderFactory->createInstance(sLoader);
             if (xLoader.is())
                 return xLoader;
         }
@@ -1293,11 +1298,11 @@ css::uno::Reference< css::frame::XFrame > LoadEnv::impl_searchAlreadyLoaded()
 
     // Note: To detect if a document was already loaded before
     // we check URLs here only. But might the existing and the required
-    // document has different versions! Then its URLs are the same ...
+    // document has different versions! Then its URLs are the same...
     sal_Int16 nNewVersion = m_lMediaDescriptor.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_VERSION(), sal_Int16(-1));
 
     // will be used to save the first hidden frame referring the searched model
-    // Normally we are interested on visible frames ... but if there is no such visible
+    // Normally we are interested on visible frames... but if there is no such visible
     // frame we refer to any hidden frame also (but as fallback only).
     css::uno::Reference< css::frame::XFrame > xHiddenTask;
     css::uno::Reference< css::frame::XFrame > xTask;
@@ -1412,8 +1417,8 @@ css::uno::Reference< css::frame::XFrame > LoadEnv::impl_searchRecycleTarget()
 
     // The special backing mode frame will be recycled by definition!
     // It doesn't matter if somewhere wants to create a new view
-    // or open a new untitled document ...
-    // The only exception form that - hidden frames!
+    // or open a new untitled document...
+    // The only exception from that - hidden frames!
     if (m_lMediaDescriptor.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_HIDDEN(), false))
         return css::uno::Reference< css::frame::XFrame >();
 
@@ -1423,7 +1428,7 @@ css::uno::Reference< css::frame::XFrame > LoadEnv::impl_searchRecycleTarget()
     {
         if (!impl_isFrameAlreadyUsedForLoading(aTasksAnalyzer.m_xBackingComponent))
         {
-            // bring it to front ...
+            // bring it to front...
             impl_makeFrameWindowVisible(aTasksAnalyzer.m_xBackingComponent->getContainerWindow(), true);
             m_bReactivateControllerOnError = true;
             return aTasksAnalyzer.m_xBackingComponent;
@@ -1514,20 +1519,30 @@ css::uno::Reference< css::frame::XFrame > LoadEnv::impl_searchRecycleTarget()
     css::uno::Reference< css::frame::XController > xOldDoc = xTask->getController();
     if (xOldDoc.is())
     {
+        utl::MediaDescriptor lOldDocDescriptor(xModel->getArgs());
+        bool bFromTemplate = lOldDocDescriptor.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_ASTEMPLATE() , false);
+        OUString sReferrer = lOldDocDescriptor.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_REFERRER(), OUString());
+
+        // tdf#83722: valid but unmodified document, either from template
+        // or opened by the user (via File > New, referrer is set to private:user)
+        if (bFromTemplate || (sReferrer == "private:user"))
+            return css::uno::Reference< css::frame::XFrame >();
+
         bReactivateOldControllerOnError = xOldDoc->suspend(true);
         if (! bReactivateOldControllerOnError)
             return css::uno::Reference< css::frame::XFrame >();
     }
 
     // SAFE -> ..................................
-    osl::ClearableMutexGuard aWriteLock(m_mutex);
+    {
+        osl::MutexGuard aWriteLock(m_mutex);
 
-    css::uno::Reference< css::document::XActionLockable > xLock(xTask, css::uno::UNO_QUERY);
-    if (!m_aTargetLock.setResource(xLock))
-        return css::uno::Reference< css::frame::XFrame >();
+        css::uno::Reference< css::document::XActionLockable > xLock(xTask, css::uno::UNO_QUERY);
+        if (!m_aTargetLock.setResource(xLock))
+            return css::uno::Reference< css::frame::XFrame >();
 
-    m_bReactivateControllerOnError = bReactivateOldControllerOnError;
-    aWriteLock.clear();
+        m_bReactivateControllerOnError = bReactivateOldControllerOnError;
+    }
     // <- SAFE ..................................
 
     // bring it to front ...
@@ -1705,24 +1720,24 @@ void LoadEnv::impl_applyPersistentWindowState(const css::uno::Reference< css::aw
        return;
 
     // SOLAR SAFE ->
-    SolarMutexClearableGuard aSolarGuard1;
+    {
+        SolarMutexGuard aSolarGuard1;
 
-    VclPtr<vcl::Window>  pWindow = VCLUnoHelper::GetWindow(xWindow);
-    if (!pWindow)
-        return;
+        VclPtr<vcl::Window>  pWindow = VCLUnoHelper::GetWindow(xWindow);
+        if (!pWindow)
+            return;
 
-    bool bSystemWindow = pWindow->IsSystemWindow();
-    bool bWorkWindow   = (pWindow->GetType() == WindowType::WORKWINDOW);
+        bool bSystemWindow = pWindow->IsSystemWindow();
+        bool bWorkWindow = (pWindow->GetType() == WindowType::WORKWINDOW);
 
-    if (!bSystemWindow && !bWorkWindow)
-        return;
+        if (!bSystemWindow && !bWorkWindow)
+            return;
 
-    // don't overwrite this special state!
-    WorkWindow* pWorkWindow = static_cast<WorkWindow*>(pWindow.get());
-    if (pWorkWindow->IsMinimized())
-        return;
-
-    aSolarGuard1.clear();
+        // don't overwrite this special state!
+        WorkWindow* pWorkWindow = static_cast<WorkWindow*>(pWindow.get());
+        if (pWorkWindow->IsMinimized())
+            return;
+    }
     // <- SOLAR SAFE
 
     // SAFE ->

@@ -50,6 +50,7 @@
 #include <svx/fmshell.hxx>
 #include <svx/f3dchild.hxx>
 #include <svx/float3d.hxx>
+#include <svx/sdmetitm.hxx>
 #include <optsitem.hxx>
 
 #include <app.hrc>
@@ -81,10 +82,15 @@
 #include <com/sun/star/drawing/framework/XControllerManager.hpp>
 #include <com/sun/star/drawing/framework/XConfigurationController.hpp>
 #include <com/sun/star/drawing/framework/XConfiguration.hpp>
+#include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
 #include <editeng/lspcitem.hxx>
 #include <editeng/ulspitem.hxx>
 #include <memory>
+#include <comphelper/processfactory.hxx>
+#include <oox/drawingml/diagram/diagram.hxx>
+#include <oox/export/drawingml.hxx>
+#include <oox/shape/ShapeFilterBase.hxx>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::drawing::framework;
@@ -295,15 +301,18 @@ void  DrawViewShell::ExecCtrl(SfxRequest& rReq)
         case SID_INSERT_DATE_TIME:
         {
             SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-            VclPtr<AbstractHeaderFooterDialog> pDlg(pFact->CreateHeaderFooterDialog( this, GetActiveWindow(), GetDoc(), mpActualPage ));
+            vcl::Window* pWin = GetActiveWindow();
+            VclPtr<AbstractHeaderFooterDialog> pDlg(pFact->CreateHeaderFooterDialog(this, pWin ? pWin->GetFrameWeld() : nullptr, GetDoc(), mpActualPage));
             std::shared_ptr<SfxRequest> xRequest(new SfxRequest(rReq));
             rReq.Ignore(); // the 'old' request is not relevant any more
-            pDlg->StartExecuteAsync([this, xRequest](sal_Int32 /*nResult*/){
+            pDlg->StartExecuteAsync([this, pDlg, xRequest](sal_Int32 /*nResult*/){
                 GetActiveWindow()->Invalidate();
                 UpdatePreview( mpActualPage );
 
                 Invalidate();
                 xRequest->Done();
+
+                pDlg->disposeOnce();
             });
             break;
         }
@@ -372,7 +381,7 @@ void  DrawViewShell::ExecCtrl(SfxRequest& rReq)
                 Reference<XControllerManager> xControllerManager (
                     GetViewShellBase().GetController(), UNO_QUERY_THROW);
                 Reference<XConfigurationController> xConfigurationController (
-                    xControllerManager->getConfigurationController(), UNO_QUERY_THROW );
+                    xControllerManager->getConfigurationController(), UNO_SET_THROW );
                 Reference<XConfiguration> xConfiguration (
                     xConfigurationController->getRequestedConfiguration(), UNO_SET_THROW );
 
@@ -467,6 +476,35 @@ void  DrawViewShell::ExecCtrl(SfxRequest& rReq)
         {
             GetActiveWindow()->Invalidate();
             UpdatePreview( mpActualPage );
+            rReq.Done();
+        }
+        break;
+
+        case SID_REGENERATE_DIAGRAM:
+        {
+            const SdrMarkList& rMarkList = mpDrawView->GetMarkedObjectList();
+            if (rMarkList.GetMarkCount() == 1)
+            {
+                SdrObject* pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
+                Reference<css::drawing::XShape> xShape(pObj->getUnoShape(), UNO_QUERY);
+
+                if (oox::drawingml::DrawingML::IsDiagram(xShape))
+                {
+                    mpDrawView->UnmarkAll();
+                    pObj->getChildrenOfSdrObject()->ClearSdrObjList();
+
+                    css::uno::Reference<css::uno::XComponentContext> xContext
+                        = comphelper::getProcessComponentContext();
+                    rtl::Reference<oox::shape::ShapeFilterBase> xFilter(
+                        new oox::shape::ShapeFilterBase(xContext));
+                    xFilter->setTargetDocument(GetDocSh()->GetModel());
+                    xFilter->importTheme();
+                    oox::drawingml::reloadDiagram(xShape, *xFilter);
+
+                    mpDrawView->MarkObj(pObj, mpDrawView->GetSdrPageView());
+                }
+            }
+
             rReq.Done();
         }
         break;
@@ -862,7 +900,7 @@ void  DrawViewShell::GetRulerState(SfxItemSet& rSet)
     if( mpDrawView->IsTextEdit() )
     {
         Point aPnt1 = GetActiveWindow()->GetWinViewPos();
-        ::tools::Rectangle aMinMaxRect = ::tools::Rectangle( aPnt1, Size(ULONG_MAX, ULONG_MAX) );
+        ::tools::Rectangle aMinMaxRect( aPnt1, Size(ULONG_MAX, ULONG_MAX) );
         rSet.Put( SfxRectangleItem(SID_RULER_LR_MIN_MAX, aMinMaxRect) );
     }
     else

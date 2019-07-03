@@ -19,15 +19,16 @@
 #ifndef INCLUDED_SW_SOURCE_CORE_INC_RETRIEVEINPUTSTREAMCONSUMER_HXX
 #define INCLUDED_SW_SOURCE_CORE_INC_RETRIEVEINPUTSTREAMCONSUMER_HXX
 
-#include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/io/XInputStream.hpp>
 #include <osl/interlck.h>
-#include "retrievedinputstreamdata.hxx"
+#include <rtl/ustring.hxx>
+
+namespace com::sun::star::io { class XInputStream; }
+namespace com::sun::star::uno { template <typename > class Reference; }
 
 class SwGrfNode;
 
 /** class to provide creation of a thread to retrieve an input stream given by
-    an URL and to consume the retrieved input stream.
+    a URL and to consume the retrieved input stream.
 
     #i73788#
 */

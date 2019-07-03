@@ -19,11 +19,9 @@
 #ifndef INCLUDED_EDITENG_EMPHASISMARKITEM_HXX
 #define INCLUDED_EDITENG_EMPHASISMARKITEM_HXX
 
-#include <vcl/vclenum.hxx>
+#include <tools/fontenum.hxx>
 #include <svl/intitem.hxx>
 #include <editeng/editengdllapi.h>
-
-class SvXMLUnitConverter;
 
 // class SvxEmphasisMarkItem ----------------------------------------------
 
@@ -48,7 +46,6 @@ public:
                                     const IntlWrapper& ) const override;
 
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
-    virtual sal_uInt16          GetVersion( sal_uInt16 nFileVersion ) const override;
 
     virtual bool            QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;
     virtual bool            PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId ) override;

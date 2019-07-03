@@ -50,7 +50,7 @@ class LoadEnvException
                         should be thrown, if a required item does not exists. */
             ID_INVALID_MEDIADESCRIPTOR,
 
-            /** @short  Its similar to an uno::RuntimeException ....
+            /** @short  Its similar to a uno::RuntimeException ....
                 @descr  But such runtime exception can break the whole office code.
                         So its capsulated to this specialized load environment only.
                         Mostly it indicates a missing but needed resource ... e.g the
@@ -69,7 +69,7 @@ class LoadEnvException
             ID_STILL_RUNNING,
 
             /** @short  sometimes we can't specify the reason for an error, because we
-                        was interrupted by an called code in an unexpected way ...
+                        was interrupted by a called code in an unexpected way ...
              */
             ID_GENERAL_ERROR
         };

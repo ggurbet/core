@@ -38,6 +38,7 @@
 #include <svl/itemset.hxx>
 #include <svl/itempool.hxx>
 #include <sfx2/msgpool.hxx>
+#include <sfx2/msg.hxx>
 
 namespace frm
 {
@@ -173,7 +174,7 @@ namespace frm
             vcl::Window* pParentWin = nullptr;
             if ( _rParentPeer.is() )
             {
-                VCLXWindow* pParentXWin = VCLXWindow::GetImplementation( _rParentPeer );
+                VCLXWindow* pParentXWin = comphelper::getUnoTunnelImplementation<VCLXWindow>( _rParentPeer );
                 if ( pParentXWin )
                     pParentWin = pParentXWin->GetWindow().get();
                 DBG_ASSERT( pParentWin, "ORichTextControl::createPeer: could not obtain the VCL-level parent window!" );
@@ -591,7 +592,7 @@ namespace frm
             return xReturn;
         }
 
-        // is it an UNO slot?
+        // is it a UNO slot?
         OUString sUnoProtocolPrefix( ".uno:" );
         if ( _rURL.Complete.startsWith( sUnoProtocolPrefix ) )
         {

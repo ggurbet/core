@@ -185,13 +185,10 @@ std::set<Color> ScDocument::GetDocColors()
     const sal_uInt16 pAttribs[] = {ATTR_BACKGROUND, ATTR_FONT_COLOR};
     for (sal_uInt16 nAttrib : pAttribs)
     {
-        const sal_uInt32 nCount = pPool->GetItemCount2(nAttrib);
-        for (sal_uInt32 j=0; j<nCount; j++)
+        for (const SfxPoolItem* pItem : pPool->GetItemSurrogates(nAttrib))
         {
-            const SvxColorItem *pItem = static_cast<const SvxColorItem*>(pPool->GetItem2(nAttrib, j));
-            if (pItem == nullptr)
-                continue;
-            Color aColor( pItem->GetValue() );
+            const SvxColorItem *pColorItem = static_cast<const SvxColorItem*>(pItem);
+            Color aColor( pColorItem->GetValue() );
             if (COL_AUTO != aColor)
                 aDocColors.insert(aColor);
         }
@@ -395,17 +392,6 @@ void ScDocument::AddDelayedFormulaGroupingCell( const ScFormulaCell* cell )
 {
     if( !pDelayedFormulaGrouping->In( cell->aPos ))
         pDelayedFormulaGrouping->ExtendTo( cell->aPos );
-}
-
-void ScDocument::CollectAllAreaListeners(
-    std::vector<SvtListener*>& rListener, const ScRange& rRange, sc::AreaOverlapType eType )
-{
-    if (!pBASM)
-        return;
-
-    std::vector<sc::AreaListener> aAL = pBASM->GetAllListeners(rRange, eType);
-    for (const auto& rItem : aAL)
-        rListener.push_back(rItem.mpListener);
 }
 
 bool ScDocument::HasFormulaCell( const ScRange& rRange ) const
@@ -925,6 +911,15 @@ std::unique_ptr<sc::ColumnIterator> ScDocument::GetColumnIterator( SCTAB nTab, S
         return std::unique_ptr<sc::ColumnIterator>();
 
     return pTab->GetColumnIterator(nCol, nRow1, nRow2);
+}
+
+void ScDocument::CreateColumnIfNotExists( SCTAB nTab, SCCOL nCol )
+{
+    const ScTable* pTab = FetchTable(nTab);
+    if (!pTab)
+        return;
+
+    pTab->CreateColumnIfNotExists(nCol);
 }
 
 bool ScDocument::EnsureFormulaCellResults( const ScRange& rRange, bool bSkipRunning )

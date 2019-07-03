@@ -21,8 +21,6 @@
 #ifndef INCLUDED_SVX_ACCESSIBLESHAPE_HXX
 #define INCLUDED_SVX_ACCESSIBLESHAPE_HXX
 
-#include <exception>
-
 #include <com/sun/star/accessibility/TextSegment.hpp>
 #include <com/sun/star/accessibility/XAccessibleSelection.hpp>
 #include <com/sun/star/accessibility/XAccessibleExtendedAttributes.hpp>
@@ -33,14 +31,12 @@
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/document/XEventListener.hpp>
 #include <com/sun/star/lang/EventObject.hpp>
-#include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Reference.hxx>
-#include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/uno/Type.hxx>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
+#include <comphelper/servicehelper.hxx>
 #include <editeng/AccessibleContextBase.hxx>
 #include <editeng/AccessibleComponentBase.hxx>
 #include <rtl/ustring.hxx>
@@ -70,7 +66,6 @@ class AccessibleShapeInfo;
 class AccessibleTextHelper;
 class ChildrenManager;
 class IAccessibleParent;
-class IAccessibleViewForwarder;
 
 /** This base class provides a base implementation for all shapes.  For more
     detailed documentation about the methods refer to the descriptions of
@@ -333,9 +328,7 @@ public:
 
     //===== XUnoTunnel ========================================================
 
-    static const css::uno::Sequence< sal_Int8 >&   getUnoTunnelImplementationId() throw();
-    static AccessibleShape*                                     getImplementation( const css::uno::Reference< css::uno::XInterface >& _rxIFace ) throw();
-    sal_Int64                                                   SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& _rIdentifier ) override;
+    UNO3_GETIMPLEMENTATION_DECL(AccessibleShape)
 
     //===== XAccessibleHypertext ========================================================
     virtual sal_Int32 SAL_CALL getHyperLinkCount() override;
@@ -418,9 +411,6 @@ protected:
     virtual OUString
         CreateAccessibleName() override;
 
-    /// Create a description string that contains the accessible description.
-    virtual OUString
-        CreateAccessibleDescription();
     /// @throws css::uno::RuntimeException
     OUString
        GetFullAccessibleName(AccessibleShape *shape);

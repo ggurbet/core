@@ -1205,7 +1205,7 @@ OUString WinSalInfoPrinter::GetPaperBinName( const ImplJobSetup* pSetupData, sal
     DWORD nBins = ImplDeviceCaps( this, DC_BINNAMES, nullptr, pSetupData );
     if ( (nPaperBin < nBins) && (nBins != GDI_ERROR) )
     {
-        auto pBuffer = std::unique_ptr<sal_Unicode[]>(new sal_Unicode[nBins*24]);
+        auto pBuffer = std::make_unique<sal_Unicode[]>(nBins*24);
         DWORD nRet = ImplDeviceCaps( this, DC_BINNAMES, reinterpret_cast<BYTE*>(pBuffer.get()), pSetupData );
         if ( nRet && (nRet != GDI_ERROR) )
             aPaperBinName = OUString( pBuffer.get() + (nPaperBin*24) );
@@ -1324,6 +1324,7 @@ static DEVMODEW const * ImplSalSetCopies( DEVMODEW const * pDevMode, sal_uLong n
             nCopies = 32765;
         sal_uLong nDevSize = pDevMode->dmSize+pDevMode->dmDriverExtra;
         LPDEVMODEW pNewDevMode = static_cast<LPDEVMODEW>(std::malloc( nDevSize ));
+        assert(pNewDevMode); // Don't handle OOM conditions
         memcpy( pNewDevMode, pDevMode, nDevSize );
         pNewDevMode->dmFields |= DM_COPIES;
         pNewDevMode->dmCopies  = static_cast<short>(static_cast<sal_uInt16>(nCopies));

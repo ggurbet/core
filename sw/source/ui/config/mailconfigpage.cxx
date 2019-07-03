@@ -20,9 +20,6 @@
 #include <swmodule.hxx>
 #include <swtypes.hxx>
 #include <mailconfigpage.hxx>
-#include <svtools/svmedit.hxx>
-#include <vcl/svtabbx.hxx>
-#include <vcl/headbar.hxx>
 #include <mmconfigitem.hxx>
 #include <mailmergehelper.hxx>
 #include <cmdid.h>
@@ -363,7 +360,7 @@ void SwTestAccountSettingsDialog::Test()
 }
 
 SwMailConfigDlg::SwMailConfigDlg(weld::Window* pParent, SfxItemSet& rSet)
-    : SfxSingleTabDialogController(pParent, rSet)
+    : SfxSingleTabDialogController(pParent, &rSet)
 {
     TabPageParent pPageParent(get_content_area(), this);
     // create TabPage

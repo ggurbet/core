@@ -11,14 +11,14 @@
 
 #include <rtl/string.hxx>
 #include <rtl/uri.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <o3tl/runtimetooustring.hxx>
 #include <osl/file.hxx>
 #include <osl/thread.h>
-#include <algorithm>
 #include <memory>
 
 #include "LuceneHelper.hxx"
+#include <CLucene.h>
+#include <CLucene/analysis/LanguageBasedAnalyzer.h>
 
 using namespace lucene::document;
 
@@ -116,7 +116,7 @@ void HelpIndexer::helpDocument(OUString const & fileName, Document *doc) const {
 
     OUString path = "#HLP#" + d_module + "/" + fileName;
     std::vector<TCHAR> aPath(OUStringToTCHARVec(path));
-    doc->add(*_CLNEW Field(_T("path"), &aPath[0], Field::STORE_YES | Field::INDEX_UNTOKENIZED));
+    doc->add(*_CLNEW Field(_T("path"), aPath.data(), Field::STORE_YES | Field::INDEX_UNTOKENIZED));
 
     OUString sEscapedFileName =
         rtl::Uri::encode(fileName,

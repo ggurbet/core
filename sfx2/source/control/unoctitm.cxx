@@ -31,6 +31,8 @@
 #include <svl/itempool.hxx>
 #include <tools/urlobj.hxx>
 #include <com/sun/star/awt/FontDescriptor.hpp>
+#include <com/sun/star/awt/Point.hpp>
+#include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
 #include <com/sun/star/util/XURLTransformer.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
@@ -60,6 +62,7 @@
 #include <sfx2/request.hxx>
 #include <statcach.hxx>
 #include <sfx2/msgpool.hxx>
+#include <sfx2/msg.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/viewsh.hxx>
 #include <osl/file.hxx>
@@ -1043,7 +1046,7 @@ static void InterceptLOKStateChangeEvent(const SfxViewFrame* pViewFrame, const c
         const SfxUInt32Item* pUndoConflict = dynamic_cast< const SfxUInt32Item * >( pState );
         if ( pUndoConflict && pUndoConflict->GetValue() > 0 )
         {
-            aBuffer.append(OUString("disabled"));
+            aBuffer.append("disabled");
         }
         else
         {
@@ -1061,6 +1064,9 @@ static void InterceptLOKStateChangeEvent(const SfxViewFrame* pViewFrame, const c
              aEvent.FeatureURL.Path == "InsertColumnsBefore" ||
              aEvent.FeatureURL.Path == "InsertColumnsAfter" ||
              aEvent.FeatureURL.Path == "InsertSymbol" ||
+             aEvent.FeatureURL.Path == "InsertPage" ||
+             aEvent.FeatureURL.Path == "DeletePage" ||
+             aEvent.FeatureURL.Path == "DuplicatePage" ||
              aEvent.FeatureURL.Path == "DeleteRows" ||
              aEvent.FeatureURL.Path == "DeleteColumns" ||
              aEvent.FeatureURL.Path == "DeleteTable" ||
@@ -1079,16 +1085,11 @@ static void InterceptLOKStateChangeEvent(const SfxViewFrame* pViewFrame, const c
              aEvent.FeatureURL.Path == "OutlineBullet" ||
              aEvent.FeatureURL.Path == "InsertIndexesEntry" ||
              aEvent.FeatureURL.Path == "TransformDialog" ||
-             aEvent.FeatureURL.Path == "EditRegion")
+             aEvent.FeatureURL.Path == "EditRegion" ||
+             aEvent.FeatureURL.Path == "ThesaurusDialog")
 
     {
         aBuffer.append(aEvent.IsEnabled ? OUString("enabled") : OUString("disabled"));
-    }
-    else if (aEvent.FeatureURL.Path == "InsertPage" ||
-             aEvent.FeatureURL.Path == "DeletePage" ||
-             aEvent.FeatureURL.Path == "DuplicatePage")
-    {
-        aBuffer.append(OUString::boolean(aEvent.IsEnabled));
     }
     else if (aEvent.FeatureURL.Path == "AssignLayout" ||
              aEvent.FeatureURL.Path == "StatusSelectionMode" ||
@@ -1144,7 +1145,7 @@ static void InterceptLOKStateChangeEvent(const SfxViewFrame* pViewFrame, const c
         }
         else
         {
-            aBuffer.append(OUString("disabled"));
+            aBuffer.append("disabled");
         }
     }
     else if (aEvent.FeatureURL.Path == "Position")

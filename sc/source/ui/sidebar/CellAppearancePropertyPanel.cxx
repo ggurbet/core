@@ -17,21 +17,17 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <sfx2/sidebar/Theme.hxx>
-#include <sfx2/sidebar/ControlFactory.hxx>
 #include "CellAppearancePropertyPanel.hxx"
 #include <sc.hrc>
 #include <bitmaps.hlst>
 #include <sfx2/bindings.hxx>
-#include <sfx2/dispatch.hxx>
-#include <vcl/fixed.hxx>
-#include <svl/eitem.hxx>
 #include <editeng/borderline.hxx>
 #include <editeng/boxitem.hxx>
 #include <editeng/lineitem.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/virdev.hxx>
+#include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include "CellLineStyleControl.hxx"
 #include "CellBorderStyleControl.hxx"
 

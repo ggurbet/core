@@ -439,7 +439,7 @@ private:
     @descr      This constructor initialize a new instance of this class by valid factory,
                 and will be set valid values on his member and baseclasses.
 
-    @attention  a)  Don't use your own reference during an UNO-Service-ctor! There is no guarantee, that you
+    @attention  a)  Don't use your own reference during a UNO-Service-ctor! There is no guarantee, that you
                     will get over this. (e.g. using of your reference as parameter to initialize some member)
                     Do such things in DEFINE_INIT_SERVICE() method, which is called automatically after your ctor!!!
                 b)  Baseclass OBroadcastHelper is a typedef in namespace cppu!
@@ -503,7 +503,7 @@ void XFrameImpl::initListeners()
     OFrames* pFramesHelper = new OFrames( this, &m_aChildFrameContainer );
     m_xFramesHelper.set( static_cast< ::cppu::OWeakObject* >(pFramesHelper), css::uno::UNO_QUERY );
 
-    // Initialize a the drop target listener.
+    // Initialize the drop target listener.
     // We hold member as reference ... not as pointer too!
     OpenFileDropTargetListener* pDropListener = new OpenFileDropTargetListener( m_xContext, this );
     m_xDropTargetListener.set( static_cast< ::cppu::OWeakObject* >(pDropListener), css::uno::UNO_QUERY );
@@ -570,7 +570,7 @@ void XFrameImpl::initListeners()
     @param      "sTargetFrameName"  , name of target frame or special value like "_self", "_blank" ...
     @param      "nSearchFlags"      , optional arguments for frame search, if target is not a special one
     @param      "lArguments"        , optional arguments for loading
-    @return     A valid component reference, if loading was successfully.
+    @return     A valid component reference, if loading was successful.
                 A null reference otherwise.
 
     @onerror    We return a null reference.
@@ -748,7 +748,7 @@ void XFrameImpl::disableLayoutManager(const css::uno::Reference< css::frame::XLa
     @short      initialize frame instance
     @descr      A frame needs a window. This method set a new one ... but should called one times only!
                 We use this window to listen for window events and forward it to our set component.
-                Its used as parent of component window too.
+                It's used as parent of component window too.
 
     @seealso    method getContainerWindow()
     @seealso    method setComponent()
@@ -869,7 +869,7 @@ void SAL_CALL XFrameImpl::setCreator( const css::uno::Reference< css::frame::XFr
 
     /* SAFE { */
     {
-        SolarMutexClearableGuard aWriteLock;
+        SolarMutexGuard aWriteLock;
         m_xParent = xCreator;
     }
     /* } SAFE */
@@ -1434,7 +1434,7 @@ sal_Bool SAL_CALL XFrameImpl::setComponent(const css::uno::Reference< css::awt::
 {
 
     // Ignore this HACK of sfx2!
-    // He call us with an valid controller without a valid window... that's not allowed!
+    // He call us with a valid controller without a valid window... that's not allowed!
     if  ( xController.is() && ! xComponentWindow.is() )
         return true;
 
@@ -1479,9 +1479,10 @@ sal_Bool SAL_CALL XFrameImpl::setComponent(const css::uno::Reference< css::awt::
         // Before we dispose this controller we should hide it inside this frame instance.
         // We hold it alive for next calls by using xOldController!
         /* SAFE {*/
-        SolarMutexClearableGuard aWriteLock;
-        m_xController = nullptr;
-        aWriteLock.clear();
+        {
+            SolarMutexGuard aWriteLock;
+            m_xController = nullptr;
+        }
         /* } SAFE */
 
         css::uno::Reference< css::lang::XComponent > xDisposable( xOldController, css::uno::UNO_QUERY );
@@ -1508,9 +1509,10 @@ sal_Bool SAL_CALL XFrameImpl::setComponent(const css::uno::Reference< css::awt::
        )
     {
         /* SAFE { */
-        SolarMutexClearableGuard aWriteLock;
-        m_xComponentWindow = nullptr;
-        aWriteLock.clear();
+        {
+            SolarMutexGuard aWriteLock;
+            m_xComponentWindow = nullptr;
+        }
         /* } SAFE */
 
         css::uno::Reference< css::lang::XComponent > xDisposable( xOldComponentWindow, css::uno::UNO_QUERY );
@@ -1718,9 +1720,10 @@ void SAL_CALL XFrameImpl::close( sal_Bool bDeliverOwnership )
     }
 
     /* SAFE { */
-    SolarMutexClearableGuard aWriteLock;
-    m_bIsHidden = true;
-    aWriteLock.clear();
+    {
+        SolarMutexGuard aWriteLock;
+        m_bIsHidden = true;
+    }
     /* } SAFE */
     impl_checkMenuCloser();
 
@@ -1759,7 +1762,7 @@ OUString SAL_CALL XFrameImpl::getTitle()
 
     // SAFE ->
     SolarMutexClearableGuard aReadLock;
-    css::uno::Reference< css::frame::XTitle > xTitle(m_xTitleHelper, css::uno::UNO_QUERY_THROW);
+    css::uno::Reference< css::frame::XTitle > xTitle(m_xTitleHelper, css::uno::UNO_SET_THROW);
     aReadLock.clear();
     // <- SAFE
 
@@ -1772,7 +1775,7 @@ void SAL_CALL XFrameImpl::setTitle( const OUString& sTitle )
 
     // SAFE ->
     SolarMutexClearableGuard aReadLock;
-    css::uno::Reference< css::frame::XTitle > xTitle(m_xTitleHelper, css::uno::UNO_QUERY_THROW);
+    css::uno::Reference< css::frame::XTitle > xTitle(m_xTitleHelper, css::uno::UNO_SET_THROW);
     aReadLock.clear();
     // <- SAFE
 
@@ -1899,7 +1902,7 @@ css::uno::Any SAL_CALL XFrameImpl::getPropertyValue(const OUString& sProperty)
     checkDisposed();
 
     // SAFE ->
-    SolarMutexClearableGuard aReadLock;
+    SolarMutexGuard aReadLock;
 
     TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
     if (pIt == m_lProps.end())
@@ -1917,13 +1920,13 @@ void SAL_CALL XFrameImpl::addPropertyChangeListener(
     checkDisposed();
 
     // SAFE ->
-    SolarMutexClearableGuard aReadLock;
+    {
+        SolarMutexGuard aReadLock;
 
-    TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
-    if (pIt == m_lProps.end())
-        throw css::beans::UnknownPropertyException();
-
-    aReadLock.clear();
+        TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
+        if (pIt == m_lProps.end())
+            throw css::beans::UnknownPropertyException();
+    }
     // <- SAFE
 
     m_lSimpleChangeListener.addInterface(sProperty, xListener);
@@ -1934,13 +1937,13 @@ void SAL_CALL XFrameImpl::removePropertyChangeListener(
         const css::uno::Reference< css::beans::XPropertyChangeListener >& xListener)
 {
     // SAFE ->
-    SolarMutexClearableGuard aReadLock;
+    {
+        SolarMutexGuard aReadLock;
 
-    TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
-    if (pIt == m_lProps.end())
-        throw css::beans::UnknownPropertyException();
-
-    aReadLock.clear();
+        TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
+        if (pIt == m_lProps.end())
+            throw css::beans::UnknownPropertyException();
+    }
     // <- SAFE
 
     m_lSimpleChangeListener.removeInterface(sProperty, xListener);
@@ -1953,13 +1956,13 @@ void SAL_CALL XFrameImpl::addVetoableChangeListener(
     checkDisposed();
 
     // SAFE ->
-    SolarMutexClearableGuard aReadLock;
+    {
+        SolarMutexGuard aReadLock;
 
-    TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
-    if (pIt == m_lProps.end())
-        throw css::beans::UnknownPropertyException();
-
-    aReadLock.clear();
+        TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
+        if (pIt == m_lProps.end())
+            throw css::beans::UnknownPropertyException();
+    }
     // <- SAFE
 
     m_lVetoChangeListener.addInterface(sProperty, xListener);
@@ -1970,13 +1973,13 @@ void SAL_CALL XFrameImpl::removeVetoableChangeListener(
         const css::uno::Reference< css::beans::XVetoableChangeListener >& xListener)
 {
     // SAFE ->
-    SolarMutexClearableGuard aReadLock;
+    {
+        SolarMutexGuard aReadLock;
 
-    TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
-    if (pIt == m_lProps.end())
-        throw css::beans::UnknownPropertyException();
-
-    aReadLock.clear();
+        TPropInfoHash::const_iterator pIt = m_lProps.find(sProperty);
+        if (pIt == m_lProps.end())
+            throw css::beans::UnknownPropertyException();
+    }
     // <- SAFE
 
     m_lVetoChangeListener.removeInterface(sProperty, xListener);
@@ -2119,7 +2122,7 @@ void SAL_CALL XFrameImpl::disposing()
     xDispatchHelper.clear();
 
     // Don't show any dialogs, errors or something else any more!
-    // If somewhere called dispose() whitout close() before - normally no dialogs
+    // If somewhere called dispose() without close() before - normally no dialogs
     // should exist. Otherwise it's the problem of the outside caller.
     // Note:
     //      (a) Do it after stopWindowListening(). May that force some active/deactivate
@@ -2616,9 +2619,10 @@ void SAL_CALL XFrameImpl::windowShown( const css::lang::EventObject& )
 void SAL_CALL XFrameImpl::windowHidden( const css::lang::EventObject& )
 {
     /* SAFE { */
-    SolarMutexClearableGuard aReadLock;
-    m_bIsHidden = true;
-    aReadLock.clear();
+    {
+        SolarMutexGuard aReadLock;
+        m_bIsHidden = true;
+    }
     /* } SAFE */
 
     impl_checkMenuCloser();
@@ -2725,7 +2729,7 @@ void XFrameImpl::impl_setPropertyValue(sal_Int32 nHandle,
     */
 
     /* Attention: You can use nHandle only, if you are sure that all supported
-                  properties has an unique handle. That must be guaranteed
+                  properties has a unique handle. That must be guaranteed
                   inside method initListeners()!
     */
     switch (nHandle)
@@ -2780,7 +2784,7 @@ css::uno::Any XFrameImpl::impl_getPropertyValue(sal_Int32 nHandle)
     */
 
     /* Attention: You can use nHandle only, if you are sure that all supported
-                  properties has an unique handle. That must be guaranteed
+                  properties has a unique handle. That must be guaranteed
                   inside method initListeners()!
     */
     css::uno::Any aValue;
@@ -3162,7 +3166,7 @@ void XFrameImpl::implts_stopWindowListening()
 }
 
 /*-****************************************************************************************************
-    @short      helper to force breaked close() request again
+    @short      helper to force broken close() request again
     @descr      If we self disagree with a close() request, and detect that all external locks are gone ...
                 then we must try to close this frame again.
 
@@ -3263,15 +3267,15 @@ void XFrameImpl::impl_checkMenuCloser()
         this,
         FrameAnalyzerFlags::Hidden | FrameAnalyzerFlags::Help | FrameAnalyzerFlags::BackingComponent);
 
-    // specify the new frame, which must have this special state ...
+    // specify the new frame, which must have this special state...
     css::uno::Reference< css::frame::XFrame2 > xNewCloserFrame;
 
     // a)
-    // If there exist ate least one other frame - there are two frames currently open.
+    // If there exist at least one other frame - there are two frames currently open.
     // But we can enable this closer only, if one of these two tasks includes the help module.
     // The "other frame" couldn't be the help. Because then it wouldn't be part of this "other list".
     // In such case it will be separated to the reference aAnalyzer.m_xHelp!
-    // But we must check, if weself includes the help ...
+    // But we must check, if weself includes the help...
     // Check aAnalyzer.m_bReferenceIsHelp!
     if (
         (aAnalyzer.m_lOtherVisibleFrames.size()==1)   &&

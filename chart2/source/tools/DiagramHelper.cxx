@@ -20,7 +20,6 @@
 #include <DiagramHelper.hxx>
 #include <DataSeriesHelper.hxx>
 #include <AxisHelper.hxx>
-#include <ContainerHelper.hxx>
 #include <ChartTypeHelper.hxx>
 #include <ChartModel.hxx>
 #include <ChartModelHelper.hxx>
@@ -280,7 +279,7 @@ void DiagramHelper::setStackMode(
             if( !xChartTypeContainer.is() )
                 continue;
             uno::Sequence< uno::Reference< XChartType > > aChartTypeList( xChartTypeContainer->getChartTypes() );
-            if (!aChartTypeList.getLength())
+            if (!aChartTypeList.hasElements())
                 continue;
 
             uno::Reference< XChartType > xChartType( aChartTypeList[0] );
@@ -940,7 +939,7 @@ static void lcl_generateAutomaticCategoriesFromChartType(
             if( !xValueSeq.is() )
                 continue;
             rRet = xValueSeq->generateLabel( chart2::data::LabelOrigin_LONG_SIDE );
-            if( rRet.getLength() )
+            if( rRet.hasElements() )
                 return;
         }
     }
@@ -957,7 +956,7 @@ Sequence< OUString > DiagramHelper::generateAutomaticCategoriesFromCooSys( const
         for( sal_Int32 nN=0; nN<aChartTypes.getLength(); nN++ )
         {
             lcl_generateAutomaticCategoriesFromChartType( aRet, aChartTypes[nN] );
-            if( aRet.getLength() )
+            if( aRet.hasElements() )
                 return aRet;
         }
     }
@@ -1037,7 +1036,7 @@ void lcl_switchToDateCategories( const Reference< XChartDocument >& xChartDoc, c
                     //set a date format to the axis
                     const LocaleDataWrapper& rLocaleDataWrapper = Application::GetSettings().GetLocaleDataWrapper();
                     Sequence<sal_Int32> aKeySeq = xNumberFormats->queryKeys( util::NumberFormat::DATE,  rLocaleDataWrapper.getLanguageTag().getLocale(), true/*bCreate*/ );
-                    if( aKeySeq.getLength() )
+                    if( aKeySeq.hasElements() )
                     {
                         xAxisProps->setPropertyValue(CHART_UNONAME_NUMFMT, uno::Any(aKeySeq[0]));
                     }
@@ -1141,7 +1140,7 @@ sal_Int32 DiagramHelper::getDateNumberFormat( const Reference< util::XNumberForm
         {
             Sequence<sal_Int32> aKeySeq = xNumberFormats->queryKeys( util::NumberFormat::DATE,
                     rLanguageTag.getLocale(), true/*bCreate */);
-            if( aKeySeq.getLength() )
+            if( aKeySeq.hasElements() )
             {
                 nRet = aKeySeq[0];
             }
@@ -1187,7 +1186,7 @@ sal_Int32 DiagramHelper::getPercentNumberFormat( const Reference< util::XNumberF
         {
             Sequence<sal_Int32> aKeySeq = xNumberFormats->queryKeys( util::NumberFormat::PERCENT,
                     rLanguageTag.getLocale(), true/*bCreate*/ );
-            if( aKeySeq.getLength() )
+            if( aKeySeq.hasElements() )
             {
                 // This *assumes* the sequence is sorted as in
                 // NfIndexTableOffset and the first format is the integer 0%
@@ -1237,8 +1236,8 @@ bool DiagramHelper::areChartTypesCompatible( const Reference< ::chart2::XChartTy
     if( !xFirstType.is() || !xSecondType.is() )
         return false;
 
-    std::vector< OUString > aFirstRoles( ContainerHelper::SequenceToVector( xFirstType->getSupportedMandatoryRoles() ) );
-    std::vector< OUString > aSecondRoles( ContainerHelper::SequenceToVector( xSecondType->getSupportedMandatoryRoles() ) );
+    auto aFirstRoles( comphelper::sequenceToContainer<std::vector< OUString >>( xFirstType->getSupportedMandatoryRoles() ) );
+    auto aSecondRoles( comphelper::sequenceToContainer<std::vector< OUString >>( xSecondType->getSupportedMandatoryRoles() ) );
     std::sort( aFirstRoles.begin(), aFirstRoles.end() );
     std::sort( aSecondRoles.begin(), aSecondRoles.end() );
     return ( aFirstRoles == aSecondRoles );
@@ -1386,7 +1385,7 @@ bool lcl_moveSeriesOrCheckIfMoveIsAllowed(
                                             if( xOtherDataSeriesContainer.is() )
                                             {
                                                 uno::Sequence< uno::Reference< XDataSeries > > aOtherSeriesList( xOtherDataSeriesContainer->getDataSeries() );
-                                                if( 0 < aOtherSeriesList.getLength() )
+                                                if( aOtherSeriesList.hasElements() )
                                                 {
                                                     uno::Reference< XDataSeries > xExchangeSeries( aOtherSeriesList[0] );
                                                     aOtherSeriesList[0] = xGivenDataSeries;
@@ -1559,7 +1558,7 @@ sal_Int32 DiagramHelper::getCorrectedMissingValueTreatment(
     }
 
     //otherwise use the first supported one
-    if( aAvailableMissingValueTreatments.getLength() )
+    if( aAvailableMissingValueTreatments.hasElements() )
     {
         nResult = aAvailableMissingValueTreatments[0];
         return nResult;

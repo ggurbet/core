@@ -42,7 +42,9 @@
 #include <svl/stritem.hxx>
 #include <vcl/transfer.hxx>
 #include <vcl/graph.hxx>
+#include <osl/thread.h>
 
+#include <comphelper/automationinvokedzone.hxx>
 #include <comphelper/lok.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/storagehelper.hxx>
@@ -334,9 +336,10 @@ bool ScViewFunc::PasteDataFormat( SotClipboardFormatId nFormatId,
             else if ((nFormatId == SotClipboardFormatId::STRING || nFormatId == SotClipboardFormatId::STRING_TSVC)
                     && aDataHelper.GetString( nFormatId, *pStrBuffer ))
             {
-                // Do CSV dialog if more than one line.
+                // Do CSV dialog if more than one line. But not if invoked from Automation.
                 sal_Int32 nDelim = pStrBuffer->indexOf('\n');
-                if (nDelim >= 0 && nDelim != pStrBuffer->getLength () - 1)
+                if (!comphelper::Automation::AutomationInvokedZone::isActive()
+                    && nDelim >= 0 && nDelim != pStrBuffer->getLength () - 1)
                 {
                     vcl::Window* pParent = GetActiveWin();
 
@@ -653,7 +656,7 @@ bool ScViewFunc::PasteLink( const uno::Reference<datatransfer::XTransferable>& r
     //  so the source knows it will be used for a link
 
     uno::Sequence<sal_Int8> aSequence = aDataHelper.GetSequence(SotClipboardFormatId::LINK, OUString());
-    if (!aSequence.getLength())
+    if (!aSequence.hasElements())
     {
         OSL_FAIL("DDE Data not found.");
         return false;
@@ -711,9 +714,9 @@ bool ScViewFunc::PasteLink( const uno::Reference<datatransfer::XTransferable>& r
     if (aStrs.size() < 3)
         return false;
 
-    const OUString* pApp   = &aStrs[0];
-    const OUString* pTopic = &aStrs[1];
-    const OUString* pItem  = &aStrs[2];
+    const OUString& pApp   = aStrs[0];
+    const OUString& pTopic = aStrs[1];
+    const OUString& pItem  = aStrs[2];
     const OUString* pExtra = nullptr;
     if (aStrs.size() > 3)
         pExtra = &aStrs[3];
@@ -724,8 +727,8 @@ bool ScViewFunc::PasteLink( const uno::Reference<datatransfer::XTransferable>& r
         // uses Calc A1 syntax even when another formula syntax is specified
         // in the UI.
         EnterMatrix("='"
-            + ScGlobal::GetAbsDocName(*pTopic, GetViewData().GetDocument()->GetDocumentShell())
-            + "'#" + *pItem
+            + ScGlobal::GetAbsDocName(pTopic, GetViewData().GetDocument()->GetDocumentShell())
+            + "'#" + pItem
                 , ::formula::FormulaGrammar::GRAM_NATIVE);
         return true;
     }
@@ -736,11 +739,11 @@ bool ScViewFunc::PasteLink( const uno::Reference<datatransfer::XTransferable>& r
         // TODO: we could define ocQuote for "
         EnterMatrix("=" + ScCompiler::GetNativeSymbol(ocDde)
             + ScCompiler::GetNativeSymbol(ocOpen)
-            + "\"" + *pApp + "\""
+            + "\"" + pApp + "\""
             + ScCompiler::GetNativeSymbol(ocSep)
-            + "\"" + *pTopic + "\""
+            + "\"" + pTopic + "\""
             + ScCompiler::GetNativeSymbol(ocSep)
-            + "\"" + *pItem + "\""
+            + "\"" + pItem + "\""
             + ScCompiler::GetNativeSymbol(ocClose)
                 , ::formula::FormulaGrammar::GRAM_NATIVE);
     }

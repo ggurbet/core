@@ -53,11 +53,11 @@ static const SfxItemPropertyMapEntry* lcl_GetShapeMap()
     static const SfxItemPropertyMapEntry aShapeMap_Impl[] =
     {
         {OUString(SC_UNONAME_ANCHOR), 0, cppu::UnoType<uno::XInterface>::get(), 0, 0 },
+        {OUString(SC_UNONAME_RESIZE_WITH_CELL), 0, cppu::UnoType<sal_Bool>::get(), 0, 0 },
         {OUString(SC_UNONAME_HORIPOS), 0, cppu::UnoType<sal_Int32>::get(), 0, 0 },
         {OUString(SC_UNONAME_IMAGEMAP), 0, cppu::UnoType<container::XIndexContainer>::get(), 0, 0 },
         {OUString(SC_UNONAME_VERTPOS), 0, cppu::UnoType<sal_Int32>::get(), 0, 0 },
         {OUString(SC_UNONAME_MOVEPROTECT), 0, cppu::UnoType<sal_Bool>::get(), 0, 0 },
-        // #i66550 HLINK_FOR_SHAPES
         {OUString(SC_UNONAME_HYPERLINK), 0, cppu::UnoType<OUString>::get(), 0, 0 },
         {OUString(SC_UNONAME_URL), 0, cppu::UnoType<OUString>::get(), 0, 0 },
         { OUString(), 0, css::uno::Type(), 0, 0 }
@@ -73,7 +73,6 @@ const SvEventDescription* ScShapeObj::GetSupportedMacroItems()
     };
     return aMacroDescriptionsImpl;
 }
-// #i66550 HLINK_FOR_SHAPES
 ScMacroInfo* ScShapeObj_getShapeHyperMacroInfo( const ScShapeObj* pShape, bool bCreate = false )
 {
         if( pShape )
@@ -103,7 +102,7 @@ ScShapeObj::ScShapeObj( uno::Reference<drawing::XShape>& xShape ) :
 
         xShape.set(uno::Reference<drawing::XShape>( mxShapeAgg, uno::UNO_QUERY ));
 
-        bIsTextShape = ( SvxUnoTextBase::getImplementation( mxShapeAgg ) != nullptr );
+        bIsTextShape = ( comphelper::getUnoTunnelImplementation<SvxUnoTextBase>( mxShapeAgg ) != nullptr );
     }
 
     {
@@ -404,6 +403,9 @@ void SAL_CALL ScShapeObj::setPropertyValue(const OUString& aPropertyName, const 
                                     ScDrawObjData aAnchor;
                                     aAnchor.maStart = ScAddress(aAddress.StartColumn, aAddress.StartRow, aAddress.Sheet);
                                     aAnchor.maStartOffset = Point(aRelPoint.X, aRelPoint.Y);
+                                    ScDrawObjData* pDrawObjData = ScDrawLayer::GetObjData(pObj);
+                                    if (pDrawObjData)
+                                        aAnchor.mbResizeWithCell = pDrawObjData->mbResizeWithCell;
                                     //Uno sets the Anchor in terms of the unrotated shape, not much we can do
                                     //about that since uno also displays the shape geometry in terms of the unrotated
                                     //shape. #TODO think about changing the anchoring behaviour here too
@@ -418,6 +420,24 @@ void SAL_CALL ScShapeObj::setPropertyValue(const OUString& aPropertyName, const 
             }
         }
 
+    }
+    else if ( aPropertyName == SC_UNONAME_RESIZE_WITH_CELL )
+    {
+        SdrObject* pObj = GetSdrObject();
+        if (!pObj)
+            return;
+        ScAnchorType aAnchorType = ScDrawLayer::GetAnchorType(*pObj);
+
+        // Nothing to do if anchored to page
+        if (aAnchorType == SCA_PAGE)
+            return;
+
+        ScDrawObjData* pDrawObjData = ScDrawLayer::GetObjData(pObj);
+        if (!pDrawObjData)
+            return;
+
+        aValue >>= pDrawObjData->mbResizeWithCell;
+        ScDrawLayer::SetCellAnchored(*pObj, *pDrawObjData);
     }
     else if ( aPropertyName == SC_UNONAME_IMAGEMAP )
     {
@@ -495,7 +515,9 @@ void SAL_CALL ScShapeObj::setPropertyValue(const OUString& aPropertyName, const 
                                         xShape->setPosition(aPoint);
                                         pDocSh->SetModified();
                                     }
-                                    else if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL)
+                                    else if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL
+                                             || ScDrawLayer::GetAnchorType(*pObj)
+                                                    == SCA_CELL_RESIZE)
                                     {
                                         awt::Size aUnoSize;
                                         awt::Point aCaptionPoint;
@@ -579,7 +601,9 @@ void SAL_CALL ScShapeObj::setPropertyValue(const OUString& aPropertyName, const 
                                         xShape->setPosition(aPoint);
                                         pDocSh->SetModified();
                                     }
-                                    else if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL)
+                                    else if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL
+                                             || ScDrawLayer::GetAnchorType(*pObj)
+                                                    == SCA_CELL_RESIZE)
                                     {
                                         awt::Size aUnoSize;
                                         awt::Point aCaptionPoint;
@@ -671,6 +695,17 @@ uno::Any SAL_CALL ScShapeObj::getPropertyValue( const OUString& aPropertyName )
             }
         }
     }
+    else if (aPropertyName == SC_UNONAME_RESIZE_WITH_CELL)
+    {
+        bool bIsResizeWithCell = false;
+        SdrObject* pObj = GetSdrObject();
+        if (pObj)
+        {
+            ScAnchorType anchorType = ScDrawLayer::GetAnchorType(*pObj);
+            bIsResizeWithCell = (anchorType == SCA_CELL_RESIZE);
+        }
+        aAny <<= bIsResizeWithCell;
+    }
     else if ( aPropertyName == SC_UNONAME_IMAGEMAP )
     {
         uno::Reference< uno::XInterface > xImageMap;
@@ -707,7 +742,8 @@ uno::Any SAL_CALL ScShapeObj::getPropertyValue( const OUString& aPropertyName )
                         uno::Reference<drawing::XShape> xShape( mxShapeAgg, uno::UNO_QUERY );
                         if (xShape.is())
                         {
-                            if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL)
+                            if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL
+                                || ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL_RESIZE)
                             {
                                 awt::Size aUnoSize;
                                 awt::Point aCaptionPoint;
@@ -767,7 +803,8 @@ uno::Any SAL_CALL ScShapeObj::getPropertyValue( const OUString& aPropertyName )
                         uno::Reference<drawing::XShape> xShape( mxShapeAgg, uno::UNO_QUERY );
                         if (xShape.is())
                         {
-                            if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL)
+                            if (ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL
+                                || ScDrawLayer::GetAnchorType(*pObj) == SCA_CELL_RESIZE)
                             {
                                 awt::Size aUnoSize;
                                 awt::Point aCaptionPoint;
@@ -1056,7 +1093,7 @@ void SAL_CALL ScShapeObj::insertTextContent( const uno::Reference<text::XTextRan
 
     uno::Reference<text::XTextContent> xEffContent;
 
-    ScEditFieldObj* pCellField = ScEditFieldObj::getImplementation( xContent );
+    ScEditFieldObj* pCellField = comphelper::getUnoTunnelImplementation<ScEditFieldObj>( xContent );
     if ( pCellField )
     {
         //  createInstance("TextField.URL") from the document creates a ScCellFieldObj.
@@ -1099,7 +1136,7 @@ uno::Reference<text::XTextCursor> SAL_CALL ScShapeObj::createTextCursor()
     {
         //  ScDrawTextCursor must be used to ensure the ScShapeObj is returned by getText
 
-        SvxUnoTextBase* pText = SvxUnoTextBase::getImplementation( mxShapeAgg );
+        SvxUnoTextBase* pText = comphelper::getUnoTunnelImplementation<SvxUnoTextBase>( mxShapeAgg );
         if (pText)
             return new ScDrawTextCursor( this, *pText );
     }
@@ -1116,8 +1153,8 @@ uno::Reference<text::XTextCursor> SAL_CALL ScShapeObj::createTextCursorByRange(
     {
         //  ScDrawTextCursor must be used to ensure the ScShapeObj is returned by getText
 
-        SvxUnoTextBase* pText = SvxUnoTextBase::getImplementation( mxShapeAgg );
-        SvxUnoTextRangeBase* pRange = SvxUnoTextRangeBase::getImplementation( aTextPosition );
+        SvxUnoTextBase* pText = comphelper::getUnoTunnelImplementation<SvxUnoTextBase>( mxShapeAgg );
+        SvxUnoTextRangeBase* pRange = comphelper::getUnoTunnelImplementation<SvxUnoTextRangeBase>( aTextPosition );
         if ( pText && pRange )
         {
             SvxUnoTextCursor* pCursor = new ScDrawTextCursor( this, *pText );
@@ -1275,7 +1312,7 @@ SdrObject* ScShapeObj::GetSdrObject() const throw()
 {
     if(mxShapeAgg.is())
     {
-        SvxShape* pShape = SvxShape::getImplementation( mxShapeAgg );
+        SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( mxShapeAgg );
         if(pShape)
             return pShape->GetSdrObject();
     }

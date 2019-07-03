@@ -53,12 +53,14 @@
 #include <unotools/moduleoptions.hxx>
 
 #include <svtools/imagemgr.hxx>
+#include <svtools/framestatuslistener.hxx>
 #include <comphelper/processfactory.hxx>
 #include <framework/addonmenu.hxx>
 #include <framework/addonsoptions.hxx>
 #include <framework/menuconfiguration.hxx>
 #include <framework/sfxhelperfunctions.hxx>
 #include <vcl/taskpanelist.hxx>
+#include <vcl/event.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <tools/globname.hxx>
 #include <svtools/menuoptions.hxx>

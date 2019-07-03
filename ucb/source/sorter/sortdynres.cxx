@@ -287,9 +287,8 @@ void SortedDynamicResultSet::impl_notify( const ListEvent& Changes )
     aRet >>= bWasFinal;
 
     // handle the actions in the list
-    for ( long i=0; i<Changes.Changes.getLength(); i++ )
+    for ( const ListAction& aAction : Changes.Changes )
     {
-        const ListAction aAction = Changes.Changes[i];
         switch ( aAction.ListActionType )
         {
             case ListActionType::WELCOME:
@@ -443,9 +442,8 @@ static css::uno::Reference< css::uno::XInterface >
 SortedDynamicResultSetFactory_CreateInstance( const css::uno::Reference<
                                               css::lang::XMultiServiceFactory> & rSMgr )
 {
-    css::lang::XServiceInfo* pX = static_cast<css::lang::XServiceInfo*>(
-        new SortedDynamicResultSetFactory( ucbhelper::getComponentContext(rSMgr) ));
-    return css::uno::Reference< css::uno::XInterface >::query( pX );
+    return static_cast<css::lang::XServiceInfo*>(
+        new SortedDynamicResultSetFactory(ucbhelper::getComponentContext(rSMgr)));
 }
 
 css::uno::Sequence< OUString > SortedDynamicResultSetFactory::getSupportedServiceNames_Static()
@@ -474,8 +472,7 @@ SortedDynamicResultSetFactory::createSortedDynamicResultSet(
                 const Sequence< NumberedSortingInfo > & Info,
                 const Reference< XAnyCompareFactory > & CompareFactory )
 {
-    Reference< XDynamicResultSet > xRet;
-    xRet = new SortedDynamicResultSet( Source, Info, CompareFactory, m_xContext );
+    Reference< XDynamicResultSet > xRet = new SortedDynamicResultSet( Source, Info, CompareFactory, m_xContext );
     return xRet;
 }
 

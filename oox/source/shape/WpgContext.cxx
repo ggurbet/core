@@ -9,9 +9,7 @@
 
 
 #include "WpgContext.hxx"
-#include "WpsContext.hxx"
 #include <sal/log.hxx>
-#include <com/sun/star/drawing/XShape.hpp>
 #include <drawingml/shapepropertiescontext.hxx>
 #include <oox/drawingml/shapegroupcontext.hxx>
 #include <oox/drawingml/graphicshapecontext.hxx>
@@ -39,9 +37,7 @@ oox::core::ContextHandlerRef WpgContext::onCreateContext(sal_Int32 nElementToken
     switch (getBaseToken(nElementToken))
     {
     case XML_wgp:
-        break;
     case XML_cNvGrpSpPr:
-        break;
     case XML_grpSpPr:
         return new oox::drawingml::ShapePropertiesContext(*this, *mpShape);
     case XML_wsp:
@@ -61,7 +57,11 @@ oox::core::ContextHandlerRef WpgContext::onCreateContext(sal_Int32 nElementToken
         return new oox::drawingml::ShapeGroupContext(*this, mpShape, std::make_shared<oox::drawingml::Shape>("com.sun.star.drawing.GroupShape"));
     }
     case XML_graphicFrame:
-        break;
+    {
+        auto pShape = std::make_shared<oox::drawingml::Shape>("com.sun.star.drawing.GraphicObjectShape");
+        pShape->setWps(true);
+        return new oox::drawingml::GraphicalObjectFrameContext(*this, mpShape, pShape, /*bEmbedShapesInChart=*/true);
+    }
     default:
         SAL_WARN("oox", "WpgContext::createFastChildContext: unhandled element: " << getBaseToken(nElementToken));
         break;

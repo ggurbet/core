@@ -33,13 +33,13 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/dispatch.hxx>
-#include <svx/stddlg.hxx>
 #include <editeng/paperinf.hxx>
 #include <svl/srchitem.hxx>
 #include <svx/svdview.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/zoomslideritem.hxx>
 #include <svx/svxids.hrc>
+#include <tools/svborder.hxx>
 
 #include <swwait.hxx>
 #include <globdoc.hxx>

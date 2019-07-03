@@ -70,8 +70,8 @@ public:
         @return  The built-in name index or EXC_BUILTIN_UNKNOWN for user-defined names. */
     sal_Unicode  GetBuiltInName() const { return mcBuiltIn; }
 
-    /** Returns the token array for this defined name. */
-    const XclTokenArrayRef& GetTokenArray() const { return mxTokArr; }
+    /** Returns the symbol value for this defined name. */
+    const OUString& GetSymbol() const { return msSymbol; }
 
     /** Returns true, if this is a document-global defined name. */
     bool         IsGlobal() const { return mnXclTab == EXC_NAME_GLOBAL; }
@@ -92,6 +92,8 @@ public:
 private:
     /** Writes the body of the NAME record to the passed stream. */
     virtual void        WriteBody( XclExpStream& rStrm ) override;
+    /** Convert localized range separators */
+    OUString            GetWithDefaultRangeSeparator( const OUString& rSymbol ) const;
 
 private:
     OUString            maOrigName;     /// The original user-defined name.
@@ -157,7 +159,7 @@ private:
 
     /** Returns the index of an existing built-in NAME record with the passed definition, otherwise 0. */
     sal_uInt16          FindBuiltInNameIdx( const OUString& rName,
-                            const XclTokenArray& rTokArr ) const;
+                            const OUString& sSymbol ) const;
     /** Returns an unused name for the passed name. */
     OUString            GetUnusedName( const OUString& rName ) const;
 
@@ -294,6 +296,27 @@ void XclExpName::Save( XclExpStream& rStrm )
     XclExpRecord::Save( rStrm );
 }
 
+OUString XclExpName::GetWithDefaultRangeSeparator( const OUString& rSymbol ) const
+{
+    sal_Int32 nPos = rSymbol.indexOf(';');
+    if ( nPos > -1 )
+    {
+        // convert with validation
+        ScRange aRange;
+        ScAddress::Details detailsXL( ::formula::FormulaGrammar::CONV_XL_A1 );
+        ScRefFlags nRes = aRange.Parse( rSymbol.copy(0, nPos), &GetDocRef(), detailsXL );
+        if ( nRes & ScRefFlags::VALID )
+        {
+            nRes = aRange.Parse( rSymbol.copy(nPos+1), &GetDocRef(), detailsXL );
+            if ( nRes & ScRefFlags::VALID )
+            {
+                return rSymbol.replaceFirst(";", ",");
+            }
+        }
+    }
+    return rSymbol;
+}
+
 void XclExpName::SaveXml( XclExpXmlStream& rStrm )
 {
     sax_fastparser::FSHelperPtr& rWorkbook = rStrm.GetCurrentStream();
@@ -306,15 +329,15 @@ void XclExpName::SaveXml( XclExpXmlStream& rStrm )
             // OOXTODO: XML_help, "",
             XML_hidden, ToPsz( ::get_flag( mnFlags, EXC_NAME_HIDDEN ) ),
             XML_localSheetId, mnScTab == SCTAB_GLOBAL ? nullptr : OString::number( mnScTab ).getStr(),
-            XML_name, XclXmlUtils::ToOString( maOrigName ).getStr(),
+            XML_name, maOrigName.toUtf8(),
             // OOXTODO: XML_publishToServer, "",
             // OOXTODO: XML_shortcutKey, "",
             // OOXTODO: XML_statusBar, "",
-            XML_vbProcedure, ToPsz( ::get_flag( mnFlags, EXC_NAME_VB ) ),
+            XML_vbProcedure, ToPsz( ::get_flag( mnFlags, EXC_NAME_VB ) )
             // OOXTODO: XML_workbookParameter, "",
-            // OOXTODO: XML_xlm, "",
-            FSEND );
-    rWorkbook->writeEscaped( msSymbol );
+            // OOXTODO: XML_xlm, ""
+    );
+    rWorkbook->writeEscaped( GetWithDefaultRangeSeparator( msSymbol ) );
     rWorkbook->endElement( XML_definedName );
 }
 
@@ -510,7 +533,7 @@ void XclExpNameManagerImpl::SaveXml( XclExpXmlStream& rStrm )
     if( maNameList.IsEmpty() )
         return;
     sax_fastparser::FSHelperPtr& rWorkbook = rStrm.GetCurrentStream();
-    rWorkbook->startElement( XML_definedNames, FSEND );
+    rWorkbook->startElement(XML_definedNames);
     maNameList.SaveXml( rStrm );
     rWorkbook->endElement( XML_definedNames );
 }
@@ -519,13 +542,13 @@ void XclExpNameManagerImpl::SaveXml( XclExpXmlStream& rStrm )
 
 sal_uInt16 XclExpNameManagerImpl::FindNamedExp( SCTAB nTab, OUString sName )
 {
-    NamedExpMap::key_type key = NamedExpMap::key_type(nTab, sName);
+    NamedExpMap::key_type key(nTab, sName);
     NamedExpMap::const_iterator itr = maNamedExpMap.find(key);
     return (itr == maNamedExpMap.end()) ? 0 : itr->second;
 }
 
 sal_uInt16 XclExpNameManagerImpl::FindBuiltInNameIdx(
-        const OUString& rName, const XclTokenArray& rTokArr ) const
+        const OUString& rName, const OUString& sSymbol ) const
 {
     /*  Get built-in index from the name. Special case: the database range
         'unnamed' will be mapped to Excel's built-in '_FilterDatabase' name. */
@@ -537,11 +560,15 @@ sal_uInt16 XclExpNameManagerImpl::FindBuiltInNameIdx(
         for( size_t nPos = 0; nPos < mnFirstUserIdx; ++nPos )
         {
             XclExpNameRef xName = maNameList.GetRecord( nPos );
-            if( xName->GetBuiltInName() == cBuiltIn )
+            if( xName->GetBuiltInName() == cBuiltIn && xName->GetSymbol().replace(';', ',') == sSymbol.replace(';', ',') )
             {
-                XclTokenArrayRef xTokArr = xName->GetTokenArray();
-                if( xTokArr && (*xTokArr == rTokArr) )
-                    return static_cast< sal_uInt16 >( nPos + 1 );
+                // tdf#112567 restore the original built-in names with non-localized separators
+                // TODO: support more localizations, if needed
+                if ( xName->GetSymbol() != sSymbol )
+                {
+                    xName->SetSymbol(xName->GetSymbol().replace(';', ','));
+                }
+                return static_cast< sal_uInt16 >( nPos + 1 );
             }
         }
     }
@@ -590,7 +617,7 @@ sal_uInt16 XclExpNameManagerImpl::CreateName( SCTAB nTab, const ScRangeData& rRa
         xName->SetLocalTab(nTab);
     sal_uInt16 nNameIdx = Append( xName );
     // store the index of the NAME record in the lookup map
-    NamedExpMap::key_type key = NamedExpMap::key_type(nTab, rRangeData.GetName());
+    NamedExpMap::key_type key(nTab, rRangeData.GetName());
     maNamedExpMap[key] = nNameIdx;
 
     /*  Create the definition formula.
@@ -628,7 +655,7 @@ sal_uInt16 XclExpNameManagerImpl::CreateName( SCTAB nTab, const ScRangeData& rRa
             cannot be done earlier. If a built-in name is found, the created NAME
             record for this name and all following records in the list must be
             deleted, otherwise they may contain wrong name list indexes. */
-        sal_uInt16 nBuiltInIdx = FindBuiltInNameIdx( rName, *xTokArr );
+        sal_uInt16 nBuiltInIdx = FindBuiltInNameIdx( rName, sSymbol );
         if( nBuiltInIdx != 0 )
         {
             // delete the new NAME records

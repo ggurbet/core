@@ -185,7 +185,7 @@ static OUString getDescription( const Any& rTarget, bool bWithText )
         rTarget >>= aParaTarget;
 
         Reference< XEnumerationAccess > xText( aParaTarget.Shape, UNO_QUERY_THROW );
-        Reference< XEnumeration > xEnumeration( xText->createEnumeration(), UNO_QUERY_THROW );
+        Reference< XEnumeration > xEnumeration( xText->createEnumeration(), css::uno::UNO_SET_THROW );
         sal_Int32 nPara = aParaTarget.Paragraph;
 
         while( xEnumeration->hasMoreElements() && nPara )
@@ -270,7 +270,8 @@ void CustomAnimationListEntryItem::InitViewData( SvTreeListBox* pView, SvTreeLis
     Size aSize( width, pView->GetTextHeight() );
     if( aSize.Height() < nItemMinHeight )
         aSize.setHeight( nItemMinHeight );
-    pViewData->maSize = aSize;
+    pViewData->mnWidth = aSize.Width();
+    pViewData->mnHeight = aSize.Height();
 }
 
 void CustomAnimationListEntryItem::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::RenderContext& rRenderContext,
@@ -280,7 +281,7 @@ void CustomAnimationListEntryItem::Paint(const Point& rPos, SvTreeListBox& rDev,
     const SvViewDataItem* pViewData = mpParent->GetViewDataItem(&rEntry, this);
 
     Point aPos(rPos);
-    Size aSize(pViewData->maSize);
+    int nItemHeight = pViewData->mnHeight;
 
     sal_Int16 nNodeType = mpEffect->getNodeType();
     if (nNodeType == EffectNodeType::ON_CLICK )
@@ -336,12 +337,12 @@ void CustomAnimationListEntryItem::Paint(const Point& rPos, SvTreeListBox& rDev,
     {
         Image aImage(StockImage::Yes, sImage);
         Point aImagePos(aPos);
-        aImagePos.AdjustY((aSize.Height()/2 - aImage.GetSizePixel().Height()) >> 1 );
+        aImagePos.AdjustY((nItemHeight/2 - aImage.GetSizePixel().Height()) >> 1 );
         rRenderContext.DrawImage(aImagePos, aImage);
     }
 
     aPos.AdjustX(nIconWidth );
-    aPos.AdjustY((aSize.Height()/2 - rDev.GetTextHeight()) >> 1 );
+    aPos.AdjustY((nItemHeight/2 - rDev.GetTextHeight()) >> 1 );
 
     rRenderContext.DrawText(aPos, rRenderContext.GetEllipsisString(msEffectName, rDev.GetOutputSizePixel().Width() - aPos.X()));
 }
@@ -400,7 +401,8 @@ void CustomAnimationTriggerEntryItem::InitViewData( SvTreeListBox* pView, SvTree
     Size aSize(pView->GetTextWidth( msDescription ) + 2 * nIconWidth, pView->GetTextHeight() );
     if( aSize.Height() < nIconWidth )
         aSize.setHeight( nIconWidth );
-    pViewData->maSize = aSize;
+    pViewData->mnWidth = aSize.Width();
+    pViewData->mnHeight = aSize.Height();
 }
 
 void CustomAnimationTriggerEntryItem::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::RenderContext& rRenderContext,

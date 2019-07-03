@@ -32,6 +32,7 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <framework/interaction.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include <comphelper/fileurl.hxx>
 #include <comphelper/processfactory.hxx>
@@ -74,7 +75,7 @@ OUString SAL_CALL TypeDetection::queryTypeByURL(const OUString& sURL)
     OUString sType;
 
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     css::util::URL  aURL;
     aURL.Complete = sURL;
@@ -379,7 +380,7 @@ OUString SAL_CALL TypeDetection::queryTypeByDescriptor(css::uno::Sequence< css::
     try
     {
         // SAFE -> ----------------------------------
-        ::osl::ResettableMutexGuard aLock(m_aLock);
+        osl::ClearableMutexGuard aLock(m_aLock);
 
         // parse given URL to split it into e.g. main and jump marks ...
         sURL = stlDescriptor.getUnpackedValueOrDefault(utl::MediaDescriptor::PROP_URL(), OUString());
@@ -420,7 +421,7 @@ OUString SAL_CALL TypeDetection::queryTypeByDescriptor(css::uno::Sequence< css::
         // verify every flat detected (or preselected!) type
         // by calling its registered deep detection service.
         // But break this loop if a type match to the given descriptor
-        // by an URL pattern(!) or if deep detection isn't allowed from
+        // by a URL pattern(!) or if deep detection isn't allowed from
         // outside (bAllowDeep=sal_False) or break the whole detection by
         // throwing an exception if creation of the might needed input
         // stream failed by e.g. an IO exception ...
@@ -448,10 +449,9 @@ OUString SAL_CALL TypeDetection::queryTypeByDescriptor(css::uno::Sequence< css::
     {
         throw;
     }
-    catch(const css::uno::Exception& e)
+    catch(const css::uno::Exception&)
     {
-        SAL_WARN("filter.config", "caught " << e
-                << " while querying type of " << sURL);
+        TOOLS_WARN_EXCEPTION("filter.config", "caught exception while querying type of " << sURL);
         sType.clear();
     }
 
@@ -549,7 +549,7 @@ void TypeDetection::impl_checkResultsAndAddBestFilter(utl::MediaDescriptor& rDes
     try
     {
         // SAFE ->
-        ::osl::ResettableMutexGuard aLock(m_aLock);
+        osl::ClearableMutexGuard aLock(m_aLock);
 
         CacheItem aType = cache.getItem(FilterCache::E_TYPE, sType);
         aType[PROPNAME_PREFERREDFILTER] >>= sFilter;
@@ -644,9 +644,8 @@ bool TypeDetection::impl_getPreselectionForType(
     try
     {
         // SAFE -> --------------------------
-        ::osl::ResettableMutexGuard aLock(m_aLock);
+        osl::MutexGuard aLock(m_aLock);
         aType = TheFilterCache::get().getItem(FilterCache::E_TYPE, sType);
-        aLock.clear();
         // <- SAFE --------------------------
     }
     catch(const css::container::NoSuchElementException&)
@@ -731,7 +730,7 @@ void TypeDetection::impl_getPreselectionForDocumentService(
     try
     {
         // SAFE -> --------------------------
-        ::osl::ResettableMutexGuard aLock(m_aLock);
+        osl::MutexGuard aLock(m_aLock);
 
         // Attention: For executing next lines of code, We must be sure that
         // all filters already loaded :-(
@@ -742,8 +741,6 @@ void TypeDetection::impl_getPreselectionForDocumentService(
         CacheItem lIProps;
         lIProps[PROPNAME_DOCUMENTSERVICE] <<= sPreSelDocumentService;
         lFilters = cache.getMatchingItemsByProps(FilterCache::E_FILTER, lIProps);
-
-        aLock.clear();
         // <- SAFE --------------------------
     }
     catch (const css::container::NoSuchElementException&)
@@ -905,7 +902,7 @@ OUString TypeDetection::impl_detectTypeFlatAndDeep(      utl::MediaDescriptor& r
         try
         {
             // SAFE -> ----------------------------------
-            ::osl::ResettableMutexGuard aLock(m_aLock);
+            osl::ClearableMutexGuard aLock(m_aLock);
             CacheItem aType = TheFilterCache::get().getItem(FilterCache::E_TYPE, sFlatType);
             aLock.clear();
 
@@ -986,9 +983,10 @@ OUString TypeDetection::impl_askDetectService(const OUString&               sDet
     css::uno::Reference< css::uno::XComponentContext >         xContext;
 
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
-    xContext = m_xContext;
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aLock);
+        xContext = m_xContext;
+    }
     // <- SAFE
 
     try
@@ -1017,8 +1015,8 @@ OUString TypeDetection::impl_askDetectService(const OUString&               sDet
         // Don't forget to convert stl descriptor to its uno representation.
 
         /* Attention!
-                You have to use an explicit instance of this uno sequence ...
-                Because its used as an in out parameter. And in case of a temp. used object
+                You have to use an explicit instance of this uno sequence...
+                Because it's used as an in out parameter. And in case of a temp. used object
                 we will run into memory corruptions!
         */
         css::uno::Sequence< css::beans::PropertyValue > lDescriptor;
@@ -1029,7 +1027,7 @@ OUString TypeDetection::impl_askDetectService(const OUString&               sDet
     catch (...)
     {
         // We should ignore errors here.
-        // Thrown exceptions mostly will end in crash recovery ...
+        // Thrown exceptions mostly will end in crash recovery...
         // But might be we find another deep detection service which can detect the same
         // document without a problem .-)
         sDeepType.clear();
@@ -1158,13 +1156,14 @@ bool TypeDetection::impl_validateAndSetTypeOnDescriptor(      utl::MediaDescript
                                                             const OUString&               sType      )
 {
     // SAFE ->
-    ::osl::ResettableMutexGuard aLock(m_aLock);
-    if (TheFilterCache::get().hasItem(FilterCache::E_TYPE, sType))
     {
-        rDescriptor[utl::MediaDescriptor::PROP_TYPENAME()] <<= sType;
-        return true;
+        osl::MutexGuard aLock(m_aLock);
+        if (TheFilterCache::get().hasItem(FilterCache::E_TYPE, sType))
+        {
+            rDescriptor[utl::MediaDescriptor::PROP_TYPENAME()] <<= sType;
+            return true;
+        }
     }
-    aLock.clear();
     // <- SAFE
 
     // remove all related information from the descriptor
@@ -1179,13 +1178,12 @@ bool TypeDetection::impl_validateAndSetFilterOnDescriptor(      utl::MediaDescri
     try
     {
         // SAFE ->
-        ::osl::ResettableMutexGuard aLock(m_aLock);
+        osl::ClearableMutexGuard aLock(m_aLock);
 
         auto & cache = TheFilterCache::get();
         CacheItem aFilter = cache.getItem(FilterCache::E_FILTER, sFilter);
         OUString sType;
         aFilter[PROPNAME_TYPE] >>= sType;
-        CacheItem aType = cache.getItem(FilterCache::E_TYPE, sType);
 
         aLock.clear();
         // <- SAFE

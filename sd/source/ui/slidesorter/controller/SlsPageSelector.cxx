@@ -37,6 +37,7 @@
 #include <ViewShellBase.hxx>
 #include <com/sun/star/drawing/XDrawView.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <tools/debug.hxx>
 #include <memory>
 
 using namespace ::com::sun::star;
@@ -178,7 +179,7 @@ void PageSelector::DeselectPage (
     const bool bUpdateCurrentPage)
 {
     if (rpDescriptor.get()==nullptr
-        || mrSlideSorter.GetView().SetState(rpDescriptor, PageDescriptor::ST_Selected, false))
+        || !mrSlideSorter.GetView().SetState(rpDescriptor, PageDescriptor::ST_Selected, false))
         return;
 
     --mnSelectedPageCount;

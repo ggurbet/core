@@ -53,6 +53,7 @@
 #include <flyfrm.hxx>
 #include <ndtyp.hxx>
 #include <IDocumentDrawModelAccess.hxx>
+#include <svx/AccessibleShapeInfo.hxx>
 #include <svx/ShapeTypeHandler.hxx>
 #include <vcl/svapp.hxx>
 #include <svx/SvxShapeTypes.hxx>
@@ -60,6 +61,8 @@
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/document/XEventBroadcaster.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <comphelper/interfacecontainer2.hxx>
 #include <pagepreviewlayout.hxx>
@@ -167,12 +170,13 @@ void SwDrawModellListener_Impl::Notify( SfxBroadcaster& /*rBC*/,
 {
     // do not broadcast notifications for writer fly frames, because there
     // are no shapes that need to know about them.
-    const SdrHint *pSdrHint = dynamic_cast<const SdrHint*>( &rHint );
-    if ( !pSdrHint ||
-         ( pSdrHint->GetObject() &&
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
+        return;
+    const SdrHint *pSdrHint = static_cast<const SdrHint*>( &rHint );
+    if (pSdrHint->GetObject() &&
            ( dynamic_cast< const SwFlyDrawObj* >(pSdrHint->GetObject()) !=  nullptr ||
               dynamic_cast< const SwVirtFlyDrawObj* >(pSdrHint->GetObject()) !=  nullptr ||
-             typeid(SdrObject) == typeid(pSdrHint->GetObject()) ) ) )
+             typeid(SdrObject) == typeid(pSdrHint->GetObject()) ) )
     {
         return;
     }
@@ -241,7 +245,7 @@ public:
         : maMap()
     {
         maInfo.SetSdrView( pMap->GetShell()->GetDrawView() );
-        maInfo.SetWindow( pMap->GetShell()->GetWin() );
+        maInfo.SetDevice( pMap->GetShell()->GetWin() );
         maInfo.SetViewForwarder( pMap );
         uno::Reference < document::XEventBroadcaster > xModelBroadcaster =
             new SwDrawModellListener_Impl(
@@ -3025,9 +3029,7 @@ Point SwAccessibleMap::LogicToPixel( const Point& rPoint ) const
     MapMode aSrc( MapUnit::Map100thMM );
     MapMode aDest( MapUnit::MapTwip );
 
-    Point aPoint = rPoint;
-
-    aPoint = OutputDevice::LogicToLogic( aPoint, aSrc, aDest );
+    Point aPoint = OutputDevice::LogicToLogic( rPoint, aSrc, aDest );
     vcl::Window *pWin = GetShell()->GetWin();
     if( pWin )
     {

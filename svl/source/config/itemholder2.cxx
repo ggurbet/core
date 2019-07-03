@@ -28,7 +28,6 @@
 
 #include <svl/cjkoptions.hxx>
 #include <svl/ctloptions.hxx>
-#include <svl/languageoptions.hxx>
 #include <tools/diagnose_ex.h>
 #include <unotools/options.hxx>
 
@@ -79,7 +78,7 @@ void SAL_CALL ItemHolder2::disposing(const css::lang::EventObject&)
 
 void ItemHolder2::impl_addItem(EItem eItem)
 {
-    ::osl::ResettableMutexGuard aLock(m_aLock);
+    osl::MutexGuard aLock(m_aLock);
 
     for ( auto const & rInfo : m_lItems )
     {

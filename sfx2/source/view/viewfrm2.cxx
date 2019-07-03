@@ -32,10 +32,12 @@
 #include <sfx2/objitem.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <com/sun/star/util/CloseVetoException.hpp>
 #include <com/sun/star/util/XCloseable.hpp>
+#include <com/sun/star/embed/VerbDescriptor.hpp>
 
 #include <svtools/asynclink.hxx>
 #include <svl/eitem.hxx>
@@ -303,7 +305,7 @@ void SfxViewFrame::GetState_Impl( SfxItemSet &rSet )
                 break;
 
             case SID_OBJECT:
-                if ( GetViewShell() && GetViewShell()->GetVerbs().getLength() && !GetObjectShell()->IsInPlaceActive() )
+                if ( GetViewShell() && GetViewShell()->GetVerbs().hasElements() && !GetObjectShell()->IsInPlaceActive() )
                 {
                     uno::Any aAny(GetViewShell()->GetVerbs());
                     rSet.Put( SfxUnoAnyItem( sal_uInt16( SID_OBJECT ), aAny ) );

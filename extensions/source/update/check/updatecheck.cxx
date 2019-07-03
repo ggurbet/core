@@ -196,8 +196,7 @@ uno::Reference< beans::XPropertySet > createMenuBarUI(
         throw uno::RuntimeException(
             "UpdateCheckJob: unable to obtain service manager from component context", uno::Reference< uno::XInterface > () );
 
-    uno::Reference< beans::XPropertySet > xMenuBarUI =
-        uno::Reference< beans::XPropertySet > (
+    uno::Reference< beans::XPropertySet > xMenuBarUI(
             xServiceManager->createInstanceWithContext( "com.sun.star.setup.UpdateCheckUI", xContext ),
             uno::UNO_QUERY_THROW);
 
@@ -844,9 +843,10 @@ UpdateCheck::download()
         {
             shutdownThread(true);
 
-            osl::ClearableMutexGuard aGuard2(m_aMutex);
-            enableDownload(true);
-            aGuard2.clear();
+            {
+                osl::MutexGuard aGuard2(m_aMutex);
+                enableDownload(true);
+            }
             setUIState(UPDATESTATE_DOWNLOADING);
         }
     }
@@ -1051,7 +1051,7 @@ UpdateCheck::downloadTargetExists(const OUString& rFileName)
 
 bool UpdateCheck::checkDownloadDestination( const OUString& rFileName )
 {
-    osl::ClearableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
 
     rtl::Reference< UpdateHandler > aUpdateHandler( getUpdateHandler() );
 

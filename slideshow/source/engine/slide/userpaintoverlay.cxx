@@ -28,6 +28,7 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <cppcanvas/basegfxfactory.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <activity.hxx>
 #include <slideshowcontext.hxx>
@@ -349,7 +350,7 @@ namespace slideshow
                         // render at given output position
                         pBitmap->move( aOutPosPixel );
 
-                        ::basegfx::B2DPolyPolygon aPolyPoly=::basegfx::B2DPolyPolygon(aPoly);
+                        ::basegfx::B2DPolyPolygon aPolyPoly(aPoly);
                         aViewTransform.translate(-aOutPosPixel.getX(), -aOutPosPixel.getY());
                         aPolyPoly.transform(aViewTransform);
                         // set clip so that we just redraw a part of the canvas
@@ -480,9 +481,9 @@ namespace slideshow
                 mrMultiplexer.removeViewHandler( mpHandler );
                 mpHandler->dispose();
             }
-            catch (const uno::Exception& e)
+            catch (const uno::Exception&)
             {
-                SAL_WARN("slideshow", e);
+                TOOLS_WARN_EXCEPTION("slideshow", "");
             }
         }
     }

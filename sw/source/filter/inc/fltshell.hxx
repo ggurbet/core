@@ -20,11 +20,7 @@
 #define INCLUDED_SW_SOURCE_FILTER_INC_FLTSHELL_HXX
 
 #include <hintids.hxx>
-#include <vcl/keycod.hxx>
 #include <tools/datetime.hxx>
-#include <editeng/formatbreakitem.hxx>
-#include <poolfmt.hxx>
-#include <fmtornt.hxx>
 #include <mdiexp.hxx>
 #include <ndindex.hxx>
 #include <pam.hxx>
@@ -34,7 +30,6 @@
 #include <cstddef>
 #include <limits>
 #include <memory>
-#include <deque>
 
 class SwTOXBase;
 class SwField;
@@ -217,18 +212,18 @@ class SW_DLLPUBLIC SwFltRedline : public SfxPoolItem
 public:
     DateTime const        aStamp;
     DateTime const        aStampPrev;
-    RedlineType_t const   eType;
-    RedlineType_t const   eTypePrev;
+    RedlineType const   eType;
+    RedlineType const   eTypePrev;
     std::size_t const     nAutorNo;
     std::size_t const     nAutorNoPrev;
 
     static constexpr auto NoPrevAuthor
         = std::numeric_limits<std::size_t>::max();
 
-    SwFltRedline(RedlineType_t   eType_,
+    SwFltRedline(RedlineType   eType_,
                  std::size_t     nAutorNo_,
                  const DateTime& rStamp_,
-                 RedlineType_t   eTypePrev_    = nsRedlineType_t::REDLINE_INSERT,
+                 RedlineType   eTypePrev_    = RedlineType::Insert,
                  std::size_t     nAutorNoPrev_ = NoPrevAuthor)
         : SfxPoolItem(RES_FLTR_REDLINE), aStamp(rStamp_),
         aStampPrev( DateTime::EMPTY ),

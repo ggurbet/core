@@ -17,7 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <string.h>
 #include <stdio.h>
 #include <string>
 
@@ -25,8 +24,8 @@
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/calendarwrapper.hxx>
 #include <unotools/digitgroupingiterator.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/debug.hxx>
-#include <tools/solar.h>
 #include <i18nlangtag/languagetag.hxx>
 
 #include <com/sun/star/i18n/KNumberFormatUsage.hpp>
@@ -40,8 +39,6 @@
 #include <comphelper/processfactory.hxx>
 #include <rtl/instance.hxx>
 #include <rtl/ustrbuf.hxx>
-#include <osl/diagnose.h>
-#include <sal/macros.h>
 #include <rtl/math.hxx>
 
 static const sal_uInt16 nCurrFormatInvalid = 0xffff;
@@ -154,9 +151,9 @@ void LocaleDataWrapper::invalidateData()
     xDefaultCalendar.reset();
     xSecondaryCalendar.reset();
     bSecondaryCalendarValid = false;
-    if (aGrouping.getLength())
+    if (aGrouping.hasElements())
         aGrouping[0] = 0;
-    if (aDateAcceptancePatterns.getLength())
+    if (aDateAcceptancePatterns.hasElements())
         aDateAcceptancePatterns = Sequence<OUString>();
 }
 
@@ -168,9 +165,9 @@ css::i18n::LanguageCountryInfo LocaleDataWrapper::getLanguageCountryInfo() const
     {
         return xLD->getLanguageCountryInfo( getMyLocale() );
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "unotools.i18n", "getLanguageCountryInfo: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getLanguageCountryInfo" );
     }
     return css::i18n::LanguageCountryInfo();
 }
@@ -195,9 +192,9 @@ const css::i18n::LocaleDataItem2& LocaleDataWrapper::getLocaleItem() const
         assert(aRet.second);
         return aRet.first->second;
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "unotools.i18n", "getLocaleItem: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getLocaleItem" );
     }
     static css::i18n::LocaleDataItem2 aEmptyItem;
     return aEmptyItem;
@@ -209,9 +206,9 @@ css::uno::Sequence< css::i18n::Currency2 > LocaleDataWrapper::getAllCurrencies()
     {
         return xLD->getAllCurrencies2( getMyLocale() );
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "unotools.i18n", "getAllCurrencies: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getAllCurrencies" );
     }
     return css::uno::Sequence< css::i18n::Currency2 >(0);
 }
@@ -222,9 +219,9 @@ css::uno::Sequence< css::i18n::FormatElement > LocaleDataWrapper::getAllFormats(
     {
         return xLD->getAllFormats( getMyLocale() );
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "unotools.i18n", "getAllFormats: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getAllFormats" );
     }
     return css::uno::Sequence< css::i18n::FormatElement >(0);
 }
@@ -235,9 +232,9 @@ css::i18n::ForbiddenCharacters LocaleDataWrapper::getForbiddenCharacters() const
     {
         return xLD->getForbiddenCharacters( getMyLocale() );
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "unotools.i18n", "getForbiddenCharacters: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getForbiddenCharacters" );
     }
     return css::i18n::ForbiddenCharacters();
 }
@@ -248,9 +245,9 @@ css::uno::Sequence< OUString > LocaleDataWrapper::getReservedWord() const
     {
         return xLD->getReservedWord( getMyLocale() );
     }
-    catch ( const Exception& e )
+    catch ( const Exception& )
     {
-        SAL_WARN( "unotools.i18n", "getReservedWord: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getReservedWord" );
     }
     return css::uno::Sequence< OUString >(0);
 }
@@ -259,16 +256,16 @@ css::uno::Sequence< css::lang::Locale > LocaleDataWrapper::getAllInstalledLocale
 {
     uno::Sequence< lang::Locale > &rInstalledLocales = InstalledLocales::get();
 
-    if ( rInstalledLocales.getLength() )
+    if ( rInstalledLocales.hasElements() )
         return rInstalledLocales;
 
     try
     {
         rInstalledLocales = xLD->getAllInstalledLocaleNames();
     }
-    catch ( const Exception& e )
+    catch ( const Exception& )
     {
-        SAL_WARN( "unotools.i18n", "getAllInstalledLocaleNames: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getAllInstalledLocaleNames" );
     }
     return rInstalledLocales;
 }
@@ -281,7 +278,7 @@ css::uno::Sequence< css::lang::Locale > LocaleDataWrapper::getInstalledLocaleNam
     const uno::Sequence< lang::Locale > &rInstalledLocales =
         InstalledLocales::get();
 
-    if ( !rInstalledLocales.getLength() )
+    if ( !rInstalledLocales.hasElements() )
     {
         LocaleDataWrapper aLDW( ::comphelper::getProcessComponentContext(), LanguageTag( LANGUAGE_SYSTEM) );
         aLDW.getAllInstalledLocaleNames();
@@ -302,9 +299,9 @@ std::vector< LanguageType > LocaleDataWrapper::getInstalledLanguageTypes()
     sal_Int32 nCount = xLoc.getLength();
     std::vector< LanguageType > xLang;
     xLang.reserve(nCount);
-    for ( sal_Int32 i=0; i<nCount; i++ )
+    for ( const auto& rLoc : xLoc )
     {
-        LanguageTag aLanguageTag( xLoc[i] );
+        LanguageTag aLanguageTag( rLoc );
         OUString aDebugLocale;
         if (areChecksEnabled())
         {
@@ -480,21 +477,12 @@ void LocaleDataWrapper::getSecondaryCalendarImpl()
     if (!xSecondaryCalendar && !bSecondaryCalendarValid)
     {
         Sequence< Calendar2 > xCals = getAllCalendars();
-        sal_Int32 nCount = xCals.getLength();
-        if (nCount > 1)
+        if (xCals.getLength() > 1)
         {
-            sal_Int32 nNonDef = -1;
-            const Calendar2* pArr = xCals.getArray();
-            for (sal_Int32 i=0; i<nCount; ++i)
-            {
-                if (!pArr[i].Default)
-                {
-                    nNonDef = i;
-                    break;
-                }
-            }
-            if (nNonDef >= 0)
-                xSecondaryCalendar.reset( new Calendar2( xCals[nNonDef]));
+            auto pCal = std::find_if(xCals.begin(), xCals.end(),
+                [](const Calendar2& rCal) { return !rCal.Default; });
+            if (pCal != xCals.end())
+                xSecondaryCalendar.reset( new Calendar2( *pCal));
         }
         bSecondaryCalendarValid = true;
     }
@@ -535,21 +523,15 @@ void LocaleDataWrapper::getDefaultCalendarImpl()
     if (!xDefaultCalendar)
     {
         Sequence< Calendar2 > xCals = getAllCalendars();
-        sal_Int32 nCount = xCals.getLength();
-        sal_Int32 nDef = 0;
-        if (nCount > 1)
+        auto pCal = xCals.begin();
+        if (xCals.getLength() > 1)
         {
-            const Calendar2* pArr = xCals.getArray();
-            for (sal_Int32 i=0; i<nCount; ++i)
-            {
-                if (pArr[i].Default)
-                {
-                    nDef = i;
-                    break;
-                }
-            }
+            pCal = std::find_if(xCals.begin(), xCals.end(),
+                [](const Calendar2& rCal) { return rCal.Default; });
+            if (pCal == xCals.end())
+                pCal = xCals.begin();
         }
-        xDefaultCalendar.reset( new Calendar2( xCals[nDef]));
+        xDefaultCalendar.reset( new Calendar2( *pCal));
     }
 }
 
@@ -634,35 +616,29 @@ sal_uInt16 LocaleDataWrapper::getCurrDigits() const
 void LocaleDataWrapper::getCurrSymbolsImpl()
 {
     Sequence< Currency2 > aCurrSeq = getAllCurrencies();
-    sal_Int32 nCnt = aCurrSeq.getLength();
-    Currency2 const * const pCurrArr = aCurrSeq.getArray();
-    sal_Int32 nElem;
-    for ( nElem = 0; nElem < nCnt; nElem++ )
+    if ( !aCurrSeq.hasElements() )
     {
-        if ( pCurrArr[nElem].Default )
-            break;
+        if (areChecksEnabled())
+            outputCheckMessage(OUString("LocaleDataWrapper::getCurrSymbolsImpl: no currency at all, using ShellsAndPebbles"));
+        aCurrSymbol = "ShellsAndPebbles";
+        aCurrBankSymbol = aCurrSymbol;
+        nCurrPositiveFormat = nCurrNegativeFormat = nCurrFormatDefault;
+        nCurrDigits = 2;
+        return;
     }
-    if ( nElem >= nCnt )
+    auto pCurr = std::find_if(aCurrSeq.begin(), aCurrSeq.end(),
+        [](const Currency2& rCurr) { return rCurr.Default; });
+    if ( pCurr == aCurrSeq.end() )
     {
         if (areChecksEnabled())
         {
             outputCheckMessage( appendLocaleInfo( "LocaleDataWrapper::getCurrSymbolsImpl: no default currency" ) );
         }
-        nElem = 0;
-        if ( nElem >= nCnt )
-        {
-            if (areChecksEnabled())
-                outputCheckMessage(OUString("LocaleDataWrapper::getCurrSymbolsImpl: no currency at all, using ShellsAndPebbles"));
-            aCurrSymbol = "ShellsAndPebbles";
-            aCurrBankSymbol = aCurrSymbol;
-            nCurrPositiveFormat = nCurrNegativeFormat = nCurrFormatDefault;
-            nCurrDigits = 2;
-            return;
-        }
+        pCurr = aCurrSeq.begin();
     }
-    aCurrSymbol = pCurrArr[nElem].Symbol;
-    aCurrBankSymbol = pCurrArr[nElem].BankSymbol;
-    nCurrDigits = pCurrArr[nElem].DecimalPlaces;
+    aCurrSymbol = pCurr->Symbol;
+    aCurrBankSymbol = pCurr->BankSymbol;
+    nCurrDigits = pCurr->DecimalPlaces;
 }
 
 void LocaleDataWrapper::scanCurrFormatImpl( const OUString& rCode,
@@ -1002,9 +978,9 @@ void LocaleDataWrapper::getDateOrdersImpl()
     // find the edit (21), a default (medium preferred),
     // a medium (default preferred), and a long (default preferred)
     NumberFormatCode const * const pFormatArr = aFormatSeq.getArray();
-    sal_Int32 nElem, nEdit, nDef, nMedium, nLong;
+    sal_Int32 nEdit, nDef, nMedium, nLong;
     nEdit = nDef = nMedium = nLong = -1;
-    for ( nElem = 0; nElem < nCnt; nElem++ )
+    for ( sal_Int32 nElem = 0; nElem < nCnt; nElem++ )
     {
         if ( nEdit == -1 && pFormatArr[nElem].Index == NumberFormatIndex::DATE_SYS_DDMMYYYY )
             nEdit = nElem;
@@ -1080,7 +1056,7 @@ void LocaleDataWrapper::getDigitGroupingImpl()
      * sequence. Needed additional API and a locale data element.
      */
 
-    if (!aGrouping.getLength())
+    if (!aGrouping.hasElements())
     {
         aGrouping.realloc(3);   // room for {3,2,0}
         aGrouping[0] = 0;       // invalidate
@@ -1106,7 +1082,7 @@ void LocaleDataWrapper::getDigitGroupingImpl()
 const css::uno::Sequence< sal_Int32 > LocaleDataWrapper::getDigitGrouping() const
 {
     ::utl::ReadWriteGuard aGuard( aMutex );
-    if (!aGrouping.getLength() || aGrouping[0] == 0)
+    if (!aGrouping.hasElements() || aGrouping[0] == 0)
     {   // no cached content
         aGuard.changeReadToWrite();
         const_cast<LocaleDataWrapper*>(this)->getDigitGroupingImpl();
@@ -1776,9 +1752,9 @@ css::uno::Sequence< css::i18n::Calendar2 > LocaleDataWrapper::getAllCalendars() 
     {
         return xLD->getAllCalendars2( getMyLocale() );
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "unotools.i18n", "getAllCalendars: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getAllCalendars" );
     }
     return css::uno::Sequence< css::i18n::Calendar2 >(0);
 }
@@ -1789,7 +1765,7 @@ css::uno::Sequence< OUString > LocaleDataWrapper::getDateAcceptancePatterns() co
 {
     ::utl::ReadWriteGuard aGuard( aMutex );
 
-    if (aDateAcceptancePatterns.getLength())
+    if (aDateAcceptancePatterns.hasElements())
         return aDateAcceptancePatterns;
 
     aGuard.changeReadToWrite();
@@ -1800,9 +1776,9 @@ css::uno::Sequence< OUString > LocaleDataWrapper::getDateAcceptancePatterns() co
             xLD->getDateAcceptancePatterns( getMyLocale() );
         return aDateAcceptancePatterns;
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN( "unotools.i18n", "getDateAcceptancePatterns: Exception caught " << e );
+        TOOLS_WARN_EXCEPTION( "unotools.i18n", "getDateAcceptancePatterns" );
     }
     return css::uno::Sequence< OUString >(0);
 }
@@ -1814,19 +1790,19 @@ void LocaleDataWrapper::setDateAcceptancePatterns(
 {
     ::utl::ReadWriteGuard aGuard( aMutex, ReadWriteGuardMode::Write );
 
-    if (!aDateAcceptancePatterns.getLength() || !rPatterns.getLength())
+    if (!aDateAcceptancePatterns.hasElements() || !rPatterns.hasElements())
     {
         try
         {
             aDateAcceptancePatterns = xLD->getDateAcceptancePatterns( getMyLocale() );
         }
-        catch (const Exception& e)
+        catch (const Exception&)
         {
-            SAL_WARN( "unotools.i18n", "setDateAcceptancePatterns: Exception caught " << e );
+            TOOLS_WARN_EXCEPTION( "unotools.i18n", "setDateAcceptancePatterns" );
         }
-        if (!rPatterns.getLength())
+        if (!rPatterns.hasElements())
             return;     // just a reset
-        if (!aDateAcceptancePatterns.getLength())
+        if (!aDateAcceptancePatterns.hasElements())
         {
             aDateAcceptancePatterns = rPatterns;
             return;
@@ -1841,11 +1817,8 @@ void LocaleDataWrapper::setDateAcceptancePatterns(
         // Copy existing full date pattern and append the sequence passed.
         /* TODO: could check for duplicates and shrink target sequence */
         Sequence< OUString > aTmp( rPatterns.getLength() + 1 );
-        OUString* pArray1 = aTmp.getArray();
-        const OUString* pArray2 = rPatterns.getConstArray();
-        pArray1[0] = aDateAcceptancePatterns[0];
-        for (sal_Int32 i=0; i < rPatterns.getLength(); ++i)
-            pArray1[i+1] = pArray2[i];
+        aTmp[0] = aDateAcceptancePatterns[0];
+        std::copy(rPatterns.begin(), rPatterns.end(), std::next(aTmp.begin()));
         aDateAcceptancePatterns = aTmp;
     }
 }

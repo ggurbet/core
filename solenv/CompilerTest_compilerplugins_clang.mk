@@ -34,6 +34,7 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/finalprotected \
     compilerplugins/clang/test/flatten \
     compilerplugins/clang/test/indentation \
+    compilerplugins/clang/test/logexceptionnicely \
     compilerplugins/clang/test/loopvartoosmall \
     compilerplugins/clang/test/oncevar \
     compilerplugins/clang/test/oslendian-1 \
@@ -51,6 +52,8 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/salcall \
     compilerplugins/clang/test/sallogareas \
     compilerplugins/clang/test/salunicodeliteral \
+    compilerplugins/clang/test/selfinit \
+    compilerplugins/clang/test/sequentialassign \
     compilerplugins/clang/test/shouldreturnbool \
     compilerplugins/clang/test/simplifybool \
     compilerplugins/clang/test/simplifyconstruct \
@@ -68,6 +71,7 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/unnecessaryoverride-dtor \
     compilerplugins/clang/test/unnecessaryparen \
     compilerplugins/clang/test/unoany \
+    compilerplugins/clang/test/unoquery \
     compilerplugins/clang/test/unreffun \
     compilerplugins/clang/test/unusedindex \
     compilerplugins/clang/test/unusedenumconstants \
@@ -76,6 +80,7 @@ $(eval $(call gb_CompilerTest_add_exception_objects,compilerplugins_clang, \
     compilerplugins/clang/test/unusedvariablemore \
     compilerplugins/clang/test/useuniqueptr \
     compilerplugins/clang/test/vclwidgets \
+    compilerplugins/clang/test/weakbase \
     compilerplugins/clang/test/writeonlyvars \
 ))
 

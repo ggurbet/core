@@ -28,19 +28,18 @@
 #include <i18nlangtag/mslangid.hxx>
 #include <editeng/numitem.hxx>
 #include <svl/eitem.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/svapp.hxx>
 #include <svx/colorbox.hxx>
 #include <svx/strarray.hxx>
 #include <svx/gallery.hxx>
+#include <svx/ucsubset.hxx>
 #include <svl/urihelper.hxx>
 #include <editeng/brushitem.hxx>
 #include <svl/intitem.hxx>
 #include <sfx2/objsh.hxx>
 #include <vcl/graph.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
-#include <cuicharmap.hxx>
+#include <cui/cuicharmap.hxx>
 #include <editeng/flstitem.hxx>
 #include <svx/dlgutil.hxx>
 #include <svx/xtable.hxx>
@@ -49,6 +48,7 @@
 #include <sfx2/htmlmode.hxx>
 #include <unotools/pathoptions.hxx>
 #include <svtools/ctrltool.hxx>
+#include <svtools/unitconv.hxx>
 #include <editeng/unolingu.hxx>
 #include <com/sun/star/style/NumberingType.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
@@ -60,6 +60,7 @@
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/text/XNumberingTypeInfo.hpp>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 
 #include <algorithm>
 #include <memory>
@@ -1950,7 +1951,7 @@ IMPL_LINK_NOARG(SvxNumOptionsTabPage, PopupActivateHdl_Impl, weld::ToggleButton&
 
 IMPL_LINK_NOARG(SvxNumOptionsTabPage, BulletHdl_Impl, weld::Button&, void)
 {
-    SvxCharacterMap aMap(GetDialogFrameWeld(), nullptr, false);
+    SvxCharacterMap aMap(GetDialogFrameWeld(), nullptr, nullptr);
 
     sal_uInt16 nMask = 1;
     const vcl::Font* pFmtFont = nullptr;

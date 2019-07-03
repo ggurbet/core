@@ -10,7 +10,6 @@
 #ifndef INCLUDED_SFX2_TEMPLATELOCALVIEW_HXX
 #define INCLUDED_SFX2_TEMPLATELOCALVIEW_HXX
 
-#include <vcl/menu.hxx>
 #include <sfx2/thumbnailview.hxx>
 #include <sfx2/templateproperties.hxx>
 #include <functional>
@@ -34,13 +33,6 @@
 class SfxDocumentTemplates;
 class TemplateContainerItem;
 class TemplateViewItem;
-class PopupMenu;
-
-namespace com {
-    namespace sun { namespace star { namespace frame {
-        class XModel;
-    }   }   }
-}
 
 enum class FILTER_APPLICATION
 {
@@ -94,11 +86,84 @@ public:
 
     void showRegion (TemplateContainerItem const *pItem);
 
+    DECL_LINK(ContextMenuSelectHdl, Menu*, bool);
+
+    virtual bool renameItem(ThumbnailViewItem* pItem, const OUString& sNewTitle) override;
+
+    virtual void MouseButtonDown( const MouseEvent& rMEvt ) override;
+
+    virtual void RequestHelp( const HelpEvent& rHEvt ) override;
+
+    virtual void Command( const CommandEvent& rCEvt ) override;
+
+    virtual void KeyInput( const KeyEvent& rKEvt ) override;
+
+    void setCreateContextMenuHdl(const Link<ThumbnailViewItem*,void> &rLink);
+
+    void setOpenTemplateHdl(const Link<ThumbnailViewItem*,void> &rLink);
+
+    void setEditTemplateHdl(const Link<ThumbnailViewItem*,void> &rLink);
+
+    void updateThumbnailDimensions(long itemMaxSize);
+
+    static BitmapEx scaleImg (const BitmapEx &rImg, long width, long height);
+
+    static BitmapEx getDefaultThumbnail( const OUString& rPath );
+
+    static BitmapEx fetchThumbnail (const OUString &msURL, long width, long height);
+
+    static bool IsDefaultTemplate(const OUString& rPath);
+
+protected:
+    virtual void OnItemDblClicked(ThumbnailViewItem *pItem) override;
+
+protected:
+    sal_uInt16 mnCurRegionId;
+
+    TemplateViewItem *maSelectedItem;
+
+    long mnThumbnailWidth;
+    long mnThumbnailHeight;
+
+    Point maPosition; //store the point of click event
+
+    Link<ThumbnailViewItem*,void> maCreateContextMenuHdl;
+    Link<ThumbnailViewItem*,void> maOpenTemplateHdl;
+    Link<ThumbnailViewItem*,void> maEditTemplateHdl;
+
+    std::unique_ptr<SfxDocumentTemplates> mpDocTemplates;
+    std::vector<std::unique_ptr<TemplateContainerItem> > maRegions;
+    std::vector<TemplateItemProperties > maAllTemplates;
+};
+
+class SFX2_DLLPUBLIC SfxTemplateLocalView : public SfxThumbnailView
+{
+    typedef bool (*selection_cmp_fn)(const ThumbnailViewItem*,const ThumbnailViewItem*);
+
+public:
+
+    SfxTemplateLocalView(std::unique_ptr<weld::ScrolledWindow> xWindow,
+                         std::unique_ptr<weld::Menu> xMenu);
+
+    virtual ~SfxTemplateLocalView () override;
+
+    // Fill view with new item list
+    void insertItems (const std::vector<TemplateItemProperties> &rTemplates, bool isRegionSelected = true, bool bShowCategoryInTooltip = false);
+
+    // Fill view with template folders thumbnails
+    void Populate ();
+
+    void reload ();
+
+    void showAllTemplates ();
+
+    void showRegion (TemplateContainerItem const *pItem);
+
     void showRegion (const OUString &rName);
 
     void createContextMenu(const bool bIsDefault );
 
-    DECL_LINK(ContextMenuSelectHdl, Menu*, bool);
+    void ContextMenuSelectHdl(const OString& rIdent);
 
     TemplateContainerItem* getRegion(OUString const & sStr);
 
@@ -134,13 +199,11 @@ public:
 
     virtual bool renameItem(ThumbnailViewItem* pItem, const OUString& sNewTitle) override;
 
-    virtual void MouseButtonDown( const MouseEvent& rMEvt ) override;
+    virtual bool MouseButtonDown( const MouseEvent& rMEvt ) override;
 
-    virtual void RequestHelp( const HelpEvent& rHEvt ) override;
+    virtual bool ContextMenu(const CommandEvent& rPos) override;
 
-    virtual void Command( const CommandEvent& rCEvt ) override;
-
-    virtual void KeyInput( const KeyEvent& rKEvt ) override;
+    virtual bool KeyInput( const KeyEvent& rKEvt ) override;
 
     sal_uInt16 getCurRegionId () const { return mnCurRegionId;}
 
@@ -155,8 +218,6 @@ public:
     void setDeleteTemplateHdl(const Link<ThumbnailViewItem*,void> &rLink);
 
     void setDefaultTemplateHdl(const Link<ThumbnailViewItem*,void> &rLink);
-
-    void updateThumbnailDimensions(long itemMaxSize);
 
     void RemoveDefaultTemplateIcon( const OUString& rPath);
 
@@ -176,9 +237,6 @@ protected:
 
     TemplateViewItem *maSelectedItem;
 
-    long mnThumbnailWidth;
-    long mnThumbnailHeight;
-
     Point maPosition; //store the point of click event
 
     Link<void*,void>              maOpenRegionHdl;
@@ -192,6 +250,7 @@ protected:
     std::vector<std::unique_ptr<TemplateContainerItem> > maRegions;
     std::vector<TemplateItemProperties > maAllTemplates;
 };
+
 
 #endif // INCLUDED_SFX2_TEMPLATELOCALVIEW_HXX
 

@@ -123,15 +123,12 @@ JPEGWriter::JPEGWriter( SvStream& rStream, const css::uno::Sequence< css::beans:
 
     if ( pFilterData )
     {
-        int nArgs = pFilterData->getLength();
-        const css::beans::PropertyValue* pValues = pFilterData->getConstArray();
-        while( nArgs-- )
+        for( const auto& rValue : *pFilterData )
         {
-            if ( pValues->Name == "StatusIndicator" )
+            if ( rValue.Name == "StatusIndicator" )
             {
-                pValues->Value >>= mxStatusIndicator;
+                rValue.Value >>= mxStatusIndicator;
             }
-            pValues++;
         }
     }
 }
@@ -230,7 +227,10 @@ bool JPEGWriter::Write( const Graphic& rGraphic )
         if( mpExpWasGrey )
             *mpExpWasGrey = mbGreys;
 
-        mbNative = ( mpReadAccess->GetScanlineFormat() == ScanlineFormat::N24BitTcRgb );
+        if ( mbGreys )
+            mbNative = ( mpReadAccess->GetScanlineFormat() == ScanlineFormat::N8BitPal && aGraphicBmp.HasGreyPalette());
+        else
+            mbNative = ( mpReadAccess->GetScanlineFormat() == ScanlineFormat::N24BitTcRgb );
 
         if( !mbNative )
             mpBuffer = new sal_uInt8[ AlignedWidth4Bytes( mbGreys ? mpReadAccess->Width() * 8L : mpReadAccess->Width() * 24L ) ];

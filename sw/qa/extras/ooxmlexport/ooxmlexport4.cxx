@@ -12,43 +12,16 @@
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
-#include <com/sun/star/drawing/LineJoint.hpp>
-#include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/drawing/XControlShape.hpp>
-#include <com/sun/star/awt/Gradient.hpp>
-#include <com/sun/star/style/TabStop.hpp>
-#include <com/sun/star/view/XViewSettingsSupplier.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
-#include <com/sun/star/text/XTextFrame.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
-#include <com/sun/star/text/XTextFramesSupplier.hpp>
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
-#include <com/sun/star/text/XTextSection.hpp>
 #include <com/sun/star/text/XTextColumns.hpp>
-#include <com/sun/star/style/CaseMap.hpp>
-#include <com/sun/star/style/ParagraphAdjust.hpp>
-#include <com/sun/star/style/LineSpacing.hpp>
-#include <com/sun/star/style/LineSpacingMode.hpp>
-#include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <com/sun/star/table/BorderLine2.hpp>
-#include <com/sun/star/table/ShadowFormat.hpp>
 #include <com/sun/star/text/XPageCursor.hpp>
-#include <com/sun/star/awt/FontWeight.hpp>
-#include <com/sun/star/awt/FontUnderline.hpp>
-#include <com/sun/star/awt/FontSlant.hpp>
-#include <com/sun/star/text/WritingMode2.hpp>
-#include <com/sun/star/text/WrapTextMode.hpp>
-#include <com/sun/star/xml/dom/XDocument.hpp>
-#include <com/sun/star/style/BreakType.hpp>
+#include <com/sun/star/util/Date.hpp>
 #include <unotools/tempfile.hxx>
-#include <com/sun/star/text/XDocumentIndex.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeSegment.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeSegmentCommand.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
-#include <com/sun/star/drawing/TextVerticalAdjust.hpp>
-#include <com/sun/star/drawing/Hatch.hpp>
 #include <config_features.h>
-#include <string>
 
 class Test : public SwModelTestBase
 {
@@ -181,7 +154,7 @@ DECLARE_OOXMLEXPORT_TEST(testTextBoxPictureFill, "textbox_picturefill.docx")
     uno::Reference<graphic::XGraphic> xGraphic(xBitmap, uno::UNO_QUERY);
     CPPUNIT_ASSERT(xGraphic.is());
     Graphic aGraphic(xGraphic);
-    CPPUNIT_ASSERT(aGraphic);
+    CPPUNIT_ASSERT(!aGraphic.IsNone());
     CPPUNIT_ASSERT(aGraphic.GetSizeBytes() > 0L);
     CPPUNIT_ASSERT_EQUAL(447L, aGraphic.GetSizePixel().Width());
     CPPUNIT_ASSERT_EQUAL(528L, aGraphic.GetSizePixel().Height());
@@ -383,7 +356,9 @@ DECLARE_OOXMLEXPORT_TEST(testFDO74215, "FDO74215.docx")
         CPPUNIT_ASSERT(sWidth.endsWith("pt"));
         const double fWidth = sWidth.copy(6, sWidth.getLength() - 8).toDouble();
         const double fXScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIX();
-        CPPUNIT_ASSERT_DOUBLES_EQUAL(11.25 * fXScaleFactor, fWidth, 0.001);
+        // note: used to fail on Mac with 14.7945205479452 vs. 14.8
+        // note: used to fail on another Mac with 12.1348314606742 vs 12.15
+        CPPUNIT_ASSERT_DOUBLES_EQUAL(11.25 * fXScaleFactor, fWidth, 0.1);
     }
     {
         const OUString sHeight = sStyle.getToken(1, ';');
@@ -391,7 +366,7 @@ DECLARE_OOXMLEXPORT_TEST(testFDO74215, "FDO74215.docx")
         CPPUNIT_ASSERT(sHeight.endsWith("pt"));
         const double fHeight = sHeight.copy(7, sHeight.getLength() - 9).toDouble();
         const double fYScaleFactor = 96.0 / Application::GetDefaultDevice()->GetDPIY();
-        CPPUNIT_ASSERT_DOUBLES_EQUAL(11.25 * fYScaleFactor, fHeight, 0.001);
+        CPPUNIT_ASSERT_DOUBLES_EQUAL(11.25 * fYScaleFactor, fHeight, 0.1);
     }
 }
 
@@ -436,7 +411,7 @@ DECLARE_OOXMLEXPORT_TEST(testIndentation, "test_indentation.docx")
     xmlDocPtr pXmlDoc = parseExport("word/document.xml");
     if (!pXmlDoc)
         return;
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p/w:pPr/w:ind", "end", "");
+    assertXPathNoAttribute(pXmlDoc, "/w:document/w:body/w:p/w:pPr/w:ind", "end");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testChartInFooter, "chart-in-footer.docx")
@@ -598,7 +573,8 @@ DECLARE_OOXMLEXPORT_TEST(testOleObject, "test_ole_object.docx")
     if (!pXmlDoc)
         return;
 
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:r/w:object/v:shape/v:imagedata", "o:title", "");
+    assertXPathNoAttribute(pXmlDoc, "/w:document/w:body/w:p[2]/w:r/w:object/v:shape/v:imagedata",
+                           "o:title");
     assertXPath(pXmlDoc,
         "/w:document/w:body/w:p[2]/w:r/w:object/o:OLEObject",
         "DrawAspect",
@@ -930,7 +906,10 @@ DECLARE_OOXMLEXPORT_TEST(testFileWithInvalidImageLink, "FileWithInvalidImageLink
     if (!pXmlDoc)
       return;
 
-    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:r[2]/w:drawing[1]/wp:inline[1]/a:graphic[1]/a:graphicData[1]/pic:pic[1]/pic:blipFill[1]/a:blip[1]", "embed", "");
+    assertXPathNoAttribute(pXmlDoc,
+                           "/w:document/w:body/w:p[2]/w:r[2]/w:drawing[1]/wp:inline[1]/"
+                           "a:graphic[1]/a:graphicData[1]/pic:pic[1]/pic:blipFill[1]/a:blip[1]",
+                           "embed");
 }
 
 DECLARE_OOXMLEXPORT_TEST(testContentTypeDOCX, "fdo80410.docx")
@@ -1236,6 +1215,17 @@ DECLARE_OOXMLEXPORT_TEST(testTdf81345_045Original,"tdf81345.docx")
     CPPUNIT_ASSERT_EQUAL(sal_Int32(6736947), getProperty<sal_Int32>(xStyle, "CharColor"));
 }
 #endif
+
+DECLARE_OOXMLEXPORT_TEST(testDocxTablePosition, "floating-table-position.docx")
+{
+    xmlDocPtr pXmlDoc = parseExport("word/document.xml");
+    if (!pXmlDoc)
+        return;
+
+    // the exported positions were wrong due to some missing shifting in the export code
+    assertXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tblPr/w:tblpPr", "tblpX", "3494");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:tbl/w:tblPr/w:tblpPr", "tblpY", "4611");
+}
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

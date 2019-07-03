@@ -26,6 +26,7 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objface.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <editeng/sizeitem.hxx>
 #include <editeng/protitem.hxx>
 #include <sfx2/request.hxx>
@@ -38,6 +39,7 @@
 #include <svx/sdgtritm.hxx>
 #include <svx/sdginitm.hxx>
 #include <svx/sdgmoitm.hxx>
+#include <svx/svdview.hxx>
 #include <editeng/brushitem.hxx>
 #include <svx/grfflt.hxx>
 #include <svx/compressgraphicdialog.hxx>
@@ -65,7 +67,7 @@
 #include <svx/graphichelper.hxx>
 #include <doc.hxx>
 #include <IDocumentDrawModelAccess.hxx>
-//#include <svx/svxids.hrc>
+#include <svx/svxids.hrc>
 #include <svx/drawitem.hxx>
 #define ShellClass_SwGrfShell
 

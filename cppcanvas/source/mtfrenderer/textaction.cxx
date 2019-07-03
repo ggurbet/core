@@ -155,7 +155,7 @@ namespace cppcanvas
 
             void initLayoutWidth(double& rLayoutWidth, const uno::Sequence<double>& rOffsets)
             {
-                ENSURE_OR_THROW(rOffsets.getLength(),
+                ENSURE_OR_THROW(rOffsets.hasElements(),
                                   "::cppcanvas::internal::initLayoutWidth(): zero-length array" );
                 rLayoutWidth = *(std::max_element(rOffsets.begin(), rOffsets.end()));
             }
@@ -236,7 +236,7 @@ namespace cppcanvas
                                   const OutDevState&                        rState,
                                   const ::basegfx::B2DHomMatrix*            pTextTransform )
             {
-                ENSURE_OR_THROW( rOffsets.getLength(),
+                ENSURE_OR_THROW( rOffsets.hasElements(),
                                   "::cppcanvas::internal::initArrayAction(): zero-length DX array" );
 
                 const ::basegfx::B2DPoint aLocalStartPoint(
@@ -394,7 +394,7 @@ namespace cppcanvas
                     rOrigTextLayout->getFont()->createTextLayout( aContext,
                                                                   rOrigTextLayout->getMainTextDirection(),
                                                                   0 ),
-                    uno::UNO_QUERY_THROW );
+                    uno::UNO_SET_THROW );
 
                 return xTextLayout;
             }
@@ -2027,9 +2027,7 @@ namespace cppcanvas
 
                 for( const auto& rVCLPolyPolygon : aVCLPolyPolyVector )
                 {
-                    ::basegfx::B2DPolyPolygon aPolyPolygon;
-
-                    aPolyPolygon = rVCLPolyPolygon.getB2DPolyPolygon();
+                    ::basegfx::B2DPolyPolygon aPolyPolygon = rVCLPolyPolygon.getB2DPolyPolygon();
                     aPolyPolygon.transform( aMapModeTransform );
 
                     // append result to collecting polypoly

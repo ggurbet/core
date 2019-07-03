@@ -30,6 +30,7 @@
 #include <svl/srchitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/scriptspaceitem.hxx>
+#include <tools/debug.hxx>
 
 #include <unotools/configmgr.hxx>
 #include <unotools/useroptions.hxx>
@@ -76,6 +77,7 @@
 #include <sdundogr.hxx>
 #include <undopage.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <unokywds.hxx>
 
 namespace com { namespace sun { namespace star { namespace linguistic2 { class XHyphenator; } } } }

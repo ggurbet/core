@@ -36,7 +36,7 @@ namespace framework{
 /**
     @short  holds all necessary information about a job and
             handle it's configuration (if any exist!)
-    @descr  It can be used rom different use cases as a container
+    @descr  It can be used from different use cases as a container
             (or proxy) for all config data of a registered job.
             But it doesn't implement any execute functionality!
  */
@@ -113,7 +113,7 @@ class JobData final
                 - as a configured job
                 - as a job without any configuration
             First mode is triggered by an alias, which points to the
-            configuration entries. Second mode is specified by an uno service
+            configuration entries. Second mode is specified by a uno service
             or implementation name. Then we do the same things (use the same interfaces)
             but don't handle any configuration data.
             The effect: This mode can be detected by this member.
@@ -151,9 +151,9 @@ class JobData final
             a job can be registered for an event.
             It can be an empty value! But it will be set from outside any times.
             Because it's not clear which job this instance should represent if an event
-            (instaed of an alias) comes in. Because there can be multiple registrations
+            (instead of an alias) comes in. Because there can be multiple registrations
             for this event. We use this information only, to merge it with the job specific
-            arguments. A job can be called so, with a) it's onw config data and b) some dynamic
+            arguments. A job can be called so, with a) its own config data and b) some dynamic
             environment data.
          */
         OUString m_sEvent;

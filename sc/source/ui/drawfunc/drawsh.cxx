@@ -29,6 +29,7 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/whiter.hxx>
 
 #include <drawsh.hxx>
@@ -89,6 +90,20 @@ static void lcl_setModified( const SfxObjectShell*  pShell )
         if ( xModif.is() )
             xModif->setModified( true );
     }
+}
+
+static void lcl_invalidateTransformAttr(const ScTabViewShell* pViewShell)
+{
+    SfxBindings& rBindings=pViewShell->GetViewFrame()->GetBindings();
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_WIDTH);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_HEIGHT);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_POS_X);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_POS_Y);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_ANGLE);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_ROT_X);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_ROT_Y);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_AUTOWIDTH);
+    rBindings.Invalidate(SID_ATTR_TRANSFORM_AUTOHEIGHT);
 }
 
 void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
@@ -238,7 +253,6 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
             break;
 
         case SID_ATTR_TRANSFORM:
-        {
             {
                 if ( pView->AreObjectsMarked() )
                 {
@@ -249,6 +263,9 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
                         if( rMarkList.GetMark(0) != nullptr )
                         {
                             SdrObject* pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
+                            std::shared_ptr<SfxRequest> pRequest;
+                            pRequest.reset(new SfxRequest(rReq));
+
                             if( pObj->GetObjIdentifier() == OBJ_CAPTION )
                             {
                                 // Caption Itemset
@@ -258,7 +275,7 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
                                 SfxItemSet aNewGeoAttr(pView->GetGeoAttrFromMarked());
 
                                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                                ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateCaptionDialog(pWin ? pWin->GetFrameWeld() : nullptr, pView));
+                                VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateCaptionDialog(pWin ? pWin->GetFrameWeld() : nullptr, pView));
 
                                 const sal_uInt16* pRange = pDlg->GetInputRanges( *aNewAttr.GetPool() );
                                 SfxItemSet aCombSet( *aNewAttr.GetPool(), pRange );
@@ -266,23 +283,34 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
                                 aCombSet.Put( aNewGeoAttr );
                                 pDlg->SetInputSet( &aCombSet );
 
-                                if (pDlg->Execute() == RET_OK)
-                                {
-                                    rReq.Done(*(pDlg->GetOutputItemSet()));
-                                    pView->SetAttributes(*pDlg->GetOutputItemSet());
-                                    pView->SetGeoAttrToMarked(*pDlg->GetOutputItemSet());
-                                }
+                                pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                                    if (nResult == RET_OK)
+                                    {
+                                        pRequest->Done(*(pDlg->GetOutputItemSet()));
+                                        pView->SetAttributes(*pDlg->GetOutputItemSet());
+                                        pView->SetGeoAttrToMarked(*pDlg->GetOutputItemSet());
+                                    }
+
+                                    lcl_invalidateTransformAttr(pViewData->GetViewShell());
+                                    pDlg->disposeOnce();
+                                });
                             }
                             else
                             {
                                 SfxItemSet aNewAttr(pView->GetGeoAttrFromMarked());
                                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                                ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxTransformTabDialog(pWin ? pWin->GetFrameWeld() : nullptr, &aNewAttr, pView));
-                                if (pDlg->Execute() == RET_OK)
-                                {
-                                    rReq.Done(*(pDlg->GetOutputItemSet()));
-                                    pView->SetGeoAttrToMarked(*pDlg->GetOutputItemSet());
-                                }
+                                VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxTransformTabDialog(pWin ? pWin->GetFrameWeld() : nullptr, &aNewAttr, pView));
+
+                                pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                                    if (nResult == RET_OK)
+                                    {
+                                        pRequest->Done(*(pDlg->GetOutputItemSet()));
+                                        pView->SetGeoAttrToMarked(*pDlg->GetOutputItemSet());
+                                    }
+
+                                    lcl_invalidateTransformAttr(pViewData->GetViewShell());
+                                    pDlg->disposeOnce();
+                                });
                             }
                         }
 
@@ -290,21 +318,10 @@ void ScDrawShell::ExecDrawAttr( SfxRequest& rReq )
                     else
                         pView->SetGeoAttrToMarked( *pArgs );
                 }
-            }
 
-            ScTabViewShell* pViewShell = pViewData->GetViewShell();
-            SfxBindings& rBindings=pViewShell->GetViewFrame()->GetBindings();
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_WIDTH);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_HEIGHT);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_POS_X);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_POS_Y);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_ANGLE);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_ROT_X);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_ROT_Y);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_AUTOWIDTH);
-            rBindings.Invalidate(SID_ATTR_TRANSFORM_AUTOHEIGHT);
+                lcl_invalidateTransformAttr(pViewData->GetViewShell());
+            }
             break;
-        }
 
         default:
             break;
@@ -372,6 +389,9 @@ void ScDrawShell::ExecuteLineDlg( SfxRequest& rReq )
     const SdrObject*    pObj        = nullptr;
     const SdrMarkList&  rMarkList   = pView->GetMarkedObjectList();
 
+    std::shared_ptr<SfxRequest> pRequest;
+    pRequest.reset(new SfxRequest(rReq));
+
     if( rMarkList.GetMarkCount() == 1 )
         pObj = rMarkList.GetMark(0)->GetMarkedSdrObj();
 
@@ -380,22 +400,25 @@ void ScDrawShell::ExecuteLineDlg( SfxRequest& rReq )
         pView->MergeAttrFromMarked( aNewAttr, false );
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxLineTabDialog( pViewData->GetFrameWeld(),
+    VclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateSvxLineTabDialog( pViewData->GetDialogParent(),
                 &aNewAttr,
             pViewData->GetDocument()->GetDrawLayer(),
             pObj,
             bHasMarked));
 
-    if ( pDlg->Execute() == RET_OK )
-    {
-        if( bHasMarked )
-            pView->SetAttrToMarked( *pDlg->GetOutputItemSet(), false );
-        else
-            pView->SetDefaultAttr( *pDlg->GetOutputItemSet(), false );
+    pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+        if ( nResult == RET_OK )
+        {
+            if( bHasMarked )
+                pView->SetAttrToMarked( *pDlg->GetOutputItemSet(), false );
+            else
+                pView->SetDefaultAttr( *pDlg->GetOutputItemSet(), false );
 
-        pView->InvalidateAttribs();
-        rReq.Done();
-    }
+            pView->InvalidateAttribs();
+            pRequest->Done();
+        }
+        pDlg->disposeOnce();
+    });
 }
 
 void ScDrawShell::ExecuteAreaDlg( SfxRequest& rReq )
@@ -403,26 +426,32 @@ void ScDrawShell::ExecuteAreaDlg( SfxRequest& rReq )
     ScDrawView* pView       = pViewData->GetScDrawView();
     bool        bHasMarked  = pView->AreObjectsMarked();
 
+    std::shared_ptr<SfxRequest> pRequest;
+    pRequest.reset(new SfxRequest(rReq));
+
     SfxItemSet  aNewAttr( pView->GetDefaultAttr() );
     if( bHasMarked )
         pView->MergeAttrFromMarked( aNewAttr, false );
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    vcl::Window* pWin = pViewData->GetDialogParent();
-    ScopedVclPtr<AbstractSvxAreaTabDialog> pDlg(pFact->CreateSvxAreaTabDialog(
-        pWin ? pWin->GetFrameWeld() : nullptr, &aNewAttr,
+    weld::Window* pWin = pViewData->GetDialogParent();
+    VclPtr<AbstractSvxAreaTabDialog> pDlg(pFact->CreateSvxAreaTabDialog(
+        pWin, &aNewAttr,
         pViewData->GetDocument()->GetDrawLayer(), true));
 
-    if ( pDlg->Execute() == RET_OK )
-    {
-        if( bHasMarked )
-            pView->SetAttrToMarked( *pDlg->GetOutputItemSet(), false );
-        else
-            pView->SetDefaultAttr( *pDlg->GetOutputItemSet(), false );
+    pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+        if ( nResult == RET_OK )
+        {
+            if( bHasMarked )
+                pView->SetAttrToMarked( *pDlg->GetOutputItemSet(), false );
+            else
+                pView->SetDefaultAttr( *pDlg->GetOutputItemSet(), false );
 
-        pView->InvalidateAttribs();
-        rReq.Done();
-    }
+            pView->InvalidateAttribs();
+            pRequest->Done();
+        }
+        pDlg->disposeOnce();
+    });
 }
 
 void ScDrawShell::ExecuteTextAttrDlg( SfxRequest& rReq )
@@ -435,8 +464,8 @@ void ScDrawShell::ExecuteTextAttrDlg( SfxRequest& rReq )
         pView->MergeAttrFromMarked( aNewAttr, false );
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    vcl::Window* pWin = pViewData->GetDialogParent();
-    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog(pWin ? pWin->GetFrameWeld() : nullptr, &aNewAttr, pView));
+    weld::Window* pWin = pViewData->GetDialogParent();
+    ScopedVclPtr<SfxAbstractTabDialog> pDlg(pFact->CreateTextTabDialog(pWin, &aNewAttr, pView));
 
     sal_uInt16 nResult = pDlg->Execute();
 
@@ -462,7 +491,7 @@ void ScDrawShell::ExecuteMeasureDlg( SfxRequest& rReq )
         pView->MergeAttrFromMarked( aNewAttr, false );
 
     SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-    weld::Window* pWin = pViewData->GetFrameWeld();
+    weld::Window* pWin = pViewData->GetDialogParent();
     ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateSfxDialog(pWin, aNewAttr, pView, RID_SVXPAGE_MEASURE));
 
     sal_uInt16 nResult = pDlg->Execute();

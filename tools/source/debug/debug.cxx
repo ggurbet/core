@@ -17,17 +17,6 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#if defined (UNX) || defined (__GNUC__)
-#include <unistd.h>
-#endif
-
-#include <errno.h>
-#include <time.h>
-#include <cstdarg>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
 #include <com/sun/star/configuration/CorruptedConfigurationException.hpp>
 #include <com/sun/star/configuration/backend/BackendSetupException.hpp>
 #include <com/sun/star/configuration/backend/MalformedDataException.hpp>
@@ -37,6 +26,7 @@
 #include <com/sun/star/deployment/DeploymentException.hpp>
 #include <com/sun/star/document/CorruptedFilterConfigurationException.hpp>
 #include <com/sun/star/document/UndoFailedException.hpp>
+#include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/WrappedTargetException.hpp>
 #include <com/sun/star/lang/WrappedTargetRuntimeException.hpp>
 #include <com/sun/star/ldap/LdapGenericException.hpp>
@@ -51,19 +41,18 @@
 #include <com/sun/star/ucb/ContentCreationException.hpp>
 #include <com/sun/star/ucb/MissingPropertiesException.hpp>
 #include <com/sun/star/ucb/NameClashException.hpp>
+#include <com/sun/star/ucb/InteractiveIOException.hpp>
 #include <com/sun/star/util/MalformedNumberFormatException.hpp>
 #include <com/sun/star/xml/dom/DOMException.hpp>
 #include <com/sun/star/xml/sax/SAXException.hpp>
 #include <com/sun/star/xml/sax/SAXParseException.hpp>
 #include <comphelper/anytostring.hxx>
 #include <tools/debug.hxx>
-#include <rtl/string.h>
 #include <sal/log.hxx>
-#include <sal/macros.h>
 #include <osl/thread.h>
 
+#include <cstdlib>
 #include <typeinfo>
-#include <vector>
 
 #include <tools/diagnose_ex.h>
 
@@ -128,6 +117,9 @@ OString exceptionToString(const css::uno::Any & caught)
 #endif
         sMessage += " context: ";
         sMessage += pContext;
+#if defined __GLIBCXX__
+        std::free(const_cast<char *>(pContext));
+#endif
     }
     {
         css::configuration::CorruptedConfigurationException specialized;
@@ -391,6 +383,14 @@ OString exceptionToString(const css::uno::Any & caught)
             sMessage += OString::number( specialized.LineNumber );
             sMessage += " ColumnNumber: ";
             sMessage += OString::number( specialized.ColumnNumber );
+        }
+    }
+    {
+        css::ucb::InteractiveIOException specialized;
+        if ( caught >>= specialized )
+        {
+            sMessage += " Code: ";
+            sMessage += OString::number( static_cast<sal_Int32>(specialized.Code) );
         }
     }
     return sMessage;

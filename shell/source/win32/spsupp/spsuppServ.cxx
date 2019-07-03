@@ -28,44 +28,43 @@
 
 #include <shlwapi.h> // declaration of DllInstall
 
-namespace {
-
+namespace
+{
 HANDLE g_hModule;
 
-}
+HMODULE GetHModule() { return static_cast<HMODULE>(g_hModule); }
+} // namespace
 
 ITypeLib* GetTypeLib()
 {
     typedef std::unique_ptr<ITypeLib, void(*)(IUnknown* p)> ITypeLibGuard;
-    static ITypeLibGuard aITypeLibGuard(nullptr, [](IUnknown* p) { if (p) p->Release(); });
-    if (!aITypeLibGuard.get())
-    {
+    static ITypeLibGuard s_aITypeLibGuard = [] {
+        ITypeLibGuard aITypeLibGuard(nullptr, [](IUnknown* p) { if (p) p->Release(); });
         wchar_t szFile[MAX_PATH];
-        if (GetModuleFileNameW(static_cast<HMODULE>(g_hModule), szFile, MAX_PATH) == 0)
-            return nullptr;
+        if (GetModuleFileNameW(GetHModule(), szFile, MAX_PATH) == 0)
+            return aITypeLibGuard;
         ITypeLib* pTypeLib;
-        HRESULT hr = LoadTypeLib(szFile, &pTypeLib);
-        if (FAILED(hr))
-            return nullptr;
+        if (FAILED(LoadTypeLib(szFile, &pTypeLib)))
+            return aITypeLibGuard;
         aITypeLibGuard.reset(pTypeLib);
-    }
-    return aITypeLibGuard.get();
+        return aITypeLibGuard;
+    }();
+    return s_aITypeLibGuard.get();
 }
 
-const wchar_t* GetLOPath()
+const wchar_t* GetHelperExe()
 {
-    static wchar_t sPath[MAX_PATH] = { 0 };
-    if (*sPath == 0)
-    {
-        // Initialization
-        if (GetModuleFileNameW(static_cast<HMODULE>(g_hModule), sPath, MAX_PATH) == 0)
+    static wchar_t* s_sPath = []() -> wchar_t* {
+        static wchar_t sPath[MAX_PATH];
+        if (GetModuleFileNameW(GetHModule(), sPath, MAX_PATH) == 0)
             return nullptr;
         wchar_t* pSlashPos = wcsrchr(sPath, L'\\');
         if (pSlashPos == nullptr)
             return nullptr;
-        wcscpy(pSlashPos+1, L"soffice.exe");
-    }
-    return sPath;
+        wcscpy(pSlashPos + 1, L"spsupp_helper.exe");
+        return sPath;
+    }();
+    return s_sPath;
 }
 
 BOOL APIENTRY DllMain( HANDLE hinstDLL,
@@ -122,14 +121,16 @@ STDAPI DllRegisterServer(void)
         return ResultFromScode(SELFREG_E_TYPELIB);
 
     wchar_t szFile[MAX_PATH];
-    if (GetModuleFileNameW(static_cast<HMODULE>(g_hModule), szFile, MAX_PATH) == 0)
+    if (GetModuleFileNameW(GetHModule(), szFile, MAX_PATH) == 0)
         return HRESULT_FROM_WIN32(GetLastError());
 
     HRESULT hr = RegisterTypeLib(pTypeLib, szFile, nullptr);
     if (FAILED(hr))
         return hr;
 
-    return Registrar(CLSID_spsupp).RegisterObject(LIBID_spsupp, L"LOSPSupport", L"OpenDocuments", 1, szFile, true);
+    // Default is v.5
+    return Registrar(CLSID_spsupp)
+        .RegisterObject(LIBID_spsupp, L"LOSPSupport", L"OpenDocuments", { 5, 1, 2, 3, 4 }, szFile);
 }
 
 STDAPI DllUnregisterServer(void)
@@ -149,7 +150,8 @@ STDAPI DllUnregisterServer(void)
     if (FAILED(hr))
         return hr;
 
-    return Registrar(CLSID_spsupp).UnRegisterObject(L"LOSPSupport", L"OpenDocuments", 1);
+    return Registrar(CLSID_spsupp)
+        .UnRegisterObject(L"LOSPSupport", L"OpenDocuments", { 1, 2, 3, 4, 5 });
 }
 
 // This is called when regsvr32.exe is called with "/i" flag
@@ -163,19 +165,12 @@ STDAPI DllInstall(BOOL bInstall, _In_opt_ PCWSTR pszCmdLine)
         Registrar registrar(CLSID_spsupp);
         if (bInstall)
         {
-            hr = registrar.RegisterProgID(L"SharePoint", L"OpenDocuments", 3, true);
-            if (SUCCEEDED(hr))
-                hr = registrar.RegisterProgID(L"SharePoint", L"OpenDocuments", 2, false);
-            if (SUCCEEDED(hr))
-                hr = registrar.RegisterProgID(L"SharePoint", L"OpenDocuments", 1, false);
+            // Default is v.5
+            hr = registrar.RegisterProgIDs(L"SharePoint", L"OpenDocuments", { 5, 1, 2, 3, 4 });
         }
         else
         {
-            // Try all ProgIDs regardless of error, but make sure to return failure result if at least one failed
-            hr = registrar.UnRegisterProgID(L"SharePoint", L"OpenDocuments", 1);
-            HRESULT hrLast;
-            hr = SUCCEEDED(hrLast = registrar.UnRegisterProgID(L"SharePoint", L"OpenDocuments", 2)) ? hr : hrLast;
-            hr = SUCCEEDED(hrLast = registrar.UnRegisterProgID(L"SharePoint", L"OpenDocuments", 3)) ? hr : hrLast;
+            hr = registrar.UnRegisterProgIDs(L"SharePoint", L"OpenDocuments", { 1, 2, 3, 4, 5 });
         }
         return hr;
     }

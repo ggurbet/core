@@ -19,7 +19,6 @@
 
 #include "ucblockbytes.hxx"
 
-#include <sal/macros.h>
 #include <sal/log.hxx>
 #include <comphelper/processfactory.hxx>
 #include <salhelper/condition.hxx>
@@ -35,26 +34,24 @@
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/ucb/UnsupportedDataSinkException.hpp>
 #include <com/sun/star/ucb/InteractiveIOException.hpp>
+#include <com/sun/star/ucb/XContentIdentifier.hpp>
+#include <com/sun/star/ucb/XContent.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/io/XActiveDataStreamer.hpp>
 #include <com/sun/star/io/TempFile.hpp>
-#include <com/sun/star/ucb/DocumentHeaderField.hpp>
-#include <com/sun/star/ucb/XCommandInfo.hpp>
 #include <com/sun/star/ucb/XCommandProcessor.hpp>
 #include <com/sun/star/task/XInteractionHandler.hpp>
 #include <com/sun/star/ucb/OpenCommandArgument2.hpp>
 #include <com/sun/star/ucb/PostCommandArgument2.hpp>
 #include <com/sun/star/ucb/OpenMode.hpp>
-#include <com/sun/star/beans/Property.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/beans/XPropertiesChangeNotifier.hpp>
 #include <com/sun/star/beans/XPropertiesChangeListener.hpp>
-#include <com/sun/star/sdbc/XRow.hpp>
 #include <com/sun/star/io/XActiveDataSink.hpp>
 #include <com/sun/star/io/XActiveDataControl.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
 #include <cppuhelper/implbase.hxx>
-#include <tools/inetmsg.hxx>
+#include <tools/debug.hxx>
 #include <com/sun/star/io/XTruncate.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 
@@ -164,10 +161,9 @@ public:
 
 void SAL_CALL UcbPropertiesChangeListener_Impl::propertiesChange ( const Sequence<PropertyChangeEvent> &rEvent)
 {
-    sal_Int32 i, n = rEvent.getLength();
-    for (i = 0; i < n; i++)
+    for (const auto& rPropChangeEvent : rEvent)
     {
-        if (rEvent[i].PropertyName == "DocumentHeader")
+        if (rPropChangeEvent.PropertyName == "DocumentHeader")
         {
             m_xLockBytes->SetStreamValid_Impl();
         }
@@ -511,8 +507,8 @@ void Moderator::handle( const Reference<XInteractionRequest >& Request )
         if(aReplyType == EXIT) {
             Sequence<Reference<XInteractionContinuation> > aSeq(
                 Request->getContinuations());
-            for(sal_Int32 i = 0; i < aSeq.getLength(); ++i) {
-                Reference<XInteractionAbort> aRef(aSeq[i],UNO_QUERY);
+            for(const auto& rContinuation : aSeq) {
+                Reference<XInteractionAbort> aRef(rContinuation,UNO_QUERY);
                 if(aRef.is()) {
                     aRef->select();
                 }
@@ -682,9 +678,8 @@ static bool UCBOpenContentSync(
     sal_uInt32 nTimeout(5000); // initially 5000 milliSec
     while(!bResultAchieved) {
 
-        Moderator::Result res;
         // try to get the result for with timeout
-        res = pMod->getResult(nTimeout);
+        Moderator::Result res = pMod->getResult(nTimeout);
 
         switch(res.type) {
         case Moderator::ResultType::STREAM:
@@ -1278,11 +1273,11 @@ UcbLockBytesRef UcbLockBytes::CreateLockBytes( const Reference < XContent >& xCo
     xLockBytes->SetSynchronMode();
     Reference< XActiveDataControl > xSink;
     if ( eOpenMode & StreamMode::WRITE )
-        xSink = static_cast<XActiveDataControl*>(new UcbStreamer_Impl( xLockBytes.get() ));
+        xSink = new UcbStreamer_Impl(xLockBytes.get());
     else
-        xSink = static_cast<XActiveDataControl*>(new UcbDataSink_Impl( xLockBytes.get() ));
+        xSink = new UcbDataSink_Impl(xLockBytes.get());
 
-    if ( rProps.getLength() )
+    if ( rProps.hasElements() )
     {
         Reference < XCommandProcessor > xProcessor( xContent, UNO_QUERY );
         Command aCommand;

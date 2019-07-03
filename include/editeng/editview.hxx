@@ -23,21 +23,19 @@
 #include <memory>
 #include <com/sun/star/i18n/WordType.hpp>
 
-#include <svl/style.hxx>
 #include <i18nlangtag/lang.h>
 #include <tools/color.hxx>
 #include <tools/gen.hxx>
-#include <tools/link.hxx>
-#include <vcl/cursor.hxx>
 #include <vcl/errcode.hxx>
+#include <vcl/vclptr.hxx>
 #include <editeng/editstat.hxx>
 #include <svl/languageoptions.hxx>
-#include <LibreOfficeKit/LibreOfficeKitTypes.h>
 #include <editeng/editdata.hxx>
 #include <com/sun/star/uno/Reference.h>
 #include <editeng/editengdllapi.h>
 
 
+class EditTextObject;
 class EditEngine;
 class ImpEditEngine;
 class ImpEditView;
@@ -48,13 +46,11 @@ namespace vcl { class Window; }
 class KeyEvent;
 class MouseEvent;
 class CommandEvent;
-namespace tools { class Rectangle; }
-class Pair;
-class Point;
-class Range;
 class SvStream;
 class SvKeyValueIterator;
 class SfxStyleSheet;
+class SfxItemSet;
+namespace vcl { class Cursor; }
 namespace vcl { class Font; }
 class FontList;
 class OutputDevice;
@@ -66,13 +62,17 @@ namespace sun {
 namespace star {
 namespace datatransfer {
     class XTransferable;
+    namespace dnd {
+        class XDropTarget;
+    }
 }
 namespace linguistic2 {
     class XSpellChecker1;
     class XLanguageGuessing;
 }
 }}}
-namespace basegfx { class B2DRange; }
+
+template <typename Arg, typename Ret> class Link;
 
 enum class ScrollRangeCheck
 {
@@ -95,12 +95,21 @@ public:
     // call this when text visualization changed in any way. It
     // will also update selection, so no need to call this self
     // additionally (but will also do no harm)
-    virtual void EditViewInvalidate() const = 0;
+    virtual void EditViewInvalidate(const tools::Rectangle& rRect) const = 0;
 
     // call this when only selection is changed. Text change will
     // then *not* be checked and not be reacted on. Still, when
     // only the selection is changed, this is useful and faster
     virtual void EditViewSelectionChange() const = 0;
+
+    // return the OutputDevice that the EditView will draw to
+    virtual OutputDevice& EditViewOutputDevice() const = 0;
+
+    // implemented if drag and drop support is wanted
+    virtual css::uno::Reference<css::datatransfer::dnd::XDropTarget> GetDropTarget() const
+    {
+        return nullptr;
+    }
 };
 
 class EDITENG_DLLPUBLIC EditView final
@@ -130,7 +139,7 @@ public:
 
     // set EditViewCallbacks for external handling of Repaints/Visualization
     void setEditViewCallbacks(const EditViewCallbacks* pEditViewCallbacks);
-    bool hasEditViewCallbacks() const;
+    const EditViewCallbacks* getEditViewCallbacks() const;
 
     void            SetEditEngine( EditEngine* pEditEngine );
     EditEngine*     GetEditEngine() const;

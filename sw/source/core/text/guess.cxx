@@ -18,6 +18,7 @@
  */
 
 #include <editeng/unolingu.hxx>
+#include <breakit.hxx>
 #include <dlelstnr.hxx>
 #include <swmodule.hxx>
 #include <IDocumentSettingAccess.hxx>
@@ -185,7 +186,7 @@ bool SwTextGuess::Guess( const SwTextPortion& rPor, SwTextFormatInfo &rInf,
     }
 
     bool bHyph = rInf.IsHyphenate() && !rInf.IsHyphForbud();
-    TextFrameIndex nHyphPos = TextFrameIndex(0);
+    TextFrameIndex nHyphPos(0);
 
     // nCutPos is the first character not fitting to the current line
     // nHyphPos is the first character not fitting to the current line,

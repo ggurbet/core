@@ -25,14 +25,11 @@
 #include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
 
-#include <osl/thread.h>
-
 #include <typelib/typedescription.hxx>
 
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XTypeProvider.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
-#include <com/sun/star/container/XEnumeration.hpp>
+#include <com/sun/star/beans/UnknownPropertyException.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/container/XIndexContainer.hpp>
@@ -40,6 +37,10 @@
 #include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/container/XNameReplace.hpp>
+#include <com/sun/star/script/CannotConvertException.hpp>
+#include <com/sun/star/script/XInvocation2.hpp>
+#include <com/sun/star/script/XTypeConverter.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 
 #include "pyuno_impl.hxx"
 
@@ -573,9 +574,7 @@ static void lcl_getRowsColumns( PyUNO const * me, sal_Int32& nRows, sal_Int32& n
     Sequence<short> aOutParamIndex;
     Sequence<Any> aOutParam;
     Sequence<Any> aParams;
-    Any aRet;
-
-    aRet = me->members->xInvocation->invoke ( "getRows", aParams, aOutParamIndex, aOutParam );
+    Any aRet = me->members->xInvocation->invoke ( "getRows", aParams, aOutParamIndex, aOutParam );
     Reference< XIndexAccess > xIndexAccessRows( aRet, UNO_QUERY );
     nRows = xIndexAccessRows->getCount();
     aRet = me->members->xInvocation->invoke ( "getColumns", aParams, aOutParamIndex, aOutParam );
@@ -1637,7 +1636,11 @@ static PyTypeObject PyUNOType =
     sizeof (PyUNO),
     0,
     PyUNO_del,
-    nullptr,
+#if PY_VERSION_HEX >= 0x03080000
+    0, // Py_ssize_t tp_vectorcall_offset
+#else
+    nullptr, // printfunc tp_print
+#endif
     PyUNO_getattr,
     PyUNO_setattr,
     /* this type does not exist in Python 3: (cmpfunc) */ nullptr,
@@ -1681,6 +1684,9 @@ static PyTypeObject PyUNOType =
     , 0
 #if PY_VERSION_HEX >= 0x03040000
     , nullptr
+#if PY_VERSION_HEX >= 0x03080000
+    , nullptr // vectorcallfunc tp_vectorcall
+#endif
 #endif
 };
 

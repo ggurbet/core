@@ -25,11 +25,13 @@
 #include <sfx2/request.hxx>
 #include <sfx2/objface.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/stritem.hxx>
 #include <svl/eitem.hxx>
 #include <svl/whiter.hxx>
 #include <svl/intitem.hxx>
 #include <svl/srchitem.hxx>
+#include <svx/svxids.hrc>
 
 #include <numrule.hxx>
 #include <fmtornt.hxx>

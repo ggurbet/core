@@ -432,7 +432,7 @@ SfxMailModel::SaveResult SfxMailModel::SaveDocumentAsFormat(
                         uno::Sequence< OUString > aExtensions = aTypeNamePropsHM.getUnpackedValueOrDefault(
                                                         "Extensions",
                                                         ::uno::Sequence< OUString >() );
-                        if ( aExtensions.getLength() )
+                        if ( aExtensions.hasElements() )
                             aExtension = aExtensions[0];
                     }
                     catch ( css::container::NoSuchElementException& )
@@ -738,7 +738,7 @@ SfxMailModel::SendMailResult SfxMailModel::Send( const css::uno::Reference< css:
                     xSimpleMailMessage->setCcRecipient( aCcRecipientSeq );
                 }
 
-                Sequence< OUString > aAttachmentSeq(&(maAttachedDocuments[0]),maAttachedDocuments.size());
+                Sequence< OUString > aAttachmentSeq(maAttachedDocuments.data(),maAttachedDocuments.size());
 
                 if ( xSimpleMailMessage->getSubject().isEmpty() ) {
                     INetURLObject url(

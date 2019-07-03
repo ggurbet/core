@@ -183,7 +183,7 @@ void ODatabaseImportExport::impl_initFromDescriptor( const ODataAccessDescriptor
             m_xRowLocate.set( m_xResultSet, UNO_QUERY );
         }
 
-        if ( m_aSelection.getLength() != 0 )
+        if ( m_aSelection.hasElements() )
         {
             if ( !m_xResultSet.is() )
             {
@@ -192,11 +192,11 @@ void ODatabaseImportExport::impl_initFromDescriptor( const ODataAccessDescriptor
             }
         }
 
-        if ( m_aSelection.getLength() != 0 )
+        if ( m_aSelection.hasElements() )
         {
             if ( m_bBookmarkSelection && !m_xRowLocate.is() )
             {
-                SAL_WARN("dbaccess.ui", "ODatabaseImportExport::impl_initFromDescriptor: no XRowLocate -> no bookmars!" );
+                SAL_WARN("dbaccess.ui", "ODatabaseImportExport::impl_initFromDescriptor: no XRowLocate -> no bookmarks!" );
                 m_aSelection.realloc( 0 );
             }
         }
@@ -270,7 +270,7 @@ void ODatabaseImportExport::initialize()
             {
                 m_xRow.set( m_xResultSet, UNO_QUERY );
                 m_xRowLocate.set( m_xResultSet, UNO_QUERY );
-                m_xResultSetMetaData = Reference<XResultSetMetaDataSupplier>(m_xRow,UNO_QUERY)->getMetaData();
+                m_xResultSetMetaData = Reference<XResultSetMetaDataSupplier>(m_xRow,UNO_QUERY_THROW)->getMetaData();
                 Reference<XColumnsSupplier> xSup(m_xResultSet,UNO_QUERY_THROW);
                 m_xRowSetColumns.set(xSup->getColumns(),UNO_QUERY_THROW);
             }
@@ -451,7 +451,7 @@ bool ORTFImportExport::Write()
 
         sal_Int32 k=1;
         sal_Int32 kk=0;
-        if ( m_aSelection.getLength() )
+        if ( m_aSelection.hasElements() )
         {
             const Any* pSelIter = m_aSelection.getConstArray();
             const Any* pEnd   = pSelIter + m_aSelection.getLength();
@@ -699,7 +699,7 @@ void OHTMLImportExport::WriteTables()
         Reference<XColumnsSupplier> xColSup(m_xObject,UNO_QUERY);
         xColumns = xColSup->getColumns();
         aNames = xColumns->getElementNames();
-        if ( !aNames.getLength() )
+        if ( !aNames.hasElements() )
         {
             sal_Int32 nCount = m_xResultSetMetaData->getColumnCount();
             aNames.realloc(nCount);
@@ -871,7 +871,7 @@ void OHTMLImportExport::WriteCell( sal_Int32 nFormat, sal_Int32 nWidthPixel, sal
     aStrTD = aStrTD + "=";
     aStrTD = aStrTD + pChar;
 
-    SvNumberFormatsSupplierObj* pSupplierImpl = m_xFormatter.is() ? SvNumberFormatsSupplierObj::getImplementation(m_xFormatter->getNumberFormatsSupplier()) : nullptr;
+    SvNumberFormatsSupplierObj* pSupplierImpl = m_xFormatter.is() ? comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>(m_xFormatter->getNumberFormatsSupplier()) : nullptr;
     SvNumberFormatter* pFormatter = pSupplierImpl ? pSupplierImpl->GetNumberFormatter() : nullptr;
     if(pFormatter)
     {

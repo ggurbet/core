@@ -66,6 +66,7 @@
 #include <com/sun/star/chart2/XDataProviderAccess.hpp>
 
 #include <sal/log.hxx>
+#include <tools/debug.hxx>
 #include <svx/sidebar/SelectionChangeHandler.hxx>
 #include <toolkit/awt/vclxwindow.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
@@ -259,7 +260,7 @@ css::uno::Reference<css::chart2::XChartType> getChartType(
     Reference< chart2::XCoordinateSystemContainer > xCooSysContainer( xDiagram, uno::UNO_QUERY_THROW );
 
     Sequence< Reference< chart2::XCoordinateSystem > > xCooSysSequence( xCooSysContainer->getCoordinateSystems());
-    if (!xCooSysSequence.getLength()) {
+    if (!xCooSysSequence.hasElements()) {
         return css::uno::Reference<css::chart2::XChartType>();
     }
 
@@ -396,7 +397,8 @@ void SAL_CALL ChartController::attachFrame(
     uno::Reference<ui::XSidebar> xSidebar = getSidebarFromModel(getModel());
     if (xSidebar.is())
     {
-        sfx2::sidebar::SidebarController* pSidebar = dynamic_cast<sfx2::sidebar::SidebarController*>(xSidebar.get());
+        auto pSidebar = dynamic_cast<sfx2::sidebar::SidebarController*>(xSidebar.get());
+        assert(pSidebar);
         sfx2::sidebar::SidebarController::registerSidebarForFrame(pSidebar, this);
         pSidebar->updateModel(getModel());
         css::lang::EventObject aEvent;
@@ -428,7 +430,7 @@ void SAL_CALL ChartController::attachFrame(
     if(xFrame.is())
     {
         uno::Reference< awt::XWindow > xContainerWindow = xFrame->getContainerWindow();
-        VCLXWindow* pParentComponent = VCLXWindow::GetImplementation(xContainerWindow);
+        VCLXWindow* pParentComponent = comphelper::getUnoTunnelImplementation<VCLXWindow>(xContainerWindow);
         assert(pParentComponent);
         if (pParentComponent)
             pParentComponent->setVisible(true);
@@ -637,7 +639,7 @@ sal_Bool SAL_CALL ChartController::attachModel( const uno::Reference< frame::XMo
     }
 
     uno::Reference< document::XUndoManagerSupplier > xSuppUndo( getModel(), uno::UNO_QUERY_THROW );
-    m_xUndoManager.set( xSuppUndo->getUndoManager(), uno::UNO_QUERY_THROW );
+    m_xUndoManager.set( xSuppUndo->getUndoManager(), uno::UNO_SET_THROW );
 
     return true;
 }
@@ -1083,6 +1085,28 @@ void SAL_CALL ChartController::dispatch(
             executeDispatch_LOKSetTextSelection(nType, nX, nY);
         }
     }
+    else if (aCommand == "LOKTransform")
+    {
+        if (rArgs[0].Name == "Action")
+        {
+            OUString sAction;
+            if ((rArgs[0].Value >>= sAction) && sAction == "PieSegmentDragging")
+            {
+                if (rArgs[1].Name == "Offset")
+                {
+                    sal_Int32 nOffset;
+                    if (rArgs[1].Value >>= nOffset)
+                    {
+                        this->executeDispatch_LOKPieSegmentDragging(nOffset);
+                    }
+                }
+            }
+        }
+        else
+        {
+            this->executeDispatch_PositionAndSize(&rArgs);
+        }
+    }
     else if(aCommand == "Paste")
         this->executeDispatch_Paste();
     else if(aCommand == "Copy" )
@@ -1427,8 +1451,8 @@ void ChartController::NotifyUndoActionHdl( std::unique_ptr<SdrUndoAction> pUndoA
         try
         {
             const Reference< document::XUndoManagerSupplier > xSuppUndo( getModel(), uno::UNO_QUERY_THROW );
-            const Reference< document::XUndoManager > xUndoManager( xSuppUndo->getUndoManager(), uno::UNO_QUERY_THROW );
-            const Reference< document::XUndoAction > xAction( new impl::ShapeUndoElement( *pUndoAction ) );
+            const Reference< document::XUndoManager > xUndoManager( xSuppUndo->getUndoManager(), uno::UNO_SET_THROW );
+            const Reference< document::XUndoAction > xAction( new impl::ShapeUndoElement( std::move(pUndoAction) ) );
             xUndoManager->addUndoAction( xAction );
         }
         catch( const uno::Exception& )
@@ -1442,7 +1466,7 @@ DrawModelWrapper* ChartController::GetDrawModelWrapper()
 {
     if( !m_pDrawModelWrapper.get() )
     {
-        ExplicitValueProvider* pProvider = ExplicitValueProvider::getExplicitValueProvider( m_xChartView );
+        ExplicitValueProvider* pProvider = comphelper::getUnoTunnelImplementation<ExplicitValueProvider>( m_xChartView );
         if( pProvider )
             m_pDrawModelWrapper = pProvider->getDrawModelWrapper();
         if ( m_pDrawModelWrapper.get() )

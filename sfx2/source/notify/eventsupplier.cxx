@@ -162,10 +162,7 @@ sal_Bool SAL_CALL SfxEvents_Impl::hasElements()
 {
     ::osl::MutexGuard aGuard( maMutex );
 
-    if ( maEventNames.getLength() )
-        return true;
-    else
-        return false;
+    return maEventNames.hasElements();
 }
 
 void SfxEvents_Impl::Execute( uno::Any const & aEventData, const document::DocumentEvent& aTrigger, SfxObjectShell* pDoc )
@@ -431,7 +428,7 @@ void SfxEvents_Impl::NormalizeMacro( const ::comphelper::NamedValueCollection& i
             if ( ( nThirdSlashPos != -1 ) && ( nArgsPos == -1 || nThirdSlashPos < nArgsPos ) )
             {
                 OUString aBasMgrName( INetURLObject::decode( aScript.copy( 8, nThirdSlashPos-8 ), INetURLObject::DecodeMechanism::WithCharset ) );
-                if ( aBasMgrName == "." )
+                if (pDoc && aBasMgrName == ".")
                     aLibrary = pDoc->GetTitle();
                 else
                     aLibrary = SfxGetpApp()->GetName();

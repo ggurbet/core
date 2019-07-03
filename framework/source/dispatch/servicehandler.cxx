@@ -27,6 +27,7 @@
 
 #include <vcl/svapp.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 namespace framework{
 
@@ -71,7 +72,7 @@ ServiceHandler::~ServiceHandler()
 
 /**
     @short      decide if this dispatch implementation can be used for requested URL or not
-    @descr      A protocol handler is registered for an URL pattern inside configuration and will
+    @descr      A protocol handler is registered for a URL pattern inside configuration and will
                 be asked by the generic dispatch mechanism inside framework, if he can handle this
                 special URL which match his registration. He can agree by returning of a valid dispatch
                 instance or disagree by returning <NULL/>.
@@ -172,7 +173,7 @@ void SAL_CALL ServiceHandler::dispatchWithNotification( const css::util::URL&   
 
     @return     <NULL/> if requested service couldn't be created successfully;
                 a valid reference otherwise. This return value can be used to indicate,
-                if dispatch was successfully or not.
+                if dispatch was successful.
 */
 css::uno::Reference< css::uno::XInterface > ServiceHandler::implts_dispatch( const css::util::URL& aURL )
 {
@@ -217,9 +218,9 @@ css::uno::Reference< css::uno::XInterface > ServiceHandler::implts_dispatch( con
     // ignore all errors - inclusive runtime errors!
     // E.g. a script based service (written in Python) could not be executed
     // because it contains syntax errors, which was detected at runtime...
-    catch(const css::uno::Exception& e)
+    catch(const css::uno::Exception&)
     {
-        SAL_WARN("fwk.dispatch", "ignored " << e);
+        TOOLS_WARN_EXCEPTION("fwk.dispatch", "ignored");
         xService.clear();
     }
 

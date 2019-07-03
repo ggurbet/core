@@ -261,16 +261,14 @@ void BubbleChart::createShapes()
                         pSeries->getPointCID_Stub(), nIndex );
                     uno::Reference< drawing::XShapes > xPointGroupShape_Shapes(
                         createGroupShape(xSeriesGroupShape_Shapes,aPointCID) );
-                    uno::Reference<drawing::XShape> xPointGroupShape_Shape =
-                            uno::Reference<drawing::XShape>( xPointGroupShape_Shapes, uno::UNO_QUERY );
+                    uno::Reference<drawing::XShape> xPointGroupShape_Shape( xPointGroupShape_Shapes, uno::UNO_QUERY );
 
                     {
                         nCreatedPoints++;
 
                         //create data point
                         drawing::Direction3D aSymbolSize = transformToScreenBubbleSize( fBubbleSize );
-                        uno::Reference<drawing::XShape> xShape;
-                        xShape = m_pShapeFactory->createCircle2D( xPointGroupShape_Shapes
+                        uno::Reference<drawing::XShape> xShape = m_pShapeFactory->createCircle2D( xPointGroupShape_Shapes
                                 , aScenePosition, aSymbolSize );
 
                         setMappedProperties( xShape

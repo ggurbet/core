@@ -173,7 +173,7 @@ DocumentHolder::DocumentHolder( const uno::Reference< uno::XComponentContext >& 
     m_aOutplaceFrameProps[1] <<= aArg;
 
     uno::Reference< frame::XDesktop2 > xDesktop = frame::Desktop::create( m_xContext );
-    m_refCount++;
+    osl_atomic_increment(&m_refCount);
     try
     {
         xDesktop->addTerminateListener( this );
@@ -181,7 +181,7 @@ DocumentHolder::DocumentHolder( const uno::Reference< uno::XComponentContext >& 
     catch ( const uno::Exception& )
     {
     }
-    m_refCount--;
+    osl_atomic_decrement(&m_refCount);
 
     aArg.Name = "ParentFrame";
     aArg.Value <<= xDesktop; //TODO/LATER: should use parent document frame
@@ -191,7 +191,7 @@ DocumentHolder::DocumentHolder( const uno::Reference< uno::XComponentContext >& 
 
 DocumentHolder::~DocumentHolder()
 {
-    m_refCount++; // to allow deregistration as a listener
+    osl_atomic_increment(&m_refCount); // to allow deregistration as a listener
 
     if( m_xFrame.is() )
         CloseFrame();
@@ -523,7 +523,7 @@ uno::Reference< container::XIndexAccess > DocumentHolder::RetrieveOwnMenu_Impl()
     {
         xUIConfigManager.set(
             xUIConfSupplier->getUIConfigurationManager(),
-            uno::UNO_QUERY_THROW );
+            uno::UNO_SET_THROW );
     }
 
     try
@@ -551,7 +551,7 @@ uno::Reference< container::XIndexAccess > DocumentHolder::RetrieveOwnMenu_Impl()
                     ui::theModuleUIConfigurationManagerSupplier::get(m_xContext);
             uno::Reference< css::ui::XUIConfigurationManager > xModUIConfMan(
                     xModConfSupplier->getUIConfigurationManager( aModuleIdent ),
-                    uno::UNO_QUERY_THROW );
+                    uno::UNO_SET_THROW );
             xResult = xModUIConfMan->getSettings(
                     "private:resource/menubar/menubar",
                     false );
@@ -960,7 +960,7 @@ bool DocumentHolder::LoadDocToFrame( bool bInPlace )
         uno::Reference < frame::XModel > xDoc( m_xComponent, uno::UNO_QUERY );
         if ( xDoc.is() )
         {
-            // load new document in to the frame
+            // load new document into the frame
             uno::Reference< frame::XComponentLoader > xComponentLoader( m_xFrame, uno::UNO_QUERY_THROW );
 
             ::comphelper::NamedValueCollection aArgs;

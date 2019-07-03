@@ -27,6 +27,7 @@
 #include "sddllapi.h"
 #include <svl/lstner.hxx>
 #include <com/sun/star/beans/XPropertySetInfo.hpp>
+#include <sfx2/app.hxx>
 #include <sfx2/module.hxx>
 #include <sal/types.h>
 #include <vcl/virdev.hxx>
@@ -68,7 +69,7 @@ typedef std::map< sal_uInt32, css::uno::Sequence< css::uno::Type> > SdTypesCache
 
 */
 
-class SdModule final : public SfxModule, public SfxListener
+class SAL_DLLPUBLIC_RTTI SdModule final : public SfxModule, public SfxListener
 {
 public:
                             SFX_DECL_INTERFACE(SD_IF_SDAPP)

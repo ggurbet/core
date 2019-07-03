@@ -24,6 +24,7 @@
 #include <editeng/lrspitem.hxx>
 #include <editeng/postitem.hxx>
 #include <editeng/bulletitem.hxx>
+#include <editeng/unoprnms.hxx>
 
 #include <oox/drawingml/drawingmltypes.hxx>
 
@@ -56,10 +57,13 @@
 #include <com/sun/star/chart2/data/XLabeledDataSequence.hpp>
 #include <com/sun/star/chart2/data/XDataSequence.hpp>
 #include <com/sun/star/chart2/data/XNumericalDataSequence.hpp>
+#include <com/sun/star/awt/Gradient.hpp>
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/awt/FontDescriptor.hpp>
+#include <com/sun/star/awt/Rectangle.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeParameterPair.hpp>
+#include <com/sun/star/drawing/EnhancedCustomShapeAdjustmentValue.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/text/WritingMode2.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
@@ -182,6 +186,8 @@ public:
     void testTdf115005_FallBack_Images_Off();
     void testTdf118806();
     void testTdf111789();
+    void testTdf100348_convert_Fontwork2TextWarp();
+    void testTdf1225573_FontWorkScaleX();
     /// SmartArt animated elements
     void testTdf104792();
     void testTdf90627();
@@ -199,6 +205,13 @@ public:
     void testTdf99213();
     void testPotxExport();
     void testTdf44223();
+    void testSmartArtPreserve();
+    void testTdf125346();
+    void testTdf125346_2();
+    void testTdf125360();
+    void testTdf125360_1();
+    void testTdf125360_2();
+    void testTdf125551();
 
     CPPUNIT_TEST_SUITE(SdOOXMLExportTest2);
 
@@ -264,6 +277,8 @@ public:
     CPPUNIT_TEST(testTdf115005_FallBack_Images_Off);
     CPPUNIT_TEST(testTdf118806);
     CPPUNIT_TEST(testTdf111789);
+    CPPUNIT_TEST(testTdf100348_convert_Fontwork2TextWarp);
+    CPPUNIT_TEST(testTdf1225573_FontWorkScaleX);
     CPPUNIT_TEST(testTdf104792);
     CPPUNIT_TEST(testTdf90627);
     CPPUNIT_TEST(testTdf104786);
@@ -280,6 +295,13 @@ public:
     CPPUNIT_TEST(testTdf99213);
     CPPUNIT_TEST(testPotxExport);
     CPPUNIT_TEST(testTdf44223);
+    CPPUNIT_TEST(testSmartArtPreserve);
+    CPPUNIT_TEST(testTdf125346);
+    CPPUNIT_TEST(testTdf125346_2);
+    CPPUNIT_TEST(testTdf125360);
+    CPPUNIT_TEST(testTdf125360_1);
+    CPPUNIT_TEST(testTdf125360_2);
+    CPPUNIT_TEST(testTdf125551);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -304,6 +326,7 @@ public:
             { "a14", "http://schemas.microsoft.com/office/drawing/2010/main" },
             { "wps", "http://schemas.microsoft.com/office/word/2010/wordprocessingShape" },
             { "wpg", "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" },
+            { "dgm", "http://schemas.openxmlformats.org/drawingml/2006/diagram" },
         };
         for (size_t i = 0; i < SAL_N_ELEMENTS(namespaces); ++i)
         {
@@ -666,7 +689,7 @@ void SdOOXMLExportTest2::testPresetShapesExport()
 
     size_t i = 0;
     while(i < SAL_N_ELEMENTS( sShapeTypeAndValues )) {
-        OString sType = OString( sShapeTypeAndValues[ i++ ] );
+        OString sType( sShapeTypeAndValues[ i++ ] );
         for ( size_t j = 1 ; i < SAL_N_ELEMENTS( sShapeTypeAndValues ) && OString(sShapeTypeAndValues[i]).startsWith("adj") ; ++j ) {
             OString sXPath= sPattern.replaceFirst( sT, sType).replaceFirst( sN, OString::number(j) );
             assertXPath(pXmlDocCT, sXPath, sPropertyName , OUString::createFromAscii(sShapeTypeAndValues[ i++ ]) );
@@ -1360,15 +1383,22 @@ void SdOOXMLExportTest2::testTdf104788()
 void SdOOXMLExportTest2::testSmartartRotation2()
 {
     ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/smartart-rotation2.pptx"), PPTX);
+
+    // clear SmartArt data to check how group shapes with double-rotated children are exported, not smartart
+    uno::Reference<beans::XPropertySet> xShape(getShapeFromPage(0, 0, xDocShRef));
+    uno::Sequence<beans::PropertyValue> aInteropGrabBag;
+    xShape->setPropertyValue("InteropGrabBag", uno::makeAny(aInteropGrabBag));
+
     utl::TempFile tempFile;
     xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
     xDocShRef->DoClose();
 
     xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[3]/p:txBody/a:p/a:r/a:t", "Text");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[3]/p:txBody/a:bodyPr", "rot", "10800000");
-    double dX = getXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[3]/p:spPr/a:xfrm/a:off", "x").toDouble();
-    double dY = getXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[3]/p:spPr/a:xfrm/a:off", "y").toDouble();
+    assertXPathContent(pXmlDocContent,
+                       "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[4]/p:txBody/a:p/a:r/a:t", "Text");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[4]/p:txBody/a:bodyPr", "rot", "10800000");
+    double dX = getXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[4]/p:spPr/a:xfrm/a:off", "x").toDouble();
+    double dY = getXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp/p:sp[4]/p:spPr/a:xfrm/a:off", "y").toDouble();
     CPPUNIT_ASSERT_DOUBLES_EQUAL( 2276280.0, dX, dX * .001);
     CPPUNIT_ASSERT_DOUBLES_EQUAL( 3158280.0, dY, dY * .001);
 }
@@ -1413,10 +1443,10 @@ void SdOOXMLExportTest2::testGroupsPosition()
     xDocShRef->DoClose();
 
     xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[1]/p:spPr/a:xfrm/a:off", "x", "4040640");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[1]/p:spPr/a:xfrm/a:off", "y", "4273920");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[3]/p:spPr/a:xfrm/a:off", "x", "6796800");
-    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[3]/p:spPr/a:xfrm/a:off", "y", "4273920");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[1]/p:spPr/a:xfrm/a:off", "x", "5004000");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[1]/p:spPr/a:xfrm/a:off", "y", "3310560");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[3]/p:spPr/a:xfrm/a:off", "x", "7760160");
+    assertXPath(pXmlDocContent, "/p:sld/p:cSld/p:spTree/p:grpSp[1]/p:sp[3]/p:spPr/a:xfrm/a:off", "y", "3310560");
 }
 
 void SdOOXMLExportTest2::testGroupsRotatedPosition()
@@ -1514,7 +1544,7 @@ void SdOOXMLExportTest2::testTdf107608()
     xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
 
     uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
-    uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_QUERY_THROW );
+    uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_SET_THROW );
 
     drawing::FillStyle aFillStyle( drawing::FillStyle_NONE );
     xPropSet->getPropertyValue("FillStyle") >>= aFillStyle;
@@ -1539,7 +1569,7 @@ void SdOOXMLExportTest2::testTdf111786()
     xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
 
     uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
-    uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_QUERY_THROW );
+    uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_SET_THROW );
 
     sal_uInt32 nLineColor;
     xPropSet->getPropertyValue("LineColor") >>= nLineColor;
@@ -2077,28 +2107,324 @@ void SdOOXMLExportTest2::testTdf44223()
         = loadURL(m_directories.getURLFromSrc("/sd/qa/unit/data/pptx/tdf44223.pptx"), PPTX);
     xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
 
-    std::shared_ptr<SvStream> const pStream1(parseExportStream(tempFile, "media/audio1.wav"));
+    std::shared_ptr<SvStream> const pStream1(parseExportStream(tempFile, "ppt/media/audio1.wav"));
     CPPUNIT_ASSERT_EQUAL(sal_uInt64(11140), pStream1->remainingSize());
 
-    std::shared_ptr<SvStream> const pStream2(parseExportStream(tempFile, "media/audio2.wav"));
+    std::shared_ptr<SvStream> const pStream2(parseExportStream(tempFile, "ppt/media/audio2.wav"));
     CPPUNIT_ASSERT_EQUAL(sal_uInt64(28074), pStream2->remainingSize());
 
     xmlDocPtr pXmlContentType = parseExport(tempFile, "[Content_Types].xml");
     assertXPath(pXmlContentType,
-                "/ContentType:Types/ContentType:Override[@PartName='/media/audio1.wav']",
+                "/ContentType:Types/ContentType:Override[@PartName='/ppt/media/audio1.wav']",
                 "ContentType",
                 "audio/x-wav");
 
     assertXPath(pXmlContentType,
-                "/ContentType:Types/ContentType:Override[@PartName='/media/audio2.wav']",
+                "/ContentType:Types/ContentType:Override[@PartName='/ppt/media/audio2.wav']",
                 "ContentType",
                 "audio/x-wav");
 
     xmlDocPtr pDoc1 = parseExport(tempFile, "ppt/slides/slide1.xml");
-    assertXPath(pDoc1 , "//p:audio/p:cMediaNode/p:tgtEl/p:sndTgt[@r:embed]", 1);
+
+    // Start condition: 0s after timenode id 5 begins.
+    assertXPath(pDoc1 , "//p:audio/p:cMediaNode/p:cTn/p:stCondLst/p:cond", "evt", "begin");
+    assertXPath(pDoc1 , "//p:audio/p:cMediaNode/p:cTn/p:stCondLst/p:cond", "delay", "0");
+    assertXPath(pDoc1 , "//p:audio/p:cMediaNode/p:cTn/p:stCondLst/p:cond/p:tn", "val", "5");
 
     xmlDocPtr pDoc2 = parseExport(tempFile, "ppt/slides/slide2.xml");
     assertXPath(pDoc2 , "//p:transition/p:sndAc/p:stSnd/p:snd[@r:embed]", 2);
+
+    xmlDocPtr pRels1 = parseExport(tempFile, "ppt/slides/_rels/slide1.xml.rels");
+    assertXPath(pRels1, "//rels:Relationship[@Id='rId1']", "Type",
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio");
+    assertXPath(pRels1, "//rels:Relationship[@Id='rId1']", "Target", "../media/audio1.wav");
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testSmartArtPreserve()
+{
+    ::sd::DrawDocShellRef xDocShRef
+        = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/smartart-preserve.pptx"), PPTX);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    xmlDocPtr pXmlDoc = parseExport(tempFile, "ppt/slides/slide1.xml");
+    assertXPath(pXmlDoc, "//p:sld/p:cSld/p:spTree/p:graphicFrame/p:nvGraphicFramePr/p:cNvPr");
+    assertXPath(pXmlDoc, "//p:sld/p:cSld/p:spTree/p:graphicFrame/a:graphic/a:graphicData/dgm:relIds");
+    assertXPath(pXmlDoc, "//p:sld/p:cSld/p:spTree/p:graphicFrame/p:nvGraphicFramePr/p:nvPr/p:extLst/p:ext",
+                "uri", "{D42A27DB-BD31-4B8C-83A1-F6EECF244321}");
+    assertXPath(pXmlDoc, "//p:sld/p:cSld/p:spTree/p:graphicFrame/p:nvGraphicFramePr/p:nvPr/p:extLst/p:ext/p14:modId");
+
+    xmlDocPtr pXmlDocRels = parseExport(tempFile, "ppt/slides/_rels/slide1.xml.rels");
+    assertXPath(pXmlDocRels,
+                "(/rels:Relationships/rels:Relationship[@Target='../diagrams/layout1.xml'])[1]", "Type",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramLayout");
+    assertXPath(pXmlDocRels,
+                "(/rels:Relationships/rels:Relationship[@Target='../diagrams/data1.xml'])[1]", "Type",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData");
+    assertXPath(pXmlDocRels,
+                "(/rels:Relationships/rels:Relationship[@Target='../diagrams/colors1.xml'])[1]", "Type",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramColors");
+    assertXPath(pXmlDocRels,
+                "(/rels:Relationships/rels:Relationship[@Target='../diagrams/quickStyle1.xml'])[1]", "Type",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramQuickStyle");
+
+    xmlDocPtr pXmlContentType = parseExport(tempFile, "[Content_Types].xml");
+    assertXPath(pXmlContentType,
+                "/ContentType:Types/ContentType:Override[@PartName='/ppt/diagrams/layout1.xml']",
+                "ContentType", "application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml");
+    assertXPath(pXmlContentType,
+                "/ContentType:Types/ContentType:Override[@PartName='/ppt/diagrams/data1.xml']",
+                "ContentType", "application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml");
+    assertXPath(pXmlContentType,
+                "/ContentType:Types/ContentType:Override[@PartName='/ppt/diagrams/colors1.xml']",
+                "ContentType", "application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml");
+    assertXPath(pXmlContentType,
+                "/ContentType:Types/ContentType:Override[@PartName='/ppt/diagrams/quickStyle1.xml']",
+                "ContentType", "application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml");
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf125346()
+{
+    // There are two themes in the test document, make sure we use the right theme
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf125346.pptx"), PPTX);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+    uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_SET_THROW );
+
+    drawing::FillStyle aFillStyle( drawing::FillStyle_NONE );
+    xPropSet->getPropertyValue("FillStyle") >>= aFillStyle;
+    CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, aFillStyle);
+
+    sal_Int32 nFillColor;
+    xPropSet->getPropertyValue("FillColor") >>= nFillColor;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0x90C226), nFillColor);
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf125346_2()
+{
+    // There are two themes in the test document, make sure we use the right theme
+    // Test more slides with different themes
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf125346_2.pptx"), PPTX);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    {
+        uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+        uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_SET_THROW );
+
+        drawing::FillStyle aFillStyle( drawing::FillStyle_NONE );
+        xPropSet->getPropertyValue("FillStyle") >>= aFillStyle;
+        CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, aFillStyle);
+
+        sal_Int32 nFillColor;
+        xPropSet->getPropertyValue("FillColor") >>= nFillColor;
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0x90C226), nFillColor);
+    }
+
+    {
+        uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 1, xDocShRef ) );
+        uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_SET_THROW );
+
+        drawing::FillStyle aFillStyle( drawing::FillStyle_NONE );
+        xPropSet->getPropertyValue("FillStyle") >>= aFillStyle;
+        CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, aFillStyle);
+
+        sal_Int32 nFillColor;
+        xPropSet->getPropertyValue("FillColor") >>= nFillColor;
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0x052F61), nFillColor);
+    }
+
+    {
+        uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 2, xDocShRef ) );
+        uno::Reference< beans::XPropertySet > xPropSet( xShape, uno::UNO_SET_THROW );
+
+        drawing::FillStyle aFillStyle( drawing::FillStyle_NONE );
+        xPropSet->getPropertyValue("FillStyle") >>= aFillStyle;
+        CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, aFillStyle);
+
+        sal_Int32 nFillColor;
+        xPropSet->getPropertyValue("FillColor") >>= nFillColor;
+        CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(0x90C226), nFillColor);
+    }
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf125360()
+{
+    // Check whether the changed fill transparency is exported correctly.
+    // Color is defined by shape style
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf125360.pptx"), PPTX);
+
+    uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+
+    xShape->setPropertyValue("FillTransparence", uno::makeAny(static_cast<sal_Int32>(23)));
+
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    xShape.set( getShapeFromPage( 0, 0, xDocShRef ) );
+
+    sal_Int32 nTransparence = 0;
+    xShape->getPropertyValue("FillTransparence") >>= nTransparence;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(23), nTransparence);
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf125360_1()
+{
+    // Check whether the changed fill transparency is exported correctly.
+    // Color is defined by color scheme
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf125360_1.pptx"), PPTX);
+
+    uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+
+    xShape->setPropertyValue("FillTransparence", uno::makeAny(static_cast<sal_Int32>(23)));
+
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    xShape.set( getShapeFromPage( 0, 0, xDocShRef ) );
+
+    sal_Int32 nTransparence = 0;
+    xShape->getPropertyValue("FillTransparence") >>= nTransparence;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(23), nTransparence);
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf125360_2()
+{
+    // Check whether the changed fill transparency is exported correctly.
+    // Color is defined by color scheme with a transparency
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf125360_2.pptx"), PPTX);
+
+    uno::Reference< beans::XPropertySet > xShape( getShapeFromPage( 0, 0, xDocShRef ) );
+
+    sal_Int32 nTransparence = 0;
+    xShape->getPropertyValue("FillTransparence") >>= nTransparence;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(82), nTransparence);
+
+    xShape->setPropertyValue("FillTransparence", uno::makeAny(static_cast<sal_Int32>(23)));
+
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    xShape.set( getShapeFromPage( 0, 0, xDocShRef ) );
+
+    nTransparence = 0;
+    xShape->getPropertyValue("FillTransparence") >>= nTransparence;
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(23), nTransparence);
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf125551()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc("sd/qa/unit/data/pptx/tdf125551.pptx"), PPTX);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    uno::Reference<drawing::XShapes> xGroupShape(getShapeFromPage(0, 0, xDocShRef), uno::UNO_QUERY);
+    uno::Reference<drawing::XShape> xShapeBg(xGroupShape->getByIndex(0), uno::UNO_QUERY);
+
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(1024), xShapeBg->getPosition().X);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(576), xShapeBg->getPosition().Y);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(10815), xShapeBg->getSize().Width);
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(8587), xShapeBg->getSize().Height);
+}
+
+void SdOOXMLExportTest2::testTdf100348_convert_Fontwork2TextWarp()
+{
+    ::sd::DrawDocShellRef xDocShRef = loadURL(
+        m_directories.getURLFromSrc("/sd/qa/unit/data/odp/tdf100348_Fontwork2TextWarp.odp"), ODP);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    // Resulting pptx has to contain the TextWarp shape
+    xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
+    const OString sPathStart("/p:sld/p:cSld/p:spTree/p:sp[1]/p:txBody/a:bodyPr/a:prstTxWarp");
+    assertXPath(pXmlDocContent, sPathStart + "[@prst='textWave1']");
+    const OString sPathAdj(sPathStart + "/a:avLst/a:gd");
+    assertXPath(pXmlDocContent, sPathAdj + "[@name='adj1' and  @fmla='val 18750']");
+    assertXPath(pXmlDocContent, sPathAdj + "[@name='adj2' and  @fmla='val -7500']");
+
+    // Reloading has to get the Fontwork shape back
+    // TextPath makes a custom shape to a Fontwork shape, so must exist
+    uno::Reference<beans::XPropertySet> xShapeWavePropSet(getShapeFromPage(0, 0, xDocShRef));
+    auto aGeomPropSeq = xShapeWavePropSet->getPropertyValue("CustomShapeGeometry")
+                            .get<uno::Sequence<beans::PropertyValue>>();
+    auto aGeomPropVec
+        = comphelper::sequenceToContainer<std::vector<beans::PropertyValue>>(aGeomPropSeq);
+    OUString sName = "TextPath";
+    auto aIterator = std::find_if(
+        aGeomPropVec.begin(), aGeomPropVec.end(),
+        [sName](const beans::PropertyValue& rValue) { return rValue.Name == sName; });
+    CPPUNIT_ASSERT_MESSAGE("No TextPath", aIterator != aGeomPropVec.end());
+
+    // Type has to be same as in original document on roundtrip.
+    sName = "Type";
+    auto aIterator2 = std::find_if(
+        aGeomPropVec.begin(), aGeomPropVec.end(),
+        [sName](const beans::PropertyValue& rValue) { return rValue.Name == sName; });
+    CPPUNIT_ASSERT_MESSAGE("No Type", aIterator2 != aGeomPropVec.end());
+    OUString sOwnName;
+    aIterator2->Value >>= sOwnName;
+    CPPUNIT_ASSERT_EQUAL(OUString("fontwork-wave"), sOwnName);
+
+    // Adjustmentvalues need to be the same.
+    sName = "AdjustmentValues";
+    auto aIterator3 = std::find_if(
+        aGeomPropVec.begin(), aGeomPropVec.end(),
+        [sName](const beans::PropertyValue& rValue) { return rValue.Name == sName; });
+    CPPUNIT_ASSERT_MESSAGE("No AdjustmentValues", aIterator3 != aGeomPropVec.end());
+    uno::Sequence<drawing::EnhancedCustomShapeAdjustmentValue> aAdjValueSeq;
+    aIterator3->Value >>= aAdjValueSeq;
+    double fAdj1;
+    aAdjValueSeq[0].Value >>= fAdj1;
+    double fAdj2;
+    aAdjValueSeq[1].Value >>= fAdj2;
+    CPPUNIT_ASSERT_EQUAL(4050.0, fAdj1); // odp values, not pptx values
+    CPPUNIT_ASSERT_EQUAL(9180.0, fAdj2);
+
+    xDocShRef->DoClose();
+}
+
+void SdOOXMLExportTest2::testTdf1225573_FontWorkScaleX()
+{
+    const OUString sPath("/sd/qa/unit/data/pptx/tdf125573_FontWorkScaleX.pptx");
+    ::sd::DrawDocShellRef xDocShRef = loadURL(m_directories.getURLFromSrc(sPath), PPTX);
+    utl::TempFile tempFile;
+    xDocShRef = saveAndReload(xDocShRef.get(), PPTX, &tempFile);
+
+    // Error was, that attribute 'fromWordArt' was ignored
+    // ensure, resulting pptx has fromWordArt="1" on textArchDown shape
+    xmlDocPtr pXmlDocContent = parseExport(tempFile, "ppt/slides/slide1.xml");
+    const OString sPathStart("/p:sld/p:cSld/p:spTree/p:sp[1]/p:txBody/a:bodyPr");
+    assertXPath(pXmlDocContent, sPathStart + "[@fromWordArt='1']");
+
+    // Error was, that text in legacy shapes of category "Follow Path" was not scaled to the path.
+    uno::Reference<beans::XPropertySet> xShapeArchProps(getShapeFromPage(0, 0, xDocShRef));
+    awt::Rectangle aBoundRectArch;
+    xShapeArchProps->getPropertyValue(UNO_NAME_MISC_OBJ_BOUNDRECT) >>= aBoundRectArch;
+    // difference should be zero, but allow some range for stroke thickness
+    CPPUNIT_ASSERT_LESS(static_cast<long>(50), labs(aBoundRectArch.Width - 13081));
+
+    // Error was, that text in shapes of category "Warp" was not scaled to the path.
+    uno::Reference<beans::XPropertySet> xShapeWaveProps(getShapeFromPage(0, 1, xDocShRef));
+    awt::Rectangle aBoundRectWave;
+    xShapeWaveProps->getPropertyValue(UNO_NAME_MISC_OBJ_BOUNDRECT) >>= aBoundRectWave;
+    // difference should be zero, but allow some range for stroke thickness
+    CPPUNIT_ASSERT_LESS(static_cast<long>(50), labs(aBoundRectWave.Width - 11514));
 
     xDocShRef->DoClose();
 }

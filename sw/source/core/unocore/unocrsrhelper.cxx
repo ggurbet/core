@@ -23,11 +23,13 @@
 #include <algorithm>
 #include <memory>
 
+#include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/beans/PropertyState.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/io/IOException.hpp>
 #include <com/sun/star/text/XTextSection.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 
 #include <svx/svxids.hrc>
 #include <svx/unoshape.hxx>
@@ -729,7 +731,7 @@ bool getCursorPropertyValue(const SfxItemPropertySimpleEntry& rEntry
 
                 }
                 eNewState =
-                    aCharStyles.getLength() ?
+                    aCharStyles.hasElements() ?
                         PropertyState_DIRECT_VALUE : PropertyState_DEFAULT_VALUE;
                 if(pAny)
                     (*pAny) <<= aCharStyles;
@@ -1165,17 +1167,17 @@ void makeRedline( SwPaM const & rPaM,
 {
     IDocumentRedlineAccess* pRedlineAccess = &rPaM.GetDoc()->getIDocumentRedlineAccess();
 
-    RedlineType_t eType;
+    RedlineType eType;
     if      ( rRedlineType == "Insert" )
-        eType = nsRedlineType_t::REDLINE_INSERT;
+        eType = RedlineType::Insert;
     else if ( rRedlineType == "Delete" )
-        eType = nsRedlineType_t::REDLINE_DELETE;
+        eType = RedlineType::Delete;
     else if ( rRedlineType == "Format" )
-        eType = nsRedlineType_t::REDLINE_FORMAT;
+        eType = RedlineType::Format;
     else if ( rRedlineType == "TextTable" )
-        eType = nsRedlineType_t::REDLINE_TABLE;
+        eType = RedlineType::Table;
     else if ( rRedlineType == "ParagraphFormat" )
-        eType = nsRedlineType_t::REDLINE_PARAGRAPH_FORMAT;
+        eType = RedlineType::ParagraphFormat;
     else
         throw lang::IllegalArgumentException();
 
@@ -1206,14 +1208,14 @@ void makeRedline( SwPaM const & rPaM,
     {
         int nMap = 0;
         // Make sure that paragraph format gets its own map, otherwise e.g. fill attributes are not preserved.
-        if (eType == nsRedlineType_t::REDLINE_PARAGRAPH_FORMAT)
+        if (eType == RedlineType::ParagraphFormat)
             nMap = PROPERTY_MAP_PARAGRAPH;
         else
             nMap = PROPERTY_MAP_TEXTPORTION_EXTENSIONS;
         SfxItemPropertySet const& rPropSet = *aSwMapProvider.GetPropertySet(nMap);
 
         // Check if there are any properties
-        if (aRevertProperties.getLength())
+        if (aRevertProperties.hasElements())
         {
             SwDoc *const pDoc = rPaM.GetDoc();
 
@@ -1247,7 +1249,7 @@ void makeRedline( SwPaM const & rPaM,
             if (!aWhichPairs.empty())
             {
                 aWhichPairs.push_back(0); // terminate
-                SfxItemSet aItemSet(pDoc->GetAttrPool(), &aWhichPairs[0]);
+                SfxItemSet aItemSet(pDoc->GetAttrPool(), aWhichPairs.data());
 
                 for (size_t i = 0; i < aEntries.size(); ++i)
                 {
@@ -1258,6 +1260,10 @@ void makeRedline( SwPaM const & rPaM,
                 pRedlineExtraData = new SwRedlineExtraData_FormattingChanges( &aItemSet );
             }
         }
+
+        // to finalize DOCX import
+        if ( eType == RedlineType::Delete && !pRedlineAccess->IsFinalizeImport() )
+            pRedlineAccess->SetFinalizeImport( true );
     }
 
     SwRangeRedline* pRedline = new SwRangeRedline( aRedlineData, rPaM );
@@ -1277,14 +1283,14 @@ void makeTableRowRedline( SwTableLine& rTableLine,
 {
     IDocumentRedlineAccess* pRedlineAccess = &rTableLine.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess();
 
-    RedlineType_t eType;
+    RedlineType eType;
     if ( rRedlineType == "TableRowInsert" )
     {
-        eType = nsRedlineType_t::REDLINE_TABLE_ROW_INSERT;
+        eType = RedlineType::TableRowInsert;
     }
     else if ( rRedlineType == "TableRowDelete" )
     {
-        eType = nsRedlineType_t::REDLINE_TABLE_ROW_DELETE;
+        eType = RedlineType::TableRowDelete;
     }
     else
     {
@@ -1326,14 +1332,14 @@ void makeTableCellRedline( SwTableBox& rTableBox,
 {
     IDocumentRedlineAccess* pRedlineAccess = &rTableBox.GetFrameFormat()->GetDoc()->getIDocumentRedlineAccess();
 
-    RedlineType_t eType;
+    RedlineType eType;
     if ( rRedlineType == "TableCellInsert" )
     {
-        eType = nsRedlineType_t::REDLINE_TABLE_CELL_INSERT;
+        eType = RedlineType::TableCellInsert;
     }
     else if ( rRedlineType == "TableCellDelete" )
     {
-        eType = nsRedlineType_t::REDLINE_TABLE_CELL_DELETE;
+        eType = RedlineType::TableCellDelete;
     }
     else
     {
@@ -1372,11 +1378,7 @@ void makeTableCellRedline( SwTableBox& rTableBox,
 void SwAnyMapHelper::SetValue( sal_uInt16 nWhichId, sal_uInt16 nMemberId, const uno::Any& rAny )
 {
     sal_uInt32 nKey = (nWhichId << 16) + nMemberId;
-    auto aIt = m_Map.find( nKey );
-    if (aIt != m_Map.end())
-        aIt->second = rAny;
-    else
-        m_Map.insert(std::make_pair(nKey, rAny));
+    m_Map[nKey] = rAny;
 }
 
 bool    SwAnyMapHelper::FillValue( sal_uInt16 nWhichId, sal_uInt16 nMemberId, const uno::Any*& pAny )

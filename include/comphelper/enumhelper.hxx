@@ -20,14 +20,14 @@
 #ifndef INCLUDED_COMPHELPER_ENUMHELPER_HXX
 #define INCLUDED_COMPHELPER_ENUMHELPER_HXX
 
-#include <vector>
-#include <com/sun/star/container/XNameAccess.hpp>
 #include <com/sun/star/container/XEnumeration.hpp>
-#include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/lang/XEventListener.hpp>
 #include <cppuhelper/implbase.hxx>
 #include <osl/mutex.hxx>
 #include <comphelper/comphelperdllapi.h>
+
+namespace com::sun::star::container { class XIndexAccess; }
+namespace com::sun::star::container { class XNameAccess; }
 
 namespace comphelper
 {
@@ -38,7 +38,7 @@ struct OEnumerationLock
         ::osl::Mutex m_aLock;
 };
 
-/** provides an com.sun.star.container::XEnumeration access based
+/** provides a com.sun.star.container::XEnumeration access based
     on an object implementing the com.sun.star.container::XNameAccess interface
 */
 class COMPHELPER_DLLPUBLIC OEnumerationByName : private OEnumerationLock
@@ -66,7 +66,7 @@ private:
     COMPHELPER_DLLPRIVATE void impl_stopDisposeListening();
 };
 
-/** provides an com.sun.star.container::XEnumeration access based
+/** provides a com.sun.star.container::XEnumeration access based
     on an object implementing the com.sun.star.container::XNameAccess interface
 */
 class COMPHELPER_DLLPUBLIC OEnumerationByIndex : private OEnumerationLock
@@ -95,7 +95,7 @@ private:
 class SAL_DLLPUBLIC_TEMPLATE OAnyEnumeration_BASE
     : public ::cppu::WeakImplHelper<css::container::XEnumeration> {};
 
-/** provides an com.sun.star.container::XEnumeration
+/** provides a com.sun.star.container::XEnumeration
     for an outside set vector of Any's.
 
 */

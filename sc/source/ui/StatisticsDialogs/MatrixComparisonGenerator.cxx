@@ -8,18 +8,7 @@
  *
  */
 
-#include <sfx2/dispatch.hxx>
-#include <svl/zforlist.hxx>
-#include <svl/undo.hxx>
-
-#include <formulacell.hxx>
 #include <rangelst.hxx>
-#include <scitems.hxx>
-#include <docsh.hxx>
-#include <document.hxx>
-#include <uiitems.hxx>
-#include <reffact.hxx>
-#include <docfunc.hxx>
 #include <TableFillingAndNavigationTools.hxx>
 #include <MatrixComparisonGenerator.hxx>
 #include <scresid.hxx>
@@ -52,9 +41,10 @@ namespace
 
 ScMatrixComparisonGenerator::ScMatrixComparisonGenerator(
                                     SfxBindings* pSfxBindings, SfxChildWindow* pChildWindow,
-                                    vcl::Window* pParent, ScViewData* pViewData, const OUString& rID,
-                                    const OUString& rUiXmlDescription) :
-    ScStatisticsInputOutputDialog(pSfxBindings, pChildWindow, pParent, pViewData, rID, rUiXmlDescription)
+                                    weld::Window* pParent, ScViewData* pViewData,
+                                    const OUString& rUiXmlDescription,
+                                    const OString& rID)
+    : ScStatisticsInputOutputDialog(pSfxBindings, pChildWindow, pParent, pViewData, rUiXmlDescription, rID)
 {}
 
 ScMatrixComparisonGenerator::~ScMatrixComparisonGenerator()

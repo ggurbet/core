@@ -34,6 +34,7 @@
 #include <rtl/crc.h>
 #include <rtl/math.hxx>
 #include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnstit.hxx>
 #include <svx/xlnedit.hxx>
 #include <svx/xlnstwit.hxx>
@@ -45,9 +46,13 @@
 #include <svx/xbtmpit.hxx>
 #include <svx/xgrad.hxx>
 #include <svx/xhatch.hxx>
+#include <svx/sdshitm.hxx>
 #include <com/sun/star/awt/Size.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeParameterType.hpp>
 #include <com/sun/star/drawing/EnhancedCustomShapeSegmentCommand.hpp>
+#include <com/sun/star/drawing/EnhancedCustomShapeAdjustmentValue.hpp>
+#include <com/sun/star/drawing/EnhancedCustomShapeSegment.hpp>
+#include <com/sun/star/drawing/EnhancedCustomShapeTextFrame.hpp>
 #include <basegfx/numeric/ftools.hxx>
 #include <basegfx/color/bcolortools.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
@@ -631,7 +636,7 @@ void EnhancedCustomShape2d::SetPathSize( sal_Int32 nIndex )
     sal_Int32 nWidth = 0;
     sal_Int32 nHeight = 0;
 
-    if ( seqSubViewSize.getLength() && nIndex < seqSubViewSize.getLength() ) {
+    if ( seqSubViewSize.hasElements() && nIndex < seqSubViewSize.getLength() ) {
         nWidth = seqSubViewSize[ nIndex ].Width;
         nHeight = seqSubViewSize[ nIndex ].Height;
         SAL_INFO(
@@ -1094,10 +1099,9 @@ Color EnhancedCustomShape2d::GetColorData( const Color& rFillColor, sal_uInt32 n
 
 tools::Rectangle EnhancedCustomShape2d::GetTextRect() const
 {
-    sal_Int32 nIndex, nSize = seqTextFrames.getLength();
-    if ( !nSize )
+    if ( !seqTextFrames.hasElements() )
         return aLogicRect;
-    nIndex = 0;
+    sal_Int32 nIndex = 0;
     Point aTopLeft( GetPoint( seqTextFrames[ nIndex ].TopLeft, !bOOXMLShape, true ) );
     Point aBottomRight( GetPoint( seqTextFrames[ nIndex ].BottomRight, !bOOXMLShape, true ) );
     if ( bFlipH )
@@ -1163,7 +1167,10 @@ bool EnhancedCustomShape2d::GetHandlePosition( const sal_uInt32 nIndex, Point& r
                         aHandle.aPosition.Second = aFirst;
                     }
                 }
-                rReturnPosition = GetPoint( aHandle.aPosition );
+                if (bOOXMLShape)
+                    rReturnPosition = GetPoint(aHandle.aPosition, false /*bScale*/);
+                else
+                    rReturnPosition = GetPoint(aHandle.aPosition, true /*bScale*/);
             }
             const GeoStat aGeoStat(mrSdrObjCustomShape.GetGeoStat());
             if ( aGeoStat.nShearAngle )
@@ -1189,8 +1196,289 @@ bool EnhancedCustomShape2d::GetHandlePosition( const sal_uInt32 nIndex, Point& r
     return bRetValue;
 }
 
+static double lcl_getXAdjustmentValue(OUString& rShapeType, const sal_uInt32 nHandleIndex,
+                                      const double fX, const double fW, const double fH)
+{
+    // degenerated shapes are not worth to calculate special case for each shape type
+    if (fW <= 0.0 || fH <= 0.0)
+        return 50000;
+
+    // pattern (w - x) / ss * 100000 or (r - x) / ss * 100000
+    if ((rShapeType == "ooxml-bentArrow" && nHandleIndex == 2) || (rShapeType == "ooxml-chevron")
+        || (rShapeType == "ooxml-curvedRightArrow") || (rShapeType == "ooxml-foldedCorner")
+        || (rShapeType == "ooxml-homePlate") || (rShapeType == "ooxml-notchedRightArrow")
+        || (rShapeType == "ooxml-nonIsoscelesTrapezoid" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-rightArrow")
+        || (rShapeType == "ooxml-rightArrowCallout" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-round1Rect")
+        || (rShapeType == "ooxml-round2DiagRect" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-round2SameRect" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-snip1Rect")
+        || (rShapeType == "ooxml-snip2DiagRect" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-snip2SameRect" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-snipRoundRect" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-swooshArrow") || (rShapeType == "ooxml-stripedRightArrow"))
+        return (fW - fX) / std::min(fW, fH) * 100000.0;
+
+    // pattern  x / ss * 100000 or (x - l) / ss * 100000
+    if ((rShapeType == "ooxml-bentArrow" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-bentArrow" && nHandleIndex == 3) || (rShapeType == "ooxml-corner")
+        || (rShapeType == "ooxml-curvedDownArrow") || (rShapeType == "ooxml-curvedLeftArrow")
+        || (rShapeType == "ooxml-curvedUpArrow") || (rShapeType == "ooxml-leftArrow")
+        || (rShapeType == "ooxml-leftArrowCallout" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-leftRightArrow")
+        || (rShapeType == "ooxml-leftRightArrowCallout" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-leftRightRibbon")
+        || (rShapeType == "ooxml-nonIsoscelesTrapezoid" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-round2DiagRect" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-round2SameRect" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-roundRect")
+        || (rShapeType == "ooxml-snip2DiagRect" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-snip2SameRect" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-snipRoundRect" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-uturnArrow" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-uturnArrow" && nHandleIndex == 3))
+        return fX / std::min(fW, fH) * 100000.0;
+
+    // pattern (hc - x) / ss * 200000
+    if ((rShapeType == "ooxml-downArrowCallout" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-leftRightUpArrow" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-quadArrow" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-quadArrowCallout" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-upArrowCallout" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-upDownArrowCallout" && nHandleIndex == 0))
+        return (fW / 2.0 - fX) / std::min(fW, fH) * 200000.0;
+
+    // pattern (hc - x) / ss * 100000
+    if ((rShapeType == "ooxml-downArrowCallout" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-leftRightUpArrow" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-quadArrow" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-quadArrowCallout" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-upArrowCallout" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-upDownArrowCallout" && nHandleIndex == 1))
+        return (fW / 2.0 - fX) / std::min(fW, fH) * 100000.0;
+
+    // pattern (w - x) / ss * 50000 or (r - x) / ss * 50000
+    if ((rShapeType == "ooxml-bentUpArrow") || (rShapeType == "ooxml-leftUpArrow")
+        || (rShapeType == "ooxml-uturnArrow" && nHandleIndex == 1))
+        return (fW - fX) / std::min(fW, fH) * 50000.0;
+
+    // pattern x / ss * 200000
+    if (rShapeType == "ooxml-nonIsoscelesTrapezoid" && nHandleIndex == 0)
+        return fX / std::min(fW, fH) * 200000.0;
+
+    // pattern (hc - x) / w * 200000
+    if ((rShapeType == "ooxml-downArrow" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-ellipseRibbon") || (rShapeType == "ooxml-ellipseRibbon2")
+        || (rShapeType == "ooxml-leftRightArrowCallout" && nHandleIndex == 3)
+        || (rShapeType == "ooxml-ribbon") || (rShapeType == "ooxml-ribbon2")
+        || (rShapeType == "ooxml-upArrow" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-upDownArrow" && nHandleIndex == 0))
+        return (fW / 2.0 - fX) / fW * 200000.0;
+
+    // pattern (x - hc) / w * 100000
+    if ((rShapeType == "ooxml-cloudCallout") || (rShapeType == "ooxml-doubleWave")
+        || (rShapeType == "ooxml-wave") || (rShapeType == "ooxml-wedgeEllipseCallout")
+        || (rShapeType == "ooxml-wedgeRectCallout")
+        || (rShapeType == "ooxml-wedgeRoundRectCallout"))
+        return (fX - fW / 2.0) / fW * 100000.0;
+
+    // pattern (x - hc) / w * 200000
+    if (rShapeType == "ooxml-teardrop")
+        return (fX - fW / 2.0) / fW * 200000.0;
+
+    // pattern (w - x) / w * 100000 or (r - x) / w * 100000
+    if (rShapeType == "ooxml-leftArrowCallout" && nHandleIndex == 3)
+        return (fW - fX) / fW * 100000.0;
+
+    // pattern (hc - x) / h * 100000
+    if (rShapeType == "ooxml-mathDivide")
+        return (fW / 2.0 - fX) / fH * 100000.0;
+
+    // pattern x / w * 100000, simple scaling
+    if (rShapeType.startsWith("ooxml-"))
+        return fX / fW * 100000.0;
+
+    return fX; // method is unknown
+}
+
+static double lcl_getYAdjustmentValue(OUString& rShapeType, const sal_uInt32 nHandleIndex,
+                                      const double fY, const double fW, const double fH)
+{
+    // degenerated shapes are not worth to calculate a special case for each shape type
+    if (fW <= 0.0 || fH <= 0.0)
+        return 50000;
+
+    // pattern (vc - y) / ss * 100000
+    if ((rShapeType == "ooxml-leftArrowCallout" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-leftRightArrowCallout" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-rightArrowCallout" && nHandleIndex == 1))
+        return (fH / 2.0 - fY) / std::min(fW, fH) * 100000.0;
+
+    // pattern (vc - y) / ss * 200000
+    if ((rShapeType == "ooxml-curvedLeftArrow") || (rShapeType == "ooxml-curvedRightArrow")
+        || (rShapeType == "ooxml-leftArrowCallout" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-leftRightArrowCallout" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-mathPlus")
+        || (rShapeType == "ooxml-rightArrowCallout" && nHandleIndex == 0))
+        return (fH / 2.0 - fY) / std::min(fW, fH) * 200000.0;
+
+    // pattern (h - y) / ss * 100000 or (b - y) / ss * 100000
+    if ((rShapeType == "ooxml-bentUpArrow" && nHandleIndex == 0) || (rShapeType == "ooxml-corner")
+        || (rShapeType == "ooxml-curvedDownArrow") || (rShapeType == "ooxml-downArrow")
+        || (rShapeType == "ooxml-downArrowCallout" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-uturnArrow" && nHandleIndex == 2))
+        return (fH - fY) / std::min(fW, fH) * 100000.0;
+
+    // pattern (h - y) / ss * 200000 or (b - y) / ss * 200000
+    if (rShapeType == "ooxml-leftUpArrow" && nHandleIndex == 0) // - adj2 * 2 outside
+        return (fH - fY) / std::min(fW, fH) * 200000.0;
+
+    // pattern  y / ss * 100000 or (y - t) / ss * 100000
+    if ((rShapeType == "ooxml-bentUpArrow" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-bracePair") || (rShapeType == "ooxml-bracketPair")
+        || (rShapeType == "ooxml-can") || (rShapeType == "ooxml-cube")
+        || (rShapeType == "ooxml-curvedUpArrow") || (rShapeType == "ooxml-halfFrame")
+        || (rShapeType == "ooxml-leftBrace" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-leftBracket") || (rShapeType == "ooxml-leftRightUpArrow")
+        || (rShapeType == "ooxml-leftUpArrow" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-mathMultiply") || (rShapeType == "ooxml-quadArrow")
+        || (rShapeType == "ooxml-quadArrowCallout" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-rightBrace" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-rightBracket") || (rShapeType == "ooxml-upArrow")
+        || (rShapeType == "ooxml-upArrowCallout" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-upDownArrow")
+        || (rShapeType == "ooxml-upDownArrowCallout" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-verticalScroll"))
+        return fY / std::min(fW, fH) * 100000.0;
+
+    // pattern y / ss * 50000
+    if (rShapeType == "ooxml-bentArrow")
+        return fY / std::min(fW, fH) * 50000.0;
+
+    // pattern (vc - y) / h * 100000
+    if ((rShapeType == "ooxml-mathDivide" && nHandleIndex == 1) // -adj1 / 2 - adj3 outside
+        || (rShapeType == "ooxml-mathEqual" && nHandleIndex == 0) // -adj2 / 2 outside
+        || (rShapeType == "ooxml-mathNotEqual" && nHandleIndex == 0) // -adj3 / 2 outside
+        || (rShapeType == "ooxml-star4") || (rShapeType == "ooxml-star6")
+        || (rShapeType == "ooxml-star8") || (rShapeType == "ooxml-star10")
+        || (rShapeType == "ooxml-star12") || (rShapeType == "ooxml-star16")
+        || (rShapeType == "ooxml-star24") || (rShapeType == "ooxml-star32"))
+        return (fH / 2.0 - fY) / fH * 100000.0;
+
+    // pattern (vc - y) / h * 200000
+    if ((rShapeType == "ooxml-leftArrow") || (rShapeType == "ooxml-leftRightArrow")
+        || (rShapeType == "ooxml-mathDivide" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-mathEqual" && nHandleIndex == 1)
+        || (rShapeType == "ooxml-mathMinus") || (rShapeType == "ooxml-notchedRightArrow")
+        || (rShapeType == "ooxml-mathNotEqual" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-quadArrowCallout" && nHandleIndex == 3)
+        || (rShapeType == "ooxml-rightArrow") || (rShapeType == "ooxml-stripedRightArrow")
+        || (rShapeType == "ooxml-upDownArrowCallout" && nHandleIndex == 3))
+        return (fH / 2.0 - fY) / fH * 200000.0;
+
+    // pattern (y - vc) / h * 100000
+    if ((rShapeType == "ooxml-cloudCallout") || (rShapeType == "ooxml-wedgeEllipseCallout")
+        || (rShapeType == "ooxml-wedgeRectCallout")
+        || (rShapeType == "ooxml-wedgeRoundRectCallout"))
+        return (fY - fH / 2.0) / fH * 100000.0;
+
+    // pattern (h - y) / h * 100000 or (b - y) / h * 100000
+    if ((rShapeType == "ooxml-ellipseRibbon" && nHandleIndex == 2)
+        || (rShapeType == "ooxml-ellipseRibbon2" && nHandleIndex == 0)
+        || (rShapeType == "ooxml-ribbon2")
+        || (rShapeType == "ooxml-upArrowCallout" && nHandleIndex == 3))
+        return (fH - fY) / fH * 100000.0;
+
+    // special pattern smiley
+    if (rShapeType == "ooxml-smileyFace")
+        return (fY - fH * 16515.0 / 21600.0) / fH * 100000.0;
+
+    // special pattern for star with odd number of tips, because center of star not center of shape
+    if (rShapeType == "ooxml-star5")
+        return (fH / 2.0 - fY * 100000.0 / 110557.0) / fH * 100000.0;
+    if (rShapeType == "ooxml-star7")
+        return (fH / 2.0 - fY * 100000.0 / 105210.0) / fH * 100000.0;
+
+    // special pattern swooshArrow
+    if (rShapeType == "ooxml-swooshArrow")
+        return (fY - std::min(fW, fH) / 8.0) / fH * 100000.0;
+
+    // special pattern leftRightRibbon
+    if (rShapeType == "ooxml-leftRightRibbon")
+        return fY / fH * 200000 - 100000;
+
+    // pattern y / h * 100000, simple scaling
+    if (rShapeType.startsWith("ooxml-"))
+        return fY / fH * 100000.0;
+
+    return fY; // method is unknown
+}
+
+static double lcl_getAngleInOOXMLUnit(double fDY, double fDX)
+{
+    if (fDX != 0.0 || fDY != 0.0)
+    {
+        double fAngleRad(atan2(fDY, fDX));
+        double fAngle = basegfx::rad2deg(fAngleRad);
+        // atan2 returns angle in ]-pi; pi], OOXML preset shapes use [0;360[.
+        if (fAngle < 0.0)
+            fAngle += 360.0;
+        // OOXML uses angle unit 1/60000 degree.
+        fAngle *= 60000.0;
+        return fAngle;
+    }
+    return 0.0; // no angle defined for origin in polar coordinate system
+}
+
+static double lcl_getRadiusDistance(double fWR, double fHR, double fX, double fY)
+{
+    // Get D so, that point (fX|fY) is on the ellipse, that has width fWR-D and
+    // height fHR-D and center in origin.
+    // Get solution of ellipse equation (fX/(fWR-D))^2 + (fY/(fHR-D)^2 = 1 by solving
+    // fX^2*(fHR-D)^2 + fY^2*(fWR-D)^2 - (fWR-D)^2 * (fHR-D)^2 = 0 with Newton-method.
+    if (fX == 0.0)
+        return std::min(fHR - fY, fWR);
+    else if (fY == 0.0)
+        return std::min(fWR - fX, fHR);
+
+    double fD = std::min(fWR, fHR) - sqrt(fX * fX + fY * fY); // iteration start value
+    sal_uInt8 nIter(0);
+    bool bFound(false);
+    do
+    {
+        ++nIter;
+        const double fOldD(fD);
+        const double fWRmD(fWR - fD);
+        const double fHRmD(fHR - fD);
+        double fNumerator
+            = fX * fX * fHRmD * fHRmD + fY * fY * fWRmD * fWRmD - fWRmD * fWRmD * fHRmD * fHRmD;
+        double fDenominator
+            = 2.0 * (fHRmD * (fWRmD * fWRmD - fX * fX) + fWRmD * (fHRmD * fHRmD - fY * fY));
+        if (fDenominator != 0.0)
+        {
+            fD = fD - fNumerator / fDenominator;
+            bFound = fabs(fOldD - fD) < 1.0E-12;
+        }
+        else
+            fD = fD * 0.9; // new start value
+    } while (nIter < 50 && !bFound);
+    return fD;
+}
+
 bool EnhancedCustomShape2d::SetHandleControllerPosition( const sal_uInt32 nIndex, const css::awt::Point& rPosition )
 {
+    // The method name is misleading. Essentially it calculates the adjustment values from a given
+    // handle position.
+
+    // For ooxml-foo shapes, the way to calculate the adjustment value from the handle position depends on
+    // the type of the shape, therefore need 'Type'.
+    OUString sShapeType("non-primitive"); // default for ODF
+    const SdrCustomShapeGeometryItem& rGeometryItem(mrSdrObjCustomShape.GetMergedItem( SDRATTR_CUSTOMSHAPE_GEOMETRY ));
+    const Any* pAny = rGeometryItem.GetPropertyValueByName("Type");
+    if (pAny)
+        *pAny >>= sShapeType;
+
     bool bRetValue = false;
     if ( nIndex < GetHdlCount() )
     {
@@ -1223,6 +1511,9 @@ bool EnhancedCustomShape2d::SetHandleControllerPosition( const sal_uInt32 nIndex
             double fPos2 = aP.Y();  //( bFlipV ) ? aLogicRect.GetHeight() -aP.Y() : aP.Y();
             fPos1 = !basegfx::fTools::equalZero(fXScale) ? (fPos1 / fXScale) : SAL_MAX_INT32;
             fPos2 = !basegfx::fTools::equalZero(fYScale) ? (fPos2 / fYScale) : SAL_MAX_INT32;
+            // revert -nCoordLeft and -nCoordTop aus GetPoint()
+            fPos1 += nCoordLeft;
+            fPos2 += nCoordTop;
 
             // Used for scaling the adjustment values based on handle positions
             double fWidth;
@@ -1255,32 +1546,171 @@ bool EnhancedCustomShape2d::SetHandleControllerPosition( const sal_uInt32 nIndex
 
             sal_Int32 nFirstAdjustmentValue = -1, nSecondAdjustmentValue = -1;
 
+            // ODF shapes are expected to use a direct binding between position and adjustment
+            // values. OOXML preset shapes use known formulas. These are calculated backward to
+            // get the adjustment values. So far we do not have a general method to calculate
+            // the adjustment values for any shape from the handle position.
             if ( aHandle.aPosition.First.Type == EnhancedCustomShapeParameterType::ADJUSTMENT )
                 aHandle.aPosition.First.Value >>= nFirstAdjustmentValue;
             if ( aHandle.aPosition.Second.Type == EnhancedCustomShapeParameterType::ADJUSTMENT )
                 aHandle.aPosition.Second.Value>>= nSecondAdjustmentValue;
 
+            if ( aHandle.nFlags & ( HandleFlags::POLAR | HandleFlags::REFR | HandleFlags::REFANGLE))
+            { // Polar-Handle
 
-            // DrawingML polar handles set REFR or REFANGLE instead of POLAR
-            if ( aHandle.nFlags & ( HandleFlags::POLAR | HandleFlags::REFR | HandleFlags::REFANGLE ) )
-            {
-                double fXRef, fYRef, fAngle;
-                if ( aHandle.nFlags & HandleFlags::POLAR )
+                if (aHandle.nFlags & HandleFlags::REFR)
+                    nFirstAdjustmentValue = aHandle.nRefR;
+                if (aHandle.nFlags & HandleFlags::REFANGLE)
+                    nSecondAdjustmentValue = aHandle.nRefAngle;
+
+                double fAngle(0.0);
+                double fRadius(0.0);
+                // 'then' treats only shapes of type "ooxml-foo", fontwork shapes have been mapped
+                // to MS binary import and will be treated in 'else'.
+                if (bOOXMLShape)
                 {
-                    GetParameter( fXRef, aHandle.aPolar.First, false, false );
-                    GetParameter( fYRef, aHandle.aPolar.Second, false, false );
+                    // DrawingML polar handles set REFR or REFANGLE instead of POLAR
+                    // use the shape center instead.
+                    double fDX = fPos1 - fWidth / 2.0;
+                    double fDY = fPos2 - fHeight / 2.0;
+
+                    // There exists no common pattern. 'radius' or 'angle' might have special meaning.
+                    if (sShapeType == "ooxml-blockArc" && nIndex == 1)
+                    {
+                        // usual angle, special radius
+                        fAngle = lcl_getAngleInOOXMLUnit(fDY, fDX);
+                        // The value connected to REFR is the _difference_ between the outer
+                        // ellipse given by shape width and height and the inner ellipse through
+                        // the handle position.
+                        double fRadiusDifference
+                            = lcl_getRadiusDistance(fWidth / 2.0, fHeight / 2.0, fDX, fDY);
+                        double fss(std::min(fWidth, fHeight));
+                        if (fss != 0)
+                            fRadius = fRadiusDifference * 100000.0 / fss;
+                    }
+                    else if (sShapeType == "ooxml-donut" || sShapeType == "ooxml-noSmoking")
+                    {
+                        // no angle adjustment, radius bound to x-coordinate of handle
+                        double fss(std::min(fWidth, fHeight));
+                        if (fss != 0.0)
+                            fRadius = fPos1 * 100000.0 / fss;
+                    }
+                    else if ((sShapeType == "ooxml-circularArrow"
+                              || sShapeType == "ooxml-leftRightCircularArrow"
+                              || sShapeType == "ooxml-leftCircularArrow")
+                             && nIndex == 0)
+                    {
+                        // The value adj2 is the increase compared to the angle in adj3
+                        double fHandleAngle = lcl_getAngleInOOXMLUnit(fDY, fDX);
+                        if (sShapeType == "ooxml-leftCircularArrow")
+                            fAngle = GetAdjustValueAsDouble(2) - fHandleAngle;
+                        else
+                            fAngle = fHandleAngle - GetAdjustValueAsDouble(2);
+                        if (fAngle < 0.0) // 0deg to 360deg cut
+                            fAngle += 21600000.0;
+                        // no REFR
+                    }
+                    else if ((sShapeType == "ooxml-circularArrow"
+                              || sShapeType == "ooxml-leftCircularArrow"
+                              || sShapeType == "ooxml-leftRightCircularArrow")
+                             && nIndex == 2)
+                    {
+                        // The value adj1 connected to REFR is the thickness of the arc. The adjustvalue adj5
+                        // has the _difference_ between the outer ellipse given by shape width and height
+                        // and the middle ellipse of the arc. The handle is on the outer side of the
+                        // arc. So we calculate the difference between the ellipse through the handle
+                        // and the outer ellipse and subtract then.
+                        double fRadiusDifferenceHandle
+                            = lcl_getRadiusDistance(fWidth / 2.0, fHeight / 2.0, fDX, fDY);
+                        double fadj5(GetAdjustValueAsDouble(4));
+                        double fss(std::min(fWidth, fHeight));
+                        if (fss != 0.0)
+                        {
+                            fadj5 = fadj5 * fss / 100000.0;
+                            fRadius = 2.0 * (fadj5 - fRadiusDifferenceHandle);
+                            fRadius = fRadius * 100000.0 / fss;
+                        }
+                        // ToDo: Get angle adj3 exact. Use approximation for now
+                        fAngle = lcl_getAngleInOOXMLUnit(fDY, fDX);
+                    }
+                    else if ((sShapeType == "ooxml-circularArrow"
+                              || sShapeType == "ooxml-leftCircularArrow"
+                              || sShapeType == "ooxml-leftRightCircularArrow")
+                             && nIndex == 3)
+                    {
+                        // ToDo: Getting handle position from adjustment value adj5 is complex.
+                        // Analytical or numerical solution for backward calculation is missing.
+                        // Approximation for now, using a line from center through handle position.
+                        double fAngleRad(0.0);
+                        if (fDX != 0.0 || fDY != 0.0)
+                            fAngleRad = atan2(fDY, fDX);
+                        double fHelpX = cos(fAngleRad) * fHeight / 2.0;
+                        double fHelpY = sin(fAngleRad) * fWidth / 2.0;
+                        if (fHelpX != 0.0 || fHelpY != 0.0)
+                        {
+                            double fHelpAngle = atan2(fHelpY, fHelpX);
+                            double fOuterX = fWidth / 2.0 * cos(fHelpAngle);
+                            double fOuterY = fHeight / 2.0 * sin(fHelpAngle);
+                            double fOuterRadius = sqrt(fOuterX * fOuterX + fOuterY * fOuterY);
+                            double fHandleRadius = sqrt(fDX * fDX + fDY * fDY);
+                            fRadius = (fOuterRadius - fHandleRadius) / 2.0;
+                            double fss(std::min(fWidth, fHeight));
+                            if (fss != 0.0)
+                                fRadius = fRadius * 100000.0 / fss;
+                        }
+                        // no REFANGLE
+                    }
+                    else if (sShapeType == "ooxml-mathNotEqual" && nIndex == 1)
+                    {
+                        double fadj1(GetAdjustValueAsDouble(0));
+                        double fadj3(GetAdjustValueAsDouble(2));
+                        fadj1 = fadj1 * fHeight / 100000.0;
+                        fadj3 = fadj3 * fHeight / 100000.0;
+                        double fDYRefHorizBar = fDY + fadj1 + fadj3;
+                        if (fDX != 0.0 || fDYRefHorizBar != 0.0)
+                        {
+                            double fRawAngleDeg = basegfx::rad2deg(atan2(fDYRefHorizBar, fDX));
+                            fAngle = (fRawAngleDeg + 180.0) * 60000.0;
+                        }
+                        // no REFR
+                    }
+                    else
+                    {
+                        // no special meaning of radius or angle, suitable for "ooxml-arc",
+                        // "ooxml-chord", "ooxml-pie" and circular arrows value adj4.
+                        fAngle = lcl_getAngleInOOXMLUnit(fDY, fDX);
+                        fRadius = sqrt(fDX * fDX + fDY * fDY);
+                        double fss(std::min(fWidth, fHeight));
+                        if (fss != 0.0)
+                            fRadius = fRadius * 100000.0 / fss;
+                    }
                 }
-                else
+                else // e.g. shapes from ODF, MS binary import or shape type "fontwork-foo"
                 {
-                    // DrawingML polar handles don't have reference center.
-                    fXRef = fWidth / 2;
-                    fYRef = fHeight / 2;
+                    double fXRef, fYRef;
+                    if (aHandle.nFlags & HandleFlags::POLAR)
+                    {
+                        GetParameter(fXRef, aHandle.aPolar.First, false, false);
+                        GetParameter(fYRef, aHandle.aPolar.Second, false, false);
+                    }
+                    else
+                    {
+                        fXRef = fWidth / 2.0;
+                        fYRef = fHeight / 2.0;
+                    }
+                    const double fDX = fPos1 - fXRef;
+                    const double fDY = fPos2 - fYRef;
+                    // ToDo: MS binary uses fixed-point number for the angle. Make sure conversion
+                    // to double is done in import and export.
+                    // ToDo: Angle unit is degree, but range ]-180;180] or [0;360[? Assume ]-180;180].
+                    if (fDX != 0.0 || fDY != 0.0)
+                    {
+                        fRadius = sqrt(fDX * fDX + fDY * fDY);
+                        fAngle = basegfx::rad2deg(atan2(fDY, fDX));
+                    }
                 }
-                const double fDX = fPos1 - fXRef;
-                fAngle = -basegfx::rad2deg(atan2(-fPos2 + fYRef, (fDX == 0.0) ? 0.000000001 : fDX));
-                double fX = fPos1 - fXRef;
-                double fY = fPos2 - fYRef;
-                double fRadius = sqrt( fX * fX + fY * fY );
+
+                // All formats can restrict the radius to a range
                 if ( aHandle.nFlags & HandleFlags::RADIUS_RANGE_MINIMUM )
                 {
                     double fMin;
@@ -1295,57 +1725,181 @@ bool EnhancedCustomShape2d::SetHandleControllerPosition( const sal_uInt32 nIndex
                     if ( fRadius > fMax )
                         fRadius = fMax;
                 }
-                if (aHandle.nFlags & HandleFlags::REFR)
-                {
-                    fRadius *= 100000.0;
-                    fRadius /= sqrt( fWidth * fWidth + fHeight * fHeight );
-                    nFirstAdjustmentValue = aHandle.nRefR;
-                }
-                if (aHandle.nFlags & HandleFlags::REFANGLE)
-                {
-                    if ( fAngle < 0 )
-                        fAngle += 360.0;
-                    // Adjustment value referred by nRefAngle needs to be in 60000th a degree
-                    // from 0 to 21600000.
-                    fAngle *= 60000.0;
-                    nSecondAdjustmentValue = aHandle.nRefAngle;
-                }
+
                 if ( nFirstAdjustmentValue >= 0 )
                     SetAdjustValueAsDouble( fRadius, nFirstAdjustmentValue );
                 if ( nSecondAdjustmentValue >= 0 )
                     SetAdjustValueAsDouble( fAngle,  nSecondAdjustmentValue );
             }
-            else
+            else // XY-Handle
             {
-                if ( aHandle.nFlags & HandleFlags::REFX )
+                // Calculating the adjustment values follows in most cases some patterns, which only
+                // need width and height of the shape and handle position. These patterns are calculated
+                // in the static, local methods. More complex calculations or additional steps are
+                // done here.
+                // Values for corner cases like 'root(negative)' or 'div zero' are meaningless dummies.
+                // Identifiers often refer to guide names in OOXML shape definitions.
+                double fAdjustX = fPos1;
+                double fAdjustY = fPos2;
+                if (aHandle.nFlags & HandleFlags::REFX)
                 {
                     nFirstAdjustmentValue = aHandle.nRefX;
-                    fPos1 *= 100000.0;
-                    fPos1 /= fWidth;
+                    if ((sShapeType == "ooxml-gear6") || (sShapeType == "ooxml-gear9"))
+                    {
+                        // special, needs angle calculations
+                        double fss(std::min(fWidth, fHeight));
+                        double fadj1(GetAdjustValueAsDouble(0)); // from point D6 or D9
+                        double fth(fadj1 * fss / 100000.0); // radius difference
+                        double frw(fWidth / 2.0 - fth); // inner ellipse
+                        double frh(fHeight / 2.0 - fth);
+                        double fDX(fPos1 - fWidth / 2.0);
+                        double fDY(fPos2 - fHeight / 2.0);
+                        double fbA(-1.7); // effective angle for point A6 or A9, dummy value
+                        if (fDX != 0.0 || fDY != 0.0)
+                            fbA = atan2(fDY, fDX);
+                        double faA(fbA); // corresponding circle angle, dummy value
+                        double ftmpX(frh * cos(fbA));
+                        double ftmpY(frw * sin(fbA));
+                        if (ftmpX != 0.0 || ftmpY != 0.0)
+                            faA = atan2(ftmpY, ftmpX); // range ]-pi..pi], here -pi < faA < -pi/2
+                        // screen 270 deg = mathematic coordinate system -pi/2
+                        double fha(-F_PI2 - faA); // positive circle angle difference to 270 deg
+                        if (abs(fha) == F_PI2) // should not happen, but ensure no tan(90deg)
+                            fha = 0.12; // dummy value
+                        double flFD(2 * std::min(frw, frh) * tan(fha) - fth);
+                        if (fss != 0.0)
+                            fAdjustX = flFD / fss * 100000.0;
+                    }
+                    else
+                    {
+                        fAdjustX
+                            = lcl_getXAdjustmentValue(sShapeType, nIndex, fPos1, fWidth, fHeight);
+                        if ((sShapeType == "ooxml-curvedDownArrow")
+                            || (sShapeType == "ooxml-curvedUpArrow"))
+                        {
+                            double fss(std::min(fWidth, fHeight));
+                            if (fss != 0.0)
+                            {
+                                double fadj3(GetAdjustValueAsDouble(2));
+                                double fHScaled(100000.0 * fHeight / fss);
+                                double fRadicand(fHScaled * fHScaled - fadj3 * fadj3);
+                                double fSqrt = fRadicand >= 0.0 ? sqrt(fRadicand) : 0.0;
+                                double fPart(200000.0 * fWidth / fss * (fSqrt + fHScaled));
+                                fAdjustX = fPart - 4.0 * fHScaled * fAdjustX;
+                                if (nIndex == 0)
+                                {
+                                    // calculate adj1
+                                    double fadj2(GetAdjustValueAsDouble(1));
+                                    fAdjustX = fAdjustX - fadj2 * (fSqrt + fHScaled);
+                                    double fDenominator(fSqrt - 3.0 * fHScaled);
+                                    fAdjustX /= fDenominator != 0.0 ? fDenominator : 1.0;
+                                }
+                                else
+                                {
+                                    // nIndex == 1, calculate adj2
+                                    double fadj1(GetAdjustValueAsDouble(0));
+                                    fAdjustX = fAdjustX - fadj1 * (fSqrt - fHScaled);
+                                    double fDenominator(fSqrt + 3.0 * fHScaled);
+                                    fAdjustX /= fDenominator != 0.0 ? fDenominator : 1.0;
+                                }
+                            }
+                        }
+                    }
                 }
-                if ( aHandle.nFlags & HandleFlags::REFY )
+
+                if (aHandle.nFlags & HandleFlags::REFY)
                 {
                     nSecondAdjustmentValue = aHandle.nRefY;
-                    fPos2 *= 100000.0;
-                    fPos2 /= fHeight;
+                    if ((sShapeType == "ooxml-gear6") || (sShapeType == "ooxml-gear9"))
+                    {
+                        // special, acts more like a polar handle radius
+                        double fDX = fPos1 - fWidth / 2.0;
+                        double fDY = fPos2 - fHeight / 2.0;
+                        double fRadiusDifference
+                            = lcl_getRadiusDistance(fWidth / 2.0, fHeight / 2.0, fDX, fDY);
+                        double fss(std::min(fWidth, fHeight));
+                        if (fss != 0)
+                            fAdjustY = fRadiusDifference / fss * 100000.0;
+                    }
+                    else
+                    {
+                        fAdjustY
+                            = lcl_getYAdjustmentValue(sShapeType, nIndex, fPos2, fWidth, fHeight);
+                        if (sShapeType == "ooxml-mathDivide" && nIndex == 1)
+                            fAdjustY = fAdjustY - GetAdjustValueAsDouble(0) / 2.0
+                                       - GetAdjustValueAsDouble(2);
+                        else if (sShapeType == "ooxml-mathEqual" && nIndex == 0)
+                            fAdjustY -= GetAdjustValueAsDouble(1) / 2.0;
+                        else if (sShapeType == "ooxml-mathNotEqual" && nIndex == 0)
+                            fAdjustY -= GetAdjustValueAsDouble(2) / 2.0;
+                        else if (sShapeType == "ooxml-leftUpArrow" && nIndex == 0)
+                            fAdjustY -= GetAdjustValueAsDouble(1) * 2.0;
+                        else if ((sShapeType == "ooxml-curvedRightArrow")
+                                 || (sShapeType == "ooxml-curvedLeftArrow"))
+                        {
+                            double fss(std::min(fWidth, fHeight));
+                            if (fss != 0.0)
+                            {
+                                double fadj3(GetAdjustValueAsDouble(2));
+                                double fWScaled(100000.0 * fWidth / fss);
+                                double fRadicand(fWScaled * fWScaled - fadj3 * fadj3);
+                                double fSqrt = fRadicand >= 0.0 ? sqrt(fRadicand) : 0.0;
+                                if (nIndex == 0)
+                                {
+                                    // calculate adj1
+                                    double fadj2(GetAdjustValueAsDouble(1));
+                                    fAdjustY = fWScaled * (2.0 * fAdjustY - fadj2);
+                                    fAdjustY += (200000.0 / fss * fHeight - fadj2) * fSqrt;
+                                    double fDenominator(fSqrt + fWScaled);
+                                    fAdjustY /= fDenominator != 0.0 ? fDenominator : 1.0;
+                                }
+                                else
+                                {
+                                    // nIndex == 1, calculate adj2
+                                    double fadj1(GetAdjustValueAsDouble(0));
+                                    fAdjustY = fWScaled * (2.0 * fAdjustY + fadj1);
+                                    fAdjustY += (200000.0 / fss * fHeight - fadj1) * fSqrt;
+                                    double fDenominator(fSqrt + 3.0 * fWScaled);
+                                    fAdjustY /= fDenominator != 0.0 ? fDenominator : 1.0;
+                                }
+                            }
+                        }
+                        else if (sShapeType == "ooxml-uturnArrow" && nIndex == 2)
+                        {
+                            double fss(std::min(fWidth, fHeight));
+                            if (fss != 0.0)
+                            {
+                                double fadj5(GetAdjustValueAsDouble(4));
+                                fAdjustY += fHeight / fss * (fadj5 - 100000.0);
+                            }
+                        }
+                        else if (sShapeType == "ooxml-leftRightRibbon")
+                        {
+                            if (nIndex == 0)
+                                fAdjustY = GetAdjustValueAsDouble(2) - fAdjustY;
+                            else // nIndex == 2
+                                fAdjustY = GetAdjustValueAsDouble(0) + fAdjustY;
+                        }
+                    }
                 }
+
                 if ( nFirstAdjustmentValue >= 0 )
                 {
                     if ( aHandle.nFlags & HandleFlags::RANGE_X_MINIMUM )        // check if horizontal handle needs to be within a range
                     {
                         double fXMin;
                         GetParameter( fXMin, aHandle.aXRangeMinimum, false, false );
-                        if ( fPos1 < fXMin )
-                            fPos1 = fXMin;
+                        if (fAdjustX < fXMin)
+                            fAdjustX = fXMin;
                     }
                     if ( aHandle.nFlags & HandleFlags::RANGE_X_MAXIMUM )        // check if horizontal handle needs to be within a range
                     {
                         double fXMax;
                         GetParameter( fXMax, aHandle.aXRangeMaximum, false, false );
-                        if ( fPos1 > fXMax )
-                            fPos1 = fXMax;
+                        if (fAdjustX > fXMax)
+                            fAdjustX = fXMax;
                     }
-                    SetAdjustValueAsDouble( fPos1, nFirstAdjustmentValue );
+                    SetAdjustValueAsDouble(fAdjustX, nFirstAdjustmentValue);
                 }
                 if ( nSecondAdjustmentValue >= 0 )
                 {
@@ -1353,17 +1907,17 @@ bool EnhancedCustomShape2d::SetHandleControllerPosition( const sal_uInt32 nIndex
                     {
                         double fYMin;
                         GetParameter( fYMin, aHandle.aYRangeMinimum, false, false );
-                        if ( fPos2 < fYMin )
-                            fPos2 = fYMin;
+                        if (fAdjustY < fYMin)
+                            fAdjustY = fYMin;
                     }
                     if ( aHandle.nFlags & HandleFlags::RANGE_Y_MAXIMUM )        // check if vertical handle needs to be within a range
                     {
                         double fYMax;
                         GetParameter( fYMax, aHandle.aYRangeMaximum, false, false );
-                        if ( fPos2 > fYMax )
-                            fPos2 = fYMax;
+                        if (fAdjustY > fYMax)
+                            fAdjustY = fYMax;
                     }
-                    SetAdjustValueAsDouble( fPos2, nSecondAdjustmentValue );
+                    SetAdjustValueAsDouble(fAdjustY, nSecondAdjustmentValue);
                 }
             }
             // and writing them back into the GeometryItem
@@ -1654,10 +2208,14 @@ void EnhancedCustomShape2d::CreateSubPath(
                             // The following implementation generates such rendering. It is only for rendering legacy
                             // MS shapes and independent of the meaning of commands U and T in ODF specification.
 
-                            // Convert from fixedfloat to double
-                            double fSwingAngle;
-                            fStartAngle /= 65536.0;
-                            fSwingAngle = fEndAngle / 65536.0;
+                            // The WordArt shape 'RingOutside' has already angles in degree, all other need
+                            // convertion from fixed-point number.
+                            double fSwingAngle = fEndAngle;
+                            if (sShpType != "mso-spt143")
+                            {
+                                fStartAngle /= 65536.0;
+                                fSwingAngle = fEndAngle / 65536.0;
+                            }
                             // Convert orientation
                             fStartAngle = -fStartAngle;
                             fSwingAngle = -fSwingAngle;
@@ -1735,27 +2293,21 @@ void EnhancedCustomShape2d::CreateSubPath(
                 {
                     for ( sal_Int32 i(0); ( i < nPntCount ) && ( rSrcPt + 1 < nCoordSize ); i++ )
                     {
-                        if ( rSrcPt )
+                        DBG_ASSERT(aNewB2DPolygon.count(), "EnhancedCustomShape2d::CreateSubPath: Error no previous point for Q (!)");
+                        if (aNewB2DPolygon.count() > 0)
                         {
-                            const Point aPreviousEndPoint(GetPoint( seqCoordinates[ rSrcPt - 1 ], true, true));
-                            const Point aControlQ(GetPoint( seqCoordinates[ rSrcPt++ ], true, true ));
-                            const Point aEnd(GetPoint( seqCoordinates[ rSrcPt++ ], true, true ));
-                            const Point aControlA((aPreviousEndPoint + (aControlQ * 2)) / 3);
-                            const Point aControlB(((aControlQ * 2) + aEnd) / 3);
-
-                            DBG_ASSERT(aNewB2DPolygon.count(), "EnhancedCustomShape2d::CreateSubPath: Error in adding Q control point (!)");
-                            aNewB2DPolygon.appendBezierSegment(
-                                basegfx::B2DPoint(aControlA.X(), aControlA.Y()),
-                                basegfx::B2DPoint(aControlB.X(), aControlB.Y()),
-                                basegfx::B2DPoint(aEnd.X(), aEnd.Y()));
+                            const basegfx::B2DPoint aPreviousEndPoint(aNewB2DPolygon.getB2DPoint(aNewB2DPolygon.count()-1));
+                            const basegfx::B2DPoint aControlQ(GetPointAsB2DPoint( seqCoordinates[ rSrcPt++ ], true, true ));
+                            const basegfx::B2DPoint aEnd(GetPointAsB2DPoint( seqCoordinates[ rSrcPt++ ], true, true ));
+                            const basegfx::B2DPoint aControlA((aPreviousEndPoint + (aControlQ * 2)) / 3);
+                            const basegfx::B2DPoint aControlB(((aControlQ * 2) + aEnd) / 3);
+                            aNewB2DPolygon.appendBezierSegment(aControlA, aControlB, aEnd);
                         }
-                        else // no previous point , do a moveto
+                        else // no previous point; ill structured path, but try to draw as much as possible
                         {
                             rSrcPt++; // skip control point
-                            const Point aEnd(GetPoint( seqCoordinates[ rSrcPt++ ], true, true ));
-
-                            DBG_ASSERT(aNewB2DPolygon.count(), "EnhancedCustomShape2d::CreateSubPath: Error in adding Q control point (!)");
-                            aNewB2DPolygon.append(basegfx::B2DPoint(aEnd.X(), aEnd.Y()));
+                            const basegfx::B2DPoint aEnd(GetPointAsB2DPoint( seqCoordinates[ rSrcPt++ ], true, true ));
+                            aNewB2DPolygon.append(aEnd);
                         }
                     }
                 }
@@ -2261,9 +2813,7 @@ void EnhancedCustomShape2d::AdaptObjColor(
 
 SdrObject* EnhancedCustomShape2d::CreatePathObj( bool bLineGeometryNeededOnly )
 {
-    const sal_Int32 nCoordSize(seqCoordinates.getLength());
-
-    if ( !nCoordSize )
+    if ( !seqCoordinates.hasElements() )
     {
         return nullptr;
     }
@@ -2448,7 +2998,7 @@ SdrObject* EnhancedCustomShape2d::CreateObject( bool bLineGeometryNeededOnly )
 
 void EnhancedCustomShape2d::ApplyGluePoints( SdrObject* pObj )
 {
-    if ( pObj && seqGluePoints.getLength() )
+    if ( pObj && seqGluePoints.hasElements() )
     {
         sal_uInt32 i, nCount = seqGluePoints.getLength();
         for ( i = 0; i < nCount; i++ )

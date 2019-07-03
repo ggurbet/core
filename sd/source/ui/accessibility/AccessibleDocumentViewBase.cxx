@@ -28,7 +28,9 @@
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <sfx2/objsh.hxx>
+#include <tools/debug.hxx>
 
+#include <cppuhelper/queryinterface.hxx>
 #include <svx/svdobj.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <Window.hxx>
@@ -78,7 +80,7 @@ AccessibleDocumentViewBase::AccessibleDocumentViewBase (
             mxModel, uno::UNO_QUERY));
     maShapeTreeInfo.SetController (mxController);
     maShapeTreeInfo.SetSdrView (pViewShell->GetView());
-    maShapeTreeInfo.SetWindow (pSdWindow);
+    maShapeTreeInfo.SetDevice (pSdWindow);
     maShapeTreeInfo.SetViewForwarder (&maViewForwarder);
 
     mxWindow = ::VCLUnoHelper::GetInterface (pSdWindow);

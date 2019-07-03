@@ -92,7 +92,6 @@
 
 bool SwViewShell::mbLstAct = false;
 ShellResource *SwViewShell::mpShellRes = nullptr;
-vcl::DeleteOnDeinit< VclPtr<vcl::Window> > SwViewShell::mpCareWindow(new VclPtr<vcl::Window>);
 vcl::DeleteOnDeinit<std::shared_ptr<weld::Window>> SwViewShell::mpCareDialog(new std::shared_ptr<weld::Window>);
 
 static bool bInSizeNotify = false;
@@ -122,8 +121,9 @@ void SwViewShell::ToggleHeaderFooterEdit()
     }
 
     // Avoid corner case
-    if ( !IsShowHeaderFooterSeparator( Header ) &&
-         !IsShowHeaderFooterSeparator( Footer ) )
+    if ( ( GetViewOptions()->IsUseHeaderFooterMenu() ) &&
+         ( !IsShowHeaderFooterSeparator( Header ) &&
+           !IsShowHeaderFooterSeparator( Footer ) ) )
     {
         mbHeaderFooterEdit = false;
     }
@@ -430,8 +430,8 @@ void SwViewShell::ImplEndAction( const bool bIdleEnd )
                             DLPostPaint2(true);
                         }
                     }
-                    else
-                        lcl_PaintTransparentFormControls(*this, aRect); // i#107365
+
+                    lcl_PaintTransparentFormControls(*this, aRect); // i#107365
                 }
             }
             if( bShowCursor )
@@ -576,7 +576,7 @@ const SwRect& SwViewShell::VisArea() const
 
 void SwViewShell::MakeVisible( const SwRect &rRect )
 {
-    if ( !VisArea().IsInside( rRect ) || IsScrollMDI( this, rRect ) || GetCareWin() || GetCareDialog(*this) )
+    if ( !VisArea().IsInside( rRect ) || IsScrollMDI( this, rRect ) || GetCareDialog(*this) )
     {
         if ( !IsViewLocked() )
         {
@@ -712,9 +712,8 @@ void SwViewShell::LayoutIdle()
 #endif
 
     {
-        //Prepare and recover cache, so that it will not get fouled.
-        SwSaveSetLRUOfst aSave( *SwTextFrame::GetTextCache(),
-                             SwTextFrame::GetTextCache()->GetCurMax() - 50 );
+        // Preserve top of the text frame cache.
+        SwSaveSetLRUOfst aSaveLRU;
         // #125243# there are lots of stacktraces indicating that Imp() returns NULL
         // this SwViewShell seems to be invalid - but it's not clear why
         // this return is only a workaround!
@@ -945,7 +944,7 @@ void SwViewShell::SetEmptyDbFieldHidesPara(bool bEmptyDbFieldHidesPara)
         rIDSA.set(DocumentSettingId::EMPTY_DB_FIELD_HIDES_PARA, bEmptyDbFieldHidesPara);
         StartAction();
         GetDoc()->getIDocumentState().SetModified();
-        for (auto* pFieldType : *GetDoc()->getIDocumentFieldsAccess().GetFieldTypes())
+        for (auto const & pFieldType : *GetDoc()->getIDocumentFieldsAccess().GetFieldTypes())
         {
             if (pFieldType->Which() == SwFieldIds::Database)
             {
@@ -990,9 +989,8 @@ void SwViewShell::CalcLayout()
     SET_CURR_SHELL( this );
     SwWait aWait( *GetDoc()->GetDocShell(), true );
 
-    //prepare and recover cache, so that it will not get fouled.
-    SwSaveSetLRUOfst aSaveLRU( *SwTextFrame::GetTextCache(),
-                                  SwTextFrame::GetTextCache()->GetCurMax() - 50 );
+    // Preserve top of the text frame cache.
+    SwSaveSetLRUOfst aSaveLRU;
 
     //switch on Progress when none is running yet.
     const bool bEndProgress = SfxProgress::GetActiveProgress( GetDoc()->GetDocShell() ) == nullptr;
@@ -1932,8 +1930,8 @@ void SwViewShell::PaintTile(VirtualDevice &rDevice, int contextWidth, int contex
         GetWin()->EnableMapMode(false);
     }
 
-    tools::Rectangle aOutRect = tools::Rectangle(Point(tilePosX, tilePosY),
-                                   rDevice.PixelToLogic(Size(contextWidth, contextHeight)));
+    tools::Rectangle aOutRect(Point(tilePosX, tilePosY),
+                              rDevice.PixelToLogic(Size(contextWidth, contextHeight)));
 
     // Make the requested area visible -- we can't use MakeVisible as that will
     // only scroll the contents, but won't zoom/resize if needed.
@@ -2492,11 +2490,6 @@ void SwViewShell::ApplyAccessiblityOptions(SvtAccessibilityOptions const & rAcce
 ShellResource* SwViewShell::GetShellRes()
 {
     return mpShellRes;
-}
-
-void SwViewShell::SetCareWin( vcl::Window* pNew )
-{
-    (*mpCareWindow.get()) = pNew;
 }
 
 void SwViewShell::SetCareDialog(const std::shared_ptr<weld::Window>& rNew)

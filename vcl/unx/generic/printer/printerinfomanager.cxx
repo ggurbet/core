@@ -23,6 +23,7 @@
 
 #include <unx/cpdmgr.hxx>
 #include <unx/cupsmgr.hxx>
+#include <unx/helper.hxx>
 #include <vcl/strhelper.hxx>
 
 #include <saldatabasic.hxx>
@@ -36,6 +37,7 @@
 #include <sal/macros.h>
 #include <sal/log.hxx>
 
+#include <osl/file.hxx>
 #include <osl/thread.hxx>
 #include <osl/mutex.hxx>
 #include <osl/process.h>
@@ -501,8 +503,8 @@ void PrinterInfoManager::initialize()
     {
         PrinterInfo aDefaultInfo( getPrinterInfo( m_aDefaultPrinter ) );
 
-        const PPDKey* pDefKey           = aDefaultInfo.m_pParser->getKey( OUString( "PageSize" ) );
-        const PPDKey* pMergeKey         = aMergeInfo.m_pParser->getKey( OUString( "PageSize" ) );
+        const PPDKey* pDefKey           = aDefaultInfo.m_pParser->getKey( "PageSize" );
+        const PPDKey* pMergeKey         = aMergeInfo.m_pParser->getKey( "PageSize" );
         const PPDValue* pDefValue       = aDefaultInfo.m_aContext.getValue( pDefKey );
         const PPDValue* pMergeValue     = pMergeKey ? pMergeKey->getValue( pDefValue->m_aOption ) : nullptr;
         if( pMergeKey && pMergeValue )
@@ -603,7 +605,7 @@ void PrinterInfoManager::setDefaultPaper( PPDContext& rContext ) const
     if(  ! rContext.getParser() )
         return;
 
-    const PPDKey* pPageSizeKey = rContext.getParser()->getKey( OUString( "PageSize" ) );
+    const PPDKey* pPageSizeKey = rContext.getParser()->getKey( "PageSize" );
     if( ! pPageSizeKey )
         return;
 
@@ -818,12 +820,11 @@ static void standardSysQueueTokenHandler(
                 // get the queue name between fore and aft tokens
                 OUString aSysQueue( OStringToOUString( line.copy( nPos, nAftPos - nPos ), aEncoding ) );
                 // do not insert duplicates (e.g. lpstat tends to produce such lines)
-                if( aUniqueSet.find( aSysQueue ) == aUniqueSet.end() )
+                if( aUniqueSet.insert( aSysQueue ).second )
                 {
                     o_rQueues.emplace_back( );
                     o_rQueues.back().m_aQueue = aSysQueue;
                     o_rQueues.back().m_aLocation = aSysQueue;
-                    aUniqueSet.insert( aSysQueue );
                 }
             }
         }

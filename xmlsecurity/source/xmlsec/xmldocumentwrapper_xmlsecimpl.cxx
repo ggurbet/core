@@ -21,19 +21,12 @@
 
 #include <osl/diagnose.h>
 #include <com/sun/star/uno/XComponentContext.hpp>
+#include <com/sun/star/xml/crypto/sax/XSAXEventKeeper.hpp>
 #include <cppuhelper/supportsservice.hxx>
 #include <xmlsec/xmldocumentwrapper_xmlsecimpl.hxx>
 #include "xmlelementwrapper_xmlsecimpl.hxx"
 
 #include <xmloff/attrlist.hxx>
-
-#include <stdlib.h>
-#include <string.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#include <vector>
 
 #ifdef UNX
 #define stricmp strcasecmp

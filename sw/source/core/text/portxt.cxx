@@ -20,6 +20,7 @@
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <i18nlangtag/mslangid.hxx>
+#include <breakit.hxx>
 #include <hintids.hxx>
 #include <EnhancedPDFExportHelper.hxx>
 #include <SwPortionHandler.hxx>
@@ -115,8 +116,7 @@ static TextFrameIndex lcl_AddSpace(const SwTextSizeInfo &rInf,
     // Kashida Justification: Insert Kashidas
     if ( nEnd > nPos && pSI && COMPLEX == nScript )
     {
-        if ( SwScriptInfo::IsArabicText( *pStr, nPos, nEnd - nPos ) && rInf.GetOut()->GetMinKashida()
-            && pSI->CountKashida() )
+        if ( SwScriptInfo::IsArabicText( *pStr, nPos, nEnd - nPos ) && pSI->CountKashida() )
         {
             const sal_Int32 nKashRes = pSI->KashidaJustify( nullptr, nullptr, nPos, nEnd - nPos );
             // i60591: need to check result of KashidaJustify
@@ -442,7 +442,8 @@ bool SwTextPortion::Format_( SwTextFormatInfo &rInf )
 
 bool SwTextPortion::Format( SwTextFormatInfo &rInf )
 {
-    if( rInf.X() > rInf.Width() || (!GetLen() && !InExpGrp()) )
+    // GetLineWidth() takes care of DocumentSettingId::TAB_OVER_MARGIN.
+    if( rInf.GetLineWidth() < 0 || (!GetLen() && !InExpGrp()) )
     {
         Height( 0 );
         Width( 0 );

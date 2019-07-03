@@ -19,6 +19,7 @@
 
 #include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
+#include <tools/debug.hxx>
 #include <tools/stream.hxx>
 #include <vcl/window.hxx>
 #include <vcl/virdev.hxx>
@@ -26,7 +27,6 @@
 #include <svl/style.hxx>
 #include <editeng/memberids.h>
 #include <svx/strings.hrc>
-#include <svx/xattr.hxx>
 #include <svx/xtable.hxx>
 #include <svx/xdef.hxx>
 #include <svx/unomid.hxx>
@@ -34,8 +34,8 @@
 #include <svx/unoapi.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/xbitmap.hxx>
+#include <svx/xbtmpit.hxx>
 #include <com/sun/star/beans/PropertyValue.hpp>
-#include <vcl/salbtype.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/BitmapTools.hxx>
 #include <vcl/GraphicLoader.hxx>
@@ -164,13 +164,8 @@ bool XFillBitmapItem::operator==(const SfxPoolItem& rItem) const
 
 bool XFillBitmapItem::isPattern() const
 {
-    BitmapColor aBack, aFront;
+    Color aBack, aFront;
     return vcl::bitmap::isHistorical8x8(GetGraphicObject().GetGraphic().GetBitmapEx(), aBack, aFront);
-}
-
-sal_uInt16 XFillBitmapItem::GetVersion(sal_uInt16 /*nFileFormatVersion*/) const
-{
-    return 2;
 }
 
 bool XFillBitmapItem::GetPresentation(
@@ -289,7 +284,7 @@ bool XFillBitmapItem::PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId )
     if (bSetURL && !aURL.isEmpty())
     {
         Graphic aGraphic = vcl::graphic::loadFromURL(aURL);
-        if (aGraphic)
+        if (!aGraphic.IsNone())
         {
             maGraphicObject.SetGraphic(aGraphic.GetXGraphic());
         }
@@ -306,7 +301,7 @@ bool XFillBitmapItem::PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId )
         }
     }
 
-    return (bSetName || bSetBitmap);
+    return (bSetURL || bSetName || bSetBitmap);
 }
 
 bool XFillBitmapItem::CompareValueFunc( const NameOrIndex* p1, const NameOrIndex* p2 )

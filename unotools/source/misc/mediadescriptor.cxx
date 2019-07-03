@@ -33,19 +33,11 @@
 #include <com/sun/star/io/XStream.hpp>
 #include <com/sun/star/io/XActiveDataSink.hpp>
 #include <com/sun/star/io/XSeekable.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/util/XURLTransformer.hpp>
-#include <com/sun/star/ucb/InteractiveIOException.hpp>
-#include <com/sun/star/ucb/UnsupportedDataSinkException.hpp>
-#include <com/sun/star/ucb/CommandFailedException.hpp>
-#include <com/sun/star/task/XInteractionAbort.hpp>
 #include <com/sun/star/uri/UriReferenceFactory.hpp>
 #include <com/sun/star/uri/XUriReference.hpp>
 #include <com/sun/star/ucb/PostCommandArgument2.hpp>
-#include <com/sun/star/container/XNameAccess.hpp>
 #include <officecfg/Office/Common.hxx>
-#include <ucbhelper/interceptedinteraction.hxx>
 #include <ucbhelper/content.hxx>
 #include <ucbhelper/commandenvironment.hxx>
 #include <ucbhelper/activedatasink.hxx>
@@ -476,7 +468,7 @@ css::uno::Sequence< css::beans::NamedValue > MediaDescriptor::requestAndVerifyDo
     erase( PROP_ENCRYPTIONDATA() );
 
     // insert valid password into media descriptor (but not a default password)
-    if( (aEncryptionData.getLength() > 0) && !bIsDefaultPassword )
+    if( aEncryptionData.hasElements() && !bIsDefaultPassword )
         (*this)[ PROP_ENCRYPTIONDATA() ] <<= aEncryptionData;
 
     return aEncryptionData;
@@ -634,16 +626,14 @@ bool MediaDescriptor::impl_openStreamWithURL( const OUString& sURL, bool bLockFi
     }
     catch(const css::uno::RuntimeException&)
         { throw; }
-    catch(const css::ucb::ContentCreationException& e)
+    catch(const css::ucb::ContentCreationException&)
         {
-            SAL_WARN("unotools.misc", "caught \"" << e
-                    << "\" while opening <" << sURL << ">");
+            TOOLS_WARN_EXCEPTION("unotools.misc", "url: '" << sURL << "'");
             return false; // TODO error handling
         }
-    catch(const css::uno::Exception& e)
+    catch(const css::uno::Exception&)
         {
-            SAL_WARN("unotools.misc", "caught \"" << e << "\" while opening <"
-                    << sURL << ">");
+            TOOLS_WARN_EXCEPTION("unotools.misc", "url: '" << sURL << "'");
             return false; // TODO error handling
         }
 
@@ -674,8 +664,9 @@ bool MediaDescriptor::impl_openStreamWithURL( const OUString& sURL, bool bLockFi
         }
         catch(const css::uno::RuntimeException&)
             { throw; }
-        catch(const css::uno::Exception& e)
+        catch(const css::uno::Exception&)
             {
+                css::uno::Any ex( cppu::getCaughtException() );
                 // ignore exception, if reason was problem reasoned on
                 // open it in WRITEABLE mode! Then we try it READONLY
                 // later a second time.
@@ -683,8 +674,7 @@ bool MediaDescriptor::impl_openStreamWithURL( const OUString& sURL, bool bLockFi
                 // break this method.
                 if (!pInteraction->wasWriteError() || bModeRequestedExplicitly)
                 {
-                    SAL_WARN("unotools.misc", "caught \"" << e
-                            << "\" while opening <" << sURL << ">");
+                    SAL_WARN("unotools.misc","url: '" << sURL << "' " << exceptionToString(ex));
                     // If the protocol is webdav, then we need to treat the stream as readonly, even if the
                     // operation was requested as read/write explicitly (the WebDAV UCB implementation is monodirectional
                     // read or write not both at the same time).
@@ -745,11 +735,9 @@ bool MediaDescriptor::impl_openStreamWithURL( const OUString& sURL, bool bLockFi
         {
             throw;
         }
-        catch(const css::uno::Exception& e)
+        catch(const css::uno::Exception&)
         {
-            SAL_INFO(
-                "unotools.misc",
-                "caught " << e << " while opening <" << sURL << ">");
+            TOOLS_INFO_EXCEPTION("unotools.misc","url: '" << sURL << "'");
             return false;
         }
     }

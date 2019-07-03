@@ -30,6 +30,7 @@
 #include <svtools/accessibilityoptions.hxx>
 #include <svl/itemset.hxx>
 #include <tools/multisel.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/settings.hxx>
 #include <o3tl/deleter.hxx>
@@ -506,11 +507,10 @@ void ScPreview::DoPrint( ScPreviewLocationData* pFillLocation )
                 new ScEditEngineDefaulter(EditEngine::CreatePool(), true));
 
             pEditEng->SetRefMapMode(aMMMode);
-            SfxItemSet* pEditDefaults = new SfxItemSet( pEditEng->GetEmptyItemSet() );
-            rDefPattern.FillEditItemSet(pEditDefaults);
-            pEditEng->SetDefaults(pEditDefaults);
-
+            auto pEditDefaults = std::make_unique<SfxItemSet>( pEditEng->GetEmptyItemSet() );
+            rDefPattern.FillEditItemSet(pEditDefaults.get());
             pEditDefaults->Put(SvxColorItem(COL_LIGHTGRAY, EE_CHAR_COLOR));
+            pEditEng->SetDefaults(std::move(pEditDefaults));
 
             OUString aEmptyMsg;
             if (mbHasEmptyRangeTable)

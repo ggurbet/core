@@ -32,6 +32,7 @@
 #include <com/sun/star/uno/Any.hxx>
 #include <comphelper/processfactory.hxx>
 #include <sfx2/evntconf.hxx>
+#include <svl/macitem.hxx>
 
 #include <sfx2/docfile.hxx>
 #include <sfx2/app.hxx>
@@ -92,12 +93,6 @@ bool SfxEventNamesItem::GetPresentation( SfxItemPresentation,
 SfxPoolItem* SfxEventNamesItem::Clone( SfxItemPool *) const
 {
     return new SfxEventNamesItem(*this);
-}
-
-sal_uInt16 SfxEventNamesItem::GetVersion( sal_uInt16 ) const
-{
-    OSL_FAIL("not streamable!");
-    return 0;
 }
 
 void SfxEventNamesItem::AddEvent( const OUString& rName, const OUString& rUIName, SvMacroItemId nID )

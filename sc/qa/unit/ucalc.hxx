@@ -161,6 +161,8 @@ public:
     void testFormulaRefUpdateMoveUndo2();
     void testFormulaRefUpdateMoveUndo3NonShared();
     void testFormulaRefUpdateMoveUndo3Shared();
+    void testFormulaRefUpdateMoveUndoDependents();
+    void testFormulaRefUpdateMoveUndo4();
     void testFormulaRefUpdateMoveToSheet();
     void testFormulaRefUpdateDeleteContent();
     void testFormulaRefUpdateDeleteAndShiftLeft();
@@ -409,6 +411,9 @@ public:
     void testSharedFormulaListenerDeleteArea();
     void testSharedFormulaUpdateOnReplacement();
     void testSharedFormulaDeleteTopCell();
+    void testSharedFormulaCutCopyMoveIntoRef();
+    void testSharedFormulaCutCopyMoveWithRef();
+    void testSharedFormulaCutCopyMoveWithinRun();
     void testFormulaPosition();
     void testFormulaWizardSubformula();
 
@@ -596,6 +601,8 @@ public:
     CPPUNIT_TEST(testFormulaRefUpdateMoveUndo2);
     CPPUNIT_TEST(testFormulaRefUpdateMoveUndo3NonShared);
     CPPUNIT_TEST(testFormulaRefUpdateMoveUndo3Shared);
+    CPPUNIT_TEST(testFormulaRefUpdateMoveUndoDependents);
+    CPPUNIT_TEST(testFormulaRefUpdateMoveUndo4);
     CPPUNIT_TEST(testFormulaRefUpdateMoveToSheet);
     CPPUNIT_TEST(testFormulaRefUpdateDeleteContent);
     CPPUNIT_TEST(testFormulaRefUpdateDeleteAndShiftLeft);
@@ -760,6 +767,9 @@ public:
     CPPUNIT_TEST(testSharedFormulaListenerDeleteArea);
     CPPUNIT_TEST(testSharedFormulaUpdateOnReplacement);
     CPPUNIT_TEST(testSharedFormulaDeleteTopCell);
+    CPPUNIT_TEST(testSharedFormulaCutCopyMoveIntoRef);
+    CPPUNIT_TEST(testSharedFormulaCutCopyMoveWithRef);
+    CPPUNIT_TEST(testSharedFormulaCutCopyMoveWithinRun);
     CPPUNIT_TEST(testFormulaPosition);
     CPPUNIT_TEST(testFormulaWizardSubformula);
     CPPUNIT_TEST(testMixData);

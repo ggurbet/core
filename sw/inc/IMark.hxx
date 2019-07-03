@@ -22,7 +22,6 @@
 #include <vcl/keycod.hxx>
 #include "calbck.hxx"
 #include "pam.hxx"
-#include <boost/operators.hpp>
 #include <map>
 #include <memory>
 #include "swdllapi.h"
@@ -37,7 +36,6 @@ namespace sw { namespace mark
 
     class SW_DLLPUBLIC IMark
         : virtual public sw::BroadcastingModify // inherited as interface
-        , public ::boost::totally_ordered<IMark>
     {
         protected:
             IMark() = default;
@@ -58,18 +56,6 @@ namespace sw { namespace mark
             // not available in IMark
             // inside core, you can cast to MarkBase and use its setters,
             // make sure to update the sorting in Markmanager in this case
-
-            //operators and comparisons (non-virtual)
-            bool operator<(const IMark& rOther) const
-                { return GetMarkStart() < rOther.GetMarkStart(); }
-            bool operator==(const IMark& rOther) const
-                { return GetMarkStart() == rOther.GetMarkStart(); }
-            bool StartsBefore(const SwPosition& rPos) const
-                { return GetMarkStart() < rPos; }
-            bool StartsAfter(const SwPosition& rPos) const
-                { return GetMarkStart() > rPos; }
-            bool EndsBefore(const SwPosition& rPos) const
-                { return GetMarkEnd() < rPos; }
 
             virtual OUString ToString( ) const =0;
             virtual void dumpAsXml(xmlTextWriterPtr pWriter) const = 0;
@@ -133,26 +119,6 @@ namespace sw { namespace mark
         private:
             ICheckboxFieldmark(ICheckboxFieldmark const &) = delete;
             ICheckboxFieldmark &operator =(ICheckboxFieldmark const&) = delete;
-    };
-
-    // Apple llvm-g++ 4.2.1 with _GLIBCXX_DEBUG won't eat boost::bind for this
-    // Neither will MSVC 2008 with _DEBUG
-    struct CompareIMarkStartsAfter
-    {
-        bool operator()(SwPosition const& rPos,
-                        std::shared_ptr<sw::mark::IMark> const& pMark)
-        {
-            return pMark->StartsAfter(rPos);
-        }
-    };
-
-    struct CompareIMarkStartsBefore
-    {
-        bool operator()(std::shared_ptr<sw::mark::IMark> const& pMark,
-                        SwPosition const& rPos)
-        {
-            return pMark->StartsBefore(rPos);
-        }
     };
 
     OUString ExpandFieldmark(IFieldmark* pBM);

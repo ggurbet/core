@@ -115,6 +115,7 @@
 #include <svx/svdobj.hxx>
 #include <svx/svdocapt.hxx>
 #include <svtools/miscopt.hxx>
+#include <vcl/svapp.hxx>
 
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
@@ -443,7 +444,7 @@ void ScXMLExport::SetSourceStream( const uno::Reference<io::XInputStream>& xNewS
             // keep track of the bytes already read
             nSourceStreamPos = nRead;
 
-            const ScSheetSaveData* pSheetData = ScModelObj::getImplementation(GetModel())->GetSheetSaveData();
+            const ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(GetModel())->GetSheetSaveData();
             if (pSheetData)
             {
                 // add the loaded namespaces to the name space map
@@ -526,7 +527,7 @@ void ScXMLExport::CollectSharedData(SCTAB& nTableCount, sal_Int32& nShapesCount)
 
             ++nShapesCount;
 
-            SvxShape* pShapeImp = SvxShape::getImplementation(xShape);
+            SvxShape* pShapeImp = comphelper::getUnoTunnelImplementation<SvxShape>(xShape);
             if (!pShapeImp)
                 continue;
 
@@ -1837,7 +1838,7 @@ const ScXMLEditAttributeMap& ScXMLExport::GetEditAttributeMap() const
 
 void ScXMLExport::RegisterDefinedStyleNames( const uno::Reference< css::sheet::XSpreadsheetDocument > & xSpreadDoc )
 {
-    ScFormatSaveData* pFormatData = ScModelObj::getImplementation(xSpreadDoc)->GetFormatSaveData();
+    ScFormatSaveData* pFormatData = comphelper::getUnoTunnelImplementation<ScModelObj>(xSpreadDoc)->GetFormatSaveData();
     auto xAutoStylePool = GetAutoStylePool();
     for (const auto& rFormatInfo : pFormatData->maIDToName)
     {
@@ -1865,7 +1866,7 @@ void ScXMLExport::ExportContent_()
     if ( !xSpreadDoc.is() )
         return;
 
-    ScSheetSaveData* pSheetData = ScModelObj::getImplementation(xSpreadDoc)->GetSheetSaveData();
+    ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(xSpreadDoc)->GetSheetSaveData();
     if (pSheetData)
         pSheetData->ResetSaveEntries();
 
@@ -2087,7 +2088,7 @@ void ScXMLExport::AddStyleFromCells(const uno::Reference<beans::XPropertySet>& x
                 if (nKey)
                 {
                     uno::Reference <sheet::XSpreadsheetDocument> xSpreadDoc( GetModel(), uno::UNO_QUERY );
-                    ScFormatSaveData* pFormatData = ScModelObj::getImplementation(xSpreadDoc)->GetFormatSaveData();
+                    ScFormatSaveData* pFormatData = comphelper::getUnoTunnelImplementation<ScModelObj>(xSpreadDoc)->GetFormatSaveData();
                     auto itr = pFormatData->maIDToName.find(nKey);
                     if (itr != pFormatData->maIDToName.end())
                     {
@@ -2253,7 +2254,7 @@ void ScXMLExport::collectAutoStyles()
         RegisterDefinedStyleNames( xSpreadDoc);
 
         //  re-create automatic styles with old names from stored data
-        ScSheetSaveData* pSheetData = ScModelObj::getImplementation(xSpreadDoc)->GetSheetSaveData();
+        ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(xSpreadDoc)->GetSheetSaveData();
         if (pSheetData && pDoc)
         {
             // formulas have to be calculated now, to detect changed results
@@ -2432,7 +2433,7 @@ void ScXMLExport::collectAutoStyles()
                         SdrCaptionObj* pDrawObj = pNote->GetOrCreateCaption( aPos );
                         uno::Reference<text::XSimpleText> xCellText(pDrawObj->getUnoShape(), uno::UNO_QUERY);
                         uno::Reference<beans::XPropertySet> xCursorProp(xCellText->createTextCursor(), uno::UNO_QUERY);
-                        ScDrawTextCursor* pCursor = ScDrawTextCursor::getImplementation( xCursorProp );
+                        ScDrawTextCursor* pCursor = comphelper::getUnoTunnelImplementation<ScDrawTextCursor>( xCursorProp );
                         if (pCursor)
                         {
                             pCursor->SetSelection( rNoteTextEntry.maSelection );
@@ -2448,31 +2449,42 @@ void ScXMLExport::collectAutoStyles()
 
             // stored text styles
 
+            // Calling createTextCursor fires up editeng, which is very slow, and often subsequent style entries
+            // refer to the same cell, so cache it.
+            ScAddress aPrevPos;
+            uno::Reference<beans::XPropertySet> xPrevCursorProp;
             const std::vector<ScTextStyleEntry>& rTextEntries = pSheetData->GetTextStyles();
             for (const auto& rTextEntry : rTextEntries)
             {
                 ScAddress aPos = rTextEntry.maCellPos;
                 sal_Int32 nTable = aPos.Tab();
                 bool bCopySheet = pDoc->IsStreamValid( static_cast<SCTAB>(nTable) );
-                if (bCopySheet)
-                {
-                    //! separate method AddStyleFromText needed?
-                    //! cache sheet object
+                if (!bCopySheet)
+                    continue;
 
+                //! separate method AddStyleFromText needed?
+                //! cache sheet object
+
+                uno::Reference<beans::XPropertySet> xCursorProp;
+                if (xPrevCursorProp && aPrevPos == aPos)
+                    xCursorProp = xPrevCursorProp;
+                else
+                {
                     uno::Reference<table::XCellRange> xCellRange(xIndex->getByIndex(nTable), uno::UNO_QUERY);
                     uno::Reference<text::XSimpleText> xCellText(xCellRange->getCellByPosition(aPos.Col(), aPos.Row()), uno::UNO_QUERY);
-                    uno::Reference<beans::XPropertySet> xCursorProp(xCellText->createTextCursor(), uno::UNO_QUERY);
-                    ScCellTextCursor* pCursor = ScCellTextCursor::getImplementation( xCursorProp );
-                    if (pCursor)
-                    {
-                        pCursor->SetSelection( rTextEntry.maSelection );
-
-                        std::vector<XMLPropertyState> aPropStates(xTextPropMapper->Filter(xCursorProp));
-                        OUString sName( rTextEntry.maName );
-                        GetAutoStylePool()->AddNamed(sName, XML_STYLE_FAMILY_TEXT_TEXT, OUString(), aPropStates);
-                        GetAutoStylePool()->RegisterName(XML_STYLE_FAMILY_TEXT_TEXT, sName);
-                    }
+                    xCursorProp.set(xCellText->createTextCursor(), uno::UNO_QUERY);
                 }
+                ScCellTextCursor* pCursor = comphelper::getUnoTunnelImplementation<ScCellTextCursor>( xCursorProp );
+                if (!pCursor)
+                    continue;
+                pCursor->SetSelection( rTextEntry.maSelection );
+
+                std::vector<XMLPropertyState> aPropStates(xTextPropMapper->Filter(xCursorProp));
+                OUString sName( rTextEntry.maName );
+                GetAutoStylePool()->AddNamed(sName, XML_STYLE_FAMILY_TEXT_TEXT, OUString(), aPropStates);
+                GetAutoStylePool()->RegisterName(XML_STYLE_FAMILY_TEXT_TEXT, sName);
+                xPrevCursorProp = xCursorProp;
+                aPrevPos = aPos;
             }
         }
 
@@ -2669,7 +2681,7 @@ void ScXMLExport::ExportMasterStyles_()
 void ScXMLExport::CollectInternalShape( uno::Reference< drawing::XShape > const & xShape )
 {
     // detective objects and notes
-    if( SvxShape* pShapeImp = SvxShape::getImplementation( xShape ) )
+    if( SvxShape* pShapeImp = comphelper::getUnoTunnelImplementation<SvxShape>( xShape ) )
     {
         if( SdrObject* pObject = pShapeImp->GetSdrObject() )
         {
@@ -2722,8 +2734,8 @@ bool ScXMLExport::GetMerged (const table::CellRangeAddress* pCellAddress,
                 uno::Reference<sheet::XCellRangeAddressable> xCellAddress (xCursor, uno::UNO_QUERY);
                 xCursor->collapseToMergedArea();
                 table::CellRangeAddress aCellAddress2(xCellAddress->getRangeAddress());
-                ScRange aScRange = ScRange( aCellAddress2.StartColumn, aCellAddress2.StartRow, aCellAddress2.Sheet,
-                                            aCellAddress2.EndColumn, aCellAddress2.EndRow, aCellAddress2.Sheet );
+                ScRange aScRange( aCellAddress2.StartColumn, aCellAddress2.StartRow, aCellAddress2.Sheet,
+                                  aCellAddress2.EndColumn, aCellAddress2.EndRow, aCellAddress2.Sheet );
 
                 if ((aScRange.aEnd.Row() > nRow ||
                     aScRange.aEnd.Col() > nCol) &&
@@ -3413,7 +3425,7 @@ void ScXMLExport::ExportShape(const uno::Reference < drawing::XShape >& xShape, 
                                 uno::Sequence< OUString > aRepresentations(
                                     xReceiver->getUsedRangeRepresentations());
                                 SvXMLAttributeList* pAttrList = nullptr;
-                                if(aRepresentations.getLength())
+                                if(aRepresentations.hasElements())
                                 {
                                     // add the ranges used by the chart to the shape
                                     // element to be able to start listening after
@@ -3434,7 +3446,6 @@ void ScXMLExport::ExportShape(const uno::Reference < drawing::XShape >& xShape, 
     }
     if (!bIsChart)
     {
-        // #i66550 HLINK_FOR_SHAPES
         OUString sHlink;
         try
         {
@@ -5086,7 +5097,7 @@ void ScXMLExport::GetViewSettings(uno::Sequence<beans::PropertyValue>& rProps)
     {
         rProps.realloc(4);
         beans::PropertyValue* pProps(rProps.getArray());
-        ScModelObj* pDocObj(ScModelObj::getImplementation( GetModel() ));
+        ScModelObj* pDocObj(comphelper::getUnoTunnelImplementation<ScModelObj>( GetModel() ));
         if (pDocObj)
         {
             SfxObjectShell* pEmbeddedObj = pDocObj->GetEmbeddedObject();
@@ -5186,29 +5197,24 @@ XMLNumberFormatAttributesExportHelper* ScXMLExport::GetNumberFormatAttributesExp
 
 void ScXMLExport::CollectUserDefinedNamespaces(const SfxItemPool* pPool, sal_uInt16 nAttrib)
 {
-    sal_uInt32 nItems(pPool->GetItemCount2( nAttrib ));
-    for( sal_uInt32 i = 0; i < nItems; ++i )
+    for (const SfxPoolItem* pItem : pPool->GetItemSurrogates(nAttrib))
     {
-        const SfxPoolItem* pItem;
-        if( nullptr != (pItem = pPool->GetItem2( nAttrib, i ) ) )
+        const SvXMLAttrContainerItem *pUnknown(static_cast<const SvXMLAttrContainerItem *>(pItem));
+        if( pUnknown->GetAttrCount() > 0 )
         {
-            const SvXMLAttrContainerItem *pUnknown(static_cast<const SvXMLAttrContainerItem *>(pItem));
-            if( pUnknown->GetAttrCount() > 0 )
+            sal_uInt16 nIdx(pUnknown->GetFirstNamespaceIndex());
+            while( USHRT_MAX != nIdx )
             {
-                sal_uInt16 nIdx(pUnknown->GetFirstNamespaceIndex());
-                while( USHRT_MAX != nIdx )
+                if( (XML_NAMESPACE_UNKNOWN_FLAG & nIdx) != 0 )
                 {
-                    if( (XML_NAMESPACE_UNKNOWN_FLAG & nIdx) != 0 )
-                    {
-                        const OUString& rPrefix = pUnknown->GetPrefix( nIdx );
-                        // Add namespace declaration for unknown attributes if
-                        // there aren't existing ones for the prefix used by the
-                        // attributes
-                        GetNamespaceMap_().Add( rPrefix,
-                                                pUnknown->GetNamespace( nIdx ) );
-                    }
-                    nIdx = pUnknown->GetNextNamespaceIndex( nIdx );
+                    const OUString& rPrefix = pUnknown->GetPrefix( nIdx );
+                    // Add namespace declaration for unknown attributes if
+                    // there aren't existing ones for the prefix used by the
+                    // attributes
+                    GetNamespaceMap_().Add( rPrefix,
+                                            pUnknown->GetNamespace( nIdx ) );
                 }
+                nIdx = pUnknown->GetNextNamespaceIndex( nIdx );
             }
         }
     }

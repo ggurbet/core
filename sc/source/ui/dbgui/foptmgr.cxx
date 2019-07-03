@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <osl/diagnose.h>
+
 #include <rangeutl.hxx>
 #include <dbdata.hxx>
 #include <viewdata.hxx>
@@ -32,17 +34,17 @@
 ScFilterOptionsMgr::ScFilterOptionsMgr(
                                 ScViewData*         ptrViewData,
                                 const ScQueryParam& refQueryData,
-                                CheckBox*           refBtnCase,
-                                CheckBox*           refBtnRegExp,
-                                CheckBox*           refBtnHeader,
-                                CheckBox*           refBtnUnique,
-                                CheckBox*           refBtnCopyResult,
-                                CheckBox*           refBtnDestPers,
-                                ListBox*            refLbCopyArea,
-                                Edit*               refEdCopyArea,
-                                formula::RefButton*     refRbCopyArea,
-                                FixedText*          refFtDbAreaLabel,
-                                FixedText*          refFtDbArea,
+                                weld::CheckButton* refBtnCase,
+                                weld::CheckButton* refBtnRegExp,
+                                weld::CheckButton* refBtnHeader,
+                                weld::CheckButton* refBtnUnique,
+                                weld::CheckButton* refBtnCopyResult,
+                                weld::CheckButton* refBtnDestPers,
+                                weld::ComboBox* refLbCopyArea,
+                                formula::RefEdit* refEdCopyArea,
+                                formula::RefButton* refRbCopyArea,
+                                weld::Label* refFtDbAreaLabel,
+                                weld::Label* refFtDbArea,
                                 const OUString&     refStrUndefined )
 
     :   pViewData       ( ptrViewData ),
@@ -66,10 +68,6 @@ ScFilterOptionsMgr::ScFilterOptionsMgr(
 
 ScFilterOptionsMgr::~ScFilterOptionsMgr()
 {
-    const sal_Int32 nEntries = pLbCopyArea->GetEntryCount();
-
-    for ( sal_Int32 i=2; i<nEntries; i++ )
-        delete static_cast<OUString*>(pLbCopyArea->GetEntryData( i ));
 }
 
 void ScFilterOptionsMgr::Init()
@@ -77,14 +75,14 @@ void ScFilterOptionsMgr::Init()
 //moggi:TODO
     OSL_ENSURE( pViewData && pDoc, "Init failed :-/" );
 
-    pLbCopyArea->SetSelectHdl  ( LINK( this, ScFilterOptionsMgr, LbAreaSelHdl ) );
+    pLbCopyArea->connect_changed( LINK( this, ScFilterOptionsMgr, LbAreaSelHdl ) );
     pEdCopyArea->SetModifyHdl  ( LINK( this, ScFilterOptionsMgr, EdAreaModifyHdl ) );
-    pBtnCopyResult->SetToggleHdl ( LINK( this, ScFilterOptionsMgr, BtnCopyResultHdl ) );
+    pBtnCopyResult->connect_toggled( LINK( this, ScFilterOptionsMgr, BtnCopyResultHdl ) );
 
-    pBtnCase   ->Check( rQueryData.bCaseSens );
-    pBtnHeader ->Check( rQueryData.bHasHeader );
-    pBtnRegExp ->Check( rQueryData.eSearchType == utl::SearchParam::SearchType::Regexp );
-    pBtnUnique ->Check( !rQueryData.bDuplicate );
+    pBtnCase->set_active( rQueryData.bCaseSens );
+    pBtnHeader->set_active( rQueryData.bHasHeader );
+    pBtnRegExp->set_active( rQueryData.eSearchType == utl::SearchParam::SearchType::Regexp );
+    pBtnUnique->set_active( !rQueryData.bDuplicate );
 
     if ( pViewData && pDoc )
     {
@@ -104,22 +102,20 @@ void ScFilterOptionsMgr::Init()
 
         // fill the target area list
 
-        pLbCopyArea->Clear();
-        pLbCopyArea->InsertEntry( rStrUndefined, 0 );
+        pLbCopyArea->clear();
+        pLbCopyArea->append_text(rStrUndefined);
 
         ScAreaNameIterator aIter( pDoc );
         OUString aName;
         ScRange aRange;
         while ( aIter.Next( aName, aRange ) )
         {
-            const sal_Int32 nInsert = pLbCopyArea->InsertEntry( aName );
-
             OUString aRefStr(aRange.aStart.Format(ScRefFlags::ADDR_ABS_3D, pDoc, eConv));
-            pLbCopyArea->SetEntryData( nInsert, new OUString( aRefStr ) );
+            pLbCopyArea->append(aRefStr, aName);
         }
 
-        pBtnDestPers->Check();         // always on when called
-        pLbCopyArea->SelectEntryPos( 0 );
+        pBtnDestPers->set_active(true);         // always on when called
+        pLbCopyArea->set_active( 0 );
         pEdCopyArea->SetText( EMPTY_OUSTRING );
 
         /*
@@ -137,13 +133,10 @@ void ScFilterOptionsMgr::Init()
 
             if ( pDBData )
             {
-                pBtnHeader->Check( pDBData->HasHeader() );
+                pBtnHeader->set_active( pDBData->HasHeader() );
                 theDbName = pDBData->GetName();
 
-                if ( theDbName == STR_DB_LOCAL_NONAME )
-                    pBtnHeader->Enable();
-                else
-                    pBtnHeader->Disable();
+                pBtnHeader->set_sensitive(theDbName == STR_DB_LOCAL_NONAME);
             }
         }
 
@@ -151,12 +144,12 @@ void ScFilterOptionsMgr::Init()
         {
             theDbArea += " (" + theDbName + ")";
 
-            pFtDbArea->SetText( theDbArea );
+            pFtDbArea->set_label( theDbArea );
         }
         else
         {
-            pFtDbAreaLabel->SetText( OUString() );
-            pFtDbArea->SetText( OUString() );
+            pFtDbAreaLabel->set_label( OUString() );
+            pFtDbArea->set_label( OUString() );
         }
 
         // position to copy to:
@@ -169,22 +162,22 @@ void ScFilterOptionsMgr::Init()
                            rQueryData.nDestTab
                          ).Format(ScRefFlags::ADDR_ABS_3D, pDoc, eConv);
 
-            pBtnCopyResult->Check();
+            pBtnCopyResult->set_active(true);
             pEdCopyArea->SetText( aString );
             EdAreaModifyHdl( *pEdCopyArea );
-            pLbCopyArea->Enable();
-            pEdCopyArea->Enable();
-            pRbCopyArea->Enable();
-            pBtnDestPers->Enable();
+            pLbCopyArea->set_sensitive(true);
+            pEdCopyArea->GetWidget()->set_sensitive(true);
+            pRbCopyArea->GetWidget()->set_sensitive(true);
+            pBtnDestPers->set_sensitive(true);
         }
         else
         {
-            pBtnCopyResult->Check( false );
+            pBtnCopyResult->set_active( false );
             pEdCopyArea->SetText( EMPTY_OUSTRING );
-            pLbCopyArea->Disable();
-            pEdCopyArea->Disable();
-            pRbCopyArea->Disable();
-            pBtnDestPers->Disable();
+            pLbCopyArea->set_sensitive(false);
+            pEdCopyArea->GetWidget()->set_sensitive(false);
+            pRbCopyArea->GetWidget()->set_sensitive(false);
+            pBtnDestPers->set_sensitive(false);
         }
     }
     else
@@ -206,21 +199,21 @@ bool ScFilterOptionsMgr::VerifyPosStr( const OUString& rPosStr ) const
 
 // Handler:
 
-IMPL_LINK( ScFilterOptionsMgr, LbAreaSelHdl, ListBox&, rLb, void )
+IMPL_LINK( ScFilterOptionsMgr, LbAreaSelHdl, weld::ComboBox&, rLb, void )
 {
     if ( &rLb == pLbCopyArea )
     {
         OUString aString;
-        const sal_Int32 nSelPos = pLbCopyArea->GetSelectedEntryPos();
+        const sal_Int32 nSelPos = pLbCopyArea->get_active();
 
         if ( nSelPos > 0 )
-            aString = *static_cast<OUString*>(pLbCopyArea->GetEntryData( nSelPos ));
+            aString = pLbCopyArea->get_id(nSelPos);
 
         pEdCopyArea->SetText( aString );
     }
 }
 
-IMPL_LINK( ScFilterOptionsMgr, EdAreaModifyHdl, Edit&, rEd, void )
+IMPL_LINK( ScFilterOptionsMgr, EdAreaModifyHdl, formula::RefEdit&, rEd, void )
 {
     if ( &rEd == pEdCopyArea )
     {
@@ -229,41 +222,41 @@ IMPL_LINK( ScFilterOptionsMgr, EdAreaModifyHdl, Edit&, rEd, void )
 
         if ( (nResult & ScRefFlags::VALID) == ScRefFlags::VALID)
         {
-            const sal_Int32 nCount = pLbCopyArea->GetEntryCount();
+            const sal_Int32 nCount = pLbCopyArea->get_count();
 
             for ( sal_Int32 i=2; i<nCount; ++i )
             {
-                OUString* pStr = static_cast<OUString*>(pLbCopyArea->GetEntryData( i ));
-                if (theCurPosStr == *pStr)
+                OUString aStr = pLbCopyArea->get_id(i);
+                if (theCurPosStr == aStr)
                 {
-                    pLbCopyArea->SelectEntryPos( i );
+                    pLbCopyArea->set_active( i );
                     return;
                 }
             }
 
         }
-        pLbCopyArea->SelectEntryPos( 0 );
+        pLbCopyArea->set_active( 0 );
     }
 }
 
-IMPL_LINK( ScFilterOptionsMgr, BtnCopyResultHdl, CheckBox&, rBox, void )
+IMPL_LINK( ScFilterOptionsMgr, BtnCopyResultHdl, weld::ToggleButton&, rBox, void )
 {
     if ( &rBox == pBtnCopyResult )
     {
-        if ( rBox.IsChecked() )
+        if ( rBox.get_active() )
         {
-            pBtnDestPers->Enable();
-            pLbCopyArea->Enable();
-            pEdCopyArea->Enable();
-            pRbCopyArea->Enable();
+            pBtnDestPers->set_sensitive(true);
+            pLbCopyArea->set_sensitive(true);
+            pEdCopyArea->GetWidget()->set_sensitive(true);
+            pRbCopyArea->GetWidget()->set_sensitive(true);
             pEdCopyArea->GrabFocus();
         }
         else
         {
-            pBtnDestPers->Disable();
-            pLbCopyArea->Disable();
-            pEdCopyArea->Disable();
-            pRbCopyArea->Disable();
+            pBtnDestPers->set_sensitive(false);
+            pLbCopyArea->set_sensitive(false);
+            pEdCopyArea->GetWidget()->set_sensitive(false);
+            pRbCopyArea->GetWidget()->set_sensitive(false);
         }
     }
 }

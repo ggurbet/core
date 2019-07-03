@@ -37,6 +37,10 @@
 #include <vector>
 #include <svtools/restartdialog.hxx>
 #include <comphelper/processfactory.hxx>
+#include <officecfg/Office/Compatibility.hxx>
+#include <vcl/svlbitm.hxx>
+
+#include <com/sun/star/beans/PropertyValue.hpp>
 
 using namespace ::com::sun::star::beans;
 using namespace ::com::sun::star::document;
@@ -82,15 +86,38 @@ SwCompatibilityOptPage::SwCompatibilityOptPage(vcl::Window* pParent, const SfxIt
     m_pOptionsLB->SetStyle( m_pOptionsLB->GetStyle() | WB_HSCROLL | WB_HIDESELECTION );
     m_pOptionsLB->SetHighlightRange();
 
-    SvTreeListEntry* pEntry = m_pGlobalOptionsCLB->SvTreeListBox::InsertEntry( m_pGlobalOptionsLB->GetEntry( 0 ) );
+
+    // Set MSOCompatibleFormsMenu entry attributes
+    const bool bReadOnly = officecfg::Office::Compatibility::View::MSCompatibleFormsMenu::isReadOnly();
+    const bool bChecked = m_aViewConfigItem.HasMSOCompatibleFormsMenu();
+
+    SvTreeListEntry* pEntry;
+    if(bReadOnly)
+    {
+        pEntry = m_pGlobalOptionsCLB->SvTreeListBox::InsertEntry( m_pGlobalOptionsLB->GetEntry( 0 ), nullptr, false,
+                                                                  TREELIST_APPEND, nullptr, SvLBoxButtonKind::DisabledCheckbox);
+    }
+    else
+    {
+        pEntry = m_pGlobalOptionsCLB->SvTreeListBox::InsertEntry( m_pGlobalOptionsLB->GetEntry( 0 ) );
+    }
+
     if ( pEntry )
     {
-        m_pGlobalOptionsCLB->SetCheckButtonState( pEntry, SvButtonState::Unchecked );
+        SvLBoxButton* pButton = static_cast<SvLBoxButton*>(pEntry->GetFirstItem(SvLBoxItemType::Button));
+        if(bChecked)
+            pButton->SetStateChecked();
+        else
+            pButton->SetStateUnchecked();
     }
+
     m_pGlobalOptionsLB->Clear();
 
     m_pGlobalOptionsCLB->SetStyle( m_pGlobalOptionsCLB->GetStyle() | WB_HSCROLL | WB_HIDESELECTION );
     m_pGlobalOptionsCLB->SetHighlightRange();
+    // tdf#125799, we let only the doc options grow/shrink but give this one more than its bare
+    // min request height because there's only one row in it and that looks somewhat abrupt
+    m_pGlobalOptionsCLB->set_height_request(m_pGlobalOptionsCLB->get_preferred_size().Height() * 2);
 
     InitControls( rSet );
 
@@ -215,14 +242,10 @@ void SwCompatibilityOptPage::InitControls( const SfxItemSet& rSet )
     SvtCompatibilityEntry aEntry;
     aEntry.setValue<bool>( SvtCompatibilityEntry::Index::ExpandWordSpace, false );
 
-    const sal_Int32 nCount = aList.getLength();
-    for ( sal_Int32 i = 0; i < nCount; ++i )
+    for ( const Sequence< PropertyValue >& rEntry : aList )
     {
-        const Sequence< PropertyValue >& rEntry = aList[i];
-        const sal_Int32 nEntries = rEntry.getLength();
-        for ( sal_Int32 j = 0; j < nEntries; j++ )
+        for ( const PropertyValue& aValue : rEntry )
         {
-            PropertyValue aValue = rEntry[j];
             aEntry.setValue( SvtCompatibilityEntry::getIndex(aValue.Name), aValue.Value );
         }
 

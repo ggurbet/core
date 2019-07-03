@@ -23,16 +23,18 @@
 #include <svl/itempool.hxx>
 #include <svl/SfxBroadcaster.hxx>
 #include <tools/debug.hxx>
-#include <deque>
 #include <memory>
-#include <unordered_map>
-#include <vector>
+#include <o3tl/sorted_vector.hxx>
 
 class SfxPoolItem;
 class SfxItemPoolUser;
 
 static const sal_uInt32 SFX_ITEMS_DEFAULT = 0xfffffffe;
 
+static bool CompareSortablePoolItems(SfxPoolItem const* lhs, SfxPoolItem const* rhs)
+{
+    return (*lhs) < (*rhs);
+}
 /**
  * This array contains a set of SfxPoolItems, if those items are
  * poolable then each item has a unique set of properties, and we
@@ -41,33 +43,111 @@ static const sal_uInt32 SFX_ITEMS_DEFAULT = 0xfffffffe;
  */
 struct SfxPoolItemArray_Impl
 {
-    typedef std::unordered_map<SfxPoolItem*,sal_uInt32> PoolItemPtrToIndexMap;
 private:
-    std::vector<SfxPoolItem*> maPoolItemVector;
+    o3tl::sorted_vector<SfxPoolItem*> maPoolItemSet;
+    // In some cases, e.g. subclasses of NameOrIndex, the parent class (NameOrIndex) is sortable,
+    // but the subclasses do not define an operator<, which means that we don't get an ordering
+    // strong enough to enforce uniqueness purely with operator<, which means we need to do
+    // a partial scan with operator==
+    std::vector<SfxPoolItem*> maSortablePoolItems;
 public:
-    /// Track list of indices into our array that contain an empty slot
-    std::vector<sal_uInt32> maFree;
-    /// Hash of SfxPoolItem pointer to index into our array that contains that slot
-    PoolItemPtrToIndexMap     maPtrToIndex;
-
-    SfxPoolItemArray_Impl () {}
-    SfxPoolItem*& operator[](size_t n) {return maPoolItemVector[n];}
-    std::vector<SfxPoolItem*>::iterator begin() {return maPoolItemVector.begin();}
-    std::vector<SfxPoolItem*>::iterator end() {return maPoolItemVector.end();}
+    o3tl::sorted_vector<SfxPoolItem*>::const_iterator begin() const { return maPoolItemSet.begin(); }
+    o3tl::sorted_vector<SfxPoolItem*>::const_iterator end() const { return maPoolItemSet.end(); }
     /// clear array of PoolItem variants after all PoolItems are deleted
     /// or all ref counts are decreased
     void clear();
-    size_t size() const {return maPoolItemVector.size();}
-    void push_back(SfxPoolItem* pItem) {maPoolItemVector.push_back(pItem);}
+    size_t size() const {return maPoolItemSet.size();}
+    bool empty() const {return maPoolItemSet.empty();}
+    o3tl::sorted_vector<SfxPoolItem*>::const_iterator find(SfxPoolItem* pItem) const { return maPoolItemSet.find(pItem); }
+    void insert(SfxPoolItem* pItem)
+    {
+        maPoolItemSet.insert(pItem);
+        if (pItem->IsSortable())
+        {
+            // bail early if someone modified one of these things underneath me
+            assert( std::is_sorted_until(maSortablePoolItems.begin(), maSortablePoolItems.end(), CompareSortablePoolItems) == maSortablePoolItems.end());
 
-    /// re-build the list of free slots and hash from clean
-    void SVL_DLLPUBLIC ReHash();
+            auto it = std::lower_bound(maSortablePoolItems.begin(), maSortablePoolItems.end(), pItem, CompareSortablePoolItems);
+            maSortablePoolItems.insert(maSortablePoolItems.begin() + (it - maSortablePoolItems.begin()), pItem);
+        }
+    }
+    const SfxPoolItem* findByLessThan(const SfxPoolItem* pNeedle) const
+    {
+        // bail early if someone modified one of these things underneath me
+        assert( std::is_sorted_until(maSortablePoolItems.begin(), maSortablePoolItems.end(), CompareSortablePoolItems) == maSortablePoolItems.end());
+        assert( maPoolItemSet.empty() || maPoolItemSet.front()->IsSortable() );
+
+        auto it = std::lower_bound(maSortablePoolItems.begin(), maSortablePoolItems.end(), pNeedle, CompareSortablePoolItems);
+        for (;;)
+        {
+            if (it == maSortablePoolItems.end())
+                return nullptr;
+            if (**it < *pNeedle)
+                return nullptr;
+            if (*pNeedle == **it)
+                return *it;
+            ++it;
+        }
+    }
+    std::vector<const SfxPoolItem*> findSurrogateRange(const SfxPoolItem* pNeedle) const
+    {
+        std::vector<const SfxPoolItem*> rv;
+        if (!maSortablePoolItems.empty())
+        {
+            // bail early if someone modified one of these things underneath me
+            assert( std::is_sorted_until(maSortablePoolItems.begin(), maSortablePoolItems.end(), CompareSortablePoolItems) == maSortablePoolItems.end());
+
+            auto range = std::equal_range(maSortablePoolItems.begin(), maSortablePoolItems.end(), pNeedle, CompareSortablePoolItems);
+            rv.reserve(std::distance(range.first, range.second));
+            for (auto it = range.first; it != range.second; ++it)
+                rv.push_back(*it);
+        }
+        else
+        {
+            for (const SfxPoolItem* p : maPoolItemSet)
+                if (*pNeedle == *p)
+                    rv.push_back(p);
+        }
+        return rv;
+    }
+    void erase(o3tl::sorted_vector<SfxPoolItem*>::const_iterator it)
+    {
+        auto pNeedle = *it;
+        if ((*it)->IsSortable())
+        {
+            // bail early if someone modified one of these things underneath me
+            assert( std::is_sorted_until(maSortablePoolItems.begin(), maSortablePoolItems.end(), CompareSortablePoolItems) == maSortablePoolItems.end());
+
+            auto sortIt = std::lower_bound(maSortablePoolItems.begin(), maSortablePoolItems.end(), pNeedle, CompareSortablePoolItems);
+            for (;;)
+            {
+                if (sortIt == maSortablePoolItems.end())
+                {
+                    assert(false && "did not find item?");
+                    break;
+                }
+                if (**sortIt < *pNeedle)
+                {
+                    assert(false && "did not find item?");
+                    break;
+                }
+                // need to compare by pointer here, since we might have duplicates
+                if (*sortIt == pNeedle)
+                {
+                    maSortablePoolItems.erase(sortIt);
+                    break;
+                }
+                ++sortIt;
+            }
+        }
+        maPoolItemSet.erase(it);
+    }
 };
 
 struct SfxItemPool_Impl
 {
     SfxBroadcaster                  aBC;
-    std::vector<std::unique_ptr<SfxPoolItemArray_Impl>> maPoolItems;
+    std::vector<SfxPoolItemArray_Impl> maPoolItemArrays;
     std::vector<SfxItemPoolUser*>   maSfxItemPoolUsers; /// ObjectUser section
     OUString                        aName;
     std::vector<SfxPoolItem*>       maPoolDefaults;
@@ -80,7 +160,7 @@ struct SfxItemPool_Impl
     MapUnit                         eDefMetric;
 
     SfxItemPool_Impl( SfxItemPool* pMaster, const OUString& rName, sal_uInt16 nStart, sal_uInt16 nEnd )
-        : maPoolItems(nEnd - nStart + 1)
+        : maPoolItemArrays(nEnd - nStart + 1)
         , aName(rName)
         , maPoolDefaults(nEnd - nStart + 1)
         , mpStaticDefaults(nullptr)
@@ -100,7 +180,7 @@ struct SfxItemPool_Impl
 
     void DeleteItems()
     {
-        maPoolItems.clear();
+        maPoolItemArrays.clear();
         maPoolDefaults.clear();
         mpPoolRanges.reset();
     }

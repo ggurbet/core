@@ -103,7 +103,7 @@ public:
 private:
     mutable osl::Mutex m_mutex;
 
-    /** @short  reference to an uno service manager, which must be used
+    /** @short  reference to a uno service manager, which must be used
                 to created on needed services on demand.
      */
     css::uno::Reference< css::uno::XComponentContext > m_xContext;
@@ -197,7 +197,7 @@ public:
     /** @short  initialize a new instance of this load environment.
 
         @param  xContext
-                reference to an uno service manager, which can be used internally
+                reference to a uno service manager, which can be used internally
                 to create on needed services on demand.
 
         @throw  Currently there is no reason to throw such exception!
@@ -253,7 +253,7 @@ public:
 
         @throw  A LoadEnvException e.g. if another load operation is till in progress
                 or initialization of a new one fail by other reasons.
-                The real reason, a suitable message and ID will be given here immidiatly.
+                The real reason, a suitable message and ID will be given here immediately.
 
         @throw  A RuntimeException in case any internal process indicates, that
                 the whole runtime can't be used any longer.
@@ -280,7 +280,7 @@ public:
 
         @throw  A LoadEnvException if start of the load process failed (because
                 another is still in progress!).
-                The reason, a suitable message and ID will be given here immidiatly.
+                The reason, a suitable message and ID will be given here immediately.
 
         @throw  A RuntimeException in case any internal process indicates, that
                 the whole runtime can't be used any longer.
@@ -293,7 +293,7 @@ public:
         @descr  The timeout parameter can be used to wait some times only
                 or forever. The return value indicates if the load request
                 was finished during the specified timeout period.
-                But it indicates not, if the load request was successfully or not!
+                But it indicates not, if the load request was successful or not!
 
         @param  nTimeout
                 specify a timeout in [ms].
@@ -490,7 +490,7 @@ private:
     css::uno::Reference< css::frame::XFrame > impl_searchRecycleTarget();
 
     /** @short  because showing of a frame is needed more than once...
-                it's implemented as an separate method .-)
+                it's implemented as a separate method .-)
 
         @descr  Note: Showing of a frame is bound to a special feature...
                 a) If we recycle any existing frame, we must bring it to front.

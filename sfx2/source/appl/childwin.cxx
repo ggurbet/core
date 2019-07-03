@@ -24,10 +24,12 @@
 #include <com/sun/star/frame/XController.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/util/XCloseable.hpp>
+#include <com/sun/star/beans/NamedValue.hpp>
 #include <comphelper/string.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <sal/log.hxx>
 
+#include <vcl/svapp.hxx>
 #include <sfx2/childwin.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/bindings.hxx>
@@ -196,11 +198,12 @@ SfxChildWindow::~SfxChildWindow()
     pContext.reset();
     ClearWorkwin();
     if (xController)
-        xController->DeInit();
-    else
-        pWindow.disposeAndClear();
+    {
+        xController->ChildWinDispose();
+        xController.reset();
+    }
+    pWindow.disposeAndClear();
 }
-
 
 std::unique_ptr<SfxChildWindow> SfxChildWindow::CreateChildWindow( sal_uInt16 nId,
         vcl::Window *pParent, SfxBindings* pBindings, SfxChildWinInfo const & rInfo)

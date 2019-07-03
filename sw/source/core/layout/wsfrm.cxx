@@ -56,6 +56,7 @@
 #include <sortedobjs.hxx>
 #include <frmatr.hxx>
 #include <frmtool.hxx>
+#include <ndtxt.hxx>
 
 // RotateFlyFrame3
 #include <basegfx/matrix/b2dhommatrixtools.hxx>
@@ -352,14 +353,21 @@ void SwFrame::CheckDir( SvxFrameDirection nDir, bool bVert, bool bOnlyBiDi, bool
         {
             mbVertical = false;
             mbVertLR = false;
+            mbVertLRBT = false;
         }
         else
         {
             mbVertical = true;
             if(SvxFrameDirection::Vertical_RL_TB == nDir)
+            {
                 mbVertLR = false;
+                mbVertLRBT = false;
+            }
             else if(SvxFrameDirection::Vertical_LR_TB==nDir)
+            {
                 mbVertLR = true;
+                mbVertLRBT = false;
+            }
             else if (nDir == SvxFrameDirection::Vertical_LR_BT)
             {
                 mbVertLR = true;
@@ -1678,8 +1686,8 @@ SwTwips SwFrame::AdjustNeighbourhood( SwTwips nDiff, bool bTst )
                 GetNext()->InvalidatePos_();
 
             //Trigger a repaint if necessary.
-            SvxBrushItem aBack(pUp->GetFormat()->makeBackgroundBrushItem());
-            const SvxGraphicPosition ePos = aBack.GetGraphicPos();
+            std::shared_ptr<SvxBrushItem> aBack(pUp->GetFormat()->makeBackgroundBrushItem());
+            const SvxGraphicPosition ePos = aBack ? aBack->GetGraphicPos() : GPOS_NONE;
             if ( ePos != GPOS_NONE && ePos != GPOS_TILED )
                 pViewShell->InvalidateWindows( pUp->getFrameArea() );
 
@@ -2717,8 +2725,8 @@ SwTwips SwLayoutFrame::GrowFrame( SwTwips nDist, bool bTst, bool bInfo )
             if( IsCellFrame() )
                 InvaPercentLowers( nReal );
 
-            SvxBrushItem aBack(GetFormat()->makeBackgroundBrushItem());
-            const SvxGraphicPosition ePos = aBack.GetGraphicPos();
+            std::shared_ptr<SvxBrushItem> aBack(GetFormat()->makeBackgroundBrushItem());
+            const SvxGraphicPosition ePos = aBack ? aBack->GetGraphicPos() : GPOS_NONE;
             if ( GPOS_NONE != ePos && GPOS_TILED != ePos )
                 SetCompletePaint();
         }
@@ -2903,8 +2911,8 @@ SwTwips SwLayoutFrame::ShrinkFrame( SwTwips nDist, bool bTst, bool bInfo )
             const SwFrameFormat* pFormat = GetFormat();
             if (pFormat)
             {
-                SvxBrushItem aBack(pFormat->makeBackgroundBrushItem());
-                const SvxGraphicPosition ePos = aBack.GetGraphicPos();
+                std::shared_ptr<SvxBrushItem> aBack(pFormat->makeBackgroundBrushItem());
+                const SvxGraphicPosition ePos = aBack ? aBack->GetGraphicPos() : GPOS_NONE;
                 if ( GPOS_NONE == ePos || GPOS_TILED == ePos )
                     bCompletePaint = false;
             }
@@ -4394,7 +4402,7 @@ static void UnHideRedlines(SwRootFrame & rLayout,
             // pathology: redline that starts on a TableNode; cannot
             // be created in UI but by import filters...
             if (pRedline
-                && pRedline->GetType() == nsRedlineType_t::REDLINE_DELETE
+                && pRedline->GetType() == RedlineType::Delete
                 && &pRedline->Start()->nNode.GetNode() == &rNode)
             {
                 for (sal_uLong j = rNode.GetIndex(); j <= rNode.EndOfSectionIndex(); ++j)
@@ -4491,6 +4499,7 @@ void SwRootFrame::SetHideRedlines(bool const bHideRedlines)
         return;
     }
     mbHideRedlines = bHideRedlines;
+    assert(GetCurrShell()->ActionPend()); // tdf#125754 avoid recursive layout
     SwDoc & rDoc(*GetFormat()->GetDoc());
     // don't do early return if there are no redlines:
     // Show->Hide must init hidden number trees
@@ -4543,7 +4552,7 @@ void SwRootFrame::SetHideRedlines(bool const bHideRedlines)
     for (auto const pRedline : rDoc.getIDocumentRedlineAccess().GetRedlineTable())
     {   // DELETE are handled by the code above; for other types, need to
         // trigger repaint of text frames to add/remove the redline color font
-        if (pRedline->GetType() != nsRedlineType_t::REDLINE_DELETE)
+        if (pRedline->GetType() != RedlineType::Delete)
         {
             pRedline->InvalidateRange(SwRangeRedline::Invalidation::Add);
         }

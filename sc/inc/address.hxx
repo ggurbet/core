@@ -67,6 +67,7 @@ const SCSIZE   SCSIZE_MAX   = ::std::numeric_limits<SCSIZE>::max();
 // Count values
 const SCROW       MAXROWCOUNT    = MAXROWCOUNT_DEFINE;
 const SCCOL       MAXCOLCOUNT    = MAXCOLCOUNT_DEFINE;
+const SCCOL       INITIALCOLCOUNT = 64;
 /// limiting to 10000 for now, problem with 32 bit builds for now
 const SCTAB       MAXTABCOUNT    = 10000;
 const SCCOLROW    MAXCOLROWCOUNT = MAXROWCOUNT;
@@ -459,6 +460,12 @@ inline bool ScAddress::lessThanByRow( const ScAddress& rAddress ) const
 
 inline size_t ScAddress::hash() const
 {
+#if SAL_TYPES_SIZEOFPOINTER == 8
+    // 16 bits for the columns, and 20 bits for the rows
+    return (static_cast<size_t>(nTab) << 36) ^
+           (static_cast<size_t>(nCol) << 20) ^
+            static_cast<size_t>(nRow);
+#else
     // Assume that there are not that many addresses with row > 2^16 AND column
     // > 2^8 AND sheet > 2^8 so we won't have too many collisions.
     if (nRow <= 0xffff)
@@ -467,6 +474,7 @@ inline size_t ScAddress::hash() const
     else
         return (static_cast<size_t>(nTab) << 28) ^
             (static_cast<size_t>(nCol) << 24) ^ static_cast<size_t>(nRow);
+#endif
 }
 
 struct ScAddressHashFunctor
@@ -735,6 +743,14 @@ inline bool ScRange::In( const ScRange& rRange ) const
 
 inline size_t ScRange::hashArea() const
 {
+#if SAL_TYPES_SIZEOFPOINTER == 8
+    // 12 bits for the columns and 20 bits for the rows
+    return
+        (static_cast<size_t>(aStart.Row()) << 44) ^
+        (static_cast<size_t>(aStart.Col()) << 32) ^
+        (static_cast<size_t>(aEnd.Col())   << 20) ^
+         static_cast<size_t>(aEnd.Row());
+#else
     // Assume that there are not that many ranges with identical corners so we
     // won't have too many collisions. Also assume that more lower row and
     // column numbers are used so that there are not too many conflicts with
@@ -747,10 +763,18 @@ inline size_t ScRange::hashArea() const
         (static_cast<size_t>(aStart.Col()) << 21) ^ // start column <= 2^5
         (static_cast<size_t>(aEnd.Col())   << 15) ^ // end column <= 2^6
          static_cast<size_t>(aEnd.Row());           // end row <= 2^15
+#endif
 }
 
 inline size_t ScRange::hashStartColumn() const
 {
+#if SAL_TYPES_SIZEOFPOINTER == 8
+    // 20 bits for the rows
+    return
+        (static_cast<size_t>(aStart.Col()) << 40) ^
+        (static_cast<size_t>(aStart.Row()) << 20) ^
+         static_cast<size_t>(aEnd.Row());
+#else
     // Assume that for the start row more lower row numbers are used so that
     // there are not too many conflicts with the column hashed into the higher
     // values.
@@ -758,6 +782,7 @@ inline size_t ScRange::hashStartColumn() const
         (static_cast<size_t>(aStart.Col()) << 24) ^ // start column <= 2^8
         (static_cast<size_t>(aStart.Row()) << 16) ^ // start row <= 2^8
          static_cast<size_t>(aEnd.Row());
+#endif
 }
 
 inline bool ValidRange( const ScRange& rRange )
@@ -921,7 +946,7 @@ inline bool ScRefAddress::operator==( const ScRefAddress& rRefAddress ) const
 #define BCA_BRDCST_ALWAYS ScAddress( 0, SCROW_MAX, 0 )
 #define BCA_LISTEN_ALWAYS ScRange( BCA_BRDCST_ALWAYS, BCA_BRDCST_ALWAYS )
 
-template< typename T > void PutInOrder( T& nStart, T& nEnd )
+template< typename T > inline void PutInOrder( T& nStart, T& nEnd )
 {
     if (nEnd < nStart)
     {

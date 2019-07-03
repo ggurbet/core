@@ -22,7 +22,6 @@
 
 #include <sal/config.h>
 #include <com/sun/star/drawing/EnhancedCustomShapeParameter.hpp>
-#include <com/sun/star/drawing/EnhancedCustomShapeParameterType.hpp>
 #include <memory>
 #include <ostream>
 #include <vector>
@@ -134,7 +133,7 @@ inline std::basic_ostream<charT, traits> & operator <<(
 
 SVX_DLLPUBLIC void FillEquationParameter( const css::drawing::EnhancedCustomShapeParameter&, const sal_Int32, EnhancedCustomShapeEquation& );
 
-class ExpressionNode
+class SAL_DLLPUBLIC_RTTI ExpressionNode
 {
 public:
     virtual ~ExpressionNode();

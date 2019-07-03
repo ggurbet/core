@@ -20,6 +20,7 @@
 #include <svx/dbaexchange.hxx>
 #include <osl/diagnose.h>
 #include <com/sun/star/sdb/CommandType.hpp>
+#include <com/sun/star/sdbc/XConnection.hpp>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
 #include <com/sun/star/sdb/XSQLQueryComposerFactory.hpp>
 #include <fmprop.hxx>
@@ -40,16 +41,6 @@ namespace svx
     using namespace ::com::sun::star::sdbcx;
     using namespace ::com::sun::star::container;
     using namespace ::com::sun::star::datatransfer;
-
-    OColumnTransferable::OColumnTransferable(const OUString& _rDatasource
-                                            ,const OUString& _rCommand
-                                            ,const OUString& _rFieldName
-                                            ,ColumnTransferFormatFlags _nFormats)
-        :m_nFormatFlags(_nFormats)
-    {
-        implConstruct(_rDatasource,OUString(), css::sdb::CommandType::TABLE, _rCommand, _rFieldName);
-    }
-
 
     OColumnTransferable::OColumnTransferable(const ODataAccessDescriptor& _rDescriptor, ColumnTransferFormatFlags _nFormats )
         :m_nFormatFlags(_nFormats)
@@ -341,25 +332,6 @@ namespace svx
     }
 
 
-    void OColumnTransferable::addDataToContainer( TransferDataContainer* _pContainer )
-    {
-        OSL_ENSURE( _pContainer, "OColumnTransferable::addDataToContainer: invalid container!" );
-        if ( _pContainer )
-        {
-            if ( m_nFormatFlags & ColumnTransferFormatFlags::FIELD_DESCRIPTOR )
-                _pContainer->CopyAny( SotClipboardFormatId::SBA_FIELDDATAEXCHANGE, makeAny( m_sCompatibleFormat ) );
-
-            if ( m_nFormatFlags & ColumnTransferFormatFlags::CONTROL_EXCHANGE )
-                _pContainer->CopyAny( SotClipboardFormatId::SBA_CTRLDATAEXCHANGE, makeAny( m_sCompatibleFormat ) );
-
-            if ( m_nFormatFlags & ColumnTransferFormatFlags::COLUMN_DESCRIPTOR )
-            {
-                Any aContent = makeAny( m_aDescriptor.createPropertyValueSequence() );
-                _pContainer->CopyAny( getDescriptorFormatId(), aContent );
-            }
-        }
-    }
-
     ODataAccessObjectTransferable::ODataAccessObjectTransferable(
             const OUString&  _rDatasource
             ,const sal_Int32  _nCommandType
@@ -549,8 +521,7 @@ namespace svx
 
         // extract the single values from the sequence
 
-        OUString sObjectName;
-        sObjectName = _rCommand;
+        OUString sObjectName = _rCommand;
 
         // for compatibility: create a string which can be used for the SotClipboardFormatId::SBA_DATAEXCHANGE format
 

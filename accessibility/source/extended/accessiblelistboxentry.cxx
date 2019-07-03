@@ -199,10 +199,7 @@ namespace accessibility
 
     Locale AccessibleListBoxEntry::implGetLocale()
     {
-        Locale aLocale;
-        aLocale = Application::GetSettings().GetUILanguageTag().getLocale();
-
-        return aLocale;
+        return Application::GetSettings().GetUILanguageTag().getLocale();
     }
     void AccessibleListBoxEntry::implGetSelection( sal_Int32& nStartIndex, sal_Int32& nEndIndex )
     {
@@ -322,7 +319,7 @@ namespace accessibility
                     xParent = getListBox()->GetAccessible( );
             }
             else
-            {   // we have a entry as parent -> get its accessible
+            {   // we have an entry as parent -> get its accessible
 
                 // shorten our access path by one
                 std::deque< sal_Int32 > aParentPath( m_aEntryPath );
@@ -400,10 +397,6 @@ namespace accessibility
         SvTreeListBox* pBox = getListBox();
         if(pBox)
         {
-            SvTreeAccRoleType nType = pBox->GetAllEntriesAccessibleRoleType();
-            if( nType == SvTreeAccRoleType::TREE)
-                return AccessibleRole::TREE_ITEM;
-
             SvTreeFlags treeFlag = pBox->GetTreeFlags();
             if(treeFlag & SvTreeFlags::CHKBTN )
             {

@@ -18,6 +18,7 @@
  */
 
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/linguistic2/XSpellChecker1.hpp>
 
 #include <View.hxx>
@@ -49,6 +50,7 @@
 #include <vcl/EnumContext.hxx>
 #include <svx/svdopage.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xlndsit.hxx>
 #include <svx/xlineit0.hxx>
 #include <svx/xlnclit.hxx>
@@ -497,7 +499,7 @@ void View::MarkListHasChanged()
         maSmartTags.deselect();
 }
 
-bool View::SetAttributes(const SfxItemSet& rSet, bool bReplaceAll)
+bool View::SetAttributes(const SfxItemSet& rSet, bool bReplaceAll, bool /*bSlide*/, bool /*bMaster*/)
 {
     bool bOk = FmFormView::SetAttributes(rSet, bReplaceAll);
     return bOk;
@@ -712,8 +714,7 @@ bool View::SdrBeginTextEdit(
         {
             if( pObj->GetObjInventor() == SdrInventor::Default && pObj->GetObjIdentifier() == OBJ_TABLE )
             {
-                Color aBackground;
-                aBackground = GetTextEditBackgroundColor(*this);
+                Color aBackground = GetTextEditBackgroundColor(*this);
                 pOL->SetBackgroundColor( aBackground  );
             }
             else

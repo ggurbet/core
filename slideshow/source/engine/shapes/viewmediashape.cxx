@@ -102,9 +102,9 @@ namespace slideshow
             {
                 endMedia();
             }
-            catch (const uno::Exception &e)
+            catch (const uno::Exception &)
             {
-                SAL_WARN("slideshow", e);
+                TOOLS_WARN_EXCEPTION("slideshow", "");
             }
         }
 
@@ -446,7 +446,6 @@ namespace slideshow
                         mpMediaWindow->SetBackground( COL_BLACK );
                         mpMediaWindow->SetParentClipMode( ParentClipMode::NoClip );
                         mpMediaWindow->EnableEraseBackground( false );
-                        mpMediaWindow->EnablePaint( false );
                         mpMediaWindow->SetForwardKey( true );
                         mpMediaWindow->SetMouseTransparent( true );
                         mpMediaWindow->Show();

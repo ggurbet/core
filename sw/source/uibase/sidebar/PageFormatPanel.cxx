@@ -31,13 +31,17 @@
 #include <sfx2/sidebar/ControlFactory.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/bindings.hxx>
+#include <sfx2/module.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <pageformatpanel.hrc>
 #include <cmdid.h>
 #include <uitool.hxx>
 #include <svtools/unitconv.hxx>
 #include <svtools/optionsdrawinglayer.hxx>
+
+#include <com/sun/star/lang/IllegalArgumentException.hpp>
 
 namespace sw { namespace sidebar{
 

@@ -89,7 +89,6 @@ $(eval $(call gb_Library_add_exception_objects,svx,\
     svx/source/accessibility/AccessibleShape \
     svx/source/accessibility/AccessibleShapeInfo \
     svx/source/accessibility/AccessibleShapeTreeInfo \
-    svx/source/accessibility/AccessibleSvxFindReplaceDialog \
     svx/source/accessibility/AccessibleTextEventQueue \
     svx/source/accessibility/AccessibleTextHelper \
     svx/source/accessibility/ChildrenManager \
@@ -161,8 +160,10 @@ $(eval $(call gb_Library_add_exception_objects,svx,\
     svx/source/dialog/txenctab \
     svx/source/engine3d/float3d \
     svx/source/items/algitem \
+    svx/source/items/autoformathelper \
     svx/source/items/hlnkitem \
     svx/source/items/numfmtsh \
+    svx/source/items/legacyitem \
     svx/source/items/numinf \
     svx/source/items/ofaitem \
     svx/source/items/pageitem \
@@ -188,6 +189,7 @@ $(eval $(call gb_Library_add_exception_objects,svx,\
     svx/source/sidebar/text/TextUnderlinePopup \
     svx/source/sidebar/text/TextPropertyPanel \
     svx/source/sidebar/styles/StylesPropertyPanel \
+    svx/source/sidebar/lists/ListsPropertyPanel \
     svx/source/sidebar/paragraph/ParaLineSpacingControl \
     svx/source/sidebar/paragraph/ParaLineSpacingPopup \
     svx/source/sidebar/paragraph/ParaPropertyPanel \
@@ -202,7 +204,7 @@ $(eval $(call gb_Library_add_exception_objects,svx,\
     svx/source/sidebar/line/LinePropertyPanelBase \
     svx/source/sidebar/line/LineWidthValueSet \
     svx/source/sidebar/line/LineWidthPopup \
-    svx/source/sidebar/media/MediaPlaybackPanel \
+    $(call gb_Helper_optional,AVMEDIA,svx/source/sidebar/media/MediaPlaybackPanel) \
     svx/source/sidebar/possize/PosSizePropertyPanel \
     svx/source/sidebar/possize/SidebarDialControl \
     svx/source/sidebar/shapes/DefaultShapesPanel \

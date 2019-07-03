@@ -24,6 +24,13 @@
 #include <string_view>
 #include <algorithm>
 #include <cassert>
+#ifdef MACOSX
+#include <premac.h>
+#include <Foundation/NSString.h>
+#include <CoreFoundation/CFURL.h>
+#include <CoreServices/CoreServices.h>
+#include <postmac.h>
+#endif
 
 #include <sal/log.hxx>
 #include <com/sun/star/uno/Reference.h>
@@ -58,7 +65,6 @@
 #include <osl/file.hxx>
 #include <unotools/bootstrap.hxx>
 #include <unotools/tempfile.hxx>
-#include <unotools/ucbhelper.hxx>
 #include <rtl/uri.hxx>
 #include <vcl/commandinfoprovider.hxx>
 #include <vcl/layout.hxx>
@@ -75,6 +81,7 @@
 #include "newhelp.hxx"
 #include <sfx2/objsh.hxx>
 #include <sfx2/docfac.hxx>
+#include <sfx2/flatpak.hxx>
 #include <sfx2/sfxresid.hxx>
 #include <helper.hxx>
 #include <sfx2/strings.hrc>
@@ -649,7 +656,7 @@ OUString SfxHelp::GetHelpText(const OUString& aCommandURL, const weld::Widget* p
             if (!sHelpText.isEmpty())
                 xParent.reset();
             else
-                xParent.reset(xParent->weld_parent());
+                xParent = xParent->weld_parent();
         }
 
         if (bIsDebug && sHelpText.isEmpty())
@@ -713,7 +720,16 @@ static bool impl_showOnlineHelp( const OUString& rURL )
 
     try
     {
+#ifdef MACOSX
+        LSOpenCFURLRef(CFURLCreateWithString(kCFAllocatorDefault,
+                           CFStringCreateWithCString(kCFAllocatorDefault,
+                               aHelpLink.toUtf8().getStr(),
+                               kCFStringEncodingUTF8),
+                           nullptr),
+            nullptr);
+#else
         sfx2::openUriExternally(aHelpLink, false);
+#endif
         return true;
     }
     catch (const Exception&)
@@ -723,11 +739,6 @@ static bool impl_showOnlineHelp( const OUString& rURL )
 }
 
 namespace {
-
-bool isFlatpak() {
-    static auto const flatpak = [] { return std::getenv("LIBO_FLATPAK") != nullptr; }();
-    return flatpak;
-}
 
 bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
     assert(helpRootUrl != nullptr);
@@ -818,8 +829,7 @@ bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
             // Extract <sha> from ...;org.libreoffice.LibreOffice.Help=<sha>;...:
             OUString sha;
             for (sal_Int32 i = 0;;) {
-                OUString elem;
-                elem = extensions.getToken(0, ';', i);
+                OUString elem = extensions.getToken(0, ';', i);
                 if (elem.startsWith("org.libreoffice.LibreOffice.Help=", &sha)) {
                     break;
                 }
@@ -895,70 +905,20 @@ bool rewriteFlatpakHelpRootUrl(OUString * helpRootUrl) {
     }
 }
 
-// Must only be accessed with SolarMutex locked:
-static struct {
-    bool created = false;
-    OUString url;
-} flatpakHelpTemporaryDirectoryStatus;
-
-bool createFlatpakHelpTemporaryDirectory(OUString ** url) {
-    assert(url != nullptr);
-    DBG_TESTSOLARMUTEX();
-    if (!flatpakHelpTemporaryDirectoryStatus.created) {
-        auto const env = std::getenv("XDG_CACHE_HOME");
-        if (env == nullptr) {
-            SAL_WARN("sfx.appl", "LIBO_FLATPAK mode but unset XDG_CACHE_HOME");
-            return false;
-        }
-        OUString path;
-        if (!rtl_convertStringToUString(
-                &path.pData, env, std::strlen(env), osl_getThreadTextEncoding(),
-                (RTL_TEXTTOUNICODE_FLAGS_UNDEFINED_ERROR | RTL_TEXTTOUNICODE_FLAGS_MBUNDEFINED_ERROR
-                 | RTL_TEXTTOUNICODE_FLAGS_INVALID_ERROR)))
-        {
-            SAL_WARN(
-                "sfx.appl",
-                "LIBO_FLATPAK mode failure converting XDG_CACHE_HOME \"" << env << "\" encoding");
-            return false;
-        }
-        OUString parent;
-        auto const err = osl::FileBase::getFileURLFromSystemPath(path, parent);
-        if (err != osl::FileBase::E_None) {
-            SAL_WARN(
-                "sfx.appl",
-                "LIBO_FLATPAK mode failure converting XDG_CACHE_HOME \"" << path << "\" to URL: "
-                    << err);
-            return false;
-        }
-        if (!parent.endsWith("/")) {
-            parent += "/";
-        }
-        auto const tmp = utl::TempFile(&parent, true);
-        if (!tmp.IsValid()) {
-            SAL_WARN(
-                "sfx.appl", "LIBO_FLATPAK mode failure creating temp dir at <" << parent << ">");
-            return false;
-        }
-        flatpakHelpTemporaryDirectoryStatus.url = tmp.GetURL();
-        flatpakHelpTemporaryDirectoryStatus.created = true;
-    }
-    *url = &flatpakHelpTemporaryDirectoryStatus.url;
-    return true;
-}
-
 }
 
 #define SHTML1 "<!DOCTYPE HTML><html lang=\"en-US\"><head><meta charset=\"UTF-8\">"
-#define SHTML2 "<meta http-equiv=\"refresh\" content=\"1\" url=\""
-#define SHTML3 "\"><script type=\"text/javascript\"> window.location.href = \""
+#define SHTML2 "<meta http-equiv=\"refresh\" content=\"1; url='"
+#define SHTML3 "'\"><script type=\"text/javascript\"> window.location.href = \""
 #define SHTML4 "\";</script><title>Help Page Redirection</title></head><body></body></html>"
 
+// use a tempfile since e.g. xdg-open doesn't support URL-parameters with file:// URLs
 static bool impl_showOfflineHelp( const OUString& rURL )
 {
     OUString aBaseInstallPath = getHelpRootURL();
     // For the flatpak case, find the pathname outside the flatpak sandbox that corresponds to
     // aBaseInstallPath, because that is what needs to be stored in aTempFile below:
-    if (isFlatpak() && !rewriteFlatpakHelpRootUrl(&aBaseInstallPath)) {
+    if (flatpak::isFlatpak() && !rewriteFlatpakHelpRootUrl(&aBaseInstallPath)) {
         return false;
     }
 
@@ -971,7 +931,7 @@ static bool impl_showOfflineHelp( const OUString& rURL )
     // technical reasons, so that it can be accessed by the browser running outside the sandbox):
     OUString const aExtension(".html");
     OUString * parent = nullptr;
-    if (isFlatpak() && !createFlatpakHelpTemporaryDirectory(&parent)) {
+    if (flatpak::isFlatpak() && !flatpak::createTemporaryHtmlDirectory(&parent)) {
         return false;
     }
     ::utl::TempFile aTempFile("NewHelp", true, &aExtension, parent, false );
@@ -986,10 +946,18 @@ static bool impl_showOfflineHelp( const OUString& rURL )
     pStream->WriteUnicodeOrByteText(aTempStr);
 
     aTempFile.CloseStream();
-
     try
     {
+#ifdef MACOSX
+        LSOpenCFURLRef(CFURLCreateWithString(kCFAllocatorDefault,
+                           CFStringCreateWithCString(kCFAllocatorDefault,
+                               aTempFile.GetURL().toUtf8().getStr(),
+                               kCFStringEncodingUTF8),
+                           nullptr),
+            nullptr);
+#else
         sfx2::openUriExternally(aTempFile.GetURL(), false);
+#endif
         return true;
     }
     catch (const Exception&)
@@ -1101,6 +1069,22 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
         impl_showOnlineHelp( aHelpURL );
         return true;
     }
+#ifdef MACOSX
+    if (@available(macOS 10.14, *)) {
+        // Workaround: Safari sandboxing prevents it from accessing files in the LibreOffice.app folder
+        // force online-help instead if Safari is default browser.
+        CFURLRef pBrowser = LSCopyDefaultApplicationURLForURL(
+                                CFURLCreateWithString(
+                                    kCFAllocatorDefault,
+                                    static_cast<CFStringRef>(@"https://www.libreoffice.org"),
+                                    nullptr),
+                                kLSRolesAll, nullptr);
+        if([static_cast<NSString*>(CFURLGetString(pBrowser)) isEqualToString:@"file:///Applications/Safari.app/"]) {
+            impl_showOnlineHelp( aHelpURL );
+            return true;
+        }
+    }
+#endif
 
     // If the HTML or no help is installed, but aHelpURL nevertheless references valid help content,
     // that implies that this help content belongs to an extension (and thus would not be available
@@ -1124,8 +1108,9 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
 
             if(bShowOfflineHelpPopUp)
             {
-                aBusy.incBusy(pWindow);
-                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWindow ? pWindow->GetFrameWeld() : nullptr, "sfx/ui/helpmanual.ui"));
+                weld::Window* pWeldWindow = pWindow ? pWindow->GetFrameWeld() : nullptr;
+                aBusy.incBusy(pWeldWindow);
+                std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pWeldWindow, "sfx/ui/helpmanual.ui"));
                 std::unique_ptr<weld::MessageDialog> xQueryBox(xBuilder->weld_message_dialog("onlinehelpmanual"));
                 std::unique_ptr<weld::CheckButton> m_xHideOfflineHelpCB(xBuilder->weld_check_button("hidedialog"));
                 LanguageTag aLangTag = Application::GetSettings().GetUILanguageTag();
@@ -1143,8 +1128,9 @@ bool SfxHelp::Start_Impl(const OUString& rURL, const vcl::Window* pWindow, const
                     return true;
                 else
                 {
-                    aBusy.incBusy(pWindow);
-                    NoHelpErrorBox aErrBox(pWindow ? pWindow->GetFrameWeld() : nullptr);
+                    weld::Window* pWeldWindow = pWindow ? pWindow->GetFrameWeld() : nullptr;
+                    aBusy.incBusy(pWeldWindow);
+                    NoHelpErrorBox aErrBox(pWeldWindow);
                     aErrBox.run();
                     aBusy.decBusy();
                     return false;
@@ -1363,18 +1349,6 @@ OUString SfxHelp::GetCurrentModuleIdentifier()
 bool SfxHelp::IsHelpInstalled()
 {
     return impl_hasHelpInstalled();
-}
-
-void SfxHelp::removeFlatpakHelpTemporaryDirectory() {
-    DBG_TESTSOLARMUTEX();
-    if (flatpakHelpTemporaryDirectoryStatus.created) {
-        if (!utl::UCBContentHelper::Kill(flatpakHelpTemporaryDirectoryStatus.url)) {
-            SAL_INFO(
-                "sfx.appl",
-                "LIBO_FLATPAK mode failure removing directory <"
-                    << flatpakHelpTemporaryDirectoryStatus.url << ">");
-        }
-    }
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

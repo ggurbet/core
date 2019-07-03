@@ -42,9 +42,9 @@
 
 using namespace ::com::sun::star;
 
-static void ImplSysChildProc( void* pInst, SalObjEvent nEvent )
+static void ImplSysChildProc( SystemChildWindow* pInst, SalObjEvent nEvent )
 {
-    VclPtr<SystemChildWindow> pWindow = static_cast<SystemChildWindow*>(pInst);
+    VclPtr<SystemChildWindow> pWindow = pInst;
 
     switch ( nEvent )
     {
@@ -68,6 +68,8 @@ static void ImplSysChildProc( void* pInst, SalObjEvent nEvent )
         case SalObjEvent::LoseFocus:
             // trigger a LoseFocus which matches the status
             // of the window with matching Activate-Status
+            if (pWindow->IsDisposed())
+                break;
             pWindow->ImplGetFrameData()->mbSysObjFocus = false;
             if ( !pWindow->ImplGetFrameData()->mnFocusId )
             {
@@ -181,6 +183,11 @@ sal_IntPtr SystemChildWindow::GetParentWindowHandle()
 #endif
 
     return nRet;
+}
+
+void* SystemChildWindow::CreateGStreamerSink()
+{
+    return ImplGetSVData()->mpDefInst->CreateGStreamerSink(this);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

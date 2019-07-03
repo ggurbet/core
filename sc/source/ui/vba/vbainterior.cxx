@@ -269,7 +269,7 @@ ScVbaInterior::SetAttributeData( sal_Int32 nValue )
 uno::Any
 ScVbaInterior::GetUserDefinedAttributes( const OUString& sName )
 {
-    uno::Reference< container::XNameContainer > xNameContainer( GetAttributeContainer(), uno::UNO_QUERY_THROW );
+    uno::Reference< container::XNameContainer > xNameContainer( GetAttributeContainer(), uno::UNO_SET_THROW );
     if( xNameContainer->hasByName( sName ) )
     {
         return xNameContainer->getByName( sName );
@@ -281,7 +281,7 @@ ScVbaInterior::SetUserDefinedAttributes( const OUString& sName, const uno::Any& 
 {
     if( aValue.hasValue() )
     {
-        uno::Reference< container::XNameContainer > xNameContainer( GetAttributeContainer(), uno::UNO_QUERY_THROW );
+        uno::Reference< container::XNameContainer > xNameContainer( GetAttributeContainer(), uno::UNO_SET_THROW );
         if( xNameContainer->hasByName( sName ) )
             xNameContainer->removeByName( sName );
         xNameContainer->insertByName( sName, aValue );
@@ -321,8 +321,7 @@ ScVbaInterior::GetBackColor()
     }
     else
     {
-        uno::Any aAny;
-        aAny = OORGBToXLRGB( m_xProps->getPropertyValue( BACKCOLOR ) );
+        uno::Any aAny = OORGBToXLRGB( m_xProps->getPropertyValue( BACKCOLOR ) );
         if( aAny >>= nColor )
         {
             nColor = XLRGBToOORGB( nColor );

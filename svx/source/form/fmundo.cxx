@@ -46,6 +46,7 @@
 
 #include <svx/fmtools.hxx>
 #include <svl/macitem.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <sfx2/objsh.hxx>
 #include <sfx2/docfile.hxx>
@@ -55,6 +56,7 @@
 #include <comphelper/property.hxx>
 #include <comphelper/types.hxx>
 #include <connectivity/dbtools.hxx>
+#include <vcl/svapp.hxx>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::awt;
@@ -287,8 +289,9 @@ void FmXUndoEnvironment::ModeChanged()
 
 void FmXUndoEnvironment::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
 {
-    if (const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>(&rHint))
+    if (rHint.GetId() == SfxHintId::ThisIsAnSdrHint)
     {
+        const SdrHint* pSdrHint = static_cast<const SdrHint*>(&rHint);
         switch (pSdrHint->GetKind())
         {
             case SdrHintKind::ObjectInserted:
@@ -1014,9 +1017,7 @@ void FmUndoPropertyAction::Redo()
 
 OUString FmUndoPropertyAction::GetComment() const
 {
-    OUString aStr(static_STR_UNDO_PROPERTY);
-
-    aStr = aStr.replaceFirst( "#", aPropertyName );
+    OUString aStr = static_STR_UNDO_PROPERTY.replaceFirst( "#", aPropertyName );
     return aStr;
 }
 

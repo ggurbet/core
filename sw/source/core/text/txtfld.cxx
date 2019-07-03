@@ -52,6 +52,7 @@
 #include <flddat.hxx>
 #include <fmtautofmt.hxx>
 #include <IDocumentSettingAccess.hxx>
+#include <sfx2/docfile.hxx>
 #include <svl/itemiter.hxx>
 
 static bool lcl_IsInBody( SwFrame const *pFrame )
@@ -331,7 +332,7 @@ SwExpandPortion * SwTextFormatter::TryNewNoLengthPortion(SwTextFormatInfo const 
     {
         SwTextAttr & rHint(const_cast<SwTextAttr&>(*pHint));
         TextFrameIndex const nEnd(
-            rInfo.GetTextFrame()->MapModelToView(pNode, *rHint.GetAnyEnd()));
+            rInfo.GetTextFrame()->MapModelToView(pNode, rHint.GetAnyEnd()));
         if (nEnd > nIdx)
         {
             m_pByEndIter->PrevAttr();
@@ -425,7 +426,7 @@ static void checkApplyParagraphMarkFormatToNumbering(SwFont* pNumFnt, SwTextForm
          pHint = iter.PrevAttr(&pNode))
     {
         TextFrameIndex const nHintEnd(
-            rInf.GetTextFrame()->MapModelToView(pNode, *pHint->GetAnyEnd()));
+            rInf.GetTextFrame()->MapModelToView(pNode, pHint->GetAnyEnd()));
         if (nHintEnd < nTextLen)
         {
             break; // only those at para end are interesting
@@ -505,8 +506,17 @@ SwNumberPortion *SwTextFormatter::NewNumberPortion( SwTextFormatInfo &rInf ) con
 
         if( SVX_NUM_BITMAP == rNumFormat.GetNumberingType() )
         {
+            OUString referer;
+            if (auto const sh1 = rInf.GetVsh()) {
+                if (auto const doc = sh1->GetDoc()) {
+                    auto const sh2 = doc->GetPersist();
+                    if (sh2 != nullptr && sh2->HasName()) {
+                        referer = sh2->GetMedium()->GetName();
+                    }
+                }
+            }
             pRet = new SwGrfNumPortion( pTextNd->GetLabelFollowedBy(),
-                                        rNumFormat.GetBrush(),
+                                        rNumFormat.GetBrush(), referer,
                                         rNumFormat.GetGraphicOrientation(),
                                         rNumFormat.GetGraphicSize(),
                                         bLeft, bCenter, nMinDist,

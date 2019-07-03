@@ -23,17 +23,13 @@
 #include <sal/config.h>
 
 #include <cstddef>
-#include <set>
 #include <map>
 #include <vector>
 #include <memory>
 #include <swtypes.hxx>
 #include "wwstyles.hxx"
 #include <rtl/textenc.h>
-#include <tools/gen.hxx>
-#include <filter/msfilter/util.hxx>
 #include "fltshell.hxx"
-#include <redline.hxx>
 #include <shellio.hxx>
 #include <svl/zforlist.hxx>
 
@@ -302,8 +298,8 @@ namespace sw
             explicit RedlineStack(SwDoc &rDoc) : mrDoc(rDoc) {}
             void MoveAttrs(const SwPosition& rPos);
             void open(const SwPosition& rPos, const SfxPoolItem& rAttr);
-            bool close(const SwPosition& rPos, RedlineType_t eType);
-            void close(const SwPosition& rPos, RedlineType_t eType,
+            bool close(const SwPosition& rPos, RedlineType eType);
+            void close(const SwPosition& rPos, RedlineType eType,
                 WW8TabDesc* pTabDesc );
             void closeall(const SwPosition& rPos);
             ~RedlineStack();

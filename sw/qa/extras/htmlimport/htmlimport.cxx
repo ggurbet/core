@@ -13,13 +13,7 @@
 #include <com/sun/star/graphic/GraphicType.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/BitmapMode.hpp>
-#include <com/sun/star/document/XEmbeddedObjectSupplier2.hpp>
-#include <com/sun/star/embed/ElementModes.hpp>
-#include <com/sun/star/io/XActiveDataStreamer.hpp>
-#include <com/sun/star/io/XSeekable.hpp>
 #include <tools/datetime.hxx>
-#include <unotools/datetime.hxx>
-#include <vcl/GraphicNativeTransform.hxx>
 #include <sfx2/linkmgr.hxx>
 
 #include <docsh.hxx>
@@ -84,8 +78,7 @@ DECLARE_HTMLIMPORT_TEST(testInlinedImage, "inlined_image.html")
     uno::Reference<container::XNamed> const xNamed(xShape, uno::UNO_QUERY_THROW);
     CPPUNIT_ASSERT_EQUAL(OUString("Image1"), xNamed->getName());
 
-    uno::Reference<graphic::XGraphic> xGraphic;
-    xGraphic = getProperty< uno::Reference<graphic::XGraphic> >(xShape, "Graphic");
+    uno::Reference<graphic::XGraphic> xGraphic = getProperty< uno::Reference<graphic::XGraphic> >(xShape, "Graphic");
     CPPUNIT_ASSERT(xGraphic.is());
     CPPUNIT_ASSERT(xGraphic->getType() != graphic::GraphicType::EMPTY);
 
@@ -347,6 +340,17 @@ DECLARE_HTMLIMPORT_TEST(testImageSize, "image-size.html")
     // header when the HTML markup declared no size.
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(aExpected.getWidth()), aSize.Width);
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_Int32>(aExpected.getHeight()), aSize.Height);
+}
+
+DECLARE_HTMLIMPORT_TEST(testTdf122789, "tdf122789.html")
+{
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    const SwFrameFormats& rFormats = *pDoc->GetSpzFrameFormats();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rFormats.size());
+    // This failed, the image had an absolute size, not a relative one.
+    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt8>(70), rFormats[0]->GetAttrSet().GetFrameSize().GetWidthPercent());
 }
 
 DECLARE_HTMLIMPORT_TEST(testReqIfPageStyle, "reqif-page-style.xhtml")

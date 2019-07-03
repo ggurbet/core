@@ -21,11 +21,12 @@
 
 #include <sfx2/viewfrm.hxx>
 #include <editeng/outliner.hxx>
-#include <editeng/eeitem.hxx>
 #include <editeng/flditem.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/dispatch.hxx>
+#include <tools/debug.hxx>
+#include <svl/stritem.hxx>
 
 #include <svx/svxids.hrc>
 #include <app.hrc>
@@ -36,8 +37,6 @@
 #include <OutlineViewShell.hxx>
 
 #include <memory>
-
-#include <stdio.h>
 
 namespace sd {
 
@@ -72,6 +71,8 @@ static const sal_uInt16 SidArray[] = {
                 SID_SET_SUPER_SCRIPT,
                 SID_SET_SUB_SCRIPT,
                 SID_HYPERLINK_GETLINK,
+                SID_DEC_INDENT,
+                SID_INC_INDENT,
                 SID_PARASPACE_INCREASE,
                 SID_PARASPACE_DECREASE,
                 SID_STATUS_PAGE,

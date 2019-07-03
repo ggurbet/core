@@ -508,7 +508,7 @@ EventList& Entity::getEventList()
 {
     if (!mxProducedEvents)
     {
-        osl::ResettableMutexGuard aGuard(maEventProtector);
+        osl::ClearableMutexGuard aGuard(maEventProtector);
         if (!maUsedEvents.empty())
         {
             mxProducedEvents = std::move(maUsedEvents.front());
@@ -609,7 +609,7 @@ void Entity::throwException( const ::rtl::Reference< FastLocatorImpl > &xDocumen
 void Entity::saveException( const Any & e )
 {
     // fdo#81214 - allow the parser to run on after an exception,
-    // unexpectedly some 'startElements' produce an UNO_QUERY_THROW
+    // unexpectedly some 'startElements' produce a UNO_QUERY_THROW
     // for XComponent; and yet expect to continue parsing.
     SAL_WARN("sax", "Unexpected exception from XML parser " << exceptionToString(e));
     osl::MutexGuard g(maSavedExceptionMutex);
@@ -806,8 +806,7 @@ void FastSaxParserImpl::parseStream(const InputSource& rStructSource)
 
     if (rEntity.mbEnableThreads)
     {
-        rtl::Reference<ParserThread> xParser;
-        xParser = new ParserThread(this);
+        rtl::Reference<ParserThread> xParser = new ParserThread(this);
         xParser->launch();
         aEnsureFree.setThread(xParser);
         bool done = false;
@@ -1335,7 +1334,7 @@ FastSaxParser::~FastSaxParser()
 void SAL_CALL
 FastSaxParser::initialize(css::uno::Sequence< css::uno::Any > const& rArguments)
 {
-    if (rArguments.getLength())
+    if (rArguments.hasElements())
     {
         OUString str;
         if ( rArguments[0] >>= str )

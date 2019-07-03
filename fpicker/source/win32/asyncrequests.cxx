@@ -19,6 +19,7 @@
 
 #include "asyncrequests.hxx"
 #include <vcl/svapp.hxx>
+#include <vcl/winscheduler.hxx>
 #include <osl/mutex.hxx>
 
 namespace fpicker{
@@ -56,6 +57,10 @@ void Request::waitProcessMessages()
 void Request::notify()
 {
     m_aJoiner.set();
+    // Make sure that main loop receives at least this message to return from GetMessage and recheck
+    // the condition, even in case when there's no visible application windows present, and thus no
+    // other messages might arrive to the main loop.
+    WinScheduler::PostDummyMessage();
 }
 
 AsyncRequests::AsyncRequests(const RequestHandlerRef& rHandler)
@@ -70,9 +75,10 @@ AsyncRequests::AsyncRequests(const RequestHandlerRef& rHandler)
 AsyncRequests::~AsyncRequests()
 {
     // SYNCHRONIZED ->
-    ::osl::ResettableMutexGuard aLock(m_aMutex);
-    m_bFinish = true;
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aMutex);
+        m_bFinish = true;
+    }
     // <- SYNCHRONIZED
 
     // The static AsyncRequests aNotify in VistaFilePickerEventHandler::impl_sendEvent
@@ -80,6 +86,11 @@ AsyncRequests::~AsyncRequests()
     // the already destructed SolarMutex, which would crash LO on exit.
     if (isRunning())
     {
+        // tdf#123502: make sure we actually hold the mutex before releasing it
+        // UNO directly destroys the VistaFilePicker object, so we need GUI protection in there.
+        // But since we redirect GUI stuff to the async thread we also have to release it, so we
+        // can join it, if the thread currently blocks on the SolarMutex.
+        SolarMutexGuard aGuard;
         SolarMutexReleaser aReleaser;
         join();
     }
@@ -96,9 +107,10 @@ void AsyncRequests::triggerJobExecution()
 void AsyncRequests::triggerRequestProcessMessages (const RequestRef& rRequest)
 {
     // SYNCHRONIZED ->
-    ::osl::ResettableMutexGuard aLock(m_aMutex);
-    m_lRequests.push(rRequest);
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aMutex);
+        m_lRequests.push(rRequest);
+    }
     // <- SYNCHRONIZED
 
     rRequest->waitProcessMessages();
@@ -107,9 +119,10 @@ void AsyncRequests::triggerRequestProcessMessages (const RequestRef& rRequest)
 void AsyncRequests::triggerRequestBlocked(const RequestRef& rRequest)
 {
     // SYNCHRONIZED ->
-    ::osl::ResettableMutexGuard aLock(m_aMutex);
-    m_lRequests.push(rRequest);
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aMutex);
+        m_lRequests.push(rRequest);
+    }
     // <- SYNCHRONIZED
 
     triggerJobExecution();
@@ -120,9 +133,10 @@ void AsyncRequests::triggerRequestBlocked(const RequestRef& rRequest)
 void AsyncRequests::triggerRequestNonBlocked(const RequestRef& rRequest)
 {
     // SYNCHRONIZED ->
-    ::osl::ResettableMutexGuard aLock(m_aMutex);
-    m_lRequests.push(rRequest);
-    aLock.clear();
+    {
+        osl::MutexGuard aLock(m_aMutex);
+        m_lRequests.push(rRequest);
+    }
     // <- SYNCHRONIZED
 
     triggerJobExecution();
@@ -131,7 +145,7 @@ void AsyncRequests::triggerRequestNonBlocked(const RequestRef& rRequest)
 void AsyncRequests::triggerRequestDirectly(const RequestRef& rRequest)
 {
     // SYNCHRONIZED ->
-    ::osl::ResettableMutexGuard aLock(m_aMutex);
+    osl::ClearableMutexGuard aLock(m_aMutex);
     RequestHandlerRef rHandler = m_rHandler;
     aLock.clear();
     // <- SYNCHRONIZED

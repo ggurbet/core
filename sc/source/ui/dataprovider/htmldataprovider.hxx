@@ -34,8 +34,6 @@ public:
 
     virtual const OUString& GetURL() const override;
 
-    virtual std::map<OUString, OUString> getDataSourcesForURL(const OUString& rURL) override;
-
     void ImportFinished();
 };
 

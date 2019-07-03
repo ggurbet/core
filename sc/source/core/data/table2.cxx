@@ -136,7 +136,7 @@ bool ScTable::TestInsertRow( SCCOL nStartCol, SCCOL nEndCol, SCROW nStartRow, SC
         bTest = pOutlineTable->TestInsertRow(nSize);
 
     for (SCCOL i=nStartCol; (i<=nEndCol) && bTest; i++)
-        bTest = aCol[i].TestInsertRow(nStartRow, nSize);
+        bTest = CreateColumnIfNotExists(i).TestInsertRow(nStartRow, nSize);
 
     return bTest;
 }
@@ -487,10 +487,10 @@ void ScTable::CopyToClip(
     if (!pTable->mpRangeName && mpRangeName)
         pTable->mpRangeName.reset( new ScRangeName(*mpRangeName) );
 
-    SCCOL i;
+    nCol2 = ClampToAllocatedColumns(nCol2);
 
-    for ( i = nCol1; i <= nCol2; i++)
-        aCol[i].CopyToClip(rCxt, nRow1, nRow2, pTable->aCol[i]);  // notes are handled at column level
+    for ( SCCOL i = nCol1; i <= nCol2; i++)
+        aCol[i].CopyToClip(rCxt, nRow1, nRow2, pTable->CreateColumnIfNotExists(i));  // notes are handled at column level
 
     //  copy widths/heights, and only "hidden", "filtered" and "manual" flags
     //  also for all preceding columns/rows, to have valid positions for drawing objects
@@ -515,7 +515,7 @@ void ScTable::CopyToClip(
     // If necessary replace formulas with values
 
     if ( IsProtected() )
-        for (i = nCol1; i <= nCol2; i++)
+        for (SCCOL i = nCol1; i <= nCol2; i++)
             pTable->aCol[i].RemoveProtected(nRow1, nRow2);
 
     pTable->mpCondFormatList.reset(new ScConditionalFormatList(pTable->pDocument, *mpCondFormatList));
@@ -640,7 +640,8 @@ void ScTable::CopyConditionalFormat( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCRO
             {
                 OUString aStyleName;
                 const ScFormatEntry* pEntry = pNewFormatTmp->GetEntry(i);
-                if(pEntry->GetType() == ScFormatEntry::Type::Condition)
+                if(pEntry->GetType() == ScFormatEntry::Type::Condition ||
+                   pEntry->GetType() == ScFormatEntry::Type::ExtCondition)
                     aStyleName = static_cast<const ScCondFormatEntry*>(pEntry)->GetStyle();
                 else if(pEntry->GetType() == ScFormatEntry::Type::Date)
                     aStyleName = static_cast<const ScCondDateFormatEntry*>(pEntry)->GetStyleName();
@@ -665,7 +666,7 @@ bool ScTable::InitColumnBlockPosition( sc::ColumnBlockPosition& rBlockPos, SCCOL
     if (!ValidCol(nCol))
         return false;
 
-    aCol[nCol].InitBlockPosition(rBlockPos);
+    CreateColumnIfNotExists(nCol).InitBlockPosition(rBlockPos);
     return true;
 }
 
@@ -681,7 +682,10 @@ void ScTable::CopyFromClip(
     if (ValidColRow(nCol1, nRow1) && ValidColRow(nCol2, nRow2))
     {
         for ( SCCOL i = nCol1; i <= nCol2; i++)
+        {
+            pTable->CreateColumnIfNotExists(i - nDx);
             aCol[i].CopyFromClip(rCxt, nRow1, nRow2, nDy, pTable->aCol[i - nDx]); // notes are handles at column level
+        }
 
         if (rCxt.getInsertFlag() & InsertDeleteFlags::ATTRIB)
         {
@@ -1043,7 +1047,7 @@ ScColumn* ScTable::FetchColumn( SCCOL nCol )
     if (!ValidCol(nCol))
         return nullptr;
 
-    return &aCol[nCol];
+    return &CreateColumnIfNotExists(nCol);
 }
 
 const ScColumn* ScTable::FetchColumn( SCCOL nCol ) const
@@ -1124,9 +1128,13 @@ void ScTable::CopyToTable(
     {
         InsertDeleteFlags nTempFlags( nFlags &
                 ~InsertDeleteFlags( InsertDeleteFlags::NOTE | InsertDeleteFlags::ADDNOTES));
-        for (SCCOL i = nCol1; i <= nCol2; i++)
+        // tdf#102364 - in some pathological cases CopyToTable() replacing cells with new cells
+        // can lead to repetitive splitting and rejoining of the same formula group, which can get
+        // quadratically expensive with large groups. So do the grouping just once at the end.
+        sc::DelayFormulaGroupingSwitch delayGrouping( *pDestTab->pDocument, true );
+        for (SCCOL i = nCol1; i <= ClampToAllocatedColumns(nCol2); i++)
             aCol[i].CopyToColumn(rCxt, nRow1, nRow2, bIsUndoDoc ? nFlags : nTempFlags, bMarked,
-                                pDestTab->aCol[i], pMarkData, bAsLink, bGlobalNamesToLocal);
+                                 pDestTab->CreateColumnIfNotExists(i), pMarkData, bAsLink, bGlobalNamesToLocal);
     }
 
     if (!bColRowFlags)      // Column widths/Row heights/Flags
@@ -1253,9 +1261,10 @@ void ScTable::CopyCaptionsToTable( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW 
     if (!ValidColRow(nCol1, nRow1) || !ValidColRow(nCol2, nRow2))
         return;
 
+    nCol2 = ClampToAllocatedColumns(nCol2);
     for (SCCOL i = nCol1; i <= nCol2; i++)
     {
-        aCol[i].CopyCellNotesToDocument(nRow1, nRow2, pDestTab->aCol[i], bCloneCaption);
+        aCol[i].CopyCellNotesToDocument(nRow1, nRow2, pDestTab->CreateColumnIfNotExists(i), bCloneCaption);
         pDestTab->aCol[i].UpdateNoteCaptions(nRow1, nRow2);
     }
 }
@@ -1298,6 +1307,8 @@ void ScTable::UndoToTable(
 
 void ScTable::CopyUpdated( const ScTable* pPosTab, ScTable* pDestTab ) const
 {
+    pPosTab->CreateColumnIfNotExists(aCol.size()-1);
+    pDestTab->CreateColumnIfNotExists(aCol.size()-1);
     for (SCCOL i=0; i < aCol.size(); i++)
         aCol[i].CopyUpdated( pPosTab->aCol[i], pDestTab->aCol[i] );
 }
@@ -1317,14 +1328,16 @@ void ScTable::CopyScenarioTo( ScTable* pDestTab ) const
     OSL_ENSURE( bScenario, "bScenario == FALSE" );
 
     for (SCCOL i=0; i < aCol.size(); i++)
-        aCol[i].CopyScenarioTo( pDestTab->aCol[i] );
+        aCol[i].CopyScenarioTo( pDestTab->CreateColumnIfNotExists(i) );
 }
 
 void ScTable::CopyScenarioFrom( const ScTable* pSrcTab )
 {
     OSL_ENSURE( bScenario, "bScenario == FALSE" );
 
-    for (SCCOL i=0; i < aCol.size(); i++)
+    SCCOL nEndCol = pSrcTab->aCol.size();
+    CreateColumnIfNotExists(nEndCol);
+    for (SCCOL i=0; i < nEndCol; i++)
         aCol[i].CopyScenarioFrom( pSrcTab->aCol[i] );
 }
 
@@ -1397,11 +1410,13 @@ bool ScTable::TestCopyScenarioTo( const ScTable* pDestTab ) const
 bool ScTable::SetString( SCCOL nCol, SCROW nRow, SCTAB nTabP, const OUString& rString,
                          const ScSetStringParam * pParam )
 {
-    if (ValidColRow(nCol,nRow))
-        return aCol[nCol].SetString(
-            nRow, nTabP, rString, pDocument->GetAddressConvention(), pParam );
-    else
+    if (!ValidColRow(nCol,nRow))
+    {
         return false;
+    }
+
+    return CreateColumnIfNotExists(nCol).SetString(
+        nRow, nTabP, rString, pDocument->GetAddressConvention(), pParam);
 }
 
 bool ScTable::SetEditText( SCCOL nCol, SCROW nRow, std::unique_ptr<EditTextObject> pEditText )
@@ -1411,7 +1426,7 @@ bool ScTable::SetEditText( SCCOL nCol, SCROW nRow, std::unique_ptr<EditTextObjec
         return false;
     }
 
-    aCol[nCol].SetEditText(nRow, std::move(pEditText));
+    CreateColumnIfNotExists(nCol).SetEditText(nRow, std::move(pEditText));
     return true;
 }
 
@@ -1472,7 +1487,7 @@ void ScTable::SetFormula(
     if (!ValidColRow(nCol, nRow))
         return;
 
-    aCol[nCol].SetFormula(nRow, rFormula, eGram);
+    CreateColumnIfNotExists(nCol).SetFormula(nRow, rFormula, eGram);
 }
 
 ScFormulaCell* ScTable::SetFormulaCell( SCCOL nCol, SCROW nRow, ScFormulaCell* pCell )
@@ -1483,7 +1498,7 @@ ScFormulaCell* ScTable::SetFormulaCell( SCCOL nCol, SCROW nRow, ScFormulaCell* p
         return nullptr;
     }
 
-    return aCol[nCol].SetFormulaCell(nRow, pCell, sc::ConvertToGroupListening);
+    return CreateColumnIfNotExists(nCol).SetFormulaCell(nRow, pCell, sc::ConvertToGroupListening);
 }
 
 bool ScTable::SetFormulaCells( SCCOL nCol, SCROW nRow, std::vector<ScFormulaCell*>& rCells )
@@ -1491,7 +1506,7 @@ bool ScTable::SetFormulaCells( SCCOL nCol, SCROW nRow, std::vector<ScFormulaCell
     if (!ValidCol(nCol))
         return false;
 
-    return aCol[nCol].SetFormulaCells(nRow, rCells);
+    return CreateColumnIfNotExists(nCol).SetFormulaCells(nRow, rCells);
 }
 
 svl::SharedString ScTable::GetSharedString( SCCOL nCol, SCROW nRow ) const
@@ -1516,7 +1531,7 @@ void ScTable::SetRawString( SCCOL nCol, SCROW nRow, const svl::SharedString& rSt
 
 void ScTable::GetString( SCCOL nCol, SCROW nRow, OUString& rString, const ScInterpreterContext* pContext ) const
 {
-    if (ValidColRow(nCol,nRow))
+    if (ValidColRow(nCol,nRow) && nCol < GetAllocatedColumnsCount())
         aCol[nCol].GetString( nRow, rString, pContext );
     else
         rString.clear();
@@ -1581,13 +1596,12 @@ ScFormulaCell* ScTable::GetFormulaCell( SCCOL nCol, SCROW nRow )
 {
     if (!ValidColRow(nCol, nRow))
         return nullptr;
-
-    return aCol[nCol].GetFormulaCell(nRow);
+    return CreateColumnIfNotExists(nCol).GetFormulaCell(nRow);
 }
 
 std::unique_ptr<ScPostIt> ScTable::ReleaseNote( SCCOL nCol, SCROW nRow )
 {
-    if (!ValidCol(nCol))
+    if (!ValidCol(nCol) || nCol >= GetAllocatedColumnsCount())
         return nullptr;
 
     return aCol[nCol].ReleaseNote(nRow);
@@ -1634,7 +1648,8 @@ void ScTable::GetNotesInRange( const ScRange& rRange, std::vector<sc::NoteEntry>
 {
     SCROW nStartRow = rRange.aStart.Row();
     SCROW nEndRow = rRange.aEnd.Row();
-    for (SCCOL nCol = rRange.aStart.Col(); nCol <= rRange.aEnd.Col(); ++nCol)
+    SCCOL nEndCol = ClampToAllocatedColumns(rRange.aEnd.Col());
+    for (SCCOL nCol = rRange.aStart.Col(); nCol <= nEndCol; ++nCol)
     {
         aCol[nCol].GetNotesInRange(nStartRow, nEndRow, rNotes);
     }
@@ -1647,7 +1662,9 @@ CommentCaptionState ScTable::GetAllNoteCaptionsState(const ScRange& rRange, std:
     bool bIsFirstNoteShownState = true; // because of error: -Werror=maybe-uninitialized
     bool bFirstControl = true;
 
-    for (SCCOL nCol = rRange.aStart.Col(); nCol <= rRange.aEnd.Col(); ++nCol)
+    ScTable* pTab = pDocument->FetchTable(nTab);
+    const SCCOL nEndCol = pTab->ClampToAllocatedColumns(rRange.aEnd.Col());
+    for (SCCOL nCol = rRange.aStart.Col(); nCol <= nEndCol; ++nCol)
     {
         if (bFirstControl && pDocument->HasColNotes(nCol, nTab)) // detect status of first note caption
         {
@@ -1680,7 +1697,8 @@ bool ScTable::ContainsNotesInRange( const ScRange& rRange ) const
 {
     SCROW nStartRow = rRange.aStart.Row();
     SCROW nEndRow = rRange.aEnd.Row();
-    for (SCCOL nCol = rRange.aStart.Col(); nCol <= rRange.aEnd.Col(); ++nCol)
+    SCCOL nEndCol = ClampToAllocatedColumns(rRange.aEnd.Col());
+    for (SCCOL nCol = rRange.aStart.Col(); nCol <= nEndCol; ++nCol)
     {
         bool bContainsNote = !aCol[nCol].IsNotesEmptyBlock(nStartRow, nEndRow);
         if(bContainsNote)
@@ -1793,6 +1811,7 @@ void ScTable::SetDirty( const ScRange& rRange, ScColumn::BroadcastMode eMode )
     bool bOldAutoCalc = pDocument->GetAutoCalc();
     pDocument->SetAutoCalc( false );    // avoid multiple recalculations
     SCCOL nCol2 = rRange.aEnd.Col();
+    nCol2 = ClampToAllocatedColumns(nCol2);
     for (SCCOL i=rRange.aStart.Col(); i<=nCol2; i++)
         aCol[i].SetDirty(rRange.aStart.Row(), rRange.aEnd.Row(), eMode);
     pDocument->SetAutoCalc( bOldAutoCalc );
@@ -1838,21 +1857,10 @@ bool ScTable::BroadcastBroadcasters( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCRO
     bool bBroadcasted = false;
     sc::AutoCalcSwitch aSwitch(*pDocument, false);
     rHint.GetAddress().SetTab(nTab);
+    nCol2 = ClampToAllocatedColumns(nCol2);
     for (SCCOL nCol = nCol1; nCol <= nCol2; ++nCol)
         bBroadcasted |= aCol[nCol].BroadcastBroadcasters( nRow1, nRow2, rHint);
     return bBroadcasted;
-}
-
-void ScTable::TransferListeners(
-    ScTable& rDestTab, SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
-    SCCOL nColDelta, SCROW nRowDelta )
-{
-    for (SCCOL nCol = nCol1; nCol <= nCol2; ++nCol)
-    {
-        ScColumn& rSrcCol = aCol[nCol];
-        ScColumn& rDestCol = rDestTab.aCol[nCol+nColDelta];
-        rSrcCol.TransferListeners(rDestCol, nRow1, nRow2, nRowDelta);
-    }
 }
 
 void ScTable::SetLoadingMedium(bool bLoading)
@@ -1913,7 +1921,7 @@ void ScTable::ResetChanged( const ScRange& rRange )
 {
     SCCOL nStartCol = rRange.aStart.Col();
     SCROW nStartRow = rRange.aStart.Row();
-    SCCOL nEndCol = rRange.aEnd.Col();
+    SCCOL nEndCol = ClampToAllocatedColumns(rRange.aEnd.Col());
     SCROW nEndRow = rRange.aEnd.Row();
 
     for (SCCOL nCol=nStartCol; nCol<=nEndCol; nCol++)
@@ -1940,7 +1948,7 @@ sal_uInt32 ScTable::GetNumberFormat( const ScInterpreterContext& rContext, const
 sal_uInt32 ScTable::GetNumberFormat( SCCOL nCol, SCROW nRow ) const
 {
     if (ValidColRow(nCol,nRow))
-        return aCol[nCol].GetNumberFormat( pDocument->GetNonThreadedContext(), nRow );
+        return CreateColumnIfNotExists(nCol).GetNumberFormat(pDocument->GetNonThreadedContext(), nRow);
     else
         return 0;
 }
@@ -1950,7 +1958,7 @@ sal_uInt32 ScTable::GetNumberFormat( SCCOL nCol, SCROW nStartRow, SCROW nEndRow 
     if (!ValidCol(nCol) || !ValidRow(nStartRow) || !ValidRow(nEndRow))
         return 0;
 
-    return aCol[nCol].GetNumberFormat(nStartRow, nEndRow);
+    return CreateColumnIfNotExists(nCol).GetNumberFormat(nStartRow, nEndRow);
 }
 
 void ScTable::SetNumberFormat( SCCOL nCol, SCROW nRow, sal_uInt32 nNumberFormat )
@@ -1964,7 +1972,7 @@ void ScTable::SetNumberFormat( SCCOL nCol, SCROW nRow, sal_uInt32 nNumberFormat 
 const ScPatternAttr* ScTable::GetPattern( SCCOL nCol, SCROW nRow ) const
 {
     if (ValidColRow(nCol,nRow))
-        return aCol[nCol].GetPattern( nRow );
+        return CreateColumnIfNotExists(nCol).GetPattern( nRow );
     else
     {
         OSL_FAIL("wrong column or row");
@@ -1974,7 +1982,8 @@ const ScPatternAttr* ScTable::GetPattern( SCCOL nCol, SCROW nRow ) const
 
 const ScPatternAttr* ScTable::GetMostUsedPattern( SCCOL nCol, SCROW nStartRow, SCROW nEndRow ) const
 {
-    if ( ValidColRow( nCol, nStartRow ) && ValidRow( nEndRow ) && (nStartRow <= nEndRow) )
+    if ( ValidColRow( nCol, nStartRow ) && ValidRow( nEndRow ) && (nStartRow <= nEndRow)
+        && nCol < GetAllocatedColumnsCount())
         return aCol[nCol].GetMostUsedPattern( nStartRow, nEndRow );
     else
         return nullptr;
@@ -2052,6 +2061,7 @@ bool ScTable::IsBlockEmpty( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2, 
         OSL_FAIL("ScTable::IsBlockEmpty: invalid column number");
         return false;
     }
+    nCol2 = ClampToAllocatedColumns(nCol2);
     bool bEmpty = true;
     for (SCCOL i=nCol1; i<=nCol2 && bEmpty; i++)
     {
@@ -2164,7 +2174,7 @@ void ScTable::FindMaxRotCol( RowInfo* pRowInfo, SCSIZE nArrCount, SCCOL nX1, SCC
                     //  Run through all formats, so that each cell does not have to be
                     //  handled individually
 
-                    const std::vector<sal_uInt32>& rCondFormatData = static_cast<const ScCondFormatItem*>(pCondItem)->GetCondFormatData();
+                    const ScCondFormatIndexes& rCondFormatData = static_cast<const ScCondFormatItem*>(pCondItem)->GetCondFormatData();
                     ScStyleSheetPool* pStylePool = pDocument->GetStyleSheetPool();
                     if (mpCondFormatList && pStylePool && !rCondFormatData.empty())
                     {
@@ -2177,7 +2187,8 @@ void ScTable::FindMaxRotCol( RowInfo* pRowInfo, SCSIZE nArrCount, SCCOL nX1, SCC
                                 for (size_t nEntry=0; nEntry<nEntryCount; nEntry++)
                                 {
                                     const ScFormatEntry* pEntry = pFormat->GetEntry(nEntry);
-                                    if(pEntry->GetType() != ScFormatEntry::Type::Condition)
+                                    if(pEntry->GetType() != ScFormatEntry::Type::Condition ||
+                                       pEntry->GetType() != ScFormatEntry::Type::ExtCondition)
                                         continue;
 
                                     OUString  aStyleName = static_cast<const ScCondFormatEntry*>(pEntry)->GetStyle();
@@ -2300,7 +2311,8 @@ bool ScTable::HasSelectionMatrixFragment( const ScMarkData& rMark ) const
 
     for (sc::ColRowSpan & aSpan : aSpans)
     {
-        for ( SCCOLROW j=aSpan.mnStart; j<=aSpan.mnEnd; j++ )
+        SCCOL nEndCol = ClampToAllocatedColumns(aSpan.mnEnd);
+        for ( SCCOLROW j=aSpan.mnStart; j<=nEndCol; j++ )
         {
             if ( aCol[j].HasSelectionMatrixFragment(rMark) )
                 return true;
@@ -2319,6 +2331,8 @@ bool ScTable::IsBlockEditable( SCCOL nCol1, SCROW nRow1, SCCOL nCol2,
             *pOnlyNotBecauseOfMatrix = false;
         return false;
     }
+    nCol1 = ClampToAllocatedColumns(nCol1);
+    nCol2 = ClampToAllocatedColumns(nCol2);
 
     bool bIsEditable = true;
     if ( nLockCount )
@@ -2495,7 +2509,8 @@ void ScTable::MergeSelectionPattern( ScMergePatternState& rState, const ScMarkDa
 
     for (const sc::ColRowSpan & rSpan : aSpans)
     {
-        for (SCCOLROW i = rSpan.mnStart; i <= rSpan.mnEnd; ++i)
+        SCCOL nEnd = ClampToAllocatedColumns(rSpan.mnEnd);
+        for (SCCOLROW i = rSpan.mnStart; i <= nEnd; ++i)
         {
             aCol[i].MergeSelectionPattern( rState, rMark, bDeep );
         }
@@ -2505,6 +2520,7 @@ void ScTable::MergeSelectionPattern( ScMergePatternState& rState, const ScMarkDa
 void ScTable::MergePatternArea( ScMergePatternState& rState, SCCOL nCol1, SCROW nRow1,
                                                     SCCOL nCol2, SCROW nRow2, bool bDeep ) const
 {
+    nCol2 = ClampToAllocatedColumns(nCol2);
     for (SCCOL i=nCol1; i<=nCol2; i++)
         aCol[i].MergePatternArea( rState, nRow1, nRow2, bDeep );
 }
@@ -2538,7 +2554,7 @@ void ScTable::ApplyBlockFrame(const SvxBoxItem& rLineOuter, const SvxBoxInfoItem
 void ScTable::ApplyPattern( SCCOL nCol, SCROW nRow, const ScPatternAttr& rAttr )
 {
     if (ValidColRow(nCol,nRow))
-        aCol[nCol].ApplyPattern( nRow, rAttr );
+        CreateColumnIfNotExists(nCol).ApplyPattern( nRow, rAttr );
 }
 
 void ScTable::ApplyPatternArea( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW nEndRow,
@@ -2550,7 +2566,7 @@ void ScTable::ApplyPatternArea( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol,
         PutInOrder(nStartCol, nEndCol);
         PutInOrder(nStartRow, nEndRow);
         for (SCCOL i = nStartCol; i <= nEndCol; i++)
-            aCol[i].ApplyPatternArea(nStartRow, nEndRow, rAttr, pDataArray, pIsChanged);
+            CreateColumnIfNotExists(i).ApplyPatternArea(nStartRow, nEndRow, rAttr, pDataArray, pIsChanged);
     }
 }
 
@@ -2576,7 +2592,7 @@ void ScTable::AddCondFormatData( const ScRangeList& rRangeList, sal_uInt32 nInde
         SCROW nRowEnd = rRange.aEnd.Row();
         for(SCCOL nCol = nColStart; nCol <= nColEnd; ++nCol)
         {
-            aCol[nCol].AddCondFormat(nRowStart, nRowEnd, nIndex);
+            CreateColumnIfNotExists(nCol).AddCondFormat(nRowStart, nRowEnd, nIndex);
         }
     }
 }
@@ -2588,7 +2604,7 @@ void ScTable::RemoveCondFormatData( const ScRangeList& rRangeList, sal_uInt32 nI
     {
         const ScRange & rRange = rRangeList[i];
         SCCOL nColStart = rRange.aStart.Col();
-        SCCOL nColEnd = rRange.aEnd.Col();
+        SCCOL nColEnd = ClampToAllocatedColumns(rRange.aEnd.Col());
         SCROW nRowStart = rRange.aStart.Row();
         SCROW nRowEnd = rRange.aEnd.Row();
         for(SCCOL nCol = nColStart; nCol <= nColEnd; ++nCol)
@@ -2698,7 +2714,7 @@ const ScStyleSheet* ScTable::GetAreaStyle( bool& rFound, SCCOL nCol1, SCROW nRow
 
     const ScStyleSheet* pStyle = nullptr;
     const ScStyleSheet* pNewStyle;
-
+    nCol2 = ClampToAllocatedColumns(nCol2);
     for (SCCOL i=nCol1; i<=nCol2 && bEqual; i++)
     {
         pNewStyle = aCol[i].GetAreaStyle(bColFound, nRow1, nRow2);
@@ -2761,18 +2777,33 @@ bool ScTable::ApplyFlags( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW
     bool bChanged = false;
     if (ValidColRow(nStartCol, nStartRow) && ValidColRow(nEndCol, nEndRow))
         for (SCCOL i = nStartCol; i <= nEndCol; i++)
-            bChanged |= aCol[i].ApplyFlags(nStartRow, nEndRow, nFlags);
+            bChanged |= CreateColumnIfNotExists(i).ApplyFlags(nStartRow, nEndRow, nFlags);
     return bChanged;
 }
 
 bool ScTable::RemoveFlags( SCCOL nStartCol, SCROW nStartRow, SCCOL nEndCol, SCROW nEndRow,
                            ScMF nFlags )
 {
+    if (!ValidColRow(nStartCol, nStartRow) || !ValidColRow(nEndCol, nEndRow))
+        return false;
     bool bChanged = false;
-    if (ValidColRow(nStartCol, nStartRow) && ValidColRow(nEndCol, nEndRow))
-        for (SCCOL i = nStartCol; i <= nEndCol; i++)
-            bChanged |= aCol[i].RemoveFlags(nStartRow, nEndRow, nFlags);
+    nEndCol = ClampToAllocatedColumns(nEndCol);
+    for (SCCOL i = nStartCol; i <= nEndCol; i++)
+        bChanged |= aCol[i].RemoveFlags(nStartRow, nEndRow, nFlags);
     return bChanged;
+}
+
+void ScTable::SetPattern( const ScAddress& rPos, const ScPatternAttr& rAttr )
+{
+    if (ValidColRow(rPos.Col(),rPos.Row()))
+        aCol[rPos.Col()].SetPattern( rPos.Row(), rAttr );
+}
+
+const ScPatternAttr* ScTable::SetPattern( SCCOL nCol, SCROW nRow, std::unique_ptr<ScPatternAttr> pAttr )
+{
+    if (ValidColRow(nCol,nRow))
+        return aCol[nCol].SetPattern( nRow, std::move(pAttr) );
+    return nullptr;
 }
 
 void ScTable::SetPattern( SCCOL nCol, SCROW nRow, const ScPatternAttr& rAttr )
@@ -2784,7 +2815,7 @@ void ScTable::SetPattern( SCCOL nCol, SCROW nRow, const ScPatternAttr& rAttr )
 void ScTable::ApplyAttr( SCCOL nCol, SCROW nRow, const SfxPoolItem& rAttr )
 {
     if (ValidColRow(nCol,nRow))
-        aCol[nCol].ApplyAttr( nRow, rAttr );
+        CreateColumnIfNotExists(nCol).ApplyAttr( nRow, rAttr );
 }
 
 void ScTable::ApplySelectionCache( SfxItemPoolCache* pCache, const ScMarkData& rMark,

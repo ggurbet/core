@@ -96,6 +96,7 @@ public:
     // we treat the size calculation completely on ourself here
     virtual const tools::Rectangle& GetCurrentBoundRect() const override;
     virtual const tools::Rectangle& GetLastBoundRect() const override;
+    virtual       long       GetRotateAngle() const override;
     virtual       void       RecalcBoundRect() override;
     virtual       void       RecalcSnapRect() override;
     virtual const tools::Rectangle& GetSnapRect()  const override;
@@ -128,7 +129,7 @@ public:
 
     void SetRect() const;
 
-    // if an URL is attached to a graphic than this is a macro object
+    // if a URL is attached to a graphic than this is a macro object
     virtual bool       HasMacro() const override;
     virtual SdrObject* CheckMacroHit       (const SdrObjMacroHitRec& rRec) const override;
     virtual PointerStyle GetMacroPointer     (const SdrObjMacroHitRec& rRec) const override;

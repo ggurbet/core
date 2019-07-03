@@ -35,6 +35,7 @@
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <vcl/EnumContext.hxx>
+#include <vcl/svapp.hxx>
 #include <svx/clipfmtitem.hxx>
 #include <svx/sidebar/ContextChangeEventMultiplexer.hxx>
 #include <editeng/langitem.hxx>
@@ -805,7 +806,7 @@ void ScCellShell::GetState(SfxItemSet &rSet)
 
                     // In interpreter may happen via rescheduled Basic
                     if ( pDoc->IsInInterpreter() )
-                        rSet.Put( SfxStringItem( nWhich, OUString("...") ) );
+                        rSet.Put( SfxStringItem( nWhich, "..." ) );
                     else
                     {
                         FormulaError nErrCode = FormulaError::NONE;
@@ -1188,7 +1189,7 @@ void ScCellShell::GetState(SfxItemSet &rSet)
 
             case FID_DEFINE_CURRENT_NAME:
             {
-                ScAddress aCurrentAddress = ScAddress( nPosX, nPosY, nTab );
+                ScAddress aCurrentAddress( nPosX, nPosY, nTab );
 
                 if ( pDoc &&
                      !pDoc->IsAddressInRangeName( RangeNameScope::GLOBAL, aCurrentAddress ) &&
@@ -1208,8 +1209,8 @@ void ScCellShell::GetState(SfxItemSet &rSet)
                         if ( pViewFrame && pViewFrame->HasChildWindow( nWhich ) )
                         {
                             SfxChildWindow* pChild = pViewFrame->GetChildWindow( nWhich );
-                            vcl::Window* pWin = ( pChild ? pChild->GetWindow() : nullptr );
-                            if ( pWin && pWin->IsVisible() )
+                            std::shared_ptr<SfxDialogController> xController = pChild ? pChild->GetController() : nullptr;
+                            if (xController && xController->getDialog()->get_visible())
                             {
                                 bVisible = true;
                             }

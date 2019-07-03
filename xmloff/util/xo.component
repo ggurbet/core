@@ -64,7 +64,8 @@
   <implementation name="XMLDrawExportOasis">
     <service name="com.sun.star.comp.Draw.XMLOasisExporter"/>
   </implementation>
-  <implementation name="XMLDrawImportOasis">
+  <implementation name="XMLDrawImportOasis"
+    constructor="com_sun_star_comp_Draw_XMLOasisImporter_get_implementation">
     <service name="com.sun.star.comp.Draw.XMLOasisImporter"/>
   </implementation>
   <implementation name="XMLDrawMetaExportOOO">
@@ -98,8 +99,11 @@
     constructor="com_sun_star_comp_Impress_XMLOasisContentExporter_get_implementation">
     <service name="com.sun.star.comp.Impress.XMLOasisContentExporter"/>
   </implementation>
-  <implementation name="XMLImpressContentImportOasis">
+  <implementation name="XMLDrawContentImportOasis"
+    constructor="com_sun_star_comp_Draw_XMLOasisContentImporter_get_implementation">
     <service name="com.sun.star.comp.Draw.XMLOasisContentImporter"/>
+  </implementation>
+  <implementation name="XMLImpressContentImportOasis">
     <service name="com.sun.star.comp.Impress.XMLOasisContentImporter"/>
   </implementation>
   <implementation name="XMLImpressExportOOO">
@@ -116,21 +120,30 @@
   <implementation name="XMLImpressMetaExportOOO">
     <service name="com.sun.star.comp.Impress.XMLMetaExporter"/>
   </implementation>
-  <implementation name="XMLImpressMetaExportOasis">
+  <implementation name="XMLImpressMetaExportOasis"
+    constructor="com_sun_star_comp_Impress_XMLOasisMetaExporter_get_implementation">
     <service name="com.sun.star.comp.Impress.XMLOasisMetaExporter"/>
   </implementation>
-  <implementation name="XMLImpressMetaImportOasis">
+  <implementation name="XMLDrawMetaImportOasis"
+    constructor="com_sun_star_comp_Draw_XMLOasisMetaImporter_get_implementation">
     <service name="com.sun.star.comp.Draw.XMLOasisMetaImporter"/>
+  </implementation>
+  <implementation name="XMLImpressMetaImportOasis">
     <service name="com.sun.star.comp.Impress.XMLOasisMetaImporter"/>
   </implementation>
   <implementation name="XMLImpressSettingsExportOOO">
     <service name="com.sun.star.comp.Impress.XMLSettingsExporter"/>
   </implementation>
-  <implementation name="XMLImpressSettingsExportOasis">
+  <implementation name="XMLImpressSettingsExportOasis"
+    constructor="com_sun_star_comp_Impress_XMLOasisSettingsExporter_get_implementation">
     <service name="com.sun.star.comp.Impress.XMLOasisSettingsExporter"/>
   </implementation>
-  <implementation name="XMLImpressSettingsImportOasis">
+  <implementation name="XMLDrawSettingsImportOasis"
+    constructor="com_sun_star_comp_Draw_XMLOasisSettingsImporter_get_implementation">
     <service name="com.sun.star.comp.Draw.XMLOasisSettingsImporter"/>
+  </implementation>
+  <implementation name="XMLImpressSettingsImportOasis"
+    constructor="com_sun_star_comp_Impress_XMLOasisSettingsImporter_get_implementation">
     <service name="com.sun.star.comp.Impress.XMLOasisSettingsImporter"/>
   </implementation>
   <implementation name="XMLImpressStylesExportOOO">
@@ -141,8 +154,11 @@
     <service name="com.sun.star.comp.Impress.XMLOasisStylesExporter"/>
   </implementation>
   <implementation name="XMLImpressStylesImportOasis">
-    <service name="com.sun.star.comp.Draw.XMLOasisStylesImporter"/>
     <service name="com.sun.star.comp.Impress.XMLOasisStylesImporter"/>
+  </implementation>
+  <implementation name="XMLDrawStylesImportOasis"
+    constructor="com_sun_star_comp_Draw_XMLOasisStylesImporter_get_implementation">
+    <service name="com.sun.star.comp.Draw.XMLOasisStylesImporter"/>
   </implementation>
   <implementation name="XMLMetaExportComponent"
       constructor="XMLMetaExportComponent_get_implementation">

@@ -56,12 +56,12 @@ using namespace com::sun::star;
 
 //      init/ shared functions for dialog
 
-ScFormulaDlg::ScFormulaDlg( SfxBindings* pB, SfxChildWindow* pCW,
-                                    vcl::Window* pParent, const ScViewData* pViewData, const formula::IFunctionManager* _pFunctionMgr )
-    : formula::FormulaDlg( pB, pCW, pParent, _pFunctionMgr,this)
+ScFormulaDlg::ScFormulaDlg(SfxBindings* pB, SfxChildWindow* pCW,
+                           weld::Window* pParent, const ScViewData* pViewData, const formula::IFunctionManager* _pFunctionMgr)
+    : formula::FormulaDlg(pB, pCW, pParent, _pFunctionMgr, this)
     , m_aHelper(this,pB)
 {
-    m_aHelper.SetWindow(this);
+    m_aHelper.SetDialog(m_xDialog.get());
     ScModule* pScMod = SC_MOD();
     pScMod->InputEnterHandler();
     ScTabViewShell* pScViewShell = nullptr;
@@ -235,11 +235,6 @@ void ScFormulaDlg::fill()
 
 ScFormulaDlg::~ScFormulaDlg()
 {
-    disposeOnce();
-}
-
-void ScFormulaDlg::dispose()
-{
     ScModule* pScMod = SC_MOD();
     ScFormEditData* pData = pScMod->GetFormEditData();
     m_aHelper.dispose();
@@ -250,7 +245,6 @@ void ScFormulaDlg::dispose()
         pScMod->SetRefInputHdl(nullptr);
         StoreFormEditData(pData);
     }
-    formula::FormulaDlg::dispose();
 }
 
 bool ScFormulaDlg::IsInputHdl(const ScInputHandler* pHdl)
@@ -291,10 +285,9 @@ ScInputHandler* ScFormulaDlg::GetNextInputHandler(const ScDocShell* pDocShell, S
     return pHdl;
 }
 
-bool ScFormulaDlg::Close()
+void ScFormulaDlg::Close()
 {
     DoEnter();
-    return true;
 }
 
 //                          functions for right side
@@ -387,7 +380,7 @@ std::unique_ptr<formula::FormulaCompiler> ScFormulaDlg::createCompiler( formula:
 //  virtual methods of ScAnyRefDlg:
 void ScFormulaDlg::RefInputStart( formula::RefEdit* pEdit, formula::RefButton* pButton )
 {
-    pEdit->SetSelection(Selection(0, SELECTION_MAX));
+    pEdit->SelectAll();
     ::std::pair<formula::RefButton*,formula::RefEdit*> aPair = RefInputStartBefore( pEdit, pButton );
     m_aHelper.RefInputStart( aPair.second, aPair.first);
     RefInputStartAfter();
@@ -527,14 +520,17 @@ bool ScFormulaDlg::IsTableLocked( ) const
     // default: reference input can also be used to switch the table
     return false;
 }
+
 void ScFormulaDlg::ToggleCollapsed( formula::RefEdit* pEdit, formula::RefButton* pButton)
 {
     m_aHelper.ToggleCollapsed(pEdit,pButton);
 }
+
 void ScFormulaDlg::ReleaseFocus( formula::RefEdit* pEdit)
 {
     m_aHelper.ReleaseFocus(pEdit);
 }
+
 void ScFormulaDlg::dispatch(bool _bOK, bool _bMatrixChecked)
 {
     SfxBoolItem   aRetItem( SID_DLG_RETOK, _bOK );

@@ -20,9 +20,7 @@
 #include <poolio.hxx>
 
 #include <sal/log.hxx>
-#include <tools/solar.h>
 #include <svl/itempool.hxx>
-#include <svl/SfxBroadcaster.hxx>
 
 #include <algorithm>
 #include <memory>
@@ -32,28 +30,8 @@
 /// or all ref counts are decreased
 void SfxPoolItemArray_Impl::clear()
 {
-    maPoolItemVector.clear();
-    maFree.clear();
-    maPtrToIndex.clear();
-}
-
-/// Re-build our free list and pointer hash.
-void SfxPoolItemArray_Impl::ReHash()
-{
-    maFree.clear();
-    maPtrToIndex.clear();
-
-    for (size_t nIdx = 0; nIdx < size(); ++nIdx)
-    {
-        SfxPoolItem *pItem = (*this)[nIdx];
-        if (!pItem)
-            maFree.push_back(nIdx);
-        else
-        {
-            maPtrToIndex.insert(std::make_pair(pItem,nIdx));
-            assert(maPtrToIndex.find(pItem) != maPtrToIndex.end());
-        }
-    }
+    maPoolItemSet.clear();
+    maSortablePoolItems.clear();
 }
 
 sal_uInt16 SfxItemPool::GetFirstWhich() const
@@ -104,12 +82,10 @@ bool SfxItemPool::CheckItemInPool(const SfxPoolItem *pItem) const
     if( IsStaticDefaultItem(pItem) || IsPoolDefaultItem(pItem) )
         return true;
 
-    SfxPoolItemArray_Impl* pItemArr = pImpl->maPoolItems[GetIndex_Impl(pItem->Which())].get();
-    DBG_ASSERT(pItemArr, "ItemArr is not available");
+    SfxPoolItemArray_Impl& rItemArr = pImpl->maPoolItemArrays[GetIndex_Impl(pItem->Which())];
 
-    for ( size_t i = 0; i < pItemArr->size(); ++i )
+    for ( auto p : rItemArr )
     {
-        const SfxPoolItem *p = (*pItemArr)[i];
         if ( p == pItem )
             return true;
     }

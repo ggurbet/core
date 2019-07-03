@@ -17,6 +17,8 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <com/sun/star/linguistic2/XHyphenator.hpp>
+
 #include <unotools/linguprops.hxx>
 #include <unotools/lingucfg.hxx>
 #include <hintids.hxx>
@@ -749,7 +751,7 @@ void SwTextPaintInfo::CalcRect( const SwLinePortion& rPor,
     else
     {
         aPoint.setX( X() );
-        if ( GetTextFrame()->IsVertLR() )
+        if (GetTextFrame()->IsVertLR() && !GetTextFrame()->IsVertLRBT())
             aPoint.setY( Y() - rPor.Height() + rPor.GetAscent() );
         else
             aPoint.setY( Y() - rPor.GetAscent() );
@@ -1781,7 +1783,6 @@ SwTextSlot::SwTextSlot(
             {
                 std::pair<SwTextNode const*, sal_Int32> pos(pNew->GetTextFrame()->MapViewToModel(nIdx));
                 SwWrongList const*const pSmartTags(pos.first->GetSmartTags());
-                assert(m_pOldSmartTagList->MergedOrSame(pSmartTags));
                 if (pSmartTags)
                 {
                     const sal_uInt16 nPos = pSmartTags->GetWrongPos(pos.second);
@@ -1810,7 +1811,6 @@ SwTextSlot::SwTextSlot(
             {
                 std::pair<SwTextNode const*, sal_Int32> pos(pNew->GetTextFrame()->MapViewToModel(nIdx));
                 SwWrongList const*const pGrammar(pos.first->GetGrammarCheck());
-                assert(m_pOldGrammarCheckList->MergedOrSame(pGrammar));
                 if (pGrammar)
                 {
                     const sal_uInt16 nPos = pGrammar->GetWrongPos(pos.second);

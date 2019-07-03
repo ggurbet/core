@@ -27,6 +27,7 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/objsh.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/viewsh.hxx>
 #include <svl/stritem.hxx>
@@ -36,6 +37,7 @@
 #include <vcl/settings.hxx>
 #include <unotools/charclass.hxx>
 #include <unotools/securityoptions.hxx>
+#include <osl/diagnose.h>
 
 #include <i18nlangtag/mslangid.hxx>
 #include <comphelper/doublecheckedinit.hxx>
@@ -47,6 +49,7 @@
 #include <unotools/transliterationwrapper.hxx>
 
 #include <comphelper/lok.hxx>
+#include <vcl/opengl/OpenGLWrapper.hxx>
 
 #include <global.hxx>
 #include <scresid.hxx>
@@ -83,7 +86,7 @@ std::atomic<CollatorWrapper*> ScGlobal::pCaseCollator(nullptr);
 std::atomic<::utl::TransliterationWrapper*> ScGlobal::pTransliteration(nullptr);
 std::atomic<::utl::TransliterationWrapper*> ScGlobal::pCaseTransliteration(nullptr);
 css::uno::Reference< css::i18n::XOrdinalSuffix> ScGlobal::xOrdinalSuffix;
-OUString*       ScGlobal::pEmptyOUString = nullptr;
+const OUString  ScGlobal::aEmptyOUString;
 OUString*       ScGlobal::pStrClipDocName = nullptr;
 
 SvxBrushItem*   ScGlobal::pEmptyBrushItem = nullptr;
@@ -431,15 +434,8 @@ SvxBrushItem* ScGlobal::GetButtonBrushItem()
     return pButtonBrushItem;
 }
 
-const OUString& ScGlobal::GetEmptyOUString()
-{
-    return *pEmptyOUString;
-}
-
 void ScGlobal::Init()
 {
-    pEmptyOUString = new OUString;
-
     // The default language for number formats (ScGlobal::eLnge) must
     // always be LANGUAGE_SYSTEM
     // FIXME: So remove this variable?
@@ -474,8 +470,10 @@ void ScGlobal::InitPPT()
 {
     OutputDevice* pDev = Application::GetDefaultDevice();
 
-    if (comphelper::LibreOfficeKit::isActive())
+    if (comphelper::LibreOfficeKit::isActive() || OpenGLWrapper::isVCLOpenGLEnabled())
     {
+        // LOK: the below limited precision is not enough for RowColumnHeader.
+        // OpenGL: limited precision breaks AA of text in charts.
         nScreenPPTX = double(pDev->GetDPIX()) / double(TWIPS_PER_INCH);
         nScreenPPTY = double(pDev->GetDPIY()) / double(TWIPS_PER_INCH);
     }
@@ -567,7 +565,6 @@ void ScGlobal::Clear()
     delete pUnitConverter.load(); pUnitConverter = nullptr;
     DELETEZ(pFieldEditEngine);
 
-    DELETEZ(pEmptyOUString);
     xDrawClipDocShellRef.clear();
 }
 
@@ -815,7 +812,14 @@ void ScGlobal::OpenURL(const OUString& rURL, const OUString& rTarget)
     }
 
     // Don't fiddle with fragments pointing into current document.
-    if (!aUrlName.startsWith("#"))
+    // Also don't mess around with a vnd.sun.star.script or service or other
+    // internal "URI".
+    if (!aUrlName.startsWith("#")
+            && !aUrlName.startsWithIgnoreAsciiCase("vnd.sun.star.script:")
+            && !aUrlName.startsWithIgnoreAsciiCase("macro:")
+            && !aUrlName.startsWithIgnoreAsciiCase("slot:")
+            && !aUrlName.startsWithIgnoreAsciiCase("service:")
+            && !aUrlName.startsWithIgnoreAsciiCase(".uno:"))
     {
         // Any relative reference would fail with "not an absolute URL"
         // error, try to construct an absolute URI with the path relative

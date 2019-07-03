@@ -21,8 +21,10 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <vcl/wrkwin.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 
 #include <svl/srchitem.hxx>
+#include <svl/intitem.hxx>
 #include <editeng/colritem.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/editstat.hxx>
@@ -47,6 +49,7 @@
 #include <vcl/metric.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <svtools/langtab.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 #include <strings.hrc>
@@ -197,9 +200,7 @@ SdOutliner::SdOutliner( SdDrawDocument* pDoc, OutlinerMode nMode )
         try
         {
             const SvtLinguConfig    aLinguConfig;
-            Any                     aAny;
-
-            aAny = aLinguConfig.GetProperty( UPN_IS_SPELL_AUTO );
+            Any aAny = aLinguConfig.GetProperty( UPN_IS_SPELL_AUTO );
             aAny >>= bOnlineSpell;
         }
         catch( ... )
@@ -507,7 +508,7 @@ bool SdOutliner::StartSearchAndReplace (const SvxSearchItem* pSearchItem)
         if (pChildWin)
         {
             SvxSearchDialog* pSearchDlg =
-                static_cast<SvxSearchDialog*>(pChildWin->GetWindow());
+                static_cast<SvxSearchDialog*>(pChildWin->GetController().get());
             pSearchDlg->SetDocWin( pViewShell->GetActiveWindow() );
             pSearchDlg->SetSrchFlag(false);
         }
@@ -1204,8 +1205,8 @@ void SdOutliner::ShowEndOfSearchDialog()
         aString = SdResId(STR_END_SPELLING);
 
     // Show the message in an info box that is modal with respect to the whole application.
-    VclPtr<vcl::Window> xParent(GetMessageBoxParent());
-    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(xParent ? xParent->GetFrameWeld() : nullptr,
+    weld::Window* pParent = GetMessageBoxParent();
+    std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pParent,
                                                   VclMessageType::Info, VclButtonsType::Ok, aString));
     xInfoBox->run();
 }
@@ -1245,8 +1246,8 @@ bool SdOutliner::ShowWrapArroundDialog()
 
     // Pop up question box that asks the user whether to wrap around.
     // The dialog is made modal with respect to the whole application.
-    VclPtr<vcl::Window> xParent(GetMessageBoxParent());
-    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(xParent ? xParent->GetFrameWeld() : nullptr,
+    weld::Window* pParent = GetMessageBoxParent();
+    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pParent,
                                                    VclMessageType::Question, VclButtonsType::YesNo, SdResId(pStringId)));
     sal_uInt16 nBoxResult = xQueryBox->run();
 
@@ -1421,6 +1422,12 @@ void SdOutliner::EnterEditMode (bool bGrabFocus)
     std::shared_ptr<sd::ViewShell> pViewShell (mpWeakViewShell.lock());
     pViewShell->GetDispatcher()->ExecuteList(SID_TEXTEDIT,
             SfxCallMode::SYNCHRON | SfxCallMode::RECORD, { &aItem });
+
+    if (mpView->IsTextEdit())
+    {
+        // end text edition before starting it again
+        mpView->SdrEndTextEdit();
+    }
 
     // To be consistent with the usual behaviour in the Office the text
     // object that is put into edit mode would have also to be selected.
@@ -1684,7 +1691,7 @@ bool SdOutliner::ConvertNextDocument()
     return !mbEndOfSearch;
 }
 
-VclPtr<vcl::Window> SdOutliner::GetMessageBoxParent()
+weld::Window* SdOutliner::GetMessageBoxParent()
 {
     // We assume that the parent of the given message box is NULL, i.e. it is
     // modal with respect to the top application window. However, this
@@ -1692,7 +1699,7 @@ VclPtr<vcl::Window> SdOutliner::GetMessageBoxParent()
     // while the message box is being shown. We also have to take into
     // account that we are called during a spell check and the search dialog
     // is not available.
-    vcl::Window* pSearchDialog = nullptr;
+    weld::Window* pSearchDialog = nullptr;
     SfxChildWindow* pChildWindow = nullptr;
     switch (meMode)
     {
@@ -1713,13 +1720,17 @@ VclPtr<vcl::Window> SdOutliner::GetMessageBoxParent()
     }
 
     if (pChildWindow != nullptr)
-        pSearchDialog = pChildWindow->GetWindow();
+    {
+        auto xController = pChildWindow->GetController();
+        pSearchDialog = xController ? xController->getDialog() : nullptr;
+    }
 
     if (pSearchDialog)
         return pSearchDialog;
 
     std::shared_ptr<sd::ViewShell> pViewShell (mpWeakViewShell.lock());
-    return pViewShell->GetActiveWindow();
+    auto pWin = pViewShell->GetActiveWindow();
+    return pWin ? pWin->GetFrameWeld() : nullptr;
 }
 
 //===== SdOutliner::Implementation ==============================================

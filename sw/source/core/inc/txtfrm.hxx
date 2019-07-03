@@ -21,8 +21,11 @@
 
 #include <com/sun/star/uno/Sequence.hxx>
 #include "cntfrm.hxx"
-#include <ndtxt.hxx>
 #include "TextFrameIndex.hxx"
+
+#include <boost/version.hpp>
+
+#include <set>
 
 namespace com { namespace sun { namespace star { namespace linguistic2 { class XHyphenatedWord; } } } }
 
@@ -34,19 +37,17 @@ class SwTextFormatter;
 class SwTextFormatInfo;
 class SwParaPortion;
 class WidowsAndOrphans;
-class SwBodyFrame;
 class SwTextFootnote;
 class SwInterHyphInfo;      // Hyphenate()
 class SwCache;
 class SwBorderAttrs;
 class SwFrameFormat;
-class OutputDevice;
-class SwTestFormat;
 struct SwCursorMoveState;
 struct SwFillData;
 class SwPortionHandler;
 class SwScriptInfo;
 enum class ExpandMode;
+class SwTextAttr;
 
 #define NON_PRINTING_CHARACTER_COLOR Color(0x26, 0x8b, 0xd2)
 
@@ -601,8 +602,10 @@ public:
     sal_uInt16 GetCacheIdx() const { return mnCacheIndex; }
     void   SetCacheIdx( const sal_uInt16 nNew ) { mnCacheIndex = nNew; }
 
-    /// Removes the Line information from the Cache
+    /// Removes the Line information from the Cache but retains the entry itself
     void ClearPara();
+    /// Removes this frame completely from the Cache
+    void RemoveFromCache();
 
     /// Am I a FootnoteFrame, with a number at the start of the paragraph?
     bool IsFootnoteNumFrame() const
@@ -978,8 +981,13 @@ struct MergedPara
 class MergedAttrIterBase
 {
 protected:
+#if BOOST_VERSION < 105600
+    sw::MergedPara const* m_pMerged;
+    SwTextNode const* m_pNode;
+#else
     sw::MergedPara const*const m_pMerged;
     SwTextNode const*const m_pNode;
+#endif
     size_t m_CurrentExtent;
     size_t m_CurrentHint;
     MergedAttrIterBase(SwTextFrame const& rFrame);

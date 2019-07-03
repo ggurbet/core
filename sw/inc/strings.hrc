@@ -203,11 +203,16 @@
 #define STR_POOLNUMRULE_NUM3                    NC_("STR_POOLNUMRULE_NUM3", "Numbering abc")
 #define STR_POOLNUMRULE_NUM4                    NC_("STR_POOLNUMRULE_NUM4", "Numbering IVX")
 #define STR_POOLNUMRULE_NUM5                    NC_("STR_POOLNUMRULE_NUM5", "Numbering ivx")
-#define STR_POOLNUMRULE_BUL1                    NC_("STR_POOLNUMRULE_BUL1", "List 1")
-#define STR_POOLNUMRULE_BUL2                    NC_("STR_POOLNUMRULE_BUL2", "List 2")
-#define STR_POOLNUMRULE_BUL3                    NC_("STR_POOLNUMRULE_BUL3", "List 3")
-#define STR_POOLNUMRULE_BUL4                    NC_("STR_POOLNUMRULE_BUL4", "List 4")
-#define STR_POOLNUMRULE_BUL5                    NC_("STR_POOLNUMRULE_BUL5", "List 5")
+//Bullet \u2022
+#define STR_POOLNUMRULE_BUL1                    NC_("STR_POOLNUMRULE_BUL1", "Bullet •")
+//Bullet \u2013
+#define STR_POOLNUMRULE_BUL2                    NC_("STR_POOLNUMRULE_BUL2", "Bullet –")
+//Bullet \uE4C4
+#define STR_POOLNUMRULE_BUL3                    NC_("STR_POOLNUMRULE_BUL3", "Bullet ")
+//Bullet \uE49E
+#define STR_POOLNUMRULE_BUL4                    NC_("STR_POOLNUMRULE_BUL4", "Bullet ")
+//Bullet \uE20B
+#define STR_POOLNUMRULE_BUL5                    NC_("STR_POOLNUMRULE_BUL5", "Bullet ")
 #define STR_COLUMN_VALUESET_ITEM0               NC_("STR_COLUMN_VALUESET_ITEM0", "1 column")
 #define STR_COLUMN_VALUESET_ITEM1               NC_("STR_COLUMN_VALUESET_ITEM1", "2 columns with equal size")
 #define STR_COLUMN_VALUESET_ITEM2               NC_("STR_COLUMN_VALUESET_ITEM2", "3 columns with equal size")
@@ -282,7 +287,7 @@
 #define STR_REDLINE_UNKNOWN_AUTHOR              NC_("STR_REDLINE_UNKNOWN_AUTHOR", "Unknown Author")
 #define STR_DELETE_NOTE_AUTHOR                  NC_("STR_DELETE_NOTE_AUTHOR", "Delete ~All Comments by $1")
 #define STR_HIDE_NOTE_AUTHOR                    NC_("STR_HIDE_NOTE_AUTHOR", "H~ide All Comments by $1")
-#define STR_OUTLINE_NUMBERING                   NC_("STR_OUTLINE_NUMBERING", "Outline Numbering")
+#define STR_OUTLINE_NUMBERING                   NC_("STR_OUTLINE_NUMBERING", "Chapter Numbering")
 /* To translators: $1 == will be replaced by STR_WORDCOUNT_WORDARG, and $2 by STR_WORDCOUNT_COLARG
    e.g. Selected: 1 word, 2 characters */
 #define STR_WORDCOUNT                           NC_("STR_WORDCOUNT", "Selected: $1, $2")
@@ -536,7 +541,7 @@
 #define STR_PARAGRAPH_UNDO                      NC_("STR_PARAGRAPH_UNDO", "paragraph")
 #define STR_PARAGRAPH_SIGN_UNDO                 NC_("STR_PARAGRAPH_SIGN_UNDO", "Paragraph sign")
 #define STR_UNDO_FLYFRMFMT_TITLE                NC_("STR_UNDO_FLYFRMFMT_TITLE", "Change object title of $1")
-#define STR_UNDO_FLYFRMFMT_DESCRITPTION         NC_("STR_UNDO_FLYFRMFMT_DESCRITPTION", "Change object description of $1")
+#define STR_UNDO_FLYFRMFMT_DESCRIPTION         NC_("STR_UNDO_FLYFRMFMT_DESCRIPTION", "Change object description of $1")
 #define STR_UNDO_TBLSTYLE_CREATE                NC_("STR_UNDO_TBLSTYLE_CREATE", "Create table style: $1")
 #define STR_UNDO_TBLSTYLE_DELETE                NC_("STR_UNDO_TBLSTYLE_DELETE", "Delete table style: $1")
 #define STR_UNDO_TBLSTYLE_UPDATE                NC_("STR_UNDO_TBLSTYLE_UPDATE", "Update table style: $1")
@@ -911,21 +916,21 @@
 /*--------------------------------------------------------------------
     Description: SubType Extuser
  --------------------------------------------------------------------*/
-#define FLD_EU_FIRMA                            NC_("FLD_EU_FIRMA", "Company")
-#define FLD_EU_VORNAME                          NC_("FLD_EU_VORNAME", "First Name")
-#define FLD_EU_NAME                             NC_("FLD_EU_NAME", "Last Name")
-#define FLD_EU_ABK                              NC_("FLD_EU_ABK", "Initials")
-#define FLD_EU_STRASSE                          NC_("FLD_EU_STRASSE", "Street")
-#define FLD_EU_LAND                             NC_("FLD_EU_LAND", "Country")
-#define FLD_EU_PLZ                              NC_("FLD_EU_PLZ", "Zip code")
-#define FLD_EU_ORT                              NC_("FLD_EU_ORT", "City")
-#define FLD_EU_TITEL                            NC_("FLD_EU_TITEL", "Title")
+#define FLD_EU_COMPANY                          NC_("FLD_EU_FIRMA", "Company")
+#define FLD_EU_GIVENNAME                        NC_("FLD_EU_VORNAME", "First Name")
+#define FLD_EU_SURNAME                          NC_("FLD_EU_NAME", "Last Name")
+#define FLD_EU_INITIALS                         NC_("FLD_EU_ABK", "Initials")
+#define FLD_EU_STREET                           NC_("FLD_EU_STRASSE", "Street")
+#define FLD_EU_COUNTRY                          NC_("FLD_EU_LAND", "Country")
+#define FLD_EU_POSTCODE                         NC_("FLD_EU_PLZ", "Zip code")
+#define FLD_EU_TOWN                             NC_("FLD_EU_ORT", "City")
+#define FLD_EU_TITLE                            NC_("FLD_EU_TITEL", "Title")
 #define FLD_EU_POS                              NC_("FLD_EU_POS", "Position")
-#define FLD_EU_TELPRIV                          NC_("FLD_EU_TELPRIV", "Tel. (Home)")
-#define FLD_EU_TELFIRMA                         NC_("FLD_EU_TELFIRMA", "Tel. (Work)")
+#define FLD_EU_TELPERSONAL                      NC_("FLD_EU_TELPRIV", "Tel. (Home)")
+#define FLD_EU_TELWORK                          NC_("FLD_EU_TELFIRMA", "Tel. (Work)")
 #define FLD_EU_FAX                              NC_("FLD_EU_FAX", "Fax")
 #define FLD_EU_EMAIL                            NC_("FLD_EU_EMAIL", "Email")
-#define FLD_EU_STATE                            NC_("FLD_EU_STATE", "State")
+#define FLD_EU_REGION                           NC_("FLD_EU_STATE", "State")
 #define FLD_PAGEREF_OFF                         NC_("FLD_PAGEREF_OFF", "off")
 #define FLD_PAGEREF_ON                          NC_("FLD_PAGEREF_ON", "on")
 /*--------------------------------------------------------------------

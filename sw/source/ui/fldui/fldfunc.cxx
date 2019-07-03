@@ -47,14 +47,14 @@ SwFieldFuncPage::SwFieldFuncPage(TabPageParent pParent, const SfxItemSet *const 
     , m_xFormat(m_xBuilder->weld_widget("formatframe"))
     , m_xFormatLB(m_xBuilder->weld_tree_view("format"))
     , m_xNameFT(m_xBuilder->weld_label("nameft"))
-    , m_xNameED(new SwConditionEdit(m_xBuilder->weld_entry("condFunction")))
+    , m_xNameED(new ConditionEdit(m_xBuilder->weld_entry("condFunction")))
     , m_xValueGroup(m_xBuilder->weld_widget("valuegroup"))
     , m_xValueFT(m_xBuilder->weld_label("valueft"))
     , m_xValueED(m_xBuilder->weld_entry("value"))
     , m_xCond1FT(m_xBuilder->weld_label("cond1ft"))
-    , m_xCond1ED(new SwConditionEdit(m_xBuilder->weld_entry("cond1")))
+    , m_xCond1ED(new ConditionEdit(m_xBuilder->weld_entry("cond1")))
     , m_xCond2FT(m_xBuilder->weld_label("cond2ft"))
-    , m_xCond2ED(new SwConditionEdit(m_xBuilder->weld_entry("cond2")))
+    , m_xCond2ED(new ConditionEdit(m_xBuilder->weld_entry("cond2")))
     , m_xMacroBT(m_xBuilder->weld_button("macro"))
     , m_xListGroup(m_xBuilder->weld_widget("listgroup"))
     , m_xListItemFT(m_xBuilder->weld_label("itemft"))
@@ -70,7 +70,8 @@ SwFieldFuncPage::SwFieldFuncPage(TabPageParent pParent, const SfxItemSet *const 
 {
     FillFieldSelect(*m_xSelectionLB);
     FillFieldSelect(*m_xFormatLB);
-    m_xListItemsLB->set_size_request(m_xListItemED->get_preferred_size().Width(), -1);
+    m_xListItemsLB->set_size_request(m_xListItemED->get_preferred_size().Width(),
+                                     m_xListItemsLB->get_height_rows(5));
 
     auto nWidth = m_xTypeLB->get_approximate_digit_width() * FIELD_COLUMN_WIDTH / 8;
     auto nHeight = m_xTypeLB->get_height_rows(20);
@@ -257,10 +258,9 @@ IMPL_LINK_NOARG(SwFieldFuncPage, TypeHdl, weld::TreeView&, void)
         {
             const SwDropDownField* pDrop = static_cast<const SwDropDownField*>(GetCurField());
             uno::Sequence<OUString> aItems = pDrop->GetItemSequence();
-            const OUString* pArray = aItems.getConstArray();
             m_xListItemsLB->clear();
-            for (sal_Int32 i = 0; i < aItems.getLength(); i++)
-                m_xListItemsLB->append_text(pArray[i]);
+            for (const OUString& rItem : aItems)
+                m_xListItemsLB->append_text(rItem);
             m_xListItemsLB->select_text(pDrop->GetSelectedItem());
             m_xListNameED->set_text(pDrop->GetPar2());
             m_xListNameED->save_value();

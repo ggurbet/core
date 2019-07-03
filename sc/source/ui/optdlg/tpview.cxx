@@ -28,6 +28,7 @@
 #include <units.hrc>
 #include <appoptio.hxx>
 #include <scmod.hxx>
+#include <svl/eitem.hxx>
 #include <svx/colorbox.hxx>
 #include <svtools/unitconv.hxx>
 
@@ -60,6 +61,7 @@ ScTpContentOptions::ScTpContentOptions( vcl::Window*         pParent,
     get(pVScrollCB,"vscroll");
     get(pTblRegCB,"tblreg");
     get(pOutlineCB,"outline");
+    get(pSummaryCB,"cbSummary");
 
     SetExchangeSupport();
     Link<ListBox&,void> aSelObjHdl(LINK( this, ScTpContentOptions, SelLbObjHdl ) );
@@ -83,6 +85,7 @@ ScTpContentOptions::ScTpContentOptions( vcl::Window*         pParent,
     pBreakCB    ->SetClickHdl(aCBHdl);
     pGuideLineCB->SetClickHdl(aCBHdl);
     pRowColHeaderCB->SetClickHdl(aCBHdl);
+    pSummaryCB->SetClickHdl(aCBHdl);
 
     pColorLB->SetSlotId(SID_ATTR_CHAR_COLOR);
     pColorLB->SetAutoDisplayColor(SC_STD_GRIDCOLOR);
@@ -117,6 +120,7 @@ void ScTpContentOptions::dispose()
     pVScrollCB.clear();
     pTblRegCB.clear();
     pOutlineCB.clear();
+    pSummaryCB.clear();
     SfxTabPage::dispose();
 }
 
@@ -146,6 +150,7 @@ bool    ScTpContentOptions::FillItemSet( SfxItemSet* rCoreSet )
         pOutlineCB     ->IsValueChangedFromSaved() ||
         pColorLB       ->IsValueChangedFromSaved() ||
         pBreakCB       ->IsValueChangedFromSaved() ||
+        pSummaryCB     ->IsValueChangedFromSaved() ||
         pGuideLineCB   ->IsValueChangedFromSaved())
     {
         NamedColor aNamedColor = pColorLB->GetSelectedEntry();
@@ -196,6 +201,7 @@ void    ScTpContentOptions::Reset( const SfxItemSet* rCoreSet )
     pVScrollCB->Check( pLocalOptions->GetOption(VOPT_VSCROLL) );
     pTblRegCB ->Check( pLocalOptions->GetOption(VOPT_TABCONTROLS) );
     pOutlineCB->Check( pLocalOptions->GetOption(VOPT_OUTLINER) );
+    pSummaryCB->Check( pLocalOptions->GetOption(VOPT_SUMMARY) );
 
     InitGridOpt();
 
@@ -228,6 +234,7 @@ void    ScTpContentOptions::Reset( const SfxItemSet* rCoreSet )
     pColorLB->SaveValue();
     pBreakCB->SaveValue();
     pGuideLineCB->SaveValue();
+    pSummaryCB->SaveValue();
 }
 
 void ScTpContentOptions::ActivatePage( const SfxItemSet& rSet)
@@ -276,6 +283,7 @@ IMPL_LINK( ScTpContentOptions, CBHdl, Button*, pBtn, void )
     else if ( pBreakCB         == pBtn )   eOption = VOPT_PAGEBREAKS;
     else if ( pGuideLineCB     == pBtn )   eOption = VOPT_HELPLINES;
     else if ( pRowColHeaderCB  == pBtn )   eOption = VOPT_HEADER;
+    else if ( pSummaryCB  == pBtn )   eOption = VOPT_SUMMARY;
 
     pLocalOptions->SetOption( eOption, bChecked );
 }

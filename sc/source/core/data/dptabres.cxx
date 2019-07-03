@@ -1325,7 +1325,7 @@ void ScDPResultMember::FillMemberResults(
     //  IsVisible() test is in ScDPResultDimension::FillMemberResults
     //  (not on data layout dimension)
 
-    if (!pSequences->getLength())
+    if (!pSequences->hasElements())
         // empty sequence.  Bail out.
         return;
 
@@ -2446,8 +2446,8 @@ void ScDPDataMember::UpdateRunningTotals(
                                                                     nColPos, rRunning );
                                 else
                                 {
-                                    const long* pRowSorted = &rRowSorted[0];
-                                    const long* pColSorted = &rColSorted[0];
+                                    const long* pRowSorted = rRowSorted.data();
+                                    const long* pColSorted = rColSorted.data();
                                     pRowSorted += nRowPos + 1; // including the reference dimension
                                     pSelectMember = pSelectDim->GetRowReferenceMember(
                                         nullptr, nullptr, pRowSorted, pColSorted);
@@ -2505,8 +2505,8 @@ void ScDPDataMember::UpdateRunningTotals(
                                 else
                                 {
                                     aRefItemPos.nBasePos = rRowVisible[nRowPos];    // without sort order applied
-                                    const long* pRowSorted = &rRowSorted[0];
-                                    const long* pColSorted = &rColSorted[0];
+                                    const long* pRowSorted = rRowSorted.data();
+                                    const long* pColSorted = rColSorted.data();
                                     pRowSorted += nRowPos + 1; // including the reference dimension
                                     pSelectMember = pSelectDim->GetRowReferenceMember(
                                         pRefPos, pRefName, pRowSorted, pColSorted);
@@ -3336,8 +3336,8 @@ ScDPDataMember* ScDPResultDimension::GetColReferenceMember(
 {
     OSL_ENSURE( pRelativePos == nullptr || pName == nullptr, "can't use position and name" );
 
-    const long* pColIndexes = &rRunning.GetColSorted()[0];
-    const long* pRowIndexes = &rRunning.GetRowSorted()[0];
+    const long* pColIndexes = rRunning.GetColSorted().data();
+    const long* pRowIndexes = rRunning.GetRowSorted().data();
 
     // get own row member using all indexes
 
@@ -3896,9 +3896,7 @@ void ScDPResultVisibilityData::addVisibleMember(const OUString& rDimName, const 
         itr = r.first;
     }
     VisibleMemberType& rMem = itr->second;
-    VisibleMemberType::iterator itrMem = rMem.find(rMemberItem);
-    if (itrMem == rMem.end())
-        rMem.insert(rMemberItem);
+    rMem.insert(rMemberItem);
 }
 
 void ScDPResultVisibilityData::fillFieldFilters(vector<ScDPFilteredCache::Criterion>& rFilters) const
@@ -3962,8 +3960,7 @@ ScDPResultMember* ScDPResultDimension::AddMember(const ScDPParentDimData &aData 
     SCROW   nDataIndex = pMember->GetDataId();
     maMemberArray.emplace_back( pMember );
 
-    if ( maMemberHash.end() == maMemberHash.find( nDataIndex ) )
-        maMemberHash.insert( std::pair< SCROW, ScDPResultMember *>( nDataIndex, pMember ) );
+    maMemberHash.emplace( nDataIndex, pMember );
     return pMember;
 }
 
@@ -3976,8 +3973,7 @@ ScDPResultMember* ScDPResultDimension::InsertMember(const ScDPParentDimData *pMe
         maMemberArray.emplace( maMemberArray.begin()+nInsert, pNew );
 
         SCROW   nDataIndex = pMemberData->mpMemberDesc->GetItemDataId();
-        if ( maMemberHash.end() == maMemberHash.find( nDataIndex ) )
-            maMemberHash.insert( std::pair< SCROW, ScDPResultMember *>( nDataIndex, pNew ) );
+        maMemberHash.emplace( nDataIndex, pNew );
         return pNew;
     }
     return maMemberArray[ nInsert ].get();

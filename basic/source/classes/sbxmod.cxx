@@ -171,7 +171,7 @@ DocObjectWrapper::DocObjectWrapper( SbModule* pVar ) : m_pMod( pVar )
 
 Sequence< Type > SAL_CALL DocObjectWrapper::getTypes()
 {
-    if ( m_Types.getLength() == 0 )
+    if ( !m_Types.hasElements() )
     {
         Sequence< Type > sTypes;
         if ( m_xAggregateTypeProv.is() )
@@ -1114,7 +1114,7 @@ void SbModule::Run( SbMethod* pMeth )
                 pRt->pNext->unblock();
 
             // #63710 It can happen by an another thread handling at events,
-            // that the show call returns to an dialog (by closing the
+            // that the show call returns to a dialog (by closing the
             // dialog per UI), before a by an event triggered further call returned,
             // which stands in Basic more top in the stack and that had been run on
             // a  Basic-Breakpoint. Then would the instance below destroyed. And if the Basic,
@@ -2392,7 +2392,7 @@ void SbUserFormModule::triggerMethod( const OUString& aMethodToRun, Sequence< An
     SbxVariable* pMeth = SbObjModule::Find( aMethodToRun, SbxClassType::Method );
     if( pMeth )
     {
-        if ( aArguments.getLength() > 0 )   // Setup parameters
+        if ( aArguments.hasElements() )   // Setup parameters
         {
             auto xArray = tools::make_ref<SbxArray>();
             xArray->Put( pMeth, 0 );    // Method as parameter 0

@@ -106,12 +106,14 @@
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/objface.hxx>
+#include <svx/svxids.hrc>
 
 #define ShellClass_SwDocShell
 #include <sfx2/msg.hxx>
 #include <swslots.hxx>
 #include <com/sun/star/document/UpdateDocMode.hpp>
 
+#include <com/sun/star/script/XLibraryContainer.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/document/XDocumentPropertiesSupplier.hpp>
 #include <com/sun/star/sdb/DatabaseContext.hpp>
@@ -425,6 +427,7 @@ bool SwDocShell::SaveAs( SfxMedium& rMedium )
         !m_xDoc->getIDocumentSettingAccess().get(DocumentSettingId::GLOBAL_DOCUMENT_SAVE_LINKS))
         RemoveOLEObjects();
 
+    if (GetMedium())
     {
         // Task 75666 - is the Document imported by our Microsoft-Filters?
         std::shared_ptr<const SfxFilter> pOldFilter = GetMedium()->GetFilter();
@@ -447,8 +450,8 @@ bool SwDocShell::SaveAs( SfxMedium& rMedium )
 
     CalcLayoutForOLEObjects();  // format for OLE objects
 
-    const bool bURLChanged = !GetMedium() || GetMedium()->GetURLObject() != rMedium.GetURLObject();
-    auto pMgr = m_xDoc->GetDBManager();
+    const bool bURLChanged = GetMedium() && GetMedium()->GetURLObject() != rMedium.GetURLObject();
+    const SwDBManager* const pMgr = m_xDoc->GetDBManager();
     const bool bHasEmbedded = pMgr && !pMgr->getEmbeddedName().isEmpty();
     bool bSaveDS = bHasEmbedded && bURLChanged;
     if (bSaveDS)
@@ -473,7 +476,7 @@ bool SwDocShell::SaveAs( SfxMedium& rMedium )
         xUri = css::uri::VndSunStarPkgUrlReferenceFactory::create(xContext)->createVndSunStarPkgUrlReference(xUri);
         assert(xUri.is());
         OUString const aURL = xUri->getUriReference() + "/"
-            + INetURLObject::encode(m_xDoc->GetDBManager()->getEmbeddedName(),
+            + INetURLObject::encode(pMgr->getEmbeddedName(),
                 INetURLObject::PART_FPATH, INetURLObject::EncodeMechanism::All);
 
         bool bCopyTo = GetCreateMode() == SfxObjectCreateMode::EMBEDDED;
@@ -487,7 +490,7 @@ bool SwDocShell::SaveAs( SfxMedium& rMedium )
         uno::Reference<sdb::XDocumentDataSource> xDataSource(xDatabaseContext->getByName(aURL), uno::UNO_QUERY);
         uno::Reference<frame::XStorable> xStorable(xDataSource->getDatabaseDocument(), uno::UNO_QUERY);
         SwDBManager::StoreEmbeddedDataSource(xStorable, rMedium.GetOutputStorage(),
-                                             m_xDoc->GetDBManager()->getEmbeddedName(),
+                                             pMgr->getEmbeddedName(),
                                              rMedium.GetName(), bCopyTo);
     }
 
@@ -649,15 +652,14 @@ bool SwDocShell::ConvertTo( SfxMedium& rMedium )
             uno::Reference< XLibraryContainer > xLibCont(GetBasicContainer(), UNO_QUERY);
             uno::Reference< XNameAccess > xLib;
             Sequence<OUString> aNames = xLibCont->getElementNames();
-            const OUString* pNames = aNames.getConstArray();
-            for(sal_Int32 nLib = 0; nLib < aNames.getLength(); nLib++)
+            for(const OUString& rName : aNames)
             {
-                Any aLib = xLibCont->getByName(pNames[nLib]);
+                Any aLib = xLibCont->getByName(rName);
                 aLib >>= xLib;
                 if(xLib.is())
                 {
                     Sequence<OUString> aModNames = xLib->getElementNames();
-                    if(aModNames.getLength())
+                    if(aModNames.hasElements())
                     {
                         SetError(WARN_SWG_HTML_NO_MACROS);
                         break;
@@ -1360,7 +1362,7 @@ bool SwDocShell::HasChangeRecordProtection() const
 {
     if (!m_pWrtShell)
         return false;
-    return m_pWrtShell->getIDocumentRedlineAccess().GetRedlinePassword().getLength() > 0;
+    return m_pWrtShell->getIDocumentRedlineAccess().GetRedlinePassword().hasElements();
 }
 
 void SwDocShell::SetChangeRecording( bool bActivate )
@@ -1378,7 +1380,7 @@ void SwDocShell::SetProtectionPassword( const OUString &rNewPassword )
     IDocumentRedlineAccess& rIDRA = m_pWrtShell->getIDocumentRedlineAccess();
     Sequence< sal_Int8 > aPasswd = rIDRA.GetRedlinePassword();
     if (SfxItemState::SET == aSet.GetItemState(FN_REDLINE_PROTECT, false, &pItem)
-        && static_cast<const SfxBoolItem*>(pItem)->GetValue() == (aPasswd.getLength() > 0))
+        && static_cast<const SfxBoolItem*>(pItem)->GetValue() == aPasswd.hasElements())
         return;
 
     if (!rNewPassword.isEmpty())
@@ -1406,7 +1408,7 @@ bool SwDocShell::GetProtectionHash( /*out*/ css::uno::Sequence< sal_Int8 > &rPas
     IDocumentRedlineAccess& rIDRA = m_pWrtShell->getIDocumentRedlineAccess();
     const Sequence< sal_Int8 >& aPasswdHash( rIDRA.GetRedlinePassword() );
     if (SfxItemState::SET == aSet.GetItemState(FN_REDLINE_PROTECT, false, &pItem)
-        && static_cast<const SfxBoolItem*>(pItem)->GetValue() == (aPasswdHash.getLength() != 0))
+        && static_cast<const SfxBoolItem*>(pItem)->GetValue() == aPasswdHash.hasElements())
         return false;
     rPasswordHash = aPasswdHash;
     bRes = true;

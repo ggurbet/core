@@ -61,9 +61,9 @@ bool fillContinuation(
         }
         return false;
     }
-    else if (aRec.UserList.getLength() != 0)
+    else if (aRec.UserList.hasElements())
     {
-        if (aRec.UserList[0].Passwords.getLength() == 0)
+        if (!aRec.UserList[0].Passwords.hasElements())
         {
             // Password sequence can be empty, for instance if master
             // password was not given (e.g. master pw dialog canceled)
@@ -176,7 +176,7 @@ bool PasswordContainerHelper::handleAuthenticationRequest(
                 if ( !rURL.isEmpty() )
                     aRec = m_xPasswordContainer->find(rURL, xIH1);
 
-                if ( aRec.UserList.getLength() == 0 )
+                if ( !aRec.UserList.hasElements() )
                 {
                     // compat: try server name.
                     aRec = m_xPasswordContainer->find(rRequest.ServerName, xIH1);
@@ -200,7 +200,7 @@ bool PasswordContainerHelper::handleAuthenticationRequest(
                     aRec = m_xPasswordContainer->findForName(
                         rURL, rRequest.UserName, xIH1);
 
-                if ( aRec.UserList.getLength() == 0 )
+                if ( !aRec.UserList.hasElements() )
                 {
                     // compat: try server name.
                     aRec = m_xPasswordContainer->findForName(
@@ -370,9 +370,9 @@ PasswordContainerInteractionHandler::handleInteractionRequest(
     uno::Reference< ucb::XInteractionSupplyAuthentication >
         xSupplyAuthentication;
 
-    for ( sal_Int32 i = 0; i < rContinuations.getLength(); ++i )
+    for ( const auto& rContinuation : rContinuations )
     {
-        xSupplyAuthentication.set( rContinuations[i], uno::UNO_QUERY );
+        xSupplyAuthentication.set( rContinuation, uno::UNO_QUERY );
         if( xSupplyAuthentication.is() )
             break;
     }

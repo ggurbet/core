@@ -39,7 +39,6 @@
 #include <model/SlsPageDescriptor.hxx>
 #include <view/SlideSorterView.hxx>
 #include <view/SlsLayouter.hxx>
-#include <view/SlsFontProvider.hxx>
 #include <view/SlsPageObjectLayouter.hxx>
 #include <view/SlsPageObjectPainter.hxx>
 #include <view/SlsTheme.hxx>
@@ -71,6 +70,7 @@
 #include <sfx2/request.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
@@ -567,7 +567,6 @@ IMPL_LINK(SlideSorterController, WindowEventHandler, VclWindowEvent&, rEvent, vo
 
                 // When the system font has changed a layout has to be done.
                 mrView.Resize();
-                FontProvider::Instance().Invalidate();
 
                 // Update theme colors.
                 mrSlideSorter.GetProperties()->HandleDataChangeEvent();

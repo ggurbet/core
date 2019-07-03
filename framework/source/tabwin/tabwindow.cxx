@@ -452,10 +452,11 @@ void SAL_CALL TabWindow::dispose()
 void SAL_CALL TabWindow::addEventListener( const css::uno::Reference< css::lang::XEventListener >& xListener )
 {
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
-    SolarMutexClearableGuard aLock;
-    if ( m_bDisposed )
-        return;
-    aLock.clear();
+    {
+        SolarMutexGuard aLock;
+        if (m_bDisposed)
+            return;
+    }
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
 
     m_aListenerContainer.addInterface( cppu::UnoType<css::lang::XEventListener>::get(), xListener );
@@ -464,10 +465,11 @@ void SAL_CALL TabWindow::addEventListener( const css::uno::Reference< css::lang:
 void SAL_CALL TabWindow::removeEventListener( const css::uno::Reference< css::lang::XEventListener >& xListener )
 {
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
-    SolarMutexClearableGuard aLock;
-    if ( m_bDisposed )
-        return;
-    aLock.clear();
+    {
+        SolarMutexGuard aLock;
+        if (m_bDisposed)
+            return;
+    }
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
 
     m_aListenerContainer.removeInterface( cppu::UnoType<css::lang::XEventListener>::get(), xListener );
@@ -732,10 +734,11 @@ void SAL_CALL TabWindow::addTabListener(
     const css::uno::Reference< css::awt::XTabListener >& xListener )
 {
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
-    SolarMutexClearableGuard aLock;
-    if ( m_bDisposed )
-        return;
-    aLock.clear();
+    {
+        SolarMutexGuard aLock;
+        if (m_bDisposed)
+            return;
+    }
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
 
     m_aListenerContainer.addInterface(
@@ -745,10 +748,11 @@ void SAL_CALL TabWindow::addTabListener(
 void SAL_CALL TabWindow::removeTabListener( const css::uno::Reference< css::awt::XTabListener >& xListener )
 {
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
-    SolarMutexClearableGuard aLock;
-    if ( m_bDisposed )
-        return;
-    aLock.clear();
+    {
+        SolarMutexGuard aLock;
+        if (m_bDisposed)
+            return;
+    }
     /* SAFE AREA ----------------------------------------------------------------------------------------------- */
 
     m_aListenerContainer.removeInterface(
@@ -831,7 +835,7 @@ css::uno::Reference< css::beans::XPropertySetInfo > SAL_CALL TabWindow::getPrope
 const css::uno::Sequence< css::beans::Property > TabWindow::impl_getStaticPropertyDescriptor()
 {
     // Create property array to initialize sequence!
-    // Table of all predefined properties of this class. Its used from OPropertySetHelper-class!
+    // Table of all predefined properties of this class. It's used from OPropertySetHelper-class!
     // Don't forget to change the defines (see begin of this file), if you add, change or delete a property in this list!!!
     // It's necessary for methods of OPropertySetHelper.
     // ATTENTION:

@@ -9,7 +9,10 @@
 
 #include <memory>
 #include <rtl/ref.hxx>
+#include <tools/gen.hxx>
 
+namespace test1
+{
 struct Foo
 {
     void acquire();
@@ -27,8 +30,11 @@ class Foo1
     {
     }
 };
+}
 
 // no warning expected when using std::unique_ptr constructor with a custom deleter
+namespace test2
+{
 struct ITypeLib
 {
 };
@@ -43,5 +49,40 @@ void func2()
             p->Release();
     });
 }
+}
 
+namespace test3
+{
+struct Foo
+{
+    void acquire();
+    void release();
+};
+void f(Foo* f)
+{
+    // expected-error@+1 {{simplify [loplugin:simplifyconstruct]}}
+    rtl::Reference<Foo> x = rtl::Reference(f);
+}
+}
+
+// no warning expected
+namespace test4
+{
+struct Foo
+{
+    void acquire();
+    void release();
+};
+void f(Foo* f) { auto x = rtl::Reference(f); }
+}
+
+namespace test5
+{
+void f()
+{
+    // expected-error@+1 {{simplify [loplugin:simplifyconstruct]}}
+    tools::Rectangle x = tools::Rectangle(10, 10, 10, 10);
+    (void)x;
+}
+}
 /* vim:set shiftwidth=4 softtabstop=4 expandtab cinoptions=b1,g0,N-s cinkeys+=0=break: */

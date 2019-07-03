@@ -42,6 +42,7 @@
 #include <com/sun/star/i18n/CharacterIteratorMode.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
 #include <com/sun/star/i18n/XBreakIterator.hpp>
+#include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <com/sun/star/beans/UnknownPropertyException.hpp>
 #include <breakit.hxx>
 #include "accpara.hxx"
@@ -87,6 +88,7 @@
 #include "parachangetrackinginfo.hxx"
 #include <com/sun/star/text/TextMarkupType.hpp>
 #include <cppuhelper/supportsservice.hxx>
+#include <cppuhelper/typeprovider.hxx>
 #include <svx/colorwindow.hxx>
 #include <editeng/editids.hrc>
 
@@ -225,14 +227,13 @@ void SwAccessibleParagraph::GetStates(
     // MULTILINE
     rStateSet.AddState( AccessibleStateType::MULTI_LINE );
 
-    // MULTISELECTABLE
-    SwCursorShell *pCursorSh = GetCursorShell();
-    if( pCursorSh )
-        rStateSet.AddState( AccessibleStateType::MULTI_SELECTABLE );
-
-    // FOCUSABLE
-    if( pCursorSh )
-        rStateSet.AddState( AccessibleStateType::FOCUSABLE );
+    if (GetCursorShell())
+    {
+        // MULTISELECTABLE
+        rStateSet.AddState(AccessibleStateType::MULTI_SELECTABLE);
+        // FOCUSABLE
+        rStateSet.AddState(AccessibleStateType::FOCUSABLE);
+    }
 
     // FOCUSED (simulates node index of cursor)
     SwPaM* pCaret = GetCursor( false ); // #i27301# - consider adjusted method signature
@@ -1359,7 +1360,7 @@ uno::Sequence<PropertyValue> SwAccessibleParagraph::getCharacterAttributes(
 
     bool bSupplementalMode = false;
     uno::Sequence< OUString > aNames = aRequestedAttributes;
-    if (aNames.getLength() == 0)
+    if (!aNames.hasElements())
     {
         bSupplementalMode = true;
         aNames = getAttributeNames();
@@ -1392,7 +1393,7 @@ uno::Sequence<PropertyValue> SwAccessibleParagraph::getCharacterAttributes(
     if( bSupplementalMode )
     {
         uno::Sequence< OUString > aSupplementalNames = aRequestedAttributes;
-        if (aSupplementalNames.getLength() == 0)
+        if (!aSupplementalNames.hasElements())
             aSupplementalNames = getSupplementalAttributeNames();
 
         tAccParaPropValMap aSupplementalAttrSeq;
@@ -1586,7 +1587,7 @@ void SwAccessibleParagraph::_getDefaultAttributesImpl(
         }
     }
 
-    if ( aRequestedAttributes.getLength() == 0 )
+    if ( !aRequestedAttributes.hasElements() )
     {
         rDefAttrSeq = aDefAttrSeq;
     }
@@ -1619,7 +1620,7 @@ uno::Sequence< PropertyValue > SwAccessibleParagraph::getDefaultAttributes(
     static const char sMMToPixelRatio[] = "MMToPixelRatio";
     bool bProvideMMToPixelRatio( false );
     {
-        if ( aRequestedAttributes.getLength() == 0 )
+        if ( !aRequestedAttributes.hasElements() )
         {
             bProvideMMToPixelRatio = true;
         }
@@ -1742,7 +1743,7 @@ void SwAccessibleParagraph::_getRunAttributesImpl(
             }
         }
 
-        if ( aRequestedAttributes.getLength() == 0 )
+        if ( !aRequestedAttributes.hasElements() )
         {
             rRunAttrSeq = aRunAttrSeq;
         }
@@ -1862,15 +1863,16 @@ void SwAccessibleParagraph::_correctValues( const sal_Int32 nIndex,
         {
             switch( pRedline->GetType())
             {
-            case nsRedlineType_t::REDLINE_INSERT:
+            case RedlineType::Insert:
                 aChangeAttr = pOpt->GetInsertAuthorAttr();
                 break;
-            case nsRedlineType_t::REDLINE_DELETE:
+            case RedlineType::Delete:
                 aChangeAttr = pOpt->GetDeletedAuthorAttr();
                 break;
-            case nsRedlineType_t::REDLINE_FORMAT:
+            case RedlineType::Format:
                 aChangeAttr = pOpt->GetFormatAuthorAttr();
                 break;
+            default: break;
             }
         }
         switch( aChangeAttr.m_nItemId )
@@ -2774,7 +2776,7 @@ const SwTextAttr *SwHyperlinkIter_Impl::next(SwTextNode const** ppNode)
         if (RES_TXTATR_INETFMT == pHt->Which())
         {
             const TextFrameIndex nHtStt(m_rFrame.MapModelToView(pNode, pHt->GetStart()));
-            const TextFrameIndex nHtEnd(m_rFrame.MapModelToView(pNode, *pHt->GetAnyEnd()));
+            const TextFrameIndex nHtEnd(m_rFrame.MapModelToView(pNode, pHt->GetAnyEnd()));
             if (nHtEnd > nHtStt &&
                 ((nHtStt >= m_nStt && nHtStt < m_nEnd) ||
                  (nHtEnd > m_nStt && nHtEnd <= m_nEnd)))
@@ -2837,7 +2839,7 @@ uno::Reference< XAccessibleHyperlink > SAL_CALL
             if (!xRet.is())
             {
                 TextFrameIndex const nHintStart(pTextFrame->MapModelToView(pNode, pHt->GetStart()));
-                TextFrameIndex const nHintEnd(pTextFrame->MapModelToView(pNode, *pHt->GetAnyEnd()));
+                TextFrameIndex const nHintEnd(pTextFrame->MapModelToView(pNode, pHt->GetAnyEnd()));
                 const sal_Int32 nTmpHStt = GetPortionData().GetAccessiblePosition(
                     max(aHIter.startIdx(), nHintStart));
                 const sal_Int32 nTmpHEnd = GetPortionData().GetAccessiblePosition(
@@ -2889,7 +2891,7 @@ sal_Int32 SAL_CALL SwAccessibleParagraph::getHyperLinkIndex( sal_Int32 nCharInde
         SwTextNode const* pNode(nullptr);
         const SwTextAttr *pHt = aHIter.next(&pNode);
         while (pHt && !(nIdx >= pTextFrame->MapModelToView(pNode, pHt->GetStart())
-                     && nIdx < pTextFrame->MapModelToView(pNode, *pHt->GetAnyEnd())))
+                     && nIdx < pTextFrame->MapModelToView(pNode, pHt->GetAnyEnd())))
         {
             pHt = aHIter.next(&pNode);
             nPos++;

@@ -151,7 +151,7 @@ Reference< XIndexAccess > ConstItemContainer::deepCopyContainer( const Reference
     Reference< XIndexAccess > xReturn;
     if ( rSubContainer.is() )
     {
-        ItemContainer*      pSource = ItemContainer::GetImplementation( rSubContainer );
+        ItemContainer*      pSource = comphelper::getUnoTunnelImplementation<ItemContainer>( rSubContainer );
         ConstItemContainer* pSubContainer( nullptr );
         if ( pSource )
             pSubContainer = new ConstItemContainer( *pSource );
@@ -166,7 +166,7 @@ Reference< XIndexAccess > ConstItemContainer::deepCopyContainer( const Reference
 // XUnoTunnel
 sal_Int64 ConstItemContainer::getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier )
 {
-    if( ( rIdentifier.getLength() == 16 ) && ( 0 == memcmp( ConstItemContainer::GetUnoTunnelId().getConstArray(), rIdentifier.getConstArray(), 16 ) ) )
+    if( ( rIdentifier.getLength() == 16 ) && ( 0 == memcmp( ConstItemContainer::getUnoTunnelId().getConstArray(), rIdentifier.getConstArray(), 16 ) ) )
     {
         return reinterpret_cast< sal_Int64 >( this );
     }
@@ -178,16 +178,9 @@ namespace
     class theConstItemContainerUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theConstItemContainerUnoTunnelId > {};
 }
 
-const Sequence< sal_Int8 >& ConstItemContainer::GetUnoTunnelId() throw()
+const Sequence< sal_Int8 >& ConstItemContainer::getUnoTunnelId() throw()
 {
     return theConstItemContainerUnoTunnelId::get().getSeq();
-}
-
-ConstItemContainer* ConstItemContainer::GetImplementation( const css::uno::Reference< css::uno::XInterface >& rxIFace ) throw()
-{
-    css::uno::Reference< css::lang::XUnoTunnel > xUT( rxIFace, css::uno::UNO_QUERY );
-    return xUT.is() ? reinterpret_cast< ConstItemContainer* >(sal::static_int_cast< sal_IntPtr >(
-                          xUT->getSomething( ConstItemContainer::GetUnoTunnelId() ))) : nullptr;
 }
 
 // XElementAccess
@@ -276,7 +269,7 @@ Any SAL_CALL ConstItemContainer::getFastPropertyValue( sal_Int32 nHandle )
 const css::uno::Sequence< css::beans::Property > ConstItemContainer::impl_getStaticPropertyDescriptor()
 {
     // Create a property array to initialize sequence!
-    // Table of all predefined properties of this class. Its used from OPropertySetHelper-class!
+    // Table of all predefined properties of this class. It's used from OPropertySetHelper-class!
     // Don't forget to change the defines (see begin of this file), if you add, change or delete a property in this list!!!
     // It's necessary for methods of OPropertySetHelper.
     // ATTENTION:

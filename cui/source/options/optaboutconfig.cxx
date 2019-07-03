@@ -10,7 +10,8 @@
 #include "optaboutconfig.hxx"
 #include "optHeaderTabListbox.hxx"
 
-#include <vcl/builderfactory.hxx>
+#include <vcl/button.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/fixed.hxx>
@@ -30,6 +31,7 @@
 #include <com/sun/star/util/SearchAlgorithms2.hpp>
 #include <unotools/textsearch.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <memory>
 #include <vector>
@@ -263,9 +265,9 @@ void CuiAboutConfigTabPage::FillItems(const Reference< XNameAccess >& xNameAcces
             xNextNameAccess.set(aNode, uno::UNO_QUERY);
             bNotLeaf = xNextNameAccess.is();
         }
-        catch (const RuntimeException& e)
+        catch (const RuntimeException&)
         {
-            SAL_WARN( "cui.options", "CuiAboutConfigTabPage: " << e);
+            TOOLS_WARN_EXCEPTION( "cui.options", "CuiAboutConfigTabPage");
         }
 
         if (bNotLeaf)
@@ -677,8 +679,7 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                     {
                         //create string sequence from comma separated string
                         //uno::Sequence< OUString > seqStr;
-                        std::vector< OUString > seqStr;
-                        seqStr = commaStringToSequence( sNewValue );
+                        std::vector< OUString > seqStr = commaStringToSequence( sNewValue );
 
                         //create appropriate sequence with same size as string sequence
                         uno::Sequence< sal_Int16 > seqShort( seqStr.size() );
@@ -691,8 +692,7 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                     }
                     else if( sPropertyType == "[]long" )
                     {
-                        std::vector< OUString > seqStrLong;
-                        seqStrLong = commaStringToSequence( sNewValue );
+                        std::vector< OUString > seqStrLong = commaStringToSequence( sNewValue );
 
                         uno::Sequence< sal_Int32 > seqLong( seqStrLong.size() );
                         for( size_t i = 0; i < seqStrLong.size(); ++i )
@@ -703,8 +703,7 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                     }
                     else if( sPropertyType == "[]hyper" )
                     {
-                        std::vector< OUString > seqStrHyper;
-                        seqStrHyper = commaStringToSequence( sNewValue );
+                        std::vector< OUString > seqStrHyper = commaStringToSequence( sNewValue );
                         uno::Sequence< sal_Int64 > seqHyper( seqStrHyper.size() );
                         for( size_t i = 0; i < seqStrHyper.size(); ++i )
                         {
@@ -714,8 +713,7 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                     }
                     else if( sPropertyType == "[]double" )
                     {
-                        std::vector< OUString > seqStrDoub;
-                        seqStrDoub = commaStringToSequence( sNewValue );
+                        std::vector< OUString > seqStrDoub = commaStringToSequence( sNewValue );
                         uno::Sequence< double > seqDoub( seqStrDoub.size() );
                         for( size_t i = 0; i < seqStrDoub.size(); ++i )
                         {
@@ -725,8 +723,7 @@ IMPL_LINK_NOARG( CuiAboutConfigTabPage, StandardHdl_Impl, Button*, void )
                     }
                     else if( sPropertyType == "[]float" )
                     {
-                        std::vector< OUString > seqStrFloat;
-                        seqStrFloat = commaStringToSequence( sNewValue );
+                        std::vector< OUString > seqStrFloat = commaStringToSequence( sNewValue );
                         uno::Sequence< sal_Int16 > seqFloat( seqStrFloat.size() );
                         for( size_t i = 0; i < seqStrFloat.size(); ++i )
                         {

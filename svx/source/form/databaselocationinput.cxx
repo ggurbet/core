@@ -24,6 +24,8 @@
 #include <svx/strings.hrc>
 
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
+#include <com/sun/star/container/XNameAccess.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <comphelper/namedvaluecollection.hxx>
 #include <rtl/ustrbuf.hxx>
@@ -182,9 +184,9 @@ namespace svx
         }
 
         // ensure we have at least one extension
-        OSL_ENSURE( m_aFilterExtensions.getLength(),
+        OSL_ENSURE( m_aFilterExtensions.hasElements(),
             "DatabaseLocationInputController_Impl::impl_initFilterProperties_nothrow: unable to determine the file extension(s)!" );
-        if ( m_aFilterExtensions.getLength() == 0 )
+        if ( !m_aFilterExtensions.hasElements() )
         {
             m_aFilterExtensions.realloc(1);
             m_aFilterExtensions[0] = "*.odb";

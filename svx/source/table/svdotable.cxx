@@ -317,7 +317,7 @@ void SdrTableObjImpl::CropTableModelToSelection(const CellPos& rStart, const Cel
     }
 
     // copy row heights
-    Reference< XTableRows > xNewRows(mxTable->getRows(), UNO_QUERY_THROW );
+    Reference< XTableRows > xNewRows(mxTable->getRows(), css::uno::UNO_SET_THROW );
     const OUString sHeight( "Height" );
     for( sal_Int32 nRow = 0; nRow < nRows; ++nRow )
     {
@@ -326,7 +326,7 @@ void SdrTableObjImpl::CropTableModelToSelection(const CellPos& rStart, const Cel
     }
 
     // copy column widths
-    Reference< XTableColumns > xNewColumns( mxTable->getColumns(), UNO_QUERY_THROW );
+    Reference< XTableColumns > xNewColumns( mxTable->getColumns(), css::uno::UNO_SET_THROW );
     const OUString sWidth( "Width" );
     for( sal_Int32 nCol = 0; nCol < nColumns; ++nCol )
     {
@@ -429,7 +429,7 @@ SdrTableObjImpl& SdrTableObjImpl::operator=( const SdrTableObjImpl& rSource )
         // search in traget SdrModel for that TableStyle
         const OUString sStyleName( Reference< XNamed >( rSource.mxTableStyle, UNO_QUERY_THROW )->getName() );
         Reference< XStyleFamiliesSupplier > xSFS(rTargetSdrModel.getUnoModel(), UNO_QUERY_THROW );
-        Reference< XNameAccess > xFamilyNameAccess( xSFS->getStyleFamilies(), UNO_QUERY_THROW );
+        Reference< XNameAccess > xFamilyNameAccess( xSFS->getStyleFamilies(), css::uno::UNO_SET_THROW );
         const OUString sFamilyName( "table" );
         Reference< XNameAccess > xTableFamilyAccess( xFamilyNameAccess->getByName( sFamilyName ), UNO_QUERY_THROW );
 
@@ -1805,8 +1805,8 @@ bool SdrTableObj::BegTextEdit(SdrOutliner& rOutl)
     rOutl.Init( OutlinerMode::TextObject );
     rOutl.SetRefDevice(getSdrModelFromSdrObject().GetRefDevice());
 
-    bool bUpdMerk=rOutl.GetUpdateMode();
-    if (bUpdMerk) rOutl.SetUpdateMode(false);
+    bool bUpdateMode=rOutl.GetUpdateMode();
+    if (bUpdateMode) rOutl.SetUpdateMode(false);
     Size aPaperMin;
     Size aPaperMax;
     tools::Rectangle aEditArea;
@@ -1816,7 +1816,7 @@ bool SdrTableObj::BegTextEdit(SdrOutliner& rOutl)
     rOutl.SetMaxAutoPaperSize(aPaperMax);
     rOutl.SetPaperSize(aPaperMax);
 
-    if (bUpdMerk) rOutl.SetUpdateMode(true);
+    if (bUpdateMode) rOutl.SetUpdateMode(true);
 
     EEControlBits nStat=rOutl.GetControlWord();
     nStat   |= EEControlBits::AUTOPAGESIZE;
@@ -2340,7 +2340,7 @@ basegfx::B2DPolyPolygon SdrTableObj::TakeCreatePoly(const SdrDragStat& rDrag) co
     aRect1.Justify();
 
     basegfx::B2DPolyPolygon aRetval;
-    const basegfx::B2DRange aRange(aRect1.Left(), aRect1.Top(), aRect1.Right(), aRect1.Bottom());
+    const basegfx::B2DRange aRange = vcl::unotools::b2DRectangleFromRectangle(aRect1);
     aRetval.append(basegfx::utils::createPolygonFromRect(aRange));
     return aRetval;
 }

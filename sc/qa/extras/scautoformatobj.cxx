@@ -8,8 +8,14 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/beans/xpropertyset.hxx>
+#include <test/container/xelementaccess.hxx>
 #include <test/container/xenumerationaccess.hxx>
+#include <test/container/xindexaccess.hxx>
+#include <test/container/xnamed.hxx>
+#include <test/lang/xserviceinfo.hxx>
 #include <test/sheet/tableautoformat.hxx>
+#include <cppu/unotype.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
@@ -21,15 +27,17 @@
 #include <com/sun/star/uno/Reference.hxx>
 
 using namespace css;
-using namespace css::uno;
-using namespace com::sun::star;
 
 namespace sc_apitest
 {
 class ScAutoFormatObj : public CalcUnoApiTest,
+                        public apitest::TableAutoFormat,
+                        public apitest::XElementAccess,
                         public apitest::XEnumerationAccess,
-                        public apitest::TableAutoFormat
-
+                        public apitest::XIndexAccess,
+                        public apitest::XNamed,
+                        public apitest::XPropertySet,
+                        public apitest::XServiceInfo
 {
 public:
     ScAutoFormatObj();
@@ -40,11 +48,35 @@ public:
 
     CPPUNIT_TEST_SUITE(ScAutoFormatObj);
 
+    // TableAutoFormat
+    CPPUNIT_TEST(testTableAutoFormatProperties);
+
+    // XElementAccess
+    CPPUNIT_TEST(testGetElementType);
+    CPPUNIT_TEST(testHasElements);
+
     // XEnumerationAccess
     CPPUNIT_TEST(testCreateEnumeration);
 
-    // TableAutoFormat
-    CPPUNIT_TEST(testTableAutoFormatProperties);
+    // XIndexAccess
+    CPPUNIT_TEST(testGetByIndex);
+    CPPUNIT_TEST(testGetCount);
+
+    // XNamed
+    CPPUNIT_TEST(testGetName);
+    CPPUNIT_TEST(testSetName);
+
+    // XPropertySet
+    CPPUNIT_TEST(testGetPropertySetInfo);
+    CPPUNIT_TEST(testGetPropertyValue);
+    CPPUNIT_TEST(testSetPropertyValue);
+    CPPUNIT_TEST(testPropertyChangeListener);
+    CPPUNIT_TEST(testVetoableChangeListener);
+
+    // XServiceInfo
+    CPPUNIT_TEST(testGetImplementationName);
+    CPPUNIT_TEST(testGetSupportedServiceNames);
+    CPPUNIT_TEST(testSupportsService);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -54,19 +86,23 @@ private:
 
 ScAutoFormatObj::ScAutoFormatObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XElementAccess(cppu::UnoType<beans::XPropertySet>::get())
+    , XIndexAccess(16)
+    , XNamed("Default")
+    , XServiceInfo("ScAutoFormatObj", "com.sun.star.sheet.TableAutoFormat")
 {
 }
 
 uno::Reference<uno::XInterface> ScAutoFormatObj::init()
 {
-    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, uno::UNO_QUERY_THROW);
 
-    uno::Reference<lang::XMultiServiceFactory> xMSF(xDoc, UNO_QUERY_THROW);
+    uno::Reference<lang::XMultiServiceFactory> xMSF(xDoc, uno::UNO_QUERY_THROW);
     uno::Reference<container::XIndexAccess> xIA(
-        xMSF->createInstance("com.sun.star.sheet.TableAutoFormats"), UNO_QUERY_THROW);
+        xMSF->createInstance("com.sun.star.sheet.TableAutoFormats"), uno::UNO_QUERY_THROW);
 
     uno::Reference<beans::XPropertySet> xTableAutoFormat(xIA->getByIndex(xIA->getCount() - 1),
-                                                         UNO_QUERY_THROW);
+                                                         uno::UNO_QUERY_THROW);
     return xTableAutoFormat;
 }
 
@@ -84,7 +120,7 @@ void ScAutoFormatObj::tearDown()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScAutoFormatObj);
 
-} // end namespace
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

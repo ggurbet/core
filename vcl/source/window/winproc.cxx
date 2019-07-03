@@ -28,6 +28,7 @@
 #include <vcl/unohelp.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/event.hxx>
+#include <vcl/GestureEvent.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/cursor.hxx>
@@ -470,8 +471,8 @@ bool ImplHandleMouseEvent( const VclPtr<vcl::Window>& xWindow, MouseNotifyEvent 
                         if( pMouseDownWin->ImplGetFrameData()->mbInternalDragGestureRecognizer )
                         {
                             // query DropTarget from child window
-                            css::uno::Reference< css::datatransfer::dnd::XDragGestureRecognizer > xDragGestureRecognizer =
-                                css::uno::Reference< css::datatransfer::dnd::XDragGestureRecognizer > ( pMouseDownWin->ImplGetWindowImpl()->mxDNDListenerContainer,
+                            css::uno::Reference< css::datatransfer::dnd::XDragGestureRecognizer > xDragGestureRecognizer(
+                                    pMouseDownWin->ImplGetWindowImpl()->mxDNDListenerContainer,
                                     css::uno::UNO_QUERY );
 
                             if( xDragGestureRecognizer.is() )
@@ -1039,7 +1040,7 @@ static bool ImplHandleKey( vcl::Window* pWindow, MouseNotifyEvent nSVEvent,
                 // simulate mouseposition at center of window
 
                 Size aSize = pChild->GetOutputSize();
-                Point aPos = Point( aSize.getWidth()/2, aSize.getHeight()/2 );
+                Point aPos( aSize.getWidth()/2, aSize.getHeight()/2 );
                 aPos = pChild->OutputToScreenPixel( aPos );
 
                 HelpEvent aHelpEvent( aPos, HelpEventMode::BALLOON );
@@ -1136,6 +1137,12 @@ static bool ImplHandleExtTextInput( vcl::Window* pWindow,
         }
         if( !pChild->ImplGetWindowImpl()->mpFrameData->mnFocusId )
             break;
+
+        if (comphelper::LibreOfficeKit::isActive())
+        {
+            SAL_WARN("vcl", "Failed to get ext text input context");
+            break;
+        }
         Application::Yield();
     }
 
@@ -1547,6 +1554,30 @@ public:
 static bool ImplHandleLongPress(vcl::Window *pWindow, const SalLongPressEvent& rEvt)
 {
     HandleLongPressEvent aHandler(pWindow, rEvt);
+    return aHandler.HandleEvent();
+}
+
+class HandleGeneralGestureEvent : public HandleGestureEvent
+{
+private:
+    CommandGestureData m_aGestureData;
+
+public:
+    HandleGeneralGestureEvent(vcl::Window* pWindow, const SalGestureEvent& rEvent)
+        : HandleGestureEvent(pWindow, Point(rEvent.mnX, rEvent.mnY))
+        , m_aGestureData(rEvent.mnX, rEvent.mnY, rEvent.meEventType, rEvent.mfOffset, rEvent.meOrientation)
+    {
+    }
+
+    virtual bool CallCommand(vcl::Window* pWindow, const Point& /*rMousePos*/) override
+    {
+        return ImplCallCommand(pWindow, CommandEventId::Gesture, &m_aGestureData);
+    }
+};
+
+static bool ImplHandleGestureEvent(vcl::Window* pWindow, const SalGestureEvent& rEvent)
+{
+    HandleGeneralGestureEvent aHandler(pWindow, rEvent);
     return aHandler.HandleEvent();
 }
 
@@ -2537,7 +2568,26 @@ bool ImplWindowFrameProc( vcl::Window* _pWindow, SalEvent nEvent, const void* pE
             bRet = ImplHandleLongPress(pWindow, *static_cast<const SalLongPressEvent*>(pEvent));
             break;
 
+        case SalEvent::ExternalGesture:
+        {
+            auto const * pGestureEvent = static_cast<GestureEvent const *>(pEvent);
 
+            SalGestureEvent aSalGestureEvent;
+            aSalGestureEvent.mfOffset = pGestureEvent->mnOffset;
+            aSalGestureEvent.mnX = pGestureEvent->mnX;
+            aSalGestureEvent.mnY = pGestureEvent->mnY;
+            aSalGestureEvent.meEventType = pGestureEvent->meEventType;
+            aSalGestureEvent.meOrientation = pGestureEvent->meOrientation;
+
+            bRet = ImplHandleGestureEvent(pWindow, aSalGestureEvent);
+        }
+        break;
+        case SalEvent::Gesture:
+        {
+            auto const * aSalGestureEvent = static_cast<SalGestureEvent const *>(pEvent);
+            bRet = ImplHandleGestureEvent(pWindow, *aSalGestureEvent);
+        }
+        break;
         default:
             SAL_WARN( "vcl.layout", "ImplWindowFrameProc(): unknown event (" << static_cast<int>(nEvent) << ")" );
             break;

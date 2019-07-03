@@ -8,19 +8,13 @@
  *
  */
 
-#include <sfx2/dispatch.hxx>
-#include <svl/zforlist.hxx>
 #include <svl/undo.hxx>
 
-#include <formulacell.hxx>
 #include <rangelst.hxx>
-#include <scitems.hxx>
 #include <docsh.hxx>
 #include <document.hxx>
-#include <uiitems.hxx>
-#include <reffact.hxx>
 #include <scresid.hxx>
-#include <docfunc.hxx>
+#include <tabvwsh.hxx>
 
 #include <StatisticsInputOutputDialog.hxx>
 
@@ -54,34 +48,32 @@ ScRangeList ScStatisticsInputOutputDialog::MakeRowRangeList(SCTAB aTab, ScAddres
 
 ScStatisticsInputOutputDialog::ScStatisticsInputOutputDialog(
                     SfxBindings* pSfxBindings, SfxChildWindow* pChildWindow,
-                    vcl::Window* pParent, ScViewData* pViewData, const OUString& rID, const OUString& rUIXMLDescription ) :
-    ScAnyRefDlg     ( pSfxBindings, pChildWindow, pParent, rID, rUIXMLDescription ),
-    mViewData       ( pViewData ),
-    mDocument       ( pViewData->GetDocument() ),
-    mInputRange     ( ScAddress::INITIALIZE_INVALID ),
-    mAddressDetails ( mDocument->GetAddressConvention(), 0, 0 ),
-    mOutputAddress  ( ScAddress::INITIALIZE_INVALID ),
-    mGroupedBy      ( BY_COLUMN ),
-    mpActiveEdit    ( nullptr ),
-    mCurrentAddress ( pViewData->GetCurX(), pViewData->GetCurY(), pViewData->GetTabNo() ),
-    mDialogLostFocus( false )
+                    weld::Window* pParent, ScViewData* pViewData, const OUString& rUIXMLDescription, const OString& rID)
+    : ScAnyRefDlgController(pSfxBindings, pChildWindow, pParent, rUIXMLDescription, rID)
+    , mxInputRangeLabel(m_xBuilder->weld_label("input-range-label"))
+    , mxInputRangeEdit(new formula::RefEdit(m_xBuilder->weld_entry("input-range-edit")))
+    , mxInputRangeButton(new formula::RefButton(m_xBuilder->weld_button("input-range-button")))
+    , mxOutputRangeLabel(m_xBuilder->weld_label("output-range-label"))
+    , mxOutputRangeEdit(new formula::RefEdit(m_xBuilder->weld_entry("output-range-edit")))
+    , mxOutputRangeButton(new formula::RefButton(m_xBuilder->weld_button("output-range-button")))
+    , mxGroupByColumnsRadio(m_xBuilder->weld_radio_button("groupedby-columns-radio"))
+    , mxGroupByRowsRadio(m_xBuilder->weld_radio_button("groupedby-rows-radio"))
+    , mViewData(pViewData)
+    , mDocument(pViewData->GetDocument())
+    , mInputRange(ScAddress::INITIALIZE_INVALID)
+    , mAddressDetails(mDocument->GetAddressConvention(), 0, 0)
+    , mOutputAddress(ScAddress::INITIALIZE_INVALID)
+    , mGroupedBy(BY_COLUMN)
+    , mxButtonOk(m_xBuilder->weld_button("ok"))
+    , mpActiveEdit(nullptr)
+    , mCurrentAddress(pViewData->GetCurX(), pViewData->GetCurY(), pViewData->GetTabNo())
+    , mDialogLostFocus(false)
 {
-    get(mpInputRangeLabel,  "input-range-label");
-    get(mpInputRangeEdit,   "input-range-edit");
-    get(mpInputRangeButton, "input-range-button");
-    mpInputRangeEdit->SetReferences(this, mpInputRangeLabel);
-    mpInputRangeButton->SetReferences(this, mpInputRangeEdit);
+    mxInputRangeEdit->SetReferences(this, mxInputRangeLabel.get());
+    mxInputRangeButton->SetReferences(this, mxInputRangeEdit.get());
 
-    get(mpOutputRangeLabel,  "output-range-label");
-    get(mpOutputRangeEdit,   "output-range-edit");
-    get(mpOutputRangeButton, "output-range-button");
-    mpOutputRangeEdit->SetReferences(this, mpOutputRangeLabel);
-    mpOutputRangeButton->SetReferences(this, mpOutputRangeEdit);
-
-    get(mpButtonOk,     "ok");
-
-    get(mpGroupByColumnsRadio,   "groupedby-columns-radio");
-    get(mpGroupByRowsRadio,      "groupedby-rows-radio");
+    mxOutputRangeEdit->SetReferences(this, mxOutputRangeLabel.get());
+    mxOutputRangeButton->SetReferences(this, mxOutputRangeEdit.get());
 
     Init();
     GetRangeFromSelection();
@@ -89,59 +81,45 @@ ScStatisticsInputOutputDialog::ScStatisticsInputOutputDialog(
 
 ScStatisticsInputOutputDialog::~ScStatisticsInputOutputDialog()
 {
-    disposeOnce();
-}
-
-void ScStatisticsInputOutputDialog::dispose()
-{
-    mpInputRangeLabel.clear();
-    mpInputRangeEdit.clear();
-    mpInputRangeButton.clear();
-    mpOutputRangeLabel.clear();
-    mpOutputRangeEdit.clear();
-    mpOutputRangeButton.clear();
-    mpGroupByColumnsRadio.clear();
-    mpGroupByRowsRadio.clear();
-    mpButtonOk.clear();
-    mpActiveEdit.clear();
-    ScAnyRefDlg::dispose();
 }
 
 void ScStatisticsInputOutputDialog::Init()
 {
-    mpButtonOk->SetClickHdl( LINK( this, ScStatisticsInputOutputDialog, OkClicked ) );
-    mpButtonOk->Enable(false);
+    mxButtonOk->connect_clicked( LINK( this, ScStatisticsInputOutputDialog, OkClicked ) );
+    mxButtonOk->set_sensitive(false);
 
-    Link<Control&,void> aLink = LINK( this, ScStatisticsInputOutputDialog, GetFocusHandler );
-    mpInputRangeEdit->SetGetFocusHdl( aLink );
-    mpInputRangeButton->SetGetFocusHdl( aLink );
-    mpOutputRangeEdit->SetGetFocusHdl( aLink );
-    mpOutputRangeButton->SetGetFocusHdl( aLink );
+    Link<formula::RefEdit&,void> aEditLink = LINK( this, ScStatisticsInputOutputDialog, GetEditFocusHandler );
+    mxInputRangeEdit->SetGetFocusHdl( aEditLink );
+    mxOutputRangeEdit->SetGetFocusHdl( aEditLink );
+    Link<formula::RefButton&,void> aButtonLink = LINK( this, ScStatisticsInputOutputDialog, GetButtonFocusHandler );
+    mxInputRangeButton->SetGetFocusHdl( aButtonLink );
+    mxOutputRangeButton->SetGetFocusHdl( aButtonLink );
 
-    aLink = LINK( this, ScStatisticsInputOutputDialog, LoseFocusHandler );
-    mpInputRangeEdit->SetLoseFocusHdl( aLink );
-    mpInputRangeButton->SetLoseFocusHdl( aLink );
-    mpOutputRangeEdit->SetLoseFocusHdl( aLink );
-    mpOutputRangeButton->SetLoseFocusHdl( aLink );
+    aEditLink = LINK( this, ScStatisticsInputOutputDialog, LoseEditFocusHandler );
+    mxInputRangeEdit->SetLoseFocusHdl( aEditLink );
+    mxOutputRangeEdit->SetLoseFocusHdl( aEditLink );
+    aButtonLink = LINK( this, ScStatisticsInputOutputDialog, LoseButtonFocusHandler );
+    mxInputRangeButton->SetLoseFocusHdl( aButtonLink );
+    mxOutputRangeButton->SetLoseFocusHdl( aButtonLink );
 
-    Link<Edit&,void> aLink2 = LINK( this, ScStatisticsInputOutputDialog, RefInputModifyHandler);
-    mpInputRangeEdit->SetModifyHdl( aLink2);
-    mpOutputRangeEdit->SetModifyHdl( aLink2);
+    Link<formula::RefEdit&,void> aLink2 = LINK( this, ScStatisticsInputOutputDialog, RefInputModifyHandler);
+    mxInputRangeEdit->SetModifyHdl( aLink2);
+    mxOutputRangeEdit->SetModifyHdl( aLink2);
 
-    mpOutputRangeEdit->GrabFocus();
+    mxOutputRangeEdit->GrabFocus();
 
-    mpGroupByColumnsRadio->SetToggleHdl( LINK( this, ScStatisticsInputOutputDialog, GroupByChanged ) );
-    mpGroupByRowsRadio->SetToggleHdl( LINK( this, ScStatisticsInputOutputDialog, GroupByChanged ) );
+    mxGroupByColumnsRadio->connect_toggled( LINK( this, ScStatisticsInputOutputDialog, GroupByChanged ) );
+    mxGroupByRowsRadio->connect_toggled( LINK( this, ScStatisticsInputOutputDialog, GroupByChanged ) );
 
-    mpGroupByColumnsRadio->Check();
-    mpGroupByRowsRadio->Check(false);
+    mxGroupByColumnsRadio->set_active(true);
+    mxGroupByRowsRadio->set_active(false);
 }
 
 void ScStatisticsInputOutputDialog::GetRangeFromSelection()
 {
     mViewData->GetSimpleArea(mInputRange);
     OUString aCurrentString(mInputRange.Format(ScRefFlags::RANGE_ABS_3D, mDocument, mAddressDetails));
-    mpInputRangeEdit->SetText(aCurrentString);
+    mxInputRangeEdit->SetText(aCurrentString);
 }
 
 void ScStatisticsInputOutputDialog::SetActive()
@@ -154,7 +132,7 @@ void ScStatisticsInputOutputDialog::SetActive()
     }
     else
     {
-        GrabFocus();
+        m_xDialog->grab_focus();
     }
     RefInputDone();
 }
@@ -168,13 +146,13 @@ void ScStatisticsInputOutputDialog::SetReference( const ScRange& rReferenceRange
 
         OUString aReferenceString;
 
-        if ( mpActiveEdit == mpInputRangeEdit )
+        if (mpActiveEdit == mxInputRangeEdit.get())
         {
             mInputRange = rReferenceRange;
             aReferenceString = mInputRange.Format(ScRefFlags::RANGE_ABS_3D, pDocument, mAddressDetails);
-            mpInputRangeEdit->SetRefString( aReferenceString );
+            mxInputRangeEdit->SetRefString( aReferenceString );
         }
-        else if ( mpActiveEdit == mpOutputRangeEdit )
+        else if (mpActiveEdit == mxOutputRangeEdit.get())
         {
             mOutputAddress = rReferenceRange.aStart;
 
@@ -182,73 +160,89 @@ void ScStatisticsInputOutputDialog::SetReference( const ScRange& rReferenceRange
                                                              ScRefFlags::ADDR_ABS :
                                                              ScRefFlags::ADDR_ABS_3D;
             aReferenceString = mOutputAddress.Format(nFormat, pDocument, pDocument->GetAddressConvention());
-            mpOutputRangeEdit->SetRefString( aReferenceString );
+            mxOutputRangeEdit->SetRefString( aReferenceString );
         }
     }
 
-    // Enable OK if both, input range and output address are set.
-    if (mInputRange.IsValid() && mOutputAddress.IsValid())
-        mpButtonOk->Enable();
-    else
-        mpButtonOk->Disable();
+    ValidateDialogInput();
 }
 
-IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, OkClicked, Button*, void )
+IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, OkClicked, weld::Button&, void )
 {
     CalculateInputAndWriteToOutput();
-    Close();
+    response(RET_OK);
 }
 
-IMPL_LINK( ScStatisticsInputOutputDialog, GetFocusHandler, Control&, rCtrl, void )
+IMPL_LINK(ScStatisticsInputOutputDialog, GetEditFocusHandler, formula::RefEdit&, rCtrl, void)
 {
     mpActiveEdit = nullptr;
 
-    if(      (&rCtrl == static_cast<Control*>(mpInputRangeEdit))  || (&rCtrl == static_cast<Control*>(mpInputRangeButton)) )
-        mpActiveEdit = mpInputRangeEdit;
-    else if( (&rCtrl == static_cast<Control*>(mpOutputRangeEdit)) || (&rCtrl == static_cast<Control*>(mpOutputRangeButton)) )
-        mpActiveEdit = mpOutputRangeEdit;
+    if (&rCtrl == mxInputRangeEdit.get())
+        mpActiveEdit = mxInputRangeEdit.get();
+    if (&rCtrl == mxOutputRangeEdit.get())
+        mpActiveEdit = mxOutputRangeEdit.get();
 
-    if( mpActiveEdit )
-        mpActiveEdit->SetSelection( Selection( 0, SELECTION_MAX ) );
+    if (mpActiveEdit)
+        mpActiveEdit->SelectAll();
 }
 
-IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, LoseFocusHandler, Control&, void )
+IMPL_LINK(ScStatisticsInputOutputDialog, GetButtonFocusHandler, formula::RefButton&, rCtrl, void)
 {
-    mDialogLostFocus = !IsActive();
+    mpActiveEdit = nullptr;
+
+    if (&rCtrl == mxInputRangeButton.get())
+        mpActiveEdit = mxInputRangeEdit.get();
+    else if (&rCtrl == mxOutputRangeButton.get())
+        mpActiveEdit = mxOutputRangeEdit.get();
+
+    if (mpActiveEdit)
+        mpActiveEdit->SelectAll();
 }
 
-IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, GroupByChanged, RadioButton&, void )
+IMPL_LINK_NOARG(ScStatisticsInputOutputDialog, LoseEditFocusHandler, formula::RefEdit&, void)
 {
-    if (mpGroupByColumnsRadio->IsChecked())
+    mDialogLostFocus = !m_xDialog->has_toplevel_focus();
+}
+
+IMPL_LINK_NOARG(ScStatisticsInputOutputDialog, LoseButtonFocusHandler, formula::RefButton&, void)
+{
+    mDialogLostFocus = !m_xDialog->has_toplevel_focus();
+}
+
+IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, GroupByChanged, weld::ToggleButton&, void )
+{
+    if (mxGroupByColumnsRadio->get_active())
         mGroupedBy = BY_COLUMN;
-    else if (mpGroupByRowsRadio->IsChecked())
+    else if (mxGroupByRowsRadio->get_active())
         mGroupedBy = BY_ROW;
+
+    ValidateDialogInput();
 }
 
-IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, RefInputModifyHandler, Edit&, void )
+IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, RefInputModifyHandler, formula::RefEdit&, void )
 {
     if ( mpActiveEdit )
     {
-        if ( mpActiveEdit == mpInputRangeEdit )
+        if (mpActiveEdit == mxInputRangeEdit.get())
         {
             ScRangeList aRangeList;
-            bool bValid = ParseWithNames( aRangeList, mpInputRangeEdit->GetText(), mDocument);
+            bool bValid = ParseWithNames( aRangeList, mxInputRangeEdit->GetText(), mDocument);
             const ScRange* pRange = (bValid && aRangeList.size() == 1) ? &aRangeList[0] : nullptr;
             if (pRange)
             {
                 mInputRange = *pRange;
                 // Highlight the resulting range.
-                mpInputRangeEdit->StartUpdateData();
+                mxInputRangeEdit->StartUpdateData();
             }
             else
             {
                 mInputRange = ScRange( ScAddress::INITIALIZE_INVALID);
             }
         }
-        else if ( mpActiveEdit == mpOutputRangeEdit )
+        else if (mpActiveEdit == mxOutputRangeEdit.get())
         {
             ScRangeList aRangeList;
-            bool bValid = ParseWithNames( aRangeList, mpOutputRangeEdit->GetText(), mDocument);
+            bool bValid = ParseWithNames( aRangeList, mxOutputRangeEdit->GetText(), mDocument);
             const ScRange* pRange = (bValid && aRangeList.size() == 1) ? &aRangeList[0] : nullptr;
             if (pRange)
             {
@@ -261,11 +255,11 @@ IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, RefInputModifyHandler, Edit&, vo
                                                                      ScRefFlags::ADDR_ABS :
                                                                      ScRefFlags::ADDR_ABS_3D;
                     OUString aReferenceString = mOutputAddress.Format(nFormat, mDocument, mDocument->GetAddressConvention());
-                    mpOutputRangeEdit->SetRefString( aReferenceString );
+                    mxOutputRangeEdit->SetRefString( aReferenceString );
                 }
 
                 // Highlight the resulting range.
-                mpOutputRangeEdit->StartUpdateData();
+                mxOutputRangeEdit->StartUpdateData();
             }
             else
             {
@@ -274,11 +268,7 @@ IMPL_LINK_NOARG( ScStatisticsInputOutputDialog, RefInputModifyHandler, Edit&, vo
         }
     }
 
-    // Enable OK if both, input range and output address are set.
-    if (mInputRange.IsValid() && mOutputAddress.IsValid())
-        mpButtonOk->Enable();
-    else
-        mpButtonOk->Disable();
+    ValidateDialogInput();
 }
 
 void ScStatisticsInputOutputDialog::CalculateInputAndWriteToOutput()
@@ -292,6 +282,17 @@ void ScStatisticsInputOutputDialog::CalculateInputAndWriteToOutput()
 
     pUndoManager->LeaveListAction();
     pDocShell->PostPaint( aOutputRange, PaintPartFlags::Grid );
+}
+
+bool ScStatisticsInputOutputDialog::InputRangesValid()
+{
+    return mInputRange.IsValid() && mOutputAddress.IsValid();
+}
+
+void ScStatisticsInputOutputDialog::ValidateDialogInput()
+{
+    // Enable OK button if all inputs are ok.
+    mxButtonOk->set_sensitive(InputRangesValid());
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

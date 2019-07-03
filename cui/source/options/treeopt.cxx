@@ -22,6 +22,7 @@
 #include <config_gpgme.h>
 
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 
 #include <strings.hrc>
 #include <treeopt.hrc>
@@ -86,6 +87,8 @@
 #include <sfx2/shell.hxx>
 #include <sfx2/tplpitem.hxx>
 #include <sfx2/viewsh.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <svl/intitem.hxx>
 #include <svl/languageoptions.hxx>
 #include <svtools/helpopt.hxx>
 #include <svtools/miscopt.hxx>
@@ -102,7 +105,6 @@
 #include <unotools/optionsdlg.hxx>
 #include <unotools/viewoptions.hxx>
 #include <vcl/help.hxx>
-#include <vcl/layout.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
 #include <vcl/settings.hxx>
@@ -268,7 +270,7 @@ MailMergeCfg_Impl::MailMergeCfg_Impl() :
     Sequence<OUString> aNames { "EMailSupported" };
     const Sequence< Any > aValues = GetProperties(aNames);
     const Any* pValues = aValues.getConstArray();
-    if(aValues.getLength() && pValues[0].hasValue())
+    if(aValues.hasElements() && pValues[0].hasValue())
         pValues[0] >>= bIsEmailSupported;
 }
 
@@ -488,6 +490,9 @@ struct OptionsGroupInfo
 
 void OfaTreeOptionsDialog::InitWidgets()
 {
+    VclButtonBox *pButtonBox = get_action_area();
+    pButtonBox->sort_native_button_order();
+
     get(pOkPB, "ok");
     get(pApplyPB, "apply");
     get(pBackPB, "revert");
@@ -1190,8 +1195,7 @@ std::unique_ptr<SfxItemSet> OfaTreeOptionsDialog::CreateItemSet( sal_uInt16 nId 
                 pRet->Put(aHyphen);
                 if(SfxItemState::DEFAULT <= pDispatch->QueryState(SID_AUTOSPELL_CHECK, pItem))
                 {
-                    std::unique_ptr<SfxPoolItem> pClone(pItem->Clone());
-                    pRet->Put(*pClone);
+                    pRet->Put(std::unique_ptr<SfxPoolItem>(pItem->Clone()));
                 }
                 else
                 {
@@ -2150,7 +2154,7 @@ void ExtensionsTabPage::ActivatePage()
 
         if ( m_xPage.is() )
         {
-            Point aPos = Point();
+            Point aPos;
             Size aSize = GetParent()->get_preferred_size();
             m_xPage->setPosSize( aPos.X() + 1, aPos.Y() + 1,
                                  aSize.Width() - 2, aSize.Height() - 2, awt::PosSize::POSSIZE );

@@ -39,10 +39,13 @@ class AquaSalVirtualDevice : public SalVirtualDevice
 private:
     bool mbGraphicsUsed;             // is Graphics used
     bool mbForeignContext;           // is mxContext from outside VCL
-    CGContextRef mxBitmapContext;
+    CGContextHolder maBitmapContext;
     int mnBitmapDepth;
-    CGLayerRef mxLayer;              // Quartz layer
+    CGLayerHolder maLayer; // Quartz layer
     AquaSalGraphics* mpGraphics;     // current VirDev graphics
+
+    long mnWidth;
+    long mnHeight;
 
     void Destroy();
 
@@ -54,8 +57,15 @@ public:
     virtual void                    ReleaseGraphics( SalGraphics* pGraphics ) override;
     virtual bool                    SetSize( long nNewDX, long nNewDY ) override;
 
-    virtual long GetWidth() const override;
-    virtual long GetHeight() const override;
+    long GetWidth() const override
+    {
+        return mnWidth;
+    }
+
+    long GetHeight() const override
+    {
+        return mnHeight;
+    }
 };
 
 #endif // INCLUDED_VCL_INC_QUARTZ_SALVD_H

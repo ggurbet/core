@@ -22,15 +22,12 @@
 #include <svx/svdocirc.hxx>
 #include <sfx2/request.hxx>
 #include <svl/intitem.hxx>
-#include <svl/aeitem.hxx>
 #include <sfx2/dispatch.hxx>
 #include <svx/svdobj.hxx>
 #include <sfx2/viewfrm.hxx>
 
 #include <svx/svxids.hrc>
-#include <math.h>
 
-#include <app.hrc>
 #include <Window.hxx>
 #include <drawdoc.hxx>
 
@@ -40,6 +37,7 @@
 #include <ToolBarManager.hxx>
 
 #include <svx/sxciaitm.hxx>
+#include <svx/xfillit0.hxx>
 
 using namespace com::sun::star;
 

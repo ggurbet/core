@@ -18,6 +18,7 @@
  */
 
 #include <tools/debug.hxx>
+#include <vcl/button.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/svapp.hxx>
 #include <dialmgr.hxx>
@@ -666,7 +667,7 @@ void FmSearchDialog::LoadParams()
     OnCheckBoxToggled(*m_pcbCase);
     OnCheckBoxToggled(*m_pcbBackwards);
 
-    m_pHalfFullFormsCJK->set_active( !aParams.isIgnoreWidthCJK( ) );  // BEWARE: this checkbox has a inverse semantics!
+    m_pHalfFullFormsCJK->set_active( !aParams.isIgnoreWidthCJK( ) );  // BEWARE: this checkbox has an inverse semantics!
     m_pSoundsLikeCJK->set_active( aParams.bSoundsLikeCJK );
     OnCheckBoxToggled(*m_pHalfFullFormsCJK);
     OnCheckBoxToggled(*m_pSoundsLikeCJK);

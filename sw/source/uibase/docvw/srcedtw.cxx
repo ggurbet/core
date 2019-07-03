@@ -28,12 +28,16 @@
 #include <officecfg/Office/Common.hxx>
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
+#include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/textview.hxx>
 #include <svx/svxids.hrc>
 #include <vcl/scrbar.hxx>
 #include <vcl/ptrstyle.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/app.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svtools/htmltokn.h>
 #include <vcl/txtattr.hxx>
 #include <vcl/settings.hxx>

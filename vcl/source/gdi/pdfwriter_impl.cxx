@@ -58,7 +58,9 @@
 #include <svl/cryptosign.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/bitmapaccess.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/cvtgrf.hxx>
+#include <vcl/fontcharmap.hxx>
 #include <vcl/image.hxx>
 #include <vcl/lineinfo.hxx>
 #include <vcl/metric.hxx>
@@ -115,388 +117,6 @@ static bool g_bDebugDisableCompression = getenv("VCL_DEBUG_DISABLE_PDFCOMPRESSIO
 // PDF. Need to fix that.
 
 #define MAX_SIGNATURE_CONTENT_LENGTH 50000
-#endif
-
-#ifdef DO_TEST_PDF
-class PDFTestOutputStream : public PDFOutputStream
-{
-    public:
-    virtual ~PDFTestOutputStream();
-    virtual void write( const css::uno::Reference< css::io::XOutputStream >& xStream );
-};
-
-PDFTestOutputStream::~PDFTestOutputStream()
-{
-}
-
-void PDFTestOutputStream::write( const css::uno::Reference< css::io::XOutputStream >& xStream )
-{
-    OString aStr( "lalala\ntest\ntest\ntest" );
-    css::uno::Sequence< sal_Int8 > aData( aStr.getLength() );
-    memcpy( aData.getArray(), aStr.getStr(), aStr.getLength() );
-    xStream->writeBytes( aData );
-}
-
-// this test code cannot be used to test PDF/A-1 because it forces
-// control item (widgets) to bypass the structure controlling
-// the embedding of such elements in actual run
-void doTestCode()
-{
-    static const char* pHome = getenv( "HOME"  );
-    OUString aTestFile( "file://"  );
-    aTestFile += OUString( pHome, strlen( pHome ), RTL_TEXTENCODING_MS_1252 );
-    aTestFile += "/pdf_export_test.pdf";
-
-    PDFWriter::PDFWriterContext aContext;
-    aContext.URL            = aTestFile;
-    aContext.Version        = PDFWriter::PDF_1_4;
-    aContext.Tagged         = true;
-    aContext.InitialPage    = 2;
-    aContext.DocumentInfo.Title = "PDF export test document";
-    aContext.DocumentInfo.Producer = "VCL";
-
-    aContext.SignPDF        = true;
-    aContext.SignLocation   = "Burdur";
-    aContext.SignReason     = "Some valid reason to sign";
-    aContext.SignContact    = "signer@example.com";
-
-    css::uno::Reference< css::beans::XMaterialHolder > xEnc;
-    PDFWriter aWriter( aContext, xEnc );
-    aWriter.NewPage( 595, 842 );
-    aWriter.BeginStructureElement( PDFWriter::Document );
-    // set duration of 3 sec for first page
-    aWriter.SetAutoAdvanceTime( 3 );
-    aWriter.SetMapMode( MapMode( MapUnit::Map100thMM ) );
-
-    aWriter.SetFillColor( COL_LIGHTRED );
-    aWriter.SetLineColor( COL_LIGHTGREEN );
-    aWriter.DrawRect( Rectangle( Point( 2000, 200 ), Size( 8000, 3000 ) ), 5000, 2000 );
-
-    aWriter.SetFont( Font( OUString( "Times" ), Size( 0, 500 ) ) );
-    aWriter.SetTextColor( COL_BLACK );
-    aWriter.SetLineColor( COL_BLACK );
-    aWriter.SetFillColor( COL_LIGHTBLUE );
-
-    Rectangle aRect( Point( 5000, 5000 ), Size( 6000, 3000 ) );
-    aWriter.DrawRect( aRect );
-    aWriter.DrawText( aRect, OUString( "Link annot 1" ) );
-    sal_Int32 nFirstLink = aWriter.CreateLink( aRect );
-    PDFNote aNote;
-    aNote.Title = "A small test note";
-    aNote.Contents = "There is no business like show business like no business i know. Everything about it is appealing.";
-    aWriter.CreateNote( Rectangle( Point( aRect.Right(), aRect.Top() ), Size( 6000, 3000 ) ), aNote );
-
-    Rectangle aTargetRect( Point( 3000, 23000 ), Size( 12000, 6000 ) );
-    aWriter.SetFillColor( COL_LIGHTGREEN );
-    aWriter.DrawRect( aTargetRect );
-    aWriter.DrawText( aTargetRect, "Dest second link" );
-    sal_Int32 nSecondDest = aWriter.CreateDest( aTargetRect );
-
-    aWriter.BeginStructureElement( PDFWriter::Section );
-    aWriter.BeginStructureElement( PDFWriter::Heading );
-    aWriter.DrawText( Point(4500, 9000), "A small structure test" );
-    aWriter.EndStructureElement();
-    aWriter.BeginStructureElement( PDFWriter::Paragraph );
-    aWriter.SetStructureAttribute( PDFWriter::WritingMode, PDFWriter::LrTb );
-    aWriter.SetStructureAttribute( PDFWriter::TextDecorationType, PDFWriter::Underline );
-    aWriter.DrawText( Rectangle( Point( 4500, 10000 ), Size( 12000, 6000 ) ),
-                     "It was the best of PDF, it was the worst of PDF ... or so. This is a pretty nonsensical text to denote a paragraph. I suggest you stop reading it. Because if you read on you might get bored. So continue on your on risk. Hey, you're still here ? Why do you continue to read this as it is of no use at all ? OK, it's your time, but still... . Woah, i even get bored writing this, so let's end this here and now.",
-                      DrawTextFlags::MultiLine | DrawTextFlags::WordBreak
-                      );
-    aWriter.SetActualText( "It was the best of PDF, it was the worst of PDF ... or so. This is a pretty nonsensical text to denote a paragraph. I suggest you stop reading it. Because if you read on you might get bored. So continue on your on risk. Hey, you're still here ? Why do you continue to read this as it is of no use at all ? OK, it's your time, but still... . Woah, i even get bored writing this, so let's end this here and now." );
-    aWriter.SetAlternateText( "This paragraph contains some lengthy nonsense to test structural element emission of PDFWriter." );
-    aWriter.EndStructureElement();
-    aWriter.BeginStructureElement( PDFWriter::Paragraph );
-    aWriter.SetStructureAttribute( PDFWriter::WritingMode, PDFWriter::LrTb );
-    aWriter.DrawText( Rectangle( Point( 4500, 19000 ), Size( 12000, 1000 ) ),
-                      "This paragraph is nothing special either but ends on the next page structurewise",
-                      DrawTextFlags::MultiLine | DrawTextFlags::WordBreak
-                      );
-
-    aWriter.NewPage( 595, 842 );
-    // test AddStream interface
-    aWriter.AddStream( "text/plain", new PDFTestOutputStream(), true );
-    // set transitional mode
-    aWriter.SetPageTransition( PDFWriter::WipeRightToLeft, 1500 );
-    aWriter.SetMapMode( MapMode( MapUnit::Map100thMM ) );
-    aWriter.SetTextColor( COL_BLACK );
-    aWriter.SetFont( Font( OUString( "Times" ), Size( 0, 500 ) ) );
-    aWriter.DrawText( Rectangle( Point( 4500, 1500 ), Size( 12000, 3000 ) ),
-                      "Here's where all things come to an end ... well at least the paragraph from the last page.",
-                      DrawTextFlags::MultiLine | DrawTextFlags::WordBreak
-                      );
-    aWriter.EndStructureElement();
-
-    aWriter.SetFillColor( COL_LIGHTBLUE );
-    // disable structure
-    aWriter.BeginStructureElement( PDFWriter::NonStructElement );
-    aWriter.DrawRect( aRect );
-    aWriter.BeginStructureElement( PDFWriter::Paragraph );
-    aWriter.DrawText( aRect, "Link annot 2" );
-    sal_Int32 nSecondLink = aWriter.CreateLink( aRect );
-
-    aWriter.SetFillColor( COL_LIGHTGREEN );
-    aWriter.BeginStructureElement( PDFWriter::ListItem );
-    aWriter.DrawRect( aTargetRect );
-    aWriter.DrawText( aTargetRect, "Dest first link" );
-    sal_Int32 nFirstDest = aWriter.CreateDest( aTargetRect );
-    // enable structure
-    aWriter.EndStructureElement();
-
-    aWriter.EndStructureElement();
-    aWriter.EndStructureElement();
-    aWriter.BeginStructureElement( PDFWriter::Figure );
-    aWriter.BeginStructureElement( PDFWriter::Caption );
-    aWriter.DrawText( Point( 4500, 9000 ), "Some drawing stuff inside the structure" );
-    aWriter.EndStructureElement();
-
-    // test clipping
-    basegfx::B2DPolyPolygon aClip;
-    basegfx::B2DPolygon aClipPoly;
-    aClipPoly.append( basegfx::B2DPoint( 8250, 9600 ) );
-    aClipPoly.append( basegfx::B2DPoint( 16500, 11100 ) );
-    aClipPoly.append( basegfx::B2DPoint( 8250, 12600 ) );
-    aClipPoly.append( basegfx::B2DPoint( 4500, 11100 ) );
-    aClipPoly.setClosed( true );
-    aClip.append( aClipPoly );
-
-    aWriter.Push( PushFlags::CLIPREGION | PushFlags::FILLCOLOR );
-    aWriter.SetClipRegion( aClip );
-    aWriter.DrawEllipse( Rectangle( Point( 4500, 9600 ), Size( 12000, 3000 ) ) );
-    aWriter.MoveClipRegion( 1000, 500 );
-    aWriter.SetFillColor( COL_RED );
-    aWriter.DrawEllipse( Rectangle( Point( 4500, 9600 ), Size( 12000, 3000 ) ) );
-    aWriter.Pop();
-    // test transparency
-    // draw background
-    Rectangle aTranspRect( Point( 7500, 13500 ), Size( 9000, 6000 ) );
-    aWriter.SetFillColor( COL_LIGHTRED );
-    aWriter.DrawRect( aTranspRect );
-    aWriter.BeginTransparencyGroup();
-
-    aWriter.SetFillColor( COL_LIGHTGREEN );
-    aWriter.DrawEllipse( aTranspRect );
-    aWriter.SetTextColor( COL_LIGHTBLUE );
-    aWriter.DrawText( aTranspRect,
-                      "Some transparent text",
-                      DrawTextFlags::Center | DrawTextFlags::VCenter | DrawTextFlags::MultiLine | DrawTextFlags::WordBreak );
-
-    aWriter.EndTransparencyGroup( aTranspRect, 50 );
-
-    // prepare an alpha mask
-    Bitmap aTransMask( Size( 256, 256 ), 8, &Bitmap::GetGreyPalette( 256 ) );
-    BitmapScopedWriteAccess pAcc(aTransMask);
-    for( int nX = 0; nX < 256; nX++ )
-        for( int nY = 0; nY < 256; nY++ )
-            pAcc->SetPixel( nX, nY, BitmapColor( (sal_uInt8)((nX+nY)/2) ) );
-    pAcc.reset();
-    aTransMask.SetPrefMapMode( MapUnit::MapMM );
-    aTransMask.SetPrefSize( Size( 10, 10 ) );
-
-    aWriter.DrawBitmap( Point( 600, 13500 ), Size( 3000, 3000 ), aTransMask );
-
-    aTranspRect = Rectangle( Point( 4200, 13500 ), Size( 3000, 3000 ) );
-    aWriter.SetFillColor( COL_LIGHTRED );
-    aWriter.DrawRect( aTranspRect );
-    aWriter.SetFillColor( COL_LIGHTGREEN );
-    aWriter.DrawEllipse( aTranspRect );
-    aWriter.SetTextColor( COL_LIGHTBLUE );
-    aWriter.DrawText( aTranspRect,
-                      "Some transparent text",
-                      DrawTextFlags::Center | DrawTextFlags::VCenter | DrawTextFlags::MultiLine | DrawTextFlags::WordBreak );
-    aTranspRect = Rectangle( Point( 1500, 16500 ), Size( 4800, 3000 ) );
-    aWriter.SetFillColor( COL_LIGHTRED );
-    aWriter.DrawRect( aTranspRect );
-
-    Bitmap aImageBmp( Size( 256, 256 ), 24 );
-    pAcc = BitmapScopedWriteAccess(aImageBmp);
-    pAcc->SetFillColor( Color( 0xff, 0, 0xff ) );
-    pAcc->FillRect( Rectangle( Point( 0, 0 ), Size( 256, 256 ) ) );
-    pAcc.reset();
-    BitmapEx aBmpEx( aImageBmp, AlphaMask( aTransMask ) );
-    aWriter.DrawBitmapEx( Point( 1500, 19500 ), Size( 4800, 3000 ), aBmpEx );
-
-    aWriter.EndStructureElement();
-    aWriter.EndStructureElement();
-
-    LineInfo aLI( LineStyle::Dash, 3 );
-    aLI.SetDashCount( 2 );
-    aLI.SetDashLen( 50 );
-    aLI.SetDotCount( 2 );
-    aLI.SetDotLen( 25 );
-    aLI.SetDistance( 15 );
-    Point aLIPoints[] = { Point( 4000, 10000 ),
-                          Point( 8000, 12000 ),
-                          Point( 3000, 19000 ) };
-    tools::Polygon aLIPoly( 3, aLIPoints );
-    aWriter.SetLineColor( COL_BLUE );
-    aWriter.SetFillColor();
-    aWriter.DrawPolyLine( aLIPoly, aLI );
-
-    aLI.SetDashCount( 4 );
-    aLIPoly.Move( 1000, 1000 );
-    aWriter.DrawPolyLine( aLIPoly, aLI );
-
-    aWriter.NewPage( 595, 842 );
-    aWriter.SetMapMode( MapMode( MapUnit::Map100thMM ) );
-    Wallpaper aWall( aTransMask );
-    aWall.SetStyle( WallpaperStyle::Tile );
-    aWriter.DrawWallpaper( Rectangle( Point( 4400, 4200 ), Size( 10200, 6300 ) ), aWall );
-
-    aWriter.NewPage( 595, 842 );
-    aWriter.SetMapMode( MapMode( MapUnit::Map100thMM ) );
-    aWriter.SetFont( Font( OUString( "Times" ), Size( 0, 500 ) ) );
-    aWriter.SetTextColor( COL_BLACK );
-    aRect = Rectangle( Point( 4500, 6000 ), Size( 6000, 1500 ) );
-    aWriter.DrawRect( aRect );
-    aWriter.DrawText( aRect, "www.heise.de" );
-    sal_Int32 nURILink = aWriter.CreateLink( aRect );
-    aWriter.SetLinkURL( nURILink, OUString( "http://www.heise.de" ) );
-
-    aWriter.SetLinkDest( nFirstLink, nFirstDest );
-    aWriter.SetLinkDest( nSecondLink, nSecondDest );
-
-    // include a button
-    PDFWriter::PushButtonWidget aBtn;
-    aBtn.Name = "testButton";
-    aBtn.Description = "A test button";
-    aBtn.Text = "hit me";
-    aBtn.Location = Rectangle( Point( 4500, 9000 ), Size( 4500, 3000 ) );
-    aBtn.Border = aBtn.Background = true;
-    aWriter.CreateControl( aBtn );
-
-    // include a uri button
-    PDFWriter::PushButtonWidget aUriBtn;
-    aUriBtn.Name = "wwwButton";
-    aUriBtn.Description = "A URI button";
-    aUriBtn.Text = "to www";
-    aUriBtn.Location = Rectangle( Point( 9500, 9000 ), Size( 4500, 3000 ) );
-    aUriBtn.Border = aUriBtn.Background = true;
-    aUriBtn.URL = "http://www.heise.de";
-    aWriter.CreateControl( aUriBtn );
-
-    // include a dest button
-    PDFWriter::PushButtonWidget aDstBtn;
-    aDstBtn.Name = "destButton";
-    aDstBtn.Description = "A Dest button";
-    aDstBtn.Text = "to paragraph";
-    aDstBtn.Location = Rectangle( Point( 14500, 9000 ), Size( 4500, 3000 ) );
-    aDstBtn.Border = aDstBtn.Background = true;
-    aDstBtn.Dest = nFirstDest;
-    aWriter.CreateControl( aDstBtn );
-
-    PDFWriter::CheckBoxWidget aCBox;
-    aCBox.Name = "textCheckBox";
-    aCBox.Description = "A test check box";
-    aCBox.Text = "check me";
-    aCBox.Location = Rectangle( Point( 4500, 13500 ), Size( 3000, 750 ) );
-    aCBox.Checked = true;
-    aCBox.Border = aCBox.Background = false;
-    aWriter.CreateControl( aCBox );
-
-    PDFWriter::CheckBoxWidget aCBox2;
-    aCBox2.Name = "textCheckBox2";
-    aCBox2.Description = "Another test check box";
-    aCBox2.Text = "check me right";
-    aCBox2.Location = Rectangle( Point( 4500, 14250 ), Size( 3000, 750 ) );
-    aCBox2.Checked = true;
-    aCBox2.Border = aCBox2.Background = false;
-    aCBox2.ButtonIsLeft = false;
-    aWriter.CreateControl( aCBox2 );
-
-    PDFWriter::RadioButtonWidget aRB1;
-    aRB1.Name = "rb1_1";
-    aRB1.Description = "radio 1 button 1";
-    aRB1.Text = "Despair";
-    aRB1.Location = Rectangle( Point( 4500, 15000 ), Size( 6000, 1000 ) );
-    aRB1.Selected = true;
-    aRB1.RadioGroup = 1;
-    aRB1.Border = aRB1.Background = true;
-    aRB1.ButtonIsLeft = false;
-    aRB1.BorderColor = COL_LIGHTGREEN;
-    aRB1.BackgroundColor = COL_LIGHTBLUE;
-    aRB1.TextColor = COL_LIGHTRED;
-    aRB1.TextFont = Font( OUString( "Courier" ), Size( 0, 800 ) );
-    aWriter.CreateControl( aRB1 );
-
-    PDFWriter::RadioButtonWidget aRB2;
-    aRB2.Name = "rb2_1";
-    aRB2.Description = "radio 2 button 1";
-    aRB2.Text = "Joy";
-    aRB2.Location = Rectangle( Point( 10500, 15000 ), Size( 3000, 1000 ) );
-    aRB2.Selected = true;
-    aRB2.RadioGroup = 2;
-    aWriter.CreateControl( aRB2 );
-
-    PDFWriter::RadioButtonWidget aRB3;
-    aRB3.Name = "rb1_2";
-    aRB3.Description = "radio 1 button 2";
-    aRB3.Text = "Desperation";
-    aRB3.Location = Rectangle( Point( 4500, 16000 ), Size( 3000, 1000 ) );
-    aRB3.Selected = true;
-    aRB3.RadioGroup = 1;
-    aWriter.CreateControl( aRB3 );
-
-    PDFWriter::EditWidget aEditBox;
-    aEditBox.Name = "testEdit";
-    aEditBox.Description = "A test edit field";
-    aEditBox.Text = "A little test text";
-    aEditBox.TextStyle = DrawTextFlags::Left | DrawTextFlags::VCenter;
-    aEditBox.Location = Rectangle( Point( 10000, 18000 ), Size( 5000, 1500 ) );
-    aEditBox.MaxLen = 100;
-    aEditBox.Border = aEditBox.Background = true;
-    aEditBox.BorderColor = COL_BLACK;
-    aWriter.CreateControl( aEditBox );
-
-    // normal list box
-    PDFWriter::ListBoxWidget aLstBox;
-    aLstBox.Name = "testListBox";
-    aLstBox.Text = "One";
-    aLstBox.Description = "select me";
-    aLstBox.Location = Rectangle( Point( 4500, 18000 ), Size( 3000, 1500 ) );
-    aLstBox.Sort = true;
-    aLstBox.MultiSelect = true;
-    aLstBox.Border = aLstBox.Background = true;
-    aLstBox.BorderColor = COL_BLACK;
-    aLstBox.Entries.push_back( OUString( "One"  ) );
-    aLstBox.Entries.push_back( OUString( "Two"  ) );
-    aLstBox.Entries.push_back( OUString( "Three"  ) );
-    aLstBox.Entries.push_back( OUString( "Four"  ) );
-    aLstBox.SelectedEntries.push_back( 1 );
-    aLstBox.SelectedEntries.push_back( 2 );
-    aWriter.CreateControl( aLstBox );
-
-    // dropdown list box
-    aLstBox.Name = "testDropDownListBox";
-    aLstBox.DropDown = true;
-    aLstBox.Location = Rectangle( Point( 4500, 19500 ), Size( 3000, 500 ) );
-    aWriter.CreateControl( aLstBox );
-
-    // combo box
-    PDFWriter::ComboBoxWidget aComboBox;
-    aComboBox.Name = "testComboBox";
-    aComboBox.Text = "test a combobox";
-    aComboBox.Entries.push_back( OUString( "Larry"  ) );
-    aComboBox.Entries.push_back( OUString( "Curly"  ) );
-    aComboBox.Entries.push_back( OUString( "Moe"  ) );
-    aComboBox.Location = Rectangle( Point( 4500, 20000 ), Size( 3000, 500 ) );
-    aWriter.CreateControl( aComboBox );
-
-    // test outlines
-    sal_Int32 nPage1OL = aWriter.CreateOutlineItem();
-    aWriter.SetOutlineItemText( nPage1OL, OUString( "Page 1"  ) );
-    aWriter.SetOutlineItemDest( nPage1OL, nSecondDest );
-    aWriter.CreateOutlineItem( nPage1OL, OUString( "Dest 2"  ), nSecondDest );
-    aWriter.CreateOutlineItem( nPage1OL, OUString( "Dest 2 revisited"  ), nSecondDest );
-    aWriter.CreateOutlineItem( nPage1OL, OUString( "Dest 2 again"  ), nSecondDest );
-    sal_Int32 nPage2OL = aWriter.CreateOutlineItem();
-    aWriter.SetOutlineItemText( nPage2OL, OUString( "Page 2"  ) );
-    aWriter.CreateOutlineItem( nPage2OL, OUString( "Dest 1"  ), nFirstDest );
-
-    aWriter.EndStructureElement(); // close document
-
-    aWriter.Emit();
-}
 #endif
 
 static const sal_Int32 nLog10Divisor = 3;
@@ -1702,14 +1322,6 @@ void PDFWriterImpl::PDFPage::appendWaveLine( sal_Int32 nWidth, sal_Int32 nY, sal
         m_bIsPDF_A2( false ),
         m_rOuterFace( i_rOuterFace )
 {
-#ifdef DO_TEST_PDF
-    static bool bOnce = true;
-    if( bOnce )
-    {
-        bOnce = false;
-        doTestCode();
-    }
-#endif
     m_aStructure.emplace_back( );
     m_aStructure[0].m_nOwnElement       = 0;
     m_aStructure[0].m_nParentElement    = 0;
@@ -3322,7 +2934,7 @@ bool PDFWriterImpl::emitFonts()
                 sal_Int32 nFontDescriptor = emitFontDescriptor( subset.first, aSubsetInfo, s_subset.m_nFontID, nFontStream );
 
                 if( nToUnicodeStream )
-                    nToUnicodeStream = createToUnicodeCMap( pEncoding, &aCodeUnits[0], pCodeUnitsPerGlyph, pEncToUnicodeIndex, nGlyphs );
+                    nToUnicodeStream = createToUnicodeCMap( pEncoding, aCodeUnits.data(), pCodeUnitsPerGlyph, pEncToUnicodeIndex, nGlyphs );
 
                 sal_Int32 nFontObject = createObject();
                 if ( !updateObject( nFontObject ) ) return false;
@@ -4316,46 +3928,74 @@ void PDFWriterImpl::createDefaultCheckBoxAppearance( PDFWidget& rBox, const PDFW
     pop();
 
     OStringBuffer aDA( 256 );
-    const pdf::BuildinFont& rBestFont = pdf::BuildinFontFace::Get(
-        getBestBuildinFont(Font("ZapfDingbats", aFont.GetFontSize())));
+
+    // tdf#93853 don't rely on Zapf (or any other 'standard' font)
+    // being present, but our own OpenSymbol - N.B. PDF/A for good
+    // reasons require even the standard PS fonts to be embedded!
+    Push();
+    SetFont( Font( OUString( "OpenSymbol" ), aFont.GetFontSize() ) );
+    FontCharMapRef pMap;
+    GetFontCharMap(pMap);
+    const LogicalFontInstance* pFontInstance = GetFontInstance();
+    const PhysicalFontFace* pDevFont = pFontInstance->GetFontFace();
+    Pop();
+
+    // make sure OpenSymbol is embedded, and includes our checkmark
+    const sal_Unicode cMark=0x2713;
+    const GlyphItem aItem(0, 0, pMap->GetGlyphIndex(cMark),
+                          Point(), 0, 0, 0,
+                          const_cast<LogicalFontInstance*>(pFontInstance));
+    const std::vector<sal_Ucs> aCodeUnits={ cMark };
+    sal_uInt8 nMappedGlyph;
+    sal_Int32 nMappedFontObject;
+    registerGlyph(&aItem, pDevFont, aCodeUnits, nMappedGlyph, nMappedFontObject);
+
     appendNonStrokingColor( replaceColor( rWidget.TextColor, rSettings.GetRadioCheckTextColor() ), aDA );
     aDA.append( ' ' );
-    aDA.append(rBestFont.getNameObject());
+    aDA.append( "/F" );
+    aDA.append( nMappedFontObject );
     aDA.append( " 0 Tf" );
+
+    OStringBuffer aDR( 32 );
+    aDR.append( "/Font " );
+    aDR.append( getFontDictObject() );
+    aDR.append( " 0 R" );
+    rBox.m_aDRDict = aDR.makeStringAndClear();
     rBox.m_aDAString = aDA.makeStringAndClear();
     rBox.m_aMKDict = "/CA";
     rBox.m_aMKDictCAString = "8";
     rBox.m_aRect = aCheckRect;
 
     // create appearance streams
-    sal_Char cMark = '8';
-    const pdf::BuildinFont& rFont = pdf::BuildinFontFace::Get(13);
-    sal_Int32 nCharXOffset = 1000-rFont.m_aWidths[sal_Int32(cMark)];
+    sal_Int32 nCharXOffset = 1000 - 787; // metrics from OpenSymbol
     nCharXOffset *= aCheckRect.GetHeight();
     nCharXOffset /= 2000;
-    sal_Int32 nCharYOffset = 1000-(rFont.m_nAscent+rFont.m_nDescent); // descent is negative
+    sal_Int32 nCharYOffset = 1000 - (820-143); // metrics from Zapf
     nCharYOffset *= aCheckRect.GetHeight();
     nCharYOffset /= 2000;
 
+    // write 'checked' appearance stream
     SvMemoryStream* pCheckStream = new SvMemoryStream( 256, 256 );
     beginRedirect( pCheckStream, aCheckRect );
     aDA.append( "/Tx BMC\nq BT\n" );
     appendNonStrokingColor( replaceColor( rWidget.TextColor, rSettings.GetRadioCheckTextColor() ), aDA );
     aDA.append( ' ' );
-    aDA.append(rBestFont.getNameObject());
+    aDA.append( "/F" );
+    aDA.append( nMappedFontObject );
     aDA.append( ' ' );
     m_aPages[ m_nCurrentPage ].appendMappedLength( sal_Int32( aCheckRect.GetHeight() ), aDA );
     aDA.append( " Tf\n" );
     m_aPages[ m_nCurrentPage ].appendMappedLength( nCharXOffset, aDA );
     aDA.append( " " );
     m_aPages[ m_nCurrentPage ].appendMappedLength( nCharYOffset, aDA );
-    aDA.append( " Td (" );
-    aDA.append( cMark );
-    aDA.append( ") Tj\nET\nQ\nEMC\n" );
+    aDA.append( " Td <" );
+    appendHex( nMappedGlyph, aDA );
+    aDA.append( "> Tj\nET\nQ\nEMC\n" );
     writeBuffer( aDA.getStr(), aDA.getLength() );
     endRedirect();
     rBox.m_aAppearances[ "N" ][ "Yes" ] = pCheckStream;
 
+    // write 'unchecked' appearance stream
     SvMemoryStream* pUncheckStream = new SvMemoryStream( 256, 256 );
     beginRedirect( pUncheckStream, aCheckRect );
     writeBuffer( "/Tx BMC\nEMC\n", 12 );
@@ -4421,12 +4061,7 @@ void PDFWriterImpl::createDefaultRadioButtonAppearance( PDFWidget& rBox, const P
     pop();
 
     OStringBuffer aDA( 256 );
-    const pdf::BuildinFont& rBestFont = pdf::BuildinFontFace::Get(
-        getBestBuildinFont(Font("ZapfDingbats", aFont.GetFontSize())));
     appendNonStrokingColor( replaceColor( rWidget.TextColor, rSettings.GetRadioCheckTextColor() ), aDA );
-    aDA.append( ' ' );
-    aDA.append(rBestFont.getNameObject());
-    aDA.append( " 0 Tf" );
     rBox.m_aDAString = aDA.makeStringAndClear();
     //to encrypt this (el)
     rBox.m_aMKDict = "/CA";
@@ -4443,10 +4078,8 @@ void PDFWriterImpl::createDefaultRadioButtonAppearance( PDFWidget& rBox, const P
     aDA.append( "/Tx BMC\nq BT\n" );
     appendNonStrokingColor( replaceColor( rWidget.TextColor, rSettings.GetRadioCheckTextColor() ), aDA );
     aDA.append( ' ' );
-    aDA.append(rBestFont.getNameObject());
-    aDA.append( ' ' );
     m_aPages[m_nCurrentPage].appendMappedLength( sal_Int32( aCheckRect.GetHeight() ), aDA );
-    aDA.append( " Tf\n0 0 Td\nET\nQ\n" );
+    aDA.append( " 0 0 Td\nET\nQ\n" );
     writeBuffer( aDA.getStr(), aDA.getLength() );
     setFillColor( replaceColor( rWidget.TextColor, rSettings.GetRadioCheckTextColor() ) );
     setLineColor( COL_TRANSPARENT );
@@ -5543,9 +5176,9 @@ sal_Int32 PDFWriterImpl::emitOutputIntent()
     if (!nBytesNeeded)
       return 0;
     std::vector<unsigned char> aBuffer(nBytesNeeded);
-    cmsSaveProfileToMem(hProfile, &aBuffer[0], &nBytesNeeded);
+    cmsSaveProfileToMem(hProfile, aBuffer.data(), &nBytesNeeded);
     cmsCloseProfile(hProfile);
-    bool written = writeBuffer( &aBuffer[0], static_cast<sal_Int32>(aBuffer.size()) );
+    bool written = writeBuffer( aBuffer.data(), static_cast<sal_Int32>(aBuffer.size()) );
     disableStreamEncryption();
     endCompression();
     sal_uInt64 nEndStreamPos = 0;
@@ -5801,9 +5434,9 @@ bool PDFWriterImpl::emitTrailer()
 
             // emit the owner password, must not be encrypted
             aLineS.append( "/O(" );
-            appendLiteralString( reinterpret_cast<char*>(&m_aContext.Encryption.OValue[0]), sal_Int32(m_aContext.Encryption.OValue.size()), aLineS );
+            appendLiteralString( reinterpret_cast<char*>(m_aContext.Encryption.OValue.data()), sal_Int32(m_aContext.Encryption.OValue.size()), aLineS );
             aLineS.append( ")/U(" );
-            appendLiteralString( reinterpret_cast<char*>(&m_aContext.Encryption.UValue[0]), sal_Int32(m_aContext.Encryption.UValue.size()), aLineS );
+            appendLiteralString( reinterpret_cast<char*>(m_aContext.Encryption.UValue.data()), sal_Int32(m_aContext.Encryption.UValue.size()), aLineS );
             aLineS.append( ")/P " );// the permission set
             aLineS.append( m_nAccessPermissions );
             aLineS.append( ">>\nendobj\n\n" );
@@ -6029,7 +5662,7 @@ class PDFStreamIf :
 
 void SAL_CALL  PDFStreamIf::writeBytes( const css::uno::Sequence< sal_Int8 >& aData )
 {
-    if( m_bWrite && aData.getLength() )
+    if( m_bWrite && aData.hasElements() )
     {
         sal_Int32 nBytes = aData.getLength();
         m_pWriter->writeBuffer( aData.getConstArray(), nBytes );
@@ -6902,7 +6535,7 @@ void PDFWriterImpl::drawLayout( SalLayout& rLayout, const OUString& rText, bool 
     }
     writeBuffer( aLine.getStr(), aLine.getLength() );
 
-    Point aOffset = Point(0,0);
+    Point aOffset(0,0);
 
     if ( nEmphMark & FontEmphasisMark::PosBelow )
         aOffset.AdjustY(GetFontInstance()->mxFontMetric->GetDescent() + nEmphYOff );
@@ -8516,16 +8149,14 @@ void PDFWriterImpl::writeTransparentObject( TransparencyEmit& rObject )
     {
         if( ! m_bIsPDF_A1 )
         {
+            // 7.8.3 Resource dicts are required for content streams
+            aLine.append( "/Resources " );
+            aLine.append( getResourceDictObj() );
+            aLine.append( " 0 R\n" );
+
             aLine.append( "/Group<</S/Transparency/CS/DeviceRGB/K true>>\n" );
         }
     }
-    /* #i42884# the PDF reference recommends that each Form XObject
-    *  should have a resource dict; alas if that is the same object
-    *  as the one of the page it triggers an endless recursion in
-    *  acroread 5 (6 and up have that fixed). Since we have only one
-    *  resource dict anyway, let's use the one from the page by NOT
-    *  emitting a Resources entry.
-    */
 
     aLine.append( "/Length " );
     aLine.append( static_cast<sal_Int32>(nSize) );
@@ -8597,7 +8228,11 @@ void PDFWriterImpl::writeTransparentObject( TransparencyEmit& rObject )
             appendFixedInt( rObject.m_aBoundRect.Bottom()+1, aMask );
             aMask.append( "]\n" );
 
-            /* #i42884# see above */
+            // 7.8.3 Resource dicts are required for content streams
+            aMask.append( "/Resources " );
+            aMask.append( getResourceDictObj() );
+            aMask.append( " 0 R\n" );
+
             aMask.append( "/Group<</S/Transparency/CS/DeviceRGB>>\n" );
             aMask.append( "/Length " );
             aMask.append( nMaskSize );
@@ -10388,7 +10023,7 @@ void PDFWriterImpl::moveClipRegion( sal_Int32 nX, sal_Int32 nY )
 void PDFWriterImpl::intersectClipRegion( const tools::Rectangle& rRect )
 {
     basegfx::B2DPolyPolygon aRect( basegfx::utils::createPolygonFromRect(
-        basegfx::B2DRectangle( rRect.Left(), rRect.Top(), rRect.Right(), rRect.Bottom() ) ) );
+                                    vcl::unotools::b2DRectangleFromRectangle(rRect) ) );
     intersectClipRegion( aRect );
 }
 

@@ -25,7 +25,20 @@
 #include <i18nutil/unicode.hxx>
 #include <svx/strings.hrc>
 #include <svx/svxids.hrc>
-#include <svx/xattr.hxx>
+#include <svx/xlinjoit.hxx>
+#include <svx/xlncapit.hxx>
+#include <svx/xlntrit.hxx>
+#include <svx/xfltrit.hxx>
+#include <svx/xftshtit.hxx>
+#include <svx/xgrscit.hxx>
+#include <svx/xflbmtit.hxx>
+#include <svx/xflbmpit.hxx>
+#include <svx/xflbmsxy.hxx>
+#include <svx/xflbmsli.hxx>
+#include <svx/xflbtoxy.hxx>
+#include <svx/xflbstit.hxx>
+#include <svx/xflboxy.hxx>
+#include <svx/xflbckit.hxx>
 #include <svx/xtable.hxx>
 #include <svx/dialmgr.hxx>
 #include <editeng/itemtype.hxx>
@@ -76,11 +89,6 @@ SfxPoolItem* XLineJointItem::CreateDefault() { return new XLineJointItem; }
 XLineJointItem::XLineJointItem( css::drawing::LineJoint eLineJoint ) :
     SfxEnumItem(XATTR_LINEJOINT, eLineJoint)
 {
-}
-
-sal_uInt16 XLineJointItem::GetVersion( sal_uInt16 /*nFileFormatVersion*/) const
-{
-    return 1;
 }
 
 SfxPoolItem* XLineJointItem::Clone(SfxItemPool* /*pPool*/) const
@@ -238,11 +246,6 @@ SfxPoolItem* XLineCapItem::CreateDefault() { return new XLineCapItem; }
 XLineCapItem::XLineCapItem(css::drawing::LineCap eLineCap)
 :   SfxEnumItem(XATTR_LINECAP, eLineCap)
 {
-}
-
-sal_uInt16 XLineCapItem::GetVersion( sal_uInt16 /*nFileFormatVersion*/) const
-{
-    return 1;
 }
 
 SfxPoolItem* XLineCapItem::Clone(SfxItemPool* /*pPool*/) const

@@ -36,6 +36,7 @@
 #include <vcl/settings.hxx>
 
 #include <svl/whiter.hxx>
+#include <svl/stritem.hxx>
 
 #include <sfx2/request.hxx>
 
@@ -63,6 +64,8 @@
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 #include <svx/svdpage.hxx>
+#include <svx/sdmetitm.hxx>
+#include <svx/sdtditm.hxx>
 #include "tableundo.hxx"
 #include "tablelayouter.hxx"
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -1065,7 +1068,7 @@ void SvxTableController::SetTableStyle( const SfxItemSet* pArgs )
     if( pArg && mxTable.is() ) try
     {
         Reference< XStyleFamiliesSupplier > xSFS( rModel.getUnoModel(), UNO_QUERY_THROW );
-        Reference< XNameAccess > xFamilyNameAccess( xSFS->getStyleFamilies(), UNO_QUERY_THROW );
+        Reference< XNameAccess > xFamilyNameAccess( xSFS->getStyleFamilies(), UNO_SET_THROW );
         const OUString sFamilyName( "table" );
         Reference< XNameAccess > xTableFamilyAccess( xFamilyNameAccess->getByName( sFamilyName ), UNO_QUERY_THROW );
 

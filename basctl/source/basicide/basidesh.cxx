@@ -37,6 +37,7 @@
 #include <sfx2/infobar.hxx>
 #include <sfx2/minfitem.hxx>
 #include <sfx2/objface.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/aeitem.hxx>
 #include <svl/srchitem.hxx>
 
@@ -64,6 +65,7 @@
 #include <sfx2/viewfac.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <cppuhelper/implbase.hxx>
 
 namespace basctl

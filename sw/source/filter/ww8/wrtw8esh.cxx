@@ -30,6 +30,7 @@
 #include <sot/storage.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <svl/itemiter.hxx>
+#include <svl/stritem.hxx>
 #include <svl/whiter.hxx>
 #include <svx/svdobj.hxx>
 #include <svx/svdotext.hxx>
@@ -75,6 +76,7 @@
 #include <ndole.hxx>
 #include <unodraw.hxx>
 #include <pagedesc.hxx>
+#include <poolfmt.hxx>
 #include "ww8par.hxx"
 #include <breakit.hxx>
 #include <com/sun/star/i18n/ScriptType.hpp>
@@ -391,8 +393,7 @@ void WW8Export::DoComboBox(uno::Reference<beans::XPropertySet> const & xPropSet)
     OUString sSelected;
     uno::Sequence<OUString> aListItems;
     xPropSet->getPropertyValue("StringItemList") >>= aListItems;
-    sal_Int32 nStringsCnt = aListItems.getLength();
-    if (nStringsCnt)
+    if (aListItems.hasElements())
     {
         uno::Any aTmp = xPropSet->getPropertyValue("DefaultText");
         auto pStr = o3tl::tryAccess<OUString>(aTmp);
@@ -659,6 +660,7 @@ void PlcDrawObj::WritePlc( WW8Export& rWrt ) const
                 WinwordAnchoring::ConvertPosition( rHOr, rVOr, rFormat );
 
             Point aObjPos;
+            bool bHasHeightWidthSwapped(false);
             if (RES_FLYFRMFMT == rFormat.Which())
             {
                 SwRect aLayRect(rFormat.FindLayoutRect(false, &aObjPos));
@@ -694,6 +696,7 @@ void PlcDrawObj::WritePlc( WW8Export& rWrt ) const
                         const long nHeight = aRect.getHeight();
                         aRect.setWidth( nHeight );
                         aRect.setHeight( nWidth );
+                        bHasHeightWidthSwapped = true;
                     }
                 }
             }
@@ -754,6 +757,34 @@ void PlcDrawObj::WritePlc( WW8Export& rWrt ) const
 
             //Nasty swap for bidi if necessary
             rWrt.MiserableRTLFrameFormatHack(nLeft, nRight, rFrameFormat);
+
+            // tdf#70838. Word relates the position to the unrotated rectangle,
+            // Writer to the rotated one. Because the rotation is around center,
+            // the difference counts half.
+            if(pObj && pObj->GetRotateAngle())
+            {
+                SwTwips nXOff;
+                SwTwips nYOff;
+                SwTwips nSnapWidth = pObj->GetSnapRect().getWidth();
+                SwTwips nSnapHeight = pObj->GetSnapRect().getHeight();
+                SwTwips nLogicWidth = pObj->GetLogicRect().getWidth();
+                SwTwips nLogicHeight = pObj->GetLogicRect().getHeight();
+                // +1 for to compensate integer arithmetic rounding errors
+                if(bHasHeightWidthSwapped)
+                {
+                    nXOff = (nSnapWidth - nLogicHeight + 1) / 2;
+                    nYOff = (nSnapHeight - nLogicWidth + 1) / 2;
+                }
+                else
+                {
+                    nXOff = (nSnapWidth - nLogicWidth + 1) / 2;
+                    nYOff = (nSnapHeight - nLogicHeight + 1) / 2;
+                }
+                nLeft += nXOff;
+                nRight += nXOff;
+                nTop += nYOff;
+                nBottom += nYOff;
+            }
 
             //xaLeft/yaTop/xaRight/yaBottom - rel. to anchor
             //(most of) the border is outside the graphic is word, so
@@ -1578,11 +1609,11 @@ void SwBasicEscherEx::WriteGrfBullet(const Graphic& rGrf)
     aPropOpt.AddOpt( ESCHER_Prop_dxTextLeft, 0 );
     aPropOpt.AddOpt( ESCHER_Prop_dxTextRight, 0 );
     const Color aTmpColor( COL_WHITE );
-    SvxBrushItem aBrush( aTmpColor, RES_BACKGROUND );
-    const SvxBrushItem *pRet = rWrt.GetCurrentPageBgBrush();
+    std::shared_ptr<SvxBrushItem> aBrush(std::make_shared<SvxBrushItem>(aTmpColor, RES_BACKGROUND));
+    const SvxBrushItem* pRet = rWrt.GetCurrentPageBgBrush();
     if (pRet && (pRet->GetGraphic() ||( pRet->GetColor() != COL_TRANSPARENT)))
-        aBrush = *pRet;
-    WriteBrushAttr(aBrush, aPropOpt);
+        aBrush.reset(static_cast<SvxBrushItem*>(pRet->Clone()));
+    WriteBrushAttr(*aBrush, aPropOpt);
 
     aPropOpt.AddOpt( ESCHER_Prop_pictureActive, 0 );
     aPropOpt.Commit( GetStream() );
@@ -2050,13 +2081,21 @@ sal_Int32 SwBasicEscherEx::WriteFlyFrameAttr(const SwFrameFormat& rFormat,
 
     if (bIsInHeader)
     {
-        SvxBrushItem aBrush(rFormat.makeBackgroundBrushItem());
-        WriteBrushAttr(aBrush, rPropOpt);
+        std::shared_ptr<SvxBrushItem> aBrush(rFormat.makeBackgroundBrushItem());
+
+        if(aBrush)
+        {
+            WriteBrushAttr(*aBrush, rPropOpt);
+        }
     }
     else
     {
-        SvxBrushItem aBrush(rWrt.TrueFrameBgBrush(rFormat));
-        WriteBrushAttr(aBrush, rPropOpt);
+        std::shared_ptr<SvxBrushItem> aBrush(rWrt.TrueFrameBgBrush(rFormat));
+
+        if(aBrush)
+        {
+            WriteBrushAttr(*aBrush, rPropOpt);
+        }
     }
 
     const SdrObject* pObj = rFormat.FindRealSdrObject();

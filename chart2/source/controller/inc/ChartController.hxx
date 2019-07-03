@@ -27,6 +27,7 @@
 #include <vcl/timer.hxx>
 
 #include <cppuhelper/implbase.hxx>
+#include <salhelper/simplereferenceobject.hxx>
 
 #include <com/sun/star/frame/XDispatchProvider.hpp>
 #include <com/sun/star/ui/XContextMenuInterception.hpp>
@@ -319,6 +320,10 @@ public:
 
     static bool isObjectDeleteable( const css::uno::Any& rSelection );
 
+    bool isSelectedObjectDraggable() const;
+    bool isSelectedObjectResizable() const;
+    bool isSelectedObjectRotatable() const;
+
     void setDrawMode( ChartDrawMode eMode ) { m_eDrawMode = eMode; }
 
     bool isShapeContext() const;
@@ -480,7 +485,7 @@ private:
     bool EndTextEdit();
 
     void executeDispatch_View3D();
-    void executeDispatch_PositionAndSize();
+    void executeDispatch_PositionAndSize( const ::css::uno::Sequence< ::css::beans::PropertyValue >* pArgs = nullptr );
 
     void executeDispatch_EditData();
 
@@ -496,6 +501,7 @@ private:
     void executeDispatch_ToggleGridVertical();
 
     void executeDispatch_LOKSetTextSelection(int nType, int nX, int nY);
+    void executeDispatch_LOKPieSegmentDragging(int nOffset);
 
     void sendPopupRequest(OUString const & rCID, tools::Rectangle aRectangle);
 

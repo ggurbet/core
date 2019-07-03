@@ -258,7 +258,7 @@ void OpenGLSalBitmap::Destroy()
 
     VCL_GL_INFO("Destroy OpenGLSalBitmap texture:" << maTexture.Id());
     maTexture = OpenGLTexture();
-    mpUserBuffer.reset();
+    DeallocateUserData();
 }
 
 bool OpenGLSalBitmap::AllocateUserData()
@@ -292,8 +292,7 @@ bool OpenGLSalBitmap::AllocateUserData()
     if (!alloc)
     {
         SAL_WARN("vcl.opengl", "bad alloc " << mnBytesPerRow << "x" << mnHeight);
-        mpUserBuffer.reset();
-        mnBytesPerRow = 0;
+        DeallocateUserData();
     }
 #ifdef DBG_UTIL
     else
@@ -304,6 +303,12 @@ bool OpenGLSalBitmap::AllocateUserData()
 #endif
 
     return mpUserBuffer != nullptr;
+}
+
+void OpenGLSalBitmap::DeallocateUserData()
+{
+    mpUserBuffer.reset();
+    mnBytesPerRow = 0;
 }
 
 namespace {
@@ -598,8 +603,8 @@ bool OpenGLSalBitmap::ReadTexture()
 #endif
         return true;
     }
-    else if (mnBits == 1 || mnBits == 4)
-    {   // convert buffers from 24-bit RGB to 1 or 4-bit buffer
+    else if (mnBits == 1 || mnBits == 4 || mnBits == 8)
+    {   // convert buffers from 24-bit RGB to 1,4 or 8-bit buffer
         std::vector<sal_uInt8> aBuffer(mnWidth * mnHeight * 3);
 
         sal_uInt8* pBuffer = aBuffer.data();
@@ -614,9 +619,13 @@ bool OpenGLSalBitmap::ReadTexture()
                 pWriter.reset(new ScanlineWriter(maPalette, 8));
                 break;
             case 4:
-            default:
                 pWriter.reset(new ScanlineWriter(maPalette, 2));
                 break;
+            case 8:
+                pWriter.reset(new ScanlineWriter(maPalette, 1));
+                break;
+            default:
+                abort();
         }
 
         for (int y = 0; y < mnHeight; ++y)
@@ -675,7 +684,7 @@ bool OpenGLSalBitmap::calcChecksumGL(OpenGLTexture& rInputTexture, BitmapChecksu
     int nNewWidth = ceil( nWidth / 4.0 );
     int nNewHeight = ceil( nHeight / 4.0 );
 
-    OpenGLTexture aFirstPassTexture = OpenGLTexture(nNewWidth, nNewHeight);
+    OpenGLTexture aFirstPassTexture(nNewWidth, nNewHeight);
     OpenGLFramebuffer* pFramebuffer = xContext->AcquireFramebuffer(aFirstPassTexture);
 
     pProgram->SetUniform1f( "xstep", 1.0 / mnWidth );
@@ -702,7 +711,7 @@ bool OpenGLSalBitmap::calcChecksumGL(OpenGLTexture& rInputTexture, BitmapChecksu
     nNewWidth = ceil( nWidth / 4.0 );
     nNewHeight = ceil( nHeight / 4.0 );
 
-    OpenGLTexture aSecondPassTexture = OpenGLTexture(nNewWidth, nNewHeight);
+    OpenGLTexture aSecondPassTexture(nNewWidth, nNewHeight);
     pFramebuffer = xContext->AcquireFramebuffer(aSecondPassTexture);
 
     pProgram->SetUniform1f( "xstep", 1.0 / mnWidth );
@@ -759,7 +768,10 @@ BitmapBuffer* OpenGLSalBitmap::AcquireBuffer( BitmapAccessMode nMode )
             if( !AllocateUserData() )
                 return nullptr;
             if( maTexture && !ReadTexture() )
+            {
+                DeallocateUserData();
                 return nullptr;
+            }
         }
     }
 
@@ -866,6 +878,7 @@ bool OpenGLSalBitmap::GetSystemData( BitmapSystemData& /*rData*/ )
         if( !AllocateUserData() || !ReadTexture() )
         {
             rBitmap.ReleaseBuffer( pBuffer, false );
+            DeallocateUserData();
             return false;
         }
     }
@@ -899,7 +912,7 @@ bool OpenGLSalBitmap::Replace( const Color& rSearchColor, const Color& rReplaceC
     if( !pProgram )
         return false;
 
-    OpenGLTexture aNewTex = OpenGLTexture( mnWidth, mnHeight );
+    OpenGLTexture aNewTex( mnWidth, mnHeight );
     pFramebuffer = xContext->AcquireFramebuffer( aNewTex );
 
     pProgram->SetTexture( "sampler", maTexture );
@@ -951,7 +964,7 @@ bool OpenGLSalBitmap::ConvertToGreyscale()
     maPalette = Bitmap::GetGreyPalette(256);
 
     // AllocateUserData will handle the rest.
-    mpUserBuffer.reset();
+    DeallocateUserData();
     mbDirtyTexture = false;
 
     CHECK_GL_ERROR();

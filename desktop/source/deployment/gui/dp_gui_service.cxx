@@ -28,6 +28,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/servicedecl.hxx>
 #include <comphelper/unwrapargs.hxx>
+#include <unotools/resmgr.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -162,7 +163,7 @@ ServiceImpl::ServiceImpl( Sequence<Any> const& args,
     : m_xComponentContext(xComponentContext),
       m_bShowUpdateOnly( false )
 {
-    /* if true then this service is running in an unopkg process and not in an office process */
+    /* if true then this service is running in a unopkg process and not in an office process */
     boost::optional<sal_Bool> unopkg;
     boost::optional<OUString> view;
     try {
@@ -262,12 +263,12 @@ void ServiceImpl::startExecuteModal(
             if ( bCloseDialog )
                 myExtMgr->Close();
             else
-                myExtMgr->ToTop( ToTopFlags::RestoreWhenMin );
+                myExtMgr->ToTop();
         }
         else
         {
             myExtMgr->Show();
-            myExtMgr->ToTop( ToTopFlags::RestoreWhenMin );
+            myExtMgr->ToTop();
         }
     }
 

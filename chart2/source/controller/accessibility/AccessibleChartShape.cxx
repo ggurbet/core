@@ -30,7 +30,6 @@ using namespace ::com::sun::star;
 using namespace ::com::sun::star::accessibility;
 
 using ::com::sun::star::uno::Reference;
-using ::com::sun::star::uno::RuntimeException;
 
 namespace chart
 {
@@ -51,7 +50,7 @@ AccessibleChartShape::AccessibleChartShape(
 
         m_aShapeTreeInfo.SetSdrView( rAccInfo.m_pSdrView );
         m_aShapeTreeInfo.SetController( nullptr );
-        m_aShapeTreeInfo.SetWindow( VCLUnoHelper::GetWindow( rAccInfo.m_xWindow ) );
+        m_aShapeTreeInfo.SetDevice( VCLUnoHelper::GetWindow( rAccInfo.m_xWindow ) );
         m_aShapeTreeInfo.SetViewForwarder( rAccInfo.m_pViewForwarder );
 
         ::accessibility::ShapeTypeHandler& rShapeHandler = ::accessibility::ShapeTypeHandler::Instance();

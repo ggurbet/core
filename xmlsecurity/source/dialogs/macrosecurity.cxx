@@ -19,7 +19,6 @@
 
 
 #include <macrosecurity.hxx>
-#include <certificatechooser.hxx>
 #include <certificateviewer.hxx>
 #include <biginteger.hxx>
 
@@ -28,11 +27,9 @@
 
 #include <com/sun/star/xml/crypto/XSecurityEnvironment.hpp>
 #include <comphelper/sequence.hxx>
-#include <sfx2/filedlghelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/xmlsechelper.hxx>
 #include <com/sun/star/uno/Exception.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/ui/dialogs/FolderPicker.hpp>
 #include <com/sun/star/ui/dialogs/ExecutableDialogResults.hpp>
 #include <tools/diagnose_ex.h>
@@ -40,8 +37,6 @@
 #include <unotools/datetime.hxx>
 
 #include <vcl/svapp.hxx>
-
-#include <strings.hrc>
 
 using namespace comphelper;
 using namespace ::com::sun::star;
@@ -253,7 +248,7 @@ IMPL_LINK_NOARG(MacroSecurityTrustedSourcesTP, AddLocPBHdl, weld::Button&, void)
         INetURLObject aNewObj( aPathStr );
         aNewObj.removeFinalSlash();
 
-        // then the new path also an URL else system path
+        // then the new path also a URL else system path
         OUString aSystemFileURL = ( aNewObj.GetProtocol() != INetProtocol::NotValid ) ?
             aPathStr : aNewObj.getFSysPath( FSysStyle::Detect );
 
@@ -314,10 +309,9 @@ void MacroSecurityTrustedSourcesTP::FillCertLB()
         for( sal_uInt32 nEntry = 0 ; nEntry < nEntries ; ++nEntry )
         {
             css::uno::Sequence< OUString >&              rEntry = m_aTrustedAuthors[ nEntry ];
-            uno::Reference< css::security::XCertificate >   xCert;
 
             // create from RawData
-            xCert = m_pDlg->m_xSecurityEnvironment->createCertificateFromAscii( rEntry[ 2 ] );
+            uno::Reference< css::security::XCertificate > xCert = m_pDlg->m_xSecurityEnvironment->createCertificateFromAscii( rEntry[ 2 ] );
 
             m_xTrustCertLB->append(OUString::number(nEntry), xmlsec::GetContentPart(xCert->getSubjectName()));
             m_xTrustCertLB->set_text(nEntry, xmlsec::GetContentPart(xCert->getIssuerName()), 1);
@@ -369,10 +363,9 @@ MacroSecurityTrustedSourcesTP::MacroSecurityTrustedSourcesTP(weld::Container* pP
     m_xTrustFileLocLB->set_sensitive(!mbURLsReadonly);
     m_xAddLocPB->set_sensitive(!mbURLsReadonly);
 
-    sal_Int32 nEntryCnt = aSecureURLs.getLength();
-    for (sal_Int32 i = 0; i < nEntryCnt; ++i)
+    for (const auto& rSecureURL : aSecureURLs)
     {
-        OUString aSystemFileURL( aSecureURLs[ i ] );
+        OUString aSystemFileURL( rSecureURL );
         osl::FileBase::getSystemPathFromFileURL( aSystemFileURL, aSystemFileURL );
         m_xTrustFileLocLB->append_text(aSystemFileURL);
     }

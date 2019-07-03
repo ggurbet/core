@@ -17,13 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <tools/lineend.hxx>
 #include <tools/poly.hxx>
 
 #include <vcl/image.hxx>
-#include <vcl/bitmap.hxx>
 #include <vcl/bitmapex.hxx>
-#include <vcl/builderfactory.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
@@ -42,7 +39,6 @@
 #include <svdata.hxx>
 #include <window.h>
 #include <controldata.hxx>
-#include <sal/log.hxx>
 #include <osl/diagnose.h>
 
 #include <comphelper/dispatchcommand.hxx>
@@ -264,7 +260,7 @@ void Button::ImplDrawAlignedImage(OutputDevice* pDev, Point& rPos,
     Size aMax;
     Point aImagePos = rPos;
     Point aTextPos = rPos;
-    tools::Rectangle aUnion = tools::Rectangle(aImagePos, aImageSize);
+    tools::Rectangle aUnion(aImagePos, aImageSize);
     tools::Rectangle aSymbol;
     long nSymbolHeight = 0;
 
@@ -273,7 +269,7 @@ void Button::ImplDrawAlignedImage(OutputDevice* pDev, Point& rPos,
         // Get the size of the text output area ( the symbol will be drawn in
         // this area as well, so the symbol rectangle will be calculated here, too )
 
-        tools::Rectangle aRect = tools::Rectangle(Point(), rSize);
+        tools::Rectangle aRect(Point(), rSize);
         Size aTSSize;
 
         if (bHasSymbol)
@@ -442,7 +438,7 @@ void Button::ImplDrawAlignedImage(OutputDevice* pDev, Point& rPos,
     {
         if (mpButtonData->meSymbolAlign == SymbolAlign::RIGHT)
         {
-            Point aRightPos = Point(aTextPos.X() + aTextSize.Width() + aSymbolSize.Width() / 2, aTextPos.Y());
+            Point aRightPos(aTextPos.X() + aTextSize.Width() + aSymbolSize.Width() / 2, aTextPos.Y());
             *pSymbolRect = tools::Rectangle(aRightPos, aSymbolSize);
         }
         else
@@ -484,7 +480,7 @@ void Button::ImplDrawAlignedImage(OutputDevice* pDev, Point& rPos,
 void Button::ImplSetFocusRect(const tools::Rectangle &rFocusRect)
 {
     tools::Rectangle aFocusRect = rFocusRect;
-    tools::Rectangle aOutputRect = tools::Rectangle(Point(), GetOutputSizePixel());
+    tools::Rectangle aOutputRect(Point(), GetOutputSizePixel());
 
     if (!aFocusRect.IsEmpty())
     {
@@ -805,13 +801,23 @@ void PushButton::ImplDrawPushButtonContent(OutputDevice* pDev, DrawFlags nDrawFl
     DrawSymbolFlags         nStyle;
 
     if( aInRect.Right() < aInRect.Left() || aInRect.Bottom() < aInRect.Top() )
-        aInRect.SetEmpty();
+        return; // nothing to do
 
     pDev->Push( PushFlags::CLIPREGION );
     pDev->IntersectClipRegion( aInRect );
 
     if ( nDrawFlags & DrawFlags::Mono )
         aColor = COL_BLACK;
+#ifdef MACOSX
+    else if ((nButtonFlags & DrawButtonFlags::Default) && !(GetStyle() & WB_FLATBUTTON))
+    {
+        // Make text color white if the button is a default control on macOS.
+        // Without this you get a button with a blue background and blue text
+        // which stands out as not looking right on macOS where default buttons
+        // have white text and a blue background.
+        aColor = COL_WHITE;
+    }
+#endif
     else if( (nButtonFlags & DrawButtonFlags::Highlight) && IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Entire) )
     {
         if (nButtonFlags & DrawButtonFlags::Pressed)
@@ -1018,7 +1024,8 @@ void PushButton::ImplDrawPushButton(vcl::RenderContext& rRenderContext)
         if (!bRollOver && !HasFocus())
             bDrawMenuSep = false;
     }
-    bNativeOK = rRenderContext.IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Entire);
+    // tdf#123175 if there is a custom control bg set, draw the button without outsourcing to the NWF
+    bNativeOK = !IsControlBackground() && rRenderContext.IsNativeControlSupported(ControlType::Pushbutton, ControlPart::Entire);
     if (bNativeOK)
     {
         PushButtonValue aControlValue;
@@ -1846,6 +1853,10 @@ WinBits RadioButton::ImplInitStyle( const vcl::Window* pPrevWindow, WinBits nSty
         nStyle |= WB_GROUP;
     if ( !(nStyle & WB_NOTABSTOP) )
         nStyle |= WB_TABSTOP;
+
+    if ( IsChecked() && IsRadioCheckEnabled() )
+        ImplUncheckAllOther();
+
     return nStyle;
 }
 
@@ -2043,8 +2054,9 @@ void RadioButton::ImplDraw( OutputDevice* pDev, DrawFlags nDrawFlags,
 
             ImplDrawAlignedImage( pDev, aPos, aSize, 1, nTextStyle );
 
-            rMouseRect          = tools::Rectangle( aPos, aSize );
-            rMouseRect.SetLeft( rPos.X() );
+            rMouseRect = tools::Rectangle(aPos, aSize);
+            rMouseRect.SetLeft(rPos.X());
+            rMouseRect.SetTop(rPos.Y());
 
             rStateRect.SetLeft( rPos.X() );
             rStateRect.SetTop( rMouseRect.Top() );
@@ -3825,11 +3837,6 @@ void DisclosureButton::KeyInput( const KeyEvent& rKEvt )
     }
     else
         CheckBox::KeyInput( rKEvt );
-}
-
-extern "C" SAL_DLLPUBLIC_EXPORT void makeSmallButton(VclPtr<vcl::Window> & rRet, VclPtr<vcl::Window> & pParent, VclBuilder::stringmap &)
-{
-    rRet = VclPtr<PushButton>::Create(pParent, WB_CLIPCHILDREN|WB_CENTER|WB_VCENTER|WB_FLATBUTTON|WB_SMALLSTYLE);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

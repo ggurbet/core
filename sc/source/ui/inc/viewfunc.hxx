@@ -59,6 +59,15 @@ struct ColRowSpan;
 
 namespace com { namespace sun { namespace star { namespace datatransfer { class XTransferable; } } } }
 
+struct ScDataFormFragment
+{
+    std::unique_ptr<weld::Builder> m_xBuilder;
+    std::unique_ptr<weld::Label> m_xLabel;
+    std::unique_ptr<weld::Entry> m_xEdit;
+
+    ScDataFormFragment(weld::Container* pGrid, int nLine);
+};
+
 class ScViewFunc : public ScTabView
 {
 private:
@@ -71,15 +80,16 @@ public:
                     ~ScViewFunc();
 
     SC_DLLPUBLIC const ScPatternAttr*    GetSelectionPattern ();
-    void                    GetSelectionFrame   ( SvxBoxItem&       rLineOuter,
-                                                  SvxBoxInfoItem&   rLineInner );
+    void GetSelectionFrame(
+        std::shared_ptr<SvxBoxItem>& rLineOuter,
+        std::shared_ptr<SvxBoxInfoItem>& rLineInner );
 
     SvtScriptType   GetSelectionScriptType();
 
-    bool            GetAutoSumArea(ScRangeList& rRangeList);
-    void            EnterAutoSum(const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr);
-    bool            AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor, bool bContinue );
-    OUString        GetAutoSumFormula( const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr );
+    bool            GetAutoSumArea( ScRangeList& rRangeList );
+    void            EnterAutoSum( const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr, const OpCode eCode );
+    bool            AutoSum( const ScRange& rRange, bool bSubTotal, bool bSetCursor, bool bContinue, const OpCode eCode );
+    OUString        GetAutoSumFormula( const ScRangeList& rRangeList, bool bSubTotal, const ScAddress& rAddr, const OpCode eCode );
 
     void            EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab, const OUString& rString,
                                const EditTextObject* pData = nullptr );
@@ -319,11 +329,11 @@ public:
     bool            SelectionEditable( bool* pOnlyNotBecauseOfMatrix = nullptr );
 
     SC_DLLPUBLIC void
-                    DataFormPutData( SCROW nCurrentRow ,
-                                     SCROW nStartRow , SCCOL nStartCol ,
-                                     SCROW nEndRow , SCCOL nEndCol ,
-                                     std::vector<VclPtr<Edit> >& aEdits,
-                                     sal_uInt16 aColLength );
+                    DataFormPutData(SCROW nCurrentRow ,
+                                    SCROW nStartRow , SCCOL nStartCol ,
+                                    SCROW nEndRow , SCCOL nEndCol ,
+                                    std::vector<std::unique_ptr<ScDataFormFragment>>& rEdits,
+                                    sal_uInt16 aColLength);
     void            UpdateSelectionArea( const ScMarkData& rSel, ScPatternAttr* pAttr = nullptr );
 
     void            OnLOKInsertDeleteColumn(SCCOL nStartCol, long nOffset);

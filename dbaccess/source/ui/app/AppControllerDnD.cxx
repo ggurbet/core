@@ -67,7 +67,6 @@
 #include <UITools.hxx>
 #include <algorithm>
 #include <iterator>
-#include <vcl/treelistbox.hxx>
 #include <com/sun/star/sdb/XReportDocumentsSupplier.hpp>
 #include <com/sun/star/sdb/XFormDocumentsSupplier.hpp>
 #include <unotools/pathoptions.hxx>
@@ -102,7 +101,7 @@ void OApplicationController::deleteTables(const std::vector< OUString>& _rList)
     SharedConnection xConnection( ensureConnection() );
 
     Reference<XTablesSupplier> xSup(xConnection,UNO_QUERY);
-    OSL_ENSURE(xSup.is(),"OApplicationController::deleteTable: no XTablesSuppier!");
+    OSL_ENSURE(xSup.is(),"OApplicationController::deleteTable: no XTablesSupplier!");
     if ( xSup.is() )
     {
         Reference<XNameAccess> xTables = xSup->getTables();

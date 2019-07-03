@@ -173,11 +173,13 @@ bool SvLBoxButtonData::IsRadio() {
 
 
 SvLBoxString::SvLBoxString(const OUString& rStr)
-    : maText(rStr)
+    : mbEmphasized(false)
+    , maText(rStr)
 {
 }
 
 SvLBoxString::SvLBoxString()
+    : mbEmphasized(false)
 {
 }
 
@@ -194,7 +196,7 @@ void SvLBoxString::Paint(
     const Point& rPos, SvTreeListBox& rDev, vcl::RenderContext& rRenderContext,
     const SvViewDataEntry* /*pView*/, const SvTreeListEntry& rEntry)
 {
-    Size aSize = GetSize(&rDev, &rEntry);
+    Size aSize;
     DrawTextFlags nStyle = (rDev.IsEnabled() && !mbDisabled) ? DrawTextFlags::NONE : DrawTextFlags::Disable;
     if (rDev.IsEntryMnemonicsEnabled())
         nStyle |= DrawTextFlags::Mnemonic;
@@ -203,7 +205,22 @@ void SvLBoxString::Paint(
         nStyle |= DrawTextFlags::PathEllipsis | DrawTextFlags::Center;
         aSize.setWidth( rDev.GetEntryWidth() );
     }
+    else
+        aSize.setWidth(GetWidth(&rDev, &rEntry));
+    aSize.setHeight(GetHeight(&rDev, &rEntry));
+
+    if (mbEmphasized)
+    {
+        rRenderContext.Push();
+        vcl::Font aFont(rRenderContext.GetFont());
+        aFont.SetWeight(WEIGHT_BOLD);
+        rRenderContext.SetFont(aFont);
+    }
+
     rRenderContext.DrawText(tools::Rectangle(rPos, aSize), maText, nStyle);
+
+    if (mbEmphasized)
+        rRenderContext.Pop();
 }
 
 std::unique_ptr<SvLBoxItem> SvLBoxString::Clone(SvLBoxItem const * pSource) const
@@ -218,7 +235,25 @@ void SvLBoxString::InitViewData(
 {
     if( !pViewData )
         pViewData = pView->GetViewDataItem( pEntry, this );
-    pViewData->maSize = Size(pView->GetTextWidth(maText), pView->GetTextHeight());
+
+    if (mbEmphasized)
+    {
+        pView->Push();
+        vcl::Font aFont( pView->GetFont());
+        aFont.SetWeight(WEIGHT_BOLD);
+        pView->Control::SetFont( aFont );
+    }
+
+    pViewData->mnWidth = -1; // calc on demand
+    pViewData->mnHeight = pView->GetTextHeight();
+
+    if (mbEmphasized)
+        pView->Pop();
+}
+
+int SvLBoxString::CalcWidth(const SvTreeListBox* pView) const
+{
+    return pView->GetTextWidth(maText);
 }
 
 // ***************************************************************
@@ -353,17 +388,13 @@ void SvLBoxButton::InitViewData(SvTreeListBox* pView,SvTreeListEntry* pEntry, Sv
     ControlType eCtrlType = (pData->IsRadio())? ControlType::Radiobutton : ControlType::Checkbox;
     if ( eKind != SvLBoxButtonKind::StaticImage && pView )
         ImplAdjustBoxSize(aSize, eCtrlType, *pView);
-    pViewData->maSize = aSize;
+    pViewData->mnWidth = aSize.Width();
+    pViewData->mnHeight = aSize.Height();
 }
 
 bool SvLBoxButton::CheckModification() const
 {
     return eKind == SvLBoxButtonKind::EnabledCheckbox;
-}
-
-void SvLBoxButton::SetStateInvisible()
-{
-    isVis = false;
 }
 
 // ***************************************************************
@@ -423,7 +454,9 @@ void SvLBoxContextBmp::InitViewData( SvTreeListBox* pView,SvTreeListEntry* pEntr
 {
     if( !pViewData )
         pViewData = pView->GetViewDataItem( pEntry, this );
-    pViewData->maSize = m_pImpl->m_aImage1.GetSizePixel();
+    Size aSize = m_pImpl->m_aImage1.GetSizePixel();
+    pViewData->mnWidth = aSize.Width();
+    pViewData->mnHeight = aSize.Height();
 }
 
 void SvLBoxContextBmp::Paint(

@@ -406,7 +406,7 @@ DECLARE_DUMP_TEST(LegendTest, Chart2DumpTest, false)
     {
         setTestFileName(aTestFile);
         load(getTestFileDirName(), getTestFileName());
-        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_QUERY_THROW);
+        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_SET_THROW);
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xChartDoc, uno::UNO_QUERY);
         uno::Reference<drawing::XDrawPage> xDrawPage = xDrawPageSupplier->getDrawPage();
         uno::Reference<drawing::XShapes> xShapes(xDrawPage->getByIndex(0), uno::UNO_QUERY);
@@ -479,7 +479,7 @@ DECLARE_DUMP_TEST(LegendTest, Chart2DumpTest, false)
 
             if (sShapeType == "com.sun.star.drawing.TextShape")
             {
-                uno::Reference<text::XText> xLegendEntryText = uno::Reference<text::XTextRange>(xShape, uno::UNO_QUERY)->getText();
+                uno::Reference<text::XText> xLegendEntryText = uno::Reference<text::XTextRange>(xShape, uno::UNO_QUERY_THROW)->getText();
                 CPPUNIT_DUMP_ASSERT_STRINGS_EQUAL(xLegendEntryText->getString());
             }
         }
@@ -572,7 +572,7 @@ DECLARE_DUMP_TEST(AxisGeometryTest, Chart2DumpTest, false)
     {
         setTestFileName(sTestFile);
         load(getTestFileDirName(), getTestFileName());
-        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_QUERY_THROW);
+        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_SET_THROW);
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xChartDoc, uno::UNO_QUERY);
         uno::Reference<drawing::XDrawPage> xDrawPage = xDrawPageSupplier->getDrawPage();
         uno::Reference<drawing::XShapes> xShapes(xDrawPage->getByIndex(0), uno::UNO_QUERY);
@@ -637,13 +637,14 @@ DECLARE_DUMP_TEST(AxisLabelTest, Chart2DumpTest, false)
         "rotated_axis_labels.odp",
         "formated_axis_labels.odp",
         "percent_stacked_column_chart.odp",
+        "tdf118150.xlsx",
     };
 
     for (const OUString& sTestFile : aTestFiles)
     {
         setTestFileName(sTestFile);
         load(getTestFileDirName(), getTestFileName());
-        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_QUERY_THROW);
+        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_SET_THROW);
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xChartDoc, uno::UNO_QUERY);
         uno::Reference<drawing::XDrawPage> xDrawPage = xDrawPageSupplier->getDrawPage();
         uno::Reference<drawing::XShapes> xShapes(xDrawPage->getByIndex(0), uno::UNO_QUERY);
@@ -796,7 +797,7 @@ DECLARE_DUMP_TEST(ChartWallTest, Chart2DumpTest, false)
     {
         setTestFileName(sTestFile);
         load(getTestFileDirName(), getTestFileName());
-        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_QUERY_THROW);
+        uno::Reference< chart::XChartDocument > xChartDoc(getChartDocFromDrawImpress(0, 0), UNO_SET_THROW);
         uno::Reference<drawing::XDrawPageSupplier> xDrawPageSupplier(xChartDoc, uno::UNO_QUERY);
         uno::Reference<drawing::XDrawPage> xDrawPage = xDrawPageSupplier->getDrawPage();
         uno::Reference<drawing::XShapes> xShapes(xDrawPage->getByIndex(0), uno::UNO_QUERY);
@@ -855,7 +856,7 @@ DECLARE_DUMP_TEST(PieChartTest, Chart2DumpTest, false)
         "rotated_pie_chart.ods",
         "exploded_pie_chart.ods",
         "donut_chart.ods",
-        "pie_chart_many_slices.ods"
+        "pie_chart_many_slices.ods",
     };
 
     for (const OUString& sTestFile : aTestFiles)

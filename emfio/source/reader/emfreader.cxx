@@ -406,9 +406,9 @@ namespace emfio
 
         mbEMFPlus = true;
         sal_uInt64 const pos = mpInputStream->Tell();
-        void *buffer = malloc( length );
-        PassEMFPlus( buffer, mpInputStream->ReadBytes(buffer, length) );
-        free( buffer );
+        auto buffer = std::make_unique<char[]>( length );
+        PassEMFPlus( buffer.get(), mpInputStream->ReadBytes(buffer.get(), length) );
+        buffer.reset();
         mpInputStream->Seek( pos );
 
         bHaveDC = false;
@@ -1360,14 +1360,16 @@ namespace emfio
                                 if(!aBitmapEx.IsEmpty())
                                 {
                                     // test if it is sensible to crop
-                                    if ( ( cxSrc > 0 ) && ( cySrc > 0 ) &&
-                                        ( xSrc >= 0 ) && ( ySrc >= 0 ) &&
-                                            ( xSrc + cxSrc < aBitmapEx.GetSizePixel().Width() ) &&
-                                                ( ySrc + cySrc < aBitmapEx.GetSizePixel().Height() ) )
+                                    if (cxSrc > 0 && cySrc > 0 && xSrc >= 0 && ySrc >= 0)
                                     {
-                                        const tools::Rectangle aCropRect( Point( xSrc, ySrc ), Size( cxSrc, cySrc ) );
-
-                                        aBitmapEx.Crop( aCropRect );
+                                        sal_Int32 xEndSrc;
+                                        sal_Int32 yEndSrc;
+                                        if (!o3tl::checked_add(xSrc, cxSrc, xEndSrc) && xEndSrc < aBitmapEx.GetSizePixel().Width() &&
+                                            !o3tl::checked_add(ySrc, cySrc, yEndSrc) && yEndSrc < aBitmapEx.GetSizePixel().Height())
+                                        {
+                                            const tools::Rectangle aCropRect( Point( xSrc, ySrc ), Size( cxSrc, cySrc ) );
+                                            aBitmapEx.Crop( aCropRect );
+                                        }
                                     }
 
     #ifdef DBG_UTIL

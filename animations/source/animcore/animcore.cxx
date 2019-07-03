@@ -18,7 +18,6 @@
  */
 
 #include <com/sun/star/util/XCloneable.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/lang/XTypeProvider.hpp>
@@ -44,7 +43,6 @@
 #include <com/sun/star/presentation/ShapeAnimationSubType.hpp>
 #include <com/sun/star/container/ElementExistException.hpp>
 #include <com/sun/star/container/XEnumerationAccess.hpp>
-#include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/util/XChangesNotifier.hpp>
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <comphelper/servicehelper.hxx>
@@ -57,9 +55,13 @@
 
 #include <osl/mutex.hxx>
 #include <sal/log.hxx>
+#include <array>
 #include <vector>
 #include <algorithm>
 #include <string.h>
+
+namespace com::sun::star::uno { class XComponentContext; }
+namespace com::sun::star::beans { struct NamedValue; }
 
 using ::osl::Mutex;
 using ::osl::Guard;
@@ -68,7 +70,6 @@ using ::comphelper::OInterfaceIteratorHelper2;
 using ::com::sun::star::uno::Any;
 using ::com::sun::star::uno::UNO_QUERY;
 using ::com::sun::star::uno::XInterface;
-using ::com::sun::star::uno::RuntimeException;
 using ::com::sun::star::uno::Sequence;
 using ::com::sun::star::uno::Reference;
 using ::com::sun::star::uno::WeakReference;
@@ -78,7 +79,6 @@ using ::com::sun::star::uno::XWeak;
 using ::com::sun::star::uno::Type;
 using ::com::sun::star::uno::Any;
 using ::com::sun::star::lang::IllegalArgumentException;
-using ::com::sun::star::lang::WrappedTargetException;
 using ::com::sun::star::lang::XServiceInfo;
 using ::com::sun::star::lang::XTypeProvider;
 using ::com::sun::star::container::NoSuchElementException;
@@ -289,7 +289,7 @@ private:
     const sal_Int16 mnNodeType;
 
     // for XTypeProvider
-    static Sequence< Type >* mpTypes[12];
+    static std::array<Sequence< Type >*, 12> mpTypes;
 
     // attributes for the XAnimationNode interface implementation
     Any maBegin, maDuration, maEnd, maEndSync, maRepeatCount, maRepeatDuration;
@@ -390,7 +390,7 @@ Any SAL_CALL TimeContainerEnumeration::nextElement()
 }
 
 
-Sequence< Type >* AnimationNode::mpTypes[] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+std::array<Sequence< Type >*, 12> AnimationNode::mpTypes = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 
 AnimationNode::AnimationNode( sal_Int16 nNodeType )
 :   maChangeListener(maMutex),
@@ -420,7 +420,7 @@ AnimationNode::AnimationNode( sal_Int16 nNodeType )
     mnIterateType( css::presentation::ShapeAnimationSubType::AS_WHOLE ),
     mfIterateInterval(0.0)
 {
-    assert(nNodeType < int(SAL_N_ELEMENTS(mpTypes)));
+    assert(nNodeType < int(mpTypes.size()));
 }
 
 AnimationNode::AnimationNode( const AnimationNode& rNode )
@@ -698,7 +698,7 @@ void AnimationNode::initTypeProvider( sal_Int16 nNodeType ) throw()
 
     if(! mpTypes[nNodeType] )
     {
-        static const sal_Int32 type_numbers[] =
+        static constexpr std::array<sal_Int32, mpTypes.size()> type_numbers =
         {
             7, // CUSTOM
             9, // PAR

@@ -60,6 +60,7 @@
 #include <xmloff/xmlimppr.hxx>
 #include <svl/zforlist.hxx>
 #include <svx/svdocapt.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/outlobj.hxx>
 #include <editeng/wghtitem.hxx>
 #include <editeng/colritem.hxx>
@@ -92,6 +93,8 @@
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
 #include <i18nlangtag/lang.h>
+
+#include <comphelper/servicehelper.hxx>
 
 using namespace com::sun::star;
 using namespace xmloff::token;
@@ -369,7 +372,7 @@ void ScXMLTableRowCellContext::PushFormat(sal_Int32 nBegin, sal_Int32 nEnd, cons
     rFmt.maSelection.nEndPos = nEnd;
 
     // Store the used text styles for export.
-    ScSheetSaveData* pSheetData = ScModelObj::getImplementation(rXMLImport.GetModel())->GetSheetSaveData();
+    ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(rXMLImport.GetModel())->GetSheetSaveData();
     ScAddress aCellPos = rXMLImport.GetTables().GetCurrentCellPos();
     pSheetData->AddTextStyle(rStyleName, aCellPos, rFmt.maSelection);
 
@@ -829,7 +832,7 @@ void ScXMLTableRowCellContext::SetContentValidation( const ScRange& rScRange )
             // is the below still needed?
             // For now, any sheet with validity is blocked from stream-copying.
             // Later, the validation names could be stored along with the style names.
-            ScSheetSaveData* pSheetData = ScModelObj::getImplementation(GetImport().GetModel())->GetSheetSaveData();
+            ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(GetImport().GetModel())->GetSheetSaveData();
             pSheetData->BlockSheet( GetScImport().GetTables().GetCurrentSheet() );
         }
     }
@@ -936,7 +939,7 @@ void ScXMLTableRowCellContext::SetAnnotation(const ScAddress& rPos)
     }
 
     // store the style names for stream copying
-    ScSheetSaveData* pSheetData = ScModelObj::getImplementation(rXMLImport.GetModel())->GetSheetSaveData();
+    ScSheetSaveData* pSheetData = comphelper::getUnoTunnelImplementation<ScModelObj>(rXMLImport.GetModel())->GetSheetSaveData();
     pSheetData->HandleNoteStyles( mxAnnotationData->maStyleName, mxAnnotationData->maTextStyle, rPos );
 
     for (const auto& rContentStyle : mxAnnotationData->maContentStyles)

@@ -37,6 +37,7 @@
 #include <svx/svxids.hrc>
 #include <svx/svditer.hxx>
 #include <svx/dbaexchange.hxx>
+#include <svx/sdtagitm.hxx>
 
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
@@ -154,11 +155,8 @@ void OReportSection::Paint( vcl::RenderContext& rRenderContext, const tools::Rec
             // draw background self using wallpaper
             OutputDevice& rTargetOutDev = pTargetPaintWindow->GetTargetOutputDevice();
             rTargetOutDev.DrawWallpaper(rRect, Wallpaper(pPgView->GetApplicationDocumentColor()));
-        }
 
-        // do paint (unbuffered) and mark repaint end
-        if(pPgView)
-        {
+            // do paint (unbuffered) and mark repaint end
             pPgView->DrawLayer(RPT_LAYER_FRONT, &rRenderContext);
             pPgView->GetView().EndDrawLayers(*pTargetPaintWindow, true);
         }
@@ -236,7 +234,7 @@ void OReportSection::fill()
 void OReportSection::Paste(const uno::Sequence< beans::NamedValue >& _aAllreadyCopiedObjects,bool _bForce)
 {
     OSL_ENSURE(m_xSection.is(),"Why is the section here NULL!");
-    if ( m_xSection.is() && _aAllreadyCopiedObjects.getLength() )
+    if ( m_xSection.is() && _aAllreadyCopiedObjects.hasElements() )
     {
         // stop all drawing actions
         m_pView->BrkAction();
@@ -259,7 +257,7 @@ void OReportSection::Paste(const uno::Sequence< beans::NamedValue >& _aAllreadyC
                     const uno::Reference<report::XReportComponent>* pCopiesEnd = pCopiesIter + aCopies.getLength();
                     for (;pCopiesIter != pCopiesEnd ; ++pCopiesIter)
                     {
-                        SvxShape* pShape = SvxShape::getImplementation( *pCopiesIter );
+                        SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( *pCopiesIter );
                         SdrObject* pObject = pShape ? pShape->GetSdrObject() : nullptr;
                         if ( pObject )
                         {
@@ -509,7 +507,7 @@ void OReportSection::impl_adjustObjectSizePosition(sal_Int32 i_nPaperWidth,sal_I
             uno::Reference< report::XReportComponent> xReportComponent(m_xSection->getByIndex(i),uno::UNO_QUERY_THROW);
             awt::Point aPos = xReportComponent->getPosition();
             awt::Size aSize = xReportComponent->getSize();
-            SvxShape* pShape = SvxShape::getImplementation( xReportComponent );
+            SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xReportComponent );
             SdrObject* pObject = pShape ? pShape->GetSdrObject() : nullptr;
             if ( pObject )
             {
@@ -690,8 +688,7 @@ sal_Int8 OReportSection::AcceptDrop( const AcceptDropEvent& _rEvt )
          )
     {
         if (!m_pParent) return DND_ACTION_NONE;
-        sal_uInt16 nCurrentPosition = 0;
-        nCurrentPosition = m_pParent->getViewsWindow()->getPosition(m_pParent);
+        sal_uInt16 nCurrentPosition = m_pParent->getViewsWindow()->getPosition(m_pParent);
         if (_rEvt.mnAction == DND_ACTION_COPY )
         {
             // we must assure, we can't drop in the top section

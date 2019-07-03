@@ -21,10 +21,12 @@
 #ifndef INCLUDED_SVX_DESCRIPTIONGENERATOR_HXX
 #define INCLUDED_SVX_DESCRIPTIONGENERATOR_HXX
 
-#include <com/sun/star/drawing/XShape.hpp>
-#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/uno/Reference.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <svx/svxdllapi.h>
+
+namespace com::sun::star::beans { class XPropertySet; }
+namespace com::sun::star::drawing { class XShape; }
 
 
 namespace accessibility {
@@ -131,22 +133,6 @@ public:
             in any way.
     */
     void AppendString (const OUString& sString);
-
-    /** Add properties that describe line and border attributes.
-    */
-    void AddLineProperties();
-
-    /** Add properties that describe how areas are filled.
-    */
-    void AddFillProperties();
-
-    /** Add properties that describes attributes of 3D objects.
-    */
-    void Add3DProperties();
-
-    /** Add properties that describe text attributes.
-    */
-    void AddTextProperties();
 
 private:
     /// Reference to the shape from which the properties are extracted.

@@ -31,6 +31,7 @@
 #include <Qt5Menu.hxx>
 #include <Qt5Object.hxx>
 #include <Qt5OpenGLContext.hxx>
+#include "Qt5SvpVirtualDevice.hxx"
 #include <Qt5System.hxx>
 #include <Qt5Timer.hxx>
 #include <Qt5VirtualDevice.hxx>
@@ -47,7 +48,7 @@
 #include <comphelper/flagguard.hxx>
 #include <sal/log.hxx>
 #include <osl/process.h>
-
+#include <unx/gstsink.hxx>
 #include <headless/svpbmp.hxx>
 
 #include <mutex>
@@ -131,7 +132,7 @@ void Qt5YieldMutex::doAcquire(sal_uInt32 nLockCount)
             m_bNoYieldLock = true; // execute closure with borrowed SolarMutex
             func();
             m_bNoYieldLock = false;
-            std::unique_lock<std::mutex> g(m_RunInMainMutex);
+            std::scoped_lock<std::mutex> g(m_RunInMainMutex);
             assert(!m_isResultReady);
             m_isResultReady = true;
             m_ResultCondition.notify_all(); // unblock other thread
@@ -149,7 +150,7 @@ sal_uInt32 Qt5YieldMutex::doRelease(bool const bUnlockAll)
         return 1; // dummy value
     }
 
-    std::unique_lock<std::mutex> g(m_RunInMainMutex);
+    std::scoped_lock<std::mutex> g(m_RunInMainMutex);
     // read m_nCount before doRelease (it's guarded by m_aMutex)
     bool const isReleased(bUnlockAll || m_nCount == 1);
     sal_uInt32 nCount = SalYieldMutex::doRelease(bUnlockAll);
@@ -176,7 +177,7 @@ void Qt5Instance::RunInMainThread(std::function<void()> func)
 
     Qt5YieldMutex* const pMutex(static_cast<Qt5YieldMutex*>(GetYieldMutex()));
     {
-        std::unique_lock<std::mutex> g(pMutex->m_RunInMainMutex);
+        std::scoped_lock<std::mutex> g(pMutex->m_RunInMainMutex);
         assert(!pMutex->m_Closure);
         pMutex->m_Closure = func;
         // unblock main thread in case it is blocked on condition
@@ -200,10 +201,13 @@ void Qt5Instance::ImplRunInMain()
     (void)this; // suppress unhelpful [loplugin:staticmethods]; can't be static
 }
 
-Qt5Instance::Qt5Instance(bool bUseCairo)
+Qt5Instance::Qt5Instance(std::unique_ptr<QApplication>& pQApp, bool bUseCairo)
     : SalGenericInstance(std::make_unique<Qt5YieldMutex>())
     , m_postUserEventId(-1)
     , m_bUseCairo(bUseCairo)
+    , m_pQApplication(std::move(pQApp))
+    , m_aUpdateStyleTimer("vcl::qt5 m_aUpdateStyleTimer")
+    , m_bUpdateFonts(false)
 {
     ImplSVData* pSVData = ImplGetSVData();
     if (bUseCairo)
@@ -225,6 +229,9 @@ Qt5Instance::Qt5Instance(bool bUseCairo)
     connect(this, &Qt5Instance::deleteObjectLaterSignal, this,
             [](QObject* pObject) { Qt5Instance::deleteObjectLater(pObject); },
             Qt::QueuedConnection);
+
+    m_aUpdateStyleTimer.SetTimeout(50);
+    m_aUpdateStyleTimer.SetInvokeHandler(LINK(this, Qt5Instance, updateStyleHdl));
 }
 
 Qt5Instance::~Qt5Instance()
@@ -232,8 +239,16 @@ Qt5Instance::~Qt5Instance()
     // force freeing the QApplication before freeing the arguments,
     // as it uses references to the provided arguments!
     m_pQApplication.reset();
-    for (int i = 0; i < *m_pFakeArgc; i++)
-        free(m_pFakeArgvFreeable[i]);
+}
+
+void Qt5Instance::AfterAppInit()
+{
+    // set the default application icon via desktop file just on Wayland,
+    // as this otherwise overrides the individual desktop icons on X11.
+    if (QGuiApplication::platformName() == "wayland")
+        QGuiApplication::setDesktopFileName(QStringLiteral("libreoffice-startcenter.desktop"));
+    QGuiApplication::setLayoutDirection(AllSettings::GetLayoutRTL() ? Qt::RightToLeft
+                                                                    : Qt::LeftToRight);
 }
 
 void Qt5Instance::deleteObjectLater(QObject* pObject) { pObject->deleteLater(); }
@@ -279,10 +294,10 @@ Qt5Instance::CreateVirtualDevice(SalGraphics* pGraphics, long& nDX, long& nDY, D
 {
     if (m_bUseCairo)
     {
-        SvpSalGraphics* pSvpSalGraphics = dynamic_cast<SvpSalGraphics*>(pGraphics);
+        SvpSalGraphics* pSvpSalGraphics = dynamic_cast<Qt5SvpGraphics*>(pGraphics);
         assert(pSvpSalGraphics);
         std::unique_ptr<SalVirtualDevice> pVD(
-            new SvpSalVirtualDevice(eFormat, pSvpSalGraphics->getSurface()));
+            new Qt5SvpVirtualDevice(eFormat, pSvpSalGraphics->getSurface()));
         pVD->SetSize(nDX, nDY);
         return pVD;
     }
@@ -378,7 +393,7 @@ void Qt5Instance::AddToRecentDocumentList(const OUString&, const OUString&, cons
 
 OpenGLContext* Qt5Instance::CreateOpenGLContext() { return new Qt5OpenGLContext; }
 
-bool Qt5Instance::IsMainThread() const { return qApp->thread() != QThread::currentThread(); }
+bool Qt5Instance::IsMainThread() const { return qApp->thread() == QThread::currentThread(); }
 
 void Qt5Instance::TriggerUserEventProcessing()
 {
@@ -390,18 +405,34 @@ void Qt5Instance::ProcessEvent(SalUserEvent aEvent)
     aEvent.m_pFrame->CallCallback(aEvent.m_nEvent, aEvent.m_pData);
 }
 
+Qt5FilePicker*
+Qt5Instance::createPicker(css::uno::Reference<css::uno::XComponentContext> const& context,
+                          QFileDialog::FileMode eMode)
+{
+    if (!IsMainThread())
+    {
+        SolarMutexGuard g;
+        Qt5FilePicker* pPicker;
+        RunInMainThread(std::function([&, this]() { pPicker = createPicker(context, eMode); }));
+        assert(pPicker);
+        return pPicker;
+    }
+
+    return new Qt5FilePicker(context, eMode);
+}
+
 css::uno::Reference<css::ui::dialogs::XFilePicker2>
-Qt5Instance::createFilePicker(const css::uno::Reference<css::uno::XComponentContext>&)
+Qt5Instance::createFilePicker(const css::uno::Reference<css::uno::XComponentContext>& context)
 {
     return css::uno::Reference<css::ui::dialogs::XFilePicker2>(
-        new Qt5FilePicker(QFileDialog::ExistingFile));
+        createPicker(context, QFileDialog::ExistingFile));
 }
 
 css::uno::Reference<css::ui::dialogs::XFolderPicker2>
-Qt5Instance::createFolderPicker(const css::uno::Reference<css::uno::XComponentContext>&)
+Qt5Instance::createFolderPicker(const css::uno::Reference<css::uno::XComponentContext>& context)
 {
     return css::uno::Reference<css::ui::dialogs::XFolderPicker2>(
-        new Qt5FilePicker(QFileDialog::Directory));
+        createPicker(context, QFileDialog::Directory));
 }
 
 css::uno::Reference<css::uno::XInterface>
@@ -418,41 +449,103 @@ Qt5Instance::CreateClipboard(const css::uno::Sequence<css::uno::Any>& arguments)
                                                   css::uno::Reference<css::uno::XInterface>(), -1);
     }
 
+    // This could also use RunInMain, but SolarMutexGuard is enough
+    // since at this point we're not accessing the clipboard, just get the
+    // accessor to the clipboard.
+    SolarMutexGuard aGuard;
+
     auto it = m_aClipboards.find(sel);
     if (it != m_aClipboards.end())
-    {
         return it->second;
-    }
 
-    css::uno::Reference<css::uno::XInterface> xClipboard(
-        static_cast<cppu::OWeakObject*>(new VclQt5Clipboard(sel)));
-    m_aClipboards[sel] = xClipboard;
+    css::uno::Reference<css::uno::XInterface> xClipboard = Qt5Clipboard::create(sel);
+    if (xClipboard.is())
+        m_aClipboards[sel] = xClipboard;
 
     return xClipboard;
 }
 
-Reference<XInterface> Qt5Instance::CreateDragSource()
+css::uno::Reference<css::uno::XInterface> Qt5Instance::CreateDragSource()
 {
-    return Reference<XInterface>(static_cast<cppu::OWeakObject*>(new Qt5DragSource()));
+    return css::uno::Reference<css::uno::XInterface>(
+        static_cast<cppu::OWeakObject*>(new Qt5DragSource()));
 }
 
-Reference<XInterface> Qt5Instance::CreateDropTarget()
+css::uno::Reference<css::uno::XInterface> Qt5Instance::CreateDropTarget()
 {
-    return Reference<XInterface>(static_cast<cppu::OWeakObject*>(new Qt5DropTarget()));
+    return css::uno::Reference<css::uno::XInterface>(
+        static_cast<cppu::OWeakObject*>(new Qt5DropTarget()));
 }
 
-extern "C" {
-VCLPLUG_QT5_PUBLIC SalInstance* create_SalInstance()
+IMPL_LINK_NOARG(Qt5Instance, updateStyleHdl, Timer*, void)
+{
+    SolarMutexGuard aGuard;
+    SalFrame* pFrame = anyFrame();
+    if (pFrame)
+    {
+        pFrame->CallCallback(SalEvent::SettingsChanged, nullptr);
+        if (m_bUpdateFonts)
+        {
+            pFrame->CallCallback(SalEvent::FontChanged, nullptr);
+            m_bUpdateFonts = false;
+        }
+    }
+}
+
+void Qt5Instance::UpdateStyle(bool bFontsChanged)
+{
+    if (bFontsChanged)
+        m_bUpdateFonts = true;
+    if (!m_aUpdateStyleTimer.IsActive())
+        m_aUpdateStyleTimer.Start();
+}
+
+void* Qt5Instance::CreateGStreamerSink(const SystemChildWindow* pWindow)
+{
+#if ENABLE_GSTREAMER_1_0 && QT5_HAVE_GOBJECT
+    auto pSymbol = gstElementFactoryNameSymbol();
+    if (!pSymbol)
+        return nullptr;
+
+    const SystemEnvData* pEnvData = pWindow->GetSystemData();
+    if (!pEnvData)
+        return nullptr;
+
+    OUString aPlatform = OUString::createFromAscii(pEnvData->pPlatformName);
+    if (aPlatform != "wayland")
+        return nullptr;
+
+    GstElement* pVideosink = pSymbol("qwidget5videosink", "qwidget5videosink");
+    if (pVideosink)
+    {
+        QWidget* pQWidget = static_cast<QWidget*>(pEnvData->pWidget);
+        g_object_set(G_OBJECT(pVideosink), "widget", pQWidget, nullptr);
+    }
+    else
+    {
+        SAL_WARN("vcl.qt5", "Couldn't initialize qwidget5videosink."
+                            " Video playback might not work as expected."
+                            " Please install Qt5 packages for QtGStreamer.");
+        // with no videosink explicitly set, GStreamer will open its own (misplaced) window(s) to display video
+    }
+
+    return pVideosink;
+#else
+    (void*)pWindow;
+    return nullptr;
+#endif
+}
+
+void Qt5Instance::AllocFakeCmdlineArgs(std::unique_ptr<char* []>& rFakeArgv,
+                                       std::unique_ptr<int>& rFakeArgc,
+                                       std::vector<FreeableCStr>& rFakeArgvFreeable)
 {
     OString aVersion(qVersion());
     SAL_INFO("vcl.qt5", "qt version string is " << aVersion);
 
-    QApplication* pQApplication;
-    char** pFakeArgvFreeable = nullptr;
-
-    int nFakeArgc = 2;
     const sal_uInt32 nParams = osl_getCommandArgCount();
     OString aDisplay;
+    sal_uInt32 nDisplayValueIdx = 0;
     OUString aParam, aBin;
 
     for (sal_uInt32 nIdx = 0; nIdx < nParams; ++nIdx)
@@ -460,64 +553,85 @@ VCLPLUG_QT5_PUBLIC SalInstance* create_SalInstance()
         osl_getCommandArg(nIdx, &aParam.pData);
         if (aParam != "-display")
             continue;
-        if (!pFakeArgvFreeable)
-        {
-            pFakeArgvFreeable = new char*[nFakeArgc + 2];
-            pFakeArgvFreeable[nFakeArgc++] = strdup("-display");
-        }
-        else
-            free(pFakeArgvFreeable[nFakeArgc]);
-
         ++nIdx;
-        osl_getCommandArg(nIdx, &aParam.pData);
-        aDisplay = OUStringToOString(aParam, osl_getThreadTextEncoding());
-        pFakeArgvFreeable[nFakeArgc] = strdup(aDisplay.getStr());
+        nDisplayValueIdx = nIdx;
     }
-    if (!pFakeArgvFreeable)
-        pFakeArgvFreeable = new char*[nFakeArgc];
-    else
-        nFakeArgc++;
 
     osl_getExecutableFile(&aParam.pData);
     osl_getSystemPathFromFileURL(aParam.pData, &aBin.pData);
     OString aExec = OUStringToOString(aBin, osl_getThreadTextEncoding());
-    pFakeArgvFreeable[0] = strdup(aExec.getStr());
-    pFakeArgvFreeable[1] = strdup("--nocrashhandler");
 
-    char** pFakeArgv = new char*[nFakeArgc];
+    std::vector<FreeableCStr> aFakeArgvFreeable;
+    aFakeArgvFreeable.reserve(4);
+    aFakeArgvFreeable.emplace_back(strdup(aExec.getStr()));
+    aFakeArgvFreeable.emplace_back(strdup("--nocrashhandler"));
+    if (nDisplayValueIdx)
+    {
+        aFakeArgvFreeable.emplace_back(strdup("-display"));
+        osl_getCommandArg(nDisplayValueIdx, &aParam.pData);
+        aDisplay = OUStringToOString(aParam, osl_getThreadTextEncoding());
+        aFakeArgvFreeable.emplace_back(strdup(aDisplay.getStr()));
+    }
+    rFakeArgvFreeable.swap(aFakeArgvFreeable);
+
+    const int nFakeArgc = rFakeArgvFreeable.size();
+    rFakeArgv.reset(new char*[nFakeArgc]);
     for (int i = 0; i < nFakeArgc; i++)
-        pFakeArgv[i] = pFakeArgvFreeable[i];
+        rFakeArgv[i] = rFakeArgvFreeable[i].get();
 
-    char* session_manager = nullptr;
+    rFakeArgc.reset(new int);
+    *rFakeArgc = nFakeArgc;
+}
+
+void Qt5Instance::MoveFakeCmdlineArgs(std::unique_ptr<char* []>& rFakeArgv,
+                                      std::unique_ptr<int>& rFakeArgc,
+                                      std::vector<FreeableCStr>& rFakeArgvFreeable)
+{
+    m_pFakeArgv = std::move(rFakeArgv);
+    m_pFakeArgc = std::move(rFakeArgc);
+    m_pFakeArgvFreeable.swap(rFakeArgvFreeable);
+}
+
+std::unique_ptr<QApplication> Qt5Instance::CreateQApplication(int& nArgc, char** pArgv)
+{
+    QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+
+    FreeableCStr session_manager;
     if (getenv("SESSION_MANAGER") != nullptr)
     {
-        session_manager = strdup(getenv("SESSION_MANAGER"));
+        session_manager.reset(strdup(getenv("SESSION_MANAGER")));
         unsetenv("SESSION_MANAGER");
     }
 
-    int* pFakeArgc = new int;
-    *pFakeArgc = nFakeArgc;
-    pQApplication = new QApplication(*pFakeArgc, pFakeArgv);
+    std::unique_ptr<QApplication> pQApp = std::make_unique<QApplication>(nArgc, pArgv);
 
     if (session_manager != nullptr)
     {
         // coverity[tainted_string] - trusted source for setenv
-        setenv("SESSION_MANAGER", session_manager, 1);
-        free(session_manager);
+        setenv("SESSION_MANAGER", session_manager.get(), 1);
     }
 
     QApplication::setQuitOnLastWindowClosed(false);
+    return pQApp;
+}
 
+extern "C" {
+VCLPLUG_QT5_PUBLIC SalInstance* create_SalInstance()
+{
     static const bool bUseCairo = (nullptr != getenv("SAL_VCL_QT5_USE_CAIRO"));
-    Qt5Instance* pInstance = new Qt5Instance(bUseCairo);
 
-    // initialize SalData
+    std::unique_ptr<char* []> pFakeArgv;
+    std::unique_ptr<int> pFakeArgc;
+    std::vector<FreeableCStr> aFakeArgvFreeable;
+    Qt5Instance::AllocFakeCmdlineArgs(pFakeArgv, pFakeArgc, aFakeArgvFreeable);
+
+    std::unique_ptr<QApplication> pQApp
+        = Qt5Instance::CreateQApplication(*pFakeArgc, pFakeArgv.get());
+
+    Qt5Instance* pInstance = new Qt5Instance(pQApp, bUseCairo);
+    pInstance->MoveFakeCmdlineArgs(pFakeArgv, pFakeArgc, aFakeArgvFreeable);
+
     new Qt5Data(pInstance);
-
-    pInstance->m_pQApplication.reset(pQApplication);
-    pInstance->m_pFakeArgvFreeable.reset(pFakeArgvFreeable);
-    pInstance->m_pFakeArgv.reset(pFakeArgv);
-    pInstance->m_pFakeArgc.reset(pFakeArgc);
 
     return pInstance;
 }

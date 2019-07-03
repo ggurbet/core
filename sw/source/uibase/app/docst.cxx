@@ -36,6 +36,7 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/newstyle.hxx>
 #include <sfx2/printer.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svl/macitem.hxx>
 #include <svl/stritem.hxx>
 #include <svl/languageoptions.hxx>
@@ -53,6 +54,7 @@
 #include <swundo.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/svxids.hrc>
 #include <view.hxx>
 #include <wrtsh.hxx>
 #include <docsh.hxx>
@@ -631,6 +633,8 @@ IMPL_LINK_NOARG(ApplyStyle, ApplyHdl, LinkParamNone*, void)
 
     if( m_bNew )
         m_xBasePool->Broadcast(SfxStyleSheetHint(SfxHintId::StyleSheetCreated, *m_xTmp));
+    else
+        m_xBasePool->Broadcast(SfxStyleSheetHint(SfxHintId::StyleSheetModified, *m_xTmp));
 
     pDoc->getIDocumentState().SetModified();
     if( !m_bModified )

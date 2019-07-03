@@ -52,11 +52,9 @@
 #include "pq_statics.hxx"
 
 using osl::MutexGuard;
-using osl::Mutex;
 
 using com::sun::star::container::XNameAccess;
 using com::sun::star::container::XIndexAccess;
-using com::sun::star::container::NoSuchElementException;
 
 using com::sun::star::uno::Reference;
 using com::sun::star::uno::UNO_QUERY;
@@ -64,7 +62,6 @@ using com::sun::star::uno::Sequence;
 using com::sun::star::uno::Any;
 using com::sun::star::uno::makeAny;
 using com::sun::star::uno::Type;
-using com::sun::star::uno::RuntimeException;
 
 using com::sun::star::beans::XPropertySet;
 
@@ -225,8 +222,7 @@ void Table::alterColumnByName(
     const OUString& colName,
     const Reference< XPropertySet >& descriptor )
 {
-    Reference< css::container::XNameAccess > columns =
-        Reference< css::container::XNameAccess > ( getColumns(), UNO_QUERY );
+    Reference< css::container::XNameAccess > columns( getColumns(), UNO_QUERY );
 
     OUString newName = extractStringProperty(descriptor, getStatics().NAME );
     ::pq_sdbc_driver::alterColumnByDescriptor(
@@ -248,8 +244,7 @@ void Table::alterColumnByIndex(
     sal_Int32 index,
     const css::uno::Reference< css::beans::XPropertySet >& descriptor )
 {
-    Reference< css::container::XIndexAccess > columns =
-        Reference< css::container::XIndexAccess>( getColumns(), UNO_QUERY );
+    Reference< css::container::XIndexAccess > columns( getColumns(), UNO_QUERY );
     Reference< css::beans::XPropertySet> column(columns->getByIndex( index ), UNO_QUERY );
     ::pq_sdbc_driver::alterColumnByDescriptor(
         extractStringProperty( this, getStatics().SCHEMA_NAME ),
@@ -281,9 +276,7 @@ Sequence< sal_Int8> Table::getImplementationId()
 
 Any Table::queryInterface( const Type & reqType )
 {
-    Any ret;
-
-    ret = ReflectionBase::queryInterface( reqType );
+    Any ret = ReflectionBase::queryInterface( reqType );
     if( ! ret.hasValue() )
         ret = ::cppu::queryInterface(
             reqType,
@@ -376,9 +369,7 @@ Sequence< sal_Int8> TableDescriptor::getImplementationId()
 
 Any TableDescriptor::queryInterface( const Type & reqType )
 {
-    Any ret;
-
-    ret = ReflectionBase::queryInterface( reqType );
+    Any ret = ReflectionBase::queryInterface( reqType );
     if( ! ret.hasValue() )
         ret = ::cppu::queryInterface(
             reqType,

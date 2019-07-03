@@ -40,7 +40,6 @@ $(eval $(call gb_UIConfig_add_popupmenufiles,modules/simpress,\
 	sd/uiconfig/simpress/popupmenu/pagepane \
 	sd/uiconfig/simpress/popupmenu/pagetab \
 	sd/uiconfig/simpress/popupmenu/page \
-	sd/uiconfig/simpress/popupmenu/tabletext \
 	sd/uiconfig/simpress/popupmenu/table \
 	sd/uiconfig/simpress/popupmenu/textbox \
 ))
@@ -108,7 +107,6 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/simpress,\
 	sd/uiconfig/simpress/ui/annotationtagmenu \
 	sd/uiconfig/simpress/ui/currentmastermenu \
 	sd/uiconfig/simpress/ui/customanimationspanel \
-	sd/uiconfig/simpress/ui/customanimationspanelhorizontal \
 	sd/uiconfig/simpress/ui/customanimationproperties \
 	sd/uiconfig/simpress/ui/customanimationeffecttab \
 	sd/uiconfig/simpress/ui/customanimationfragment \
@@ -132,6 +130,7 @@ $(eval $(call gb_UIConfig_add_uifiles,modules/simpress,\
 	sd/uiconfig/simpress/ui/mastermenu \
 	sd/uiconfig/simpress/ui/navigatorpanel \
 	sd/uiconfig/simpress/ui/notebookbar \
+	sd/uiconfig/simpress/ui/notebookbar_compact \
 	sd/uiconfig/simpress/ui/notebookbar_groups \
 	sd/uiconfig/simpress/ui/notebookbar_groupedbar_full \
 	sd/uiconfig/simpress/ui/notebookbar_groupedbar_compact \

@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <com/sun/star/lang/XServiceName.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/XPropertyState.hpp>
 #include <com/sun/star/beans/XPropertySetOption.hpp>
 #include <com/sun/star/beans/XMultiPropertySet.hpp>
@@ -118,7 +119,7 @@ uno::Sequence< beans::NamedValue > ScfApiHelper::QueryEncryptionDataForMedium( S
     rMedium.GetItemSet()->ClearItem( SID_PASSWORD );
     rMedium.GetItemSet()->ClearItem( SID_ENCRYPTIONDATA );
 
-    if( !bIsDefaultPassword && (aEncryptionData.getLength() > 0) )
+    if( !bIsDefaultPassword && aEncryptionData.hasElements() )
         rMedium.GetItemSet()->Put( SfxUnoAnyItem( SID_ENCRYPTIONDATA, uno::makeAny( aEncryptionData ) ) );
 
     return aEncryptionData;

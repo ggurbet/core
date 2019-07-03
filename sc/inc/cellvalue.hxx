@@ -18,6 +18,10 @@ class EditTextObject;
 class ScColumn;
 struct ScRefCellValue;
 
+namespace sc {
+struct ColumnBlockPosition;
+}
+
 namespace svl {
 
 class SharedString;
@@ -78,7 +82,7 @@ struct SC_DLLPUBLIC ScCellValue
 
     void release( ScColumn& rColumn, SCROW nRow, sc::StartListeningType eListenType = sc::SingleCellListening );
 
-    OUString getString( const ScDocument* pDoc );
+    OUString getString( const ScDocument* pDoc ) const;
 
     bool isEmpty() const;
 
@@ -117,6 +121,7 @@ struct SC_DLLPUBLIC ScRefCellValue
      * Take cell value from specified position in specified document.
      */
     ScRefCellValue( ScDocument& rDoc, const ScAddress& rPos );
+    ScRefCellValue( ScDocument& rDoc, const ScAddress& rPos, sc::ColumnBlockPosition& rBlockPos );
 
     void clear();
 
@@ -124,6 +129,7 @@ struct SC_DLLPUBLIC ScRefCellValue
      * Take cell value from specified position in specified document.
      */
     void assign( ScDocument& rDoc, const ScAddress& rPos );
+    void assign( ScDocument& rDoc, const ScAddress& rPos, sc::ColumnBlockPosition& rBlockPos );
 
     /**
      * Set cell value at specified position in specified document.
@@ -156,7 +162,7 @@ struct SC_DLLPUBLIC ScRefCellValue
      *          specific fields can not be resolved. See
      *          ScEditUtil::GetString().
      */
-    OUString getString( const ScDocument* pDoc );
+    OUString getString( const ScDocument* pDoc ) const;
 
     /**
      * Retrieve a string value without modifying the states of any objects in

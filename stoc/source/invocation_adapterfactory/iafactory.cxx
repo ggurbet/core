@@ -34,15 +34,11 @@
 #include <cppuhelper/implementationentry.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
-#include <com/sun/star/uno/XAggregation.hpp>
 #include <com/sun/star/script/XTypeConverter.hpp>
 #include <com/sun/star/script/XInvocationAdapterFactory.hpp>
 #include <com/sun/star/script/XInvocationAdapterFactory2.hpp>
 #include <com/sun/star/script/XInvocation.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/lang/XSingleServiceFactory.hpp>
-#include <com/sun/star/registry/XSimpleRegistry.hpp>
-#include <com/sun/star/registry/XRegistryKey.hpp>
 #include <com/sun/star/reflection/InvocationTargetException.hpp>
 #include <com/sun/star/uno/RuntimeException.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
@@ -802,7 +798,7 @@ Reference< XInterface > FactoryImpl::createAdapter(
     const Sequence< Type > & rTypes )
 {
     Reference< XInterface > xRet;
-    if (xReceiver.is() && rTypes.getLength())
+    if (xReceiver.is() && rTypes.hasElements())
     {
         t_ptr_set * adapter_set;
         AdapterImpl * that;
@@ -842,7 +838,7 @@ Reference< XInterface > FactoryImpl::createAdapter(
         }
         }
         // map one interface to C++
-        uno_Interface * pUnoI = &that->m_vInterfaces[ 0 ];
+        uno_Interface * pUnoI = that->m_vInterfaces.data();
         m_aUno2Cpp.mapInterface(
             reinterpret_cast<void **>(&xRet), pUnoI, cppu::UnoType<decltype(xRet)>::get() );
         that->release();

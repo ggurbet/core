@@ -23,15 +23,19 @@
 #include <svx/svxids.hrc>
 
 #include <svx/ofaitem.hxx>
+#include <svl/stritem.hxx>
 #include <svl/srchitem.hxx>
 #include <svl/languageoptions.hxx>
 #include <svtools/langtab.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/sfxdlg.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/abstdlg.hxx>
 #include <svx/drawitem.hxx>
 #include <editeng/langitem.hxx>
 #include <editeng/eeitem.hxx>
+#include <editeng/outlobj.hxx>
+#include <editeng/editobj.hxx>
 #include <com/sun/star/i18n/TextConversionOption.hpp>
 #include <sfx2/notebookbar/SfxNotebookBar.hxx>
 
@@ -82,6 +86,18 @@ static void lcl_setLanguageForObj( SdrObject *pObj, LanguageType nLang, bool bLa
                     return;
             }
             pObj->SetMergedItem( SvxLanguageItem( nLang, nLangWhichId ) );
+
+            // Reset shape text language to default, so it inherits the shape language set above.
+            OutlinerParaObject* pOutliner = pObj->GetOutlinerParaObject();
+            if (pOutliner)
+            {
+                EditTextObject& rEditTextObject
+                    = const_cast<EditTextObject&>(pOutliner->GetTextObject());
+                for (sal_uInt16 n : aLangWhichId_EE)
+                {
+                    rEditTextObject.RemoveCharAttribs(n);
+                }
+            }
         }
     }
     else    // Reset to default

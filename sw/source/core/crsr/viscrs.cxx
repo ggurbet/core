@@ -59,6 +59,8 @@
 #include <paintfrm.hxx>
 #include <PostItMgr.hxx>
 
+#include <cellfrm.hxx>
+
 // Here static members are defined. They will get changed on alteration of the
 // MapMode. This is done so that on ShowCursor the same size does not have to be
 // expensively determined again and again.
@@ -655,7 +657,7 @@ SwCursor* SwShellCursor::Create( SwPaM* pRing ) const
 short SwShellCursor::MaxReplaceArived()
 {
     short nRet = RET_YES;
-    vcl::Window* pDlg = SwView::GetSearchDialog();
+    SvxSearchDialog* pDlg = SwView::GetSearchDialog();
     if( pDlg )
     {
         // Terminate old actions. The table-frames get constructed and
@@ -671,7 +673,7 @@ short SwShellCursor::MaxReplaceArived()
             }
             vActionCounts.push_back(nActCnt);
         }
-        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pDlg->GetFrameWeld(), "modules/swriter/ui/asksearchdialog.ui"));
+        std::unique_ptr<weld::Builder> xBuilder(Application::CreateBuilder(pDlg->getDialog(), "modules/swriter/ui/asksearchdialog.ui"));
         std::unique_ptr<weld::MessageDialog> xDialog(xBuilder->weld_message_dialog("AskSearchDialog"));
         nRet = xDialog->run();
         auto pActionCount = vActionCounts.begin();
@@ -843,6 +845,12 @@ bool SwShellTableCursor::IsInside( const Point& rPt ) const
         OSL_ENSURE( pFrame, "Node not in a table" );
         if( pFrame && pFrame->getFrameArea().IsInside( rPt ) )
             return true;
+
+        for ( SwCellFrame* pCellFrame = static_cast<SwCellFrame*>(pFrame); pCellFrame; pCellFrame = pCellFrame->GetFollowCell() )
+        {
+            if( pCellFrame->getFrameArea().IsInside( rPt ) )
+                return true;
+        }
     }
     return false;
 }

@@ -25,6 +25,7 @@
 #include <svx/svdmodel.hxx>
 
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
+#include <com/sun/star/drawing/XShapeDescriptor.hpp>
 #include <comphelper/sequence.hxx>
 #include <cppuhelper/queryinterface.hxx>
 
@@ -147,17 +148,6 @@ OUString
     }
 
     return sName;
-}
-
-OUString AccessibleGraphicShape::CreateAccessibleDescription()
-{
-    //Don't use the same information for accessible name and accessible description.
-    OUString sDesc;
-    if (m_pShape)
-        sDesc =  m_pShape->GetTitle();
-    if (!sDesc.isEmpty())
-        return sDesc;
-    return CreateAccessibleBaseName();
 }
 
 //  Return this object's role.

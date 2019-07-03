@@ -28,6 +28,7 @@
 #include <vcl/help.hxx>
 #include <vcl/lazydelete.hxx>
 #include <vcl/ptrstyle.hxx>
+#include <vcl/svapp.hxx>
 
 #include <svx/sdrpagewindow.hxx>
 #include <svx/sdrpaintwindow.hxx>
@@ -36,6 +37,7 @@
 #include <svx/sdr/overlay/overlaymanager.hxx>
 #include <svx/sdr/contact/objectcontact.hxx>
 #include <svx/svxids.hrc>
+#include <svx/svdpagv.hxx>
 
 #include <view/viewoverlaymanager.hxx>
 

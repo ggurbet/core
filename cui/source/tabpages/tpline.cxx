@@ -26,7 +26,21 @@
 
 #include <strings.hrc>
 #include <svx/colorbox.hxx>
-#include <svx/xattr.hxx>
+#include <svx/dlgctrl.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlinjoit.hxx>
+#include <svx/xlncapit.hxx>
+#include <svx/xlndsit.hxx>
+#include <svx/xlnwtit.hxx>
+#include <svx/xlnstwit.hxx>
+#include <svx/xlnedwit.hxx>
+#include <svx/xlnclit.hxx>
+#include <svx/xlnstit.hxx>
+#include <svx/xlnedit.hxx>
+#include <svx/xlnstcit.hxx>
+#include <svx/xlnedcit.hxx>
+
+
 #include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
 #include <svx/drawitem.hxx>
@@ -39,9 +53,12 @@
 #include <sfx2/dialoghelper.hxx>
 #include <svx/ofaitem.hxx>
 #include <svx/svdobj.hxx>
+#include <svx/svdpage.hxx>
 #include <svx/svdview.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/numvset.hxx>
+#include <svx/xlntrit.hxx>
+#include <svx/xfltrit.hxx>
 #include <editeng/numitem.hxx>
 #include <editeng/svxenum.hxx>
 #include <sfx2/objsh.hxx>
@@ -50,9 +67,11 @@
 #include <sfx2/opengrf.hxx>
 #include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <svx/strings.hrc>
 #include <vcl/settings.hxx>
 #include <cuitabarea.hxx>
+#include <svtools/unitconv.hxx>
 
 #define MAX_BMP_WIDTH   16
 #define MAX_BMP_HEIGHT  16

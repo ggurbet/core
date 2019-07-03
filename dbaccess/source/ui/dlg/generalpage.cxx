@@ -29,6 +29,7 @@
 #include <sfx2/filedlghelper.hxx>
 #include <sfx2/docfilt.hxx>
 #include <vcl/stdtext.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svl/stritem.hxx>
 #include <vcl/waitobj.hxx>
@@ -573,6 +574,13 @@ namespace dbaui
             m_pFT_DocListLabel->Enable( false );
             m_pLB_DocumentList->Enable( false );
         }
+        else
+        {
+            m_pDatasourceType->Enable( false );
+            m_pPB_OpenDatabase->Enable( false );
+            m_pFT_DocListLabel->Enable( false );
+            m_pLB_DocumentList->Enable( false );
+        }
 
         m_pLB_DocumentList->SetDropDownLineCount( 20 );
         if ( m_pLB_DocumentList->GetEntryCount() )
@@ -616,7 +624,7 @@ namespace dbaui
 
         if ( m_pRB_CreateDatabase->IsChecked() )
         {
-            _rCoreAttrs->Put( SfxStringItem( DSID_CONNECTURL, OUString( "sdbc:dbase:" ) ) );
+            _rCoreAttrs->Put( SfxStringItem( DSID_CONNECTURL, "sdbc:dbase:" ) );
             bChangedSomething = true;
             bCommitTypeSelection = false;
         }
@@ -667,10 +675,14 @@ namespace dbaui
         {
             m_pEmbeddedDBType->Enable(m_pRB_CreateDatabase->IsChecked());
             m_pFT_EmbeddedDBLabel->Enable(m_pRB_CreateDatabase->IsChecked());
+            m_pDatasourceType->Enable(m_pRB_ConnectDatabase->IsChecked());
+            m_pPB_OpenDatabase->Enable(m_pRB_OpenExistingDatabase->IsChecked());
+            m_pFT_DocListLabel->Enable(m_pRB_OpenExistingDatabase->IsChecked());
+            m_pLB_DocumentList->Enable(m_pRB_OpenExistingDatabase->IsChecked());
         }
     }
 
-    IMPL_LINK( OGeneralPageWizard, OnSetupModeSelected, Button*, pButton, void )
+    IMPL_LINK_NOARG( OGeneralPageWizard, OnSetupModeSelected, Button*, void )
     {
         m_aCreationModeHandler.Call( *this );
         OnDatasourceTypeSelected(*m_pDatasourceType);
@@ -679,14 +691,12 @@ namespace dbaui
         getFlags( GetItemSet(), bValid, bReadonly );
         if ( bValid && !bReadonly )
         {
-            if (pButton == m_pRB_ConnectDatabase.get())
-                m_pDatasourceType->Enable(m_pRB_ConnectDatabase->IsChecked());
-            else if (pButton == m_pRB_OpenExistingDatabase.get())
-            {
-                m_pPB_OpenDatabase->Enable(m_pRB_OpenExistingDatabase->IsChecked());
-                m_pFT_DocListLabel->Enable(m_pRB_OpenExistingDatabase->IsChecked());
-                m_pLB_DocumentList->Enable(m_pRB_OpenExistingDatabase->IsChecked());
-            }
+            m_pEmbeddedDBType->Enable(m_pRB_CreateDatabase->IsChecked());
+            m_pFT_EmbeddedDBLabel->Enable(m_pRB_CreateDatabase->IsChecked());
+            m_pDatasourceType->Enable(m_pRB_ConnectDatabase->IsChecked());
+            m_pPB_OpenDatabase->Enable(m_pRB_OpenExistingDatabase->IsChecked());
+            m_pFT_DocListLabel->Enable(m_pRB_OpenExistingDatabase->IsChecked());
+            m_pLB_DocumentList->Enable(m_pRB_OpenExistingDatabase->IsChecked());
         }
     }
 
@@ -708,7 +718,10 @@ namespace dbaui
         if ( aFileDlg.Execute() == ERRCODE_NONE )
         {
             OUString sPath = aFileDlg.GetPath();
-            if ( aFileDlg.GetCurrentFilter() != pFilter->GetUIName() || !pFilter->GetWildcard().Matches(sPath) )
+            // check for aFileDlg.GetCurrentFilter used to be here but current fpicker filter
+            // can be set to anything, see tdf#125267 how this breaks if other value
+            // than 'ODF Database' is selected. Let's therefore check only if wildcard matches
+            if ( !pFilter->GetWildcard().Matches(sPath) )
             {
                 OUString sMessage(DBA_RES(STR_ERR_USE_CONNECT_TO));
                 std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(GetFrameWeld(),

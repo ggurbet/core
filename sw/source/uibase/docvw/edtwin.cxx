@@ -30,6 +30,7 @@
 
 #include <com/sun/star/i18n/UnicodeScript.hpp>
 #include <com/sun/star/i18n/CalendarFieldIndex.hpp>
+#include <com/sun/star/ui/ContextMenuExecuteEvent.hpp>
 
 #include <vcl/inputctx.hxx>
 #include <vcl/help.hxx>
@@ -56,6 +57,7 @@
 #include <svx/svdview.hxx>
 #include <svx/svdhdl.hxx>
 #include <svx/svdoutl.hxx>
+#include <svx/svxids.hrc>
 #include <editeng/editeng.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/svxacorr.hxx>
@@ -2647,6 +2649,11 @@ KEYINPUT_CHECKTABLE_INSDEL:
         }
     }
 
+    // update the page number in the statusbar
+    sal_uInt16 nKey = rKEvt.GetKeyCode().GetCode();
+    if( KEY_UP == nKey || KEY_DOWN == nKey || KEY_PAGEUP == nKey || KEY_PAGEDOWN == nKey )
+        GetView().GetViewFrame()->GetBindings().Update( FN_STAT_PAGE );
+
     // in case the buffered characters are inserted
     if( bFlushBuffer && !m_aInBuffer.isEmpty() )
     {
@@ -3115,7 +3122,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                     SwEditWin::m_nDDStartPosY = aDocPos.Y();
                     SwEditWin::m_nDDStartPosX = aDocPos.X();
 
-                    // hit an URL in DrawText object?
+                    // hit a URL in DrawText object?
                     if (bExecHyperlinks && pSdrView)
                     {
                         SdrViewEvent aVEvt;
@@ -3336,6 +3343,7 @@ void SwEditWin::MouseButtonDown(const MouseEvent& _rMEvt)
                                 break;
                                 case TYP_INPUTFLD:
                                 case TYP_DROPDOWN:
+                                case TYP_SETINPFLD:
                                     pVFrame->GetBindings().Execute(FN_UPDATE_INPUTFIELDS);
                                     break;
                                 default:
@@ -4778,7 +4786,7 @@ void SwEditWin::MouseButtonUp(const MouseEvent& rMEvt)
                     m_pApplyTempl->nUndo =
                         std::min(m_pApplyTempl->nUndo, rSh.GetDoc()->GetIDocumentUndoRedo().GetUndoActionCount());
                     if (nId == RES_CHRATR_BACKGROUND)
-                        rSh.SetAttrItem( SvxBrushItem( m_aWaterCanTextBackColor, nId ) );
+                        ApplyCharBackground(m_aWaterCanTextBackColor, rSh);
                     else
                         rSh.SetAttrItem( SvxColorItem( m_aWaterCanTextColor, nId ) );
                     rSh.UnSetVisibleCursor();
@@ -5316,7 +5324,7 @@ void SwEditWin::Command( const CommandEvent& rCEvt )
                 if ( !sRecord.isEmpty() )
                 {
                     // convert quotes in IME text
-                    // works on the last input character, this is escpecially in Korean text often done
+                    // works on the last input character, this is especially in Korean text often done
                     // quotes that are inside of the string are not replaced!
                     const sal_Unicode aCh = sRecord[sRecord.getLength() - 1];
                     SvxAutoCorrCfg& rACfg = SvxAutoCorrCfg::Get();
@@ -5559,9 +5567,7 @@ void SwEditWin::Command( const CommandEvent& rCEvt )
         }
         break;
         default:
-#if OSL_DEBUG_LEVEL > 0
-            OSL_ENSURE( false, "unknown command." );
-#endif
+            SAL_WARN("sw.ui", "unknown command.");
         break;
     }
     if (bCallBase)
@@ -5898,7 +5904,7 @@ void QuickHelpData::Start( SwWrtShell& rSh, sal_uInt16 nWrdLen )
         const ExtTextInputAttr nVal = ExtTextInputAttr::DottedUnderline |
                                 ExtTextInputAttr::Highlight;
         const std::vector<ExtTextInputAttr> aAttrs( nL, nVal );
-        CommandExtTextInputData aCETID( sStr, &aAttrs[0], nL,
+        CommandExtTextInputData aCETID( sStr, aAttrs.data(), nL,
                                         0, false );
 
         //fdo#33092. If the current input language is the default
@@ -5946,8 +5952,7 @@ void QuickHelpData::FillStrArr( SwWrtShell const & rSh, const OUString& rWord )
         else
         {
             // First character is not lower case i.e. assume upper or title case
-            OUString sWordSentence = sWordLower;
-            sWordSentence = sWordSentence.replaceAt( 0, 1, OUString(rWord[0]) );
+            OUString sWordSentence = sWordLower.replaceAt( 0, 1, OUString(rWord[0]) );
             if ( rWord == sWordSentence )
                 aWordCase = CASE_SENTENCE;
             else
@@ -5965,9 +5970,9 @@ void QuickHelpData::FillStrArr( SwWrtShell const & rSh, const OUString& rWord )
     uno::Sequence< i18n::CalendarItem2 > aNames( (*pCalendar)->getMonths() );
     for ( sal_uInt16 i = 0; i < 2; ++i )
     {
-        for ( long n = 0; n < aNames.getLength(); ++n )
+        for ( const auto& rName : aNames )
         {
-            const OUString& rStr( aNames[n].FullName );
+            const OUString& rStr( rName.FullName );
             // Check string longer than word and case insensitive match
             if( rStr.getLength() > rWord.getLength() &&
                 rCC.lowercase( rStr, 0, rWord.getLength() ) == sWordLower )

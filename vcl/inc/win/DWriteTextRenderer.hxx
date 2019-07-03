@@ -36,19 +36,7 @@ enum class D2DTextAntiAliasMode
 
 class D2DWriteTextOutRenderer : public TextOutRenderer
 {
-    typedef HRESULT(WINAPI *pD2D1CreateFactory_t)(D2D1_FACTORY_TYPE,
-        REFIID, const D2D1_FACTORY_OPTIONS *, void **);
-
-    typedef HRESULT(WINAPI *pDWriteCreateFactory_t)(DWRITE_FACTORY_TYPE,
-        REFIID, IUnknown **);
-
-    static HINSTANCE mmD2d1, mmDWrite;
-    static pD2D1CreateFactory_t     D2D1CreateFactory;
-    static pDWriteCreateFactory_t   DWriteCreateFactory;
-
 public:
-    static bool InitModules();
-
     explicit D2DWriteTextOutRenderer();
     virtual ~D2DWriteTextOutRenderer() override;
 
@@ -74,8 +62,6 @@ public:
     void changeTextAntiAliasMode(D2DTextAntiAliasMode eMode);
 
 private:
-    static void CleanupModules();
-
     // This is a singleton object disable copy ctor and assignment operator
     D2DWriteTextOutRenderer(const D2DWriteTextOutRenderer &) = delete;
     D2DWriteTextOutRenderer & operator = (const D2DWriteTextOutRenderer &) = delete;
@@ -93,6 +79,21 @@ private:
     float             mlfEmHeight;
     HDC               mhDC;
     D2DTextAntiAliasMode meTextAntiAliasMode;
+};
+
+/**
+ * Sets and unsets the needed DirectWrite transform to support the font's horizontal scaling and
+ * rotation.
+ */
+class WinFontTransformGuard
+{
+public:
+    WinFontTransformGuard(ID2D1RenderTarget* pRenderTarget, float fHScale, const GenericSalLayout& rLayout, const D2D1_POINT_2F& rBaseline);
+    ~WinFontTransformGuard();
+
+private:
+    ID2D1RenderTarget* mpRenderTarget;
+    D2D1::Matrix3x2F maTransform;
 };
 
 #endif // INCLUDED_VCL_INC_WIN_DWRITERENDERER_HXX

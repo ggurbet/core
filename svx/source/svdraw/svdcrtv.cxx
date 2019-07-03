@@ -19,7 +19,7 @@
 
 
 #include <svx/svdcrtv.hxx>
-#include <svx/xattr.hxx>
+#include <svx/xlnclit.hxx>
 #include <svx/svdundo.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/svdoedge.hxx>
@@ -28,6 +28,9 @@
 #include <svx/svdetc.hxx>
 #include <svx/scene3d.hxx>
 #include <svx/view3d.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/sdr/contact/objectcontactofobjlistpainter.hxx>
 #include <svx/sdr/contact/displayinfo.hxx>
 #include <svx/svdouno.hxx>
@@ -306,7 +309,7 @@ void SdrCreateView::HideConnectMarker()
     ImpClearConnectMarker();
 }
 
-bool SdrCreateView::MouseMove(const MouseEvent& rMEvt, vcl::Window* pWin)
+bool SdrCreateView::MouseMove(const MouseEvent& rMEvt, OutputDevice* pWin)
 {
     if(CheckEdgeMode() && pWin)
     {
@@ -602,7 +605,7 @@ bool SdrCreateView::EndCreateObj(SdrCreateCmd eCmd)
 
     if (pCurrentCreate!=nullptr)
     {
-        sal_uIntPtr nCount=maDragStat.GetPointCount();
+        sal_uInt32 nCount=maDragStat.GetPointCount();
 
         if (nCount<=1 && eCmd==SdrCreateCmd::ForceEnd)
         {
@@ -611,7 +614,7 @@ bool SdrCreateView::EndCreateObj(SdrCreateCmd eCmd)
         }
 
         bool bPntsEq=nCount>1;
-        sal_uIntPtr i=1;
+        sal_uInt32 i=1;
         Point aP0=maDragStat.GetPoint(0);
         while (bPntsEq && i<nCount) { bPntsEq=aP0==maDragStat.GetPoint(i); i++; }
 

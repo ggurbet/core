@@ -30,12 +30,14 @@
 #include <com/sun/star/lang/XUnoTunnel.hpp>
 #include <com/sun/star/util/NumberFormatter.hpp>
 #include <com/sun/star/beans/XFastPropertySet.hpp>
+#include <com/sun/star/sdb/SQLContext.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/string.hxx>
 #include <connectivity/dbtools.hxx>
 #include <connectivity/sqlnode.hxx>
 #include <cppuhelper/implbase.hxx>
+#include <i18nlangtag/languagetag.hxx>
 #include <fmservs.hxx>
 #include <fmshimp.hxx>
 #include <sfx2/dispatch.hxx>
@@ -49,9 +51,12 @@
 #include <vcl/wrkwin.hxx>
 #include <vcl/settings.hxx>
 #include <tools/diagnose_ex.h>
+#include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <vcl/svlbitm.hxx>
 #include <vcl/treelistentry.hxx>
 #include <vcl/viewdataentry.hxx>
+#include <vcl/svapp.hxx>
 
 #include <bitmaps.hlst>
 
@@ -292,7 +297,7 @@ void FmFilterAdapter::setText(sal_Int32 nRowPos,
                               const OUString& rText)
 {
     FmFormItem* pFormItem = dynamic_cast<FmFormItem*>( pFilterItem->GetParent()->GetParent()  );
-
+    assert(pFormItem);
     try
     {
         Reference< XFilterController > xController( pFormItem->GetController(), UNO_QUERY_THROW );
@@ -786,6 +791,7 @@ void FmFilterModel::Remove( const ::std::vector<std::unique_ptr<FmFilterData>>::
 bool FmFilterModel::ValidateText(FmFilterItem const * pItem, OUString& rText, OUString& rErrorMsg) const
 {
     FmFormItem* pFormItem = dynamic_cast<FmFormItem*>( pItem->GetParent()->GetParent()  );
+    assert(pFormItem);
     try
     {
         Reference< XFormController > xFormController( pFormItem->GetController() );
@@ -960,7 +966,8 @@ void FmFilterItemsString::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::Ren
         rRenderContext.Push(PushFlags::LINECOLOR);
         rRenderContext.SetLineColor(rRenderContext.GetTextColor());
 
-        tools::Rectangle aRect(rPos, GetSize(&rDev, &rEntry));
+        Size aSize(GetWidth(&rDev, &rEntry), GetHeight(&rDev, &rEntry));
+        tools::Rectangle aRect(rPos, aSize);
         Point aFirst(rPos.X(), aRect.Bottom() - 6);
         Point aSecond(aFirst .X() + 2, aFirst.Y() + 3);
 
@@ -986,7 +993,8 @@ void FmFilterItemsString::InitViewData( SvTreeListBox* pView,SvTreeListEntry* pE
 
     Size aSize(pView->GetTextWidth(GetText()), pView->GetTextHeight());
     aSize.AdjustWidth(nxDBmp );
-    pViewData->maSize = aSize;
+    pViewData->mnWidth = aSize.Width();
+    pViewData->mnHeight = aSize.Height();
 }
 
 class FmFilterString : public SvLBoxString
@@ -1008,7 +1016,6 @@ public:
 
 const int nxD = 4;
 
-
 void FmFilterString::InitViewData( SvTreeListBox* pView,SvTreeListEntry* pEntry, SvViewDataItem* pViewData)
 {
     if( !pViewData )
@@ -1022,9 +1029,9 @@ void FmFilterString::InitViewData( SvTreeListBox* pView,SvTreeListEntry* pEntry,
     Size aSize(pView->GetTextWidth(m_aName), pView->GetTextHeight());
     pView->Control::SetFont( aOldFont );
     aSize.AdjustWidth(pView->GetTextWidth(GetText()) + nxD );
-    pViewData->maSize = aSize;
+    pViewData->mnWidth = aSize.Width();
+    pViewData->mnHeight = aSize.Height();
 }
-
 
 void FmFilterString::Paint(const Point& rPos, SvTreeListBox& rDev, vcl::RenderContext& rRenderContext,
                            const SvViewDataEntry* /*pView*/, const SvTreeListEntry& /*rEntry*/)

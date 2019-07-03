@@ -11,11 +11,14 @@ $(eval $(call gb_Library_Library,pdfium))
 
 $(eval $(call gb_Library_use_unpacked,pdfium,pdfium))
 
-$(eval $(call gb_Library_set_warnings_not_errors,pdfium))
+$(eval $(call gb_Library_set_warnings_disabled,pdfium))
+
+$(eval $(call gb_Library_set_precompiled_header,pdfium,$(SRCDIR)/external/pdfium/inc/pch/precompiled_pdfium))
 
 $(eval $(call gb_Library_set_include,pdfium,\
     -I$(call gb_UnpackedTarball_get_dir,pdfium) \
     -I$(call gb_UnpackedTarball_get_dir,pdfium)/third_party \
+    -I$(call gb_UnpackedTarball_get_dir,pdfium)/third_party/agg23 \
     $$(INCLUDE) \
 ))
 
@@ -27,14 +30,7 @@ $(eval $(call gb_Library_add_defs,pdfium,\
     -DUSE_SYSTEM_ICUUC \
     -DMEMORY_TOOL_REPLACES_ALLOCATOR \
     -DUNICODE \
-))
-
-# Don't show warnings upstream doesn't care about.
-$(eval $(call gb_Library_add_cxxflags,pdfium,\
-    -w \
-))
-$(eval $(call gb_Library_add_cflags,pdfium,\
-    -w \
+    -DWIN32_LEAN_AND_MEAN \
 ))
 
 $(eval $(call gb_Library_set_generated_cxx_suffix,pdfium,cpp))
@@ -199,7 +195,6 @@ $(eval $(call gb_Library_add_generated_exception_objects,pdfium,\
     UnpackedTarball/pdfium/core/fpdfapi/page/cpdf_pagemodule \
     UnpackedTarball/pdfium/core/fpdfapi/page/cpdf_pageobject \
     UnpackedTarball/pdfium/core/fpdfapi/page/cpdf_pageobjectholder \
-    UnpackedTarball/pdfium/core/fpdfapi/page/cpdf_pageobjectlist \
     UnpackedTarball/pdfium/core/fpdfapi/page/cpdf_path \
     UnpackedTarball/pdfium/core/fpdfapi/page/cpdf_pathobject \
     UnpackedTarball/pdfium/core/fpdfapi/page/cpdf_pattern \
@@ -571,7 +566,6 @@ ifneq (,$(filter LINUX ANDROID,$(OS)))
 $(eval $(call gb_Library_add_libs,pdfium,\
     -ldl \
     -lrt \
-    -lpthread \
 ))
 
 $(eval $(call gb_Library_use_external,pdfium,freetype))
@@ -630,6 +624,7 @@ $(eval $(call gb_Library_add_generated_exception_objects,pdfium,\
     UnpackedTarball/pdfium/core/fxge/win32/fx_win32_gdipext \
     UnpackedTarball/pdfium/core/fxge/win32/fx_win32_print \
     UnpackedTarball/pdfium/core/fxcrt/cfx_fileaccess_windows \
+    UnpackedTarball/pdfium/third_party/base/win/win_util \
 ))
 
 $(eval $(call gb_Library_use_system_win32_libs,pdfium,\

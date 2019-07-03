@@ -1126,15 +1126,16 @@ ScMatrixRef ScInterpreter::MatConcat(const ScMatrixRef& pMat1, const ScMatrixRef
     return xResMat;
 }
 
-// for DATE, TIME, DATETIME
+// for DATE, TIME, DATETIME, DURATION
 static void lcl_GetDiffDateTimeFmtType( SvNumFormatType& nFuncFmt, SvNumFormatType nFmt1, SvNumFormatType nFmt2 )
 {
     if ( nFmt1 != SvNumFormatType::UNDEFINED || nFmt2 != SvNumFormatType::UNDEFINED )
     {
         if ( nFmt1 == nFmt2 )
         {
-            if ( nFmt1 == SvNumFormatType::TIME || nFmt1 == SvNumFormatType::DATETIME )
-                nFuncFmt = SvNumFormatType::TIME;   // times result in time
+            if ( nFmt1 == SvNumFormatType::TIME || nFmt1 == SvNumFormatType::DATETIME
+                    || nFmt1 == SvNumFormatType::DURATION )
+                nFuncFmt = SvNumFormatType::DURATION;   // times result in time duration
             // else: nothing special, number (date - date := days)
         }
         else if ( nFmt1 == SvNumFormatType::UNDEFINED )
@@ -1178,6 +1179,7 @@ void ScInterpreter::CalculateAddSub(bool _bSub)
             case SvNumFormatType::DATE :
             case SvNumFormatType::TIME :
             case SvNumFormatType::DATETIME :
+            case SvNumFormatType::DURATION :
                 nFmt2 = nCurFmtType;
             break;
             case SvNumFormatType::CURRENCY :
@@ -1200,6 +1202,7 @@ void ScInterpreter::CalculateAddSub(bool _bSub)
             case SvNumFormatType::DATE :
             case SvNumFormatType::TIME :
             case SvNumFormatType::DATETIME :
+            case SvNumFormatType::DURATION :
                 nFmt1 = nCurFmtType;
             break;
             case SvNumFormatType::CURRENCY :
@@ -2333,8 +2336,7 @@ void ScInterpreter::CalculateRGPRKP(bool _bRKP)
     else
         pMatX = nullptr;
 
-    ScMatrixRef pMatY;
-    pMatY = GetMatrix();
+    ScMatrixRef pMatY = GetMatrix();
     if (!pMatY)
     {
         PushIllegalParameter();
@@ -2859,8 +2861,7 @@ void ScInterpreter::CalculateTrendGrowth(bool _bGrowth)
     else
         pMatX = nullptr;
 
-    ScMatrixRef pMatY;
-    pMatY = GetMatrix();
+    ScMatrixRef pMatY = GetMatrix();
     if (!pMatY)
     {
         PushIllegalParameter();
@@ -3202,9 +3203,9 @@ void ScInterpreter::ScInfo()
         OUString aStr = GetString().getString();
         ScCellKeywordTranslator::transKeyword(aStr, ScGlobal::GetLocale(), ocInfo);
         if( aStr == "SYSTEM" )
-            PushString( OUString( SC_INFO_OSVERSION ) );
+            PushString( SC_INFO_OSVERSION );
         else if( aStr == "OSVERSION" )
-            PushString( OUString( "Windows (32-bit) NT 5.01" ) );
+            PushString( "Windows (32-bit) NT 5.01" );
         else if( aStr == "RELEASE" )
             PushString( ::utl::Bootstrap::getBuildIdData( OUString() ) );
         else if( aStr == "NUMFILE" )

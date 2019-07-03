@@ -20,7 +20,7 @@
 #ifndef INCLUDED_SVX_SVDTEXT_HXX
 #define INCLUDED_SVX_SVDTEXT_HXX
 
-#include <sal/types.h>
+#include <svx/sdr/properties/defaultproperties.hxx>
 #include <svx/svxdllapi.h>
 #include <tools/weakbase.hxx>
 #include <memory>
@@ -41,7 +41,7 @@ namespace sdr { namespace properties {
 */
 
 class SfxStyleSheet;
-class SVX_DLLPUBLIC SdrText : public virtual tools::WeakBase
+class SVX_DLLPUBLIC SdrText : public tools::WeakBase
 {
 public:
     explicit SdrText( SdrTextObj& rObject );
@@ -70,7 +70,6 @@ public:
 
 protected:
     virtual const SfxItemSet& GetObjectItemSet();
-    virtual void SetObjectItem(const SfxPoolItem& rItem);
     virtual SfxStyleSheet* GetStyleSheet() const;
 
 private:

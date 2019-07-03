@@ -59,14 +59,11 @@ OUString FindMediaDir(const OUString& rDocumentBaseURL,
     OUString aMediaDir;
 
     // See if filter data contains a media directory explicitly.
-    for (sal_Int32 i = 0; i < rFilterData.getLength(); ++i)
-    {
-        if (rFilterData[i].Name == "RVNGMediaDir")
-        {
-            rFilterData[i].Value >>= aMediaDir;
-            break;
-        }
-    }
+    auto pProp = std::find_if(
+        rFilterData.begin(), rFilterData.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "RVNGMediaDir"; });
+    if (pProp != rFilterData.end())
+        pProp->Value >>= aMediaDir;
 
     if (!aMediaDir.isEmpty())
         return aMediaDir + "/";
@@ -91,19 +88,16 @@ OUString FindCoverImage(const OUString& rDocumentBaseURL, OUString& rMimeType,
     OUString aRet;
 
     // See if filter data contains a cover image explicitly.
-    for (sal_Int32 i = 0; i < rFilterData.getLength(); ++i)
-    {
-        if (rFilterData[i].Name == "RVNGCoverImage")
-        {
-            rFilterData[i].Value >>= aRet;
-            break;
-        }
-    }
+    auto pProp = std::find_if(
+        rFilterData.begin(), rFilterData.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "RVNGCoverImage"; });
+    if (pProp != rFilterData.end())
+        pProp->Value >>= aRet;
 
     if (!aRet.isEmpty())
     {
         INetURLObject aRetURL(aRet);
-        rMimeType = GetMimeType(aRetURL.GetExtension());
+        rMimeType = GetMimeType(aRetURL.GetFileExtension());
         return aRet;
     }
 
@@ -143,35 +137,35 @@ void FindXMPMetadata(const uno::Reference<uno::XComponentContext>& xContext,
 {
     // See if filter data contains metadata explicitly.
     OUString aValue;
-    for (sal_Int32 i = 0; i < rFilterData.getLength(); ++i)
+    for (const auto& rProp : rFilterData)
     {
-        if (rFilterData[i].Name == "RVNGIdentifier")
+        if (rProp.Name == "RVNGIdentifier")
         {
-            rFilterData[i].Value >>= aValue;
+            rProp.Value >>= aValue;
             if (!aValue.isEmpty())
                 rMetaData.insert("dc:identifier", aValue.toUtf8().getStr());
         }
-        else if (rFilterData[i].Name == "RVNGTitle")
+        else if (rProp.Name == "RVNGTitle")
         {
-            rFilterData[i].Value >>= aValue;
+            rProp.Value >>= aValue;
             if (!aValue.isEmpty())
                 rMetaData.insert("dc:title", aValue.toUtf8().getStr());
         }
-        else if (rFilterData[i].Name == "RVNGInitialCreator")
+        else if (rProp.Name == "RVNGInitialCreator")
         {
-            rFilterData[i].Value >>= aValue;
+            rProp.Value >>= aValue;
             if (!aValue.isEmpty())
                 rMetaData.insert("meta:initial-creator", aValue.toUtf8().getStr());
         }
-        else if (rFilterData[i].Name == "RVNGLanguage")
+        else if (rProp.Name == "RVNGLanguage")
         {
-            rFilterData[i].Value >>= aValue;
+            rProp.Value >>= aValue;
             if (!aValue.isEmpty())
                 rMetaData.insert("dc:language", aValue.toUtf8().getStr());
         }
-        else if (rFilterData[i].Name == "RVNGDate")
+        else if (rProp.Name == "RVNGDate")
         {
-            rFilterData[i].Value >>= aValue;
+            rProp.Value >>= aValue;
             if (!aValue.isEmpty())
                 rMetaData.insert("dc:date", aValue.toUtf8().getStr());
         }
@@ -227,7 +221,7 @@ XMLBodyContext::CreateChildContext(const OUString& rName,
                                    const uno::Reference<xml::sax::XAttributeList>& /*xAttribs*/)
 {
     if (rName == "office:text")
-        return new XMLBodyContentContext(mrImport);
+        return new XMLBodyContentContext(GetImport());
     return nullptr;
 }
 
@@ -254,24 +248,24 @@ rtl::Reference<XMLImportContext> XMLOfficeDocContext::CreateChildContext(
     const OUString& rName, const uno::Reference<xml::sax::XAttributeList>& /*xAttribs*/)
 {
     if (rName == "office:meta")
-        return new XMLMetaDocumentContext(mrImport);
+        return new XMLMetaDocumentContext(GetImport());
     if (rName == "office:automatic-styles")
-        return new XMLStylesContext(mrImport, XMLStylesContext::StyleType_AUTOMATIC);
+        return new XMLStylesContext(GetImport(), XMLStylesContext::StyleType_AUTOMATIC);
     if (rName == "office:styles")
-        return new XMLStylesContext(mrImport, XMLStylesContext::StyleType_NONE);
+        return new XMLStylesContext(GetImport(), XMLStylesContext::StyleType_NONE);
     if (rName == "office:master-styles")
-        return new XMLStylesContext(mrImport, XMLStylesContext::StyleType_NONE);
+        return new XMLStylesContext(GetImport(), XMLStylesContext::StyleType_NONE);
     if (rName == "office:font-face-decls")
-        return new XMLFontFaceDeclsContext(mrImport);
+        return new XMLFontFaceDeclsContext(GetImport());
     if (rName == "office:body")
     {
-        if (mrImport.GetPageMetafiles().empty())
-            return new XMLBodyContext(mrImport);
+        if (GetImport().GetPageMetafiles().empty())
+            return new XMLBodyContext(GetImport());
 
         // Ignore text from doc model in the fixed layout case, instead
         // insert the page metafiles.
         bool bFirst = true;
-        for (const auto& rPage : mrImport.GetPageMetafiles())
+        for (const auto& rPage : GetImport().GetPageMetafiles())
         {
             HandleFixedLayoutPage(rPage, bFirst);
             if (bFirst)
@@ -283,7 +277,7 @@ rtl::Reference<XMLImportContext> XMLOfficeDocContext::CreateChildContext(
 
 void XMLOfficeDocContext::HandleFixedLayoutPage(const FixedLayoutPage& rPage, bool bFirst)
 {
-    uno::Reference<uno::XComponentContext> xCtx = mrImport.GetComponentContext();
+    uno::Reference<uno::XComponentContext> xCtx = GetImport().GetComponentContext();
     uno::Reference<xml::sax::XWriter> xSaxWriter = xml::sax::Writer::create(xCtx);
     if (!xSaxWriter.is())
         return;
@@ -325,22 +319,22 @@ void XMLOfficeDocContext::HandleFixedLayoutPage(const FixedLayoutPage& rPage, bo
         aPageProperties.insert("librevenge:chapter-names", aChapterNames);
     }
 
-    mrImport.GetGenerator().openPageSpan(aPageProperties);
+    GetImport().GetGenerator().openPageSpan(aPageProperties);
     librevenge::RVNGPropertyList aParagraphProperties;
     if (!bFirst)
         // All pages except the first one needs a page break before the page
         // metafile.
         aParagraphProperties.insert("fo:break-before", "page");
-    mrImport.GetGenerator().openParagraph(aParagraphProperties);
+    GetImport().GetGenerator().openParagraph(aParagraphProperties);
     librevenge::RVNGPropertyList aImageProperties;
     aImageProperties.insert("librevenge:mime-type", "image/svg+xml");
     librevenge::RVNGBinaryData aBinaryData;
     aBinaryData.append(static_cast<const unsigned char*>(aMemoryStream.GetData()),
                        aMemoryStream.GetSize());
     aImageProperties.insert("office:binary-data", aBinaryData);
-    mrImport.GetGenerator().insertBinaryObject(aImageProperties);
-    mrImport.GetGenerator().closeParagraph();
-    mrImport.GetGenerator().closePageSpan();
+    GetImport().GetGenerator().insertBinaryObject(aImageProperties);
+    GetImport().GetGenerator().closeParagraph();
+    GetImport().GetGenerator().closePageSpan();
 }
 
 XMLImport::XMLImport(const uno::Reference<uno::XComponentContext>& xContext,
@@ -353,14 +347,11 @@ XMLImport::XMLImport(const uno::Reference<uno::XComponentContext>& xContext,
     , mrPageMetafiles(rPageMetafiles)
 {
     uno::Sequence<beans::PropertyValue> aFilterData;
-    for (sal_Int32 i = 0; i < rDescriptor.getLength(); ++i)
-    {
-        if (rDescriptor[i].Name == "FilterData")
-        {
-            rDescriptor[i].Value >>= aFilterData;
-            break;
-        }
-    }
+    auto pDescriptor = std::find_if(
+        rDescriptor.begin(), rDescriptor.end(),
+        [](const beans::PropertyValue& rProp) { return rProp.Name == "FilterData"; });
+    if (pDescriptor != rDescriptor.end())
+        pDescriptor->Value >>= aFilterData;
 
     maMediaDir = FindMediaDir(rURL, aFilterData);
 
@@ -438,7 +429,7 @@ PopupState XMLImport::FillPopupData(const OUString& rURL, librevenge::RVNGProper
     rPropList.insert("office:binary-data", aBinaryData);
 
     INetURLObject aAbsURL(aAbs);
-    OUString aMimeType = GetMimeType(aAbsURL.GetExtension());
+    OUString aMimeType = GetMimeType(aAbsURL.GetFileExtension());
     rPropList.insert("librevenge:mime-type", aMimeType.toUtf8().getStr());
 
     return PopupState::Consumed;

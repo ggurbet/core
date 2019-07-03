@@ -50,6 +50,7 @@
 #include <tools/helpers.hxx>
 #include <tools/line.hxx>
 #include <unotools/configmgr.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/graphictools.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/virdev.hxx>
@@ -110,12 +111,14 @@
 #include <svx/unoshape.hxx>
 #include <svx/xbtmpit.hxx>
 #include <svx/xenum.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflclit.hxx>
 #include <svx/xflftrit.hxx>
 #include <svx/xflhtit.hxx>
 #include <svx/xfltrit.hxx>
 #include <svx/xgrad.hxx>
 #include <svx/xhatch.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnclit.hxx>
 #include <svx/xlndsit.hxx>
 #include <svx/xlnedcit.hxx>
@@ -1077,8 +1080,7 @@ basegfx::B2DPolyPolygon SdrObject::TakeXorPoly() const
 {
     basegfx::B2DPolyPolygon aRetval;
     const tools::Rectangle aR(GetCurrentBoundRect());
-    const basegfx::B2DRange aRange(aR.Left(), aR.Top(), aR.Right(), aR.Bottom());
-    aRetval.append(basegfx::utils::createPolygonFromRect(aRange));
+    aRetval.append(basegfx::utils::createPolygonFromRect(vcl::unotools::b2DRectangleFromRectangle(aR)));
 
     return aRetval;
 }
@@ -1371,8 +1373,7 @@ basegfx::B2DPolyPolygon SdrObject::TakeCreatePoly(const SdrDragStat& rDrag) cons
     aRect1.Justify();
 
     basegfx::B2DPolyPolygon aRetval;
-    const basegfx::B2DRange aRange(aRect1.Left(), aRect1.Top(), aRect1.Right(), aRect1.Bottom());
-    aRetval.append(basegfx::utils::createPolygonFromRect(aRange));
+    aRetval.append(basegfx::utils::createPolygonFromRect(vcl::unotools::b2DRectangleFromRectangle(aRect1)));
     return aRetval;
 }
 
@@ -2745,7 +2746,7 @@ void SdrObject::impl_setUnoShape( const uno::Reference< uno::XInterface >& _rxUn
     }
 
     maWeakUnoShape = _rxUnoShape;
-    mpSvxShape = SvxShape::getImplementation( _rxUnoShape );
+    mpSvxShape = comphelper::getUnoTunnelImplementation<SvxShape>( _rxUnoShape );
 
     // I think this may never happen... But I am not sure enough .-)
     if ( bTransferOwnership )
@@ -2836,7 +2837,7 @@ css::uno::Reference< css::uno::XInterface > SdrObject::getUnoShape()
             uno::Reference< uno::XInterface > xPage(pPageCandidate->getUnoPage());
             if( xPage.is() )
             {
-                SvxDrawPage* pDrawPage = SvxDrawPage::getImplementation(xPage);
+                SvxDrawPage* pDrawPage = comphelper::getUnoTunnelImplementation<SvxDrawPage>(xPage);
                 if( pDrawPage )
                 {
                     // create one

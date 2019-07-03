@@ -22,15 +22,22 @@
 #include <tools/urlobj.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/module.hxx>
+#include <svx/xbtmpit.hxx>
 #include <svx/dialogs.hrc>
-#include <svx/xattr.hxx>
+#include <svx/svxids.hrc>
 #include <svx/xpool.hxx>
 #include <strings.hrc>
 #include <svx/xflbckit.hxx>
-#include <svx/svdattr.hxx>
 #include <svx/xtable.hxx>
 #include <svx/xlineit0.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/xflbmsxy.hxx>
+#include <svx/xflbmtit.hxx>
+#include <svx/xflbstit.hxx>
+#include <svx/xflbmsli.hxx>
+#include <svx/xflbmpit.hxx>
+#include <svx/xflboxy.hxx>
+#include <svx/xflbtoxy.hxx>
 #include <cuitabarea.hxx>
 #include <dlgname.hxx>
 #include <dialmgr.hxx>
@@ -38,11 +45,14 @@
 #include <svl/intitem.hxx>
 #include <sfx2/request.hxx>
 #include <sfx2/opengrf.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <svx/svxdlg.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/dialoghelper.hxx>
 #include <sal/log.hxx>
+#include <comphelper/lok.hxx>
+#include <svtools/unitconv.hxx>
 
 using namespace com::sun::star;
 
@@ -113,6 +123,8 @@ SvxBitmapTabPage::SvxBitmapTabPage(TabPageParent pParent, const SfxItemSet& rInA
     m_xPositionOffY->connect_value_changed(aLink);
     m_xTileOffset->connect_value_changed( LINK( this, SvxBitmapTabPage, ModifyTileOffsetHdl ) );
     m_xBtnImport->connect_clicked( LINK(this, SvxBitmapTabPage, ClickImportHdl) );
+    if (comphelper::LibreOfficeKit::isActive())
+        m_xBtnImport->hide();
 
     // Calculate size of display boxes
     Size aSize = getDrawPreviewOptimalSize(this);
@@ -713,7 +725,7 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ModifyTileOffsetHdl, weld::MetricSpinButton&, 
 
 IMPL_LINK_NOARG(SvxBitmapTabPage, ClickImportHdl, weld::Button&, void)
 {
-    SvxOpenGraphicDialog aDlg("Import", GetDialogFrameWeld());
+    SvxOpenGraphicDialog aDlg(CuiResId(RID_SVXSTR_ADD_IMAGE), GetDialogFrameWeld());
     aDlg.EnableLink(false);
     long nCount = m_pBitmapList->Count();
 
@@ -733,7 +745,8 @@ IMPL_LINK_NOARG(SvxBitmapTabPage, ClickImportHdl, weld::Button&, void)
             OUString        aName;
             INetURLObject   aURL( aDlg.GetPath() );
             SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-            ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(GetDialogFrameWeld(), aURL.GetName().getToken(0, '.'), aDesc));
+            ScopedVclPtr<AbstractSvxNameDialog> pDlg(pFact->CreateSvxNameDialog(
+                GetDialogFrameWeld(), aURL.GetLastName().getToken(0, '.'), aDesc));
             nError = ErrCode(1);
 
             while( pDlg->Execute() == RET_OK )

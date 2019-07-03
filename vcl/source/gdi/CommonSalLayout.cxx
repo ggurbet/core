@@ -20,6 +20,7 @@
 #include <memory>
 
 #include <hb-icu.h>
+#include <hb-ot.h>
 
 #include <sallayout.hxx>
 
@@ -121,6 +122,14 @@ namespace vcl {
 } // namespace vcl
 
 namespace {
+#if U_ICU_VERSION_MAJOR_NUM >= 63
+    enum class VerticalOrientation {
+        Upright            = U_VO_UPRIGHT,
+        Rotated            = U_VO_ROTATED,
+        TransformedUpright = U_VO_TRANSFORMED_UPRIGHT,
+        TransformedRotated = U_VO_TRANSFORMED_ROTATED
+    };
+#else
     #include "VerticalOrientationData.cxx"
 
     // These must match the values in the file included above.
@@ -130,6 +139,7 @@ namespace {
         TransformedUpright = 2,
         TransformedRotated = 3
     };
+#endif
 
     VerticalOrientation GetVerticalOrientation(sal_UCS4 cCh, const LanguageTag& rTag)
     {
@@ -140,6 +150,9 @@ namespace {
                 && rTag.getLanguage() == "zh")
             return VerticalOrientation::TransformedUpright;
 
+#if U_ICU_VERSION_MAJOR_NUM >= 63
+        int32_t nRet = u_getIntPropertyValue(cCh, UCHAR_VERTICAL_ORIENTATION);
+#else
         uint8_t nRet = 1;
 
         if (cCh < 0x10000)
@@ -158,6 +171,7 @@ namespace {
             // Default value for unassigned
             SAL_WARN("vcl.gdi", "Getting VerticalOrientation for codepoint outside Unicode range");
         }
+#endif
 
         return VerticalOrientation(nRet);
     }
@@ -190,11 +204,13 @@ void GenericSalLayout::SetNeedFallback(ImplLayoutArgs& rArgs, sal_Int32 nCharPos
     //mark all glyphs as missing so the whole thing is rendered with the same
     //font
     sal_Int32 nDone;
-    sal_Int32 nGraphemeStartPos =
-        mxBreak->previousCharacters(rArgs.mrStr, nCharPos + 1, aLocale,
-            i18n::CharacterIteratorMode::SKIPCELL, 1, nDone);
     sal_Int32 nGraphemeEndPos =
         mxBreak->nextCharacters(rArgs.mrStr, nCharPos, aLocale,
+            i18n::CharacterIteratorMode::SKIPCELL, 1, nDone);
+    // Safely advance nCharPos in case it is a non-BMP character.
+    rArgs.mrStr.iterateCodePoints(&nCharPos);
+    sal_Int32 nGraphemeStartPos =
+        mxBreak->previousCharacters(rArgs.mrStr, nCharPos, aLocale,
             i18n::CharacterIteratorMode::SKIPCELL, 1, nDone);
 
     rArgs.NeedFallback(nGraphemeStartPos, nGraphemeEndPos, bRightToLeft);
@@ -208,12 +224,10 @@ void GenericSalLayout::AdjustLayout(ImplLayoutArgs& rArgs)
         ApplyDXArray(rArgs);
     else if (rArgs.mnLayoutWidth)
         Justify(rArgs.mnLayoutWidth);
-
     // apply asian kerning if the glyphs are not already formatted
-    if ((rArgs.mnFlags & SalLayoutFlags::KerningAsian)
-    && !(rArgs.mnFlags & SalLayoutFlags::Vertical))
-        if ((rArgs.mpDXArray != nullptr) || (rArgs.mnLayoutWidth != 0))
-            ApplyAsianKerning(rArgs.mrStr);
+    else if ((rArgs.mnFlags & SalLayoutFlags::KerningAsian)
+         && !(rArgs.mnFlags & SalLayoutFlags::Vertical))
+        ApplyAsianKerning(rArgs.mrStr);
 }
 
 void GenericSalLayout::DrawText(SalGraphics& rSalGraphics) const
@@ -273,6 +287,8 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
     {
         // Work with pre-computed glyph items.
         m_GlyphItems = *pGlyphs;
+        // Some flags are set as a side effect of text layout, restore them here.
+        rArgs.mnFlags |= pGlyphs->Impl()->mnFlags;
         return true;
     }
 
@@ -580,6 +596,10 @@ bool GenericSalLayout::LayoutText(ImplLayoutArgs& rArgs, const SalLayoutGlyphs* 
 
     hb_buffer_destroy(pHbBuffer);
 
+    // Some flags are set as a side effect of text layout, save them here.
+    if (rArgs.mnFlags & SalLayoutFlags::GlyphItemsOnly)
+        m_GlyphItems.Impl()->mnFlags = rArgs.mnFlags;
+
     return true;
 }
 
@@ -761,7 +781,7 @@ void GenericSalLayout::ApplyDXArray(const ImplLayoutArgs& rArgs)
                     nOverlap = nExcess / (nCopies - 1);
             }
 
-            Point aPos(pGlyphIter->m_aLinearPos.X() - nTotalWidth, 0);
+            Point aPos(pGlyphIter->m_aLinearPos.getX() - nTotalWidth, 0);
             int nCharPos = pGlyphIter->m_nCharPos;
             int const nFlags = GlyphItem::IS_IN_CLUSTER | GlyphItem::IS_RTL_GLYPH;
             while (nCopies--)

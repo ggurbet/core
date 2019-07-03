@@ -38,6 +38,7 @@
 #include <vcl/fontcapabilities.hxx>
 #include <vcl/metric.hxx>
 
+
 #include <fontinstance.hxx>
 #include <impfontmetricdata.hxx>
 #include <PhysicalFontFace.hxx>
@@ -46,6 +47,8 @@
 #include <quartz/salgdicommon.hxx>
 #include <unordered_map>
 #include <hb-ot.h>
+
+#include <quartz/CGHelpers.hxx>
 
 class AquaSalFrame;
 class FontAttributes;
@@ -90,9 +93,11 @@ public:
     CFMutableDictionaryRef  GetStyleDict( void ) const { return mpStyleDict; }
 
     /// <1.0: font is squeezed, >1.0 font is stretched, else 1.0
-    float               mfFontStretch;
+    float mfFontStretch;
     /// text rotation in radian
-    float               mfFontRotation;
+    float mfFontRotation;
+    /// faux bold - true, if font doesn't have proper bold variants
+    bool mbFauxBold;
 
 private:
     explicit CoreTextStyle(const PhysicalFontFace&, const FontSelectPattern&);
@@ -125,15 +130,11 @@ private:
     std::unordered_map<sal_IntPtr, rtl::Reference<CoreTextFontFace>> maFontContainer;
 };
 
-
 class AquaSalGraphics : public SalGraphics
 {
-    CGLayerRef                              mxLayer;    // Quartz graphics layer
-    CGContextRef                            mrContext;  // Quartz drawing context
-#ifdef MACOSX
-    AquaSalFrame*                           mpFrame;
-#endif
-    int                                     mnContextStackDepth;
+    CGLayerHolder maLayer; // Quartz graphics layer
+    CGContextHolder maContextHolder;  // Quartz drawing context
+
     XorEmulation*                           mpXorEmulation;
     int                                     mnXorMode; // 0: off 1: on 2: invert only
     int                                     mnWidth;
@@ -157,6 +158,10 @@ class AquaSalGraphics : public SalGraphics
     RGBAColor                               maTextColor;
     /// allows text to be rendered without antialiasing
     bool                                    mbNonAntialiasedText;
+
+#ifdef MACOSX
+    AquaSalFrame*                           mpFrame;
+#endif
 
     // Graphics types
 
@@ -184,7 +189,7 @@ public:
 
     void                    SetWindowGraphics( AquaSalFrame* pFrame );
     void                    SetPrinterGraphics( CGContextRef, long nRealDPIX, long nRealDPIY );
-    void                    SetVirDevGraphics( CGLayerRef, CGContextRef, int nBitDepth = 0 );
+    void                    SetVirDevGraphics(CGLayerHolder const & rLayer, CGContextRef, int nBitDepth = 0);
 #ifdef MACOSX
     void                    initResolution( NSWindow* );
     void                    copyResolution( AquaSalGraphics& );
@@ -290,6 +295,9 @@ public:
 
     // native widget rendering methods that require mirroring
 #ifdef MACOSX
+protected:
+    virtual bool            isNativeControlSupported( ControlType nType, ControlPart nPart ) override;
+
     virtual bool            hitTestNativeControl( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion,
                                                   const Point& aPos, bool& rIsInside ) override;
     virtual bool            drawNativeControl( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion,
@@ -298,6 +306,8 @@ public:
     virtual bool            getNativeControlRegion( ControlType nType, ControlPart nPart, const tools::Rectangle& rControlRegion, ControlState nState,
                                                     const ImplControlValue& aValue, const OUString& aCaption,
                                                     tools::Rectangle &rNativeBoundingRegion, tools::Rectangle &rNativeContentRegion ) override;
+
+public:
 #endif
 
     // get device resolution
@@ -377,11 +387,6 @@ public:
                             GetTextLayout(int nFallbackLevel) override;
     virtual void            DrawTextLayout( const GenericSalLayout& ) override;
     virtual bool            supportsOperation( OutDevSupportType ) const override;
-
-#ifdef MACOSX
-    // Query the platform layer for control support
-    virtual bool            IsNativeControlSupported( ControlType nType, ControlPart nPart ) override;
-#endif
 
     virtual SystemGraphicsData
                             GetGraphicsData() const override;

@@ -92,7 +92,7 @@ bool WpftLoader::impl_load()
     // create an empty frame
     m_xDoc.set(m_xDesktop->loadComponentFromURL(m_aFactoryURL, "_blank", 0,
                                                 uno::Sequence<beans::PropertyValue>()),
-               uno::UNO_QUERY_THROW);
+               uno::UNO_SET_THROW);
 
     // Find the model and frame. We need them later.
     m_xFrame.set(m_xDoc, uno::UNO_QUERY);
@@ -181,22 +181,21 @@ void WpftLoader::impl_dispose()
 void WpftLoader::impl_detectFilterName(uno::Sequence<beans::PropertyValue>& rDescriptor,
                                        const OUString& rTypeName)
 {
-    const sal_Int32 nDescriptorLen = rDescriptor.getLength();
-
-    for (sal_Int32 n = 0; nDescriptorLen != n; ++n)
-    {
-        if ("FilterName" == rDescriptor[n].Name)
-            return;
-    }
+    bool bHasFilterName
+        = std::any_of(rDescriptor.begin(), rDescriptor.end(),
+                      [](const beans::PropertyValue& rProp) { return "FilterName" == rProp.Name; });
+    if (bHasFilterName)
+        return;
 
     uno::Sequence<beans::PropertyValue> aTypes;
     if (m_xTypeMap->getByName(rTypeName) >>= aTypes)
     {
-        for (sal_Int32 n = 0; aTypes.getLength() != n; ++n)
+        for (const auto& rType : aTypes)
         {
             OUString aFilterName;
-            if (("PreferredFilter" == aTypes[n].Name) && (aTypes[n].Value >>= aFilterName))
+            if (("PreferredFilter" == rType.Name) && (rType.Value >>= aFilterName))
             {
+                const sal_Int32 nDescriptorLen = rDescriptor.getLength();
                 rDescriptor.realloc(nDescriptorLen + 1);
                 rDescriptor[nDescriptorLen].Name = "FilterName";
                 rDescriptor[nDescriptorLen].Value <<= aFilterName;

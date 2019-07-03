@@ -48,6 +48,8 @@ class NaviContentBookmark;
 struct SwCallMouseEvent;
 class SfxStringListItem;
 enum class SvMacroItemId : sal_uInt16;
+class SwFieldMgr;
+class SfxRequest;
 
 namespace i18nutil {
     struct SearchOptions2;
@@ -114,6 +116,9 @@ public:
     void Drag         (const Point* pPt, bool bProp) { (this->*m_fnDrag)(pPt, bProp); }
     void EndDrag      (const Point* pPt, bool bProp) { (this->*m_fnEndDrag)(pPt, bProp); }
     long KillSelection(const Point* pPt, bool bProp) { return (this->*m_fnKillSel)(pPt, bProp); }
+
+    bool IsSplitVerticalByDefault() const;
+    void SetSplitVerticalByDefault(bool value);
 
     // reset all selections
     long ResetSelect( const Point *, bool );
@@ -293,7 +298,7 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
     int     IntelligentCut(SelectionType nSelectionType, bool bCut = true);
 
     // edit
-    void    Insert(SwField const &);
+    void    Insert(SwField const &, SwPaM* pAnnotationRange = nullptr);
     void    Insert(const OUString &);
     // graphic
     void    Insert( const OUString &rPath, const OUString &rFilter,
@@ -395,9 +400,9 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
     void    MoveCursor( bool bWithSelect = false );
 
     // update input fields
-    bool    StartInputFieldDlg(SwField*, bool bPrevButton, bool bNextButton, weld::Window* pParentWin, FieldDialogPressedButton* pPressedButton = nullptr);
+    bool    StartInputFieldDlg(SwField*, bool bPrevButton, bool bNextButton, weld::Widget* pParentWin, FieldDialogPressedButton* pPressedButton = nullptr);
     // update DropDown fields
-    bool    StartDropDownFieldDlg(SwField*, bool bPrevButton, bool bNextButton, weld::Window* pParentWin, FieldDialogPressedButton* pPressedButton = nullptr);
+    bool    StartDropDownFieldDlg(SwField*, bool bPrevButton, bool bNextButton, weld::Widget* pParentWin, FieldDialogPressedButton* pPressedButton = nullptr);
 
     //"Handler" for changes at DrawView - for controls.
     virtual void DrawSelChanged( ) override;
@@ -469,7 +474,7 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
     void GotoOutline( SwOutlineNodes::size_type nIdx );
     bool GotoOutline( const OUString& rName );
     bool GotoRegion( const OUString& rName );
-    void GotoRefMark( const OUString& rRefMark, sal_uInt16 nSubType = 0,
+    bool GotoRefMark( const OUString& rRefMark, sal_uInt16 nSubType = 0,
         sal_uInt16 nSeqNo = 0 );
     bool GotoNextTOXBase( const OUString* pName = nullptr);
     bool GotoTable( const OUString& rName );
@@ -478,6 +483,9 @@ typedef bool (SwWrtShell:: *FNSimpleMove)();
 
     void ChangeHeaderOrFooter(const OUString& rStyleName, bool bHeader, bool bOn, bool bShowWarning);
     virtual void SetShowHeaderFooterSeparator( FrameControlType eControl, bool bShow ) override;
+
+    /// Inserts a new annotation/comment at the current cursor position / selection.
+    void InsertPostIt(SwFieldMgr& rFieldMgr, SfxRequest& rReq);
 
 private:
 

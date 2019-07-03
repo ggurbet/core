@@ -27,6 +27,7 @@
 #include <com/sun/star/embed/EmbedMisc.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
 #include <com/sun/star/embed/ObjectSaveVetoException.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/embed/XEmbedPersist2.hpp>
 #include <com/sun/star/embed/XInplaceClient.hpp>
 #include <com/sun/star/embed/XInplaceObject.hpp>
@@ -53,6 +54,7 @@
 #include <tools/stream.hxx>
 #include <comphelper/anytostring.hxx>
 #include <svx/svdpagv.hxx>
+#include <tools/debug.hxx>
 #include <tools/globname.hxx>
 #include <tools/diagnose_ex.h>
 #include <vcl/jobset.hxx>
@@ -76,8 +78,10 @@
 #include <sdr/contact/viewcontactofsdrole2obj.hxx>
 #include <svx/svdograf.hxx>
 #include <sdr/properties/oleproperties.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnclit.hxx>
 #include <svx/xbtmpit.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflbmtit.hxx>
 #include <svx/xflbstit.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
@@ -946,9 +950,9 @@ void SdrOle2Obj::CheckFileLink_Impl()
                 }
             }
         }
-        catch (const css::uno::Exception& e)
+        catch (const css::uno::Exception&)
         {
-            SAL_WARN("svx", "SdrOle2Obj::CheckFileLink_Impl(), " << e);
+            TOOLS_WARN_EXCEPTION("svx", "SdrOle2Obj::CheckFileLink_Impl()");
         }
     }
 }

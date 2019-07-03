@@ -121,9 +121,9 @@ OUString SwPageNumberFieldType::Expand( SvxNumType nFormat, short nOff,
     return FormatNumber( nTmp, nTmpFormat, nLang );
 }
 
-SwFieldType* SwPageNumberFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwPageNumberFieldType::Copy() const
 {
-    SwPageNumberFieldType *pTmp = new SwPageNumberFieldType();
+    std::unique_ptr<SwPageNumberFieldType> pTmp(new SwPageNumberFieldType());
 
     pTmp->m_nNumberingType = m_nNumberingType;
     pTmp->m_bVirtual  = m_bVirtual;
@@ -143,12 +143,10 @@ void SwPageNumberFieldType::ChangeExpansion( SwDoc* pDoc,
     {
         // check the flag since the layout NEVER sets it back
         const SfxItemPool &rPool = pDoc->GetAttrPool();
-        sal_uInt32 nMaxItems = rPool.GetItemCount2( RES_PAGEDESC );
-        for( sal_uInt32 n = 0; n < nMaxItems; ++n )
+        for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(RES_PAGEDESC))
         {
-            const SwFormatPageDesc *pDesc;
-            if( nullptr != (pDesc = rPool.GetItem2( RES_PAGEDESC, n ) )
-                && pDesc->GetNumOffset() && pDesc->GetDefinedIn() )
+            auto pDesc = dynamic_cast<const SwFormatPageDesc*>(pItem);
+            if( pDesc && pDesc->GetNumOffset() && pDesc->GetDefinedIn() )
             {
                 const SwContentNode* pNd = dynamic_cast<const SwContentNode*>( pDesc->GetDefinedIn()  );
                 if( pNd )
@@ -325,9 +323,9 @@ OUString SwAuthorFieldType::Expand(sal_uLong nFormat)
     return rOpt.GetID();
 }
 
-SwFieldType* SwAuthorFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwAuthorFieldType::Copy() const
 {
-    return new SwAuthorFieldType;
+    return std::make_unique<SwAuthorFieldType>();
 }
 
 SwAuthorField::SwAuthorField(SwAuthorFieldType* pTyp, sal_uInt32 nFormat)
@@ -458,10 +456,9 @@ OUString SwFileNameFieldType::Expand(sal_uLong nFormat) const
     return aRet;
 }
 
-SwFieldType* SwFileNameFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwFileNameFieldType::Copy() const
 {
-    SwFieldType *pTmp = new SwFileNameFieldType(m_pDoc);
-    return pTmp;
+    return std::make_unique<SwFileNameFieldType>(m_pDoc);
 }
 
 SwFileNameField::SwFileNameField(SwFileNameFieldType* pTyp, sal_uInt32 nFormat)
@@ -610,7 +607,7 @@ OUString SwTemplNameFieldType::Expand(sal_uLong nFormat) const
             {
                 INetURLObject aPathName( xDocProps->getTemplateURL() );
                 if( FF_NAME == nFormat )
-                    aRet = aPathName.GetName(URL_DECODE);
+                    aRet = aPathName.GetLastName(URL_DECODE);
                 else if( FF_NAME_NOEXT == nFormat )
                     aRet = aPathName.GetBase();
                 else
@@ -629,10 +626,9 @@ OUString SwTemplNameFieldType::Expand(sal_uLong nFormat) const
     return aRet;
 }
 
-SwFieldType* SwTemplNameFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwTemplNameFieldType::Copy() const
 {
-    SwFieldType *pTmp = new SwTemplNameFieldType(m_pDoc);
-    return pTmp;
+    return std::make_unique<SwTemplNameFieldType>(m_pDoc);
 }
 
 SwTemplNameField::SwTemplNameField(SwTemplNameFieldType* pTyp, sal_uInt32 nFormat)
@@ -750,10 +746,9 @@ OUString SwDocStatFieldType::Expand(sal_uInt16 nSubType, SvxNumType nFormat) con
     return OUString::number( nVal );
 }
 
-SwFieldType* SwDocStatFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwDocStatFieldType::Copy() const
 {
-    SwDocStatFieldType *pTmp = new SwDocStatFieldType(m_pDoc);
-    return pTmp;
+    return std::make_unique<SwDocStatFieldType>(m_pDoc);
 }
 
 /**
@@ -840,10 +835,9 @@ SwDocInfoFieldType::SwDocInfoFieldType(SwDoc* pDc)
 {
 }
 
-SwFieldType* SwDocInfoFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwDocInfoFieldType::Copy() const
 {
-    SwDocInfoFieldType* pTyp = new SwDocInfoFieldType(GetDoc());
-    return pTyp;
+    return std::make_unique<SwDocInfoFieldType>(GetDoc());
 }
 
 static void lcl_GetLocalDataWrapper( LanguageType nLang,
@@ -915,8 +909,7 @@ OUString SwDocInfoFieldType::Expand( sal_uInt16 nSub, sal_uInt32 nFormat,
                 aAny = xSet->getPropertyValue( rName );
 
                 uno::Reference < script::XTypeConverter > xConverter( script::Converter::create(comphelper::getProcessComponentContext()) );
-                uno::Any aNew;
-                aNew = xConverter->convertToSimpleType( aAny, uno::TypeClass_STRING );
+                uno::Any aNew = xConverter->convertToSimpleType( aAny, uno::TypeClass_STRING );
                 aNew >>= sVal;
             }
             catch (uno::Exception&) {}
@@ -1258,9 +1251,9 @@ SwHiddenTextFieldType::SwHiddenTextFieldType( bool bSetHidden )
 {
 }
 
-SwFieldType* SwHiddenTextFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwHiddenTextFieldType::Copy() const
 {
-    return new SwHiddenTextFieldType( m_bHidden );
+    return std::make_unique<SwHiddenTextFieldType>( m_bHidden );
 }
 
 void SwHiddenTextFieldType::SetHiddenFlag( bool bSetHidden )
@@ -1649,10 +1642,9 @@ SwHiddenParaFieldType::SwHiddenParaFieldType()
 {
 }
 
-SwFieldType* SwHiddenParaFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwHiddenParaFieldType::Copy() const
 {
-    SwHiddenParaFieldType* pTyp = new SwHiddenParaFieldType();
-    return pTyp;
+    return std::make_unique<SwHiddenParaFieldType>();
 }
 
 // field for line height 0
@@ -1727,9 +1719,9 @@ SwPostItFieldType::SwPostItFieldType(SwDoc *pDoc)
     , mpDoc(pDoc)
 {}
 
-SwFieldType* SwPostItFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwPostItFieldType::Copy() const
 {
-    return new SwPostItFieldType(mpDoc);
+    return std::make_unique<SwPostItFieldType>(mpDoc);
 }
 
 // PostIt field
@@ -1943,10 +1935,9 @@ SwExtUserFieldType::SwExtUserFieldType()
 {
 }
 
-SwFieldType* SwExtUserFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwExtUserFieldType::Copy() const
 {
-    SwExtUserFieldType* pTyp = new SwExtUserFieldType;
-    return pTyp;
+    return std::make_unique<SwExtUserFieldType>();
 }
 
 OUString SwExtUserFieldType::Expand(sal_uInt16 nSub )
@@ -2073,9 +2064,9 @@ SwRefPageSetFieldType::SwRefPageSetFieldType()
 {
 }
 
-SwFieldType* SwRefPageSetFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwRefPageSetFieldType::Copy() const
 {
-    return new SwRefPageSetFieldType;
+    return std::make_unique<SwRefPageSetFieldType>();
 }
 
 // overridden since there is nothing to update
@@ -2150,9 +2141,9 @@ SwRefPageGetFieldType::SwRefPageGetFieldType( SwDoc* pDc )
 {
 }
 
-SwFieldType* SwRefPageGetFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwRefPageGetFieldType::Copy() const
 {
-    SwRefPageGetFieldType* pNew = new SwRefPageGetFieldType( m_pDoc );
+    std::unique_ptr<SwRefPageGetFieldType> pNew(new SwRefPageGetFieldType( m_pDoc ));
     pNew->m_nNumberingType = m_nNumberingType;
     return pNew;
 }
@@ -2450,9 +2441,9 @@ SwJumpEditFieldType::SwJumpEditFieldType( SwDoc* pD )
 {
 }
 
-SwFieldType* SwJumpEditFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwJumpEditFieldType::Copy() const
 {
-    return new SwJumpEditFieldType( m_pDoc );
+    return std::make_unique<SwJumpEditFieldType>( m_pDoc );
 }
 
 SwCharFormat* SwJumpEditFieldType::GetCharFormat()
@@ -2574,9 +2565,9 @@ SwCombinedCharFieldType::SwCombinedCharFieldType()
 {
 }
 
-SwFieldType* SwCombinedCharFieldType::Copy() const
+std::unique_ptr<SwFieldType> SwCombinedCharFieldType::Copy() const
 {
-    return new SwCombinedCharFieldType;
+    return std::make_unique<SwCombinedCharFieldType>();
 }
 
 // combined character field

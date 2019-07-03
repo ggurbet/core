@@ -1442,8 +1442,7 @@ void ScChangeActionContent::GetDescription(
     OUString aTmpStr;
     GetRefString(aTmpStr, pDoc);
 
-    sal_Int32 nPos = 0;
-    nPos = aRsc.indexOf("#1", nPos);
+    sal_Int32 nPos = aRsc.indexOf("#1", 0);
     if (nPos >= 0)
     {
         aRsc = aRsc.replaceAt(nPos, 2, aTmpStr);
@@ -4483,8 +4482,8 @@ ScChangeTrack* ScChangeTrack::Clone( ScDocument* pDocument ) const
                 break;
             case SC_CAT_MOVE:
                 {
-                    const ScChangeActionMove* pMove = dynamic_cast< const ScChangeActionMove* >( pAction );
-                    OSL_ENSURE( pMove, "ScChangeTrack::Clone: pMove is null!" );
+                    auto pMove = dynamic_cast<const ScChangeActionMove*>(pAction);
+                    assert(pMove && "ScChangeTrack::Clone: pMove is null!");
 
                     pClonedAction = new ScChangeActionMove(
                         pAction->GetActionNumber(),

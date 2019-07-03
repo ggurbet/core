@@ -303,7 +303,7 @@ ODatabaseForm::ODatabaseForm( const ODatabaseForm& _cloneSource )
             Reference< XPropertySetInfo > xSourcePSI( xSourceProps->getPropertySetInfo(), UNO_SET_THROW );
             Reference< XPropertyState > xSourcePropState( xSourceProps, UNO_QUERY );
 
-            Reference< XPropertySetInfo > xDestPSI( getPropertySetInfo(), UNO_QUERY_THROW );
+            Reference< XPropertySetInfo > xDestPSI( getPropertySetInfo(), UNO_SET_THROW );
 
             Sequence< Property > aSourceProperties( xSourcePSI->getProperties() );
             for ( auto const & sourceProperty : aSourceProperties )
@@ -468,7 +468,7 @@ Sequence<sal_Int8> ODatabaseForm::GetDataMultiPartEncoded(const Reference<XContr
     FillSuccessfulList( aSuccObjList, SubmitButton, MouseEvt );
 
 
-    // Aggregate Liste to OUString
+    // Aggregate List to OUString
     for (auto const& succObj : aSuccObjList)
     {
         if( succObj.nRepresentation == SUCCESSFUL_REPRESENT_TEXT )
@@ -1877,7 +1877,7 @@ Any ODatabaseForm::getPropertyDefaultByHandle( sal_Int32 nHandle ) const
 
 void SAL_CALL ODatabaseForm::reset()
 {
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::ClearableMutexGuard aGuard(m_aMutex);
 
     if (isLoaded())
     {
@@ -1978,7 +1978,7 @@ void ODatabaseForm::reset_impl(bool _bAproveByListeners)
             if ( xParentColSupp.is() )
                 xParentCols = xParentColSupp->getColumns();
 
-            if ( xParentCols.is() && xParentCols->hasElements() && m_aMasterFields.getLength() )
+            if ( xParentCols.is() && xParentCols->hasElements() && m_aMasterFields.hasElements() )
             {
                 try
                 {
@@ -2025,7 +2025,7 @@ void ODatabaseForm::reset_impl(bool _bAproveByListeners)
 
     aResetGuard.reset();
     // and again : ensure the row isn't modified
-    // we already did this after we (and maybe our dependents) resetted the values, but the listeners may have changed the row, too
+    // we already did this after we (and maybe our dependents) reset the values, but the listeners may have changed the row, too
     if (bInsertRow)
         m_xAggregateSet->setPropertyValue(PROPERTY_ISMODIFIED, css::uno::Any(false));
 
@@ -2084,7 +2084,7 @@ static void lcl_dispatch(const Reference< XFrame >& xFrame,const Reference<XURLT
     aURL.Complete = aURLStr;
     xTransformer->parseStrict(aURL);
 
-    Reference< XDispatch >  xDisp = Reference< XDispatchProvider > (xFrame,UNO_QUERY)->queryDispatch(aURL, aTargetName,
+    Reference< XDispatch >  xDisp = Reference< XDispatchProvider > (xFrame,UNO_QUERY_THROW)->queryDispatch(aURL, aTargetName,
         FrameSearchFlag::SELF | FrameSearchFlag::PARENT | FrameSearchFlag::CHILDREN |
         FrameSearchFlag::SIBLINGS | FrameSearchFlag::CREATE | FrameSearchFlag::TASKS);
 
@@ -2175,7 +2175,7 @@ void ODatabaseForm::submit_impl(const Reference<XControl>& Control, const css::a
             if (xTransformer.is())
                 xTransformer->parseStrict(aURL);
 
-            Reference< XDispatch >  xDisp = Reference< XDispatchProvider > (xFrame,UNO_QUERY)->queryDispatch(aURL, aTargetName,
+            Reference< XDispatch >  xDisp = Reference< XDispatchProvider > (xFrame,UNO_QUERY_THROW)->queryDispatch(aURL, aTargetName,
                     FrameSearchFlag::SELF | FrameSearchFlag::PARENT | FrameSearchFlag::CHILDREN |
                     FrameSearchFlag::SIBLINGS | FrameSearchFlag::CREATE | FrameSearchFlag::TASKS);
 
@@ -2199,7 +2199,7 @@ void ODatabaseForm::submit_impl(const Reference<XControl>& Control, const css::a
         aURL.Complete = aURLStr;
         xTransformer->parseStrict(aURL);
 
-        Reference< XDispatch >  xDisp = Reference< XDispatchProvider > (xFrame,UNO_QUERY)->queryDispatch(aURL, aTargetName,
+        Reference< XDispatch >  xDisp = Reference< XDispatchProvider > (xFrame,UNO_QUERY_THROW)->queryDispatch(aURL, aTargetName,
                 FrameSearchFlag::SELF | FrameSearchFlag::PARENT | FrameSearchFlag::CHILDREN |
                 FrameSearchFlag::SIBLINGS | FrameSearchFlag::CREATE | FrameSearchFlag::TASKS);
 
@@ -2211,7 +2211,7 @@ void ODatabaseForm::submit_impl(const Reference<XControl>& Control, const css::a
                 SolarMutexGuard aGuard;
                 aData = GetDataMultiPartEncoded(Control, MouseEvt, aContentType);
             }
-            if (!aData.getLength())
+            if (!aData.hasElements())
                 return;
 
             Sequence<PropertyValue> aArgs(3);
@@ -2304,7 +2304,7 @@ void ODatabaseForm::_propertyChanged(const PropertyChangeEvent& evt)
 void SAL_CALL ODatabaseForm::setParent(const css::uno::Reference<css::uno::XInterface>& Parent)
 {
     // SYNCHRONIZED ----->
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::ClearableMutexGuard aGuard(m_aMutex);
 
     Reference<XForm>  xParentForm(getParent(), UNO_QUERY);
     if (xParentForm.is())
@@ -2364,7 +2364,7 @@ void SAL_CALL ODatabaseForm::setParent(const css::uno::Reference<css::uno::XInte
 
 sal_Bool SAL_CALL ODatabaseForm::getGroupControl()
 {
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
 
     // Should controls be combined into a TabOrder group?
     if (m_aCycle.hasValue())
@@ -2383,7 +2383,7 @@ sal_Bool SAL_CALL ODatabaseForm::getGroupControl()
 
 void SAL_CALL ODatabaseForm::setControlModels(const Sequence<Reference<XControlModel> >& rControls)
 {
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
 
     // Set TabIndex in the order of the sequence
     sal_Int32 nCount = getCount();
@@ -2853,16 +2853,15 @@ void SAL_CALL ODatabaseForm::unload()
             // close the aggregate
             Reference<XCloseable>  xCloseable;
             query_aggregation( m_xAggregate, xCloseable);
-            aGuard.clear();
             if (xCloseable.is())
                 xCloseable->close();
         }
         catch(const SQLException&)
         {
         }
-        aGuard.reset();
     }
 
+    aGuard.reset();
     m_bLoaded = false;
 
     // if the connection we used while we were loaded is only shared with our parent, we
@@ -2968,7 +2967,7 @@ void SAL_CALL ODatabaseForm::cursorMoved(const EventObject& /*event*/)
 {
     // reload the subform with the new parameters of the parent
     // do this handling delayed to provide of execute too many SQL Statements
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
 
     DBG_ASSERT( m_pLoadTimer, "ODatabaseForm::cursorMoved: how can this happen?!" );
     if ( !m_pLoadTimer )
@@ -3158,7 +3157,7 @@ sal_Bool SAL_CALL ODatabaseForm::approveRowSetChange(const EventObject& event)
 
 void SAL_CALL ODatabaseForm::addRowSetApproveListener(const Reference<XRowSetApproveListener>& _rListener)
 {
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
     m_aRowSetApproveListeners.addInterface(_rListener);
 
     // do we have to multiplex ?
@@ -3176,7 +3175,7 @@ void SAL_CALL ODatabaseForm::addRowSetApproveListener(const Reference<XRowSetApp
 
 void SAL_CALL ODatabaseForm::removeRowSetApproveListener(const Reference<XRowSetApproveListener>& _rListener)
 {
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::MutexGuard aGuard(m_aMutex);
     // do we have to remove the multiplex ?
     m_aRowSetApproveListeners.removeInterface(_rListener);
     if ( m_aRowSetApproveListeners.getLength() == 0 )
@@ -3244,7 +3243,7 @@ void SAL_CALL ODatabaseForm::executeWithCompletion( const Reference< XInteractio
 
 void SAL_CALL ODatabaseForm::execute()
 {
-    ::osl::ResettableMutexGuard aGuard(m_aMutex);
+    osl::ClearableMutexGuard aGuard(m_aMutex);
     // if somebody calls an execute and we're not loaded we reroute this call to our load method.
 
     // the difference between execute and load is, that we position on the first row in case of load

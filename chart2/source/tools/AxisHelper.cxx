@@ -390,9 +390,9 @@ Reference< XAxis > AxisHelper::createAxis(
             if( pRefSizeProvider )
                 pRefSizeProvider->setValuesAtPropertySet( xProp );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN("chart2", "Exception caught. " << e );
+            TOOLS_WARN_EXCEPTION("chart2", "" );
         }
     }
     return xAxis;
@@ -568,7 +568,7 @@ bool AxisHelper::isGridShown( sal_Int32 nDimensionIndex, sal_Int32 nCooSysIndex,
     else
     {
         Sequence< Reference< beans::XPropertySet > > aSubGrids( xAxis->getSubGridProperties() );
-        if( aSubGrids.getLength() )
+        if( aSubGrids.hasElements() )
             bRet = AxisHelper::isGridVisible( aSubGrids[0] );
     }
 

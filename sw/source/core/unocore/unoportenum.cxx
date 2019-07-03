@@ -61,6 +61,7 @@
 #include <comphelper/string.hxx>
 #include <comphelper/servicehelper.hxx>
 #include <cppuhelper/supportsservice.hxx>
+#include <com/sun/star/container/XEnumeration.hpp>
 #include <algorithm>
 #include <memory>
 #include <set>
@@ -185,28 +186,25 @@ namespace
             // no need to consider marks starting after aEndOfPara
             SwPosition aEndOfPara(*rUnoCursor.GetPoint());
             aEndOfPara.nContent = aEndOfPara.nNode.GetNode().GetTextNode()->Len();
-            const IDocumentMarkAccess::const_iterator_t pCandidatesEnd = upper_bound(
-                pMarkAccess->getBookmarksBegin(),
-                pMarkAccess->getBookmarksEnd(),
-                aEndOfPara,
-                sw::mark::CompareIMarkStartsAfter()); // finds the first that starts after
+            const IDocumentMarkAccess::const_iterator_t pCandidatesEnd =
+                pMarkAccess->findFirstBookmarkStartsAfter(aEndOfPara);
 
             // search for all bookmarks that start or end in this paragraph
             for(IDocumentMarkAccess::const_iterator_t ppMark = pMarkAccess->getBookmarksBegin();
                 ppMark != pCandidatesEnd;
                 ++ppMark)
             {
-                ::sw::mark::IMark* const pBkmk = ppMark->get();
+                ::sw::mark::IMark* const pBkmk = *ppMark;
                 lcl_FillBookmark(pBkmk, nOwnNode, rDoc, rBkmArr);
             }
         }
         else
         {
             // A text node already knows its marks via its SwIndexes.
-            std::set<sw::mark::IMark*> aSeenMarks;
+            o3tl::sorted_vector<const sw::mark::IMark*> aSeenMarks;
             for (const SwIndex* pIndex = pTextNode->GetFirstIndex(); pIndex; pIndex = pIndex->GetNext())
             {
-                // Need a non-cost mark here, as we'll create an UNO wrapper around it.
+                // Need a non-cost mark here, as we'll create a UNO wrapper around it.
                 sw::mark::IMark* pBkmk = const_cast<sw::mark::IMark*>(pIndex->GetMark());
                 if (!pBkmk)
                     continue;
@@ -216,9 +214,8 @@ namespace
                     eType != IDocumentMarkAccess::MarkType::CROSSREF_HEADING_BOOKMARK)
                     continue;
                 // Only handle bookmarks once, if they start and end at this node as well.
-                if (aSeenMarks.find(pBkmk) != aSeenMarks.end())
+                if (!aSeenMarks.insert(pBkmk).second)
                     continue;
-                aSeenMarks.insert(pBkmk);
                 lcl_FillBookmark(pBkmk, nOwnNode, rDoc, rBkmArr);
             }
         }
@@ -270,11 +267,8 @@ namespace
         // no need to consider annotation marks starting after aEndOfPara
         SwPosition aEndOfPara(*rUnoCursor.GetPoint());
         aEndOfPara.nContent = aEndOfPara.nNode.GetNode().GetTextNode()->Len();
-        const IDocumentMarkAccess::const_iterator_t pCandidatesEnd = upper_bound(
-            pMarkAccess->getAnnotationMarksBegin(),
-            pMarkAccess->getAnnotationMarksEnd(),
-            aEndOfPara,
-            sw::mark::CompareIMarkStartsAfter()); // finds the first that starts after
+        const IDocumentMarkAccess::const_iterator_t pCandidatesEnd =
+            pMarkAccess->findFirstAnnotationStartsAfter(aEndOfPara);
 
         // search for all annotation marks that have its start position in this paragraph
         const SwNodeIndex nOwnNode = rUnoCursor.GetPoint()->nNode;
@@ -283,7 +277,7 @@ namespace
              ++ppMark )
         {
             ::sw::mark::AnnotationMark* const pAnnotationMark =
-                dynamic_cast< ::sw::mark::AnnotationMark* >(ppMark->get());
+                dynamic_cast< ::sw::mark::AnnotationMark* >(*ppMark);
 
             if (!pAnnotationMark)
                 continue;
@@ -1016,7 +1010,7 @@ lcl_ExportHints(
         nEndIndex = 0;
         nNextEnd = 0;
         while(nEndIndex < pHints->Count() &&
-            nCurrentIndex >= (nNextEnd = (*pHints->GetSortedByEnd(nEndIndex)->GetAnyEnd())))
+            nCurrentIndex >= (nNextEnd = pHints->GetSortedByEnd(nEndIndex)->GetAnyEnd()))
             nEndIndex++;
 
         sal_Int32 nNextPos =
@@ -1167,12 +1161,25 @@ static void lcl_ExportBkmAndRedline(
         lcl_ExportSoftPageBreak(rPortions, xParent, pUnoCursor, rBreakArr, nIndex);
 }
 
+/**
+ * Exports all start annotation marks from rAnnotationStartArr into rPortions that have the same
+ * start position as nIndex.
+ *
+ * @param rAnnotationStartArr the array of annotation marks. Consumed entries are removed.
+ *
+ * @param rFramePositions the list of positions where there is an at-char anchored frame.
+ *
+ * @param bOnlyFrame If true: export only the start of annotation marks which cover an at-char
+ * anchored frame. If false: export everything else.
+ */
 static void lcl_ExportAnnotationStarts(
     TextRangeList_t & rPortions,
     Reference<XText> const & xParent,
     const SwUnoCursor * const pUnoCursor,
     SwAnnotationStartPortion_ImplList& rAnnotationStartArr,
-    const sal_Int32 nIndex)
+    const sal_Int32 nIndex,
+    const std::set<sal_Int32>& rFramePositions,
+    bool bOnlyFrame)
 {
     for ( SwAnnotationStartPortion_ImplList::iterator aIter = rAnnotationStartArr.begin(), aEnd = rAnnotationStartArr.end();
           aIter != aEnd; )
@@ -1188,12 +1195,18 @@ static void lcl_ExportAnnotationStarts(
             break;
         }
 
-        SwXTextPortion* pPortion =
-            new SwXTextPortion( pUnoCursor, xParent, PORTION_ANNOTATION );
-        pPortion->SetTextField( pPtr->mxAnnotationField );
-        rPortions.emplace_back(pPortion);
+        bool bFrameStart = rFramePositions.find(nIndex) != rFramePositions.end();
+        if (bFrameStart || !bOnlyFrame)
+        {
+            SwXTextPortion* pPortion =
+                new SwXTextPortion( pUnoCursor, xParent, PORTION_ANNOTATION );
+            pPortion->SetTextField( pPtr->mxAnnotationField );
+            rPortions.emplace_back(pPortion);
 
-        aIter = rAnnotationStartArr.erase(aIter);
+            aIter = rAnnotationStartArr.erase(aIter);
+        }
+        else
+            ++aIter;
     }
 }
 
@@ -1362,6 +1375,15 @@ static void lcl_CreatePortions(
         lcl_ExportBkmAndRedline( *PortionStack.top().first, i_xParentText,
             pUnoCursor, Bookmarks, Redlines, SoftPageBreaks, nCurrentIndex, aFramePositions, /*bOnlyFrameBookmarkStarts=*/true );
 
+        lcl_ExportAnnotationStarts(
+            *PortionStack.top().first,
+            i_xParentText,
+            pUnoCursor,
+            AnnotationStarts,
+            nCurrentIndex,
+            aFramePositions,
+            /*bOnlyFrame=*/true );
+
         const sal_Int32 nFirstFrameIndex =
             lcl_ExportFrames( *PortionStack.top().first,
                 i_xParentText, pUnoCursor, i_rFrames, nCurrentIndex);
@@ -1376,7 +1398,9 @@ static void lcl_CreatePortions(
             i_xParentText,
             pUnoCursor,
             AnnotationStarts,
-            nCurrentIndex );
+            nCurrentIndex,
+            aFramePositions,
+            /*bOnlyFrame=*/false );
 
         bool bCursorMoved( false );
         sal_Int32 nNextAttrIndex = -1;

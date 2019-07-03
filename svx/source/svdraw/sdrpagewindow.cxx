@@ -37,6 +37,7 @@
 #include <svx/fmview.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <sfx2/lokhelper.hxx>
+#include <tools/debug.hxx>
 
 using namespace ::com::sun::star;
 
@@ -412,11 +413,11 @@ void SdrPageWindow::InvalidatePageWindow(const basegfx::B2DRange& rRange)
     if (GetPageView().IsVisible() && GetPaintWindow().OutputToWindow())
     {
         const SvtOptionsDrawinglayer aDrawinglayerOpt;
-        vcl::Window& rWindow(static_cast< vcl::Window& >(GetPaintWindow().GetOutputDevice()));
+        OutputDevice& rWindow(GetPaintWindow().GetOutputDevice());
         basegfx::B2DRange aDiscreteRange(rRange);
         aDiscreteRange.transform(rWindow.GetViewTransformation());
 
-        if(aDrawinglayerOpt.IsAntiAliasing())
+        if (aDrawinglayerOpt.IsAntiAliasing())
         {
             // invalidate one discrete unit more under the assumption that AA
             // needs one pixel more
@@ -428,10 +429,10 @@ void SdrPageWindow::InvalidatePageWindow(const basegfx::B2DRange& rRange)
             static_cast<long>(floor(aDiscreteRange.getMinY())),
             static_cast<long>(ceil(aDiscreteRange.getMaxX())),
             static_cast<long>(ceil(aDiscreteRange.getMaxY())));
-        const bool bWasMapModeEnabled(rWindow.IsMapModeEnabled());
 
+        const bool bWasMapModeEnabled(rWindow.IsMapModeEnabled());
         rWindow.EnableMapMode(false);
-        rWindow.Invalidate(aVCLDiscreteRectangle, InvalidateFlags::NoErase);
+        GetPageView().GetView().InvalidateOneWin(rWindow, aVCLDiscreteRectangle);
         rWindow.EnableMapMode(bWasMapModeEnabled);
     }
     else if (comphelper::LibreOfficeKit::isActive())

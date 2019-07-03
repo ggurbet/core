@@ -52,7 +52,7 @@ endef
 
 # CObject class
 
-# $(call gb_CObject__command_pattern,object,flags,source,dep-file,compiler-plugins)
+# $(call gb_CObject__command_pattern,object,flags,source,dep-file,compiler-plugins,symbols)
 define gb_CObject__command_pattern
 $(call gb_Helper_abbreviate_dirs,\
 	mkdir -p $(dir $(1)) $(dir $(4)) && cd $(SRCDIR) && \
@@ -65,7 +65,7 @@ $(call gb_Helper_abbreviate_dirs,\
 		$(if $(WARNINGS_NOT_ERRORS),$(if $(ENABLE_WERROR),$(if $(PLUGIN_WARNINGS_AS_ERRORS),$(gb_COMPILER_PLUGINS_WARNINGS_AS_ERRORS))),$(gb_CFLAGS_WERROR)) \
 		$(if $(5),$(gb_COMPILER_PLUGINS)) \
 		$(if $(COMPILER_TEST),-fsyntax-only -ferror-limit=0 -Xclang -verify) \
-		$(2) \
+		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(2)),$(2)) \
 		$(if $(EXTERNAL_CODE),$(gb_CXXFLAGS_Wundef),$(gb_DEFS_INTERNAL)) \
 		-c $(3) \
 		-o $(1) \
@@ -79,10 +79,12 @@ endef
 # PrecompiledHeader class
 
 ifeq ($(COM_IS_CLANG),TRUE)
-gb_PrecompiledHeader_get_enableflags = -include-pch $(call gb_PrecompiledHeader_get_target,$(1))
+gb_PrecompiledHeader_get_enableflags = -include-pch $(call gb_PrecompiledHeader_get_target,$(1),$(2))
+gb_PrecompiledHeader_EXT := .pch
 else
-gb_PrecompiledHeader_get_enableflags = -include $(notdir $(subst .gch,,$(call gb_PrecompiledHeader_get_target,$(1)))) \
-				       -I $(dir $(call gb_PrecompiledHeader_get_target,$(1)))
+gb_PrecompiledHeader_get_enableflags = \
+-include $(dir $(call gb_PrecompiledHeader_get_target,$(1),$(2)))$(notdir $(subst .gch,,$(call gb_PrecompiledHeader_get_target,$(1),$(2))))
+gb_PrecompiledHeader_EXT := .gch
 endif
 
 # Clang and gcc do not need any extra .o file for PCH
@@ -91,20 +93,48 @@ gb_PrecompiledHeader_get_objectfile =
 define gb_PrecompiledHeader__command
 $(call gb_Output_announce,$(2),$(true),PCH,1)
 $(call gb_Helper_abbreviate_dirs,\
-	mkdir -p $(dir $(1)) $(dir $(call gb_PrecompiledHeader_get_dep_target,$(2))) && \
+	mkdir -p $(dir $(1)) $(dir $(call gb_PrecompiledHeader_get_dep_target,$(2),$(7))) && \
+	CCACHE_DISABLE=1 $(gb_COMPILER_SETUP) \
 	$(gb_CXX) \
 		-x c++-header \
-		$(4) $(5) \
+		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(4) $(5)),$(4) $(5)) \
 		$(gb_COMPILERDEPFLAGS) \
 		$(if $(VISIBILITY),,$(gb_VISIBILITY_FLAGS)) \
 		$(if $(EXTERNAL_CODE),$(gb_CXXFLAGS_Wundef),$(gb_DEFS_INTERNAL)) \
+		$(gb_NO_PCH_TIMESTAMP) \
 		$(6) \
-		$(call gb_cxx_dep_generation_options,$(1),$(call gb_PrecompiledHeader_get_dep_target_tmp,$(2))) \
+		$(call gb_cxx_dep_generation_options,$(1),$(call gb_PrecompiledHeader_get_dep_target_tmp,$(2),$(7))) \
 		-c $(patsubst %.cxx,%.hxx,$(3)) \
 		-o$(1) \
-		$(call gb_cxx_dep_copy,$(call gb_PrecompiledHeader_get_dep_target_tmp,$(2))) \
+		$(call gb_cxx_dep_copy,$(call gb_PrecompiledHeader_get_dep_target_tmp,$(2),$(7))) \
 		)
 endef
+
+ifeq ($(COM_IS_CLANG),TRUE)
+# Clang has -fno-pch-timestamp, just checksum the file for CCACHE_PCH_EXTSUM
+define gb_PrecompiledHeader__sum_command
+	$(SHA256SUM) $(1) >$(1).sum
+endef
+else
+# GCC does not generate the same .gch for the same input, so checksum the (preprocessed) input
+define gb_PrecompiledHeader__sum_command
+$(call gb_Helper_abbreviate_dirs,\
+	CCACHE_DISABLE=1 $(gb_COMPILER_SETUP) \
+	$(gb_CXX) \
+		-x c++-header \
+		$(if $(WARNINGS_DISABLED),$(call gb_Helper_disable_warnings,$(4) $(5)),$(4) $(5)) \
+		$(gb_COMPILERDEPFLAGS) \
+		$(if $(VISIBILITY),,$(gb_VISIBILITY_FLAGS)) \
+		$(if $(EXTERNAL_CODE),$(gb_CXXFLAGS_Wundef),$(gb_DEFS_INTERNAL)) \
+		$(gb_NO_PCH_TIMESTAMP) \
+		$(6) \
+		-E $(patsubst %.cxx,%.hxx,$(3)) \
+		-o- \
+		| $(SHA256SUM) >$(1).sum \
+		)
+endef
+endif
+
 
 # YaccTarget class
 

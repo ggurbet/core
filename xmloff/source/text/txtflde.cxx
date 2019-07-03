@@ -157,6 +157,31 @@ static sal_Char const FIELD_SERVICE_MEASURE[] = "Measure";
 static sal_Char const FIELD_SERVICE_TABLE_FORMULA[] = "TableFormula";
 static sal_Char const FIELD_SERVICE_DROP_DOWN[] = "DropDown";
 
+namespace
+{
+/// Walks up the parent chain of xText and returns the topmost text.
+uno::Reference<text::XText> GetToplevelText(const uno::Reference<text::XText>& xText)
+{
+    uno::Reference<text::XText> xRet = xText;
+    while (true)
+    {
+        uno::Reference<beans::XPropertySet> xPropertySet(xRet, uno::UNO_QUERY);
+        if (!xPropertySet.is())
+            return xRet;
+
+        if (!xPropertySet->getPropertySetInfo()->hasPropertyByName("ParentText"))
+            return xRet;
+
+        uno::Reference<text::XText> xParent;
+        if (xPropertySet->getPropertyValue("ParentText") >>= xParent)
+            xRet = xParent;
+        else
+            return xRet;
+    }
+    return xRet;
+}
+}
+
 SvXMLEnumStringMapEntry<FieldIdEnum> const aFieldServiceNameMapping[] =
 {
     ENUM_STRING_MAP_ENTRY( FIELD_SERVICE_SENDER, FIELD_ID_SENDER ),
@@ -367,40 +392,28 @@ enum FieldIdEnum XMLTextFieldExport::GetFieldID(
     // get service names for rTextField (via XServiceInfo service)
     Reference<XServiceInfo> xService(rTextField, UNO_QUERY);
     const Sequence<OUString> aServices = xService->getSupportedServiceNames();
-    const OUString* pNames = aServices.getConstArray();
-    sal_Int32 nCount = aServices.getLength();
 
     OUString sFieldName;    // service name postfix of current field
 
     // search for TextField service name
-    while( nCount-- )
+    const OUString* pNames = std::find_if(aServices.begin(), aServices.end(),
+        [](const OUString& rName) { return rName.matchIgnoreAsciiCase(gsServicePrefix); });
+    if (pNames != aServices.end())
     {
-        if (pNames->matchIgnoreAsciiCase(gsServicePrefix))
-        {
-            // TextField found => postfix is field type!
-            sFieldName = pNames->copy(gsServicePrefix.getLength());
-            break;
-        }
-
-        ++pNames;
+        // TextField found => postfix is field type!
+        sFieldName = pNames->copy(gsServicePrefix.getLength());
     }
 
     // if this is not a normal text field, check if it's a presentation text field
     if( sFieldName.isEmpty() )
     {
-        const OUString* pNames2 = aServices.getConstArray();
-        sal_Int32 nCount2 = aServices.getLength();
         // search for TextField service name
-        while( nCount2-- )
+        pNames = std::find_if(aServices.begin(), aServices.end(),
+            [](const OUString& rName) { return rName.startsWith(gsPresentationServicePrefix); });
+        if (pNames != aServices.end())
         {
-            if( pNames2->startsWith(gsPresentationServicePrefix) )
-            {
-                // TextField found => postfix is field type!
-                sFieldName = pNames2->copy(gsPresentationServicePrefix.getLength());
-                break;
-            }
-
-            ++pNames2;
+            // TextField found => postfix is field type!
+            sFieldName = pNames->copy(gsPresentationServicePrefix.getLength());
         }
 
         if( !sFieldName.isEmpty() )
@@ -749,7 +762,9 @@ void XMLTextFieldExport::ExportFieldAutoStyle(
         Reference<XDependentTextField> xDepField(rTextField, UNO_QUERY);
         if (xDepField.is())
         {
-            Reference<XText> xOurText = rTextField->getAnchor()->getText();
+            // The direct parent may be just the table cell, while we want the topmost parent, e.g.
+            // a header text.
+            Reference<XText> xOurText = GetToplevelText(rTextField->getAnchor()->getText());
 
             map<Reference<XText>, set<OUString> >::iterator aMapIter =
                 pUsedMasters->find(xOurText);
@@ -1936,10 +1951,7 @@ void XMLTextFieldExport::ExportFieldDeclarations(
         aFieldMasters = xFieldMasterNameAccess->getElementNames();
     }
 
-    for(sal_Int32 i=0; i<aFieldMasters.getLength(); i++) {
-
-        // get field master name
-        OUString sFieldMaster = aFieldMasters[i];
+    for(const OUString& sFieldMaster : aFieldMasters) {
 
         // workaround for #no-bug#
         if ( sFieldMaster.startsWithIgnoreAsciiCase(
@@ -2680,13 +2692,12 @@ void XMLTextFieldExport::ProcessBibliographyData(
     aAny >>= aValues;
 
     // one attribute per value (unless empty)
-    sal_Int32 nLength = aValues.getLength();
-    for (sal_Int32 i = 0; i < nLength; i++)
+    for (const auto& rProp : aValues)
     {
-        if( aValues[i].Name == "BibiliographicType" )
+        if( rProp.Name == "BibiliographicType" )
         {
             sal_Int16 nTypeId = 0;
-            aValues[i].Value >>= nTypeId;
+            rProp.Value >>= nTypeId;
             OUStringBuffer sBuf;
 
             if (SvXMLUnitConverter::convertEnum(sBuf, nTypeId,
@@ -2701,12 +2712,12 @@ void XMLTextFieldExport::ProcessBibliographyData(
         else
         {
             OUString sStr;
-            aValues[i].Value >>= sStr;
+            rProp.Value >>= sStr;
 
             if (!sStr.isEmpty())
             {
                 rExport.AddAttribute(XML_NAMESPACE_TEXT,
-                                     MapBibliographyFieldName(aValues[i].Name),
+                                     MapBibliographyFieldName(rProp.Name),
                                      sStr);
             }
         }
@@ -2735,14 +2746,7 @@ void XMLTextFieldExport::ProcessStringSequence(
     const OUString& sSelected )
 {
     // find selected element
-    sal_Int32 nSelected = -1;
-    sal_Int32 nLength = rSequence.getLength();
-    const OUString* pSequence = rSequence.getConstArray();
-    for( sal_Int32 i = 0; i < nLength; i++ )
-    {
-        if( pSequence[i] == sSelected )
-            nSelected = i;
-    }
+    sal_Int32 nSelected = comphelper::findValue(rSequence, sSelected);
 
     // delegate to ProcessStringSequence(OUString,sal_Int32)
     ProcessStringSequence( rSequence, nSelected );
@@ -2852,7 +2856,7 @@ bool XMLTextFieldExport::GetDependentFieldPropertySet(
     aAny >>= aFields;
 
     // any fields?
-    if (aFields.getLength() > 0)
+    if (aFields.hasElements())
     {
         // get first one and return
         Reference<XDependentTextField> xTField = aFields[0];

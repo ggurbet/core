@@ -32,7 +32,9 @@
 #include <com/sun/star/frame/ModuleManager.hpp>
 #include <comphelper/processfactory.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <vcl/builderfactory.hxx>
+#include <vcl/event.hxx>
 
 #include <initializer_list>
 #include <memory>
@@ -1349,10 +1351,11 @@ void SbTreeListBox::AddEntry(
     const OUString& rImage,
     const weld::TreeIter* pParent,
     bool bChildrenOnDemand,
-    std::unique_ptr<Entry>&& rUserData)
+    std::unique_ptr<Entry>&& rUserData,
+    weld::TreeIter* pRet)
 {
     OUString sId(OUString::number(reinterpret_cast<sal_uInt64>(rUserData.release())));
-    m_xControl->insert(pParent, -1, &rText, &sId, nullptr, nullptr, &rImage, bChildrenOnDemand, nullptr);
+    m_xControl->insert(pParent, -1, &rText, &sId, nullptr, nullptr, &rImage, bChildrenOnDemand, pRet);
 }
 
 void SbTreeListBox::SetEntryBitmaps(const weld::TreeIter& rIter, const OUString& rImage)

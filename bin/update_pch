@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # -*- Mode: python; tab-width: 4; indent-tabs-mode: t -*-
 #
 # This file is part of the LibreOffice project.
@@ -185,24 +185,31 @@ def get_filename(line):
         return line
     return re.sub(r'(.*#include\s*)<(.*)>(.*)', r'\2', line)
 
-def is_c_runtime(inc):
+def is_c_runtime(inc, root, module):
     """ Heuristic-based detection of C/C++
         runtime headers.
         They are all-lowercase, with .h or
         no extension, filename only.
+        Try to check that they are not LO headers.
     """
     inc = get_filename(inc)
 
     if inc.endswith('.hxx') or inc.endswith('.hpp'):
         return False
 
+    if inc.endswith('.h') and inc.startswith( 'config_' ):
+        return False
+
     for c in inc:
         if c == '/':
             return False
-        if c == '.':
-            return inc.endswith('.h')
+        if c == '.' and not inc.endswith('.h'):
+            return False
         if c.isupper():
             return False
+
+    if os.path.isfile( os.path.join(root, module, 'inc', inc)):
+        return False
 
     return True
 
@@ -242,12 +249,12 @@ class Filter_Local(object):
         self.public_prefix = '<' + self.module + '/'
 
         all = find_files(os.path.join(root, module))
-        self.module = []
+        self.module_includes = []
         self.locals = []
         mod_prefix = module + '/inc/'
         for i in all:
             if mod_prefix in i:
-                self.module.append(i)
+                self.module_includes.append(i)
             else:
                 self.locals.append(i)
 
@@ -257,7 +264,7 @@ class Filter_Local(object):
     def is_module(self, line):
         """ Returns True if in module/inc/... """
         filename = get_filename(line)
-        for i in self.module:
+        for i in self.module_includes:
             if i.endswith(filename):
                 return True
         return False
@@ -271,7 +278,7 @@ class Filter_Local(object):
         return False
 
     def is_external(self, line):
-        return is_c_runtime(line) and \
+        return is_c_runtime(line, self.root, self.module) and \
                not self.is_public(line) and \
                not self.is_module(line) and \
                not self.is_local(line)
@@ -284,7 +291,7 @@ class Filter_Local(object):
         for i in self.locals:
             if i.endswith(filename):
                 return i
-        for i in self.module:
+        for i in self.module_includes:
             if i.endswith(filename):
                 return i
         return None
@@ -416,6 +423,10 @@ def filter_ignore(line, module):
             'xmlsec/*',
             'xmlsecurity/xmlsec-wrapper.h',
             ]
+    if module == 'external/pdfium':
+        ignore_list += [
+            'third_party/freetype/include/pstables.h',
+            ]
 
     for i in ignore_list:
         if line.startswith(i):
@@ -461,7 +472,7 @@ def fixup(includes, module):
     #        append('sfx2/msg.hxx')
     return fixes
 
-def sort_by_category(list, module, filter_local):
+def sort_by_category(list, root, module, filter_local):
     """ Move all 'system' headers first.
         Core files of osl, rtl, sal, next.
         Everything non-module-specific third.
@@ -475,29 +486,47 @@ def sort_by_category(list, module, filter_local):
 
     prefix = '<' + module + '/'
     for i in list:
-        if is_c_runtime(i):
+        if is_c_runtime(i, root, module):
             sys.append(i)
         elif '<boost/' in i:
             boo.append(i)
-        elif '<osl' in i or '<rtl' in i or '<sal' in i or '<vcl' in i:
+        elif prefix in i or not '/' in i:
+            mod.append(i)
+        elif '<sal/' in i or '<vcl/' in i:
             cor.append(i)
-        elif prefix in i:
+        elif '<osl/' in i or '<rtl/' in i:
+            if module == "sal": # osl and rtl are also part of sal
+                mod.append(i)
+            else:
+                cor.append(i)
+        # Headers from another module that is closely tied to the module.
+        elif module == 'sc' and '<formula' in i:
             mod.append(i)
         else:
             rst.append(i)
 
     out = []
+    out += [ "#if PCH_LEVEL >= 1" ]
     out += sorted(sys)
     out += sorted(boo)
+    out += [ "#endif // PCH_LEVEL >= 1" ]
+    out += [ "#if PCH_LEVEL >= 2" ]
     out += sorted(cor)
+    out += [ "#endif // PCH_LEVEL >= 2" ]
+    out += [ "#if PCH_LEVEL >= 3" ]
     out += sorted(rst)
+    out += [ "#endif // PCH_LEVEL >= 3" ]
+    out += [ "#if PCH_LEVEL >= 4" ]
     out += sorted(mod)
+    out += [ "#endif // PCH_LEVEL >= 4" ]
     return out
 
 def parse_makefile(groups, lines, lineno, lastif, ifstack):
 
     inobjects = False
+    ingeneratedobjects = False
     inelse = False
+    suffix = 'cxx'
     os_cond_re = re.compile('(ifeq|ifneq)\s*\(\$\(OS\)\,(\w*)\)')
 
     line = lines[lineno]
@@ -519,12 +548,21 @@ def parse_makefile(groups, lines, lineno, lastif, ifstack):
 
         if line == '))':
             inobjects = False
+            ingeneratedobjects = False
         elif 'add_exception_objects' in line or \
              'add_cxxobject' in line:
              inobjects = True
              #print('inobjects')
              #if ifstack and not SILENT:
                 #sys.stderr.write('Sources in a conditional, ignoring for now.\n')
+        elif 'add_generated_exception_objects' in line or \
+             'add_generated_cxxobject' in line:
+             ingeneratedobjects = True
+        elif 'set_generated_cxx_suffix' in line:
+            suffix_re = re.compile('.*set_generated_cxx_suffix,[^,]*,([^)]*).*')
+            match = suffix_re.match(line)
+            if match:
+                suffix = match.group(1)
         elif line.startswith('if'):
             lineno = parse_makefile(groups, lines, lineno, line, ifstack+1)
             continue
@@ -534,10 +572,10 @@ def parse_makefile(groups, lines, lineno, lastif, ifstack):
             continue
         elif line.startswith('else'):
             inelse = True
-        elif inobjects:
+        elif inobjects or ingeneratedobjects:
             if EXCLUDE_SYSTEM and ifstack:
                 continue
-            file = line + '.cxx'
+            file = line + '.' + suffix
             if ',' in line or '(' in line or ')' in line:
                 #print('passing: ' + line)
                 pass # $if() probably, or something similar
@@ -559,18 +597,24 @@ def parse_makefile(groups, lines, lineno, lastif, ifstack):
 
                 if osname not in groups:
                     groups[osname] = []
+                if ingeneratedobjects:
+                    file = 'workdir/' + file
                 groups[osname].append(file)
 
     return groups
 
-def process_makefile(root, module, makefile):
+def process_makefile(root, module, libname):
     """ Parse a gmake makefile and extract
         source filenames from it.
     """
 
+    makefile = 'Library_{}.mk'.format(libname)
     filename = os.path.join(os.path.join(root, module), makefile)
     if not os.path.isfile(filename):
-        sys.stderr.write('Error: Module {} has no makefile at {}.'.format(module, filename))
+        makefile = 'StaticLibrary_{}.mk'.format(libname)
+        filename = os.path.join(os.path.join(root, module), makefile)
+        if not os.path.isfile(filename):
+            sys.stderr.write('Error: Module {} has no makefile at {}.'.format(module, filename))
 
     groups = {'':[], 'ANDROID':[], 'iOS':[], 'WNT':[], 'LINUX':[], 'MACOSX':[]}
 
@@ -662,7 +706,7 @@ def make_command_line():
     args = sys.argv[:]
     # Remove command line flags and
     # use internal flags.
-    for i in xrange(len(args)-1, 0, -1):
+    for i in range(len(args)-1, 0, -1):
         if args[i].startswith('--'):
             args.pop(i)
 
@@ -686,7 +730,7 @@ def generate_includes(includes):
     """Generates the include lines of the pch.
     """
     lines = []
-    for osname, group in includes.iteritems():
+    for osname, group in includes.items():
         if not len(group):
             continue
 
@@ -775,7 +819,7 @@ def remove_from_tree(filename, tree):
         tree = remove_from_tree(i, tree)
 
     # Also remove if included from another.
-    for (k, v) in tree.iteritems():
+    for (k, v) in tree.items():
         if filename in v:
             v.remove(filename)
 
@@ -844,7 +888,7 @@ def main():
         EXCLUDE_LOCAL = DEFAULTS[key][3]
 
     force_update = False
-    for x in xrange(3, len(sys.argv)):
+    for x in range(3, len(sys.argv)):
         i = sys.argv[x]
         if i.startswith('--cutoff='):
             CUTOFF = int(i.split('=')[1])
@@ -877,11 +921,10 @@ def main():
                                 not EXCLUDE_LOCAL)
 
     # Read input.
-    makefile = 'Library_{}.mk'.format(libname)
-    groups = process_makefile(root, module, makefile)
+    groups = process_makefile(root, module, libname)
 
     generic = []
-    for osname, group in groups.iteritems():
+    for osname, group in groups.items():
         if not len(group):
             continue
 
@@ -912,7 +955,7 @@ def main():
             tree = remove_from_tree(filename, tree)
 
         extra = []
-        for (k, v) in tree.iteritems():
+        for (k, v) in tree.items():
             extra += tree_to_list([], k, tree)
 
         promoted += promote(extra)
@@ -920,7 +963,7 @@ def main():
         promoted = process_list(promoted, filter_local.proc)
         promoted = set(promoted)
         # If a promoted header includes others, remove the rest.
-        for (k, v) in tree.iteritems():
+        for (k, v) in tree.items():
             if k in promoted:
                 for i in v:
                     promoted.discard(i)
@@ -936,8 +979,8 @@ def main():
         fixes = map(lambda x: '#include <' + x + '>', fixes)
 
         includes = map(lambda x: '#include <' + x + '>', includes)
-        sorted = sort_by_category(includes, module, filter_local)
-        includes = fixes + sorted
+        sorted = sort_by_category(includes, root, module, filter_local)
+        includes = list(fixes) + sorted
 
         if len(osname):
             for i in generic:
@@ -956,8 +999,8 @@ def main():
         new_lines = generate_includes(groups)
         # Find the first include in the old pch.
         start = -1
-        for i in xrange(len(old_pch_lines)):
-            if old_pch_lines[i].startswith('#include'):
+        for i in range(len(old_pch_lines)):
+            if old_pch_lines[i].startswith('#include') or old_pch_lines[i].startswith('#if PCH_LEVEL'):
                 start = i
                 break
         # Clobber if there is a mismatch.
@@ -965,13 +1008,13 @@ def main():
             generate(new_lines, libname, header, module)
             return 0
         else:
-            for i in xrange(len(new_lines)):
+            for i in range(len(new_lines)):
                 if new_lines[i] != old_pch_lines[start + i]:
                     generate(new_lines, libname, header, module)
                     return 0
             else:
                 # Identical, but see if new pch removed anything.
-                for i in xrange(start + len(new_lines), len(old_pch_lines)):
+                for i in range(start + len(new_lines), len(old_pch_lines)):
                     if '#include' in old_pch_lines[i]:
                         generate(new_lines, libname, header, module)
                         return 0

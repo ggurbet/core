@@ -23,11 +23,9 @@
 
 #include <com/sun/star/rendering/XIntegerReadOnlyBitmap.hpp>
 
-#include <unotools/resmgr.hxx>
 #include <vcl/dibtools.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/salbtype.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/virdev.hxx>
 #if ENABLE_CAIRO_CANVAS
@@ -35,7 +33,6 @@
 #endif
 #include <tools/diagnose_ex.h>
 #include <tools/fract.hxx>
-#include <tools/helpers.hxx>
 #include <tools/stream.hxx>
 #include <bitmapwriteaccess.hxx>
 
@@ -676,7 +673,7 @@ static bool readAlpha( BitmapReadAccess const * pAlphaReadAcc, long nY, const lo
                 BitmapColor const& rColor(
                     pAlphaReadAcc->GetPaletteColor(*pReadScan));
                 pReadScan++;
-                nAlpha = data[ nOff ] = 255 - rColor.GetBlueOrIndex();
+                nAlpha = data[ nOff ] = 255 - rColor.GetIndex();
                 if( nAlpha != 255 )
                     bIsAlpha = true;
                 nOff += 4;
@@ -748,7 +745,7 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
                 else
                     nAlpha = data[ nOff + 3 ] = 255;
 #endif
-                aColor = pBitmapReadAcc->GetPaletteColor(*pReadScan++).GetColor();
+                aColor = pBitmapReadAcc->GetPaletteColor(*pReadScan++);
 
 #ifdef OSL_BIGENDIAN
                 data[ nOff++ ] = premultiply_table[nAlpha][aColor.GetRed()];
@@ -889,7 +886,7 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
 
             for( nX = 0; nX < nWidth; nX++ )
             {
-                aColor = pBitmapReadAcc->GetColor( nY, nX ).GetColor();
+                aColor = pBitmapReadAcc->GetColor( nY, nX );
 
                 // cairo need premultiplied color values
                 // TODO(rodo) handle endianness
@@ -1004,7 +1001,7 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
         return BitmapEx(aBitmap);
     }
 
-    bool isHistorical8x8(const BitmapEx& rBitmapEx, BitmapColor& o_rBack, BitmapColor& o_rFront)
+    bool isHistorical8x8(const BitmapEx& rBitmapEx, Color& o_rBack, Color& o_rFront)
     {
         bool bRet(false);
 
@@ -1041,12 +1038,12 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
         return bRet;
     }
 
-    static sal_uInt8 unpremultiply(sal_uInt8 c, sal_uInt8 a)
+    sal_uInt8 unpremultiply(sal_uInt8 c, sal_uInt8 a)
     {
         return (a == 0) ? 0 : (c * 255 + a / 2) / a;
     }
 
-    static sal_uInt8 premultiply(sal_uInt8 c, sal_uInt8 a)
+    sal_uInt8 premultiply(sal_uInt8 c, sal_uInt8 a)
     {
         return (c * a + 127) / 255;
     }
@@ -1083,6 +1080,45 @@ void CanvasCairoExtractBitmapData( BitmapEx const & aBmpEx, Bitmap & aBitmap, un
         return premultiply_table;
     }
 
+bool convertBitmap32To24Plus8(BitmapEx const & rInput, BitmapEx & rResult)
+{
+    Bitmap aBitmap(rInput.GetBitmap());
+    if (aBitmap.GetBitCount() != 32)
+        return false;
+
+    Size aSize = aBitmap.GetSizePixel();
+    Bitmap aResultBitmap(aSize, 24);
+    AlphaMask aResultAlpha(aSize);
+    {
+        BitmapScopedWriteAccess pResultBitmapAccess(aResultBitmap);
+        AlphaScopedWriteAccess pResultAlphaAccess(aResultAlpha);
+
+        Bitmap::ScopedReadAccess pReadAccess(aBitmap);
+
+        for (long nY = 0; nY < aSize.Height(); ++nY)
+        {
+            Scanline aResultScan = pResultBitmapAccess->GetScanline(nY);
+            Scanline aResultScanAlpha = pResultAlphaAccess->GetScanline(nY);
+
+            Scanline aReadScan = pReadAccess->GetScanline(nY);
+
+            for (long nX = 0; nX < aSize.Width(); ++nX)
+            {
+                const BitmapColor aColor = pReadAccess->GetPixelFromData(aReadScan, nX);
+                BitmapColor aResultColor(aColor.GetRed(), aColor.GetGreen(), aColor.GetBlue());
+                BitmapColor aResultColorAlpha(aColor.GetAlpha(), aColor.GetAlpha(), aColor.GetAlpha());
+
+                pResultBitmapAccess->SetPixelOnData(aResultScan, nX, aResultColor);
+                pResultAlphaAccess->SetPixelOnData(aResultScanAlpha, nX, aResultColorAlpha);
+            }
+        }
+    }
+    if (rInput.IsTransparent())
+        rResult = BitmapEx(aResultBitmap, rInput.GetAlpha());
+    else
+        rResult = BitmapEx(aResultBitmap, aResultAlpha);
+    return true;
+}
 
 }} // end vcl::bitmap
 

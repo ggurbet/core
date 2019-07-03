@@ -18,6 +18,7 @@
  */
 
 #include <sfx2/app.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/waitobj.hxx>
 #include <svx/dataaccessdescriptor.hxx>
@@ -546,7 +547,7 @@ bool ScDBDocFunc::Sort( SCTAB nTab, const ScSortParam& rSortParam,
 
     //      execute
 
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );
 
     // Calculate the script types for all cells in the sort range beforehand.
     // This will speed up the row height adjustment that takes place after the
@@ -733,7 +734,7 @@ bool ScDBDocFunc::Query( SCTAB nTab, const ScQueryParam& rQueryParam,
 
     //      execute
 
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );
 
     bool bKeepSub = false;                          // repeat existing partial results?
     ScSubTotalParam aSubTotalParam;
@@ -1019,8 +1020,7 @@ void ScDBDocFunc::DoSubTotals( SCTAB nTab, const ScSubTotalParam& rParam,
     {
         if (rDoc.TestRemoveSubTotals( nTab, rParam ))
         {
-            vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
-            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(ScDocShell::GetActiveDialogParent(),
                                                       VclMessageType::Question,
                                                       VclButtonsType::YesNo, ScResId(STR_MSSG_DOSUBTOTALS_1))); // "Delete Data?"
             xBox->set_title(ScResId(STR_MSSG_DOSUBTOTALS_0)); // "StarCalc"
@@ -1030,7 +1030,7 @@ void ScDBDocFunc::DoSubTotals( SCTAB nTab, const ScSubTotalParam& rParam,
 
     if (bOk)
     {
-        WaitObject aWait( ScDocShell::GetActiveDialogParent() );
+        weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );
         ScDocShellModificator aModificator( rDocShell );
 
         ScSubTotalParam aNewParam( rParam );        // end of range is being changed
@@ -1257,7 +1257,7 @@ bool ScDBDocFunc::DataPilotUpdate( ScDPObject* pOldObj, const ScDPObject* pNewOb
     OSL_ASSERT(pOldObj && pNewObj && pOldObj != pNewObj);
 
     ScDocShellModificator aModificator( rDocShell );
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );
 
     ScRangeList aRanges;
     aRanges.push_back(pOldObj->GetOutRange());
@@ -1306,8 +1306,7 @@ bool ScDBDocFunc::DataPilotUpdate( ScDPObject* pOldObj, const ScDPObject* pNewOb
         // OutRange of pOldObj (pDestObj) is still old area
         if (!lcl_EmptyExcept(&rDoc, aNewOut, pOldObj->GetOutRange()))
         {
-            vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(ScDocShell::GetActiveDialogParent(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            ScResId(STR_PIVOT_NOTEMPTY)));
             xQueryBox->set_default_response(RET_YES);
@@ -1343,7 +1342,7 @@ bool ScDBDocFunc::DataPilotUpdate( ScDPObject* pOldObj, const ScDPObject* pNewOb
 bool ScDBDocFunc::RemovePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
 {
     ScDocShellModificator aModificator(rDocShell);
-    WaitObject aWait(ScDocShell::GetActiveDialogParent());
+    weld::WaitObject aWait(ScDocShell::GetActiveDialogParent());
 
     if (!isEditable(rDocShell, rDPObj.GetOutRange(), bApi))
         return false;
@@ -1360,8 +1359,7 @@ bool ScDBDocFunc::RemovePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
 
         if (pModel && !aListOfObjects.empty())
         {
-            vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(ScDocShell::GetActiveDialogParent(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            ScResId(STR_PIVOT_REMOVE_PIVOTCHART)));
             xQueryBox->set_default_response(RET_YES);
@@ -1426,7 +1424,7 @@ bool ScDBDocFunc::RemovePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
 bool ScDBDocFunc::CreatePivotTable(const ScDPObject& rDPObj, bool bRecord, bool bApi)
 {
     ScDocShellModificator aModificator(rDocShell);
-    WaitObject aWait(ScDocShell::GetActiveDialogParent());
+    weld::WaitObject aWait(ScDocShell::GetActiveDialogParent());
 
     // At least one cell in the output range should be editable. Check in advance.
     if (!isEditable(rDocShell, ScRange(rDPObj.GetOutRange().aStart), bApi))
@@ -1503,8 +1501,7 @@ bool ScDBDocFunc::CreatePivotTable(const ScDPObject& rDPObj, bool bRecord, bool 
 
         if (!bEmpty)
         {
-            vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(ScDocShell::GetActiveDialogParent(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            ScResId(STR_PIVOT_NOTEMPTY)));
             xQueryBox->set_default_response(RET_YES);
@@ -1538,7 +1535,7 @@ bool ScDBDocFunc::CreatePivotTable(const ScDPObject& rDPObj, bool bRecord, bool 
 bool ScDBDocFunc::UpdatePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
 {
     ScDocShellModificator aModificator( rDocShell );
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );
 
     if (!isEditable(rDocShell, rDPObj.GetOutRange(), bApi))
         return false;
@@ -1578,8 +1575,7 @@ bool ScDBDocFunc::UpdatePivotTable(ScDPObject& rDPObj, bool bRecord, bool bApi)
     {
         if (!lcl_EmptyExcept(&rDoc, aNewOut, rDPObj.GetOutRange()))
         {
-            vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
-            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+            std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(ScDocShell::GetActiveDialogParent(),
                                                            VclMessageType::Question, VclButtonsType::YesNo,
                                                            ScResId(STR_PIVOT_NOTEMPTY)));
             xQueryBox->set_default_response(RET_YES);
@@ -1680,8 +1676,7 @@ void ScDBDocFunc::UpdateImport( const OUString& rTarget, const svx::ODataAccessD
     const ScDBData* pData = rDBColl.getNamedDBs().findByUpperName(ScGlobal::pCharClass->uppercase(rTarget));
     if (!pData)
     {
-        vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
-        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+        std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(ScDocShell::GetActiveDialogParent(),
                                                       VclMessageType::Info, VclButtonsType::Ok,
                                                       ScResId(STR_TARGETNOTFOUND)));
         xInfoBox->run();

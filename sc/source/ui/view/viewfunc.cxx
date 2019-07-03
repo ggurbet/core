@@ -34,6 +34,7 @@
 #include <sfx2/bindings.hxx>
 #include <svl/zforlist.hxx>
 #include <svl/zformat.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/waitobj.hxx>
@@ -446,8 +447,7 @@ void ScViewFunc::EnterData( SCCOL nCol, SCROW nRow, SCTAB nTab,
                     OUString aMessage( ScResId( SCSTR_FORMULA_AUTOCORRECTION ) );
                     aMessage += aCorrectedFormula;
 
-                    vcl::Window* pWin = GetViewData().GetDialogParent();
-                    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(pWin ? pWin->GetFrameWeld() : nullptr,
+                    std::unique_ptr<weld::MessageDialog> xQueryBox(Application::CreateMessageDialog(GetViewData().GetDialogParent(),
                                                                    VclMessageType::Question, VclButtonsType::YesNo,
                                                                    aMessage));
                     xQueryBox->set_default_response(RET_YES);
@@ -850,14 +850,17 @@ const ScPatternAttr* ScViewFunc::GetSelectionPattern()
     }
 }
 
-void ScViewFunc::GetSelectionFrame( SvxBoxItem&     rLineOuter,
-                                    SvxBoxInfoItem& rLineInner )
+void ScViewFunc::GetSelectionFrame(
+    std::shared_ptr<SvxBoxItem>& rLineOuter,
+    std::shared_ptr<SvxBoxInfoItem>& rLineInner )
 {
     ScDocument* pDoc = GetViewData().GetDocument();
     const ScMarkData& rMark = GetViewData().GetMarkData();
 
     if ( rMark.IsMarked() || rMark.IsMultiMarked() )
-        pDoc->GetSelectionFrame( rMark, rLineOuter, rLineInner );
+    {
+        pDoc->GetSelectionFrame( rMark, *rLineOuter, *rLineInner );
+    }
     else
     {
         const ScPatternAttr* pAttrs =
@@ -865,11 +868,12 @@ void ScViewFunc::GetSelectionFrame( SvxBoxItem&     rLineOuter,
                                       GetViewData().GetCurY(),
                                       GetViewData().GetTabNo() );
 
-        rLineOuter = pAttrs->GetItem( ATTR_BORDER );
-        rLineInner = pAttrs->GetItem( ATTR_BORDER_INNER );
-        rLineInner.SetTable(false);
-        rLineInner.SetDist(true);
-        rLineInner.SetMinDist(false);
+        rLineOuter.reset(static_cast<SvxBoxItem*>(pAttrs->GetItem(ATTR_BORDER).Clone()));
+        rLineInner.reset(static_cast<SvxBoxInfoItem*>(pAttrs->GetItem(ATTR_BORDER_INNER).Clone()));
+
+        rLineInner->SetTable(false);
+        rLineInner->SetDist(true);
+        rLineInner->SetMinDist(false);
     }
 }
 
@@ -1834,15 +1838,22 @@ void ScViewFunc::DeleteMulti( bool bRows )
     }
 
     std::vector<sc::ColRowSpan>::const_reverse_iterator ri = aSpans.rbegin(), riEnd = aSpans.rend();
+    aFuncMark.SelectOneTable(nTab);
     for (; ri != riEnd; ++ri)
     {
         SCCOLROW nEnd = ri->mnEnd;
         SCCOLROW nStart = ri->mnStart;
 
         if (bRows)
-            rDoc.DeleteRow( 0,nTab, MAXCOL,nTab, nStart, static_cast<SCSIZE>(nEnd-nStart+1) );
+        {
+            rDoc.DeleteObjectsInArea(0, nStart, MAXCOL, nEnd, aFuncMark, true);
+            rDoc.DeleteRow(0, nTab, MAXCOL, nTab, nStart, static_cast<SCSIZE>(nEnd - nStart + 1));
+        }
         else
-            rDoc.DeleteCol( 0,nTab, MAXROW,nTab, static_cast<SCCOL>(nStart), static_cast<SCSIZE>(nEnd-nStart+1) );
+        {
+            rDoc.DeleteObjectsInArea(nStart, 0, nEnd, MAXROW, aFuncMark, true);
+            rDoc.DeleteCol(0, nTab, MAXROW, nTab, static_cast<SCCOL>(nStart), static_cast<SCSIZE>(nEnd - nStart + 1));
+        }
     }
 
     if (bNeedRefresh)

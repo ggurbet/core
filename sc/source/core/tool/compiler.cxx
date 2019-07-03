@@ -21,6 +21,7 @@
 
 #include <compiler.hxx>
 
+#include <vcl/svapp.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/objsh.hxx>
 #include <basic/sbmeth.hxx>
@@ -708,19 +709,22 @@ struct Convention_A1 : public ScCompiler::Convention
 
     ParseResult parseAnyToken( const OUString& rFormula,
                                sal_Int32 nSrcPos,
-                               const CharClass* pCharClass) const override
+                               const CharClass* pCharClass,
+                               bool bGroupSeparator) const override
     {
         ParseResult aRet;
         if ( lcl_isValidQuotedText(rFormula, nSrcPos, aRet) )
             return aRet;
 
-        static const sal_Int32 nStartFlags = KParseTokens::ANY_LETTER_OR_NUMBER |
+        constexpr sal_Int32 nStartFlags = KParseTokens::ANY_LETTER_OR_NUMBER |
             KParseTokens::ASC_UNDERSCORE | KParseTokens::ASC_DOLLAR;
-        static const sal_Int32 nContFlags = nStartFlags | KParseTokens::ASC_DOT;
+        constexpr sal_Int32 nContFlags = nStartFlags | KParseTokens::ASC_DOT;
         // '?' allowed in range names because of Xcl :-/
-        static const char aAddAllowed[] = "?#";
+        static const OUString aAddAllowed("?#");
         return pCharClass->parseAnyToken( rFormula,
-                nSrcPos, nStartFlags, aAddAllowed, nContFlags, aAddAllowed );
+                nSrcPos, nStartFlags, aAddAllowed,
+                (bGroupSeparator ? nContFlags | KParseTokens::GROUP_SEPARATOR_IN_NUMBER : nContFlags),
+                aAddAllowed );
     }
 
     virtual ScCharFlags getCharTableFlags( sal_Unicode c, sal_Unicode /*cLast*/ ) const override
@@ -1316,7 +1320,8 @@ struct ConventionXL_A1 : public Convention_A1, public ConventionXL
 
     virtual ParseResult parseAnyToken( const OUString& rFormula,
                                        sal_Int32 nSrcPos,
-                                       const CharClass* pCharClass) const override
+                                       const CharClass* pCharClass,
+                                       bool bGroupSeparator) const override
     {
         parseExternalDocName(rFormula, nSrcPos);
 
@@ -1324,13 +1329,15 @@ struct ConventionXL_A1 : public Convention_A1, public ConventionXL
         if ( lcl_isValidQuotedText(rFormula, nSrcPos, aRet) )
             return aRet;
 
-        static const sal_Int32 nStartFlags = KParseTokens::ANY_LETTER_OR_NUMBER |
+        constexpr sal_Int32 nStartFlags = KParseTokens::ANY_LETTER_OR_NUMBER |
             KParseTokens::ASC_UNDERSCORE | KParseTokens::ASC_DOLLAR;
-        static const sal_Int32 nContFlags = nStartFlags | KParseTokens::ASC_DOT;
+        constexpr sal_Int32 nContFlags = nStartFlags | KParseTokens::ASC_DOT;
         // '?' allowed in range names
-        const OUString aAddAllowed("?!");
+        static const OUString aAddAllowed("?!");
         return pCharClass->parseAnyToken( rFormula,
-                nSrcPos, nStartFlags, aAddAllowed, nContFlags, aAddAllowed );
+                nSrcPos, nStartFlags, aAddAllowed,
+                (bGroupSeparator ? nContFlags | KParseTokens::GROUP_SEPARATOR_IN_NUMBER : nContFlags),
+                aAddAllowed );
     }
 
     virtual sal_Unicode getSpecialSymbol( SpecialSymbolType eSymType ) const override
@@ -1626,7 +1633,8 @@ struct ConventionXL_R1C1 : public ScCompiler::Convention, public ConventionXL
 
     ParseResult parseAnyToken( const OUString& rFormula,
                                sal_Int32 nSrcPos,
-                               const CharClass* pCharClass) const override
+                               const CharClass* pCharClass,
+                               bool bGroupSeparator) const override
     {
         parseExternalDocName(rFormula, nSrcPos);
 
@@ -1634,14 +1642,16 @@ struct ConventionXL_R1C1 : public ScCompiler::Convention, public ConventionXL
         if ( lcl_isValidQuotedText(rFormula, nSrcPos, aRet) )
             return aRet;
 
-        static const sal_Int32 nStartFlags = KParseTokens::ANY_LETTER_OR_NUMBER |
+        constexpr sal_Int32 nStartFlags = KParseTokens::ANY_LETTER_OR_NUMBER |
             KParseTokens::ASC_UNDERSCORE ;
-        static const sal_Int32 nContFlags = nStartFlags | KParseTokens::ASC_DOT;
+        constexpr sal_Int32 nContFlags = nStartFlags | KParseTokens::ASC_DOT;
         // '?' allowed in range names
-        const OUString aAddAllowed("?-[]!");
+        static const OUString aAddAllowed("?-[]!");
 
         return pCharClass->parseAnyToken( rFormula,
-                nSrcPos, nStartFlags, aAddAllowed, nContFlags, aAddAllowed );
+                nSrcPos, nStartFlags, aAddAllowed,
+                (bGroupSeparator ? nContFlags | KParseTokens::GROUP_SEPARATOR_IN_NUMBER : nContFlags),
+                aAddAllowed );
     }
 
     virtual sal_Unicode getSpecialSymbol( SpecialSymbolType eSymType ) const override
@@ -2124,11 +2134,14 @@ Label_MaskStateMachine:
                 }
                 else if( nMask & ScCharFlags::Char )
                 {
-                    // '[' is a special case in OOXML, it can start an external
-                    // reference ID like [1]Sheet1!A1 that needs to be scanned
+                    // '[' is a special case in Excel syntax, it can start an
+                    // external reference, ID in OOXML like [1]Sheet1!A1 or
+                    // Excel_A1 [filename]Sheet!A1 or Excel_R1C1
+                    // [filename]Sheet!R1C1 that needs to be scanned
                     // entirely, or can be ocTableRefOpen, of which the first
                     // transforms an ocDBArea into an ocTableRef.
-                    if (c == '[' && FormulaGrammar::isOOXML( meGrammar) && eLastOp != ocDBArea && maTableRefs.empty())
+                    if (c == '[' && FormulaGrammar::isExcelSyntax( meGrammar)
+                            && eLastOp != ocDBArea && maTableRefs.empty())
                     {
                         nMask &= ~ScCharFlags::Char;
                         goto Label_MaskStateMachine;
@@ -2474,30 +2487,30 @@ Label_MaskStateMachine:
                     // when : is encountered.
 
                     // Encountered leading $ before sheet name.
-                    static const int kDollar    = (1 << 1);
+                    constexpr int kDollar    = (1 << 1);
                     // Encountered ' opening quote, which may be after $ or
                     // not.
-                    static const int kOpen      = (1 << 2);
+                    constexpr int kOpen      = (1 << 2);
                     // Somewhere in name.
-                    static const int kName      = (1 << 3);
+                    constexpr int kName      = (1 << 3);
                     // Encountered ' in name, will be cleared if double or
                     // transformed to kClose if not, in which case kOpen is
                     // cleared.
-                    static const int kQuote     = (1 << 4);
+                    constexpr int kQuote     = (1 << 4);
                     // Past ' closing quote.
-                    static const int kClose     = (1 << 5);
+                    constexpr int kClose     = (1 << 5);
                     // Encountered # file/sheet separator.
-                    static const int kFileSep   = (1 << 6);
+                    constexpr int kFileSep   = (1 << 6);
                     // Past . sheet name separator.
-                    static const int kPast      = (1 << 7);
+                    constexpr int kPast      = (1 << 7);
                     // Marked name $$ follows sheet name separator, detected
                     // while we're still on the separator. Will be cleared when
                     // entering the name.
-                    static const int kMarkAhead = (1 << 8);
+                    constexpr int kMarkAhead = (1 << 8);
                     // In marked defined name.
-                    static const int kDefName   = (1 << 9);
+                    constexpr int kDefName   = (1 << 9);
                     // Encountered # of #REF!
-                    static const int kRefErr    = (1 << 10);
+                    constexpr int kRefErr    = (1 << 10);
 
                     bool bAddToSymbol = true;
                     if ((nMask & ScCharFlags::OdfRBracket) && !(nRefInName & kOpen))
@@ -2631,6 +2644,17 @@ Label_MaskStateMachine:
     {
         const sal_Int32 nOldSrcPos = nSrcPos;
         nSrcPos = nSrcPos + nSpaces;
+        // If group separator is not a possible operator and not one of any
+        // separators then it may be parsed away in numbers. This is
+        // specifically the case with NO-BREAK SPACE, which actually triggers
+        // the bi18n case (which we don't want to include as yet another
+        // special case above as it is rare enough and doesn't generally occur
+        // in formulas).
+        const sal_Unicode cGroupSep = ScGlobal::pLocaleData->getNumThousandSep()[0];
+        const bool bGroupSeparator = (128 <= cGroupSep && cGroupSep != cSep &&
+                cGroupSep != cArrayColSep && cGroupSep != cArrayRowSep &&
+                cGroupSep != cDecSep && cGroupSep != cDecSepAlt &&
+                cGroupSep != cSheetPrefix && cGroupSep != cSheetSep);
         OUStringBuffer aSymbol;
         mnRangeOpPosInSymbol = -1;
         FormulaError nErr = FormulaError::NONE;
@@ -2641,7 +2665,7 @@ Label_MaskStateMachine:
             if ( pStart[nSrcPos] == cSheetPrefix && pStart[nSrcPos+1] == '\'' )
                 aSymbol.append(pStart[nSrcPos++]);
 
-            ParseResult aRes = pConv->parseAnyToken( aFormula, nSrcPos, pCharClass );
+            ParseResult aRes = pConv->parseAnyToken( aFormula, nSrcPos, pCharClass, bGroupSeparator);
 
             if ( !aRes.TokenType )
             {

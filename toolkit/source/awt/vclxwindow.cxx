@@ -653,24 +653,27 @@ void VCLXWindow::ProcessWindowEvent( const VclWindowEvent& rVclWindowEvent )
         }
         break;
         case VclEventId::WindowKeyInput:
-        {
-            if ( mpImpl->getKeyListeners().getLength() )
-            {
-                css::awt::KeyEvent aEvent( VCLUnoHelper::createKeyEvent(
-                    *static_cast<KeyEvent*>(rVclWindowEvent.GetData()), *this
-                ) );
-                mpImpl->getKeyListeners().keyPressed( aEvent );
-            }
-        }
-        break;
         case VclEventId::WindowKeyUp:
         {
-            if ( mpImpl->getKeyListeners().getLength() )
+            VclPtr<vcl::Window> pWin = GetWindow();
+            while (pWin)
             {
-                css::awt::KeyEvent aEvent( VCLUnoHelper::createKeyEvent(
-                    *static_cast<KeyEvent*>(rVclWindowEvent.GetData()), *this
-                ) );
-                mpImpl->getKeyListeners().keyReleased( aEvent );
+                VCLXWindow* pXWindow = pWin->GetWindowPeer();
+                if (!pXWindow || pXWindow->mpImpl->getKeyListeners().getLength() == 0)
+                {
+                    pWin = pWin->GetWindow(GetWindowType::RealParent);
+                    continue;
+                }
+
+                awt::KeyEvent aEvent(VCLUnoHelper::createKeyEvent(
+                    *static_cast<KeyEvent*>(rVclWindowEvent.GetData()), *this));
+                if (rVclWindowEvent.GetId() == VclEventId::WindowKeyInput)
+                    pXWindow->mpImpl->getKeyListeners().keyPressed(aEvent);
+                else
+                    pXWindow->mpImpl->getKeyListeners().keyReleased(aEvent);
+
+                // Next window (parent)
+                pWin = pWin->GetWindow(GetWindowType::RealParent);
             }
         }
         break;
@@ -703,50 +706,66 @@ void VCLXWindow::ProcessWindowEvent( const VclWindowEvent& rVclWindowEvent )
         case VclEventId::WindowMouseMove:
         {
             MouseEvent* pMouseEvt = static_cast<MouseEvent*>(rVclWindowEvent.GetData());
-            if ( mpImpl->getMouseListeners().getLength() && ( pMouseEvt->IsEnterWindow() || pMouseEvt->IsLeaveWindow() ) )
+            VclPtr<vcl::Window> pWin = GetWindow();
+            while (pWin)
             {
-                awt::MouseEvent aEvent( VCLUnoHelper::createMouseEvent( *pMouseEvt, *this ) );
-                bool const isEnter(pMouseEvt->IsEnterWindow());
-                Callback aCallback = [ this, isEnter, aEvent ]()
-                     { MouseListenerMultiplexer& rMouseListeners = this->mpImpl->getMouseListeners();
-                       isEnter
-                           ? rMouseListeners.mouseEntered(aEvent)
-                           : rMouseListeners.mouseExited(aEvent); };
+                VCLXWindow* pXWindow = pWin->GetWindowPeer();
+                if (!pXWindow || pXWindow->mpImpl->getMouseListeners().getLength() == 0)
+                {
+                    pWin = pWin->GetWindow(GetWindowType::RealParent);
+                    continue;
+                }
+                awt::MouseEvent aEvent(VCLUnoHelper::createMouseEvent(*pMouseEvt, *pXWindow));
 
-                ImplExecuteAsyncWithoutSolarLock( aCallback );
-            }
-
-            if ( mpImpl->getMouseMotionListeners().getLength() && !pMouseEvt->IsEnterWindow() && !pMouseEvt->IsLeaveWindow() )
-            {
-                awt::MouseEvent aEvent( VCLUnoHelper::createMouseEvent( *pMouseEvt, *this ) );
-                aEvent.ClickCount = 0;
-                if ( pMouseEvt->GetMode() & MouseEventModifiers::SIMPLEMOVE )
-                    mpImpl->getMouseMotionListeners().mouseMoved( aEvent );
+                if (pMouseEvt->IsEnterWindow() || pMouseEvt->IsLeaveWindow())
+                {
+                    bool const isEnter(pMouseEvt->IsEnterWindow());
+                    Callback aCallback = [pXWindow, isEnter, aEvent]() {
+                        isEnter ? pXWindow->mpImpl->getMouseListeners().mouseEntered(aEvent)
+                                : pXWindow->mpImpl->getMouseListeners().mouseExited(aEvent);
+                    };
+                    ImplExecuteAsyncWithoutSolarLock(aCallback);
+                }
                 else
-                    mpImpl->getMouseMotionListeners().mouseDragged( aEvent );
+                {
+                    aEvent.ClickCount = 0;
+                    MouseMotionListenerMultiplexer& rMouseListeners
+                        = pXWindow->mpImpl->getMouseMotionListeners();
+                    if (pMouseEvt->GetMode() & MouseEventModifiers::SIMPLEMOVE)
+                        rMouseListeners.mouseMoved(aEvent);
+                    else
+                        rMouseListeners.mouseDragged(aEvent);
+                }
+
+                // Next window (parent)
+                pWin = pWin->GetWindow(GetWindowType::RealParent);
             }
         }
         break;
         case VclEventId::WindowMouseButtonDown:
-        {
-            if ( mpImpl->getMouseListeners().getLength() )
-            {
-                awt::MouseEvent aEvent( VCLUnoHelper::createMouseEvent( *static_cast<MouseEvent*>(rVclWindowEvent.GetData()), *this ) );
-                Callback aCallback = [ this, aEvent ]()
-                                     { this->mpImpl->getMouseListeners().mousePressed( aEvent ); };
-                ImplExecuteAsyncWithoutSolarLock( aCallback );
-            }
-        }
-        break;
         case VclEventId::WindowMouseButtonUp:
         {
-            if ( mpImpl->getMouseListeners().getLength() )
+            VclPtr<vcl::Window> pWin = GetWindow();
+            while (pWin)
             {
-                awt::MouseEvent aEvent( VCLUnoHelper::createMouseEvent( *static_cast<MouseEvent*>(rVclWindowEvent.GetData()), *this ) );
+                VCLXWindow* pXWindow = pWin->GetWindowPeer();
+                if (!pXWindow || pXWindow->mpImpl->getMouseListeners().getLength() == 0)
+                {
+                    pWin = pWin->GetWindow(GetWindowType::RealParent);
+                    continue;
+                }
+                MouseEvent* pMouseEvt = static_cast<MouseEvent*>(rVclWindowEvent.GetData());
+                awt::MouseEvent aEvent(VCLUnoHelper::createMouseEvent(*pMouseEvt, *pXWindow));
+                VclEventId eventId = rVclWindowEvent.GetId();
+                Callback aCallback = [pXWindow, aEvent, eventId]() {
+                    eventId == VclEventId::WindowMouseButtonDown
+                        ? pXWindow->mpImpl->getMouseListeners().mousePressed(aEvent)
+                        : pXWindow->mpImpl->getMouseListeners().mouseReleased(aEvent);
+                };
+                ImplExecuteAsyncWithoutSolarLock(aCallback);
 
-                Callback aCallback = [ this, aEvent ]()
-                                     { this->mpImpl->getMouseListeners().mouseReleased( aEvent ); };
-                ImplExecuteAsyncWithoutSolarLock( aCallback );
+                // Next window (parent)
+                pWin = pWin->GetWindow(GetWindowType::RealParent);
             }
         }
         break;
@@ -848,7 +867,7 @@ void VCLXWindow::ProcessWindowEvent( const VclWindowEvent& rVclWindowEvent )
                 aEvent.Source = static_cast<cppu::OWeakObject*>(this);
                 mpImpl->getDockableWindowListeners().notifyEach( &XDockableWindowListener::toggleFloatingMode, aEvent );
             }
-       }
+        }
         break;
         case VclEventId::WindowEndPopupMode:
         {
@@ -905,27 +924,7 @@ Size VCLXWindow::ImplCalcWindowSize( const Size& rOutSz ) const
 
 
 // css::lang::XUnoTunnel
-sal_Int64 VCLXWindow::getSomething( const css::uno::Sequence< sal_Int8 >& rIdentifier )
-{
-    if( ( rIdentifier.getLength() == 16 ) && ( 0 == memcmp( VCLXWindow::GetUnoTunnelId().getConstArray(), rIdentifier.getConstArray(), 16 ) ) )
-    {
-        return sal::static_int_cast< sal_Int64 >(reinterpret_cast< sal_IntPtr >(this));
-    }
-    return VCLXDevice::getSomething( rIdentifier );
-}
-namespace
-{
-    class theVCLXWindowUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theVCLXWindowUnoTunnelId> {};
-}
-const css::uno::Sequence< sal_Int8 >& VCLXWindow::GetUnoTunnelId() throw()
-{
-    return theVCLXWindowUnoTunnelId::get().getSeq();
-}
-VCLXWindow* VCLXWindow::GetImplementation( const css::uno::Reference< css::uno::XInterface >& rxIFace )
-{
-    css::uno::Reference< css::lang::XUnoTunnel > xUT( rxIFace, css::uno::UNO_QUERY );
-    return xUT.is() ? reinterpret_cast<VCLXWindow*>(sal::static_int_cast<sal_IntPtr>(xUT->getSomething( VCLXWindow::GetUnoTunnelId() ))) : nullptr;
-}
+UNO3_GETIMPLEMENTATION2_IMPL(VCLXWindow, VCLXDevice);
 
 
 // css::lang::Component
@@ -1144,7 +1143,7 @@ void VCLXWindow::setPointer( const css::uno::Reference< css::awt::XPointer >& rx
 {
     SolarMutexGuard aGuard;
 
-    VCLXPointer* pPointer = VCLXPointer::GetImplementation( rxPointer );
+    VCLXPointer* pPointer = comphelper::getUnoTunnelImplementation<VCLXPointer>( rxPointer );
     if ( pPointer && GetWindow() )
         GetWindow()->SetPointer( pPointer->GetPointer() );
 }
@@ -1155,7 +1154,7 @@ void VCLXWindow::setBackground( sal_Int32 nColor )
 
     if ( GetWindow() )
     {
-        Color aColor = Color(nColor);
+        Color aColor(nColor);
         GetWindow()->SetBackground( aColor );
         GetWindow()->SetControlBackground( aColor );
 
@@ -1631,7 +1630,7 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
                 sal_Int32 nColor = 0;
                 if ( Value >>= nColor )
                 {
-                    Color aColor = Color( nColor );
+                    Color aColor( nColor );
                     pWindow->SetControlBackground( aColor );
                     pWindow->SetBackground( aColor );
                     switch ( eWinType )
@@ -1661,7 +1660,7 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
                 sal_Int32 nColor = 0;
                 if ( Value >>= nColor )
                 {
-                    Color aColor = Color( nColor );
+                    Color aColor( nColor );
                     pWindow->SetTextColor( aColor );
                     pWindow->SetControlForeground( aColor );
                 }
@@ -1677,7 +1676,7 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
                 sal_Int32 nColor = 0;
                 if ( Value >>= nColor )
                 {
-                    Color aColor = Color( nColor );
+                    Color aColor( nColor );
                     pWindow->SetTextLineColor( aColor );
                 }
             }
@@ -1690,7 +1689,7 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
                 sal_Int32 nColor = 0;
                 if ( Value >>= nColor )
                 {
-                    Color aColor = Color( nColor );
+                    Color aColor( nColor );
                     pWindow->SetFillColor( aColor );
                 }
             }
@@ -1703,7 +1702,7 @@ void VCLXWindow::setProperty( const OUString& PropertyName, const css::uno::Any&
                 sal_Int32 nColor = 0;
                 if ( Value >>= nColor )
                 {
-                    Color aColor = Color( nColor );
+                    Color aColor( nColor );
                     pWindow->SetLineColor( aColor );
                 }
             }

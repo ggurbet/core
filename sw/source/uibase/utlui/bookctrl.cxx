@@ -25,6 +25,8 @@
 #include <svl/stritem.hxx>
 #include <svl/eitem.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/event.hxx>
 #include <vcl/status.hxx>
 #include <vcl/menu.hxx>
@@ -116,7 +118,7 @@ void SwBookmarkControl::Command( const CommandEvent& rCEvt )
             {
                 if(IDocumentMarkAccess::MarkType::BOOKMARK == IDocumentMarkAccess::GetType(**ppBookmark))
                 {
-                    aPop->InsertItem( nPopupId, ppBookmark->get()->GetName() );
+                    aPop->InsertItem( nPopupId, (*ppBookmark)->GetName() );
                     aBookmarkIdx[nPopupId] = static_cast<sal_uInt16>(ppBookmark - ppBookmarkStart);
                     nPopupId++;
                 }

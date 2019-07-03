@@ -140,8 +140,8 @@ void SAL_CALL CloseDispatcher::dispatchWithNotification(const css::util::URL&   
     // our asynchronous process was not finished yet.
     // We have to reject double calls. Otherwise we risk,
     // that we try to close an already closed resource ...
-    // And its no problem to do nothing then. The UI user will try it again, if
-    // non of these jobs was successfully.
+    // And it is no problem to do nothing then. The UI user will try it again, if
+    // non of these jobs was successful.
     if (m_xSelfHold.is())
     {
         aWriteLock.clear();
@@ -199,7 +199,7 @@ void SAL_CALL CloseDispatcher::dispatchWithNotification(const css::util::URL&   
     // Do it asynchronous everytimes!
 
     // But don't forget to hold ourselves alive.
-    // We are called back from an environment, which doesn't know an uno reference.
+    // We are called back from an environment, which doesn't know a uno reference.
     // They call us back by using our c++ interface.
 
     m_xResultListener = xListener;
@@ -290,7 +290,7 @@ IMPL_LINK_NOARG(CloseDispatcher, impl_asyncCallback, LinkParamNone*, void)
     // NOTE: There is a race between checking this and connections being created/destroyed before
     //       we close the frame / terminate the app.
     css::uno::Reference<css::bridge::XBridgeFactory2> bridgeFac( css::bridge::BridgeFactory::create(xContext) );
-    bool bHasActiveConnections = bridgeFac->getExistingBridges().getLength() > 0;
+    bool bHasActiveConnections = bridgeFac->getExistingBridges().hasElements();
 
     // a) If the current frame (where the close dispatch was requested for) does not have
     //    any parent frame ... it will close this frame only. Such frame isn't part of the

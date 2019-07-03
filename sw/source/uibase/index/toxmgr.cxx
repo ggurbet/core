@@ -436,11 +436,10 @@ bool SwTOXMgr::UpdateOrInsertTOX(const SwTOXDescription& rDesc,
 
         if (pDoc->GetIDocumentUndoRedo().DoesUndo())
         {
-            pDoc->GetIDocumentUndoRedo().DelAllUndoObj();
             pDoc->GetIDocumentUndoRedo().StartUndo(SwUndoId::TOXCHANGE, nullptr);
         }
 
-        pDoc->ChangeTOX(*pTOX, *pNewTOX, *pSh->GetLayout());
+        pDoc->ChangeTOX(*pTOX, *pNewTOX);
 
         pTOX->DisableKeepExpression();
         pSh->UpdateTableOf(*pTOX, pSet);

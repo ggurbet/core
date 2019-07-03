@@ -25,11 +25,11 @@
 #include <vcl/settings.hxx>
 
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <svx/dlgutil.hxx>
 #include <svx/measctrl.hxx>
 #include <svx/ofaitem.hxx>
 #include <svx/strarray.hxx>
-#include <svx/svdattr.hxx>
 #include <svx/svdomeas.hxx>
 #include <svx/svdview.hxx>
 #include <svx/sxekitm.hxx>
@@ -42,6 +42,7 @@
 #include <svx/sxmtpitm.hxx>
 #include <svx/sxmtritm.hxx>
 #include <svx/sxmuitm.hxx>
+#include <svtools/unitconv.hxx>
 
 #include <measure.hxx>
 
@@ -60,7 +61,7 @@ const sal_uInt16 SvxMeasurePage::pRanges[] =
 
 SvxMeasureDialog::SvxMeasureDialog(weld::Window* pParent, const SfxItemSet& rInAttrs,
                                 const SdrView* pSdrView)
-    : SfxSingleTabDialogController(pParent, rInAttrs)
+    : SfxSingleTabDialogController(pParent, &rInAttrs)
 {
     TabPageParent pPageParent(get_content_area(), this);
     VclPtrInstance<SvxMeasurePage> pPage(pPageParent, rInAttrs);

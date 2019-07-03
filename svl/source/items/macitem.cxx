@@ -138,7 +138,7 @@ SvStream& SvxMacroTableDtor::Write( SvStream& rStream ) const
 {
     sal_uInt16 nVersion = SOFFICE_FILEFORMAT_31 == rStream.GetVersion()
                                     ? SVX_MACROTBL_VERSION31
-                                    : SVX_MACROTBL_AKTVERSION;
+                                    : SVX_MACROTBL_VERSION40;
 
     if( SVX_MACROTBL_VERSION40 <= nVersion )
         rStream.WriteUInt16( nVersion );
@@ -246,13 +246,6 @@ bool SvxMacroItem::GetPresentation
 void SvxMacroItem::SetMacro( SvMacroItemId nEvent, const SvxMacro& rMacro )
 {
     aMacroTable.Insert( nEvent, rMacro);
-}
-
-
-sal_uInt16 SvxMacroItem::GetVersion( sal_uInt16 nFileFormatVersion ) const
-{
-    return SOFFICE_FILEFORMAT_31 == nFileFormatVersion
-                ? 0 : SvxMacroTableDtor::GetVersion();
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

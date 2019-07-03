@@ -25,7 +25,6 @@
 #include <memory>
 #include <vector>
 
-#include <svl/solar.hrc>
 #include <svl/undo.hxx>
 #include <svl/style.hxx>
 #include <tools/gen.hxx>
@@ -333,11 +332,10 @@ class SVX_DLLPUBLIC SdrUndoReplaceObj : public SdrUndoObj
     bool                        bNewOwner;
 
     SdrObjList*                 pObjList;
-    sal_uInt32                      nOrdNum;
     SdrObject*                  pNewObj;
 
 public:
-    SdrUndoReplaceObj(SdrObject& rOldObj1, SdrObject& rNewObj1, bool bOrdNumDirect);
+    SdrUndoReplaceObj(SdrObject& rOldObj1, SdrObject& rNewObj1);
     virtual ~SdrUndoReplaceObj() override;
 
     virtual void Undo() override;
@@ -709,7 +707,7 @@ public:
     virtual std::unique_ptr<SdrUndoAction> CreateUndoMoveObject( SdrObject& rObject, const Size& rDist );
     virtual std::unique_ptr<SdrUndoAction> CreateUndoGeoObject( SdrObject& rObject );
     virtual std::unique_ptr<SdrUndoAction> CreateUndoAttrObject( SdrObject& rObject, bool bStyleSheet1 = false, bool bSaveText = false );
-    virtual std::unique_ptr<SdrUndoAction> CreateUndoRemoveObject( SdrObject& rObject, bool bOrdNumDirect = false);
+    virtual std::unique_ptr<SdrUndoAction> CreateUndoRemoveObject(SdrObject& rObject);
     virtual std::unique_ptr<SdrUndoAction> CreateUndoInsertObject( SdrObject& rObject, bool bOrdNumDirect = false);
     virtual std::unique_ptr<SdrUndoAction> CreateUndoDeleteObject( SdrObject& rObject, bool bOrdNumDirect = false);
     virtual std::unique_ptr<SdrUndoAction> CreateUndoNewObject( SdrObject& rObject, bool bOrdNumDirect = false);
@@ -717,7 +715,7 @@ public:
 
     virtual std::unique_ptr<SdrUndoAction> CreateUndoObjectOrdNum( SdrObject& rObject, sal_uInt32 nOldOrdNum1, sal_uInt32 nNewOrdNum1);
 
-    virtual std::unique_ptr<SdrUndoAction> CreateUndoReplaceObject( SdrObject& rOldObject, SdrObject& rNewObject, bool bOrdNumDirect = false );
+    virtual std::unique_ptr<SdrUndoAction> CreateUndoReplaceObject( SdrObject& rOldObject, SdrObject& rNewObject );
     virtual std::unique_ptr<SdrUndoAction> CreateUndoObjectLayerChange( SdrObject& rObject, SdrLayerID aOldLayer, SdrLayerID aNewLayer );
     virtual std::unique_ptr<SdrUndoAction> CreateUndoObjectSetText( SdrObject& rNewObj, sal_Int32 nText );
 

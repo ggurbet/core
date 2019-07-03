@@ -118,7 +118,7 @@ namespace sdbtools
         EntryGuard aGuard( *this );
 
         Reference< XTablesSupplier > xSuppTables( getConnection(), UNO_QUERY_THROW );
-        Reference< XNameAccess > xTables( xSuppTables->getTables(), UNO_QUERY_THROW );
+        Reference< XNameAccess > xTables( xSuppTables->getTables(), css::uno::UNO_SET_THROW );
 
         Reference< XPropertySet > xTable;
         try
@@ -171,7 +171,7 @@ namespace sdbtools
 
     namespace
     {
-        /** translates a CompositionType into a EComposeRule
+        /** translates a CompositionType into an EComposeRule
             @throws IllegalArgumentException
                 if the given value does not denote a valid CompositionType
         */

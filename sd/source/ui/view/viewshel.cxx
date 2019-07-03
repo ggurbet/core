@@ -32,6 +32,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/scrbar.hxx>
 #include <svl/eitem.hxx>
 #include <svx/ruler.hxx>
@@ -66,6 +67,7 @@
 #include <svx/fontworkbar.hxx>
 #include <svx/svdoutl.hxx>
 #include <tools/diagnose_ex.h>
+#include <tools/svborder.hxx>
 #include <comphelper/lok.hxx>
 
 #include <svl/slstitm.hxx>
@@ -86,6 +88,7 @@
 #include <editeng/eeitem.hxx>
 #include <editeng/editview.hxx>
 #include <editeng/editeng.hxx>
+#include <svl/intitem.hxx>
 #include <svl/poolitem.hxx>
 #include <strings.hxx>
 #include <sdmod.hxx>
@@ -521,62 +524,17 @@ void ViewShell::SetCursorMm100Position(const Point& rPosition, bool bPoint, bool
     }
 }
 
-OString ViewShell::GetTextSelection(const OString& _aMimeType, OString& rUsedMimeType)
+uno::Reference<datatransfer::XTransferable> ViewShell::GetSelectionTransferrable()
 {
     SdrView* pSdrView = GetView();
     if (!pSdrView)
-        return OString();
+        return uno::Reference<datatransfer::XTransferable>();
 
     if (!pSdrView->GetTextEditObject())
-        return OString();
+        return uno::Reference<datatransfer::XTransferable>();
 
     EditView& rEditView = pSdrView->GetTextEditOutlinerView()->GetEditView();
-    uno::Reference<datatransfer::XTransferable> xTransferable = rEditView.GetEditEngine()->CreateTransferable(rEditView.GetSelection());
-
-    // Take care of UTF-8 text here.
-    bool bConvert = false;
-    sal_Int32 nIndex = 0;
-    OString aMimeType = _aMimeType;
-    if (aMimeType.getToken(0, ';', nIndex) == "text/plain")
-    {
-        if (aMimeType.getToken(0, ';', nIndex) == "charset=utf-8")
-        {
-            aMimeType = "text/plain;charset=utf-16";
-            bConvert = true;
-        }
-    }
-
-    datatransfer::DataFlavor aFlavor;
-    aFlavor.MimeType = OUString::fromUtf8(aMimeType.getStr());
-    if (bConvert || aMimeType == "text/plain;charset=utf-16")
-        aFlavor.DataType = cppu::UnoType<OUString>::get();
-    else
-        aFlavor.DataType = cppu::UnoType< uno::Sequence<sal_Int8> >::get();
-
-    if (!xTransferable->isDataFlavorSupported(aFlavor))
-        return OString();
-
-    uno::Any aAny(xTransferable->getTransferData(aFlavor));
-
-    OString aRet;
-    if (aFlavor.DataType == cppu::UnoType<OUString>::get())
-    {
-        OUString aString;
-        aAny >>= aString;
-        if (bConvert)
-            aRet = OUStringToOString(aString, RTL_TEXTENCODING_UTF8);
-        else
-            aRet = OString(reinterpret_cast<const sal_Char *>(aString.getStr()), aString.getLength() * sizeof(sal_Unicode));
-    }
-    else
-    {
-        uno::Sequence<sal_Int8> aSequence;
-        aAny >>= aSequence;
-        aRet = OString(reinterpret_cast<sal_Char*>(aSequence.getArray()), aSequence.getLength());
-    }
-
-    rUsedMimeType = _aMimeType;
-    return aRet;
+    return rEditView.GetEditEngine()->CreateTransferable(rEditView.GetSelection());
 }
 
 void ViewShell::SetGraphicMm100Position(bool bStart, const Point& rPosition)
@@ -891,8 +849,7 @@ const SfxPoolItem* ViewShell::GetNumBulletItem(SfxItemSet& aNewAttr, sal_uInt16&
             if( pItem == nullptr )
                 pItem = aNewAttr.GetPool()->GetSecondaryPool()->GetPoolDefaultItem(EE_PARA_NUMBULLET);
 
-            std::unique_ptr<SfxPoolItem> pNewItem(pItem->CloneSetWhich(EE_PARA_NUMBULLET));
-            aNewAttr.Put(*pNewItem);
+            aNewAttr.Put(pItem->CloneSetWhich(EE_PARA_NUMBULLET));
 
             if(bTitle && aNewAttr.GetItemState(EE_PARA_NUMBULLET) == SfxItemState::SET )
             {

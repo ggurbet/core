@@ -42,7 +42,6 @@
 #include <IDocumentMarkAccess.hxx>
 #include <IDocumentSettingAccess.hxx>
 #include <pagedesc.hxx>
-#include <postithelper.hxx>
 #include <PostItMgr.hxx>
 #include <AnnotationWin.hxx>
 #include <com/sun/star/text/XDefaultNumberingProvider.hpp>
@@ -50,7 +49,10 @@
 
 #include <svx/svdpage.hxx>
 #include <svx/svdview.hxx>
+#include <svx/xfillit0.hxx>
 #include <svl/itemiter.hxx>
+#include <svx/svxids.hrc>
+#include <unotools/localfilehelper.hxx>
 
 #include <editeng/eeitem.hxx>
 #include <editeng/scripttypeitem.hxx>
@@ -62,7 +64,6 @@
 #include <reffld.hxx>
 #include <dbfld.hxx>
 #include <txatbase.hxx>
-#include <ftnidx.hxx>
 #include <txtftn.hxx>
 #include <IDocumentDrawModelAccess.hxx>
 #include <IDocumentFieldsAccess.hxx>
@@ -81,16 +82,18 @@
 #include <com/sun/star/util/SearchAlgorithms2.hpp>
 #include <com/sun/star/util/SearchFlags.hpp>
 #include <com/sun/star/util/SearchAlgorithms.hpp>
+#include <com/sun/star/sdb/DatabaseContext.hpp>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
+#include <com/sun/star/sdbc/XDataSource.hpp>
 #include <com/sun/star/text/XParagraphCursor.hpp>
 #include <com/sun/star/util/XPropertyReplace.hpp>
-#include <com/sun/star/awt/FontStrikeout.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/text/XTextField.hpp>
 #include <com/sun/star/text/TextMarkupType.hpp>
 #include <com/sun/star/chart2/data/XDataSource.hpp>
 #include <com/sun/star/document/XEmbeddedObjectSupplier2.hpp>
 #include <com/sun/star/drawing/XShape.hpp>
+#include <com/sun/star/linguistic2/XLinguProperties.hpp>
 #include <o3tl/deleter.hxx>
 #include <osl/file.hxx>
 #include <osl/thread.hxx>
@@ -105,6 +108,7 @@
 #include <comphelper/propertysequence.hxx>
 #include <sfx2/classificationhelper.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
 #include <comphelper/configurationhelper.hxx>
@@ -114,11 +118,11 @@
 #include <sfx2/watermarkitem.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/docfile.hxx>
-#include <svtools/htmlout.hxx>
 #include <test/htmltesttools.hxx>
 #include <fmthdft.hxx>
 #include <iodetect.hxx>
 #include <wrthtml.hxx>
+#include <dbmgr.hxx>
 
 namespace
 {
@@ -177,6 +181,7 @@ public:
     void testTdf98512();
     void testShapeTextboxSelect();
     void testShapeTextboxDelete();
+    void testAnchorChangeSelection();
     void testCp1000071();
     void testShapeTextboxVertadjust();
     void testShapeTextboxAutosize();
@@ -205,6 +210,7 @@ public:
     void testXFlatParagraph();
     void testTdf81995();
     void testForcepoint3();
+    void testForcepoint80();
     void testExportToPicture();
     void testTdf77340();
     void testTdf79236();
@@ -300,6 +306,8 @@ public:
     void testTdf107362();
     void testTdf105417();
     void testTdf105625();
+    void testTdf125151_protected();
+    void testTdf125151_protectedB();
     void testTdf106736();
     void testTdf58604();
     void testTdf112025();
@@ -351,6 +359,7 @@ public:
     void testTdf117225();
     void testTdf91801();
     void testTdf51223();
+    void testTdf108423();
     void testInconsistentBookmark();
 
     CPPUNIT_TEST_SUITE(SwUiWriterTest);
@@ -380,6 +389,7 @@ public:
     CPPUNIT_TEST(testTdf98512);
     CPPUNIT_TEST(testShapeTextboxSelect);
     CPPUNIT_TEST(testShapeTextboxDelete);
+    CPPUNIT_TEST(testAnchorChangeSelection);
     CPPUNIT_TEST(testCp1000071);
     CPPUNIT_TEST(testShapeTextboxVertadjust);
     CPPUNIT_TEST(testShapeTextboxAutosize);
@@ -408,6 +418,7 @@ public:
     CPPUNIT_TEST(testXFlatParagraph);
     CPPUNIT_TEST(testTdf81995);
     CPPUNIT_TEST(testForcepoint3);
+    CPPUNIT_TEST(testForcepoint80);
     CPPUNIT_TEST(testExportToPicture);
     CPPUNIT_TEST(testTdf77340);
     CPPUNIT_TEST(testTdf79236);
@@ -503,6 +514,8 @@ public:
     CPPUNIT_TEST(testTdf107362);
     CPPUNIT_TEST(testTdf105417);
     CPPUNIT_TEST(testTdf105625);
+    CPPUNIT_TEST(testTdf125151_protected);
+    CPPUNIT_TEST(testTdf125151_protectedB);
     CPPUNIT_TEST(testTdf106736);
     CPPUNIT_TEST(testTdf58604);
     CPPUNIT_TEST(testTdf112025);
@@ -555,6 +568,7 @@ public:
     CPPUNIT_TEST(testTdf91801);
     CPPUNIT_TEST(testTdf51223);
     CPPUNIT_TEST(testInconsistentBookmark);
+    CPPUNIT_TEST(testTdf108423);
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -1273,6 +1287,25 @@ void SwUiWriterTest::testShapeTextboxDelete()
     CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(0), nActual);
 }
 
+void SwUiWriterTest::testAnchorChangeSelection()
+{
+    SwDoc* pDoc = createDoc("test_anchor_as_character.odt");
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    SdrPage* pPage = pDoc->getIDocumentDrawModelAccess().GetDrawModel()->GetPage(0);
+    SdrObject* pObject = pPage->GetObj(0);
+    CPPUNIT_ASSERT(pObject);
+
+    // Then select it.
+    pWrtShell->SelectObj(Point(), 0, pObject);
+    const SdrMarkList& rMarkList = pWrtShell->GetDrawView()->GetMarkedObjectList();
+    CPPUNIT_ASSERT_EQUAL(pObject, rMarkList.GetMark(0)->GetMarkedSdrObj());
+
+    pWrtShell->ChgAnchor(RndStdIds::FLY_AS_CHAR);
+
+    // tdf#125039 shape must still be selected, extensions depend on that
+    CPPUNIT_ASSERT_EQUAL(pObject, rMarkList.GetMark(0)->GetMarkedSdrObj());
+}
+
 void SwUiWriterTest::testCp1000071()
 {
     SwDoc* pDoc = createDoc("cp1000071.odt");
@@ -1634,7 +1667,7 @@ void SwUiWriterTest::testBookmarkUndo()
     IDocumentMarkAccess::const_iterator_t ppBkmk = pMarkAccess->findMark("Mark");
     CPPUNIT_ASSERT(ppBkmk != pMarkAccess->getAllMarksEnd());
 
-    pMarkAccess->renameMark(ppBkmk->get(), "Mark_");
+    pMarkAccess->renameMark(*ppBkmk, "Mark_");
     CPPUNIT_ASSERT(bool(pMarkAccess->findMark("Mark") == pMarkAccess->getAllMarksEnd()));
     CPPUNIT_ASSERT(pMarkAccess->findMark("Mark_") != pMarkAccess->getAllMarksEnd());
     rUndoManager.Undo();
@@ -1844,7 +1877,7 @@ void SwUiWriterTest::testTdf51741()
     IDocumentMarkAccess::const_iterator_t ppBkmk = pMarkAccess->findMark("Mark");
     CPPUNIT_ASSERT(ppBkmk != pMarkAccess->getAllMarksEnd());
     //Modification 4
-    pMarkAccess->renameMark(ppBkmk->get(), "Mark_");
+    pMarkAccess->renameMark(*ppBkmk, "Mark_");
     CPPUNIT_ASSERT(pWrtShell->IsModified());
     pWrtShell->ResetModified();
     CPPUNIT_ASSERT(bool(pMarkAccess->findMark("Mark") == pMarkAccess->getAllMarksEnd()));
@@ -1920,7 +1953,7 @@ void SwUiWriterTest::testDeleteTableRedlines()
     SwUnoCursorHelper::makeTableCellRedline((*const_cast<SwTableBox*>(rTable.GetTableBox("C1"))), "TableCellInsert", aDescriptor);
     IDocumentRedlineAccess& rIDRA = pDoc->getIDocumentRedlineAccess();
     SwExtraRedlineTable& rExtras = rIDRA.GetExtraRedlineTable();
-    rExtras.DeleteAllTableRedlines(pDoc, rTable, false, sal_uInt16(USHRT_MAX));
+    rExtras.DeleteAllTableRedlines(pDoc, rTable, false, RedlineType::Any);
     CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt16>(0), rExtras.GetSize());
 }
 
@@ -2014,6 +2047,25 @@ void SwUiWriterTest::testForcepoint3()
     // printing asserted in SwFrame::GetNextSctLeaf()
     xStorable->storeToURL(aTempFile.GetURL(), aDescriptor);
     aTempFile.EnableKillingFile();
+}
+
+void SwUiWriterTest::testForcepoint80()
+{
+    try
+    {
+        createDoc("forcepoint80-1.rtf");
+        uno::Sequence<beans::PropertyValue> aDescriptor( comphelper::InitPropertySequence({
+            { "FilterName", uno::Any(OUString("writer_pdf_Export")) },
+        }));
+        utl::TempFile aTempFile;
+        uno::Reference<frame::XStorable> xStorable(mxComponent, uno::UNO_QUERY);
+        // printing asserted in SwCellFrame::FindStartEndOfRowSpanCell
+        xStorable->storeToURL(aTempFile.GetURL(), aDescriptor);
+        aTempFile.EnableKillingFile();
+    }
+    catch(...)
+    {
+    }
 }
 
 void SwUiWriterTest::testExportToPicture()
@@ -2223,7 +2275,7 @@ void SwUiWriterTest::testTdf69282()
     verticalSpace.SetLower(14);
     rSourceMasterFormat.SetFormatAttr(verticalSpace);
     //Changing the style and copying it to target
-    source->ChgPageDesc(OUString("SourceStyle"), *sPageDesc);
+    source->ChgPageDesc("SourceStyle", *sPageDesc);
     target->CopyPageDesc(*sPageDesc, *tPageDesc);
     //Checking the set values on all Formats in target
     SwFrameFormat& rTargetMasterFormat = tPageDesc->GetMaster();
@@ -2284,7 +2336,7 @@ void SwUiWriterTest::testTdf69282WithMirror()
     verticalSpace.SetLower(14);
     rSourceMasterFormat.SetFormatAttr(verticalSpace);
     //Changing the style and copying it to target
-    source->ChgPageDesc(OUString("SourceStyle"), *sPageDesc);
+    source->ChgPageDesc("SourceStyle", *sPageDesc);
     target->CopyPageDesc(*sPageDesc, *tPageDesc);
     //Checking the set values on all Formats in target
     SwFrameFormat& rTargetMasterFormat = tPageDesc->GetMaster();
@@ -3978,7 +4030,7 @@ void SwUiWriterTest::testShapeAnchorUndo()
 
 static void lcl_dispatchCommand(const uno::Reference<lang::XComponent>& xComponent, const OUString& rCommand, const uno::Sequence<beans::PropertyValue>& rPropertyValues)
 {
-    uno::Reference<frame::XController> xController = uno::Reference<frame::XModel>(xComponent, uno::UNO_QUERY)->getCurrentController();
+    uno::Reference<frame::XController> xController = uno::Reference<frame::XModel>(xComponent, uno::UNO_QUERY_THROW)->getCurrentController();
     CPPUNIT_ASSERT(xController.is());
     uno::Reference<frame::XDispatchProvider> xFrame(xController->getFrame(), uno::UNO_QUERY);
     CPPUNIT_ASSERT(xFrame.is());
@@ -4655,12 +4707,10 @@ void SwUiWriterTest::testBookmarkCollapsed()
         const OString aPath("/office:document-content/office:body/office:text/text:p");
 
         const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
-        const int pos2 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
-        const int pos3 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
-
         CPPUNIT_ASSERT_EQUAL(0, pos1); // found, and it is first
-        CPPUNIT_ASSERT_EQUAL(2, pos2); // not found
-        CPPUNIT_ASSERT_EQUAL(2, pos3); // not found
+
+        CPPUNIT_ASSERT_ASSERTION_FAIL(getXPathPosition(pXmlDoc, aPath, "bookmark-start")); // not found
+        CPPUNIT_ASSERT_ASSERTION_FAIL(getXPathPosition(pXmlDoc, aPath, "bookmark-end")); // not found
     }
 }
 
@@ -4733,11 +4783,10 @@ void SwUiWriterTest::testRemoveBookmarkText()
     {
         const OString aPath("/office:document-content/office:body/office:text/text:p");
 
-        const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
+        CPPUNIT_ASSERT_ASSERTION_FAIL(getXPathPosition(pXmlDoc, aPath, "bookmark")); // not found
         const int pos2 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
         const int pos3 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
 
-        CPPUNIT_ASSERT_EQUAL(3, pos1); // not found
         CPPUNIT_ASSERT_EQUAL(0, pos2); // found, and it is first
         CPPUNIT_ASSERT_EQUAL(1, pos3); // found, and it is second
     }
@@ -4840,12 +4889,11 @@ void SwUiWriterTest::testRemoveBookmarkTextAndAddNew()
     {
         const OString aPath("/office:document-content/office:body/office:text/text:p");
 
-        const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
+        CPPUNIT_ASSERT_ASSERTION_FAIL(getXPathPosition(pXmlDoc, aPath, "bookmark")); // not found
         const int pos2 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
         const int pos3 = getXPathPosition(pXmlDoc, aPath, "text");
         const int pos4 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
 
-        CPPUNIT_ASSERT_EQUAL(4, pos1); // not found
         CPPUNIT_ASSERT_EQUAL(0, pos2);
         CPPUNIT_ASSERT_EQUAL(1, pos3);
         CPPUNIT_ASSERT_EQUAL(2, pos4);
@@ -4910,13 +4958,11 @@ void SwUiWriterTest::testRemoveBookmarkTextAndAddNewAfterReload()
         const int pos1 = getXPathPosition(pXmlDoc, aPath, "bookmark");
         const int pos2 = getXPathPosition(pXmlDoc, aPath, "text");
 
-        const int pos3 = getXPathPosition(pXmlDoc, aPath, "bookmark-start");
-        const int pos4 = getXPathPosition(pXmlDoc, aPath, "bookmark-end");
-
         CPPUNIT_ASSERT_EQUAL(0, pos1);
         CPPUNIT_ASSERT_EQUAL(1, pos2);
-        CPPUNIT_ASSERT_EQUAL(2, pos3); // not found
-        CPPUNIT_ASSERT_EQUAL(2, pos4); // not found
+
+        CPPUNIT_ASSERT_ASSERTION_FAIL(getXPathPosition(pXmlDoc, aPath, "bookmark-start")); // not found
+        CPPUNIT_ASSERT_ASSERTION_FAIL(getXPathPosition(pXmlDoc, aPath, "bookmark-end")); // not found
     }
 }
 
@@ -5653,6 +5699,42 @@ void SwUiWriterTest::testTdf105625()
     pWrtShell->DelLeft();
     sal_Int32 nMarksAfter = pMarksAccess->getAllMarksCount();
     CPPUNIT_ASSERT_EQUAL(nMarksBefore, nMarksAfter + 1);
+}
+
+void SwUiWriterTest::testTdf125151_protected()
+{
+    // Similar to testTdf105625 except this is in a protected section,
+    // so read-only is already true when fieldmarks are considered.
+    SwDoc* pDoc = createDoc("tdf125151_protected.fodt");
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    uno::Reference<uno::XComponentContext> xComponentContext(comphelper::getProcessComponentContext());
+    // Ensure correct initial setting
+    comphelper::ConfigurationHelper::writeDirectKey(xComponentContext,
+        "org.openoffice.Office.Writer/", "Cursor/Option", "IgnoreProtectedArea",
+        css::uno::Any(false), comphelper::EConfigurationModes::Standard);
+    pWrtShell->Down(/*bSelect=*/false);
+    // The cursor moved inside of the FieldMark textbox.
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Readonly 1", false, pWrtShell->HasReadonlySel());
+    // Move left to the start/definition of the textbox
+    pWrtShell->Left(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Readonly 2", true, pWrtShell->HasReadonlySel());
+}
+
+void SwUiWriterTest::testTdf125151_protectedB()
+{
+    // Similar to testTdf105625 except this is protected with the Protect_Form compat setting
+    SwDoc* pDoc = createDoc("tdf125151_protectedB.fodt");
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    uno::Reference<uno::XComponentContext> xComponentContext(comphelper::getProcessComponentContext());
+    // Ensure correct initial setting
+    comphelper::ConfigurationHelper::writeDirectKey(xComponentContext,
+        "org.openoffice.Office.Writer/", "Cursor/Option", "IgnoreProtectedArea",
+        css::uno::Any(false), comphelper::EConfigurationModes::Standard);
+    // The cursor starts inside of the FieldMark textbox.
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Readonly 1", false, pWrtShell->HasReadonlySel());
+    // Move left to the start/definition of the textbox
+    pWrtShell->Left(CRSR_SKIP_CHARS, /*bSelect=*/false, 1, /*bBasicCall=*/false);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("Readonly 2", true, pWrtShell->HasReadonlySel());
 }
 
 void SwUiWriterTest::testTdf106736()
@@ -6408,8 +6490,9 @@ void SwUiWriterTest::testTdf115013()
     // Save it as DOCX & load it again
     reload("Office Open XML Text", "mm-field.docx");
 
-    CPPUNIT_ASSERT(mxComponent.get());
-    pDoc = dynamic_cast<SwXTextDocument*>(mxComponent.get())->GetDocShell()->GetDoc();
+    auto pXTextDocument = dynamic_cast<SwXTextDocument*>(mxComponent.get());
+    CPPUNIT_ASSERT(pXTextDocument);
+    pDoc = pXTextDocument->GetDocShell()->GetDoc();
     CPPUNIT_ASSERT(pDoc);
     SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
     CPPUNIT_ASSERT(pWrtShell);
@@ -6439,12 +6522,12 @@ void SwUiWriterTest::testTdf115065()
     pWrtShell->GotoTable("Table2");
     SwRect aRect = pWrtShell->GetCurrFrame()->getFrameArea();
     // Destination point is the middle of the first cell of second table
-    Point ptTo = Point(aRect.Left() + aRect.Width() / 2, aRect.Top() + aRect.Height() / 2);
+    Point ptTo(aRect.Left() + aRect.Width() / 2, aRect.Top() + aRect.Height() / 2);
 
     pWrtShell->GotoTable("Table1");
     aRect = pWrtShell->GetCurrFrame()->getFrameArea();
     // Source point is the middle of the first cell of first table
-    Point ptFrom = Point(aRect.Left() + aRect.Width() / 2, aRect.Top() + aRect.Height() / 2);
+    Point ptFrom(aRect.Left() + aRect.Width() / 2, aRect.Top() + aRect.Height() / 2);
 
     pWrtShell->SelTableCol();
     // The copy operation (or closing document after that) segfaulted
@@ -6556,8 +6639,7 @@ void SwUiWriterTest::testHtmlCopyImages()
     SwDoc* pDoc = createDoc("image.odt");
 
     // Trigger the copy part of HTML copy&paste.
-    WriterRef xWrt;
-    xWrt = new SwHTMLWriter( /*rBaseURL=*/OUString() );
+    WriterRef xWrt = new SwHTMLWriter( /*rBaseURL=*/OUString() );
     CPPUNIT_ASSERT(xWrt.is());
 
     xWrt->m_bWriteClipboardDoc = true;
@@ -6827,9 +6909,9 @@ void SwUiWriterTest::testInconsistentBookmark()
         {
             const OString aPath("/office:document-content/office:body/office:text/text:p");
 
-            const OUString aTagBookmarkStart("bookmark-start");
-            const OUString aTagControl("control");
-            const OUString aTagBookmarkEnd("bookmark-end");
+            const OString aTagBookmarkStart("bookmark-start");
+            const OString aTagControl("control");
+            const OString aTagBookmarkEnd("bookmark-end");
 
             const int pos1 = getXPathPosition(pXmlDoc, aPath, aTagBookmarkStart);
             const int pos2 = getXPathPosition(pXmlDoc, aPath, aTagControl);
@@ -6839,6 +6921,25 @@ void SwUiWriterTest::testInconsistentBookmark()
             CPPUNIT_ASSERT_GREATER(pos2, pos3);
         }
     }
+}
+
+void SwUiWriterTest::testTdf108423()
+{
+    SwDoc* pDoc = createDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    // testing autocorrect of i' -> I' on start of first paragraph
+    SwAutoCorrect corr(*SvxAutoCorrCfg::Get().GetAutoCorrect());
+    pWrtShell->Insert("i");
+    const sal_Unicode cChar = '\'';
+    pWrtShell->AutoCorrect(corr, cChar);
+    // The word "i" should be capitalized due to autocorrect, followed by a typographical apostrophe
+    sal_uLong nIndex = pWrtShell->GetCursor()->GetNode().GetIndex();
+    OUString sIApostrophe(u"I" + OUStringLiteral1(0x2019));
+    CPPUNIT_ASSERT_EQUAL(sIApostrophe, static_cast<SwTextNode*>(pDoc->GetNodes()[nIndex])->GetText());
+    pWrtShell->Insert(" i");
+    pWrtShell->AutoCorrect(corr, cChar);
+    OUString sText(sIApostrophe + u" " + sIApostrophe);
+    CPPUNIT_ASSERT_EQUAL(sText, static_cast<SwTextNode*>(pDoc->GetNodes()[nIndex])->GetText());
 }
 
 CPPUNIT_TEST_SUITE_REGISTRATION(SwUiWriterTest);

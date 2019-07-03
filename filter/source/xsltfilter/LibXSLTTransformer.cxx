@@ -298,11 +298,11 @@ namespace XSLT
             xsltTransformContextPtr tcontext = xsltNewTransformContext(
                 styleSheet, doc);
             {
-                std::unique_lock<std::mutex> g(m_mutex);
+                std::scoped_lock<std::mutex> g(m_mutex);
                 m_tcontext = tcontext;
             }
             oh->registercontext(m_tcontext);
-            xsltQuoteUserParams(m_tcontext, &params[0]);
+            xsltQuoteUserParams(m_tcontext, params.data());
             result = xsltApplyStylesheetUser(styleSheet, doc, nullptr, nullptr, nullptr,
                                              m_tcontext);
         }
@@ -334,7 +334,7 @@ namespace XSLT
         xsltFreeStylesheet(styleSheet);
         xsltTransformContextPtr tcontext = nullptr;
         {
-            std::unique_lock<std::mutex> g(m_mutex);
+            std::scoped_lock<std::mutex> g(m_mutex);
             std::swap(m_tcontext, tcontext);
         }
         xsltFreeTransformContext(tcontext);
@@ -360,7 +360,7 @@ namespace XSLT
 
     void Reader::forceStateStopped()
     {
-        std::unique_lock<std::mutex> g(m_mutex);
+        std::scoped_lock<std::mutex> g(m_mutex);
         if (!m_tcontext)
             return;
         //tdf#100057 If we force a cancel, libxslt will of course just keep on going unless something
@@ -408,14 +408,14 @@ namespace XSLT
     void
     LibXSLTTransformer::addListener(const css::uno::Reference<XStreamListener>& listener)
     {
-        m_listeners.insert(m_listeners.begin(), listener);
+        m_listeners.push_front(listener);
     }
 
     void
     LibXSLTTransformer::removeListener(
             const css::uno::Reference<XStreamListener>& listener)
     {
-        m_listeners.remove(listener);
+        m_listeners.erase( std::remove(m_listeners.begin(), m_listeners.end(), listener ), m_listeners.end() );
     }
 
     void

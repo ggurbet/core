@@ -19,6 +19,7 @@
 
 #include <config_features.h>
 #include <sal/log.hxx>
+#include <osl/module.hxx>
 
 #include <sfx2/app.hxx>
 #include <sfx2/frame.hxx>
@@ -100,9 +101,7 @@ using namespace ::com::sun::star;
 
 static SfxApplication* g_pSfxApplication = nullptr;
 
-#if HAVE_FEATURE_SCRIPTING
 static BasicDLL*       pBasic   = nullptr;
-#endif
 
 #if HAVE_FEATURE_DESKTOP
 static SfxHelp*        pSfxHelp = nullptr;
@@ -199,10 +198,12 @@ SfxApplication::SfxApplication()
     pSfxHelp = new SfxHelp;
 #endif
 
-#if HAVE_FEATURE_SCRIPTING
     pBasic   = new BasicDLL;
+
+#if HAVE_FEATURE_SCRIPTING
     StarBASIC::SetGlobalErrorHdl( LINK( this, SfxApplication, GlobalBasicErrorHdl_Impl ) );
 #endif
+
     SAL_INFO( "sfx.appl", "} initialize DDE" );
 }
 
@@ -227,9 +228,7 @@ SfxApplication::~SfxApplication()
     if ( !pImpl->bDowning )
         Deinitialize();
 
-#if HAVE_FEATURE_SCRIPTING
     delete pBasic;
-#endif
 
     g_pSfxApplication = nullptr;
 }
@@ -415,14 +414,14 @@ void SfxApplication::Invalidate( sal_uInt16 nId )
 #ifndef DISABLE_DYNLOADING
 
 typedef long (*basicide_handle_basic_error)(void const *);
-typedef void (*basicide_macro_organizer)(sal_Int16);
+typedef void (*basicide_macro_organizer)(void const *, sal_Int16);
 
 extern "C" { static void thisModule() {} }
 
 #else
 
 extern "C" long basicide_handle_basic_error(void*);
-extern "C" void basicide_macro_organizer(sal_Int16);
+extern "C" void basicide_macro_organizer(void*, sal_Int16);
 
 #endif
 
@@ -521,7 +520,7 @@ SfxApplication::ChooseScript(weld::Window *pParent)
     return aScriptURL;
 }
 
-void SfxApplication::MacroOrganizer( sal_Int16 nTabId )
+void SfxApplication::MacroOrganizer(weld::Window* pParent, sal_Int16 nTabId)
 {
 #if !HAVE_FEATURE_SCRIPTING
     (void) nTabId;
@@ -542,11 +541,11 @@ void SfxApplication::MacroOrganizer( sal_Int16 nTabId )
         return;
 
     // call basicide_macro_organizer in basctl
-    pSymbol( nTabId );
+    pSymbol(pParent, nTabId);
 
 #else
 
-    basicide_macro_organizer( nTabId );
+    basicide_macro_organizer(pParent, nTabId);
 
 #endif
 

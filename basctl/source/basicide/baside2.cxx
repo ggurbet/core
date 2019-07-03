@@ -44,18 +44,22 @@
 #include <sfx2/docfile.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <sot/exchange.hxx>
 #include <svl/aeitem.hxx>
 #include <svl/srchitem.hxx>
 #include <svl/visitem.hxx>
 #include <svl/whiter.hxx>
 #include <svx/svxids.hrc>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/textview.hxx>
 #include <vcl/weld.hxx>
 #include <vcl/xtextedt.hxx>
-#include <vcl/textview.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <cassert>
+#include <osl/diagnose.h>
 
 namespace basctl
 {

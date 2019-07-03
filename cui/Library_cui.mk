@@ -21,6 +21,7 @@ $(eval $(call gb_Library_set_precompiled_header,cui,$(SRCDIR)/cui/inc/pch/precom
 
 $(eval $(call gb_Library_add_defs,cui,\
     $(if $(filter TRUE,$(ENABLE_GTK)),-DENABLE_GTK) \
+    -DCUI_DLLIMPLEMENTATION \
 ))
 
 $(eval $(call gb_Library_use_custom_headers,cui,\
@@ -69,6 +70,7 @@ $(eval $(call gb_Library_use_externals,cui,\
 		curl) \
     icuuc \
     icu_headers \
+    libxml2 \
     orcus-parser \
     orcus \
 ))
@@ -95,6 +97,8 @@ $(eval $(call gb_Library_add_exception_objects,cui,\
     cui/source/customize/SvxConfigPageHelper \
     cui/source/customize/SvxMenuConfigPage \
     cui/source/customize/SvxToolbarConfigPage \
+    cui/source/customize/SvxNotebookbarConfigPage \
+    cui/source/customize/CustomNotebookbarGenerator \
     cui/source/dialogs/about \
     cui/source/dialogs/colorpicker \
     cui/source/dialogs/cuicharmap \
@@ -115,6 +119,7 @@ $(eval $(call gb_Library_add_exception_objects,cui,\
     cui/source/dialogs/hltpbase \
     cui/source/dialogs/hyphen \
     cui/source/dialogs/iconcdlg \
+    cui/source/dialogs/tipofthedaydlg \
     cui/source/dialogs/insdlg \
     cui/source/dialogs/insrc \
     cui/source/dialogs/linkdlg \
@@ -130,7 +135,6 @@ $(eval $(call gb_Library_add_exception_objects,cui,\
     cui/source/dialogs/SignSignatureLineDialog \
     cui/source/dialogs/sdrcelldlg \
     cui/source/dialogs/showcols \
-    cui/source/dialogs/SpellAttrib \
     cui/source/dialogs/SpellDialog \
     cui/source/dialogs/splitcelldlg \
     cui/source/dialogs/srchxtra \

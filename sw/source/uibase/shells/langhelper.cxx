@@ -29,6 +29,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <editeng/eeitem.hxx>
 #include <editeng/editeng.hxx>
 #include <editeng/editdata.hxx>
@@ -41,6 +42,7 @@
 #include <svtools/langtab.hxx>
 #include <svl/slstitm.hxx>
 #include <svl/stritem.hxx>
+#include <svx/svxids.hrc>
 
 #include <ndtxt.hxx>
 #include <pam.hxx>
@@ -545,10 +547,9 @@ namespace SwLangHelper
     OUString GetTextForLanguageGuessing(EditEngine const * rEditEngine, const ESelection& rDocSelection)
     {
         // string for guessing language
-        OUString aText;
 
         // get the full text of the paragraph that the end of selection is in
-        aText = rEditEngine->GetText(rDocSelection.nEndPos);
+        OUString aText = rEditEngine->GetText(rDocSelection.nEndPos);
         if (!aText.isEmpty())
         {
             sal_Int32 nStt = 0;

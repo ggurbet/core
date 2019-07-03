@@ -19,6 +19,7 @@
 
 #include <config_features.h>
 
+#include <com/sun/star/media/XPlayer.hpp>
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/ui/dialogs/ExtendedFilePickerElementIds.hpp>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
@@ -112,7 +113,7 @@ IMPL_LINK_NOARG(SdFileDialog_Imp, PlayMusicHdl, void*, void)
 #if HAVE_FEATURE_AVMEDIA
             try
             {
-                mxPlayer.set( avmedia::MediaWindow::createPlayer( aUrl, "" ), css::uno::UNO_QUERY_THROW );
+                mxPlayer.set( avmedia::MediaWindow::createPlayer( aUrl, "" ), css::uno::UNO_SET_THROW );
                 mxPlayer->start();
                 maUpdateIdle.Start();
             }
@@ -209,8 +210,7 @@ SdFileDialog_Imp::~SdFileDialog_Imp()
 SdOpenSoundFileDialog::SdOpenSoundFileDialog(weld::Window *pParent)
     : mpImpl(new SdFileDialog_Imp(pParent))
 {
-    OUString aDescr;
-    aDescr = SdResId(STR_ALL_FILES);
+    OUString aDescr = SdResId(STR_ALL_FILES);
     mpImpl->AddFilter( aDescr, "*.*");
 
     // setup filter

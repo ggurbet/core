@@ -62,6 +62,7 @@
 #include <svl/rngitem.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 
+#include <vcl/svapp.hxx>
 #include <vcl/waitobj.hxx>
 
 #include <svl/zforlist.hxx>
@@ -70,7 +71,6 @@
 #include <connectivity/dbconversion.hxx>
 #include <cppuhelper/typeprovider.hxx>
 #include <comphelper/processfactory.hxx>
-#include <comphelper/servicehelper.hxx>
 #include <comphelper/types.hxx>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
 #include <com/sun/star/sdbc/DataType.hpp>
@@ -505,16 +505,6 @@ void SAL_CALL SbaXGridPeer::removeStatusListener(const Reference< css::frame::XS
         pCont->removeInterface(xControl);
 }
 
-namespace
-{
-    class theSbaXGridPeerUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theSbaXGridPeerUnoTunnelId > {};
-}
-
-const Sequence< sal_Int8 > & SbaXGridPeer::getUnoTunnelId()
-{
-    return theSbaXGridPeerUnoTunnelId::get().getSeq();
-}
-
 Sequence< Type > SAL_CALL SbaXGridPeer::getTypes()
 {
     return comphelper::concatSequences(
@@ -522,23 +512,7 @@ Sequence< Type > SAL_CALL SbaXGridPeer::getTypes()
         Sequence { cppu::UnoType<css::frame::XDispatch>::get() });
 }
 
-// return implementation specific data
-sal_Int64 SAL_CALL SbaXGridPeer::getSomething( const Sequence< sal_Int8 > & rId )
-{
-    if( rId.getLength() == 16 && 0 == memcmp( getUnoTunnelId().getConstArray(),  rId.getConstArray(), 16 ) )
-        return reinterpret_cast< sal_Int64 >( this );
-
-    return FmXGridPeer::getSomething(rId);
-}
-
-SbaXGridPeer* SbaXGridPeer::getImplementation(const Reference< XInterface >& _rxIFace)
-{
-    Reference< XUnoTunnel > xTunnel(
-        _rxIFace, UNO_QUERY);
-    if (xTunnel.is())
-        return reinterpret_cast<SbaXGridPeer*>(xTunnel->getSomething(getUnoTunnelId()));
-    return nullptr;
-}
+UNO3_GETIMPLEMENTATION2_IMPL(SbaXGridPeer, FmXGridPeer);
 
 VclPtr<FmGridControl> SbaXGridPeer::imp_CreateControl(vcl::Window* pParent, WinBits nStyle)
 {
@@ -763,7 +737,7 @@ SvNumberFormatter* SbaGridControl::GetDatasourceFormatter()
 {
     Reference< css::util::XNumberFormatsSupplier >  xSupplier = ::dbtools::getNumberFormats(::dbtools::getConnection(Reference< XRowSet > (getDataSource(),UNO_QUERY)), true, getContext());
 
-    SvNumberFormatsSupplierObj* pSupplierImpl = SvNumberFormatsSupplierObj::getImplementation( xSupplier );
+    SvNumberFormatsSupplierObj* pSupplierImpl = comphelper::getUnoTunnelImplementation<SvNumberFormatsSupplierObj>( xSupplier );
     if ( !pSupplierImpl )
         return nullptr;
 
@@ -840,7 +814,7 @@ void SbaGridControl::SetRowHeight()
         }
         catch(Exception&)
         {
-            OSL_FAIL("setPropertyValue: PROPERTY_ROW_HEIGHT throws a exception");
+            OSL_FAIL("setPropertyValue: PROPERTY_ROW_HEIGHT throws an exception");
         }
     }
 }
@@ -962,9 +936,9 @@ Reference< XPropertySet >  SbaGridControl::getField(sal_uInt16 nModelPos)
         else
             OSL_FAIL("SbaGridControl::getField getColumns returns NULL or ModelPos is > than count!");
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN("dbaccess", "SbaGridControl::getField Exception occurred: " << e);
+        TOOLS_WARN_EXCEPTION("dbaccess", "SbaGridControl::getField Exception occurred");
     }
 
     return xEmptyReturn;
@@ -997,9 +971,9 @@ bool SbaGridControl::IsReadOnlyDB() const
             }
         }
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN("dbaccess", "SbaGridControl::IsReadOnlyDB Exception occurred: " << e);
+        TOOLS_WARN_EXCEPTION("dbaccess", "SbaGridControl::IsReadOnlyDB Exception occurred");
     }
 
     return bDBIsReadOnly;
@@ -1044,7 +1018,7 @@ void SbaGridControl::StartDrag( sal_Int8 _nAction, const Point& _rPosPixel )
 
         long nCorrectRowCount = GetRowCount();
         if (GetOptions() & DbGridControlOptions::Insert)
-            --nCorrectRowCount; // there is a empty row for inserting records
+            --nCorrectRowCount; // there is an empty row for inserting records
         if (bCurrentRowVirtual)
             --nCorrectRowCount;
 
@@ -1252,7 +1226,7 @@ sal_Int8 SbaGridControl::AcceptDrop( const BrowserAcceptDropEvent& rEvt )
 
         long nCorrectRowCount = GetRowCount();
         if (GetOptions() & DbGridControlOptions::Insert)
-            --nCorrectRowCount; // there is a empty row for inserting records
+            --nCorrectRowCount; // there is an empty row for inserting records
         if (IsCurrentAppending())
             --nCorrectRowCount; // the current data record doesn't really exist, we are appending a new one
 
@@ -1272,7 +1246,7 @@ sal_Int8 SbaGridControl::AcceptDrop( const BrowserAcceptDropEvent& rEvt )
         CellControllerRef xCurrentController = Controller();
         if (xCurrentController.is() && xCurrentController->IsModified() && ((nRow != GetCurRow()) || (nCol != GetCurColumnId())))
             // the current controller is modified and the user wants to drop in another cell -> no chance
-            // (when leaving the modified cell a error may occur - this is deadly while dragging)
+            // (when leaving the modified cell an error may occur - this is deadly while dragging)
             break;
 
         Reference< XPropertySet >  xField = getField(GetModelColumnPos(nCol));
@@ -1345,7 +1319,7 @@ sal_Int8 SbaGridControl::ExecuteDrop( const BrowserExecuteDropEvent& rEvt )
 
         long nCorrectRowCount = GetRowCount();
         if (GetOptions() & DbGridControlOptions::Insert)
-            --nCorrectRowCount; // there is a empty row for inserting records
+            --nCorrectRowCount; // there is an empty row for inserting records
         if (IsCurrentAppending())
             --nCorrectRowCount; // the current data record doesn't really exist, we are appending a new one
 

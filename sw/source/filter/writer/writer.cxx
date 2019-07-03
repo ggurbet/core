@@ -24,6 +24,7 @@
 #include <sfx2/docfile.hxx>
 #include <svl/urihelper.hxx>
 #include <vcl/graphicfilter.hxx>
+#include <tools/diagnose_ex.h>
 #include <editeng/fontitem.hxx>
 #include <editeng/eeitem.hxx>
 #include <sal/log.hxx>
@@ -183,13 +184,9 @@ bool Writer::CopyNextPam( SwPaM ** ppPam )
 sal_Int32 Writer::FindPos_Bkmk(const SwPosition& rPos) const
 {
     const IDocumentMarkAccess* const pMarkAccess = m_pDoc->getIDocumentMarkAccess();
-    const IDocumentMarkAccess::const_iterator_t ppBkmk = std::lower_bound(
-        pMarkAccess->getAllMarksBegin(),
-        pMarkAccess->getAllMarksEnd(),
-        rPos,
-        sw::mark::CompareIMarkStartsBefore()); // find the first Mark that does not start before
-    if(ppBkmk != pMarkAccess->getAllMarksEnd())
-        return ppBkmk - pMarkAccess->getAllMarksBegin();
+    const IDocumentMarkAccess::const_iterator_t ppBkmk = pMarkAccess->findFirstBookmarkStartsAfter(rPos);
+    if(ppBkmk != pMarkAccess->getBookmarksEnd())
+        return ppBkmk - pMarkAccess->getBookmarksBegin();
     return -1;
 }
 
@@ -255,9 +252,9 @@ ErrCode Writer::Write( SwPaM& rPaM, SvStream& rStrm, const OUString* pFName )
             if ( nResult == ERRCODE_NONE )
                 aRef->Commit();
         }
-        catch (const css::ucb::ContentCreationException &e)
+        catch (const css::ucb::ContentCreationException &)
         {
-            SAL_WARN("sw", "Writer::Write caught " << e);
+            TOOLS_WARN_EXCEPTION("sw", "Writer::Write caught");
         }
         return nResult;
     }
@@ -333,7 +330,7 @@ bool Writer::CopyLocalFileToINet( OUString& rFileNm )
 
     OUString aSrc  = rFileNm;
     OUString aDest = aTargetUrl.GetPartBeforeLastName();
-    aDest += aFileUrl.GetName();
+    aDest += aFileUrl.GetLastName();
 
     SfxMedium aSrcFile( aSrc, StreamMode::READ );
     SfxMedium aDstFile( aDest, StreamMode::WRITE | StreamMode::SHARE_DENYNONE );
@@ -409,10 +406,8 @@ void Writer::AddFontItems_( SfxItemPool& rPool, sal_uInt16 nW )
     if( nullptr != ( pFont = static_cast<const SvxFontItem*>(rPool.GetPoolDefaultItem( nW ))) )
         AddFontItem( rPool, *pFont );
 
-    sal_uInt32 nMaxItem = rPool.GetItemCount2( nW );
-    for( sal_uInt32 nGet = 0; nGet < nMaxItem; ++nGet )
-        if( nullptr != (pFont = static_cast<const SvxFontItem*>(rPool.GetItem2( nW, nGet ))) )
-            AddFontItem( rPool, *pFont );
+    for (const SfxPoolItem* pItem : rPool.GetItemSurrogates(nW))
+        AddFontItem( rPool, *static_cast<const SvxFontItem*>(pItem) );
 }
 
 void Writer::AddFontItem( SfxItemPool& rPool, const SvxFontItem& rFont )
@@ -422,10 +417,10 @@ void Writer::AddFontItem( SfxItemPool& rPool, const SvxFontItem& rFont )
     {
         SvxFontItem aFont( rFont );
         aFont.SetWhich( RES_CHRATR_FONT );
-        pItem = static_cast<const SvxFontItem*>(&rPool.Put( aFont ));
+        pItem = &rPool.Put( aFont );
     }
     else
-        pItem = static_cast<const SvxFontItem*>(&rPool.Put( rFont ));
+        pItem = &rPool.Put( rFont );
 
     if( 1 < pItem->GetRefCount() )
         rPool.Remove( *pItem );

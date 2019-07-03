@@ -18,6 +18,7 @@
  */
 
 #include <com/sun/star/linguistic2/XAvailableLocales.hpp>
+#include <com/sun/star/linguistic2/XSpellChecker1.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <linguistic/misc.hxx>
 #include <rtl/ustring.hxx>
@@ -132,9 +133,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT void makeSvxLanguageComboBox(VclPtr<vcl::Window>
 }
 
 SvxLanguageBoxBase::SvxLanguageBoxBase()
-    : m_bHasLangNone(false)
-    , m_bLangNoneIsLangAll(false)
-    , m_bWithCheckmark(false)
+    : m_bWithCheckmark(false)
 {
 }
 
@@ -142,9 +141,6 @@ void SvxLanguageBoxBase::ImplLanguageBoxBaseInit()
 {
     m_aNotCheckedImage = Image(StockImage::Yes, RID_SVXBMP_NOTCHECKED);
     m_aCheckedImage = Image(StockImage::Yes, RID_SVXBMP_CHECKED);
-    m_aAllString            = SvxResId( RID_SVXSTR_LANGUAGE_ALL );
-    m_bHasLangNone          = false;
-    m_bLangNoneIsLangAll    = false;
 
     if ( m_bWithCheckmark )
     {
@@ -220,8 +216,6 @@ void SvxLanguageBoxBase::SetLanguageList( SvxLanguageListFlags nLangList,
 {
     ImplClear();
 
-    m_bHasLangNone          = bHasLangNone;
-    m_bLangNoneIsLangAll    = false;
     m_bWithCheckmark        = bCheckSpellAvail;
 
     if ( SvxLanguageListFlags::EMPTY == nLangList )
@@ -326,8 +320,6 @@ sal_Int32 SvxLanguageBoxBase::ImplInsertLanguage( const LanguageType nLangType, 
     }
 
     OUString aStrEntry = SvtLanguageTable::GetLanguageString( nLang );
-    if (LANGUAGE_NONE == nLang && m_bHasLangNone && m_bLangNoneIsLangAll)
-        aStrEntry = m_aAllString;
 
     LanguageType nRealLang = nLang;
     if (nRealLang == LANGUAGE_SYSTEM)
@@ -379,29 +371,6 @@ void SvxLanguageBoxBase::InsertSystemLanguage()
 }
 
 
-void SvxLanguageBoxBase::InsertLanguage( const LanguageType nLangType,
-        bool bCheckEntry )
-{
-    LanguageType nLang = MsLangId::getReplacementForObsoleteLanguage( nLangType);
-    // For obsolete and to be replaced languages check whether an entry of the
-    // replacement already exists and if so don't add an entry with identical
-    // string as would be returned by SvtLanguageTable::GetString().
-    if (nLang != nLangType)
-    {
-        sal_Int32 nAt = ImplTypeToPos( nLang );
-        if ( nAt != LISTBOX_ENTRY_NOTFOUND )
-            return;
-    }
-
-    OUString aStrEntry = SvtLanguageTable::GetLanguageString( nLang );
-    if (LANGUAGE_NONE == nLang && m_bHasLangNone && m_bLangNoneIsLangAll)
-        aStrEntry = m_aAllString;
-
-    sal_Int32 nAt = ImplInsertImgEntry( aStrEntry, LISTBOX_APPEND, bCheckEntry );
-    ImplSetEntryData( nAt, reinterpret_cast<void*>(static_cast<sal_uInt16>(nLang)) );
-}
-
-
 LanguageType SvxLanguageBoxBase::GetSelectedLanguage() const
 {
     sal_Int32     nPos   = ImplGetSelectedEntryPos();
@@ -426,20 +395,6 @@ void SvxLanguageBoxBase::SelectLanguage( const LanguageType eLangType )
 
     if ( nAt != LISTBOX_ENTRY_NOTFOUND )
         ImplSelectEntryPos( nAt, true/*bSelect*/ );
-}
-
-
-bool SvxLanguageBoxBase::IsLanguageSelected( const LanguageType eLangType ) const
-{
-    // Same here, work on the replacement if applicable.
-    LanguageType nLang = MsLangId::getReplacementForObsoleteLanguage( eLangType);
-
-    sal_Int32 nAt = ImplTypeToPos( nLang );
-
-    if ( nAt != LISTBOX_ENTRY_NOTFOUND )
-        return ImplIsEntryPosSelected( nAt );
-    else
-        return false;
 }
 
 
@@ -759,9 +714,9 @@ IMPL_LINK(LanguageBox, ChangeHdl, weld::ComboBox&, rControl, void)
         if (eOldState != m_eEditedAndValid)
         {
             if (m_eEditedAndValid == EditedAndValid::Invalid)
-                rControl.set_entry_error(true);
+                rControl.set_entry_message_type(weld::EntryMessageType::Error);
             else
-                rControl.set_entry_error(false);
+                rControl.set_entry_message_type(weld::EntryMessageType::Normal);
         }
     }
     m_aChangeHdl.Call(rControl);
@@ -879,17 +834,6 @@ void SvxLanguageBox::ImplSelectEntryPos( sal_Int32 nPos, bool bSelect )
 void SvxLanguageComboBox::ImplSelectEntryPos( sal_Int32 nPos, bool bSelect )
 {
     SelectEntryPos( nPos, bSelect);
-}
-
-
-bool SvxLanguageBox::ImplIsEntryPosSelected( sal_Int32 nPos ) const
-{
-    return IsEntryPosSelected( nPos);
-}
-
-bool SvxLanguageComboBox::ImplIsEntryPosSelected( sal_Int32 nPos ) const
-{
-    return IsEntryPosSelected( nPos);
 }
 
 

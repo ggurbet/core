@@ -73,8 +73,8 @@ namespace dbaccess
     {
     protected:
         typedef std::vector<ORowSetDataColumn*>   TDataColumns;
-        ::osl::Mutex*                           m_pMutex;           // this the mutex form the rowset itself
-        ::osl::Mutex                            // we need a extra mutex for columns to prevent deadlock when setting new values
+        ::osl::Mutex*                           m_pMutex;           // this is the mutex from the rowset itself
+        ::osl::Mutex                            // we need an extra mutex for columns to prevent deadlock when setting new values
                                                 // for a row
                                                 m_aColumnsMutex;
 
@@ -366,7 +366,7 @@ namespace dbaccess
         */
         explicit ORowSetNotifier( ORowSetBase* m_pRowSet );
 
-        /** use this one to construct an vector for change value notification
+        /** use this one to construct a vector for change value notification
         */
         ORowSetNotifier( ORowSetBase* m_pRowSet,const ORowSetValueVector::Vector& i_aRow );
 

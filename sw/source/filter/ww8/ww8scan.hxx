@@ -20,13 +20,9 @@
 #ifndef INCLUDED_SW_SOURCE_FILTER_WW8_WW8SCAN_HXX
 #define INCLUDED_SW_SOURCE_FILTER_WW8_WW8SCAN_HXX
 
-#ifndef LONG_MAX
-#include <limits.h>
-#endif
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <list>
+#include <deque>
 #include <memory>
 #include <stack>
 #include <unordered_map>
@@ -36,12 +32,9 @@
 #include <tools/solar.h>
 #include <tools/stream.hxx>
 #include <rtl/ustring.hxx>
-#include "sortedarray.hxx"
 
 #include "ww8struc.hxx"
 #include "types.hxx"
-
-#include <unomid.h>
 
 class SvStream;
 
@@ -600,7 +593,7 @@ private:
         == 10     : 18549 pap, 47 chp
         == 5      : 18515 pap, 47 chp
     */
-    std::list<std::unique_ptr<WW8Fkp>> maFkpCache;
+    std::deque<std::unique_ptr<WW8Fkp>> maFkpCache;
     enum Limits {eMaxCache = 50000};
 
     bool NewFkp();

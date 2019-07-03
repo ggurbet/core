@@ -11,8 +11,6 @@
 #include <swmodeltestbase.hxx>
 #include <config_features.h>
 
-#include <initializer_list>
-
 #if !defined(MACOSX)
 #include <com/sun/star/awt/FontSlant.hpp>
 #include <com/sun/star/awt/Gradient.hpp>
@@ -26,7 +24,6 @@
 #include <com/sun/star/text/RelOrientation.hpp>
 #include <com/sun/star/text/XDocumentIndex.hpp>
 #include <com/sun/star/drawing/TextVerticalAdjust.hpp>
-#include <com/sun/star/awt/XBitmap.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <officecfg/Office/Common.hxx>
 #include <com/sun/star/document/XEmbeddedObjectSupplier.hpp>
@@ -39,6 +36,9 @@
 #include <unotools/streamwrap.hxx>
 #include <svl/PasswordHelper.hxx>
 #include <docufld.hxx> // for SwHiddenTextField::ParseIfFieldDefinition() method call
+#include <unoprnms.hxx>
+#include <sortedobjs.hxx>
+#include <flyfrm.hxx>
 
 class Test : public SwModelTestBase
 {
@@ -251,6 +251,23 @@ DECLARE_ODFEXPORT_TEST(testTdf103567, "tdf103567.odt")
     CPPUNIT_ASSERT_EQUAL(sal_Int32( 408), rect.Height);
 }
 
+DECLARE_ODFEXPORT_TEST(testUserFieldDecl, "user-field-decl.odt")
+{
+    if (xmlDocPtr pXmlDoc = parseExport("styles.xml"))
+        // Without the accompanying fix in place, this test would have failed with 'Expected: 2;
+        // Actual: 1', i.e. the in-table field had no declaration (in the header), while the
+        // outside-table one had the declaration.
+        assertXPath(pXmlDoc, "//style:header/text:user-field-decls/text:user-field-decl", 2);
+}
+
+DECLARE_ODFEXPORT_TEST(testUserFieldDeclFly, "user-field-decl-fly.odt")
+{
+    if (xmlDocPtr pXmlDoc = parseExport("styles.xml"))
+        // Without the accompanying fix in place, this test would have failed with 'Expected: 2;
+        // Actual: 1', i.e. the in-textframe field had no declaration (in the header), while the
+        // outside-textframe one had the declaration.
+        assertXPath(pXmlDoc, "//style:header/text:user-field-decls/text:user-field-decl", 2);
+}
 
 DECLARE_ODFEXPORT_TEST(testFramebackgrounds, "framebackgrounds.odt")
 {
@@ -629,7 +646,7 @@ DECLARE_ODFEXPORT_TEST(testDuplicateCrossRefHeadingBookmark, "CrossRefHeadingBoo
     CPPUNIT_ASSERT_THROW(xBookmarks->getByName("__RefHeading__1673_25705824"), container::NoSuchElementException);
 
     uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
-    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY)->refresh();
+    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY_THROW)->refresh();
 
     uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
     uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
@@ -1052,13 +1069,13 @@ DECLARE_ODFEXPORT_TEST(testShapeRelsize, "shape-relsize.odt")
 DECLARE_ODFEXPORT_TEST(testTextboxRoundedCorners, "textbox-rounded-corners.odt")
 {
     uno::Reference<drawing::XShape> xShape = getShape(1);
-    comphelper::SequenceAsHashMap aCustomShapeGeometry = comphelper::SequenceAsHashMap(getProperty< uno::Sequence<beans::PropertyValue> >(xShape, "CustomShapeGeometry"));
+    comphelper::SequenceAsHashMap aCustomShapeGeometry(getProperty< uno::Sequence<beans::PropertyValue> >(xShape, "CustomShapeGeometry"));
 
     // Test that the shape is a rounded rectangle.
     CPPUNIT_ASSERT_EQUAL(OUString("round-rectangle"), aCustomShapeGeometry["Type"].get<OUString>());
 
     // The shape text should start with a table, with "a" in its A1 cell.
-    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xShape, uno::UNO_QUERY)->getText();
+    uno::Reference<text::XText> xText = uno::Reference<text::XTextRange>(xShape, uno::UNO_QUERY_THROW)->getText();
     uno::Reference<text::XTextTable> xTable(getParagraphOrTable(1, xText), uno::UNO_QUERY);
     uno::Reference<text::XTextRange> xCell(xTable->getCellByName("A1"), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(OUString("a"), xCell->getString());
@@ -1409,6 +1426,60 @@ DECLARE_ODFEXPORT_TEST(testBtlrCell, "btlr-cell.odt")
 
     uno::Reference<beans::XPropertySet> xC1(xTable->getCellByName("C1"), uno::UNO_QUERY);
     CPPUNIT_ASSERT_EQUAL(text::WritingMode2::TB_RL, getProperty<sal_Int16>(xC1, "WritingMode"));
+}
+
+DECLARE_ODFEXPORT_TEST(testBtlrFrame, "btlr-frame.odt")
+{
+    // Without the accompanying fix in place, this test would have failed, as
+    // the btlr text direction in the text frame was lost on ODF import and
+    // export.
+    uno::Reference<beans::XPropertySet> xTextFrame(getShape(1), uno::UNO_QUERY);
+    CPPUNIT_ASSERT(xTextFrame.is());
+
+    auto nActual = getProperty<sal_Int16>(xTextFrame, "WritingMode");
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::BT_LR, nActual);
+
+    // Without the accompanying fix in place, this test would have failed, as the fly frame had
+    // mbVertical==true, but mbVertLRBT==false, even if the writing direction in the doc model was
+    // btlr.
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    SwDoc* pDoc = pTextDoc->GetDocShell()->GetDoc();
+    CPPUNIT_ASSERT(pDoc);
+
+    SwRootFrame* pLayout = pDoc->getIDocumentLayoutAccess().GetCurrentLayout();
+    CPPUNIT_ASSERT(pLayout);
+
+    SwFrame* pPageFrame = pLayout->GetLower();
+    CPPUNIT_ASSERT(pPageFrame);
+    CPPUNIT_ASSERT(pPageFrame->IsPageFrame());
+
+    SwFrame* pBodyFrame = pPageFrame->GetLower();
+    CPPUNIT_ASSERT(pBodyFrame);
+    CPPUNIT_ASSERT(pBodyFrame->IsBodyFrame());
+
+    SwFrame* pBodyTextFrame = pBodyFrame->GetLower();
+    CPPUNIT_ASSERT(pBodyTextFrame);
+    CPPUNIT_ASSERT(pBodyTextFrame->IsTextFrame());
+
+    CPPUNIT_ASSERT(pBodyTextFrame->GetDrawObjs());
+    const SwSortedObjs& rAnchored = *pBodyTextFrame->GetDrawObjs();
+    CPPUNIT_ASSERT_EQUAL(static_cast<size_t>(1), rAnchored.size());
+
+    auto* pFlyFrame = dynamic_cast<SwFlyFrame*>(rAnchored[0]);
+    CPPUNIT_ASSERT(pFlyFrame);
+    CPPUNIT_ASSERT(pFlyFrame->IsVertLRBT());
+
+    if (!mbExported)
+        // Not yet exported, don't modify the doc model for test purposes.
+        return;
+
+    // Make sure that btlr -> tbrl transition clears the "BT" flag.
+    xTextFrame->setPropertyValue("WritingMode", uno::makeAny(static_cast<sal_Int16>(text::WritingMode2::TB_LR)));
+    pFlyFrame = dynamic_cast<SwFlyFrame*>(rAnchored[0]);
+    CPPUNIT_ASSERT(pFlyFrame);
+    CPPUNIT_ASSERT(!pFlyFrame->IsVertLRBT());
 }
 
 DECLARE_ODFEXPORT_TEST(testFdo86963, "fdo86963.odt")
@@ -1975,7 +2046,7 @@ DECLARE_ODFEXPORT_TEST(testReferenceLanguage, "referencelanguage.odt")
         "Az (5)", "az 1", "A 2", "az 1" };
     uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
     // update "A (4)" to "Az (5)"
-    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY)->refresh();
+    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY_THROW)->refresh();
 
     uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
     uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());
@@ -2045,7 +2116,7 @@ DECLARE_ODFEXPORT_TEST(testSpellOutNumberingTypes, "spellout-numberingtypes.odt"
     static const char* const aFieldTextFallbacks[] = { "Ordinal-number 1", "Ordinal 1", "1" };
     uno::Reference<text::XTextFieldsSupplier> xTextFieldsSupplier(mxComponent, uno::UNO_QUERY);
     // update text field content
-    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY)->refresh();
+    uno::Reference<util::XRefreshable>(xTextFieldsSupplier->getTextFields(), uno::UNO_QUERY_THROW)->refresh();
 
     uno::Reference<container::XEnumerationAccess> xFieldsAccess(xTextFieldsSupplier->getTextFields());
     uno::Reference<container::XEnumeration> xFields(xFieldsAccess->createEnumeration());

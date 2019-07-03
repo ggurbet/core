@@ -36,7 +36,6 @@
 
 #include <zlib.h>
 
-#include <vcl/salbtype.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 #include <basegfx/polygon/b2dpolypolygon.hxx>
 #include <memory>
@@ -243,7 +242,7 @@ void Writer::Impl_addCurvedEdgeRecord( BitStream& rBits, sal_Int16 control_dx, s
 }
 
 
-/** Exports a end shape record
+/** Exports an end shape record
 */
 void Writer::Impl_addEndShapeRecord( BitStream& rBits )
 {
@@ -796,7 +795,7 @@ void Writer::Impl_writeImage( const BitmapEx& rBmpEx, const Point& rPt, const Si
     {
         BitmapEx bmpSource( rBmpEx );
 
-        tools::Rectangle originalPixelRect = tools::Rectangle(Point(), bmpSource.GetSizePixel());
+        tools::Rectangle originalPixelRect(Point(), bmpSource.GetSizePixel());
 
         Point srcPt( map(rPt) );
         Size srcSize( map(rSz) );
@@ -817,7 +816,7 @@ void Writer::Impl_writeImage( const BitmapEx& rBmpEx, const Point& rPt, const Si
             //  clipping rectangle to get mapped.  However, sometimes there are multiple layers
             //  of mapping which eventually do cause the clipping rect to be mapped.
             Size clipSize( bNeedToMapClipRect ? map(rClipRect.GetSize()) : rClipRect.GetSize() );
-            tools::Rectangle clipRect = tools::Rectangle(Point(), clipSize);
+            tools::Rectangle clipRect(Point(), clipSize);
             destRect.Intersection( clipRect );
 
             tools::Rectangle cropRect(destRect);
@@ -1191,7 +1190,7 @@ bool Writer::Impl_writeFilling( SvtGraphicFill const & rFilling )
 }
 
 
-/* CL: The idea was to export page fields as text fields that get theire
+/* CL: The idea was to export page fields as text fields that get their
    string from a variable set with actionscript by each page. This didn't
    work out since the formatting is always wrong when text follows the
    page number field since pages greater one may require more space than

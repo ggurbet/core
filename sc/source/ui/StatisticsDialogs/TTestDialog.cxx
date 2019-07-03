@@ -9,18 +9,8 @@
  */
 
 #include <memory>
-#include <sfx2/dispatch.hxx>
-#include <svl/zforlist.hxx>
-#include <svl/undo.hxx>
 
-#include <formulacell.hxx>
-#include <rangelst.hxx>
-#include <scitems.hxx>
-#include <docsh.hxx>
-#include <document.hxx>
-#include <uiitems.hxx>
 #include <reffact.hxx>
-#include <docfunc.hxx>
 #include <TableFillingAndNavigationTools.hxx>
 #include <TTestDialog.hxx>
 #include <scresid.hxx>
@@ -28,20 +18,20 @@
 
 ScTTestDialog::ScTTestDialog(
                     SfxBindings* pSfxBindings, SfxChildWindow* pChildWindow,
-                    vcl::Window* pParent, ScViewData* pViewData ) :
+                    weld::Window* pParent, ScViewData* pViewData ) :
     ScStatisticsTwoVariableDialog(
             pSfxBindings, pChildWindow, pParent, pViewData,
-            "TTestDialog", "modules/scalc/ui/ttestdialog.ui" )
+            "modules/scalc/ui/ttestdialog.ui", "TTestDialog")
 {
-    SetText(ScResId(STR_TTEST));
+    m_xDialog->set_title(ScResId(STR_TTEST));
 }
 
 ScTTestDialog::~ScTTestDialog()
 {}
 
-bool ScTTestDialog::Close()
+void ScTTestDialog::Close()
 {
-    return DoClose( ScTTestDialogWrapper::GetChildWindowId() );
+    DoClose( ScTTestDialogWrapper::GetChildWindowId() );
 }
 
 const char* ScTTestDialog::GetUndoNameId()

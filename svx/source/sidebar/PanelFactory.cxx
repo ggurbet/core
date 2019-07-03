@@ -17,16 +17,21 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <config_features.h>
+
 #include "text/TextPropertyPanel.hxx"
 #include "styles/StylesPropertyPanel.hxx"
 #include "paragraph/ParaPropertyPanel.hxx"
+#include "lists/ListsPropertyPanel.hxx"
 #include "area/AreaPropertyPanel.hxx"
 #include "shadow/ShadowPropertyPanel.hxx"
 #include "graphic/GraphicPropertyPanel.hxx"
 #include "line/LinePropertyPanel.hxx"
 #include "possize/PosSizePropertyPanel.hxx"
 #include <DefaultShapesPanel.hxx>
+#if HAVE_FEATURE_AVMEDIA
 #include "media/MediaPlaybackPanel.hxx"
+#endif
 #include <GalleryControl.hxx>
 #include "EmptyPanel.hxx"
 #include <sfx2/sidebar/SidebarPanelBase.hxx>
@@ -131,6 +136,10 @@ Reference<ui::XUIElement> SAL_CALL PanelFactory::createUIElement (
     {
         pControl = ParaPropertyPanel::Create(pParentWindow, xFrame, pBindings, xSidebar);
     }
+    else if (rsResourceURL.endsWith("/ListsPropertyPanel"))
+    {
+        pControl = ListsPropertyPanel::Create(pParentWindow, xFrame);
+    }
     else if (rsResourceURL.endsWith("/AreaPropertyPanel"))
     {
         pControl = AreaPropertyPanel::Create(pParentWindow, xFrame, pBindings);
@@ -155,10 +164,12 @@ Reference<ui::XUIElement> SAL_CALL PanelFactory::createUIElement (
     {
         pControl = DefaultShapesPanel::Create(pParentWindow, xFrame);
     }
+#if HAVE_FEATURE_AVMEDIA
     else if (rsResourceURL.endsWith("/MediaPlaybackPanel"))
     {
         pControl = MediaPlaybackPanel::Create(pParentWindow, xFrame, pBindings);
     }
+#endif
     else if (rsResourceURL.endsWith("/GalleryPanel"))
     {
         pControl.reset(VclPtr<GalleryControl>::Create(pParentWindow));

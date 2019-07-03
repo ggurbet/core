@@ -19,17 +19,14 @@
 
 #include <rtl/ustring.hxx>
 #include <rtl/ustrbuf.hxx>
-#include <rtl/uri.hxx>
 #include <sal/log.hxx>
-#include <osl/thread.hxx>
-#include <osl/process.h>
 #include <libxml/xpathInternals.h>
 #include <osl/file.hxx>
-#include <osl/module.hxx>
+#include <osl/thread.hxx>
 #include "framework.hxx"
 #include <fwkutil.hxx>
 #include <elements.hxx>
-#include "fwkbase.hxx"
+#include <fwkbase.hxx>
 
 using namespace osl;
 
@@ -116,18 +113,29 @@ VendorSettings::VendorSettings():
     }
 }
 
-VersionInfo VendorSettings::getVersionInformation(const OUString & sVendor) const
+boost::optional<VersionInfo> VendorSettings::getVersionInformation(const OUString & sVendor) const
 {
     OSL_ASSERT(!sVendor.isEmpty());
-    VersionInfo aVersionInfo;
     OString osVendor = OUStringToOString(sVendor, RTL_TEXTENCODING_UTF8);
+    CXPathObjectPtr pathObject;
+    pathObject = xmlXPathEvalExpression(
+        reinterpret_cast<xmlChar const *>(
+            OString(
+                "/jf:javaSelection/jf:vendorInfos/jf:vendor[@name=\"" + osVendor
+                + "\"]/jf:minVersion").getStr()),
+        m_xmlPathContextVendorSettings);
+    if (xmlXPathNodeSetIsEmpty(pathObject->nodesetval))
+    {
+        return {};
+    }
+
+    VersionInfo aVersionInfo;
     //Get minVersion
     OString sExpression = OString(
         "/jf:javaSelection/jf:vendorInfos/jf:vendor[@name=\"") +
         osVendor + OString("\"]/jf:minVersion");
 
-    CXPathObjectPtr xPathObjectMin;
-    xPathObjectMin =
+    CXPathObjectPtr xPathObjectMin =
         xmlXPathEvalExpression(reinterpret_cast<xmlChar const *>(sExpression.getStr()),
                                m_xmlPathContextVendorSettings);
     if (xmlXPathNodeSetIsEmpty(xPathObjectMin->nodesetval))
@@ -136,8 +144,7 @@ VersionInfo VendorSettings::getVersionInformation(const OUString & sVendor) cons
     }
     else
     {
-        CXmlCharPtr sVersion;
-        sVersion = xmlNodeListGetString(
+        CXmlCharPtr sVersion = xmlNodeListGetString(
             m_xmlDocVendorSettings,
             xPathObjectMin->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
         OString osVersion(sVersion);
@@ -148,8 +155,7 @@ VersionInfo VendorSettings::getVersionInformation(const OUString & sVendor) cons
     //Get maxVersion
     sExpression = OString("/jf:javaSelection/jf:vendorInfos/jf:vendor[@name=\"") +
         osVendor + OString("\"]/jf:maxVersion");
-    CXPathObjectPtr xPathObjectMax;
-    xPathObjectMax = xmlXPathEvalExpression(
+    CXPathObjectPtr xPathObjectMax = xmlXPathEvalExpression(
         reinterpret_cast<xmlChar const *>(sExpression.getStr()),
         m_xmlPathContextVendorSettings);
     if (xmlXPathNodeSetIsEmpty(xPathObjectMax->nodesetval))
@@ -158,8 +164,7 @@ VersionInfo VendorSettings::getVersionInformation(const OUString & sVendor) cons
     }
     else
     {
-        CXmlCharPtr sVersion;
-        sVersion = xmlNodeListGetString(
+        CXmlCharPtr sVersion = xmlNodeListGetString(
             m_xmlDocVendorSettings,
             xPathObjectMax->nodesetval->nodeTab[0]->xmlChildrenNode, 1);
         OString osVersion(sVersion);
@@ -170,8 +175,7 @@ VersionInfo VendorSettings::getVersionInformation(const OUString & sVendor) cons
     //Get excludeVersions
     sExpression = OString("/jf:javaSelection/jf:vendorInfos/jf:vendor[@name=\"") +
         osVendor + OString("\"]/jf:excludeVersions/jf:version");
-    CXPathObjectPtr xPathObjectVersions;
-    xPathObjectVersions =
+    CXPathObjectPtr xPathObjectVersions =
         xmlXPathEvalExpression(reinterpret_cast<xmlChar const *>(sExpression.getStr()),
                                m_xmlPathContextVendorSettings);
     if (!xmlXPathNodeSetIsEmpty(xPathObjectVersions->nodesetval))
@@ -183,8 +187,7 @@ VersionInfo VendorSettings::getVersionInformation(const OUString & sVendor) cons
             {
                 if (xmlStrcmp(cur->name, reinterpret_cast<xmlChar const *>("version")) == 0)
                 {
-                    CXmlCharPtr sVersion;
-                    sVersion = xmlNodeListGetString(
+                    CXmlCharPtr sVersion = xmlNodeListGetString(
                         m_xmlDocVendorSettings, cur->xmlChildrenNode, 1);
                     OString osVersion(sVersion);
                     OUString usVersion = OStringToOUString(
@@ -196,32 +199,6 @@ VersionInfo VendorSettings::getVersionInformation(const OUString & sVendor) cons
         }
     }
     return aVersionInfo;
-}
-
-std::vector<OUString> VendorSettings::getSupportedVendors() const
-{
-    std::vector<OUString> vecVendors;
-    //get the nodeset for the vendor elements
-    jfw::CXPathObjectPtr result;
-    result = xmlXPathEvalExpression(
-        reinterpret_cast<xmlChar const *>("/jf:javaSelection/jf:vendorInfos/jf:vendor"),
-        m_xmlPathContextVendorSettings);
-    if (!xmlXPathNodeSetIsEmpty(result->nodesetval))
-    {
-        //get the values of the vendor elements + name attribute
-        xmlNode* cur = result->nodesetval->nodeTab[0];
-        while (cur != nullptr)
-        {
-            //between vendor elements are also text elements
-            if (cur->type == XML_ELEMENT_NODE)
-            {
-                jfw::CXmlCharPtr sAttrVendor(xmlGetProp(cur, reinterpret_cast<xmlChar const *>("name")));
-                vecVendors.push_back(sAttrVendor);
-            }
-            cur = cur->next;
-        }
-    }
-    return vecVendors;
 }
 
 ::std::vector<OString> BootParams::getVMParameters()

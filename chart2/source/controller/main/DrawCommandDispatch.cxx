@@ -27,6 +27,7 @@
 #include <vcl/svapp.hxx>
 #include <svl/itempool.hxx>
 #include <editeng/adjustitem.hxx>
+#include <editeng/eeitem.hxx>
 #include <svx/strings.hrc>
 #include <svx/dialmgr.hxx>
 #include <svx/fmmodel.hxx>
@@ -40,6 +41,7 @@
 #include <svx/xlnedwit.hxx>
 #include <svx/xlnwtit.hxx>
 #include <svx/xtable.hxx>
+#include <svx/sdtagitm.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 
 using namespace ::com::sun::star;

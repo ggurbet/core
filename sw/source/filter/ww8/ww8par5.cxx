@@ -77,6 +77,7 @@
 #include <breakit.hxx>
 #include <fmtclds.hxx>
 #include <pagedesc.hxx>
+#include <poolfmt.hxx>
 #include <SwStyleNameMapper.hxx>
 
 #include "ww8scan.hxx"
@@ -273,8 +274,7 @@ long SwWW8ImplReader::Read_FactoidBook(WW8PLCFManResult*)
 /// at the same time, double backslashes are converted into single ones
 OUString SwWW8ImplReader::ConvertFFileName(const OUString& rOrg)
 {
-    OUString aName = rOrg;
-    aName = aName.replaceAll("\\\\", "\\");
+    OUString aName = rOrg.replaceAll("\\\\", "\\");
     aName = aName.replaceAll("%20", " ");
 
     // remove attached quotation marks

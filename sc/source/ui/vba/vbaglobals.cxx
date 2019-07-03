@@ -44,7 +44,7 @@ ScVbaGlobals::ScVbaGlobals( uno::Sequence< uno::Any > const& aArgs, uno::Referen
     uno::Sequence< beans::PropertyValue > aInitArgs( aArgs.getLength() + 1 );
     aInitArgs[ 0 ].Name = "Application";
     aInitArgs[ 0 ].Value <<= getApplication();
-    if ( aArgs.getLength() > 0 )
+    if ( aArgs.hasElements() )
     {
         aInitArgs[ 1 ].Name = "ExcelDocumentContext";
         aInitArgs[ 1 ].Value <<= getXSomethingFromArgs< frame::XModel >( aArgs, 0 );
@@ -75,7 +75,7 @@ ScVbaGlobals::getExcel()
 uno::Reference< excel::XWorkbook > SAL_CALL
 ScVbaGlobals::getActiveWorkbook()
 {
-    uno::Reference< excel::XWorkbook > xWorkbook( getApplication()->getActiveWorkbook(), uno::UNO_QUERY_THROW);
+    uno::Reference< excel::XWorkbook > xWorkbook( getApplication()->getActiveWorkbook(), uno::UNO_SET_THROW);
     return xWorkbook;
 }
 

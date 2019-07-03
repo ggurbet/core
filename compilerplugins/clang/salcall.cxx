@@ -225,7 +225,7 @@ bool SalCall::VisitFunctionDecl(FunctionDecl const* decl)
             return true;
     }
 
-    // some base classes are overridden by sub-classes which override both the base-class and an UNO class
+    // some base classes are overridden by sub-classes which override both the base-class and a UNO class
     if (recordDecl)
     {
         auto dc = loplugin::DeclCheck(recordDecl);
@@ -536,9 +536,9 @@ bool SalCall::isSalCallFunction(FunctionDecl const* functionDecl, SourceLocation
         if (noReturnType
             && !(functionDecl->isVirtualAsWritten()
                  || (isa<CXXConstructorDecl>(functionDecl)
-                     && cast<CXXConstructorDecl>(functionDecl)->isExplicitSpecified())
+                     && compat::isExplicitSpecified(cast<CXXConstructorDecl>(functionDecl)))
                  || (isa<CXXConversionDecl>(functionDecl)
-                     && cast<CXXConversionDecl>(functionDecl)->isExplicitSpecified())))
+                     && compat::isExplicitSpecified(cast<CXXConversionDecl>(functionDecl)))))
         {
             SourceLocation endLoc1;
             if (macroStartLoc.isMacroID()

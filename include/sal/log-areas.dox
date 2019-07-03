@@ -90,6 +90,7 @@ certain functionality.
 @li @c connectivity.odbc
 @li @c connectivity.parse
 @li @c connectivity.postgresql
+@li @c connectivity.resource
 @li @c connectivity.writer
 
 @section comphelper
@@ -123,6 +124,7 @@ certain functionality.
 @section cui
 
 @li @c cui.customize
+@li @c cui.customnotebookbar
 @li @c cui.dialogs
 @li @c cui.factory
 @li @c cui.options
@@ -333,6 +335,7 @@ certain functionality.
 
 @li @c package
 @li @c package.xstor
+@li @c package.threadeddeflate
 
 @section sdext
 
@@ -404,6 +407,7 @@ certain functionality.
 
 @li @c toolkit
 @li @c toolkit.controls
+@li @c toolkit.helper
 
 @section tools
 
@@ -456,7 +460,6 @@ certain functionality.
 @li @c vcl
 @li @c vcl.a11y
 @li @c vcl.app
-@li @c vcl.cg - CoreGraphics calls on macOS and iOS
 @li @c vcl.control
 @li @c vcl.ct - CoreText-using code for macOS and iOS
 @li @c vcl.debugevent
@@ -470,10 +473,12 @@ certain functionality.
 @li @c vcl.gdi.fontmetric
 @li @c vcl.gtk - Gtk+ 2/3 plugin
 @li @c vcl.gtk3
+@li @c vcl.gtkkde5
 @li @c vcl.harfbuzz - HarfBuzz text layout
 @li @c vcl.headless - bitmap-based backend
 @li @c vcl.helper
 @li @c vcl.icontest
+@li @c vcl.ios.clipboard
 @li @c vcl.kde5 - KDE5
 @li @c vcl.layout - Widget layout
 @li @c vcl.lazydelete

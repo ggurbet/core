@@ -20,6 +20,7 @@
 #include <config_features.h>
 #include <rtl/character.hxx>
 #include <sal/log.hxx>
+#include <sot/exchange.hxx>
 #include <vcl/wrkwin.hxx>
 #include <svl/rectitem.hxx>
 #include <svl/eitem.hxx>
@@ -43,6 +44,7 @@
 #include <sfx2/sfxsids.hrc>
 #include <helper.hxx>
 #include <sfx2/docfile.hxx>
+#include <ucbhelper/content.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/ucb/CommandAbortedException.hpp>
 #include <com/sun/star/ucb/IllegalIdentifierException.hpp>

@@ -816,16 +816,16 @@ void ContentAttribsInfo::AppendCharAttrib(EditCharAttrib* pNew)
     aPrevCharAttribs.push_back(std::unique_ptr<EditCharAttrib>(pNew));
 }
 
-void ConvertItem( SfxPoolItem& rPoolItem, MapUnit eSourceUnit, MapUnit eDestUnit )
+void ConvertItem( std::unique_ptr<SfxPoolItem>& rPoolItem, MapUnit eSourceUnit, MapUnit eDestUnit )
 {
     DBG_ASSERT( eSourceUnit != eDestUnit, "ConvertItem - Why?!" );
 
-    switch ( rPoolItem.Which() )
+    switch ( rPoolItem->Which() )
     {
         case EE_PARA_LRSPACE:
         {
-            assert(dynamic_cast<const SvxLRSpaceItem *>(&rPoolItem) != nullptr);
-            SvxLRSpaceItem& rItem = static_cast<SvxLRSpaceItem&>(rPoolItem);
+            assert(dynamic_cast<const SvxLRSpaceItem *>(rPoolItem.get()) != nullptr);
+            SvxLRSpaceItem& rItem = static_cast<SvxLRSpaceItem&>(*rPoolItem);
             rItem.SetTextFirstLineOfst( sal::static_int_cast< short >( OutputDevice::LogicToLogic( rItem.GetTextFirstLineOfst(), eSourceUnit, eDestUnit ) ) );
             rItem.SetTextLeft( OutputDevice::LogicToLogic( rItem.GetTextLeft(), eSourceUnit, eDestUnit ) );
             rItem.SetRight( OutputDevice::LogicToLogic( rItem.GetRight(), eSourceUnit, eDestUnit ) );
@@ -833,16 +833,16 @@ void ConvertItem( SfxPoolItem& rPoolItem, MapUnit eSourceUnit, MapUnit eDestUnit
         break;
         case EE_PARA_ULSPACE:
         {
-            assert(dynamic_cast<const SvxULSpaceItem *>(&rPoolItem) != nullptr);
-            SvxULSpaceItem& rItem = static_cast<SvxULSpaceItem&>(rPoolItem);
+            assert(dynamic_cast<const SvxULSpaceItem *>(rPoolItem.get()) != nullptr);
+            SvxULSpaceItem& rItem = static_cast<SvxULSpaceItem&>(*rPoolItem);
             rItem.SetUpper( sal::static_int_cast< sal_uInt16 >( OutputDevice::LogicToLogic( rItem.GetUpper(), eSourceUnit, eDestUnit ) ) );
             rItem.SetLower( sal::static_int_cast< sal_uInt16 >( OutputDevice::LogicToLogic( rItem.GetLower(), eSourceUnit, eDestUnit ) ) );
         }
         break;
         case EE_PARA_SBL:
         {
-            assert(dynamic_cast<const SvxLineSpacingItem *>(&rPoolItem) != nullptr);
-            SvxLineSpacingItem& rItem = static_cast<SvxLineSpacingItem&>(rPoolItem);
+            assert(dynamic_cast<const SvxLineSpacingItem *>(rPoolItem.get()) != nullptr);
+            SvxLineSpacingItem& rItem = static_cast<SvxLineSpacingItem&>(*rPoolItem);
             // SetLineHeight changes also eLineSpace!
             if ( rItem.GetLineSpaceRule() == SvxLineSpaceRule::Min )
                 rItem.SetLineHeight( sal::static_int_cast< sal_uInt16 >( OutputDevice::LogicToLogic( rItem.GetLineHeight(), eSourceUnit, eDestUnit ) ) );
@@ -850,24 +850,24 @@ void ConvertItem( SfxPoolItem& rPoolItem, MapUnit eSourceUnit, MapUnit eDestUnit
         break;
         case EE_PARA_TABS:
         {
-            assert(dynamic_cast<const SvxTabStopItem *>(&rPoolItem) != nullptr);
-            SvxTabStopItem& rItem = static_cast<SvxTabStopItem&>(rPoolItem);
-            SvxTabStopItem aNewItem( EE_PARA_TABS );
+            assert(dynamic_cast<const SvxTabStopItem *>(rPoolItem.get()) != nullptr);
+            SvxTabStopItem& rItem = static_cast<SvxTabStopItem&>(*rPoolItem);
+            SvxTabStopItem* pNewItem(new SvxTabStopItem(EE_PARA_TABS));
             for ( sal_uInt16 i = 0; i < rItem.Count(); i++ )
             {
                 const SvxTabStop& rTab = rItem[i];
                 SvxTabStop aNewStop( OutputDevice::LogicToLogic( rTab.GetTabPos(), eSourceUnit, eDestUnit ), rTab.GetAdjustment(), rTab.GetDecimal(), rTab.GetFill() );
-                aNewItem.Insert( aNewStop );
+                pNewItem->Insert( aNewStop );
             }
-            rItem = aNewItem;
+            rPoolItem.reset(pNewItem);
         }
         break;
         case EE_CHAR_FONTHEIGHT:
         case EE_CHAR_FONTHEIGHT_CJK:
         case EE_CHAR_FONTHEIGHT_CTL:
         {
-            assert(dynamic_cast<const SvxFontHeightItem *>(&rPoolItem) != nullptr);
-            SvxFontHeightItem& rItem = static_cast<SvxFontHeightItem&>(rPoolItem);
+            assert(dynamic_cast<const SvxFontHeightItem *>(rPoolItem.get()) != nullptr);
+            SvxFontHeightItem& rItem = static_cast<SvxFontHeightItem&>(*rPoolItem);
             rItem.SetHeight( OutputDevice::LogicToLogic( rItem.GetHeight(), eSourceUnit, eDestUnit ) );
         }
         break;
@@ -899,14 +899,13 @@ void ConvertAndPutItems( SfxItemSet& rDest, const SfxItemSet& rSource, const Map
             if ( eSourceUnit != eDestUnit )
             {
                 std::unique_ptr<SfxPoolItem> pItem(rSource.Get( nSourceWhich ).Clone());
-                ConvertItem( *pItem, eSourceUnit, eDestUnit );
+                ConvertItem( pItem, eSourceUnit, eDestUnit );
                 pItem->SetWhich(nWhich);
-                rDest.Put( *pItem );
+                rDest.Put( std::move(pItem) );
             }
             else
             {
-                std::unique_ptr<SfxPoolItem> pNewItem(rSource.Get( nSourceWhich ).CloneSetWhich(nWhich));
-                rDest.Put( *pNewItem );
+                rDest.Put( rSource.Get( nSourceWhich ).CloneSetWhich(nWhich) );
             }
         }
     }
@@ -1231,7 +1230,7 @@ void ContentNode::ExpandAttribs( sal_Int32 nIndex, sal_Int32 nNew, SfxItemPool& 
             // 0: Expand empty attribute, if at insertion point
             else if ( pAttrib->IsEmpty() )
             {
-                // Do not check Index, a empty one could only be there
+                // Do not check Index, an empty one could only be there
                 // When later checking it anyhow:
                 //   Special case: Start == 0; AbsLen == 1, nNew = 1
                 // => Expand, because of paragraph break!
@@ -1909,7 +1908,7 @@ EditDoc::EditDoc( SfxItemPool* pPool ) :
     bOwnerOfPool(pPool == nullptr),
     bModified(false)
 {
-    // Don't create a empty node, Clear() will be called in EditEngine-CTOR
+    // Don't create an empty node, Clear() will be called in EditEngine-CTOR
 };
 
 EditDoc::~EditDoc()
@@ -2026,10 +2025,12 @@ void CreateFont( SvxFont& rFont, const SfxItemSet& rSet, bool bSearchInParent, S
     if ( bSearchInParent || ( rSet.GetItemState( EE_CHAR_RELIEF ) == SfxItemState::SET ) )
         rFont.SetRelief( rSet.Get( EE_CHAR_RELIEF ).GetValue() );
 
-    // If comparing the entire font, or if checking before each alteration
-    // whether the value changes, remains relatively the same thing.
-    // So possible one MakeUniqFont more in the font, but as a result a quicker
-    // abortion of the query, or one must each time check bChanged.
+    // Operator == compares the individual members of the font if the impl pointer is
+    // not equal. If all members are the same, this assignment makes
+    // sure that both also point to the same internal instance of the font.
+    // To avoid this assignment, you would need to check in
+    // every if statement above whether or not the new value differs from the
+    // old value before making an assignment.
     if ( rFont == aPrevFont  )
         rFont = aPrevFont;  // => The same ImpPointer for IsSameInstance
 }
@@ -2341,7 +2342,7 @@ void EditDoc::RemoveChars( EditPaM aPaM, sal_Int32 nChars )
 void EditDoc::InsertAttribInSelection( ContentNode* pNode, sal_Int32 nStart, sal_Int32 nEnd, const SfxPoolItem& rPoolItem )
 {
     assert(pNode);
-    DBG_ASSERT( nEnd <= pNode->Len(), "InsertAttrib: Attribute to large!" );
+    DBG_ASSERT( nEnd <= pNode->Len(), "InsertAttrib: Attribute too large!" );
 
     // for Optimization:
     // This ends at the beginning of the selection => can be expanded
@@ -2386,7 +2387,7 @@ bool EditDoc::RemoveAttribs( ContentNode* pNode, sal_Int32 nStart, sal_Int32 nEn
 {
 
     assert(pNode);
-    DBG_ASSERT( nEnd <= pNode->Len(), "InsertAttrib: Attribute to large!" );
+    DBG_ASSERT( nEnd <= pNode->Len(), "InsertAttrib: Attribute too large!" );
 
     // This ends at the beginning of the selection => can be expanded
     rpEnding = nullptr;

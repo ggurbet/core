@@ -17,9 +17,11 @@
 
 using namespace sfx2::sidebar;
 
-PanelLayout::PanelLayout(vcl::Window* pParent, const OString& rID, const OUString& rUIXMLDescription, const css::uno::Reference<css::frame::XFrame> &rFrame)
+PanelLayout::PanelLayout(vcl::Window* pParent, const OString& rID, const OUString& rUIXMLDescription,
+                         const css::uno::Reference<css::frame::XFrame> &rFrame, bool bInterimBuilder)
     : Control(pParent)
     , m_bInClose(false)
+    , mxFrame(rFrame)
 {
     SetStyle(GetStyle() | WB_DIALOGCONTROL);
     m_aPanelLayoutIdle.SetPriority(TaskPriority::RESIZE);
@@ -27,7 +29,10 @@ PanelLayout::PanelLayout(vcl::Window* pParent, const OString& rID, const OUStrin
     m_aPanelLayoutIdle.SetDebugName("svx::PanelLayout m_aPanelLayoutIdle");
 
     // VclBuilder will trigger resize and start Idle
-    m_pUIBuilder.reset(new VclBuilder(this, getUIRootDir(), rUIXMLDescription, rID, rFrame));
+    if (!bInterimBuilder)
+        m_pUIBuilder.reset(new VclBuilder(this, getUIRootDir(), rUIXMLDescription, rID, rFrame));
+    else
+        m_xBuilder.reset(Application::CreateInterimBuilder(this, rUIXMLDescription));
     if (GetSettings().GetStyleSettings().GetAutoMnemonic())
        Accelerator::GenerateAutoMnemonicsOnHierarchy(this);
 }
@@ -41,6 +46,7 @@ void PanelLayout::dispose()
 {
     m_bInClose = true;
     m_aPanelLayoutIdle.Stop();
+    m_xBuilder.reset();
     disposeBuilder();
     Control::dispose();
 }
@@ -50,8 +56,16 @@ Size PanelLayout::GetOptimalSize() const
     if (isLayoutEnabled(this))
     {
         Size aSize = VclContainer::getLayoutRequisition(*GetWindow(GetWindowType::FirstChild));
-        aSize.setWidth( std::min<long>(aSize.Width(),
-            (SidebarController::gnMaximumSidebarWidth - TabBar::GetDefaultWidth()) * GetDPIScaleFactor()) );
+        if (mxFrame)
+        {
+            SidebarController* pController
+                = SidebarController::GetSidebarControllerForFrame(mxFrame);
+            if (pController)
+                aSize.setWidth(std::min<long>(
+                    aSize.Width(), (pController->getMaximumWidth() - TabBar::GetDefaultWidth())
+                                       * GetDPIScaleFactor()));
+        }
+
         return aSize;
     }
 

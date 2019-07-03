@@ -35,6 +35,7 @@
 #include <svx/svdograf.hxx>
 #include <svx/svdoole2.hxx>
 #include <svx/svdundo.hxx>
+#include <svx/sdsxyitm.hxx>
 #include <svx/svxids.hrc>
 #include <i18nlangtag/mslangid.hxx>
 #include <editeng/unolingu.hxx>
@@ -43,6 +44,7 @@
 #include <editeng/scriptspaceitem.hxx>
 #include <sfx2/objsh.hxx>
 #include <svl/itempool.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <tools/globname.hxx>
@@ -761,7 +763,7 @@ void ScDrawLayer::ResizeLastRectFromAnchor(const SdrObject* pObj, ScDrawObjData&
                     aChange.translate(aCurrentCellRect.getX(), aCurrentCellRect.getY());
 
                     // create B2DRange and transform by prepared scale
-                    basegfx::B2DRange aNewRange(aRect.Left(), aRect.Top(), aRect.Right(), aRect.Bottom());
+                    basegfx::B2DRange aNewRange = vcl::unotools::b2DRectangleFromRectangle(aRect);
 
                     aNewRange.transform(aChange);
 
@@ -1358,7 +1360,7 @@ bool ScDrawLayer::HasObjectsInRows( SCTAB nTab, SCROW nStartRow, SCROW nEndRow )
 }
 
 void ScDrawLayer::DeleteObjectsInArea( SCTAB nTab, SCCOL nCol1,SCROW nRow1,
-                                            SCCOL nCol2,SCROW nRow2 )
+                                            SCCOL nCol2,SCROW nRow2, bool bAnchored )
 {
     OSL_ENSURE( pDoc, "ScDrawLayer::DeleteObjectsInArea without document" );
     if ( !pDoc )
@@ -1388,8 +1390,17 @@ void ScDrawLayer::DeleteObjectsInArea( SCTAB nTab, SCCOL nCol1,SCROW nRow1,
             if (!IsNoteCaption( pObject ))
             {
                 tools::Rectangle aObjRect = pObject->GetCurrentBoundRect();
-                if ( aDelRect.IsInside( aObjRect ) )
-                    ppObj[nDelCount++] = pObject;
+                if (aDelRect.IsInside(aObjRect))
+                {
+                    if (bAnchored)
+                    {
+                        ScAnchorType aAnchorType = ScDrawLayer::GetAnchorType(*pObject);
+                        if(aAnchorType == SCA_CELL || aAnchorType == SCA_CELL_RESIZE)
+                            ppObj[nDelCount++] = pObject;
+                    }
+                    else
+                        ppObj[nDelCount++] = pObject;
+                }
             }
 
             pObject = aIter.Next();
@@ -1447,8 +1458,8 @@ void ScDrawLayer::DeleteObjectsInSelection( const ScMarkData& rMark )
                     {
                         tools::Rectangle aObjRect = pObject->GetCurrentBoundRect();
                         ScRange aRange = pDoc->GetRange(nTab, aObjRect);
-                        bool bObjectInMarkArea
-                            = aMarkBound.IsInside(aObjRect) && rMark.IsAllMarked(aRange);
+                        bool bObjectInMarkArea =
+                            aMarkBound.IsInside(aObjRect) && rMark.IsAllMarked(aRange);
                         const ScDrawObjData* pObjData = ScDrawLayer::GetObjData(pObject);
                         ScAnchorType aAnchorType = ScDrawLayer::GetAnchorType(*pObject);
                         bool bObjectAnchoredToMarkedCell
@@ -2078,9 +2089,13 @@ void ScDrawLayer::GetCellAnchorFromPosition(
     rAnchor.maEnd = aRange.aEnd;
     aCellRect = rDoc.GetMMRect( aRange.aEnd.Col(), aRange.aEnd.Row(),
       aRange.aEnd.Col(), aRange.aEnd.Row(), aRange.aEnd.Tab(), bHiddenAsZero );
-    rAnchor.maEndOffset.setY( rObjRect.Bottom()-aCellRect.Top() );
+    if (!rObjRect.IsEmpty())
+        rAnchor.maEndOffset.setY( rObjRect.Bottom()-aCellRect.Top() );
     if (!rDoc.IsNegativePage(nTab))
-        rAnchor.maEndOffset.setX( rObjRect.Right()-aCellRect.Left() );
+    {
+        if (!rObjRect.IsEmpty())
+            rAnchor.maEndOffset.setX( rObjRect.Right()-aCellRect.Left() );
+    }
     else
         rAnchor.maEndOffset.setX( aCellRect.Right()-rObjRect.Left() );
 }
@@ -2093,8 +2108,7 @@ void ScDrawLayer::UpdateCellAnchorFromPositionEnd( const SdrObject &rObj, ScDraw
     ScDrawObjData* pAnchor = &rAnchor;
     pAnchor->maEnd = aRange.aEnd;
 
-    tools::Rectangle aCellRect;
-    aCellRect = rDoc.GetMMRect( aRange.aEnd.Col(), aRange.aEnd.Row(),
+    tools::Rectangle aCellRect = rDoc.GetMMRect( aRange.aEnd.Col(), aRange.aEnd.Row(),
       aRange.aEnd.Col(), aRange.aEnd.Row(), aRange.aEnd.Tab() );
     pAnchor->maEndOffset.setY( aObjRect.Bottom()-aCellRect.Top() );
     if (!rDoc.IsNegativePage(nTab))

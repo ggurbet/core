@@ -31,10 +31,16 @@
 #include <basic/sbmod.hxx>
 #include <com/sun/star/script/XLibraryContainer2.hpp>
 
+#include <sfx2/app.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/frame.hxx>
 #include <sfx2/minfitem.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/sfxsids.hrc>
+#include <tools/debug.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
+#include <osl/diagnose.h>
 
 #include <map>
 
@@ -46,7 +52,7 @@ using std::map;
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
 
-MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame >& xDocFrame)
+MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame >& xDocFrame, bool bCreateEntries)
     : SfxDialogController(pParnt, "modules/BasicIDE/ui/basicmacrodialog.ui", "BasicMacroDialog")
     , m_xDocumentFrame(xDocFrame)
     // the Sfx doesn't ask the BasicManager whether modified or not
@@ -103,7 +109,8 @@ MacroChooser::MacroChooser(weld::Window* pParnt, const Reference< frame::XFrame 
     if (SfxDispatcher* pDispatcher = GetDispatcher())
         pDispatcher->Execute( SID_BASICIDE_STOREALLMODULESOURCES );
 
-    m_xBasicBox->ScanAllEntries();
+    if (bCreateEntries)
+        m_xBasicBox->ScanAllEntries();
 }
 
 MacroChooser::~MacroChooser()
@@ -737,24 +744,22 @@ IMPL_LINK(MacroChooser, ButtonHdl, weld::Button&, rButton, void)
         StoreMacroDescription();
 
         m_xBasicBox->get_selected(m_xBasicBoxIter.get());
-        EntryDescriptor aDesc = m_xBasicBox->GetEntryDescriptor(m_xBasicBoxIter.get());
-        VclPtrInstance< OrganizeDialog > pDlg( nullptr, 0, aDesc ); //TODO
-        pDlg->StartExecuteAsync([this](sal_Int32 nRet){
-                if ( nRet ) // not only closed
-                {
-                    m_xDialog->response(Macro_Edit);
-                    return;
-                }
+        auto xDlg(std::make_shared<OrganizeDialog>(m_xDialog.get(), 0));
+        weld::DialogController::runAsync(xDlg, [this](sal_Int32 nRet) {
+            if (nRet == RET_OK) // not only closed
+            {
+                m_xDialog->response(Macro_Edit);
+                return;
+            }
 
-                Shell* pShell = GetShell();
-                if ( pShell && pShell->IsAppBasicModified() )
-                    bForceStoreBasic = true;
+            Shell* pShell = GetShell();
+            if ( pShell && pShell->IsAppBasicModified() )
+                bForceStoreBasic = true;
 
-                m_xBasicBox->UpdateEntries();
-            });
+            m_xBasicBox->UpdateEntries();
+        });
     }
 }
-
 
 void MacroChooser::UpdateFields()
 {

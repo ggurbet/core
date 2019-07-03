@@ -210,7 +210,6 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/ifc/awt/_XToolkit \
     qadevOOo/tests/java/ifc/awt/_XTopWindow \
     qadevOOo/tests/java/ifc/awt/_XUnoControlContainer \
-    qadevOOo/tests/java/ifc/awt/_XUserInputInterception \
     qadevOOo/tests/java/ifc/awt/_XView \
     qadevOOo/tests/java/ifc/awt/_XWindow \
     qadevOOo/tests/java/ifc/beans/_XExactName \
@@ -582,8 +581,6 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/ifc/system/_XSimpleMailClientSupplier \
     qadevOOo/tests/java/ifc/system/_XSystemShellExecute \
     qadevOOo/tests/java/ifc/table/_CellProperties \
-    qadevOOo/tests/java/ifc/table/_TableColumn \
-    qadevOOo/tests/java/ifc/table/_TableRow \
     qadevOOo/tests/java/ifc/table/_XAutoFormattable \
     qadevOOo/tests/java/ifc/table/_XCellRange \
     qadevOOo/tests/java/ifc/table/_XTableChart \
@@ -950,18 +947,15 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScAnnotationShapeObj \
     qadevOOo/tests/java/mod/_sc/ScAnnotationTextCursor \
     qadevOOo/tests/java/mod/_sc/ScAutoFormatFieldObj \
-    qadevOOo/tests/java/mod/_sc/ScAutoFormatObj \
     qadevOOo/tests/java/mod/_sc/ScCellCursorObj \
     qadevOOo/tests/java/mod/_sc/ScCellFieldObj \
     qadevOOo/tests/java/mod/_sc/ScCellObj \
     qadevOOo/tests/java/mod/_sc/ScCellRangeObj \
     qadevOOo/tests/java/mod/_sc/ScCellRangesObj \
-    qadevOOo/tests/java/mod/_sc/ScCellSearchObj \
     qadevOOo/tests/java/mod/_sc/ScCellTextCursor \
     qadevOOo/tests/java/mod/_sc/ScDatabaseRangeObj \
     qadevOOo/tests/java/mod/_sc/ScDataPilotItemObj \
     qadevOOo/tests/java/mod/_sc/ScDocumentConfiguration \
-    qadevOOo/tests/java/mod/_sc/ScDrawPageObj \
     qadevOOo/tests/java/mod/_sc/ScHeaderFieldObj \
     qadevOOo/tests/java/mod/_sc/ScHeaderFieldsObj \
     qadevOOo/tests/java/mod/_sc/ScHeaderFooterTextCursor \
@@ -970,13 +964,9 @@ $(eval $(call gb_Jar_add_sourcefiles,OOoRunner,\
     qadevOOo/tests/java/mod/_sc/ScShapeObj \
     qadevOOo/tests/java/mod/_sc/ScSheetLinkObj \
     qadevOOo/tests/java/mod/_sc/ScStyleObj \
-    qadevOOo/tests/java/mod/_sc/ScSubTotalDescriptorBase \
-    qadevOOo/tests/java/mod/_sc/ScTableColumnObj \
-    qadevOOo/tests/java/mod/_sc/ScTableRowObj \
     qadevOOo/tests/java/mod/_sc/ScTableSheetObj \
     qadevOOo/tests/java/mod/_sc/ScTableSheetsObj \
     qadevOOo/tests/java/mod/_sc/ScTabViewObj \
-    qadevOOo/tests/java/mod/_sc/ScViewPaneObj \
     qadevOOo/tests/java/mod/_sc/XMLContentExporter \
     qadevOOo/tests/java/mod/_sc/XMLContentImporter \
     qadevOOo/tests/java/mod/_sc/XMLExporter \

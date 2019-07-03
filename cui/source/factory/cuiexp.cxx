@@ -18,6 +18,7 @@
  */
 
 #include <sfx2/basedlgs.hxx>
+#include <svx/ucsubset.hxx>
 #include <cuigaldlg.hxx>
 #include <hlmarkwn.hxx>
 #include <srchxtra.hxx>
@@ -38,7 +39,7 @@
 #include <postdlg.hxx>
 #include <passwdomdlg.hxx>
 #include <screenshotannotationdlg.hxx>
-#include <cuicharmap.hxx>
+#include <cui/cuicharmap.hxx>
 #include <cuihyperdlg.hxx>
 #include <cfgutil.hxx>
 #include <SignatureLineDialog.hxx>
@@ -50,6 +51,7 @@
 #include <thesdlg.hxx>
 #include <hangulhanjadlg.hxx>
 #include <dstribut.hxx>
+#include <tipofthedaydlg.hxx>
 #include "dlgfact.hxx"
 #include <sal/types.h>
 

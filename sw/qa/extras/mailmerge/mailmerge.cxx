@@ -14,27 +14,21 @@
 
 #include <swmodeltestbase.hxx>
 
-#include <com/sun/star/awt/FontWeight.hpp>
-#include <com/sun/star/style/PageStyleLayout.hpp>
-#include <com/sun/star/table/XCell.hpp>
-#include <com/sun/star/table/BorderLine.hpp>
-#include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/text/MailMergeType.hpp>
-#include <com/sun/star/sdb/XDocumentDataSource.hpp>
+#include <com/sun/star/sdb/CommandType.hpp>
 #include <com/sun/star/text/TextContentAnchorType.hpp>
 #include <com/sun/star/sdbc/XRowSet.hpp>
 #include <com/sun/star/sdbcx/XRowLocate.hpp>
+#include <com/sun/star/task/XJob.hpp>
 
 #include <tools/urlobj.hxx>
+#include <unotools/localfilehelper.hxx>
 
 #include <wrtsh.hxx>
 #include <ndtxt.hxx>
-#include <swdtflvr.hxx>
-#include <view.hxx>
-#include <edtwin.hxx>
-#include <olmenu.hxx>
-#include <cmdid.h>
 #include <pagefrm.hxx>
+#include <unoprnms.hxx>
+#include <dbmgr.hxx>
 
 /**
  * Maps database URIs to the registered database names for quick lookups
@@ -351,7 +345,7 @@ int MMTest::documentStartPageNumber( int document ) const
     CPPUNIT_ASSERT_EQUAL(document, pos);
     sal_uInt16 page, dummy;
     shell->Push();
-    shell->GotoMark( mark->get());
+    shell->GotoMark( *mark );
     shell->GetPageNum( page, dummy );
     shell->Pop(SwCursorShell::PopMode::DeleteCurrent);
     return page;
@@ -935,6 +929,30 @@ DECLARE_SHELL_MAILMERGE_TEST(testTdf62364, "tdf62364.odt", "10-testing-addresses
             const SwTextNode* pTextNode = aNode->GetTextNode();
             CPPUNIT_ASSERT(pTextNode);
             CPPUNIT_ASSERT_EQUAL(nodeInList[nodeIndex], pTextNode->GetSwAttrSet().HasItem(RES_PARATR_LIST_ID));
+        }
+    }
+}
+
+DECLARE_SHELL_MAILMERGE_TEST(tdf125522_shell, "tdf125522.odt", "10-testing-addresses.ods", "testing-addresses")
+{
+    // prepare unit test and run
+    executeMailMerge();
+
+    // reset currently opened layout of the original template,
+    // and create the layout of the document with 10 mails inside
+    dumpMMLayout();
+
+    // there should be no any text frame in output
+    SwXTextDocument* pTextDoc = dynamic_cast<SwXTextDocument *>(mxMMComponent.get());
+    CPPUNIT_ASSERT(pTextDoc);
+
+    const auto & rNodes = pTextDoc->GetDocShell()->GetDoc()->GetNodes();
+    for (sal_uLong nodeIndex = 0; nodeIndex<rNodes.Count(); nodeIndex++)
+    {
+        const SwNodePtr aNode = rNodes[nodeIndex];
+        if (aNode->StartOfSectionNode())
+        {
+            CPPUNIT_ASSERT(!aNode->StartOfSectionNode()->GetFlyFormat());
         }
     }
 }

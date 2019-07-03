@@ -10,6 +10,7 @@
 #include <cppuhelper/implbase.hxx>
 #include <svtools/toolboxcontroller.hxx>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <com/sun/star/document/XDocumentProperties.hpp>
 
 #include <com/sun/star/uno/XComponentContext.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
@@ -20,6 +21,7 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/toolbox.hxx>
 #include <vcl/fixed.hxx>
+#include <vcl/event.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/classificationhelper.hxx>
 #include <sfx2/strings.hrc>

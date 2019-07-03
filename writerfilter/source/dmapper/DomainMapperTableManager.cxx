@@ -116,7 +116,7 @@ void DomainMapperTableManager::finishTableLook()
 
 bool DomainMapperTableManager::sprm(Sprm & rSprm)
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("tablemanager.sprm");
     string sSprm = rSprm.toString();
     TagLogger::getInstance().chars(sSprm);
@@ -189,7 +189,7 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
                             }
                         }
                     }
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                     pPropMap->dumpXml();
 #endif
                     insertTableProps(pPropMap);
@@ -268,7 +268,7 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
             break;
             case NS_ooxml::LN_CT_TcPrBase_gridSpan: //number of grid positions spanned by this cell
             {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                 TagLogger::getInstance().startElement("tablemanager.GridSpan");
                 TagLogger::getInstance().attribute("gridSpan", nIntValue);
                 TagLogger::getInstance().endElement();
@@ -279,13 +279,6 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
             case NS_ooxml::LN_CT_TcPrBase_textDirection:
             {
                 TablePropertyMapPtr pPropMap( new TablePropertyMap );
-
-                // Remember the cell direction, so later in
-                // DomainMapperTableHandler::endTableGetCellProperties() can we
-                // handle the combination of the cell direction and paragraph
-                // alignment as necessary.
-                pPropMap->Insert(PROP_CELL_DIRECTION, uno::Any(nIntValue));
-
                 bool bInsertCellProps = true;
                 switch ( nIntValue )
                 {
@@ -379,7 +372,7 @@ bool DomainMapperTableManager::sprm(Sprm & rSprm)
             default:
                 bRet = false;
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                 TagLogger::getInstance().element("unhandled");
 #endif
         }
@@ -490,7 +483,7 @@ void DomainMapperTableManager::endLevel( )
     m_aTmpTableProperties.pop_back( );
 
     TableManager::endLevel( );
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("dmappertablemanager.endLevel");
     PropertyMapPtr pProps = getTableProps().get();
     if (pProps.get() != nullptr)
@@ -506,7 +499,7 @@ void DomainMapperTableManager::endLevel( )
 
 void DomainMapperTableManager::endOfCellAction()
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().element("endOFCellAction");
 #endif
 
@@ -519,7 +512,7 @@ void DomainMapperTableManager::endOfCellAction()
 
 void DomainMapperTableManager::endOfRowAction()
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("endOfRowAction");
 #endif
 
@@ -566,13 +559,13 @@ void DomainMapperTableManager::endOfRowAction()
     IntVectorPtr pCellWidths = getCurrentCellWidths( );
     if(!m_nTableWidth && !pTableGrid->empty())
     {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().startElement("tableWidth");
 #endif
 
         for( const auto& rCell : *pTableGrid )
         {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
             TagLogger::getInstance().startElement("col");
             TagLogger::getInstance().attribute("width", rCell);
             TagLogger::getInstance().endElement();
@@ -588,7 +581,7 @@ void DomainMapperTableManager::endOfRowAction()
             insertTableProps(pPropMap);
         }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().endElement();
 #endif
     }
@@ -600,7 +593,7 @@ void DomainMapperTableManager::endOfRowAction()
         pCurrentSpans->insert( pCurrentSpans->end( ), m_nCell.back( ) - pCurrentSpans->size(), 1 );
     }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("gridSpans");
     {
         for (const auto& rGridSpan : *pCurrentSpans)
@@ -676,7 +669,7 @@ void DomainMapperTableManager::endOfRowAction()
         TablePropertyMapPtr pPropMap( new TablePropertyMap );
         pPropMap->Insert( PROP_TABLE_COLUMN_SEPARATORS, uno::makeAny( aSeparators ) );
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().startElement("rowProperties");
         pPropMap->dumpXml();
         TagLogger::getInstance().endElement();
@@ -722,7 +715,7 @@ void DomainMapperTableManager::endOfRowAction()
 
         TablePropertyMapPtr pPropMap( new TablePropertyMap );
         pPropMap->Insert( PROP_TABLE_COLUMN_SEPARATORS, uno::makeAny( aSeparators ) );
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().startElement("rowProperties");
         pPropMap->dumpXml();
         TagLogger::getInstance().endElement();
@@ -746,7 +739,7 @@ void DomainMapperTableManager::endOfRowAction()
     m_nGridBefore = m_nGridAfter = 0;
     m_bTableSizeTypeInserted = false;
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endElement();
 #endif
 }

@@ -37,7 +37,7 @@ class SwAnchoredObject;
 
 /// A page of the document layout. Upper frame is expected to be an SwRootFrame
 /// instance. At least an SwBodyFrame lower is expected.
-class SwPageFrame: public SwFootnoteBossFrame
+class SAL_DLLPUBLIC_RTTI SwPageFrame: public SwFootnoteBossFrame
 {
     friend class SwFrame;
 
@@ -45,7 +45,8 @@ class SwPageFrame: public SwFootnoteBossFrame
 
     SwPageDesc *m_pDesc; //PageDesc that describes the Page
 
-    sal_uInt16  m_nPhyPageNum; // Physical page number
+    /// Physical page number: index into list of SwRootFrame lowers
+    sal_uInt16  m_nPhyPageNum;
 
     bool m_bInvalidContent      :1;
     bool m_bInvalidLayout       :1;

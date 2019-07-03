@@ -28,6 +28,7 @@
 #include <unotools/eventcfg.hxx>
 #include <sfx2/event.hxx>
 #include <sfx2/app.hxx>
+#include <sfx2/bindings.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
 #include <sfx2/msg.hxx>
@@ -52,6 +53,7 @@
 #include <editeng/fhgtitem.hxx>
 #include <editeng/fontitem.hxx>
 #include <vcl/mapmod.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
 #include <tools/mapunit.hxx>
 #include <vcl/settings.hxx>
@@ -273,8 +275,12 @@ void SmDocShell::ArrangeFormula()
     maAccText.clear();
 }
 
-void SetEditEngineDefaultFonts(SfxItemPool &rEditEngineItemPool, const SvtLinguOptions &rOpt)
+void SmDocShell::UpdateEditEngineDefaultFonts(const Color& aTextColor)
 {
+    assert(mpEditEngineItemPool);
+    if (!mpEditEngineItemPool)
+        return;
+
     // set fonts to be used
     struct FontDta {
         LanguageType const    nFallbackLang;
@@ -293,9 +299,10 @@ void SetEditEngineDefaultFonts(SfxItemPool &rEditEngineItemPool, const SvtLinguO
         {   LANGUAGE_ARABIC_SAUDI_ARABIA,  LANGUAGE_NONE,
             DefaultFontType::CTL_TEXT,   EE_CHAR_FONTINFO_CTL }
     };
-    aTable[0].nLang = rOpt.nDefaultLanguage;
-    aTable[1].nLang = rOpt.nDefaultLanguage_CJK;
-    aTable[2].nLang = rOpt.nDefaultLanguage_CTL;
+
+    aTable[0].nLang = maLinguOptions.nDefaultLanguage;
+    aTable[1].nLang = maLinguOptions.nDefaultLanguage_CJK;
+    aTable[2].nLang = maLinguOptions.nDefaultLanguage_CTL;
 
     for (FontDta & rFntDta : aTable)
     {
@@ -303,7 +310,8 @@ void SetEditEngineDefaultFonts(SfxItemPool &rEditEngineItemPool, const SvtLinguO
                 rFntDta.nFallbackLang : rFntDta.nLang;
         vcl::Font aFont = OutputDevice::GetDefaultFont(
                     rFntDta.nFontType, nLang, GetDefaultFontFlags::OnlyOne );
-        rEditEngineItemPool.SetPoolDefaultItem(
+        aFont.SetColor(aTextColor);
+        mpEditEngineItemPool->SetPoolDefaultItem(
                 SvxFontItem( aFont.GetFamilyType(), aFont.GetFamilyName(),
                     aFont.GetStyleName(), aFont.GetPitch(), aFont.GetCharSet(),
                     rFntDta.nFontInfoId ) );
@@ -314,11 +322,11 @@ void SetEditEngineDefaultFonts(SfxItemPool &rEditEngineItemPool, const SvtLinguO
                     Application::GetDefaultDevice()->LogicToPixel(
                     Size( 0, 11 ), MapMode( MapUnit::MapPoint ) ).Height(), 100,
                     EE_CHAR_FONTHEIGHT );
-    rEditEngineItemPool.SetPoolDefaultItem( aFontHeigt );
+    mpEditEngineItemPool->SetPoolDefaultItem( aFontHeigt );
     aFontHeigt.SetWhich( EE_CHAR_FONTHEIGHT_CJK );
-    rEditEngineItemPool.SetPoolDefaultItem( aFontHeigt );
+    mpEditEngineItemPool->SetPoolDefaultItem( aFontHeigt );
     aFontHeigt.SetWhich( EE_CHAR_FONTHEIGHT_CTL );
-    rEditEngineItemPool.SetPoolDefaultItem( aFontHeigt );
+    mpEditEngineItemPool->SetPoolDefaultItem( aFontHeigt );
 }
 
 EditEngine& SmDocShell::GetEditEngine()
@@ -331,7 +339,8 @@ EditEngine& SmDocShell::GetEditEngine()
 
         mpEditEngineItemPool = EditEngine::CreatePool();
 
-        SetEditEngineDefaultFonts(*mpEditEngineItemPool, maLinguOptions);
+        const StyleSettings& rStyleSettings = Application::GetDefaultDevice()->GetSettings().GetStyleSettings();
+        UpdateEditEngineDefaultFonts(rStyleSettings.GetFieldTextColor());
 
         mpEditEngine.reset( new EditEngine( mpEditEngineItemPool ) );
 
@@ -340,6 +349,8 @@ EditEngine& SmDocShell::GetEditEngine()
         mpEditEngine->EnableUndo( true );
         mpEditEngine->SetDefTab( sal_uInt16(
             Application::GetDefaultDevice()->GetTextWidth("XXXX")) );
+
+        mpEditEngine->SetBackgroundColor(rStyleSettings.GetFieldColor());
 
         mpEditEngine->SetControlWord(
                 (mpEditEngine->GetControlWord() | EEControlBits::AUTOINDENTING) &
@@ -365,14 +376,6 @@ EditEngine& SmDocShell::GetEditEngine()
     return *mpEditEngine;
 }
 
-
-SfxItemPool& SmDocShell::GetEditEngineItemPool()
-{
-    if (!mpEditEngineItemPool)
-        GetEditEngine();
-    assert(mpEditEngineItemPool && "EditEngineItemPool missing");
-    return *mpEditEngineItemPool;
-}
 
 void SmDocShell::DrawFormula(OutputDevice &rDev, Point &rPosition, bool bDrawSelection)
 {
@@ -1223,8 +1226,10 @@ void SmDocShell::SetVisArea(const tools::Rectangle & rVisArea)
 
     aNewRect.SetPos(Point());
 
-    if (! aNewRect.Right()) aNewRect.SetRight( 2000 );
-    if (! aNewRect.Bottom()) aNewRect.SetBottom( 1000 );
+    if (aNewRect.IsWidthEmpty())
+        aNewRect.SetRight( 2000 );
+    if (aNewRect.IsHeightEmpty())
+        aNewRect.SetBottom( 1000 );
 
     bool bIsEnabled = IsEnableSetModified();
     if ( bIsEnabled )

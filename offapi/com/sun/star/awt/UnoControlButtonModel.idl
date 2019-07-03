@@ -30,7 +30,7 @@
  module com {  module sun {  module star {  module awt {
 
 
-/** specifies the standard model of an UnoControlButton.
+/** specifies the standard model of a UnoControlButton.
  */
 published service UnoControlButtonModel
 {
@@ -118,7 +118,7 @@ published service UnoControlButtonModel
     [optional, property] short ImagePosition;
 
 
-    /** specifies an URL to an image to use for the button.
+    /** specifies a URL to an image to use for the button.
         @see Graphic
      */
     [property] string ImageURL;

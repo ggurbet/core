@@ -26,6 +26,7 @@
 #include <svx/svxids.hrc>
 
 #include <svl/intitem.hxx>
+#include <svtools/unitconv.hxx>
 
 #include <svx/hdft.hxx>
 #include <svx/pageitem.hxx>
@@ -248,7 +249,7 @@ bool SvxHFPage::FillItemSet( SfxItemSet* rSet )
     {
         std::unique_ptr<SfxBoolItem> pBoolItem(static_cast<SfxBoolItem*>(pPool->GetDefaultItem(nWDynSpacing).Clone()));
         pBoolItem->SetValue(m_xDynSpacingCB->get_active());
-        aSet.Put(*pBoolItem);
+        aSet.Put(std::move(pBoolItem));
     }
 
     // Size
@@ -435,8 +436,7 @@ void SvxHFPage::Reset( const SfxItemSet* rSet )
         ( nullptr != (pShell = SfxObjectShell::Current()) &&
                     nullptr != (pItem = pShell->GetItem(SID_HTML_MODE))))
     {
-        sal_uInt16 nHtmlMode = 0;
-        nHtmlMode = static_cast<const SfxUInt16Item*>(pItem)->GetValue();
+        sal_uInt16 nHtmlMode = static_cast<const SfxUInt16Item*>(pItem)->GetValue();
         if (nHtmlMode & HTMLMODE_ON)
         {
             m_xCntSharedBox->hide();

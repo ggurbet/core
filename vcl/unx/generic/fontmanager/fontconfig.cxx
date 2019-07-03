@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <unx/fontmanager.hxx>
+#include <unx/helper.hxx>
 #include <impfont.hxx>
 #include <comphelper/sequence.hxx>
 #include <vcl/svapp.hxx>
@@ -31,6 +32,7 @@
 #include <i18nutil/unicode.hxx>
 #include <rtl/strbuf.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <unicode/uchar.h>
 #include <unicode/uscript.h>
 #include <officecfg/Office/Common.hxx>
@@ -467,6 +469,22 @@ static void lcl_FcFontSetRemove(FcFontSet* pFSet, int i)
     memmove(pFSet->fonts + i, pFSet->fonts + i + 1, nTail*sizeof(FcPattern*));
 }
 
+namespace
+{
+    // for variable fonts, FC_INDEX has been changed such that the lower half is now the
+    // index of the font within the collection, and the upper half has been repurposed
+    // as the index within the variations
+    unsigned int GetCollectionIndex(unsigned int nEntryId)
+    {
+        return nEntryId & 0xFFFF;
+    }
+
+    unsigned int GetVariationIndex(unsigned int nEntryId)
+    {
+        return nEntryId >> 16;
+    }
+}
+
 void PrintFontManager::countFontconfigFonts( std::unordered_map<OString, int>& o_rVisitedPaths )
 {
     int nFonts = 0;
@@ -487,7 +505,7 @@ void PrintFontManager::countFontconfigFonts( std::unordered_map<OString, int>& o
             int weight = 0;
             int width = 0;
             int spacing = 0;
-            int nCollectionEntry = -1;
+            int nEntryId = -1;
             FcBool outline = false;
 
             FcResult eFileRes         = FcPatternGetString(pFSet->fonts[i], FC_FILE, 0, &file);
@@ -500,7 +518,7 @@ void PrintFontManager::countFontconfigFonts( std::unordered_map<OString, int>& o
             FcResult eWidthRes        = FcPatternGetInteger(pFSet->fonts[i], FC_WIDTH, 0, &width);
             FcResult eSpacRes         = FcPatternGetInteger(pFSet->fonts[i], FC_SPACING, 0, &spacing);
             FcResult eOutRes          = FcPatternGetBool(pFSet->fonts[i], FC_OUTLINE, 0, &outline);
-            FcResult eIndexRes        = FcPatternGetInteger(pFSet->fonts[i], FC_INDEX, 0, &nCollectionEntry);
+            FcResult eIndexRes        = FcPatternGetInteger(pFSet->fonts[i], FC_INDEX, 0, &nEntryId);
             FcResult eFormatRes       = FcPatternGetString(pFSet->fonts[i], FC_FONTFORMAT, 0, &format);
 
             if( eFileRes != FcResultMatch || eFamilyRes != FcResultMatch || eOutRes != FcResultMatch )
@@ -565,8 +583,9 @@ void PrintFontManager::countFontconfigFonts( std::unordered_map<OString, int>& o
             else // more than one font
             {
                 // a collection entry, get the correct index
-                if( eIndexRes == FcResultMatch && nCollectionEntry != -1 )
+                if( eIndexRes == FcResultMatch && nEntryId != -1 )
                 {
+                    int nCollectionEntry = GetCollectionIndex(nEntryId);
                     for (auto & font : aFonts)
                     {
                         if( font->m_nCollectionEntry == nCollectionEntry )
@@ -583,14 +602,14 @@ void PrintFontManager::countFontconfigFonts( std::unordered_map<OString, int>& o
                     // additional entries will be created in the cache
                     // if this is a new index (that is if the loop above
                     // ran to the end of the list)
-                    xUpdate->m_nCollectionEntry = nCollectionEntry;
+                    xUpdate->m_nCollectionEntry = GetCollectionIndex(nEntryId);
                 }
                 else
                 {
                     SAL_INFO(
                         "vcl.fonts",
                         "multiple fonts for file, but no index in fontconfig pattern ! (index res ="
-                        << eIndexRes << " collection entry = " << nCollectionEntry
+                        << eIndexRes << " collection entry = " << nEntryId
                         << "; file will not be used");
                     // we have found more than one font in this file
                     // but fontconfig will not tell us which index is meant
@@ -610,9 +629,9 @@ void PrintFontManager::countFontconfigFonts( std::unordered_map<OString, int>& o
                 if( eSlantRes == FcResultMatch )
                     xUpdate->m_eItalic = convertSlant(slant);
                 if( eStyleRes == FcResultMatch )
-                {
                     xUpdate->m_aStyleName = OStringToOUString( OString( reinterpret_cast<char*>(style) ), RTL_TEXTENCODING_UTF8 );
-                }
+                if( eIndexRes == FcResultMatch )
+                    xUpdate->m_nVariationEntry = GetVariationIndex(nEntryId);
 
                 // sort into known fonts
                 fontID aFont = m_nNextFontID++;
@@ -845,9 +864,9 @@ IMPL_LINK_NOARG(PrintFontManager, autoInstallFontLangSupport, Timer *, void)
         css::uno::Reference<XSyncDbusSessionHelper> xSyncDbusSessionHelper(SyncDbusSessionHelper::create(comphelper::getProcessComponentContext()));
         xSyncDbusSessionHelper->InstallFontconfigResources(comphelper::containerToSequence(m_aCurrentRequests), "hide-finished");
     }
-    catch (const css::uno::Exception& e)
+    catch (const css::uno::Exception&)
     {
-        SAL_INFO("vcl.fonts", "InstallFontconfigResources problem, caught " << e);
+        TOOLS_INFO_EXCEPTION("vcl.fonts", "InstallFontconfigResources problem");
         // Disable this method from now on. It's simply not available on some systems
         // and leads to an error dialog being shown each time this is called tdf#104883
         std::shared_ptr<comphelper::ConfigurationChanges> batch( comphelper::ConfigurationChanges::create() );
@@ -933,16 +952,16 @@ void PrintFontManager::Substitute(FontSelectPattern &rPattern, OUString& rMissin
             //extract the closest match
             FcChar8* file = nullptr;
             FcResult eFileRes = FcPatternGetString(pSet->fonts[0], FC_FILE, 0, &file);
-            int nCollectionEntry = 0;
-            FcResult eIndexRes = FcPatternGetInteger(pSet->fonts[0], FC_INDEX, 0, &nCollectionEntry);
+            int nEntryId = 0;
+            FcResult eIndexRes = FcPatternGetInteger(pSet->fonts[0], FC_INDEX, 0, &nEntryId);
             if (eIndexRes != FcResultMatch)
-                nCollectionEntry = 0;
+                nEntryId = 0;
             if( eFileRes == FcResultMatch )
             {
                 OString aDir, aBase, aOrgPath( reinterpret_cast<char*>(file) );
                 splitPath( aOrgPath, aDir, aBase );
                 int nDirID = getDirectoryAtom( aDir );
-                fontID aFont = findFontFileID( nDirID, aBase, nCollectionEntry );
+                fontID aFont = findFontFileID(nDirID, aBase, GetCollectionIndex(nEntryId), GetVariationIndex(nEntryId));
                 if( aFont > 0 )
                 {
                     FastPrintFontInfo aInfo;
@@ -1024,9 +1043,8 @@ void PrintFontManager::Substitute(FontSelectPattern &rPattern, OUString& rMissin
                         {
                             LanguageTag aOurTag(getExemplarLangTagForCodePoint(pRemainingCodes[i]));
                             OString sTag = OUStringToOString(aOurTag.getBcp47(), RTL_TEXTENCODING_UTF8);
-                            if (m_aPreviousLangSupportRequests.find(sTag) != m_aPreviousLangSupportRequests.end())
+                            if (!m_aPreviousLangSupportRequests.insert(sTag).second)
                                 continue;
-                            m_aPreviousLangSupportRequests.insert(sTag);
                             sTag = mapToFontConfigLangTag(aOurTag);
                             if (!sTag.isEmpty() && m_aPreviousLangSupportRequests.find(sTag) == m_aPreviousLangSupportRequests.end())
                             {
@@ -1064,21 +1082,22 @@ FcPattern *FontConfigFontOptions::GetPattern() const
     return mpPattern;
 }
 
-void FontConfigFontOptions::SyncPattern(const OString& rFileName, int nIndex, bool bEmbolden)
+void FontConfigFontOptions::SyncPattern(const OString& rFileName, sal_uInt32 nIndex, sal_uInt32 nVariation, bool bEmbolden)
 {
     FcPatternDel(mpPattern, FC_FILE);
     FcPatternAddString(mpPattern, FC_FILE, reinterpret_cast<FcChar8 const *>(rFileName.getStr()));
     FcPatternDel(mpPattern, FC_INDEX);
-    FcPatternAddInteger(mpPattern, FC_INDEX, nIndex);
+    sal_uInt32 nFcIndex = (nVariation << 16) | nIndex;
+    FcPatternAddInteger(mpPattern, FC_INDEX, nFcIndex);
     FcPatternDel(mpPattern, FC_EMBOLDEN);
     FcPatternAddBool(mpPattern, FC_EMBOLDEN, bEmbolden ? FcTrue : FcFalse);
 }
 
-FontConfigFontOptions* PrintFontManager::getFontOptions(const FastPrintFontInfo& rInfo, int nSize)
+std::unique_ptr<FontConfigFontOptions> PrintFontManager::getFontOptions(const FastPrintFontInfo& rInfo, int nSize)
 {
     FontCfgWrapper& rWrapper = FontCfgWrapper::get();
 
-    FontConfigFontOptions* pOptions = nullptr;
+    std::unique_ptr<FontConfigFontOptions> pOptions;
     FcConfig* pConfig = FcConfigGetCurrent();
     FcPattern* pPattern = FcPatternCreate();
 
@@ -1107,7 +1126,7 @@ FontConfigFontOptions* PrintFontManager::getFontOptions(const FastPrintFontInfo&
         (void) FcPatternGetInteger(pResult,
             FC_HINT_STYLE, 0, &hintstyle);
 
-        pOptions = new FontConfigFontOptions(pResult);
+        pOptions.reset(new FontConfigFontOptions(pResult));
     }
 
     // cleanup
@@ -1149,16 +1168,18 @@ void PrintFontManager::matchFont( FastPrintFontInfo& rInfo, const css::lang::Loc
             //extract the closest match
             FcChar8* file = nullptr;
             FcResult eFileRes = FcPatternGetString(pSet->fonts[0], FC_FILE, 0, &file);
-            int nCollectionEntry = 0;
-            FcResult eIndexRes = FcPatternGetInteger(pSet->fonts[0], FC_INDEX, 0, &nCollectionEntry);
+            int nEntryId = 0;
+            FcResult eIndexRes = FcPatternGetInteger(pSet->fonts[0], FC_INDEX, 0, &nEntryId);
             if (eIndexRes != FcResultMatch)
-                nCollectionEntry = 0;
+                nEntryId = 0;
             if( eFileRes == FcResultMatch )
             {
                 OString aDir, aBase, aOrgPath( reinterpret_cast<char*>(file) );
                 splitPath( aOrgPath, aDir, aBase );
                 int nDirID = getDirectoryAtom( aDir );
-                fontID aFont = findFontFileID( nDirID, aBase, nCollectionEntry );
+                fontID aFont = findFontFileID(nDirID, aBase,
+                                              GetCollectionIndex(nEntryId),
+                                              GetVariationIndex(nEntryId));
                 if( aFont > 0 )
                     getFontFastInfo( aFont, rInfo );
             }

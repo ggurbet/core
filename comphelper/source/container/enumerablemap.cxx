@@ -36,7 +36,6 @@
 #include <cppuhelper/implbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <rtl/math.hxx>
-#include <rtl/ustrbuf.hxx>
 #include <typelib/typedescription.hxx>
 
 #include <map>
@@ -50,7 +49,6 @@ namespace comphelper
     using ::com::sun::star::uno::Reference;
     using ::com::sun::star::uno::XInterface;
     using ::com::sun::star::uno::UNO_QUERY;
-    using ::com::sun::star::uno::Exception;
     using ::com::sun::star::uno::RuntimeException;
     using ::com::sun::star::uno::Any;
     using ::com::sun::star::uno::Sequence;
@@ -76,7 +74,6 @@ namespace comphelper
     using ::com::sun::star::uno::XComponentContext;
     using ::com::sun::star::container::XEnumeration;
     using ::com::sun::star::uno::TypeDescription;
-    using ::com::sun::star::lang::WrappedTargetException;
     using ::com::sun::star::lang::DisposedException;
 
     class MapEnumerator;
@@ -186,7 +183,7 @@ namespace comphelper
     private:
         void    impl_initValues_throw( const Sequence< Pair< Any, Any > >& _initialValues );
 
-        /// throws a IllegalTypeException if the given value is not compatible with our ValueType
+        /// throws an IllegalTypeException if the given value is not compatible with our ValueType
         void    impl_checkValue_throw( const Any& _value ) const;
         void    impl_checkKey_throw( const Any& _key ) const;
         void    impl_checkNaN_throw( const Any& _keyOrValue, const Type& _keyOrValueType ) const;
@@ -354,7 +351,7 @@ namespace comphelper
         m_aData.m_pValues.reset( new KeyedValues( *m_aData.m_pKeyCompare ) );
         m_aData.m_bMutable = bMutable;
 
-        if ( aInitialValues.getLength() )
+        if ( aInitialValues.hasElements() )
             impl_initValues_throw( aInitialValues );
 
         setInitialized();

@@ -20,22 +20,18 @@
 #ifndef INCLUDED_VCL_INC_FONTMANAGER_HXX
 #define INCLUDED_VCL_INC_FONTMANAGER_HXX
 
+#include <tools/fontenum.hxx>
 #include <vcl/dllapi.h>
-#include <unx/helper.hxx>
+#include <vcl/glyphitem.hxx>
 #include <vcl/timer.hxx>
-#include <vcl/vclenum.hxx>
 #include <com/sun/star/lang/Locale.hpp>
-#include <sallayout.hxx>
 #include <unx/fc_fontoptions.hxx>
 
-#include <list>
 #include <map>
 #include <set>
 #include <memory>
 #include <vector>
 #include <unordered_map>
-
-#include <config_gio.h>
 
 /*
  *  some words on metrics: every length returned by PrintFontManager and
@@ -131,6 +127,7 @@ class VCL_PLUGIN_PUBLIC PrintFontManager
         int               m_nDirectory;       // atom containing system dependent path
         OString           m_aFontFile;        // relative to directory
         int               m_nCollectionEntry; // 0 for regular fonts, 0 to ... for fonts stemming from collections
+        int               m_nVariationEntry;  // 0 for regular fonts, 0 to ... for fonts stemming from font variations
 
         explicit PrintFont();
     };
@@ -154,7 +151,7 @@ class VCL_PLUGIN_PUBLIC PrintFontManager
     bool analyzeSfntFile(PrintFont* pFont) const;
     // finds the font id for the nFaceIndex face in this font file
     // There may be multiple font ids for font collections
-    fontID findFontFileID( int nDirID, const OString& rFile, int nFaceIndex ) const;
+    fontID findFontFileID(int nDirID, const OString& rFile, int nFaceIndex, int nVariationIndex) const;
 
     // There may be multiple font ids for font collections
     std::vector<fontID> findFontFileIDs( int nDirID, const OString& rFile ) const;
@@ -242,6 +239,9 @@ public:
     // get the ttc face number
     int getFontFaceNumber( fontID nFontID ) const;
 
+    // get the ttc face variation
+    int getFontFaceVariation( fontID nFontID ) const;
+
     // get a specific fonts ascend
     int getFontAscend( fontID nFontID ) const;
 
@@ -308,7 +308,7 @@ public:
     in different fonts in e.g. english and japanese
      */
     void matchFont( FastPrintFontInfo& rInfo, const css::lang::Locale& rLocale );
-    static FontConfigFontOptions* getFontOptions( const FastPrintFontInfo&, int nSize);
+    static std::unique_ptr<FontConfigFontOptions> getFontOptions( const FastPrintFontInfo&, int nSize);
 
     void Substitute(FontSelectPattern &rPattern, OUString& rMissingCodes);
 

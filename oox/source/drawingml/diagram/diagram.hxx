@@ -149,6 +149,8 @@ typedef std::vector< Point >        Points;
 class Diagram;
 class LayoutNode;
 typedef std::shared_ptr< LayoutNode > LayoutNodePtr;
+class LayoutAtom;
+typedef std::shared_ptr<LayoutAtom> LayoutAtomPtr;
 
 typedef std::map< OUString, css::uno::Reference<css::xml::dom::XDocument> > DiagramDomMap;
 
@@ -186,10 +188,6 @@ public:
     ::std::vector<OUString> &getExtDrawings()
         { return maExtDrawings; }
     const dgm::Point* getRootPoint() const;
-    sal_Int32 getMaxDepth() const
-        { return mnMaxDepth; }
-    void setMaxDepth(sal_Int32 nDepth)
-        { mnMaxDepth = nDepth; }
     void dump() const;
 private:
     ::std::vector<OUString>  maExtDrawings;
@@ -200,10 +198,12 @@ private:
     PointsNameMap     maPointsPresNameMap;
     ConnectionNameMap maConnectionNameMap;
     StringMap         maPresOfNameMap;
-    sal_Int32         mnMaxDepth;
 };
 
 typedef std::shared_ptr< DiagramData > DiagramDataPtr;
+
+typedef std::map<OUString, LayoutAtomPtr> LayoutAtomMap;
+typedef std::map<const dgm::Point*, ShapePtr> PresPointShapeMap;
 
 class DiagramLayout
 {
@@ -233,6 +233,10 @@ public:
         { return mpStyleData; }
     const DiagramDataPtr & getStyleData() const
         { return mpStyleData; }
+    LayoutAtomMap & getLayoutAtomMap()
+        { return maLayoutAtomMap; }
+    PresPointShapeMap & getPresPointShapeMap()
+        { return maPresPointShapeMap; }
 
 private:
     const Diagram& mrDgm;
@@ -248,6 +252,9 @@ private:
     // TODO
     // catLst
     // clrData
+
+    LayoutAtomMap maLayoutAtomMap;
+    PresPointShapeMap maPresPointShapeMap;
 };
 
 typedef std::shared_ptr< DiagramLayout > DiagramLayoutPtr;
@@ -283,6 +290,8 @@ public:
         { return mpData; }
     void setLayout( const DiagramLayoutPtr & pLayout )
         { mpLayout = pLayout; }
+    const DiagramLayoutPtr& getLayout() const
+        { return mpLayout; }
 
     DiagramQStyleMap& getStyles() { return maStyles; }
     const DiagramQStyleMap& getStyles() const { return maStyles; }

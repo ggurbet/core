@@ -24,6 +24,7 @@
 #include <com/sun/star/i18n/CalendarFieldIndex.hpp>
 #include <sal/log.hxx>
 #include <unotools/charclass.hxx>
+#include <osl/module.hxx>
 
 #include <global.hxx>
 #include <docsh.hxx>
@@ -49,6 +50,7 @@
 #include <tokenarray.hxx>
 #include <documentimport.hxx>
 #include <refundo.hxx>
+#include <mtvelements.hxx>
 
 #include <globstr.hrc>
 #include <scresid.hxx>
@@ -1483,8 +1485,7 @@ bool ScImportExport::ExtText2Doc( SvStream& rStrm )
             if ( !mbApi && nStartCol != nEndCol &&
                  !pDoc->IsBlockEmpty( nTab, nStartCol + 1, nStartRow, nEndCol, nRow ) )
             {
-                vcl::Window* pWin = ScDocShell::GetActiveDialogParent();
-                ScReplaceWarnBox aBox(pWin ? pWin->GetFrameWeld() : nullptr);
+                ScReplaceWarnBox aBox(ScDocShell::GetActiveDialogParent());
                 if (aBox.run() != RET_YES)
                 {
                     return false;
@@ -1653,6 +1654,10 @@ bool ScImportExport::Doc2Text( SvStream& rStrm )
 
     bool bConvertLF = (GetSystemLineEnd() != LINEEND_LF);
 
+    // We need to cache sc::ColumnBlockPosition per each column, tab is always nStartTab.
+    std::vector< sc::ColumnBlockPosition > blockPos( nEndCol - nStartCol + 1 );
+    for( SCCOL i = nStartCol; i <= nEndCol; ++i )
+        pDoc->InitColumnBlockPosition( blockPos[ i - nStartCol ], nStartTab, i );
     for (nRow = nStartRow; nRow <= nEndRow; nRow++)
     {
         if (bIncludeFiltered || !pDoc->RowFiltered( nRow, nStartTab ))
@@ -1663,7 +1668,7 @@ bool ScImportExport::Doc2Text( SvStream& rStrm )
                 sal_uInt32 nNumFmt = pDoc->GetNumberFormat(aPos);
                 SvNumberFormatter* pFormatter = pDoc->GetFormatTable();
 
-                ScRefCellValue aCell(*pDoc, aPos);
+                ScRefCellValue aCell(*pDoc, aPos, blockPos[ nCol - nStartCol ]);
                 switch (aCell.meType)
                 {
                     case CELLTYPE_FORMULA:

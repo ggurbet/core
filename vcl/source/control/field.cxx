@@ -26,14 +26,12 @@
 
 #include <comphelper/string.hxx>
 
-
-#include <vcl/dialog.hxx>
+#include <vcl/builder.hxx>
 #include <vcl/field.hxx>
 #include <vcl/event.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
-#include <strings.hrc>
 #include <svdata.hxx>
 
 #include <i18nutil/unicode.hxx>

@@ -84,8 +84,15 @@
 #include <editeng/memberids.h>
 #include <svx/svxids.hrc>
 #include <svx/svdobj.hxx>
+#include <svx/unomid.hxx>
 #include <svx/dataaccessdescriptor.hxx>
-#include <svx/xfillit.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflclit.hxx>
+#include <svx/xflgrit.hxx>
+#include <svx/xflhtit.hxx>
+#include <svx/xbtmpit.hxx>
+#include <svx/xflftrit.hxx>
+#include <svx/xsflclit.hxx>
 #include <svx/xflbckit.hxx>
 #include <svx/xflbmpit.hxx>
 #include <svx/xflbmsli.hxx>
@@ -219,7 +226,7 @@ static void lcl_getReportControlFormat(const Sequence< PropertyValue >& aArgs,
                                  ::std::vector< uno::Reference< uno::XInterface > >& _rControlsFormats)
 {
     uno::Reference< report::XReportControlFormat> xReportControlFormat;
-    if ( aArgs.getLength() )
+    if ( aArgs.hasElements() )
     {
         SequenceAsHashMap aMap(aArgs);
         xReportControlFormat = aMap.getUnpackedValueOrDefault(REPORTCONTROLFORMAT,uno::Reference< report::XReportControlFormat>());
@@ -1517,10 +1524,10 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
                         if ( !xFormat.is() )
                             continue;
 
-                        if ( aSettings.getLength() == 0 )
+                        if ( !aSettings.hasElements() )
                         {
                             ::rptui::openCharDialog( xFormat, xWindow, aSettings );
-                            if ( aSettings.getLength() == 0 )
+                            if ( !aSettings.hasElements() )
                                 break;
                         }
 
@@ -1549,7 +1556,7 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
         case SID_DATETIME:
             if ( m_xReportDefinition.is() )
             {
-                if ( !aArgs.getLength() )
+                if ( !aArgs.hasElements() )
                 {
                     ODateTimeDialog aDlg(getFrameWeld(), getDesignView()->getCurrentSection(), this);
                     aDlg.run();
@@ -1561,7 +1568,7 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
         case SID_INSERT_FLD_PGNUMBER:
             if ( m_xReportDefinition.is() )
             {
-                if ( !aArgs.getLength() )
+                if ( !aArgs.hasElements() )
                 {
                     OPageNumberDialog aDlg(getFrameWeld(), m_xReportDefinition, this);
                     aDlg.run();
@@ -1585,7 +1592,7 @@ void OReportController::Execute(sal_uInt16 _nId, const Sequence< PropertyValue >
         case SID_GROUP:
             break;
         case SID_ATTR_ZOOM:
-            if ( aArgs.getLength() == 0 )
+            if ( !aArgs.hasElements() )
             {
                 openZoomDialog();
             }
@@ -1647,8 +1654,7 @@ void OReportController::impl_initialize( )
             m_xFormatter->attachNumberFormatsSupplier(Reference< XNumberFormatsSupplier>(m_xReportDefinition,uno::UNO_QUERY));
 
             utl::MediaDescriptor aDescriptor( m_xReportDefinition->getArgs() );
-            OUString sHierarchicalDocumentName;
-            sHierarchicalDocumentName = aDescriptor.getUnpackedValueOrDefault("HierarchicalDocumentName",sHierarchicalDocumentName);
+            OUString sHierarchicalDocumentName = aDescriptor.getUnpackedValueOrDefault("HierarchicalDocumentName",OUString());
 
             if ( sHierarchicalDocumentName.isEmpty() && getConnection().is() )
             {
@@ -1718,7 +1724,7 @@ IMPL_LINK( OReportController, OnCreateHdl, OAddFieldWindow& ,_rAddFieldDlg, void
     WaitObject aObj( getDesignView() );
     uno::Sequence< beans::PropertyValue > aArgs = _rAddFieldDlg.getSelectedFieldDescriptors();
     // we use this way to create undo actions
-    if ( aArgs.getLength() )
+    if ( aArgs.hasElements() )
     {
         executeChecked(SID_ADD_CONTROL_PAIR,aArgs);
     }
@@ -3015,7 +3021,7 @@ sal_Bool SAL_CALL OReportController::select( const Any& aSelection )
         uno::Sequence< uno::Reference<report::XReportComponent> > aElements;
         if ( aSelection >>= aElements )
         {
-            if ( aElements.getLength() > 0 )
+            if ( aElements.hasElements() )
                 getDesignView()->showProperties(uno::Reference<uno::XInterface>(aElements[0],uno::UNO_QUERY));
             getDesignView()->setMarked(aElements, true);
         }
@@ -3391,7 +3397,7 @@ void OReportController::addPairControls(const Sequence< PropertyValue >& aArgs)
 
                     // no column name - perhaps a parameter name?
                     uno::Reference< sdb::XParametersSupplier > xSuppParam( getRowSet(), uno::UNO_QUERY_THROW );
-                    uno::Reference< container::XIndexAccess > xParams( xSuppParam->getParameters(), uno::UNO_QUERY_THROW );
+                    uno::Reference< container::XIndexAccess > xParams( xSuppParam->getParameters(), uno::UNO_SET_THROW );
                     sal_Int32 nParamCount( xParams->getCount() );
                     for ( sal_Int32 i=0; i<nParamCount; ++i)
                     {
@@ -3471,6 +3477,7 @@ void OReportController::addPairControls(const Sequence< PropertyValue >& aArgs)
                     for(i = 0; i < SAL_N_ELEMENTS(pControl); ++i)
                     {
                         pObjs[i] = dynamic_cast<OUnoObject*>(pControl[i].get());
+                        assert(pObjs[i]);
                         uno::Reference<beans::XPropertySet> xUnoProp(pObjs[i]->GetUnoControlModel(),uno::UNO_QUERY_THROW);
                         uno::Reference< report::XReportComponent> xShapeProp(pObjs[i]->getUnoShape(),uno::UNO_QUERY_THROW);
                         xUnoProp->setPropertyValue(PROPERTY_NAME,xShapeProp->getPropertyValue(PROPERTY_NAME));
@@ -3542,6 +3549,7 @@ void OReportController::addPairControls(const Sequence< PropertyValue >& aArgs)
                         xShapePropLabel->setPosition(aPosLabel);
                     }
                     OUnoObject* pObj = dynamic_cast<OUnoObject*>(pControl[0].get());
+                    assert(pObj);
                     uno::Reference< report::XFixedText> xShapeProp(pObj->getUnoShape(),uno::UNO_QUERY_THROW);
                     xShapeProp->setName(xShapeProp->getName() + sDefaultName );
 
@@ -4164,9 +4172,9 @@ bool OReportController::impl_setPropertyAtControls_throw(const char* pUndoResId,
             {
                 xControlModel->setPropertyValue(_sProperty,_aValue);
             }
-            catch(const UnknownPropertyException& e)
+            catch(const UnknownPropertyException&)
             {
-                SAL_WARN("reportdesign", "UnknownPropertyException:" << e);
+                TOOLS_WARN_EXCEPTION("reportdesign", "");
             }
     }
 

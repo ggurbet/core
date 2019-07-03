@@ -9,7 +9,7 @@
 
 $(eval $(call gb_StaticLibrary_StaticLibrary,libpng))
 
-$(eval $(call gb_StaticLibrary_set_warnings_not_errors,libpng))
+$(eval $(call gb_StaticLibrary_set_warnings_disabled,libpng))
 
 $(eval $(call gb_StaticLibrary_use_unpacked,libpng,libpng))
 
@@ -36,6 +36,7 @@ $(eval $(call gb_StaticLibrary_add_generated_cobjects,libpng,\
 	$(if $(filter ARM ARM64,$(CPUNAME)),\
 	    UnpackedTarball/libpng/arm/arm_init \
 	    UnpackedTarball/libpng/arm/filter_neon_intrinsics \
+	    UnpackedTarball/libpng/arm/palette_neon_intrinsics \
 	) \
 ))
 

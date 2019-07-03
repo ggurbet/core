@@ -21,6 +21,7 @@
 
 #include <svl/itemset.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <sfx2/tabdlg.hxx>
 #include <sfx2/sfxdlg.hxx>
 
@@ -29,7 +30,7 @@ namespace chart
 using namespace ::com::sun::star;
 
 NumberFormatDialog::NumberFormatDialog(weld::Window* pParent, SfxItemSet& rSet)
-    : SfxSingleTabDialogController(pParent, rSet, "cui/ui/formatnumberdialog.ui", "FormatNumberDialog")
+    : SfxSingleTabDialogController(pParent, &rSet, "cui/ui/formatnumberdialog.ui", "FormatNumberDialog")
 {
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
     ::CreateTabPage fnCreatePage = pFact->GetTabPageCreatorFunc( RID_SVXPAGE_NUMBERFORMAT );

@@ -22,13 +22,13 @@
 
 #include <svx/svddef.hxx>
 #include <svx/sdooitm.hxx>
-#include <com/sun/star/uno/Sequence.hxx>
 #include <com/sun/star/beans/PropertyValue.hpp>
-#include <com/sun/star/uno/Any.hxx>
+#include <com/sun/star/uno/Sequence.hxx>
 #include <rtl/ustring.hxx>
 #include <svx/svxdllapi.h>
-#include <map>
 #include <unordered_map>
+
+namespace com::sun::star::uno { class Any; }
 
 class SVX_DLLPUBLIC SdrCustomShapeGeometryItem : public SfxPoolItem
 {
@@ -65,7 +65,6 @@ private:
                                          OUString &rText, const IntlWrapper&) const override;
 
             virtual SfxPoolItem*        Clone( SfxItemPool* pPool = nullptr ) const override;
-            virtual sal_uInt16          GetVersion( sal_uInt16 nFileFormatVersion ) const override;
 
             virtual bool                QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;
             virtual bool                PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId ) override;
@@ -89,7 +88,10 @@ inline SdrOnOffItem makeSdrTextWordWrapItem( bool bAuto ) {
 
 inline size_t SdrCustomShapeGeometryItem::PropertyPairHash::operator()( const SdrCustomShapeGeometryItem::PropertyPair &r1 ) const
 {
-    return static_cast<size_t>(r1.first.hashCode()) + r1.second.hashCode();
+    size_t hash = 17;
+    hash = hash * 37 + r1.first.hashCode();
+    hash = hash * 37 + r1.second.hashCode();
+    return hash;
 };
 
 #endif

@@ -22,17 +22,21 @@
 
 #include <cppuhelper/implbase.hxx>
 #include <com/sun/star/util/XTextSearch2.hpp>
-#include <com/sun/star/i18n/XBreakIterator.hpp>
-#include <com/sun/star/i18n/XExtendedTransliteration.hpp>
-#include <com/sun/star/i18n/XCharacterClassification.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
-#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <map>
 #include <memory>
 
 #include <unicode/regex.h>
-using namespace U_ICU_NAMESPACE;
+#include <unicode/unistr.h>
+#include <unicode/uversion.h>
+
+namespace com::sun::star::i18n { class XBreakIterator; }
+namespace com::sun::star::i18n { class XCharacterClassification; }
+namespace com::sun::star::i18n { class XExtendedTransliteration; }
+namespace com::sun::star::uno { class XComponentContext; }
+
+
 typedef U_ICU_NAMESPACE::UnicodeString IcuUniString;
 
 class WLevDistance;
@@ -84,7 +88,7 @@ class TextSearch: public cppu::WeakImplHelper
                                 sal_Int32 startPos, sal_Int32 endPos );
 
     // Members and methods for the regular expression search
-    std::unique_ptr<RegexMatcher> pRegexMatcher;
+    std::unique_ptr<icu::RegexMatcher> pRegexMatcher;
     /// @throws css::uno::RuntimeException
     css::util::SearchResult SAL_CALL
         RESrchFrwrd( const OUString& searchStr,

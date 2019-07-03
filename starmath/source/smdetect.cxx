@@ -21,10 +21,12 @@
 #include <cppuhelper/supportsservice.hxx>
 #include <com/sun/star/io/XInputStream.hpp>
 #include <com/sun/star/ucb/ContentCreationException.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 #include <sfx2/docfile.hxx>
 #include <unotools/mediadescriptor.hxx>
 #include <sal/log.hxx>
 #include <sot/storage.hxx>
+#include <tools/diagnose_ex.h>
 
 #include "eqnolefilehdr.hxx"
 
@@ -82,9 +84,9 @@ OUString SAL_CALL SmFilterDetect::detect( Sequence< PropertyValue >& lDescriptor
             }
         }
     }
-    catch (const css::ucb::ContentCreationException &e)
+    catch (const css::ucb::ContentCreationException &)
     {
-        SAL_WARN("starmath", "SmFilterDetect::detect caught " << e);
+        TOOLS_WARN_EXCEPTION("starmath", "SmFilterDetect::detect caught" );
     }
 
     if (!bStorageOk)
@@ -134,7 +136,7 @@ sal_Bool SAL_CALL SmFilterDetect::supportsService( const OUString& sServiceName 
 /* XServiceInfo */
 Sequence< OUString > SAL_CALL SmFilterDetect::getSupportedServiceNames()
 {
-    return Sequence< OUString >{ "com.sun.star.frame.ExtendedTypeDetection" };
+    return { "com.sun.star.frame.ExtendedTypeDetection" };
 }
 
 extern "C" SAL_DLLPUBLIC_EXPORT uno::XInterface*

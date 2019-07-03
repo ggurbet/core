@@ -25,11 +25,14 @@
 #include <editeng/edtdlg.hxx>
 
 #include <svx/dstribut_enum.hxx>
-#include <svx/rectenum.hxx>
 #include <com/sun/star/container/XIndexContainer.hpp>
 #include <com/sun/star/container/XNameReplace.hpp>
 #include <svx/svxdllapi.h>
 #include <vector>
+
+namespace sd {
+    class View;
+}
 
 namespace com{namespace sun{namespace star{
 namespace linguistic2{
@@ -96,8 +99,8 @@ class AbstractSpellDialog : public VclAbstractDialog
 protected:
     virtual ~AbstractSpellDialog() override = default;
 public:
-    virtual void        Invalidate() = 0;
-    virtual vcl::Window*     GetWindow()  = 0;
+    virtual void InvalidateDialog() = 0;
+    virtual std::shared_ptr<SfxDialogController> GetController() = 0;
     virtual SfxBindings& GetBindings() = 0;
 };
 
@@ -202,6 +205,17 @@ public:
     virtual void GetDescription(OUString& rDescription) = 0;
 };
 
+/// Abstract class provides the get information from the numbering and position dialog.
+class AbstractSvxBulletAndPositionDlg :public VclAbstractDialog
+{
+protected:
+    virtual ~AbstractSvxBulletAndPositionDlg() override = default;
+public:
+    virtual const SfxItemSet*   GetOutputItemSet( SfxItemSet* pSet) const = 0 ;
+    virtual bool IsApplyToMaster() = 0;
+    virtual bool IsSlideScope() = 0;
+};
+
 class AbstractSvxMessDialog :public VclAbstractDialog
 {
 protected:
@@ -223,7 +237,7 @@ class AbstractSvxHpLinkDlg : public VclAbstractDialog
 protected:
     virtual ~AbstractSvxHpLinkDlg() override = default;
 public:
-    virtual vcl::Window*     GetWindow()  = 0;
+    virtual std::shared_ptr<SfxDialogController> GetController()  = 0;
     virtual bool       QueryClose() = 0;
 };
 
@@ -295,6 +309,7 @@ public:
     virtual bool IsHorizontal() const = 0;
     virtual bool IsProportional() const = 0;
     virtual long GetCount() const = 0;
+    virtual void SetSplitVerticalByDefault() = 0;
 };
 
 class SvxAbstractNewTableDialog : public VclAbstractDialog
@@ -337,7 +352,7 @@ public:
 
     virtual VclPtr<AbstractSvxZoomDialog> CreateSvxZoomDialog(weld::Window* pParent, const SfxItemSet& rCoreSet) = 0;
 
-    virtual VclPtr<AbstractSpellDialog>   CreateSvxSpellDialog(vcl::Window* pParent,
+    virtual VclPtr<AbstractSpellDialog>   CreateSvxSpellDialog(weld::Window* pParent,
                                             SfxBindings* pBindings,
                                             svx::SpellDialogChildWindow* pSpellChildWindow )=0;
 
@@ -350,7 +365,7 @@ public:
     virtual VclPtr<VclAbstractDialog> CreateGalleryThemePropertiesDialog(weld::Window* pParent,
                                             ExchangeData* pData,
                                             SfxItemSet* pItemSet ) = 0;
-    virtual VclPtr<AbstractURLDlg> CreateURLDialog( vcl::Window* pParent,
+    virtual VclPtr<AbstractURLDlg> CreateURLDialog(weld::Widget* pParent,
                                             const OUString& rURL, const OUString& rAltText, const OUString& rDescription,
                                             const OUString& rTarget, const OUString& rName,
                                             TargetList& rTargetList ) = 0;
@@ -390,10 +405,9 @@ public:
     // #i68101#
     virtual VclPtr<AbstractSvxObjectNameDialog> CreateSvxObjectNameDialog(weld::Window* pParent, const OUString& rName) = 0;
     virtual VclPtr<AbstractSvxObjectTitleDescDialog> CreateSvxObjectTitleDescDialog(weld::Window* pParent, const OUString& rTitle, const OUString& rDescription) = 0;
-
     virtual VclPtr<AbstractSvxMultiPathDialog>    CreateSvxMultiPathDialog(weld::Window* pParent) = 0 ;
     virtual VclPtr<AbstractSvxMultiPathDialog>    CreateSvxPathSelectDialog(weld::Window* pParent) = 0 ;
-    virtual VclPtr<AbstractSvxHpLinkDlg>  CreateSvxHpLinkDlg(vcl::Window* pParent, SfxBindings* pBindings)=0;
+    virtual VclPtr<AbstractSvxHpLinkDlg>  CreateSvxHpLinkDlg(SfxChildWindow* pChild, SfxBindings* pBindings, weld::Window* pParent) = 0;
     virtual VclPtr<AbstractFmSearchDialog> CreateFmSearchDialog(weld::Window* pParent,
                                                         const OUString& strInitialText,
                                                         const ::std::vector< OUString >& _rContexts,
@@ -424,10 +438,11 @@ public:
                                                                         const SfxItemSet& rAttr,
                                                                         const SdrView* pView,
                                                                         sal_uInt32 nResId )=0;
-    virtual VclPtr<SfxAbstractDialog>       CreateCharMapDialog(weld::Window* pParent, const SfxItemSet& rAttr, bool bInsert) = 0;
-    virtual VclPtr<SfxAbstractDialog>       CreateEventConfigDialog(weld::Window* pParent, const SfxItemSet& rAttr,
-                                                                    const css::uno::Reference< css::frame::XFrame >& _rxFrame) = 0;
-    virtual VclPtr<AbstractSvxPostItDialog>    CreateSvxPostItDialog(weld::Window* pParent, const SfxItemSet& rCoreSet, bool bPrevNext = false) = 0;
+    virtual VclPtr<SfxAbstractDialog>       CreateCharMapDialog(weld::Window* pParent, const SfxItemSet& rAttr,
+                                                                const css::uno::Reference<css::frame::XFrame>& rFrame) = 0;
+    virtual VclPtr<SfxAbstractDialog>       CreateEventConfigDialog(weld::Widget* pParent, const SfxItemSet& rAttr,
+                                                                    const css::uno::Reference< css::frame::XFrame >& rFrame) = 0;
+    virtual VclPtr<AbstractSvxPostItDialog>    CreateSvxPostItDialog(weld::Widget* pParent, const SfxItemSet& rCoreSet, bool bPrevNext = false) = 0;
     virtual VclPtr<VclAbstractDialog>          CreateSvxScriptOrgDialog(weld::Window* pParent, const OUString& rLanguage) override = 0;
 
     virtual DialogGetRanges                    GetDialogGetRangesFunc() = 0;

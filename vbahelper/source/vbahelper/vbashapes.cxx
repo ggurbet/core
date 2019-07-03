@@ -139,26 +139,24 @@ ScVbaShapes::getShapesByArrayIndices( const uno::Any& Index  )
         throw uno::RuntimeException();
 
     const uno::Reference< script::XTypeConverter >& xConverter = getTypeConverter(mxContext);
-    uno::Any aConverted;
-    aConverted = xConverter->convertTo( Index, cppu::UnoType<uno::Sequence< uno::Any >>::get() );
+    uno::Any aConverted = xConverter->convertTo( Index, cppu::UnoType<uno::Sequence< uno::Any >>::get() );
 
     uno::Sequence< uno::Any > sIndices;
     aConverted >>= sIndices;
     XNamedObjectCollectionHelper< drawing::XShape >::XNamedVec aShapes;
-    sal_Int32 nElems = sIndices.getLength();
-    for( sal_Int32 index = 0; index < nElems; ++index )
+    for( const auto& rIndex : sIndices )
     {
         uno::Reference< drawing::XShape > xShape;
-        if ( sIndices[ index ].getValueTypeClass() == uno::TypeClass_STRING )
+        if ( rIndex.getValueTypeClass() == uno::TypeClass_STRING )
         {
             OUString sName;
-            sIndices[ index ] >>= sName;
+            rIndex >>= sName;
             xShape.set( m_xNameAccess->getByName( sName ), uno::UNO_QUERY );
         }
         else
         {
             sal_Int32 nIndex = 0;
-            sIndices[ index ] >>= nIndex;
+            rIndex >>= nIndex;
             // adjust for 1 based mso indexing
             xShape.set( m_xIndexAccess->getByIndex( nIndex - 1 ), uno::UNO_QUERY );
 
@@ -222,7 +220,7 @@ ScVbaShapes::AddRectangle(sal_Int32 startX, sal_Int32 startY, sal_Int32 nLineWid
     sal_Int32 nWidth = Millimeter::getInHundredthsOfOneMillimeter( nLineWidth );
     sal_Int32 nHeight = Millimeter::getInHundredthsOfOneMillimeter( nLineHeight );
 
-    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.RectangleShape" ), uno::UNO_QUERY_THROW );
+    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.RectangleShape" ), uno::UNO_SET_THROW );
     m_xShapes->add( xShape );
 
     OUString sName(createName( "Rectangle" ));
@@ -252,7 +250,7 @@ ScVbaShapes::AddEllipse(sal_Int32 startX, sal_Int32 startY, sal_Int32 nLineWidth
     sal_Int32 nWidth = Millimeter::getInHundredthsOfOneMillimeter( nLineWidth );
     sal_Int32 nHeight = Millimeter::getInHundredthsOfOneMillimeter( nLineHeight );
 
-    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.EllipseShape" ), uno::UNO_QUERY_THROW );
+    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.EllipseShape" ), uno::UNO_SET_THROW );
     m_xShapes->add( xShape );
 
     awt::Point aMovePositionIfRange( 0, 0 );
@@ -298,7 +296,7 @@ ScVbaShapes::AddLine( sal_Int32 StartX, sal_Int32 StartY, sal_Int32 endX, sal_In
     sal_Int32 nXPos = Millimeter::getInHundredthsOfOneMillimeter( StartX );
     sal_Int32 nYPos = Millimeter::getInHundredthsOfOneMillimeter( StartY );
 
-    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.LineShape" ), uno::UNO_QUERY_THROW );
+    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.LineShape" ), uno::UNO_SET_THROW );
     m_xShapes->add( xShape );
 
     awt::Point aMovePositionIfRange( 0, 0 );
@@ -354,7 +352,7 @@ ScVbaShapes::AddTextboxInWriter( sal_Int32 _nLeft, sal_Int32 _nTop, sal_Int32 _n
     sal_Int32 nWidth = Millimeter::getInHundredthsOfOneMillimeter( _nWidth );
     sal_Int32 nHeight = Millimeter::getInHundredthsOfOneMillimeter( _nHeight );
 
-    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.TextShape" ), uno::UNO_QUERY_THROW );
+    uno::Reference< drawing::XShape > xShape( createShape( "com.sun.star.drawing.TextShape" ), uno::UNO_SET_THROW );
     m_xShapes->add( xShape );
 
     setDefaultShapeProperties(xShape);

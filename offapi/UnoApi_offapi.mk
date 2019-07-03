@@ -1634,6 +1634,7 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/accessibility,\
 	XAccessibleAction \
 	XAccessibleComponent \
 	XAccessibleContext \
+	XAccessibleContext2 \
 	XAccessibleEditableText \
 	XAccessibleEventBroadcaster \
 	XAccessibleEventListener \
@@ -1855,6 +1856,7 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/awt,\
 	XPrinter \
 	XPrinterPropertySet \
 	XPrinterServer \
+	XPrinterServer2 \
 	XProgressBar \
 	XProgressMonitor \
 	XRadioButton \

@@ -31,7 +31,6 @@
 
 #include <sdr/contact/viewcontactofsdrcircobj.hxx>
 #include <sdr/properties/circleproperties.hxx>
-#include <svx/svdattr.hxx>
 #include <svx/svddrag.hxx>
 #include <svx/svdetc.hxx>
 #include <svx/svdmodel.hxx>
@@ -43,12 +42,15 @@
 #include <svx/svdview.hxx>
 #include <svx/sxciaitm.hxx>
 #include <sxcikitm.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnedit.hxx>
 #include <svx/xlnedwit.hxx>
 #include <svx/xlnstit.hxx>
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnwtit.hxx>
 #include <svx/xpool.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/ptrstyle.hxx>
 
 using namespace com::sun::star;
@@ -214,7 +216,7 @@ bool SdrCircObj::PaintNeedsXPolyCirc() const
 
 basegfx::B2DPolygon SdrCircObj::ImpCalcXPolyCirc(const SdrObjKind eCicrleKind, const tools::Rectangle& rRect1, long nStart, long nEnd) const
 {
-    const basegfx::B2DRange aRange(rRect1.Left(), rRect1.Top(), rRect1.Right(), rRect1.Bottom());
+    const basegfx::B2DRange aRange = vcl::unotools::b2DRectangleFromRectangle(rRect1);
     basegfx::B2DPolygon aCircPolygon;
 
     if(OBJ_CIRC == eCicrleKind)

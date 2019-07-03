@@ -21,10 +21,6 @@
 #include <stdio.h>
 
 #include <com/sun/star/lang/IllegalArgumentException.hpp>
-#include <com/sun/star/ucb/XSimpleFileAccess.hpp>
-#include <com/sun/star/ucb/XCommandEnvironment.hpp>
-#include <com/sun/star/ucb/InsertCommandArgument.hpp>
-#include <com/sun/star/ucb/NameClashException.hpp>
 #include <com/sun/star/io/WrongFormatException.hpp>
 
 #include <osl/time.h>
@@ -33,15 +29,12 @@
 #include <osl/file.hxx>
 #include <o3tl/enumrange.hxx>
 
-#include <rtl/string.hxx>
 #include <rtl/ustring.hxx>
 #include <rtl/strbuf.hxx>
 #include <rtl/ustrbuf.hxx>
 
 #include <tools/urlobj.hxx>
 #include <unotools/bootstrap.hxx>
-
-#include <ucbhelper/content.hxx>
 
 #include <unotools/useroptions.hxx>
 
@@ -54,24 +47,37 @@ using namespace ::com::sun::star;
 namespace svt {
 
 
-LockFileCommon::LockFileCommon( const OUString& aOrigURL, const OUString& aPrefix )
+LockFileCommon::LockFileCommon(const OUString& aLockFileURL)
+    : m_aURL(aLockFileURL)
 {
-    INetURLObject aDocURL = ResolveLinks( INetURLObject( aOrigURL ) );
-
-    OUString aShareURLString = aDocURL.GetPartBeforeLastName();
-    aShareURLString += aPrefix;
-    aShareURLString += aDocURL.GetName();
-    aShareURLString += "%23"; // '#'
-    m_aURL = INetURLObject( aShareURLString ).GetMainURL( INetURLObject::DecodeMechanism::NONE );
 }
-
 
 LockFileCommon::~LockFileCommon()
 {
 }
 
 
-INetURLObject LockFileCommon::ResolveLinks( const INetURLObject& aDocURL ) const
+const OUString& LockFileCommon::GetURL() const
+{
+    return m_aURL;
+}
+
+
+void LockFileCommon::SetURL(const OUString& aURL)
+{
+    m_aURL = aURL;
+}
+
+
+OUString LockFileCommon::GenerateOwnLockFileURL(const OUString& aOrigURL, const OUString& aPrefix)
+{
+    INetURLObject aURL = ResolveLinks(INetURLObject(aOrigURL));
+    aURL.setName(aPrefix + aURL.GetLastName() + "%23" /*'#'*/);
+    return aURL.GetMainURL(INetURLObject::DecodeMechanism::NONE);
+}
+
+
+INetURLObject LockFileCommon::ResolveLinks( const INetURLObject& aDocURL )
 {
     if ( aDocURL.HasError() )
         throw lang::IllegalArgumentException();

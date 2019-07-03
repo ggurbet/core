@@ -303,20 +303,6 @@ SwXParagraph::getImplementationName()
     return OUString("SwXParagraph");
 }
 
-static char const*const g_ServicesParagraph[] =
-{
-    "com.sun.star.text.TextContent",
-    "com.sun.star.text.Paragraph",
-    "com.sun.star.style.CharacterProperties",
-    "com.sun.star.style.CharacterPropertiesAsian",
-    "com.sun.star.style.CharacterPropertiesComplex",
-    "com.sun.star.style.ParagraphProperties",
-    "com.sun.star.style.ParagraphPropertiesAsian",
-    "com.sun.star.style.ParagraphPropertiesComplex",
-};
-
-static const size_t g_nServicesParagraph(SAL_N_ELEMENTS(g_ServicesParagraph));
-
 sal_Bool SAL_CALL
 SwXParagraph::supportsService(const OUString& rServiceName)
 {
@@ -326,8 +312,16 @@ SwXParagraph::supportsService(const OUString& rServiceName)
 uno::Sequence< OUString > SAL_CALL
 SwXParagraph::getSupportedServiceNames()
 {
-    return ::sw::GetSupportedServiceNamesImpl(
-            g_nServicesParagraph, g_ServicesParagraph);
+    return {
+        "com.sun.star.text.TextContent",
+        "com.sun.star.text.Paragraph",
+        "com.sun.star.style.CharacterProperties",
+        "com.sun.star.style.CharacterPropertiesAsian",
+        "com.sun.star.style.CharacterPropertiesComplex",
+        "com.sun.star.style.ParagraphProperties",
+        "com.sun.star.style.ParagraphPropertiesAsian",
+        "com.sun.star.style.ParagraphPropertiesComplex"
+    };
 }
 
 void
@@ -450,9 +444,9 @@ void SwXParagraph::Impl::GetSinglePropertyValue_Impl(
     {
         case RES_BACKGROUND:
         {
-            const SvxBrushItem aOriginalBrushItem(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND));
+            const std::shared_ptr<SvxBrushItem> aOriginalBrushItem(getSvxBrushItemFromSourceSet(rSet, RES_BACKGROUND));
 
-            if(!aOriginalBrushItem.QueryValue(rAny, rEntry.nMemberId))
+            if(!aOriginalBrushItem->QueryValue(rAny, rEntry.nMemberId))
             {
                 OSL_ENSURE(false, "Error getting attribute from RES_BACKGROUND (!)");
             }

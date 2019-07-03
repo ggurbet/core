@@ -23,6 +23,7 @@
 #endif
 
 #include <svtools/inettbc.hxx>
+#include <tools/diagnose_ex.h>
 #include <com/sun/star/uno/Any.hxx>
 #include <com/sun/star/uno/Reference.hxx>
 #include <com/sun/star/beans/Property.hpp>
@@ -43,6 +44,7 @@
 #include <rtl/instance.hxx>
 #include <sal/log.hxx>
 #include <salhelper/thread.hxx>
+#include <tools/debug.hxx>
 #include <osl/file.hxx>
 #include <osl/mutex.hxx>
 #include <vcl/builderfactory.hxx>
@@ -262,7 +264,7 @@ IMPL_LINK_NOARG( SvtMatchContext_Impl, Select_Impl, void*, void )
 
     for (auto const& completion : aCompletions)
     {
-        // convert the file into an URL
+        // convert the file into a URL
         OUString sURL;
         osl::FileBase::getFileURLFromSystemPath(completion, sURL);
             // note: if this doesn't work, we're not interested in: we're checking the
@@ -408,8 +410,7 @@ void SvtMatchContext_Impl::ReadFolder( const OUString& rURL,
             pInfo[ 1 ].ColumnIndex = 1;
             pInfo[ 1 ].Ascending   = true;
 
-            uno::Reference< XDynamicResultSet > xDynamicResultSet;
-            xDynamicResultSet =
+            uno::Reference< XDynamicResultSet > xDynamicResultSet =
                 xSRSFac->createSortedDynamicResultSet( xDynResultSet, aSortInfo, xCompare );
 
             if ( xDynamicResultSet.is() )
@@ -578,11 +579,11 @@ IMPL_LINK_NOARG( MatchContext_Impl, Select_Impl, void*, void )
     }
 
     // insert all completed strings into the listbox
-    pBox->Clear();
+    pBox->clear();
 
     for (auto const& completion : aCompletions)
     {
-        // convert the file into an URL
+        // convert the file into a URL
         OUString sURL;
         osl::FileBase::getFileURLFromSystemPath(completion, sURL);
             // note: if this doesn't work, we're not interested in: we're checking the
@@ -699,9 +700,7 @@ void MatchContext_Impl::ReadFolder( const OUString& rURL,
 
         try
         {
-            uno::Reference< XDynamicResultSet > xDynResultSet;
-
-            xDynResultSet = aCnt.createDynamicCursor( aProps, INCLUDE_FOLDERS_AND_DOCUMENTS );
+            uno::Reference< XDynamicResultSet > xDynResultSet = aCnt.createDynamicCursor( aProps, INCLUDE_FOLDERS_AND_DOCUMENTS );
 
             uno::Reference < XAnyCompareFactory > xCompare;
             uno::Reference < XSortedDynamicResultSetFactory > xSRSFac =
@@ -714,8 +713,7 @@ void MatchContext_Impl::ReadFolder( const OUString& rURL,
             pInfo[ 1 ].ColumnIndex = 1;
             pInfo[ 1 ].Ascending   = true;
 
-            uno::Reference< XDynamicResultSet > xDynamicResultSet;
-            xDynamicResultSet =
+            uno::Reference< XDynamicResultSet > xDynamicResultSet =
                 xSRSFac->createSortedDynamicResultSet( xDynResultSet, aSortInfo, xCompare );
 
             if ( xDynamicResultSet.is() )
@@ -970,8 +968,8 @@ void SvtMatchContext_Impl::doExecute()
                                 if (proc2.is()) {
                                     try {
                                         proc2->releaseCommandIdentifier(id);
-                                    } catch (css::uno::RuntimeException & e) {
-                                        SAL_WARN("svtools.control", "ignoring " << e);
+                                    } catch (css::uno::RuntimeException &) {
+                                        TOOLS_WARN_EXCEPTION("svtools.control", "ignoring");
                                     }
                                 }
                                 throw;
@@ -994,8 +992,8 @@ void SvtMatchContext_Impl::doExecute()
                             css::uno::Reference< css::sdbc::XRow > row(
                                 res, css::uno::UNO_QUERY_THROW);
                             folder = row->getBoolean(1) && !row->wasNull();
-                        } catch (css::uno::Exception & e) {
-                            SAL_WARN("svtools.control", "ignoring " << e);
+                        } catch (css::uno::Exception &) {
+                            TOOLS_WARN_EXCEPTION("svtools.control", "ignoring");
                             return;
                         }
                     }
@@ -1218,8 +1216,8 @@ void MatchContext_Impl::doExecute()
                                 if (proc2.is()) {
                                     try {
                                         proc2->releaseCommandIdentifier(id);
-                                    } catch (css::uno::RuntimeException & e) {
-                                        SAL_WARN("svtools.control", "ignoring " << e);
+                                    } catch (css::uno::RuntimeException &) {
+                                        TOOLS_WARN_EXCEPTION("svtools.control", "ignoring");
                                     }
                                 }
                                 throw;
@@ -1242,8 +1240,8 @@ void MatchContext_Impl::doExecute()
                             css::uno::Reference< css::sdbc::XRow > row(
                                 res, css::uno::UNO_QUERY_THROW);
                             folder = row->getBoolean(1) && !row->wasNull();
-                        } catch (css::uno::Exception & e) {
-                            SAL_WARN("svtools.control", "ignoring " << e);
+                        } catch (css::uno::Exception &) {
+                            TOOLS_WARN_EXCEPTION("svtools.control", "ignoring");
                             return;
                         }
                     }
@@ -1530,8 +1528,7 @@ void SvtURLBox::UpdatePicklistForSmartProtocol_Impl()
                     bool bFound = aURL.endsWith("/");
                     if ( !bFound )
                     {
-                        OUString aUpperURL( aURL );
-                        aUpperURL = aUpperURL.toAsciiUpperCase();
+                        OUString aUpperURL = aURL.toAsciiUpperCase();
 
                         bFound = ::std::any_of(pImpl->m_aFilters.begin(),
                                                pImpl->m_aFilters.end(),
@@ -1782,7 +1779,7 @@ OUString SvtURLBox::GetURL()
 
             if( success && aTitle != "/" && aTitle != "." )
             {
-                    aObj.SetName( aTitle );
+                    aObj.setName( aTitle );
                     if ( bSlash )
                         aObj.setFinalSlash();
             }
@@ -2021,6 +2018,10 @@ URLBox::URLBox(std::unique_ptr<weld::ComboBox> pWidget)
     , bHistoryDisabled(false)
     , m_xWidget(std::move(pWidget))
 {
+    //don't grow to fix mega-long urls
+    Size aSize(m_xWidget->get_preferred_size());
+    m_xWidget->set_size_request(aSize.Width(), -1);
+
     Init();
 
     m_xWidget->connect_focus_in(LINK(this, URLBox, FocusInHdl));
@@ -2100,8 +2101,7 @@ void URLBox::UpdatePicklistForSmartProtocol_Impl()
                     bool bFound = aURL.endsWith("/");
                     if ( !bFound )
                     {
-                        OUString aUpperURL( aURL );
-                        aUpperURL = aUpperURL.toAsciiUpperCase();
+                        OUString aUpperURL = aURL.toAsciiUpperCase();
 
                         bFound = ::std::any_of(pImpl->m_aFilters.begin(),
                                                pImpl->m_aFilters.end(),
@@ -2145,6 +2145,7 @@ IMPL_LINK_NOARG(URLBox, FocusOutHdl, weld::Widget&, void)
         pCtx->join();
         pCtx.clear();
     }
+    aFocusOutHdl.Call(*m_xWidget);
 }
 
 OUString URLBox::GetURL()
@@ -2213,7 +2214,7 @@ OUString URLBox::GetURL()
 
             if( success && aTitle != "/" && aTitle != "." )
             {
-                    aObj.SetName( aTitle );
+                    aObj.setName( aTitle );
                     if ( bSlash )
                         aObj.setFinalSlash();
             }

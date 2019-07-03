@@ -109,7 +109,7 @@ public:
         @return true if both references are null or refer to the same object, false otherwise
     */
     inline bool SAL_CALL operator == ( XInterface * pInterface ) const;
-    /** Unequality operator: compares two interfaces
+    /** Inequality operator: compares two interfaces
         Checks if both references are null or refer to the same object.
 
         @param pInterface another interface
@@ -124,7 +124,7 @@ public:
         @return true if both references are null or refer to the same object, false otherwise
     */
     inline bool SAL_CALL operator == ( const BaseReference & rRef ) const;
-    /** Unequality operator: compares two interfaces
+    /** Inequality operator: compares two interfaces
         Checks if both references are null or refer to the same object.
 
         @param rRef another reference
@@ -370,6 +370,12 @@ public:
                      to other constructors
     */
     inline Reference( const BaseReference & rRef, UnoReference_QueryThrow dummy );
+#ifdef LIBO_INTERNAL_ONLY
+    /**
+        Prevent code from calling the QUERY_THROW constructor, when they meant to use the SET_THROW constructor.
+    */
+    Reference( const Reference< interface_type > & rRef, UnoReference_QueryThrow dummy ) = delete;
+#endif
     /** Constructor: Queries given interface for reference interface type (interface_type).
         Throws a RuntimeException if the demanded interface cannot be queried.
 
@@ -520,6 +526,12 @@ public:
                to set methods
     */
     inline void SAL_CALL set( const BaseReference & rRef, UnoReference_QueryThrow dummy );
+#ifdef LIBO_INTERNAL_ONLY
+    /**
+        Prevent code from calling the QUERY_THROW version, when they meant to use the SET_THROW version.
+    */
+    void set( const Reference< interface_type > & rRef, UnoReference_QueryThrow dummy ) = delete;
+#endif
 
     /** Queries given any for reference interface type (interface_type) and
         sets it.  An interface already set will be released.

@@ -21,6 +21,7 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/module.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <svx/dialmgr.hxx>
 #include <svx/strings.hrc>
 
@@ -35,6 +36,7 @@
 #include <svx/dlgutil.hxx>
 #include <dialmgr.hxx>
 #include <sfx2/htmlmode.hxx>
+#include <vcl/event.hxx>
 #include <vcl/settings.hxx>
 #include <svx/flagsdef.hxx>
 #include <sfx2/request.hxx>
@@ -44,6 +46,8 @@
 #include <svl/int64item.hxx>
 #include <sal/macros.h>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <comphelper/lok.hxx>
+#include <svtools/unitconv.hxx>
 
 using namespace ::editeng;
 using ::com::sun::star::uno::Reference;
@@ -157,9 +161,18 @@ void ShadowControlsWrapper::SetControlValue(const SvxShadowItem& rItem)
             mrVsPos.SetNoSelection();
             break;
     }
+    mrVsPos.SaveValue();
     mrMfSize.set_value(mrMfSize.normalize(rItem.GetWidth()), FieldUnit::TWIP);
-    mrLbColor.SelectEntry(rItem.GetColor());
     mrMfSize.save_value();
+    mrLbColor.SelectEntry(rItem.GetColor());
+    mrLbColor.SaveValue();
+}
+
+bool ShadowControlsWrapper::get_value_changed_from_saved() const
+{
+    return mrVsPos.IsValueChangedFromSaved() ||
+           mrMfSize.get_value_changed_from_saved() ||
+           mrLbColor.IsValueChangedFromSaved();
 }
 
 void ShadowControlsWrapper::SetControlDontKnow()
@@ -269,45 +282,82 @@ SvxBorderTabPage::SvxBorderTabPage(TabPageParent pParent, const SfxItemSet& rCor
     , m_xRemoveAdjcentCellBordersCB(m_xBuilder->weld_check_button("rmadjcellborders"))
     , m_xRemoveAdjcentCellBordersFT(m_xBuilder->weld_label("rmadjcellbordersft"))
 {
-    static const OUStringLiteral pnBorderImgIds[] =
+    static std::vector<OUStringLiteral> aBorderImageIds;
+
+    if (aBorderImageIds.empty())
     {
-        RID_SVXBMP_CELL_NONE,
-        RID_SVXBMP_CELL_ALL,
-        RID_SVXBMP_CELL_LR,
-        RID_SVXBMP_CELL_TB,
-        RID_SVXBMP_CELL_L,
-        RID_SVXBMP_CELL_DIAG,
-        RID_SVXBMP_HOR_NONE,
-        RID_SVXBMP_HOR_OUTER,
-        RID_SVXBMP_HOR_HOR,
-        RID_SVXBMP_HOR_ALL,
-        RID_SVXBMP_HOR_OUTER2,
-        RID_SVXBMP_VER_NONE,
-        RID_SVXBMP_VER_OUTER,
-        RID_SVXBMP_VER_VER,
-        RID_SVXBMP_VER_ALL,
-        RID_SVXBMP_VER_OUTER2,
-        RID_SVXBMP_TABLE_NONE,
-        RID_SVXBMP_TABLE_OUTER,
-        RID_SVXBMP_TABLE_OUTERH,
-        RID_SVXBMP_TABLE_ALL,
-        RID_SVXBMP_TABLE_OUTER2
-    };
+        if (comphelper::LibreOfficeKit::isActive())
+        {
+            aBorderImageIds.insert(aBorderImageIds.end(), {
+                RID_SVXBMP_CELL_NONE_32,
+                RID_SVXBMP_CELL_ALL_32,
+                RID_SVXBMP_CELL_LR_32,
+                RID_SVXBMP_CELL_TB_32,
+                RID_SVXBMP_CELL_L_32,
+                RID_SVXBMP_CELL_DIAG_32
+            });
+        }
+        else
+        {
+            aBorderImageIds.insert(aBorderImageIds.end(), {
+                RID_SVXBMP_CELL_NONE,
+                RID_SVXBMP_CELL_ALL,
+                RID_SVXBMP_CELL_LR,
+                RID_SVXBMP_CELL_TB,
+                RID_SVXBMP_CELL_L,
+                RID_SVXBMP_CELL_DIAG
+            });
+        }
+        aBorderImageIds.insert(aBorderImageIds.end(), {
+            RID_SVXBMP_HOR_NONE,
+            RID_SVXBMP_HOR_OUTER,
+            RID_SVXBMP_HOR_HOR,
+            RID_SVXBMP_HOR_ALL,
+            RID_SVXBMP_HOR_OUTER2,
+            RID_SVXBMP_VER_NONE,
+            RID_SVXBMP_VER_OUTER,
+            RID_SVXBMP_VER_VER,
+            RID_SVXBMP_VER_ALL,
+            RID_SVXBMP_VER_OUTER2,
+            RID_SVXBMP_TABLE_NONE,
+            RID_SVXBMP_TABLE_OUTER,
+            RID_SVXBMP_TABLE_OUTERH,
+            RID_SVXBMP_TABLE_ALL,
+            RID_SVXBMP_TABLE_OUTER2
+        });
+    }
 
-    for (size_t i = 0; i < SAL_N_ELEMENTS(pnBorderImgIds); ++i)
-        m_aBorderImgVec.emplace_back(StockImage::Yes, pnBorderImgIds[i]);
+    for (auto const & rImageId : aBorderImageIds)
+        m_aBorderImgVec.emplace_back(StockImage::Yes, rImageId);
 
-    static const OUStringLiteral pnShadowImgIds[SVX_BORDER_SHADOW_COUNT] =
+    static std::vector<OUStringLiteral> aShadowImageIds;
+    if (aShadowImageIds.empty())
     {
-        RID_SVXBMP_SHADOWNONE,
-        RID_SVXBMP_SHADOW_BOT_RIGHT,
-        RID_SVXBMP_SHADOW_TOP_RIGHT,
-        RID_SVXBMP_SHADOW_BOT_LEFT,
-        RID_SVXBMP_SHADOW_TOP_LEFT
-    };
+        if (comphelper::LibreOfficeKit::isActive())
+        {
+            aShadowImageIds.insert(aShadowImageIds.end(), {
+                RID_SVXBMP_SHADOWNONE_32,
+                RID_SVXBMP_SHADOW_BOT_RIGHT_32,
+                RID_SVXBMP_SHADOW_TOP_RIGHT_32,
+                RID_SVXBMP_SHADOW_BOT_LEFT_32,
+                RID_SVXBMP_SHADOW_TOP_LEFT_32
+            });
+        }
+        else
+        {
+            aShadowImageIds.insert(aShadowImageIds.end(), {
+                RID_SVXBMP_SHADOWNONE,
+                RID_SVXBMP_SHADOW_BOT_RIGHT,
+                RID_SVXBMP_SHADOW_TOP_RIGHT,
+                RID_SVXBMP_SHADOW_BOT_LEFT,
+                RID_SVXBMP_SHADOW_TOP_LEFT
+            });
+        }
+    }
 
-    for (size_t i = 0; i < SAL_N_ELEMENTS(pnShadowImgIds); ++i)
-        m_aShadowImgVec.emplace_back(StockImage::Yes, pnShadowImgIds[i]);
+    for (auto const & rImageId : aShadowImageIds)
+        m_aShadowImgVec.emplace_back(StockImage::Yes, rImageId);
+
     assert(m_aShadowImgVec.size() == SVX_BORDER_SHADOW_COUNT);
 
     // this page needs ExchangeSupport
@@ -540,15 +590,19 @@ void SvxBorderTabPage::Reset( const SfxItemSet* rSet )
     if (m_aFrameSel.IsBorderEnabled(svx::FrameBorderType::TLBR))
     {
         sal_uInt16 nBorderDiagId = pPool->GetWhich(SID_ATTR_BORDER_DIAG_TLBR);
-        const SvxLineItem& rLineItem(*static_cast<const SvxLineItem*>(rSet->GetItem(nBorderDiagId)));
-        m_aFrameSel.ShowBorder(svx::FrameBorderType::TLBR, rLineItem.GetLine());
+        if (const SvxLineItem* pLineItem = static_cast<const SvxLineItem*>(rSet->GetItem(nBorderDiagId)))
+            m_aFrameSel.ShowBorder(svx::FrameBorderType::TLBR, pLineItem->GetLine());
+        else
+            m_aFrameSel.SetBorderDontCare(svx::FrameBorderType::TLBR);
     }
 
     if (m_aFrameSel.IsBorderEnabled(svx::FrameBorderType::BLTR))
     {
         sal_uInt16 nBorderDiagId = pPool->GetWhich(SID_ATTR_BORDER_DIAG_BLTR);
-        const SvxLineItem& rLineItem(*static_cast<const SvxLineItem*>(rSet->GetItem(nBorderDiagId)));
-        m_aFrameSel.ShowBorder(svx::FrameBorderType::BLTR, rLineItem.GetLine());
+        if (const SvxLineItem* pLineItem = static_cast<const SvxLineItem*>(rSet->GetItem(nBorderDiagId)))
+            m_aFrameSel.ShowBorder(svx::FrameBorderType::BLTR, pLineItem->GetLine());
+        else
+            m_aFrameSel.SetBorderDontCare(svx::FrameBorderType::BLTR);
     }
 
     if (m_xShadowControls)
@@ -820,16 +874,12 @@ bool SvxBorderTabPage::FillItemSet( SfxItemSet* rCoreAttrs )
         bAttrsChanged = true;
     }
 
-    if (m_xShadowControls)
+    if (m_xShadowControls && m_xShadowControls->get_value_changed_from_saved())
     {
         sal_uInt16 nShadowId = pPool->GetWhich(mnShadowSlot);
         const SvxShadowItem& rOldShadowItem = *static_cast<const SvxShadowItem*>(rCoreAttrs->GetItem(nShadowId));
-        SvxShadowItem aNewShadowItem = m_xShadowControls->GetControlValue(rOldShadowItem);
-        if (aNewShadowItem != rOldShadowItem)
-        {
-            rCoreAttrs->Put(aNewShadowItem);
-            bAttrsChanged = true;
-        }
+        rCoreAttrs->Put(m_xShadowControls->GetControlValue(rOldShadowItem));
+        bAttrsChanged = true;
     }
 
     if (m_xMarginControls && m_xMarginControls->get_value_changed_from_saved())
@@ -850,7 +900,7 @@ bool SvxBorderTabPage::FillItemSet( SfxItemSet* rCoreAttrs )
         {
             std::unique_ptr<SfxBoolItem> xNewItem(static_cast<SfxBoolItem*>(rCoreAttrs->Get(nMergeAdjacentBordersId).Clone()));
             xNewItem->SetValue(static_cast<bool>(nState));
-            rCoreAttrs->Put(*xNewItem);
+            rCoreAttrs->Put(std::move(xNewItem));
         }
         bAttrsChanged = true;
     }
@@ -865,7 +915,7 @@ bool SvxBorderTabPage::FillItemSet( SfxItemSet* rCoreAttrs )
         {
             std::unique_ptr<SfxBoolItem> xNewItem(static_cast<SfxBoolItem*>(rCoreAttrs->Get(nMergeWithNextId).Clone()));
             xNewItem->SetValue(static_cast<bool>(nState));
-            rCoreAttrs->Put(*xNewItem);
+            rCoreAttrs->Put(std::move(xNewItem));
         }
         bAttrsChanged = true;
     }
@@ -1272,9 +1322,9 @@ void SvxBorderTabPage::FillLineListBox_Impl()
     static struct {
         SvxBorderLineStyle mnStyle;
         long mnMinWidth;
-        LineListBox::ColorFunc mpColor1Fn;
-        LineListBox::ColorFunc mpColor2Fn;
-        LineListBox::ColorDistFunc mpColorDistFn;
+        SvtLineListBox::ColorFunc mpColor1Fn;
+        SvtLineListBox::ColorFunc mpColor2Fn;
+        SvtLineListBox::ColorDistFunc mpColorDistFn;
     } const aLines[] = {
         // Simple lines
         { SvxBorderLineStyle::SOLID,        0, &sameColor, &sameColor, &sameDistColor },

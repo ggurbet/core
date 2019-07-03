@@ -90,7 +90,7 @@ ORowSetCache::ORowSetCache(const Reference< XResultSet >& _xRs,
                            const OUString& i_sRowSetFilter,
                            sal_Int32 i_nMaxRows)
     :m_xSet(_xRs)
-    ,m_xMetaData(Reference< XResultSetMetaDataSupplier >(_xRs,UNO_QUERY)->getMetaData())
+    ,m_xMetaData(Reference< XResultSetMetaDataSupplier >(_xRs,UNO_QUERY_THROW)->getMetaData())
     ,m_aContext( _rContext )
     ,m_nFetchSize(0)
     ,m_nRowCount(0)
@@ -135,9 +135,9 @@ ORowSetCache::ORowSetCache(const Reference< XResultSet >& _xRs,
                             ::comphelper::getINT32(xProp->getPropertyValue(PROPERTY_RESULTSETTYPE)) != ResultSetType::FORWARD_ONLY)
             _xRs->beforeFirst();
     }
-    catch(const SQLException& e)
+    catch(const SQLException&)
     {
-        SAL_WARN("dbaccess.core", "ORowSetCache: " << e);
+        TOOLS_WARN_EXCEPTION("dbaccess.core", "ORowSetCache");
     }
 
     // check if all keys of the updateable table are fetched
@@ -181,9 +181,9 @@ ORowSetCache::ORowSetCache(const Reference< XResultSet >& _xRs,
                     m_aKeyColumns = pCursor->getJoinedKeyColumns();
                     return;
                 }
-                catch (const Exception& e)
+                catch (const Exception&)
                 {
-                    SAL_WARN("dbaccess.core", "ORowSetCache: " << e);
+                    TOOLS_WARN_EXCEPTION("dbaccess.core", "ORowSetCache");
                 }
                 m_xCacheSet.clear();
             }
@@ -191,7 +191,7 @@ ORowSetCache::ORowSetCache(const Reference< XResultSet >& _xRs,
             {
                 if(!_rUpdateTableName.isEmpty() && xTables->hasByName(_rUpdateTableName))
                     xTables->getByName(_rUpdateTableName) >>= m_aUpdateTable;
-                else if(xTables->getElementNames().getLength())
+                else if(xTables->getElementNames().hasElements())
                 {
                     aUpdateTableName = xTables->getElementNames()[0];
                     xTables->getByName(aUpdateTableName) >>= m_aUpdateTable;
@@ -221,9 +221,9 @@ ORowSetCache::ORowSetCache(const Reference< XResultSet >& _xRs,
                 }
             }
         }
-        catch (Exception const& e)
+        catch (Exception const&)
         {
-            SAL_WARN("dbaccess.core", "ORowSetCache: " << e);
+            TOOLS_WARN_EXCEPTION("dbaccess.core", "ORowSetCache");
         }
     }
 
@@ -249,9 +249,9 @@ ORowSetCache::ORowSetCache(const Reference< XResultSet >& _xRs,
                 }
             }
         }
-        catch (const SQLException& e)
+        catch (const SQLException&)
         {
-            SAL_WARN("dbaccess.core", "ORowSetCache: " << e);
+            TOOLS_WARN_EXCEPTION("dbaccess.core", "ORowSetCache");
             bNeedKeySet = true;
         }
 
@@ -328,9 +328,9 @@ ORowSetCache::ORowSetCache(const Reference< XResultSet >& _xRs,
                 if(bNoInsert)
                     m_nPrivileges |= ~Privilege::INSERT; // remove the insert privilege
             }
-            catch (const SQLException& e)
+            catch (const SQLException&)
             {
-                SAL_WARN("dbaccess.core", "ORowSetCache: " << e);
+                TOOLS_WARN_EXCEPTION("dbaccess.core", "ORowSetCache");
                 // we couldn't create a keyset here so we have to create a static cache
                 m_xCacheSet = new OStaticSet(i_nMaxRows);
                 m_xCacheSet->construct(_xRs,i_sRowSetFilter);
@@ -1136,7 +1136,7 @@ bool ORowSetCache::absolute( sal_Int32 row )
     if(row < 0)
     {
         // here we have to scroll from the last row to backward so we have to go to last row and
-        // and two the previous
+        // and to the previous
         if(m_bRowCountFinal || last())
         {
             m_nPosition = m_nRowCount + row + 1; // + row because row is negative and +1 because row==-1 means last row
@@ -1693,7 +1693,7 @@ bool ORowSetCache::isResultSetChanged() const
 void ORowSetCache::reset(const Reference< XResultSet>& _xDriverSet)
 {
     m_xSet = _xDriverSet;
-    m_xMetaData.set(Reference< XResultSetMetaDataSupplier >(_xDriverSet,UNO_QUERY)->getMetaData());
+    m_xMetaData.set(Reference< XResultSetMetaDataSupplier >(_xDriverSet,UNO_QUERY_THROW)->getMetaData());
     m_xCacheSet->reset(_xDriverSet);
 
     m_bRowCountFinal = false;

@@ -20,20 +20,15 @@
 #include <memory>
 #include <QtGui/QColor>
 #include <QtWidgets/QStyle>
-#include <QtCore/QDebug>
 #include <QtWidgets/QToolTip>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMenuBar>
-#include <QtX11Extras/QX11Info>
 
 #include <KConfig>
 #include <KConfigGroup>
 #include <KSharedConfig>
 
-#undef Region
-
 #include "KDE5SalFrame.hxx"
-#include "KDE5SalGraphics.hxx"
 
 #include <tools/color.hxx>
 
@@ -194,7 +189,7 @@ void KDE5SalFrame::UpdateSettings(AllSettings& rSettings)
     style.SetCursorBlinkTime(flash_time != 0 ? flash_time / 2 : STYLE_CURSOR_NOBLINKTIME);
 
     // Menu
-    std::unique_ptr<QMenuBar> pMenuBar = std::unique_ptr<QMenuBar>(new QMenuBar());
+    std::unique_ptr<QMenuBar> pMenuBar = std::make_unique<QMenuBar>();
     aFont = toFont(pMenuBar->font(), rSettings.GetUILanguageTag().getLocale());
     style.SetMenuFont(aFont);
 
@@ -210,8 +205,8 @@ SalGraphics* KDE5SalFrame::AcquireGraphics()
 
     if (!m_pKDE5Graphics.get())
     {
-        m_pKDE5Graphics.reset(new KDE5SalGraphics(this));
-        Qt5Frame::InitSvpSalGraphics(m_pKDE5Graphics.get());
+        m_pKDE5Graphics.reset(new Qt5SvpGraphics(this));
+        Qt5Frame::InitQt5SvpGraphics(m_pKDE5Graphics.get());
     }
 
     return m_pKDE5Graphics.get();
@@ -222,21 +217,6 @@ void KDE5SalFrame::ReleaseGraphics(SalGraphics* pSalGraph)
     (void)pSalGraph;
     assert(pSalGraph == m_pKDE5Graphics.get());
     m_bGraphicsInUse = false;
-}
-
-void KDE5SalFrame::StartPresentation(bool bStart)
-{
-    // disable screensaver for running preso
-    boost::optional<unsigned int> aWindow;
-    boost::optional<Display*> aDisplay;
-    if (QX11Info::isPlatformX11())
-    {
-        aWindow = QX11Info::appRootWindow();
-        aDisplay = QX11Info::display();
-    }
-
-    m_ScreenSaverInhibitor.inhibit(bStart, "presentation", QX11Info::isPlatformX11(), aWindow,
-                                   aDisplay);
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

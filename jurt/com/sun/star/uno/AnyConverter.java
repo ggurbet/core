@@ -215,7 +215,7 @@ public class AnyConverter
     }
 
     /**
-     * Converts an Char object or an Any object containing a Char object into a
+     * Converts a Char object or an Any object containing a Char object into a
      * simple char.
      *
      * @param object the object to convert.
@@ -231,7 +231,7 @@ public class AnyConverter
     }
 
     /**
-     * Converts an Boolean object or an Any object containing a Boolean object
+     * Converts a Boolean object or an Any object containing a Boolean object
      * into a simple boolean.
      *
      * @param object the object to convert.
@@ -247,7 +247,7 @@ public class AnyConverter
     }
 
     /**
-     * Converts an Byte object or an Any object containing a Byte object into a
+     * Converts a Byte object or an Any object containing a Byte object into a
      * simple byte.
      *
      * @param object the object to convert.
@@ -430,7 +430,7 @@ public class AnyConverter
 
     /**
      * Converts a UNO object (struct, exception, sequence, enum or interface) or
-     * an Any containing these types into an UNO object of a specified destination
+     * an Any containing these types into a UNO object of a specified destination
      * type.
      *
      * <p> For interfaces, the argument <em>object</em> is queried for the interface
@@ -453,7 +453,7 @@ public class AnyConverter
     }
     /**
      * Converts a UNO object (struct, exception, sequence, enum or interface) or
-     * an Any containing these types into an UNO object of a specified destination
+     * an Any containing these types into a UNO object of a specified destination
      * type.
      *
      * <p>For interfaces, the argument <em>object</em> is queried for the interface

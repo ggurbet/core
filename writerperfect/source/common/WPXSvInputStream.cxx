@@ -10,6 +10,7 @@
 #include <WPXSvInputStream.hxx>
 
 #include <com/sun/star/packages/zip/XZipFileAccess2.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <comphelper/seekableinput.hxx>
@@ -366,12 +367,12 @@ void ZipStorageImpl::traverse(const Reference<container::XNameAccess>& rxContain
 
     maStreams.reserve(lNames.getLength());
 
-    for (sal_Int32 n = 0; n < lNames.getLength(); ++n)
+    for (const auto& rName : lNames)
     {
-        if (!lNames[n].endsWith("/")) // skip dirs
+        if (!rName.endsWith("/")) // skip dirs
         {
-            maStreams.emplace_back(OUStringToOString(lNames[n], RTL_TEXTENCODING_UTF8));
-            maNameMap[lNames[n]] = maStreams.size() - 1;
+            maStreams.emplace_back(OUStringToOString(rName, RTL_TEXTENCODING_UTF8));
+            maNameMap[rName] = maStreams.size() - 1;
         }
     }
 }
@@ -777,7 +778,7 @@ bool WPXSvInputStreamImpl::isZip()
             aArgs[0] <<= mxStream;
 
             const Reference<XComponentContext> xContext(comphelper::getProcessComponentContext(),
-                                                        UNO_QUERY_THROW);
+                                                        UNO_SET_THROW);
             const Reference<packages::zip::XZipFileAccess2> xZip(
                 xContext->getServiceManager()->createInstanceWithArgumentsAndContext(
                     "com.sun.star.packages.zip.ZipFileAccess", aArgs, xContext),

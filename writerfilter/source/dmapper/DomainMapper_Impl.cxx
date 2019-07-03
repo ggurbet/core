@@ -58,6 +58,7 @@
 #include <com/sun/star/text/XRedline.hpp>
 #include <com/sun/star/text/XTextFieldsSupplier.hpp>
 #include <com/sun/star/text/RubyPosition.hpp>
+#include <com/sun/star/text/XTextRangeCompare.hpp>
 #include <com/sun/star/style/DropCapFormat.hpp>
 #include <com/sun/star/util/NumberFormatter.hpp>
 #include <com/sun/star/util/XNumberFormatsSupplier.hpp>
@@ -136,7 +137,7 @@ static void lcl_handleDropdownField( const uno::Reference< beans::XPropertySet >
         const FFDataHandler::DropDownEntries_t& rEntries = pFFDataHandler->getDropDownEntries();
         uno::Sequence< OUString > sItems( rEntries.size() );
         ::std::copy( rEntries.begin(), rEntries.end(), sItems.begin());
-        if ( sItems.getLength() )
+        if ( sItems.hasElements() )
             rxFieldProps->setPropertyValue( "Items", uno::makeAny( sItems ) );
 
         sal_Int32 nResult = pFFDataHandler->getDropDownResult().toInt32();
@@ -516,7 +517,7 @@ void DomainMapper_Impl::SetSdt(bool bSdt)
 {
     m_bSdt = bSdt;
 
-    if (m_bSdt)
+    if (m_bSdt && !m_aTextAppendStack.empty())
     {
         m_xStdEntryStart = GetTopTextAppend()->getEnd();
     }
@@ -633,9 +634,9 @@ FieldContextPtr const &  DomainMapper_Impl::GetTopFieldContext()
 void DomainMapper_Impl::InitTabStopFromStyle( const uno::Sequence< style::TabStop >& rInitTabStops )
 {
     OSL_ENSURE(m_aCurrentTabStops.empty(), "tab stops already initialized");
-    for( sal_Int32 nTab = 0; nTab < rInitTabStops.getLength(); ++nTab)
+    for( const auto& rTabStop : rInitTabStops)
     {
-        m_aCurrentTabStops.emplace_back(rInitTabStops[nTab] );
+        m_aCurrentTabStops.emplace_back(rTabStop);
     }
 }
 
@@ -1178,7 +1179,7 @@ void DomainMapper_Impl::finishParagraph( const PropertyMapPtr& pPropertyMap, con
 {
     if (m_bDiscardHeaderFooter)
         return;
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("finishParagraph");
 #endif
 
@@ -1188,7 +1189,7 @@ void DomainMapper_Impl::finishParagraph( const PropertyMapPtr& pPropertyMap, con
         return;
     TextAppendContext& rAppendContext = m_aTextAppendStack.top();
     uno::Reference< text::XTextAppend > xTextAppend(rAppendContext.xTextAppend);
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().attribute("isTextAppend", sal_uInt32(xTextAppend.is()));
 #endif
 
@@ -1564,9 +1565,9 @@ void DomainMapper_Impl::finishParagraph( const PropertyMapPtr& pPropertyMap, con
         {
             OSL_FAIL( "IllegalArgumentException in DomainMapper_Impl::finishParagraph" );
         }
-        catch(const uno::Exception& e)
+        catch(const uno::Exception&)
         {
-            SAL_WARN( "writerfilter.dmapper", "finishParagraph() " << e );
+            TOOLS_WARN_EXCEPTION( "writerfilter.dmapper", "finishParagraph()" );
         }
 
     }
@@ -1602,7 +1603,7 @@ void DomainMapper_Impl::finishParagraph( const PropertyMapPtr& pPropertyMap, con
 
     m_bParaAutoBefore = false;
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endElement();
 #endif
 
@@ -1626,13 +1627,12 @@ void DomainMapper_Impl::appendTextPortion( const OUString& rString, const Proper
         {
             // If we are in comments, then disable CharGrabBag, comment text doesn't support that.
             uno::Sequence< beans::PropertyValue > aValues = pPropertyMap->GetPropertyValues(/*bCharGrabBag=*/!m_bIsInComments);
-            sal_Int32 len = aValues.getLength();
 
             if (m_bStartTOC || m_bStartIndex || m_bStartBibliography)
-                for( int i =0; i < len; ++i )
+                for( auto& rValue : aValues )
                 {
-                    if (aValues[i].Name == "CharHidden")
-                        aValues[i].Value <<= false;
+                    if (rValue.Name == "CharHidden")
+                        rValue.Value <<= false;
                 }
 
             uno::Reference< text::XTextRange > xTextRange;
@@ -1652,8 +1652,7 @@ void DomainMapper_Impl::appendTextPortion( const OUString& rString, const Proper
                     else
                     {
                         m_bStartedTOC = true;
-                        uno::Reference< text::XTextCursor > xTOCTextCursor;
-                        xTOCTextCursor = xTextAppend->getEnd()->getText( )->createTextCursor( );
+                        uno::Reference< text::XTextCursor > xTOCTextCursor = xTextAppend->getEnd()->getText( )->createTextCursor( );
                         xTOCTextCursor->gotoEnd(false);
                         if (xTOCTextCursor.is())
                         {
@@ -1691,6 +1690,11 @@ void DomainMapper_Impl::appendTextPortion( const OUString& rString, const Proper
                 }
             }
 
+            // reset moveFrom data of non-terminating runs of the paragraph
+            if ( m_pParaMarkerRedlineMoveFrom.get( ) )
+            {
+                m_pParaMarkerRedlineMoveFrom.clear();
+            }
             CheckRedline( xTextRange );
             m_bParaChanged = true;
 
@@ -2035,8 +2039,11 @@ void DomainMapper_Impl::PushFootOrEndnote( bool bIsFootnote )
         m_aTextAppendStack.push(TextAppendContext(uno::Reference< text::XTextAppend >( xFootnoteText, uno::UNO_QUERY_THROW ),
                     xFootnoteText->createTextCursorByRange(xFootnoteText->getStart())));
 
-        // Redlines for the footnote anchor
+        // Redlines for the footnote anchor in the main text content
+        std::vector< RedlineParamsPtr > aFootnoteRedline = m_aRedlines.top();
+        m_aRedlines.pop();
         CheckRedline( xFootnote->getAnchor( ) );
+        m_aRedlines.push( aFootnoteRedline );
 
     }
     catch( const uno::Exception& )
@@ -2064,6 +2071,8 @@ void DomainMapper_Impl::CreateRedline(uno::Reference<text::XTextRange> const& xR
                 sType = getPropertyName( PROP_INSERT );
                 break;
             case XML_moveFrom:
+                m_pParaMarkerRedlineMoveFrom = pRedline.get();
+                [[fallthrough]];
             case XML_del:
                 sType = getPropertyName( PROP_DELETE );
                 break;
@@ -2101,6 +2110,16 @@ void DomainMapper_Impl::CheckParaMarkerRedline( uno::Reference< text::XTextRange
             m_pParaMarkerRedline.clear();
             m_currentRedline.clear();
         }
+    }
+    else if ( m_pParaMarkerRedlineMoveFrom.get( ) )
+    {
+        // terminating moveFrom redline removes also the paragraph mark
+        m_pParaMarkerRedlineMoveFrom->m_nToken = XML_del;
+        CreateRedline( xRange, m_pParaMarkerRedlineMoveFrom );
+    }
+    if ( m_pParaMarkerRedlineMoveFrom.get( ) )
+    {
+        m_pParaMarkerRedlineMoveFrom.clear();
     }
 }
 
@@ -2215,19 +2234,36 @@ void DomainMapper_Impl::PopAnnotation()
             // Create a range that points to the annotation start/end.
             uno::Reference<text::XText> const xText = aAnnotationPosition.m_xStart->getText();
             uno::Reference<text::XTextCursor> const xCursor = xText->createTextCursorByRange(aAnnotationPosition.m_xStart);
+
+            bool bMarker = false;
+            uno::Reference<text::XTextRangeCompare> xTextRangeCompare(xText, uno::UNO_QUERY);
+            if (xTextRangeCompare->compareRegionStarts(aAnnotationPosition.m_xStart, aAnnotationPosition.m_xEnd) == 0)
+            {
+                // Insert a marker so that comment around an anchored image is not collapsed during
+                // insertion.
+                xText->insertString(xCursor, "x", false);
+                bMarker = true;
+            }
+
             xCursor->gotoRange(aAnnotationPosition.m_xEnd, true);
             uno::Reference<text::XTextRange> const xTextRange(xCursor, uno::UNO_QUERY_THROW);
 
             // Attach the annotation to the range.
             uno::Reference<text::XTextAppend> const xTextAppend = m_aTextAppendStack.top().xTextAppend;
             xTextAppend->insertTextContent(xTextRange, uno::Reference<text::XTextContent>(m_xAnnotationField, uno::UNO_QUERY_THROW), !xCursor->isCollapsed());
+
+            if (bMarker)
+            {
+                // Remove the marker.
+                xCursor->goLeft(1, true);
+                xCursor->setString(OUString());
+            }
         }
         m_aAnnotationPositions.erase( m_nAnnotationId );
     }
-    catch (uno::Exception const& e)
+    catch (uno::Exception const&)
     {
-        SAL_WARN("writerfilter.dmapper",
-                "Cannot insert annotation field: " << e);
+        TOOLS_WARN_EXCEPTION("writerfilter.dmapper", "Cannot insert annotation field");
     }
 
     m_xAnnotationField.clear();
@@ -2304,7 +2340,7 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
             m_aAnchoredStack.push( AnchoredContext(xTxtContent) );
 
             uno::Reference< beans::XPropertySet > xProps( xShape, uno::UNO_QUERY_THROW );
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
             TagLogger::getInstance().unoPropertySet(xProps);
 #endif
             text::TextContentAnchorType nAnchorType(text::TextContentAnchorType_AT_PARAGRAPH);
@@ -2320,18 +2356,18 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
                 xShapePropertySet->getPropertyValue("FrameInteropGrabBag") >>= aGrabBag;
                 bool checkBtLrStatus = false;
 
-                for (int i = 0; i < aGrabBag.getLength(); ++i)
+                for (const auto& rProp : aGrabBag)
                 {
-                    if (aGrabBag[i].Name == "mso-layout-flow-alt")
+                    if (rProp.Name == "mso-layout-flow-alt")
                     {
-                        m_bFrameBtLr = aGrabBag[i].Value.get<OUString>() == "bottom-to-top";
+                        m_bFrameBtLr = rProp.Value.get<OUString>() == "bottom-to-top";
                         checkBtLrStatus = true;
                     }
-                    if (aGrabBag[i].Name == "VML-Z-ORDER")
+                    if (rProp.Name == "VML-Z-ORDER")
                     {
                         GraphicZOrderHelper* pZOrderHelper = m_rDMapper.graphicZOrderHelper();
                         sal_Int32 zOrder(0);
-                        aGrabBag[i].Value >>= zOrder;
+                        rProp.Value >>= zOrder;
                         xShapePropertySet->setPropertyValue( "ZOrder", uno::makeAny(pZOrderHelper->findZOrder(zOrder)));
                         pZOrderHelper->addItem(xShapePropertySet, zOrder);
                         xShapePropertySet->setPropertyValue(getPropertyName( PROP_OPAQUE ), uno::makeAny( zOrder >= 0 ) );
@@ -2340,7 +2376,7 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
                     if(checkBtLrStatus && checkZOrderStatus)
                         break;
 
-                    if ( aGrabBag[i].Name == "TxbxHasLink" )
+                    if ( rProp.Name == "TxbxHasLink" )
                     {
                         //Chaining of textboxes will happen in ~DomainMapper_Impl
                         //i.e when all the textboxes are read and all its attributes
@@ -2372,19 +2408,19 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
                 uno::Reference<beans::XPropertySet> xShapePropertySet(xShape, uno::UNO_QUERY);
                 uno::Sequence<beans::PropertyValue> aGrabBag;
                 xShapePropertySet->getPropertyValue("InteropGrabBag") >>= aGrabBag;
-                for (int i = 0; i < aGrabBag.getLength(); ++i)
+                for (const auto& rProp : aGrabBag)
                 {
-                    if (aGrabBag[i].Name == "VML-Z-ORDER")
+                    if (rProp.Name == "VML-Z-ORDER")
                     {
                         GraphicZOrderHelper* pZOrderHelper = m_rDMapper.graphicZOrderHelper();
                         sal_Int32 zOrder(0);
-                        aGrabBag[i].Value >>= zOrder;
+                        rProp.Value >>= zOrder;
                         xShapePropertySet->setPropertyValue( "ZOrder", uno::makeAny(pZOrderHelper->findZOrder(zOrder)));
                         pZOrderHelper->addItem(xShapePropertySet, zOrder);
                         xShapePropertySet->setPropertyValue(getPropertyName( PROP_OPAQUE ), uno::makeAny( zOrder >= 0 ) );
                         checkZOrderStatus = true;
                     }
-                    else if ( aGrabBag[i].Name == "TxbxHasLink" )
+                    else if ( rProp.Name == "TxbxHasLink" )
                     {
                         //Chaining of textboxes will happen in ~DomainMapper_Impl
                         //i.e when all the textboxes are read and all its attributes
@@ -2418,9 +2454,9 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
         m_bParaChanged = true;
         getTableManager().setIsInShape(true);
     }
-    catch ( const uno::Exception& e )
+    catch ( const uno::Exception& )
     {
-        SAL_WARN("writerfilter.dmapper", "Exception when adding shape: " << e);
+        TOOLS_WARN_EXCEPTION("writerfilter.dmapper", "Exception when adding shape");
     }
 }
 /*
@@ -2508,17 +2544,17 @@ bool DomainMapper_Impl::IsSdtEndBefore()
     if(pContext)
     {
         uno::Sequence< beans::PropertyValue > currentCharProps = pContext->GetPropertyValues();
-        for (int i =0; i< currentCharProps.getLength(); i++)
+        for (const auto& rCurrentCharProp : currentCharProps)
         {
-            if (currentCharProps[i].Name == "CharInteropGrabBag")
+            if (rCurrentCharProp.Name == "CharInteropGrabBag")
             {
                 uno::Sequence<beans::PropertyValue> aCharGrabBag;
-                currentCharProps[i].Value >>= aCharGrabBag;
-                for (int j=0; j < aCharGrabBag.getLength();j++)
+                rCurrentCharProp.Value >>= aCharGrabBag;
+                for (const auto& rProp : aCharGrabBag)
                 {
-                    if(aCharGrabBag[j].Name == "SdtEndBefore")
+                    if(rProp.Name == "SdtEndBefore")
                     {
-                        aCharGrabBag[j].Value >>= bIsSdtEndBefore;
+                        rProp.Value >>= bIsSdtEndBefore;
                     }
                 }
             }
@@ -2916,11 +2952,10 @@ void DomainMapper_Impl::SetNumberFormat( const OUString& rCommand,
 
 static uno::Any lcl_getGrabBagValue( const uno::Sequence<beans::PropertyValue>& grabBag, OUString const & name )
 {
-    for (int i = 0; i < grabBag.getLength(); ++i)
-    {
-        if (grabBag[i].Name == name )
-            return grabBag[i].Value ;
-    }
+    auto pProp = std::find_if(grabBag.begin(), grabBag.end(),
+        [&name](const beans::PropertyValue& rProp) { return rProp.Name == name; });
+    if (pProp != grabBag.end())
+        return pProp->Value;
     return uno::Any();
 }
 
@@ -2957,7 +2992,7 @@ void DomainMapper_Impl::ChainTextFrames()
             uno::Sequence<beans::PropertyValue> aGrabBag;
             uno::Reference<lang::XServiceInfo> xServiceInfo(xPropertySet, uno::UNO_QUERY);
 
-            TextFramesForChaining aChainStruct = TextFramesForChaining();
+            TextFramesForChaining aChainStruct;
             OUString sShapeName;
             OUString sLinkChainName;
 
@@ -3081,8 +3116,15 @@ uno::Reference<beans::XPropertySet> DomainMapper_Impl::FindOrCreateFieldMaster(c
     uno::Reference< beans::XPropertySet > xMaster;
     OUString sFieldMasterService( OUString::createFromAscii(pFieldMasterService) );
     OUStringBuffer aFieldMasterName;
+    OUString sDatabaseDataSourceName = GetSettingsTable()->GetCurrentDatabaseDataSource();
+    bool bIsMergeField = sFieldMasterService.endsWith("Database");
     aFieldMasterName.appendAscii( pFieldMasterService );
     aFieldMasterName.append('.');
+    if ( bIsMergeField && !sDatabaseDataSourceName.isEmpty() )
+    {
+        aFieldMasterName.append(sDatabaseDataSourceName);
+        aFieldMasterName.append('.');
+    }
     aFieldMasterName.append(rFieldMasterName);
     OUString sFieldMasterName = aFieldMasterName.makeStringAndClear();
     if(xFieldMasterAccess->hasByName(sFieldMasterName))
@@ -3094,10 +3136,27 @@ uno::Reference<beans::XPropertySet> DomainMapper_Impl::FindOrCreateFieldMaster(c
     {
         //create the master
         xMaster.set( m_xTextFactory->createInstance(sFieldMasterService), uno::UNO_QUERY_THROW);
-        //set the master's name
-        xMaster->setPropertyValue(
+        if ( !bIsMergeField || sDatabaseDataSourceName.isEmpty() )
+        {
+            //set the master's name
+            xMaster->setPropertyValue(
                     getPropertyName(PROP_NAME),
                     uno::makeAny(rFieldMasterName));
+        } else {
+           // set database data, based on the "databasename.tablename" of sDatabaseDataSourceName
+           xMaster->setPropertyValue(
+                    getPropertyName(PROP_DATABASE_NAME),
+                    uno::makeAny(sDatabaseDataSourceName.copy(0, sDatabaseDataSourceName.indexOf('.'))));
+           xMaster->setPropertyValue(
+                    getPropertyName(PROP_COMMAND_TYPE),
+                    uno::makeAny(sal_Int32(0)));
+           xMaster->setPropertyValue(
+                    getPropertyName(PROP_DATATABLE_NAME),
+                    uno::makeAny(sDatabaseDataSourceName.copy(sDatabaseDataSourceName.indexOf('.') + 1)));
+           xMaster->setPropertyValue(
+                    getPropertyName(PROP_DATACOLUMN_NAME),
+                    uno::makeAny(rFieldMasterName));
+        }
     }
     return xMaster;
 }
@@ -3107,7 +3166,7 @@ void DomainMapper_Impl::PushFieldContext()
     m_bParaHadField = true;
     if(m_bDiscardHeaderFooter)
         return;
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().element("pushFieldContext");
 #endif
 
@@ -3231,7 +3290,7 @@ void FieldContext::AppendCommand(const OUString& rPart)
   -----------------------------------------------------------------------*/
 void DomainMapper_Impl::AppendFieldCommand(OUString const & rPartOfCommand)
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("appendFieldCommand");
     TagLogger::getInstance().chars(rPartOfCommand);
     TagLogger::getInstance().endElement();
@@ -3621,9 +3680,7 @@ void DomainMapper_Impl::handleAuthor
     }
     if (m_xTextFactory.is())
         xFieldInterface = m_xTextFactory->createInstance(sServiceName);
-    uno::Reference<beans::XPropertySet> xFieldProperties =
-        uno::Reference< beans::XPropertySet >( xFieldInterface,
-            uno::UNO_QUERY_THROW);
+    uno::Reference<beans::XPropertySet> xFieldProperties( xFieldInterface, uno::UNO_QUERY_THROW);
     if( bIsCustomField )
     {
         xFieldProperties->setPropertyValue(
@@ -3685,10 +3742,7 @@ static uno::Sequence< beans::PropertyValues > lcl_createTOXLevelHyperlinks( bool
         pNewLevel[aNewLevel.getLength() - (bHyperlinks ? 3 : 1)] = aChapterSeparator;
     }
     //copy the 'old' entries except the last (page no)
-    for( sal_Int32 nToken = 0; nToken < aLevel.getLength() - 1; ++nToken)
-    {
-        pNewLevel[nToken + 1] = aLevel[nToken];
-    }
+    std::copy(aLevel.begin(), std::prev(aLevel.end()), std::next(aNewLevel.begin()));
     //copy page no entry (last or last but one depending on bHyperlinks
     sal_Int32 nPageNo = aNewLevel.getLength() - (bHyperlinks ? 2 : 3);
     pNewLevel[nPageNo] = aLevel[aLevel.getLength() - 1];
@@ -3856,6 +3910,9 @@ void DomainMapper_Impl::handleToc
     {
         if (aTocTitle.isEmpty() || bTableOfFigures)
         {
+            // reset marker of the TOC title
+            m_xStdEntryStart = uno::Reference< text::XTextRange >();
+
             xTOC.set(
                     m_xTextFactory->createInstance
                     ( bTableOfFigures ?
@@ -4111,7 +4168,7 @@ void DomainMapper_Impl::CloseFieldCommand()
 {
     if(m_bDiscardHeaderFooter)
         return;
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().element("closeFieldCommand");
 #endif
 
@@ -4202,7 +4259,7 @@ void DomainMapper_Impl::CloseFieldCommand()
                         sServiceName += OUString::createFromAscii(aIt->second.cFieldServiceName );
                     }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                     TagLogger::getInstance().startElement("fieldService");
                     TagLogger::getInstance().chars(sServiceName);
                     TagLogger::getInstance().endElement();
@@ -4843,8 +4900,7 @@ void DomainMapper_Impl::CloseFieldCommand()
                 {
                     xFieldInterface = m_xTextFactory->createInstance("com.sun.star.text.Fieldmark");
                     const uno::Reference<text::XTextContent> xTextContent(xFieldInterface, uno::UNO_QUERY_THROW);
-                    uno::Reference< text::XTextAppend >  xTextAppend;
-                    xTextAppend = m_aTextAppendStack.top().xTextAppend;
+                    uno::Reference< text::XTextAppend > xTextAppend = m_aTextAppendStack.top().xTextAppend;
                     uno::Reference< text::XTextCursor > xCrsr = xTextAppend->createTextCursorByRange(pContext->GetStartRange());
                     if (xTextContent.is())
                     {
@@ -4862,9 +4918,9 @@ void DomainMapper_Impl::CloseFieldCommand()
             //set the text field if there is any
             pContext->SetTextField( uno::Reference< text::XTextField >( xFieldInterface, uno::UNO_QUERY ) );
         }
-        catch( const uno::Exception& e )
+        catch( const uno::Exception& )
         {
-            SAL_WARN( "writerfilter.dmapper", "Exception in CloseFieldCommand(): " << e );
+            TOOLS_WARN_EXCEPTION( "writerfilter.dmapper", "Exception in CloseFieldCommand()" );
         }
         pContext->SetCommandCompleted();
     }
@@ -4880,7 +4936,7 @@ bool DomainMapper_Impl::IsFieldResultAsString()
     OSL_ENSURE( pContext.get(), "no field context available");
     if( pContext.get() )
     {
-        bRet = pContext->GetTextField().is();
+        bRet = pContext->GetTextField().is() || pContext->GetFieldId() == FIELD_FORMDROPDOWN;
     }
     return bRet;
 }
@@ -4921,7 +4977,7 @@ static util::DateTime lcl_dateTimeFromSerial(const double& dSerial)
 
 void DomainMapper_Impl::SetFieldResult(OUString const& rResult)
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("setFieldResult");
     TagLogger::getInstance().chars(rResult);
 #endif
@@ -5033,17 +5089,16 @@ void DomainMapper_Impl::SetFieldResult(OUString const& rResult)
                 }
             }
         }
-        catch (const uno::Exception& e)
+        catch (const uno::Exception&)
         {
-            SAL_WARN("writerfilter.dmapper",
-                "DomainMapper_Impl::SetFieldResult: " << e);
+            TOOLS_WARN_EXCEPTION("writerfilter.dmapper", "DomainMapper_Impl::SetFieldResult");
         }
     }
 }
 
 void DomainMapper_Impl::SetFieldFFData(const FFDataHandler::Pointer_t& pFFDataHandler)
 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().startElement("setFieldFFData");
 #endif
 
@@ -5056,7 +5111,7 @@ void DomainMapper_Impl::SetFieldFFData(const FFDataHandler::Pointer_t& pFFDataHa
         }
     }
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().endElement();
 #endif
 }
@@ -5065,7 +5120,7 @@ void DomainMapper_Impl::PopFieldContext()
 {
     if(m_bDiscardHeaderFooter)
         return;
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
     TagLogger::getInstance().element("popFieldContext");
 #endif
 
@@ -5150,6 +5205,7 @@ void DomainMapper_Impl::PopFieldContext()
                             aMap.InsertProps(m_pLastCharacterContext);
                         aMap.InsertProps(m_aFieldStack.top()->getProperties());
                         appendTextContent(xToInsert, aMap.GetPropertyValues());
+                        CheckRedline( xToInsert->getAnchor( ) );
                     }
                     else
                     {
@@ -5427,7 +5483,7 @@ void DomainMapper_Impl::startOrEndPermissionRange(sal_Int32 permissinId)
 
                 // add new bookmark
                 const bool bAbsorb = !xCursor->isCollapsed();
-                uno::Reference< text::XTextRange > xCurrent = uno::Reference< text::XTextRange >(xCursor, uno::UNO_QUERY_THROW);
+                uno::Reference< text::XTextRange > xCurrent(xCursor, uno::UNO_QUERY_THROW);
                 xTextAppend->insertTextContent(xCurrent, xPerm, bAbsorb);
             }
 
@@ -5870,10 +5926,9 @@ uno::Reference<container::XIndexAccess> DomainMapper_Impl::GetCurrentNumberingRu
         uno::Reference<beans::XPropertySet> xStyle(xNumberingStyles->getByName(aListName), uno::UNO_QUERY);
         xRet.set(xStyle->getPropertyValue("NumberingRules"), uno::UNO_QUERY);
     }
-    catch (const uno::Exception& e)
+    catch (const uno::Exception&)
     {
-        SAL_WARN("writerfilter.dmapper",
-                "GetCurrentNumberingRules: exception caught: " << e);
+        TOOLS_WARN_EXCEPTION("writerfilter.dmapper", "GetCurrentNumberingRules: exception caught");
     }
     return xRet;
 }
@@ -5920,21 +5975,17 @@ uno::Reference<beans::XPropertySet> DomainMapper_Impl::GetCurrentNumberingCharSt
         }
         uno::Sequence<beans::PropertyValue> aProps;
         xLevels->getByIndex(nListLevel) >>= aProps;
-        for (int i = 0; i < aProps.getLength(); ++i)
+        auto pProp = std::find_if(aProps.begin(), aProps.end(),
+            [](const beans::PropertyValue& rProp) { return rProp.Name == "CharStyleName"; });
+        if (pProp != aProps.end())
         {
-            const beans::PropertyValue& rProp = aProps[i];
-
-            if (rProp.Name == "CharStyleName")
-            {
-                OUString aCharStyle;
-                rProp.Value >>= aCharStyle;
-                uno::Reference<container::XNameAccess> xCharacterStyles;
-                uno::Reference< style::XStyleFamiliesSupplier > xStylesSupplier(GetTextDocument(), uno::UNO_QUERY);
-                uno::Reference< container::XNameAccess > xStyleFamilies = xStylesSupplier->getStyleFamilies();
-                xStyleFamilies->getByName("CharacterStyles") >>= xCharacterStyles;
-                xRet.set(xCharacterStyles->getByName(aCharStyle), uno::UNO_QUERY_THROW);
-                break;
-            }
+            OUString aCharStyle;
+            pProp->Value >>= aCharStyle;
+            uno::Reference<container::XNameAccess> xCharacterStyles;
+            uno::Reference< style::XStyleFamiliesSupplier > xStylesSupplier(GetTextDocument(), uno::UNO_QUERY);
+            uno::Reference< container::XNameAccess > xStyleFamilies = xStylesSupplier->getStyleFamilies();
+            xStyleFamilies->getByName("CharacterStyles") >>= xCharacterStyles;
+            xRet.set(xCharacterStyles->getByName(aCharStyle), uno::UNO_QUERY_THROW);
         }
     }
     catch( const uno::Exception& )
@@ -5993,16 +6044,10 @@ sal_Int32 DomainMapper_Impl::getNumberingProperty(const sal_Int32 nListId, sal_I
         {
             uno::Sequence<beans::PropertyValue> aProps;
             xNumberingRules->getByIndex(nNumberingLevel) >>= aProps;
-            for (int i = 0; i < aProps.getLength(); ++i)
-            {
-                const beans::PropertyValue& rProp = aProps[i];
-
-                if (rProp.Name == aProp)
-                {
-                    rProp.Value >>= nRet;
-                    break;
-                }
-            }
+            auto pProp = std::find_if(aProps.begin(), aProps.end(),
+                [&aProp](const beans::PropertyValue& rProp) { return rProp.Name == aProp; });
+            if (pProp != aProps.end())
+                pProp->Value >>= nRet;
         }
     }
     catch( const uno::Exception& )
@@ -6030,16 +6075,10 @@ sal_Int32 DomainMapper_Impl::getCurrentNumberingProperty(const OUString& aProp)
     {
         uno::Sequence<beans::PropertyValue> aProps;
         xNumberingRules->getByIndex(nNumberingLevel) >>= aProps;
-        for (int i = 0; i < aProps.getLength(); ++i)
-        {
-            const beans::PropertyValue& rProp = aProps[i];
-
-            if (rProp.Name == aProp)
-            {
-                rProp.Value >>= nRet;
-                break;
-            }
-        }
+        auto pPropVal = std::find_if(aProps.begin(), aProps.end(),
+            [&aProp](const beans::PropertyValue& rProp) { return rProp.Name == aProp; });
+        if (pPropVal != aProps.end())
+            pPropVal->Value >>= nRet;
     }
 
     return nRet;

@@ -50,17 +50,17 @@ ValueSetItem::~ValueSetItem()
 {
     if( mxAcc.is() )
     {
-        static_cast< ValueItemAcc* >( mxAcc.get() )->ParentDestroyed();
+        mxAcc->ParentDestroyed();
     }
 }
 
 
-uno::Reference< accessibility::XAccessible > const & ValueSetItem::GetAccessible( bool bIsTransientChildrenDisabled )
+uno::Reference< accessibility::XAccessible > ValueSetItem::GetAccessible( bool bIsTransientChildrenDisabled )
 {
     if( !mxAcc.is() )
         mxAcc = new ValueItemAcc( this, bIsTransientChildrenDisabled );
 
-    return mxAcc;
+    return mxAcc.get();
 }
 
 SvtValueSetItem::SvtValueSetItem( SvtValueSet& rParent )
@@ -77,16 +77,16 @@ SvtValueSetItem::~SvtValueSetItem()
 {
     if( mxAcc.is() )
     {
-        static_cast< ValueItemAcc* >( mxAcc.get() )->ParentDestroyed();
+        mxAcc.get()->ParentDestroyed();
     }
 }
 
-uno::Reference< accessibility::XAccessible > const & SvtValueSetItem::GetAccessible( bool bIsTransientChildrenDisabled )
+uno::Reference< accessibility::XAccessible > SvtValueSetItem::GetAccessible( bool bIsTransientChildrenDisabled )
 {
     if( !mxAcc.is() )
         mxAcc = new SvtValueItemAcc( this, bIsTransientChildrenDisabled );
 
-    return mxAcc;
+    return mxAcc.get();
 }
 
 ValueSetAcc::ValueSetAcc( ValueSet* pParent ) :
@@ -1073,6 +1073,12 @@ SvtValueItemAcc::~SvtValueItemAcc()
 {
 }
 
+void SvtValueItemAcc::ParentDestroyed()
+{
+    const ::osl::MutexGuard aGuard( maMutex );
+    mpParent = nullptr;
+}
+
 namespace
 {
     class theSvtValueItemAccUnoTunnelId : public rtl::Static< UnoTunnelIdInit, theSvtValueItemAccUnoTunnelId > {};
@@ -1600,7 +1606,15 @@ sal_Int16 SAL_CALL SvtValueSetAcc::getAccessibleRole()
 OUString SAL_CALL SvtValueSetAcc::getAccessibleDescription()
 {
     ThrowIfDisposed();
-    return OUString( "ValueSet" );
+    const SolarMutexGuard aSolarGuard;
+    OUString              aRet;
+
+    if (mpParent)
+    {
+        aRet = mpParent->GetAccessibleDescription();
+    }
+
+    return aRet;
 }
 
 
@@ -1752,7 +1766,6 @@ awt::Rectangle SAL_CALL SvtValueSetAcc::getBounds()
     return aRet;
 }
 
-
 awt::Point SAL_CALL SvtValueSetAcc::getLocation()
 {
     ThrowIfDisposed();
@@ -1764,7 +1777,6 @@ awt::Point SAL_CALL SvtValueSetAcc::getLocation()
 
     return aRet;
 }
-
 
 awt::Point SAL_CALL SvtValueSetAcc::getLocationOnScreen()
 {
@@ -1789,7 +1801,6 @@ awt::Point SAL_CALL SvtValueSetAcc::getLocationOnScreen()
 
     return aScreenLoc;
 }
-
 
 awt::Size SAL_CALL SvtValueSetAcc::getSize()
 {

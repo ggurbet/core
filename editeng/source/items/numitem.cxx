@@ -41,17 +41,20 @@
 #include <com/sun/star/text/XDefaultNumberingProvider.hpp>
 #include <com/sun/star/style/NumberingType.hpp>
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
+#include <com/sun/star/lang/IllegalArgumentException.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <comphelper/fileformat.h>
 #include <comphelper/processfactory.hxx>
 #include <tools/mapunit.hxx>
 #include <tools/stream.hxx>
 #include <tools/debug.hxx>
+#include <tools/GenericTypeSerializer.hxx>
 #include <unotools/configmgr.hxx>
 #include <libxml/xmlwriter.h>
 #include <editeng/unonrule.hxx>
 #include <sal/log.hxx>
 #include <i18nlangtag/languagetag.hxx>
+#include <editeng/legacyitem.hxx>
 
 #define DEF_WRITER_LSPACE   500     //Standard Indentation
 #define DEF_DRAW_LSPACE     800     //Standard Indentation
@@ -216,8 +219,8 @@ SvxNumberFormat::SvxNumberFormat( SvStream &rStream )
     rStream.ReadUInt16( hasGraphicBrush );
     if ( hasGraphicBrush )
     {
-        std::unique_ptr<SvxBrushItem> pTmp( new SvxBrushItem( SID_ATTR_BRUSH ) );
-        pGraphicBrush.reset( static_cast<SvxBrushItem*>(pTmp->Create( rStream, BRUSH_GRAPHIC_VERSION )) );
+        pGraphicBrush.reset(new SvxBrushItem(SID_ATTR_BRUSH));
+        legacy::SvxBrush::Create(*pGraphicBrush, rStream, BRUSH_GRAPHIC_VERSION);
     }
     else pGraphicBrush = nullptr;
     rStream.ReadUInt16( nTmp16 ); eVertOrient = nTmp16;
@@ -232,7 +235,9 @@ SvxNumberFormat::SvxNumberFormat( SvStream &rStream )
     else pBulletFont = nullptr;
     ReadPair( rStream, aGraphicSize );
 
-    ReadColor( rStream, nBulletColor );
+    tools::GenericTypeSerializer aSerializer(rStream);
+    aSerializer.readColor(nBulletColor);
+
     rStream.ReadUInt16( nBulletRelSize );
     rStream.ReadUInt16( nTmp16 ); SetShowSymbol( nTmp16 != 0 );
 
@@ -289,7 +294,7 @@ void SvxNumberFormat::Store(SvStream &rStream, FontToSubsFontConverter pConverte
             pGraphicBrush->SetGraphicLink("");
         }
 
-        pGraphicBrush->Store(rStream, BRUSH_GRAPHIC_VERSION);
+        legacy::SvxBrush::Store(*pGraphicBrush, rStream, BRUSH_GRAPHIC_VERSION);
     }
     else
         rStream.WriteUInt16( 0 );
@@ -307,7 +312,9 @@ void SvxNumberFormat::Store(SvStream &rStream, FontToSubsFontConverter pConverte
     Color nTempColor = nBulletColor;
     if(COL_AUTO == nBulletColor)
         nTempColor = COL_BLACK;
-    WriteColor( rStream, nTempColor );
+
+    tools::GenericTypeSerializer aSerializer(rStream);
+    aSerializer.writeColor(nTempColor);
     rStream.WriteUInt16( nBulletRelSize );
     rStream.WriteUInt16( sal_uInt16(IsShowSymbol()) );
 
@@ -936,11 +943,6 @@ bool SvxNumBulletItem::operator==( const SfxPoolItem& rCopy) const
 SfxPoolItem*  SvxNumBulletItem::Clone( SfxItemPool * ) const
 {
     return new SvxNumBulletItem(*this);
-}
-
-sal_uInt16  SvxNumBulletItem::GetVersion( sal_uInt16 /*nFileVersion*/ ) const
-{
-    return NUMITEM_VERSION_03;
 }
 
 bool SvxNumBulletItem::QueryValue( css::uno::Any& rVal, sal_uInt8 /*nMemberId*/ ) const

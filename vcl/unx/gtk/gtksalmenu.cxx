@@ -771,18 +771,8 @@ bool GtkSalMenu::TakeFocus()
     //activated via the keyboard. Doesn't do anything except cause the gtk
     //menubar "keyboard_mode" member to get set to true, so typically mnemonics
     //are shown which will serve as indication that the menubar has focus
-    //(given that we wnt to show it with no menus popped down)
-    GdkEvent *event = gdk_event_new(GDK_KEY_PRESS);
-    event->key.window = GDK_WINDOW(g_object_ref(gtk_widget_get_window(mpMenuBarWidget)));
-    event->key.send_event = 1 /* TRUE */;
-    event->key.time = gtk_get_current_event_time();
-    event->key.state = 0;
-    event->key.keyval = 0;
-    event->key.length = 0;
-    event->key.string = nullptr;
-    event->key.hardware_keycode = 0;
-    event->key.group = 0;
-    event->key.is_modifier = false;
+    //(given that we want to show it with no menus popped down)
+    GdkEvent *event = GtkSalFrame::makeFakeKeyPress(mpMenuBarWidget);
     gtk_widget_event(mpMenuBarWidget, event);
     gdk_event_free(event);
 
@@ -1073,6 +1063,9 @@ namespace
 void GtkSalMenu::NativeSetItemIcon( unsigned nSection, unsigned nItemPos, const Image& rImage )
 {
 #if GLIB_CHECK_VERSION(2,38,0)
+    if (!!rImage && mbHasNullItemIcon)
+        return;
+
     SolarMutexGuard aGuard;
 
     if (!!rImage)
@@ -1091,9 +1084,13 @@ void GtkSalMenu::NativeSetItemIcon( unsigned nSection, unsigned nItemPos, const 
         g_lo_menu_set_icon_to_item_in_section( G_LO_MENU( mpMenuModel ), nSection, nItemPos, pIcon );
         g_object_unref(pIcon);
         g_bytes_unref(pBytes);
+        mbHasNullItemIcon = false;
     }
     else
+    {
         g_lo_menu_set_icon_to_item_in_section( G_LO_MENU( mpMenuModel ), nSection, nItemPos, nullptr );
+        mbHasNullItemIcon = true;
+    }
 #else
     (void)nSection;
     (void)nItemPos;
@@ -1223,6 +1220,17 @@ void GtkSalMenu::DispatchCommand(const gchar *pCommand)
     MenuAndId aMenuAndId = decode_command(pCommand);
     GtkSalMenu* pSalSubMenu = aMenuAndId.first;
     GtkSalMenu* pTopLevel = pSalSubMenu->GetTopLevel();
+    if (pTopLevel->mpMenuBarWidget)
+    {
+        // tdf#125803 spacebar will toggle radios and checkbuttons without automatically
+        // closing the menu. To handle this properly I imagine we need to set groups for the
+        // radiobuttons so the others visually untoggle when the active one is toggled and
+        // we would further need to teach vcl that the state can change more than once.
+        //
+        // or we could unconditionally deactivate the menus if regardless of what particular
+        // type of menu item got activated
+        gtk_menu_shell_deactivate(GTK_MENU_SHELL(pTopLevel->mpMenuBarWidget));
+    }
     pTopLevel->GetMenu()->HandleMenuCommandEvent(pSalSubMenu->GetMenu(), aMenuAndId.second);
 }
 
@@ -1232,12 +1240,18 @@ void GtkSalMenu::ActivateAllSubmenus(Menu* pMenuBar)
     {
         if ( pSalItem->mpSubMenu != nullptr )
         {
-            pSalItem->mpSubMenu->mbInActivateCallback = true;
-            pMenuBar->HandleMenuActivateEvent(pSalItem->mpSubMenu->GetMenu());
-            pSalItem->mpSubMenu->mbInActivateCallback = false;
-            pSalItem->mpSubMenu->ActivateAllSubmenus(pMenuBar);
-            pSalItem->mpSubMenu->Update();
-            pMenuBar->HandleMenuDeActivateEvent(pSalItem->mpSubMenu->GetMenu());
+            // We can re-enter this method via the new event loop that gets created
+            // in GtkClipboardTransferable::getTransferDataFlavorsAsVector, so use the InActivateCallback
+            // flag to detect that and skip some startup work.
+            if (!pSalItem->mpSubMenu->mbInActivateCallback)
+            {
+                pSalItem->mpSubMenu->mbInActivateCallback = true;
+                pMenuBar->HandleMenuActivateEvent(pSalItem->mpSubMenu->GetMenu());
+                pSalItem->mpSubMenu->mbInActivateCallback = false;
+                pSalItem->mpSubMenu->ActivateAllSubmenus(pMenuBar);
+                pSalItem->mpSubMenu->Update();
+                pMenuBar->HandleMenuDeActivateEvent(pSalItem->mpSubMenu->GetMenu());
+            }
         }
     }
 }

@@ -365,7 +365,7 @@ uno::Any SAL_CALL Content::execute(
             // Unreachable
         }
 
-        if ( !aProperties.getLength() )
+        if ( !aProperties.hasElements() )
         {
             ucbhelper::cancelCommandExecution(
                 uno::makeAny( lang::IllegalArgumentException(
@@ -738,8 +738,7 @@ void Content::queryChildren( ContentRefList& rChildren )
         if ( ( aChildURL.getLength() > nLen ) &&
              ( aChildURL.startsWith( aURL ) ) )
         {
-            sal_Int32 nPos = nLen;
-            nPos = aChildURL.indexOf( '/', nPos );
+            sal_Int32 nPos = aChildURL.indexOf( '/', nLen );
 
             if ( ( nPos == -1 ) ||
                  ( nPos == ( aChildURL.getLength() - 1 ) ) )
@@ -845,13 +844,8 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
         rtl::Reference< ::ucbhelper::PropertyValueSet > xRow
             = new ::ucbhelper::PropertyValueSet( rxContext );
 
-        sal_Int32 nCount = rProperties.getLength();
-        if ( nCount )
-        {
-            const beans::Property* pProps = rProperties.getConstArray();
-            for ( sal_Int32 n = 0; n < nCount; ++n )
-                xRow->appendVoid( pProps[ n ] );
-        }
+        for ( const beans::Property& rProp : rProperties )
+            xRow->appendVoid( rProp );
 
         return uno::Reference< sdbc::XRow >( xRow.get() );
     }
@@ -871,17 +865,13 @@ uno::Reference< sdbc::XRow > Content::getPropertyValues(
     rtl::Reference< ::ucbhelper::PropertyValueSet > xRow
         = new ::ucbhelper::PropertyValueSet( rxContext );
 
-    sal_Int32 nCount = rProperties.getLength();
-    if ( nCount )
+    if ( rProperties.hasElements() )
     {
         uno::Reference< beans::XPropertySet > xAdditionalPropSet;
         bool bTriedToGetAdditionalPropSet = false;
 
-        const beans::Property* pProps = rProperties.getConstArray();
-        for ( sal_Int32 n = 0; n < nCount; ++n )
+        for ( const beans::Property& rProp : rProperties )
         {
-            const beans::Property& rProp = pProps[ n ];
-
             // Process Core properties.
 
             if ( rProp.Name == "ContentType" )

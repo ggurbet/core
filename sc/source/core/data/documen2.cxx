@@ -32,6 +32,7 @@
 #include <tools/urlobj.hxx>
 #include <rtl/crc.h>
 #include <basic/basmgr.hxx>
+#include <comphelper/threadpool.hxx>
 #include <sal/log.hxx>
 
 #include <document.hxx>
@@ -307,6 +308,9 @@ ScDocument::~ScDocument()
 {
     OSL_PRECOND( !bInLinkUpdate, "bInLinkUpdate in dtor" );
 
+    // Join any pending(recalc) threads in global threadpool
+    comphelper::ThreadPool::getSharedOptimalPool().joinAll();
+
     bInDtorClear = true;
 
     // first of all disable all refresh timers by deleting the control
@@ -448,9 +452,9 @@ ScNoteEditEngine& ScDocument::GetNoteEngine()
         mpNoteEngine->SetRefMapMode(MapMode(MapUnit::Map100thMM));
         ApplyAsianEditSettings( *mpNoteEngine );
         const SfxItemSet& rItemSet = GetDefPattern()->GetItemSet();
-        SfxItemSet* pEEItemSet = new SfxItemSet( mpNoteEngine->GetEmptyItemSet() );
+        std::unique_ptr<SfxItemSet> pEEItemSet(new SfxItemSet( mpNoteEngine->GetEmptyItemSet() ));
         ScPatternAttr::FillToEditItemSet( *pEEItemSet, rItemSet );
-        mpNoteEngine->SetDefaults( pEEItemSet );      // edit engine takes ownership
+        mpNoteEngine->SetDefaults( std::move(pEEItemSet) );      // edit engine takes ownership
     }
     return *mpNoteEngine;
 }
@@ -523,6 +527,14 @@ ScRefCellValue ScDocument::GetRefCellValue( const ScAddress& rPos )
         return ScRefCellValue(); // empty
 
     return maTabs[rPos.Tab()]->GetRefCellValue(rPos.Col(), rPos.Row());
+}
+
+ScRefCellValue ScDocument::GetRefCellValue( const ScAddress& rPos, sc::ColumnBlockPosition& rBlockPos )
+{
+    if (!TableExists(rPos.Tab()))
+        return ScRefCellValue(); // empty
+
+    return maTabs[rPos.Tab()]->GetRefCellValue(rPos.Col(), rPos.Row(), rBlockPos);
 }
 
 svl::SharedStringPool& ScDocument::GetSharedStringPool()
@@ -1079,7 +1091,7 @@ void ScDocument::SetChangeViewSettings(const ScChangeViewSettings& rNew)
     *pChangeViewSettings=rNew;
 }
 
-std::unique_ptr<ScFieldEditEngine> ScDocument::CreateFieldEditEngine()
+std::unique_ptr<ScFieldEditEngine> ScDocument::CreateFieldEditEngine(bool bUpdateMode)
 {
     std::unique_ptr<ScFieldEditEngine> pNewEditEngine;
     if (!pCacheFieldEditEngine)
@@ -1093,8 +1105,7 @@ std::unique_ptr<ScFieldEditEngine> ScDocument::CreateFieldEditEngine()
         {
             // #i66209# previous use might not have restored update mode,
             // ensure same state as for a new EditEngine (UpdateMode = true)
-            if ( !pCacheFieldEditEngine->GetUpdateMode() )
-                pCacheFieldEditEngine->SetUpdateMode(true);
+             pCacheFieldEditEngine->SetUpdateMode(bUpdateMode);
         }
 
         pNewEditEngine = std::move(pCacheFieldEditEngine);
@@ -1124,12 +1135,12 @@ ScLookupCache & ScDocument::GetLookupCache( const ScRange & rRange, ScInterprete
     ScLookupCacheMap*& rpCacheMap = pContext->mScLookupCache;
     if (!rpCacheMap)
         rpCacheMap = new ScLookupCacheMap;
-    auto findIt(rpCacheMap->aCacheMap.find(rRange));
-    if (findIt == rpCacheMap->aCacheMap.end())
+    // insert with temporary value to avoid doing two lookups
+    auto [findIt, bInserted] = rpCacheMap->aCacheMap.emplace(rRange, nullptr);
+    if (bInserted)
     {
-        auto insertIt = rpCacheMap->aCacheMap.emplace_hint(findIt,
-                    rRange, std::make_unique<ScLookupCache>(this, rRange, *rpCacheMap) );
-        pCache = insertIt->second.get();
+        findIt->second = std::make_unique<ScLookupCache>(this, rRange, *rpCacheMap);
+        pCache = findIt->second.get();
         // The StartListeningArea() call is not thread-safe, as all threads
         // would access the same SvtBroadcaster.
         osl::MutexGuard guard( mScLookupMutex );

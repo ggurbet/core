@@ -10,29 +10,13 @@
 
 #pragma once
 
-#include <cppuhelper/compbase.hxx>
-#include "Qt5Clipboard.hxx"
-
 #include <com/sun/star/datatransfer/dnd/XDragSource.hpp>
 #include <com/sun/star/datatransfer/dnd/XDropTarget.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <cppuhelper/compbase.hxx>
 
 class Qt5Frame;
-class QMimeData;
-
-class Qt5DnDTransferable : public Qt5Transferable
-{
-public:
-    Qt5DnDTransferable(const QMimeData* pMimeData);
-    virtual css::uno::Any SAL_CALL
-    getTransferData(const css::datatransfer::DataFlavor& rFlavor) override;
-
-    virtual std::vector<css::datatransfer::DataFlavor> getTransferDataFlavorsAsVector() override;
-
-private:
-    const QMimeData* m_pMimeData;
-};
 
 class Qt5DragSource
     : public cppu::WeakComponentImplHelper<css::datatransfer::dnd::XDragSource,
@@ -75,6 +59,8 @@ public:
     void fire_dragEnd(sal_Int8 nAction);
 
     static Qt5DragSource* m_ActiveDragSource;
+    static bool m_bDropSuccessSet;
+    static bool m_bDropSuccess;
 
     css::uno::Reference<css::datatransfer::XTransferable> const& GetTransferable() const
     {

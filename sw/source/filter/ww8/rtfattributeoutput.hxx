@@ -26,6 +26,8 @@
 #include "attributeoutputbase.hxx"
 #include "rtfstringbuffer.hxx"
 
+#include <wrtswtbl.hxx>
+
 #include <rtl/strbuf.hxx>
 
 #include <boost/optional.hpp>
@@ -83,8 +85,7 @@ public:
 
     // Access to (anyway) private buffers, used by the sdr exporter
     OStringBuffer& RunText();
-    OStringBuffer& Styles() { return m_aStyles; }
-    OStringBuffer& StylesEnd();
+    OString MoveCharacterProperties(bool aAutoWriteRtlLtr = false);
 
     /// Output text (without markup).
     void RawText(const OUString& rText, rtl_TextEncoding eCharSet) override;
@@ -516,9 +517,12 @@ private:
      */
     OStringBuffer m_aStyles;
     /*
-     * This is the same as m_aStyles but the contents of it is written last.
+     * This is the same as m_aStyles but the contents of it is Assoc.
      */
-    OStringBuffer m_aStylesEnd;
+    OStringBuffer m_aStylesAssoc;
+    bool m_bIsRTL;
+    sal_uInt16 m_nScript;
+    bool m_bControlLtrRtl;
 
     sal_Int32 m_nNextAnnotationMarkId;
     sal_Int32 m_nCurrentAnnotationMarkId;

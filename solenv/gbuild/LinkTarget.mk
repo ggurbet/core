@@ -36,21 +36,21 @@
 #  gb_LinkTarget_INCLUDE
 #  gb_YaccTarget__command(grammar-file, stem-for-message, source-target, include-target)
 
+# Detect whether symbols should be enabled for the given gbuild target.
 # enable if: no "-TARGET" defined AND [module is enabled OR "TARGET" defined]
-gb_LinkTarget__debug_enabled = \
- $(and $(if $(filter -$(1),$(ENABLE_DEBUGINFO_FOR)),,$(true)),\
-       $(or $(gb_Module_CURRENTMODULE_DEBUG_ENABLED),\
-            $(filter $(1),$(ENABLE_DEBUGINFO_FOR))))
+gb_LinkTarget__symbols_enabled = \
+ $(and $(if $(filter -$(1),$(ENABLE_SYMBOLS_FOR)),,$(true)),\
+       $(or $(gb_Module_CURRENTMODULE_SYMBOLS_ENABLED),\
+            $(filter $(1),$(ENABLE_SYMBOLS_FOR))))
 
-# debug flags, if ENABLE_DEBUG is set and the LinkTarget is named
-# in the list of libraries of ENABLE_DEBUGINFO_FOR
-gb_LinkTarget__get_debugflags=$(if $(ENABLE_OPTIMIZED),$(gb_COMPILEROPTFLAGS),$(gb_COMPILERNOOPTFLAGS)) $(if $(filter $(true),$(gb_SYMBOL)),$(gb_DEBUGINFO_FLAGS))
+# debug flags, if the LinkTarget is named in the list of libraries of ENABLE_SYMBOLS_FOR
+gb_LinkTarget__get_debugflags=$(if $(ENABLE_OPTIMIZED),$(gb_COMPILEROPTFLAGS),$(gb_COMPILERNOOPTFLAGS)) $(if $(call gb_LinkTarget__symbols_enabled,$(1)),$(gb_DEBUGINFO_FLAGS))
 
 # similar for LDFLAGS, use linker optimization flags in non-debug case,
 # but moreover strip debug from libraries for which debuginfo is not wanted
 # (some libraries reuse .o files from other libraries, notably unittests)
 gb_LinkTarget__get_stripldflags=$(if $(strip $(CFLAGS)$(CXXFLAGS)$(OBJCFLAGS)$(OBJCXXFLAGS)$(LDFLAGS)),,$(gb_LINKERSTRIPDEBUGFLAGS))
-gb_LinkTarget__get_debugldflags=$(if $(call gb_LinkTarget__debug_enabled,$(1)),,$(gb_LINKEROPTFLAGS) $(call gb_LinkTarget__get_stripldflags,$(1)))
+gb_LinkTarget__get_debugldflags=$(if $(call gb_LinkTarget__symbols_enabled,$(1)),$(gb_LINKER_DEBUGINFO_FLAGS),$(gb_LINKEROPTFLAGS) $(call gb_LinkTarget__get_stripldflags,$(1)))
 
 # generic cflags/cxxflags to use (optimization flags, debug flags)
 # user supplied CFLAGS/CXXFLAGS override default debug/optimization flags
@@ -237,7 +237,7 @@ $(call gb_CObject_get_target,%) : $(call gb_CObject_get_source,$(SRCDIR),%) $(gb
 else
 $(call gb_CObject_get_target,%) : $(call gb_CObject_get_source,$(SRCDIR),%)
 	$(call gb_Output_announce,$*.c,$(true),$(if $(COMPILER_TEST),C? ,C  ),3)
-	$(call gb_CObject__command_pattern,$@,$(T_CFLAGS) $(T_CFLAGS_APPEND),$<,$(call gb_CObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_CFLAGS) $(T_CFLAGS_APPEND),$<,$(call gb_CObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 endif
 
 # Note: if the *Object_dep_target does not exist it will be created by
@@ -268,14 +268,15 @@ gb_CxxObject_get_source = $(1)/$(2).cxx
 # compiled with different flags and link that in rather than mixing different
 # flags in one linktarget.
 define gb_CxxObject__set_pchflags
-ifeq ($(gb_ENABLE_PCH),$(true))
+ifneq ($(gb_ENABLE_PCH),)
 ifneq ($(strip $$(PCH_NAME)),)
 ifeq ($$(sort $$(PCH_CXXFLAGS) $$(PCH_DEFS) $$(gb_LinkTarget_EXCEPTIONFLAGS)),$$(sort $$(T_CXXFLAGS) $$(T_CXXFLAGS_APPEND) $$(DEFS)))
-$$@ : PCHFLAGS := $$(call gb_PrecompiledHeader_get_enableflags,$$(PCH_NAME))
+$$@ : PCHFLAGS := $$(call gb_PrecompiledHeader_get_enableflags,$$(PCH_NAME),$$(PCH_LINKTARGETMAKEFILENAME))
 else
-$$(info No precompiled header available for $$*.cxx .)
+$$(warning No precompiled header available for $$*.cxx .)
 $$(info precompiled header flags : $$(sort $$(PCH_CXXFLAGS) $$(PCH_DEFS) $$(gb_LinkTarget_EXCEPTIONFLAGS)))
 $$(info .           object flags : $$(sort $$(T_CXXFLAGS) $$(T_CXXFLAGS_APPEND) $$(DEFS)))
+$$(error   Incorrect precompiled header setup or internal gbuild error.)
 $$@ : PCHFLAGS :=
 endif
 endif
@@ -289,7 +290,7 @@ else
 $(call gb_CxxObject_get_target,%) : $(call gb_CxxObject_get_source,$(SRCDIR),%)
 	$(call gb_Output_announce,$*.cxx,$(true),$(if $(COMPILER_TEST),CPT,CXX),3)
 	$(eval $(gb_CxxObject__set_pchflags))
-	$(call gb_CObject__command_pattern,$@,$(T_CXXFLAGS) $(T_CXXFLAGS_APPEND) $(if $(COMPILER_TEST),$(gb_COMPILER_TEST_FLAGS)),$<,$(call gb_CxxObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_CXXFLAGS) $(T_CXXFLAGS_APPEND) $(if $(COMPILER_TEST),$(gb_COMPILER_TEST_FLAGS)),$<,$(call gb_CxxObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -313,7 +314,7 @@ gb_GenCObject_get_source = $(WORKDIR)/$(1).c
 $(call gb_GenCObject_get_target,%) : $(gb_FORCE_COMPILE_ALL_TARGET)
 	$(call gb_Output_announce,$*.c,$(true),C  ,3)
 	test -f $(call gb_GenCObject_get_source,$*) || (echo "Missing generated source file $(call gb_GenCObject_get_source,$*)" && false)
-	$(call gb_CObject__command_pattern,$@,$(T_CFLAGS) $(T_CFLAGS_APPEND),$(call gb_GenCObject_get_source,$*),$(call gb_GenCObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_CFLAGS) $(T_CFLAGS_APPEND),$(call gb_GenCObject_get_source,$*),$(call gb_GenCObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 
 ifeq ($(gb_FULLDEPS),$(true))
 $(dir $(call gb_GenCObject_get_dep_target,%)).dir :
@@ -336,7 +337,7 @@ $(call gb_GenCxxObject_get_target,%) : $(gb_FORCE_COMPILE_ALL_TARGET)
 	$(call gb_Output_announce,$(subst $(BUILDDIR)/,,$(GEN_CXX_SOURCE)),$(true),CXX,3)
 	test -f $(GEN_CXX_SOURCE) || (echo "Missing generated source file $(GEN_CXX_SOURCE)" && false)
 	$(eval $(gb_CxxObject__set_pchflags))
-	$(call gb_CObject__command_pattern,$@,$(T_CXXFLAGS) $(T_CXXFLAGS_APPEND),$(GEN_CXX_SOURCE),$(call gb_GenCxxObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_CXXFLAGS) $(T_CXXFLAGS_APPEND),$(GEN_CXX_SOURCE),$(call gb_GenCxxObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 
 ifeq ($(gb_FULLDEPS),$(true))
 $(dir $(call gb_GenCxxObject_get_dep_target,%)).dir :
@@ -359,7 +360,7 @@ gb_GenCxxClrObject_get_source = $(WORKDIR)/$(1).$(gb_LinkTarget_CXX_SUFFIX_$(cal
 $(call gb_GenCxxClrObject_get_target,%) : $(gb_FORCE_COMPILE_ALL_TARGET)
 	$(call gb_Output_announce,$(subst $(BUILDDIR)/,,$(GEN_CXXCLR_SOURCE)),$(true),CLR,3)
 	test -f $(GEN_CXXCLR_SOURCE) || (echo "Missing generated source file $(GEN_CXXCLR_SOURCE)" && false)
-	$(call gb_CObject__command_pattern,$@,$(T_CXXCLRFLAGS) $(T_CXXCLRFLAGS_APPEND),$(GEN_CXXCLR_SOURCE),$(call gb_GenCxxClrObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_CXXCLRFLAGS) $(T_CXXCLRFLAGS_APPEND),$(GEN_CXXCLR_SOURCE),$(call gb_GenCxxClrObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 
 ifeq ($(gb_FULLDEPS),$(true))
 $(dir $(call gb_GenCxxClrObject_get_dep_target,%)).dir :
@@ -444,7 +445,7 @@ $(call gb_ObjCxxObject_get_target,%) : $(call gb_ObjCxxObject_get_source,$(SRCDI
 else
 $(call gb_ObjCxxObject_get_target,%) : $(call gb_ObjCxxObject_get_source,$(SRCDIR),%)
 	$(call gb_Output_announce,$*.mm,$(true),$(if $(COMPILER_TEST),O?X,OCX),3)
-	$(call gb_CObject__command_pattern,$@,$(T_OBJCXXFLAGS) $(T_OBJCXXFLAGS_APPEND),$<,$(call gb_ObjCxxObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_OBJCXXFLAGS) $(T_OBJCXXFLAGS_APPEND),$<,$(call gb_ObjCxxObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -471,7 +472,7 @@ $(call gb_ObjCObject_get_target,%) : $(call gb_ObjCObject_get_source,$(SRCDIR),%
 else
 $(call gb_ObjCObject_get_target,%) : $(call gb_ObjCObject_get_source,$(SRCDIR),%)
 	$(call gb_Output_announce,$*.m,$(true),$(if $(COMPILER_TEST),O?C,OCC),3)
-	$(call gb_CObject__command_pattern,$@,$(T_OBJCFLAGS) $(T_OBJCFLAGS_APPEND),$<,$(call gb_ObjCObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_OBJCFLAGS) $(T_OBJCFLAGS_APPEND),$<,$(call gb_ObjCObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -498,7 +499,7 @@ $(call gb_CxxClrObject_get_target,%) : $(call gb_CxxClrObject_get_source,$(SRCDI
 else
 $(call gb_CxxClrObject_get_target,%) : $(call gb_CxxClrObject_get_source,$(SRCDIR),%)
 	$(call gb_Output_announce,$*.cxx,$(true),$(if $(COMPILER_TEST),C?R,CLR),3)
-	$(call gb_CObject__command_pattern,$@,$(T_CXXCLRFLAGS) $(T_CXXCLRFLAGS_APPEND),$<,$(call gb_CxxClrObject_get_dep_target,$*),$(COMPILER_PLUGINS))
+	$(call gb_CObject__command_pattern,$@,$(T_CXXCLRFLAGS) $(T_CXXCLRFLAGS_APPEND),$<,$(call gb_CxxClrObject_get_dep_target,$*),$(COMPILER_PLUGINS),$(T_SYMBOLS))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -777,6 +778,7 @@ $(call gb_LinkTarget_get_target,$(1)) : T_LIBS :=
 $(call gb_LinkTarget_get_target,$(1)) : TARGETTYPE :=
 $(call gb_LinkTarget_get_target,$(1)) : LIBRARY_X64 :=
 $(call gb_LinkTarget_get_target,$(1)) : PCH_NAME :=
+$(call gb_LinkTarget_get_target,$(1)) : PCH_LINKTARGETMAKEFILENAME :=
 $(call gb_LinkTarget_get_target,$(1)) : PCHOBJS :=
 $(call gb_LinkTarget_get_target,$(1)) : PCHOBJEX :=
 $(call gb_LinkTarget_get_target,$(1)) : PCHOBJNOEX :=
@@ -787,10 +789,12 @@ $(call gb_LinkTarget_get_target,$(1)) : EXTRAOBJECTLISTS :=
 $(call gb_LinkTarget_get_target,$(1)) : NATIVERES :=
 $(call gb_LinkTarget_get_target,$(1)) : VISIBILITY :=
 $(call gb_LinkTarget_get_target,$(1)) : WARNINGS_NOT_ERRORS :=
+$(call gb_LinkTarget_get_target,$(1)) : WARNINGS_DISABLED :=
 $(call gb_LinkTarget_get_target,$(1)) : PLUGIN_WARNINGS_AS_ERRORS :=
 $(call gb_LinkTarget_get_target,$(1)) : EXTERNAL_CODE :=
 $(call gb_LinkTarget_get_target,$(1)) : SOVERSIONSCRIPT :=
 $(call gb_LinkTarget_get_target,$(1)) : COMPILER_TEST :=
+$(call gb_LinkTarget_get_target,$(1)) : T_SYMBOLS := $(if $(call gb_LinkTarget__symbols_enabled,$(2)),$(true),$(false))
 
 ifeq ($(gb_FULLDEPS),$(true))
 ifeq (depcache:,$(filter depcache,$(.FEATURES)):$(gb_PARTIAL_BUILD))
@@ -814,6 +818,8 @@ gb_LinkTarget_CXX_SUFFIX_$(call gb_LinkTarget__get_workdir_linktargetname,$(1)) 
 
 # installed linktargets need a rule to build!
 $(if $(findstring $(INSTDIR),$(1)),$(call gb_LinkTarget__make_installed_rule,$(1)))
+
+$(call gb_PrecompiledHeader_generate_timestamp_rule,$(2))
 
 endef
 
@@ -1117,8 +1123,8 @@ $(call gb_CxxObject_get_target,$(2)) : | $(call gb_LinkTarget_get_headers_target
 $(call gb_CxxObject_get_target,$(2)) : T_CXXFLAGS += $(3)
 $(call gb_CxxObject_get_target,$(2)) : \
 	OBJECTOWNER := $(call gb_Object__owner,$(2),$(1))
-ifeq ($(gb_ENABLE_PCH),$(true))
-$(call gb_CxxObject_get_target,$(2)) : $(call gb_PrecompiledHeader_get_timestamp,$(call gb_LinkTarget__get_workdir_linktargetname,$(1)))
+ifneq ($(gb_ENABLE_PCH),)
+$(call gb_CxxObject_get_target,$(2)) : $(call gb_PrecompiledHeader_get_timestamp,$(4))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -1254,8 +1260,8 @@ $(call gb_GenCxxObject_get_target,$(2)) : T_CXXFLAGS += $(3)
 $(call gb_GenCxxObject_get_target,$(2)) : \
 	OBJECTOWNER := $(call gb_Object__owner,$(2),$(1))
 $(call gb_GenCxxObject_get_target,$(2)) : GEN_CXX_SOURCE := $(call gb_GenCxxObject_get_source,$(2),$(1))
-ifeq ($(gb_ENABLE_PCH),$(true))
-$(call gb_GenCxxObject_get_target,$(2)) : $(call gb_PrecompiledHeader_get_timestamp,$(call gb_LinkTarget__get_workdir_linktargetname,$(1)))
+ifneq ($(gb_ENABLE_PCH),)
+$(call gb_GenCxxObject_get_target,$(2)) : $(call gb_PrecompiledHeader_get_timestamp,$(4))
 endif
 
 ifeq ($(gb_FULLDEPS),$(true))
@@ -1290,10 +1296,10 @@ endif
 endef
 
 # Add a bison grammar to the build.
-# call gb_LinkTarget_add_grammar,linktarget,yaccfile,linktargetmakefilename,cxxflags
+# call gb_LinkTarget_add_grammar,linktarget,yaccfile,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_grammar
 $(call gb_YaccTarget_YaccTarget,$(2))
-$(call gb_LinkTarget_add_generated_exception_object,$(1),YaccTarget/$(2),$(3),$(if $(filter GCC,$(COM)),-Wno-unused-macros))
+$(call gb_LinkTarget_add_generated_exception_object,$(1),YaccTarget/$(2),$(3) $(if $(filter GCC,$(COM)),-Wno-unused-macros),$(4))
 $(call gb_GenCxxObject_get_target,YaccTarget/$(2)): PLUGIN_WARNINGS_AS_ERRORS := $(true)
 $(call gb_LinkTarget_get_clean_target,$(1)) : $(call gb_YaccTarget_get_clean_target,$(2))
 $(call gb_LinkTarget_get_headers_target,$(1)) : $(call gb_YaccTarget_get_header_target,$(2))
@@ -1302,30 +1308,30 @@ $(call gb_LinkTarget__add_include,$(1),$(dir $(call gb_YaccTarget_get_header_tar
 endef
 
 # Add bison grammars to the build.
-# call gb_LinkTarget_add_grammars,linktarget,yaccfiles,ignored,linktargetmakefilename
+# call gb_LinkTarget_add_grammars,linktarget,yaccfiles,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_grammars
-$(foreach grammar,$(2),$(call gb_LinkTarget_add_grammar,$(1),$(grammar),$(4)))
+$(foreach grammar,$(2),$(call gb_LinkTarget_add_grammar,$(1),$(grammar),$(3),$(4)))
 endef
 
 # Add a flex scanner to the build.
-# call gb_LinkTarget_add_scanner,linktarget,lexfile,linktargetmakefilename,cxxflags
+# call gb_LinkTarget_add_scanner,linktarget,lexfile,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_scanner
 $(call gb_LexTarget_LexTarget,$(2))
-$(call gb_LinkTarget_add_generated_exception_object,$(1),LexTarget/$(2),$(3),$(if $(filter GCC,$(COM)),-Wno-unused-macros))
+$(call gb_LinkTarget_add_generated_exception_object,$(1),LexTarget/$(2),$(3) $(if $(filter GCC,$(COM)),-Wno-unused-macros),$(4))
 $(call gb_LinkTarget_get_clean_target,$(1)) : $(call gb_LexTarget_get_clean_target,$(2))
 
 endef
 
 # Add flex scanners to the build.
-# call gb_LinkTarget_add_scanners,linktarget,lexfiles,ignored,linktargetmakefilename
+# call gb_LinkTarget_add_scanners,linktarget,lexfiles,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_scanners
-$(foreach scanner,$(2),$(call gb_LinkTarget_add_scanner,$(1),$(scanner),$(4)))
+$(foreach scanner,$(2),$(call gb_LinkTarget_add_scanner,$(1),$(scanner),$(3),$(4)))
 
 endef
 
-# call gb_LinkTarget_add_exception_object,linktarget,sourcefile,linktargetmakefilename
+# call gb_LinkTarget_add_exception_object,linktarget,sourcefile,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_exception_object
-$(call gb_LinkTarget_add_cxxobject,$(1),$(2),$(gb_LinkTarget_EXCEPTIONFLAGS) $(call gb_LinkTarget__get_cxxflags,$(3)))
+$(call gb_LinkTarget_add_cxxobject,$(1),$(2),$(gb_LinkTarget_EXCEPTIONFLAGS) $(call gb_LinkTarget__get_cxxflags,$(4)) $(3),$(4))
 endef
 
 # call gb_LinkTarget__use_linktarget_objects,linktarget,linktargets
@@ -1362,7 +1368,7 @@ endef
 
 # call gb_LinkTarget_add_cxxobjects,linktarget,sourcefiles,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_cxxobjects
-$(foreach obj,$(2),$(call gb_LinkTarget_add_cxxobject,$(1),$(obj),$(3)))
+$(foreach obj,$(2),$(call gb_LinkTarget_add_cxxobject,$(1),$(obj),$(3),$(4)))
 endef
 
 # call gb_LinkTarget_add_objcobjects,linktarget,sourcefiles,objcflags,linktargetmakefilename
@@ -1382,18 +1388,18 @@ endef
 
 # call gb_LinkTarget_add_asmobjects,linktarget,sourcefiles,asmflags,linktargetmakefilename
 define gb_LinkTarget_add_asmobjects
-$(foreach obj,$(2),$(call gb_LinkTarget_add_asmobject,$(1),$(obj),$(3)))
+$(foreach obj,$(2),$(call gb_LinkTarget_add_asmobject,$(1),$(obj),$(3),$(4)))
 endef
 
-# call gb_LinkTarget_add_exception_objects,linktarget,sourcefiles,ignored,linktargetmakefilename
+# call gb_LinkTarget_add_exception_objects,linktarget,sourcefiles,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_exception_objects
-$(foreach obj,$(2),$(call gb_LinkTarget_add_exception_object,$(1),$(obj),$(4)))
+$(foreach obj,$(2),$(call gb_LinkTarget_add_exception_object,$(1),$(obj),$(3),$(4)))
 endef
 
 #only useful for building x64 libraries on windows
-# call gb_LinkTarget_add_x64_generated_exception_objects,linktarget,sourcefiles,ignored,linktargetmakefilename
+# call gb_LinkTarget_add_x64_generated_exception_objects,linktarget,sourcefiles,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_x64_generated_exception_objects
-$(foreach obj,$(2),$(call gb_LinkTarget_add_generated_exception_object,$(1),$(obj),$(4)))
+$(foreach obj,$(2),$(call gb_LinkTarget_add_generated_exception_object,$(1),$(obj),$(3),$(4)))
 $(foreach obj,$(2),$(eval $(call gb_GenCxxObject_get_target,$(obj)) : CXXOBJECT_X64 := YES))
 endef
 
@@ -1406,17 +1412,16 @@ endef
 # call gb_LinkTarget_add_x64_generated_cobjects,linktarget,sourcefiles,cflags,linktargetmakefilename
 define gb_LinkTarget_add_x64_generated_cobjects
 $(foreach obj,$(2),$(call gb_LinkTarget_add_generated_c_object,$(1),$(obj),$(3),$(4)))
-$(foreach obj,$(2),$(eval $(call gb_GenCObject_get_target,$(obj)) : CXXOBJECT_X64 := YES))
 endef
 
-# call gb_LinkTarget_add_generated_exception_object,linktarget,sourcefile,linktargetmakefilename,cxxflags
+# call gb_LinkTarget_add_generated_exception_object,linktarget,sourcefile,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_generated_exception_object
-$(call gb_LinkTarget_add_generated_cxx_object,$(1),$(2),$(gb_LinkTarget_EXCEPTIONFLAGS) $(call gb_LinkTarget__get_cxxflags,$(3)) $(4))
+$(call gb_LinkTarget_add_generated_cxx_object,$(1),$(2),$(gb_LinkTarget_EXCEPTIONFLAGS) $(call gb_LinkTarget__get_cxxflags,$(4)) $(3),$(4))
 endef
 
-# call gb_LinkTarget_add_generated_exception_objects,linktarget,sourcefile,ignored,linktargetmakefilename
+# call gb_LinkTarget_add_generated_exception_objects,linktarget,sourcefile,cxxflags,linktargetmakefilename
 define gb_LinkTarget_add_generated_exception_objects
-$(foreach obj,$(2),$(call gb_LinkTarget_add_generated_exception_object,$(1),$(obj),$(4)))
+$(foreach obj,$(2),$(call gb_LinkTarget_add_generated_exception_object,$(1),$(obj),$(3),$(4)))
 endef
 
 # call gb_LinkTarget_add_generated_cxxclrobjects,linktarget,sourcefiles,cxxclrflags,linktargetmakefilename
@@ -1501,31 +1506,36 @@ endef
 # call gb_LinkTarget__set_precompiled_header_impl,linktarget,pchcxxfile,pchtarget,linktargetmakefilename
 define gb_LinkTarget__set_precompiled_header_impl
 $(call gb_LinkTarget_get_clean_target,$(1)) : $(call gb_PrecompiledHeader_get_clean_target,$(3))
-$(call gb_PrecompiledHeader_get_target,$(3)) : $(2).cxx
+$(call gb_PrecompiledHeader_get_target,$(3),$(4)) : $(2).cxx
 
-$(call gb_PrecompiledHeader_get_target,$(3)) : $(call gb_LinkTarget_get_headers_target,$(1))
+$(call gb_PrecompiledHeader_get_target,$(3),$(4)) : $(call gb_LinkTarget_get_headers_target,$(1))
 
 $(call gb_LinkTarget_get_target,$(1)) : PCH_NAME := $(3)
-$(call gb_LinkTarget_get_target,$(1)) : PCHOBJEX = $(call gb_PrecompiledHeader_get_objectfile, $(call gb_PrecompiledHeader_get_target,$(3)))
+$(call gb_LinkTarget_get_target,$(1)) : PCH_LINKTARGETMAKEFILENAME := $(4)
+$(call gb_LinkTarget_get_target,$(1)) : PCHOBJEX = $(call gb_PrecompiledHeader_get_objectfile, $(call gb_PrecompiledHeader_get_target,$(3),$(4)))
 $(call gb_LinkTarget_get_target,$(1)) : PCHOBJS = $$(PCHOBJEX)
 
 $(call gb_LinkTarget_get_target,$(1)) : PCH_DEFS := $$(DEFS)
 $(call gb_LinkTarget_get_target,$(1)) : PCH_CXXFLAGS := $$(T_CXXFLAGS) $(call gb_LinkTarget__get_cxxflags,$(4))
 
-$(call gb_PrecompiledHeader_get_target,$(3)) : VISIBILITY :=
+$(call gb_LinkTarget_get_target,$(1)) : DEFS += -DPCH_LEVEL=$(gb_ENABLE_PCH)
+$(call gb_LinkTarget_get_target,$(1)) : PCH_DEFS += -DPCH_LEVEL=$(gb_ENABLE_PCH)
 
-$(call gb_PrecompiledHeader_get_timestamp,$(call gb_LinkTarget__get_workdir_linktargetname,$(1))) : $(call gb_PrecompiledHeader_get_target,$(3))
+$(call gb_PrecompiledHeader_get_target,$(3),$(4)) : VISIBILITY :=
+
+$(call gb_PrecompiledHeader_get_timestamp,$(4)) : $(call gb_PrecompiledHeader_get_target,$(3),$(4))
 
 ifeq ($(gb_FULLDEPS),$(true))
--include $(call gb_PrecompiledHeader_get_dep_target,$(3)) 
+-include $(call gb_PrecompiledHeader_get_dep_target,$(3),$(4))
 endif
 
 endef
 
-# call gb_LinkTarget_set_precompiled_header,linktarget,pchcxxfile,linktargetmakefilename
+# call gb_LinkTarget_set_precompiled_header,linktarget,pchcxxfile,,linktargetmakefilename
 define gb_LinkTarget_set_precompiled_header
-ifeq ($(gb_ENABLE_PCH),$(true))
+ifneq ($(gb_ENABLE_PCH),)
 $(call gb_LinkTarget__set_precompiled_header_impl,$(1),$(2),$(notdir $(2)),$(4))
+$(call gb_PrecompiledHeader_generate_rules,$(notdir $(2)),$(4))
 endif
 
 endef
@@ -1587,9 +1597,9 @@ gb_LinkTarget_use_externals = \
 # call gb_LinkTarget_set_visibility_default,linktarget
 define gb_LinkTarget_set_visibility_default
 $(call gb_LinkTarget_get_target,$(1)) : VISIBILITY := default
-ifeq ($(gb_ENABLE_PCH),$(true))
+ifneq ($(gb_ENABLE_PCH),)
 ifneq ($(strip $$(PCH_NAME)),)
-$(call gb_PrecompiledHeader_get_target,$$(PCH_NAME)) : VISIBILITY := default
+$(call gb_PrecompiledHeader_get_target,$$(PCH_NAME),$$(PCH_LINKTARGETMAKEFILENAME)) : VISIBILITY := default
 endif
 endif
 
@@ -1598,6 +1608,12 @@ endef
 # call gb_LinkTarget_set_warnings_not_errors,linktarget
 define gb_LinkTarget_set_warnings_not_errors
 $(call gb_LinkTarget_get_target,$(1)) : WARNINGS_NOT_ERRORS := $(true)
+
+endef
+
+# call gb_LinkTarget_set_warnings_disabled,linktarget
+define gb_LinkTarget_set_warnings_disabled
+$(call gb_LinkTarget_get_target,$(1)) : WARNINGS_DISABLED := $(true)
 
 endef
 

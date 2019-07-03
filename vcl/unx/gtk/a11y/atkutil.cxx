@@ -314,8 +314,7 @@ void DocumentFocusListener::attachRecursive(
     if( xStateSet->contains(accessibility::AccessibleStateType::FOCUSED ) )
         atk_wrapper_focus_tracker_notify_when_idle( xAccessible );
 
-    uno::Reference< accessibility::XAccessibleEventBroadcaster > xBroadcaster =
-        uno::Reference< accessibility::XAccessibleEventBroadcaster >(xContext, uno::UNO_QUERY);
+    uno::Reference< accessibility::XAccessibleEventBroadcaster > xBroadcaster(xContext, uno::UNO_QUERY);
 
     if (!xBroadcaster.is())
         return;
@@ -373,8 +372,7 @@ void DocumentFocusListener::detachRecursive(
     const uno::Reference< accessibility::XAccessibleStateSet >& xStateSet
 )
 {
-    uno::Reference< accessibility::XAccessibleEventBroadcaster > xBroadcaster =
-        uno::Reference< accessibility::XAccessibleEventBroadcaster >(xContext, uno::UNO_QUERY);
+    uno::Reference< accessibility::XAccessibleEventBroadcaster > xBroadcaster(xContext, uno::UNO_QUERY);
 
     if( xBroadcaster.is() && 0 < m_aRefList.erase(xBroadcaster) )
     {
@@ -576,9 +574,8 @@ static void handle_get_focus(::VclWindowEvent const * pEvent)
     }
     else
     {
-        if( g_aWindowList.list.find(pWindow) == g_aWindowList.list.end() )
+        if( g_aWindowList.list.insert(pWindow).second )
         {
-            g_aWindowList.list.insert(pWindow);
             try
             {
                 rDocumentFocusListener.attachRecursive(xAccessible, xContext, xStateSet);

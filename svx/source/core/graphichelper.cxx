@@ -26,7 +26,7 @@
 #include <svx/graphichelper.hxx>
 #include <svx/strings.hrc>
 #include <sal/log.hxx>
-
+#include <tools/diagnose_ex.h>
 #include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 
@@ -173,9 +173,9 @@ bool lcl_ExecuteFilterDialog( const Sequence< PropertyValue >& rPropsForDialog,
     {
         throw;
     }
-    catch( const Exception& e )
+    catch( const Exception& )
     {
-        SAL_WARN("sfx.doc", "ignoring " << e);
+        TOOLS_WARN_EXCEPTION("sfx.doc", "ignoring");
     }
 
     return bStatus;
@@ -199,12 +199,12 @@ OUString GraphicHelper::ExportGraphic(weld::Window* pParent, const Graphic& rGra
     aDialogHelper.SetDisplayDirectory( aPath.GetMainURL(INetURLObject::DecodeMechanism::ToIUri) );
     INetURLObject aURL;
     aURL.SetSmartURL( rGraphicName );
-    aDialogHelper.SetFileName( aURL.GetName() );
+    aDialogHelper.SetFileName(aURL.GetLastName());
 
     GraphicFilter& rGraphicFilter = GraphicFilter::GetGraphicFilter();
     const sal_uInt16 nCount = rGraphicFilter.GetExportFormatCount();
 
-    OUString aExtension( aURL.GetExtension() );
+    OUString aExtension(aURL.GetFileExtension());
     if( aExtension.isEmpty() )
     {
         GetPreferredExtension( aExtension, rGraphic );

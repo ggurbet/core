@@ -28,6 +28,7 @@
 
 #include <uno/mapping.hxx>
 #include <com/sun/star/task/InteractionHandler.hpp>
+#include <com/sun/star/task/XStatusIndicator.hpp>
 #include <com/sun/star/uno/Reference.h>
 #include <com/sun/star/ucb/XContent.hpp>
 #include <com/sun/star/container/XChild.hpp>
@@ -64,11 +65,13 @@
 #include <com/sun/star/io/XSeekable.hpp>
 #include <com/sun/star/ucb/XSimpleFileAccess.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 #include <com/sun/star/ucb/InsertCommandArgument.hpp>
 #include <com/sun/star/ucb/NameClash.hpp>
 #include <com/sun/star/ucb/TransferInfo.hpp>
 #include <com/sun/star/ucb/OpenCommandArgument2.hpp>
 #include <com/sun/star/ucb/OpenMode.hpp>
+#include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
 #include <com/sun/star/security/DocumentSignatureInformation.hpp>
 #include <com/sun/star/security/DocumentDigitalSignatures.hpp>
@@ -115,6 +118,7 @@
 #include <sot/storage.hxx>
 #include <unotools/saveopt.hxx>
 #include <svl/documentlockfile.hxx>
+#include <svl/msodocumentlockfile.hxx>
 #include <com/sun/star/document/DocumentRevisionListPersistence.hpp>
 
 #include <helper.hxx>
@@ -126,11 +130,14 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/docfac.hxx>
 #include <sfx2/sfxsids.hrc>
+#include <sfx2/sfxuno.hxx>
 #include <openflag.hxx>
 #include <officecfg/Office/Common.hxx>
 #include <comphelper/propertysequence.hxx>
 #include <vcl/weld.hxx>
+#include <vcl/svapp.hxx>
 #include <tools/diagnose_ex.h>
+#include <unotools/fltrcfg.hxx>
 
 #include <com/sun/star/io/WrongFormatException.hpp>
 
@@ -235,7 +242,7 @@ bool IsFileMovable(const INetURLObject& rURL)
     if (buf.st_nlink > 1 || S_ISLNK(buf.st_mode))
         return false;
 #elif defined _WIN32
-    if (tools::IsMappedWebDAVPath(rURL))
+    if (tools::IsMappedWebDAVPath(rURL.GetMainURL(INetURLObject::DecodeMechanism::NONE)))
         return false;
 #endif
 
@@ -263,6 +270,7 @@ public:
     bool m_bSalvageMode:1;
     bool m_bVersionsAlreadyLoaded:1;
     bool m_bLocked:1;
+    bool m_bMSOLockFileCreated : 1;
     bool m_bDisableUnlockWebDAV:1;
     bool m_bGotDateTime:1;
     bool m_bRemoveBackup:1;
@@ -343,6 +351,7 @@ SfxMedium_Impl::SfxMedium_Impl() :
     m_bSalvageMode( false ),
     m_bVersionsAlreadyLoaded( false ),
     m_bLocked( false ),
+    m_bMSOLockFileCreated( false ),
     m_bDisableUnlockWebDAV( false ),
     m_bGotDateTime( false ),
     m_bRemoveBackup( false ),
@@ -584,7 +593,7 @@ void SfxMedium::CloseInStream()
     CloseInStream_Impl();
 }
 
-void SfxMedium::CloseInStream_Impl()
+void SfxMedium::CloseInStream_Impl(bool bInDestruction)
 {
     // if there is a storage based on the InStream, we have to
     // close the storage, too, because otherwise the storage
@@ -595,7 +604,7 @@ void SfxMedium::CloseInStream_Impl()
             CloseStorage();
     }
 
-    if ( pImpl->m_pInStream && !GetContent().is() )
+    if ( pImpl->m_pInStream && !GetContent().is() && !bInDestruction )
     {
         CreateTempFile();
         return;
@@ -755,9 +764,9 @@ bool SfxMedium::IsStorage()
     {
         OUString aURL;
         if ( osl::FileBase::getFileURLFromSystemPath( pImpl->m_aName, aURL )
-             == osl::FileBase::E_None )
+             != osl::FileBase::E_None )
         {
-            SAL_WARN( "sfx.doc", "Physical name not convertible!");
+            SAL_WARN( "sfx.doc", "Physical name '" << pImpl->m_aName << "' not convertible to file URL");
         }
         pImpl->bIsStorage = SotStorage::IsStorageFile( aURL ) && !SotStorage::IsOLEStorage( aURL);
         if ( !pImpl->bIsStorage )
@@ -895,83 +904,21 @@ void SfxMedium::SetEncryptionDataToStorage_Impl()
 
 namespace
 {
-OUString tryMSOwnerFile(const INetURLObject& aLockfileURL)
-{
-    try
-    {
-        static osl::Mutex aMutex;
-        osl::MutexGuard aGuard(aMutex);
-        css::uno::Reference<css::ucb::XCommandEnvironment> xEnv;
-        ucbhelper::Content aSourceContent(
-            aLockfileURL.GetMainURL(INetURLObject::DecodeMechanism::NONE), xEnv,
-            comphelper::getProcessComponentContext());
-
-        // Excel creates Owner Files with FILE_FLAG_DELETE_ON_CLOSE, so we need to open it with
-        // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE share mode
-        css::uno::Reference<css::io::XInputStream> xStream = aSourceContent.openStreamNoLock();
-        if (!xStream)
-            return OUString();
-
-        const sal_Int32 nBufLen = 256;
-        css::uno::Sequence<sal_Int8> aBuf(nBufLen);
-        const sal_Int32 nRead = xStream->readBytes(aBuf, nBufLen);
-        xStream->closeInput();
-        if (nRead >= 162)
-        {
-            // Reverse engineering of MS Office Owner Files format (MS Office 2016 tested).
-            // It starts with a single byte with name length, after which characters of username go
-            // in current Windows 8-bit codepage.
-            // For Word lockfiles, the name is followed by zero bytes up to position 54.
-            // For PowerPoint lockfiles, the name is followed by a single zero byte, and then 0x20
-            // bytes up to position 55.
-            // For Excel lockfiles, the name is followed by 0x20 bytes up to position 55.
-            // At those positions in each type of lockfile, a name length 2-byte word goes, followed
-            // by UTF-16-LE-encoded copy of username. Spaces or some garbage follow up to the end of
-            // the lockfile (total 162 bytes for Word, 165 bytes for Excel/PowerPoint).
-            // Apparently MS Office does not allow username to be longer than 52 characters (trying
-            // to enter more in its options dialog results in error messages stating this limit).
-            const int nACPLen = aBuf[0];
-            if (nACPLen > 0 && nACPLen <= 52) // skip wrong format
-            {
-                const sal_Int8* pBuf = aBuf.getConstArray() + 54;
-                int nUTF16Len = *pBuf; // try Word position
-                // If UTF-16 length is 0x20, then ACP length is also less than maximal, which means
-                // that in Word lockfile case, at least two preceeding bytes would be zero. Both
-                // Excel and PowerPoint lockfiles would have at least one of those bytes non-zero.
-                if (nUTF16Len == 0x20 && (*(pBuf - 1) != 0 || *(pBuf - 2) != 0))
-                    nUTF16Len = *++pBuf; // use Excel/PowerPoint position
-
-                if (nUTF16Len > 0 && nUTF16Len <= 52) // skip wrong format
-                    return OUString(reinterpret_cast<const sal_Unicode*>(pBuf + 2), nUTF16Len);
-            }
-        }
-    }
-    catch (...) {} // we don't ever need to care about any exceptions here
-
-    return OUString();
-}
 
 OUString tryMSOwnerFiles(const OUString& sDocURL)
 {
-    INetURLObject aURL(sDocURL);
-    if (aURL.HasError())
-        return OUString();
-    const OUString sFileName = aURL.GetLastName(INetURLObject::DecodeMechanism::WithCharset);
-    if (sFileName.isEmpty())
-        return OUString();
-    const OUString sFileExt = aURL.GetFileExtension();
-    const sal_Int32 nFileNameLen
-        = sFileName.getLength() - sFileExt.getLength() - (sFileExt.isEmpty() ? 0 : 1);
-    // Word, Excel, PowerPoint all prepend the filename with "~$".
-    aURL.SetName("~$" + sFileName, INetURLObject::EncodeMechanism::All);
-    OUString sUserData = tryMSOwnerFile(aURL);
-    // Additionally, Word strips first chars of the filename: 1 for length 7, 2 for length >=8.
-    if (sUserData.isEmpty() && nFileNameLen > 6)
+    svt::MSODocumentLockFile aMSOLockFile(sDocURL);
+    LockFileEntry aData;
+    try
     {
-        aURL.SetName("~$" + sFileName.copy((nFileNameLen == 7) ? 1 : 2),
-                     INetURLObject::EncodeMechanism::All);
-        sUserData = tryMSOwnerFile(aURL);
+        aData = aMSOLockFile.GetLockData();
     }
+    catch( const uno::Exception& )
+    {
+        return OUString();
+    }
+
+    OUString sUserData = aData[LockFileComponent::OOOUSERNAME];
 
     if (!sUserData.isEmpty())
         sUserData += " (MS Office)"; // Mention the used office suite
@@ -1414,6 +1361,15 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
                         try
                         {
                             ::svt::DocumentLockFile aLockFile( pImpl->m_aLogicName );
+
+                            std::unique_ptr<svt::MSODocumentLockFile> pMSOLockFile;
+                            const SvtFilterOptions& rOpt = SvtFilterOptions::Get();
+                            if (rOpt.IsMSOLockFileCreationIsEnabled() && svt::MSODocumentLockFile::IsMSOSupportedFileFormat(pImpl->m_aLogicName))
+                            {
+                                pMSOLockFile.reset(new svt::MSODocumentLockFile(pImpl->m_aLogicName));
+                                pImpl->m_bMSOLockFileCreated = true;
+                            }
+
                             bool  bIoErr = false;
 
                             if (!bHandleSysLocked)
@@ -1421,10 +1377,13 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
                                 try
                                 {
                                     bResult = aLockFile.CreateOwnLockFile();
+                                    if(pMSOLockFile)
+                                        bResult &= pMSOLockFile->CreateOwnLockFile();
                                 }
                                 catch (const uno::Exception&)
                                 {
-                                    if (tools::IsMappedWebDAVPath(GetURLObject()))
+                                    if (tools::IsMappedWebDAVPath(GetURLObject().GetMainURL(
+                                            INetURLObject::DecodeMechanism::NONE)))
                                     {
                                         // This is a path that redirects to a WebDAV resource;
                                         // so failure creating lockfile is not an error here.
@@ -1445,6 +1404,9 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
                                     bResult = true;
                                     // take the ownership over the lock file
                                     aLockFile.OverwriteOwnLockFile();
+
+                                    if(pMSOLockFile)
+                                        pMSOLockFile->OverwriteOwnLockFile();
                                 }
                             }
 
@@ -1499,6 +1461,9 @@ SfxMedium::LockFileResult SfxMedium::LockOrigFileOnDemand( bool bLoading, bool b
                                     {
                                         // take the ownership over the lock file
                                         bResult = aLockFile.OverwriteOwnLockFile();
+
+                                        if(pMSOLockFile)
+                                            pMSOLockFile->OverwriteOwnLockFile();
                                     }
                                     else if (bLoading && !bHandleSysLocked)
                                         eResult = LockFileResult::FailedLockFile;
@@ -2351,13 +2316,13 @@ void SfxMedium::Transfer_Impl()
                         // <http://tools.ietf.org/html/rfc4918#section-7.3>
                         // If the WebDAV resource is already locked by this LO instance, nothing will
                         // happen, e.g. the LOCK method will not be sent to the server.
-                        ::ucbhelper::Content aLockContent = ::ucbhelper::Content( GetURLObject().GetMainURL( INetURLObject::DecodeMechanism::NONE ), xComEnv, comphelper::getProcessComponentContext() );
+                        ::ucbhelper::Content aLockContent( GetURLObject().GetMainURL( INetURLObject::DecodeMechanism::NONE ), xComEnv, comphelper::getProcessComponentContext() );
                         aLockContent.lock();
                     }
                 }
-                catch ( css::uno::Exception & e )
+                catch ( css::uno::Exception & )
                 {
-                    SAL_WARN( "sfx.doc", "LOCK not working while re-issuing it. Exception message: " << e );
+                    TOOLS_WARN_EXCEPTION( "sfx.doc", "LOCK not working while re-issuing it" );
                 }
             }
             catch ( const css::ucb::CommandAbortedException& )
@@ -2941,14 +2906,14 @@ sal_uInt32 SfxMedium::CreatePasswordToModifyHash( const OUString& aPasswd, bool 
 }
 
 
-void SfxMedium::Close()
+void SfxMedium::Close(bool bInDestruction)
 {
     if ( pImpl->xStorage.is() )
     {
         CloseStorage();
     }
 
-    CloseStreams_Impl();
+    CloseStreams_Impl(bInDestruction);
 
     UnlockFile( false );
 }
@@ -3054,6 +3019,31 @@ void SfxMedium::UnlockFile( bool bReleaseLockStream )
     }
     catch( const uno::Exception& )
     {}
+
+    if(pImpl->m_bMSOLockFileCreated)
+    {
+        ::svt::MSODocumentLockFile aMSOLockFile( pImpl->m_aLogicName );
+
+        try
+        {
+            pImpl->m_bLocked = false;
+            // TODO/LATER: A warning could be shown in case the file is not the own one
+            aMSOLockFile.RemoveFile();
+        }
+        catch( const io::WrongFormatException& )
+        {
+            try
+            {
+                // erase the empty or corrupt file
+                aMSOLockFile.RemoveFileDirectly();
+            }
+            catch( const uno::Exception& )
+            {}
+        }
+        catch( const uno::Exception& )
+        {}
+        pImpl->m_bMSOLockFileCreated = false;
+    }
 #endif
 }
 
@@ -3092,9 +3082,9 @@ void SfxMedium::CloseAndReleaseStreams_Impl()
 }
 
 
-void SfxMedium::CloseStreams_Impl()
+void SfxMedium::CloseStreams_Impl(bool bInDestruction)
 {
-    CloseInStream_Impl();
+    CloseInStream_Impl(bInDestruction);
     CloseOutStream_Impl();
 
     if ( pImpl->m_pSet )
@@ -3264,7 +3254,7 @@ SfxMedium::SfxMedium( const uno::Sequence<beans::PropertyValue>& aArgs ) :
         // QUESTION: there is some treatment of Salvage in Init_Impl; align!
         if ( !pSalvageItem->GetValue().isEmpty() )
         {
-            // if an URL is provided in SalvageItem that means that the FileName refers to a temporary file
+            // if a URL is provided in SalvageItem that means that the FileName refers to a temporary file
             // that must be copied here
 
             const SfxStringItem* pFileNameItem = SfxItemSet::GetItem<SfxStringItem>(pImpl->m_pSet.get(), SID_FILE_NAME, false);
@@ -3337,7 +3327,7 @@ SfxMedium::~SfxMedium()
     // if there is a requirement to clean the backup this is the last possibility to do it
     ClearBackup_Impl();
 
-    Close();
+    Close(/*bInDestruction*/true);
 
     if( !pImpl->bIsTemp || pImpl->m_aName.isEmpty() )
         return;
@@ -3810,10 +3800,12 @@ bool SfxMedium::SignDocumentContentUsingCertificate(bool bHasValidDocumentSignat
         {
             xWriteableZipStor = ::comphelper::OStorageHelper::GetStorageOfFormatFromStream( ZIP_STORAGE_FORMAT_STRING, pImpl->xStream );
         }
-        catch (const io::IOException& rException)
+        catch (const io::IOException&)
         {
             if (bODF)
-                SAL_WARN("sfx.doc", "ODF stream is not a zip storage: " << rException);
+            {
+                TOOLS_WARN_EXCEPTION("sfx.doc", "ODF stream is not a zip storage");
+            }
         }
 
         if ( !xWriteableZipStor.is() && bODF )
@@ -3935,10 +3927,12 @@ bool SfxMedium::SignContents_Impl(weld::Window* pDialogParent,
         {
             xWriteableZipStor = ::comphelper::OStorageHelper::GetStorageOfFormatFromStream( ZIP_STORAGE_FORMAT_STRING, pImpl->xStream );
         }
-        catch (const io::IOException& rException)
+        catch (const io::IOException&)
         {
             if (bODF)
-                SAL_WARN("sfx.doc", "ODF stream is not a zip storage: " << rException);
+            {
+                TOOLS_WARN_EXCEPTION("sfx.doc", "ODF stream is not a zip storage");
+            }
         }
 
         if ( !xWriteableZipStor.is() && bODF )

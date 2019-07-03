@@ -44,11 +44,13 @@
 #include <com/sun/star/container/XEnumeration.hpp>
 #include <com/sun/star/form/runtime/XFormController.hpp>
 #include <com/sun/star/frame/Frame.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/sdbcx/XColumnsSupplier.hpp>
 #include <com/sun/star/sdbcx/XRowLocate.hpp>
 #include <com/sun/star/sdb/XResultSetAccess.hpp>
 #include <com/sun/star/sdbc/XDataSource.hpp>
 #include <com/sun/star/ui/dialogs/FolderPicker.hpp>
+#include <com/sun/star/view/XSelectionSupplier.hpp>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -101,7 +103,7 @@ void SwXSelChgLstnr_Impl::selectionChanged( const EventObject&  )
     if(rParent.pImpl->xSelSupp.is())
         rParent.pImpl->xSelSupp->getSelection() >>= aSelection;
 
-    bool bEnable = aSelection.getLength() > 0;
+    bool bEnable = aSelection.hasElements();
     rParent.m_pMarkedRB->Enable(bEnable);
     if(bEnable)
         rParent.m_pMarkedRB->Check();
@@ -123,7 +125,7 @@ SwMailMergeDlg::SwMailMergeDlg(vcl::Window* pParent, SwWrtShell& rShell,
                                const uno::Reference< XConnection>& _xConnection,
                                Sequence< Any > const * pSelection) :
 
-    SvxStandardDialog(pParent, "MailmergeDialog", "modules/swriter/ui/mailmerge.ui"),
+    SfxModalDialog(pParent, "MailmergeDialog", "modules/swriter/ui/mailmerge.ui"),
 
     pImpl           (new SwMailMergeDlg_Impl),
 
@@ -307,7 +309,7 @@ SwMailMergeDlg::SwMailMergeDlg(vcl::Window* pParent, SwWrtShell& rShell,
     if (m_pColumnLB->GetSelectedEntryCount() == 0)
         m_pColumnLB->SelectEntryPos(0);
 
-    const bool bEnable = m_aSelection.getLength() != 0;
+    const bool bEnable = m_aSelection.hasElements();
     m_pMarkedRB->Enable(bEnable);
     if (bEnable)
         m_pMarkedRB->Check();
@@ -336,13 +338,10 @@ SwMailMergeDlg::SwMailMergeDlg(vcl::Window* pParent, SwWrtShell& rShell,
             uno::Sequence< beans::PropertyValue > aFilterProperties;
             aProps >>= aFilterProperties;
             OUString sUIName2;
-            const beans::PropertyValue* pFilterProperties = aFilterProperties.getConstArray();
-            for(sal_Int32 nProp = 0; nProp < aFilterProperties.getLength(); ++nProp) {
-                if(pFilterProperties[nProp].Name == "UIName") {
-                    pFilterProperties[nProp].Value >>= sUIName2;
-                    break;
-                }
-            }
+            auto pProp = std::find_if(aFilterProperties.begin(), aFilterProperties.end(),
+                [](const beans::PropertyValue& rProp) { return rProp.Name == "UIName"; });
+            if (pProp != aFilterProperties.end())
+                pProp->Value >>= sUIName2;
             if( !sUIName2.isEmpty() ) {
                 const sal_Int32 nFilter = m_pFilterLB->InsertEntry( sUIName2 );
                 if( sFilter == "writer8" )
@@ -404,11 +403,7 @@ void SwMailMergeDlg::dispose()
     m_pFormatRtfCB.clear();
     m_pFormatSwCB.clear();
     m_pOkBTN.clear();
-    SvxStandardDialog::dispose();
-}
-
-void SwMailMergeDlg::Apply()
-{
+    SfxModalDialog::dispose();
 }
 
 IMPL_LINK( SwMailMergeDlg, ButtonHdl, Button *, pBtn, void )
@@ -546,11 +541,9 @@ bool SwMailMergeDlg::ExecQryShell()
             uno::Reference< XResultSet > xRes(xRowLocate,UNO_QUERY);
             pImpl->xSelSupp->getSelection() >>= m_aSelection;
             if ( xRowLocate.is() ) {
-                Any* pBegin = m_aSelection.getArray();
-                Any* pEnd   = pBegin + m_aSelection.getLength();
-                for (; pBegin != pEnd ; ++pBegin) {
-                    if ( xRowLocate->moveToBookmark(*pBegin) )
-                        *pBegin <<= xRes->getRow();
+                for (Any& rRow : m_aSelection) {
+                    if ( xRowLocate->moveToBookmark(rRow) )
+                        rRow <<= xRes->getRow();
                 }
             }
         }

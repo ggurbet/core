@@ -23,6 +23,7 @@
 #include <svx/dlgutil.hxx>
 #include <svx/anchorid.hxx>
 #include <svl/aeitem.hxx>
+#include <svl/intitem.hxx>
 #include <svx/swframevalidation.hxx>
 #include <sfx2/htmlmode.hxx>
 #include <svx/svdview.hxx>
@@ -33,6 +34,8 @@
 #include <com/sun/star/text/VertOrientation.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
+#include <svtools/unitconv.hxx>
 
 using namespace ::com::sun::star::text;
 

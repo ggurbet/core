@@ -142,7 +142,7 @@ void OQuery::rebuildColumns()
         {
             xComposer->setQuery( m_sCommand );
             Reference< XColumnsSupplier > xCols( xComposer, UNO_QUERY_THROW );
-            xColumns.set( xCols->getColumns(), UNO_QUERY_THROW );
+            xColumns.set( xCols->getColumns(), UNO_SET_THROW );
             xColumnsIndexed.set( xColumns, UNO_QUERY_THROW );
         }
         catch( const SQLException& ) { }
@@ -159,7 +159,7 @@ void OQuery::rebuildColumns()
                 ::dbtools::throwSQLException( sError, StandardSQLState::GENERAL_ERROR, *this );
             }
 
-            Reference< XDatabaseMetaData > xDBMeta( m_xConnection->getMetaData(), UNO_QUERY_THROW );
+            Reference< XDatabaseMetaData > xDBMeta( m_xConnection->getMetaData(), UNO_SET_THROW );
             ::rtl::Reference< OSQLColumns > aParseColumns(
                 ::connectivity::parse::OParseColumn::createColumnsForResultSet( xResultSetMeta, xDBMeta,xColumnDefinitions ) );
             xColumns = OPrivateColumns::createWithIntrinsicNames(
@@ -233,7 +233,7 @@ void SAL_CALL OQuery::propertyChange( const PropertyChangeEvent& _rSource )
             ODataSettings::setFastPropertyValue_NoBroadcast(nOwnHandle, _rSource.NewValue);
                 // don't use our own setFastPropertyValue_NoBroadcast, this would forward it to the CommandSettings,
                 // again
-                // and don't use the "real" setPropertyValue, this is to expensive and not sure to succeed
+                // and don't use the "real" setPropertyValue, this is too expensive and not sure to succeed
         }
         else
         {
@@ -330,7 +330,7 @@ void SAL_CALL OQuery::rename( const OUString& newName )
 void OQuery::registerProperties()
 {
     // the properties which OCommandBase supplies (it has no own registration, as it's not derived from
-    // a OPropertyStateContainer)
+    // an OPropertyStateContainer)
     registerProperty(PROPERTY_NAME, PROPERTY_ID_NAME, PropertyAttribute::BOUND|PropertyAttribute::CONSTRAINED,
                     &m_sElementName, cppu::UnoType<decltype(m_sElementName)>::get());
 

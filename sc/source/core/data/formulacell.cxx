@@ -2115,6 +2115,11 @@ void ScFormulaCell::InterpretTail( ScInterpreterContext& rContext, ScInterpretTa
                 bChanged = true;
             }
 
+            // Currently (2019-05-10) nothing else can cope with a duration
+            // format type, change to time as it was before.
+            if (nFormatType == SvNumFormatType::DURATION)
+                nFormatType = SvNumFormatType::TIME;
+
             mbNeedsNumberFormat = false;
         }
 
@@ -2363,24 +2368,6 @@ void ScFormulaCell::Notify( const SfxHint& rHint )
 
         switch (rRefHint.getType())
         {
-            case sc::RefHint::Moved:
-            {
-                // One of the references has moved.
-
-                const sc::RefMovedHint& rRefMoved = static_cast<const sc::RefMovedHint&>(rRefHint);
-                if (!IsShared() || IsSharedTop())
-                {
-                    sc::RefUpdateResult aRes = pCode->MoveReference(aPos, rRefMoved.getContext());
-                    if (aRes.mbNameModified)
-                    {
-                        // RPN token needs to be re-generated.
-                        bCompile = true;
-                        CompileTokenArray();
-                        SetDirtyVar();
-                    }
-                }
-            }
-            break;
             case sc::RefHint::ColumnReordered:
             {
                 const sc::RefColReorderHint& rRefColReorder =
@@ -4758,8 +4745,10 @@ bool ScFormulaCell::InterpretFormulaGroupThreading(sc::FormulaLogger::GroupScope
                                                                 nStartOffset, nEndOffset));
             }
 
-            SAL_INFO("sc.threaded", "Joining threads");
-            rThreadPool.waitUntilDone(aTag);
+            SAL_INFO("sc.threaded", "Waiting for threads to finish work");
+            // Do not join the threads here. They will get joined in ScDocument destructor
+            // if they don't get joined from elsewhere before (via ThreadPool::waitUntilDone).
+            rThreadPool.waitUntilDone(aTag, false);
 
             pDocument->SetThreadedGroupCalcInProgress(false);
 

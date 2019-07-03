@@ -170,7 +170,7 @@ struct TokenTable
     void push_back( std::unique_ptr<FormulaToken> pToken )
     {
         maTokens.push_back( std::move(pToken) );
-        OSL_ENSURE( maTokens.size()<= static_cast<sal_uInt32>( mnColCount*mnRowCount ), "too much tokens" );
+        OSL_ENSURE( maTokens.size()<= static_cast<sal_uInt32>( mnColCount*mnRowCount ), "too many tokens" );
     }
 
     sal_uInt32 getIndex(SCCOL nCol, SCROW nRow) const
@@ -1521,7 +1521,7 @@ ScChart2DataProvider::createDataSource(
         }
         uno::Reference< chart2::data::XLabeledDataSequence > xChartSeries = lcl_createLabeledDataSequenceFromTokens(
             std::move(aValueTokens), std::move(aLabelTokens), m_pDocument, this, m_bIncludeHiddenCells ); //ownership of pointers is transferred!
-        if ( xChartSeries.is() && xChartSeries->getValues().is() && xChartSeries->getValues()->getData().getLength() )
+        if ( xChartSeries.is() && xChartSeries->getValues().is() && xChartSeries->getValues()->getData().hasElements() )
         {
             aSeqs.push_back( xChartSeries );
         }
@@ -1869,23 +1869,15 @@ uno::Sequence< beans::PropertyValue > SAL_CALL ScChart2DataProvider::detectArgum
                                   beans::PropertyState_DIRECT_VALUE );
     }
 
-    // DataRowSource (calculated before)
     if( bRowSourceDetected )
     {
+        // DataRowSource (calculated before)
         aResult.emplace_back( "DataRowSource", -1,
                                   uno::makeAny( eRowSource ), beans::PropertyState_DIRECT_VALUE );
-    }
-
-    // HasCategories
-    if( bRowSourceDetected )
-    {
+        // HasCategories
         aResult.emplace_back( "HasCategories", -1,
                                   uno::makeAny( bHasCategories ), beans::PropertyState_DIRECT_VALUE );
-    }
-
-    // FirstCellAsLabel
-    if( bRowSourceDetected )
-    {
+        // FirstCellAsLabel
         aResult.emplace_back( "FirstCellAsLabel", -1,
                                   uno::makeAny( bFirstCellAsLabel ), beans::PropertyState_DIRECT_VALUE );
     }
@@ -2039,7 +2031,7 @@ uno::Reference< sheet::XRangeSelection > SAL_CALL ScChart2DataProvider::getRange
 sal_Bool SAL_CALL ScChart2DataProvider::createDataSequenceByFormulaTokensPossible(
     const Sequence<sheet::FormulaToken>& aTokens )
 {
-    if (aTokens.getLength() <= 0)
+    if (!aTokens.hasElements())
         return false;
 
     ScTokenArray aCode;
@@ -2097,7 +2089,7 @@ ScChart2DataProvider::createDataSequenceByFormulaTokens(
     const Sequence<sheet::FormulaToken>& aTokens )
 {
     uno::Reference<chart2::data::XDataSequence> xResult;
-    if (aTokens.getLength() <= 0)
+    if (!aTokens.hasElements())
         return xResult;
 
     ScTokenArray aCode;
@@ -2883,7 +2875,7 @@ uno::Sequence< uno::Any> SAL_CALL ScChart2DataSequence::getData()
 
     BuildDataCache();
 
-    if (!m_aMixedDataCache.getLength())
+    if (!m_aMixedDataCache.hasElements())
     {
         // Build a cache for the 1st time...
 

@@ -49,6 +49,7 @@
 #include <com/sun/star/document/XExporter.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/packages/WrongPasswordException.hpp>
 #include <com/sun/star/packages/zip/ZipIOException.hpp>
@@ -74,6 +75,7 @@
 #include <strings.hrc>
 
 #include <sfx2/frame.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 
 using namespace com::sun::star;
@@ -357,7 +359,7 @@ ErrCode ReadThroughComponent(
 
     // set Base URL
     uno::Reference< beans::XPropertySet > xInfoSet;
-    if( rFilterArguments.getLength() > 0 )
+    if( rFilterArguments.hasElements() )
         rFilterArguments.getConstArray()[0] >>= xInfoSet;
     DBG_ASSERT( xInfoSet.is(), "missing property set" );
     if( xInfoSet.is() )
@@ -1003,9 +1005,9 @@ bool SdXMLFilter::Export()
                 mxStatusIndicator->end();
         }
     }
-    catch (const uno::Exception &e)
+    catch (const uno::Exception &)
     {
-        SAL_WARN( "sd.filter", "uno Exception caught while exporting:" << e);
+        TOOLS_WARN_EXCEPTION( "sd.filter", "uno Exception caught while exporting");
         bDocRet = false;
     }
     if ( !bLocked )
@@ -1032,7 +1034,7 @@ extern "C" SAL_DLLPUBLIC_EXPORT bool TestImportFODP(SvStream &rStream)
 
     uno::Reference<lang::XMultiServiceFactory> xMultiServiceFactory(comphelper::getProcessServiceFactory());
     uno::Reference<io::XInputStream> xStream(new ::utl::OSeekableInputStreamWrapper(rStream));
-    uno::Reference<uno::XInterface> xInterface(xMultiServiceFactory->createInstance("com.sun.star.comp.Writer.XmlFilterAdaptor"), uno::UNO_QUERY_THROW);
+    uno::Reference<uno::XInterface> xInterface(xMultiServiceFactory->createInstance("com.sun.star.comp.Writer.XmlFilterAdaptor"), uno::UNO_SET_THROW);
 
     css::uno::Sequence<OUString> aUserData(7);
     aUserData[0] = "com.sun.star.comp.filter.OdfFlatXml";

@@ -191,7 +191,7 @@ ShapeContextHandler::getDrawingShapeContext()
     {
         mpDrawing.reset( new oox::vml::Drawing( *mxFilterBase, mxDrawPage, oox::vml::VMLDRAWING_WORD ) );
         mxDrawingFragmentHandler.set
-          (dynamic_cast<ContextHandler *>
+          (static_cast<ContextHandler *>
            (new oox::vml::DrawingFragment
             ( *mxFilterBase, msRelationFragmentPath, *mpDrawing )));
     }
@@ -203,7 +203,7 @@ ShapeContextHandler::getDrawingShapeContext()
         {
             mxDrawingFragmentHandler.clear();
             mxDrawingFragmentHandler.set
-              (dynamic_cast<ContextHandler *>
+              (static_cast<ContextHandler *>
                (new oox::vml::DrawingFragment
                 ( *mxFilterBase, msRelationFragmentPath, *mpDrawing )));
         }
@@ -433,6 +433,14 @@ ShapeContextHandler::getShape()
                     mxFilterBase->importFragment(new ShapeDrawingFragmentHandler(*mxFilterBase, aFragmentPath, pShapePtr));
                     pShapePtr->setDiagramDoms(mpShape->getDiagramDoms());
                     pShapePtr->keepDiagramDrawing(*mxFilterBase, aFragmentPath);
+
+                    if (!mpShape->getChildren().empty())
+                    {
+                        // first child is diagram background - we want to keep it, as drawingML fallback doesn't contain it
+                        auto& aChildren = pShapePtr->getChildren();
+                        ShapePtr pBackground = mpShape->getChildren().front();
+                        aChildren.insert(aChildren.begin(), pBackground);
+                    }
 
                     pShapePtr->addShape( *mxFilterBase, mpThemePtr.get(), xShapes, aMatrix, pShapePtr->getFillProperties() );
                     xResult = pShapePtr->getXShape();

@@ -22,19 +22,13 @@
 #include <o3tl/any.hxx>
 #include <osl/mutex.hxx>
 #include <osl/diagnose.h>
-#include <rtl/ref.hxx>
 #include <rtl/ustrbuf.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
-#include <uno/mapping.hxx>
-#include <uno/dispatcher.h>
-#include <cppuhelper/queryinterface.hxx>
+#include <cppuhelper/factory.hxx>
 #include <cppuhelper/weakref.hxx>
-#include <cppuhelper/component.hxx>
 #include <cppuhelper/implbase.hxx>
-#include <cppuhelper/implementationentry.hxx>
-#include <cppuhelper/component_context.hxx>
-#include <cppuhelper/bootstrap.hxx>
 #include <cppuhelper/compbase.hxx>
 #include <cppuhelper/supportsservice.hxx>
 #include <comphelper/sequence.hxx>
@@ -55,9 +49,7 @@
 #include <com/sun/star/container/XElementAccess.hpp>
 #include <com/sun/star/container/XEnumeration.hpp>
 #include <com/sun/star/container/XContentEnumerationAccess.hpp>
-#include <com/sun/star/container/XHierarchicalNameAccess.hpp>
 #include <com/sun/star/uno/XComponentContext.hpp>
-#include <com/sun/star/uno/XUnloadingPreference.hpp>
 
 #include <unordered_map>
 #include <unordered_set>
@@ -90,7 +82,7 @@ Sequence< OUString > retrieveAsciiValueList(
             {
                 Sequence< OUString > seq2 = retrieveAsciiValueList( xTempReg, keyName );
 
-                if( seq2.getLength() )
+                if( seq2.hasElements() )
                 {
                     sal_Int32 n1Len = seq.getLength();
                     sal_Int32 n2Len = seq2.getLength();
@@ -133,28 +125,8 @@ Sequence< OUString > retrieveAsciiValueList(
 /*****************************************************************************
     Enumeration by ServiceName
 *****************************************************************************/
-struct hashRef_Impl
-{
-    size_t operator()(const Reference<XInterface > & rName) const
-    {
-        // query to XInterface. The cast to XInterface* must be the same for the same object
-        Reference<XInterface > x( Reference<XInterface >::query( rName ) );
-        return reinterpret_cast<size_t>(x.get());
-    }
-};
 
-struct equaltoRef_Impl
-{
-    bool operator()(const Reference<XInterface > & rName1, const Reference<XInterface > & rName2 ) const
-        { return rName1 == rName2; }
-};
-
-typedef std::unordered_set
-<
-    Reference<XInterface >,
-    hashRef_Impl,
-    equaltoRef_Impl
-> HashSet_Ref;
+typedef std::unordered_set< Reference<XInterface > > HashSet_Ref;
 
 
 class ServiceEnumeration_Impl : public WeakImplHelper< XEnumeration >
@@ -648,9 +620,9 @@ void OServiceManager::disposing()
             if( xComp.is() )
                 xComp->dispose();
         }
-        catch (const RuntimeException & exc)
+        catch (const RuntimeException &)
         {
-            SAL_INFO("stoc", "RuntimeException occurred upon disposing factory: " << exc);
+            TOOLS_INFO_EXCEPTION("stoc", "RuntimeException occurred upon disposing factory:");
         }
     }
 
@@ -836,9 +808,9 @@ Reference< XInterface > OServiceManager::createInstanceWithContext(
                 }
             }
         }
-        catch (const lang::DisposedException & exc)
+        catch (const lang::DisposedException &)
         {
-            SAL_INFO("stoc", "DisposedException occurred: " << exc);
+            TOOLS_INFO_EXCEPTION("stoc", "");
         }
     }
 
@@ -890,9 +862,9 @@ Reference< XInterface > OServiceManager::createInstanceWithArgumentsAndContext(
                 }
             }
         }
-        catch (const lang::DisposedException & exc)
+        catch (const lang::DisposedException &)
         {
-            SAL_INFO("stoc", "DisposedException occurred: " << exc);
+            TOOLS_INFO_EXCEPTION("stoc", "DisposedException occurred:");
         }
     }
 
@@ -998,7 +970,7 @@ Reference<XEnumeration > OServiceManager::createContentEnumeration(
     check_undisposed();
     Sequence< Reference< XInterface > > factories(
         OServiceManager::queryServiceFactories( aServiceName, m_xContext ) );
-    if (factories.getLength())
+    if (factories.hasElements())
         return new ServiceEnumeration_Impl( factories );
     else
         return Reference< XEnumeration >();
@@ -1391,7 +1363,7 @@ void ORegistryServiceManager::initialize(const Sequence< Any >& Arguments)
 {
     check_undisposed();
     MutexGuard aGuard( m_mutex );
-    if (Arguments.getLength() > 0)
+    if (Arguments.hasElements())
     {
         m_xRootKey.clear();
         Arguments[ 0 ] >>= m_xRegistry;
@@ -1433,7 +1405,7 @@ Sequence< Reference< XInterface > > ORegistryServiceManager::queryServiceFactori
 {
     Sequence< Reference< XInterface > > ret(
         OServiceManager::queryServiceFactories( aServiceName, xContext ) );
-    if (ret.getLength())
+    if (ret.hasElements())
     {
         return ret;
     }

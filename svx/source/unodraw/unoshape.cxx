@@ -64,6 +64,7 @@
 #include <svx/svdomeas.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdpool.hxx>
+#include <tools/stream.hxx>
 #include <tools/gen.hxx>
 #include <svx/svdocapt.hxx>
 #include <svx/obj3d.hxx>
@@ -71,8 +72,10 @@
 #include <svx/xflftrit.hxx>
 #include <svx/xtable.hxx>
 #include <svx/xbtmpit.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xflgrit.hxx>
 #include <svx/xflhtit.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlndsit.hxx>
 #include <svx/unomaster.hxx>
 #include <editeng/outlobj.hxx>
@@ -239,7 +242,7 @@ void SvxShape::InvalidateSdrObject()
     if (HasSdrObjectOwnership())
         return;
 
-    mpSdrObjectWeakReference.reset( nullptr );
+    mpSdrObjectWeakReference.reset(nullptr);
 };
 
 bool SvxShape::HasSdrObjectOwnership() const
@@ -291,17 +294,6 @@ const css::uno::Sequence< sal_Int8 > & SvxShape::getUnoTunnelId() throw()
 {
     return theSvxShapeUnoTunnelId::get().getSeq();
 }
-
-
-SvxShape* SvxShape::getImplementation( const uno::Reference< uno::XInterface >& xInt )
-{
-    uno::Reference< lang::XUnoTunnel > xUT( xInt, css::uno::UNO_QUERY );
-    if( xUT.is() )
-        return reinterpret_cast<SvxShape*>(sal::static_int_cast<sal_uIntPtr>(xUT->getSomething( SvxShape::getUnoTunnelId())));
-    else
-        return nullptr;
-}
-
 
 sal_Int64 SAL_CALL SvxShape::getSomething( const css::uno::Sequence< sal_Int8 >& rId )
 {
@@ -619,7 +611,7 @@ static void SvxItemPropertySet_ObtainSettingsFromPropertySet(const SvxItemProper
             const sal_uInt16 nWID = rSrcProp.nWID;
             if(SfxItemPool::IsWhich(nWID)
                     && (nWID < OWN_ATTR_VALUE_START || nWID > OWN_ATTR_VALUE_END)
-                    && rPropSet.GetUsrAnyForID(nWID))
+                    && rPropSet.GetUsrAnyForID(rSrcProp))
                 rSet.Put(rSet.GetPool()->GetDefaultItem(nWID));
         }
 
@@ -627,7 +619,7 @@ static void SvxItemPropertySet_ObtainSettingsFromPropertySet(const SvxItemProper
         {
             if(rSrcProp.nWID)
             {
-                uno::Any* pUsrAny = rPropSet.GetUsrAnyForID(rSrcProp.nWID);
+                uno::Any* pUsrAny = rPropSet.GetUsrAnyForID(rSrcProp);
                 if(pUsrAny)
                 {
                     // search for equivalent entry in pDst
@@ -813,7 +805,7 @@ uno::Sequence< uno::Type > SAL_CALL SvxShape::getTypes()
 }
 
 
-uno::Sequence< uno::Type > SvxShape::_getTypes()
+uno::Sequence< uno::Type > const & SvxShape::_getTypes()
 {
     switch( mpImpl->mnObjId )
     {
@@ -1018,18 +1010,19 @@ void SvxShape::Notify( SfxBroadcaster&, const SfxHint& rHint ) throw()
         return;
 
     // #i55919# SdrHintKind::ObjectChange is only interesting if it's for this object
-
-    const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>(&rHint);
-    if (!pSdrHint ||
-        ((pSdrHint->GetKind() != SdrHintKind::ModelCleared) &&
-         (pSdrHint->GetKind() != SdrHintKind::ObjectChange || pSdrHint->GetObject() != GetSdrObject() )))
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
+        return;
+    SdrObject* pSdrObject(GetSdrObject());
+    const SdrHint* pSdrHint = static_cast<const SdrHint*>(&rHint);
+    if ((pSdrHint->GetKind() != SdrHintKind::ModelCleared) &&
+         (pSdrHint->GetKind() != SdrHintKind::ObjectChange || pSdrHint->GetObject() != pSdrObject ))
         return;
 
-    uno::Reference< uno::XInterface > xSelf( GetSdrObject()->getWeakUnoShape() );
+    uno::Reference< uno::XInterface > xSelf( pSdrObject->getWeakUnoShape() );
     if( !xSelf.is() )
     {
-        EndListening(GetSdrObject()->getSdrModelFromSdrObject());
-        mpSdrObjectWeakReference.reset( nullptr );
+        EndListening(pSdrObject->getSdrModelFromSdrObject());
+        mpSdrObjectWeakReference.reset(nullptr);
         return;
     }
 
@@ -1053,8 +1046,6 @@ void SvxShape::Notify( SfxBroadcaster&, const SfxHint& rHint ) throw()
 
     if( bClearMe )
     {
-        SdrObject* pSdrObject(GetSdrObject());
-
         if(!HasSdrObjectOwnership())
         {
             if(nullptr != pSdrObject)
@@ -1578,14 +1569,10 @@ bool SvxShape::SetFillAttribute( sal_uInt16 nWID, const OUString& rName, SfxItem
         return false;
     }
 
-    const SfxItemPool* pPool = rSet.GetPool();
-
-    const sal_uInt32 nCount = pPool->GetItemCount2(nWID);
-
-    for( sal_uInt32 nSurrogate = 0; nSurrogate < nCount; nSurrogate++ )
+    for (const SfxPoolItem* p : rSet.GetPool()->GetItemSurrogates(nWID))
     {
-        const NameOrIndex* pItem = static_cast<const NameOrIndex*>(pPool->GetItem2(nWID, nSurrogate));
-        if( pItem && ( pItem->GetName() == aName ) )
+        const NameOrIndex* pItem = static_cast<const NameOrIndex*>(p);
+        if( pItem->GetName() == aName )
         {
             rSet.Put( *pItem );
             return true;
@@ -3073,7 +3060,7 @@ uno::Sequence<uno::Any> SvxShape::getPropertyDefaults(
     ret.reserve(aPropertyNames.getLength());
     for (sal_Int32 pos = 0; pos < aPropertyNames.getLength(); ++pos)
         ret.push_back( getPropertyDefault( aPropertyNames[pos] ) );
-    return uno::Sequence<uno::Any>( &ret[0], ret.size() );
+    return uno::Sequence<uno::Any>( ret.data(), ret.size() );
 }
 
 
@@ -4102,14 +4089,14 @@ uno::Reference< drawing::XShape > GetXShapeForSdrObject( SdrObject* pObj ) throw
 /** returns the SdrObject from the given StarOffice API wrapper */
 SdrObject* GetSdrObjectFromXShape( const uno::Reference< drawing::XShape >& xShape ) throw()
 {
-    SvxShape* pShape = SvxShape::getImplementation( xShape );
+    SvxShape* pShape = comphelper::getUnoTunnelImplementation<SvxShape>( xShape );
     return pShape ? pShape->GetSdrObject() : nullptr;
 }
 
 
 SdrObject* SdrObject::getSdrObjectFromXShape( const css::uno::Reference< css::uno::XInterface >& xInt )
 {
-    SvxShape* pSvxShape = SvxShape::getImplementation( xInt );
+    SvxShape* pSvxShape = comphelper::getUnoTunnelImplementation<SvxShape>( xInt );
     return pSvxShape ? pSvxShape->GetSdrObject() : nullptr;
 }
 

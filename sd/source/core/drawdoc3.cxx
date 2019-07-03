@@ -21,13 +21,17 @@
 #include <memory>
 
 #include <sfx2/docfile.hxx>
+#include <sfx2/docfilt.hxx>
 #include <sfx2/app.hxx>
 #include <svl/itemset.hxx>
+#include <tools/debug.hxx>
 
 #include <sfx2/fcontnr.hxx>
 #include <svl/style.hxx>
 #include <svx/svdpagv.hxx>
 #include <svx/svdundo.hxx>
+#include <vcl/button.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <xmloff/autolayout.hxx>
 
@@ -1761,11 +1765,9 @@ void SdDrawDocument::SetMasterPage(sal_uInt16 nSdPageNum,
             for (const auto& a : aCreatedStyles)
                 aUndoInsert.emplace_back(a.get(), true);
             pUndoMgr->AddUndoAction(std::make_unique<SdMoveStyleSheetsUndoAction>(this, aUndoInsert, true));
-        }
-
-        // Generate new master pages and register them with the document
-        if( bUndo )
+            // Generate new master pages and register them with the document
             BegUndo();
+        }
 
         pMaster = AllocSdPage(true);
         pMaster->SetSize(pSelectedPage->GetSize());

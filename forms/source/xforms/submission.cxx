@@ -50,11 +50,9 @@
 #include <comphelper/propertysetinfo.hxx>
 #include <comphelper/interaction.hxx>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <memory>
 
-using com::sun::star::beans::UnknownPropertyException;
-using com::sun::star::beans::PropertyVetoException;
-using com::sun::star::lang::IllegalArgumentException;
 using com::sun::star::util::VetoException;
 using com::sun::star::form::submission::XSubmissionVetoListener;
 using com::sun::star::lang::WrappedTargetException;
@@ -207,7 +205,7 @@ bool Submission::doSubmit( const Reference< XInteractionHandler >& xHandler )
     ComputedExpression aExpression;
     if( !msBind.isEmpty() )
     {
-        Binding* pBinding = Binding::getBinding( mxModel->getBinding(msBind) );
+        Binding* pBinding = comphelper::getUnoTunnelImplementation<Binding>( mxModel->getBinding(msBind) );
         if( pBinding != nullptr )
         {
             aExpression.setExpression( pBinding->getBindingExpression() );
@@ -218,12 +216,12 @@ bool Submission::doSubmit( const Reference< XInteractionHandler >& xHandler )
     else if( !maRef.getExpression().isEmpty() )
     {
         aExpression.setExpression( maRef.getExpression() );
-        aEvalContext = Model::getModel( mxModel )->getEvaluationContext();
+        aEvalContext = comphelper::getUnoTunnelImplementation<Model>( mxModel )->getEvaluationContext();
     }
     else
     {
         aExpression.setExpression( "/" );
-        aEvalContext = Model::getModel( mxModel )->getEvaluationContext();
+        aEvalContext = comphelper::getUnoTunnelImplementation<Model>( mxModel )->getEvaluationContext();
     }
     aExpression.evaluate( aEvalContext );
     Reference<XXPathObject> xResult = aExpression.getXPath();
@@ -266,20 +264,10 @@ bool Submission::doSubmit( const Reference< XInteractionHandler >& xHandler )
     return ( aResult == CSubmission::SUCCESS );
 }
 
-Sequence<sal_Int8> Submission::getUnoTunnelID()
+Sequence<sal_Int8> Submission::getUnoTunnelId()
 {
     static cppu::OImplementationId aImplementationId;
     return aImplementationId.getImplementationId();
-}
-
-Submission* Submission::getSubmission(
-    const Reference<XPropertySet>& xPropertySet )
-{
-    Reference<XUnoTunnel> xTunnel( xPropertySet, UNO_QUERY );
-    return xTunnel.is()
-        ? reinterpret_cast<Submission*>(
-            xTunnel->getSomething( getUnoTunnelID() ) )
-        : nullptr;
 }
 
 
@@ -295,7 +283,7 @@ Model* Submission::getModelImpl() const
 {
     Model* pModel = nullptr;
     if( mxModel.is() )
-        pModel = Model::getModel( mxModel );
+        pModel = comphelper::getUnoTunnelImplementation<Model>( mxModel );
     return pModel;
 }
 
@@ -367,7 +355,7 @@ sal_Bool SAL_CALL Submission::convertFastPropertyValue(
             while ( p >= 0 )
                 aPrefixes.push_back( sTokenList.getToken( 0, ',', p ) );
 
-            Sequence< OUString > aConvertedPrefixes( &aPrefixes[0], aPrefixes.size() );
+            Sequence< OUString > aConvertedPrefixes( aPrefixes.data(), aPrefixes.size() );
             return PropertySetBase::convertFastPropertyValue( rConvertedValue, rOldValue, nHandle, makeAny( aConvertedPrefixes ) );
         }
     }
@@ -389,7 +377,7 @@ void SAL_CALL Submission::setName( const OUString& sID )
 sal_Int64 SAL_CALL Submission::getSomething(
     const Sequence<sal_Int8>& aId )
 {
-    return ( aId == getUnoTunnelID() ) ? reinterpret_cast<sal_Int64>(this) : 0;
+    return ( aId == getUnoTunnelId() ) ? reinterpret_cast<sal_Int64>(this) : 0;
 }
 
 
@@ -413,7 +401,7 @@ void SAL_CALL Submission::submitWithInteraction(
                 *this
               );
 
-    Model* pModel = Model::getModel( xModel );
+    Model* pModel = comphelper::getUnoTunnelImplementation<Model>( xModel );
     OSL_ENSURE( pModel != nullptr, "illegal model?" );
 
     // #i36765# #i47248# warning on submission of illegal data

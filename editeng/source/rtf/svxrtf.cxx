@@ -18,6 +18,7 @@
  */
 
 #include <memory>
+#include <queue>
 #include <tools/diagnose_ex.h>
 #include <rtl/tencinfo.h>
 #include <svl/itemiter.hxx>
@@ -35,6 +36,7 @@
 #include <editeng/colritem.hxx>
 #include <editeng/svxrtf.hxx>
 #include <editeng/editids.hrc>
+#include <vcl/font.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 
@@ -280,7 +282,7 @@ void SvxRTFParser::ReadStyleTable()
     bool bHasStyleNo = false;
     int _nOpenBrakets = 1;      // the first was already detected earlier!!
     std::unique_ptr<SvxRTFStyleType> pStyle(
-            new SvxRTFStyleType( *pAttrPool, &aWhichMap[0] ));
+            new SvxRTFStyleType( *pAttrPool, aWhichMap.data() ));
     pStyle->aAttrSet.Put( GetRTFDefaults() );
 
     bIsInReadStyleTab = true;
@@ -338,7 +340,7 @@ void SvxRTFParser::ReadStyleTable()
                 }
                 // All data from the font is available, so off to the table
                 m_StyleTable.insert(std::make_pair(nStyleNo, std::move(pStyle)));
-                pStyle.reset(new SvxRTFStyleType( *pAttrPool, &aWhichMap[0] ));
+                pStyle.reset(new SvxRTFStyleType( *pAttrPool, aWhichMap.data() ));
                 pStyle->aAttrSet.Put( GetRTFDefaults() );
                 nStyleNo = 0;
                 bHasStyleNo = false;
@@ -623,7 +625,7 @@ SvxRTFItemStackType* SvxRTFParser::GetAttrSet_()
     if( pCurrent )
         pNew.reset(new SvxRTFItemStackType( *pCurrent, *pInsPos, false/*bCopyAttr*/ ));
     else
-        pNew.reset(new SvxRTFItemStackType( *pAttrPool, &aWhichMap[0],
+        pNew.reset(new SvxRTFItemStackType( *pAttrPool, aWhichMap.data(),
                                         *pInsPos ));
     pNew->SetRTFDefaults( GetRTFDefaults() );
 
@@ -856,6 +858,7 @@ void SvxRTFParser::SetAllAttrOfStk()        // end all Attr. and set it into doc
     {
         auto const& pStkSet = m_AttrSetList[--n];
         SetAttrSet( *pStkSet );
+        pStkSet->DropChildList();
         m_AttrSetList.pop_back();
     }
 }
@@ -907,7 +910,7 @@ const SfxItemSet& SvxRTFParser::GetRTFDefaults()
 {
     if( !pRTFDefaults )
     {
-        pRTFDefaults.reset( new SfxItemSet( *pAttrPool, &aWhichMap[0] ) );
+        pRTFDefaults.reset( new SfxItemSet( *pAttrPool, aWhichMap.data() ) );
         sal_uInt16 nId;
         if( 0 != ( nId = aPardMap.nScriptSpace ))
         {
@@ -957,6 +960,44 @@ SvxRTFItemStackType::SvxRTFItemStackType(
     aAttrSet.SetParent( &rCpy.aAttrSet );
     if( bCopyAttr )
         aAttrSet.Put( rCpy.aAttrSet );
+}
+
+/* ofz#13491 SvxRTFItemStackType dtor recursively
+   calls the dtor of its m_pChildList. The recurse
+   depth can grow sufficiently to trigger asan.
+
+   So breadth-first iterate through the nodes
+   and make a flat vector of them which can
+   be iterated through in order of most
+   distant from root first and release
+   their children linearly
+*/
+void SvxRTFItemStackType::DropChildList()
+{
+    if (!m_pChildList || m_pChildList->empty())
+        return;
+
+    std::vector<SvxRTFItemStackType*> bfs;
+    std::queue<SvxRTFItemStackType*> aQueue;
+    aQueue.push(this);
+
+    while (!aQueue.empty())
+    {
+        auto* front = aQueue.front();
+        aQueue.pop();
+        if (front->m_pChildList)
+        {
+            for (const auto& a : *front->m_pChildList)
+                aQueue.push(a.get());
+            bfs.push_back(front);
+        }
+    }
+
+    for (auto it = bfs.rbegin(); it != bfs.rend(); ++it)
+    {
+        SvxRTFItemStackType* pNode = *it;
+        pNode->m_pChildList.reset();
+    }
 }
 
 SvxRTFItemStackType::~SvxRTFItemStackType()

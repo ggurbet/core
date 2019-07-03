@@ -18,11 +18,11 @@ class ScFTestDialog : public ScStatisticsTwoVariableDialog
 public:
     ScFTestDialog(
         SfxBindings* pB, SfxChildWindow* pCW,
-        vcl::Window* pParent, ScViewData* pViewData );
+        weld::Window* pParent, ScViewData* pViewData );
 
     virtual ~ScFTestDialog() override;
 
-    virtual bool Close() override;
+    virtual void Close() override;
 
 protected:
     virtual const char* GetUndoNameId() override;

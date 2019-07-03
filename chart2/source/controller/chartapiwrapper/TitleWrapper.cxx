@@ -98,7 +98,7 @@ Any WrappedTitleStringProperty::getPropertyValue( const Reference< beans::XPrope
 }
 Any WrappedTitleStringProperty::getPropertyDefault( const Reference< beans::XPropertyState >& /*xInnerPropertyState*/ ) const
 {
-    return uno::Any( OUString() );//default title is a empty String
+    return uno::Any( OUString() );//default title is an empty String
 }
 
 class WrappedStackedTextProperty : public WrappedProperty
@@ -241,7 +241,7 @@ void SAL_CALL TitleWrapper::dispose()
     Reference< uno::XInterface > xSource( static_cast< ::cppu::OWeakObject* >( this ) );
     m_aEventListenerContainer.disposeAndClear( lang::EventObject( xSource ) );
 
-    MutexGuard aGuard( GetMutex());
+    MutexGuard aGuard( m_aMutex);
     clearWrappedPropertySet();
 }
 
@@ -265,7 +265,7 @@ Reference< beans::XPropertySet > TitleWrapper::getFirstCharacterPropertySet()
     if( xTitle.is())
     {
         Sequence< Reference< chart2::XFormattedString > > aStrings( xTitle->getText());
-        if( aStrings.getLength() > 0 )
+        if( aStrings.hasElements() )
             xProp.set( aStrings[0], uno::UNO_QUERY );
     }
 

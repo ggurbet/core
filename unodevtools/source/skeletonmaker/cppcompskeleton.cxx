@@ -1034,18 +1034,19 @@ void generateSkeleton(ProgramOptions const & options,
             *pofs << (nm > 0 ? "// closing namespace\n\n" : "\n");
         }
 
-        if ( !standardout && pofs && static_cast<std::ofstream*>(pofs)->is_open()) {
-            static_cast<std::ofstream*>(pofs)->close();
+        if (!standardout)
+        {
+            if (static_cast<std::ofstream*>(pofs)->is_open())
+                static_cast<std::ofstream*>(pofs)->close();
             delete pofs;
             OSL_VERIFY(makeValidTypeFile(compFileName, tmpFileName, false));
         }
     } catch (CannotDumpException & e) {
         std::cerr << "ERROR: " << e.getMessage() << "\n";
         if ( !standardout ) {
-            if (pofs && static_cast<std::ofstream*>(pofs)->is_open()) {
+            if (static_cast<std::ofstream*>(pofs)->is_open())
                 static_cast<std::ofstream*>(pofs)->close();
-                delete pofs;
-            }
+            delete pofs;
             // remove existing type file if something goes wrong to ensure
             // consistency
             if (fileExists(compFileName))
@@ -1101,9 +1102,7 @@ void generateCalcAddin(ProgramOptions const & options,
         // special case for the optional XLocalization interface. It should be
         // implemented always. But it is parent of the XAddIn and we need it only
         // if backwardcompatible is false.
-        if (interfaces.find("com.sun.star.lang.XLocalizable") == interfaces.end()) {
-            interfaces.insert("com.sun.star.lang.XLocalizable");
-        }
+        interfaces.insert("com.sun.star.lang.XLocalizable");
     }
 
     OUString propertyhelper = checkPropertyHelper(
@@ -1195,18 +1194,19 @@ void generateCalcAddin(ProgramOptions const & options,
 
         generateCompFunctions(*pofs, nmspace);
 
-        if ( !standardout && pofs && static_cast<std::ofstream*>(pofs)->is_open()) {
-            static_cast<std::ofstream*>(pofs)->close();
+        if (!standardout)
+        {
+            if (static_cast<std::ofstream*>(pofs)->is_open())
+                static_cast<std::ofstream*>(pofs)->close();
             delete pofs;
             OSL_VERIFY(makeValidTypeFile(compFileName, tmpFileName, false));
         }
     } catch (CannotDumpException & e) {
         std::cerr << "ERROR: " << e.getMessage() << "\n";
         if ( !standardout ) {
-            if (pofs && static_cast<std::ofstream*>(pofs)->is_open()) {
+            if (static_cast<std::ofstream*>(pofs)->is_open())
                 static_cast<std::ofstream*>(pofs)->close();
-                delete pofs;
-            }
+            delete pofs;
             // remove existing type file if something goes wrong to ensure
             // consistency
             if (fileExists(compFileName))

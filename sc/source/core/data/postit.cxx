@@ -30,6 +30,7 @@
 #include <basegfx/polygon/b2dpolygon.hxx>
 
 #include <scitems.hxx>
+#include <svx/xfillit0.hxx>
 #include <svx/xlnstit.hxx>
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnstcit.hxx>
@@ -37,6 +38,9 @@
 #include <svx/xflclit.hxx>
 #include <svx/sdshitm.hxx>
 #include <svx/sdsxyitm.hxx>
+#include <svx/sdtditm.hxx>
+#include <svx/sdtagitm.hxx>
+#include <svx/sdtmfitm.hxx>
 #include <tools/gen.hxx>
 
 #include <document.hxx>
@@ -70,9 +74,7 @@ public:
     /** Stores the cell position of the note in the user data area of the caption. */
     static void         SetCaptionUserData( SdrCaptionObj& rCaption, const ScAddress& rPos );
     /** Sets all default formatting attributes to the caption object. */
-    static void         SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc );
-    /** Updates caption item set according to the passed item set while removing shadow items. */
-    static void         SetCaptionItems( SdrCaptionObj& rCaption, const SfxItemSet& rItemSet );
+    static void         SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc, SfxItemSet* pExtraItemSet );
 };
 
 void ScCaptionUtil::SetCaptionLayer( SdrCaptionObj& rCaption, bool bShown )
@@ -98,7 +100,7 @@ void ScCaptionUtil::SetCaptionUserData( SdrCaptionObj& rCaption, const ScAddress
     pObjData->meType = ScDrawObjData::CellNote;
 }
 
-void ScCaptionUtil::SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc )
+void ScCaptionUtil::SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc, SfxItemSet* pExtraItemSet )
 {
     SfxItemSet aItemSet = rCaption.GetMergedItemSet();
 
@@ -137,18 +139,21 @@ void ScCaptionUtil::SetDefaultItems( SdrCaptionObj& rCaption, ScDocument& rDoc )
     const ScPatternAttr& rDefPattern = rDoc.GetPool()->GetDefaultItem( ATTR_PATTERN );
     rDefPattern.FillEditItemSet( &aItemSet );
 
-    rCaption.SetMergedItemSet( aItemSet );
-}
+    if (pExtraItemSet)
+    {
+        /* Updates caption item set according to the passed item set while removing shadow items. */
 
-void ScCaptionUtil::SetCaptionItems( SdrCaptionObj& rCaption, const SfxItemSet& rItemSet )
-{
-    // copy all items
-    rCaption.SetMergedItemSet( rItemSet );
-    // reset shadow items
-    rCaption.SetMergedItem( makeSdrShadowItem( false ) );
-    rCaption.SetMergedItem( makeSdrShadowXDistItem( 100 ) );
-    rCaption.SetMergedItem( makeSdrShadowYDistItem( 100 ) );
-    rCaption.SetSpecialTextBoxShadow();
+        aItemSet.MergeValues(*pExtraItemSet);
+        // reset shadow items
+        aItemSet.Put( makeSdrShadowItem( false ) );
+        aItemSet.Put( makeSdrShadowXDistItem( 100 ) );
+        aItemSet.Put( makeSdrShadowYDistItem( 100 ) );
+    }
+
+    rCaption.SetMergedItemSet( aItemSet );
+
+    if (pExtraItemSet)
+        rCaption.SetSpecialTextBoxShadow();
 }
 
 /** Helper for creation and manipulation of caption drawing objects independent
@@ -1009,74 +1014,73 @@ void ScPostIt::CreateCaptionFromInitData( const ScAddress& rPos ) const
     // Captions are not created in Undo documents and only rarely in Clipboard,
     // but otherwise we need caption or initial data.
     assert((maNoteData.mxCaption || maNoteData.mxInitData.get()) || mrDoc.IsUndo() || mrDoc.IsClipboard());
-    if( maNoteData.mxInitData.get() )
+    if( !maNoteData.mxInitData.get() )
+        return;
+
+
+    /*  This function is called from ScPostIt::Clone() when copying cells
+        to the clipboard/undo document, and when copying cells from the
+        clipboard/undo document. The former should always be called first,
+        so if called in a clipboard/undo document, the caption should have
+        been created already. However, for clipboard in case the
+        originating document was destructed a new caption has to be
+        created. */
+    OSL_ENSURE( !mrDoc.IsUndo() && (!mrDoc.IsClipboard() || !maNoteData.mxCaption),
+            "ScPostIt::CreateCaptionFromInitData - note caption should not be created in undo/clip documents" );
+
+    // going to forget the initial caption data struct when this method returns
+    auto xInitData = std::move(maNoteData.mxInitData);
+
+    /*  #i104915# Never try to create notes in Undo document, leads to
+        crash due to missing document members (e.g. row height array). */
+    if( maNoteData.mxCaption || mrDoc.IsUndo() )
+        return;
+
+    if (mrDoc.IsClipboard())
+        mrDoc.InitDrawLayer();  // ensure there is a drawing layer
+
+    // ScNoteCaptionCreator c'tor creates the caption and inserts it into the document and maNoteData
+    ScNoteCaptionCreator aCreator( mrDoc, rPos, maNoteData );
+    if( !maNoteData.mxCaption )
+        return;
+
+    // Prevent triple change broadcasts of the same object.
+    maNoteData.mxCaption->getSdrModelFromSdrObject().setLock(true);
+
+    // transfer ownership of outliner object to caption, or set simple text
+    OSL_ENSURE( xInitData->mxOutlinerObj.get() || !xInitData->maSimpleText.isEmpty(),
+        "ScPostIt::CreateCaptionFromInitData - need either outliner para object or simple text" );
+    if (xInitData->mxOutlinerObj)
+        maNoteData.mxCaption->SetOutlinerParaObject( std::move(xInitData->mxOutlinerObj) );
+    else
+        maNoteData.mxCaption->SetText( xInitData->maSimpleText );
+
+    // copy all items or set default items; reset shadow items
+    ScCaptionUtil::SetDefaultItems( *maNoteData.mxCaption, mrDoc, xInitData->mxItemSet.get() );
+
+    // set position and size of the caption object
+    if( xInitData->mbDefaultPosSize )
     {
-        /*  This function is called from ScPostIt::Clone() when copying cells
-            to the clipboard/undo document, and when copying cells from the
-            clipboard/undo document. The former should always be called first,
-            so if called in an clipboard/undo document, the caption should have
-            been created already. However, for clipboard in case the
-            originating document was destructed a new caption has to be
-            created. */
-        OSL_ENSURE( !mrDoc.IsUndo() && (!mrDoc.IsClipboard() || !maNoteData.mxCaption),
-                "ScPostIt::CreateCaptionFromInitData - note caption should not be created in undo/clip documents" );
-
-        /*  #i104915# Never try to create notes in Undo document, leads to
-            crash due to missing document members (e.g. row height array). */
-        if( !maNoteData.mxCaption && !mrDoc.IsUndo() )
-        {
-            if (mrDoc.IsClipboard())
-                mrDoc.InitDrawLayer();  // ensure there is a drawing layer
-
-            // ScNoteCaptionCreator c'tor creates the caption and inserts it into the document and maNoteData
-            ScNoteCaptionCreator aCreator( mrDoc, rPos, maNoteData );
-            if( maNoteData.mxCaption )
-            {
-                // Prevent triple change broadcasts of the same object.
-                maNoteData.mxCaption->getSdrModelFromSdrObject().setLock(true);
-                ScCaptionInitData& rInitData = *maNoteData.mxInitData;
-
-                // transfer ownership of outliner object to caption, or set simple text
-                OSL_ENSURE( rInitData.mxOutlinerObj.get() || !rInitData.maSimpleText.isEmpty(),
-                    "ScPostIt::CreateCaptionFromInitData - need either outliner para object or simple text" );
-                if (rInitData.mxOutlinerObj)
-                    maNoteData.mxCaption->SetOutlinerParaObject( std::move(rInitData.mxOutlinerObj) );
-                else
-                    maNoteData.mxCaption->SetText( rInitData.maSimpleText );
-
-                // copy all items or set default items; reset shadow items
-                ScCaptionUtil::SetDefaultItems( *maNoteData.mxCaption, mrDoc );
-                if (rInitData.mxItemSet)
-                    ScCaptionUtil::SetCaptionItems( *maNoteData.mxCaption, *rInitData.mxItemSet );
-
-                // set position and size of the caption object
-                if( rInitData.mbDefaultPosSize )
-                {
-                    // set other items and fit caption size to text
-                    maNoteData.mxCaption->SetMergedItem( makeSdrTextMinFrameWidthItem( SC_NOTECAPTION_WIDTH ) );
-                    maNoteData.mxCaption->SetMergedItem( makeSdrTextMaxFrameWidthItem( SC_NOTECAPTION_MAXWIDTH_TEMP ) );
-                    maNoteData.mxCaption->AdjustTextFrameWidthAndHeight();
-                    aCreator.AutoPlaceCaption();
-                }
-                else
-                {
-                    tools::Rectangle aCellRect = ScDrawLayer::GetCellRect( mrDoc, rPos, true );
-                    bool bNegPage = mrDoc.IsNegativePage( rPos.Tab() );
-                    long nPosX = bNegPage ? (aCellRect.Left() - rInitData.maCaptionOffset.X()) : (aCellRect.Right() + rInitData.maCaptionOffset.X());
-                    long nPosY = aCellRect.Top() + rInitData.maCaptionOffset.Y();
-                    tools::Rectangle aCaptRect( Point( nPosX, nPosY ), rInitData.maCaptionSize );
-                    maNoteData.mxCaption->SetLogicRect( aCaptRect );
-                    aCreator.FitCaptionToRect();
-                }
-
-                // End prevent triple change broadcasts of the same object.
-                maNoteData.mxCaption->getSdrModelFromSdrObject().setLock(false);
-                maNoteData.mxCaption->BroadcastObjectChange();
-            }
-        }
-        // forget the initial caption data struct
-        maNoteData.mxInitData.reset();
+        // set other items and fit caption size to text
+        maNoteData.mxCaption->SetMergedItem( makeSdrTextMinFrameWidthItem( SC_NOTECAPTION_WIDTH ) );
+        maNoteData.mxCaption->SetMergedItem( makeSdrTextMaxFrameWidthItem( SC_NOTECAPTION_MAXWIDTH_TEMP ) );
+        maNoteData.mxCaption->AdjustTextFrameWidthAndHeight();
+        aCreator.AutoPlaceCaption();
     }
+    else
+    {
+        tools::Rectangle aCellRect = ScDrawLayer::GetCellRect( mrDoc, rPos, true );
+        bool bNegPage = mrDoc.IsNegativePage( rPos.Tab() );
+        long nPosX = bNegPage ? (aCellRect.Left() - xInitData->maCaptionOffset.X()) : (aCellRect.Right() + xInitData->maCaptionOffset.X());
+        long nPosY = aCellRect.Top() + xInitData->maCaptionOffset.Y();
+        tools::Rectangle aCaptRect( Point( nPosX, nPosY ), xInitData->maCaptionSize );
+        maNoteData.mxCaption->SetLogicRect( aCaptRect );
+        aCreator.FitCaptionToRect();
+    }
+
+    // End prevent triple change broadcasts of the same object.
+    maNoteData.mxCaption->getSdrModelFromSdrObject().setLock(false);
+    maNoteData.mxCaption->BroadcastObjectChange();
 }
 
 void ScPostIt::CreateCaption( const ScAddress& rPos, const SdrCaptionObj* pCaption )
@@ -1116,7 +1120,7 @@ void ScPostIt::CreateCaption( const ScAddress& rPos, const SdrCaptionObj* pCapti
         else
         {
             // set default formatting and default position
-            ScCaptionUtil::SetDefaultItems( *maNoteData.mxCaption, mrDoc );
+            ScCaptionUtil::SetDefaultItems( *maNoteData.mxCaption, mrDoc, nullptr );
             aCreator.AutoPlaceCaption();
         }
 
@@ -1200,7 +1204,7 @@ ScCaptionPtr ScNoteUtil::CreateTempCaption(
     {
         // if pNoteCaption is null, then aBuffer contains some text
         pCaption->SetText( aBuffer.makeStringAndClear() );
-        ScCaptionUtil::SetDefaultItems( *pCaption, rDoc );
+        ScCaptionUtil::SetDefaultItems( *pCaption, rDoc, nullptr );
         // adjust caption size to text size
         long nMaxWidth = ::std::min< long >( aVisRect.GetWidth() * 2 / 3, SC_NOTECAPTION_MAXWIDTH_TEMP );
         pCaption->SetMergedItem( makeSdrTextAutoGrowWidthItem( true ) );

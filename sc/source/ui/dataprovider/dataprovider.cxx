@@ -34,8 +34,7 @@ std::unique_ptr<SvStream> DataProvider::FetchStreamFromURL(const OUString& rURL,
     {
         uno::Reference< ucb::XSimpleFileAccess3 > xFileAccess( ucb::SimpleFileAccess::create( comphelper::getProcessComponentContext() ), uno::UNO_QUERY );
 
-        uno::Reference< io::XInputStream > xStream;
-        xStream = xFileAccess->openFileRead( rURL );
+        uno::Reference< io::XInputStream > xStream = xFileAccess->openFileRead( rURL );
 
         const sal_Int32 BUF_LEN = 8000;
         uno::Sequence< sal_Int8 > buffer( BUF_LEN );
@@ -211,11 +210,6 @@ DataProvider::DataProvider(sc::ExternalDataSource& rDataSource):
 void DataProvider::setDeterministic()
 {
     mbDeterministic = true;
-}
-
-std::map<OUString, OUString> DataProvider::getDataSourcesForURL(const OUString& /*rURL*/)
-{
-    return std::map<OUString, OUString>();
 }
 
 DataProvider::~DataProvider()

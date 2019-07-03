@@ -26,13 +26,16 @@
 #include <vcl/svapp.hxx>
 #include <sfx2/frmhtml.hxx>
 #include <sfx2/frmhtmlw.hxx>
+#include <sfx2/frmdescr.hxx>
 #include <vcl/wrkwin.hxx>
 #include <sot/storage.hxx>
 #include <svx/xoutbmp.hxx>
 #include <editeng/ulspitem.hxx>
 #include <editeng/lrspitem.hxx>
+#include <svtools/htmlout.hxx>
 #include <svtools/htmlkywd.hxx>
 #include <svtools/htmltokn.h>
+#include <tools/diagnose_ex.h>
 #include <SwAppletImpl.hxx>
 #include <fmtornt.hxx>
 #include <fmtfsize.hxx>
@@ -1569,9 +1572,9 @@ Writer& OutHTML_FrameFormatOLENodeGrf( Writer& rWrt, const SwFrameFormat& rFrame
             {
                 // Even the native data may be missing.
                 xInStream = xStorage->openStreamElement(aStreamName, embed::ElementModes::READ);
-            } catch (const uno::Exception& rException)
+            } catch (const uno::Exception&)
             {
-                SAL_WARN("sw.html", "OutHTML_FrameFormatOLENodeGrf: failed to open stream element: " << rException);
+                TOOLS_WARN_EXCEPTION("sw.html", "OutHTML_FrameFormatOLENodeGrf: failed to open stream element");
             }
             if (xInStream.is())
             {

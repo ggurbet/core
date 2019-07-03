@@ -123,7 +123,7 @@ namespace toolkit
             // for the real background (everything except the buttons and the thumb),
             // use an average between the desired color and "white"
             Color aWhite( COL_WHITE );
-            Color aBackground = Color( nBackgroundColor );
+            Color aBackground( nBackgroundColor );
             aBackground.SetRed( ( aBackground.GetRed() + aWhite.GetRed() ) / 2 );
             aBackground.SetGreen( ( aBackground.GetGreen() + aWhite.GetGreen() ) / 2 );
             aBackground.SetBlue( ( aBackground.GetBlue() + aWhite.GetBlue() ) / 2 );
@@ -132,19 +132,19 @@ namespace toolkit
             sal_Int32 nBackgroundLuminance = Color( nBackgroundColor ).GetLuminance();
             sal_Int32 nWhiteLuminance = COL_WHITE.GetLuminance();
 
-            Color aLightShadow = Color( nBackgroundColor );
+            Color aLightShadow( nBackgroundColor );
             aLightShadow.IncreaseLuminance( static_cast<sal_uInt8>( ( nWhiteLuminance - nBackgroundLuminance ) * 2 / 3 ) );
             aStyleSettings.SetLightBorderColor( aLightShadow );
 
-            Color aLight = Color( nBackgroundColor );
+            Color aLight( nBackgroundColor );
             aLight.IncreaseLuminance( static_cast<sal_uInt8>( ( nWhiteLuminance - nBackgroundLuminance ) * 1 / 3 ) );
             aStyleSettings.SetLightColor( aLight );
 
-            Color aShadow = Color( nBackgroundColor );
+            Color aShadow( nBackgroundColor );
             aShadow.DecreaseLuminance( static_cast<sal_uInt8>( nBackgroundLuminance * 1 / 3 ) );
             aStyleSettings.SetShadowColor( aShadow );
 
-            Color aDarkShadow = Color( nBackgroundColor );
+            Color aDarkShadow( nBackgroundColor );
             aDarkShadow.DecreaseLuminance( static_cast<sal_uInt8>( nBackgroundLuminance * 2 / 3 ) );
             aStyleSettings.SetDarkShadowColor( aDarkShadow );
         }
@@ -1872,14 +1872,14 @@ void VCLXListBox::setProperty( const OUString& PropertyName, const css::uno::Any
             break;
             case BASEPROPERTY_READONLY:
             {
-                bool b = bool();
+                bool b = false;
                 if ( Value >>= b )
                      pListBox->SetReadOnly( b);
             }
             break;
             case BASEPROPERTY_MULTISELECTION:
             {
-                bool b = bool();
+                bool b = false;
                 if ( Value >>= b )
                      pListBox->EnableMultiSelection( b );
             }
@@ -1889,7 +1889,7 @@ void VCLXListBox::setProperty( const OUString& PropertyName, const css::uno::Any
                 break;
             case BASEPROPERTY_LINECOUNT:
             {
-                sal_Int16 n = sal_Int16();
+                sal_Int16 n = 0;
                 if ( Value >>= n )
                      pListBox->SetDropDownLineCount( n );
             }
@@ -1912,7 +1912,7 @@ void VCLXListBox::setProperty( const OUString& PropertyName, const css::uno::Any
                     for ( auto n = pListBox->GetEntryCount(); n; )
                         pListBox->SelectEntryPos( --n, false );
 
-                    if ( aItems.getLength() )
+                    if ( aItems.hasElements() )
                         selectItemsPos( aItems, true );
                     else
                         pListBox->SetNoSelection();
@@ -2143,7 +2143,7 @@ void SAL_CALL VCLXListBox::itemListChanged( const EventObject& i_rEvent )
     pListBox->Clear();
 
     uno::Reference< beans::XPropertySet > xPropSet( i_rEvent.Source, uno::UNO_QUERY_THROW );
-    uno::Reference< beans::XPropertySetInfo > xPSI( xPropSet->getPropertySetInfo(), uno::UNO_QUERY_THROW );
+    uno::Reference< beans::XPropertySetInfo > xPSI( xPropSet->getPropertySetInfo(), uno::UNO_SET_THROW );
     uno::Reference< resource::XStringResourceResolver > xStringResourceResolver;
     if ( xPSI->hasPropertyByName("ResourceResolver") )
     {
@@ -2156,14 +2156,14 @@ void SAL_CALL VCLXListBox::itemListChanged( const EventObject& i_rEvent )
 
     Reference< XItemList > xItemList( i_rEvent.Source, uno::UNO_QUERY_THROW );
     uno::Sequence< beans::Pair< OUString, OUString > > aItems = xItemList->getAllItems();
-    for ( sal_Int32 i=0; i<aItems.getLength(); ++i )
+    for ( const auto& rItem : aItems )
     {
-        OUString aLocalizationKey( aItems[i].First );
+        OUString aLocalizationKey( rItem.First );
         if ( xStringResourceResolver.is() && aLocalizationKey.startsWith("&") )
         {
             aLocalizationKey = xStringResourceResolver->resolveString(aLocalizationKey.copy( 1 ));
         }
-        pListBox->InsertEntry( aLocalizationKey, lcl_getImageFromURL( aItems[i].Second ) );
+        pListBox->InsertEntry( aLocalizationKey, lcl_getImageFromURL( rItem.Second ) );
     }
 }
 
@@ -2660,10 +2660,10 @@ void SAL_CALL VCLXMultiPage::setTabProps( sal_Int32 ID, const uno::Sequence< bea
     if ( pTabControl->GetTabPage( sal::static_int_cast< sal_uInt16 >( ID ) ) == nullptr )
         throw lang::IndexOutOfBoundsException();
 
-    for (sal_Int32 i = 0; i < Properties.getLength(); ++i)
+    for (const auto& rProp : Properties)
     {
-        const OUString &name = Properties[i].Name;
-        const uno::Any &value = Properties[i].Value;
+        const OUString &name = rProp.Name;
+        const uno::Any &value = rProp.Value;
 
         if (name == "Title")
         {
@@ -4247,9 +4247,9 @@ void VCLXComboBox::addItems( const css::uno::Sequence< OUString>& aItems, sal_In
     if ( pBox )
     {
         sal_uInt16 nP = nPos;
-        for ( sal_Int32 n = 0; n < aItems.getLength(); n++ )
+        for ( const auto& rItem : aItems )
         {
-            pBox->InsertEntry( aItems.getConstArray()[n], nP );
+            pBox->InsertEntry( rItem, nP );
             if ( nP == 0xFFFF )
             {
                 OSL_FAIL( "VCLXComboBox::addItems: too many entries!" );
@@ -4602,7 +4602,7 @@ void SAL_CALL VCLXComboBox::itemListChanged( const EventObject& i_rEvent )
     pComboBox->Clear();
 
     uno::Reference< beans::XPropertySet > xPropSet( i_rEvent.Source, uno::UNO_QUERY_THROW );
-    uno::Reference< beans::XPropertySetInfo > xPSI( xPropSet->getPropertySetInfo(), uno::UNO_QUERY_THROW );
+    uno::Reference< beans::XPropertySetInfo > xPSI( xPropSet->getPropertySetInfo(), uno::UNO_SET_THROW );
     // bool localize = xPSI->hasPropertyByName("ResourceResolver");
     uno::Reference< resource::XStringResourceResolver > xStringResourceResolver;
     if ( xPSI->hasPropertyByName("ResourceResolver") )
@@ -4616,15 +4616,15 @@ void SAL_CALL VCLXComboBox::itemListChanged( const EventObject& i_rEvent )
 
     Reference< XItemList > xItemList( i_rEvent.Source, uno::UNO_QUERY_THROW );
     uno::Sequence< beans::Pair< OUString, OUString > > aItems = xItemList->getAllItems();
-    for ( sal_Int32 i=0; i<aItems.getLength(); ++i )
+    for ( const auto& rItem : aItems )
     {
-        OUString aLocalizationKey( aItems[i].First );
+        OUString aLocalizationKey( rItem.First );
         if ( xStringResourceResolver.is() && !aLocalizationKey.isEmpty() && aLocalizationKey[0] == '&' )
         {
             aLocalizationKey = xStringResourceResolver->resolveString(aLocalizationKey.copy( 1 ));
         }
         pComboBox->InsertEntryWithImage(aLocalizationKey,
-                lcl_getImageFromURL(aItems[i].Second));
+                lcl_getImageFromURL(rItem.Second));
     }
 }
 void SAL_CALL VCLXComboBox::disposing( const EventObject& i_rEvent )

@@ -20,10 +20,8 @@
 
 #include <fsfactory.hxx>
 #include <cppuhelper/factory.hxx>
-#include <com/sun/star/ucb/XSimpleFileAccess.hpp>
 #include <com/sun/star/embed/ElementModes.hpp>
 #include <com/sun/star/io/IOException.hpp>
-#include <com/sun/star/io/XSeekable.hpp>
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/supportsservice.hxx>
 
@@ -58,9 +56,7 @@ uno::Reference< uno::XInterface > SAL_CALL FSStorageFactory::impl_staticCreateSe
 
 uno::Reference< uno::XInterface > SAL_CALL FSStorageFactory::createInstance()
 {
-    OUString aTempURL;
-
-    aTempURL = ::utl::TempFile( nullptr, true ).GetURL();
+    OUString aTempURL = ::utl::TempFile( nullptr, true ).GetURL();
 
     if ( aTempURL.isEmpty() )
         throw uno::RuntimeException(); // TODO: can not create tempfile

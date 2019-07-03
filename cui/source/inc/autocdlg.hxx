@@ -21,16 +21,11 @@
 
 #include <sfx2/tabdlg.hxx>
 #include <svtools/langtab.hxx>
-#include <svtools/simptabl.hxx>
-#include <vcl/svtabbx.hxx>
-#include <vcl/treelistentry.hxx>
-#include <svx/checklbx.hxx>
 #include <svx/langbox.hxx>
-#include <vcl/button.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/field.hxx>
-#include <vcl/lstbox.hxx>
+#include <tools/debug.hxx>
 #include <vcl/metric.hxx>
+
+#include <set>
 
 class CharClass;
 class CollatorWrapper;
@@ -185,6 +180,7 @@ private:
     bool bReplaceEditChanged:1;
     bool bSWriter:1;
 
+    std::vector<int> m_aReplaceFixedWidths;
     std::unique_ptr<weld::CheckButton> m_xTextOnlyCB;
     std::unique_ptr<weld::Entry> m_xShortED;
     std::unique_ptr<weld::Entry> m_xReplaceED;

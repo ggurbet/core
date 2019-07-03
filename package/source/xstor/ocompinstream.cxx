@@ -67,17 +67,15 @@ OInputCompStream::~OInputCompStream()
 
     if ( !m_bDisposed )
     {
-        m_refCount++;
+        osl_atomic_increment(&m_refCount);
         dispose();
     }
 }
 
 uno::Any SAL_CALL OInputCompStream::queryInterface( const uno::Type& rType )
 {
-    uno::Any aReturn;
-
     // common interfaces
-    aReturn = ::cppu::queryInterface
+    uno::Any aReturn = ::cppu::queryInterface
                 (   rType
                     ,   static_cast<io::XInputStream*> ( this )
                     ,   static_cast<io::XStream*> ( this )

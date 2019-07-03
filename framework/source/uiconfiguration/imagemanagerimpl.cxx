@@ -53,11 +53,9 @@
 
 using ::com::sun::star::uno::Sequence;
 using ::com::sun::star::uno::XInterface;
-using ::com::sun::star::uno::Exception;
 using ::com::sun::star::uno::RuntimeException;
 using ::com::sun::star::uno::UNO_QUERY;
 using ::com::sun::star::uno::Any;
-using ::com::sun::star::uno::makeAny;
 using ::com::sun::star::graphic::XGraphic;
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::io;
@@ -886,7 +884,7 @@ void ImageManagerImpl::removeImages( ::sal_Int16 nImageType, const Sequence< OUS
 
                 if ( m_bUseGlobal )
                 {
-                    // Check, if we have a image in our module/global image list. If we find one =>
+                    // Check, if we have an image in our module/global image list. If we find one =>
                     // this is a replace instead of a remove operation!
                     Image aNewImage = pDefaultImageList->getImageFromCommandURL( nIndex, aCommandURLSequence[i] );
                     if ( !aNewImage )

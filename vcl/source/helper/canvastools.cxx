@@ -54,7 +54,6 @@
 #include <tools/diagnose_ex.h>
 #include <rtl/uuid.h>
 
-#include <vcl/salbtype.hxx>
 #include <vcl/bitmapaccess.hxx>
 #include <vcl/bitmapex.hxx>
 
@@ -376,8 +375,14 @@ namespace vcl
 
         basegfx::B2IRectangle b2IRectangleFromRectangle(tools::Rectangle const& rRect)
         {
-            return basegfx::B2IRectangle(rRect.Left(), rRect.Top(),
-                                         rRect.Right(), rRect.Bottom());
+            // although B2IRange internally has separate height/width emptiness, it doesn't
+            // expose any API to let us set them separately, so just do the best we can.
+            if (rRect.IsWidthEmpty() && rRect.IsHeightEmpty())
+                return basegfx::B2IRange( basegfx::B2ITuple( rRect.Left(), rRect.Top() ) );
+            return basegfx::B2IRange( rRect.Left(),
+                                  rRect.Top(),
+                                  rRect.IsWidthEmpty() ? rRect.Left() : rRect.Right(),
+                                  rRect.IsHeightEmpty() ? rRect.Top() : rRect.Bottom() );
         }
 
         basegfx::B2DVector b2DSizeFromSize( const ::Size& rSize )
@@ -394,10 +399,14 @@ namespace vcl
 
         basegfx::B2DRange b2DRectangleFromRectangle( const ::tools::Rectangle& rRect )
         {
-            return basegfx::B2DRange( rRect.Left(),
-                                        rRect.Top(),
-                                        rRect.Right(),
-                                        rRect.Bottom() );
+            // although B2DRange internally has separate height/width emptiness, it doesn't
+            // expose any API to let us set them separately, so just do the best we can.
+            if (rRect.IsWidthEmpty() && rRect.IsHeightEmpty())
+                return basegfx::B2DRange( basegfx::B2DTuple( rRect.Left(), rRect.Top() ) );
+            return basegfx::B2DRectangle( rRect.Left(),
+                                  rRect.Top(),
+                                  rRect.IsWidthEmpty() ? rRect.Left() : rRect.Right(),
+                                  rRect.IsHeightEmpty() ? rRect.Top() : rRect.Bottom() );
         }
 
         geometry::IntegerSize2D integerSize2DFromSize( const Size& rSize )
@@ -509,52 +518,46 @@ namespace vcl
                 }
                 virtual uno::Sequence< double > SAL_CALL convertFromRGB( const uno::Sequence< rendering::RGBColor >& rgbColor ) override
                 {
-                    const rendering::RGBColor* pIn( rgbColor.getConstArray() );
                     const std::size_t             nLen( rgbColor.getLength() );
 
                     uno::Sequence< double > aRes(nLen*4);
                     double* pColors=aRes.getArray();
-                    for( std::size_t i=0; i<nLen; ++i )
+                    for( const auto& rIn : rgbColor )
                     {
-                        *pColors++ = pIn->Red;
-                        *pColors++ = pIn->Green;
-                        *pColors++ = pIn->Blue;
+                        *pColors++ = rIn.Red;
+                        *pColors++ = rIn.Green;
+                        *pColors++ = rIn.Blue;
                         *pColors++ = 1.0;
-                        ++pIn;
                     }
                     return aRes;
                 }
                 virtual uno::Sequence< double > SAL_CALL convertFromARGB( const uno::Sequence< rendering::ARGBColor >& rgbColor ) override
                 {
-                    const rendering::ARGBColor* pIn( rgbColor.getConstArray() );
                     const std::size_t              nLen( rgbColor.getLength() );
 
                     uno::Sequence< double > aRes(nLen*4);
                     double* pColors=aRes.getArray();
-                    for( std::size_t i=0; i<nLen; ++i )
+                    for( const auto& rIn : rgbColor )
                     {
-                        *pColors++ = pIn->Red;
-                        *pColors++ = pIn->Green;
-                        *pColors++ = pIn->Blue;
-                        *pColors++ = pIn->Alpha;
-                        ++pIn;
+                        *pColors++ = rIn.Red;
+                        *pColors++ = rIn.Green;
+                        *pColors++ = rIn.Blue;
+                        *pColors++ = rIn.Alpha;
                     }
                     return aRes;
                 }
                 virtual uno::Sequence< double > SAL_CALL convertFromPARGB( const uno::Sequence< rendering::ARGBColor >& rgbColor ) override
                 {
-                    const rendering::ARGBColor* pIn( rgbColor.getConstArray() );
                     const std::size_t              nLen( rgbColor.getLength() );
 
                     uno::Sequence< double > aRes(nLen*4);
                     double* pColors=aRes.getArray();
-                    for( std::size_t i=0; i<nLen; ++i )
+                    for( const auto& rIn : rgbColor )
                     {
-                        *pColors++ = pIn->Red/pIn->Alpha;
-                        *pColors++ = pIn->Green/pIn->Alpha;
-                        *pColors++ = pIn->Blue/pIn->Alpha;
-                        *pColors++ = pIn->Alpha;
-                        ++pIn;
+                        *pColors++ = rIn.Red/rIn.Alpha;
+                        *pColors++ = rIn.Green/rIn.Alpha;
+                        *pColors++ = rIn.Blue/rIn.Alpha;
+                        *pColors++ = rIn.Alpha;
                     }
                     return aRes;
                 }

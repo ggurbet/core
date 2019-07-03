@@ -19,7 +19,9 @@
 
 #include <com/sun/star/embed/NoVisualAreaSizeException.hpp>
 #include <com/sun/star/embed/Aspects.hpp>
+#include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <toolkit/helper/vclunohelper.hxx>
 #include <sot/exchange.hxx>
@@ -36,8 +38,10 @@
 #include <svx/svdpage.hxx>
 #include <svx/svdundo.hxx>
 #include <sfx2/msgpool.hxx>
+#include <sfx2/msg.hxx>
 #include <scmod.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <comphelper/storagehelper.hxx>
 #include <comphelper/propertysequence.hxx>
@@ -191,14 +195,13 @@ void lcl_ChartInit(const uno::Reference <embed::XEmbeddedObject>& xObj, ScViewDa
             {
                 xReceiver->setArguments( aArgs );
             }
-            catch (const lang::IllegalArgumentException& e)
+            catch (const lang::IllegalArgumentException&)
             {
                 // Can happen for invalid aRangeString, in which case a Chart
                 // will be created nevertheless and the range string can be
                 // edited.
-                SAL_WARN("sc.ui",
-                        "lcl_ChartInit - caught IllegalArgumentException with message \"" << e << "\","
-                        " might be due to aRangeString: " << aRangeString);
+                TOOLS_WARN_EXCEPTION("sc.ui",
+                        "lcl_ChartInit - caught IllegalArgumentException might be due to aRangeString: " << aRangeString);
             }
 
             // don't create chart listener here (range may be modified in chart dialog)

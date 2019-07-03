@@ -45,7 +45,8 @@ SwChildWinWrapper::SwChildWinWrapper(vcl::Window *pParentWindow, sal_uInt16 nId)
 
 IMPL_LINK_NOARG(SwChildWinWrapper, UpdateHdl, Timer *, void)
 {
-    GetWindow()->Activate();    // update dialog
+    if (GetController())
+        GetController()->Activate();    // update dialog
 }
 
 // newly initialise dialog after Doc switch
@@ -67,7 +68,6 @@ bool SwChildWinWrapper::ReInitDlg(SwDocShell *)
 SfxChildWinInfo SwFieldDlgWrapper::GetInfo() const
 {
     SfxChildWinInfo aInfo = SfxChildWindow::GetInfo();
-    aInfo.aPos = GetWindow()->OutputToAbsoluteScreenPixel(aInfo.aPos);
     return aInfo;
 }
 
@@ -77,9 +77,9 @@ SwFieldDlgWrapper::SwFieldDlgWrapper( vcl::Window* _pParent, sal_uInt16 nId,
     : SwChildWinWrapper( _pParent, nId )
 {
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-    pDlgInterface = pFact->CreateSwFieldDlg(pB, this, _pParent);
-    SetWindow( pDlgInterface->GetWindow() );
-    pDlgInterface->Start();
+    pDlgInterface = pFact->CreateSwFieldDlg(pB, this, _pParent->GetFrameWeld());
+    SetController(pDlgInterface->GetController());
+    pDlgInterface->StartExecuteAsync(nullptr);
 }
 
 // newly initialise dialog after Doc switch
@@ -116,11 +116,11 @@ SwFieldDataOnlyDlgWrapper::SwFieldDataOnlyDlgWrapper( vcl::Window* _pParent, sal
     : SwChildWinWrapper( _pParent, nId )
 {
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
-    pDlgInterface = pFact->CreateSwFieldDlg(pB, this, _pParent);
+    pDlgInterface = pFact->CreateSwFieldDlg(pB, this, _pParent->GetFrameWeld());
 
-    SetWindow( pDlgInterface->GetWindow() );
+    SetController(pDlgInterface->GetController());
     pDlgInterface->ActivateDatabasePage();
-    pDlgInterface->Start();
+    pDlgInterface->StartExecuteAsync(nullptr);
     pDlgInterface->Initialize( pInfo );
 }
 

@@ -47,6 +47,7 @@
 #include <drawinglayer/primitive2d/textdecoratedprimitive2d.hxx>
 #include <comphelper/processfactory.hxx>
 #include <rtl/ustring.hxx>
+#include <com/sun/star/awt/XControl.hpp>
 #include <com/sun/star/i18n/BreakIterator.hpp>
 #include <com/sun/star/i18n/CharacterIteratorMode.hpp>
 #include <com/sun/star/i18n/WordType.hpp>
@@ -371,7 +372,7 @@ namespace drawinglayer
             // #i113922# the LineWidth is duplicated in the MetaPolylineAction,
             // and also inside the SvtGraphicStroke and needs transforming into
             // the same space as its co-ordinates here cf. fdo#61789
-            // This is a partial fix. When a object transformation is used which
+            // This is a partial fix. When an object transformation is used which
             // e.g. contains a scaleX != scaleY, an unproportional scaling will happen.
             const basegfx::B2DVector aDiscreteUnit( maCurrentTransformation * basegfx::B2DVector( fWidth, 0.0 ) );
 
@@ -507,7 +508,7 @@ namespace drawinglayer
                 }
 
                 // #i101734# apply current object transformation to created geometry.
-                // This is a partial fix. When a object transformation is used which
+                // This is a partial fix. When an object transformation is used which
                 // e.g. contains a scaleX != scaleY, an unproportional scaling would
                 // have to be applied to the evtl. existing fat line. The current
                 // concept of PDF export and SvtGraphicStroke usage does simply not
@@ -551,6 +552,27 @@ namespace drawinglayer
                 mnSvtGraphicStrokeCount--;
                 mpMetaFile->AddAction(new MetaCommentAction("XPATHSTROKE_SEQ_END"));
             }
+        }
+
+        void VclMetafileProcessor2D::popStructureElement(vcl::PDFWriter::StructElement eElem)
+        {
+           if (!maListElements.empty() && maListElements.top() == eElem)
+           {
+               maListElements.pop();
+               mpPDFExtOutDevData->EndStructureElement();
+           }
+        }
+
+        void VclMetafileProcessor2D::popListItem()
+        {
+            popStructureElement(vcl::PDFWriter::LIBody);
+            popStructureElement(vcl::PDFWriter::ListItem);
+        }
+
+        void VclMetafileProcessor2D::popList()
+        {
+            popListItem();
+            popStructureElement(vcl::PDFWriter::List);
         }
 
         // init static break iterator
@@ -636,7 +658,7 @@ namespace drawinglayer
             Used from slideshow for URLs, created from diverse SvxField implementations inside
             createBeginComment()/createEndComment(). createBeginComment() is used from editeng\impedit3.cxx
             inside ImpEditEngine::Paint.
-            Created TextHierarchyFieldPrimitive2D and added needed infos there; it is an group primitive and wraps
+            Created TextHierarchyFieldPrimitive2D and added needed infos there; it is a group primitive and wraps
             text primitives (but is not limited to that). It contains the field type if special actions for the
             support of FIELD_SEQ_BEGIN/END are needed; this is the case for Page and URL fields. If more is
             needed, it may be supported there.
@@ -650,7 +672,7 @@ namespace drawinglayer
             XTEXT_EOW(i) end of word
             XTEXT_EOS(i) end of sentence
 
-            this three are with index and are created with the help of a i18n::XBreakIterator in
+            this three are with index and are created with the help of an i18n::XBreakIterator in
             ImplDrawWithComments. Simplifying, moving out text painting, reworking to create some
             data structure for holding those TEXT infos.
             Supported directly by TextSimplePortionPrimitive2D with adding a Locale to the basic text
@@ -1231,7 +1253,10 @@ namespace drawinglayer
 
             // this is a part of list item, start LILabel ( = bullet)
             if(mbInListItem)
+            {
+                maListElements.push(vcl::PDFWriter::LILabel);
                 mpPDFExtOutDevData->BeginStructureElement(vcl::PDFWriter::LILabel);
+            }
 
             // process recursively and add MetaFile comment
             process(rBulletPrimitive);
@@ -1239,8 +1264,12 @@ namespace drawinglayer
 
             if(mbInListItem)
             {
-                mpPDFExtOutDevData->EndStructureElement(); // end LILabel
-                mbBulletPresent = true;
+                if (maListElements.top() == vcl::PDFWriter::LILabel)
+                {
+                    maListElements.pop();
+                    mpPDFExtOutDevData->EndStructureElement(); // end LILabel
+                    mbBulletPresent = true;
+                }
             }
         }
 
@@ -1284,22 +1313,33 @@ namespace drawinglayer
                 if(nNewOutlineLevel > mnCurrentOutlineLevel)
                 {
                     // increase List level
-                    for(sal_Int16 a(mnCurrentOutlineLevel); a != nNewOutlineLevel; a++)
+                    for(sal_Int16 a(mnCurrentOutlineLevel); a != nNewOutlineLevel; ++a)
                     {
+                        maListElements.push(vcl::PDFWriter::List);
                         mpPDFExtOutDevData->BeginStructureElement( vcl::PDFWriter::List );
                     }
                 }
                 else // if(nNewOutlineLevel < mnCurrentOutlineLevel)
                 {
-                    // decrease List level
-                    for(sal_Int16 a(mnCurrentOutlineLevel); a != nNewOutlineLevel; a--)
+                    // close list levels below nNewOutlineLevel completely by removing
+                    // list items as well as list tag itself
+                    for(sal_Int16 a(nNewOutlineLevel); a < mnCurrentOutlineLevel; ++a)
                     {
-                        mpPDFExtOutDevData->EndStructureElement();
+                        popList(); // end LBody LI and L
                     }
-                }
+
+                    // on nNewOutlineLevel close the previous list item (LBody and LI)
+                    popListItem();
+
+                 }
 
                 // Remember new current OutlineLevel
                 mnCurrentOutlineLevel = nNewOutlineLevel;
+            }
+            else // the same list level
+            {
+                // close the previous list item (LBody and LI)
+                popListItem();
             }
 
             const bool bDumpAsListItem(-1 != mnCurrentOutlineLevel);
@@ -1307,6 +1347,7 @@ namespace drawinglayer
             if(bDumpAsListItem)
             {
                 // Dump as ListItem
+                maListElements.push(vcl::PDFWriter::ListItem);
                 mpPDFExtOutDevData->BeginStructureElement( vcl::PDFWriter::ListItem );
                 mbInListItem = true;
             }
@@ -1321,12 +1362,9 @@ namespace drawinglayer
             mpMetaFile->AddAction(new MetaCommentAction(aCommentString));
 
             if(bDumpAsListItem)
-            {
-                mpPDFExtOutDevData->EndStructureElement(); // end ListItem
                 mbInListItem = false;
-            }
-
-            mpPDFExtOutDevData->EndStructureElement();
+            else
+                mpPDFExtOutDevData->EndStructureElement(); // end Paragraph
         }
 
         void VclMetafileProcessor2D::processTextHierarchyBlockPrimitive2D(const primitive2d::TextHierarchyBlockPrimitive2D& rBlockPrimitive)
@@ -1337,6 +1375,16 @@ namespace drawinglayer
             // add MetaFile comment, process recursively and add MetaFile comment
             mpMetaFile->AddAction(new MetaCommentAction(aCommentStringA));
             process(rBlockPrimitive);
+
+            if (mnCurrentOutlineLevel >= 0 )
+            {
+                // end any opened List structure elements (LBody, LI, L)
+                for(sal_Int16 a(0); a <= mnCurrentOutlineLevel; ++a)
+                {
+                    popList();
+                }
+            }
+
             mpMetaFile->AddAction(new MetaCommentAction(aCommentStringB));
         }
 
@@ -1349,16 +1397,16 @@ namespace drawinglayer
             // this is a 2nd portion of list item
             // bullet has been already processed, start LIBody
             if (mbInListItem && mbBulletPresent)
+            {
+                maListElements.push(vcl::PDFWriter::LIBody);
                 mpPDFExtOutDevData->BeginStructureElement(vcl::PDFWriter::LIBody);
+            }
 
             // directdraw of text simple portion; use default processing
             RenderTextSimpleOrDecoratedPortionPrimitive2D(rTextCandidate);
 
             if (mbInListItem && mbBulletPresent)
-            {
-                mpPDFExtOutDevData->EndStructureElement(); // end LIBody
                 mbBulletPresent = false;
-            }
 
             // restore DrawMode
             mpOutputDevice->SetDrawMode(nOriginalDrawMode);
@@ -1798,7 +1846,7 @@ namespace drawinglayer
             {
                 // #i121185# When rotation or shear is used, a VCL Gradient cannot be used directly.
                 // This is because VCL Gradient mechanism does *not* support to rotate the gradient
-                // with objects and this case is not expressable in a Metafile (and cannot be added
+                // with objects and this case is not expressible in a Metafile (and cannot be added
                 // since the FileFormats used, e.g. *.wmf, do not support it either).
                 // Such cases happen when a graphic object uses a Metafile as graphic information or
                 // a fill style definition uses a Metafile. In this cases the graphic content is
@@ -1950,7 +1998,7 @@ namespace drawinglayer
                     {
                         // set VCL clip region; subdivide before conversion to tools polygon. Subdivision necessary (!)
                         // Removed subdivision and fixed in vcl::Region::ImplPolyPolyRegionToBandRegionFunc() in VCL where
-                        // the ClipRegion is built from the Polygon. A AdaptiveSubdivide on the source polygon was missing there
+                        // the ClipRegion is built from the Polygon. An AdaptiveSubdivide on the source polygon was missing there
                         mpOutputDevice->Push(PushFlags::CLIPREGION);
                         mpOutputDevice->SetClipRegion(vcl::Region(maClipPolyPolygon));
 
@@ -2079,7 +2127,7 @@ namespace drawinglayer
             // - uses DrawTransparent with metafile for content and a gradient
             // i can detect this here with checking the gradient part for a single
             // FillGradientPrimitive2D and reconstruct the gradient.
-            // If that detection goes wrong, I have to create an transparence-blended bitmap. Eventually
+            // If that detection goes wrong, I have to create a transparence-blended bitmap. Eventually
             // do that in stripes, else RenderTransparencePrimitive2D may just be used
             const primitive2d::Primitive2DContainer& rContent = rTransparenceCandidate.getChildren();
             const primitive2d::Primitive2DContainer& rTransparence = rTransparenceCandidate.getTransparence();
@@ -2212,20 +2260,31 @@ namespace drawinglayer
         {
             // structured tag primitive
             const vcl::PDFWriter::StructElement& rTagElement(rStructureTagCandidate.getStructureElement());
-            const bool bTagUsed(vcl::PDFWriter::NonStructElement != rTagElement);
-            const bool bIsBackground(rStructureTagCandidate.isBackground());
+            bool bTagUsed((vcl::PDFWriter::NonStructElement != rTagElement));
 
             if(mpPDFExtOutDevData && bTagUsed)
             {
-                // Write start tag. For background elements use NonStructElement instead of real element type (e.g. Figure)
-                // to guarantee it gets exported as artifact (tagged PDF)
-                mpPDFExtOutDevData->BeginStructureElement(bIsBackground ? vcl::PDFWriter::NonStructElement : rTagElement);
+                // foreground object: tag as regular structure element
+                if (!rStructureTagCandidate.isBackground())
+                {
+                    mpPDFExtOutDevData->BeginStructureElement(rTagElement);
+                }
+                // background object
+                else
+                {
+                    // background image: tag as artifact
+                    if (rStructureTagCandidate.isImage())
+                        mpPDFExtOutDevData->BeginStructureElement(vcl::PDFWriter::NonStructElement);
+                    // any other background object: do not tag
+                    else
+                        bTagUsed = false;
+                }
             }
 
             // process children normally
             process(rStructureTagCandidate.getChildren());
 
-            if(mpPDFExtOutDevData &&  bTagUsed)
+            if(mpPDFExtOutDevData && bTagUsed)
             {
                 // write end tag
                 mpPDFExtOutDevData->EndStructureElement();

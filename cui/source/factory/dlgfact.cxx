@@ -26,12 +26,14 @@
 #include <sfx2/request.hxx>
 #include <sal/log.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
+#include <svx/ucsubset.hxx>
 #include <numfmt.hxx>
 #include <splitcelldlg.hxx>
 #include <dstribut.hxx>
 #include <cuiimapwnd.hxx>
 #include <hlmarkwn.hxx>
-#include <cuicharmap.hxx>
+#include <cui/cuicharmap.hxx>
 #include <srchxtra.hxx>
 #include <textanim.hxx>
 #include <autocdlg.hxx>
@@ -88,6 +90,7 @@
 #include <hyphen.hxx>
 #include <thesdlg.hxx>
 #include <about.hxx>
+#include <tipofthedaydlg.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::frame;
@@ -97,7 +100,6 @@ using ::com::sun::star::uno::Reference;
 
 using namespace svx;
 // AbstractTabDialog implementations just forwards everything to the dialog
-IMPL_ABSTDLG_BASE(CuiAbstractSfxDialog_Impl)
 
 short CuiAbstractController_Impl::Execute()
 {
@@ -131,7 +133,15 @@ short AbstractHyphenWordDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
-IMPL_ABSTDLG_BASE(AbstractThesaurusDialog_Impl)
+short AbstractThesaurusDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
+bool AbstractThesaurusDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return SfxDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
 
 short AbstractSvxZoomDialog_Impl::Execute()
 {
@@ -153,7 +163,10 @@ short AbstractGalleryIdDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
-IMPL_ABSTDLG_BASE(AbstractURLDlg_Impl);
+short AbstractURLDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
 
 short AbstractSvxSearchSimilarityDialog_Impl::Execute()
 {
@@ -221,7 +234,10 @@ short AbstractSvxPathSelectDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
-IMPL_ABSTDLG_BASE(AbstractSvxHpLinkDlg_Impl);
+short AbstractSvxHpLinkDlg_Impl::Execute()
+{
+    return m_xDlg->run();
+}
 
 short AbstractFmSearchDialog_Impl::Execute()
 {
@@ -258,7 +274,15 @@ short AbstractLinksDialog_Impl::Execute()
     return m_xDlg->run();
 }
 
-IMPL_ABSTDLG_BASE(AbstractSpellDialog_Impl);
+short AbstractSpellDialog_Impl::Execute()
+{
+    return m_xDlg->run();
+}
+
+bool AbstractSpellDialog_Impl::StartExecuteAsync(AsyncContext &rCtx)
+{
+    return SfxDialogController::runAsync(m_xDlg, rCtx.maEndDialogFn);
+}
 
 short AbstractSvxPostItDialog_Impl::Execute()
 {
@@ -341,16 +365,6 @@ const SfxItemSet* CuiAbstractSingleTabController_Impl::GetOutputItemSet() const
 void CuiAbstractSingleTabController_Impl::SetText(const OUString& rStr)
 {
     m_xDlg->set_title(rStr);
-}
-
-const SfxItemSet* CuiAbstractSfxDialog_Impl::GetOutputItemSet() const
-{
-    return pDlg->GetOutputItemSet();
-}
-
-void CuiAbstractSfxDialog_Impl::SetText( const OUString& rStr )
-{
-    pDlg->SetText( rStr );
 }
 
 SvxDistributeHorizontal AbstractSvxDistributeDialog_Impl::GetDistributeHor()const
@@ -468,7 +482,7 @@ OUString AbstractHangulHanjaConversionDialog_Impl::GetCurrentSuggestion( ) const
 
 OUString AbstractThesaurusDialog_Impl::GetWord()
 {
-    return pDlg->GetWord();
+    return m_xDlg->GetWord();
 };
 
 Reference < css::embed::XEmbeddedObject > AbstractInsertObjectDialog_Impl::GetObject()
@@ -521,19 +535,19 @@ const SfxItemSet* AbstractSvxZoomDialog_Impl::GetOutputItemSet() const
     return m_xDlg->GetOutputItemSet();
 }
 
-void  AbstractSpellDialog_Impl::Invalidate()
+void AbstractSpellDialog_Impl::InvalidateDialog()
 {
-    pDlg->InvalidateDialog();
+    m_xDlg->InvalidateDialog();
 }
 
-vcl::Window*     AbstractSpellDialog_Impl::GetWindow()
+std::shared_ptr<SfxDialogController> AbstractSpellDialog_Impl::GetController()
 {
-    return pDlg;
+    return m_xDlg;
 }
 
 SfxBindings& AbstractSpellDialog_Impl::GetBindings()
 {
-    return pDlg->GetBindings();
+    return m_xDlg->GetBindings();
 }
 
 OUString AbstractTitleDialog_Impl::GetTitle() const
@@ -548,27 +562,27 @@ sal_uInt32 AbstractGalleryIdDialog_Impl::GetId() const
 
 OUString AbstractURLDlg_Impl::GetURL() const
 {
-    return pDlg->GetURL();
+    return m_xDlg->GetURL();
 }
 
 OUString AbstractURLDlg_Impl::GetAltText() const
 {
-    return pDlg->GetAltText();
+    return m_xDlg->GetAltText();
 }
 
 OUString AbstractURLDlg_Impl::GetDesc() const
 {
-    return pDlg->GetDesc();
+    return m_xDlg->GetDesc();
 }
 
 OUString AbstractURLDlg_Impl::GetTarget() const
 {
-    return pDlg->GetTarget();
+    return m_xDlg->GetTarget();
 }
 
 OUString AbstractURLDlg_Impl::GetName() const
 {
-    return pDlg->GetName();
+    return m_xDlg->GetName();
 }
 
 sal_uInt16 AbstractSvxSearchSimilarityDialog_Impl::GetOther()
@@ -772,14 +786,14 @@ void AbstractSvxPathSelectDialog_Impl::SetTitle( const OUString& rNewTitle )
     m_xDlg->SetTitle(rNewTitle);
 }
 
-vcl::Window * AbstractSvxHpLinkDlg_Impl::GetWindow()
+std::shared_ptr<SfxDialogController> AbstractSvxHpLinkDlg_Impl::GetController()
 {
-    return static_cast<vcl::Window *>(pDlg);
+    return m_xDlg;
 }
 
 bool AbstractSvxHpLinkDlg_Impl::QueryClose()
 {
-    return pDlg->QueryClose();
+    return m_xDlg->QueryClose();
 }
 
 void AbstractFmSearchDialog_Impl::SetFoundHandler(const Link<FmFoundRecordInformation&,void>& lnk)
@@ -922,11 +936,6 @@ VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateVclDialog( vcl::Wind
     VclPtr<Dialog> pDlg;
     switch ( nResId )
     {
-        case SID_ABOUT:
-        {
-            pDlg = VclPtr<AboutDialog>::Create(pParent);
-            break;
-        }
         case SID_OPTIONS_TREEDIALOG :
         case SID_OPTIONS_DATABASES :
         case SID_LANGUAGE_OPTIONS :
@@ -955,6 +964,11 @@ VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateVclDialog( vcl::Wind
     if ( pDlg )
         return VclPtr<CuiVclAbstractDialog_Impl>::Create( pDlg );
     return nullptr;
+}
+
+VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateAboutDialog(weld::Window* pParent)
+{
+    return VclPtr<CuiAbstractController_Impl>::Create(std::make_unique<AboutDialog>(pParent));
 }
 
 VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateFrameDialog(vcl::Window* pParent, const Reference< frame::XFrame >& rxFrame,
@@ -1021,12 +1035,11 @@ VclPtr<AbstractHangulHanjaConversionDialog> AbstractDialogFactory_Impl::CreateHa
     return VclPtr<AbstractHangulHanjaConversionDialog_Impl>::Create(std::make_unique<HangulHanjaConversionDialog>(pParent));
 }
 
-VclPtr<AbstractThesaurusDialog> AbstractDialogFactory_Impl::CreateThesaurusDialog( vcl::Window* pParent,
-                                css::uno::Reference< css::linguistic2::XThesaurus >  xThesaurus,
-                                const OUString &rWord, LanguageType nLanguage )
+VclPtr<AbstractThesaurusDialog> AbstractDialogFactory_Impl::CreateThesaurusDialog(weld::Window* pParent,
+                                css::uno::Reference<css::linguistic2::XThesaurus> xThesaurus,
+                                const OUString &rWord, LanguageType nLanguage)
 {
-    VclPtrInstance<SvxThesaurusDialog> pDlg( pParent, xThesaurus, rWord, nLanguage );
-    return VclPtr<AbstractThesaurusDialog_Impl>::Create( pDlg );
+    return VclPtr<AbstractThesaurusDialog_Impl>::Create(std::make_unique<SvxThesaurusDialog>(pParent, xThesaurus, rWord, nLanguage));
 }
 
 VclPtr<AbstractHyphenWordDialog> AbstractDialogFactory_Impl::CreateHyphenWordDialog(weld::Window* pParent,
@@ -1048,12 +1061,11 @@ VclPtr<AbstractSvxZoomDialog> AbstractDialogFactory_Impl::CreateSvxZoomDialog(we
 }
 
 VclPtr<AbstractSpellDialog> AbstractDialogFactory_Impl::CreateSvxSpellDialog(
-                        vcl::Window* pParent,
+                        weld::Window* pParent,
                         SfxBindings* pBindings,
-                        svx::SpellDialogChildWindow* pSpellChildWindow )
+                        svx::SpellDialogChildWindow* pSpellChildWindow)
 {
-    VclPtrInstance<svx::SpellDialog> pDlg(pSpellChildWindow, pParent, pBindings);
-    return VclPtr<AbstractSpellDialog_Impl>::Create(pDlg);
+    return VclPtr<AbstractSpellDialog_Impl>::Create(std::make_unique<svx::SpellDialog>(pSpellChildWindow, pParent, pBindings));
 }
 
 VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateActualizeProgressDialog(weld::Window* pParent,
@@ -1109,14 +1121,14 @@ VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateGalleryThemeProperti
                                                          pParent, pData, pItemSet));
 }
 
-VclPtr<AbstractURLDlg> AbstractDialogFactory_Impl::CreateURLDialog( vcl::Window* pParent,
+VclPtr<AbstractURLDlg> AbstractDialogFactory_Impl::CreateURLDialog(weld::Widget* pParent,
                                             const OUString& rURL, const OUString& rAltText, const OUString& rDescription,
                                             const OUString& rTarget, const OUString& rName,
                                             TargetList& rTargetList )
 {
-    VclPtrInstance<URLDlg> pDlg( pParent, rURL, rAltText, rDescription,
-                                 rTarget, rName, rTargetList);
-    return VclPtr<AbstractURLDlg_Impl>::Create( pDlg );
+    return VclPtr<AbstractURLDlg_Impl>::Create(std::make_unique<URLDlg>(pParent, rURL, rAltText, rDescription,
+                                                                        rTarget, rName, rTargetList));
+
 }
 
 VclPtr<SfxAbstractTabDialog> AbstractDialogFactory_Impl::CreateTabItemDialog(weld::Window* pParent,
@@ -1222,11 +1234,9 @@ VclPtr<AbstractSvxMultiPathDialog> AbstractDialogFactory_Impl::CreateSvxPathSele
     return VclPtr<AbstractSvxPathSelectDialog_Impl>::Create(std::make_unique<SvxPathSelectDialog>(pParent));
 }
 
-VclPtr<AbstractSvxHpLinkDlg> AbstractDialogFactory_Impl::CreateSvxHpLinkDlg (vcl::Window* pParent,
-                                            SfxBindings* pBindings)
+VclPtr<AbstractSvxHpLinkDlg> AbstractDialogFactory_Impl::CreateSvxHpLinkDlg(SfxChildWindow* pChild, SfxBindings* pBindings, weld::Window* pParent)
 {
-    VclPtrInstance<SvxHpLinkDlg> pDlg( pParent, pBindings );
-    return VclPtr<AbstractSvxHpLinkDlg_Impl>::Create(pDlg);
+    return VclPtr<AbstractSvxHpLinkDlg_Impl>::Create(std::make_unique<SvxHpLinkDlg>(pBindings, pChild, pParent));
 }
 
 VclPtr<AbstractFmSearchDialog> AbstractDialogFactory_Impl::CreateFmSearchDialog(weld::Window* pParent,
@@ -1292,16 +1302,17 @@ VclPtr<SfxAbstractTabDialog> AbstractDialogFactory_Impl::CreateSvxLineTabDialog(
     return VclPtr<CuiAbstractTabController_Impl>::Create(std::make_unique<SvxLineTabDialog>(pParent, pAttr, pModel, pObj,bHasObj));
 }
 
-VclPtr<SfxAbstractDialog> AbstractDialogFactory_Impl::CreateCharMapDialog(weld::Window* pParent, const SfxItemSet& rAttr, bool bInsert)
+VclPtr<SfxAbstractDialog> AbstractDialogFactory_Impl::CreateCharMapDialog(weld::Window* pParent, const SfxItemSet& rAttr,
+                                                                          const Reference< XFrame >& rDocumentFrame)
 {
-    return VclPtr<AbstractSvxCharacterMapDialog_Impl>::Create(std::make_unique<SvxCharacterMap>(pParent, &rAttr, bInsert));
+    return VclPtr<AbstractSvxCharacterMapDialog_Impl>::Create(std::make_unique<SvxCharacterMap>(pParent, &rAttr, rDocumentFrame));
 }
 
-VclPtr<SfxAbstractDialog> AbstractDialogFactory_Impl::CreateEventConfigDialog(weld::Window* pParent,
+VclPtr<SfxAbstractDialog> AbstractDialogFactory_Impl::CreateEventConfigDialog(weld::Widget* pParent,
                                                                               const SfxItemSet& rAttr,
-                                                                              const Reference< XFrame >& _rxDocumentFrame)
+                                                                              const Reference< XFrame >& rDocumentFrame)
 {
-    return VclPtr<CuiAbstractSingleTabController_Impl>::Create(std::make_unique<SfxMacroAssignDlg>(pParent, _rxDocumentFrame, rAttr));
+    return VclPtr<CuiAbstractSingleTabController_Impl>::Create(std::make_unique<SfxMacroAssignDlg>(pParent, rDocumentFrame, rAttr));
 }
 
 VclPtr<SfxAbstractDialog> AbstractDialogFactory_Impl::CreateSfxDialog(weld::Window* pParent,
@@ -1322,9 +1333,9 @@ VclPtr<SfxAbstractDialog> AbstractDialogFactory_Impl::CreateSfxDialog(weld::Wind
     return nullptr;
 }
 
-VclPtr<AbstractSvxPostItDialog> AbstractDialogFactory_Impl::CreateSvxPostItDialog( weld::Window* pParent,
-                                                                        const SfxItemSet& rCoreSet,
-                                                                        bool bPrevNext )
+VclPtr<AbstractSvxPostItDialog> AbstractDialogFactory_Impl::CreateSvxPostItDialog(weld::Widget* pParent,
+                                                                                  const SfxItemSet& rCoreSet,
+                                                                                  bool bPrevNext)
 {
     return VclPtr<AbstractSvxPostItDialog_Impl>::Create(std::make_unique<SvxPostItDialog>(pParent, rCoreSet, bPrevNext));
 }
@@ -1350,6 +1361,11 @@ private:
 short SvxMacroAssignDialog::Execute()
 {
     return m_xDialog->run();
+}
+
+short AbstractTipOfTheDayDialog_Impl::Execute()
+{
+    return m_xDlg->run();
 }
 
 VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateSvxMacroAssignDlg(
@@ -1557,9 +1573,9 @@ VclPtr<SvxAbstractNewTableDialog> AbstractDialogFactory_Impl::CreateSvxNewTableD
 }
 
 VclPtr<VclAbstractDialog> AbstractDialogFactory_Impl::CreateOptionsDialog(
-    vcl::Window* pParent, const OUString& rExtensionId )
+    weld::Window* /*pParent*/, const OUString& rExtensionId )
 {
-    return VclPtr<CuiVclAbstractDialog_Impl>::Create( VclPtr<OfaTreeOptionsDialog>::Create( pParent, rExtensionId ) );
+    return VclPtr<CuiVclAbstractDialog_Impl>::Create( VclPtr<OfaTreeOptionsDialog>::Create(nullptr /* TODO: pParent*/, rExtensionId ) );
 }
 
 VclPtr<SvxAbstractInsRowColDlg> AbstractDialogFactory_Impl::CreateSvxInsRowColDlg(weld::Window* pParent, bool bCol, const OString& rHelpId)
@@ -1594,6 +1610,12 @@ AbstractDialogFactory_Impl::CreateSignSignatureLineDialog(weld::Window* pParent,
 {
     return VclPtr<AbstractSignSignatureLineDialog_Impl>::Create(
         std::make_unique<SignSignatureLineDialog>(pParent, xModel));
+}
+
+VclPtr<AbstractTipOfTheDayDialog>
+AbstractDialogFactory_Impl::CreateTipOfTheDayDialog(weld::Window* pParent)
+{
+    return VclPtr<AbstractTipOfTheDayDialog_Impl>::Create(std::make_unique<TipOfTheDayDialog>(pParent));
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

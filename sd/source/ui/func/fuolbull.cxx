@@ -19,6 +19,7 @@
 
 #include <fuolbull.hxx>
 #include <svl/intitem.hxx>
+#include <svl/stritem.hxx>
 #include <editeng/outliner.hxx>
 #include <editeng/eeitem.hxx>
 #include <sfx2/request.hxx>
@@ -26,10 +27,8 @@
 #include <editeng/numitem.hxx>
 #include <strings.hxx>
 
-#include <editeng/editdata.hxx>
 #include <svx/svxids.hrc>
 #include <OutlineView.hxx>
-#include <OutlineViewShell.hxx>
 #include <DrawDocShell.hxx>
 #include <DrawViewShell.hxx>
 #include <Window.hxx>
@@ -39,26 +38,26 @@
 #include <svx/nbdtmgfact.hxx>
 #include <svx/svdoutl.hxx>
 #include <memory>
+#include <sdpage.hxx>
 
 using namespace svx::sidebar;
 namespace sd {
 
-
-FuOutlineBullet::FuOutlineBullet(ViewShell* pViewShell, ::sd::Window* pWindow,
+FuBulletAndPosition::FuBulletAndPosition(ViewShell* pViewShell, ::sd::Window* pWindow,
                                  ::sd::View* pView, SdDrawDocument* pDoc,
                                  SfxRequest& rReq)
        : FuPoor(pViewShell, pWindow, pView, pDoc, rReq)
 {
 }
 
-rtl::Reference<FuPoor> FuOutlineBullet::Create( ViewShell* pViewSh, ::sd::Window* pWin, ::sd::View* pView, SdDrawDocument* pDoc, SfxRequest& rReq )
+rtl::Reference<FuPoor> FuBulletAndPosition::Create( ViewShell* pViewSh, ::sd::Window* pWin, ::sd::View* pView, SdDrawDocument* pDoc, SfxRequest& rReq )
 {
-    rtl::Reference<FuPoor> xFunc( new FuOutlineBullet( pViewSh, pWin, pView, pDoc, rReq ) );
+    rtl::Reference<FuPoor> xFunc( new FuBulletAndPosition( pViewSh, pWin, pView, pDoc, rReq ) );
     xFunc->DoExecute(rReq);
     return xFunc;
 }
 
-void FuOutlineBullet::DoExecute( SfxRequest& rReq )
+void FuBulletAndPosition::DoExecute( SfxRequest& rReq )
 {
     const sal_uInt16 nSId = rReq.GetSlot();
     if ( nSId == FN_SVX_SET_BULLET || nSId == FN_SVX_SET_NUMBER )
@@ -86,48 +85,23 @@ void FuOutlineBullet::DoExecute( SfxRequest& rReq )
                              svl::Items<EE_ITEMS_START, EE_ITEMS_END>{} );
     aNewAttr.Put( aEditAttr, false );
 
+    auto pView = mpView;
+
     // create and execute dialog
     SdAbstractDialogFactory* pFact = SdAbstractDialogFactory::Create();
-    VclPtr<SfxAbstractTabDialog> pDlg( pFact->CreateSdOutlineBulletTabDlg(mpViewShell->GetFrameWeld(), &aNewAttr, mpView) );
-    if ( pPageItem )
-        pDlg->SetCurPageId( OUStringToOString( pPageItem->GetValue(), RTL_TEXTENCODING_UTF8 ) );
+    ScopedVclPtr<AbstractSvxBulletAndPositionDlg> pDlg(pFact->CreateSvxBulletAndPositionDlg(mpViewShell->GetFrameWeld(), &aNewAttr, mpView));
+    sal_uInt16 nResult = pDlg->Execute();
 
-    std::shared_ptr<SfxRequest> xRequest(new SfxRequest(rReq));
-    rReq.Ignore(); // the 'old' request is not relevant any more
+    if( nResult == RET_OK )
+    {
+        const SfxItemSet pOutputSet( *pDlg->GetOutputItemSet( &aNewAttr ) );
+        pView->SetAttributes(pOutputSet, /*bReplaceAll=*/false, /*bSlide*/ pDlg->IsSlideScope(), /*bMaster=*/pDlg->IsApplyToMaster());
+    }
 
-    // do not capture this, because this will go way before the dialog finishes executing
-    auto pView = mpView;
-    auto pViewShell = mpViewShell;
-    pDlg->StartExecuteAsync([pView, pViewShell, pDlg, xRequest](sal_Int32 nResult){
-
-        if( nResult == RET_OK )
-        {
-            SfxItemSet aSet( *pDlg->GetOutputItemSet() );
-
-            OutlinerView* pOLV = pView->GetTextEditOutlinerView();
-
-            std::unique_ptr<OutlineViewModelChangeGuard, o3tl::default_delete<OutlineViewModelChangeGuard>> aGuard;
-
-            if (OutlineView* pOutlineView = dynamic_cast<OutlineView*>(pView))
-            {
-                pOLV = pOutlineView->GetViewByWindow(pViewShell->GetActiveWindow());
-                aGuard.reset(new OutlineViewModelChangeGuard(*pOutlineView));
-            }
-
-            if( pOLV )
-                pOLV->EnableBullets();
-
-            xRequest->Done( aSet );
-
-            /* not direct to pOlView; therefore, SdDrawView::SetAttributes can catch
-               changes to master page and redirect to a template */
-            pView->SetAttributes(*xRequest->GetArgs());
-        }
-        pDlg->disposeOnce();
-    });
+    rReq.Done();
 }
 
-void FuOutlineBullet::SetCurrentBulletsNumbering(SfxRequest& rReq)
+void FuBulletAndPosition::SetCurrentBulletsNumbering(SfxRequest& rReq)
 {
     if (!mpDoc || !mpView)
         return;
@@ -280,7 +254,7 @@ void FuOutlineBullet::SetCurrentBulletsNumbering(SfxRequest& rReq)
     rReq.Done();
 }
 
-const SfxPoolItem* FuOutlineBullet::GetNumBulletItem(SfxItemSet& aNewAttr, sal_uInt32& nNumItemId)
+const SfxPoolItem* FuBulletAndPosition::GetNumBulletItem(SfxItemSet& aNewAttr, sal_uInt32& nNumItemId)
 {
     //SvxNumBulletItem* pRetItem = NULL;
     const SfxPoolItem* pTmpItem = nullptr;
@@ -363,6 +337,7 @@ const SfxPoolItem* FuOutlineBullet::GetNumBulletItem(SfxItemSet& aNewAttr, sal_u
     }
     return pTmpItem;
 }
+
 
 } // end of namespace sd
 

@@ -1197,6 +1197,8 @@ public:
     bool IsInsTableFormatNum() const;
     bool IsInsTableChangeNumFormat() const;
     bool IsInsTableAlignNum() const;
+    bool IsSplitVerticalByDefault() const;
+    void SetSplitVerticalByDefault(bool value);
 
     // From FEShell (for Undo and BModified).
     static void GetTabCols( SwTabCols &rFill, const SwCellFrame* pBoxFrame );
@@ -1472,7 +1474,7 @@ public:
     ///   Call again without bOptimize to ensure equal height in case some row's content didn't fit.
     bool BalanceRowHeight( const SwCursor& rCursor, bool bTstOnly, const bool bOptimize );
     void SetRowBackground( const SwCursor& rCursor, const SvxBrushItem &rNew );
-    static bool GetRowBackground( const SwCursor& rCursor, SvxBrushItem &rToFill );
+    static bool GetRowBackground( const SwCursor& rCursor, std::shared_ptr<SvxBrushItem>& rToFill );
     void SetTabBorders( const SwCursor& rCursor, const SfxItemSet& rSet );
     void SetTabLineStyle( const SwCursor& rCursor,
                           const Color* pColor, bool bSetLine,
@@ -1489,7 +1491,7 @@ public:
     the values of the same property over any other boxes in the selection; if any value is different from
     that of the first box, the property is unset (and false is returned).
     */
-    static bool GetBoxAttr( const SwCursor& rCursor, SfxPoolItem &rToFill );
+    static bool GetBoxAttr( const SwCursor& rCursor, std::shared_ptr<SfxPoolItem>& rToFill );
     void SetBoxAlign( const SwCursor& rCursor, sal_uInt16 nAlign );
     static sal_uInt16 GetBoxAlign( const SwCursor& rCursor );
     /// Adjusts selected cell widths in such a way, that their content does not need to be wrapped (if possible).
@@ -1557,7 +1559,7 @@ public:
                    bool bBroadcast = false);
 
     // Change a TOX undoable.
-    void ChangeTOX(SwTOXBase & rTOX, const SwTOXBase & rNew, SwRootFrame const& rLayout);
+    void ChangeTOX(SwTOXBase & rTOX, const SwTOXBase & rNew);
 
     /**
        Returns a textual description of a PaM.

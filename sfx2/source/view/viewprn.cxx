@@ -21,6 +21,7 @@
 
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/view/XRenderable.hpp>
+#include <com/sun/star/view/XSelectionSupplier.hpp>
 
 #include <sal/log.hxx>
 #include <svl/itempool.hxx>
@@ -39,6 +40,7 @@
 #include <sfx2/viewsh.hxx>
 #include "viewimp.hxx"
 #include <sfx2/viewfrm.hxx>
+#include <sfx2/printer.hxx>
 #include <sfx2/prnmon.hxx>
 #include <sfx2/sfxresid.hxx>
 #include <sfx2/request.hxx>
@@ -47,7 +49,10 @@
 #include <sfx2/event.hxx>
 #include <sfx2/docfile.hxx>
 #include <sfx2/docfilt.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <sfx2/strings.hrc>
+#include <sfx2/sfxuno.hxx>
+#include <sfx2/tabdlg.hxx>
 
 #include <toolkit/awt/vclxdevice.hxx>
 

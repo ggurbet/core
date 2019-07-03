@@ -20,11 +20,8 @@
 #include <basic/basmgr.hxx>
 
 #include <macropg.hxx>
-#include <vcl/layout.hxx>
-#include <svtools/svmedit.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistentry.hxx>
 #include <svl/eitem.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <sfx2/app.hxx>
 #include <sfx2/objsh.hxx>
@@ -38,8 +35,8 @@
 #include <headertablistbox.hxx>
 #include "macropg_impl.hxx"
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <strings.hrc>
-#include <vcl/builderfactory.hxx>
 #include <comphelper/namedvaluecollection.hxx>
 
 #include <algorithm>
@@ -677,7 +674,7 @@ IMPL_LINK_NOARG(SvxMacroAssignSingleTabDialog, OKHdl_Impl, weld::Button&, void)
 
 SvxMacroAssignSingleTabDialog::SvxMacroAssignSingleTabDialog(weld::Window *pParent,
     const SfxItemSet& rSet)
-    : SfxSingleTabDialogController(pParent, rSet, "cui/ui/macroassigndialog.ui", "MacroAssignDialog")
+    : SfxSingleTabDialogController(pParent, &rSet, "cui/ui/macroassigndialog.ui", "MacroAssignDialog")
 {
     GetOKButton().connect_clicked(LINK(this, SvxMacroAssignSingleTabDialog, OKHdl_Impl));
 }

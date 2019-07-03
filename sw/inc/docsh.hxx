@@ -20,6 +20,7 @@
 #define INCLUDED_SW_INC_DOCSH_HXX
 
 #include <memory>
+#include <vector>
 #include <rtl/ref.hxx>
 #include <com/sun/star/uno/Sequence.h>
 #include <sfx2/docfac.hxx>
@@ -116,7 +117,8 @@ class SW_DLLPUBLIC SwDocShell
         override;
 
     /// Make DocInfo known to the Doc.
-    SAL_DLLPRIVATE virtual VclPtr<SfxDocumentInfoDialog> CreateDocumentInfoDialog(const SfxItemSet &) override;
+    SAL_DLLPRIVATE virtual std::unique_ptr<SfxDocumentInfoDialog> CreateDocumentInfoDialog(weld::Window* pParent,
+                                                                                           const SfxItemSet &rSet) override;
     /// OLE-stuff
     SAL_DLLPRIVATE virtual void          Draw( OutputDevice*, const JobSetup&, sal_uInt16 nAspect) override;
 

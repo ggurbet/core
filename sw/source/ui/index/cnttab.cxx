@@ -20,7 +20,6 @@
 #include <config_folders.h>
 
 #include <sal/log.hxx>
-#include <vcl/builderfactory.hxx>
 #include <svl/style.hxx>
 #include <vcl/help.hxx>
 #include <vcl/weld.hxx>
@@ -32,10 +31,10 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/docfile.hxx>
 #include <svtools/simptabl.hxx>
-#include <vcl/treelistentry.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/svxdlg.hxx>
 #include <svx/flagsdef.hxx>
+#include <svx/svxids.hrc>
 #include <com/sun/star/ui/dialogs/TemplateDescription.hpp>
 #include <com/sun/star/ui/dialogs/XFilePicker3.hpp>
 #include <com/sun/star/ui/dialogs/XFilterManager.hpp>
@@ -209,12 +208,10 @@ sal_uInt16 CurTOXType::GetFlatIndex() const
         ? TOX_AUTHORITIES + nIndex : eType );
 }
 
-SwMultiTOXTabDialog::SwMultiTOXTabDialog(vcl::Window* pParent, const SfxItemSet& rSet,
-                    SwWrtShell &rShell,
-                    SwTOXBase* pCurTOX,
-                    sal_uInt16 nToxType, bool bGlobal)
-    : SfxTabDialog(pParent, "TocDialog",
-        "modules/swriter/ui/tocdialog.ui", &rSet)
+SwMultiTOXTabDialog::SwMultiTOXTabDialog(weld::Window* pParent, const SfxItemSet& rSet,
+                                         SwWrtShell &rShell, SwTOXBase* pCurTOX,
+                                         sal_uInt16 nToxType, bool bGlobal)
+    : SfxTabDialogController(pParent, "modules/swriter/ui/tocdialog.ui", "TocDialog", &rSet)
     , m_pMgr( new SwTOXMgr( &rShell ) )
     , m_rWrtShell(rShell)
     , m_pParamTOXBase(pCurTOX)
@@ -223,14 +220,8 @@ SwMultiTOXTabDialog::SwMultiTOXTabDialog(vcl::Window* pParent, const SfxItemSet&
     , m_bEditTOX(false)
     , m_bExampleCreated(false)
     , m_bGlobalFlag(bGlobal)
+    , m_xShowExampleCB(m_xBuilder->weld_check_button("showexample"))
 {
-    get(m_pShowExampleCB, "showexample");
-    get(m_pExampleContainerWIN, "example");
-    Size aWinSize(LogicToPixel(Size(150, 188), MapMode(MapUnit::MapAppFont)));
-    m_pExampleContainerWIN->set_width_request(aWinSize.Width());
-    m_pExampleContainerWIN->set_height_request(aWinSize.Height());
-    m_pExampleContainerWIN->SetSizePixel(aWinSize);
-
     m_eCurrentTOXType.eType = TOX_CONTENT;
     m_eCurrentTOXType.nIndex = 0;
 
@@ -287,64 +278,42 @@ SwMultiTOXTabDialog::SwMultiTOXTabDialog(vcl::Window* pParent, const SfxItemSet&
         }
     }
     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();
-    m_nSelectId = AddTabPage("index", SwTOXSelectTabPage::Create);
-    AddTabPage("styles", SwTOXStylesTabPage::Create);
-    m_nColumnId = AddTabPage("columns", SwColumnPage::Create);
-    m_nBackGroundId = AddTabPage("background", pFact->GetTabPageCreatorFunc( RID_SVXPAGE_BKG ));
-    m_nEntriesId = AddTabPage("entries", SwTOXEntryTabPage::Create);
-    if(!pCurTOX)
-        SetCurPageId(m_nSelectId);
+    AddTabPage("index", SwTOXSelectTabPage::Create, nullptr);
+    AddTabPage("styles", SwTOXStylesTabPage::Create, nullptr);
+    AddTabPage("columns", SwColumnPage::Create, nullptr);
+    AddTabPage("background", pFact->GetTabPageCreatorFunc(RID_SVXPAGE_BKG), nullptr);
+    AddTabPage("entries", SwTOXEntryTabPage::Create, nullptr);
+    if (!pCurTOX)
+        SetCurPageId("index");
 
-    m_pShowExampleCB->SetClickHdl(LINK(this, SwMultiTOXTabDialog, ShowPreviewHdl));
+    m_xShowExampleCB->connect_toggled(LINK(this, SwMultiTOXTabDialog, ShowPreviewHdl));
+    m_xShowExampleCB->set_active(SW_MOD()->GetModuleConfig()->IsShowIndexPreview());
 
-    m_pShowExampleCB->Check( SW_MOD()->GetModuleConfig()->IsShowIndexPreview());
-
-    SetViewAlign( WindowAlign::Left );
-    // SetViewWindow does not work if the dialog is visible!
-
-    if(!m_pShowExampleCB->IsChecked())
-        SetViewWindow(m_pExampleContainerWIN);
-
-    ShowPreviewHdl(nullptr);
+    ShowPreviewHdl(*m_xShowExampleCB);
 }
 
 SwMultiTOXTabDialog::~SwMultiTOXTabDialog()
 {
-    disposeOnce();
+    SW_MOD()->GetModuleConfig()->SetShowIndexPreview(m_xShowExampleCB->get_active());
 }
 
-void SwMultiTOXTabDialog::dispose()
+void SwMultiTOXTabDialog::PageCreated(const OString& rId, SfxTabPage &rPage)
 {
-    SW_MOD()->GetModuleConfig()->SetShowIndexPreview(m_pShowExampleCB->IsChecked());
-
-    // fdo#38515 Avoid setting focus on deleted controls in the destructors
-    EnableInput( false );
-
-    m_vTypeData.clear();
-    m_pMgr.reset();
-    m_pExampleFrame.reset();
-    m_pExampleContainerWIN.clear();
-    m_pShowExampleCB.clear();
-    SfxTabDialog::dispose();
-}
-
-void SwMultiTOXTabDialog::PageCreated( sal_uInt16 nId, SfxTabPage &rPage )
-{
-    if (nId == m_nBackGroundId)
+    if (rId == "background")
     {
         SfxAllItemSet aSet(*(GetInputSetImpl()->GetPool()));
         aSet.Put (SfxUInt32Item(SID_FLAG_TYPE, static_cast<sal_uInt32>(SvxBackgroundTabFlags::SHOW_SELECTOR)));
         rPage.PageCreated(aSet);
     }
-    else if(nId == m_nColumnId)
+    else if (rId == "columns")
     {
         const SwFormatFrameSize& rSize = GetInputSetImpl()->Get(RES_FRM_SIZE);
 
         static_cast<SwColumnPage&>(rPage).SetPageWidth(rSize.GetWidth());
     }
-    else if (nId == m_nEntriesId)
+    else if (rId == "entries")
         static_cast<SwTOXEntryTabPage&>(rPage).SetWrtShell(m_rWrtShell);
-    else if (nId == m_nSelectId)
+    else if (rId == "index")
     {
         static_cast<SwTOXSelectTabPage&>(rPage).SetWrtShell(m_rWrtShell);
         if(USHRT_MAX != m_nInitialTOXType)
@@ -354,7 +323,7 @@ void SwMultiTOXTabDialog::PageCreated( sal_uInt16 nId, SfxTabPage &rPage )
 
 short SwMultiTOXTabDialog::Ok()
 {
-    short nRet = SfxTabDialog::Ok();
+    short nRet = SfxTabDialogController::Ok();
     SwTOXDescription& rDesc = GetTOXDescription(m_eCurrentTOXType);
     SwTOXBase aNewDef(*m_rWrtShell.GetDefaultTOXBase( m_eCurrentTOXType.eType, true ));
 
@@ -452,11 +421,11 @@ std::unique_ptr<SwTOXDescription> SwMultiTOXTabDialog::CreateTOXDescFromTOXBase(
     return pDesc;
 }
 
-IMPL_LINK_NOARG( SwMultiTOXTabDialog, ShowPreviewHdl, Button*, void )
+IMPL_LINK_NOARG(SwMultiTOXTabDialog, ShowPreviewHdl, weld::ToggleButton&, void)
 {
-    if(m_pShowExampleCB->IsChecked())
+    if (m_xShowExampleCB->get_active())
     {
-        if(!m_pExampleFrame && !m_bExampleCreated)
+        if(!m_xExampleFrame && !m_bExampleCreated)
         {
             m_bExampleCreated = true;
             OUString sTemplate("internal/idxexample.odt");
@@ -469,7 +438,7 @@ IMPL_LINK_NOARG( SwMultiTOXTabDialog, ShowPreviewHdl, Button*, void )
                 OUString sInfo(SwResId(STR_FILE_NOT_FOUND));
                 sInfo = sInfo.replaceFirst( "%1", sTemplate );
                 sInfo = sInfo.replaceFirst( "%2", aOpt.GetTemplatePath() );
-                std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(GetFrameWeld(),
+                std::unique_ptr<weld::MessageDialog> xInfoBox(Application::CreateMessageDialog(m_xDialog.get(),
                                                               VclMessageType::Info, VclButtonsType::Ok,
                                                               sInfo));
                 xInfoBox->run();
@@ -477,24 +446,23 @@ IMPL_LINK_NOARG( SwMultiTOXTabDialog, ShowPreviewHdl, Button*, void )
             else
             {
                 Link<SwOneExampleFrame&,void> aLink(LINK(this, SwMultiTOXTabDialog, CreateExample_Hdl));
-                m_pExampleFrame.reset(new SwOneExampleFrame(
-                        *m_pExampleContainerWIN, EX_SHOW_ONLINE_LAYOUT, &aLink, &sTemplate));
-
-                if(!m_pExampleFrame->IsServiceAvailable())
-                {
-                    SwOneExampleFrame::CreateErrorMessage();
-                }
+                m_xExampleFrame.reset(new SwOneExampleFrame(EX_SHOW_ONLINE_LAYOUT, &aLink, &sTemplate));
+                m_xExampleFrameWin.reset(new weld::CustomWeld(*m_xBuilder, "example", *m_xExampleFrame));
             }
-            m_pShowExampleCB->Show(m_pExampleFrame && m_pExampleFrame->IsServiceAvailable());
+            m_xShowExampleCB->set_visible(m_xExampleFrame != nullptr);
         }
     }
-    bool bSetViewWindow = m_pShowExampleCB->IsChecked()
-        && m_pExampleFrame && m_pExampleFrame->IsServiceAvailable();
 
-    m_pExampleContainerWIN->Show( bSetViewWindow );
-    SetViewWindow( bSetViewWindow ? m_pExampleContainerWIN.get() : nullptr );
+    if (m_xExampleFrame)
+    {
+        const bool bSetViewWindow = m_xShowExampleCB->get_active();
+        if (bSetViewWindow)
+            m_xExampleFrame->Show();
+        else
+            m_xExampleFrame->Hide();
+    }
 
-    setOptimalLayoutSize();
+    m_xDialog->resize_to_request();
 }
 
 bool SwMultiTOXTabDialog::IsNoNum(SwWrtShell& rSh, const OUString& rName)
@@ -575,7 +543,10 @@ SwAddStylesDlg_Impl::SwAddStylesDlg_Impl(weld::Window* pParent,
             OUString sEntry = rStyles.getToken(0, TOX_STYLE_DELIMITER, nPos);
             m_xHeaderTree->append_text(sEntry);
             for (sal_uInt16 j = 0; j <= MAXLEVEL; ++j)
-                m_xHeaderTree->set_toggle(nRow, i == j - 1, j + 1);
+            {
+                TriState eState = i == j - 1 ? TRISTATE_TRUE : TRISTATE_FALSE;
+                m_xHeaderTree->set_toggle(nRow, eState, j + 1);
+            }
             ++nRow;
         } while (nPos>=0);
     }
@@ -605,7 +576,10 @@ SwAddStylesDlg_Impl::SwAddStylesDlg_Impl(weld::Window* pParent,
             {
                 m_xHeaderTree->append_text(aName);
                 for (sal_uInt16 k = 0; k <= MAXLEVEL; ++k)
-                    m_xHeaderTree->set_toggle(nRow, k == 0, k + 1);
+                {
+                    TriState eState = k == 0 ? TRISTATE_TRUE : TRISTATE_FALSE;
+                    m_xHeaderTree->set_toggle(nRow, eState, k + 1);
+                }
                 ++nRow;
             }
         }
@@ -635,7 +609,10 @@ IMPL_LINK(SwAddStylesDlg_Impl, TreeSizeAllocHdl, const Size&, rSize, void)
 IMPL_LINK(SwAddStylesDlg_Impl, RadioToggleOnHdl, const row_col&, rRowCol, void)
 {
     for (sal_uInt16 i = 0; i <= MAXLEVEL; ++i)
-        m_xHeaderTree->set_toggle(rRowCol.first, rRowCol.second == i + 1, i + 1);
+    {
+        TriState eState = rRowCol.second == i + 1 ? TRISTATE_TRUE : TRISTATE_FALSE;
+        m_xHeaderTree->set_toggle(rRowCol.first, eState, i + 1);
+    }
 }
 
 IMPL_LINK(SwAddStylesDlg_Impl, KeyInput, const KeyEvent&, rKEvt, bool)
@@ -668,7 +645,7 @@ IMPL_LINK_NOARG(SwAddStylesDlg_Impl, OkHdl, weld::Button&, void)
         int nToggleColumn = 0;
         for (sal_uInt16 j = 0; j <= MAXLEVEL; ++j)
         {
-            if (m_xHeaderTree->get_toggle(i, j + 1))
+            if (m_xHeaderTree->get_toggle(i, j + 1) == TRISTATE_TRUE)
             {
                 nToggleColumn = j;
                 break;
@@ -696,7 +673,7 @@ IMPL_LINK(SwAddStylesDlg_Impl, LeftRightHdl, weld::Button&, rBtn, void)
         int nToggleColumn = 0;
         for (sal_uInt16 j = 0; j <= MAXLEVEL; ++j)
         {
-            if (m_xHeaderTree->get_toggle(nEntry, j + 1))
+            if (m_xHeaderTree->get_toggle(nEntry, j + 1) == TRISTATE_TRUE)
             {
                 nToggleColumn = j;
                 break;
@@ -715,7 +692,9 @@ IMPL_LINK(SwAddStylesDlg_Impl, LeftRightHdl, weld::Button&, rBtn, void)
         }
 
         for (sal_uInt16 j = 0; j <= MAXLEVEL; ++j)
-            m_xHeaderTree->set_toggle(nEntry, j == nToggleColumn, j + 1);
+        {
+            m_xHeaderTree->set_toggle(nEntry, j == nToggleColumn ? TRISTATE_TRUE : TRISTATE_FALSE, j + 1);
+        }
     }
 }
 
@@ -773,10 +752,10 @@ SwTOXSelectTabPage::SwTOXSelectTabPage(TabPageParent pParent, const SfxItemSet& 
                                  false );
 
     //Default mode is arranged to be the tallest mode
-    //of alphabetical index, lock that height in now
+    //of alphabetical index, lock that size in now
     LanguageHdl(nullptr); //fill sort algorithm list
-    Size aPrefSize(get_preferred_size());
-    set_height_request(aPrefSize.Height());
+    Size aPrefSize(m_xContainer->get_preferred_size());
+    m_xContainer->set_size_request(aPrefSize.Width(), aPrefSize.Height());
 
     sAddStyleContent = m_xAddStylesCB->get_label();
 
@@ -788,7 +767,7 @@ SwTOXSelectTabPage::SwTOXSelectTabPage(TabPageParent pParent, const SfxItemSet& 
     {
         OUString sId(OUString::number(static_cast<sal_uInt32>(RES_SRCTYPES[i].second)));
         m_xFromObjCLB->append();
-        m_xFromObjCLB->set_toggle(i, false, 0);
+        m_xFromObjCLB->set_toggle(i, TRISTATE_FALSE, 0);
         m_xFromObjCLB->set_text(i, SwResId(RES_SRCTYPES[i].first), 1);
         m_xFromObjCLB->set_id(i, sId);
     }
@@ -816,7 +795,7 @@ SwTOXSelectTabPage::SwTOXSelectTabPage(TabPageParent pParent, const SfxItemSet& 
     m_xLevelNF->connect_value_changed(LINK(this, SwTOXSelectTabPage, ModifySpinHdl));
     m_xSortAlgorithmLB->connect_changed(LINK(this, SwTOXSelectTabPage, ModifyListBoxHdl));
 
-    aLk =  LINK(this, SwTOXSelectTabPage, RadioButtonHdl);
+    aLk = LINK(this, SwTOXSelectTabPage, RadioButtonHdl);
     m_xFromCaptionsRB->connect_toggled(aLk);
     m_xFromObjectNamesRB->connect_toggled(aLk);
     RadioButtonHdl(*m_xFromCaptionsRB);
@@ -922,7 +901,7 @@ static CurTOXType lcl_UserData2TOXTypes(sal_uInt16 nData)
 
 void SwTOXSelectTabPage::ApplyTOXDescription()
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     const CurTOXType aCurType = pTOXDlg->GetCurrentTOXType();
     SwTOXDescription& rDesc = pTOXDlg->GetTOXDescription(aCurType);
     m_xReadOnlyCB->set_active(rDesc.IsReadonly());
@@ -1006,7 +985,7 @@ void SwTOXSelectTabPage::ApplyTOXDescription()
         for (int nFromObj = 0, nCount = m_xFromObjCLB->n_children(); nFromObj < nCount; ++nFromObj)
         {
             SwTOOElements nData = static_cast<SwTOOElements>(m_xFromObjCLB->get_id(nFromObj).toInt32());
-            m_xFromObjCLB->set_toggle(nFromObj, bool(nData & nOLEData), 0);
+            m_xFromObjCLB->set_toggle(nFromObj, bool(nData & nOLEData) ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
         }
     }
     else if(TOX_AUTHORITIES == aCurType.eType)
@@ -1038,7 +1017,7 @@ void SwTOXSelectTabPage::ApplyTOXDescription()
 
 void SwTOXSelectTabPage::FillTOXDescription()
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     CurTOXType aCurType = pTOXDlg->GetCurrentTOXType();
     SwTOXDescription& rDesc = pTOXDlg->GetTOXDescription(aCurType);
     rDesc.SetTitle(m_xTitleED->get_text());
@@ -1101,7 +1080,7 @@ void SwTOXSelectTabPage::FillTOXDescription()
             SwTOOElements nOLEData = SwTOOElements::NONE;
             for (int i = 0, nCount = m_xFromObjCLB->n_children(); i < nCount; ++i)
             {
-                if (m_xFromObjCLB->get_toggle(i, 0))
+                if (m_xFromObjCLB->get_toggle(i, 0) == TRISTATE_TRUE)
                 {
                     SwTOOElements nData = static_cast<SwTOOElements>(m_xFromObjCLB->get_id(i).toInt32());
                     nOLEData |= nData;
@@ -1113,7 +1092,7 @@ void SwTOXSelectTabPage::FillTOXDescription()
         case TOX_AUTHORITIES:
         case TOX_BIBLIOGRAPHY :
         {
-            if (m_xBracketLB->get_active() != -1)
+            if (m_xBracketLB->get_active())
                 rDesc.SetAuthBrackets(m_xBracketLB->get_active_text());
             else
                 rDesc.SetAuthBrackets(OUString());
@@ -1149,7 +1128,7 @@ void SwTOXSelectTabPage::FillTOXDescription()
 
 void SwTOXSelectTabPage::Reset( const SfxItemSet* )
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     SwWrtShell& rSh = pTOXDlg->GetWrtShell();
     const CurTOXType aCurType = pTOXDlg->GetCurrentTOXType();
     sal_uInt32 nData = lcl_TOXTypesToUserData(aCurType);
@@ -1206,7 +1185,7 @@ VclPtr<SfxTabPage> SwTOXSelectTabPage::Create(TabPageParent pParent, const SfxIt
 
 IMPL_LINK(SwTOXSelectTabPage, TOXTypeHdl, weld::ComboBox&, rBox, void)
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     const sal_uInt16 nType = rBox.get_active_id().toUInt32();
     CurTOXType eCurType = lcl_UserData2TOXTypes(nType);
     pTOXDlg->SetCurrentTOXType(eCurType);
@@ -1274,7 +1253,7 @@ void SwTOXSelectTabPage::ModifyHdl()
     if(!m_bWaitingInitialSettings)
     {
         FillTOXDescription();
-        SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+        SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
         pTOXDlg->CreateOrUpdateExample(pTOXDlg->GetCurrentTOXType().eType, TOX_PAGE_SELECT);
     }
 }
@@ -1296,7 +1275,7 @@ IMPL_LINK_NOARG(SwTOXSelectTabPage, ModifySpinHdl, weld::SpinButton&, void)
 
 IMPL_LINK(SwTOXSelectTabPage, CheckBoxHdl, weld::ToggleButton&, rButton, void)
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     const CurTOXType aCurType = pTOXDlg->GetCurrentTOXType();
     if(TOX_CONTENT == aCurType.eType)
     {
@@ -1367,7 +1346,7 @@ void SwTOXSelectTabPage::LanguageHdl(const weld::ComboBox* pBox)
 
 IMPL_LINK_NOARG(SwTOXSelectTabPage, AddStylesHdl, weld::Button&, void)
 {
-    SwAddStylesDlg_Impl aDlg(GetDialogFrameWeld(), static_cast<SwMultiTOXTabDialog*>(GetTabDialog())->GetWrtShell(),
+    SwAddStylesDlg_Impl aDlg(GetDialogFrameWeld(), static_cast<SwMultiTOXTabDialog*>(GetDialogController())->GetWrtShell(),
         aStyleArr);
     aDlg.run();
     ModifyHdl();
@@ -1398,8 +1377,7 @@ IMPL_LINK(SwTOXSelectTabPage, MenuExecuteHdl, const OString&, rIdent, void)
                 return;
         }
 
-        VclPtrInstance<SwAutoMarkDlg_Impl> pAutoMarkDlg(
-                GetTabDialog(), sAutoMarkURL, bNew);
+        VclPtrInstance<SwAutoMarkDlg_Impl> pAutoMarkDlg(nullptr, sAutoMarkURL, bNew);
 
         if( RET_OK != pAutoMarkDlg->Execute() && bNew )
             sAutoMarkURL = sSaveAutoMarkURL;
@@ -1437,7 +1415,7 @@ public:
         , aFormToken(rToken)
         , bNextControl(false)
         , m_pParent(pTokenWin)
-        , m_xEntry(m_xBuilder->weld_entry("entry"))
+        , m_xEntry(m_xBuilder->weld_entry("entry", true))
     {
         m_xEntry->connect_changed(LINK(this, SwTOXEdit, ModifyHdl));
         m_xEntry->connect_key_press(LINK(this, SwTOXEdit, KeyInputHdl));
@@ -1593,7 +1571,7 @@ public:
         , aFormToken(rToken)
         , bNextControl(false)
         , m_pParent(pTokenWin)
-        , m_xButton(m_xBuilder->weld_toggle_button("button"))
+        , m_xButton(m_xBuilder->weld_toggle_button("button", true))
     {
         m_xButton->connect_key_press(LINK(this, SwTOXButton, KeyInputHdl));
         m_xButton->connect_focus_in(LINK(this, SwTOXButton, FocusInHdl));
@@ -1928,6 +1906,10 @@ SwTOXEntryTabPage::SwTOXEntryTabPage(TabPageParent pParent, const SfxItemSet& rA
     m_xFirstKeyLB->set_active(0);
     m_xSecondKeyLB->set_active(0);
     m_xThirdKeyLB->set_active(0);
+
+    //lock size
+    Size aPrefSize(m_xContainer->get_preferred_size());
+    m_xContainer->set_size_request(aPrefSize.Width(), aPrefSize.Height());
 }
 
 SwTOXEntryTabPage::~SwTOXEntryTabPage()
@@ -1956,7 +1938,7 @@ void SwTOXEntryTabPage::OnModify(bool bAllLevels)
 {
     UpdateDescriptor();
 
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     if (pTOXDlg)
     {
         sal_uInt16 nCurLevel = m_xLevelLB->get_selected_index() + 1;
@@ -1975,7 +1957,7 @@ bool SwTOXEntryTabPage::FillItemSet( SfxItemSet* )
 
 void SwTOXEntryTabPage::Reset( const SfxItemSet* )
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     const CurTOXType aCurType = pTOXDlg->GetCurrentTOXType();
     m_pCurrentForm = pTOXDlg->GetForm(aCurType);
     if(TOX_INDEX == aCurType.eType)
@@ -1998,7 +1980,7 @@ void SwTOXEntryTabPage::Reset( const SfxItemSet* )
 
 void SwTOXEntryTabPage::ActivatePage( const SfxItemSet& /*rSet*/)
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     const CurTOXType aCurType = pTOXDlg->GetCurrentTOXType();
 
     m_pCurrentForm = pTOXDlg->GetForm(aCurType);
@@ -2104,7 +2086,7 @@ void SwTOXEntryTabPage::ActivatePage( const SfxItemSet& /*rSet*/)
 void SwTOXEntryTabPage::UpdateDescriptor()
 {
     WriteBackLevel();
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     SwTOXDescription& rDesc = pTOXDlg->GetTOXDescription(aLastTOXType);
     if(TOX_INDEX == aLastTOXType.eType)
     {
@@ -2152,7 +2134,7 @@ IMPL_LINK_NOARG(SwTOXEntryTabPage, EditStyleHdl, weld::Button&, void)
     {
         SfxStringItem aStyle(SID_STYLE_EDIT, m_xCharStyleLB->get_active_text());
         SfxUInt16Item aFamily(SID_STYLE_FAMILY, sal_uInt16(SfxStyleFamily::Char));
-        static_cast<SwMultiTOXTabDialog*>(GetTabDialog())->GetWrtShell().
+        static_cast<SwMultiTOXTabDialog*>(GetDialogController())->GetWrtShell().
         GetView().GetViewFrame()->GetDispatcher()->ExecuteList(SID_STYLE_EDIT,
                 SfxCallMode::SYNCHRON,
                 { &aStyle, &aFamily });
@@ -2618,8 +2600,9 @@ SwTokenWindow::SwTokenWindow(std::unique_ptr<weld::Container> xParent)
     , m_sCharStyle(SwResId(STR_CHARSTYLE))
     , m_pActiveCtrl(nullptr)
     , m_pParent(nullptr)
-    , m_xBuilder(Application::CreateBuilder(xParent.get(), "modules/swriter/ui/tokenwidget.ui"))
-    , m_xContainer(std::move(xParent))
+    , m_xParentWidget(std::move(xParent))
+    , m_xBuilder(Application::CreateBuilder(m_xParentWidget.get(), "modules/swriter/ui/tokenwidget.ui"))
+    , m_xContainer(m_xBuilder->weld_container("TokenWidget"))
     , m_xLeftScrollWin(m_xBuilder->weld_button("left"))
     , m_xCtrlParentWin(m_xBuilder->weld_container("ctrl"))
     , m_xScrollWin(m_xBuilder->weld_scrolled_window("scrollwin"))
@@ -2627,6 +2610,7 @@ SwTokenWindow::SwTokenWindow(std::unique_ptr<weld::Container> xParent)
 {
     m_xScrollWin->connect_hadjustment_changed(LINK(this, SwTokenWindow, ScrollHdl));
     m_xCtrlParentWin->set_size_request(-1, Edit::GetMinimumEditSize().Height());
+    m_xCtrlParentWin->connect_size_allocate(LINK(this, SwTokenWindow, AdjustPositionsHdl));
 
     for (sal_uInt32 i = 0; i < TOKEN_END; ++i)
     {
@@ -3052,11 +3036,15 @@ void SwTokenWindow::RemoveControl(const SwTOXButton* pDel, bool bInternalCall)
     m_aModifyHdl.Call(nullptr);
 }
 
+IMPL_LINK_NOARG(SwTokenWindow, AdjustPositionsHdl, const Size&, void)
+{
+    AdjustScrolling();
+}
+
 void SwTokenWindow::AdjustPositions()
 {
     for (size_t i = 0; i < m_aControlList.size(); ++i)
         m_aControlList[i]->set_grid_left_attach(i);
-
     AdjustScrolling();
 }
 
@@ -3079,6 +3067,7 @@ void SwTokenWindow::AdjustScrolling()
         auto nLeft = m_xScrollWin->hadjustment_get_value();
         auto nSpace = m_xScrollWin->hadjustment_get_page_size();
         auto nWidth = m_xScrollWin->hadjustment_get_upper();
+
         bool bEnable = nWidth > nSpace;
 
         //the active control must be visible
@@ -3470,7 +3459,7 @@ void SwTOXStylesTabPage::ActivatePage( const SfxItemSet& )
     m_xLevelLB->thaw();
 
     // initialise templates
-    SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetTabDialog())->GetWrtShell();
+    SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetDialogController())->GetWrtShell();
     const sal_uInt16 nSz = rSh.GetTextFormatCollCount();
 
     m_xParaLayLB->freeze();
@@ -3512,7 +3501,7 @@ IMPL_LINK_NOARG(SwTOXStylesTabPage, EditStyleHdl, weld::Button&, void)
     {
         SfxStringItem aStyle(SID_STYLE_EDIT, m_xParaLayLB->get_selected_text());
         SfxUInt16Item aFamily(SID_STYLE_FAMILY, sal_uInt16(SfxStyleFamily::Para));
-        SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetTabDialog())->GetWrtShell();
+        SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetDialogController())->GetWrtShell();
         rSh.GetView().GetViewFrame()->GetDispatcher()->ExecuteList(SID_STYLE_EDIT,
                 SfxCallMode::SYNCHRON,
                 { &aStyle, &aFamily });
@@ -3557,7 +3546,7 @@ IMPL_LINK_NOARG(SwTOXStylesTabPage, StdHdl, weld::Button&, void)
 IMPL_LINK_NOARG(SwTOXStylesTabPage, DoubleClickHdl, weld::TreeView&, void)
 {
     const OUString aTmpName(m_xParaLayLB->get_selected_text());
-    SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetTabDialog())->GetWrtShell();
+    SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetDialogController())->GetWrtShell();
 
     if(m_xParaLayLB->get_selected_index() != -1 &&
        (m_xLevelLB->get_selected_index() == 0 || SwMultiTOXTabDialog::IsNoNum(rSh, aTmpName)))
@@ -3569,7 +3558,7 @@ IMPL_LINK_NOARG(SwTOXStylesTabPage, EnableSelectHdl, weld::TreeView&, void)
 {
     m_xStdBT->set_sensitive(m_xLevelLB->get_selected_index() != -1);
 
-    SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetTabDialog())->GetWrtShell();
+    SwWrtShell& rSh = static_cast<SwMultiTOXTabDialog*>(GetDialogController())->GetWrtShell();
     const OUString aTmpName(m_xParaLayLB->get_selected_text());
     m_xAssignBT->set_sensitive(m_xParaLayLB->get_selected_index() != -1 &&
                                m_xLevelLB->get_selected_index() != -1 &&
@@ -3579,7 +3568,7 @@ IMPL_LINK_NOARG(SwTOXStylesTabPage, EnableSelectHdl, weld::TreeView&, void)
 
 void SwTOXStylesTabPage::Modify()
 {
-    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetTabDialog());
+    SwMultiTOXTabDialog* pTOXDlg = static_cast<SwMultiTOXTabDialog*>(GetDialogController());
     if (pTOXDlg)
     {
         GetForm() = *m_pCurrentForm;

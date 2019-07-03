@@ -580,7 +580,7 @@ OUString GetUndoComment(SwUndoId eId)
             pId = STR_UNDO_FLYFRMFMT_TITLE;
             break;
         case SwUndoId::FLYFRMFMT_DESCRIPTION:
-            pId = STR_UNDO_FLYFRMFMT_DESCRITPTION;
+            pId = STR_UNDO_FLYFRMFMT_DESCRIPTION;
             break;
         case SwUndoId::TBLSTYLE_CREATE:
             pId = STR_UNDO_TBLSTYLE_CREATE;
@@ -726,7 +726,7 @@ void SwUndoSaveContent::MoveToUndoNds( SwPaM& rPaM, SwNodeIndex* pNodeIdx,
     if( pCpyNd || pEndNdIdx )
     {
         SwNodeRange aRg( pStt->nNode, 0, pEnd->nNode, 1 );
-        rDoc.GetNodes().MoveNodes( aRg, rNds, aPos.nNode, false );
+        rDoc.GetNodes().MoveNodes( aRg, rNds, aPos.nNode, true );
         aPos.nContent = 0;
         --aPos.nNode;
     }
@@ -745,7 +745,7 @@ void SwUndoSaveContent::MoveToUndoNds( SwPaM& rPaM, SwNodeIndex* pNodeIdx,
 
 void SwUndoSaveContent::MoveFromUndoNds( SwDoc& rDoc, sal_uLong nNodeIdx,
                             SwPosition& rInsPos,
-                            const sal_uLong* pEndNdIdx )
+            const sal_uLong* pEndNdIdx, bool const bForceCreateFrames)
 {
     // here comes the recovery
     SwNodes & rNds = rDoc.GetUndoManager().GetUndoNodes();
@@ -793,7 +793,7 @@ void SwUndoSaveContent::MoveFromUndoNds( SwDoc& rDoc, sal_uLong nNodeIdx,
         SwNodeRange aRg( rNds, nNodeIdx, rNds, (pEndNdIdx
                         ? ((*pEndNdIdx) + 1)
                         : rNds.GetEndOfExtras().GetIndex() ) );
-        rNds.MoveNodes( aRg, rDoc.GetNodes(), rInsPos.nNode, nullptr == pEndNdIdx );
+        rNds.MoveNodes(aRg, rDoc.GetNodes(), rInsPos.nNode, nullptr == pEndNdIdx || bForceCreateFrames);
 
     }
     else {
@@ -987,17 +987,15 @@ void SwUndoSaveContent::DelContentIndex( const SwPosition& rMark,
 
                                 // Moving the anchor?
                                 if( !( DelContentType::CheckNoCntnt & nDelContentType ) &&
-                                    ( rPoint.nNode.GetIndex() == pAPos->nNode.GetIndex() ) )
-                                {
+                                    (rPoint.nNode.GetIndex() == pAPos->nNode.GetIndex())
                                     // Do not try to move the anchor to a table!
-                                    if( rMark.nNode.GetNode().GetTextNode() )
-                                    {
-                                        pHistory->Add( *pFormat );
-                                        SwFormatAnchor aAnch( *pAnchor );
-                                        SwPosition aPos( rMark.nNode );
-                                        aAnch.SetAnchor( &aPos );
-                                        pFormat->SetFormatAttr( aAnch );
-                                    }
+                                    && rMark.nNode.GetNode().IsTextNode())
+                                {
+                                    pHistory->Add( *pFormat );
+                                    SwFormatAnchor aAnch( *pAnchor );
+                                    SwPosition aPos( rMark.nNode );
+                                    aAnch.SetAnchor( &aPos );
+                                    pFormat->SetFormatAttr( aAnch );
                                 }
                                 else
                                 {
@@ -1072,7 +1070,7 @@ void SwUndoSaveContent::DelContentIndex( const SwPosition& rMark,
                 // #i81002#
                 bool bSavePos = false;
                 bool bSaveOtherPos = false;
-                const ::sw::mark::IMark* pBkmk = (pMarkAccess->getAllMarksBegin() + n)->get();
+                const ::sw::mark::IMark* pBkmk = pMarkAccess->getAllMarksBegin()[n];
 
                 if( DelContentType::CheckNoCntnt & nDelContentType )
                 {
@@ -1207,7 +1205,7 @@ void SwUndoSaveSection::SaveSection( const SwNodeIndex& rSttIdx )
 }
 
 void SwUndoSaveSection::SaveSection(
-    const SwNodeRange& rRange )
+    const SwNodeRange& rRange, bool const bExpandNodes)
 {
     SwPaM aPam( rRange.aStart, rRange.aEnd );
 
@@ -1233,8 +1231,11 @@ void SwUndoSaveSection::SaveSection(
 
     nStartPos = rRange.aStart.GetIndex();
 
-    --aPam.GetPoint()->nNode;
-    ++aPam.GetMark()->nNode;
+    if (bExpandNodes)
+    {
+        --aPam.GetPoint()->nNode;
+        ++aPam.GetMark()->nNode;
+    }
 
     SwContentNode* pCNd = aPam.GetContentNode( false );
     if( pCNd )
@@ -1268,13 +1269,14 @@ void SwUndoSaveSection::RestoreSection( SwDoc* pDoc, SwNodeIndex* pIdx,
     }
 }
 
-void SwUndoSaveSection::RestoreSection( SwDoc* pDoc, const SwNodeIndex& rInsPos )
+void SwUndoSaveSection::RestoreSection(
+        SwDoc *const pDoc, const SwNodeIndex& rInsPos, bool bForceCreateFrames)
 {
     if( ULONG_MAX != nStartPos )        // was there any content?
     {
         SwPosition aInsPos( rInsPos );
         sal_uLong nEnd = m_pMovedStart->GetIndex() + nMvLen - 1;
-        MoveFromUndoNds(*pDoc, m_pMovedStart->GetIndex(), aInsPos, &nEnd);
+        MoveFromUndoNds(*pDoc, m_pMovedStart->GetIndex(), aInsPos, &nEnd, bForceCreateFrames);
 
         // destroy indices again, content was deleted from UndoNodes array
         m_pMovedStart.reset();
@@ -1362,7 +1364,7 @@ void SwRedlineSaveData::RedlineToDoc( SwPaM const & rPam )
     // First, delete the "old" so that in an Append no unexpected things will
     // happen, e.g. a delete in an insert. In the latter case the just restored
     // content will be deleted and not the one you originally wanted.
-    rDoc.getIDocumentRedlineAccess().DeleteRedline( *pRedl, false, USHRT_MAX );
+    rDoc.getIDocumentRedlineAccess().DeleteRedline( *pRedl, false, RedlineType::Any );
 
     RedlineFlags eOld = rDoc.getIDocumentRedlineAccess().GetRedlineFlags();
     rDoc.getIDocumentRedlineAccess().SetRedlineFlags_intern( eOld | RedlineFlags::DontCombineRedlines );
@@ -1406,7 +1408,7 @@ bool SwUndo::FillSaveData(
     }
     if( !rSData.empty() && bDelRange )
     {
-        rRange.GetDoc()->getIDocumentRedlineAccess().DeleteRedline( rRange, false, USHRT_MAX );
+        rRange.GetDoc()->getIDocumentRedlineAccess().DeleteRedline( rRange, false, RedlineType::Any );
     }
     return !rSData.empty();
 }
@@ -1424,7 +1426,7 @@ bool SwUndo::FillSaveDataForFormat(
     for ( ; n < rTable.size(); ++n )
     {
         SwRangeRedline* pRedl = rTable[n];
-        if ( nsRedlineType_t::REDLINE_FORMAT == pRedl->GetType() )
+        if ( RedlineType::Format == pRedl->GetType() )
         {
             const SwComparePosition eCmpPos = ComparePosition( *pStt, *pEnd, *pRedl->Start(), *pRedl->End() );
             if ( eCmpPos != SwComparePosition::Before

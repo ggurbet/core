@@ -256,7 +256,7 @@ void SheetDataBuffer::setFormulaCell( const CellModel& rModel, const ApiTokenSeq
                 array formula. In this case, the cell will be remembered. After
                 reading the formula definition it will be retried to insert the
                 formula via retryPendingSharedFormulaCell(). */
-            ScAddress aTokenAddr = ScAddress ( aTokenInfo.First.Column, aTokenInfo.First.Row, aTokenInfo.First.Sheet );
+            ScAddress aTokenAddr( aTokenInfo.First.Column, aTokenInfo.First.Row, aTokenInfo.First.Sheet );
             BinAddress aBaseAddr( aTokenAddr );
             aTokens = resolveSharedFormula( aTokenAddr );
             if( !aTokens.hasElements() )
@@ -663,6 +663,9 @@ void SheetDataBuffer::setCellFormat( const CellModel& rModel )
          * It is sufficient to check if the row range size is one
          */
         if (!rRangeList.empty() &&
+            *pLastRange == rModel.maCellAddr)
+            ; // do nothing - this probably bad data
+        else if (!rRangeList.empty() &&
             pLastRange->aStart.Tab() == rModel.maCellAddr.Tab() &&
             pLastRange->aStart.Row() == pLastRange->aEnd.Row() &&
             pLastRange->aStart.Row() == rModel.maCellAddr.Row() &&

@@ -75,19 +75,17 @@ SdUnoPageBackground::~SdUnoPageBackground() throw()
 
 void SdUnoPageBackground::Notify( SfxBroadcaster&, const SfxHint& rHint )
 {
-    const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>( &rHint );
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
+        return;
+    const SdrHint* pSdrHint = static_cast<const SdrHint*>( &rHint );
 
-    if( pSdrHint )
+    // delete item set if document is dying because then the pool
+    // will also die
+    if( pSdrHint->GetKind() == SdrHintKind::ModelCleared )
     {
-        // delete item set if document is dying because then the pool
-        // will also die
-        if( pSdrHint->GetKind() == SdrHintKind::ModelCleared )
-        {
-            mpSet.reset();
-            mpDoc = nullptr;
-        }
+        mpSet.reset();
+        mpDoc = nullptr;
     }
-
 }
 
 void SdUnoPageBackground::fillItemSet( SdDrawDocument* pDoc, SfxItemSet& rSet ) throw()
@@ -107,7 +105,7 @@ void SdUnoPageBackground::fillItemSet( SdDrawDocument* pDoc, SfxItemSet& rSet ) 
 
             for( const auto& rProp : aProperties )
             {
-                uno::Any* pAny = mpPropSet->GetUsrAnyForID( rProp.nWID );
+                uno::Any* pAny = mpPropSet->GetUsrAnyForID( rProp );
                 if( pAny )
                 {
                     OUString aPropertyName( rProp.sName );
@@ -345,7 +343,7 @@ beans::PropertyState SAL_CALL SdUnoPageBackground::getPropertyState( const OUStr
     }
     else
     {
-        if( nullptr == mpPropSet->GetUsrAnyForID(pEntry->nWID) )
+        if( nullptr == mpPropSet->GetUsrAnyForID(*pEntry) )
             return beans::PropertyState_DEFAULT_VALUE;
         else
             return beans::PropertyState_DIRECT_VALUE;

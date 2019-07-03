@@ -256,7 +256,7 @@ void OFlatTable::impl_fillColumnInfo_nothrow(QuotedTokenizedString const & aFirs
                         }
                         if (cDecimalDelimiter && c == cDecimalDelimiter)
                         {
-                            io_nPrecisions = 15; // we have an decimal value
+                            io_nPrecisions = 15; // we have a decimal value
                             io_nScales = 2;
                             ++nDecimalDelCount;
                         } // if (cDecimalDelimiter && c == cDecimalDelimiter)
@@ -501,7 +501,7 @@ void OFlatTable::refreshColumns()
     aVector.reserve(m_aColumns->get().size());
 
     for (auto const& column : m_aColumns->get())
-        aVector.push_back(Reference< XNamed>(column,UNO_QUERY)->getName());
+        aVector.push_back(Reference< XNamed>(column,UNO_QUERY_THROW)->getName());
 
     if(m_xColumns)
         m_xColumns->reFill(aVector);

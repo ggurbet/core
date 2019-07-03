@@ -21,21 +21,18 @@
 #define INCLUDED_VCL_INC_GENERIC_GLYPHCACHE_HXX
 
 #include <memory>
-#include <ft2build.h>
+#include <freetype/config/ftheader.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
-#include <com/sun/star/i18n/XBreakIterator.hpp>
 #include <tools/gen.hxx>
 #include <tools/solar.h>
 #include <vcl/dllapi.h>
-#include <vcl/metric.hxx>
+#include <vcl/outdev.hxx>
 
-#include <sallayout.hxx>
 #include <fontattributes.hxx>
-#include <fontselect.hxx>
+#include <fontinstance.hxx>
 #include <impfontmetricdata.hxx>
-#include <hb-ot.h>
 
 #include <unordered_map>
 
@@ -58,9 +55,9 @@ public:
 
     static GlyphCache&      GetInstance();
 
-    void                    AddFontFile(
-                                const OString& rNormalizedName,
-                                int nFaceNum, sal_IntPtr nFontId,
+    void                    AddFontFile(const OString& rNormalizedName,
+                                int nFaceNum, int nVariantNum,
+                                sal_IntPtr nFontId,
                                 const FontAttributes&);
 
     void                    AnnounceFonts( PhysicalFontCollection* ) const;
@@ -99,6 +96,7 @@ public:
 
     const OString&          GetFontFileName() const;
     int                     GetFontFaceIndex() const;
+    int                     GetFontFaceVariation() const;
     bool                    TestFont() const { return mbFaceOk;}
     FT_Face                 GetFtFace() const;
     int                     GetLoadFlags() const { return (mnLoadFlags & ~FT_LOAD_IGNORE_TRANSFORM); }
@@ -118,6 +116,7 @@ public:
 
     FreetypeFontInstance*   GetFontInstance() const { return mpFontInstance.get(); }
 
+    void                    SetFontVariationsOnHBFont(hb_font_t* pHbFace) const;
 private:
     friend class GlyphCache;
     friend class FreetypeFontInstance;

@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 #include <editeng/lspcitem.hxx>
 #include <editeng/flditem.hxx>
@@ -59,6 +60,8 @@
 #include <sot/exchange.hxx>
 #include <sot/formats.hxx>
 #include <svl/asiancfg.hxx>
+#include <i18nutil/unicode.hxx>
+#include <tools/diagnose_ex.h>
 #include <comphelper/lok.hxx>
 #include <unotools/configmgr.hxx>
 
@@ -363,7 +366,7 @@ void ImpEditEngine::Command( const CommandEvent& rCEvt, EditView* pView )
         if( mpIMEInfos )
         {
             // #102812# convert quotes in IME text
-            // works on the last input character, this is escpecially in Korean text often done
+            // works on the last input character, this is especially in Korean text often done
             // quotes that are inside of the string are not replaced!
             // Borrowed from sw: edtwin.cxx
             if ( mpIMEInfos->nLen )
@@ -372,7 +375,7 @@ void ImpEditEngine::Command( const CommandEvent& rCEvt, EditView* pView )
                 aSel.Min().SetIndex( aSel.Min().GetIndex() + mpIMEInfos->nLen-1 );
                 aSel.Max().SetIndex( aSel.Max().GetIndex() + mpIMEInfos->nLen );
                 // #102812# convert quotes in IME text
-                // works on the last input character, this is escpecially in Korean text often done
+                // works on the last input character, this is especially in Korean text often done
                 // quotes that are inside of the string are not replaced!
                 const sal_Unicode nCharCode = aSel.Min().GetNode()->GetChar( aSel.Min().GetIndex() );
                 if ( ( GetStatus().DoAutoCorrect() ) && ( ( nCharCode == '\"' ) || ( nCharCode == '\'' ) ) )
@@ -581,18 +584,9 @@ bool ImpEditEngine::MouseButtonUp( const MouseEvent& rMEvt, EditView* pView )
     {
         if ( ( rMEvt.GetClicks() == 1 ) && rMEvt.IsLeft() && !rMEvt.IsMod2() )
         {
-
-            const SvxFieldItem* pFld;
-            if ( comphelper::LibreOfficeKit::isActive() )
-            {
-                Point aLogicClick = pView->GetWindow()->PixelToLogic( rMEvt.GetPosPixel() );
-                pFld = pView->GetField( aLogicClick );
-            }
-            else
-            {
-                pFld = pView->GetFieldUnderMousePointer();
-            }
-            if ( pFld )
+            const OutputDevice& rOutDev = pView->getEditViewCallbacks() ? pView->getEditViewCallbacks()->EditViewOutputDevice() : *pView->GetWindow();
+            Point aLogicClick = rOutDev.PixelToLogic(rMEvt.GetPosPixel());
+            if (const SvxFieldItem* pFld = pView->GetField(aLogicClick))
             {
                 EditPaM aPaM( aCurSel.Max() );
                 sal_Int32 nPara = GetEditDoc().GetPos( aPaM.GetNode() );
@@ -679,7 +673,7 @@ void ImpEditEngine::SetText(const OUString& rText)
             tools::Rectangle aTmpRect( pView->GetOutputArea().TopLeft(),
                                 Size( aPaperSize.Width(), nCurTextHeight ) );
             aTmpRect.Intersection( pView->GetOutputArea() );
-            pView->GetWindow()->Invalidate( aTmpRect );
+            pView->InvalidateWindow( aTmpRect );
         }
     }
     if (rText.isEmpty()) {    // otherwise it must be invalidated later, !bFormatted is enough.
@@ -903,7 +897,7 @@ EditSelection const & ImpEditEngine::MoveCursor( const KeyEvent& rKeyEvent, Edit
         CursorMoved( aOldPaM.GetNode() );
     }
 
-    // May cause, an CreateAnchor or deselection all
+    // May cause, a CreateAnchor or deselection all
     aSelEngine.SetCurView( pEditView );
     aSelEngine.CursorPosChanging( bKeyModifySelection, aTranslatedKeyEvent.GetKeyCode().IsMod1() );
     EditPaM aOldEnd( pEditView->pImpEditView->GetEditSelection().Max() );
@@ -2308,7 +2302,20 @@ EditPaM ImpEditEngine::DeleteLeftOrRight( const EditSelection& rSel, sal_uInt8 n
     {
         if ( nDelMode == DeleteMode::Simple )
         {
-            aDelStart = CursorLeft( aCurPos, i18n::CharacterIteratorMode::SKIPCHARACTER );
+            sal_uInt16 nCharMode = i18n::CharacterIteratorMode::SKIPCHARACTER;
+            // Check if we are deleting a CJK ideograph variance sequence (IVS).
+            sal_Int32 nIndex = aCurPos.GetIndex();
+            if (nIndex > 0)
+            {
+                const OUString& rString = aCurPos.GetNode()->GetString();
+                sal_Int32 nCode = rString.iterateCodePoints(&nIndex, -1);
+                if (unicode::isIVSSelector(nCode) && nIndex > 0 &&
+                        unicode::isCJKIVSCharacter(rString.iterateCodePoints(&nIndex, -1)))
+                {
+                    nCharMode = i18n::CharacterIteratorMode::SKIPCELL;
+                }
+            }
+            aDelStart = CursorLeft(aCurPos, nCharMode);
         }
         else if ( nDelMode == DeleteMode::RestOfWord )
         {
@@ -3467,8 +3474,7 @@ uno::Reference< datatransfer::XTransferable > ImpEditEngine::CreateTransferable(
     aSelection.Adjust( GetEditDoc() );
 
     EditDataObject* pDataObj = new EditDataObject;
-    uno::Reference< datatransfer::XTransferable > xDataObj;
-    xDataObj = pDataObj;
+    uno::Reference< datatransfer::XTransferable > xDataObj = pDataObj;
 
     pDataObj->GetString() = convertLineEnd(GetSelected(aSelection), GetSystemLineEnd()); // System specific
 
@@ -3537,9 +3543,9 @@ EditSelection ImpEditEngine::PasteText( uno::Reference< datatransfer::XTransfera
                 }
                 bDone = true;
             }
-            catch( const css::uno::Exception& e)
+            catch( const css::uno::Exception&)
             {
-                SAL_WARN( "editeng", "Unable to paste EDITENGINE_ODF_TEXT_FLAT " << e );
+                TOOLS_WARN_EXCEPTION( "editeng", "Unable to paste EDITENGINE_ODF_TEXT_FLAT" );
             }
         }
 
@@ -4038,7 +4044,7 @@ long ImpEditEngine::GetXPos(
                         if ( nType == AsianCompressionFlags::PunctuationRight && !pLine->GetCharPosArray().empty() )
                         {
                             sal_Int32 n = nIndex - nTextPortionStart;
-                            const long* pDXArray = &pLine->GetCharPosArray()[0]+( nTextPortionStart-pLine->GetStart() );
+                            const long* pDXArray = pLine->GetCharPosArray().data()+( nTextPortionStart-pLine->GetStart() );
                             sal_Int32 nCharWidth = ( ( (n+1) < rPortion.GetLen() ) ? pDXArray[n] : rPortion.GetSize().Width() )
                                                             - ( n ? pDXArray[n-1] : 0 );
                             if ( (n+1) < rPortion.GetLen() )

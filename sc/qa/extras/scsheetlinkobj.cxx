@@ -8,7 +8,10 @@
  */
 
 #include <test/calc_unoapi_test.hxx>
+#include <test/container/xnamed.hxx>
 #include <test/sheet/sheetlink.hxx>
+#include <test/util/xrefreshable.hxx>
+#include <sfx2/app.hxx>
 
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
@@ -24,12 +27,13 @@
 #include <com/sun/star/uno/Reference.hxx>
 
 using namespace css;
-using namespace css::uno;
-using namespace com::sun::star;
 
 namespace sc_apitest
 {
-class ScSheetLinkObj : public CalcUnoApiTest, public apitest::SheetLink
+class ScSheetLinkObj : public CalcUnoApiTest,
+                       public apitest::SheetLink,
+                       public apitest::XNamed,
+                       public apitest::XRefreshable
 {
 public:
     ScSheetLinkObj();
@@ -44,6 +48,13 @@ public:
     // SheetLink
     CPPUNIT_TEST(testSheetLinkProperties);
 
+    // XNamed
+    CPPUNIT_TEST(testGetName);
+    CPPUNIT_TEST(testSetNameByScSheetLinkObj);
+
+    // XRefreshable
+    CPPUNIT_TEST(testRefreshListener);
+
     CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -52,23 +63,23 @@ private:
 
 ScSheetLinkObj::ScSheetLinkObj()
     : CalcUnoApiTest("/sc/qa/extras/testdocuments")
+    , XNamed(m_directories.getURLFromSrc("/sc/qa/extras/testdocuments/ScSheetLinkObj.ods"))
 {
 }
 
 uno::Reference<uno::XInterface> ScSheetLinkObj::init()
 {
-    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheetDocument> xDoc(mxComponent, uno::UNO_QUERY_THROW);
 
-    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), UNO_QUERY_THROW);
-    uno::Reference<container::XIndexAccess> xIA(xSheets, UNO_QUERY_THROW);
-    uno::Reference<sheet::XSpreadsheet> xSheet(xIA->getByIndex(0), UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheets> xSheets(xDoc->getSheets(), uno::UNO_SET_THROW);
+    uno::Reference<container::XIndexAccess> xIA(xSheets, uno::UNO_QUERY_THROW);
+    uno::Reference<sheet::XSpreadsheet> xSheet(xIA->getByIndex(0), uno::UNO_QUERY_THROW);
 
-    uno::Reference<sheet::XSheetLinkable> xSL(xSheet, UNO_QUERY_THROW);
-    OUString aFileURL;
-    createFileURL("ScSheetLinkObj.ods", aFileURL);
-    xSL->link(aFileURL, "Sheet1", "", "", sheet::SheetLinkMode_VALUE);
+    uno::Reference<sheet::XSheetLinkable> xSL(xSheet, uno::UNO_QUERY_THROW);
+    xSL->link(m_directories.getURLFromSrc("/sc/qa/extras/testdocuments/ScSheetLinkObj.ods"),
+              "Sheet1", "", "", sheet::SheetLinkMode_VALUE);
 
-    uno::Reference<beans::XPropertySet> xPropSet(xDoc, UNO_QUERY_THROW);
+    uno::Reference<beans::XPropertySet> xPropSet(xDoc, uno::UNO_QUERY_THROW);
     uno::Reference<container::XNameAccess> sheetLinks;
     CPPUNIT_ASSERT(xPropSet->getPropertyValue("SheetLinks") >>= sheetLinks);
     CPPUNIT_ASSERT(sheetLinks.is());
@@ -94,7 +105,7 @@ void ScSheetLinkObj::tearDown()
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ScSheetLinkObj);
 
-} // end namespace
+} // namespace sc_apitest
 
 CPPUNIT_PLUGIN_IMPLEMENT();
 

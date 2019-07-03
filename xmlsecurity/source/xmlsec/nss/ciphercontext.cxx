@@ -25,6 +25,7 @@
 #include <rtl/ref.hxx>
 
 #include "ciphercontext.hxx"
+#include <pk11pub.h>
 
 using namespace ::com::sun::star;
 
@@ -102,7 +103,7 @@ uno::Sequence< ::sal_Int8 > SAL_CALL OCipherContext::convertWithCipherContext( c
         throw lang::DisposedException();
 
     uno::Sequence< sal_Int8 > aToConvert;
-    if ( aData.getLength() )
+    if ( aData.hasElements() )
     {
         sal_Int32 nOldLastBlockLen = m_aLastBlock.getLength();
         OSL_ENSURE( nOldLastBlockLen <= m_nBlockSize, "Unexpected last block size!" );
@@ -153,7 +154,7 @@ uno::Sequence< ::sal_Int8 > SAL_CALL OCipherContext::convertWithCipherContext( c
 
     uno::Sequence< sal_Int8 > aResult;
     OSL_ENSURE( aToConvert.getLength() % m_nBlockSize == 0, "Unexpected size of the data to encrypt!" );
-    if ( aToConvert.getLength() )
+    if ( aToConvert.hasElements() )
     {
         int nResultLen = 0;
         aResult.realloc( aToConvert.getLength() + m_nBlockSize );
@@ -213,7 +214,7 @@ uno::Sequence< ::sal_Int8 > SAL_CALL OCipherContext::finalizeCipherContextAndDis
     OSL_ENSURE( m_aLastBlock.getLength() < m_nBlockSize * 2 , "Unexpected size of cashed incomplete last block!" );
 
     uno::Sequence< sal_Int8 > aResult;
-    if ( m_aLastBlock.getLength() )
+    if ( m_aLastBlock.hasElements() )
     {
         int nPrefResLen = 0;
         aResult.realloc( m_aLastBlock.getLength() + m_nBlockSize );

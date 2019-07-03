@@ -27,10 +27,6 @@
 #include <cppuhelper/compbase.hxx>
 #include <cppuhelper/basemutex.hxx>
 
-#if defined(ENABLE_GTKSINK)
-#    include <gtk/gtk.h>
-#endif
-
 typedef struct _GstVideoOverlay GstVideoOverlay;
 
 namespace avmedia { namespace gstreamer {
@@ -83,9 +79,6 @@ private:
     // Add elements and pipeline here
     GstElement*             mpPlaybin;  // the playbin is also a pipeline
     GstElement*             mpVolumeControl;  // the playbin is also a pipeline
-#if defined(ENABLE_GTKSINK)
-    GtkWidget*              mpGtkWidget;
-#endif
     bool                    mbUseGtkSink;
     bool                    mbFakeVideo;
 
@@ -95,6 +88,7 @@ private:
     bool                    mbLooping;
     bool                    mbInitialized;
 
+    void*                   mpDisplay;
     long                    mnWindowID;
     GstVideoOverlay*        mpXOverlay;
     gint64                  mnDuration;

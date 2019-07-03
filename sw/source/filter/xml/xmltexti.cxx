@@ -61,6 +61,7 @@
 #include <svtools/embedhlp.hxx>
 #include <svl/urihelper.hxx>
 #include <sfx2/frmdescr.hxx>
+#include <tools/globname.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -278,8 +279,7 @@ uno::Reference< XPropertySet > SwXMLTextImportHelper::createAndInsertOLEObject(
                 uno::Sequence<beans::PropertyValue> aObjArgs( comphelper::InitPropertySequence({
                         { "DefaultParentBaseURL", Any(GetXMLImport().GetBaseURL()) }
                     }));
-                uno::Reference < embed::XEmbeddedObject > xObj =
-                    uno::Reference < embed::XEmbeddedObject >( xFactory->createInstanceInitNew(
+                uno::Reference < embed::XEmbeddedObject > xObj( xFactory->createInstanceInitNew(
                     aClass, OUString(), xStorage, "DummyName", aObjArgs), uno::UNO_QUERY );
                 if ( xObj.is() )
                 {
@@ -708,8 +708,7 @@ uno::Reference< XPropertySet > SwXMLTextImportHelper::createAndInsertPlugin(
         // create object with desired ClassId
         uno::Sequence < sal_Int8 > aClass( SvGlobalName( SO3_PLUGIN_CLASSID ).GetByteSequence() );
         uno::Reference < embed::XEmbeddedObjectCreator > xFactory =  embed::EmbeddedObjectCreator::create( ::comphelper::getProcessComponentContext() );
-        uno::Reference < embed::XEmbeddedObject > xObj =
-            uno::Reference < embed::XEmbeddedObject >( xFactory->createInstanceInitNew(
+        uno::Reference < embed::XEmbeddedObject > xObj( xFactory->createInstanceInitNew(
             aClass, OUString(), xStorage, "DummyName",
             uno::Sequence < beans::PropertyValue >() ), uno::UNO_QUERY );
 
@@ -840,8 +839,7 @@ uno::Reference< XPropertySet > SwXMLTextImportHelper::createAndInsertFloatingFra
         // create object with desired ClassId
         uno::Sequence < sal_Int8 > aClass( SvGlobalName( SO3_IFRAME_CLASSID ).GetByteSequence() );
         uno::Reference < embed::XEmbeddedObjectCreator > xFactory = embed::EmbeddedObjectCreator::create( ::comphelper::getProcessComponentContext() );
-        uno::Reference < embed::XEmbeddedObject > xObj =
-            uno::Reference < embed::XEmbeddedObject >( xFactory->createInstanceInitNew(
+        uno::Reference < embed::XEmbeddedObject > xObj( xFactory->createInstanceInitNew(
             aClass, OUString(), xStorage, "DummyName",
             uno::Sequence < beans::PropertyValue >() ), uno::UNO_QUERY );
 

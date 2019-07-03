@@ -32,7 +32,6 @@
 #include <com/sun/star/awt/WindowAttribute.hpp>
 #include <com/sun/star/awt/WindowClass.hpp>
 #include <com/sun/star/awt/WindowDescriptor.hpp>
-#include <com/sun/star/awt/Toolkit.hpp>
 #include <com/sun/star/awt/XWindow.hpp>
 #include <com/sun/star/awt/XWindowPeer.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
@@ -81,20 +80,12 @@
 #include <rtl/ustring.hxx>
 #include <sal/types.h>
 #include <salhelper/thread.hxx>
-#include <vcl/svlbitm.hxx>
-#include <vcl/treelistbox.hxx>
 #include <svtools/controldims.hxx>
-#include <svx/checklbx.hxx>
 #include <tools/gen.hxx>
 #include <tools/link.hxx>
 #include <tools/solar.h>
 #include <unotools/configmgr.hxx>
-#include <vcl/button.hxx>
-#include <vcl/dialog.hxx>
-#include <vcl/fixed.hxx>
-#include <vcl/image.hxx>
 #include <vcl/svapp.hxx>
-#include <vcl/vclmedit.hxx>
 
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/exc_hlp.hxx>
@@ -115,7 +106,6 @@
 
 class KeyEvent;
 class MouseEvent;
-namespace vcl { class Window; }
 namespace com { namespace sun { namespace star { namespace uno {
     class XComponentContext;
 } } } }
@@ -158,7 +148,6 @@ struct UpdateDialog::SpecificError {
 struct UpdateDialog::IgnoredUpdate {
     OUString sExtensionID;
     OUString sVersion;
-    bool     bRemoved;
 
     IgnoredUpdate( const OUString &rExtensionID, const OUString &rVersion );
 };
@@ -166,8 +155,7 @@ struct UpdateDialog::IgnoredUpdate {
 
 UpdateDialog::IgnoredUpdate::IgnoredUpdate( const OUString &rExtensionID, const OUString &rVersion ):
     sExtensionID( rExtensionID ),
-    sVersion( rVersion ),
-    bRemoved( false )
+    sVersion( rVersion )
 {}
 
 
@@ -429,7 +417,7 @@ void UpdateDialog::Thread::prepareUpdateData(
 
     out_du.name = getUpdateDisplayString(out_data, infoset.getVersion());
 
-    if (out_du.unsatisfiedDependencies.getLength() == 0)
+    if (!out_du.unsatisfiedDependencies.hasElements())
     {
         out_data.aUpdateInfo = updateInfo;
         out_data.updateVersion = infoset.getVersion();
@@ -443,7 +431,7 @@ bool UpdateDialog::Thread::update(
     dp_gui::UpdateData const & data) const
 {
     bool ret = false;
-    if (du.unsatisfiedDependencies.getLength() == 0)
+    if (!du.unsatisfiedDependencies.hasElements())
     {
         SolarMutexGuard g;
         if (!m_stop) {
@@ -480,7 +468,6 @@ UpdateDialog::UpdateDialog(
     , m_ignoredUpdate(DpResId(RID_DLG_UPDATE_IGNORED_UPDATE))
     , m_updateData(*updateData)
     , m_thread(new UpdateDialog::Thread(context, *this, vExtensionList))
-    , m_bModified( false )
     , m_xChecking(m_xBuilder->weld_label("UPDATE_CHECKING"))
     , m_xThrobber(m_xBuilder->weld_spinner("THROBBER"))
     , m_xUpdate(m_xBuilder->weld_label("UPDATE_LABEL"))
@@ -509,16 +496,6 @@ UpdateDialog::UpdateDialog(
 
     m_xExtensionManager = deployment::ExtensionManager::get( context );
 
-    uno::Reference< awt::XToolkit2 > toolkit;
-    try {
-        toolkit = awt::Toolkit::create(m_context);
-    } catch (const uno::RuntimeException &) {
-        throw;
-    } catch (const uno::Exception & e) {
-        css::uno::Any anyEx = cppu::getCaughtException();
-        throw css::lang::WrappedTargetRuntimeException( e.Message,
-                        e.Context, anyEx );
-    }
     m_xUpdates->connect_changed(LINK(this, UpdateDialog, selectionHandler));
     m_xUpdates->connect_toggled(LINK(this, UpdateDialog, entryToggled));
     m_xAll->connect_toggled(LINK(this, UpdateDialog, allHandler));
@@ -533,7 +510,6 @@ UpdateDialog::UpdateDialog(
 
 UpdateDialog::~UpdateDialog()
 {
-    storeIgnoredUpdates();
 }
 
 short UpdateDialog::run() {
@@ -551,7 +527,7 @@ IMPL_LINK(UpdateDialog, entryToggled, const row_col&, rRowCol, void)
     // error's can't be enabled
     const UpdateDialog::Index* p = reinterpret_cast<UpdateDialog::Index const *>(m_xUpdates->get_id(rRowCol.first).toInt64());
     if (p->m_eKind == SPECIFIC_ERROR)
-        m_xUpdates->set_toggle(nRow, false, 0);
+        m_xUpdates->set_toggle(nRow, TRISTATE_FALSE, 0);
 
     enableOk();
 }
@@ -560,7 +536,7 @@ sal_uInt16 UpdateDialog::insertItem(UpdateDialog::Index *pEntry, bool bEnabledCh
 {
     int nEntry = m_xUpdates->n_children();
     m_xUpdates->append();
-    m_xUpdates->set_toggle(nEntry, bEnabledCheckBox, 0);
+    m_xUpdates->set_toggle(nEntry, bEnabledCheckBox ? TRISTATE_TRUE : TRISTATE_FALSE, 0);
     m_xUpdates->set_text(nEntry, pEntry->m_aName, 1);
     m_xUpdates->set_id(nEntry, OUString::number(reinterpret_cast<sal_Int64>(pEntry)));
 
@@ -656,7 +632,7 @@ void UpdateDialog::enableOk() {
     if (!m_xChecking->get_visible()) {
         int nChecked = 0;
         for (int i = 0, nCount = m_xUpdates->n_children(); i < nCount; ++i) {
-            if (m_xUpdates->get_toggle(i, 0))
+            if (m_xUpdates->get_toggle(i, 0) == TRISTATE_TRUE)
                 ++nChecked;
         }
         m_xOk->set_sensitive(nChecked != 0);
@@ -756,7 +732,6 @@ void UpdateDialog::notifyMenubar( bool bPrepareOnly, bool bRecheckOnly )
         }
     }
 
-    storeIgnoredUpdates();
     createNotifyJob( bPrepareOnly, aItemList );
 }
 
@@ -858,45 +833,6 @@ void UpdateDialog::getIgnoredUpdates()
 }
 
 
-void UpdateDialog::storeIgnoredUpdates()
-{
-    if ( m_bModified && ( !m_ignoredUpdates.empty() ) )
-    {
-        uno::Reference< lang::XMultiServiceFactory > xConfig(
-            configuration::theDefaultProvider::get(m_context));
-        beans::NamedValue aValue( "nodepath", uno::Any( IGNORED_UPDATES ) );
-        uno::Sequence< uno::Any > args(1);
-        args[0] <<= aValue;
-
-        uno::Reference< container::XNameContainer > xNameContainer( xConfig->createInstanceWithArguments(
-            "com.sun.star.configuration.ConfigurationUpdateAccess", args ), uno::UNO_QUERY_THROW );
-
-        for (auto const& ignoredUpdate : m_ignoredUpdates)
-        {
-            if ( xNameContainer->hasByName( ignoredUpdate->sExtensionID ) )
-            {
-                if ( ignoredUpdate->bRemoved )
-                    xNameContainer->removeByName( ignoredUpdate->sExtensionID );
-                else
-                    uno::Reference< beans::XPropertySet >( xNameContainer->getByName( ignoredUpdate->sExtensionID ), uno::UNO_QUERY_THROW )->setPropertyValue( PROPERTY_VERSION, uno::Any( ignoredUpdate->sVersion ) );
-            }
-            else if ( ! ignoredUpdate->bRemoved )
-            {
-                uno::Reference< beans::XPropertySet > elem( uno::Reference< lang::XSingleServiceFactory >( xNameContainer, uno::UNO_QUERY_THROW )->createInstance(), uno::UNO_QUERY_THROW );
-                elem->setPropertyValue( PROPERTY_VERSION, uno::Any( ignoredUpdate->sVersion ) );
-                xNameContainer->insertByName( ignoredUpdate->sExtensionID, uno::Any( elem ) );
-            }
-        }
-
-        uno::Reference< util::XChangesBatch > xChangesBatch( xNameContainer, uno::UNO_QUERY );
-        if ( xChangesBatch.is() && xChangesBatch->hasPendingChanges() )
-            xChangesBatch->commitChanges();
-    }
-
-    m_bModified = false;
-}
-
-
 bool UpdateDialog::isIgnoredUpdate( UpdateDialog::Index * index )
 {
     bool bIsIgnored = false;
@@ -931,8 +867,6 @@ bool UpdateDialog::isIgnoredUpdate( UpdateDialog::Index * index )
                     bIsIgnored = true;
                     index->m_bIgnored = true;
                 }
-                else // when we find another update of an ignored version, we will remove the old one to keep the ignored list small
-                    ignoredUpdate->bRemoved = true;
                 break;
             }
         }
@@ -981,7 +915,7 @@ IMPL_LINK_NOARG(UpdateDialog, selectionHandler, weld::TreeView&, void)
                     break;
 
                 UpdateDialog::DisabledUpdate & data = m_disabledUpdates[ pos ];
-                if (data.unsatisfiedDependencies.getLength() != 0)
+                if (data.unsatisfiedDependencies.hasElements())
                 {
                     // create error string for version mismatch
                     OUString sVersion( "%VERSION" );
@@ -1099,7 +1033,7 @@ IMPL_LINK_NOARG(UpdateDialog, okHandler, weld::Button&, void)
         UpdateDialog::Index const * p =
             reinterpret_cast< UpdateDialog::Index const * >(
                 m_xUpdates->get_id(i).toInt64());
-        if (p->m_eKind == ENABLED_UPDATE && m_xUpdates->get_toggle(i, 0)) {
+        if (p->m_eKind == ENABLED_UPDATE && m_xUpdates->get_toggle(i, 0) == TRISTATE_TRUE) {
             m_updateData.push_back( m_enabledUpdates[ p->m_nIndex ] );
         }
     }

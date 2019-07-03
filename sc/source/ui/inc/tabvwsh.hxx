@@ -21,6 +21,7 @@
 #define INCLUDED_SC_SOURCE_UI_INC_TABVWSH_HXX
 
 #include <formula/errorcodes.hxx>
+#include <formula/opcode.hxx>
 #include <svx/fmshell.hxx>
 #include <sfx2/viewsh.hxx>
 #include <editeng/svxenum.hxx>
@@ -37,7 +38,6 @@
 class SdrOle2Obj;
 class SfxBindings;
 class SfxChildWindow;
-class SfxModelessDialog;
 class SvxNumberInfoItem;
 struct SfxChildWinInfo;
 
@@ -122,7 +122,6 @@ private:
     Point                   aWinPos;
 
     ScTabViewTarget         aTarget;
-    std::unique_ptr<ScArea>     pPivotSource;
     std::unique_ptr<ScDPObject> pDialogDPObject;
 
     std::unique_ptr<ScNavigatorSettings> pNavSettings;
@@ -223,7 +222,8 @@ public:
 
     virtual         ~ScTabViewShell() override;
 
-    vcl::Window* GetDialogParent();
+    weld::Window*   GetDialogParent();
+    vcl::Window*    GetLegacyDialogParent();
 
     bool            IsRefInputMode() const;
     void            ExecuteInputDirect();
@@ -324,9 +324,10 @@ public:
     void            DeactivateOle();
 
     static ScTabViewShell* GetActiveViewShell();
-    VclPtr<SfxModelessDialog> CreateRefDialog( SfxBindings* pB, SfxChildWindow* pCW,
-                                               const SfxChildWinInfo* pInfo,
-                                               vcl::Window* pParent, sal_uInt16 nSlotId );
+
+    std::unique_ptr<SfxModelessDialogController> CreateRefDialogController(SfxBindings* pB, SfxChildWindow* pCW,
+                                                    const SfxChildWinInfo* pInfo,
+                                                    weld::Window* pParent, sal_uInt16 nSlotId);
 
     void            UpdateOleZoom();
 
@@ -345,7 +346,7 @@ public:
 
     void    ForceMove()     { Move(); }
 
-    static SvxNumberInfoItem* MakeNumberInfoItem( ScDocument* pDoc, const ScViewData* pViewData );
+    static std::unique_ptr<SvxNumberInfoItem> MakeNumberInfoItem( ScDocument* pDoc, const ScViewData* pViewData );
 
     static void UpdateNumberFormatter( const SvxNumberInfoItem&  rInfoItem );
 
@@ -371,10 +372,10 @@ public:
     bool IsActive() const { return bIsActive; }
     OUString GetFormula(const ScAddress& rAddress);
     bool    UseSubTotal(ScRangeList* pRangeList);
-    const   OUString DoAutoSum(bool& rRangeFinder, bool& rSubTotal);
+    const   OUString DoAutoSum(bool& rRangeFinder, bool& rSubTotal, const OpCode eCode);
 
     // ugly hack to call Define Names from Manage Names
-    void    SwitchBetweenRefDialogs(SfxModelessDialog* pDialog);
+    void    SwitchBetweenRefDialogs(SfxModelessDialogController* pDialog);
     // #i123629#
     bool    GetForceFocusOnCurCell() const { return bForceFocusOnCurCell; }
     void SetForceFocusOnCurCell(bool bFlag) { bForceFocusOnCurCell=bFlag; }

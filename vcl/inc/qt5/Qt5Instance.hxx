@@ -22,16 +22,28 @@
 #include <vclpluginapi.h>
 #include <unx/geninst.h>
 #include <salusereventlist.hxx>
+#include <vcl/timer.hxx>
 
 #include <osl/conditn.hxx>
 
 #include <QtCore/QObject>
 
+#include <cstdlib>
 #include <functional>
+#include <memory>
+#include <vector>
+
+#include "Qt5FilePicker.hxx"
 
 class QApplication;
 class SalYieldMutex;
 class SalFrame;
+
+struct StdFreeCStr
+{
+    void operator()(char* arg) const noexcept { std::free(arg); }
+};
+using FreeableCStr = std::unique_ptr<char[], StdFreeCStr>;
 
 class VCLPLUG_QT5_PUBLIC Qt5Instance : public QObject,
                                        public SalGenericInstance,
@@ -44,11 +56,16 @@ class VCLPLUG_QT5_PUBLIC Qt5Instance : public QObject,
     const bool m_bUseCairo;
     std::unordered_map<OUString, css::uno::Reference<css::uno::XInterface>> m_aClipboards;
 
-public:
     std::unique_ptr<QApplication> m_pQApplication;
-    std::unique_ptr<char* []> m_pFakeArgvFreeable;
+    std::vector<FreeableCStr> m_pFakeArgvFreeable;
     std::unique_ptr<char* []> m_pFakeArgv;
     std::unique_ptr<int> m_pFakeArgc;
+
+    Timer m_aUpdateStyleTimer;
+    bool m_bUpdateFonts;
+
+    DECL_LINK(updateStyleHdl, Timer*, void);
+    void AfterAppInit() override;
 
 private Q_SLOTS:
     bool ImplYield(bool bWait, bool bHandleAllCurrentEvents);
@@ -60,9 +77,22 @@ Q_SIGNALS:
     void ImplRunInMainSignal();
     void deleteObjectLaterSignal(QObject* pObject);
 
+protected:
+    virtual Qt5FilePicker*
+    createPicker(css::uno::Reference<css::uno::XComponentContext> const& context,
+                 QFileDialog::FileMode);
+
 public:
-    explicit Qt5Instance(bool bUseCairo = false);
+    explicit Qt5Instance(std::unique_ptr<QApplication>& pQApp, bool bUseCairo = false);
     virtual ~Qt5Instance() override;
+
+    // handle common SalInstance setup
+    static void AllocFakeCmdlineArgs(std::unique_ptr<char* []>& rFakeArgv,
+                                     std::unique_ptr<int>& rFakeArgc,
+                                     std::vector<FreeableCStr>& rFakeArgvFreeable);
+    void MoveFakeCmdlineArgs(std::unique_ptr<char* []>& rFakeArgv, std::unique_ptr<int>& rFakeArgc,
+                             std::vector<FreeableCStr>& rFakeArgvFreeable);
+    static std::unique_ptr<QApplication> CreateQApplication(int& nArgc, char** pArgv);
 
     void RunInMainThread(std::function<void()> func);
 
@@ -122,6 +152,10 @@ public:
     CreateClipboard(const css::uno::Sequence<css::uno::Any>& i_rArguments) override;
     virtual css::uno::Reference<css::uno::XInterface> CreateDragSource() override;
     virtual css::uno::Reference<css::uno::XInterface> CreateDropTarget() override;
+
+    void UpdateStyle(bool bFontsChanged);
+
+    void* CreateGStreamerSink(const SystemChildWindow*) override;
 };
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

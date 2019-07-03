@@ -26,9 +26,12 @@
 
 #include <vector>
 
+class SvTreeListBox;
+
 struct SvViewDataItem
 {
-    Size maSize;
+    int mnWidth = 0;
+    int mnHeight = 0;
 };
 
 /**
@@ -51,6 +54,8 @@ class VCL_DLLPUBLIC SvViewDataEntry
     bool mbExpanded:1;
     bool mbFocused:1;
     bool mbSelectable:1;
+    bool mbDragTarget:1;
+
     tools::Rectangle maPaintRectangle;
 
 public:
@@ -63,11 +68,15 @@ public:
     bool IsExpanded() const { return mbExpanded;}
     bool HasFocus() const { return mbFocused;}
     bool IsSelectable() const { return mbSelectable;}
+    bool IsDragTarget() const { return mbDragTarget;}
     void SetFocus( bool bFocus );
     void SetSelected( bool bSelected );
-    void SetHighlighted( bool bHighlighted );
     void SetExpanded( bool bExpanded );
     void SetSelectable( bool bSelectable );
+    void SetDragTarget( bool bDragTarget )
+    {
+        mbDragTarget = bDragTarget;
+    }
 
     void Init(size_t nSize);
 

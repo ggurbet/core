@@ -9,9 +9,8 @@
  */
 
 #include <vcl/BitmapFilter.hxx>
-#include <vcl/animate.hxx>
+#include <vcl/animate/Animation.hxx>
 
-#include <algorithm>
 #include <sal/log.hxx>
 
 BitmapFilter::BitmapFilter() {}
@@ -45,7 +44,7 @@ bool BitmapFilter::Filter(Animation& rAnimation, BitmapFilter const & rFilter)
         std::vector<std::unique_ptr<AnimationBitmap>>& aList = rAnimation.GetAnimationFrames();
         for (size_t i = 0, n = aList.size(); (i < n) && bRet; ++i)
         {
-            bRet = BitmapFilter::Filter(aList[i]->aBmpEx, rFilter);
+            bRet = BitmapFilter::Filter(aList[i]->maBitmapEx, rFilter);
         }
 
         BitmapEx aBmpEx(rAnimation.GetBitmapEx());

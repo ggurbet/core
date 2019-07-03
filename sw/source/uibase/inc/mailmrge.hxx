@@ -20,7 +20,7 @@
 #define INCLUDED_SW_SOURCE_UIBASE_INC_MAILMRGE_HXX
 
 #include <memory>
-#include <svx/stddlg.hxx>
+#include <sfx2/basedlgs.hxx>
 
 #include <vcl/button.hxx>
 
@@ -47,7 +47,7 @@ namespace com{namespace sun{namespace star{
     }
 }}}
 
-class SwMailMergeDlg : public SvxStandardDialog
+class SwMailMergeDlg : public SfxModalDialog
 {
     friend class SwXSelChgLstnr_Impl;
 
@@ -111,7 +111,6 @@ class SwMailMergeDlg : public SvxStandardDialog
     DECL_LINK( ModifyHdl, Edit&, void );
     DECL_LINK( SaveTypeHdl, Button*, void );
 
-    virtual void    Apply() override;
     bool            ExecQryShell();
     bool            AskUserFilename() const;
     OUString        GetURLfromPath() const;

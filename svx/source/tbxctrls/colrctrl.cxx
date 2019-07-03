@@ -27,19 +27,25 @@
 #include <sfx2/viewsh.hxx>
 #include <sfx2/objsh.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <vcl/image.hxx>
 
 #include <svx/colrctrl.hxx>
 
 #include <svx/svdview.hxx>
 #include <svx/drawitem.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xflclit.hxx>
 #include <editeng/colritem.hxx>
-#include <svx/xattr.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlnclit.hxx>
 #include <svx/xtable.hxx>
 #include <svx/dialmgr.hxx>
 #include <helpids.h>
 #include <vcl/svapp.hxx>
 #include <vcl/virdev.hxx>
+
+#include <com/sun/star/beans/NamedValue.hpp>
 
 using namespace com::sun::star;
 

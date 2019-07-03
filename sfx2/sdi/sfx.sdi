@@ -3022,7 +3022,7 @@ SfxTemplateItem ParaStyle SID_STYLE_FAMILY2
 
 
 SfxVoidItem Paste SID_PASTE
-(SfxUInt16Item AnchorType FN_PARAM_1)
+(SfxUInt16Item AnchorType FN_PARAM_1, SfxBoolItem IgnoreComments FN_PARAM_2)
 [
     AutoUpdate = FALSE,
     FastCall = TRUE,
@@ -4832,6 +4832,23 @@ SfxVoidItem RedactDoc SID_REDACTDOC
     GroupId = SfxGroupId::Document;
 ]
 
+SfxVoidItem AutoRedactDoc SID_AUTOREDACTDOC
+(SfxStringItem URL SID_FILE_NAME, SfxStringItem FilterName SID_FILTER_NAME)
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = TRUE,
+    Toggle = FALSE,
+    Container = TRUE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
+
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    ToolBoxConfig = TRUE,
+    GroupId = SfxGroupId::Document;
+]
+
 SfxImageItem ImageOrientation SID_IMAGE_ORIENTATION
 
 [
@@ -4945,7 +4962,21 @@ SfxVoidItem GetInvolved SID_GETINVOLVED
     MenuConfig = TRUE,
     GroupId = SfxGroupId::Application;
 ]
+SfxVoidItem WhatsNew SID_WHATSNEW
+()
+[
+    AutoUpdate = FALSE,
+    FastCall = FALSE,
+    ReadOnlyDoc = TRUE,
+    Toggle = FALSE,
+    Container = FALSE,
+    RecordAbsolute = FALSE,
+    RecordPerSet;
 
+    AccelConfig = TRUE,
+    MenuConfig = TRUE,
+    GroupId = SfxGroupId::Application;
+]
 SfxVoidItem ShowLicense SID_SHOW_LICENSE
 ()
 [

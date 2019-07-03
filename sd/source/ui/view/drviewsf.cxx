@@ -29,6 +29,7 @@
 #include <sfx2/viewfrm.hxx>
 #include <svl/whiter.hxx>
 #include <svl/eitem.hxx>
+#include <svl/intitem.hxx>
 #include <svl/itempool.hxx>
 #include <sfx2/tplpitem.hxx>
 #include <sfx2/bindings.hxx>
@@ -127,9 +128,9 @@ void DrawViewShell::GetCtrlState(SfxItemSet &rSet)
 
                     if(pUnoCtrl) try
                     {
-                        uno::Reference< awt::XControlModel > xControlModel( pUnoCtrl->GetUnoControlModel(), uno::UNO_QUERY_THROW );
+                        uno::Reference< awt::XControlModel > xControlModel( pUnoCtrl->GetUnoControlModel(), uno::UNO_SET_THROW );
                         uno::Reference< beans::XPropertySet > xPropSet( xControlModel, uno::UNO_QUERY_THROW );
-                        uno::Reference< beans::XPropertySetInfo > xPropInfo( xPropSet->getPropertySetInfo(), uno::UNO_QUERY_THROW );
+                        uno::Reference< beans::XPropertySetInfo > xPropInfo( xPropSet->getPropertySetInfo(), uno::UNO_SET_THROW );
 
                         form::FormButtonType eButtonType = form::FormButtonType_URL;
                         const OUString sButtonType( "ButtonType" );
@@ -478,6 +479,27 @@ void DrawViewShell::GetAttrState( SfxItemSet& rSet )
                     ( !mpDrawView->IsTextEdit() && !mpDrawView->GetStyleSheet() )
                   )
                     rSet.DisableItem( nWhich );
+            }
+            break;
+
+            case SID_REMOVE_HYPERLINK:
+            {
+                OutlinerView* pOLV = mpDrawView->GetTextEditOutlinerView();
+                if (pOLV)
+                {
+                    bool bField = false;
+                    const SvxFieldItem* pFieldItem = pOLV->GetFieldUnderMousePointer();
+                    if (!pFieldItem)
+                        pFieldItem = pOLV->GetFieldAtSelection();
+                    if (pFieldItem)
+                    {
+                        const SvxFieldData* pField = pFieldItem->GetField();
+                        if (dynamic_cast<const SvxURLField*>(pField))
+                            bField = true;
+                    }
+                    if (!bField)
+                        rSet.DisableItem(nWhich);
+                }
             }
             break;
 

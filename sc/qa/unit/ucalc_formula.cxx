@@ -2806,6 +2806,136 @@ void Test::testFormulaRefUpdateMoveUndo3Shared()
     m_pDoc->DeleteTab(0);
 }
 
+void Test::testFormulaRefUpdateMoveUndoDependents()
+{
+    m_pDoc->InsertTab(0, "Test");
+
+    sc::AutoCalcSwitch aACSwitch(*m_pDoc, true); // turn auto calc on.
+    std::vector<std::vector<const char*>> aData = {
+        { "1"           },
+        { "22"          },
+        { "3"           },
+        { "4"           },
+        { "5"           },
+        { "=SUM(C1:C5)" },
+        { "=C6"         },
+    };
+
+    ScRange aOutRange = insertRangeData(m_pDoc, ScAddress(2,0,0), aData);
+
+    std::vector<std::vector<const char*>> aCheckInitial = {
+        { "1"   },
+        { "22"  },
+        { "3"   },
+        { "4"   },
+        { "5"   },
+        { "35"  },
+        { "35"  },
+    };
+
+    bool bGood = checkOutput(m_pDoc, aOutRange, aCheckInitial, "initial data");
+    CPPUNIT_ASSERT(bGood);
+
+    // Drag C2 into D2.
+    ScDocFunc& rFunc = getDocShell().GetDocFunc();
+    bool bMoved = rFunc.MoveBlock(ScRange(2, 1, 0, 2, 1, 0), ScAddress(3, 1, 0), true, true, false, true);
+    CPPUNIT_ASSERT(bMoved);
+
+    std::vector<std::vector<const char*>> aCheckAfter = {
+        { "1"     },
+        { nullptr },
+        { "3"     },
+        { "4"     },
+        { "5"     },
+        { "13"    },
+        { "13"    },
+    };
+
+    bGood = checkOutput(m_pDoc, aOutRange, aCheckAfter, "C2 moved to D2");
+    CPPUNIT_ASSERT(bGood);
+
+    // Undo the move.
+    SfxUndoManager* pUndoMgr = m_pDoc->GetUndoManager();
+    CPPUNIT_ASSERT(pUndoMgr);
+    pUndoMgr->Undo();
+
+    bGood = checkOutput(m_pDoc, aOutRange, aCheckInitial, "after undo");
+    CPPUNIT_ASSERT(bGood);
+
+    // Redo and check.
+    pUndoMgr->Redo();
+
+    bGood = checkOutput(m_pDoc, aOutRange, aCheckAfter, "after redo");
+    CPPUNIT_ASSERT(bGood);
+
+    m_pDoc->DeleteTab(0);
+}
+
+void Test::testFormulaRefUpdateMoveUndo4()
+{
+    m_pDoc->InsertTab(0, "Test");
+
+    sc::AutoCalcSwitch aACSwitch(*m_pDoc, true); // turn auto calc on.
+    std::vector<std::vector<const char*>> aData = {
+        { "1",  nullptr,  "=B1", "=A1" },
+        { "2",  nullptr,  "=B2", "=A2" },
+    };
+
+    ScRange aOutRange = insertRangeData(m_pDoc, ScAddress(0,0,0), aData);
+
+    std::vector<std::vector<const char*>> aCheckInitial = {
+        { "1",  nullptr,  "0", "1" },
+        { "2",  nullptr,  "0", "2" },
+    };
+
+    bool bGood = checkOutput(m_pDoc, aOutRange, aCheckInitial, "initial data");
+    CPPUNIT_ASSERT(bGood);
+
+    // Drag A1:A2 into B1:B2.
+    ScDocFunc& rFunc = getDocShell().GetDocFunc();
+    bool bMoved = rFunc.MoveBlock(ScRange(0, 0, 0, 0, 1, 0), ScAddress(1, 0, 0), true, true, false, true);
+    CPPUNIT_ASSERT(bMoved);
+
+    std::vector<std::vector<const char*>> aCheckAfter = {
+        { nullptr, "1", "1", "1" },
+        { nullptr, "2", "2", "2" },
+    };
+
+    bGood = checkOutput(m_pDoc, aOutRange, aCheckAfter, "A1:A2 moved to B1:B2");
+    CPPUNIT_ASSERT(bGood);
+
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(2,0,0), "B1", "Wrong formula"); // C1
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(2,1,0), "B2", "Wrong formula"); // C2
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(3,0,0), "B1", "Wrong formula"); // D1
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(3,1,0), "B2", "Wrong formula"); // D2
+
+    // Undo the move.
+    SfxUndoManager* pUndoMgr = m_pDoc->GetUndoManager();
+    CPPUNIT_ASSERT(pUndoMgr);
+    pUndoMgr->Undo();
+
+    bGood = checkOutput(m_pDoc, aOutRange, aCheckInitial, "after undo");
+    CPPUNIT_ASSERT(bGood);
+
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(2,0,0), "B1", "Wrong formula"); // C1
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(2,1,0), "B2", "Wrong formula"); // C2
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(3,0,0), "A1", "Wrong formula"); // D1
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(3,1,0), "A2", "Wrong formula"); // D2
+
+    // Redo and check.
+    pUndoMgr->Redo();
+
+    bGood = checkOutput(m_pDoc, aOutRange, aCheckAfter, "after redo");
+    CPPUNIT_ASSERT(bGood);
+
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(2,0,0), "B1", "Wrong formula"); // C1
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(2,1,0), "B2", "Wrong formula"); // C2
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(3,0,0), "B1", "Wrong formula"); // D1
+    ASSERT_FORMULA_EQUAL(*m_pDoc, ScAddress(3,1,0), "B2", "Wrong formula"); // D2
+
+    m_pDoc->DeleteTab(0);
+}
+
 void Test::testFormulaRefUpdateMoveToSheet()
 {
     sc::AutoCalcSwitch aACSwitch(*m_pDoc, true); // turn auto calc on.

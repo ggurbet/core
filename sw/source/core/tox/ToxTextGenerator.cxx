@@ -291,9 +291,9 @@ ToxTextGenerator::CollectAttributesForTox(const SwTextAttr& hint, SwAttrPool& po
         if (pItem->Which() == RES_CHRATR_ESCAPEMENT ||
             pItem->Which() == RES_CHRATR_POSTURE ||
             pItem->Which() == RES_CHRATR_CJK_POSTURE ||
-            pItem->Which() == RES_CHRATR_CTL_POSTURE) {
-            std::unique_ptr<SfxPoolItem> clonedItem(pItem->Clone());
-            retval->Put(*clonedItem);
+            pItem->Which() == RES_CHRATR_CTL_POSTURE)
+        {
+            retval->Put(std::unique_ptr<SfxPoolItem>(pItem->Clone()));
         }
         if (aIter.IsAtEnd()) {
             break;
@@ -334,7 +334,7 @@ void ToxTextGenerator::GetAttributesForNode(
             // mapping going on here, can't use the usual merged attr iterators :(
 
             sal_Int32 const nStart(aConversionMap.ConvertToViewPosition(pHint->GetStart()));
-            sal_Int32 const nEnd(aConversionMap.ConvertToViewPosition(*pHint->GetAnyEnd()));
+            sal_Int32 const nEnd(aConversionMap.ConvertToViewPosition(pHint->GetAnyEnd()));
             if (nStart != nEnd) // might be in delete redline, and useless anyway
             {
                 std::unique_ptr<SwFormatAutoFormat> pClone(

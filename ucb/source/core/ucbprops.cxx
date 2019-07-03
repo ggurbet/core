@@ -200,9 +200,7 @@ XSERVICEINFO_COMMOM_IMPL( UcbPropertiesManager,
 static css::uno::Reference< css::uno::XInterface >
 UcbPropertiesManager_CreateInstance( const css::uno::Reference< css::lang::XMultiServiceFactory> & /*rSMgr*/ )
 {
-    css::lang::XServiceInfo* pX =
-        static_cast<css::lang::XServiceInfo*>(new UcbPropertiesManager);
-    return css::uno::Reference< css::uno::XInterface >::query( pX );
+    return static_cast<css::lang::XServiceInfo*>(new UcbPropertiesManager);
 }
 css::uno::Sequence< OUString >
 UcbPropertiesManager::getSupportedServiceNames_Static()
@@ -251,16 +249,12 @@ sal_Bool SAL_CALL UcbPropertiesManager::hasPropertyByName( const OUString& Name 
 bool UcbPropertiesManager::queryProperty(
                                 const OUString& rName, Property& rProp )
 {
-    const Property* pProps = m_pProps.getConstArray();
-    sal_Int32 nCount = m_pProps.getLength();
-    for ( sal_Int32 n = 0; n < nCount; ++n )
+    auto pProp = std::find_if(m_pProps.begin(), m_pProps.end(),
+        [&rName](const Property& rCurrProp) { return rCurrProp.Name == rName; });
+    if (pProp != m_pProps.end())
     {
-        const Property& rCurrProp = pProps[ n ];
-        if ( rCurrProp.Name == rName )
-        {
-            rProp = rCurrProp;
-            return true;
-        }
+        rProp = *pProp;
+        return true;
     }
 
     return false;

@@ -25,6 +25,7 @@
 #include <comphelper/processfactory.hxx>
 #include <comphelper/unique_disposing_ptr.hxx>
 #include <tools/gen.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/timer.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/font.hxx>
@@ -41,7 +42,7 @@ namespace
 {
     class ImpTimedRefDev;
 
-    //the scoped_timed_RefDev owns a ImpTimeRefDev and releases it on dtor
+    //the scoped_timed_RefDev owns an ImpTimeRefDev and releases it on dtor
     //or disposing of the default XComponentContext which causes the underlying
     //OutputDevice to get released
 
@@ -263,7 +264,7 @@ namespace drawinglayer
                     nIndex,
                     nLength,
                     0,
-                    &(aIntegerDXArray[0]));
+                    aIntegerDXArray.data());
             }
             else
             {
@@ -303,9 +304,7 @@ namespace drawinglayer
                 // #i104432#, #i102556# take empty results into account
                 if(!aRect.IsEmpty())
                 {
-                    return basegfx::B2DRange(
-                        aRect.Left(), aRect.Top(),
-                        aRect.Right(), aRect.Bottom());
+                    return vcl::unotools::b2DRectangleFromRectangle(aRect);
                 }
             }
 
@@ -352,7 +351,7 @@ namespace drawinglayer
             {
                 aRetval.reserve(nTextLength);
                 std::vector<long> aArray(nTextLength);
-                mrDevice.GetTextArray(rText, &aArray[0], nIndex, nLength);
+                mrDevice.GetTextArray(rText, aArray.data(), nIndex, nLength);
                 aRetval.assign(aArray.begin(), aArray.end());
             }
 

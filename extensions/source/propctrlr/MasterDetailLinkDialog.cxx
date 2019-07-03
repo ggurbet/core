@@ -17,9 +17,10 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#include <toolkit/helper/vclunohelper.hxx>
+#include <sal/log.hxx>
 #include <com/sun/star/beans/PropertyAttribute.hpp>
 #include <com/sun/star/beans/PropertyValue.hpp>
+#include <vcl/svapp.hxx>
 #include "MasterDetailLinkDialog.hxx"
 #include "formlinkdialog.hxx"
 #include "pcrservices.hxx"
@@ -101,8 +102,9 @@ namespace pcr
 
     svt::OGenericUnoDialog::Dialog MasterDetailLinkDialog::createDialog(const css::uno::Reference<css::awt::XWindow>& rParent)
     {
-        return svt::OGenericUnoDialog::Dialog(VclPtr<FormLinkDialog>::Create(VCLUnoHelper::GetWindow(rParent),m_xDetail,m_xMaster, m_aContext
-            ,m_sExplanation,m_sDetailLabel,m_sMasterLabel));
+        return svt::OGenericUnoDialog::Dialog(std::make_unique<FormLinkDialog>(Application::GetFrameWeld(rParent), m_xDetail,
+                                                                               m_xMaster, m_aContext, m_sExplanation,
+                                                                               m_sDetailLabel, m_sMasterLabel));
     }
 
     void MasterDetailLinkDialog::implInitialize(const Any& _rValue)
@@ -112,27 +114,32 @@ namespace pcr
         {
             if (aProperty.Name == "Detail")
             {
-                OSL_VERIFY( aProperty.Value >>= m_xDetail );
+                if ( ! (aProperty.Value >>= m_xDetail) )
+                    SAL_WARN("extensions.propctrlr", "implInitialize: unable to get property Detail");
                 return;
             }
             else if (aProperty.Name == "Master")
             {
-                OSL_VERIFY( aProperty.Value >>= m_xMaster );
+                if ( ! (aProperty.Value >>= m_xMaster) )
+                    SAL_WARN("extensions.propctrlr", "implInitialize: unable to get property Master");
                 return;
             }
             else if (aProperty.Name == "Explanation")
             {
-                OSL_VERIFY( aProperty.Value >>= m_sExplanation );
+                if ( ! (aProperty.Value >>= m_sExplanation) )
+                    SAL_WARN("extensions.propctrlr", "implInitialize: unable to get property Explanation");
                 return;
             }
             else if (aProperty.Name == "DetailLabel")
             {
-                OSL_VERIFY( aProperty.Value >>= m_sDetailLabel );
+                if ( ! (aProperty.Value >>= m_sDetailLabel) )
+                    SAL_WARN("extensions.propctrlr", "implInitialize: unable to get property DetailLabel");
                 return;
             }
             else if (aProperty.Name == "MasterLabel")
             {
-                OSL_VERIFY( aProperty.Value >>= m_sMasterLabel );
+                if ( ! (aProperty.Value >>= m_sMasterLabel) )
+                    SAL_WARN("extensions.propctrlr", "implInitialize: unable to get property MasterLabel");
                 return;
             }
         }

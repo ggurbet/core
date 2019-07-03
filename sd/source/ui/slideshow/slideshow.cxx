@@ -30,9 +30,11 @@
 #include <vcl/wrkwin.hxx>
 #include <svx/svdpool.hxx>
 #include <svl/itemprop.hxx>
+#include <tools/debug.hxx>
 
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
+#include <sfx2/sfxsids.hrc>
 
 #include <svx/unoprov.hxx>
 
@@ -220,7 +222,7 @@ bool SlideShow::IsRunning( ViewShell& rViewShell )
 
 void SlideShow::CreateController(  ViewShell* pViewSh, ::sd::View* pView, vcl::Window* pParentWindow )
 {
-    DBG_ASSERT( !mxController.is(), "sd::SlideShow::CreateController(), clean up old controller first!" );
+    SAL_INFO_IF( !mxController.is(), "sd.slideshow", "sd::SlideShow::CreateController(), clean up old controller first!" );
 
     Reference< XPresentation2 > xThis( this );
 
@@ -646,8 +648,7 @@ void SAL_CALL SlideShow::end()
     // The mbIsInStartup flag should have been reset during the start of the
     // slide show.  Reset it here just in case that something has horribly
     // gone wrong.
-    OSL_ASSERT(!mbIsInStartup);
-    mbIsInStartup = false;
+    assert(!mbIsInStartup);
 
     rtl::Reference< SlideshowImpl > xController( mxController );
     if( !xController.is() )
@@ -726,8 +727,7 @@ void SAL_CALL SlideShow::end()
 
     if( mpCurrentViewShellBase )
     {
-        ViewShell* pViewShell = mpCurrentViewShellBase->GetMainViewShell().get();
-        if( pViewShell )
+        if (ViewShell* const pViewShell = mpCurrentViewShellBase->GetMainViewShell().get())
         {
             // invalidate the view shell so the presentation slot will be re-enabled
             // and the rehearsing will be updated
@@ -772,11 +772,12 @@ void SAL_CALL SlideShow::end()
                     }
                 }
             }
-        }
-        //Fire the acc focus event when focus is switched back. The above method mpCurrentViewShellBase->GetWindow()->GrabFocus() will
-        //set focus to WorkWindow instead of the sd::window, so here call Shell's method to fire the focus event
-        if (pViewShell)
+
+            // Fire the acc focus event when focus is switched back. The above method
+            // mpCurrentViewShellBase->GetWindow()->GrabFocus() will set focus to WorkWindow
+            // instead of the sd::window, so here call Shell's method to fire the focus event
             pViewShell->SwitchActiveViewFireFocus();
+        }
     }
     mpCurrentViewShellBase = nullptr;
 }
@@ -799,7 +800,7 @@ void SAL_CALL SlideShow::startWithArguments(const Sequence< PropertyValue >& rAr
     // Stop a running show before starting a new one.
     if( mxController.is() )
     {
-        OSL_ASSERT(!mbIsInStartup);
+        assert(!mbIsInStartup);
         end();
     }
     else if (mbIsInStartup)

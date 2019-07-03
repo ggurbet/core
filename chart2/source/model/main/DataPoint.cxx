@@ -95,7 +95,6 @@ DataPoint::DataPoint( const uno::Reference< beans::XPropertySet > & rParentPrope
 }
 
 DataPoint::DataPoint( const DataPoint & rOther ) :
-        MutexContainer(),
         impl::DataPoint_Base(rOther),
         ::property::OPropertySet( rOther, m_aMutex ),
         m_xModifyEventForwarder( ModifyListenerHelper::createModifyEventForwarder()),
@@ -281,7 +280,7 @@ sal_Bool SAL_CALL DataPoint::supportsService( const OUString& rServiceName )
 
 css::uno::Sequence< OUString > SAL_CALL DataPoint::getSupportedServiceNames()
 {
-    return Sequence< OUString >{
+    return {
         "com.sun.star.drawing.FillProperties",
         "com.sun.star.chart2.DataPoint",
         "com.sun.star.chart2.DataPointProperties",

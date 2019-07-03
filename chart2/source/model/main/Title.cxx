@@ -20,7 +20,6 @@
 #include "Title.hxx"
 #include <LinePropertiesHelper.hxx>
 #include <FillProperties.hxx>
-#include <ContainerHelper.hxx>
 #include <CloneHelper.hxx>
 #include <PropertyHelper.hxx>
 #include <ModifyListenerHelper.hxx>
@@ -234,7 +233,6 @@ Title::Title() :
 {}
 
 Title::Title( const Title & rOther ) :
-        MutexContainer(),
         impl::Title_Base(rOther),
         ::property::OPropertySet( rOther, m_aMutex ),
         m_xModifyEventForwarder( ModifyListenerHelper::createModifyEventForwarder())
@@ -242,13 +240,15 @@ Title::Title( const Title & rOther ) :
     CloneHelper::CloneRefSequence<chart2::XFormattedString>(
         rOther.m_aStrings, m_aStrings );
     ModifyListenerHelper::addListenerToAllElements(
-        ContainerHelper::SequenceToVector( m_aStrings ), m_xModifyEventForwarder );
+        comphelper::sequenceToContainer<std::vector<uno::Reference< chart2::XFormattedString > > >( m_aStrings ),
+        m_xModifyEventForwarder );
 }
 
 Title::~Title()
 {
     ModifyListenerHelper::removeListenerFromAllElements(
-        ContainerHelper::SequenceToVector( m_aStrings ), m_xModifyEventForwarder );
+        comphelper::sequenceToContainer<std::vector<uno::Reference< chart2::XFormattedString > > >( m_aStrings ),
+        m_xModifyEventForwarder );
 }
 
 // ____ XCloneable ____
@@ -260,7 +260,7 @@ uno::Reference< util::XCloneable > SAL_CALL Title::createClone()
 // ____ XTitle ____
 uno::Sequence< uno::Reference< chart2::XFormattedString > > SAL_CALL Title::getText()
 {
-    MutexGuard aGuard( GetMutex() );
+    MutexGuard aGuard( m_aMutex );
     return m_aStrings;
 }
 
@@ -268,15 +268,17 @@ void SAL_CALL Title::setText( const uno::Sequence< uno::Reference< chart2::XForm
 {
     uno::Sequence< uno::Reference< chart2::XFormattedString > > aOldStrings;
     {
-        MutexGuard aGuard( GetMutex() );
+        MutexGuard aGuard( m_aMutex );
         std::swap( m_aStrings, aOldStrings );
         m_aStrings = rNewStrings;
     }
     //don't keep the mutex locked while calling out
     ModifyListenerHelper::removeListenerFromAllElements(
-        ContainerHelper::SequenceToVector( aOldStrings ), m_xModifyEventForwarder );
+        comphelper::sequenceToContainer<std::vector<uno::Reference< chart2::XFormattedString > > >( aOldStrings ),
+        m_xModifyEventForwarder );
     ModifyListenerHelper::addListenerToAllElements(
-        ContainerHelper::SequenceToVector( rNewStrings ), m_xModifyEventForwarder );
+        comphelper::sequenceToContainer<std::vector<uno::Reference< chart2::XFormattedString > > >( rNewStrings ),
+        m_xModifyEventForwarder );
     fireModifyEvent();
 }
 

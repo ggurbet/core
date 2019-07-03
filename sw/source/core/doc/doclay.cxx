@@ -20,8 +20,10 @@
 #include <unotools/linguprops.hxx>
 #include <unotools/lingucfg.hxx>
 #include <hintids.hxx>
+#include <sot/exchange.hxx>
 #include <sfx2/progress.hxx>
 #include <svx/svdmodel.hxx>
+#include <svx/svdogrp.hxx>
 #include <svx/svdpage.hxx>
 #include <editeng/keepitem.hxx>
 #include <editeng/ulspitem.hxx>
@@ -652,7 +654,7 @@ lcl_InsertLabel(SwDoc & rDoc, SwTextFormatColls *const pTextFormatCollTable,
     // Get the field first, because we retrieve the TextColl via the field's name
     OSL_ENSURE( nId == USHRT_MAX  || nId < rDoc.getIDocumentFieldsAccess().GetFieldTypes()->size(),
             "FieldType index out of bounds." );
-    SwFieldType *pType = (nId != USHRT_MAX) ? (*rDoc.getIDocumentFieldsAccess().GetFieldTypes())[nId] : nullptr;
+    SwFieldType *pType = (nId != USHRT_MAX) ? (*rDoc.getIDocumentFieldsAccess().GetFieldTypes())[nId].get() : nullptr;
     OSL_ENSURE(!pType || pType->Which() == SwFieldIds::SetExp, "wrong Id for Label");
 
     SwTextFormatColl * pColl = nullptr;
@@ -783,9 +785,9 @@ lcl_InsertLabel(SwDoc & rDoc, SwTextFormatColls *const pTextFormatCollTable,
                 pNewSet->Put( pOldFormat->GetAnchor() );
 
                 // The new one should be changeable in its height.
-                SwFormatFrameSize aFrameSize( pOldFormat->GetFrameSize() );
-                aFrameSize.SetHeightSizeType( ATT_MIN_SIZE );
-                pNewSet->Put( aFrameSize );
+                std::unique_ptr<SwFormatFrameSize> aFrameSize(static_cast<SwFormatFrameSize*>(pOldFormat->GetFrameSize().Clone()));
+                aFrameSize->SetHeightSizeType( ATT_MIN_SIZE );
+                pNewSet->Put( std::move(aFrameSize) );
 
                 SwStartNode* pSttNd = rDoc.GetNodes().MakeTextSection(
                             SwNodeIndex( rDoc.GetNodes().GetEndOfAutotext() ),
@@ -832,7 +834,7 @@ lcl_InsertLabel(SwDoc & rDoc, SwTextFormatColls *const pTextFormatCollTable,
                 pNewSet->Put( SwFormatVertOrient( 0, eVert ) );
                 pNewSet->Put( SwFormatHoriOrient( 0, text::HoriOrientation::CENTER ) );
 
-                aFrameSize = pOldFormat->GetFrameSize();
+                aFrameSize.reset(static_cast<SwFormatFrameSize*>(pOldFormat->GetFrameSize().Clone()));
 
                 SwOLENode* pOleNode = rDoc.GetNodes()[nNdIdx + 1]->GetOLENode();
                 bool isMath = false;
@@ -845,9 +847,9 @@ lcl_InsertLabel(SwDoc & rDoc, SwTextFormatColls *const pTextFormatCollTable,
                         isMath = ( SotExchange::IsMath( aCLSID ) != 0 );
                     }
                 }
-                aFrameSize.SetWidthPercent(isMath ? 0 : 100);
-                aFrameSize.SetHeightPercent(SwFormatFrameSize::SYNCED);
-                pNewSet->Put( aFrameSize );
+                aFrameSize->SetWidthPercent(isMath ? 0 : 100);
+                aFrameSize->SetHeightPercent(SwFormatFrameSize::SYNCED);
+                pNewSet->Put( std::move(aFrameSize) );
 
                 // Hard-set the attributes, because they could come from the Template
                 // and then size calculations could not be correct anymore.
@@ -1015,7 +1017,7 @@ lcl_InsertDrawLabel( SwDoc & rDoc, SwTextFormatColls *const pTextFormatCollTable
     // Because we get by the TextColl's name, we need to create the field first.
     OSL_ENSURE( nId == USHRT_MAX  || nId < rDoc.getIDocumentFieldsAccess().GetFieldTypes()->size(),
             "FieldType index out of bounds" );
-    SwFieldType *pType = nId != USHRT_MAX ? (*rDoc.getIDocumentFieldsAccess().GetFieldTypes())[nId] : nullptr;
+    SwFieldType *pType = nId != USHRT_MAX ? (*rDoc.getIDocumentFieldsAccess().GetFieldTypes())[nId].get() : nullptr;
     OSL_ENSURE( !pType || pType->Which() == SwFieldIds::SetExp, "Wrong label id" );
 
     SwTextFormatColl *pColl = nullptr;
@@ -1251,10 +1253,10 @@ SwFlyFrameFormat* SwDoc::InsertDrawLabel(
 {
     SwDrawContact *const pContact =
         static_cast<SwDrawContact*>(GetUserCall( &rSdrObj ));
-    OSL_ENSURE( RES_DRAWFRMFMT == pContact->GetFormat()->Which(),
-            "InsertDrawLabel(): not a DrawFrameFormat" );
     if (!pContact)
         return nullptr;
+    OSL_ENSURE( RES_DRAWFRMFMT == pContact->GetFormat()->Which(),
+            "InsertDrawLabel(): not a DrawFrameFormat" );
 
     SwDrawFrameFormat* pOldFormat = static_cast<SwDrawFrameFormat *>(pContact->GetFormat());
     if (!pOldFormat)
@@ -1285,6 +1287,36 @@ SwFlyFrameFormat* SwDoc::InsertDrawLabel(
     return pNewFormat;
 }
 
+static void lcl_SetNumUsedBit(std::vector<sal_uInt8>& rSetFlags, size_t nFormatSize, sal_Int32 nNmLen, const OUString& rName, const OUString& rCmpName)
+{
+    if (rName.startsWith(rCmpName))
+    {
+        // Only get and set the Flag
+        const sal_Int32 nNum = rName.copy(nNmLen).toInt32()-1;
+        if (nNum >= 0 && static_cast<SwFrameFormats::size_type>(nNum) < nFormatSize)
+            rSetFlags[ nNum / 8 ] |= (0x01 << ( nNum & 0x07 ));
+    }
+}
+
+static void lcl_SetNumUsedBit(std::vector<sal_uInt8>& rSetFlags, size_t nFormatSize, sal_Int32 nNmLen, const SdrObject& rObj, const OUString& rCmpName)
+{
+    OUString sName = rObj.GetName();
+    lcl_SetNumUsedBit(rSetFlags, nFormatSize, nNmLen, sName, rCmpName);
+    // tdf#122487 take groups into account, interate and recurse through their
+    // contents for name collision check
+    if (rObj.IsGroupObject())
+    {
+        const SdrObjGroup &rGroupObj = static_cast<const SdrObjGroup&>(rObj);
+        for (size_t i = 0, nCount = rGroupObj.GetObjCount(); i < nCount; ++i)
+        {
+            SdrObject* pObj = rGroupObj.GetObj(i);
+            if (!pObj)
+                continue;
+            lcl_SetNumUsedBit(rSetFlags, nFormatSize, nNmLen, *pObj, rCmpName);
+        }
+    }
+}
+
 static OUString lcl_GetUniqueFlyName(const SwDoc* pDoc, const char* pDefStrId, sal_uInt16 eType)
 {
     assert(eType >= RES_FMT_BEGIN && eType < RES_FMT_END);
@@ -1308,23 +1340,16 @@ static OUString lcl_GetUniqueFlyName(const SwDoc* pDoc, const char* pDefStrId, s
         const SwFrameFormat* pFlyFormat = rFormats[ n ];
         if (eType != pFlyFormat->Which())
             continue;
-        OUString sName;
         if (eType == RES_DRAWFRMFMT)
         {
             const SdrObject *pObj = pFlyFormat->FindSdrObject();
             if (pObj)
-                sName = pObj->GetName();
+                lcl_SetNumUsedBit(aSetFlags, rFormats.size(), nNmLen, *pObj, aName);
         }
         else
         {
-            sName = pFlyFormat->GetName();
-        }
-        if (sName.startsWith(aName))
-        {
-            // Only get and set the Flag
-            const sal_Int32 nNum = sName.copy(nNmLen).toInt32()-1;
-            if( nNum >= 0 && static_cast<SwFrameFormats::size_type>(nNum) < rFormats.size() )
-                aSetFlags[ nNum / 8 ] |= (0x01 << ( nNum & 0x07 ));
+            OUString sName = pFlyFormat->GetName();
+            lcl_SetNumUsedBit(aSetFlags, rFormats.size(), nNmLen, sName, aName);
         }
     }
 

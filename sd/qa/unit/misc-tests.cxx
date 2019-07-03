@@ -23,10 +23,12 @@
 #include <com/sun/star/awt/Gradient.hpp>
 #include <com/sun/star/awt/PosSize.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
+#include <com/sun/star/drawing/TextVerticalAdjust.hpp>
 #include <com/sun/star/drawing/XDrawPagesSupplier.hpp>
 #include <com/sun/star/drawing/XDrawPages.hpp>
 #include <com/sun/star/drawing/XDrawPage.hpp>
 #include <com/sun/star/drawing/XShapes.hpp>
+#include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/frame/XLoadable.hpp>
 
@@ -36,6 +38,7 @@
 #include <sdmod.hxx>
 #include <svx/sdr/table/tablecontroller.hxx>
 #include <sfx2/request.hxx>
+#include <svx/svdpagv.hxx>
 #include <svx/svxids.hrc>
 #include <editeng/eeitem.hxx>
 #include <editeng/adjustitem.hxx>
@@ -345,7 +348,7 @@ void SdMiscTest::testFillGradient()
     uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier = getDoc( xDocShRef );
     uno::Reference<drawing::XDrawPages> xDrawPages = xDrawPagesSupplier->getDrawPages();
     // Insert a new page.
-    uno::Reference<drawing::XDrawPage> xDrawPage(xDrawPages->insertNewByIndex(0), uno::UNO_QUERY_THROW );
+    uno::Reference<drawing::XDrawPage> xDrawPage(xDrawPages->insertNewByIndex(0), uno::UNO_SET_THROW );
     uno::Reference<drawing::XShapes> xShapes(xDrawPage,uno::UNO_QUERY_THROW);
     uno::Reference<lang::XMultiServiceFactory> const xDoc(xDocShRef->GetDoc()->getUnoModel(), uno::UNO_QUERY);
     // Create a rectangle

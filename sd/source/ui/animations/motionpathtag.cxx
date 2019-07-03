@@ -30,6 +30,8 @@
 #include <svx/sdrpagewindow.hxx>
 #include <svx/sdrpaintwindow.hxx>
 #include <svx/svdopath.hxx>
+#include <svx/xfillit0.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlndsit.hxx>
 #include <svx/xlnclit.hxx>
 #include <svx/xlnstit.hxx>
@@ -387,7 +389,7 @@ void MotionPathTag::updatePathAttributes()
 
 void MotionPathTag::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
 {
-    if( !(mpPathObj && !mbInUpdatePath && dynamic_cast< const SdrHint* >( &rHint ) && (mpEffect.get() != nullptr)) )
+    if( !(mpPathObj && !mbInUpdatePath && rHint.GetId() == SfxHintId::ThisIsAnSdrHint && (mpEffect.get() != nullptr)) )
         return;
 
     if( mxPolyPoly != mpPathObj->GetPathPoly() )

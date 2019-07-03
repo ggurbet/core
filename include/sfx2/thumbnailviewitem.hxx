@@ -22,17 +22,17 @@
 
 #include <basegfx/vector/b2dvector.hxx>
 #include <drawinglayer/attribute/fontattribute.hxx>
-#include <drawinglayer/primitive2d/baseprimitive2d.hxx>
 #include <vcl/bitmapex.hxx>
 #include <sfx2/dllapi.h>
 
-#include <com/sun/star/accessibility/XAccessible.hpp>
+namespace com::sun::star::accessibility { class XAccessible; }
+namespace drawinglayer::primitive2d { class Primitive2DContainer; }
 
 #define THUMBNAILVIEW_ITEM_NONEITEM      0xFFFE
 
 const int THUMBNAILVIEW_ITEM_CORNER = 5;
 
-class ThumbnailView;
+class ThumbnailViewBase;
 class MouseEvent;
 
 namespace basegfx {
@@ -67,7 +67,7 @@ class SFX2_DLLPUBLIC ThumbnailViewItem
 {
 public:
 
-    ThumbnailView &mrParent;
+    ThumbnailViewBase &mrParent;
     sal_uInt16 const mnId;
     bool mbVisible;
     bool mbSelected;
@@ -77,7 +77,7 @@ public:
     OUString maHelpText;
     css::uno::Reference< css::accessibility::XAccessible > mxAcc;
 
-    ThumbnailViewItem (ThumbnailView &rView, sal_uInt16 nId);
+    ThumbnailViewItem (ThumbnailViewBase &rView, sal_uInt16 nId);
 
     virtual ~ThumbnailViewItem ();
 

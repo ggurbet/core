@@ -23,8 +23,6 @@
 #include <svl/poolitem.hxx>
 #include <editeng/editengdllapi.h>
 
-class SvXMLUnitConverter;
-
 class EDITENG_DLLPUBLIC SvxTwoLinesItem : public SfxPoolItem
 {
     sal_Unicode cStartBracket, cEndBracket;
@@ -52,8 +50,6 @@ public:
 
     virtual bool            QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;
     virtual bool            PutValue( const css::uno::Any& rVal, sal_uInt8 nMemberId ) override;
-
-    virtual sal_uInt16          GetVersion( sal_uInt16 nFFVer ) const override;
 
     bool GetValue() const                       { return bOn; }
 

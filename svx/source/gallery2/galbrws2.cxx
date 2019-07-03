@@ -53,6 +53,7 @@
 #include <svx/galleryitem.hxx>
 #include <comphelper/processfactory.hxx>
 #include <com/sun/star/frame/FrameSearchFlag.hpp>
+#include <com/sun/star/frame/XDispatchProvider.hpp>
 #include <com/sun/star/gallery/GalleryItemType.hpp>
 #include <com/sun/star/graphic/XGraphic.hpp>
 #include <com/sun/star/style/GraphicLocation.hpp>
@@ -190,7 +191,7 @@ void SAL_CALL GalleryThemePopup::statusChanged(
             {
                 mpBackgroundPopup->InsertItem( 1, sItem );
             }
-            else if ( ( rEvent.State >>= sItems ) && sItems.getLength() )
+            else if ( ( rEvent.State >>= sItems ) && sItems.hasElements() )
             {
                 const OUString *pStr = sItems.getConstArray();
                 const OUString *pEnd = pStr + sItems.getLength();
@@ -1055,7 +1056,7 @@ void GalleryBrowser2::DispatchAdd(
 
     Graphic aGraphic;
     bool bGraphic = mpCurTheme->GetGraphic( mnCurActionPos, aGraphic );
-    if ( bGraphic && !!aGraphic )
+    if ( bGraphic && !aGraphic.IsNone() )
         xGraphic.set( aGraphic.GetXGraphic() );
     OSL_ENSURE( xGraphic.is(), "gallery item is graphic, but the reference is invalid!" );
 
@@ -1223,7 +1224,7 @@ OUString GalleryBrowser2::GetFilterName() const
             GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
             INetURLObject       aURL;
             mpCurTheme->GetURL( mnCurActionPos, aURL );
-            sal_uInt16          nFilter = rFilter.GetImportFormatNumberForShortName( aURL.GetExtension() );
+            sal_uInt16 nFilter = rFilter.GetImportFormatNumberForShortName(aURL.GetFileExtension());
 
             if( GRFILTER_FORMAT_DONTKNOW != nFilter )
                 aFilterName = rFilter.GetImportFormatName( nFilter );

@@ -19,11 +19,9 @@
 #ifndef INCLUDED_SVX_SVXIDS_HRC
 #define INCLUDED_SVX_SVXIDS_HRC
 
-#include <svl/memberid.h>
 #include <svl/solar.hrc>
 #include <sfx2/sfxsids.hrc>
 #include <editeng/editids.hrc>
-#include <svx/unomid.hxx>
 #include <svl/typedwhich.hxx>
 
 class SfxInt32Item;
@@ -53,6 +51,7 @@ class SvxLineEndListItem;
 class SvxLineItem;
 class SvxBoxInfoItem;
 class SfxStringItem;
+class SvxSetItem;
 
 // member IDs
 
@@ -287,6 +286,7 @@ class SfxStringItem;
 #define SID_PRESENTATION                                ( SID_SVX_START + 157 )
 #define SID_PRESENTATION_CURRENT_SLIDE                  ( SID_SVX_START + 158 )
 #define SID_REHEARSE_TIMINGS                            ( SID_SVX_START + 159 )
+#define SID_NUMBERING_AND_POSITION                      ( SID_SVX_START + 160 )
 #define SID_HIDE_SLIDE                                  ( SID_SVX_START + 161 )
 #define SID_ATTR_FILL_STYLE                             ( SID_SVX_START + 164 )
 #define SID_ATTR_FILL_COLOR                             ( SID_SVX_START + 165 )
@@ -497,6 +497,7 @@ class SfxStringItem;
 #define SID_GROUP                                       ( SID_SVX_START + 454 )
 #define SID_UNGROUP                                     ( SID_SVX_START + 455 )
 #define SID_SET_DEFAULT                                 ( SID_SVX_START + 456 )
+#define SID_REMOVE_HYPERLINK                            ( SID_SVX_START + 457 )
 
 // CAUTION! Range <457 .. 457> used by EditEngine (!)
 

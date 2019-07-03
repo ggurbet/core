@@ -19,6 +19,8 @@
 
 #include "diagramlayoutatoms.hxx"
 
+#include "layoutatomvisitorbase.hxx"
+
 #include <basegfx/numeric/ftools.hxx>
 #include <sal/log.hxx>
 
@@ -31,6 +33,7 @@
 #include <drawingml/textrun.hxx>
 #include <drawingml/customshapeproperties.hxx>
 #include <tools/gen.hxx>
+#include <com/sun/star/drawing/TextFitToSizeType.hpp>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::uno;
@@ -84,56 +87,6 @@ sal_Int32 getPropertyFromConstraint(sal_Int32 nConstraint)
     return 0;
 }
 
-/// Determines the connector shape type from a linear alg.
-sal_Int32 getConnectorType(const oox::drawingml::LayoutNode* pNode)
-{
-    sal_Int32 nType = oox::XML_rightArrow;
-
-    if (!pNode)
-        return nType;
-
-    // This is cheaper than visiting the whole sub-tree.
-    if (pNode->getName().startsWith("hierChild"))
-        return oox::XML_bentConnector3;
-
-    for (const auto& pChild : pNode->getChildren())
-    {
-        auto pAlgAtom = dynamic_cast<oox::drawingml::AlgAtom*>(pChild.get());
-        if (!pAlgAtom)
-            continue;
-
-        switch (pAlgAtom->getType())
-        {
-            case oox::XML_lin:
-            {
-                sal_Int32 nDir = oox::XML_fromL;
-                if (pAlgAtom->getMap().count(oox::XML_linDir))
-                    nDir = pAlgAtom->getMap().find(oox::XML_linDir)->second;
-
-                switch (nDir)
-                {
-                    case oox::XML_fromL:
-                        nType = oox::XML_rightArrow;
-                        break;
-                    case oox::XML_fromR:
-                        nType = oox::XML_leftArrow;
-                        break;
-                }
-                break;
-            }
-            case oox::XML_hierChild:
-            {
-                // TODO <dgm:param type="connRout" val="..."/> should be able
-                // to customize this.
-                nType = oox::XML_bentConnector3;
-                break;
-            }
-        }
-    }
-
-    return nType;
-}
-
 /**
  * Determines if pShape is (or contains) a presentation of a data node of type
  * nType.
@@ -158,12 +111,16 @@ bool containsDataNodeType(const oox::drawingml::ShapePtr& pShape, sal_Int32 nTyp
  */
 void calculateHierChildOffsetScale(const oox::drawingml::ShapePtr& pShape,
                                    const oox::drawingml::LayoutNode* pParent, sal_Int32& rXOffset,
-                                   double& rWidthScale)
+                                   double& rWidthScale, sal_Int32 nLevel)
 {
     if (!pParent)
         return;
 
-    const std::vector<oox::drawingml::ShapePtr>& rParents = pParent->getNodeShapes();
+    auto pShapes = pParent->getNodeShapes().find(nLevel - 1);
+    if (pShapes == pParent->getNodeShapes().end())
+        return;
+
+    const std::vector<oox::drawingml::ShapePtr>& rParents = pShapes->second;
     for (size_t nParent = 0; nParent < rParents.size(); ++nParent)
     {
         const oox::drawingml::ShapePtr& pParentShape = rParents[nParent];
@@ -219,9 +176,8 @@ void setHierChildConnPosSize(const oox::drawingml::ShapePtr& pShape)
 namespace oox { namespace drawingml {
 
 IteratorAttr::IteratorAttr( )
-    : mnAxis( 0 )
-    , mnCnt( -1 )
-    , mbHideLastTrans( false )
+    : mnCnt( -1 )
+    , mbHideLastTrans( true )
     , mnPtType( 0 )
     , mnSt( 0 )
     , mnStep( 1 )
@@ -231,12 +187,15 @@ IteratorAttr::IteratorAttr( )
 void IteratorAttr::loadFromXAttr( const Reference< XFastAttributeList >& xAttr )
 {
     AttributeList attr( xAttr );
-    mnAxis = xAttr->getOptionalValueToken( XML_axis, 0 );
+    maAxis = attr.getTokenList(XML_axis);
     mnCnt = attr.getInteger( XML_cnt, -1 );
-    mbHideLastTrans = attr.getBool( XML_hideLastTrans, false );
-    mnPtType = xAttr->getOptionalValueToken( XML_ptType, 0 );
+    mbHideLastTrans = attr.getBool( XML_hideLastTrans, true );
     mnSt = attr.getInteger( XML_st, 0 );
     mnStep = attr.getInteger( XML_step, 1 );
+
+    // better to keep first token instead of error when multiple values
+    std::vector<sal_Int32> aPtTypes = attr.getTokenList(XML_ptType);
+    mnPtType = aPtTypes.empty() ? XML_all : aPtTypes.front();
 }
 
 ConditionAttr::ConditionAttr()
@@ -274,20 +233,23 @@ void ForEachAtom::accept( LayoutAtomVisitor& rVisitor )
     rVisitor.visit(*this);
 }
 
+LayoutAtomPtr ForEachAtom::getRefAtom()
+{
+    if (!msRef.isEmpty())
+    {
+        const LayoutAtomMap& rLayoutAtomMap = getLayoutNode().getDiagram().getLayout()->getLayoutAtomMap();
+        LayoutAtomMap::const_iterator pRefAtom = rLayoutAtomMap.find(msRef);
+        if (pRefAtom != rLayoutAtomMap.end())
+            return pRefAtom->second;
+        else
+            SAL_WARN("oox.drawingml", "ForEach reference \"" << msRef << "\" not found");
+    }
+    return LayoutAtomPtr();
+}
+
 void ChooseAtom::accept( LayoutAtomVisitor& rVisitor )
 {
     rVisitor.visit(*this);
-}
-
-const std::vector<LayoutAtomPtr>& ChooseAtom::getChildren() const
-{
-    for (const auto& pChild : mpChildNodes)
-    {
-        const ConditionAtomPtr pCond = std::dynamic_pointer_cast<ConditionAtom>(pChild);
-        if (pCond && pCond->getDecision())
-            return pCond->getChildren();
-    }
-    return maEmptyChildren;
 }
 
 ConditionAtom::ConditionAtom(LayoutNode& rLayoutNode, bool isElse, const Reference< XFastAttributeList >& xAttributes) :
@@ -312,18 +274,6 @@ bool ConditionAtom::compareResult(sal_Int32 nOperator, sal_Int32 nFirst, sal_Int
         SAL_WARN("oox.drawingml", "unsupported operator: " << nOperator);
         return false;
     }
-}
-
-const dgm::Point* ConditionAtom::getPresNode() const
-{
-    const DiagramData::PointsNameMap& rPoints = mrLayoutNode.getDiagram().getData()->getPointsPresNameMap();
-    DiagramData::PointsNameMap::const_iterator aDataNode = rPoints.find(mrLayoutNode.getName());
-    if (aDataNode != rPoints.end())
-    {
-        SAL_WARN_IF(aDataNode->second.size() > 1, "oox.drawingml", "multiple nodes found; taking first one");
-        return aDataNode->second.front();
-    }
-    return nullptr;
 }
 
 namespace
@@ -354,73 +304,58 @@ OUString navigate(const LayoutNode& rLayoutNode, sal_Int32 nType, const OUString
 
     return OUString();
 }
+
+sal_Int32 calcMaxDepth(const OUString& rNodeName, const dgm::Connections& rConnections)
+{
+    sal_Int32 nMaxLength = 0;
+    for (auto const& aCxn : rConnections)
+        if (aCxn.mnType == XML_parOf && aCxn.msSourceId == rNodeName)
+            nMaxLength = std::max(nMaxLength, calcMaxDepth(aCxn.msDestId, rConnections) + 1);
+
+    return nMaxLength;
+}
 }
 
-sal_Int32 ConditionAtom::getNodeCount() const
+sal_Int32 ConditionAtom::getNodeCount(const dgm::Point* pPresPoint) const
 {
     sal_Int32 nCount = 0;
-    const dgm::Point* pPoint = getPresNode();
-    if (pPoint)
+    OUString sNodeId = pPresPoint->msPresentationAssociationId;
+
+    // HACK: special case - count children of first child
+    if (maIter.maAxis.size() == 2 && maIter.maAxis[0] == XML_ch && maIter.maAxis[1] == XML_ch)
+        sNodeId = navigate(mrLayoutNode, XML_parOf, sNodeId, /*bSourceToDestination*/ true);
+
+    if (!sNodeId.isEmpty())
     {
-        OUString sNodeId = "";
-
-        sNodeId
-            = navigate(mrLayoutNode, XML_presOf, pPoint->msModelId, /*bSourceToDestination*/ false);
-
-        if (sNodeId.isEmpty())
-        {
-            // The current layout node is not a presentation of anything. Look
-            // up the first presentation child of the layout node.
-            OUString sFirstPresChildId = navigate(mrLayoutNode, XML_presParOf, pPoint->msModelId,
-                                                  /*bSourceToDestination*/ true);
-            if (!sFirstPresChildId.isEmpty())
-                // It has a presentation child: is that a presentation of a
-                // model node?
-                sNodeId = navigate(mrLayoutNode, XML_presOf, sFirstPresChildId,
-                                   /*bSourceToDestination*/ false);
-        }
-
-        if (!sNodeId.isEmpty())
-        {
-            for (const auto& aCxn : mrLayoutNode.getDiagram().getData()->getConnections())
-                if (aCxn.mnType == XML_parOf && aCxn.msSourceId == sNodeId)
-                    nCount++;
-        }
-        else
-        {
-            // No presentation child is a presentation of a model node: just
-            // count presentation children.
-            for (const auto& aCxn : mrLayoutNode.getDiagram().getData()->getConnections())
-                if (aCxn.mnType == XML_presParOf && aCxn.msSourceId == pPoint->msModelId)
-                    nCount++;
-        }
+        for (const auto& aCxn : mrLayoutNode.getDiagram().getData()->getConnections())
+            if (aCxn.mnType == XML_parOf && aCxn.msSourceId == sNodeId)
+                nCount++;
     }
+
     return nCount;
 }
 
-bool ConditionAtom::getDecision() const
+bool ConditionAtom::getDecision(const dgm::Point* pPresPoint) const
 {
     if (mIsElse)
         return true;
+    if (!pPresPoint)
+        return false;
 
     switch (maCond.mnFunc)
     {
     case XML_var:
     {
-        const dgm::Point* pPoint = getPresNode();
-        if (!pPoint)
-            break;
-
         if (maCond.mnArg == XML_dir)
-            return compareResult(maCond.mnOp, pPoint->mnDirection, maCond.mnVal);
+            return compareResult(maCond.mnOp, pPresPoint->mnDirection, maCond.mnVal);
         else if (maCond.mnArg == XML_hierBranch)
         {
-            sal_Int32 nHierarchyBranch = pPoint->moHierarchyBranch.get(XML_std);
-            if (!pPoint->moHierarchyBranch.has())
+            sal_Int32 nHierarchyBranch = pPresPoint->moHierarchyBranch.get(XML_std);
+            if (!pPresPoint->moHierarchyBranch.has())
             {
                 // If <dgm:hierBranch> is missing in the current presentation
                 // point, ask the parent.
-                OUString aParent = navigate(mrLayoutNode, XML_presParOf, pPoint->msModelId,
+                OUString aParent = navigate(mrLayoutNode, XML_presParOf, pPresPoint->msModelId,
                                             /*bSourceToDestination*/ false);
                 DiagramData::PointNameMap& rPointNameMap
                     = mrLayoutNode.getDiagram().getData()->getPointNameMap();
@@ -438,11 +373,20 @@ bool ConditionAtom::getDecision() const
     }
 
     case XML_cnt:
-        return compareResult(maCond.mnOp, getNodeCount(), maCond.msVal.toInt32());
+        return compareResult(maCond.mnOp, getNodeCount(pPresPoint), maCond.msVal.toInt32());
 
     case XML_maxDepth:
-        return compareResult(maCond.mnOp, mrLayoutNode.getDiagram().getData()->getMaxDepth(), maCond.msVal.toInt32());
+    {
+        sal_Int32 nMaxDepth = calcMaxDepth(pPresPoint->msPresentationAssociationId, mrLayoutNode.getDiagram().getData()->getConnections());
+        return compareResult(maCond.mnOp, nMaxDepth, maCond.msVal.toInt32());
+    }
 
+    case XML_depth:
+    case XML_pos:
+    case XML_revPos:
+    case XML_posEven:
+    case XML_posOdd:
+        // TODO
     default:
         SAL_WARN("oox.drawingml", "unknown function " << maCond.mnFunc);
         break;
@@ -495,25 +439,34 @@ void AlgAtom::accept( LayoutAtomVisitor& rVisitor )
     rVisitor.visit(*this);
 }
 
-void AlgAtom::layoutShape( const ShapePtr& rShape,
-                           const std::vector<Constraint>& rOwnConstraints )
+sal_Int32 AlgAtom::getConnectorType()
 {
-    // Algorithm result may depend on the parent constraints as well.
-    std::vector<Constraint> aMergedConstraints;
-    const LayoutNode* pParent = getLayoutNode().getParentLayoutNode();
-    if (pParent)
-    {
-        for (const auto& pChild : pParent->getChildren())
-        {
-            auto pConstraintAtom = dynamic_cast<ConstraintAtom*>(pChild.get());
-            if (pConstraintAtom)
-                pConstraintAtom->parseConstraint(aMergedConstraints, /*bRequireForName=*/true);
-        }
-    }
-    aMergedConstraints.insert(aMergedConstraints.end(), rOwnConstraints.begin(),
-                              rOwnConstraints.end());
-    const std::vector<Constraint>& rConstraints = aMergedConstraints;
+    sal_Int32 nConnRout = 0;
+    sal_Int32 nBegSty = 0;
+    sal_Int32 nEndSty = 0;
+    if (maMap.count(oox::XML_connRout))
+        nConnRout = maMap.find(oox::XML_connRout)->second;
+    if (maMap.count(oox::XML_begSty))
+        nBegSty = maMap.find(oox::XML_begSty)->second;
+    if (maMap.count(oox::XML_endSty))
+        nEndSty = maMap.find(oox::XML_endSty)->second;
 
+    if (nConnRout == oox::XML_bend)
+        return oox::XML_bentConnector3;
+    if (nBegSty == oox::XML_arr && nEndSty == oox::XML_arr)
+        return oox::XML_leftRightArrow;
+    if (nBegSty == oox::XML_arr)
+        return oox::XML_leftArrow;
+    if (nEndSty == oox::XML_arr)
+        return oox::XML_rightArrow;
+
+    return oox::XML_rightArrow;
+}
+
+void AlgAtom::layoutShape( const ShapePtr& rShape,
+                           const std::vector<Constraint>& rConstraints,
+                           sal_Int32 nShapeLevel )
+{
     switch(mnType)
     {
         case XML_composite:
@@ -626,7 +579,7 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             {
                 // There is no shape type "conn", replace it by an arrow based
                 // on the direction of the parent linear layout.
-                sal_Int32 nType = getConnectorType(pParent);
+                sal_Int32 nType = getConnectorType();
 
                 rShape->setSubType(nType);
                 rShape->getCustomShapeProperties()->setShapePresetType(nType);
@@ -672,6 +625,11 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             awt::Size aSize;
             aSize.Width = rParent[XML_w];
             aSize.Height = rParent[XML_h];
+            // keep center position
+            awt::Point aPos = rShape->getPosition();
+            aPos.X += (rShape->getSize().Width - aSize.Width) / 2;
+            aPos.Y += (rShape->getSize().Height - aSize.Height) / 2;
+            rShape->setPosition(aPos);
             rShape->setSize(aSize);
             break;
         }
@@ -684,29 +642,63 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             const sal_Int32 nStartAngle = maMap.count(XML_stAng) ? maMap.find(XML_stAng)->second : 0;
             const sal_Int32 nSpanAngle = maMap.count(XML_spanAng) ? maMap.find(XML_spanAng)->second : 360;
             const sal_Int32 nRotationPath = maMap.count(XML_rotPath) ? maMap.find(XML_rotPath)->second : XML_none;
-            const sal_Int32 nShapes = rShape->getChildren().size();
+            const sal_Int32 nctrShpMap = maMap.count(XML_ctrShpMap) ? maMap.find(XML_ctrShpMap)->second : XML_none;
             const awt::Size aCenter(rShape->getSize().Width / 2, rShape->getSize().Height / 2);
-            const awt::Size aChildSize(rShape->getSize().Width / 5, rShape->getSize().Height / 5);
+            const awt::Size aChildSize(rShape->getSize().Width / 4, rShape->getSize().Height / 4);
+            const awt::Size aConnectorSize(rShape->getSize().Width / 12, rShape->getSize().Height / 12);
             const sal_Int32 nRadius = std::min(
                 (rShape->getSize().Width - aChildSize.Width) / 2,
                 (rShape->getSize().Height - aChildSize.Height) / 2);
 
-            sal_Int32 idx = 0;
-            for (auto & aCurrShape : rShape->getChildren())
+            std::vector<oox::drawingml::ShapePtr> aCycleChildren = rShape->getChildren();
+
+            if (nctrShpMap == XML_fNode)
             {
-                const double fAngle = static_cast<double>(idx)*nSpanAngle/nShapes + nStartAngle;
-                const awt::Point aCurrPos(
-                    aCenter.Width + nRadius*sin(basegfx::deg2rad(fAngle)) - aChildSize.Width/2,
-                    aCenter.Height - nRadius*cos(basegfx::deg2rad(fAngle)) - aChildSize.Height/2);
+                // first node placed in center, others around
+                oox::drawingml::ShapePtr pCenterShape = aCycleChildren.front();
+                aCycleChildren.erase(aCycleChildren.begin());
+                const awt::Point aCurrPos(aCenter.Width - aChildSize.Width / 2,
+                                          aCenter.Height - aChildSize.Height / 2);
+                pCenterShape->setPosition(aCurrPos);
+                pCenterShape->setSize(aChildSize);
+                pCenterShape->setChildSize(aChildSize);
+            }
 
-                aCurrShape->setPosition(aCurrPos);
-                aCurrShape->setSize(aChildSize);
-                aCurrShape->setChildSize(aChildSize);
+            const sal_Int32 nShapes = aCycleChildren.size();
+            if (nShapes)
+            {
+                const sal_Int32 nConnectorRadius = nRadius * cos(basegfx::deg2rad(nSpanAngle / nShapes));
+                const sal_Int32 nConnectorAngle = nSpanAngle > 0 ? 0 : 180;
 
-                if (nRotationPath == XML_alongPath)
-                    aCurrShape->setRotation(fAngle * PER_DEGREE);
+                sal_Int32 idx = 0;
+                for (auto & aCurrShape : aCycleChildren)
+                {
+                    const double fAngle = static_cast<double>(idx)*nSpanAngle/nShapes + nStartAngle;
+                    awt::Size aCurrSize = aChildSize;
+                    sal_Int32 nCurrRadius = nRadius;
+                    if (aCurrShape->getSubType() == XML_conn)
+                    {
+                        aCurrSize = aConnectorSize;
+                        nCurrRadius = nConnectorRadius;
+                    }
+                    const awt::Point aCurrPos(
+                        aCenter.Width + nCurrRadius*sin(basegfx::deg2rad(fAngle)) - aCurrSize.Width/2,
+                        aCenter.Height - nCurrRadius*cos(basegfx::deg2rad(fAngle)) - aCurrSize.Height/2);
 
-                idx++;
+                    aCurrShape->setPosition(aCurrPos);
+                    aCurrShape->setSize(aCurrSize);
+                    aCurrShape->setChildSize(aCurrSize);
+
+                    if (nRotationPath == XML_alongPath)
+                        aCurrShape->setRotation(fAngle * PER_DEGREE);
+
+                    // connectors should be handled in conn, but we don't have
+                    // reference to previous and next child, so it's easier here
+                    if (aCurrShape->getSubType() == XML_conn)
+                        aCurrShape->setRotation((nConnectorAngle + fAngle) * PER_DEGREE);
+
+                    idx++;
+                }
             }
             break;
         }
@@ -717,7 +709,12 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             // hierRoot is the manager -> employees vertical linear path,
             // hierChild is the first employee -> last employee horizontal
             // linear path.
-            const sal_Int32 nDir = mnType == XML_hierRoot ? XML_fromT : XML_fromL;
+            sal_Int32 nDir = XML_fromL;
+            if (mnType == XML_hierRoot)
+                nDir = XML_fromT;
+            else if (maMap.count(XML_linDir))
+                nDir = maMap.find(XML_linDir)->second;
+
             if (rShape->getChildren().empty() || rShape->getSize().Width == 0
                 || rShape->getSize().Height == 0)
                 break;
@@ -756,7 +753,7 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             sal_Int32 nXOffset = 0;
             double fWidthScale = 1.0;
             if (mnType == XML_hierChild)
-                calculateHierChildOffsetScale(rShape, pParent, nXOffset, fWidthScale);
+                calculateHierChildOffsetScale(rShape, getLayoutNode().getParentLayoutNode(), nXOffset, fWidthScale, nShapeLevel);
 
             awt::Size aChildSize = rShape->getSize();
             if (nDir == XML_fromT)
@@ -767,18 +764,25 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
                 aChildSize.Width /= nCount;
             aChildSize.Height *= fHeightScale;
             aChildSize.Width *= fWidthScale;
+            awt::Size aConnectorSize = aChildSize;
+            aConnectorSize.Width = 1;
 
             awt::Point aChildPos(nXOffset, 0);
             for (auto& pChild : rShape->getChildren())
             {
                 pChild->setPosition(aChildPos);
-                pChild->setSize(aChildSize);
-                pChild->setChildSize(aChildSize);
 
                 if (mnType == XML_hierChild && pChild->getSubType() == XML_conn)
+                {
                     // Connectors should not influence the position of
                     // non-connect shapes.
+                    pChild->setSize(aConnectorSize);
+                    pChild->setChildSize(aConnectorSize);
                     continue;
+                }
+
+                pChild->setSize(aChildSize);
+                pChild->setChildSize(aChildSize);
 
                 if (nDir == XML_fromT)
                     aChildPos.Y += aChildSize.Height + aChildSize.Height * fSpace;
@@ -801,7 +805,16 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             const sal_Int32 nIncY = nDir==XML_fromT ? 1 : (nDir==XML_fromB ? -1 : 0);
 
             sal_Int32 nCount = rShape->getChildren().size();
-            double fSpace = 0.3;
+            sal_Int32 nConnectorAngle = 0;
+            switch (nDir)
+            {
+            case XML_fromL: nConnectorAngle = 0; break;
+            case XML_fromR: nConnectorAngle = 180; break;
+            case XML_fromT: nConnectorAngle = 270; break;
+            case XML_fromB: nConnectorAngle = 90; break;
+            }
+
+            awt::Size aSpaceSize;
 
             // Find out which constraint is relevant for which (internal) name.
             LayoutPropertyMap aProperties;
@@ -813,17 +826,25 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
                 LayoutProperty& rProperty = aProperties[rConstraint.msForName];
                 if (rConstraint.mnType == XML_w)
                     rProperty[XML_w] = rShape->getSize().Width * rConstraint.mfFactor;
+                if (rConstraint.mnType == XML_h)
+                    rProperty[XML_h] = rShape->getSize().Height * rConstraint.mfFactor;
 
                 // TODO: get values from differently named constraints as well
-                if (rConstraint.msForName == "sibTrans" && rConstraint.mnType == XML_w)
-                    fSpace = rConstraint.mfFactor;
+                if (rConstraint.msForName == "sp" || rConstraint.msForName == "space" || rConstraint.msForName == "sibTrans")
+                {
+                    if (rConstraint.mnType == XML_w)
+                        aSpaceSize.Width = rShape->getSize().Width * rConstraint.mfFactor;
+                    if (rConstraint.mnType == XML_h)
+                        aSpaceSize.Height = rShape->getSize().Height * rConstraint.mfFactor;
+                }
             }
 
+            // first approximation of children size
             awt::Size aChildSize = rShape->getSize();
             if (nDir == XML_fromL || nDir == XML_fromR)
-                aChildSize.Width /= (nCount + (nCount-1)*fSpace);
+                aChildSize.Width /= nCount;
             else if (nDir == XML_fromT || nDir == XML_fromB)
-                aChildSize.Height /= (nCount + (nCount-1)*fSpace);
+                aChildSize.Height /= nCount;
 
             awt::Point aCurrPos(0, 0);
             if (nIncX == -1)
@@ -833,51 +854,63 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
 
             // See if children requested more than 100% space in total: scale
             // down in that case.
-            sal_Int32 nTotalWidth = 0;
-            bool bSpaceFromConstraints = false;
+            awt::Size aTotalSize;
             for (auto & aCurrShape : rShape->getChildren())
             {
-                oox::OptValue<sal_Int32> oWidth
-                    = findProperty(aProperties, aCurrShape->getInternalName(), XML_w);
-
+                oox::OptValue<sal_Int32> oWidth = findProperty(aProperties, aCurrShape->getInternalName(), XML_w);
+                oox::OptValue<sal_Int32> oHeight = findProperty(aProperties, aCurrShape->getInternalName(), XML_h);
                 awt::Size aSize = aChildSize;
                 if (oWidth.has())
-                {
                     aSize.Width = oWidth.get();
-                    bSpaceFromConstraints = true;
-                }
-                if (nDir == XML_fromL || nDir == XML_fromR)
-                    nTotalWidth += aSize.Width;
+                if (oHeight.has())
+                    aSize.Height = oHeight.get();
+                aTotalSize.Width += aSize.Width;
+                aTotalSize.Height += aSize.Height;
             }
+
+            aTotalSize.Width += (nCount-1) * aSpaceSize.Width;
+            aTotalSize.Height += (nCount-1) * aSpaceSize.Height;
 
             double fWidthScale = 1.0;
-            if (nTotalWidth > rShape->getSize().Width && nTotalWidth)
-            {
-                fWidthScale = rShape->getSize().Width;
-                fWidthScale /= nTotalWidth;
-            }
-
-            // Don't add automatic space if we take space from constraints.
-            if (bSpaceFromConstraints)
-                fSpace = 0;
+            double fHeightScale = 1.0;
+            if (nIncX && aTotalSize.Width > rShape->getSize().Width)
+                fWidthScale = static_cast<double>(rShape->getSize().Width) / aTotalSize.Width;
+            if (nIncY && aTotalSize.Height > rShape->getSize().Height)
+                fHeightScale = static_cast<double>(rShape->getSize().Height) / aTotalSize.Height;
+            aSpaceSize.Width *= fWidthScale;
+            aSpaceSize.Height *= fHeightScale;
 
             for (auto& aCurrShape : rShape->getChildren())
             {
                 // Extract properties relevant for this shape from constraints.
-                oox::OptValue<sal_Int32> oWidth
-                    = findProperty(aProperties, aCurrShape->getInternalName(), XML_w);
-
-                aCurrShape->setPosition(aCurrPos);
+                oox::OptValue<sal_Int32> oWidth = findProperty(aProperties, aCurrShape->getInternalName(), XML_w);
+                oox::OptValue<sal_Int32> oHeight = findProperty(aProperties, aCurrShape->getInternalName(), XML_h);
 
                 awt::Size aSize = aChildSize;
                 if (oWidth.has())
                     aSize.Width = oWidth.get();
+                if (oHeight.has())
+                    aSize.Height = oHeight.get();
                 aSize.Width *= fWidthScale;
+                aSize.Height *= fHeightScale;
                 aCurrShape->setSize(aSize);
-
                 aCurrShape->setChildSize(aSize);
-                aCurrPos.X += nIncX * (aSize.Width + fSpace*aSize.Width);
-                aCurrPos.Y += nIncY * (aChildSize.Height + fSpace*aChildSize.Height);
+
+                // center in the other axis - probably some parameter controls it
+                if (nIncX)
+                    aCurrPos.Y = (rShape->getSize().Height - aSize.Height) / 2;
+                if (nIncY)
+                    aCurrPos.X = (rShape->getSize().Width - aSize.Width) / 2;
+
+                aCurrShape->setPosition(aCurrPos);
+
+                aCurrPos.X += nIncX * (aSize.Width + aSpaceSize.Width);
+                aCurrPos.Y += nIncY * (aSize.Height + aSpaceSize.Height);
+
+                // connectors should be handled in conn, but we don't have
+                // reference to previous and next child, so it's easier here
+                if (aCurrShape->getSubType() == XML_conn)
+                    aCurrShape->setRotation(nConnectorAngle * PER_DEGREE);
             }
             break;
         }
@@ -1103,6 +1136,7 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
             // adjust text alignment
 
             // Parse constraints, only self margins as a start.
+            double fFontSize = 0;
             for (const auto& rConstr : rConstraints)
             {
                 if (rConstr.mnRefType == XML_w)
@@ -1122,16 +1156,23 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
 
                     rShape->getShapeProperties().setProperty(nProperty, nValue);
                 }
+                if (rConstr.mnType == XML_primFontSz)
+                    fFontSize = rConstr.mfValue;
             }
 
-            // TODO: adjust text size to fit shape
             TextBodyPtr pTextBody = rShape->getTextBody();
-            if (!pTextBody ||
-                pTextBody->getParagraphs().empty() ||
-                pTextBody->getParagraphs().front()->getRuns().empty())
-            {
+            if (!pTextBody || pTextBody->isEmpty())
                 break;
+
+            // adjust text size to fit shape
+            if (fFontSize != 0)
+            {
+                for (auto& aParagraph : pTextBody->getParagraphs())
+                    for (auto& aRun : aParagraph->getRuns())
+                        if (!aRun->getTextCharacterProperties().moHeight.has())
+                            aRun->getTextCharacterProperties().moHeight = fFontSize * 100;
             }
+            pTextBody->getTextProperties().maPropertyMap.setProperty(PROP_TextFitToSize, drawing::TextFitToSizeType_AUTOFIT);
 
             // ECMA-376-1:2016 21.4.7.5 ST_AutoTextRotation (Auto Text Rotation)
             const sal_Int32 nautoTxRot = maMap.count(XML_autoTxRot) ? maMap.find(XML_autoTxRot)->second : XML_upr;
@@ -1194,27 +1235,30 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
                     nBaseLevel = aParagraph->getProperties().getLevel();
             }
 
+            // Start bullets at:
+            // 1 - top level
+            // 2 - with children (default)
+            int nStartBulletsAtLevel = 2;
             ParamMap::const_iterator aBulletLvl = maMap.find(XML_stBulletLvl);
-            int nStartBulletsAtLevel = 0;
             if (aBulletLvl != maMap.end())
-            {
-                nBaseLevel -= aBulletLvl->second;
                 nStartBulletsAtLevel = aBulletLvl->second;
-            }
+            nStartBulletsAtLevel--;
 
+            bool isBulletList = false;
             for (auto & aParagraph : pTextBody->getParagraphs())
             {
-                sal_Int32 nLevel = aParagraph->getProperties().getLevel();
-                aParagraph->getProperties().setLevel(nLevel - nBaseLevel);
-                if (nStartBulletsAtLevel > 0 && nLevel >= nStartBulletsAtLevel)
+                sal_Int32 nLevel = aParagraph->getProperties().getLevel() - nBaseLevel;
+                aParagraph->getProperties().setLevel(nLevel);
+                if (nLevel >= nStartBulletsAtLevel)
                 {
                     // It is not possible to change the bullet style for text.
-                    sal_Int32 nLeftMargin = 285750 * (nLevel - nStartBulletsAtLevel) / EMU_PER_HMM;
+                    sal_Int32 nLeftMargin = 285750 * (nLevel - nStartBulletsAtLevel + 1) / EMU_PER_HMM;
                     aParagraph->getProperties().getParaLeftMargin() = nLeftMargin;
                     aParagraph->getProperties().getFirstLineIndentation() = -285750 / EMU_PER_HMM;
                     OUString aBulletChar = OUString::fromUtf8(u8"•");
                     aParagraph->getProperties().getBulletList().setBulletChar(aBulletChar);
                     aParagraph->getProperties().getBulletList().setSuffixNone();
+                    isBulletList = true;
                 }
             }
 
@@ -1227,8 +1271,7 @@ void AlgAtom::layoutShape( const ShapePtr& rShape,
                 for (auto & aParagraph : pTextBody->getParagraphs())
                     aParagraph->getProperties().setParaAdjust(aAlignment);
             }
-            else if (std::all_of(pTextBody->getParagraphs().begin(), pTextBody->getParagraphs().end(),
-                [](const std::shared_ptr<TextParagraph>& aParagraph) { return aParagraph->getProperties().getLevel() == 0; }))
+            else if (!isBulletList)
             {
                 // if not list use default alignment - centered
                 for (auto & aParagraph : pTextBody->getParagraphs())
@@ -1280,6 +1323,12 @@ bool LayoutNode::setupShape( const ShapePtr& rShape, const dgm::Point* pPresNode
             // pPresNode is the presentation node of the aDataNode2 data node.
             DiagramData::PointNameMap::const_iterator aDataNode2 = rMap.find(rItem.msSourceId);
             if (aDataNode2 == rMap.end())
+            {
+                //busted, skip it
+                continue;
+            }
+
+            if (!aDataNode2->second->mpShape)
             {
                 //busted, skip it
                 continue;

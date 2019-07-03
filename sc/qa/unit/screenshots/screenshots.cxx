@@ -12,6 +12,8 @@
 
 #include <sfx2/sfxdlg.hxx>
 #include <svx/numinf.hxx>
+#include <svx/svxids.hrc>
+#include <tools/stream.hxx>
 
 #include <tabvwsh.hxx>
 #include <docsh.hxx>
@@ -192,8 +194,7 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
         case 8: // "modules/scalc/ui/inputstringdialog.ui"
         {
             const OString aEmpty("");
-            vcl::Window* pWindow = mpViewShell->GetDialogParent();
-            pReturnDialog = mpFact->CreateScStringInputDlg(pWindow ? pWindow->GetFrameWeld() : nullptr,
+            pReturnDialog = mpFact->CreateScStringInputDlg(mpViewShell->GetFrameWeld(),
                                 ScResId(SCSTR_APDTABLE), ScResId(SCSTR_NAME),
                                 aDefaultSheetName, aEmpty, aEmpty );
             break;
@@ -217,7 +218,7 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
         {
             ////FIXME: looks butt-ugly w/ empty file, move it elsewhere, where
             ////we actually have some data
-            pReturnDialog = mpFact->CreateScDataFormDlg(mpViewShell->GetDialogParent(), mpViewShell);
+            pReturnDialog = mpFact->CreateScDataFormDlg(mpViewShell->GetFrameWeld(), mpViewShell);
             break;
         }
 
@@ -244,7 +245,7 @@ VclPtr<VclAbstractDialog> ScScreenshotTest::createDialogByID(sal_uInt32 nID)
             mpItemSet->Put(SfxUInt32Item(ATTR_VALUE_FORMAT,
                            pAttr->GetNumberFormat( pDoc->GetFormatTable() ) ) );
 
-            pNumberInfoItem.reset(ScTabViewShell::MakeNumberInfoItem(pDoc, &rViewData));
+            pNumberInfoItem = ScTabViewShell::MakeNumberInfoItem(pDoc, &rViewData);
 
             mpItemSet->MergeRange(SID_ATTR_NUMBERFORMAT_INFO, SID_ATTR_NUMBERFORMAT_INFO);
             mpItemSet->Put(*pNumberInfoItem);

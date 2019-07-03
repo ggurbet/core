@@ -23,8 +23,6 @@
 #include <i18nlangtag/lang.h>
 #include <editeng/editengdllapi.h>
 
-class SvXMLUnitConverter;
-
 // class SvxLanguageItem -------------------------------------------------
 
 /*  [Description]
@@ -57,11 +55,6 @@ public:
     virtual SfxPoolItem*    Clone( SfxItemPool *pPool = nullptr ) const override;
     virtual sal_uInt16      GetValueCount() const override;
 
-    SvxLanguageItem& operator=(const SvxLanguageItem& rLang)
-        {
-            SetValue( rLang.GetValue() );
-            return *this;
-        }
     SvxLanguageItem(SvxLanguageItem const &) = default; // SfxPoolItem copy function dichotomy
 
     LanguageType            GetLanguage() const

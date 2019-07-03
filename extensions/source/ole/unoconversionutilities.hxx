@@ -71,7 +71,7 @@ extern std::unordered_map<sal_uIntPtr, WeakReference<XInterface> > ComPtrToWrapp
 
 // Maps XInterface pointers to a weak reference of its wrapper class (i.e.
 // InterfaceOleWrapper). It is the responsibility of the wrapper to remove the entry when
-// it is being destroyed. It is used to ensure the identity of objects. That is, an UNO interface
+// it is being destroyed. It is used to ensure the identity of objects. That is, a UNO interface
 // is mapped to IDispatch which is kept alive in the COM environment. If the same
 // UNO interface is mapped again to COM then the IDispach of the first mapped instance
 // must be returned.
@@ -943,7 +943,7 @@ void UnoConversionUtilities<T>::anyToVariant(VARIANT* pVariant, const Any& rAny)
         default:
             //TypeClass_SERVICE:
             //TypeClass_EXCEPTION:
-            //When a InvocationTargetException is thrown when calling XInvocation::invoke
+            //When an InvocationTargetException is thrown when calling XInvocation::invoke
             //on a UNO object, then the target exception is directly used to create a
             //EXEPINFO structure
             //TypeClass_TYPEDEF
@@ -952,7 +952,7 @@ void UnoConversionUtilities<T>::anyToVariant(VARIANT* pVariant, const Any& rAny)
             //TypeClass_MODULE:
             throw CannotConvertException(
                       "[automation bridge]UnoConversionUtilities<T>::anyToVariant\n"
-                      "There is no conversion for this UNO type to a Automation type."
+                      "There is no conversion for this UNO type to an Automation type."
                       "The destination type class is the type class of the UNO "
                       "argument which was to be converted.",
                 Reference<XInterface>(), rAny.getValueTypeClass(),
@@ -1609,10 +1609,10 @@ void UnoConversionUtilities<T>::variantToAny( const VARIANT* pVariant, Any& rAny
     }
 
 }
-// The function converts an IUnknown* into an UNO interface or struct. The
+// The function converts an IUnknown* into a UNO interface or struct. The
 // IUnknown pointer can constitute different kind of objects:
-// 1. a wrapper of an UNO struct (the wrapper was created by this bridge)
-// 2. a wrapper of an UNO interface (created by this bridge)
+// 1. a wrapper of a UNO struct (the wrapper was created by this bridge)
+// 2. a wrapper of a UNO interface (created by this bridge)
 // 3. a dispatch object that implements UNO interfaces
 // 4. a dispatch object.
 
@@ -1629,7 +1629,7 @@ void UnoConversionUtilities<T>::variantToAny( const VARIANT* pVariant, Any& rAny
 // SUPPORTED_INTERFACES_PROP, then the INTERFACE_ADAPTER_FACTORY creates an object that
 // implements all these interfaces.
 // This is only done if "pUnknown" is not already a UNO wrapper,
-// that is it is actually NOT an UNO object that was converted to a COM object. If it is an
+// that is it is actually NOT a UNO object that was converted to a COM object. If it is an
 // UNO wrapper than the original UNO object is being extracted, queried for "aType" (if
 // it is no struct) and returned.
 template<class T>
@@ -1695,7 +1695,7 @@ Any UnoConversionUtilities<T>::createOleObjectWrapper(VARIANT* pVar, const Type&
     }
 
 
-    // Check if "spUnknown" is a UNO wrapper, that is an UNO object that has been
+    // Check if "spUnknown" is a UNO wrapper, that is a UNO object that has been
     // passed to COM. Then it supports IUnoObjectWrapper
     // and we extract the original UNO object.
     CComQIPtr<IUnoObjectWrapper> spUno( spUnknown);

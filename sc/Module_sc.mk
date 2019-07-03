@@ -114,10 +114,11 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_cellformatsenumeration \
 	CppunitTest_sc_cellformatsobj \
 	CppunitTest_sc_cellobj \
-	CppunitTest_sc_cellsobj \
 	CppunitTest_sc_cellrangeobj \
 	CppunitTest_sc_cellrangesobj \
+	CppunitTest_sc_cellsearchobj \
 	CppunitTest_sc_cellsenumeration \
+	CppunitTest_sc_cellsobj \
 	CppunitTest_sc_chart2dataprovider \
 	CppunitTest_sc_chartobj \
 	CppunitTest_sc_chartsobj \
@@ -140,6 +141,7 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_ddelinkobj \
 	CppunitTest_sc_ddelinksobj \
 	CppunitTest_sc_documentconfigurationobj \
+	CppunitTest_sc_drawpageobj \
 	CppunitTest_sc_drawpagesobj \
 	CppunitTest_sc_editfieldobj_cell \
 	CppunitTest_sc_editfieldobj_header \
@@ -191,11 +193,13 @@ $(eval $(call gb_Module_add_subsequentcheck_targets,sc,\
 	CppunitTest_sc_spreadsheetsettingsobj \
 	CppunitTest_sc_stylefamiliesobj \
 	CppunitTest_sc_stylefamilyobj \
-	CppunitTest_sc_subtotaldescriptorbaseobj \
+	CppunitTest_sc_subtotaldescriptorbase \
 	CppunitTest_sc_subtotalfieldobj \
+	CppunitTest_sc_tablecolumnobj \
 	CppunitTest_sc_tablecolumnsobj \
 	CppunitTest_sc_tableconditionalentryobj \
 	CppunitTest_sc_tableconditionalformat \
+	CppunitTest_sc_tablerowobj \
 	CppunitTest_sc_tablerowsobj \
 	CppunitTest_sc_tablesheetobj \
 	CppunitTest_sc_tablesheetsobj \
@@ -248,6 +252,8 @@ $(eval $(call gb_Module_add_uicheck_targets,sc,\
 	UITest_sort \
 	UITest_chart \
 	UITest_pageFormat \
+	UITest_calc_tests8 \
+	UITest_dialogs \
 ))
 endif
 

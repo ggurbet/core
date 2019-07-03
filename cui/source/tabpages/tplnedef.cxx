@@ -19,6 +19,7 @@
 
 #include <tools/urlobj.hxx>
 #include <vcl/settings.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/weld.hxx>
 #include <unotools/pathoptions.hxx>
 #include <sfx2/app.hxx>
@@ -28,10 +29,14 @@
 
 #include <strings.hrc>
 
-#include <svx/xattr.hxx>
+#include <svx/xlineit0.hxx>
+#include <svx/xlnwtit.hxx>
+#include <svx/xlndsit.hxx>
+#include <svx/xlnclit.hxx>
 #include <svx/xpool.hxx>
 #include <svx/xtable.hxx>
 
+#include <svx/dlgctrl.hxx>
 #include <svx/drawitem.hxx>
 #include <cuitabline.hxx>
 #include <dlgname.hxx>
@@ -42,7 +47,9 @@
 #include <svx/dialmgr.hxx>
 #include <svx/dialogs.hrc>
 #include <svx/strings.hrc>
+#include <svx/svxids.hrc>
 #include <cuitabarea.hxx>
+#include <svtools/unitconv.hxx>
 
 #define XOUT_WIDTH    150
 

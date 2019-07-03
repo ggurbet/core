@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <rtl/ustring.hxx>
 #include <sal/log.hxx>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include "XmlFilterAdaptor.hxx"
 #include <com/sun/star/lang/XMultiServiceFactory.hpp>
@@ -183,12 +184,11 @@ bool XmlFilterAdaptor::importImpl( const Sequence< css::beans::PropertyValue >& 
             return false;
         }
     }
-    catch( const Exception& e )
+    catch( const Exception& )
     {
+        TOOLS_WARN_EXCEPTION("filter.xmlfa", "XmlFilterAdaptor");
         if (xStatusIndicator.is())
                xStatusIndicator->end();
-
-        SAL_WARN("filter.xmlfa", "XmlFilterAdaptor: " << e);
         return false;
     }
     if (xStatusIndicator.is()) {
@@ -297,9 +297,9 @@ bool XmlFilterAdaptor::exportImpl( const Sequence< css::beans::PropertyValue >& 
             return false;
         }
     }
-    catch (const Exception& e)
+    catch (const Exception&)
     {
-        SAL_WARN("filter.xmlfa", "XmlFilterAdaptor: " << e);
+        TOOLS_WARN_EXCEPTION("filter.xmlfa", "XmlFilterAdaptor");
         if (xStatusIndicator.is())
             xStatusIndicator->end();
         return false;
@@ -335,8 +335,7 @@ void SAL_CALL XmlFilterAdaptor::setTargetDocument( const Reference< css::lang::X
 void SAL_CALL XmlFilterAdaptor::initialize( const Sequence< Any >& aArguments )
 {
     Sequence < PropertyValue > aAnySeq;
-    sal_Int32 nLength = aArguments.getLength();
-    if ( nLength && ( aArguments[0] >>= aAnySeq ) )
+    if ( aArguments.hasElements() && ( aArguments[0] >>= aAnySeq ) )
     {
         comphelper::SequenceAsHashMap aMap(aAnySeq);
         msFilterName = aMap.getUnpackedValueOrDefault(

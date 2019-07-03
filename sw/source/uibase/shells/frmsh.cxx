@@ -77,6 +77,7 @@
 
 #include <svx/dialogs.hrc>
 #include <svx/svxdlg.hxx>
+#include <svx/svxids.hrc>
 
 #include <docsh.hxx>
 #include <svx/drawitem.hxx>
@@ -86,6 +87,7 @@
 #include <sfx2/msg.hxx>
 #include <swslots.hxx>
 #include <grfatr.hxx>
+#include <fldmgr.hxx>
 
 using ::editeng::SvxBorderLine;
 using namespace ::com::sun::star;
@@ -112,6 +114,32 @@ void SwFrameShell::InitInterface_Impl()
     GetStaticInterface()->RegisterPopupMenu("frame");
 
     GetStaticInterface()->RegisterObjectBar(SFX_OBJECTBAR_OBJECT, SfxVisibilityFlags::Invisible, ToolbarId::Frame_Toolbox);
+}
+
+void SwFrameShell::ExecMove(SfxRequest& rReq)
+{
+    SwWrtShell& rSh = GetShell();
+    sal_uInt16 nSlot = rReq.GetSlot();
+    switch (nSlot)
+    {
+        case SID_SELECTALL:
+            rSh.SelAll();
+            rReq.Done();
+            break;
+    }
+}
+
+void SwFrameShell::ExecField(SfxRequest& rReq)
+{
+    SwWrtShell& rSh = GetShell();
+    sal_uInt16 nSlot = rReq.GetSlot();
+    switch (nSlot)
+    {
+        case FN_POSTIT:
+            SwFieldMgr aFieldMgr(&rSh);
+            rSh.InsertPostIt(aFieldMgr, rReq);
+            break;
+    }
 }
 
 void SwFrameShell::Execute(SfxRequest &rReq)
@@ -345,7 +373,22 @@ void SwFrameShell::Execute(SfxRequest &rReq)
 
         case SID_ATTR_TRANSFORM:
         {
+            bool bApplyNewPos = false;
             bool bApplyNewSize = false;
+
+            Point aNewPos = aMgr.GetPos();
+            if (pArgs &&
+                SfxItemState::SET == pArgs->GetItemState(SID_ATTR_TRANSFORM_POS_X, false, &pItem))
+            {
+                aNewPos.setX( static_cast<const SfxInt32Item*>(pItem)->GetValue() );
+                bApplyNewPos = true;
+            }
+            if (pArgs &&
+                SfxItemState::SET == pArgs->GetItemState(SID_ATTR_TRANSFORM_POS_Y, false, &pItem))
+            {
+                aNewPos.setY( static_cast<const SfxInt32Item*>(pItem)->GetValue() );
+                bApplyNewPos = true;
+            }
 
             Size aNewSize = aMgr.GetSize();
             if (pArgs &&
@@ -388,11 +431,15 @@ void SwFrameShell::Execute(SfxRequest &rReq)
                 }
             }
 
+            if (bApplyNewPos)
+            {
+                aMgr.SetAbsPos(aNewPos);
+            }
             if ( bApplyNewSize )
             {
                 aMgr.SetSize( aNewSize );
             }
-            else
+            if (!bApplyNewPos && !bApplyNewSize)
             {
                 bUpdateMgr = false;
             }
@@ -1017,7 +1064,7 @@ void SwFrameShell::ExecFrameStyle(SfxRequest const & rReq)
     if (pPoolBoxItem == &rBoxItem)
         bDefault = true;
 
-    SvxBoxItem aBoxItem(rBoxItem);
+    std::shared_ptr<SvxBoxItem> aBoxItem(static_cast<SvxBoxItem*>(rBoxItem.Clone()));
 
     SvxBorderLine aBorderLine;
     const SfxPoolItem *pItem = nullptr;
@@ -1030,16 +1077,16 @@ void SwFrameShell::ExecFrameStyle(SfxRequest const & rReq)
             {
                 if (pArgs->GetItemState(RES_BOX, true, &pItem) == SfxItemState::SET)
                 {
-                    SvxBoxItem aNewBox(*static_cast<const SvxBoxItem *>(pItem));
+                    std::shared_ptr<SvxBoxItem> aNewBox(static_cast<SvxBoxItem*>(pItem->Clone()));
                     const SvxBorderLine* pBorderLine;
 
-                    if ((pBorderLine = aBoxItem.GetTop()) != nullptr)
+                    if ((pBorderLine = aBoxItem->GetTop()) != nullptr)
                         lcl_FrameGetMaxLineWidth(pBorderLine, aBorderLine);
-                    if ((pBorderLine = aBoxItem.GetBottom()) != nullptr)
+                    if ((pBorderLine = aBoxItem->GetBottom()) != nullptr)
                         lcl_FrameGetMaxLineWidth(pBorderLine, aBorderLine);
-                    if ((pBorderLine = aBoxItem.GetLeft()) != nullptr)
+                    if ((pBorderLine = aBoxItem->GetLeft()) != nullptr)
                         lcl_FrameGetMaxLineWidth(pBorderLine, aBorderLine);
-                    if ((pBorderLine = aBoxItem.GetRight()) != nullptr)
+                    if ((pBorderLine = aBoxItem->GetRight()) != nullptr)
                         lcl_FrameGetMaxLineWidth(pBorderLine, aBorderLine);
 
                     if(aBorderLine.GetOutWidth() == 0)
@@ -1055,20 +1102,20 @@ void SwFrameShell::ExecFrameStyle(SfxRequest const & rReq)
 #endif
                     {
                         // TODO: should this copy 4 individual Dist instead?
-                        aNewBox.SetAllDistances(rBoxItem.GetSmallestDistance());
+                        aNewBox->SetAllDistances(rBoxItem.GetSmallestDistance());
                     }
 
                     aBoxItem = aNewBox;
                     SvxBorderLine aDestBorderLine;
 
-                    if( aBoxItem.GetTop() != nullptr )
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::TOP);
-                    if( aBoxItem.GetBottom() != nullptr )
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
-                    if( aBoxItem.GetLeft() != nullptr )
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
-                    if( aBoxItem.GetRight() != nullptr )
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
+                    if( aBoxItem->GetTop() != nullptr )
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::TOP);
+                    if( aBoxItem->GetBottom() != nullptr )
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
+                    if( aBoxItem->GetLeft() != nullptr )
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
+                    if( aBoxItem->GetRight() != nullptr )
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
                 }
             }
             break;
@@ -1084,44 +1131,44 @@ void SwFrameShell::ExecFrameStyle(SfxRequest const & rReq)
                     {
                         aBorderLine = *(pLineItem->GetLine());
 
-                        if (!aBoxItem.GetTop() && !aBoxItem.GetBottom() &&
-                            !aBoxItem.GetLeft() && !aBoxItem.GetRight())
+                        if (!aBoxItem->GetTop() && !aBoxItem->GetBottom() &&
+                            !aBoxItem->GetLeft() && !aBoxItem->GetRight())
                         {
-                            aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::TOP);
-                            aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
-                            aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
-                            aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
+                            aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::TOP);
+                            aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
+                            aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
+                            aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
                         }
                         else
                         {
-                            if( aBoxItem.GetTop() )
+                            if( aBoxItem->GetTop() )
                             {
-                                aBorderLine.SetColor( aBoxItem.GetTop()->GetColor() );
-                                aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::TOP);
+                                aBorderLine.SetColor( aBoxItem->GetTop()->GetColor() );
+                                aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::TOP);
                             }
-                            if( aBoxItem.GetBottom() )
+                            if( aBoxItem->GetBottom() )
                             {
-                                aBorderLine.SetColor( aBoxItem.GetBottom()->GetColor());
-                                aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
+                                aBorderLine.SetColor( aBoxItem->GetBottom()->GetColor());
+                                aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
                             }
-                            if( aBoxItem.GetLeft() )
+                            if( aBoxItem->GetLeft() )
                             {
-                                aBorderLine.SetColor( aBoxItem.GetLeft()->GetColor());
-                                aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
+                                aBorderLine.SetColor( aBoxItem->GetLeft()->GetColor());
+                                aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
                             }
-                            if( aBoxItem.GetRight() )
+                            if( aBoxItem->GetRight() )
                             {
-                                aBorderLine.SetColor(aBoxItem.GetRight()->GetColor());
-                                aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
+                                aBorderLine.SetColor(aBoxItem->GetRight()->GetColor());
+                                aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
                             }
                         }
                     }
                     else
                     {
-                        aBoxItem.SetLine(nullptr, SvxBoxItemLine::TOP);
-                        aBoxItem.SetLine(nullptr, SvxBoxItemLine::BOTTOM);
-                        aBoxItem.SetLine(nullptr, SvxBoxItemLine::LEFT);
-                        aBoxItem.SetLine(nullptr, SvxBoxItemLine::RIGHT);
+                        aBoxItem->SetLine(nullptr, SvxBoxItemLine::TOP);
+                        aBoxItem->SetLine(nullptr, SvxBoxItemLine::BOTTOM);
+                        aBoxItem->SetLine(nullptr, SvxBoxItemLine::LEFT);
+                        aBoxItem->SetLine(nullptr, SvxBoxItemLine::RIGHT);
                     }
                 }
             }
@@ -1133,37 +1180,37 @@ void SwFrameShell::ExecFrameStyle(SfxRequest const & rReq)
                 {
                     const Color& rNewColor = static_cast<const SvxColorItem*>(pItem)->GetValue();
 
-                    if (!aBoxItem.GetTop() && !aBoxItem.GetBottom() &&
-                        !aBoxItem.GetLeft() && !aBoxItem.GetRight())
+                    if (!aBoxItem->GetTop() && !aBoxItem->GetBottom() &&
+                        !aBoxItem->GetLeft() && !aBoxItem->GetRight())
                     {
                         aBorderLine.SetColor( rNewColor );
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::TOP);
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
-                        aBoxItem.SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::TOP);
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::BOTTOM);
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::LEFT);
+                        aBoxItem->SetLine(&aBorderLine, SvxBoxItemLine::RIGHT);
                     }
                     else
                     {
-                        if ( aBoxItem.GetTop() )
-                            const_cast<SvxBorderLine*>(aBoxItem.GetTop())->SetColor( rNewColor );
-                        if ( aBoxItem.GetBottom() )
-                            const_cast<SvxBorderLine*>(aBoxItem.GetBottom())->SetColor( rNewColor );
-                        if ( aBoxItem.GetLeft() )
-                            const_cast<SvxBorderLine*>(aBoxItem.GetLeft())->SetColor( rNewColor );
-                        if ( aBoxItem.GetRight() )
-                            const_cast<SvxBorderLine*>(aBoxItem.GetRight())->SetColor( rNewColor );
+                        if ( aBoxItem->GetTop() )
+                            const_cast<SvxBorderLine*>(aBoxItem->GetTop())->SetColor( rNewColor );
+                        if ( aBoxItem->GetBottom() )
+                            const_cast<SvxBorderLine*>(aBoxItem->GetBottom())->SetColor( rNewColor );
+                        if ( aBoxItem->GetLeft() )
+                            const_cast<SvxBorderLine*>(aBoxItem->GetLeft())->SetColor( rNewColor );
+                        if ( aBoxItem->GetRight() )
+                            const_cast<SvxBorderLine*>(aBoxItem->GetRight())->SetColor( rNewColor );
                     }
                 }
             }
             break;
         }
     }
-    if (bDefault && (aBoxItem.GetTop() || aBoxItem.GetBottom() ||
-        aBoxItem.GetLeft() || aBoxItem.GetRight()))
+    if (bDefault && (aBoxItem->GetTop() || aBoxItem->GetBottom() ||
+        aBoxItem->GetLeft() || aBoxItem->GetRight()))
     {
-        aBoxItem.SetAllDistances(MIN_BORDER_DIST);
+        aBoxItem->SetAllDistances(MIN_BORDER_DIST);
     }
-    aFrameSet.Put( aBoxItem );
+    aFrameSet.Put( *aBoxItem );
     // Template AutoUpdate
     SwFrameFormat* pFormat = rSh.GetSelectedFrameFormat();
     if(pFormat && pFormat->IsAutoUpdateFormat())
@@ -1296,42 +1343,44 @@ void SwFrameShell::ExecDrawDlgTextFrame(SfxRequest const & rReq)
 
             if(rSh.IsFrameSelected())
             {
-                SdrView* pView = rSh.GetDrawView();
-                SdrModel* pDoc = pView->GetModel();
+                SdrModel* pDoc = rSh.GetDrawView()->GetModel();
                 SfxItemSet aNewAttr(pDoc->GetItemPool());
 
                 // get attributes from FlyFrame
                 rSh.GetFlyFrameAttr(aNewAttr);
 
                 SvxAbstractDialogFactory* pFact = SvxAbstractDialogFactory::Create();
-                ScopedVclPtr<AbstractSvxAreaTabDialog> pDlg(pFact->CreateSvxAreaTabDialog(
-                    nullptr,
+                VclPtr<AbstractSvxAreaTabDialog> pDlg(pFact->CreateSvxAreaTabDialog(
+                    GetView().GetFrameWeld(),
                     &aNewAttr,
                     pDoc,
                     false));
 
-                if(RET_OK == pDlg->Execute())
-                {
-                    // set attributes at FlyFrame
-                    rSh.SetFlyFrameAttr(const_cast< SfxItemSet& >(*pDlg->GetOutputItemSet()));
-
-                    static sal_uInt16 aInval[] =
+                pDlg->StartExecuteAsync([=](sal_Int32 nResult){
+                    if(nResult == RET_OK)
                     {
-                        SID_ATTR_FILL_STYLE,
-                        SID_ATTR_FILL_COLOR,
-                        SID_ATTR_FILL_TRANSPARENCE,
-                        SID_ATTR_FILL_FLOATTRANSPARENCE,
-                        0
-                    };
+                        // set attributes at FlyFrame
+                        GetShell().SetFlyFrameAttr(const_cast< SfxItemSet& >(*pDlg->GetOutputItemSet()));
 
-                    SfxBindings &rBnd = GetView().GetViewFrame()->GetBindings();
+                        static sal_uInt16 aInval[] =
+                        {
+                            SID_ATTR_FILL_STYLE,
+                            SID_ATTR_FILL_COLOR,
+                            SID_ATTR_FILL_TRANSPARENCE,
+                            SID_ATTR_FILL_FLOATTRANSPARENCE,
+                            0
+                        };
 
-                    rBnd.Invalidate(aInval);
-                    rBnd.Update(SID_ATTR_FILL_STYLE);
-                    rBnd.Update(SID_ATTR_FILL_COLOR);
-                    rBnd.Update(SID_ATTR_FILL_TRANSPARENCE);
-                    rBnd.Update(SID_ATTR_FILL_FLOATTRANSPARENCE);
-                }
+                        SfxBindings &rBnd = GetView().GetViewFrame()->GetBindings();
+
+                        rBnd.Invalidate(aInval);
+                        rBnd.Update(SID_ATTR_FILL_STYLE);
+                        rBnd.Update(SID_ATTR_FILL_COLOR);
+                        rBnd.Update(SID_ATTR_FILL_TRANSPARENCE);
+                        rBnd.Update(SID_ATTR_FILL_FLOATTRANSPARENCE);
+                    }
+                    pDlg->disposeOnce();
+                });
             }
 
             break;

@@ -739,7 +739,7 @@ void FillProperties::pushToPropMap( ShapePropertyMap& rPropMap,
     }
 }
 
-void GraphicProperties::pushToPropMap( PropertyMap& rPropMap, const GraphicHelper& rGraphicHelper ) const
+void GraphicProperties::pushToPropMap( PropertyMap& rPropMap, const GraphicHelper& rGraphicHelper) const
 {
     sal_Int16 nBrightness = getLimitedValue< sal_Int16, sal_Int32 >( maBlipProps.moBrightness.get( 0 ) / PER_PERCENT, -100, 100 );
     sal_Int16 nContrast = getLimitedValue< sal_Int16, sal_Int32 >( maBlipProps.moContrast.get( 0 ) / PER_PERCENT, -100, 100 );
@@ -770,7 +770,15 @@ void GraphicProperties::pushToPropMap( PropertyMap& rPropMap, const GraphicHelpe
             nBrightness = 0;
             nContrast = 0;
         }
-        rPropMap.setProperty(PROP_Graphic, xGraphic);
+        if(mbIsCustomShape)
+        {
+            // it is a cropped graphic.
+            rPropMap.setProperty(PROP_FillStyle, FillStyle_BITMAP);
+            rPropMap.setProperty(PROP_FillBitmapMode, BitmapMode_STRETCH);
+            rPropMap.setProperty(PROP_FillBitmap, xGraphic);
+        }
+        else
+            rPropMap.setProperty(PROP_Graphic, xGraphic);
 
         // cropping
         if ( maBlipProps.moClipRect.has() )
@@ -790,6 +798,11 @@ void GraphicProperties::pushToPropMap( PropertyMap& rPropMap, const GraphicHelpe
                     aGraphCrop.Bottom = rtl::math::round( ( static_cast< double >( aOriginalSize.Height ) * oClipRect.Y2 ) / 100000 );
                 rPropMap.setProperty(PROP_GraphicCrop, aGraphCrop);
             }
+        }
+
+        if ( maBlipProps.moAlphaModFix.has() )
+        {
+            rPropMap.setProperty(PROP_Transparency, static_cast<sal_Int16>(100 - (maBlipProps.moAlphaModFix.get() / PER_PERCENT)));
         }
     }
     rPropMap.setProperty(PROP_GraphicColorMode, eColorMode);

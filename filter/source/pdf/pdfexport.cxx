@@ -24,6 +24,7 @@
 #include <tools/fract.hxx>
 #include <tools/poly.hxx>
 #include <unotools/resmgr.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/mapmod.hxx>
 #include <vcl/virdev.hxx>
 #include <vcl/metaact.hxx>
@@ -300,11 +301,11 @@ void PDFExportStreamDoc::write( const Reference< XOutputStream >& xStream )
     Reference< css::frame::XStorable > xStore( m_xSrcDoc, UNO_QUERY );
     if( xStore.is() )
     {
-        Sequence< beans::PropertyValue > aArgs( 2 + ((m_aPreparedPassword.getLength() > 0) ? 1 : 0) );
+        Sequence< beans::PropertyValue > aArgs( 2 + (m_aPreparedPassword.hasElements() ? 1 : 0) );
         aArgs.getArray()[0].Name = "FilterName";
         aArgs.getArray()[1].Name = "OutputStream";
         aArgs.getArray()[1].Value <<= xStream;
-        if( m_aPreparedPassword.getLength() )
+        if( m_aPreparedPassword.hasElements() )
         {
             aArgs.getArray()[2].Name = "EncryptionData";
             aArgs.getArray()[2].Value <<= m_aPreparedPassword;
@@ -739,7 +740,7 @@ bool PDFExport::Export( const OUString& rFile, const Sequence< PropertyValue >& 
                 aContext.Encryption.CanExtractForAccessibility  = mbCanExtractForAccessibility;
                 if( mbEncrypt && ! xEnc.is() )
                     xEnc = vcl::PDFWriter::InitEncryption( aPermissionPassword, aOpenPassword );
-                if( mbEncrypt && !aPermissionPassword.isEmpty() && ! aPreparedPermissionPassword.getLength() )
+                if( mbEncrypt && !aPermissionPassword.isEmpty() && ! aPreparedPermissionPassword.hasElements() )
                     aPreparedPermissionPassword = comphelper::OStorageHelper::CreatePackageEncryptionData( aPermissionPassword );
             }
             // after this point we don't need the legacy clear passwords anymore
@@ -1071,8 +1072,8 @@ void PDFExport::ImplExportPage( vcl::PDFWriter& rWriter, vcl::PDFExtOutDevData& 
     aCtx.m_nJPEGQuality             = mnQuality;
 
 
-    basegfx::B2DRectangle aB2DRect( aPageRect.Left(), aPageRect.Top(), aPageRect.Right(), aPageRect.Bottom() );
-    rWriter.SetClipRegion( basegfx::B2DPolyPolygon( basegfx::utils::createPolygonFromRect( aB2DRect ) ) );
+    rWriter.SetClipRegion( basegfx::B2DPolyPolygon(
+        basegfx::utils::createPolygonFromRect( vcl::unotools::b2DRectangleFromRectangle(aPageRect) ) ) );
 
     rWriter.PlayMetafile( aMtf, aCtx, &rPDFExtOutDevData );
 
@@ -1091,7 +1092,7 @@ void PDFExport::ImplExportPage( vcl::PDFWriter& rWriter, vcl::PDFExtOutDevData& 
 
 void PDFExport::ImplWriteWatermark( vcl::PDFWriter& rWriter, const Size& rPageSize )
 {
-    vcl::Font aFont( OUString( "Helvetica" ), Size( 0, 3*rPageSize.Height()/4 ) );
+    vcl::Font aFont( "Helvetica", Size( 0, 3*rPageSize.Height()/4 ) );
     aFont.SetItalic( ITALIC_NONE );
     aFont.SetWidthType( WIDTH_NORMAL );
     aFont.SetWeight( WEIGHT_NORMAL );
@@ -1158,7 +1159,7 @@ void PDFExport::ImplWriteWatermark( vcl::PDFWriter& rWriter, const Size& rPageSi
 
 void PDFExport::ImplWriteTiledWatermark( vcl::PDFWriter& rWriter, const Size& rPageSize )
 {
-    vcl::Font aFont( OUString( "Liberation Sans" ), Size( 0, 40 ) );
+    vcl::Font aFont( "Liberation Sans", Size( 0, 40 ) );
     aFont.SetItalic( ITALIC_NONE );
     aFont.SetWidthType( WIDTH_NORMAL );
     aFont.SetWeight( WEIGHT_NORMAL );

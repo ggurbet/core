@@ -520,10 +520,7 @@ public:
     }
 
     OutDevType                  GetOutDevType() const { return meOutDevType; }
-    bool IsVirtual() const
-    {
-        return (meOutDevType == OUTDEV_VIRDEV) || (meOutDevType == OUTDEV_PDF);
-    }
+    virtual bool IsVirtual() const;
 
     /** Query an OutputDevice to see whether it supports a specific operation
 
@@ -669,6 +666,14 @@ public:
 protected:
 
     virtual void                InitClipRegion();
+
+    /** Perform actual rect clip against outdev dimensions, to generate
+        empty clips whenever one of the values is completely off the device.
+
+        @param aRegion      region to be clipped to the device dimensions
+        @returns            region clipped to the device bounds
+     **/
+    virtual vcl::Region         ClipToDeviceBounds(vcl::Region aRegion) const;
     virtual void                ClipToPaintRegion    ( tools::Rectangle& rDstRect );
 
 private:
@@ -730,6 +735,9 @@ public:
 
     void                        DrawLine( const Point& rStartPt, const Point& rEndPt,
                                           const LineInfo& rLineInfo );
+
+protected:
+    virtual void DrawHatchLine_DrawLine(const Point& rStartPoint, const Point& rEndPoint);
 
 private:
 
@@ -988,7 +996,7 @@ public:
     void                        ImplDrawTextLines( SalLayout&, FontStrikeout eStrikeout, FontLineStyle eUnderline,
                                                    FontLineStyle eOverline, bool bWordLine, bool bUnderlineAbove );
 
-    void                        DrawWaveLine( const Point& rStartPos, const Point& rEndPos );
+    void                        DrawWaveLine( const Point& rStartPos, const Point& rEndPos, long nLineWidth = 1 );
 
     bool                        ImplDrawRotateText( SalLayout& );
 
@@ -1277,13 +1285,16 @@ protected:
     virtual void                SetFontOrientation( LogicalFontInstance* const pFontInstance ) const;
     virtual long                GetFontExtLeading() const;
 
+    virtual void ImplClearFontData(bool bNewFontLists);
+    void ReleaseFontCache();
+    void ReleaseFontCollection();
+
 private:
 
     typedef void ( OutputDevice::* FontUpdateHandler_t )( bool );
 
     SAL_DLLPRIVATE bool         ImplNewFont() const;
 
-    SAL_DLLPRIVATE void         ImplClearFontData( bool bNewFontLists );
     SAL_DLLPRIVATE void         ImplRefreshFontData( bool bNewFontLists );
     SAL_DLLPRIVATE static void  ImplUpdateFontDataForAllFrames( FontUpdateHandler_t pHdl, bool bNewFontLists );
 
@@ -1306,6 +1317,7 @@ public:
                                                       sal_Int32 nIndex, sal_Int32 nLen,
                                                       const long* pDXAry ) const;
 
+    // tells whether this output device is RTL in an LTR UI or LTR in a RTL UI
     SAL_DLLPRIVATE bool         ImplIsAntiparallel() const ;
     SAL_DLLPRIVATE void         ReMirror( Point &rPoint ) const;
     SAL_DLLPRIVATE void         ReMirror( tools::Rectangle &rRect ) const;
@@ -1324,7 +1336,6 @@ public:
                                                          vcl::TextLayoutCache const* = nullptr) const;
     SAL_DLLPRIVATE std::unique_ptr<SalLayout>
                                 ImplGlyphFallbackLayout( std::unique_ptr<SalLayout>, ImplLayoutArgs& ) const;
-    // tells whether this output device is RTL in an LTR UI or LTR in a RTL UI
     SAL_DLLPRIVATE std::unique_ptr<SalLayout>
                                 getFallbackLayout(
                                     LogicalFontInstance* pLogicalFont, int nFallbackLevel,
@@ -1973,7 +1984,7 @@ public:
 public:
 
     /** @returns boolean value to see if EPS could be painted directly.
-        Theoreticaly, handing over a matrix would be needed to handle
+        Theoretically, handing over a matrix would be needed to handle
         painting rotated EPS files (e.g. contained in Metafiles). This
         would then need to be supported for Mac and PS printers, but
         that's too much for now, wrote \#i107046# for this */

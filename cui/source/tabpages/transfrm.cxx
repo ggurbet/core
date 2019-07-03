@@ -31,8 +31,10 @@
 #include <svx/svdoashp.hxx>
 #include <svx/sderitm.hxx>
 #include <svx/dialogs.hrc>
+#include <svx/svxids.hrc>
 #include <svx/transfrmhelper.hxx>
 #include <editeng/sizeitem.hxx>
+#include <svtools/unitconv.hxx>
 
 #include <transfrm.hxx>
 #include <svx/dlgutil.hxx>
@@ -43,6 +45,7 @@
 #include <svl/aeitem.hxx>
 #include <swpossizetabpage.hxx>
 #include <comphelper/lok.hxx>
+#include <vcl/canvastools.hxx>
 
 // static ----------------------------------------------------------------
 
@@ -84,28 +87,6 @@ const sal_uInt16 SvxSlantTabPage::pSlantRanges[] =
     SID_ATTR_TRANSFORM_INTERN,
     0
 };
-
-namespace {
-
-bool lcl_twipsNeeded(const SdrView* pView)
-{
-    const bool bTiledRendering = comphelper::LibreOfficeKit::isActive();
-    if (bTiledRendering)
-    {
-        // We gets the position in twips
-        if (OutputDevice* pOutputDevice = pView->GetFirstOutputDevice())
-        {
-            if (pOutputDevice->GetMapMode().GetMapUnit() == MapUnit::Map100thMM)
-            {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-} // anonymous ns
-
 
 /*************************************************************************
 |*
@@ -234,7 +215,7 @@ void SvxAngleTabPage::Construct()
     { // #i75273#
         ::tools::Rectangle aTempRect(pView->GetAllMarkedRect());
         pView->GetSdrPageView()->LogicToPagePos(aTempRect);
-        maRange = basegfx::B2DRange(aTempRect.Left(), aTempRect.Top(), aTempRect.Right(), aTempRect.Bottom());
+        maRange = vcl::unotools::b2DRectangleFromRectangle(aTempRect);
     }
 
     // Take anchor into account (Writer)
@@ -276,18 +257,9 @@ bool SvxAngleTabPage::FillItemSet(SfxItemSet* rSet)
         const double fTmpX((GetCoreValue(*m_xMtrPosX, ePoolUnit) + maAnchor.getX()) * fUIScale);
         const double fTmpY((GetCoreValue(*m_xMtrPosY, ePoolUnit) + maAnchor.getY()) * fUIScale);
 
-        long nRotateX = basegfx::fround(fTmpX);
-        long nRotateY = basegfx::fround(fTmpY);
-
-        if (lcl_twipsNeeded(pView))
-        {
-            nRotateX = OutputDevice::LogicToLogic(nRotateX, MapUnit::Map100thMM, MapUnit::MapTwip);
-            nRotateY = OutputDevice::LogicToLogic(nRotateY, MapUnit::Map100thMM, MapUnit::MapTwip);
-        }
-
         rSet->Put(SfxInt32Item(GetWhich(SID_ATTR_TRANSFORM_ANGLE), m_aCtlAngle.GetRotation()));
-        rSet->Put(SfxInt32Item(GetWhich(SID_ATTR_TRANSFORM_ROT_X), nRotateX));
-        rSet->Put(SfxInt32Item(GetWhich(SID_ATTR_TRANSFORM_ROT_Y), nRotateY));
+        rSet->Put(SfxInt32Item(GetWhich(SID_ATTR_TRANSFORM_ROT_X), basegfx::fround(fTmpX)));
+        rSet->Put(SfxInt32Item(GetWhich(SID_ATTR_TRANSFORM_ROT_Y), basegfx::fround(fTmpY)));
 
         bModified = true;
     }
@@ -821,8 +793,6 @@ SvxPositionSizeTabPage::SvxPositionSizeTabPage(TabPageParent pParent, const SfxI
     m_xMtrHeight->connect_value_changed( LINK( this, SvxPositionSizeTabPage, ChangeHeightHdl ) );
     m_xCbxScale->connect_toggled( LINK( this, SvxPositionSizeTabPage, ClickAutoHdl ) );
 
-    m_xTsbAutoGrowWidth->set_sensitive(false);
-    m_xTsbAutoGrowHeight->set_sensitive(false);
     m_xFlAdjust->set_sensitive(false);
 
     // #i2379# disable controls when protected
@@ -855,13 +825,13 @@ void SvxPositionSizeTabPage::Construct()
     { // #i75273#
         ::tools::Rectangle aTempRect(mpView->GetAllMarkedRect());
         mpView->GetSdrPageView()->LogicToPagePos(aTempRect);
-        maRange = basegfx::B2DRange(aTempRect.Left(), aTempRect.Top(), aTempRect.Right(), aTempRect.Bottom());
+        maRange = vcl::unotools::b2DRectangleFromRectangle(aTempRect);
     }
 
     { // #i75273#
         ::tools::Rectangle aTempRect(mpView->GetWorkArea());
         mpView->GetSdrPageView()->LogicToPagePos(aTempRect);
-        maWorkRange = basegfx::B2DRange(aTempRect.Left(), aTempRect.Top(), aTempRect.Right(), aTempRect.Bottom());
+        maWorkRange = vcl::unotools::b2DRectangleFromRectangle(aTempRect);
     }
 
     // take anchor into account (Writer)
@@ -956,17 +926,11 @@ bool SvxPositionSizeTabPage::FillItemSet( SfxItemSet* rOutAttrs )
             { // #i75273#
                 ::tools::Rectangle aTempRect(mpView->GetAllMarkedRect());
                 mpView->GetSdrPageView()->LogicToPagePos(aTempRect);
-                maRange = basegfx::B2DRange(aTempRect.Left(), aTempRect.Top(), aTempRect.Right(), aTempRect.Bottom());
+                maRange = vcl::unotools::b2DRectangleFromRectangle(aTempRect);
             }
 
             // #101581# GetTopLeftPosition(...) needs coordinates after UI scaling, in real PagePositions
             GetTopLeftPosition(fX, fY, maRange);
-
-            if (lcl_twipsNeeded(mpView))
-            {
-                fX = OutputDevice::LogicToLogic(fX, MapUnit::Map100thMM, MapUnit::MapTwip);
-                fY = OutputDevice::LogicToLogic(fY, MapUnit::Map100thMM, MapUnit::MapTwip);
-            }
 
             rOutAttrs->Put(SfxInt32Item(GetWhich(SID_ATTR_TRANSFORM_POS_X), basegfx::fround(fX)));
             rOutAttrs->Put(SfxInt32Item(GetWhich(SID_ATTR_TRANSFORM_POS_Y), basegfx::fround(fY)));
@@ -1006,12 +970,6 @@ bool SvxPositionSizeTabPage::FillItemSet( SfxItemSet* rOutAttrs )
         long lHeight = long(nHeight * static_cast<double>(aUIScale));
         lHeight = OutputDevice::LogicToLogic( lHeight, MapUnit::Map100thMM, mePoolUnit );
         lHeight = static_cast<long>(m_xMtrHeight->denormalize( lHeight ));
-
-        if (lcl_twipsNeeded(mpView))
-        {
-            lWidth = OutputDevice::LogicToLogic(lWidth, MapUnit::Map100thMM, MapUnit::MapTwip);
-            lHeight = OutputDevice::LogicToLogic(lHeight, MapUnit::Map100thMM, MapUnit::MapTwip);
-        }
 
         // put Width & Height to itemset
         rOutAttrs->Put( SfxUInt32Item( GetWhich( SID_ATTR_TRANSFORM_WIDTH ), static_cast<sal_uInt32>(lWidth) ) );
@@ -1178,7 +1136,7 @@ void SvxPositionSizeTabPage::ActivatePage( const SfxItemSet& rSet )
     {
         { // #i75273#
             const ::tools::Rectangle aTempRect(pRectItem->GetValue());
-            maRange = basegfx::B2DRange(aTempRect.Left(), aTempRect.Top(), aTempRect.Right(), aTempRect.Bottom());
+            maRange = vcl::unotools::b2DRectangleFromRectangle(aTempRect);
         }
 
         SetMinMaxPosition();

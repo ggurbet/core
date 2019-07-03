@@ -17,7 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
 #include <iostream>
 #endif
 
@@ -129,7 +129,7 @@ sal_Bool WriterFilter::filter(const uno::Sequence< beans::PropertyValue >& rDesc
         uno::Reference< uno::XInterface > xIfc;
         try
         {
-            xIfc.set(xMSF->createInstance("com.sun.star.comp.Writer.DocxExport"), uno::UNO_QUERY_THROW);
+            xIfc.set(xMSF->createInstance("com.sun.star.comp.Writer.DocxExport"), uno::UNO_SET_THROW);
         }
         catch (uno::RuntimeException&)
         {

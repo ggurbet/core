@@ -20,8 +20,6 @@
 #include <config_locales.h>
 
 #include <com/sun/star/lang/XSingleServiceFactory.hpp>
-#include <com/sun/star/lang/XMultiServiceFactory.hpp>
-#include <com/sun/star/registry/XRegistryKey.hpp>
 
 #include <comphelper/processfactory.hxx>
 #include <cppuhelper/factory.hxx>
@@ -48,7 +46,6 @@
 #include <indexentrysupplier.hxx>
 #include <indexentrysupplier_asian.hxx>
 #include <indexentrysupplier_ja_phonetic.hxx>
-#include <indexentrysupplier_common.hxx>
 #include <indexentrysupplier_default.hxx>
 
 #include <chaptercollator.hxx>
@@ -117,6 +114,7 @@ IMPL_CREATEINSTANCE( Calendar_gregorian )
 IMPL_CREATEINSTANCE( Calendar_hanja )
 IMPL_CREATEINSTANCE( Calendar_gengou )
 IMPL_CREATEINSTANCE( Calendar_ROC )
+IMPL_CREATEINSTANCE( Calendar_dangi )
 IMPL_CREATEINSTANCE( Calendar_hijri )
 IMPL_CREATEINSTANCE( Calendar_jewish )
 IMPL_CREATEINSTANCE( Calendar_buddhist )
@@ -298,6 +296,9 @@ static const struct InstancesArray {
     {   "com.sun.star.i18n.Calendar_ROC",
         "com.sun.star.i18n.Calendar_ROC",
         &Calendar_ROC_CreateInstance },
+    {   "com.sun.star.i18n.Calendar_dangi",
+        "com.sun.star.i18n.Calendar_dangi",
+        &Calendar_dangi_CreateInstance },
     {   "com.sun.star.i18n.Calendar_hanja_yoil",
         "com.sun.star.i18n.Calendar_hanja_yoil",
         &Calendar_hanja_CreateInstance },

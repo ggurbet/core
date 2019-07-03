@@ -22,6 +22,9 @@
 #include <osl/diagnose.h>
 #include <cppuhelper/queryinterface.hxx>
 
+#include <com/sun/star/awt/XWindow.hpp>
+#include <com/sun/star/awt/XTopWindow.hpp>
+
 using namespace ::cppu;
 using namespace ::osl;
 using namespace ::com::sun::star::uno;
@@ -156,22 +159,18 @@ void OMRCListenerMultiplexerHelper::setPeer( const Reference< XWindow >& xPeer )
         {
             // get all types from the listener added to the peer
             Sequence< Type >    aContainedTypes = m_aListenerHolder.getContainedTypes();
-            const Type*         pArray          = aContainedTypes.getConstArray();
-            sal_Int32           nCount          = aContainedTypes.getLength();
             // loop over all listener types and remove the listeners from the peer
-            for( sal_Int32 i=0; i<nCount; i++ )
-                impl_unadviseFromPeer( m_xPeer, pArray[i] );
+            for( const auto& rContainedType : aContainedTypes )
+                impl_unadviseFromPeer( m_xPeer, rContainedType );
         }
         m_xPeer = xPeer;
         if( m_xPeer.is() )
         {
             // get all types from the listener added to the peer
             Sequence< Type >    aContainedTypes = m_aListenerHolder.getContainedTypes();
-            const Type*         pArray          = aContainedTypes.getConstArray();
-            sal_Int32           nCount          = aContainedTypes.getLength();
             // loop over all listener types and add the listeners to the peer
-            for( sal_Int32 i = 0; i < nCount; i++ )
-                impl_adviseToPeer( m_xPeer, pArray[i] );
+            for( const auto& rContainedType : aContainedTypes )
+                impl_adviseToPeer( m_xPeer, rContainedType );
         }
     }
 }

@@ -34,6 +34,7 @@
 #include <comphelper/sequenceashashmap.hxx>
 #include <svx/svdotext.hxx>
 #include <svx/svdograf.hxx>
+#include <svx/sdmetitm.hxx>
 #include <vcl/cvtgrf.hxx>
 #include <filter/msfilter/msdffimp.hxx>
 #include <filter/msfilter/util.hxx>
@@ -425,9 +426,7 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
                         case ESCHER_WrapThrough:   pWrapType = "through"; break;
                     }
                     if ( pWrapType )
-                        m_pSerializer->singleElementNS( XML_w10, XML_wrap,
-                                XML_type, pWrapType,
-                                FSEND );
+                        m_pSerializer->singleElementNS(XML_w10, XML_wrap, XML_type, pWrapType);
                 }
                 bAlreadyWritten[ ESCHER_Prop_WrapText ] = true;
                 break;
@@ -496,8 +495,8 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
                     if ( rProps.GetOpt( ESCHER_Prop_pVertices, aVertices ) &&
                          rProps.GetOpt( ESCHER_Prop_pSegmentInfo, aSegments ) )
                     {
-                        const sal_uInt8 *pVerticesIt = &aVertices.nProp[0] + 6;
-                        const sal_uInt8 *pSegmentIt = &aSegments.nProp[0];
+                        const sal_uInt8 *pVerticesIt = aVertices.nProp.data() + 6;
+                        const sal_uInt8 *pSegmentIt = aSegments.nProp.data();
                         OStringBuffer aPath( 512 );
 
                         sal_uInt16 nPointSize = aVertices.nProp[4] + ( aVertices.nProp[5] << 8 );
@@ -687,7 +686,7 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
                         SvMemoryStream aStream;
                         // The first bytes are WW8-specific, we're only interested in the PNG
                         int nHeaderSize = 25;
-                        aStream.WriteBytes(&aStruct.nProp[0] + nHeaderSize,
+                        aStream.WriteBytes(aStruct.nProp.data() + nHeaderSize,
                                            aStruct.nProp.size() - nHeaderSize);
                         aStream.Seek(0);
                         Graphic aGraphic;
@@ -900,16 +899,14 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
 
                         if(!opt.nProp.empty())
                         {
-                            aStream.WriteBytes(&opt.nProp[0], opt.nProp.size());
+                            aStream.WriteBytes(opt.nProp.data(), opt.nProp.size());
                         }
 
                         aStream.Seek(0);
                         OUString aTextPathString = SvxMSDffManager::MSDFFReadZString(aStream, opt.nProp.size(), true);
                         aStream.Seek(0);
 
-                        m_pSerializer->singleElementNS( XML_v, XML_path,
-                                XML_textpathok, "t",
-                                FSEND );
+                        m_pSerializer->singleElementNS(XML_v, XML_path, XML_textpathok, "t");
 
                         sax_fastparser::FastAttributeList* pAttrList = FastSerializerHelper::createAttrList();
                         pAttrList->add(XML_on, "t");
@@ -919,7 +916,7 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
                         OUString aStyle;
                         if (rProps.GetOpt(ESCHER_Prop_gtextFont, aFont))
                         {
-                            aStream.WriteBytes(&aFont.nProp[0], aFont.nProp.size());
+                            aStream.WriteBytes(aFont.nProp.data(), aFont.nProp.size());
                             aStream.Seek(0);
                             OUString aTextPathFont = SvxMSDffManager::MSDFFReadZString(aStream, aFont.nProp.size(), true);
                             aStyle += "font-family:\"" + aTextPathFont + "\"";
@@ -963,7 +960,7 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
 
                     if(!opt.nProp.empty())
                     {
-                        aStream.WriteBytes(&opt.nProp[0], opt.nProp.size());
+                        aStream.WriteBytes(opt.nProp.data(), opt.nProp.size());
                     }
 
                     aStream.Seek(0);
@@ -983,10 +980,10 @@ void VMLExport::Commit( EscherPropertyContainer& rProps, const tools::Rectangle&
                         nId,
                         opt.nPropValue,
                         opt_nProp_size,
-                        0 == opt_nProp_size ? &opt_nProp_empty : &opt.nProp[0]);
+                        0 == opt_nProp_size ? &opt_nProp_empty : opt.nProp.data());
                 if ( opt.nProp.size() )
                 {
-                    const sal_uInt8 *pIt = &opt.nProp[0];
+                    const sal_uInt8 *pIt = opt.nProp.data();
                     fprintf( stderr, "    ( " );
                     for ( int nCount = opt.nProp.size(); nCount; --nCount )
                     {
@@ -1374,7 +1371,7 @@ sal_Int32 VMLExport::StartShape()
         if( pParaObj )
         {
             // this is reached only in case some text is attached to the shape
-            m_pSerializer->startElementNS(XML_v, XML_textbox, FSEND);
+            m_pSerializer->startElementNS(XML_v, XML_textbox);
             m_pTextExport->WriteOutliner(*pParaObj);
             m_pSerializer->endElementNS(XML_v, XML_textbox);
             if( bOwnParaObj )

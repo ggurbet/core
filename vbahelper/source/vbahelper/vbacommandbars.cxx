@@ -48,9 +48,7 @@ public:
     }
     virtual sal_Bool SAL_CALL hasMoreElements() override
     {
-        if( m_nCurrentPosition < m_sNames.getLength() )
-            return true;
-        return false;
+        return m_nCurrentPosition < m_sNames.getLength();
     }
     virtual uno::Any SAL_CALL nextElement() override
     {
@@ -177,7 +175,7 @@ ScVbaCommandBars::Add( const css::uno::Any& Name, const css::uno::Any& /*Positio
     }
 
     sResourceUrl = VbaCommandBarHelper::generateCustomURL();
-    uno::Reference< container::XIndexAccess > xBarSettings( m_pCBarHelper->getSettings( sResourceUrl ), uno::UNO_QUERY_THROW );
+    uno::Reference< container::XIndexAccess > xBarSettings( m_pCBarHelper->getSettings( sResourceUrl ), uno::UNO_SET_THROW );
     uno::Reference< XCommandBar > xCBar( new ScVbaCommandBar( this, mxContext, m_pCBarHelper, xBarSettings, sResourceUrl, false ) );
     xCBar->setName( sName );
     return xCBar;
@@ -188,13 +186,8 @@ ScVbaCommandBars::getCount()
     // Filter out all toolbars from the window collection
     sal_Int32 nCount = 1; // there is a Menubar in OOo
     uno::Sequence< ::OUString > allNames = m_xNameAccess->getElementNames();
-    for( sal_Int32 i = 0; i < allNames.getLength(); i++ )
-    {
-        if(allNames[i].indexOf( "private:resource/toolbar/" ) != -1 )
-        {
-            nCount++;
-        }
-    }
+    nCount += std::count_if(allNames.begin(), allNames.end(),
+        [](const OUString& rName) { return rName.indexOf( "private:resource/toolbar/" ) != -1; });
     return nCount;
 }
 

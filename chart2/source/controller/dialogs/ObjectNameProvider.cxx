@@ -171,9 +171,9 @@ OUString lcl_getDataPointValueText( const Reference< XDataSeries >& xSeries, sal
                     a_Size = aNumberFormatterWrapper.getFormattedString( nNumberFormatKey, fValue, nLabelColor, bColorChanged );
                 }
             }
-            catch( const uno::Exception& e )
+            catch( const uno::Exception& )
             {
-                SAL_WARN("chart2", "Exception caught. " << e );
+                TOOLS_WARN_EXCEPTION("chart2", "" );
             }
         }
     }
@@ -561,7 +561,7 @@ OUString ObjectNameProvider::getHelpText( const OUString& rObjectCID, const Refe
                 {
                     try
                     {
-                        Reference< chart2::XRegressionCurveCalculator > xCalculator( xCurve->getCalculator(), uno::UNO_QUERY_THROW );
+                        Reference< chart2::XRegressionCurveCalculator > xCalculator( xCurve->getCalculator(), uno::UNO_SET_THROW );
                         sal_Int32 aDegree = 2;
                         sal_Int32 aPeriod = 2;
                         bool bForceIntercept = false;
@@ -664,7 +664,7 @@ OUString ObjectNameProvider::getHelpText( const OUString& rObjectCID, const Refe
                 {
                     try
                     {
-                        Reference< chart2::XRegressionCurveCalculator > xCalculator( xCurve->getCalculator(), uno::UNO_QUERY_THROW );
+                        Reference< chart2::XRegressionCurveCalculator > xCalculator( xCurve->getCalculator(), uno::UNO_SET_THROW );
                         RegressionCurveHelper::initializeCurveCalculator( xCalculator, xSeries, xChartModel );
 
                         const LocaleDataWrapper& rLocaleDataWrapper = Application::GetSettings().GetLocaleDataWrapper();

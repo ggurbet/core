@@ -50,6 +50,7 @@
 #include <fmtsrnd.hxx>
 #include <docsh.hxx>
 
+#include <ndtxt.hxx>
 #include <tabfrm.hxx>
 #include <ftnfrm.hxx>
 #include <txtfrm.hxx>
@@ -62,6 +63,7 @@
 #include <objectformatter.hxx>
 #include <fntcache.hxx>
 #include <vector>
+#include <tools/diagnose_ex.h>
 
 // Save some typing work to avoid accessing destroyed pages.
 #define XCHECKPAGE \
@@ -258,7 +260,10 @@ SwLayAction::SwLayAction( SwRootFrame *pRt, SwViewShellImp *pI ) :
     m_nStartTicks( std::clock() ),
     m_nInputType( VclInputFlags::NONE ),
     m_nEndPage( USHRT_MAX ),
-    m_nCheckPageNum( USHRT_MAX )
+    m_nCheckPageNum( USHRT_MAX ),
+    m_pCurPage( nullptr ),
+    m_nTabLevel( 0 ),
+    m_nCallCount( 0 )
 {
     m_bPaintExtraData = ::IsExtraData( m_pImp->GetShell()->GetDoc() );
     m_bPaint = m_bComplete = m_bWaitAllowed = m_bCheckPages = true;
@@ -286,6 +291,7 @@ void SwLayAction::Reset()
     m_bPaint = m_bComplete = m_bWaitAllowed = m_bCheckPages = true;
     m_bInput = m_bAgain = m_bNextCycle = m_bCalcLayout = m_bIdle = m_bReschedule =
     m_bUpdateExpFields = m_bBrowseActionStop = false;
+    m_pCurPage = nullptr;
 }
 
 bool SwLayAction::RemoveEmptyBrowserPages()
@@ -1172,6 +1178,12 @@ bool SwLayAction::IsShortCut( SwPageFrame *&prPage )
 // introduce support for vertical layout
 bool SwLayAction::FormatLayout( OutputDevice *pRenderContext, SwLayoutFrame *pLay, bool bAddRect )
 {
+    // save page for loop control
+    if( pLay->IsPageFrame() && static_cast<SwPageFrame*>(pLay) != m_pCurPage )
+    {
+        m_nCallCount = 0;
+        m_pCurPage = static_cast<SwPageFrame*>(pLay);
+    }
     OSL_ENSURE( !IsAgain(), "Attention to the invalid page." );
     if ( IsAgain() )
         return false;
@@ -1351,7 +1363,16 @@ bool SwLayAction::FormatLayout( OutputDevice *pRenderContext, SwLayoutFrame *pLa
         if ( pLow->IsLayoutFrame() )
         {
             if ( pLow->IsTabFrame() )
+            {
+                // loop control for embedded tables
+                if ( m_nTabLevel > 0 && ++m_nCallCount > 50 ) {
+                    static_cast<SwTabFrame*>(pLow)->SetSplitRowDisabled();
+                }
+
+                ++m_nTabLevel;
                 bTabChanged |= FormatLayoutTab( static_cast<SwTabFrame*>(pLow), bAddRect );
+                --m_nTabLevel;
+            }
             // Skip the ones already registered for deletion
             else if( !pLow->IsSctFrame() || static_cast<SwSectionFrame*>(pLow)->GetSection() )
                 bChanged |= FormatLayout( pRenderContext, static_cast<SwLayoutFrame*>(pLow), bAddRect );
@@ -1563,9 +1584,11 @@ bool SwLayAction::FormatLayoutTab( SwTabFrame *pTab, bool bAddRect )
     // format lowers, only if table frame is valid
     if ( pTab->isFrameAreaDefinitionValid() )
     {
+        FlowFrameJoinLockGuard tabG(pTab); // tdf#124675 prevent Join() if pTab becomes empty
         SwLayoutFrame *pLow = static_cast<SwLayoutFrame*>(pTab->Lower());
         while ( pLow )
         {
+            SwFrameDeleteGuard rowG(pLow); // tdf#124675 prevent RemoveFollowFlowLine()
             bChanged |= FormatLayout( m_pImp->GetShell()->GetOut(), pLow, bAddRect );
             if ( IsAgain() )
                 return false;
@@ -1946,9 +1969,9 @@ bool SwLayIdle::DoIdleJob_( const SwContentFrame *pCnt, IdleJobType eJob )
                     bPageValid = bPageValid && !pTextNode->IsSmartTagDirty();
                     if ( aRepaint.HasArea() )
                         pImp->GetShell()->InvalidateWindows( aRepaint );
-                } catch( const css::uno::RuntimeException& e) {
+                } catch( const css::uno::RuntimeException&) {
                     // handle smarttag problems gracefully and provide diagnostics
-                    SAL_WARN( "sw.core", "SMART_TAGS: " << e);
+                    TOOLS_WARN_EXCEPTION( "sw.core", "SMART_TAGS");
                 }
                 if (Application::AnyInput(VCL_INPUT_ANY & VclInputFlags(~VclInputFlags::TIMER)))
                     return true;

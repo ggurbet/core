@@ -267,7 +267,7 @@ public class checkdispatchapi
         impl_closeFrame(xFrame);
     }
 
-    /** @short  load an URL into the current test frame.
+    /** @short  load a URL into the current test frame.
      */
     private void impl_loadIntoFrame(XFrame xFrame, String sURL, PropertyValue args[]) throws Exception
     {
@@ -285,7 +285,7 @@ public class checkdispatchapi
         }
     }
 
-    /** @short  create an uno implementation directly.
+    /** @short  create a uno implementation directly.
      */
     private Object impl_createUNOComponent(String sName)
     {

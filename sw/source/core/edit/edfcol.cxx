@@ -22,11 +22,14 @@
 #include <com/sun/star/container/XEnumerationAccess.hpp>
 #include <com/sun/star/container/XContentEnumerationAccess.hpp>
 #include <com/sun/star/document/XActionLockable.hpp>
+#include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/drawing/HomogenMatrix3.hpp>
 #include <com/sun/star/drawing/LineStyle.hpp>
 #include <com/sun/star/drawing/XShape.hpp>
 #include <com/sun/star/drawing/XEnhancedCustomShapeDefaulter.hpp>
+#include <com/sun/star/drawing/XShapes.hpp>
+#include <com/sun/star/lang/XMultiServiceFactory.hpp>
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
 #include <com/sun/star/text/RelOrientation.hpp>
@@ -56,6 +59,7 @@
 #include <editeng/unoprnms.hxx>
 #include <sfx2/classificationhelper.hxx>
 #include <svx/ClassificationCommon.hxx>
+#include <svx/ClassificationField.hxx>
 #include <svl/cryptosign.hxx>
 #include <svl/sigstruct.hxx>
 #include <utility>
@@ -1153,12 +1157,14 @@ void SwEditShell::SetClassification(const OUString& rName, SfxClassificationPoli
     }
 }
 
+// We pass xParent and xNodeSubject even though they point to the same thing because the UNO_QUERY is
+// on a performance-sensitive path.
 static void lcl_ApplyParagraphClassification(SwDoc* pDoc,
                                       const uno::Reference<frame::XModel>& xModel,
                                       const uno::Reference<text::XTextContent>& xParent,
+                                      const css::uno::Reference<css::rdf::XResource>& xNodeSubject,
                                       std::vector<svx::ClassificationResult> aResults)
 {
-    css::uno::Reference<css::rdf::XResource> xNodeSubject(xParent, uno::UNO_QUERY);
     if (!xNodeSubject.is())
         return;
 
@@ -1275,7 +1281,7 @@ void SwEditShell::ApplyParagraphClassification(std::vector<svx::ClassificationRe
 
     uno::Reference<frame::XModel> xModel = pDocShell->GetBaseModel();
     uno::Reference<text::XTextContent> xParent = SwXParagraph::CreateXParagraph(*pNode->GetDoc(), pNode);
-    lcl_ApplyParagraphClassification(GetDoc(), xModel, xParent, std::move(aResults));
+    lcl_ApplyParagraphClassification(GetDoc(), xModel, xParent, css::uno::Reference<css::rdf::XResource>(xParent, uno::UNO_QUERY), std::move(aResults));
 }
 
 static std::vector<svx::ClassificationResult> lcl_CollectParagraphClassification(const uno::Reference<frame::XModel>& xModel, const uno::Reference<text::XTextContent>& xParagraph)
@@ -1983,7 +1989,7 @@ void SwEditShell::RestoreMetadataFieldsAndValidateParagraphSignatures()
             }
 
             // Update classification based on results.
-            lcl_ApplyParagraphClassification(GetDoc(), xModel, xParagraph, aResults);
+            lcl_ApplyParagraphClassification(GetDoc(), xModel, xParagraph, xSubject, aResults);
 
             // Get Signatures
             std::map<OUString, SignatureDescr> aSignatures;
@@ -2202,7 +2208,7 @@ void SwEditShell::SetTextFormatColl(SwTextFormatColl *pFormat,
             // ie. in all directly preceding deleted paragraphs at the actual cursor positions
             if ( IDocumentRedlineAccess::IsShowChanges(eRedlMode) &&
                // is there redlining at beginning of the position (possible redline block before the modified node)
-               GetDoc()->getIDocumentRedlineAccess().GetRedlinePos( (*rPaM.Start()).nNode.GetNode(), USHRT_MAX ) <
+               GetDoc()->getIDocumentRedlineAccess().GetRedlinePos( (*rPaM.Start()).nNode.GetNode(), RedlineType::Any ) <
                    GetDoc()->getIDocumentRedlineAccess().GetRedlineTable().size() )
             {
                 eRedlMode = RedlineFlags::ShowInsert | RedlineFlags::Ignore;

@@ -631,7 +631,7 @@ void ScTable::FillAuto( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
                 }
 
                 const ScCondFormatItem& rCondFormatItem = pSrcPattern->GetItem(ATTR_CONDITIONAL);
-                const std::vector<sal_uInt32>& rCondFormatIndex = rCondFormatItem.GetCondFormatData();
+                const ScCondFormatIndexes& rCondFormatIndex = rCondFormatItem.GetCondFormatData();
 
                 if ( bVertical && nISrcStart == nISrcEnd && !bHasFiltered )
                 {
@@ -1638,6 +1638,8 @@ void ScTable::FillSeries( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
     {
         rInner = nISource;
 
+        CreateColumnIfNotExists(nCol);
+
         // Source cell value. We need to clone the value since it may be inserted repeatedly.
         ScCellValue aSrcCell = aCol[nCol].GetCellValue(static_cast<SCROW>(nRow));
 
@@ -1646,7 +1648,7 @@ void ScTable::FillSeries( SCCOL nCol1, SCROW nRow1, SCCOL nCol2, SCROW nRow2,
             const ScPatternAttr* pSrcPattern = aCol[nCol].GetPattern(static_cast<SCROW>(nRow));
 
             const ScCondFormatItem& rCondFormatItem = pSrcPattern->GetItem(ATTR_CONDITIONAL);
-            const std::vector<sal_uInt32>& rCondFormatIndex = rCondFormatItem.GetCondFormatData();
+            const ScCondFormatIndexes& rCondFormatIndex = rCondFormatItem.GetCondFormatData();
 
             if (bVertical)
             {
@@ -2268,27 +2270,18 @@ bool ScTable::GetNextSpellingCell(SCCOL& rCol, SCROW& rRow, bool bInSel,
     }
     if (rCol == MAXCOL+1)
         return true;
-    else
+    for (;;)
     {
-        bool bStop = false;
-        while (!bStop)
-        {
-            if (ValidCol(rCol))
-            {
-                bStop = aCol[rCol].GetNextSpellingCell(rRow, bInSel, rMark);
-                if (bStop)
-                    return true;
-                else /*if (rRow == MAXROW+1) */
-                {
-                    rCol++;
-                    rRow = 0;
-                }
-            }
-            else
-                return true;
-        }
+        if (!ValidCol(rCol))
+            return true;
+        if (rCol >= GetAllocatedColumnsCount())
+            return true;
+        if (aCol[rCol].GetNextSpellingCell(rRow, bInSel, rMark))
+            return true;
+         /*else (rRow == MAXROW+1) */
+        rCol++;
+        rRow = 0;
     }
-    return false;
 }
 
 void ScTable::TestTabRefAbs(SCTAB nTable) const

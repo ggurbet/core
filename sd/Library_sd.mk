@@ -61,6 +61,7 @@ endif
 
 $(eval $(call gb_Library_use_custom_headers,sd,\
 	officecfg/registry \
+	oox/generated \
 ))
 
 $(eval $(call gb_Library_use_sdk_api,sd))
@@ -182,7 +183,6 @@ $(eval $(call gb_Library_add_exception_objects,sd,\
 	sd/source/ui/accessibility/AccessibleViewForwarder \
 	sd/source/ui/accessibility/SdShapeTypes \
 	sd/source/ui/animations/CategoryListBox \
-	sd/source/ui/animations/CustomAnimationBox \
 	sd/source/ui/animations/CustomAnimationDialog \
 	sd/source/ui/animations/CustomAnimationList \
 	sd/source/ui/animations/CustomAnimationPane \
@@ -278,6 +278,7 @@ $(eval $(call gb_Library_add_exception_objects,sd,\
 	sd/source/ui/func/fudraw \
 	sd/source/ui/func/fudspord \
 	sd/source/ui/func/fuediglu \
+	sd/source/ui/func/fuexecuteinteraction \
 	sd/source/ui/func/fuexpand \
 	sd/source/ui/func/fuformatpaintbrush \
 	sd/source/ui/func/fuhhconv \
@@ -390,7 +391,6 @@ $(eval $(call gb_Library_add_exception_objects,sd,\
 	sd/source/ui/slidesorter/shell/SlideSorterService \
 	sd/source/ui/slidesorter/shell/SlideSorterViewShell \
 	sd/source/ui/slidesorter/view/SlideSorterView \
-	sd/source/ui/slidesorter/view/SlsFontProvider \
 	sd/source/ui/slidesorter/view/SlsFramePainter \
 	sd/source/ui/slidesorter/view/SlsInsertAnimator \
 	sd/source/ui/slidesorter/view/SlsInsertionIndicatorOverlay \
@@ -401,7 +401,6 @@ $(eval $(call gb_Library_add_exception_objects,sd,\
 	sd/source/ui/slidesorter/view/SlsTheme \
 	sd/source/ui/slidesorter/view/SlsToolTip \
 	sd/source/ui/slidesorter/view/SlsViewCacheContext \
-	sd/source/ui/table/TableDesignBox \
 	sd/source/ui/table/TableDesignPane \
 	sd/source/ui/table/tablefunction \
 	sd/source/ui/table/tableobjectbar \
@@ -518,6 +517,10 @@ $(eval $(call gb_Library_add_objcxxobjects,sd,\
 	sd/source/ui/remotecontrol/OSXNetworkService \
 ))
 
+$(eval $(call gb_Library_use_system_darwin_frameworks,sd,\
+	Foundation \
+))
+
 else # OS!=MACSOX
 
 ifeq ($(ENABLE_AVAHI),TRUE)
@@ -566,7 +569,6 @@ $(eval $(call gb_Library_add_libs,sd,\
 ))
 
 $(eval $(call gb_Library_use_system_darwin_frameworks,sd,\
-	Foundation \
 	IOBluetooth \
 ))
 

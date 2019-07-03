@@ -22,6 +22,7 @@
 #include <vcl/svapp.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <avmedia/mediaplayer.hxx>
 #include <helpids.h>
 #include <galbrws2.hxx>
@@ -34,9 +35,10 @@
 #include <galobj.hxx>
 #include <avmedia/mediawindow.hxx>
 #include <svx/strings.hrc>
+#include <vcl/event.hxx>
+#include <vcl/commandevent.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <vcl/settings.hxx>
-#include <vcl/builderfactory.hxx>
 #include <bitmaps.hlst>
 
 #define GALLERY_BRWBOX_TITLE    1

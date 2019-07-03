@@ -28,7 +28,7 @@
  module com {  module sun {  module star {  module awt {
 
 
-/** specifies the standard model of an UnoControlImageControl.
+/** specifies the standard model of a UnoControlImageControl.
  */
 published service UnoControlImageControlModel
 {
@@ -76,7 +76,7 @@ published service UnoControlImageControlModel
     [property] string HelpURL;
 
 
-    /** specifies an URL to an image to use for the control.
+    /** specifies a URL to an image to use for the control.
         @see Graphic
      */
     [property] string ImageURL;

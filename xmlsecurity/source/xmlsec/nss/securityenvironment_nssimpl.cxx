@@ -33,7 +33,6 @@
 #include <rtl/ustrbuf.hxx>
 #include <comphelper/processfactory.hxx>
 #include <comphelper/docpasswordrequest.hxx>
-#include <biginteger.hxx>
 #include <sal/log.hxx>
 #include <com/sun/star/task/InteractionHandler.hpp>
 #include <vector>
@@ -41,18 +40,22 @@
 #include <osl/thread.h>
 #include <comphelper/sequence.hxx>
 
+#include "x509certificate_nssimpl.hxx"
 #include "secerror.hxx"
 #include <prerror.h>
+#include <keyhi.h>
 
 // added for password exception
 #include <com/sun/star/security/NoPasswordException.hpp>
+#include <com/sun/star/security/CertificateCharacters.hpp>
+#include <com/sun/star/security/CertificateValidity.hpp>
+
 namespace csss = ::com::sun::star::security;
 using namespace ::com::sun::star::security;
 using namespace com::sun::star;
 using namespace ::com::sun::star::uno ;
 using namespace ::com::sun::star::lang ;
 using ::com::sun::star::lang::XMultiServiceFactory ;
-using ::com::sun::star::lang::XSingleServiceFactory ;
 
 using ::com::sun::star::xml::crypto::XSecurityEnvironment ;
 using ::com::sun::star::security::XCertificate ;
@@ -139,12 +142,7 @@ OUString SAL_CALL SecurityEnvironment_NssImpl::getImplementationName() {
 /* XServiceInfo */
 sal_Bool SAL_CALL SecurityEnvironment_NssImpl::supportsService( const OUString& serviceName) {
     Sequence< OUString > seqServiceNames = getSupportedServiceNames() ;
-    const OUString* pArray = seqServiceNames.getConstArray() ;
-    for( sal_Int32 i = 0 ; i < seqServiceNames.getLength() ; i ++ ) {
-        if( *( pArray + i ) == serviceName )
-            return true ;
-    }
-    return false ;
+    return comphelper::findValue(seqServiceNames, serviceName) != -1;
 }
 
 /* XServiceInfo */
@@ -274,7 +272,7 @@ SecurityEnvironment_NssImpl::getPersonalCertificates()
 {
     sal_Int32 length ;
     X509Certificate_NssImpl* xcert ;
-    std::list< X509Certificate_NssImpl* > certsList ;
+    std::vector< X509Certificate_NssImpl* > certsList ;
 
     updateSlots();
     //firstly, we try to find private keys in slot
@@ -478,7 +476,7 @@ X509Certificate_NssImpl* SecurityEnvironment_NssImpl::createX509CertificateFromD
 {
     X509Certificate_NssImpl* pX509Certificate = nullptr;
 
-    if (aDerCertificate.getLength() > 0)
+    if (aDerCertificate.hasElements())
     {
         pX509Certificate = new X509Certificate_NssImpl();
         if (pX509Certificate == nullptr)
@@ -542,9 +540,9 @@ verifyCertificate( const Reference< csss::XCertificate >& aCert,
     {
 
         //prepare the intermediate certificates
-        for (sal_Int32 i = 0; i < intermediateCerts.getLength(); i++)
+        for (const auto& rIntermediateCert : intermediateCerts)
         {
-            Sequence<sal_Int8> der = intermediateCerts[i]->getEncoded();
+            Sequence<sal_Int8> der = rIntermediateCert->getEncoded();
             SECItem item;
             item.type = siBuffer;
             item.data = reinterpret_cast<unsigned char*>(der.getArray());
@@ -556,7 +554,7 @@ verifyCertificate( const Reference< csss::XCertificate >& aCert,
                                            PR_TRUE  /* copyDER */);
             if (!certTmp)
             {
-                 SAL_INFO("xmlsecurity.xmlsec", "Failed to add a temporary certificate: " << intermediateCerts[i]->getIssuerName());
+                 SAL_INFO("xmlsecurity.xmlsec", "Failed to add a temporary certificate: " << rIntermediateCert->getIssuerName());
 
             }
             else
@@ -799,11 +797,7 @@ X509Certificate_NssImpl* NssCertToXCert( CERTCertificate* cert )
 
     if( cert != nullptr ) {
         xcert = new X509Certificate_NssImpl() ;
-        if( xcert == nullptr ) {
-            xcert = nullptr ;
-        } else {
-            xcert->setCert( cert ) ;
-        }
+        xcert->setCert( cert ) ;
     } else {
         xcert = nullptr ;
     }

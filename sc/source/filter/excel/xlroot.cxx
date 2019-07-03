@@ -25,6 +25,7 @@
 #include <com/sun/star/frame/XFrame.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <comphelper/processfactory.hxx>
+#include <comphelper/servicehelper.hxx>
 #include <sot/storage.hxx>
 #include <vcl/svapp.hxx>
 #include <svl/stritem.hxx>
@@ -34,6 +35,7 @@
 #include <sfx2/sfxsids.hrc>
 #include <vcl/font.hxx>
 #include <vcl/settings.hxx>
+#include <tools/diagnose_ex.h>
 
 #include <editeng/editstat.hxx>
 #include <scitems.hxx>
@@ -151,9 +153,9 @@ XclRootData::XclRootData( XclBiff eBiff, SfxMedium& rMedium,
         mfScreenPixelX = (aDeviceInfo.PixelPerMeterX > 0) ? (100000.0 / aDeviceInfo.PixelPerMeterX) : 50.0;
         mfScreenPixelY = (aDeviceInfo.PixelPerMeterY > 0) ? (100000.0 / aDeviceInfo.PixelPerMeterY) : 50.0;
     }
-    catch( const Exception& e)
+    catch( const Exception&)
     {
-        SAL_WARN( "sc", "XclRootData::XclRootData - cannot get output device info: " << e );
+        TOOLS_WARN_EXCEPTION( "sc", "XclRootData::XclRootData - cannot get output device info");
     }
 }
 
@@ -290,7 +292,7 @@ SfxObjectShell* XclRoot::GetDocShell() const
 ScModelObj* XclRoot::GetDocModelObj() const
 {
     SfxObjectShell* pDocShell = GetDocShell();
-    return pDocShell ? ScModelObj::getImplementation( pDocShell->GetModel() ) : nullptr;
+    return pDocShell ? comphelper::getUnoTunnelImplementation<ScModelObj>( pDocShell->GetModel() ) : nullptr;
 }
 
 OutputDevice* XclRoot::GetPrinter() const
@@ -384,17 +386,14 @@ ScHeaderEditEngine& XclRoot::GetHFEditEngine() const
         rEE.SetControlWord( rEE.GetControlWord() & ~EEControlBits::ALLOWBIGOBJS );
 
         // set Calc header/footer defaults
-        SfxItemSet* pEditSet = new SfxItemSet( rEE.GetEmptyItemSet() );
+        auto pEditSet = std::make_unique<SfxItemSet>( rEE.GetEmptyItemSet() );
         SfxItemSet aItemSet( *GetDoc().GetPool(), svl::Items<ATTR_PATTERN_START, ATTR_PATTERN_END>{} );
         ScPatternAttr::FillToEditItemSet( *pEditSet, aItemSet );
         // FillToEditItemSet() adjusts font height to 1/100th mm, we need twips
-        std::unique_ptr<SfxPoolItem> pNewItem( aItemSet.Get( ATTR_FONT_HEIGHT ).CloneSetWhich(EE_CHAR_FONTHEIGHT));
-        pEditSet->Put( *pNewItem );
-        pNewItem = aItemSet.Get( ATTR_CJK_FONT_HEIGHT ).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK);
-        pEditSet->Put( *pNewItem );
-        pNewItem = aItemSet.Get( ATTR_CTL_FONT_HEIGHT ).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL);
-        pEditSet->Put( *pNewItem );
-        rEE.SetDefaults( pEditSet );    // takes ownership
+        pEditSet->Put( aItemSet.Get( ATTR_FONT_HEIGHT ).CloneSetWhich(EE_CHAR_FONTHEIGHT) );
+        pEditSet->Put( aItemSet.Get( ATTR_CJK_FONT_HEIGHT ).CloneSetWhich(EE_CHAR_FONTHEIGHT_CJK) );
+        pEditSet->Put( aItemSet.Get( ATTR_CTL_FONT_HEIGHT ).CloneSetWhich(EE_CHAR_FONTHEIGHT_CTL) );
+        rEE.SetDefaults( std::move(pEditSet) );    // takes ownership
    }
     return *mrData.mxHFEditEngine;
 }

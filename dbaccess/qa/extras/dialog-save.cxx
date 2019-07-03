@@ -12,6 +12,7 @@
 #include <test/unoapi_test.hxx>
 #include <rtl/strbuf.hxx>
 #include <osl/file.hxx>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
 #include <com/sun/star/frame/XStorable.hpp>
@@ -30,6 +31,7 @@
 #include <sfx2/objsh.hxx>
 #include <sfx2/sfxmodelfactory.hxx>
 #include <svl/intitem.hxx>
+#include <vcl/svapp.hxx>
 
 #include <basic/sbxdef.hxx>
 

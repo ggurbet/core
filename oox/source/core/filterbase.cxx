@@ -334,6 +334,8 @@ StorageRef const & FilterBase::getStorage() const
 
 Reference< XInputStream > FilterBase::openInputStream( const OUString& rStreamName ) const
 {
+    if (!mxImpl->mxStorage)
+        throw RuntimeException();
     return mxImpl->mxStorage->openInputStream( rStreamName );
 }
 
@@ -421,7 +423,7 @@ void SAL_CALL FilterBase::initialize( const Sequence< Any >& rArgs )
     {
     }
 
-    if (rArgs.getLength() >= 1)
+    if (rArgs.hasElements())
     {
         Sequence<css::beans::PropertyValue> aSeq;
         rArgs[0] >>= aSeq;

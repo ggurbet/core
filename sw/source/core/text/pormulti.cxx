@@ -143,7 +143,7 @@ void SwMultiPortion::ActualizeTabulator()
 {
     SwLinePortion* pPor = GetRoot().GetFirstPortion();
     // First line
-    for( bTab1 = bTab2 = false; pPor; pPor = pPor->GetNextPortion() )
+    for( m_bTab1 = m_bTab2 = false; pPor; pPor = pPor->GetNextPortion() )
         if( pPor->InTabGrp() )
             SetTab1( true );
     if( GetRoot().GetNext() )
@@ -307,14 +307,14 @@ SwDoubleLinePortion::SwDoubleLinePortion(
     SwFontScript nTmp = SW_SCRIPTS;
     if( pBracket->cPre > 255 )
     {
-        OUString aText = OUString(pBracket->cPre);
+        OUString aText(pBracket->cPre);
         nTmp = SwScriptInfo::WhichFont(0, aText);
     }
     pBracket->nPreScript = nTmp;
     nTmp = SW_SCRIPTS;
     if( pBracket->cPost > 255 )
     {
-        OUString aText = OUString(pBracket->cPost);
+        OUString aText(pBracket->cPost);
         nTmp = SwScriptInfo::WhichFont(0, aText);
     }
     pBracket->nPostScript = nTmp;
@@ -982,7 +982,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
                 {
                     break;
                 }
-                if (startPos.second < *pAttr->GetAnyEnd())
+                if (startPos.second < pAttr->GetAnyEnd())
                 {
                     // sw_redlinehide: ruby *always* splits
                     if (RES_TXTATR_CJK_RUBY == pAttr->Which())
@@ -1128,7 +1128,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
             TextFrameIndex nTmpEnd;
             if (pTmp)
             {
-                nTmpEnd = m_pFrame->MapModelToView(pNode, *pTmp->GetAnyEnd());
+                nTmpEnd = m_pFrame->MapModelToView(pNode, pTmp->GetAnyEnd());
                 if (nTmpEnd <= rPos)
                     continue;
                 nTmpStart = m_pFrame->MapModelToView(pNode, pTmp->GetStart());
@@ -1233,7 +1233,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
             TextFrameIndex nTmpEnd;
             if (pTmp)
             {
-                nTmpEnd = m_pFrame->MapModelToView(pNode, *pTmp->GetAnyEnd());
+                nTmpEnd = m_pFrame->MapModelToView(pNode, pTmp->GetAnyEnd());
                 if (nTmpEnd <= n2Start)
                     continue;
                 nTmpStart = m_pFrame->MapModelToView(pNode, pTmp->GetStart());
@@ -1334,7 +1334,7 @@ std::unique_ptr<SwMultiCreator> SwTextSizeInfo::GetMultiCreator(TextFrameIndex &
             TextFrameIndex nTmpEnd;
             if (pTmp)
             {
-                nTmpEnd = m_pFrame->MapModelToView(pNode, *pTmp->GetAnyEnd());
+                nTmpEnd = m_pFrame->MapModelToView(pNode, pTmp->GetAnyEnd());
                 if (nTmpEnd <= rPos)
                     continue;
                 nTmpStart = m_pFrame->MapModelToView(pNode, pTmp->GetStart());

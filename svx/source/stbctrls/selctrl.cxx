@@ -18,6 +18,7 @@
  */
 
 #include <vcl/builder.hxx>
+#include <vcl/event.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/status.hxx>
 #include <svl/intitem.hxx>
@@ -28,6 +29,8 @@
 
 #include "stbctrls.h"
 #include <bitmaps.hlst>
+
+#include <com/sun/star/beans/PropertyValue.hpp>
 
 SFX_IMPL_STATUSBAR_CONTROL(SvxSelectionModeControl, SfxUInt16Item);
 

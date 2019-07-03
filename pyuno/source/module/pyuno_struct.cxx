@@ -19,16 +19,13 @@
 
 #include <sal/config.h>
 
-#include <algorithm>
-#include <cassert>
-
 #include <rtl/strbuf.hxx>
-
-
-#include <typelib/typedescription.hxx>
 
 #include <com/sun/star/beans/UnknownPropertyException.hpp>
 #include <com/sun/star/beans/XMaterialHolder.hpp>
+#include <com/sun/star/script/CannotConvertException.hpp>
+#include <com/sun/star/script/XInvocation2.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 
 #include "pyuno_impl.hxx"
 
@@ -299,7 +296,11 @@ static PyTypeObject PyUNOStructType =
     sizeof (PyUNO),
     0,
     PyUNOStruct_del,
-    nullptr,
+#if PY_VERSION_HEX >= 0x03080000
+    0, // Py_ssize_t tp_vectorcall_offset
+#else
+    nullptr, // printfunc tp_print
+#endif
     PyUNOStruct_getattr,
     PyUNOStruct_setattr,
     /* this type does not exist in Python 3: (cmpfunc) */ nullptr,
@@ -343,6 +344,9 @@ static PyTypeObject PyUNOStructType =
     , 0
 #if PY_VERSION_HEX >= 0x03040000
     , nullptr
+#if PY_VERSION_HEX >= 0x03080000
+    , nullptr // vectorcallfunc tp_vectorcall
+#endif
 #endif
 };
 

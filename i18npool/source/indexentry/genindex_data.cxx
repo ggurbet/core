@@ -48,7 +48,7 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv)
     sal_Int32 i, j, k;
     sal_Int32 address[MAX_ADDRESS];
     for (i=0; i<MAX_ADDRESS; i++) address[i]=-1;
-    OUString sep=OUString('|');
+    OUString sep('|');
     OUStringBuffer result=sep;
     sal_Int32 max=0;
 
@@ -61,7 +61,7 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv)
             continue;
 
         // input file is in UTF-8 encoding
-        OUString Ostr = OUString(str, len, RTL_TEXTENCODING_UTF8);
+        OUString Ostr(str, len, RTL_TEXTENCODING_UTF8);
         len = Ostr.getLength();
         if (len == 0)
             continue; // skip empty line.
@@ -94,7 +94,7 @@ SAL_IMPLEMENT_MAIN_WITH_ARGS(argc, argv)
     fprintf(fp, " * Copyright(c) 1999 - 2006, Sun Microsystems, Inc.\n");
     fprintf(fp, " * All Rights Reserved.\n");
     fprintf(fp, " */\n\n");
-    fprintf(fp, "/* !!!The file is generated automatically. DONOT edit the file manually!!! */\n\n");
+    fprintf(fp, "/* !!!The file is generated automatically. DO NOT edit the file manually!!! */\n\n");
     fprintf(fp, "#include <sal/types.h>\n");
     fprintf(fp, "\nextern \"C\" {\n");
 

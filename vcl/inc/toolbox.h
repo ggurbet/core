@@ -147,7 +147,7 @@ struct ImplToolBoxPrivateData
             mbKeyInputDisabled:1,   // no KEY input if all items disabled, closing/docking will be allowed though
             mbIsPaintLocked:1,      // don't allow paints
             mbMenubuttonSelected:1, // menu button is highlighted
-            mbPageScroll:1,         // determines if we scroll a page at a time
+            mbMenubuttonWasLastSelected:1, // menu button was highlighted when focus was lost
             mbNativeButtons:1,      // system supports native toolbar buttons
             mbWillUsePopupMode:1,   // this toolbox will be opened in popup mode
             mbDropDownByKeyboard:1; // tells whether a dropdown was started by key input

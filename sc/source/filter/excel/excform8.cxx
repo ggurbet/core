@@ -149,7 +149,7 @@ ConvErr ExcelToSc8::Convert( std::unique_ptr<ScTokenArray>& rpTokArray, XclImpSt
 
     if( nFormulaLen == 0 )
     {
-        aPool.Store( OUString( "-/-" ) );
+        aPool.Store( "-/-" );
         aPool >> aStack;
         rpTokArray = aPool.GetTokenArray( aStack.Get());
         return ConvErr::OK;
@@ -367,9 +367,8 @@ ConvErr ExcelToSc8::Convert( std::unique_ptr<ScTokenArray>& rpTokArray, XclImpSt
             case 0x19: // Special Attribute                     [327 279]
             {
                 sal_uInt16 nData(0), nFactor(0);
-                sal_uInt8 nOpt(0);
 
-                nOpt = aIn.ReaduInt8();
+                sal_uInt8 nOpt = aIn.ReaduInt8();
                 nData = aIn.ReaduInt16();
                 nFactor = 2;
 
@@ -1009,9 +1008,8 @@ ConvErr ExcelToSc8::Convert( ScRangeListTabs& rRangeList, XclImpStream& aIn, std
             case 0x19: // Special Attribute                     [327 279]
             {
                 sal_uInt16 nData(0), nFactor(0);
-                sal_uInt8 nOpt(0);
 
-                nOpt = aIn.ReaduInt8();
+                sal_uInt8 nOpt = aIn.ReaduInt8();
                 nData = aIn.ReaduInt16();
                 nFactor = 2;
 
@@ -1298,7 +1296,7 @@ void ExcelToSc8::ConvertExternName( std::unique_ptr<ScTokenArray>& rpArray, XclI
 
     if (nFormulaLen == 0)
     {
-        aPool.Store(OUString("-/-"));
+        aPool.Store("-/-");
         aPool >> aStack;
         rpArray = aPool.GetTokenArray( aStack.Get());
         return;

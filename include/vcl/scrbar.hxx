@@ -94,6 +94,7 @@ public:
     virtual void KeyInput(const KeyEvent& rKEvt) override;
     virtual void Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& rRect) override;
     virtual void Draw(OutputDevice* pDev, const Point& rPos, const Size& rSize, DrawFlags nFlags) override;
+    virtual void Move() override;
     virtual void Resize() override;
     virtual void StateChanged(StateChangedType nType) override;
     virtual void DataChanged(const DataChangedEvent& rDCEvt) override;
@@ -132,7 +133,6 @@ public:
     void            SetScrollHdl( const Link<ScrollBar*,void>& rLink ) { maScrollHdl = rLink; }
     const Link<ScrollBar*,void>&   GetScrollHdl() const { return maScrollHdl; }
     void            SetEndScrollHdl( const Link<ScrollBar*,void>& rLink ) { maEndScrollHdl = rLink; }
-    const Link<ScrollBar*,void>&   GetEndScrollHdl() const { return maEndScrollHdl; }
 
     virtual Size    GetOptimalSize() const override;
 };

@@ -59,7 +59,6 @@
 
 using ::com::sun::star::uno::Sequence;
 using ::com::sun::star::uno::Reference;
-using ::com::sun::star::uno::RuntimeException;
 using ::com::sun::star::uno::Any;
 using ::osl::MutexGuard;
 
@@ -612,7 +611,7 @@ void SAL_CALL ChartModel::close( sal_Bool bDeliverOwnership )
     //the listeners have had no veto
     //check whether we self can close
     {
-        util::CloseVetoException aVetoException = util::CloseVetoException(
+        util::CloseVetoException aVetoException(
                         "the model itself could not be closed",
                         static_cast< ::cppu::OWeakObject* >(this) );
 
@@ -1164,7 +1163,7 @@ Reference< uno::XInterface > SAL_CALL ChartModel::createInstance( const OUString
 Reference< uno::XInterface > SAL_CALL ChartModel::createInstanceWithArguments(
             const OUString& rServiceSpecifier , const Sequence< Any >& Arguments )
 {
-    OSL_ENSURE( Arguments.getLength(), "createInstanceWithArguments: Warning: Arguments are ignored" );
+    OSL_ENSURE( Arguments.hasElements(), "createInstanceWithArguments: Warning: Arguments are ignored" );
     return createInstance( rServiceSpecifier );
 }
 

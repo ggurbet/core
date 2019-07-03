@@ -2063,25 +2063,10 @@ void ScDocument::CopyToDocument(SCCOL nCol1, SCROW nRow1, SCTAB nTab1,
                             InsertDeleteFlags nFlags, bool bOnlyMarked, ScDocument& rDestDoc,
                             const ScMarkData* pMarks, bool bColRowFlags )
 {
-    PutInOrder( nCol1, nCol2 );
-    PutInOrder( nRow1, nRow2 );
-    PutInOrder( nTab1, nTab2 );
-    if (rDestDoc.aDocName.isEmpty())
-        rDestDoc.aDocName = aDocName;
     if (ValidTab(nTab1) && ValidTab(nTab2))
     {
-        sc::CopyToDocContext aCxt(rDestDoc);
-        bool bOldAutoCalc = rDestDoc.GetAutoCalc();
-        rDestDoc.SetAutoCalc( false );     // avoid multiple calculations
-        SCTAB nMinSizeBothTabs = static_cast<SCTAB>(std::min(maTabs.size(), rDestDoc.maTabs.size()));
-        for (SCTAB i = nTab1; i <= nTab2 && i < nMinSizeBothTabs; i++)
-        {
-            if (maTabs[i] && rDestDoc.maTabs[i])
-                maTabs[i]->CopyToTable(aCxt, nCol1, nRow1, nCol2, nRow2, nFlags,
-                                      bOnlyMarked, rDestDoc.maTabs[i].get(), pMarks,
-                                      false, bColRowFlags, /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true );
-        }
-        rDestDoc.SetAutoCalc(bOldAutoCalc);
+        ScRange aThisRange(nCol1, nRow1, nTab1, nCol2, nRow2, nTab2);
+        CopyToDocument(aThisRange, nFlags, bOnlyMarked, rDestDoc, pMarks, bColRowFlags);
     }
 }
 
@@ -2125,11 +2110,6 @@ void ScDocument::CopyToDocument(const ScRange& rRange,
 
     sc::AutoCalcSwitch aACSwitch(rDestDoc, false); // avoid multiple calculations
 
-    // tdf#102364 - in some pathological cases CopyToDocument() replacing cells with new cells
-    // can lead to repetitive splitting and rejoining of the same formula group, which can get
-    // quadratically expensive with large groups. So do the grouping just once at the end.
-    sc::DelayFormulaGroupingSwitch delayGrouping( rDestDoc, true );
-
     sc::CopyToDocContext aCxt(rDestDoc);
     aCxt.setStartListening(false);
 
@@ -2147,7 +2127,6 @@ void ScDocument::CopyToDocument(const ScRange& rRange,
             /*bGlobalNamesToLocal*/false, /*bCopyCaptions*/true);
     }
 
-    delayGrouping.reset(); // groups need to be updated before setting up listeners
     rDestDoc.StartAllListeners(aNewRange);
 }
 
@@ -2570,7 +2549,7 @@ void ScDocument::SetClipParam(const ScClipParam& rParam)
 
 bool ScDocument::IsClipboardSource() const
 {
-    if (bIsClip || mpShell == nullptr)
+    if (bIsClip || mpShell == nullptr || mpShell->IsLoading())
         return false;
 
     ScDocument* pClipDoc = ScModule::GetClipDoc();
@@ -2690,6 +2669,7 @@ void ScDocument::CopyBlockFromClip(
                 aRefCxt.mnColDelta = nDx;
                 aRefCxt.mnRowDelta = nDy;
                 aRefCxt.mnTabDelta = nDz;
+                aRefCxt.setBlockPositionReference(rCxt.getBlockPositionSet()); // share mdds position caching
                 if (rCxt.getClipDoc()->GetClipParam().mbCutMode)
                 {
                     // Update references only if cut originates from the same
@@ -3376,36 +3356,22 @@ bool ScDocument::SetString( SCCOL nCol, SCROW nRow, SCTAB nTab, const OUString& 
     if (!pTab)
         return false;
 
-    bool bNumFmtSet = false;
-
     const ScFormulaCell* pCurCellFormula = pTab->GetFormulaCell(nCol, nRow);
     if (pCurCellFormula && pCurCellFormula->IsShared())
     {
-        // In case setting this string affects an existing formula group, record
-        // its above and below position for later listening.
+        // In case setting this string affects an existing formula group, end
+        // its listening to purge then empty cell broadcasters. Affected
+        // remaining split group listeners will be set up again via
+        // ScColumn::DetachFormulaCell() and
+        // ScColumn::StartListeningUnshared().
 
-        std::vector<ScAddress> aGroupPos;
         sc::EndListeningContext aCxt(*this);
         ScAddress aPos(nCol, nRow, nTab);
-        EndListeningIntersectedGroup(aCxt, aPos, &aGroupPos);
+        EndListeningIntersectedGroup(aCxt, aPos, nullptr);
         aCxt.purgeEmptyBroadcasters();
-
-        bNumFmtSet = pTab->SetString(nCol, nRow, nTab, rString, pParam);
-
-        SetNeedsListeningGroups(aGroupPos);
-        StartNeededListeners();
-
-        // Listeners may just have been setup that are affected by the current
-        // position thus were not notified by a ScColumn::BroadcastNewCell()
-        // during ScTable::SetString(), so do it here.
-        Broadcast( ScHint( SfxHintId::ScDataChanged, aPos));
-    }
-    else
-    {
-        bNumFmtSet = pTab->SetString(nCol, nRow, nTab, rString, pParam);
     }
 
-    return bNumFmtSet;
+    return pTab->SetString(nCol, nRow, nTab, rString, pParam);
 }
 
 bool ScDocument::SetString(
@@ -3492,28 +3458,18 @@ void ScDocument::SetValue( const ScAddress& rPos, double fVal )
     const ScFormulaCell* pCurCellFormula = pTab->GetFormulaCell(rPos.Col(), rPos.Row());
     if (pCurCellFormula && pCurCellFormula->IsShared())
     {
-        // In case setting this string affects an existing formula group, record
-        // its above and below position for later listening.
+        // In case setting this value affects an existing formula group, end
+        // its listening to purge then empty cell broadcasters. Affected
+        // remaining split group listeners will be set up again via
+        // ScColumn::DetachFormulaCell() and
+        // ScColumn::StartListeningUnshared().
 
-        std::vector<ScAddress> aGroupPos;
         sc::EndListeningContext aCxt(*this);
-        EndListeningIntersectedGroup(aCxt, rPos, &aGroupPos);
+        EndListeningIntersectedGroup(aCxt, rPos, nullptr);
         aCxt.purgeEmptyBroadcasters();
-
-        pTab->SetValue(rPos.Col(), rPos.Row(), fVal);
-
-        SetNeedsListeningGroups(aGroupPos);
-        StartNeededListeners();
-
-        // Listeners may just have been setup that are affected by the current
-        // position thus were not notified by a ScColumn::BroadcastNewCell()
-        // during ScTable::SetValue(), so do it here.
-        Broadcast( ScHint( SfxHintId::ScDataChanged, rPos));
     }
-    else
-    {
-        pTab->SetValue(rPos.Col(), rPos.Row(), fVal);
-    }
+
+    pTab->SetValue(rPos.Col(), rPos.Row(), fVal);
 }
 
 OUString ScDocument::GetString( SCCOL nCol, SCROW nRow, SCTAB nTab, const ScInterpreterContext* pContext ) const
@@ -3788,7 +3744,8 @@ void ScDocument::GetCellType( SCCOL nCol, SCROW nRow, SCTAB nTab,
 
 bool ScDocument::HasStringData( SCCOL nCol, SCROW nRow, SCTAB nTab ) const
 {
-    if ( ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab] )
+    if ( ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab]
+            && nCol < maTabs[nTab]->GetAllocatedColumnsCount())
             return maTabs[nTab]->HasStringData( nCol, nRow );
     else
         return false;
@@ -3796,7 +3753,8 @@ bool ScDocument::HasStringData( SCCOL nCol, SCROW nRow, SCTAB nTab ) const
 
 bool ScDocument::HasValueData( SCCOL nCol, SCROW nRow, SCTAB nTab ) const
 {
-    if ( ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab] )
+    if ( ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab]
+            && nCol < maTabs[nTab]->GetAllocatedColumnsCount())
             return maTabs[nTab]->HasValueData( nCol, nRow );
     else
         return false;
@@ -3896,7 +3854,7 @@ void ScDocument::SetDirty( const ScRange& rRange, bool bIncludeEmptyCells )
             if (maTabs[i]) maTabs[i]->SetDirty( rRange,
                     (bIncludeEmptyCells ? ScColumn::BROADCAST_BROADCASTERS : ScColumn::BROADCAST_DATA_POSITIONS));
 
-        /* TODO: this now also notifies conditional formatting and does an UNO
+        /* TODO: this now also notifies conditional formatting and does a UNO
          * broadcast, which wasn't done here before. Is that an actually
          * desired side effect, or should we come up with a method that
          * doesn't? */
@@ -4744,14 +4702,15 @@ void ScDocument::ExtendHidden( SCCOL& rX1, SCROW& rY1, SCCOL& rX2, SCROW& rY2, S
 
 const SfxPoolItem* ScDocument::GetAttr( SCCOL nCol, SCROW nRow, SCTAB nTab, sal_uInt16 nWhich ) const
 {
-    if ( ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab] )
+    if ( ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) && maTabs[nTab] &&
+         nCol < maTabs[nTab]->GetAllocatedColumnsCount())
     {
         const SfxPoolItem* pTemp = maTabs[nTab]->GetAttr( nCol, nRow, nWhich );
         if (pTemp)
             return pTemp;
         else
         {
-            OSL_FAIL( "Attribut Null" );
+            OSL_FAIL( "Attribute Null" );
         }
     }
     return &mxPoolHelper->GetDocPool()->GetDefaultItem( nWhich );
@@ -5056,6 +5015,14 @@ bool ScDocument::RemoveFlagsTab( SCCOL nStartCol, SCROW nStartRow,
     return false;
 }
 
+const ScPatternAttr* ScDocument::SetPattern( SCCOL nCol, SCROW nRow, SCTAB nTab, std::unique_ptr<ScPatternAttr> pAttr )
+{
+    if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()))
+        if (maTabs[nTab])
+            return maTabs[nTab]->SetPattern( nCol, nRow, std::move(pAttr) );
+    return nullptr;
+}
+
 void ScDocument::SetPattern( SCCOL nCol, SCROW nRow, SCTAB nTab, const ScPatternAttr& rAttr )
 {
     if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()))
@@ -5204,20 +5171,15 @@ bool ScDocument::HasAttrib( SCCOL nCol1, SCROW nRow1, SCTAB nTab1,
         ScDocumentPool* pPool = mxPoolHelper->GetDocPool();
 
         bool bAnyItem = false;
-        sal_uInt32 nRotCount = pPool->GetItemCount2( ATTR_ROTATE_VALUE );
-        for (sal_uInt32 nItem=0; nItem<nRotCount; nItem++)
+        for (const SfxPoolItem* pItem : pPool->GetItemSurrogates(ATTR_ROTATE_VALUE))
         {
-            const SfxPoolItem* pItem = pPool->GetItem2( ATTR_ROTATE_VALUE, nItem );
-            if ( pItem )
+            // 90 or 270 degrees is former SvxOrientationItem - only look for other values
+            // (see ScPatternAttr::GetCellOrientation)
+            sal_Int32 nAngle = static_cast<const SfxInt32Item*>(pItem)->GetValue();
+            if ( nAngle != 0 && nAngle != 9000 && nAngle != 27000 )
             {
-                // 90 or 270 degrees is former SvxOrientationItem - only look for other values
-                // (see ScPatternAttr::GetCellOrientation)
-                sal_Int32 nAngle = static_cast<const SfxInt32Item*>(pItem)->GetValue();
-                if ( nAngle != 0 && nAngle != 9000 && nAngle != 27000 )
-                {
-                    bAnyItem = true;
-                    break;
-                }
+                bAnyItem = true;
+                break;
             }
         }
         if (!bAnyItem)
@@ -6131,10 +6093,9 @@ void ScDocument::UpdStlShtPtrsFrmNms()
 {
     ScDocumentPool* pPool = mxPoolHelper->GetDocPool();
 
-    sal_uInt32 nCount = pPool->GetItemCount2(ATTR_PATTERN);
-    for (sal_uInt32 i=0; i<nCount; i++)
+    for (const SfxPoolItem* pItem : pPool->GetItemSurrogates(ATTR_PATTERN))
     {
-        ScPatternAttr* pPattern = const_cast<ScPatternAttr*>(pPool->GetItem2(ATTR_PATTERN, i));
+        auto pPattern = const_cast<ScPatternAttr*>(dynamic_cast<const ScPatternAttr*>(pItem));
         if (pPattern)
             pPattern->UpdateStyleSheet(this);
     }
@@ -6145,10 +6106,9 @@ void ScDocument::StylesToNames()
 {
     ScDocumentPool* pPool = mxPoolHelper->GetDocPool();
 
-    sal_uInt32 nCount = pPool->GetItemCount2(ATTR_PATTERN);
-    for (sal_uInt32 i=0; i<nCount; i++)
+    for (const SfxPoolItem* pItem : pPool->GetItemSurrogates(ATTR_PATTERN))
     {
-        ScPatternAttr* pPattern = const_cast<ScPatternAttr*>(pPool->GetItem2(ATTR_PATTERN, i));
+        auto pPattern = const_cast<ScPatternAttr*>(dynamic_cast<const ScPatternAttr*>(pItem));
         if (pPattern)
             pPattern->StyleToName();
     }
@@ -6535,7 +6495,8 @@ ScPostIt* ScDocument::GetNote(const ScAddress& rPos)
 
 ScPostIt* ScDocument::GetNote(SCCOL nCol, SCROW nRow, SCTAB nTab)
 {
-    if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()))
+    if (ValidTab(nTab) && nTab < static_cast<SCTAB>(maTabs.size()) &&
+        nCol < maTabs[nTab]->GetAllocatedColumnsCount())
         return maTabs[nTab]->aCol[nCol].GetCellNote(nRow);
     else
         return nullptr;
@@ -6549,7 +6510,7 @@ void ScDocument::SetNote(const ScAddress& rPos, std::unique_ptr<ScPostIt> pNote)
 
 void ScDocument::SetNote(SCCOL nCol, SCROW nRow, SCTAB nTab, std::unique_ptr<ScPostIt> pNote)
 {
-    return maTabs[nTab]->aCol[nCol].SetCellNote(nRow, std::move(pNote));
+    return maTabs[nTab]->CreateColumnIfNotExists(nCol).SetCellNote(nRow, std::move(pNote));
 }
 
 bool ScDocument::HasNote(const ScAddress& rPos) const
@@ -6564,6 +6525,9 @@ bool ScDocument::HasNote(SCCOL nCol, SCROW nRow, SCTAB nTab) const
 
     const ScTable* pTab = FetchTable(nTab);
     if (!pTab)
+        return false;
+
+    if (nCol >= pTab->GetAllocatedColumnsCount())
         return false;
 
     const ScPostIt* pNote = pTab->aCol[nCol].GetCellNote(nRow);

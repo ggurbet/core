@@ -31,6 +31,7 @@ class SwCursorShell;
 
 namespace sw { namespace mark {
     class SaveBookmark; // FIXME: Ugly: SaveBookmark is a core-internal class, and should not be used in the interface
+    class MarkBase;
 }}
 
 /** Provides access to the marks of a document.
@@ -52,11 +53,59 @@ class IDocumentMarkAccess
             NAVIGATOR_REMINDER
         };
 
-        typedef std::shared_ptr< ::sw::mark::IMark> pMark_t;
-        typedef std::vector< pMark_t > container_t;
-        typedef container_t::iterator iterator_t;
-        typedef container_t::const_iterator const_iterator_t;
-        typedef container_t::const_reverse_iterator const_reverse_iterator_t;
+        /** wrapper iterator: wraps iterator of implementation while hiding
+            MarkBase class; only IMark instances can be retrieved directly.
+         */
+        class SW_DLLPUBLIC iterator
+        {
+            private:
+                std::unique_ptr<std::vector<::sw::mark::MarkBase*>::const_iterator> m_pIter;
+
+            public:
+                // MarkManager implementation needs to get the real iterator
+                std::vector<::sw::mark::MarkBase*>::const_iterator const& get() const;
+
+                typedef std::ptrdiff_t difference_type;
+                typedef ::sw::mark::IMark* value_type;
+                typedef ::sw::mark::IMark* const* pointer;
+                typedef ::sw::mark::IMark* const& reference;
+                typedef std::random_access_iterator_tag iterator_category;
+
+                iterator();
+                iterator(std::vector<::sw::mark::MarkBase*>::const_iterator const& rIter);
+                iterator(iterator const& rOther);
+                iterator& operator=(iterator const& rOther);
+                iterator(iterator && rOther);
+                iterator& operator=(iterator && rOther);
+                ~iterator();
+
+                // FIXME unfortunately there's a requirement on input iterator
+                // and forward iterator to return reference, which isn't
+                // possible because we have to return a temp value;
+                // let's try value_type instead, perhaps it's sufficient,
+                // for a const_iterator...
+                ::sw::mark::IMark* /*const&*/ operator*() const;
+                // nope can't do that :(
+                //::sw::mark::IMark* /* const* */ operator->() const;
+                iterator& operator++();
+                iterator operator++(int);
+                bool operator==(iterator const& rOther) const;
+                bool operator!=(iterator const& rOther) const;
+                iterator& operator--();
+                iterator operator--(int);
+                iterator& operator+=(difference_type);
+                iterator operator+(difference_type) const;
+                iterator& operator-=(difference_type);
+                iterator operator-(difference_type) const;
+                difference_type operator-(iterator const&) const;
+                value_type operator[](difference_type) const;
+                bool operator<(iterator const& rOther) const;
+                bool operator>(iterator const& rOther) const;
+                bool operator<=(iterator const& rOther) const;
+                bool operator>=(iterator const& rOther) const;
+        };
+
+        typedef iterator const_iterator_t;
 
         /// To avoid recursive calls of deleteMark, the removal of dummy
         /// characters of fieldmarks has to be delayed; this is the baseclass
@@ -130,7 +179,7 @@ class IDocumentMarkAccess
 
             @returns false, if renaming failed (because the name is already in use)
         */
-            virtual bool renameMark(::sw::mark::IMark* io_pMark,
+        virtual bool renameMark(::sw::mark::IMark* io_pMark,
                 const OUString& rNewName) =0;
 
         /** Corrects marks (absolute)
@@ -184,7 +233,7 @@ class IDocumentMarkAccess
             @param ppMark
             [in] an iterator pointing to the Mark to be deleted.
         */
-        virtual std::shared_ptr<ILazyDeleter>
+        virtual std::unique_ptr<ILazyDeleter>
             deleteMark(const IDocumentMarkAccess::const_iterator_t& ppMark) =0;
 
         /** Deletes a mark.
@@ -224,6 +273,13 @@ class IDocumentMarkAccess
         */
         virtual const_iterator_t findMark(const OUString& rMark) const =0;
 
+        /** Find the first Mark that does not start before.
+
+            @returns
+            an iterator pointing to the mark, or pointing to getAllMarksEnd() if nothing was found.
+        */
+        virtual const_iterator_t findFirstMarkStartsBefore(const SwPosition& rPos) const =0;
+
         // interface IBookmarks (BOOKMARK, CROSSREF_NUMITEM_BOOKMARK, CROSSREF_HEADING_BOOKMARK )
 
         /** returns a STL-like random access iterator to the begin of the sequence the IBookmarks.
@@ -248,6 +304,14 @@ class IDocumentMarkAccess
         */
         virtual const_iterator_t findBookmark(const OUString& rMark) const =0;
 
+        /** Finds the first mark that is starting after.
+
+            @returns
+            an iterator pointing to the mark, or pointing to getBookmarksEnd() if nothing was found.
+        */
+        virtual const_iterator_t findFirstBookmarkStartsAfter(const SwPosition& rPos) const =0;
+
+
         // Fieldmarks
         virtual ::sw::mark::IFieldmark* getFieldmarkFor(const SwPosition& pos) const =0;
         virtual ::sw::mark::IFieldmark* getFieldmarkBefore(const SwPosition& pos) const =0;
@@ -268,6 +332,12 @@ class IDocumentMarkAccess
         virtual sal_Int32 getAnnotationMarksCount() const = 0;
         virtual const_iterator_t findAnnotationMark( const OUString& rName ) const = 0;
         virtual sw::mark::IMark* getAnnotationMarkFor(const SwPosition& rPosition) const = 0;
+        /** Finds the first mark that is starting after.
+
+            @returns
+            an iterator pointing to the mark, or pointing to getAnnotationMarksEnd() if nothing was found.
+        */
+        virtual const_iterator_t findFirstAnnotationStartsAfter(const SwPosition& rPos) const =0;
 
         /** Returns the MarkType used to create the mark
         */

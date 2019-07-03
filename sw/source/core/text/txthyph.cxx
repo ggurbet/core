@@ -17,6 +17,7 @@
  *   the License at http://www.apache.org/licenses/LICENSE-2.0 .
  */
 
+#include <breakit.hxx>
 #include <hintids.hxx>
 #include <editeng/unolingu.hxx>
 #include <com/sun/star/i18n/WordType.hpp>
@@ -271,8 +272,7 @@ bool SwTextPortion::CreateHyphen( SwTextFormatInfo &rInf, SwTextGuess const &rGu
     // first case: hyphenated word has alternative spelling
     if ( xHyphWord->isAlternativeSpelling() )
     {
-        SvxAlternativeSpelling aAltSpell;
-        aAltSpell = SvxGetAltSpelling( xHyphWord );
+        SvxAlternativeSpelling aAltSpell = SvxGetAltSpelling( xHyphWord );
         OSL_ENSURE( aAltSpell.bIsAltSpelling, "no alternative spelling" );
 
         OUString aAltText = aAltSpell.aReplacement;

@@ -27,6 +27,7 @@
 #include <com/sun/star/chart2/XChartDocument.hpp>
 #include <cppuhelper/implbase.hxx>
 
+#include <sot/exchange.hxx>
 #include <tools/globname.hxx>
 #include <hintids.hxx>
 #include <sfx2/docfile.hxx>
@@ -50,6 +51,7 @@
 #include <comphelper/classids.hxx>
 #include <vcl/graph.hxx>
 #include <sot/formats.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/graphicfilter.hxx>
 #include <strings.hrc>
 #include <svx/charthelper.hxx>
@@ -317,7 +319,7 @@ bool SwOLENode::SavePersistentData()
               will be called. And chart filter will call chart core functions to create
               the chart again. Then chart core function will call the class
               ExplicitCategoryProvider to create data source. In this step, when SW data
-              source provider create the data source, an UnoActionRemoveContext
+              source provider create the data source, a UnoActionRemoveContext
               will mess with the layout and create a new SwFlyFrame.
               But later in SwUndoFlyBase::DelFly, it will clear anchor related attributes
               of SwFlyFrame. Then finally null pointer occur.

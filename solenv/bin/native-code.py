@@ -61,7 +61,11 @@ core_factory_list = [
     ("libspelllo.a", "spell_component_getFactory"),
     ("libpdffilterlo.a", "pdffilter_component_getFactory"),
     ("libsvgiolo.a", "svgio_component_getFactory"),
-    ("libsvtlo.a", "svt_component_getFactory")
+    ("libsvtlo.a", "svt_component_getFactory"),
+    ("libctllo.a", "ctl_component_getFactory"),
+    ("libMacOSXSpelllo.a", "MacOSXSpell_component_getFactory", "#ifdef IOS"),
+    ("libcuilo.a", "cui_component_getFactory"),
+    ("libproxyfaclo.a", "proxyfac_component_getFactory"),
     ]
 
 core_constructor_list = [
@@ -117,6 +121,7 @@ core_constructor_list = [
 # chart2/source/controller/chartcontroller.component
     "com_sun_star_comp_chart2_ChartDocumentWrapper_get_implementation",
     "com_sun_star_comp_chart2_ChartFrameLoader_get_implementation",
+    "com_sun_star_comp_chart2_WizardDialog_get_implementation",
 # comphelper/util/comphelp.component
     "com_sun_star_comp_MemoryStream",
     "com_sun_star_comp_task_OfficeRestartManager",
@@ -214,15 +219,22 @@ core_constructor_list = [
     "com_sun_star_comp_uri_UriReferenceFactory_get_implementation",
     "com_sun_star_comp_uri_UriSchemeParser_vndDOTsunDOTstarDOTexpand_get_implementation",
     "com_sun_star_comp_uri_UriSchemeParser_vndDOTsunDOTstarDOTscript_get_implementation",
+# svtools/util/svt.component
+    "com_sun_star_comp_embed_HatchWindowFactory_get_implementation",
 # vcl/vcl.android.component
     "com_sun_star_graphic_GraphicObject_get_implementation",
     "com_sun_star_comp_graphic_GraphicProvider_get_implementation",
 # svx/util/svx.component
+    "com_sun_star_comp_svx_NumberingToolBoxControl_get_implementation",
     "com_sun_star_drawing_EnhancedCustomShapeEngine_get_implementation",
     "com_sun_star_drawing_SvxShapeCollection_get_implementation",
+    "com_sun_star_svx_FontHeightToolBoxController_get_implementation",
+    "org_apache_openoffice_comp_svx_sidebar_PanelFactory_get_implementation",
 # svx/util/svxcore.component
     "com_sun_star_comp_graphic_PrimitiveFactory2D_get_implementation",
     "com_sun_star_comp_Draw_GraphicExporter_get_implementation",
+    "com_sun_star_comp_svx_ColorToolBoxControl_get_implementation",
+    "com_sun_star_comp_svx_FontNameToolBoxControl_get_implementation",
     "com_sun_star_comp_Svx_GraphicExportHelper_get_implementation",
     "com_sun_star_comp_Svx_GraphicImportHelper_get_implementation",
 # toolkit/util/tk.component
@@ -251,11 +263,21 @@ core_constructor_list = [
 # uui/util/uui.component
     "com_sun_star_comp_uui_UUIInteractionHandler_get_implementation",
 # xmloff/util/xo.component
+    "XMLMetaExportComponent_get_implementation",
+    "XMLMetaImportComponent_get_implementation",
     "XMLVersionListPersistence_get_implementation",
     "com_sun_star_comp_Impress_XMLOasisImporter_get_implementation",
     "com_sun_star_comp_Impress_XMLOasisExporter_get_implementation",
     "com_sun_star_comp_Impress_XMLOasisStylesExporter_get_implementation",
     "com_sun_star_comp_Impress_XMLOasisContentExporter_get_implementation",
+    "com_sun_star_comp_Impress_XMLOasisMetaExporter_get_implementation",
+    "com_sun_star_comp_Impress_XMLOasisSettingsExporter_get_implementation",
+    "com_sun_star_comp_Impress_XMLOasisSettingsImporter_get_implementation",
+    "com_sun_star_comp_Draw_XMLOasisImporter_get_implementation",
+    "com_sun_star_comp_Draw_XMLOasisStylesImporter_get_implementation",
+    "com_sun_star_comp_Draw_XMLOasisContentImporter_get_implementation",
+    "com_sun_star_comp_Draw_XMLOasisMetaImporter_get_implementation",
+    "com_sun_star_comp_Draw_XMLOasisSettingsImporter_get_implementation",
 # xmlscript/util/xmlscript.component
     "com_sun_star_comp_xmlscript_XMLBasicExporter",
     "com_sun_star_comp_xmlscript_XMLBasicImporter",
@@ -288,6 +310,7 @@ edit_factory_list = [
 edit_constructor_list = [
 # framework/util/fwk.component
     "com_sun_star_comp_framework_GlobalAcceleratorConfiguration_get_implementation",
+    "com_sun_star_comp_framework_UICommandDescription_get_implementation",
 # i18npool/util/i18npool.component
     "com_sun_star_i18n_InputSequenceChecker_get_implementation",
     "com_sun_star_i18n_OrdinalSuffix_get_implementation",
@@ -377,6 +400,10 @@ draw_constructor_list = [
     "com_sun_star_comp_Draw_framework_module_ModuleController_get_implementation",
 # sd/util/sdd.component
     "com_sun_star_comp_draw_FormatDetector_get_implementation",
+# sd/util/sdfilt.component
+    "css_comp_Impress_oox_PowerPointExport",
+# writerperfect/source/draw/wpftdraw.component
+    "com_sun_star_comp_Draw_VisioImportFilter_get_implementation",
     ]
 
 writer_factory_list = [
@@ -424,36 +451,24 @@ constructor_map = {
     }
 
 custom_widgets = [
-    'ArgEdit',
     'BookmarksBox',
     'CategoryListBox',
-    'ClassificationEditView',
     'ColorConfigCtrl',
     'ColumnEdit',
-    'ConditionEdit',
     'ContentListBox',
     'ContextVBox',
     'CustomAnimationList',
-    'CustomPropertiesControl',
     'DataTreeListBox',
     'DriverListControl',
     'DropdownBox',
-    'EditBox',
     'EmojiView',
-    'ExtBoxWithBtns',
-    'ExtensionBox',
     'FontNameBox',
     'FontSizeBox',
     'FontStyleBox',
-    'FormulaListBox',
     'IndexBox',
     'IndexBox',
-    'IntellectualPropertyPartEdit',
-    'LightButton',
-    'LookUpComboBox',
     'ManagedMenuButton',
     'MultiLineEditSyntaxHighlight',
-    'NumFormatListBox',
     'OFileURLControl',
     'OptionalBox',
     'PageNumberListBox',
@@ -462,40 +477,22 @@ custom_widgets = [
     'PriorityMergedHBox',
     'PropertyControl',
     'RecentDocsView',
-    'RefButton',
-    'RefEdit',
-    'ReplaceEdit',
     'RowEdit',
-    'RubyEdit',
-    'RubyPreview',
     'SameContentListBox',
-    'ScCondFormatList',
     'ScCsvTableBox',
-    'ScCursorRefEdit',
     'ScDataTableView',
     'ScDoubleField',
-    'ScEditWindow',
-    'ScPivotLayoutTreeList',
-    'ScPivotLayoutTreeListData',
-    'ScPivotLayoutTreeListLabel',
-    'ScRefButtonEx',
     'SdPageObjsTLB',
     'SearchBox',
     'SearchResultsBox',
-    'SelectionListBox',
-    'SentenceEditWindow',
     'ShowNupOrderWindow',
     'ShowNupOrderWindow',
     'SidebarDialControl',
     'SidebarToolBox',
-    'SmallButton',
     'SpacingListBox',
-    'StatusBar',
-    'StructListBox',
     'SvSimpleTableContainer',
     'SvTreeListBox',
     'SvtFileView',
-    'SvtIconChoiceCtrl',
     'SvtURLBox',
     'Svx3DPreviewControl',
     'SvxCharViewControl',
@@ -505,25 +502,18 @@ custom_widgets = [
     'SvxFillAttrBox',
     'SvxFillTypeBox',
     'SvxFontPrevWindow',
-    'SvxHlmarkTreeLBox',
-    'SvxHyperURLBox',
     'SvxLanguageBox',
     'SvxLanguageComboBox',
     'SvxLightCtl3D',
     'SvxNoSpaceEdit',
-    'SvxPathControl',
     'SvxRelativeField',
     'SvxTextEncodingBox',
     'SvxTextEncodingBox',
     'SwAddressPreview',
-    'SwGlTreeListBox',
     'SwMarkPreview',
     'SwNavHelpToolBox',
     'TableValueSet',
     'TemplateDefaultView',
-    'TemplateLocalView',
-    'TemplateSearchView',
-    'ThesaurusAlternativesCtrl',
     'ValueSet',
     ]
 

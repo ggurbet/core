@@ -15,12 +15,10 @@ $(eval $(call gb_UnpackedTarball_set_patchlevel,libmwaw,0))
 
 $(eval $(call gb_UnpackedTarball_update_autoconf_configs,libmwaw))
 
-ifeq ($(COM_IS_CLANG),TRUE)
-ifneq ($(filter -fsanitize=%,$(CC)),)
+ifeq ($(NEED_CLANG_LINUX_UBSAN_RTTI_VISIBILITY),TRUE)
 $(eval $(call gb_UnpackedTarball_add_patches,libmwaw, \
     external/libmwaw/ubsan-visibility.patch \
 ))
-endif
 endif
 
 ifneq ($(OS),MACOSX)
@@ -36,9 +34,5 @@ $(eval $(call gb_UnpackedTarball_add_patches,libmwaw, \
     external/libmwaw/rpath.patch \
 ))
 endif
-
-$(eval $(call gb_UnpackedTarball_add_patches,libmwaw,\
-	external/libmwaw/0001-ssize_t-is-not-std-type.patch.1 \
-))
 
 # vim: set noet sw=4 ts=4:

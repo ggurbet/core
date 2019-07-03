@@ -13,8 +13,11 @@ $(eval $(call gb_UnpackedTarball_set_tarball,libmspub,$(MSPUB_TARBALL)))
 
 $(eval $(call gb_UnpackedTarball_set_patchlevel,libmspub,0))
 
+# * external/libmspub/stdint.patch is upstream at <https://gerrit.libreoffice.org/#/c/73814/>
+#   "missing include":
 $(eval $(call gb_UnpackedTarball_add_patches,libmspub,\
     external/libmspub/ubsan.patch \
+    external/libmspub/stdint.patch \
 ))
 
 $(eval $(call gb_UnpackedTarball_update_autoconf_configs,libmspub))
@@ -25,12 +28,10 @@ $(eval $(call gb_UnpackedTarball_add_patches,libmspub, \
 ))
 endif
 
-ifeq ($(COM_IS_CLANG),TRUE)
-ifneq ($(filter -fsanitize=%,$(CC)),)
+ifeq ($(NEED_CLANG_LINUX_UBSAN_RTTI_VISIBILITY),TRUE)
 $(eval $(call gb_UnpackedTarball_add_patches,libmspub, \
     external/libmspub/ubsan-visibility.patch \
 ))
-endif
 endif
 
 # vim: set noet sw=4 ts=4:

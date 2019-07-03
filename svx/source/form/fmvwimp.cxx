@@ -67,6 +67,7 @@
 #include <com/sun/star/container/XIndexAccess.hpp>
 #include <com/sun/star/awt/XControl.hpp>
 #include <com/sun/star/sdbcx/XTablesSupplier.hpp>
+#include <com/sun/star/sdbc/SQLException.hpp>
 #include <com/sun/star/sdbc/XPreparedStatement.hpp>
 #include <com/sun/star/sdb/XQueriesSupplier.hpp>
 #include <com/sun/star/container/XContainer.hpp>
@@ -77,8 +78,10 @@
 #include <comphelper/types.hxx>
 #include <cppuhelper/exc_hlp.hxx>
 #include <unotools/moduleoptions.hxx>
+#include <tools/debug.hxx>
 #include <tools/diagnose_ex.h>
 #include <sal/log.hxx>
+#include <vcl/svapp.hxx>
 #include <vcl/stdtext.hxx>
 #include <connectivity/dbtools.hxx>
 
@@ -195,7 +198,7 @@ void FormViewPageWindowAdapter::dispose()
     {
         try
         {
-            Reference< XFormController > xController( *i, UNO_QUERY_THROW );
+            Reference< XFormController > xController( *i, UNO_SET_THROW );
 
             // detaching the events
             Reference< XChild > xControllerModel( xController->getModel(), UNO_QUERY );
@@ -842,7 +845,7 @@ static Reference< XControl > lcl_firstFocussableControl( const Sequence< Referen
         }
     }
 
-    if ( !xReturn.is() && _rControls.getLength() )
+    if ( !xReturn.is() && _rControls.hasElements() )
         xReturn = _rControls[0];
 
     return xReturn;
@@ -866,7 +869,7 @@ namespace
                     continue;
 
                 Reference< XChild > xModel( pFormObject->GetUnoControlModel(), UNO_QUERY_THROW );
-                Reference< XInterface > xModelParent( xModel->getParent(), UNO_QUERY_THROW );
+                Reference< XInterface > xModelParent( xModel->getParent(), UNO_SET_THROW );
 
                 if ( xNormalizedForm.get() != xModelParent.get() )
                     continue;
@@ -934,7 +937,7 @@ IMPL_LINK_NOARG(FmXFormView, OnAutoFocus, void*, void)
 
         // go for the first control of the controller
         Sequence< Reference< XControl > > aControls( xTabController->getControls() );
-        if ( aControls.getLength() == 0 )
+        if ( !aControls.hasElements() )
         {
             Reference< XElementAccess > xFormElementAccess( xForm, UNO_QUERY_THROW );
             if (xFormElementAccess->hasElements() && pPage && m_pView)
@@ -946,7 +949,7 @@ IMPL_LINK_NOARG(FmXFormView, OnAutoFocus, void*, void)
                 // trigger the creation itself, so we must hack this ...
                 lcl_ensureControlsOfFormExist_nothrow( *pPage, *m_pView, *pWindow, xForm );
                 aControls = xTabController->getControls();
-                OSL_ENSURE( aControls.getLength(), "FmXFormView::OnAutoFocus: no controls at all!" );
+                OSL_ENSURE( aControls.hasElements(), "FmXFormView::OnAutoFocus: no controls at all!" );
             }
         }
 
@@ -1692,8 +1695,10 @@ FmXFormView::ObjectRemoveListener::ObjectRemoveListener( FmXFormView* pParent )
 
 void FmXFormView::ObjectRemoveListener::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
 {
-    const SdrHint* pSdrHint = dynamic_cast<const SdrHint*>(&rHint);
-    if (pSdrHint && pSdrHint->GetKind() == SdrHintKind::ObjectRemoved)
+    if (rHint.GetId() != SfxHintId::ThisIsAnSdrHint)
+        return;
+    const SdrHint* pSdrHint = static_cast<const SdrHint*>(&rHint);
+    if (pSdrHint->GetKind() == SdrHintKind::ObjectRemoved)
         m_pParent->ObjectRemovedInAliveMode(pSdrHint->GetObject());
 }
 

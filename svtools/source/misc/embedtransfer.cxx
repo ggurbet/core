@@ -138,7 +138,7 @@ bool SvEmbedTransferHelper::GetData( const css::datatransfer::DataFlavor& rFlavo
                             if ( bDeleteStream )
                                 delete pStream;
 
-                            bRet = ( aSeq.getLength() > 0 );
+                            bRet = aSeq.hasElements();
                             if( bRet )
                             {
                                 SetAny( uno::Any(aSeq) );
@@ -230,8 +230,7 @@ void SvEmbedTransferHelper::FillTransferableObjectDescriptor( TransferableObject
     {
         try
         {
-            awt::Size aSz;
-            aSz = xObj->getVisualAreaSize( rDesc.mnViewAspect );
+            awt::Size aSz = xObj->getVisualAreaSize( rDesc.mnViewAspect );
             aSize = Size( aSz.Width, aSz.Height );
         }
         catch( embed::NoVisualAreaSizeException& )

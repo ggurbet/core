@@ -21,10 +21,12 @@
 #include "PageMarginControl.hxx"
 #include <com/sun/star/document/XUndoManager.hpp>
 #include <com/sun/star/document/XUndoManagerSupplier.hpp>
+#include <com/sun/star/frame/XFrame.hpp>
 
 #include <swtypes.hxx>
 #include <sfx2/viewsh.hxx>
 #include <sfx2/dispatch.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/svxids.hrc>
 #include <cmdid.h>
 
@@ -38,7 +40,7 @@ namespace {
             if ( xModel.is() )
             {
                 const css::uno::Reference< css::document::XUndoManagerSupplier > xSuppUndo( xModel, css::uno::UNO_QUERY_THROW );
-                const css::uno::Reference< css::document::XUndoManager > xUndoManager( xSuppUndo->getUndoManager(), css::uno::UNO_QUERY_THROW );
+                const css::uno::Reference< css::document::XUndoManager > xUndoManager( xSuppUndo->getUndoManager(), css::uno::UNO_SET_THROW );
                 return xUndoManager;
             }
         }

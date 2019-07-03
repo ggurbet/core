@@ -24,6 +24,7 @@
 #include <vcl/field.hxx>
 #include <vcl/fixed.hxx>
 #include <vcl/idle.hxx>
+#include <vcl/svapp.hxx>
 #include <svl/intitem.hxx>
 #include <svl/eitem.hxx>
 #include <svl/whiter.hxx>
@@ -51,7 +52,14 @@
 #include <svx/svdtrans.hxx>
 #include <svx/grafctrl.hxx>
 #include <svx/tbxcolor.hxx>
+#include <svx/sdgcoitm.hxx>
+#include <svx/sdggaitm.hxx>
+#include <svx/sdgluitm.hxx>
+#include <svx/sdgmoitm.hxx>
+#include <svx/sdgtritm.hxx>
 #include <bitmaps.hlst>
+
+#include <com/sun/star/frame/XDispatchProvider.hpp>
 
 using namespace ::com::sun::star::uno;
 using namespace ::com::sun::star::frame;
@@ -699,7 +707,7 @@ void SvxGrafAttrHelper::ExecuteGrafAttr( SfxRequest& rReq, SdrView& rView )
 
                     vcl::Window* pParent(SfxViewShell::Current() ? SfxViewShell::Current()->GetWindow() : nullptr);
                     SfxSingleTabDialogController aCropDialog(pParent ? pParent->GetFrameWeld() : nullptr,
-                        aCropDlgAttr);
+                        &aCropDlgAttr);
                     const OUString aCropStr(SvxResId(RID_SVXSTR_GRAFCROP));
 
                     SfxAbstractDialogFactory* pFact = SfxAbstractDialogFactory::Create();

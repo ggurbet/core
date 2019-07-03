@@ -139,7 +139,7 @@ namespace dmapper
                 case NS_ooxml::LN_Value_doc_ST_DocProtect_forms:            aValue.Value <<= OUString("forms"); break;
                 default:
                 {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
                     TagLogger::getInstance().element("unhandled");
 #endif
                 }
@@ -234,6 +234,9 @@ struct SettingsTable_Impl
     int                 m_nDefaultTabStop;
 
     bool                m_bRecordChanges;
+    bool                m_bShowInsDelChanges;
+    bool                m_bShowFormattingChanges;
+    bool                m_bShowMarkupChanges;
     bool                m_bLinkStyles;
     sal_Int16           m_nZoomFactor;
     sal_Int16 m_nZoomType = 0;
@@ -256,12 +259,16 @@ struct SettingsTable_Impl
 
     std::vector<beans::PropertyValue> m_aCompatSettings;
     uno::Sequence<beans::PropertyValue> m_pCurrentCompatSetting;
+    OUString            m_sCurrentDatabaseDataSource;
 
     DocumentProtection_Impl m_DocumentProtection;
 
     SettingsTable_Impl() :
       m_nDefaultTabStop( 720 ) //default is 1/2 in
     , m_bRecordChanges(false)
+    , m_bShowInsDelChanges(true)
+    , m_bShowFormattingChanges(false)
+    , m_bShowMarkupChanges(true)
     , m_bLinkStyles(false)
     , m_nZoomFactor(0)
     , m_nView(0)
@@ -372,9 +379,18 @@ void SettingsTable::lcl_attribute(Id nName, Value & val)
     case NS_ooxml::LN_AG_Password_salt: // 92036
         m_pImpl->m_DocumentProtection.m_sSalt = sStringValue;
         break;
+    case NS_ooxml::LN_CT_TrackChangesView_insDel:
+        m_pImpl->m_bShowInsDelChanges = (nIntValue != 0);
+        break;
+    case NS_ooxml::LN_CT_TrackChangesView_formatting:
+        m_pImpl->m_bShowFormattingChanges = (nIntValue != 0);
+        break;
+    case NS_ooxml::LN_CT_TrackChangesView_markup:
+        m_pImpl->m_bShowMarkupChanges = (nIntValue != 0);
+        break;
     default:
     {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().element("unhandled");
 #endif
     }
@@ -439,6 +455,9 @@ void SettingsTable::lcl_sprm(Sprm& rSprm)
         m_pImpl->m_bRecordChanges = bool(rSprm.getValue( )->getInt( ) );
     }
     break;
+    case NS_ooxml::LN_CT_Settings_revisionView:
+        resolveSprmProps(*this, rSprm);
+        break;
     case NS_ooxml::LN_CT_Settings_documentProtection:
         resolveSprmProps(*this, rSprm);
         break;
@@ -460,6 +479,29 @@ void SettingsTable::lcl_sprm(Sprm& rSprm)
     case NS_ooxml::LN_CT_Settings_mirrorMargins:
         m_pImpl->m_bMirrorMargin = nIntValue;
         break;
+    case NS_ooxml::LN_CT_Settings_mailMerge:
+    {
+        writerfilter::Reference<Properties>::Pointer_t pProperties = rSprm.getProps();
+        if (pProperties.get())
+            pProperties->resolve(*this);
+    }
+    break;
+    case NS_ooxml::LN_CT_MailMerge_query:
+    {
+        // try to get the "database.table" name from the query saved previously
+        OUString sVal = pValue->getString();
+        if ( sVal.endsWith("$") && sVal.indexOf(".dbo.") > 0 )
+        {
+            sal_Int32 nSpace = sVal.lastIndexOf(' ');
+            sal_Int32 nDbo = sVal.lastIndexOf(".dbo.");
+            if ( nSpace > 0 && nSpace < nDbo - 1 )
+            {
+                m_pImpl->m_sCurrentDatabaseDataSource = sVal.copy(nSpace + 1, nDbo - nSpace - 1) +
+                            sVal.copy(nDbo + 4, sVal.getLength() - nDbo - 5);
+            }
+        }
+    }
+    break;
     case NS_ooxml::LN_CT_Compat_compatSetting:
     {
         writerfilter::Reference<Properties>::Pointer_t pProperties = rSprm.getProps();
@@ -491,7 +533,7 @@ void SettingsTable::lcl_sprm(Sprm& rSprm)
         break;
     default:
     {
-#ifdef DEBUG_WRITERFILTER
+#ifdef DBG_UTIL
         TagLogger::getInstance().element("unhandled");
 #endif
     }
@@ -595,6 +637,11 @@ css::uno::Sequence<css::beans::PropertyValue> SettingsTable::GetDocumentProtecti
     return m_pImpl->m_DocumentProtection.toSequence();
 }
 
+const OUString & SettingsTable::GetCurrentDatabaseDataSource() const
+{
+    return m_pImpl->m_sCurrentDatabaseDataSource;
+}
+
 static bool lcl_isDefault(const uno::Reference<beans::XPropertyState>& xPropertyState, const OUString& rPropertyName)
 {
     return xPropertyState->getPropertyState(rPropertyName) == beans::PropertyState_DEFAULT_VALUE;
@@ -603,6 +650,13 @@ static bool lcl_isDefault(const uno::Reference<beans::XPropertyState>& xProperty
 void SettingsTable::ApplyProperties(uno::Reference<text::XTextDocument> const& xDoc)
 {
     uno::Reference< beans::XPropertySet> xDocProps( xDoc, uno::UNO_QUERY );
+
+    // Show changes value
+    if (xDocProps.is())
+    {
+        bool bHideChanges = !m_pImpl->m_bShowInsDelChanges || !m_pImpl->m_bShowMarkupChanges;
+        xDocProps->setPropertyValue("ShowChanges", uno::makeAny( !bHideChanges || m_pImpl->m_bShowFormattingChanges ) );
+    }
 
     // Record changes value
     if (xDocProps.is())

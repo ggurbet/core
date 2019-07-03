@@ -27,6 +27,7 @@
 #include <svl/lstner.hxx>
 #include <unotools/options.hxx>
 #include <sfx2/module.hxx>
+#include <sfx2/app.hxx>
 
 #include "swdllapi.h"
 #include "shellid.hxx"
@@ -191,6 +192,8 @@ public:
     bool            IsInsTableFormatNum(bool bHTML) const;
     bool            IsInsTableChangeNumFormat(bool bHTML) const;
     bool            IsInsTableAlignNum(bool bHTML) const;
+    bool            IsSplitVerticalByDefault(bool bHTML) const;
+    void            SetSplitVerticalByDefault(bool bHTML, bool value);
 
     // Redlining.
     std::size_t         GetRedlineAuthor();

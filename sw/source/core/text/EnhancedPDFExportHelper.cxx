@@ -20,9 +20,11 @@
 #include <com/sun/star/embed/XEmbeddedObject.hpp>
 #include <com/sun/star/i18n/ScriptType.hpp>
 #include <com/sun/star/drawing/XShape.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
 #include <EnhancedPDFExportHelper.hxx>
 #include <hintids.hxx>
 
+#include <sot/exchange.hxx>
 #include <vcl/outdev.hxx>
 #include <vcl/pdfextoutdevdata.hxx>
 #include <tools/multisel.hxx>
@@ -2087,7 +2089,7 @@ void SwEnhancedPDFExportHelper::EnhancedPDFExport()
                 ++ppMark)
             {
                 //get the name
-                const ::sw::mark::IMark* pBkmk = ppMark->get();
+                const ::sw::mark::IMark* pBkmk = *ppMark;
                 mrSh.SwCursorShell::ClearMark();
                 const OUString& sBkName = pBkmk->GetName();
 

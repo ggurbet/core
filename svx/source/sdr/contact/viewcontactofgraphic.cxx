@@ -20,8 +20,15 @@
 #include <sdr/contact/viewcontactofgraphic.hxx>
 #include <sdr/contact/viewobjectcontactofgraphic.hxx>
 #include <svx/svdograf.hxx>
+#include <svx/sdgtritm.hxx>
+#include <svx/sdgluitm.hxx>
+#include <svx/sdgcoitm.hxx>
+#include <svx/sdggaitm.hxx>
+#include <svx/sdginitm.hxx>
+#include <svx/sdgmoitm.hxx>
 #include <svx/sdr/primitive2d/sdrattributecreator.hxx>
 #include <svl/itemset.hxx>
+#include <tools/debug.hxx>
 
 #include <svx/sdgcpitm.hxx>
 #include <svx/sdr/contact/displayinfo.hxx>
@@ -29,6 +36,7 @@
 #include <svx/sdr/contact/objectcontact.hxx>
 #include <basegfx/matrix/b2dhommatrix.hxx>
 #include <sdr/primitive2d/sdrgrafprimitive2d.hxx>
+#include <vcl/canvastools.hxx>
 #include <vcl/svapp.hxx>
 #include <vcl/settings.hxx>
 #include <basegfx/polygon/b2dpolygontools.hxx>
@@ -310,10 +318,7 @@ namespace sdr
 
             // take unrotated snap rect for position and size. Directly use model data, not getBoundRect() or getSnapRect()
             // which will use the primitive data we just create in the near future
-            const tools::Rectangle aRectangle(GetGrafObject().GetGeoRect());
-            const ::basegfx::B2DRange aObjectRange(
-                aRectangle.Left(), aRectangle.Top(),
-                aRectangle.Right(), aRectangle.Bottom());
+            const ::basegfx::B2DRange aObjectRange = vcl::unotools::b2DRectangleFromRectangle(GetGrafObject().GetGeoRect());
 
             // look for mirroring
             const GeoStat& rGeoStat(GetGrafObject().GetGeoStat());

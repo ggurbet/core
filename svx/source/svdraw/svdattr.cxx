@@ -31,6 +31,7 @@
 #include <com/sun/star/uno/Sequence.hxx>
 
 #include <editeng/boxitem.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/lineitem.hxx>
 #include <editeng/shaditem.hxx>
 #include <editeng/xmlcnitm.hxx>
@@ -52,7 +53,22 @@
 #include <svx/dialmgr.hxx>
 #include <svx/sdgcpitm.hxx>
 #include <svx/sdtfchim.hxx>
-#include <svx/svdattr.hxx>
+#include <svx/sdasitm.hxx>
+#include <svx/sdgcoitm.hxx>
+#include <svx/sdggaitm.hxx>
+#include <svx/sdginitm.hxx>
+#include <svx/sdgluitm.hxx>
+#include <svx/sdgmoitm.hxx>
+#include <svx/sdgtritm.hxx>
+#include <svx/sdprcitm.hxx>
+#include <svx/sdtaaitm.hxx>
+#include <svx/sdtacitm.hxx>
+#include <svx/sdtaditm.hxx>
+#include <svx/sdtaiitm.hxx>
+#include <svx/sdtaitm.hxx>
+#include <svx/sdtakitm.hxx>
+#include <svx/sdtayitm.hxx>
+#include <svx/sdtfsitm.hxx>
 #include <svx/svdmodel.hxx>
 #include <svx/svdpool.hxx>
 #include <svx/svdtrans.hxx>
@@ -1334,10 +1350,7 @@ SfxPoolItem* SdrTextFixedCellHeightItem::Clone( SfxItemPool * /*pPool*/) const
 {
     return new SdrTextFixedCellHeightItem( GetValue() );
 }
-sal_uInt16 SdrTextFixedCellHeightItem::GetVersion( sal_uInt16 /*nFileFormatVersion*/) const
-{
-    return 1;
-}
+
 bool SdrTextFixedCellHeightItem::QueryValue( uno::Any& rVal, sal_uInt8 /*nMemberId*/) const
 {
     bool bValue = GetValue();
@@ -1937,11 +1950,6 @@ SfxPoolItem* SdrGrafCropItem::Clone( SfxItemPool* /*pPool*/) const
     return new SdrGrafCropItem( *this );
 }
 
-sal_uInt16 SdrGrafCropItem::GetVersion( sal_uInt16 /*nFileVersion*/) const
-{
-    // GRFCROP_VERSION_MOVETOSVX is 1
-    return GRFCROP_VERSION_MOVETOSVX;
-}
 SdrTextAniStartInsideItem::~SdrTextAniStartInsideItem()
 {
 }

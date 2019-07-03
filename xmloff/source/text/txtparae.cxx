@@ -2075,8 +2075,7 @@ void XMLTextParagraphExport::exportParagraph(
     }
 
     Reference < XEnumerationAccess > xEA( rTextContent, UNO_QUERY );
-    Reference < XEnumeration > xTextEnum;
-    xTextEnum = xEA->createEnumeration();
+    Reference < XEnumeration > xTextEnum = xEA->createEnumeration();
     const bool bHasPortions = xTextEnum.is();
 
     Reference < XEnumeration> xContentEnum;
@@ -3322,8 +3321,8 @@ bool XMLTextParagraphExport::addHyperlinkAttributes(
 
     if ( sHRef.isEmpty() )
     {
-        // hyperlink without an URL does not make sense
-        OSL_ENSURE( false, "hyperlink without an URL --> no export to ODF" );
+        // hyperlink without a URL does not make sense
+        OSL_ENSURE( false, "hyperlink without a URL --> no export to ODF" );
         return false;
     }
 

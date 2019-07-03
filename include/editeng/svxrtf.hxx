@@ -29,26 +29,13 @@
 #include <deque>
 #include <vector>
 #include <map>
-#include <utility>
 #include <memory>
 
 namespace vcl { class Font; }
 class Color;
-class Graphic;
-class DateTime;
 struct SvxRTFStyleType;
 class SvxRTFItemStackType;
 class SvxRTFItemStackList : public std::vector<std::unique_ptr<SvxRTFItemStackType>> {};
-
-namespace com { namespace sun { namespace star {
-    namespace document {
-        class XDocumentProperties;
-    }
-    namespace util {
-        struct DateTime;
-    }
-} } }
-
 
 // Mapper-Classes for the various requirements on Document positions
 //        Swg - NodePosition is a SwIndex, which is used internally
@@ -322,10 +309,11 @@ class EDITENG_DLLPUBLIC SvxRTFItemStackType
 
     void Add(std::unique_ptr<SvxRTFItemStackType>);
     void Compress( const SvxRTFParser& );
+    void DropChildList();
 
 public:
-    SvxRTFItemStackType( const SvxRTFItemStackType&, const EditPosition&,
-                        bool bCopyAttr );
+    SvxRTFItemStackType(const SvxRTFItemStackType&, const EditPosition&,
+                        bool bCopyAttr);
     ~SvxRTFItemStackType();
     //cmc, I'm very suspicious about SetStartPos, it doesn't change
     //its children's starting position, and the implementation looks

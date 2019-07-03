@@ -98,7 +98,7 @@ class SvxURLField;
 class XclExpHyperlink : public XclExpRecord
 {
 public:
-    /** Constructs the HLINK record from an URL text field. */
+    /** Constructs the HLINK record from a URL text field. */
     explicit            XclExpHyperlink( const XclExpRoot& rRoot,
                             const SvxURLField& rUrlField, const ScAddress& rScPos );
     virtual             ~XclExpHyperlink() override;
@@ -168,7 +168,7 @@ class XclExpCFImpl;
 class XclExpCF : public XclExpRecord, protected XclExpRoot
 {
 public:
-    explicit            XclExpCF( const XclExpRoot& rRoot, const ScCondFormatEntry& rFormatEntry, sal_Int32 nPriority );
+    explicit            XclExpCF( const XclExpRoot& rRoot, const ScCondFormatEntry& rFormatEntry, sal_Int32 nPriority, ScAddress aOrigin );
     virtual             ~XclExpCF() override;
 
     virtual void        SaveXml( XclExpXmlStream& rStrm ) override;

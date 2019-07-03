@@ -19,16 +19,17 @@
 #include <vcl/virdev.hxx>
 
 #include <rtl/strbuf.hxx>
-#include <tools/stream.hxx>
-#include <vcl/graphicfilter.hxx>
 #include <config_features.h>
 #if HAVE_FEATURE_OPENGL
 #include <vcl/opengl/OpenGLHelper.hxx>
 #endif
 #include <vcl/BitmapMonochromeFilter.hxx>
 
-#include <BitmapSymmetryCheck.hxx>
 #include <bitmapwriteaccess.hxx>
+
+#include <svdata.hxx>
+#include <salinst.hxx>
+#include <bitmap/Octree.hxx>
 
 namespace
 {
@@ -40,9 +41,12 @@ class BitmapTest : public CppUnit::TestFixture
     void testN4Greyscale();
     void testN8Greyscale();
     void testConvert();
-    void testScale();
     void testCRC();
     void testGreyPalette();
+    void testCustom8BitPalette();
+    void testErase();
+    void testBitmap32();
+    void testOctree();
 
     CPPUNIT_TEST_SUITE(BitmapTest);
     CPPUNIT_TEST(testCreation);
@@ -51,11 +55,30 @@ class BitmapTest : public CppUnit::TestFixture
     CPPUNIT_TEST(testConvert);
     CPPUNIT_TEST(testN4Greyscale);
     CPPUNIT_TEST(testN8Greyscale);
-    CPPUNIT_TEST(testScale);
     CPPUNIT_TEST(testCRC);
     CPPUNIT_TEST(testGreyPalette);
+    CPPUNIT_TEST(testCustom8BitPalette);
+    CPPUNIT_TEST(testErase);
+    CPPUNIT_TEST(testBitmap32);
+    CPPUNIT_TEST(testOctree);
     CPPUNIT_TEST_SUITE_END();
 };
+
+void assertColorsAreSimilar(int maxDifference, const std::string& message,
+                            const BitmapColor& expected, const BitmapColor& actual)
+{
+    // Check that the two colors match or are reasonably similar.
+    if (expected == actual)
+        return;
+    if (abs(expected.GetRed() - actual.GetRed()) <= maxDifference
+        && abs(expected.GetGreen() - actual.GetGreen()) <= maxDifference
+        && abs(expected.GetBlue() - actual.GetBlue()) <= maxDifference
+        && abs(expected.GetAlpha() - actual.GetAlpha()) <= maxDifference)
+    {
+        return;
+    }
+    CPPUNIT_ASSERT_EQUAL_MESSAGE(message, expected, actual);
+}
 
 void BitmapTest::testCreation()
 {
@@ -68,8 +91,7 @@ void BitmapTest::testCreation()
         CPPUNIT_ASSERT_MESSAGE("Not empty", aBmp.IsEmpty());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", static_cast<sal_uInt16>(0),
                                      aBmp.GetBitCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", static_cast<sal_uLong>(1),
-                                     aBmp.GetColorCount());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", sal_Int64(1), aBmp.GetColorCount());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", static_cast<sal_uLong>(0),
                                      aBmp.GetSizeBytes());
     }
@@ -83,8 +105,7 @@ void BitmapTest::testCreation()
         CPPUNIT_ASSERT_MESSAGE("Empty bitmap", !aBmp.IsEmpty());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", static_cast<sal_uInt16>(1),
                                      aBmp.GetBitCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", static_cast<sal_uLong>(2),
-                                     aBmp.GetColorCount());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", sal_Int64(2), aBmp.GetColorCount());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", static_cast<sal_uLong>(12),
                                      aBmp.GetSizeBytes());
     }
@@ -98,8 +119,7 @@ void BitmapTest::testCreation()
         CPPUNIT_ASSERT_MESSAGE("Empty bitmap", !aBmp.IsEmpty());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", static_cast<sal_uInt16>(4),
                                      aBmp.GetBitCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", static_cast<sal_uLong>(16),
-                                     aBmp.GetColorCount());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", sal_Int64(16), aBmp.GetColorCount());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", static_cast<sal_uLong>(50),
                                      aBmp.GetSizeBytes());
     }
@@ -113,8 +133,7 @@ void BitmapTest::testCreation()
         CPPUNIT_ASSERT_MESSAGE("Empty bitmap", !aBmp.IsEmpty());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", static_cast<sal_uInt16>(8),
                                      aBmp.GetBitCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", static_cast<sal_uLong>(256),
-                                     aBmp.GetColorCount());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", sal_Int64(256), aBmp.GetColorCount());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", static_cast<sal_uLong>(100),
                                      aBmp.GetSizeBytes());
     }
@@ -128,7 +147,7 @@ void BitmapTest::testCreation()
         CPPUNIT_ASSERT_MESSAGE("Empty bitmap", !aBmp.IsEmpty());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", static_cast<sal_uInt16>(24),
                                      aBmp.GetBitCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", static_cast<sal_uLong>(16777216),
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", sal_Int64(16777216),
                                      aBmp.GetColorCount());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", static_cast<sal_uLong>(300),
                                      aBmp.GetSizeBytes());
@@ -143,12 +162,16 @@ void BitmapTest::testCreation()
         CPPUNIT_ASSERT_MESSAGE("Empty bitmap", !aBmp.IsEmpty());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", static_cast<sal_uInt16>(24),
                                      aBmp.GetBitCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", static_cast<sal_uLong>(16777216),
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", sal_Int64(16777216),
                                      aBmp.GetColorCount());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", static_cast<sal_uLong>(300),
                                      aBmp.GetSizeBytes());
     }
 
+    // Check backend capabilities and return from the test successfully
+    // if the backend doesn't support 32-bit bitmap
+    auto pBackendCapabilities = ImplGetSVData()->mpDefInst->GetBackendCapabilities();
+    if (pBackendCapabilities->mbSupportsBitmap32)
     {
         Bitmap aBmp(Size(10, 10), 32);
         Size aSize = aBmp.GetSizePixel();
@@ -156,12 +179,11 @@ void BitmapTest::testCreation()
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong height", static_cast<long>(10), aSize.Height());
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong pref size", Size(), aBmp.GetPrefSize());
         CPPUNIT_ASSERT_MESSAGE("Empty bitmap", !aBmp.IsEmpty());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", static_cast<sal_uInt16>(24),
-                                     aBmp.GetBitCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", static_cast<sal_uLong>(16777216),
+
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong bit count", sal_uInt16(32), aBmp.GetBitCount());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong color count", sal_Int64(4294967296ull),
                                      aBmp.GetColorCount());
-        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", static_cast<sal_uLong>(300),
-                                     aBmp.GetSizeBytes());
+        CPPUNIT_ASSERT_EQUAL_MESSAGE("Wrong byte size", sal_uLong(400), aBmp.GetSizeBytes());
     }
 }
 
@@ -301,38 +323,38 @@ void BitmapTest::testN8Greyscale()
     aBmp.Convert(BmpConversion::N8BitGreys);
     BitmapReadAccess aBmpReadAccess(aBmp);
 
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Black pixel wrong 8-bit greyscale value", aGreyscalePalette[0],
-                                 aBmpReadAccess.GetColor(0, 0));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Blue pixel wrong 8-bit greyscale value", aGreyscalePalette[14],
-                                 aBmpReadAccess.GetColor(0, 1));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Green pixel wrong 8-bit greyscale value", aGreyscalePalette[75],
-                                 aBmpReadAccess.GetColor(0, 2));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Cyan pixel wrong 8-bit greyscale value", aGreyscalePalette[89],
-                                 aBmpReadAccess.GetColor(0, 3));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Red pixel wrong 8-bit greyscale value", aGreyscalePalette[38],
-                                 aBmpReadAccess.GetColor(1, 0));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Magenta pixel wrong 8-bit greyscale value", aGreyscalePalette[52],
-                                 aBmpReadAccess.GetColor(1, 1));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Brown pixel wrong 8-bit greyscale value", aGreyscalePalette[114],
-                                 aBmpReadAccess.GetColor(1, 2));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Gray pixel wrong 8-bit greyscale value", aGreyscalePalette[128],
-                                 aBmpReadAccess.GetColor(1, 3));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Light gray pixel wrong 8-bit greyscale value",
-                                 aGreyscalePalette[192], aBmpReadAccess.GetColor(2, 0));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Light blue pixel wrong 8-bit greyscale value",
-                                 aGreyscalePalette[27], aBmpReadAccess.GetColor(2, 1));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Light green pixel wrong 8-bit greyscale value",
-                                 aGreyscalePalette[150], aBmpReadAccess.GetColor(2, 2));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Light cyan pixel wrong 8-bit greyscale value",
-                                 aGreyscalePalette[178], aBmpReadAccess.GetColor(2, 3));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Light red pixel wrong 8-bit greyscale value",
-                                 aGreyscalePalette[76], aBmpReadAccess.GetColor(3, 0));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Light magenta pixel wrong 8-bit greyscale value",
-                                 aGreyscalePalette[104], aBmpReadAccess.GetColor(3, 1));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("Yellow pixel wrong 8-bit greyscale value", aGreyscalePalette[227],
-                                 aBmpReadAccess.GetColor(3, 2));
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("White pixel wrong 8-bit greyscale value", aGreyscalePalette[255],
-                                 aBmpReadAccess.GetColor(3, 3));
+    assertColorsAreSimilar(1, "Black pixel wrong 8-bit greyscale value", aGreyscalePalette[0],
+                           aBmpReadAccess.GetColor(0, 0));
+    assertColorsAreSimilar(1, "Blue pixel wrong 8-bit greyscale value", aGreyscalePalette[14],
+                           aBmpReadAccess.GetColor(0, 1));
+    assertColorsAreSimilar(1, "Green pixel wrong 8-bit greyscale value", aGreyscalePalette[75],
+                           aBmpReadAccess.GetColor(0, 2));
+    assertColorsAreSimilar(1, "Cyan pixel wrong 8-bit greyscale value", aGreyscalePalette[89],
+                           aBmpReadAccess.GetColor(0, 3));
+    assertColorsAreSimilar(1, "Red pixel wrong 8-bit greyscale value", aGreyscalePalette[38],
+                           aBmpReadAccess.GetColor(1, 0));
+    assertColorsAreSimilar(1, "Magenta pixel wrong 8-bit greyscale value", aGreyscalePalette[52],
+                           aBmpReadAccess.GetColor(1, 1));
+    assertColorsAreSimilar(1, "Brown pixel wrong 8-bit greyscale value", aGreyscalePalette[114],
+                           aBmpReadAccess.GetColor(1, 2));
+    assertColorsAreSimilar(1, "Gray pixel wrong 8-bit greyscale value", aGreyscalePalette[128],
+                           aBmpReadAccess.GetColor(1, 3));
+    assertColorsAreSimilar(1, "Light gray pixel wrong 8-bit greyscale value",
+                           aGreyscalePalette[192], aBmpReadAccess.GetColor(2, 0));
+    assertColorsAreSimilar(1, "Light blue pixel wrong 8-bit greyscale value", aGreyscalePalette[27],
+                           aBmpReadAccess.GetColor(2, 1));
+    assertColorsAreSimilar(1, "Light green pixel wrong 8-bit greyscale value",
+                           aGreyscalePalette[150], aBmpReadAccess.GetColor(2, 2));
+    assertColorsAreSimilar(1, "Light cyan pixel wrong 8-bit greyscale value",
+                           aGreyscalePalette[178], aBmpReadAccess.GetColor(2, 3));
+    assertColorsAreSimilar(1, "Light red pixel wrong 8-bit greyscale value", aGreyscalePalette[76],
+                           aBmpReadAccess.GetColor(3, 0));
+    assertColorsAreSimilar(1, "Light magenta pixel wrong 8-bit greyscale value",
+                           aGreyscalePalette[104], aBmpReadAccess.GetColor(3, 1));
+    assertColorsAreSimilar(1, "Yellow pixel wrong 8-bit greyscale value", aGreyscalePalette[227],
+                           aBmpReadAccess.GetColor(3, 2));
+    assertColorsAreSimilar(1, "White pixel wrong 8-bit greyscale value", aGreyscalePalette[255],
+                           aBmpReadAccess.GetColor(3, 3));
 }
 
 void BitmapTest::testConvert()
@@ -370,7 +392,12 @@ void BitmapTest::testConvert()
         CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt16>(24), pReadAccess->GetBitCount());
 
 #if defined LINUX || defined FREEBSD
-        CPPUNIT_ASSERT_EQUAL(sal_uInt32(32), pReadAccess->GetScanlineSize());
+#if HAVE_FEATURE_OPENGL
+        if (OpenGLHelper::isVCLOpenGLEnabled())
+            CPPUNIT_ASSERT_EQUAL(sal_uInt32(30), pReadAccess->GetScanlineSize());
+        else
+#endif
+            CPPUNIT_ASSERT_EQUAL(sal_uInt32(32), pReadAccess->GetScanlineSize());
 #else
 #if defined(_WIN32)
         if (!OpenGLHelper::isVCLOpenGLEnabled())
@@ -386,57 +413,10 @@ void BitmapTest::testConvert()
 #endif
 
         CPPUNIT_ASSERT(!pReadAccess->HasPalette());
-        Color aColor = pReadAccess->GetPixel(0, 0).GetColor();
+        Color aColor = pReadAccess->GetPixel(0, 0);
         CPPUNIT_ASSERT_EQUAL(sal_Int32(204), sal_Int32(aColor.GetRed()));
         CPPUNIT_ASSERT_EQUAL(sal_Int32(204), sal_Int32(aColor.GetGreen()));
         CPPUNIT_ASSERT_EQUAL(sal_Int32(255), sal_Int32(aColor.GetBlue()));
-    }
-}
-
-void BitmapTest::testScale()
-{
-    const bool bExportBitmap(false);
-
-    Bitmap aBitmap24Bit(Size(10, 10), 24);
-    CPPUNIT_ASSERT_EQUAL(static_cast<sal_uInt16>(24), aBitmap24Bit.GetBitCount());
-
-    {
-        BitmapScopedWriteAccess aWriteAccess(aBitmap24Bit);
-        aWriteAccess->Erase(COL_WHITE);
-        aWriteAccess->SetLineColor(COL_BLACK);
-        aWriteAccess->DrawRect(tools::Rectangle(1, 1, 8, 8));
-        aWriteAccess->DrawRect(tools::Rectangle(3, 3, 6, 6));
-    }
-
-    BitmapSymmetryCheck aBitmapSymmetryCheck;
-
-    CPPUNIT_ASSERT_EQUAL(static_cast<long>(10), aBitmap24Bit.GetSizePixel().Width());
-    CPPUNIT_ASSERT_EQUAL(static_cast<long>(10), aBitmap24Bit.GetSizePixel().Height());
-
-    // Check symmetry of the bitmap
-    CPPUNIT_ASSERT(BitmapSymmetryCheck::check(aBitmap24Bit));
-
-    if (bExportBitmap)
-    {
-        SvFileStream aStream("~/scale_before.png", StreamMode::WRITE | StreamMode::TRUNC);
-        GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
-        rFilter.compressAsPNG(aBitmap24Bit, aStream);
-    }
-
-    aBitmap24Bit.Scale(2, 2, BmpScaleFlag::Fast);
-
-    CPPUNIT_ASSERT_EQUAL(static_cast<long>(20), aBitmap24Bit.GetSizePixel().Width());
-    CPPUNIT_ASSERT_EQUAL(static_cast<long>(20), aBitmap24Bit.GetSizePixel().Height());
-
-    // After scaling the bitmap should still be symmetrical. This check guarantees that
-    // scaling doesn't misalign the bitmap.
-    CPPUNIT_ASSERT(BitmapSymmetryCheck::check(aBitmap24Bit));
-
-    if (bExportBitmap)
-    {
-        SvFileStream aStream("~/scale_after.png", StreamMode::WRITE | StreamMode::TRUNC);
-        GraphicFilter& rFilter = GraphicFilter::GetGraphicFilter();
-        rFilter.compressAsPNG(aBitmap24Bit, aStream);
     }
 }
 
@@ -546,6 +526,139 @@ void BitmapTest::testGreyPalette()
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Entry 1 wrong", BitmapColor(0, 0, 0), aPalette[0]);
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Entry 127 wrong", BitmapColor(127, 127, 127), aPalette[127]);
         CPPUNIT_ASSERT_EQUAL_MESSAGE("Entry 255 wrong", BitmapColor(255, 255, 255), aPalette[255]);
+    }
+}
+
+void BitmapTest::testCustom8BitPalette()
+{
+    BitmapPalette aCustomPalette;
+    aCustomPalette.SetEntryCount(256);
+    for (sal_uInt16 i = 0; i < 256; i++)
+    {
+        aCustomPalette[i] = BitmapColor(sal_uInt8(i), sal_uInt8(0xCC), sal_uInt8(0x22));
+    }
+    Bitmap aBitmap(Size(3, 2), 8, &aCustomPalette);
+
+    {
+        BitmapScopedWriteAccess pAccess(aBitmap);
+        pAccess->SetPixelIndex(0, 0, 0);
+        pAccess->SetPixelIndex(0, 1, 1);
+        pAccess->SetPixelIndex(0, 2, 2);
+
+        pAccess->SetPixelIndex(1, 0, 253);
+        pAccess->SetPixelIndex(1, 1, 254);
+        pAccess->SetPixelIndex(1, 2, 255);
+    }
+
+    {
+        Bitmap::ScopedReadAccess pAccess(aBitmap);
+        CPPUNIT_ASSERT_EQUAL(0, int(pAccess->GetPixelIndex(0, 0)));
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x00, 0xCC, 0x22), pAccess->GetColor(0, 0));
+
+        CPPUNIT_ASSERT_EQUAL(1, int(pAccess->GetPixelIndex(0, 1)));
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x01, 0xCC, 0x22), pAccess->GetColor(0, 1));
+
+        CPPUNIT_ASSERT_EQUAL(2, int(pAccess->GetPixelIndex(0, 2)));
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x02, 0xCC, 0x22), pAccess->GetColor(0, 2));
+
+        CPPUNIT_ASSERT_EQUAL(253, int(pAccess->GetPixelIndex(1, 0)));
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0xFD, 0xCC, 0x22), pAccess->GetColor(1, 0));
+
+        CPPUNIT_ASSERT_EQUAL(254, int(pAccess->GetPixelIndex(1, 1)));
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0xFE, 0xCC, 0x22), pAccess->GetColor(1, 1));
+
+        CPPUNIT_ASSERT_EQUAL(255, int(pAccess->GetPixelIndex(1, 2)));
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0xFF, 0xCC, 0x22), pAccess->GetColor(1, 2));
+    }
+}
+
+void BitmapTest::testErase()
+{
+    Bitmap aBitmap(Size(3, 3), 24);
+    {
+        BitmapScopedWriteAccess pWriteAccess(aBitmap);
+        pWriteAccess->Erase(Color(0x11, 0x22, 0x33));
+    }
+    {
+        Bitmap::ScopedReadAccess pReadAccess(aBitmap);
+        BitmapColor aColor(pReadAccess->GetPixel(0, 0));
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x11, 0x22, 0x33, 0x00), aColor);
+    }
+}
+
+void BitmapTest::testBitmap32()
+{
+    // Check backend capabilities and return from the test successfully
+    // if the backend doesn't support 32-bit bitmap
+    auto pBackendCapabilities = ImplGetSVData()->mpDefInst->GetBackendCapabilities();
+    if (!pBackendCapabilities->mbSupportsBitmap32)
+        return;
+
+    Bitmap aBitmap(Size(3, 3), 32);
+    {
+        BitmapScopedWriteAccess pWriteAccess(aBitmap);
+        pWriteAccess->Erase(Color(0xFF, 0x11, 0x22, 0x33));
+        pWriteAccess->SetPixel(1, 1, BitmapColor(0x44, 0xFF, 0xBB, 0x00));
+        pWriteAccess->SetPixel(2, 2, BitmapColor(0x99, 0x77, 0x66, 0x55));
+    }
+    {
+        Bitmap::ScopedReadAccess pReadAccess(aBitmap);
+        BitmapColor aColor = pReadAccess->GetPixel(0, 0);
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x00, 0x00, 0x00, 0xFF), aColor);
+
+        aColor = pReadAccess->GetPixel(1, 1);
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x44, 0xFF, 0xBB, 0x00), aColor);
+
+        aColor = pReadAccess->GetPixel(2, 2);
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x99, 0x77, 0x66, 0x55), aColor);
+    }
+}
+
+void BitmapTest::testOctree()
+{
+    Size aSize(1000, 100);
+    Bitmap aBitmap(aSize, 24);
+    {
+        BitmapScopedWriteAccess pWriteAccess(aBitmap);
+        for (long y = 0; y < aSize.Height(); ++y)
+        {
+            for (long x = 0; x < aSize.Width(); ++x)
+            {
+                double fPercent = double(x) / double(aSize.Width());
+                pWriteAccess->SetPixel(y, x,
+                                       BitmapColor(255.0 * fPercent, 64.0 + (128.0 * fPercent),
+                                                   255.0 - 255.0 * fPercent));
+            }
+        }
+    }
+
+    {
+        // Reduce to 1 color
+        Bitmap::ScopedReadAccess pAccess(aBitmap);
+        Octree aOctree(*pAccess.get(), 1);
+        auto aBitmapPalette = aOctree.GetPalette();
+        CPPUNIT_ASSERT_EQUAL(sal_uInt16(1), aBitmapPalette.GetEntryCount());
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x7e, 0x7f, 0x7f), aBitmapPalette[0]);
+    }
+
+    {
+        // Reduce to 4 color
+        Bitmap::ScopedReadAccess pAccess(aBitmap);
+        Octree aOctree(*pAccess.get(), 4);
+        auto aBitmapPalette = aOctree.GetPalette();
+        CPPUNIT_ASSERT_EQUAL(sal_uInt16(4), aBitmapPalette.GetEntryCount());
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x7f, 0x7f, 0x7f), aBitmapPalette[0]);
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x3e, 0x5f, 0xbf), aBitmapPalette[1]);
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0x7f, 0x80, 0x7f), aBitmapPalette[2]);
+        CPPUNIT_ASSERT_EQUAL(BitmapColor(0xbe, 0x9f, 0x3f), aBitmapPalette[3]);
+    }
+
+    {
+        // Reduce to 256 color
+        Bitmap::ScopedReadAccess pAccess(aBitmap);
+        Octree aOctree(*pAccess.get(), 256);
+        auto aBitmapPalette = aOctree.GetPalette();
+        CPPUNIT_ASSERT_EQUAL(sal_uInt16(74), aBitmapPalette.GetEntryCount());
     }
 }
 

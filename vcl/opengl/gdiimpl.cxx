@@ -18,6 +18,7 @@
  */
 
 #include <openglgdiimpl.hxx>
+#include <opengl/framebuffer.hxx>
 
 #include <vcl/gradient.hxx>
 #include <vcl/idle.hxx>
@@ -547,7 +548,7 @@ void OpenGLSalGraphicsImpl::CheckOffscreenTexture()
         SalTwoRect aPosAry(0, 0, fWidth, fHeight, 0,0, fWidth, fHeight);
 
         // TODO: lfrb: User GL_ARB_copy_image?
-        OpenGLTexture aNewTex = OpenGLTexture( GetWidth(), GetHeight() );
+        OpenGLTexture aNewTex( GetWidth(), GetHeight() );
 
         mpContext->state().scissor().disable();
         mpContext->state().stencil().disable();
@@ -669,7 +670,7 @@ void OpenGLSalGraphicsImpl::DrawLineSegment(float x1, float y1, float x2, float 
     glm::vec2 aPoint2(x2, y2);
 
     glm::vec2 aLineVector = vcl::vertex::normalize(aPoint2 - aPoint1);
-    glm::vec2 aNormal = glm::vec2(-aLineVector.y, aLineVector.x);
+    glm::vec2 aNormal(-aLineVector.y, aLineVector.x);
 
     vcl::vertex::addLineSegmentVertices(aVertices, aExtrusionVectors,
                                         aPoint1, aNormal, 1.0f,
@@ -1000,15 +1001,20 @@ bool scaleTexture(const rtl::Reference< OpenGLContext > &xContext,
     OpenGLTexture aScratchTex(nNewWidth, nNewHeight);
     OpenGLFramebuffer* pFramebuffer = xContext->AcquireFramebuffer(aScratchTex);
 
+    // From OpenGLSalBitmap::ImplScaleArea().
     pProgram->SetUniform1f("xscale", ixscale);
     pProgram->SetUniform1f("yscale", iyscale);
     pProgram->SetUniform1i("swidth", nWidth);
     pProgram->SetUniform1i("sheight", nHeight);
-    // For converting between <0,nWidth-1> and <0.0,1.0> coordinate systems.
-    pProgram->SetUniform1f("xsrcconvert", 1.0 / (nWidth - 1));
-    pProgram->SetUniform1f("ysrcconvert", 1.0 / (nHeight - 1));
-    pProgram->SetUniform1f("xdestconvert", 1.0 * (nNewWidth - 1));
-    pProgram->SetUniform1f("ydestconvert", 1.0 * (nNewHeight - 1));
+    // For converting between <0,nWidth> and <0.0,1.0> coordinate systems.
+    GLfloat srcCoords[ 8 ];
+    rTexture.GetWholeCoord( srcCoords );
+    pProgram->SetUniform1f( "xoffset", srcCoords[ 0 ] );
+    pProgram->SetUniform1f( "yoffset", srcCoords[ 1 ] );
+    pProgram->SetUniform1f( "xtopixelratio", nNewWidth / ( srcCoords[ 4 ] - srcCoords[ 0 ] ));
+    pProgram->SetUniform1f( "ytopixelratio", nNewHeight / ( srcCoords[ 5 ] - srcCoords[ 1 ] ));
+    pProgram->SetUniform1f( "xfrompixelratio", ( srcCoords[ 4 ] - srcCoords[ 0 ] ) / nWidth );
+    pProgram->SetUniform1f( "yfrompixelratio", ( srcCoords[ 5 ] - srcCoords[ 1 ] ) / nHeight );
 
     pProgram->SetTexture("sampler", rTexture);
     pProgram->DrawTexture(rTexture);
@@ -1154,8 +1160,10 @@ void OpenGLSalGraphicsImpl::DrawTransformedTexture(
         {
             mpProgram->SetUniform1i( "xscale", ixscale );
             mpProgram->SetUniform1i( "yscale", iyscale );
-            mpProgram->SetUniform1f( "xstep", 1.0 / nWidth );
-            mpProgram->SetUniform1f( "ystep", 1.0 / nHeight );
+            GLfloat srcCoords[ 8 ];
+            aInTexture.GetWholeCoord( srcCoords );
+            mpProgram->SetUniform1f( "xstep", ( srcCoords[ 4 ] - srcCoords[ 0 ] ) / nWidth );
+            mpProgram->SetUniform1f( "ystep", ( srcCoords[ 5 ] - srcCoords[ 1 ] ) / nHeight );
             mpProgram->SetUniform1f( "ratio", 1.0 / ( ixscale * iyscale ));
         }
         else if (nHeight > 1 && nWidth > 1)
@@ -1165,10 +1173,14 @@ void OpenGLSalGraphicsImpl::DrawTransformedTexture(
             mpProgram->SetUniform1i( "swidth", nWidth );
             mpProgram->SetUniform1i( "sheight", nHeight );
             // For converting between <0,nWidth-1> and <0.0,1.0> coordinate systems.
-            mpProgram->SetUniform1f( "xsrcconvert", 1.0 / ( nWidth - 1 ));
-            mpProgram->SetUniform1f( "ysrcconvert", 1.0 / ( nHeight - 1 ));
-            mpProgram->SetUniform1f( "xdestconvert", 1.0 * (( nWidth / ixscale ) - 1 ));
-            mpProgram->SetUniform1f( "ydestconvert", 1.0 * (( nHeight / iyscale ) - 1 ));
+            GLfloat srcCoords[ 8 ];
+            aInTexture.GetWholeCoord( srcCoords );
+            mpProgram->SetUniform1f( "xoffset", srcCoords[ 0 ] );
+            mpProgram->SetUniform1f( "yoffset", srcCoords[ 1 ] );
+            mpProgram->SetUniform1f( "xtopixelratio", ( nWidth / ixscale ) / ( srcCoords[ 4 ] - srcCoords[ 0 ] ));
+            mpProgram->SetUniform1f( "ytopixelratio", ( nHeight / iyscale ) / ( srcCoords[ 5 ] - srcCoords[ 1 ] ));
+            mpProgram->SetUniform1f( "xfrompixelratio", ( srcCoords[ 4 ] - srcCoords[ 0 ] ) / nWidth );
+            mpProgram->SetUniform1f( "yfrompixelratio", ( srcCoords[ 5 ] - srcCoords[ 1 ] ) / nHeight );
         }
     }
 
@@ -1606,6 +1618,11 @@ bool OpenGLSalGraphicsImpl::drawPolyPolygon(
     basegfx::B2DPolyPolygon aPolyPolygon(rPolyPolygon);
     aPolyPolygon.transform(rObjectToDevice);
 
+    // FlushLinesOrTriangles() works with a 0.5 pixel offset, compensate for that here.
+    basegfx::B2DHomMatrix aMatrix;
+    aMatrix.translate(-0.5f, -0.5f);
+    aPolyPolygon.transform(aMatrix);
+
     mpRenderList->addDrawPolyPolygon(
         aPolyPolygon,
         fTransparency,
@@ -1743,7 +1760,19 @@ void OpenGLSalGraphicsImpl::drawBitmap( const SalTwoRect& rPosAry, const SalBitm
 
     VCL_GL_INFO( "::drawBitmap" );
     PreDraw();
-    DrawTexture( rTexture, rPosAry );
+    if (rPosAry.mnSrcWidth  != rPosAry.mnDestWidth ||
+        rPosAry.mnSrcHeight != rPosAry.mnDestHeight)
+    {
+        basegfx::B2DPoint aNull(rPosAry.mnDestX,rPosAry.mnDestY);
+        basegfx::B2DPoint aX(rPosAry.mnDestX + rPosAry.mnDestWidth, rPosAry.mnDestY);
+        basegfx::B2DPoint aY(rPosAry.mnDestX, rPosAry.mnDestY + rPosAry.mnDestHeight);
+        OpenGLTexture mask; // no mask set
+        DrawTransformedTexture(rTexture, mask, aNull, aX, aY);
+    }
+    else
+    {
+        DrawTexture( rTexture, rPosAry );
+    }
     PostDraw();
 }
 

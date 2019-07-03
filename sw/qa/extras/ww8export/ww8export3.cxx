@@ -12,13 +12,11 @@
 #include <IDocumentSettingAccess.hxx>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/container/XIndexAccess.hpp>
+#include <com/sun/star/drawing/FillStyle.hpp>
 #include <com/sun/star/text/XFormField.hpp>
-#include <com/sun/star/text/XTextFramesSupplier.hpp>
 #include <com/sun/star/text/XTextTable.hpp>
 #include <com/sun/star/text/XTextTablesSupplier.hpp>
-
-#include <drawdoc.hxx>
-#include <svx/xfillit0.hxx>
+#include <com/sun/star/text/WritingMode2.hpp>
 
 class Test : public SwModelTestBase
 {
@@ -87,8 +85,7 @@ DECLARE_WW8EXPORT_TEST(testFdo53985, "fdo53985.doc")
 DECLARE_WW8EXPORT_TEST(testTdf79435_legacyInputFields, "tdf79435_legacyInputFields.docx")
 {
     //using .docx input file to verify cross-format compatibility.
-    uno::Reference<text::XFormField> xFormField;
-    xFormField = getProperty< uno::Reference<text::XFormField> >(getRun(getParagraph(5), 3), "Bookmark");
+    uno::Reference<text::XFormField> xFormField = getProperty< uno::Reference<text::XFormField> >(getRun(getParagraph(5), 3), "Bookmark");
     uno::Reference<container::XNameContainer> xParameters(xFormField->getParameters());
 
     OUString sTmp;
@@ -182,6 +179,23 @@ DECLARE_WW8EXPORT_TEST(testTdf121111_fillStyleNone, "tdf121111_fillStyleNone.doc
     CPPUNIT_ASSERT_EQUAL(drawing::FillStyle_SOLID, getProperty<drawing::FillStyle>(xText, "FillStyle"));
 }
 
+DECLARE_WW8EXPORT_TEST(testTdf112618_textbox_no_bg, "tdf112618_textbox_no_bg.doc")
+{
+    sal_uInt16 nTransparence = getProperty<sal_Int16>(getShape(2), "FillTransparence");
+    CPPUNIT_ASSERT_EQUAL(sal_uInt16(100), nTransparence);
+    CPPUNIT_ASSERT_EQUAL(nTransparence, getProperty<sal_uInt16>(getShape(2), "BackColorTransparency"));
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf101826_xattrTextBoxFill, "tdf101826_xattrTextBoxFill.doc")
+{
+    //Basic 1 Color Fill: gradient from yellow(FFFF00) to brown(767600) currently saves as mid-color
+    CPPUNIT_ASSERT_MESSAGE("background color", Color(0xFF, 0xFF, 0x00) != getProperty<Color>(getShape(1), "BackColor"));
+    //Basic 2 Color Fill: gradient from yellow(FFFF00) to green(00B050) currently saves as mid-color
+    CPPUNIT_ASSERT_MESSAGE("background color", Color(0xFF, 0xFF, 0x00) != getProperty<Color>(getShape(4), "BackColor"));
+    //Basic Picture Fill: Tux image
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("background image", drawing::FillStyle_BITMAP, getProperty<drawing::FillStyle>(getShape(5), "FillStyle"));
+}
+
 DECLARE_WW8EXPORT_TEST(testTdf123433_fillStyleStop, "tdf123433_fillStyleStop.doc")
 {
     uno::Reference<text::XTextRange> xText(getParagraph(12));
@@ -201,6 +215,65 @@ DECLARE_WW8EXPORT_TEST(testTdf120711_joinedParagraphWithChangeTracking, "tdf1207
     sal_Int16   numFormat = getNumberingTypeOfParagraph(5);
     // last paragraph is not a list item
     CPPUNIT_ASSERT(style::NumberingType::CHAR_SPECIAL != numFormat);
+}
+
+DECLARE_WW8EXPORT_TEST(testBtlrCell, "btlr-cell.doc")
+{
+    // Without the accompanying fix in place, this test would have failed, as
+    // the btlr text direction in the A1 cell was lost on DOC import and
+    // export.
+    uno::Reference<text::XTextTablesSupplier> xSupplier(mxComponent, uno::UNO_QUERY);
+    uno::Reference<container::XNameAccess> xTables = xSupplier->getTextTables();
+    uno::Reference<text::XTextTable> xTable(xTables->getByName("Table1"), uno::UNO_QUERY);
+    uno::Reference<beans::XPropertySet> xA1(xTable->getCellByName("A1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::BT_LR, getProperty<sal_Int16>(xA1, "WritingMode"));
+
+    uno::Reference<beans::XPropertySet> xB1(xTable->getCellByName("B1"), uno::UNO_QUERY);
+    auto nActual = getProperty<sal_Int16>(xB1, "WritingMode");
+    CPPUNIT_ASSERT(nActual == text::WritingMode2::LR_TB || nActual == text::WritingMode2::CONTEXT);
+
+    uno::Reference<beans::XPropertySet> xC1(xTable->getCellByName("C1"), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_EQUAL(text::WritingMode2::TB_RL, getProperty<sal_Int16>(xC1, "WritingMode"));
+}
+
+DECLARE_WW8EXPORT_TEST(testTdf118375export, "tdf118375_240degClockwise.doc")
+{
+    // The input document has one custom shape, which is rotated 240deg. Check
+    // that it has the same position as in Word.
+    uno::Reference<drawing::XDrawPagesSupplier> xDrawPagesSupplier(mxComponent,
+                                                                   uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("Could not get XDrawPagesSupplier", xDrawPagesSupplier.is());
+    uno::Reference<drawing::XDrawPages> xDrawPages(xDrawPagesSupplier->getDrawPages());
+    uno::Reference<drawing::XDrawPage> xDrawPage(xDrawPages->getByIndex(0), uno::UNO_QUERY_THROW);
+    CPPUNIT_ASSERT_MESSAGE("Could not get xDrawPage", xDrawPage.is());
+    uno::Reference<drawing::XShape> xShape(xDrawPage->getByIndex(0), uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get xShape", xShape.is());
+    uno::Reference<beans::XPropertySet> xShapeProps(xShape, uno::UNO_QUERY);
+    CPPUNIT_ASSERT_MESSAGE("Could not get the shape properties", xShapeProps.is());
+    sal_Int32 nPosX, nPosY;
+    xShapeProps->getPropertyValue("HoriOrientPosition") >>= nPosX;
+    xShapeProps->getPropertyValue("VertOrientPosition") >>= nPosY;
+    // Allow some tolerance because rounding errors through integer arithmetic
+    // in rotation.
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(5200.0, static_cast<double>(nPosX), 1.0);
+    CPPUNIT_ASSERT_DOUBLES_EQUAL(1152.0, static_cast<double>(nPosY), 1.0);
+}
+
+DECLARE_WW8EXPORT_TEST(testImageCommentAtChar, "image-comment-at-char.doc")
+{
+    uno::Reference<text::XTextRange> xPara = getParagraph(1);
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 1), "TextPortionType"));
+    // Without the accompanying fix in place, this test would have failed with 'Expected:
+    // Annotation; Actual: Frame', i.e. the comment start before the image was lost.
+    CPPUNIT_ASSERT_EQUAL(OUString("Annotation"),
+                         getProperty<OUString>(getRun(xPara, 2), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Frame"),
+                         getProperty<OUString>(getRun(xPara, 3), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("AnnotationEnd"),
+                         getProperty<OUString>(getRun(xPara, 4), "TextPortionType"));
+    CPPUNIT_ASSERT_EQUAL(OUString("Text"),
+                         getProperty<OUString>(getRun(xPara, 5), "TextPortionType"));
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

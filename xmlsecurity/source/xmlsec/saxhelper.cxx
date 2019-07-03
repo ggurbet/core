@@ -23,12 +23,14 @@
 #include <xmlsec/saxhelper.hxx>
 #include <libxml/parserInternals.h>
 
+#include <com/sun/star/xml/csax/XMLAttribute.hpp>
+#include <com/sun/star/uno/Sequence.hxx>
+
 #ifndef XMLSEC_NO_XSLT
 #include "libxslt/xslt.h"
 #endif
 
 namespace cssu = com::sun::star::uno;
-namespace cssxs = com::sun::star::xml::sax;
 namespace cssxcsax = com::sun::star::xml::csax;
 
 /**
@@ -74,10 +76,11 @@ static const xmlChar** attrlist_to_nxmlstr( const cssu::Sequence< cssxcsax::XMLA
         return nullptr ;
     }
 
-    for( int i = 0 , j = 0 ; j < nLength ; ++j )
+    int i = 0;
+    for( const auto& rAttr : aAttributes )
     {
-        attname = ous_to_xmlstr( aAttributes[j].sName ) ;
-        attvalue = ous_to_xmlstr( aAttributes[j].sValue ) ;
+        attname = ous_to_xmlstr( rAttr.sName ) ;
+        attvalue = ous_to_xmlstr( rAttr.sValue ) ;
 
         if( attname != nullptr && attvalue != nullptr )
         {
@@ -286,9 +289,7 @@ void SAXHelper::startElement(
  */
 void SAXHelper::endElement( const OUString& aName )
 {
-    xmlChar* fullname = nullptr ;
-
-    fullname = ous_to_xmlstr( aName ) ;
+    xmlChar* fullname = ous_to_xmlstr( aName ) ;
     m_pSaxHandler->endElement( m_pParserCtxt , fullname ) ;
 
     if( fullname != nullptr )

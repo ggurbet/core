@@ -25,6 +25,7 @@
 #include <svl/poolitem.hxx>
 #include <svl/intitem.hxx>
 #include <svl/eitem.hxx>
+#include <o3tl/sorted_vector.hxx>
 #include <o3tl/typed_flags_set.hxx>
 #include "scdllapi.h"
 #include "global.hxx"
@@ -206,7 +207,6 @@ public:
 
     virtual sal_uInt16          GetValueCount() const override;
     virtual SfxPoolItem*        Clone( SfxItemPool *pPool = nullptr ) const override;
-    virtual sal_uInt16          GetVersion( sal_uInt16 nFileVersion ) const override;
     virtual bool GetPresentation( SfxItemPresentation ePres,
                                   MapUnit eCoreMetric,
                                   MapUnit ePresMetric,
@@ -260,25 +260,29 @@ private:
     sal_uInt16                  mnHeight;
 };
 
+typedef o3tl::sorted_vector<sal_uInt32> ScCondFormatIndexes;
+
 class ScCondFormatItem : public SfxPoolItem
 {
 public:
     explicit ScCondFormatItem();
-    explicit ScCondFormatItem(const std::vector<sal_uInt32>& nIndex);
+    explicit ScCondFormatItem(sal_uInt32 nIndex);
+    explicit ScCondFormatItem(const ScCondFormatIndexes& );
+    explicit ScCondFormatItem(ScCondFormatIndexes&& );
 
     virtual ~ScCondFormatItem() override;
 
     virtual bool operator==(const SfxPoolItem& rCmp ) const override;
+    virtual bool            operator<(const SfxPoolItem& rCmp) const override;
+    virtual bool            IsSortable() const override { return true; }
     virtual ScCondFormatItem*  Clone( SfxItemPool* = nullptr ) const override;
 
-    const std::vector<sal_uInt32>& GetCondFormatData() const { return maIndex;}
-    void AddCondFormatData( sal_uInt32 nIndex );
-    void SetCondFormatData( const std::vector<sal_uInt32>& aIndex );
+    const ScCondFormatIndexes& GetCondFormatData() const { return maIndex;}
 
     virtual void dumpAsXml(xmlTextWriterPtr pWriter) const override;
 
 private:
-    std::vector<sal_uInt32> maIndex;
+    ScCondFormatIndexes maIndex;
 };
 
 #endif

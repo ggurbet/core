@@ -22,7 +22,6 @@
 
 #include <svx/svxdllapi.h>
 #include <svl/eitem.hxx>
-#include <svx/xenum.hxx>
 #include <com/sun/star/drawing/LineCap.hpp>
 
 
@@ -35,7 +34,6 @@ public:
     static SfxPoolItem* CreateDefault();
     XLineCapItem(css::drawing::LineCap eLineCap = css::drawing::LineCap_BUTT);
 
-    virtual sal_uInt16      GetVersion( sal_uInt16 nFileFormatVersion ) const override;
     virtual SfxPoolItem*    Clone( SfxItemPool* pPool = nullptr ) const override;
 
     virtual bool QueryValue( css::uno::Any& rVal, sal_uInt8 nMemberId = 0 ) const override;

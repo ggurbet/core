@@ -23,10 +23,12 @@
 #include <svl/urihelper.hxx>
 #include <svl/eitem.hxx>
 #include <svl/stritem.hxx>
+#include <svx/svxids.hrc>
 #include <sfx2/docfile.hxx>
 #include <sfx2/fcontnr.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/linkmgr.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <fmtinfmt.hxx>
 #include <frmatr.hxx>
 #include <swtypes.hxx>
@@ -66,7 +68,7 @@
 #include <sfx2/event.hxx>
 #include <sal/log.hxx>
 
-void SwWrtShell::Insert(SwField const &rField)
+void SwWrtShell::Insert(SwField const& rField, SwPaM* pAnnotationRange)
 {
     ResetCursorStack();
     if(!CanInsert())
@@ -80,6 +82,11 @@ void SwWrtShell::Insert(SwField const &rField)
 
     bool bDeleted = false;
     std::unique_ptr<SwPaM> pAnnotationTextRange;
+    if (pAnnotationRange)
+    {
+        pAnnotationTextRange.reset(new SwPaM(*pAnnotationRange->Start(), *pAnnotationRange->End()));
+    }
+
     if ( HasSelection() )
     {
         if ( rField.GetTyp()->Which() == SwFieldIds::Postit )
@@ -119,6 +126,17 @@ void SwWrtShell::Insert(SwField const &rField)
     {
         if ( GetDoc() != nullptr )
         {
+            const SwPaM& rCurrPaM = GetCurrentShellCursor();
+            if (*rCurrPaM.Start() == *pAnnotationTextRange->Start()
+                && *rCurrPaM.End() == *pAnnotationTextRange->End())
+            {
+                // Annotation range was passed in externally, and inserting the postit field shifted
+                // its start/end positions right by one. Restore the original position for the range
+                // start. This allows commenting on the placeholder character of the field.
+                SwIndex& rRangeStart = pAnnotationTextRange->Start()->nContent;
+                if (rRangeStart.GetIndex() > 0)
+                    --rRangeStart;
+            }
             IDocumentMarkAccess* pMarksAccess = GetDoc()->getIDocumentMarkAccess();
             pMarksAccess->makeAnnotationMark( *pAnnotationTextRange, OUString() );
         }
@@ -252,7 +270,7 @@ class FieldDeletionModify : public SwModify
 
 // Start input dialog for a specific field
 bool SwWrtShell::StartInputFieldDlg(SwField* pField, bool bPrevButton, bool bNextButton,
-                                    weld::Window* pParentWin, SwWrtShell::FieldDialogPressedButton* pPressedButton)
+                                    weld::Widget* pParentWin, SwWrtShell::FieldDialogPressedButton* pPressedButton)
 {
 
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
@@ -279,7 +297,7 @@ bool SwWrtShell::StartInputFieldDlg(SwField* pField, bool bPrevButton, bool bNex
 }
 
 bool SwWrtShell::StartDropDownFieldDlg(SwField* pField, bool bPrevButton, bool bNextButton,
-                                       weld::Window* pParentWin, SwWrtShell::FieldDialogPressedButton* pPressedButton)
+                                       weld::Widget* pParentWin, SwWrtShell::FieldDialogPressedButton* pPressedButton)
 {
     SwAbstractDialogFactory* pFact = SwAbstractDialogFactory::Create();
     ScopedVclPtr<AbstractDropDownFieldDialog> pDlg(pFact->CreateDropDownFieldDialog(pParentWin, *this, pField, bPrevButton, bNextButton));
@@ -323,15 +341,6 @@ void SwWrtShell::UpdateTableOf(const SwTOXBase& rTOX, const SfxItemSet* pSet)
     if(CanInsert())
     {
         SwEditShell::UpdateTableOf(rTOX, pSet);
-
-        if (pSet == nullptr)
-        {
-            SwDoc *const pDoc_ = GetDoc();
-            if (pDoc_)
-            {
-                pDoc_->GetIDocumentUndoRedo().DelAllUndoObj();
-            }
-        }
     }
 }
 

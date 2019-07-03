@@ -25,10 +25,12 @@
 #include <svx/svddef.hxx>
 #include <editeng/eeitem.hxx>
 #include <svx/svdomeas.hxx>
+#include <svx/xlineit0.hxx>
 #include <svx/xlnstit.hxx>
 #include <svx/xlnstwit.hxx>
 #include <svx/xlnedit.hxx>
 #include <svx/xlnedwit.hxx>
+#include <svx/sdynitm.hxx>
 #include <basegfx/point/b2dpoint.hxx>
 #include <basegfx/polygon/b2dpolygon.hxx>
 

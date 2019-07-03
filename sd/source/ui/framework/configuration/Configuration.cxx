@@ -24,7 +24,7 @@
 #include <com/sun/star/drawing/framework/ConfigurationChangeEvent.hpp>
 #include <com/sun/star/drawing/framework/XConfigurationControllerBroadcaster.hpp>
 #include <comphelper/sequence.hxx>
-#include <facreg.hxx>
+#include <cppuhelper/supportsservice.hxx>
 #include <sal/log.hxx>
 
 using namespace ::com::sun::star;
@@ -99,11 +99,10 @@ void SAL_CALL Configuration::addResource (const Reference<XResourceId>& rxResour
     if ( ! rxResourceId.is() || rxResourceId->getResourceURL().isEmpty())
         throw css::lang::IllegalArgumentException();
 
-    if (mpResourceContainer->find(rxResourceId) == mpResourceContainer->end())
+    if (mpResourceContainer->insert(rxResourceId).second)
     {
         SAL_INFO("sd.fwk", OSL_THIS_FUNC << ": Configuration::addResource() " <<
                 FrameworkHelper::ResourceIdToString(rxResourceId));
-        mpResourceContainer->insert(rxResourceId);
         PostEvent(rxResourceId, true);
     }
 }
@@ -133,7 +132,7 @@ Sequence<Reference<XResourceId> > SAL_CALL Configuration::getResources (
     ::osl::MutexGuard aGuard (maMutex);
     ThrowIfDisposed();
 
-    bool bFilterResources (!rsResourceURLPrefix.isEmpty());
+    const bool bFilterResources (!rsResourceURLPrefix.isEmpty());
 
     // Collect the matching resources in a vector.
     ::std::vector<Reference<XResourceId> > aResources;

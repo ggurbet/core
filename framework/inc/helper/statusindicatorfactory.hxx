@@ -25,7 +25,6 @@
 #include <vector>
 
 // include files of own module
-#include <helper/wakeupthread.hxx>
 #include <general.h>
 
 // include uno interfaces
@@ -45,7 +44,9 @@
 #include <com/sun/star/uno/XComponentContext.hpp>
 
 #include <cppuhelper/supportsservice.hxx>
+#include <cppuhelper/weakref.hxx>
 #include <vcl/status.hxx>
+#include <vcl/timer.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <osl/thread.hxx>
 
@@ -104,7 +105,7 @@ struct IndicatorInfo
         /** @short  Used to locate an info struct inside a stl structure...
 
             @descr  The indicator object itself is used as key. Its values
-                    are not interesting then. Because more then one child
+                    are not interesting then. Because more than one child
                     indicator can use the same values...
          */
         bool operator==(const css::uno::Reference< css::task::XStatusIndicator >& xIndicator)
@@ -113,19 +114,19 @@ struct IndicatorInfo
         }
 };
 
-/** @descr  Define a lits of child indicator objects and her data. */
+/** @descr  Define a list of child indicator objects and its data. */
 typedef ::std::vector< IndicatorInfo > IndicatorStack;
 
 /** @short          implement a factory service to create new status indicator objects
 
     @descr          Internally it uses:
                     - a vcl based
-                    - or an uno based and by the frame layouted
+                    - or a uno based and by the frame layouted
                     progress implementation.
 
                     This factory create different indicators and control his access
                     to a shared output device! Only the last activated component
-                    can write his state to this device. All other requests will be
+                    can write its state to this device. All other requests will be
                     cached only.
 
     @devstatus      ready to use
@@ -165,7 +166,7 @@ class StatusIndicatorFactory : public  ::cppu::WeakImplHelper<
 
         /** Notify us if a fix time is over. We use it to implement an
             intelligent "Reschedule" ... */
-        rtl::Reference<WakeUpThread> m_pWakeUp;
+        boost::optional<Timer> m_xWakeUpTimer;
 
         /** Our WakeUpThread calls us in our interface method "XUpdatable::update().
             There we set this member m_bAllowReschedule to sal_True. Next time if our impl_reschedule()
@@ -181,6 +182,8 @@ class StatusIndicatorFactory : public  ::cppu::WeakImplHelper<
 
         /** prevent recursive calling of Application::Reschedule(). */
         static sal_Int32 m_nInReschedule;
+
+        DECL_LINK( WakeupTimerHdl, Timer*, void );
 
     // interface
 
@@ -252,21 +255,21 @@ class StatusIndicatorFactory : public  ::cppu::WeakImplHelper<
         /** @short  creates a new internal used progress.
             @descr  This factory does not paint the progress itself.
                     It uses helper for that. They can be vcl based or
-                    layouted by the frame and provided as an uno interface.
+                    layouted by the frame and provided as a uno interface.
          */
         void impl_createProgress();
 
         /** @short  shows the internal used progress.
             @descr  This factory does not paint the progress itself.
                     It uses helper for that. They can be vcl based or
-                    layouted by the frame and provided as an uno interface.
+                    layouted by the frame and provided as a uno interface.
          */
         void impl_showProgress();
 
         /** @short  hides the internal used progress.
             @descr  This factory does not paint the progress itself.
                     It uses helper for that. They can be vcl based or
-                    layouted by the frame and provided as an uno interface.
+                    layouted by the frame and provided as a uno interface.
          */
         void impl_hideProgress();
 

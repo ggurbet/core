@@ -22,6 +22,7 @@
 #include <com/sun/star/lang/XServiceInfo.hpp>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
+#include <com/sun/star/lang/XSingleServiceFactory.hpp>
 
 #include <comphelper/namedvaluecollection.hxx>
 #include <cppuhelper/implbase.hxx>
@@ -165,7 +166,7 @@ namespace sfx2
         );
         aStrippedArguments.realloc( pStrippedArgsEnd - pStrippedArgs );
 
-        if ( aStrippedArguments.getLength() )
+        if ( aStrippedArguments.hasElements() )
         {
             Reference< XInitialization > xModelInit( xInstance, UNO_QUERY );
             OSL_ENSURE( xModelInit.is(), "SfxModelFactory::createInstanceWithArguments: no XInitialization!" );

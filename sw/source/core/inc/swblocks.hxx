@@ -19,7 +19,8 @@
 #ifndef INCLUDED_SW_SOURCE_CORE_INC_SWBLOCKS_HXX
 #define INCLUDED_SW_SOURCE_CORE_INC_SWBLOCKS_HXX
 
-#include <tools/datetime.hxx>
+#include <tools/date.hxx>
+#include <tools/time.hxx>
 #include <o3tl/sorted_vector.hxx>
 #include <vcl/errcode.hxx>
 #include <rtl/ref.hxx>
@@ -107,7 +108,6 @@ public:
 
     virtual ErrCode Delete( sal_uInt16 ) = 0;
     virtual ErrCode Rename( sal_uInt16, const OUString&, const OUString& ) = 0;
-    virtual ErrCode CopyBlock( SwImpBlocks& rImp, OUString& rShort, const OUString& rLong) = 0;
     virtual ErrCode GetDoc( sal_uInt16 ) = 0;
     virtual ErrCode BeginPutDoc( const OUString&, const OUString& ) = 0;
     virtual ErrCode PutDoc() = 0;

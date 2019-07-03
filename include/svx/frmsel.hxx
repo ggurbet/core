@@ -21,19 +21,13 @@
 #define INCLUDED_SVX_FRMSEL_HXX
 
 #include <memory>
-#include <vcl/ctrl.hxx>
 #include <vcl/customweld.hxx>
-#include <vcl/bitmap.hxx>
 #include <editeng/borderline.hxx>
 #include <svx/framebordertype.hxx>
 #include <svx/svxdllapi.h>
 #include <o3tl/typed_flags_set.hxx>
 
 class Color;
-
-namespace editeng {
-    class SvxBorderLine;
-}
 
 enum class FrameSelFlags
 {
@@ -69,7 +63,7 @@ namespace o3tl
 namespace svx {
 
 struct FrameSelectorImpl;
-
+namespace a11y { class AccFrameSelectorChild; }
 
 /** All possible states of a frame border. */
 enum class FrameBorderState
@@ -166,7 +160,7 @@ public:
     a11yrelationset get_accessible_relation_set() { return GetDrawingArea()->get_accessible_relation_set(); }
 
     /** Returns the accessibility child object of the specified frame border (if enabled). */
-    css::uno::Reference< css::accessibility::XAccessible >
+    rtl::Reference< a11y::AccFrameSelectorChild >
                         GetChildAccessible( FrameBorderType eBorder );
     /** Returns the accessibility child object with specified index (counts enabled frame borders only). */
     css::uno::Reference< css::accessibility::XAccessible >

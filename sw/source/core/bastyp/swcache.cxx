@@ -296,6 +296,7 @@ void SwCache::DeleteObj( SwCacheObj *pObj )
         pObj->GetNext()->SetPrev( pObj->GetPrev() );
 
     m_aFreePositions.push_back( pObj->GetCachePos() );
+    assert(m_aCacheObjects[pObj->GetCachePos()].get() == pObj);
     m_aCacheObjects[pObj->GetCachePos()] = nullptr; // deletes pObj
 
     CHECK;
@@ -323,6 +324,15 @@ void SwCache::DeleteObj( SwCacheObj *pObj )
     CHECK;
 }
 
+void SwCache::Delete(void const*const pOwner, sal_uInt16 const nIndex)
+{
+    INCREMENT( m_nDelete );
+    if (SwCacheObj *const pObj = Get(pOwner, nIndex, false))
+    {
+        DeleteObj(pObj);
+    }
+}
+
 void SwCache::Delete( const void *pOwner )
 {
     INCREMENT( m_nDelete );
@@ -331,10 +341,18 @@ void SwCache::Delete( const void *pOwner )
         DeleteObj( pObj );
 }
 
-bool SwCache::Insert( SwCacheObj *pNew )
+bool SwCache::Insert(SwCacheObj *const pNew, bool const isDuplicateOwnerAllowed)
 {
     CHECK;
     OSL_ENSURE( !pNew->GetPrev() && !pNew->GetNext(), "New but not new." );
+    if (!isDuplicateOwnerAllowed)
+    {
+        for (auto const & rpObj : m_aCacheObjects)
+        {   // check owner doesn't have a cache object yet; required for SwTextLine
+            assert(!rpObj || rpObj->GetOwner() != pNew->GetOwner());
+            (void) rpObj;
+        }
+    }
 
     sal_uInt16 nPos;
     if ( m_aCacheObjects.size() < m_nCurMax )
@@ -365,7 +383,7 @@ bool SwCache::Insert( SwCacheObj *pNew )
         {
             SAL_WARN("sw.core", "SwCache overflow.");
             IncreaseMax(100); // embiggen & try again
-            return Insert(pNew);
+            return Insert(pNew, isDuplicateOwnerAllowed);
         }
 
         nPos = pObj->GetCachePos();
@@ -427,6 +445,7 @@ bool SwCache::Insert( SwCacheObj *pNew )
 
 void SwCache::SetLRUOfst( const sal_uInt16 nOfst )
 {
+    assert(nOfst < m_nCurMax);
     if ( !m_pRealFirst || ((m_aCacheObjects.size() - m_aFreePositions.size()) < nOfst) )
         return;
 
@@ -475,12 +494,12 @@ SwCacheAccess::~SwCacheAccess()
         m_pObj->Unlock();
 }
 
-void SwCacheAccess::Get_()
+void SwCacheAccess::Get_(bool const isDuplicateOwnerAllowed)
 {
     OSL_ENSURE( !m_pObj, "SwCacheAcces Obj already available." );
 
     m_pObj = NewObj();
-    if ( !m_rCache.Insert( m_pObj ) )
+    if (!m_rCache.Insert(m_pObj, isDuplicateOwnerAllowed))
     {
         delete m_pObj;
         m_pObj = nullptr;

@@ -22,6 +22,8 @@
 #include <vcl/prgsbar.hxx>
 #include <vcl/settings.hxx>
 #include <sal/log.hxx>
+#include <vcl/svapp.hxx>
+#include <vcl/idle.hxx>
 
 #define PROGRESSBAR_OFFSET          3
 #define PROGRESSBAR_WIN_OFFSET      2
@@ -29,7 +31,6 @@
 void ProgressBar::ImplInit()
 {
     mnPercent = 0;
-    mnPreviousPercent = 0;
     mbCalcNew = true;
 
     ImplInitSettings( true, true, true );
@@ -65,13 +66,7 @@ void ProgressBar::ImplInitSettings( bool bFont,
 
 /* FIXME: !!! We do not support text output at the moment
     if ( bFont )
-    {
-        Font aFont;
-        aFont = rStyleSettings.GetAppFont();
-        if ( IsControlFont() )
-            aFont.Merge( GetControlFont() );
-        SetZoomedPointFont( aFont );
-    }
+        ApplyControlFont(*this, rStyleSettings.GetAppFont());
 */
 
     if ( bBackground )
@@ -118,7 +113,7 @@ void ProgressBar::ImplInitSettings( bool bFont,
     }
 }
 
-void ProgressBar::ImplDrawProgress(vcl::RenderContext& rRenderContext, sal_uInt16 nOldPerc, sal_uInt16 nNewPerc)
+void ProgressBar::ImplDrawProgress(vcl::RenderContext& rRenderContext, sal_uInt16 nNewPerc)
 {
     if (mbCalcNew)
     {
@@ -147,13 +142,13 @@ void ProgressBar::ImplDrawProgress(vcl::RenderContext& rRenderContext, sal_uInt1
     }
 
     ::DrawProgress(this, rRenderContext, maPos, PROGRESSBAR_OFFSET, mnPrgsWidth, mnPrgsHeight,
-                   nOldPerc * 100, nNewPerc * 100, mnPercentCount,
+                   /*nPercent1=*/0, nNewPerc * 100, mnPercentCount,
                    tools::Rectangle(Point(), GetSizePixel()));
 }
 
 void ProgressBar::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle& /*rRect*/)
 {
-    ImplDrawProgress(rRenderContext, mnPreviousPercent, mnPercent);
+    ImplDrawProgress(rRenderContext, mnPercent);
 }
 
 void ProgressBar::Resize()
@@ -171,7 +166,6 @@ void ProgressBar::SetValue( sal_uInt16 nNewPercent )
     {
         mbCalcNew = true;
         mnPercent = nNewPercent;
-        mnPreviousPercent = 0;
         if ( IsReallyVisible() )
         {
             Invalidate();
@@ -180,9 +174,18 @@ void ProgressBar::SetValue( sal_uInt16 nNewPercent )
     }
     else if ( mnPercent != nNewPercent )
     {
-        mnPreviousPercent = mnPercent;
         mnPercent = nNewPercent;
         Invalidate();
+
+        // Make sure the progressbar is actually painted even if the caller is busy with its task,
+        // so the main loop would not be invoked.
+        Idle aIdle("ProgressBar::SetValue aIdle");
+        aIdle.SetPriority(TaskPriority::POST_PAINT);
+        aIdle.Start();
+        while (aIdle.IsActive())
+        {
+            Application::Yield();
+        }
     }
 }
 

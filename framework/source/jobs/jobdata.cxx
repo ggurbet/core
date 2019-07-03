@@ -64,7 +64,7 @@ JobData::JobData( const JobData& rCopy )
 }
 
 /**
-    @short  operator for coping JobData instances
+    @short  operator for copying JobData instances
     @descr  Sometimes such job data container must be moved from one using place
             to another one. Then a copy ctor and copy operator must be available.
 
@@ -265,7 +265,7 @@ void JobData::setJobConfig( const std::vector< css::beans::NamedValue >& lArgume
 /**
     @short  set a new environment descriptor for this job
     @descr  It must(!) be done every time this container is initialized
-            with new job datas e.g.: setAlias()/setEvent()/setService() ...
+            with new job data e.g.: setAlias()/setEvent()/setService() ...
             Otherwise the environment will be unknown!
  */
 void JobData::setEnvironment( EEnvironment eEnvironment )
@@ -359,7 +359,7 @@ css::uno::Sequence< css::beans::NamedValue > JobData::getConfig() const
 /**
     @short  return information, if this job is part of the global configuration package
             org.openoffice.Office.Jobs
-    @descr  Because jobs can be executed by the dispatch framework using an uno service name
+    @descr  Because jobs can be executed by the dispatch framework using a uno service name
             directly - an executed job must not have any configuration really. Such jobs
             must provide the right interfaces only! But after finishing jobs can return
             some information (e.g. for updating her configuration ...). We must know

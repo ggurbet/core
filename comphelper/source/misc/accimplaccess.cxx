@@ -18,22 +18,16 @@
  */
 
 #include <comphelper/accimplaccess.hxx>
-#include <com/sun/star/accessibility/XAccessible.hpp>
 #include <cppuhelper/typeprovider.hxx>
 
-#include <set>
 #include <string.h>
-#include <memory>
 
 
 namespace comphelper
 {
 
 
-    using ::com::sun::star::uno::Reference;
     using ::com::sun::star::uno::Sequence;
-    using ::com::sun::star::uno::RuntimeException;
-    using ::com::sun::star::accessibility::XAccessible;
 
     OAccessibleImplementationAccess::OAccessibleImplementationAccess( )
     {

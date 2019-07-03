@@ -664,7 +664,23 @@ bool TransferableHelper::SetBitmapEx( const BitmapEx& rBitmapEx, const DataFlavo
         if(rFlavor.MimeType.equalsIgnoreAsciiCase("image/png"))
         {
             // write a PNG
-            vcl::PNGWriter aPNGWriter(rBitmapEx);
+            css::uno::Sequence<css::beans::PropertyValue> aFilterData;
+
+#ifdef IOS
+            // Use faster compression on slow devices
+            aFilterData.realloc(aFilterData.getLength() + 1);
+            aFilterData[aFilterData.getLength() - 1].Name = "Compression";
+
+            // We "know" that this gets passed to zlib's deflateInit2_(). 1 means best speed. For a
+            // typical 15 megapixel image from a DSLR, we are talking about a difference of 17 s for
+            // the default compression level vs 4 s for best speed, on an iPad Pro from 2017.
+            //
+            // Sure, the best would be to not have to re-encode the image at all, but have access to
+            // the original JPEG or PNG when there is a such.
+
+            aFilterData[aFilterData.getLength() - 1].Value <<= 1;
+#endif
+            vcl::PNGWriter aPNGWriter(rBitmapEx, &aFilterData);
 
             aPNGWriter.Write(aMemStm);
         }
@@ -1685,6 +1701,20 @@ bool TransferableDataHelper::GetGraphic( const css::datatransfer::DataFlavor& rF
         if( bRet )
             rGraphic = aBmpEx;
     }
+    else if(SotExchange::GetFormatDataFlavor(SotClipboardFormatId::PDF, aFlavor) &&
+            TransferableDataHelper::IsEqual(aFlavor, rFlavor))
+    {
+        Graphic aGraphic;
+        tools::SvRef<SotStorageStream> xStm;
+        if (GetSotStorageStream(rFlavor, xStm))
+        {
+            if (GraphicConverter::Import(*xStm, aGraphic) == ERRCODE_NONE)
+            {
+                rGraphic = aGraphic;
+                bRet = true;
+            }
+        }
+    }
     else if (SotExchange::GetFormatDataFlavor(SotClipboardFormatId::JPEG, aFlavor) && TransferableDataHelper::IsEqual(aFlavor, rFlavor))
     {
         BitmapEx aBitmapEx;
@@ -1997,14 +2027,14 @@ bool TransferableDataHelper::GetSotStorageStream( const DataFlavor& rFlavor, too
 {
     Sequence<sal_Int8> aSeq = GetSequence(rFlavor, OUString());
 
-    if (aSeq.getLength())
+    if (aSeq.hasElements())
     {
         rxStream = new SotStorageStream( "" );
         rxStream->WriteBytes( aSeq.getConstArray(), aSeq.getLength() );
         rxStream->Seek( 0 );
     }
 
-    return aSeq.getLength();
+    return aSeq.hasElements();
 }
 
 Reference<XInputStream> TransferableDataHelper::GetInputStream( SotClipboardFormatId nFormat, const OUString& rDestDoc )
@@ -2020,7 +2050,7 @@ Reference<XInputStream> TransferableDataHelper::GetInputStream( const DataFlavor
 {
     Sequence<sal_Int8> aSeq = GetSequence(rFlavor, rDestDoc);
 
-    if (!aSeq.getLength())
+    if (!aSeq.hasElements())
         return Reference<XInputStream>();
 
     Reference<XInputStream> xStream(new comphelper::SequenceInputStream(aSeq));

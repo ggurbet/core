@@ -30,6 +30,7 @@
 #include <DrawDocShell.hxx>
 #include <editeng/eeitem.hxx>
 
+#include <vcl/idle.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/svapp.hxx>
 
@@ -80,6 +81,10 @@
 #include <svx/xlnclit.hxx>
 #include <svx/svditer.hxx>
 #include <svx/svdogrp.hxx>
+#include <svx/sdsxyitm.hxx>
+#include <svx/sdtditm.hxx>
+#include <svx/sdtaitm.hxx>
+#include <svx/sdynitm.hxx>
 #include <editeng/numitem.hxx>
 #include <editeng/unolingu.hxx>
 #include <svl/itempool.hxx>

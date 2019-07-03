@@ -104,6 +104,7 @@ class SVT_DLLPUBLIC URLBox
     bool                            bHistoryDisabled    : 1;
 
     Link<weld::ComboBox&, void>     aChangeHdl;
+    Link<weld::Widget&, void>       aFocusOutHdl;
 
     std::unique_ptr<weld::ComboBox> m_xWidget;
 
@@ -115,29 +116,34 @@ class SVT_DLLPUBLIC URLBox
     SVT_DLLPRIVATE void             Init();
 
 public:
-    URLBox(std::unique_ptr<weld::ComboBox> pWidget);
+    URLBox(std::unique_ptr<weld::ComboBox> xWidget);
     ~URLBox();
 
-    void                            set_entry_text(const OUString& rStr) { m_xWidget->set_entry_text(rStr); }
-    void                            Clear() { m_xWidget->clear(); }
-    void connect_entry_activate(const Link<weld::ComboBox&, bool>& rLink) { m_xWidget->connect_entry_activate(rLink); }
-    void connect_changed(const Link<weld::ComboBox&, void>& rLink) { aChangeHdl = rLink; }
-    void                            append_text(const OUString& rStr) { m_xWidget->append_text(rStr); }
-    OUString                        get_active_text() const { return m_xWidget->get_active_text(); }
-    void                            grab_focus() { m_xWidget->grab_focus(); }
-    void                            EnableAutocomplete() { m_xWidget->set_entry_completion(true); }
+    void                set_entry_text(const OUString& rStr) { m_xWidget->set_entry_text(rStr); }
+    void                show() { m_xWidget->show(); }
+    void                clear() { m_xWidget->clear(); }
+    void                connect_entry_activate(const Link<weld::ComboBox&, bool>& rLink) { m_xWidget->connect_entry_activate(rLink); }
+    void                connect_changed(const Link<weld::ComboBox&, void>& rLink) { aChangeHdl = rLink; }
+    void                connect_focus_out(const Link<weld::Widget&, void>& rLink) { aFocusOutHdl = rLink; }
+    void                append_text(const OUString& rStr) { m_xWidget->append_text(rStr); }
+    int                 find_text(const OUString& rStr) const { return m_xWidget->find_text(rStr); }
+    OUString            get_active_text() const { return m_xWidget->get_active_text(); }
+    void                grab_focus() { m_xWidget->grab_focus(); }
+    void                set_sensitive(bool bSensitive) { m_xWidget->set_sensitive(bSensitive); }
+    void                EnableAutocomplete() { m_xWidget->set_entry_completion(true); }
 
-    void                            SetBaseURL( const OUString& rURL );
-    void                            SetSmartProtocol( INetProtocol eProt );
-    INetProtocol                    GetSmartProtocol() const { return eSmartProtocol; }
-    OUString                        GetURL();
-    void                            DisableHistory();
+    void                SetBaseURL( const OUString& rURL );
+    const OUString&     GetBaseURL() const { return aBaseURL; }
+    void                SetSmartProtocol( INetProtocol eProt );
+    INetProtocol        GetSmartProtocol() const { return eSmartProtocol; }
+    OUString            GetURL();
+    void                DisableHistory();
 
-    weld::Widget*                   getWidget() { return m_xWidget.get(); }
+    weld::ComboBox*     getWidget() { return m_xWidget.get(); }
 
-    static OUString                 ParseSmart( const OUString& aText, const OUString& aBaseURL );
+    static OUString     ParseSmart( const OUString& aText, const OUString& aBaseURL );
 
-    void                            SetFilter(const OUString& _sFilter);
+    void                SetFilter(const OUString& _sFilter);
 };
 
 #endif

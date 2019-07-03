@@ -21,10 +21,8 @@
 #include <vcl/virdev.hxx>
 #include <vcl/waitobj.hxx>
 #include <editeng/boxitem.hxx>
-#include <editeng/justifyitem.hxx>
 #include <sfx2/app.hxx>
 #include <comphelper/lok.hxx>
-#include <sfx2/lokhelper.hxx>
 
 #include <undoblk.hxx>
 #include <undoutil.hxx>
@@ -34,7 +32,6 @@
 #include <tabvwsh.hxx>
 #include <rangenam.hxx>
 #include <rangeutl.hxx>
-#include <dbdata.hxx>
 #include <stlpool.hxx>
 #include <stlsheet.hxx>
 #include <globstr.hrc>
@@ -50,7 +47,6 @@
 #include <undoolk.hxx>
 #include <clipparam.hxx>
 #include <brdcst.hxx>
-#include <sc.hrc>
 #include <rowheightcontext.hxx>
 #include <refhint.hxx>
 #include <refupdatecontext.hxx>
@@ -291,7 +287,7 @@ void ScUndoInsertCells::Undo()
     if ( pPasteUndo )
         pPasteUndo->Undo();     // undo paste first
 
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important due to TrackFormulas in UpdateReference
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important due to TrackFormulas in UpdateReference
     BeginUndo();
     DoChange( true );
     EndUndo();
@@ -303,7 +299,7 @@ void ScUndoInsertCells::Undo()
 
 void ScUndoInsertCells::Redo()
 {
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important due to TrackFormulas in UpdateReference
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important due to TrackFormulas in UpdateReference
     BeginRedo();
     DoChange( false );
     EndRedo();
@@ -550,7 +546,7 @@ void ScUndoDeleteCells::DoChange( const bool bUndo )
 
 void ScUndoDeleteCells::Undo()
 {
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
     BeginUndo();
     DoChange( true );
     EndUndo();
@@ -586,7 +582,7 @@ void ScUndoDeleteCells::Undo()
 
 void ScUndoDeleteCells::Redo()
 {
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
     BeginRedo();
     DoChange( false);
     EndRedo();
@@ -718,7 +714,7 @@ void ScUndoDeleteMulti::SetChangeTrack()
 
 void ScUndoDeleteMulti::Undo()
 {
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
     BeginUndo();
 
     ScDocument& rDoc = pDocShell->GetDocument();
@@ -760,7 +756,7 @@ void ScUndoDeleteMulti::Undo()
 
 void ScUndoDeleteMulti::Redo()
 {
-    WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
+    weld::WaitObject aWait( ScDocShell::GetActiveDialogParent() );     // important because of TrackFormulas in UpdateReference
     BeginRedo();
 
     ScDocument& rDoc = pDocShell->GetDocument();
@@ -1318,22 +1314,6 @@ void ScUndoDragDrop::DoUndo( ScRange aRange )
     maPaintRanges.Join(aPaintRange);
 }
 
-namespace {
-
-class DataChangeNotifier
-{
-    ScHint const maHint;
-public:
-    DataChangeNotifier() : maHint(SfxHintId::ScDataChanged, ScAddress()) {}
-
-    void operator() ( SvtListener* p )
-    {
-        p->Notify(maHint);
-    }
-};
-
-}
-
 void ScUndoDragDrop::Undo()
 {
     mnPaintExtFlags = 0;
@@ -1372,10 +1352,6 @@ void ScUndoDragDrop::Undo()
                 pName->UpdateReference(aCxt, nTab);
         }
 
-        // Notify all listeners of the destination range, and have them update their references.
-        sc::RefMovedHint aHint(aDestRange, ScAddress(nColDelta, nRowDelta, nTabDelta), aCxt);
-        rDoc.BroadcastRefMoved(aHint);
-
         ScValidationDataList* pValidList = rDoc.GetValidationList();
         if (pValidList)
         {
@@ -1386,17 +1362,7 @@ void ScUndoDragDrop::Undo()
         DoUndo(aDestRange);
         DoUndo(aSrcRange);
 
-        // Notify all area listeners whose listened areas are partially moved, to
-        // recalculate.
-        std::vector<SvtListener*> aListeners;
-        rDoc.CollectAllAreaListeners(aListeners, aSrcRange, sc::AreaPartialOverlap);
-
-        // Remove any duplicate listener entries.  We must ensure that we notify
-        // each unique listener only once.
-        std::sort(aListeners.begin(), aListeners.end());
-        aListeners.erase(std::unique(aListeners.begin(), aListeners.end()), aListeners.end());
-
-        std::for_each(aListeners.begin(), aListeners.end(), DataChangeNotifier());
+        rDoc.BroadcastCells(aSrcRange, SfxHintId::ScDataChanged, false);
     }
     else
         DoUndo(aDestRange);

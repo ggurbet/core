@@ -131,15 +131,13 @@ void SAL_CALL UnoControlTabPageModel::initialize (const Sequence<Any>& rArgument
         if ( xDialogModel.is() )
         {
             Sequence< OUString> aNames = xDialogModel->getElementNames();
-            const OUString* pIter = aNames.getConstArray();
-            const OUString* pEnd = pIter + aNames.getLength();
-            for(;pIter != pEnd;++pIter)
+            for(const OUString& rName : aNames)
             {
                 try
                 {
-                    Any aElement(xDialogModel->getByName(*pIter));
-                    xDialogModel->removeByName(*pIter);
-                    insertByName(*pIter,aElement);
+                    Any aElement(xDialogModel->getByName(rName));
+                    xDialogModel->removeByName(rName);
+                    insertByName(rName,aElement);
                 }
                 catch(const Exception&) {}
             }
@@ -238,7 +236,7 @@ void SAL_CALL UnoControlTabPage::windowResized( const css::awt::WindowEvent& e )
     if ( !pOutDev || mbSizeModified )
         return;
 
-    // Currentley we are simply using MapUnit::MapAppFont
+    // Currently we are simply using MapUnit::MapAppFont
     ::Size aAppFontSize( e.Width, e.Height );
 
     Reference< XControl > xDialogControl( *this, UNO_QUERY_THROW );
@@ -276,7 +274,7 @@ void SAL_CALL UnoControlTabPage::windowMoved( const css::awt::WindowEvent& e )
     if ( !pOutDev || mbPosModified )
         return;
 
-    // Currentley we are simply using MapUnit::MapAppFont
+    // Currently we are simply using MapUnit::MapAppFont
     ::Size aTmp( e.X, e.Y );
     aTmp = ImplMapPixelToAppFont( pOutDev, aTmp );
 

@@ -24,7 +24,7 @@
 
 #include <vcl/metric.hxx>
 
-#include <list>
+#include <vector>
 
 class FontCharMap;
 

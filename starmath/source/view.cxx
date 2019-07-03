@@ -37,6 +37,7 @@
 #include <sfx2/objface.hxx>
 #include <sfx2/printer.hxx>
 #include <sfx2/request.hxx>
+#include <sfx2/viewfac.hxx>
 #include <svl/eitem.hxx>
 #include <svl/itemset.hxx>
 #include <svl/poolitem.hxx>
@@ -50,11 +51,14 @@
 #include <editeng/editview.hxx>
 #include <svx/svxdlg.hxx>
 #include <sfx2/zoomitem.hxx>
+#include <vcl/commandevent.hxx>
+#include <vcl/event.hxx>
 #include <vcl/decoview.hxx>
 #include <vcl/menu.hxx>
 #include <vcl/settings.hxx>
 #include <vcl/virdev.hxx>
 #include <sal/log.hxx>
+#include <tools/svborder.hxx>
 
 #include <unotools/streamwrap.hxx>
 
@@ -130,15 +134,6 @@ void SmGraphicWindow::StateChanged(StateChangedType eType)
         Show();
     ScrollableWindow::StateChanged(eType);
 }
-
-
-void SmGraphicWindow::ApplyColorConfigValues(const svtools::ColorConfig &rColorCfg)
-{
-    // Note: SetTextColor not necessary since the nodes that
-    // get painted have the color information.
-    SetBackground(rColorCfg.GetColorValue(svtools::DOCCOLOR).nColor);
-}
-
 
 void SmGraphicWindow::MouseButtonDown(const MouseEvent& rMEvt)
 {
@@ -364,10 +359,13 @@ const SmNode * SmGraphicWindow::SetCursorPos(sal_uInt16 nRow, sal_uInt16 nCol)
     return pNode;
 }
 
+void SmGraphicWindow::ApplySettings(vcl::RenderContext& rRenderContext)
+{
+    rRenderContext.SetBackground(SM_MOD()->GetColorConfig().GetColorValue(svtools::DOCCOLOR).nColor);
+}
+
 void SmGraphicWindow::Paint(vcl::RenderContext& rRenderContext, const tools::Rectangle&)
 {
-    ApplyColorConfigValues(SM_MOD()->GetColorConfig());
-
     SmDocShell& rDoc = *pViewShell->GetDoc();
     Point aPoint;
 
@@ -790,11 +788,14 @@ IMPL_LINK_NOARG( SmCmdBoxWindow, InitialFocusTimerHdl, Timer *, void )
 
         aEdit->GrabFocus();
 
-        bool bInPlace = GetView()->GetViewFrame()->GetFrame().IsInPlace();
+        SmViewShell* pView = GetView();
+        assert(pView);
+        bool bInPlace = pView->GetViewFrame()->GetFrame().IsInPlace();
         uno::Reference< frame::XFrame > xFrame( GetBindings().GetDispatcher()->GetFrame()->GetFrame().GetFrameInterface());
         if ( bInPlace )
         {
-            uno::Reference< container::XChild > xModel( GetView()->GetDoc()->GetModel(), uno::UNO_QUERY_THROW );
+            uno::Reference<container::XChild> xModel(pView->GetDoc()->GetModel(),
+                                                     uno::UNO_QUERY_THROW);
             uno::Reference< frame::XModel > xParent( xModel->getParent(), uno::UNO_QUERY_THROW );
             uno::Reference< frame::XController > xParentCtrler( xParent->getCurrentController() );
             uno::Reference< frame::XFramesSupplier > xParentFrame( xParentCtrler->getFrame(), uno::UNO_QUERY_THROW );
@@ -1330,7 +1331,7 @@ void SmViewShell::Insert( SfxMedium& rMedium )
 
     uno::Reference <embed::XStorage> xStorage = rMedium.GetStorage();
     uno::Reference <container::XNameAccess> xNameAccess(xStorage, uno::UNO_QUERY);
-    if (xNameAccess.is() && xNameAccess->getElementNames().getLength())
+    if (xNameAccess.is() && xNameAccess->getElementNames().hasElements())
     {
         if (xNameAccess->hasByName("content.xml") || xNameAccess->hasByName("Content.xml"))
         {

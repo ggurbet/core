@@ -22,6 +22,10 @@
 #include <com/sun/star/i18n/TextConversionOption.hpp>
 #include <com/sun/star/lang/XInitialization.hpp>
 #include <com/sun/star/ui/dialogs/XExecutableDialog.hpp>
+#include <com/sun/star/awt/XWindow.hpp>
+#include <com/sun/star/uno/XComponentContext.hpp>
+#include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/linguistic2/XThesaurus.hpp>
 
 #include <i18nlangtag/mslangid.hxx>
 #include <i18nutil/transliteration.hxx>
@@ -30,6 +34,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/dispatch.hxx>
 #include <sfx2/request.hxx>
+#include <editeng/eeitem.hxx>
 #include <editeng/flstitem.hxx>
 #include <editeng/spltitem.hxx>
 #include <editeng/lrspitem.hxx>
@@ -593,8 +598,7 @@ void SwAnnotationShell::Exec( SfxRequest &rReq )
 
     if(nEEWhich && pNewAttrs)
     {
-        std::unique_ptr<SfxPoolItem> pNewItem(pNewAttrs->Get(nWhich).CloneSetWhich(nEEWhich));
-        aNewAttr.Put(*pNewItem);
+        aNewAttr.Put(pNewAttrs->Get(nWhich).CloneSetWhich(nEEWhich));
     }
 
     tools::Rectangle aOutRect = pOLV->GetOutputArea();
@@ -704,8 +708,7 @@ void SwAnnotationShell::GetState(SfxItemSet& rSet)
                     const SfxPoolItem* pI = aSetItem.GetItemOfScript( nScriptType );
                     if( pI )
                     {
-                        std::unique_ptr<SfxPoolItem> pNewItem(pI->CloneSetWhich(nWhich));
-                        rSet.Put( *pNewItem );
+                        rSet.Put(pI->CloneSetWhich(nWhich));
                     }
                     else
                         rSet.InvalidateItem( nWhich );
@@ -855,8 +858,7 @@ void SwAnnotationShell::GetState(SfxItemSet& rSet)
 
         if(nEEWhich)
         {
-            std::unique_ptr<SfxPoolItem> pNewItem(aEditAttr.Get(nEEWhich).CloneSetWhich(nWhich));
-            rSet.Put(*pNewItem);
+            rSet.Put(aEditAttr.Get(nEEWhich).CloneSetWhich(nWhich));
             if(nEEWhich == EE_CHAR_KERNING)
             {
                 SfxItemState eState = aEditAttr.GetItemState( EE_CHAR_KERNING );
@@ -1719,19 +1721,24 @@ void SwAnnotationShell::InsertSymbol(SfxRequest& rReq)
 
     SfxItemSet aSet(pOLV->GetAttribs());
     SvtScriptType nScript = pOLV->GetSelectedScriptType();
-    SvxFontItem aSetDlgFont( RES_CHRATR_FONT );
+    std::shared_ptr<SvxFontItem> aSetDlgFont(std::make_shared<SvxFontItem>(RES_CHRATR_FONT));
     {
         SvxScriptSetItem aSetItem( SID_ATTR_CHAR_FONT, *aSet.GetPool() );
         aSetItem.GetItemSet().Put( aSet, false );
         const SfxPoolItem* pI = aSetItem.GetItemOfScript( nScript );
         if( pI )
-            aSetDlgFont = *static_cast<const SvxFontItem*>(pI);
+        {
+            aSetDlgFont.reset(static_cast<SvxFontItem*>(pI->Clone()));
+        }
         else
-            aSetDlgFont = static_cast<const SvxFontItem&>(aSet.Get( GetWhichOfScript(
+        {
+            aSetDlgFont.reset(static_cast<SvxFontItem*>(aSet.Get( GetWhichOfScript(
                         SID_ATTR_CHAR_FONT,
-                        SvtLanguageOptions::GetI18NScriptTypeOfLanguage( GetAppLanguage() ) )));
+                        SvtLanguageOptions::GetI18NScriptTypeOfLanguage( GetAppLanguage() ) )).Clone()));
+        }
+
         if (sFontName.isEmpty())
-            sFontName = aSetDlgFont.GetFamilyName();
+            sFontName = aSetDlgFont->GetFamilyName();
     }
 
     vcl::Font aFont(sFontName, Size(1,1));
@@ -1747,10 +1754,11 @@ void SwAnnotationShell::InsertSymbol(SfxRequest& rReq)
         if( !sSymbolFont.isEmpty() )
             aAllSet.Put( SfxStringItem( SID_FONT_NAME, sSymbolFont ) );
         else
-            aAllSet.Put( SfxStringItem( SID_FONT_NAME, aSetDlgFont.GetFamilyName() ) );
+            aAllSet.Put( SfxStringItem( SID_FONT_NAME, aSetDlgFont->GetFamilyName() ) );
 
         // If character is selected then it can be shown.
-        ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(rView.GetFrameWeld(), aAllSet, true));
+        auto xFrame = rView.GetViewFrame()->GetFrame().GetFrameInterface();
+        ScopedVclPtr<SfxAbstractDialog> pDlg(pFact->CreateCharMapDialog(rView.GetFrameWeld(), aAllSet, xFrame));
         pDlg->Execute();
         return;
     }

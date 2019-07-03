@@ -44,6 +44,7 @@
 
 #include <com/sun/star/security/DocumentSignatureInformation.hpp>
 #include <com/sun/star/security/DocumentDigitalSignatures.hpp>
+#include <tools/diagnose_ex.h>
 #include <tools/urlobj.hxx>
 #include <svl/whiter.hxx>
 #include <svl/intitem.hxx>
@@ -97,11 +98,14 @@
 #include <sfx2/objface.hxx>
 #include <sfx2/checkin.hxx>
 #include <sfx2/infobar.hxx>
+#include <sfx2/sfxuno.hxx>
+#include <sfx2/sfxsids.hrc>
 #include <SfxRedactionHelper.hxx>
 
 #include <com/sun/star/document/XDocumentSubStorageSupplier.hpp>
 #include <com/sun/star/embed/XTransactedObject.hpp>
 #include <com/sun/star/util/XCloneable.hpp>
+#include <com/sun/star/util/XCloseable.hpp>
 #include <com/sun/star/document/XDocumentProperties.hpp>
 #include <com/sun/star/text/XPageCursor.hpp>
 #include <com/sun/star/text/XTextViewCursorSupplier.hpp>
@@ -120,7 +124,10 @@
 #include <unotools/streamwrap.hxx>
 
 #include <svx/unoshape.hxx>
+#include <svx/xlineit0.hxx>
 #include <com/sun/star/util/Color.hpp>
+
+#include <autoredactdialog.hxx>
 
 using namespace ::com::sun::star;
 using namespace ::com::sun::star::lang;
@@ -435,6 +442,8 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
     SfxInstanceCloseGuard_Impl aModelGuard;
 
     bool bIsPDFExport = false;
+    bool bIsAutoRedact = false;
+    std::vector<std::pair<RedactionTarget*, OUString>> aRedactionTargets;
     switch(nId)
     {
         case SID_VERSION:
@@ -497,23 +506,20 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
 
                 // creating dialog is done via virtual method; application will
                 // add its own statistics page
-                VclAbstractDialog::AsyncContext aCtx;
                 std::shared_ptr<SfxRequest> pReq = std::make_shared<SfxRequest>(rReq);
-                VclPtr<SfxDocumentInfoDialog> pDlg(CreateDocumentInfoDialog(aSet));
-
-                aCtx.mxOwner = pDlg;
-                aCtx.maEndDialogFn = [this, pDlg, xCmisDoc, pReq](sal_Int32 nResult)
+                std::shared_ptr<SfxDocumentInfoDialog> xDlg(CreateDocumentInfoDialog(rReq.GetFrameWeld(), aSet));
+                SfxTabDialogController::runAsync(xDlg, [this, xDlg, xCmisDoc, pReq](sal_Int32 nResult)
                 {
                     if (RET_OK == nResult)
                     {
-                        const SfxDocumentInfoItem* pDocInfoItem = SfxItemSet::GetItem<SfxDocumentInfoItem>(pDlg->GetOutputItemSet(), SID_DOCINFO, false);
+                        const SfxDocumentInfoItem* pDocInfoItem = SfxItemSet::GetItem<SfxDocumentInfoItem>(xDlg->GetOutputItemSet(), SID_DOCINFO, false);
                         if ( pDocInfoItem )
                         {
                             // user has done some changes to DocumentInfo
                             pDocInfoItem->UpdateDocumentInfo(getDocProperties());
                             const uno::Sequence< document::CmisProperty >& aNewCmisProperties =
                                 pDocInfoItem->GetCmisProperties( );
-                            if ( aNewCmisProperties.getLength( ) > 0 )
+                            if ( aNewCmisProperties.hasElements( ) )
                                 xCmisDoc->updateCmisProperties( aNewCmisProperties );
                             SetUseUserData( pDocInfoItem->IsUseUserData() );
                             SetUseThumbnailSave( pDocInfoItem-> IsUseThumbnailSave() );
@@ -525,7 +531,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
                         css::uno::Reference< css::uno::XInterface > xInterface;
                         const SfxUnoAnyItem* pUnoAny = pReq->GetArg<SfxUnoAnyItem>(FN_PARAM_2);
                         AsyncFunc* pAsyncFunc = pUnoAny && (pUnoAny->GetValue() >>= xInterface ) ?
-                            AsyncFunc::getImplementation(xInterface) : nullptr;
+                            comphelper::getUnoTunnelImplementation<AsyncFunc>(xInterface) : nullptr;
                         if (pAsyncFunc)
                             pAsyncFunc->Execute();
 
@@ -534,13 +540,30 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
                     else
                         // nothing done; no recording
                         pReq->Ignore();
-                };
+                });
 
-                pDlg->StartExecuteAsync(aCtx);
                 rReq.Ignore();
             }
 
             return;
+        }
+
+        case SID_AUTOREDACTDOC:
+        {
+            SfxAutoRedactDialog aDlg(pDialogParent);
+            sal_Int16 nResult = aDlg.run();
+
+            if (nResult != RET_OK || !aDlg.hasTargets() || !aDlg.isValidState())
+            {
+                //Do nothing
+                return;
+            }
+
+            // else continue with normal redaction
+            bIsAutoRedact = true;
+            aDlg.getTargets(aRedactionTargets);
+
+            [[fallthrough]];
         }
 
         case SID_REDACTDOC:
@@ -553,20 +576,19 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
 
             DocumentToGraphicRenderer aRenderer(xSourceDoc, false);
 
-            bool bIsWriter = aRenderer.isWriter();
-            bool bIsCalc = aRenderer.isCalc();
-
-            if (!bIsWriter && !bIsCalc)
-            {
-                SAL_WARN( "sfx.doc", "Redaction is supported only for Writer and Calc! (for now...)");
-                return;
-            }
+            // Get the page margins of the original doc
+            PageMargins aPageMargins = {-1, -1, -1, -1};
+            if (aRenderer.isWriter())
+                aPageMargins = SfxRedactionHelper::getPageMarginsForWriter(xModel);
+            else if (aRenderer.isCalc())
+                aPageMargins = SfxRedactionHelper::getPageMarginsForCalc(xModel);
 
             sal_Int32 nPages = aRenderer.getPageCount();
             std::vector< GDIMetaFile > aMetaFiles;
+            std::vector< ::Size > aPageSizes;
 
             // Convert the pages of the document to gdimetafiles
-            SfxRedactionHelper::getPageMetaFilesFromDoc(aMetaFiles, nPages, aRenderer, bIsWriter, bIsCalc);
+            SfxRedactionHelper::getPageMetaFilesFromDoc(aMetaFiles, aPageSizes, nPages, aRenderer);
 
             // Create an empty Draw component.
             uno::Reference<frame::XDesktop2> xDesktop = css::frame::Desktop::create(comphelper::getProcessComponentContext());
@@ -574,7 +596,7 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             uno::Reference<lang::XComponent> xComponent = xComponentLoader->loadComponentFromURL("private:factory/sdraw", "_default", 0, {});
 
             // Add the doc pages to the new draw document
-            SfxRedactionHelper::addPagesToDraw(xComponent, nPages, aMetaFiles, bIsCalc);
+            SfxRedactionHelper::addPagesToDraw(xComponent, nPages, aMetaFiles, aPageSizes, aPageMargins, aRedactionTargets, bIsAutoRedact);
 
             // Show the Redaction toolbar
             SfxViewFrame* pViewFrame = SfxViewFrame::Current();
@@ -840,8 +862,8 @@ void SfxObjectShell::ExecFile_Impl(SfxRequest &rReq)
             }
             catch( const task::ErrorCodeIOException& aErrorEx )
             {
+                TOOLS_WARN_EXCEPTION( "sfx.doc", "Fatal IO error during save");
                 nErrorCode = ErrCode(aErrorEx.ErrCode);
-                SAL_WARN( "sfx.doc", "Fatal IO error during save " << aErrorEx );
             }
             catch( Exception& )
             {
@@ -1234,6 +1256,7 @@ void SfxObjectShell::GetState_Impl(SfxItemSet &rSet)
             case SID_EXPORTDOCASEPUB:
             case SID_DIRECTEXPORTDOCASEPUB:
             case SID_REDACTDOC:
+            case SID_AUTOREDACTDOC:
             {
                 break;
             }

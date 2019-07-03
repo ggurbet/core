@@ -88,6 +88,8 @@
 #include <compiler.hxx>
 #include <reftokenhelper.hxx>
 #include <chartlis.hxx>
+#include <globstr.hrc>
+#include <scresid.hxx>
 #include <xltracer.hxx>
 #include <xltools.hxx>
 #include <xistream.hxx>
@@ -3643,7 +3645,7 @@ void XclImpChAxesSet::Convert( Reference< XDiagram > const & xDiagram ) const
             {
                 Reference< XCoordinateSystemContainer > xCoordSystemCont( xDiagram, UNO_QUERY_THROW );
                 Sequence< Reference< XCoordinateSystem > > aCoordSystems = xCoordSystemCont->getCoordinateSystems();
-                if( aCoordSystems.getLength() == 0 )
+                if( !aCoordSystems.hasElements() )
                     xCoordSystemCont->addCoordinateSystem( xCoordSystem );
             }
             catch( Exception& )
@@ -3730,7 +3732,7 @@ Reference< XCoordinateSystem > XclImpChAxesSet::CreateCoordSystem( Reference< XD
     {
         Sequence< Reference< XCoordinateSystem > > aCoordSystems = xCoordSystemCont->getCoordinateSystems();
         OSL_ENSURE( aCoordSystems.getLength() <= 1, "XclImpChAxesSet::CreateCoordSystem - too many existing coordinate systems" );
-        if( aCoordSystems.getLength() > 0 )
+        if( aCoordSystems.hasElements() )
             xCoordSystem = aCoordSystems[ 0 ];
     }
 
@@ -4181,7 +4183,7 @@ void XclImpChChart::FinalizeTitle()
             if( !mxTitle )
                 mxTitle.reset( new XclImpChText( GetChRoot() ) );
             if( aAutoTitle.isEmpty() )
-                aAutoTitle = "Chart Title";
+                aAutoTitle = ScResId(STR_CHARTTITLE);
         }
     }
 

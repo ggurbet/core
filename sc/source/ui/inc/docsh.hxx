@@ -25,6 +25,7 @@
 #include <sfx2/sfxmodelfactory.hxx>
 #include <sfx2/viewsh.hxx>
 #include <o3tl/deleter.hxx>
+#include <comphelper/servicehelper.hxx>
 
 #include <scdllapi.h>
 #include <document.hxx>
@@ -213,7 +214,7 @@ public:
 
     void            SetVisAreaOrSize( const tools::Rectangle& rVisArea );
 
-    virtual VclPtr<SfxDocumentInfoDialog> CreateDocumentInfoDialog( const SfxItemSet &rSet ) override;
+    virtual std::unique_ptr<SfxDocumentInfoDialog> CreateDocumentInfoDialog(weld::Window* pParent, const SfxItemSet &rSet) override;
 
     void    GetDocStat( ScDocStat& rDocStat );
 
@@ -261,7 +262,7 @@ public:
     void            NotifyStyle( const SfxStyleSheetHint& rHint );
     void            DoAutoStyle( const ScRange& rRange, const OUString& rStyle );
 
-    static vcl::Window*  GetActiveDialogParent();
+    static weld::Window*  GetActiveDialogParent();
     void            ErrorMessage(const char* pGlobStrId);
     bool            IsEditable() const;
 
@@ -467,7 +468,7 @@ namespace HelperNotifyChanges
 {
     inline ScModelObj* getMustPropagateChangesModel(const ScDocShell &rDocShell)
     {
-        ScModelObj* pModelObj = ScModelObj::getImplementation(rDocShell.GetModel());
+        ScModelObj* pModelObj = comphelper::getUnoTunnelImplementation<ScModelObj>(rDocShell.GetModel());
         if (pModelObj && pModelObj->HasChangesListeners())
             return pModelObj;
         return nullptr;

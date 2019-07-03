@@ -213,7 +213,7 @@ namespace dbp
 
             INetURLObject aURL( sDataSource );
             if( aURL.GetProtocol() != INetProtocol::NotValid )
-                sDataSource = aURL.GetName(INetURLObject::DecodeMechanism::WithCharset);
+                sDataSource = aURL.GetLastName(INetURLObject::DecodeMechanism::WithCharset);
             m_pFormDatasource->SetText(sDataSource);
             m_pFormTable->SetText(sCommand);
 
@@ -437,7 +437,7 @@ namespace dbp
             // set the new connection
             if ( _bAutoDispose )
             {
-                // for this, use a AutoDisposer (so the conn is cleaned up when the form dies or gets another connection)
+                // for this, use an AutoDisposer (so the conn is cleaned up when the form dies or gets another connection)
                 Reference< XRowSet > xFormRowSet( m_aContext.xForm, UNO_QUERY );
                 rtl::Reference<OAutoConnectionDisposer> pAutoDispose = new OAutoConnectionDisposer( xFormRowSet, _rxConn );
             }
@@ -625,7 +625,7 @@ namespace dbp
             return false;
         }
 
-        return 0 != m_aContext.aFieldNames.getLength();
+        return m_aContext.aFieldNames.hasElements();
     }
 
 
@@ -683,7 +683,7 @@ namespace dbp
     bool OControlWizard::needDatasourceSelection()
     {
         // lemme see ...
-        return (0 == getContext().aFieldNames.getLength());
+        return !getContext().aFieldNames.hasElements();
             // if we got fields, the data source is valid ...
     }
 

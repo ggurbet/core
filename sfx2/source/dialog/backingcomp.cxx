@@ -40,10 +40,12 @@
 #include <com/sun/star/frame/XDispatch.hpp>
 #include <com/sun/star/lang/XEventListener.hpp>
 #include <com/sun/star/lang/XComponent.hpp>
+#include <com/sun/star/lang/XTypeProvider.hpp>
 
 #include <cppuhelper/supportsservice.hxx>
 #include <cppuhelper/queryinterface.hxx>
 #include <cppuhelper/typeprovider.hxx>
+#include <cppuhelper/weak.hxx>
 #include <toolkit/helper/vclunohelper.hxx>
 #include <vcl/keycod.hxx>
 #include <vcl/wrkwin.hxx>
@@ -165,10 +167,8 @@ BackingComp::BackingComp()
 
 css::uno::Any SAL_CALL BackingComp::queryInterface( /*IN*/ const css::uno::Type& aType )
 {
-    css::uno::Any aResult;
-
     // first look for own supported interfaces
-    aResult = ::cppu::queryInterface(
+    css::uno::Any aResult = ::cppu::queryInterface(
                 aType,
                 static_cast< css::lang::XTypeProvider* >(this),
                 static_cast< css::lang::XServiceInfo* >(this),

@@ -178,7 +178,7 @@ ODatabaseDocument::ODatabaseDocument(const ::rtl::Reference<ODatabaseModelImpl>&
 
         if ( !m_pImpl->getURL().isEmpty() )
         {
-            // if the previous incarnation of the DatabaseDocument already had an URL, then creating this incarnation
+            // if the previous incarnation of the DatabaseDocument already had a URL, then creating this incarnation
             // here is effectively loading the document.
             // #i105505#
             m_aViewMonitor.onLoadedDocument();
@@ -534,7 +534,7 @@ void SAL_CALL ODatabaseDocument::load( const Sequence< PropertyValue >& Argument
         // similar ... just in case there is legacy code which expects a FileName only
         aResource.put( "FileName", aResource.get( "URL" ) );
 
-    // now that somebody (perhaps) told us an macro execution mode, remember it as
+    // now that somebody (perhaps) told us a macro execution mode, remember it as
     // ImposedMacroExecMode
     m_pImpl->setImposedMacroExecMode(
         aResource.getOrDefault( "MacroExecutionMode", m_pImpl->getImposedMacroExecMode() ) );
@@ -1066,7 +1066,7 @@ void ODatabaseDocument::impl_storeAs_throw( const OUString& _rURL, const ::comph
         }
 
         // store to current storage
-        Reference< XStorage > xCurrentStorage( m_pImpl->getOrCreateRootStorage(), UNO_QUERY_THROW );
+        Reference< XStorage > xCurrentStorage( m_pImpl->getOrCreateRootStorage(), UNO_SET_THROW );
         Sequence< PropertyValue > aMediaDescriptor( lcl_appendFileNameToDescriptor( _rArguments, _rURL ) );
         impl_storeToStorage_throw( xCurrentStorage, aMediaDescriptor, _rGuard );
 
@@ -1726,10 +1726,9 @@ Reference< XUIConfigurationManager2 > const & ODatabaseDocument::getUIConfigurat
         m_xUIConfigurationManager = UIConfigurationManager::create( m_pImpl->m_aContext );
 
         OUString aUIConfigFolderName( "Configurations2" );
-        Reference< XStorage > xConfigStorage;
 
         // First try to open with READWRITE and then READ
-        xConfigStorage = getDocumentSubStorage( aUIConfigFolderName, ElementModes::READWRITE );
+        Reference< XStorage > xConfigStorage = getDocumentSubStorage( aUIConfigFolderName, ElementModes::READWRITE );
         if ( xConfigStorage.is() )
         {
             OUString aMediaType;
@@ -1804,52 +1803,54 @@ void ODatabaseDocument::disposing()
     std::vector< Reference< XInterface > > aKeepAlive;
 
     // SYNCHRONIZED ->
-    SolarMutexClearableGuard aGuard;
-
-    OSL_ENSURE( m_aControllers.empty(), "ODatabaseDocument::disposing: there still are controllers!" );
-    // normally, nobody should explicitly dispose, but only XCloseable::close
-    // the document. And upon closing, our controllers are closed, too
-
     {
-        uno::Reference<uno::XInterface> xUIInterface( m_xUIConfigurationManager );
-        aKeepAlive.push_back( xUIInterface );
+        SolarMutexGuard aGuard;
+
+        OSL_ENSURE(m_aControllers.empty(),
+                   "ODatabaseDocument::disposing: there still are controllers!");
+        // normally, nobody should explicitly dispose, but only XCloseable::close
+        // the document. And upon closing, our controllers are closed, too
+
+        {
+            uno::Reference<uno::XInterface> xUIInterface(m_xUIConfigurationManager);
+            aKeepAlive.push_back(xUIInterface);
+        }
+        m_xUIConfigurationManager = nullptr;
+
+        clearObjectContainer(m_xForms);
+        clearObjectContainer(m_xReports);
+
+        // reset the macro mode: in case the our impl struct stays alive (e.g. because our DataSource
+        // object still exists), and somebody subsequently re-opens the document, we want to have
+        // the security warning, again.
+        m_pImpl->resetMacroExecutionMode();
+
+        // similar arguing for our ViewMonitor
+        m_aViewMonitor.reset();
+
+        // tell our Impl to forget us
+        m_pImpl->modelIsDisposing(impl_isInitialized(), ODatabaseModelImpl::ResetModelAccess());
+
+        // now, at the latest, the controller array should be empty. Controllers are
+        // expected to listen for our disposal, and disconnect then
+        OSL_ENSURE(m_aControllers.empty(),
+                   "ODatabaseDocument::disposing: there still are controllers!");
+        impl_disposeControllerFrames_nothrow();
+
+        {
+            uno::Reference<uno::XInterface> xModuleInterface(m_xModuleManager);
+            aKeepAlive.push_back(xModuleInterface);
+        }
+        m_xModuleManager.clear();
+
+        {
+            uno::Reference<uno::XInterface> xTitleInterface(m_xTitleHelper);
+            aKeepAlive.push_back(xTitleInterface);
+        }
+        m_xTitleHelper.clear();
+
+        m_pImpl.clear();
     }
-    m_xUIConfigurationManager = nullptr;
-
-    clearObjectContainer( m_xForms );
-    clearObjectContainer( m_xReports );
-
-    // reset the macro mode: in case the our impl struct stays alive (e.g. because our DataSource
-    // object still exists), and somebody subsequently re-opens the document, we want to have
-    // the security warning, again.
-    m_pImpl->resetMacroExecutionMode();
-
-    // similar arguing for our ViewMonitor
-    m_aViewMonitor.reset();
-
-    // tell our Impl to forget us
-    m_pImpl->modelIsDisposing( impl_isInitialized(), ODatabaseModelImpl::ResetModelAccess() );
-
-    // now, at the latest, the controller array should be empty. Controllers are
-    // expected to listen for our disposal, and disconnect then
-    OSL_ENSURE( m_aControllers.empty(), "ODatabaseDocument::disposing: there still are controllers!" );
-    impl_disposeControllerFrames_nothrow();
-
-    {
-        uno::Reference<uno::XInterface> xModuleInterface( m_xModuleManager );
-        aKeepAlive.push_back( xModuleInterface );
-    }
-    m_xModuleManager.clear();
-
-    {
-        uno::Reference<uno::XInterface> xTitleInterface( m_xTitleHelper );
-        aKeepAlive.push_back( xTitleInterface );
-    }
-    m_xTitleHelper.clear();
-
-    m_pImpl.clear();
-
-    aGuard.clear();
     // <- SYNCHRONIZED
 
     aKeepAlive.clear();

@@ -21,7 +21,8 @@
 
 #include <o3tl/any.hxx>
 #include <svx/sdasitm.hxx>
-#include <svx/svdattr.hxx>
+
+#include <com/sun/star/beans/PropertyValue.hpp>
 
 using namespace ::std;
 using namespace com::sun::star;
@@ -201,7 +202,7 @@ void SdrCustomShapeGeometryItem::SetPropertyValue( const OUString& rSequenceName
 
 void SdrCustomShapeGeometryItem::ClearPropertyValue( const OUString& rPropName )
 {
-    if ( aPropSeq.getLength() )
+    if ( aPropSeq.hasElements() )
     {
         PropertyHashMap::iterator aHashIter( aPropHashMap.find( rPropName ) );
         if ( aHashIter != aPropHashMap.end() )
@@ -265,15 +266,12 @@ SfxPoolItem* SdrCustomShapeGeometryItem::Clone( SfxItemPool * /*pPool*/ ) const
     return new SdrCustomShapeGeometryItem( aPropSeq );
 }
 
-sal_uInt16 SdrCustomShapeGeometryItem::GetVersion( sal_uInt16 /*nFileFormatVersion*/ ) const
-{
-    return 1;
-}
 bool SdrCustomShapeGeometryItem::QueryValue( uno::Any& rVal, sal_uInt8 /*nMemberId*/ ) const
 {
     rVal <<= aPropSeq;
     return true;
 }
+
 bool SdrCustomShapeGeometryItem::PutValue( const uno::Any& rVal, sal_uInt8 /*nMemberId*/ )
 {
     if ( ! ( rVal >>= aPropSeq ) )

@@ -25,51 +25,34 @@
 #include <stdlib.h>
 
 #include <tools/color.hxx>
-#include <tools/stream.hxx>
 #include <tools/helpers.hxx>
 #include <basegfx/color/bcolortools.hxx>
 
-sal_uInt8 Color::GetColorError( const Color& rCompareColor ) const
+void Color::IncreaseLuminance(sal_uInt8 cLumInc)
 {
-    const long nErrAbs = labs( static_cast<long>(rCompareColor.GetRed()) - GetRed() ) +
-                         labs( static_cast<long>(rCompareColor.GetGreen()) - GetGreen() ) +
-                         labs( static_cast<long>(rCompareColor.GetBlue()) - GetBlue() );
-
-    return static_cast<sal_uInt8>(FRound( nErrAbs * 0.3333333333 ));
+    R = sal_uInt8(std::clamp(long(R) + cLumInc, 0L, 255L));
+    G = sal_uInt8(std::clamp(long(G) + cLumInc, 0L, 255L));
+    B = sal_uInt8(std::clamp(long(B) + cLumInc, 0L, 255L));
 }
 
-void Color::IncreaseLuminance( sal_uInt8 cLumInc )
+void Color::DecreaseLuminance(sal_uInt8 cLumDec)
 {
-    SetRed( static_cast<sal_uInt8>(std::clamp( static_cast<long>(COLORDATA_RED( mnColor )) + cLumInc, 0L, 255L )) );
-    SetGreen( static_cast<sal_uInt8>(std::clamp( static_cast<long>(COLORDATA_GREEN( mnColor )) + cLumInc, 0L, 255L )) );
-    SetBlue( static_cast<sal_uInt8>(std::clamp( static_cast<long>(COLORDATA_BLUE( mnColor )) + cLumInc, 0L, 255L )) );
+    R = sal_uInt8(std::clamp(long(R) - cLumDec, 0L, 255L));
+    G = sal_uInt8(std::clamp(long(G) - cLumDec, 0L, 255L));
+    B = sal_uInt8(std::clamp(long(B) - cLumDec, 0L, 255L));
 }
 
-void Color::DecreaseLuminance( sal_uInt8 cLumDec )
+void Color::DecreaseContrast(sal_uInt8 nContDec)
 {
-    SetRed( static_cast<sal_uInt8>(std::clamp( static_cast<long>(COLORDATA_RED( mnColor )) - cLumDec, 0L, 255L )) );
-    SetGreen( static_cast<sal_uInt8>(std::clamp( static_cast<long>(COLORDATA_GREEN( mnColor )) - cLumDec, 0L, 255L )) );
-    SetBlue( static_cast<sal_uInt8>(std::clamp( static_cast<long>(COLORDATA_BLUE( mnColor )) - cLumDec, 0L, 255L )) );
-}
-
-void Color::DecreaseContrast( sal_uInt8 cContDec )
-{
-    if( cContDec )
+    if (nContDec)
     {
-        const double fM = ( 128.0 - 0.4985 * cContDec ) / 128.0;
+        const double fM = (128.0 - 0.4985 * nContDec) / 128.0;
         const double fOff = 128.0 - fM * 128.0;
 
-        SetRed( static_cast<sal_uInt8>(std::clamp( FRound( COLORDATA_RED( mnColor ) * fM + fOff ), 0L, 255L )) );
-        SetGreen( static_cast<sal_uInt8>(std::clamp( FRound( COLORDATA_GREEN( mnColor ) * fM + fOff ), 0L, 255L )) );
-        SetBlue( static_cast<sal_uInt8>(std::clamp( FRound( COLORDATA_BLUE( mnColor ) * fM + fOff ), 0L, 255L )) );
+        R = sal_uInt8(std::clamp(FRound(R * fM + fOff), 0L, 255L));
+        G = sal_uInt8(std::clamp(FRound(G * fM + fOff), 0L, 255L));
+        B = sal_uInt8(std::clamp(FRound(B * fM + fOff), 0L, 255L));
     }
-}
-
-void Color::Invert()
-{
-    SetRed( ~COLORDATA_RED( mnColor ) );
-    SetGreen( ~COLORDATA_GREEN( mnColor ) );
-    SetBlue( ~COLORDATA_BLUE( mnColor ) );
 }
 
 bool Color::IsDark() const
@@ -89,9 +72,9 @@ void Color::RGBtoHSB( sal_uInt16& nHue, sal_uInt16& nSat, sal_uInt16& nBri ) con
     sal_uInt8 c[3];
     sal_uInt8 cMax, cMin;
 
-    c[0] = GetRed();
-    c[1] = GetGreen();
-    c[2] = GetBlue();
+    c[0] = R;
+    c[1] = G;
+    c[2] = B;
 
     cMax = c[0];
     if( c[1] > cMax )
@@ -184,89 +167,11 @@ Color Color::HSBtoRGB( sal_uInt16 nHue, sal_uInt16 nSat, sal_uInt16 nBri )
     return Color( cR, cG, cB );
 }
 
-SvStream& Color::Read( SvStream& rIStm )
-{
-    rIStm.ReadUInt32( mnColor );
-    return rIStm;
-}
-
-SvStream& Color::Write( SvStream& rOStm ) const
-{
-    rOStm.WriteUInt32( mnColor );
-    return rOStm;
-}
-
 OUString Color::AsRGBHexString() const
 {
     std::stringstream ss;
     ss << std::hex << std::setfill ('0') << std::setw(6) << sal_uInt32(GetRGBColor());
     return OUString::createFromAscii(ss.str().c_str());
-}
-
-#define COL_NAME_USER       (sal_uInt16(0x8000))
-
-SvStream& ReadColor( SvStream& rIStream, Color& rColor )
-{
-    sal_uInt16 nColorName(0);
-
-    rIStream.ReadUInt16( nColorName );
-
-    if ( nColorName & COL_NAME_USER )
-    {
-        sal_uInt16 nRed;
-        sal_uInt16 nGreen;
-        sal_uInt16 nBlue;
-
-        rIStream.ReadUInt16( nRed );
-        rIStream.ReadUInt16( nGreen );
-        rIStream.ReadUInt16( nBlue );
-
-        rColor = Color( nRed>>8, nGreen>>8, nBlue>>8 );
-    }
-    else
-    {
-        static const Color aColAry[] =
-        {
-            COL_BLACK,                          // COL_BLACK
-            COL_BLUE,                           // COL_BLUE
-            COL_GREEN,                          // COL_GREEN
-            COL_CYAN,                           // COL_CYAN
-            COL_RED,                            // COL_RED
-            COL_MAGENTA,                        // COL_MAGENTA
-            COL_BROWN,                          // COL_BROWN
-            COL_GRAY,                           // COL_GRAY
-            COL_LIGHTGRAY,                      // COL_LIGHTGRAY
-            COL_LIGHTBLUE,                      // COL_LIGHTBLUE
-            COL_LIGHTGREEN,                     // COL_LIGHTGREEN
-            COL_LIGHTCYAN,                      // COL_LIGHTCYAN
-            COL_LIGHTRED,                       // COL_LIGHTRED
-            COL_LIGHTMAGENTA,                   // COL_LIGHTMAGENTA
-            COL_YELLOW,                         // COL_YELLOW
-            COL_WHITE,                          // COL_WHITE
-            COL_WHITE,                          // COL_MENUBAR
-            COL_BLACK,                          // COL_MENUBARTEXT
-            COL_WHITE,                          // COL_POPUPMENU
-            COL_BLACK,                          // COL_POPUPMENUTEXT
-            COL_BLACK,                          // COL_WINDOWTEXT
-            COL_WHITE,                          // COL_WINDOWWORKSPACE
-            COL_BLACK,                          // COL_HIGHLIGHT
-            COL_WHITE,                          // COL_HIGHLIGHTTEXT
-            COL_BLACK,                          // COL_3DTEXT
-            COL_LIGHTGRAY,                      // COL_3DFACE
-            COL_WHITE,                          // COL_3DLIGHT
-            COL_GRAY,                           // COL_3DSHADOW
-            COL_LIGHTGRAY,                      // COL_SCROLLBAR
-            COL_WHITE,                          // COL_FIELD
-            COL_BLACK                           // COL_FIELDTEXT
-        };
-
-        if ( nColorName < SAL_N_ELEMENTS( aColAry ) )
-            rColor = aColAry[nColorName];
-        else
-            rColor = COL_BLACK;
-    }
-
-    return rIStream;
 }
 
 void Color::ApplyTintOrShade(sal_Int16 n100thPercent)
@@ -290,26 +195,9 @@ void Color::ApplyTintOrShade(sal_Int16 n100thPercent)
     aBColor.setBlue(fResult);
     aBColor = basegfx::utils::hsl2rgb(aBColor);
 
-    SetRed(sal_uInt8((  aBColor.getRed()   * 255.0) + 0.5));
-    SetGreen(sal_uInt8((aBColor.getGreen() * 255.0) + 0.5));
-    SetBlue(sal_uInt8(( aBColor.getBlue()  * 255.0) + 0.5));
-}
-
-SvStream& WriteColor( SvStream& rOStream, const Color& rColor )
-{
-    sal_uInt16 nRed         = rColor.GetRed();
-    sal_uInt16 nGreen       = rColor.GetGreen();
-    sal_uInt16 nBlue        = rColor.GetBlue();
-    nRed    = (nRed<<8) + nRed;
-    nGreen  = (nGreen<<8) + nGreen;
-    nBlue   = (nBlue<<8) + nBlue;
-
-    rOStream.WriteUInt16( COL_NAME_USER );
-    rOStream.WriteUInt16( nRed );
-    rOStream.WriteUInt16( nGreen );
-    rOStream.WriteUInt16( nBlue );
-
-    return rOStream;
+    R = sal_uInt8(std::lround(aBColor.getRed()   * 255.0));
+    G = sal_uInt8(std::lround(aBColor.getGreen() * 255.0));
+    B = sal_uInt8(std::lround(aBColor.getBlue()  * 255.0));
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */

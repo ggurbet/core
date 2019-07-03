@@ -21,18 +21,24 @@
 #include <comphelper/base64.hxx>
 #include <sax/tools/converter.hxx>
 #include <sfx2/recentdocsview.hxx>
+#include <sfx2/recentdocsviewitem.hxx>
 #include <sfx2/templatelocalview.hxx>
 #include <sfx2/app.hxx>
 #include <sfx2/sfxresid.hxx>
+#include <tools/diagnose_ex.h>
 #include <unotools/historyoptions.hxx>
 #include <vcl/builderfactory.hxx>
 #include <vcl/event.hxx>
 #include <vcl/pngread.hxx>
 #include <vcl/ptrstyle.hxx>
+#include <vcl/svapp.hxx>
 #include <tools/stream.hxx>
 #include <tools/urlobj.hxx>
 #include <com/sun/star/beans/NamedValue.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
+#include <com/sun/star/embed/StorageFactory.hpp>
+#include <com/sun/star/embed/ElementModes.hpp>
+#include <com/sun/star/embed/XStorage.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
 #include <com/sun/star/frame/Desktop.hpp>
 #include <com/sun/star/frame/XFrame.hpp>
@@ -81,11 +87,10 @@ bool IsDocEncrypted(const OUString& rURL)
             } catch( uno::Exception& ) {}
         }
     }
-    catch (const uno::Exception& rException)
+    catch (const uno::Exception&)
     {
-        SAL_WARN("sfx",
-            "caught exception trying to find out if doc is encrypted"
-            << rURL << ": " << rException);
+        TOOLS_WARN_EXCEPTION("sfx",
+            "caught exception trying to find out if doc is encrypted" << rURL);
     }
 
     return bIsEncrypted;

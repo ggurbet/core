@@ -24,12 +24,15 @@
 #include <sfx2/dispatch.hxx>
 #include <sfx2/infobar.hxx>
 #include <sfx2/templdlg.hxx>
+#include <sfx2/viewfrm.hxx>
 #include <svx/srchdlg.hxx>
 #include <basic/sbxobj.hxx>
 #include <uivwimp.hxx>
 #include <svx/fmshell.hxx>
+#include <svx/fmview.hxx>
 #include <svx/extrusionbar.hxx>
 #include <svx/fontworkbar.hxx>
+#include <svx/svxids.hrc>
 #include <vcl/inputctx.hxx>
 
 #include <sfx2/objface.hxx>
